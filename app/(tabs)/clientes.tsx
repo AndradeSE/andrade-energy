@@ -29,6 +29,7 @@ export default function Clientes() {
       Alert.alert('Erro', error.message);
       return;
     }
+    
 
     setClientes(data || []);
   const { data: listaFaturas } =
@@ -51,7 +52,7 @@ setFaturas(listaFaturas || []);
       .insert([
         {
           nome,
-          uc,
+          uc: uc.replace(/\D/g, ''),
           distribuidora,
           telefone,
         },
@@ -75,19 +76,27 @@ setFaturas(listaFaturas || []);
   useEffect(() => {
     carregarClientes();
   }, []);
-function economiaCliente(clienteId: string) {
-  console.log('CLIENTE', clienteId);
-  console.log('FATURAS', faturas);
-
-  return faturas
-    .filter(
-      (f) => f.cliente_id === clienteId
-    )
-    .reduce(
-      (acc, item) =>
-        acc + Number(item.economia || 0),
-      0
+  
+function economiaCliente(uc: string) {
+  const faturasCliente =
+    faturas.filter(
+      (f) =>
+        f.numero_instalacao
+          ?.replace(/\D/g, '') ===
+        uc?.replace(/\D/g, '')
     );
+
+  console.log('UC:', uc);
+  console.log(
+    'FATURAS ENCONTRADAS:',
+    faturasCliente
+  );
+
+  return faturasCliente.reduce(
+    (acc, item) =>
+      acc + Number(item.economia || 0),
+    0
+  );
 }
   return (
     <ScrollView
@@ -212,17 +221,30 @@ function economiaCliente(clienteId: string) {
     {item.nome}
   </Text>
 
-  <Text style={{ color: 'white' }}>
-    UC: {item.uc}
-  </Text>
+  <Text
+  style={{
+    color: '#cbd5e1',
+    marginTop: 6,
+  }}
+>
+  ⚡ UC: {item.uc}
+</Text>
 
-  <Text style={{ color: 'white' }}>
-    {item.distribuidora}
-  </Text>
+<Text
+  style={{
+    color: '#cbd5e1',
+  }}
+>
+  🏢 {item.distribuidora}
+</Text>
 
-  <Text style={{ color: '#94a3b8' }}>
-    {item.telefone}
-  </Text>
+<Text
+  style={{
+    color: '#94a3b8',
+  }}
+>
+  📞 {item.telefone}
+</Text>
   
   <Text
   style={{
@@ -241,7 +263,26 @@ function economiaCliente(clienteId: string) {
     fontWeight: 'bold',
   }}
 >
-  R$ {economiaCliente(item.id).toFixed(2)}
+  R$ {economiaCliente(item.uc)
+  .toFixed(2)
+  .replace('.', ',')}
+</Text>
+
+<Text
+  style={{
+    color: '#94a3b8',
+    marginTop: 8,
+  }}
+>
+  📄 Faturas: {
+  faturas.filter(
+    (f) =>
+      f.numero_instalacao
+        ?.replace(/\D/g, '') ===
+      item.uc
+        ?.replace(/\D/g, '')
+  ).length
+}
 </Text>
 </View>
         )}

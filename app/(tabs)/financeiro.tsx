@@ -7,7 +7,11 @@ import {
 import { supabase } from '../../supabase';
 
 export default function Financeiro() {
-  const [economia, setEconomia] =
+  const [clientes, setClientes] =
+  
+  useState(0);
+  
+ const [economia, setEconomia] =
     useState(0);
 
   const [valorTotal, setValorTotal] =
@@ -16,18 +20,59 @@ export default function Financeiro() {
   const [quantidade, setQuantidade] =
     useState(0);
 
+    const [ranking, setRanking] =
+  useState<any[]>([]);
+
   useEffect(() => {
     carregar();
   }, []);
 
   async function carregar() {
-    const { data } =
-      await supabase
-        .from('faturas')
-        .select('*');
+const { data: listaClientes } =
+  await supabase
+    .from('clientes')
+    .select('*');
 
-    const lista = data || [];
+setClientes(
+  listaClientes?.length || 0
+);
 
+const { data } =
+  await supabase
+    .from('faturas')
+    .select('*');
+
+const lista = data || [];
+
+
+const rankingClientes =
+  listaClientes?.map(
+    (cliente: any) => ({
+      nome: cliente.nome,
+      economia: lista
+        .filter(
+          (f) =>
+            f.numero_instalacao
+              ?.replace(/\D/g, '') ===
+            cliente.uc
+              ?.replace(/\D/g, '')
+        )
+        .reduce(
+          (acc, item) =>
+            acc +
+            Number(item.economia || 0),
+          0
+        ),
+    })
+  ) || [];
+
+rankingClientes.sort(
+  (a, b) =>
+    b.economia - a.economia
+);
+
+setRanking(rankingClientes);
+    
     setQuantidade(
       lista.length
     );
@@ -53,6 +98,7 @@ export default function Financeiro() {
 
   return (
     <View
+    
       style={{
         flex: 1,
         backgroundColor: '#020617',
@@ -84,62 +130,130 @@ export default function Financeiro() {
             fontWeight: 'bold',
           }}
         >
-          R$ {economia.toFixed(2)}
+          R$ {economia
+  .toFixed(2)
+  .replace('.', ',')}
         </Text>
       </View>
-
       <View
+  style={{
+    backgroundColor: '#0f172a',
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 12,
+  }}
+>
+  <Text
+    style={{
+      color: 'white',
+    }}
+  >
+    Valor total das contas
+  </Text>
+
+  <Text
+    style={{
+      color: '#facc15',
+      fontSize: 28,
+      fontWeight: 'bold',
+    }}
+  >
+    R$ {valorTotal
+      .toFixed(2)
+      .replace('.', ',')}
+  </Text>
+</View>
+
+ <View
+  style={{
+    backgroundColor: '#0f172a',
+    borderRadius: 12,
+    padding: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    marginBottom: 12,
+  }}
+>
+  <View style={{ alignItems: 'center' }}>
+    <Text style={{ color: 'white' }}>
+      Clientes
+    </Text>
+
+    <Text
+      style={{
+        color: '#facc15',
+        fontSize: 32,
+        fontWeight: 'bold',
+      }}
+    >
+      {clientes}
+    </Text>
+  </View>
+
+  <View style={{ alignItems: 'center' }}>
+    <Text style={{ color: 'white' }}>
+      Faturas
+    </Text>
+
+    <Text
+      style={{
+        color: '#facc15',
+        fontSize: 32,
+        fontWeight: 'bold',
+      }}
+    >
+      {quantidade}
+    </Text>
+  </View>
+</View>
+
+<View
+  style={{
+    backgroundColor: '#0f172a',
+    padding: 20,
+    borderRadius: 12,
+  }}
+>
+  <Text
+    style={{
+      color: '#facc15',
+      fontSize: 18,
+      fontWeight: 'bold',
+      marginBottom: 10,
+    }}
+  >
+    🏆 Top Clientes
+  </Text>
+
+  {ranking.map((cliente, index) => (
+    <View
+      key={index}
+      style={{
+        marginBottom: 10,
+      }}
+    >
+      <Text
         style={{
-          backgroundColor: '#0f172a',
-          padding: 20,
-          borderRadius: 12,
-          marginBottom: 12,
+          color: 'white',
+          fontWeight: 'bold',
         }}
       >
-        <Text
-          style={{
-            color: 'white',
-          }}
-        >
-          Valor total das contas
-        </Text>
+        {index + 1}º {cliente.nome}
+      </Text>
 
-        <Text
-          style={{
-            color: 'white',
-            fontSize: 28,
-            fontWeight: 'bold',
-          }}
-        >
-          R$ {valorTotal.toFixed(2)}
-        </Text>
-      </View>
-
-      <View
+      <Text
         style={{
-          backgroundColor: '#0f172a',
-          padding: 20,
-          borderRadius: 12,
+          color: '#22c55e',
         }}
       >
-        <Text
-          style={{
-            color: 'white',
-          }}
-        >
-          Faturas processadas
-        </Text>
-
-        <Text
-          style={{
-            color: 'white',
-            fontSize: 28,
-            fontWeight: 'bold',
-          }}
-        >
-          {quantidade}
-        </Text>
-      </View>
+        R$ {cliente.economia
+          .toFixed(2)
+          .replace('.', ',')}
+      </Text>
     </View>
+  ))}
+</View>
+</View>
   );
 }
