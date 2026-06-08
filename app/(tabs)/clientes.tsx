@@ -1,7 +1,10 @@
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   Alert,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -11,11 +14,15 @@ import {
 
 import { supabase } from '../../supabase';
 
+
 export default function Clientes() {
   const [nome, setNome] = useState('');
   const [uc, setUc] = useState('');
+  const [editando, setEditando] =
+  useState<any>(null);
   const [distribuidora, setDistribuidora] = useState('');
   const [telefone, setTelefone] = useState('');
+  const [busca, setBusca] = useState('');
   const [clientes, setClientes] = useState<any[]>([]);
   const [faturas, setFaturas] = useState<any[]>([]);
 
@@ -39,6 +46,18 @@ export default function Clientes() {
 
 setFaturas(listaFaturas || []);
   }
+  function editarCliente(cliente: any) {
+  setEditando(cliente);
+
+  setNome(cliente.nome);
+  setUc(cliente.uc);
+  setDistribuidora(
+    cliente.distribuidora
+  );
+  setTelefone(
+    cliente.telefone
+  );
+}
   
 
   async function salvarCliente() {
@@ -47,7 +66,24 @@ setFaturas(listaFaturas || []);
       return;
     }
 
-    const { error } = await supabase
+    let error;
+
+if (editando) {
+  const resultado =
+    await supabase
+      .from('clientes')
+      .update({
+        nome,
+        uc: uc.replace(/\D/g, ''),
+        distribuidora,
+        telefone,
+      })
+      .eq('id', editando.id);
+
+  error = resultado.error;
+} else {
+  const resultado =
+    await supabase
       .from('clientes')
       .insert([
         {
@@ -58,10 +94,15 @@ setFaturas(listaFaturas || []);
         },
       ]);
 
-    if (error) {
-      Alert.alert('Erro', error.message);
-      return;
-    }
+  error = resultado.error;
+}
+if (error) {
+  Alert.alert(
+    'Erro',
+    error.message
+  );
+  return;
+}
 
     Alert.alert('Sucesso', 'Cliente cadastrado');
 
@@ -69,6 +110,7 @@ setFaturas(listaFaturas || []);
     setUc('');
     setDistribuidora('');
     setTelefone('');
+    setEditando(null);
 
     carregarClientes();
   }
@@ -133,6 +175,14 @@ function economiaCliente(uc: string) {
   );
 }
   return (
+  <KeyboardAvoidingView
+    style={{ flex: 1 }}
+    behavior={
+      Platform.OS === 'ios'
+        ? 'padding'
+        : 'height'
+    }
+  >
     <ScrollView
       style={{
         flex: 1,
@@ -141,6 +191,7 @@ function economiaCliente(uc: string) {
       contentContainerStyle={{
         padding: 20,
       }}
+      keyboardShouldPersistTaps="handled"
     >
       <Text
         style={{
@@ -201,6 +252,7 @@ function economiaCliente(uc: string) {
           marginBottom: 20,
         }}
       />
+      
 
       <TouchableOpacity
         onPress={salvarCliente}
@@ -217,9 +269,22 @@ function economiaCliente(uc: string) {
             fontWeight: 'bold',
           }}
         >
-          SALVAR CLIENTE
+        {editando
+  ? 'ATUALIZAR CLIENTE'
+  : 'SALVAR CLIENTE'}
         </Text>
       </TouchableOpacity>
+      <TextInput
+  placeholder="🔍 Buscar cliente"
+  value={busca}
+  onChangeText={setBusca}
+  style={{
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
+  }}
+/>
 
       <Text
         style={{
@@ -234,17 +299,32 @@ function economiaCliente(uc: string) {
 
       <FlatList
         scrollEnabled={false}
-        data={clientes}
+    data={
+  clientes.filter((cliente) =>
+    cliente.nome
+      ?.toLowerCase()
+      .includes(
+        busca.toLowerCase()
+      )
+  )
+}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-  <View
-    style={{
-      backgroundColor: '#0f172a',
-      padding: 15,
-      borderRadius: 12,
-      marginBottom: 10,
-    }}
-  >
+          <View
+  style={{
+    backgroundColor: '#0f172a',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 10,
+  }}
+>
+  
+   <TouchableOpacity
+  onPress={() =>
+  router.push(`/clientes/${item.id}`)
+}
+
+>
     <Text
       style={{
         color: '#facc15',
@@ -254,6 +334,8 @@ function economiaCliente(uc: string) {
     >
       {item.nome}
     </Text>
+
+  </TouchableOpacity>
 
     <Text style={{ color: '#cbd5e1', marginTop: 6 }}>
       ⚡ UC: {item.uc}
@@ -306,6 +388,29 @@ function economiaCliente(uc: string) {
     </Text>
 
     <TouchableOpacity
+  onPress={() =>
+    editarCliente(item)
+  }
+  style={{
+    backgroundColor: '#2563eb',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 12,
+    marginBottom: 8,
+  }}
+>
+  <Text
+    style={{
+      color: 'white',
+      textAlign: 'center',
+      fontWeight: 'bold',
+    }}
+  >
+    EDITAR CLIENTE
+  </Text>
+</TouchableOpacity>
+
+        <TouchableOpacity
       onPress={() =>
         excluirCliente(item.id)
       }
@@ -326,9 +431,11 @@ function economiaCliente(uc: string) {
         EXCLUIR CLIENTE
       </Text>
     </TouchableOpacity>
+
   </View>
 )}
       />
     </ScrollView>
-  );
+  </KeyboardAvoidingView>
+);
 }
