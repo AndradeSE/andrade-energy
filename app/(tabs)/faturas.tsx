@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
+
 import {
-    Dimensions, FlatList,
-    Text,
-    View
+  Alert,
+  Dimensions,
+  FlatList,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 
@@ -15,31 +19,66 @@ export default function Faturas() {
   useState(0);
 
   async function carregar() {
-  const { data } =
-    await supabase
-      .from('faturas')
-      .select('*')
-      .order('created_at', {
-        ascending: false,
-      });
+    const { data } =
+  await supabase
+    .from('faturas')
+    .select('*');
 
-  const lista = data || [];
+const lista = data || [];
 
-  setFaturas(lista);
+setFaturas(lista);
 
-  const total =
-    lista.reduce(
-      (acc, item) =>
-        acc +
-        Number(item.economia || 0),
-      0
-    );
-
-  setEconomiaTotal(total);
+setEconomiaTotal(
+  lista.reduce(
+    (acc, item) =>
+      acc + Number(item.economia || 0),
+    0
+  )
+);
 }
+
+async function excluirFatura(id: string) {
+  Alert.alert(
+    'Excluir Fatura',
+    'Deseja realmente excluir esta fatura?',
+    [
+      {
+        text: 'Cancelar',
+        style: 'cancel',
+      },
+      {
+        text: 'Excluir',
+        style: 'destructive',
+        onPress: async () => {
+          const { error } =
+            await supabase
+              .from('faturas')
+              .delete()
+              .eq('id', id);
+
+          if (error) {
+            Alert.alert(
+              'Erro',
+              error.message
+            );
+            return;
+          }
+
+          carregar();
+
+          Alert.alert(
+            'Sucesso',
+            'Fatura excluída'
+          );
+        },
+      },
+    ]
+  );
+}
+
 useEffect(() => {
   carregar();
-}, []); 
+}, []);
 const labels =
   faturas
     .slice()
@@ -89,13 +128,7 @@ return (
         R$ {economiaTotal.toFixed(2).replace('.', ',')}
       </Text>
 
-      <Text
-        style={{
-          marginTop: 8,
-          fontSize: 16,
-        }}
-      >
-       {faturas.length > 1 && (
+      {faturas.length > 1 && (
   <LineChart
     data={{
       labels,
@@ -126,43 +159,16 @@ return (
     }}
   />
 )}
-        Última referência: {faturas[0]?.referencia || '-'}
-      </Text>
-    </View>
 
-    <LineChart
-      data={{
-        labels,
-        datasets: [
-          {
-            data:
-              economias.length > 0
-                ? economias
-                : [0],
-          },
-        ],
-      }}
-      width={
-        Dimensions.get('window').width - 32
-      }
-      height={220}
-      
-      chartConfig={{
-  backgroundColor: '#0f172a',
-  backgroundGradientFrom: '#0f172a',
-  backgroundGradientTo: '#0f172a',
-  decimalPlaces: 2,
-  color: (opacity = 1) =>
-    `rgba(250,204,21,${opacity})`,
-  labelColor: (opacity = 1) =>
-    `rgba(255,255,255,${opacity})`,
-}}
-      bezier
-      style={{
-        borderRadius: 12,
-        marginBottom: 20,
-      }}
-    />
+<Text
+  style={{
+    marginTop: 8,
+    fontSize: 16,
+  }}
+>
+  Última referência: {faturas[0]?.referencia || '-'}
+</Text>
+    </View>
 
     <FlatList
         data={faturas}
@@ -236,12 +242,34 @@ return (
 </Text>
 
             <Text
-              style={{
-                color: 'white',
-              }}
-            >
-             Instalação: {item.numero_instalacao}
-            </Text>
+  style={{
+    color: 'white',
+  }}
+>
+  Instalação: {item.numero_instalacao}
+</Text>
+
+<TouchableOpacity
+  onPress={() =>
+    excluirFatura(item.id)
+  }
+  style={{
+    backgroundColor: '#dc2626',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 12,
+  }}
+>
+  <Text
+    style={{
+      color: 'white',
+      textAlign: 'center',
+      fontWeight: 'bold',
+    }}
+  >
+    EXCLUIR FATURA
+  </Text>
+</TouchableOpacity>
           </View>
         )}
       />

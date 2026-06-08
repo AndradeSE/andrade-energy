@@ -72,6 +72,40 @@ setFaturas(listaFaturas || []);
 
     carregarClientes();
   }
+async function excluirCliente(id: string) {
+  console.log('CLICOU', id);
+  Alert.alert(
+    'Excluir Cliente',
+    'Deseja realmente excluir este cliente?',
+    [
+      {
+        text: 'Cancelar',
+        style: 'cancel',
+      },
+      {
+        text: 'Excluir',
+        style: 'destructive',
+        onPress: async () => {
+          const { error } =
+            await supabase
+              .from('clientes')
+              .delete()
+              .eq('id', id);
+
+          if (error) {
+            Alert.alert(
+              'Erro',
+              error.message
+            );
+            return;
+          }
+
+          carregarClientes();
+        },
+      },
+    ]
+  );
+}
 
   useEffect(() => {
     carregarClientes();
@@ -203,89 +237,97 @@ function economiaCliente(uc: string) {
         data={clientes}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <View
-  style={{
-    backgroundColor: '#0f172a',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 10,
-  }}
->
-  <Text
+  <View
     style={{
-      color: '#facc15',
-      fontWeight: 'bold',
-      fontSize: 18,
+      backgroundColor: '#0f172a',
+      padding: 15,
+      borderRadius: 12,
+      marginBottom: 10,
     }}
   >
-    {item.nome}
-  </Text>
+    <Text
+      style={{
+        color: '#facc15',
+        fontWeight: 'bold',
+        fontSize: 18,
+      }}
+    >
+      {item.nome}
+    </Text>
 
-  <Text
-  style={{
-    color: '#cbd5e1',
-    marginTop: 6,
-  }}
->
-  ⚡ UC: {item.uc}
-</Text>
+    <Text style={{ color: '#cbd5e1', marginTop: 6 }}>
+      ⚡ UC: {item.uc}
+    </Text>
 
-<Text
-  style={{
-    color: '#cbd5e1',
-  }}
->
-  🏢 {item.distribuidora}
-</Text>
+    <Text style={{ color: '#cbd5e1' }}>
+      🏢 {item.distribuidora}
+    </Text>
 
-<Text
-  style={{
-    color: '#94a3b8',
-  }}
->
-  📞 {item.telefone}
-</Text>
-  
-  <Text
-  style={{
-    color: '#22c55e',
-    marginTop: 10,
-    fontWeight: 'bold',
-  }}
->
-  Economia acumulada
-</Text>
+    <Text style={{ color: '#94a3b8' }}>
+      📞 {item.telefone}
+    </Text>
 
-<Text
-  style={{
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-  }}
->
-  R$ {economiaCliente(item.uc)
-  .toFixed(2)
-  .replace('.', ',')}
-</Text>
+    <Text
+      style={{
+        color: '#22c55e',
+        marginTop: 10,
+        fontWeight: 'bold',
+      }}
+    >
+      Economia acumulada
+    </Text>
 
-<Text
-  style={{
-    color: '#94a3b8',
-    marginTop: 8,
-  }}
->
-  📄 Faturas: {
-  faturas.filter(
-    (f) =>
-      f.numero_instalacao
-        ?.replace(/\D/g, '') ===
-      item.uc
-        ?.replace(/\D/g, '')
-  ).length
-}
-</Text>
-</View>
-        )}
+    <Text
+      style={{
+        color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold',
+      }}
+    >
+      R$ {economiaCliente(item.uc)
+        .toFixed(2)
+        .replace('.', ',')}
+    </Text>
+
+    <Text
+      style={{
+        color: '#94a3b8',
+        marginTop: 8,
+      }}
+    >
+      📄 Faturas: {
+        faturas.filter(
+          (f) =>
+            f.numero_instalacao
+              ?.replace(/\D/g, '') ===
+            item.uc?.replace(/\D/g, '')
+        ).length
+      }
+    </Text>
+
+    <TouchableOpacity
+      onPress={() =>
+        excluirCliente(item.id)
+      }
+      style={{
+        backgroundColor: '#dc2626',
+        padding: 10,
+        borderRadius: 8,
+        marginTop: 12,
+      }}
+    >
+      <Text
+        style={{
+          color: 'white',
+          textAlign: 'center',
+          fontWeight: 'bold',
+        }}
+      >
+        EXCLUIR CLIENTE
+      </Text>
+    </TouchableOpacity>
+  </View>
+)}
       />
     </ScrollView>
   );
