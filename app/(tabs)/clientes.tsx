@@ -321,7 +321,12 @@ function economiaCliente(uc: string) {
   
    <TouchableOpacity
   onPress={() =>
-  router.push(`/clientes/${item.id}`)
+  router.push({
+    pathname: '/clientes/[id]',
+    params: {
+      id: String(item.id),
+    },
+  })
 }
 
 >
