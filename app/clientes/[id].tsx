@@ -11,6 +11,9 @@ import { supabase } from '../../supabase';
 export default function ClienteDetalhe() {
   const { id } = useLocalSearchParams();
 
+  const [faturas, setFaturas] =
+  useState<any[]>([]);
+
   const [cliente, setCliente] =
     useState<any>(null);
 
@@ -19,6 +22,8 @@ export default function ClienteDetalhe() {
   }, []);
 
   async function carregar() {
+
+   
     const { data } =
       await supabase
         .from('clientes')
@@ -27,7 +32,52 @@ export default function ClienteDetalhe() {
         .single();
 
     setCliente(data);
-  }
+    console.log('CLIENTE', data);
+  
+
+  const { data: listaFaturas } =
+  await supabase
+    .from('faturas')
+    .select('*');
+
+console.log(
+  'TODAS FATURAS:',
+  listaFaturas
+);
+
+setFaturas(listaFaturas || []);
+console.log(
+  'UC CLIENTE:',
+  data?.uc
+);
+
+console.log(
+  'FATURAS:',
+  listaFaturas
+);
+const faturasCliente =
+  (listaFaturas || []).filter(
+    (f) =>
+      String(f.numero_instalacao)
+        .replace(/\D/g, '') ===
+      String(data?.uc)
+        .replace(/\D/g, '')
+  );
+
+console.log(
+  'FATURAS FILTRADAS:',
+  faturasCliente
+);
+
+
+setFaturas(faturasCliente);
+}
+const economiaTotal = faturas.reduce(
+  (acc, item) =>
+    acc + Number(item.economia || 0),
+  0
+);
+
 
   if (!cliente) {
     return (
@@ -100,6 +150,43 @@ export default function ClienteDetalhe() {
           📞 {cliente.telefone}
         </Text>
       </View>
+      <View
+  style={{
+    backgroundColor: '#facc15',
+    padding: 20,
+    borderRadius: 12,
+    marginTop: 15,
+  }}
+>
+  <Text
+    style={{
+      fontWeight: 'bold',
+      fontSize: 16,
+    }}
+  >
+    Economia acumulada
+  </Text>
+
+  <Text
+    style={{
+      fontSize: 28,
+      fontWeight: 'bold',
+      marginTop: 8,
+    }}
+  >
+    R$ {economiaTotal
+      .toFixed(2)
+      .replace('.', ',')}
+  </Text>
+
+  <Text
+    style={{
+      marginTop: 8,
+    }}
+  >
+    📄 {faturas.length} faturas
+  </Text>
+</View>
     </ScrollView>
   );
 }
