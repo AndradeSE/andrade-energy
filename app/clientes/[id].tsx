@@ -1,12 +1,14 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    Linking,
+    Dimensions, Linking,
     ScrollView,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
+import { LineChart } from 'react-native-chart-kit';
+
 
 import { supabase } from '../../supabase';
 
@@ -88,6 +90,16 @@ const economiaTotal = faturas.reduce(
   0
 );
 
+const labels = faturas
+  .slice()
+  .reverse()
+  .map((f) => f.referencia);
+
+const economias = faturas
+  .slice()
+  .reverse()
+  .map((f) => Number(f.economia || 0));
+
 
   if (!cliente) {
     return (
@@ -164,6 +176,37 @@ const economiaTotal = faturas.reduce(
   </Text>
 </View>
 
+<TouchableOpacity
+ onPress={() => {
+  const telefone =
+    cliente.telefone?.replace(/\D/g, '');
+
+  const mensagem = encodeURIComponent(
+    `Olá ${cliente.nome}, estou entrando em contato sobre sua economia de energia.`
+  );
+
+  Linking.openURL(
+    `https://wa.me/55${telefone}?text=${mensagem}`
+  );
+}}
+  style={{
+    backgroundColor: '#22c55e',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 15,
+  }}
+>
+  <Text
+    style={{
+      color: 'white',
+      textAlign: 'center',
+      fontWeight: 'bold',
+    }}
+  >
+    CHAMAR NO WHATSAPP
+  </Text>
+</TouchableOpacity>
+
         <View
   style={{
     backgroundColor: '#facc15',
@@ -172,6 +215,39 @@ const economiaTotal = faturas.reduce(
     marginTop: 15,
   }}
 >
+
+  {faturas.length > 1 && (
+  <LineChart
+    data={{
+      labels,
+      datasets: [
+        {
+          data: economias,
+        },
+      ],
+    }}
+    width={Dimensions.get('window').width - 40}
+    height={220}
+    chartConfig={{
+      backgroundColor: '#0f172a',
+      backgroundGradientFrom: '#0f172a',
+      backgroundGradientTo: '#0f172a',
+      decimalPlaces: 2,
+      color: (opacity = 1) =>
+        `rgba(250,204,21,${opacity})`,
+      labelColor: (opacity = 1) =>
+        `rgba(255,255,255,${opacity})`,
+    }}
+    bezier
+    style={{
+      borderRadius: 12,
+      marginTop: 20,
+      marginBottom: 20,
+    }}
+  />
+)}
+
+
   <Text
     style={{
       fontWeight: 'bold',

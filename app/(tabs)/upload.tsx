@@ -146,6 +146,14 @@ if (dbError) {
   );
   return;
 }
+Alert.alert(
+  'Upload concluído',
+  `Cliente: ${dados.nome_cliente}
+
+Referência: ${dados.referencia}
+
+Economia: R$ ${economia}`
+);
 
 
 
