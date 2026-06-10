@@ -1,8 +1,10 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
+    Linking,
     ScrollView,
     Text,
+    TouchableOpacity,
     View,
 } from 'react-native';
 
@@ -45,7 +47,6 @@ console.log(
   listaFaturas
 );
 
-setFaturas(listaFaturas || []);
 console.log(
   'UC CLIENTE:',
   data?.uc
@@ -71,6 +72,15 @@ console.log(
 
 
 setFaturas(faturasCliente);
+console.log(
+  'FATURAS FILTRADAS:',
+  faturasCliente
+);
+
+console.log(
+  'QUANTIDADE FINAL:',
+  faturasCliente.length
+);
 }
 const economiaTotal = faturas.reduce(
   (acc, item) =>
@@ -96,6 +106,8 @@ const economiaTotal = faturas.reduce(
     );
   }
 
+  console.log('TELA DETALHE CARREGADA');
+
   return (
     <ScrollView
       style={{
@@ -115,42 +127,44 @@ const economiaTotal = faturas.reduce(
         }}
       >
         {cliente.nome}
+      
       </Text>
-
       <View
-        style={{
-          backgroundColor: '#0f172a',
-          padding: 20,
-          borderRadius: 12,
-        }}
-      >
-        <Text
-          style={{
-            color: 'white',
-            marginBottom: 10,
-          }}
-        >
-          ⚡ UC: {cliente.uc}
-        </Text>
+  style={{
+    backgroundColor: '#0f172a',
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 15,
+  }}
+>
+  <Text
+    style={{
+      color: 'white',
+      marginBottom: 10,
+    }}
+  >
+    ⚡ UC: {cliente.uc}
+  </Text>
 
-        <Text
-          style={{
-            color: 'white',
-            marginBottom: 10,
-          }}
-        >
-          🏢 {cliente.distribuidora}
-        </Text>
+  <Text
+    style={{
+      color: 'white',
+      marginBottom: 10,
+    }}
+  >
+    🏢 {cliente.distribuidora}
+  </Text>
 
-        <Text
-          style={{
-            color: 'white',
-          }}
-        >
-          📞 {cliente.telefone}
-        </Text>
-      </View>
-      <View
+  <Text
+    style={{
+      color: 'white',
+    }}
+  >
+    📞 {cliente.telefone}
+  </Text>
+</View>
+
+        <View
   style={{
     backgroundColor: '#facc15',
     padding: 20,
@@ -187,6 +201,80 @@ const economiaTotal = faturas.reduce(
     📄 {faturas.length} faturas
   </Text>
 </View>
+
+<Text
+  style={{
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginTop: 20,
+    marginBottom: 10,
+  }}
+>
+   
+  Histórico de Faturas
+</Text>
+
+
+
+{faturas.map((fatura) => (
+  <View
+    key={fatura.id}
+    style={{
+      backgroundColor: '#0f172a',
+      padding: 15,
+      borderRadius: 12,
+      marginBottom: 10,
+    }}
+  >
+    <Text
+      style={{
+        color: '#facc15',
+        fontWeight: 'bold',
+        fontSize: 16,
+      }}
+    >
+      📄 {fatura.referencia}
+    </Text>
+
+    <Text style={{ color: 'white' }}>
+      Economia: R$ {Number(fatura.economia)
+        .toFixed(2)
+        .replace('.', ',')}
+    </Text>
+
+    <Text style={{ color: 'white' }}>
+      Valor: R$ {Number(fatura.valor_total)
+        .toFixed(2)
+        .replace('.', ',')}
+    </Text>
+
+    <TouchableOpacity
+      onPress={() =>
+        Linking.openURL(
+          fatura.arquivo_url
+        )
+      }
+      style={{
+        backgroundColor: '#2563eb',
+        padding: 10,
+        borderRadius: 8,
+        marginTop: 10,
+      }}
+    >
+      <Text
+        style={{
+          color: 'white',
+          textAlign: 'center',
+          fontWeight: 'bold',
+        }}
+      >
+        VER PDF
+        
+      </Text>
+    </TouchableOpacity>
+  </View>
+))}
     </ScrollView>
   );
 }

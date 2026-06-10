@@ -436,9 +436,35 @@ function economiaCliente(uc: string) {
         EXCLUIR CLIENTE
       </Text>
     </TouchableOpacity>
+    <TouchableOpacity
+  onPress={() =>
+    router.push({
+      pathname: '/clientes/[id]',
+      params: { id: item.id },
+    })
+  }
+  style={{
+    backgroundColor: '#facc15',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 12,
+  }}
+>
+  <Text
+    style={{
+      textAlign: 'center',
+      fontWeight: 'bold',
+    }}
+  >
+    VER DETALHES
+  </Text>
+  
+</TouchableOpacity>
 
   </View>
 )}
+
+
       />
     </ScrollView>
   </KeyboardAvoidingView>
