@@ -4,11 +4,13 @@ import {
   Alert,
   Dimensions,
   FlatList,
+  ImageBackground,
+  ScrollView,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
-import { LineChart } from 'react-native-chart-kit';
+import { BarChart } from 'react-native-chart-kit';
 
 import { supabase } from '../../supabase';
 
@@ -83,8 +85,8 @@ const labels =
   faturas
     .slice()
     .reverse()
-    .map(
-      (f) => f.referencia
+    .map((f) =>
+      f.referencia?.split('/')[0]
     );
 
 const economias =
@@ -95,16 +97,22 @@ const economias =
       (f) => Number(f.economia)
     );
 return (
-  <View
-    style={{
-      flex: 1,
-      backgroundColor: '#020617',
-      padding: 16,
-    }}
-  >
+  <ImageBackground
+  source={require('../../assets/images/background.png')}
+  resizeMode="cover"
+  style={{
+    flex: 1,
+    paddingTop: 70,
+  }}
+>
+ <ScrollView
+  contentContainerStyle={{
+    padding: 16,
+  }}
+>
     <View
       style={{
-        backgroundColor: '#facc15',
+       backgroundColor: 'rgba(250,204,21,0.65)',
         padding: 20,
         borderRadius: 12,
         marginBottom: 20,
@@ -128,36 +136,45 @@ return (
         R$ {economiaTotal.toFixed(2).replace('.', ',')}
       </Text>
 
-      {faturas.length > 1 && (
-  <LineChart
-    data={{
-      labels,
-      datasets: [
-        {
-          data: economias,
-        },
-      ],
-    }}
-    width={
-      Dimensions.get('window').width - 32
-    }
-    height={220}
-    chartConfig={{
-      backgroundColor: '#0f172a',
-      backgroundGradientFrom: '#0f172a',
-      backgroundGradientTo: '#0f172a',
-      decimalPlaces: 2,
-      color: (opacity = 1) =>
-        `rgba(250,204,21,${opacity})`,
-      labelColor: (opacity = 1) =>
-        `rgba(255,255,255,${opacity})`,
-    }}
-    bezier
+     {faturas.length > 1 && (
+  <View
     style={{
-      borderRadius: 12,
-      marginBottom: 20,
+      alignItems: 'center',
+      marginVertical: 15,
     }}
-  />
+  >
+   <BarChart
+  data={{
+    labels,
+    datasets: [
+      {
+        data: economias,
+      },
+    ],
+  }}
+  width={Dimensions.get('window').width - 90}
+  height={250}
+  yAxisLabel="R$ "
+  yAxisSuffix=""
+  fromZero
+  chartConfig={{
+  backgroundColor: 'rgba(255,255,255,0.70)',
+backgroundGradientFrom: 'rgba(255,255,255,0.70)',
+backgroundGradientTo: 'rgba(255,255,255,0.70)',
+
+  decimalPlaces: 0,
+
+  color: () => '#16a34a',
+
+  fillShadowGradient: '#16a34a',
+  fillShadowGradientOpacity: 1,
+
+  labelColor: () => '#0f172a',
+
+  barPercentage: 0.25,
+}}
+/>
+  </View>
 )}
 
 <Text
@@ -171,6 +188,7 @@ return (
     </View>
 
     <FlatList
+    scrollEnabled={false}
         data={faturas}
         keyExtractor={(item) =>
           String(item.id)
@@ -178,8 +196,7 @@ return (
         renderItem={({ item }) => (
           <View
             style={{
-              backgroundColor:
-                '#0f172a',
+              backgroundColor: 'rgba(255,255,255,0.80)',
               padding: 16,
               borderRadius: 12,
               marginBottom: 12,
@@ -187,7 +204,7 @@ return (
           >
             <Text
               style={{
-                color: 'white',
+                color: 'black',
                 fontSize: 18,
                 fontWeight: 'bold',
               }}
@@ -197,7 +214,7 @@ return (
 
             <Text
               style={{
-                color: 'white',
+                color: 'black',
               }}
             >
               Valor:
@@ -219,7 +236,7 @@ return (
 
 <Text
   style={{
-    color: 'white',
+    color: 'black',
   }}
 >
   Cliente:
@@ -229,7 +246,7 @@ return (
 
 <Text
   style={{
-    color: 'white',
+    color: 'black',
   }}
 >
   Vencimento:{' '}
@@ -243,7 +260,7 @@ return (
 
             <Text
   style={{
-    color: 'white',
+    color: 'black',
   }}
 >
   Instalação: {item.numero_instalacao}
@@ -262,7 +279,7 @@ return (
 >
   <Text
     style={{
-      color: 'white',
+      color: 'black',
       textAlign: 'center',
       fontWeight: 'bold',
     }}
@@ -273,7 +290,8 @@ return (
           </View>
         )}
       />
-    </View>
+      </ScrollView>
+</ImageBackground>
   );
 }
 

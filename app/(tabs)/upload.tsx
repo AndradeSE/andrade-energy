@@ -1,7 +1,11 @@
 import * as DocumentPicker from 'expo-document-picker';
+import { useLocalSearchParams } from 'expo-router';
+
+
 import * as FileSystem from 'expo-file-system/legacy';
 import {
   Alert,
+  ImageBackground,
   Text,
   TouchableOpacity,
   View,
@@ -14,9 +18,12 @@ import { supabase } from '../../supabase';
 
 export default function Upload() {
 
+  const { clienteId, uc } =
+    useLocalSearchParams();
+
   async function selecionarPDF() {
     try {
-      
+    
       const resultado =
         await DocumentPicker.getDocumentAsync({
           type: 'application/pdf',
@@ -89,11 +96,53 @@ const textoOCR =
     ?.ParsedText || '';
 
 
-
-const dados =
+  const dados =
   extrairDadosCemig(
     textoOCR
   );
+
+const ucLimpa =
+  String(
+    dados.numero_instalacao
+  ).replace(/\D/g, '');
+
+const { data: clienteExistente } =
+  await supabase
+    .from('clientes')
+    .select('*')
+    .eq('uc', ucLimpa)
+    .single();
+
+let clienteIdFinal =
+  clienteExistente?.id;
+
+if (!clienteExistente) {
+
+  const {
+    data: novoCliente,
+    error: clienteError,
+  } = await supabase
+    .from('clientes')
+    .insert({
+      nome: dados.nome_cliente,
+      uc: ucLimpa,
+      distribuidora: 'CEMIG',
+      telefone: '',
+    })
+    .select()
+    .single();
+
+  if (clienteError) {
+    Alert.alert(
+      'Erro Cliente',
+      clienteError.message
+    );
+    return;
+  }
+
+  clienteIdFinal =
+    novoCliente.id;
+}
  
 
 const valorTotal =
@@ -124,12 +173,13 @@ const vencimentoFormatado =
   await supabase
     .from('faturas')
     .insert({
+      cliente_id: clienteIdFinal,
       arquivo_url: arquivoUrl,
       referencia: dados.referencia,
       valor_total: valorTotal,
       economia: economia,
       numero_instalacao:
-        dados.numero_instalacao,
+  ucLimpa,
       nome_cliente:
         dados.nome_cliente,
       vencimento:
@@ -155,34 +205,36 @@ Referência: ${dados.referencia}
 Economia: R$ ${economia}`
 );
 
-
-
 } catch (erro: any) {
   Alert.alert(
     'ERRO OCR',
     JSON.stringify(erro)
   );
 }
-  
+} catch (erro: any) {
+  Alert.alert(
+    'Erro',
+    String(erro)
+  );
+}
+}
 
-
-    } catch (erro: any) {
-      Alert.alert(
-        'Erro',
-        String(erro)
-      );
-    }
-  }
 
   return (
-    <View
-      style={{
-        flex: 1,
-        justifyContent: 'center',
-        padding: 20,
-        backgroundColor: '#020617',
-      }}
-    >
+    <ImageBackground
+  source={require('../../assets/images/background.png')}
+  resizeMode="cover"
+  style={{
+    flex: 1,
+  }}
+>
+  <View
+    style={{
+      flex: 1,
+      justifyContent: 'center',
+      padding: 20,
+    }}
+  >
       <TouchableOpacity
         onPress={selecionarPDF}
         style={{
@@ -201,5 +253,6 @@ Economia: R$ ${economia}`
         </Text>
       </TouchableOpacity>
     </View>
+    </ImageBackground>
   );
 }

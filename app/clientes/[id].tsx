@@ -1,13 +1,18 @@
-import { useLocalSearchParams } from 'expo-router';
+import {
+  router,
+  useLocalSearchParams,
+} from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    Dimensions, Linking,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View
+  Dimensions,
+  ImageBackground,
+  Linking,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { LineChart } from 'react-native-chart-kit';
+import { BarChart } from 'react-native-chart-kit';
 
 
 import { supabase } from '../../supabase';
@@ -121,15 +126,20 @@ const economias = faturas
   console.log('TELA DETALHE CARREGADA');
 
   return (
+  <ImageBackground
+    source={require('../../assets/images/background.png')}
+    resizeMode="cover"
+    style={{ flex: 1 }}
+  >
     <ScrollView
       style={{
         flex: 1,
-        backgroundColor: '#020617',
       }}
       contentContainerStyle={{
         padding: 20,
       }}
     >
+
       <Text
         style={{
           color: '#facc15',
@@ -207,44 +217,93 @@ const economias = faturas
   </Text>
 </TouchableOpacity>
 
-        <View
+       <View
   style={{
-    backgroundColor: '#facc15',
+    backgroundColor: 'rgba(253,230,138,0.85)',
     padding: 20,
     borderRadius: 12,
     marginTop: 15,
   }}
 >
-
-  {faturas.length > 1 && (
-  <LineChart
-    data={{
-      labels,
-      datasets: [
-        {
-          data: economias,
-        },
-      ],
-    }}
-    width={Dimensions.get('window').width - 40}
-    height={220}
-    chartConfig={{
-      backgroundColor: '#0f172a',
-      backgroundGradientFrom: '#0f172a',
-      backgroundGradientTo: '#0f172a',
-      decimalPlaces: 2,
-      color: (opacity = 1) =>
-        `rgba(250,204,21,${opacity})`,
-      labelColor: (opacity = 1) =>
-        `rgba(255,255,255,${opacity})`,
-    }}
-    bezier
+  <TouchableOpacity
+  onPress={() =>
+    router.push({
+      pathname: '/upload',
+      params: {
+        clienteId: cliente.id,
+        uc: cliente.uc,
+      },
+    })
+  }
+  style={{
+    backgroundColor: 'rgba(255,255,255,0.80)',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 10,
+  }}
+>
+  <Text
     style={{
-      borderRadius: 12,
+      textAlign: 'center',
+      fontWeight: 'bold',
+      color:'black',
+    }}
+  >
+    📄 ENVIAR FATURA
+  </Text>
+</TouchableOpacity>
+
+ {faturas.length > 1 && (
+  <View
+    style={{
+      alignItems: 'center',
       marginTop: 20,
       marginBottom: 20,
     }}
-  />
+  >
+    <BarChart
+      data={{
+        labels: labels.map(
+          (l) => l.split('/')[0]
+        ),
+        datasets: [
+          {
+            data: economias,
+          },
+        ],
+      }}
+      width={Dimensions.get('window').width - 60}
+      height={250}
+      yAxisLabel="R$ "
+      yAxisSuffix=""
+      fromZero
+      chartConfig={{
+        backgroundColor:
+          'rgba(255,255,255,0.70)',
+        backgroundGradientFrom:
+          'rgba(255,255,255,0.70)',
+        backgroundGradientTo:
+          'rgba(255,255,255,0.70)',
+
+        decimalPlaces: 0,
+
+        color: () => '#16a34a',
+
+        fillShadowGradient:
+          '#16a34a',
+
+        fillShadowGradientOpacity: 1,
+
+        labelColor: () =>
+          '#0f172a',
+
+        barPercentage: 0.25,
+      }}
+      style={{
+        borderRadius: 12,
+      }}
+    />
+  </View>
 )}
 
 
@@ -351,6 +410,7 @@ const economias = faturas
     </TouchableOpacity>
   </View>
 ))}
-    </ScrollView>
+        </ScrollView>
+  </ImageBackground>
   );
 }

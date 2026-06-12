@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import {
   Alert,
   FlatList,
+  ImageBackground,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -175,7 +176,12 @@ function economiaCliente(uc: string) {
   );
 }
   return (
-  <KeyboardAvoidingView
+  <ImageBackground
+    source={require('../../assets/images/background.png')}
+    resizeMode="cover"
+    style={{ flex: 1 }}
+  >
+    <KeyboardAvoidingView
     style={{ flex: 1 }}
     behavior={
       Platform.OS === 'ios'
@@ -184,10 +190,9 @@ function economiaCliente(uc: string) {
     }
   >
     <ScrollView
-      style={{
-        flex: 1,
-        backgroundColor: '#020617',
-      }}
+     style={{
+  flex: 1,
+}}
       contentContainerStyle={{
         padding: 20,
       }}
@@ -210,7 +215,7 @@ function economiaCliente(uc: string) {
         value={nome}
         onChangeText={setNome}
         style={{
-          backgroundColor: 'white',
+         backgroundColor: 'rgba(255,255,255,0.85)',
           padding: 15,
           borderRadius: 10,
           marginBottom: 10,
@@ -222,7 +227,7 @@ function economiaCliente(uc: string) {
         value={uc}
         onChangeText={setUc}
         style={{
-          backgroundColor: 'white',
+          backgroundColor: 'rgba(255,255,255,0.85)',
           padding: 15,
           borderRadius: 10,
           marginBottom: 10,
@@ -234,7 +239,7 @@ function economiaCliente(uc: string) {
         value={distribuidora}
         onChangeText={setDistribuidora}
         style={{
-          backgroundColor: 'white',
+         backgroundColor: 'rgba(255,255,255,0.85)',
           padding: 15,
           borderRadius: 10,
           marginBottom: 10,
@@ -246,7 +251,7 @@ function economiaCliente(uc: string) {
         value={telefone}
         onChangeText={setTelefone}
         style={{
-          backgroundColor: 'white',
+        backgroundColor: 'rgba(255,255,255,0.85)',
           padding: 15,
           borderRadius: 10,
           marginBottom: 20,
@@ -279,7 +284,7 @@ function economiaCliente(uc: string) {
   value={busca}
   onChangeText={setBusca}
   style={{
-    backgroundColor: 'white',
+ backgroundColor: 'rgba(255,255,255,0.85)',
     padding: 15,
     borderRadius: 10,
     marginBottom: 15,
@@ -312,7 +317,9 @@ function economiaCliente(uc: string) {
         renderItem={({ item }) => (
           <View
   style={{
-    backgroundColor: '#0f172a',
+    backgroundColor: 'rgba(15,23,42,0.75)',
+borderWidth: 1,
+borderColor: 'rgba(250,204,21,0.2)',
     padding: 15,
     borderRadius: 12,
     marginBottom: 10,
@@ -397,7 +404,7 @@ function economiaCliente(uc: string) {
     editarCliente(item)
   }
   style={{
-    backgroundColor: '#2563eb',
+    backgroundColor: 'rgba(255,255,255,0.85)',
     padding: 10,
     borderRadius: 8,
     marginTop: 12,
@@ -406,7 +413,7 @@ function economiaCliente(uc: string) {
 >
   <Text
     style={{
-      color: 'white',
+      color: 'blue',
       textAlign: 'center',
       fontWeight: 'bold',
     }}
@@ -420,7 +427,7 @@ function economiaCliente(uc: string) {
         excluirCliente(item.id)
       }
       style={{
-        backgroundColor: '#dc2626',
+       backgroundColor: 'rgba(255,255,255,0.85)',
         padding: 10,
         borderRadius: 8,
         marginTop: 12,
@@ -428,7 +435,7 @@ function economiaCliente(uc: string) {
     >
       <Text
         style={{
-          color: 'white',
+          color: 'red',
           textAlign: 'center',
           fontWeight: 'bold',
         }}
@@ -444,7 +451,7 @@ function economiaCliente(uc: string) {
     })
   }
   style={{
-    backgroundColor: '#facc15',
+    backgroundColor: 'rgba(255,255,255,0.85)',
     padding: 10,
     borderRadius: 8,
     marginTop: 12,
@@ -467,6 +474,7 @@ function economiaCliente(uc: string) {
 
       />
     </ScrollView>
-  </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+  </ImageBackground>
 );
 }
