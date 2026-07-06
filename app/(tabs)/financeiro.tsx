@@ -1,259 +1,116 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import {
-  Text,
-  View,
-} from 'react-native';
+  ImageBackground,
+  ScrollView,
+  View
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { supabase } from '../../supabase';
+import DashboardCard from "../../components/DashboardCard";
+import DashboardSection from "../../components/DashboardSection";
+import MetricRow from "../../components/MetricRow";
+
+import * as FinanceiroService from "../../services/financeiro.service";
 
 export default function Financeiro() {
-  const [clientes, setClientes] =
-  
-  useState(0);
-  
- const [economia, setEconomia] =
-    useState(0);
 
-  const [valorTotal, setValorTotal] =
-    useState(0);
-
-  const [quantidade, setQuantidade] =
-    useState(0);
-
-    const [ranking, setRanking] =
-  useState<any[]>([]);
+  const [dados, setDados] = useState({
+    receitaPrevista: 0,
+    receitaRecebida: 0,
+    valorEmAberto: 0,
+    inadimplentes: 0,
+    totalFaturas: 0,
+  });
 
   useEffect(() => {
     carregar();
   }, []);
 
   async function carregar() {
-const { data: listaClientes } =
-  await supabase
-    .from('clientes')
-    .select('*');
+    const financeiro =
+      await FinanceiroService.carregarFinanceiro();
 
-setClientes(
-  listaClientes?.length || 0
-);
-
-const { data } =
-  await supabase
-    .from('faturas')
-    .select('*');
-
-const lista = data || [];
-
-
-const rankingClientes =
-  listaClientes?.map(
-    (cliente: any) => ({
-      nome: cliente.nome,
-      economia: lista
-        .filter(
-          (f) =>
-            f.numero_instalacao
-              ?.replace(/\D/g, '') ===
-            cliente.uc
-              ?.replace(/\D/g, '')
-        )
-        .reduce(
-          (acc, item) =>
-            acc +
-            Number(item.economia || 0),
-          0
-        ),
-    })
-  ) || [];
-
-rankingClientes.sort(
-  (a, b) =>
-    b.economia - a.economia
-);
-
-setRanking(rankingClientes);
-    
-    setQuantidade(
-      lista.length
-    );
-
-    setEconomia(
-      lista.reduce(
-        (acc, item) =>
-          acc +
-          Number(item.economia || 0),
-        0
-      )
-    );
-
-    setValorTotal(
-      lista.reduce(
-        (acc, item) =>
-          acc +
-          Number(item.valor_total || 0),
-        0
-      )
-    );
+    setDados(financeiro);
   }
 
   return (
-    <View
-    
-      style={{
-        flex: 1,
-        backgroundColor: '#020617',
-        padding: 16,
-      }}
+    <ImageBackground
+      source={require("../../assets/images/background.png")}
+      style={{ flex: 1 }}
     >
-      <View
-        style={{
-          backgroundColor: '#0f172a',
-          padding: 20,
-          borderRadius: 12,
-          marginBottom: 12,
-        }}
-      >
-        <Text
-          style={{
-            color: 'white',
-            fontSize: 18,
-            fontWeight: 'bold',
+      <SafeAreaView style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={{
+            padding: 20,
           }}
         >
-          Economia acumulada
-        </Text>
-
-        <Text
-          style={{
-            color: '#22c55e',
-            fontSize: 32,
-            fontWeight: 'bold',
-          }}
-        >
-          R$ {economia
-  .toFixed(2)
-  .replace('.', ',')}
-        </Text>
-      </View>
-      <View
+          <View
   style={{
-    backgroundColor: '#0f172a',
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 12,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
   }}
 >
-  <Text
-    style={{
-      color: 'white',
-    }}
-  >
-    Valor total das contas
-  </Text>
 
-  <Text
-    style={{
-      color: '#facc15',
-      fontSize: 28,
-      fontWeight: 'bold',
-    }}
-  >
-    R$ {valorTotal
-      .toFixed(2)
-      .replace('.', ',')}
-  </Text>
+<DashboardCard
+  icone="💰"
+  titulo="Previsto"
+  valor={`R$ ${dados.receitaPrevista.toFixed(2).replace(".", ",")}`}
+/>
+
+<DashboardCard
+  icone="✅"
+  titulo="Recebido"
+  valor={`R$ ${dados.receitaRecebida.toFixed(2).replace(".", ",")}`}
+/>
+
+<DashboardCard
+  icone="⚠️"
+  titulo="Em aberto"
+  valor={`R$ ${dados.valorEmAberto.toFixed(2).replace(".", ",")}`}
+/>
+
+<DashboardCard
+  icone="📄"
+  titulo="Faturas"
+  valor={dados.totalFaturas}
+/>
+
 </View>
 
- <View
-  style={{
-    backgroundColor: '#0f172a',
-    borderRadius: 12,
-    padding: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    marginBottom: 12,
-  }}
+<DashboardSection
+  titulo="Resumo Financeiro"
+  icone="📊"
 >
-  <View style={{ alignItems: 'center' }}>
-    <Text style={{ color: 'white' }}>
-      Clientes
-    </Text>
 
-    <Text
-      style={{
-        color: '#facc15',
-        fontSize: 32,
-        fontWeight: 'bold',
-      }}
-    >
-      {clientes}
-    </Text>
-  </View>
+<MetricRow
+  titulo="Receita prevista"
+  valor={`R$ ${dados.receitaPrevista.toFixed(2).replace(".", ",")}`}
+/>
 
-  <View style={{ alignItems: 'center' }}>
-    <Text style={{ color: 'white' }}>
-      Faturas
-    </Text>
+<MetricRow
+  titulo="Receita recebida"
+  valor={`R$ ${dados.receitaRecebida.toFixed(2).replace(".", ",")}`}
+/>
 
-    <Text
-      style={{
-        color: '#facc15',
-        fontSize: 32,
-        fontWeight: 'bold',
-      }}
-    >
-      {quantidade}
-    </Text>
-  </View>
-</View>
+<MetricRow
+  titulo="Valor em aberto"
+  valor={`R$ ${dados.valorEmAberto.toFixed(2).replace(".", ",")}`}
+/>
 
-<View
-  style={{
-    backgroundColor: '#0f172a',
-    padding: 20,
-    borderRadius: 12,
-  }}
->
-  <Text
-    style={{
-      color: '#facc15',
-      fontSize: 18,
-      fontWeight: 'bold',
-      marginBottom: 10,
-    }}
-  >
-    🏆 Top Clientes
-  </Text>
+<MetricRow
+  titulo="Inadimplentes"
+  valor={dados.inadimplentes}
+/>
 
-  {ranking.map((cliente, index) => (
-    <View
-      key={index}
-      style={{
-        marginBottom: 10,
-      }}
-    >
-      <Text
-        style={{
-          color: 'white',
-          fontWeight: 'bold',
-        }}
-      >
-        {index + 1}º {cliente.nome}
-      </Text>
+<MetricRow
+  titulo="Total de faturas"
+  valor={dados.totalFaturas}
+/>
 
-      <Text
-        style={{
-          color: '#22c55e',
-        }}
-      >
-        R$ {cliente.economia
-          .toFixed(2)
-          .replace('.', ',')}
-      </Text>
-    </View>
-  ))}
-</View>
-</View>
+</DashboardSection>
+        </ScrollView>
+      </SafeAreaView>
+    </ImageBackground>
   );
 }

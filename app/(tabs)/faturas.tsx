@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 
 import {
   Alert,
-  Dimensions,
   FlatList,
   ImageBackground,
   ScrollView,
@@ -10,8 +9,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { BarChart } from 'react-native-chart-kit';
-
+import AndradeBarChart from "../../components/charts/AndradeBarChart";
 import { supabase } from '../../supabase';
 
 export default function Faturas() {
@@ -96,11 +94,14 @@ const economias =
     .map(
       (f) => Number(f.economia)
     );
+
+    const chartData = labels.map((label, index) => ({
+  label,
+  value: economias[index],
+}));
 return (
   <ImageBackground
-  source={require('../../assets/images/background.png')}
-  resizeMode="cover"
-  style={{
+source={require('../../assets/images/background.png')}  style={{
     flex: 1,
     paddingTop: 70,
   }}
@@ -143,36 +144,9 @@ return (
       marginVertical: 15,
     }}
   >
-   <BarChart
-  data={{
-    labels,
-    datasets: [
-      {
-        data: economias,
-      },
-    ],
-  }}
-  width={Dimensions.get('window').width - 90}
+  <AndradeBarChart
+  data={chartData}
   height={250}
-  yAxisLabel="R$ "
-  yAxisSuffix=""
-  fromZero
-  chartConfig={{
-  backgroundColor: 'rgba(255,255,255,0.70)',
-backgroundGradientFrom: 'rgba(255,255,255,0.70)',
-backgroundGradientTo: 'rgba(255,255,255,0.70)',
-
-  decimalPlaces: 0,
-
-  color: () => '#16a34a',
-
-  fillShadowGradient: '#16a34a',
-  fillShadowGradientOpacity: 1,
-
-  labelColor: () => '#0f172a',
-
-  barPercentage: 0.25,
-}}
 />
   </View>
 )}

@@ -4,27 +4,37 @@ import {
 } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  Dimensions,
   ImageBackground,
   Linking,
   ScrollView,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
-import { BarChart } from 'react-native-chart-kit';
+import AndradeBarChart from "../../components/charts/AndradeBarChart";
+import {
+  buscarCliente
+} from '../../services/clientes.service';
+
+import {
+  buscarFaturasCliente
+} from '../../services/faturas.service';
+
+ import { Cliente } from '../../types/Cliente';
+
+ import { Fatura } from '../../types/Fatura';
 
 
-import { supabase } from '../../supabase';
 
 export default function ClienteDetalhe() {
   const { id } = useLocalSearchParams();
 
-  const [faturas, setFaturas] =
-  useState<any[]>([]);
-
   const [cliente, setCliente] =
-    useState<any>(null);
+  useState<Cliente | null>(null);
+
+  const [faturas, setFaturas] =
+  useState<Fatura[]>([]);
+
 
   useEffect(() => {
     carregar();
@@ -33,61 +43,30 @@ export default function ClienteDetalhe() {
   async function carregar() {
 
    
-    const { data } =
-      await supabase
-        .from('clientes')
-        .select('*')
-        .eq('id', id)
-        .single();
+    const data =
+  await buscarCliente(
+    String(id)
+  );
 
     setCliente(data);
     console.log('CLIENTE', data);
   
 
-  const { data: listaFaturas } =
-  await supabase
-    .from('faturas')
-    .select('*');
-
-console.log(
-  'TODAS FATURAS:',
-  listaFaturas
-);
-
-console.log(
-  'UC CLIENTE:',
-  data?.uc
-);
-
-console.log(
-  'FATURAS:',
-  listaFaturas
-);
-const faturasCliente =
-  (listaFaturas || []).filter(
-    (f) =>
-      String(f.numero_instalacao)
-        .replace(/\D/g, '') ===
-      String(data?.uc)
-        .replace(/\D/g, '')
+  const listaFaturas =
+  await buscarFaturasCliente(
+    data.uc
   );
 
-console.log(
-  'FATURAS FILTRADAS:',
-  faturasCliente
-);
+setFaturas(listaFaturas);
 
+const faturasCliente = (listaFaturas || []).filter(
+  (f) =>
+    String(f.numero_instalacao).replace(/\D/g, "") ===
+    String(data.uc).replace(/\D/g, "")
+);
 
 setFaturas(faturasCliente);
-console.log(
-  'FATURAS FILTRADAS:',
-  faturasCliente
-);
 
-console.log(
-  'QUANTIDADE FINAL:',
-  faturasCliente.length
-);
 }
 const economiaTotal = faturas.reduce(
   (acc, item) =>
@@ -105,8 +84,14 @@ const economias = faturas
   .reverse()
   .map((f) => Number(f.economia || 0));
 
+   const chartData = labels.map((label, index) => ({
+  label,
+  value: economias[index],
+}));
 
   if (!cliente) {
+
+   
     return (
       <View
         style={{
@@ -123,13 +108,10 @@ const economias = faturas
     );
   }
 
-  console.log('TELA DETALHE CARREGADA');
 
   return (
   <ImageBackground
-    source={require('../../assets/images/background.png')}
-    resizeMode="cover"
-    style={{ flex: 1 }}
+source={require('../../assets/images/background.png')}    style={{ flex: 1 }}
   >
     <ScrollView
       style={{
@@ -227,14 +209,8 @@ const economias = faturas
 >
   <TouchableOpacity
   onPress={() =>
-    router.push({
-      pathname: '/upload',
-      params: {
-        clienteId: cliente.id,
-        uc: cliente.uc,
-      },
-    })
-  }
+    router.push(`/clientes/${cliente.id}`)}
+  
   style={{
     backgroundColor: 'rgba(255,255,255,0.80)',
     padding: 12,
@@ -261,48 +237,10 @@ const economias = faturas
       marginBottom: 20,
     }}
   >
-    <BarChart
-      data={{
-        labels: labels.map(
-          (l) => l.split('/')[0]
-        ),
-        datasets: [
-          {
-            data: economias,
-          },
-        ],
-      }}
-      width={Dimensions.get('window').width - 60}
-      height={250}
-      yAxisLabel="R$ "
-      yAxisSuffix=""
-      fromZero
-      chartConfig={{
-        backgroundColor:
-          'rgba(255,255,255,0.70)',
-        backgroundGradientFrom:
-          'rgba(255,255,255,0.70)',
-        backgroundGradientTo:
-          'rgba(255,255,255,0.70)',
-
-        decimalPlaces: 0,
-
-        color: () => '#16a34a',
-
-        fillShadowGradient:
-          '#16a34a',
-
-        fillShadowGradientOpacity: 1,
-
-        labelColor: () =>
-          '#0f172a',
-
-        barPercentage: 0.25,
-      }}
-      style={{
-        borderRadius: 12,
-      }}
-    />
+   <AndradeBarChart
+  data={chartData}
+  height={250}
+/>
   </View>
 )}
 

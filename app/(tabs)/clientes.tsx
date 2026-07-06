@@ -13,10 +13,18 @@ import {
   View,
 } from 'react-native';
 
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../../supabase';
 
+import { extrairDadosCemig } from '../../services/extrairCemig';
+import { lerFaturaOCR } from '../../services/ocr';
 
 export default function Clientes() {
+  const [cpf, setCpf] =
+  useState('');
+const [endereco, setEndereco] =
+  useState('');
   const [nome, setNome] = useState('');
   const [uc, setUc] = useState('');
   const [editando, setEditando] =
@@ -26,12 +34,31 @@ export default function Clientes() {
   const [busca, setBusca] = useState('');
   const [clientes, setClientes] = useState<any[]>([]);
   const [faturas, setFaturas] = useState<any[]>([]);
+  const [usinas, setUsinas] =
+  useState<any[]>([]);
+  const [usinaId, setUsinaId] =
+  useState('');
+  
 
   async function carregarClientes() {
-    const { data, error } = await supabase
-      .from('clientes')
-      .select('*')
-      .order('nome');
+    const { data: listaUsinas } =
+  await supabase
+    .from('usinas')
+    .select('*')
+    .order('nome');
+
+setUsinas(listaUsinas || []);
+
+
+   const { data, error } = await supabase
+  .from('clientes')
+  .select(`
+    *,
+    usinas (
+      nome
+    )
+  `)
+  .order('nome');
 
     if (error) {
       Alert.alert('Erro', error.message);
@@ -48,6 +75,9 @@ export default function Clientes() {
 setFaturas(listaFaturas || []);
   }
   function editarCliente(cliente: any) {
+    setUsinaId(
+  cliente.usina_id || ''
+);
   setEditando(cliente);
 
   setNome(cliente.nome);
@@ -58,6 +88,8 @@ setFaturas(listaFaturas || []);
   setTelefone(
     cliente.telefone
   );
+  setCpf(cliente.cpf || '');
+setEndereco(cliente.endereco || '');
 }
   
 
@@ -78,6 +110,9 @@ if (editando) {
         uc: uc.replace(/\D/g, ''),
         distribuidora,
         telefone,
+        cpf,
+        endereco,
+        usina_id: usinaId,
       })
       .eq('id', editando.id);
 
@@ -87,12 +122,15 @@ if (editando) {
     await supabase
       .from('clientes')
       .insert([
-        {
-          nome,
-          uc: uc.replace(/\D/g, ''),
-          distribuidora,
-          telefone,
-        },
+       {
+  nome,
+   uc: uc.replace(/\D/g, ''),
+  distribuidora,
+  telefone,
+  cpf,
+  endereco,
+  usina_id: usinaId,
+}
       ]);
 
   error = resultado.error;
@@ -111,7 +149,10 @@ if (error) {
     setUc('');
     setDistribuidora('');
     setTelefone('');
+    setCpf('');
+    setEndereco('');
     setEditando(null);
+    setUsinaId('');
 
     carregarClientes();
   }
@@ -128,28 +169,405 @@ async function excluirCliente(id: string) {
       {
         text: 'Excluir',
         style: 'destructive',
-        onPress: async () => {
-          const { error } =
-            await supabase
-              .from('clientes')
-              .delete()
-              .eq('id', id);
+       onPress: async () => {
+  // Excluir cobranças
+  const { error: cobrancasError } =
+    await supabase
+      .from('cobrancas')
+      .delete()
+      .eq('cliente_id', id);
 
-          if (error) {
-            Alert.alert(
-              'Erro',
-              error.message
-            );
-            return;
-          }
+  if (cobrancasError) {
+    Alert.alert(
+      'Erro',
+      cobrancasError.message
+    );
+    return;
+  }
 
-          carregarClientes();
-        },
+  // Excluir faturas
+  const { error: faturasError } =
+    await supabase
+      .from('faturas')
+      .delete()
+      .eq('cliente_id', id);
+
+  if (faturasError) {
+    Alert.alert(
+      'Erro',
+      faturasError.message
+    );
+    return;
+  }
+
+  // Excluir cliente
+  const { error: clienteError } =
+    await supabase
+      .from('clientes')
+      .delete()
+      .eq('id', id);
+
+  if (clienteError) {
+    Alert.alert(
+      'Erro',
+      clienteError.message
+    );
+    return;
+  }
+
+  Alert.alert(
+    'Sucesso',
+    'Cliente excluído com sucesso'
+  );
+
+  carregarClientes();
+}
       },
     ]
   );
 }
+async function importarViaFatura() {
 
+  try {
+
+    const resultado =
+      await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+      });
+
+    if (resultado.canceled) return;
+
+    const arquivo =
+      resultado.assets[0];
+
+    const base64 =
+      await FileSystem.readAsStringAsync(
+        arquivo.uri,
+        {
+          encoding: 'base64' as any,
+        }
+      );
+
+    const bytes = Uint8Array.from(
+      atob(base64),
+      c => c.charCodeAt(0)
+    );
+
+    const nomeArquivo =
+      Date.now() + '-' + arquivo.name;
+
+    const { error: uploadError } =
+      await supabase.storage
+        .from('faturas')
+        .upload(
+          nomeArquivo,
+          bytes,
+          {
+            contentType: 'application/pdf',
+          }
+        );
+
+    if (uploadError) {
+
+      Alert.alert(
+        'Erro Upload',
+        uploadError.message
+      );
+
+      return;
+
+    }
+
+    const { data: urlData } =
+      supabase.storage
+        .from('faturas')
+        .getPublicUrl(
+          nomeArquivo
+        );
+
+    const arquivoUrl =
+      urlData.publicUrl;
+
+    const resultadoOCR =
+      await lerFaturaOCR(
+        arquivoUrl
+      );
+
+    const textoOCR =
+      resultadoOCR
+        .ParsedResults?.[0]
+        ?.ParsedText || '';
+
+    const dados =
+      extrairDadosCemig(
+        textoOCR
+      );
+
+    if (
+
+      !dados.numero_instalacao ||
+
+      !dados.referencia ||
+
+      !dados.valor_total
+
+    ) {
+
+      Alert.alert(
+        'Fatura inválida',
+        'Não foi possível identificar os dados da fatura.'
+      );
+
+      return;
+
+    }
+
+    const ucLimpa =
+      String(
+        dados.numero_instalacao
+      ).replace(/\D/g, '');
+
+    const { data: clienteExistente } =
+      await supabase
+        .from('clientes')
+        .select('*')
+        .eq('uc', ucLimpa)
+        .maybeSingle();
+
+    let clienteIdFinal =
+      clienteExistente?.id;
+
+    if (!clienteExistente) {
+
+      const {
+
+        data: novoCliente,
+
+        error: clienteError,
+
+      } =
+        await supabase
+          .from('clientes')
+          .insert({
+
+            nome:
+              dados.nome_cliente,
+
+            uc: ucLimpa,
+
+            distribuidora:
+              'CEMIG',
+
+            telefone: '',
+
+            cpf:
+              dados.cpf,
+
+            endereco:
+              dados.endereco,
+
+            cidade:
+              dados.cidade,
+
+            estado:
+              dados.estado,
+
+          })
+
+          .select()
+
+          .single();
+
+      if (clienteError) {
+
+        Alert.alert(
+          'Erro Cliente',
+          clienteError.message
+        );
+
+        return;
+
+      }
+
+      clienteIdFinal =
+        novoCliente.id;
+
+    }
+
+  Alert.alert(
+    'Sucesso',
+    'Cliente importado com sucesso.'
+  );
+  const valorTotal =
+  dados.valor_total
+    ? parseFloat(
+        dados.valor_total
+          .replace(',', '.')
+          .trim()
+      )
+    : 0;
+
+const economia =
+  Number(
+    (valorTotal * 0.4).toFixed(2)
+  );
+
+const vencimentoFormatado =
+  dados.vencimento
+    ? dados.vencimento
+        .split('/')
+        .reverse()
+        .join('-')
+    : null;
+    const { data: faturaExistente } =
+  await supabase
+    .from('faturas')
+    .select('id')
+    .eq('numero_instalacao', ucLimpa)
+    .eq('referencia', dados.referencia)
+    .maybeSingle();
+
+if (faturaExistente) {
+
+  Alert.alert(
+    'Fatura já importada',
+    `A competência ${dados.referencia} já está cadastrada para este cliente.`
+  );
+
+  await carregarClientes();
+
+  return;
+
+}
+
+const {
+  data: faturaCriada,
+  error: faturaError,
+} = await supabase
+  .from('faturas')
+  .insert({
+
+    cliente_id:
+      clienteIdFinal,
+
+    arquivo_url:
+      arquivoUrl,
+
+    referencia:
+      dados.referencia,
+
+    valor_total:
+      valorTotal,
+
+    economia,
+
+    numero_instalacao:
+      ucLimpa,
+
+    nome_cliente:
+      dados.nome_cliente,
+
+    vencimento:
+      vencimentoFormatado,
+
+    consumo_kwh:
+      Number(
+        dados.consumo_kwh || 0
+      ),
+
+  })
+  .select()
+  .single();
+
+if (
+  faturaError ||
+  !faturaCriada
+) {
+
+  Alert.alert(
+    'Erro',
+    faturaError?.message ||
+      'Erro ao criar fatura'
+  );
+
+  return;
+
+}
+
+const percentual =
+  clienteExistente
+    ?.percentual_desconto || 40;
+
+const valorCobrado =
+  Number(
+    (
+      valorTotal *
+      (1 - percentual / 100)
+    ).toFixed(2)
+  );
+
+const {
+  error: cobrancaError,
+} = await supabase
+  .from('cobrancas')
+  .insert({
+
+    cliente_id:
+      clienteIdFinal,
+
+    fatura_id:
+      faturaCriada.id,
+
+    referencia:
+      dados.referencia,
+
+    valor_original:
+      valorTotal,
+
+    percentual_desconto:
+      percentual,
+
+    valor_cobrado:
+      valorCobrado,
+
+    vencimento:
+      vencimentoFormatado,
+
+    status:
+      'PENDENTE',
+
+  });
+
+if (cobrancaError) {
+
+  Alert.alert(
+    'Erro Cobrança',
+    cobrancaError.message
+  );
+
+  return;
+
+}
+
+Alert.alert(
+  'Sucesso',
+  'Cliente importado com sucesso.'
+);
+
+await carregarClientes();
+
+} catch (erro: any) {
+
+  Alert.alert(
+    'Erro',
+    JSON.stringify(erro)
+  );
+
+}
+
+  carregarClientes();
+
+}
   useEffect(() => {
     carregarClientes();
   }, []);
@@ -176,9 +594,8 @@ function economiaCliente(uc: string) {
   );
 }
   return (
-  <ImageBackground
-    source={require('../../assets/images/background.png')}
-    resizeMode="cover"
+  <ImageBackground    
+source={require('../../assets/images/background.png')}    resizeMode="cover"
     style={{ flex: 1 }}
   >
     <KeyboardAvoidingView
@@ -194,91 +611,14 @@ function economiaCliente(uc: string) {
   flex: 1,
 }}
       contentContainerStyle={{
-        padding: 20,
-      }}
+  paddingHorizontal: 20,
+  paddingTop: 55,
+  paddingBottom: 20,
+}}
       keyboardShouldPersistTaps="handled"
     >
-      <Text
-        style={{
-          color: '#facc15',
-          fontSize: 30,
-          fontWeight: '900',
-          marginTop: 40,
-          marginBottom: 20,
-        }}
-      >
-        Clientes
-      </Text>
+   
 
-      <TextInput
-        placeholder="Nome"
-        value={nome}
-        onChangeText={setNome}
-        style={{
-         backgroundColor: 'rgba(255,255,255,0.85)',
-          padding: 15,
-          borderRadius: 10,
-          marginBottom: 10,
-        }}
-      />
-
-      <TextInput
-        placeholder="UC"
-        value={uc}
-        onChangeText={setUc}
-        style={{
-          backgroundColor: 'rgba(255,255,255,0.85)',
-          padding: 15,
-          borderRadius: 10,
-          marginBottom: 10,
-        }}
-      />
-
-      <TextInput
-        placeholder="Distribuidora"
-        value={distribuidora}
-        onChangeText={setDistribuidora}
-        style={{
-         backgroundColor: 'rgba(255,255,255,0.85)',
-          padding: 15,
-          borderRadius: 10,
-          marginBottom: 10,
-        }}
-      />
-
-      <TextInput
-        placeholder="Telefone"
-        value={telefone}
-        onChangeText={setTelefone}
-        style={{
-        backgroundColor: 'rgba(255,255,255,0.85)',
-          padding: 15,
-          borderRadius: 10,
-          marginBottom: 20,
-        }}
-      />
-      
-
-      <TouchableOpacity
-        onPress={salvarCliente}
-        style={{
-          backgroundColor: '#facc15',
-          padding: 18,
-          borderRadius: 12,
-          marginBottom: 30,
-        }}
-      >
-        <Text
-          style={{
-            textAlign: 'center',
-            fontWeight: 'bold',
-          }}
-        >
-        {editando
-  ? 'ATUALIZAR CLIENTE'
-  : 'SALVAR CLIENTE'}
-        </Text>
-      </TouchableOpacity>
       <TextInput
   placeholder="🔍 Buscar cliente"
   value={busca}
@@ -290,17 +630,55 @@ function economiaCliente(uc: string) {
     marginBottom: 15,
   }}
 />
+<View
+  style={{
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 15,
+  }}
+>
+  <TouchableOpacity
+    onPress={() =>
+      router.push('/clientes/novo')
+    }
+    style={{
+      flex: 1,
+      backgroundColor: '#16a34a',
+      padding: 14,
+      borderRadius: 10,
+    }}
+  >
+    <Text
+      style={{
+        color: 'white',
+        textAlign: 'center',
+        fontWeight: 'bold',
+      }}
+    >
+      ➕ NOVO CLIENTE
+    </Text>
+  </TouchableOpacity>
 
-      <Text
-        style={{
-          color: 'white',
-          fontSize: 20,
-          fontWeight: 'bold',
-          marginBottom: 10,
-        }}
-      >
-        Clientes Cadastrados
-      </Text>
+  <TouchableOpacity
+  onPress={importarViaFatura}
+  style={{
+    flex: 1,
+    backgroundColor: '#2563eb',
+    padding: 14,
+    borderRadius: 10,
+  }}
+>
+  <Text
+    style={{
+      color: 'white',
+      textAlign: 'center',
+      fontWeight: 'bold',
+    }}
+  >
+    ➕ VIA FATURA
+  </Text>
+</TouchableOpacity>
+</View>
 
       <FlatList
         scrollEnabled={false}
@@ -327,14 +705,7 @@ borderColor: 'rgba(250,204,21,0.2)',
 >
   
    <TouchableOpacity
-  onPress={() =>
-  router.push({
-    pathname: '/clientes/[id]',
-    params: {
-      id: String(item.id),
-    },
-  })
-}
+  onPress={() => router.push(`/clientes/${item.id}`)}
 
 >
     <Text
@@ -350,16 +721,24 @@ borderColor: 'rgba(250,204,21,0.2)',
   </TouchableOpacity>
 
     <Text style={{ color: '#cbd5e1', marginTop: 6 }}>
-      ⚡ UC: {item.uc}
-    </Text>
+  ⚡ UC: {item.uc}
+</Text>
 
-    <Text style={{ color: '#cbd5e1' }}>
-      🏢 {item.distribuidora}
-    </Text>
+<Text style={{ color: '#60a5fa' }}>
+  ☀️ {item.usinas?.nome || 'Sem usina'}
+</Text>
 
-    <Text style={{ color: '#94a3b8' }}>
-      📞 {item.telefone}
-    </Text>
+<Text style={{ color: '#94a3b8' }}>
+  📞 {item.telefone || '-'}
+</Text>
+
+<Text style={{ color: '#94a3b8' }}>
+  🪪 CPF: {item.cpf || '-'}
+</Text>
+
+<Text style={{ color: '#94a3b8' }}>
+  📍 {item.endereco || '-'}
+</Text>
 
     <Text
       style={{
@@ -370,6 +749,7 @@ borderColor: 'rgba(250,204,21,0.2)',
     >
       Economia acumulada
     </Text>
+    
 
     <Text
       style={{
@@ -401,7 +781,12 @@ borderColor: 'rgba(250,204,21,0.2)',
 
     <TouchableOpacity
   onPress={() =>
-    editarCliente(item)
+    router.push({
+      pathname: '/clientes/editar',
+      params: {
+        id: item.id,
+      },
+    })
   }
   style={{
     backgroundColor: 'rgba(255,255,255,0.85)',
@@ -413,7 +798,7 @@ borderColor: 'rgba(250,204,21,0.2)',
 >
   <Text
     style={{
-      color: 'blue',
+      color: '#2563eb',
       textAlign: 'center',
       fontWeight: 'bold',
     }}
@@ -422,56 +807,8 @@ borderColor: 'rgba(250,204,21,0.2)',
   </Text>
 </TouchableOpacity>
 
-        <TouchableOpacity
-      onPress={() =>
-        excluirCliente(item.id)
-      }
-      style={{
-       backgroundColor: 'rgba(255,255,255,0.85)',
-        padding: 10,
-        borderRadius: 8,
-        marginTop: 12,
-      }}
-    >
-      <Text
-        style={{
-          color: 'red',
-          textAlign: 'center',
-          fontWeight: 'bold',
-        }}
-      >
-        EXCLUIR CLIENTE
-      </Text>
-    </TouchableOpacity>
-    <TouchableOpacity
-  onPress={() =>
-    router.push({
-      pathname: '/clientes/[id]',
-      params: { id: item.id },
-    })
-  }
-  style={{
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 12,
-  }}
->
-  <Text
-    style={{
-      textAlign: 'center',
-      fontWeight: 'bold',
-    }}
-  >
-    VER DETALHES
-  </Text>
-  
-</TouchableOpacity>
-
-  </View>
+         </View>
 )}
-
-
       />
     </ScrollView>
       </KeyboardAvoidingView>

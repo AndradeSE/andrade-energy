@@ -3,26 +3,54 @@ import { Tabs } from 'expo-router';
 
 export default function TabLayout() {
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: '#020617',
-          borderTopColor: '#111827',
-        },
-        tabBarActiveTintColor: '#facc15',
-        tabBarInactiveTintColor: '#64748b',
-      }}
-    >
+   <Tabs
+  screenOptions={{
+    headerShown: false,
+
+   tabBarStyle: {
+  backgroundColor: '#ffffff',
+  borderTopWidth: 0,
+  elevation: 5,
+  shadowOpacity: 0.1,
+},
+
+    tabBarActiveTintColor: '#3b82f6',
+tabBarInactiveTintColor: '#000000',
+  }}
+>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
+          title: 'Home',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={size} color={color} />
           ),
         }}
       />
+      <Tabs.Screen
+  name="usinas"
+  options={{
+    title: 'Usinas',
+    tabBarIcon: ({ color, size }) => (
+      <Ionicons
+        name="flash"
+        size={size}
+        color={color}
+      />
+    ),
+  }}
+/>
+
+ <Tabs.Screen
+        name="clientes"
+        options={{
+          title: 'Clientes',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="people" size={size} color={color} />
+          ),
+        }}
+      />
+      
       <Tabs.Screen
   name="faturas"
   options={{
@@ -37,27 +65,7 @@ export default function TabLayout() {
   }}
 />
 
-      <Tabs.Screen
-        name="clientes"
-        options={{
-          title: 'Clientes',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people" size={size} color={color} />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
-        name="upload"
-        options={{
-          title: 'Upload',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="cloud-upload" size={size} color={color} />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
+              <Tabs.Screen
         name="financeiro"
         options={{
           title: 'Financeiro',

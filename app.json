@@ -7,15 +7,14 @@
     "icon": "./assets/images/icon.png",
     "scheme": "andradeenergy",
     "userInterfaceStyle": "automatic",
-  
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-  "backgroundColor": "#020617",
-  "foregroundImage": "./assets/images/android-icon-foreground.png"
-},
+        "backgroundColor": "#020617",
+        "foregroundImage": "./assets/images/android-icon-foreground.png"
+      },
       "predictiveBackGestureEnabled": false,
       "package": "com.andradese.sun"
     },
@@ -32,8 +31,6 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#020617"
-         
-          
         }
       ]
     ],
@@ -46,6 +43,12 @@
       "eas": {
         "projectId": "45f35f6f-4f6a-4452-b2e4-02932e778b2b"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/45f35f6f-4f6a-4452-b2e4-02932e778b2b"
     }
   }
 }
