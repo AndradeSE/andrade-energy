@@ -29,7 +29,6 @@ export default function Usinas() {
   }, []);
 
     async function carregar() {
-     console.log('listarUsinas:', listarUsinas); 
 
   const { data: faturas } =
     await supabase

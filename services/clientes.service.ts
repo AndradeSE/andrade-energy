@@ -27,6 +27,24 @@ export async function listarClientes() {
 
 }
 
+export async function buscarClientePorUC(
+  uc: string
+) {
+
+  const { data, error } =
+    await supabase
+      .from("clientes")
+      .select("*")
+      .eq("uc", uc)
+      .single();
+
+  if (error)
+    return null;
+
+  return data;
+
+}
+
 
 export async function buscarCliente(id: string) {
 

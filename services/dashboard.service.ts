@@ -69,6 +69,14 @@ const faturasLista = faturas.data || [];
         c => c.status === 'PENDENTE'
       ).length;
 
+      const inadimplencia =
+  cobrancas.data?.length
+    ? (
+        cobrancasPendentes /
+        cobrancas.data.length
+      ) * 100
+    : 0;
+
       const clientesSemUsina =
   clientesLista.filter(
     c => !c.usina_id
@@ -185,6 +193,8 @@ const energiaDisponivel =
   ocupacaoMedia,
 
   totalFaturas,
+  
+  inadimplencia,
 
 };
 

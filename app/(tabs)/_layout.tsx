@@ -74,6 +74,19 @@ tabBarInactiveTintColor: '#000000',
           ),
         }}
       />
+      <Tabs.Screen
+  name="operacao"
+  options={{
+    title: "Operação",
+    tabBarIcon: ({ color, size }) => (
+      <Ionicons
+        name="construct"
+        size={size}
+        color={color}
+      />
+    ),
+  }}
+/>
     </Tabs>
   );
 }
