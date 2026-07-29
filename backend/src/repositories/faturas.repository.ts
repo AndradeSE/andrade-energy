@@ -1,11 +1,8 @@
 import { supabase } from "../config/supabase";
-console.log("Repository de faturas carregado");
- 
 export async function buscarFatura(
   clienteId: string,
   referencia: string
 ) {
-    console.log("buscarFatura chamada");
   const { data, error } = await supabase
     .from("faturas")
     .select("*")
@@ -17,10 +14,7 @@ export async function buscarFatura(
 
   return data;
 }
-export async function salvarFaturaBanco(
-  dados: any
-) {
-
+export async function salvarFaturaBanco(dados: any) {
   const { data, error } = await supabase
     .from("faturas")
     .insert(dados)
@@ -30,5 +24,42 @@ export async function salvarFaturaBanco(
   if (error) throw error;
 
   return data;
+}
+export async function buscarFaturaPorId(id: string) {
 
+  const { data, error } = await supabase
+    .from("faturas")
+    .select(`
+      *,
+      clientes(
+        nome,
+        uc
+      )
+    `)
+    .eq("id", id)
+    .single();
+
+  if (error) throw error;
+
+  return data;
+
+}
+export async function listarFaturasPorCliente(
+  clienteId: string
+) {
+  const { data, error } = await supabase
+    .from("faturas")
+    .select(`
+      id,
+      referencia,
+      valor_final,
+      vencimento,
+      arquivo_url
+    `)
+    .eq("cliente_id", clienteId)
+    .order("vencimento", { ascending: false });
+
+  if (error) throw error;
+
+  return data;
 }

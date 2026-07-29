@@ -1,32 +1,30 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-    Alert,
-    ImageBackground,
-    ScrollView,
-    Text,
-    TouchableOpacity
+  Alert,
+  ImageBackground,
+  ScrollView,
+  Text,
+  TouchableOpacity
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
 import InfoCard from "../../components/InfoCard";
 import ValidationAlert from "../../components/ValidationAlert";
+import { salvarImportacao } from "../../services/faturas.service";
 
-import { salvarFatura } from "../../services/faturas.service";
-import { validarFatura } from "../../services/validacao.service";
 
 export default function ConfirmarImportacao() {
   const params = useLocalSearchParams();
 
   const importacao = useMemo(() => {
-    if (!params.importacao) return null;
+  if (!params.importacao) return null;
 
-    return JSON.parse(params.importacao as string);
-  }, []);
+  return JSON.parse(params.importacao as string);
+}, [params.importacao]);
 
   const [loading, setLoading] = useState(false);
   const [erros, setErros] = useState<string[]>([]);
-
+console.log(JSON.stringify(importacao, null, 2));
   if (!importacao) {
     return (
       <SafeAreaView
@@ -42,37 +40,35 @@ export default function ConfirmarImportacao() {
   }
 
   async function confirmar() {
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      const resultado = await validarFatura(
-        importacao.dados
-      );
+    const resultado =
+      await salvarImportacao(importacao);
 
-      if (!resultado.valido) {
-        setErros(resultado.erros);
-        return;
-      }
-
-      await salvarFatura(importacao);
-
-      Alert.alert(
-        "Sucesso",
-        "Fatura importada com sucesso."
-      );
-
-      router.back();
-    } catch (error) {
-      console.error(error);
-
-      Alert.alert(
-        "Erro",
-        "Não foi possível importar a fatura."
-      );
-    } finally {
-      setLoading(false);
+    if (!resultado.valido) {
+      setErros(resultado.erros);
+      return;
     }
+
+    Alert.alert(
+      "Sucesso",
+      "Fatura importada com sucesso."
+    );
+
+    router.back();
+
+  } catch (error) {
+    console.error(error);
+
+    Alert.alert(
+      "Erro",
+      "Não foi possível importar a fatura."
+    );
+  } finally {
+    setLoading(false);
   }
+}
 
   return (
     <ImageBackground
@@ -114,9 +110,9 @@ export default function ConfirmarImportacao() {
           />
 
           <InfoCard
-            titulo="Competência"
-            valor={importacao.dados.referencia}
-          />
+  titulo="Competência"
+  valor={importacao.dados.competencia}
+/>
 
           <InfoCard
             titulo="Vencimento"
@@ -125,7 +121,7 @@ export default function ConfirmarImportacao() {
 
           <InfoCard
             titulo="Consumo"
-            valor={`${importacao.dados.consumo} kWh`}
+            valor={`${importacao.dados.consumoKwh} kWh`}
           />
 
           <InfoCard
@@ -140,10 +136,10 @@ export default function ConfirmarImportacao() {
           <InfoCard
             titulo="Economia"
             valor={`R$ ${Number(
-              importacao.dados.economia
-            )
-              .toFixed(2)
-              .replace(".", ",")}`}
+  importacao.dados.economia ?? 0
+)
+  .toFixed(2)
+  .replace(".", ",")}`}
           />
 
           <TouchableOpacity

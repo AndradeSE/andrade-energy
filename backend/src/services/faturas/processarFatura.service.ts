@@ -1,12 +1,12 @@
 import {
-    buscarClientePorUC,
-    criarCliente
+  buscarClientePorUC,
+  criarCliente
 } from "../../repositories/clientes.repository";
-
+import { salvarDebitos, } from "../../repositories/debitos.repository";
+import { inserirHistorico } from "../../repositories/historico.repository";
 import { extrairTexto } from "./extrairTexto.service";
 import { interpretarFatura } from "./interpretarFatura.service";
 import { salvarFatura } from "./salvarFatura.service";
-
 
 export async function processarFatura(
   caminhoPDF: string
@@ -42,19 +42,23 @@ if (!cliente) {
 console.log("5 - Salvando fatura...");  
 
 
-   const fatura = await salvarFatura(
-  cliente.id,
-  dados
-);
+  const fatura = await salvarFatura(cliente.id, dados);
 
- return {
+for (const item of dados.historico) {
+  await inserirHistorico({
+    fatura_id: fatura.id,
+    competencia: item.mes,
+    consumo_kwh: item.consumo,
+    media_diaria: item.mediaDiaria,
+    dias: item.dias,
+  });
+}
+await salvarDebitos(fatura.id, dados.debitos);
 
+return {
   status: "ok",
-
   dados,
-
   fatura
-
 };
 
 }

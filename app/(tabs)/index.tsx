@@ -1,283 +1,109 @@
-import { useEffect, useState } from 'react';
-import {
-  ImageBackground,
-  RefreshControl,
-  ScrollView,
-  View
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import AlertCard from '../../components/AlertCard';
-import RevenueChart from "../../components/dashboard/RevenueChart";
-import DashboardCard from '../../components/DashboardCard';
-import DashboardSection from '../../components/DashboardSection';
-import DashboardSkeleton from "../../components/DashboardSkeleton";
-import MetricRow from '../../components/MetricRow';
-import PageHeader from '../../components/PageHeader';
-import * as DashboardService from '../../services/dashboard.service';
+import { router } from "expo-router";
+import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import EconomiaCard from "../../components/EconomiaCard";
+import StatCard from "../../components/StatCard";
+import UltimaFaturaCard from "../../components/UltimaFaturaCard";
+import { useDashboard } from "../../hooks/useDashboard";
 
-export default function Dashboard() {
- 
-  const [refreshing, setRefreshing] = useState(false);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [dashboard, setDashboard] =
-  useState({
-
-    clientes: 0,
-
-    usinas: 0,
-
-    receitaPrevista: 0,
-
-    receitaRecebida: 0,
-
-    economiaGerada: 0,
-
-    cobrancasPendentes: 0,
-
-    clientesSemUsina: 0,
-
-    energiaDisponivel: 0,
-
-    ocupacaoMedia: 0,
-
-    totalFaturas: 0,
-
-    inadimplencia:0,
-
-  });
-
-  useEffect(() => {
-    carregar();
-  }, []);
-
-  async function carregar() {
-
-    try {
-
-      setLoading(true);
-
-
-      
-      const dados =
-        await DashboardService.carregarDashboard();
-
-        console.log(dados);
-
-      setDashboard(dados);
-
-     
-
-    } catch (error) {
-
-      console.error(error);
-
-    } finally {
-
-      setLoading(false);
-
-    }
-
-  }
-
-  const onRefresh = async () => {
-  setRefreshing(true);
-
-  try {
-    await carregar();
-  } finally {
-    setRefreshing(false);
-  }
-};
-
-if (loading) {
-  return (
-    <ImageBackground
-      source={require("../../assets/images/background.png")}
-      resizeMode="cover"
-      style={{ flex: 1 }}
-    >
-      <SafeAreaView style={{ flex: 1 }}>
-        <DashboardSkeleton />
-      </SafeAreaView>
-    </ImageBackground>
+export default function Home() {
+  const { data, isLoading, error } = useDashboard(
+    "16b9bf33-eb44-4585-b941-99ae0210c277"
   );
-}
 
-  return (
-
-    <ImageBackground
-  source={require('../../assets/images/background.png')}
-  resizeMode="cover"
-  style={{
-    flex: 1,
-  }}
->
-
+  if (isLoading) {
+    return (
       <SafeAreaView
-        style={{ flex: 1 }}
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
       >
-
-        <ScrollView
-  refreshControl={
-    <RefreshControl
-      refreshing={refreshing}
-      onRefresh={onRefresh}
-      colors={["#16A34A"]}
-      tintColor="#16A34A"
-    />
-  }
->
-
-        <PageHeader
-  titulo="Bom dia! 👋"
-  subtitulo={`${dashboard.clientes} clientes ativos • ${dashboard.usinas} usinas • R$ ${dashboard.receitaPrevista
-    .toFixed(2)
-    .replace(".", ",")} previstos para este mês`}
-/>
-
-        
-         <View
-  style={{
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  }}
->
-
- <DashboardCard
-  icone="💰"
-  titulo="Receita Prevista"
-  valor={`R$ ${dashboard.receitaPrevista.toFixed(2).replace(".", ",")}`}
-/>
-
-<DashboardCard
-  icone="⚡"
-  titulo="Economia"
-  valor={`R$ ${dashboard.economiaGerada.toFixed(2).replace(".", ",")}`}
-/>
-
-<DashboardCard
-  icone="👥"
-  titulo="Clientes"
-  valor={dashboard.clientes}
-/>
-
- <DashboardCard
-  icone="🏭"
-  titulo="Ocupação"
-  valor={`${dashboard.ocupacaoMedia.toFixed(1)}%`}
-/>
-
- 
-</View>
-
-<DashboardSection
-  titulo="Saúde da Operação"
-  icone="⚡"
->
-
-  <MetricRow
-    titulo="Energia disponível"
-    valor={`${dashboard.energiaDisponivel.toFixed(0)} kWh`}
-  />
-
-  <MetricRow
-  titulo="Utilização da energia"
-  valor={`${dashboard.ocupacaoMedia.toFixed(1)}%`}
-/>
-
-  <MetricRow
-    titulo="Ocupação média"
-    valor={`${(dashboard.ocupacaoMedia ?? 0).toFixed(1)}%`}
-  />
-
-  <MetricRow
-    titulo="Clientes sem usina"
-    valor={dashboard.clientesSemUsina}
-  />
-
-  <MetricRow
-    titulo="Faturas processadas"
-    valor={dashboard.totalFaturas}
-  />
-  </DashboardSection>
-
-<DashboardSection
-  titulo="O que precisa da sua atenção"
-  icone="🎯"
->
-
-<AlertCard
-  tipo="danger"
-  titulo={`${dashboard.cobrancasPendentes} cobranças vencidas`}
-/>
-
-<AlertCard
-  tipo="warning"
-  titulo={`${dashboard.clientesSemUsina} clientes aguardando alocação`}
-/>
-
-<AlertCard
-  tipo="success"
-  titulo={`${dashboard.energiaDisponivel.toFixed(0)} kWh disponíveis para venda`}
-/>
-</DashboardSection>
-
-  <DashboardSection
-  titulo="Financeiro"
-  icone="💰"
->
-
-  <DashboardSection
-  titulo="Faturamento"
-  icone="📈"
->
-  <RevenueChart
-    previsto={dashboard.receitaPrevista}
-    recebido={dashboard.receitaRecebida}
-  />
-</DashboardSection>
-
-  <MetricRow
-    titulo="Receita prevista"
-    valor={`R$ ${Number(dashboard.receitaPrevista).toFixed(2).replace('.', ',')}`}
-  />
-
-  <MetricRow
-    titulo="Receita recebida"
-    valor={`R$ ${Number(dashboard.receitaRecebida).toFixed(2).replace('.', ',')}`}
-  />
-
-  <MetricRow
-  titulo="Valor em aberto"
-  valor={`R$ ${(dashboard.receitaPrevista - dashboard.receitaRecebida)
-    .toFixed(2)
-    .replace(".", ",")}`}
-/>
-
-  <MetricRow
-    titulo="Cobranças pendentes"
-    valor={dashboard.cobrancasPendentes}
-  />
-
-  <MetricRow
-    titulo="Inadimplência"
-    valor={`${Number(dashboard.inadimplencia).toFixed(1)}%`}
-  />
-
-</DashboardSection>
-
-
-        </ScrollView>
-
+        <ActivityIndicator size="large" />
       </SafeAreaView>
+    );
+  }
 
-    </ImageBackground>
-    
+  if (error || !data) {
+    return (
+      <SafeAreaView
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <Text>Erro ao carregar dashboard.</Text>
+      </SafeAreaView>
+    );
+  }
 
+  return (
+    <SafeAreaView
+      style={{
+        flex: 1,
+        backgroundColor: "#F8FAFC",
+      }}
+    >
+      <ScrollView
+        contentContainerStyle={{
+          padding: 20,
+        }}
+      >
+        <Text
+          style={{
+            fontSize: 18,
+            color: "#64748B",
+          }}
+        >
+          Boa noite 👋
+        </Text>
+
+        <Text
+          style={{
+            fontSize: 30,
+            fontWeight: "bold",
+            marginTop: 4,
+            marginBottom: 24,
+          }}
+        >
+          {data.cliente}
+        </Text>
+
+        <EconomiaCard economia={data.economiaMes} />
+
+        <View
+          style={{
+            flexDirection: "row",
+            gap: 16,
+          }}
+        >
+          <StatCard
+            titulo="⚡ Consumo"
+            valor={`${data.consumo} kWh`}
+          />
+
+          <StatCard
+            titulo="🔋 Créditos"
+            valor={`${data.creditos} kWh`}
+          />
+        </View>
+
+       <UltimaFaturaCard
+  competencia={data.ultimaFatura.competencia}
+  valor={data.ultimaFatura.valor}
+  vencimento={data.ultimaFatura.vencimento}
+  onPress={() =>
+    router.push({
+      pathname: "/faturas/[id]",
+      params: {
+        id: data.ultimaFatura.id,
+      },
+    })
+  }
+/>
+      </ScrollView>
+    </SafeAreaView>
   );
-
 }

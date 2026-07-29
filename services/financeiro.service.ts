@@ -1,9 +1,15 @@
 import { supabase } from "../supabase";
 
 export async function carregarFinanceiro() {
-  const { data, error } = await supabase
-    .from("faturas")
-    .select("*");
+      const { data, error } = await supabase
+  .from("faturas")
+  .select(`
+    *,
+    clientes (
+      nome,
+      telefone
+    )
+  `);
 
   if (error) throw error;
 

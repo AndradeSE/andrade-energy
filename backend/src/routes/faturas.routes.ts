@@ -1,6 +1,14 @@
 import { Router } from "express";
 import multer from "multer";
-import { processarFaturaController } from "../controllers/faturas.controller";
+import {
+  buscarFaturaController,
+  listarFaturasController,
+  processarFaturaController
+} from "../controllers/faturas.controller";
+
+
+console.log("FATURAS ROUTES CARREGADAS");
+
 
 const router = Router();
 
@@ -13,6 +21,15 @@ const upload = multer({
   dest: "src/uploads"
 });
 
+router.get(
+  "/:id",
+  buscarFaturaController
+);
+
+router.get(
+  "/cliente/:clienteId",
+  listarFaturasController,
+);
 router.post(
   "/processar",
   upload.single("pdf"),

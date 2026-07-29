@@ -1,271 +1,112 @@
-import { useEffect, useState } from 'react';
-
+import { router } from "expo-router";
 import {
-  Alert,
+  ActivityIndicator,
   FlatList,
-  ImageBackground,
-  ScrollView,
   Text,
   TouchableOpacity,
-  View
-} from 'react-native';
-import AndradeBarChart from "../../components/charts/AndradeBarChart";
-import { supabase } from '../../supabase';
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useFaturas } from "../../hooks/useFaturas";
+
+
 
 export default function Faturas() {
-  const [faturas, setFaturas] =
-    useState<any[]>([]);
-    const [economiaTotal, setEconomiaTotal] =
-  useState(0);
+  const { data, isLoading, error } =
+  useFaturas("16b9bf33-eb44-4585-b941-99ae0210c277");
 
-  async function carregar() {
-    const { data } =
-  await supabase
-    .from('faturas')
-    .select('*');
 
-const lista = data || [];
-
-setFaturas(lista);
-
-setEconomiaTotal(
-  lista.reduce(
-    (acc, item) =>
-      acc + Number(item.economia || 0),
-    0
-  )
-);
-}
-
-async function excluirFatura(id: string) {
-  Alert.alert(
-    'Excluir Fatura',
-    'Deseja realmente excluir esta fatura?',
-    [
-      {
-        text: 'Cancelar',
-        style: 'cancel',
-      },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: async () => {
-          const { error } =
-            await supabase
-              .from('faturas')
-              .delete()
-              .eq('id', id);
-
-          if (error) {
-            Alert.alert(
-              'Erro',
-              error.message
-            );
-            return;
-          }
-
-          carregar();
-
-          Alert.alert(
-            'Sucesso',
-            'Fatura excluída'
-          );
-        },
-      },
-    ]
-  );
-}
-
-useEffect(() => {
-  carregar();
-}, []);
-const labels =
-  faturas
-    .slice()
-    .reverse()
-    .map((f) =>
-      f.referencia?.split('/')[0]
+    
+  if (isLoading) {
+    return (
+      <SafeAreaView
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <ActivityIndicator size="large" />
+      </SafeAreaView>
     );
+  }
 
-const economias =
-  faturas
-    .slice()
-    .reverse()
-    .map(
-      (f) => Number(f.economia)
+  if (error) {
+    return (
+      <SafeAreaView
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <Text>Erro ao carregar as faturas.</Text>
+      </SafeAreaView>
     );
+  }
 
-    const chartData = labels.map((label, index) => ({
-  label,
-  value: economias[index],
-}));
-return (
-  <ImageBackground
-source={require('../../assets/images/background.png')}  style={{
-    flex: 1,
-    paddingTop: 70,
-  }}
->
- <ScrollView
-  contentContainerStyle={{
-    padding: 16,
-  }}
->
-    <View
+  return (
+    <SafeAreaView
       style={{
-       backgroundColor: 'rgba(250,204,21,0.65)',
-        padding: 20,
-        borderRadius: 12,
-        marginBottom: 20,
+        flex: 1,
+        backgroundColor: "#F8FAFC",
       }}
     >
-      <Text
-        style={{
-          fontSize: 16,
-          fontWeight: 'bold',
+      <FlatList
+        data={data ?? []}
+        contentContainerStyle={{
+          padding: 20,
         }}
-      >
-        Economia acumulada
-      </Text>
-
-      <Text
-        style={{
-          fontSize: 32,
-          fontWeight: 'bold',
-        }}
-      >
-        R$ {economiaTotal.toFixed(2).replace('.', ',')}
-      </Text>
-
-     {faturas.length > 1 && (
-  <View
-    style={{
-      alignItems: 'center',
-      marginVertical: 15,
-    }}
-  >
-  <AndradeBarChart
-  data={chartData}
-  height={250}
-/>
-  </View>
-)}
-
-<Text
-  style={{
-    marginTop: 8,
-    fontSize: 16,
-  }}
->
-  Última referência: {faturas[0]?.referencia || '-'}
-</Text>
-    </View>
-
-    <FlatList
-    scrollEnabled={false}
-        data={faturas}
-        keyExtractor={(item) =>
-          String(item.id)
-        }
+        keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <View
-            style={{
-              backgroundColor: 'rgba(255,255,255,0.80)',
-              padding: 16,
-              borderRadius: 12,
-              marginBottom: 12,
-            }}
-          >
-            <Text
-              style={{
-                color: 'black',
-                fontSize: 18,
-                fontWeight: 'bold',
-              }}
-            >
-            📄 {item.referencia}
-            </Text>
-
-            <Text
-              style={{
-                color: 'black',
-              }}
-            >
-              Valor:
-              R$ {Number(item.valor_total)
-  .toFixed(2)
-  .replace('.', ',')}
-            </Text>
-            <Text
-  style={{
-    color: '#22c55e',
-    fontWeight: 'bold',
-  }}
->
-  Economia:
-  R$ {Number(item.economia)
-  .toFixed(2)
-  .replace('.', ',')}
-</Text>
-
-<Text
-  style={{
-    color: 'black',
-  }}
->
-  Cliente:
-  {' '}
-  {item.nome_cliente}
-</Text>
-
-<Text
-  style={{
-    color: 'black',
-  }}
->
-  Vencimento:{' '}
-  {item.vencimento
-    ? item.vencimento
-        .split('-')
-        .reverse()
-        .join('/')
-    : '-'}
-</Text>
-
-            <Text
-  style={{
-    color: 'black',
-  }}
->
-  Instalação: {item.numero_instalacao}
-</Text>
-
-<TouchableOpacity
+          <TouchableOpacity
   onPress={() =>
-    excluirFatura(item.id)
+    router.push({
+      pathname: "/faturas/[id]",
+      params: {
+        id: item.id,
+      },
+    })
   }
-  style={{
-    backgroundColor: '#dc2626',
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 12,
-  }}
 >
-  <Text
-    style={{
-      color: 'black',
-      textAlign: 'center',
-      fontWeight: 'bold',
-    }}
-  >
-    EXCLUIR FATURA
-  </Text>
-</TouchableOpacity>
-          </View>
+            <View
+              style={{
+                backgroundColor: "#FFFFFF",
+                borderRadius: 16,
+                padding: 20,
+                marginBottom: 16,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 20,
+                  fontWeight: "bold",
+                }}
+              >
+                {item.referencia}
+              </Text>
+
+              <Text
+                style={{
+                  marginTop: 8,
+                  fontSize: 18,
+                }}
+              >
+                R$ {Number(item.valor_final).toFixed(2)}
+              </Text>
+
+              <Text
+                style={{
+                  color: "#64748B",
+                  marginTop: 6,
+                }}
+              >
+                {item.vencimento}
+              </Text>
+            </View>
+          </TouchableOpacity>
         )}
       />
-      </ScrollView>
-</ImageBackground>
+    </SafeAreaView>
   );
 }
-

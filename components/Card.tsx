@@ -1,40 +1,28 @@
-import { View } from 'react-native';
+import { ReactNode } from "react";
+import { StyleProp, View, ViewStyle } from "react-native";
+
+type Props = {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+};
 
 export default function Card({
   children,
-}: {
-  children: React.ReactNode;
-}) {
+  style,
+}: Props) {
   return (
-
     <View
-      style={{
-        backgroundColor: 'rgba(255,255,255,0.92)',
-        padding: 20,
-        borderRadius: 18,
-        marginBottom: 15,
-      }}
+      style={[
+        {
+          backgroundColor: "#FFFFFF",
+          borderRadius: 20,
+          padding: 20,
+          marginBottom: 16,
+        },
+        style,
+      ]}
     >
       {children}
     </View>
   );
 }
-<Card>
-  <View
-  style={{
-    backgroundColor:'rgba(255,255,255,0.95)',
-    padding:20,
-    borderRadius:18,
-  }}
-></View>
-
-  <View
-  style={{
-    backgroundColor: '#0f172a',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 10,
-  }}
-  ></View>
-  
-</Card>

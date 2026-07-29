@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import * as DashboardService from "../services/dashboard.service";
+import { buscarDashboard } from "../services/dashboard.service";
 
-export function useDashboard() {
+export function useDashboard(clienteId: string) {
   return useQuery({
-    queryKey: ["dashboard"],
-    queryFn: DashboardService.carregarDashboard,
+    queryKey: ["dashboard", clienteId],
+    queryFn: () => buscarDashboard(clienteId),
   });
 }

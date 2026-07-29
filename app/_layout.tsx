@@ -1,13 +1,20 @@
-import { Stack } from 'expo-router';
+import { Stack } from "expo-router";
+import QueryProvider from "../providers/QueryProvider";
 
 export default function RootLayout() {
   return (
-    
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="clientes/[id]" />
-      <Stack.Screen name="modal" />
-    </Stack>
-    
+    <QueryProvider>
+      <Stack screenOptions={{ headerShown: false }}>
+
+        <Stack.Screen name="login" />
+
+        <Stack.Screen name="(tabs)" />
+
+        <Stack.Screen name="clientes/[id]" />
+
+        <Stack.Screen name="modal" />
+
+      </Stack>
+    </QueryProvider>
   );
 }

@@ -12,6 +12,42 @@ import { mapFaturaExtraidaParaBanco } from "./faturas/mapper";
 
 import { ImportacaoFatura } from "../types/ImportacaoFatura";
 
+import { API } from "../config/api";
+export async function buscarFatura(id: string) {
+  console.log(">>> BUSCAR FATURA", id);
+
+  const response = await fetch(
+    `${API}/faturas/${id}`
+  );
+
+  if (!response.ok) {
+
+
+  const texto = await response.text();
+
+  throw new Error("Erro ao carregar fatura");
+}
+
+  return response.json();
+}
+
+export async function listarFaturas(clienteId: string) {
+    console.log(">>> LISTAR FATURAS", clienteId);
+
+  
+  const response = await fetch(
+    `${API}/faturas/cliente/${clienteId}`
+  );
+
+
+
+  if (!response.ok) {
+    throw new Error("Erro ao carregar faturas");
+  }
+
+  return response.json();
+}
+
 export async function salvarImportacao(
   importacao: ImportacaoFatura
 ) {
@@ -72,21 +108,6 @@ export async function salvarImportacao(
 
 }
 
-export async function listarFaturas() {
-
-  const { data, error } =
-    await supabase
-      .from('faturas')
-      .select('*')
-      .order('referencia', {
-        ascending: false,
-      });
-
-  if (error) throw error;
-
-  return data || [];
-
-}
 
 export async function buscarFaturasCliente(
   uc: string
@@ -182,3 +203,4 @@ async function uploadPDF(
 export async function gerarCobranca() {}
 
 export async function calcularEconomia() {}
+
