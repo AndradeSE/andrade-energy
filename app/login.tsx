@@ -1,11 +1,11 @@
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Text,
-    TextInput,
-    TouchableOpacity
+  ActivityIndicator,
+  Alert,
+  Text,
+  TextInput,
+  TouchableOpacity
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLogin } from "../hooks/useLogin";
@@ -81,12 +81,26 @@ export default function Login() {
         senha,
       });
 
-      await salvarSessao(usuario);
+      await salvarSessao(usuario.usuario);
 
       console.log(usuario);
 
-      router.replace("/(tabs)");
+switch (usuario.usuario.perfil) {
+  case "ADMIN":
+    router.replace("/(tabs)");
+    break;
 
+  case "CLIENTE":
+    router.replace("/(tabs)");
+    break;
+
+  case "GERADOR":
+    router.replace("/(tabs)");
+    break;
+
+  default:
+    Alert.alert("Perfil inválido");
+}
     } catch (e: any) {
 
       Alert.alert(

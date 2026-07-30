@@ -4,8 +4,7 @@ export async function login(
   email: string,
   senha: string
 ) {
-  const usuario =
-    await buscarUsuarioPorEmail(email);
+  const usuario = await buscarUsuarioPorEmail(email);
 
   if (!usuario) {
     throw new Error("Usuário não encontrado");
@@ -16,9 +15,14 @@ export async function login(
   }
 
   return {
-    id: usuario.id,
-    nome: usuario.nome,
-    email: usuario.email,
-    perfil: usuario.perfil,
+    token: "MVP_TOKEN",
+    usuario: {
+      id: usuario.id,
+      nome: usuario.nome,
+      email: usuario.email,
+      perfil: usuario.perfil,
+      clienteId: usuario.cliente_id,
+      geradorId: usuario.gerador_id,
+    },
   };
 }
