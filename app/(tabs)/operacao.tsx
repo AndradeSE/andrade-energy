@@ -1,17 +1,18 @@
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-    FlatList,
-    ImageBackground,
-    Text,
-    TouchableOpacity,
-    View
+  FlatList,
+  ImageBackground,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 import Card from "../../components/Card";
 import DashboardCard from "../../components/DashboardCard";
+
 import {
-    listarFechamentos,
-    obterResumoOperacao,
+  listarFechamentos,
+  obterResumoOperacao,
 } from "../../services/fechamentos.service";
 
 export default function Operacao() {

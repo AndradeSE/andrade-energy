@@ -1,12 +1,7 @@
-import { API } from "../config/api";
+import api from "../config/api";
+
 export async function buscarDashboard(clienteId: string) {
-  const response = await fetch(
-    `${API}/dashboard/${clienteId}`
-  );
+  const { data } = await api.get(`/dashboard/${clienteId}`);
 
-  if (!response.ok) {
-    throw new Error("Erro ao carregar dashboard");
-  }
-
-  return response.json();
+  return data;
 }

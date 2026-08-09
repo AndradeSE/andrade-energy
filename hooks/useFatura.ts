@@ -1,10 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
-import { buscarFatura } from "../services/faturas.service";
+import { useAuth } from "../contexts/AuthContext";
+import { listarFaturas } from "../services/faturas.service";
 
-export function useFatura(id: string) {
+export function useFaturas() {
+  const { usuario } = useAuth();
+
   return useQuery({
-    queryKey: ["fatura", id],
-    queryFn: () => buscarFatura(id),
-    enabled: !!id,
+    queryKey: ["faturas", usuario?.cliente_id],
+
+    enabled: !!usuario?.cliente_id,
+
+    queryFn: () =>
+      listarFaturas(usuario!.cliente_id!),
   });
 }

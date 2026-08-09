@@ -1,206 +1,51 @@
-import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system/legacy';
-import { supabase } from '../supabase';
-import { buscarClientePorUC } from "./clientes.service";
-import { extrairTextoPDF } from "./ocr/ocr.service";
-import { interpretarFatura } from "./ocr/parser.service";
-import { validarFatura } from "./validacao.service";
+import * as FileSystem from "expo-file-system/legacy";
+import api from "../config/api";
 
-import { criarCobranca } from "./cobrancas.service";
-import { inserirFatura } from "./fatura.repository";
-import { mapFaturaExtraidaParaBanco } from "./faturas/mapper";
-
-import { ImportacaoFatura } from "../types/ImportacaoFatura";
-
-import { API } from "../config/api";
-export async function buscarFatura(id: string) {
-  console.log(">>> BUSCAR FATURA", id);
-
-  const response = await fetch(
-    `${API}/faturas/${id}`
-  );
-
-  if (!response.ok) {
-
-
-  const texto = await response.text();
-
-  throw new Error("Erro ao carregar fatura");
-}
-
-  return response.json();
-}
-
-export async function listarFaturas(clienteId: string) {
-    console.log(">>> LISTAR FATURAS", clienteId);
-
-  
-  const response = await fetch(
-    `${API}/faturas/cliente/${clienteId}`
-  );
-
-
-
-  if (!response.ok) {
-    throw new Error("Erro ao carregar faturas");
-  }
-
-  return response.json();
-}
-
-export async function salvarImportacao(
-  importacao: ImportacaoFatura
-) {
-
-  const validacao =
-    await validarFatura(importacao.dados);
-
-  if (!validacao.valido)
-    return validacao;
-
-  const cliente =
-    await buscarClientePorUC(
-      importacao.dados.uc
-    );
-
-  if (!cliente)
-    throw new Error(
-      "Cliente não encontrado."
-    );
-
-  const dadosBanco =
-    mapFaturaExtraidaParaBanco(
-
-      importacao.dados,
-
-      cliente.id,
-
-      importacao.pdfUrl
-
-    );
-
-  const fatura =
-    await inserirFatura(
-      dadosBanco
-    );
-
-  await criarCobranca({
-
-    clienteId: cliente.id,
-
-    faturaId: fatura.id,
-
-    valor: dadosBanco.valor_total,
-
-    vencimento: dadosBanco.vencimento,
-
+export async function processarFatura(uri: string) {
+  const base64 = await FileSystem.readAsStringAsync(uri, {
+    encoding: "base64",
   });
 
- return {
+  const { data } = await api.post("/faturas/importar", {
+    arquivo: base64,
+  });
 
-    valido:true,
-
-    erros:[],
-
-    fatura,
-
-};
-
+  return data;
 }
 
+export async function salvarImportacao(uri: string) {
+  return processarFatura(uri);
+}
 
-export async function buscarFaturasCliente(
-  uc: string
+export async function listarFaturas(clienteId?: string) {
+
+  const { data } = await api.get("/faturas", {
+    params: clienteId
+      ? { clienteId }
+      : undefined,
+  });
+
+  return data;
+}
+
+export async function buscarFatura(id: string) {
+  const { data } = await api.get(`/faturas/${id}`);
+  return data;
+}
+
+export async function excluirFatura(id: string) {
+  const { data } = await api.delete(`/faturas/${id}`);
+  return data;
+}
+
+export async function atualizarFatura(
+  id: string,
+  payload: any
 ) {
+  const { data } = await api.put(
+    `/faturas/${id}`,
+    payload
+  );
 
-  const { data, error } =
-    await supabase
-      .from('faturas')
-      .select('*')
-      .eq(
-        'numero_instalacao',
-        uc.replace(/\D/g, '')
-      );
-
-  if (error) throw error;
-
-  return data || [];
-
+  return data;
 }
-
-export async function importarFatura() {
-
-  const resultado =
-    await DocumentPicker.getDocumentAsync({
-      type: "application/pdf",
-    });
-
-  if (resultado.canceled) return null;
-
-  const arquivo = resultado.assets[0];
-
-  const pdfUrl =
-    await uploadPDF(arquivo);
-
-  const texto =
-    await extrairTextoPDF(pdfUrl);
-
-  const dados =
-    interpretarFatura(texto);
-
-  return {
-    pdfUrl,
-    dados,
-  };
-
-}
-
-
-async function uploadPDF(
-  arquivo:any
-){
-
-  const base64 =
-    await FileSystem.readAsStringAsync(
-      arquivo.uri,
-      {
-        encoding:'base64' as any,
-      }
-    );
-
-  const bytes =
-    Uint8Array.from(
-      atob(base64),
-      c=>c.charCodeAt(0)
-    );
-
-  const nomeArquivo =
-    Date.now()+'-'+arquivo.name;
-
-  const { error } =
-    await supabase.storage
-      .from('faturas')
-      .upload(
-        nomeArquivo,
-        bytes,
-        {
-          contentType:'application/pdf'
-        }
-      );
-
-  if(error)
-    throw error;
-
-  const { data } =
-    supabase.storage
-      .from('faturas')
-      .getPublicUrl(nomeArquivo);
-
-  return data.publicUrl;
-
-}
-
-export async function gerarCobranca() {}
-
-export async function calcularEconomia() {}
-

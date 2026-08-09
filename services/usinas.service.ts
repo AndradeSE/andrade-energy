@@ -1,83 +1,21 @@
-import { supabase } from '../supabase';
-import { Usina } from '../types/Usina';
+import api from "../config/api";
 
 export async function listarUsinas() {
-
-  const { data, error } =
-    await supabase
-      .from('usinas')
-      .select('*')
-      .order('nome');
-
-  if (error) throw error;
-
-  return data || [];
-
+  const { data } = await api.get("/usinas");
+  return data;
 }
 
 export async function buscarUsina(id: string) {
-
-  const { data, error } =
-    await supabase
-      .from('usinas')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-  if (error) throw error;
-
+  const { data } = await api.get(`/usinas/${id}`);
   return data;
-
 }
 
-export async function criarUsina(
-  usina: Partial<Usina>
-) {
-
-  const { data, error } =
-    await supabase
-      .from('usinas')
-      .insert(usina)
-      .select()
-      .single();
-
-  if (error) throw error;
-
+export async function criarUsina(payload: any) {
+  const { data } = await api.post("/usinas", payload);
   return data;
-
 }
 
-export async function editarUsina(
-  id: string,
-  usina: Partial<Usina>
-) {
-
-  const { data, error } =
-    await supabase
-      .from('usinas')
-      .update(usina)
-      .eq('id', id)
-      .select()
-      .single();
-
-  if (error) throw error;
-
+export async function editarUsina(id: string, payload: any) {
+  const { data } = await api.put(`/usinas/${id}`, payload);
   return data;
-
 }
-
-export async function excluirUsina(id: string) {
-
-  const { error } =
-    await supabase
-      .from('usinas')
-      .delete()
-      .eq('id', id);
-
-  if (error) throw error;
-
-}
-console.log('USINAS SERVICE', {
-  listarUsinas,
-  buscarUsina,
-});

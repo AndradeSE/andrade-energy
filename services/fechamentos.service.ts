@@ -1,67 +1,21 @@
-import {
-    buscarFechamento,
-    criarFechamento,
-    listarFechamentos,
-    obterResumoOperacao,
-} from "./fechamentos.repository";
+import api from "../config/api";
 
-import { gerarRateio } from "./rateios.service";
+export async function listarFechamentos() {
+  const { data } = await api.get("/fechamentos");
+  return data;
+}
 
-export {
-    buscarFechamento, listarFechamentos, obterResumoOperacao
-};
+export async function obterResumoOperacao() {
+  const { data } = await api.get("/fechamentos/resumo");
+  return data;
+}
 
-export async function fecharUsina({
-  usinaId,
-  competencia,
-  energiaGerada,
-  energiaAlocada,
-  receitaPrevista,
-  receitaRealizada,
-}: any) {
+export async function buscarFechamento(id: string) {
+  const { data } = await api.get(`/fechamentos/${id}`);
+  return data;
+}
 
-     console.log("SERVICE CHAMADO");
-
-  console.log("INICIANDO FECHAMENTO");
-
-  const energiaDisponivel =
-    energiaGerada - energiaAlocada;
-
-  const ocupacao =
-    energiaGerada === 0
-      ? 0
-      : (energiaAlocada / energiaGerada) * 100;
-
-  const fechamento =
-    await criarFechamento({
-
-      usina_id: usinaId,
-
-      competencia,
-
-      energia_gerada: energiaGerada,
-
-      energia_alocada: energiaAlocada,
-
-      energia_disponivel: energiaDisponivel,
-
-      receita_prevista: receitaPrevista,
-
-      receita_realizada: receitaRealizada,
-
-      ocupacao,
-
-      status: "FECHADO",
-
-    });
-
-  console.log("FECHAMENTO", fechamento);
-
-  await gerarRateio(
-    fechamento.id,
-    usinaId,
-    energiaGerada
-  );
-
-  return fechamento;
+export async function fecharUsina(payload: any) {
+  const { data } = await api.post("/fechamentos", payload);
+  return data;
 }

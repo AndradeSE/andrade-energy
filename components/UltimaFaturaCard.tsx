@@ -1,9 +1,9 @@
 import { Text, TouchableOpacity, View } from "react-native";
 
 type Props = {
-  competencia: string;
-  valor: number;
-  vencimento: string;
+  competencia?: string;
+  valor?: number;
+  vencimento?: string;
   onPress?: () => void;
 };
 
@@ -13,6 +13,11 @@ export default function UltimaFaturaCard({
   vencimento,
   onPress,
 }: Props) {
+  const possuiFatura =
+    competencia &&
+    valor !== undefined &&
+    vencimento;
+
   return (
     <View
       style={{
@@ -22,47 +27,73 @@ export default function UltimaFaturaCard({
         marginTop: 20,
       }}
     >
-      <Text style={{ color: "#64748B" }}>
+      <Text
+        style={{
+          color: "#64748B",
+        }}
+      >
         Última fatura
       </Text>
 
-      <Text
-        style={{
-          fontSize: 22,
-          fontWeight: "bold",
-          marginTop: 8,
-        }}
-      >
-        {competencia}
-      </Text>
+      {possuiFatura ? (
+        <>
+          <Text
+            style={{
+              fontSize: 22,
+              fontWeight: "bold",
+              marginTop: 8,
+            }}
+          >
+            {competencia}
+          </Text>
 
-      <Text style={{ marginTop: 6 }}>
-        R$ {valor.toFixed(2).replace(".", ",")}
-      </Text>
+          <Text
+            style={{
+              marginTop: 6,
+            }}
+          >
+            R$ {valor.toFixed(2).replace(".", ",")}
+          </Text>
 
-      <Text style={{ color: "#64748B", marginTop: 6 }}>
-        Vencimento: {vencimento}
-      </Text>
+          <Text
+            style={{
+              color: "#64748B",
+              marginTop: 6,
+            }}
+          >
+            Vencimento: {vencimento}
+          </Text>
 
-      <TouchableOpacity
-        onPress={onPress}
-        style={{
-          marginTop: 18,
-          backgroundColor: "#16A34A",
-          padding: 14,
-          borderRadius: 10,
-        }}
-      >
+          <TouchableOpacity
+            onPress={onPress}
+            style={{
+              marginTop: 18,
+              backgroundColor: "#16A34A",
+              padding: 14,
+              borderRadius: 10,
+            }}
+          >
+            <Text
+              style={{
+                color: "#FFF",
+                textAlign: "center",
+                fontWeight: "bold",
+              }}
+            >
+              Ver Fatura
+            </Text>
+          </TouchableOpacity>
+        </>
+      ) : (
         <Text
           style={{
-            color: "#FFF",
-            textAlign: "center",
-            fontWeight: "bold",
+            marginTop: 12,
+            color: "#64748B",
           }}
         >
-          Ver Fatura
+          Nenhuma fatura encontrada.
         </Text>
-      </TouchableOpacity>
+      )}
     </View>
   );
 }

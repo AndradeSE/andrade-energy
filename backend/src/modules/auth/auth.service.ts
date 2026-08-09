@@ -1,17 +1,17 @@
-import { buscarUsuarioPorEmail } from "./auth.repository";
+import {
+  buscarUsuario,
+  listarUsuarios,
+  login,
+} from "./auth.repository";
 
-export async function login(
+export async function autenticar(
   email: string,
   senha: string
 ) {
-  const usuario = await buscarUsuarioPorEmail(email);
+  const usuario = await login(email, senha);
 
   if (!usuario) {
-    throw new Error("Usuário não encontrado");
-  }
-
-  if (usuario.senha_hash !== senha) {
-    throw new Error("Senha inválida");
+    throw new Error("E-mail ou senha inválidos.");
   }
 
   return {
@@ -21,8 +21,13 @@ export async function login(
       nome: usuario.nome,
       email: usuario.email,
       perfil: usuario.perfil,
-      clienteId: usuario.cliente_id,
-      geradorId: usuario.gerador_id,
+      cliente_id: usuario.cliente_id,
+      usina_id: usuario.usina_id,
     },
   };
 }
+
+export {
+  buscarUsuario,
+  listarUsuarios
+};

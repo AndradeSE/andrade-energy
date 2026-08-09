@@ -1,12 +1,11 @@
 import { supabase } from "../../config/supabase";
 
 export async function buscarDashboard(clienteId: string) {
-
   const { data: cliente, error: erroCliente } = await supabase
     .from("clientes")
     .select("id,nome,uc,distribuidora")
     .eq("id", clienteId)
-    .single();
+    .maybeSingle();
 
   console.log("CLIENTE:", cliente);
   console.log("ERRO CLIENTE:", erroCliente);
@@ -17,19 +16,25 @@ export async function buscarDashboard(clienteId: string) {
     .eq("cliente_id", clienteId)
     .order("referencia", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   console.log("ÚLTIMA FATURA:", ultimaFatura);
   console.log("ERRO FATURA:", erroFatura);
 
-  const { data: historico, error: erroHistorico } = await supabase
-    .from("historico_consumo")
-    .select("*")
-    .eq("fatura_id", ultimaFatura?.id)
-    .order("competencia");
+  let historico = [];
 
-  console.log("HISTÓRICO:", historico);
-  console.log("ERRO HISTÓRICO:", erroHistorico);
+  if (ultimaFatura?.id) {
+    const { data, error } = await supabase
+      .from("historico_consumo")
+      .select("*")
+      .eq("fatura_id", ultimaFatura.id)
+      .order("competencia");
+
+    historico = data ?? [];
+
+    console.log("HISTÓRICO:", historico);
+    console.log("ERRO HISTÓRICO:", error);
+  }
 
   return {
     cliente,

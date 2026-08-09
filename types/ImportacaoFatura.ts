@@ -1,4 +1,4 @@
-import { FaturaExtraida } from "./FaturaExtraida";
+import { FaturaExtraida } from "../backend/src/types/FaturaExtraida";
 
 export interface ImportacaoFatura {
   pdfUrl: string;

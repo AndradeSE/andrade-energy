@@ -1,5 +1,11 @@
 import { router } from "expo-router";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import EconomiaCard from "../../components/EconomiaCard";
 import StatCard from "../../components/StatCard";
@@ -7,78 +13,46 @@ import UltimaFaturaCard from "../../components/UltimaFaturaCard";
 import { useDashboard } from "../../hooks/useDashboard";
 
 export default function Home() {
-  const { data, isLoading, error } = useDashboard(
-    "16b9bf33-eb44-4585-b941-99ae0210c277"
-  );
+ const { data, isLoading, error } =
+  useDashboard();
 
   if (isLoading) {
     return (
-      <SafeAreaView
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <ActivityIndicator size="large" />
+      <SafeAreaView style={styles.center}>
+        <ActivityIndicator size="large" color="#16A34A" />
       </SafeAreaView>
     );
   }
 
   if (error || !data) {
     return (
-      <SafeAreaView
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <Text>Erro ao carregar dashboard.</Text>
+      <SafeAreaView style={styles.center}>
+        <Text style={styles.error}>
+          Não foi possível carregar o dashboard.
+        </Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView
-      style={{
-        flex: 1,
-        backgroundColor: "#F8FAFC",
-      }}
-    >
+    <SafeAreaView style={styles.container}>
       <ScrollView
-        contentContainerStyle={{
-          padding: 20,
-        }}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
       >
-        <Text
-          style={{
-            fontSize: 18,
-            color: "#64748B",
-          }}
-        >
-          Boa noite 👋
+        <Text style={styles.greeting}>
+          Bem-vindo
         </Text>
 
-        <Text
-          style={{
-            fontSize: 30,
-            fontWeight: "bold",
-            marginTop: 4,
-            marginBottom: 24,
-          }}
-        >
+        <Text style={styles.name}>
           {data.cliente}
         </Text>
 
-        <EconomiaCard economia={data.economiaMes} />
+        <EconomiaCard
+          economia={data.economiaMes}
+        />
 
-        <View
-          style={{
-            flexDirection: "row",
-            gap: 16,
-          }}
-        >
+        <View style={styles.stats}>
           <StatCard
             titulo="⚡ Consumo"
             valor={`${data.consumo} kWh`}
@@ -90,20 +64,83 @@ export default function Home() {
           />
         </View>
 
-       <UltimaFaturaCard
-  competencia={data.ultimaFatura.competencia}
-  valor={data.ultimaFatura.valor}
-  vencimento={data.ultimaFatura.vencimento}
-  onPress={() =>
-    router.push({
-      pathname: "/faturas/[id]",
-      params: {
-        id: data.ultimaFatura.id,
-      },
-    })
-  }
-/>
+        <View style={styles.stats}>
+          <StatCard
+            titulo="🏠 UC"
+            valor={data.uc}
+          />
+
+          <StatCard
+            titulo="🏢 Distribuidora"
+            valor={data.distribuidora}
+          />
+        </View>
+
+        <UltimaFaturaCard
+          competencia={
+            data.ultimaFatura.competencia
+          }
+          valor={
+            data.ultimaFatura.valor
+          }
+          vencimento={
+            data.ultimaFatura.vencimento
+          }
+          onPress={() =>
+            router.push({
+              pathname: "/faturas/[id]",
+              params: {
+                id: data.ultimaFatura.id,
+              },
+            })
+          }
+        />
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F1F5F9",
+  },
+
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F1F5F9",
+  },
+
+  content: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+
+  greeting: {
+    color: "#64748B",
+    fontSize: 16,
+  },
+
+  name: {
+    fontSize: 32,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginTop: 4,
+    marginBottom: 24,
+  },
+
+  stats: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 14,
+    marginTop: 18,
+  },
+
+  error: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#DC2626",
+  },
+});

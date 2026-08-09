@@ -6,7 +6,8 @@ export async function obterDashboard(
 
   const dados =
     await buscarDashboard(clienteId);
-
+console.log("ULTIMA FATURA:");
+console.log(dados.ultimaFatura);
   return {
 
     cliente: dados.cliente?.nome,
@@ -33,7 +34,7 @@ export async function obterDashboard(
     dados.ultimaFatura?.referencia,
 
   valor:
-    dados.ultimaFatura?.valor_final,
+    dados.ultimaFatura?.valor_total,
 
   vencimento:
     dados.ultimaFatura?.vencimento

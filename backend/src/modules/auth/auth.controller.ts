@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
-import { login } from "./auth.service";
+
+import { autenticar } from "./auth.service";
 
 export async function loginController(
   req: Request,
@@ -8,15 +9,19 @@ export async function loginController(
   try {
     const { email, senha } = req.body;
 
-    const usuario =
-      await login(email, senha);
+    const resultado = await autenticar(
+      email,
+      senha
+    );
 
-    res.json(usuario);
+    return res.json(resultado);
 
-  } catch (error: any) {
+  } catch (err: any) {
 
-    res.status(401).json({
-      message: error.message,
+    console.error("ERRO LOGIN:", err);
+
+    return res.status(401).json({
+      message: err.message,
     });
 
   }

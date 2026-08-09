@@ -14,5 +14,5 @@
   },
   "include": [
     "src/**/*.ts"
-  ]
+, "src/modules/creditos/consumo.controller.ts", "src/modules/creditos/consumo.service.ts"  ]
 }

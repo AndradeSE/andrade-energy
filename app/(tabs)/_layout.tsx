@@ -1,92 +1,119 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Ionicons } from "@expo/vector-icons";
+import { Tabs } from "expo-router";
 
 export default function TabLayout() {
   return (
-   <Tabs
-  screenOptions={{
-    headerShown: false,
+    <Tabs
+      screenOptions={{
+        headerShown: false,
 
-   tabBarStyle: {
-  backgroundColor: '#ffffff',
-  borderTopWidth: 0,
-  elevation: 5,
-  shadowOpacity: 0.1,
-},
+        tabBarShowLabel: true,
 
-    tabBarActiveTintColor: '#3b82f6',
-tabBarInactiveTintColor: '#000000',
-  }}
->
+        tabBarActiveTintColor: "#16A34A",
+        tabBarInactiveTintColor: "#94A3B8",
+
+        tabBarStyle: {
+          height: 72,
+          paddingTop: 8,
+          paddingBottom: 10,
+          backgroundColor: "#FFFFFF",
+          borderTopWidth: 1,
+          borderTopColor: "#E2E8F0",
+          elevation: 0,
+          shadowOpacity: 0,
+        },
+
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: "600",
+        },
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: "Home",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+            <Ionicons
+              name="grid-outline"
+              color={color}
+              size={size}
+            />
           ),
         }}
       />
-      <Tabs.Screen
-  name="usinas"
-  options={{
-    title: 'Usinas',
-    tabBarIcon: ({ color, size }) => (
-      <Ionicons
-        name="flash"
-        size={size}
-        color={color}
-      />
-    ),
-  }}
-/>
 
- <Tabs.Screen
+      <Tabs.Screen
         name="clientes"
         options={{
-          title: 'Clientes',
+          title: "Clientes",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people" size={size} color={color} />
+            <Ionicons
+              name="people-outline"
+              color={color}
+              size={size}
+            />
           ),
         }}
       />
-      
-      <Tabs.Screen
-  name="faturas"
-  options={{
-    title: 'Faturas',
-    tabBarIcon: ({ color, size }) => (
-      <Ionicons
-        name="document-text"
-        size={size}
-        color={color}
-      />
-    ),
-  }}
-/>
 
-              <Tabs.Screen
+      <Tabs.Screen
+        name="usinas"
+        options={{
+          title: "Usinas",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons
+              name="flash-outline"
+              color={color}
+              size={size}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="faturas"
+        options={{
+          title: "Faturas",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons
+              name="document-text-outline"
+              color={color}
+              size={size}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
         name="financeiro"
         options={{
-          title: 'Financeiro',
+          title: "Financeiro",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="wallet" size={size} color={color} />
+            <Ionicons
+              name="wallet-outline"
+              color={color}
+              size={size}
+            />
           ),
         }}
       />
+
       <Tabs.Screen
-  name="operacao"
-  options={{
-    title: "Operação",
-    tabBarIcon: ({ color, size }) => (
-      <Ionicons
-        name="construct"
-        size={size}
-        color={color}
+        name="operacao"
+        options={{
+          title: "Operação",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons
+              name="analytics-outline"
+              color={color}
+              size={size}
+            />
+          ),
+        }}
       />
-    ),
-  }}
-/>
+
+     
     </Tabs>
   );
 }
