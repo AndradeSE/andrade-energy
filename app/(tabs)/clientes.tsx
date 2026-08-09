@@ -54,9 +54,7 @@ export default function Clientes() {
 
   return (
     <ImageBackground
-      source={require("../assets/images/background.png")}
-      style={styles.background}
-    >
+source={require("../../assets/images/background.png")}    >
       <View style={styles.container}>
         <Text style={styles.title}>Clientes</Text>
 

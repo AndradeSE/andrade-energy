@@ -25,7 +25,7 @@ export default function Usinas() {
 
   return (
     <ImageBackground
-      source={require("../assets/images/background.png")}
+      source={require("../../assets/images/background.png")}
       style={{ flex: 1 }}
     >
       <SafeAreaView style={{ flex: 1, padding: 20 }}>
