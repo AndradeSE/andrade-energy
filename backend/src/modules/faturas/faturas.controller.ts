@@ -10,7 +10,12 @@ export async function listarFaturasController(
   res: Response
 ) {
   try {
-    const data = await listarFaturas();
+    const { clienteId, uc } = req.query;
+
+    const data = await listarFaturas({
+      clienteId: clienteId as string | undefined,
+      uc: uc as string | undefined,
+    });
 
     return res.json(data);
   } catch (err: any) {

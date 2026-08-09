@@ -1,3 +1,4 @@
+console.log("CLIENTES SERVICE CARREGADO");
 import {
   atualizarCliente,
   buscarCliente,

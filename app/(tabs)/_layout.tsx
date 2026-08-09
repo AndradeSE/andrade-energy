@@ -1,14 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function TabLayout() {
+  const { usuario } = useAuth();
+
+  const perfil = usuario?.perfil;
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-
         tabBarShowLabel: true,
-
         tabBarActiveTintColor: "#16A34A",
         tabBarInactiveTintColor: "#94A3B8",
 
@@ -43,33 +46,37 @@ export default function TabLayout() {
         }}
       />
 
-      <Tabs.Screen
-        name="clientes"
-        options={{
-          title: "Clientes",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons
-              name="people-outline"
-              color={color}
-              size={size}
-            />
-          ),
-        }}
-      />
+      {(perfil === "ADMIN" || perfil === "GERADOR") && (
+        <Tabs.Screen
+          name="clientes"
+          options={{
+            title: "Clientes",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons
+                name="people-outline"
+                color={color}
+                size={size}
+              />
+            ),
+          }}
+        />
+      )}
 
-      <Tabs.Screen
-        name="usinas"
-        options={{
-          title: "Usinas",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons
-              name="flash-outline"
-              color={color}
-              size={size}
-            />
-          ),
-        }}
-      />
+      {(perfil === "ADMIN" || perfil === "GERADOR") && (
+        <Tabs.Screen
+          name="usinas"
+          options={{
+            title: "Usinas",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons
+                name="flash-outline"
+                color={color}
+                size={size}
+              />
+            ),
+          }}
+        />
+      )}
 
       <Tabs.Screen
         name="faturas"
@@ -85,35 +92,51 @@ export default function TabLayout() {
         }}
       />
 
+      {(perfil === "ADMIN" || perfil === "GERADOR") && (
+        <Tabs.Screen
+          name="financeiro"
+          options={{
+            title: "Financeiro",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons
+                name="wallet-outline"
+                color={color}
+                size={size}
+              />
+            ),
+          }}
+        />
+      )}
+
+      {(perfil === "ADMIN" || perfil === "GERADOR") && (
+        <Tabs.Screen
+          name="operacao"
+          options={{
+            title: "Operação",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons
+                name="analytics-outline"
+                color={color}
+                size={size}
+              />
+            ),
+          }}
+        />
+      )}
+
       <Tabs.Screen
-        name="financeiro"
+        name="perfil"
         options={{
-          title: "Financeiro",
+          title: "Perfil",
           tabBarIcon: ({ color, size }) => (
             <Ionicons
-              name="wallet-outline"
+              name="person-outline"
               color={color}
               size={size}
             />
           ),
         }}
       />
-
-      <Tabs.Screen
-        name="operacao"
-        options={{
-          title: "Operação",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons
-              name="analytics-outline"
-              color={color}
-              size={size}
-            />
-          ),
-        }}
-      />
-
-     
     </Tabs>
   );
 }

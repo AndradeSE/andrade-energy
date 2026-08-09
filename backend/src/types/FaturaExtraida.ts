@@ -18,4 +18,6 @@ export interface FaturaExtraida {
   economia: number;
 
   bandeira: string;
+
+  
 }

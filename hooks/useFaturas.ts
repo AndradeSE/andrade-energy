@@ -7,10 +7,7 @@ export function useFaturas() {
 
   return useQuery({
     queryKey: ["faturas", usuario?.cliente_id],
-
     enabled: !!usuario?.cliente_id,
-
-    queryFn: () =>
-      listarFaturas(usuario!.cliente_id!),
+    queryFn: () => listarFaturas(usuario!.cliente_id!),
   });
 }

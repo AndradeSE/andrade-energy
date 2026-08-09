@@ -116,15 +116,12 @@ if (!cliente.usina_id) {
     energiaCompensada: Number(dados.energiaCompensada),
     saldoAtual: Number(dados.saldoAtual),
   });
-console.log("Modalidade:", modalidade);
-console.log("Chamando consumirCreditos...");
   await consumirCreditos(
     
     cliente.id,
     dados.referencia,
     Number(dados.energiaCompensada)
   );
-console.log("consumirCreditos executado.");
 }
 
   await criarCobranca({

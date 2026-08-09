@@ -18,11 +18,22 @@ export async function salvarImportacao(uri: string) {
 }
 
 export async function listarFaturas(clienteId?: string) {
-
   const { data } = await api.get("/faturas", {
     params: clienteId
       ? { clienteId }
       : undefined,
+  });
+
+  return data;
+}
+
+export async function buscarFaturasCliente(
+  uc: string
+) {
+  const { data } = await api.get("/faturas", {
+    params: {
+      uc,
+    },
   });
 
   return data;

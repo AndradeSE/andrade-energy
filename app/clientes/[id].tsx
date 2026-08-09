@@ -59,13 +59,6 @@ export default function ClienteDetalhe() {
 
 setFaturas(listaFaturas);
 
-const faturasCliente = (listaFaturas || []).filter(
-  (f) =>
-    String(f.numero_instalacao).replace(/\D/g, "") ===
-    String(data.uc).replace(/\D/g, "")
-);
-
-setFaturas(faturasCliente);
 
 }
 const economiaTotal = faturas.reduce(

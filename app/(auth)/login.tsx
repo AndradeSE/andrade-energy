@@ -2,17 +2,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    ImageBackground,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  ImageBackground,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 import { useAuth } from "../../contexts/AuthContext";
@@ -37,9 +37,10 @@ export default function Login() {
         senha
       );
 
-      await salvarSessao(
-        resposta.usuario
-      );
+     await salvarSessao(
+  resposta.token,
+  resposta.usuario
+);
 
       router.replace("/");
 
@@ -73,7 +74,8 @@ export default function Login() {
         <View style={styles.logoArea}>
 
           <Image
-source={require("../../assets/images/icon.png")}            style={styles.logo}
+            source={require("../../assets/images/logo.png")}
+            style={styles.logo}
             resizeMode="contain"
           />
 
@@ -163,39 +165,33 @@ source={require("../../assets/images/icon.png")}            style={styles.logo}
             )}
           </TouchableOpacity>
 
-          <View
-            style={styles.demoArea}
-          >
-            <Text
-              style={styles.demoTitulo}
-            >
-              Usuários de demonstração
-            </Text>
+          <View style={styles.demoArea}>
+  <Text style={styles.demoTitulo}>
+    Usuários de demonstração
+  </Text>
 
-            <Text style={styles.demoTexto}>
-              Admin:
-              {"\n"}
-              admin@andrade.com
-            </Text>
+  <Text style={styles.demoTexto}>
+    Admin:
+    {"\n"}
+    admin@andrade.com
+  </Text>
 
-            <Text style={styles.demoTexto}>
-              Gestor:
-              {"\n"}
-              gerador@andrade.com
-            </Text>
+  <Text style={styles.demoTexto}>
+    Gerador:
+    {"\n"}
+    gerador@andrade.com
+  </Text>
 
-            <Text style={styles.demoTexto}>
-              Cliente:
-              {"\n"}
-              cliente@andrade.com
-            </Text>
+  <Text style={styles.demoTexto}>
+    Cliente:
+    {"\n"}
+    cliente@andrade.com
+  </Text>
 
-            <Text
-              style={styles.demoSenha}
-            >
-              Senha: 123456
-            </Text>
-          </View>
+  <Text style={styles.demoSenha}>
+    Senha: 123456
+  </Text>
+</View>
 
         </View>
 

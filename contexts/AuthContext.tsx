@@ -11,7 +11,7 @@ import {
   salvarSessao,
 } from "../storage/session";
 
-type Usuario = {
+export type Usuario = {
   id: string;
   nome: string;
   email: string;
@@ -22,8 +22,14 @@ type Usuario = {
 
 type AuthContextType = {
   usuario: Usuario | null;
+  token: string | null;
   loading: boolean;
-  login: (usuario: Usuario) => Promise<void>;
+
+  login: (
+    token: string,
+    usuario: Usuario
+  ) => Promise<void>;
+
   logout: () => Promise<void>;
 };
 
@@ -39,6 +45,9 @@ export function AuthProvider({
   const [usuario, setUsuario] =
     useState<Usuario | null>(null);
 
+  const [token, setToken] =
+    useState<string | null>(null);
+
   const [loading, setLoading] =
     useState(true);
 
@@ -47,30 +56,39 @@ export function AuthProvider({
   }, []);
 
   async function carregarSessao() {
-  try {
-    const dados = await obterSessao();
+    try {
+      const sessao = await obterSessao();
 
-    console.log("================================");
-    console.log("SESSÃO:", dados);
-    console.log("================================");
+      console.log("================================");
+      console.log("SESSÃO:", sessao);
+      console.log("================================");
 
-    if (dados) {
-      setUsuario(dados);
+      if (sessao) {
+        setUsuario(sessao.usuario);
+        setToken(sessao.token);
+      }
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
   }
-}
 
-  async function login(usuario: Usuario) {
-    await salvarSessao(usuario);
+  async function login(
+    token: string,
+    usuario: Usuario
+  ) {
+    await salvarSessao({
+      token,
+      usuario,
+    });
 
+    setToken(token);
     setUsuario(usuario);
   }
 
   async function logout() {
     await removerSessao();
 
+    setToken(null);
     setUsuario(null);
   }
 
@@ -78,6 +96,7 @@ export function AuthProvider({
     <AuthContext.Provider
       value={{
         usuario,
+        token,
         loading,
         login,
         logout,

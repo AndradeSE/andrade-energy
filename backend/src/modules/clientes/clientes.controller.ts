@@ -1,11 +1,12 @@
+console.log("CLIENTES CONTROLLER CARREGADO");
 import { Request, Response } from "express";
 
 import {
-    atualizarCliente,
-    buscarCliente,
-    criarCliente,
-    excluirCliente,
-    listarClientes,
+  atualizarCliente,
+  buscarCliente,
+  criarCliente,
+  excluirCliente,
+  listarClientes,
 } from "./clientes.service";
 
 export async function listarClientesController(

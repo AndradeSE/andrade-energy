@@ -2,10 +2,10 @@ import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 
 import {
-    ImageBackground,
-    ScrollView,
-    Text,
-    View,
+  ImageBackground,
+  ScrollView,
+  Text,
+  View,
 } from "react-native";
 
 import { buscarFechamento } from "../../services/fechamentos.service";

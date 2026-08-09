@@ -41,7 +41,7 @@ const [dados, setDados] = useState({
 
   return (
     <ImageBackground
-source={require("../../assets/images/background.png")}      style={{ flex: 1 }}
+source={require("../assets/images/background.png")}      style={{ flex: 1 }}
     >
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView

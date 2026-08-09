@@ -54,7 +54,7 @@ export default function Clientes() {
 
   return (
     <ImageBackground
-      source={require("../../assets/images/background.png")}
+      source={require("../assets/images/background.png")}
       style={styles.background}
     >
       <View style={styles.container}>

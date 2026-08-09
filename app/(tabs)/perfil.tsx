@@ -38,7 +38,7 @@ export default function PerfilScreen() {
 
   return (
     <ImageBackground
-      source={require("../../assets/images/background.png")}
+      source={require("../assets/images/background.png")}
       style={styles.background}
     >
       <ScrollView
@@ -49,7 +49,7 @@ export default function PerfilScreen() {
         <View style={styles.header}>
 
           <Image
-            source={require("../../assets/images/icon.png")}
+            source={require("../assets/images/icon.png")}
             style={styles.avatar}
           />
 
