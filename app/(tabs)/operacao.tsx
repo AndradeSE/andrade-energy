@@ -163,12 +163,7 @@ Toque no botão "+" para realizar o primeiro fechamento da usina.
       renderItem={({ item }) => (
         <TouchableOpacity
           onPress={() =>
-            router.push({
-              pathname: "/operacao/[id]",
-              params: {
-                id: item.id,
-              },
-            })
+            router.push(`/operacao/${item.id}`)
           }
           style={{
             backgroundColor: "rgba(255,255,255,.9)",

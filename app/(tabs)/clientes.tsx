@@ -53,8 +53,10 @@ export default function Clientes() {
   }
 
   return (
-    <ImageBackground
-source={require("../../assets/images/background.png")}    >
+   <ImageBackground
+  source={require("../../assets/images/background.png")}
+  style={{ flex: 1 }}
+>
       <View style={styles.container}>
         <Text style={styles.title}>Clientes</Text>
 
@@ -100,12 +102,7 @@ source={require("../../assets/images/background.png")}    >
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() =>
-                router.push({
-                  pathname: "/clientes/[id]",
-                  params: {
-                    id: item.id,
-                  },
-                })
+               router.push(`/clientes/${item.id}`)
               }
             >
               <View style={styles.card}>

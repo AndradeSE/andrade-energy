@@ -1,10 +1,10 @@
 import { Router } from "express";
 
 import {
-    buscarFechamentoController,
-    criarFechamentoController,
-    listarFechamentosController,
-    resumoOperacaoController,
+  buscarFechamentoController,
+  criarFechamentoController,
+  listarFechamentosController,
+  resumoOperacaoController,
 } from "./fechamentos.controller";
 
 const router = Router();

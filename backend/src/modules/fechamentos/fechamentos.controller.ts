@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 
 import {
   buscarFechamento,
-  criarFechamento,
+  fecharUsina,
   listarFechamentos,
   obterResumoOperacao,
 } from "./fechamentos.service";
@@ -65,9 +65,7 @@ export async function criarFechamentoController(
   res: Response
 ) {
   try {
-    const data = await criarFechamento(
-      req.body
-    );
+    const data = await fecharUsina(req.body);
 
     res.status(201).json(data);
   } catch (err: any) {

@@ -7,6 +7,9 @@ export default function TabLayout() {
 
   const perfil = usuario?.perfil;
 
+  const podeAdministrar =
+    perfil === "ADMIN" || perfil === "GESTOR";
+
   return (
     <Tabs
       screenOptions={{
@@ -46,37 +49,35 @@ export default function TabLayout() {
         }}
       />
 
-      {(perfil === "ADMIN" || perfil === "GERADOR") && (
-        <Tabs.Screen
-          name="clientes"
-          options={{
-            title: "Clientes",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons
-                name="people-outline"
-                color={color}
-                size={size}
-              />
-            ),
-          }}
-        />
-      )}
+      <Tabs.Screen
+        name="clientes"
+        options={{
+          title: "Clientes",
+          href: podeAdministrar ? undefined : null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons
+              name="people-outline"
+              color={color}
+              size={size}
+            />
+          ),
+        }}
+      />
 
-      {(perfil === "ADMIN" || perfil === "GERADOR") && (
-        <Tabs.Screen
-          name="usinas"
-          options={{
-            title: "Usinas",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons
-                name="flash-outline"
-                color={color}
-                size={size}
-              />
-            ),
-          }}
-        />
-      )}
+      <Tabs.Screen
+        name="usinas"
+        options={{
+          title: "Usinas",
+          href: podeAdministrar ? undefined : null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons
+              name="flash-outline"
+              color={color}
+              size={size}
+            />
+          ),
+        }}
+      />
 
       <Tabs.Screen
         name="faturas"
@@ -92,37 +93,35 @@ export default function TabLayout() {
         }}
       />
 
-      {(perfil === "ADMIN" || perfil === "GERADOR") && (
-        <Tabs.Screen
-          name="financeiro"
-          options={{
-            title: "Financeiro",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons
-                name="wallet-outline"
-                color={color}
-                size={size}
-              />
-            ),
-          }}
-        />
-      )}
+      <Tabs.Screen
+        name="financeiro"
+        options={{
+          title: "Financeiro",
+          href: podeAdministrar ? undefined : null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons
+              name="wallet-outline"
+              color={color}
+              size={size}
+            />
+          ),
+        }}
+      />
 
-      {(perfil === "ADMIN" || perfil === "GERADOR") && (
-        <Tabs.Screen
-          name="operacao"
-          options={{
-            title: "Operação",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons
-                name="analytics-outline"
-                color={color}
-                size={size}
-              />
-            ),
-          }}
-        />
-      )}
+      <Tabs.Screen
+        name="operacao"
+        options={{
+          title: "Operação",
+          href: podeAdministrar ? undefined : null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons
+              name="analytics-outline"
+              color={color}
+              size={size}
+            />
+          ),
+        }}
+      />
 
       <Tabs.Screen
         name="perfil"

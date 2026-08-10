@@ -234,7 +234,7 @@ export default function PerfilScreen() {
 
         )}
 
-        {usuario?.perfil === "GERADOR" && (
+        {usuario?.perfil === "GESTOR" && (
 
           <View style={styles.card}>
 
@@ -258,7 +258,7 @@ export default function PerfilScreen() {
 
         )}
 
-        {usuario?.perfil === "CLIENTE" && (
+        {usuario?.perfil === "LEITURA" && (
 
           <View style={styles.card}>
 

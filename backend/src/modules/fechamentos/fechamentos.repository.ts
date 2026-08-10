@@ -51,10 +51,15 @@ export async function listarFechamentos() {
         ascending: false,
       });
 
+  console.log("================================");
+  console.log("ERRO:", error);
+  console.log("QUANTIDADE:", data?.length);
+  console.log("DADOS:", data);
+  console.log("================================");
+
   if (error) throw error;
 
   return data ?? [];
-
 }
 
 export async function buscarFechamento(
@@ -84,6 +89,10 @@ export async function buscarFechamento(
 export async function criarFechamento(
   fechamento: any
 ) {
+
+  console.log("REPOSITORY RECEBEU:");
+  console.log(fechamento);
+
 
   const { data, error } =
     await supabase

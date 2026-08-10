@@ -46,10 +46,7 @@ export default function Usinas() {
           renderItem={({ item }) => (
             <TouchableOpacity
               onPress={() =>
-                router.push({
-                  pathname: "/usinas/[id]",
-                  params: { id: item.id },
-                })
+                router.push(`/usinas/${item.id}`)
               }
               style={{
                 backgroundColor: "rgba(255,255,255,0.95)",

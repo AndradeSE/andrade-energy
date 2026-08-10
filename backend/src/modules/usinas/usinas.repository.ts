@@ -1,7 +1,6 @@
 import { supabase } from "../../config/supabase";
 
 export async function listarUsinas() {
-
   const { data, error } = await supabase
     .from("usinas")
     .select("*")
@@ -9,14 +8,12 @@ export async function listarUsinas() {
 
   if (error) throw error;
 
-  return data || [];
-
+  return data ?? [];
 }
 
 export async function buscarUsina(
   id: string
 ) {
-
   const { data, error } = await supabase
     .from("usinas")
     .select("*")
@@ -26,13 +23,11 @@ export async function buscarUsina(
   if (error) throw error;
 
   return data;
-
 }
 
 export async function criarUsina(
   usina: any
 ) {
-
   const { data, error } = await supabase
     .from("usinas")
     .insert(usina)
@@ -42,14 +37,12 @@ export async function criarUsina(
   if (error) throw error;
 
   return data;
-
 }
 
 export async function editarUsina(
   id: string,
   usina: any
 ) {
-
   const { data, error } = await supabase
     .from("usinas")
     .update(usina)
@@ -60,38 +53,44 @@ export async function editarUsina(
   if (error) throw error;
 
   return data;
-
 }
 
 export async function excluirUsina(
   id: string
 ) {
-
   const { error } = await supabase
     .from("usinas")
     .delete()
     .eq("id", id);
 
   if (error) throw error;
-
 }
 
 export async function buscarDashboardUsina(
   usinaId: string
 ) {
-
   const { data, error } = await supabase
-    .from("geracao_mensal")
-    .select("*")
+    .from("fechamentos")
+    .select(`
+      id,
+      competencia,
+      energia_gerada,
+      energia_alocada,
+      energia_disponivel,
+      receita_prevista,
+      receita_realizada,
+      ocupacao,
+      status,
+      created_at
+    `)
     .eq("usina_id", usinaId)
-    .order("competencia", {
+    .order("created_at", {
       ascending: false,
     })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
 
   return data;
-
 }

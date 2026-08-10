@@ -3,14 +3,11 @@ import * as ColorsModule from "../theme/colors";
 import * as RadiusModule from "../theme/radius";
 import * as SpacingModule from "../theme/spacing";
 
-console.log("RadiusModule", RadiusModule);
-console.log("SpacingModule", SpacingModule);
-console.log("ColorsModule", ColorsModule);
+
 type Props = {
   titulo: string;
   valor: string | number;
-  icone: string;
-};
+icone?: string;};
 
 export default function DashboardCard({
   titulo,
@@ -18,9 +15,6 @@ export default function DashboardCard({
   icone,
 }: Props) {
 
-  console.log("RadiusModule", RadiusModule);
-console.log("SpacingModule", SpacingModule);
-console.log("ColorsModule", ColorsModule);
   return (
     <View
       style={{
@@ -32,13 +26,15 @@ console.log("ColorsModule", ColorsModule);
         elevation: 4,
       }}
     >
-      <Text
-        style={{
-          fontSize: 28,
-        }}
-      >
-        {icone}
-      </Text>
+      {icone && (
+  <Text
+    style={{
+      fontSize: 28,
+    }}
+  >
+    {icone}
+  </Text>
+)}
 
       <Text
         style={{

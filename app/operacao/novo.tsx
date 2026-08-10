@@ -52,17 +52,8 @@ export default function NovoFechamento() {
 
   try {
 
-    console.log("=== BOTÃO CLICADO ===");
 
-    console.log({
-      usinaId,
-      competencia,
-      energiaGerada,
-      energiaAlocada,
-      receitaPrevista,
-      receitaRealizada,
-    });
-if (!competencia.trim()) {
+  if (!competencia.trim()) {
 
   Alert.alert(
     "Atenção",
@@ -83,28 +74,19 @@ if (!energiaGerada) {
   return;
 
 }
-    const resultado =
-     await fecharUsina({
+    const [mes, ano] = competencia.split("/");
 
+const competenciaFormatada = `${ano}-${mes.padStart(2, "0")}-01`;
+
+const resultado = await fecharUsina({
   usinaId,
-
-  competencia: competencia.trim(),
-
-  energiaGerada:
-    Number(energiaGerada) || 0,
-
-  energiaAlocada:
-    Number(energiaAlocada) || 0,
-
-  receitaPrevista:
-    Number(receitaPrevista) || 0,
-
-  receitaRealizada:
-    Number(receitaRealizada) || 0,
-
+  competencia: competenciaFormatada,
+  energiaGerada: Number(energiaGerada) || 0,
+  energiaAlocada: Number(energiaAlocada) || 0,
+  receitaPrevista: Number(receitaPrevista) || 0,
+  receitaRealizada: Number(receitaRealizada) || 0,
 });
 
-    console.log("FECHAMENTO", resultado);
 
     Alert.alert(
       "Sucesso",
@@ -115,7 +97,6 @@ if (!energiaGerada) {
 
   } catch (e: any) {
 
-    console.log("ERRO", e);
 
     Alert.alert(
       "Erro",

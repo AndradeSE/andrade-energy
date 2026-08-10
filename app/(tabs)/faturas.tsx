@@ -61,12 +61,7 @@ const { data, isLoading, error } = useFaturas();
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() =>
-              router.push({
-                pathname: "/faturas/[id]",
-                params: {
-                  id: item.id,
-                },
-              })
+              router.push(`/faturas/${item.id}`)
             }
           >
             <View style={styles.card}>

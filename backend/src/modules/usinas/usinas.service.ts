@@ -11,7 +11,9 @@ export async function listarUsinasService() {
   return await listarUsinas();
 }
 
-export async function buscarUsinaService(id: string) {
+export async function buscarUsinaService(
+  id: string
+) {
   const usina = await buscarUsina(id);
 
   if (!usina) {
@@ -21,7 +23,9 @@ export async function buscarUsinaService(id: string) {
   return usina;
 }
 
-export async function criarUsinaService(dados: any) {
+export async function criarUsinaService(
+  dados: any
+) {
   return await criarUsina(dados);
 }
 
@@ -32,7 +36,9 @@ export async function atualizarUsinaService(
   return await editarUsina(id, dados);
 }
 
-export async function excluirUsinaService(id: string) {
+export async function excluirUsinaService(
+  id: string
+) {
   await excluirUsina(id);
 
   return {
@@ -40,8 +46,38 @@ export async function excluirUsinaService(id: string) {
   };
 }
 
-export async function obterDashboardUsina(id: string) {
-  const dashboard = await buscarDashboardUsina(id);
+export async function obterDashboardUsina(
+  id: string
+) {
+  const fechamento =
+    await buscarDashboardUsina(id);
 
-  return dashboard;
+  if (!fechamento) {
+    throw new Error(
+      "Nenhum fechamento encontrado."
+    );
+  }
+
+  return {
+    energiaGerada:
+      Number(fechamento.energia_gerada ?? 0),
+
+    energiaDisponivel:
+      Number(fechamento.energia_disponivel ?? 0),
+
+    ocupacao:
+      Number(fechamento.ocupacao ?? 0),
+
+    receitaPrevista:
+      Number(fechamento.receita_prevista ?? 0),
+
+    receitaRealizada:
+      Number(fechamento.receita_realizada ?? 0),
+
+    competencia:
+      fechamento.competencia,
+
+    status:
+      fechamento.status,
+  };
 }

@@ -1,16 +1,23 @@
 import {
-  buscarFechamento,
+  buscarFechamento as buscarFechamentoRepository,
   criarFechamento,
-  listarFechamentos,
-  obterResumoOperacao,
+  listarFechamentos as listarFechamentosRepository,
+  obterResumoOperacao as obterResumoOperacaoRepository,
 } from "./fechamentos.repository";
 
 import { gerarRateio } from "../rateio/rateio.service";
 
-export {
-  buscarFechamento, criarFechamento, listarFechamentos,
-  obterResumoOperacao
-};
+export async function listarFechamentos() {
+  return await listarFechamentosRepository();
+}
+
+export async function buscarFechamento(id: string) {
+  return await buscarFechamentoRepository(id);
+}
+
+export async function obterResumoOperacao() {
+  return await obterResumoOperacaoRepository();
+}
 
 export async function fecharUsina({
   usinaId,
@@ -20,6 +27,19 @@ export async function fecharUsina({
   receitaPrevista,
   receitaRealizada,
 }: any) {
+
+  // Converte 07/2026 -> 2026-07-01
+  let competenciaDate = competencia;
+
+  if (
+    typeof competencia === "string" &&
+    competencia.includes("/")
+  ) {
+    const [mes, ano] = competencia.split("/");
+
+    competenciaDate =
+      `${ano}-${mes.padStart(2, "0")}-01`;
+  }
 
   const energiaDisponivel =
     energiaGerada - energiaAlocada;
@@ -34,7 +54,7 @@ export async function fecharUsina({
 
       usina_id: usinaId,
 
-      competencia,
+      competencia: competenciaDate,
 
       energia_gerada: energiaGerada,
 
@@ -59,5 +79,4 @@ export async function fecharUsina({
   );
 
   return fechamento;
-
 }

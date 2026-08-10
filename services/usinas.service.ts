@@ -19,3 +19,11 @@ export async function editarUsina(id: string, payload: any) {
   const { data } = await api.put(`/usinas/${id}`, payload);
   return data;
 }
+export async function buscarDashboardUsina(
+  id: string
+) {
+  const { data } =
+    await api.get(`/usinas/${id}/dashboard`);
+
+  return data;
+}
