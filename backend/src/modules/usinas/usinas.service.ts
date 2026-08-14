@@ -6,6 +6,48 @@ import {
   excluirUsina,
   listarUsinas,
 } from "./usinas.repository";
+import { supabase } from "../../config/supabase";
+import { extrairTextoPDF } from "../../services/ocr/ocr.service";
+import { interpretarFatura } from "../../services/ocr/parser.service";
+
+const meses: Record<string, string> = { JAN: "01", FEV: "02", MAR: "03", ABR: "04", MAI: "05", JUN: "06", JUL: "07", AGO: "08", SET: "09", OUT: "10", NOV: "11", DEZ: "12" };
+
+function competenciaData(referencia: string) {
+  const [mes, ano] = referencia.toUpperCase().split("/");
+  if (!meses[mes] || !ano) throw new Error("Competência não identificada na fatura.");
+  return `${ano}-${meses[mes]}-01`;
+}
+
+export async function importarFaturaGeradora(usinaId: string, caminhoArquivo: string) {
+  const usina = await buscarUsina(usinaId);
+  const dados = interpretarFatura(await extrairTextoPDF(caminhoArquivo));
+  const energiaGerada = Number(dados.energiaInjetada ?? 0);
+  if (energiaGerada <= 0) throw new Error("Esta fatura não apresenta energia injetada da unidade geradora.");
+
+  const numeroFatura = dados.uc.replace(/\D/g, "");
+  const numeroUsina = String(usina.numero_instalacao ?? "").replace(/\D/g, "");
+  if (numeroUsina && numeroFatura !== numeroUsina) throw new Error("A instalação da fatura não pertence a esta usina.");
+
+  const competencia = competenciaData(dados.referencia);
+  const { data: atual, error: buscaError } = await supabase.from("fechamentos").select("*").eq("usina_id", usinaId).eq("competencia", competencia).maybeSingle();
+  if (buscaError) throw buscaError;
+
+  const energiaAlocada = Number(atual?.energia_alocada ?? 0);
+  const payload = {
+    usina_id: usinaId, competencia, energia_gerada: energiaGerada,
+    energia_alocada: energiaAlocada, energia_disponivel: energiaGerada - energiaAlocada,
+    ocupacao: energiaGerada ? (energiaAlocada / energiaGerada) * 100 : 0,
+    receita_prevista: Number(atual?.receita_prevista ?? 0), receita_realizada: Number(atual?.receita_realizada ?? 0),
+    status: atual?.status ?? "ABERTO",
+  };
+
+  const consulta = atual
+    ? supabase.from("fechamentos").update(payload).eq("id", atual.id)
+    : supabase.from("fechamentos").insert(payload);
+  const { data: fechamento, error } = await consulta.select().single();
+  if (error) throw error;
+  return { sucesso: true, origem: "FATURA_MANUAL", dados, fechamento };
+}
 
 export async function listarUsinasService() {
   return await listarUsinas();
@@ -49,18 +91,37 @@ export async function excluirUsinaService(
 export async function obterDashboardUsina(
   id: string
 ) {
-  const fechamento =
-    await buscarDashboardUsina(id);
+  const [dashboard, usina, clientes] = await Promise.all([
+    buscarDashboardUsina(id),
+    buscarUsina(id),
+    supabase.from("clientes").select("id", { count: "exact", head: true }).eq("usina_id", id),
+  ]);
+  const fechamento = dashboard.ultimo;
 
   if (!fechamento) {
-    throw new Error(
-      "Nenhum fechamento encontrado."
-    );
+    const agora = new Date();
+    return {
+      usina,
+      clientes: clientes.count ?? 0,
+      energiaGerada: 0,
+      energiaTotal: 0,
+      energiaDisponivel: 0,
+      ocupacao: 0,
+      receitaPrevista: 0,
+      receitaRealizada: 0,
+      competencia: `${String(agora.getMonth() + 1).padStart(2, "0")}/${agora.getFullYear()}`,
+      status: "ABERTO",
+    };
   }
 
   return {
+    usina,
+    clientes: clientes.count ?? 0,
     energiaGerada:
       Number(fechamento.energia_gerada ?? 0),
+
+    energiaTotal:
+      Number(dashboard.energiaTotal ?? 0),
 
     energiaDisponivel:
       Number(fechamento.energia_disponivel ?? 0),

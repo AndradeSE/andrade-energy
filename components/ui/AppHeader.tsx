@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useState } from "react";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
@@ -21,7 +22,14 @@ export default function AppHeader({
   icon = "grid-outline",
 }: Props) {
   const router = useRouter();
-  const { logout } = useAuth();
+  const { logout, usuario } = useAuth();
+  const [menuAberto, setMenuAberto] = useState(false);
+  const proprietario = usuario?.perfil === "ADMIN" || usuario?.perfil === "GESTOR";
+
+  function navegar(rota: string) {
+    setMenuAberto(false);
+    router.push(rota as any);
+  }
 
   function confirmarSaida() {
     Alert.alert("Sair", "Deseja realmente sair da sua conta?", [
@@ -55,14 +63,14 @@ export default function AppHeader({
         </TouchableOpacity>
 
         <TouchableOpacity
-          accessibilityLabel="Sair da conta"
+          accessibilityLabel="Abrir menu"
           activeOpacity={0.8}
-          onPress={confirmarSaida}
+          onPress={() => setMenuAberto(true)}
           style={styles.action}
         >
           <Ionicons
-            name="log-out-outline"
-            size={24}
+            name="menu-outline"
+            size={30}
             color={Colors.surface}
           />
         </TouchableOpacity>
@@ -83,8 +91,24 @@ export default function AppHeader({
           </Text>
         </View>
       </View>
+
+      <Modal animationType="fade" transparent visible={menuAberto} onRequestClose={() => setMenuAberto(false)}>
+        <Pressable style={styles.backdrop} onPress={() => setMenuAberto(false)}>
+          <Pressable style={styles.menu} onPress={(evento) => evento.stopPropagation()}>
+            <View style={styles.menuHeader}><Text style={styles.menuTitle}>Menu</Text><TouchableOpacity onPress={() => setMenuAberto(false)}><Ionicons name="close" size={26} color={Colors.text} /></TouchableOpacity></View>
+            <MenuLink icon="home-outline" label="Início" onPress={() => navegar("/")} />
+            {proprietario ? <><MenuLink icon="people-outline" label="Clientes" onPress={() => navegar("/clientes")} /><MenuLink icon="business-outline" label="Usinas" onPress={() => navegar("/usinas")} /><MenuLink icon="flash-outline" label="Unidades consumidoras" onPress={() => navegar("/unidades/index")} /><MenuLink icon="document-text-outline" label="Contratos dos clientes" onPress={() => navegar("/contratos/index")} /><MenuLink icon="wallet-outline" label="Financeiro" onPress={() => navegar("/financeiro")} /></> : <><MenuLink icon="receipt-outline" label="Minhas faturas" onPress={() => navegar("/faturas")} /><MenuLink icon="document-text-outline" label="Meu contrato" onPress={() => navegar("/contrato")} /></>}
+            <MenuLink icon="person-outline" label="Perfil" onPress={() => navegar("/perfil")} />
+            <View style={styles.menuDivider} /><MenuLink icon="log-out-outline" label="Sair da conta" danger onPress={confirmarSaida} />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
+}
+
+function MenuLink({ icon, label, onPress, danger = false }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void; danger?: boolean }) {
+  return <TouchableOpacity onPress={onPress} style={styles.menuLink}><Ionicons name={icon} size={22} color={danger ? Colors.danger : Colors.primary} /><Text style={[styles.menuLabel, danger && styles.menuDanger]}>{label}</Text><Ionicons name="chevron-forward" size={18} color={Colors.subtitle} /></TouchableOpacity>;
 }
 
 const styles = StyleSheet.create({
@@ -138,6 +162,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  backdrop: { flex: 1, alignItems: "flex-end", backgroundColor: "rgba(15,23,42,0.45)" },
+  menu: { width: "84%", height: "100%", paddingHorizontal: Spacing.lg, paddingTop: 58, backgroundColor: Colors.surface },
+  menuHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.lg },
+  menuTitle: { color: Colors.text, fontSize: Typography.title, fontWeight: "800" },
+  menuLink: { minHeight: 54, flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: Colors.border },
+  menuLabel: { flex: 1, marginLeft: Spacing.md, color: Colors.text, fontSize: Typography.body, fontWeight: "600" },
+  menuDanger: { color: Colors.danger }, menuDivider: { height: Spacing.md },
 
   contextCard: {
     flexDirection: "row",

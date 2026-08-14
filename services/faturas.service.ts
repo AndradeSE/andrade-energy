@@ -1,16 +1,24 @@
-import * as FileSystem from "expo-file-system/legacy";
 import api from "../config/api";
 
-export async function processarFatura(uri: string) {
-  const base64 = await FileSystem.readAsStringAsync(uri, {
-    encoding: "base64",
-  });
+async function enviarPdf(uri: string, endpoint: string, nome = "fatura.pdf") {
+  const formData = new FormData();
+  formData.append("arquivo", {
+    uri,
+    name: nome,
+    type: "application/pdf",
+  } as any);
 
-  const { data } = await api.post("/faturas/importar", {
-    arquivo: base64,
-  });
+  const { data } = await api.post(endpoint, formData, { timeout: 60_000 });
 
   return data;
+}
+
+export async function processarFatura(uri: string, nome?: string) {
+  return enviarPdf(uri, "/faturas/importar", nome);
+}
+
+export async function analisarFatura(uri: string, nome?: string) {
+  return enviarPdf(uri, "/faturas/analisar", nome);
 }
 
 export async function salvarImportacao(uri: string) {

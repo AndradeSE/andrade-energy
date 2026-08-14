@@ -1,212 +1,36 @@
-import { router } from "expo-router";
-import { useEffect, useState } from "react";
-import {
-  FlatList,
-  ImageBackground,
-  Text,
-  TouchableOpacity,
-  View
-} from "react-native";
-import Card from "../../components/Card";
-import DashboardCard from "../../components/DashboardCard";
+import { Ionicons } from "@expo/vector-icons";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
-import {
-  listarFechamentos,
-  obterResumoOperacao,
-} from "../../services/fechamentos.service";
+import { AppHeader, Badge, Button, Card, EmptyState, Loading, Metric, Screen, Section } from "../../components/ui";
+import { listarFechamentos, obterResumoOperacao } from "../../services/fechamentos.service";
+import { Colors, Spacing, Typography } from "../../theme";
+
+const energia = (valor: unknown) => `${Number(valor ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kWh`;
+const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function Operacao() {
+  const [resumo, setResumo] = useState<any>(); const [lista, setLista] = useState<any[]>([]); const [loading, setLoading] = useState(true);
+  const carregar = useCallback(async () => { try { const [r, l] = await Promise.all([obterResumoOperacao(), listarFechamentos()]); setResumo(r); setLista(l ?? []); } finally { setLoading(false); } }, []);
+  useFocusEffect(useCallback(() => { carregar(); }, [carregar]));
 
-    const [resumo, setResumo] =
-  useState<any>();
-
-  const [lista, setLista] =
-    useState<any[]>([]);
-
-  useEffect(() => {
-
-    carregar();
-
-  }, []);
-
-  async function carregar() {
-
-    const resumoOperacao =
-  await obterResumoOperacao();
-
-setResumo(resumoOperacao);
-
-    const dados =
-      await listarFechamentos();
-      console.log("FECHAMENTOS", dados);
-
-
-    setLista(dados);
-
-  }
-
- return (
-  <ImageBackground
-    source={require("../../assets/images/background.png")}
-    style={{
-      flex: 1,
-      padding: 20,
-    }}
-  >
-    <Text
-  style={{
-    color: "black",
-    fontSize: 30,
-    fontWeight: "bold",
-    marginBottom: 20,
-  }}
->
-  Operação
-</Text>
-<View
-  style={{
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    marginBottom: 20,
-  }}
->
-
-  <DashboardCard
-    titulo="Fechamentos"
-    valor={String(resumo?.fechamentos ?? 0)}
-    icone="📋"
-  />
-
-  <DashboardCard
-    titulo="Energia"
-    valor={`${Number(resumo?.energiaGerada ?? 0).toFixed(0)} kWh`}
-    icone="⚡"
-  />
-
-  <DashboardCard
-    titulo="Disponível"
-    valor={`${Number(resumo?.energiaDisponivel ?? 0).toFixed(0)} kWh`}
-    icone="🔋"
-  />
-
-  <DashboardCard
-    titulo="Receita"
-    valor={`R$ ${Number(resumo?.receitaPrevista ?? 0).toFixed(2)}`}
-    icone="💰"
-  />
-
-</View>
-    
-    <FlatList
-      data={lista}
-      keyExtractor={(i) => i.id}
-      ListEmptyComponent={() => (
-
-<View
-style={{
-marginTop:60,
-alignItems:"center",
-}}
->
-    <Card>
-
-<View
-  style={{
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  }}
->
-
-<Text
-style={{
-fontSize:70,
-}}
->
-
-🏭
-
-</Text>
-
-<Text
-style={{
-color:"#FFF",
-fontSize:22,
-fontWeight:"bold",
-marginTop:15,
-}}
->
-
-Nenhum fechamento realizado
-
-</Text>
-
-<Text
-style={{
-color:"#E2E8F0",
-textAlign:"center",
-marginTop:10,
-paddingHorizontal:30,
-}}
->
-
-Toque no botão "+" para realizar o primeiro fechamento da usina.
-
-</Text>
-</View>
-
-</Card>
-</View>
-
-)}
-      renderItem={({ item }) => (
-        <TouchableOpacity
-          onPress={() =>
-            router.push(`/operacao/${item.id}`)
-          }
-          style={{
-            backgroundColor: "rgba(255,255,255,.9)",
-            borderRadius: 12,
-            padding: 16,
-            marginBottom: 12,
-          }}
-        >
-          <Text>{item.usinas?.nome}</Text>
-          <Text>{item.competencia}</Text>
-          <Text>{Number(item.ocupacao ?? 0).toFixed(1)}%</Text>
-        </TouchableOpacity>
-      )}
-    />
-    <TouchableOpacity
-  onPress={() => router.push("/operacao/novo")}
-  style={{
-    position: "absolute",
-    right: 20,
-    bottom: 50, // acima da barra de navegação
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "#16A34A",
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 8,
-  }}
->
-  <Text
-    style={{
-      color: "#FFF",
-      fontSize: 32,
-      fontWeight: "bold",
-      marginTop: -2,
-    }}
-  >
-    +
-  </Text>
-  
-</TouchableOpacity>
-  </ImageBackground>
-  
-);
-
+  return <Screen><AppHeader title="Operação" subtitle="Fechamentos das usinas" contextTitle={`${resumo?.fechamentos ?? 0} competências processadas`} contextSubtitle="Geração, alocação e receita" icon="analytics-outline" />
+    {loading ? <Loading /> : <FlatList contentContainerStyle={styles.content} data={lista} keyExtractor={(item) => item.id}
+      ListHeaderComponent={<View><View style={styles.heading}><Text style={styles.title}>Visão operacional</Text><Text style={styles.subtitle}>Consolide a energia de cada competência.</Text></View><View style={styles.grid}>
+        <View style={styles.metric}><Metric compact title="Energia gerada" value={energia(resumo?.energiaGerada)} icon={<Ionicons name="sunny-outline" size={20} color={Colors.primary} />} /></View>
+        <View style={styles.metric}><Metric compact title="Disponível" value={energia(resumo?.energiaDisponivel)} icon={<Ionicons name="battery-half-outline" size={20} color={Colors.primary} />} /></View>
+        <View style={styles.metric}><Metric compact title="Receita prevista" value={moeda(resumo?.receitaPrevista)} icon={<Ionicons name="wallet-outline" size={20} color={Colors.primary} />} /></View>
+        <View style={styles.metric}><Metric compact title="Fechamentos" value={resumo?.fechamentos ?? 0} icon={<Ionicons name="checkmark-done-outline" size={20} color={Colors.primary} />} /></View>
+      </View><Button title="Novo fechamento" icon={<Ionicons name="add" size={21} color={Colors.surface} />} onPress={() => router.push("/operacao/novo")} /><Section title="Histórico de competências"><View /></Section></View>}
+      renderItem={({ item }) => <Pressable onPress={() => router.push(`/operacao/${item.id}`)}><Card><View style={styles.row}><View><Text style={styles.name}>{item.usinas?.nome ?? "Usina"}</Text><Text style={styles.detail}>{new Date(item.competencia).toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" })}</Text></View><Badge label={item.status ?? "FECHADO"} variant={item.status === "FECHADO" ? "success" : "warning"} /></View><View style={styles.cardBottom}><Text style={styles.cardMetric}>{energia(item.energia_gerada)}</Text><Text style={styles.occupation}>{Number(item.ocupacao ?? 0).toFixed(1)}% ocupado</Text><Ionicons name="chevron-forward" size={18} color={Colors.subtitle} /></View></Card></Pressable>}
+      ListEmptyComponent={<EmptyState icon="analytics-outline" title="Nenhum fechamento realizado" subtitle="Crie o primeiro fechamento ou importe a fatura da unidade geradora." />}
+    />}
+  </Screen>;
 }
+
+const styles = StyleSheet.create({
+  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl * 3 }, heading: { marginBottom: Spacing.lg }, title: { color: Colors.text, fontSize: Typography.section, fontWeight: "800" }, subtitle: { marginTop: Spacing.xs, color: Colors.subtitle },
+  grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginBottom: Spacing.md }, metric: { width: "48%", marginBottom: Spacing.sm }, row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, name: { color: Colors.text, fontSize: Typography.body, fontWeight: "700" }, detail: { marginTop: 4, color: Colors.subtitle, textTransform: "capitalize" },
+  cardBottom: { flexDirection: "row", alignItems: "center", marginTop: Spacing.md, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border }, cardMetric: { flex: 1, color: Colors.text, fontWeight: "700" }, occupation: { marginRight: Spacing.sm, color: Colors.primary, fontSize: Typography.small, fontWeight: "700" },
+});

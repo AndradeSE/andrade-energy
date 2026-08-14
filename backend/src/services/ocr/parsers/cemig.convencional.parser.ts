@@ -1,4 +1,5 @@
 import { FaturaExtraida } from "../../../types/FaturaExtraida";
+import { extrairCadastroCemig } from "./cemig.cadastro.parser";
 
 export function parseCemigConvencional(
   texto: string
@@ -6,22 +7,7 @@ export function parseCemigConvencional(
 
   texto = texto.replace(/\r/g, "");
 
-  // Cliente
- const cliente =
-  (
-    texto.match(
-      /(\b[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,}(?:\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,})+)\s+BAIRRO/i
-    )?.[1] ?? ""
-  ).trim();
-console.log("CLIENTE =", cliente);
-
-  // UC
-  const uc =
-    (
-      texto.match(
-        /N\.º DA UNIDADE CONSUMIDORA\s*([\d.\-]+)/i
-      )?.[1] ?? ""
-    ).replace(/\D/g, "");
+  const { cliente, endereco, uc } = extrairCadastroCemig(texto);
 
   // Referência + vencimento + valor
   const dadosConta =
@@ -42,6 +28,12 @@ console.log("CLIENTE =", cliente);
         .replace(",", ".")
     );
 
+  const tarifaCheia = Number(
+    (texto.match(/Energia Elétrica\s*kWh\s*\d+\s+([\d.,]+)/i)?.[1] ?? "0")
+      .replace(/\./g, "")
+      .replace(",", ".")
+  );
+
   // Consumo do histórico
   let consumo = 0;
 
@@ -61,6 +53,7 @@ console.log("CLIENTE =", cliente);
 
  return {
   cliente,
+  endereco,
   uc,
   referencia,
   vencimento,
@@ -75,7 +68,7 @@ console.log("CLIENTE =", cliente);
 
   economia: 0,
 
-  tarifaCheia: 0,
+  tarifaCheia,
   tarifaGD: 0,
   custoDisponibilidade: 0,
 

@@ -1,175 +1,73 @@
-import { router } from 'expo-router';
-import { useState } from 'react';
-import {
-  ImageBackground,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
+import { Alert, ScrollView, StyleSheet, Text } from "react-native";
 
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { supabase } from '../../supabase';
+import FormField from "../../components/cadastro/FormField";
+import { Button, Card, Screen } from "../../components/ui";
+import { supabase } from "../../supabase";
+import { Colors, Spacing, Typography } from "../../theme";
 
 export default function NovaUsina() {
-  const [nome, setNome] = useState('');
-  const [pontoInstalacao, setPontoInstalacao] =
-    useState('');
-  const [potencia, setPotencia] =
-    useState('');
-  const [geracaoMedia, setGeracaoMedia] =
-    useState('');
-  const [investimento, setInvestimento] =
-    useState('');
+  const { origem, cliente, uc, endereco: enderecoImportado } = useLocalSearchParams<{ origem?: string; cliente?: string; uc?: string; endereco?: string }>();
+  const [nome, setNome] = useState("");
+  const [numeroInstalacao, setNumeroInstalacao] = useState("");
+  const [potencia, setPotencia] = useState("");
+  const [titular, setTitular] = useState("");
+  const [endereco, setEndereco] = useState("");
+  const [salvando, setSalvando] = useState(false);
+
+  useEffect(() => {
+    if (origem !== "fatura") return;
+    setNome(cliente ? `Usina ${cliente}` : "");
+    setTitular(cliente ?? "");
+    setNumeroInstalacao((uc ?? "").replace(/\D/g, ""));
+    setEndereco(enderecoImportado ?? "");
+  }, [cliente, enderecoImportado, origem, uc]);
 
   async function salvar() {
-    const { error } = await supabase
-      .from('usinas')
-      .insert({
-        nome,
-        ponto_instalacao:
-          pontoInstalacao,
-        potencia_kwp:
-          Number(potencia),
-        geracao_media:
-          Number(geracaoMedia),
-        investimento:
-          Number(investimento),
-      });
-
-    if (error) {
-      console.log(
-        'ERRO AO CRIAR USINA:',
-        error
-      );
+    if (!nome.trim() || !numeroInstalacao || !potencia) {
+      Alert.alert("Dados incompletos", "Informe nome, instalação e potência da usina.");
       return;
     }
+    setSalvando(true);
+    const { data: usina, error } = await supabase.from("usinas").insert({
+      nome: nome.trim(), numero_instalacao: numeroInstalacao, potencia_kwp: Number(potencia.replace(",", ".")),
+      titular_nome: titular.trim() || null, endereco: endereco.trim() || null,
+      distribuidora: "CEMIG", modalidade: "INJECAO", status: "ATIVA",
+    }).select("id").single();
 
-    router.back();
+    if (!error && usina) {
+      const { error: unidadeError } = await supabase.from("unidades_consumidoras").upsert({
+        usina_id: usina.id, numero: numeroInstalacao, tipo: "GERADORA", titular: titular.trim() || nome.trim(),
+        distribuidora: "CEMIG", endereco: endereco.trim() || null, modalidade_faturamento: "INJECAO", status: "ATIVA",
+      }, { onConflict: "numero" });
+      if (unidadeError) {
+        Alert.alert("Usina salva", "A usina foi criada, mas a unidade geradora precisa ser vinculada novamente.");
+      } else router.back();
+    } else Alert.alert("Não foi possível salvar", error?.message ?? "Tente novamente.");
+    setSalvando(false);
   }
 
- return (
-  <ImageBackground
-source={require('../../assets/images/background.png')}    style={{ flex: 1 }}
-  >
-    <SafeAreaView
-      style={{
-        flex: 1,
-      }}
-    >
-      <ScrollView
-        contentContainerStyle={{
-          padding: 20,
-        }}
-      >
-         <View
-        style={{
-          backgroundColor: 'rgba(255,255,255,0.95)',
-          borderRadius: 18,
-          padding: 20,
-          shadowColor: '#000',
-          shadowOpacity: 0.15,
-          shadowRadius: 10,
-          shadowOffset: {
-            width: 0,
-            height: 4,
-          },
-          elevation: 6,
-        }}
-      >
-
-      <Text
-        style={{
-          fontSize: 24,
-          fontWeight: 'bold',
-          marginBottom: 20,
-        }}
-      >
-        Nova Usina
-      </Text>
-
-      <Text>Nome</Text>
-      <TextInput
-        value={nome}
-        onChangeText={setNome}
-        style={styles.input}
-        
-      />
-
-      <Text>Ponto de Instalação</Text>
-      <TextInput
-        value={pontoInstalacao}
-        onChangeText={(texto) =>
-          setPontoInstalacao(
-            texto.replace(/\D/g, '')
-          )
-        }
-        keyboardType="numeric"
-        style={styles.input}
-      />
-
-      <Text>Potência (kWp)</Text>
-      <TextInput
-        value={potencia}
-        onChangeText={setPotencia}
-        keyboardType="numeric"
-        style={styles.input}
-      />
-
-      <Text>Geração Média (kWh/mês)</Text>
-      <TextInput
-        value={geracaoMedia}
-        onChangeText={setGeracaoMedia}
-        keyboardType="numeric"
-        style={styles.input}
-      />
-
-      <Text>Investimento</Text>
-      <TextInput
-        value={investimento}
-        onChangeText={setInvestimento}
-        keyboardType="numeric"
-        style={styles.input}
-      />
-
-      <TouchableOpacity
-        onPress={salvar}
-        style={{
-          backgroundColor: '#16a34a',
-          padding: 15,
-          borderRadius: 10,
-          marginTop: 20,
-        }}
-      >
-        <Text
-          style={{
-            color: 'white',
-            textAlign: 'center',
-            fontWeight: 'bold',
-          }}
-        >
-          SALVAR USINA
-          
-        </Text>
-      </TouchableOpacity>
-            </View>
-            
-    </ScrollView>
-      </SafeAreaView>
-  </ImageBackground>
-);
+  return (
+    <Screen><ScrollView contentContainerStyle={styles.content}>
+      <Text style={styles.eyebrow}>{origem === "fatura" ? "DADOS LIDOS DA FATURA" : "CADASTRO MANUAL"}</Text>
+      <Text style={styles.title}>Nova usina</Text>
+      <Text style={styles.subtitle}>Confira os dados antes de salvar. O nome sugerido pela fatura pode ser alterado livremente.</Text>
+      <Card>
+        <FormField label="Nome da usina (editável)" value={nome} onChangeText={setNome} placeholder="Ex.: Usina Solar Alfenas" />
+        <FormField label="Número da instalação / UC" value={numeroInstalacao} onChangeText={(v) => setNumeroInstalacao(v.replace(/\D/g, ""))} keyboardType="numeric" />
+        <FormField label="Potência (kWp)" value={potencia} onChangeText={setPotencia} keyboardType="decimal-pad" />
+        <FormField label="Titular" value={titular} onChangeText={setTitular} />
+        <FormField label="Endereço" value={endereco} onChangeText={setEndereco} />
+        <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar usina"} onPress={salvar} />
+      </Card>
+    </ScrollView></Screen>
+  );
 }
 
-const styles = {
-  input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 5,
-    marginBottom: 18,
-  },
-};
+const styles = StyleSheet.create({
+  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
+  eyebrow: { color: Colors.primary, fontSize: Typography.small, fontWeight: "700", letterSpacing: 1.2 },
+  title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "700" },
+  subtitle: { marginTop: Spacing.sm, marginBottom: Spacing.lg, color: Colors.subtitle, lineHeight: 21 },
+});

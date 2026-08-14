@@ -7,7 +7,17 @@ import {
   excluirUsinaService,
   listarUsinasService,
   obterDashboardUsina,
+  importarFaturaGeradora,
 } from "./usinas.service";
+
+export async function importarFaturaGeradoraController(req: Request, res: Response) {
+  try {
+    if (!req.file) return res.status(400).json({ message: "Arquivo não enviado." });
+    return res.json(await importarFaturaGeradora(req.params.id, req.file.path));
+  } catch (e: any) {
+    return res.status(400).json({ message: e.message });
+  }
+}
 
 export async function listarUsinasController(
   req: Request,

@@ -1,6 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs } from "expo-router";
+import { ParamListBase, TabNavigationState } from "@react-navigation/native";
+import { createMaterialTopTabNavigator, MaterialTopTabNavigationEventMap, MaterialTopTabNavigationOptions } from "@react-navigation/material-top-tabs";
+import { Tabs, withLayoutContext } from "expo-router";
 import { useAuth } from "../../contexts/AuthContext";
+
+const TopTabs = createMaterialTopTabNavigator();
+const OwnerTabs = withLayoutContext<MaterialTopTabNavigationOptions, typeof TopTabs.Navigator, TabNavigationState<ParamListBase>, MaterialTopTabNavigationEventMap>(TopTabs.Navigator, (screens) => [...screens].reverse(), true);
 
 export default function TabLayout() {
   const { usuario } = useAuth();
@@ -151,12 +156,27 @@ export default function TabLayout() {
   }
 
   // ===================================================
-  // ADMIN / GESTOR
+  // PROPRIETÁRIO DA USINA
   // ===================================================
 
   return (
-    <Tabs screenOptions={screenOptions}>
-      <Tabs.Screen
+    <OwnerTabs initialRouteName="index" screenOptions={{
+      swipeEnabled: true,
+      animationEnabled: true,
+      lazy: true,
+      tabBarShowIcon: true,
+      tabBarShowLabel: true,
+      tabBarScrollEnabled: false,
+      tabBarActiveTintColor: "#16A34A",
+      tabBarInactiveTintColor: "#94A3B8",
+      tabBarLabelStyle: { width: "100%", margin: 0, fontSize: 10, lineHeight: 13, fontWeight: "600", textAlign: "center", textTransform: "none" },
+      tabBarItemStyle: { flex: 1, minWidth: 0, paddingHorizontal: 0, paddingVertical: 6 },
+      tabBarContentContainerStyle: { width: "100%", flexDirection: "row-reverse", alignItems: "stretch" },
+      tabBarIndicatorStyle: { backgroundColor: "#16A34A", height: 3, top: 0 },
+      tabBarStyle: { position: "absolute", left: 0, right: 0, bottom: 0, height: 82, paddingTop: 7, backgroundColor: "#FFFFFF", elevation: 15, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: -3 } },
+      sceneStyle: { paddingBottom: 82 },
+    }}>
+      <OwnerTabs.Screen
         name="index"
         options={{
           title: "Home",
@@ -170,13 +190,9 @@ export default function TabLayout() {
         }}
       />
 
-      <Tabs.Screen
+      <OwnerTabs.Screen
         name="clientes"
         options={{
-          href:
-            perfil === "ADMIN"
-              ? undefined
-              : null,
           title: "Clientes",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
@@ -192,13 +208,9 @@ export default function TabLayout() {
         }}
       />
 
-      <Tabs.Screen
+      <OwnerTabs.Screen
         name="usinas"
         options={{
-          href:
-            perfil === "ADMIN"
-              ? undefined
-              : null,
           title: "Usinas",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
@@ -214,14 +226,9 @@ export default function TabLayout() {
         }}
       />
 
-      <Tabs.Screen
+      <OwnerTabs.Screen
         name="operacao"
         options={{
-          href:
-            perfil === "ADMIN" ||
-            perfil === "GESTOR"
-              ? undefined
-              : null,
           title: "Operação",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
@@ -237,14 +244,9 @@ export default function TabLayout() {
         }}
       />
 
-      <Tabs.Screen
+      <OwnerTabs.Screen
         name="financeiro"
         options={{
-          href:
-            perfil === "ADMIN" ||
-            perfil === "GESTOR"
-              ? undefined
-              : null,
           title: "Financeiro",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
@@ -260,7 +262,7 @@ export default function TabLayout() {
         }}
       />
 
-      <Tabs.Screen
+      <OwnerTabs.Screen
         name="perfil"
         options={{
           title: "Perfil",
@@ -278,26 +280,6 @@ export default function TabLayout() {
         }}
       />
 
-      <Tabs.Screen
-        name="economia"
-        options={{
-          href: null,
-        }}
-      />
-
-      <Tabs.Screen
-        name="faturas"
-        options={{
-          href: null,
-        }}
-      />
-
-      <Tabs.Screen
-        name="contrato"
-        options={{
-          href: null,
-        }}
-      />
-    </Tabs>
+    </OwnerTabs>
   );
 }

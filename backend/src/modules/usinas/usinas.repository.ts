@@ -84,13 +84,13 @@ export async function buscarDashboardUsina(
       created_at
     `)
     .eq("usina_id", usinaId)
-    .order("created_at", {
-      ascending: false,
-    })
-    .limit(1)
-    .maybeSingle();
+    .order("competencia", { ascending: false });
 
   if (error) throw error;
 
-  return data;
+  const lista = data ?? [];
+  return {
+    ultimo: lista[0] ?? null,
+    energiaTotal: lista.reduce((total, fechamento) => total + Number(fechamento.energia_gerada ?? 0), 0),
+  };
 }

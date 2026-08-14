@@ -100,6 +100,9 @@ const fatura = await inserirFatura({
 
   cliente_id: cliente.id,
 
+  unidade_consumidora_id:
+    cliente.unidade_consumidora?.id ?? null,
+
   usina_id: cliente.usina_id,
 
   numero_instalacao: dados.uc,

@@ -46,6 +46,7 @@ app-example
 # generated native folders
 /ios
 /android
+backend/uploads/
 *.rar
 *.zip
 *.7z

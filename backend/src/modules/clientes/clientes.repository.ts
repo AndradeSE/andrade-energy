@@ -27,6 +27,29 @@ export async function buscarCliente(id: string) {
 export async function buscarClientePorUC(uc: string) {
   const ucNormalizada = String(uc).replace(/\D/g, "");
 
+  const { data: unidade, error: erroUnidade } = await supabase
+    .from("unidades_consumidoras")
+    .select("*, clientes(*)")
+    .eq("numero", ucNormalizada)
+    .eq("status", "ATIVA")
+    .maybeSingle();
+
+  if (!erroUnidade && unidade?.clientes) {
+    return {
+      ...unidade.clientes,
+      usina_id: unidade.usina_id ?? unidade.clientes.usina_id,
+      modalidade_faturamento:
+        unidade.modalidade_faturamento ?? unidade.clientes.modalidade_faturamento,
+      desconto_percentual:
+        unidade.desconto_percentual ?? unidade.clientes.desconto_percentual,
+      unidade_consumidora: unidade,
+    };
+  }
+
+  if (erroUnidade && erroUnidade.code !== "42P01") {
+    throw erroUnidade;
+  }
+
   const { data, error } = await supabase
     .from("clientes")
     .select("*");
@@ -37,7 +60,7 @@ export async function buscarClientePorUC(uc: string) {
     const ucBanco = String(cliente.uc ?? "").replace(/\D/g, "");
 
     if (ucBanco === ucNormalizada) {
-      return cliente;
+      return { ...cliente, unidade_consumidora: null };
     }
   }
 

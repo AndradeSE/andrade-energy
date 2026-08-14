@@ -2,9 +2,18 @@ import { Request, Response } from "express";
 
 import {
   importarFatura,
+  analisarFatura,
   detalharFatura,
   listarFaturas,
 } from "./faturas.service";
+
+export async function analisarFaturaController(req: Request, res: Response) {
+  try {
+    return res.json(await analisarFatura(req));
+  } catch (err: any) {
+    return res.status(400).json({ message: err.message });
+  }
+}
 
 export async function detalharFaturaController(req: Request, res: Response) {
   try {

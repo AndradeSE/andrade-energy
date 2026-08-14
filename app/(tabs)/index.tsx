@@ -1,7 +1,6 @@
 import { useAuth } from "../../contexts/AuthContext";
 
 import ClientePager from "../../components/cliente/ClientePager";
-import DashboardAdmin from "../../components/dashboard/DashboardAdmin";
 import DashboardGestor from "../../components/dashboard/DashboardGestor";
 
 export default function Home() {
@@ -14,8 +13,6 @@ export default function Home() {
 
   switch (usuario.perfil) {
     case "ADMIN":
-      return <DashboardAdmin />;
-
     case "GESTOR":
       return <DashboardGestor />;
 

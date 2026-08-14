@@ -1,396 +1,49 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import {
-  Alert,
-  ImageBackground,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import ChoiceField from "../../components/cadastro/ChoiceField";
+import FormField from "../../components/cadastro/FormField";
+import { Button, Card, Loading, Screen } from "../../components/ui";
+import { supabase } from "../../supabase";
+import { Colors, Radius, Spacing, Typography } from "../../theme";
 
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { supabase } from '../../supabase';
-
-import { Usina } from '../../types/Usina';
+type Modalidade = "INJECAO" | "COMPENSACAO";
 
 export default function EditarCliente() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const [nome, setNome] = useState(""); const [uc, setUc] = useState(""); const [telefone, setTelefone] = useState("");
+  const [email, setEmail] = useState(""); const [cpf, setCpf] = useState(""); const [endereco, setEndereco] = useState("");
+  const [usinaId, setUsinaId] = useState(""); const [usinas, setUsinas] = useState<any[]>([]);
+  const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO"); const [desconto, setDesconto] = useState("40");
+  const [loading, setLoading] = useState(true); const [salvando, setSalvando] = useState(false);
 
-  const { id } = useLocalSearchParams();
+  useEffect(() => { Promise.all([
+    supabase.from("clientes").select("*").eq("id", id).single(),
+    supabase.from("usinas").select("id,nome").order("nome"),
+  ]).then(([cliente, lista]) => { const d = cliente.data; if (d) { setNome(d.nome ?? ""); setUc(d.uc ?? ""); setTelefone(d.telefone ?? d.whatsapp ?? ""); setEmail(d.email ?? ""); setCpf(d.cpf ?? ""); setEndereco(d.endereco ?? ""); setUsinaId(d.usina_id ?? ""); setModalidade(d.modalidade_faturamento ?? "COMPENSACAO"); setDesconto(String(d.desconto_percentual ?? 40)); } setUsinas(lista.data ?? []); setLoading(false); }); }, [id]);
 
-  const clienteId = Array.isArray(id)
-    ? id[0]
-    : id;
-
-  const [nome, setNome] = useState('');
-  const [uc, setUc] = useState('');
-  const [telefone, setTelefone] = useState('');
-  const [cpf, setCpf] = useState('');
-  const [endereco, setEndereco] = useState('');
-  const [usinaId, setUsinaId] = useState('');
-
-  const [usinas,setUsinas]=
-useState<Usina[]>([]);
-  const [mostrarUsinas, setMostrarUsinas] =
-    useState(false);
-
-  const [salvando, setSalvando] =
-    useState(false);
-    
-
-  useEffect(() => {
-
-  carregarCliente();
-  carregarUsinas();
-
-}, []);
-  
-
-
-async function carregarCliente() {
-
-  const { data } =
-    await supabase
-      .from('clientes')
-      .select('*')
-      .eq('id', clienteId)
-      .single();
-
-  if (!data) return;
-
-  setNome(data.nome || '');
-  setUc(data.uc || '');
-  setTelefone(data.telefone || '');
-  setCpf(data.cpf || '');
-  setEndereco(data.endereco || '');
-  setUsinaId(data.usina_id || '');
-
-}
-async function carregarUsinas() {
-
-  const { data } =
-    await supabase
-      .from('usinas')
-      .select('*')
-      .order('nome');
-
-  setUsinas(data || []);
-
-}
-
-async function salvar() {
-
-  setSalvando(true);
-
-  const { error } =
-    await supabase
-      .from('clientes')
-      .update({
-
-        nome,
-
-        uc: uc.replace(/\D/g,''),
-
-        telefone,
-
-        cpf,
-
-        endereco,
-
-        usina_id: usinaId,
-
-      })
-
-      .eq('id', clienteId);
-
-  setSalvando(false);
-
-  if(error){
-
-    Alert.alert(
-      'Erro',
-      error.message
-    );
-
-    return;
-
+  async function salvar() {
+    if (!nome.trim()) return Alert.alert("Nome obrigatório", "Informe o nome do cliente.");
+    const percentual = Number(desconto.replace(",", "."));
+    if (!Number.isFinite(percentual) || percentual < 0 || percentual > 100) return Alert.alert("Desconto inválido", "Informe um percentual entre 0 e 100.");
+    setSalvando(true);
+    const { error } = await supabase.from("clientes").update({ nome: nome.trim(), uc: uc.replace(/\D/g, "") || null, telefone, whatsapp: telefone.replace(/\D/g, ""), email: email.trim().toLowerCase(), cpf, endereco, usina_id: usinaId || null, modalidade_faturamento: modalidade, desconto_percentual: percentual }).eq("id", id);
+    setSalvando(false); if (error) Alert.alert("Não foi possível salvar", error.message); else router.back();
   }
 
-  router.back();
+  function excluir() { Alert.alert("Excluir cliente", "Esta ação remove o cliente e seus vínculos. Deseja continuar?", [{ text: "Cancelar", style: "cancel" }, { text: "Excluir", style: "destructive", onPress: async () => { const { error } = await supabase.from("clientes").delete().eq("id", id); if (error) Alert.alert("Não foi possível excluir", error.message); else router.replace("/clientes"); } }]); }
 
-}
-async function excluirCliente() {
-
-  Alert.alert(
-
-    'Excluir',
-
-    'Deseja realmente excluir este cliente?',
-
-    [
-
-      {
-        text:'Cancelar',
-        style:'cancel',
-      },
-
-      {
-
-        text:'Excluir',
-
-        style:'destructive',
-
-        onPress: async()=>{
-
-          await supabase
-            .from('cobrancas')
-            .delete()
-            .eq('cliente_id',clienteId);
-
-          await supabase
-            .from('faturas')
-            .delete()
-            .eq('cliente_id',clienteId);
-
-          const { error } =
-            await supabase
-              .from('clientes')
-              .delete()
-              .eq('id',clienteId);
-
-          if(error){
-
-            Alert.alert(
-              'Erro',
-              error.message
-            );
-
-            return;
-
-          }
-
-          router.replace('/clientes');
-
-        }
-
-      }
-
-    ]
-
-  );}
-return (
-
-<ImageBackground
-  source={require('../../assets/images/background.png')}
-  resizeMode="cover"
-  style={{ flex: 1 }}
->
-
-<SafeAreaView style={{ flex: 1 }}>
-
-<ScrollView
-contentContainerStyle={{
-padding:20,
-paddingTop:60,
-}}
->
-
-<View
-style={{
-backgroundColor:'rgba(255,255,255,0.95)',
-padding:20,
-borderRadius:18,
-}}
->
-
-<Text
-style={{
-fontSize:24,
-fontWeight:'bold',
-marginBottom:20,
-}}
->
-
-Editar Cliente
-
-</Text>
-
-<Text>Nome</Text>
-
-<TextInput
-value={nome}
-onChangeText={setNome}
-style={styles.input}
-/>
-
-<Text>UC</Text>
-
-<TextInput
-value={uc}
-onChangeText={(t)=>setUc(t.replace(/\D/g,''))}
-keyboardType="numeric"
-style={styles.input}
-/>
-
-<Text>Telefone</Text>
-
-<TextInput
-value={telefone}
-onChangeText={setTelefone}
-style={styles.input}
-/>
-
-<Text>CPF</Text>
-
-<TextInput
-value={cpf}
-onChangeText={setCpf}
-style={styles.input}
-/>
-
-<Text>Endereço</Text>
-
-<TextInput
-value={endereco}
-onChangeText={setEndereco}
-style={styles.input}
-/>
-
-<Text>Usina</Text>
-
-<Pressable
-onPress={()=>
-setMostrarUsinas(!mostrarUsinas)
-}
-style={styles.input}
->
-
-<Text>
-
-{
-usinas.find(
-u=>u.id===usinaId
-)?.nome ||
-
-'Selecione uma usina'
-
+  if (loading) return <Loading />;
+  return <Screen><ScrollView contentContainerStyle={styles.content}><Text style={styles.eyebrow}>CADASTRO DO CLIENTE</Text><Text style={styles.title}>Editar cliente</Text><Text style={styles.subtitle}>Somente o nome é obrigatório. Atualize os demais dados quando precisar.</Text>
+    <Card><FormField label="Nome" value={nome} onChangeText={setNome} /><FormField label="Unidade consumidora (opcional)" value={uc} onChangeText={(v) => setUc(v.replace(/\D/g, ""))} keyboardType="numeric" /><FormField label="Telefone / WhatsApp (opcional)" value={telefone} onChangeText={setTelefone} keyboardType="phone-pad" /><FormField label="E-mail (opcional)" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
+      <ChoiceField label="Modalidade de faturamento" value={modalidade} onChange={setModalidade} options={[{ label: "Por injeção", value: "INJECAO" }, { label: "Por compensação", value: "COMPENSACAO" }]} /><FormField label="Desconto contratado (%)" value={desconto} onChangeText={setDesconto} keyboardType="decimal-pad" /><FormField label="CPF / CNPJ (opcional)" value={cpf} onChangeText={setCpf} /><FormField label="Endereço (opcional)" value={endereco} onChangeText={setEndereco} />
+      <Text style={styles.label}>Usina vinculada (opcional)</Text><View style={styles.options}><Pressable onPress={() => setUsinaId("")} style={[styles.option, !usinaId && styles.selected]}><Text>Nenhuma usina</Text></Pressable>{usinas.map((u) => <Pressable key={u.id} onPress={() => setUsinaId(u.id)} style={[styles.option, usinaId === u.id && styles.selected]}><Text>{u.nome}</Text></Pressable>)}</View>
+      <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar alterações"} onPress={salvar} /><Button title="Excluir cliente" onPress={excluir} style={styles.delete} />
+    </Card></ScrollView></Screen>;
 }
 
-</Text>
-
-</Pressable>
-
-{mostrarUsinas && (
-
-<View
-style={{
-borderWidth:1,
-borderColor:'#d1d5db',
-borderRadius:10,
-backgroundColor:'white',
-marginBottom:20,
-}}
->
-
-{usinas.map(usina=>(
-
-<TouchableOpacity
-key={usina.id}
-onPress={()=>{
-setUsinaId(usina.id);
-setMostrarUsinas(false);
-}}
-style={{
-padding:15,
-borderBottomWidth:1,
-borderBottomColor:'#e5e7eb',
-}}
->
-
-<Text>
-
-{usina.nome}
-
-</Text>
-
-</TouchableOpacity>
-
-))}
-
-</View>
-
-)}
-
-<TouchableOpacity
-onPress={salvar}
-style={{
-backgroundColor:'#2563eb',
-padding:15,
-borderRadius:10,
-marginTop:20,
-}}
->
-
-<Text
-style={{
-color:'white',
-fontWeight:'bold',
-textAlign:'center',
-}}
->
-
-{salvando ? 'SALVANDO...' : 'SALVAR'}
-
-</Text>
-
-</TouchableOpacity>
-
-<TouchableOpacity
-onPress={excluirCliente}
-style={{
-backgroundColor:'#dc2626',
-padding:15,
-borderRadius:10,
-marginTop:12,
-}}
->
-
-<Text
-style={{
-color:'white',
-fontWeight:'bold',
-textAlign:'center',
-}}
->
-
-EXCLUIR CLIENTE
-
-</Text>
-
-</TouchableOpacity>
-
-</View>
-
-</ScrollView>
-
-</SafeAreaView>
-
-</ImageBackground>
-
-);
-}
-const styles = {
-  input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 5,
-    marginBottom: 18,
-  },
-};
+const styles = StyleSheet.create({
+  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl }, eyebrow: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800", letterSpacing: 1.2 }, title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "800" }, subtitle: { marginTop: Spacing.sm, marginBottom: Spacing.lg, color: Colors.subtitle, lineHeight: 21 },
+  label: { marginBottom: Spacing.xs, color: Colors.text, fontSize: Typography.caption, fontWeight: "700" }, options: { gap: Spacing.xs, marginBottom: Spacing.lg }, option: { padding: Spacing.sm, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, backgroundColor: Colors.surface }, selected: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight }, delete: { marginTop: Spacing.sm, backgroundColor: Colors.danger },
+});

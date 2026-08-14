@@ -1,5 +1,6 @@
 import { Stack, router, useSegments } from "expo-router";
 import { useEffect } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import {
   QueryClient,
@@ -31,7 +32,7 @@ function RootNavigation() {
     if (usuario && inAuth) {
       router.replace("/(tabs)");
     }
-  }, [usuario, loading]);
+  }, [usuario, loading, segments]);
 
   return (
     <Stack
@@ -44,10 +45,12 @@ function RootNavigation() {
 
 export default function Layout() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <RootNavigation />
-      </AuthProvider>
-    </QueryClientProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <RootNavigation />
+        </AuthProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }

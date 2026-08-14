@@ -1,5 +1,6 @@
 import { FaturaExtraida } from "../../../types/FaturaExtraida";
 import { buscar } from "../regex";
+import { extrairCadastroCemig } from "./cemig.cadastro.parser";
 
 function paraNumero(valor: string): number {
   return Number(
@@ -46,14 +47,14 @@ export function parseCemigGD(
   const energiaInjetada = Number(
     buscar(
       texto,
-      /Energia Injetada\s+\S+\s+\d+\.\d+\s+\d+\.\d+\s+\d+\s+(\d+)/i
+      /Energia Injetada.*?\d+\.\d{3}\s*\d+\.\d{3}\s*1\s*(\d+)\s/i
     ) || "0"
   );
 
   const energiaCompensada = Number(
     buscar(
       texto,
-      /Energia compensada\s+GD\s*II\s+kWh\s+(\d+)/i
+      /Energia compensada\s+GD\s*(?:II|I)\s*kWh\s*(\d+)/i
     ) || "0"
   );
 
@@ -65,44 +66,41 @@ export function parseCemigGD(
   );
 
   const tarifaCheia = paraNumero(
-    buscar(
-      texto,
-      /Energia SCEE ISENTA\s+kWh\s+\d+\s+([\d.,]+)/i
-    ) || "0"
+    buscar(texto, /Custo de Disponibilidade\s*([\d.,]+)/i) ||
+    buscar(texto, /Energia Elétrica\s*kWh\s*\d+\s+([\d.,]+)/i) ||
+    "0"
   );
 
   const tarifaGD = paraNumero(
     buscar(
       texto,
-      /Energia compensada\s+GD\s*II\s+kWh\s+\d+\s+([\d.,]+)/i
+      /Energia compensada\s+GD\s*(?:II|I)\s*kWh\s*\d+\s+([\d.,]+)/i
     ) || "0"
   );
 
   const custoDisponibilidade = paraNumero(
     buscar(
       texto,
-      /Custo de Disponibilidade.*?([\d.,]+)\s+\d/i
+      /Custo de Disponibilidade\s*[\d.,]+\s+([\d.,]+)/i
     ) || "0"
   );
 
   const economia = paraNumero(
     buscar(
       texto,
-      /Energia compensada\s+GD\s*II\s+kWh\s+\d+\s+[\d.,]+\s*-\s*([\d.,]+)/i
+      /Energia compensada\s+GD\s*(?:II|I)\s*kWh\s*\d+\s+[\d.,]+\s*-\s*([\d.,]+)/i
     ) || "0"
   );
 
+  const cadastro = extrairCadastroCemig(texto);
+
   return {
 
-    cliente: buscar(
-      texto,
-      /([A-ZÀ-Ý][A-ZÀ-Ý\s]{4,}?)\s+(?:BAIRRO|EST|RUA|AV|ROD|AREA)\b/u
-    ),
+    cliente: cadastro.cliente,
 
-    uc: buscar(
-      texto,
-      /N\.\s*(?:º|°|Âº)?\s*DA UNIDADE CONSUMIDORA\s*([\d.\-]+)/i
-    ).replace(/\D/g, ""),
+    endereco: cadastro.endereco,
+
+    uc: cadastro.uc,
 
     referencia,
 

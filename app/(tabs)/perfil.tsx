@@ -16,6 +16,7 @@ import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function Perfil() {
   const { usuario, logout } = useAuth();
+  const proprietario = usuario?.perfil === "ADMIN" || usuario?.perfil === "GESTOR";
 
   function confirmarSaida() {
     Alert.alert("Sair", "Deseja realmente sair da sua conta?", [
@@ -55,7 +56,9 @@ export default function Perfil() {
 
               <View style={styles.profileBadge}>
                 <View style={styles.profileBadgeDot} />
-                <Text style={styles.profileBadgeText}>Cliente Andrade Energy</Text>
+                <Text style={styles.profileBadgeText}>
+                  {proprietario ? "Proprietário de usina" : "Cliente Andrade Energy"}
+                </Text>
               </View>
             </View>
           </View>
@@ -85,15 +88,25 @@ export default function Perfil() {
             </>
           ) : null}
 
-          {usuario?.perfil === "GESTOR" ? (
-            <MenuItem icon="business-outline" label="Minha usina" />
-          ) : null}
-
-          {usuario?.perfil === "ADMIN" ? (
+          {proprietario ? (
             <>
-              <MenuItem icon="people-outline" label="Usuários" />
+              <MenuItem
+                icon="business-outline"
+                label="Minhas usinas"
+                onPress={() => router.push("/usinas")}
+              />
               <Divider />
-              <MenuItem icon="settings-outline" label="Configurações" />
+              <MenuItem
+                icon="people-outline"
+                label="Meus clientes"
+                onPress={() => router.push("/clientes")}
+              />
+              <Divider />
+              <MenuItem
+                icon="flash-outline"
+                label="Unidades consumidoras"
+                onPress={() => router.push("/unidades/index" as any)}
+              />
             </>
           ) : null}
         </Card>

@@ -14,6 +14,8 @@ export interface DebitoExtraido {
 export interface FaturaExtraida {
   cliente: string;
 
+  endereco: string;
+
   uc: string;
 
   distribuidora: string;
