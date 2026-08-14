@@ -34,6 +34,8 @@ yarn-error.*
 .env*.local
 .env
 .env.*
+!.env.example
+!**/.env.example
 .microsoft-token-cache.json
 
 # typescript
