@@ -1,8 +1,15 @@
-export const radius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 24,
+const Radius={
+
+sm:10,
+
+md:18,
+
+lg:26,
+
+xl:34,
+
+round:999,
+
 };
 
-console.log("RADIUS FILE LOADED");
+export default Radius;

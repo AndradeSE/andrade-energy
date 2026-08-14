@@ -1,69 +1,11 @@
-import { parseCabecalho } from "../parsers/cabecalho.parser";
-import { parseCompensacao } from "../parsers/compensacao.parser";
-import { parseDebitos } from "../parsers/debitos.parser";
-import { parseHistorico } from "../parsers/historico.parser";
-import { parseTarifa } from "../parsers/tarifa.parser";
+import { interpretarFatura as interpretarOCR } from "../../services/ocr/parser.service";
 
-export interface FaturaInterpretada {
+import { FaturaExtraida } from "../../types/FaturaExtraida";
 
-  distribuidora: string;
-
-  cliente: string;
-
-  uc: string;
-
-  competencia: string;
-
-  vencimento: string;
-
-  valorTotal: number;
-
-  consumoKwh: number;
-
-  historico: any[];
-
-  debitos: any[];
-
-  tarifaEnergia: number;
-
-  bandeira: string;
-
-}
+export type FaturaInterpretada = FaturaExtraida;
 
 export function interpretarFatura(
   texto: string
 ): FaturaInterpretada {
-
-  const compensacao =
-  parseCompensacao(texto);
-
-  const tarifa =
-    parseTarifa(texto);
-
-  const historico = parseHistorico(texto);
-
-const debitos = parseDebitos(texto);
-
-  const cabecalho =
-    parseCabecalho(texto);
-
-
-  return {
-
-  distribuidora: "CEMIG",
-
-  ...cabecalho,
-
-  historico,
-
-  debitos,
-
-  ...tarifa,
-
-  ...compensacao,
-
-  bandeira: ""
-
-};
-
+  return interpretarOCR(texto);
 }

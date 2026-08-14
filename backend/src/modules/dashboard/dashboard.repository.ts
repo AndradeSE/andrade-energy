@@ -1,44 +1,58 @@
 import { supabase } from "../../config/supabase";
 
-export async function buscarDashboard(clienteId: string) {
-  const { data: cliente, error: erroCliente } = await supabase
-    .from("clientes")
-    .select("id,nome,uc,distribuidora")
-    .eq("id", clienteId)
-    .maybeSingle();
+export async function obterDashboardCliente(
+  clienteId: string
+) {
+  // Cliente
+  const { data: cliente, error: erroCliente } =
+    await supabase
+      .from("clientes")
+      .select(`
+        id,
+        nome,
+        uc,
+        distribuidora
+      `)
+      .eq("id", clienteId)
+      .single();
 
-  console.log("CLIENTE:", cliente);
-  console.log("ERRO CLIENTE:", erroCliente);
+  if (erroCliente) throw erroCliente;
 
-  const { data: ultimaFatura, error: erroFatura } = await supabase
-    .from("faturas")
-    .select("*")
-    .eq("cliente_id", clienteId)
-    .order("referencia", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // Faturas
+  const { data: faturas, error: erroFaturas } =
+    await supabase
+      .from("faturas")
+      .select(`
+        id,
+        referencia,
+        vencimento,
+        valor_total,
+        economia_real,
+        energia_injetada,
+        energia_compensada
+      `)
+      .eq("cliente_id", clienteId);
 
-  console.log("ÚLTIMA FATURA:", ultimaFatura);
-  console.log("ERRO FATURA:", erroFatura);
+  if (erroFaturas) throw erroFaturas;
 
-  let historico = [];
+  // Último saldo de créditos
+  const { data: credito, error: erroCredito } =
+    await supabase
+      .from("creditos")
+      .select("saldo_atual")
+      .eq("cliente_id", clienteId)
+      .order("competencia", {
+        ascending: false,
+      })
+      .limit(1)
+      .maybeSingle();
 
-  if (ultimaFatura?.id) {
-    const { data, error } = await supabase
-      .from("historico_consumo")
-      .select("*")
-      .eq("fatura_id", ultimaFatura.id)
-      .order("competencia");
-
-    historico = data ?? [];
-
-    console.log("HISTÓRICO:", historico);
-    console.log("ERRO HISTÓRICO:", error);
-  }
+  if (erroCredito) throw erroCredito;
 
   return {
-    cliente,
-    ultimaFatura,
-    historico,
+    ...cliente,
+    creditos:
+      Number(credito?.saldo_atual ?? 0),
+    faturas: faturas ?? [],
   };
 }

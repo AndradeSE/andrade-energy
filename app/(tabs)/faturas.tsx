@@ -1,248 +1,324 @@
 import { router } from "expo-router";
 import {
-  ActivityIndicator,
   FlatList,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+
+import { Ionicons } from "@expo/vector-icons";
 
 import { useFaturas } from "../../hooks/useFaturas";
-export default function Faturas() {
-const { data, isLoading, error } = useFaturas();
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.center}>
-        <ActivityIndicator size="large" color="#16A34A" />
-      </SafeAreaView>
-    );
-  }
 
-  if (error) {
-    return (
-      <SafeAreaView style={styles.center}>
-        <Text style={styles.error}>
-          Erro ao carregar as faturas.
-        </Text>
-      </SafeAreaView>
-    );
-  }
+import {
+  Badge,
+  Card,
+  EmptyState,
+  Loading,
+  Screen,
+} from "../../components/ui";
+
+import {
+  Colors,
+  Spacing,
+  Typography,
+} from "../../theme";
+
+export default function Faturas() {
+
+  const {
+    data,
+    isLoading,
+    error,
+  } = useFaturas();
+
+  if (isLoading)
+    return <Loading />;
+
+  if (error)
+    return <Screen />;
 
   return (
-    <SafeAreaView style={styles.container}>
+
+    <Screen>
+
       <FlatList
         data={data ?? []}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item)=>item.id}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={styles.content}
+
         ListHeaderComponent={
+
           <>
-            <Text style={styles.title}>Faturas</Text>
+
+            <Text style={styles.title}>
+              Minhas Faturas
+            </Text>
 
             <Text style={styles.subtitle}>
-              {data?.length ?? 0} faturas encontradas
+              Histórico completo de cobranças
             </Text>
+
           </>
+
         }
+
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>
-              Nenhuma fatura encontrada
-            </Text>
 
-            <Text style={styles.emptySubtitle}>
-              Importe uma fatura para começar.
-            </Text>
-          </View>
+          <EmptyState
+            icon="document-text-outline"
+            title="Nenhuma fatura encontrada"
+            subtitle="Assim que existir uma cobrança ela aparecerá aqui."
+          />
+
         }
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() =>
-              router.push(`/faturas/${item.id}`)
+
+        renderItem={({item})=>{
+
+          const valor=
+          Number(
+            item.valor_total ??
+            item.valor_final ??
+            0
+          );
+
+          const status=item.status ?? "";
+
+          function variant(){
+
+            switch(status){
+
+              case "PAGA":
+                return "success";
+
+              case "VENCIDA":
+                return "danger";
+
+              case "EM ABERTO":
+              case "ABERTA":
+                return "warning";
+
+              default:
+                return "info";
+
             }
-          >
-            <View style={styles.card}>
-              <View style={styles.header}>
-                <Text style={styles.competencia}>
-                  {item.referencia}
-                </Text>
 
-                <View
-                  style={[
-                    styles.status,
-                    {
-                      backgroundColor:
-                        item.status === "PAGA"
-                          ? "#DCFCE7"
-                          : "#FEF3C7",
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusText,
-                      {
-                        color:
-                          item.status === "PAGA"
-                            ? "#15803D"
-                            : "#B45309",
-                      },
-                    ]}
-                  >
-                    {item.status}
-                  </Text>
-                </View>
-              </View>
+          }
 
-              <Text style={styles.valor}>
-                R${" "}
-                {Number(
-                  item.valor_final ??
-                    item.valor_total ??
-                    0
-                ).toLocaleString("pt-BR", {
-                  minimumFractionDigits: 2,
-                })}
-              </Text>
+          return(
 
-              <View style={styles.infoRow}>
-                <Text style={styles.label}>
-                  Consumo
-                </Text>
+<TouchableOpacity
 
-                <Text style={styles.value}>
-                  {item.consumo_kwh ?? item.consumo ?? 0} kWh
-                </Text>
-              </View>
+activeOpacity={0.9}
 
-              <View style={styles.infoRow}>
-                <Text style={styles.label}>
-                  Vencimento
-                </Text>
+onPress={()=>router.push(`/faturas/${item.id}`)}
 
-                <Text style={styles.value}>
-                  {item.vencimento}
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        )}
-      />
-    </SafeAreaView>
-  );
+>
+
+<Card>
+
+<View style={styles.header}>
+
+<View>
+
+<Text style={styles.comp}>
+
+{item.referencia}
+
+</Text>
+
+<Text style={styles.venc}>
+
+Vencimento {item.vencimento}
+
+</Text>
+
+</View>
+
+<View style={styles.icon}>
+
+<Ionicons
+
+name="document-text"
+
+size={28}
+
+color={Colors.primary}
+
+/>
+
+</View>
+
+</View>
+
+<Text style={styles.value}>
+
+R$ {valor.toLocaleString(
+
+"pt-BR",
+
+{
+
+minimumFractionDigits:2,
+
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F8FAFC",
-  },
+)}
 
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#F8FAFC",
-  },
+</Text>
 
-  list: {
-    padding: 20,
-    paddingBottom: 40,
-  },
+<View style={styles.footer}>
 
-  title: {
-    fontSize: 30,
-    fontWeight: "700",
-    color: "#0F172A",
-  },
+<Text style={styles.energy}>
 
-  subtitle: {
-    fontSize: 15,
-    color: "#64748B",
-    marginTop: 4,
-    marginBottom: 24,
-  },
+{Number(
 
-  card: {
-    backgroundColor: "#FFF",
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
+item.energia_compensada ??
 
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
+item.consumo_kwh ??
 
-  competencia: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#111827",
-  },
+0
 
-  status: {
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
+).toLocaleString("pt-BR")} kWh
 
-  statusText: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
+</Text>
 
-  valor: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#16A34A",
-    marginBottom: 18,
-  },
+<Badge
 
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
+label={status}
 
-  label: {
-    color: "#64748B",
-    fontSize: 14,
-  },
+variant={variant()}
 
-  value: {
-    color: "#111827",
-    fontSize: 14,
-    fontWeight: "600",
-  },
+/>
 
-  error: {
-    fontSize: 16,
-    color: "#DC2626",
-    fontWeight: "600",
-  },
+</View>
 
-  empty: {
-    marginTop: 80,
-    alignItems: "center",
-  },
+</Card>
 
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#111827",
-  },
+</TouchableOpacity>
 
-  emptySubtitle: {
-    marginTop: 8,
-    color: "#64748B",
-    textAlign: "center",
-  },
+);
+
+}}
+
+      />
+
+    </Screen>
+
+  );
+
+}
+
+const styles=StyleSheet.create({
+
+content:{
+
+padding:Spacing.lg,
+
+paddingBottom:120,
+
+},
+
+title:{
+
+fontSize:34,
+
+fontWeight:"700",
+
+color:Colors.text,
+
+},
+
+subtitle:{
+
+marginTop:6,
+
+marginBottom:28,
+
+fontSize:Typography.body,
+
+color:Colors.subtitle,
+
+},
+
+header:{
+
+flexDirection:"row",
+
+justifyContent:"space-between",
+
+alignItems:"center",
+
+},
+
+comp:{
+
+fontSize:24,
+
+fontWeight:"700",
+
+color:Colors.text,
+
+},
+
+venc:{
+
+marginTop:4,
+
+color:Colors.subtitle,
+
+},
+
+icon:{
+
+width:60,
+
+height:60,
+
+borderRadius:20,
+
+backgroundColor:Colors.primaryLight,
+
+justifyContent:"center",
+
+alignItems:"center",
+
+},
+
+value:{
+
+marginTop:24,
+
+fontSize:38,
+
+fontWeight:"700",
+
+color:Colors.text,
+
+},
+
+footer:{
+
+marginTop:22,
+
+flexDirection:"row",
+
+justifyContent:"space-between",
+
+alignItems:"center",
+
+},
+
+energy:{
+
+fontWeight:"600",
+
+color:Colors.subtitle,
+
+fontSize:15,
+
+},
+
 });

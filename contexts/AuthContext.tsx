@@ -73,17 +73,27 @@ export function AuthProvider({
   }
 
   async function login(
-    token: string,
-    usuario: Usuario
-  ) {
-    await salvarSessao({
-      token,
-      usuario,
-    });
+  token: string,
+  usuario: Usuario
+) {
 
-    setToken(token);
-    setUsuario(usuario);
-  }
+  console.log("TOKEN");
+  console.log(token);
+
+  console.log("USUARIO");
+  console.log(usuario);
+
+  await salvarSessao({
+    token,
+    usuario,
+  });
+
+  setToken(token);
+  setUsuario(usuario);
+
+console.log("SET USUARIO");
+console.log(usuario);
+}
 
   async function logout() {
     await removerSessao();

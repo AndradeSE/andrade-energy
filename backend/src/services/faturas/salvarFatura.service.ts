@@ -1,6 +1,6 @@
 import {
-    buscarFatura,
-    salvarFaturaBanco
+  buscarFatura,
+  salvarFaturaBanco,
 } from "../../repositories/faturas.repository";
 
 function converterData(data: string) {
@@ -12,40 +12,97 @@ export async function salvarFatura(
   clienteId: string,
   dados: any
 ) {
-
   const existente = await buscarFatura(
     clienteId,
-    dados.competencia
+    dados.referencia
   );
 
-  if (existente) {
-    return existente;
-  }
+  if (existente) return existente;
+
+  const tarifaAndrade =
+    dados.tarifaCheia * 0.6;
+
+  const valorAndrade =
+    dados.energiaCompensada *
+      tarifaAndrade +
+    dados.custoDisponibilidade;
+
+  const economiaReal =
+    dados.energiaCompensada *
+      (dados.tarifaCheia - tarifaAndrade);
 
   return salvarFaturaBanco({
 
     cliente_id: clienteId,
 
-    referencia: dados.competencia,
+    referencia: dados.referencia,
 
     numero_instalacao: dados.uc,
 
-    nome_cliente: dados.cliente,
+    uc: dados.uc,
 
-    vencimento: converterData(dados.vencimento),
+    distribuidora: dados.distribuidora,
 
-    consumo_kwh: dados.consumoKwh,
+    vencimento: converterData(
+      dados.vencimento
+    ),
 
-    valor_energia: dados.tarifaEnergia,
+    consumo_kwh: dados.consumo,
 
-    valor_total: dados.valorTotal,
+    energia_injetada:
+      dados.energiaInjetada,
 
-    valor_final: dados.valorTotal,
+    energia_compensada:
+      dados.energiaCompensada,
 
-    economia: 0,
+    saldo_anterior:
+      dados.saldoAnterior,
 
-    arquivo_url: ""
+    saldo_atual:
+      dados.saldoAtual,
+
+    tarifa_cheia:
+      dados.tarifaCheia,
+
+    tarifa_gd:
+      dados.tarifaGD,
+
+    custo_disponibilidade:
+      dados.custoDisponibilidade,
+
+    desconto_percentual: 40,
+
+    tarifa_andrade:
+      tarifaAndrade,
+
+    valor_andrade:
+      Number(
+        valorAndrade.toFixed(2)
+      ),
+
+    valor_cemig:
+      dados.valorTotal,
+
+    economia_real:
+      Number(
+        economiaReal.toFixed(2)
+      ),
+
+    valor_energia:
+      dados.tarifaGD,
+
+    valor_total:
+      dados.valorTotal,
+
+    economia:
+      dados.economia,
+
+    bandeira:
+      dados.bandeira,
+
+    status: "PROCESSADA",
+
+    arquivo_url: "",
 
   });
-
 }

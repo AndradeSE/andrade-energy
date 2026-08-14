@@ -59,32 +59,33 @@ console.log("CLIENTE =", cliente);
 
   }
 
-  return {
+ return {
+  cliente,
+  uc,
+  referencia,
+  vencimento,
+  valorTotal,
+  consumo,
 
-    cliente,
+  energiaInjetada: 0,
+  energiaCompensada: 0,
 
-    uc,
+  saldoAnterior: 0,
+  saldoAtual: 0,
 
-    referencia,
+  economia: 0,
 
-    vencimento,
+  tarifaCheia: 0,
+  tarifaGD: 0,
+  custoDisponibilidade: 0,
 
-    valorTotal,
+  bandeira: "",
 
-    consumo,
+  distribuidora: "CEMIG",
 
-    energiaInjetada: 0,
+  historico: [],
 
-    energiaCompensada: 0,
-
-    saldoAtual: 0,
-
-    economia: 0,
-
-    bandeira: "",
-
-    distribuidora: "CEMIG",
-
-  };
+  debitos: [],
+};
 
 }

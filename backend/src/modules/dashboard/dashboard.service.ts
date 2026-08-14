@@ -1,50 +1,77 @@
-import { buscarDashboard } from "./dashboard.repository";
+import { obterDashboardCliente } from "./dashboard.repository";
 
-export async function obterDashboard(
+export async function dashboardCliente(
   clienteId: string
 ) {
+  const dashboard =
+    await obterDashboardCliente(clienteId);
 
-  const dados =
-    await buscarDashboard(clienteId);
-console.log("ULTIMA FATURA:");
-console.log(dados.ultimaFatura);
+  const faturas =
+    dashboard.faturas ?? [];
+
+  const ultima =
+    [...faturas].sort((a, b) =>
+      b.referencia.localeCompare(a.referencia)
+    )[0];
+
   return {
+    cliente: dashboard.nome,
 
-    cliente: dados.cliente?.nome,
+    uc: dashboard.uc,
 
-    uc: dados.cliente?.uc,
+    distribuidora: dashboard.distribuidora,
 
-    distribuidora: dados.cliente?.distribuidora,
+    creditos: dashboard.creditos,
 
-    economiaMes: 0,
+    economiaMes: Number(
+      ultima?.economia_real ?? 0
+    ),
 
-    economiaAcumulada: 0,
-
-    consumo:
-
-      dados.ultimaFatura?.consumo_kwh ?? 0,
-
-    creditos: 0,
-
-    ultimaFatura: {
-
-  id: dados.ultimaFatura?.id,
-
-  competencia:
-    dados.ultimaFatura?.referencia,
-
-  valor:
-    dados.ultimaFatura?.valor_total,
-
-  vencimento:
-    dados.ultimaFatura?.vencimento
-
-},
+    economiaAcumulada:
+      faturas.reduce(
+        (t, f) =>
+          t + Number(f.economia_real ?? 0),
+        0
+      ),
 
     historico:
+      [...faturas]
+        .sort((a, b) =>
+          a.referencia.localeCompare(
+            b.referencia
+          )
+        )
+        .slice(-12)
+        .map((f) => ({
+          competencia: f.referencia,
+          economia: Number(
+            f.economia_real ?? 0
+          ),
+        })),
 
-      dados.historico ?? []
+    ultimaFatura: {
+      id: ultima?.id,
 
+      competencia:
+        ultima?.referencia,
+
+      vencimento:
+        ultima?.vencimento,
+
+      valor:
+        Number(
+          ultima?.valor_total ?? 0
+        ),
+
+      energiaInjetada:
+        Number(
+          ultima?.energia_injetada ?? 0
+        ),
+
+      energiaCompensada:
+        Number(
+          ultima?.energia_compensada ?? 0
+        ),
+    },
   };
-
 }

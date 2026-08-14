@@ -73,37 +73,84 @@ if (!cliente.usina_id) {
   const usina = await buscarUsina(cliente.usina_id);
   const modalidade = usina.modelo ?? usina.modalidade;
 
-  const fatura = await inserirFatura({
+  const tarifaAndrade =
+  dados.tarifaCheia * 0.6;
 
-    cliente_id: cliente.id,
+const valorAndrade =
+  dados.energiaCompensada *
+    tarifaAndrade +
+  dados.custoDisponibilidade;
 
-    usina_id: cliente.usina_id,
+const economiaReal =
+  dados.energiaCompensada *
+  (dados.tarifaCheia - tarifaAndrade);
 
-    numero_instalacao: dados.uc,
+const fatura = await inserirFatura({
 
-    referencia: dados.referencia,
+  cliente_id: cliente.id,
 
-    vencimento,
+  usina_id: cliente.usina_id,
 
-    consumo: dados.consumo,
+  numero_instalacao: dados.uc,
 
-    energia_injetada: dados.energiaInjetada,
+  referencia: dados.referencia,
 
-    energia_compensada: dados.energiaCompensada,
+  vencimento,
 
-    saldo_atual: dados.saldoAtual,
+  consumo: dados.consumo,
 
-    valor_total: dados.valorTotal,
+  consumo_kwh: dados.consumo,
 
-    economia: dados.economia,
+  energia_injetada:
+    dados.energiaInjetada,
 
-    bandeira: dados.bandeira,
+  energia_compensada:
+    dados.energiaCompensada,
 
-    distribuidora: dados.distribuidora,
+  saldo_anterior:
+    dados.saldoAnterior,
 
-    status: "ABERTA",
+  saldo_atual:
+    dados.saldoAtual,
 
-  });
+  tarifa_cheia:
+    dados.tarifaCheia,
+
+  tarifa_gd:
+    dados.tarifaGD,
+
+  custo_disponibilidade:
+    dados.custoDisponibilidade,
+
+  desconto_percentual: 40,
+
+  tarifa_andrade:
+    tarifaAndrade,
+
+  valor_andrade:
+    Number(valorAndrade.toFixed(2)),
+
+  valor_cemig:
+    dados.valorTotal,
+
+  economia_real:
+    Number(economiaReal.toFixed(2)),
+
+  valor_total:
+    dados.valorTotal,
+
+  economia:
+    dados.economia,
+
+  bandeira:
+    dados.bandeira,
+
+  distribuidora:
+    dados.distribuidora,
+
+  status: "ABERTA",
+
+});
 
   if (modalidade === "COMPENSACAO") {
 

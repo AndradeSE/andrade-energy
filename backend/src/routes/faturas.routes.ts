@@ -1,39 +1,26 @@
 import { Router } from "express";
 import multer from "multer";
+
 import {
-  buscarFaturaController,
+  importarFaturaController,
   listarFaturasController,
-  processarFaturaController
 } from "../controllers/faturas.controller";
-
-
-console.log("FATURAS ROUTES CARREGADAS");
-
 
 const router = Router();
 
-router.get("/processar", (_, res) => {
-  res.json({ mensagem: "GET funcionando" });
-});
-
-
 const upload = multer({
-  dest: "src/uploads"
+  dest: "src/uploads",
 });
 
 router.get(
-  "/:id",
-  buscarFaturaController
+  "/",
+  listarFaturasController
 );
 
-router.get(
-  "/cliente/:clienteId",
-  listarFaturasController,
-);
 router.post(
-  "/processar",
-  upload.single("pdf"),
-  processarFaturaController
+  "/importar",
+  upload.single("arquivo"),
+  importarFaturaController
 );
 
 export default router;

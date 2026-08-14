@@ -7,43 +7,164 @@ export default function TabLayout() {
 
   const perfil = usuario?.perfil;
 
-  const podeAdministrar =
-    perfil === "ADMIN" || perfil === "GESTOR";
+  const tabStyle = {
+    height: 82,
+    paddingTop: 8,
+    paddingBottom: 12,
+    backgroundColor: "#FFFFFF",
+    borderTopWidth: 0,
+    elevation: 15,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: {
+      width: 0,
+      height: -3,
+    },
+  } as const;
+
+  const screenOptions = {
+    headerShown: false,
+
+    tabBarActiveTintColor: "#16A34A",
+
+    tabBarInactiveTintColor: "#94A3B8",
+
+    tabBarHideOnKeyboard: true,
+
+    tabBarLabelStyle: {
+      fontSize: 12,
+      fontWeight: "600" as const,
+      marginBottom: 2,
+    },
+
+    tabBarStyle: tabStyle,
+  };
+
+  // ===================================================
+  // CLIENTE
+  // ===================================================
+
+  if (perfil === "LEITURA") {
+    return (
+      <Tabs
+        screenOptions={{
+          ...screenOptions,
+          tabBarStyle: {
+            display: "none",
+          },
+        }}
+      >
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: "Home",
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons
+                name={focused ? "home" : "home-outline"}
+                color={color}
+                size={24}
+              />
+            ),
+          }}
+        />
+
+        <Tabs.Screen
+          name="economia"
+          options={{
+            title: "Economia",
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons
+                name={
+                  focused
+                    ? "flash"
+                    : "flash-outline"
+                }
+                color={color}
+                size={24}
+              />
+            ),
+          }}
+        />
+
+        <Tabs.Screen
+          name="perfil"
+          options={{
+            title: "Perfil",
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons
+                name={
+                  focused
+                    ? "person"
+                    : "person-outline"
+                }
+                color={color}
+                size={24}
+              />
+            ),
+          }}
+        />
+
+        <Tabs.Screen
+          name="faturas"
+          options={{
+            href: null,
+          }}
+        />
+
+        <Tabs.Screen
+          name="contrato"
+          options={{
+            href: null,
+          }}
+        />
+
+        <Tabs.Screen
+          name="clientes"
+          options={{
+            href: null,
+          }}
+        />
+
+        <Tabs.Screen
+          name="usinas"
+          options={{
+            href: null,
+          }}
+        />
+
+        <Tabs.Screen
+          name="operacao"
+          options={{
+            href: null,
+          }}
+        />
+
+        <Tabs.Screen
+          name="financeiro"
+          options={{
+            href: null,
+          }}
+        />
+      </Tabs>
+    );
+  }
+
+  // ===================================================
+  // ADMIN / GESTOR
+  // ===================================================
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarShowLabel: true,
-        tabBarActiveTintColor: "#16A34A",
-        tabBarInactiveTintColor: "#94A3B8",
-
-        tabBarStyle: {
-          height: 72,
-          paddingTop: 8,
-          paddingBottom: 10,
-          backgroundColor: "#FFFFFF",
-          borderTopWidth: 1,
-          borderTopColor: "#E2E8F0",
-          elevation: 0,
-          shadowOpacity: 0,
-        },
-
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: "600",
-        },
-      }}
-    >
+    <Tabs screenOptions={screenOptions}>
       <Tabs.Screen
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name="grid-outline"
+              name={focused ? "home" : "home-outline"}
               color={color}
-              size={size}
+              size={24}
             />
           ),
         }}
@@ -52,13 +173,20 @@ export default function TabLayout() {
       <Tabs.Screen
         name="clientes"
         options={{
+          href:
+            perfil === "ADMIN"
+              ? undefined
+              : null,
           title: "Clientes",
-          href: podeAdministrar ? undefined : null,
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name="people-outline"
+              name={
+                focused
+                  ? "people"
+                  : "people-outline"
+              }
               color={color}
-              size={size}
+              size={24}
             />
           ),
         }}
@@ -67,42 +195,20 @@ export default function TabLayout() {
       <Tabs.Screen
         name="usinas"
         options={{
+          href:
+            perfil === "ADMIN"
+              ? undefined
+              : null,
           title: "Usinas",
-          href: podeAdministrar ? undefined : null,
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name="flash-outline"
+              name={
+                focused
+                  ? "flash"
+                  : "flash-outline"
+              }
               color={color}
-              size={size}
-            />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
-        name="faturas"
-        options={{
-          title: "Faturas",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons
-              name="document-text-outline"
-              color={color}
-              size={size}
-            />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
-        name="financeiro"
-        options={{
-          title: "Financeiro",
-          href: podeAdministrar ? undefined : null,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons
-              name="wallet-outline"
-              color={color}
-              size={size}
+              size={24}
             />
           ),
         }}
@@ -111,13 +217,44 @@ export default function TabLayout() {
       <Tabs.Screen
         name="operacao"
         options={{
+          href:
+            perfil === "ADMIN" ||
+            perfil === "GESTOR"
+              ? undefined
+              : null,
           title: "Operação",
-          href: podeAdministrar ? undefined : null,
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name="analytics-outline"
+              name={
+                focused
+                  ? "construct"
+                  : "construct-outline"
+              }
               color={color}
-              size={size}
+              size={24}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="financeiro"
+        options={{
+          href:
+            perfil === "ADMIN" ||
+            perfil === "GESTOR"
+              ? undefined
+              : null,
+          title: "Financeiro",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={
+                focused
+                  ? "cash"
+                  : "cash-outline"
+              }
+              color={color}
+              size={24}
             />
           ),
         }}
@@ -127,13 +264,38 @@ export default function TabLayout() {
         name="perfil"
         options={{
           title: "Perfil",
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name="person-outline"
+              name={
+                focused
+                  ? "person"
+                  : "person-outline"
+              }
               color={color}
-              size={size}
+              size={24}
             />
           ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="economia"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="faturas"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="contrato"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

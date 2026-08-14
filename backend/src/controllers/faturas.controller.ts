@@ -1,79 +1,54 @@
 import { Request, Response } from "express";
-import { buscarFatura } from "../services/faturas/buscarFatura.service";
-import { listarFaturas } from "../services/faturas/listarFaturas.service";
-import { processarFatura } from "../services/faturas/processarFatura.service";
 
+import {
+  importarFatura,
+  listarFaturas,
+} from "../modules/faturas/faturas.service";
 
-
-type Params = {
-  clienteId: string;
-};
-
-export async function buscarFaturaController(
-  req: Request<{ id: string }>,
+export async function listarFaturasController(
+  req: Request,
   res: Response
 ) {
   try {
+    const { clienteId, uc } = req.query;
 
-    const fatura =
-      await buscarFatura(req.params.id);
-
-    return res.json(fatura);
-
-  } catch (error: any) {
-
-    return res.status(500).json({
-      message: error.message,
+    const data = await listarFaturas({
+      clienteId: clienteId as string | undefined,
+      uc: uc as string | undefined,
     });
 
+    return res.status(200).json(data);
+
+  } catch (err: any) {
+    console.error(err);
+
+    return res.status(500).json({
+      sucesso: false,
+      message: err.message,
+    });
   }
 }
 
-export async function processarFaturaController(
+export async function importarFaturaController(
   req: Request,
   res: Response
 ) {
   try {
 
-    if (!req.file) {
-      return res.status(400).json({
-        erro: "Nenhum PDF enviado."
-      });
-    }
-
     const resultado =
-      await processarFatura(req.file.path);
+      await importarFatura(req);
 
-    return res.json(resultado);
+    return res.status(200).json(resultado);
 
-  } catch (error: any) {
-  console.error(error);
+  } catch (err: any) {
 
-  return res.status(500).json({
-    message: error.message,
-    stack: error.stack
-  });
-}
-}
-export async function listarFaturasController(
-  req: Request<Params>,
-  res: Response
-) {
-
-  console.log("ENTROU NO CONTROLLER");
-  console.log(req.params);
-  try {
-    const { clienteId } = req.params;
-
-    const dados = await listarFaturas(clienteId);
-
-    return res.json(dados);
-
-  } catch (error) {
-    console.error(error);
+    console.error(err);
 
     return res.status(500).json({
-      message: "Erro ao listar faturas"
+      sucesso: false,
+      message:
+        err.message ?? "Erro ao importar fatura.",
     });
+
   }
 }

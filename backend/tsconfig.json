@@ -14,5 +14,12 @@
   },
   "include": [
     "src/**/*.ts"
-, "src/modules/creditos/consumo.controller.ts", "src/modules/creditos/consumo.service.ts"  ]
+  ],
+  "exclude": [
+    "src/services/faturas/**",
+    "src/services/parsers/**",
+    "supabase/**",
+    "dist",
+    "node_modules"
+  ]
 }

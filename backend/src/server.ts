@@ -6,6 +6,7 @@ import { errorHandler } from "./middlewares/errorHandler";
 
 import authRoutes from "./modules/auth/auth.routes";
 import clientesRoutes from "./modules/clientes/clientes.routes";
+import contratosRoutes from "./modules/contratos/contratos.routes";
 import creditosRoutes from "./modules/creditos/creditos.routes";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes";
 import faturasRoutes from "./modules/faturas/faturas.routes";
@@ -49,6 +50,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 
 app.use("/api/clientes", clientesRoutes);
+
+app.use("/api/contratos", contratosRoutes);
 
 app.use("/api/faturas", faturasRoutes);
 

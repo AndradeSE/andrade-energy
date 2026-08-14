@@ -1,25 +1,27 @@
 import { useAuth } from "../../contexts/AuthContext";
 
+import ClientePager from "../../components/cliente/ClientePager";
 import DashboardAdmin from "../../components/dashboard/DashboardAdmin";
-import DashboardCliente from "../../components/dashboard/DashboardCliente";
 import DashboardGestor from "../../components/dashboard/DashboardGestor";
 
 export default function Home() {
   const { usuario } = useAuth();
-
+ console.log("===============");
+  console.log("PERFIL:", usuario?.perfil);
+  console.log("USUARIO:", usuario);
+  console.log("===============");
   if (!usuario) return null;
 
   switch (usuario.perfil) {
-    case "CLIENTE":
-      return <DashboardCliente />;
+    case "ADMIN":
+      return <DashboardAdmin />;
 
     case "GESTOR":
       return <DashboardGestor />;
 
-    case "ADMIN":
-      return <DashboardAdmin />;
-
+    case "LEITURA":
+      return <ClientePager />;
     default:
-      return null;
+      return <ClientePager />;
   }
 }

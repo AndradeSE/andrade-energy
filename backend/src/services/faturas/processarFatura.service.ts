@@ -1,64 +1,50 @@
-import {
-  buscarClientePorUC,
-  criarCliente
-} from "../../repositories/clientes.repository";
-import { salvarDebitos, } from "../../repositories/debitos.repository";
-import { inserirHistorico } from "../../repositories/historico.repository";
-import { extrairTexto } from "./extrairTexto.service";
-import { interpretarFatura } from "./interpretarFatura.service";
-import { salvarFatura } from "./salvarFatura.service";
-
-export async function processarFatura(
-  caminhoPDF: string
-) {
-    
-
-  const texto =
-    await extrairTexto(caminhoPDF);
-
-  const dados =
-    interpretarFatura(texto);
-
-let cliente =
-  await buscarClientePorUC(dados.uc);
-  console.log("2 - Cliente encontrado:", cliente);
-
-if (!cliente) {
-     console.log("3 - Criando cliente...");
-
-  cliente =
-    await criarCliente({
-
-      nome: dados.cliente,
-
-      uc: dados.uc,
-
-      distribuidora: dados.distribuidora
-
-    });
-   console.log("4 - Cliente criado:", cliente);
+export interface HistoricoConsumo {
+  mes: string;
+  consumo: number;
+  mediaDiaria: number;
+  dias: number;
 }
 
-console.log("5 - Salvando fatura...");  
-
-
-  const fatura = await salvarFatura(cliente.id, dados);
-
-for (const item of dados.historico) {
-  await inserirHistorico({
-    fatura_id: fatura.id,
-    competencia: item.mes,
-    consumo_kwh: item.consumo,
-    media_diaria: item.mediaDiaria,
-    dias: item.dias,
-  });
+export interface DebitoExtraido {
+  referencia: string;
+  vencimento: string;
+  valor: number;
 }
-await salvarDebitos(fatura.id, dados.debitos);
 
-return {
-  status: "ok",
-  dados,
-  fatura
-};
+export interface FaturaExtraida {
+  cliente: string;
 
+  uc: string;
+
+  referencia: string;
+
+  vencimento: string;
+
+  valorTotal: number;
+
+  consumo: number;
+
+  energiaInjetada: number;
+
+  energiaCompensada: number;
+
+  saldoAnterior: number;
+
+  saldoAtual: number;
+
+  economia: number;
+
+  tarifaCheia: number;
+
+  tarifaGD: number;
+
+  custoDisponibilidade: number;
+
+  bandeira: string;
+
+  distribuidora: string;
+
+  historico: HistoricoConsumo[];
+
+  debitos: DebitoExtraido[];
 }

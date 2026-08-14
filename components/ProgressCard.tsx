@@ -12,17 +12,18 @@ export default function ProgressCard({
   return (
     <View
       style={{
-        backgroundColor: "white",
-        borderRadius: 16,
+        backgroundColor: "#FFF",
+        borderRadius: 18,
         padding: 18,
         marginTop: 18,
       }}
     >
       <Text
         style={{
-          fontWeight: "bold",
           fontSize: 16,
-          marginBottom: 12,
+          fontWeight: "700",
+          color: "#111827",
+          marginBottom: 14,
         }}
       >
         {titulo}
@@ -31,16 +32,16 @@ export default function ProgressCard({
       <View
         style={{
           height: 12,
-          backgroundColor: "#e2e8f0",
+          backgroundColor: "#E2E8F0",
           borderRadius: 8,
+          overflow: "hidden",
         }}
       >
         <View
           style={{
             width: `${Math.min(percentual, 100)}%`,
-            height: 12,
+            height: "100%",
             backgroundColor: "#16A34A",
-            borderRadius: 8,
           }}
         />
       </View>
@@ -48,7 +49,9 @@ export default function ProgressCard({
       <Text
         style={{
           marginTop: 10,
-          fontWeight: "bold",
+          color: "#16A34A",
+          fontWeight: "700",
+          fontSize: 16,
         }}
       >
         {percentual.toFixed(1)}%
