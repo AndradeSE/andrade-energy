@@ -6,13 +6,14 @@ import { Colors, Spacing, Typography } from "../../theme";
 type Props = {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
-  onPress: () => void;
+  onPress?: () => void;
 };
 
 export default function MenuItem({ icon, label, onPress }: Props) {
   return (
     <TouchableOpacity
       activeOpacity={0.8}
+      disabled={!onPress}
       onPress={onPress}
       style={styles.container}
     >
@@ -20,11 +21,13 @@ export default function MenuItem({ icon, label, onPress }: Props) {
 
       <Text style={styles.label}>{label}</Text>
 
-      <Ionicons
-        name="chevron-forward"
-        size={20}
-        color={Colors.subtitle}
-      />
+      {onPress ? (
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          color={Colors.subtitle}
+        />
+      ) : null}
     </TouchableOpacity>
   );
 }

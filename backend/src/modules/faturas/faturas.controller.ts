@@ -2,8 +2,18 @@ import { Request, Response } from "express";
 
 import {
   importarFatura,
+  detalharFatura,
   listarFaturas,
 } from "./faturas.service";
+
+export async function detalharFaturaController(req: Request, res: Response) {
+  try {
+    return res.json(await detalharFatura(req.params.id));
+  } catch (err: any) {
+    const naoEncontrada = err.message === "Fatura não encontrada.";
+    return res.status(naoEncontrada ? 404 : 500).json({ message: err.message });
+  }
+}
 
 export async function listarFaturasController(
   req: Request,

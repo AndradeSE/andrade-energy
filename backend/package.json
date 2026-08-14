@@ -4,21 +4,25 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "microsoft:connect": "tsx src/scripts/conectarMicrosoft.ts"
   },
   "dependencies": {
+    "@azure/msal-node": "^5.5.0",
     "@supabase/supabase-js": "^2",
     "cors": "^2",
     "dotenv": "^16.6.1",
     "expo-secure-store": "~15.0.8",
     "express": "^4",
     "multer": "^1.4.5-lts.2",
-    "pdf-parse": "^1.1.4"
+    "pdf-parse": "^1.1.4",
+    "pdfkit": "^0.19.1"
   },
   "devDependencies": {
     "@types/express": "^4.17.25",
     "@types/multer": "^2.2.0",
     "@types/node": "^24",
+    "@types/pdfkit": "^0.17.6",
     "tsx": "^4.23.1",
     "typescript": "^5"
   }

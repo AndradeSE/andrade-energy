@@ -85,7 +85,7 @@ export default function ClienteHeader({
 
             <View style={styles.greetingContent}>
               <Text style={styles.greeting}>Olá, {primeiroNome}</Text>
-              <Text style={styles.greeting}>Bem-vindo de volta</Text>
+              <Text style={styles.greetingSubtitle}>Bem-vindo de volta</Text>
             </View>
           </TouchableOpacity>
 
@@ -105,7 +105,7 @@ export default function ClienteHeader({
 
         <View style={styles.unitCard}>
           <View style={styles.unitIcon}>
-            <Ionicons name="flash" size={22} color={Colors.primary} />
+            <Ionicons name="flash" size={22} color={Colors.surface} />
           </View>
 
           <View style={styles.unitContent}>
@@ -177,9 +177,11 @@ export default function ClienteHeader({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
+    paddingTop: Spacing.lg,
     paddingBottom: Spacing.lg,
-    backgroundColor: Colors.header,
+    borderBottomLeftRadius: Radius.xl,
+    borderBottomRightRadius: Radius.xl,
+    backgroundColor: Colors.secondary,
   },
 
   top: {
@@ -192,6 +194,8 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: "center",
     alignItems: "center",
+    borderRadius: Radius.round,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
 
   profile: {
@@ -207,8 +211,14 @@ const styles = StyleSheet.create({
 
   greeting: {
     color: Colors.surface,
-    fontSize: Typography.caption,
-    fontWeight: "600",
+    fontSize: Typography.body,
+    fontWeight: "700",
+  },
+
+  greetingSubtitle: {
+    marginTop: 2,
+    color: "#CBD5E1",
+    fontSize: Typography.small,
   },
 
   unitCard: {
@@ -217,7 +227,9 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
     padding: Spacing.md,
     borderRadius: Radius.md,
-    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.10)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
 
   unitIcon: {
@@ -226,7 +238,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: Colors.primary,
   },
 
   unitContent: {
@@ -235,14 +247,14 @@ const styles = StyleSheet.create({
   },
 
   unitCode: {
-    color: Colors.text,
+    color: Colors.surface,
     fontSize: Typography.body,
     fontWeight: "700",
   },
 
   unitDetail: {
     marginTop: 2,
-    color: Colors.subtitle,
+    color: "#CBD5E1",
     fontSize: Typography.small,
   },
 

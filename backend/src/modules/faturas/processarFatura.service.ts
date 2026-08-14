@@ -3,6 +3,10 @@ import { criarCobranca } from "../cobrancas/cobrancas.repository";
 import { consumirCreditos, registrarCreditosDaFatura, } from "../creditos/consumo.service";
 import { buscarUsina } from "../usinas/usinas.repository";
 import {
+  calcularFaturaUnificada,
+  ModalidadeFaturamento,
+} from "../billing/billing.engine";
+import {
   buscarFatura,
   inserirFatura,
 } from "./faturas.repository";
@@ -71,19 +75,26 @@ if (!cliente.usina_id) {
   );
   }
   const usina = await buscarUsina(cliente.usina_id);
-  const modalidade = usina.modelo ?? usina.modalidade;
+  const modalidade = String(
+    cliente.modalidade_faturamento ??
+      usina.modelo ??
+      usina.modalidade ??
+      "COMPENSACAO"
+  ).toUpperCase() as ModalidadeFaturamento;
+  const descontoPercentual = Number(cliente.desconto_percentual ?? 40);
 
-  const tarifaAndrade =
-  dados.tarifaCheia * 0.6;
+  if (!["INJECAO", "COMPENSACAO"].includes(modalidade)) {
+    throw new Error("Modalidade de faturamento do cliente inválida.");
+  }
 
-const valorAndrade =
-  dados.energiaCompensada *
-    tarifaAndrade +
-  dados.custoDisponibilidade;
-
-const economiaReal =
-  dados.energiaCompensada *
-  (dados.tarifaCheia - tarifaAndrade);
+  const calculo = calcularFaturaUnificada({
+    modalidade,
+    energiaInjetada: Number(dados.energiaInjetada),
+    energiaCompensada: Number(dados.energiaCompensada),
+    tarifaCheia: Number(dados.tarifaCheia),
+    descontoPercentual,
+    valorCemig: Number(dados.valorTotal),
+  });
 
 const fatura = await inserirFatura({
 
@@ -122,25 +133,53 @@ const fatura = await inserirFatura({
   custo_disponibilidade:
     dados.custoDisponibilidade,
 
-  desconto_percentual: 40,
+  desconto_percentual:
+    calculo.descontoContratadoPercentual,
+
+  desconto_contratado_percentual:
+    calculo.descontoContratadoPercentual,
+
+  desconto_contratado_valor:
+    calculo.descontoContratadoValor,
+
+  modalidade_faturamento:
+    calculo.modalidade,
+
+  base_calculo_kwh:
+    calculo.baseCalculoKwh,
 
   tarifa_andrade:
-    tarifaAndrade,
+    calculo.tarifaAndrade,
+
+  valor_energia_cheia:
+    calculo.valorEnergiaCheia,
 
   valor_andrade:
-    Number(valorAndrade.toFixed(2)),
+    calculo.valorUsina,
+
+  valor_usina:
+    calculo.valorUsina,
 
   valor_cemig:
-    dados.valorTotal,
+    calculo.valorCemig,
+
+  valor_referencia_sem_andrade:
+    calculo.valorReferenciaSemAndrade,
+
+  valor_total_unificado:
+    calculo.valorTotalUnificado,
 
   economia_real:
-    Number(economiaReal.toFixed(2)),
+    calculo.economiaReal,
+
+  desconto_real_percentual:
+    calculo.descontoRealPercentual,
 
   valor_total:
-    dados.valorTotal,
+    calculo.valorTotalUnificado,
 
   economia:
-    dados.economia,
+    calculo.economiaReal,
 
   bandeira:
     dados.bandeira,
@@ -152,7 +191,7 @@ const fatura = await inserirFatura({
 
 });
 
-  if (modalidade === "COMPENSACAO") {
+  if (calculo.modalidade === "COMPENSACAO") {
 
   await registrarCreditosDaFatura({
     clienteId: cliente.id,
@@ -177,7 +216,7 @@ const fatura = await inserirFatura({
 
     faturaId: fatura.id,
 
-    valor: dados.valorTotal,
+    valor: calculo.valorTotalUnificado,
 
     vencimento,
 

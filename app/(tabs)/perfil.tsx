@@ -1,242 +1,231 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  Alert,
+  ImageBackground,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
-import Card from "../../components/Card";
-import PageHeader from "../../components/PageHeader";
+import { Avatar, Button, Card, Divider, Screen } from "../../components/ui";
+import MenuItem from "../../components/cliente/MenuItem";
 import { useAuth } from "../../contexts/AuthContext";
+import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function Perfil() {
   const { usuario, logout } = useAuth();
 
   function confirmarSaida() {
-    Alert.alert(
-      "Sair",
-      "Deseja realmente sair?",
-      [
-        {
-          text: "Cancelar",
-          style: "cancel",
-        },
-        {
-          text: "Sair",
-          style: "destructive",
-          onPress: logout,
-        },
-      ]
-    );
-  }
-
-  function Menu({
-    icon,
-    titulo,
-    onPress,
-  }: {
-    icon: keyof typeof Ionicons.glyphMap;
-    titulo: string;
-    onPress?: () => void;
-  }) {
-    return (
-      <TouchableOpacity
-        activeOpacity={0.8}
-        style={styles.menu}
-        onPress={onPress}
-      >
-        <Ionicons
-          name={icon}
-          size={22}
-          color="#16A34A"
-        />
-
-        <Text style={styles.menuText}>
-          {titulo}
-        </Text>
-
-        <Ionicons
-          name="chevron-forward"
-          size={20}
-          color="#94A3B8"
-        />
-      </TouchableOpacity>
-    );
+    Alert.alert("Sair", "Deseja realmente sair da sua conta?", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Sair", style: "destructive", onPress: logout },
+    ]);
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <PageHeader
-          titulo={usuario?.nome ?? ""}
-          subtitulo={usuario?.email}
+        <View style={styles.heading}>
+          <Text style={styles.eyebrow}>MINHA CONTA</Text>
+          <Text style={styles.title}>Perfil</Text>
+        </View>
+
+        <ImageBackground
+          imageStyle={styles.profileBackground}
+          resizeMode="cover"
+          source={require("../../assets/images/background.png")}
+          style={styles.profileCard}
+        >
+          <View style={styles.profileOverlay} />
+          <View style={styles.profile}>
+            <Avatar name={usuario?.nome ?? "Andrade Energy"} size={64} />
+
+            <View style={styles.profileContent}>
+              <Text numberOfLines={1} style={styles.name}>
+                {usuario?.nome ?? ""}
+              </Text>
+              <Text numberOfLines={1} style={styles.email}>
+                {usuario?.email ?? ""}
+              </Text>
+
+              <View style={styles.profileBadge}>
+                <View style={styles.profileBadgeDot} />
+                <Text style={styles.profileBadgeText}>Cliente Andrade Energy</Text>
+              </View>
+            </View>
+          </View>
+        </ImageBackground>
+
+        <Text style={styles.sectionTitle}>Conta e energia</Text>
+
+        <Card>
+          {usuario?.perfil === "LEITURA" ? (
+            <>
+              <MenuItem
+                icon="document-text-outline"
+                label="Meu contrato"
+                onPress={() => router.push("/contrato")}
+              />
+              <Divider />
+              <MenuItem
+                icon="flash-outline"
+                label="Minha unidade consumidora"
+              />
+              <Divider />
+              <MenuItem
+                icon="receipt-outline"
+                label="Minhas faturas"
+                onPress={() => router.push("/faturas")}
+              />
+            </>
+          ) : null}
+
+          {usuario?.perfil === "GESTOR" ? (
+            <MenuItem icon="business-outline" label="Minha usina" />
+          ) : null}
+
+          {usuario?.perfil === "ADMIN" ? (
+            <>
+              <MenuItem icon="people-outline" label="Usuários" />
+              <Divider />
+              <MenuItem icon="settings-outline" label="Configurações" />
+            </>
+          ) : null}
+        </Card>
+
+        <Text style={styles.sectionTitle}>Suporte e informações</Text>
+
+        <Card>
+          <MenuItem icon="logo-whatsapp" label="Falar com o suporte" />
+          <Divider />
+          <MenuItem icon="document-outline" label="Termos de uso" />
+          <Divider />
+          <MenuItem
+            icon="shield-checkmark-outline"
+            label="Política de privacidade"
+          />
+        </Card>
+
+        <Button
+          icon={<Ionicons name="log-out-outline" size={20} color={Colors.surface} />}
+          onPress={confirmarSaida}
+          style={styles.logout}
+          title="Sair da conta"
         />
 
-        <Card>
-
-          <Text style={styles.section}>
-            Minha Conta
-          </Text>
-
-          {usuario?.perfil === "LEITURA" && (
-            <>
-              <Menu
-                icon="document-text-outline"
-                titulo="Contrato"
-                onPress={() =>
-                  router.push("/contrato")
-                }
-              />
-
-              <Menu
-                icon="flash-outline"
-                titulo="Minha Unidade"
-              />
-            </>
-          )}
-
-          {usuario?.perfil === "GESTOR" && (
-            <>
-              <Menu
-                icon="business-outline"
-                titulo="Minha Usina"
-              />
-            </>
-          )}
-
-          {usuario?.perfil === "ADMIN" && (
-            <>
-              <Menu
-                icon="people-outline"
-                titulo="Usuários"
-              />
-
-              <Menu
-                icon="settings-outline"
-                titulo="Configurações"
-              />
-            </>
-          )}
-
-        </Card>
-
-        <Card>
-
-          <Text style={styles.section}>
-            Ajuda
-          </Text>
-
-          <Menu
-            icon="logo-whatsapp"
-            titulo="Suporte"
-          />
-
-          <Menu
-            icon="document-outline"
-            titulo="Termos de Uso"
-          />
-
-          <Menu
-            icon="shield-checkmark-outline"
-            titulo="Política de Privacidade"
-          />
-
-        </Card>
-
-        <Card>
-
-          <Text style={styles.version}>
-            Andrade Energy
-          </Text>
-
-          <Text style={styles.build}>
-            Versão 1.0.0
-          </Text>
-
-        </Card>
-
-        <TouchableOpacity
-          style={styles.logout}
-          onPress={confirmarSaida}
-        >
-          <Ionicons
-            name="log-out-outline"
-            size={20}
-            color="#FFF"
-          />
-
-          <Text style={styles.logoutText}>
-            Sair da conta
-          </Text>
-        </TouchableOpacity>
-
+        <View style={styles.footer}>
+          <Text style={styles.brand}>Andrade Energy</Text>
+          <Text style={styles.version}>Versão 1.0.0</Text>
+        </View>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-
-  container: {
-    flex: 1,
-    backgroundColor: "#F8FAFC",
-  },
-
   content: {
-    padding: 20,
-    paddingBottom: 40,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.xxl * 3,
   },
-
-  section: {
-    fontSize: 20,
+  heading: {
+    marginBottom: Spacing.lg,
+  },
+  eyebrow: {
+    color: Colors.primary,
+    fontSize: Typography.small,
     fontWeight: "700",
-    color: "#0F172A",
-    marginBottom: 12,
+    letterSpacing: 1.2,
   },
-
-  menu: {
+  title: {
+    marginTop: Spacing.xs,
+    color: Colors.text,
+    fontSize: Typography.title,
+    fontWeight: "700",
+  },
+  profile: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
   },
-
-  menuText: {
+  profileCard: {
+    position: "relative",
+    overflow: "hidden",
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+    borderRadius: Radius.xl,
+    backgroundColor: Colors.secondary,
+  },
+  profileBackground: {
+    borderRadius: Radius.xl,
+  },
+  profileOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(15, 23, 42, 0.56)",
+  },
+  profileContent: {
     flex: 1,
-    marginLeft: 15,
-    fontSize: 16,
-    color: "#111827",
-    fontWeight: "600",
+    marginLeft: Spacing.md,
   },
-
-  version: {
-    fontSize: 18,
+  name: {
+    color: Colors.surface,
+    fontSize: Typography.card,
     fontWeight: "700",
-    color: "#111827",
   },
-
-  build: {
-    marginTop: 4,
-    color: "#64748B",
+  email: {
+    marginTop: 3,
+    color: "#CBD5E1",
+    fontSize: Typography.caption,
   },
-
-  logout: {
-    marginTop: 25,
-    backgroundColor: "#DC2626",
-    borderRadius: 16,
-    height: 56,
-    justifyContent: "center",
-    alignItems: "center",
+  profileBadge: {
+    alignSelf: "flex-start",
     flexDirection: "row",
+    alignItems: "center",
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: Radius.round,
+    backgroundColor: Colors.primaryLight,
   },
-
-  logoutText: {
-    color: "#FFF",
-    marginLeft: 10,
+  profileBadgeDot: {
+    width: 7,
+    height: 7,
+    marginRight: Spacing.xs,
+    borderRadius: Radius.round,
+    backgroundColor: Colors.primary,
+  },
+  profileBadgeText: {
+    color: Colors.primaryDark,
+    fontSize: Typography.small,
     fontWeight: "700",
-    fontSize: 16,
   },
-
+  sectionTitle: {
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.sm,
+    color: Colors.subtitle,
+    fontSize: Typography.caption,
+    fontWeight: "700",
+  },
+  logout: {
+    marginTop: Spacing.sm,
+    backgroundColor: Colors.danger,
+  },
+  footer: {
+    alignItems: "center",
+    marginTop: Spacing.lg,
+  },
+  brand: {
+    color: Colors.text,
+    fontSize: Typography.caption,
+    fontWeight: "700",
+  },
+  version: {
+    marginTop: 3,
+    color: Colors.subtitle,
+    fontSize: Typography.small,
+  },
 });

@@ -3,6 +3,7 @@ import { upload } from "../../config/multer";
 
 import {
   importarFaturaController,
+  detalharFaturaController,
   listarFaturasController,
 } from "./faturas.controller";
 
@@ -12,6 +13,8 @@ router.get(
   "/",
   listarFaturasController
 );
+
+router.get("/:id", detalharFaturaController);
 
 router.post(
   "/importar",

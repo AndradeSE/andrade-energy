@@ -68,3 +68,14 @@ export async function inserirFatura(
 
   return data;
 }
+
+export async function buscarFaturaPorId(id: string) {
+  const { data, error } = await supabase
+    .from("faturas")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}

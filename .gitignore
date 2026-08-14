@@ -34,6 +34,7 @@ yarn-error.*
 .env*.local
 .env
 .env.*
+.microsoft-token-cache.json
 
 # typescript
 *.tsbuildinfo

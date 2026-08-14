@@ -1,5 +1,6 @@
 import { ScrollView, StyleSheet, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { router } from "expo-router";
 
 import { useDashboard } from "../../hooks/useDashboard";
 import { Colors, Spacing } from "../../theme";
@@ -8,7 +9,6 @@ import EmptyState from "../ui/EmptyState";
 import Loading from "../ui/Loading";
 import Screen from "../ui/Screen";
 
-import RecentActivity from "../cliente/RecentActivity";
 import ClienteHeader from "./ClienteHeader";
 import EconomiaChart from "./EconomiaChart";
 import EnergyFlowCard from "./EnergyFlowCard";
@@ -63,6 +63,7 @@ export default function ClienteHome() {
             competencia={data.ultimaFatura?.competencia ?? ""}
             valor={data.ultimaFatura?.valor ?? 0}
             vencimento={data.ultimaFatura?.vencimento ?? ""}
+            onPress={() => router.push(`/faturas/${data.ultimaFatura.id}`)}
             status="Em aberto"
           />
         ) : null}
@@ -79,8 +80,6 @@ export default function ClienteHome() {
             Array.isArray(data.historico) ? data.historico : []
           }
         />
-
-        <RecentActivity />
       </ScrollView>
     </Screen>
   );

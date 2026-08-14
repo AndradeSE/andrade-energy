@@ -1,12 +1,23 @@
 import { Request } from "express";
 
-import { listarFaturas } from "./faturas.repository";
+import { buscarFaturaPorId, listarFaturas } from "./faturas.repository";
 import { processarFatura } from "./processarFatura.service";
 
 import { extrairTextoPDF } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
+import {
+  armazenarDocumentosDaFatura,
+  incluirLinksTemporarios,
+} from "./documentosFatura.service";
+import { enfileirarNotificacoesDaFatura } from "./notificacoesFatura.service";
 
 export { listarFaturas };
+
+export async function detalharFatura(id: string) {
+  const fatura = await buscarFaturaPorId(id);
+  if (!fatura) throw new Error("Fatura não encontrada.");
+  return incluirLinksTemporarios(fatura);
+}
 
 export async function importarFatura(
   req: Request
@@ -31,6 +42,11 @@ export async function importarFatura(
 
   // Processamento
   const resultado = await processarFatura(dados);
+
+  if (!resultado.clienteNaoEncontrado && !resultado.jaProcessada) {
+    await armazenarDocumentosDaFatura(resultado, req.file.path);
+    await enfileirarNotificacoesDaFatura(resultado);
+  }
 
   return {
     sucesso: true,

@@ -18,9 +18,13 @@ export default function NovoCliente() {
   const [nome, setNome] = useState('');
   const [uc, setUc] = useState('');
   const [telefone, setTelefone] = useState('');
+  const [email, setEmail] = useState('');
   const [cpf, setCpf] = useState('');
   const [endereco, setEndereco] = useState('');
   const [usinaId, setUsinaId] = useState('');
+  const [modalidadeFaturamento, setModalidadeFaturamento] =
+    useState<'INJECAO' | 'COMPENSACAO'>('COMPENSACAO');
+  const [descontoPercentual, setDescontoPercentual] = useState('40');
   const [mostrarUsinas, setMostrarUsinas] =
   useState(false);
 
@@ -45,6 +49,13 @@ export default function NovoCliente() {
 
   async function salvar() {
 
+    const desconto = Number(descontoPercentual.replace(',', '.'));
+
+    if (!Number.isFinite(desconto) || desconto < 0 || desconto > 100) {
+      alert('Informe um desconto entre 0% e 100%.');
+      return;
+    }
+
     const { error } =
       await supabase
         .from('clientes')
@@ -56,6 +67,10 @@ export default function NovoCliente() {
 
           telefone,
 
+          whatsapp: telefone.replace(/\D/g, ''),
+
+          email: email.trim().toLowerCase(),
+
           cpf,
 
           endereco,
@@ -63,6 +78,10 @@ export default function NovoCliente() {
           distribuidora: 'CEMIG',
 
           usina_id: usinaId || null,
+
+          modalidade_faturamento: modalidadeFaturamento,
+
+          desconto_percentual: desconto,
 
         });
 
@@ -136,12 +155,56 @@ keyboardType="numeric"
 style={styles.input}
 />
 
-<Text>Telefone</Text>
+<Text>Telefone / WhatsApp</Text>
 
 <TextInput
 value={telefone}
 onChangeText={setTelefone}
 keyboardType="phone-pad"
+style={styles.input}
+/>
+
+<Text>E-mail para envio das faturas</Text>
+
+<TextInput
+value={email}
+onChangeText={setEmail}
+autoCapitalize="none"
+keyboardType="email-address"
+style={styles.input}
+/>
+
+<Text>Modalidade de faturamento</Text>
+
+<View style={styles.optionRow}>
+  {(['INJECAO', 'COMPENSACAO'] as const).map((modalidade) => (
+    <Pressable
+      key={modalidade}
+      onPress={() => setModalidadeFaturamento(modalidade)}
+      style={[
+        styles.option,
+        modalidadeFaturamento === modalidade && styles.optionSelected,
+      ]}
+    >
+      <Text
+        style={
+          modalidadeFaturamento === modalidade
+            ? styles.optionTextSelected
+            : styles.optionText
+        }
+      >
+        {modalidade === 'INJECAO' ? 'Por injeção' : 'Por compensação'}
+      </Text>
+    </Pressable>
+  ))}
+</View>
+
+<Text>Desconto contratado (%)</Text>
+
+<TextInput
+value={descontoPercentual}
+onChangeText={setDescontoPercentual}
+keyboardType="decimal-pad"
 style={styles.input}
 />
 
@@ -274,6 +337,38 @@ marginTop:5,
 
 marginBottom:18,
 
+},
+
+optionRow:{
+flexDirection:'row' as const,
+gap:10,
+marginTop:5,
+marginBottom:18,
+},
+
+option:{
+flex:1,
+padding:12,
+borderWidth:1,
+borderColor:'#d1d5db',
+borderRadius:10,
+backgroundColor:'#fff',
+alignItems:'center' as const,
+},
+
+optionSelected:{
+borderColor:'#16a34a',
+backgroundColor:'#ecfdf5',
+},
+
+optionText:{
+color:'#64748b',
+fontWeight:'600' as const,
+},
+
+optionTextSelected:{
+color:'#047857',
+fontWeight:'700' as const,
 },
 
 };

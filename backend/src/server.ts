@@ -13,6 +13,7 @@ import faturasRoutes from "./modules/faturas/faturas.routes";
 import fechamentosRoutes from "./modules/fechamentos/fechamentos.routes";
 import rateioRoutes from "./modules/rateio/rateio.routes";
 import usinasRoutes from "./modules/usinas/usinas.routes";
+import { processarFilaDeNotificacoes } from "./modules/faturas/notificacoesFatura.service";
 
 dotenv.config();
 
@@ -93,4 +94,8 @@ const PORT = Number(process.env.PORT) || 3333;
 
 app.listen(PORT, () => {
   console.log(`Servidor iniciado na porta ${PORT}`);
+  processarFilaDeNotificacoes().catch((erro) => console.error("Falha ao processar notificações:", erro.message));
+  setInterval(() => {
+    processarFilaDeNotificacoes().catch((erro) => console.error("Falha ao processar notificações:", erro.message));
+  }, 60_000);
 });
