@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   Alert,
-  ImageBackground,
   Linking,
   ScrollView,
   StyleSheet,
@@ -80,13 +79,7 @@ export default function Contrato() {
           </Text>
         </View>
 
-        <ImageBackground
-          imageStyle={styles.heroBackground}
-          resizeMode="cover"
-          source={require("../../assets/images/background.png")}
-          style={styles.hero}
-        >
-          <View style={styles.heroOverlay} />
+        <View style={styles.hero}>
 
           <View style={styles.heroHeader}>
             <View style={styles.heroIcon}>
@@ -101,7 +94,7 @@ export default function Contrato() {
           <Text style={styles.heroLabel}>Número do contrato</Text>
           <Text style={styles.heroValue}>{data.numero || "Não informado"}</Text>
           <Text style={styles.heroHint}>Andrade Energy · Energia por assinatura</Text>
-        </ImageBackground>
+        </View>
 
         <Text style={styles.sectionTitle}>Condições comerciais</Text>
 

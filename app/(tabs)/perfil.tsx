@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import {
   Alert,
-  ImageBackground,
   ScrollView,
   StyleSheet,
   Text,
@@ -36,13 +35,7 @@ export default function Perfil() {
           <Text style={styles.title}>Perfil</Text>
         </View>
 
-        <ImageBackground
-          imageStyle={styles.profileBackground}
-          resizeMode="cover"
-          source={require("../../assets/images/background.png")}
-          style={styles.profileCard}
-        >
-          <View style={styles.profileOverlay} />
+        <View style={styles.profileCard}>
           <View style={styles.profile}>
             <Avatar name={usuario?.nome ?? "Andrade Energy"} size={64} />
 
@@ -62,7 +55,7 @@ export default function Perfil() {
               </View>
             </View>
           </View>
-        </ImageBackground>
+        </View>
 
         <Text style={styles.sectionTitle}>Conta e energia</Text>
 

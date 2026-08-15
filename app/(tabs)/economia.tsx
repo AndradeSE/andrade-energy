@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import Badge from "../../components/ui/Badge";
 import Card from "../../components/ui/Card";
@@ -78,13 +78,7 @@ export default function Economia() {
           </View>
         </View>
 
-        <ImageBackground
-          imageStyle={styles.heroBackground}
-          resizeMode="cover"
-          source={require("../../assets/images/background.png")}
-          style={styles.hero}
-        >
-          <View style={styles.heroOverlay} />
+        <View style={styles.hero}>
           <View style={styles.heroGlow} />
           <Badge label="Desde o início do contrato" variant="success" />
           <Text style={styles.heroLabel}>Você já economizou</Text>
@@ -99,7 +93,7 @@ export default function Economia() {
               {formatarMoeda(data.economiaMes)} nesta competência
             </Text>
           </View>
-        </ImageBackground>
+        </View>
 
         <View style={styles.documentActions}>
           <TouchableOpacity

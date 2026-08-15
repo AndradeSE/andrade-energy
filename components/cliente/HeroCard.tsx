@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { ImageBackground, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { Badge } from "../ui";
@@ -24,13 +24,7 @@ function formatarMoeda(valor: number) {
 
 export default function HeroCard({ saldo, economia }: Props) {
   return (
-    <ImageBackground
-      imageStyle={styles.backgroundImage}
-      resizeMode="cover"
-      source={require("../../assets/images/background.png")}
-      style={styles.container}
-    >
-      <View style={styles.overlay} />
+    <View style={styles.container}>
       <View style={styles.glowLarge} />
       <View style={styles.glowSmall} />
 
@@ -55,7 +49,7 @@ export default function HeroCard({ saldo, economia }: Props) {
         </View>
         <Ionicons name="trending-up" size={21} color="#86EFAC" />
       </View>
-    </ImageBackground>
+    </View>
   );
 }
 
@@ -67,13 +61,6 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     borderRadius: Radius.xl,
     backgroundColor: Colors.secondary,
-  },
-  backgroundImage: {
-    borderRadius: Radius.xl,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(15, 23, 42, 0.56)",
   },
   glowLarge: {
     position: "absolute",
