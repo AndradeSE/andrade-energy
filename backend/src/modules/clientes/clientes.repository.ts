@@ -129,6 +129,7 @@ export async function excluirCliente(id: string) {
     "cobrancas",
     "creditos_cliente",
     "creditos",
+    "rateios",
     "participacoes_usina",
     "contratos",
     "faturas",

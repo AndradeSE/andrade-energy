@@ -65,7 +65,7 @@ export async function excluirUsina(
     await supabase.from("notificacoes_fatura").delete().in("fatura_id", faturaIds);
   }
 
-  for (const tabela of ["creditos", "participacoes_usina", "fechamentos", "faturas", "unidades_consumidoras"]) {
+  for (const tabela of ["creditos", "rateios", "participacoes_usina", "contratos", "fechamentos", "faturas", "unidades_consumidoras"]) {
     const { error: dependenciaError } = await supabase.from(tabela).delete().eq("usina_id", id);
     if (dependenciaError && dependenciaError.code !== "42P01") throw dependenciaError;
   }
