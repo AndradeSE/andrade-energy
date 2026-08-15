@@ -5,12 +5,13 @@ import { Alert, ScrollView, StyleSheet, Text } from "react-native";
 import FormField from "../../components/cadastro/FormField";
 import { Button, Card, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
+import { processarFatura } from "../../services/faturas.service";
 import { supabase } from "../../supabase";
 import { Colors, Spacing, Typography } from "../../theme";
 
 export default function NovoCliente() {
   const { usinaSelecionada, usuario } = useAuth();
-  const { origem, cliente, nome: nomeImportado, uc: ucImportada, numeroInstalacao, endereco: enderecoImportado, distribuidora: distribuidoraImportada } = useLocalSearchParams<{ origem?: string; cliente?: string; nome?: string; uc?: string; numeroInstalacao?: string; endereco?: string; distribuidora?: string }>();
+  const { origem, cliente, nome: nomeImportado, uc: ucImportada, numeroInstalacao, endereco: enderecoImportado, distribuidora: distribuidoraImportada, arquivoUri, arquivoNome } = useLocalSearchParams<{ origem?: string; cliente?: string; nome?: string; uc?: string; numeroInstalacao?: string; endereco?: string; distribuidora?: string; arquivoUri?: string; arquivoNome?: string }>();
   const [nome, setNome] = useState("");
   const [uc, setUc] = useState("");
   const [cpf, setCpf] = useState("");
@@ -66,6 +67,14 @@ export default function NovoCliente() {
         endereco: endereco.trim() || null, modalidade_faturamento: "COMPENSACAO", status: "ATIVA",
       }, { onConflict: "numero" });
       if (error) Alert.alert("Consumidor salvo", "O consumidor foi criado, mas a UC precisa ser vinculada novamente.");
+    }
+
+    if (origem === "fatura" && arquivoUri) {
+      try {
+        await processarFatura(arquivoUri, arquivoNome);
+      } catch (erro: any) {
+        Alert.alert("Consumidor salvo", erro?.response?.data?.message ?? "O cadastro foi concluído, mas não foi possível guardar a fatura.");
+      }
     }
 
     setSalvando(false);

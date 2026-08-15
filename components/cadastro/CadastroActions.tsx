@@ -60,6 +60,8 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
           numeroInstalacao: String(ucExtraida),
           endereco: String(enderecoExtraido),
           distribuidora: String(distribuidoraExtraida),
+          arquivoUri: item.uri,
+          arquivoNome: item.name,
           energiaCompensada: String(dados.energiaCompensada ?? 0),
         },
       });
