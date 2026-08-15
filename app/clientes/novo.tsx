@@ -78,7 +78,17 @@ export default function NovoCliente() {
       try {
         await processarFatura(arquivoUri, arquivoNome);
       } catch (erro: any) {
-        Alert.alert("Consumidor salvo", erro?.response?.data?.message ?? "O cadastro foi concluído, mas não foi possível guardar a fatura.");
+        const falhaTransitoria = !erro?.response || Number(erro?.response?.status ?? 500) >= 500;
+        if (falhaTransitoria) {
+          try {
+            await new Promise((resolve) => setTimeout(resolve, 700));
+            await processarFatura(arquivoUri, arquivoNome);
+          } catch (novaFalha: any) {
+            Alert.alert("Consumidor salvo", novaFalha?.response?.data?.message ?? novaFalha?.message ?? "Não foi possível guardar a fatura. Tente importá-la novamente.");
+          }
+        } else {
+          Alert.alert("Consumidor salvo", erro?.response?.data?.message ?? erro?.message ?? "Não foi possível guardar a fatura.");
+        }
       }
     }
 
