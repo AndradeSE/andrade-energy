@@ -12,20 +12,25 @@ const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { s
 const paga = (status?: string) => ["PAGA", "PAGO", "QUITADA"].includes(String(status ?? "").toUpperCase());
 
 export default function UnidadeDocumentos() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, numero, cliente, titular, distribuidora } = useLocalSearchParams<{ id: string; numero?: string; cliente?: string; titular?: string; distribuidora?: string }>();
   const [unidade, setUnidade] = useState<any>();
   const [faturas, setFaturas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function carregar() {
-      const { data, error } = await supabase.from("unidades_consumidoras").select("*, clientes(nome)").eq("id", id).single();
-      if (error || !data) return;
-      setUnidade(data);
-      setFaturas((await listarFaturas(undefined, data.numero)) ?? []);
+      let dados: any;
+      if (!id.startsWith("cliente-")) {
+        const resultado = await supabase.from("unidades_consumidoras").select("*, clientes(nome)").eq("id", id).maybeSingle();
+        dados = resultado.data;
+      }
+      dados ??= numero ? { id, numero, titular, distribuidora, clientes: { nome: cliente } } : null;
+      if (!dados) return;
+      setUnidade(dados);
+      setFaturas((await listarFaturas(undefined, dados.numero)) ?? []);
     }
     carregar().catch(() => Alert.alert("Não foi possível carregar", "Confira sua conexão e tente novamente.")).finally(() => setLoading(false));
-  }, [id]);
+  }, [cliente, distribuidora, id, numero, titular]);
 
   async function abrirConta(item: any) {
     if (!item.pdf_cemig_url) return Alert.alert("PDF em preparação", "A conta da concessionária ainda não está disponível.");

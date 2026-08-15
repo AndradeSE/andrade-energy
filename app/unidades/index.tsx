@@ -26,7 +26,7 @@ export default function Unidades() {
       data={lista}
       keyExtractor={(item) => item.id}
       ListHeaderComponent={<View><Text style={styles.title}>Unidades consumidoras</Text><Text style={styles.subtitle}>Consulte as unidades de todos os clientes.</Text><View style={styles.search}><TextInput value={busca} onChangeText={setBusca} placeholder="Buscar por UC, cliente, CPF ou endereço" placeholderTextColor={Colors.subtitle} style={styles.searchInput} /></View><CadastroActions tipo="UNIDADE" /></View>}
-      renderItem={({ item }) => <Pressable onPress={() => router.push({ pathname: "/unidades/[id]", params: { id: item.id } })}><Card>
+      renderItem={({ item }) => <Pressable onPress={() => router.push({ pathname: "/unidades/[id]", params: { id: item.id, numero: item.numero, cliente: item.clientes?.nome ?? "", titular: item.titular ?? "", distribuidora: item.distribuidora ?? "" } })}><Card>
         <View style={styles.row}><Text style={styles.number}>UC {item.numero}</Text><Text style={styles.badge}>{item.tipo}</Text></View>
         <Text style={styles.owner}>{item.clientes?.nome ?? item.titular ?? "Cliente não identificado"}</Text>
         <Text style={styles.detail}>{item.modalidade_faturamento === "INJECAO" ? "Faturamento por injeção" : "Faturamento por compensação"} · {item.desconto_percentual}%</Text>
