@@ -1,6 +1,6 @@
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { FlatList, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import CadastroActions from "../../components/cadastro/CadastroActions";
 import { AppHeader, Card, EmptyState, Screen } from "../../components/ui";
@@ -26,11 +26,11 @@ export default function Unidades() {
       data={lista}
       keyExtractor={(item) => item.id}
       ListHeaderComponent={<View><Text style={styles.title}>Unidades consumidoras</Text><Text style={styles.subtitle}>Consulte as unidades de todos os clientes.</Text><View style={styles.search}><TextInput value={busca} onChangeText={setBusca} placeholder="Buscar por UC, cliente, CPF ou endereço" placeholderTextColor={Colors.subtitle} style={styles.searchInput} /></View><CadastroActions tipo="UNIDADE" /></View>}
-      renderItem={({ item }) => <Card>
+      renderItem={({ item }) => <Pressable onPress={() => router.push({ pathname: "/unidades/[id]", params: { id: item.id } })}><Card>
         <View style={styles.row}><Text style={styles.number}>UC {item.numero}</Text><Text style={styles.badge}>{item.tipo}</Text></View>
         <Text style={styles.owner}>{item.clientes?.nome ?? item.titular ?? "Cliente não identificado"}</Text>
         <Text style={styles.detail}>{item.modalidade_faturamento === "INJECAO" ? "Faturamento por injeção" : "Faturamento por compensação"} · {item.desconto_percentual}%</Text>
-      </Card>}
+      </Card></Pressable>}
       ListEmptyComponent={<View><EmptyState title={busca ? "Nenhuma unidade encontrada" : "Nenhuma unidade cadastrada"} subtitle={busca ? "Altere os termos da busca." : "Use uma fatura da concessionária ou faça o cadastro manual."} /></View>}
     /></Screen>
   );

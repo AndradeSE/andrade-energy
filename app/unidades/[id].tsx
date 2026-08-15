@@ -1,0 +1,50 @@
+import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
+import { Alert, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+
+import { Badge, Card, EmptyState, Loading, Screen, Section } from "../../components/ui";
+import { listarFaturas } from "../../services/faturas.service";
+import { supabase } from "../../supabase";
+import { Colors, Radius, Spacing, Typography } from "../../theme";
+
+const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const paga = (status?: string) => ["PAGA", "PAGO", "QUITADA"].includes(String(status ?? "").toUpperCase());
+
+export default function UnidadeDocumentos() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const [unidade, setUnidade] = useState<any>();
+  const [faturas, setFaturas] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function carregar() {
+      const { data, error } = await supabase.from("unidades_consumidoras").select("*, clientes(nome)").eq("id", id).single();
+      if (error || !data) return;
+      setUnidade(data);
+      setFaturas((await listarFaturas(undefined, data.numero)) ?? []);
+    }
+    carregar().catch(() => Alert.alert("Não foi possível carregar", "Confira sua conexão e tente novamente.")).finally(() => setLoading(false));
+  }, [id]);
+
+  async function abrirConta(item: any) {
+    if (!item.pdf_cemig_url) return Alert.alert("PDF em preparação", "A conta da concessionária ainda não está disponível.");
+    try { await Linking.openURL(item.pdf_cemig_url); } catch { Alert.alert("Não foi possível abrir", "Confira sua conexão e tente novamente."); }
+  }
+
+  if (loading) return <Loading />;
+  if (!unidade) return <Screen><View style={styles.state}><EmptyState icon="flash-outline" title="Unidade não encontrada" subtitle="Não foi possível carregar esta unidade consumidora." /></View></Screen>;
+
+  return <Screen><ScrollView contentContainerStyle={styles.content}>
+    <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={24} color={Colors.text} /></TouchableOpacity>
+    <Text style={styles.eyebrow}>UNIDADE CONSUMIDORA</Text><Text style={styles.title}>UC {unidade.numero}</Text><Text style={styles.subtitle}>{unidade.clientes?.nome ?? unidade.titular ?? "Cliente"}</Text>
+
+    <Section title="Contas da concessionária"><View>{faturas.length ? faturas.map((item) => <TouchableOpacity key={`conta-${item.id}`} activeOpacity={0.84} onPress={() => abrirConta(item)}><Card><View style={styles.row}><View style={styles.icon}><Ionicons name="document-text-outline" size={22} color={Colors.primary} /></View><View style={styles.info}><Text style={styles.itemTitle}>{item.referencia || "Conta de luz"}</Text><Text style={styles.itemDetail}>{item.pdf_cemig_url ? "PDF disponível" : "PDF em preparação"}</Text></View><Ionicons name={item.pdf_cemig_url ? "download-outline" : "time-outline"} size={21} color={item.pdf_cemig_url ? Colors.primary : Colors.subtitle} /></View></Card></TouchableOpacity>) : <EmptyState icon="document-outline" title="0 contas da concessionária" subtitle="As contas desta UC aparecerão aqui quando forem importadas." />}</View></Section>
+
+    <Section title="Faturas Andrade Energy"><View>{faturas.length ? faturas.map((item) => <TouchableOpacity key={`fatura-${item.id}`} activeOpacity={0.84} onPress={() => router.push(`/faturas/${item.id}`)}><Card><View style={styles.invoiceTop}><View><Text style={styles.invoiceValue}>{moeda(item.valor_total_unificado ?? item.valor_total)}</Text><Text style={styles.itemDetail}>{item.referencia || "Competência não informada"}</Text></View><Badge label={paga(item.status) ? "Paga" : "Em aberto"} variant={paga(item.status) ? "success" : "warning"} /></View><View style={styles.invoiceBottom}><Text style={styles.invoiceDate}>{paga(item.status) ? "Pagamento confirmado" : `Vencimento ${item.vencimento || "não informado"}`}</Text><Ionicons name="chevron-forward" size={19} color={Colors.primary} /></View></Card></TouchableOpacity>) : <EmptyState icon="receipt-outline" title="0 faturas" subtitle="As faturas Andrade Energy desta UC aparecerão aqui após o faturamento." />}</View></Section>
+  </ScrollView></Screen>;
+}
+
+const styles = StyleSheet.create({
+  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl }, state: { flex: 1, justifyContent: "center", padding: Spacing.lg }, back: { width: 42, height: 42, alignItems: "center", justifyContent: "center", marginBottom: Spacing.md, borderRadius: Radius.round, backgroundColor: Colors.surface }, eyebrow: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800", letterSpacing: 1.1 }, title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "900" }, subtitle: { marginTop: 4, marginBottom: Spacing.lg, color: Colors.subtitle }, row: { flexDirection: "row", alignItems: "center" }, icon: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primaryLight }, info: { flex: 1, marginHorizontal: Spacing.sm }, itemTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "800" }, itemDetail: { marginTop: 4, color: Colors.subtitle, fontSize: Typography.small }, invoiceTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, invoiceValue: { color: Colors.text, fontSize: Typography.body, fontWeight: "900" }, invoiceBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: Spacing.md, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border }, invoiceDate: { flex: 1, color: Colors.subtitle, fontSize: Typography.small },
+});
