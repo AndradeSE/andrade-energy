@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
@@ -7,7 +7,6 @@ import { EmptyState, Loading, Screen } from "../../components/ui";
 import { useFaturas } from "../../hooks/useFaturas";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
-type Categoria = "cemig" | "unificada";
 type Filtro = "todas" | "pendentes" | "pagas";
 
 const normalizarStatus = (status?: string) => String(status ?? "").trim().toUpperCase();
@@ -15,9 +14,7 @@ const estaPaga = (status?: string) => ["PAGA", "PAGO", "QUITADA"].includes(norma
 const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function Faturas() {
-  const params = useLocalSearchParams<{ categoria?: string }>();
   const { data, isLoading, error } = useFaturas();
-  const [categoria, setCategoria] = useState<Categoria>(params.categoria === "unificada" ? "unificada" : "cemig");
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const faturas = useMemo(() => data ?? [], [data]);
 
@@ -44,11 +41,6 @@ export default function Faturas() {
             <Text style={styles.title}>Faturas</Text>
           </View>
 
-          <View style={styles.categoryTabs}>
-            <CategoryButton active={categoria === "cemig"} icon="flash-outline" label="CEMIG" onPress={() => setCategoria("cemig")} />
-            <CategoryButton active={categoria === "unificada"} icon="documents-outline" label="Unificadas" onPress={() => setCategoria("unificada")} />
-          </View>
-
           <View style={styles.filterTabs}>
             <FilterButton active={filtro === "todas"} label="Todas" onPress={() => setFiltro("todas")} />
             <FilterButton active={filtro === "pendentes"} label="Pendentes" onPress={() => setFiltro("pendentes")} />
@@ -59,12 +51,12 @@ export default function Faturas() {
           <EmptyState
             icon={error ? "alert-circle-outline" : "receipt-outline"}
             title={error ? "Não foi possível carregar as faturas" : `0 faturas ${filtro === "todas" ? "" : filtro}`.trim()}
-            subtitle={error ? "Confira sua conexão e tente novamente." : `Nenhuma fatura ${categoria === "cemig" ? "CEMIG" : "unificada"} encontrada neste filtro.`}
+            subtitle={error ? "Confira sua conexão e tente novamente." : "Nenhuma fatura Andrade Energy encontrada neste filtro."}
           />
         </View>}
         renderItem={({ item }) => {
           const paga = estaPaga(item.status);
-          const valor = categoria === "cemig" ? item.valor_cemig ?? item.valor_total : item.valor_total_unificado ?? item.valor_total;
+          const valor = item.valor_total_unificado ?? item.valor_total;
           return (
             <TouchableOpacity
               accessibilityLabel={`Abrir fatura ${item.referencia}`}
@@ -79,7 +71,7 @@ export default function Faturas() {
               <View style={styles.invoiceDivider} />
               <View style={styles.invoiceBottom}>
                 <View><Text style={styles.metaLabel}>{paga ? "PAGAMENTO" : "VENCIMENTO"}</Text><Text style={styles.metaValue}>{paga ? item.data_pagamento || "Confirmado" : item.vencimento || "Não informado"}</Text></View>
-                <View style={styles.documentType}><Text style={styles.documentLabel}>{categoria === "cemig" ? "FATURA CEMIG" : "FATURA UNIFICADA"}</Text><Text numberOfLines={1} style={styles.documentCode}>{item.numero_instalacao || item.id}</Text></View>
+                <View style={styles.documentType}><Text style={styles.documentLabel}>FATURA ANDRADE ENERGY</Text><Text numberOfLines={1} style={styles.documentCode}>{item.numero_instalacao || item.id}</Text></View>
               </View>
             </TouchableOpacity>
           );
@@ -87,10 +79,6 @@ export default function Faturas() {
       />
     </Screen>
   );
-}
-
-function CategoryButton({ active, icon, label, onPress }: { active: boolean; icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
-  return <TouchableOpacity onPress={onPress} style={[styles.categoryButton, active && styles.categoryButtonActive]}><Ionicons name={icon} size={17} color={active ? Colors.surface : Colors.subtitle} /><Text style={[styles.categoryLabel, active && styles.categoryLabelActive]}>{label}</Text></TouchableOpacity>;
 }
 
 function FilterButton({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
@@ -102,11 +90,6 @@ const styles = StyleSheet.create({
   heading: { flexDirection: "row", alignItems: "center", marginBottom: Spacing.lg, paddingBottom: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
   back: { width: 38, height: 38, alignItems: "center", justifyContent: "center", marginRight: Spacing.xs },
   title: { color: Colors.text, fontSize: Typography.card, fontWeight: "800" },
-  categoryTabs: { flexDirection: "row", gap: Spacing.xs, marginBottom: Spacing.md, padding: 4, borderRadius: Radius.lg, backgroundColor: "#D6D8DC" },
-  categoryButton: { flex: 1, minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: Radius.md },
-  categoryButtonActive: { backgroundColor: Colors.primary },
-  categoryLabel: { color: Colors.subtitle, fontSize: Typography.small, fontWeight: "800" },
-  categoryLabelActive: { color: Colors.surface },
   filterTabs: { flexDirection: "row", marginBottom: Spacing.lg, borderBottomWidth: 1, borderBottomColor: Colors.border },
   filterButton: { flex: 1, minHeight: 48, alignItems: "center", justifyContent: "center", borderBottomWidth: 3, borderBottomColor: "transparent" },
   filterButtonActive: { borderBottomColor: "#8F938D" },

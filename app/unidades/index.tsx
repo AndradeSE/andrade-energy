@@ -29,7 +29,7 @@ export default function Unidades() {
         <Text style={styles.owner}>{item.clientes?.nome ?? item.usinas?.nome ?? item.titular ?? "Sem vínculo"}</Text>
         <Text style={styles.detail}>{item.modalidade_faturamento === "INJECAO" ? "Faturamento por injeção" : "Faturamento por compensação"} · {item.desconto_percentual}%</Text>
       </Card>}
-      ListEmptyComponent={<View><EmptyState title="Nenhuma unidade cadastrada" subtitle="Use uma fatura CEMIG ou faça o cadastro manual." /></View>}
+      ListEmptyComponent={<View><EmptyState title="Nenhuma unidade cadastrada" subtitle="Use uma fatura da concessionária ou faça o cadastro manual." /></View>}
     /></Screen>
   );
 }

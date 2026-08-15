@@ -59,7 +59,7 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
       const detalhe = erro?.response?.data?.message ?? erro?.message;
       Alert.alert(
         "Não foi possível ler a fatura",
-        detalhe || "Confirme se o arquivo é uma conta CEMIG em PDF e tente novamente."
+        detalhe || "Confirme se o arquivo é uma conta da concessionária em PDF e tente novamente."
       );
     } finally {
       setAnalisando(false);

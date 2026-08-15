@@ -119,7 +119,7 @@ export default function DetalheFatura() {
         <View style={styles.downloadActions}>
           <DownloadButton
             available={Boolean(fatura.pdf_cemig_url)}
-            label="Fatura CEMIG"
+            label="Fatura da concessionária"
             loading={documentoBaixando === `cemig-${referenciaArquivo}.pdf`}
             onPress={() =>
               baixarDocumento(

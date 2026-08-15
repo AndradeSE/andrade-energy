@@ -114,14 +114,14 @@ export default function Economia() {
             <Ionicons name="chevron-forward" size={19} color={Colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity
-            accessibilityLabel="Abrir contas de luz CEMIG"
+            accessibilityLabel="Abrir contas de luz da concessionária"
             activeOpacity={0.84}
-            onPress={() => router.push({ pathname: "/faturas", params: { categoria: "cemig" } })}
+            onPress={() => router.push("/contas-de-luz")}
             style={styles.documentButton}
           >
             <View style={styles.documentIcon}><Ionicons name="flash-outline" size={24} color={Colors.primary} /></View>
             <Text style={styles.documentTitle}>Conta de luz</Text>
-            <Text style={styles.documentSubtitle}>CEMIG</Text>
+            <Text style={styles.documentSubtitle}>Concessionária</Text>
             <Ionicons name="chevron-forward" size={19} color={Colors.primary} />
           </TouchableOpacity>
         </View>
