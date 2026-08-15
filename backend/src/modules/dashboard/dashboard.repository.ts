@@ -1,7 +1,8 @@
 import { supabase } from "../../config/supabase";
 
 export async function obterDashboardCliente(
-  clienteId: string
+  clienteId: string,
+  uc?: string
 ) {
   // Cliente
   const { data: cliente, error: erroCliente } =
@@ -19,19 +20,23 @@ export async function obterDashboardCliente(
   if (erroCliente) throw erroCliente;
 
   // Faturas
-  const { data: faturas, error: erroFaturas } =
-    await supabase
+  let faturasQuery = supabase
       .from("faturas")
       .select(`
         id,
         referencia,
         vencimento,
         valor_total,
+        valor_total_unificado,
+        status,
         economia_real,
         energia_injetada,
         energia_compensada
       `)
       .eq("cliente_id", clienteId);
+
+  if (uc) faturasQuery = faturasQuery.eq("numero_instalacao", uc);
+  const { data: faturas, error: erroFaturas } = await faturasQuery;
 
   if (erroFaturas) throw erroFaturas;
 

@@ -5,15 +5,9 @@ import {
     excluirContrato,
 } from "./contratos.repository";
 
-console.log("========== CONTRATOS SERVICE ==========");
-console.log("buscarContratoCliente:", buscarContratoCliente);
-console.log("=======================================");
-
 export async function obterContratoCliente(
   clienteId: string
 ) {
-  console.log("obterContratoCliente executado");
-
   return await buscarContratoCliente(clienteId);
 }
 

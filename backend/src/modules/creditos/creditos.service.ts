@@ -1,5 +1,3 @@
-console.log("creditos.service carregado");
-
 import { listarCreditos } from "./creditos.repository";
 
 export async function obterCreditos(

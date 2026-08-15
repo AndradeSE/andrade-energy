@@ -24,7 +24,6 @@ export default function ConfirmarImportacao() {
 
   const [loading, setLoading] = useState(false);
   const [erros, setErros] = useState<string[]>([]);
-console.log(JSON.stringify(importacao, null, 2));
   if (!importacao) {
     return (
       <SafeAreaView

@@ -46,21 +46,8 @@ export async function importarFatura(
     throw new Error("Arquivo não enviado.");
   }
 
-  // OCR
   const texto = await extrairTextoPDF(req.file.path);
-
-  console.log("========== OCR ==========");
-  console.log(texto);
-  console.log("=========================");
-
-  // Parser
   const dados = interpretarFatura(texto);
-
-  console.log("========== DADOS EXTRAÍDOS ==========");
-  console.log(dados);
-  console.log("=====================================");
-
-  // Processamento
   const resultado = await processarFatura(dados);
 
   if (!resultado.clienteNaoEncontrado && !resultado.jaProcessada) {

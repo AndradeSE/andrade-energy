@@ -47,6 +47,7 @@ app-example
 /ios
 /android
 backend/uploads/
+supabase/.temp/
 *.rar
 *.zip
 *.7z

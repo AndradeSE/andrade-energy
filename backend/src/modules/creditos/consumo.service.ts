@@ -25,16 +25,7 @@ export async function consumirCreditos(
   energiaConsumida: number
 ) {
 
-  console.log("=== consumirCreditos ===");
-  console.log({
-    clienteId,
-    competencia,
-    energiaConsumida,
-  });
-
   const saldo = await buscarSaldoAtual(clienteId);
-
-  console.log("SALDO ENCONTRADO:", saldo);
 
   if (!saldo)
     throw new Error("Cliente sem créditos.");
@@ -42,12 +33,8 @@ export async function consumirCreditos(
   const saldoDisponivel =
     Number(saldo.saldo_atual ?? saldo.saldo ?? 0);
 
-  console.log("Saldo disponível:", saldoDisponivel);
-
   const novoSaldo =
     saldoDisponivel - energiaConsumida;
-
-  console.log("Novo saldo:", novoSaldo);
 
   return registrarConsumo({
     cliente_id: clienteId,

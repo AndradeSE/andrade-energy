@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Alert,
   Modal,
@@ -30,7 +31,8 @@ export default function ClienteHeader({
   onOpenProfile,
 }: Props) {
   const [menuAberto, setMenuAberto] = useState(false);
-  const { logout } = useAuth();
+  const { logout, selecionarUnidade } = useAuth();
+  const insets = useSafeAreaInsets();
   const primeiroNome = cliente.split(" ")[0];
 
   function navegar(rota: "/perfil" | "/faturas" | "/contrato") {
@@ -64,7 +66,7 @@ export default function ClienteHeader({
 
   return (
     <>
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top + Spacing.xs }]}>
         <View style={styles.top}>
           <TouchableOpacity
             accessibilityLabel="Abrir menu"
@@ -81,11 +83,11 @@ export default function ClienteHeader({
             onPress={abrirPerfil}
             style={styles.profile}
           >
-            <Avatar name={cliente} size={44} />
+            <Avatar name={cliente} size={38} />
 
             <View style={styles.greetingContent}>
               <Text style={styles.greeting}>Olá, {primeiroNome}</Text>
-              <Text style={styles.greetingSubtitle}>Bem-vindo de volta</Text>
+              <Text style={styles.greetingSubtitle}>{distribuidora}</Text>
             </View>
           </TouchableOpacity>
 
@@ -103,9 +105,17 @@ export default function ClienteHeader({
           </TouchableOpacity>
         </View>
 
-        <View style={styles.unitCard}>
+        <TouchableOpacity
+          accessibilityLabel="Trocar unidade consumidora"
+          activeOpacity={0.82}
+          onPress={() => {
+            selecionarUnidade(null);
+            router.replace("/selecionar-unidade");
+          }}
+          style={styles.unitCard}
+        >
           <View style={styles.unitIcon}>
-            <Ionicons name="flash" size={22} color={Colors.surface} />
+            <Ionicons name="flash" size={17} color={Colors.surface} />
           </View>
 
           <View style={styles.unitContent}>
@@ -114,7 +124,9 @@ export default function ClienteHeader({
               {distribuidora} · Unidade consumidora
             </Text>
           </View>
-        </View>
+          <Text style={styles.changeText}>Trocar</Text>
+          <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
+        </TouchableOpacity>
       </View>
 
       <Modal
@@ -177,11 +189,8 @@ export default function ClienteHeader({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.lg,
-    borderBottomLeftRadius: Radius.xl,
-    borderBottomRightRadius: Radius.xl,
-    backgroundColor: Colors.secondary,
+    paddingBottom: Spacing.sm,
+    backgroundColor: "#8F938D",
   },
 
   top: {
@@ -190,8 +199,8 @@ const styles = StyleSheet.create({
   },
 
   iconButton: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     justifyContent: "center",
     alignItems: "center",
     borderRadius: Radius.round,
@@ -224,18 +233,19 @@ const styles = StyleSheet.create({
   unitCard: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: Spacing.lg,
-    padding: Spacing.md,
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 7,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.10)",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.28)",
+    backgroundColor: "rgba(255, 255, 255, 0.16)",
   },
 
   unitIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: Radius.md,
+    width: 30,
+    height: 30,
+    borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: Colors.primary,
@@ -248,14 +258,20 @@ const styles = StyleSheet.create({
 
   unitCode: {
     color: Colors.surface,
-    fontSize: Typography.body,
+    fontSize: Typography.caption,
     fontWeight: "700",
   },
 
   unitDetail: {
-    marginTop: 2,
+    marginTop: 1,
     color: "#CBD5E1",
     fontSize: Typography.small,
+  },
+  changeText: {
+    marginRight: 3,
+    color: Colors.surface,
+    fontSize: 10,
+    fontWeight: "800",
   },
 
   modal: {

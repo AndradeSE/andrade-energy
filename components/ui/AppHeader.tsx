@@ -97,7 +97,7 @@ export default function AppHeader({
           <Pressable style={styles.menu} onPress={(evento) => evento.stopPropagation()}>
             <View style={styles.menuHeader}><Text style={styles.menuTitle}>Menu</Text><TouchableOpacity onPress={() => setMenuAberto(false)}><Ionicons name="close" size={26} color={Colors.text} /></TouchableOpacity></View>
             <MenuLink icon="home-outline" label="Início" onPress={() => navegar("/")} />
-            {proprietario ? <><MenuLink icon="people-outline" label="Clientes" onPress={() => navegar("/clientes")} /><MenuLink icon="business-outline" label="Usinas" onPress={() => navegar("/usinas")} /><MenuLink icon="flash-outline" label="Unidades consumidoras" onPress={() => navegar("/unidades/index")} /><MenuLink icon="document-text-outline" label="Contratos dos clientes" onPress={() => navegar("/contratos/index")} /><MenuLink icon="wallet-outline" label="Financeiro" onPress={() => navegar("/financeiro")} /></> : <><MenuLink icon="receipt-outline" label="Minhas faturas" onPress={() => navegar("/faturas")} /><MenuLink icon="document-text-outline" label="Meu contrato" onPress={() => navegar("/contrato")} /></>}
+            {proprietario ? <><MenuLink icon="people-outline" label="Clientes" onPress={() => navegar("/clientes")} /><MenuLink icon="business-outline" label="Usinas" onPress={() => navegar("/usinas")} /><MenuLink icon="flash-outline" label="Unidades consumidoras" onPress={() => navegar("/unidades")} /><MenuLink icon="document-text-outline" label="Contratos dos clientes" onPress={() => navegar("/contratos")} /><MenuLink icon="wallet-outline" label="Financeiro" onPress={() => navegar("/financeiro")} /></> : <><MenuLink icon="receipt-outline" label="Minhas faturas" onPress={() => navegar("/faturas")} /><MenuLink icon="document-text-outline" label="Meu contrato" onPress={() => navegar("/contrato")} /></>}
             <MenuLink icon="person-outline" label="Perfil" onPress={() => navegar("/perfil")} />
             <View style={styles.menuDivider} /><MenuLink icon="log-out-outline" label="Sair da conta" danger onPress={confirmarSaida} />
           </Pressable>
@@ -175,7 +175,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: Spacing.lg,
     padding: Spacing.md,
-    borderRadius: Radius.md,
+    marginHorizontal: -Spacing.lg,
+    marginBottom: -Spacing.lg,
+    paddingHorizontal: Spacing.lg,
     backgroundColor: Colors.surface,
   },
 

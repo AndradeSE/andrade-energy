@@ -1,4 +1,3 @@
-console.log("CLIENTES CONTROLLER CARREGADO");
 import { Request, Response } from "express";
 
 import {
@@ -7,6 +6,7 @@ import {
   criarCliente,
   excluirCliente,
   listarClientes,
+  listarUnidadesCliente,
 } from "./clientes.service";
 
 export async function listarClientesController(
@@ -81,5 +81,13 @@ export async function excluirClienteController(
     return res.status(500).json({
       message: e.message,
     });
+  }
+}
+
+export async function listarUnidadesClienteController(req: Request, res: Response) {
+  try {
+    return res.json(await listarUnidadesCliente(req.params.id));
+  } catch (e: any) {
+    return res.status(500).json({ message: e.message });
   }
 }

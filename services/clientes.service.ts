@@ -19,3 +19,8 @@ export async function editarCliente(id: string, payload: any) {
   const { data } = await api.put(`/clientes/${id}`, payload);
   return data;
 }
+
+export async function listarUnidadesCliente(id: string) {
+  const { data } = await api.get(`/clientes/${id}/unidades`);
+  return data;
+}

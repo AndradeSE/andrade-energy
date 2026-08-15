@@ -9,9 +9,6 @@ export async function buscarContratoCliente(
     .eq("cliente_id", clienteId)
     .single();
 
-  console.log("ERRO:", error);
-  console.log("DADOS:", data);
-
   if (error) throw error;
 
   return data;

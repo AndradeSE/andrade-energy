@@ -2,10 +2,6 @@ import { Request, Response } from "express";
 
 import * as ContratosService from "./contratos.service";
 
-console.log("========== CONTROLLER ==========");
-console.log(ContratosService);
-console.log("===============================");
-
 export async function buscarContratoController(
   req: Request,
   res: Response

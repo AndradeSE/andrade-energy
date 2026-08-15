@@ -7,15 +7,34 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "channel": "development"
+      "channel": "development-consumidor",
+      "env": { "EXPO_PUBLIC_APP_VARIANT": "consumidor" }
+    },
+    "development-gerador": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development-gerador",
+      "env": { "EXPO_PUBLIC_APP_VARIANT": "gerador" }
     },
     "preview": {
       "distribution": "internal",
-      "channel": "preview"
+      "channel": "preview-consumidor",
+      "env": { "EXPO_PUBLIC_APP_VARIANT": "consumidor" }
+    },
+    "preview-gerador": {
+      "distribution": "internal",
+      "channel": "preview-gerador",
+      "env": { "EXPO_PUBLIC_APP_VARIANT": "gerador" }
     },
     "production": {
       "autoIncrement": true,
-      "channel": "production"
+      "channel": "production-consumidor",
+      "env": { "EXPO_PUBLIC_APP_VARIANT": "consumidor" }
+    },
+    "production-gerador": {
+      "autoIncrement": true,
+      "channel": "production-gerador",
+      "env": { "EXPO_PUBLIC_APP_VARIANT": "gerador" }
     }
   },
   "submit": {

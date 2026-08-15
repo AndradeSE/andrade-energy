@@ -11,7 +11,7 @@ import { Colors, Radius, Spacing, Typography } from "../../theme";
 type Tipo = "CONSUMIDORA" | "BENEFICIARIA" | "GERADORA";
 type Modalidade = "INJECAO" | "COMPENSACAO";
 export default function NovaUnidade() {
-  const { origem, classificacao, cliente, uc, energiaCompensada, endereco: enderecoImportado } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; uc?: string; energiaCompensada?: string; endereco?: string }>();
+  const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, energiaCompensada, endereco: enderecoImportado } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; energiaCompensada?: string; endereco?: string }>();
   const [numero, setNumero] = useState(""); const [titular, setTitular] = useState("");
   const [tipo, setTipo] = useState<Tipo>("BENEFICIARIA"); const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO");
   const [desconto, setDesconto] = useState("40"); const [endereco, setEndereco] = useState("");
@@ -23,12 +23,13 @@ export default function NovaUnidade() {
       supabase.from("clientes").select("id,nome").order("nome"),
       supabase.from("usinas").select("id,nome").order("nome"),
     ]).then(([c, u]) => { setClientes(c.data ?? []); setUsinas(u.data ?? []); });
+    if (clienteIdVinculado) setClienteId(clienteIdVinculado);
     if (origem !== "fatura") return;
     setNumero((uc ?? "").replace(/\D/g, "")); setTitular(cliente ?? "");
     setEndereco(enderecoImportado ?? "");
     if (classificacao === "POSSIVEL_GERADORA") { setTipo("GERADORA"); setModalidade("INJECAO"); }
     else if (!Number(energiaCompensada)) setTipo("CONSUMIDORA");
-  }, [classificacao, cliente, enderecoImportado, energiaCompensada, origem, uc]);
+  }, [classificacao, cliente, clienteIdVinculado, enderecoImportado, energiaCompensada, origem, uc]);
 
   async function salvar() {
     const percentual = Number(desconto.replace(",", "."));
@@ -51,8 +52,8 @@ export default function NovaUnidade() {
       <FormField label="Titular" value={titular} onChangeText={setTitular} />
       <ChoiceField label="Tipo" value={tipo} onChange={setTipo} options={[{ label: "Consumidora", value: "CONSUMIDORA" }, { label: "Beneficiária", value: "BENEFICIARIA" }, { label: "Geradora", value: "GERADORA" }]} />
       <ChoiceField label="Faturamento" value={modalidade} onChange={setModalidade} options={[{ label: "Injeção", value: "INJECAO" }, { label: "Compensação", value: "COMPENSACAO" }]} />
-      <Text style={styles.label}>Cliente</Text><View style={styles.options}>{clientes.map((c) => <Pressable key={c.id} onPress={() => setClienteId(clienteId === c.id ? "" : c.id)} style={[styles.link, clienteId === c.id && styles.linkSelected]}><Text>{c.nome}</Text></Pressable>)}</View>
-      <Text style={styles.label}>Usina</Text><View style={styles.options}>{usinas.map((u) => <Pressable key={u.id} onPress={() => setUsinaId(usinaId === u.id ? "" : u.id)} style={[styles.link, usinaId === u.id && styles.linkSelected]}><Text>{u.nome}</Text></Pressable>)}</View>
+      {!clienteIdVinculado ? <><Text style={styles.label}>Cliente</Text><View style={styles.options}>{clientes.map((c) => <Pressable key={c.id} onPress={() => setClienteId(clienteId === c.id ? "" : c.id)} style={[styles.link, clienteId === c.id && styles.linkSelected]}><Text>{c.nome}</Text></Pressable>)}</View></> : null}
+      {!clienteIdVinculado ? <><Text style={styles.label}>Usina</Text><View style={styles.options}>{usinas.map((u) => <Pressable key={u.id} onPress={() => setUsinaId(usinaId === u.id ? "" : u.id)} style={[styles.link, usinaId === u.id && styles.linkSelected]}><Text>{u.nome}</Text></Pressable>)}</View></> : null}
       <FormField label="Desconto contratado (%)" value={desconto} onChangeText={setDesconto} keyboardType="decimal-pad" /><FormField label="Endereço" value={endereco} onChangeText={setEndereco} />
       <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar unidade"} onPress={salvar} />
     </Card>

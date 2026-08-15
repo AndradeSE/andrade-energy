@@ -88,15 +88,17 @@ async function criarLinkTemporario(caminho?: string | null) {
 }
 
 export async function incluirLinksTemporarios(fatura: any) {
-  const [cemig, usina, unificada] = await Promise.all([
+  const [cemig, usina, unificada, boleto] = await Promise.all([
     criarLinkTemporario(fatura.pdf_cemig_url),
     criarLinkTemporario(fatura.pdf_usina_url),
     criarLinkTemporario(fatura.pdf_unificada_url),
+    criarLinkTemporario(fatura.pdf_boleto_url),
   ]);
   return {
     ...fatura,
     pdf_cemig_url: cemig,
     pdf_usina_url: usina,
     pdf_unificada_url: unificada,
+    pdf_boleto_url: boleto,
   };
 }

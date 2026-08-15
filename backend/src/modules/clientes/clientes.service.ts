@@ -1,4 +1,3 @@
-console.log("CLIENTES SERVICE CARREGADO");
 import {
   atualizarCliente,
   buscarCliente,
@@ -6,12 +5,13 @@ import {
   criarCliente,
   excluirCliente,
   listarClientes,
+  listarUnidadesCliente,
 } from "./clientes.repository";
 
 export {
   atualizarCliente, buscarCliente,
   buscarClientePorUC,
-  criarCliente, excluirCliente, listarClientes
+  criarCliente, excluirCliente, listarClientes, listarUnidadesCliente
 };
 
 export async function cadastrarClienteAutomaticamente(dados: {

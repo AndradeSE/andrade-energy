@@ -15,15 +15,36 @@ export type Usuario = {
   id: string;
   nome: string;
   email: string;
+  cpf?: string | null;
   perfil: string;
   cliente_id?: string | null;
   usina_id?: string | null;
+};
+
+export type UnidadeConsumidora = {
+  id: string;
+  numero: string;
+  titular?: string | null;
+  distribuidora?: string | null;
+  endereco?: string | null;
+  status?: string | null;
+};
+
+export type UsinaSelecionada = {
+  id: string;
+  nome: string;
+  numero_instalacao?: string | null;
+  distribuidora?: string | null;
+  endereco?: string | null;
+  status?: string | null;
 };
 
 type AuthContextType = {
   usuario: Usuario | null;
   token: string | null;
   loading: boolean;
+  unidadeSelecionada: UnidadeConsumidora | null;
+  usinaSelecionada: UsinaSelecionada | null;
 
   login: (
     token: string,
@@ -31,6 +52,8 @@ type AuthContextType = {
   ) => Promise<void>;
 
   logout: () => Promise<void>;
+  selecionarUnidade: (unidade: UnidadeConsumidora | null) => void;
+  selecionarUsina: (usina: UsinaSelecionada | null) => void;
 };
 
 const AuthContext = createContext<AuthContextType>(
@@ -50,6 +73,10 @@ export function AuthProvider({
 
   const [loading, setLoading] =
     useState(true);
+  const [unidadeSelecionada, setUnidadeSelecionada] =
+    useState<UnidadeConsumidora | null>(null);
+  const [usinaSelecionada, setUsinaSelecionada] =
+    useState<UsinaSelecionada | null>(null);
 
   useEffect(() => {
     carregarSessao();
@@ -58,10 +85,6 @@ export function AuthProvider({
   async function carregarSessao() {
     try {
       const sessao = await obterSessao();
-
-      console.log("================================");
-      console.log("SESSÃO:", sessao);
-      console.log("================================");
 
       if (sessao) {
         setUsuario(sessao.usuario);
@@ -77,12 +100,6 @@ export function AuthProvider({
   usuario: Usuario
 ) {
 
-  console.log("TOKEN");
-  console.log(token);
-
-  console.log("USUARIO");
-  console.log(usuario);
-
   await salvarSessao({
     token,
     usuario,
@@ -91,8 +108,6 @@ export function AuthProvider({
   setToken(token);
   setUsuario(usuario);
 
-console.log("SET USUARIO");
-console.log(usuario);
 }
 
   async function logout() {
@@ -100,6 +115,8 @@ console.log(usuario);
 
     setToken(null);
     setUsuario(null);
+    setUnidadeSelecionada(null);
+    setUsinaSelecionada(null);
   }
 
   return (
@@ -108,8 +125,12 @@ console.log(usuario);
         usuario,
         token,
         loading,
+        unidadeSelecionada,
+        usinaSelecionada,
         login,
         logout,
+        selecionarUnidade: setUnidadeSelecionada,
+        selecionarUsina: setUsinaSelecionada,
       }}
     >
       {children}

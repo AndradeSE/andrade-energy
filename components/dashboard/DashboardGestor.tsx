@@ -26,24 +26,25 @@ function formatarMoeda(valor: number) {
 const atalhos = [
   { icon: "people-outline", label: "Clientes", rota: "/clientes" },
   { icon: "business-outline", label: "Usinas", rota: "/usinas" },
-  { icon: "flash-outline", label: "Unidades", rota: "/unidades/index" },
-  { icon: "document-text-outline", label: "Contratos", rota: "/contratos/index" },
+  { icon: "flash-outline", label: "Unidades", rota: "/unidades" },
+  { icon: "document-text-outline", label: "Contratos", rota: "/contratos" },
   { icon: "receipt-outline", label: "Financeiro", rota: "/financeiro" },
 ] as const;
 
 export default function DashboardGestor() {
-  const { usuario } = useAuth();
+  const { usuario, usinaSelecionada } = useAuth();
   const { data, isLoading, error, refetch } = useDashboardGestor();
   const [importando, setImportando] = useState(false);
 
   async function atualizarGeracao() {
-    if (!usuario?.usina_id) return Alert.alert("Usina não vinculada", "Vincule uma usina ao seu usuário para importar a fatura geradora.");
+    const usinaId = usinaSelecionada?.id ?? usuario?.usina_id;
+    if (!usinaId) return Alert.alert("Usina não vinculada", "Escolha uma usina para importar a fatura geradora.");
     const arquivo = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
     if (arquivo.canceled) return;
     try {
       setImportando(true);
       const item = arquivo.assets[0];
-      const resultado = await importarFaturaGeradora(usuario.usina_id, item.uri, item.name);
+      const resultado = await importarFaturaGeradora(usinaId, item.uri, item.name);
       await refetch();
       Alert.alert("Geração atualizada", `${formatarEnergia(resultado.dados.energiaInjetada)} importados para ${resultado.dados.referencia}.`);
     } catch (erro: any) {
@@ -90,8 +91,8 @@ export default function DashboardGestor() {
 const styles = StyleSheet.create({
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl * 3 },
   errorContent: { flex: 1, justifyContent: "center", padding: Spacing.lg },
-  hero: { minHeight: 218, overflow: "hidden", justifyContent: "space-between", marginBottom: Spacing.xl, padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: Colors.secondary, ...Shadows.card },
-  heroImage: { borderRadius: Radius.xl }, heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(8, 30, 26, 0.72)" },
+  hero: { minHeight: 218, overflow: "hidden", justifyContent: "space-between", marginBottom: Spacing.xl, padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: Colors.primary, ...Shadows.card },
+  heroImage: { borderRadius: Radius.xl }, heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(15, 143, 91, 0.72)" },
   heroTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }, heroEyebrow: { color: "#A7F3D0", fontSize: Typography.small, fontWeight: "700", letterSpacing: 1.1 },
   heroValue: { marginTop: Spacing.xs, color: Colors.surface, fontSize: 32, fontWeight: "800" }, status: { flexDirection: "row", alignItems: "center", paddingHorizontal: Spacing.sm, paddingVertical: 7, borderRadius: Radius.round, backgroundColor: "rgba(255,255,255,0.14)" },
   statusDot: { width: 7, height: 7, marginRight: 6, borderRadius: Radius.round, backgroundColor: "#34D399" }, statusText: { color: Colors.surface, fontSize: Typography.small, fontWeight: "700" },

@@ -78,7 +78,7 @@ if (!energiaGerada) {
 
 const competenciaFormatada = `${ano}-${mes.padStart(2, "0")}-01`;
 
-const resultado = await fecharUsina({
+await fecharUsina({
   usinaId,
   competencia: competenciaFormatada,
   energiaGerada: Number(energiaGerada) || 0,
@@ -275,22 +275,6 @@ const resultado = await fecharUsina({
           </Text>
 
         </TouchableOpacity>
-
-        <TouchableOpacity
-    onPress={() =>
-        router.push("/operacao/novo")
-    }
->
-    <Text
-        style={{
-            color:"#facc15",
-            fontSize:18,
-            fontWeight:"bold",
-        }}
-    >
-        + Novo
-    </Text>
-</TouchableOpacity>
 
       </ScrollView>
 

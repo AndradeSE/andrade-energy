@@ -1,4 +1,3 @@
-console.log("CLIENTES REPOSITORY CARREGADO");
 import { supabase } from "../../config/supabase";
 
 export async function listarClientes() {
@@ -22,6 +21,35 @@ export async function buscarCliente(id: string) {
   if (error) throw error;
 
   return data;
+}
+
+export async function listarUnidadesCliente(clienteId: string) {
+  const { data, error } = await supabase
+    .from("unidades_consumidoras")
+    .select("id, numero, titular, distribuidora, endereco, status, modalidade_faturamento")
+    .eq("cliente_id", clienteId)
+    .order("numero");
+
+  if (!error && data?.length) return data;
+  if (error && error.code !== "42P01") throw error;
+
+  const { data: cliente, error: erroCliente } = await supabase
+    .from("clientes")
+    .select("id, uc, nome, distribuidora, endereco, status")
+    .eq("id", clienteId)
+    .maybeSingle();
+
+  if (erroCliente) throw erroCliente;
+  if (!cliente?.uc) return [];
+
+  return [{
+    id: `cliente-${cliente.id}`,
+    numero: String(cliente.uc),
+    titular: cliente.nome,
+    distribuidora: cliente.distribuidora,
+    endereco: cliente.endereco,
+    status: cliente.status,
+  }];
 }
 
 export async function buscarClientePorUC(uc: string) {

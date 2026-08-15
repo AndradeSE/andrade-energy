@@ -2,7 +2,6 @@ import { ReactNode } from "react";
 import { StyleSheet, View } from "react-native";
 
 import {
-    Colors,
     Radius,
     Shadows,
     Spacing,
@@ -24,7 +23,7 @@ export default function Card({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.surface,
+    backgroundColor: "#DEE0E3",
     borderRadius: Radius.xl,
     padding: Spacing.lg,
     marginBottom: Spacing.lg,

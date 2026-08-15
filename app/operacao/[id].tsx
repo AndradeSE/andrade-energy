@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   ImageBackground,
@@ -17,13 +17,7 @@ export default function DetalheFechamento() {
   const [fechamento,setFechamento]=
     useState<any>();
 
-  useEffect(()=>{
-
-    carregar();
-
-  },[]);
-
-  async function carregar(){
+  const carregar = useCallback(async () => {
 
     const dados=
       await buscarFechamento(
@@ -32,7 +26,13 @@ export default function DetalheFechamento() {
 
     setFechamento(dados);
 
-  }
+  }, [id]);
+
+  useEffect(()=>{
+
+    carregar();
+
+  },[carregar]);
 
   if(!fechamento)
     return null;

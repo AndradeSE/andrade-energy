@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -37,28 +37,14 @@ export default function EditarUsina() {
   const [salvando, setSalvando] =
     useState(false);
 
-  useEffect(() => {
-    carregar();
-  }, []);
+  const carregar = useCallback(async () => {
 
-  async function carregar() {
-
-    const { data, error } =
+    const { data } =
       await supabase
         .from('usinas')
         .select('*')
         .eq('id', usinaId)
         .single();
-
-    console.log(
-      'USINA CARREGADA:',
-      data
-    );
-
-    console.log(
-      'ERRO:',
-      error
-    );
 
     if (!data) return;
 
@@ -87,7 +73,11 @@ export default function EditarUsina() {
         data.investimento || ''
       )
     );
-  }
+  }, [usinaId]);
+
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
 
   async function salvar() {
 
@@ -104,11 +94,6 @@ export default function EditarUsina() {
       investimento:
         Number(investimento),
     };
-
-    console.log(
-      'UPDATE:',
-      payload
-    );
 
     const { error } =
       await supabase

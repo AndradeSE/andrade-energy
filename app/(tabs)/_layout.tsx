@@ -1,11 +1,29 @@
 import { Ionicons } from "@expo/vector-icons";
-import { ParamListBase, TabNavigationState } from "@react-navigation/native";
+import { LocaleDirContext, ParamListBase, TabNavigationState } from "@react-navigation/native";
 import { createMaterialTopTabNavigator, MaterialTopTabNavigationEventMap, MaterialTopTabNavigationOptions } from "@react-navigation/material-top-tabs";
 import { Tabs, withLayoutContext } from "expo-router";
 import { useAuth } from "../../contexts/AuthContext";
 
 const TopTabs = createMaterialTopTabNavigator();
-const OwnerTabs = withLayoutContext<MaterialTopTabNavigationOptions, typeof TopTabs.Navigator, TabNavigationState<ParamListBase>, MaterialTopTabNavigationEventMap>(TopTabs.Navigator, (screens) => [...screens].reverse(), true);
+const OWNER_TAB_ORDER = [
+  "index",
+  "clientes",
+  "usinas",
+  "operacao",
+  "financeiro",
+  "perfil",
+];
+
+const OwnerTabs = withLayoutContext<MaterialTopTabNavigationOptions, typeof TopTabs.Navigator, TabNavigationState<ParamListBase>, MaterialTopTabNavigationEventMap>(
+  TopTabs.Navigator,
+  (screens) =>
+    [...screens].sort(
+      (first, second) =>
+        OWNER_TAB_ORDER.indexOf(first.name ?? "") -
+        OWNER_TAB_ORDER.indexOf(second.name ?? "")
+    ),
+  true
+);
 
 export default function TabLayout() {
   const { usuario } = useAuth();
@@ -160,6 +178,7 @@ export default function TabLayout() {
   // ===================================================
 
   return (
+    <LocaleDirContext.Provider value="ltr">
     <OwnerTabs initialRouteName="index" screenOptions={{
       swipeEnabled: true,
       animationEnabled: true,
@@ -171,7 +190,7 @@ export default function TabLayout() {
       tabBarInactiveTintColor: "#94A3B8",
       tabBarLabelStyle: { width: "100%", margin: 0, fontSize: 10, lineHeight: 13, fontWeight: "600", textAlign: "center", textTransform: "none" },
       tabBarItemStyle: { flex: 1, minWidth: 0, paddingHorizontal: 0, paddingVertical: 6 },
-      tabBarContentContainerStyle: { width: "100%", flexDirection: "row-reverse", alignItems: "stretch" },
+      tabBarContentContainerStyle: { width: "100%", alignItems: "stretch" },
       tabBarIndicatorStyle: { backgroundColor: "#16A34A", height: 3, top: 0 },
       tabBarStyle: { position: "absolute", left: 0, right: 0, bottom: 0, height: 82, paddingTop: 7, backgroundColor: "#FFFFFF", elevation: 15, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: -3 } },
       sceneStyle: { paddingBottom: 82 },
@@ -281,5 +300,6 @@ export default function TabLayout() {
       />
 
     </OwnerTabs>
+    </LocaleDirContext.Provider>
   );
 }

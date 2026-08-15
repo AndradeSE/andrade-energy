@@ -15,7 +15,7 @@ import {
 const queryClient = new QueryClient();
 
 function RootNavigation() {
-  const { usuario, loading } = useAuth();
+  const { usuario, loading, unidadeSelecionada, usinaSelecionada } = useAuth();
   const segments = useSegments();
 
   useEffect(() => {
@@ -23,16 +23,29 @@ function RootNavigation() {
 
     const inAuth =
       segments[0] === "(auth)";
+    const inUnitSelection = segments[0] === "selecionar-unidade";
 
     if (!usuario && !inAuth) {
       router.replace("/(auth)/login");
       return;
     }
 
-    if (usuario && inAuth) {
+    if (usuario?.perfil === "LEITURA" && !unidadeSelecionada && !inUnitSelection) {
+      router.replace("/selecionar-unidade");
+      return;
+    }
+
+    const gestor = usuario?.perfil === "ADMIN" || usuario?.perfil === "GESTOR";
+    if (gestor && !usinaSelecionada && !inUnitSelection) {
+      router.replace("/selecionar-unidade");
+      return;
+    }
+
+    const selecaoConcluida = usuario?.perfil === "LEITURA" ? unidadeSelecionada : usinaSelecionada;
+    if (usuario && (inAuth || (inUnitSelection && selecaoConcluida))) {
       router.replace("/(tabs)");
     }
-  }, [usuario, loading, segments]);
+  }, [usuario, unidadeSelecionada, usinaSelecionada, loading, segments]);
 
   return (
     <Stack

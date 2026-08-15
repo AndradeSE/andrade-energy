@@ -6,6 +6,7 @@ type Props = {
   injecao: number;
   compensacao: number;
   saldo: number;
+  onPressUltimaFatura: () => void;
 };
 
 export default function SummaryCard({
@@ -13,6 +14,7 @@ export default function SummaryCard({
   injecao,
   compensacao,
   saldo,
+  onPressUltimaFatura,
 }: Props) {
   return (
     <View style={styles.card}>
@@ -72,7 +74,7 @@ export default function SummaryCard({
         </View>
       </View>
 
-      <TouchableOpacity style={styles.button}>
+      <TouchableOpacity onPress={onPressUltimaFatura} style={styles.button}>
         <Ionicons
           name="document-text-outline"
           size={18}

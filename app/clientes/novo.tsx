@@ -2,23 +2,19 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text } from "react-native";
 
-import ChoiceField from "../../components/cadastro/ChoiceField";
 import FormField from "../../components/cadastro/FormField";
 import { Button, Card, Screen } from "../../components/ui";
+import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../supabase";
 import { Colors, Spacing, Typography } from "../../theme";
 
-type Modalidade = "INJECAO" | "COMPENSACAO";
 export default function NovoCliente() {
+  const { usuario } = useAuth();
   const { origem, cliente, uc: ucImportada, endereco: enderecoImportado } = useLocalSearchParams<{ origem?: string; cliente?: string; uc?: string; endereco?: string }>();
   const [nome, setNome] = useState("");
   const [uc, setUc] = useState("");
   const [telefone, setTelefone] = useState("");
-  const [email, setEmail] = useState("");
-  const [cpf, setCpf] = useState("");
   const [endereco, setEndereco] = useState("");
-  const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO");
-  const [desconto, setDesconto] = useState("40");
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
@@ -29,19 +25,39 @@ export default function NovoCliente() {
   }, [cliente, enderecoImportado, origem, ucImportada]);
 
   async function salvar() {
-    const percentual = Number(desconto.replace(",", "."));
     if (!nome.trim()) return Alert.alert("Dados incompletos", "Informe o nome do cliente.");
-    if (!Number.isFinite(percentual) || percentual < 0 || percentual > 100) return Alert.alert("Desconto inválido", "Informe um percentual entre 0 e 100.");
+    const cpfConta = usuario?.cpf?.replace(/\D/g, "") ?? "";
+    if (cpfConta.length !== 11) return Alert.alert("CPF não encontrado", "Atualize o CPF da conta antes de cadastrar o cliente.");
     setSalvando(true);
-    const { data: cliente, error } = await supabase.from("clientes").insert({
-      nome: nome.trim(), uc: uc || null, telefone, whatsapp: telefone.replace(/\D/g, ""), email: email.trim().toLowerCase(),
-      cpf, endereco, distribuidora: "CEMIG", modalidade_faturamento: modalidade, desconto_percentual: percentual,
-    }).select("id").single();
+    const dadosCliente = {
+      nome: nome.trim(),
+      uc: uc || null,
+      telefone: telefone.trim() || null,
+      whatsapp: telefone.replace(/\D/g, "") || null,
+      email: usuario?.email?.trim().toLowerCase() || null,
+      cpf: cpfConta,
+      endereco: endereco.trim() || null,
+      distribuidora: "CEMIG",
+    };
+    const { data: existente, error: buscaError } = await supabase
+      .from("clientes")
+      .select("id")
+      .eq("cpf", cpfConta)
+      .limit(1)
+      .maybeSingle();
+    if (buscaError) {
+      setSalvando(false);
+      return Alert.alert("Não foi possível verificar o CPF", buscaError.message);
+    }
+    const operacao = existente
+      ? supabase.from("clientes").update(dadosCliente).eq("id", existente.id).select("id").single()
+      : supabase.from("clientes").insert(dadosCliente).select("id").single();
+    const { data: cliente, error } = await operacao;
 
     if (!error && cliente && uc) {
       const { error: unidadeError } = await supabase.from("unidades_consumidoras").upsert({
         cliente_id: cliente.id, numero: uc, tipo: "BENEFICIARIA", titular: nome.trim(), distribuidora: "CEMIG",
-        endereco: endereco || null, modalidade_faturamento: modalidade, desconto_percentual: percentual, status: "ATIVA",
+        endereco: endereco.trim() || null, status: "ATIVA",
       }, { onConflict: "numero" });
       if (unidadeError) Alert.alert("Cliente salvo", "O cliente foi criado, mas a unidade precisa ser vinculada novamente.");
       else router.back();
@@ -56,13 +72,9 @@ export default function NovoCliente() {
       <Text style={styles.title}>Novo cliente</Text>
       <Text style={styles.subtitle}>Somente o nome é obrigatório. Os demais dados podem ser preenchidos ou alterados depois.</Text>
       <Card>
-        <FormField label="Nome" value={nome} onChangeText={setNome} />
+        <FormField label="Nome (obrigatório)" value={nome} onChangeText={setNome} />
         <FormField label="Unidade consumidora da fatura (opcional)" value={uc} onChangeText={(v) => setUc(v.replace(/\D/g, ""))} keyboardType="numeric" />
         <FormField label="Telefone / WhatsApp (opcional)" value={telefone} onChangeText={setTelefone} keyboardType="phone-pad" />
-        <FormField label="E-mail (opcional)" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
-        <ChoiceField label="Modalidade de faturamento" value={modalidade} onChange={setModalidade} options={[{ label: "Por injeção", value: "INJECAO" }, { label: "Por compensação", value: "COMPENSACAO" }]} />
-        <FormField label="Desconto contratado (%)" value={desconto} onChangeText={setDesconto} keyboardType="decimal-pad" />
-        <FormField label="CPF / CNPJ (opcional)" value={cpf} onChangeText={setCpf} />
         <FormField label="Endereço (opcional)" value={endereco} onChangeText={setEndereco} />
         <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar cliente"} onPress={salvar} />
       </Card>

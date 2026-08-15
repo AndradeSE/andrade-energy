@@ -3,14 +3,14 @@ import { useAuth } from "../contexts/AuthContext";
 import { buscarDashboard } from "../services/dashboard.service";
 
 export function useDashboard() {
-  const { usuario } = useAuth();
+  const { usuario, unidadeSelecionada } = useAuth();
 
   return useQuery({
-    queryKey: ["dashboard", usuario?.cliente_id],
+    queryKey: ["dashboard", usuario?.cliente_id, unidadeSelecionada?.numero],
 
     enabled: !!usuario?.cliente_id,
 
     queryFn: () =>
-      buscarDashboard(usuario!.cliente_id!),
+      buscarDashboard(usuario!.cliente_id!, unidadeSelecionada?.numero),
   });
 }

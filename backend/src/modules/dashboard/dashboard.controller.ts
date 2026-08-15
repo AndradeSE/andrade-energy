@@ -11,7 +11,7 @@ export async function dashboardController(
       String(req.query.clienteId);
 
     const data =
-      await dashboardCliente(clienteId);
+      await dashboardCliente(clienteId, req.query.uc ? String(req.query.uc) : undefined);
 
     return res.json(data);
 

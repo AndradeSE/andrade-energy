@@ -15,7 +15,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function Perfil() {
-  const { usuario, logout } = useAuth();
+  const { usuario, logout, selecionarUnidade, selecionarUsina } = useAuth();
   const proprietario = usuario?.perfil === "ADMIN" || usuario?.perfil === "GESTOR";
 
   function confirmarSaida() {
@@ -77,7 +77,11 @@ export default function Perfil() {
               <Divider />
               <MenuItem
                 icon="flash-outline"
-                label="Minha unidade consumidora"
+                label="Trocar unidade consumidora"
+                onPress={() => {
+                  selecionarUnidade(null);
+                  router.replace("/selecionar-unidade");
+                }}
               />
               <Divider />
               <MenuItem
@@ -90,6 +94,15 @@ export default function Perfil() {
 
           {proprietario ? (
             <>
+              <MenuItem
+                icon="swap-horizontal-outline"
+                label="Trocar usina"
+                onPress={() => {
+                  selecionarUsina(null);
+                  router.replace("/selecionar-unidade");
+                }}
+              />
+              <Divider />
               <MenuItem
                 icon="business-outline"
                 label="Minhas usinas"
@@ -105,7 +118,7 @@ export default function Perfil() {
               <MenuItem
                 icon="flash-outline"
                 label="Unidades consumidoras"
-                onPress={() => router.push("/unidades/index" as any)}
+                onPress={() => router.push("/unidades" as any)}
               />
             </>
           ) : null}

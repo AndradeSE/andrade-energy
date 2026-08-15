@@ -1,5 +1,3 @@
-console.log("creditos.controller carregado");
-
 import { Request, Response } from "express";
 import { obterCreditos } from "./creditos.service";
 
@@ -7,7 +5,6 @@ export async function listarCreditosController(
   req: Request<{ clienteId: string }>,
   res: Response
 ) {
-     console.log("Controller executou");
   try {
 
     const data = await obterCreditos(

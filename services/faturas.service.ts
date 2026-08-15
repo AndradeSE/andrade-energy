@@ -25,11 +25,9 @@ export async function salvarImportacao(uri: string) {
   return processarFatura(uri);
 }
 
-export async function listarFaturas(clienteId?: string) {
+export async function listarFaturas(clienteId?: string, uc?: string) {
   const { data } = await api.get("/faturas", {
-    params: clienteId
-      ? { clienteId }
-      : undefined,
+    params: { ...(clienteId ? { clienteId } : {}), ...(uc ? { uc } : {}) },
   });
 
   return data;

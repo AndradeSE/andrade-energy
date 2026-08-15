@@ -5,10 +5,6 @@ import DashboardGestor from "../../components/dashboard/DashboardGestor";
 
 export default function Home() {
   const { usuario } = useAuth();
- console.log("===============");
-  console.log("PERFIL:", usuario?.perfil);
-  console.log("USUARIO:", usuario);
-  console.log("===============");
   if (!usuario) return null;
 
   switch (usuario.perfil) {

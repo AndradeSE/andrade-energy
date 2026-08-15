@@ -1,10 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
+import { File, Paths } from "expo-file-system";
 import { useLocalSearchParams } from "expo-router";
+import * as Sharing from "expo-sharing";
 import { useEffect, useState } from "react";
 import {
   Alert,
-  ImageBackground,
   Linking,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,11 +15,9 @@ import {
   View,
 } from "react-native";
 
-import { Badge, Card, Divider, EmptyState, Loading, Screen } from "../../components/ui";
+import { Card, Divider, EmptyState, Loading, Screen } from "../../components/ui";
 import { buscarFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
-
-type BadgeVariant = "success" | "warning" | "danger" | "info";
 
 const formatarMoeda = (valor: number) =>
   Number(valor || 0).toLocaleString("pt-BR", {
@@ -24,30 +25,11 @@ const formatarMoeda = (valor: number) =>
     currency: "BRL",
   });
 
-const formatarNumero = (valor: number, casas = 0) =>
-  Number(valor || 0).toLocaleString("pt-BR", {
-    minimumFractionDigits: casas,
-    maximumFractionDigits: casas,
-  });
-
-function badgeVariant(status?: string): BadgeVariant {
-  switch ((status ?? "").toUpperCase()) {
-    case "PAGA":
-      return "success";
-    case "VENCIDA":
-      return "danger";
-    case "EM ABERTO":
-    case "ABERTA":
-      return "warning";
-    default:
-      return "info";
-  }
-}
-
 export default function DetalheFatura() {
   const { id } = useLocalSearchParams();
   const [fatura, setFatura] = useState<any>();
   const [erro, setErro] = useState(false);
+  const [documentoBaixando, setDocumentoBaixando] = useState<string>();
 
   useEffect(() => {
     buscarFatura(String(id))
@@ -71,34 +53,56 @@ export default function DetalheFatura() {
 
   if (!fatura) return <Loading />;
 
-  const valorCemig = Number(fatura.valor_cemig ?? 0);
-  const valorUsina = Number(fatura.valor_usina ?? fatura.valor_andrade ?? 0);
   const valorUnificado = Number(
-    fatura.valor_total_unificado ?? fatura.valor_total ?? valorCemig + valorUsina
-  );
-  const modalidade =
-    fatura.modalidade_faturamento === "INJECAO" ? "Por injeção" : "Por compensação";
-  const baseCalculo = Number(
-    fatura.base_calculo_kwh ??
-      (fatura.modalidade_faturamento === "INJECAO"
-        ? fatura.energia_injetada
-        : fatura.energia_compensada) ??
-      0
+    fatura.valor_total_unificado ?? fatura.valor_total ?? 0
   );
 
-  async function abrirDocumento(url?: string) {
+  async function baixarDocumento(url: string | undefined, nomeArquivo: string) {
     if (!url) {
       Alert.alert("Documento em preparação", "Este PDF ainda não está disponível.");
       return;
     }
 
     try {
+      setDocumentoBaixando(nomeArquivo);
+
+      if (Platform.OS !== "web") {
+        const destino = new File(Paths.cache, nomeArquivo);
+        const arquivo = await File.downloadFileAsync(url, destino, {
+          idempotent: true,
+        });
+        const podeCompartilhar = await Sharing.isAvailableAsync();
+
+        if (podeCompartilhar) {
+          await Sharing.shareAsync(arquivo.uri, {
+            dialogTitle: "Salvar ou compartilhar fatura",
+            mimeType: "application/pdf",
+            UTI: "com.adobe.pdf",
+          });
+          return;
+        }
+      }
+
       const podeAbrir = await Linking.canOpenURL(url);
       if (!podeAbrir) throw new Error("URL inválida");
       await Linking.openURL(url);
     } catch {
-      Alert.alert("Não foi possível abrir o PDF", "Confira sua conexão e tente novamente.");
+      Alert.alert("Não foi possível baixar o PDF", "Confira sua conexão e tente novamente.");
+    } finally {
+      setDocumentoBaixando(undefined);
     }
+  }
+
+  const referenciaArquivo = String(fatura.referencia ?? "fatura")
+    .replace(/[^a-zA-Z0-9_-]/g, "-");
+
+  async function copiarPagamento(codigo?: string) {
+    if (!codigo) {
+      Alert.alert("Pagamento em preparação", "O código PIX ainda não está disponível.");
+      return;
+    }
+    await Clipboard.setStringAsync(codigo);
+    Alert.alert("Código PIX copiado", "Cole o código no aplicativo do seu banco para pagar.");
   }
 
   return (
@@ -108,170 +112,124 @@ export default function DetalheFatura() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.heading}>
-          <Text style={styles.eyebrow}>FATURA UNIFICADA</Text>
-          <Text style={styles.title}>{fatura.referencia}</Text>
+          <Text style={styles.title}>Fatura {fatura.referencia}</Text>
+          <Text style={styles.headingDueDate}>Vencimento {fatura.vencimento}</Text>
         </View>
 
-        <ImageBackground
-          imageStyle={styles.heroBackground}
-          resizeMode="cover"
-          source={require("../../assets/images/background.png")}
-          style={styles.hero}
-        >
-          <View style={styles.heroOverlay} />
-          <View style={styles.heroHeader}>
-            <Text style={styles.heroLabel}>Total a pagar</Text>
-            <Badge label={fatura.status || "Aberta"} variant={badgeVariant(fatura.status)} />
-          </View>
-          <Text style={styles.heroValue}>{formatarMoeda(valorUnificado)}</Text>
-          <View style={styles.dueDate}>
-            <Ionicons name="calendar-outline" size={16} color="#CBD5E1" />
-            <Text style={styles.dueDateText}>Vence em {fatura.vencimento}</Text>
-          </View>
-        </ImageBackground>
-
-        <Text style={styles.sectionTitle}>Composição da cobrança</Text>
-        <Card>
-          <ValueRow label="Fatura original CEMIG" value={formatarMoeda(valorCemig)} />
-          <Divider />
-          <ValueRow label="Fatura da usina" value={formatarMoeda(valorUsina)} />
-          <Divider />
-          <ValueRow
-            emphasis
-            label="Total unificado"
-            value={formatarMoeda(valorUnificado)}
-          />
-        </Card>
-
-        <Text style={styles.sectionTitle}>Memória de cálculo</Text>
-        <Card>
-          <InfoRow label="Modalidade" value={modalidade} />
-          <Divider />
-          <InfoRow label="Energia-base" value={`${formatarNumero(baseCalculo)} kWh`} />
-          <Divider />
-          <InfoRow
-            label="Tarifa cheia CEMIG"
-            value={`${formatarMoeda(Number(fatura.tarifa_cheia ?? 0))}/kWh`}
-          />
-          <Divider />
-          <InfoRow
-            label="Valor da energia sem desconto"
-            value={formatarMoeda(Number(fatura.valor_energia_cheia ?? 0))}
-          />
-        </Card>
-
-        <View style={styles.discountCard}>
-          <View style={styles.discountIcon}>
-            <Ionicons name="trending-down" size={23} color={Colors.primary} />
-          </View>
-          <View style={styles.discountContent}>
-            <Text style={styles.discountLabel}>Desconto contratado na energia</Text>
-            <Text style={styles.discountValue}>
-              {formatarNumero(
-                Number(
-                  fatura.desconto_contratado_percentual ??
-                    fatura.desconto_percentual ??
-                    0
-                ),
-                2
-              )}%
-            </Text>
-          </View>
-          <View style={styles.realDiscount}>
-            <Text style={styles.realDiscountLabel}>DESCONTO REAL</Text>
-            <Text style={styles.realDiscountValue}>
-              {formatarNumero(Number(fatura.desconto_real_percentual ?? 0), 2)}%
-            </Text>
-          </View>
-        </View>
-
-        <Card>
-          <ValueRow
-            emphasis
-            label="Economia real neste mês"
-            value={formatarMoeda(Number(fatura.economia_real ?? fatura.economia ?? 0))}
-          />
-          <Text style={styles.savingHint}>
-            O desconto real considera a conta completa, incluindo impostos, encargos e custo
-            de disponibilidade.
-          </Text>
-        </Card>
-
-        <Text style={styles.sectionTitle}>Documentos</Text>
-        <Card>
-          <DocumentRow
+        <View style={styles.downloadActions}>
+          <DownloadButton
             available={Boolean(fatura.pdf_cemig_url)}
-            label="Fatura original CEMIG"
-            onPress={() => abrirDocumento(fatura.pdf_cemig_url)}
+            label="Fatura CEMIG"
+            loading={documentoBaixando === `cemig-${referenciaArquivo}.pdf`}
+            onPress={() =>
+              baixarDocumento(
+                fatura.pdf_cemig_url,
+                `cemig-${referenciaArquivo}.pdf`
+              )
+            }
           />
-          <Divider />
-          <DocumentRow
-            available={Boolean(fatura.pdf_usina_url)}
-            label="Fatura da usina"
-            onPress={() => abrirDocumento(fatura.pdf_usina_url)}
-          />
-          <Divider />
-          <DocumentRow
+          <DownloadButton
             available={Boolean(fatura.pdf_unificada_url)}
-            label="Fatura unificada"
-            onPress={() => abrirDocumento(fatura.pdf_unificada_url)}
+            label="Fatura unificada Andrade Energy"
+            loading={documentoBaixando === `unificada-${referenciaArquivo}.pdf`}
+            onPress={() =>
+              baixarDocumento(
+                fatura.pdf_unificada_url,
+                `unificada-${referenciaArquivo}.pdf`
+              )
+            }
           />
+          <DownloadButton
+            available={Boolean(fatura.pdf_boleto_url)}
+            label="Boleto"
+            loading={documentoBaixando === `boleto-${referenciaArquivo}.pdf`}
+            onPress={() =>
+              baixarDocumento(fatura.pdf_boleto_url, `boleto-${referenciaArquivo}.pdf`)
+            }
+          />
+          <TouchableOpacity
+            accessibilityLabel="Copiar código PIX"
+            activeOpacity={0.82}
+            onPress={() => copiarPagamento(fatura.codigo_pix)}
+            style={[styles.paymentCode, !fatura.codigo_pix && styles.downloadButtonUnavailable]}
+          >
+            <View style={styles.downloadIcon}>
+              <Ionicons name="qr-code-outline" size={20} color={Colors.surface} />
+            </View>
+            <View style={styles.downloadContent}>
+              <Text style={styles.downloadLabel}>PIX copia e cola</Text>
+              <Text numberOfLines={1} style={styles.paymentCodeValue}>
+                {fatura.codigo_pix || "Em preparação"}
+              </Text>
+            </View>
+            <View style={styles.copyAction}>
+              <Ionicons name="copy-outline" size={19} color={Colors.text} />
+              <Text style={styles.copyText}>Copiar</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.sectionTitle}>DADOS DA FATURA</Text>
+        <Card>
+          <DataRow icon="cash-outline" label="Valor" value={formatarMoeda(valorUnificado)} />
+          <Divider />
+          <DataRow icon="calendar-outline" label="Período" value={fatura.referencia || "Não informado"} />
+          <Divider />
+          <DataRow icon="calendar-number-outline" label="Vencimento" value={fatura.vencimento || "Não informado"} />
         </Card>
       </ScrollView>
     </Screen>
   );
 }
 
-function ValueRow({
-  emphasis = false,
-  label,
-  value,
-}: {
-  emphasis?: boolean;
-  label: string;
-  value: string;
-}) {
+function DataRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) {
   return (
-    <View style={styles.valueRow}>
-      <Text style={[styles.rowLabel, emphasis && styles.emphasisLabel]}>{label}</Text>
-      <Text style={[styles.rowValue, emphasis && styles.emphasisValue]}>{value}</Text>
+    <View style={styles.dataRow}>
+      <View style={styles.dataIcon}><Ionicons name={icon} size={18} color={Colors.surface} /></View>
+      <View style={styles.dataContent}>
+        <Text style={styles.dataLabel}>{label}</Text>
+        <Text style={styles.dataValue}>{value}</Text>
+      </View>
     </View>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.infoRow}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
-    </View>
-  );
-}
-
-function DocumentRow({
+function DownloadButton({
   available,
   label,
+  loading,
   onPress,
 }: {
   available: boolean;
   label: string;
+  loading: boolean;
   onPress: () => void;
 }) {
   return (
-    <TouchableOpacity activeOpacity={0.8} onPress={onPress} style={styles.documentRow}>
-      <View style={styles.documentIcon}>
-        <Ionicons name="document-text-outline" size={20} color={Colors.primary} />
+    <TouchableOpacity
+      accessibilityLabel={label}
+      activeOpacity={0.82}
+      disabled={loading}
+      onPress={onPress}
+      style={[styles.downloadButton, !available && styles.downloadButtonUnavailable]}
+    >
+      <View style={styles.downloadIcon}>
+        <Ionicons
+          name={loading ? "hourglass-outline" : available ? "download-outline" : "time-outline"}
+          size={22}
+          color={Colors.surface}
+        />
       </View>
-      <View style={styles.documentContent}>
-        <Text style={styles.documentLabel}>{label}</Text>
-        <Text style={styles.documentStatus}>
-          {available ? "Disponível para download" : "Em preparação"}
+      <View style={styles.downloadContent}>
+        <Text style={styles.downloadLabel}>
+          {loading ? "Baixando PDF..." : label}
         </Text>
+        {!available ? <Text style={styles.downloadStatus}>Em preparação</Text> : null}
       </View>
       <Ionicons
-        name={available ? "download-outline" : "time-outline"}
+        name="chevron-forward"
         size={20}
-        color={available ? Colors.primary : Colors.subtitle}
+        color={Colors.text}
       />
     </TouchableOpacity>
   );
@@ -288,19 +246,20 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   heading: {
-    marginBottom: Spacing.lg,
-  },
-  eyebrow: {
-    color: Colors.primary,
-    fontSize: Typography.small,
-    fontWeight: "800",
-    letterSpacing: 1.3,
+    marginBottom: Spacing.xl,
+    paddingBottom: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
   title: {
-    marginTop: 4,
     color: Colors.text,
-    fontSize: Typography.title,
+    fontSize: Typography.card,
     fontWeight: "800",
+  },
+  headingDueDate: {
+    marginTop: 3,
+    color: Colors.subtitle,
+    fontSize: Typography.small,
   },
   hero: {
     position: "relative",
@@ -344,10 +303,12 @@ const styles = StyleSheet.create({
     fontSize: Typography.caption,
   },
   sectionTitle: {
+    marginTop: Spacing.xl,
     marginBottom: Spacing.sm,
-    color: Colors.subtitle,
-    fontSize: Typography.caption,
-    fontWeight: "700",
+    color: Colors.text,
+    fontSize: Typography.small,
+    fontWeight: "800",
+    letterSpacing: 0.5,
   },
   valueRow: {
     minHeight: 48,
@@ -442,31 +403,95 @@ const styles = StyleSheet.create({
     fontSize: Typography.small,
     lineHeight: 18,
   },
-  documentRow: {
-    minHeight: 64,
+  downloadActions: {
+    gap: Spacing.sm,
+  },
+  downloadButton: {
+    minHeight: 62,
     flexDirection: "row",
     alignItems: "center",
-  },
-  documentIcon: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
+    paddingHorizontal: Spacing.md,
     borderRadius: Radius.md,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: "#DEE0E3",
   },
-  documentContent: {
-    flex: 1,
-    marginLeft: Spacing.sm,
+  downloadButtonUnavailable: {
+    opacity: 0.66,
   },
-  documentLabel: {
-    color: Colors.text,
-    fontSize: Typography.caption,
-    fontWeight: "700",
+  paymentCode: {
+    minHeight: 70,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.md,
+    backgroundColor: "#DEE0E3",
   },
-  documentStatus: {
+  paymentCodeValue: {
     marginTop: 3,
     color: Colors.subtitle,
     fontSize: Typography.small,
+  },
+  copyAction: {
+    alignItems: "center",
+  },
+  copyText: {
+    marginTop: 2,
+    color: Colors.text,
+    fontSize: 9,
+    fontWeight: "700",
+  },
+  downloadIcon: {
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: Radius.md,
+    backgroundColor: "#9CA3AF",
+  },
+  downloadContent: {
+    flex: 1,
+    marginHorizontal: Spacing.sm,
+  },
+  downloadLabel: {
+    color: Colors.text,
+    fontSize: Typography.caption,
+    fontWeight: "800",
+  },
+  downloadLabelUnavailable: {
+    color: Colors.text,
+  },
+  downloadStatus: {
+    marginTop: 3,
+    color: Colors.subtitle,
+    fontSize: Typography.small,
+  },
+  downloadStatusUnavailable: {
+    color: Colors.subtitle,
+  },
+  dataRow: {
+    minHeight: 56,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  dataIcon: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: Radius.md,
+    backgroundColor: "#9CA3AF",
+  },
+  dataContent: {
+    flex: 1,
+    marginLeft: Spacing.sm,
+  },
+  dataLabel: {
+    color: Colors.subtitle,
+    fontSize: Typography.small,
+  },
+  dataValue: {
+    marginTop: 2,
+    color: Colors.text,
+    fontSize: Typography.caption,
+    fontWeight: "800",
   },
 });

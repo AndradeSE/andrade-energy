@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 
-import { autenticar } from "./auth.service";
+import { autenticar, cadastrarConta } from "./auth.service";
 
 export async function loginController(
   req: Request,
@@ -24,5 +24,13 @@ export async function loginController(
       message: err.message,
     });
 
+  }
+}
+
+export async function cadastroController(req: Request, res: Response) {
+  try {
+    return res.status(201).json(await cadastrarConta(req.body));
+  } catch (err: any) {
+    return res.status(400).json({ message: err.message ?? "Não foi possível criar a conta." });
   }
 }

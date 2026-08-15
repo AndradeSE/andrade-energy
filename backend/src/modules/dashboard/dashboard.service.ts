@@ -1,10 +1,11 @@
 import { obterDashboardCliente } from "./dashboard.repository";
 
 export async function dashboardCliente(
-  clienteId: string
+  clienteId: string,
+  uc?: string
 ) {
   const dashboard =
-    await obterDashboardCliente(clienteId);
+    await obterDashboardCliente(clienteId, uc);
 
   const faturas =
     dashboard.faturas ?? [];
@@ -14,10 +15,14 @@ export async function dashboardCliente(
       b.referencia.localeCompare(a.referencia)
     )[0];
 
+  const faturasEmAberto = faturas.filter((fatura) =>
+    ["EM ABERTO", "ABERTA", "VENCIDA"].includes(String(fatura.status ?? "").toUpperCase())
+  );
+
   return {
     cliente: dashboard.nome,
 
-    uc: dashboard.uc,
+    uc: uc ?? dashboard.uc,
 
     distribuidora: dashboard.distribuidora,
 
@@ -33,6 +38,13 @@ export async function dashboardCliente(
           t + Number(f.economia_real ?? 0),
         0
       ),
+
+    faturasEmAberto: faturasEmAberto.length,
+
+    valorEmAberto: faturasEmAberto.reduce(
+      (total, fatura) => total + Number(fatura.valor_total_unificado ?? fatura.valor_total ?? 0),
+      0
+    ),
 
     historico:
       [...faturas]
