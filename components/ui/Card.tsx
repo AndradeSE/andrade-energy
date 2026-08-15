@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 
 import {
     Radius,
@@ -9,13 +9,15 @@ import {
 
 type Props = {
   children: ReactNode;
+  style?: StyleProp<ViewStyle>;
 };
 
 export default function Card({
   children,
+  style,
 }: Props) {
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, style]}>
       {children}
     </View>
   );
