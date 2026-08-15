@@ -179,7 +179,7 @@ export default function TabLayout() {
 
   return (
     <LocaleDirContext.Provider value="ltr">
-    <OwnerTabs initialRouteName="index" screenOptions={{
+    <OwnerTabs initialRouteName="index" tabBarPosition="bottom" screenOptions={{
       swipeEnabled: true,
       animationEnabled: true,
       lazy: true,
@@ -192,8 +192,7 @@ export default function TabLayout() {
       tabBarItemStyle: { flex: 1, minWidth: 0, paddingHorizontal: 0, paddingVertical: 6 },
       tabBarContentContainerStyle: { width: "100%", alignItems: "stretch" },
       tabBarIndicatorStyle: { backgroundColor: "#16A34A", height: 3, top: 0 },
-      tabBarStyle: { position: "absolute", left: 0, right: 0, bottom: 0, height: 82, paddingTop: 7, backgroundColor: "#FFFFFF", elevation: 15, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: -3 } },
-      sceneStyle: { paddingBottom: 82 },
+      tabBarStyle: { height: 82, paddingTop: 7, backgroundColor: "#FFFFFF", elevation: 15, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: -3 } },
     }}>
       <OwnerTabs.Screen
         name="index"
