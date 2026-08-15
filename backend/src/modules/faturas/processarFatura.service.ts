@@ -60,9 +60,13 @@ const faturaExistente = await buscarFatura(
 if (faturaExistente) {
 
   const semBaseDeCalculo = Number(faturaExistente.base_calculo_kwh ?? 0) === 0;
+  const totalConvencionalSomadoEmDuplicidade =
+    Number(faturaExistente.energia_injetada ?? 0) === 0 &&
+    Number(faturaExistente.energia_compensada ?? 0) > 0 &&
+    Number(faturaExistente.valor_total_unificado ?? 0) > Number(faturaExistente.valor_cemig ?? 0);
   const podeCorrigir = semBaseDeCalculo && Number(dados.consumo ?? 0) > 0;
 
-  if (podeCorrigir) {
+  if (podeCorrigir || totalConvencionalSomadoEmDuplicidade) {
     for (const tabela of ["notificacoes_fatura", "cobrancas", "creditos"]) {
       await supabase.from(tabela).delete().eq("fatura_id", faturaExistente.id);
     }
@@ -95,9 +99,14 @@ if (!cliente.usina_id) {
       "COMPENSACAO"
   ).toUpperCase() as ModalidadeFaturamento;
   const descontoPercentual = Number(cliente.desconto_percentual ?? 40);
-  const energiaCompensadaCalculada = Number(dados.energiaCompensada) > 0
+  const temCompensacaoInformada = Number(dados.energiaCompensada) > 0;
+  const energiaCompensadaCalculada = temCompensacaoInformada
     ? Number(dados.energiaCompensada)
     : Number(dados.consumo);
+  const valorEnergiaConvencional = energiaCompensadaCalculada * Number(dados.tarifaCheia);
+  const valorConcessionaria = temCompensacaoInformada
+    ? Number(dados.valorTotal)
+    : Math.max(0, Number(dados.valorTotal) - valorEnergiaConvencional);
 
   if (!["INJECAO", "COMPENSACAO"].includes(modalidade)) {
     throw new Error("Modalidade de faturamento do cliente inválida.");
@@ -109,7 +118,7 @@ if (!cliente.usina_id) {
     energiaCompensada: energiaCompensadaCalculada,
     tarifaCheia: Number(dados.tarifaCheia),
     descontoPercentual,
-    valorCemig: Number(dados.valorTotal),
+    valorCemig: valorConcessionaria,
   });
 
 const fatura = await inserirFatura({
@@ -210,7 +219,7 @@ const fatura = await inserirFatura({
 
 });
 
-  if (calculo.modalidade === "COMPENSACAO") {
+  if (calculo.modalidade === "COMPENSACAO" && temCompensacaoInformada) {
 
   await registrarCreditosDaFatura({
     clienteId: cliente.id,
