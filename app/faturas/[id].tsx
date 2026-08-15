@@ -1,8 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
-import { File, Paths } from "expo-file-system";
+import { Directory, File, Paths } from "expo-file-system";
 import { useLocalSearchParams } from "expo-router";
-import * as Sharing from "expo-sharing";
 import { useEffect, useState } from "react";
 import {
   Alert,
@@ -71,22 +70,18 @@ export default function DetalheFatura() {
         const arquivo = await File.downloadFileAsync(url, destino, {
           idempotent: true,
         });
-        const podeCompartilhar = await Sharing.isAvailableAsync();
-
-        if (podeCompartilhar) {
-          await Sharing.shareAsync(arquivo.uri, {
-            dialogTitle: "Salvar ou compartilhar fatura",
-            mimeType: "application/pdf",
-            UTI: "com.adobe.pdf",
-          });
-          return;
-        }
+        const pasta = await Directory.pickDirectoryAsync();
+        const arquivoSalvo = pasta.createFile(nomeArquivo, "application/pdf");
+        arquivo.copy(arquivoSalvo);
+        Alert.alert("Download concluído", `A fatura foi salva como ${nomeArquivo}.`);
+        return;
       }
 
       const podeAbrir = await Linking.canOpenURL(url);
       if (!podeAbrir) throw new Error("URL inválida");
       await Linking.openURL(url);
-    } catch {
+    } catch (erro: any) {
+      if (/cancel/i.test(String(erro?.message ?? erro))) return;
       Alert.alert("Não foi possível baixar o PDF", "Confira sua conexão e tente novamente.");
     } finally {
       setDocumentoBaixando(undefined);

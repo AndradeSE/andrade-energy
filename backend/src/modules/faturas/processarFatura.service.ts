@@ -64,9 +64,11 @@ if (faturaExistente) {
     Number(faturaExistente.energia_injetada ?? 0) === 0 &&
     Number(faturaExistente.energia_compensada ?? 0) > 0 &&
     Number(faturaExistente.valor_total_unificado ?? 0) > Number(faturaExistente.valor_cemig ?? 0);
+  const valorConcessionariaFoiReduzido =
+    Number(faturaExistente.valor_cemig ?? 0) < Number(dados.valorTotal ?? 0);
   const podeCorrigir = semBaseDeCalculo && Number(dados.consumo ?? 0) > 0;
 
-  if (podeCorrigir || totalConvencionalSomadoEmDuplicidade) {
+  if (podeCorrigir || totalConvencionalSomadoEmDuplicidade || valorConcessionariaFoiReduzido) {
     for (const tabela of ["notificacoes_fatura", "cobrancas", "creditos"]) {
       await supabase.from(tabela).delete().eq("fatura_id", faturaExistente.id);
     }
@@ -106,10 +108,7 @@ if (!cliente.usina_id) {
   const energiaCompensadaCalculada = temCompensacaoInformada
     ? Number(dados.energiaCompensada)
     : Number(dados.consumo);
-  const valorEnergiaConvencional = energiaCompensadaCalculada * Number(dados.tarifaCheia);
-  const valorConcessionaria = temCompensacaoInformada
-    ? Number(dados.valorTotal)
-    : Math.max(0, Number(dados.valorTotal) - valorEnergiaConvencional);
+  const valorConcessionaria = Number(dados.valorTotal);
 
   if (!["INJECAO", "COMPENSACAO"].includes(modalidade)) {
     throw new Error("Modalidade de faturamento do cliente inválida.");
