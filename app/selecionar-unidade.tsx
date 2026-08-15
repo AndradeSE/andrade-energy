@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
   addButton: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.xxl, borderRadius: Radius.round, backgroundColor: "#AEB1AC" },
   addText: { color: Colors.surface, fontSize: Typography.caption, fontWeight: "800" },
   generatorActions: { marginTop: Spacing.xxl },
-  generatorActionsTitle: { marginBottom: Spacing.sm, color: Colors.text, fontSize: Typography.caption, fontWeight: "800", textAlign: "center" },
+  generatorActionsTitle: { marginBottom: Spacing.md, color: Colors.primary, fontSize: 20, fontWeight: "900", letterSpacing: 0.2, textAlign: "center" },
   unitCard: { marginBottom: Spacing.md, padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: "#D6D8DC", shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   unitTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   unitInfo: { flex: 1, marginRight: Spacing.sm },

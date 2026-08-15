@@ -25,7 +25,9 @@ export default function NovaUnidade() {
     ]).then(([c, u]) => { setClientes(c.data ?? []); setUsinas(u.data ?? []); });
     if (clienteIdVinculado) setClienteId(clienteIdVinculado);
     if (origem !== "fatura") return;
-    setNumero((uc ?? "").replace(/\D/g, "")); setTitular(cliente ?? "");
+    const nomeExtraido = (cliente ?? "").trim();
+    const rotuloDaFatura = /d[eé]bito\s+autom[aá]tico|valor\s+a\s+pagar|vencimento/i.test(nomeExtraido);
+    setNumero((uc ?? "").replace(/\D/g, "")); setTitular(rotuloDaFatura ? "" : nomeExtraido);
     setEndereco(enderecoImportado ?? "");
     if (classificacao === "POSSIVEL_GERADORA") { setTipo("GERADORA"); setModalidade("INJECAO"); }
     else if (!Number(energiaCompensada)) setTipo("CONSUMIDORA");

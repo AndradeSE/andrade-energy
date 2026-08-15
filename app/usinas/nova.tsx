@@ -20,8 +20,11 @@ export default function NovaUsina() {
 
   useEffect(() => {
     if (origem !== "fatura") return;
-    setNome(cliente ? `Usina ${cliente}` : "");
-    setTitular(cliente ?? "");
+    const nomeExtraido = (cliente ?? "").trim();
+    const rotuloDaFatura = /d[eé]bito\s+autom[aá]tico|valor\s+a\s+pagar|vencimento/i.test(nomeExtraido);
+    const titularExtraido = rotuloDaFatura ? "" : nomeExtraido;
+    setNome(titularExtraido ? `Usina ${titularExtraido}` : "");
+    setTitular(titularExtraido);
     setNumeroInstalacao((uc ?? "").replace(/\D/g, ""));
     setEndereco(enderecoImportado ?? "");
   }, [cliente, enderecoImportado, origem, uc]);
