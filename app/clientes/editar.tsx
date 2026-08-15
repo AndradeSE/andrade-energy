@@ -29,7 +29,12 @@ export default function EditarCliente() {
     const percentual = Number(desconto.replace(",", "."));
     if (!Number.isFinite(percentual) || percentual < 0 || percentual > 100) return Alert.alert("Desconto inválido", "Informe um percentual entre 0 e 100.");
     setSalvando(true);
-    const { error } = await supabase.from("clientes").update({ nome: nome.trim(), uc: uc.replace(/\D/g, "") || null, telefone, whatsapp: telefone.replace(/\D/g, ""), email: email.trim().toLowerCase(), cpf, endereco, usina_id: usinaId || null, modalidade_faturamento: modalidade, desconto_percentual: percentual }).eq("id", id);
+    const ucNormalizada = uc.replace(/\D/g, "");
+    const { error } = await supabase.from("clientes").update({ nome: nome.trim(), uc: ucNormalizada || null, telefone, whatsapp: telefone.replace(/\D/g, ""), email: email.trim().toLowerCase(), cpf, endereco, usina_id: usinaId || null, modalidade_faturamento: modalidade, desconto_percentual: percentual }).eq("id", id);
+    if (!error && ucNormalizada) {
+      const { error: erroUnidade } = await supabase.from("unidades_consumidoras").update({ modalidade_faturamento: modalidade, desconto_percentual: percentual }).eq("cliente_id", id).eq("numero", ucNormalizada);
+      if (erroUnidade) { setSalvando(false); return Alert.alert("Cliente salvo", "A modalidade foi salva no cliente, mas não foi possível atualizar a unidade consumidora."); }
+    }
     setSalvando(false); if (error) Alert.alert("Não foi possível salvar", error.message); else router.back();
   }
 
