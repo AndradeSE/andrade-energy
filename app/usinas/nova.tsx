@@ -65,7 +65,7 @@ export default function NovaUsina() {
         }
 
         selecionarUsina(usina);
-        router.replace("/(tabs)");
+        router.replace("/(tabs)/usinas");
       }
     } else Alert.alert("Não foi possível salvar", error?.message ?? "Tente novamente.");
     setSalvando(false);
