@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { Alert, FlatList, Image, Modal, Pressable, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import CadastroActions from "../components/cadastro/CadastroActions";
 import { EmptyState, Loading } from "../components/ui";
 import { UnidadeConsumidora, UsinaSelecionada, useAuth } from "../contexts/AuthContext";
 import { listarUnidadesCliente } from "../services/clientes.service";
@@ -126,7 +127,7 @@ export default function SelecionarUnidade() {
           <EmptyState
             icon={erro ? "alert-circle-outline" : gestor ? "sunny-outline" : "home-outline"}
             title={erro ? `Não foi possível carregar ${gestor ? "as usinas" : "as unidades"}` : busca ? "Nenhum resultado encontrado" : `Nenhuma ${gestor ? "usina" : "unidade"} vinculada`}
-            subtitle={erro ? "Confira sua conexão e tente entrar novamente." : busca ? "Altere os termos da busca e tente novamente." : `Use o botão acima para adicionar ${gestor ? "uma usina" : "uma unidade"}.`}
+            subtitle={erro ? "Confira sua conexão e tente entrar novamente." : busca ? "Altere os termos da busca e tente novamente." : `Use as opções abaixo para adicionar ${gestor ? "uma usina" : "uma unidade"}.`}
           />
         }
         renderItem={({ item }) => {
@@ -170,10 +171,17 @@ export default function SelecionarUnidade() {
         }}
         ListFooterComponent={
           <View>
-          <TouchableOpacity onPress={adicionar} style={styles.addButton}>
-            <Ionicons name="add" size={21} color={Colors.surface} />
-            <Text style={styles.addText}>{gestor ? "Adicionar usina" : "Adicionar unidade consumidora"}</Text>
-          </TouchableOpacity>
+          {gestor ? (
+            <View style={styles.generatorActions}>
+              <Text style={styles.generatorActionsTitle}>Adicionar nova usina</Text>
+              <CadastroActions tipo="USINA" />
+            </View>
+          ) : (
+            <TouchableOpacity onPress={adicionar} style={styles.addButton}>
+              <Ionicons name="add" size={21} color={Colors.surface} />
+              <Text style={styles.addText}>Adicionar unidade consumidora</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={logout} style={styles.logout}>
             <Ionicons name="log-out-outline" size={19} color={Colors.subtitle} />
             <Text style={styles.logoutText}>Sair da conta</Text>
@@ -240,6 +248,8 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, marginHorizontal: Spacing.xs, color: Colors.text, fontSize: Typography.caption },
   addButton: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.xxl, borderRadius: Radius.round, backgroundColor: "#AEB1AC" },
   addText: { color: Colors.surface, fontSize: Typography.caption, fontWeight: "800" },
+  generatorActions: { marginTop: Spacing.xxl },
+  generatorActionsTitle: { marginBottom: Spacing.sm, color: Colors.text, fontSize: Typography.caption, fontWeight: "800", textAlign: "center" },
   unitCard: { marginBottom: Spacing.md, padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: "#D6D8DC", shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   unitTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   unitInfo: { flex: 1, marginRight: Spacing.sm },
