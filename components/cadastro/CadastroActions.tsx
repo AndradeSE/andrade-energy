@@ -79,7 +79,7 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
         icon={<Ionicons name="document-attach-outline" size={20} color="#FFF" />}
         onPress={importar}
         style={[styles.button, styles.importButton]}
-        title={analisando ? "Lendo..." : tipo === "USINA" ? "Via fatura" : "Importar fatura"}
+        title={analisando ? "Lendo..." : tipo === "UNIDADE" ? "Importar fatura" : "Via fatura"}
       />
     </View>
   );
