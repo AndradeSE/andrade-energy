@@ -3,11 +3,14 @@ import { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text } from "react-native";
 
 import FormField from "../../components/cadastro/FormField";
+import ChoiceField from "../../components/cadastro/ChoiceField";
 import { Button, Card, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import { processarFatura } from "../../services/faturas.service";
 import { supabase } from "../../supabase";
 import { Colors, Spacing, Typography } from "../../theme";
+
+type Modalidade = "INJECAO" | "COMPENSACAO";
 
 export default function NovoCliente() {
   const { usinaSelecionada, usuario } = useAuth();
@@ -19,6 +22,7 @@ export default function NovoCliente() {
   const [telefone, setTelefone] = useState("");
   const [endereco, setEndereco] = useState("");
   const [distribuidora, setDistribuidora] = useState("CEMIG");
+  const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO");
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
@@ -41,7 +45,8 @@ export default function NovoCliente() {
       nome: nome.trim(), cpf: cpfLimpo || null, email: email.trim().toLowerCase() || null,
       telefone: telefone.trim() || null, whatsapp: telefone.replace(/\D/g, "") || null,
       uc: uc || null, endereco: endereco.trim() || null, distribuidora,
-      usina_id: usinaSelecionada?.id ?? usuario?.usina_id ?? null, status: "ATIVO",
+      usina_id: usinaSelecionada?.id ?? usuario?.usina_id ?? null,
+      modalidade_faturamento: modalidade, status: "ATIVO",
     };
 
     let clienteId: string | undefined;
@@ -64,7 +69,7 @@ export default function NovoCliente() {
       const { error } = await supabase.from("unidades_consumidoras").upsert({
         cliente_id: clienteId, usina_id: usinaSelecionada?.id ?? usuario?.usina_id ?? null,
         numero: uc, tipo: "BENEFICIARIA", titular: nome.trim(), distribuidora,
-        endereco: endereco.trim() || null, modalidade_faturamento: "COMPENSACAO", status: "ATIVA",
+        endereco: endereco.trim() || null, modalidade_faturamento: modalidade, status: "ATIVA",
       }, { onConflict: "numero" });
       if (error) Alert.alert("Consumidor salvo", "O consumidor foi criado, mas a UC precisa ser vinculada novamente.");
     }
@@ -91,6 +96,7 @@ export default function NovoCliente() {
       <FormField label="E-mail (opcional)" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
       <FormField label="Telefone / WhatsApp (opcional)" value={telefone} onChangeText={setTelefone} keyboardType="phone-pad" />
       <FormField label="Unidade consumidora (opcional)" value={uc} onChangeText={(valor) => setUc(valor.replace(/\D/g, ""))} keyboardType="numeric" />
+      <ChoiceField label="Modalidade de faturamento" value={modalidade} onChange={setModalidade} options={[{ label: "Por injeção", value: "INJECAO" }, { label: "Por compensação", value: "COMPENSACAO" }]} />
       <FormField label="Concessionária" value={distribuidora} onChangeText={setDistribuidora} />
       <FormField label="Endereço (opcional)" value={endereco} onChangeText={setEndereco} />
       <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar consumidor"} onPress={salvar} />
