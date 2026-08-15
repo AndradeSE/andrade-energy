@@ -12,6 +12,7 @@ import {
 } from "./faturas.repository";
 
 import { FaturaExtraida } from "../../types/FaturaExtraida";
+import { supabase } from "../../config/supabase";
 
 function converterDataBrasileiraParaIso(data: string): string {
   const correspondencia = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(data.trim());
@@ -58,6 +59,16 @@ const faturaExistente = await buscarFatura(
 
 if (faturaExistente) {
 
+  const semBaseDeCalculo = Number(faturaExistente.base_calculo_kwh ?? 0) === 0;
+  const podeCorrigir = semBaseDeCalculo && Number(dados.consumo ?? 0) > 0;
+
+  if (podeCorrigir) {
+    for (const tabela of ["notificacoes_fatura", "cobrancas", "creditos"]) {
+      await supabase.from(tabela).delete().eq("fatura_id", faturaExistente.id);
+    }
+    await supabase.from("faturas").delete().eq("id", faturaExistente.id);
+  } else {
+
   return {
 
     jaProcessada: true,
@@ -67,6 +78,8 @@ if (faturaExistente) {
     fatura: faturaExistente,
 
   };
+
+  }
 
 }
 if (!cliente.usina_id) {
@@ -82,6 +95,9 @@ if (!cliente.usina_id) {
       "COMPENSACAO"
   ).toUpperCase() as ModalidadeFaturamento;
   const descontoPercentual = Number(cliente.desconto_percentual ?? 40);
+  const energiaCompensadaCalculada = Number(dados.energiaCompensada) > 0
+    ? Number(dados.energiaCompensada)
+    : Number(dados.consumo);
 
   if (!["INJECAO", "COMPENSACAO"].includes(modalidade)) {
     throw new Error("Modalidade de faturamento do cliente inválida.");
@@ -90,7 +106,7 @@ if (!cliente.usina_id) {
   const calculo = calcularFaturaUnificada({
     modalidade,
     energiaInjetada: Number(dados.energiaInjetada),
-    energiaCompensada: Number(dados.energiaCompensada),
+    energiaCompensada: energiaCompensadaCalculada,
     tarifaCheia: Number(dados.tarifaCheia),
     descontoPercentual,
     valorCemig: Number(dados.valorTotal),
@@ -119,7 +135,7 @@ const fatura = await inserirFatura({
     dados.energiaInjetada,
 
   energia_compensada:
-    dados.energiaCompensada,
+    energiaCompensadaCalculada,
 
   saldo_anterior:
     dados.saldoAnterior,
@@ -202,14 +218,14 @@ const fatura = await inserirFatura({
     faturaId: fatura.id,
     competencia: dados.referencia,
     energiaInjetada: Number(dados.energiaInjetada),
-    energiaCompensada: Number(dados.energiaCompensada),
+    energiaCompensada: energiaCompensadaCalculada,
     saldoAtual: Number(dados.saldoAtual),
   });
   await consumirCreditos(
     
     cliente.id,
     dados.referencia,
-    Number(dados.energiaCompensada)
+    energiaCompensadaCalculada
   );
 }
 
