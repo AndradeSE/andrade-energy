@@ -6,6 +6,7 @@ import {
   analisarFaturaController,
   detalharFaturaController,
   listarFaturasController,
+  excluirFaturaController,
 } from "./faturas.controller";
 
 const router = Router();
@@ -22,6 +23,7 @@ router.post(
 );
 
 router.get("/:id", detalharFaturaController);
+router.delete("/:id", excluirFaturaController);
 
 router.post(
   "/importar",

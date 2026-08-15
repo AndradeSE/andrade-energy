@@ -1,10 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { EmptyState, Loading, Screen } from "../../components/ui";
 import { useFaturas } from "../../hooks/useFaturas";
+import { excluirFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 type Filtro = "todas" | "pendentes" | "pagas";
@@ -14,7 +15,7 @@ const estaPaga = (status?: string) => ["PAGA", "PAGO", "QUITADA"].includes(norma
 const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function Faturas() {
-  const { data, isLoading, error } = useFaturas();
+  const { data, isLoading, error, refetch } = useFaturas();
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const faturas = useMemo(() => data ?? [], [data]);
 
@@ -23,6 +24,28 @@ export default function Faturas() {
     if (filtro === "pendentes") return !estaPaga(item.status);
     return true;
   }), [faturas, filtro]);
+
+  const confirmarExclusao = (item: any) => {
+    Alert.alert(
+      "Excluir fatura",
+      `Deseja excluir definitivamente a fatura ${item.referencia || "selecionada"}?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await excluirFatura(item.id);
+              await refetch();
+            } catch (erro: any) {
+              Alert.alert("Não foi possível excluir", erro?.message || "Tente novamente.");
+            }
+          },
+        },
+      ],
+    );
+  };
 
   if (isLoading) return <Loading />;
 
@@ -73,6 +96,17 @@ export default function Faturas() {
                 <View><Text style={styles.metaLabel}>{paga ? "PAGAMENTO" : "VENCIMENTO"}</Text><Text style={styles.metaValue}>{paga ? item.data_pagamento || "Confirmado" : item.vencimento || "Não informado"}</Text></View>
                 <View style={styles.documentType}><Text style={styles.documentLabel}>FATURA ANDRADE ENERGY</Text><Text numberOfLines={1} style={styles.documentCode}>{item.numero_instalacao || item.id}</Text></View>
               </View>
+              <TouchableOpacity
+                accessibilityLabel={`Excluir fatura ${item.referencia || ""}`}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  confirmarExclusao(item);
+                }}
+                style={styles.deleteInvoice}
+              >
+                <Ionicons name="trash-outline" size={17} color={Colors.danger} />
+                <Text style={styles.deleteInvoiceText}>Excluir fatura</Text>
+              </TouchableOpacity>
             </TouchableOpacity>
           );
         }}
@@ -111,4 +145,6 @@ const styles = StyleSheet.create({
   documentType: { maxWidth: "48%", alignItems: "flex-end" },
   documentLabel: { color: Colors.text, fontSize: 9, fontWeight: "900" },
   documentCode: { marginTop: 4, color: Colors.subtitle, fontSize: 9 },
+  deleteInvoice: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: Spacing.md, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: "rgba(100,116,139,0.20)" },
+  deleteInvoiceText: { color: Colors.danger, fontSize: Typography.small, fontWeight: "800" },
 });

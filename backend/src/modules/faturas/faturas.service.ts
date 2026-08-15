@@ -1,6 +1,6 @@
 import { Request } from "express";
 
-import { buscarFaturaPorId, listarFaturas } from "./faturas.repository";
+import { buscarFaturaPorId, excluirFaturaPorId, listarFaturas } from "./faturas.repository";
 import { processarFatura } from "./processarFatura.service";
 
 import { extrairTextoPDF } from "../../services/ocr/ocr.service";
@@ -17,6 +17,11 @@ export async function detalharFatura(id: string) {
   const fatura = await buscarFaturaPorId(id);
   if (!fatura) throw new Error("Fatura não encontrada.");
   return incluirLinksTemporarios(fatura);
+}
+
+export async function excluirFatura(id: string) {
+  await excluirFaturaPorId(id);
+  return { sucesso: true };
 }
 
 export async function analisarFatura(req: Request) {
