@@ -6,6 +6,9 @@ import {
   vincularClientePorCpf,
 } from "./auth.repository";
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
+import { supabase } from "../../config/supabase";
+import { gerarToken, hashToken } from "../../utils/token";
+import { aceitarConvite, concluirConvite } from "../convites/convites.service";
 
 export async function autenticar(
   email: string,
@@ -18,9 +21,16 @@ export async function autenticar(
   }
 
   const clienteId = await vincularClientePorCpf(usuario);
+  const token = gerarToken();
+  const { error: sessaoError } = await supabase.from("sessoes_usuarios").insert({
+    usuario_id: usuario.id,
+    token_hash: hashToken(token),
+    expira_em: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  });
+  if (sessaoError) throw sessaoError;
 
   return {
-    token: "MVP_TOKEN",
+    token,
     usuario: {
       id: usuario.id,
       nome: usuario.nome,
@@ -33,7 +43,9 @@ export async function autenticar(
   };
 }
 
-export async function cadastrarConta(input: { nome: string; cpf: string; email: string; senha: string; tipo: "CONSUMIDOR" | "GERADOR" }) {
+export async function cadastrarConta(input: { nome: string; cpf: string; email: string; senha: string; tipo: "CONSUMIDOR" | "GERADOR"; convite?: string }) {
+  const convite = input.tipo === "CONSUMIDOR" ? await aceitarConvite(String(input.convite ?? "")) : null;
+  if (convite) input = { ...input, nome: convite.nome, cpf: convite.cpf, email: convite.email };
   if (!input.nome?.trim()) throw new Error("Informe seu nome.");
   if (String(input.cpf ?? "").replace(/\D/g, "").length !== 11) throw new Error("Informe um CPF válido.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email?.trim() ?? "")) throw new Error("Informe um e-mail válido.");
@@ -41,6 +53,7 @@ export async function cadastrarConta(input: { nome: string; cpf: string; email: 
   if (!(["CONSUMIDOR", "GERADOR"] as const).includes(input.tipo)) throw new Error("Escolha consumidor ou gerador.");
   const usuario = await criarConta(input);
   await vincularClientePorCpf(usuario);
+  if (convite) await concluirConvite(convite.id);
   let emailEnviado = false;
   try {
     emailEnviado = await enviarEmailTransacional({

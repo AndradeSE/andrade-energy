@@ -1,5 +1,6 @@
 import axios from "axios";
 import Constants from "expo-constants";
+import { obterSessao } from "../storage/session";
 
 const expoHost = Constants.expoConfig?.hostUri?.split(":")[0];
 const apiBaseURL =
@@ -8,6 +9,12 @@ const apiBaseURL =
 
 const api = axios.create({
   baseURL: apiBaseURL,
+});
+
+api.interceptors.request.use(async (config) => {
+  const sessao = await obterSessao();
+  if (sessao?.token) config.headers.Authorization = `Bearer ${sessao.token}`;
+  return config;
 });
 
 api.interceptors.response.use(

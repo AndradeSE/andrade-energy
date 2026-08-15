@@ -68,7 +68,7 @@ export async function vincularClientePorCpf(usuario: any) {
   return cliente.id;
 }
 
-export async function criarConta(input: { nome: string; cpf: string; email: string; senha: string; tipo: "CONSUMIDOR" | "GERADOR" }) {
+export async function criarConta(input: { nome: string; cpf: string; email: string; senha: string; tipo: "CONSUMIDOR" | "GERADOR"; convite?: string }) {
   const cpf = input.cpf.replace(/\D/g, "");
   const email = input.email.trim().toLowerCase();
   const { data: existente } = await supabase

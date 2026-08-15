@@ -14,6 +14,7 @@ import fechamentosRoutes from "./modules/fechamentos/fechamentos.routes";
 import rateioRoutes from "./modules/rateio/rateio.routes";
 import usinasRoutes from "./modules/usinas/usinas.routes";
 import { processarFilaDeNotificacoes } from "./modules/faturas/notificacoesFatura.service";
+import convitesRoutes from "./modules/convites/convites.routes";
 
 dotenv.config();
 
@@ -47,6 +48,7 @@ app.use((req, _, next) => {
 */
 
 app.use("/api/auth", authRoutes);
+app.use("/api/convites", convitesRoutes);
 
 app.use("/api/dashboard", dashboardRoutes);
 
