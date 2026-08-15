@@ -4,7 +4,7 @@ const consumerProjectId = "45f35f6f-4f6a-4452-b2e4-02932e778b2b";
 module.exports = {
   expo: {
     name: gerador ? "Andrade Energy Gerador" : "Andrade Energy Consumidor",
-    slug: gerador ? "andrade-energy-gerador" : "andrade-energy-consumidor",
+    slug: gerador ? "andrade-energy-gerador" : "andrade-energy",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/android-icon-foreground.png",
