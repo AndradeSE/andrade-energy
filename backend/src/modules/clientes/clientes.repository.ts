@@ -124,6 +124,25 @@ export async function atualizarCliente(
 }
 
 export async function excluirCliente(id: string) {
+  const tabelasDependentes = [
+    "notificacoes_fatura",
+    "cobrancas",
+    "creditos_cliente",
+    "creditos",
+    "participacoes_usina",
+    "contratos",
+    "faturas",
+    "unidades_consumidoras",
+  ];
+
+  for (const tabela of tabelasDependentes) {
+    const { error } = await supabase.from(tabela).delete().eq("cliente_id", id);
+    if (error && error.code !== "42P01") throw error;
+  }
+
+  await supabase.from("convites_clientes").update({ cliente_id: null }).eq("cliente_id", id);
+  await supabase.from("usuarios").update({ cliente_id: null }).eq("cliente_id", id);
+
   const { error } = await supabase
     .from("clientes")
     .delete()

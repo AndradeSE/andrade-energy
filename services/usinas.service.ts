@@ -19,6 +19,9 @@ export async function editarUsina(id: string, payload: any) {
   const { data } = await api.put(`/usinas/${id}`, payload);
   return data;
 }
+export async function excluirUsina(id: string) {
+  await api.delete(`/usinas/${id}`);
+}
 export async function buscarDashboardUsina(
   id: string
 ) {

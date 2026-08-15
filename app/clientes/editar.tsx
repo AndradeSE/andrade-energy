@@ -5,6 +5,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import ChoiceField from "../../components/cadastro/ChoiceField";
 import FormField from "../../components/cadastro/FormField";
 import { Button, Card, Loading, Screen } from "../../components/ui";
+import { excluirCliente } from "../../services/clientes.service";
 import { supabase } from "../../supabase";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
@@ -32,7 +33,7 @@ export default function EditarCliente() {
     setSalvando(false); if (error) Alert.alert("Não foi possível salvar", error.message); else router.back();
   }
 
-  function excluir() { Alert.alert("Excluir cliente", "Esta ação remove o cliente e seus vínculos. Deseja continuar?", [{ text: "Cancelar", style: "cancel" }, { text: "Excluir", style: "destructive", onPress: async () => { const { error } = await supabase.from("clientes").delete().eq("id", id); if (error) Alert.alert("Não foi possível excluir", error.message); else router.replace("/clientes"); } }]); }
+  function excluir() { Alert.alert("Excluir cliente", "Esta ação remove o cliente e seus vínculos. Deseja continuar?", [{ text: "Cancelar", style: "cancel" }, { text: "Excluir", style: "destructive", onPress: async () => { try { await excluirCliente(id); router.replace("/clientes"); } catch (erro: any) { Alert.alert("Não foi possível excluir", erro?.response?.data?.message ?? erro?.message); } } }]); }
 
   if (loading) return <Loading />;
   return <Screen><ScrollView contentContainerStyle={styles.content}><Text style={styles.eyebrow}>CADASTRO DO CLIENTE</Text><Text style={styles.title}>Editar cliente</Text><Text style={styles.subtitle}>Somente o nome é obrigatório. Atualize os demais dados quando precisar.</Text>

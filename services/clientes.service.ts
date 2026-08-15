@@ -20,6 +20,10 @@ export async function editarCliente(id: string, payload: any) {
   return data;
 }
 
+export async function excluirCliente(id: string) {
+  await api.delete(`/clientes/${id}`);
+}
+
 export async function listarUnidadesCliente(id: string) {
   const { data } = await api.get(`/clientes/${id}/unidades`);
   return data;

@@ -6,6 +6,7 @@ import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import FormField from "../../components/cadastro/FormField";
 import { Button, Card, Loading, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
+import { excluirUsina as excluirUsinaRemota } from "../../services/usinas.service";
 import { supabase } from "../../supabase";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
@@ -65,9 +66,14 @@ export default function EditarUsina() {
 
   async function excluir() {
     setExcluindo(true);
-    const { error } = await supabase.from("usinas").delete().eq("id", id);
+    let error: any;
+    try {
+      await excluirUsinaRemota(id);
+    } catch (erro) {
+      error = erro;
+    }
     setExcluindo(false);
-    if (error) return Alert.alert("Não foi possível excluir", error.message);
+    if (error) return Alert.alert("Não foi possível excluir", error?.response?.data?.message ?? error.message);
     if (usuario?.usina_id === id) await atualizarUsuario({ usina_id: null });
     if (usinaSelecionada?.id === id) selecionarUsina(null);
     router.replace("/selecionar-unidade");

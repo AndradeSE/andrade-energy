@@ -4,8 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { AppHeader, Badge, Card, EmptyState, Loading, Screen } from "../../components/ui";
-import { listarClientes } from "../../services/clientes.service";
-import { supabase } from "../../supabase";
+import { excluirCliente, listarClientes } from "../../services/clientes.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function Clientes() {
@@ -18,9 +17,12 @@ export default function Clientes() {
     Alert.alert("Excluir cliente", `Deseja excluir ${item.nome}? Esta ação não pode ser desfeita.`, [
       { text: "Cancelar", style: "cancel" },
       { text: "Excluir", style: "destructive", onPress: async () => {
-        const { error } = await supabase.from("clientes").delete().eq("id", item.id);
-        if (error) Alert.alert("Não foi possível excluir", error.message);
-        else setClientes((atuais) => atuais.filter((cliente) => cliente.id !== item.id));
+        try {
+          await excluirCliente(item.id);
+          setClientes((atuais) => atuais.filter((cliente) => cliente.id !== item.id));
+        } catch (erro: any) {
+          Alert.alert("Não foi possível excluir", erro?.response?.data?.message ?? erro?.message);
+        }
       } },
     ]);
   }

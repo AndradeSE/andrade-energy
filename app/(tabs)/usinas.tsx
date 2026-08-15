@@ -6,8 +6,7 @@ import { Alert, FlatList, Pressable, StyleSheet, Text, TouchableOpacity, View } 
 import CadastroActions from "../../components/cadastro/CadastroActions";
 import { AppHeader, Badge, Card, EmptyState, Loading, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
-import { listarUsinas } from "../../services/usinas.service";
-import { supabase } from "../../supabase";
+import { excluirUsina, listarUsinas } from "../../services/usinas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function Usinas() {
@@ -20,11 +19,14 @@ export default function Usinas() {
     Alert.alert("Excluir usina", `Deseja excluir ${item.nome}? Esta ação não pode ser desfeita.`, [
       { text: "Cancelar", style: "cancel" },
       { text: "Excluir", style: "destructive", onPress: async () => {
-        const { error } = await supabase.from("usinas").delete().eq("id", item.id);
-        if (error) return Alert.alert("Não foi possível excluir", error.message);
-        setUsinas((atuais) => atuais.filter((usina) => usina.id !== item.id));
-        if (usuario?.usina_id === item.id) await atualizarUsuario({ usina_id: null });
-        if (usinaSelecionada?.id === item.id) selecionarUsina(null);
+        try {
+          await excluirUsina(item.id);
+          setUsinas((atuais) => atuais.filter((usina) => usina.id !== item.id));
+          if (usuario?.usina_id === item.id) await atualizarUsuario({ usina_id: null });
+          if (usinaSelecionada?.id === item.id) selecionarUsina(null);
+        } catch (erro: any) {
+          Alert.alert("Não foi possível excluir", erro?.response?.data?.message ?? erro?.message);
+        }
       } },
     ]);
   }

@@ -75,6 +75,7 @@ export default function NovaUsina() {
       }, { onConflict: "numero" });
       if (unidadeError) {
         Alert.alert("Usina salva", "A usina foi criada, mas a unidade geradora precisa ser vinculada novamente.");
+        await abrirNaLista(usina);
       } else {
         await abrirNaLista(usina);
       }
