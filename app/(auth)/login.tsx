@@ -71,11 +71,11 @@ export default function Login() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.brandArea}>
-            <View style={styles.logoBox}>
-              <Image source={require("../../assets/images/icon.png")} style={styles.logo} />
+            <View style={styles.logoPanel}>
+              <Image source={require("../../assets/images/andrade-logo-horizontal.png")} style={styles.brandLogo} />
             </View>
-            <Text style={styles.brand}>{APP_DISPLAY_NAME}</Text>
-            <Text style={styles.brandSubtitle}>Energia inteligente, simples e transparente.</Text>
+            <Text style={styles.appName}>{APP_DISPLAY_NAME}</Text>
+            <Text style={styles.brandSubtitle}>Energia inteligente, simples e transparente</Text>
           </View>
 
           <View style={styles.formCard}>
@@ -161,12 +161,12 @@ export default function Login() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#8F938D" },
   keyboard: { flex: 1 },
-  content: { flexGrow: 1, justifyContent: "center", paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xl, backgroundColor: "#F5F6F5" },
-  brandArea: { alignItems: "center", marginBottom: Spacing.xl },
-  logoBox: { width: 84, height: 84, alignItems: "center", justifyContent: "center", overflow: "hidden", borderRadius: 24, backgroundColor: Colors.surface, shadowColor: "#000", shadowOpacity: 0.09, shadowRadius: 9, shadowOffset: { width: 0, height: 3 }, elevation: 4 },
-  logo: { width: 72, height: 72, resizeMode: "contain" },
-  brand: { marginTop: Spacing.md, color: Colors.text, fontSize: 27, fontWeight: "900" },
-  brandSubtitle: { marginTop: 5, color: Colors.subtitle, fontSize: Typography.caption, textAlign: "center" },
+  content: { flexGrow: 1, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl, backgroundColor: "#F5F6F5" },
+  brandArea: { alignItems: "center", marginHorizontal: -Spacing.lg, marginBottom: Spacing.xl, paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: Spacing.xl, backgroundColor: "#A2A59F" },
+  logoPanel: { width: "100%", maxWidth: 340, height: 136, alignItems: "center", justifyContent: "center", paddingHorizontal: Spacing.md, overflow: "hidden", borderRadius: Radius.xl, backgroundColor: Colors.surface, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+  brandLogo: { width: "100%", height: 108, resizeMode: "contain" },
+  appName: { marginTop: Spacing.md, color: Colors.surface, fontSize: Typography.body, fontWeight: "900" },
+  brandSubtitle: { marginTop: 4, color: "rgba(255,255,255,0.78)", fontSize: Typography.small, textAlign: "center" },
   formCard: { padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: "#DEE0E3", shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
   eyebrow: { color: Colors.primary, fontSize: 10, fontWeight: "900", letterSpacing: 1.1 },
   title: { marginTop: 4, color: Colors.text, fontSize: Typography.section, fontWeight: "900" },
