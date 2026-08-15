@@ -100,6 +100,9 @@ if (!cliente.usina_id) {
   ).toUpperCase() as ModalidadeFaturamento;
   const descontoPercentual = Number(cliente.desconto_percentual ?? 40);
   const temCompensacaoInformada = Number(dados.energiaCompensada) > 0;
+  const energiaInjetadaCalculada = Number(dados.energiaInjetada) > 0
+    ? Number(dados.energiaInjetada)
+    : Number(dados.consumo);
   const energiaCompensadaCalculada = temCompensacaoInformada
     ? Number(dados.energiaCompensada)
     : Number(dados.consumo);
@@ -114,7 +117,7 @@ if (!cliente.usina_id) {
 
   const calculo = calcularFaturaUnificada({
     modalidade,
-    energiaInjetada: Number(dados.energiaInjetada),
+    energiaInjetada: energiaInjetadaCalculada,
     energiaCompensada: energiaCompensadaCalculada,
     tarifaCheia: Number(dados.tarifaCheia),
     descontoPercentual,
@@ -141,10 +144,12 @@ const fatura = await inserirFatura({
   consumo_kwh: dados.consumo,
 
   energia_injetada:
-    dados.energiaInjetada,
+    energiaInjetadaCalculada,
 
   energia_compensada:
-    energiaCompensadaCalculada,
+    modalidade === "COMPENSACAO"
+      ? energiaCompensadaCalculada
+      : Number(dados.energiaCompensada),
 
   saldo_anterior:
     dados.saldoAnterior,
