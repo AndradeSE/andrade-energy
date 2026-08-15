@@ -27,20 +27,23 @@ export async function consumirCreditos(
 
   const saldo = await buscarSaldoAtual(clienteId);
 
-  if (!saldo)
-    throw new Error("Cliente sem créditos.");
+  if (!saldo) return null;
 
   const saldoDisponivel =
     Number(saldo.saldo_atual ?? saldo.saldo ?? 0);
 
-  const novoSaldo =
-    saldoDisponivel - energiaConsumida;
+  const energiaSolicitada = Math.max(0, Number(energiaConsumida) || 0);
+  const energiaDebitada = Math.min(Math.max(0, saldoDisponivel), energiaSolicitada);
+
+  if (energiaDebitada <= 0) return null;
+
+  const novoSaldo = Math.max(0, saldoDisponivel - energiaDebitada);
 
   return registrarConsumo({
     cliente_id: clienteId,
     competencia: competenciaParaData(competencia),
     entrada: 0,
-    saida: energiaConsumida,
+    saida: energiaDebitada,
     saldo: novoSaldo,
     saldo_atual: novoSaldo,
     origem: "FATURA",
