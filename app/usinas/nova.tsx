@@ -4,10 +4,12 @@ import { Alert, ScrollView, StyleSheet, Text } from "react-native";
 
 import FormField from "../../components/cadastro/FormField";
 import { Button, Card, Screen } from "../../components/ui";
+import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../supabase";
 import { Colors, Spacing, Typography } from "../../theme";
 
 export default function NovaUsina() {
+  const { usuario, atualizarUsuario, selecionarUsina } = useAuth();
   const { origem, cliente, uc, endereco: enderecoImportado } = useLocalSearchParams<{ origem?: string; cliente?: string; uc?: string; endereco?: string }>();
   const [nome, setNome] = useState("");
   const [numeroInstalacao, setNumeroInstalacao] = useState("");
@@ -34,7 +36,7 @@ export default function NovaUsina() {
       nome: nome.trim(), numero_instalacao: numeroInstalacao, potencia_kwp: Number(potencia.replace(",", ".")),
       titular_nome: titular.trim() || null, endereco: endereco.trim() || null,
       distribuidora: "CEMIG", modalidade: "INJECAO", status: "ATIVA",
-    }).select("id").single();
+    }).select("id, nome, numero_instalacao, distribuidora, endereco, status").single();
 
     if (!error && usina) {
       const { error: unidadeError } = await supabase.from("unidades_consumidoras").upsert({
@@ -43,7 +45,25 @@ export default function NovaUsina() {
       }, { onConflict: "numero" });
       if (unidadeError) {
         Alert.alert("Usina salva", "A usina foi criada, mas a unidade geradora precisa ser vinculada novamente.");
-      } else router.back();
+      } else {
+        if (usuario?.perfil === "GESTOR" && !usuario.usina_id) {
+          const { error: vinculoError } = await supabase
+            .from("usuarios")
+            .update({ usina_id: usina.id })
+            .eq("id", usuario.id);
+
+          if (vinculoError) {
+            Alert.alert("Usina salva", "A usina foi criada, mas não foi possível vinculá-la à sua conta.");
+            setSalvando(false);
+            return;
+          }
+
+          await atualizarUsuario({ usina_id: usina.id });
+        }
+
+        selecionarUsina(usina);
+        router.replace("/(tabs)");
+      }
     } else Alert.alert("Não foi possível salvar", error?.message ?? "Tente novamente.");
     setSalvando(false);
   }

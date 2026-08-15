@@ -52,6 +52,7 @@ type AuthContextType = {
   ) => Promise<void>;
 
   logout: () => Promise<void>;
+  atualizarUsuario: (dados: Partial<Usuario>) => Promise<void>;
   selecionarUnidade: (unidade: UnidadeConsumidora | null) => void;
   selecionarUsina: (usina: UsinaSelecionada | null) => void;
 };
@@ -119,6 +120,14 @@ export function AuthProvider({
     setUsinaSelecionada(null);
   }
 
+  async function atualizarUsuario(dados: Partial<Usuario>) {
+    if (!usuario || !token) return;
+
+    const usuarioAtualizado = { ...usuario, ...dados };
+    await salvarSessao({ token, usuario: usuarioAtualizado });
+    setUsuario(usuarioAtualizado);
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -129,6 +138,7 @@ export function AuthProvider({
         usinaSelecionada,
         login,
         logout,
+        atualizarUsuario,
         selecionarUnidade: setUnidadeSelecionada,
         selecionarUsina: setUsinaSelecionada,
       }}

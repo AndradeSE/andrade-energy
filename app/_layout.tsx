@@ -24,19 +24,21 @@ function RootNavigation() {
     const inAuth =
       segments[0] === "(auth)";
     const inUnitSelection = segments[0] === "selecionar-unidade";
+    const inConsumerSetup = segments[0] === "unidades";
+    const inGeneratorSetup = segments[0] === "usinas";
 
     if (!usuario && !inAuth) {
       router.replace("/(auth)/login");
       return;
     }
 
-    if (usuario?.perfil === "LEITURA" && !unidadeSelecionada && !inUnitSelection) {
+    if (usuario?.perfil === "LEITURA" && !unidadeSelecionada && !inUnitSelection && !inConsumerSetup) {
       router.replace("/selecionar-unidade");
       return;
     }
 
     const gestor = usuario?.perfil === "ADMIN" || usuario?.perfil === "GESTOR";
-    if (gestor && !usinaSelecionada && !inUnitSelection) {
+    if (gestor && !usinaSelecionada && !inUnitSelection && !inGeneratorSetup) {
       router.replace("/selecionar-unidade");
       return;
     }
