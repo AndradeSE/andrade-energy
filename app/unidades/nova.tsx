@@ -5,12 +5,14 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import ChoiceField from "../../components/cadastro/ChoiceField";
 import FormField from "../../components/cadastro/FormField";
 import { Button, Card, Screen } from "../../components/ui";
+import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../supabase";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 type Tipo = "CONSUMIDORA" | "BENEFICIARIA" | "GERADORA";
 type Modalidade = "INJECAO" | "COMPENSACAO";
 export default function NovaUnidade() {
+  const { usuario } = useAuth();
   const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, energiaCompensada, endereco: enderecoImportado } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; energiaCompensada?: string; endereco?: string }>();
   const [numero, setNumero] = useState(""); const [titular, setTitular] = useState("");
   const [tipo, setTipo] = useState<Tipo>("BENEFICIARIA"); const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO");
@@ -27,11 +29,12 @@ export default function NovaUnidade() {
     if (origem !== "fatura") return;
     const nomeExtraido = (cliente ?? "").trim();
     const rotuloDaFatura = /d[eé]bito\s+autom[aá]tico|valor\s+a\s+pagar|vencimento/i.test(nomeExtraido);
-    setNumero((uc ?? "").replace(/\D/g, "")); setTitular(rotuloDaFatura ? "" : nomeExtraido);
+    const titularExtraido = rotuloDaFatura || !nomeExtraido ? usuario?.nome?.trim() ?? "" : nomeExtraido;
+    setNumero((uc ?? "").replace(/\D/g, "")); setTitular(titularExtraido);
     setEndereco(enderecoImportado ?? "");
     if (classificacao === "POSSIVEL_GERADORA") { setTipo("GERADORA"); setModalidade("INJECAO"); }
     else if (!Number(energiaCompensada)) setTipo("CONSUMIDORA");
-  }, [classificacao, cliente, clienteIdVinculado, enderecoImportado, energiaCompensada, origem, uc]);
+  }, [classificacao, cliente, clienteIdVinculado, enderecoImportado, energiaCompensada, origem, uc, usuario?.nome]);
 
   async function salvar() {
     const percentual = Number(desconto.replace(",", "."));

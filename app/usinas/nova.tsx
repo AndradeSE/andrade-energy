@@ -22,12 +22,12 @@ export default function NovaUsina() {
     if (origem !== "fatura") return;
     const nomeExtraido = (cliente ?? "").trim();
     const rotuloDaFatura = /d[eé]bito\s+autom[aá]tico|valor\s+a\s+pagar|vencimento/i.test(nomeExtraido);
-    const titularExtraido = rotuloDaFatura ? "" : nomeExtraido;
+    const titularExtraido = rotuloDaFatura || !nomeExtraido ? usuario?.nome?.trim() ?? "" : nomeExtraido;
     setNome(titularExtraido ? `Usina ${titularExtraido}` : "");
     setTitular(titularExtraido);
     setNumeroInstalacao((uc ?? "").replace(/\D/g, ""));
     setEndereco(enderecoImportado ?? "");
-  }, [cliente, enderecoImportado, origem, uc]);
+  }, [cliente, enderecoImportado, origem, uc, usuario?.nome]);
 
   async function salvar() {
     if (!nome.trim() || !numeroInstalacao || !potencia) {
