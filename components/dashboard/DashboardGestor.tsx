@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { useDashboardGestor } from "../../hooks/useDashboardGestor";
@@ -59,8 +59,7 @@ export default function DashboardGestor() {
     <Screen>
       <AppHeader contextSubtitle={`Competência ${data.competencia}`} contextTitle="Visão geral da operação" icon="sunny-outline" subtitle="Sua energia em um só lugar" title={data.usina?.nome ?? "Minha usina"} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        <ImageBackground imageStyle={styles.heroImage} source={require("../../assets/images/background.png")} style={styles.hero}>
-          <View style={styles.heroOverlay} />
+        <View style={styles.hero}>
           <View style={styles.heroTop}>
             <View><Text style={styles.heroEyebrow}>GERAÇÃO NO MÊS</Text><Text style={styles.heroValue}>{formatarEnergia(data.energiaGerada)}</Text></View>
             <View style={styles.status}><View style={styles.statusDot} /><Text style={styles.statusText}>Operação ativa</Text></View>
@@ -68,7 +67,7 @@ export default function DashboardGestor() {
           <View style={styles.progressTrack}><View style={[styles.progress, { width: `${Math.min(Math.max(Number(data.ocupacao), 0), 100)}%` }]} /></View>
           <View style={styles.heroBottom}><Text style={styles.heroCaption}>{formatarPercentual(data.ocupacao)} da energia alocada</Text><Text style={styles.heroCaption}>{formatarEnergia(data.energiaDisponivel)} disponíveis</Text></View>
           <Pressable disabled={importando} onPress={atualizarGeracao} style={styles.importButton}><Ionicons name="document-attach-outline" size={18} color={Colors.surface} /><Text style={styles.importText}>{importando ? "Lendo fatura..." : "Atualizar pela fatura da usina"}</Text></Pressable>
-        </ImageBackground>
+        </View>
 
         <Section title="Resumo da carteira">
           <View style={styles.grid}>
@@ -92,7 +91,6 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl * 3 },
   errorContent: { flex: 1, justifyContent: "center", padding: Spacing.lg },
   hero: { minHeight: 218, overflow: "hidden", justifyContent: "space-between", marginBottom: Spacing.xl, padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: Colors.primary, ...Shadows.card },
-  heroImage: { borderRadius: Radius.xl }, heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(15, 143, 91, 0.72)" },
   heroTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }, heroEyebrow: { color: "#A7F3D0", fontSize: Typography.small, fontWeight: "700", letterSpacing: 1.1 },
   heroValue: { marginTop: Spacing.xs, color: Colors.surface, fontSize: 32, fontWeight: "800" }, status: { flexDirection: "row", alignItems: "center", paddingHorizontal: Spacing.sm, paddingVertical: 7, borderRadius: Radius.round, backgroundColor: "rgba(255,255,255,0.14)" },
   statusDot: { width: 7, height: 7, marginRight: 6, borderRadius: Radius.round, backgroundColor: "#34D399" }, statusText: { color: Colors.surface, fontSize: Typography.small, fontWeight: "700" },

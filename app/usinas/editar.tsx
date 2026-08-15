@@ -1,327 +1,96 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
+import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import {
-  Alert,
-  ImageBackground,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
-} from 'react-native';
-
-import { supabase } from '../../supabase';
+import FormField from "../../components/cadastro/FormField";
+import { Button, Card, Loading, Screen } from "../../components/ui";
+import { useAuth } from "../../contexts/AuthContext";
+import { supabase } from "../../supabase";
+import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function EditarUsina() {
-
-  const { id } = useLocalSearchParams();
-
-  const usinaId = Array.isArray(id)
-    ? id[0]
-    : id;
-
-  const [nome, setNome] = useState('');
-  const [pontoInstalacao, setPontoInstalacao] =
-    useState('');
-
-  const [potencia, setPotencia] =
-    useState('');
-
-  const [geracaoMedia, setGeracaoMedia] =
-    useState('');
-
-  const [investimento, setInvestimento] =
-    useState('');
-
-  const [salvando, setSalvando] =
-    useState(false);
-
-  const carregar = useCallback(async () => {
-
-    const { data } =
-      await supabase
-        .from('usinas')
-        .select('*')
-        .eq('id', usinaId)
-        .single();
-
-    if (!data) return;
-
-    setNome(
-      data.nome || ''
-    );
-
-    setPontoInstalacao(
-      data.ponto_instalacao || ''
-    );
-
-    setPotencia(
-      String(
-        data.potencia_kwp || ''
-      )
-    );
-
-    setGeracaoMedia(
-      String(
-        data.geracao_media || ''
-      )
-    );
-
-    setInvestimento(
-      String(
-        data.investimento || ''
-      )
-    );
-  }, [usinaId]);
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { usuario, usinaSelecionada, selecionarUsina, atualizarUsuario } = useAuth();
+  const [nome, setNome] = useState("");
+  const [numeroInstalacao, setNumeroInstalacao] = useState("");
+  const [potencia, setPotencia] = useState("");
+  const [geracaoMedia, setGeracaoMedia] = useState("");
+  const [investimento, setInvestimento] = useState("");
+  const [titular, setTitular] = useState("");
+  const [endereco, setEndereco] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
 
   useEffect(() => {
-    carregar();
-  }, [carregar]);
+    async function carregar() {
+      const { data, error } = await supabase.from("usinas").select("*").eq("id", id).single();
+      if (error || !data) {
+        Alert.alert("Usina não encontrada", "Não foi possível carregar os dados da usina.");
+        router.back();
+        return;
+      }
+      setNome(data.nome ?? "");
+      setNumeroInstalacao(String(data.numero_instalacao ?? data.ponto_instalacao ?? "").replace(/\D/g, ""));
+      setPotencia(String(data.potencia_kwp ?? ""));
+      setGeracaoMedia(String(data.geracao_media ?? ""));
+      setInvestimento(String(data.investimento ?? ""));
+      setTitular(data.titular_nome ?? "");
+      setEndereco(data.endereco ?? "");
+    }
+    carregar().finally(() => setLoading(false));
+  }, [id]);
 
   async function salvar() {
-
+    if (!nome.trim() || !numeroInstalacao) return Alert.alert("Dados incompletos", "Informe o nome e o número da instalação.");
     setSalvando(true);
-
-    const payload = {
-      nome,
-      ponto_instalacao:
-        pontoInstalacao,
-      potencia_kwp:
-        Number(potencia),
-      geracao_media:
-        Number(geracaoMedia),
-      investimento:
-        Number(investimento),
-    };
-
-    const { error } =
-      await supabase
-        .from('usinas')
-        .update(payload)
-        .eq('id', usinaId);
-
+    const { error } = await supabase.from("usinas").update({
+      nome: nome.trim(), numero_instalacao: numeroInstalacao,
+      potencia_kwp: Number(potencia.replace(",", ".")) || 0,
+      geracao_media: Number(geracaoMedia.replace(",", ".")) || 0,
+      investimento: Number(investimento.replace(",", ".")) || 0,
+      titular_nome: titular.trim() || null, endereco: endereco.trim() || null,
+    }).eq("id", id);
     setSalvando(false);
-
-    if (error) {
-
-      Alert.alert(
-        'Erro',
-        error.message
-      );
-
-      return;
-    }
-
-    Alert.alert(
-      'Sucesso',
-      'Usina atualizada.'
-    );
-
-    router.back();
+    if (error) Alert.alert("Não foi possível salvar", error.message); else router.back();
   }
 
   function confirmarExclusao() {
-
-    Alert.alert(
-      'Excluir usina',
-      'Deseja realmente excluir esta usina?',
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: excluirUsina,
-        },
-      ]
-    );
+    Alert.alert("Excluir usina", "A usina e seus vínculos serão removidos. Esta ação não pode ser desfeita.", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Excluir usina", style: "destructive", onPress: excluir },
+    ]);
   }
 
-  async function excluirUsina() {
-
-    const { error } =
-      await supabase
-        .from('usinas')
-        .delete()
-        .eq('id', usinaId);
-
-    if (error) {
-
-      Alert.alert(
-        'Erro',
-        error.message
-      );
-
-      return;
-    }
-
-    Alert.alert(
-      'Sucesso',
-      'Usina excluída.'
-    );
-
-    router.replace('/usinas');
+  async function excluir() {
+    setExcluindo(true);
+    const { error } = await supabase.from("usinas").delete().eq("id", id);
+    setExcluindo(false);
+    if (error) return Alert.alert("Não foi possível excluir", error.message);
+    if (usuario?.usina_id === id) await atualizarUsuario({ usina_id: null });
+    if (usinaSelecionada?.id === id) selecionarUsina(null);
+    router.replace("/selecionar-unidade");
   }
 
-  return (
-
-     <ImageBackground
-source={require('../../assets/images/background.png')}        style={{ flex: 1 }}
-      >
-        <SafeAreaView
-          style={{
-            flex: 1,
-          }}
-          >
-      
-   <View
-  style={{
-    width: '88%',          // diminui a largura
-    alignSelf: 'center',   // centraliza o card
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: 18,
-    padding: 20,
-    marginTop: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    elevation: 6,
-  }}
->
-         <Text
-        style={{
-          fontSize: 24,
-          fontWeight: 'bold',
-          marginBottom: 20,
-        }}
-      >
-        Editar Usina
-      </Text>
-
-      <Text>
-        Nome da usina
-      </Text>
-
-      <TextInput
-        value={nome}
-        onChangeText={setNome}
-         style={styles.input}
-        
-      />
-
-      <Text>
-        Ponto de instalação
-      </Text>
-
-      <TextInput
-        value={pontoInstalacao}
-        onChangeText={(texto) =>
-          setPontoInstalacao(
-            texto.replace(/\D/g, '')
-          )
-        }
-        keyboardType="numeric"
-         style={styles.input}
-        
-      />
-
-      <Text>
-        Potência (kWp)
-      </Text>
-
-      <TextInput
-        value={potencia}
-        onChangeText={setPotencia}
-        keyboardType="numeric"
-        style={styles.input}
-        
-      />
-
-      <Text>
-        Geração média (kWh/mês)
-      </Text>
-
-      <TextInput
-        value={geracaoMedia}
-        onChangeText={setGeracaoMedia}
-        keyboardType="numeric"
-        style={styles.input}
-        
-      />
-
-      <Text>
-        Investimento
-      </Text>
-
-      <TextInput
-        value={investimento}
-        onChangeText={setInvestimento}
-        keyboardType="numeric"
-         style={styles.input}
-        
-      />
-
-      <TouchableOpacity
-        onPress={salvar}
-        style={{
-          backgroundColor: '#2563eb',
-          padding: 15,
-          borderRadius: 10,
-        }}
-      >
-        <Text
-          style={{
-            color: 'white',
-            textAlign: 'center',
-            fontWeight: 'bold',
-          }}
-        >
-          {salvando
-            ? 'SALVANDO...'
-            : 'SALVAR'}
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        onPress={confirmarExclusao}
-        style={{
-          backgroundColor: '#dc2626',
-          padding: 15,
-          borderRadius: 10,
-          marginTop: 10,
-        }}
-      >
-        <Text
-          style={{
-            color: 'white',
-            textAlign: 'center',
-            fontWeight: 'bold',
-          }}
-        >
-          EXCLUIR USINA
-        </Text>
-      </TouchableOpacity>
-
-    </View>
-    </SafeAreaView>
-  </ImageBackground>
-  );
+  if (loading) return <Loading />;
+  return <Screen><ScrollView contentContainerStyle={styles.content}>
+    <Text style={styles.eyebrow}>CADASTRO DA USINA</Text><Text style={styles.title}>Editar usina</Text><Text style={styles.subtitle}>Atualize os dados técnicos e cadastrais da unidade geradora.</Text>
+    <Card>
+      <FormField label="Nome da usina" value={nome} onChangeText={setNome} />
+      <FormField label="Número da instalação / UC" value={numeroInstalacao} onChangeText={(valor) => setNumeroInstalacao(valor.replace(/\D/g, ""))} keyboardType="numeric" />
+      <FormField label="Potência (kWp)" value={potencia} onChangeText={setPotencia} keyboardType="decimal-pad" />
+      <FormField label="Geração média (kWh/mês)" value={geracaoMedia} onChangeText={setGeracaoMedia} keyboardType="decimal-pad" />
+      <FormField label="Investimento (R$)" value={investimento} onChangeText={setInvestimento} keyboardType="decimal-pad" />
+      <FormField label="Titular" value={titular} onChangeText={setTitular} />
+      <FormField label="Endereço" value={endereco} onChangeText={setEndereco} />
+      <Button disabled={salvando || excluindo} title={salvando ? "Salvando..." : "Salvar alterações"} onPress={salvar} />
+    </Card>
+    <View style={styles.dangerZone}><View style={styles.dangerHeading}><Ionicons name="trash-outline" size={21} color={Colors.danger} /><View style={styles.dangerText}><Text style={styles.dangerTitle}>Excluir usina</Text><Text style={styles.dangerSubtitle}>Remova esta usina permanentemente.</Text></View></View><Button disabled={salvando || excluindo} title={excluindo ? "Excluindo..." : "Excluir usina"} onPress={confirmarExclusao} style={styles.deleteButton} /></View>
+  </ScrollView></Screen>;
 }
-const styles = {
-  input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 5,
-    marginBottom: 18,
-  },
-};
+
+const styles = StyleSheet.create({
+  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl }, eyebrow: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800", letterSpacing: 1.2 }, title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "800" }, subtitle: { marginTop: Spacing.sm, marginBottom: Spacing.lg, color: Colors.subtitle, lineHeight: 21 },
+  dangerZone: { marginTop: Spacing.lg, padding: Spacing.lg, borderWidth: 1, borderColor: "#FECACA", borderRadius: Radius.xl, backgroundColor: "#FFF7F7" }, dangerHeading: { flexDirection: "row", alignItems: "center", marginBottom: Spacing.md }, dangerText: { flex: 1, marginLeft: Spacing.sm }, dangerTitle: { color: Colors.danger, fontSize: Typography.body, fontWeight: "800" }, dangerSubtitle: { marginTop: 2, color: Colors.subtitle, fontSize: Typography.small }, deleteButton: { backgroundColor: Colors.danger },
+});
