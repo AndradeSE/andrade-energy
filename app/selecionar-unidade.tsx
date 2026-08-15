@@ -27,10 +27,7 @@ export default function SelecionarUnidade() {
     if (gestor) {
       listarUsinas()
         .then((lista) => {
-          const permitidas = usuario?.usina_id
-            ? lista.filter((usina: UsinaSelecionada) => usina.id === usuario.usina_id)
-            : usuario?.perfil === "GESTOR" ? [] : lista;
-          setItens(permitidas);
+          setItens(lista);
         })
         .catch(() => setErro(true))
         .finally(() => setLoading(false));
@@ -46,7 +43,7 @@ export default function SelecionarUnidade() {
       .then(setItens)
       .catch(() => setErro(true))
       .finally(() => setLoading(false));
-  }, [gestor, usuario?.cliente_id, usuario?.perfil, usuario?.usina_id]);
+  }, [gestor, usuario?.cliente_id]);
 
   useFocusEffect(carregar);
 

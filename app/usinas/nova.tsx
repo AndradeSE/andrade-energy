@@ -18,6 +18,33 @@ export default function NovaUsina() {
   const [endereco, setEndereco] = useState("");
   const [salvando, setSalvando] = useState(false);
 
+  async function abrirNaLista(usina: {
+    id: string;
+    nome: string;
+    numero_instalacao?: string | null;
+    distribuidora?: string | null;
+    endereco?: string | null;
+    status?: string | null;
+  }) {
+    if (usuario?.perfil === "GESTOR" && !usuario.usina_id) {
+      const { error: vinculoError } = await supabase
+        .from("usuarios")
+        .update({ usina_id: usina.id })
+        .eq("id", usuario.id);
+
+      if (vinculoError) {
+        Alert.alert("Usina localizada", "Não foi possível vinculá-la à sua conta.");
+        return false;
+      }
+
+      await atualizarUsuario({ usina_id: usina.id });
+    }
+
+    selecionarUsina(usina);
+    router.replace("/(tabs)/usinas");
+    return true;
+  }
+
   useEffect(() => {
     if (origem !== "fatura") return;
     const nomeExtraido = (cliente ?? "").trim();
@@ -49,23 +76,20 @@ export default function NovaUsina() {
       if (unidadeError) {
         Alert.alert("Usina salva", "A usina foi criada, mas a unidade geradora precisa ser vinculada novamente.");
       } else {
-        if (usuario?.perfil === "GESTOR" && !usuario.usina_id) {
-          const { error: vinculoError } = await supabase
-            .from("usuarios")
-            .update({ usina_id: usina.id })
-            .eq("id", usuario.id);
+        await abrirNaLista(usina);
+      }
+    } else if (error?.code === "23505" && error.message.includes("usinas_numero_instalacao_key")) {
+      const { data: existente, error: buscaError } = await supabase
+        .from("usinas")
+        .select("id, nome, numero_instalacao, distribuidora, endereco, status")
+        .eq("numero_instalacao", numeroInstalacao)
+        .single();
 
-          if (vinculoError) {
-            Alert.alert("Usina salva", "A usina foi criada, mas não foi possível vinculá-la à sua conta.");
-            setSalvando(false);
-            return;
-          }
-
-          await atualizarUsuario({ usina_id: usina.id });
-        }
-
-        selecionarUsina(usina);
-        router.replace("/(tabs)/usinas");
+      if (buscaError || !existente) {
+        Alert.alert("Usina já cadastrada", "Esta instalação já existe, mas não foi possível carregá-la.");
+      } else {
+        Alert.alert("Usina já cadastrada", "A instalação já existe e foi localizada na sua lista.");
+        await abrirNaLista(existente);
       }
     } else Alert.alert("Não foi possível salvar", error?.message ?? "Tente novamente.");
     setSalvando(false);
