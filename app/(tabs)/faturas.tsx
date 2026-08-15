@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
@@ -15,8 +15,9 @@ const estaPaga = (status?: string) => ["PAGA", "PAGO", "QUITADA"].includes(norma
 const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function Faturas() {
+  const params = useLocalSearchParams<{ categoria?: string }>();
   const { data, isLoading, error } = useFaturas();
-  const [categoria, setCategoria] = useState<Categoria>("cemig");
+  const [categoria, setCategoria] = useState<Categoria>(params.categoria === "unificada" ? "unificada" : "cemig");
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const faturas = useMemo(() => data ?? [], [data]);
 

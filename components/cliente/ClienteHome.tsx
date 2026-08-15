@@ -1,14 +1,11 @@
-import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, StatusBar, StyleSheet, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useDashboard } from "../../hooks/useDashboard";
 import { Colors, Spacing } from "../../theme";
 
 import EmptyState from "../ui/EmptyState";
-import Card from "../ui/Card";
 import Loading from "../ui/Loading";
 import Screen from "../ui/Screen";
 
@@ -37,9 +34,6 @@ export default function ClienteHome() {
     );
   }
 
-  const quantidadeEmAberto = Number(data.faturasEmAberto ?? 0);
-  const valorEmAberto = Number(data.valorEmAberto ?? 0);
-
   return (
     <SafeAreaView edges={["left", "right", "bottom"]} style={styles.screen}>
       <StatusBar backgroundColor="#8F938D" barStyle="light-content" />
@@ -59,43 +53,6 @@ export default function ClienteHome() {
           saldo={data.creditos}
           economia={data.economiaAcumulada}
         />
-
-        <View style={styles.invoiceSectionHeader}>
-          <Text style={styles.invoiceSectionTitle}>Faturas em aberto</Text>
-          <TouchableOpacity onPress={() => router.push("/faturas")}>
-            <Text style={styles.invoiceSeeAll}>VER TODAS</Text>
-          </TouchableOpacity>
-        </View>
-        <TouchableOpacity
-          accessibilityLabel="Abrir faturas em aberto"
-          activeOpacity={0.86}
-          onPress={() => {
-            const faturaId = data.ultimaFatura?.id;
-            router.push(faturaId && quantidadeEmAberto > 0 ? `/faturas/${faturaId}` : "/faturas/pagamento");
-          }}
-        >
-          <Card>
-            <View style={styles.emptyInvoiceHeader}>
-              <View style={styles.emptyInvoiceIcon}>
-                <Ionicons name="receipt-outline" size={22} color={Colors.primary} />
-              </View>
-              <View style={styles.emptyInvoiceContent}>
-                <Text style={styles.emptyInvoiceEyebrow}>PENDÊNCIAS</Text>
-                <Text style={styles.emptyInvoiceTitle}>
-                  {quantidadeEmAberto} {quantidadeEmAberto === 1 ? "fatura" : "faturas"}
-                </Text>
-              </View>
-              <Text style={styles.emptyInvoiceValue}>
-                {valorEmAberto.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-              </Text>
-            </View>
-            <Text style={styles.emptyInvoiceHint}>
-              {quantidadeEmAberto > 0
-                ? "Consulte os vencimentos e baixe os documentos disponíveis."
-                : "Você não possui nenhuma fatura pendente no momento."}
-            </Text>
-          </Card>
-        </TouchableOpacity>
 
         <EnergyFlowCard
           injecao={data.ultimaFatura?.energiaInjetada ?? 0}
@@ -133,62 +90,5 @@ const styles = StyleSheet.create({
   content: {
     padding: Spacing.lg,
     paddingBottom: Spacing.xxl * 3,
-  },
-  emptyInvoiceHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  invoiceSectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: Spacing.xs,
-    marginBottom: Spacing.sm,
-  },
-  invoiceSectionTitle: {
-    color: Colors.text,
-    fontSize: 17,
-    fontWeight: "800",
-  },
-  invoiceSeeAll: {
-    color: Colors.primary,
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 0.4,
-  },
-  emptyInvoiceIcon: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 14,
-    backgroundColor: Colors.primaryLight,
-  },
-  emptyInvoiceContent: {
-    flex: 1,
-    marginLeft: Spacing.sm,
-  },
-  emptyInvoiceEyebrow: {
-    color: Colors.subtitle,
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 0.7,
-  },
-  emptyInvoiceTitle: {
-    marginTop: 3,
-    color: Colors.text,
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  emptyInvoiceValue: {
-    color: Colors.text,
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  emptyInvoiceHint: {
-    marginTop: Spacing.md,
-    color: Colors.subtitle,
-    fontSize: 12,
-    lineHeight: 18,
   },
 });

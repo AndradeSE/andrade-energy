@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { ImageBackground, ScrollView, StyleSheet, Text, View } from "react-native";
+import { router } from "expo-router";
+import { ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import Badge from "../../components/ui/Badge";
 import Card from "../../components/ui/Card";
@@ -99,6 +100,31 @@ export default function Economia() {
             </Text>
           </View>
         </ImageBackground>
+
+        <View style={styles.documentActions}>
+          <TouchableOpacity
+            accessibilityLabel="Abrir faturas Andrade Energy"
+            activeOpacity={0.84}
+            onPress={() => router.push({ pathname: "/faturas", params: { categoria: "unificada" } })}
+            style={styles.documentButton}
+          >
+            <View style={styles.documentIcon}><Ionicons name="documents-outline" size={24} color={Colors.primary} /></View>
+            <Text style={styles.documentTitle}>Faturas</Text>
+            <Text style={styles.documentSubtitle}>Andrade Energy</Text>
+            <Ionicons name="chevron-forward" size={19} color={Colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityLabel="Abrir contas de luz CEMIG"
+            activeOpacity={0.84}
+            onPress={() => router.push({ pathname: "/faturas", params: { categoria: "cemig" } })}
+            style={styles.documentButton}
+          >
+            <View style={styles.documentIcon}><Ionicons name="flash-outline" size={24} color={Colors.primary} /></View>
+            <Text style={styles.documentTitle}>Conta de luz</Text>
+            <Text style={styles.documentSubtitle}>CEMIG</Text>
+            <Ionicons name="chevron-forward" size={19} color={Colors.primary} />
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.sectionHeader}>
           <View>
@@ -257,6 +283,11 @@ const styles = StyleSheet.create({
     fontSize: Typography.caption,
     fontWeight: "600",
   },
+  documentActions: { flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.xl },
+  documentButton: { minHeight: 122, flex: 1, alignItems: "flex-start", justifyContent: "center", padding: Spacing.md, borderRadius: Radius.xl, backgroundColor: "#D6D8DC" },
+  documentIcon: { width: 42, height: 42, alignItems: "center", justifyContent: "center", marginBottom: Spacing.sm, borderRadius: Radius.md, backgroundColor: Colors.surface },
+  documentTitle: { color: Colors.text, fontSize: Typography.caption, fontWeight: "900" },
+  documentSubtitle: { marginTop: 2, marginBottom: Spacing.xs, color: Colors.subtitle, fontSize: Typography.small },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
