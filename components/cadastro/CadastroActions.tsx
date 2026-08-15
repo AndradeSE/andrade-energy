@@ -36,6 +36,11 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
       const item = arquivo.assets[0];
       const analise = await analisarFatura(item.uri, item.name);
       const dados = analise?.dados ?? {};
+      const dadosCadastro = analise?.resultado?.dadosCadastro ?? analise?.dadosCadastro ?? {};
+      const nomeExtraido = dados.cliente ?? dados.nome ?? dados.titular ?? dadosCadastro.nome ?? dadosCadastro.cliente ?? "";
+      const ucExtraida = dados.uc ?? dados.numero_instalacao ?? dados.numeroInstalacao ?? dadosCadastro.uc ?? "";
+      const enderecoExtraido = dados.endereco ?? dados.endereco_instalacao ?? dadosCadastro.endereco ?? "";
+      const distribuidoraExtraida = dados.distribuidora ?? dados.concessionaria ?? dadosCadastro.distribuidora ?? "CEMIG";
 
       if (tipo === "USINA" && analise.classificacao !== "POSSIVEL_GERADORA") {
         Alert.alert(
@@ -49,9 +54,12 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
         params: {
           origem: "fatura",
           classificacao: String(analise?.classificacao ?? ""),
-          cliente: String(dados.cliente ?? ""),
-          uc: String(dados.uc ?? ""),
-          endereco: String(dados.endereco ?? ""),
+          cliente: String(nomeExtraido),
+          nome: String(nomeExtraido),
+          uc: String(ucExtraida),
+          numeroInstalacao: String(ucExtraida),
+          endereco: String(enderecoExtraido),
+          distribuidora: String(distribuidoraExtraida),
           energiaCompensada: String(dados.energiaCompensada ?? 0),
         },
       });

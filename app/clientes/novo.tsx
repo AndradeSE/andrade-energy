@@ -10,23 +10,25 @@ import { Colors, Spacing, Typography } from "../../theme";
 
 export default function NovoCliente() {
   const { usinaSelecionada, usuario } = useAuth();
-  const { origem, cliente, uc: ucImportada, endereco: enderecoImportado } = useLocalSearchParams<{ origem?: string; cliente?: string; uc?: string; endereco?: string }>();
+  const { origem, cliente, nome: nomeImportado, uc: ucImportada, numeroInstalacao, endereco: enderecoImportado, distribuidora: distribuidoraImportada } = useLocalSearchParams<{ origem?: string; cliente?: string; nome?: string; uc?: string; numeroInstalacao?: string; endereco?: string; distribuidora?: string }>();
   const [nome, setNome] = useState("");
   const [uc, setUc] = useState("");
   const [cpf, setCpf] = useState("");
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
   const [endereco, setEndereco] = useState("");
+  const [distribuidora, setDistribuidora] = useState("CEMIG");
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
     if (origem !== "fatura") return;
-    const nomeExtraido = (cliente ?? "").trim();
+    const nomeExtraido = (cliente ?? nomeImportado ?? "").trim();
     const invalido = /d[eé]bito\s+autom[aá]tico|valor\s+a\s+pagar|vencimento/i.test(nomeExtraido);
     setNome(invalido ? "" : nomeExtraido);
-    setUc((ucImportada ?? "").replace(/\D/g, ""));
+    setUc((ucImportada ?? numeroInstalacao ?? "").replace(/\D/g, ""));
     setEndereco(enderecoImportado ?? "");
-  }, [cliente, enderecoImportado, origem, ucImportada]);
+    setDistribuidora(distribuidoraImportada ?? "CEMIG");
+  }, [cliente, distribuidoraImportada, enderecoImportado, nomeImportado, numeroInstalacao, origem, ucImportada]);
 
   async function salvar() {
     if (!nome.trim()) return Alert.alert("Nome obrigatório", "Informe o nome do consumidor.");
@@ -37,7 +39,7 @@ export default function NovoCliente() {
     const dados = {
       nome: nome.trim(), cpf: cpfLimpo || null, email: email.trim().toLowerCase() || null,
       telefone: telefone.trim() || null, whatsapp: telefone.replace(/\D/g, "") || null,
-      uc: uc || null, endereco: endereco.trim() || null, distribuidora: "CEMIG",
+      uc: uc || null, endereco: endereco.trim() || null, distribuidora,
       usina_id: usinaSelecionada?.id ?? usuario?.usina_id ?? null, status: "ATIVO",
     };
 
@@ -60,7 +62,7 @@ export default function NovoCliente() {
     if (uc) {
       const { error } = await supabase.from("unidades_consumidoras").upsert({
         cliente_id: clienteId, usina_id: usinaSelecionada?.id ?? usuario?.usina_id ?? null,
-        numero: uc, tipo: "BENEFICIARIA", titular: nome.trim(), distribuidora: "CEMIG",
+        numero: uc, tipo: "BENEFICIARIA", titular: nome.trim(), distribuidora,
         endereco: endereco.trim() || null, modalidade_faturamento: "COMPENSACAO", status: "ATIVA",
       }, { onConflict: "numero" });
       if (error) Alert.alert("Consumidor salvo", "O consumidor foi criado, mas a UC precisa ser vinculada novamente.");
@@ -80,6 +82,7 @@ export default function NovoCliente() {
       <FormField label="E-mail (opcional)" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
       <FormField label="Telefone / WhatsApp (opcional)" value={telefone} onChangeText={setTelefone} keyboardType="phone-pad" />
       <FormField label="Unidade consumidora (opcional)" value={uc} onChangeText={(valor) => setUc(valor.replace(/\D/g, ""))} keyboardType="numeric" />
+      <FormField label="Concessionária" value={distribuidora} onChangeText={setDistribuidora} />
       <FormField label="Endereço (opcional)" value={endereco} onChangeText={setEndereco} />
       <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar consumidor"} onPress={salvar} />
     </Card>
