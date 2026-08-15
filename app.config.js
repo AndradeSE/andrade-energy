@@ -1,5 +1,7 @@
 const gerador = process.env.EXPO_PUBLIC_APP_VARIANT === "gerador";
 const consumerProjectId = "45f35f6f-4f6a-4452-b2e4-02932e778b2b";
+const generatorProjectId = "fb9568d6-9bf0-4c1c-b30f-6ea034b90655";
+const easProjectId = gerador ? generatorProjectId : consumerProjectId;
 
 module.exports = {
   expo: {
@@ -43,9 +45,9 @@ module.exports = {
     extra: {
       appVariant: gerador ? "gerador" : "consumidor",
       router: {},
-      ...(!gerador ? { eas: { projectId: consumerProjectId } } : {}),
+      eas: { projectId: easProjectId },
     },
     runtimeVersion: { policy: "appVersion" },
-    ...(!gerador ? { updates: { url: `https://u.expo.dev/${consumerProjectId}` } } : {}),
+    updates: { url: `https://u.expo.dev/${easProjectId}` },
   },
 };
