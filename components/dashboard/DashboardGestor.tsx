@@ -36,6 +36,7 @@ export default function DashboardGestor() {
   const { usuario, usinaSelecionada } = useAuth();
   const { data, isLoading, error, refetch } = useDashboardGestor();
   const [importando, setImportando] = useState(false);
+  const [acessoRapidoAtivo, setAcessoRapidoAtivo] = useState(false);
 
   async function atualizarGeracao() {
     const usinaId = usinaSelecionada?.id ?? usuario?.usina_id;
@@ -59,7 +60,7 @@ export default function DashboardGestor() {
   return (
     <Screen>
       <AppHeader contextSubtitle={`Competência ${data.competencia}`} contextTitle="Visão geral da operação" icon="sunny-outline" subtitle="Sua energia em um só lugar" title={data.usina?.nome ?? "Minha usina"} />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <ScrollView scrollEnabled={!acessoRapidoAtivo} showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <View style={styles.hero}>
           <View style={styles.heroTop}>
             <View><Text style={styles.heroEyebrow}>GERAÇÃO NO MÊS</Text><Text style={styles.heroValue}>{formatarEnergia(data.energiaGerada)}</Text></View>
@@ -79,7 +80,7 @@ export default function DashboardGestor() {
         </Section>
 
         <Section title="Acesso rápido">
-          <QuickAccessCarousel items={atalhos.map((atalho) => ({ icon: atalho.icon, label: atalho.label, onPress: () => router.push(atalho.rota as any) }))} />
+          <QuickAccessCarousel onInteractionChange={setAcessoRapidoAtivo} items={atalhos.map((atalho) => ({ icon: atalho.icon, label: atalho.label, onPress: () => router.push(atalho.rota as any) }))} />
         </Section>
 
         <RevenueChart previsto={data.receitaPrevista} recebido={data.receitaRealizada} />

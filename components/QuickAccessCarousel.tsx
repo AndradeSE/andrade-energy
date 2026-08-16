@@ -9,7 +9,12 @@ type Item = {
   onPress: () => void;
 };
 
-export default function QuickAccessCarousel({ items }: { items: Item[] }) {
+type Props = {
+  items: Item[];
+  onInteractionChange?: (active: boolean) => void;
+};
+
+export default function QuickAccessCarousel({ items, onInteractionChange }: Props) {
   return (
     <ScrollView
       horizontal
@@ -22,6 +27,9 @@ export default function QuickAccessCarousel({ items }: { items: Item[] }) {
       showsHorizontalScrollIndicator={false}
       style={styles.scroll}
       contentContainerStyle={styles.content}
+      onTouchStart={() => onInteractionChange?.(true)}
+      onTouchEnd={() => onInteractionChange?.(false)}
+      onTouchCancel={() => onInteractionChange?.(false)}
     >
       {items.map((item) => (
         <Pressable accessibilityLabel={item.label} key={item.label} onPress={item.onPress} style={styles.card}>
