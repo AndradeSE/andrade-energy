@@ -1,14 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { useDashboardGestor } from "../../hooks/useDashboardGestor";
 import { importarFaturaGeradora } from "../../services/usinas.service";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
-import { AppHeader, Card, EmptyState, Loading, Metric, Screen, Section } from "../ui";
+import { AppHeader, EmptyState, Loading, Metric, Screen, Section } from "../ui";
 import RevenueChart from "./RevenueChart";
 
 function formatarEnergia(valor: number) {
@@ -35,6 +35,16 @@ export default function DashboardGestor() {
   const { usuario, usinaSelecionada } = useAuth();
   const { data, isLoading, error, refetch } = useDashboardGestor();
   const [importando, setImportando] = useState(false);
+  const atalhosRef = useRef<ScrollView>(null);
+  const [atalhosX, setAtalhosX] = useState(0);
+  const [larguraAtalhos, setLarguraAtalhos] = useState(0);
+  const [conteudoAtalhos, setConteudoAtalhos] = useState(0);
+
+  function rolarAtalhos(direcao: -1 | 1) {
+    const destino = Math.max(0, Math.min(atalhosX + direcao * 220, Math.max(0, conteudoAtalhos - larguraAtalhos)));
+    atalhosRef.current?.scrollTo({ x: destino, animated: true });
+    setAtalhosX(destino);
+  }
 
   async function atualizarGeracao() {
     const usinaId = usinaSelecionada?.id ?? usuario?.usina_id;
@@ -78,7 +88,11 @@ export default function DashboardGestor() {
         </Section>
 
         <Section title="Acesso rápido">
-          <Card><View style={styles.actions}>{atalhos.map((atalho) => <Pressable key={atalho.label} onPress={() => router.push(atalho.rota as any)} style={styles.action}><View style={styles.actionIcon}><Ionicons name={atalho.icon} size={22} color={Colors.primary} /></View><Text style={styles.actionLabel}>{atalho.label}</Text></Pressable>)}</View></Card>
+          <View style={styles.carousel} onLayout={(evento) => setLarguraAtalhos(evento.nativeEvent.layout.width)}>
+            <Pressable accessibilityLabel="Rolar acesso rápido para a esquerda" disabled={atalhosX <= 0} onPress={() => rolarAtalhos(-1)} style={[styles.arrow, atalhosX <= 0 && styles.arrowDisabled]}><Ionicons name="chevron-back" size={22} color={Colors.surface} /></Pressable>
+            <ScrollView ref={atalhosRef} horizontal onContentSizeChange={(largura) => setConteudoAtalhos(largura)} onScroll={(evento) => setAtalhosX(evento.nativeEvent.contentOffset.x)} scrollEventThrottle={16} showsHorizontalScrollIndicator={false} style={styles.actionsScroll} contentContainerStyle={styles.actions}>{atalhos.map((atalho) => <Pressable key={atalho.label} onPress={() => router.push(atalho.rota as any)} style={styles.action}><View style={styles.actionIcon}><Ionicons name={atalho.icon} size={24} color={Colors.primary} /></View><Text numberOfLines={2} style={styles.actionLabel}>{atalho.label}</Text></Pressable>)}</ScrollView>
+            <Pressable accessibilityLabel="Rolar acesso rápido para a direita" disabled={atalhosX >= Math.max(0, conteudoAtalhos - larguraAtalhos - 2)} onPress={() => rolarAtalhos(1)} style={[styles.arrow, atalhosX >= Math.max(0, conteudoAtalhos - larguraAtalhos - 2) && styles.arrowDisabled]}><Ionicons name="chevron-forward" size={22} color={Colors.surface} /></Pressable>
+          </View>
         </Section>
 
         <RevenueChart previsto={data.receitaPrevista} recebido={data.receitaRealizada} />
@@ -98,6 +112,6 @@ const styles = StyleSheet.create({
   heroBottom: { flexDirection: "row", justifyContent: "space-between", marginTop: Spacing.sm }, heroCaption: { color: "#D1FAE5", fontSize: Typography.small },
   importButton: { minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: Spacing.md, borderRadius: Radius.md, backgroundColor: "rgba(15,143,91,0.88)" }, importText: { marginLeft: Spacing.xs, color: Colors.surface, fontSize: Typography.caption, fontWeight: "700" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm }, metric: { width: "48%" },
-  actions: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.md }, action: { width: "29%", alignItems: "center" }, actionIcon: { width: 50, height: 50, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primaryLight },
-  actionLabel: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.small, fontWeight: "600", textAlign: "center" },
+  carousel: { flexDirection: "row", alignItems: "center", marginHorizontal: -Spacing.xs }, actionsScroll: { flex: 1 }, actions: { gap: Spacing.sm, paddingHorizontal: Spacing.xs }, action: { width: 108, minHeight: 104, alignItems: "center", justifyContent: "center", paddingHorizontal: Spacing.xs, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.lg, backgroundColor: "#DEE0E3" }, actionIcon: { width: 48, height: 48, alignItems: "center", justifyContent: "center", borderRadius: Radius.round, backgroundColor: Colors.primaryLight },
+  actionLabel: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.small, fontWeight: "700", textAlign: "center" }, arrow: { width: 38, height: 38, zIndex: 2, alignItems: "center", justifyContent: "center", borderRadius: Radius.round, backgroundColor: Colors.primary, ...Shadows.card }, arrowDisabled: { opacity: 0.3 },
 });
