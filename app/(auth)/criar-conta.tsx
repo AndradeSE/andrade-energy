@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -41,12 +41,6 @@ export default function CriarConta() {
       setValidandoConvite(false);
     }
   }
-
-  useEffect(() => {
-    if (!IS_GERADOR_APP && params.convite) validarConvite();
-    // Executa somente ao abrir um link de convite.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.convite]);
 
   async function solicitarAcesso() {
     if (salvando) return;
