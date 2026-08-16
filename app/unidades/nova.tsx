@@ -20,7 +20,7 @@ export default function NovaUnidade() {
 
   useEffect(() => {
     Promise.all([
-      supabase.from("clientes").select("id,nome,usina_id,modalidade_faturamento,desconto_percentual").order("nome"),
+      supabase.from("clientes").select("id,nome,endereco,distribuidora,usina_id,modalidade_faturamento,desconto_percentual").order("nome"),
       supabase.from("usinas").select("id,nome").order("nome"),
     ]).then(([c, u]) => { setClientes(c.data ?? []); setUsinas(u.data ?? []); });
     if (clienteIdVinculado) setClienteId(clienteIdVinculado);
@@ -45,8 +45,8 @@ export default function NovaUnidade() {
     const modalidadeFinal = clienteSelecionado?.modalidade_faturamento ?? modalidade;
     const descontoFinal = clienteSelecionado?.desconto_percentual ?? percentual;
     const { error } = await supabase.from("unidades_consumidoras").upsert({
-      numero, titular: titular.trim() || null, tipo, cliente_id: clienteId || null, usina_id: usinaFinal,
-      distribuidora: "CEMIG", endereco: endereco.trim() || null, modalidade_faturamento: modalidadeFinal,
+      numero, titular: titular.trim() || clienteSelecionado?.nome || null, tipo, cliente_id: clienteId || null, usina_id: usinaFinal,
+      distribuidora: clienteSelecionado?.distribuidora || "CEMIG", endereco: endereco.trim() || clienteSelecionado?.endereco || null, modalidade_faturamento: modalidadeFinal,
       desconto_percentual: descontoFinal, status: "ATIVA",
     }, { onConflict: "numero" });
     if (error) Alert.alert("Não foi possível salvar", error.message); else router.back();
@@ -55,14 +55,14 @@ export default function NovaUnidade() {
 
   return <Screen><ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
     <Text style={styles.eyebrow}>{origem === "fatura" ? "DADOS LIDOS DA FATURA" : "CADASTRO MANUAL"}</Text><Text style={styles.title}>Nova unidade</Text>
-    <Text style={styles.subtitle}>Confira a leitura e escolha a quem esta unidade pertence.</Text>
+    <Text style={styles.subtitle}>{clienteIdVinculado ? "Informe apenas o número. Os demais dados serão herdados do cadastro do cliente." : "Confira a leitura e escolha a quem esta unidade pertence."}</Text>
     <Card><FormField label="Número da UC / instalação" value={numero} onChangeText={(v) => setNumero(v.replace(/\D/g, ""))} keyboardType="numeric" />
-      <FormField label="Titular" value={titular} onChangeText={setTitular} />
-      <ChoiceField label="Tipo" value={tipo} onChange={setTipo} options={[{ label: "Consumidora", value: "CONSUMIDORA" }, { label: "Beneficiária", value: "BENEFICIARIA" }, { label: "Geradora", value: "GERADORA" }]} />
-      <ChoiceField label="Faturamento" value={modalidade} onChange={setModalidade} options={[{ label: "Injeção", value: "INJECAO" }, { label: "Compensação", value: "COMPENSACAO" }]} />
-      {!clienteIdVinculado ? <><Text style={styles.label}>Cliente</Text><View style={styles.options}>{clientes.map((c) => <Pressable key={c.id} onPress={() => setClienteId(clienteId === c.id ? "" : c.id)} style={[styles.link, clienteId === c.id && styles.linkSelected]}><Text>{c.nome}</Text></Pressable>)}</View></> : null}
-      {!clienteIdVinculado ? <><Text style={styles.label}>Usina</Text><View style={styles.options}>{usinas.map((u) => <Pressable key={u.id} onPress={() => setUsinaId(usinaId === u.id ? "" : u.id)} style={[styles.link, usinaId === u.id && styles.linkSelected]}><Text>{u.nome}</Text></Pressable>)}</View></> : null}
-      <FormField label="Desconto contratado (%)" value={desconto} onChangeText={setDesconto} keyboardType="decimal-pad" /><FormField label="Endereço" value={endereco} onChangeText={setEndereco} />
+      {!clienteIdVinculado ? <><FormField label="Titular" value={titular} onChangeText={setTitular} />
+        <ChoiceField label="Tipo" value={tipo} onChange={setTipo} options={[{ label: "Consumidora", value: "CONSUMIDORA" }, { label: "Beneficiária", value: "BENEFICIARIA" }, { label: "Geradora", value: "GERADORA" }]} />
+        <ChoiceField label="Faturamento" value={modalidade} onChange={setModalidade} options={[{ label: "Injeção", value: "INJECAO" }, { label: "Compensação", value: "COMPENSACAO" }]} />
+        <Text style={styles.label}>Cliente</Text><View style={styles.options}>{clientes.map((c) => <Pressable key={c.id} onPress={() => setClienteId(clienteId === c.id ? "" : c.id)} style={[styles.link, clienteId === c.id && styles.linkSelected]}><Text>{c.nome}</Text></Pressable>)}</View>
+        <Text style={styles.label}>Usina</Text><View style={styles.options}>{usinas.map((u) => <Pressable key={u.id} onPress={() => setUsinaId(usinaId === u.id ? "" : u.id)} style={[styles.link, usinaId === u.id && styles.linkSelected]}><Text>{u.nome}</Text></Pressable>)}</View>
+        <FormField label="Desconto contratado (%)" value={desconto} onChangeText={setDesconto} keyboardType="decimal-pad" /><FormField label="Endereço" value={endereco} onChangeText={setEndereco} /></> : null}
       <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar unidade"} onPress={salvar} />
     </Card>
   </ScrollView></Screen>;
