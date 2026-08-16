@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Alert, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useAuth } from "../../contexts/AuthContext";
+import { buscarDashboardUsina } from "../../services/usinas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 type Props = {
@@ -22,9 +23,22 @@ export default function AppHeader({
   icon = "grid-outline",
 }: Props) {
   const router = useRouter();
-  const { logout, usuario } = useAuth();
+  const { logout, usuario, usinaSelecionada } = useAuth();
   const [menuAberto, setMenuAberto] = useState(false);
+  const [autonomia, setAutonomia] = useState<{ percentual: number; disponivel: number } | null>(null);
   const proprietario = usuario?.perfil === "ADMIN" || usuario?.perfil === "GESTOR";
+
+  useEffect(() => {
+    if (!proprietario || !usinaSelecionada?.id) { setAutonomia(null); return; }
+    let ativo = true;
+    buscarDashboardUsina(usinaSelecionada.id).then((dados) => {
+      if (!ativo) return;
+      const gerada = Number(dados?.energiaGerada ?? 0);
+      const disponivel = Number(dados?.energiaDisponivel ?? 0);
+      setAutonomia({ percentual: gerada > 0 ? Math.max(0, Math.min(100, disponivel / gerada * 100)) : 0, disponivel });
+    }).catch(() => { if (ativo) setAutonomia(null); });
+    return () => { ativo = false; };
+  }, [proprietario, usinaSelecionada?.id]);
 
   function navegar(rota: string) {
     setMenuAberto(false);
@@ -75,6 +89,11 @@ export default function AppHeader({
           />
         </TouchableOpacity>
       </View>
+
+      {proprietario && usinaSelecionada ? <View style={styles.plantBar}>
+        <View style={styles.plantDot} />
+        <View style={styles.plantText}><Text numberOfLines={1} style={styles.plantName}>{usinaSelecionada.nome}</Text><Text numberOfLines={1} style={styles.plantAutonomy}>{autonomia ? `Autonomia ${autonomia.percentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% · ${autonomia.disponivel.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kWh disponíveis` : "Calculando autonomia..."}</Text></View>
+      </View> : null}
 
       <View style={styles.contextCard}>
         <View style={styles.contextIcon}>
@@ -162,6 +181,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  plantBar: { flexDirection: "row", alignItems: "center", marginTop: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: 7, borderRadius: Radius.md, backgroundColor: "rgba(255,255,255,0.12)" },
+  plantDot: { width: 8, height: 8, marginRight: Spacing.xs, borderRadius: Radius.round, backgroundColor: Colors.secondary },
+  plantText: { flex: 1 },
+  plantName: { color: Colors.surface, fontSize: Typography.small, fontWeight: "800" },
+  plantAutonomy: { marginTop: 1, color: "rgba(255,255,255,0.78)", fontSize: 11 },
   backdrop: { flex: 1, alignItems: "flex-end", backgroundColor: "rgba(15,23,42,0.45)" },
   menu: { width: "84%", height: "100%", paddingHorizontal: Spacing.lg, paddingTop: 58, backgroundColor: Colors.surface },
   menuHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.lg },
