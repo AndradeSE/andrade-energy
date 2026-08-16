@@ -47,7 +47,9 @@ export default function Login() {
       const resposta = await login(emailNormalizado, senha, IS_GERADOR_APP ? "GERADOR" : "CONSUMIDOR");
       const perfilGestor = resposta.usuario?.perfil === "ADMIN" || resposta.usuario?.perfil === "GESTOR";
       if (IS_GERADOR_APP !== perfilGestor) {
-        throw new Error(IS_GERADOR_APP ? "Esta conta pertence ao aplicativo do consumidor." : "Esta conta pertence ao aplicativo do gerador.");
+        throw new Error(IS_GERADOR_APP
+          ? "Esta conta é do aplicativo Consumidor."
+          : "Esta é sua conta de Gerador. Para acessar como consumidor, toque em “Aceitar convite e criar conta”.");
       }
       await salvarSessao(resposta.token, resposta.usuario);
       router.replace("/selecionar-unidade");
@@ -143,16 +145,14 @@ export default function Login() {
               {loading ? <ActivityIndicator color={Colors.surface} /> : <><Text style={styles.loginText}>Entrar</Text><Ionicons name="arrow-forward" size={20} color={Colors.surface} /></>}
             </TouchableOpacity>
 
+            <TouchableOpacity accessibilityRole="button" activeOpacity={0.8} onPress={() => router.push("/(auth)/criar-conta")} style={styles.createAccountButton}>
+              <Ionicons name={IS_GERADOR_APP ? "person-add-outline" : "mail-open-outline"} size={20} color={Colors.primary} />
+              <Text style={styles.createAccountButtonText}>{IS_GERADOR_APP ? "Criar conta" : "Aceitar convite e criar conta"}</Text>
+            </TouchableOpacity>
+
             <View style={styles.securityRow}>
               <Ionicons name="shield-checkmark-outline" size={17} color={Colors.primary} />
               <Text style={styles.securityText}>Acesso protegido aos seus dados de energia</Text>
-            </View>
-
-            <View style={styles.createAccountRow}>
-              <Text style={styles.createAccountLabel}>Ainda não tem acesso?</Text>
-              <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/(auth)/criar-conta")}>
-                <Text style={styles.createAccountText}>Criar conta</Text>
-              </TouchableOpacity>
             </View>
           </View>
 
@@ -187,10 +187,9 @@ const styles = StyleSheet.create({
   loginButton: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.lg, borderRadius: Radius.md, backgroundColor: Colors.primary },
   loginButtonDisabled: { opacity: 0.7 },
   loginText: { color: Colors.surface, fontSize: Typography.body, fontWeight: "900" },
+  createAccountButton: { minHeight: 54, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.sm, borderWidth: 1.5, borderColor: Colors.primary, borderRadius: Radius.md, backgroundColor: "rgba(255,255,255,0.45)" },
+  createAccountButtonText: { color: Colors.primary, fontSize: Typography.body, fontWeight: "900" },
   securityRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: Spacing.md },
   securityText: { marginLeft: 6, color: Colors.subtitle, fontSize: 11 },
-  createAccountRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, marginTop: Spacing.lg, paddingTop: Spacing.md, borderTopWidth: 1, borderTopColor: "#C7CACD" },
-  createAccountLabel: { color: Colors.subtitle, fontSize: Typography.small },
-  createAccountText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" },
   footer: { marginTop: Spacing.lg, color: Colors.subtitle, fontSize: Typography.small, textAlign: "center" },
 });
