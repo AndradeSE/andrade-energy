@@ -8,7 +8,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import CadastroActions from "../components/cadastro/CadastroActions";
 import { EmptyState, Loading } from "../components/ui";
 import { UnidadeConsumidora, UsinaSelecionada, useAuth } from "../contexts/AuthContext";
-import { listarUnidadesCliente } from "../services/clientes.service";
+import { listarMinhasUnidades } from "../services/clientes.service";
 import { listarUsinas } from "../services/usinas.service";
 import { Colors, Radius, Spacing, Typography } from "../theme";
 
@@ -35,16 +35,17 @@ export default function SelecionarUnidade() {
       return;
     }
 
-    if (!usuario?.cliente_id) {
+    if (!usuario?.cpf) {
+      setErro(true);
       setLoading(false);
       return;
     }
 
-    listarUnidadesCliente(usuario.cliente_id)
+    listarMinhasUnidades()
       .then(setItens)
       .catch(() => setErro(true))
       .finally(() => setLoading(false));
-  }, [gestor, usuario?.cliente_id]);
+  }, [gestor, usuario?.cpf]);
 
   useFocusEffect(carregar);
 
@@ -66,14 +67,6 @@ export default function SelecionarUnidade() {
       String(valor ?? "").toLocaleLowerCase("pt-BR").includes(termo)
     )
   );
-
-  function adicionar() {
-    if (gestor) {
-      router.push("/usinas/nova");
-      return;
-    }
-    router.push({ pathname: "/unidades/nova", params: { clienteId: usuario?.cliente_id ?? "" } });
-  }
 
   return (
     <SafeAreaView edges={["left", "right", "bottom"]} style={styles.screen}>
@@ -174,12 +167,7 @@ export default function SelecionarUnidade() {
               <Text style={styles.generatorActionsTitle}>Adicionar nova usina</Text>
               <CadastroActions tipo="USINA" />
             </View>
-          ) : (
-            <TouchableOpacity onPress={adicionar} style={styles.addButton}>
-              <Ionicons name="add" size={21} color={Colors.surface} />
-              <Text style={styles.addText}>Adicionar unidade consumidora</Text>
-            </TouchableOpacity>
-          )}
+          ) : <View style={styles.cpfNotice}><Ionicons name="shield-checkmark-outline" size={19} color={Colors.primary} /><Text style={styles.cpfNoticeText}>As unidades são localizadas automaticamente pelo CPF da sua conta.</Text></View>}
           <TouchableOpacity onPress={logout} style={styles.logout}>
             <Ionicons name="log-out-outline" size={19} color={Colors.subtitle} />
             <Text style={styles.logoutText}>Sair da conta</Text>
@@ -244,8 +232,8 @@ const styles = StyleSheet.create({
   actions: { marginBottom: Spacing.lg },
   search: { minHeight: 54, flexDirection: "row", alignItems: "center", paddingHorizontal: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, backgroundColor: Colors.surface },
   searchInput: { flex: 1, marginHorizontal: Spacing.xs, color: Colors.text, fontSize: Typography.caption },
-  addButton: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.xxl, borderRadius: Radius.round, backgroundColor: "#AEB1AC" },
-  addText: { color: Colors.surface, fontSize: Typography.caption, fontWeight: "800" },
+  cpfNotice: { flexDirection: "row", alignItems: "center", gap: Spacing.xs, marginTop: Spacing.xxl, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.lg, backgroundColor: Colors.primaryLight },
+  cpfNoticeText: { flex: 1, color: Colors.primaryDark, fontSize: Typography.small, fontWeight: "600", lineHeight: 18 },
   generatorActions: { marginTop: Spacing.xxl },
   generatorActionsTitle: { marginBottom: Spacing.md, color: Colors.primary, fontSize: 20, fontWeight: "900", letterSpacing: 0.2, textAlign: "center" },
   unitCard: { marginBottom: Spacing.md, padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: "#D6D8DC", shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 2 },

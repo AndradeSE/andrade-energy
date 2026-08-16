@@ -6,20 +6,20 @@ import { buscarContrato } from "../services/contratos.service";
 
 export function useContrato() {
 
-  const { usuario } = useAuth();
+  const { usuario, unidadeSelecionada } = useAuth();
 
   return useQuery({
 
     queryKey: [
       "contrato",
-      usuario?.cliente_id,
+      unidadeSelecionada?.cliente_id ?? usuario?.cliente_id,
     ],
 
-    enabled: !!usuario?.cliente_id,
+    enabled: !!(unidadeSelecionada?.cliente_id ?? usuario?.cliente_id),
 
     queryFn: () =>
       buscarContrato(
-        usuario!.cliente_id!
+        (unidadeSelecionada?.cliente_id ?? usuario!.cliente_id)!
       ),
 
   });

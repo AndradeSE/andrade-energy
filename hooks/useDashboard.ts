@@ -6,11 +6,11 @@ export function useDashboard() {
   const { usuario, unidadeSelecionada } = useAuth();
 
   return useQuery({
-    queryKey: ["dashboard", usuario?.cliente_id, unidadeSelecionada?.numero],
+    queryKey: ["dashboard", unidadeSelecionada?.cliente_id ?? usuario?.cliente_id, unidadeSelecionada?.numero],
 
-    enabled: !!usuario?.cliente_id,
+    enabled: !!(unidadeSelecionada?.cliente_id ?? usuario?.cliente_id),
 
     queryFn: () =>
-      buscarDashboard(usuario!.cliente_id!, unidadeSelecionada?.numero),
+      buscarDashboard((unidadeSelecionada?.cliente_id ?? usuario!.cliente_id)!, unidadeSelecionada?.numero),
   });
 }

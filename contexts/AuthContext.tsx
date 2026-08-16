@@ -23,6 +23,7 @@ export type Usuario = {
 
 export type UnidadeConsumidora = {
   id: string;
+  cliente_id?: string | null;
   numero: string;
   titular?: string | null;
   distribuidora?: string | null;

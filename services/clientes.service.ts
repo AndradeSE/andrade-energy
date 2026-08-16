@@ -28,3 +28,8 @@ export async function listarUnidadesCliente(id: string) {
   const { data } = await api.get(`/clientes/${id}/unidades`);
   return data;
 }
+
+export async function listarMinhasUnidades() {
+  const { data } = await api.get("/clientes/minhas-unidades");
+  return data;
+}

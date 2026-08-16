@@ -6,10 +6,10 @@ export function useFaturas() {
   const { usuario, unidadeSelecionada } = useAuth();
 
   return useQuery({
-    queryKey: ["faturas", usuario?.cliente_id, unidadeSelecionada?.numero],
-    enabled: !!usuario?.cliente_id,
+    queryKey: ["faturas", unidadeSelecionada?.cliente_id ?? usuario?.cliente_id, unidadeSelecionada?.numero],
+    enabled: !!(unidadeSelecionada?.cliente_id ?? usuario?.cliente_id),
     queryFn: () => unidadeSelecionada?.numero
       ? listarFaturas(undefined, unidadeSelecionada.numero)
-      : listarFaturas(usuario!.cliente_id!),
+      : listarFaturas((unidadeSelecionada?.cliente_id ?? usuario!.cliente_id)!),
   });
 }

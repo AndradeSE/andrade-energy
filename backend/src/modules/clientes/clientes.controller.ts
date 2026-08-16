@@ -7,6 +7,7 @@ import {
   excluirCliente,
   listarClientes,
   listarUnidadesCliente,
+  listarUnidadesPorCpf,
 } from "./clientes.service";
 
 export async function listarClientesController(
@@ -87,6 +88,15 @@ export async function excluirClienteController(
 export async function listarUnidadesClienteController(req: Request, res: Response) {
   try {
     return res.json(await listarUnidadesCliente(req.params.id));
+  } catch (e: any) {
+    return res.status(500).json({ message: e.message });
+  }
+}
+
+export async function listarMinhasUnidadesController(req: Request, res: Response) {
+  try {
+    const usuario = (req as any).usuario;
+    return res.json(await listarUnidadesPorCpf(usuario?.cpf));
   } catch (e: any) {
     return res.status(500).json({ message: e.message });
   }

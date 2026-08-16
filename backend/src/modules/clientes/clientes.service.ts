@@ -6,12 +6,13 @@ import {
   excluirCliente,
   listarClientes,
   listarUnidadesCliente,
+  listarUnidadesPorCpf,
 } from "./clientes.repository";
 
 export {
   atualizarCliente, buscarCliente,
   buscarClientePorUC,
-  criarCliente, excluirCliente, listarClientes, listarUnidadesCliente
+  criarCliente, excluirCliente, listarClientes, listarUnidadesCliente, listarUnidadesPorCpf
 };
 
 export async function cadastrarClienteAutomaticamente(dados: {

@@ -52,6 +52,42 @@ export async function listarUnidadesCliente(clienteId: string) {
   }];
 }
 
+export async function listarUnidadesPorCpf(cpfInformado: string) {
+  const cpf = String(cpfInformado ?? "").replace(/\D/g, "");
+  if (cpf.length !== 11) return [];
+
+  const { data: clientes, error: erroClientes } = await supabase
+    .from("clientes")
+    .select("id, uc, nome, distribuidora, endereco, status")
+    .eq("cpf", cpf);
+  if (erroClientes) throw erroClientes;
+  if (!clientes?.length) return [];
+
+  const clienteIds = clientes.map((cliente) => cliente.id);
+  const { data: unidades, error: erroUnidades } = await supabase
+    .from("unidades_consumidoras")
+    .select("id, cliente_id, numero, titular, distribuidora, endereco, status, modalidade_faturamento")
+    .in("cliente_id", clienteIds)
+    .order("numero");
+  if (erroUnidades && erroUnidades.code !== "42P01") throw erroUnidades;
+
+  const porNumero = new Map<string, any>();
+  for (const unidade of unidades ?? []) porNumero.set(String(unidade.numero), unidade);
+  for (const cliente of clientes) {
+    if (!cliente.uc || porNumero.has(String(cliente.uc))) continue;
+    porNumero.set(String(cliente.uc), {
+      id: `cliente-${cliente.id}`,
+      cliente_id: cliente.id,
+      numero: String(cliente.uc),
+      titular: cliente.nome,
+      distribuidora: cliente.distribuidora,
+      endereco: cliente.endereco,
+      status: cliente.status,
+    });
+  }
+  return [...porNumero.values()];
+}
+
 export async function buscarClientePorUC(uc: string) {
   const ucNormalizada = String(uc).replace(/\D/g, "");
 
