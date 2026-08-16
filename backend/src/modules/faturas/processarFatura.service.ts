@@ -103,10 +103,7 @@ function competenciaParaIso(referencia: string): string {
 }
 
 async function obterEnergiaInjetada(dados: FaturaExtraida, cliente: any): Promise<{ energia: number; saldoAnterior: number }> {
-  const energiaInjetadaInformada = Number(dados.energiaInjetada ?? 0);
-  const quantidadeFaturada = energiaInjetadaInformada > 0
-    ? energiaInjetadaInformada
-    : Number(dados.energiaCompensada ?? 0);
+  const quantidadeFaturada = Number(dados.energiaCompensada ?? 0);
   const saldoAtual = Number(dados.saldoAtual ?? 0);
 
   if (quantidadeFaturada > 0 || saldoAtual > 0) {
