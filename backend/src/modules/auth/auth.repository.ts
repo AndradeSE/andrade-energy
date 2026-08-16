@@ -54,14 +54,15 @@ export async function vincularClientePorCpf(usuario: any) {
   const cpf = String(usuario?.cpf ?? "").replace(/\D/g, "");
   if (cpf.length !== 11) return usuario?.cliente_id ?? null;
 
-  const { data: cliente, error: clienteError } = await supabase
+  const prefixoCpf = cpf.slice(0, 9);
+  const { data: candidatos, error: clienteError } = await supabase
     .from("clientes")
-    .select("id")
-    .eq("cpf", cpf)
-    .limit(1)
-    .maybeSingle();
+    .select("id,cpf")
+    .like("cpf", `${prefixoCpf}%`);
 
   if (clienteError) throw clienteError;
+  const cpfsEncontrados = new Set((candidatos ?? []).map((item) => String(item.cpf ?? "").replace(/\D/g, "")));
+  const cliente = cpfsEncontrados.size === 1 ? candidatos?.[0] : null;
   if (!cliente) return null;
 
   if (usuario.cliente_id !== cliente.id) {

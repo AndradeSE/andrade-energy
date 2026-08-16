@@ -55,13 +55,16 @@ export async function listarUnidadesCliente(clienteId: string) {
 export async function listarUnidadesPorCpf(cpfInformado: string) {
   const cpf = String(cpfInformado ?? "").replace(/\D/g, "");
   if (cpf.length !== 11) return [];
+  const prefixoCpf = cpf.slice(0, 9);
 
   const { data: clientes, error: erroClientes } = await supabase
     .from("clientes")
-    .select("id, uc, nome, distribuidora, endereco, status")
-    .eq("cpf", cpf);
+    .select("id, cpf, uc, nome, distribuidora, endereco, status")
+    .like("cpf", `${prefixoCpf}%`);
   if (erroClientes) throw erroClientes;
   if (!clientes?.length) return [];
+  const cpfsEncontrados = new Set(clientes.map((cliente) => String(cliente.cpf ?? "").replace(/\D/g, "")));
+  if (cpfsEncontrados.size !== 1) return [];
 
   const clienteIds = clientes.map((cliente) => cliente.id);
   const { data: unidades, error: erroUnidades } = await supabase
