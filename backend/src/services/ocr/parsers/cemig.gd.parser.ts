@@ -1,6 +1,7 @@
 import { FaturaExtraida } from "../../../types/FaturaExtraida";
 import { buscar } from "../regex";
 import { extrairCadastroCemig } from "./cemig.cadastro.parser";
+import { extrairHistoricoConsumo } from "./cemig.historico.parser";
 
 function paraNumero(valor: string): number {
   return Number(
@@ -93,6 +94,7 @@ export function parseCemigGD(
   );
 
   const cadastro = extrairCadastroCemig(texto);
+  const historico = extrairHistoricoConsumo(texto);
 
   return {
 
@@ -133,7 +135,7 @@ export function parseCemigGD(
 
     saldoAnterior: 0,
 
-historico: [],
+historico,
 
 debitos: [],
 

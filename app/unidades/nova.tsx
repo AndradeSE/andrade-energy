@@ -22,7 +22,7 @@ export default function NovaUnidade() {
 
   useEffect(() => {
     Promise.all([
-      supabase.from("clientes").select("id,nome").order("nome"),
+      supabase.from("clientes").select("id,nome,usina_id,modalidade_faturamento,desconto_percentual").order("nome"),
       supabase.from("usinas").select("id,nome").order("nome"),
     ]).then(([c, u]) => { setClientes(c.data ?? []); setUsinas(u.data ?? []); });
     if (clienteIdVinculado) setClienteId(clienteIdVinculado);
@@ -41,10 +41,14 @@ export default function NovaUnidade() {
     if (!numero || (!clienteId && !usinaId)) return Alert.alert("Dados incompletos", "Informe a UC e vincule um cliente ou uma usina.");
     if (!Number.isFinite(percentual) || percentual < 0 || percentual > 100) return Alert.alert("Desconto inválido", "Informe um percentual entre 0 e 100.");
     setSalvando(true);
+    const clienteSelecionado = clientes.find((item) => item.id === clienteId);
+    const usinaFinal = usinaId || clienteSelecionado?.usina_id || null;
+    const modalidadeFinal = clienteSelecionado?.modalidade_faturamento ?? modalidade;
+    const descontoFinal = clienteSelecionado?.desconto_percentual ?? percentual;
     const { error } = await supabase.from("unidades_consumidoras").upsert({
-      numero, titular: titular.trim() || null, tipo, cliente_id: clienteId || null, usina_id: usinaId || null,
-      distribuidora: "CEMIG", endereco: endereco.trim() || null, modalidade_faturamento: modalidade,
-      desconto_percentual: percentual, status: "ATIVA",
+      numero, titular: titular.trim() || null, tipo, cliente_id: clienteId || null, usina_id: usinaFinal,
+      distribuidora: "CEMIG", endereco: endereco.trim() || null, modalidade_faturamento: modalidadeFinal,
+      desconto_percentual: descontoFinal, status: "ATIVA",
     }, { onConflict: "numero" });
     if (error) Alert.alert("Não foi possível salvar", error.message); else router.back();
     setSalvando(false);

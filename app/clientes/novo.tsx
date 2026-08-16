@@ -14,7 +14,7 @@ type Modalidade = "INJECAO" | "COMPENSACAO";
 
 export default function NovoCliente() {
   const { usinaSelecionada, usuario } = useAuth();
-  const { origem, cliente, nome: nomeImportado, uc: ucImportada, numeroInstalacao, endereco: enderecoImportado, distribuidora: distribuidoraImportada, arquivoUri, arquivoNome } = useLocalSearchParams<{ origem?: string; cliente?: string; nome?: string; uc?: string; numeroInstalacao?: string; endereco?: string; distribuidora?: string; arquivoUri?: string; arquivoNome?: string }>();
+  const { origem, cliente, nome: nomeImportado, uc: ucImportada, numeroInstalacao, endereco: enderecoImportado, distribuidora: distribuidoraImportada, arquivoUri, arquivoNome, consumo, consumoMedio: consumoMedioImportado } = useLocalSearchParams<{ origem?: string; cliente?: string; nome?: string; uc?: string; numeroInstalacao?: string; endereco?: string; distribuidora?: string; arquivoUri?: string; arquivoNome?: string; consumo?: string; consumoMedio?: string }>();
   const [nome, setNome] = useState("");
   const [uc, setUc] = useState("");
   const [cpf, setCpf] = useState("");
@@ -23,6 +23,7 @@ export default function NovoCliente() {
   const [endereco, setEndereco] = useState("");
   const [distribuidora, setDistribuidora] = useState("CEMIG");
   const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO");
+  const [consumoMedio, setConsumoMedio] = useState("");
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
@@ -33,11 +34,15 @@ export default function NovoCliente() {
     setUc((ucImportada ?? numeroInstalacao ?? "").replace(/\D/g, ""));
     setEndereco(enderecoImportado ?? "");
     setDistribuidora(distribuidoraImportada ?? "CEMIG");
-  }, [cliente, distribuidoraImportada, enderecoImportado, nomeImportado, numeroInstalacao, origem, ucImportada]);
+    const mediaExtraida = Number(consumoMedioImportado ?? consumo ?? 0);
+    setConsumoMedio(mediaExtraida > 0 ? String(mediaExtraida) : "");
+  }, [cliente, consumo, consumoMedioImportado, distribuidoraImportada, enderecoImportado, nomeImportado, numeroInstalacao, origem, ucImportada]);
 
   async function salvar() {
     if (!nome.trim()) return Alert.alert("Nome obrigatório", "Informe o nome do consumidor.");
     const cpfLimpo = cpf.replace(/\D/g, "");
+    const consumoMedioKwh = Math.max(0, Number(consumoMedio.replace(",", ".")) || 0);
+    const usinaId = usinaSelecionada?.id ?? usuario?.usina_id ?? null;
     if (cpfLimpo && ![11, 14].includes(cpfLimpo.length)) return Alert.alert("Documento inválido", "Informe um CPF ou CNPJ válido.");
     setSalvando(true);
 
@@ -45,8 +50,8 @@ export default function NovoCliente() {
       nome: nome.trim(), cpf: cpfLimpo || null, email: email.trim().toLowerCase() || null,
       telefone: telefone.trim() || null, whatsapp: telefone.replace(/\D/g, "") || null,
       uc: uc || null, endereco: endereco.trim() || null, distribuidora,
-      usina_id: usinaSelecionada?.id ?? usuario?.usina_id ?? null,
-      modalidade_faturamento: modalidade, status: "ATIVO",
+      usina_id: usinaId, consumo_medio_kwh: consumoMedioKwh,
+      modalidade_faturamento: modalidade, percentual_rateio: modalidade === "INJECAO" && usinaId ? 100 : null, status: "ATIVO",
     };
 
     let clienteId: string | undefined;
@@ -67,11 +72,22 @@ export default function NovoCliente() {
 
     if (uc) {
       const { error } = await supabase.from("unidades_consumidoras").upsert({
-        cliente_id: clienteId, usina_id: usinaSelecionada?.id ?? usuario?.usina_id ?? null,
+        cliente_id: clienteId, usina_id: usinaId,
         numero: uc, tipo: "BENEFICIARIA", titular: nome.trim(), distribuidora,
         endereco: endereco.trim() || null, modalidade_faturamento: modalidade, status: "ATIVA",
       }, { onConflict: "numero" });
       if (error) Alert.alert("Consumidor salvo", "O consumidor foi criado, mas a UC precisa ser vinculada novamente.");
+    }
+
+    if (usinaId && modalidade === "COMPENSACAO") {
+      const { data: clientesCompensacao, error: erroClientes } = await supabase.from("clientes").select("id,consumo_medio_kwh").eq("usina_id", usinaId).eq("modalidade_faturamento", "COMPENSACAO").eq("status", "ATIVO");
+      if (!erroClientes && clientesCompensacao?.length) {
+        const totalConsumo = clientesCompensacao.reduce((soma, item) => soma + Number(item.consumo_medio_kwh ?? 0), 0);
+        for (const item of clientesCompensacao) {
+          const percentualAutomatico = totalConsumo > 0 ? (Number(item.consumo_medio_kwh ?? 0) / totalConsumo) * 100 : 100 / clientesCompensacao.length;
+          await supabase.from("clientes").update({ percentual_rateio: percentualAutomatico }).eq("id", item.id);
+        }
+      }
     }
 
     if (origem === "fatura" && arquivoUri) {
@@ -107,6 +123,7 @@ export default function NovoCliente() {
       <FormField label="Telefone / WhatsApp (opcional)" value={telefone} onChangeText={setTelefone} keyboardType="phone-pad" />
       <FormField label="Unidade consumidora (opcional)" value={uc} onChangeText={(valor) => setUc(valor.replace(/\D/g, ""))} keyboardType="numeric" />
       <ChoiceField label="Modalidade de faturamento" value={modalidade} onChange={setModalidade} options={[{ label: "Por injeção", value: "INJECAO" }, { label: "Por compensação", value: "COMPENSACAO" }]} />
+      <FormField label="Consumo médio mensal (kWh)" value={consumoMedio} onChangeText={(valor) => setConsumoMedio(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" />
       <FormField label="Concessionária" value={distribuidora} onChangeText={setDistribuidora} />
       <FormField label="Endereço (opcional)" value={endereco} onChangeText={setEndereco} />
       <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar consumidor"} onPress={salvar} />

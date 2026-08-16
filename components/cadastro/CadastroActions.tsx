@@ -41,6 +41,10 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
       const ucExtraida = dados.uc ?? dados.numero_instalacao ?? dados.numeroInstalacao ?? dadosCadastro.uc ?? "";
       const enderecoExtraido = dados.endereco ?? dados.endereco_instalacao ?? dadosCadastro.endereco ?? "";
       const distribuidoraExtraida = dados.distribuidora ?? dados.concessionaria ?? dadosCadastro.distribuidora ?? "CEMIG";
+      const historico = Array.isArray(dados.historico) ? dados.historico.slice(0, 12) : [];
+      const mediaConsumo = historico.length
+        ? historico.reduce((soma: number, item: any) => soma + Number(item.consumo ?? 0), 0) / historico.length
+        : Number(dados.consumo ?? 0);
 
       if (tipo === "USINA" && analise.classificacao !== "POSSIVEL_GERADORA") {
         Alert.alert(
@@ -63,6 +67,8 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
           arquivoUri: item.uri,
           arquivoNome: item.name,
           energiaCompensada: String(dados.energiaCompensada ?? 0),
+          consumo: String(dados.consumo ?? 0),
+          consumoMedio: String(Number(mediaConsumo.toFixed(3))),
         },
       });
     } catch (erro: any) {
