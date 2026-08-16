@@ -1,13 +1,20 @@
 import { supabase } from "../../config/supabase";
 
-export async function login(email: string, senha: string) {
-  const { data, error } = await supabase
+export async function login(email: string, senha: string, tipo?: "CONSUMIDOR" | "GERADOR") {
+  let consulta = supabase
     .from("usuarios")
     .select("*")
     .eq("email", email)
     .eq("senha", senha)
-    .eq("ativo", true)
-    .single();
+    .eq("ativo", true);
+
+  consulta = tipo === "CONSUMIDOR"
+    ? consulta.eq("perfil", "LEITURA")
+    : tipo === "GERADOR"
+      ? consulta.in("perfil", ["GESTOR", "ADMIN"])
+      : consulta;
+
+  const { data, error } = await consulta.limit(1).maybeSingle();
 
   if (error) {
     return null;
@@ -72,12 +79,13 @@ export async function criarConta(input: { nome: string; cpf: string; email: stri
   const cpf = input.cpf.replace(/\D/g, "");
   const email = input.email.trim().toLowerCase();
   const perfil = input.tipo === "GERADOR" ? "GESTOR" : "LEITURA";
-  const { data: emailExistente } = await supabase
+  const { data: emailNoMesmoPerfil } = await supabase
     .from("usuarios")
     .select("id")
     .eq("email", email)
+    .eq("perfil", perfil)
     .limit(1);
-  if (emailExistente?.length) throw new Error("Já existe uma conta com este e-mail.");
+  if (emailNoMesmoPerfil?.length) throw new Error("Já existe uma conta deste perfil com este e-mail.");
 
   const { data: cpfNoMesmoPerfil } = await supabase
     .from("usuarios")

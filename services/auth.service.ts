@@ -1,13 +1,15 @@
 import api from "../config/api";
 export async function login(
   email: string,
-  senha: string
+  senha: string,
+  tipo: "CONSUMIDOR" | "GERADOR"
 ) {
   const { data } = await api.post(
     "/auth/login",
     {
       email,
       senha,
+      tipo,
     }
   );
 

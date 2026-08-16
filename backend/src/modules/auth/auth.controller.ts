@@ -7,11 +7,12 @@ export async function loginController(
   res: Response
 ) {
   try {
-    const { email, senha } = req.body;
+    const { email, senha, tipo } = req.body;
 
     const resultado = await autenticar(
       email,
-      senha
+      senha,
+      tipo
     );
 
     return res.json(resultado);

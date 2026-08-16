@@ -44,7 +44,7 @@ export default function Login() {
 
     try {
       setLoading(true);
-      const resposta = await login(emailNormalizado, senha);
+      const resposta = await login(emailNormalizado, senha, IS_GERADOR_APP ? "GERADOR" : "CONSUMIDOR");
       const perfilGestor = resposta.usuario?.perfil === "ADMIN" || resposta.usuario?.perfil === "GESTOR";
       if (IS_GERADOR_APP !== perfilGestor) {
         throw new Error(IS_GERADOR_APP ? "Esta conta pertence ao aplicativo do consumidor." : "Esta conta pertence ao aplicativo do gerador.");

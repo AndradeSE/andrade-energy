@@ -12,9 +12,10 @@ import { aceitarConvite, concluirConvite } from "../convites/convites.service";
 
 export async function autenticar(
   email: string,
-  senha: string
+  senha: string,
+  tipo?: "CONSUMIDOR" | "GERADOR"
 ) {
-  const usuario = await login(email, senha);
+  const usuario = await login(email, senha, tipo);
 
   if (!usuario) {
     throw new Error("E-mail ou senha inválidos.");

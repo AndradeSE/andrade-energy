@@ -17,11 +17,12 @@ export async function criarConvite(input: any, gestor: any) {
     .from("usuarios")
     .select("id,cliente_id,perfil")
     .eq("email", email)
+    .eq("perfil", "LEITURA")
     .limit(1)
     .maybeSingle();
   if (contaEmail) {
     const contaConsumidorOrfa = contaEmail.perfil === "LEITURA" && !clienteExistente;
-    if (!contaConsumidorOrfa) throw new Error("Este e-mail já possui uma conta ativa. Use outro e-mail para o perfil de consumidor.");
+    if (!contaConsumidorOrfa) throw new Error("Este e-mail já possui uma conta de consumidor ativa.");
     const { error: erroLimpeza } = await supabase.from("usuarios").delete().eq("id", contaEmail.id);
     if (erroLimpeza) throw erroLimpeza;
   }
