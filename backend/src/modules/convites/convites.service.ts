@@ -13,16 +13,29 @@ export async function criarConvite(input: any, gestor: any) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Informe um e-mail válido.");
 
   const { data: clienteExistente } = await supabase.from("clientes").select("id").eq("cpf", cpf).limit(1).maybeSingle();
-  const { data: conta } = await supabase
+  const { data: contaEmail } = await supabase
     .from("usuarios")
     .select("id,cliente_id,perfil")
-    .or(`cpf.eq.${cpf},email.eq.${email}`)
+    .eq("email", email)
     .limit(1)
     .maybeSingle();
-  if (conta) {
-    const contaConsumidorOrfa = conta.perfil === "LEITURA" && !clienteExistente;
-    if (!contaConsumidorOrfa) throw new Error("Este CPF ou e-mail já possui uma conta ativa.");
-    const { error: erroLimpeza } = await supabase.from("usuarios").delete().eq("id", conta.id);
+  if (contaEmail) {
+    const contaConsumidorOrfa = contaEmail.perfil === "LEITURA" && !clienteExistente;
+    if (!contaConsumidorOrfa) throw new Error("Este e-mail já possui uma conta ativa. Use outro e-mail para o perfil de consumidor.");
+    const { error: erroLimpeza } = await supabase.from("usuarios").delete().eq("id", contaEmail.id);
+    if (erroLimpeza) throw erroLimpeza;
+  }
+
+  const { data: contaConsumidorCpf } = await supabase
+    .from("usuarios")
+    .select("id")
+    .eq("cpf", cpf)
+    .eq("perfil", "LEITURA")
+    .limit(1)
+    .maybeSingle();
+  if (contaConsumidorCpf) {
+    if (clienteExistente) throw new Error("Este CPF já possui uma conta de consumidor ativa.");
+    const { error: erroLimpeza } = await supabase.from("usuarios").delete().eq("id", contaConsumidorCpf.id);
     if (erroLimpeza) throw erroLimpeza;
   }
 

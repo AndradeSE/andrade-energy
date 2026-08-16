@@ -71,16 +71,25 @@ export async function vincularClientePorCpf(usuario: any) {
 export async function criarConta(input: { nome: string; cpf: string; email: string; senha: string; tipo: "CONSUMIDOR" | "GERADOR"; convite?: string }) {
   const cpf = input.cpf.replace(/\D/g, "");
   const email = input.email.trim().toLowerCase();
-  const { data: existente } = await supabase
+  const perfil = input.tipo === "GERADOR" ? "GESTOR" : "LEITURA";
+  const { data: emailExistente } = await supabase
     .from("usuarios")
     .select("id")
-    .or(`email.eq.${email},cpf.eq.${cpf}`)
+    .eq("email", email)
     .limit(1);
-  if (existente?.length) throw new Error("Já existe uma conta com este e-mail ou CPF.");
+  if (emailExistente?.length) throw new Error("Já existe uma conta com este e-mail.");
+
+  const { data: cpfNoMesmoPerfil } = await supabase
+    .from("usuarios")
+    .select("id")
+    .eq("cpf", cpf)
+    .eq("perfil", perfil)
+    .limit(1);
+  if (cpfNoMesmoPerfil?.length) throw new Error("Já existe uma conta deste perfil com este CPF.");
 
   const { data, error } = await supabase
     .from("usuarios")
-    .insert({ nome: input.nome.trim(), cpf, email, senha: input.senha, perfil: input.tipo === "GERADOR" ? "GESTOR" : "LEITURA", ativo: true })
+    .insert({ nome: input.nome.trim(), cpf, email, senha: input.senha, perfil, ativo: true })
     .select("*")
     .single();
   if (error) throw error;
