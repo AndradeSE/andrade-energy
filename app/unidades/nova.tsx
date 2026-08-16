@@ -11,7 +11,7 @@ import { Colors, Radius, Spacing, Typography } from "../../theme";
 type Tipo = "CONSUMIDORA" | "BENEFICIARIA" | "GERADORA";
 type Modalidade = "INJECAO" | "COMPENSACAO";
 export default function NovaUnidade() {
-  const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, energiaCompensada, endereco: enderecoImportado } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; energiaCompensada?: string; endereco?: string }>();
+  const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, energiaCompensada, endereco: enderecoImportado, cadastroRapido } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; energiaCompensada?: string; endereco?: string; cadastroRapido?: string }>();
   const [numero, setNumero] = useState(""); const [titular, setTitular] = useState("");
   const [tipo, setTipo] = useState<Tipo>("BENEFICIARIA"); const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO");
   const [desconto, setDesconto] = useState("40"); const [endereco, setEndereco] = useState("");
@@ -55,14 +55,14 @@ export default function NovaUnidade() {
 
   return <Screen><ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
     <Text style={styles.eyebrow}>{origem === "fatura" ? "DADOS LIDOS DA FATURA" : "CADASTRO MANUAL"}</Text><Text style={styles.title}>Nova unidade</Text>
-    <Text style={styles.subtitle}>{clienteIdVinculado ? "Informe apenas o número. Os demais dados serão herdados do cadastro do cliente." : "Confira a leitura e escolha a quem esta unidade pertence."}</Text>
+    <Text style={styles.subtitle}>{clienteIdVinculado ? "Confirme o número. Os demais dados serão herdados do cliente." : cadastroRapido === "1" ? "Confirme o número e escolha o cliente. Os demais dados serão herdados automaticamente." : "Confira a leitura e escolha a quem esta unidade pertence."}</Text>
     <Card><FormField label="Número da UC / instalação" value={numero} onChangeText={(v) => setNumero(v.replace(/\D/g, ""))} keyboardType="numeric" />
-      {!clienteIdVinculado ? <><FormField label="Titular" value={titular} onChangeText={setTitular} />
+      {!clienteIdVinculado && cadastroRapido !== "1" ? <><FormField label="Titular" value={titular} onChangeText={setTitular} />
         <ChoiceField label="Tipo" value={tipo} onChange={setTipo} options={[{ label: "Consumidora", value: "CONSUMIDORA" }, { label: "Beneficiária", value: "BENEFICIARIA" }, { label: "Geradora", value: "GERADORA" }]} />
         <ChoiceField label="Faturamento" value={modalidade} onChange={setModalidade} options={[{ label: "Injeção", value: "INJECAO" }, { label: "Compensação", value: "COMPENSACAO" }]} />
-        <Text style={styles.label}>Cliente</Text><View style={styles.options}>{clientes.map((c) => <Pressable key={c.id} onPress={() => setClienteId(clienteId === c.id ? "" : c.id)} style={[styles.link, clienteId === c.id && styles.linkSelected]}><Text>{c.nome}</Text></Pressable>)}</View>
         <Text style={styles.label}>Usina</Text><View style={styles.options}>{usinas.map((u) => <Pressable key={u.id} onPress={() => setUsinaId(usinaId === u.id ? "" : u.id)} style={[styles.link, usinaId === u.id && styles.linkSelected]}><Text>{u.nome}</Text></Pressable>)}</View>
         <FormField label="Desconto contratado (%)" value={desconto} onChangeText={setDesconto} keyboardType="decimal-pad" /><FormField label="Endereço" value={endereco} onChangeText={setEndereco} /></> : null}
+      {!clienteIdVinculado ? <><Text style={styles.label}>Cliente</Text><View style={styles.options}>{clientes.map((c) => <Pressable key={c.id} onPress={() => setClienteId(clienteId === c.id ? "" : c.id)} style={[styles.link, clienteId === c.id && styles.linkSelected]}><Text>{c.nome}</Text></Pressable>)}</View></> : null}
       <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar unidade"} onPress={salvar} />
     </Card>
   </ScrollView></Screen>;

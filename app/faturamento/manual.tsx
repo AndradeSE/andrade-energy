@@ -36,7 +36,21 @@ export default function FaturamentoManual() {
       setFaturando(true);
       const resultado = await processarFatura(arquivo.uri, arquivo.name);
       if (resultado?.resultado?.clienteNaoEncontrado) {
-        Alert.alert("Cliente não encontrado", "Cadastre o consumidor e a UC antes de faturar esta conta.");
+        const uc = String(resultado?.resultado?.dadosCadastro?.uc ?? analise?.dados?.uc ?? "");
+        Alert.alert(
+          "UC ainda não cadastrada",
+          `A unidade ${uc || "identificada na conta"} precisa ser vinculada a um cliente antes do faturamento.`,
+          [
+            { text: "Cancelar", style: "cancel" },
+            {
+              text: "Cadastrar UC",
+              onPress: () => router.push({
+                pathname: "/unidades/nova",
+                params: { origem: "fatura", uc, cadastroRapido: "1" },
+              }),
+            },
+          ]
+        );
         return;
       }
       if (resultado?.resultado?.jaProcessada) {
