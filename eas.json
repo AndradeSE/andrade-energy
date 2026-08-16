@@ -8,33 +8,33 @@
       "developmentClient": true,
       "distribution": "internal",
       "channel": "development-consumidor",
-      "env": { "EXPO_PUBLIC_APP_VARIANT": "consumidor", "EXPO_PUBLIC_API_URL": "http://192.168.2.197:3333/api" }
+      "env": { "EXPO_PUBLIC_APP_VARIANT": "consumidor", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
     },
     "development-gerador": {
       "developmentClient": true,
       "distribution": "internal",
       "channel": "development-gerador",
-      "env": { "EXPO_PUBLIC_APP_VARIANT": "gerador", "EXPO_PUBLIC_API_URL": "http://192.168.2.197:3333/api" }
+      "env": { "EXPO_PUBLIC_APP_VARIANT": "gerador", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
     },
     "preview": {
       "distribution": "internal",
       "channel": "preview-consumidor",
-      "env": { "EXPO_PUBLIC_APP_VARIANT": "consumidor", "EXPO_PUBLIC_API_URL": "http://192.168.2.197:3333/api" }
+      "env": { "EXPO_PUBLIC_APP_VARIANT": "consumidor", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
     },
     "preview-gerador": {
       "distribution": "internal",
       "channel": "preview-gerador",
-      "env": { "EXPO_PUBLIC_APP_VARIANT": "gerador", "EXPO_PUBLIC_API_URL": "http://192.168.2.197:3333/api" }
+      "env": { "EXPO_PUBLIC_APP_VARIANT": "gerador", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
     },
     "production": {
       "autoIncrement": true,
       "channel": "production-consumidor",
-      "env": { "EXPO_PUBLIC_APP_VARIANT": "consumidor" }
+      "env": { "EXPO_PUBLIC_APP_VARIANT": "consumidor", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
     },
     "production-gerador": {
       "autoIncrement": true,
       "channel": "production-gerador",
-      "env": { "EXPO_PUBLIC_APP_VARIANT": "gerador" }
+      "env": { "EXPO_PUBLIC_APP_VARIANT": "gerador", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
     }
   },
   "submit": {
