@@ -40,17 +40,11 @@ export async function criarConvite(input: any, gestor: any) {
     if (erroLimpeza) throw erroLimpeza;
   }
 
-  const dadosCliente = { nome, cpf, email, usina_id: gestor.usina_id ?? input.usina_id ?? null, status: "ATIVO" };
-  const resultadoCliente = clienteExistente
-    ? await supabase.from("clientes").update(dadosCliente).eq("id", clienteExistente.id).select("id").single()
-    : await supabase.from("clientes").insert(dadosCliente).select("id").single();
-  if (resultadoCliente.error) throw resultadoCliente.error;
-
   const token = gerarToken();
   const { error } = await supabase.from("convites_clientes").insert({
     gestor_id: gestor.id,
     usina_id: gestor.usina_id ?? input.usina_id ?? null,
-    cliente_id: resultadoCliente.data.id,
+    cliente_id: clienteExistente?.id ?? null,
     nome, cpf, email,
     token_hash: hashToken(token),
     expira_em: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
@@ -81,10 +75,32 @@ export async function consultarConvite(token: string) {
 
 export async function aceitarConvite(token: string) {
   const convite = await consultarConvite(token);
-  const { data } = await supabase.from("convites_clientes").select("id,cliente_id").eq("token_hash", hashToken(token)).single();
-  return { ...convite, id: data!.id, cliente_id: data!.cliente_id };
+  const { data } = await supabase.from("convites_clientes").select("id,cliente_id,usina_id").eq("token_hash", hashToken(token)).single();
+  return { ...convite, id: data!.id, cliente_id: data!.cliente_id, usina_id: data!.usina_id };
 }
 
-export async function concluirConvite(id: string) {
-  await supabase.from("convites_clientes").update({ status: "ACEITO", aceito_em: new Date().toISOString() }).eq("id", id).eq("status", "PENDENTE");
+export async function concluirConvite(convite: any, usuarioId: string) {
+  let clienteId = convite.cliente_id ?? null;
+  if (!clienteId) {
+    const { data: cliente, error: clienteError } = await supabase.from("clientes").insert({
+      nome: convite.nome,
+      cpf: convite.cpf,
+      email: convite.email,
+      usina_id: convite.usina_id ?? null,
+      status: "ATIVO",
+    }).select("id").single();
+    if (clienteError) throw clienteError;
+    clienteId = cliente.id;
+  }
+
+  const { error: usuarioError } = await supabase.from("usuarios").update({ cliente_id: clienteId }).eq("id", usuarioId);
+  if (usuarioError) throw usuarioError;
+
+  const { error: conviteError } = await supabase.from("convites_clientes").update({
+    cliente_id: clienteId,
+    status: "ACEITO",
+    aceito_em: new Date().toISOString(),
+  }).eq("id", convite.id).eq("status", "PENDENTE");
+  if (conviteError) throw conviteError;
+  return clienteId;
 }

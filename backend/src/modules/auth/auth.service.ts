@@ -53,8 +53,8 @@ export async function cadastrarConta(input: { nome: string; cpf: string; email: 
   if ((input.senha?.length ?? 0) < 6) throw new Error("A senha deve ter pelo menos 6 caracteres.");
   if (!(["CONSUMIDOR", "GERADOR"] as const).includes(input.tipo)) throw new Error("Escolha consumidor ou gerador.");
   const usuario = await criarConta(input);
-  await vincularClientePorCpf(usuario);
-  if (convite) await concluirConvite(convite.id);
+  if (convite) await concluirConvite(convite, usuario.id);
+  else await vincularClientePorCpf(usuario);
   let emailEnviado = false;
   try {
     emailEnviado = await enviarEmailTransacional({
