@@ -96,9 +96,30 @@ function competenciaParaIso(referencia: string): string {
   return `${ano}-${meses[mes]}-01`;
 }
 
-async function obterEnergiaInjetada(dados: FaturaExtraida, cliente: any): Promise<number> {
+async function obterEnergiaInjetada(dados: FaturaExtraida, cliente: any): Promise<{ energia: number; saldoAnterior: number }> {
+  const quantidadeFaturada = Number(dados.energiaCompensada ?? 0);
+  const saldoAtual = Number(dados.saldoAtual ?? 0);
+
+  if (quantidadeFaturada > 0 || saldoAtual > 0) {
+    const { data: anterior, error: erroAnterior } = await supabase
+      .from("faturas")
+      .select("saldo_atual")
+      .eq("numero_instalacao", dados.uc)
+      .neq("referencia", dados.referencia)
+      .lt("vencimento", vencimento)
+      .order("vencimento", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (erroAnterior) throw erroAnterior;
+
+    const saldoAnterior = Number(anterior?.saldo_atual ?? 0);
+    const energia = Math.max(0, quantidadeFaturada + saldoAtual - saldoAnterior);
+    if (energia <= 0) throw new Error("A energia injetada calculada para esta competência é igual a zero.");
+    return { energia, saldoAnterior };
+  }
+
   const energiaDaFatura = Number(dados.energiaInjetada ?? 0);
-  if (energiaDaFatura > 0) return energiaDaFatura;
+  if (energiaDaFatura > 0) return { energia: energiaDaFatura, saldoAnterior: Number(dados.saldoAnterior ?? 0) };
 
   const { data: fechamento, error } = await supabase
     .from("fechamentos")
@@ -123,9 +144,9 @@ async function obterEnergiaInjetada(dados: FaturaExtraida, cliente: any): Promis
   const percentualInformado = Number(cliente.percentual_rateio ?? 0);
   if (percentualInformado > 0) {
     const fator = percentualInformado > 1 ? percentualInformado / 100 : percentualInformado;
-    return energiaUsina * fator;
+    return { energia: energiaUsina * fator, saldoAnterior: 0 };
   }
-  if (Number(count ?? 0) === 1) return energiaUsina;
+  if (Number(count ?? 0) === 1) return { energia: energiaUsina, saldoAnterior: 0 };
 
   throw new Error("Informe o percentual de rateio do cliente antes de faturar por injeção.");
 }
@@ -143,9 +164,10 @@ if (!cliente.usina_id) {
   ).toUpperCase() as ModalidadeFaturamento;
   const descontoPercentual = Number(cliente.desconto_percentual ?? 40);
   const temCompensacaoInformada = Number(dados.energiaCompensada) > 0;
-  const energiaInjetadaCalculada = modalidade === "INJECAO"
+  const injecaoCalculada = modalidade === "INJECAO"
     ? await obterEnergiaInjetada(dados, cliente)
-    : Number(dados.energiaInjetada ?? 0);
+    : { energia: Number(dados.energiaInjetada ?? 0), saldoAnterior: Number(dados.saldoAnterior ?? 0) };
+  const energiaInjetadaCalculada = injecaoCalculada.energia;
   const energiaCompensadaCalculada = temCompensacaoInformada
     ? Number(dados.energiaCompensada)
     : Number(dados.consumo);
@@ -192,7 +214,7 @@ const fatura = await inserirFatura({
       : Number(dados.energiaCompensada),
 
   saldo_anterior:
-    dados.saldoAnterior,
+    injecaoCalculada.saldoAnterior,
 
   saldo_atual:
     dados.saldoAtual,
