@@ -17,23 +17,32 @@ export default function EditarCliente() {
   const [email, setEmail] = useState(""); const [cpf, setCpf] = useState(""); const [endereco, setEndereco] = useState("");
   const [usinaId, setUsinaId] = useState(""); const [usinas, setUsinas] = useState<any[]>([]);
   const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO"); const [desconto, setDesconto] = useState("40");
+  const [percentualRateio, setPercentualRateio] = useState("");
   const [loading, setLoading] = useState(true); const [salvando, setSalvando] = useState(false);
 
   useEffect(() => { Promise.all([
     supabase.from("clientes").select("*").eq("id", id).single(),
     supabase.from("usinas").select("id,nome").order("nome"),
-  ]).then(([cliente, lista]) => { const d = cliente.data; if (d) { setNome(d.nome ?? ""); setUc(d.uc ?? ""); setTelefone(d.telefone ?? d.whatsapp ?? ""); setEmail(d.email ?? ""); setCpf(d.cpf ?? ""); setEndereco(d.endereco ?? ""); setUsinaId(d.usina_id ?? ""); setModalidade(d.modalidade_faturamento ?? "COMPENSACAO"); setDesconto(String(d.desconto_percentual ?? 40)); } setUsinas(lista.data ?? []); setLoading(false); }); }, [id]);
+  ]).then(([cliente, lista]) => { const d = cliente.data; if (d) { setNome(d.nome ?? ""); setUc(d.uc ?? ""); setTelefone(d.telefone ?? d.whatsapp ?? ""); setEmail(d.email ?? ""); setCpf(d.cpf ?? ""); setEndereco(d.endereco ?? ""); setUsinaId(d.usina_id ?? ""); setModalidade(d.modalidade_faturamento ?? "COMPENSACAO"); setDesconto(String(d.desconto_percentual ?? 40)); setPercentualRateio(d.percentual_rateio == null ? "" : String(d.percentual_rateio)); } setUsinas(lista.data ?? []); setLoading(false); }); }, [id]);
 
   async function salvar() {
     if (!nome.trim()) return Alert.alert("Nome obrigatório", "Informe o nome do cliente.");
     const percentual = Number(desconto.replace(",", "."));
     if (!Number.isFinite(percentual) || percentual < 0 || percentual > 100) return Alert.alert("Desconto inválido", "Informe um percentual entre 0 e 100.");
+    const rateio = Number(percentualRateio.replace(",", "."));
+    if (usinaId && (!Number.isFinite(rateio) || rateio <= 0 || rateio > 100)) return Alert.alert("Alocação inválida", "Informe um percentual de energia entre 0,01% e 100%.");
     setSalvando(true);
+    if (usinaId) {
+      const { data: outros, error: erroRateio } = await supabase.from("clientes").select("id,percentual_rateio").eq("usina_id", usinaId).neq("id", id);
+      if (erroRateio) { setSalvando(false); return Alert.alert("Não foi possível validar", erroRateio.message); }
+      const jaAlocado = (outros ?? []).reduce((soma, cliente) => soma + Number(cliente.percentual_rateio ?? 0), 0);
+      if (jaAlocado + rateio > 100.001) { setSalvando(false); return Alert.alert("Alocação excedida", `Esta usina já possui ${jaAlocado.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% alocados. Restam ${(100 - jaAlocado).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%.`); }
+    }
     const ucNormalizada = uc.replace(/\D/g, "");
-    const { error } = await supabase.from("clientes").update({ nome: nome.trim(), uc: ucNormalizada || null, telefone, whatsapp: telefone.replace(/\D/g, ""), email: email.trim().toLowerCase(), cpf, endereco, usina_id: usinaId || null, modalidade_faturamento: modalidade, desconto_percentual: percentual }).eq("id", id);
-    if (!error && ucNormalizada) {
-      const { error: erroUnidade } = await supabase.from("unidades_consumidoras").update({ modalidade_faturamento: modalidade, desconto_percentual: percentual }).eq("cliente_id", id).eq("numero", ucNormalizada);
-      if (erroUnidade) { setSalvando(false); return Alert.alert("Cliente salvo", "A modalidade foi salva no cliente, mas não foi possível atualizar a unidade consumidora."); }
+    const { error } = await supabase.from("clientes").update({ nome: nome.trim(), uc: ucNormalizada || null, telefone, whatsapp: telefone.replace(/\D/g, ""), email: email.trim().toLowerCase(), cpf, endereco, usina_id: usinaId || null, percentual_rateio: usinaId ? rateio : null, modalidade_faturamento: modalidade, desconto_percentual: percentual }).eq("id", id);
+    if (!error) {
+      const { error: erroUnidade } = await supabase.from("unidades_consumidoras").update({ usina_id: usinaId || null, modalidade_faturamento: modalidade, desconto_percentual: percentual }).eq("cliente_id", id);
+      if (erroUnidade) { setSalvando(false); return Alert.alert("Cliente salvo", "A alocação foi salva no cliente, mas não foi possível atualizar suas unidades consumidoras."); }
     }
     setSalvando(false); if (error) Alert.alert("Não foi possível salvar", error.message); else router.back();
   }
@@ -44,12 +53,12 @@ export default function EditarCliente() {
   return <Screen><ScrollView contentContainerStyle={styles.content}><Text style={styles.eyebrow}>CADASTRO DO CLIENTE</Text><Text style={styles.title}>Editar cliente</Text><Text style={styles.subtitle}>Somente o nome é obrigatório. Atualize os demais dados quando precisar.</Text>
     <Card><FormField label="Nome" value={nome} onChangeText={setNome} /><FormField label="Unidade consumidora (opcional)" value={uc} onChangeText={(v) => setUc(v.replace(/\D/g, ""))} keyboardType="numeric" /><FormField label="Telefone / WhatsApp (opcional)" value={telefone} onChangeText={setTelefone} keyboardType="phone-pad" /><FormField label="E-mail (opcional)" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
       <ChoiceField label="Modalidade de faturamento" value={modalidade} onChange={setModalidade} options={[{ label: "Por injeção", value: "INJECAO" }, { label: "Por compensação", value: "COMPENSACAO" }]} /><FormField label="Desconto contratado (%)" value={desconto} onChangeText={setDesconto} keyboardType="decimal-pad" /><FormField label="CPF / CNPJ (opcional)" value={cpf} onChangeText={setCpf} /><FormField label="Endereço (opcional)" value={endereco} onChangeText={setEndereco} />
-      <Text style={styles.label}>Usina vinculada (opcional)</Text><View style={styles.options}><Pressable onPress={() => setUsinaId("")} style={[styles.option, !usinaId && styles.selected]}><Text>Nenhuma usina</Text></Pressable>{usinas.map((u) => <Pressable key={u.id} onPress={() => setUsinaId(u.id)} style={[styles.option, usinaId === u.id && styles.selected]}><Text>{u.nome}</Text></Pressable>)}</View>
+      <View style={styles.allocation}><Text style={styles.allocationTitle}>Alocação de energia</Text><Text style={styles.allocationSubtitle}>A usina escolhida será vinculada a todas as UCs deste cliente.</Text><Text style={styles.label}>Usina vinculada</Text><View style={styles.options}><Pressable onPress={() => { setUsinaId(""); setPercentualRateio(""); }} style={[styles.option, !usinaId && styles.selected]}><Text>Nenhuma usina</Text></Pressable>{usinas.map((u) => <Pressable key={u.id} onPress={() => setUsinaId(u.id)} style={[styles.option, usinaId === u.id && styles.selected]}><Text>{u.nome}</Text></Pressable>)}</View>{usinaId ? <FormField label="Percentual da energia alocada (%)" value={percentualRateio} onChangeText={(valor) => setPercentualRateio(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" /> : null}</View>
       <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar alterações"} onPress={salvar} />
     </Card><View style={styles.dangerZone}><Text style={styles.dangerTitle}>Excluir cliente</Text><Text style={styles.dangerSubtitle}>Remova permanentemente o cliente e seus vínculos.</Text><Button title="Excluir cliente" onPress={excluir} style={styles.delete} /></View></ScrollView></Screen>;
 }
 
 const styles = StyleSheet.create({
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl }, eyebrow: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800", letterSpacing: 1.2 }, title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "800" }, subtitle: { marginTop: Spacing.sm, marginBottom: Spacing.lg, color: Colors.subtitle, lineHeight: 21 },
-  label: { marginBottom: Spacing.xs, color: Colors.text, fontSize: Typography.caption, fontWeight: "700" }, options: { gap: Spacing.xs, marginBottom: Spacing.lg }, option: { padding: Spacing.sm, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, backgroundColor: Colors.surface }, selected: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight }, dangerZone: { marginTop: Spacing.lg, padding: Spacing.lg, borderWidth: 1, borderColor: "#FECACA", borderRadius: Radius.xl, backgroundColor: "#FFF7F7" }, dangerTitle: { color: Colors.danger, fontSize: Typography.body, fontWeight: "800" }, dangerSubtitle: { marginTop: 3, marginBottom: Spacing.md, color: Colors.subtitle, fontSize: Typography.small }, delete: { backgroundColor: Colors.danger },
+  allocation: { marginBottom: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg, backgroundColor: Colors.primaryLight }, allocationTitle: { color: Colors.primaryDark, fontSize: Typography.body, fontWeight: "900" }, allocationSubtitle: { marginTop: 3, marginBottom: Spacing.md, color: Colors.subtitle, fontSize: Typography.small }, label: { marginBottom: Spacing.xs, color: Colors.text, fontSize: Typography.caption, fontWeight: "700" }, options: { gap: Spacing.xs, marginBottom: Spacing.md }, option: { padding: Spacing.sm, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, backgroundColor: Colors.surface }, selected: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight }, dangerZone: { marginTop: Spacing.lg, padding: Spacing.lg, borderWidth: 1, borderColor: "#FECACA", borderRadius: Radius.xl, backgroundColor: "#FFF7F7" }, dangerTitle: { color: Colors.danger, fontSize: Typography.body, fontWeight: "800" }, dangerSubtitle: { marginTop: 3, marginBottom: Spacing.md, color: Colors.subtitle, fontSize: Typography.small }, delete: { backgroundColor: Colors.danger },
 });
