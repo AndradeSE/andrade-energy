@@ -29,7 +29,14 @@ export default function EditarCliente() {
     setSalvando(true);
     const ucNormalizada = uc.replace(/\D/g, "");
     const { error } = await supabase.from("clientes").update({ nome: nome.trim(), uc: ucNormalizada || null, telefone, whatsapp: telefone.replace(/\D/g, ""), email: email.trim().toLowerCase(), cpf, endereco, consumo_medio_kwh: consumoMedioKwh, modalidade_faturamento: modalidade, desconto_percentual: percentual }).eq("id", id);
-    setSalvando(false); if (error) Alert.alert("Não foi possível salvar", error.message); else router.back();
+    if (error) {
+      setSalvando(false);
+      return Alert.alert("Não foi possível salvar", error.message);
+    }
+    const { error: erroUnidades } = await supabase.from("unidades_consumidoras").update({ modalidade_faturamento: modalidade, desconto_percentual: percentual }).eq("cliente_id", id);
+    setSalvando(false);
+    if (erroUnidades) Alert.alert("Cliente atualizado", "Os dados foram salvos, mas não foi possível sincronizar a modalidade das UCs.");
+    else router.back();
   }
 
   function excluir() { Alert.alert("Excluir cliente", "Esta ação remove o cliente e seus vínculos. Deseja continuar?", [{ text: "Cancelar", style: "cancel" }, { text: "Excluir", style: "destructive", onPress: async () => { try { await excluirCliente(id); router.replace("/clientes"); } catch (erro: any) { Alert.alert("Não foi possível excluir", erro?.response?.data?.message ?? erro?.message); } } }]); }
