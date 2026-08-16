@@ -66,9 +66,12 @@ if (faturaExistente) {
     Number(faturaExistente.valor_total_unificado ?? 0) > Number(faturaExistente.valor_cemig ?? 0);
   const valorConcessionariaFoiReduzido =
     Number(faturaExistente.valor_cemig ?? 0) < Number(dados.valorTotal ?? 0);
+  const compensacaoInferidaPeloConsumo =
+    Number(dados.energiaCompensada ?? 0) === 0 &&
+    Number(faturaExistente.energia_compensada ?? 0) > 0;
   const podeCorrigir = semBaseDeCalculo && Number(dados.consumo ?? 0) > 0;
 
-  if (podeCorrigir || totalConvencionalSomadoEmDuplicidade || valorConcessionariaFoiReduzido) {
+  if (podeCorrigir || totalConvencionalSomadoEmDuplicidade || valorConcessionariaFoiReduzido || compensacaoInferidaPeloConsumo) {
     for (const tabela of ["notificacoes_fatura", "cobrancas", "creditos"]) {
       await supabase.from(tabela).delete().eq("fatura_id", faturaExistente.id);
     }
@@ -168,9 +171,7 @@ if (!cliente.usina_id) {
     ? await obterEnergiaInjetada(dados, cliente)
     : { energia: Number(dados.energiaInjetada ?? 0), saldoAnterior: Number(dados.saldoAnterior ?? 0) };
   const energiaInjetadaCalculada = injecaoCalculada.energia;
-  const energiaCompensadaCalculada = temCompensacaoInformada
-    ? Number(dados.energiaCompensada)
-    : Number(dados.consumo);
+  const energiaCompensadaCalculada = Number(dados.energiaCompensada ?? 0);
   const valorConcessionaria = Number(dados.valorTotal);
 
   if (!["INJECAO", "COMPENSACAO"].includes(modalidade)) {
