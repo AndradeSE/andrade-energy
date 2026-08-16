@@ -102,7 +102,7 @@ function competenciaParaIso(referencia: string): string {
   return `${ano}-${meses[mes]}-01`;
 }
 
-async function obterEnergiaInjetada(dados: FaturaExtraida, cliente: any): Promise<{ energia: number; saldoAnterior: number }> {
+async function obterEnergiaInjetada(dados: FaturaExtraida, cliente: any, modalidade: ModalidadeFaturamento): Promise<{ energia: number; saldoAnterior: number }> {
   const quantidadeFaturada = Number(dados.energiaCompensada ?? 0);
   const saldoAtual = Number(dados.saldoAtual ?? 0);
 
@@ -120,8 +120,12 @@ async function obterEnergiaInjetada(dados: FaturaExtraida, cliente: any): Promis
 
     const saldoAnterior = Number(anterior?.saldo_atual ?? 0);
     const energia = Math.max(0, quantidadeFaturada + saldoAtual - saldoAnterior);
-    if (energia <= 0) throw new Error("A energia injetada calculada para esta competência é igual a zero.");
+    if (energia <= 0 && modalidade !== "COMPENSACAO") throw new Error("A energia injetada calculada para esta competência é igual a zero.");
     return { energia, saldoAnterior };
+  }
+
+  if (modalidade === "COMPENSACAO") {
+    return { energia: 0, saldoAnterior: 0 };
   }
 
   const energiaDaFatura = Number(dados.energiaInjetada ?? 0);
@@ -170,7 +174,7 @@ if (!cliente.usina_id) {
   ).toUpperCase() as ModalidadeFaturamento;
   const descontoPercentual = Number(cliente.desconto_percentual ?? 40);
   const temCompensacaoInformada = Number(dados.energiaCompensada) > 0;
-  const injecaoCalculada = await obterEnergiaInjetada(dados, cliente);
+  const injecaoCalculada = await obterEnergiaInjetada(dados, cliente, modalidade);
   const energiaInjetadaCalculada = injecaoCalculada.energia;
   const energiaCompensadaFaturada = Number(dados.energiaCompensada ?? 0);
   const baseCompensacaoCalculada = modalidade === "COMPENSACAO"
