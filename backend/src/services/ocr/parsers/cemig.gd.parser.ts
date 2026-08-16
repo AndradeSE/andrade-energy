@@ -28,7 +28,12 @@ function extrairLinhasCompensadas(texto: string) {
     }
   }
 
-  return [...porGrupo.values()];
+  return porGrupo;
+}
+
+function extrairValorLinha(texto: string, expressao: RegExp): number {
+  const valor = buscar(texto, expressao);
+  return valor ? paraNumero(valor) : 0;
 }
 
 export function parseCemigGD(
@@ -73,10 +78,12 @@ export function parseCemigGD(
   );
 
   const linhasCompensadas = extrairLinhasCompensadas(texto);
-  const energiaCompensada = linhasCompensadas.reduce(
+  const energiaCompensada = [...linhasCompensadas.values()].reduce(
     (total, linha) => total + linha.quantidade,
     0
   );
+  const gd1 = linhasCompensadas.get("1");
+  const gd2 = linhasCompensadas.get("2");
 
   const saldoAtual = paraNumero(
     buscar(
@@ -91,7 +98,36 @@ export function parseCemigGD(
     "0"
   );
 
-  const tarifaGD = linhasCompensadas.find((linha) => linha.tarifa > 0)?.tarifa ?? 0;
+  const tarifaGD = gd1?.tarifa ?? gd2?.tarifa ?? 0;
+
+  const tarifaScee = paraNumero(
+    buscar(texto, /Energia SCEE(?:\s+HR)?\s+ISENTA\s*kWh\s+[\d.,]+\s+([\d.,]+)/i) || "0"
+  );
+
+  const valorEnergiaEletrica = extrairValorLinha(
+    texto,
+    /Energia Elétrica\s*kWh\s+[\d.,]+\s+[\d.,]+\s+([\d.,]+)/i
+  );
+  const valorCustoDisponibilidade = extrairValorLinha(
+    texto,
+    /Custo de Disponibilidade\s*[\d.,]+\s+([\d.,]+)/i
+  );
+  const valorScee = extrairValorLinha(
+    texto,
+    /Energia SCEE(?:\s+HR)?\s+ISENTA\s*kWh\s+[\d.,]+\s+[\d.,]+\s+([\d.,]+)/i
+  );
+  const valorCompensado = [...linhasCompensadas.values()].reduce(
+    (total, linha) => total + linha.quantidade * linha.tarifa,
+    0
+  );
+  const ajusteCustoDisponibilidade = extrairValorLinha(
+    texto,
+    /Ajuste Custo Disponibilidade\s*-\s*([\d.,]+)/i
+  );
+  const valorEnergiaConcessionaria = Math.max(
+    0,
+    valorEnergiaEletrica + valorCustoDisponibilidade + valorScee - valorCompensado - ajusteCustoDisponibilidade
+  );
 
   const custoDisponibilidade = paraNumero(
     buscar(
@@ -133,6 +169,10 @@ export function parseCemigGD(
 
     energiaCompensada,
 
+    energiaCompensadaGD1: gd1?.quantidade ?? 0,
+
+    energiaCompensadaGD2: gd2?.quantidade ?? 0,
+
     saldoAtual,
 
     economia,
@@ -140,6 +180,14 @@ export function parseCemigGD(
     tarifaCheia,
 
     tarifaGD,
+
+    tarifaGD1: gd1?.tarifa ?? 0,
+
+    tarifaGD2: gd2?.tarifa ?? 0,
+
+    tarifaScee,
+
+    valorEnergiaConcessionaria,
 
     custoDisponibilidade,
 

@@ -43,7 +43,7 @@ function gerarPdf(fatura: any, tipo: "USINA" | "UNIFICADA") {
       .text(`Economia real: ${moeda(fatura.economia_real)}`)
       .text(`Desconto final real: ${Number(fatura.desconto_real_percentual ?? 0).toFixed(2)}%`);
     pdf.moveDown(2).fillColor("#64748B").fontSize(9)
-      .text("O desconto final real considera o valor completo da distribuidora, incluindo impostos, encargos e cobranças que não recebem desconto.");
+      .text("O desconto real mostra quanto da economia energética chegou ao cliente. No GD II, considera o Fio B e o custo de disponibilidade que permanecem na concessionária.");
     pdf.end();
   });
 }

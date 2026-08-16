@@ -36,6 +36,10 @@ export interface FaturaExtraida {
 
   energiaCompensada: number;
 
+  energiaCompensadaGD1?: number;
+
+  energiaCompensadaGD2?: number;
+
   saldoAnterior: number;
 
   saldoAtual: number;
@@ -47,6 +51,14 @@ export interface FaturaExtraida {
   tarifaCheia: number;
 
   tarifaGD: number;
+
+  tarifaGD1?: number;
+
+  tarifaGD2?: number;
+
+  tarifaScee?: number;
+
+  valorEnergiaConcessionaria?: number;
 
   custoDisponibilidade: number;
 

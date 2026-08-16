@@ -7,6 +7,7 @@ export type BillingInput = {
   tarifaCheia: number;
   descontoPercentual: number;
   valorCemig: number;
+  valorCreditoEfetivo?: number;
 };
 
 export type BillingOutput = {
@@ -58,12 +59,16 @@ export function calcularFaturaUnificada(input: BillingInput): BillingOutput {
   const valorEnergiaCheia = baseCalculoKwh * input.tarifaCheia;
   const valorUsina = baseCalculoKwh * tarifaAndrade;
   const descontoContratadoValor = valorEnergiaCheia - valorUsina;
-  const valorReferenciaSemAndrade = input.valorCemig + valorEnergiaCheia;
+  const valorCreditoEfetivo = Math.min(
+    valorEnergiaCheia,
+    Math.max(0, input.valorCreditoEfetivo ?? valorEnergiaCheia)
+  );
+  const valorReferenciaSemAndrade = input.valorCemig + valorCreditoEfetivo;
   const valorTotalUnificado = input.valorCemig + valorUsina;
-  const economiaReal = valorReferenciaSemAndrade - valorTotalUnificado;
+  const economiaReal = Math.max(0, valorReferenciaSemAndrade - valorTotalUnificado);
   const descontoRealPercentual =
-    valorReferenciaSemAndrade > 0
-      ? (economiaReal / valorReferenciaSemAndrade) * 100
+    valorCreditoEfetivo > 0
+      ? (economiaReal / valorCreditoEfetivo) * 100
       : 0;
 
   return {

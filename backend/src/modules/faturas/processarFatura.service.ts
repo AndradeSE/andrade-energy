@@ -146,6 +146,11 @@ if (!cliente.usina_id) {
     ? energiaInjetadaCalculada
     : energiaCompensadaFaturada;
   const valorConcessionaria = Number(dados.valorTotal);
+  const valorEnergiaSemGD = Number(dados.consumo ?? 0) * Number(dados.tarifaCheia ?? 0);
+  const valorCreditoEfetivo = Math.min(
+    energiaCompensadaFaturada * Number(dados.tarifaCheia ?? 0),
+    Math.max(0, valorEnergiaSemGD - Number(dados.valorEnergiaConcessionaria ?? 0))
+  );
 
   if (!["INJECAO", "COMPENSACAO"].includes(modalidade)) {
     throw new Error("Modalidade de faturamento do cliente inválida.");
@@ -158,6 +163,7 @@ if (!cliente.usina_id) {
     tarifaCheia: Number(dados.tarifaCheia),
     descontoPercentual,
     valorCemig: valorConcessionaria,
+    valorCreditoEfetivo,
   });
 
 const fatura = await inserirFatura({
