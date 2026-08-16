@@ -2,7 +2,6 @@ import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useDashboard } from "../../hooks/useDashboard";
@@ -22,7 +21,6 @@ import QuickAccessCarousel from "../QuickAccessCarousel";
 export default function ClienteHome() {
   const navigation = useNavigation();
   const { data, isLoading, error } = useDashboard();
-  const [acessoRapidoAtivo, setAcessoRapidoAtivo] = useState(false);
 
   if (isLoading) return <Loading />;
 
@@ -55,7 +53,6 @@ export default function ClienteHome() {
 
       <ScrollView
         style={styles.scroll}
-        scrollEnabled={!acessoRapidoAtivo}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
@@ -65,7 +62,7 @@ export default function ClienteHome() {
         />
 
         <View style={styles.quickHeader}><Text style={styles.quickTitle}>Acesso rápido</Text><Text style={styles.quickHint}>Arraste para navegar</Text></View>
-        <QuickAccessCarousel onInteractionChange={setAcessoRapidoAtivo} items={[
+        <QuickAccessCarousel items={[
           { icon: "receipt-outline", label: "Faturas", onPress: () => router.push("/faturas") },
           { icon: "document-attach-outline", label: "Conta de luz", onPress: () => router.push("/contas-de-luz") },
           { icon: "trending-up-outline", label: "Economia", onPress: () => router.push("/(tabs)/economia") },

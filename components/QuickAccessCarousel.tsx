@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ScrollView } from "react-native-gesture-handler";
 
 import { Colors, Radius, Spacing, Typography } from "../theme";
 
@@ -11,10 +12,9 @@ type Item = {
 
 type Props = {
   items: Item[];
-  onInteractionChange?: (active: boolean) => void;
 };
 
-export default function QuickAccessCarousel({ items, onInteractionChange }: Props) {
+export default function QuickAccessCarousel({ items }: Props) {
   return (
     <ScrollView
       horizontal
@@ -22,14 +22,10 @@ export default function QuickAccessCarousel({ items, onInteractionChange }: Prop
       bounces={false}
       decelerationRate="fast"
       directionalLockEnabled
-      nestedScrollEnabled
       overScrollMode="never"
       showsHorizontalScrollIndicator={false}
       style={styles.scroll}
       contentContainerStyle={styles.content}
-      onTouchStart={() => onInteractionChange?.(true)}
-      onTouchEnd={() => onInteractionChange?.(false)}
-      onTouchCancel={() => onInteractionChange?.(false)}
     >
       {items.map((item) => (
         <Pressable accessibilityLabel={item.label} key={item.label} onPress={item.onPress} style={styles.card}>
