@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { Alert, FlatList, Image, Modal, Pressable, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
@@ -76,14 +77,14 @@ export default function SelecionarUnidade() {
 
   return (
     <SafeAreaView edges={["left", "right", "bottom"]} style={styles.screen}>
-      <StatusBar backgroundColor="#8F938D" barStyle="light-content" />
+      <StatusBar backgroundColor="#006B3C" barStyle="light-content" />
       <FlatList
         contentContainerStyle={styles.content}
         data={itensFiltrados}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={
           <>
-          <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
+          <LinearGradient colors={["#006B3C", "#008C4A", "#38A94B"]} end={{ x: 1, y: 0.85 }} start={{ x: 0, y: 0 }} style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
             <View style={styles.headerTop}>
               <TouchableOpacity
                 accessibilityLabel="Opções da conta"
@@ -100,7 +101,7 @@ export default function SelecionarUnidade() {
                 <Image source={require("../assets/images/icon.png")} style={styles.logo} />
               </View>
             </View>
-          </View>
+          </LinearGradient>
           <View style={styles.intro}>
             <Text style={styles.title}>{gestor ? "Escolha uma usina" : "Escolha sua unidade consumidora"}</Text>
           </View>
@@ -231,7 +232,7 @@ function DrawerItem({ icon, label, onPress, danger = false }: { icon: keyof type
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
   content: { flexGrow: 1, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl },
-  header: { marginHorizontal: -Spacing.lg, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl, backgroundColor: "#8F938D" },
+  header: { marginHorizontal: -Spacing.lg, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl },
   headerTop: { minHeight: 76, flexDirection: "row", alignItems: "center" },
   menuButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center", marginRight: Spacing.xs },
   avatar: { width: 48, height: 48, alignItems: "center", justifyContent: "center", borderRadius: Radius.round, backgroundColor: "rgba(255,255,255,0.18)" },

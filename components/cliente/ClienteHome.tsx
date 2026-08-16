@@ -16,6 +16,7 @@ import ClienteHeader from "./ClienteHeader";
 import EconomiaChart from "./EconomiaChart";
 import EnergyFlowCard from "./EnergyFlowCard";
 import HeroCard from "./HeroCard";
+import QuickAccessCarousel from "../QuickAccessCarousel";
 
 export default function ClienteHome() {
   const navigation = useNavigation();
@@ -42,7 +43,7 @@ export default function ClienteHome() {
 
   return (
     <SafeAreaView edges={["left", "right", "bottom"]} style={styles.screen}>
-      <StatusBar backgroundColor="#8F938D" barStyle="light-content" />
+      <StatusBar backgroundColor="#006B3C" barStyle="light-content" />
       <ClienteHeader
         cliente={data.cliente}
         uc={data.uc}
@@ -59,6 +60,14 @@ export default function ClienteHome() {
           saldo={data.creditos}
           economia={data.economiaAcumulada}
         />
+
+        <View style={styles.quickHeader}><Text style={styles.quickTitle}>Acesso rápido</Text><Text style={styles.quickHint}>Arraste para navegar</Text></View>
+        <QuickAccessCarousel items={[
+          { icon: "receipt-outline", label: "Faturas", onPress: () => router.push("/faturas") },
+          { icon: "document-attach-outline", label: "Conta de luz", onPress: () => router.push("/contas-de-luz") },
+          { icon: "trending-up-outline", label: "Economia", onPress: () => router.push("/(tabs)/economia") },
+          { icon: "document-text-outline", label: "Contrato", onPress: () => router.push("/contrato") },
+        ]} />
 
         <View style={styles.invoiceSectionHeader}>
           <Text style={styles.invoiceSectionTitle}>Faturas pendentes</Text>
@@ -124,6 +133,9 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     paddingBottom: Spacing.xxl * 3,
   },
+  quickHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: Spacing.xs, marginBottom: Spacing.sm },
+  quickTitle: { color: Colors.text, fontSize: 17, fontWeight: "800" },
+  quickHint: { color: Colors.subtitle, fontSize: 11, fontWeight: "600" },
   invoiceSectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: Spacing.xs, marginBottom: Spacing.sm },
   invoiceSectionTitle: { color: Colors.text, fontSize: 17, fontWeight: "800" },
   invoiceSeeAll: { color: Colors.primary, fontSize: 11, fontWeight: "900", letterSpacing: 0.4 },

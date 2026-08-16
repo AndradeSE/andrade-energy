@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -66,7 +67,7 @@ export default function ClienteHeader({
 
   return (
     <>
-      <View style={[styles.container, { paddingTop: insets.top + Spacing.xs }]}>
+      <LinearGradient colors={["#006B3C", "#008C4A", "#38A94B"]} end={{ x: 1, y: 0.85 }} start={{ x: 0, y: 0 }} style={[styles.container, { paddingTop: insets.top + Spacing.xs }]}>
         <View style={styles.top}>
           <TouchableOpacity
             accessibilityLabel="Abrir menu"
@@ -127,7 +128,7 @@ export default function ClienteHeader({
           <Text style={styles.changeText}>Trocar</Text>
           <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
         </TouchableOpacity>
-      </View>
+      </LinearGradient>
 
       <Modal
         animationType="slide"
@@ -190,7 +191,6 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.sm,
-    backgroundColor: "#8F938D",
   },
 
   top: {

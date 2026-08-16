@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { Alert, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Modal, Pressable, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useEffect, useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { buscarDashboardUsina } from "../../services/usinas.service";
@@ -23,6 +25,7 @@ export default function AppHeader({
   icon = "grid-outline",
 }: Props) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { logout, usuario, usinaSelecionada } = useAuth();
   const [menuAberto, setMenuAberto] = useState(false);
   const [autonomia, setAutonomia] = useState<{ percentual: number; disponivel: number } | null>(null);
@@ -53,7 +56,8 @@ export default function AppHeader({
   }
 
   return (
-    <View style={styles.container}>
+    <LinearGradient colors={["#006B3C", "#008C4A", "#38A94B"]} end={{ x: 1, y: 0.85 }} start={{ x: 0, y: 0 }} style={[styles.container, { marginTop: -insets.top, paddingTop: insets.top + Spacing.md }]}>
+      <StatusBar backgroundColor="#006B3C" barStyle="light-content" />
       <View style={styles.top}>
         <TouchableOpacity
           accessibilityLabel="Abrir perfil"
@@ -122,7 +126,7 @@ export default function AppHeader({
           </Pressable>
         </Pressable>
       </Modal>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -133,9 +137,7 @@ function MenuLink({ icon, label, onPress, danger = false }: { icon: keyof typeof
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
     paddingBottom: Spacing.lg,
-    backgroundColor: Colors.header,
   },
 
   top: {
