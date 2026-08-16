@@ -13,7 +13,7 @@ async function conectar() {
     auth: { clientId, authority: "https://login.microsoftonline.com/consumers" },
   });
   const resultado = await app.acquireTokenByDeviceCode({
-    scopes: ["https://graph.microsoft.com/Mail.Send"],
+    scopes: ["https://graph.microsoft.com/Mail.Send", "https://graph.microsoft.com/Mail.ReadWrite"],
     deviceCodeCallback: (resposta) => console.log(`\n${resposta.message}\n`),
   });
   if (!resultado) throw new Error("A autorização não foi concluída.");

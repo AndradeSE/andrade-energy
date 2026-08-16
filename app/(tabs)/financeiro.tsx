@@ -18,7 +18,7 @@ export default function Financeiro() {
 
   return <Screen><AppHeader title="Financeiro" subtitle="Receita da carteira" contextTitle={moeda(dados.receitaRecebida)} contextSubtitle={`${dados.percentualRecebido.toFixed(1)}% da receita recebida`} icon="wallet-outline" />
     {loading ? <Loading /> : <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <Button title="Faturar manualmente via fatura" icon={<Ionicons name="document-attach-outline" size={20} color={Colors.surface} />} onPress={() => router.push("/faturamento/manual")} style={styles.billingButton} />
+      <Button title="Faturar via conta de energia" icon={<Ionicons name="document-attach-outline" size={20} color={Colors.surface} />} onPress={() => router.push("/faturamento/manual")} style={styles.billingButton} />
       <Section title="Resumo financeiro"><View style={styles.grid}>
         <View style={styles.metric}><Metric compact title="Receita prevista" value={moeda(dados.receitaPrevista)} icon={<Ionicons name="trending-up-outline" size={20} color={Colors.primary} />} /></View>
         <View style={styles.metric}><Metric compact title="Recebido" value={moeda(dados.receitaRecebida)} icon={<Ionicons name="checkmark-circle-outline" size={20} color={Colors.primary} />} /></View>

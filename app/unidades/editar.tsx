@@ -18,9 +18,9 @@ export default function EditarAlocacaoUnidade() {
   const [loading, setLoading] = useState(true); const [salvando, setSalvando] = useState(false);
 
   useEffect(() => { Promise.all([
-    supabase.from("usinas").select("id,nome").order("nome"),
+    supabase.from("usinas").select("id,nome,numero_instalacao").order("nome"),
     supabase.from("clientes").select("usina_id,modalidade_faturamento,percentual_rateio,desconto_percentual,consumo_medio_kwh,nome,endereco,distribuidora").eq("id", clienteId).single(),
-  ]).then(([lista, cliente]) => { setUsinas(lista.data ?? []); const c = cliente.data; if (c) { setUsinaId(c.usina_id ?? ""); setModalidade(c.modalidade_faturamento ?? "COMPENSACAO"); setPercentual(String(c.percentual_rateio ?? (c.modalidade_faturamento === "INJECAO" ? 100 : ""))); setDesconto(String(c.desconto_percentual ?? 40)); setConsumoMedio(String(c.consumo_medio_kwh ?? 0)); } setLoading(false); }); }, [clienteId]);
+  ]).then(([lista, cliente]) => { const c = cliente.data; const porChave = new Map<string, any>(); for (const usina of lista.data ?? []) { const chave = String(usina.numero_instalacao ?? usina.nome).replace(/\W/g, "").toLowerCase(); if (!porChave.has(chave) || usina.id === c?.usina_id) porChave.set(chave, usina); } setUsinas([...porChave.values()]); if (c) { setUsinaId(c.usina_id ?? ""); setModalidade(c.modalidade_faturamento ?? "COMPENSACAO"); setPercentual(String(c.percentual_rateio ?? (c.modalidade_faturamento === "INJECAO" ? 100 : ""))); setDesconto(String(c.desconto_percentual ?? 40)); setConsumoMedio(String(c.consumo_medio_kwh ?? 0)); } setLoading(false); }); }, [clienteId]);
 
   async function salvar() {
     const rateio = Number(percentual.replace(",", ".")); const descontoNumero = Number(desconto.replace(",", ".")); const media = Math.max(0, Number(consumoMedio.replace(",", ".")) || 0);

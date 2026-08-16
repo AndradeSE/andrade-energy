@@ -38,7 +38,7 @@ export default function DashboardGestor() {
 
   async function atualizarGeracao() {
     const usinaId = usinaSelecionada?.id ?? usuario?.usina_id;
-    if (!usinaId) return Alert.alert("Usina não vinculada", "Escolha uma usina para importar a fatura geradora.");
+    if (!usinaId) return Alert.alert("Usina não vinculada", "Escolha uma usina para importar os dados de produção.");
     const arquivo = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
     if (arquivo.canceled) return;
     try {
@@ -46,7 +46,7 @@ export default function DashboardGestor() {
       const item = arquivo.assets[0];
       const resultado = await importarFaturaGeradora(usinaId, item.uri, item.name);
       await refetch();
-      Alert.alert("Geração atualizada", `${formatarEnergia(resultado.dados.energiaInjetada)} importados para ${resultado.dados.referencia}.`);
+      Alert.alert("Produção atualizada", `${formatarEnergia(resultado.dados.energiaGerada)} calculados pelas medições de ${resultado.dados.referencia}.`);
     } catch (erro: any) {
       Alert.alert("Não foi possível atualizar", erro?.response?.data?.message ?? erro?.message ?? "Confira a fatura da unidade geradora.");
     } finally { setImportando(false); }
@@ -66,7 +66,7 @@ export default function DashboardGestor() {
           </View>
           <View style={styles.progressTrack}><View style={[styles.progress, { width: `${Math.min(Math.max(Number(data.ocupacao), 0), 100)}%` }]} /></View>
           <View style={styles.heroBottom}><Text style={styles.heroCaption}>{formatarPercentual(data.ocupacao)} da energia alocada</Text><Text style={styles.heroCaption}>{formatarEnergia(data.energiaDisponivel)} disponíveis</Text></View>
-          <Pressable disabled={importando} onPress={atualizarGeracao} style={styles.importButton}><Ionicons name="document-attach-outline" size={18} color={Colors.surface} /><Text style={styles.importText}>{importando ? "Lendo fatura..." : "Atualizar pela fatura da usina"}</Text></Pressable>
+          <Pressable disabled={importando} onPress={atualizarGeracao} style={styles.importButton}><Ionicons name="document-attach-outline" size={18} color={Colors.surface} /><Text style={styles.importText}>{importando ? "Lendo conta..." : "Importar dados de produção"}</Text></Pressable>
         </View>
 
         <Section title="Resumo da carteira">

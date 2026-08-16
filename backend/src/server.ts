@@ -15,6 +15,7 @@ import rateioRoutes from "./modules/rateio/rateio.routes";
 import usinasRoutes from "./modules/usinas/usinas.routes";
 import { processarFilaDeNotificacoes } from "./modules/faturas/notificacoesFatura.service";
 import convitesRoutes from "./modules/convites/convites.routes";
+import { processarContasDeEnergiaRecebidas } from "./modules/email/email.service";
 
 dotenv.config();
 
@@ -97,7 +98,11 @@ const PORT = Number(process.env.PORT) || 3333;
 app.listen(PORT, () => {
   console.log(`Servidor iniciado na porta ${PORT}`);
   processarFilaDeNotificacoes().catch((erro) => console.error("Falha ao processar notificações:", erro.message));
+  processarContasDeEnergiaRecebidas().catch((erro) => console.error("Falha ao importar produção por e-mail:", erro.message));
   setInterval(() => {
     processarFilaDeNotificacoes().catch((erro) => console.error("Falha ao processar notificações:", erro.message));
   }, 60_000);
+  setInterval(() => {
+    processarContasDeEnergiaRecebidas().catch((erro) => console.error("Falha ao importar produção por e-mail:", erro.message));
+  }, 5 * 60_000);
 });

@@ -2,12 +2,12 @@ import { PublicClientApplication } from "@azure/msal-node";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-const SCOPES = ["https://graph.microsoft.com/Mail.Send"];
+const SCOPES = ["https://graph.microsoft.com/Mail.Send", "https://graph.microsoft.com/Mail.ReadWrite"];
 const CACHE_PATH = path.resolve(process.cwd(), ".microsoft-token-cache.json");
 
 type Anexo = { filename: string; content: string };
 
-async function obterToken() {
+export async function obterTokenMicrosoft() {
   const clientId = process.env.MICROSOFT_CLIENT_ID;
   if (!clientId) return null;
 
@@ -47,7 +47,7 @@ export async function enviarEmailMicrosoft(input: {
   html: string;
   anexos: Anexo[];
 }) {
-  const token = await obterToken();
+  const token = await obterTokenMicrosoft();
   if (!token) return false;
 
   const resposta = await fetch("https://graph.microsoft.com/v1.0/me/sendMail", {

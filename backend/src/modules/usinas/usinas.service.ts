@@ -21,12 +21,24 @@ function competenciaData(referencia: string) {
 export async function importarFaturaGeradora(usinaId: string, caminhoArquivo: string) {
   const usina = await buscarUsina(usinaId);
   const dados = interpretarFatura(await extrairTextoPDF(caminhoArquivo));
-  const energiaGerada = Number(dados.energiaInjetada ?? 0);
-  if (energiaGerada <= 0) throw new Error("Esta fatura não apresenta energia injetada da unidade geradora.");
-
   const numeroFatura = dados.uc.replace(/\D/g, "");
   const numeroUsina = String(usina.numero_instalacao ?? "").replace(/\D/g, "");
+  if (!numeroFatura) throw new Error("Não foi possível identificar a UC na conta de energia.");
+  if (!numeroUsina) throw new Error("Cadastre o número da instalação da usina antes de importar a produção.");
   if (numeroUsina && numeroFatura !== numeroUsina) throw new Error("A instalação da fatura não pertence a esta usina.");
+
+  const leituraAtual = Number(dados.leituraAtual);
+  const leituraAnterior = Number(dados.leituraAnterior);
+  const fatorMultiplicacao = Number(dados.fatorMultiplicacao ?? 1);
+  if (!Number.isFinite(leituraAtual) || !Number.isFinite(leituraAnterior)) {
+    throw new Error("Não foi possível identificar as leituras atual e anterior na conta de energia.");
+  }
+  if (!Number.isFinite(fatorMultiplicacao) || fatorMultiplicacao <= 0) {
+    throw new Error("O fator de multiplicação informado na conta é inválido.");
+  }
+  if (leituraAtual < leituraAnterior) throw new Error("A leitura atual é menor que a leitura anterior.");
+  const energiaGerada = (leituraAtual - leituraAnterior) * fatorMultiplicacao;
+  if (energiaGerada <= 0) throw new Error("A diferença entre as medições não apresenta produção no período.");
 
   const competencia = competenciaData(dados.referencia);
   const { data: atual, error: buscaError } = await supabase.from("fechamentos").select("*").eq("usina_id", usinaId).eq("competencia", competencia).maybeSingle();
@@ -46,7 +58,12 @@ export async function importarFaturaGeradora(usinaId: string, caminhoArquivo: st
     : supabase.from("fechamentos").insert(payload);
   const { data: fechamento, error } = await consulta.select().single();
   if (error) throw error;
-  return { sucesso: true, origem: "FATURA_MANUAL", dados, fechamento };
+  return {
+    sucesso: true,
+    origem: "CONTA_ENERGIA",
+    dados: { ...dados, leituraAtual, leituraAnterior, fatorMultiplicacao, energiaGerada },
+    fechamento,
+  };
 }
 
 export async function listarUsinasService() {

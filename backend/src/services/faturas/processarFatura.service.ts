@@ -26,6 +26,12 @@ export interface FaturaExtraida {
 
   energiaInjetada: number;
 
+  leituraAnterior?: number;
+
+  leituraAtual?: number;
+
+  fatorMultiplicacao?: number;
+
   energiaCompensada: number;
 
   saldoAnterior: number;
