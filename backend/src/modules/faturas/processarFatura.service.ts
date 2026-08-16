@@ -69,9 +69,12 @@ if (faturaExistente) {
   const compensacaoInferidaPeloConsumo =
     Number(dados.energiaCompensada ?? 0) === 0 &&
     Number(faturaExistente.energia_compensada ?? 0) > 0;
+  const energiaDoPeriodoNaoCalculada =
+    Number(faturaExistente.energia_injetada ?? 0) === 0 &&
+    (Number(dados.energiaCompensada ?? 0) > 0 || Number(dados.saldoAtual ?? 0) > 0);
   const podeCorrigir = semBaseDeCalculo && Number(dados.consumo ?? 0) > 0;
 
-  if (podeCorrigir || totalConvencionalSomadoEmDuplicidade || valorConcessionariaFoiReduzido || compensacaoInferidaPeloConsumo) {
+  if (podeCorrigir || totalConvencionalSomadoEmDuplicidade || valorConcessionariaFoiReduzido || compensacaoInferidaPeloConsumo || energiaDoPeriodoNaoCalculada) {
     for (const tabela of ["notificacoes_fatura", "cobrancas", "creditos"]) {
       await supabase.from(tabela).delete().eq("fatura_id", faturaExistente.id);
     }
@@ -100,7 +103,10 @@ function competenciaParaIso(referencia: string): string {
 }
 
 async function obterEnergiaInjetada(dados: FaturaExtraida, cliente: any): Promise<{ energia: number; saldoAnterior: number }> {
-  const quantidadeFaturada = Number(dados.energiaCompensada ?? 0);
+  const energiaInjetadaInformada = Number(dados.energiaInjetada ?? 0);
+  const quantidadeFaturada = energiaInjetadaInformada > 0
+    ? energiaInjetadaInformada
+    : Number(dados.energiaCompensada ?? 0);
   const saldoAtual = Number(dados.saldoAtual ?? 0);
 
   if (quantidadeFaturada > 0 || saldoAtual > 0) {
@@ -167,11 +173,12 @@ if (!cliente.usina_id) {
   ).toUpperCase() as ModalidadeFaturamento;
   const descontoPercentual = Number(cliente.desconto_percentual ?? 40);
   const temCompensacaoInformada = Number(dados.energiaCompensada) > 0;
-  const injecaoCalculada = modalidade === "INJECAO"
-    ? await obterEnergiaInjetada(dados, cliente)
-    : { energia: Number(dados.energiaInjetada ?? 0), saldoAnterior: Number(dados.saldoAnterior ?? 0) };
+  const injecaoCalculada = await obterEnergiaInjetada(dados, cliente);
   const energiaInjetadaCalculada = injecaoCalculada.energia;
-  const energiaCompensadaCalculada = Number(dados.energiaCompensada ?? 0);
+  const energiaCompensadaFaturada = Number(dados.energiaCompensada ?? 0);
+  const baseCompensacaoCalculada = modalidade === "COMPENSACAO"
+    ? energiaInjetadaCalculada
+    : energiaCompensadaFaturada;
   const valorConcessionaria = Number(dados.valorTotal);
 
   if (!["INJECAO", "COMPENSACAO"].includes(modalidade)) {
@@ -181,7 +188,7 @@ if (!cliente.usina_id) {
   const calculo = calcularFaturaUnificada({
     modalidade,
     energiaInjetada: energiaInjetadaCalculada,
-    energiaCompensada: energiaCompensadaCalculada,
+    energiaCompensada: baseCompensacaoCalculada,
     tarifaCheia: Number(dados.tarifaCheia),
     descontoPercentual,
     valorCemig: valorConcessionaria,
@@ -210,9 +217,7 @@ const fatura = await inserirFatura({
     energiaInjetadaCalculada,
 
   energia_compensada:
-    modalidade === "COMPENSACAO"
-      ? energiaCompensadaCalculada
-      : Number(dados.energiaCompensada),
+    energiaCompensadaFaturada,
 
   saldo_anterior:
     injecaoCalculada.saldoAnterior,
@@ -294,15 +299,15 @@ const fatura = await inserirFatura({
     usinaId: cliente.usina_id,
     faturaId: fatura.id,
     competencia: dados.referencia,
-    energiaInjetada: Number(dados.energiaInjetada),
-    energiaCompensada: energiaCompensadaCalculada,
+    energiaInjetada: energiaInjetadaCalculada,
+    energiaCompensada: energiaCompensadaFaturada,
     saldoAtual: Number(dados.saldoAtual),
   });
   await consumirCreditos(
     
     cliente.id,
     dados.referencia,
-    energiaCompensadaCalculada
+    energiaCompensadaFaturada
   );
 }
 
