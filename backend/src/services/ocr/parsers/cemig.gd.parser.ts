@@ -12,6 +12,25 @@ function paraNumero(valor: string): number {
   );
 }
 
+function extrairLinhasCompensadas(texto: string) {
+  const linhas = texto.matchAll(
+    /Energia\s+compensada\s+GD\s*(I{1,2}|[12])\s*kWh\s+([\d.]+(?:,\d+)?)(?:\s+([\d.,]+))?/gi
+  );
+  const porGrupo = new Map<string, { quantidade: number; tarifa: number }>();
+
+  for (const linha of linhas) {
+    const grupo = linha[1].toUpperCase().replace("II", "2").replace("I", "1");
+    if (porGrupo.has(grupo)) continue;
+    const quantidade = paraNumero(linha[2]);
+    const tarifa = paraNumero(linha[3] ?? "0");
+    if (Number.isFinite(quantidade) && quantidade >= 0) {
+      porGrupo.set(grupo, { quantidade, tarifa });
+    }
+  }
+
+  return [...porGrupo.values()];
+}
+
 export function parseCemigGD(
   texto: string
 ): FaturaExtraida {
@@ -53,11 +72,10 @@ export function parseCemigGD(
     ) || "0"
   );
 
-  const energiaCompensada = Number(
-    buscar(
-      texto,
-      /Energia compensada\s+GD\s*(?:II|I)\s*kWh\s*(\d+)/i
-    ) || "0"
+  const linhasCompensadas = extrairLinhasCompensadas(texto);
+  const energiaCompensada = linhasCompensadas.reduce(
+    (total, linha) => total + linha.quantidade,
+    0
   );
 
   const saldoAtual = paraNumero(
@@ -73,12 +91,7 @@ export function parseCemigGD(
     "0"
   );
 
-  const tarifaGD = paraNumero(
-    buscar(
-      texto,
-      /Energia compensada\s+GD\s*(?:II|I)\s*kWh\s*\d+\s+([\d.,]+)/i
-    ) || "0"
-  );
+  const tarifaGD = linhasCompensadas.find((linha) => linha.tarifa > 0)?.tarifa ?? 0;
 
   const custoDisponibilidade = paraNumero(
     buscar(
@@ -90,7 +103,7 @@ export function parseCemigGD(
   const economia = paraNumero(
     buscar(
       texto,
-      /Energia compensada\s+GD\s*(?:II|I)\s*kWh\s*\d+\s+[\d.,]+\s*-\s*([\d.,]+)/i
+      /Energia\s+compensada\s+GD\s*(?:I{1,2}|[12])\s*kWh\s+[\d.]+(?:,\d+)?\s+[\d.,]+\s*-\s*([\d.,]+)/i
     ) || "0"
   );
 
