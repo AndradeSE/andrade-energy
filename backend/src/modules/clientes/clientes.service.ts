@@ -2,6 +2,7 @@ import {
   atualizarCliente,
   buscarCliente,
   buscarClientePorUC,
+  cadastrarUnidadeCliente,
   criarCliente,
   excluirCliente,
   listarClientes,
@@ -12,6 +13,7 @@ import {
 export {
   atualizarCliente, buscarCliente,
   buscarClientePorUC,
+  cadastrarUnidadeCliente,
   criarCliente, excluirCliente, listarClientes, listarUnidadesCliente, listarUnidadesPorCpf
 };
 

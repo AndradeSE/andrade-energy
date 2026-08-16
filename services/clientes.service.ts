@@ -29,6 +29,11 @@ export async function listarUnidadesCliente(id: string) {
   return data;
 }
 
+export async function cadastrarUnidadeCliente(id: string, numero: string) {
+  const { data } = await api.post(`/clientes/${id}/unidades`, { numero });
+  return data;
+}
+
 export async function listarMinhasUnidades() {
   const { data } = await api.get("/clientes/minhas-unidades");
   return data;

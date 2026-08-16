@@ -213,3 +213,37 @@ export async function excluirCliente(id: string) {
 
   if (error) throw error;
 }
+
+export async function cadastrarUnidadeCliente(clienteId: string, numeroInformado: string) {
+  const numero = String(numeroInformado ?? "").replace(/\D/g, "");
+  if (!numero) throw new Error("Número da unidade consumidora não informado.");
+
+  const cliente = await buscarCliente(clienteId);
+  const { data: existente, error: erroConsulta } = await supabase
+    .from("unidades_consumidoras")
+    .select("id,cliente_id")
+    .eq("numero", numero)
+    .maybeSingle();
+  if (erroConsulta) throw erroConsulta;
+  if (existente?.cliente_id && existente.cliente_id !== clienteId) {
+    throw new Error("Esta UC já está vinculada a outro cliente.");
+  }
+
+  const dados = {
+    numero,
+    titular: cliente.nome ?? null,
+    tipo: "BENEFICIARIA",
+    cliente_id: clienteId,
+    usina_id: cliente.usina_id ?? null,
+    distribuidora: cliente.distribuidora || "CEMIG",
+    endereco: cliente.endereco ?? null,
+    modalidade_faturamento: cliente.modalidade_faturamento || "COMPENSACAO",
+    desconto_percentual: Number(cliente.desconto_percentual ?? 40),
+    status: "ATIVA",
+  };
+  const resultado = existente
+    ? await supabase.from("unidades_consumidoras").update(dados).eq("id", existente.id).select().single()
+    : await supabase.from("unidades_consumidoras").insert(dados).select().single();
+  if (resultado.error) throw resultado.error;
+  return resultado.data;
+}

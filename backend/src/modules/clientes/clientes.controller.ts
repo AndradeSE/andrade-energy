@@ -8,6 +8,7 @@ import {
   listarClientes,
   listarUnidadesCliente,
   listarUnidadesPorCpf,
+  cadastrarUnidadeCliente,
 } from "./clientes.service";
 
 export async function listarClientesController(
@@ -90,6 +91,14 @@ export async function listarUnidadesClienteController(req: Request, res: Respons
     return res.json(await listarUnidadesCliente(req.params.id));
   } catch (e: any) {
     return res.status(500).json({ message: e.message });
+  }
+}
+
+export async function cadastrarUnidadeClienteController(req: Request, res: Response) {
+  try {
+    return res.status(201).json(await cadastrarUnidadeCliente(req.params.id, req.body?.numero));
+  } catch (e: any) {
+    return res.status(400).json({ message: e.message });
   }
 }
 

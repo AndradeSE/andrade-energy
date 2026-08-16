@@ -5,9 +5,8 @@ import { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { Badge, Button, Card, EmptyState, Loading, Screen, Section } from "../../components/ui";
-import { buscarCliente, listarUnidadesCliente } from "../../services/clientes.service";
+import { buscarCliente, cadastrarUnidadeCliente, listarUnidadesCliente } from "../../services/clientes.service";
 import { analisarFatura, buscarFaturasCliente } from "../../services/faturas.service";
-import { supabase } from "../../supabase";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const moeda = (v: unknown) => Number(v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -35,29 +34,7 @@ export default function ClienteDetalhe() {
       const dados = analise?.dados ?? {};
       const numero = String(dados.uc ?? dados.numero_instalacao ?? dados.numeroInstalacao ?? "").replace(/\D/g, "");
       if (!numero) throw new Error("Não foi possível identificar o número da unidade consumidora.");
-      const { data: existente, error: erroConsulta } = await supabase.from("unidades_consumidoras").select("id,cliente_id").eq("numero", numero).maybeSingle();
-      if (erroConsulta) throw erroConsulta;
-      if (existente?.cliente_id && existente.cliente_id !== id) throw new Error("Esta UC já está vinculada a outro cliente.");
-      const operacao = existente
-        ? supabase.from("unidades_consumidoras").update({
-          cliente_id: id,
-          usina_id: cliente.usina_id ?? null,
-          status: "ATIVA",
-        }).eq("id", existente.id)
-        : supabase.from("unidades_consumidoras").insert({
-        numero,
-        titular: cliente.nome ?? null,
-        tipo: "BENEFICIARIA",
-        cliente_id: id,
-        usina_id: cliente.usina_id ?? null,
-        distribuidora: cliente.distribuidora || "CEMIG",
-        endereco: cliente.endereco ?? null,
-        modalidade_faturamento: cliente.modalidade_faturamento || "COMPENSACAO",
-        desconto_percentual: Number(cliente.desconto_percentual ?? 40),
-        status: "ATIVA",
-      });
-      const { error } = await operacao;
-      if (error) throw error;
+      await cadastrarUnidadeCliente(id, numero);
       await carregar();
       Alert.alert("Unidade cadastrada", `A UC ${numero} foi vinculada automaticamente a ${cliente.nome}.`);
     } catch (erro: any) {

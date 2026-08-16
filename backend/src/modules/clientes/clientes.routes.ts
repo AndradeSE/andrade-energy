@@ -8,8 +8,9 @@ import {
   listarClientesController,
   listarUnidadesClienteController,
   listarMinhasUnidadesController,
+  cadastrarUnidadeClienteController,
 } from "./clientes.controller";
-import { exigirAutenticacao } from "../../middlewares/auth.middleware";
+import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
 
 const router = Router();
 
@@ -18,6 +19,7 @@ router.get("/", listarClientesController);
 router.get("/minhas-unidades", exigirAutenticacao, listarMinhasUnidadesController);
 
 router.get("/:id/unidades", listarUnidadesClienteController);
+router.post("/:id/unidades", exigirAutenticacao, exigirGestor, cadastrarUnidadeClienteController);
 
 router.get("/:id", buscarClienteController);
 
