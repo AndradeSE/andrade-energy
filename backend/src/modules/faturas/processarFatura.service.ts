@@ -72,9 +72,12 @@ if (faturaExistente) {
   const energiaDoPeriodoNaoCalculada =
     Number(faturaExistente.energia_injetada ?? 0) === 0 &&
     (Number(dados.energiaCompensada ?? 0) > 0 || Number(dados.saldoAtual ?? 0) > 0);
+  const energiaCobradaSemCompensacao =
+    Number(dados.energiaCompensada ?? 0) === 0 &&
+    Number(faturaExistente.base_calculo_kwh ?? 0) > 0;
   const podeCorrigir = semBaseDeCalculo && Number(dados.consumo ?? 0) > 0;
 
-  if (podeCorrigir || totalConvencionalSomadoEmDuplicidade || valorConcessionariaFoiReduzido || compensacaoInferidaPeloConsumo || energiaDoPeriodoNaoCalculada) {
+  if (podeCorrigir || totalConvencionalSomadoEmDuplicidade || valorConcessionariaFoiReduzido || compensacaoInferidaPeloConsumo || energiaDoPeriodoNaoCalculada || energiaCobradaSemCompensacao) {
     for (const tabela of ["notificacoes_fatura", "cobrancas", "creditos"]) {
       await supabase.from(tabela).delete().eq("fatura_id", faturaExistente.id);
     }
@@ -95,18 +98,15 @@ if (faturaExistente) {
 
 }
 
-function competenciaParaIso(referencia: string): string {
-  const [mes, ano] = referencia.toUpperCase().split("/");
-  const meses: Record<string, string> = { JAN: "01", FEV: "02", MAR: "03", ABR: "04", MAI: "05", JUN: "06", JUL: "07", AGO: "08", SET: "09", OUT: "10", NOV: "11", DEZ: "12" };
-  if (!meses[mes] || !/^\d{4}$/.test(ano)) throw new Error("Competência da fatura inválida.");
-  return `${ano}-${meses[mes]}-01`;
-}
-
-async function obterEnergiaInjetada(dados: FaturaExtraida, cliente: any, modalidade: ModalidadeFaturamento): Promise<{ energia: number; saldoAnterior: number }> {
+async function obterEnergiaInjetada(dados: FaturaExtraida): Promise<{ energia: number; saldoAnterior: number }> {
   const quantidadeFaturada = Number(dados.energiaCompensada ?? 0);
   const saldoAtual = Number(dados.saldoAtual ?? 0);
 
-  if (quantidadeFaturada > 0 || saldoAtual > 0) {
+  if (quantidadeFaturada <= 0) {
+    return { energia: 0, saldoAnterior: 0 };
+  }
+
+  if (quantidadeFaturada > 0) {
     const { data: anterior, error: erroAnterior } = await supabase
       .from("faturas")
       .select("saldo_atual")
@@ -120,45 +120,10 @@ async function obterEnergiaInjetada(dados: FaturaExtraida, cliente: any, modalid
 
     const saldoAnterior = Number(anterior?.saldo_atual ?? 0);
     const energia = Math.max(0, quantidadeFaturada + saldoAtual - saldoAnterior);
-    if (energia <= 0 && modalidade !== "COMPENSACAO") throw new Error("A energia injetada calculada para esta competência é igual a zero.");
     return { energia, saldoAnterior };
   }
 
-  if (modalidade === "COMPENSACAO") {
-    return { energia: 0, saldoAnterior: 0 };
-  }
-
-  const energiaDaFatura = Number(dados.energiaInjetada ?? 0);
-  if (energiaDaFatura > 0) return { energia: energiaDaFatura, saldoAnterior: Number(dados.saldoAnterior ?? 0) };
-
-  const { data: fechamento, error } = await supabase
-    .from("fechamentos")
-    .select("energia_gerada")
-    .eq("usina_id", cliente.usina_id)
-    .eq("competencia", competenciaParaIso(dados.referencia))
-    .maybeSingle();
-  if (error) throw error;
-
-  const energiaUsina = Number(fechamento?.energia_gerada ?? 0);
-  if (energiaUsina <= 0) {
-    throw new Error("Importe primeiro a fatura da usina com a energia injetada desta competência.");
-  }
-
-  const { count, error: erroContagem } = await supabase
-    .from("clientes")
-    .select("id", { count: "exact", head: true })
-    .eq("usina_id", cliente.usina_id)
-    .eq("status", "ATIVO");
-  if (erroContagem) throw erroContagem;
-
-  const percentualInformado = Number(cliente.percentual_rateio ?? 0);
-  if (percentualInformado > 0) {
-    const fator = percentualInformado > 1 ? percentualInformado / 100 : percentualInformado;
-    return { energia: energiaUsina * fator, saldoAnterior: 0 };
-  }
-  if (Number(count ?? 0) === 1) return { energia: energiaUsina, saldoAnterior: 0 };
-
-  throw new Error("Informe o percentual de rateio do cliente antes de faturar por injeção.");
+  return { energia: 0, saldoAnterior: 0 };
 }
 if (!cliente.usina_id) {
   throw new Error(
@@ -174,7 +139,7 @@ if (!cliente.usina_id) {
   ).toUpperCase() as ModalidadeFaturamento;
   const descontoPercentual = Number(cliente.desconto_percentual ?? 40);
   const temCompensacaoInformada = Number(dados.energiaCompensada) > 0;
-  const injecaoCalculada = await obterEnergiaInjetada(dados, cliente, modalidade);
+  const injecaoCalculada = await obterEnergiaInjetada(dados);
   const energiaInjetadaCalculada = injecaoCalculada.energia;
   const energiaCompensadaFaturada = Number(dados.energiaCompensada ?? 0);
   const baseCompensacaoCalculada = modalidade === "COMPENSACAO"
