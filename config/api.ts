@@ -5,7 +5,7 @@ import { obterSessao } from "../storage/session";
 const expoHost = Constants.expoConfig?.hostUri?.split(":")[0];
 const apiBaseURL =
   process.env.EXPO_PUBLIC_API_URL ??
-  (expoHost ? `http://${expoHost}:3333/api` : "http://192.168.0.141:3333/api");
+  (expoHost ? `http://${expoHost}:3333/api` : "http://192.168.2.197:3333/api");
 
 const api = axios.create({
   baseURL: apiBaseURL,

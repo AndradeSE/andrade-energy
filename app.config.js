@@ -37,6 +37,11 @@ module.exports = {
         backgroundColor: "#020617",
       }],
       "expo-secure-store",
+      ["expo-build-properties", {
+        android: {
+          usesCleartextTraffic: true,
+        },
+      }],
     ],
     experiments: {
       typedRoutes: true,

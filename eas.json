@@ -8,23 +8,23 @@
       "developmentClient": true,
       "distribution": "internal",
       "channel": "development-consumidor",
-      "env": { "EXPO_PUBLIC_APP_VARIANT": "consumidor" }
+      "env": { "EXPO_PUBLIC_APP_VARIANT": "consumidor", "EXPO_PUBLIC_API_URL": "http://192.168.2.197:3333/api" }
     },
     "development-gerador": {
       "developmentClient": true,
       "distribution": "internal",
       "channel": "development-gerador",
-      "env": { "EXPO_PUBLIC_APP_VARIANT": "gerador" }
+      "env": { "EXPO_PUBLIC_APP_VARIANT": "gerador", "EXPO_PUBLIC_API_URL": "http://192.168.2.197:3333/api" }
     },
     "preview": {
       "distribution": "internal",
       "channel": "preview-consumidor",
-      "env": { "EXPO_PUBLIC_APP_VARIANT": "consumidor" }
+      "env": { "EXPO_PUBLIC_APP_VARIANT": "consumidor", "EXPO_PUBLIC_API_URL": "http://192.168.2.197:3333/api" }
     },
     "preview-gerador": {
       "distribution": "internal",
       "channel": "preview-gerador",
-      "env": { "EXPO_PUBLIC_APP_VARIANT": "gerador" }
+      "env": { "EXPO_PUBLIC_APP_VARIANT": "gerador", "EXPO_PUBLIC_API_URL": "http://192.168.2.197:3333/api" }
     },
     "production": {
       "autoIncrement": true,
