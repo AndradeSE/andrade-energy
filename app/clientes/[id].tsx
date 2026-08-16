@@ -37,11 +37,7 @@ export default function ClienteDetalhe() {
         params: {
           origem: "fatura",
           clienteId: id,
-          classificacao: String(analise?.classificacao ?? ""),
-          cliente: String(dados.cliente ?? dados.nome ?? dados.titular ?? cliente.nome ?? ""),
           uc: String(dados.uc ?? dados.numero_instalacao ?? dados.numeroInstalacao ?? ""),
-          endereco: String(dados.endereco ?? dados.endereco_instalacao ?? ""),
-          energiaCompensada: String(dados.energiaCompensada ?? 0),
         },
       });
     } catch (erro: any) {
