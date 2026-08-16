@@ -11,7 +11,18 @@ type Item = {
 
 export default function QuickAccessCarousel({ items }: { items: Item[] }) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} decelerationRate="fast" style={styles.scroll} contentContainerStyle={styles.content}>
+    <ScrollView
+      horizontal
+      alwaysBounceHorizontal={false}
+      bounces={false}
+      decelerationRate="fast"
+      directionalLockEnabled
+      nestedScrollEnabled
+      overScrollMode="never"
+      showsHorizontalScrollIndicator={false}
+      style={styles.scroll}
+      contentContainerStyle={styles.content}
+    >
       {items.map((item) => (
         <Pressable accessibilityLabel={item.label} key={item.label} onPress={item.onPress} style={styles.card}>
           <View style={styles.icon}><Ionicons name={item.icon} size={24} color={Colors.primary} /></View>
