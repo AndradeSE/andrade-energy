@@ -71,11 +71,18 @@ export async function importarFaturaGeradora(usinaId: string, caminhoArquivo: st
 export async function listarUsinasService() {
   const usinas = await listarUsinas();
   return Promise.all(usinas.map(async (usina: any) => {
-    const [dashboard, producaoMedia12Meses] = await Promise.all([
+    const [dashboard, producaoMedia12Meses, unidades] = await Promise.all([
       buscarDashboardUsina(usina.id),
       calcularProducaoMedia12Meses(usina.id),
+      supabase.from("unidades_consumidoras").select("id", { count: "exact", head: true }).eq("usina_id", usina.id),
     ]);
-    return { ...usina, fechamento_atual: dashboard.ultimo, producao_media_12_meses: producaoMedia12Meses };
+    if (unidades.error) throw unidades.error;
+    return {
+      ...usina,
+      fechamento_atual: dashboard.ultimo,
+      producao_media_12_meses: producaoMedia12Meses,
+      unidades_alocadas: unidades.count ?? 0,
+    };
   }));
 }
 
