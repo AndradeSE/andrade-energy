@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
-import { Directory, File, Paths } from "expo-file-system";
+import { File, Paths } from "expo-file-system";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -66,14 +66,11 @@ export default function DetalheFatura() {
       setDocumentoBaixando(nomeArquivo);
 
       if (Platform.OS !== "web") {
-        const destino = new File(Paths.cache, nomeArquivo);
-        const arquivo = await File.downloadFileAsync(url, destino, {
+        const destino = new File(Paths.document, nomeArquivo);
+        await File.downloadFileAsync(url, destino, {
           idempotent: true,
         });
-        const pasta = await Directory.pickDirectoryAsync();
-        const arquivoSalvo = pasta.createFile(nomeArquivo, "application/pdf");
-        arquivo.copy(arquivoSalvo);
-        Alert.alert("Download concluído", `A fatura foi salva como ${nomeArquivo}.`);
+        Alert.alert("Download concluído", `${nomeArquivo} foi salvo no aplicativo.`);
         return;
       }
 

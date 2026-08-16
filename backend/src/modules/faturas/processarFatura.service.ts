@@ -88,6 +88,47 @@ if (faturaExistente) {
   }
 
 }
+
+function competenciaParaIso(referencia: string): string {
+  const [mes, ano] = referencia.toUpperCase().split("/");
+  const meses: Record<string, string> = { JAN: "01", FEV: "02", MAR: "03", ABR: "04", MAI: "05", JUN: "06", JUL: "07", AGO: "08", SET: "09", OUT: "10", NOV: "11", DEZ: "12" };
+  if (!meses[mes] || !/^\d{4}$/.test(ano)) throw new Error("Competência da fatura inválida.");
+  return `${ano}-${meses[mes]}-01`;
+}
+
+async function obterEnergiaInjetada(dados: FaturaExtraida, cliente: any): Promise<number> {
+  const energiaDaFatura = Number(dados.energiaInjetada ?? 0);
+  if (energiaDaFatura > 0) return energiaDaFatura;
+
+  const { data: fechamento, error } = await supabase
+    .from("fechamentos")
+    .select("energia_gerada")
+    .eq("usina_id", cliente.usina_id)
+    .eq("competencia", competenciaParaIso(dados.referencia))
+    .maybeSingle();
+  if (error) throw error;
+
+  const energiaUsina = Number(fechamento?.energia_gerada ?? 0);
+  if (energiaUsina <= 0) {
+    throw new Error("Importe primeiro a fatura da usina com a energia injetada desta competência.");
+  }
+
+  const { count, error: erroContagem } = await supabase
+    .from("clientes")
+    .select("id", { count: "exact", head: true })
+    .eq("usina_id", cliente.usina_id)
+    .eq("status", "ATIVO");
+  if (erroContagem) throw erroContagem;
+
+  const percentualInformado = Number(cliente.percentual_rateio ?? 0);
+  if (percentualInformado > 0) {
+    const fator = percentualInformado > 1 ? percentualInformado / 100 : percentualInformado;
+    return energiaUsina * fator;
+  }
+  if (Number(count ?? 0) === 1) return energiaUsina;
+
+  throw new Error("Informe o percentual de rateio do cliente antes de faturar por injeção.");
+}
 if (!cliente.usina_id) {
   throw new Error(
     "Cliente não possui usina vinculada."
@@ -102,9 +143,9 @@ if (!cliente.usina_id) {
   ).toUpperCase() as ModalidadeFaturamento;
   const descontoPercentual = Number(cliente.desconto_percentual ?? 40);
   const temCompensacaoInformada = Number(dados.energiaCompensada) > 0;
-  const energiaInjetadaCalculada = Number(dados.energiaInjetada) > 0
-    ? Number(dados.energiaInjetada)
-    : Number(dados.consumo);
+  const energiaInjetadaCalculada = modalidade === "INJECAO"
+    ? await obterEnergiaInjetada(dados, cliente)
+    : Number(dados.energiaInjetada ?? 0);
   const energiaCompensadaCalculada = temCompensacaoInformada
     ? Number(dados.energiaCompensada)
     : Number(dados.consumo);
