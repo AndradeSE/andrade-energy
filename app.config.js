@@ -15,6 +15,7 @@ module.exports = {
     android: {
       package: gerador ? "com.andradese.energy.gerador" : "com.andradese.energy.consumidor",
       predictiveBackGestureEnabled: false,
+      softwareKeyboardLayoutMode: "resize",
       adaptiveIcon: {
         backgroundColor: "#020617",
         foregroundImage: "./assets/images/android-icon-foreground.png",

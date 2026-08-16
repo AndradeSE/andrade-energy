@@ -64,7 +64,7 @@ export default function Login() {
   return (
     <SafeAreaView style={styles.screen}>
       <StatusBar backgroundColor="#8F938D" barStyle="light-content" />
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.keyboard}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboard}>
         <ScrollView
           bounces={false}
           contentContainerStyle={styles.content}

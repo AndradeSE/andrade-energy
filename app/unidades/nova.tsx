@@ -54,7 +54,7 @@ export default function NovaUnidade() {
     setSalvando(false);
   }
 
-  return <Screen><ScrollView contentContainerStyle={styles.content}>
+  return <Screen><ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
     <Text style={styles.eyebrow}>{origem === "fatura" ? "DADOS LIDOS DA FATURA" : "CADASTRO MANUAL"}</Text><Text style={styles.title}>Nova unidade</Text>
     <Text style={styles.subtitle}>Confira a leitura e escolha a quem esta unidade pertence.</Text>
     <Card><FormField label="Número da UC / instalação" value={numero} onChangeText={(v) => setNumero(v.replace(/\D/g, ""))} keyboardType="numeric" />

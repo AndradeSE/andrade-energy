@@ -71,9 +71,29 @@ export async function importarFaturaGeradora(usinaId: string, caminhoArquivo: st
 export async function listarUsinasService() {
   const usinas = await listarUsinas();
   return Promise.all(usinas.map(async (usina: any) => {
-    const dashboard = await buscarDashboardUsina(usina.id);
-    return { ...usina, fechamento_atual: dashboard.ultimo };
+    const [dashboard, producaoMedia12Meses] = await Promise.all([
+      buscarDashboardUsina(usina.id),
+      calcularProducaoMedia12Meses(usina.id),
+    ]);
+    return { ...usina, fechamento_atual: dashboard.ultimo, producao_media_12_meses: producaoMedia12Meses };
   }));
+}
+
+async function calcularProducaoMedia12Meses(usinaId: string) {
+  const inicio = new Date();
+  inicio.setUTCDate(1);
+  inicio.setUTCHours(0, 0, 0, 0);
+  inicio.setUTCMonth(inicio.getUTCMonth() - 11);
+  const { data, error } = await supabase
+    .from("fechamentos")
+    .select("energia_gerada")
+    .eq("usina_id", usinaId)
+    .gte("competencia", inicio.toISOString().slice(0, 10))
+    .order("competencia", { ascending: false })
+    .limit(12);
+  if (error) throw error;
+  const producoes = (data ?? []).map((item) => Number(item.energia_gerada ?? 0)).filter(Number.isFinite);
+  return producoes.length ? producoes.reduce((total, valor) => total + valor, 0) / producoes.length : 0;
 }
 
 async function recalcularAlocacaoUsina(usinaId: string) {
@@ -106,20 +126,20 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
   const numero = String(input.numero ?? "").replace(/\D/g, "");
   const modalidade = String(input.modalidade ?? "COMPENSACAO").toUpperCase();
   const percentualInformado = Number(input.percentual);
+  const calcularAutomaticamente = Boolean(input.calcularAutomaticamente);
   const desconto = Number(input.desconto);
   const consumoMedio = Math.max(0, Number(input.consumoMedio ?? 0));
   if (!clienteId || !numero) throw new Error("Cliente e UC são obrigatórios.");
   if (!['INJECAO', 'COMPENSACAO'].includes(modalidade)) throw new Error("Modalidade inválida.");
-  if (!Number.isFinite(percentualInformado) || percentualInformado <= 0 || percentualInformado > 100) throw new Error("Informe um percentual entre 0,01% e 100%.");
+  if (!calcularAutomaticamente && (!Number.isFinite(percentualInformado) || percentualInformado <= 0 || percentualInformado > 100)) throw new Error("Informe um percentual entre 0,01% e 100%.");
   if (!Number.isFinite(desconto) || desconto < 0 || desconto > 100) throw new Error("Informe um desconto entre 0% e 100%.");
 
   const { data: cliente, error: erroBusca } = await supabase.from("clientes").select("nome,endereco,distribuidora,usina_id").eq("id", clienteId).single();
   if (erroBusca) throw erroBusca;
-  let percentual = percentualInformado;
-  if (modalidade === "COMPENSACAO" && consumoMedio > 0) {
-    const { data: ultimoFechamento } = await supabase.from("fechamentos").select("energia_gerada").eq("usina_id", usinaId).order("competencia", { ascending: false }).limit(1).maybeSingle();
-    const energiaGerada = Number(ultimoFechamento?.energia_gerada ?? 0);
-    if (energiaGerada > 0) percentual = Math.min(100, consumoMedio / energiaGerada * 100);
+  let percentual = Number.isFinite(percentualInformado) && percentualInformado > 0 ? percentualInformado : 100;
+  if (calcularAutomaticamente && consumoMedio > 0) {
+    const producaoMedia = await calcularProducaoMedia12Meses(usinaId);
+    if (producaoMedia > 0) percentual = Math.min(100, consumoMedio / producaoMedia * 100);
   }
   const usinaAnterior = cliente.usina_id;
   const { error: erroCliente } = await supabase.from("clientes").update({ usina_id: usinaId, modalidade_faturamento: modalidade, percentual_rateio: percentual, desconto_percentual: desconto, consumo_medio_kwh: consumoMedio }).eq("id", clienteId);
@@ -134,7 +154,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
 
   if (usinaAnterior && usinaAnterior !== usinaId) await recalcularAlocacaoUsina(usinaAnterior);
   await recalcularAlocacaoUsina(usinaId);
-  return { sucesso: true, usinaId, clienteId, numero, percentual };
+  return { sucesso: true, usinaId, clienteId, numero, percentual, producaoMedia12Meses: await calcularProducaoMedia12Meses(usinaId) };
 }
 
 export async function buscarUsinaService(

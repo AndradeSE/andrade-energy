@@ -97,7 +97,7 @@ export default function NovaUsina() {
   }
 
   return (
-    <Screen><ScrollView contentContainerStyle={styles.content}>
+    <Screen><ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
       <Text style={styles.eyebrow}>{origem === "fatura" ? "DADOS LIDOS DA FATURA" : "CADASTRO MANUAL"}</Text>
       <Text style={styles.title}>Nova usina</Text>
       <Text style={styles.subtitle}>Confira os dados antes de salvar. O nome sugerido pela fatura pode ser alterado livremente.</Text>

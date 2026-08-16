@@ -23,7 +23,7 @@ export default function EsqueciSenha() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.flex}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}>
             <Ionicons name="arrow-back" size={23} color={Colors.text} />

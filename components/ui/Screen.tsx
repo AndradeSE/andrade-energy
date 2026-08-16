@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { StyleSheet } from "react-native";
+import { KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Colors } from "../../theme";
@@ -13,7 +13,12 @@ export default function Screen({
 }: Props) {
   return (
     <SafeAreaView style={styles.container}>
-      {children}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.container}
+      >
+        {children}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

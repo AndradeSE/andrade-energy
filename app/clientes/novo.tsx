@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import FormField from "../../components/cadastro/FormField";
 import ChoiceField from "../../components/cadastro/ChoiceField";
@@ -14,7 +14,7 @@ type Modalidade = "INJECAO" | "COMPENSACAO";
 
 export default function NovoCliente() {
   const { usinaSelecionada, usuario } = useAuth();
-  const { origem, cliente, nome: nomeImportado, uc: ucImportada, numeroInstalacao, endereco: enderecoImportado, distribuidora: distribuidoraImportada, consumo, consumoMedio: consumoMedioImportado } = useLocalSearchParams<{ origem?: string; cliente?: string; nome?: string; uc?: string; numeroInstalacao?: string; endereco?: string; distribuidora?: string; consumo?: string; consumoMedio?: string }>();
+  const { origem, cliente, nome: nomeImportado, uc: ucImportada, numeroInstalacao, endereco: enderecoImportado, distribuidora: distribuidoraImportada, consumo, consumoMedio: consumoMedioImportado, usinaId: usinaIdNavegacao, usinaNome } = useLocalSearchParams<{ origem?: string; cliente?: string; nome?: string; uc?: string; numeroInstalacao?: string; endereco?: string; distribuidora?: string; consumo?: string; consumoMedio?: string; usinaId?: string; usinaNome?: string }>();
   const [nome, setNome] = useState("");
   const [uc, setUc] = useState("");
   const [cpf, setCpf] = useState("");
@@ -42,7 +42,7 @@ export default function NovoCliente() {
     if (!nome.trim()) return Alert.alert("Nome obrigatório", "Informe o nome do consumidor.");
     const cpfLimpo = cpf.replace(/\D/g, "");
     const consumoMedioKwh = Math.max(0, Number(consumoMedio.replace(",", ".")) || 0);
-    const usinaId = usinaSelecionada?.id ?? usuario?.usina_id ?? null;
+    const usinaId = usinaIdNavegacao || usinaSelecionada?.id || usuario?.usina_id || null;
     if (cpfLimpo && ![11, 14].includes(cpfLimpo.length)) return Alert.alert("Documento inválido", "Informe um CPF ou CNPJ válido.");
     setSalvando(true);
 
@@ -51,7 +51,7 @@ export default function NovoCliente() {
       telefone: telefone.trim() || null, whatsapp: telefone.replace(/\D/g, "") || null,
       uc: uc || null, endereco: endereco.trim() || null, distribuidora,
       usina_id: usinaId, consumo_medio_kwh: consumoMedioKwh,
-      modalidade_faturamento: modalidade, percentual_rateio: modalidade === "INJECAO" && usinaId ? 100 : null, status: "ATIVO",
+      modalidade_faturamento: modalidade, percentual_rateio: null, status: "ATIVO",
     };
 
     let clienteId: string | undefined;
@@ -72,7 +72,7 @@ export default function NovoCliente() {
 
     if (uc && usinaId) {
       try {
-        await alocarUnidade(usinaId, { clienteId, numero: uc, modalidade, percentual: 100, desconto: 40, consumoMedio: consumoMedioKwh });
+        await alocarUnidade(usinaId, { clienteId, numero: uc, modalidade, percentual: 100, desconto: 40, consumoMedio: consumoMedioKwh, calcularAutomaticamente: true });
       } catch (erro: any) {
         setSalvando(false);
         return Alert.alert("Consumidor salvo", erro?.response?.data?.message ?? erro?.message ?? "Não foi possível alocar a UC na usina.");
@@ -90,10 +90,11 @@ export default function NovoCliente() {
     router.back();
   }
 
-  return <Screen><ScrollView contentContainerStyle={styles.content}>
+  return <Screen><ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
     <Text style={styles.eyebrow}>{origem === "fatura" ? "DADOS LIDOS DA FATURA" : "CADASTRO MANUAL"}</Text>
     <Text style={styles.title}>Novo consumidor</Text>
     <Text style={styles.subtitle}>{origem === "fatura" ? "Confira os dados extraídos antes de salvar." : "Somente o nome é obrigatório. Os demais dados podem ser preenchidos depois."}</Text>
+    {(usinaNome || usinaSelecionada?.nome) ? <View style={styles.plantContext}><Text style={styles.plantLabel}>SERÁ ALOCADO NA USINA</Text><Text style={styles.plantName}>{usinaNome || usinaSelecionada?.nome}</Text></View> : null}
     <Card>
       <FormField label="Nome (obrigatório)" value={nome} onChangeText={setNome} />
       <FormField label="CPF / CNPJ (opcional)" value={cpf} onChangeText={(valor) => setCpf(valor.replace(/\D/g, ""))} keyboardType="numeric" />
@@ -110,5 +111,5 @@ export default function NovoCliente() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl }, eyebrow: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800", letterSpacing: 1.2 }, title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "800" }, subtitle: { marginTop: Spacing.sm, marginBottom: Spacing.lg, color: Colors.subtitle, lineHeight: 21 },
+  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl }, eyebrow: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800", letterSpacing: 1.2 }, title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "800" }, subtitle: { marginTop: Spacing.sm, marginBottom: Spacing.lg, color: Colors.subtitle, lineHeight: 21 }, plantContext: { marginBottom: Spacing.md, padding: Spacing.sm, borderLeftWidth: 3, borderLeftColor: Colors.primary }, plantLabel: { color: Colors.subtitle, fontSize: 10, fontWeight: "800", letterSpacing: 0.8 }, plantName: { marginTop: 3, color: Colors.text, fontWeight: "800" },
 });

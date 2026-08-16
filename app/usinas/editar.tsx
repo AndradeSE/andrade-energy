@@ -80,7 +80,7 @@ export default function EditarUsina() {
   }
 
   if (loading) return <Loading />;
-  return <Screen><ScrollView contentContainerStyle={styles.content}>
+  return <Screen><ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
     <Text style={styles.eyebrow}>CADASTRO DA USINA</Text><Text style={styles.title}>Editar usina</Text><Text style={styles.subtitle}>Atualize os dados técnicos e cadastrais da unidade geradora.</Text>
     <Card>
       <FormField label="Nome da usina" value={nome} onChangeText={setNome} />

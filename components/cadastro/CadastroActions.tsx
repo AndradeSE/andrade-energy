@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 
 import { analisarFatura } from "../../services/faturas.service";
+import { useAuth } from "../../contexts/AuthContext";
 import { Colors, Spacing } from "../../theme";
 import { Button } from "../ui";
 
@@ -18,9 +19,10 @@ const rotas = {
 
 export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
   const [analisando, setAnalisando] = useState(false);
+  const { usinaSelecionada } = useAuth();
 
   function abrirManual() {
-    router.push(rotas[tipo] as any);
+    router.push({ pathname: rotas[tipo] as any, params: tipo === "CLIENTE" && usinaSelecionada?.id ? { usinaId: usinaSelecionada.id, usinaNome: usinaSelecionada.nome } : {} });
   }
 
   async function importar() {
@@ -69,6 +71,8 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
           energiaCompensada: String(dados.energiaCompensada ?? 0),
           consumo: String(dados.consumo ?? 0),
           consumoMedio: String(Number(mediaConsumo.toFixed(3))),
+          usinaId: tipo === "CLIENTE" ? String(usinaSelecionada?.id ?? "") : "",
+          usinaNome: tipo === "CLIENTE" ? String(usinaSelecionada?.nome ?? "") : "",
         },
       });
     } catch (erro: any) {
