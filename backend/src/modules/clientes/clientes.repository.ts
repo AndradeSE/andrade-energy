@@ -160,6 +160,13 @@ export async function atualizarCliente(
 }
 
 export async function excluirCliente(id: string) {
+  const { data: cliente, error: erroCliente } = await supabase
+    .from("clientes")
+    .select("cpf")
+    .eq("id", id)
+    .maybeSingle();
+  if (erroCliente) throw erroCliente;
+
   const tabelasDependentes = [
     "notificacoes_fatura",
     "cobrancas",
@@ -178,7 +185,23 @@ export async function excluirCliente(id: string) {
   }
 
   await supabase.from("convites_clientes").update({ cliente_id: null }).eq("cliente_id", id);
-  await supabase.from("usuarios").update({ cliente_id: null }).eq("cliente_id", id);
+
+  const cpf = String(cliente?.cpf ?? "").replace(/\D/g, "");
+  const filtroConta = cpf.length === 11
+    ? `cliente_id.eq.${id},cpf.eq.${cpf}`
+    : `cliente_id.eq.${id}`;
+  const { error: erroContas } = await supabase
+    .from("usuarios")
+    .delete()
+    .eq("perfil", "LEITURA")
+    .or(filtroConta);
+  if (erroContas) throw erroContas;
+
+  const { error: erroDesvinculo } = await supabase
+    .from("usuarios")
+    .update({ cliente_id: null })
+    .eq("cliente_id", id);
+  if (erroDesvinculo) throw erroDesvinculo;
 
   const { error } = await supabase
     .from("clientes")

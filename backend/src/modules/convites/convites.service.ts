@@ -12,10 +12,20 @@ export async function criarConvite(input: any, gestor: any) {
   if (cpf.length !== 11) throw new Error("Informe um CPF válido.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Informe um e-mail válido.");
 
-  const { data: conta } = await supabase.from("usuarios").select("id").eq("cpf", cpf).limit(1).maybeSingle();
-  if (conta) throw new Error("Este CPF já possui uma conta.");
-
   const { data: clienteExistente } = await supabase.from("clientes").select("id").eq("cpf", cpf).limit(1).maybeSingle();
+  const { data: conta } = await supabase
+    .from("usuarios")
+    .select("id,cliente_id,perfil")
+    .or(`cpf.eq.${cpf},email.eq.${email}`)
+    .limit(1)
+    .maybeSingle();
+  if (conta) {
+    const contaConsumidorOrfa = conta.perfil === "LEITURA" && !clienteExistente;
+    if (!contaConsumidorOrfa) throw new Error("Este CPF ou e-mail já possui uma conta ativa.");
+    const { error: erroLimpeza } = await supabase.from("usuarios").delete().eq("id", conta.id);
+    if (erroLimpeza) throw erroLimpeza;
+  }
+
   const dadosCliente = { nome, cpf, email, usina_id: gestor.usina_id ?? input.usina_id ?? null, status: "ATIVO" };
   const resultadoCliente = clienteExistente
     ? await supabase.from("clientes").update(dadosCliente).eq("id", clienteExistente.id).select("id").single()
