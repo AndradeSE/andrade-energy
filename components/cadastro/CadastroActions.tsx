@@ -11,6 +11,18 @@ import { Button } from "../ui";
 
 type TipoCadastro = "CLIENTE" | "USINA" | "UNIDADE";
 
+function consumoMensalValido(item: any) {
+  const consumoExtraido = Number(item?.consumo ?? 0);
+  const dias = Number(item?.dias ?? 0);
+  const mediaDiaria = Number(item?.mediaDiaria ?? 0);
+  const consumoPelaMedia = mediaDiaria > 0 && dias > 0 ? Math.round(mediaDiaria * dias) : 0;
+
+  if (!Number.isFinite(consumoExtraido) || consumoExtraido < 0) return 0;
+  return consumoPelaMedia > 0 && consumoExtraido > consumoPelaMedia * 2
+    ? consumoPelaMedia
+    : consumoExtraido;
+}
+
 const rotas = {
   CLIENTE: "/clientes/novo",
   USINA: "/usinas/nova",
@@ -44,8 +56,9 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
       const enderecoExtraido = dados.endereco ?? dados.endereco_instalacao ?? dadosCadastro.endereco ?? "";
       const distribuidoraExtraida = dados.distribuidora ?? dados.concessionaria ?? dadosCadastro.distribuidora ?? "CEMIG";
       const historico = Array.isArray(dados.historico) ? dados.historico.slice(0, 12) : [];
-      const mediaConsumo = historico.length
-        ? historico.reduce((soma: number, item: any) => soma + Number(item.consumo ?? 0), 0) / historico.length
+      const consumosValidos = historico.map(consumoMensalValido).filter((valor: number) => valor > 0);
+      const mediaConsumo = consumosValidos.length
+        ? consumosValidos.reduce((soma: number, consumo: number) => soma + consumo, 0) / consumosValidos.length
         : Number(dados.consumo ?? 0);
 
       if (tipo === "USINA" && analise.classificacao !== "POSSIVEL_GERADORA") {
@@ -70,7 +83,7 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
           arquivoNome: item.name,
           energiaCompensada: String(dados.energiaCompensada ?? 0),
           consumo: String(dados.consumo ?? 0),
-          consumoMedio: String(Number(mediaConsumo.toFixed(3))),
+          consumoMedio: String(Math.round(mediaConsumo)),
           usinaId: tipo === "CLIENTE" ? String(usinaSelecionada?.id ?? "") : "",
           usinaNome: tipo === "CLIENTE" ? String(usinaSelecionada?.nome ?? "") : "",
         },

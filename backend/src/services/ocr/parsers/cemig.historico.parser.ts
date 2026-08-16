@@ -7,10 +7,14 @@ export function extrairHistoricoConsumo(texto: string): HistoricoConsumo[] {
   for (const item of encontrados) {
     const mes = `${item[1].toUpperCase()}/${item[2]}`;
     if (meses.has(mes)) continue;
-    const consumo = Number(item[3]);
-    if (!Number.isFinite(consumo) || consumo < 0) continue;
+    const consumoExtraido = Number(item[3]);
+    if (!Number.isFinite(consumoExtraido) || consumoExtraido < 0) continue;
     const dias = Number(item[5] ?? 0);
     const mediaExtraida = Number(String(item[4] ?? "0").replace(".", "").replace(",", "."));
+    const consumoPelaMedia = mediaExtraida > 0 && dias > 0 ? Math.round(mediaExtraida * dias) : 0;
+    const consumo = consumoPelaMedia > 0 && consumoExtraido > consumoPelaMedia * 2
+      ? consumoPelaMedia
+      : consumoExtraido;
     meses.set(mes, {
       mes,
       consumo,
