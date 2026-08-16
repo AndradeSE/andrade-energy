@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: andrade-energy-api-vda
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: 20.19.4
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: MICROSOFT_CLIENT_ID
+        sync: false
+      - key: MICROSOFT_TOKEN_CACHE_BASE64
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_REMETENTE_EMAIL
+        sync: false
+      - key: BREVO_REMETENTE_NOME
+        value: Andrade Energy
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_TEMPLATE_NAME
+        value: fatura_disponivel
+      - key: WHATSAPP_GRAPH_VERSION
+        sync: false

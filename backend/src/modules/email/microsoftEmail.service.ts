@@ -18,12 +18,13 @@ export async function obterTokenMicrosoft() {
     },
   });
 
+  const cacheAmbiente = process.env.MICROSOFT_TOKEN_CACHE_BASE64;
   try {
-    const cache = await readFile(CACHE_PATH, "utf8");
+    const cache = cacheAmbiente
+      ? Buffer.from(cacheAmbiente, "base64").toString("utf8")
+      : await readFile(CACHE_PATH, "utf8");
     app.getTokenCache().deserialize(cache);
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 
   const conta = (await app.getTokenCache().getAllAccounts())[0];
   if (!conta) return null;
@@ -33,6 +34,7 @@ export async function obterTokenMicrosoft() {
 
 export async function microsoftEmailConfigurado() {
   if (!process.env.MICROSOFT_CLIENT_ID) return false;
+  if (process.env.MICROSOFT_TOKEN_CACHE_BASE64) return true;
   try {
     await readFile(CACHE_PATH);
     return true;
