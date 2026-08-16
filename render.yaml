@@ -10,7 +10,7 @@ services:
     autoDeployTrigger: commit
     envVars:
       - key: NODE_VERSION
-        value: 20.19.4
+        value: 22.18.0
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_KEY
