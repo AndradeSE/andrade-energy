@@ -58,16 +58,83 @@ export async function importarFaturaGeradora(usinaId: string, caminhoArquivo: st
     : supabase.from("fechamentos").insert(payload);
   const { data: fechamento, error } = await consulta.select().single();
   if (error) throw error;
+  await recalcularAlocacaoUsina(usinaId);
+  const { data: fechamentoAtualizado } = await supabase.from("fechamentos").select("*").eq("id", fechamento.id).single();
   return {
     sucesso: true,
     origem: "CONTA_ENERGIA",
     dados: { ...dados, leituraAtual, leituraAnterior, fatorMultiplicacao, energiaGerada },
-    fechamento,
+    fechamento: fechamentoAtualizado ?? fechamento,
   };
 }
 
 export async function listarUsinasService() {
-  return await listarUsinas();
+  const usinas = await listarUsinas();
+  return Promise.all(usinas.map(async (usina: any) => {
+    const dashboard = await buscarDashboardUsina(usina.id);
+    return { ...usina, fechamento_atual: dashboard.ultimo };
+  }));
+}
+
+async function recalcularAlocacaoUsina(usinaId: string) {
+  const [{ data: clientes, error: erroClientes }, { data: fechamentos, error: erroFechamentos }] = await Promise.all([
+    supabase.from("clientes").select("percentual_rateio,modalidade_faturamento,consumo_medio_kwh").eq("usina_id", usinaId).eq("status", "ATIVO"),
+    supabase.from("fechamentos").select("id,energia_gerada").eq("usina_id", usinaId).eq("status", "ABERTO"),
+  ]);
+  if (erroClientes) throw erroClientes;
+  if (erroFechamentos) throw erroFechamentos;
+  for (const fechamento of fechamentos ?? []) {
+    const gerada = Number(fechamento.energia_gerada ?? 0);
+    const alocadaSolicitada = (clientes ?? []).reduce((total, cliente) => {
+      if (String(cliente.modalidade_faturamento).toUpperCase() === "COMPENSACAO" && Number(cliente.consumo_medio_kwh) > 0) {
+        return total + Number(cliente.consumo_medio_kwh);
+      }
+      return total + gerada * Number(cliente.percentual_rateio ?? 0) / 100;
+    }, 0);
+    const alocada = Math.min(gerada, alocadaSolicitada);
+    const { error } = await supabase.from("fechamentos").update({
+      energia_alocada: alocada,
+      energia_disponivel: Math.max(0, gerada - alocada),
+      ocupacao: gerada > 0 ? alocada / gerada * 100 : 0,
+    }).eq("id", fechamento.id);
+    if (error) throw error;
+  }
+}
+
+export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
+  const clienteId = String(input.clienteId ?? "");
+  const numero = String(input.numero ?? "").replace(/\D/g, "");
+  const modalidade = String(input.modalidade ?? "COMPENSACAO").toUpperCase();
+  const percentualInformado = Number(input.percentual);
+  const desconto = Number(input.desconto);
+  const consumoMedio = Math.max(0, Number(input.consumoMedio ?? 0));
+  if (!clienteId || !numero) throw new Error("Cliente e UC são obrigatórios.");
+  if (!['INJECAO', 'COMPENSACAO'].includes(modalidade)) throw new Error("Modalidade inválida.");
+  if (!Number.isFinite(percentualInformado) || percentualInformado <= 0 || percentualInformado > 100) throw new Error("Informe um percentual entre 0,01% e 100%.");
+  if (!Number.isFinite(desconto) || desconto < 0 || desconto > 100) throw new Error("Informe um desconto entre 0% e 100%.");
+
+  const { data: cliente, error: erroBusca } = await supabase.from("clientes").select("nome,endereco,distribuidora,usina_id").eq("id", clienteId).single();
+  if (erroBusca) throw erroBusca;
+  let percentual = percentualInformado;
+  if (modalidade === "COMPENSACAO" && consumoMedio > 0) {
+    const { data: ultimoFechamento } = await supabase.from("fechamentos").select("energia_gerada").eq("usina_id", usinaId).order("competencia", { ascending: false }).limit(1).maybeSingle();
+    const energiaGerada = Number(ultimoFechamento?.energia_gerada ?? 0);
+    if (energiaGerada > 0) percentual = Math.min(100, consumoMedio / energiaGerada * 100);
+  }
+  const usinaAnterior = cliente.usina_id;
+  const { error: erroCliente } = await supabase.from("clientes").update({ usina_id: usinaId, modalidade_faturamento: modalidade, percentual_rateio: percentual, desconto_percentual: desconto, consumo_medio_kwh: consumoMedio }).eq("id", clienteId);
+  if (erroCliente) throw erroCliente;
+  const { error: erroUc } = await supabase.from("unidades_consumidoras").upsert({ cliente_id: clienteId, usina_id: usinaId, numero, tipo: "BENEFICIARIA", titular: cliente.nome, endereco: cliente.endereco, distribuidora: cliente.distribuidora ?? "CEMIG", modalidade_faturamento: modalidade, desconto_percentual: desconto, status: "ATIVA" }, { onConflict: "numero" });
+  if (erroUc) throw erroUc;
+
+  const { error: erroLimpeza } = await supabase.from("participacoes_usina").delete().eq("cliente_id", clienteId);
+  if (erroLimpeza && erroLimpeza.code !== "42P01") throw erroLimpeza;
+  const { error: erroParticipacao } = await supabase.from("participacoes_usina").insert({ usina_id: usinaId, cliente_id: clienteId, percentual, ativo: true });
+  if (erroParticipacao && erroParticipacao.code !== "42P01") throw erroParticipacao;
+
+  if (usinaAnterior && usinaAnterior !== usinaId) await recalcularAlocacaoUsina(usinaAnterior);
+  await recalcularAlocacaoUsina(usinaId);
+  return { sucesso: true, usinaId, clienteId, numero, percentual };
 }
 
 export async function buscarUsinaService(

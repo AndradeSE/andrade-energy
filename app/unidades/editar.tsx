@@ -6,6 +6,7 @@ import ChoiceField from "../../components/cadastro/ChoiceField";
 import FormField from "../../components/cadastro/FormField";
 import { Button, Card, Loading, Screen } from "../../components/ui";
 import { supabase } from "../../supabase";
+import { alocarUnidade } from "../../services/usinas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 type Modalidade = "INJECAO" | "COMPENSACAO";
@@ -28,10 +29,7 @@ export default function EditarAlocacaoUnidade() {
     if (!Number.isFinite(rateio) || rateio <= 0 || rateio > 100) return Alert.alert("Percentual inválido", "Informe um percentual entre 0,01% e 100%.");
     if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return Alert.alert("Desconto inválido", "Informe um desconto entre 0% e 100%.");
     try { setSalvando(true);
-      const { data: cliente, error: erroBusca } = await supabase.from("clientes").select("nome,endereco,distribuidora").eq("id", clienteId).single(); if (erroBusca) throw erroBusca;
-      const { error: erroCliente } = await supabase.from("clientes").update({ usina_id: usinaId, modalidade_faturamento: modalidade, percentual_rateio: rateio, desconto_percentual: descontoNumero, consumo_medio_kwh: media }).eq("id", clienteId); if (erroCliente) throw erroCliente;
-      const payload = { cliente_id: clienteId, usina_id: usinaId, numero: String(numero).replace(/\D/g, ""), tipo: "BENEFICIARIA", titular: cliente.nome, endereco: cliente.endereco, distribuidora: cliente.distribuidora ?? "CEMIG", modalidade_faturamento: modalidade, desconto_percentual: descontoNumero, status: "ATIVA" };
-      const { error: erroUc } = await supabase.from("unidades_consumidoras").upsert(payload, { onConflict: "numero" }); if (erroUc) throw erroUc;
+      await alocarUnidade(usinaId, { clienteId, numero, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media });
       Alert.alert("Alocação salva", "A UC foi vinculada à usina com sucesso.", [{ text: "OK", onPress: () => router.back() }]);
     } catch (erro: any) { Alert.alert("Não foi possível alocar", erro?.message ?? "Tente novamente."); } finally { setSalvando(false); }
   }

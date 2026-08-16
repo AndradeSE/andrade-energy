@@ -8,7 +8,13 @@ import {
   listarUsinasService,
   obterDashboardUsina,
   importarFaturaGeradora,
+  alocarUnidadeNaUsina,
 } from "./usinas.service";
+
+export async function alocarUnidadeController(req: Request, res: Response) {
+  try { return res.json(await alocarUnidadeNaUsina(req.params.id, req.body)); }
+  catch (e: any) { return res.status(400).json({ message: e.message }); }
+}
 
 export async function importarFaturaGeradoraController(req: Request, res: Response) {
   try {

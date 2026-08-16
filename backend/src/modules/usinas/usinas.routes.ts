@@ -9,6 +9,7 @@ import {
   excluirUsinaController,
   listarUsinasController,
   importarFaturaGeradoraController,
+  alocarUnidadeController,
 } from "./usinas.controller";
 
 const router = Router();
@@ -20,6 +21,7 @@ router.get("/:id", buscarUsinaController);
 router.get("/:id/dashboard", dashboardUsinaController);
 
 router.post("/:id/importar-fatura", upload.single("arquivo"), importarFaturaGeradoraController);
+router.post("/:id/alocar-unidade", alocarUnidadeController);
 
 router.post("/", criarUsinaController);
 

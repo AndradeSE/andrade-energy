@@ -6,15 +6,15 @@ import FormField from "../../components/cadastro/FormField";
 import ChoiceField from "../../components/cadastro/ChoiceField";
 import { Button, Card, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
-import { processarFatura } from "../../services/faturas.service";
 import { supabase } from "../../supabase";
+import { alocarUnidade } from "../../services/usinas.service";
 import { Colors, Spacing, Typography } from "../../theme";
 
 type Modalidade = "INJECAO" | "COMPENSACAO";
 
 export default function NovoCliente() {
   const { usinaSelecionada, usuario } = useAuth();
-  const { origem, cliente, nome: nomeImportado, uc: ucImportada, numeroInstalacao, endereco: enderecoImportado, distribuidora: distribuidoraImportada, arquivoUri, arquivoNome, consumo, consumoMedio: consumoMedioImportado } = useLocalSearchParams<{ origem?: string; cliente?: string; nome?: string; uc?: string; numeroInstalacao?: string; endereco?: string; distribuidora?: string; arquivoUri?: string; arquivoNome?: string; consumo?: string; consumoMedio?: string }>();
+  const { origem, cliente, nome: nomeImportado, uc: ucImportada, numeroInstalacao, endereco: enderecoImportado, distribuidora: distribuidoraImportada, consumo, consumoMedio: consumoMedioImportado } = useLocalSearchParams<{ origem?: string; cliente?: string; nome?: string; uc?: string; numeroInstalacao?: string; endereco?: string; distribuidora?: string; consumo?: string; consumoMedio?: string }>();
   const [nome, setNome] = useState("");
   const [uc, setUc] = useState("");
   const [cpf, setCpf] = useState("");
@@ -70,42 +70,20 @@ export default function NovoCliente() {
       clienteId = data.id;
     }
 
-    if (uc) {
+    if (uc && usinaId) {
+      try {
+        await alocarUnidade(usinaId, { clienteId, numero: uc, modalidade, percentual: 100, desconto: 40, consumoMedio: consumoMedioKwh });
+      } catch (erro: any) {
+        setSalvando(false);
+        return Alert.alert("Consumidor salvo", erro?.response?.data?.message ?? erro?.message ?? "Não foi possível alocar a UC na usina.");
+      }
+    } else if (uc) {
       const { error } = await supabase.from("unidades_consumidoras").upsert({
         cliente_id: clienteId, usina_id: usinaId,
         numero: uc, tipo: "BENEFICIARIA", titular: nome.trim(), distribuidora,
         endereco: endereco.trim() || null, modalidade_faturamento: modalidade, status: "ATIVA",
       }, { onConflict: "numero" });
       if (error) Alert.alert("Consumidor salvo", "O consumidor foi criado, mas a UC precisa ser vinculada novamente.");
-    }
-
-    if (usinaId && modalidade === "COMPENSACAO") {
-      const { data: clientesCompensacao, error: erroClientes } = await supabase.from("clientes").select("id,consumo_medio_kwh").eq("usina_id", usinaId).eq("modalidade_faturamento", "COMPENSACAO").eq("status", "ATIVO");
-      if (!erroClientes && clientesCompensacao?.length) {
-        const totalConsumo = clientesCompensacao.reduce((soma, item) => soma + Number(item.consumo_medio_kwh ?? 0), 0);
-        for (const item of clientesCompensacao) {
-          const percentualAutomatico = totalConsumo > 0 ? (Number(item.consumo_medio_kwh ?? 0) / totalConsumo) * 100 : 100 / clientesCompensacao.length;
-          await supabase.from("clientes").update({ percentual_rateio: percentualAutomatico }).eq("id", item.id);
-        }
-      }
-    }
-
-    if (origem === "fatura" && arquivoUri) {
-      try {
-        await processarFatura(arquivoUri, arquivoNome);
-      } catch (erro: any) {
-        const falhaTransitoria = !erro?.response || Number(erro?.response?.status ?? 500) >= 500;
-        if (falhaTransitoria) {
-          try {
-            await new Promise((resolve) => setTimeout(resolve, 700));
-            await processarFatura(arquivoUri, arquivoNome);
-          } catch (novaFalha: any) {
-            Alert.alert("Consumidor salvo", novaFalha?.response?.data?.message ?? novaFalha?.message ?? "Não foi possível guardar a fatura. Tente importá-la novamente.");
-          }
-        } else {
-          Alert.alert("Consumidor salvo", erro?.response?.data?.message ?? erro?.message ?? "Não foi possível guardar a fatura.");
-        }
-      }
     }
 
     setSalvando(false);

@@ -1,6 +1,6 @@
 import { Request } from "express";
 
-import { buscarFaturaPorId, excluirFaturaPorId, listarFaturas } from "./faturas.repository";
+import { buscarFaturaPorId, excluirFaturaPorId, listarFaturas as listarFaturasRepository } from "./faturas.repository";
 import { processarFatura } from "./processarFatura.service";
 
 import { extrairTextoPDF } from "../../services/ocr/ocr.service";
@@ -11,7 +11,10 @@ import {
 } from "./documentosFatura.service";
 import { enfileirarNotificacoesDaFatura } from "./notificacoesFatura.service";
 
-export { listarFaturas };
+export async function listarFaturas(filtro?: { clienteId?: string; uc?: string }) {
+  const faturas = await listarFaturasRepository(filtro);
+  return Promise.all(faturas.map((fatura) => incluirLinksTemporarios(fatura)));
+}
 
 export async function detalharFatura(id: string) {
   const fatura = await buscarFaturaPorId(id);

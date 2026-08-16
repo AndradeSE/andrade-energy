@@ -37,3 +37,8 @@ export async function importarFaturaGeradora(id: string, uri: string, nome = "fa
   const { data } = await api.post(`/usinas/${id}/importar-fatura`, formData, { timeout: 60_000 });
   return data;
 }
+
+export async function alocarUnidade(id: string, payload: any) {
+  const { data } = await api.post(`/usinas/${id}/alocar-unidade`, payload);
+  return data;
+}

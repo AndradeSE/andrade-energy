@@ -1,6 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { File, Paths } from "expo-file-system";
+import * as FileSystemLegacy from "expo-file-system/legacy";
+import * as IntentLauncher from "expo-intent-launcher";
+import * as Sharing from "expo-sharing";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -67,10 +70,27 @@ export default function DetalheFatura() {
 
       if (Platform.OS !== "web") {
         const destino = new File(Paths.document, nomeArquivo);
-        await File.downloadFileAsync(url, destino, {
+        const arquivo = await File.downloadFileAsync(url, destino, {
           idempotent: true,
         });
-        Alert.alert("Download concluído", `${nomeArquivo} foi salvo no aplicativo.`);
+        if (Platform.OS === "android") {
+          try {
+            const contentUri = await FileSystemLegacy.getContentUriAsync(arquivo.uri);
+            await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
+              data: contentUri,
+              flags: 1,
+              type: "application/pdf",
+            });
+            return;
+          } catch {
+            // Usa o seletor do sistema quando o aparelho não possui visualizador padrão.
+          }
+        }
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(arquivo.uri, { dialogTitle: "Abrir ou salvar fatura", mimeType: "application/pdf", UTI: "com.adobe.pdf" });
+        } else {
+          Alert.alert("Download concluído", `${nomeArquivo} foi salvo no aplicativo.`);
+        }
         return;
       }
 
