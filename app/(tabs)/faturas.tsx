@@ -1,27 +1,38 @@
 import { Ionicons } from "@expo/vector-icons";
+import { File, Paths } from "expo-file-system";
+import * as FileSystemLegacy from "expo-file-system/legacy";
+import * as IntentLauncher from "expo-intent-launcher";
+import * as Sharing from "expo-sharing";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, FlatList, Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { EmptyState, Loading, Screen } from "../../components/ui";
+import { AppHeader, EmptyState, Loading, Screen } from "../../components/ui";
+import { useAuth } from "../../contexts/AuthContext";
 import { useFaturas } from "../../hooks/useFaturas";
 import { excluirFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
-type Filtro = "todas" | "pendentes" | "pagas";
+type Filtro = "todas" | "abertas" | "vencidas" | "pagas";
 
 const normalizarStatus = (status?: string) => String(status ?? "").trim().toUpperCase();
 const estaPaga = (status?: string) => ["PAGA", "PAGO", "QUITADA"].includes(normalizarStatus(status));
+const statusEfetivo = (item: any) => item.cobrancas?.[0]?.status ?? item.status;
+const estaVencida = (item: any) => !estaPaga(statusEfetivo(item)) && Boolean(item.vencimento) && new Date(`${item.vencimento}T23:59:59`) < new Date();
 const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function Faturas() {
+  const { usuario } = useAuth();
+  const proprietario = usuario?.perfil !== "LEITURA";
   const { data, isLoading, error, refetch } = useFaturas();
   const [filtro, setFiltro] = useState<Filtro>("todas");
+  const [baixando, setBaixando] = useState<string>();
   const faturas = useMemo(() => data ?? [], [data]);
 
   const lista = useMemo(() => faturas.filter((item: any) => {
-    if (filtro === "pagas") return estaPaga(item.status);
-    if (filtro === "pendentes") return !estaPaga(item.status);
+    if (filtro === "pagas") return estaPaga(statusEfetivo(item));
+    if (filtro === "abertas") return !estaPaga(statusEfetivo(item)) && !estaVencida(item);
+    if (filtro === "vencidas") return estaVencida(item);
     return true;
   }), [faturas, filtro]);
 
@@ -47,10 +58,31 @@ export default function Faturas() {
     );
   };
 
+  async function baixarDocumento(url: string | undefined, nome: string, chave: string) {
+    if (!url) return;
+    try {
+      setBaixando(chave);
+      if (Platform.OS === "web") return await Linking.openURL(url);
+      const arquivo = await File.downloadFileAsync(url, new File(Paths.document, nome), { idempotent: true });
+      if (Platform.OS === "android") {
+        try {
+          const contentUri = await FileSystemLegacy.getContentUriAsync(arquivo.uri);
+          await IntentLauncher.startActivityAsync("android.intent.action.VIEW", { data: contentUri, flags: 1, type: "application/pdf" });
+          return;
+        } catch { /* Abre pelo compartilhamento se não houver visualizador padrão. */ }
+      }
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(arquivo.uri, { dialogTitle: "Abrir ou salvar fatura", mimeType: "application/pdf", UTI: "com.adobe.pdf" });
+      else Alert.alert("Download concluído", "A fatura foi salva no aplicativo.");
+    } catch {
+      Alert.alert("Não foi possível baixar", "Confira sua conexão e tente novamente.");
+    } finally { setBaixando(undefined); }
+  }
+
   if (isLoading) return <Loading />;
 
   return (
     <Screen>
+      {proprietario ? <AppHeader title="Faturas" subtitle="Todos os clientes" contextTitle={`${faturas.length} faturas cadastradas`} contextSubtitle="Abertas, vencidas e pagas" icon="receipt-outline" /> : null}
       <FlatList
         contentContainerStyle={styles.content}
         data={lista}
@@ -58,15 +90,16 @@ export default function Faturas() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={<>
           <View style={styles.heading}>
-            <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}>
+            {!proprietario ? <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}>
               <Ionicons name="chevron-back" size={23} color={Colors.text} />
-            </TouchableOpacity>
-            <Text style={styles.title}>Faturas</Text>
+            </TouchableOpacity> : null}
+            <View><Text style={styles.title}>{proprietario ? "Todas as faturas" : "Faturas"}</Text>{proprietario ? <Text style={styles.subtitle}>Acompanhe as cobranças de toda a carteira.</Text> : null}</View>
           </View>
 
           <View style={styles.filterTabs}>
             <FilterButton active={filtro === "todas"} label="Todas" onPress={() => setFiltro("todas")} />
-            <FilterButton active={filtro === "pendentes"} label="Pendentes" onPress={() => setFiltro("pendentes")} />
+            <FilterButton active={filtro === "abertas"} label="Abertas" onPress={() => setFiltro("abertas")} />
+            <FilterButton active={filtro === "vencidas"} label="Vencidas" onPress={() => setFiltro("vencidas")} />
             <FilterButton active={filtro === "pagas"} label="Pagas" onPress={() => setFiltro("pagas")} />
           </View>
         </>}
@@ -78,8 +111,10 @@ export default function Faturas() {
           />
         </View>}
         renderItem={({ item }) => {
-          const paga = estaPaga(item.status);
+          const paga = estaPaga(statusEfetivo(item));
+          const vencida = estaVencida(item);
           const valor = item.valor_total_unificado ?? item.valor_total;
+          const referenciaArquivo = String(item.referencia ?? item.id).replace(/[^a-zA-Z0-9_-]/g, "-");
           return (
             <TouchableOpacity
               accessibilityLabel={`Abrir fatura ${item.referencia}`}
@@ -89,12 +124,17 @@ export default function Faturas() {
             >
               <View style={styles.invoiceTop}>
                 <View><Text style={styles.value}>{moeda(valor)}</Text><Text style={styles.reference}>{item.referencia || "Período não informado"}</Text></View>
-                <View style={[styles.status, paga ? styles.statusPaid : styles.statusOpen]}><Text style={styles.statusText}>{paga ? "Paga" : "Em aberto"}</Text></View>
+                <View style={[styles.status, paga ? styles.statusPaid : vencida ? styles.statusOverdue : styles.statusOpen]}><Text style={styles.statusText}>{paga ? "Paga" : vencida ? "Vencida" : "Em aberto"}</Text></View>
               </View>
+              {proprietario ? <View style={styles.customer}><Ionicons name="person-outline" size={15} color={Colors.primary} /><Text numberOfLines={1} style={styles.customerText}>{item.clientes?.nome || "Cliente não identificado"}</Text></View> : null}
               <View style={styles.invoiceDivider} />
               <View style={styles.invoiceBottom}>
-                <View><Text style={styles.metaLabel}>{paga ? "PAGAMENTO" : "VENCIMENTO"}</Text><Text style={styles.metaValue}>{paga ? item.data_pagamento || "Confirmado" : item.vencimento || "Não informado"}</Text></View>
+                <View><Text style={styles.metaLabel}>{paga ? "PAGAMENTO" : "VENCIMENTO"}</Text><Text style={styles.metaValue}>{paga ? item.cobrancas?.[0]?.pago_em || item.data_pagamento || "Confirmado" : item.vencimento || "Não informado"}</Text></View>
                 <View style={styles.documentType}><Text style={styles.documentLabel}>FATURA ANDRADE ENERGY</Text><Text numberOfLines={1} style={styles.documentCode}>{item.numero_instalacao || item.id}</Text></View>
+              </View>
+              <View style={styles.downloads}>
+                <DownloadLink label="Concessionária" available={Boolean(item.pdf_cemig_url)} loading={baixando === `cemig-${item.id}`} onPress={() => baixarDocumento(item.pdf_cemig_url, `concessionaria-${referenciaArquivo}.pdf`, `cemig-${item.id}`)} />
+                <DownloadLink label="Unificada" available={Boolean(item.pdf_unificada_url)} loading={baixando === `unificada-${item.id}`} onPress={() => baixarDocumento(item.pdf_unificada_url, `unificada-${referenciaArquivo}.pdf`, `unificada-${item.id}`)} />
               </View>
               <TouchableOpacity
                 accessibilityLabel={`Excluir fatura ${item.referencia || ""}`}
@@ -119,11 +159,16 @@ function FilterButton({ active, label, onPress }: { active: boolean; label: stri
   return <TouchableOpacity onPress={onPress} style={[styles.filterButton, active && styles.filterButtonActive]}><Text style={[styles.filterLabel, active && styles.filterLabelActive]}>{label}</Text></TouchableOpacity>;
 }
 
+function DownloadLink({ available, label, loading, onPress }: { available: boolean; label: string; loading: boolean; onPress: () => void }) {
+  return <TouchableOpacity disabled={!available || loading} onPress={(event) => { event.stopPropagation(); onPress(); }} style={[styles.download, !available && styles.downloadUnavailable]}><Ionicons name={loading ? "hourglass-outline" : available ? "download-outline" : "time-outline"} size={17} color={available ? Colors.primary : Colors.subtitle} /><Text style={[styles.downloadText, !available && styles.downloadTextUnavailable]}>{loading ? "Baixando..." : label}</Text></TouchableOpacity>;
+}
+
 const styles = StyleSheet.create({
   content: { flexGrow: 1, padding: Spacing.lg, paddingBottom: Spacing.xxl * 2 },
   heading: { flexDirection: "row", alignItems: "center", marginBottom: Spacing.lg, paddingBottom: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
   back: { width: 38, height: 38, alignItems: "center", justifyContent: "center", marginRight: Spacing.xs },
   title: { color: Colors.text, fontSize: Typography.card, fontWeight: "800" },
+  subtitle: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small },
   filterTabs: { flexDirection: "row", marginBottom: Spacing.lg, borderBottomWidth: 1, borderBottomColor: Colors.border },
   filterButton: { flex: 1, minHeight: 48, alignItems: "center", justifyContent: "center", borderBottomWidth: 3, borderBottomColor: "transparent" },
   filterButtonActive: { borderBottomColor: "#8F938D" },
@@ -137,14 +182,17 @@ const styles = StyleSheet.create({
   status: { minWidth: 92, alignItems: "center", paddingHorizontal: Spacing.sm, paddingVertical: 8, borderRadius: Radius.round },
   statusOpen: { backgroundColor: "#F59E0B" },
   statusPaid: { backgroundColor: Colors.success },
+  statusOverdue: { backgroundColor: Colors.danger },
   statusText: { color: Colors.surface, fontSize: Typography.small, fontWeight: "800" },
   invoiceDivider: { height: 1, marginVertical: Spacing.md, backgroundColor: "rgba(100,116,139,0.20)" },
+  customer: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: Spacing.sm }, customerText: { flex: 1, color: Colors.text, fontSize: Typography.small, fontWeight: "700" },
   invoiceBottom: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
   metaLabel: { color: Colors.subtitle, fontSize: 9, fontWeight: "800", letterSpacing: 0.5 },
   metaValue: { marginTop: 4, color: Colors.text, fontSize: Typography.small, fontWeight: "700" },
   documentType: { maxWidth: "48%", alignItems: "flex-end" },
   documentLabel: { color: Colors.text, fontSize: 9, fontWeight: "900" },
   documentCode: { marginTop: 4, color: Colors.subtitle, fontSize: 9 },
+  downloads: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.md }, download: { flex: 1, minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md }, downloadUnavailable: { borderColor: Colors.border, opacity: 0.58 }, downloadText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" }, downloadTextUnavailable: { color: Colors.subtitle },
   deleteInvoice: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: Spacing.md, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: "rgba(100,116,139,0.20)" },
   deleteInvoiceText: { color: Colors.danger, fontSize: Typography.small, fontWeight: "800" },
 });

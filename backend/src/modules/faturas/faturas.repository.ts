@@ -10,7 +10,7 @@ export async function listarFaturas(
 ) {
   let query = supabase
     .from("faturas")
-    .select("*")
+    .select("*, clientes(nome), cobrancas(status,pago_em)")
     .order("referencia", {
       ascending: false,
     });

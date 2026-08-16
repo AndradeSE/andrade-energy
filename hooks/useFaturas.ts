@@ -4,11 +4,14 @@ import { listarFaturas } from "../services/faturas.service";
 
 export function useFaturas() {
   const { usuario, unidadeSelecionada } = useAuth();
+  const proprietario = usuario?.perfil !== "LEITURA";
 
   return useQuery({
-    queryKey: ["faturas", unidadeSelecionada?.cliente_id ?? usuario?.cliente_id, unidadeSelecionada?.numero],
-    enabled: !!(unidadeSelecionada?.cliente_id ?? usuario?.cliente_id),
-    queryFn: () => unidadeSelecionada?.numero
+    queryKey: ["faturas", proprietario ? "todas" : unidadeSelecionada?.cliente_id ?? usuario?.cliente_id, proprietario ? undefined : unidadeSelecionada?.numero],
+    enabled: proprietario || !!(unidadeSelecionada?.cliente_id ?? usuario?.cliente_id),
+    queryFn: () => proprietario
+      ? listarFaturas()
+      : unidadeSelecionada?.numero
       ? listarFaturas(undefined, unidadeSelecionada.numero)
       : listarFaturas((unidadeSelecionada?.cliente_id ?? usuario!.cliente_id)!),
   });

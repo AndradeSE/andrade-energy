@@ -10,6 +10,7 @@ const OWNER_TAB_ORDER = [
   "clientes",
   "usinas",
   "operacao",
+  "faturas",
   "financeiro",
   "perfil",
 ];
@@ -258,6 +259,16 @@ export default function TabLayout() {
               color={color}
               size={24}
             />
+          ),
+        }}
+      />
+
+      <OwnerTabs.Screen
+        name="faturas"
+        options={{
+          title: "Faturas",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "receipt" : "receipt-outline"} color={color} size={24} />
           ),
         }}
       />
