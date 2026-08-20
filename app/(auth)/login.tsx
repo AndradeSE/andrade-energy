@@ -65,12 +65,14 @@ export default function Login() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar backgroundColor="#8F938D" barStyle="light-content" />
+      <StatusBar backgroundColor="#006B3C" barStyle="light-content" />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboard}>
         <ScrollView
           bounces={false}
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
           showsVerticalScrollIndicator={false}
         >
           <ImageBackground
@@ -164,7 +166,7 @@ export default function Login() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#8F938D" },
+  screen: { flex: 1, backgroundColor: "#F5F6F5" },
   keyboard: { flex: 1 },
   content: { flexGrow: 1, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl, backgroundColor: "#F5F6F5" },
   brandArea: { alignItems: "center", marginHorizontal: -Spacing.lg, marginBottom: Spacing.xl, paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: Spacing.xl, overflow: "hidden", backgroundColor: "#F5F6F5" },

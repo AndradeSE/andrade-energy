@@ -1,6 +1,6 @@
 import { buscarClientePorUC } from "../clientes/clientes.repository";
 import { criarCobranca } from "../cobrancas/cobrancas.repository";
-import { consumirCreditos, registrarCreditosDaFatura, } from "../creditos/consumo.service";
+import { registrarCreditosDaFatura } from "../creditos/consumo.service";
 import { buscarUsina } from "../usinas/usinas.repository";
 import {
   calcularFaturaUnificada,
@@ -142,9 +142,10 @@ if (!cliente.usina_id) {
   const injecaoCalculada = await obterEnergiaInjetada(dados);
   const energiaInjetadaCalculada = injecaoCalculada.energia;
   const energiaCompensadaFaturada = Number(dados.energiaCompensada ?? 0);
-  const baseCompensacaoCalculada = modalidade === "COMPENSACAO"
-    ? energiaInjetadaCalculada
-    : energiaCompensadaFaturada;
+  // Na modalidade por compensação, a cobrança mensal considera somente a
+  // energia efetivamente compensada na fatura. O saldo atual fica apenas
+  // registrado para acerto no encerramento do contrato.
+  const baseCompensacaoCalculada = energiaCompensadaFaturada;
   const valorConcessionaria = Number(dados.valorTotal);
   const valorEnergiaSemGD = Number(dados.consumo ?? 0) * Number(dados.tarifaCheia ?? 0);
   const valorCreditoEfetivo = Math.min(
@@ -275,12 +276,6 @@ const fatura = await inserirFatura({
     energiaCompensada: energiaCompensadaFaturada,
     saldoAtual: Number(dados.saldoAtual),
   });
-  await consumirCreditos(
-    
-    cliente.id,
-    dados.referencia,
-    energiaCompensadaFaturada
-  );
 }
 
   await criarCobranca({

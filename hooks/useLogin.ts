@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { login } from "../services/auth.service";
+import { IS_GERADOR_APP } from "../config/appVariant";
 
 export function useLogin() {
   return useMutation({
@@ -9,6 +10,6 @@ export function useLogin() {
     }: {
       email: string;
       senha: string;
-    }) => login(email, senha),
+    }) => login(email, senha, IS_GERADOR_APP ? "GERADOR" : "CONSUMIDOR"),
   });
 }

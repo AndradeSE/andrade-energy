@@ -1,147 +1,967 @@
-import React, {
+import {
   createContext,
+  ReactNode,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from "react";
+
+import * as SecureStore from "expo-secure-store";
+
+import {
+  autenticarComDigital,
+  digitalEstaAtiva,
+} from "../services/biometric.service";
 
 import {
   obterSessao,
   removerSessao,
-  salvarSessao,
+  salvarSessao as salvarSessaoStorage,
 } from "../storage/session";
 
-export type Usuario = {
-  id: string;
-  nome: string;
-  email: string;
-  cpf?: string | null;
-  perfil: string;
-  cliente_id?: string | null;
-  usina_id?: string | null;
+/*
+ * ========================================================
+ * CHAVES LOCAIS
+ * ========================================================
+ *
+ * A sessão de autenticação NÃO fica aqui.
+ *
+ * Token + usuário continuam sendo controlados por:
+ *
+ * storage/session.ts
+ *
+ * porque config/api.ts utiliza obterSessao()
+ * para montar o Authorization.
+ *
+ * SecureStore abaixo é usado somente para
+ * unidade/usina selecionada.
+ */
+
+const UNIDADE_KEY =
+  "andrade_energy_unidade";
+
+const USINA_KEY =
+  "andrade_energy_usina";
+
+/*
+ * ========================================================
+ * TIPOS
+ * ========================================================
+ */
+
+export type Perfil =
+  | "ADMIN"
+  | "GESTOR"
+  | "LEITURA"
+  | string;
+
+export type AuthUsuario = {
+  id?: string | number;
+
+  nome?: string;
+
+  email?: string;
+
+  cpf?: string;
+
+  perfil?: Perfil;
+
+  telefone?: string;
+
+  [key: string]: any;
 };
 
 export type UnidadeConsumidora = {
   id: string;
-  cliente_id?: string | null;
+
   numero: string;
-  titular?: string | null;
-  distribuidora?: string | null;
-  endereco?: string | null;
-  status?: string | null;
+
+  titular?: string;
+
+  endereco?: string;
+
+  distribuidora?: string;
+
+  status?: string;
+
+  numero_instalacao?: string | null;
+
+  [key: string]: any;
 };
 
 export type UsinaSelecionada = {
   id: string;
+
   nome: string;
+
   numero_instalacao?: string | null;
-  distribuidora?: string | null;
+
   endereco?: string | null;
+
+  distribuidora?: string | null;
+
   status?: string | null;
+
+  [key: string]: any;
 };
 
-type AuthContextType = {
-  usuario: Usuario | null;
+type AuthSession = {
+  token: string;
+
+  user: AuthUsuario;
+};
+
+type SessaoStorage = {
+  token: string;
+
+  usuario: AuthUsuario;
+};
+
+/*
+ * ========================================================
+ * CONTEXTO
+ * ========================================================
+ */
+
+type AuthContextData = {
   token: string | null;
+
+  usuario: AuthUsuario | null;
+
+  user: AuthUsuario | null;
+
+  session: AuthSession | null;
+
+  perfil: Perfil | null;
+
+  authenticated: boolean;
+
+  isLoading: boolean;
+
   loading: boolean;
-  unidadeSelecionada: UnidadeConsumidora | null;
-  usinaSelecionada: UsinaSelecionada | null;
+
+  unidadeSelecionada:
+    UnidadeConsumidora | null;
+
+  usinaSelecionada:
+    UsinaSelecionada | null;
+
+  selecionarUnidade: (
+    unidade: UnidadeConsumidora | null
+  ) => Promise<void>;
+
+  selecionarUsina: (
+    usina: UsinaSelecionada | null
+  ) => Promise<void>;
+
+  atualizarUsuario: (
+    dados: Partial<AuthUsuario>
+  ) => Promise<void>;
+
+  digitalEnabled: boolean;
+
+  isUnlocked: boolean;
+
+  unlockWithDigital:
+    () => Promise<boolean>;
+
+  refreshDigitalStatus:
+    () => Promise<void>;
+
+  lockApp:
+    () => void;
 
   login: (
     token: string,
-    usuario: Usuario
+    usuario: AuthUsuario
   ) => Promise<void>;
 
-  logout: () => Promise<void>;
-  atualizarUsuario: (dados: Partial<Usuario>) => Promise<void>;
-  selecionarUnidade: (unidade: UnidadeConsumidora | null) => void;
-  selecionarUsina: (usina: UsinaSelecionada | null) => void;
+  logout:
+    () => Promise<void>;
+
+  signOut:
+    () => Promise<void>;
 };
 
-const AuthContext = createContext<AuthContextType>(
-  {} as AuthContextType
-);
+const AuthContext =
+  createContext<AuthContextData | undefined>(
+    undefined
+  );
+
+/*
+ * ========================================================
+ * PROVIDER
+ * ========================================================
+ */
+
+type AuthProviderProps = {
+  children: ReactNode;
+};
 
 export function AuthProvider({
   children,
-}: {
-  children: React.ReactNode;
-}) {
-  const [usuario, setUsuario] =
-    useState<Usuario | null>(null);
+}: AuthProviderProps) {
+  const [
+    token,
+    setToken,
+  ] =
+    useState<string | null>(
+      null
+    );
 
-  const [token, setToken] =
-    useState<string | null>(null);
+  const [
+    usuario,
+    setUsuario,
+  ] =
+    useState<AuthUsuario | null>(
+      null
+    );
 
-  const [loading, setLoading] =
+  const [
+    isLoading,
+    setIsLoading,
+  ] =
     useState(true);
-  const [unidadeSelecionada, setUnidadeSelecionada] =
-    useState<UnidadeConsumidora | null>(null);
-  const [usinaSelecionada, setUsinaSelecionada] =
-    useState<UsinaSelecionada | null>(null);
 
-  useEffect(() => {
-    carregarSessao();
-  }, []);
+  const [
+    unidadeSelecionada,
+    setUnidadeSelecionada,
+  ] =
+    useState<
+      UnidadeConsumidora | null
+    >(null);
 
-  async function carregarSessao() {
+  const [
+    usinaSelecionada,
+    setUsinaSelecionada,
+  ] =
+    useState<
+      UsinaSelecionada | null
+    >(null);
+
+  const [
+    digitalEnabled,
+    setDigitalEnabled,
+  ] =
+    useState(false);
+
+  const [
+    isUnlocked,
+    setIsUnlocked,
+  ] =
+    useState(false);
+
+  /*
+   * ======================================================
+   * RESTAURAR SESSÃO
+   * ======================================================
+   */
+
+  async function restaurarSessao() {
     try {
-      const sessao = await obterSessao();
+      setIsLoading(
+        true
+      );
 
-      if (sessao) {
-        setUsuario(sessao.usuario);
-        setToken(sessao.token);
+      /*
+       * IMPORTANTE:
+       *
+       * Aqui usamos exatamente o mesmo armazenamento
+       * que config/api.ts utiliza.
+       */
+
+      const [
+        sessaoSalva,
+        unidadeSalva,
+        usinaSalva,
+        digitalAtiva,
+      ] =
+        await Promise.all([
+          obterSessao(),
+
+          SecureStore.getItemAsync(
+            UNIDADE_KEY
+          ),
+
+          SecureStore.getItemAsync(
+            USINA_KEY
+          ),
+
+          digitalEstaAtiva(),
+        ]);
+
+      setDigitalEnabled(
+        digitalAtiva
+      );
+
+      /*
+       * Nenhuma sessão válida
+       */
+
+      if (
+        !sessaoSalva?.token ||
+        !sessaoSalva?.usuario
+      ) {
+        setToken(
+          null
+        );
+
+        setUsuario(
+          null
+        );
+
+        setUnidadeSelecionada(
+          null
+        );
+
+        setUsinaSelecionada(
+          null
+        );
+
+        setIsUnlocked(
+          false
+        );
+
+        return;
       }
+
+      const sessao =
+        sessaoSalva as SessaoStorage;
+
+      /*
+       * Restaura autenticação
+       */
+
+      setToken(
+        sessao.token
+      );
+
+      setUsuario(
+        sessao.usuario
+      );
+
+      /*
+       * Restaura unidade
+       */
+
+      if (unidadeSalva) {
+        try {
+          const unidade =
+            JSON.parse(
+              unidadeSalva
+            ) as UnidadeConsumidora;
+
+          setUnidadeSelecionada(
+            unidade
+          );
+        } catch (
+          error
+        ) {
+          console.log(
+            "Erro ao restaurar unidade:",
+            error
+          );
+
+          await SecureStore.deleteItemAsync(
+            UNIDADE_KEY
+          );
+
+          setUnidadeSelecionada(
+            null
+          );
+        }
+      }
+
+      /*
+       * Restaura usina
+       */
+
+      if (usinaSalva) {
+        try {
+          const usina =
+            JSON.parse(
+              usinaSalva
+            ) as UsinaSelecionada;
+
+          setUsinaSelecionada(
+            usina
+          );
+        } catch (
+          error
+        ) {
+          console.log(
+            "Erro ao restaurar usina:",
+            error
+          );
+
+          await SecureStore.deleteItemAsync(
+            USINA_KEY
+          );
+
+          setUsinaSelecionada(
+            null
+          );
+        }
+      }
+
+      /*
+       * Se a digital estiver habilitada,
+       * o aplicativo inicia bloqueado.
+       *
+       * biometric-lock fará o desbloqueio.
+       */
+
+      setIsUnlocked(
+        !digitalAtiva
+      );
+
+      console.log(
+        "SESSÃO RESTAURADA:",
+        sessao.usuario?.email ??
+          sessao.usuario?.id
+      );
+    } catch (
+      error
+    ) {
+      console.log(
+        "Erro ao restaurar sessão:",
+        error
+      );
+
+      setToken(
+        null
+      );
+
+      setUsuario(
+        null
+      );
+
+      setUnidadeSelecionada(
+        null
+      );
+
+      setUsinaSelecionada(
+        null
+      );
+
+      setIsUnlocked(
+        false
+      );
     } finally {
-      setLoading(false);
+      setIsLoading(
+        false
+      );
     }
   }
 
+  /*
+   * ======================================================
+   * LOGIN
+   * ======================================================
+   */
+
   async function login(
-  token: string,
-  usuario: Usuario
-) {
+    novoToken: string,
+    novoUsuario: AuthUsuario
+  ) {
+    if (!novoToken) {
+      throw new Error(
+        "Token de autenticação não informado."
+      );
+    }
 
-  await salvarSessao({
-    token,
-    usuario,
-  });
+    if (!novoUsuario) {
+      throw new Error(
+        "Usuário não informado."
+      );
+    }
 
-  setToken(token);
-  setUsuario(usuario);
+    try {
+      /*
+       * ESTA É A PARTE PRINCIPAL DA CORREÇÃO.
+       *
+       * O token volta a ser salvo no storage/session.ts.
+       *
+       * Assim config/api.ts encontrará:
+       *
+       * sessao.token
+       */
 
-}
+      await salvarSessaoStorage({
+        token:
+          novoToken,
+
+        usuario:
+          novoUsuario,
+      });
+
+      /*
+       * Atualiza contexto React
+       */
+
+      setToken(
+        novoToken
+      );
+
+      setUsuario(
+        novoUsuario
+      );
+
+      /*
+       * Novo login começa sem unidade/usina.
+       */
+
+      setUnidadeSelecionada(
+        null
+      );
+
+      setUsinaSelecionada(
+        null
+      );
+
+      await Promise.all([
+        SecureStore.deleteItemAsync(
+          UNIDADE_KEY
+        ),
+
+        SecureStore.deleteItemAsync(
+          USINA_KEY
+        ),
+      ]);
+
+      /*
+       * O usuário acabou de informar senha.
+       * Portanto a sessão atual já está desbloqueada.
+       */
+
+      setIsUnlocked(
+        true
+      );
+
+      /*
+       * Atualiza status da digital.
+       */
+
+      await refreshDigitalStatus();
+
+      console.log(
+        "LOGIN SALVO:",
+        novoUsuario?.email ??
+          novoUsuario?.id,
+        "PERFIL:",
+        novoUsuario?.perfil
+      );
+    } catch (
+      error
+    ) {
+      console.log(
+        "Erro ao salvar sessão:",
+        error
+      );
+
+      throw error;
+    }
+  }
+
+  /*
+   * ======================================================
+   * SELECIONAR UNIDADE
+   * ======================================================
+   */
+
+  async function selecionarUnidade(
+    unidade:
+      UnidadeConsumidora | null
+  ) {
+    try {
+      /*
+       * Usuário quer trocar de UC.
+       */
+
+      if (!unidade) {
+        await SecureStore.deleteItemAsync(
+          UNIDADE_KEY
+        );
+
+        setUnidadeSelecionada(
+          null
+        );
+
+        return;
+      }
+
+      /*
+       * Salva unidade.
+       */
+
+      await SecureStore.setItemAsync(
+        UNIDADE_KEY,
+        JSON.stringify(
+          unidade
+        )
+      );
+
+      setUnidadeSelecionada(
+        unidade
+      );
+
+      /*
+       * Consumidor e gerador são seleções
+       * mutuamente exclusivas.
+       */
+
+      setUsinaSelecionada(
+        null
+      );
+
+      await SecureStore.deleteItemAsync(
+        USINA_KEY
+      );
+
+      console.log(
+        "UNIDADE SELECIONADA:",
+        unidade.numero
+      );
+    } catch (
+      error
+    ) {
+      console.log(
+        "Erro ao selecionar unidade:",
+        error
+      );
+
+      throw error;
+    }
+  }
+
+  async function atualizarUsuario(dados: Partial<AuthUsuario>) {
+    setUsuario((atual) => {
+      const atualizado = { ...atual, ...dados } as AuthUsuario;
+      if (token) void salvarSessaoStorage({ token, usuario: atualizado });
+      return atualizado;
+    });
+  }
+
+  /*
+   * ======================================================
+   * SELECIONAR USINA
+   * ======================================================
+   */
+
+  async function selecionarUsina(
+    usina:
+      UsinaSelecionada | null
+  ) {
+    try {
+      if (!usina) {
+        await SecureStore.deleteItemAsync(
+          USINA_KEY
+        );
+
+        setUsinaSelecionada(
+          null
+        );
+
+        return;
+      }
+
+      await SecureStore.setItemAsync(
+        USINA_KEY,
+        JSON.stringify(
+          usina
+        )
+      );
+
+      setUsinaSelecionada(
+        usina
+      );
+
+      setUnidadeSelecionada(
+        null
+      );
+
+      await SecureStore.deleteItemAsync(
+        UNIDADE_KEY
+      );
+
+      console.log(
+        "USINA SELECIONADA:",
+        usina.nome
+      );
+    } catch (
+      error
+    ) {
+      console.log(
+        "Erro ao selecionar usina:",
+        error
+      );
+
+      throw error;
+    }
+  }
+
+  /*
+   * ======================================================
+   * STATUS DA DIGITAL
+   * ======================================================
+   */
+
+  async function refreshDigitalStatus() {
+    try {
+      const enabled =
+        await digitalEstaAtiva();
+
+      setDigitalEnabled(
+        enabled
+      );
+    } catch (
+      error
+    ) {
+      console.log(
+        "Erro ao consultar status da digital:",
+        error
+      );
+
+      setDigitalEnabled(
+        false
+      );
+    }
+  }
+
+  /*
+   * ======================================================
+   * DESBLOQUEAR COM DIGITAL
+   * ======================================================
+   */
+
+  async function unlockWithDigital():
+    Promise<boolean> {
+    try {
+      const result =
+        await autenticarComDigital();
+
+      if (
+        result.success
+      ) {
+        setIsUnlocked(
+          true
+        );
+
+        console.log(
+          "DIGITAL VALIDADA"
+        );
+
+        return true;
+      }
+
+      console.log(
+        "DIGITAL NÃO VALIDADA:",
+        result.error
+      );
+
+      return false;
+    } catch (
+      error
+    ) {
+      console.log(
+        "Erro ao desbloquear com digital:",
+        error
+      );
+
+      return false;
+    }
+  }
+
+  /*
+   * ======================================================
+   * BLOQUEAR APP
+   * ======================================================
+   */
+
+  function lockApp() {
+    if (
+      digitalEnabled &&
+      token
+    ) {
+      setIsUnlocked(
+        false
+      );
+    }
+  }
+
+  /*
+   * ======================================================
+   * LOGOUT
+   * ======================================================
+   */
 
   async function logout() {
+    try {
+      /*
+       * Remove a sessão exatamente do local
+       * utilizado pelo Axios.
+       */
+
+      await removerSessao();
+
+      /*
+       * Remove somente dados locais da seleção.
+       */
+
+      await Promise.all([
+        SecureStore.deleteItemAsync(
+          UNIDADE_KEY
+        ),
+
+        SecureStore.deleteItemAsync(
+          USINA_KEY
+        ),
+      ]);
+    } catch (
+      error
+    ) {
+      console.log(
+        "Erro ao limpar sessão:",
+        error
+      );
+    }
+
+    setToken(
+      null
+    );
+
+    setUsuario(
+      null
+    );
+
+    setUnidadeSelecionada(
+      null
+    );
+
+    setUsinaSelecionada(
+      null
+    );
+
+    setIsUnlocked(
+      false
+    );
+
+    console.log(
+      "SESSÃO ENCERRADA"
+    );
+  }
+
+  async function signOut() {
+    await logout();
+  }
+
+  /*
+   * ======================================================
+   * INICIALIZAÇÃO
+   * ======================================================
+   */
+
+  useEffect(() => {
+  async function resetar() {
     await removerSessao();
-
-    setToken(null);
-    setUsuario(null);
-    setUnidadeSelecionada(null);
-    setUsinaSelecionada(null);
+    await restaurarSessao();
   }
 
-  async function atualizarUsuario(dados: Partial<Usuario>) {
-    if (!usuario || !token) return;
+  resetar();
+}, []);
 
-    const usuarioAtualizado = { ...usuario, ...dados };
-    await salvarSessao({ token, usuario: usuarioAtualizado });
-    setUsuario(usuarioAtualizado);
-  }
+  /*
+   * ======================================================
+   * SESSION
+   * ======================================================
+   */
+
+  const session =
+    useMemo<AuthSession | null>(
+      () => {
+        if (
+          !token ||
+          !usuario
+        ) {
+          return null;
+        }
+
+        return {
+          token,
+
+          user:
+            usuario,
+        };
+      },
+      [
+        token,
+        usuario,
+      ]
+    );
+
+  const authenticated =
+    Boolean(
+      token &&
+      usuario
+    );
+
+  const perfil =
+    usuario?.perfil ??
+    null;
+
+  /*
+   * ======================================================
+   * PROVIDER
+   * ======================================================
+   */
 
   return (
     <AuthContext.Provider
       value={{
-        usuario,
         token,
-        loading,
+
+        usuario,
+
+        user:
+          usuario,
+
+        session,
+
+        perfil,
+
+        authenticated,
+
+        isLoading,
+
+        loading:
+          isLoading,
+
         unidadeSelecionada,
+
         usinaSelecionada,
-        login,
-        logout,
+
+        selecionarUnidade,
+
+        selecionarUsina,
+
         atualizarUsuario,
-        selecionarUnidade: setUnidadeSelecionada,
-        selecionarUsina: setUsinaSelecionada,
+
+        digitalEnabled,
+
+        isUnlocked,
+
+        unlockWithDigital,
+
+        refreshDigitalStatus,
+
+        lockApp,
+
+        login,
+
+        logout,
+
+        signOut,
       }}
     >
       {children}
@@ -149,6 +969,23 @@ export function AuthProvider({
   );
 }
 
+/*
+ * ========================================================
+ * HOOK
+ * ========================================================
+ */
+
 export function useAuth() {
-  return useContext(AuthContext);
+  const context =
+    useContext(
+      AuthContext
+    );
+
+  if (!context) {
+    throw new Error(
+      "useAuth deve ser usado dentro de AuthProvider"
+    );
+  }
+
+  return context;
 }

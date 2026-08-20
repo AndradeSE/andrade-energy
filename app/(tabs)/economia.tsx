@@ -9,6 +9,7 @@ import EmptyState from "../../components/ui/EmptyState";
 import Loading from "../../components/ui/Loading";
 import Screen from "../../components/ui/Screen";
 import EconomiaChart from "../../components/cliente/EconomiaChart";
+import ClienteHeader from "../../components/cliente/ClienteHeader";
 import { useDashboard } from "../../hooks/useDashboard";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
@@ -63,6 +64,7 @@ export default function Economia() {
 
   return (
     <Screen>
+      <ClienteHeader cliente={data.cliente} uc={data.uc} distribuidora={data.distribuidora} fullBleed />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}

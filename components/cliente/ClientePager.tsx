@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
 
 import Economia from "../../app/(tabs)/economia";
-import Perfil from "../../app/(tabs)/perfil";
+import Contrato from "../../app/(tabs)/contrato";
 import { Colors, Shadows, Typography } from "../../theme";
 import ClienteHome from "./ClienteHome";
 
@@ -57,11 +57,11 @@ export default function ClientePager() {
       />
 
       <Tab.Screen
-        component={Perfil}
-        name="Perfil"
+        component={Contrato}
+        name="Contrato"
         options={{
           tabBarIcon: ({ color }) => (
-            <Ionicons name="person-outline" size={24} color={color} />
+            <Ionicons name="document-text-outline" size={24} color={color} />
           ),
         }}
       />

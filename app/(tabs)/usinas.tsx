@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { Alert, FlatList, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import CadastroActions from "../../components/cadastro/CadastroActions";
 import { AppHeader, Badge, Card, EmptyState, Loading, Screen } from "../../components/ui";
@@ -12,10 +12,11 @@ import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function Usinas() {
   const { usuario, usinaSelecionada, selecionarUsina, atualizarUsuario } = useAuth();
-  const [usinas, setUsinas] = useState<any[]>([]); const [loading, setLoading] = useState(true);
+  const [usinas, setUsinas] = useState<any[]>([]); const [loading, setLoading] = useState(true); const [atualizando, setAtualizando] = useState(false);
   const [importandoId, setImportandoId] = useState<string | null>(null);
   const carregar = useCallback(async () => { try { setUsinas((await listarUsinas()) ?? []); } finally { setLoading(false); } }, []);
   useFocusEffect(useCallback(() => { carregar(); }, [carregar]));
+  async function atualizarPagina() { setAtualizando(true); try { await carregar(); } finally { setAtualizando(false); } }
 
   function confirmarExclusao(item: any) {
     Alert.alert("Excluir usina", `Deseja excluir ${item.nome}? Esta ação não pode ser desfeita.`, [
@@ -54,7 +55,7 @@ export default function Usinas() {
   }
 
   return <Screen><AppHeader title="Usinas" subtitle="Ativos de geração" contextTitle={`${usinas.length} usinas cadastradas`} contextSubtitle="Produção, unidades e operação" icon="business-outline" />
-    {loading ? <Loading /> : <FlatList contentContainerStyle={styles.content} data={usinas} keyExtractor={(item) => item.id}
+    {loading ? <Loading /> : <FlatList bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} data={usinas} keyExtractor={(item) => item.id}
       ListHeaderComponent={<View><Text style={styles.title}>Parque gerador</Text><Text style={styles.subtitle}>Acompanhe e mantenha os dados de cada usina.</Text><CadastroActions tipo="USINA" /></View>}
       renderItem={({ item }) => { const ativa = usinaSelecionada?.id === item.id; const quantidadeUcs = Number(item.unidades_alocadas ?? 0); return <Pressable onPress={() => { selecionarUsina(item); router.push(`/usinas/${item.id}`); }}><Card style={ativa ? styles.activeCard : undefined}><View style={styles.row}><View style={[styles.icon, ativa && styles.activeIcon]}><Ionicons name="sunny-outline" size={25} color={Colors.primary} /></View><View style={styles.info}><View style={styles.nameRow}><Text style={styles.name}>{item.nome}</Text>{ativa ? <Badge label="EM USO" variant="info" /> : null}</View><Text style={styles.detail}>{item.numero_instalacao ? `Instalação ${item.numero_instalacao}` : item.distribuidora ?? "CEMIG"}</Text></View><Badge label={item.status ?? "ATIVA"} variant={item.status === "INATIVA" ? "danger" : "success"} /><TouchableOpacity accessibilityLabel={`Excluir usina ${item.nome}`} onPress={(event) => { event.stopPropagation(); confirmarExclusao(item); }} style={styles.delete}><Ionicons name="trash-outline" size={20} color={Colors.danger} /></TouchableOpacity></View><View style={styles.allocationSummary}><Ionicons name="flash-outline" size={17} color={Colors.primary} /><Text style={styles.allocationText}>{quantidadeUcs} {quantidadeUcs === 1 ? "UC alocada" : "UCs alocadas"}</Text></View><View style={styles.metrics}><View><Text style={styles.metricLabel}>ALOCADO</Text><Text style={styles.metricValue}>{Number(item.fechamento_atual?.energia_alocada ?? 0).toLocaleString("pt-BR")} kWh</Text></View><View><Text style={styles.metricLabel}>RESTANTE</Text><Text style={styles.metricValue}>{Number(item.fechamento_atual?.energia_disponivel ?? 0).toLocaleString("pt-BR")} kWh</Text></View><View><Text style={styles.metricLabel}>MÉDIA 12 MESES</Text><Text style={styles.metricValue}>{Number(item.producao_media_12_meses ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kWh</Text></View></View><View style={styles.detailsLink}><Text style={styles.openText}>{ativa ? "Usina selecionada" : "Selecionar e ver detalhes"}</Text><Ionicons name="arrow-forward" size={17} color={Colors.primary} /></View><TouchableOpacity disabled={importandoId === item.id} onPress={(event) => { event.stopPropagation(); importarProducao(item); }} style={styles.importButton}><Ionicons name="document-attach-outline" size={18} color={Colors.primary} /><Text style={styles.importText}>{importandoId === item.id ? "Lendo conta..." : "Importar dados de produção"}</Text></TouchableOpacity></Card></Pressable>; }}
       ListEmptyComponent={<EmptyState icon="sunny-outline" title="Nenhuma usina cadastrada" subtitle="Cadastre manualmente ou importe a fatura da unidade geradora." />}

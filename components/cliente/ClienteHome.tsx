@@ -1,5 +1,6 @@
-import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { RefreshControl, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -20,7 +21,9 @@ import QuickAccessCarousel from "../QuickAccessCarousel";
 
 export default function ClienteHome() {
   const navigation = useNavigation();
-  const { data, isLoading, error } = useDashboard();
+  const { data, isLoading, error, refetch } = useDashboard();
+  const [atualizando, setAtualizando] = useState(false);
+  async function atualizarPagina() { setAtualizando(true); try { await refetch(); } finally { setAtualizando(false); } }
 
   if (isLoading) return <Loading />;
 
@@ -53,7 +56,11 @@ export default function ClienteHome() {
 
       <ScrollView
         style={styles.scroll}
+        bounces
+        alwaysBounceVertical
+        overScrollMode="always"
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}
         contentContainerStyle={styles.content}
       >
         <HeroCard

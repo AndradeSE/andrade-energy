@@ -30,22 +30,22 @@ export default function HeroCard({ saldo, economia }: Props) {
 
       <View style={styles.header}>
         <View style={styles.walletIcon}>
-          <Ionicons name="flash" size={20} color={Colors.surface} />
+          <Ionicons name="trending-up" size={20} color={Colors.surface} />
         </View>
-        <Badge label="Créditos ativos" variant="success" />
+        <Badge label="Economia acumulada" variant="success" />
       </View>
 
-      <Text style={styles.label}>Saldo disponível</Text>
-      <Text style={styles.balance}>{formatarEnergia(saldo)}</Text>
-      <Text style={styles.description}>Energia pronta para compensação</Text>
+      <Text style={styles.label}>Você já economizou</Text>
+      <Text style={styles.balance}>{formatarMoeda(economia)}</Text>
+      <Text style={styles.description}>Economia acumulada desde o início do contrato</Text>
 
       <View style={styles.footer}>
         <View style={styles.footerIcon}>
-          <Ionicons name="leaf-outline" size={18} color={Colors.primary} />
+          <Ionicons name="flash-outline" size={18} color={Colors.primary} />
         </View>
         <View style={styles.footerContent}>
-          <Text style={styles.footerLabel}>Economia acumulada</Text>
-          <Text style={styles.footerValue}>{formatarMoeda(economia)}</Text>
+          <Text style={styles.footerLabel}>Saldo de energia disponível</Text>
+          <Text style={styles.footerValue}>{formatarEnergia(saldo)}</Text>
         </View>
         <Ionicons name="trending-up" size={21} color="#86EFAC" />
       </View>

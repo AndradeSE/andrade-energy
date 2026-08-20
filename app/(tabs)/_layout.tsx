@@ -3,6 +3,7 @@ import { LocaleDirContext, ParamListBase, TabNavigationState } from "@react-navi
 import { createMaterialTopTabNavigator, MaterialTopTabNavigationEventMap, MaterialTopTabNavigationOptions } from "@react-navigation/material-top-tabs";
 import { Tabs, withLayoutContext } from "expo-router";
 import { useAuth } from "../../contexts/AuthContext";
+import { IS_GERADOR_APP } from "../../config/appVariant";
 
 const TopTabs = createMaterialTopTabNavigator();
 const OWNER_TAB_ORDER = [
@@ -69,7 +70,8 @@ export default function TabLayout() {
   // CLIENTE
   // ===================================================
 
-  if (perfil === "LEITURA") {
+  const appConsumidor = !IS_GERADOR_APP;
+  if (appConsumidor || perfil === "LEITURA") {
     return (
       <Tabs
         screenOptions={{
@@ -112,19 +114,11 @@ export default function TabLayout() {
         />
 
         <Tabs.Screen
-          name="perfil"
+          name="contrato"
           options={{
-            title: "Perfil",
+            title: "Contrato",
             tabBarIcon: ({ color, focused }) => (
-              <Ionicons
-                name={
-                  focused
-                    ? "person"
-                    : "person-outline"
-                }
-                color={color}
-                size={24}
-              />
+              <Ionicons name={focused ? "document-text" : "document-text-outline"} color={color} size={24} />
             ),
           }}
         />
@@ -136,12 +130,7 @@ export default function TabLayout() {
           }}
         />
 
-        <Tabs.Screen
-          name="contrato"
-          options={{
-            href: null,
-          }}
-        />
+        <Tabs.Screen name="perfil" options={{ href: null, tabBarItemStyle: { display: "none" } }} />
 
         <Tabs.Screen
           name="clientes"
@@ -296,15 +285,7 @@ export default function TabLayout() {
         options={{
           title: "Perfil",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={
-                focused
-                  ? "person"
-                  : "person-outline"
-              }
-              color={color}
-              size={24}
-            />
+            <Ionicons name={focused ? "person" : "person-outline"} color={color} size={24} />
           ),
         }}
       />

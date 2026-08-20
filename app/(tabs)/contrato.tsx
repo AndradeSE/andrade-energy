@@ -5,12 +5,18 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 
 import { Badge, Button, Card, Divider, EmptyState, Loading, Screen } from "../../components/ui";
 import { useContrato } from "../../hooks/useContrato";
+import { useDashboard } from "../../hooks/useDashboard";
+import { useAuth } from "../../contexts/AuthContext";
+import ClienteHeader from "../../components/cliente/ClienteHeader";
+import { cancelarContrato } from "../../services/contratos.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
+import { useQueryClient } from "@tanstack/react-query";
 
 function formatarData(data?: string) {
   if (!data) return "Não informado";
@@ -27,6 +33,9 @@ function normalizarStatus(status?: string) {
 
 export default function Contrato() {
   const { data, isLoading, error } = useContrato();
+  const { data: dashboard } = useDashboard();
+  const { unidadeSelecionada } = useAuth();
+  const queryClient = useQueryClient();
 
   if (isLoading) return <Loading />;
 
@@ -46,6 +55,9 @@ export default function Contrato() {
 
   const status = normalizarStatus(data.status);
   const ativo = ["ATIVO", "VIGENTE"].includes(status);
+  const vencido = status === "VENCIDO" || Boolean(data.vigencia_fim && new Date(`${data.vigencia_fim}T23:59:59`).getTime() < Date.now());
+  const economiaMensal = Number(dashboard?.economiaMes ?? data.economia_mensal_estimada ?? 0);
+  const economiaAnual = Number(data.economia_anual_estimada ?? economiaMensal * 12);
 
   async function abrirContrato() {
     if (!data.arquivo_pdf) {
@@ -65,8 +77,30 @@ export default function Contrato() {
     }
   }
 
+  function solicitarCancelamento() {
+    if (!vencido) {
+      Alert.alert("Contrato vigente", "Para cancelar antes do vencimento, entre em contato com o gerador responsável.");
+      return;
+    }
+    Alert.alert("Cancelar contrato", "Deseja realmente cancelar este contrato vencido?", [
+      { text: "Voltar", style: "cancel" },
+      { text: "Confirmar cancelamento", style: "destructive", onPress: async () => {
+        try {
+          const resultado = await cancelarContrato(data.id);
+          await queryClient.invalidateQueries({ queryKey: ["contrato"] });
+          Alert.alert("Contrato cancelado", resultado?.faturaEncerramento
+            ? "O contrato foi cancelado. Uma fatura de encerramento foi gerada com o saldo de energia acumulado do cliente."
+            : "O contrato foi cancelado com sucesso.");
+        } catch (erro: any) {
+          Alert.alert("Não foi possível cancelar", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
+        }
+      } },
+    ]);
+  }
+
   return (
     <Screen>
+      <ClienteHeader cliente={dashboard?.cliente ?? "Cliente"} uc={dashboard?.uc ?? unidadeSelecionada?.numero ?? ""} distribuidora={dashboard?.distribuidora ?? unidadeSelecionada?.distribuidora ?? "Concessionária"} fullBleed />
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -74,9 +108,7 @@ export default function Contrato() {
         <View style={styles.heading}>
           <Text style={styles.eyebrow}>DOCUMENTOS</Text>
           <Text style={styles.title}>Meu contrato</Text>
-          <Text style={styles.subtitle}>
-            Consulte as condições e a vigência do seu plano de energia.
-          </Text>
+          <Text style={styles.subtitle}>Resumo do seu plano de energia e condições de adesão.</Text>
         </View>
 
         <View style={styles.hero}>
@@ -96,7 +128,7 @@ export default function Contrato() {
           <Text style={styles.heroHint}>Andrade Energy · Energia por assinatura</Text>
         </View>
 
-        <Text style={styles.sectionTitle}>Condições comerciais</Text>
+        <Text style={styles.sectionTitle}>Resumo do contrato</Text>
 
         <Card>
           <InfoRow
@@ -107,9 +139,19 @@ export default function Contrato() {
           <Divider />
           <InfoRow
             icon="create-outline"
-            label="Data da assinatura"
-            value={formatarData(data.data_assinatura)}
+            label="Termo de adesão"
+            value={data.termo_adesao ?? data.numero ?? "Assinado digitalmente"}
           />
+          <Divider />
+          <InfoRow icon="flash-outline" label="Unidades consumidoras" value={String(data.unidades_consumidoras ?? (unidadeSelecionada ? 1 : 0))} />
+        </Card>
+
+        <Text style={styles.sectionTitle}>Economia estimada</Text>
+        <Card>
+          <View style={styles.economyGrid}>
+            <View style={styles.economyItem}><Text style={styles.infoLabel}>Mensal</Text><Text style={styles.economyValue}>{economiaMensal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</Text></View>
+            <View style={styles.economyItem}><Text style={styles.infoLabel}>Anual</Text><Text style={styles.economyValue}>{economiaAnual.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</Text></View>
+          </View>
         </Card>
 
         <Text style={styles.sectionTitle}>Vigência</Text>
@@ -140,6 +182,11 @@ export default function Contrato() {
           onPress={abrirContrato}
           title={data.arquivo_pdf ? "Abrir contrato em PDF" : "PDF ainda não disponível"}
         />
+
+        <TouchableOpacity activeOpacity={0.85} onPress={solicitarCancelamento} style={styles.cancelButton}>
+          <Ionicons name="close-circle-outline" size={20} color={vencido ? Colors.danger : Colors.subtitle} />
+          <Text style={styles.cancelButtonText}>Cancelar contrato</Text>
+        </TouchableOpacity>
 
         <View style={styles.securityNote}>
           <Ionicons name="shield-checkmark-outline" size={18} color={Colors.primary} />
@@ -327,6 +374,25 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: Spacing.md,
   },
+  cancelButton: {
+    height: 54,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    marginTop: Spacing.sm,
+    borderColor: Colors.danger,
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+  },
+  cancelButtonText: {
+    marginLeft: Spacing.xs,
+    color: Colors.danger,
+    fontSize: Typography.body,
+    fontWeight: "700",
+  },
+  economyGrid: { flexDirection: "row", justifyContent: "space-between" },
+  economyItem: { flex: 1 },
+  economyValue: { marginTop: 5, color: Colors.primary, fontSize: Typography.section, fontWeight: "800" },
   securityText: {
     marginLeft: Spacing.xs,
     color: Colors.subtitle,

@@ -1,8 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import {
   Alert,
   Modal,
@@ -11,11 +13,25 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Image,
 } from "react-native";
 
 import { useAuth } from "../../contexts/AuthContext";
-import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
-import { Avatar, Divider } from "../ui";
+import { listarFaturas } from "../../services/faturas.service";
+
+import {
+  Colors,
+  Radius,
+  Shadows,
+  Spacing,
+  Typography,
+} from "../../theme";
+
+import {
+  Avatar,
+  Divider,
+} from "../ui";
+
 import MenuItem from "./MenuItem";
 
 type Props = {
@@ -23,6 +39,7 @@ type Props = {
   uc: string;
   distribuidora: string;
   onOpenProfile?: () => void;
+  fullBleed?: boolean;
 };
 
 export default function ClienteHeader({
@@ -30,21 +47,85 @@ export default function ClienteHeader({
   uc,
   distribuidora,
   onOpenProfile,
+  fullBleed = false,
 }: Props) {
-  const [menuAberto, setMenuAberto] = useState(false);
-  const { logout, selecionarUnidade } = useAuth();
-  const insets = useSafeAreaInsets();
-  const primeiroNome = cliente.split(" ")[0];
+  const [
+    menuAberto,
+    setMenuAberto,
+  ] =
+    useState(false);
+  const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
+  const [notificacoes, setNotificacoes] = useState<any[]>([]);
+  const [lidas, setLidas] = useState<string[]>([]);
 
-  function navegar(rota: "/perfil" | "/faturas" | "/contrato") {
-    setMenuAberto(false);
+  const {
+    logout,
+    selecionarUnidade,
+  } =
+    useAuth();
 
-    if (rota === "/perfil" && onOpenProfile) {
+  useEffect(() => {
+    let ativo = true;
+    AsyncStorage.getItem("andrade_energy_notificacoes_lidas").then((valor) => {
+      const ids = valor ? JSON.parse(valor) : [];
+      if (ativo) setLidas(Array.isArray(ids) ? ids : []);
+    }).catch(() => undefined);
+    listarFaturas().then((faturas) => {
+      if (!ativo) return;
+      const hoje = new Date();
+      const avisos = (faturas ?? []).flatMap((fatura: any) => {
+        const status = String(fatura.cobrancas?.[0]?.status ?? fatura.status ?? "").toUpperCase();
+        if (["PAGA", "PAGO", "QUITADA"].includes(status) || !fatura.vencimento) return [];
+        const dias = Math.ceil((new Date(`${fatura.vencimento}T23:59:59`).getTime() - hoje.getTime()) / 86400000);
+        if (dias < 0) return [{ id: fatura.id, severidade: "alta", titulo: "Fatura vencida", detalhe: fatura.referencia ?? "Competência não informada", rota: `/faturas/${fatura.id}` }];
+        if (dias <= 5) return [{ id: fatura.id, severidade: "media", titulo: "Fatura próxima do vencimento", detalhe: `Vence em ${dias} dia${dias === 1 ? "" : "s"}`, rota: `/faturas/${fatura.id}` }];
+        return [];
+      });
+      AsyncStorage.getItem("andrade_energy_notificacoes_lidas").then((valor) => {
+        const ids = valor ? JSON.parse(valor) : [];
+        setNotificacoes(avisos.filter((aviso: any) => !ids.includes(aviso.id)));
+      }).catch(() => setNotificacoes(avisos));
+    }).catch(() => { if (ativo) setNotificacoes([]); });
+    return () => { ativo = false; };
+  }, []);
+
+  async function marcarComoLida(id: string) {
+    const novas = Array.from(new Set([...lidas, id]));
+    setLidas(novas);
+    setNotificacoes((lista) => lista.filter((item) => item.id !== id));
+    await AsyncStorage.setItem("andrade_energy_notificacoes_lidas", JSON.stringify(novas));
+  }
+
+  const insets =
+    useSafeAreaInsets();
+
+  const primeiroNome =
+    cliente
+      ?.trim()
+      .split(" ")[0] ||
+    "Cliente";
+
+  function navegar(
+    rota:
+      | "/perfil"
+      | "/faturas"
+      | "/contrato"
+  ) {
+    setMenuAberto(
+      false
+    );
+
+    if (
+      rota === "/perfil" &&
+      onOpenProfile
+    ) {
       onOpenProfile();
       return;
     }
 
-    router.push(rota);
+    router.push(
+      rota
+    );
   }
 
   function abrirPerfil() {
@@ -53,97 +134,297 @@ export default function ClienteHeader({
       return;
     }
 
-    router.push("/perfil");
+    router.push(
+      "/perfil"
+    );
+  }
+
+  async function trocarUnidade() {
+    try {
+      await selecionarUnidade(
+        null
+      );
+
+      router.push(
+        "/selecionar-unidade"
+      );
+    } catch (error) {
+      console.log(
+        "Erro ao trocar unidade:",
+        error
+      );
+
+      Alert.alert(
+        "Erro",
+        "Não foi possível abrir a seleção de unidade."
+      );
+    }
   }
 
   function confirmarSaida() {
-    setMenuAberto(false);
+    setMenuAberto(
+      false
+    );
 
-    Alert.alert("Sair", "Deseja realmente sair da sua conta?", [
-      { text: "Cancelar", style: "cancel" },
-      { text: "Sair", style: "destructive", onPress: logout },
-    ]);
+    Alert.alert(
+      "Sair",
+      "Deseja realmente sair da sua conta?",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+
+        {
+          text: "Sair",
+          style: "destructive",
+          onPress: logout,
+        },
+      ]
+    );
   }
 
   return (
     <>
-      <LinearGradient colors={["#006B3C", "#008C4A", "#38A94B"]} end={{ x: 1, y: 0.85 }} start={{ x: 0, y: 0 }} style={[styles.container, { paddingTop: insets.top + Spacing.xs }]}>
-        <View style={styles.top}>
+      <LinearGradient
+        colors={[
+          "#006B3C",
+          "#008C4A",
+          "#38A94B",
+        ]}
+        end={{
+          x: 1,
+          y: 0.85,
+        }}
+        start={{
+          x: 0,
+          y: 0,
+        }}
+        style={[
+          styles.container,
+          {
+            marginTop: fullBleed ? -insets.top : 0,
+            paddingTop:
+              insets.top +
+              Spacing.xs,
+          },
+        ]}
+      >
+        <View
+          style={
+            styles.top
+          }
+        >
           <TouchableOpacity
             accessibilityLabel="Abrir menu"
-            activeOpacity={0.8}
-            onPress={() => setMenuAberto(true)}
-            style={styles.iconButton}
+            activeOpacity={
+              0.8
+            }
+            onPress={() =>
+              setMenuAberto(
+                true
+              )
+            }
+            style={
+              styles.iconButton
+            }
           >
-            <Ionicons name="menu" size={26} color={Colors.surface} />
+            <Ionicons
+              name="menu"
+              size={26}
+              color={
+                Colors.surface
+              }
+            />
           </TouchableOpacity>
 
           <TouchableOpacity
-            accessibilityLabel="Abrir perfil"
-            activeOpacity={0.8}
-            onPress={abrirPerfil}
-            style={styles.profile}
+            accessibilityLabel="Abrir Meu"
+            activeOpacity={
+              0.8
+            }
+            onPress={
+              abrirPerfil
+            }
+            style={
+              styles.profile
+            }
           >
-            <Avatar name={cliente} size={38} />
+            <Avatar
+              name={
+                cliente
+              }
+              size={38}
+            />
 
-            <View style={styles.greetingContent}>
-              <Text style={styles.greeting}>Olá, {primeiroNome}</Text>
-              <Text style={styles.greetingSubtitle}>{distribuidora}</Text>
+            <View
+              style={
+                styles.greetingContent
+              }
+            >
+              <Text
+                style={
+                  styles.greeting
+                }
+              >
+                Olá, {primeiroNome}
+              </Text>
+
+              <Text
+                style={
+                  styles.greetingSubtitle
+                }
+              >
+                {distribuidora}
+              </Text>
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity
-            accessibilityLabel="Sair da conta"
-            activeOpacity={0.8}
-            onPress={confirmarSaida}
-            style={styles.iconButton}
+            accessibilityLabel="Notificações"
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            activeOpacity={
+              0.8
+            }
+            onPress={() => setNotificacoesAbertas(true)}
+            style={
+              styles.iconButton
+            }
           >
             <Ionicons
-              name="log-out-outline"
+              name={notificacoes.length ? "notifications" : "notifications-outline"}
               size={24}
-              color={Colors.surface}
+              color={
+                Colors.surface
+              }
             />
           </TouchableOpacity>
+          {notificacoes.length ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{notificacoes.length > 9 ? "9+" : notificacoes.length}</Text></View> : null}
         </View>
 
         <TouchableOpacity
           accessibilityLabel="Trocar unidade consumidora"
-          activeOpacity={0.82}
-          onPress={() => {
-            selecionarUnidade(null);
-            router.replace("/selecionar-unidade");
-          }}
-          style={styles.unitCard}
-        >
-          <View style={styles.unitIcon}>
-            <Ionicons name="flash" size={17} color={Colors.surface} />
-          </View>
+          activeOpacity={
+            0.82
+          }
+          onPress={
+            trocarUnidade
+          }
+          style={
+            styles.unitCard
+          }
+          >
+            <View
+              style={
+                styles.unitLogo
+              }
+            >
+              <Image source={require("../../assets/images/andrade-logo-horizontal.png")} style={styles.unitLogoImage} resizeMode="contain" />
+            </View>
 
-          <View style={styles.unitContent}>
-            <Text style={styles.unitCode}>{uc}</Text>
-            <Text style={styles.unitDetail}>
+          <View
+            style={
+              styles.unitContent
+            }
+          >
+            <Text
+              style={
+                styles.unitCode
+              }
+            >
+              {uc}
+            </Text>
+
+            <Text
+              style={
+                styles.unitDetail
+              }
+            >
               {distribuidora} · Unidade consumidora
             </Text>
           </View>
-          <Text style={styles.changeText}>Trocar</Text>
-          <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
+
+          <Text
+            style={
+              styles.changeText
+            }
+          >
+            Trocar
+          </Text>
+
+          <Ionicons
+            name="chevron-forward"
+            size={18}
+            color={
+              Colors.primary
+            }
+          />
         </TouchableOpacity>
       </LinearGradient>
 
+      <Modal animationType="fade" transparent visible={notificacoesAbertas} onRequestClose={() => setNotificacoesAbertas(false)}>
+        <Pressable style={styles.notificationBackdrop} onPress={() => setNotificacoesAbertas(false)}>
+          <Pressable style={styles.notificationPanel} onPress={(evento) => evento.stopPropagation()}>
+            <View style={styles.notificationHeader}><Text style={styles.notificationTitle}>Notificações</Text><TouchableOpacity onPress={() => setNotificacoesAbertas(false)}><Ionicons name="close" size={25} color={Colors.text} /></TouchableOpacity></View>
+            {notificacoes.length ? notificacoes.map((aviso) => <TouchableOpacity key={aviso.id} style={styles.notificationItem} onPress={async () => { await marcarComoLida(aviso.id); setNotificacoesAbertas(false); router.push(aviso.rota as any); }}><View style={[styles.notificationDot, aviso.severidade === "alta" && styles.notificationDotHigh]} /><View style={styles.notificationCopy}><Text style={styles.notificationItemTitle}>{aviso.titulo}</Text><Text style={styles.notificationDetail}>{aviso.detalhe}</Text></View><Ionicons name="chevron-forward" size={18} color={Colors.subtitle} /></TouchableOpacity>) : <View style={styles.emptyNotifications}><Ionicons name="checkmark-circle-outline" size={34} color={Colors.primary} /><Text style={styles.notificationItemTitle}>Tudo em dia</Text></View>}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <Modal
         animationType="slide"
-        onRequestClose={() => setMenuAberto(false)}
+        onRequestClose={() =>
+          setMenuAberto(
+            false
+          )
+        }
         transparent
-        visible={menuAberto}
+        visible={
+          menuAberto
+        }
       >
-        <View style={styles.modal}>
-          <View style={styles.drawer}>
-            <View style={styles.drawerHeader}>
-              <Avatar name={cliente} size={48} />
+        <View
+          style={
+            styles.modal
+          }
+        >
+          <View
+            style={
+              styles.drawer
+            }
+          >
+            <View
+              style={
+                styles.drawerHeader
+              }
+            >
+              <Avatar
+                name={
+                  cliente
+                }
+                size={48}
+              />
 
-              <View style={styles.drawerUser}>
-                <Text style={styles.drawerName}>{cliente}</Text>
-                <Text style={styles.drawerSubtitle}>Área do cliente</Text>
+              <View
+                style={
+                  styles.drawerUser
+                }
+              >
+                <Text
+                  style={
+                    styles.drawerName
+                  }
+                >
+                  {cliente}
+                </Text>
+
+                <Text
+                  style={
+                    styles.drawerSubtitle
+                  }
+                >
+                  Área do cliente
+                </Text>
               </View>
             </View>
 
@@ -151,20 +432,32 @@ export default function ClienteHeader({
 
             <MenuItem
               icon="person-outline"
-              label="Meu perfil"
-              onPress={() => navegar("/perfil")}
+              label="Meu"
+              onPress={() =>
+                navegar(
+                  "/perfil"
+                )
+              }
             />
 
             <MenuItem
               icon="document-text-outline"
               label="Minhas faturas"
-              onPress={() => navegar("/faturas")}
+              onPress={() =>
+                navegar(
+                  "/faturas"
+                )
+              }
             />
 
             <MenuItem
               icon="document-outline"
               label="Meu contrato"
-              onPress={() => navegar("/contrato")}
+              onPress={() =>
+                navegar(
+                  "/contrato"
+                )
+              }
             />
 
             <Divider />
@@ -172,14 +465,22 @@ export default function ClienteHeader({
             <MenuItem
               icon="log-out-outline"
               label="Sair da conta"
-              onPress={confirmarSaida}
+              onPress={
+                confirmarSaida
+              }
             />
           </View>
 
           <Pressable
             accessibilityLabel="Fechar menu"
-            onPress={() => setMenuAberto(false)}
-            style={styles.backdrop}
+            onPress={() =>
+              setMenuAberto(
+                false
+              )
+            }
+            style={
+              styles.backdrop
+            }
           />
         </View>
       </Modal>
@@ -187,132 +488,249 @@ export default function ClienteHeader({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.sm,
-  },
+const styles =
+  StyleSheet.create({
+    container: {
+      paddingHorizontal:
+        Spacing.lg,
 
-  top: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
+      paddingBottom:
+        Spacing.sm,
+    },
 
-  iconButton: {
-    width: 36,
-    height: 36,
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: Radius.round,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-  },
+    top: {
+      flexDirection:
+        "row",
 
-  profile: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    marginHorizontal: Spacing.xs,
-  },
+      alignItems:
+        "center",
+    },
 
-  greetingContent: {
-    marginLeft: Spacing.sm,
-  },
+    iconButton: {
+      width: 36,
 
-  greeting: {
-    color: Colors.surface,
-    fontSize: Typography.body,
-    fontWeight: "700",
-  },
+      height: 36,
 
-  greetingSubtitle: {
-    marginTop: 2,
-    color: "#CBD5E1",
-    fontSize: Typography.small,
-  },
+      justifyContent:
+        "center",
 
-  unitCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 7,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.28)",
-    backgroundColor: "rgba(255, 255, 255, 0.16)",
-  },
+      alignItems:
+        "center",
 
-  unitIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: Colors.primary,
-  },
+      borderRadius:
+        Radius.round,
 
-  unitContent: {
-    flex: 1,
-    marginLeft: Spacing.sm,
-  },
+      backgroundColor:
+        "rgba(255, 255, 255, 0.08)",
+    },
+    notificationBadge: { position: "absolute", top: -2, right: -2, minWidth: 17, height: 17, alignItems: "center", justifyContent: "center", paddingHorizontal: 3, borderRadius: Radius.round, backgroundColor: "#DC2626" },
+    notificationBadgeText: { color: Colors.surface, fontSize: 10, fontWeight: "800" },
+    notificationBackdrop: { flex: 1, alignItems: "center", backgroundColor: "rgba(15, 23, 42, 0.45)" },
+    notificationPanel: { width: "88%", marginTop: 90, padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: Colors.surface },
+    notificationHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.sm },
+    notificationTitle: { color: Colors.text, fontSize: Typography.title, fontWeight: "800" },
+    notificationItem: { minHeight: 62, flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: Colors.border },
+    notificationDot: { width: 10, height: 10, marginRight: Spacing.sm, borderRadius: Radius.round, backgroundColor: Colors.secondary },
+    notificationDotHigh: { backgroundColor: Colors.danger },
+    notificationCopy: { flex: 1 },
+    notificationItemTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "800" },
+    notificationDetail: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small },
+    emptyNotifications: { alignItems: "center", paddingVertical: Spacing.xl },
 
-  unitCode: {
-    color: Colors.surface,
-    fontSize: Typography.caption,
-    fontWeight: "700",
-  },
+    profile: {
+      flex: 1,
 
-  unitDetail: {
-    marginTop: 1,
-    color: "#CBD5E1",
-    fontSize: Typography.small,
-  },
-  changeText: {
-    marginRight: 3,
-    color: Colors.surface,
-    fontSize: 10,
-    fontWeight: "800",
-  },
+      flexDirection:
+        "row",
 
-  modal: {
-    flex: 1,
-    flexDirection: "row",
-  },
+      alignItems:
+        "center",
 
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.35)",
-  },
+      marginHorizontal:
+        Spacing.xs,
+    },
 
-  drawer: {
-    width: "82%",
-    height: "100%",
-    paddingTop: Spacing.xxl,
-    paddingHorizontal: Spacing.lg,
-    backgroundColor: Colors.surface,
-    ...Shadows.card,
-  },
+    greetingContent: {
+      marginLeft:
+        Spacing.sm,
+    },
 
-  drawerHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingBottom: Spacing.lg,
-  },
+    greeting: {
+      color:
+        Colors.surface,
 
-  drawerUser: {
-    flex: 1,
-    marginLeft: Spacing.md,
-  },
+      fontSize:
+        Typography.body,
 
-  drawerName: {
-    color: Colors.text,
-    fontSize: Typography.body,
-    fontWeight: "700",
-  },
+      fontWeight:
+        "700",
+    },
 
-  drawerSubtitle: {
-    marginTop: 2,
-    color: Colors.subtitle,
-    fontSize: Typography.caption,
-  },
-});
+    greetingSubtitle: {
+      marginTop: 2,
+
+      color:
+        "#CBD5E1",
+
+      fontSize:
+        Typography.small,
+    },
+
+    unitCard: {
+      flexDirection:
+        "row",
+
+      alignItems:
+        "center",
+
+      marginTop:
+        Spacing.sm,
+
+      paddingHorizontal:
+        Spacing.sm,
+
+      paddingVertical:
+        7,
+
+      borderRadius:
+        Radius.md,
+
+      borderWidth:
+        1,
+
+      borderColor:
+        "rgba(255, 255, 255, 0.28)",
+
+      backgroundColor:
+        "rgba(255, 255, 255, 0.16)",
+    },
+
+    unitIcon: {
+      width: 30,
+
+      height: 30,
+
+      borderRadius: 10,
+
+      justifyContent:
+        "center",
+
+      alignItems:
+        "center",
+
+      backgroundColor:
+        Colors.primary,
+    },
+    unitLogo: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: Colors.surface },
+    unitLogoImage: { width: 32, height: 28 },
+
+    unitContent: {
+      flex: 1,
+
+      marginLeft:
+        Spacing.sm,
+    },
+
+    unitCode: {
+      color:
+        Colors.surface,
+
+      fontSize:
+        Typography.caption,
+
+      fontWeight:
+        "700",
+    },
+
+    unitDetail: {
+      marginTop: 1,
+
+      color:
+        "#CBD5E1",
+
+      fontSize:
+        Typography.small,
+    },
+
+    changeText: {
+      marginRight: 3,
+
+      color:
+        Colors.surface,
+
+      fontSize: 10,
+
+      fontWeight:
+        "800",
+    },
+
+    modal: {
+      flex: 1,
+
+      flexDirection:
+        "row",
+    },
+
+    backdrop: {
+      flex: 1,
+
+      backgroundColor:
+        "rgba(15, 23, 42, 0.35)",
+    },
+
+    drawer: {
+      width: "82%",
+
+      height: "100%",
+
+      paddingTop:
+        Spacing.xxl,
+
+      paddingHorizontal:
+        Spacing.lg,
+
+      backgroundColor:
+        Colors.surface,
+
+      ...Shadows.card,
+    },
+
+    drawerHeader: {
+      flexDirection:
+        "row",
+
+      alignItems:
+        "center",
+
+      paddingBottom:
+        Spacing.lg,
+    },
+
+    drawerUser: {
+      flex: 1,
+
+      marginLeft:
+        Spacing.md,
+    },
+
+    drawerName: {
+      color:
+        Colors.text,
+
+      fontSize:
+        Typography.body,
+
+      fontWeight:
+        "700",
+    },
+
+    drawerSubtitle: {
+      marginTop: 2,
+
+      color:
+        Colors.subtitle,
+
+      fontSize:
+        Typography.caption,
+    },
+  });

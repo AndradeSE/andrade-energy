@@ -42,3 +42,8 @@ export async function excluirContrato(
 
   return data;
 }
+
+export async function cancelarContrato(id: string) {
+  const { data } = await api.post(`/contratos/${id}/cancelar`);
+  return data;
+}

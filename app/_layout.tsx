@@ -1,5 +1,6 @@
-import { Stack, router, useSegments } from "expo-router";
-import { useEffect } from "react";
+import { Stack } from "expo-router";
+import { Image, ImageBackground, StyleSheet, View } from "react-native";
+
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import {
@@ -12,60 +13,336 @@ import {
   useAuth,
 } from "../contexts/AuthContext";
 
-const queryClient = new QueryClient();
+import { Colors } from "../theme";
 
-function RootNavigation() {
-  const { usuario, loading, unidadeSelecionada, usinaSelecionada } = useAuth();
-  const segments = useSegments();
+/*
+ * React Query
+ *
+ * Instância única para todo o aplicativo.
+ */
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 1000 * 60,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
-  useEffect(() => {
-    if (loading) return;
+function RootNavigator() {
+  const {
+    session,
+    isLoading,
+    digitalEnabled,
+    isUnlocked,
+  } = useAuth();
 
-    const inAuth =
-      segments[0] === "(auth)";
-    const inUnitSelection = segments[0] === "selecionar-unidade";
-    const inConsumerSetup = segments[0] === "unidades";
-    const inGeneratorSetup = segments[0] === "usinas";
+  /*
+   * Enquanto recuperamos a sessão,
+   * mantemos o Stack montado.
+   */
+  if (isLoading) {
+    return (
+      <ImageBackground source={require("../assets/images/background.png")} resizeMode="cover" style={styles.loadingContainer}>
+        <View style={styles.loadingOverlay}>
+          <Image source={require("../assets/images/andrade-logo-horizontal.png")} resizeMode="contain" style={styles.loadingLogo} />
+        </View>
+      </ImageBackground>
+    );
+  }
 
-    if (!usuario && !inAuth) {
-      router.replace("/(auth)/login");
-      return;
-    }
+  const loggedIn = Boolean(session);
 
-    if (usuario?.perfil === "LEITURA" && !unidadeSelecionada && !inUnitSelection && !inConsumerSetup) {
-      router.replace("/selecionar-unidade");
-      return;
-    }
+  /*
+   * App pode ser acessado quando:
+   *
+   * - existe sessão
+   *
+   * E
+   *
+   * - digital está desativada
+   * OU
+   * - digital já foi validada
+   */
+  const appLiberado =
+    loggedIn &&
+    (!digitalEnabled || isUnlocked);
 
-    const gestor = usuario?.perfil === "ADMIN" || usuario?.perfil === "GESTOR";
-    if (gestor && !usinaSelecionada && !inUnitSelection && !inGeneratorSetup) {
-      router.replace("/selecionar-unidade");
-      return;
-    }
-
-    const selecaoConcluida = usuario?.perfil === "LEITURA" ? unidadeSelecionada : usinaSelecionada;
-    if (usuario && (inAuth || (inUnitSelection && selecaoConcluida))) {
-      router.replace("/(tabs)");
-    }
-  }, [usuario, unidadeSelecionada, usinaSelecionada, loading, segments]);
+  /*
+   * Usuário precisa validar digital quando:
+   *
+   * - possui sessão
+   * - ativou digital
+   * - ainda não desbloqueou o app
+   */
+  const precisaDigital =
+    loggedIn &&
+    digitalEnabled &&
+    !isUnlocked;
 
   return (
     <Stack
       screenOptions={{
         headerShown: false,
+        animation: "fade",
       }}
-    />
+    >
+      {/* ============================= */}
+      {/* AUTENTICAÇÃO                  */}
+      {/* ============================= */}
+
+      <Stack.Protected guard={!loggedIn}>
+        <Stack.Screen
+          name="(auth)/login"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="(auth)/criar-conta"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="(auth)/esqueci-senha"
+          options={{
+            headerShown: false,
+          }}
+        />
+      </Stack.Protected>
+
+      {/* ============================= */}
+      {/* IMPRESSÃO DIGITAL             */}
+      {/* ============================= */}
+
+      <Stack.Protected guard={precisaDigital}>
+        <Stack.Screen
+          name="biometric-lock"
+          options={{
+            headerShown: false,
+            gestureEnabled: false,
+          }}
+        />
+      </Stack.Protected>
+
+      {/* ============================= */}
+      {/* APLICATIVO                    */}
+      {/* ============================= */}
+
+      <Stack.Protected guard={appLiberado}>
+        <Stack.Screen
+          name="(tabs)"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="selecionar-unidade"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="modal"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="contas-de-luz"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        {/* =========================== */}
+        {/* CLIENTES                    */}
+        {/* =========================== */}
+
+        <Stack.Screen
+          name="clientes/[id]"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="clientes/novo"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="clientes/editar"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="clientes/convidar"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        {/* =========================== */}
+        {/* UNIDADES                    */}
+        {/* =========================== */}
+
+        <Stack.Screen
+          name="unidades/index"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="unidades/[id]"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="unidades/nova"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="unidades/editar"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        {/* =========================== */}
+        {/* USINAS                      */}
+        {/* =========================== */}
+
+        <Stack.Screen
+          name="usinas/[id]"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="usinas/nova"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="usinas/editar"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        {/* =========================== */}
+        {/* FATURAS                     */}
+        {/* =========================== */}
+
+        <Stack.Screen
+          name="faturas/[id]"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="faturas/confirmar"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="faturas/pagamento"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        {/* =========================== */}
+        {/* FATURAMENTO                 */}
+        {/* =========================== */}
+
+        <Stack.Screen
+          name="faturamento/manual"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        {/* =========================== */}
+        {/* OPERAÇÃO                    */}
+        {/* =========================== */}
+
+        <Stack.Screen
+          name="operacao/[id]"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="operacao/novo"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        {/* =========================== */}
+        {/* CONTRATOS                   */}
+        {/* =========================== */}
+
+        <Stack.Screen
+          name="contratos/index"
+          options={{
+            headerShown: false,
+          }}
+        />
+      </Stack.Protected>
+    </Stack>
   );
 }
 
-export default function Layout() {
+export default function RootLayout() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={styles.root}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <RootNavigation />
+          <RootNavigator />
         </AuthProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.background,
+  },
+  loadingOverlay: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.28)" },
+  loadingLogo: { width: 250, height: 100, marginBottom: 22 },
+});

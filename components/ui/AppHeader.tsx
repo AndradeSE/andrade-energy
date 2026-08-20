@@ -1,11 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { Alert, Modal, Pressable, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Image, Modal, Pressable, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useEffect, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "../../contexts/AuthContext";
+import { listarFaturas } from "../../services/faturas.service";
 import { buscarDashboardUsina } from "../../services/usinas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
@@ -28,8 +30,42 @@ export default function AppHeader({
   const insets = useSafeAreaInsets();
   const { logout, usuario, usinaSelecionada } = useAuth();
   const [menuAberto, setMenuAberto] = useState(false);
+  const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
+  const [notificacoes, setNotificacoes] = useState<any[]>([]);
+  const [notificacoesLidas, setNotificacoesLidas] = useState<string[]>([]);
   const [autonomia, setAutonomia] = useState<{ percentual: number; disponivel: number } | null>(null);
   const proprietario = usuario?.perfil === "ADMIN" || usuario?.perfil === "GESTOR";
+  const chaveNotificacoesLidas = `andrade_energy_notificacoes_lidas_${usuario?.id ?? "anon"}`;
+
+  useEffect(() => {
+    let ativo = true;
+    Promise.all([listarFaturas(), AsyncStorage.getItem(chaveNotificacoesLidas)]).then(([faturas, salvas]) => {
+      if (!ativo) return;
+      const lidas = salvas ? JSON.parse(salvas) : [];
+      const idsLidos = Array.isArray(lidas) ? lidas : [];
+      setNotificacoesLidas(idsLidos);
+      const hoje = new Date();
+      const avisos = (faturas ?? []).flatMap((fatura: any) => {
+        const status = String(fatura.cobrancas?.[0]?.status ?? fatura.status ?? "").toUpperCase();
+        if (["PAGA", "PAGO", "QUITADA"].includes(status)) return [];
+        const vencimento = fatura.vencimento ? new Date(`${fatura.vencimento}T23:59:59`) : null;
+        if (!vencimento) return [];
+        const dias = Math.ceil((vencimento.getTime() - hoje.getTime()) / 86400000);
+        if (dias < 0) return [{ id: `vencida-${fatura.id}`, severidade: "alta", titulo: "Fatura vencida", detalhe: `${fatura.clientes?.nome ?? "Cliente"} · ${fatura.referencia ?? "Competência não informada"}`, rota: `/faturas/${fatura.id}` }];
+        if (dias <= 5) return [{ id: `vence-${fatura.id}`, severidade: "media", titulo: "Fatura próxima do vencimento", detalhe: `${fatura.clientes?.nome ?? "Cliente"} · vence em ${dias} dia${dias === 1 ? "" : "s"}`, rota: `/faturas/${fatura.id}` }];
+        return [];
+      }).sort((a: any, b: any) => (a.severidade === "alta" ? -1 : 1) - (b.severidade === "alta" ? -1 : 1));
+      setNotificacoes(avisos.filter((aviso: any) => !idsLidos.includes(aviso.id)));
+    }).catch(() => { if (ativo) setNotificacoes([]); });
+    return () => { ativo = false; };
+  }, [chaveNotificacoesLidas, usinaSelecionada?.id]);
+
+  async function marcarNotificacaoComoLida(id: string) {
+    const atualizadas = Array.from(new Set([...notificacoesLidas, id]));
+    setNotificacoesLidas(atualizadas);
+    setNotificacoes((lista) => lista.filter((aviso) => aviso.id !== id));
+    await AsyncStorage.setItem(chaveNotificacoesLidas, JSON.stringify(atualizadas));
+  }
 
   useEffect(() => {
     if (!proprietario || !usinaSelecionada?.id) { setAutonomia(null); return; }
@@ -60,39 +96,36 @@ export default function AppHeader({
       <StatusBar backgroundColor="#006B3C" barStyle="light-content" />
       <View style={styles.top}>
         <TouchableOpacity
-          accessibilityLabel="Abrir perfil"
-          activeOpacity={0.8}
-          onPress={() => router.push("/perfil")}
-          style={styles.profileButton}
-        >
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={21} color={Colors.surface} />
-          </View>
-
-          <View style={styles.titleContent}>
-            <Text numberOfLines={1} style={styles.title}>
-              {title}
-            </Text>
-
-            <Text numberOfLines={1} style={styles.subtitle}>
-              {subtitle}
-            </Text>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
           accessibilityLabel="Abrir menu"
           activeOpacity={0.8}
           onPress={() => setMenuAberto(true)}
           style={styles.action}
         >
-          <Ionicons
-            name="menu-outline"
-            size={30}
-            color={Colors.surface}
-          />
+          <Ionicons name="menu-outline" size={30} color={Colors.surface} />
+        </TouchableOpacity>
+
+        <TouchableOpacity accessibilityLabel="Abrir perfil" activeOpacity={0.8} onPress={() => router.push("/perfil")} style={styles.profileButton}>
+          <View style={styles.avatar}><Ionicons name="person" size={21} color={Colors.surface} /></View>
+          <View style={styles.titleContent}>
+            <Text numberOfLines={1} style={styles.title}>{title}</Text>
+            <Text numberOfLines={1} style={styles.subtitle}>{subtitle}</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity accessibilityLabel={notificacoes.length ? `${notificacoes.length} notificações` : "Notificações"} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} activeOpacity={0.8} onPress={() => setNotificacoesAbertas(true)} style={styles.action}>
+          <Ionicons name={notificacoes.length ? "notifications" : "notifications-outline"} size={24} color={Colors.surface} />
+          {notificacoes.length ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{notificacoes.length > 9 ? "9+" : notificacoes.length}</Text></View> : null}
         </TouchableOpacity>
       </View>
+
+      <Modal animationType="fade" transparent visible={notificacoesAbertas} onRequestClose={() => setNotificacoesAbertas(false)}>
+        <Pressable style={styles.backdrop} onPress={() => setNotificacoesAbertas(false)}>
+          <Pressable style={styles.notificationPanel} onPress={(evento) => evento.stopPropagation()}>
+            <View style={styles.menuHeader}><Text style={styles.menuTitle}>Notificações</Text><TouchableOpacity onPress={() => setNotificacoesAbertas(false)}><Ionicons name="close" size={26} color={Colors.text} /></TouchableOpacity></View>
+            {notificacoes.length ? notificacoes.map((aviso) => <TouchableOpacity key={aviso.id} onPress={async () => { await marcarNotificacaoComoLida(aviso.id); setNotificacoesAbertas(false); router.push(aviso.rota as any); }} style={styles.notificationItem}><View style={[styles.notificationDot, aviso.severidade === "alta" && styles.notificationDotHigh]} /><View style={styles.notificationCopy}><Text style={styles.notificationTitle}>{aviso.titulo}</Text><Text style={styles.notificationDetail}>{aviso.detalhe}</Text></View><Ionicons name="chevron-forward" size={18} color={Colors.subtitle} /></TouchableOpacity>) : <View style={styles.emptyNotifications}><Ionicons name="checkmark-circle-outline" size={34} color={Colors.success} /><Text style={styles.emptyNotificationsTitle}>Tudo em dia</Text><Text style={styles.emptyNotificationsText}>Nenhuma pendência importante encontrada.</Text></View>}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {proprietario && usinaSelecionada ? <View style={styles.plantBar}>
         <View style={styles.plantDot} />
@@ -101,7 +134,7 @@ export default function AppHeader({
 
       <View style={styles.contextCard}>
         <View style={styles.contextIcon}>
-          <Ionicons name={icon} size={22} color={Colors.primary} />
+          <Image source={require("../../assets/images/andrade-logo-horizontal.png")} style={styles.contextLogo} resizeMode="contain" />
         </View>
 
         <View style={styles.contextContent}>
@@ -183,6 +216,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  notificationBadge: { position: "absolute", top: 2, right: 0, minWidth: 17, height: 17, alignItems: "center", justifyContent: "center", paddingHorizontal: 3, borderRadius: Radius.round, backgroundColor: "#DC2626" },
+  notificationBadgeText: { color: Colors.surface, fontSize: 10, fontWeight: "800" },
   plantBar: { flexDirection: "row", alignItems: "center", marginTop: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: 7, borderRadius: Radius.md, backgroundColor: "rgba(255,255,255,0.12)" },
   plantDot: { width: 8, height: 8, marginRight: Spacing.xs, borderRadius: Radius.round, backgroundColor: Colors.secondary },
   plantText: { flex: 1 },
@@ -190,6 +225,16 @@ const styles = StyleSheet.create({
   plantAutonomy: { marginTop: 1, color: "rgba(255,255,255,0.78)", fontSize: 11 },
   backdrop: { flex: 1, alignItems: "flex-end", backgroundColor: "rgba(15,23,42,0.45)" },
   menu: { width: "84%", height: "100%", paddingHorizontal: Spacing.lg, paddingTop: 58, backgroundColor: Colors.surface },
+  notificationPanel: { width: "88%", marginTop: 90, marginHorizontal: "6%", paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg, borderRadius: Radius.xl, backgroundColor: Colors.surface },
+  notificationItem: { minHeight: 66, flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: Colors.border },
+  notificationDot: { width: 10, height: 10, marginRight: Spacing.sm, borderRadius: Radius.round, backgroundColor: Colors.secondary },
+  notificationDotHigh: { backgroundColor: Colors.danger },
+  notificationCopy: { flex: 1 },
+  notificationTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "800" },
+  notificationDetail: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small },
+  emptyNotifications: { alignItems: "center", paddingVertical: Spacing.xl },
+  emptyNotificationsTitle: { marginTop: Spacing.sm, color: Colors.text, fontSize: Typography.body, fontWeight: "800" },
+  emptyNotificationsText: { marginTop: 4, color: Colors.subtitle, textAlign: "center" },
   menuHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.lg },
   menuTitle: { color: Colors.text, fontSize: Typography.title, fontWeight: "800" },
   menuLink: { minHeight: 54, flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: Colors.border },
@@ -215,6 +260,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: Colors.primaryLight,
   },
+  contextLogo: { width: 38, height: 32 },
 
   contextContent: {
     flex: 1,

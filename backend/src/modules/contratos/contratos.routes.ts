@@ -5,6 +5,7 @@ import {
     buscarContratoController,
     criarContratoController,
     excluirContratoController,
+    cancelarContratoController,
 } from "./contratos.controller";
 
 const router = Router();
@@ -23,6 +24,8 @@ router.put(
   "/:id",
   atualizarContratoController
 );
+
+router.post("/:id/cancelar", cancelarContratoController);
 
 router.delete(
   "/:id",

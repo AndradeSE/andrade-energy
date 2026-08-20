@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { useDashboardGestor } from "../../hooks/useDashboardGestor";
@@ -35,7 +35,8 @@ const atalhos = [
 export default function DashboardGestor() {
   const { usuario, usinaSelecionada } = useAuth();
   const { data, isLoading, error, refetch } = useDashboardGestor();
-  const [importando, setImportando] = useState(false);
+  const [importando, setImportando] = useState(false); const [atualizando, setAtualizando] = useState(false);
+  async function atualizarPagina() { setAtualizando(true); try { await refetch(); } finally { setAtualizando(false); } }
 
   async function atualizarGeracao() {
     const usinaId = usinaSelecionada?.id ?? usuario?.usina_id;
@@ -59,7 +60,7 @@ export default function DashboardGestor() {
   return (
     <Screen>
       <AppHeader contextSubtitle={`Competência ${data.competencia}`} contextTitle="Visão geral da operação" icon="sunny-outline" subtitle="Sua energia em um só lugar" title={data.usina?.nome ?? "Minha usina"} />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <ScrollView bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <View style={styles.hero}>
           <View style={styles.heroTop}>
             <View><Text style={styles.heroEyebrow}>GERAÇÃO NO MÊS</Text><Text style={styles.heroValue}>{formatarEnergia(data.energiaGerada)}</Text></View>

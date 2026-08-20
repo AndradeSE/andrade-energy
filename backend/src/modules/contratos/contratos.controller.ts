@@ -98,3 +98,8 @@ export async function excluirContratoController(
 
   }
 }
+
+export async function cancelarContratoController(req: Request, res: Response) {
+  try { res.json(await ContratosService.cancelarContratoService(req.params.id)); }
+  catch (e: any) { res.status(500).json({ message: e.message }); }
+}
