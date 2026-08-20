@@ -33,6 +33,22 @@ services:
         sync: false
       - key: INBOUND_EMAIL_MAX_BYTES
         value: 10485760
+      - key: OAUTH_TOKEN_ENCRYPTION_KEY
+        sync: false
+      - key: OAUTH_PUBLIC_BASE_URL
+        sync: false
+      - key: OAUTH_APP_CALLBACK_CONSUMIDOR
+        value: andradeenergyconsumidor://email-conectado
+      - key: OAUTH_APP_CALLBACK_GERADOR
+        value: andradeenergygerador://email-conectado
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: MICROSOFT_OAUTH_CLIENT_ID
+        sync: false
+      - key: MICROSOFT_OAUTH_CLIENT_SECRET
+        sync: false
       - key: WHATSAPP_ACCESS_TOKEN
         sync: false
       - key: WHATSAPP_PHONE_NUMBER_ID

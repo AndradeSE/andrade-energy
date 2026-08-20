@@ -95,6 +95,13 @@ module.exports = {
       "expo-local-authentication",
 
       [
+        "expo-web-browser",
+        {
+          experimentalLauncherActivity: true,
+        },
+      ],
+
+      [
         "expo-build-properties",
         {
           android: {

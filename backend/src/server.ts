@@ -18,6 +18,7 @@ import convitesRoutes from "./modules/convites/convites.routes";
 import { processarContasDeEnergiaRecebidas } from "./modules/email/email.service";
 import { configuracaoRouter as recebimentoFaturasRoutes, webhookRouter as recebimentoFaturasWebhookRoutes } from "./modules/recebimento-faturas/recebimentoFaturas.routes";
 import { processarFilaDeRecebimentosFaturas } from "./modules/recebimento-faturas/recebimentoFaturas.service";
+import { conexoesEmailRouter, oauthEmailRouter } from "./modules/conexoes-email/conexoesEmail.routes";
 
 dotenv.config();
 
@@ -78,6 +79,11 @@ app.use("/api/creditos", creditosRoutes);
 app.use("/api/rateio", rateioRoutes);
 
 app.use("/api/recebimento-faturas", recebimentoFaturasRoutes);
+
+app.use("/api/conexoes-email", conexoesEmailRouter);
+
+// O callback OAuth é público, mas é protegido por state de uso único + PKCE.
+app.use("/api/oauth", oauthEmailRouter);
 
 /*
 |--------------------------------------------------------------------------

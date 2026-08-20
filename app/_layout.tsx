@@ -158,6 +158,14 @@ function RootNavigator() {
           }}
         />
 
+        <Stack.Screen
+          name="email-conectado"
+          options={{
+            headerShown: false,
+            gestureEnabled: false,
+          }}
+        />
+
         {/* =========================== */}
         {/* CLIENTES                    */}
         {/* =========================== */}

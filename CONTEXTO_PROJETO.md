@@ -30,6 +30,7 @@ Os dois aplicativos usam a mesma base de código. A variante é escolhida por `E
 - Cabeçalhos, carregamento e ícones utilizam a identidade Andrade Energy; o app consumidor e o gerador têm variantes visuais distintas.
 - Perfil reúne nome completo, CPF somente para consulta, e-mail, telefone, alteração de senha, encerramento de sessão e exclusão/desativação da conta. A exclusão preserva os dados comerciais e bloqueia o novo acesso.
 - A biometria é configurada por usuário e por aparelho, pode ser ativada no login ou no Perfil e bloqueia o acesso quando o app volta do segundo plano. A sessão é restaurada sem ser apagada no início do app.
+- Em **Receber contas automaticamente**, o consumidor pode conectar Gmail ou Outlook sem informar a senha à Andrade Energy. O retorno da autorização usa deep links próprios de cada variante, portanto funciona tanto no Consumidor quanto no Gerador.
 
 ### Atualização de dados
 
@@ -57,6 +58,8 @@ Os cálculos com faturas CEMIG, sobretudo GD1/GD2 e tarifas com imposto, ainda d
 - PDFs de faturas são armazenados no bucket privado `faturas`, com links temporários para download.
 - E-mail: integração Brevo preparada. WhatsApp continua dependente de credenciais e modelo aprovado na Meta.
 - Recebimento automático de contas está implementado com Resend Inbound: uma UC ativa pode gerar endereço opaco, validar o webhook assinado, baixar somente PDFs válidos, conferir a UC, criar a fatura em rascunho e aguardar confirmação do gerador. A configuração externa está descrita em `RECEBIMENTO_AUTOMATICO_FATURAS.md`.
+- Conexão de caixa de e-mail: OAuth 2.0 com PKCE, estado de uso único e refresh token cifrado com AES-256-GCM. Outlook/Hotmail cria uma regra limitada a mensagens CEMIG com anexo quando o endereço da UC está ativo; Gmail fica em `LEITURA_AUTORIZADA`, sem criar regra silenciosa. Consulte `docs/CONEXOES_EMAIL_OAUTH.md` para cadastrar os apps OAuth e segredos no Render.
+- As migrations de recebimento por e-mail, perfil e conexões OAuth já foram aplicadas ao Supabase em 20/08/2026.
 - EAS possui perfis separados `preview`, `preview-gerador`, `production` e `production-gerador`.
 
 Uma alteração de ícone, pacote, permissão nativa ou versão requer novo build EAS. Alterações somente em JavaScript/TypeScript podem ser entregues por update OTA quando houver build compatível instalado.
@@ -85,13 +88,16 @@ No desenvolvimento em rede local, a API detecta o host do Expo. Para testar cont
 ## Validação recente
 
 - TypeScript: `node_modules\\.bin\\tsc.cmd --noEmit --pretty false` passou sem erros.
-- Lint das telas atualizadas passou sem erros.
+- Lint Expo passou sem erros.
+- Backend: `backend/npm.cmd run build` passou sem erros.
+- A configuração Expo foi conferida nas variantes Consumidor e Gerador, incluindo seus schemes de retorno OAuth.
 
 ## Próximos testes prioritários
 
 1. Validar no celular o gesto de atualização e a navegação em cada variante.
 2. Executar ponta a ponta o cadastro por PDF, alocação, faturamento, download e baixa de uma fatura real de teste.
 3. Conferir com novas faturas CEMIG GD1/GD2 se todos os campos de energia compensada, saldo e tarifa foram lidos corretamente.
-4. Aplicar no Supabase as migrations `20260820110000_recebimento_automatico_faturas.sql` e `20260820113000_perfil_usuario.sql` e configurar domínio, webhook e segredos do Resend conforme `RECEBIMENTO_AUTOMATICO_FATURAS.md`.
-5. Validar no celular a ativação, bloqueio e desbloqueio por biometria em ambos os apps.
-6. Revisar autorização de todas as rotas do backend e políticas RLS antes da operação em produção.
+4. Configurar no Render a chave `OAUTH_TOKEN_ENCRYPTION_KEY` e as credenciais OAuth do Google e/ou Microsoft; cadastrar os callbacks HTTPS da API conforme `docs/CONEXOES_EMAIL_OAUTH.md`.
+5. Ativar o domínio e webhook do Resend Inbound e testar a criação automática de regra Outlook em uma UC de teste.
+6. Validar no celular a ativação, bloqueio e desbloqueio por biometria em ambos os apps.
+7. Revisar autorização de todas as rotas do backend e políticas RLS antes da operação em produção.

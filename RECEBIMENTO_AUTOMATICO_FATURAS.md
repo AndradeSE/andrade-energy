@@ -47,3 +47,11 @@ endereço. O sistema lê somente PDFs, confere a UC e cria uma fatura em
 No e-mail pessoal do cliente, a regra deve encaminhar apenas mensagens da
 concessionária que tenham PDF anexado. A senha do e-mail do cliente não é
 solicitada, armazenada ou compartilhada com a Andrade Energy.
+
+No aplicativo, em **Receber contas automaticamente**, o cliente também pode
+conectar a própria conta Outlook/Hotmail por autorização segura. Quando o
+endereço exclusivo da UC estiver ativo, o sistema cria uma regra limitada a
+mensagens da CEMIG com anexo e encaminha os PDFs automaticamente. Para Gmail,
+o aplicativo pede somente permissão de leitura e não cria uma regra de
+encaminhamento sem a confirmação do próprio Gmail. Os detalhes de configuração
+e dos limites de cada provedor estão em `docs/CONEXOES_EMAIL_OAUTH.md`.
