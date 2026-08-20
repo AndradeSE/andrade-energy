@@ -1,8 +1,17 @@
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
 
-const DIGITAL_ENABLED_KEY =
+const DIGITAL_ENABLED_LEGACY_KEY =
   "andrade_energy_fingerprint_enabled";
+
+const DIGITAL_ENABLED_KEY_PREFIX =
+  "andrade_energy_fingerprint_enabled_";
+
+function chaveDigital(usuarioId?: string | number) {
+  const id = String(usuarioId ?? "").trim();
+  if (!id) return null;
+  return `${DIGITAL_ENABLED_KEY_PREFIX}${id}`;
+}
 
 /**
  * Verifica se o dispositivo possui
@@ -68,11 +77,6 @@ export async function autenticarComDigital() {
         cancelLabel:
           "Cancelar",
 
-        // Acesso por biometria deve exibir a digital/rosto do aparelho,
-        // sem trocar o fluxo pelo PIN do dispositivo.
-        disableDeviceFallback:
-          true,
-
         // Alguns aparelhos Android classificam a impressão digital como
         // biometria "weak", embora ela seja válida para desbloquear o app.
         biometricsSecurityLevel:
@@ -97,9 +101,11 @@ export async function autenticarComDigital() {
  * Salva que o usuário ativou
  * o acesso por impressão digital.
  */
-export async function ativarDigital(): Promise<void> {
+export async function ativarDigital(usuarioId?: string | number): Promise<void> {
+  const chave = chaveDigital(usuarioId);
+  if (!chave) throw new Error("Usuário não identificado para ativar a biometria.");
   await SecureStore.setItemAsync(
-    DIGITAL_ENABLED_KEY,
+    chave,
     "true"
   );
 }
@@ -107,21 +113,23 @@ export async function ativarDigital(): Promise<void> {
 /**
  * Remove a preferência.
  */
-export async function desativarDigital(): Promise<void> {
-  await SecureStore.deleteItemAsync(
-    DIGITAL_ENABLED_KEY
-  );
+export async function desativarDigital(usuarioId?: string | number): Promise<void> {
+  const chave = chaveDigital(usuarioId);
+  if (!chave) return;
+  await SecureStore.deleteItemAsync(chave);
 }
 
 /**
  * Retorna se o usuário ativou
  * a impressão digital no app.
  */
-export async function digitalEstaAtiva(): Promise<boolean> {
+export async function digitalEstaAtiva(usuarioId?: string | number): Promise<boolean> {
   try {
+    const chave = chaveDigital(usuarioId);
+    if (!chave) return false;
     const value =
       await SecureStore.getItemAsync(
-        DIGITAL_ENABLED_KEY
+        chave
       );
 
     return value === "true";
@@ -133,4 +141,28 @@ export async function digitalEstaAtiva(): Promise<boolean> {
 
     return false;
   }
+}
+
+/**
+ * Migra a preferência antiga, que era compartilhada pelo aparelho, para a
+ * conta que já possui uma sessão válida. Isso impede que uma conta use a
+ * preferência biométrica de outra pessoa no mesmo celular.
+ */
+export async function migrarPreferenciaDigital(usuarioId?: string | number): Promise<boolean> {
+  const chave = chaveDigital(usuarioId);
+  if (!chave) return false;
+
+  const atual = await SecureStore.getItemAsync(chave);
+  if (atual !== null) return atual === "true";
+
+  const legado = await SecureStore.getItemAsync(DIGITAL_ENABLED_LEGACY_KEY);
+  if (legado === "true") {
+    await Promise.all([
+      SecureStore.setItemAsync(chave, "true"),
+      SecureStore.deleteItemAsync(DIGITAL_ENABLED_LEGACY_KEY),
+    ]);
+    return true;
+  }
+
+  return false;
 }

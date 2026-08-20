@@ -15,12 +15,31 @@ function formatarDocumento(valor?: string) {
   return valor ?? "";
 }
 
+function documentoDoCliente(cliente: any) {
+  return cliente?.cpf ?? cliente?.cpf_cnpj ?? "";
+}
+
+function unidadeDoCliente(cliente: any) {
+  return cliente?.uc ?? cliente?.numero_instalacao ?? "";
+}
+
 export default function Clientes() {
-  const [clientes, setClientes] = useState<any[]>([]); const [busca, setBusca] = useState(""); const [loading, setLoading] = useState(true); const [atualizando, setAtualizando] = useState(false);
-  const carregar = useCallback(async () => { try { setClientes((await listarClientes()) ?? []); } finally { setLoading(false); } }, []);
-  useFocusEffect(useCallback(() => { carregar(); }, [carregar]));
+  const [clientes, setClientes] = useState<any[]>([]); const [busca, setBusca] = useState(""); const [loading, setLoading] = useState(true); const [atualizando, setAtualizando] = useState(false); const [erro, setErro] = useState<string | null>(null);
+  const carregar = useCallback(async () => {
+    try {
+      setErro(null);
+      const dados = await listarClientes();
+      setClientes(Array.isArray(dados) ? dados : []);
+    } catch (erro: any) {
+      setClientes([]);
+      setErro(erro?.response?.data?.message ?? "Não foi possível carregar a carteira agora.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useFocusEffect(useCallback(() => { void carregar(); }, [carregar]));
   async function atualizarPagina() { setAtualizando(true); try { await carregar(); } finally { setAtualizando(false); } }
-  const lista = useMemo(() => clientes.filter((c) => `${c.nome} ${c.uc} ${c.telefone}`.toLowerCase().includes(busca.toLowerCase())), [busca, clientes]);
+  const lista = useMemo(() => clientes.filter((c) => `${c.nome} ${unidadeDoCliente(c)} ${c.telefone} ${c.email} ${documentoDoCliente(c)}`.toLowerCase().includes(busca.toLowerCase())), [busca, clientes]);
 
   function confirmarExclusao(item: any) {
     Alert.alert("Excluir cliente", `Deseja excluir ${item.nome}? Esta ação não pode ser desfeita.`, [
@@ -39,9 +58,9 @@ export default function Clientes() {
   return <Screen>
     <AppHeader title="Clientes" subtitle="Gestão da carteira" contextTitle={`${clientes.length} clientes cadastrados`} contextSubtitle="Cadastre manualmente ou pela fatura" icon="people-outline" />
     {loading ? <Loading /> : <FlatList bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} data={lista} keyExtractor={(item, index) => item?.id ? String(item.id) : `cliente-${index}`} showsVerticalScrollIndicator={false}
-      ListHeaderComponent={<View><View style={styles.heading}><Text style={styles.title}>Sua carteira</Text><Text style={styles.subtitle}>Consulte clientes, contatos e unidades vinculadas.</Text></View><View style={styles.search}><Ionicons name="search-outline" size={20} color={Colors.subtitle} /><TextInput value={busca} onChangeText={setBusca} placeholder="Buscar por nome, UC ou telefone" placeholderTextColor={Colors.subtitle} style={styles.input} /></View><Text style={styles.addTitle}>Adicionar consumidor</Text><CadastroActions tipo="CLIENTE" /><TouchableOpacity onPress={() => router.push("/clientes/convidar")} style={styles.invite}><Ionicons name="mail-unread-outline" size={20} color="#FFF" /><Text style={styles.inviteText}>Convidar consumidor</Text></TouchableOpacity></View>}
-      renderItem={({ item }) => <Pressable onPress={() => router.push(`/clientes/${item.id}`)}><Card style={styles.clientCard}><View style={styles.row}><View style={styles.avatar}><Text style={styles.avatarText}>{item.nome?.charAt(0)?.toUpperCase() ?? "C"}</Text></View><View style={styles.info}><Text numberOfLines={2} style={styles.name}>{item.nome}</Text><View style={styles.documentInfo}><Ionicons name="person-outline" size={14} color={Colors.primary} /><Text style={styles.detail}>{item.cpf ? `CPF/CNPJ ${formatarDocumento(item.cpf)}` : "CPF não informado"}</Text></View></View><TouchableOpacity accessibilityLabel={`Excluir cliente ${item.nome}`} onPress={(event) => { event.stopPropagation(); confirmarExclusao(item); }} style={styles.delete}><Ionicons name="trash-outline" size={18} color={Colors.danger} /></TouchableOpacity></View><View style={styles.meta}><View style={styles.metaItem}><Ionicons name="business-outline" size={14} color={Colors.primary} /><Text style={styles.metaText}>{item.distribuidora ?? "Concessionária não informada"}</Text></View><View style={styles.metaItem}><Ionicons name="call-outline" size={14} color={Colors.primary} /><Text style={styles.metaText}>{item.telefone || "Contato não informado"}</Text></View></View><View style={styles.footer}><Badge label={item.status ?? "ATIVO"} variant={item.status === "INATIVO" ? "danger" : "success"} /><View style={styles.openLink}><Text style={styles.openText}>Ver cliente</Text><Ionicons name="chevron-forward" size={16} color={Colors.primary} /></View></View></Card></Pressable>}
-      ListEmptyComponent={<EmptyState icon="people-outline" title="Nenhum cliente encontrado" subtitle={busca ? "Altere a busca e tente novamente." : "Cadastre manualmente ou importe uma fatura."} />}
+      ListHeaderComponent={<View><View style={styles.heading}><Text style={styles.title}>Sua carteira</Text><Text style={styles.subtitle}>Consulte clientes, contatos e unidades vinculadas.</Text></View><View style={styles.search}><Ionicons name="search-outline" size={20} color={Colors.subtitle} /><TextInput value={busca} onChangeText={setBusca} placeholder="Buscar por nome, CPF, UC ou telefone" placeholderTextColor={Colors.subtitle} style={styles.input} /></View><Text style={styles.addTitle}>Adicionar consumidor</Text><CadastroActions tipo="CLIENTE" /><TouchableOpacity onPress={() => router.push("/clientes/convidar")} style={styles.invite}><Ionicons name="mail-unread-outline" size={20} color="#FFF" /><Text style={styles.inviteText}>Convidar consumidor</Text></TouchableOpacity></View>}
+      renderItem={({ item }) => <Pressable onPress={() => router.push(`/clientes/${item.id}`)}><Card style={styles.clientCard}><View style={styles.row}><View style={styles.avatar}><Text style={styles.avatarText}>{item.nome?.charAt(0)?.toUpperCase() ?? "C"}</Text></View><View style={styles.info}><Text numberOfLines={2} style={styles.name}>{item.nome}</Text><View style={styles.documentInfo}><Ionicons name="person-outline" size={14} color={Colors.primary} /><Text style={styles.detail}>{documentoDoCliente(item) ? `CPF/CNPJ ${formatarDocumento(documentoDoCliente(item))}` : "CPF não informado"}</Text></View></View><TouchableOpacity accessibilityLabel={`Excluir cliente ${item.nome}`} onPress={(event) => { event.stopPropagation(); confirmarExclusao(item); }} style={styles.delete}><Ionicons name="trash-outline" size={18} color={Colors.danger} /></TouchableOpacity></View><View style={styles.meta}><View style={styles.metaItem}><Ionicons name="business-outline" size={14} color={Colors.primary} /><Text style={styles.metaText}>{item.distribuidora ?? "Concessionária não informada"}</Text></View><View style={styles.metaItem}><Ionicons name="call-outline" size={14} color={Colors.primary} /><Text style={styles.metaText}>{item.telefone || "Contato não informado"}</Text></View></View><View style={styles.footer}><Badge label={item.status ?? "ATIVO"} variant={item.status === "INATIVO" ? "danger" : "success"} /><View style={styles.openLink}><Text style={styles.openText}>Ver cliente</Text><Ionicons name="chevron-forward" size={16} color={Colors.primary} /></View></View></Card></Pressable>}
+      ListEmptyComponent={<View><EmptyState icon={erro ? "alert-circle-outline" : "people-outline"} title={erro ? "Não foi possível carregar os clientes" : "Nenhum cliente encontrado"} subtitle={erro ?? (busca ? "Altere a busca e tente novamente." : "Cadastre manualmente ou importe uma fatura.")} />{erro ? <TouchableOpacity onPress={atualizarPagina} style={styles.retry}><Ionicons name="refresh-outline" size={18} color={Colors.primary} /><Text style={styles.retryText}>Tentar novamente</Text></TouchableOpacity> : null}</View>}
     />}
   </Screen>;
 }
@@ -51,5 +70,5 @@ const styles = StyleSheet.create({
   search: { minHeight: 54, flexDirection: "row", alignItems: "center", marginBottom: Spacing.md, paddingHorizontal: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.lg, backgroundColor: Colors.surface }, input: { flex: 1, marginLeft: Spacing.sm, color: Colors.text },
   clientCard: { padding: Spacing.md, marginBottom: Spacing.sm, borderRadius: Radius.lg }, row: { flexDirection: "row", alignItems: "flex-start" }, avatar: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: Radius.round, backgroundColor: Colors.primaryLight }, avatarText: { color: Colors.primaryDark, fontSize: Typography.body, fontWeight: "800" }, info: { flex: 1, minWidth: 0, marginHorizontal: Spacing.sm }, name: { color: Colors.text, fontSize: Typography.body, lineHeight: 20, fontWeight: "700" }, documentInfo: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 3 }, detail: { flexShrink: 1, color: Colors.subtitle, fontSize: Typography.small },
   meta: { gap: 4, marginTop: Spacing.sm, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border }, metaItem: { minHeight: 20, flexDirection: "row", alignItems: "center", gap: Spacing.xs }, metaText: { flex: 1, color: Colors.subtitle, fontSize: Typography.small }, footer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: Spacing.sm }, openLink: { flexDirection: "row", alignItems: "center", gap: 3 }, openText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" },
-  addTitle: { marginBottom: Spacing.sm, color: Colors.text, fontSize: Typography.body, fontWeight: "800" }, invite: { minHeight: 54, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginBottom: Spacing.lg, borderRadius: Radius.lg, backgroundColor: Colors.primary }, inviteText: { color: "#FFF", fontWeight: "800" }, delete: { width: 34, height: 34, alignItems: "center", justifyContent: "center", marginLeft: Spacing.xs, borderRadius: Radius.round, backgroundColor: "#FEE2E2" },
+  addTitle: { marginBottom: Spacing.sm, color: Colors.text, fontSize: Typography.body, fontWeight: "800" }, invite: { minHeight: 54, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginBottom: Spacing.lg, borderRadius: Radius.lg, backgroundColor: Colors.primary }, inviteText: { color: "#FFF", fontWeight: "800" }, delete: { width: 34, height: 34, alignItems: "center", justifyContent: "center", marginLeft: Spacing.xs, borderRadius: Radius.round, backgroundColor: "#FEE2E2" }, retry: { minHeight: 46, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.md, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md }, retryText: { color: Colors.primary, fontWeight: "800" },
 });

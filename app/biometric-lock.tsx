@@ -11,6 +11,7 @@ import {
     useEffect,
     useRef,
     useState,
+    useCallback,
 } from "react";
 
 import {
@@ -47,29 +48,7 @@ export default function BiometricLock() {
   const iniciou =
     useRef(false);
 
-  useEffect(() => {
-    if (
-      iniciou.current
-    ) {
-      return;
-    }
-
-    iniciou.current =
-      true;
-
-    const timer =
-      setTimeout(() => {
-        void handleDigital();
-      }, 500);
-
-    return () => {
-      clearTimeout(
-        timer
-      );
-    };
-  }, []);
-
-  async function handleDigital() {
+  const handleDigital = useCallback(async () => {
     if (
       authenticating
     ) {
@@ -113,7 +92,29 @@ export default function BiometricLock() {
         false
       );
     }
-  }
+  }, [authenticating, unlockWithDigital]);
+
+  useEffect(() => {
+    if (
+      iniciou.current
+    ) {
+      return;
+    }
+
+    iniciou.current =
+      true;
+
+    const timer =
+      setTimeout(() => {
+        void handleDigital();
+      }, 500);
+
+    return () => {
+      clearTimeout(
+        timer
+      );
+    };
+  }, [handleDigital]);
 
   async function handlePassword() {
     try {

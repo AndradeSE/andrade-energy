@@ -1,5 +1,5 @@
 import { Stack } from "expo-router";
-import { Image, ImageBackground, StyleSheet, View } from "react-native";
+import { ImageBackground, StyleSheet } from "react-native";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
@@ -44,11 +44,7 @@ function RootNavigator() {
    */
   if (isLoading) {
     return (
-      <ImageBackground source={require("../assets/images/background.png")} resizeMode="cover" style={styles.loadingContainer}>
-        <View style={styles.loadingOverlay}>
-          <Image source={require("../assets/images/andrade-logo-horizontal.png")} resizeMode="contain" style={styles.loadingLogo} />
-        </View>
-      </ImageBackground>
+      <ImageBackground source={require("../assets/images/usina-loading.jpeg")} resizeMode="cover" style={styles.loadingContainer} />
     );
   }
 
@@ -226,6 +222,13 @@ function RootNavigator() {
           }}
         />
 
+        <Stack.Screen
+          name="unidades/recebimento-email"
+          options={{
+            headerShown: false,
+          }}
+        />
+
         {/* =========================== */}
         {/* USINAS                      */}
         {/* =========================== */}
@@ -343,6 +346,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: Colors.background,
   },
-  loadingOverlay: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.28)" },
-  loadingLogo: { width: 250, height: 100, marginBottom: 22 },
 });

@@ -104,3 +104,37 @@ export async function criarConta(input: { nome: string; cpf: string; email: stri
   if (error) throw error;
   return data;
 }
+
+export async function atualizarPerfilUsuario(
+  id: string,
+  dados: { nome: string; email: string; telefone: string | null },
+) {
+  const { data, error } = await supabase
+    .from("usuarios")
+    .update(dados)
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  if (error) throw error;
+
+  return data;
+}
+
+export async function desativarUsuario(id: string) {
+  const { error } = await supabase
+    .from("usuarios")
+    .update({ ativo: false })
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
+export async function invalidarSessoesUsuario(id: string) {
+  const { error } = await supabase
+    .from("sessoes_usuarios")
+    .delete()
+    .eq("usuario_id", id);
+
+  if (error) throw error;
+}

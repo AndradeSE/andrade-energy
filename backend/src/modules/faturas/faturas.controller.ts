@@ -5,12 +5,18 @@ import {
   analisarFatura,
   detalharFatura,
   excluirFatura,
+  confirmarFaturaRascunho,
   listarFaturas,
 } from "./faturas.service";
 
 export async function excluirFaturaController(req: Request, res: Response) {
   try { return res.json(await excluirFatura(req.params.id)); }
   catch (err: any) { return res.status(500).json({ message: err.message }); }
+}
+
+export async function confirmarFaturaRascunhoController(req: Request, res: Response) {
+  try { return res.json(await confirmarFaturaRascunho(req.params.id)); }
+  catch (err: any) { return res.status(400).json({ message: err.message }); }
 }
 
 export async function analisarFaturaController(req: Request, res: Response) {

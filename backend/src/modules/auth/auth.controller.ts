@@ -1,6 +1,13 @@
 import { Request, Response } from "express";
 
-import { autenticar, cadastrarConta } from "./auth.service";
+import {
+  alterarMinhaSenha,
+  atualizarMeuPerfil,
+  autenticar,
+  cadastrarConta,
+  excluirMinhaConta,
+  obterMeuPerfil,
+} from "./auth.service";
 
 export async function loginController(
   req: Request,
@@ -33,5 +40,48 @@ export async function cadastroController(req: Request, res: Response) {
     return res.status(201).json(await cadastrarConta(req.body));
   } catch (err: any) {
     return res.status(400).json({ message: err.message ?? "Não foi possível criar a conta." });
+  }
+}
+
+function usuarioDaRequisicao(req: Request) {
+  return (req as any).usuario;
+}
+
+export async function meuPerfilController(req: Request, res: Response) {
+  try {
+    return res.json(await obterMeuPerfil(usuarioDaRequisicao(req).id));
+  } catch (err: any) {
+    return res.status(400).json({ message: err.message ?? "Não foi possível carregar o perfil." });
+  }
+}
+
+export async function atualizarMeuPerfilController(req: Request, res: Response) {
+  try {
+    return res.json(await atualizarMeuPerfil(usuarioDaRequisicao(req).id, req.body ?? {}));
+  } catch (err: any) {
+    return res.status(400).json({ message: err.message ?? "Não foi possível atualizar o perfil." });
+  }
+}
+
+export async function alterarMinhaSenhaController(req: Request, res: Response) {
+  try {
+    return res.json(await alterarMinhaSenha(
+      usuarioDaRequisicao(req).id,
+      req.body?.senha_atual ?? req.body?.senhaAtual,
+      req.body?.nova_senha ?? req.body?.novaSenha,
+    ));
+  } catch (err: any) {
+    return res.status(400).json({ message: err.message ?? "Não foi possível alterar a senha." });
+  }
+}
+
+export async function excluirMinhaContaController(req: Request, res: Response) {
+  try {
+    return res.json(await excluirMinhaConta(
+      usuarioDaRequisicao(req).id,
+      req.body?.senha_atual ?? req.body?.senhaAtual,
+    ));
+  } catch (err: any) {
+    return res.status(400).json({ message: err.message ?? "Não foi possível excluir a conta." });
   }
 }

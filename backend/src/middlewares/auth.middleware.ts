@@ -15,8 +15,11 @@ export async function exigirAutenticacao(req: Request, res: Response, next: Next
     .gt("expira_em", new Date().toISOString())
     .maybeSingle();
 
-  if (error || !data?.usuarios) return res.status(401).json({ message: "Sessão inválida ou expirada." });
-  (req as any).usuario = data.usuarios;
+  const usuario = Array.isArray(data?.usuarios) ? data.usuarios[0] : data?.usuarios;
+  if (error || !usuario || usuario.ativo !== true) {
+    return res.status(401).json({ message: "Sessão inválida, expirada ou conta desativada." });
+  }
+  (req as any).usuario = usuario;
   return next();
 }
 

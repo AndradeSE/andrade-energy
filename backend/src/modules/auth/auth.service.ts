@@ -1,6 +1,9 @@
 import {
+  atualizarPerfilUsuario,
   buscarUsuario,
   criarConta,
+  desativarUsuario,
+  invalidarSessoesUsuario,
   listarUsuarios,
   login,
   vincularClientePorCpf,
@@ -9,6 +12,43 @@ import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import { supabase } from "../../config/supabase";
 import { gerarToken, hashToken } from "../../utils/token";
 import { aceitarConvite, concluirConvite } from "../convites/convites.service";
+
+type DadosPerfil = {
+  nome?: unknown;
+  email?: unknown;
+  telefone?: unknown;
+  cpf?: unknown;
+};
+
+function cpfLimpo(valor: unknown) {
+  return String(valor ?? "").replace(/\D/g, "");
+}
+
+function emailNormalizado(valor: unknown) {
+  return String(valor ?? "").trim().toLowerCase();
+}
+
+function telefoneNormalizado(valor: unknown) {
+  const telefone = String(valor ?? "").replace(/\D/g, "");
+  if (!telefone) return null;
+  if (telefone.length < 10 || telefone.length > 11) {
+    throw new Error("Informe um telefone válido com DDD.");
+  }
+  return telefone;
+}
+
+function usuarioPublico(usuario: any) {
+  return {
+    id: usuario.id,
+    nome: usuario.nome,
+    cpf: usuario.cpf ?? null,
+    email: usuario.email,
+    telefone: usuario.telefone ?? null,
+    perfil: usuario.perfil,
+    cliente_id: usuario.cliente_id ?? null,
+    usina_id: usuario.usina_id ?? null,
+  };
+}
 
 export async function autenticar(
   email: string,
@@ -33,15 +73,80 @@ export async function autenticar(
   return {
     token,
     usuario: {
-      id: usuario.id,
-      nome: usuario.nome,
-      email: usuario.email,
-      cpf: usuario.cpf ?? null,
-      perfil: usuario.perfil,
+      ...usuarioPublico(usuario),
       cliente_id: clienteId ?? usuario.cliente_id,
-      usina_id: usuario.usina_id,
     },
   };
+}
+
+export async function obterMeuPerfil(usuarioId: string) {
+  const usuario = await buscarUsuario(usuarioId);
+  if (!usuario?.ativo) throw new Error("Conta não está ativa.");
+  return usuarioPublico(usuario);
+}
+
+export async function atualizarMeuPerfil(usuarioId: string, dados: DadosPerfil) {
+  const usuarioAtual = await buscarUsuario(usuarioId);
+  if (!usuarioAtual?.ativo) throw new Error("Conta não está ativa.");
+
+  const nome = String(dados.nome ?? "").trim();
+  const email = emailNormalizado(dados.email);
+  const telefone = telefoneNormalizado(dados.telefone);
+
+  if (!nome) throw new Error("Informe seu nome completo.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error("Informe um e-mail válido.");
+  }
+
+  // O CPF define a associação da conta com o cadastro do cliente e suas UCs.
+  // Aceitamos somente o mesmo valor para impedir a troca de identidade pelo app.
+  if (dados.cpf !== undefined && cpfLimpo(dados.cpf) !== cpfLimpo(usuarioAtual.cpf)) {
+    throw new Error("O CPF não pode ser alterado pelo aplicativo. Entre em contato com a Andrade Energy.");
+  }
+
+  try {
+    const usuario = await atualizarPerfilUsuario(usuarioId, { nome, email, telefone });
+    return usuarioPublico(usuario);
+  } catch (erro: any) {
+    if (erro?.code === "23505") {
+      throw new Error("Já existe uma conta deste perfil com este e-mail.");
+    }
+    throw erro;
+  }
+}
+
+export async function alterarMinhaSenha(usuarioId: string, senhaAtual: unknown, novaSenha: unknown) {
+  const usuario = await buscarUsuario(usuarioId);
+  if (!usuario?.ativo) throw new Error("Conta não está ativa.");
+  if (!String(senhaAtual ?? "")) throw new Error("Informe sua senha atual.");
+  if (usuario.senha !== String(senhaAtual)) throw new Error("A senha atual está incorreta.");
+  if (String(novaSenha ?? "").length < 6) {
+    throw new Error("A nova senha deve ter pelo menos 6 caracteres.");
+  }
+
+  const { error } = await supabase
+    .from("usuarios")
+    .update({ senha: String(novaSenha) })
+    .eq("id", usuarioId);
+  if (error) throw error;
+
+  // Após trocar a senha, todos os aparelhos precisam se autenticar novamente.
+  await invalidarSessoesUsuario(usuarioId);
+  return { message: "Senha alterada com sucesso. Entre novamente no aplicativo." };
+}
+
+export async function excluirMinhaConta(usuarioId: string, senhaAtual: unknown) {
+  const usuario = await buscarUsuario(usuarioId);
+  if (!usuario?.ativo) throw new Error("Esta conta já foi desativada.");
+  if (!String(senhaAtual ?? "")) throw new Error("Informe sua senha para excluir a conta.");
+  if (usuario.senha !== String(senhaAtual)) throw new Error("A senha informada está incorreta.");
+
+  // A conta deixa de poder entrar, mas os dados comerciais continuam íntegros
+  // para não apagar clientes, unidades, faturas ou histórico da usina.
+  await desativarUsuario(usuarioId);
+  await invalidarSessoesUsuario(usuarioId);
+
+  return { message: "Conta desativada com sucesso." };
 }
 
 export async function cadastrarConta(input: { nome: string; cpf: string; email: string; senha: string; tipo: "CONSUMIDOR" | "GERADOR"; convite?: string }) {

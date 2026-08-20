@@ -7,7 +7,9 @@ import {
   detalharFaturaController,
   listarFaturasController,
   excluirFaturaController,
+  confirmarFaturaRascunhoController,
 } from "./faturas.controller";
+import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
 
 const router = Router();
 
@@ -24,6 +26,7 @@ router.post(
 
 router.get("/:id", detalharFaturaController);
 router.delete("/:id", excluirFaturaController);
+router.post("/:id/confirmar", exigirAutenticacao, exigirGestor, confirmarFaturaRascunhoController);
 
 router.post(
   "/importar",

@@ -20,11 +20,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { login } from "../../services/auth.service";
+import { ativarDigital, autenticarComDigital, verificarDigitalDisponivel } from "../../services/biometric.service";
 import { APP_DISPLAY_NAME, IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function Login() {
-  const { login: salvarSessao } = useAuth();
+  const { login: salvarSessao, refreshDigitalStatus } = useAuth();
   const senhaRef = useRef<TextInput>(null);
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -33,7 +34,7 @@ export default function Login() {
   const [erroEmail, setErroEmail] = useState("");
   const [erroSenha, setErroSenha] = useState("");
 
-  async function entrar() {
+  async function entrar(ativarBiometria = false) {
     if (loading) return;
 
     const emailNormalizado = email.trim().toLowerCase();
@@ -52,6 +53,21 @@ export default function Login() {
           : "Esta é sua conta de Gerador. Para acessar como consumidor, toque em “Aceitar convite e criar conta”.");
       }
       await salvarSessao(resposta.token, resposta.usuario);
+      if (ativarBiometria) {
+        const disponivel = await verificarDigitalDisponivel();
+        if (!disponivel) {
+          Alert.alert("Biometria indisponível", "Cadastre uma impressão digital ou rosto nas configurações do aparelho e tente novamente.");
+        } else {
+          const resultado = await autenticarComDigital();
+          if (resultado.success && resposta.usuario?.id) {
+            await ativarDigital(resposta.usuario?.id);
+            await refreshDigitalStatus();
+            Alert.alert("Biometria ativada", "Nos próximos acessos, você poderá entrar usando a biometria do aparelho.");
+          } else if (resultado.success) {
+            Alert.alert("Não foi possível ativar", "Não identificamos sua conta para salvar a preferência de biometria.");
+          }
+        }
+      }
       router.replace("/selecionar-unidade");
     } catch (erro: any) {
       Alert.alert(
@@ -121,7 +137,7 @@ export default function Login() {
                 autoCapitalize="none"
                 autoComplete="current-password"
                 onChangeText={(valor) => { setSenha(valor); if (erroSenha) setErroSenha(""); }}
-                onSubmitEditing={entrar}
+                onSubmitEditing={() => void entrar()}
                 placeholder="Digite sua senha"
                 placeholderTextColor="#92979F"
                 returnKeyType="done"
@@ -135,15 +151,28 @@ export default function Login() {
             </View>
             {erroSenha ? <Text style={styles.errorText}>{erroSenha}</Text> : null}
 
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={() => router.push("/(auth)/esqueci-senha")}
-              style={styles.forgotButton}
-            >
-              <Text style={styles.forgotText}>Esqueceu sua senha?</Text>
-            </TouchableOpacity>
+            <View style={styles.accessActions}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={() => router.push("/(auth)/esqueci-senha")}
+                style={styles.forgotButton}
+              >
+                <Text style={styles.forgotText}>Esqueceu sua senha?</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity activeOpacity={0.84} disabled={loading} onPress={entrar} style={[styles.loginButton, loading && styles.loginButtonDisabled]}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                activeOpacity={0.75}
+                disabled={loading}
+                onPress={() => entrar(true)}
+                style={styles.biometricLink}
+              >
+                <Ionicons name="finger-print-outline" size={17} color={Colors.primary} />
+                <Text style={styles.biometricLinkText}>Ativar biometria</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity activeOpacity={0.84} disabled={loading} onPress={() => void entrar()} style={[styles.loginButton, loading && styles.loginButtonDisabled]}>
               {loading ? <ActivityIndicator color={Colors.surface} /> : <><Text style={styles.loginText}>Entrar</Text><Ionicons name="arrow-forward" size={20} color={Colors.surface} /></>}
             </TouchableOpacity>
 
@@ -184,8 +213,11 @@ const styles = StyleSheet.create({
   input: { flex: 1, height: 52, marginLeft: Spacing.xs, color: Colors.text, fontSize: Typography.body },
   eyeButton: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
   errorText: { marginTop: 5, color: Colors.danger, fontSize: Typography.small },
-  forgotButton: { alignSelf: "flex-end", paddingVertical: Spacing.sm },
+  accessActions: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 2 },
+  forgotButton: { paddingVertical: Spacing.sm },
   forgotText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" },
+  biometricLink: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: Spacing.sm },
+  biometricLinkText: { color: Colors.primary, fontSize: 11, fontWeight: "800" },
   loginButton: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.lg, borderRadius: Radius.md, backgroundColor: Colors.primary },
   loginButtonDisabled: { opacity: 0.7 },
   loginText: { color: Colors.surface, fontSize: Typography.body, fontWeight: "900" },

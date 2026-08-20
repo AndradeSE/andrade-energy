@@ -110,6 +110,7 @@ export default function ClienteHeader({
       | "/perfil"
       | "/faturas"
       | "/contrato"
+      | "/unidades/recebimento-email"
   ) {
     setMenuAberto(
       false
@@ -123,9 +124,7 @@ export default function ClienteHeader({
       return;
     }
 
-    router.push(
-      rota
-    );
+    router.navigate(rota);
   }
 
   function abrirPerfil() {
@@ -239,7 +238,7 @@ export default function ClienteHeader({
           </TouchableOpacity>
 
           <TouchableOpacity
-            accessibilityLabel="Abrir Meu"
+            accessibilityLabel="Abrir perfil"
             activeOpacity={
               0.8
             }
@@ -432,7 +431,7 @@ export default function ClienteHeader({
 
             <MenuItem
               icon="person-outline"
-              label="Meu"
+              label="Perfil"
               onPress={() =>
                 navegar(
                   "/perfil"
@@ -446,6 +445,16 @@ export default function ClienteHeader({
               onPress={() =>
                 navegar(
                   "/faturas"
+                )
+              }
+            />
+
+            <MenuItem
+              icon="mail-unread-outline"
+              label="Receber contas automaticamente"
+              onPress={() =>
+                navegar(
+                  "/unidades/recebimento-email"
                 )
               }
             />

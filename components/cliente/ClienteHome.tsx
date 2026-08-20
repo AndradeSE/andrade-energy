@@ -1,5 +1,4 @@
 import { RefreshControl, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useNavigation } from "@react-navigation/native";
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -20,7 +19,6 @@ import HeroCard from "./HeroCard";
 import QuickAccessCarousel from "../QuickAccessCarousel";
 
 export default function ClienteHome() {
-  const navigation = useNavigation();
   const { data, isLoading, error, refetch } = useDashboard();
   const [atualizando, setAtualizando] = useState(false);
   async function atualizarPagina() { setAtualizando(true); try { await refetch(); } finally { setAtualizando(false); } }
@@ -51,7 +49,7 @@ export default function ClienteHome() {
         cliente={data.cliente}
         uc={data.uc}
         distribuidora={data.distribuidora}
-        onOpenProfile={() => navigation.navigate("Perfil" as never)}
+        onOpenProfile={() => router.navigate("/perfil")}
       />
 
       <ScrollView

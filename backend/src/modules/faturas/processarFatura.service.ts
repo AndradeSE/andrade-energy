@@ -25,8 +25,15 @@ function converterDataBrasileiraParaIso(data: string): string {
   return `${ano}-${mes}-${dia}`;
 }
 
+type OpcoesProcessamentoFatura = {
+  status?: "ABERTA" | "RASCUNHO";
+  criarCobranca?: boolean;
+  registrarCreditos?: boolean;
+};
+
 export async function processarFatura(
-  dados: FaturaExtraida
+  dados: FaturaExtraida,
+  opcoes: OpcoesProcessamentoFatura = {},
 ) {
 
   const vencimento = converterDataBrasileiraParaIso(dados.vencimento);
@@ -261,11 +268,11 @@ const fatura = await inserirFatura({
   distribuidora:
     dados.distribuidora,
 
-  status: "ABERTA",
+  status: opcoes.status ?? "ABERTA",
 
 });
 
-  if (calculo.modalidade === "COMPENSACAO" && temCompensacaoInformada) {
+  if ((opcoes.registrarCreditos ?? true) && calculo.modalidade === "COMPENSACAO" && temCompensacaoInformada) {
 
   await registrarCreditosDaFatura({
     clienteId: cliente.id,
@@ -278,7 +285,7 @@ const fatura = await inserirFatura({
   });
 }
 
-  await criarCobranca({
+  if (opcoes.criarCobranca ?? true) await criarCobranca({
 
     clienteId: cliente.id,
 

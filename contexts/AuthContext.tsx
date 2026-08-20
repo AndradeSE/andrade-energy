@@ -1,6 +1,7 @@
 import {
   createContext,
   ReactNode,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -8,10 +9,13 @@ import {
 } from "react";
 
 import * as SecureStore from "expo-secure-store";
+import { AppState } from "react-native";
 
 import {
   autenticarComDigital,
   digitalEstaAtiva,
+  migrarPreferenciaDigital,
+  verificarDigitalDisponivel,
 } from "../services/biometric.service";
 
 import {
@@ -275,7 +279,6 @@ export function AuthProvider({
         sessaoSalva,
         unidadeSalva,
         usinaSalva,
-        digitalAtiva,
       ] =
         await Promise.all([
           obterSessao(),
@@ -287,13 +290,7 @@ export function AuthProvider({
           SecureStore.getItemAsync(
             USINA_KEY
           ),
-
-          digitalEstaAtiva(),
         ]);
-
-      setDigitalEnabled(
-        digitalAtiva
-      );
 
       /*
        * Nenhuma sessão válida
@@ -319,6 +316,10 @@ export function AuthProvider({
           null
         );
 
+        setDigitalEnabled(
+          false
+        );
+
         setIsUnlocked(
           false
         );
@@ -328,6 +329,14 @@ export function AuthProvider({
 
       const sessao =
         sessaoSalva as SessaoStorage;
+
+      const [preferenciaDigital, biometriaDisponivel] = await Promise.all([
+        migrarPreferenciaDigital(sessao.usuario?.id),
+        verificarDigitalDisponivel(),
+      ]);
+      const digitalAtiva = preferenciaDigital && biometriaDisponivel;
+
+      setDigitalEnabled(digitalAtiva);
 
       /*
        * Restaura autenticação
@@ -543,7 +552,7 @@ export function AuthProvider({
        * Atualiza status da digital.
        */
 
-      await refreshDigitalStatus();
+      await atualizarStatusDigital(novoUsuario?.id);
 
       console.log(
         "LOGIN SALVO:",
@@ -635,13 +644,13 @@ export function AuthProvider({
     }
   }
 
-  async function atualizarUsuario(dados: Partial<AuthUsuario>) {
+  const atualizarUsuario = useCallback(async (dados: Partial<AuthUsuario>) => {
     setUsuario((atual) => {
       const atualizado = { ...atual, ...dados } as AuthUsuario;
       if (token) void salvarSessaoStorage({ token, usuario: atualizado });
       return atualizado;
     });
-  }
+  }, [token]);
 
   /*
    * ======================================================
@@ -707,10 +716,13 @@ export function AuthProvider({
    * ======================================================
    */
 
-  async function refreshDigitalStatus() {
+  async function atualizarStatusDigital(usuarioId?: string | number) {
     try {
-      const enabled =
-        await digitalEstaAtiva();
+      const [preferenciaAtiva, biometriaDisponivel] = await Promise.all([
+        digitalEstaAtiva(usuarioId),
+        verificarDigitalDisponivel(),
+      ]);
+      const enabled = preferenciaAtiva && biometriaDisponivel;
 
       setDigitalEnabled(
         enabled
@@ -727,6 +739,10 @@ export function AuthProvider({
         false
       );
     }
+  }
+
+  async function refreshDigitalStatus() {
+    await atualizarStatusDigital(usuario?.id);
   }
 
   /*
@@ -789,6 +805,16 @@ export function AuthProvider({
       );
     }
   }
+
+  useEffect(() => {
+    const inscricao = AppState.addEventListener("change", (estado) => {
+      if (estado === "background" && digitalEnabled && token) {
+        setIsUnlocked(false);
+      }
+    });
+
+    return () => inscricao.remove();
+  }, [digitalEnabled, token]);
 
   /*
    * ======================================================
@@ -863,13 +889,8 @@ export function AuthProvider({
    */
 
   useEffect(() => {
-  async function resetar() {
-    await removerSessao();
-    await restaurarSessao();
-  }
-
-  resetar();
-}, []);
+    void restaurarSessao();
+  }, []);
 
   /*
    * ======================================================

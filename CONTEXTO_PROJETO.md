@@ -14,6 +14,7 @@ Os dois aplicativos usam a mesma base de código. A variante é escolhida por `E
 ### Gerador
 
 - Abas: Home, Clientes, Usinas, Operação, Faturas, Financeiro e Perfil.
+- A aba Clientes trata falhas de carregamento com nova tentativa e pesquisa por nome, CPF/CNPJ, e-mail, telefone e UC, aceitando os formatos retornados pela API.
 - Cadastro manual e por PDF de clientes, usinas e unidades consumidoras.
 - Uma unidade consumidora pode ser alocada a uma usina; o card da usina mostra UCs alocadas, energia alocada, restante e média dos últimos 12 meses.
 - Importação da conta de energia da usina para registrar produção a partir das leituras, com fator de multiplicação.
@@ -23,10 +24,12 @@ Os dois aplicativos usam a mesma base de código. A variante é escolhida por `E
 ### Consumidor
 
 - Ao entrar, o usuário seleciona sua unidade consumidora cadastrada; ele não cria UCs pelo app.
-- Abas visíveis: Home, Economia e Contrato. O menu de três linhas mantém Perfil e preferências, incluindo biometria.
+- Abas visíveis: Home, Economia e Contrato. O menu de três linhas mantém Perfil e preferências.
 - Home mostra faturas pendentes e permite abrir a fatura; Economia separa documentos da Andrade Energy e contas da concessionária.
 - Contrato exibe status, termo de adesão, UCs, vigência, economia estimada e o cancelamento. Cancelamentos de contratos vencidos podem gerar a fatura de encerramento do saldo de compensação.
 - Cabeçalhos, carregamento e ícones utilizam a identidade Andrade Energy; o app consumidor e o gerador têm variantes visuais distintas.
+- Perfil reúne nome completo, CPF somente para consulta, e-mail, telefone, alteração de senha, encerramento de sessão e exclusão/desativação da conta. A exclusão preserva os dados comerciais e bloqueia o novo acesso.
+- A biometria é configurada por usuário e por aparelho, pode ser ativada no login ou no Perfil e bloqueia o acesso quando o app volta do segundo plano. A sessão é restaurada sem ser apagada no início do app.
 
 ### Atualização de dados
 
@@ -53,6 +56,7 @@ Os cálculos com faturas CEMIG, sobretudo GD1/GD2 e tarifas com imposto, ainda d
 - Banco, autenticação e armazenamento de PDFs: Supabase.
 - PDFs de faturas são armazenados no bucket privado `faturas`, com links temporários para download.
 - E-mail: integração Brevo preparada. WhatsApp continua dependente de credenciais e modelo aprovado na Meta.
+- Recebimento automático de contas está implementado com Resend Inbound: uma UC ativa pode gerar endereço opaco, validar o webhook assinado, baixar somente PDFs válidos, conferir a UC, criar a fatura em rascunho e aguardar confirmação do gerador. A configuração externa está descrita em `RECEBIMENTO_AUTOMATICO_FATURAS.md`.
 - EAS possui perfis separados `preview`, `preview-gerador`, `production` e `production-gerador`.
 
 Uma alteração de ícone, pacote, permissão nativa ou versão requer novo build EAS. Alterações somente em JavaScript/TypeScript podem ser entregues por update OTA quando houver build compatível instalado.
@@ -88,5 +92,6 @@ No desenvolvimento em rede local, a API detecta o host do Expo. Para testar cont
 1. Validar no celular o gesto de atualização e a navegação em cada variante.
 2. Executar ponta a ponta o cadastro por PDF, alocação, faturamento, download e baixa de uma fatura real de teste.
 3. Conferir com novas faturas CEMIG GD1/GD2 se todos os campos de energia compensada, saldo e tarifa foram lidos corretamente.
-4. Implementar recebimento automático de contas por e-mail e concluir a integração do WhatsApp Cloud API.
-5. Revisar autorização de todas as rotas do backend e políticas RLS antes da operação em produção.
+4. Aplicar no Supabase as migrations `20260820110000_recebimento_automatico_faturas.sql` e `20260820113000_perfil_usuario.sql` e configurar domínio, webhook e segredos do Resend conforme `RECEBIMENTO_AUTOMATICO_FATURAS.md`.
+5. Validar no celular a ativação, bloqueio e desbloqueio por biometria em ambos os apps.
+6. Revisar autorização de todas as rotas do backend e políticas RLS antes da operação em produção.

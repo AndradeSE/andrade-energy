@@ -16,6 +16,8 @@ import usinasRoutes from "./modules/usinas/usinas.routes";
 import { processarFilaDeNotificacoes } from "./modules/faturas/notificacoesFatura.service";
 import convitesRoutes from "./modules/convites/convites.routes";
 import { processarContasDeEnergiaRecebidas } from "./modules/email/email.service";
+import { configuracaoRouter as recebimentoFaturasRoutes, webhookRouter as recebimentoFaturasWebhookRoutes } from "./modules/recebimento-faturas/recebimentoFaturas.routes";
+import { processarFilaDeRecebimentosFaturas } from "./modules/recebimento-faturas/recebimentoFaturas.service";
 
 dotenv.config();
 
@@ -28,6 +30,14 @@ const app = express();
 */
 
 app.use(cors());
+
+// O Resend assina o corpo original. Esta rota precisa permanecer antes do
+// express.json(), caso contrário a verificação da assinatura falha.
+app.use(
+  "/api/webhooks/resend",
+  express.raw({ type: "application/json", limit: "1mb" }),
+  recebimentoFaturasWebhookRoutes,
+);
 
 app.use(express.json());
 
@@ -67,6 +77,8 @@ app.use("/api/creditos", creditosRoutes);
 
 app.use("/api/rateio", rateioRoutes);
 
+app.use("/api/recebimento-faturas", recebimentoFaturasRoutes);
+
 /*
 |--------------------------------------------------------------------------
 | Health Check
@@ -99,10 +111,14 @@ app.listen(PORT, () => {
   console.log(`Servidor iniciado na porta ${PORT}`);
   processarFilaDeNotificacoes().catch((erro) => console.error("Falha ao processar notificações:", erro.message));
   processarContasDeEnergiaRecebidas().catch((erro) => console.error("Falha ao importar produção por e-mail:", erro.message));
+  processarFilaDeRecebimentosFaturas().catch((erro) => console.error("Falha ao processar faturas recebidas por e-mail:", erro.message));
   setInterval(() => {
     processarFilaDeNotificacoes().catch((erro) => console.error("Falha ao processar notificações:", erro.message));
   }, 60_000);
   setInterval(() => {
     processarContasDeEnergiaRecebidas().catch((erro) => console.error("Falha ao importar produção por e-mail:", erro.message));
   }, 5 * 60_000);
+  setInterval(() => {
+    processarFilaDeRecebimentosFaturas().catch((erro) => console.error("Falha ao processar faturas recebidas por e-mail:", erro.message));
+  }, 60_000);
 });

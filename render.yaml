@@ -25,6 +25,14 @@ services:
         sync: false
       - key: BREVO_REMETENTE_NOME
         value: Andrade Energy
+      - key: RESEND_INBOUND_API_KEY
+        sync: false
+      - key: RESEND_WEBHOOK_SECRET
+        sync: false
+      - key: INBOUND_EMAIL_DOMAIN
+        sync: false
+      - key: INBOUND_EMAIL_MAX_BYTES
+        value: 10485760
       - key: WHATSAPP_ACCESS_TOKEN
         sync: false
       - key: WHATSAPP_PHONE_NUMBER_ID
