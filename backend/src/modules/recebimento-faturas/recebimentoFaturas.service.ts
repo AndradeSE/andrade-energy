@@ -365,14 +365,21 @@ async function processarRegistro(registro: any) {
     const caminho = path.join(pasta, "conta.pdf");
     try {
       await writeFile(caminho, arquivo);
-      const dados = interpretarFatura(await extrairTextoPDF(caminho));
       const { data: unidade, error: erroUnidade } = await supabase
         .from("unidades_consumidoras")
-        .select("id, numero")
+        .select("id, numero, clientes(cpf)")
         .eq("id", assumido.unidade_consumidora_id)
         .maybeSingle();
       if (erroUnidade) throw erroUnidade;
-      if (!unidade || normalizarNumero(dados.uc) !== normalizarNumero(unidade.numero)) {
+      if (!unidade) throw new Error("Unidade consumidora não encontrada.");
+
+      // As faturas CEMIG protegidas usam os quatro primeiros dígitos do CPF
+      // do titular. A senha existe apenas durante a leitura, sem logs ou envio
+      // ao aplicativo.
+      const cpf = normalizarCpf(clienteDaUnidade(unidade)?.cpf);
+      const senhaPdf = cpf.length >= 4 ? cpf.slice(0, 4) : undefined;
+      const dados = interpretarFatura(await extrairTextoPDF(caminho, senhaPdf));
+      if (normalizarNumero(dados.uc) !== normalizarNumero(unidade.numero)) {
         throw new Error("O número da UC do PDF não corresponde ao endereço de recebimento.");
       }
 

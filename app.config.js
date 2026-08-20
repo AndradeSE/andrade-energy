@@ -79,14 +79,12 @@ module.exports = {
       [
         "expo-splash-screen",
         {
-          image:
-            "./assets/images/splash-icon.png",
-
-          imageWidth: 200,
-
-          resizeMode: "contain",
-
-          backgroundColor: "#020617",
+          // A imagem enviada já traz a logo Andrade Energy. Não há ícone
+          // adicional nesta tela de abertura.
+          image: "./assets/images/usina-loading.jpeg",
+          imageWidth: 390,
+          resizeMode: "cover",
+          backgroundColor: "#F5F6F5",
         },
       ],
 
