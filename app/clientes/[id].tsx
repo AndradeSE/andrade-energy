@@ -34,7 +34,7 @@ export default function ClienteDetalhe() {
       const dados = analise?.dados ?? {};
       const numero = String(dados.uc ?? dados.numero_instalacao ?? dados.numeroInstalacao ?? "").replace(/\D/g, "");
       if (!numero) throw new Error("Não foi possível identificar o número da unidade consumidora.");
-      await cadastrarUnidadeCliente(id, numero);
+      await cadastrarUnidadeCliente(id, numero, String(dados.cpf ?? "").replace(/\D/g, ""));
       await carregar();
       Alert.alert("Unidade cadastrada", `A UC ${numero} foi vinculada automaticamente a ${cliente.nome}.`);
     } catch (erro: any) {

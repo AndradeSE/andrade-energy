@@ -253,6 +253,11 @@ export default function RecebimentoEmail() {
         <View style={styles.unitInfo}><Text style={styles.unitLabel}>UNIDADE CONSUMIDORA</Text><Text style={styles.unitNumber}>{unidadeSelecionada.numero}</Text></View>
       </Card>
 
+      {dados?.configurado && !dados.ativo ? <TouchableOpacity disabled={salvando} activeOpacity={0.84} onPress={ativar} style={[styles.primaryAction, salvando && styles.disabled]}>
+        <Ionicons name="mail-unread-outline" size={21} color={Colors.surface} />
+        <Text style={styles.primaryText}>{salvando ? "Ativando..." : "Ativar recebimento automático"}</Text>
+      </TouchableOpacity> : null}
+
       <Text style={styles.sectionTitle}>CONECTAR SEU E-MAIL</Text>
       <Card style={styles.privacyCard}>
         <View style={styles.privacyIcon}><Ionicons name="shield-checkmark-outline" size={23} color={Colors.primary} /></View>
@@ -313,6 +318,7 @@ export default function RecebimentoEmail() {
             <Ionicons name="copy-outline" size={21} color={Colors.primary} />
           </TouchableOpacity>
           <Text style={styles.addressHint}>Toque para copiar. Este endereço é exclusivo desta UC e pode ser alterado a qualquer momento.</Text>
+          <TouchableOpacity disabled={salvando} onPress={confirmarRegeneracao} style={styles.secondaryAction}><Ionicons name="refresh-outline" size={19} color={Colors.primary} /><Text style={styles.secondaryText}>Gerar novo endereço</Text></TouchableOpacity>
 
           <Text style={styles.sectionTitle}>COMO CONFIGURAR</Text>
           <Card>
@@ -326,9 +332,8 @@ export default function RecebimentoEmail() {
           {dados.ultimoRecebimentoEm ? <Text style={styles.lastReceipt}>Último recebimento: {formatarData(dados.ultimoRecebimentoEm)}</Text> : null}
           {dados.erro ? <Text style={styles.errorText}>{dados.erro}</Text> : null}
 
-          <TouchableOpacity disabled={salvando} onPress={confirmarRegeneracao} style={styles.secondaryAction}><Ionicons name="refresh-outline" size={19} color={Colors.primary} /><Text style={styles.secondaryText}>Gerar novo endereço</Text></TouchableOpacity>
           <TouchableOpacity disabled={salvando} onPress={confirmarDesativacao} style={styles.dangerAction}><Ionicons name="close-circle-outline" size={19} color={Colors.danger} /><Text style={styles.dangerText}>Desativar recebimento</Text></TouchableOpacity>
-        </> : <TouchableOpacity disabled={salvando} activeOpacity={0.84} onPress={ativar} style={[styles.primaryAction, salvando && styles.disabled]}><Ionicons name="mail-unread-outline" size={21} color={Colors.surface} /><Text style={styles.primaryText}>{salvando ? "Ativando..." : "Ativar recebimento automático"}</Text></TouchableOpacity>}
+        </> : null}
       </>}
     </ScrollView>
   </Screen>;

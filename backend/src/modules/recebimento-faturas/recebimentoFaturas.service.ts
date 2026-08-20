@@ -367,7 +367,7 @@ async function processarRegistro(registro: any) {
       await writeFile(caminho, arquivo);
       const { data: unidade, error: erroUnidade } = await supabase
         .from("unidades_consumidoras")
-        .select("id, numero, clientes(cpf)")
+        .select("id, numero, cpf_titular, clientes(cpf)")
         .eq("id", assumido.unidade_consumidora_id)
         .maybeSingle();
       if (erroUnidade) throw erroUnidade;
@@ -376,7 +376,7 @@ async function processarRegistro(registro: any) {
       // As faturas CEMIG protegidas usam os quatro primeiros dígitos do CPF
       // do titular. A senha existe apenas durante a leitura, sem logs ou envio
       // ao aplicativo.
-      const cpf = normalizarCpf(clienteDaUnidade(unidade)?.cpf);
+      const cpf = normalizarCpf(unidade.cpf_titular) || normalizarCpf(clienteDaUnidade(unidade)?.cpf);
       const senhaPdf = cpf.length >= 4 ? cpf.slice(0, 4) : undefined;
       const dados = interpretarFatura(await extrairTextoPDF(caminho, senhaPdf));
       if (normalizarNumero(dados.uc) !== normalizarNumero(unidade.numero)) {

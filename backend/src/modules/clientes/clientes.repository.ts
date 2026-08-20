@@ -214,7 +214,7 @@ export async function excluirCliente(id: string) {
   if (error) throw error;
 }
 
-export async function cadastrarUnidadeCliente(clienteId: string, numeroInformado: string) {
+export async function cadastrarUnidadeCliente(clienteId: string, numeroInformado: string, cpfTitularInformado?: string) {
   const numero = String(numeroInformado ?? "").replace(/\D/g, "");
   if (!numero) throw new Error("Número da unidade consumidora não informado.");
 
@@ -239,6 +239,7 @@ export async function cadastrarUnidadeCliente(clienteId: string, numeroInformado
     endereco: cliente.endereco ?? null,
     modalidade_faturamento: cliente.modalidade_faturamento || "COMPENSACAO",
     desconto_percentual: Number(cliente.desconto_percentual ?? 40),
+    cpf_titular: String(cpfTitularInformado ?? cliente.cpf ?? "").replace(/\D/g, "") || null,
     status: "ATIVA",
   };
   const resultado = existente

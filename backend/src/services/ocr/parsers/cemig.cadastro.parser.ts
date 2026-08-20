@@ -59,5 +59,9 @@ export function extrairCadastroCemig(texto: string) {
     )?.[1] ?? ""
   ).replace(/\D/g, "");
 
-  return { cliente, endereco, uc };
+  const cpf = (
+    texto.match(/(?:CPF\s*(?:\/\s*CNPJ)?|CNPJ)\s*[:\-]?\s*([\d.\-/]{11,20})/i)?.[1] ?? ""
+  ).replace(/\D/g, "");
+
+  return { cliente, endereco, uc, cpf };
 }

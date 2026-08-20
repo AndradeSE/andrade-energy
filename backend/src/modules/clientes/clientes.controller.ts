@@ -96,7 +96,7 @@ export async function listarUnidadesClienteController(req: Request, res: Respons
 
 export async function cadastrarUnidadeClienteController(req: Request, res: Response) {
   try {
-    return res.status(201).json(await cadastrarUnidadeCliente(req.params.id, req.body?.numero));
+    return res.status(201).json(await cadastrarUnidadeCliente(req.params.id, req.body?.numero, req.body?.cpfTitular));
   } catch (e: any) {
     return res.status(400).json({ message: e.message });
   }

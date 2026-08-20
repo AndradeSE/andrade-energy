@@ -11,8 +11,9 @@ import { Colors, Radius, Spacing, Typography } from "../../theme";
 type Tipo = "CONSUMIDORA" | "BENEFICIARIA" | "GERADORA";
 type Modalidade = "INJECAO" | "COMPENSACAO";
 export default function NovaUnidade() {
-  const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, energiaCompensada, endereco: enderecoImportado, cadastroRapido } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; energiaCompensada?: string; endereco?: string; cadastroRapido?: string }>();
+  const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, cpf: cpfImportado, energiaCompensada, endereco: enderecoImportado, cadastroRapido } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; cpf?: string; energiaCompensada?: string; endereco?: string; cadastroRapido?: string }>();
   const [numero, setNumero] = useState(""); const [titular, setTitular] = useState("");
+  const [cpfTitular, setCpfTitular] = useState("");
   const [tipo, setTipo] = useState<Tipo>("BENEFICIARIA"); const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO");
   const [desconto, setDesconto] = useState("40"); const [endereco, setEndereco] = useState("");
   const [clientes, setClientes] = useState<any[]>([]); const [usinas, setUsinas] = useState<any[]>([]);
@@ -20,7 +21,7 @@ export default function NovaUnidade() {
 
   useEffect(() => {
     Promise.all([
-      supabase.from("clientes").select("id,nome,endereco,distribuidora,usina_id,modalidade_faturamento,desconto_percentual").order("nome"),
+      supabase.from("clientes").select("id,nome,cpf,endereco,distribuidora,usina_id,modalidade_faturamento,desconto_percentual").order("nome"),
       supabase.from("usinas").select("id,nome").order("nome"),
     ]).then(([c, u]) => { setClientes(c.data ?? []); setUsinas(u.data ?? []); });
     if (clienteIdVinculado) setClienteId(clienteIdVinculado);
@@ -29,11 +30,17 @@ export default function NovaUnidade() {
     const rotuloDaFatura = /d[eé]bito\s+autom[aá]tico|valor\s+a\s+pagar|vencimento/i.test(nomeExtraido);
     const titularExtraido = rotuloDaFatura ? "" : nomeExtraido;
     setNumero((uc ?? "").replace(/\D/g, ""));
+    if (cpfImportado) setCpfTitular(formatarDocumento(cpfImportado));
     if (titularExtraido) setTitular(titularExtraido);
     if (enderecoImportado) setEndereco(enderecoImportado);
     if (classificacao === "POSSIVEL_GERADORA") { setTipo("GERADORA"); setModalidade("INJECAO"); }
     else if (!Number(energiaCompensada)) setTipo("CONSUMIDORA");
-  }, [classificacao, cliente, clienteIdVinculado, enderecoImportado, energiaCompensada, origem, uc]);
+  }, [classificacao, cliente, clienteIdVinculado, cpfImportado, enderecoImportado, energiaCompensada, origem, uc]);
+
+  useEffect(() => {
+    const clienteSelecionado = clientes.find((item) => item.id === clienteId);
+    if (clienteSelecionado?.cpf && !cpfTitular) setCpfTitular(formatarDocumento(clienteSelecionado.cpf));
+  }, [clienteId, clientes, cpfTitular]);
 
   async function salvar() {
     const percentual = Number(desconto.replace(",", "."));
@@ -47,7 +54,7 @@ export default function NovaUnidade() {
     const { error } = await supabase.from("unidades_consumidoras").upsert({
       numero, titular: titular.trim() || clienteSelecionado?.nome || null, tipo, cliente_id: clienteId || null, usina_id: usinaFinal,
       distribuidora: clienteSelecionado?.distribuidora || "CEMIG", endereco: endereco.trim() || clienteSelecionado?.endereco || null, modalidade_faturamento: modalidadeFinal,
-      desconto_percentual: descontoFinal, status: "ATIVA",
+      desconto_percentual: descontoFinal, cpf_titular: cpfTitular.replace(/\D/g, "") || clienteSelecionado?.cpf || null, status: "ATIVA",
     }, { onConflict: "numero" });
     if (error) Alert.alert("Não foi possível salvar", error.message); else router.back();
     setSalvando(false);
@@ -57,6 +64,7 @@ export default function NovaUnidade() {
     <Text style={styles.eyebrow}>{origem === "fatura" ? "DADOS LIDOS DA FATURA" : "CADASTRO MANUAL"}</Text><Text style={styles.title}>Nova unidade</Text>
     <Text style={styles.subtitle}>{clienteIdVinculado ? "Confirme o número. Os demais dados serão herdados do cliente." : cadastroRapido === "1" ? "Confirme o número e escolha o cliente. Os demais dados serão herdados automaticamente." : "Confira a leitura e escolha a quem esta unidade pertence."}</Text>
     <Card><FormField label="Número da UC / instalação" value={numero} onChangeText={(v) => setNumero(v.replace(/\D/g, ""))} keyboardType="numeric" />
+      <FormField label="CPF/CNPJ do titular na conta de luz" value={cpfTitular} onChangeText={(valor) => setCpfTitular(formatarDocumento(valor))} keyboardType="numeric" />
       {!clienteIdVinculado && cadastroRapido !== "1" ? <><FormField label="Titular" value={titular} onChangeText={setTitular} />
         <ChoiceField label="Tipo" value={tipo} onChange={setTipo} options={[{ label: "Consumidora", value: "CONSUMIDORA" }, { label: "Beneficiária", value: "BENEFICIARIA" }, { label: "Geradora", value: "GERADORA" }]} />
         <ChoiceField label="Faturamento" value={modalidade} onChange={setModalidade} options={[{ label: "Injeção", value: "INJECAO" }, { label: "Compensação", value: "COMPENSACAO" }]} />
@@ -66,6 +74,12 @@ export default function NovaUnidade() {
       <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar unidade"} onPress={salvar} />
     </Card>
   </ScrollView></Screen>;
+}
+
+function formatarDocumento(valor: string) {
+  const numeros = valor.replace(/\D/g, "").slice(0, 14);
+  if (numeros.length <= 11) return numeros.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+  return numeros.replace(/(\d{2})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1/$2").replace(/(\d{4})(\d{1,2})$/, "$1-$2");
 }
 
 const styles = StyleSheet.create({
