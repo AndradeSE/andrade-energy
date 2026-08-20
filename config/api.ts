@@ -1,11 +1,9 @@
 import axios from "axios";
-import Constants from "expo-constants";
 import { obterSessao } from "../storage/session";
 
-const expoHost = Constants.expoConfig?.hostUri?.split(":")[0];
 const apiBaseURL =
   process.env.EXPO_PUBLIC_API_URL ??
-  (__DEV__ && expoHost ? `http://${expoHost}:3333/api` : "https://andrade-energy-api-vda.onrender.com/api");
+  "https://andrade-energy-api-vda.onrender.com/api";
 
 const api = axios.create({
   baseURL: apiBaseURL,

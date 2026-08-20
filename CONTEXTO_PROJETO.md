@@ -93,7 +93,7 @@ npm.cmd run start:consumidor -- --clear
 npm.cmd run start:gerador -- --clear
 ```
 
-No desenvolvimento em rede local, a API detecta o host do Expo. Para testar contra a API hospedada, usar `EXPO_PUBLIC_API_URL=https://andrade-energy-api-vda.onrender.com/api`.
+Por padrão, o app aponta para a API pública do Render. Para desenvolvimento com backend local, iniciar o Expo com `EXPO_PUBLIC_API_URL=http://<IP-DO-PC>:3333/api`; o Windows precisa permitir a porta TCP `3333` na rede local. Em 20/08/2026, o IP local usado foi `192.168.0.141`.
 
 ## Validação recente
 
@@ -111,3 +111,9 @@ No desenvolvimento em rede local, a API detecta o host do Expo. Para testar cont
 5. Se a conexão direta Outlook for desejada, criar o aplicativo Microsoft Entra e configurar as credenciais OAuth no Render; caso contrário, manter o encaminhamento via Outlook Web como fluxo oficial.
 6. Validar no celular a ativação, bloqueio e desbloqueio por biometria em ambos os apps.
 7. Revisar autorização de todas as rotas do backend e políticas RLS antes da operação em produção.
+
+## Diagnóstico mais recente — 20/08/2026
+
+- O fluxo Hotmail → Resend foi validado: um PDF encaminhado de `fatura@cemig` chegou ao domínio `graneipgi.resend.app` e o webhook recebeu resposta `202` do Render.
+- A resposta do webhook foi `{"aceito":true,"processar":false}`. Isso ocorre quando o evento não encontra uma UC ativa com o token do destinatário, normalmente por ter sido enviado antes da ativação ou para endereço anterior. Após a UC estar ativa, usar **Replay** no evento do Resend ou reenviar o PDF ao endereço atual.
+- O Render apresentou indisponibilidade intermitente/502 e recusou novo deploy no painel com `Service Unavailable`. O UptimeRobot foi configurado para monitorar `/health` a cada 5 minutos; enquanto a API pública estiver indisponível, o app pode operar localmente com o backend conectado ao Supabase.
