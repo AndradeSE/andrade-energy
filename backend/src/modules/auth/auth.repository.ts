@@ -9,7 +9,8 @@ export async function login(email: string, senha: string, tipo?: "CONSUMIDOR" | 
     .eq("ativo", true);
 
   consulta = tipo === "CONSUMIDOR"
-    ? consulta.eq("perfil", "LEITURA")
+    // O proprietário também pode consultar as próprias UCs pelo app Consumidor.
+    ? consulta.in("perfil", ["LEITURA", "GESTOR", "ADMIN"])
     : tipo === "GERADOR"
       ? consulta.in("perfil", ["GESTOR", "ADMIN"])
       : consulta;

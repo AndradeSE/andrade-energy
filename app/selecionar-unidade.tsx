@@ -48,6 +48,7 @@ import {
   Spacing,
   Typography,
 } from "../theme";
+import { IS_GERADOR_APP } from "../config/appVariant";
 
 export default function SelecionarUnidade() {
   const {
@@ -57,9 +58,9 @@ export default function SelecionarUnidade() {
     logout,
   } = useAuth();
 
-  const gestor =
-    usuario?.perfil === "ADMIN" ||
-    usuario?.perfil === "GESTOR";
+  // A experiência é definida pelo aplicativo aberto, não pelo perfil da conta.
+  // Assim, um proprietário pode consultar as próprias UCs no app Consumidor.
+  const gestor = IS_GERADOR_APP;
 
   const [itens, setItens] =
     useState<

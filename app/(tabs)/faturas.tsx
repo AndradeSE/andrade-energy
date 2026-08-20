@@ -7,8 +7,8 @@ import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { Alert, FlatList, Linking, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { AppHeader, EmptyState, Loading, Screen } from "../../components/ui";
-import { useAuth } from "../../contexts/AuthContext";
+import { AppHeader, Button, Card, EmptyState, Loading, Screen } from "../../components/ui";
+import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useFaturas } from "../../hooks/useFaturas";
 import { excluirFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
@@ -22,8 +22,7 @@ const estaVencida = (item: any) => !estaPaga(statusEfetivo(item)) && Boolean(ite
 const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function Faturas() {
-  const { usuario } = useAuth();
-  const proprietario = usuario?.perfil !== "LEITURA";
+  const proprietario = IS_GERADOR_APP;
   const { data, isLoading, error, refetch } = useFaturas();
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [baixando, setBaixando] = useState<string>();
@@ -110,6 +109,22 @@ export default function Faturas() {
             <View><Text style={styles.title}>{proprietario ? "Todas as faturas" : "Faturas"}</Text>{proprietario ? <Text style={styles.subtitle}>Acompanhe as cobranças de toda a carteira.</Text> : null}</View>
           </View>
 
+          {!proprietario ? <Card style={styles.autoReceiveCard}>
+            <View style={styles.autoReceiveIcon}>
+              <Ionicons name="mail-unread-outline" size={24} color={Colors.primary} />
+            </View>
+            <View style={styles.autoReceiveCopy}>
+              <Text style={styles.autoReceiveTitle}>Receba sua conta automaticamente</Text>
+              <Text style={styles.autoReceiveText}>Conecte ou encaminhe o e-mail da concessionária para agilizar seu faturamento.</Text>
+            </View>
+            <Button
+              title="Configurar recebimento"
+              icon={<Ionicons name="arrow-forward" size={19} color={Colors.surface} />}
+              onPress={() => router.push("/unidades/recebimento-email")}
+              style={styles.autoReceiveButton}
+            />
+          </Card> : null}
+
           <View style={styles.filterTabs}>
             <FilterButton active={filtro === "todas"} label="Todas" onPress={() => setFiltro("todas")} />
             <FilterButton active={filtro === "abertas"} label="Abertas" onPress={() => setFiltro("abertas")} />
@@ -183,6 +198,12 @@ const styles = StyleSheet.create({
   back: { width: 38, height: 38, alignItems: "center", justifyContent: "center", marginRight: Spacing.xs },
   title: { color: Colors.text, fontSize: Typography.card, fontWeight: "800" },
   subtitle: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small },
+  autoReceiveCard: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.lg, padding: Spacing.md, backgroundColor: "#E6F4EA" },
+  autoReceiveIcon: { width: 46, height: 46, alignItems: "center", justifyContent: "center", borderRadius: Radius.round, backgroundColor: Colors.surface },
+  autoReceiveCopy: { flex: 1, minWidth: 190 },
+  autoReceiveTitle: { color: Colors.text, fontSize: Typography.caption, fontWeight: "900" },
+  autoReceiveText: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 17 },
+  autoReceiveButton: { width: "100%", height: 46, borderRadius: Radius.md },
   filterTabs: { flexDirection: "row", marginBottom: Spacing.lg, borderBottomWidth: 1, borderBottomColor: Colors.border },
   filterButton: { flex: 1, minHeight: 48, alignItems: "center", justifyContent: "center", borderBottomWidth: 3, borderBottomColor: "transparent" },
   filterButtonActive: { borderBottomColor: "#8F938D" },

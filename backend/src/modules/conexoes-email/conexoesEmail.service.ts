@@ -446,11 +446,11 @@ async function criarRegraOutlook(accessToken: string, unidade: any, destinatario
       displayName: `Andrade Energy · UC ${unidade.numero}`,
       sequence: 1,
       isEnabled: true,
-      // Regra intencionalmente restrita: mensagens da CEMIG, com anexo e assunto de conta/fatura.
+      // Apenas o remetente oficial de faturas: há outros e-mails da CEMIG
+      // com PDF que não correspondem a contas de energia.
       conditions: {
         hasAttachments: true,
-        senderContains: ["cemig"],
-        subjectContains: ["fatura", "conta", "energia"],
+        senderContains: ["fatura@cemig"],
       },
       actions: {
         forwardTo: [{ emailAddress: { address: destinatario } }],

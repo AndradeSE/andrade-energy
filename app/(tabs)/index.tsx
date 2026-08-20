@@ -1,20 +1,7 @@
-import { useAuth } from "../../contexts/AuthContext";
-
 import ClientePager from "../../components/cliente/ClientePager";
 import DashboardGestor from "../../components/dashboard/DashboardGestor";
+import { IS_GERADOR_APP } from "../../config/appVariant";
 
 export default function Home() {
-  const { usuario } = useAuth();
-  if (!usuario) return null;
-
-  switch (usuario.perfil) {
-    case "ADMIN":
-    case "GESTOR":
-      return <DashboardGestor />;
-
-    case "LEITURA":
-      return <ClientePager />;
-    default:
-      return <ClientePager />;
-  }
+  return IS_GERADOR_APP ? <DashboardGestor /> : <ClientePager />;
 }

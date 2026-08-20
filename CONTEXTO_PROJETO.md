@@ -26,11 +26,13 @@ Os dois aplicativos usam a mesma base de código. A variante é escolhida por `E
 - Ao entrar, o usuário seleciona sua unidade consumidora cadastrada; ele não cria UCs pelo app.
 - Abas visíveis: Home, Economia e Contrato. O menu de três linhas mantém Perfil e preferências.
 - Home mostra faturas pendentes e permite abrir a fatura; Economia separa documentos da Andrade Energy e contas da concessionária.
+- A tela **Faturas** possui um card de destaque **Receba sua conta automaticamente**, que leva diretamente à configuração da UC.
+- A experiência visual é definida pela variante aberta. Uma conta de Gerador pode entrar no app Consumidor para consultar as UCs vinculadas ao seu CPF, sem receber o layout administrativo.
 - Contrato exibe status, termo de adesão, UCs, vigência, economia estimada e o cancelamento. Cancelamentos de contratos vencidos podem gerar a fatura de encerramento do saldo de compensação.
 - Cabeçalhos, carregamento e ícones utilizam a identidade Andrade Energy; o app consumidor e o gerador têm variantes visuais distintas.
 - Perfil reúne nome completo, CPF somente para consulta, e-mail, telefone, alteração de senha, encerramento de sessão e exclusão/desativação da conta. A exclusão preserva os dados comerciais e bloqueia o novo acesso.
 - A biometria é configurada por usuário e por aparelho, pode ser ativada no login ou no Perfil e bloqueia o acesso quando o app volta do segundo plano. A sessão é restaurada sem ser apagada no início do app.
-- Em **Receber contas automaticamente**, o consumidor pode conectar Gmail ou Outlook sem informar a senha à Andrade Energy. O retorno da autorização usa deep links próprios de cada variante, portanto funciona tanto no Consumidor quanto no Gerador.
+- Em **Receber contas automaticamente**, o consumidor gera um endereço exclusivo da UC e ativa a importação de PDFs. A integração direta via OAuth está implementada, mas só deve ser apresentada como disponível quando as credenciais do provedor estiverem configuradas no Render.
 
 ### Atualização de dados
 
@@ -57,8 +59,9 @@ Os cálculos com faturas CEMIG, sobretudo GD1/GD2 e tarifas com imposto, ainda d
 - Banco, autenticação e armazenamento de PDFs: Supabase.
 - PDFs de faturas são armazenados no bucket privado `faturas`, com links temporários para download.
 - E-mail: integração Brevo preparada. WhatsApp continua dependente de credenciais e modelo aprovado na Meta.
-- Recebimento automático de contas está implementado com Resend Inbound: uma UC ativa pode gerar endereço opaco, validar o webhook assinado, baixar somente PDFs válidos, conferir a UC, criar a fatura em rascunho e aguardar confirmação do gerador. A configuração externa está descrita em `RECEBIMENTO_AUTOMATICO_FATURAS.md`.
-- Conexão de caixa de e-mail: OAuth 2.0 com PKCE, estado de uso único e refresh token cifrado com AES-256-GCM. Outlook/Hotmail cria uma regra limitada a mensagens CEMIG com anexo quando o endereço da UC está ativo; Gmail fica em `LEITURA_AUTORIZADA`, sem criar regra silenciosa. Consulte `docs/CONEXOES_EMAIL_OAUTH.md` para cadastrar os apps OAuth e segredos no Render.
+- Recebimento automático de contas está implementado com Resend Inbound. O domínio gratuito configurado é `graneipgi.resend.app`; uma UC ativa gera um endereço opaco, valida webhook assinado, baixa somente PDFs válidos, confere a UC, cria a fatura em rascunho e aguarda confirmação do gerador. O webhook aponta para `https://andrade-energy-api-vda.onrender.com/api/webhooks/resend/inbound`.
+- Fluxo operacional atual: o cliente cria uma regra no **Outlook Web** (o aplicativo Outlook móvel não oferece essa configuração) para encaminhar somente mensagens de `fatura@cemig` com anexo PDF para o endereço exclusivo da UC. Não usar encaminhamento geral da caixa de entrada.
+- Conexão direta de caixa de e-mail: OAuth 2.0 com PKCE, estado de uso único e refresh token cifrado com AES-256-GCM já está implementado. Porém, Outlook/Hotmail ainda não está liberado em produção: falta registrar o aplicativo oficial Andrade Energy no Microsoft Entra e informar `MICROSOFT_OAUTH_CLIENT_ID`, `MICROSOFT_OAUTH_CLIENT_SECRET`, `OAUTH_PUBLIC_BASE_URL` e `OAUTH_TOKEN_ENCRYPTION_KEY` no Render. A conta Hotmail pessoal não possui diretório Entra para esse registro, e a criação via Azure pode exigir conta/assinatura. Quando configurado, a regra automática deve filtrar `fatura@cemig` e anexos, não todos os e-mails CEMIG. Gmail permanece sem regra silenciosa.
 - As migrations de recebimento por e-mail, perfil e conexões OAuth já foram aplicadas ao Supabase em 20/08/2026.
 - EAS possui perfis separados `preview`, `preview-gerador`, `production` e `production-gerador`.
 
@@ -104,7 +107,7 @@ No desenvolvimento em rede local, a API detecta o host do Expo. Para testar cont
 1. Validar no celular o gesto de atualização e a navegação em cada variante.
 2. Executar ponta a ponta o cadastro por PDF, alocação, faturamento, download e baixa de uma fatura real de teste.
 3. Conferir com novas faturas CEMIG GD1/GD2 se todos os campos de energia compensada, saldo e tarifa foram lidos corretamente.
-4. Configurar no Render a chave `OAUTH_TOKEN_ENCRYPTION_KEY` e as credenciais OAuth do Google e/ou Microsoft; cadastrar os callbacks HTTPS da API conforme `docs/CONEXOES_EMAIL_OAUTH.md`.
-5. Ativar o domínio e webhook do Resend Inbound e testar a criação automática de regra Outlook em uma UC de teste.
+4. Fazer teste ponta a ponta do Resend: ativar uma UC real, encaminhar uma fatura PDF de `fatura@cemig` para o endereço exclusivo e confirmar a criação do rascunho.
+5. Se a conexão direta Outlook for desejada, criar o aplicativo Microsoft Entra e configurar as credenciais OAuth no Render; caso contrário, manter o encaminhamento via Outlook Web como fluxo oficial.
 6. Validar no celular a ativação, bloqueio e desbloqueio por biometria em ambos os apps.
 7. Revisar autorização de todas as rotas do backend e políticas RLS antes da operação em produção.

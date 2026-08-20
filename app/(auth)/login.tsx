@@ -46,12 +46,6 @@ export default function Login() {
     try {
       setLoading(true);
       const resposta = await login(emailNormalizado, senha, IS_GERADOR_APP ? "GERADOR" : "CONSUMIDOR");
-      const perfilGestor = resposta.usuario?.perfil === "ADMIN" || resposta.usuario?.perfil === "GESTOR";
-      if (IS_GERADOR_APP !== perfilGestor) {
-        throw new Error(IS_GERADOR_APP
-          ? "Esta conta é do aplicativo Consumidor."
-          : "Esta é sua conta de Gerador. Para acessar como consumidor, toque em “Aceitar convite e criar conta”.");
-      }
       await salvarSessao(resposta.token, resposta.usuario);
       if (ativarBiometria) {
         const disponivel = await verificarDigitalDisponivel();

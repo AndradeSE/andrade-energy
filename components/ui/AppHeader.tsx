@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../contexts/AuthContext";
 import { listarFaturas } from "../../services/faturas.service";
 import { buscarDashboardUsina } from "../../services/usinas.service";
+import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 type Props = {
@@ -34,7 +35,7 @@ export default function AppHeader({
   const [notificacoes, setNotificacoes] = useState<any[]>([]);
   const [notificacoesLidas, setNotificacoesLidas] = useState<string[]>([]);
   const [autonomia, setAutonomia] = useState<{ percentual: number; disponivel: number } | null>(null);
-  const proprietario = usuario?.perfil === "ADMIN" || usuario?.perfil === "GESTOR";
+  const proprietario = IS_GERADOR_APP;
   const chaveNotificacoesLidas = `andrade_energy_notificacoes_lidas_${usuario?.id ?? "anon"}`;
 
   useEffect(() => {

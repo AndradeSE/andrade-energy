@@ -245,7 +245,7 @@ export default function RecebimentoEmail() {
     <ScrollView bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.heading}>
         <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={24} color={Colors.text} /></TouchableOpacity>
-        <View style={styles.headingText}><Text style={styles.eyebrow}>SUA CONTA DE LUZ</Text><Text style={styles.title}>Receber contas automaticamente</Text><Text style={styles.subtitle}>Encaminhe a fatura da concessionária para que ela seja lida e calculada com segurança.</Text></View>
+        <View style={styles.headingText}><Text style={styles.eyebrow}>SUA CONTA DE LUZ</Text><Text style={styles.title}>Receber contas automaticamente</Text><Text style={styles.subtitle}>Encaminhe somente as faturas recebidas de fatura@cemig para leitura e cálculo seguros.</Text></View>
       </View>
 
       <Card style={styles.unitCard}>
@@ -297,7 +297,7 @@ export default function RecebimentoEmail() {
             <Ionicons name="close-circle-outline" size={21} color={Colors.danger} />
           </TouchableOpacity>
         </Card>)}
-      </View> : <Text style={styles.connectionHint}>Conecte Gmail ou Outlook para importar as contas sem criar regras de encaminhamento.</Text>}
+      </View> : <Text style={styles.connectionHint}>A conexão direta do Outlook será liberada pela Andrade Energy. Enquanto isso, ative o endereço exclusivo abaixo e use a regra do Hotmail — ela continua automática.</Text>}
 
       {!dados?.configurado ? <Card style={styles.pendingCard}><Ionicons name="time-outline" size={24} color={Colors.warning} /><View style={styles.pendingCopy}><Text style={styles.pendingTitle}>Configuração em preparação</Text><Text style={styles.pendingText}>O endereço de recebimento será liberado assim que a Andrade Energy concluir a configuração segura do domínio.</Text></View></Card> : <>
         <Card style={[styles.statusCard, temErro && styles.statusCardError]}>
@@ -316,10 +316,11 @@ export default function RecebimentoEmail() {
 
           <Text style={styles.sectionTitle}>COMO CONFIGURAR</Text>
           <Card>
-            <Instruction number="1" text="No Gmail ou Outlook, abra as regras de encaminhamento automático." />
-            <Instruction number="2" text="Crie uma regra para contas enviadas pela sua concessionária." />
-            <Instruction number="3" text="Encaminhe os e-mails com PDF para o endereço acima." />
-            <Instruction number="4" text="Quando a conta chegar, ela será calculada e ficará em conferência antes da cobrança." last />
+            <Instruction number="1" text="No Hotmail/Outlook, toque na engrenagem e abra E-mail > Regras." />
+            <Instruction number="2" text="Toque em Adicionar nova regra e dê o nome “Fatura CEMIG — Andrade Energy”." />
+            <Instruction number="3" text="Em Adicionar uma condição, escolha De e informe: fatura@cemig. Adicione também a condição Possui anexo." />
+            <Instruction number="4" text="Em Adicionar uma ação, escolha Encaminhar para e cole o endereço exclusivo acima. Depois toque em Salvar." />
+            <Instruction number="5" text="Somente as faturas da CEMIG com PDF serão encaminhadas, calculadas e enviadas para conferência." last />
           </Card>
 
           {dados.ultimoRecebimentoEm ? <Text style={styles.lastReceipt}>Último recebimento: {formatarData(dados.ultimoRecebimentoEm)}</Text> : null}

@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { LocaleDirContext, ParamListBase, TabNavigationState } from "@react-navigation/native";
 import { createMaterialTopTabNavigator, MaterialTopTabNavigationEventMap, MaterialTopTabNavigationOptions } from "@react-navigation/material-top-tabs";
 import { Tabs, withLayoutContext } from "expo-router";
-import { useAuth } from "../../contexts/AuthContext";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 
 const TopTabs = createMaterialTopTabNavigator();
@@ -28,10 +27,6 @@ const OwnerTabs = withLayoutContext<MaterialTopTabNavigationOptions, typeof TopT
 );
 
 export default function TabLayout() {
-  const { usuario } = useAuth();
-
-  const perfil = usuario?.perfil;
-
   const tabStyle = {
     height: 82,
     paddingTop: 8,
@@ -70,8 +65,7 @@ export default function TabLayout() {
   // CLIENTE
   // ===================================================
 
-  const appConsumidor = !IS_GERADOR_APP;
-  if (appConsumidor || perfil === "LEITURA") {
+  if (!IS_GERADOR_APP) {
     return (
       <Tabs
         screenOptions={{
