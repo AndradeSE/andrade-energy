@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   Alert,
+  RefreshControl,
   Linking,
   ScrollView,
   StyleSheet,
@@ -8,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useState } from "react";
 
 import { Badge, Button, Card, Divider, EmptyState, Loading, Screen } from "../../components/ui";
 import { useContrato } from "../../hooks/useContrato";
@@ -32,10 +34,20 @@ function normalizarStatus(status?: string) {
 }
 
 export default function Contrato() {
-  const { data, isLoading, error } = useContrato();
-  const { data: dashboard } = useDashboard();
+  const { data, isLoading, error, refetch: recarregarContrato } = useContrato();
+  const { data: dashboard, refetch: recarregarDashboard } = useDashboard();
   const { unidadeSelecionada } = useAuth();
   const queryClient = useQueryClient();
+  const [atualizando, setAtualizando] = useState(false);
+
+  async function atualizarPagina() {
+    setAtualizando(true);
+    try {
+      await Promise.all([recarregarContrato(), recarregarDashboard()]);
+    } finally {
+      setAtualizando(false);
+    }
+  }
 
   if (isLoading) return <Loading />;
 
@@ -102,6 +114,10 @@ export default function Contrato() {
     <Screen>
       <ClienteHeader cliente={dashboard?.cliente ?? "Cliente"} uc={dashboard?.uc ?? unidadeSelecionada?.numero ?? ""} distribuidora={dashboard?.distribuidora ?? unidadeSelecionada?.distribuidora ?? "Concessionária"} fullBleed />
       <ScrollView
+        bounces
+        alwaysBounceVertical
+        overScrollMode="always"
+        refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >

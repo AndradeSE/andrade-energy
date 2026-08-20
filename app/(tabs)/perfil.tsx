@@ -1,5 +1,6 @@
 import {
   Alert,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Switch,
@@ -53,6 +54,11 @@ export default function Perfil() {
     setDigitalAvailable,
   ] = useState(false);
 
+  const [
+    atualizando,
+    setAtualizando,
+  ] = useState(false);
+
   useEffect(() => {
     verificarDisponibilidade();
   }, []);
@@ -74,6 +80,15 @@ export default function Perfil() {
       setDigitalAvailable(
         false
       );
+    }
+  }
+
+  async function atualizarPagina() {
+    setAtualizando(true);
+    try {
+      await Promise.all([verificarDisponibilidade(), refreshDigitalStatus()]);
+    } finally {
+      setAtualizando(false);
     }
   }
 
@@ -197,6 +212,10 @@ export default function Perfil() {
 
   return (
     <ScrollView
+      bounces
+      alwaysBounceVertical
+      overScrollMode="always"
+      refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}
       style={
         styles.container
       }

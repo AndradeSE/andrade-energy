@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useState } from "react";
 
 import Badge from "../../components/ui/Badge";
 import Card from "../../components/ui/Card";
@@ -40,7 +41,17 @@ const formatarCompetencia = (competencia?: string) => {
 };
 
 export default function Economia() {
-  const { data, isLoading, error } = useDashboard();
+  const { data, isLoading, error, refetch } = useDashboard();
+  const [atualizando, setAtualizando] = useState(false);
+
+  async function atualizarPagina() {
+    setAtualizando(true);
+    try {
+      await refetch();
+    } finally {
+      setAtualizando(false);
+    }
+  }
 
   if (isLoading) return <Loading />;
 
@@ -66,6 +77,10 @@ export default function Economia() {
     <Screen>
       <ClienteHeader cliente={data.cliente} uc={data.uc} distribuidora={data.distribuidora} fullBleed />
       <ScrollView
+        bounces
+        alwaysBounceVertical
+        overScrollMode="always"
+        refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >

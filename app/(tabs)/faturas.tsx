@@ -5,7 +5,7 @@ import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, FlatList, Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, FlatList, Linking, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { AppHeader, EmptyState, Loading, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
@@ -27,6 +27,7 @@ export default function Faturas() {
   const { data, isLoading, error, refetch } = useFaturas();
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [baixando, setBaixando] = useState<string>();
+  const [atualizando, setAtualizando] = useState(false);
   const faturas = useMemo(() => data ?? [], [data]);
 
   const lista = useMemo(() => faturas.filter((item: any) => {
@@ -35,6 +36,15 @@ export default function Faturas() {
     if (filtro === "vencidas") return estaVencida(item);
     return true;
   }), [faturas, filtro]);
+
+  async function atualizarPagina() {
+    setAtualizando(true);
+    try {
+      await refetch();
+    } finally {
+      setAtualizando(false);
+    }
+  }
 
   const confirmarExclusao = (item: any) => {
     Alert.alert(
@@ -84,6 +94,10 @@ export default function Faturas() {
     <Screen>
       {proprietario ? <AppHeader title="Faturas" subtitle="Todos os clientes" contextTitle={`${faturas.length} faturas cadastradas`} contextSubtitle="Abertas, vencidas e pagas" icon="receipt-outline" /> : null}
       <FlatList
+        bounces
+        alwaysBounceVertical
+        overScrollMode="always"
+        refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}
         contentContainerStyle={styles.content}
         data={lista}
         keyExtractor={(item) => item.id}

@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 
 import { AppHeader, Badge, Button, Card, EmptyState, Loading, Metric, Screen } from "../../components/ui";
 import { listarFechamentos, obterResumoOperacao } from "../../services/fechamentos.service";
@@ -14,9 +14,11 @@ export default function Operacao() {
   const [resumo, setResumo] = useState<any>(); const [lista, setLista] = useState<any[]>([]); const [loading, setLoading] = useState(true);
   const carregar = useCallback(async () => { try { const [r, l] = await Promise.all([obterResumoOperacao(), listarFechamentos()]); setResumo(r); setLista(l ?? []); } finally { setLoading(false); } }, []);
   useFocusEffect(useCallback(() => { carregar(); }, [carregar]));
+  const [atualizando, setAtualizando] = useState(false);
+  async function atualizarPagina() { setAtualizando(true); try { await carregar(); } finally { setAtualizando(false); } }
 
   return <Screen><AppHeader title="Operação" subtitle="Fechamentos das usinas" contextTitle={`${resumo?.fechamentos ?? 0} competências processadas`} contextSubtitle="Geração, alocação e receita" icon="analytics-outline" />
-    {loading ? <Loading /> : <FlatList contentContainerStyle={styles.content} data={lista} keyExtractor={(item) => item.id}
+    {loading ? <Loading /> : <FlatList bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} data={lista} keyExtractor={(item) => item.id}
       ListHeaderComponent={<View><View style={styles.heading}><Text style={styles.title}>Visão operacional</Text><Text style={styles.subtitle}>Consolide a energia de cada competência.</Text></View><View style={styles.grid}>
         <View style={styles.metric}><Metric compact title="Energia gerada" value={energia(resumo?.energiaGerada)} icon={<Ionicons name="sunny-outline" size={20} color={Colors.primary} />} /></View>
         <View style={styles.metric}><Metric compact title="Disponível" value={energia(resumo?.energiaDisponivel)} icon={<Ionicons name="battery-half-outline" size={20} color={Colors.primary} />} /></View>

@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import AndradeBarChart from "../../components/charts/AndradeBarChart";
 import { AppHeader, Button, Card, Divider, Loading, Metric, Screen, Section } from "../../components/ui";
@@ -12,12 +12,14 @@ const moeda = (valor: number) => Number(valor ?? 0).toLocaleString("pt-BR", { st
 
 export default function Financeiro() {
   const [loading, setLoading] = useState(true);
+  const [atualizando, setAtualizando] = useState(false);
   const [dados, setDados] = useState({ receitaPrevista: 0, receitaRecebida: 0, valorEmAberto: 0, inadimplentes: 0, ticketMedio: 0, percentualRecebido: 0, totalFaturas: 0, historicoMensal: [] as { competencia: string; valor: number }[] });
   const carregar = useCallback(async () => { try { setDados(await FinanceiroService.carregarFinanceiro()); } finally { setLoading(false); } }, []);
   useFocusEffect(useCallback(() => { carregar(); }, [carregar]));
+  async function atualizarPagina() { setAtualizando(true); try { await carregar(); } finally { setAtualizando(false); } }
 
   return <Screen><AppHeader title="Financeiro" subtitle="Receita da carteira" contextTitle={moeda(dados.receitaRecebida)} contextSubtitle={`${dados.percentualRecebido.toFixed(1)}% da receita recebida`} icon="wallet-outline" />
-    {loading ? <Loading /> : <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    {loading ? <Loading /> : <ScrollView bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <Button title="Faturar via conta de energia" icon={<Ionicons name="document-attach-outline" size={20} color={Colors.surface} />} onPress={() => router.push("/faturamento/manual")} style={styles.billingButton} />
       <Section title="Resumo financeiro"><View style={styles.grid}>
         <View style={styles.metric}><Metric compact title="Receita prevista" value={moeda(dados.receitaPrevista)} icon={<Ionicons name="trending-up-outline" size={20} color={Colors.primary} />} /></View>

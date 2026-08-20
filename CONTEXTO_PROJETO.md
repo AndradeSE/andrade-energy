@@ -1,66 +1,65 @@
-# Andrade Energy — continuidade do projeto
+# Andrade Energy — contexto do projeto
 
-## Estado atual
+## Visão geral
 
-Aplicativo Expo SDK 54 com backend Node/Express e Supabase. A experiência do perfil
-LEITURA foi modernizada com referência visual Wattio, preservando a lógica existente
-e reutilizando `components/ui`.
+Plataforma de gestão de energia por assinatura, composta por dois aplicativos Expo SDK 54 e um backend Node/Express com Supabase:
 
-Telas evoluídas: Home, Economia, Faturas, detalhe da fatura, Contrato e Perfil.
-Os destaques visuais reutilizam `assets/images/background.png`.
+- **Andrade Energy Gerador:** gestão de usinas, clientes, unidades consumidoras, alocações, operação, faturamento e financeiro.
+- **Andrade Energy Consumidor:** consulta das unidades vinculadas ao CPF da conta, economia, faturas, contrato e notificações.
 
-## Faturamento
+Os dois aplicativos usam a mesma base de código. A variante é escolhida por `EXPO_PUBLIC_APP_VARIANT` no arquivo `app.config.js`; cada uma possui identificador EAS, pacote Android e ícone próprios.
 
-O cadastro do cliente contém modalidade `INJECAO` ou `COMPENSACAO` e desconto
-contratado. O processamento gera memória de cálculo com cobrança CEMIG, cobrança da
-usina, total unificado, economia real e desconto final real considerando impostos e
-encargos.
+## Estado implementado
 
-As migrações em `supabase/migrations` já foram aplicadas no projeto Supabase:
+### Gerador
 
-- `20260814180000_faturamento_cliente_unificado.sql`
-- `20260814193000_storage_faturas_privadas.sql`
-- `20260814203000_fila_notificacoes_fatura.sql`
-- `20260814220000_unidades_consumidoras.sql`
+- Abas: Home, Clientes, Usinas, Operação, Faturas, Financeiro e Perfil.
+- Cadastro manual e por PDF de clientes, usinas e unidades consumidoras.
+- Uma unidade consumidora pode ser alocada a uma usina; o card da usina mostra UCs alocadas, energia alocada, restante e média dos últimos 12 meses.
+- Importação da conta de energia da usina para registrar produção a partir das leituras, com fator de multiplicação.
+- Área de faturas com filtros de abertas, vencidas e pagas, download da conta da concessionária e da fatura unificada.
+- Notificações persistem as leituras por usuário para não reaparecerem como não lidas.
 
-O produto agora trata ADMIN e GESTOR como uma única experiência de proprietário de
-usinas, mantendo os dois valores no banco somente por compatibilidade. Cliente,
-usina e unidade consumidora são entidades separadas. Um cliente pode possuir várias
-unidades, e cada unidade pode ser vinculada a uma usina.
+### Consumidor
 
-Clientes, usinas e unidades consumidoras podem ser cadastrados manualmente ou a
-partir da leitura de uma fatura PDF. O endpoint `POST /api/faturas/analisar` somente
-extrai e sugere dados; ele não cria faturamento, documentos ou notificações. O usuário
-sempre confere e confirma o cadastro no aplicativo.
+- Ao entrar, o usuário seleciona sua unidade consumidora cadastrada; ele não cria UCs pelo app.
+- Abas visíveis: Home, Economia e Contrato. O menu de três linhas mantém Perfil e preferências, incluindo biometria.
+- Home mostra faturas pendentes e permite abrir a fatura; Economia separa documentos da Andrade Energy e contas da concessionária.
+- Contrato exibe status, termo de adesão, UCs, vigência, economia estimada e o cancelamento. Cancelamentos de contratos vencidos podem gerar a fatura de encerramento do saldo de compensação.
+- Cabeçalhos, carregamento e ícones utilizam a identidade Andrade Energy; o app consumidor e o gerador têm variantes visuais distintas.
 
-Os parsers foram validados com contas CEMIG reais com e sem GD. A conta GD identifica
-energia injetada, compensada, saldo de créditos, tarifa GD e custo de disponibilidade.
-Também foram incluídos endereços urbanos e rurais com diferentes abreviações da CEMIG.
+### Atualização de dados
 
-A Home do proprietário e as áreas de Clientes, Usinas, Unidades e Contratos usam o
-novo padrão visual inspirado na Wattio, com menu lateral de três linhas. A geração do
-mês pode ser atualizada manualmente pela fatura da unidade geradora; o backend usa a
-energia injetada e atualiza a competência sem duplicá-la. A geração total corresponde
-à soma das competências importadas. Integrações opcionais com inversores PHB, Sungrow
-e Fronius ficaram para uma etapa futura.
+Todas as abas suportam atualização por gesto de puxar a tela para baixo, com comportamento elástico:
 
-## Documentos e notificações
+- Consumidor: Home, Economia e Contrato.
+- Gerador: Home, Clientes, Usinas, Operação, Faturas, Financeiro e Perfil.
 
-Ao importar uma conta CEMIG, o backend guarda o original no bucket privado `faturas`,
-gera o PDF da usina e o PDF unificado e fornece links temporários de download.
+As listas também se atualizam ao voltar à tela correspondente.
 
-A fila `notificacoes_fatura` prepara os envios por e-mail e WhatsApp, evita duplicidade
-e repete falhas. O e-mail está integrado à Brevo e foi validado com um envio real para
-o próprio remetente. A integração do WhatsApp ainda depende das credenciais e de um
-modelo aprovado na Meta.
+## Faturamento e regras de energia
 
-## Configuração local obrigatória
+- A importação de PDF usada para cadastro somente extrai dados e sugere campos; não deve gerar faturamento automaticamente.
+- A fatura unificada preserva a conta da concessionária e calcula separadamente a cobrança de energia da usina, desconto e economia.
+- Para **compensação**, a cobrança mensal é somente pela energia compensada lida nos campos `Energia Compensada GD1` ou `GD2`. O saldo de créditos é registrado e cobrado apenas no encerramento do contrato.
+- Na ausência de energia compensada no PDF, considerar `0 kWh`.
+- Para **injeção**, a alocação inicial é 100%, podendo ser ajustada; para compensação, a alocação é sugerida pela média de consumo dos últimos 12 meses e pode ser editada.
 
-O arquivo `backend/.env` nunca vai para o Git. Em cada computador, copiar
-`backend/.env.example` para `backend/.env` e preencher localmente as chaves do
-Supabase e da Brevo. Transferir segredos somente por um meio privado.
+Os cálculos com faturas CEMIG, sobretudo GD1/GD2 e tarifas com imposto, ainda devem ser conferidos com PDFs reais antes de uso comercial amplo.
 
-Depois de clonar ou atualizar:
+## Backend e infraestrutura
+
+- API de produção configurada: `https://andrade-energy-api-vda.onrender.com/api`.
+- Banco, autenticação e armazenamento de PDFs: Supabase.
+- PDFs de faturas são armazenados no bucket privado `faturas`, com links temporários para download.
+- E-mail: integração Brevo preparada. WhatsApp continua dependente de credenciais e modelo aprovado na Meta.
+- EAS possui perfis separados `preview`, `preview-gerador`, `production` e `production-gerador`.
+
+Uma alteração de ícone, pacote, permissão nativa ou versão requer novo build EAS. Alterações somente em JavaScript/TypeScript podem ser entregues por update OTA quando houver build compatível instalado.
+
+## Como executar localmente
+
+Pré-requisito: criar `backend/.env` a partir de `backend/.env.example` e preencher segredos por meio privado. Nunca versionar `.env`.
 
 ```powershell
 npm.cmd ci
@@ -70,27 +69,24 @@ npm.cmd run build
 npm.cmd run dev
 ```
 
-Para iniciar o app em outro terminal, na raiz:
+Em outro terminal, na raiz:
 
 ```powershell
-npx.cmd expo start --lan
+npm.cmd run start:consumidor -- --clear
+npm.cmd run start:gerador -- --clear
 ```
 
-A API do app detecta o IP do host do Expo. Também pode ser definida explicitamente
-com `EXPO_PUBLIC_API_URL`.
+No desenvolvimento em rede local, a API detecta o host do Expo. Para testar contra a API hospedada, usar `EXPO_PUBLIC_API_URL=https://andrade-energy-api-vda.onrender.com/api`.
 
-## Pendências prioritárias
+## Validação recente
 
-1. Validar no celular os três fluxos de cadastro manual e por PDF.
-2. Executar um teste completo com cliente de teste: importar CEMIG, calcular, gerar os
-   três PDFs e entregar o e-mail.
-3. Implementar recebimento automático das faturas enviadas pela concessionária. A
-   solução robusta requer caixa de entrada própria/domínio ou provedor de inbound.
-4. Conectar WhatsApp Cloud API e aprovar o modelo `fatura_disponivel`.
-5. Adicionar autenticação/autorização às rotas do backend antes da produção.
+- TypeScript: `node_modules\\.bin\\tsc.cmd --noEmit --pretty false` passou sem erros.
+- Lint das telas atualizadas passou sem erros.
 
-## Segurança
+## Próximos testes prioritários
 
-Nunca versionar `.env`, chaves Supabase, Brevo, Meta ou caches de autenticação. O PDF
-do contrato sem assinaturas está versionado em `output/pdf` por decisão explícita do
-proprietário do projeto.
+1. Validar no celular o gesto de atualização e a navegação em cada variante.
+2. Executar ponta a ponta o cadastro por PDF, alocação, faturamento, download e baixa de uma fatura real de teste.
+3. Conferir com novas faturas CEMIG GD1/GD2 se todos os campos de energia compensada, saldo e tarifa foram lidos corretamente.
+4. Implementar recebimento automático de contas por e-mail e concluir a integração do WhatsApp Cloud API.
+5. Revisar autorização de todas as rotas do backend e políticas RLS antes da operação em produção.
