@@ -72,7 +72,7 @@ export async function inserirFatura(
 export async function buscarFaturaPorId(id: string) {
   const { data, error } = await supabase
     .from("faturas")
-    .select("*")
+    .select("*, clientes(id,nome,cpf,endereco), unidades_consumidoras(id,numero,endereco,distribuidora)")
     .eq("id", id)
     .maybeSingle();
 

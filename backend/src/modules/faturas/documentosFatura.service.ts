@@ -47,8 +47,23 @@ function temGD2(fatura: any) {
   );
 }
 
+async function incluirDadosDaUCNaFatura(fatura: any) {
+  const [clienteResultado, unidadeResultado] = await Promise.all([
+    fatura.clientes?.nome ? Promise.resolve({ data: fatura.clientes, error: null }) : (fatura.cliente_id
+      ? supabase.from("clientes").select("id,nome,cpf,endereco").eq("id", fatura.cliente_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null })),
+    fatura.unidades_consumidoras?.id ? Promise.resolve({ data: fatura.unidades_consumidoras, error: null }) : (fatura.unidade_consumidora_id
+      ? supabase.from("unidades_consumidoras").select("id,numero,endereco,distribuidora").eq("id", fatura.unidade_consumidora_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null })),
+  ]);
+  if (clienteResultado.error) throw clienteResultado.error;
+  if (unidadeResultado.error) throw unidadeResultado.error;
+  return { ...fatura, clientes: clienteResultado.data ?? null, unidades_consumidoras: unidadeResultado.data ?? null };
+}
+
 /** Gera a fatura que o cliente recebe e pode baixar no aplicativo. */
-export function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
+export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
+  fatura = await incluirDadosDaUCNaFatura(fatura);
   return new Promise<Buffer>((resolve, reject) => {
     const pdf = new PDFDocument({ margin: 48, size: "A4", info: { Title: `Fatura Andrade Energy - ${fatura.referencia ?? "energia"}` } });
     const partes: Buffer[] = [];
@@ -67,6 +82,9 @@ export function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     const energiaInjetada = numero(fatura.energia_injetada);
     const energiaCompensada = numero(fatura.energia_compensada);
     const saldoCreditos = numero(fatura.saldo_atual);
+    const cliente = fatura.clientes ?? {};
+    const unidade = fatura.unidades_consumidoras ?? {};
+    const endereco = unidade.endereco ?? cliente.endereco ?? "Endereço não informado";
 
     pdf.rect(0, 0, 595, 112).fill(VERDE_ESCURO);
     pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(20).text("Andrade Energy", 48, 38);
@@ -74,9 +92,12 @@ export function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(10).text(`Referência: ${fatura.referencia ?? "Não informada"}`, 350, 42, { width: 196, align: "right" });
     pdf.fillColor("#D4F0E5").font("Helvetica").fontSize(9).text(`Vencimento: ${fatura.vencimento ?? "Não informado"}`, 350, 62, { width: 196, align: "right" });
 
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(8).text("UNIDADE CONSUMIDORA", 48, 135);
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(14).text(`UC ${fatura.numero_instalacao ?? "Não informada"}`, 48, 149);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(9).text(`Modalidade: ${String(fatura.modalidade_faturamento ?? "COMPENSACAO").toLowerCase() === "injecao" ? "injeção" : "compensação"}`, 48, 171);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(8).text("CLIENTE", 48, 132);
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(12).text(cliente.nome ?? "Cliente não informado", 48, 145, { width: 275, ellipsis: true });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(`${cliente.cpf ? `CPF/CNPJ: ${cliente.cpf} · ` : ""}${endereco}`, 48, 164, { width: 280, height: 22, ellipsis: true });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(8).text("UNIDADE CONSUMIDORA", 342, 132, { width: 204, align: "right" });
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(12).text(`UC ${fatura.numero_instalacao ?? unidade.numero ?? "Não informada"}`, 342, 145, { width: 204, align: "right" });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(`${unidade.distribuidora ?? fatura.distribuidora ?? "Concessionária"} · ${String(fatura.modalidade_faturamento ?? "COMPENSACAO").toLowerCase() === "injecao" ? "injeção" : "compensação"}`, 342, 164, { width: 204, align: "right" });
 
     // Quadro técnico inspirado na leitura da conta da CEMIG: consumo,
     // energia compensada/injetada e créditos aparecem separados dos valores.

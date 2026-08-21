@@ -93,6 +93,9 @@ export default function DetalheFatura() {
   const energiaInjetada = Number(fatura.energia_injetada ?? 0);
   const energiaCompensada = Number(fatura.energia_compensada ?? 0);
   const saldoCreditos = Number(fatura.saldo_atual ?? 0);
+  const clienteFatura = fatura.clientes ?? {};
+  const unidadeFatura = fatura.unidades_consumidoras ?? {};
+  const enderecoFatura = unidadeFatura.endereco ?? clienteFatura.endereco ?? "Endereço não informado";
   const possuiCustosGD2 =
     String(fatura.modalidade_faturamento ?? "").toUpperCase() === "COMPENSACAO" &&
     (Number(fatura.custo_disponibilidade ?? 0) > 0 ||
@@ -168,6 +171,21 @@ export default function DetalheFatura() {
           <Text style={styles.title}>Fatura {fatura.referencia}</Text>
           <Text style={styles.headingDueDate}>Vencimento {fatura.vencimento}</Text>
         </View>
+
+        <Card style={styles.customerCard}>
+          <View style={styles.customerCardIcon}><Ionicons name="person-outline" size={20} color={Colors.primary} /></View>
+          <View style={styles.customerCardCopy}>
+            <Text style={styles.customerCardLabel}>CLIENTE</Text>
+            <Text style={styles.customerCardName}>{clienteFatura.nome ?? "Cliente não informado"}</Text>
+            <Text style={styles.customerCardText}>{clienteFatura.cpf ? `CPF/CNPJ: ${clienteFatura.cpf}` : "CPF/CNPJ não informado"}</Text>
+            <Text style={styles.customerCardText}>{enderecoFatura}</Text>
+          </View>
+          <View style={styles.customerCardUnit}>
+            <Text style={styles.customerCardLabel}>UNIDADE</Text>
+            <Text style={styles.customerCardUnitValue}>UC {fatura.numero_instalacao ?? unidadeFatura.numero ?? "-"}</Text>
+            <Text style={styles.customerCardText}>{unidadeFatura.distribuidora ?? fatura.distribuidora ?? "Concessionária"}</Text>
+          </View>
+        </Card>
 
         <View style={[styles.downloadActions, styles.downloadActionsTop]}>
           <DownloadButton
@@ -365,6 +383,29 @@ const styles = StyleSheet.create({
     color: Colors.subtitle,
     fontSize: Typography.small,
   },
+  customerCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: Spacing.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: "#F8FBF9",
+  },
+  customerCardIcon: {
+    width: 38,
+    height: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: Radius.md,
+    backgroundColor: Colors.primaryLight,
+  },
+  customerCardCopy: { flex: 1, marginLeft: Spacing.sm },
+  customerCardLabel: { color: Colors.subtitle, fontSize: 9, fontWeight: "900", letterSpacing: 0.6 },
+  customerCardName: { marginTop: 3, color: Colors.text, fontSize: Typography.small, fontWeight: "900" },
+  customerCardText: { marginTop: 3, color: Colors.subtitle, fontSize: 10, lineHeight: 15 },
+  customerCardUnit: { width: 82, alignItems: "flex-end", marginLeft: Spacing.sm },
+  customerCardUnitValue: { marginTop: 3, color: Colors.primaryDark, fontSize: Typography.small, fontWeight: "900", textAlign: "right" },
   summaryCard: {
     marginBottom: Spacing.lg,
     padding: Spacing.lg,
