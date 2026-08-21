@@ -239,7 +239,9 @@ async function registrarEventoRecebido(evento: EventoResend, eventoId?: string) 
     const { data, error } = await supabase
       .from("unidades_consumidoras")
       .select("id, recebimento_email_ativo, status")
-      .eq("recebimento_email_token", alvo.token)
+      // Endereços de e-mail são tratados sem distinção de maiúsculas pelo
+      // provedor; o token original é base64url e pode conter maiúsculas.
+      .ilike("recebimento_email_token", alvo.token)
       .maybeSingle();
     if (error) throw error;
     if (data?.recebimento_email_ativo && data.status === "ATIVA") unidade = data;
