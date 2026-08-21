@@ -59,6 +59,14 @@ export async function processarFatura(
   };
 
 }
+  const enderecoDaFatura = String(dados.endereco ?? "").trim();
+  if (enderecoDaFatura && cliente.unidade_consumidora?.id) {
+    const { error: erroEndereco } = await supabase
+      .from("unidades_consumidoras")
+      .update({ endereco: enderecoDaFatura })
+      .eq("id", cliente.unidade_consumidora.id);
+    if (erroEndereco) throw erroEndereco;
+  }
 const faturaExistente = await buscarFatura(
   dados.uc,
   dados.referencia

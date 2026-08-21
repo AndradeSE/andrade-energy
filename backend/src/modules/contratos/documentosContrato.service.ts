@@ -39,12 +39,28 @@ export async function gerarMinutaContrato(unidadeId: string, contrato: any) {
   const dados = contrato.dados_documento ?? {};
   const cliente = unidade.clientes as any;
   const usina = unidade.usinas as any;
+  const enderecoInformado = texto(dados.endereco_uc, "");
+  let enderecoDaFatura = "";
+  if (!unidade.endereco && !enderecoInformado) {
+    const { data: ultimaFatura, error: erroFatura } = await supabase
+      .from("faturas")
+      .select("dados_cemig")
+      .eq("unidade_consumidora_id", unidade.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (erroFatura) throw erroFatura;
+    enderecoDaFatura = texto(ultimaFatura?.dados_cemig?.endereco, "");
+  }
   const locadorNome = texto(dados.locador_nome, "Andrade Energy");
   const locadorDocumento = texto(dados.locador_documento);
   const locadorEndereco = texto(dados.locador_endereco);
   const locatarioNome = texto(dados.locatario_nome, cliente?.nome);
   const locatarioDocumento = texto(dados.locatario_documento, cliente?.cpf);
-  const enderecoUc = texto(dados.endereco_uc, unidade.endereco ?? cliente?.endereco);
+  const enderecoUc = texto(
+    enderecoInformado === "Endereço não informado" ? "" : enderecoInformado,
+    unidade.endereco ?? enderecoDaFatura ?? cliente?.endereco,
+  );
   const prazo = texto(dados.prazo_anos, "10");
   const foro = texto(dados.foro, "Itajubá/MG");
   const potencia = texto(dados.potencia_kwp, usina?.potencia_kwp ? `${usina.potencia_kwp} kWp` : "Não informada");

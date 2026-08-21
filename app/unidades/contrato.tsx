@@ -62,6 +62,9 @@ export default function ContratoDaUnidade() {
   const [locadorNome, setLocadorNome] = useState("Andrade Energy");
   const [locadorDocumento, setLocadorDocumento] = useState("");
   const [locadorEndereco, setLocadorEndereco] = useState("");
+  const [locatarioNome, setLocatarioNome] = useState("");
+  const [locatarioDocumento, setLocatarioDocumento] = useState("");
+  const [enderecoUc, setEnderecoUc] = useState("");
   const [prazoAnos, setPrazoAnos] = useState("10");
   const [foro, setForo] = useState("Itajubá/MG");
   const [gerando, setGerando] = useState(false);
@@ -77,8 +80,9 @@ export default function ContratoDaUnidade() {
 
     Promise.allSettled([buscarContratoDaUnidade(id), buscarUnidade(id)])
       .then(async ([resultadoContrato, resultadoUnidade]) => {
+        let unidadeCarregada: any;
         if (resultadoUnidade.status === "fulfilled") {
-          let unidadeCarregada = resultadoUnidade.value;
+          unidadeCarregada = resultadoUnidade.value;
           // Garante o nome mesmo para UCs legadas em que a relação não veio no retorno.
           if (unidadeCarregada?.usina_id && !unidadeCarregada?.usinas?.nome && !unidadeCarregada?.usina_nome) {
             try {
@@ -110,6 +114,9 @@ export default function ContratoDaUnidade() {
         setLocadorNome(contrato.dados_documento?.locador_nome ?? "Andrade Energy");
         setLocadorDocumento(contrato.dados_documento?.locador_documento ?? "");
         setLocadorEndereco(contrato.dados_documento?.locador_endereco ?? "");
+        setLocatarioNome(contrato.dados_documento?.locatario_nome ?? unidadeCarregada?.clientes?.nome ?? cliente ?? "");
+        setLocatarioDocumento(contrato.dados_documento?.locatario_documento ?? unidadeCarregada?.clientes?.cpf ?? unidadeCarregada?.cpf_titular ?? "");
+        setEnderecoUc(contrato.dados_documento?.endereco_uc ?? unidadeCarregada?.endereco ?? unidadeCarregada?.clientes?.endereco ?? "");
         setPrazoAnos(String(contrato.dados_documento?.prazo_anos ?? "10"));
         setForo(contrato.dados_documento?.foro ?? "Itajubá/MG");
         setContratoGeradoUrl(contrato.contrato_gerado_url ?? undefined);
@@ -120,6 +127,13 @@ export default function ContratoDaUnidade() {
       })
       .finally(() => setCarregando(false));
   }, [clienteId, id]);
+
+  useEffect(() => {
+    if (!unidade) return;
+    setLocatarioNome((valor) => valor || unidade.clientes?.nome || cliente || "");
+    setLocatarioDocumento((valor) => valor || unidade.clientes?.cpf || unidade.cpf_titular || "");
+    setEnderecoUc((valor) => valor || unidade.endereco || unidade.clientes?.endereco || "");
+  }, [cliente, unidade]);
 
   function atualizarEconomiaMensal(valor: string) {
     const limpa = valor.replace(/[^\d,.]/g, "");
@@ -146,9 +160,11 @@ export default function ContratoDaUnidade() {
         locador_endereco: locadorEndereco,
         prazo_anos: prazoAnos,
         foro,
-        locatario_nome: nomeCliente,
-        locatario_documento: dadosCliente?.cpf ?? "",
-        endereco_uc: enderecoContrato,
+        locatario_nome: locatarioNome.trim(),
+        locatario_documento: locatarioDocumento.trim(),
+        // Não salvamos o texto de ausência: assim a minuta pode usar o
+        // endereço extraído da última conta da concessionária, se necessário.
+        endereco_uc: enderecoUc.trim(),
       },
     };
   }
@@ -267,6 +283,14 @@ export default function ContratoDaUnidade() {
           <FormField label="Foro" value={foro} onChangeText={setForo} placeholder="Cidade/UF" />
         </Card>
 
+        <Text style={styles.sectionTitle}>DADOS DA FATURA NO CONTRATO</Text>
+        <Card style={styles.formCard}>
+          <Text style={styles.formHint}>Você pode corrigir estes dados para esta minuta sem alterar o cadastro da unidade.</Text>
+          <FormField label="Nome do titular / locatário" value={locatarioNome} onChangeText={setLocatarioNome} placeholder="Nome completo" />
+          <FormField label="CPF/CNPJ do titular" value={locatarioDocumento} onChangeText={setLocatarioDocumento} placeholder="Documento do titular" keyboardType="numbers-and-punctuation" />
+          <FormField label="Endereço da unidade consumidora" value={enderecoUc} onChangeText={setEnderecoUc} placeholder="Endereço conforme a conta de energia" multiline numberOfLines={3} textAlignVertical="top" />
+        </Card>
+
         <Card>
           <FormField label="Número do contrato *" value={numeroContrato} onChangeText={setNumeroContrato} placeholder="Ex.: AE-2026-001" />
           <FormField label="Termo de adesão" value={termoAdesao} onChangeText={setTermoAdesao} placeholder="Ex.: Termo assinado digitalmente" />
@@ -308,6 +332,7 @@ const styles = StyleSheet.create({
   sectionTitle: { marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: 10, fontWeight: "900", letterSpacing: 0.8 },
   partyCard: { marginBottom: Spacing.lg },
   formCard: { marginBottom: Spacing.lg },
+  formHint: { marginBottom: Spacing.md, color: Colors.subtitle, fontSize: Typography.caption, lineHeight: 18 },
   partyIntro: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, color: Colors.subtitle, fontSize: Typography.caption, lineHeight: 18 },
   infoGrid: { flexDirection: "row", flexWrap: "wrap", padding: Spacing.sm, gap: Spacing.sm },
   infoContrato: { width: "48%", minHeight: 72, padding: Spacing.sm, borderRadius: 10, backgroundColor: Colors.background },

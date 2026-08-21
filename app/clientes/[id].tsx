@@ -71,6 +71,7 @@ export default function ClienteDetalhe() {
         percentual: 100,
         desconto: Number(cliente.desconto_percentual ?? 40),
         consumoMedio,
+        endereco: String(dados.endereco ?? ""),
         calcularAutomaticamente: true,
       });
       router.push({

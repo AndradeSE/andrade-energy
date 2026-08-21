@@ -206,7 +206,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
       .single(),
     supabase
       .from("unidades_consumidoras")
-      .select("id,usina_id,cliente_id")
+      .select("id,usina_id,cliente_id,endereco")
       .eq("numero", numero)
       .maybeSingle(),
   ]);
@@ -233,6 +233,8 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
     throw new Error("Informe um percentual entre 0,01% e 100%.");
   }
 
+  const enderecoDaFatura = String(input.endereco ?? "").trim();
+  const enderecoDaUc = enderecoDaFatura || unidadeAnterior?.endereco || cliente.endereco || null;
   const usinaAnterior = unidadeAnterior?.usina_id ?? null;
   const { data: unidade, error: erroUc } = await supabase
     .from("unidades_consumidoras")
@@ -242,7 +244,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
       numero,
       tipo: "BENEFICIARIA",
       titular: cliente.nome,
-      endereco: cliente.endereco,
+      endereco: enderecoDaUc,
       distribuidora: cliente.distribuidora ?? "CEMIG",
       modalidade_faturamento: modalidade,
       desconto_percentual: desconto,
