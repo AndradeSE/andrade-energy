@@ -19,6 +19,7 @@ import { processarContasDeEnergiaRecebidas } from "./modules/email/email.service
 import { configuracaoRouter as recebimentoFaturasRoutes, webhookRouter as recebimentoFaturasWebhookRoutes } from "./modules/recebimento-faturas/recebimentoFaturas.routes";
 import { processarFilaDeRecebimentosFaturas } from "./modules/recebimento-faturas/recebimentoFaturas.service";
 import { conexoesEmailRouter, oauthEmailRouter } from "./modules/conexoes-email/conexoesEmail.routes";
+import { supabase } from "./config/supabase";
 
 dotenv.config();
 
@@ -113,7 +114,25 @@ app.use(errorHandler);
 
 const PORT = Number(process.env.PORT) || 3333;
 
-app.listen(PORT, () => {
+async function validarSchemaAntesDeIniciar() {
+  const verificacoes = [
+    { tabela: "unidades_consumidoras", colunas: "consumo_medio_kwh,percentual_rateio" },
+    { tabela: "contratos", colunas: "dados_documento,contrato_gerado_url,contrato_assinado_url" },
+  ];
+
+  for (const verificacao of verificacoes) {
+    const { error } = await supabase.from(verificacao.tabela).select(verificacao.colunas).limit(1);
+    if (error) {
+      throw new Error(
+        `Schema do Supabase incompatível: aplique as migrações pendentes antes do deploy (${verificacao.tabela}: ${error.message}).`,
+      );
+    }
+  }
+}
+
+async function iniciarServidor() {
+  await validarSchemaAntesDeIniciar();
+  app.listen(PORT, () => {
   console.log(`Servidor iniciado na porta ${PORT}`);
   processarFilaDeNotificacoes().catch((erro) => console.error("Falha ao processar notificações:", erro.message));
   processarContasDeEnergiaRecebidas().catch((erro) => console.error("Falha ao importar produção por e-mail:", erro.message));
@@ -127,4 +146,10 @@ app.listen(PORT, () => {
   setInterval(() => {
     processarFilaDeRecebimentosFaturas().catch((erro) => console.error("Falha ao processar faturas recebidas por e-mail:", erro.message));
   }, 60_000);
+  });
+}
+
+iniciarServidor().catch((erro: any) => {
+  console.error("Servidor não iniciado:", erro?.message ?? erro);
+  process.exit(1);
 });
