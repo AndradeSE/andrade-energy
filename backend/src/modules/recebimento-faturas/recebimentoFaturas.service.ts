@@ -286,6 +286,33 @@ async function registrarEventoRecebido(evento: EventoResend, eventoId?: string) 
     .eq("provedor_email_id", emailId)
     .maybeSingle();
   if (erroExistente) throw erroExistente;
+
+  // Um mesmo e-mail pode ter chegado antes de a unidade/endereço ser corrigido.
+  // Nesse caso, permitimos que um reenvio do mesmo evento entre na fila. Estados
+  // PROCESSADO e PROCESSANDO continuam idempotentes e nunca são reenfileirados.
+  if (existente?.status === "IGNORADO" && unidade) {
+    const { data: reativado, error: erroReativar } = await supabase
+      .from("recebimentos_faturas_email")
+      .update({
+        unidade_consumidora_id: unidade.id,
+        destinatario: registro.destinatario,
+        remetente: registro.remetente,
+        assunto: registro.assunto,
+        payload: registro.payload,
+        status: "PENDENTE",
+        tentativas: 0,
+        proxima_tentativa_em: new Date().toISOString(),
+        erro: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existente.id)
+      .eq("status", "IGNORADO")
+      .select("id, status")
+      .maybeSingle();
+    if (erroReativar) throw erroReativar;
+    return reativado ?? existente;
+  }
+
   return existente;
 }
 
