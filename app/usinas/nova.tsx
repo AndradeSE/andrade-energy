@@ -100,7 +100,7 @@ export default function NovaUsina() {
   }
 
   return (
-    <Screen>{IS_GERADOR_APP ? <AppHeader title="Usinas" subtitle="Gestão de geração" contextTitle="Nova usina" contextSubtitle={origem === "fatura" ? "Dados lidos da conta de energia" : "Cadastro manual"} icon="sunny-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
+    <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Nova usina" subtitle="Cadastro de geração" contextTitle="Nova usina" contextSubtitle={origem === "fatura" ? "Dados lidos da conta de energia" : "Cadastro manual"} icon="sunny-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
       <Text style={styles.eyebrow}>{origem === "fatura" ? "DADOS LIDOS DA FATURA" : "CADASTRO MANUAL"}</Text>
       <Text style={styles.title}>Nova usina</Text>
       <Text style={styles.subtitle}>Confira os dados antes de salvar. O nome sugerido pela fatura pode ser alterado livremente.</Text>

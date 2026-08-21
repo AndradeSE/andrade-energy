@@ -18,6 +18,7 @@ type Props = {
   contextTitle: string;
   contextSubtitle: string;
   icon?: keyof typeof Ionicons.glyphMap;
+  variant?: "main" | "subpage";
 };
 
 export default function AppHeader({
@@ -26,6 +27,7 @@ export default function AppHeader({
   contextTitle,
   contextSubtitle,
   icon = "grid-outline",
+  variant = "main",
 }: Props) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -90,6 +92,24 @@ export default function AppHeader({
       { text: "Cancelar", style: "cancel" },
       { text: "Sair", style: "destructive", onPress: logout },
     ]);
+  }
+
+  if (variant === "subpage") {
+    return (
+      <View style={styles.subpageHeader}>
+        <StatusBar backgroundColor={Colors.surface} barStyle="dark-content" />
+        <TouchableOpacity accessibilityLabel="Voltar" activeOpacity={0.75} onPress={() => router.back()} style={styles.subpageBack}>
+          <Ionicons name="chevron-back" size={24} color={Colors.text} />
+        </TouchableOpacity>
+        <View style={styles.subpageIcon}>
+          <Ionicons name={icon} size={20} color={Colors.primary} />
+        </View>
+        <View style={styles.subpageCopy}>
+          <Text numberOfLines={1} style={styles.subpageTitle}>{title}</Text>
+          <Text numberOfLines={1} style={styles.subpageSubtitle}>{subtitle}</Text>
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -171,6 +191,36 @@ function MenuLink({ icon, label, onPress, danger = false }: { icon: keyof typeof
 }
 
 const styles = StyleSheet.create({
+  subpageHeader: {
+    minHeight: 68,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  subpageBack: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.xs,
+    borderRadius: Radius.round,
+    backgroundColor: Colors.background,
+  },
+  subpageIcon: {
+    width: 38,
+    height: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.sm,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.primaryLight,
+  },
+  subpageCopy: { flex: 1, minWidth: 0 },
+  subpageTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "800" },
+  subpageSubtitle: { marginTop: 2, color: Colors.subtitle, fontSize: Typography.small },
   container: {
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.lg,

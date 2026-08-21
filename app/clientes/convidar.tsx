@@ -20,8 +20,7 @@ export default function ConvidarCliente() {
     } catch (error: any) { Alert.alert("Não foi possível convidar", error?.response?.data?.message ?? "Tente novamente."); }
     finally { setEnviando(false); }
   }
-  return <SafeAreaView style={styles.screen}>{IS_GERADOR_APP ? <AppHeader title="Clientes" subtitle="Gestão da carteira" contextTitle="Convidar consumidor" contextSubtitle="Envie o acesso ao aplicativo do cliente" icon="mail-unread-outline" /> : null}<KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}><ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
-    <TouchableOpacity onPress={() => router.back()} style={styles.back}><Ionicons name="arrow-back" size={23} color={Colors.text} /></TouchableOpacity>
+  return <SafeAreaView style={styles.screen}>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Convidar consumidor" subtitle="Enviar acesso ao aplicativo" contextTitle="Convidar consumidor" contextSubtitle="Envie o acesso ao aplicativo do cliente" icon="mail-unread-outline" /> : null}<KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}><ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
     <View style={styles.icon}><Ionicons name="mail-unread-outline" size={32} color={Colors.primary} /></View><Text style={styles.title}>Convidar consumidor</Text><Text style={styles.subtitle}>O CPF conectará automaticamente a conta do consumidor ao cliente e às unidades cadastradas.</Text>
     <Campo label="Nome completo" value={nome} onChangeText={setNome} placeholder="Nome do consumidor" />
     <Campo label="CPF" value={cpf} onChangeText={(v: string) => setCpf(v.replace(/\D/g, "").slice(0, 11))} placeholder="Somente números" keyboardType="numeric" />

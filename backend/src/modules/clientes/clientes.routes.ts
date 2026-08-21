@@ -9,6 +9,7 @@ import {
   listarUnidadesClienteController,
   listarMinhasUnidadesController,
   cadastrarUnidadeClienteController,
+  excluirUnidadeClienteController,
 } from "./clientes.controller";
 import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
 
@@ -20,6 +21,7 @@ router.get("/minhas-unidades", exigirAutenticacao, listarMinhasUnidadesControlle
 
 router.get("/:id/unidades", listarUnidadesClienteController);
 router.post("/:id/unidades", exigirAutenticacao, exigirGestor, cadastrarUnidadeClienteController);
+router.delete("/:id/unidades/:unidadeId", exigirAutenticacao, exigirGestor, excluirUnidadeClienteController);
 
 router.get("/:id", buscarClienteController);
 

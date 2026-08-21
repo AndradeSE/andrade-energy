@@ -50,8 +50,8 @@ export default function NovoFechamento() {
     } finally { setSalvando(false); }
   }
 
-  if (loading) return <Screen>{IS_GERADOR_APP ? <AppHeader title="Operação" subtitle="Fechamentos das usinas" contextTitle="Novo fechamento" contextSubtitle="Carregando usinas" icon="analytics-outline" /> : null}<Loading /></Screen>;
-  return <Screen>{IS_GERADOR_APP ? <AppHeader title="Operação" subtitle="Fechamentos das usinas" contextTitle="Novo fechamento" contextSubtitle="Registre a competência da usina" icon="analytics-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
+  if (loading) return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Novo fechamento" subtitle="Operação da usina" contextTitle="Novo fechamento" contextSubtitle="Carregando usinas" icon="analytics-outline" /> : null}<Loading /></Screen>;
+  return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Novo fechamento" subtitle="Operação da usina" contextTitle="Novo fechamento" contextSubtitle="Registre a competência da usina" icon="analytics-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
     <Text style={styles.eyebrow}>OPERAÇÃO DA USINA</Text><Text style={styles.title}>Novo fechamento</Text><Text style={styles.subtitle}>Registre a geração, a alocação e o resultado financeiro da competência.</Text>
     {!usinas.length ? <EmptyState icon="sunny-outline" title="Nenhuma usina cadastrada" subtitle="Cadastre uma usina antes de criar o fechamento." /> : <>
       <Text style={styles.label}>Usina</Text><View style={styles.options}>{usinas.map((usina) => <Pressable key={usina.id} onPress={() => setUsinaId(usina.id)} style={[styles.option, usinaId === usina.id && styles.optionSelected]}><View style={[styles.radio, usinaId === usina.id && styles.radioSelected]}>{usinaId === usina.id ? <View style={styles.radioDot} /> : null}</View><Text style={[styles.optionText, usinaId === usina.id && styles.optionTextSelected]}>{usina.nome}</Text></Pressable>)}</View>

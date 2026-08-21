@@ -5,6 +5,7 @@ import { Alert, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } 
 
 import { AppHeader, Badge, Card, EmptyState, Loading, Metric, Screen, Section } from "../../components/ui";
 import { excluirFatura, listarFaturas } from "../../services/faturas.service";
+import { excluirUnidadeCliente } from "../../services/clientes.service";
 import { supabase } from "../../supabase";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { IS_GERADOR_APP } from "../../config/appVariant";
@@ -48,16 +49,39 @@ export default function UnidadeDocumentos() {
     ]);
   }
 
+  function confirmarExclusaoUnidade() {
+    if (String(unidade?.id ?? "").startsWith("cliente-")) {
+      Alert.alert("Unidade pendente", "Esta UC ainda não possui um cadastro próprio. Abra Editar e alocar para concluir ou corrigir o vínculo.");
+      return;
+    }
+
+    Alert.alert("Excluir unidade consumidora", `Deseja excluir a UC ${unidade?.numero}? A configuração de recebimento automático será removida. Faturas e contratos já criados serão preservados, mas deixarão de estar vinculados a esta UC.`, [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Excluir UC",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await excluirUnidadeCliente(unidade.cliente_id, unidade.id);
+            Alert.alert("UC excluída", "A unidade consumidora foi removida.", [{ text: "OK", onPress: () => router.replace("/unidades") }]);
+          } catch (erro: any) {
+            Alert.alert("Não foi possível excluir", erro?.message ?? "Tente novamente.");
+          }
+        },
+      },
+    ]);
+  }
+
   if (loading) return <Loading />;
   if (!unidade) return <Screen><View style={styles.state}><EmptyState icon="flash-outline" title="Unidade não encontrada" subtitle="Não foi possível carregar esta unidade consumidora." /></View></Screen>;
   const economiaTotal = faturas.reduce((total, item) => total + Number(item.economia_real ?? item.economia ?? 0), 0);
   const valorFaturado = faturas.reduce((total, item) => total + Number(item.valor_total_unificado ?? item.valor_total ?? 0), 0);
   const consumoTotal = faturas.reduce((total, item) => total + Number(item.consumo_kwh ?? item.consumo ?? 0), 0);
 
-  const possuiContrato = IS_GERADOR_APP && Boolean(unidade.cliente_id);
+  const podeCadastrarContrato = Boolean(unidade.cliente_id && unidade.usina_id);
   const status = String(unidade.status ?? "ATIVA").toUpperCase();
 
-  return <Screen>{IS_GERADOR_APP ? <AppHeader title="Unidades consumidoras" subtitle="Gestão da carteira" contextTitle={`UC ${unidade.numero}`} contextSubtitle={unidade.clientes?.nome ?? unidade.titular ?? "Unidade consumidora"} icon="flash-outline" /> : null}<ScrollView contentContainerStyle={styles.content}>
+  return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Unidade consumidora" subtitle="Gestão da carteira" contextTitle={`UC ${unidade.numero}`} contextSubtitle={unidade.clientes?.nome ?? unidade.titular ?? "Unidade consumidora"} icon="flash-outline" /> : null}<ScrollView contentContainerStyle={styles.content}>
     <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={19} color={Colors.subtitle} /><Text style={styles.backLabel}>Voltar</Text></TouchableOpacity>
 
     <Card style={styles.unitHero}>
@@ -71,10 +95,11 @@ export default function UnidadeDocumentos() {
       <UnitMeta icon="sunny-outline" label="Usina vinculada" value={unidade.usinas?.nome ?? "Ainda não alocada"} last />
     </Card>
 
-    <View style={styles.actions}>
-      <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Editar e alocar unidade consumidora" onPress={() => router.push({ pathname: "/unidades/editar", params: { id: unidade.id, numero: unidade.numero, clienteId: unidade.cliente_id ?? (String(unidade.id).startsWith("cliente-") ? String(unidade.id).replace("cliente-", "") : "") } })} style={[styles.action, !possuiContrato && styles.actionWide]}><Ionicons name="git-branch-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Editar e alocar</Text></TouchableOpacity>
-      {possuiContrato ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Adicionar ou editar contrato da unidade" onPress={() => { if (!unidade.usina_id) return Alert.alert("Aloque a UC primeiro", "Vincule esta unidade a uma usina antes de cadastrar o contrato."); router.push({ pathname: "/unidades/contrato", params: { id: unidade.id, numero: unidade.numero, clienteId: unidade.cliente_id, cliente: unidade.clientes?.nome ?? unidade.titular ?? "", descontoPadrao: String(unidade.desconto_percentual ?? "") } }); }} style={styles.action}><Ionicons name="document-text-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Contrato</Text></TouchableOpacity> : null}
+      <View style={styles.actions}>
+      <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Editar e alocar unidade consumidora" onPress={() => router.push({ pathname: "/unidades/editar", params: { id: unidade.id, numero: unidade.numero, clienteId: unidade.cliente_id ?? (String(unidade.id).startsWith("cliente-") ? String(unidade.id).replace("cliente-", "") : "") } })} style={styles.action}><Ionicons name="git-branch-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Editar e alocar</Text></TouchableOpacity>
+      {IS_GERADOR_APP ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Adicionar ou editar contrato da unidade" onPress={() => { if (!podeCadastrarContrato) return Alert.alert("Vincule a UC antes", "Para cadastrar ou anexar o contrato, vincule esta unidade a um cliente e a uma usina em Editar e alocar."); router.push({ pathname: "/unidades/contrato", params: { id: unidade.id, numero: unidade.numero, clienteId: unidade.cliente_id, cliente: unidade.clientes?.nome ?? unidade.titular ?? "", descontoPadrao: String(unidade.desconto_percentual ?? "") } }); }} style={styles.action}><Ionicons name="document-text-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Contrato</Text></TouchableOpacity> : null}
     </View>
+    {IS_GERADOR_APP ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Excluir unidade consumidora" onPress={confirmarExclusaoUnidade} style={styles.deleteUnit}><Ionicons name="trash-outline" size={18} color={Colors.danger} /><Text style={styles.deleteUnitText}>Excluir unidade consumidora</Text></TouchableOpacity> : null}
 
     <Section title="Estatísticas da unidade"><View style={styles.metrics}><View style={styles.metric}><Metric compact title="Economia total" value={moeda(economiaTotal)} icon={<Ionicons name="trending-up-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Total faturado" value={moeda(valorFaturado)} icon={<Ionicons name="wallet-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Consumo acumulado" value={`${consumoTotal.toLocaleString("pt-BR")} kWh`} icon={<Ionicons name="flash-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Faturas processadas" value={faturas.length} icon={<Ionicons name="receipt-outline" size={20} color={Colors.primary} />} /></View></View></Section>
 
@@ -110,6 +135,8 @@ const styles = StyleSheet.create({
   action: { flex: 1, minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: Spacing.sm, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md, backgroundColor: Colors.surface },
   actionWide: { flex: undefined, width: "100%" },
   actionText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" },
+  deleteUnit: { minHeight: 46, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: -Spacing.sm, marginBottom: Spacing.lg, borderWidth: 1, borderColor: "#FECACA", borderRadius: Radius.md, backgroundColor: "#FFF7F7" },
+  deleteUnitText: { color: Colors.danger, fontSize: Typography.small, fontWeight: "900" },
   metrics: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
   metric: { width: "48%", marginBottom: Spacing.sm },
   documentCard: { marginBottom: Spacing.sm, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.lg, backgroundColor: Colors.surface, shadowOpacity: 0, elevation: 0 },

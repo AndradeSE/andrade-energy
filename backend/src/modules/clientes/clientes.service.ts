@@ -4,6 +4,7 @@ import {
   buscarClientePorUC,
   cadastrarUnidadeCliente,
   criarCliente,
+  excluirUnidadeCliente,
   excluirCliente,
   listarClientes,
   listarUnidadesCliente,
@@ -14,7 +15,7 @@ export {
   atualizarCliente, buscarCliente,
   buscarClientePorUC,
   cadastrarUnidadeCliente,
-  criarCliente, excluirCliente, listarClientes, listarUnidadesCliente, listarUnidadesPorCpf
+  criarCliente, excluirCliente, excluirUnidadeCliente, listarClientes, listarUnidadesCliente, listarUnidadesPorCpf
 };
 
 export async function cadastrarClienteAutomaticamente(dados: {

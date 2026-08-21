@@ -121,7 +121,7 @@ export default function ContratoDaUnidade() {
 
   return (
     <Screen>
-      {IS_GERADOR_APP ? <AppHeader title="Unidades consumidoras" subtitle="Gestão da carteira" contextTitle={`Contrato da UC ${numero}`} contextSubtitle={cliente || "Dados contratuais"} icon="document-text-outline" /> : null}
+      {IS_GERADOR_APP ? <AppHeader variant="subpage" title="Contrato da unidade" subtitle="Dados contratuais" contextTitle={`Contrato da UC ${numero}`} contextSubtitle={cliente || "Dados contratuais"} icon="document-text-outline" /> : null}
       <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
         <View style={styles.heading}>
           <Text style={styles.eyebrow}>CONTRATO DO CLIENTE</Text>

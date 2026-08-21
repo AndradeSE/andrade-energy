@@ -248,3 +248,30 @@ export async function cadastrarUnidadeCliente(clienteId: string, numeroInformado
   if (resultado.error) throw resultado.error;
   return resultado.data;
 }
+
+export async function excluirUnidadeCliente(clienteId: string, unidadeId: string) {
+  const { data: unidade, error: erroUnidade } = await supabase
+    .from("unidades_consumidoras")
+    .select("id, numero, cliente_id")
+    .eq("id", unidadeId)
+    .eq("cliente_id", clienteId)
+    .maybeSingle();
+
+  if (erroUnidade) throw erroUnidade;
+  if (!unidade) throw new Error("Unidade consumidora não encontrada para este cliente.");
+
+  const { error: erroExclusao } = await supabase
+    .from("unidades_consumidoras")
+    .delete()
+    .eq("id", unidade.id);
+  if (erroExclusao) throw erroExclusao;
+
+  // Compatibilidade com o campo legado clientes.uc: sem essa limpeza, uma UC
+  // removida pode reaparecer nos fluxos que ainda consultam esse campo.
+  const { error: erroLegado } = await supabase
+    .from("clientes")
+    .update({ uc: null })
+    .eq("id", clienteId)
+    .eq("uc", unidade.numero);
+  if (erroLegado) throw erroLegado;
+}

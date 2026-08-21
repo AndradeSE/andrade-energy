@@ -268,7 +268,7 @@ export default function RecebimentoEmail() {
   const outlookConectado = conexoes.some((conexao) => conexao.provedor.toUpperCase() === "OUTLOOK" && conexaoAtiva(conexao));
 
   return <Screen>
-    {IS_GERADOR_APP ? <AppHeader title={recebimentoDeProducao ? "Usinas" : "Unidades consumidoras"} subtitle={recebimentoDeProducao ? "Gestão de produção" : "Gestão da carteira"} contextTitle="Recebimento automático" contextSubtitle={`${recebimentoDeProducao ? "Produção da UC" : "UC"} ${unidadeExibida?.numero ?? unidadeId}`} icon="mail-outline" /> : null}
+    {IS_GERADOR_APP ? <AppHeader variant="subpage" title="Recebimento automático" subtitle={recebimentoDeProducao ? "Produção da usina" : "Conta da unidade"} contextTitle="Recebimento automático" contextSubtitle={`${recebimentoDeProducao ? "Produção da UC" : "UC"} ${unidadeExibida?.numero ?? unidadeId}`} icon="mail-outline" /> : null}
     <ScrollView bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.heading}>
         <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={24} color={Colors.text} /></TouchableOpacity>
