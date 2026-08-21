@@ -288,9 +288,9 @@ async function registrarEventoRecebido(evento: EventoResend, eventoId?: string) 
   if (erroExistente) throw erroExistente;
 
   // Um mesmo e-mail pode ter chegado antes de a unidade/endereço ser corrigido.
-  // Nesse caso, permitimos que um reenvio do mesmo evento entre na fila. Estados
-  // PROCESSADO e PROCESSANDO continuam idempotentes e nunca são reenfileirados.
-  if (existente?.status === "IGNORADO" && unidade) {
+  // Um reenvio manual pode corrigir um endereço/configuração que estava
+  // indisponível. Estados PROCESSADO e PROCESSANDO seguem idempotentes.
+  if ((existente?.status === "IGNORADO" || existente?.status === "ERRO") && unidade) {
     const { data: reativado, error: erroReativar } = await supabase
       .from("recebimentos_faturas_email")
       .update({
@@ -306,7 +306,7 @@ async function registrarEventoRecebido(evento: EventoResend, eventoId?: string) 
         updated_at: new Date().toISOString(),
       })
       .eq("id", existente.id)
-      .eq("status", "IGNORADO")
+      .in("status", ["IGNORADO", "ERRO"])
       .select("id, status")
       .maybeSingle();
     if (erroReativar) throw erroReativar;
@@ -323,15 +323,34 @@ export async function receberWebhookResend(evento: EventoResend, eventoId?: stri
   return { aceito: true, processar: registro?.status === "PENDENTE" };
 }
 
-async function buscarAnexosResend(emailId: string) {
+async function buscarAnexoResend(emailId: string, anexoId: string) {
+  const chave = chaveApiResend();
+  const resposta = await fetch(
+    `https://api.resend.com/emails/receiving/${encodeURIComponent(emailId)}/attachments/${encodeURIComponent(anexoId)}`,
+    { headers: { Authorization: `Bearer ${chave}`, "User-Agent": "Andrade-Energy/1.0" } },
+  );
+  if (!resposta.ok) throw new Error(`Não foi possível obter o anexo recebido (${resposta.status}).`);
+  const corpo = await resposta.json() as { data?: AnexoResend } | AnexoResend;
+  return (("data" in corpo ? corpo.data : corpo) ?? {}) as AnexoResend;
+}
+
+async function buscarAnexosResend(emailId: string, anexosDoEvento: AnexoResend[] = []) {
   const chave = chaveApiResend();
   if (!chave) throw new Error("Chave do Resend não configurada.");
   const resposta = await fetch(`https://api.resend.com/emails/receiving/${encodeURIComponent(emailId)}/attachments`, {
     headers: { Authorization: `Bearer ${chave}`, "User-Agent": "Andrade-Energy/1.0" },
   });
-  if (!resposta.ok) throw new Error(`Não foi possível obter os anexos recebidos (${resposta.status}).`);
-  const corpo = await resposta.json() as { data?: AnexoResend[] } | AnexoResend[];
-  return Array.isArray(corpo) ? corpo : corpo.data ?? [];
+  if (resposta.ok) {
+    const corpo = await resposta.json() as { data?: AnexoResend[] } | AnexoResend[];
+    return Array.isArray(corpo) ? corpo : corpo.data ?? [];
+  }
+
+  // O webhook já contém os IDs dos anexos. Usamos o endpoint individual como
+  // alternativa para provedores que não habilitam a listagem imediatamente.
+  if (resposta.status === 404 && anexosDoEvento.some((anexo) => anexo.id)) {
+    return Promise.all(anexosDoEvento.filter((anexo) => anexo.id).map((anexo) => buscarAnexoResend(emailId, String(anexo.id))));
+  }
+  throw new Error(`Não foi possível obter os anexos recebidos (${resposta.status}).`);
 }
 
 function escolherPdf(anexos: AnexoResend[]) {
@@ -374,7 +393,8 @@ async function processarRegistro(registro: any) {
       return;
     }
 
-    const anexos = await buscarAnexosResend(assumido.provedor_email_id);
+    const anexosDoEvento = Array.isArray(assumido.payload?.attachments) ? assumido.payload.attachments as AnexoResend[] : [];
+    const anexos = await buscarAnexosResend(assumido.provedor_email_id, anexosDoEvento);
     const anexo = escolherPdf(anexos);
     if (!anexo) throw new Error("Nenhum PDF foi encontrado no e-mail recebido.");
     const arquivo = await baixarPdf(anexo);
