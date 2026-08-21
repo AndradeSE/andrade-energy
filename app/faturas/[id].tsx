@@ -169,6 +169,27 @@ export default function DetalheFatura() {
           <Text style={styles.headingDueDate}>Vencimento {fatura.vencimento}</Text>
         </View>
 
+        <View style={[styles.downloadActions, styles.downloadActionsTop]}>
+          <DownloadButton
+            available={Boolean(fatura.pdf_cemig_url)}
+            label="Conta original da CEMIG"
+            loading={documentoBaixando === `cemig-${referenciaArquivo}.pdf`}
+            onPress={() => baixarDocumento(fatura.pdf_cemig_url, `cemig-${referenciaArquivo}.pdf`)}
+          />
+          <DownloadButton
+            available={Boolean(fatura.pdf_unificada_url)}
+            label="Fatura Andrade Energy"
+            loading={documentoBaixando === `unificada-${referenciaArquivo}.pdf`}
+            onPress={() => baixarDocumento(fatura.pdf_unificada_url, `unificada-${referenciaArquivo}.pdf`)}
+          />
+          <DownloadButton
+            available={Boolean(fatura.pdf_boleto_url)}
+            label="Boleto"
+            loading={documentoBaixando === `boleto-${referenciaArquivo}.pdf`}
+            onPress={() => baixarDocumento(fatura.pdf_boleto_url, `boleto-${referenciaArquivo}.pdf`)}
+          />
+        </View>
+
         <Card style={styles.summaryCard}>
           <Text style={styles.summaryEyebrow}>VALOR TOTAL A PAGAR</Text>
           <Text style={styles.summaryValue}>{formatarMoeda(valorUnificado)}</Text>
@@ -206,48 +227,7 @@ export default function DetalheFatura() {
 
         {possuiCustosGD2 ? <View style={styles.gd2Notice}><Ionicons name="information-circle-outline" size={21} color="#8A5A00" /><View style={styles.gd2Copy}><Text style={styles.gd2Title}>Entenda o desconto real na GD II</Text><Text style={styles.gd2Text}>Custos obrigatórios da rede e de disponibilidade continuam na conta da CEMIG. Por isso, o desconto final pode ser menor que o desconto contratado.</Text></View></View> : null}
 
-        <View style={styles.downloadActions}>
-          <DownloadButton
-            available={Boolean(fatura.pdf_cemig_url)}
-            label="Conta original da CEMIG"
-            loading={documentoBaixando === `cemig-${referenciaArquivo}.pdf`}
-            onPress={() =>
-              baixarDocumento(
-                fatura.pdf_cemig_url,
-                `cemig-${referenciaArquivo}.pdf`
-              )
-            }
-          />
-          <DownloadButton
-            available={Boolean(fatura.pdf_usina_url)}
-            label="Cobrança da usina"
-            loading={documentoBaixando === `usina-${referenciaArquivo}.pdf`}
-            onPress={() =>
-              baixarDocumento(
-                fatura.pdf_usina_url,
-                `usina-${referenciaArquivo}.pdf`
-              )
-            }
-          />
-          <DownloadButton
-            available={Boolean(fatura.pdf_unificada_url)}
-            label="Fatura Andrade Energy"
-            loading={documentoBaixando === `unificada-${referenciaArquivo}.pdf`}
-            onPress={() =>
-              baixarDocumento(
-                fatura.pdf_unificada_url,
-                `unificada-${referenciaArquivo}.pdf`
-              )
-            }
-          />
-          <DownloadButton
-            available={Boolean(fatura.pdf_boleto_url)}
-            label="Boleto"
-            loading={documentoBaixando === `boleto-${referenciaArquivo}.pdf`}
-            onPress={() =>
-              baixarDocumento(fatura.pdf_boleto_url, `boleto-${referenciaArquivo}.pdf`)
-            }
-          />
+        <View style={styles.paymentActions}>
           <TouchableOpacity
             accessibilityLabel="Copiar código PIX"
             activeOpacity={0.82}
@@ -477,6 +457,13 @@ const styles = StyleSheet.create({
     color: Colors.primaryDark,
     fontSize: Typography.body,
     fontWeight: "900",
+  },
+  downloadActionsTop: {
+    marginTop: -Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  paymentActions: {
+    marginTop: Spacing.lg,
   },
   energyStatementCard: {
     marginBottom: Spacing.md,
