@@ -10,6 +10,7 @@ import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Scre
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { buscarContratoDaUnidade, gerarContratoDaUnidade, importarContratoAssinadoDaUnidade, salvarContratoDaUnidade } from "../../services/contratos.service";
 import { buscarUnidade } from "../../services/clientes.service";
+import { buscarUsina } from "../../services/usinas.service";
 import { Colors, Spacing, Typography } from "../../theme";
 
 type StatusContrato = "ATIVO" | "VIGENTE" | "VENCIDO";
@@ -31,6 +32,11 @@ function valorParaCampo(valor: unknown) {
 
 function lerNumero(valor: string) {
   return Number(valor.replace(/\./g, "").replace(",", ".")) || 0;
+}
+
+function primeirosDigitosDocumento(valor: unknown) {
+  const digitos = String(valor ?? "").replace(/\D/g, "");
+  return digitos.length >= 4 ? `${digitos.slice(0, 4)}***` : "Não informado";
 }
 
 export default function ContratoDaUnidade() {
@@ -70,8 +76,20 @@ export default function ContratoDaUnidade() {
     }
 
     Promise.allSettled([buscarContratoDaUnidade(id), buscarUnidade(id)])
-      .then(([resultadoContrato, resultadoUnidade]) => {
-        if (resultadoUnidade.status === "fulfilled") setUnidade(resultadoUnidade.value);
+      .then(async ([resultadoContrato, resultadoUnidade]) => {
+        if (resultadoUnidade.status === "fulfilled") {
+          let unidadeCarregada = resultadoUnidade.value;
+          // Garante o nome mesmo para UCs legadas em que a relação não veio no retorno.
+          if (unidadeCarregada?.usina_id && !unidadeCarregada?.usinas?.nome && !unidadeCarregada?.usina_nome) {
+            try {
+              const usina = await buscarUsina(unidadeCarregada.usina_id);
+              unidadeCarregada = { ...unidadeCarregada, usinas: usina, usina_nome: usina?.nome };
+            } catch {
+              // Mantém os demais dados da UC disponíveis mesmo se a consulta da usina falhar.
+            }
+          }
+          setUnidade(unidadeCarregada);
+        }
         if (resultadoContrato.status !== "fulfilled") {
           if (resultadoUnidade.status !== "fulfilled") {
             throw resultadoContrato.reason;
@@ -202,35 +220,42 @@ export default function ContratoDaUnidade() {
   if (carregando) return <Loading />;
 
   const dadosCliente = unidade?.clientes;
+  const numeroUc = unidade?.numero ?? numero ?? "Não informado";
+  const concessionaria = unidade?.distribuidora ?? "Não informada";
   const enderecoContrato = unidade?.endereco ?? dadosCliente?.endereco ?? "Endereço não informado";
   const nomeCliente = dadosCliente?.nome ?? cliente ?? "Cliente não informado";
-  const documentoCliente = dadosCliente?.cpf ? `CPF/CNPJ: ${dadosCliente.cpf}` : "CPF/CNPJ não informado";
+  const usinaVinculada = unidade?.usinas?.nome ?? unidade?.usina_nome ?? (unidade?.usina_id ? "Usina vinculada" : "Não informada");
 
   return (
     <Screen>
-      {IS_GERADOR_APP ? <AppHeader variant="subpage" title="Contrato da unidade" subtitle="Dados contratuais" contextTitle={`Contrato da UC ${numero}`} contextSubtitle={nomeCliente} icon="document-text-outline" /> : null}
+      {IS_GERADOR_APP ? <AppHeader variant="subpage" title="Contrato da unidade" subtitle="Dados contratuais" contextTitle={`UC ${numeroUc}`} contextSubtitle={nomeCliente} icon="document-text-outline" /> : null}
       <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
         <View style={styles.heading}>
-          <Text style={styles.eyebrow}>CONTRATO DO CLIENTE</Text>
-          <Text style={styles.title}>Contrato da UC {numero}</Text>
-          <Text style={styles.subtitle}>Confira os dados que serão exibidos no contrato antes de gerar ou anexar a versão assinada.</Text>
+          <Text style={styles.eyebrow}>CONFIGURAÇÃO CONTRATUAL</Text>
+          <Text style={styles.title}>Contrato da unidade</Text>
+          <Text style={styles.subtitle}>Revise os dados cadastrais que entrarão na minuta antes de gerar o documento.</Text>
         </View>
 
         <Card style={styles.context}>
           <Ionicons name="flash-outline" size={21} color={Colors.primary} />
           <View style={styles.contextText}>
             <Text style={styles.contextLabel}>UNIDADE CONSUMIDORA</Text>
-            <Text style={styles.contextValue}>UC {numero} · {unidade?.distribuidora ?? "Concessionária não informada"}</Text>
+            <Text style={styles.contextValue}>UC {numeroUc} · {concessionaria}</Text>
           </View>
         </Card>
 
-        <Text style={styles.sectionTitle}>DADOS QUE APARECERÃO NO CONTRATO</Text>
+        <Text style={styles.sectionTitle}>RESUMO CADASTRAL</Text>
         <Card style={styles.partyCard}>
-          <InfoContrato label="Cliente" value={nomeCliente} />
-          <InfoContrato label="Documento" value={documentoCliente} />
-          <InfoContrato label="Endereço da unidade" value={enderecoContrato} />
-          <InfoContrato label="Usina vinculada" value={unidade?.usinas?.nome ?? unidade?.usina_nome ?? (unidade?.usina_id ? "Usina vinculada" : "Usina não informada")} />
-          <Text style={styles.editHint}>Para corrigir nome, endereço ou dados da UC, use Configurar UC ou Editar cliente antes de gerar o contrato.</Text>
+          <Text style={styles.partyIntro}>Estes dados vêm do cadastro da UC e serão usados para preencher a minuta.</Text>
+          <View style={styles.infoGrid}>
+            <InfoContrato label="Cliente" value={nomeCliente} wide />
+            <InfoContrato label="CPF (início)" value={primeirosDigitosDocumento(dadosCliente?.cpf ?? unidade?.cpf_titular)} />
+            <InfoContrato label="Concessionária" value={concessionaria} />
+            <InfoContrato label="Unidade consumidora" value={`UC ${numeroUc}`} />
+            <InfoContrato label="Usina vinculada" value={usinaVinculada} />
+            <InfoContrato label="Endereço da UC" value={enderecoContrato} wide />
+          </View>
+          <Text style={styles.editHint}>Para corrigir algum item, use Configurar UC ou Editar cliente antes de gerar a minuta.</Text>
         </Card>
 
         <Text style={styles.sectionTitle}>DADOS DO LOCADOR E VIGÊNCIA</Text>
@@ -266,8 +291,8 @@ export default function ContratoDaUnidade() {
   );
 }
 
-function InfoContrato({ label, value }: { label: string; value: string }) {
-  return <View style={styles.infoContrato}><Text style={styles.infoContratoLabel}>{label}</Text><Text style={styles.infoContratoValue}>{value}</Text></View>;
+function InfoContrato({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
+  return <View style={[styles.infoContrato, wide && styles.infoContratoWide]}><Text style={styles.infoContratoLabel}>{label}</Text><Text style={styles.infoContratoValue}>{value}</Text></View>;
 }
 
 const styles = StyleSheet.create({
@@ -281,9 +306,12 @@ const styles = StyleSheet.create({
   contextLabel: { color: Colors.subtitle, fontSize: 10, fontWeight: "800", letterSpacing: 0.8 },
   contextValue: { marginTop: 3, color: Colors.text, fontSize: Typography.body, fontWeight: "700" },
   sectionTitle: { marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: 10, fontWeight: "900", letterSpacing: 0.8 },
-  partyCard: { marginBottom: Spacing.lg, paddingVertical: Spacing.xs },
+  partyCard: { marginBottom: Spacing.lg },
   formCard: { marginBottom: Spacing.lg },
-  infoContrato: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  partyIntro: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, color: Colors.subtitle, fontSize: Typography.caption, lineHeight: 18 },
+  infoGrid: { flexDirection: "row", flexWrap: "wrap", padding: Spacing.sm, gap: Spacing.sm },
+  infoContrato: { width: "48%", minHeight: 72, padding: Spacing.sm, borderRadius: 10, backgroundColor: Colors.background },
+  infoContratoWide: { width: "100%" },
   infoContratoLabel: { color: Colors.subtitle, fontSize: 10, fontWeight: "800", letterSpacing: 0.4 },
   infoContratoValue: { marginTop: 3, color: Colors.text, fontSize: Typography.small, fontWeight: "700", lineHeight: 19 },
   editHint: { margin: Spacing.md, color: Colors.subtitle, fontSize: Typography.caption, lineHeight: 18 },

@@ -163,6 +163,47 @@ export async function gerarContratoDaUnidadeService(unidadeId: string, dados: an
   return anexarLinksDoContrato(data);
 }
 
+/**
+ * Anexa somente a minuta já configurada da UC ao convite. Contratos assinados
+ * nunca seguem automaticamente por e-mail.
+ */
+export async function obterMinutaParaConvite(clienteId: string) {
+  const [{ data: cliente, error: erroCliente }, { data: unidades, error: erroUnidades }] = await Promise.all([
+    supabase.from("clientes").select("id,uc").eq("id", clienteId).maybeSingle(),
+    supabase
+      .from("unidades_consumidoras")
+      .select("id,numero,status")
+      .eq("cliente_id", clienteId)
+      .eq("status", "ATIVA")
+      .order("created_at", { ascending: true }),
+  ]);
+  if (erroCliente) throw erroCliente;
+  if (erroUnidades) throw erroUnidades;
+
+  const unidade = (unidades ?? []).find((item) => String(item.numero) === String(cliente?.uc)) ?? unidades?.[0];
+  if (!unidade) return null;
+
+  const contrato = await buscarContratoMaisRecenteUnidade(unidade.id);
+  const dadosDocumento = contrato?.dados_documento ?? {};
+  // Evita enviar uma minuta com as partes do locador incompletas.
+  if (!contrato?.id || !dadosDocumento.locador_nome || !dadosDocumento.locador_documento || !dadosDocumento.locador_endereco) {
+    return null;
+  }
+
+  const pdf = await gerarMinutaContrato(unidade.id, contrato);
+  const caminho = await salvarDocumentoContrato(`unidades/${unidade.id}/${contrato.id}/minuta-contrato.pdf`, pdf);
+  const { error: erroAtualizacao } = await supabase
+    .from("contratos")
+    .update({ contrato_gerado_url: caminho, gerado_em: new Date().toISOString() })
+    .eq("id", contrato.id);
+  if (erroAtualizacao) throw erroAtualizacao;
+
+  return {
+    filename: `minuta-contrato-uc-${String(unidade.numero).replace(/[^\dA-Za-z-]/g, "")}.pdf`,
+    content: pdf,
+  };
+}
+
 export async function importarContratoAssinadoDaUnidadeService(unidadeId: string, arquivo?: Express.Multer.File) {
   if (!arquivo) throw new Error("Selecione o PDF assinado.");
   if (arquivo.mimetype && arquivo.mimetype !== "application/pdf") throw new Error("Envie um arquivo PDF.");

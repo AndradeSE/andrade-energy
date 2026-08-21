@@ -4,11 +4,18 @@ type EmailTransacional = {
   destinatario: string;
   assunto: string;
   html: string;
+  anexos?: Array<{ filename: string; content: Buffer; contentType?: string }>;
 };
 
 export async function enviarEmailTransacional(input: EmailTransacional) {
   if (await microsoftEmailConfigurado()) {
-    return enviarEmailMicrosoft({ ...input, anexos: [] });
+    return enviarEmailMicrosoft({
+      ...input,
+      anexos: (input.anexos ?? []).map((anexo) => ({
+        filename: anexo.filename,
+        content: anexo.content.toString("base64"),
+      })),
+    });
   }
 
   const brevoApiKey = process.env.BREVO_API_KEY;
@@ -23,6 +30,10 @@ export async function enviarEmailTransacional(input: EmailTransacional) {
         replyTo: { email: brevoRemetente, name: "Andrade Energy" },
         subject: input.assunto,
         htmlContent: input.html,
+        attachment: (input.anexos ?? []).map((anexo) => ({
+          name: anexo.filename,
+          content: anexo.content.toString("base64"),
+        })),
         tags: ["cadastro", "transacional"],
       }),
     });
@@ -36,7 +47,16 @@ export async function enviarEmailTransacional(input: EmailTransacional) {
     const resposta = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: remetente, to: [input.destinatario], subject: input.assunto, html: input.html }),
+      body: JSON.stringify({
+        from: remetente,
+        to: [input.destinatario],
+        subject: input.assunto,
+        html: input.html,
+        attachments: (input.anexos ?? []).map((anexo) => ({
+          filename: anexo.filename,
+          content: anexo.content.toString("base64"),
+        })),
+      }),
     });
     if (!resposta.ok) throw new Error(`Falha no envio pelo Resend (${resposta.status}).`);
     return true;

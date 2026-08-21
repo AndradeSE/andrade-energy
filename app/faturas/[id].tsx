@@ -93,6 +93,9 @@ export default function DetalheFatura() {
   const energiaInjetada = Number(fatura.energia_injetada ?? 0);
   const energiaCompensada = Number(fatura.energia_compensada ?? 0);
   const saldoCreditos = Number(fatura.saldo_atual ?? 0);
+  const energiaCobrada = Number(fatura.base_calculo_kwh ?? fatura.energia_compensada ?? fatura.consumo_kwh ?? fatura.consumo ?? 0);
+  const tarifaCemig = Number(fatura.tarifa_cheia ?? 0);
+  const tarifaAndrade = Number(fatura.tarifa_andrade ?? 0);
   const clienteFatura = fatura.clientes ?? {};
   const unidadeFatura = fatura.unidades_consumidoras ?? {};
   const enderecoFatura = unidadeFatura.endereco ?? clienteFatura.endereco ?? "Endereço não informado";
@@ -254,12 +257,19 @@ export default function DetalheFatura() {
 
         <Text style={styles.sectionTitle}>COMPOSIÇÃO DO VALOR</Text>
         <Card>
+          <ValueRow label={`Energia considerada (${formatarEnergia(energiaCobrada)})`} value="" />
+          <Divider />
+          <ValueRow label="Tarifa CEMIG por kWh" value={formatarMoeda(tarifaCemig)} />
+          <Divider />
+          <ValueRow label="Tarifa Andrade Energy por kWh" value={formatarMoeda(tarifaAndrade)} />
+          <Divider />
           <ValueRow label="Parte que permanece na CEMIG" value={formatarMoeda(Number(fatura.valor_cemig ?? 0))} />
           <Divider />
           <ValueRow label="Energia solar Andrade Energy" value={formatarMoeda(Number(fatura.valor_usina ?? fatura.valor_andrade ?? 0))} />
           <Divider />
           <ValueRow label="Total a pagar" value={formatarMoeda(valorUnificado)} emphasis />
         </Card>
+        <Text style={styles.calculationHint}>Cálculo: parte CEMIG + energia solar Andrade Energy = total unificado. As tarifas por kWh mostram os valores usados nesta competência.</Text>
 
         {possuiCustosGD2 ? <View style={styles.gd2Notice}><Ionicons name="information-circle-outline" size={21} color="#8A5A00" /><View style={styles.gd2Copy}><Text style={styles.gd2Title}>Entenda o desconto real na GD II</Text><Text style={styles.gd2Text}>Custos obrigatórios da rede e de disponibilidade continuam na conta da CEMIG. Por isso, o desconto final pode ser menor que o desconto contratado.</Text></View></View> : null}
 
@@ -638,6 +648,12 @@ const styles = StyleSheet.create({
     color: Colors.text,
     fontSize: Typography.body,
     fontWeight: "700",
+  },
+  calculationHint: {
+    marginTop: Spacing.sm,
+    color: Colors.subtitle,
+    fontSize: Typography.caption,
+    lineHeight: 18,
   },
   emphasisLabel: {
     color: Colors.text,

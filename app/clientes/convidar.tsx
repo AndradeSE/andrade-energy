@@ -16,7 +16,12 @@ export default function ConvidarCliente() {
     try {
       setEnviando(true);
       const resultado = await criarConvite({ nome: nome.trim(), cpf, email: email.trim().toLowerCase() });
-      Alert.alert(resultado.emailEnviado ? "Convite enviado" : "Convite criado", resultado.emailEnviado ? "O consumidor receberá o convite por e-mail." : `O e-mail não pôde ser enviado. Código: ${resultado.token}`, [{ text: "OK", onPress: () => router.back() }]);
+      const mensagem = resultado.emailEnviado
+        ? resultado.minutaAnexada
+          ? "O consumidor receberá o convite e a minuta do contrato em PDF. O contrato assinado não é enviado automaticamente."
+          : "O consumidor receberá o convite por e-mail. Para anexar a minuta automaticamente, configure antes os dados do locador e gere a minuta na UC."
+        : `O e-mail não pôde ser enviado. Código: ${resultado.token}`;
+      Alert.alert(resultado.emailEnviado ? "Convite enviado" : "Convite criado", mensagem, [{ text: "OK", onPress: () => router.back() }]);
     } catch (error: any) { Alert.alert("Não foi possível convidar", error?.response?.data?.message ?? "Tente novamente."); }
     finally { setEnviando(false); }
   }
