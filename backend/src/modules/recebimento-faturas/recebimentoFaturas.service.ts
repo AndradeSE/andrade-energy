@@ -220,13 +220,9 @@ export function verificarWebhookResend(corpo: Buffer, cabecalhos: Record<string,
 }
 
 function encontrarDestinatario(evento: EventoResend) {
-  const dominio = dominioRecebimento();
-  if (!dominio) return null;
-  const sufixo = `@${dominio}`;
   for (const valor of evento.data?.to ?? []) {
     const endereco = String(valor ?? "").trim().toLowerCase();
-    if (!endereco.endsWith(sufixo)) continue;
-    const local = endereco.slice(0, -sufixo.length);
+    const local = endereco.split("@", 1)[0] ?? "";
     const encontrado = /^fatura-([a-zA-Z0-9_-]{16,})$/.exec(local);
     if (encontrado) return { endereco, token: encontrado[1] };
   }

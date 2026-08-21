@@ -267,6 +267,7 @@ export default function RecebimentoEmail() {
         </TouchableOpacity>
         <Text style={styles.addressHint}>Toque para copiar. Este endereço é exclusivo desta UC e pode ser alterado a qualquer momento.</Text>
         <TouchableOpacity disabled={salvando} onPress={confirmarRegeneracao} style={styles.secondaryAction}><Ionicons name="refresh-outline" size={19} color={Colors.primary} /><Text style={styles.secondaryText}>Gerar novo endereço</Text></TouchableOpacity>
+        <TouchableOpacity disabled={salvando} onPress={confirmarDesativacao} style={styles.dangerAction}><Ionicons name="close-circle-outline" size={19} color={Colors.danger} /><Text style={styles.dangerText}>Desativar recebimento</Text></TouchableOpacity>
       </> : null}
 
       <Text style={styles.sectionTitle}>CONECTAR SEU E-MAIL</Text>
@@ -334,7 +335,6 @@ export default function RecebimentoEmail() {
           {dados.ultimoRecebimentoEm ? <Text style={styles.lastReceipt}>Último recebimento: {formatarData(dados.ultimoRecebimentoEm)}</Text> : null}
           {dados.erro ? <Text style={styles.errorText}>{dados.erro}</Text> : null}
 
-          <TouchableOpacity disabled={salvando} onPress={confirmarDesativacao} style={styles.dangerAction}><Ionicons name="close-circle-outline" size={19} color={Colors.danger} /><Text style={styles.dangerText}>Desativar recebimento</Text></TouchableOpacity>
         </> : null}
       </>}
     </ScrollView>
