@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
-import { File, Paths } from "expo-file-system";
+import { Directory, File, Paths } from "expo-file-system";
 import * as FileSystemLegacy from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
@@ -114,10 +114,18 @@ export default function DetalheFatura() {
       setDocumentoBaixando(nomeArquivo);
 
       if (Platform.OS !== "web") {
-        const destino = new File(Paths.document, nomeArquivo);
-        const arquivo = await File.downloadFileAsync(url, destino, {
+        // A API atual do Expo baixa para uma pasta, e não para um File já
+        // apontado. Usar o arquivo como destino podia deixar o leitor Android
+        // abrindo um PDF vazio/cacheado; o download idempotente substitui a
+        // cópia anterior pela resposta atual do servidor.
+        const pastaFaturas = new Directory(Paths.cache, "andrade-energy-faturas");
+        pastaFaturas.create({ idempotent: true, intermediates: true });
+        const arquivo = await File.downloadFileAsync(url, pastaFaturas, {
           idempotent: true,
         });
+        if (!arquivo.exists || !arquivo.size || arquivo.size < 512) {
+          throw new Error("O PDF baixado está vazio.");
+        }
         if (Platform.OS === "android") {
           try {
             const contentUri = await FileSystemLegacy.getContentUriAsync(arquivo.uri);
