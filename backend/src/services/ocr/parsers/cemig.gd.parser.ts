@@ -41,7 +41,9 @@ export function parseCemigGD(
 ): FaturaExtraida {
 
   const dadosConta = texto.match(
-    /Referente a\s*Vencimento\s*Valor a pagar \(R\$\)\s*([A-Z]{3}\/\d{4})(\d{2}\/\d{2}\/\d{4})([\d.,]+)/i
+    /Referente a\s*Vencimento\s*Valor a pagar \(R\$\)\s*([A-Z]{3}\/\d{4})\s*(\d{2}\/\d{2}\/\d{4})\s*([\d.,]+)/i
+  ) ?? texto.match(
+    /([A-Z]{3}\/20\d{2})\s*(\d{2}\/\d{2}\/20\d{2})\s*([\d.]+,\d{2})/
   );
 
   const referencia =
