@@ -27,6 +27,10 @@ function percentual(valor: unknown) {
   return `${numero(valor).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`;
 }
 
+function energia(valor: unknown) {
+  return `${numero(valor).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kWh`;
+}
+
 function desenharLinha(pdf: PDFKit.PDFDocument, y: number) {
   pdf.strokeColor(BORDA).lineWidth(1).moveTo(48, y).lineTo(48 + LARGURA, y).stroke();
 }
@@ -59,7 +63,10 @@ export function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     const valorSemAndrade = numero(fatura.valor_referencia_sem_andrade) || Math.max(0, valorTotal + economiaReal);
     const descontoContratado = numero(fatura.desconto_contratado_percentual ?? fatura.desconto_percentual);
     const descontoReal = numero(fatura.desconto_real_percentual);
-    const baseKwh = numero(fatura.base_calculo_kwh ?? fatura.energia_compensada ?? fatura.energia_injetada);
+    const consumoKwh = numero(fatura.consumo_kwh ?? fatura.consumo);
+    const energiaInjetada = numero(fatura.energia_injetada);
+    const energiaCompensada = numero(fatura.energia_compensada);
+    const saldoCreditos = numero(fatura.saldo_atual);
 
     pdf.rect(0, 0, 595, 112).fill(VERDE_ESCURO);
     pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(20).text("Andrade Energy", 48, 38);
@@ -71,38 +78,52 @@ export function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(14).text(`UC ${fatura.numero_instalacao ?? "Não informada"}`, 48, 149);
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(9).text(`Modalidade: ${String(fatura.modalidade_faturamento ?? "COMPENSACAO").toLowerCase() === "injecao" ? "injeção" : "compensação"}`, 48, 171);
 
-    pdf.roundedRect(48, 198, LARGURA, 110, 14).fill(VERDE_CLARO);
-    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("VOCÊ PAGA NESTA FATURA", 68, 219);
-    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(27).text(moeda(valorTotal), 68, 238);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(9).text("Total de CEMIG e Andrade Energy", 68, 273);
-    pdf.fillColor(VERDE).font("Helvetica-Bold").fontSize(10).text("SUA ECONOMIA REAL", 344, 219, { width: 170, align: "right" });
-    pdf.fillColor(VERDE).font("Helvetica-Bold").fontSize(20).text(moeda(economiaReal), 344, 239, { width: 170, align: "right" });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(9).text(`Desconto real: ${percentual(descontoReal)}`, 344, 274, { width: 170, align: "right" });
+    // Quadro técnico inspirado na leitura da conta da CEMIG: consumo,
+    // energia compensada/injetada e créditos aparecem separados dos valores.
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(12).text("Demonstrativo de energia e créditos", 48, 198);
+    pdf.roundedRect(48, 220, LARGURA, 80, 12).fill("#F8FBF9").strokeColor(BORDA).stroke();
+    const itensEnergia = [
+      ["Consumo da unidade", energia(consumoKwh)],
+      ["Energia compensada no mês", energia(energiaCompensada)],
+      ["Energia injetada no mês", energia(energiaInjetada)],
+      ["Saldo atual de créditos", energia(saldoCreditos)],
+    ];
+    itensEnergia.forEach(([rotulo, valor], indice) => {
+      const coluna = indice % 2;
+      const linha = Math.floor(indice / 2);
+      const x = coluna === 0 ? 64 : 315;
+      const y = 235 + linha * 32;
+      pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7.5).text(rotulo, x, y, { width: 210 });
+      pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(11).text(valor, x, y + 11, { width: 210 });
+    });
 
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(13).text("Entenda a sua cobrança", 48, 338);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(9).text("Comparamos o valor cheio da energia com o total que você paga neste mês.", 48, 357);
-    pdf.roundedRect(48, 382, LARGURA, 150, 12).fill("#FFFFFF").strokeColor(BORDA).stroke();
-    desenharLinhaDeValor(pdf, 404, "Sem o benefício Andrade Energy", moeda(valorSemAndrade));
-    desenharLinha(pdf, 430);
-    desenharLinhaDeValor(pdf, 445, "Você paga neste mês", moeda(valorTotal), true);
-    desenharLinha(pdf, 471);
-    desenharLinhaDeValor(pdf, 486, "Sua economia real", moeda(economiaReal), true);
-    desenharLinha(pdf, 512);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8.5).text(`Desconto contratado: ${percentual(descontoContratado)}  |  Desconto final real: ${percentual(descontoReal)}`, 64, 519, { width: 465, align: "center" });
+    pdf.roundedRect(48, 319, LARGURA, 87, 14).fill(VERDE_CLARO);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("TOTAL A PAGAR NESTE MÊS", 68, 339);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(25).text(moeda(valorTotal), 68, 356);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8.5).text("CEMIG + energia solar Andrade Energy", 68, 386);
+    pdf.fillColor(VERDE).font("Helvetica-Bold").fontSize(9.5).text("SUA ECONOMIA REAL", 344, 340, { width: 170, align: "right" });
+    pdf.fillColor(VERDE).font("Helvetica-Bold").fontSize(18).text(moeda(economiaReal), 344, 358, { width: 170, align: "right" });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8.5).text(`Desconto final real: ${percentual(descontoReal)}`, 344, 386, { width: 170, align: "right" });
 
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(13).text("De onde vem esse total", 48, 560);
-    pdf.roundedRect(48, 584, LARGURA, 99, 12).fill("#F8FBF9").strokeColor(BORDA).stroke();
-    desenharLinhaDeValor(pdf, 604, "Parte que permanece na CEMIG", moeda(valorCemig));
-    desenharLinha(pdf, 628);
-    desenharLinhaDeValor(pdf, 643, "Energia solar da Andrade Energy", moeda(valorUsina));
-    desenharLinha(pdf, 667);
-    desenharLinhaDeValor(pdf, 678, "Total a pagar", moeda(valorTotal), true);
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(12).text("Resumo da cobrança", 48, 430);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8.5).text("Comparativo entre a energia sem benefício e o valor final desta competência.", 48, 447);
+    pdf.roundedRect(48, 466, LARGURA, 111, 12).fill("#FFFFFF").strokeColor(BORDA).stroke();
+    desenharLinhaDeValor(pdf, 482, "Valor sem o benefício Andrade Energy", moeda(valorSemAndrade));
+    desenharLinha(pdf, 504);
+    desenharLinhaDeValor(pdf, 516, "Valor que você paga neste mês", moeda(valorTotal), true);
+    desenharLinha(pdf, 538);
+    desenharLinhaDeValor(pdf, 550, "Economia real neste mês", moeda(economiaReal), true);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(`Desconto contratado: ${percentual(descontoContratado)}  |  Desconto final real: ${percentual(descontoReal)}`, 64, 564, { width: 465, align: "center" });
 
-    let yAviso = 704;
-    if (baseKwh > 0) {
-      pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8.5).text(`Energia considerada nesta fatura: ${baseKwh.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kWh`, 48, yAviso);
-      yAviso += 19;
-    }
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(12).text("Composição do valor a pagar", 48, 587);
+    pdf.roundedRect(48, 607, LARGURA, 78, 12).fill("#F8FBF9").strokeColor(BORDA).stroke();
+    desenharLinhaDeValor(pdf, 623, "Parte que permanece na CEMIG", moeda(valorCemig));
+    desenharLinha(pdf, 643);
+    desenharLinhaDeValor(pdf, 654, "Energia solar Andrade Energy", moeda(valorUsina));
+    desenharLinha(pdf, 673);
+    desenharLinhaDeValor(pdf, 682, "Total a pagar", moeda(valorTotal), true);
+
+    let yAviso = 700;
     if (temGD2(fatura)) {
       pdf.roundedRect(48, yAviso, LARGURA, 48, 10).fill("#FFF7E8");
       pdf.fillColor("#8A5A00").font("Helvetica-Bold").fontSize(9).text("Por que o desconto real pode ser menor que o contratado?", 64, yAviso + 10);
@@ -110,8 +131,8 @@ export function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
       yAviso += 61;
     }
 
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text("Esta é uma fatura explicativa da Andrade Energy. A conta original da CEMIG permanece disponível no aplicativo.", 48, Math.min(yAviso + 7, 770), { width: LARGURA, align: "center" });
-    pdf.fillColor(VERDE).font("Helvetica-Bold").fontSize(8).text("ANDRADE ENERGY", 48, 782, { width: LARGURA, align: "center" });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text("Esta é uma fatura explicativa da Andrade Energy. A conta original da CEMIG permanece disponível no aplicativo.", 48, Math.min(yAviso + 5, 756), { width: LARGURA, align: "center" });
+    pdf.fillColor(VERDE).font("Helvetica-Bold").fontSize(8).text("ANDRADE ENERGY", 48, 772, { width: LARGURA, align: "center" });
     pdf.end();
   });
 }

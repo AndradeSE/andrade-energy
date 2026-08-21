@@ -28,6 +28,9 @@ const formatarMoeda = (valor: number) =>
     currency: "BRL",
   });
 
+const formatarEnergia = (valor: unknown) =>
+  `${Number(valor ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kWh`;
+
 export default function DetalheFatura() {
   const { id } = useLocalSearchParams();
   const [fatura, setFatura] = useState<any>();
@@ -86,6 +89,10 @@ export default function DetalheFatura() {
     fatura.desconto_contratado_percentual ?? fatura.desconto_percentual ?? 0
   );
   const descontoReal = Number(fatura.desconto_real_percentual ?? 0);
+  const consumoKwh = Number(fatura.consumo_kwh ?? fatura.consumo ?? 0);
+  const energiaInjetada = Number(fatura.energia_injetada ?? 0);
+  const energiaCompensada = Number(fatura.energia_compensada ?? 0);
+  const saldoCreditos = Number(fatura.saldo_atual ?? 0);
   const possuiCustosGD2 =
     String(fatura.modalidade_faturamento ?? "").toUpperCase() === "COMPENSACAO" &&
     (Number(fatura.custo_disponibilidade ?? 0) > 0 ||
@@ -174,6 +181,18 @@ export default function DetalheFatura() {
             <View style={styles.discountPill}><Text style={styles.discountPillLabel}>Desconto contratado</Text><Text style={styles.discountPillValue}>{descontoContratado.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</Text></View>
             <View style={styles.discountPill}><Text style={styles.discountPillLabel}>Desconto final real</Text><Text style={styles.discountPillValue}>{descontoReal.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</Text></View>
           </View>
+        </Card>
+
+        <Text style={styles.sectionTitle}>DEMONSTRATIVO DE ENERGIA E CRÉDITOS</Text>
+        <Card style={styles.energyStatementCard}>
+          <Text style={styles.energyStatementCaption}>Leitura da competência {fatura.referencia ?? "atual"}</Text>
+          <View style={styles.energyGrid}>
+            <EnergyMetric icon="flash-outline" label="Consumo da UC" value={formatarEnergia(consumoKwh)} />
+            <EnergyMetric icon="git-merge-outline" label="Compensado no mês" value={formatarEnergia(energiaCompensada)} />
+            <EnergyMetric icon="sunny-outline" label="Injetado no mês" value={formatarEnergia(energiaInjetada)} />
+            <EnergyMetric icon="battery-half-outline" label="Saldo de créditos" value={formatarEnergia(saldoCreditos)} highlight />
+          </View>
+          <Text style={styles.energyStatementFootnote}>O saldo de créditos é o informado na conta da CEMIG e pode ser usado em competências futuras, conforme as regras da distribuidora.</Text>
         </Card>
 
         <Text style={styles.sectionTitle}>COMPOSIÇÃO DO VALOR</Text>
@@ -290,6 +309,16 @@ function ValueRow({ label, value, emphasis = false }: { label: string; value: st
     <View style={styles.valueRow}>
       <Text style={[styles.rowLabel, emphasis && styles.emphasisLabel]}>{label}</Text>
       <Text style={[styles.rowValue, emphasis && styles.emphasisValue]}>{value}</Text>
+    </View>
+  );
+}
+
+function EnergyMetric({ icon, label, value, highlight = false }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string; highlight?: boolean }) {
+  return (
+    <View style={[styles.energyMetric, highlight && styles.energyMetricHighlight]}>
+      <Ionicons name={icon} size={18} color={highlight ? Colors.primary : Colors.subtitle} />
+      <Text style={styles.energyMetricLabel}>{label}</Text>
+      <Text style={[styles.energyMetricValue, highlight && styles.energyMetricValueHighlight]}>{value}</Text>
     </View>
   );
 }
@@ -448,6 +477,60 @@ const styles = StyleSheet.create({
     color: Colors.primaryDark,
     fontSize: Typography.body,
     fontWeight: "900",
+  },
+  energyStatementCard: {
+    marginBottom: Spacing.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: "#F8FBF9",
+  },
+  energyStatementCaption: {
+    marginBottom: Spacing.sm,
+    color: Colors.subtitle,
+    fontSize: Typography.caption,
+  },
+  energyGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.sm,
+    overflow: "hidden",
+  },
+  energyMetric: {
+    width: "50%",
+    minHeight: 86,
+    padding: Spacing.sm,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  energyMetricHighlight: {
+    backgroundColor: Colors.primaryLight,
+  },
+  energyMetricLabel: {
+    marginTop: 6,
+    color: Colors.subtitle,
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  energyMetricValue: {
+    marginTop: 3,
+    color: Colors.text,
+    fontSize: Typography.body,
+    fontWeight: "900",
+  },
+  energyMetricValueHighlight: {
+    color: Colors.primaryDark,
+  },
+  energyStatementFootnote: {
+    marginTop: Spacing.sm,
+    color: Colors.subtitle,
+    fontSize: 11,
+    lineHeight: 16,
   },
   gd2Notice: {
     flexDirection: "row",
