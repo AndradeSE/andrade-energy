@@ -1,5 +1,7 @@
 import PDFDocument from "pdfkit";
 import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { supabase } from "../../config/supabase";
 import { extrairTextoDoBuffer } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
@@ -12,6 +14,13 @@ const TEXTO = "#17312A";
 const TEXTO_SECUNDARIO = "#5C6B65";
 const BORDA = "#D8E7E0";
 const LARGURA = 498;
+const CAMINHOS_LOGO = [
+  // Local e Render: o serviço é iniciado dentro de backend/ e os assets
+  // ficam na raiz do repositório.
+  resolve(process.cwd(), "../assets/images/andrade-logo-horizontal.png"),
+  resolve(process.cwd(), "assets/images/andrade-logo-horizontal.png"),
+];
+const CAMINHO_LOGO = CAMINHOS_LOGO.find(existsSync);
 
 function moeda(valor: unknown) {
   return Number(valor ?? 0).toLocaleString("pt-BR", {
@@ -177,8 +186,13 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     );
 
     pdf.rect(0, 0, 595, 96).fill(VERDE_ESCURO);
-    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(18).text("Andrade Energy", 48, 31);
-    pdf.fillColor("#D4F0E5").font("Helvetica").fontSize(8.5).text(tipo === "UNIFICADA" ? "Fatura unificada de energia" : "Cobrança de energia solar", 48, 57);
+    pdf.roundedRect(48, 20, 138, 43, 8).fill("#FFFFFF");
+    if (CAMINHO_LOGO) {
+      pdf.image(CAMINHO_LOGO, 56, 25, { fit: [122, 31], align: "center", valign: "center" });
+    } else {
+      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(13).text("Andrade Energy", 60, 35, { width: 114, align: "center" });
+    }
+    pdf.fillColor("#D4F0E5").font("Helvetica").fontSize(8.5).text(tipo === "UNIFICADA" ? "Fatura unificada de energia" : "Cobrança de energia solar", 48, 73);
     pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(9).text(`Referência: ${fatura.referencia ?? "Não informada"}`, 350, 33, { width: 196, align: "right" });
     pdf.fillColor("#D4F0E5").font("Helvetica").fontSize(8).text(`Vencimento: ${fatura.vencimento ?? "Não informado"}`, 350, 51, { width: 196, align: "right" });
 
