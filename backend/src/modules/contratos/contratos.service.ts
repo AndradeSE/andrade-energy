@@ -106,14 +106,34 @@ export async function salvarContratoDaUnidadeService(
   unidadeId: string,
   dados: any
 ) {
-  const { data: unidade, error: erroUnidade } = await supabase
+  const { data: unidadeEncontrada, error: erroUnidade } = await supabase
     .from("unidades_consumidoras")
     .select("id, numero, cliente_id, usina_id, desconto_percentual")
     .eq("id", unidadeId)
     .maybeSingle();
 
   if (erroUnidade) throw erroUnidade;
-  if (!unidade?.cliente_id) throw new Error("Esta unidade não está vinculada a um cliente.");
+  if (!unidadeEncontrada) throw new Error("Unidade consumidora não encontrada.");
+  const clienteIdInformado = String(dados?.clienteId ?? "").trim();
+  let unidade = unidadeEncontrada;
+  if (!unidade.cliente_id && clienteIdInformado) {
+    const { data: cliente, error: erroCliente } = await supabase
+      .from("clientes")
+      .select("id")
+      .eq("id", clienteIdInformado)
+      .maybeSingle();
+    if (erroCliente) throw erroCliente;
+    if (!cliente) throw new Error("Cliente responsável não encontrado.");
+
+    const { error: erroVinculo } = await supabase
+      .from("unidades_consumidoras")
+      .update({ cliente_id: cliente.id })
+      .eq("id", unidade.id)
+      .is("cliente_id", null);
+    if (erroVinculo) throw erroVinculo;
+    unidade = { ...unidade, cliente_id: cliente.id };
+  }
+  if (!unidade.cliente_id) throw new Error("Esta unidade não está vinculada a um cliente.");
   if (!unidade.usina_id) throw new Error("Aloque a UC em uma usina antes de cadastrar o contrato.");
 
   const numero = normalizarNumero(dados?.numero);

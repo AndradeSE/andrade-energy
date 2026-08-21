@@ -17,6 +17,8 @@ type Props = {
   subtitle: string;
   contextTitle: string;
   contextSubtitle: string;
+  contextBadge?: string;
+  contextBadgeTone?: "success" | "danger" | "neutral";
   icon?: keyof typeof Ionicons.glyphMap;
   variant?: "main" | "subpage";
 };
@@ -26,6 +28,8 @@ export default function AppHeader({
   subtitle,
   contextTitle,
   contextSubtitle,
+  contextBadge,
+  contextBadgeTone = "neutral",
   icon = "grid-outline",
   variant = "main",
 }: Props) {
@@ -126,10 +130,16 @@ export default function AppHeader({
         </TouchableOpacity>
 
         <TouchableOpacity accessibilityLabel="Abrir perfil" activeOpacity={0.8} onPress={() => router.push("/perfil")} style={styles.profileButton}>
-          <View style={styles.avatar}><Ionicons name="person" size={21} color={Colors.surface} /></View>
+          <View style={styles.avatar}><Ionicons name={icon} size={21} color={Colors.surface} /></View>
           <View style={styles.titleContent}>
-            <Text numberOfLines={1} style={styles.title}>{title}</Text>
-            <Text numberOfLines={1} style={styles.subtitle}>{subtitle}</Text>
+            <Text numberOfLines={1} style={styles.sectionLabel}>{title} · {subtitle}</Text>
+            <View style={styles.contextTitleRow}>
+              <Text numberOfLines={1} style={styles.title}>{contextTitle}</Text>
+              {contextBadge ? <View style={[styles.contextBadge, contextBadgeTone === "success" && styles.contextBadgeSuccess, contextBadgeTone === "danger" && styles.contextBadgeDanger]}>
+                <Text numberOfLines={1} style={[styles.contextBadgeText, contextBadgeTone === "success" && styles.contextBadgeTextSuccess, contextBadgeTone === "danger" && styles.contextBadgeTextDanger]}>{contextBadge}</Text>
+              </View> : null}
+            </View>
+            <Text numberOfLines={1} style={styles.subtitle}>{contextSubtitle}</Text>
           </View>
         </TouchableOpacity>
 
@@ -154,22 +164,6 @@ export default function AppHeader({
         </View>
         <View style={styles.plantText}><Text numberOfLines={1} style={styles.plantName}>{usinaSelecionada.nome}</Text><Text numberOfLines={1} style={styles.plantAutonomy}>{autonomia ? `Autonomia ${autonomia.percentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% · ${autonomia.disponivel.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kWh disponíveis` : "Calculando autonomia..."}</Text></View>
       </View> : null}
-
-      <View style={styles.contextCard}>
-        <View style={styles.contextIcon}>
-          <Image source={require("../../assets/images/andrade-logo-horizontal.png")} style={styles.contextLogo} resizeMode="contain" />
-        </View>
-
-        <View style={styles.contextContent}>
-          <Text numberOfLines={1} style={styles.contextTitle}>
-            {contextTitle}
-          </Text>
-
-          <Text numberOfLines={1} style={styles.contextSubtitle}>
-            {contextSubtitle}
-          </Text>
-        </View>
-      </View>
 
       <Modal animationType="fade" transparent visible={menuAberto} onRequestClose={() => setMenuAberto(false)}>
         <Pressable style={styles.backdrop} onPress={() => setMenuAberto(false)}>
@@ -251,16 +245,29 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.sm,
   },
 
+  sectionLabel: {
+    color: "rgba(255,255,255,0.76)",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+
+  contextTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    minWidth: 0,
+  },
+
   title: {
+    flexShrink: 1,
     color: Colors.surface,
     fontSize: Typography.body,
     fontWeight: "700",
   },
 
   subtitle: {
-    marginTop: 2,
-    color: Colors.surface,
-    fontSize: Typography.caption,
+    marginTop: 1,
+    color: "rgba(255,255,255,0.82)",
+    fontSize: Typography.small,
   },
 
   action: {
@@ -271,7 +278,7 @@ const styles = StyleSheet.create({
   },
   notificationBadge: { position: "absolute", top: 2, right: 0, minWidth: 17, height: 17, alignItems: "center", justifyContent: "center", paddingHorizontal: 3, borderRadius: Radius.round, backgroundColor: "#DC2626" },
   notificationBadgeText: { color: Colors.surface, fontSize: 10, fontWeight: "800" },
-  plantBar: { flexDirection: "row", alignItems: "center", marginTop: Spacing.sm, padding: Spacing.xs, borderRadius: Radius.md, backgroundColor: "rgba(255,255,255,0.12)" },
+  plantBar: { flexDirection: "row", alignItems: "center", marginTop: Spacing.md, padding: Spacing.xs, borderRadius: Radius.md, backgroundColor: "rgba(255,255,255,0.12)" },
   plantLogo: { width: 42, height: 42, alignItems: "center", justifyContent: "center", marginRight: Spacing.sm, borderRadius: Radius.sm, backgroundColor: Colors.surface },
   plantLogoImage: { width: 34, height: 29 },
   plantText: { flex: 1 },
@@ -295,41 +302,10 @@ const styles = StyleSheet.create({
   menuLabel: { flex: 1, marginLeft: Spacing.md, color: Colors.text, fontSize: Typography.body, fontWeight: "600" },
   menuDanger: { color: Colors.danger }, menuDivider: { height: Spacing.md },
 
-  contextCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: Spacing.lg,
-    padding: Spacing.md,
-    marginHorizontal: -Spacing.lg,
-    marginBottom: -Spacing.lg,
-    paddingHorizontal: Spacing.lg,
-    backgroundColor: Colors.surface,
-  },
-
-  contextIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: Radius.md,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: Colors.primaryLight,
-  },
-  contextLogo: { width: 38, height: 32 },
-
-  contextContent: {
-    flex: 1,
-    marginLeft: Spacing.sm,
-  },
-
-  contextTitle: {
-    color: Colors.text,
-    fontSize: Typography.body,
-    fontWeight: "700",
-  },
-
-  contextSubtitle: {
-    marginTop: 2,
-    color: Colors.subtitle,
-    fontSize: Typography.small,
-  },
+  contextBadge: { marginLeft: Spacing.sm, paddingHorizontal: 8, paddingVertical: 3, borderRadius: Radius.round, backgroundColor: "rgba(255,255,255,0.16)" },
+  contextBadgeSuccess: { backgroundColor: "rgba(22,163,74,0.28)" },
+  contextBadgeDanger: { backgroundColor: "rgba(220,38,38,0.30)" },
+  contextBadgeText: { color: Colors.surface, fontSize: 10, fontWeight: "800" },
+  contextBadgeTextSuccess: { color: "#DCFCE7" },
+  contextBadgeTextDanger: { color: "#FEE2E2" },
 });

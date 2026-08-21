@@ -33,7 +33,7 @@ export default function DashboardUsina() {
       Alert.alert("Unidade geradora não localizada", "Edite a usina e confirme o número da instalação para criar o endereço de recebimento.");
       return;
     }
-    router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidadeGeradoraId } });
+    router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidadeGeradoraId, finalidade: "PRODUCAO_USINA" } });
   };
 
   return <Screen>

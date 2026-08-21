@@ -64,7 +64,7 @@ export default function DashboardGestor() {
 
   return (
     <Screen>
-      <AppHeader contextSubtitle={`Competência ${data.competencia}`} contextTitle="Visão geral da operação" icon="sunny-outline" subtitle="Sua energia em um só lugar" title={data.usina?.nome ?? "Minha usina"} />
+      <AppHeader contextSubtitle={`Competência ${data.competencia}`} contextTitle="Visão geral da operação" icon="sunny-outline" subtitle="Sua energia em um só lugar" title="Início" />
       <ScrollView bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <View style={styles.hero}>
           <View style={styles.heroTop}>
