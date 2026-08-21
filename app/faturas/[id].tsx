@@ -552,7 +552,8 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   regenerateButtonText: {
-    ...Typography.label,
+    fontSize: Typography.caption,
+    fontWeight: "800",
     color: Colors.primary,
   },
   energyStatementCard: {
