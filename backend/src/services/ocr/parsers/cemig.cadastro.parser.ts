@@ -53,11 +53,15 @@ export function extrairCadastroCemig(texto: string) {
   const cliente = clientePorLinhas || (nomeExtraidoValido(clienteExtraido) ? clienteExtraido : "");
   const endereco = enderecoPorLinhas || (bloco?.[2] ?? "").replace(/\s+/g, " ").trim();
 
-  const uc = (
-    texto.match(
-      /(?:N\.?\s*[º°o]?\s*(?:DA UNIDADE CONSUMIDORA|DA INSTALAÇÃO|DA INSTALACAO)|UNIDADE CONSUMIDORA|INSTALAÇÃO|INSTALACAO)\s*[:\-]?\s*([\d.\-]{8,})/i
-    )?.[1] ?? ""
-  ).replace(/\D/g, "");
+  const ucComRotulo = texto.match(
+    /(?:N\.?\s*[º°o]?\s*(?:DA UNIDADE CONSUMIDORA|DA INSTALAÇÃO|DA INSTALACAO)|UNIDADE CONSUMIDORA|INSTALAÇÃO|INSTALACAO)\s*[:\-]?\s*([\d.\-]{8,})/i
+  )?.[1];
+
+  // Em algumas faturas CEMIG a UC é exibida isoladamente no cabeçalho, sem
+  // rótulo. O formato com grupos e hífen evita confundi-la com CNPJ, código de
+  // barras ou número de nota fiscal.
+  const ucIsolada = texto.match(/(?:^|\r?\n)\s*(\d{1,2}\.\d{3}\.\d{3}\.\d{3}-\d{2})\s*(?=\r?\n|$)/m)?.[1];
+  const uc = (ucComRotulo ?? ucIsolada ?? "").replace(/\D/g, "");
 
   const cpf = (
     texto.match(/(?:CPF\s*(?:\/\s*CNPJ)?|CNPJ)\s*[:\-]?\s*([\d.\-/]{11,20})/i)?.[1] ?? ""
