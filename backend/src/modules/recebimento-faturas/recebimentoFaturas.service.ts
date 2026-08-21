@@ -245,7 +245,14 @@ async function registrarEventoRecebido(evento: EventoResend, eventoId?: string) 
       .maybeSingle();
     if (error) throw error;
     if (data?.recebimento_email_ativo && data.status === "ATIVA") unidade = data;
+    console.info("[recebimento-faturas] destino analisado", {
+      enderecoReconhecido: Boolean(alvo),
+      unidadeEncontrada: Boolean(data),
+      recebimentoAtivo: Boolean(data?.recebimento_email_ativo),
+      unidadeAtiva: data?.status === "ATIVA",
+    });
   }
+  if (!alvo?.token) console.info("[recebimento-faturas] destinatário sem token reconhecido");
 
   const status = unidade ? "PENDENTE" : "IGNORADO";
   const destinatario = alvo?.endereco ?? String(evento.data?.to?.[0] ?? "desconhecido").toLowerCase();
