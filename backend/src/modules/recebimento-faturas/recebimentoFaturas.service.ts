@@ -47,6 +47,21 @@ function normalizarNumero(valor?: string | null) {
   return String(valor ?? "").replace(/\D/g, "");
 }
 
+function complementarCabecalhoCemig(texto: string, dados: ReturnType<typeof interpretarFatura>) {
+  const cabecalho = texto.match(
+    /([A-Z]{3}\/20\d{2})\s*(\d{2}\/\d{2}\/20\d{2})\s*([\d.]+,\d{2})/
+  );
+  if (!cabecalho) return dados;
+
+  const valor = Number(cabecalho[3].replace(/\./g, "").replace(",", "."));
+  return {
+    ...dados,
+    referencia: dados.referencia || cabecalho[1],
+    vencimento: dados.vencimento || cabecalho[2],
+    valorTotal: Number.isFinite(dados.valorTotal) && dados.valorTotal > 0 ? dados.valorTotal : valor,
+  };
+}
+
 function dominioRecebimento() {
   return String(process.env.INBOUND_EMAIL_DOMAIN ?? "").trim().toLowerCase();
 }
@@ -433,7 +448,8 @@ async function processarRegistro(registro: any) {
       // ao aplicativo.
       const cpf = normalizarCpf(unidade.cpf_titular) || normalizarCpf(clienteDaUnidade(unidade)?.cpf);
       const senhaPdf = cpf.length >= 4 ? cpf.slice(0, 4) : undefined;
-      const dados = interpretarFatura(await extrairTextoPDF(caminho, senhaPdf));
+      const textoDaFatura = await extrairTextoPDF(caminho, senhaPdf);
+      const dados = complementarCabecalhoCemig(textoDaFatura, interpretarFatura(textoDaFatura));
       if (normalizarNumero(dados.uc) !== normalizarNumero(unidade.numero)) {
         throw new Error("O número da UC do PDF não corresponde ao endereço de recebimento.");
       }
