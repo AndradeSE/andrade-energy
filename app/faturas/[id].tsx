@@ -19,7 +19,7 @@ import {
 
 import { AppHeader, Card, Divider, ElasticScrollView as ScrollView, EmptyState, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
-import { buscarFatura } from "../../services/faturas.service";
+import { buscarFatura, regenerarDocumentosFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const formatarMoeda = (valor: number) =>
@@ -37,6 +37,7 @@ export default function DetalheFatura() {
   const [erro, setErro] = useState(false);
   const [documentoBaixando, setDocumentoBaixando] = useState<string>();
   const [atualizando, setAtualizando] = useState(false);
+  const [regenerandoPdf, setRegenerandoPdf] = useState(false);
 
   const carregar = useCallback(async () => {
     setErro(false);
@@ -57,6 +58,19 @@ export default function DetalheFatura() {
       await carregar();
     } finally {
       setAtualizando(false);
+    }
+  }
+
+  async function regenerarPdf() {
+    setRegenerandoPdf(true);
+    try {
+      const atualizada = await regenerarDocumentosFatura(String(id));
+      setFatura(atualizada);
+      Alert.alert("Fatura atualizada", "O PDF Andrade Energy foi gerado novamente. Abra o download outra vez.");
+    } catch {
+      Alert.alert("Não foi possível atualizar o PDF", "Tente novamente em instantes.");
+    } finally {
+      setRegenerandoPdf(false);
     }
   }
 
@@ -196,6 +210,17 @@ export default function DetalheFatura() {
         </Card>
 
         <View style={[styles.downloadActions, styles.downloadActionsTop]}>
+          {IS_GERADOR_APP ? (
+            <TouchableOpacity
+              activeOpacity={0.82}
+              onPress={regenerarPdf}
+              disabled={regenerandoPdf}
+              style={styles.regenerateButton}
+            >
+              <Ionicons name={regenerandoPdf ? "hourglass-outline" : "refresh-outline"} size={18} color={Colors.primary} />
+              <Text style={styles.regenerateButtonText}>{regenerandoPdf ? "Atualizando PDF..." : "Gerar PDF atualizado"}</Text>
+            </TouchableOpacity>
+          ) : null}
           <DownloadButton
             available={Boolean(fatura.pdf_cemig_url)}
             label="Conta original da CEMIG"
@@ -512,6 +537,21 @@ const styles = StyleSheet.create({
   downloadActionsTop: {
     marginTop: -Spacing.sm,
     marginBottom: Spacing.lg,
+  },
+  regenerateButton: {
+    minHeight: 44,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    paddingHorizontal: Spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+  },
+  regenerateButtonText: {
+    ...Typography.label,
+    color: Colors.primary,
   },
   energyStatementCard: {
     marginBottom: Spacing.md,

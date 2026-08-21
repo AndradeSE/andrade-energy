@@ -262,6 +262,25 @@ export async function armazenarDocumentosDaFatura(fatura: any, arquivoCemig: str
   return { cemig, usina, unificada };
 }
 
+/** Regera somente os demonstrativos Andrade sem alterar a conta CEMIG original. */
+export async function regenerarDocumentosGeradosDaFatura(fatura: any) {
+  const pasta = `${fatura.cliente_id}/${fatura.id}`;
+  const [pdfUsina, pdfUnificada] = await Promise.all([
+    gerarPdfFatura(fatura, "USINA"),
+    gerarPdfFatura(fatura, "UNIFICADA"),
+  ]);
+  const [usina, unificada] = await Promise.all([
+    enviarPdf(`${pasta}/fatura-usina.pdf`, pdfUsina),
+    enviarPdf(`${pasta}/fatura-unificada.pdf`, pdfUnificada),
+  ]);
+  const { error } = await supabase
+    .from("faturas")
+    .update({ pdf_usina_url: usina, pdf_unificada_url: unificada })
+    .eq("id", fatura.id);
+  if (error) throw error;
+  return { ...fatura, pdf_usina_url: usina, pdf_unificada_url: unificada };
+}
+
 async function criarLinkTemporario(caminho?: string | null) {
   if (!caminho) return null;
   const { data, error } = await supabase.storage

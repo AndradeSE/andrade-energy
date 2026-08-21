@@ -8,6 +8,7 @@ import {
   listarFaturasController,
   excluirFaturaController,
   confirmarFaturaRascunhoController,
+  regenerarDocumentosFaturaController,
 } from "./faturas.controller";
 import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
 
@@ -27,6 +28,7 @@ router.post(
 router.get("/:id", detalharFaturaController);
 router.delete("/:id", excluirFaturaController);
 router.post("/:id/confirmar", exigirAutenticacao, exigirGestor, confirmarFaturaRascunhoController);
+router.post("/:id/regenerar-documentos", exigirAutenticacao, exigirGestor, regenerarDocumentosFaturaController);
 
 router.post(
   "/importar",

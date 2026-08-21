@@ -8,6 +8,7 @@ import { interpretarFatura } from "../../services/ocr/parser.service";
 import {
   armazenarDocumentosDaFatura,
   incluirLinksTemporarios,
+  regenerarDocumentosGeradosDaFatura,
 } from "./documentosFatura.service";
 import { enfileirarNotificacoesDaFatura } from "./notificacoesFatura.service";
 import { criarCobranca } from "../cobrancas/cobrancas.repository";
@@ -28,6 +29,12 @@ export async function detalharFatura(id: string) {
 export async function excluirFatura(id: string) {
   await excluirFaturaPorId(id);
   return { sucesso: true };
+}
+
+export async function regenerarDocumentosFatura(id: string) {
+  const fatura = await buscarFaturaPorId(id);
+  if (!fatura) throw new Error("Fatura não encontrada.");
+  return incluirLinksTemporarios(await regenerarDocumentosGeradosDaFatura(fatura));
 }
 
 export async function confirmarFaturaRascunho(id: string) {

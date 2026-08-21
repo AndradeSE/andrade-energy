@@ -96,6 +96,11 @@ export async function excluirFatura(id: string) {
   return data;
 }
 
+export async function regenerarDocumentosFatura(id: string) {
+  const { data } = await api.post(`/faturas/${id}/regenerar-documentos`);
+  return data;
+}
+
 export async function atualizarFatura(
   id: string,
   payload: any
