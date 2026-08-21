@@ -114,11 +114,10 @@ export default function DetalheFatura() {
       setDocumentoBaixando(nomeArquivo);
 
       if (Platform.OS !== "web") {
-        // A API atual do Expo baixa para uma pasta, e não para um File já
-        // apontado. Usar o arquivo como destino podia deixar o leitor Android
-        // abrindo um PDF vazio/cacheado; o download idempotente substitui a
-        // cópia anterior pela resposta atual do servidor.
-        const pastaFaturas = new Directory(Paths.cache, "andrade-energy-faturas");
+        // Cada abertura recebe uma cópia nova. Alguns leitores Android mantêm
+        // o conteúdo anterior para a mesma URI e acabavam exibindo uma folha
+        // branca mesmo quando o PDF recém-baixado estava correto.
+        const pastaFaturas = new Directory(Paths.cache, "andrade-energy-faturas", String(Date.now()));
         pastaFaturas.create({ idempotent: true, intermediates: true });
         const arquivo = await File.downloadFileAsync(url, pastaFaturas, {
           idempotent: true,
@@ -126,7 +125,11 @@ export default function DetalheFatura() {
         if (!arquivo.exists || !arquivo.size || arquivo.size < 512) {
           throw new Error("O PDF baixado está vazio.");
         }
-        if (Platform.OS === "android") {
+        if (await Sharing.isAvailableAsync()) {
+          // O seletor permite escolher o leitor de PDF instalado (ou Arquivos),
+          // evitando depender do visualizador padrão que pode falhar no Android.
+          await Sharing.shareAsync(arquivo.uri, { dialogTitle: "Abrir ou salvar fatura", mimeType: "application/pdf", UTI: "com.adobe.pdf" });
+        } else {
           try {
             const contentUri = await FileSystemLegacy.getContentUriAsync(arquivo.uri);
             await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
@@ -134,15 +137,9 @@ export default function DetalheFatura() {
               flags: 1,
               type: "application/pdf",
             });
-            return;
           } catch {
-            // Usa o seletor do sistema quando o aparelho não possui visualizador padrão.
+            Alert.alert("Download concluído", `${nomeArquivo} foi salvo no aplicativo.`);
           }
-        }
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(arquivo.uri, { dialogTitle: "Abrir ou salvar fatura", mimeType: "application/pdf", UTI: "com.adobe.pdf" });
-        } else {
-          Alert.alert("Download concluído", `${nomeArquivo} foi salvo no aplicativo.`);
         }
         return;
       }

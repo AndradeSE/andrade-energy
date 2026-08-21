@@ -58,7 +58,44 @@ async function incluirDadosDaUCNaFatura(fatura: any) {
   ]);
   if (clienteResultado.error) throw clienteResultado.error;
   if (unidadeResultado.error) throw unidadeResultado.error;
-  return { ...fatura, clientes: clienteResultado.data ?? null, unidades_consumidoras: unidadeResultado.data ?? null };
+  const cliente = clienteResultado.data ?? fatura.clientes ?? null;
+  const unidade = unidadeResultado.data ?? fatura.unidades_consumidoras ?? null;
+
+  // A fatura leva um resumo curto de economia para o cliente conseguir ver
+  // a evolução sem precisar abrir várias competências no aplicativo.
+  let historico: any[] = [];
+  let erroHistorico: unknown = null;
+  if (fatura.unidade_consumidora_id || fatura.cliente_id) {
+    let consultaHistorico = supabase
+      .from("faturas")
+      .select("id,referencia,economia_real,economia")
+      .order("referencia", { ascending: false })
+      .limit(6);
+    if (fatura.unidade_consumidora_id) {
+      consultaHistorico = consultaHistorico.eq("unidade_consumidora_id", fatura.unidade_consumidora_id);
+    } else {
+      consultaHistorico = consultaHistorico.eq("cliente_id", fatura.cliente_id);
+    }
+    const resultadoHistorico = await consultaHistorico;
+    historico = resultadoHistorico.data ?? [];
+    erroHistorico = resultadoHistorico.error;
+  }
+  // O histórico é complementar: uma falha nele não impede a emissão do PDF.
+  const historicoComAtual = erroHistorico ? [] : historico;
+  if (!historicoComAtual.some((item: any) => item.id === fatura.id)) {
+    historicoComAtual.unshift({
+      id: fatura.id,
+      referencia: fatura.referencia,
+      economia_real: fatura.economia_real ?? fatura.economia,
+    });
+  }
+
+  return {
+    ...fatura,
+    clientes: cliente,
+    unidades_consumidoras: unidade,
+    historico_economia: historicoComAtual.slice(0, 6).reverse(),
+  };
 }
 
 /** Gera a fatura que o cliente recebe e pode baixar no aplicativo. */
@@ -88,6 +125,11 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     const cliente = fatura.clientes ?? {};
     const unidade = fatura.unidades_consumidoras ?? {};
     const endereco = unidade.endereco ?? cliente.endereco ?? "Endereço não informado";
+    const historicoEconomia = Array.isArray(fatura.historico_economia) ? fatura.historico_economia : [];
+    const economiaAcumulada = historicoEconomia.reduce(
+      (total: number, item: any) => total + numero(item.economia_real ?? item.economia),
+      0
+    );
 
     pdf.rect(0, 0, 595, 112).fill(VERDE_ESCURO);
     pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(20).text("Andrade Energy", 48, 38);
@@ -139,24 +181,47 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     desenharLinhaDeValor(pdf, 550, "Economia real neste mês", moeda(economiaReal), true);
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(`Desconto contratado: ${percentual(descontoContratado)}  |  Desconto final real: ${percentual(descontoReal)}`, 64, 564, { width: 465, align: "center" });
 
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(12).text("Como chegamos ao total unificado", 48, 587);
-    pdf.roundedRect(48, 607, LARGURA, 128, 12).fill("#F8FBF9").strokeColor(BORDA).stroke();
-    desenharLinhaDeValor(pdf, 620, `Energia considerada (${energia(energiaCobrada)})`, "");
-    desenharLinha(pdf, 638);
-    desenharLinhaDeValor(pdf, 647, "Tarifa CEMIG por kWh", moeda(tarifaCemig));
-    desenharLinha(pdf, 665);
-    desenharLinhaDeValor(pdf, 674, "Tarifa Andrade Energy por kWh", moeda(tarifaAndrade));
-    desenharLinha(pdf, 692);
-    desenharLinhaDeValor(pdf, 701, "Parte que permanece na CEMIG", moeda(valorCemig));
-    desenharLinha(pdf, 719);
-    desenharLinhaDeValor(pdf, 728, "Energia solar Andrade Energy", moeda(valorUsina));
-    desenharLinha(pdf, 746);
-    desenharLinhaDeValor(pdf, 755, "Total unificado", moeda(valorTotal), true);
+    // A composição precisa de mais altura que a disponível ao final da A4.
+    // Mantê-la em uma segunda página evita cortar valores e o rodapé.
+    pdf.addPage();
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(16).text("Como chegamos ao total unificado", 48, 58);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(9).text("Transparência sobre cada parcela da sua fatura de energia.", 48, 80);
+    pdf.roundedRect(48, 108, LARGURA, 188, 12).fill("#F8FBF9").strokeColor(BORDA).stroke();
+    desenharLinhaDeValor(pdf, 124, `Energia considerada (${energia(energiaCobrada)})`, "");
+    desenharLinha(pdf, 145);
+    desenharLinhaDeValor(pdf, 156, "Tarifa CEMIG por kWh", moeda(tarifaCemig));
+    desenharLinha(pdf, 177);
+    desenharLinhaDeValor(pdf, 188, "Tarifa Andrade Energy por kWh", moeda(tarifaAndrade));
+    desenharLinha(pdf, 209);
+    desenharLinhaDeValor(pdf, 220, "Parte que permanece na CEMIG", moeda(valorCemig));
+    desenharLinha(pdf, 241);
+    desenharLinhaDeValor(pdf, 252, "Energia solar Andrade Energy", moeda(valorUsina));
+    desenharLinha(pdf, 273);
+    desenharLinhaDeValor(pdf, 282, "Total unificado", moeda(valorTotal), true);
 
-    let yAviso = 742;
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(12).text("Histórico de economia", 48, 330);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8.5).text(
+      historicoEconomia.length
+        ? `Economia acumulada nas últimas ${historicoEconomia.length} faturas: ${moeda(economiaAcumulada)}`
+        : "O histórico aparecerá aqui a partir das próximas faturas.",
+      48,
+      347
+    );
+    if (historicoEconomia.length) {
+      const larguraItem = 240;
+      historicoEconomia.forEach((item: any, indice: number) => {
+        const coluna = indice % 2;
+        const linha = Math.floor(indice / 2);
+        const x = coluna === 0 ? 48 : 306;
+        const y = 370 + linha * 28;
+        pdf.roundedRect(x, y, larguraItem, 22, 7).fill("#F8FBF9");
+        pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7.5).text(String(item.referencia ?? "Competência"), x + 10, y + 7, { width: 95 });
+        pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8.5).text(moeda(item.economia_real ?? item.economia), x + 105, y + 6, { width: 124, align: "right" });
+      });
+    }
+
+    let yAviso = 470;
     if (temGD2(fatura)) {
-      pdf.addPage();
-      yAviso = 62;
       pdf.roundedRect(48, yAviso, LARGURA, 48, 10).fill("#FFF7E8");
       pdf.fillColor("#8A5A00").font("Helvetica-Bold").fontSize(9).text("Por que o desconto real pode ser menor que o contratado?", 64, yAviso + 10);
       pdf.fillColor("#725B2D").font("Helvetica").fontSize(8).text("Na GD II, custos obrigatórios da rede e de disponibilidade continuam na fatura da CEMIG. Por isso, a economia final é calculada sobre o crédito efetivamente compensado.", 64, yAviso + 23, { width: 465, lineGap: 1 });
