@@ -8,8 +8,11 @@ import {
     cancelarContratoController,
     salvarContratoDaUnidadeController,
     buscarContratoDaUnidadeController,
+    gerarContratoDaUnidadeController,
+    importarContratoAssinadoDaUnidadeController,
 } from "./contratos.controller";
 import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
+import { upload } from "../../config/multer";
 
 const router = Router();
 
@@ -33,6 +36,21 @@ router.put(
   exigirAutenticacao,
   exigirGestor,
   salvarContratoDaUnidadeController
+);
+
+router.post(
+  "/unidade/:unidadeId/gerar-documento",
+  exigirAutenticacao,
+  exigirGestor,
+  gerarContratoDaUnidadeController
+);
+
+router.post(
+  "/unidade/:unidadeId/contrato-assinado",
+  exigirAutenticacao,
+  exigirGestor,
+  upload.single("arquivo"),
+  importarContratoAssinadoDaUnidadeController
 );
 
 router.put(

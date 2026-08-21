@@ -60,7 +60,7 @@ export async function listarUnidadesCliente(clienteId: string) {
 export async function listarTodasUnidades() {
   const { data, error } = await supabase
     .from("unidades_consumidoras")
-    .select("*, clientes(id,nome,cpf), usinas(id,nome)")
+    .select("*, clientes(id,nome,cpf,endereco,email,whatsapp), usinas(id,nome,endereco)")
     .not("cliente_id", "is", null)
     .order("created_at", { ascending: false });
 
@@ -71,12 +71,22 @@ export async function listarTodasUnidades() {
 export async function buscarUnidadePorId(unidadeId: string) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")
-    .select("*, clientes(id,nome,cpf), usinas(id,nome)")
+    .select("*, clientes(id,nome,cpf,endereco,email,whatsapp), usinas(id,nome,endereco)")
     .eq("id", unidadeId)
     .maybeSingle();
 
   if (error) throw error;
-  return data;
+  if (!data?.usina_id || data.usinas?.nome) return data;
+
+  // Não depende do embed do PostgREST: algumas UCs legadas possuem o ID
+  // da usina válido, mas a relação ainda não é expandida na consulta.
+  const { data: usina, error: erroUsina } = await supabase
+    .from("usinas")
+    .select("id,nome,endereco")
+    .eq("id", data.usina_id)
+    .maybeSingle();
+  if (erroUsina) throw erroUsina;
+  return { ...data, usinas: usina ?? null, usina_nome: usina?.nome ?? null };
 }
 
 export async function listarUnidadesPorCpf(cpfInformado: string) {

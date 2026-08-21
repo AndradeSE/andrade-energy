@@ -82,6 +82,24 @@ export async function salvarContratoDaUnidadeController(
   }
 }
 
+export async function gerarContratoDaUnidadeController(req: Request, res: Response) {
+  try {
+    res.json(await ContratosService.gerarContratoDaUnidadeService(req.params.unidadeId, req.body));
+  } catch (e: any) {
+    console.error(e);
+    res.status(400).json({ message: e.message });
+  }
+}
+
+export async function importarContratoAssinadoDaUnidadeController(req: Request, res: Response) {
+  try {
+    res.json(await ContratosService.importarContratoAssinadoDaUnidadeService(req.params.unidadeId, req.file));
+  } catch (e: any) {
+    console.error(e);
+    res.status(400).json({ message: e.message });
+  }
+}
+
 export async function atualizarContratoController(
   req: Request,
   res: Response

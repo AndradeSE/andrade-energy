@@ -148,7 +148,7 @@ export default function UnidadeDocumentos() {
   // O vínculo é determinado pelo ID da usina. Em alguns acessos a partir de
   // listas antigas, o nome relacionado pode chegar no próximo carregamento;
   // nesse intervalo a UC já está alocada e não deve aparecer como pendente.
-  const nomeUsinaVinculada = unidade.usinas?.nome ?? usinaNome ?? (unidade.usina_id ? "Usina vinculada" : "Ainda não alocada");
+  const nomeUsinaVinculada = unidade.usinas?.nome ?? unidade.usina_nome ?? usinaNome ?? (unidade.usina_id ? "Usina vinculada - atualize para ver o nome" : "Ainda não alocada");
 
   return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Unidade consumidora" subtitle="Gestão da carteira" contextTitle={`UC ${unidade.numero}`} contextSubtitle={unidade.clientes?.nome ?? unidade.titular ?? "Unidade consumidora"} icon="flash-outline" /> : null}<ScrollView refreshControl={<RefreshControl refreshing={atualizando} onRefresh={() => carregar(true)} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content}>
     <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={19} color={Colors.subtitle} /><Text style={styles.backLabel}>Voltar</Text></TouchableOpacity>

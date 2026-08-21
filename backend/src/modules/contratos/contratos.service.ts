@@ -7,6 +7,7 @@ import {
     salvarContratoUnidade,
 } from "./contratos.repository";
 import { supabase } from "../../config/supabase";
+import { armazenarContratoAssinado, criarLinkContrato, gerarMinutaContrato, salvarDocumentoContrato } from "./documentosContrato.service";
 
 export async function obterContratoCliente(
   clienteId: string
@@ -24,7 +25,7 @@ export async function obterContratoDaUnidade(
   unidadeId: string
 ) {
   const contratoDaUnidade = await buscarContratoMaisRecenteUnidade(unidadeId);
-  if (contratoDaUnidade) return contratoDaUnidade;
+  if (contratoDaUnidade) return anexarLinksDoContrato(contratoDaUnidade);
 
   // Compatibilidade para contratos antigos, criados antes do vínculo por UC.
   const { data: unidade, error } = await supabase
@@ -33,7 +34,16 @@ export async function obterContratoDaUnidade(
     .eq("id", unidadeId)
     .maybeSingle();
   if (error) throw error;
-  return unidade?.cliente_id ? await buscarContratoCliente(unidade.cliente_id, true) : null;
+  const contratoLegado = unidade?.cliente_id ? await buscarContratoCliente(unidade.cliente_id, true) : null;
+  return contratoLegado ? anexarLinksDoContrato(contratoLegado) : null;
+}
+
+async function anexarLinksDoContrato(contrato: any) {
+  const [contratoGeradoUrl, contratoAssinadoUrl] = await Promise.all([
+    criarLinkContrato(contrato.contrato_gerado_url),
+    criarLinkContrato(contrato.contrato_assinado_url),
+  ]);
+  return { ...contrato, contrato_gerado_url: contratoGeradoUrl, contrato_assinado_url: contratoAssinadoUrl };
 }
 
 function normalizarNumero(valor: unknown) {
@@ -135,7 +145,38 @@ export async function salvarContratoDaUnidadeService(
     economia_mensal_estimada: economiaMensal,
     economia_anual_estimada: normalizarMoeda(dados?.economia_anual_estimada) || economiaMensal * 12,
     observacoes: normalizarNumero(dados?.observacoes) || null,
+    dados_documento: dados?.dados_documento && typeof dados.dados_documento === "object" ? dados.dados_documento : {},
   });
+}
+
+export async function gerarContratoDaUnidadeService(unidadeId: string, dados: any) {
+  const contrato = await salvarContratoDaUnidadeService(unidadeId, dados);
+  const pdf = await gerarMinutaContrato(unidadeId, contrato);
+  const caminho = await salvarDocumentoContrato(`unidades/${unidadeId}/${contrato.id}/minuta-contrato.pdf`, pdf);
+  const { data, error } = await supabase
+    .from("contratos")
+    .update({ contrato_gerado_url: caminho, gerado_em: new Date().toISOString() })
+    .eq("id", contrato.id)
+    .select()
+    .single();
+  if (error) throw error;
+  return anexarLinksDoContrato(data);
+}
+
+export async function importarContratoAssinadoDaUnidadeService(unidadeId: string, arquivo?: Express.Multer.File) {
+  if (!arquivo) throw new Error("Selecione o PDF assinado.");
+  if (arquivo.mimetype && arquivo.mimetype !== "application/pdf") throw new Error("Envie um arquivo PDF.");
+  const contrato = await buscarContratoMaisRecenteUnidade(unidadeId);
+  if (!contrato?.id) throw new Error("Gere ou salve a minuta antes de vincular o contrato assinado.");
+  const caminho = await armazenarContratoAssinado(unidadeId, contrato.id, arquivo.path);
+  const { data, error } = await supabase
+    .from("contratos")
+    .update({ contrato_assinado_url: caminho, assinado_em: new Date().toISOString(), status: "VIGENTE" })
+    .eq("id", contrato.id)
+    .select()
+    .single();
+  if (error) throw error;
+  return anexarLinksDoContrato(data);
 }
 
 export async function atualizarContratoService(

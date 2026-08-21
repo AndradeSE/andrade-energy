@@ -69,3 +69,21 @@ export async function salvarContratoDaUnidade(
 
   return data;
 }
+
+export async function gerarContratoDaUnidade(unidadeId: string, payload: any) {
+  const { data } = await api.post(`/contratos/unidade/${unidadeId}/gerar-documento`, payload);
+  return data;
+}
+
+export async function importarContratoAssinadoDaUnidade(unidadeId: string, arquivo: { uri: string; name: string; mimeType?: string | null }) {
+  const form = new FormData();
+  form.append("arquivo", {
+    uri: arquivo.uri,
+    name: arquivo.name,
+    type: arquivo.mimeType || "application/pdf",
+  } as any);
+  const { data } = await api.post(`/contratos/unidade/${unidadeId}/contrato-assinado`, form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+}

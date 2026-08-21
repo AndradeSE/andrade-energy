@@ -41,9 +41,10 @@ export default function Unidades() {
         data={lista}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={<View><Text style={styles.title}>Unidades consumidoras</Text><Text style={styles.subtitle}>Consulte as unidades de todos os clientes.</Text><View style={styles.search}><TextInput value={busca} onChangeText={setBusca} placeholder="Buscar por UC, cliente, CPF ou endereço" placeholderTextColor={Colors.subtitle} style={styles.searchInput} /></View><CadastroActions tipo="UNIDADE" /></View>}
-        renderItem={({ item }) => <Pressable onPress={() => router.push({ pathname: "/unidades/[id]", params: { id: item.id, numero: item.numero, clienteId: item.cliente_id ?? item.clientes?.id ?? "", cliente: item.clientes?.nome ?? "", usinaId: item.usina_id ?? item.usinas?.id ?? "", usinaNome: item.usinas?.nome ?? "", titular: item.titular ?? "", distribuidora: item.distribuidora ?? "" } })}><Card style={styles.unitCard}>
+        renderItem={({ item }) => <Pressable onPress={() => router.push({ pathname: "/unidades/[id]", params: { id: item.id, numero: item.numero, clienteId: item.cliente_id ?? item.clientes?.id ?? "", cliente: item.clientes?.nome ?? "", usinaId: item.usina_id ?? item.usinas?.id ?? "", usinaNome: item.usinas?.nome ?? item.usina_nome ?? "", titular: item.titular ?? "", distribuidora: item.distribuidora ?? "" } })}><Card style={styles.unitCard}>
           <View style={styles.row}><Text style={styles.number}>UC {item.numero}</Text><Text style={styles.badge}>{item.tipo}</Text></View>
           <Text style={styles.owner}>{item.clientes?.nome ?? item.titular ?? "Cliente não identificado"}</Text>
+          <Text style={styles.detail}>{item.usinas?.nome ?? item.usina_nome ?? (item.usina_id ? "Usina vinculada" : "Ainda não alocada")}</Text>
           <Text style={styles.detail}>{item.modalidade_faturamento === "INJECAO" ? "Faturamento por injeção" : "Faturamento por compensação"} · {item.desconto_percentual}%</Text>
         </Card></Pressable>}
         ListEmptyComponent={<View><EmptyState title={erro ? "Não foi possível carregar as unidades" : busca ? "Nenhuma unidade encontrada" : "Nenhuma unidade cadastrada"} subtitle={erro || (busca ? "Altere os termos da busca." : "Use uma fatura da concessionária ou faça o cadastro manual.")} /></View>}
