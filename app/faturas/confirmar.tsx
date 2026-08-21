@@ -3,11 +3,11 @@ import { useMemo, useState } from "react";
 import {
   Alert,
   ImageBackground,
-  ScrollView,
   Text,
   TouchableOpacity
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ElasticScrollView as ScrollView } from "../../components/ui";
 import InfoCard from "../../components/InfoCard";
 import ValidationAlert from "../../components/ValidationAlert";
 import { salvarImportacao } from "../../services/faturas.service";

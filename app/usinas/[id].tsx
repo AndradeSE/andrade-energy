@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
 
-import { AppHeader, Badge, Button, Card, Divider, EmptyState, Loading, Metric, Screen, Section } from "../../components/ui";
+import { AppHeader, Badge, Button, Card, Divider, ElasticScrollView as ScrollView, EmptyState, Loading, Metric, Screen, Section } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useDashboardUsina } from "../../hooks/useDashboardUsina";
 import { Colors, Spacing, Typography } from "../../theme";
@@ -11,7 +12,19 @@ const energia = (v: unknown) => `${Number(v ?? 0).toLocaleString("pt-BR", { maxi
 const moeda = (v: unknown) => Number(v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function DashboardUsina() {
-  const { id } = useLocalSearchParams<{ id: string }>(); const { data, isLoading, error } = useDashboardUsina(id);
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { data, isLoading, error, refetch } = useDashboardUsina(id);
+  const [atualizando, setAtualizando] = useState(false);
+
+  async function atualizarPagina() {
+    setAtualizando(true);
+    try {
+      await refetch();
+    } finally {
+      setAtualizando(false);
+    }
+  }
+
   if (isLoading) return <Loading />;
   if (error || !data) return <Screen><View style={styles.state}><EmptyState icon="sunny-outline" title="Usina não encontrada" subtitle="Não foi possível carregar os dados desta usina." /></View></Screen>;
   const abrirRecebimentoDeProducao = () => {
@@ -25,7 +38,7 @@ export default function DashboardUsina() {
 
   return <Screen>
     {IS_GERADOR_APP ? <AppHeader variant="subpage" title="Usina" subtitle="Gestão de geração" contextTitle={data.usina?.nome ?? "Usina"} contextSubtitle={`UC ${data.usina?.numero_instalacao ?? "não informada"} · Competência ${data.competencia}`} icon="sunny-outline" /> : null}
-    <ScrollView bounces alwaysBounceVertical overScrollMode="always" contentContainerStyle={styles.content}><View style={styles.heading}><View><Text style={styles.eyebrow}>DETALHES DA USINA</Text><Text style={styles.title}>{data.usina?.nome ?? "Usina"}</Text><Text style={styles.subtitle}>Competência {data.competencia}</Text></View><Badge label={data.status ?? "ATIVA"} variant="success" /></View>
+    <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}><View style={styles.heading}><View><Text style={styles.eyebrow}>DETALHES DA USINA</Text><Text style={styles.title}>{data.usina?.nome ?? "Usina"}</Text><Text style={styles.subtitle}>Competência {data.competencia}</Text></View><Badge label={data.status ?? "ATIVA"} variant="success" /></View>
     <Card><Info icon="key-outline" label="Instalação" value={data.usina?.numero_instalacao ?? "Não informada"} /><Divider /><Info icon="flash-outline" label="Potência" value={`${Number(data.usina?.potencia_kwp ?? 0).toLocaleString("pt-BR")} kWp`} /><Divider /><Info icon="location-outline" label="Local" value={data.usina?.endereco ?? "Não informado"} /></Card>
     <Section title="Energia"><View style={styles.grid}><View style={styles.metric}><Metric compact title="Geração do mês" value={energia(data.energiaGerada)} icon={<Ionicons name="sunny-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Geração total" value={energia(data.energiaTotal)} icon={<Ionicons name="analytics-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Disponível" value={energia(data.energiaDisponivel)} icon={<Ionicons name="battery-half-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Ocupação" value={`${Number(data.ocupacao ?? 0).toFixed(1)}%`} icon={<Ionicons name="pie-chart-outline" size={20} color={Colors.primary} />} /></View></View></Section>
     <Section title="Financeiro"><Card><Info icon="wallet-outline" label="Receita prevista" value={moeda(data.receitaPrevista)} /><Divider /><Info icon="checkmark-circle-outline" label="Receita realizada" value={moeda(data.receitaRealizada)} /></Card></Section>

@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -47,6 +48,14 @@ const UNIDADE_KEY =
 
 const USINA_KEY =
   "andrade_energy_usina";
+
+/*
+ * Trocas rápidas com recursos do aparelho (por exemplo, abrir uma notificação)
+ * não devem interromper a pessoa com uma nova biometria. Só bloqueamos após
+ * uma permanência relevante fora do app; o login manual continua imediato.
+ */
+const TEMPO_MINIMO_EM_SEGUNDO_PLANO_PARA_BLOQUEAR_MS =
+  25_000;
 
 /*
  * ========================================================
@@ -176,6 +185,9 @@ type AuthContextData = {
   lockApp:
     () => void;
 
+  suspenderBloqueioTemporariamente:
+    () => () => void;
+
   login: (
     token: string,
     usuario: AuthUsuario
@@ -255,6 +267,22 @@ export function AuthProvider({
     setIsUnlocked,
   ] =
     useState(false);
+
+  /*
+   * Alguns recursos nativos, como o seletor de PDF, levam o app
+   * temporariamente ao segundo plano. Guardamos quantas dessas ações estão
+   * em andamento para não confundir uma ação interna com a saída do usuário.
+   */
+  const bloqueiosSuspensosRef =
+    useRef(0);
+
+  /*
+   * Registramos o instante em que a pessoa realmente saiu do app para aplicar
+   * a tolerância acima quando ela retornar. A referência não causa render e
+   * também preserva a suspensão temporária usada pelo seletor de documentos.
+   */
+  const segundoPlanoDesdeRef =
+    useRef<number | null>(null);
 
   /*
    * ======================================================
@@ -806,10 +834,53 @@ export function AuthProvider({
     }
   }
 
+  const suspenderBloqueioTemporariamente =
+    useCallback(() => {
+      bloqueiosSuspensosRef.current += 1;
+      let encerrado = false;
+
+      return () => {
+        if (encerrado) return;
+        encerrado = true;
+        bloqueiosSuspensosRef.current = Math.max(
+          0,
+          bloqueiosSuspensosRef.current - 1
+        );
+      };
+    }, []);
+
   useEffect(() => {
     const inscricao = AppState.addEventListener("change", (estado) => {
-      if (estado === "background" && digitalEnabled && token) {
-        setIsUnlocked(false);
+      if (!digitalEnabled || !token) {
+        segundoPlanoDesdeRef.current = null;
+        return;
+      }
+
+      if (estado === "background") {
+        segundoPlanoDesdeRef.current =
+          bloqueiosSuspensosRef.current === 0
+            ? Date.now()
+            : null;
+        return;
+      }
+
+      if (estado === "active") {
+        const segundoPlanoDesde =
+          segundoPlanoDesdeRef.current;
+
+        segundoPlanoDesdeRef.current = null;
+
+        const ficouTempoSuficienteFora =
+          segundoPlanoDesde !== null &&
+          Date.now() - segundoPlanoDesde >=
+            TEMPO_MINIMO_EM_SEGUNDO_PLANO_PARA_BLOQUEAR_MS;
+
+        if (
+          ficouTempoSuficienteFora &&
+          bloqueiosSuspensosRef.current === 0
+        ) {
+          setIsUnlocked(false);
+        }
       }
     });
 
@@ -977,6 +1048,8 @@ export function AuthProvider({
         refreshDigitalStatus,
 
         lockApp,
+
+        suspenderBloqueioTemporariamente,
 
         login,
 

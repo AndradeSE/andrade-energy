@@ -1,9 +1,9 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text } from "react-native";
+import { Alert, StyleSheet, Text } from "react-native";
 
 import FormField from "../../components/cadastro/FormField";
-import { AppHeader, Button, Card, Screen } from "../../components/ui";
+import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../supabase";

@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { Card, Divider, Screen } from "../../components/ui";
+import { Card, Divider, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function PagamentoFaturaPendente() {

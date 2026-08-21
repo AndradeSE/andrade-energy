@@ -1,10 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, StyleSheet, Text, View } from "react-native";
 
 import AndradeBarChart from "../../components/charts/AndradeBarChart";
-import { AppHeader, Button, Card, Divider, Loading, Metric, Screen, Section } from "../../components/ui";
+import { AppHeader, Button, Card, Divider, ElasticScrollView as ScrollView, Loading, Metric, Screen, Section } from "../../components/ui";
 import * as FinanceiroService from "../../services/financeiro.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 

@@ -3,7 +3,6 @@ import {
   Alert,
   RefreshControl,
   Linking,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -11,7 +10,7 @@ import {
 } from "react-native";
 import { useState } from "react";
 
-import { Badge, Button, Card, Divider, EmptyState, Loading, Screen } from "../../components/ui";
+import { Badge, Button, Card, Divider, ElasticScrollView as ScrollView, EmptyState, Loading, Screen } from "../../components/ui";
 import { useContrato } from "../../hooks/useContrato";
 import { useDashboard } from "../../hooks/useDashboard";
 import { useAuth } from "../../contexts/AuthContext";

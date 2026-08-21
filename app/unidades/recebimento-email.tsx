@@ -4,14 +4,15 @@ import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { AppHeader, Card, EmptyState, Loading, Screen } from "../../components/ui";
+import { AppHeader, Card, ElasticScrollView as ScrollView, EmptyState, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   ativarRecebimentoFaturas,
   desativarRecebimentoFaturas,
+  obterConfirmacaoEncaminhamentoGmail,
   obterRecebimentoFaturas,
   regenerarEnderecoRecebimento,
   StatusRecebimentoFaturas,
@@ -43,6 +44,10 @@ function formatarData(valor?: string | null) {
 }
 
 WebBrowser.maybeCompleteAuthSession();
+
+// A integração OAuth permanece preservada para quando estiver configurada em
+// produção, mas não é um caminho disponível para o cliente neste momento.
+const CONEXAO_DIRETA_DISPONIVEL = false;
 
 const STATUS_CONEXAO_ATIVA = [
   "CONECTADO",
@@ -93,14 +98,15 @@ export default function RecebimentoEmail() {
   const [carregando, setCarregando] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [confirmandoGmail, setConfirmandoGmail] = useState(false);
   const [conectandoProvedor, setConectandoProvedor] = useState<ProvedorEmail | null>(null);
   const [desconectandoId, setDesconectandoId] = useState<string | null>(null);
-  // No app Gerador, a configuração sempre é aberta a partir da usina e usa
-  // explicitamente a sua UC geradora. Nunca caímos por engano na UC que possa
-  // ter ficado selecionada em outro contexto.
+  // A tela pode abrir tanto uma UC consumidora quanto a UC geradora. A
+  // finalidade sempre vem do backend, evitando rotular uma fatura de cliente
+  // como se fosse produção da usina.
   const unidadeIdParam = parametroUnico(params.unidadeId);
   const unidadeId = unidadeIdParam ?? unidadeSelecionada?.id;
-  const recebimentoDeProducao = dados?.finalidade === "PRODUCAO_USINA" || (IS_GERADOR_APP && Boolean(unidadeIdParam));
+  const recebimentoDeProducao = dados?.finalidade === "PRODUCAO_USINA";
   const unidadeExibida = dados?.unidade ?? unidadeSelecionada;
 
   const rotaAtual = useCallback((conexao?: "sucesso" | "erro") => {
@@ -121,7 +127,7 @@ export default function RecebimentoEmail() {
     try {
       const [recebimento, conexoesDaUnidade] = await Promise.all([
         obterRecebimentoFaturas(unidadeId),
-        listarConexoesEmail(unidadeId),
+        CONEXAO_DIRETA_DISPONIVEL ? listarConexoesEmail(unidadeId) : Promise.resolve([]),
       ]);
       setDados(recebimento);
       setConexoes(conexoesDaUnidade);
@@ -170,8 +176,39 @@ export default function RecebimentoEmail() {
     Alert.alert("Endereço copiado", "Cole este endereço na regra de encaminhamento do seu e-mail.");
   }
 
+  async function confirmarEnderecoGmail() {
+    if (!unidadeId) return;
+    try {
+      setConfirmandoGmail(true);
+      const confirmacao = await obterConfirmacaoEncaminhamentoGmail(unidadeId);
+      if (!confirmacao.url) {
+        Alert.alert(
+          "Confirmação ainda não chegou",
+          "No Gmail, adicione o endereço exclusivo na aba Encaminhamento e aguarde alguns instantes. Depois toque aqui novamente.",
+        );
+        return;
+      }
+
+      await WebBrowser.openBrowserAsync(confirmacao.url);
+      Alert.alert(
+        "Confirmação concluída?",
+        "Se você confirmou na página do Google, volte ao Gmail para criar o filtro da CEMIG.",
+      );
+    } catch (erro: any) {
+      Alert.alert(
+        "Não foi possível abrir a confirmação",
+        erro?.response?.data?.message ?? "Atualize a tela e tente novamente em alguns instantes.",
+      );
+    } finally {
+      setConfirmandoGmail(false);
+    }
+  }
+
   function confirmarRegeneracao() {
-    Alert.alert("Gerar novo endereço", recebimentoDeProducao ? "O endereço atual deixará de receber contas da usina. Deseja continuar?" : "O endereço atual deixará de receber contas. Deseja continuar?", [
+    const aviso = recebimentoDeProducao
+      ? "O endereço atual deixará de receber contas da usina. Depois, remova a regra antiga do Gmail/Outlook e crie outra com o novo endereço."
+      : "O endereço atual deixará de receber contas. Depois, remova a regra antiga do Gmail/Outlook e crie outra com o novo endereço.";
+    Alert.alert("Gerar novo endereço", aviso, [
       { text: "Cancelar", style: "cancel" },
       { text: "Gerar novo", style: "destructive", onPress: async () => {
         if (!unidadeId) return;
@@ -297,7 +334,19 @@ export default function RecebimentoEmail() {
         <TouchableOpacity disabled={salvando} onPress={confirmarDesativacao} style={styles.dangerAction}><Ionicons name="close-circle-outline" size={19} color={Colors.danger} /><Text style={styles.dangerText}>Desativar recebimento</Text></TouchableOpacity>
       </> : null}
 
-      <Text style={styles.sectionTitle}>CONECTAR SEU E-MAIL</Text>
+      <Text style={styles.sectionTitle}>ENCAMINHAMENTO GRATUITO</Text>
+      <Card style={styles.privacyCard}>
+        <View style={styles.privacyIcon}><Ionicons name="shield-checkmark-outline" size={23} color={Colors.primary} /></View>
+        <View style={styles.privacyCopy}>
+          <Text style={styles.privacyTitle}>Você configura no seu próprio e-mail</Text>
+          <Text style={styles.privacyText}>{dados?.ativo ? recebimentoDeProducao ? "Crie uma regra no Gmail ou Outlook para encaminhar somente o PDF da fatura da usina. Não pedimos sua senha e não há assinatura paga." : "Crie uma regra no Gmail ou Outlook para encaminhar somente o PDF da fatura da CEMIG. Não pedimos sua senha e não há assinatura paga." : "Ative o recebimento acima para liberar o endereço exclusivo que será usado na regra. Não pedimos sua senha e não há assinatura paga."}</Text>
+        </View>
+      </Card>
+
+      <Text style={styles.connectionHint}>O encaminhamento por regra é o método disponível e recomendado agora. A conexão direta do Gmail/Outlook está em preparação e não é necessária.</Text>
+
+      {CONEXAO_DIRETA_DISPONIVEL ? <>
+      <Text style={styles.sectionTitle}>INTEGRAÇÃO DIRETA</Text>
       <Card style={styles.privacyCard}>
         <View style={styles.privacyIcon}><Ionicons name="shield-checkmark-outline" size={23} color={Colors.primary} /></View>
         <View style={styles.privacyCopy}>
@@ -342,6 +391,7 @@ export default function RecebimentoEmail() {
           </TouchableOpacity>
         </Card>)}
       </View> : <Text style={styles.connectionHint}>A conexão direta do Outlook será liberada pela Andrade Energy. Enquanto isso, ative o endereço exclusivo abaixo e use a regra do Hotmail — ela continua automática.</Text>}
+      </> : null}
 
       {!dados?.configurado ? <Card style={styles.pendingCard}><Ionicons name="time-outline" size={24} color={Colors.warning} /><View style={styles.pendingCopy}><Text style={styles.pendingTitle}>Configuração em preparação</Text><Text style={styles.pendingText}>O endereço de recebimento será liberado assim que a Andrade Energy concluir a configuração segura do domínio.</Text></View></Card> : <>
         <Card style={[styles.statusCard, temErro && styles.statusCardError]}>
@@ -349,15 +399,31 @@ export default function RecebimentoEmail() {
           <View style={styles.statusCopy}><Text style={styles.statusTitle}>{tituloStatus}</Text><Text style={styles.statusText}>{dados?.ativo ? recebimentoDeProducao ? "As contas enviadas a este endereço registram a produção da usina." : "As contas enviadas a este endereço entram na fila de conferência." : recebimentoDeProducao ? "Ative para gerar o endereço exclusivo da usina." : "Ative para gerar o endereço exclusivo desta unidade."}</Text></View>
         </Card>
 
-      {dados?.ativo && dados.endereco ? <>
-          <Text style={styles.sectionTitle}>COMO CONFIGURAR</Text>
+       {dados?.ativo && dados.endereco ? <>
+          <Text style={styles.sectionTitle}>CONFIGURE UMA VEZ, GRATUITAMENTE</Text>
           <Card>
-            <Instruction number="1" text="No Hotmail/Outlook, toque na engrenagem e abra E-mail > Regras." />
-            <Instruction number="2" text={recebimentoDeProducao ? "Toque em Adicionar nova regra e dê o nome “Produção da usina — Andrade Energy”." : "Toque em Adicionar nova regra e dê o nome “Fatura CEMIG — Andrade Energy”."} />
-            <Instruction number="3" text="Em Adicionar uma condição, escolha De e informe: fatura@cemig. Adicione também a condição Possui anexo." />
-            <Instruction number="4" text="Em Adicionar uma ação, escolha Encaminhar para e cole o endereço exclusivo acima. Depois toque em Salvar." />
-            <Instruction number="5" text={recebimentoDeProducao ? "A conta da usina será lida para registrar as leituras, o fator de multiplicação e a produção da competência." : "Somente as faturas da CEMIG com PDF serão encaminhadas, calculadas e enviadas para conferência."} last />
+            <GuiaCabecalho icon="logo-google" titulo="Gmail" subtitulo="Crie um filtro no Gmail pelo navegador." />
+            <Instruction number="1" text="Abra Configurações > Ver todas as configurações > Encaminhamento e POP/IMAP > Adicionar um endereço de encaminhamento." />
+            <Instruction number="2" text="Cole o endereço exclusivo exibido acima e confirme. O Gmail enviará uma confirmação para esse endereço." />
+            <Instruction number="3" text="Volte aqui e toque no botão abaixo para abrir a confirmação do Gmail com segurança." />
+            <TouchableOpacity disabled={confirmandoGmail} onPress={confirmarEnderecoGmail} activeOpacity={0.84} style={[gmailStyles.action, confirmandoGmail && styles.disabled]}>
+              <Ionicons name="logo-google" size={20} color={Colors.surface} />
+              <Text style={gmailStyles.actionText}>{confirmandoGmail ? "Procurando confirmação..." : "Confirmar endereço no Gmail"}</Text>
+            </TouchableOpacity>
+            <Text style={gmailStyles.hint}>Depois de adicionar o endereço no Gmail, aguarde alguns instantes antes de tocar no botão.</Text>
+            <Instruction number="4" text="No Gmail, abra Filtros e endereços bloqueados > Criar um filtro. No campo de pesquisa, cole: from:(fatura@cemig) has:attachment filename:pdf" />
+            <Instruction number="5" text="Clique em Criar filtro, marque Encaminhar para, escolha o endereço exclusivo confirmado e finalize o filtro." last />
           </Card>
+
+          <Card>
+            <GuiaCabecalho icon="mail-outline" titulo="Outlook / Hotmail" subtitulo="Crie uma regra no Outlook pelo navegador." />
+            <Instruction number="1" text="Abra Configurações > E-mail > Regras e toque em Adicionar nova regra." />
+            <Instruction number="2" text={recebimentoDeProducao ? "Dê o nome “Produção da usina — Andrade Energy”." : "Dê o nome “Fatura CEMIG — Andrade Energy”."} />
+            <Instruction number="3" text="Em condição, escolha De: fatura@cemig e adicione também Possui anexo." />
+            <Instruction number="4" text="Em ação, escolha Encaminhar para, cole o endereço exclusivo acima e salve a regra." last />
+          </Card>
+
+          <Text style={styles.connectionHint}>{recebimentoDeProducao ? "A regra encaminha as faturas com anexo da usina; o sistema só processa PDFs válidos para registrar a produção da competência." : "A regra encaminha as faturas CEMIG com anexo; o sistema só processa PDFs válidos e as demais mensagens continuam no seu e-mail."}</Text>
 
           {dados.ultimoRecebimentoEm ? <Text style={styles.lastReceipt}>Último recebimento: {formatarData(dados.ultimoRecebimentoEm)}</Text> : null}
           {dados.erro ? <Text style={styles.errorText}>{dados.erro}</Text> : null}
@@ -372,6 +438,24 @@ function Instruction({ number, text, last = false }: { number: string; text: str
   return <View style={[styles.instruction, !last && styles.instructionBorder]}><View style={styles.instructionNumber}><Text style={styles.instructionNumberText}>{number}</Text></View><Text style={styles.instructionText}>{text}</Text></View>;
 }
 
+function GuiaCabecalho({ icon, titulo, subtitulo }: { icon: keyof typeof Ionicons.glyphMap; titulo: string; subtitulo: string }) {
+  return <View style={guiaStyles.header}><View style={guiaStyles.icon}><Ionicons name={icon} size={21} color={Colors.primary} /></View><View style={guiaStyles.copy}><Text style={guiaStyles.title}>{titulo}</Text><Text style={guiaStyles.subtitle}>{subtitulo}</Text></View></View>;
+}
+
 const styles = StyleSheet.create({
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl * 3 }, state: { flex: 1, justifyContent: "center", padding: Spacing.lg }, heading: { flexDirection: "row", alignItems: "flex-start", marginBottom: Spacing.lg }, back: { width: 40, height: 40, alignItems: "center", justifyContent: "center", marginRight: Spacing.xs, borderRadius: Radius.round, backgroundColor: Colors.surface }, headingText: { flex: 1 }, eyebrow: { color: Colors.primary, fontSize: 10, fontWeight: "900", letterSpacing: 1.1 }, title: { marginTop: 4, color: Colors.text, fontSize: Typography.section, fontWeight: "900" }, subtitle: { marginTop: Spacing.xs, color: Colors.subtitle, fontSize: Typography.caption, lineHeight: 20 }, unitCard: { flexDirection: "row", alignItems: "center", marginBottom: Spacing.lg, padding: Spacing.md }, unitIcon: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primaryLight }, unitInfo: { marginLeft: Spacing.sm }, unitLabel: { color: Colors.subtitle, fontSize: 10, fontWeight: "800", letterSpacing: .7 }, unitNumber: { marginTop: 3, color: Colors.text, fontSize: Typography.body, fontWeight: "900" }, privacyCard: { flexDirection: "row", alignItems: "flex-start", padding: Spacing.md }, privacyIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primaryLight }, privacyCopy: { flex: 1, marginLeft: Spacing.sm }, privacyTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "900" }, privacyText: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 }, providerActions: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.sm }, providerButton: { flex: 1, minHeight: 50, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md, backgroundColor: Colors.surface }, providerButtonDisabled: { borderColor: Colors.border, backgroundColor: Colors.background }, providerButtonText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" }, providerButtonTextDisabled: { color: Colors.subtitle }, connectionsList: { gap: Spacing.sm, marginTop: Spacing.sm }, connectionCard: { flexDirection: "row", alignItems: "center", padding: Spacing.md }, connectionCardError: { borderWidth: 1, borderColor: "#FECACA" }, connectionIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primaryLight }, connectionIconError: { backgroundColor: "#FEE2E2" }, connectionCopy: { flex: 1, marginLeft: Spacing.sm }, connectionTitle: { color: Colors.text, fontSize: Typography.small, fontWeight: "900" }, connectionText: { marginTop: 2, color: Colors.subtitle, fontSize: 11, lineHeight: 16 }, connectionError: { marginTop: 3, color: Colors.danger, fontSize: 11, lineHeight: 16 }, disconnectButton: { width: 38, height: 38, alignItems: "center", justifyContent: "center", marginLeft: Spacing.xs }, connectionHint: { marginTop: Spacing.sm, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 }, pendingCard: { flexDirection: "row", alignItems: "flex-start", padding: Spacing.md }, pendingCopy: { flex: 1, marginLeft: Spacing.sm }, pendingTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "800" }, pendingText: { marginTop: 4, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 }, statusCard: { flexDirection: "row", alignItems: "center", padding: Spacing.md }, statusCardError: { borderWidth: 1, borderColor: "#FECACA" }, statusIcon: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primaryLight }, statusIconError: { backgroundColor: "#FEE2E2" }, statusCopy: { flex: 1, marginLeft: Spacing.sm }, statusTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "900" }, statusText: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 }, sectionTitle: { marginTop: Spacing.xl, marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: 10, fontWeight: "900", letterSpacing: .9 }, addressCard: { minHeight: 68, flexDirection: "row", alignItems: "center", paddingHorizontal: Spacing.md, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.lg, backgroundColor: Colors.surface }, addressIcon: { marginRight: Spacing.sm }, address: { flex: 1, color: Colors.text, fontSize: Typography.small, fontWeight: "800" }, addressHint: { marginTop: Spacing.xs, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 }, instruction: { minHeight: 58, flexDirection: "row", alignItems: "center", paddingVertical: Spacing.sm }, instructionBorder: { borderBottomWidth: 1, borderBottomColor: Colors.border }, instructionNumber: { width: 28, height: 28, alignItems: "center", justifyContent: "center", marginRight: Spacing.sm, borderRadius: Radius.round, backgroundColor: Colors.primaryLight }, instructionNumberText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" }, instructionText: { flex: 1, color: Colors.text, fontSize: Typography.small, lineHeight: 19 }, lastReceipt: { marginTop: Spacing.lg, color: Colors.subtitle, fontSize: Typography.small }, errorText: { marginTop: Spacing.xs, color: Colors.danger, fontSize: Typography.small, lineHeight: 18 }, primaryAction: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.xl, borderRadius: Radius.lg, backgroundColor: Colors.primary }, primaryText: { color: Colors.surface, fontSize: Typography.body, fontWeight: "900" }, disabled: { opacity: .65 }, secondaryAction: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.xl, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md }, secondaryText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" }, dangerAction: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.sm, borderRadius: Radius.md }, dangerText: { color: Colors.danger, fontSize: Typography.small, fontWeight: "900" },
+});
+
+const guiaStyles = StyleSheet.create({
+  header: { flexDirection: "row", alignItems: "center", marginBottom: Spacing.sm, paddingBottom: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  icon: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primaryLight },
+  copy: { flex: 1, marginLeft: Spacing.sm },
+  title: { color: Colors.text, fontSize: Typography.body, fontWeight: "900" },
+  subtitle: { marginTop: 2, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 17 },
+});
+
+const gmailStyles = StyleSheet.create({
+  action: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginVertical: Spacing.sm, borderRadius: Radius.md, backgroundColor: Colors.primary },
+  actionText: { color: Colors.surface, fontSize: Typography.small, fontWeight: "900" },
+  hint: { marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 },
 });

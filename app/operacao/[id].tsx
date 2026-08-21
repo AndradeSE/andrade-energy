@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, StyleSheet, Text, View } from "react-native";
 
-import { AppHeader, Badge, Card, Divider, EmptyState, Loading, Screen, Section } from "../../components/ui";
+import { AppHeader, Badge, Card, Divider, ElasticScrollView as ScrollView, EmptyState, Loading, Screen, Section } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { buscarFechamento } from "../../services/fechamentos.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
@@ -15,14 +15,24 @@ export default function DetalheFechamento() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [fechamento, setFechamento] = useState<any>();
   const [loading, setLoading] = useState(true);
+  const [atualizando, setAtualizando] = useState(false);
   const carregar = useCallback(async () => { try { setFechamento(await buscarFechamento(id)); } finally { setLoading(false); } }, [id]);
-  useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => { void carregar(); }, [carregar]);
+
+  async function atualizarPagina() {
+    setAtualizando(true);
+    try {
+      await carregar();
+    } finally {
+      setAtualizando(false);
+    }
+  }
   if (loading) return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Fechamento operacional" subtitle="Operação da usina" contextTitle="Fechamento operacional" contextSubtitle="Carregando competência" icon="analytics-outline" /> : null}<Loading /></Screen>;
   if (!fechamento) return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Fechamento operacional" subtitle="Operação da usina" contextTitle="Fechamento operacional" contextSubtitle="Competência não encontrada" icon="analytics-outline" /> : null}<View style={styles.state}><EmptyState icon="alert-circle-outline" title="Fechamento não encontrado" subtitle="Não foi possível carregar esta competência." /></View></Screen>;
 
   const rateios = Array.isArray(fechamento.rateios) ? fechamento.rateios : [];
   const competencia = new Date(fechamento.competencia).toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
-  return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Fechamento operacional" subtitle="Operação da usina" contextTitle={fechamento.usinas?.nome ?? "Usina"} contextSubtitle={`Competência ${competencia}`} icon="analytics-outline" /> : null}<ScrollView contentContainerStyle={styles.content}>
+  return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Fechamento operacional" subtitle="Operação da usina" contextTitle={fechamento.usinas?.nome ?? "Usina"} contextSubtitle={`Competência ${competencia}`} icon="analytics-outline" /> : null}<ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}>
     <View style={styles.heading}><View style={styles.headingText}><Text style={styles.eyebrow}>FECHAMENTO OPERACIONAL</Text><Text style={styles.title}>{fechamento.usinas?.nome ?? "Usina"}</Text><Text style={styles.subtitle}>{competencia}</Text></View><Badge label={fechamento.status ?? "FECHADO"} variant={fechamento.status === "FECHADO" ? "success" : "warning"} /></View>
     <Card><Info icon="sunny-outline" label="Energia gerada" value={energia(fechamento.energia_gerada)} /><Divider /><Info icon="git-merge-outline" label="Energia alocada" value={energia(fechamento.energia_alocada)} /><Divider /><Info icon="battery-half-outline" label="Energia disponível" value={energia(fechamento.energia_disponivel)} /><Divider /><Info icon="pie-chart-outline" label="Ocupação" value={`${Number(fechamento.ocupacao ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`} /></Card>
     <Section title="Rateio dos consumidores"><View>{rateios.length ? rateios.map((rateio: any) => <Card key={rateio.id}><View style={styles.rateioTop}><View style={styles.clientIcon}><Ionicons name="person-outline" size={20} color={Colors.primary} /></View><View style={styles.clientInfo}><Text numberOfLines={1} style={styles.clientName}>{rateio.clientes?.nome ?? "Cliente"}</Text><Text style={styles.clientUc}>{rateio.clientes?.uc ? `UC ${rateio.clientes.uc}` : "UC não informada"}</Text></View></View><Divider /><View style={styles.rateioValues}><Value label="ENERGIA" value={energia(rateio.energia)} /><Value label="ECONOMIA" value={moeda(rateio.economia)} /></View></Card>) : <EmptyState icon="people-outline" title="Nenhum rateio registrado" subtitle="Os consumidores rateados aparecerão aqui." />}</View></Section>

@@ -1,38 +1,54 @@
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 
 import CadastroActions from "../../components/cadastro/CadastroActions";
-import { AppHeader, Card, EmptyState, Screen } from "../../components/ui";
-import { supabase } from "../../supabase";
+import { AppHeader, Card, ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../../components/ui";
+import { listarUnidadesGestor } from "../../services/clientes.service";
 import { Colors, Spacing, Typography } from "../../theme";
 
 export default function Unidades() {
   const [unidades, setUnidades] = useState<any[]>([]);
   const [busca, setBusca] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [atualizando, setAtualizando] = useState(false);
+  const [erro, setErro] = useState("");
 
   const carregar = useCallback(async () => {
-    const { data } = await supabase.from("unidades_consumidoras")
-      .select("*, clientes(id,nome,cpf), usinas(nome)").not("cliente_id", "is", null).order("created_at", { ascending: false });
-    setUnidades(data ?? []);
+    try {
+      setErro("");
+      setUnidades((await listarUnidadesGestor()) ?? []);
+    } catch (error: any) {
+      setErro(error?.response?.data?.message ?? "Não foi possível carregar as unidades agora.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  useFocusEffect(useCallback(() => { carregar(); }, [carregar]));
+  useFocusEffect(useCallback(() => { void carregar(); }, [carregar]));
+  async function atualizarPagina() {
+    setAtualizando(true);
+    try { await carregar(); } finally { setAtualizando(false); }
+  }
   const lista = useMemo(() => { const termo = busca.trim().toLocaleLowerCase("pt-BR"); return unidades.filter((item) => `${item.numero} ${item.titular} ${item.endereco} ${item.clientes?.nome} ${item.clientes?.cpf}`.toLocaleLowerCase("pt-BR").includes(termo)); }, [busca, unidades]);
 
   return (
-    <Screen><AppHeader title="Unidades consumidoras" subtitle="Carteira dos clientes" contextTitle={`${unidades.length} unidades cadastradas`} contextSubtitle="Todas as unidades vinculadas aos clientes" icon="flash-outline" /><FlatList
-      contentContainerStyle={styles.content}
-      data={lista}
-      keyExtractor={(item) => item.id}
-      ListHeaderComponent={<View><Text style={styles.title}>Unidades consumidoras</Text><Text style={styles.subtitle}>Consulte as unidades de todos os clientes.</Text><View style={styles.search}><TextInput value={busca} onChangeText={setBusca} placeholder="Buscar por UC, cliente, CPF ou endereço" placeholderTextColor={Colors.subtitle} style={styles.searchInput} /></View><CadastroActions tipo="UNIDADE" /></View>}
-      renderItem={({ item }) => <Pressable onPress={() => router.push({ pathname: "/unidades/[id]", params: { id: item.id, numero: item.numero, cliente: item.clientes?.nome ?? "", titular: item.titular ?? "", distribuidora: item.distribuidora ?? "" } })}><Card style={styles.unitCard}>
-        <View style={styles.row}><Text style={styles.number}>UC {item.numero}</Text><Text style={styles.badge}>{item.tipo}</Text></View>
-        <Text style={styles.owner}>{item.clientes?.nome ?? item.titular ?? "Cliente não identificado"}</Text>
-        <Text style={styles.detail}>{item.modalidade_faturamento === "INJECAO" ? "Faturamento por injeção" : "Faturamento por compensação"} · {item.desconto_percentual}%</Text>
-      </Card></Pressable>}
-      ListEmptyComponent={<View><EmptyState title={busca ? "Nenhuma unidade encontrada" : "Nenhuma unidade cadastrada"} subtitle={busca ? "Altere os termos da busca." : "Use uma fatura da concessionária ou faça o cadastro manual."} /></View>}
-    /></Screen>
+    <Screen>
+      <AppHeader title="Unidades consumidoras" subtitle="Carteira dos clientes" contextTitle={`${unidades.length} unidades cadastradas`} contextSubtitle="Todas as unidades vinculadas aos clientes" icon="flash-outline" />
+      {loading ? <Loading /> : <FlatList
+        refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}
+        contentContainerStyle={styles.content}
+        data={lista}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={<View><Text style={styles.title}>Unidades consumidoras</Text><Text style={styles.subtitle}>Consulte as unidades de todos os clientes.</Text><View style={styles.search}><TextInput value={busca} onChangeText={setBusca} placeholder="Buscar por UC, cliente, CPF ou endereço" placeholderTextColor={Colors.subtitle} style={styles.searchInput} /></View><CadastroActions tipo="UNIDADE" /></View>}
+        renderItem={({ item }) => <Pressable onPress={() => router.push({ pathname: "/unidades/[id]", params: { id: item.id, numero: item.numero, clienteId: item.cliente_id ?? item.clientes?.id ?? "", cliente: item.clientes?.nome ?? "", usinaId: item.usina_id ?? item.usinas?.id ?? "", usinaNome: item.usinas?.nome ?? "", titular: item.titular ?? "", distribuidora: item.distribuidora ?? "" } })}><Card style={styles.unitCard}>
+          <View style={styles.row}><Text style={styles.number}>UC {item.numero}</Text><Text style={styles.badge}>{item.tipo}</Text></View>
+          <Text style={styles.owner}>{item.clientes?.nome ?? item.titular ?? "Cliente não identificado"}</Text>
+          <Text style={styles.detail}>{item.modalidade_faturamento === "INJECAO" ? "Faturamento por injeção" : "Faturamento por compensação"} · {item.desconto_percentual}%</Text>
+        </Card></Pressable>}
+        ListEmptyComponent={<View><EmptyState title={erro ? "Não foi possível carregar as unidades" : busca ? "Nenhuma unidade encontrada" : "Nenhuma unidade cadastrada"} subtitle={erro || (busca ? "Altere os termos da busca." : "Use uma fatura da concessionária ou faça o cadastro manual.")} /></View>}
+      />}
+    </Screen>
   );
 }
 

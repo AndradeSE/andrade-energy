@@ -1,4 +1,4 @@
-import { RefreshControl, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { RefreshControl, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -11,6 +11,7 @@ import EmptyState from "../ui/EmptyState";
 import Card from "../ui/Card";
 import Loading from "../ui/Loading";
 import Screen from "../ui/Screen";
+import { ElasticScrollView as ScrollView } from "../ui/ElasticScroll";
 
 import ClienteHeader from "./ClienteHeader";
 import EconomiaChart from "./EconomiaChart";

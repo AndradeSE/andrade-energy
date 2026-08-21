@@ -5,19 +5,19 @@ import * as FileSystemLegacy from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
 import { useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Linking,
   Platform,
-  ScrollView,
+  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 
-import { AppHeader, Card, Divider, EmptyState, Loading, Screen } from "../../components/ui";
+import { AppHeader, Card, Divider, ElasticScrollView as ScrollView, EmptyState, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { buscarFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
@@ -33,12 +33,29 @@ export default function DetalheFatura() {
   const [fatura, setFatura] = useState<any>();
   const [erro, setErro] = useState(false);
   const [documentoBaixando, setDocumentoBaixando] = useState<string>();
+  const [atualizando, setAtualizando] = useState(false);
+
+  const carregar = useCallback(async () => {
+    setErro(false);
+    try {
+      setFatura(await buscarFatura(String(id)));
+    } catch {
+      setErro(true);
+    }
+  }, [id]);
 
   useEffect(() => {
-    buscarFatura(String(id))
-      .then(setFatura)
-      .catch(() => setErro(true));
-  }, [id]);
+    void carregar();
+  }, [carregar]);
+
+  async function atualizarPagina() {
+    setAtualizando(true);
+    try {
+      await carregar();
+    } finally {
+      setAtualizando(false);
+    }
+  }
 
   if (erro) {
     return (
@@ -124,6 +141,7 @@ export default function DetalheFatura() {
       {IS_GERADOR_APP ? <AppHeader variant="subpage" title="Detalhe da fatura" subtitle="Cobranças da carteira" contextTitle={`Fatura ${fatura.referencia ?? ""}`.trim()} contextSubtitle={`Vencimento ${fatura.vencimento ?? "não informado"}`} icon="receipt-outline" /> : null}
       <ScrollView
         contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.heading}>

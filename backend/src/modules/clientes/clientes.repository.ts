@@ -26,7 +26,7 @@ export async function buscarCliente(id: string) {
 export async function listarUnidadesCliente(clienteId: string) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")
-    .select("id, numero, titular, distribuidora, endereco, status, modalidade_faturamento")
+    .select("id, cliente_id, usina_id, numero, titular, distribuidora, endereco, status, modalidade_faturamento, desconto_percentual, clientes(id,nome), usinas(id,nome)")
     .eq("cliente_id", clienteId)
     .order("numero");
 
@@ -35,7 +35,7 @@ export async function listarUnidadesCliente(clienteId: string) {
 
   const { data: cliente, error: erroCliente } = await supabase
     .from("clientes")
-    .select("id, uc, nome, distribuidora, endereco, status")
+    .select("id, uc, nome, distribuidora, endereco, status, usina_id, modalidade_faturamento, desconto_percentual")
     .eq("id", clienteId)
     .maybeSingle();
 
@@ -44,12 +44,39 @@ export async function listarUnidadesCliente(clienteId: string) {
 
   return [{
     id: `cliente-${cliente.id}`,
+    cliente_id: cliente.id,
+    usina_id: cliente.usina_id,
     numero: String(cliente.uc),
     titular: cliente.nome,
     distribuidora: cliente.distribuidora,
     endereco: cliente.endereco,
     status: cliente.status,
+    modalidade_faturamento: cliente.modalidade_faturamento,
+    desconto_percentual: cliente.desconto_percentual,
+    clientes: { id: cliente.id, nome: cliente.nome },
   }];
+}
+
+export async function listarTodasUnidades() {
+  const { data, error } = await supabase
+    .from("unidades_consumidoras")
+    .select("*, clientes(id,nome,cpf), usinas(id,nome)")
+    .not("cliente_id", "is", null)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function buscarUnidadePorId(unidadeId: string) {
+  const { data, error } = await supabase
+    .from("unidades_consumidoras")
+    .select("*, clientes(id,nome,cpf), usinas(id,nome)")
+    .eq("id", unidadeId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
 }
 
 export async function listarUnidadesPorCpf(cpfInformado: string) {
@@ -59,7 +86,7 @@ export async function listarUnidadesPorCpf(cpfInformado: string) {
 
   const { data: clientes, error: erroClientes } = await supabase
     .from("clientes")
-    .select("id, cpf, uc, nome, distribuidora, endereco, status")
+    .select("id, cpf, uc, nome, distribuidora, endereco, status, usina_id")
     .like("cpf", `${prefixoCpf}%`);
   if (erroClientes) throw erroClientes;
   if (!clientes?.length) return [];
@@ -69,7 +96,7 @@ export async function listarUnidadesPorCpf(cpfInformado: string) {
   const clienteIds = clientes.map((cliente) => cliente.id);
   const { data: unidades, error: erroUnidades } = await supabase
     .from("unidades_consumidoras")
-    .select("id, cliente_id, numero, titular, distribuidora, endereco, status, modalidade_faturamento")
+    .select("id, cliente_id, usina_id, numero, titular, distribuidora, endereco, status, modalidade_faturamento")
     .in("cliente_id", clienteIds)
     .order("numero");
   if (erroUnidades && erroUnidades.code !== "42P01") throw erroUnidades;
@@ -81,6 +108,7 @@ export async function listarUnidadesPorCpf(cpfInformado: string) {
     porNumero.set(String(cliente.uc), {
       id: `cliente-${cliente.id}`,
       cliente_id: cliente.id,
+      usina_id: cliente.usina_id,
       numero: String(cliente.uc),
       titular: cliente.nome,
       distribuidora: cliente.distribuidora,

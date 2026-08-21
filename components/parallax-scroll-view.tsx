@@ -48,7 +48,10 @@ export default function ParallaxScrollView({
     <Animated.ScrollView
       ref={scrollRef}
       style={{ backgroundColor, flex: 1 }}
-      scrollEventThrottle={16}>
+      scrollEventThrottle={16}
+      bounces
+      alwaysBounceVertical
+      overScrollMode="always">
       <Animated.View
         style={[
           styles.header,

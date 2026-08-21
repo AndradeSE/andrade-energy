@@ -5,10 +5,10 @@ import { useCallback, useState } from "react";
 
 import {
   Alert,
-  FlatList,
   Image,
   Modal,
   Pressable,
+  RefreshControl,
   StatusBar,
   StyleSheet,
   Text,
@@ -24,6 +24,7 @@ import {
 
 import CadastroActions from "../components/cadastro/CadastroActions";
 import {
+  ElasticFlatList as FlatList,
   EmptyState,
   Loading,
 } from "../components/ui";
@@ -76,6 +77,9 @@ export default function SelecionarUnidade() {
   const [erro, setErro] =
     useState(false);
 
+  const [atualizando, setAtualizando] =
+    useState(false);
+
   const [busca, setBusca] =
     useState("");
 
@@ -94,62 +98,36 @@ export default function SelecionarUnidade() {
    */
 
   const carregar =
-    useCallback(() => {
-      setLoading(true);
+    useCallback(async (mostrarLoading = true) => {
+      if (mostrarLoading) setLoading(true);
       setErro(false);
 
-      /*
-       * GERADOR
-       */
-      if (gestor) {
-        listarUsinas()
-          .then((lista) => {
-            setItens(lista);
-          })
-          .catch((error) => {
-            console.log(
-              "Erro ao carregar usinas:",
-              error
-            );
+      try {
+        if (gestor) {
+          setItens(await listarUsinas());
+          return;
+        }
 
-            setErro(true);
-          })
-          .finally(() => {
-            setLoading(false);
-          });
-
-        return;
-      }
-
-      /*
-       * CONSUMIDOR
-       */
-      if (!usuario?.cpf) {
-        console.log(
-          "Usuário sem CPF para localizar unidades."
-        );
-
-        setErro(true);
-        setLoading(false);
-
-        return;
-      }
-
-      listarMinhasUnidades()
-        .then((lista) => {
-          setItens(lista);
-        })
-        .catch((error) => {
+        if (!usuario?.cpf) {
           console.log(
-            "Erro ao carregar unidades:",
-            error
+            "Usuário sem CPF para localizar unidades."
           );
-
           setErro(true);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
+          return;
+        }
+
+        setItens(await listarMinhasUnidades());
+      } catch (error) {
+        console.log(
+          gestor
+            ? "Erro ao carregar usinas:"
+            : "Erro ao carregar unidades:",
+          error
+        );
+        setErro(true);
+      } finally {
+        if (mostrarLoading) setLoading(false);
+      }
     }, [
       gestor,
       usuario?.cpf,
@@ -160,8 +138,19 @@ export default function SelecionarUnidade() {
    * recebe foco.
    */
   useFocusEffect(
-    carregar
+    useCallback(() => {
+      void carregar();
+    }, [carregar])
   );
+
+  async function atualizarPagina() {
+    setAtualizando(true);
+    try {
+      await carregar(false);
+    } finally {
+      setAtualizando(false);
+    }
+  }
 
   /*
    * ========================================================
@@ -316,6 +305,22 @@ export default function SelecionarUnidade() {
           String(
             item.id
           )
+        }
+        refreshControl={
+          <RefreshControl
+            colors={[
+              Colors.primary,
+            ]}
+            onRefresh={
+              atualizarPagina
+            }
+            refreshing={
+              atualizando
+            }
+            tintColor={
+              Colors.primary
+            }
+          />
         }
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={

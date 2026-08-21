@@ -102,32 +102,51 @@ async function calcularProducaoMedia12Meses(usinaId: string) {
   inicio.setUTCDate(1);
   inicio.setUTCHours(0, 0, 0, 0);
   inicio.setUTCMonth(inicio.getUTCMonth() - 11);
-  const { data, error } = await supabase
-    .from("fechamentos")
-    .select("energia_gerada")
-    .eq("usina_id", usinaId)
-    .gte("competencia", inicio.toISOString().slice(0, 10))
-    .order("competencia", { ascending: false })
-    .limit(12);
-  if (error) throw error;
-  const producoes = (data ?? []).map((item) => Number(item.energia_gerada ?? 0)).filter(Number.isFinite);
-  return producoes.length ? producoes.reduce((total, valor) => total + valor, 0) / producoes.length : 0;
+  const [fechamentos, usina] = await Promise.all([
+    supabase
+      .from("fechamentos")
+      .select("energia_gerada")
+      .eq("usina_id", usinaId)
+      .gte("competencia", inicio.toISOString().slice(0, 10))
+      .order("competencia", { ascending: false })
+      .limit(12),
+    supabase
+      .from("usinas")
+      .select("geracao_media")
+      .eq("id", usinaId)
+      .maybeSingle(),
+  ]);
+  if (fechamentos.error) throw fechamentos.error;
+  if (usina.error) throw usina.error;
+
+  const producoes = (fechamentos.data ?? [])
+    .map((item) => Number(item.energia_gerada ?? 0))
+    .filter(Number.isFinite);
+  if (producoes.length) {
+    return producoes.reduce((total, valor) => total + valor, 0) / producoes.length;
+  }
+
+  return Math.max(0, Number(usina.data?.geracao_media ?? 0) || 0);
 }
 
 async function recalcularAlocacaoUsina(usinaId: string) {
-  const [{ data: clientes, error: erroClientes }, { data: fechamentos, error: erroFechamentos }] = await Promise.all([
-    supabase.from("clientes").select("percentual_rateio,modalidade_faturamento,consumo_medio_kwh").eq("usina_id", usinaId).eq("status", "ATIVO"),
+  const [{ data: unidades, error: erroUnidades }, { data: fechamentos, error: erroFechamentos }] = await Promise.all([
+    supabase
+      .from("unidades_consumidoras")
+      .select("percentual_rateio,modalidade_faturamento,consumo_medio_kwh")
+      .eq("usina_id", usinaId)
+      .eq("status", "ATIVA")
+      .neq("tipo", "GERADORA"),
     supabase.from("fechamentos").select("id,energia_gerada").eq("usina_id", usinaId).eq("status", "ABERTO"),
   ]);
-  if (erroClientes) throw erroClientes;
+  if (erroUnidades) throw erroUnidades;
   if (erroFechamentos) throw erroFechamentos;
+
   for (const fechamento of fechamentos ?? []) {
     const gerada = Number(fechamento.energia_gerada ?? 0);
-    const alocadaSolicitada = (clientes ?? []).reduce((total, cliente) => {
-      if (String(cliente.modalidade_faturamento).toUpperCase() === "COMPENSACAO" && Number(cliente.consumo_medio_kwh) > 0) {
-        return total + Number(cliente.consumo_medio_kwh);
-      }
-      return total + gerada * Number(cliente.percentual_rateio ?? 0) / 100;
+    const alocadaSolicitada = (unidades ?? []).reduce((total, unidade) => {
+      const percentual = Math.max(0, Math.min(100, Number(unidade.percentual_rateio ?? 0)));
+      return total + gerada * percentual / 100;
     }, 0);
     const alocada = Math.min(gerada, alocadaSolicitada);
     const { error } = await supabase.from("fechamentos").update({
@@ -137,6 +156,40 @@ async function recalcularAlocacaoUsina(usinaId: string) {
     }).eq("id", fechamento.id);
     if (error) throw error;
   }
+}
+
+async function sincronizarParticipacaoClienteUsina(
+  usinaId: string,
+  clienteId: string
+) {
+  const { error: erroLimpeza } = await supabase
+    .from("participacoes_usina")
+    .delete()
+    .eq("cliente_id", clienteId)
+    .eq("usina_id", usinaId);
+  if (erroLimpeza && erroLimpeza.code !== "42P01") throw erroLimpeza;
+
+  const { data: unidades, error: erroUnidades } = await supabase
+    .from("unidades_consumidoras")
+    .select("percentual_rateio")
+    .eq("cliente_id", clienteId)
+    .eq("usina_id", usinaId)
+    .eq("status", "ATIVA");
+  if (erroUnidades) throw erroUnidades;
+
+  const percentual = Math.min(
+    100,
+    (unidades ?? []).reduce(
+      (total, unidade) => total + Number(unidade.percentual_rateio ?? 0),
+      0
+    )
+  );
+  if (percentual <= 0) return;
+
+  const { error: erroParticipacao } = await supabase
+    .from("participacoes_usina")
+    .insert({ usina_id: usinaId, cliente_id: clienteId, percentual, ativo: true });
+  if (erroParticipacao && erroParticipacao.code !== "42P01") throw erroParticipacao;
 }
 
 export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
@@ -149,30 +202,95 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
   const consumoMedio = Math.max(0, Number(input.consumoMedio ?? 0));
   if (!clienteId || !numero) throw new Error("Cliente e UC são obrigatórios.");
   if (!['INJECAO', 'COMPENSACAO'].includes(modalidade)) throw new Error("Modalidade inválida.");
-  if (!calcularAutomaticamente && (!Number.isFinite(percentualInformado) || percentualInformado <= 0 || percentualInformado > 100)) throw new Error("Informe um percentual entre 0,01% e 100%.");
   if (!Number.isFinite(desconto) || desconto < 0 || desconto > 100) throw new Error("Informe um desconto entre 0% e 100%.");
 
-  const { data: cliente, error: erroBusca } = await supabase.from("clientes").select("nome,endereco,distribuidora,usina_id").eq("id", clienteId).single();
+  const [{ data: cliente, error: erroBusca }, { data: unidadeAnterior, error: erroUnidadeAnterior }] = await Promise.all([
+    supabase
+      .from("clientes")
+      .select("nome,endereco,distribuidora,usina_id,uc")
+      .eq("id", clienteId)
+      .single(),
+    supabase
+      .from("unidades_consumidoras")
+      .select("id,usina_id,cliente_id")
+      .eq("numero", numero)
+      .maybeSingle(),
+  ]);
   if (erroBusca) throw erroBusca;
-  let percentual = Number.isFinite(percentualInformado) && percentualInformado > 0 ? percentualInformado : 100;
-  if (calcularAutomaticamente && consumoMedio > 0) {
-    const producaoMedia = await calcularProducaoMedia12Meses(usinaId);
-    if (producaoMedia > 0) percentual = Math.min(100, consumoMedio / producaoMedia * 100);
+  if (erroUnidadeAnterior) throw erroUnidadeAnterior;
+  if (unidadeAnterior?.cliente_id && unidadeAnterior.cliente_id !== clienteId) {
+    throw new Error("Esta UC já está vinculada a outro cliente.");
   }
-  const usinaAnterior = cliente.usina_id;
-  const { error: erroCliente } = await supabase.from("clientes").update({ usina_id: usinaId, modalidade_faturamento: modalidade, percentual_rateio: percentual, desconto_percentual: desconto, consumo_medio_kwh: consumoMedio }).eq("id", clienteId);
-  if (erroCliente) throw erroCliente;
-  const { error: erroUc } = await supabase.from("unidades_consumidoras").upsert({ cliente_id: clienteId, usina_id: usinaId, numero, tipo: "BENEFICIARIA", titular: cliente.nome, endereco: cliente.endereco, distribuidora: cliente.distribuidora ?? "CEMIG", modalidade_faturamento: modalidade, desconto_percentual: desconto, status: "ATIVA" }, { onConflict: "numero" });
+
+  let percentual = Number.isFinite(percentualInformado) && percentualInformado > 0
+    ? percentualInformado
+    : 0;
+  let producaoMedia = 0;
+  if (calcularAutomaticamente) {
+    if (modalidade === "INJECAO") {
+      percentual = 100;
+    } else {
+      producaoMedia = await calcularProducaoMedia12Meses(usinaId);
+      percentual = producaoMedia > 0 && consumoMedio > 0
+        ? Math.min(100, consumoMedio / producaoMedia * 100)
+        : 0;
+    }
+  } else if (!Number.isFinite(percentualInformado) || percentualInformado <= 0 || percentualInformado > 100) {
+    throw new Error("Informe um percentual entre 0,01% e 100%.");
+  }
+
+  const usinaAnterior = unidadeAnterior?.usina_id ?? null;
+  const { data: unidade, error: erroUc } = await supabase
+    .from("unidades_consumidoras")
+    .upsert({
+      cliente_id: clienteId,
+      usina_id: usinaId,
+      numero,
+      tipo: "BENEFICIARIA",
+      titular: cliente.nome,
+      endereco: cliente.endereco,
+      distribuidora: cliente.distribuidora ?? "CEMIG",
+      modalidade_faturamento: modalidade,
+      desconto_percentual: desconto,
+      consumo_medio_kwh: consumoMedio,
+      percentual_rateio: percentual,
+      status: "ATIVA",
+    }, { onConflict: "numero" })
+    .select("id")
+    .single();
   if (erroUc) throw erroUc;
 
-  const { error: erroLimpeza } = await supabase.from("participacoes_usina").delete().eq("cliente_id", clienteId);
-  if (erroLimpeza && erroLimpeza.code !== "42P01") throw erroLimpeza;
-  const { error: erroParticipacao } = await supabase.from("participacoes_usina").insert({ usina_id: usinaId, cliente_id: clienteId, percentual, ativo: true });
-  if (erroParticipacao && erroParticipacao.code !== "42P01") throw erroParticipacao;
+  const ucPrincipal = String(cliente.uc ?? "").replace(/\D/g, "") === numero;
+  const atualizacaoCliente: Record<string, unknown> = {
+    usina_id: cliente.usina_id ?? usinaId,
+  };
+  if (ucPrincipal) {
+    atualizacaoCliente.modalidade_faturamento = modalidade;
+    atualizacaoCliente.percentual_rateio = percentual;
+    atualizacaoCliente.desconto_percentual = desconto;
+    atualizacaoCliente.consumo_medio_kwh = consumoMedio;
+  }
+  const { error: erroCliente } = await supabase
+    .from("clientes")
+    .update(atualizacaoCliente)
+    .eq("id", clienteId);
+  if (erroCliente) throw erroCliente;
 
-  if (usinaAnterior && usinaAnterior !== usinaId) await recalcularAlocacaoUsina(usinaAnterior);
+  if (usinaAnterior && usinaAnterior !== usinaId) {
+    await sincronizarParticipacaoClienteUsina(usinaAnterior, clienteId);
+    await recalcularAlocacaoUsina(usinaAnterior);
+  }
+  await sincronizarParticipacaoClienteUsina(usinaId, clienteId);
   await recalcularAlocacaoUsina(usinaId);
-  return { sucesso: true, usinaId, clienteId, numero, percentual, producaoMedia12Meses: await calcularProducaoMedia12Meses(usinaId) };
+  return {
+    sucesso: true,
+    usinaId,
+    clienteId,
+    unidadeId: unidade.id,
+    numero,
+    percentual,
+    producaoMedia12Meses: producaoMedia || await calcularProducaoMedia12Meses(usinaId),
+  };
 }
 
 export async function buscarUsinaService(

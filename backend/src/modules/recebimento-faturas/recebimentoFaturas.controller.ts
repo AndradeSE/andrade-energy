@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import {
   ativarRecebimentoFaturas,
   desativarRecebimentoFaturas,
+  obterConfirmacaoEncaminhamentoGmail,
   obterRecebimentoFaturas,
   receberWebhookResend,
   regenerarEnderecoRecebimento,
@@ -18,6 +19,14 @@ export async function obterRecebimentoFaturasController(req: Request, res: Respo
     return res.json(await obterRecebimentoFaturas(req.params.unidadeId, usuarioDaRequisicao(req)));
   } catch (erro: any) {
     return res.status(erro?.message?.includes("acesso") ? 403 : 400).json({ message: erro?.message ?? "Não foi possível consultar o recebimento automático." });
+  }
+}
+
+export async function obterConfirmacaoEncaminhamentoGmailController(req: Request, res: Response) {
+  try {
+    return res.json(await obterConfirmacaoEncaminhamentoGmail(req.params.unidadeId, usuarioDaRequisicao(req)));
+  } catch (erro: any) {
+    return res.status(erro?.message?.includes("acesso") ? 403 : 400).json({ message: erro?.message ?? "Não foi possível consultar a confirmação do Gmail." });
   }
 }
 

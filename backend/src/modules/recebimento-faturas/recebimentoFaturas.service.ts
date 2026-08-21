@@ -40,6 +40,13 @@ type AnexoResend = {
   download_url?: string;
 };
 
+type EmailRecebidoResend = {
+  text?: string | null;
+  html?: string | null;
+  subject?: string | null;
+  from?: string | null;
+};
+
 function normalizarCpf(valor?: string | null) {
   return String(valor ?? "").replace(/\D/g, "");
 }
@@ -129,13 +136,14 @@ async function obterUltimoRecebimento(unidadeId: string) {
 function serializarStatus(unidade: any, ultimo: any) {
   const dominio = dominioRecebimento();
   const producao = ultimo?.payload?.andrade_processamento?.tipo === "PRODUCAO_USINA";
+  const ultimoEhAuxiliar = ultimo?.payload?.andrade_processamento?.tipo === "SEM_PDF";
   return {
     configurado: Boolean(dominio),
     dominio,
     ativo: Boolean(unidade.recebimento_email_ativo),
     endereco: enderecoRecebimento(unidade.recebimento_email_token),
     ativadoEm: unidade.recebimento_email_ativado_em ?? null,
-    ultimoRecebimentoEm: unidade.recebimento_email_ultimo_em ?? ultimo?.recebido_em ?? null,
+    ultimoRecebimentoEm: unidade.recebimento_email_ultimo_em ?? (ultimoEhAuxiliar ? null : ultimo?.recebido_em ?? null),
     status: unidade.recebimento_email_status ?? ultimo?.status ?? "NAO_CONFIGURADO",
     erro: unidade.recebimento_email_erro ?? ultimo?.erro ?? null,
     faturaId: ultimo?.fatura_id ?? null,
@@ -149,6 +157,23 @@ export async function obterRecebimentoFaturas(unidadeId: string, usuario: Usuari
   const unidade = await buscarUnidadeAutorizada(unidadeId, usuario);
   const ultimo = await obterUltimoRecebimento(unidade.id);
   return serializarStatus(unidade, ultimo);
+}
+
+async function ignorarRecebimentosPendentes(unidadeId: string, mensagem: string, enderecoAtual?: string | null) {
+  let consulta = supabase
+    .from("recebimentos_faturas_email")
+    .update({
+      status: "IGNORADO",
+      erro: mensagem,
+      processado_em: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("unidade_consumidora_id", unidadeId)
+    .eq("status", "PENDENTE");
+
+  if (enderecoAtual) consulta = consulta.neq("destinatario", enderecoAtual.toLowerCase());
+  const { error } = await consulta;
+  if (error) throw error;
 }
 
 async function salvarTokenDaUnidade(unidade: any, sobrescreverToken: boolean) {
@@ -172,7 +197,16 @@ async function salvarTokenDaUnidade(unidade: any, sobrescreverToken: boolean) {
       .select("id, numero, tipo, usina_id, recebimento_email_token, recebimento_email_ativo, recebimento_email_ativado_em, recebimento_email_ultimo_em, recebimento_email_status, recebimento_email_erro")
       .single();
 
-    if (!error) return data;
+    if (!error) {
+      if (sobrescreverToken) {
+        await ignorarRecebimentosPendentes(
+          unidade.id,
+          "Endereço de recebimento substituído antes do processamento.",
+          enderecoRecebimento(data.recebimento_email_token),
+        );
+      }
+      return data;
+    }
     if (error.code !== "23505") throw error;
   }
 
@@ -181,8 +215,10 @@ async function salvarTokenDaUnidade(unidade: any, sobrescreverToken: boolean) {
 
 export async function ativarRecebimentoFaturas(unidadeId: string, usuario: UsuarioAutenticado) {
   const unidade = await buscarUnidadeAutorizada(unidadeId, usuario);
-  if (String(unidade.tipo ?? "").toUpperCase() === "GERADORA" && normalizarCpf(unidade.cpf_titular).length < 4) {
-    throw new Error("Informe o CPF/CNPJ do titular da conta na usina antes de ativar o recebimento. Os quatro primeiros dígitos são usados apenas para abrir PDFs CEMIG protegidos.");
+  const cpfTitular = normalizarCpf(unidade.cpf_titular) || normalizarCpf(clienteDaUnidade(unidade)?.cpf);
+  if (cpfTitular.length < 4) {
+    const destino = String(unidade.tipo ?? "").toUpperCase() === "GERADORA" ? "na usina" : "na unidade consumidora";
+    throw new Error(`Informe o CPF/CNPJ do titular da conta ${destino} antes de ativar o recebimento. Os quatro primeiros dígitos são usados apenas para abrir PDFs CEMIG protegidos.`);
   }
   const atualizada = await salvarTokenDaUnidade(unidade, false);
   const ultimo = await obterUltimoRecebimento(unidade.id);
@@ -209,6 +245,7 @@ export async function desativarRecebimentoFaturas(unidadeId: string, usuario: Us
     .select("id, numero, tipo, usina_id, recebimento_email_token, recebimento_email_ativo, recebimento_email_ativado_em, recebimento_email_ultimo_em, recebimento_email_status, recebimento_email_erro")
     .single();
   if (error) throw error;
+  await ignorarRecebimentosPendentes(unidade.id, "Recebimento automático desativado antes do processamento.");
   const ultimo = await obterUltimoRecebimento(unidade.id);
   return serializarStatus(data, ultimo);
 }
@@ -379,6 +416,79 @@ async function buscarAnexosResend(emailId: string, anexosDoEvento: AnexoResend[]
   throw new Error(`Não foi possível obter os anexos recebidos (${resposta.status}).`);
 }
 
+async function buscarEmailRecebidoResend(emailId: string) {
+  const chave = chaveApiResend();
+  if (!chave) throw new Error("Chave do Resend não configurada.");
+
+  const resposta = await fetch(`https://api.resend.com/emails/receiving/${encodeURIComponent(emailId)}`, {
+    headers: { Authorization: `Bearer ${chave}`, "User-Agent": "Andrade-Energy/1.0" },
+  });
+  if (!resposta.ok) throw new Error(`Não foi possível obter o conteúdo do e-mail recebido (${resposta.status}).`);
+  const corpo = await resposta.json() as { data?: EmailRecebidoResend } | EmailRecebidoResend;
+  return (("data" in corpo ? corpo.data : corpo) ?? {}) as EmailRecebidoResend;
+}
+
+function pareceConfirmacaoDeEncaminhamentoGmail(registro: any) {
+  const conteudo = `${registro?.assunto ?? ""} ${registro?.remetente ?? ""}`.toLocaleLowerCase("pt-BR");
+  // A confirmação pode chegar em qualquer idioma. A verificação definitiva
+  // abaixo exige também o endereço atual e um link oficial do Google.
+  return conteudo.includes("gmail") || conteudo.includes("google");
+}
+
+function extrairLinkConfirmacaoGmail(email: EmailRecebidoResend) {
+  const conteudo = `${email.text ?? ""}\n${email.html ?? ""}`
+    .replace(/&amp;/gi, "&")
+    .replace(/=3D/gi, "=")
+    .replace(/=\r?\n/g, "");
+  const urls = conteudo.match(/https?:\/\/[^\s"'<>]+/gi) ?? [];
+
+  for (const valor of urls) {
+    const candidato = valor.replace(/[),.;]+$/g, "");
+    try {
+      const url = new URL(candidato);
+      if (url.hostname === "mail-settings.google.com" || url.hostname === "mail.google.com") return url.toString();
+    } catch {
+      // Links formatados em HTML podem ser incompletos; apenas tentamos o próximo.
+    }
+  }
+
+  return null;
+}
+
+export async function obterConfirmacaoEncaminhamentoGmail(unidadeId: string, usuario: UsuarioAutenticado) {
+  const unidade = await buscarUnidadeAutorizada(unidadeId, usuario);
+  const enderecoAtual = enderecoRecebimento(unidade.recebimento_email_token)?.toLowerCase() ?? null;
+  const { data, error } = await supabase
+    .from("recebimentos_faturas_email")
+    .select("provedor_email_id, assunto, remetente, recebido_em")
+    .eq("unidade_consumidora_id", unidade.id)
+    .order("recebido_em", { ascending: false })
+    .limit(5);
+  if (error) throw error;
+
+  for (const registro of data ?? []) {
+    if (!registro.provedor_email_id || !pareceConfirmacaoDeEncaminhamentoGmail(registro)) continue;
+    try {
+      const email = await buscarEmailRecebidoResend(registro.provedor_email_id);
+      const conteudo = `${email.subject ?? ""}\n${email.text ?? ""}\n${email.html ?? ""}`
+        .toLowerCase()
+        .replace(/&#64;|&commat;/g, "@");
+      // Evita abrir uma confirmação antiga caso o endereço exclusivo tenha
+      // sido regenerado depois que o Gmail enviou a mensagem anterior.
+      if (enderecoAtual && !conteudo.includes(enderecoAtual)) continue;
+      const url = extrairLinkConfirmacaoGmail(email);
+      if (url) return { url, recebidoEm: registro.recebido_em ?? null };
+    } catch (erro: any) {
+      console.warn("[recebimento-faturas] confirmação Gmail indisponível", {
+        recebimentoId: registro.provedor_email_id,
+        erro: String(erro?.message ?? erro),
+      });
+    }
+  }
+
+  return { url: null, recebidoEm: null };
+}
+
 function escolherPdf(anexos: AnexoResend[]) {
   return anexos.find((anexo) => {
     const nome = String(anexo.filename ?? "").toLowerCase();
@@ -424,10 +534,52 @@ async function processarRegistro(registro: any) {
       return;
     }
 
+    // O item pode ter chegado pouco antes de o usuário desativar o recurso ou
+    // gerar um novo endereço. Confirmamos a configuração atual antes de
+    // baixar/processar o PDF para nunca faturar por um endereço revogado.
+    const { data: unidadeAtual, error: erroUnidadeAtual } = await supabase
+      .from("unidades_consumidoras")
+      .select("id, status, recebimento_email_ativo, recebimento_email_token")
+      .eq("id", assumido.unidade_consumidora_id)
+      .maybeSingle();
+    if (erroUnidadeAtual) throw erroUnidadeAtual;
+
+    const enderecoAtual = enderecoRecebimento(unidadeAtual?.recebimento_email_token);
+    const destinatarioAtual = String(assumido.destinatario ?? "").trim().toLowerCase();
+    const recebimentoValido = Boolean(
+      unidadeAtual &&
+      unidadeAtual.status === "ATIVA" &&
+      unidadeAtual.recebimento_email_ativo &&
+      enderecoAtual &&
+      destinatarioAtual === enderecoAtual.toLowerCase(),
+    );
+    if (!recebimentoValido) {
+      await supabase.from("recebimentos_faturas_email").update({
+        status: "IGNORADO",
+        erro: "Endereço de recebimento inativo ou substituído antes do processamento.",
+        processado_em: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq("id", assumido.id);
+      return;
+    }
+
     const anexosDoEvento = Array.isArray(assumido.payload?.attachments) ? assumido.payload.attachments as AnexoResend[] : [];
     const anexos = await buscarAnexosResend(assumido.provedor_email_id, anexosDoEvento);
     const anexo = escolherPdf(anexos);
-    if (!anexo) throw new Error("Nenhum PDF foi encontrado no e-mail recebido.");
+    // A confirmação de encaminhamento do Gmail chega ao endereço da UC sem
+    // anexo. Ela é esperada no primeiro uso e não deve colocar a unidade em
+    // erro nem gerar novas tentativas de processamento.
+    if (!anexo) {
+      const agora = new Date().toISOString();
+      await supabase.from("recebimentos_faturas_email").update({
+        status: "IGNORADO",
+        erro: null,
+        payload: adicionarMetadadosDeProcessamento(assumido.payload, { tipo: "SEM_PDF", ignoradoEm: agora }),
+        processado_em: agora,
+        updated_at: agora,
+      }).eq("id", assumido.id);
+      return;
+    }
     const arquivo = await baixarPdf(anexo);
     const hash = createHash("sha256").update(arquivo).digest("hex");
 

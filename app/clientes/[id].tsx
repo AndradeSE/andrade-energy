@@ -2,21 +2,25 @@ import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Pressable, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
-import { AppHeader, Badge, Button, Card, EmptyState, Loading, Screen, Section } from "../../components/ui";
+import { AppHeader, Badge, Button, Card, ElasticScrollView as ScrollView, EmptyState, Loading, Screen, Section } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
-import { buscarCliente, cadastrarUnidadeCliente, listarUnidadesCliente } from "../../services/clientes.service";
-import { analisarFatura, buscarFaturasCliente } from "../../services/faturas.service";
+import { useAuth } from "../../contexts/AuthContext";
+import { buscarCliente, listarUnidadesCliente } from "../../services/clientes.service";
+import { analisarFatura, buscarFaturasCliente, calcularMediaConsumoFatura } from "../../services/faturas.service";
+import { alocarUnidade } from "../../services/usinas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const moeda = (v: unknown) => Number(v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const documento = (valor: unknown) => { const numeros = String(valor ?? "").replace(/\D/g, ""); if (numeros.length === 11) return numeros.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4"); if (numeros.length === 14) return numeros.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5"); return String(valor ?? ""); };
 
 export default function ClienteDetalhe() {
-  const { id } = useLocalSearchParams<{ id: string }>(); const [cliente, setCliente] = useState<any>(); const [faturas, setFaturas] = useState<any[]>([]); const [unidades, setUnidades] = useState<any[]>([]); const [buscaUnidades, setBuscaUnidades] = useState(""); const [mostrarInfo, setMostrarInfo] = useState(false); const [loading, setLoading] = useState(true); const [importandoUc, setImportandoUc] = useState(false);
-  const carregar = useCallback(async () => { try { const [c, u] = await Promise.all([buscarCliente(id), listarUnidadesCliente(id)]); const unidadesCliente = u ?? []; setCliente(c); setUnidades(unidadesCliente); const numeros = Array.from(new Set([c.uc, ...unidadesCliente.map((item: any) => item.numero)].filter(Boolean))); const listas = await Promise.all(numeros.map((numero) => buscarFaturasCliente(String(numero)))); const unicas = Array.from(new Map(listas.flat().map((fatura: any) => [fatura.id, fatura])).values()); setFaturas(unicas); } finally { setLoading(false); } }, [id]);
+  const { id } = useLocalSearchParams<{ id: string }>(); const [cliente, setCliente] = useState<any>(); const [faturas, setFaturas] = useState<any[]>([]); const [unidades, setUnidades] = useState<any[]>([]); const [buscaUnidades, setBuscaUnidades] = useState(""); const [mostrarInfo, setMostrarInfo] = useState(false); const [loading, setLoading] = useState(true); const [atualizando, setAtualizando] = useState(false); const [importandoUc, setImportandoUc] = useState(false);
+  const { suspenderBloqueioTemporariamente } = useAuth();
+  const carregar = useCallback(async () => { try { const [c, u] = await Promise.all([buscarCliente(id), listarUnidadesCliente(id)]); const unidadesCliente = u ?? []; setCliente(c); setUnidades(unidadesCliente); const numeros = Array.from(new Set([c.uc, ...unidadesCliente.map((item: any) => item.numero)].filter(Boolean))); const listas = await Promise.all(numeros.map((numero) => buscarFaturasCliente(String(numero)))); const unicas = Array.from(new Map(listas.flat().map((fatura: any) => [fatura.id, fatura])).values()); setFaturas(unicas); } catch (erro: any) { Alert.alert("Não foi possível atualizar", erro?.response?.data?.message ?? "Confira sua conexão e tente novamente."); } finally { setLoading(false); } }, [id]);
   useFocusEffect(useCallback(() => { carregar(); }, [carregar]));
+  async function atualizarPagina() { setAtualizando(true); try { await carregar(); } finally { setAtualizando(false); } }
   if (loading) return <Loading />;
   if (!cliente) return <Screen><View style={styles.state}><EmptyState icon="person-outline" title="Cliente não encontrado" subtitle="Não foi possível carregar este cadastro." /></View></Screen>;
   const economia = faturas.reduce((t, f) => t + Number(f.economia_real ?? f.economia ?? 0), 0);
@@ -26,29 +30,76 @@ export default function ClienteDetalhe() {
   function whatsapp() { const numero = String(cliente.whatsapp ?? cliente.telefone ?? "").replace(/\D/g, ""); if (!numero) return Alert.alert("WhatsApp não informado", "Adicione um telefone no cadastro do cliente."); Linking.openURL(`https://wa.me/${numero.startsWith("55") ? numero : `55${numero}`}?text=${encodeURIComponent(`Olá ${cliente.nome}, estou entrando em contato sobre sua energia.`)}`); }
 
   async function adicionarUnidadeViaFatura() {
-    const arquivo = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
-    if (arquivo.canceled) return;
+    const retomarBloqueio = suspenderBloqueioTemporariamente();
+    let faturaLida = false;
     try {
+      const arquivo = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
+      if (arquivo.canceled) return;
+
       setImportandoUc(true);
       const pdf = arquivo.assets[0];
       const analise = await analisarFatura(pdf.uri, pdf.name);
       const dados = analise?.dados ?? {};
+      faturaLida = true;
       const numero = String(dados.uc ?? dados.numero_instalacao ?? dados.numeroInstalacao ?? "").replace(/\D/g, "");
       if (!numero) throw new Error("Não foi possível identificar o número da unidade consumidora.");
-      await cadastrarUnidadeCliente(id, numero, String(dados.cpf ?? "").replace(/\D/g, ""));
-      await carregar();
-      Alert.alert("Unidade cadastrada", `A UC ${numero} foi vinculada automaticamente a ${cliente.nome}.`);
+      const consumoMedio = calcularMediaConsumoFatura(dados);
+      // Sem uma usina definida não criamos uma UC parcialmente vinculada.
+      // O formulário seguinte pede a usina antes de salvar e usa a mesma rota
+      // canônica de alocação que grava cliente, usina, média e rateio juntos.
+      if (!cliente.usina_id) {
+        router.push({
+          pathname: "/unidades/nova",
+          params: {
+            origem: "fatura",
+            clienteId: id,
+            cliente: String(dados.cliente ?? cliente.nome ?? ""),
+            uc: numero,
+            cpf: String(dados.cpf ?? "").replace(/\D/g, ""),
+            endereco: String(dados.endereco ?? ""),
+            energiaCompensada: String(dados.energiaCompensada ?? 0),
+            consumoMedio: consumoMedio > 0 ? String(consumoMedio) : "",
+          },
+        });
+        return;
+      }
+
+      const alocacao = await alocarUnidade(cliente.usina_id, {
+        clienteId: id,
+        numero,
+        modalidade: String(cliente.modalidade_faturamento ?? "COMPENSACAO"),
+        percentual: 100,
+        desconto: Number(cliente.desconto_percentual ?? 40),
+        consumoMedio,
+        calcularAutomaticamente: true,
+      });
+      router.push({
+        pathname: "/unidades/editar",
+        params: {
+          id: String(alocacao.unidadeId ?? ""),
+          numero,
+          clienteId: id,
+          consumoMedio: consumoMedio > 0 ? String(consumoMedio) : "",
+          usinaId: String(cliente.usina_id ?? ""),
+          modalidade: String(cliente.modalidade_faturamento ?? "COMPENSACAO"),
+          desconto: String(cliente.desconto_percentual ?? 40),
+        },
+      });
     } catch (erro: any) {
-      Alert.alert("Não foi possível ler a fatura", erro?.response?.data?.message ?? erro?.message ?? "Confirme se o arquivo é uma conta de energia em PDF.");
+      Alert.alert(
+        faturaLida ? "Não foi possível cadastrar a UC" : "Não foi possível ler a fatura",
+        erro?.response?.data?.message ?? erro?.message ?? (faturaLida ? "Confira a usina e tente novamente." : "Confirme se o arquivo é uma conta de energia em PDF."),
+      );
     } finally {
       setImportandoUc(false);
+      retomarBloqueio();
     }
   }
 
-  return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Clientes" subtitle="Gestão da carteira" contextTitle={cliente.nome ?? "Cliente"} contextSubtitle={`${unidades.length} unidade${unidades.length === 1 ? "" : "s"} consumidora${unidades.length === 1 ? "" : "s"}`} icon="people-outline" /> : null}<ScrollView contentContainerStyle={styles.content}><View style={styles.customerHeader}><View style={styles.heading}><View style={styles.avatar}><Text style={styles.avatarText}>{cliente.nome?.charAt(0)?.toUpperCase()}</Text></View><View style={styles.headingText}><Text style={styles.eyebrow}>CLIENTE</Text><Text style={styles.title}>{cliente.nome}</Text><Text style={styles.subtitle}>{cliente.cpf ? documento(cliente.cpf) : "CPF/CNPJ não informado"}</Text></View><Badge label={cliente.status ?? "ATIVO"} variant="success" /></View>
+  return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Clientes" subtitle="Gestão da carteira" contextTitle={cliente.nome ?? "Cliente"} contextSubtitle={`${unidades.length} unidade${unidades.length === 1 ? "" : "s"} consumidora${unidades.length === 1 ? "" : "s"}`} icon="people-outline" /> : null}<ScrollView refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content}><View style={styles.customerHeader}><View style={styles.heading}><View style={styles.avatar}><Text style={styles.avatarText}>{cliente.nome?.charAt(0)?.toUpperCase()}</Text></View><View style={styles.headingText}><Text style={styles.eyebrow}>CLIENTE</Text><Text style={styles.title}>{cliente.nome}</Text><Text style={styles.subtitle}>{cliente.cpf ? documento(cliente.cpf) : "CPF/CNPJ não informado"}</Text></View><Badge label={cliente.status ?? "ATIVO"} variant="success" /></View>
     {mostrarInfo ? <View style={styles.headerInfo}><Info icon="flash-outline" label="Unidade principal" value={cliente.uc ? `UC ${cliente.uc}` : "Não informada"} /><Info icon="layers-outline" label="Unidades" value={String(unidades.length)} /><Info icon="call-outline" label="Telefone" value={cliente.telefone || "Não informado"} /><Info icon="business-outline" label="Concessionária" value={cliente.distribuidora || "Não informada"} /><Info wide icon="mail-outline" label="E-mail" value={cliente.email || "Não informado"} /><Info wide icon="location-outline" label="Endereço" value={cliente.endereco || "Não informado"} /></View> : null}<TouchableOpacity accessibilityLabel={mostrarInfo ? "Recolher informações do cliente" : "Ver todas as informações do cliente"} onPress={() => setMostrarInfo((valor) => !valor)} style={styles.expandButton}><Text style={styles.expandLabel}>{mostrarInfo ? "Ocultar informações" : "Ver informações"}</Text><Ionicons name={mostrarInfo ? "chevron-up" : "chevron-down"} size={17} color={Colors.primary} /></TouchableOpacity></View>
     <View style={styles.actions}><Button title="Editar" icon={<Ionicons name="create-outline" size={19} color={Colors.surface} />} style={styles.action} onPress={() => router.push({ pathname: "/clientes/editar", params: { id } })} /><Button title="WhatsApp" icon={<Ionicons name="logo-whatsapp" size={19} color={Colors.surface} />} style={[styles.action, styles.whatsapp]} onPress={whatsapp} /></View>
-    <Section title="Unidades consumidoras"><View><View style={styles.unitActions}><View style={styles.search}><Ionicons name="search-outline" size={20} color={Colors.subtitle} /><TextInput value={buscaUnidades} onChangeText={setBuscaUnidades} placeholder="Buscar por UC, titular ou endereço" placeholderTextColor={Colors.subtitle} style={styles.searchInput} /></View><TouchableOpacity accessibilityLabel="Adicionar unidade manualmente" onPress={() => router.push({ pathname: "/unidades/nova", params: { clienteId: id } })} style={styles.addUnit}><Ionicons name="add" size={22} color={Colors.surface} /></TouchableOpacity><TouchableOpacity accessibilityLabel="Adicionar unidade via fatura" disabled={importandoUc} onPress={adicionarUnidadeViaFatura} style={[styles.addUnit, styles.addUnitInvoice]}>{importandoUc ? <ActivityIndicator color={Colors.surface} /> : <Ionicons name="document-attach-outline" size={21} color={Colors.surface} />}</TouchableOpacity></View><Text style={styles.unitActionHint}>Use + para cadastro manual ou o documento para cadastrar pela conta de energia.</Text>{unidadesFiltradas.length ? unidadesFiltradas.map((unidade) => { const inativa = unidade.status === "INATIVA"; return <TouchableOpacity key={unidade.id} activeOpacity={0.78} accessibilityLabel={`Abrir documentos da UC ${unidade.numero}`} onPress={() => router.push({ pathname: "/unidades/[id]", params: { id: unidade.id, numero: unidade.numero, cliente: cliente.nome, titular: unidade.titular ?? "", distribuidora: unidade.distribuidora ?? "" } })}><Card style={styles.unitCard}><View style={styles.unitRow}><View style={styles.unitIcon}><Ionicons name="flash-outline" size={19} color={Colors.primary} /></View><View style={styles.unitInfo}><Text style={styles.unitLabel}>UNIDADE CONSUMIDORA</Text><Text style={styles.unitNumber}>{unidade.numero}</Text><View style={styles.unitMeta}><View style={[styles.statusDot, inativa && styles.statusDotInactive]} /><Text style={[styles.statusText, inativa && styles.statusTextInactive]}>{unidade.status ?? "ATIVA"}</Text><Text style={styles.unitSeparator}>•</Text><Text numberOfLines={1} style={styles.unitDetail}>{unidade.titular || unidade.endereco || unidade.distribuidora || "Concessionária"}</Text></View></View><Ionicons name="chevron-forward" size={18} color={Colors.subtitle} /></View></Card></TouchableOpacity>; }) : <EmptyState icon="flash-outline" title={buscaUnidades ? "Nenhuma unidade encontrada" : "Nenhuma unidade vinculada"} subtitle={buscaUnidades ? "Altere os termos da busca." : "Adicione a primeira unidade consumidora deste cliente."} />}</View></Section>
+    <Section title="Unidades consumidoras"><View><View style={styles.unitActions}><View style={styles.search}><Ionicons name="search-outline" size={20} color={Colors.subtitle} /><TextInput value={buscaUnidades} onChangeText={setBuscaUnidades} placeholder="Buscar por UC, titular ou endereço" placeholderTextColor={Colors.subtitle} style={styles.searchInput} /></View><TouchableOpacity accessibilityLabel="Adicionar unidade manualmente" onPress={() => router.push({ pathname: "/unidades/nova", params: { clienteId: id } })} style={styles.addUnit}><Ionicons name="add" size={22} color={Colors.surface} /></TouchableOpacity><TouchableOpacity accessibilityLabel="Adicionar unidade via fatura" disabled={importandoUc} onPress={adicionarUnidadeViaFatura} style={[styles.addUnit, styles.addUnitInvoice]}>{importandoUc ? <ActivityIndicator color={Colors.surface} /> : <Ionicons name="document-attach-outline" size={21} color={Colors.surface} />}</TouchableOpacity></View><Text style={styles.unitActionHint}>Use + para cadastro manual ou o documento para cadastrar pela conta de energia.</Text>{unidadesFiltradas.length ? unidadesFiltradas.map((unidade) => { const inativa = unidade.status === "INATIVA"; return <TouchableOpacity key={unidade.id} activeOpacity={0.78} accessibilityLabel={`Abrir documentos da UC ${unidade.numero}`} onPress={() => router.push({ pathname: "/unidades/[id]", params: { id: unidade.id, numero: unidade.numero, clienteId: unidade.cliente_id ?? id, cliente: cliente.nome, usinaId: unidade.usina_id ?? "", usinaNome: unidade.usinas?.nome ?? "", titular: unidade.titular ?? "", distribuidora: unidade.distribuidora ?? "" } })}><Card style={styles.unitCard}><View style={styles.unitRow}><View style={styles.unitIcon}><Ionicons name="flash-outline" size={19} color={Colors.primary} /></View><View style={styles.unitInfo}><Text style={styles.unitLabel}>UNIDADE CONSUMIDORA</Text><Text style={styles.unitNumber}>{unidade.numero}</Text><View style={styles.unitMeta}><View style={[styles.statusDot, inativa && styles.statusDotInactive]} /><Text style={[styles.statusText, inativa && styles.statusTextInactive]}>{unidade.status ?? "ATIVA"}</Text><Text style={styles.unitSeparator}>•</Text><Text numberOfLines={1} style={styles.unitDetail}>{unidade.titular || unidade.endereco || unidade.distribuidora || "Concessionária"}</Text></View></View><Ionicons name="chevron-forward" size={18} color={Colors.subtitle} /></View></Card></TouchableOpacity>; }) : <EmptyState icon="flash-outline" title={buscaUnidades ? "Nenhuma unidade encontrada" : "Nenhuma unidade vinculada"} subtitle={buscaUnidades ? "Altere os termos da busca." : "Adicione a primeira unidade consumidora deste cliente."} />}</View></Section>
     <Section title="Economia total"><Card><Text style={styles.summaryLabel}>Economia de todas as unidades</Text><Text style={styles.summaryValue}>{moeda(economia)}</Text><Text style={styles.summaryDetail}>{faturas.length} fatura{faturas.length === 1 ? "" : "s"} processada{faturas.length === 1 ? "" : "s"} em {unidades.length} unidade{unidades.length === 1 ? "" : "s"}</Text></Card></Section>
     <Section title="Histórico de faturas">{faturas.length ? faturas.map((f) => <Pressable key={f.id} onPress={() => f.id && router.push(`/faturas/${f.id}`)}><Card><View style={styles.invoice}><View style={styles.invoiceIcon}><Ionicons name="receipt-outline" size={21} color={Colors.primary} /></View><View style={styles.invoiceInfo}><Text style={styles.invoiceTitle}>{f.referencia}</Text><Text style={styles.invoiceDetail}>Economia {moeda(f.economia_real ?? f.economia)}</Text></View><Text style={styles.invoiceValue}>{moeda(f.valor_total_unificado ?? f.valor_total)}</Text><Ionicons name="chevron-forward" size={18} color={Colors.subtitle} /></View></Card></Pressable>) : <EmptyState icon="receipt-outline" title="Nenhuma fatura processada" subtitle="As faturas deste cliente aparecerão aqui." />}</Section>
   </ScrollView></Screen>;

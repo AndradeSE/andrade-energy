@@ -3,9 +3,11 @@ import { Router } from "express";
 import {
   atualizarClienteController,
   buscarClienteController,
+  buscarUnidadeController,
   criarClienteController,
   excluirClienteController,
   listarClientesController,
+  listarTodasUnidadesController,
   listarUnidadesClienteController,
   listarMinhasUnidadesController,
   cadastrarUnidadeClienteController,
@@ -18,6 +20,8 @@ const router = Router();
 router.get("/", listarClientesController);
 
 router.get("/minhas-unidades", exigirAutenticacao, listarMinhasUnidadesController);
+router.get("/unidades", exigirAutenticacao, exigirGestor, listarTodasUnidadesController);
+router.get("/unidade/:unidadeId", exigirAutenticacao, buscarUnidadeController);
 
 router.get("/:id/unidades", listarUnidadesClienteController);
 router.post("/:id/unidades", exigirAutenticacao, exigirGestor, cadastrarUnidadeClienteController);

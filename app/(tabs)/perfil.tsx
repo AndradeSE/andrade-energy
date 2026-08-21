@@ -7,7 +7,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -29,7 +28,7 @@ import {
   desativarDigital,
   verificarDigitalDisponivel,
 } from "../../services/biometric.service";
-import { AppHeader, Screen } from "../../components/ui";
+import { AppHeader, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 

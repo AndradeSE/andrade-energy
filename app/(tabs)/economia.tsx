@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useState } from "react";
 
 import Badge from "../../components/ui/Badge";
@@ -9,6 +9,7 @@ import Divider from "../../components/ui/Divider";
 import EmptyState from "../../components/ui/EmptyState";
 import Loading from "../../components/ui/Loading";
 import Screen from "../../components/ui/Screen";
+import { ElasticScrollView as ScrollView } from "../../components/ui/ElasticScroll";
 import EconomiaChart from "../../components/cliente/EconomiaChart";
 import ClienteHeader from "../../components/cliente/ClienteHeader";
 import { useDashboard } from "../../hooks/useDashboard";

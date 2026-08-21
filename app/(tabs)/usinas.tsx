@@ -2,16 +2,16 @@ import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Pressable, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import CadastroActions from "../../components/cadastro/CadastroActions";
-import { AppHeader, Card, EmptyState, Loading, Screen } from "../../components/ui";
+import { AppHeader, Card, ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import { excluirUsina, importarFaturaGeradora, listarUsinas } from "../../services/usinas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function Usinas() {
-  const { usuario, usinaSelecionada, selecionarUsina, atualizarUsuario } = useAuth();
+  const { usuario, usinaSelecionada, selecionarUsina, atualizarUsuario, suspenderBloqueioTemporariamente } = useAuth();
   const [usinas, setUsinas] = useState<any[]>([]); const [loading, setLoading] = useState(true); const [atualizando, setAtualizando] = useState(false);
   const [importandoId, setImportandoId] = useState<string | null>(null);
   const carregar = useCallback(async () => { try { setUsinas((await listarUsinas()) ?? []); } finally { setLoading(false); } }, []);
@@ -35,9 +35,11 @@ export default function Usinas() {
   }
 
   async function importarProducao(item: any) {
-    const arquivo = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
-    if (arquivo.canceled) return;
+    const retomarBloqueio = suspenderBloqueioTemporariamente();
     try {
+      const arquivo = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
+      if (arquivo.canceled) return;
+
       setImportandoId(item.id);
       const pdf = arquivo.assets[0];
       const resultado = await importarFaturaGeradora(item.id, pdf.uri, pdf.name);
@@ -51,6 +53,7 @@ export default function Usinas() {
       Alert.alert("Não foi possível importar", erro?.response?.data?.message ?? erro?.message ?? "Confira a conta de energia da usina.");
     } finally {
       setImportandoId(null);
+      retomarBloqueio();
     }
   }
 

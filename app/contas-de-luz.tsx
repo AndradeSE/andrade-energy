@@ -3,16 +3,26 @@ import { File, Paths } from "expo-file-system";
 import { router } from "expo-router";
 import * as Sharing from "expo-sharing";
 import { useState } from "react";
-import { Alert, FlatList, Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Linking, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { EmptyState, Loading, Screen } from "../components/ui";
+import { ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../components/ui";
 import { useFaturas } from "../hooks/useFaturas";
 import { Colors, Radius, Spacing, Typography } from "../theme";
 
 export default function ContasDeLuz() {
-  const { data, isLoading, error } = useFaturas();
+  const { data, isLoading, error, refetch } = useFaturas();
   const [baixando, setBaixando] = useState<string>();
-  const contas = data ?? [];
+  const [atualizando, setAtualizando] = useState(false);
+  const contas: any[] = Array.isArray(data) ? data : [];
+
+  async function atualizarPagina() {
+    setAtualizando(true);
+    try {
+      await refetch();
+    } finally {
+      setAtualizando(false);
+    }
+  }
 
   async function abrirPdf(item: any) {
     if (!item.pdf_cemig_url) return Alert.alert("PDF em preparação", "A conta da concessionária ainda não está disponível.");
@@ -39,6 +49,7 @@ export default function ContasDeLuz() {
     contentContainerStyle={styles.content}
     data={contas}
     keyExtractor={(item) => item.id}
+    refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}
     ListHeaderComponent={<View><View style={styles.heading}><TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={23} color={Colors.text} /></TouchableOpacity><View><Text style={styles.title}>Conta de luz</Text><Text style={styles.subtitle}>Selecione o PDF da concessionária</Text></View></View></View>}
     ListEmptyComponent={<View style={styles.empty}><EmptyState icon={error ? "alert-circle-outline" : "document-outline"} title={error ? "Não foi possível carregar" : "Nenhuma conta de luz"} subtitle={error ? "Confira sua conexão e tente novamente." : "Os PDFs da concessionária aparecerão aqui quando forem disponibilizados."} /></View>}
     renderItem={({ item }) => {

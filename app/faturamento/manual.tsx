@@ -2,33 +2,40 @@ import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { AppHeader, Button, Card, Divider, Screen } from "../../components/ui";
+import { AppHeader, Button, Card, Divider, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
+import { useAuth } from "../../contexts/AuthContext";
 import { analisarFatura, processarFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function FaturamentoManual() {
+  const { suspenderBloqueioTemporariamente } = useAuth();
   const [arquivo, setArquivo] = useState<{ uri: string; name: string }>();
   const [analise, setAnalise] = useState<any>();
   const [lendo, setLendo] = useState(false);
   const [faturando, setFaturando] = useState(false);
 
   async function selecionar() {
-    const resultado = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
-    if (resultado.canceled) return;
-    const item = resultado.assets[0];
+    const retomarBloqueio = suspenderBloqueioTemporariamente();
     try {
+      const resultado = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
+      if (resultado.canceled) return;
+
+      const item = resultado.assets[0];
       setLendo(true);
       const dados = await analisarFatura(item.uri, item.name);
       setArquivo({ uri: item.uri, name: item.name });
       setAnalise(dados);
     } catch (erro: any) {
       Alert.alert("Não foi possível ler a fatura", erro?.response?.data?.message ?? erro?.message ?? "Confira o PDF.");
-    } finally { setLendo(false); }
+    } finally {
+      setLendo(false);
+      retomarBloqueio();
+    }
   }
 
   async function faturar() {

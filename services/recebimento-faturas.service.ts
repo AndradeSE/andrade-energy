@@ -45,3 +45,13 @@ export async function desativarRecebimentoFaturas(unidadeId: string) {
   const { data } = await api.post<StatusRecebimentoFaturas>(`/recebimento-faturas/unidades/${unidadeId}/desativar`);
   return data;
 }
+
+export type ConfirmacaoEncaminhamentoGmail = {
+  url: string | null;
+  recebidoEm: string | null;
+};
+
+export async function obterConfirmacaoEncaminhamentoGmail(unidadeId: string) {
+  const { data } = await api.get<ConfirmacaoEncaminhamentoGmail>(`/recebimento-faturas/unidades/${unidadeId}/confirmacao-gmail`);
+  return data;
+}

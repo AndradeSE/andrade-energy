@@ -8,4 +8,5 @@ export { default as EmptyState } from "./EmptyState";
 export { default as Loading } from "./Loading";
 export { default as Metric } from "./Metric";
 export { default as Screen } from "./Screen";
+export { ElasticFlatList, ElasticScrollView } from "./ElasticScroll";
 export { default as Section } from "./Section";

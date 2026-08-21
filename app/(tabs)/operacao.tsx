@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 
-import { AppHeader, Badge, Button, Card, EmptyState, Loading, Metric, Screen } from "../../components/ui";
+import { AppHeader, Badge, Button, Card, ElasticFlatList as FlatList, EmptyState, Loading, Metric, Screen } from "../../components/ui";
 import { listarFechamentos, obterResumoOperacao } from "../../services/fechamentos.service";
 import { Colors, Spacing, Typography } from "../../theme";
 

@@ -2,13 +2,13 @@ import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { useDashboardGestor } from "../../hooks/useDashboardGestor";
 import { importarFaturaGeradora } from "../../services/usinas.service";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
-import { AppHeader, EmptyState, Loading, Metric, Screen, Section } from "../ui";
+import { AppHeader, ElasticScrollView as ScrollView, EmptyState, Loading, Metric, Screen, Section } from "../ui";
 import QuickAccessCarousel from "../QuickAccessCarousel";
 import RevenueChart from "./RevenueChart";
 
@@ -33,7 +33,7 @@ const atalhos = [
 ] as const;
 
 export default function DashboardGestor() {
-  const { usuario, usinaSelecionada } = useAuth();
+  const { usuario, usinaSelecionada, suspenderBloqueioTemporariamente } = useAuth();
   const { data, isLoading, error, refetch } = useDashboardGestor();
   const [importando, setImportando] = useState(false); const [atualizando, setAtualizando] = useState(false);
   async function atualizarPagina() { setAtualizando(true); try { await refetch(); } finally { setAtualizando(false); } }
@@ -41,9 +41,11 @@ export default function DashboardGestor() {
   async function atualizarGeracao() {
     const usinaId = usinaSelecionada?.id ?? usuario?.usina_id;
     if (!usinaId) return Alert.alert("Usina não vinculada", "Escolha uma usina para importar os dados de produção.");
-    const arquivo = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
-    if (arquivo.canceled) return;
+    const retomarBloqueio = suspenderBloqueioTemporariamente();
     try {
+      const arquivo = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
+      if (arquivo.canceled) return;
+
       setImportando(true);
       const item = arquivo.assets[0];
       const resultado = await importarFaturaGeradora(usinaId, item.uri, item.name);
@@ -51,7 +53,10 @@ export default function DashboardGestor() {
       Alert.alert("Produção atualizada", `${formatarEnergia(resultado.dados.energiaGerada)} calculados pelas medições de ${resultado.dados.referencia}.`);
     } catch (erro: any) {
       Alert.alert("Não foi possível atualizar", erro?.response?.data?.message ?? erro?.message ?? "Confira a fatura da unidade geradora.");
-    } finally { setImportando(false); }
+    } finally {
+      setImportando(false);
+      retomarBloqueio();
+    }
   }
 
   if (isLoading) return <Loading />;

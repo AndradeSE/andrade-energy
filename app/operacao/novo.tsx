@@ -1,10 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import FormField from "../../components/cadastro/FormField";
-import { AppHeader, Button, Card, EmptyState, Loading, Screen } from "../../components/ui";
+import { AppHeader, Button, Card, ElasticScrollView as ScrollView, EmptyState, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { fecharUsina } from "../../services/fechamentos.service";
 import { listarUsinas } from "../../services/usinas.service";

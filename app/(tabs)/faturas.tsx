@@ -5,9 +5,9 @@ import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, FlatList, Linking, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Linking, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { AppHeader, Button, Card, EmptyState, Loading, Screen } from "../../components/ui";
+import { AppHeader, Button, Card, ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useFaturas } from "../../hooks/useFaturas";
 import { excluirFatura } from "../../services/faturas.service";

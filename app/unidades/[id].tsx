@@ -1,12 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
-import { Alert, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useState } from "react";
+import { Alert, Linking, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { AppHeader, Badge, Card, EmptyState, Loading, Metric, Screen, Section } from "../../components/ui";
+import { AppHeader, Badge, Card, ElasticScrollView as ScrollView, EmptyState, Loading, Metric, Screen, Section } from "../../components/ui";
 import { excluirFatura, listarFaturas } from "../../services/faturas.service";
-import { excluirUnidadeCliente } from "../../services/clientes.service";
-import { supabase } from "../../supabase";
+import { buscarUnidade, excluirUnidadeCliente } from "../../services/clientes.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 
@@ -14,25 +13,54 @@ const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { s
 const paga = (status?: string) => ["PAGA", "PAGO", "QUITADA"].includes(String(status ?? "").toUpperCase());
 
 export default function UnidadeDocumentos() {
-  const { id, numero, cliente, titular, distribuidora } = useLocalSearchParams<{ id: string; numero?: string; cliente?: string; titular?: string; distribuidora?: string }>();
+  const { id, numero, clienteId, cliente, usinaId, usinaNome, titular, distribuidora } = useLocalSearchParams<{ id: string; numero?: string; clienteId?: string; cliente?: string; usinaId?: string; usinaNome?: string; titular?: string; distribuidora?: string }>();
   const [unidade, setUnidade] = useState<any>();
   const [faturas, setFaturas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [atualizando, setAtualizando] = useState(false);
 
-  useEffect(() => {
-    async function carregar() {
+  const carregar = useCallback(async (porAtualizacao = false) => {
+    if (porAtualizacao) setAtualizando(true);
+    try {
       let dados: any;
-      if (!id.startsWith("cliente-")) {
-        const resultado = await supabase.from("unidades_consumidoras").select("*, clientes(nome), usinas(nome)").eq("id", id).maybeSingle();
-        dados = resultado.data;
+      const idSintetico = String(id ?? "").startsWith("cliente-");
+      if (id && !idSintetico) {
+        try {
+          dados = await buscarUnidade(id);
+        } catch {
+          // Durante uma atualização do servidor, ainda conseguimos abrir a
+          // UC com os dados seguros enviados pela lista anterior.
+          dados = null;
+        }
       }
-      dados ??= numero ? { id, numero, titular, distribuidora, clientes: { nome: cliente } } : null;
-      if (!dados) return;
+
+      dados ??= numero ? {
+        id,
+        numero,
+        titular,
+        distribuidora,
+        cliente_id: clienteId || (idSintetico ? String(id).replace("cliente-", "") : null),
+        usina_id: usinaId || null,
+        clientes: cliente ? { id: clienteId, nome: cliente } : null,
+        usinas: usinaNome ? { id: usinaId, nome: usinaNome } : null,
+      } : null;
+      if (!dados) {
+        setUnidade(undefined);
+        return;
+      }
       setUnidade(dados);
       setFaturas((await listarFaturas(undefined, dados.numero)) ?? []);
+    } catch (erro: any) {
+      if (!porAtualizacao) {
+        Alert.alert("Não foi possível carregar", erro?.response?.data?.message ?? "Confira sua conexão e tente novamente.");
+      }
+    } finally {
+      setLoading(false);
+      setAtualizando(false);
     }
-    carregar().catch(() => Alert.alert("Não foi possível carregar", "Confira sua conexão e tente novamente.")).finally(() => setLoading(false));
-  }, [cliente, distribuidora, id, numero, titular]);
+  }, [cliente, clienteId, distribuidora, id, numero, titular, usinaId, usinaNome]);
+
+  useFocusEffect(useCallback(() => { void carregar(); }, [carregar]));
 
   async function abrirConta(item: any) {
     if (!item.pdf_cemig_url) return Alert.alert("PDF em preparação", "A conta da concessionária ainda não está disponível.");
@@ -85,7 +113,7 @@ export default function UnidadeDocumentos() {
   const podeCadastrarContrato = Boolean(unidade.cliente_id && unidade.usina_id);
   const status = String(unidade.status ?? "ATIVA").toUpperCase();
 
-  return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Unidade consumidora" subtitle="Gestão da carteira" contextTitle={`UC ${unidade.numero}`} contextSubtitle={unidade.clientes?.nome ?? unidade.titular ?? "Unidade consumidora"} icon="flash-outline" /> : null}<ScrollView contentContainerStyle={styles.content}>
+  return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Unidade consumidora" subtitle="Gestão da carteira" contextTitle={`UC ${unidade.numero}`} contextSubtitle={unidade.clientes?.nome ?? unidade.titular ?? "Unidade consumidora"} icon="flash-outline" /> : null}<ScrollView refreshControl={<RefreshControl refreshing={atualizando} onRefresh={() => carregar(true)} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content}>
     <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={19} color={Colors.subtitle} /><Text style={styles.backLabel}>Voltar</Text></TouchableOpacity>
 
     <Card style={styles.unitHero}>
@@ -100,9 +128,28 @@ export default function UnidadeDocumentos() {
     </Card>
 
       <View style={styles.actions}>
-      <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Editar e alocar unidade consumidora" onPress={() => router.push({ pathname: "/unidades/editar", params: { id: unidade.id, numero: unidade.numero, clienteId: unidade.cliente_id ?? (String(unidade.id).startsWith("cliente-") ? String(unidade.id).replace("cliente-", "") : "") } })} style={styles.action}><Ionicons name="git-branch-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Editar e alocar</Text></TouchableOpacity>
+      <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Editar e alocar unidade consumidora" onPress={() => {
+        const clienteIdParaEdicao = unidade.cliente_id ?? (String(unidade.id).startsWith("cliente-") ? String(unidade.id).replace("cliente-", "") : "");
+        if (!clienteIdParaEdicao) {
+          Alert.alert("Vincule a UC a um cliente", "Esta unidade ainda não possui cliente vinculado. Abra o cadastro da UC, escolha o cliente e salve antes de fazer a alocação.");
+          return;
+        }
+        router.push({
+          pathname: "/unidades/editar",
+          params: {
+            id: unidade.id,
+            numero: unidade.numero,
+            clienteId: clienteIdParaEdicao,
+            usinaId: unidade.usina_id ?? "",
+            modalidade: unidade.modalidade_faturamento ?? "",
+            desconto: unidade.desconto_percentual === null || unidade.desconto_percentual === undefined ? "" : String(unidade.desconto_percentual),
+            consumoMedio: unidade.consumo_medio_kwh === null || unidade.consumo_medio_kwh === undefined ? "" : String(unidade.consumo_medio_kwh),
+          },
+        });
+      }} style={styles.action}><Ionicons name="git-branch-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Editar e alocar</Text></TouchableOpacity>
       {IS_GERADOR_APP ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Adicionar ou editar contrato da unidade" onPress={() => { if (!podeCadastrarContrato) return Alert.alert("Vincule a UC antes", "Para cadastrar ou anexar o contrato, vincule esta unidade a um cliente e a uma usina em Editar e alocar."); router.push({ pathname: "/unidades/contrato", params: { id: unidade.id, numero: unidade.numero, clienteId: unidade.cliente_id, cliente: unidade.clientes?.nome ?? unidade.titular ?? "", descontoPadrao: String(unidade.desconto_percentual ?? "") } }); }} style={styles.action}><Ionicons name="document-text-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Contrato</Text></TouchableOpacity> : null}
     </View>
+    {IS_GERADOR_APP && !String(unidade.id ?? "").startsWith("cliente-") ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Configurar recebimento automático de faturas" onPress={() => router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidade.id } })} style={styles.automaticInvoice}><Ionicons name={unidade.recebimento_email_ativo ? "mail-open-outline" : "mail-unread-outline"} size={19} color={Colors.primary} /><View style={styles.automaticInvoiceCopy}><Text style={styles.automaticInvoiceTitle}>{unidade.recebimento_email_ativo ? "Gerenciar fatura automática" : "Ativar fatura automática"}</Text><Text style={styles.automaticInvoiceSubtitle}>{unidade.recebimento_email_ativo ? "Ver endereço exclusivo ou desativar o recebimento." : "Receba contas da CEMIG por e-mail nesta UC."}</Text></View><Ionicons name="chevron-forward" size={19} color={Colors.primary} /></TouchableOpacity> : null}
     {IS_GERADOR_APP ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Excluir unidade consumidora" onPress={confirmarExclusaoUnidade} style={styles.deleteUnit}><Ionicons name="trash-outline" size={18} color={Colors.danger} /><Text style={styles.deleteUnitText}>Excluir unidade consumidora</Text></TouchableOpacity> : null}
 
     <Section title="Estatísticas da unidade"><View style={styles.metrics}><View style={styles.metric}><Metric compact title="Economia total" value={moeda(economiaTotal)} icon={<Ionicons name="trending-up-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Total faturado" value={moeda(valorFaturado)} icon={<Ionicons name="wallet-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Consumo acumulado" value={`${consumoTotal.toLocaleString("pt-BR")} kWh`} icon={<Ionicons name="flash-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Faturas processadas" value={faturas.length} icon={<Ionicons name="receipt-outline" size={20} color={Colors.primary} />} /></View></View></Section>
@@ -139,6 +186,10 @@ const styles = StyleSheet.create({
   action: { flex: 1, minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: Spacing.sm, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md, backgroundColor: Colors.surface },
   actionWide: { flex: undefined, width: "100%" },
   actionText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" },
+  automaticInvoice: { minHeight: 66, flexDirection: "row", alignItems: "center", marginTop: -Spacing.sm, marginBottom: Spacing.lg, paddingHorizontal: Spacing.md, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md, backgroundColor: Colors.primaryLight },
+  automaticInvoiceCopy: { flex: 1, marginHorizontal: Spacing.sm },
+  automaticInvoiceTitle: { color: Colors.primaryDark, fontSize: Typography.small, fontWeight: "900" },
+  automaticInvoiceSubtitle: { marginTop: 2, color: Colors.subtitle, fontSize: 11, lineHeight: 16 },
   deleteUnit: { minHeight: 46, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: -Spacing.sm, marginBottom: Spacing.lg, borderWidth: 1, borderColor: "#FECACA", borderRadius: Radius.md, backgroundColor: "#FFF7F7" },
   deleteUnitText: { color: Colors.danger, fontSize: Typography.small, fontWeight: "900" },
   metrics: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },

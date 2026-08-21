@@ -1,13 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useState } from "react";
 import {
   ActivityIndicator,
-  ScrollView,
+  RefreshControl,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import { ElasticScrollView as ScrollView } from "../ui/ElasticScroll";
 
 import DashboardCard from "../DashboardCard";
 import DashboardSection from "../DashboardSection";
@@ -19,7 +22,17 @@ import UltimaFaturaCard from "../UltimaFaturaCard";
 import { useDashboard } from "../../hooks/useDashboard";
 
 export default function DashboardCliente() {
-  const { data, isLoading, error } = useDashboard();
+  const { data, isLoading, error, refetch } = useDashboard();
+  const [atualizando, setAtualizando] = useState(false);
+
+  async function atualizarPagina() {
+    setAtualizando(true);
+    try {
+      await refetch();
+    } finally {
+      setAtualizando(false);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -51,6 +64,7 @@ export default function DashboardCliente() {
     <SafeAreaView style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor="#16A34A" colors={["#16A34A"]} />}
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.greeting}>

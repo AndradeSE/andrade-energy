@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ElasticScrollView as ScrollView } from "../../components/ui/ElasticScroll";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { criarConta } from "../../services/auth.service";
 import { IS_GERADOR_APP } from "../../config/appVariant";

@@ -8,7 +8,6 @@ import {
   ImageBackground,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -18,6 +17,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ElasticScrollView as ScrollView } from "../../components/ui/ElasticScroll";
 import { useAuth } from "../../contexts/AuthContext";
 import { login } from "../../services/auth.service";
 import { ativarDigital, autenticarComDigital, verificarDigitalDisponivel } from "../../services/biometric.service";
