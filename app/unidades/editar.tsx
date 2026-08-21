@@ -202,13 +202,13 @@ export default function EditarAlocacaoUnidade() {
       >
         <Text style={styles.eyebrow}>UNIDADE CONSUMIDORA</Text>
         <View style={styles.titleRow}>
-          <Text style={styles.title}>Alocar unidade</Text>
+          <Text style={styles.title}>Configurar unidade</Text>
           <View style={styles.unitChip}>
             <Text numberOfLines={1} style={styles.unitChipText}>UC {numeroDaUc}</Text>
           </View>
         </View>
         <Text style={styles.subtitle}>
-          Confira a média lida da fatura e ajuste a alocação antes de salvar.
+          Defina a usina, a média de consumo e o rateio desta UC.
         </Text>
         <Card>
           <View style={styles.sectionHeading}>

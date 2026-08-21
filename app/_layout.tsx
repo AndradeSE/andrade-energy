@@ -1,5 +1,5 @@
 import { Stack } from "expo-router";
-import { ImageBackground, StyleSheet } from "react-native";
+import { ImageBackground, StyleSheet, View } from "react-native";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
@@ -14,6 +14,7 @@ import {
 } from "../contexts/AuthContext";
 
 import { Colors } from "../theme";
+import BiometricLock from "./biometric-lock";
 
 /*
  * React Query
@@ -51,21 +52,6 @@ function RootNavigator() {
   const loggedIn = Boolean(session);
 
   /*
-   * App pode ser acessado quando:
-   *
-   * - existe sessão
-   *
-   * E
-   *
-   * - digital está desativada
-   * OU
-   * - digital já foi validada
-   */
-  const appLiberado =
-    loggedIn &&
-    (!digitalEnabled || isUnlocked);
-
-  /*
    * Usuário precisa validar digital quando:
    *
    * - possui sessão
@@ -78,6 +64,7 @@ function RootNavigator() {
     !isUnlocked;
 
   return (
+    <>
     <Stack
       screenOptions={{
         headerShown: false,
@@ -112,24 +99,15 @@ function RootNavigator() {
       </Stack.Protected>
 
       {/* ============================= */}
-      {/* IMPRESSÃO DIGITAL             */}
-      {/* ============================= */}
-
-      <Stack.Protected guard={precisaDigital}>
-        <Stack.Screen
-          name="biometric-lock"
-          options={{
-            headerShown: false,
-            gestureEnabled: false,
-          }}
-        />
-      </Stack.Protected>
-
-      {/* ============================= */}
       {/* APLICATIVO                    */}
       {/* ============================= */}
 
-      <Stack.Protected guard={appLiberado}>
+      {/*
+       * As telas autenticadas permanecem montadas durante o bloqueio.
+       * A biometria é exibida como sobreposição logo abaixo, preservando a
+       * rota atual para a pessoa voltar exatamente de onde parou.
+       */}
+      <Stack.Protected guard={loggedIn}>
         <Stack.Screen
           name="(tabs)"
           options={{
@@ -335,6 +313,8 @@ function RootNavigator() {
         />
       </Stack.Protected>
     </Stack>
+    {precisaDigital ? <View style={styles.lockOverlay}><BiometricLock /></View> : null}
+    </>
   );
 }
 
@@ -353,6 +333,11 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+  },
+
+  lockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100,
   },
 
   loadingContainer: {

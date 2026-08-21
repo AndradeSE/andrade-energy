@@ -5,7 +5,8 @@ import { Alert, Linking, RefreshControl, StyleSheet, Text, TouchableOpacity, Vie
 
 import { AppHeader, Badge, Card, ElasticScrollView as ScrollView, EmptyState, Loading, Metric, Screen, Section } from "../../components/ui";
 import { excluirFatura, listarFaturas } from "../../services/faturas.service";
-import { buscarUnidade, excluirUnidadeCliente } from "../../services/clientes.service";
+import { buscarCliente, buscarUnidade, excluirUnidadeCliente } from "../../services/clientes.service";
+import { buscarUsina } from "../../services/usinas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 
@@ -48,6 +49,34 @@ export default function UnidadeDocumentos() {
         setUnidade(undefined);
         return;
       }
+
+      // Alguns atalhos antigos chegam somente com a UC. Recuperamos o vínculo
+      // canônico antes de desenhar a tela para não esconder uma usina já
+      // alocada nem bloquear o acesso ao contrato.
+      let clienteVinculado: any = dados.clientes;
+      let idUsinaVinculada = dados.usina_id ?? usinaId ?? null;
+      if ((!dados.cliente_id || !idUsinaVinculada) && (dados.cliente_id ?? clienteId)) {
+        try {
+          clienteVinculado = await buscarCliente(String(dados.cliente_id ?? clienteId));
+          idUsinaVinculada ??= clienteVinculado?.usina_id ?? null;
+        } catch {
+          // Mantém os dados já obtidos para a tela continuar utilizável offline.
+        }
+      }
+      if (idUsinaVinculada && !dados.usinas?.nome) {
+        try {
+          const usinaVinculada = await buscarUsina(String(idUsinaVinculada));
+          dados = { ...dados, usinas: usinaVinculada };
+        } catch {
+          // O ID ainda identifica uma alocação válida mesmo se o nome falhar.
+        }
+      }
+      dados = {
+        ...dados,
+        cliente_id: dados.cliente_id ?? clienteVinculado?.id ?? clienteId ?? null,
+        usina_id: idUsinaVinculada,
+        clientes: dados.clientes ?? clienteVinculado ?? null,
+      };
       setUnidade(dados);
       setFaturas((await listarFaturas(undefined, dados.numero)) ?? []);
     } catch (erro: any) {
@@ -79,7 +108,7 @@ export default function UnidadeDocumentos() {
 
   function confirmarExclusaoUnidade() {
     if (String(unidade?.id ?? "").startsWith("cliente-")) {
-      Alert.alert("Unidade pendente", "Esta UC ainda não possui um cadastro próprio. Abra Editar e alocar para concluir ou corrigir o vínculo.");
+      Alert.alert("Unidade pendente", "Esta UC ainda não possui um cadastro próprio. Abra Configurar UC para concluir ou corrigir o vínculo.");
       return;
     }
 
@@ -91,7 +120,12 @@ export default function UnidadeDocumentos() {
         onPress: async () => {
           try {
             await excluirUnidadeCliente(unidade.id);
-            Alert.alert("UC excluída", "A unidade consumidora foi removida.", [{ text: "OK", onPress: () => router.replace("/unidades") }]);
+            Alert.alert("UC excluída", "A unidade consumidora foi removida.", [{ text: "OK", onPress: () => {
+              // Retorna à lista de onde a UC foi aberta (cliente ou carteira),
+              // em vez de trocar para a lista paralela de Unidades.
+              if (router.canGoBack()) router.back();
+              else router.replace("/unidades/index");
+            } }]);
           } catch (erro: any) {
             const codigo = erro?.response?.status ?? "sem resposta";
             const base = String(erro?.config?.baseURL ?? "");
@@ -110,8 +144,11 @@ export default function UnidadeDocumentos() {
   const valorFaturado = faturas.reduce((total, item) => total + Number(item.valor_total_unificado ?? item.valor_total ?? 0), 0);
   const consumoTotal = faturas.reduce((total, item) => total + Number(item.consumo_kwh ?? item.consumo ?? 0), 0);
 
-  const podeCadastrarContrato = Boolean(unidade.cliente_id && unidade.usina_id);
   const status = String(unidade.status ?? "ATIVA").toUpperCase();
+  // O vínculo é determinado pelo ID da usina. Em alguns acessos a partir de
+  // listas antigas, o nome relacionado pode chegar no próximo carregamento;
+  // nesse intervalo a UC já está alocada e não deve aparecer como pendente.
+  const nomeUsinaVinculada = unidade.usinas?.nome ?? usinaNome ?? (unidade.usina_id ? "Usina vinculada" : "Ainda não alocada");
 
   return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Unidade consumidora" subtitle="Gestão da carteira" contextTitle={`UC ${unidade.numero}`} contextSubtitle={unidade.clientes?.nome ?? unidade.titular ?? "Unidade consumidora"} icon="flash-outline" /> : null}<ScrollView refreshControl={<RefreshControl refreshing={atualizando} onRefresh={() => carregar(true)} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content}>
     <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={19} color={Colors.subtitle} /><Text style={styles.backLabel}>Voltar</Text></TouchableOpacity>
@@ -124,11 +161,11 @@ export default function UnidadeDocumentos() {
       </View>
       <View style={styles.heroDivider} />
       <UnitMeta icon="business-outline" label="Concessionária" value={unidade.distribuidora ?? "Não informada"} />
-      <UnitMeta icon="sunny-outline" label="Usina vinculada" value={unidade.usinas?.nome ?? "Ainda não alocada"} last />
+      <UnitMeta icon="sunny-outline" label="Usina vinculada" value={nomeUsinaVinculada} last />
     </Card>
 
       <View style={styles.actions}>
-      <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Editar e alocar unidade consumidora" onPress={() => {
+      <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Configurar unidade consumidora" onPress={() => {
         const clienteIdParaEdicao = unidade.cliente_id ?? (String(unidade.id).startsWith("cliente-") ? String(unidade.id).replace("cliente-", "") : "");
         if (!clienteIdParaEdicao) {
           Alert.alert("Vincule a UC a um cliente", "Esta unidade ainda não possui cliente vinculado. Abra o cadastro da UC, escolha o cliente e salve antes de fazer a alocação.");
@@ -146,8 +183,20 @@ export default function UnidadeDocumentos() {
             consumoMedio: unidade.consumo_medio_kwh === null || unidade.consumo_medio_kwh === undefined ? "" : String(unidade.consumo_medio_kwh),
           },
         });
-      }} style={styles.action}><Ionicons name="git-branch-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Editar e alocar</Text></TouchableOpacity>
-      {IS_GERADOR_APP ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Adicionar ou editar contrato da unidade" onPress={() => { if (!podeCadastrarContrato) return Alert.alert("Vincule a UC antes", "Para cadastrar ou anexar o contrato, vincule esta unidade a um cliente e a uma usina em Editar e alocar."); router.push({ pathname: "/unidades/contrato", params: { id: unidade.id, numero: unidade.numero, clienteId: unidade.cliente_id, cliente: unidade.clientes?.nome ?? unidade.titular ?? "", descontoPadrao: String(unidade.desconto_percentual ?? "") } }); }} style={styles.action}><Ionicons name="document-text-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Contrato</Text></TouchableOpacity> : null}
+      }} style={styles.action}><Ionicons name="options-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Configurar UC</Text></TouchableOpacity>
+      {IS_GERADOR_APP ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Adicionar ou editar contrato da unidade" onPress={() => {
+        if (String(unidade.id ?? "").startsWith("cliente-")) {
+          Alert.alert("Finalize o cadastro da UC", "Abra Configurar UC e salve a unidade antes de cadastrar ou anexar o contrato.");
+          return;
+        }
+        router.push({ pathname: "/unidades/contrato", params: {
+          id: unidade.id,
+          numero: unidade.numero,
+          clienteId: unidade.cliente_id ?? unidade.clientes?.id ?? clienteId ?? "",
+          cliente: unidade.clientes?.nome ?? unidade.titular ?? cliente ?? "",
+          descontoPadrao: String(unidade.desconto_percentual ?? ""),
+        } });
+      }} style={styles.action}><Ionicons name="document-text-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Contrato</Text></TouchableOpacity> : null}
     </View>
     {IS_GERADOR_APP && !String(unidade.id ?? "").startsWith("cliente-") ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Configurar recebimento automático de faturas" onPress={() => router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidade.id } })} style={styles.automaticInvoice}><Ionicons name={unidade.recebimento_email_ativo ? "mail-open-outline" : "mail-unread-outline"} size={19} color={Colors.primary} /><View style={styles.automaticInvoiceCopy}><Text style={styles.automaticInvoiceTitle}>{unidade.recebimento_email_ativo ? "Gerenciar fatura automática" : "Ativar fatura automática"}</Text><Text style={styles.automaticInvoiceSubtitle}>{unidade.recebimento_email_ativo ? "Ver endereço exclusivo ou desativar o recebimento." : "Receba contas da CEMIG por e-mail nesta UC."}</Text></View><Ionicons name="chevron-forward" size={19} color={Colors.primary} /></TouchableOpacity> : null}
     {IS_GERADOR_APP ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Excluir unidade consumidora" onPress={confirmarExclusaoUnidade} style={styles.deleteUnit}><Ionicons name="trash-outline" size={18} color={Colors.danger} /><Text style={styles.deleteUnitText}>Excluir unidade consumidora</Text></TouchableOpacity> : null}

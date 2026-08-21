@@ -77,6 +77,19 @@ export default function DetalheFatura() {
   const valorUnificado = Number(
     fatura.valor_total_unificado ?? fatura.valor_total ?? 0
   );
+  const economiaReal = Number(fatura.economia_real ?? fatura.economia ?? 0);
+  const valorSemAndrade = Number(
+    fatura.valor_referencia_sem_andrade ??
+    Math.max(0, valorUnificado + economiaReal)
+  );
+  const descontoContratado = Number(
+    fatura.desconto_contratado_percentual ?? fatura.desconto_percentual ?? 0
+  );
+  const descontoReal = Number(fatura.desconto_real_percentual ?? 0);
+  const possuiCustosGD2 =
+    String(fatura.modalidade_faturamento ?? "").toUpperCase() === "COMPENSACAO" &&
+    (Number(fatura.custo_disponibilidade ?? 0) > 0 ||
+      (Number(fatura.tarifa_gd ?? 0) > 0 && Number(fatura.tarifa_gd) < Number(fatura.tarifa_cheia ?? 0)));
 
   async function baixarDocumento(url: string | undefined, nomeArquivo: string) {
     if (!url) {
@@ -149,10 +162,35 @@ export default function DetalheFatura() {
           <Text style={styles.headingDueDate}>Vencimento {fatura.vencimento}</Text>
         </View>
 
+        <Card style={styles.summaryCard}>
+          <Text style={styles.summaryEyebrow}>VALOR TOTAL A PAGAR</Text>
+          <Text style={styles.summaryValue}>{formatarMoeda(valorUnificado)}</Text>
+          <Text style={styles.summaryCaption}>CEMIG + energia solar Andrade Energy</Text>
+          <View style={styles.summaryDivider} />
+          <ComparisonRow label="Sem o benefício Andrade Energy" value={formatarMoeda(valorSemAndrade)} />
+          <ComparisonRow label="Você paga neste mês" value={formatarMoeda(valorUnificado)} emphasis />
+          <ComparisonRow label="Sua economia real" value={formatarMoeda(economiaReal)} success />
+          <View style={styles.discountPills}>
+            <View style={styles.discountPill}><Text style={styles.discountPillLabel}>Desconto contratado</Text><Text style={styles.discountPillValue}>{descontoContratado.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</Text></View>
+            <View style={styles.discountPill}><Text style={styles.discountPillLabel}>Desconto final real</Text><Text style={styles.discountPillValue}>{descontoReal.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</Text></View>
+          </View>
+        </Card>
+
+        <Text style={styles.sectionTitle}>COMPOSIÇÃO DO VALOR</Text>
+        <Card>
+          <ValueRow label="Parte que permanece na CEMIG" value={formatarMoeda(Number(fatura.valor_cemig ?? 0))} />
+          <Divider />
+          <ValueRow label="Energia solar Andrade Energy" value={formatarMoeda(Number(fatura.valor_usina ?? fatura.valor_andrade ?? 0))} />
+          <Divider />
+          <ValueRow label="Total a pagar" value={formatarMoeda(valorUnificado)} emphasis />
+        </Card>
+
+        {possuiCustosGD2 ? <View style={styles.gd2Notice}><Ionicons name="information-circle-outline" size={21} color="#8A5A00" /><View style={styles.gd2Copy}><Text style={styles.gd2Title}>Entenda o desconto real na GD II</Text><Text style={styles.gd2Text}>Custos obrigatórios da rede e de disponibilidade continuam na conta da CEMIG. Por isso, o desconto final pode ser menor que o desconto contratado.</Text></View></View> : null}
+
         <View style={styles.downloadActions}>
           <DownloadButton
             available={Boolean(fatura.pdf_cemig_url)}
-            label="Fatura da concessionária"
+            label="Conta original da CEMIG"
             loading={documentoBaixando === `cemig-${referenciaArquivo}.pdf`}
             onPress={() =>
               baixarDocumento(
@@ -162,8 +200,19 @@ export default function DetalheFatura() {
             }
           />
           <DownloadButton
+            available={Boolean(fatura.pdf_usina_url)}
+            label="Cobrança da usina"
+            loading={documentoBaixando === `usina-${referenciaArquivo}.pdf`}
+            onPress={() =>
+              baixarDocumento(
+                fatura.pdf_usina_url,
+                `usina-${referenciaArquivo}.pdf`
+              )
+            }
+          />
+          <DownloadButton
             available={Boolean(fatura.pdf_unificada_url)}
-            label="Fatura unificada Andrade Energy"
+            label="Fatura Andrade Energy"
             loading={documentoBaixando === `unificada-${referenciaArquivo}.pdf`}
             onPress={() =>
               baixarDocumento(
@@ -223,6 +272,24 @@ function DataRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap;
         <Text style={styles.dataLabel}>{label}</Text>
         <Text style={styles.dataValue}>{value}</Text>
       </View>
+    </View>
+  );
+}
+
+function ComparisonRow({ label, value, emphasis = false, success = false }: { label: string; value: string; emphasis?: boolean; success?: boolean }) {
+  return (
+    <View style={styles.comparisonRow}>
+      <Text style={[styles.comparisonLabel, emphasis && styles.comparisonLabelEmphasis, success && styles.comparisonLabelSuccess]}>{label}</Text>
+      <Text style={[styles.comparisonValue, emphasis && styles.comparisonValueEmphasis, success && styles.comparisonValueSuccess]}>{value}</Text>
+    </View>
+  );
+}
+
+function ValueRow({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
+  return (
+    <View style={styles.valueRow}>
+      <Text style={[styles.rowLabel, emphasis && styles.emphasisLabel]}>{label}</Text>
+      <Text style={[styles.rowValue, emphasis && styles.emphasisValue]}>{value}</Text>
     </View>
   );
 }
@@ -293,6 +360,116 @@ const styles = StyleSheet.create({
     marginTop: 3,
     color: Colors.subtitle,
     fontSize: Typography.small,
+  },
+  summaryCard: {
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "#BFE7D6",
+    borderRadius: Radius.lg,
+    backgroundColor: "#F4FBF8",
+  },
+  summaryEyebrow: {
+    color: Colors.primaryDark,
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+  },
+  summaryValue: {
+    marginTop: Spacing.xs,
+    color: Colors.primaryDark,
+    fontSize: 32,
+    fontWeight: "900",
+    letterSpacing: -0.8,
+  },
+  summaryCaption: {
+    marginTop: 2,
+    color: Colors.subtitle,
+    fontSize: Typography.caption,
+  },
+  summaryDivider: {
+    height: 1,
+    marginVertical: Spacing.md,
+    backgroundColor: "#CFE9DD",
+  },
+  comparisonRow: {
+    minHeight: 33,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: Spacing.sm,
+  },
+  comparisonLabel: {
+    flex: 1,
+    color: Colors.subtitle,
+    fontSize: Typography.caption,
+  },
+  comparisonLabelEmphasis: {
+    color: Colors.text,
+    fontWeight: "800",
+  },
+  comparisonLabelSuccess: {
+    color: Colors.primaryDark,
+    fontWeight: "800",
+  },
+  comparisonValue: {
+    color: Colors.text,
+    fontSize: Typography.small,
+    fontWeight: "800",
+  },
+  comparisonValueEmphasis: {
+    color: Colors.primaryDark,
+    fontSize: Typography.body,
+    fontWeight: "900",
+  },
+  comparisonValueSuccess: {
+    color: Colors.primary,
+    fontSize: Typography.body,
+    fontWeight: "900",
+  },
+  discountPills: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  discountPill: {
+    flex: 1,
+    padding: Spacing.sm,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.surface,
+  },
+  discountPillLabel: {
+    color: Colors.subtitle,
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  discountPillValue: {
+    marginTop: 2,
+    color: Colors.primaryDark,
+    fontSize: Typography.body,
+    fontWeight: "900",
+  },
+  gd2Notice: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.lg,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    backgroundColor: "#FFF7E8",
+  },
+  gd2Copy: {
+    flex: 1,
+  },
+  gd2Title: {
+    color: "#8A5A00",
+    fontSize: Typography.small,
+    fontWeight: "900",
+  },
+  gd2Text: {
+    marginTop: 3,
+    color: "#725B2D",
+    fontSize: Typography.caption,
+    lineHeight: 18,
   },
   hero: {
     position: "relative",
