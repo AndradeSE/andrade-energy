@@ -258,6 +258,17 @@ export default function RecebimentoEmail() {
         <Text style={styles.primaryText}>{salvando ? "Ativando..." : "Ativar recebimento automático"}</Text>
       </TouchableOpacity> : null}
 
+      {dados?.configurado && dados.ativo && dados.endereco ? <>
+        <Text style={styles.sectionTitle}>SEU ENDEREÇO EXCLUSIVO</Text>
+        <TouchableOpacity activeOpacity={0.82} onPress={copiarEndereco} style={styles.addressCard}>
+          <View style={styles.addressIcon}><Ionicons name="mail-outline" size={21} color={Colors.primary} /></View>
+          <Text selectable style={styles.address}>{dados.endereco}</Text>
+          <Ionicons name="copy-outline" size={21} color={Colors.primary} />
+        </TouchableOpacity>
+        <Text style={styles.addressHint}>Toque para copiar. Este endereço é exclusivo desta UC e pode ser alterado a qualquer momento.</Text>
+        <TouchableOpacity disabled={salvando} onPress={confirmarRegeneracao} style={styles.secondaryAction}><Ionicons name="refresh-outline" size={19} color={Colors.primary} /><Text style={styles.secondaryText}>Gerar novo endereço</Text></TouchableOpacity>
+      </> : null}
+
       <Text style={styles.sectionTitle}>CONECTAR SEU E-MAIL</Text>
       <Card style={styles.privacyCard}>
         <View style={styles.privacyIcon}><Ionicons name="shield-checkmark-outline" size={23} color={Colors.primary} /></View>
@@ -311,15 +322,6 @@ export default function RecebimentoEmail() {
         </Card>
 
         {dados?.ativo && dados.endereco ? <>
-          <Text style={styles.sectionTitle}>SEU ENDEREÇO EXCLUSIVO</Text>
-          <TouchableOpacity activeOpacity={0.82} onPress={copiarEndereco} style={styles.addressCard}>
-            <View style={styles.addressIcon}><Ionicons name="mail-outline" size={21} color={Colors.primary} /></View>
-            <Text selectable style={styles.address}>{dados.endereco}</Text>
-            <Ionicons name="copy-outline" size={21} color={Colors.primary} />
-          </TouchableOpacity>
-          <Text style={styles.addressHint}>Toque para copiar. Este endereço é exclusivo desta UC e pode ser alterado a qualquer momento.</Text>
-          <TouchableOpacity disabled={salvando} onPress={confirmarRegeneracao} style={styles.secondaryAction}><Ionicons name="refresh-outline" size={19} color={Colors.primary} /><Text style={styles.secondaryText}>Gerar novo endereço</Text></TouchableOpacity>
-
           <Text style={styles.sectionTitle}>COMO CONFIGURAR</Text>
           <Card>
             <Instruction number="1" text="No Hotmail/Outlook, toque na engrenagem e abra E-mail > Regras." />
