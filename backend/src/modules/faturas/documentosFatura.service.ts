@@ -102,7 +102,11 @@ async function incluirDadosDaUCNaFatura(fatura: any) {
 export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
   fatura = await incluirDadosDaUCNaFatura(fatura);
   return new Promise<Buffer>((resolve, reject) => {
-    const pdf = new PDFDocument({ margin: 48, size: "A4", info: { Title: `Fatura Andrade Energy - ${fatura.referencia ?? "energia"}` } });
+    const pdf = new PDFDocument({
+      size: "A4",
+      margins: { top: 48, right: 48, bottom: 24, left: 48 },
+      info: { Title: `Fatura Andrade Energy - ${fatura.referencia ?? "energia"}` },
+    });
     const partes: Buffer[] = [];
     pdf.on("data", (parte) => partes.push(parte));
     pdf.on("end", () => resolve(Buffer.concat(partes)));
@@ -181,55 +185,43 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     desenharLinhaDeValor(pdf, 550, "Economia real neste mês", moeda(economiaReal), true);
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(`Desconto contratado: ${percentual(descontoContratado)}  |  Desconto final real: ${percentual(descontoReal)}`, 64, 564, { width: 465, align: "center" });
 
-    // A composição precisa de mais altura que a disponível ao final da A4.
-    // Mantê-la em uma segunda página evita cortar valores e o rodapé.
-    pdf.addPage();
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(16).text("Como chegamos ao total unificado", 48, 58);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(9).text("Transparência sobre cada parcela da sua fatura de energia.", 48, 80);
-    pdf.roundedRect(48, 108, LARGURA, 188, 12).fill("#F8FBF9").strokeColor(BORDA).stroke();
-    desenharLinhaDeValor(pdf, 124, `Energia considerada (${energia(energiaCobrada)})`, "");
-    desenharLinha(pdf, 145);
-    desenharLinhaDeValor(pdf, 156, "Tarifa CEMIG por kWh", moeda(tarifaCemig));
-    desenharLinha(pdf, 177);
-    desenharLinhaDeValor(pdf, 188, "Tarifa Andrade Energy por kWh", moeda(tarifaAndrade));
-    desenharLinha(pdf, 209);
-    desenharLinhaDeValor(pdf, 220, "Parte que permanece na CEMIG", moeda(valorCemig));
-    desenharLinha(pdf, 241);
-    desenharLinhaDeValor(pdf, 252, "Energia solar Andrade Energy", moeda(valorUsina));
-    desenharLinha(pdf, 273);
-    desenharLinhaDeValor(pdf, 282, "Total unificado", moeda(valorTotal), true);
+    // Composição e histórico em formato compacto para a fatura ficar em uma
+    // única página A4, inclusive quando houver custos de GD II.
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(11).text("Como chegamos ao total unificado", 48, 591);
+    pdf.roundedRect(48, 608, LARGURA, 121, 12).fill("#F8FBF9").strokeColor(BORDA).stroke();
+    desenharLinhaDeValor(pdf, 619, `Energia considerada (${energia(energiaCobrada)})`, "");
+    desenharLinha(pdf, 637);
+    desenharLinhaDeValor(pdf, 643, "Tarifa CEMIG por kWh", moeda(tarifaCemig));
+    desenharLinha(pdf, 661);
+    desenharLinhaDeValor(pdf, 667, "Tarifa Andrade Energy por kWh", moeda(tarifaAndrade));
+    desenharLinha(pdf, 685);
+    desenharLinhaDeValor(pdf, 691, "Parte que permanece na CEMIG", moeda(valorCemig));
+    desenharLinha(pdf, 709);
+    desenharLinhaDeValor(pdf, 714, "Energia solar Andrade Energy", moeda(valorUsina));
+    desenharLinha(pdf, 732);
+    desenharLinhaDeValor(pdf, 737, "Total unificado", moeda(valorTotal), true);
 
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(12).text("Histórico de economia", 48, 330);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8.5).text(
+    const ultimasEconomias = historicoEconomia.slice(-3);
+    const resumoUltimasEconomias = ultimasEconomias
+      .map((item: any) => `${item.referencia ?? ""}: ${moeda(item.economia_real ?? item.economia)}`)
+      .join("  •  ");
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10.5).text("Histórico de economia", 48, 765);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(
       historicoEconomia.length
-        ? `Economia acumulada nas últimas ${historicoEconomia.length} faturas: ${moeda(economiaAcumulada)}`
+        ? `Acumulado nas últimas ${historicoEconomia.length} faturas: ${moeda(economiaAcumulada)}  |  ${resumoUltimasEconomias}`
         : "O histórico aparecerá aqui a partir das próximas faturas.",
       48,
-      347
+      779,
+      { width: LARGURA }
     );
-    if (historicoEconomia.length) {
-      const larguraItem = 240;
-      historicoEconomia.forEach((item: any, indice: number) => {
-        const coluna = indice % 2;
-        const linha = Math.floor(indice / 2);
-        const x = coluna === 0 ? 48 : 306;
-        const y = 370 + linha * 28;
-        pdf.roundedRect(x, y, larguraItem, 22, 7).fill("#F8FBF9");
-        pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7.5).text(String(item.referencia ?? "Competência"), x + 10, y + 7, { width: 95 });
-        pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8.5).text(moeda(item.economia_real ?? item.economia), x + 105, y + 6, { width: 124, align: "right" });
-      });
-    }
-
-    let yAviso = 470;
     if (temGD2(fatura)) {
-      pdf.roundedRect(48, yAviso, LARGURA, 48, 10).fill("#FFF7E8");
-      pdf.fillColor("#8A5A00").font("Helvetica-Bold").fontSize(9).text("Por que o desconto real pode ser menor que o contratado?", 64, yAviso + 10);
-      pdf.fillColor("#725B2D").font("Helvetica").fontSize(8).text("Na GD II, custos obrigatórios da rede e de disponibilidade continuam na fatura da CEMIG. Por isso, a economia final é calculada sobre o crédito efetivamente compensado.", 64, yAviso + 23, { width: 465, lineGap: 1 });
-      yAviso += 61;
+      pdf.fillColor("#8A5A00").font("Helvetica").fontSize(7.5).text(
+        "GD II: custos obrigatórios da rede continuam na fatura da CEMIG; por isso o desconto final pode ser menor que o contratado.",
+        48,
+        795,
+        { width: LARGURA, align: "center" }
+      );
     }
-
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text("Total unificado = parte CEMIG + energia solar Andrade Energy. Esta é uma fatura explicativa; a conta original da CEMIG permanece disponível no aplicativo.", 48, yAviso + 5, { width: LARGURA, align: "center" });
-    pdf.fillColor(VERDE).font("Helvetica-Bold").fontSize(8).text("ANDRADE ENERGY", 48, yAviso + 40, { width: LARGURA, align: "center" });
     pdf.end();
   });
 }
