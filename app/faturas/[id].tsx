@@ -139,11 +139,7 @@ export default function DetalheFatura() {
         if (!arquivo.exists || !arquivo.size || arquivo.size < 512) {
           throw new Error("O PDF baixado está vazio.");
         }
-        if (await Sharing.isAvailableAsync()) {
-          // O seletor permite escolher o leitor de PDF instalado (ou Arquivos),
-          // evitando depender do visualizador padrão que pode falhar no Android.
-          await Sharing.shareAsync(arquivo.uri, { dialogTitle: "Abrir ou salvar fatura", mimeType: "application/pdf", UTI: "com.adobe.pdf" });
-        } else {
+        if (Platform.OS === "android") {
           try {
             const contentUri = await FileSystemLegacy.getContentUriAsync(arquivo.uri);
             await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
@@ -151,9 +147,15 @@ export default function DetalheFatura() {
               flags: 1,
               type: "application/pdf",
             });
+            return;
           } catch {
-            Alert.alert("Download concluído", `${nomeArquivo} foi salvo no aplicativo.`);
+            // Sem leitor padrão, abre o seletor como alternativa.
           }
+        }
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(arquivo.uri, { dialogTitle: "Abrir ou salvar fatura", mimeType: "application/pdf", UTI: "com.adobe.pdf" });
+        } else {
+          Alert.alert("Download concluído", `${nomeArquivo} foi salvo no aplicativo.`);
         }
         return;
       }
