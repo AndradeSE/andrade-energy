@@ -4,7 +4,9 @@ services:
     runtime: node
     plan: free
     rootDir: backend
-    buildCommand: npm ci && npm run build
+    # Aplica primeiro as migrações versionadas. Assim o backend nunca é
+    # publicado antes das colunas e tabelas de que ele depende.
+    buildCommand: cd .. && npx supabase@2.109.1 db push --linked && cd backend && npm ci && npm run build
     startCommand: npm start
     healthCheckPath: /health
     autoDeployTrigger: commit
@@ -14,6 +16,8 @@ services:
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_ACCESS_TOKEN
         sync: false
       - key: MICROSOFT_CLIENT_ID
         sync: false
