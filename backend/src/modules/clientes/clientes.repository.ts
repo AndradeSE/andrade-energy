@@ -260,18 +260,30 @@ export async function excluirUnidadeCliente(clienteId: string, unidadeId: string
   if (erroUnidade) throw erroUnidade;
   if (!unidade) throw new Error("Unidade consumidora não encontrada para este cliente.");
 
+  // Compatibilidade com o campo legado clientes.uc: sem essa limpeza, uma UC
+  // removida pode reaparecer nos fluxos que ainda consultam esse campo. A UC
+  // antiga pode estar salva com pontos, espaços ou hífens, por isso comparamos
+  // somente os dígitos antes de limpar.
+  const { data: cliente, error: erroCliente } = await supabase
+    .from("clientes")
+    .select("uc")
+    .eq("id", clienteId)
+    .maybeSingle();
+  if (erroCliente) throw erroCliente;
+
+  const ucLegada = String(cliente?.uc ?? "").replace(/\D/g, "");
+  const ucExcluida = String(unidade.numero ?? "").replace(/\D/g, "");
+  if (ucLegada && ucLegada === ucExcluida) {
+    const { error: erroLegado } = await supabase
+      .from("clientes")
+      .update({ uc: null })
+      .eq("id", clienteId);
+    if (erroLegado) throw erroLegado;
+  }
+
   const { error: erroExclusao } = await supabase
     .from("unidades_consumidoras")
     .delete()
     .eq("id", unidade.id);
   if (erroExclusao) throw erroExclusao;
-
-  // Compatibilidade com o campo legado clientes.uc: sem essa limpeza, uma UC
-  // removida pode reaparecer nos fluxos que ainda consultam esse campo.
-  const { error: erroLegado } = await supabase
-    .from("clientes")
-    .update({ uc: null })
-    .eq("id", clienteId)
-    .eq("uc", unidade.numero);
-  if (erroLegado) throw erroLegado;
 }
