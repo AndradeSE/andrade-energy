@@ -4,7 +4,8 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 
 import ChoiceField from "../../components/cadastro/ChoiceField";
 import FormField from "../../components/cadastro/FormField";
-import { Button, Card, Screen } from "../../components/ui";
+import { AppHeader, Button, Card, Screen } from "../../components/ui";
+import { IS_GERADOR_APP } from "../../config/appVariant";
 import { supabase } from "../../supabase";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
@@ -44,7 +45,12 @@ export default function NovaUnidade() {
 
   async function salvar() {
     const percentual = Number(desconto.replace(",", "."));
+    const documentoTitular = cpfTitular.replace(/\D/g, "");
+    const cadastroManualDoGerador = IS_GERADOR_APP && origem !== "fatura";
     if (!numero || (!clienteId && !usinaId)) return Alert.alert("Dados incompletos", "Informe a UC e vincule um cliente ou uma usina.");
+    if (cadastroManualDoGerador && ![11, 14].includes(documentoTitular.length)) {
+      return Alert.alert("CPF obrigatório", "Informe o CPF do titular da conta de luz antes de salvar a unidade.");
+    }
     if (!Number.isFinite(percentual) || percentual < 0 || percentual > 100) return Alert.alert("Desconto inválido", "Informe um percentual entre 0 e 100.");
     setSalvando(true);
     const clienteSelecionado = clientes.find((item) => item.id === clienteId);
@@ -54,17 +60,17 @@ export default function NovaUnidade() {
     const { error } = await supabase.from("unidades_consumidoras").upsert({
       numero, titular: titular.trim() || clienteSelecionado?.nome || null, tipo, cliente_id: clienteId || null, usina_id: usinaFinal,
       distribuidora: clienteSelecionado?.distribuidora || "CEMIG", endereco: endereco.trim() || clienteSelecionado?.endereco || null, modalidade_faturamento: modalidadeFinal,
-      desconto_percentual: descontoFinal, cpf_titular: cpfTitular.replace(/\D/g, "") || clienteSelecionado?.cpf || null, status: "ATIVA",
+      desconto_percentual: descontoFinal, cpf_titular: documentoTitular || clienteSelecionado?.cpf || null, status: "ATIVA",
     }, { onConflict: "numero" });
     if (error) Alert.alert("Não foi possível salvar", error.message); else router.back();
     setSalvando(false);
   }
 
-  return <Screen><ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
+  return <Screen>{IS_GERADOR_APP ? <AppHeader title="Unidades consumidoras" subtitle="Cadastro da carteira" contextTitle="Nova unidade" contextSubtitle={origem === "fatura" ? "Dados lidos da conta de energia" : "Cadastro manual"} icon="flash-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
     <Text style={styles.eyebrow}>{origem === "fatura" ? "DADOS LIDOS DA FATURA" : "CADASTRO MANUAL"}</Text><Text style={styles.title}>Nova unidade</Text>
     <Text style={styles.subtitle}>{clienteIdVinculado ? "Confirme o número. Os demais dados serão herdados do cliente." : cadastroRapido === "1" ? "Confirme o número e escolha o cliente. Os demais dados serão herdados automaticamente." : "Confira a leitura e escolha a quem esta unidade pertence."}</Text>
     <Card><FormField label="Número da UC / instalação" value={numero} onChangeText={(v) => setNumero(v.replace(/\D/g, ""))} keyboardType="numeric" />
-      <FormField label="CPF/CNPJ do titular na conta de luz" value={cpfTitular} onChangeText={(valor) => setCpfTitular(formatarDocumento(valor))} keyboardType="numeric" />
+      <FormField label={IS_GERADOR_APP && origem !== "fatura" ? "CPF/CNPJ do titular na conta de luz *" : "CPF/CNPJ do titular na conta de luz"} value={cpfTitular} onChangeText={(valor) => setCpfTitular(formatarDocumento(valor))} keyboardType="numeric" />
       {!clienteIdVinculado && cadastroRapido !== "1" ? <><FormField label="Titular" value={titular} onChangeText={setTitular} />
         <ChoiceField label="Tipo" value={tipo} onChange={setTipo} options={[{ label: "Consumidora", value: "CONSUMIDORA" }, { label: "Beneficiária", value: "BENEFICIARIA" }, { label: "Geradora", value: "GERADORA" }]} />
         <ChoiceField label="Faturamento" value={modalidade} onChange={setModalidade} options={[{ label: "Injeção", value: "INJECAO" }, { label: "Compensação", value: "COMPENSACAO" }]} />

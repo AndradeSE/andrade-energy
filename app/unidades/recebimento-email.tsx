@@ -6,7 +6,8 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { Card, EmptyState, Loading, Screen } from "../../components/ui";
+import { AppHeader, Card, EmptyState, Loading, Screen } from "../../components/ui";
+import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   ativarRecebimentoFaturas,
@@ -29,6 +30,7 @@ const titulosStatus: Record<string, string> = {
   NAO_CONFIGURADO: "Não configurado",
   AGUARDANDO_FATURA: "Aguardando a primeira conta",
   AGUARDANDO_CONFERENCIA: "Conta recebida para conferência",
+  PRODUCAO_IMPORTADA: "Produção da usina importada",
   PROCESSADO: "Última conta processada",
   DESATIVADO: "Recebimento desativado",
   ERRO: "Atenção necessária",
@@ -79,9 +81,13 @@ function valorDaUrl(url: string, nome: string) {
   return Array.isArray(valor) ? valor[0] : valor;
 }
 
+function parametroUnico(valor?: string | string[]) {
+  return Array.isArray(valor) ? valor[0] : valor;
+}
+
 export default function RecebimentoEmail() {
   const { unidadeSelecionada } = useAuth();
-  const params = useLocalSearchParams<{ conexao?: string | string[] }>();
+  const params = useLocalSearchParams<{ conexao?: string | string[]; unidadeId?: string | string[] }>();
   const [dados, setDados] = useState<StatusRecebimentoFaturas>();
   const [conexoes, setConexoes] = useState<ConexaoEmail[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -89,7 +95,23 @@ export default function RecebimentoEmail() {
   const [salvando, setSalvando] = useState(false);
   const [conectandoProvedor, setConectandoProvedor] = useState<ProvedorEmail | null>(null);
   const [desconectandoId, setDesconectandoId] = useState<string | null>(null);
-  const unidadeId = unidadeSelecionada?.id;
+  // No app Gerador, a configuração sempre é aberta a partir da usina e usa
+  // explicitamente a sua UC geradora. Nunca caímos por engano na UC que possa
+  // ter ficado selecionada em outro contexto.
+  const unidadeIdParam = parametroUnico(params.unidadeId);
+  const unidadeId = unidadeIdParam ?? unidadeSelecionada?.id;
+  const recebimentoDeProducao = dados?.finalidade === "PRODUCAO_USINA" || (IS_GERADOR_APP && Boolean(unidadeIdParam));
+  const unidadeExibida = dados?.unidade ?? unidadeSelecionada;
+
+  const rotaAtual = useCallback((conexao?: "sucesso" | "erro") => {
+    return {
+      pathname: "/unidades/recebimento-email" as const,
+      params: {
+        ...(unidadeIdParam ? { unidadeId: unidadeIdParam } : {}),
+        ...(conexao ? { conexao } : {}),
+      },
+    };
+  }, [unidadeIdParam]);
 
   const carregar = useCallback(async () => {
     if (!unidadeId) {
@@ -119,11 +141,13 @@ export default function RecebimentoEmail() {
     Alert.alert(
       resultado === "sucesso" ? "E-mail conectado" : "Não foi possível conectar",
       resultado === "sucesso"
-        ? "A conexão foi concluída. As contas da concessionária poderão ser importadas automaticamente."
+        ? recebimentoDeProducao
+          ? "A conexão foi concluída. As contas da usina poderão atualizar a produção automaticamente."
+          : "A conexão foi concluída. As contas da concessionária poderão ser importadas automaticamente."
         : "A autorização não foi concluída. Você pode tentar novamente quando quiser.",
     );
-    router.replace("/unidades/recebimento-email");
-  }, [params.conexao]);
+    router.replace(rotaAtual());
+  }, [params.conexao, recebimentoDeProducao, rotaAtual]);
 
   async function atualizarPagina() {
     setAtualizando(true);
@@ -147,7 +171,7 @@ export default function RecebimentoEmail() {
   }
 
   function confirmarRegeneracao() {
-    Alert.alert("Gerar novo endereço", "O endereço atual deixará de receber contas. Deseja continuar?", [
+    Alert.alert("Gerar novo endereço", recebimentoDeProducao ? "O endereço atual deixará de receber contas da usina. Deseja continuar?" : "O endereço atual deixará de receber contas. Deseja continuar?", [
       { text: "Cancelar", style: "cancel" },
       { text: "Gerar novo", style: "destructive", onPress: async () => {
         if (!unidadeId) return;
@@ -159,7 +183,7 @@ export default function RecebimentoEmail() {
   }
 
   function confirmarDesativacao() {
-    Alert.alert("Desativar recebimento", "Novas contas encaminhadas deixarão de ser processadas automaticamente.", [
+    Alert.alert("Desativar recebimento", recebimentoDeProducao ? "Novas contas da usina encaminhadas deixarão de atualizar a produção automaticamente." : "Novas contas encaminhadas deixarão de ser processadas automaticamente.", [
       { text: "Voltar", style: "cancel" },
       { text: "Desativar", style: "destructive", onPress: async () => {
         if (!unidadeId) return;
@@ -186,7 +210,7 @@ export default function RecebimentoEmail() {
       const state = valorDaUrl(resultado.url, "state");
       const erro = valorDaUrl(resultado.url, "error");
       if (!state || erro) {
-        router.replace({ pathname: "/unidades/recebimento-email", params: { conexao: "erro" } });
+        router.replace(rotaAtual("erro"));
         return;
       }
 
@@ -195,7 +219,7 @@ export default function RecebimentoEmail() {
       // como alternativa quando o SO abre o app diretamente.
       await concluirConexaoEmailUmaVez(state);
       await carregar();
-      router.replace({ pathname: "/unidades/recebimento-email", params: { conexao: "sucesso" } });
+      router.replace(rotaAtual("sucesso"));
     } catch (erro: any) {
       Alert.alert(
         `Não foi possível conectar o ${tituloProvedor(provedor)}`,
@@ -210,7 +234,9 @@ export default function RecebimentoEmail() {
     const provedor = tituloProvedor(conexao.provedor);
     Alert.alert(
       `Desconectar ${provedor}`,
-      "A Andrade Energy deixará de buscar novas contas neste e-mail. Isso não apaga faturas já importadas.",
+      recebimentoDeProducao
+        ? "A Andrade Energy deixará de buscar novas contas da usina neste e-mail. Isso não apaga produções já importadas."
+        : "A Andrade Energy deixará de buscar novas contas neste e-mail. Isso não apaga faturas já importadas.",
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -233,7 +259,7 @@ export default function RecebimentoEmail() {
   }
 
   if (carregando) return <Loading />;
-  if (!unidadeId) return <Screen><View style={styles.state}><EmptyState icon="flash-outline" title="Escolha uma unidade" subtitle="Selecione uma unidade consumidora antes de configurar o recebimento automático." /></View></Screen>;
+  if (!unidadeId) return <Screen><View style={styles.state}><EmptyState icon="flash-outline" title={IS_GERADOR_APP ? "Abra uma usina" : "Escolha uma unidade"} subtitle={IS_GERADOR_APP ? "Abra os detalhes da usina e escolha receber produção por e-mail." : "Selecione uma unidade consumidora antes de configurar o recebimento automático."} /></View></Screen>;
 
   const status = dados?.status ?? "NAO_CONFIGURADO";
   const tituloStatus = titulosStatus[status] ?? "Em configuração";
@@ -242,20 +268,21 @@ export default function RecebimentoEmail() {
   const outlookConectado = conexoes.some((conexao) => conexao.provedor.toUpperCase() === "OUTLOOK" && conexaoAtiva(conexao));
 
   return <Screen>
+    {IS_GERADOR_APP ? <AppHeader title={recebimentoDeProducao ? "Usinas" : "Unidades consumidoras"} subtitle={recebimentoDeProducao ? "Gestão de produção" : "Gestão da carteira"} contextTitle="Recebimento automático" contextSubtitle={`${recebimentoDeProducao ? "Produção da UC" : "UC"} ${unidadeExibida?.numero ?? unidadeId}`} icon="mail-outline" /> : null}
     <ScrollView bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.heading}>
         <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={24} color={Colors.text} /></TouchableOpacity>
-        <View style={styles.headingText}><Text style={styles.eyebrow}>SUA CONTA DE LUZ</Text><Text style={styles.title}>Receber contas automaticamente</Text><Text style={styles.subtitle}>Encaminhe somente as faturas recebidas de fatura@cemig para leitura e cálculo seguros.</Text></View>
+        <View style={styles.headingText}><Text style={styles.eyebrow}>{recebimentoDeProducao ? "SUA USINA" : "SUA CONTA DE LUZ"}</Text><Text style={styles.title}>{recebimentoDeProducao ? "Receber produção automaticamente" : "Receber contas automaticamente"}</Text><Text style={styles.subtitle}>{recebimentoDeProducao ? "Encaminhe a conta da concessionária da usina para registrar as medições e a produção com segurança." : "Encaminhe somente as faturas recebidas de fatura@cemig para leitura e cálculo seguros."}</Text></View>
       </View>
 
       <Card style={styles.unitCard}>
         <View style={styles.unitIcon}><Ionicons name="flash-outline" size={23} color={Colors.primary} /></View>
-        <View style={styles.unitInfo}><Text style={styles.unitLabel}>UNIDADE CONSUMIDORA</Text><Text style={styles.unitNumber}>{unidadeSelecionada.numero}</Text></View>
+        <View style={styles.unitInfo}><Text style={styles.unitLabel}>{recebimentoDeProducao ? "UNIDADE GERADORA" : "UNIDADE CONSUMIDORA"}</Text><Text style={styles.unitNumber}>{unidadeExibida?.numero ?? "Não identificada"}</Text></View>
       </Card>
 
       {dados?.configurado && !dados.ativo ? <TouchableOpacity disabled={salvando} activeOpacity={0.84} onPress={ativar} style={[styles.primaryAction, salvando && styles.disabled]}>
         <Ionicons name="mail-unread-outline" size={21} color={Colors.surface} />
-        <Text style={styles.primaryText}>{salvando ? "Ativando..." : "Ativar recebimento automático"}</Text>
+        <Text style={styles.primaryText}>{salvando ? "Ativando..." : recebimentoDeProducao ? "Ativar recebimento de produção" : "Ativar recebimento automático"}</Text>
       </TouchableOpacity> : null}
 
       {dados?.configurado && dados.ativo && dados.endereco ? <>
@@ -265,7 +292,7 @@ export default function RecebimentoEmail() {
           <Text selectable style={styles.address}>{dados.endereco}</Text>
           <Ionicons name="copy-outline" size={21} color={Colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.addressHint}>Toque para copiar. Este endereço é exclusivo desta UC e pode ser alterado a qualquer momento.</Text>
+        <Text style={styles.addressHint}>Toque para copiar. Este endereço é exclusivo desta {recebimentoDeProducao ? "usina" : "UC"} e pode ser alterado a qualquer momento.</Text>
         <TouchableOpacity disabled={salvando} onPress={confirmarRegeneracao} style={styles.secondaryAction}><Ionicons name="refresh-outline" size={19} color={Colors.primary} /><Text style={styles.secondaryText}>Gerar novo endereço</Text></TouchableOpacity>
         <TouchableOpacity disabled={salvando} onPress={confirmarDesativacao} style={styles.dangerAction}><Ionicons name="close-circle-outline" size={19} color={Colors.danger} /><Text style={styles.dangerText}>Desativar recebimento</Text></TouchableOpacity>
       </> : null}
@@ -275,7 +302,7 @@ export default function RecebimentoEmail() {
         <View style={styles.privacyIcon}><Ionicons name="shield-checkmark-outline" size={23} color={Colors.primary} /></View>
         <View style={styles.privacyCopy}>
           <Text style={styles.privacyTitle}>Privacidade em primeiro lugar</Text>
-          <Text style={styles.privacyText}>Você autoriza o acesso somente para localizar e importar contas da sua concessionária. A Andrade Energy nunca vê nem armazena sua senha.</Text>
+          <Text style={styles.privacyText}>{recebimentoDeProducao ? "Você autoriza o acesso somente para localizar a conta da usina e registrar a produção. A Andrade Energy nunca vê nem armazena sua senha." : "Você autoriza o acesso somente para localizar e importar contas da sua concessionária. A Andrade Energy nunca vê nem armazena sua senha."}</Text>
         </View>
       </Card>
 
@@ -319,17 +346,17 @@ export default function RecebimentoEmail() {
       {!dados?.configurado ? <Card style={styles.pendingCard}><Ionicons name="time-outline" size={24} color={Colors.warning} /><View style={styles.pendingCopy}><Text style={styles.pendingTitle}>Configuração em preparação</Text><Text style={styles.pendingText}>O endereço de recebimento será liberado assim que a Andrade Energy concluir a configuração segura do domínio.</Text></View></Card> : <>
         <Card style={[styles.statusCard, temErro && styles.statusCardError]}>
           <View style={[styles.statusIcon, temErro && styles.statusIconError]}><Ionicons name={temErro ? "alert-circle-outline" : dados?.ativo ? "mail-unread-outline" : "mail-outline"} size={23} color={temErro ? Colors.danger : Colors.primary} /></View>
-          <View style={styles.statusCopy}><Text style={styles.statusTitle}>{tituloStatus}</Text><Text style={styles.statusText}>{dados?.ativo ? "As contas enviadas a este endereço entram na fila de conferência." : "Ative para gerar o endereço exclusivo desta unidade."}</Text></View>
+          <View style={styles.statusCopy}><Text style={styles.statusTitle}>{tituloStatus}</Text><Text style={styles.statusText}>{dados?.ativo ? recebimentoDeProducao ? "As contas enviadas a este endereço registram a produção da usina." : "As contas enviadas a este endereço entram na fila de conferência." : recebimentoDeProducao ? "Ative para gerar o endereço exclusivo da usina." : "Ative para gerar o endereço exclusivo desta unidade."}</Text></View>
         </Card>
 
-        {dados?.ativo && dados.endereco ? <>
+      {dados?.ativo && dados.endereco ? <>
           <Text style={styles.sectionTitle}>COMO CONFIGURAR</Text>
           <Card>
             <Instruction number="1" text="No Hotmail/Outlook, toque na engrenagem e abra E-mail > Regras." />
-            <Instruction number="2" text="Toque em Adicionar nova regra e dê o nome “Fatura CEMIG — Andrade Energy”." />
+            <Instruction number="2" text={recebimentoDeProducao ? "Toque em Adicionar nova regra e dê o nome “Produção da usina — Andrade Energy”." : "Toque em Adicionar nova regra e dê o nome “Fatura CEMIG — Andrade Energy”."} />
             <Instruction number="3" text="Em Adicionar uma condição, escolha De e informe: fatura@cemig. Adicione também a condição Possui anexo." />
             <Instruction number="4" text="Em Adicionar uma ação, escolha Encaminhar para e cole o endereço exclusivo acima. Depois toque em Salvar." />
-            <Instruction number="5" text="Somente as faturas da CEMIG com PDF serão encaminhadas, calculadas e enviadas para conferência." last />
+            <Instruction number="5" text={recebimentoDeProducao ? "A conta da usina será lida para registrar as leituras, o fator de multiplicação e a produção da competência." : "Somente as faturas da CEMIG com PDF serão encaminhadas, calculadas e enviadas para conferência."} last />
           </Card>
 
           {dados.ultimoRecebimentoEm ? <Text style={styles.lastReceipt}>Último recebimento: {formatarData(dados.ultimoRecebimentoEm)}</Text> : null}

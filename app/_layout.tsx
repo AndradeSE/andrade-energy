@@ -231,6 +231,13 @@ function RootNavigator() {
         />
 
         <Stack.Screen
+          name="unidades/contrato"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
           name="unidades/recebimento-email"
           options={{
             headerShown: false,

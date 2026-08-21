@@ -702,6 +702,7 @@ export async function concluirConexaoEmail(usuario: UsuarioAutenticado, stateRec
     status: "CONCLUIDO",
     pronto: true,
     conexao: serializarConexao(conexao, unidade),
+    unidade: { id: unidade.id, numero: unidade.numero },
   };
 }
 

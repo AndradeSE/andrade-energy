@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import FormField from "../../components/cadastro/FormField";
-import { Button, Card, Loading, Screen } from "../../components/ui";
+import { AppHeader, Button, Card, Loading, Screen } from "../../components/ui";
+import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
 import { excluirUsina as excluirUsinaRemota } from "../../services/usinas.service";
 import { supabase } from "../../supabase";
@@ -19,6 +20,7 @@ export default function EditarUsina() {
   const [geracaoMedia, setGeracaoMedia] = useState("");
   const [investimento, setInvestimento] = useState("");
   const [titular, setTitular] = useState("");
+  const [cpfTitular, setCpfTitular] = useState("");
   const [endereco, setEndereco] = useState("");
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -39,6 +41,13 @@ export default function EditarUsina() {
       setInvestimento(String(data.investimento ?? ""));
       setTitular(data.titular_nome ?? "");
       setEndereco(data.endereco ?? "");
+      const { data: unidadeGeradora } = await supabase
+        .from("unidades_consumidoras")
+        .select("cpf_titular")
+        .eq("usina_id", id)
+        .eq("tipo", "GERADORA")
+        .maybeSingle();
+      setCpfTitular(String(unidadeGeradora?.cpf_titular ?? "").replace(/\D/g, ""));
     }
     carregar().finally(() => setLoading(false));
   }, [id]);
@@ -53,8 +62,19 @@ export default function EditarUsina() {
       investimento: Number(investimento.replace(",", ".")) || 0,
       titular_nome: titular.trim() || null, endereco: endereco.trim() || null,
     }).eq("id", id);
+    let unidadeError: any = null;
+    if (!error) {
+      const { error: erroUnidade } = await supabase
+        .from("unidades_consumidoras")
+        .update({ numero: numeroInstalacao, cpf_titular: cpfTitular.replace(/\D/g, "") || null })
+        .eq("usina_id", id)
+        .eq("tipo", "GERADORA");
+      unidadeError = erroUnidade;
+    }
     setSalvando(false);
-    if (error) Alert.alert("Não foi possível salvar", error.message); else router.back();
+    if (error) Alert.alert("Não foi possível salvar", error.message);
+    else if (unidadeError) Alert.alert("Usina salva", `Os dados da UC geradora não foram atualizados: ${unidadeError.message}`);
+    else router.back();
   }
 
   function confirmarExclusao() {
@@ -80,7 +100,7 @@ export default function EditarUsina() {
   }
 
   if (loading) return <Loading />;
-  return <Screen><ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
+  return <Screen>{IS_GERADOR_APP ? <AppHeader title="Usinas" subtitle="Gestão de geração" contextTitle={nome || "Editar usina"} contextSubtitle={`UC ${numeroInstalacao || "não informada"}`} icon="sunny-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
     <Text style={styles.eyebrow}>CADASTRO DA USINA</Text><Text style={styles.title}>Editar usina</Text><Text style={styles.subtitle}>Atualize os dados técnicos e cadastrais da unidade geradora.</Text>
     <Card>
       <FormField label="Nome da usina" value={nome} onChangeText={setNome} />
@@ -89,6 +109,7 @@ export default function EditarUsina() {
       <FormField label="Geração média (kWh/mês)" value={geracaoMedia} onChangeText={setGeracaoMedia} keyboardType="decimal-pad" />
       <FormField label="Investimento (R$)" value={investimento} onChangeText={setInvestimento} keyboardType="decimal-pad" />
       <FormField label="Titular" value={titular} onChangeText={setTitular} />
+      <FormField label="CPF/CNPJ do titular da conta (para e-mail)" value={cpfTitular} onChangeText={(valor) => setCpfTitular(valor.replace(/\D/g, "").slice(0, 14))} keyboardType="numeric" />
       <FormField label="Endereço" value={endereco} onChangeText={setEndereco} />
       <Button disabled={salvando || excluindo} title={salvando ? "Salvando..." : "Salvar alterações"} onPress={salvar} />
     </Card>

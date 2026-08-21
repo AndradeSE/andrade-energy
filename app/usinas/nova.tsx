@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text } from "react-native";
 
 import FormField from "../../components/cadastro/FormField";
-import { Button, Card, Screen } from "../../components/ui";
+import { AppHeader, Button, Card, Screen } from "../../components/ui";
+import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../supabase";
 import { Colors, Spacing, Typography } from "../../theme";
@@ -15,6 +16,7 @@ export default function NovaUsina() {
   const [numeroInstalacao, setNumeroInstalacao] = useState("");
   const [potencia, setPotencia] = useState("");
   const [titular, setTitular] = useState("");
+  const [cpfTitular, setCpfTitular] = useState("");
   const [endereco, setEndereco] = useState("");
   const [salvando, setSalvando] = useState(false);
 
@@ -71,6 +73,7 @@ export default function NovaUsina() {
     if (!error && usina) {
       const { error: unidadeError } = await supabase.from("unidades_consumidoras").upsert({
         usina_id: usina.id, numero: numeroInstalacao, tipo: "GERADORA", titular: titular.trim() || nome.trim(),
+        cpf_titular: cpfTitular.replace(/\D/g, "") || null,
         distribuidora: "CEMIG", endereco: endereco.trim() || null, modalidade_faturamento: "INJECAO", status: "ATIVA",
       }, { onConflict: "numero" });
       if (unidadeError) {
@@ -97,7 +100,7 @@ export default function NovaUsina() {
   }
 
   return (
-    <Screen><ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
+    <Screen>{IS_GERADOR_APP ? <AppHeader title="Usinas" subtitle="Gestão de geração" contextTitle="Nova usina" contextSubtitle={origem === "fatura" ? "Dados lidos da conta de energia" : "Cadastro manual"} icon="sunny-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
       <Text style={styles.eyebrow}>{origem === "fatura" ? "DADOS LIDOS DA FATURA" : "CADASTRO MANUAL"}</Text>
       <Text style={styles.title}>Nova usina</Text>
       <Text style={styles.subtitle}>Confira os dados antes de salvar. O nome sugerido pela fatura pode ser alterado livremente.</Text>
@@ -106,6 +109,7 @@ export default function NovaUsina() {
         <FormField label="Número da instalação / UC" value={numeroInstalacao} onChangeText={(v) => setNumeroInstalacao(v.replace(/\D/g, ""))} keyboardType="numeric" />
         <FormField label="Potência (kWp)" value={potencia} onChangeText={setPotencia} keyboardType="decimal-pad" />
         <FormField label="Titular" value={titular} onChangeText={setTitular} />
+        <FormField label="CPF/CNPJ do titular da conta (para e-mail)" value={cpfTitular} onChangeText={(valor) => setCpfTitular(valor.replace(/\D/g, "").slice(0, 14))} keyboardType="numeric" />
         <FormField label="Endereço" value={endereco} onChangeText={setEndereco} />
         <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar usina"} onPress={salvar} />
       </Card>

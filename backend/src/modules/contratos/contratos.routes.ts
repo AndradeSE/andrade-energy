@@ -6,9 +6,17 @@ import {
     criarContratoController,
     excluirContratoController,
     cancelarContratoController,
+    salvarContratoDaUnidadeController,
+    buscarContratoDaUnidadeController,
 } from "./contratos.controller";
+import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
 
 const router = Router();
+
+router.get(
+  "/unidade/:unidadeId",
+  buscarContratoDaUnidadeController
+);
 
 router.get(
   "/:clienteId",
@@ -18,6 +26,13 @@ router.get(
 router.post(
   "/",
   criarContratoController
+);
+
+router.put(
+  "/unidade/:unidadeId",
+  exigirAutenticacao,
+  exigirGestor,
+  salvarContratoDaUnidadeController
 );
 
 router.put(

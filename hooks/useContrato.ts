@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { useAuth } from "../contexts/AuthContext";
 
-import { buscarContrato } from "../services/contratos.service";
+import { buscarContrato, buscarContratoDaUnidade } from "../services/contratos.service";
 import { listarMinhasUnidades } from "../services/clientes.service";
 
 export function useContrato() {
@@ -10,17 +10,20 @@ export function useContrato() {
   const { usuario, unidadeSelecionada } = useAuth();
 
   const clienteIdDireto = unidadeSelecionada?.cliente_id ?? usuario?.cliente_id;
+  const unidadeId = unidadeSelecionada?.id;
 
   return useQuery({
 
     queryKey: [
       "contrato",
-      clienteIdDireto ?? unidadeSelecionada?.numero ?? usuario?.cpf,
+      unidadeId ?? clienteIdDireto ?? unidadeSelecionada?.numero ?? usuario?.cpf,
     ],
 
-    enabled: Boolean(clienteIdDireto || usuario?.cpf),
+    enabled: Boolean(unidadeId || clienteIdDireto || usuario?.cpf),
 
     queryFn: async () => {
+      if (unidadeId) return buscarContratoDaUnidade(unidadeId);
+
       let clienteId = clienteIdDireto;
       if (!clienteId) {
         const unidades = await listarMinhasUnidades();

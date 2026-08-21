@@ -9,6 +9,7 @@ import {
 import { supabase } from "../../config/supabase";
 import { extrairTextoPDF } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
+import type { FaturaExtraida } from "../../types/FaturaExtraida";
 
 const meses: Record<string, string> = { JAN: "01", FEV: "02", MAR: "03", ABR: "04", MAI: "05", JUN: "06", JUL: "07", AGO: "08", SET: "09", OUT: "10", NOV: "11", DEZ: "12" };
 
@@ -18,10 +19,15 @@ function competenciaData(referencia: string) {
   return `${ano}-${meses[mes]}-01`;
 }
 
-export async function importarFaturaGeradora(usinaId: string, caminhoArquivo: string) {
+/**
+ * Registra a produção de uma usina a partir dos dados já lidos da conta de
+ * energia. Esta função é compartilhada pela importação manual e pelo
+ * recebimento automático por e-mail, garantindo que ambos usem a mesma
+ * validação das leituras, fator de multiplicação e competência.
+ */
+export async function registrarProducaoDaFaturaGeradora(usinaId: string, dados: FaturaExtraida) {
   const usina = await buscarUsina(usinaId);
-  const dados = interpretarFatura(await extrairTextoPDF(caminhoArquivo));
-  const numeroFatura = dados.uc.replace(/\D/g, "");
+  const numeroFatura = String(dados.uc ?? "").replace(/\D/g, "");
   const numeroUsina = String(usina.numero_instalacao ?? "").replace(/\D/g, "");
   if (!numeroFatura) throw new Error("Não foi possível identificar a UC na conta de energia.");
   if (!numeroUsina) throw new Error("Cadastre o número da instalação da usina antes de importar a produção.");
@@ -40,7 +46,7 @@ export async function importarFaturaGeradora(usinaId: string, caminhoArquivo: st
   const energiaGerada = (leituraAtual - leituraAnterior) * fatorMultiplicacao;
   if (energiaGerada <= 0) throw new Error("A diferença entre as medições não apresenta produção no período.");
 
-  const competencia = competenciaData(dados.referencia);
+  const competencia = competenciaData(String(dados.referencia ?? ""));
   const { data: atual, error: buscaError } = await supabase.from("fechamentos").select("*").eq("usina_id", usinaId).eq("competencia", competencia).maybeSingle();
   if (buscaError) throw buscaError;
 
@@ -66,6 +72,11 @@ export async function importarFaturaGeradora(usinaId: string, caminhoArquivo: st
     dados: { ...dados, leituraAtual, leituraAnterior, fatorMultiplicacao, energiaGerada },
     fechamento: fechamentoAtualizado ?? fechamento,
   };
+}
+
+export async function importarFaturaGeradora(usinaId: string, caminhoArquivo: string) {
+  const dados = interpretarFatura(await extrairTextoPDF(caminhoArquivo));
+  return registrarProducaoDaFaturaGeradora(usinaId, dados);
 }
 
 export async function listarUsinasService() {
@@ -202,17 +213,25 @@ export async function excluirUsinaService(
 export async function obterDashboardUsina(
   id: string
 ) {
-  const [dashboard, usina, clientes] = await Promise.all([
+  const [dashboard, usina, clientes, unidadeGeradora] = await Promise.all([
     buscarDashboardUsina(id),
     buscarUsina(id),
     supabase.from("clientes").select("id", { count: "exact", head: true }).eq("usina_id", id),
+    supabase
+      .from("unidades_consumidoras")
+      .select("id, numero, tipo, recebimento_email_ativo, recebimento_email_status")
+      .eq("usina_id", id)
+      .eq("tipo", "GERADORA")
+      .maybeSingle(),
   ]);
+  if (unidadeGeradora.error) throw unidadeGeradora.error;
   const fechamento = dashboard.ultimo;
 
   if (!fechamento) {
     const agora = new Date();
     return {
       usina,
+      unidadeGeradora: unidadeGeradora.data ?? null,
       clientes: clientes.count ?? 0,
       energiaGerada: 0,
       energiaTotal: 0,
@@ -227,6 +246,7 @@ export async function obterDashboardUsina(
 
   return {
     usina,
+    unidadeGeradora: unidadeGeradora.data ?? null,
     clientes: clientes.count ?? 0,
     energiaGerada:
       Number(fechamento.energia_gerada ?? 0),

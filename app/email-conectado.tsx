@@ -35,8 +35,11 @@ export default function EmailConectado() {
       }
 
       try {
-        await concluirConexaoEmailUmaVez(state);
-        router.replace({ pathname: "/unidades/recebimento-email", params: { conexao: "sucesso" } });
+        const resultado = await concluirConexaoEmailUmaVez(state);
+        router.replace({
+          pathname: "/unidades/recebimento-email",
+          params: { conexao: "sucesso", ...(resultado.unidade?.id ? { unidadeId: resultado.unidade.id } : {}) },
+        });
       } catch {
         router.replace({ pathname: "/unidades/recebimento-email", params: { conexao: "erro" } });
       }

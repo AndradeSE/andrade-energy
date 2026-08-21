@@ -57,6 +57,12 @@ async function enviarPdf(caminho: string, conteudo: Buffer) {
   return caminho;
 }
 
+/** Guarda a conta original que serviu de base para a produção da usina. */
+export async function armazenarContaDeEnergiaDaUsina(usinaId: string, fechamentoId: string, arquivoCemig: string) {
+  const original = await readFile(arquivoCemig);
+  return enviarPdf(`usinas/${usinaId}/${fechamentoId}/conta-concessionaria.pdf`, original);
+}
+
 export async function armazenarDocumentosDaFatura(fatura: any, arquivoCemig: string) {
   const pasta = `${fatura.cliente_id}/${fatura.id}`;
   const original = await readFile(arquivoCemig);

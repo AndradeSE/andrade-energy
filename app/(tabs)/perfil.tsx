@@ -29,6 +29,8 @@ import {
   desativarDigital,
   verificarDigitalDisponivel,
 } from "../../services/biometric.service";
+import { AppHeader, Screen } from "../../components/ui";
+import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 
 function formatarCpf(valor?: string | null) {
@@ -228,22 +230,24 @@ export default function Perfil() {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.container}>
-      <ScrollView
-        bounces
-        alwaysBounceVertical
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl colors={[Colors.primary]} onRefresh={atualizarPagina} refreshing={atualizando} tintColor={Colors.primary} />}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.hero}>
-          <View style={styles.avatar}><Ionicons color={Colors.surface} name="person" size={29} /></View>
-          <View style={styles.heroCopy}>
-            <Text style={styles.title}>Perfil</Text>
-            <Text style={styles.subtitle}>Seus dados, segurança e acesso à conta.</Text>
-          </View>
-        </View>
+    <Screen>
+      {IS_GERADOR_APP ? <AppHeader title="Perfil" subtitle="Dados e segurança" contextTitle={user?.nome ?? "Meu perfil"} contextSubtitle="Gerencie seu acesso à Andrade Energy" icon="person-outline" /> : null}
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.container}>
+        <ScrollView
+          bounces
+          alwaysBounceVertical
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={<RefreshControl colors={[Colors.primary]} onRefresh={atualizarPagina} refreshing={atualizando} tintColor={Colors.primary} />}
+          showsVerticalScrollIndicator={false}
+        >
+          {!IS_GERADOR_APP ? <View style={styles.hero}>
+            <View style={styles.avatar}><Ionicons color={Colors.surface} name="person" size={29} /></View>
+            <View style={styles.heroCopy}>
+              <Text style={styles.title}>Perfil</Text>
+              <Text style={styles.subtitle}>Seus dados, segurança e acesso à conta.</Text>
+            </View>
+          </View> : null}
 
         <Text style={styles.sectionTitle}>DADOS PESSOAIS</Text>
         <View style={styles.card}>
@@ -317,8 +321,9 @@ export default function Perfil() {
             </TouchableOpacity>
           </View> : null}
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 }
 

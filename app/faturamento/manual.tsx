@@ -4,7 +4,8 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { Button, Card, Divider, Screen } from "../../components/ui";
+import { AppHeader, Button, Card, Divider, Screen } from "../../components/ui";
+import { IS_GERADOR_APP } from "../../config/appVariant";
 import { analisarFatura, processarFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
@@ -64,7 +65,7 @@ export default function FaturamentoManual() {
   }
 
   const dados = analise?.dados;
-  return <Screen><ScrollView contentContainerStyle={styles.content}>
+  return <Screen>{IS_GERADOR_APP ? <AppHeader title="Faturas" subtitle="Cobranças da carteira" contextTitle="Faturar via conta de energia" contextSubtitle="Importe a conta da concessionária" icon="receipt-outline" /> : null}<ScrollView contentContainerStyle={styles.content}>
     <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={24} color={Colors.text} /></TouchableOpacity>
     <Text style={styles.eyebrow}>FINANCEIRO</Text><Text style={styles.title}>Faturar via conta de energia</Text><Text style={styles.subtitle}>Selecione a conta da concessionária em PDF, confira os dados e confirme a geração da cobrança.</Text>
 

@@ -4,7 +4,8 @@ import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import FormField from "../../components/cadastro/FormField";
 import ChoiceField from "../../components/cadastro/ChoiceField";
-import { Button, Card, Screen } from "../../components/ui";
+import { AppHeader, Button, Card, Screen } from "../../components/ui";
+import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../supabase";
 import { alocarUnidade } from "../../services/usinas.service";
@@ -90,7 +91,7 @@ export default function NovoCliente() {
     router.back();
   }
 
-  return <Screen><ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
+  return <Screen>{IS_GERADOR_APP ? <AppHeader title="Clientes" subtitle="Gestão da carteira" contextTitle="Novo consumidor" contextSubtitle={origem === "fatura" ? "Dados lidos da conta de energia" : "Cadastro manual"} icon="person-add-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
     <Text style={styles.eyebrow}>{origem === "fatura" ? "DADOS LIDOS DA FATURA" : "CADASTRO MANUAL"}</Text>
     <Text style={styles.title}>Novo consumidor</Text>
     <Text style={styles.subtitle}>{origem === "fatura" ? "Confira os dados extraídos antes de salvar." : "Somente o nome é obrigatório. Os demais dados podem ser preenchidos depois."}</Text>

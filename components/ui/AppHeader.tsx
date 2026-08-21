@@ -52,14 +52,14 @@ export default function AppHeader({
         const vencimento = fatura.vencimento ? new Date(`${fatura.vencimento}T23:59:59`) : null;
         if (!vencimento) return [];
         const dias = Math.ceil((vencimento.getTime() - hoje.getTime()) / 86400000);
-        if (dias < 0) return [{ id: `vencida-${fatura.id}`, severidade: "alta", titulo: "Fatura vencida", detalhe: `${fatura.clientes?.nome ?? "Cliente"} · ${fatura.referencia ?? "Competência não informada"}`, rota: `/faturas/${fatura.id}` }];
+        if (dias < 0) return [{ id: `vencida-${fatura.id}`, severidade: "alta", titulo: "Fatura vencida", detalhe: `${fatura.clientes?.nome ?? "Cliente"} · ${fatura.referencia ?? "Competência não informada"}`, rota: proprietario ? "/faturas" : `/faturas/${fatura.id}` }];
         if (dias <= 5) return [{ id: `vence-${fatura.id}`, severidade: "media", titulo: "Fatura próxima do vencimento", detalhe: `${fatura.clientes?.nome ?? "Cliente"} · vence em ${dias} dia${dias === 1 ? "" : "s"}`, rota: `/faturas/${fatura.id}` }];
         return [];
       }).sort((a: any, b: any) => (a.severidade === "alta" ? -1 : 1) - (b.severidade === "alta" ? -1 : 1));
       setNotificacoes(avisos.filter((aviso: any) => !idsLidos.includes(aviso.id)));
     }).catch(() => { if (ativo) setNotificacoes([]); });
     return () => { ativo = false; };
-  }, [chaveNotificacoesLidas, usinaSelecionada?.id]);
+  }, [chaveNotificacoesLidas, proprietario, usinaSelecionada?.id]);
 
   async function marcarNotificacaoComoLida(id: string) {
     const atualizadas = Array.from(new Set([...notificacoesLidas, id]));
@@ -129,7 +129,9 @@ export default function AppHeader({
       </Modal>
 
       {proprietario && usinaSelecionada ? <View style={styles.plantBar}>
-        <View style={styles.plantDot} />
+        <View style={styles.plantLogo}>
+          <Image source={require("../../assets/images/andrade-logo-horizontal.png")} style={styles.plantLogoImage} resizeMode="contain" />
+        </View>
         <View style={styles.plantText}><Text numberOfLines={1} style={styles.plantName}>{usinaSelecionada.nome}</Text><Text numberOfLines={1} style={styles.plantAutonomy}>{autonomia ? `Autonomia ${autonomia.percentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% · ${autonomia.disponivel.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kWh disponíveis` : "Calculando autonomia..."}</Text></View>
       </View> : null}
 
@@ -219,8 +221,9 @@ const styles = StyleSheet.create({
   },
   notificationBadge: { position: "absolute", top: 2, right: 0, minWidth: 17, height: 17, alignItems: "center", justifyContent: "center", paddingHorizontal: 3, borderRadius: Radius.round, backgroundColor: "#DC2626" },
   notificationBadgeText: { color: Colors.surface, fontSize: 10, fontWeight: "800" },
-  plantBar: { flexDirection: "row", alignItems: "center", marginTop: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: 7, borderRadius: Radius.md, backgroundColor: "rgba(255,255,255,0.12)" },
-  plantDot: { width: 8, height: 8, marginRight: Spacing.xs, borderRadius: Radius.round, backgroundColor: Colors.secondary },
+  plantBar: { flexDirection: "row", alignItems: "center", marginTop: Spacing.sm, padding: Spacing.xs, borderRadius: Radius.md, backgroundColor: "rgba(255,255,255,0.12)" },
+  plantLogo: { width: 42, height: 42, alignItems: "center", justifyContent: "center", marginRight: Spacing.sm, borderRadius: Radius.sm, backgroundColor: Colors.surface },
+  plantLogoImage: { width: 34, height: 29 },
   plantText: { flex: 1 },
   plantName: { color: Colors.surface, fontSize: Typography.small, fontWeight: "800" },
   plantAutonomy: { marginTop: 1, color: "rgba(255,255,255,0.78)", fontSize: 11 },

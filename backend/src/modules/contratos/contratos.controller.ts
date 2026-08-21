@@ -50,6 +50,38 @@ export async function criarContratoController(
   }
 }
 
+export async function buscarContratoDaUnidadeController(
+  req: Request,
+  res: Response
+) {
+  try {
+    const contrato = await ContratosService.obterContratoDaUnidade(
+      req.params.unidadeId
+    );
+    res.json(contrato);
+  } catch (e: any) {
+    console.error(e);
+    res.status(500).json({ message: e.message });
+  }
+}
+
+export async function salvarContratoDaUnidadeController(
+  req: Request,
+  res: Response
+) {
+  try {
+    const contrato = await ContratosService.salvarContratoDaUnidadeService(
+      req.params.unidadeId,
+      req.body
+    );
+
+    res.json(contrato);
+  } catch (e: any) {
+    console.error(e);
+    res.status(400).json({ message: e.message });
+  }
+}
+
 export async function atualizarContratoController(
   req: Request,
   res: Response

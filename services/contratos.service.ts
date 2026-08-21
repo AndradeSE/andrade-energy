@@ -47,3 +47,25 @@ export async function cancelarContrato(id: string) {
   const { data } = await api.post(`/contratos/${id}/cancelar`);
   return data;
 }
+
+export async function buscarContratoDaUnidade(
+  unidadeId: string
+) {
+  const { data } = await api.get(
+    `/contratos/unidade/${unidadeId}`
+  );
+
+  return data;
+}
+
+export async function salvarContratoDaUnidade(
+  unidadeId: string,
+  payload: any
+) {
+  const { data } = await api.put(
+    `/contratos/unidade/${unidadeId}`,
+    payload
+  );
+
+  return data;
+}

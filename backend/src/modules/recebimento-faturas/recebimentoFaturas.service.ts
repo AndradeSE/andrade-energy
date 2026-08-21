@@ -6,8 +6,9 @@ import path from "node:path";
 import { supabase } from "../../config/supabase";
 import { extrairTextoPDF } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
-import { armazenarDocumentosDaFatura } from "../faturas/documentosFatura.service";
+import { armazenarContaDeEnergiaDaUsina, armazenarDocumentosDaFatura } from "../faturas/documentosFatura.service";
 import { processarFatura } from "../faturas/processarFatura.service";
+import { registrarProducaoDaFaturaGeradora } from "../usinas/usinas.service";
 
 const PROVEDOR = "RESEND";
 const TOLERANCIA_ASSINATURA_SEGUNDOS = 5 * 60;
@@ -103,7 +104,7 @@ function usuarioPodeAcessarUnidade(unidade: any, usuario: UsuarioAutenticado) {
 async function buscarUnidadeAutorizada(unidadeId: string, usuario: UsuarioAutenticado) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")
-    .select("id, numero, cliente_id, status, recebimento_email_token, recebimento_email_ativo, recebimento_email_ativado_em, recebimento_email_ultimo_em, recebimento_email_status, recebimento_email_erro, clientes(id, cpf)")
+    .select("id, numero, cliente_id, usina_id, tipo, cpf_titular, status, recebimento_email_token, recebimento_email_ativo, recebimento_email_ativado_em, recebimento_email_ultimo_em, recebimento_email_status, recebimento_email_erro, clientes(id, cpf)")
     .eq("id", unidadeId)
     .maybeSingle();
 
@@ -116,7 +117,7 @@ async function buscarUnidadeAutorizada(unidadeId: string, usuario: UsuarioAutent
 async function obterUltimoRecebimento(unidadeId: string) {
   const { data, error } = await supabase
     .from("recebimentos_faturas_email")
-    .select("status, recebido_em, processado_em, erro, fatura_id")
+    .select("status, recebido_em, processado_em, erro, fatura_id, caminho_pdf, payload")
     .eq("unidade_consumidora_id", unidadeId)
     .order("recebido_em", { ascending: false })
     .limit(1)
@@ -127,6 +128,7 @@ async function obterUltimoRecebimento(unidadeId: string) {
 
 function serializarStatus(unidade: any, ultimo: any) {
   const dominio = dominioRecebimento();
+  const producao = ultimo?.payload?.andrade_processamento?.tipo === "PRODUCAO_USINA";
   return {
     configurado: Boolean(dominio),
     dominio,
@@ -137,6 +139,9 @@ function serializarStatus(unidade: any, ultimo: any) {
     status: unidade.recebimento_email_status ?? ultimo?.status ?? "NAO_CONFIGURADO",
     erro: unidade.recebimento_email_erro ?? ultimo?.erro ?? null,
     faturaId: ultimo?.fatura_id ?? null,
+    finalidade: String(unidade.tipo ?? "").toUpperCase() === "GERADORA" ? "PRODUCAO_USINA" : "FATURA_CONSUMIDOR",
+    producao: producao ? ultimo.payload.andrade_processamento : null,
+    unidade: { id: unidade.id, numero: unidade.numero, tipo: unidade.tipo ?? null, usinaId: unidade.usina_id ?? null },
   };
 }
 
@@ -164,7 +169,7 @@ async function salvarTokenDaUnidade(unidade: any, sobrescreverToken: boolean) {
         recebimento_email_erro: null,
       })
       .eq("id", unidade.id)
-      .select("id, recebimento_email_token, recebimento_email_ativo, recebimento_email_ativado_em, recebimento_email_ultimo_em, recebimento_email_status, recebimento_email_erro")
+      .select("id, numero, tipo, usina_id, recebimento_email_token, recebimento_email_ativo, recebimento_email_ativado_em, recebimento_email_ultimo_em, recebimento_email_status, recebimento_email_erro")
       .single();
 
     if (!error) return data;
@@ -176,6 +181,9 @@ async function salvarTokenDaUnidade(unidade: any, sobrescreverToken: boolean) {
 
 export async function ativarRecebimentoFaturas(unidadeId: string, usuario: UsuarioAutenticado) {
   const unidade = await buscarUnidadeAutorizada(unidadeId, usuario);
+  if (String(unidade.tipo ?? "").toUpperCase() === "GERADORA" && normalizarCpf(unidade.cpf_titular).length < 4) {
+    throw new Error("Informe o CPF/CNPJ do titular da conta na usina antes de ativar o recebimento. Os quatro primeiros dígitos são usados apenas para abrir PDFs CEMIG protegidos.");
+  }
   const atualizada = await salvarTokenDaUnidade(unidade, false);
   const ultimo = await obterUltimoRecebimento(unidade.id);
   return serializarStatus(atualizada, ultimo);
@@ -198,7 +206,7 @@ export async function desativarRecebimentoFaturas(unidadeId: string, usuario: Us
       recebimento_email_erro: null,
     })
     .eq("id", unidade.id)
-    .select("id, recebimento_email_token, recebimento_email_ativo, recebimento_email_ativado_em, recebimento_email_ultimo_em, recebimento_email_status, recebimento_email_erro")
+    .select("id, numero, tipo, usina_id, recebimento_email_token, recebimento_email_ativo, recebimento_email_ativado_em, recebimento_email_ultimo_em, recebimento_email_status, recebimento_email_erro")
     .single();
   if (error) throw error;
   const ultimo = await obterUltimoRecebimento(unidade.id);
@@ -394,6 +402,11 @@ async function atualizarUnidadeRecebimento(unidadeId: string, dados: Record<stri
   if (error) throw error;
 }
 
+function adicionarMetadadosDeProcessamento(payload: unknown, metadados: Record<string, unknown>) {
+  const base = payload && typeof payload === "object" && !Array.isArray(payload) ? payload as Record<string, unknown> : {};
+  return { ...base, andrade_processamento: metadados };
+}
+
 async function processarRegistro(registro: any) {
   const { data: assumido, error: erroAssumir } = await supabase
     .from("recebimentos_faturas_email")
@@ -437,7 +450,7 @@ async function processarRegistro(registro: any) {
       await writeFile(caminho, arquivo);
       const { data: unidade, error: erroUnidade } = await supabase
         .from("unidades_consumidoras")
-        .select("id, numero, cpf_titular, clientes(cpf)")
+        .select("id, numero, tipo, usina_id, cpf_titular, clientes(cpf)")
         .eq("id", assumido.unidade_consumidora_id)
         .maybeSingle();
       if (erroUnidade) throw erroUnidade;
@@ -452,6 +465,47 @@ async function processarRegistro(registro: any) {
       const dados = complementarCabecalhoCemig(textoDaFatura, interpretarFatura(textoDaFatura));
       if (normalizarNumero(dados.uc) !== normalizarNumero(unidade.numero)) {
         throw new Error("O número da UC do PDF não corresponde ao endereço de recebimento.");
+      }
+
+      // A UC geradora alimenta apenas os fechamentos de produção da própria
+      // usina. Ela não representa uma fatura de cliente e, portanto, não pode
+      // criar cobrança, crédito ou notificação de consumidor.
+      if (String(unidade.tipo ?? "").toUpperCase() === "GERADORA") {
+        if (!unidade.usina_id) throw new Error("A UC geradora recebida não está vinculada a uma usina.");
+        const producao = await registrarProducaoDaFaturaGeradora(unidade.usina_id, dados);
+        const fechamentoId = String(producao.fechamento?.id ?? "");
+        if (!fechamentoId) throw new Error("Não foi possível registrar o fechamento de produção da usina.");
+
+        const caminhoPdf = await armazenarContaDeEnergiaDaUsina(unidade.usina_id, fechamentoId, caminho);
+        const agora = new Date().toISOString();
+        const metadados = {
+          tipo: "PRODUCAO_USINA",
+          usinaId: unidade.usina_id,
+          fechamentoId,
+          competencia: producao.fechamento?.competencia ?? null,
+          energiaGerada: producao.dados?.energiaGerada ?? null,
+          leituraAnterior: producao.dados?.leituraAnterior ?? null,
+          leituraAtual: producao.dados?.leituraAtual ?? null,
+          fatorMultiplicacao: producao.dados?.fatorMultiplicacao ?? null,
+          importadoEm: agora,
+        };
+        await supabase.from("recebimentos_faturas_email").update({
+          status: "PROCESSADO",
+          arquivo_nome: anexo.filename ?? "conta-usina.pdf",
+          arquivo_hash: hash,
+          caminho_pdf: caminhoPdf,
+          fatura_id: null,
+          payload: adicionarMetadadosDeProcessamento(assumido.payload, metadados),
+          erro: null,
+          processado_em: agora,
+          updated_at: agora,
+        }).eq("id", assumido.id);
+        await atualizarUnidadeRecebimento(assumido.unidade_consumidora_id, {
+          recebimento_email_ultimo_em: agora,
+          recebimento_email_status: "PRODUCAO_IMPORTADA",
+          recebimento_email_erro: null,
+        });
+        return;
       }
 
       const resultado = await processarFatura(dados, {

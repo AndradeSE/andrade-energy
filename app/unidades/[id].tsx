@@ -3,10 +3,11 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { Badge, Button, Card, EmptyState, Loading, Metric, Screen, Section } from "../../components/ui";
+import { AppHeader, Badge, Card, EmptyState, Loading, Metric, Screen, Section } from "../../components/ui";
 import { excluirFatura, listarFaturas } from "../../services/faturas.service";
 import { supabase } from "../../supabase";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
+import { IS_GERADOR_APP } from "../../config/appVariant";
 
 const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const paga = (status?: string) => ["PAGA", "PAGO", "QUITADA"].includes(String(status ?? "").toUpperCase());
@@ -53,19 +54,73 @@ export default function UnidadeDocumentos() {
   const valorFaturado = faturas.reduce((total, item) => total + Number(item.valor_total_unificado ?? item.valor_total ?? 0), 0);
   const consumoTotal = faturas.reduce((total, item) => total + Number(item.consumo_kwh ?? item.consumo ?? 0), 0);
 
-  return <Screen><ScrollView contentContainerStyle={styles.content}>
-    <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={24} color={Colors.text} /></TouchableOpacity>
-    <Text style={styles.eyebrow}>UNIDADE CONSUMIDORA</Text><Text style={styles.title}>UC {unidade.numero}</Text><Text style={styles.subtitle}>{unidade.clientes?.nome ?? unidade.titular ?? "Cliente"}</Text><View style={styles.plantInfo}><Ionicons name="sunny-outline" size={18} color={Colors.primary} /><Text style={styles.plantText}>{unidade.usinas?.nome ? `Usina alocada: ${unidade.usinas.nome}` : "Nenhuma usina alocada"}</Text></View>
-    <Button title="Editar e alocar UC" icon={<Ionicons name="git-branch-outline" size={19} color={Colors.surface} />} style={styles.allocateButton} onPress={() => router.push({ pathname: "/unidades/editar", params: { id: unidade.id, numero: unidade.numero, clienteId: unidade.cliente_id ?? (String(unidade.id).startsWith("cliente-") ? String(unidade.id).replace("cliente-", "") : "") } })} />
+  const possuiContrato = IS_GERADOR_APP && Boolean(unidade.cliente_id);
+  const status = String(unidade.status ?? "ATIVA").toUpperCase();
+
+  return <Screen>{IS_GERADOR_APP ? <AppHeader title="Unidades consumidoras" subtitle="Gestão da carteira" contextTitle={`UC ${unidade.numero}`} contextSubtitle={unidade.clientes?.nome ?? unidade.titular ?? "Unidade consumidora"} icon="flash-outline" /> : null}<ScrollView contentContainerStyle={styles.content}>
+    <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={19} color={Colors.subtitle} /><Text style={styles.backLabel}>Voltar</Text></TouchableOpacity>
+
+    <Card style={styles.unitHero}>
+      <View style={styles.unitHeroTop}>
+        <View style={styles.unitIcon}><Ionicons name="flash-outline" size={23} color={Colors.primary} /></View>
+        <View style={styles.unitCopy}><Text style={styles.unitEyebrow}>UNIDADE CONSUMIDORA</Text><Text style={styles.unitTitle}>UC {unidade.numero}</Text><Text numberOfLines={1} style={styles.unitOwner}>{unidade.clientes?.nome ?? unidade.titular ?? "Cliente não informado"}</Text></View>
+        <Badge label={status} variant={status === "INATIVA" ? "danger" : "success"} />
+      </View>
+      <View style={styles.heroDivider} />
+      <UnitMeta icon="business-outline" label="Concessionária" value={unidade.distribuidora ?? "Não informada"} />
+      <UnitMeta icon="sunny-outline" label="Usina vinculada" value={unidade.usinas?.nome ?? "Ainda não alocada"} last />
+    </Card>
+
+    <View style={styles.actions}>
+      <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Editar e alocar unidade consumidora" onPress={() => router.push({ pathname: "/unidades/editar", params: { id: unidade.id, numero: unidade.numero, clienteId: unidade.cliente_id ?? (String(unidade.id).startsWith("cliente-") ? String(unidade.id).replace("cliente-", "") : "") } })} style={[styles.action, !possuiContrato && styles.actionWide]}><Ionicons name="git-branch-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Editar e alocar</Text></TouchableOpacity>
+      {possuiContrato ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Adicionar ou editar contrato da unidade" onPress={() => { if (!unidade.usina_id) return Alert.alert("Aloque a UC primeiro", "Vincule esta unidade a uma usina antes de cadastrar o contrato."); router.push({ pathname: "/unidades/contrato", params: { id: unidade.id, numero: unidade.numero, clienteId: unidade.cliente_id, cliente: unidade.clientes?.nome ?? unidade.titular ?? "", descontoPadrao: String(unidade.desconto_percentual ?? "") } }); }} style={styles.action}><Ionicons name="document-text-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Contrato</Text></TouchableOpacity> : null}
+    </View>
 
     <Section title="Estatísticas da unidade"><View style={styles.metrics}><View style={styles.metric}><Metric compact title="Economia total" value={moeda(economiaTotal)} icon={<Ionicons name="trending-up-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Total faturado" value={moeda(valorFaturado)} icon={<Ionicons name="wallet-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Consumo acumulado" value={`${consumoTotal.toLocaleString("pt-BR")} kWh`} icon={<Ionicons name="flash-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Faturas processadas" value={faturas.length} icon={<Ionicons name="receipt-outline" size={20} color={Colors.primary} />} /></View></View></Section>
 
-    <Section title="Contas da concessionária"><View>{faturas.length ? faturas.map((item) => <TouchableOpacity key={`conta-${item.id}`} activeOpacity={0.84} onPress={() => abrirConta(item)}><Card><View style={styles.row}><View style={styles.icon}><Ionicons name="document-text-outline" size={22} color={Colors.primary} /></View><View style={styles.info}><Text style={styles.itemTitle}>{item.referencia || "Conta de luz"}</Text><Text style={styles.itemDetail}>{item.pdf_cemig_url ? "PDF disponível" : "PDF em preparação"}</Text></View><Ionicons name={item.pdf_cemig_url ? "download-outline" : "time-outline"} size={21} color={item.pdf_cemig_url ? Colors.primary : Colors.subtitle} /></View></Card></TouchableOpacity>) : <EmptyState icon="document-outline" title="0 contas da concessionária" subtitle="As contas desta UC aparecerão aqui quando forem importadas." />}</View></Section>
+    <Section title="Contas da concessionária"><View>{faturas.length ? faturas.map((item) => <TouchableOpacity key={`conta-${item.id}`} activeOpacity={0.84} onPress={() => abrirConta(item)}><Card style={styles.documentCard}><View style={styles.row}><View style={styles.icon}><Ionicons name="document-text-outline" size={22} color={Colors.primary} /></View><View style={styles.info}><Text style={styles.itemTitle}>{item.referencia || "Conta de luz"}</Text><Text style={styles.itemDetail}>{item.pdf_cemig_url ? "PDF disponível" : "PDF em preparação"}</Text></View><Ionicons name={item.pdf_cemig_url ? "download-outline" : "time-outline"} size={21} color={item.pdf_cemig_url ? Colors.primary : Colors.subtitle} /></View></Card></TouchableOpacity>) : <EmptyState icon="document-outline" title="0 contas da concessionária" subtitle="As contas desta UC aparecerão aqui quando forem importadas." />}</View></Section>
 
-    <Section title="Faturas Andrade Energy"><View>{faturas.length ? faturas.map((item) => <TouchableOpacity key={`fatura-${item.id}`} activeOpacity={0.84} onPress={() => router.push(`/faturas/${item.id}`)}><Card><View style={styles.invoiceTop}><View><Text style={styles.invoiceValue}>{moeda(item.valor_total_unificado ?? item.valor_total)}</Text><Text style={styles.itemDetail}>{item.referencia || "Competência não informada"}</Text></View><Badge label={paga(item.status) ? "Paga" : "Em aberto"} variant={paga(item.status) ? "success" : "warning"} /></View><View style={styles.invoiceBottom}><Text style={styles.invoiceDate}>{paga(item.status) ? "Pagamento confirmado" : `Vencimento ${item.vencimento || "não informado"}`}</Text><TouchableOpacity accessibilityLabel={`Excluir fatura ${item.referencia}`} onPress={(evento) => { evento.stopPropagation(); confirmarExclusao(item); }} style={styles.deleteInvoice}><Ionicons name="trash-outline" size={19} color={Colors.danger} /></TouchableOpacity><Ionicons name="chevron-forward" size={19} color={Colors.primary} /></View></Card></TouchableOpacity>) : <EmptyState icon="receipt-outline" title="0 faturas" subtitle="As faturas Andrade Energy desta UC aparecerão aqui após o faturamento." />}</View></Section>
+    <Section title="Faturas Andrade Energy"><View>{faturas.length ? faturas.map((item) => <TouchableOpacity key={`fatura-${item.id}`} activeOpacity={0.84} onPress={() => router.push(`/faturas/${item.id}`)}><Card style={styles.documentCard}><View style={styles.invoiceTop}><View><Text style={styles.invoiceValue}>{moeda(item.valor_total_unificado ?? item.valor_total)}</Text><Text style={styles.itemDetail}>{item.referencia || "Competência não informada"}</Text></View><Badge label={paga(item.status) ? "Paga" : "Em aberto"} variant={paga(item.status) ? "success" : "warning"} /></View><View style={styles.invoiceBottom}><Text style={styles.invoiceDate}>{paga(item.status) ? "Pagamento confirmado" : `Vencimento ${item.vencimento || "não informado"}`}</Text><TouchableOpacity accessibilityLabel={`Excluir fatura ${item.referencia}`} onPress={(evento) => { evento.stopPropagation(); confirmarExclusao(item); }} style={styles.deleteInvoice}><Ionicons name="trash-outline" size={19} color={Colors.danger} /></TouchableOpacity><Ionicons name="chevron-forward" size={19} color={Colors.primary} /></View></Card></TouchableOpacity>) : <EmptyState icon="receipt-outline" title="0 faturas" subtitle="As faturas Andrade Energy desta UC aparecerão aqui após o faturamento." />}</View></Section>
   </ScrollView></Screen>;
 }
 
+function UnitMeta({ icon, label, value, last = false }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string; last?: boolean }) {
+  return <View style={[styles.metaRow, !last && styles.metaRowBorder]}><Ionicons name={icon} size={17} color={Colors.primary} /><View style={styles.metaCopy}><Text style={styles.metaLabel}>{label}</Text><Text numberOfLines={1} style={styles.metaValue}>{value}</Text></View></View>;
+}
+
 const styles = StyleSheet.create({
-  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl }, state: { flex: 1, justifyContent: "center", padding: Spacing.lg }, back: { width: 42, height: 42, alignItems: "center", justifyContent: "center", marginBottom: Spacing.md, borderRadius: Radius.round, backgroundColor: Colors.surface }, eyebrow: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800", letterSpacing: 1.1 }, title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "900" }, subtitle: { marginTop: 4, marginBottom: Spacing.sm, color: Colors.subtitle }, plantInfo: { flexDirection: "row", alignItems: "center", marginBottom: Spacing.md }, plantText: { marginLeft: Spacing.xs, color: Colors.text, fontSize: Typography.small, fontWeight: "700" }, allocateButton: { marginBottom: Spacing.lg }, metrics: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }, metric: { width: "48%", marginBottom: Spacing.sm }, row: { flexDirection: "row", alignItems: "center" }, icon: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primaryLight }, info: { flex: 1, marginHorizontal: Spacing.sm }, itemTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "800" }, itemDetail: { marginTop: 4, color: Colors.subtitle, fontSize: Typography.small }, invoiceTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, invoiceValue: { color: Colors.text, fontSize: Typography.body, fontWeight: "900" }, invoiceBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: Spacing.md, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border }, invoiceDate: { flex: 1, color: Colors.subtitle, fontSize: Typography.small }, deleteInvoice: { width: 38, height: 38, alignItems: "center", justifyContent: "center", marginRight: Spacing.xs, borderRadius: Radius.round, backgroundColor: "#FEE2E2" },
+  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl * 2 },
+  state: { flex: 1, justifyContent: "center", padding: Spacing.lg },
+  back: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 2, minHeight: 36, marginBottom: Spacing.sm },
+  backLabel: { color: Colors.subtitle, fontSize: Typography.small, fontWeight: "700" },
+  unitHero: { marginBottom: Spacing.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.lg, backgroundColor: Colors.surface, shadowOpacity: 0, elevation: 0 },
+  unitHeroTop: { flexDirection: "row", alignItems: "center" },
+  unitIcon: { width: 46, height: 46, alignItems: "center", justifyContent: "center", marginRight: Spacing.sm, borderRadius: Radius.md, backgroundColor: Colors.primaryLight },
+  unitCopy: { flex: 1, minWidth: 0 },
+  unitEyebrow: { color: Colors.subtitle, fontSize: 10, fontWeight: "900", letterSpacing: 0.9 },
+  unitTitle: { marginTop: 2, color: Colors.text, fontSize: Typography.body, fontWeight: "900" },
+  unitOwner: { marginTop: 2, color: Colors.subtitle, fontSize: Typography.small },
+  heroDivider: { height: 1, marginVertical: Spacing.sm, backgroundColor: Colors.border },
+  metaRow: { flexDirection: "row", alignItems: "center", minHeight: 43 },
+  metaRowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.border },
+  metaCopy: { flex: 1, minWidth: 0, marginLeft: Spacing.sm },
+  metaLabel: { color: Colors.subtitle, fontSize: 10, fontWeight: "800", letterSpacing: 0.4 },
+  metaValue: { marginTop: 1, color: Colors.text, fontSize: Typography.small, fontWeight: "700" },
+  actions: { flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.lg },
+  action: { flex: 1, minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: Spacing.sm, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md, backgroundColor: Colors.surface },
+  actionWide: { flex: undefined, width: "100%" },
+  actionText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" },
+  metrics: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
+  metric: { width: "48%", marginBottom: Spacing.sm },
+  documentCard: { marginBottom: Spacing.sm, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.lg, backgroundColor: Colors.surface, shadowOpacity: 0, elevation: 0 },
+  row: { flexDirection: "row", alignItems: "center" },
+  icon: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primaryLight },
+  info: { flex: 1, marginHorizontal: Spacing.sm },
+  itemTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "800" },
+  itemDetail: { marginTop: 4, color: Colors.subtitle, fontSize: Typography.small },
+  invoiceTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  invoiceValue: { color: Colors.text, fontSize: Typography.body, fontWeight: "900" },
+  invoiceBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: Spacing.md, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border },
+  invoiceDate: { flex: 1, color: Colors.subtitle, fontSize: Typography.small },
+  deleteInvoice: { width: 38, height: 38, alignItems: "center", justifyContent: "center", marginRight: Spacing.xs, borderRadius: Radius.round, backgroundColor: "#FEE2E2" },
 });

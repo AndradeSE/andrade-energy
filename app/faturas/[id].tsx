@@ -17,7 +17,8 @@ import {
   View,
 } from "react-native";
 
-import { Card, Divider, EmptyState, Loading, Screen } from "../../components/ui";
+import { AppHeader, Card, Divider, EmptyState, Loading, Screen } from "../../components/ui";
+import { IS_GERADOR_APP } from "../../config/appVariant";
 import { buscarFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
@@ -42,6 +43,7 @@ export default function DetalheFatura() {
   if (erro) {
     return (
       <Screen>
+        {IS_GERADOR_APP ? <AppHeader title="Faturas" subtitle="Cobranças da carteira" contextTitle="Detalhe da fatura" contextSubtitle="Não foi possível carregar" icon="receipt-outline" /> : null}
         <View style={styles.stateContainer}>
           <EmptyState
             icon="alert-circle-outline"
@@ -53,7 +55,7 @@ export default function DetalheFatura() {
     );
   }
 
-  if (!fatura) return <Loading />;
+  if (!fatura) return <Screen>{IS_GERADOR_APP ? <AppHeader title="Faturas" subtitle="Cobranças da carteira" contextTitle="Detalhe da fatura" contextSubtitle="Carregando cobrança" icon="receipt-outline" /> : null}<Loading /></Screen>;
 
   const valorUnificado = Number(
     fatura.valor_total_unificado ?? fatura.valor_total ?? 0
@@ -119,6 +121,7 @@ export default function DetalheFatura() {
 
   return (
     <Screen>
+      {IS_GERADOR_APP ? <AppHeader title="Faturas" subtitle="Cobranças da carteira" contextTitle={`Fatura ${fatura.referencia ?? ""}`.trim()} contextSubtitle={`Vencimento ${fatura.vencimento ?? "não informado"}`} icon="receipt-outline" /> : null}
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
