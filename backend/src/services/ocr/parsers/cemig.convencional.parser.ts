@@ -14,7 +14,7 @@ export function parseCemigConvencional(
   // Referência + vencimento + valor
   const dadosConta =
     texto.match(
-      /([A-Z]{3}\/20\d{2})(\d{2}\/\d{2}\/20\d{2})(\d+,\d{2})/
+      /([A-Z]{3}\/20\d{2})\s*(\d{2}\/\d{2}\/20\d{2})\s*([\d.]+,\d{2})/
     );
 
   const referencia =
