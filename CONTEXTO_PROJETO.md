@@ -52,6 +52,9 @@ As listas também se atualizam ao voltar à tela correspondente.
 
 - A importação de PDF usada para cadastro somente extrai dados e sugere campos; não deve gerar faturamento automaticamente.
 - A fatura unificada preserva a conta da concessionária e calcula separadamente a cobrança de energia da usina, desconto e economia.
+- O demonstrativo Andrade é gerado em **uma página A4**. Ao gerar ou regenerar, ele relê a conta CEMIG original arquivada para mostrar titular, CPF/CNPJ, endereço, UC e concessionária exatamente da fonte; se a conta antiga não puder ser lida, usa o cadastro da UC como contingência.
+- O PDF traz consumo, energia compensada/injetada, saldo de créditos, composição do total, economia real e gráfico de economia das últimas oito faturas disponíveis. PDFs já existentes no Storage não mudam sozinhos: no Gerador usar **Gerar PDF atualizado** na fatura.
+- Boleto e Pix do Mercado Pago ainda não estão integrados. O código de barras deve ser impresso somente depois que a cobrança de boleto real for criada e seu código for retornado pela API do provedor.
 - Para **compensação**, a cobrança mensal é somente pela energia compensada lida nos campos `Energia Compensada GD1` ou `GD2`. O saldo de créditos é registrado e cobrado apenas no encerramento do contrato.
 - Na ausência de energia compensada no PDF, considerar `0 kWh`.
 - Para **injeção**, a alocação inicial é 100%, podendo ser ajustada; para compensação, a alocação é sugerida pela média de consumo dos últimos 12 meses e pode ser editada.
@@ -72,9 +75,9 @@ Os cálculos com faturas CEMIG, sobretudo GD1/GD2 e tarifas com imposto, ainda d
 
 Uma alteração de ícone, pacote, permissão nativa ou versão requer novo build EAS. Alterações somente em JavaScript/TypeScript podem ser entregues por update OTA quando houver build compatível instalado.
 
-### Publicação mais recente — 20/08/2026
+### Publicação mais recente — 21/08/2026
 
-- Commit de funcionalidade mais recente: `615337e` (`Aprimora UCs, contratos e recebimento por e-mail`).
+- Commit de funcionalidade anterior: `03f076d` (`Melhora dados e grafico da fatura`). O próximo commit complementa a leitura da conta CEMIG original no PDF.
 - O serviço Render está configurado para deploy manual; após enviar uma alteração de backend, usar **Manual Deploy → Deploy latest commit** no painel.
 - Atualizações OTA Preview publicadas: Consumidor (`9acd4d63-6ef2-48ce-bd97-ca043ab9e0f2`) e Gerador (`89789091-64a4-45db-bfa5-eab649934ac9`), ambas no runtime `1.0.0`.
 - O novo APK Android para aplicar a configuração nativa do `expo-web-browser` não entrou na fila porque a cota gratuita de builds Android do EAS foi usada. A cota informada pelo EAS volta em **01/09/2026**, ou o build pode ser feito em plano com mais capacidade.

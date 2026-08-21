@@ -65,6 +65,15 @@ export async function extrairTextoPDF(
 
   const buffer = await fs.readFile(caminhoArquivo);
 
+  return extrairTextoDoBuffer(buffer, senha);
+}
+
+/** Lê a conta original já armazenada sem precisar gravá-la novamente em disco. */
+export async function extrairTextoDoBuffer(
+  buffer: Buffer,
+  senha?: string
+): Promise<string> {
+
   if (senha) return extrairTextoPdfComSenha(buffer, senha);
 
   const pdf = await pdfParse(buffer);

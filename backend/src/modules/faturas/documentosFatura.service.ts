@@ -1,6 +1,8 @@
 import PDFDocument from "pdfkit";
 import { readFile } from "node:fs/promises";
 import { supabase } from "../../config/supabase";
+import { extrairTextoDoBuffer } from "../../services/ocr/ocr.service";
+import { interpretarFatura } from "../../services/ocr/parser.service";
 
 const BUCKET = "faturas";
 const VERDE = "#107C5C";
@@ -75,7 +77,7 @@ async function incluirDadosDaUCNaFatura(fatura: any) {
       .from("faturas")
       .select("id,referencia,economia_real,economia")
       .order("referencia", { ascending: false })
-      .limit(6);
+      .limit(8);
     if (fatura.unidade_consumidora_id) {
       consultaHistorico = consultaHistorico.eq("unidade_consumidora_id", fatura.unidade_consumidora_id);
     } else {
@@ -99,13 +101,42 @@ async function incluirDadosDaUCNaFatura(fatura: any) {
     ...fatura,
     clientes: cliente,
     unidades_consumidoras: unidade,
-    historico_economia: historicoComAtual.slice(0, 6).reverse(),
+    historico_economia: historicoComAtual.slice(0, 8).reverse(),
   };
+}
+
+/**
+ * A conta original CEMIG é a fonte de verdade dos dados impressos. Ao
+ * regenerar uma fatura antiga, relê o PDF arquivado para não depender de
+ * campos que possam ter sido alterados depois no cadastro do aplicativo.
+ */
+async function obterDadosDaContaCemigOriginal(fatura: any, cliente: any, unidade: any) {
+  const caminho = String(fatura.pdf_cemig_url ?? "").trim();
+  if (!caminho || /^https?:\/\//i.test(caminho)) return null;
+
+  try {
+    const { data, error } = await supabase.storage.from(BUCKET).download(caminho);
+    if (error || !data) return null;
+    const documento = String(unidade?.cpf_titular ?? cliente?.cpf ?? "").replace(/\D/g, "");
+    const texto = await extrairTextoDoBuffer(
+      Buffer.from(await data.arrayBuffer()),
+      documento.length >= 4 ? documento.slice(0, 4) : undefined
+    );
+    return interpretarFatura(texto);
+  } catch {
+    // Há contas antigas protegidas ou digitalizadas que não possuem texto.
+    // Nesses casos a fatura continua usando os dados do cadastro.
+    return null;
+  }
 }
 
 /** Gera a fatura que o cliente recebe e pode baixar no aplicativo. */
 export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
   fatura = await incluirDadosDaUCNaFatura(fatura);
+  const clienteDaFatura = fatura.clientes ?? {};
+  const unidadeDaFatura = fatura.unidades_consumidoras ?? {};
+  const dadosCemigDaFatura = await obterDadosDaContaCemigOriginal(fatura, clienteDaFatura, unidadeDaFatura);
+  fatura = { ...fatura, dados_cemig: dadosCemigDaFatura };
   return new Promise<Buffer>((resolve, reject) => {
     const pdf = new PDFDocument({
       size: "A4",
@@ -133,11 +164,12 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     const tarifaAndrade = numero(fatura.tarifa_andrade);
     const cliente = fatura.clientes ?? {};
     const unidade = fatura.unidades_consumidoras ?? {};
+    const dadosCemig = fatura.dados_cemig ?? {};
     // Mantemos na Andrade os mesmos dados que identificam a conta CEMIG:
     // titular, documento, UC, concessionária e endereço da unidade.
-    const titular = unidade.titular ?? cliente.nome ?? "Cliente não informado";
-    const documento = unidade.cpf_titular ?? cliente.cpf ?? null;
-    const endereco = unidade.endereco ?? cliente.endereco ?? "Endereço não informado";
+    const titular = dadosCemig.cliente ?? unidade.titular ?? cliente.nome ?? "Cliente não informado";
+    const documento = dadosCemig.cpf ?? unidade.cpf_titular ?? cliente.cpf ?? null;
+    const endereco = dadosCemig.endereco ?? unidade.endereco ?? cliente.endereco ?? "Endereço não informado";
     const historicoEconomia = Array.isArray(fatura.historico_economia) ? fatura.historico_economia : [];
     const economiaAcumulada = historicoEconomia.reduce(
       (total: number, item: any) => total + numero(item.economia_real ?? item.economia),
@@ -157,8 +189,8 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(documento ? `CPF/CNPJ: ${documento}` : "CPF/CNPJ não informado", 62, 156, { width: 260 });
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(textoCurto(endereco, 63), 62, 168, { width: 260 });
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7).text("DADOS DA UNIDADE", 336, 127, { width: 194, align: "right" });
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10.5).text(`UC ${fatura.numero_instalacao ?? unidade.numero ?? "Não informada"}`, 336, 139, { width: 194, align: "right" });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(`${unidade.distribuidora ?? fatura.distribuidora ?? "Concessionária"} · ${String(fatura.modalidade_faturamento ?? "COMPENSACAO").toLowerCase() === "injecao" ? "Injeção" : "Compensação"}`, 336, 156, { width: 194, align: "right" });
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10.5).text(`UC ${dadosCemig.uc ?? fatura.numero_instalacao ?? unidade.numero ?? "Não informada"}`, 336, 139, { width: 194, align: "right" });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(`${dadosCemig.distribuidora ?? unidade.distribuidora ?? fatura.distribuidora ?? "Concessionária"} · ${String(fatura.modalidade_faturamento ?? "COMPENSACAO").toLowerCase() === "injecao" ? "Injeção" : "Compensação"}`, 336, 156, { width: 194, align: "right" });
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(textoCurto(endereco, 42), 336, 168, { width: 194, align: "right" });
 
     // Quadro técnico inspirado na leitura da conta da CEMIG: consumo,
@@ -235,7 +267,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
         const x = graficoX + indice * espaco + (espaco - larguraBarra) / 2;
         const y = graficoY + graficoAltura - altura;
         pdf.roundedRect(x, y, larguraBarra, altura, 3).fill(indice === historicoEconomia.length - 1 ? VERDE : "#9DCFBF");
-        pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.5).text(textoCurto(item.referencia, 7), x - 5, graficoY + graficoAltura + 7, { width: larguraBarra + 10, align: "center" });
+        pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.5).text(textoCurto(item.referencia, 10), x - 5, graficoY + graficoAltura + 7, { width: larguraBarra + 10, align: "center" });
         pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(6.5).text(moeda(valor), x - 10, Math.max(graficoY - 2, y - 10), { width: larguraBarra + 20, align: "center" });
       });
     } else {

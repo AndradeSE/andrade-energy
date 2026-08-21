@@ -14,6 +14,9 @@ export interface DebitoExtraido {
 export interface FaturaExtraida {
   cliente: string;
 
+  /** Documento extraído do cabeçalho da conta da concessionária, quando houver. */
+  cpf?: string;
+
   endereco: string;
 
   uc: string;
