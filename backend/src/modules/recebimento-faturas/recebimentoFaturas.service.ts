@@ -277,7 +277,10 @@ async function registrarEventoRecebido(evento: EventoResend, eventoId?: string) 
     .select("id, status")
     .maybeSingle();
   if (error) throw error;
-  if (data) return data;
+  // Em conflito, o Supabase pode devolver o registro anterior. Permitimos que
+  // erros/ignorados sejam reavaliados no reenvio manual, sem tocar em itens
+  // que já estão processados ou em processamento.
+  if (data && data.status !== "IGNORADO" && data.status !== "ERRO") return data;
 
   const { data: existente, error: erroExistente } = await supabase
     .from("recebimentos_faturas_email")
