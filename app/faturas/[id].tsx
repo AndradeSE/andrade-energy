@@ -188,6 +188,24 @@ export default function DetalheFatura() {
             loading={documentoBaixando === `boleto-${referenciaArquivo}.pdf`}
             onPress={() => baixarDocumento(fatura.pdf_boleto_url, `boleto-${referenciaArquivo}.pdf`)}
           />
+          <TouchableOpacity
+            accessibilityLabel="Copiar código PIX"
+            activeOpacity={0.82}
+            onPress={() => copiarPagamento(fatura.codigo_pix)}
+            style={[styles.paymentCode, !fatura.codigo_pix && styles.downloadButtonUnavailable]}
+          >
+            <View style={styles.downloadIcon}>
+              <Ionicons name="qr-code-outline" size={20} color={Colors.surface} />
+            </View>
+            <View style={styles.downloadContent}>
+              <Text style={styles.downloadLabel}>PIX copia e cola</Text>
+              <Text numberOfLines={1} style={styles.paymentCodeValue}>{fatura.codigo_pix || "Em preparação"}</Text>
+            </View>
+            <View style={styles.copyAction}>
+              <Ionicons name="copy-outline" size={19} color={Colors.text} />
+              <Text style={styles.copyText}>Copiar</Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         <Card style={styles.summaryCard}>
@@ -226,29 +244,6 @@ export default function DetalheFatura() {
         </Card>
 
         {possuiCustosGD2 ? <View style={styles.gd2Notice}><Ionicons name="information-circle-outline" size={21} color="#8A5A00" /><View style={styles.gd2Copy}><Text style={styles.gd2Title}>Entenda o desconto real na GD II</Text><Text style={styles.gd2Text}>Custos obrigatórios da rede e de disponibilidade continuam na conta da CEMIG. Por isso, o desconto final pode ser menor que o desconto contratado.</Text></View></View> : null}
-
-        <View style={styles.paymentActions}>
-          <TouchableOpacity
-            accessibilityLabel="Copiar código PIX"
-            activeOpacity={0.82}
-            onPress={() => copiarPagamento(fatura.codigo_pix)}
-            style={[styles.paymentCode, !fatura.codigo_pix && styles.downloadButtonUnavailable]}
-          >
-            <View style={styles.downloadIcon}>
-              <Ionicons name="qr-code-outline" size={20} color={Colors.surface} />
-            </View>
-            <View style={styles.downloadContent}>
-              <Text style={styles.downloadLabel}>PIX copia e cola</Text>
-              <Text numberOfLines={1} style={styles.paymentCodeValue}>
-                {fatura.codigo_pix || "Em preparação"}
-              </Text>
-            </View>
-            <View style={styles.copyAction}>
-              <Ionicons name="copy-outline" size={19} color={Colors.text} />
-              <Text style={styles.copyText}>Copiar</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
 
         <Text style={styles.sectionTitle}>DADOS DA FATURA</Text>
         <Card>
@@ -461,9 +456,6 @@ const styles = StyleSheet.create({
   downloadActionsTop: {
     marginTop: -Spacing.sm,
     marginBottom: Spacing.lg,
-  },
-  paymentActions: {
-    marginTop: Spacing.lg,
   },
   energyStatementCard: {
     marginBottom: Spacing.md,
