@@ -102,22 +102,14 @@ async function calcularProducaoMedia12Meses(usinaId: string) {
   inicio.setUTCDate(1);
   inicio.setUTCHours(0, 0, 0, 0);
   inicio.setUTCMonth(inicio.getUTCMonth() - 11);
-  const [fechamentos, usina] = await Promise.all([
-    supabase
-      .from("fechamentos")
-      .select("energia_gerada")
-      .eq("usina_id", usinaId)
-      .gte("competencia", inicio.toISOString().slice(0, 10))
-      .order("competencia", { ascending: false })
-      .limit(12),
-    supabase
-      .from("usinas")
-      .select("geracao_media")
-      .eq("id", usinaId)
-      .maybeSingle(),
-  ]);
+  const fechamentos = await supabase
+    .from("fechamentos")
+    .select("energia_gerada")
+    .eq("usina_id", usinaId)
+    .gte("competencia", inicio.toISOString().slice(0, 10))
+    .order("competencia", { ascending: false })
+    .limit(12);
   if (fechamentos.error) throw fechamentos.error;
-  if (usina.error) throw usina.error;
 
   const producoes = (fechamentos.data ?? [])
     .map((item) => Number(item.energia_gerada ?? 0))
@@ -126,7 +118,9 @@ async function calcularProducaoMedia12Meses(usinaId: string) {
     return producoes.reduce((total, valor) => total + valor, 0) / producoes.length;
   }
 
-  return Math.max(0, Number(usina.data?.geracao_media ?? 0) || 0);
+  // A produção é apurada exclusivamente pelos fechamentos processados. A coluna
+  // legada `geracao_media` não existe em todas as bases já migradas.
+  return 0;
 }
 
 async function recalcularAlocacaoUsina(usinaId: string) {

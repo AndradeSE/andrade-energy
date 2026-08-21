@@ -31,7 +31,7 @@ function clausula(pdf: PDFKit.PDFDocument, titulo: string, conteudo: string[]) {
 export async function gerarMinutaContrato(unidadeId: string, contrato: any) {
   const { data: unidade, error } = await supabase
     .from("unidades_consumidoras")
-    .select("id,numero,endereco,distribuidora,modalidade_faturamento,desconto_percentual, clientes(nome,cpf,endereco), usinas(nome,endereco,potencia_kwp,geracao_media,modalidade)")
+    .select("id,numero,endereco,distribuidora,modalidade_faturamento,desconto_percentual, clientes(nome,cpf,endereco), usinas(nome,endereco,potencia_kwp,modalidade)")
     .eq("id", unidadeId)
     .single();
   if (error) throw error;
@@ -48,7 +48,7 @@ export async function gerarMinutaContrato(unidadeId: string, contrato: any) {
   const prazo = texto(dados.prazo_anos, "10");
   const foro = texto(dados.foro, "Itajubá/MG");
   const potencia = texto(dados.potencia_kwp, usina?.potencia_kwp ? `${usina.potencia_kwp} kWp` : "Não informada");
-  const geracao = texto(dados.geracao_estimada, usina?.geracao_media ? `${usina.geracao_media} kWh/mês` : "Não informada");
+  const geracao = texto(dados.geracao_estimada, "Não informada");
   const modalidade = String(unidade.modalidade_faturamento ?? usina?.modalidade ?? "COMPENSACAO").toUpperCase();
   const modalidadeNome = modalidade === "INJECAO" ? "Injeção de energia" : "Autoconsumo remoto por compensação";
   const desconto = Number(contrato.desconto ?? unidade.desconto_percentual ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 });

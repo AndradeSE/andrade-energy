@@ -14,8 +14,17 @@ export default function Usinas() {
   const { usuario, usinaSelecionada, selecionarUsina, atualizarUsuario, suspenderBloqueioTemporariamente } = useAuth();
   const [usinas, setUsinas] = useState<any[]>([]); const [loading, setLoading] = useState(true); const [atualizando, setAtualizando] = useState(false);
   const [importandoId, setImportandoId] = useState<string | null>(null);
-  const carregar = useCallback(async () => { try { setUsinas((await listarUsinas()) ?? []); } finally { setLoading(false); } }, []);
-  useFocusEffect(useCallback(() => { carregar(); }, [carregar]));
+  const carregar = useCallback(async () => {
+    try {
+      setUsinas((await listarUsinas()) ?? []);
+    } catch (erro: any) {
+      setUsinas([]);
+      Alert.alert("Não foi possível carregar as usinas", erro?.response?.data?.message ?? "Tente novamente em instantes.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useFocusEffect(useCallback(() => { void carregar(); }, [carregar]));
   async function atualizarPagina() { setAtualizando(true); try { await carregar(); } finally { setAtualizando(false); } }
 
   function confirmarExclusao(item: any) {
