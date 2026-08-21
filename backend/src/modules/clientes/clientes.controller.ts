@@ -105,7 +105,7 @@ export async function cadastrarUnidadeClienteController(req: Request, res: Respo
 
 export async function excluirUnidadeClienteController(req: Request, res: Response) {
   try {
-    await excluirUnidadeCliente(req.params.id, req.params.unidadeId);
+    await excluirUnidadeCliente(req.params.unidadeId);
     return res.status(204).send();
   } catch (e: any) {
     return res.status(400).json({ message: e.message });

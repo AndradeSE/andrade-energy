@@ -62,10 +62,14 @@ export default function UnidadeDocumentos() {
         style: "destructive",
         onPress: async () => {
           try {
-            await excluirUnidadeCliente(unidade.cliente_id, unidade.id);
+            await excluirUnidadeCliente(unidade.id);
             Alert.alert("UC excluída", "A unidade consumidora foi removida.", [{ text: "OK", onPress: () => router.replace("/unidades") }]);
           } catch (erro: any) {
-            Alert.alert("Não foi possível excluir", erro?.message ?? "Tente novamente.");
+            const codigo = erro?.response?.status ?? "sem resposta";
+            const base = String(erro?.config?.baseURL ?? "");
+            const rota = String(erro?.config?.url ?? "");
+            const detalhe = String(erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
+            Alert.alert("Não foi possível excluir", `${detalhe}\n\nCódigo ${codigo}.\n\nServidor usado:\n${base}${rota}`);
           }
         },
       },

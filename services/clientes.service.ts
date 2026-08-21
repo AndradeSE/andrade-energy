@@ -34,8 +34,8 @@ export async function cadastrarUnidadeCliente(id: string, numero: string, cpfTit
   return data;
 }
 
-export async function excluirUnidadeCliente(clienteId: string, unidadeId: string) {
-  await api.delete(`/clientes/${clienteId}/unidades/${unidadeId}`);
+export async function excluirUnidadeCliente(unidadeId: string) {
+  await api.delete(`/clientes/unidade/${unidadeId}`);
 }
 
 export async function listarMinhasUnidades() {

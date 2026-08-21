@@ -21,7 +21,7 @@ router.get("/minhas-unidades", exigirAutenticacao, listarMinhasUnidadesControlle
 
 router.get("/:id/unidades", listarUnidadesClienteController);
 router.post("/:id/unidades", exigirAutenticacao, exigirGestor, cadastrarUnidadeClienteController);
-router.delete("/:id/unidades/:unidadeId", exigirAutenticacao, exigirGestor, excluirUnidadeClienteController);
+router.delete("/unidade/:unidadeId", exigirAutenticacao, exigirGestor, excluirUnidadeClienteController);
 
 router.get("/:id", buscarClienteController);
 
