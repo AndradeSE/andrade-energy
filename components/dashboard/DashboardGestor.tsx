@@ -77,16 +77,16 @@ export default function DashboardGestor() {
           <Pressable disabled={importando} onPress={atualizarGeracao} style={styles.importButton}><Ionicons name="document-attach-outline" size={18} color={Colors.surface} /><Text style={styles.importText}>{importando ? "Lendo conta..." : "Importar dados de produção"}</Text></Pressable>
         </View>
 
+        <Section title="Acesso rápido">
+          <QuickAccessCarousel items={atalhos.map((atalho) => ({ icon: atalho.icon, label: atalho.label, onPress: () => router.push(atalho.rota as any) }))} />
+        </Section>
+
         <Section title="Resumo da carteira">
           <View style={styles.grid}>
             <View style={styles.metric}><Metric compact icon={<Ionicons name="people-outline" size={20} color={Colors.primary} />} title="Clientes ativos" value={data.clientes} /></View>
             <View style={styles.metric}><Metric compact icon={<Ionicons name="analytics-outline" size={20} color={Colors.primary} />} title="Geração total" value={formatarEnergia(data.energiaTotal)} /></View>
             <View style={styles.metric}><Metric compact icon={<Ionicons name="wallet-outline" size={20} color={Colors.primary} />} title="Receita prevista" value={formatarMoeda(data.receitaPrevista)} /></View>
           </View>
-        </Section>
-
-        <Section title="Acesso rápido">
-          <QuickAccessCarousel items={atalhos.map((atalho) => ({ icon: atalho.icon, label: atalho.label, onPress: () => router.push(atalho.rota as any) }))} />
         </Section>
 
         <RevenueChart previsto={data.receitaPrevista} recebido={data.receitaRealizada} />
