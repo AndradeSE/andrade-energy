@@ -36,6 +36,17 @@ function extrairValorLinha(texto: string, expressao: RegExp): number {
   return valor ? paraNumero(valor) : 0;
 }
 
+function extrairCustoDisponibilidade(texto: string) {
+  // Nas contas recentes a linha vem como "Custo de Disponibilidade kWh
+  // quantidade tarifa valor". O kWh era ignorado pelo padrão anterior e
+  // fazia o campo cair indevidamente em zero.
+  const linha = texto.match(
+    /Custo\s+de\s+Disponibilidade(?:\s+kWh)?\s+([\d.,]+)(?:\s+([\d.,]+))?(?:\s+([\d.,]+))?/i
+  );
+  if (!linha) return 0;
+  return paraNumero(linha[3] ?? linha[2] ?? "0");
+}
+
 export function parseCemigGD(
   texto: string
 ): FaturaExtraida {
@@ -63,14 +74,16 @@ export function parseCemigGD(
       "/$1"
     );
 
-  const consumo = Number(
-    buscar(
-      texto,
-      new RegExp(
-        `${competenciaCurta}\\s+(\\d+)`
-      )
-    ) || "0"
+  // A competência também aparece no histórico de consumo. Para não pegar
+  // acidentalmente o valor de outro mês, a fonte preferencial é a própria
+  // linha tarifária "Energia Elétrica" da conta.
+  const consumoDaLinhaTarifaria = paraNumero(
+    buscar(texto, /Energia\s+Elétrica\s*kWh\s+([\d.,]+)/i) || "0"
   );
+  const consumoDoHistorico = Number(
+    buscar(texto, new RegExp(`${competenciaCurta}\\s+(\\d+)`)) || "0"
+  );
+  const consumo = consumoDaLinhaTarifaria || consumoDoHistorico;
 
   const energiaInjetada = Number(
     buscar(
@@ -110,10 +123,7 @@ export function parseCemigGD(
     texto,
     /Energia Elétrica\s*kWh\s+[\d.,]+\s+[\d.,]+\s+([\d.,]+)/i
   );
-  const valorCustoDisponibilidade = extrairValorLinha(
-    texto,
-    /Custo de Disponibilidade\s*[\d.,]+\s+([\d.,]+)/i
-  );
+  const valorCustoDisponibilidade = extrairCustoDisponibilidade(texto);
   const valorScee = extrairValorLinha(
     texto,
     /Energia SCEE(?:\s+HR)?\s+ISENTA\s*kWh\s+[\d.,]+\s+[\d.,]+\s+([\d.,]+)/i
@@ -131,12 +141,7 @@ export function parseCemigGD(
     valorEnergiaEletrica + valorCustoDisponibilidade + valorScee - valorCompensado - ajusteCustoDisponibilidade
   );
 
-  const custoDisponibilidade = paraNumero(
-    buscar(
-      texto,
-      /Custo de Disponibilidade\s*[\d.,]+\s+([\d.,]+)/i
-    ) || "0"
-  );
+  const custoDisponibilidade = valorCustoDisponibilidade;
 
   const economia = paraNumero(
     buscar(

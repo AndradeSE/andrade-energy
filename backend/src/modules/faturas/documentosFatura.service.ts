@@ -164,7 +164,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     const valorSemAndrade = numero(fatura.valor_referencia_sem_andrade) || Math.max(0, valorTotal + economiaReal);
     const descontoContratado = numero(fatura.desconto_contratado_percentual ?? fatura.desconto_percentual);
     const descontoReal = numero(fatura.desconto_real_percentual);
-    const consumoKwh = numero(fatura.consumo_kwh ?? fatura.consumo);
+    const consumoKwhCadastrado = numero(fatura.consumo_kwh ?? fatura.consumo);
     const energiaInjetada = numero(fatura.energia_injetada);
     const energiaCompensada = numero(fatura.energia_compensada);
     const saldoCreditos = numero(fatura.saldo_atual);
@@ -174,6 +174,15 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     const cliente = fatura.clientes ?? {};
     const unidade = fatura.unidades_consumidoras ?? {};
     const dadosCemig = fatura.dados_cemig ?? {};
+    // Quando a conta original pôde ser lida, ela é a fonte de verdade da
+    // tabela. O cadastro fica somente como alternativa para contas antigas.
+    const consumoKwh = numero(dadosCemig.consumo) || consumoKwhCadastrado;
+    const custoDisponibilidade = numero(dadosCemig.custoDisponibilidade ?? fatura.custo_disponibilidade);
+    const custoDisponibilidadeTexto = custoDisponibilidade > 0
+      ? moeda(custoDisponibilidade)
+      : dadosCemig && Object.keys(dadosCemig).length > 0
+        ? "Não identificado na conta original"
+        : "Não informado";
     // Mantemos na Andrade os mesmos dados que identificam a conta CEMIG:
     // titular, documento, UC, concessionária e endereço da unidade.
     const titular = dadosCemig.cliente ?? unidade.titular ?? cliente.nome ?? "Cliente não informado";
@@ -267,8 +276,8 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     const linhasTarifarias = [
       ["Energia consumida", energia(consumoKwh), tarifaOuIndisponivel(tarifaCemig), `Base: ${energia(energiaCobrada)}`],
       [energiaGD1 > 0 ? "Energia compensada GD1" : "Energia compensada", energia(energiaGD1 || energiaCompensada), tarifaOuIndisponivel(tarifaGD1 || numero(fatura.tarifa_gd)), "Crédito utilizado"],
-      [energiaGD2 > 0 ? "Energia compensada GD2" : "Custo de disponibilidade", energiaGD2 > 0 ? energia(energiaGD2) : "—", energiaGD2 > 0 ? tarifaOuIndisponivel(tarifaGD2) : "—", energiaGD2 > 0 ? "Crédito utilizado" : moeda(numero(fatura.custo_disponibilidade ?? dadosCemig.custoDisponibilidade))],
-      [energiaGD2 > 0 ? "Custo de disponibilidade" : "Total da conta", energiaGD2 > 0 ? "—" : "—", "—", energiaGD2 > 0 ? moeda(numero(fatura.custo_disponibilidade ?? dadosCemig.custoDisponibilidade)) : moeda(valorCemig)],
+      [energiaGD2 > 0 ? "Energia compensada GD2" : "Custo de disponibilidade", energiaGD2 > 0 ? energia(energiaGD2) : "—", energiaGD2 > 0 ? tarifaOuIndisponivel(tarifaGD2) : "—", energiaGD2 > 0 ? "Crédito utilizado" : custoDisponibilidadeTexto],
+      [energiaGD2 > 0 ? "Custo de disponibilidade" : "Total da conta", energiaGD2 > 0 ? "—" : "—", "—", energiaGD2 > 0 ? custoDisponibilidadeTexto : moeda(valorCemig)],
       [energiaGD2 > 0 ? "Total da conta" : "Energia solar Andrade", "—", energiaGD2 > 0 ? "—" : tarifaOuIndisponivel(tarifaAndrade), energiaGD2 > 0 ? moeda(valorCemig) : moeda(valorUsina)],
     ];
     linhasTarifarias.forEach(([item, quantidade, tarifa, valor], indice) => {
