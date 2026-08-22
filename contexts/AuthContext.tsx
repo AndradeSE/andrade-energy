@@ -55,7 +55,7 @@ const USINA_KEY =
  * uma permanência relevante fora do app; o login manual continua imediato.
  */
 const TEMPO_MINIMO_EM_SEGUNDO_PLANO_PARA_BLOQUEAR_MS =
-  25_000;
+  5 * 60_000;
 
 /*
  * ========================================================
