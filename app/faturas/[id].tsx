@@ -268,8 +268,11 @@ export default function DetalheFatura() {
           <Text style={styles.summaryEyebrow}>VALOR TOTAL A PAGAR</Text>
           <Text style={styles.summaryValue}>{formatarMoeda(valorUnificado)}</Text>
           <Text style={styles.summaryCaption}>{descricaoCobranca}</Text>
+          <View style={styles.noBenefitHighlight}>
+            <Text style={styles.noBenefitLabel}>SEM O BENEFÍCIO ANDRADE ENERGY</Text>
+            <Text style={styles.noBenefitValue}>{formatarMoeda(valorSemAndrade)}</Text>
+          </View>
           <View style={styles.summaryDivider} />
-          <ComparisonRow label="Sem o benefício Andrade Energy" value={formatarMoeda(valorSemAndrade)} />
           <ComparisonRow label="Você paga neste mês" value={formatarMoeda(valorUnificado)} emphasis />
           <ComparisonRow label="Sua economia real" value={formatarMoeda(economiaReal)} success />
           <View style={styles.discountPills}>
@@ -285,7 +288,7 @@ export default function DetalheFatura() {
             <EnergyMetric icon="flash-outline" label="Consumo da UC" value={formatarEnergia(consumoKwh)} />
             <EnergyMetric icon="git-merge-outline" label="Compensado no mês" value={formatarEnergia(energiaCompensada)} />
             <EnergyMetric icon="sunny-outline" label="Injetado no mês" value={formatarEnergia(energiaInjetada)} />
-            <EnergyMetric icon="battery-half-outline" label="Saldo de créditos" value={formatarEnergia(saldoCreditos)} highlight />
+            <EnergyMetric icon="battery-half-outline" label="Saldo atual de créditos" value={formatarEnergia(saldoCreditos)} highlight />
           </View>
           <Text style={styles.energyStatementFootnote}>O saldo de créditos é o informado na conta da CEMIG e pode ser usado em competências futuras, conforme as regras da distribuidora.</Text>
         </Card>
@@ -559,6 +562,26 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: Colors.primary,
   },
+  noBenefitHighlight: {
+    marginTop: Spacing.md,
+    padding: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "#B8D8CA",
+    borderRadius: Radius.md,
+    backgroundColor: Colors.surface,
+  },
+  noBenefitLabel: {
+    color: Colors.subtitle,
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+  },
+  noBenefitValue: {
+    marginTop: 3,
+    color: Colors.text,
+    fontSize: Typography.card,
+    fontWeight: "900",
+  },
   energyStatementCard: {
     marginBottom: Spacing.md,
     padding: Spacing.md,
@@ -590,6 +613,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
   },
   energyMetricHighlight: {
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primary,
     backgroundColor: Colors.primaryLight,
   },
   energyMetricLabel: {
@@ -606,6 +631,7 @@ const styles = StyleSheet.create({
   },
   energyMetricValueHighlight: {
     color: Colors.primaryDark,
+    fontSize: Typography.card,
   },
   energyStatementFootnote: {
     marginTop: Spacing.sm,

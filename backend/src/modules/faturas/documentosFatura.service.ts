@@ -179,21 +179,23 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
       const linha = Math.floor(indice / 2);
       const x = coluna === 0 ? 64 : 315;
       const y = 236 + linha * 26;
-      pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7.5).text(rotulo, x, y, { width: 210 });
-      pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(9.5).text(valor, x, y + 10, { width: 210 });
+      const saldoEmDestaque = indice === 3;
+      if (saldoEmDestaque) pdf.roundedRect(306, 257, 210, 28, 7).fill(VERDE_CLARO);
+      pdf.fillColor(saldoEmDestaque ? VERDE_ESCURO : TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7.5).text(rotulo, x, y, { width: 210 });
+      pdf.fillColor(saldoEmDestaque ? VERDE_ESCURO : TEXTO).font("Helvetica-Bold").fontSize(saldoEmDestaque ? 11 : 9.5).text(valor, x, y + 10, { width: 210 });
     });
 
     pdf.roundedRect(48, 307, LARGURA, 68, 12).fill(VERDE_CLARO);
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8.5).text("TOTAL A PAGAR NESTE MÊS", 66, 323);
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(20).text(moeda(valorTotal), 66, 338);
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(documentoUnificado ? "CEMIG + energia solar Andrade Energy" : "Energia solar Andrade Energy", 66, 360);
-    pdf.fillColor(VERDE).font("Helvetica-Bold").fontSize(8.5).text("SUA ECONOMIA REAL", 344, 323, { width: 170, align: "right" });
-    pdf.fillColor(VERDE).font("Helvetica-Bold").fontSize(15).text(moeda(economiaReal), 344, 338, { width: 170, align: "right" });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(`Desconto final real: ${percentual(descontoReal)}`, 344, 360, { width: 170, align: "right" });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(8.5).text("SEM BENEFÍCIO ANDRADE", 344, 323, { width: 170, align: "right" });
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(15).text(moeda(valorSemAndrade), 344, 338, { width: 170, align: "right" });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(`Economia: ${moeda(economiaReal)} · ${percentual(descontoReal)}`, 344, 360, { width: 170, align: "right" });
 
     pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10.5).text("Resumo da cobrança", 48, 395);
     pdf.roundedRect(48, 412, LARGURA, 79, 10).fill("#FFFFFF").strokeColor(BORDA).stroke();
-    desenharLinhaDeValor(pdf, 426, documentoUnificado ? "Sem o benefício Andrade Energy" : "Energia solar sem o benefício Andrade", moeda(valorSemAndrade));
+    desenharLinhaDeValor(pdf, 426, documentoUnificado ? "Sem o benefício Andrade Energy" : "Energia solar sem o benefício Andrade", moeda(valorSemAndrade), true);
     desenharLinha(pdf, 444);
     desenharLinhaDeValor(pdf, 452, "Você paga neste mês", moeda(valorTotal), true);
     desenharLinha(pdf, 470);
