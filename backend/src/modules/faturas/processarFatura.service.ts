@@ -217,6 +217,11 @@ if (!cliente.usina_id) {
     descontoPercentual,
     valorCemig: valorConcessionaria,
     valorCreditoEfetivo,
+    // No GD II, a disponibilidade (mínimo + diferença tarifária) é paga
+    // diretamente à concessionária. Ela não integra a cobrança Andrade,
+    // mas reduz a economia efetiva apresentada ao cliente.
+    baseDescontoReal:
+      energiaCompensadaGD2 > 0 ? valorEnergiaSemGD : valorCreditoEfetivo,
   });
 
 const fatura = await inserirFatura({

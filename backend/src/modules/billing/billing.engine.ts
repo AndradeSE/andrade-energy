@@ -8,6 +8,13 @@ export type BillingInput = {
   descontoPercentual: number;
   valorCemig: number;
   valorCreditoEfetivo?: number;
+  /**
+   * Base usada exclusivamente para comunicar a economia percentual. Em GD II,
+   * o cliente continua pagando a disponibilidade na fatura da concessionária;
+   * por isso o desconto real deve ser medido sobre a energia cheia, e não
+   * somente sobre a parcela que restou elegível ao crédito.
+   */
+  baseDescontoReal?: number;
 };
 
 export type BillingOutput = {
@@ -66,9 +73,13 @@ export function calcularFaturaUnificada(input: BillingInput): BillingOutput {
   const valorReferenciaSemAndrade = input.valorCemig + valorCreditoEfetivo;
   const valorTotalUnificado = input.valorCemig + valorUsina;
   const economiaReal = Math.max(0, valorReferenciaSemAndrade - valorTotalUnificado);
+  const baseDescontoReal = Math.max(
+    0,
+    input.baseDescontoReal ?? valorCreditoEfetivo
+  );
   const descontoRealPercentual =
-    valorCreditoEfetivo > 0
-      ? (economiaReal / valorCreditoEfetivo) * 100
+    baseDescontoReal > 0
+      ? (economiaReal / baseDescontoReal) * 100
       : 0;
 
   return {
