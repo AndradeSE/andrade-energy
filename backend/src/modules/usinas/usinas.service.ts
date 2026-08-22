@@ -226,7 +226,9 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
     } else {
       producaoMedia = await calcularProducaoMedia12Meses(usinaId);
       percentual = producaoMedia > 0 && consumoMedio > 0
-        ? Math.min(100, consumoMedio / producaoMedia * 100)
+        // Mantém uma margem de 15% acima do consumo médio para a UC não
+        // ficar subalocada quando houver oscilação mensal de consumo.
+        ? Math.min(100, consumoMedio * 1.15 / producaoMedia * 100)
         : 0;
     }
   } else if (!Number.isFinite(percentualInformado) || percentualInformado <= 0 || percentualInformado > 100) {

@@ -56,7 +56,7 @@ function percentualPelaMedia(
   const producao = producaoParaAlocacao(usina);
   const media = valorNumerico(consumo);
   return producao > 0 && media > 0
-    ? String(Math.min(100, media / producao * 100).toFixed(2)).replace(".", ",")
+    ? String(Math.min(100, media * 1.15 / producao * 100).toFixed(2)).replace(".", ",")
     : "";
 }
 
