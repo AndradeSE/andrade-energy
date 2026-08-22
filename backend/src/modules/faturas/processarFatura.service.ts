@@ -183,6 +183,8 @@ if (!cliente.usina_id) {
   // registrado para acerto no encerramento do contrato.
   const baseCompensacaoCalculada = energiaCompensadaFaturada;
   const valorConcessionaria = Number(dados.valorTotal);
+  const percentualRepasseDisponibilidade = Math.max(0, Math.min(100, Number(cliente.unidade_consumidora?.percentual_repasse_disponibilidade ?? 100)));
+  const faturaSomenteAndrade = Boolean(cliente.unidade_consumidora?.fatura_somente_andrade);
   const tarifaCheia = Math.max(0, Number(dados.tarifaCheia ?? 0));
   const valorEnergiaSemGD = Math.max(0, Number(dados.consumo ?? 0)) * tarifaCheia;
 
@@ -204,6 +206,15 @@ if (!cliente.usina_id) {
       energiaCompensadaFaturada * tarifaCheia,
       Math.max(0, valorEnergiaSemGD - Number(dados.valorEnergiaConcessionaria ?? 0))
     );
+  // No GD II, este residual corresponde ao mínimo de disponibilidade somado
+  // à diferença tarifária. É a única parcela cuja absorção pode ser definida
+  // pela UC; outros encargos continuam exclusivos da concessionária.
+  const custoDisponibilidadeRepassavel = energiaCompensadaGD2 > 0
+    ? Math.max(0, Math.min(
+      Number(dados.valorEnergiaConcessionaria ?? 0),
+      valorEnergiaSemGD - creditoGD1
+    ))
+    : 0;
 
   if (!["INJECAO", "COMPENSACAO"].includes(modalidade)) {
     throw new Error("Modalidade de faturamento do cliente inválida.");
@@ -217,6 +228,9 @@ if (!cliente.usina_id) {
     descontoPercentual,
     valorCemig: valorConcessionaria,
     valorCreditoEfetivo,
+    custoDisponibilidadeRepassavel,
+    percentualRepasseDisponibilidade,
+    faturaSomenteAndrade,
     // No GD II, a disponibilidade (mínimo + diferença tarifária) é paga
     // diretamente à concessionária. Ela não integra a cobrança Andrade,
     // mas reduz a economia efetiva apresentada ao cliente.
@@ -293,6 +307,15 @@ const fatura = await inserirFatura({
 
   valor_cemig:
     calculo.valorCemig,
+
+  custo_disponibilidade_repassado:
+    calculo.custoDisponibilidadeRepassado,
+
+  percentual_repasse_disponibilidade:
+    calculo.percentualRepasseDisponibilidade,
+
+  fatura_somente_andrade:
+    calculo.faturaSomenteAndrade,
 
   valor_referencia_sem_andrade:
     calculo.valorReferenciaSemAndrade,

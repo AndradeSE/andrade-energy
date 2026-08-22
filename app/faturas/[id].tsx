@@ -94,6 +94,9 @@ export default function DetalheFatura() {
   const valorUnificado = Number(
     fatura.valor_total_unificado ?? fatura.valor_total ?? 0
   );
+  const faturaSomenteAndrade = Boolean(fatura.fatura_somente_andrade);
+  const tituloCobranca = faturaSomenteAndrade ? "Cobrança Andrade Energy" : "Total unificado";
+  const descricaoCobranca = faturaSomenteAndrade ? "Energia solar Andrade Energy" : "CEMIG + energia solar Andrade Energy";
   const economiaReal = Number(fatura.economia_real ?? fatura.economia ?? 0);
   const valorSemAndrade = Number(
     fatura.valor_referencia_sem_andrade ??
@@ -264,7 +267,7 @@ export default function DetalheFatura() {
         <Card style={styles.summaryCard}>
           <Text style={styles.summaryEyebrow}>VALOR TOTAL A PAGAR</Text>
           <Text style={styles.summaryValue}>{formatarMoeda(valorUnificado)}</Text>
-          <Text style={styles.summaryCaption}>CEMIG + energia solar Andrade Energy</Text>
+          <Text style={styles.summaryCaption}>{descricaoCobranca}</Text>
           <View style={styles.summaryDivider} />
           <ComparisonRow label="Sem o benefício Andrade Energy" value={formatarMoeda(valorSemAndrade)} />
           <ComparisonRow label="Você paga neste mês" value={formatarMoeda(valorUnificado)} emphasis />
@@ -295,13 +298,13 @@ export default function DetalheFatura() {
           <Divider />
           <ValueRow label="Tarifa Andrade Energy por kWh" value={formatarMoeda(tarifaAndrade)} />
           <Divider />
-          <ValueRow label="Parte que permanece na CEMIG" value={formatarMoeda(Number(fatura.valor_cemig ?? 0))} />
+          {!faturaSomenteAndrade ? <ValueRow label="Conta da CEMIG" value={formatarMoeda(Number(fatura.valor_cemig ?? 0))} /> : null}
           <Divider />
           <ValueRow label="Energia solar Andrade Energy" value={formatarMoeda(Number(fatura.valor_usina ?? fatura.valor_andrade ?? 0))} />
           <Divider />
-          <ValueRow label="Total a pagar" value={formatarMoeda(valorUnificado)} emphasis />
+          <ValueRow label={tituloCobranca} value={formatarMoeda(valorUnificado)} emphasis />
         </Card>
-        <Text style={styles.calculationHint}>Cálculo: parte CEMIG + energia solar Andrade Energy = total unificado. As tarifas por kWh mostram os valores usados nesta competência.</Text>
+        <Text style={styles.calculationHint}>{faturaSomenteAndrade ? "Cálculo: energia solar Andrade Energy. A conta da CEMIG é paga diretamente à concessionária." : "Cálculo: conta CEMIG + energia solar Andrade Energy = total unificado."} As tarifas por kWh mostram os valores usados nesta competência.</Text>
 
         {possuiCustosGD2 ? <View style={styles.gd2Notice}><Ionicons name="information-circle-outline" size={21} color="#8A5A00" /><View style={styles.gd2Copy}><Text style={styles.gd2Title}>Entenda o desconto real na GD II</Text><Text style={styles.gd2Text}>Custos obrigatórios da rede e de disponibilidade continuam na conta da CEMIG. Por isso, o desconto final pode ser menor que o desconto contratado.</Text></View></View> : null}
 

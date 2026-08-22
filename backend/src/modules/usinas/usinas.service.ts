@@ -206,7 +206,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
       .single(),
     supabase
       .from("unidades_consumidoras")
-      .select("id,usina_id,cliente_id,endereco")
+      .select("id,usina_id,cliente_id,endereco,percentual_repasse_disponibilidade,fatura_somente_andrade")
       .eq("numero", numero)
       .maybeSingle(),
   ]);
@@ -214,6 +214,15 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
   if (erroUnidadeAnterior) throw erroUnidadeAnterior;
   if (unidadeAnterior?.cliente_id && unidadeAnterior.cliente_id !== clienteId) {
     throw new Error("Esta UC já está vinculada a outro cliente.");
+  }
+
+  const somenteAndrade = input.faturaSomenteAndrade === undefined
+    ? Boolean(unidadeAnterior?.fatura_somente_andrade)
+    : Boolean(input.faturaSomenteAndrade);
+  const repasseInformado = input.percentualRepasseDisponibilidade;
+  const percentualRepasseDisponibilidade = Number(repasseInformado ?? unidadeAnterior?.percentual_repasse_disponibilidade ?? 100);
+  if (!Number.isFinite(percentualRepasseDisponibilidade) || percentualRepasseDisponibilidade < 0 || percentualRepasseDisponibilidade > 100) {
+    throw new Error("Informe um percentual de repasse da disponibilidade entre 0% e 100%.");
   }
 
   let percentual = Number.isFinite(percentualInformado) && percentualInformado > 0
@@ -252,6 +261,8 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
       desconto_percentual: desconto,
       consumo_medio_kwh: consumoMedio,
       percentual_rateio: percentual,
+      percentual_repasse_disponibilidade: percentualRepasseDisponibilidade,
+      fatura_somente_andrade: somenteAndrade,
       status: "ATIVA",
     }, { onConflict: "numero" })
     .select("id")

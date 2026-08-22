@@ -8,6 +8,9 @@ export type BillingInput = {
   descontoPercentual: number;
   valorCemig: number;
   valorCreditoEfetivo?: number;
+  custoDisponibilidadeRepassavel?: number;
+  percentualRepasseDisponibilidade?: number;
+  faturaSomenteAndrade?: boolean;
   /**
    * Base usada exclusivamente para comunicar a economia percentual. Em GD II,
    * o cliente continua pagando a disponibilidade na fatura da concessionária;
@@ -27,6 +30,9 @@ export type BillingOutput = {
   valorEnergiaCheia: number;
   valorUsina: number;
   valorCemig: number;
+  custoDisponibilidadeRepassado: number;
+  percentualRepasseDisponibilidade: number;
+  faturaSomenteAndrade: boolean;
   valorReferenciaSemAndrade: number;
   valorTotalUnificado: number;
   economiaReal: number;
@@ -49,6 +55,12 @@ export function calcularFaturaUnificada(input: BillingInput): BillingOutput {
   validarNumero("Tarifa cheia", input.tarifaCheia);
   validarNumero("Valor CEMIG", input.valorCemig);
 
+  const percentualRepasseDisponibilidade = Number(input.percentualRepasseDisponibilidade ?? 100);
+  const custoDisponibilidadeRepassavel = Math.max(0, Number(input.custoDisponibilidadeRepassavel ?? 0));
+  if (!Number.isFinite(percentualRepasseDisponibilidade) || percentualRepasseDisponibilidade < 0 || percentualRepasseDisponibilidade > 100) {
+    throw new Error("Repasse da disponibilidade deve estar entre 0% e 100%.");
+  }
+
   if (
     !Number.isFinite(input.descontoPercentual) ||
     input.descontoPercentual < 0 ||
@@ -64,15 +76,21 @@ export function calcularFaturaUnificada(input: BillingInput): BillingOutput {
   const fatorDesconto = input.descontoPercentual / 100;
   const tarifaAndrade = input.tarifaCheia * (1 - fatorDesconto);
   const valorEnergiaCheia = baseCalculoKwh * input.tarifaCheia;
-  const valorUsina = baseCalculoKwh * tarifaAndrade;
+  const valorUsinaSemDisponibilidade = baseCalculoKwh * tarifaAndrade;
+  const custoDisponibilidadeRepassado = custoDisponibilidadeRepassavel * percentualRepasseDisponibilidade / 100;
+  // A parcela não repassada é absorvida pela Andrade como desconto adicional.
+  const valorUsina = Math.max(0, valorUsinaSemDisponibilidade - (custoDisponibilidadeRepassavel - custoDisponibilidadeRepassado));
   const descontoContratadoValor = valorEnergiaCheia - valorUsina;
   const valorCreditoEfetivo = Math.min(
     valorEnergiaCheia,
     Math.max(0, input.valorCreditoEfetivo ?? valorEnergiaCheia)
   );
   const valorReferenciaSemAndrade = input.valorCemig + valorCreditoEfetivo;
-  const valorTotalUnificado = input.valorCemig + valorUsina;
-  const economiaReal = Math.max(0, valorReferenciaSemAndrade - valorTotalUnificado);
+  const faturaSomenteAndrade = Boolean(input.faturaSomenteAndrade);
+  const valorTotalUnificado = (faturaSomenteAndrade ? 0 : input.valorCemig) + valorUsina;
+  // A economia considera o desembolso total do cliente. Mesmo quando a conta
+  // CEMIG é paga separadamente, ela não pode parecer uma economia da Andrade.
+  const economiaReal = Math.max(0, valorReferenciaSemAndrade - (input.valorCemig + valorUsina));
   const baseDescontoReal = Math.max(
     0,
     input.baseDescontoReal ?? valorCreditoEfetivo
@@ -92,6 +110,9 @@ export function calcularFaturaUnificada(input: BillingInput): BillingOutput {
     valorEnergiaCheia: arredondar(valorEnergiaCheia),
     valorUsina: arredondar(valorUsina),
     valorCemig: arredondar(input.valorCemig),
+    custoDisponibilidadeRepassado: arredondar(custoDisponibilidadeRepassado),
+    percentualRepasseDisponibilidade: arredondar(percentualRepasseDisponibilidade),
+    faturaSomenteAndrade,
     valorReferenciaSemAndrade: arredondar(valorReferenciaSemAndrade),
     valorTotalUnificado: arredondar(valorTotalUnificado),
     economiaReal: arredondar(economiaReal),

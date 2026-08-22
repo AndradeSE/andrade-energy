@@ -12,6 +12,7 @@ import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 type Tipo = "CONSUMIDORA" | "BENEFICIARIA" | "GERADORA";
 type Modalidade = "INJECAO" | "COMPENSACAO";
+type FormatoFatura = "UNIFICADA" | "SOMENTE_ANDRADE";
 
 function numeroSeguro(valor: unknown) {
   const texto = String(valor ?? "").trim();
@@ -26,6 +27,7 @@ export default function NovaUnidade() {
   const [cpfTitular, setCpfTitular] = useState("");
   const [tipo, setTipo] = useState<Tipo>("BENEFICIARIA"); const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO");
   const [desconto, setDesconto] = useState("40"); const [endereco, setEndereco] = useState("");
+  const [formatoFatura, setFormatoFatura] = useState<FormatoFatura>("UNIFICADA"); const [repasseDisponibilidade, setRepasseDisponibilidade] = useState("100");
   const [clientes, setClientes] = useState<any[]>([]); const [usinas, setUsinas] = useState<any[]>([]);
   const [clienteId, setClienteId] = useState(""); const [usinaId, setUsinaId] = useState(""); const [salvando, setSalvando] = useState(false);
 
@@ -56,6 +58,7 @@ export default function NovaUnidade() {
 
   async function salvar() {
     const percentual = Number(desconto.replace(",", "."));
+    const repasseDisponibilidadeNumero = numeroSeguro(repasseDisponibilidade);
     const documentoTitular = cpfTitular.replace(/\D/g, "");
     const cadastroManualDoGerador = IS_GERADOR_APP && origem !== "fatura";
     const clienteSelecionado = clientes.find((item) => item.id === clienteId);
@@ -73,6 +76,7 @@ export default function NovaUnidade() {
       return Alert.alert("CPF obrigatório", "Informe o CPF do titular da conta de luz antes de salvar a unidade.");
     }
     if (!Number.isFinite(percentual) || percentual < 0 || percentual > 100) return Alert.alert("Desconto inválido", "Informe um percentual entre 0 e 100.");
+    if (!Number.isFinite(repasseDisponibilidadeNumero) || repasseDisponibilidadeNumero < 0 || repasseDisponibilidadeNumero > 100) return Alert.alert("Repasse inválido", "Informe o repasse da disponibilidade entre 0% e 100%.");
     setSalvando(true);
     try {
       let unidadeAlocadaId = "";
@@ -84,6 +88,8 @@ export default function NovaUnidade() {
           percentual: 100,
           desconto: numeroSeguro(descontoFinal),
           consumoMedio: consumoMedioFinal,
+          percentualRepasseDisponibilidade: repasseDisponibilidadeNumero,
+          faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE",
           calcularAutomaticamente: true,
         });
         unidadeAlocadaId = String(alocacao?.unidadeId ?? "");
@@ -92,6 +98,8 @@ export default function NovaUnidade() {
           numero, titular: titular.trim() || clienteSelecionado?.nome || null, tipo, cliente_id: clienteId || null, usina_id: usinaFinal,
           distribuidora: clienteSelecionado?.distribuidora || "CEMIG", endereco: endereco.trim() || clienteSelecionado?.endereco || null, modalidade_faturamento: modalidadeFinal,
           desconto_percentual: descontoFinal, cpf_titular: documentoTitular || clienteSelecionado?.cpf || null, status: "ATIVA",
+          percentual_repasse_disponibilidade: repasseDisponibilidadeNumero,
+          fatura_somente_andrade: formatoFatura === "SOMENTE_ANDRADE",
         }, { onConflict: "numero" });
         if (error) throw error;
       }
@@ -131,6 +139,9 @@ export default function NovaUnidade() {
         <FormField label="Desconto contratado (%)" value={desconto} onChangeText={setDesconto} keyboardType="decimal-pad" /><FormField label="Endereço" value={endereco} onChangeText={setEndereco} /></> : null}
       {clienteIdVinculado && !clientes.find((item) => item.id === clienteId)?.usina_id ? <><Text style={styles.label}>Usina geradora</Text><View style={styles.options}>{usinas.map((u) => <Pressable key={u.id} onPress={() => setUsinaId(usinaId === u.id ? "" : u.id)} style={[styles.link, usinaId === u.id && styles.linkSelected]}><Text>{u.nome}</Text></Pressable>)}</View></> : null}
       {!clienteIdVinculado ? <><Text style={styles.label}>Cliente</Text><View style={styles.options}>{clientes.map((c) => <Pressable key={c.id} onPress={() => setClienteId(clienteId === c.id ? "" : c.id)} style={[styles.link, clienteId === c.id && styles.linkSelected]}><Text>{c.nome}</Text></Pressable>)}</View></> : null}
+      <ChoiceField label="Formato da cobrança" value={formatoFatura} onChange={(valor) => setFormatoFatura(valor as FormatoFatura)} options={[{ label: "Fatura unificada (CEMIG + Andrade)", value: "UNIFICADA" }, { label: "Somente Andrade Energy", value: "SOMENTE_ANDRADE" }]} />
+      <FormField label="Repasse do custo de disponibilidade CEMIG (%)" value={repasseDisponibilidade} onChangeText={(valor) => setRepasseDisponibilidade(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" />
+      <Text style={styles.beneficiariaHint}>{formatoFatura === "SOMENTE_ANDRADE" ? "A conta da CEMIG será paga diretamente à concessionária. O percentual define quanto do custo de disponibilidade será coberto pelo cliente na cobrança Andrade." : "A fatura Andrade reunirá a conta CEMIG e a energia solar. O percentual define quanto do custo de disponibilidade será repassado ao cliente."}</Text>
       <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar unidade"} onPress={salvar} />
     </Card>
   </ScrollView></Screen>;

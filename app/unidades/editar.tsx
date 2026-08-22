@@ -11,6 +11,7 @@ import { alocarUnidade, listarUsinas } from "../../services/usinas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 type Modalidade = "INJECAO" | "COMPENSACAO";
+type FormatoFatura = "UNIFICADA" | "SOMENTE_ANDRADE";
 
 function textoDoParametro(valor: string | string[] | undefined) {
   return Array.isArray(valor) ? String(valor[0] ?? "") : String(valor ?? "");
@@ -81,6 +82,7 @@ export default function EditarAlocacaoUnidade() {
   const [usinas, setUsinas] = useState<any[]>([]); const [usinaId, setUsinaId] = useState("");
   const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO"); const [percentual, setPercentual] = useState("");
   const [desconto, setDesconto] = useState("40"); const [consumoMedio, setConsumoMedio] = useState("0");
+  const [formatoFatura, setFormatoFatura] = useState<FormatoFatura>("UNIFICADA"); const [repasseDisponibilidade, setRepasseDisponibilidade] = useState("100");
   const [clienteIdResolvido, setClienteIdResolvido] = useState("");
   const [loading, setLoading] = useState(true); const [salvando, setSalvando] = useState(false);
 
@@ -141,6 +143,8 @@ export default function EditarAlocacaoUnidade() {
         setUsinaId(usinaPreferida);
         setModalidade(modalidadeFinal);
         setDesconto(String(descontoImportado ?? uc?.desconto_percentual ?? c?.desconto_percentual ?? 40));
+        setFormatoFatura(uc?.fatura_somente_andrade ? "SOMENTE_ANDRADE" : "UNIFICADA");
+        setRepasseDisponibilidade(String(uc?.percentual_repasse_disponibilidade ?? 100));
         setConsumoMedio(mediaFinal > 0 ? String(Math.round(mediaFinal)) : "");
         setPercentual(
           veioDaFatura
@@ -164,13 +168,14 @@ export default function EditarAlocacaoUnidade() {
   }, [clienteIdRecebido, consumoMedioImportado, descontoImportado, modalidadeImportada, numeroDaUc, unidadeIdRecebida, usinaIdImportada]);
 
   async function salvar() {
-    const rateio = valorNumerico(percentual); const descontoNumero = valorNumerico(desconto); const media = Math.max(0, valorNumerico(consumoMedio));
+    const rateio = valorNumerico(percentual); const descontoNumero = valorNumerico(desconto); const media = Math.max(0, valorNumerico(consumoMedio)); const repasseNumero = valorNumerico(repasseDisponibilidade);
     if (!clienteIdResolvido) return Alert.alert("Vincule a UC a um cliente", "Esta UC ainda não tem um cliente vinculado. Volte ao cadastro da unidade, escolha o cliente e salve antes de fazer a alocação.");
     if (!usinaId) return Alert.alert("Escolha a usina", "Selecione a usina que fornecerá energia para esta UC.");
     if (!Number.isFinite(rateio) || rateio <= 0 || rateio > 100) return Alert.alert("Percentual inválido", "Informe um percentual entre 0,01% e 100%.");
     if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return Alert.alert("Desconto inválido", "Informe um desconto entre 0% e 100%.");
+    if (!Number.isFinite(repasseNumero) || repasseNumero < 0 || repasseNumero > 100) return Alert.alert("Repasse inválido", "Informe o repasse da disponibilidade entre 0% e 100%.");
     try { setSalvando(true);
-      await alocarUnidade(usinaId, { clienteId: clienteIdResolvido, numero: numeroDaUc, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, calcularAutomaticamente: false });
+      await alocarUnidade(usinaId, { clienteId: clienteIdResolvido, numero: numeroDaUc, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseNumero, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: false });
       Alert.alert("Alocação salva", "A UC foi vinculada à usina com sucesso.", [{ text: "OK", onPress: () => router.back() }]);
     } catch (erro: any) { Alert.alert("Não foi possível alocar", erro?.message ?? "Tente novamente."); } finally { setSalvando(false); }
   }
@@ -289,6 +294,26 @@ export default function EditarAlocacaoUnidade() {
             onChangeText={(valor) => setDesconto(valor.replace(/[^\d,.]/g, ""))}
             keyboardType="decimal-pad"
           />
+          <ChoiceField
+            label="Formato da cobrança"
+            value={formatoFatura}
+            onChange={(valor) => setFormatoFatura(valor as FormatoFatura)}
+            options={[
+              { label: "Fatura unificada (CEMIG + Andrade)", value: "UNIFICADA" },
+              { label: "Somente Andrade Energy", value: "SOMENTE_ANDRADE" },
+            ]}
+          />
+          <FormField
+            label="Repasse do custo de disponibilidade CEMIG (%)"
+            value={repasseDisponibilidade}
+            onChangeText={(valor) => setRepasseDisponibilidade(valor.replace(/[^\d,.]/g, ""))}
+            keyboardType="decimal-pad"
+          />
+          <Text style={styles.hint}>
+            {formatoFatura === "SOMENTE_ANDRADE"
+              ? "A conta CEMIG será paga diretamente à concessionária. Defina quanto do custo de disponibilidade será repassado na cobrança Andrade."
+              : "A cobrança reunirá a conta CEMIG e a energia Andrade. Defina quanto do custo de disponibilidade será repassado ao cliente."}
+          </Text>
           <Button
             disabled={salvando || !clienteIdResolvido}
             title={salvando ? "Salvando..." : clienteIdResolvido ? "Salvar alocação da UC" : "Vincule um cliente para alocar"}
