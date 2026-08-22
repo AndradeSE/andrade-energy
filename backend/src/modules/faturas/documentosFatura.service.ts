@@ -13,6 +13,8 @@ const TEXTO_SECUNDARIO = "#5C6B65";
 const BORDA = "#D8E7E0";
 const LARGURA = 498;
 const CAMINHOS_LOGO = [
+  resolve(process.cwd(), "../assets/images/andrade-fatura-logo.png"),
+  resolve(process.cwd(), "assets/images/andrade-fatura-logo.png"),
   resolve(process.cwd(), "../assets/images/andrade-logo-horizontal.png"),
   resolve(process.cwd(), "assets/images/andrade-logo-horizontal.png"),
 ];
@@ -170,10 +172,23 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
 
     // Cabeçalho compacto do modelo aprovado.
     pdf.rect(0, 0, 595, 116).fill(verdeCabecalho);
-    pdf.circle(68, 42, 24).lineWidth(3).strokeColor("#FFC400").stroke();
-    pdf.strokeColor("#FFC400").lineWidth(3).moveTo(50, 63).lineTo(50, 78).lineTo(186, 78).stroke();
-    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(24).text("ANDRADE", 89, 36);
-    pdf.fillColor("#EAF6EF").font("Helvetica-Bold").fontSize(7.5).text("-  E  N  E  R  G  Y  -", 86, 88, { width: 140, align: "center" });
+    // A arte oficial da primeira versão preserva o símbolo, tipografia e
+    // espaçamento do logotipo no cabeçalho da fatura.
+    const caminhoLogoFatura = CAMINHOS_LOGO.find((caminho) => caminho.includes("andrade-fatura-logo") && existsSync(caminho));
+    if (caminhoLogoFatura) {
+      pdf.image(caminhoLogoFatura, 30, 8, { fit: [210, 98] });
+    } else {
+      pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(23).text("ANDRADE", 54, 36);
+      pdf.fillColor("#EAF6EF").font("Helvetica-Bold").fontSize(7.2).text("E N E R G Y", 86, 70);
+    }
+    const desenharCalendario = (x: number, top: number) => {
+      pdf.roundedRect(x, top, 16, 15, 2).strokeColor("#FFC400").lineWidth(1.5).stroke();
+      pdf.moveTo(x, top + 5).lineTo(x + 16, top + 5).stroke();
+      pdf.moveTo(x + 4, top - 2).lineTo(x + 4, top + 3).stroke();
+      pdf.moveTo(x + 12, top - 2).lineTo(x + 12, top + 3).stroke();
+    };
+    desenharCalendario(342, 45);
+    desenharCalendario(462, 45);
     pdf.fillColor("#D8F0E3").font("Helvetica-Bold").fontSize(7).text("REFERÊNCIA", 365, 43);
     pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(11).text(fatura.referencia ?? "Não informada", 365, 55);
     pdf.strokeColor("#D8F0E3").lineWidth(0.7).moveTo(458, 38).lineTo(458, 76).stroke();
@@ -234,20 +249,29 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     });
 
     // Gráfico de economia e área de pagamento lado a lado.
-    desenharCartao(48, y.inferior, 238, 123);
-    desenharCartao(305, y.inferior, 241, 123);
+    desenharCartao(48, y.inferior, 238, 143);
+    desenharCartao(305, y.inferior, 241, 143);
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8).text("ECONOMIA MENSAL", 61, y.inferior + 12);
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8).text("PAGAMENTO", 318, y.inferior + 12);
     const ultimasEconomias: number[] = historicoEconomia.slice(-6).map((item: any): number => numero(item?.economia_real ?? item?.economia ?? item));
     const dadosGrafico = ultimasEconomias.some((valor: number) => valor > 0) ? ultimasEconomias : [0, 0, 0, 0, 0, economiaReal];
     const maiorEconomia = Math.max(1, ...dadosGrafico);
-    dadosGrafico.forEach((valor: number, indice: number) => {
-      const altura = Math.max(4, (valor / maiorEconomia) * 51);
-      const x = 73 + indice * 29;
-      pdf.roundedRect(x, y.inferior + 89 - altura, 13, altura, 2).fill(indice === dadosGrafico.length - 1 ? VERDE : "#93CFAF");
-      pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(5.4).text(valor > 0 ? moeda(valor).replace("R$", "") : "-", x - 4, y.inferior + 93, { width: 22, align: "center" });
+    const linhasGrafico = [0, 0.33, 0.66, 1];
+    linhasGrafico.forEach((proporcao, indice) => {
+      const linhaY = y.inferior + 101 - (proporcao * 56);
+      const rotulo = moeda(maiorEconomia * proporcao).replace(",00", "");
+      pdf.strokeColor("#E3ECE7").lineWidth(0.6).moveTo(82, linhaY).lineTo(267, linhaY).stroke();
+      pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(5.5).text(rotulo, 60, linhaY - 3, { width: 18, align: "right" });
     });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6).text("Evolução da economia nas últimas competências", 62, y.inferior + 106, { width: 210, align: "center" });
+    const meses = ["DEZ/24", "JAN/25", "FEV/25", "MAR/25", "ABR/25", "MAI/25"];
+    dadosGrafico.forEach((valor: number, indice: number) => {
+      const altura = valor > 0 ? Math.max(7, (valor / maiorEconomia) * 56) : 0;
+      const x = 96 + indice * 29;
+      if (altura > 0) pdf.roundedRect(x, y.inferior + 101 - altura, 14, altura, 2).fill(indice === dadosGrafico.length - 1 ? VERDE : "#4C9A62");
+      if (valor > 0) pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(5.2).text(moeda(valor).replace("R$", ""), x - 7, y.inferior + 94 - altura, { width: 28, align: "center" });
+      pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(5.2).text(meses[indice], x - 8, y.inferior + 108, { width: 30, align: "center" });
+    });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(5.6).text("Evolução da economia nas últimas competências", 62, y.inferior + 125, { width: 210, align: "center" });
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text("PAGUE COM PIX", 322, y.inferior + 28);
     pdf.roundedRect(322, y.inferior + 42, 68, 61, 3).fill("#F6F8F7");
     pdf.roundedRect(322, y.inferior + 42, 68, 61, 3).strokeColor("#9DB5AA").dash(2, { space: 2 }).stroke().undash();
@@ -256,8 +280,8 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     const barras = [2,1,3,2,1,4,1,2,3,1,2,4,2,1,3,1,2,3,2,4,1,2,3,1,4,2,1,3,2,1,3,2,4];
     let xBarra = 410;
     barras.forEach((largura) => { pdf.rect(xBarra, y.inferior + 46, largura, 38).fill(TEXTO); xBarra += largura + 1.5; });
-    pdf.roundedRect(318, y.inferior + 108, 215, 11, 4).fill("#E3F0E8");
-    pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.6).text("Após o vencimento, encargos poderão ser aplicados.", 327, y.inferior + 111);
+    pdf.roundedRect(318, y.inferior + 128, 215, 11, 4).fill("#E3F0E8");
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.6).text("Após o vencimento, encargos poderão ser aplicados.", 327, y.inferior + 131);
 
     const miniCards = [["SALDO ATUAL\nDE CRÉDITOS", energia(saldoCreditos)], ["CRÉDITOS\nGERADOS (MÊS)", energia(energiaInjetada)], ["CRÉDITOS\nUSADOS (MÊS)", energia(energiaCompensada)], ["PRÓXIMA\nLEITURA", fatura.proxima_leitura ?? "A confirmar"]];
     miniCards.forEach(([titulo, valor], indice) => {
