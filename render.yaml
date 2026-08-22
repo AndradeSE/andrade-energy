@@ -4,9 +4,9 @@ services:
     runtime: node
     plan: free
     rootDir: backend
-    # Aplica primeiro as migrações versionadas. Assim o backend nunca é
-    # publicado antes das colunas e tabelas de que ele depende.
-    buildCommand: cd .. && npx supabase@2.109.1 db push --linked && cd backend && npm ci && npm run build
+    # As migrações são aplicadas previamente pelo pipeline de banco. O checkout
+    # do Render não contém o vínculo local do Supabase necessário ao db push.
+    buildCommand: npm ci && npm run build
     startCommand: npm start
     healthCheckPath: /health
     autoDeployTrigger: commit
