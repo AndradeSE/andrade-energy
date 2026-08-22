@@ -40,7 +40,20 @@ function extrairCustoDisponibilidadeBruto(texto: string) {
   // Nas contas recentes a linha vem como "Custo de Disponibilidade kWh
   // quantidade tarifa valor". O kWh era ignorado pelo padrão anterior e
   // fazia o campo cair indevidamente em zero.
-  const linha = texto.split(/\r?\n/).find((item) => /Custo\s+de\s+Disponibilidade/i.test(item));
+  // A fatura também traz "Ajuste Custo Disponibilidade". Esse ajuste não é
+  // o valor bruto da disponibilidade e não pode ser escolhido como a linha
+  // principal, ou a parcela que fica na concessionária vira indevidamente 0.
+  // Em algumas contas CEMIG a unidade "kWh" não é impressa e a linha começa
+  // diretamente por tarifa cheia e valor bruto: 1,20907534  60,42 ...
+  // Capturamos esse formato antes da leitura genérica das colunas.
+  const formatoSemKwh = texto.match(
+    /Custo\s+de\s+Disponibilidade\s*([\d.,]+)\s+([\d.,]+)/i
+  );
+  if (formatoSemKwh) return paraNumero(formatoSemKwh[2]);
+
+  const linha = texto
+    .split(/\r?\n/)
+    .find((item) => /Custo\s+de\s+Disponibilidade/i.test(item) && !/Ajuste\s+Custo\s+Disponibilidade/i.test(item));
   if (!linha) return 0;
   const valores = [...linha.matchAll(/[\d.]+(?:,\d+)?/g)].map((item) => paraNumero(item[0]));
   // Sem kWh, a NF traz "preço unitário, valor". Quando vier quantidade,
