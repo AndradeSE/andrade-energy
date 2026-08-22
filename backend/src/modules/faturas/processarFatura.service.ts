@@ -162,14 +162,11 @@ if (!cliente.usina_id) {
   // registrado para acerto no encerramento do contrato.
   const baseCompensacaoCalculada = energiaCompensadaFaturada;
   const valorConcessionaria = Number(dados.valorTotal);
-  // Em compensação, a Andrade cobra sobre o crédito efetivo da própria NF.
-  // No GD I essa tarifa é igual à SCEE; no GD II ela é menor porque a CEMIG
-  // retém a parcela de rede. A tarifa da disponibilidade não participa aqui.
-  const tarifaCreditoCompensado = Number(dados.tarifaGD ?? 0) || Number(dados.tarifaScee ?? 0) || Number(dados.tarifaCheia ?? 0);
-  const tarifaEnergiaFaturada = modalidade === "COMPENSACAO"
-    ? tarifaCreditoCompensado
-    : Number(dados.tarifaScee ?? 0) || Number(dados.tarifaCheia ?? 0);
-  const valorEnergiaSemGD = energiaCompensadaFaturada * tarifaCreditoCompensado;
+  // A Andrade aplica o desconto sobre a energia SCEE integral da conta. No
+  // GD II a CEMIG retém uma parcela de rede no crédito, o que reduz o
+  // desconto real do cliente, mas não muda a base contratada da Andrade.
+  const tarifaEnergiaFaturada = Number(dados.tarifaScee ?? 0) || Number(dados.tarifaCheia ?? 0);
+  const valorEnergiaSemGD = energiaCompensadaFaturada * tarifaEnergiaFaturada;
   // O crédito da própria NF é a base da economia real. No GD I ele equivale
   // à energia SCEE; no GD II ele já desconta a parcela da rede que permanece
   // na conta da concessionária.
