@@ -177,12 +177,6 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     // Quando a conta original pôde ser lida, ela é a fonte de verdade da
     // tabela. O cadastro fica somente como alternativa para contas antigas.
     const consumoKwh = numero(dadosCemig.consumo) || consumoKwhCadastrado;
-    const custoDisponibilidade = numero(dadosCemig.custoDisponibilidade ?? fatura.custo_disponibilidade);
-    const franquiaDisponibilidade = numero(dadosCemig.franquiaDisponibilidadeKwh);
-    const tarifaDisponibilidadeSemImpostos = numero(dadosCemig.tarifaDisponibilidadeSemImpostos);
-    const custoDisponibilidadeBruto = numero(dadosCemig.custoDisponibilidadeComImpostos);
-    const impostosDisponibilidade = Math.max(0, custoDisponibilidadeBruto - custoDisponibilidade);
-    const encargosAdicionais = numero(dadosCemig.encargosAdicionais);
     // Mantemos na Andrade os mesmos dados que identificam a conta CEMIG:
     // titular, documento, UC, concessionária e endereço da unidade.
     const titular = dadosCemig.cliente ?? unidade.titular ?? cliente.nome ?? "Cliente não informado";
@@ -193,11 +187,6 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
       (total: number, item: any) => total + numero(item.economia_real ?? item.economia),
       0
     );
-    const tarifaGD1 = numero(dadosCemig.tarifaGD1);
-    const tarifaGD2 = numero(dadosCemig.tarifaGD2);
-    const energiaGD1 = numero(dadosCemig.energiaCompensadaGD1);
-    const energiaGD2 = numero(dadosCemig.energiaCompensadaGD2);
-    const tarifaOuIndisponivel = (valor: number) => valor > 0 ? `${moeda(valor)}/kWh` : "—";
 
     pdf.rect(0, 0, 595, 126).fill(VERDE_ESCURO);
     // Logo e card cadastral compartilham a mesma linha do cabeçalho.
@@ -259,55 +248,34 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     desenharLinhaDeValor(pdf, 435, "Economia real no mês", moeda(economiaReal), true);
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7).text(`Desconto contratado: ${percentual(descontoContratado)}  |  Desconto final real: ${percentual(descontoReal)}`, 64, 447, { width: 465, align: "center" });
 
-    // Tabela tarifária resumida da fatura original: mostra somente itens que
-    // ajudam o consumidor a entender sua cobrança, sem replicar a conta toda.
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10.5).text("Tabela tarifária da conta da concessionária", 48, 467);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7).text("Dados lidos da fatura original", 48, 480);
-    pdf.roundedRect(48, 494, LARGURA, 112, 10).fill("#F8FBF9").strokeColor(BORDA).stroke();
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(6.5).text("ITEM", 62, 504, { width: 188 });
-    pdf.text("QUANTIDADE", 262, 504, { width: 76, align: "right" });
-    pdf.text("TARIFA", 351, 504, { width: 80, align: "right" });
-    pdf.text("VALOR / INFORMAÇÃO", 442, 504, { width: 88, align: "right" });
-    pdf.strokeColor(BORDA).lineWidth(0.6).moveTo(62, 516).lineTo(530, 516).stroke();
-    const energiaCompensadaOriginal = energiaGD1 + energiaGD2 || energiaCompensada;
-    const tarifaCompensadaOriginal = energiaGD1 > 0 ? tarifaGD1 : energiaGD2 > 0 ? tarifaGD2 : numero(fatura.tarifa_gd);
-    const valorSceeOriginal = energiaCompensadaOriginal * numero(dadosCemig.tarifaScee);
-    const valorCreditoOriginal = energiaGD1 * tarifaGD1 + energiaGD2 * tarifaGD2 || energiaCompensadaOriginal * tarifaCompensadaOriginal;
-    const tipoDisponibilidade = String(dadosCemig.tipoLigacao ?? "ligação").toLowerCase();
-    const linhasTarifarias = [
-      ["Energia SCEE", energia(energiaCompensadaOriginal), tarifaOuIndisponivel(numero(dadosCemig.tarifaScee)), moeda(valorSceeOriginal)],
-      [energiaGD1 > 0 ? "Crédito de energia GD I" : energiaGD2 > 0 ? "Crédito de energia GD II" : "Energia compensada", energia(energiaCompensadaOriginal), tarifaOuIndisponivel(tarifaCompensadaOriginal), `− ${moeda(valorCreditoOriginal)}`],
-      [`Disponibilidade (${tipoDisponibilidade})`, franquiaDisponibilidade ? energia(franquiaDisponibilidade) : "—", tarifaOuIndisponivel(tarifaDisponibilidadeSemImpostos), custoDisponibilidade ? moeda(custoDisponibilidade) : "Não identificado"],
-      ["Impostos da disponibilidade", "—", "—", impostosDisponibilidade ? moeda(impostosDisponibilidade) : "—"],
-      ["CIP e demais encargos", "—", "—", encargosAdicionais ? moeda(encargosAdicionais) : "—"],
-      ["Total da conta da concessionária", "—", "—", moeda(valorCemig)],
-    ];
-    linhasTarifarias.forEach(([item, quantidade, tarifa, valor], indice) => {
-      const y = 522 + indice * 12;
-      pdf.fillColor(indice === linhasTarifarias.length - 1 ? VERDE_ESCURO : TEXTO).font(indice === linhasTarifarias.length - 1 ? "Helvetica-Bold" : "Helvetica").fontSize(7.2).text(item, 62, y, { width: 188 });
-      pdf.text(quantidade, 262, y, { width: 76, align: "right" });
-      pdf.text(tarifa, 351, y, { width: 80, align: "right" });
-      pdf.text(valor, 442, y, { width: 88, align: "right" });
-    });
+    // Composição compacta da cobrança, como no demonstrativo anterior. A
+    // tabela detalhada da concessionária fica exclusivamente na conta original.
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10.5).text("Como chegamos ao total unificado", 48, 467);
+    pdf.roundedRect(48, 484, LARGURA, 76, 10).fill("#F8FBF9").strokeColor(BORDA).stroke();
+    desenharLinhaDeValor(pdf, 495, `Energia considerada (${energia(energiaCobrada)})`, "");
+    desenharLinha(pdf, 511);
+    desenharLinhaDeValor(pdf, 517, "Tarifa concessionária / Andrade por kWh", `${moeda(tarifaCemig)} / ${moeda(tarifaAndrade)}`);
+    desenharLinha(pdf, 533);
+    desenharLinhaDeValor(pdf, 539, "Concessionária + energia solar Andrade Energy", `${moeda(valorCemig)} + ${moeda(valorUsina)}`);
+    desenharLinha(pdf, 555);
+    desenharLinhaDeValor(pdf, 561, "Total unificado", moeda(valorTotal), true);
 
-    // Gráfico enxuto: permite conferir mês a mês a economia sem transformar
-    // a fatura em uma segunda página.
-    // Resumo intencionalmente discreto: preserva a informação e deixa a área
-    // inferior livre para o QR Code Pix e a linha/código de barras do boleto.
-    pdf.roundedRect(48, 620, LARGURA, 36, 9).fill("#F8FBF9").strokeColor(BORDA).stroke();
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7).text("ECONOMIA ACUMULADA", 64, 632);
-    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(12).text(moeda(economiaAcumulada), 64, 641);
+    // Histórico compacto e discreto, deixando o rodapé disponível para Pix e
+    // código de barras quando esses meios de pagamento forem habilitados.
+    pdf.roundedRect(48, 580, LARGURA, 52, 9).fill("#F8FBF9").strokeColor(BORDA).stroke();
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7).text("ECONOMIA ACUMULADA", 64, 593);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(14).text(moeda(economiaAcumulada), 64, 604);
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7).text(
       historicoEconomia.length ? `${historicoEconomia.length} competências consideradas` : "Histórico será exibido nas próximas faturas",
       294,
-      638,
+      604,
       { width: 220, align: "right" }
     );
     if (temGD2(fatura)) {
       pdf.fillColor("#8A5A00").font("Helvetica").fontSize(7.5).text(
         "GD II: custos obrigatórios da rede continuam na fatura da CEMIG; por isso o desconto final pode ser menor que o contratado.",
         48,
-        671,
+        648,
         { width: LARGURA, align: "center" }
       );
     }
