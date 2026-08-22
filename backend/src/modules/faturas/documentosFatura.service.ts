@@ -125,9 +125,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
   fatura = await incluirDadosDaUCNaFatura(fatura);
   return new Promise<Buffer>((resolve, reject) => {
     const pdf = new PDFDocument({
-      // Formato compacto da fatura unificada aprovada: evita a área em branco
-      // ao final e mantém o resumo, pagamento e créditos em uma única página.
-      size: [595, 710],
+      size: "A4",
       margins: { top: 48, right: 48, bottom: 24, left: 48 },
       info: { Title: `Fatura Andrade Energy - ${fatura.referencia ?? "energia"}` },
     });
@@ -163,7 +161,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     const historicoEconomia = Array.isArray(fatura.historico_economia) ? fatura.historico_economia : [];
 
     const possuiGD2 = temGD2(fatura);
-    const y = { cabecalho: 0, dados: 112, total: 214, aviso: 314, composicao: 357, inferior: 450, creditos: 586 };
+    const y = { cabecalho: 0, dados: 132, total: 272, aviso: 396, composicao: 438, inferior: 548, creditos: 692 };
     const verdeCabecalho = "#063C25";
     const desenharCartao = (x: number, top: number, largura: number, altura: number, fundo = "#FFFFFF") => {
       pdf.roundedRect(x, top, largura, altura, 7).fill(fundo);
@@ -171,31 +169,38 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     };
 
     // Cabeçalho compacto do modelo aprovado.
-    pdf.rect(0, 0, 595, 98).fill(verdeCabecalho);
-    pdf.circle(72, 35, 19).lineWidth(3).strokeColor("#FFC400").stroke();
-    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(23).text("ANDRADE", 98, 24);
-    pdf.strokeColor("#FFC400").lineWidth(2.2).moveTo(99, 51).lineTo(206, 51).stroke();
-    pdf.fillColor("#EAF6EF").font("Helvetica-Bold").fontSize(7).text("E  N  E  R  G  Y", 120, 58);
-    pdf.fillColor("#D8F0E3").font("Helvetica-Bold").fontSize(6.8).text("REFERÊNCIA", 388, 26);
-    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(10).text(fatura.referencia ?? "Não informada", 388, 37);
-    pdf.fillColor("#D8F0E3").font("Helvetica-Bold").fontSize(6.8).text("VENCIMENTO", 477, 26);
-    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(10).text(fatura.vencimento ?? "Não informado", 477, 37);
+    pdf.rect(0, 0, 595, 116).fill(verdeCabecalho);
+    pdf.circle(68, 42, 24).lineWidth(3).strokeColor("#FFC400").stroke();
+    pdf.strokeColor("#FFC400").lineWidth(3).moveTo(50, 63).lineTo(50, 78).lineTo(186, 78).stroke();
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(24).text("ANDRADE", 89, 36);
+    pdf.fillColor("#EAF6EF").font("Helvetica-Bold").fontSize(7.5).text("-  E  N  E  R  G  Y  -", 86, 88, { width: 140, align: "center" });
+    pdf.fillColor("#D8F0E3").font("Helvetica-Bold").fontSize(7).text("REFERÊNCIA", 365, 43);
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(11).text(fatura.referencia ?? "Não informada", 365, 55);
+    pdf.strokeColor("#D8F0E3").lineWidth(0.7).moveTo(458, 38).lineTo(458, 76).stroke();
+    pdf.fillColor("#D8F0E3").font("Helvetica-Bold").fontSize(7).text("VENCIMENTO", 480, 43);
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(11).text(fatura.vencimento ?? "Não informado", 480, 55);
 
     // Identificação do titular e da unidade.
-    pdf.strokeColor(BORDA).lineWidth(0.7).moveTo(297, y.dados).lineTo(297, 194).stroke();
-    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(7).text("DADOS DO TITULAR", 48, y.dados);
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(8.8).text(textoCurto(titular, 39), 48, y.dados + 13, { width: 225 });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7).text(textoCurto(endereco, 60), 48, y.dados + 29, { width: 225 });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7).text(documento ? `CPF: ${documento}` : "CPF não informado", 48, y.dados + 49);
-    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(7).text("UNIDADE CONSUMIDORA (UC)", 321, y.dados);
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(8.5).text(`UC: ${fatura.numero_instalacao ?? unidade.numero ?? "Não informada"}`, 321, y.dados + 13);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.7).text(`Concessionária: ${unidade.distribuidora ?? fatura.distribuidora ?? "CEMIG"}`, 321, y.dados + 26);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.7).text(`Modalidade: ${String(fatura.modalidade_faturamento ?? "COMPENSACAO").toUpperCase() === "INJECAO" ? "Injeção" : "Compensação"}`, 321, y.dados + 38);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.7).text(`Consumo faturado: ${energia(consumoKwh)}`, 321, y.dados + 50);
+    pdf.strokeColor(BORDA).lineWidth(0.7).moveTo(278, y.dados).lineTo(278, 255).stroke();
+    pdf.circle(59, y.dados + 8, 7).fill(VERDE_ESCURO);
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(7).text("i", 57.4, y.dados + 4);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(7).text("DADOS DO TITULAR", 72, y.dados + 3);
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10).text(textoCurto(titular, 39).toUpperCase(), 48, y.dados + 22, { width: 210 });
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(8).text(textoCurto(endereco, 62), 48, y.dados + 43, { width: 210, lineGap: 3 });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.3).text(documento ? `CPF ${documento}` : "CPF não informado", 48, y.dados + 78);
+    pdf.circle(307, y.dados + 8, 7).fill(VERDE_ESCURO);
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(7).text("•", 305.5, y.dados + 4);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(7).text("UNIDADE CONSUMIDORA (UC)", 320, y.dados + 3);
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(7.6).text(`UC: ${fatura.numero_instalacao ?? unidade.numero ?? "Não informada"}`, 298, y.dados + 22);
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(7.4).text(`Classificação: ${unidade.classificacao ?? "Não informada"}`, 298, y.dados + 36);
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(7.4).text(`Tensão: ${unidade.tensao ?? "Não informada"}`, 298, y.dados + 49);
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(7.4).text(`Leitura atual: ${fatura.leitura_atual ?? "Não informada"}`, 298, y.dados + 62);
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(7.4).text(`Leitura anterior: ${fatura.leitura_anterior ?? "Não informada"}`, 298, y.dados + 75);
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(7.4).text(`Consumo faturado: ${energia(consumoKwh)}`, 298, y.dados + 89);
 
     // Painel principal: total domina, comparação fica secundária.
-    desenharCartao(48, y.total, LARGURA, 90, "#F8FCF9");
-    pdf.strokeColor(BORDA).moveTo(297, y.total + 15).lineTo(297, y.total + 76).stroke();
+    desenharCartao(48, y.total, LARGURA, 112, "#F8FCF9");
+    pdf.strokeColor(BORDA).moveTo(297, y.total + 20).lineTo(297, y.total + 95).stroke();
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8).text("TOTAL A PAGAR", 67, y.total + 18);
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(27).text(moeda(valorTotal), 67, y.total + 32);
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.8).text(documentoUnificado ? "Valor referente à fatura unificada." : "Valor referente à Andrade Energy.", 67, y.total + 61);
@@ -261,8 +266,8 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
       pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text(titulo, x + 12, y.creditos + 12, { width: 90 });
       pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(indice === 0 ? 11 : 8.5).text(valor, x + 12, y.creditos + 36, { width: 92, align: "center" });
     });
-    pdf.rect(48, 663, LARGURA, 14).fill("#EFF6F1");
-    pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.8).text("Você escolhe economia. O planeta agradece.    |    Atendimento Andrade Energy", 61, 667, { width: 470, align: "center" });
+    pdf.rect(48, 773, LARGURA, 14).fill("#EFF6F1");
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.8).text("Você escolhe economia. O planeta agradece.    |    Atendimento Andrade Energy", 61, 777, { width: 470, align: "center" });
     pdf.end();
   });
 }
