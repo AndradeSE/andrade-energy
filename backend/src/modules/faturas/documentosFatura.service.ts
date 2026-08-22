@@ -125,7 +125,9 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
   fatura = await incluirDadosDaUCNaFatura(fatura);
   return new Promise<Buffer>((resolve, reject) => {
     const pdf = new PDFDocument({
-      size: "A4",
+      // Formato compacto da fatura unificada aprovada: evita a área em branco
+      // ao final e mantém o resumo, pagamento e créditos em uma única página.
+      size: [595, 710],
       margins: { top: 48, right: 48, bottom: 24, left: 48 },
       info: { Title: `Fatura Andrade Energy - ${fatura.referencia ?? "energia"}` },
     });
@@ -161,10 +163,11 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     const historicoEconomia = Array.isArray(fatura.historico_economia) ? fatura.historico_economia : [];
 
     const possuiGD2 = temGD2(fatura);
-    const y = { cabecalho: 0, dados: 112, total: 214, aviso: 306, composicao: 347, inferior: 486, creditos: 654 };
+    const y = { cabecalho: 0, dados: 112, total: 214, aviso: 314, composicao: 357, inferior: 450, creditos: 586 };
     const verdeCabecalho = "#063C25";
     const desenharCartao = (x: number, top: number, largura: number, altura: number, fundo = "#FFFFFF") => {
-      pdf.roundedRect(x, top, largura, altura, 7).fill(fundo).strokeColor(BORDA).lineWidth(0.7).stroke();
+      pdf.roundedRect(x, top, largura, altura, 7).fill(fundo);
+      pdf.roundedRect(x, top, largura, altura, 7).strokeColor(BORDA).lineWidth(0.7).stroke();
     };
 
     // Cabeçalho compacto do modelo aprovado.
@@ -191,19 +194,20 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.7).text(`Consumo faturado: ${energia(consumoKwh)}`, 321, y.dados + 50);
 
     // Painel principal: total domina, comparação fica secundária.
-    desenharCartao(48, y.total, LARGURA, 78, "#F8FCF9");
-    pdf.strokeColor(BORDA).moveTo(297, y.total + 15).lineTo(297, y.total + 64).stroke();
+    desenharCartao(48, y.total, LARGURA, 90, "#F8FCF9");
+    pdf.strokeColor(BORDA).moveTo(297, y.total + 15).lineTo(297, y.total + 76).stroke();
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8).text("TOTAL A PAGAR", 67, y.total + 18);
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(27).text(moeda(valorTotal), 67, y.total + 32);
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.8).text(documentoUnificado ? "Valor referente à fatura unificada." : "Valor referente à Andrade Energy.", 67, y.total + 61);
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8).text("SEM ANDRADE ENERGY", 318, y.total + 18);
     pdf.fillColor("#73827C").font("Helvetica-Bold").fontSize(18).text(moeda(valorSemAndrade), 318, y.total + 32);
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7).text(`Economia: ${moeda(economiaReal)}`, 318, y.total + 57);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.2).text(`Desconto contratado: ${percentual(descontoContratado)}`, 318, y.total + 67);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(6.2).text(`Desconto após impostos: ${percentual(descontoReal)}`, 416, y.total + 67);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.2).text(`Desconto contratado: ${percentual(descontoContratado)}`, 318, y.total + 68);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(6.2).text(`Desconto após impostos: ${percentual(descontoReal)}`, 318, y.total + 78);
 
     if (possuiGD2) {
-      pdf.roundedRect(48, y.aviso, LARGURA, 22, 6).fill("#FFF7E7").strokeColor("#F0C36C").lineWidth(0.7).stroke();
+      pdf.roundedRect(48, y.aviso, LARGURA, 22, 6).fill("#FFF7E7");
+      pdf.roundedRect(48, y.aviso, LARGURA, 22, 6).strokeColor("#F0C36C").lineWidth(0.7).stroke();
       pdf.fillColor("#A36500").font("Helvetica-Bold").fontSize(6.7).text("GD II: custos obrigatórios da rede permanecem na conta da concessionária.", 64, y.aviso + 8, { width: 465, align: "center" });
     }
 
@@ -240,7 +244,8 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     });
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6).text("Evolução da economia nas últimas competências", 62, y.inferior + 106, { width: 210, align: "center" });
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text("PAGUE COM PIX", 322, y.inferior + 28);
-    pdf.roundedRect(322, y.inferior + 42, 68, 61, 3).fill("#F6F8F7").strokeColor("#9DB5AA").dash(2, { space: 2 }).stroke().undash();
+    pdf.roundedRect(322, y.inferior + 42, 68, 61, 3).fill("#F6F8F7");
+    pdf.roundedRect(322, y.inferior + 42, 68, 61, 3).strokeColor("#9DB5AA").dash(2, { space: 2 }).stroke().undash();
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7).text("QR CODE\nPIX", 337, y.inferior + 62, { width: 38, align: "center" });
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text("CÓDIGO DE BARRAS", 410, y.inferior + 28);
     const barras = [2,1,3,2,1,4,1,2,3,1,2,4,2,1,3,1,2,3,2,4,1,2,3,1,4,2,1,3,2,1,3,2,4];
@@ -256,8 +261,8 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
       pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text(titulo, x + 12, y.creditos + 12, { width: 90 });
       pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(indice === 0 ? 11 : 8.5).text(valor, x + 12, y.creditos + 36, { width: 92, align: "center" });
     });
-    pdf.rect(48, 731, LARGURA, 14).fill("#EFF6F1");
-    pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.8).text("Você escolhe economia. O planeta agradece.    |    Atendimento Andrade Energy", 61, 735, { width: 470, align: "center" });
+    pdf.rect(48, 663, LARGURA, 14).fill("#EFF6F1");
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.8).text("Você escolhe economia. O planeta agradece.    |    Atendimento Andrade Energy", 61, 667, { width: 470, align: "center" });
     pdf.end();
   });
 }
