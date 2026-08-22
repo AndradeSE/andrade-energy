@@ -166,23 +166,44 @@ if (!cliente.usina_id) {
       "COMPENSACAO"
   ).toUpperCase() as ModalidadeFaturamento;
   const descontoPercentual = Number(cliente.desconto_percentual ?? 40);
-  const temCompensacaoInformada = Number(dados.energiaCompensada) > 0;
+  const energiaCompensadaGD1 = Math.max(0, Number(dados.energiaCompensadaGD1 ?? 0));
+  const energiaCompensadaGD2 = Math.max(0, Number(dados.energiaCompensadaGD2 ?? 0));
+  const energiaCompensadaDaFatura = energiaCompensadaGD1 + energiaCompensadaGD2;
+  const energiaCompensadaFaturada = energiaCompensadaDaFatura > 0
+    ? energiaCompensadaDaFatura
+    : Math.max(0, Number(dados.energiaCompensada ?? 0));
+  const temCompensacaoInformada = energiaCompensadaFaturada > 0;
   const percentualAlocado = Math.max(0, Number(cliente.unidade_consumidora?.percentual_rateio ?? cliente.percentual_rateio ?? 0));
   const [saldoAnterior, energiaInjetadaCalculada] = await Promise.all([
     obterSaldoAnterior(dados),
     obterEnergiaInjetadaDaUsina(cliente.usina_id, dados.referencia, percentualAlocado),
   ]);
-  const energiaCompensadaFaturada = Number(dados.energiaCompensada ?? 0);
   // Na modalidade por compensação, a cobrança mensal considera somente a
   // energia efetivamente compensada na fatura. O saldo atual fica apenas
   // registrado para acerto no encerramento do contrato.
   const baseCompensacaoCalculada = energiaCompensadaFaturada;
   const valorConcessionaria = Number(dados.valorTotal);
-  const valorEnergiaSemGD = Number(dados.consumo ?? 0) * Number(dados.tarifaCheia ?? 0);
-  const valorCreditoEfetivo = Math.min(
-    energiaCompensadaFaturada * Number(dados.tarifaCheia ?? 0),
-    Math.max(0, valorEnergiaSemGD - Number(dados.valorEnergiaConcessionaria ?? 0))
+  const tarifaCheia = Math.max(0, Number(dados.tarifaCheia ?? 0));
+  const valorEnergiaSemGD = Math.max(0, Number(dados.consumo ?? 0)) * tarifaCheia;
+
+  // GD I: o benefício econômico é a energia compensada pela tarifa cheia.
+  // GD II: a CEMIG mantém custos obrigatórios da rede. A parte elegível ao
+  // desconto é limitada pelo que restaria da energia depois desses custos.
+  // Todos os valores vêm da competência importada, portanto variam a cada mês.
+  const creditoGD1 = energiaCompensadaGD1 * tarifaCheia;
+  const limiteCreditoGD2 = Math.max(
+    0,
+    valorEnergiaSemGD - Number(dados.valorEnergiaConcessionaria ?? 0) - creditoGD1
   );
+  const creditoGD2 = energiaCompensadaGD2 > 0
+    ? Math.min(energiaCompensadaGD2 * tarifaCheia, limiteCreditoGD2)
+    : 0;
+  const valorCreditoEfetivo = energiaCompensadaDaFatura > 0
+    ? creditoGD1 + creditoGD2
+    : Math.min(
+      energiaCompensadaFaturada * tarifaCheia,
+      Math.max(0, valorEnergiaSemGD - Number(dados.valorEnergiaConcessionaria ?? 0))
+    );
 
   if (!["INJECAO", "COMPENSACAO"].includes(modalidade)) {
     throw new Error("Modalidade de faturamento do cliente inválida.");
@@ -192,7 +213,7 @@ if (!cliente.usina_id) {
     modalidade,
     energiaInjetada: energiaInjetadaCalculada,
     energiaCompensada: baseCompensacaoCalculada,
-    tarifaCheia: Number(dados.tarifaCheia),
+    tarifaCheia,
     descontoPercentual,
     valorCemig: valorConcessionaria,
     valorCreditoEfetivo,
