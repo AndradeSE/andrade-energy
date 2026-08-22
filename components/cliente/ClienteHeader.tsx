@@ -61,14 +61,20 @@ export default function ClienteHeader({
   const {
     logout,
     selecionarUnidade,
+    usuario,
   } =
     useAuth();
 
+  const chaveNotificacoesLidas = `andrade_energy_notificacoes_lidas_${usuario?.id ?? "anon"}`;
+
   useEffect(() => {
     let ativo = true;
-    AsyncStorage.getItem("andrade_energy_notificacoes_lidas").then((valor) => {
+    Promise.all([AsyncStorage.getItem(chaveNotificacoesLidas), AsyncStorage.getItem("andrade_energy_notificacoes_lidas")]).then(([valor, legado]) => {
       const ids = valor ? JSON.parse(valor) : [];
-      if (ativo) setLidas(Array.isArray(ids) ? ids : []);
+      const idsLegados = legado ? JSON.parse(legado) : [];
+      const unidas = Array.from(new Set([...(Array.isArray(ids) ? ids : []), ...(Array.isArray(idsLegados) ? idsLegados : [])]));
+      if (ativo) setLidas(unidas);
+      void AsyncStorage.setItem(chaveNotificacoesLidas, JSON.stringify(unidas));
     }).catch(() => undefined);
     listarFaturas().then((faturas) => {
       if (!ativo) return;
@@ -81,19 +87,21 @@ export default function ClienteHeader({
         if (dias <= 5) return [{ id: fatura.id, severidade: "media", titulo: "Fatura próxima do vencimento", detalhe: `Vence em ${dias} dia${dias === 1 ? "" : "s"}`, rota: `/faturas/${fatura.id}` }];
         return [];
       });
-      AsyncStorage.getItem("andrade_energy_notificacoes_lidas").then((valor) => {
+      Promise.all([AsyncStorage.getItem(chaveNotificacoesLidas), AsyncStorage.getItem("andrade_energy_notificacoes_lidas")]).then(([valor, legado]) => {
         const ids = valor ? JSON.parse(valor) : [];
-        setNotificacoes(avisos.filter((aviso: any) => !ids.includes(aviso.id)));
+        const idsLegados = legado ? JSON.parse(legado) : [];
+        const idsLidos = Array.from(new Set([...(Array.isArray(ids) ? ids : []), ...(Array.isArray(idsLegados) ? idsLegados : [])]));
+        setNotificacoes(avisos.filter((aviso: any) => !idsLidos.includes(aviso.id) && !idsLidos.includes(`vencida-${aviso.id}`) && !idsLidos.includes(`vence-${aviso.id}`)));
       }).catch(() => setNotificacoes(avisos));
     }).catch(() => { if (ativo) setNotificacoes([]); });
     return () => { ativo = false; };
-  }, []);
+  }, [chaveNotificacoesLidas]);
 
   async function marcarComoLida(id: string) {
     const novas = Array.from(new Set([...lidas, id]));
     setLidas(novas);
     setNotificacoes((lista) => lista.filter((item) => item.id !== id));
-    await AsyncStorage.setItem("andrade_energy_notificacoes_lidas", JSON.stringify(novas));
+    await AsyncStorage.setItem(chaveNotificacoesLidas, JSON.stringify(novas));
   }
 
   const insets =

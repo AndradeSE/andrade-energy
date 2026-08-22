@@ -46,11 +46,16 @@ export default function AppHeader({
 
   useEffect(() => {
     let ativo = true;
-    Promise.all([listarFaturas(), AsyncStorage.getItem(chaveNotificacoesLidas)]).then(([faturas, salvas]) => {
+    Promise.all([listarFaturas(), AsyncStorage.getItem(chaveNotificacoesLidas), AsyncStorage.getItem("andrade_energy_notificacoes_lidas")]).then(([faturas, salvas, legado]) => {
       if (!ativo) return;
       const lidas = salvas ? JSON.parse(salvas) : [];
-      const idsLidos = Array.isArray(lidas) ? lidas : [];
+      const lidasLegadas = legado ? JSON.parse(legado) : [];
+      const idsLidos = Array.from(new Set([
+        ...(Array.isArray(lidas) ? lidas : []),
+        ...(Array.isArray(lidasLegadas) ? lidasLegadas : []),
+      ]));
       setNotificacoesLidas(idsLidos);
+      void AsyncStorage.setItem(chaveNotificacoesLidas, JSON.stringify(idsLidos));
       const hoje = new Date();
       const avisos = (faturas ?? []).flatMap((fatura: any) => {
         const status = String(fatura.cobrancas?.[0]?.status ?? fatura.status ?? "").toUpperCase();
@@ -58,11 +63,13 @@ export default function AppHeader({
         const vencimento = fatura.vencimento ? new Date(`${fatura.vencimento}T23:59:59`) : null;
         if (!vencimento) return [];
         const dias = Math.ceil((vencimento.getTime() - hoje.getTime()) / 86400000);
-        if (dias < 0) return [{ id: `vencida-${fatura.id}`, severidade: "alta", titulo: "Fatura vencida", detalhe: `${fatura.clientes?.nome ?? "Cliente"} · ${fatura.referencia ?? "Competência não informada"}`, rota: proprietario ? "/faturas" : `/faturas/${fatura.id}` }];
-        if (dias <= 5) return [{ id: `vence-${fatura.id}`, severidade: "media", titulo: "Fatura próxima do vencimento", detalhe: `${fatura.clientes?.nome ?? "Cliente"} · vence em ${dias} dia${dias === 1 ? "" : "s"}`, rota: `/faturas/${fatura.id}` }];
+        // O ID é sempre o da fatura, tanto no cabeçalho do gestor quanto no
+        // do consumidor. Assim a mesma leitura não reaparece em outra tela.
+        if (dias < 0) return [{ id: String(fatura.id), severidade: "alta", titulo: "Fatura vencida", detalhe: `${fatura.clientes?.nome ?? "Cliente"} · ${fatura.referencia ?? "Competência não informada"}`, rota: proprietario ? "/faturas" : `/faturas/${fatura.id}` }];
+        if (dias <= 5) return [{ id: String(fatura.id), severidade: "media", titulo: "Fatura próxima do vencimento", detalhe: `${fatura.clientes?.nome ?? "Cliente"} · vence em ${dias} dia${dias === 1 ? "" : "s"}`, rota: `/faturas/${fatura.id}` }];
         return [];
       }).sort((a: any, b: any) => (a.severidade === "alta" ? -1 : 1) - (b.severidade === "alta" ? -1 : 1));
-      setNotificacoes(avisos.filter((aviso: any) => !idsLidos.includes(aviso.id)));
+      setNotificacoes(avisos.filter((aviso: any) => !idsLidos.includes(aviso.id) && !idsLidos.includes(`vencida-${aviso.id}`) && !idsLidos.includes(`vence-${aviso.id}`)));
     }).catch(() => { if (ativo) setNotificacoes([]); });
     return () => { ativo = false; };
   }, [chaveNotificacoesLidas, proprietario, usinaSelecionada?.id]);
