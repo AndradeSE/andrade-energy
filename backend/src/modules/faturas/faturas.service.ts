@@ -23,7 +23,18 @@ export async function listarFaturas(filtro?: { clienteId?: string; uc?: string }
 export async function detalharFatura(id: string) {
   const fatura = await buscarFaturaPorId(id);
   if (!fatura) throw new Error("Fatura não encontrada.");
-  return incluirLinksTemporarios(fatura);
+
+  // PDFs antigos utilizavam nomes fixos. Ao abrir a fatura uma única vez,
+  // recriamos os demonstrativos Andrade com o layout atual e um endereço novo,
+  // sem tocar no PDF original da concessionária.
+  const documentoAntigo = (caminho?: string | null) =>
+    /\/fatura-(?:usina|unificada)\.pdf(?:$|\?)/.test(String(caminho ?? ""));
+  const precisaAtualizarPdf = documentoAntigo(fatura.pdf_usina_url) || documentoAntigo(fatura.pdf_unificada_url);
+  const faturaAtualizada = precisaAtualizarPdf
+    ? await regenerarDocumentosGeradosDaFatura(fatura)
+    : fatura;
+
+  return incluirLinksTemporarios(faturaAtualizada);
 }
 
 export async function excluirFatura(id: string) {
