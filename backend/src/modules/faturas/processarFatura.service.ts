@@ -59,14 +59,6 @@ export async function processarFatura(
   };
 
 }
-  const enderecoDaFatura = String(dados.endereco ?? "").trim();
-  if (enderecoDaFatura && cliente.unidade_consumidora?.id) {
-    const { error: erroEndereco } = await supabase
-      .from("unidades_consumidoras")
-      .update({ endereco: enderecoDaFatura })
-      .eq("id", cliente.unidade_consumidora.id);
-    if (erroEndereco) throw erroEndereco;
-  }
 const faturaExistente = await buscarFatura(
   dados.uc,
   dados.referencia
@@ -162,13 +154,9 @@ if (!cliente.usina_id) {
   // registrado para acerto no encerramento do contrato.
   const baseCompensacaoCalculada = energiaCompensadaFaturada;
   const valorConcessionaria = Number(dados.valorTotal);
-  // A referência comercial é o valor cheio da energia da CEMIG. No GD II,
-  // a parcela que restou na concessionária reduz o crédito econômico e,
-  // consequentemente, o desconto real mostrado ao cliente.
-  const tarifaEnergiaFaturada = Number(dados.tarifaCheia ?? 0);
-  const valorEnergiaSemGD = Number(dados.consumo ?? 0) * tarifaEnergiaFaturada;
+  const valorEnergiaSemGD = Number(dados.consumo ?? 0) * Number(dados.tarifaCheia ?? 0);
   const valorCreditoEfetivo = Math.min(
-    energiaCompensadaFaturada * tarifaEnergiaFaturada,
+    energiaCompensadaFaturada * Number(dados.tarifaCheia ?? 0),
     Math.max(0, valorEnergiaSemGD - Number(dados.valorEnergiaConcessionaria ?? 0))
   );
 
@@ -180,7 +168,7 @@ if (!cliente.usina_id) {
     modalidade,
     energiaInjetada: energiaInjetadaCalculada,
     energiaCompensada: baseCompensacaoCalculada,
-    tarifaCheia: tarifaEnergiaFaturada,
+    tarifaCheia: Number(dados.tarifaCheia),
     descontoPercentual,
     valorCemig: valorConcessionaria,
     valorCreditoEfetivo,
