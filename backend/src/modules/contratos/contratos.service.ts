@@ -240,6 +240,63 @@ export async function importarContratoAssinadoDaUnidadeService(unidadeId: string
   return anexarLinksDoContrato(data);
 }
 
+async function obterContratoDoClienteParaAceite(contratoId: string, usuario: any) {
+  if (String(usuario?.perfil ?? "").toUpperCase() !== "LEITURA") {
+    throw new Error("Somente o titular da conta pode assinar este contrato.");
+  }
+
+  const { data: contrato, error } = await supabase
+    .from("contratos")
+    .select("*")
+    .eq("id", contratoId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!contrato || !usuario?.cliente_id || contrato.cliente_id !== usuario.cliente_id) {
+    throw new Error("Contrato não encontrado para esta conta.");
+  }
+  return contrato;
+}
+
+/** Registra o aceite no app. Não substitui um PDF assinado pelo GOV.BR/ICP-Brasil. */
+export async function registrarAceiteEletronicoService(contratoId: string, usuario: any, evidencias: { ip?: string; userAgent?: string }) {
+  await obterContratoDoClienteParaAceite(contratoId, usuario);
+  const { data, error } = await supabase
+    .from("contratos")
+    .update({
+      aceite_cliente_em: new Date().toISOString(),
+      aceite_cliente_usuario_id: usuario.id,
+      aceite_cliente_ip: evidencias.ip ?? null,
+      aceite_cliente_user_agent: evidencias.userAgent ?? null,
+      status: "VIGENTE",
+    })
+    .eq("id", contratoId)
+    .select()
+    .single();
+  if (error) throw error;
+  return anexarLinksDoContrato(data);
+}
+
+/** Permite ao titular anexar o PDF que ele assinou externamente no GOV.BR. */
+export async function importarContratoAssinadoPeloClienteService(contratoId: string, usuario: any, arquivo?: Express.Multer.File) {
+  if (!arquivo) throw new Error("Selecione o PDF assinado.");
+  if (arquivo.mimetype && arquivo.mimetype !== "application/pdf") throw new Error("Envie um arquivo PDF.");
+  const contrato = await obterContratoDoClienteParaAceite(contratoId, usuario);
+  if (!contrato.unidade_consumidora_id) throw new Error("Este contrato não está vinculado a uma unidade consumidora.");
+  const caminho = await armazenarContratoAssinado(contrato.unidade_consumidora_id, contrato.id, arquivo.path);
+  const { data, error } = await supabase
+    .from("contratos")
+    .update({
+      contrato_assinado_url: caminho,
+      assinado_em: new Date().toISOString(),
+      status: "VIGENTE",
+    })
+    .eq("id", contrato.id)
+    .select()
+    .single();
+  if (error) throw error;
+  return anexarLinksDoContrato(data);
+}
+
 export async function atualizarContratoService(
   id: string,
   dados: any

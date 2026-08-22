@@ -10,6 +10,8 @@ import {
     buscarContratoDaUnidadeController,
     gerarContratoDaUnidadeController,
     importarContratoAssinadoDaUnidadeController,
+    registrarAceiteEletronicoController,
+    importarContratoAssinadoPeloClienteController,
 } from "./contratos.controller";
 import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
 import { upload } from "../../config/multer";
@@ -52,6 +54,9 @@ router.post(
   upload.single("arquivo"),
   importarContratoAssinadoDaUnidadeController
 );
+
+router.post("/:id/aceite-eletronico", exigirAutenticacao, registrarAceiteEletronicoController);
+router.post("/:id/contrato-assinado-cliente", exigirAutenticacao, upload.single("arquivo"), importarContratoAssinadoPeloClienteController);
 
 router.put(
   "/:id",

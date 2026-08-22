@@ -100,6 +100,25 @@ export async function importarContratoAssinadoDaUnidadeController(req: Request, 
   }
 }
 
+export async function registrarAceiteEletronicoController(req: Request, res: Response) {
+  try {
+    res.json(await ContratosService.registrarAceiteEletronicoService(req.params.id, (req as any).usuario, {
+      ip: req.ip,
+      userAgent: req.get("user-agent") ?? undefined,
+    }));
+  } catch (e: any) {
+    res.status(400).json({ message: e.message });
+  }
+}
+
+export async function importarContratoAssinadoPeloClienteController(req: Request, res: Response) {
+  try {
+    res.json(await ContratosService.importarContratoAssinadoPeloClienteService(req.params.id, (req as any).usuario, req.file));
+  } catch (e: any) {
+    res.status(400).json({ message: e.message });
+  }
+}
+
 export async function atualizarContratoController(
   req: Request,
   res: Response
