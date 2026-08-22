@@ -178,11 +178,11 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     // tabela. O cadastro fica somente como alternativa para contas antigas.
     const consumoKwh = numero(dadosCemig.consumo) || consumoKwhCadastrado;
     const custoDisponibilidade = numero(dadosCemig.custoDisponibilidade ?? fatura.custo_disponibilidade);
-    const custoDisponibilidadeTexto = custoDisponibilidade > 0
-      ? moeda(custoDisponibilidade)
-      : dadosCemig && Object.keys(dadosCemig).length > 0
-        ? "Não identificado na conta original"
-        : "Não informado";
+    const franquiaDisponibilidade = numero(dadosCemig.franquiaDisponibilidadeKwh);
+    const tarifaDisponibilidadeSemImpostos = numero(dadosCemig.tarifaDisponibilidadeSemImpostos);
+    const custoDisponibilidadeBruto = numero(dadosCemig.custoDisponibilidadeComImpostos);
+    const impostosDisponibilidade = Math.max(0, custoDisponibilidadeBruto - custoDisponibilidade);
+    const encargosAdicionais = numero(dadosCemig.encargosAdicionais);
     // Mantemos na Andrade os mesmos dados que identificam a conta CEMIG:
     // titular, documento, UC, concessionária e endereço da unidade.
     const titular = dadosCemig.cliente ?? unidade.titular ?? cliente.nome ?? "Cliente não informado";
@@ -199,35 +199,31 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     const energiaGD2 = numero(dadosCemig.energiaCompensadaGD2);
     const tarifaOuIndisponivel = (valor: number) => valor > 0 ? `${moeda(valor)}/kWh` : "—";
 
-    pdf.rect(0, 0, 595, 145).fill(VERDE_ESCURO);
-    // Marca ampliada: a fatura precisa ser imediatamente reconhecível pelo
-    // cliente, inclusive quando o PDF é encaminhado fora do aplicativo.
-    pdf.roundedRect(48, 15, 190, 52, 10).fill("#FFFFFF");
+    pdf.rect(0, 0, 595, 126).fill(VERDE_ESCURO);
+    // Logo e card cadastral compartilham a mesma linha do cabeçalho.
+    pdf.roundedRect(48, 15, 110, 52, 10).fill("#FFFFFF");
     if (CAMINHO_LOGO) {
-      pdf.image(CAMINHO_LOGO, 58, 20, { fit: [170, 42], align: "center", valign: "center" });
+      pdf.image(CAMINHO_LOGO, 55, 22, { fit: [96, 37], align: "center", valign: "center" });
     } else {
-      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(17).text("Andrade Energy", 60, 33, { width: 166, align: "center" });
+      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("Andrade\nEnergy", 59, 31, { width: 88, align: "center" });
     }
-    pdf.fillColor("#D4F0E5").font("Helvetica-Bold").fontSize(10.5).text(tipo === "UNIFICADA" ? "FATURA UNIFICADA DE ENERGIA" : "COBRANÇA DE ENERGIA SOLAR", 252, 21, { width: 294, align: "right" });
-    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(8.5).text(`Referência: ${fatura.referencia ?? "Não informada"}`, 252, 42, { width: 294, align: "right" });
-    pdf.fillColor("#D4F0E5").font("Helvetica").fontSize(8).text(`Vencimento: ${fatura.vencimento ?? "Não informado"}`, 252, 57, { width: 294, align: "right" });
-    pdf.strokeColor("#7FAE9E").lineWidth(0.7).moveTo(48, 76).lineTo(546, 76).stroke();
-    // Mantém o card cadastral original. Ele só foi compactado para conviver
-    // com a marca no próprio cabeçalho, sem perder nenhuma informação.
-    pdf.roundedRect(48, 82, LARGURA, 54, 9).fill("#F8FBF9").strokeColor(BORDA).stroke();
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(6.5).text("TITULAR DA CONTA", 62, 91);
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(9).text(textoCurto(titular, 39), 62, 101, { width: 260 });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.8).text(documento ? `CPF/CNPJ: ${documento}` : "CPF/CNPJ não informado", 62, 114, { width: 260 });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.5).text(textoCurto(endereco, 63), 62, 124, { width: 260 });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(6.5).text("DADOS DA UNIDADE", 336, 91, { width: 194, align: "right" });
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(9).text(`UC ${dadosCemig.uc ?? fatura.numero_instalacao ?? unidade.numero ?? "Não informada"}`, 336, 101, { width: 194, align: "right" });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.8).text(`${dadosCemig.distribuidora ?? unidade.distribuidora ?? fatura.distribuidora ?? "Concessionária"} · ${String(fatura.modalidade_faturamento ?? "COMPENSACAO").toLowerCase() === "injecao" ? "Injeção" : "Compensação"}`, 336, 114, { width: 194, align: "right" });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.5).text(textoCurto(endereco, 42), 336, 124, { width: 194, align: "right" });
+    pdf.roundedRect(168, 15, 378, 52, 10).fill("#F8FBF9").strokeColor(BORDA).stroke();
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(6.2).text("TITULAR DA CONTA", 181, 23);
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(8.5).text(textoCurto(titular, 31), 181, 32, { width: 205 });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.3).text(documento ? `CPF/CNPJ: ${documento}` : "CPF/CNPJ não informado", 181, 44, { width: 205 });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(5.9).text(textoCurto(endereco, 49), 181, 54, { width: 205 });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(6.2).text("DADOS DA UNIDADE", 399, 23, { width: 133, align: "right" });
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(8.5).text(`UC ${dadosCemig.uc ?? fatura.numero_instalacao ?? unidade.numero ?? "Não informada"}`, 399, 32, { width: 133, align: "right" });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.1).text(`${dadosCemig.distribuidora ?? unidade.distribuidora ?? fatura.distribuidora ?? "Concessionária"} · ${String(fatura.modalidade_faturamento ?? "COMPENSACAO").toLowerCase() === "injecao" ? "Injeção" : "Compensação"}`, 399, 46, { width: 133, align: "right" });
+    pdf.fillColor("#D4F0E5").font("Helvetica-Bold").fontSize(9.5).text(tipo === "UNIFICADA" ? "FATURA UNIFICADA DE ENERGIA" : "COBRANÇA DE ENERGIA SOLAR", 48, 82, { width: 300 });
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(8.3).text(`Referência: ${fatura.referencia ?? "Não informada"}`, 350, 82, { width: 196, align: "right" });
+    pdf.fillColor("#D4F0E5").font("Helvetica").fontSize(7.7).text(`Vencimento: ${fatura.vencimento ?? "Não informado"}`, 350, 98, { width: 196, align: "right" });
+    pdf.strokeColor("#7FAE9E").lineWidth(0.7).moveTo(48, 116).lineTo(546, 116).stroke();
 
     // Quadro técnico inspirado na leitura da conta da CEMIG: consumo,
     // energia compensada/injetada e créditos aparecem separados dos valores.
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10.5).text("Energia e créditos", 48, 164);
-    pdf.roundedRect(48, 181, LARGURA, 67, 10).fill("#F8FBF9").strokeColor(BORDA).stroke();
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10.5).text("Energia e créditos", 48, 145);
+    pdf.roundedRect(48, 162, LARGURA, 67, 10).fill("#F8FBF9").strokeColor(BORDA).stroke();
     const itensEnergia = [
       ["Consumo da unidade", energia(consumoKwh)],
       ["Energia compensada no mês", energia(energiaCompensada)],
@@ -238,18 +234,18 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
       const coluna = indice % 2;
       const linha = Math.floor(indice / 2);
       const x = coluna === 0 ? 64 : 315;
-      const y = 193 + linha * 26;
+      const y = 174 + linha * 26;
       pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7.5).text(rotulo, x, y, { width: 210 });
       pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(9.5).text(valor, x, y + 10, { width: 210 });
     });
 
-    pdf.roundedRect(48, 264, LARGURA, 68, 12).fill(VERDE_CLARO);
-    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8.5).text("TOTAL A PAGAR NESTE MÊS", 66, 280);
-    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(20).text(moeda(valorTotal), 66, 295);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text("CEMIG + energia solar Andrade Energy", 66, 317);
-    pdf.fillColor(VERDE).font("Helvetica-Bold").fontSize(8.5).text("SUA ECONOMIA REAL", 344, 280, { width: 170, align: "right" });
-    pdf.fillColor(VERDE).font("Helvetica-Bold").fontSize(15).text(moeda(economiaReal), 344, 295, { width: 170, align: "right" });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(`Desconto final real: ${percentual(descontoReal)}`, 344, 317, { width: 170, align: "right" });
+    pdf.roundedRect(48, 245, LARGURA, 68, 12).fill(VERDE_CLARO);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8.5).text("TOTAL A PAGAR NESTE MÊS", 66, 261);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(20).text(moeda(valorTotal), 66, 276);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text("CEMIG + energia solar Andrade Energy", 66, 298);
+    pdf.fillColor(VERDE).font("Helvetica-Bold").fontSize(8.5).text("SUA ECONOMIA REAL", 344, 261, { width: 170, align: "right" });
+    pdf.fillColor(VERDE).font("Helvetica-Bold").fontSize(15).text(moeda(economiaReal), 344, 276, { width: 170, align: "right" });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(`Desconto final real: ${percentual(descontoReal)}`, 344, 298, { width: 170, align: "right" });
 
     pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10.5).text("Resumo da cobrança", 48, 352);
     pdf.roundedRect(48, 369, LARGURA, 79, 10).fill("#FFFFFF").strokeColor(BORDA).stroke();
@@ -267,18 +263,24 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     // ajudam o consumidor a entender sua cobrança, sem replicar a conta toda.
     pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10.5).text("Tabela tarifária da conta da concessionária", 48, 467);
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7).text("Dados lidos da fatura original", 48, 480);
-    pdf.roundedRect(48, 494, LARGURA, 94, 10).fill("#F8FBF9").strokeColor(BORDA).stroke();
+    pdf.roundedRect(48, 494, LARGURA, 112, 10).fill("#F8FBF9").strokeColor(BORDA).stroke();
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(6.5).text("ITEM", 62, 504, { width: 188 });
     pdf.text("QUANTIDADE", 262, 504, { width: 76, align: "right" });
     pdf.text("TARIFA", 351, 504, { width: 80, align: "right" });
     pdf.text("VALOR / INFORMAÇÃO", 442, 504, { width: 88, align: "right" });
     pdf.strokeColor(BORDA).lineWidth(0.6).moveTo(62, 516).lineTo(530, 516).stroke();
+    const energiaCompensadaOriginal = energiaGD1 + energiaGD2 || energiaCompensada;
+    const tarifaCompensadaOriginal = energiaGD1 > 0 ? tarifaGD1 : energiaGD2 > 0 ? tarifaGD2 : numero(fatura.tarifa_gd);
+    const valorSceeOriginal = energiaCompensadaOriginal * numero(dadosCemig.tarifaScee);
+    const valorCreditoOriginal = energiaGD1 * tarifaGD1 + energiaGD2 * tarifaGD2 || energiaCompensadaOriginal * tarifaCompensadaOriginal;
+    const tipoDisponibilidade = String(dadosCemig.tipoLigacao ?? "ligação").toLowerCase();
     const linhasTarifarias = [
-      ["Energia consumida", energia(consumoKwh), tarifaOuIndisponivel(tarifaCemig), `Base: ${energia(energiaCobrada)}`],
-      [energiaGD1 > 0 ? "Energia compensada GD1" : "Energia compensada", energia(energiaGD1 || energiaCompensada), tarifaOuIndisponivel(tarifaGD1 || numero(fatura.tarifa_gd)), "Crédito utilizado"],
-      [energiaGD2 > 0 ? "Energia compensada GD2" : "Custo de disponibilidade", energiaGD2 > 0 ? energia(energiaGD2) : "—", energiaGD2 > 0 ? tarifaOuIndisponivel(tarifaGD2) : "—", energiaGD2 > 0 ? "Crédito utilizado" : custoDisponibilidadeTexto],
-      [energiaGD2 > 0 ? "Custo de disponibilidade" : "Total da conta", energiaGD2 > 0 ? "—" : "—", "—", energiaGD2 > 0 ? custoDisponibilidadeTexto : moeda(valorCemig)],
-      [energiaGD2 > 0 ? "Total da conta" : "Energia solar Andrade", "—", energiaGD2 > 0 ? "—" : tarifaOuIndisponivel(tarifaAndrade), energiaGD2 > 0 ? moeda(valorCemig) : moeda(valorUsina)],
+      ["Energia SCEE", energia(energiaCompensadaOriginal), tarifaOuIndisponivel(numero(dadosCemig.tarifaScee)), moeda(valorSceeOriginal)],
+      [energiaGD1 > 0 ? "Crédito de energia GD I" : energiaGD2 > 0 ? "Crédito de energia GD II" : "Energia compensada", energia(energiaCompensadaOriginal), tarifaOuIndisponivel(tarifaCompensadaOriginal), `− ${moeda(valorCreditoOriginal)}`],
+      [`Disponibilidade (${tipoDisponibilidade})`, franquiaDisponibilidade ? energia(franquiaDisponibilidade) : "—", tarifaOuIndisponivel(tarifaDisponibilidadeSemImpostos), custoDisponibilidade ? moeda(custoDisponibilidade) : "Não identificado"],
+      ["Impostos da disponibilidade", "—", "—", impostosDisponibilidade ? moeda(impostosDisponibilidade) : "—"],
+      ["CIP e demais encargos", "—", "—", encargosAdicionais ? moeda(encargosAdicionais) : "—"],
+      ["Total da conta da concessionária", "—", "—", moeda(valorCemig)],
     ];
     linhasTarifarias.forEach(([item, quantidade, tarifa, valor], indice) => {
       const y = 522 + indice * 12;
@@ -292,20 +294,20 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     // a fatura em uma segunda página.
     // Resumo intencionalmente discreto: preserva a informação e deixa a área
     // inferior livre para o QR Code Pix e a linha/código de barras do boleto.
-    pdf.roundedRect(48, 601, LARGURA, 36, 9).fill("#F8FBF9").strokeColor(BORDA).stroke();
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7).text("ECONOMIA ACUMULADA", 64, 613);
-    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(12).text(moeda(economiaAcumulada), 64, 622);
+    pdf.roundedRect(48, 620, LARGURA, 36, 9).fill("#F8FBF9").strokeColor(BORDA).stroke();
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7).text("ECONOMIA ACUMULADA", 64, 632);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(12).text(moeda(economiaAcumulada), 64, 641);
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7).text(
       historicoEconomia.length ? `${historicoEconomia.length} competências consideradas` : "Histórico será exibido nas próximas faturas",
       294,
-      619,
+      638,
       { width: 220, align: "right" }
     );
     if (temGD2(fatura)) {
       pdf.fillColor("#8A5A00").font("Helvetica").fontSize(7.5).text(
         "GD II: custos obrigatórios da rede continuam na fatura da CEMIG; por isso o desconto final pode ser menor que o contratado.",
         48,
-        652,
+        671,
         { width: LARGURA, align: "center" }
       );
     }

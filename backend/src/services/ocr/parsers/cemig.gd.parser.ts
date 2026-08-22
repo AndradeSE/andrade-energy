@@ -36,15 +36,52 @@ function extrairValorLinha(texto: string, expressao: RegExp): number {
   return valor ? paraNumero(valor) : 0;
 }
 
-function extrairCustoDisponibilidade(texto: string) {
+function extrairCustoDisponibilidadeBruto(texto: string) {
   // Nas contas recentes a linha vem como "Custo de Disponibilidade kWh
   // quantidade tarifa valor". O kWh era ignorado pelo padrão anterior e
   // fazia o campo cair indevidamente em zero.
-  const linha = texto.match(
-    /Custo\s+de\s+Disponibilidade(?:\s+kWh)?\s+([\d.,]+)(?:\s+([\d.,]+))?(?:\s+([\d.,]+))?/i
-  );
+  const linha = texto.split(/\r?\n/).find((item) => /Custo\s+de\s+Disponibilidade/i.test(item));
   if (!linha) return 0;
-  return paraNumero(linha[3] ?? linha[2] ?? "0");
+  const valores = [...linha.matchAll(/[\d.]+(?:,\d+)?/g)].map((item) => paraNumero(item[0]));
+  // Sem kWh, a NF traz "preço unitário, valor". Quando vier quantidade,
+  // ela ocupa a primeira posição e o valor passa a ser o terceiro número.
+  return /Disponibilidade\s*kWh/i.test(linha)
+    ? valores[2] ?? 0
+    : valores[1] ?? 0;
+}
+
+function extrairLinhaEnergiaEletrica(texto: string) {
+  const linha = texto.split(/\r?\n/).find((item) => /Energia\s+Elétrica\s*kWh/i.test(item));
+  if (!linha) return { quantidade: 0, precoComImpostos: 0, valorComImpostos: 0, tarifaSemImpostos: 0 };
+  const valores = [...linha.matchAll(/[\d.]+(?:,\d+)?/g)].map((item) => paraNumero(item[0]));
+  return {
+    quantidade: valores[0] ?? 0,
+    precoComImpostos: valores[1] ?? 0,
+    valorComImpostos: valores[2] ?? 0,
+    // A última coluna da NF é a tarifa unitária sem PIS/COFINS e ICMS.
+    tarifaSemImpostos: valores.at(-1) ?? 0,
+  };
+}
+
+function extrairTarifaDoAjusteDisponibilidade(texto: string) {
+  const linha = texto.split(/\r?\n/).find((item) => /(?:Ajuste\s+)?Custo\s+Disponibilidade\s*-/i.test(item));
+  if (!linha) return 0;
+  const valores = [...linha.matchAll(/[\d.]+(?:,\d+)?/g)].map((item) => paraNumero(item[0]));
+  return valores.at(-1) ?? 0;
+}
+
+function extrairTipoLigacao(texto: string) {
+  const tipo = texto.match(/(Monof[aá]sico|Bif[aá]sico|Trif[aá]sico)/i)?.[1]
+    ?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+  if (tipo === "MONOFASICO" || tipo === "BIFASICO" || tipo === "TRIFASICO") return tipo;
+  return undefined;
+}
+
+function franquiaDaLigacao(tipo?: string) {
+  if (tipo === "TRIFASICO") return 100;
+  if (tipo === "BIFASICO") return 50;
+  if (tipo === "MONOFASICO") return 30;
+  return 0;
 }
 
 export function parseCemigGD(
@@ -77,13 +114,12 @@ export function parseCemigGD(
   // A competência também aparece no histórico de consumo. Para não pegar
   // acidentalmente o valor de outro mês, a fonte preferencial é a própria
   // linha tarifária "Energia Elétrica" da conta.
-  const consumoDaLinhaTarifaria = paraNumero(
-    buscar(texto, /Energia\s+Elétrica\s*kWh\s+([\d.,]+)/i) || "0"
-  );
+  const historico = extrairHistoricoConsumo(texto);
   const consumoDoHistorico = Number(
     buscar(texto, new RegExp(`${competenciaCurta}\\s+(\\d+)`)) || "0"
   );
-  const consumo = consumoDaLinhaTarifaria || consumoDoHistorico;
+  const consumo = historico.find((item) => item.mes === competenciaCurta)?.consumo || consumoDoHistorico;
+  const linhaEnergiaEletrica = extrairLinhaEnergiaEletrica(texto);
 
   const energiaInjetada = Number(
     buscar(
@@ -107,10 +143,8 @@ export function parseCemigGD(
     ) || "0"
   );
 
-  const tarifaCheia = paraNumero(
-    buscar(texto, /Custo de Disponibilidade\s*([\d.,]+)/i) ||
-    buscar(texto, /Energia Elétrica\s*kWh\s*\d+\s+([\d.,]+)/i) ||
-    "0"
+  const tarifaCheia = linhaEnergiaEletrica.precoComImpostos || paraNumero(
+    buscar(texto, /Custo de Disponibilidade\s*([\d.,]+)/i) || "0"
   );
 
   const tarifaGD = gd1?.tarifa ?? gd2?.tarifa ?? 0;
@@ -123,7 +157,7 @@ export function parseCemigGD(
     texto,
     /Energia Elétrica\s*kWh\s+[\d.,]+\s+[\d.,]+\s+([\d.,]+)/i
   );
-  const valorCustoDisponibilidade = extrairCustoDisponibilidade(texto);
+  const custoDisponibilidadeComImpostos = extrairCustoDisponibilidadeBruto(texto);
   const valorScee = extrairValorLinha(
     texto,
     /Energia SCEE(?:\s+HR)?\s+ISENTA\s*kWh\s+[\d.,]+\s+[\d.,]+\s+([\d.,]+)/i
@@ -134,14 +168,28 @@ export function parseCemigGD(
   );
   const ajusteCustoDisponibilidade = extrairValorLinha(
     texto,
-    /Ajuste Custo Disponibilidade\s*-\s*([\d.,]+)/i
+    /(?:Ajuste\s+)?Custo\s+Disponibilidade\s*-\s*([\d.,]+)/i
   );
+  const tipoLigacao = extrairTipoLigacao(texto);
+  const franquiaDisponibilidadeKwh = franquiaDaLigacao(tipoLigacao);
+  const tarifaDoAjusteDisponibilidade = extrairTarifaDoAjusteDisponibilidade(texto);
+  // Em GD II o ajuste corresponde exatamente à franquia sem impostos.
+  // Ex.: bifásico: 50 kWh x R$ 0,92214 = R$ 46,10.
+  const tarifaDisponibilidadeSemImpostos = tarifaDoAjusteDisponibilidade || (franquiaDisponibilidadeKwh > 0 && ajusteCustoDisponibilidade > 0
+    ? ajusteCustoDisponibilidade / franquiaDisponibilidadeKwh
+    : linhaEnergiaEletrica.quantidade === franquiaDisponibilidadeKwh
+      ? linhaEnergiaEletrica.tarifaSemImpostos
+      : 0);
+  const custoDisponibilidade = franquiaDisponibilidadeKwh * tarifaDisponibilidadeSemImpostos;
+  const custoBrutoDaLinhaEnergia = linhaEnergiaEletrica.quantidade === franquiaDisponibilidadeKwh
+    ? linhaEnergiaEletrica.valorComImpostos
+    : 0;
+  const custoDisponibilidadeBrutoFinal = custoDisponibilidadeComImpostos || custoBrutoDaLinhaEnergia;
   const valorEnergiaConcessionaria = Math.max(
     0,
-    valorEnergiaEletrica + valorCustoDisponibilidade + valorScee - valorCompensado - ajusteCustoDisponibilidade
+    valorEnergiaEletrica + custoDisponibilidadeComImpostos + valorScee - valorCompensado - ajusteCustoDisponibilidade
   );
-
-  const custoDisponibilidade = valorCustoDisponibilidade;
+  const encargosAdicionais = Math.max(0, valorTotal - valorEnergiaConcessionaria);
 
   const economia = paraNumero(
     buscar(
@@ -151,7 +199,6 @@ export function parseCemigGD(
   );
 
   const cadastro = extrairCadastroCemig(texto);
-  const historico = extrairHistoricoConsumo(texto);
   const medicao = extrairMedicaoCemig(texto);
 
   return {
@@ -194,9 +241,23 @@ export function parseCemigGD(
 
     tarifaScee,
 
+    valorCreditoCompensado: valorCompensado,
+
     valorEnergiaConcessionaria,
 
+    tipoLigacao,
+
+    franquiaDisponibilidadeKwh,
+
+    tarifaDisponibilidadeSemImpostos,
+
     custoDisponibilidade,
+
+    custoDisponibilidadeComImpostos: custoDisponibilidadeBrutoFinal,
+
+    ajusteCustoDisponibilidade,
+
+    encargosAdicionais,
 
     bandeira: buscar(
       texto,
