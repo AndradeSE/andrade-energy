@@ -28,6 +28,7 @@ const atalhos = [
   { icon: "people-outline", label: "Clientes", rota: "/clientes" },
   { icon: "business-outline", label: "Usinas", rota: "/usinas" },
   { icon: "flash-outline", label: "Unidades consumidoras", rota: "/unidades" },
+  { icon: "receipt-outline", label: "Faturas", rota: "/faturas" },
   { icon: "document-text-outline", label: "Contratos", rota: "/contratos" },
   { icon: "receipt-outline", label: "Financeiro", rota: "/financeiro" },
 ] as const;
