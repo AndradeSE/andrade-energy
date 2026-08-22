@@ -160,132 +160,104 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     const endereco = unidade.endereco ?? cliente.endereco ?? "Endereço não informado";
     const historicoEconomia = Array.isArray(fatura.historico_economia) ? fatura.historico_economia : [];
 
-    pdf.rect(0, 0, 595, 96).fill("#FFFFFF");
-    desenharLogoNoCabecalho(pdf);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8.5).text(documentoUnificado ? "Fatura unificada de energia" : "Cobrança de energia solar", 48, 77);
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(9).text(`Referência: ${fatura.referencia ?? "Não informada"}`, 350, 33, { width: 196, align: "right" });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(`Vencimento: ${fatura.vencimento ?? "Não informado"}`, 350, 51, { width: 196, align: "right" });
-    pdf.strokeColor(BORDA).lineWidth(1).moveTo(48, 95).lineTo(547, 95).stroke();
+    const possuiGD2 = temGD2(fatura);
+    const y = { cabecalho: 0, dados: 112, total: 214, aviso: 306, composicao: 347, inferior: 486, creditos: 654 };
+    const verdeCabecalho = "#063C25";
+    const desenharCartao = (x: number, top: number, largura: number, altura: number, fundo = "#FFFFFF") => {
+      pdf.roundedRect(x, top, largura, altura, 7).fill(fundo).strokeColor(BORDA).lineWidth(0.7).stroke();
+    };
 
-    pdf.roundedRect(48, 114, LARGURA, 76, 10).fill("#F8FBF9").strokeColor(BORDA).stroke();
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7).text("TITULAR DA CONTA", 62, 127);
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10.5).text(textoCurto(titular, 39), 62, 139, { width: 260 });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(documento ? `CPF/CNPJ: ${documento}` : "CPF/CNPJ não informado", 62, 156, { width: 260 });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(textoCurto(endereco, 63), 62, 168, { width: 260 });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7).text("DADOS DA UNIDADE", 336, 127, { width: 194, align: "right" });
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10.5).text(`UC ${fatura.numero_instalacao ?? unidade.numero ?? "Não informada"}`, 336, 139, { width: 194, align: "right" });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(`${unidade.distribuidora ?? fatura.distribuidora ?? "Concessionária"} · ${String(fatura.modalidade_faturamento ?? "COMPENSACAO").toLowerCase() === "injecao" ? "Injeção" : "Compensação"}`, 336, 156, { width: 194, align: "right" });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(textoCurto(endereco, 42), 336, 168, { width: 194, align: "right" });
+    // Cabeçalho compacto do modelo aprovado.
+    pdf.rect(0, 0, 595, 98).fill(verdeCabecalho);
+    pdf.circle(72, 35, 19).lineWidth(3).strokeColor("#FFC400").stroke();
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(23).text("ANDRADE", 98, 24);
+    pdf.strokeColor("#FFC400").lineWidth(2.2).moveTo(99, 51).lineTo(206, 51).stroke();
+    pdf.fillColor("#EAF6EF").font("Helvetica-Bold").fontSize(7).text("E  N  E  R  G  Y", 120, 58);
+    pdf.fillColor("#D8F0E3").font("Helvetica-Bold").fontSize(6.8).text("REFERÊNCIA", 388, 26);
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(10).text(fatura.referencia ?? "Não informada", 388, 37);
+    pdf.fillColor("#D8F0E3").font("Helvetica-Bold").fontSize(6.8).text("VENCIMENTO", 477, 26);
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(10).text(fatura.vencimento ?? "Não informado", 477, 37);
 
-    // Quadro técnico inspirado na leitura da conta da CEMIG: consumo,
-    // energia compensada/injetada e créditos aparecem separados dos valores.
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10.5).text("Energia e créditos", 48, 207);
-    pdf.roundedRect(48, 224, LARGURA, 67, 10).fill("#F8FBF9").strokeColor(BORDA).stroke();
-    const itensEnergia = [
-      ["Consumo da unidade", energia(consumoKwh)],
-      ["Energia compensada no mês", energia(energiaCompensada)],
-      ["Energia injetada no mês", energia(energiaInjetada)],
-      ["Saldo atual de créditos", energia(saldoCreditos)],
-    ];
-    itensEnergia.forEach(([rotulo, valor], indice) => {
-      const coluna = indice % 2;
-      const linha = Math.floor(indice / 2);
-      const x = coluna === 0 ? 64 : 315;
-      const y = 236 + linha * 26;
-      const saldoEmDestaque = indice === 3;
-      if (saldoEmDestaque) pdf.roundedRect(306, 257, 210, 28, 7).fill(VERDE_CLARO);
-      pdf.fillColor(saldoEmDestaque ? VERDE_ESCURO : TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7.5).text(rotulo, x, y, { width: 210 });
-      pdf.fillColor(saldoEmDestaque ? VERDE_ESCURO : TEXTO).font("Helvetica-Bold").fontSize(saldoEmDestaque ? 11 : 9.5).text(valor, x, y + 10, { width: 210 });
+    // Identificação do titular e da unidade.
+    pdf.strokeColor(BORDA).lineWidth(0.7).moveTo(297, y.dados).lineTo(297, 194).stroke();
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(7).text("DADOS DO TITULAR", 48, y.dados);
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(8.8).text(textoCurto(titular, 39), 48, y.dados + 13, { width: 225 });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7).text(textoCurto(endereco, 60), 48, y.dados + 29, { width: 225 });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7).text(documento ? `CPF: ${documento}` : "CPF não informado", 48, y.dados + 49);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(7).text("UNIDADE CONSUMIDORA (UC)", 321, y.dados);
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(8.5).text(`UC: ${fatura.numero_instalacao ?? unidade.numero ?? "Não informada"}`, 321, y.dados + 13);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.7).text(`Concessionária: ${unidade.distribuidora ?? fatura.distribuidora ?? "CEMIG"}`, 321, y.dados + 26);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.7).text(`Modalidade: ${String(fatura.modalidade_faturamento ?? "COMPENSACAO").toUpperCase() === "INJECAO" ? "Injeção" : "Compensação"}`, 321, y.dados + 38);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.7).text(`Consumo faturado: ${energia(consumoKwh)}`, 321, y.dados + 50);
+
+    // Painel principal: total domina, comparação fica secundária.
+    desenharCartao(48, y.total, LARGURA, 78, "#F8FCF9");
+    pdf.strokeColor(BORDA).moveTo(297, y.total + 15).lineTo(297, y.total + 64).stroke();
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8).text("TOTAL A PAGAR", 67, y.total + 18);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(27).text(moeda(valorTotal), 67, y.total + 32);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.8).text(documentoUnificado ? "Valor referente à fatura unificada." : "Valor referente à Andrade Energy.", 67, y.total + 61);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8).text("SEM ANDRADE ENERGY", 318, y.total + 18);
+    pdf.fillColor("#73827C").font("Helvetica-Bold").fontSize(18).text(moeda(valorSemAndrade), 318, y.total + 32);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7).text(`Economia: ${moeda(economiaReal)}`, 318, y.total + 57);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.2).text(`Desconto contratado: ${percentual(descontoContratado)}`, 318, y.total + 67);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(6.2).text(`Desconto após impostos: ${percentual(descontoReal)}`, 416, y.total + 67);
+
+    if (possuiGD2) {
+      pdf.roundedRect(48, y.aviso, LARGURA, 22, 6).fill("#FFF7E7").strokeColor("#F0C36C").lineWidth(0.7).stroke();
+      pdf.fillColor("#A36500").font("Helvetica-Bold").fontSize(6.7).text("GD II: custos obrigatórios da rede permanecem na conta da concessionária.", 64, y.aviso + 8, { width: 465, align: "center" });
+    }
+
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8.5).text(documentoUnificado ? "COMO CHEGAMOS AO TOTAL UNIFICADO" : "COMO CHEGAMOS À COBRANÇA", 48, y.composicao - 14);
+    const cards = documentoUnificado
+      ? [["1", "CONTA DA\nCONCESSIONÁRIA", moeda(valorCemig)], ["2", `ENERGIA ANDRADE\n(${energia(energiaCobrada)})`, moeda(valorUsina)], ["3", "TOTAL UNIFICADO", moeda(valorTotal)]]
+      : [["1", "ENERGIA CONSIDERADA", energia(energiaCobrada)], ["2", "TARIFA ANDRADE", moeda(tarifaAndrade)], ["3", "TOTAL ANDRADE", moeda(valorTotal)]];
+    cards.forEach(([ordem, titulo, valor], indice) => {
+      const x = 48 + indice * 169;
+      desenharCartao(x, y.composicao, 151, 78);
+      pdf.circle(x + 17, y.composicao + 17, 10).fill(VERDE_ESCURO);
+      pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(8).text(ordem, x + 14.5, y.composicao + 13);
+      pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(6.4).text(titulo, x + 35, y.composicao + 13, { width: 104 });
+      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(12).text(valor, x + 20, y.composicao + 48, { width: 118, align: "right" });
+      if (indice < 2) {
+        pdf.circle(x + 160, y.composicao + 39, 10).fill("#D6EEE3");
+        pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(13).text(indice === 0 ? "+" : "=", x + 156, y.composicao + 31);
+      }
     });
 
-    pdf.roundedRect(48, 307, LARGURA, 84, 12).fill(VERDE_CLARO);
-    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8.5).text("TOTAL A PAGAR NESTE MÊS", 66, 323);
-    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(27).text(moeda(valorTotal), 66, 336);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(documentoUnificado ? "CEMIG + energia solar Andrade Energy" : "Energia solar Andrade Energy", 66, 360);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7.5).text("Sem benefício Andrade", 344, 321, { width: 170, align: "right" });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(11).text(moeda(valorSemAndrade), 344, 337, { width: 170, align: "right" });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(`Economia: ${moeda(economiaReal)}`, 344, 353, { width: 170, align: "right" });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.5).text(`Desconto contratado: ${percentual(descontoContratado)}`, 344, 365, { width: 170, align: "right" });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(6.5).text(`Após impostos: ${percentual(descontoReal)}`, 344, 374, { width: 170, align: "right" });
+    // Gráfico de economia e área de pagamento lado a lado.
+    desenharCartao(48, y.inferior, 238, 123);
+    desenharCartao(305, y.inferior, 241, 123);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8).text("ECONOMIA MENSAL", 61, y.inferior + 12);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8).text("PAGAMENTO", 318, y.inferior + 12);
+    const ultimasEconomias: number[] = historicoEconomia.slice(-6).map((item: any): number => numero(item?.economia_real ?? item?.economia ?? item));
+    const dadosGrafico = ultimasEconomias.some((valor: number) => valor > 0) ? ultimasEconomias : [0, 0, 0, 0, 0, economiaReal];
+    const maiorEconomia = Math.max(1, ...dadosGrafico);
+    dadosGrafico.forEach((valor: number, indice: number) => {
+      const altura = Math.max(4, (valor / maiorEconomia) * 51);
+      const x = 73 + indice * 29;
+      pdf.roundedRect(x, y.inferior + 89 - altura, 13, altura, 2).fill(indice === dadosGrafico.length - 1 ? VERDE : "#93CFAF");
+      pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(5.4).text(valor > 0 ? moeda(valor).replace("R$", "") : "-", x - 4, y.inferior + 93, { width: 22, align: "center" });
+    });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6).text("Evolução da economia nas últimas competências", 62, y.inferior + 106, { width: 210, align: "center" });
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text("PAGUE COM PIX", 322, y.inferior + 28);
+    pdf.roundedRect(322, y.inferior + 42, 68, 61, 3).fill("#F6F8F7").strokeColor("#9DB5AA").dash(2, { space: 2 }).stroke().undash();
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7).text("QR CODE\nPIX", 337, y.inferior + 62, { width: 38, align: "center" });
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text("CÓDIGO DE BARRAS", 410, y.inferior + 28);
+    const barras = [2,1,3,2,1,4,1,2,3,1,2,4,2,1,3,1,2,3,2,4,1,2,3,1,4,2,1,3,2,1,3,2,4];
+    let xBarra = 410;
+    barras.forEach((largura) => { pdf.rect(xBarra, y.inferior + 46, largura, 38).fill(TEXTO); xBarra += largura + 1.5; });
+    pdf.roundedRect(318, y.inferior + 108, 215, 11, 4).fill("#E3F0E8");
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.6).text("Após o vencimento, encargos poderão ser aplicados.", 327, y.inferior + 111);
 
-    const possuiGD2 = temGD2(fatura);
-    if (possuiGD2) {
-      pdf.roundedRect(48, 401, LARGURA, 24, 8).fill("#FFF5D6").strokeColor("#F0CA70").stroke();
-      pdf.fillColor("#805500").font("Helvetica-Bold").fontSize(7.2).text(
-        "Custos obrigatórios da rede: permanecem na fatura CEMIG e podem reduzir o desconto final.",
-        62,
-        409,
-        { width: 465, align: "center" }
-      );
-    }
-
-    const yResumoTitulo = possuiGD2 ? 439 : 411;
-    const yResumo = yResumoTitulo + 17;
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10.5).text("Resumo da cobrança", 48, yResumoTitulo);
-    pdf.roundedRect(48, yResumo, LARGURA, 79, 10).fill("#FFFFFF").strokeColor(BORDA).stroke();
-    desenharLinhaDeValor(pdf, yResumo + 14, documentoUnificado ? "Sem o benefício Andrade Energy" : "Energia solar sem o benefício Andrade", moeda(valorSemAndrade), true);
-    desenharLinha(pdf, yResumo + 32);
-    desenharLinhaDeValor(pdf, yResumo + 40, "Você paga neste mês", moeda(valorTotal), true);
-    desenharLinha(pdf, yResumo + 58);
-    desenharLinhaDeValor(pdf, yResumo + 66, "Economia real no mês", moeda(economiaReal), true);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7).text(`Desconto contratado: ${percentual(descontoContratado)}  |  Desconto final real: ${percentual(descontoReal)}`, 64, yResumo + 78, { width: 465, align: "center" });
-
-    const yComposicaoTitulo = yResumo + 99;
-    const yComposicao = yComposicaoTitulo + 17;
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10.5).text(documentoUnificado ? "Como chegamos ao total unificado" : "Como chegamos à cobrança Andrade", 48, yComposicaoTitulo);
-    pdf.roundedRect(48, yComposicao, LARGURA, 82, 10).fill("#F8FBF9").strokeColor(BORDA).stroke();
-    if (documentoUnificado) {
-      desenharLinhaDeValor(pdf, yComposicao + 12, "1. Conta da concessionária", moeda(valorCemig));
-      desenharLinha(pdf, yComposicao + 28);
-      desenharLinhaDeValor(pdf, yComposicao + 34, `2. Energia Andrade (${energia(energiaCobrada)})`, moeda(valorUsina));
-      desenharLinha(pdf, yComposicao + 50);
-      desenharLinhaDeValor(pdf, yComposicao + 56, "3. Total unificado a pagar", moeda(valorTotal), true);
-    } else {
-      desenharLinhaDeValor(pdf, yComposicao + 12, `Energia considerada (${energia(energiaCobrada)})`, "");
-      desenharLinha(pdf, yComposicao + 28);
-      desenharLinhaDeValor(pdf, yComposicao + 34, "Tarifa Andrade por kWh", moeda(tarifaAndrade));
-      desenharLinha(pdf, yComposicao + 50);
-      desenharLinhaDeValor(pdf, yComposicao + 56, "Total Andrade Energy", moeda(valorTotal), true);
-    }
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7).text(
-      documentoUnificado ? "A conta CEMIG e a energia solar são cobradas juntas nesta fatura." : "A conta CEMIG é paga diretamente à concessionária.",
-      64,
-      yComposicao + 69,
-      { width: 465, align: "center" }
-    );
-
-    const yInferiorTitulo = yComposicao + 102;
-    const yInferior = yInferiorTitulo + 17;
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10.5).text("Economia mensal", 48, yInferiorTitulo);
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10.5).text("Pagamento", 305, yInferiorTitulo);
-    pdf.roundedRect(48, yInferior, 238, 105, 10).fill("#FFFFFF").strokeColor(BORDA).stroke();
-    pdf.roundedRect(305, yInferior, 241, 105, 10).fill("#FFFFFF").strokeColor(BORDA).stroke();
-
-    const ultimasEconomias: number[] = historicoEconomia.slice(-6).map((valor: unknown): number => numero(valor));
-    if (ultimasEconomias.some((valor: number) => valor > 0)) {
-      const maiorEconomia = Math.max(1, ...ultimasEconomias);
-      ultimasEconomias.forEach((valor: number, indice: number) => {
-        const altura = Math.max(8, (valor / maiorEconomia) * 42);
-        const x = 66 + indice * 32;
-        pdf.roundedRect(x, yInferior + 63 - altura, 16, altura, 3).fill(indice === ultimasEconomias.length - 1 ? VERDE : "#A8D8C6");
-      });
-      pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.5).text("Últimos meses", 66, yInferior + 70);
-      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8.5).text(`Economia acumulada: ${moeda(ultimasEconomias.reduce((total: number, valor: number) => total + valor, 0))}`, 66, yInferior + 84);
-    } else {
-      pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text("O gráfico aparecerá quando houver competências processadas.", 66, yInferior + 39, { width: 198, align: "center" });
-    }
-
-    pdf.roundedRect(320, yInferior + 15, 54, 54, 7).fill("#F2F7F5").strokeColor(BORDA).stroke();
-    pdf.strokeColor(VERDE).lineWidth(2).moveTo(328, yInferior + 27).lineTo(328, yInferior + 22).lineTo(333, yInferior + 22).stroke();
-    pdf.strokeColor(VERDE).lineWidth(2).moveTo(366, yInferior + 27).lineTo(366, yInferior + 22).lineTo(361, yInferior + 22).stroke();
-    pdf.strokeColor(VERDE).lineWidth(2).moveTo(328, yInferior + 57).lineTo(328, yInferior + 62).lineTo(333, yInferior + 62).stroke();
-    pdf.strokeColor(VERDE).lineWidth(2).moveTo(366, yInferior + 57).lineTo(366, yInferior + 62).lineTo(361, yInferior + 62).stroke();
-    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(7).text("QR PIX", 329, yInferior + 38, { width: 36, align: "center" });
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(7.5).text("Código de barras", 389, yInferior + 16);
-    const barras = [2, 1, 3, 2, 1, 4, 1, 2, 3, 1, 2, 4, 2, 1, 3, 1, 2, 3, 2, 4, 1, 2, 3, 1, 4, 2, 1, 3, 2, 1, 3, 2, 4];
-    let xBarra = 389;
-    barras.forEach((largura) => { pdf.rect(xBarra, yInferior + 31, largura, 25).fill("#17312A"); xBarra += largura + 1.4; });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.3).text("QR Pix e código de barras serão preenchidos automaticamente quando disponíveis.", 389, yInferior + 65, { width: 136 });
+    const miniCards = [["SALDO ATUAL\nDE CRÉDITOS", energia(saldoCreditos)], ["CRÉDITOS\nGERADOS (MÊS)", energia(energiaInjetada)], ["CRÉDITOS\nUSADOS (MÊS)", energia(energiaCompensada)], ["PRÓXIMA\nLEITURA", fatura.proxima_leitura ?? "A confirmar"]];
+    miniCards.forEach(([titulo, valor], indice) => {
+      const x = 48 + indice * 126;
+      desenharCartao(x, y.creditos, 116, 62, indice === 0 ? "#F2FAF5" : "#FFFFFF");
+      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text(titulo, x + 12, y.creditos + 12, { width: 90 });
+      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(indice === 0 ? 11 : 8.5).text(valor, x + 12, y.creditos + 36, { width: 92, align: "center" });
+    });
+    pdf.rect(48, 731, LARGURA, 14).fill("#EFF6F1");
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.8).text("Você escolhe economia. O planeta agradece.    |    Atendimento Andrade Energy", 61, 735, { width: 470, align: "center" });
     pdf.end();
   });
 }
