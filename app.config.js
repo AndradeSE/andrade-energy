@@ -27,8 +27,8 @@ module.exports = {
     orientation: "portrait",
 
     icon: gerador
-      ? "./assets/images/andrade-logo-horizontal.png"
-      : "./assets/images/android-icon-foreground.png",
+      ? "./assets/images/android-icon-gerador-safe.png"
+      : "./assets/images/android-icon-consumidor-safe.png",
 
     scheme: gerador
       ? "andradeenergygerador"
@@ -48,8 +48,8 @@ module.exports = {
       adaptiveIcon: {
         backgroundColor: gerador ? "#FFFFFF" : "#020617",
         foregroundImage: gerador
-          ? "./assets/images/andrade-logo-horizontal.png"
-          : "./assets/images/android-icon-foreground.png",
+          ? "./assets/images/android-icon-gerador-safe.png"
+          : "./assets/images/android-icon-consumidor-safe.png",
       },
     },
 
