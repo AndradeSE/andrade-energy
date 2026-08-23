@@ -206,7 +206,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
       .single(),
     supabase
       .from("unidades_consumidoras")
-      .select("id,usina_id,cliente_id,endereco,percentual_repasse_disponibilidade,fatura_somente_andrade,repassar_disponibilidade_gd1,repassar_disponibilidade_gd2,repassar_diferenca_fio_b_gd2")
+      .select("id,usina_id,cliente_id,endereco,percentual_repasse_disponibilidade,fatura_somente_andrade,repassar_disponibilidade_gd1,repassar_disponibilidade_gd2,repassar_diferenca_fio_b_gd2,tipo_gd")
       .eq("numero", numero)
       .maybeSingle(),
   ]);
@@ -233,6 +233,10 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
   const repassarDiferencaFioBGD2 = input.repassarDiferencaFioBGD2 === undefined
     ? (unidadeAnterior?.repassar_diferenca_fio_b_gd2 ?? true)
     : Boolean(input.repassarDiferencaFioBGD2);
+  const tipoGdInformado = String(input.tipoGd ?? "").toUpperCase();
+  const tipoGd = ["GD1", "GD2", "MISTA"].includes(tipoGdInformado)
+    ? tipoGdInformado
+    : unidadeAnterior?.tipo_gd ?? null;
 
   let percentual = Number.isFinite(percentualInformado) && percentualInformado > 0
     ? percentualInformado
@@ -274,6 +278,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
       repassar_disponibilidade_gd1: repassarCustoDisponibilidadeGD1,
       repassar_disponibilidade_gd2: repassarCustoDisponibilidadeGD2,
       repassar_diferenca_fio_b_gd2: repassarDiferencaFioBGD2,
+      tipo_gd: tipoGd,
       fatura_somente_andrade: somenteAndrade,
       status: "ATIVA",
     }, { onConflict: "numero" })

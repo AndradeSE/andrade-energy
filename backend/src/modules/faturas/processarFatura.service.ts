@@ -168,6 +168,20 @@ if (!cliente.usina_id) {
   const descontoPercentual = Number(cliente.desconto_percentual ?? 40);
   const energiaCompensadaGD1 = Math.max(0, Number(dados.energiaCompensadaGD1 ?? 0));
   const energiaCompensadaGD2 = Math.max(0, Number(dados.energiaCompensadaGD2 ?? 0));
+  const tipoGdIdentificado = energiaCompensadaGD1 > 0 && energiaCompensadaGD2 > 0
+    ? "MISTA"
+    : energiaCompensadaGD2 > 0
+      ? "GD2"
+      : energiaCompensadaGD1 > 0
+        ? "GD1"
+        : null;
+  if (tipoGdIdentificado && cliente.unidade_consumidora?.id) {
+    const { error: erroTipoGd } = await supabase
+      .from("unidades_consumidoras")
+      .update({ tipo_gd: tipoGdIdentificado })
+      .eq("id", cliente.unidade_consumidora.id);
+    if (erroTipoGd) throw erroTipoGd;
+  }
   const energiaCompensadaDaFatura = energiaCompensadaGD1 + energiaCompensadaGD2;
   const energiaCompensadaFaturada = energiaCompensadaDaFatura > 0
     ? energiaCompensadaDaFatura

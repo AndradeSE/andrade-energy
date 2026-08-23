@@ -23,7 +23,7 @@ function numeroSeguro(valor: unknown) {
 }
 
 export default function NovaUnidade() {
-  const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, cpf: cpfImportado, energiaCompensada, endereco: enderecoImportado, cadastroRapido, consumoMedio: consumoMedioImportado } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; cpf?: string; energiaCompensada?: string; endereco?: string; cadastroRapido?: string; consumoMedio?: string }>();
+  const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, cpf: cpfImportado, energiaCompensada, endereco: enderecoImportado, cadastroRapido, consumoMedio: consumoMedioImportado, tipoGd: tipoGdImportado } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; cpf?: string; energiaCompensada?: string; endereco?: string; cadastroRapido?: string; consumoMedio?: string; tipoGd?: string }>();
   const [numero, setNumero] = useState(""); const [titular, setTitular] = useState("");
   const [cpfTitular, setCpfTitular] = useState("");
   const [tipo, setTipo] = useState<Tipo>("BENEFICIARIA"); const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO");
@@ -50,8 +50,9 @@ export default function NovaUnidade() {
     if (titularExtraido) setTitular(titularExtraido);
     if (enderecoImportado) setEndereco(enderecoImportado);
     if (classificacao === "POSSIVEL_GERADORA") { setTipo("GERADORA"); setModalidade("INJECAO"); }
+    else if (cadastroRapido === "1") setTipo("BENEFICIARIA");
     else if (!Number(energiaCompensada)) setTipo("CONSUMIDORA");
-  }, [classificacao, cliente, clienteIdVinculado, cpfImportado, enderecoImportado, energiaCompensada, origem, uc]);
+  }, [cadastroRapido, classificacao, cliente, clienteIdVinculado, cpfImportado, enderecoImportado, energiaCompensada, origem, uc]);
 
   useEffect(() => {
     const clienteSelecionado = clientes.find((item) => item.id === clienteId);
@@ -72,7 +73,7 @@ export default function NovaUnidade() {
     const consumoMedioFinal = Math.max(0, mediaImportada > 0 ? mediaImportada : numeroSeguro(clienteSelecionado?.consumo_medio_kwh));
 
     if (!numero) return Alert.alert("Dados incompletos", "Informe o número da unidade consumidora.");
-    if (tipo === "BENEFICIARIA" && !clienteId) return Alert.alert("Escolha o cliente", "Vincule a UC a um cliente antes de salvar.");
+    if (tipo !== "GERADORA" && !clienteId) return Alert.alert("Escolha o cliente", "É necessário cadastrar e selecionar um cliente antes de adicionar a UC.");
     if (tipo === "BENEFICIARIA" && !usinaFinal) return Alert.alert("Escolha a usina", "Uma UC beneficiária precisa ser vinculada a uma usina antes de salvar.");
     if (tipo !== "BENEFICIARIA" && !usinaFinal) return Alert.alert("Dados incompletos", "Vincule esta unidade a uma usina.");
     if (cadastroManualDoGerador && ![11, 14].includes(documentoTitular.length)) {
@@ -94,6 +95,7 @@ export default function NovaUnidade() {
           repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR",
           repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR",
           repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR",
+          tipoGd: tipoGdImportado,
           faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE",
           calcularAutomaticamente: true,
         });
@@ -107,6 +109,7 @@ export default function NovaUnidade() {
           repassar_disponibilidade_gd1: repasseDisponibilidadeGD1 === "REPASSAR",
           repassar_disponibilidade_gd2: repasseDisponibilidadeGD2 === "REPASSAR",
           repassar_diferenca_fio_b_gd2: repasseFioBGD2 === "REPASSAR",
+          tipo_gd: ["GD1", "GD2", "MISTA"].includes(String(tipoGdImportado ?? "").toUpperCase()) ? String(tipoGdImportado).toUpperCase() : null,
           fatura_somente_andrade: formatoFatura === "SOMENTE_ANDRADE",
         }, { onConflict: "numero" });
         if (error) throw error;
@@ -123,6 +126,7 @@ export default function NovaUnidade() {
             usinaId: usinaFinal ?? "",
             modalidade: modalidadeFinal,
             desconto: String(descontoFinal),
+            tipoGd: tipoGdImportado ?? "",
           },
         });
       } else {
@@ -146,15 +150,17 @@ export default function NovaUnidade() {
         <Text style={styles.label}>Usina</Text><View style={styles.options}>{usinas.map((u) => <Pressable key={u.id} onPress={() => setUsinaId(usinaId === u.id ? "" : u.id)} style={[styles.link, usinaId === u.id && styles.linkSelected]}><Text>{u.nome}</Text></Pressable>)}</View>
         <FormField label="Desconto contratado (%)" value={desconto} onChangeText={setDesconto} keyboardType="decimal-pad" /><FormField label="Endereço" value={endereco} onChangeText={setEndereco} /></> : null}
       {clienteIdVinculado && !clientes.find((item) => item.id === clienteId)?.usina_id ? <><Text style={styles.label}>Usina geradora</Text><View style={styles.options}>{usinas.map((u) => <Pressable key={u.id} onPress={() => setUsinaId(usinaId === u.id ? "" : u.id)} style={[styles.link, usinaId === u.id && styles.linkSelected]}><Text>{u.nome}</Text></Pressable>)}</View></> : null}
-      {!clienteIdVinculado ? <><Text style={styles.label}>Cliente</Text><View style={styles.options}>{clientes.map((c) => <Pressable key={c.id} onPress={() => setClienteId(clienteId === c.id ? "" : c.id)} style={[styles.link, clienteId === c.id && styles.linkSelected]}><Text>{c.nome}</Text></Pressable>)}</View></> : null}
+      {!clienteIdVinculado ? <><Text style={styles.label}>Vincular ao cliente *</Text>{clientes.length ? <View style={styles.options}>{clientes.map((c) => <Pressable key={c.id} onPress={() => setClienteId(clienteId === c.id ? "" : c.id)} style={[styles.link, clienteId === c.id && styles.linkSelected]}><Text>{c.nome}</Text></Pressable>)}</View> : <Text style={styles.clientRequired}>Cadastre um cliente antes de adicionar uma unidade consumidora.</Text>}</> : null}
       <ChoiceField label="Formato da cobrança" value={formatoFatura} onChange={(valor) => setFormatoFatura(valor as FormatoFatura)} options={[{ label: "Fatura unificada (CEMIG + Andrade)", value: "UNIFICADA" }, { label: "Somente Andrade Energy", value: "SOMENTE_ANDRADE" }]} />
       {formatoFatura === "UNIFICADA" ? <>
-        <ChoiceField label="GD I: custo de disponibilidade recalculado" value={repasseDisponibilidadeGD1} onChange={(valor) => setRepasseDisponibilidadeGD1(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} />
-        <ChoiceField label="GD II: custo de disponibilidade recalculado" value={repasseDisponibilidadeGD2} onChange={(valor) => setRepasseDisponibilidadeGD2(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} />
-        <ChoiceField label="GD II: diferença do Fio B" value={repasseFioBGD2} onChange={(valor) => setRepasseFioBGD2(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} />
+        {!tipoGdImportado || tipoGdImportado === "GD1" || tipoGdImportado === "MISTA" ? <ChoiceField label="GD I: custo de disponibilidade recalculado" value={repasseDisponibilidadeGD1} onChange={(valor) => setRepasseDisponibilidadeGD1(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} /> : null}
+        {!tipoGdImportado || tipoGdImportado === "GD2" || tipoGdImportado === "MISTA" ? <>
+          <ChoiceField label="GD II: custo de disponibilidade recalculado" value={repasseDisponibilidadeGD2} onChange={(valor) => setRepasseDisponibilidadeGD2(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} />
+          <ChoiceField label="GD II: diferença do Fio B" value={repasseFioBGD2} onChange={(valor) => setRepasseFioBGD2(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} />
+        </> : null}
         <Text style={styles.beneficiariaHint}>A disponibilidade é aplicada conforme a modalidade GD identificada na conta; a diferença do Fio B vale somente para GD II. Os demais encargos continuam na fatura da concessionária.</Text>
       </> : null}
-      <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar unidade"} onPress={salvar} />
+      <Button disabled={salvando || (tipo !== "GERADORA" && !clienteId)} title={salvando ? "Salvando..." : "Salvar unidade"} onPress={salvar} />
     </Card>
   </ScrollView></Screen>;
 }
@@ -169,5 +175,6 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl }, eyebrow: { color: Colors.primary, fontSize: Typography.small, fontWeight: "700", letterSpacing: 1.2 },
   title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "700" }, subtitle: { marginTop: Spacing.sm, marginBottom: Spacing.lg, color: Colors.subtitle, lineHeight: 21 },
   label: { marginBottom: Spacing.xs, color: Colors.text, fontSize: Typography.caption, fontWeight: "700" }, beneficiariaHint: { marginTop: -Spacing.sm, marginBottom: Spacing.md, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 }, options: { gap: Spacing.xs, marginBottom: Spacing.md },
+  clientRequired: { marginBottom: Spacing.md, padding: Spacing.md, borderRadius: Radius.md, color: "#92400E", backgroundColor: "#FEF3C7", fontSize: Typography.small, lineHeight: 18 },
   link: { padding: Spacing.sm, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, backgroundColor: Colors.surface }, linkSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
 });

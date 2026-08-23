@@ -71,6 +71,7 @@ export default function EditarAlocacaoUnidade() {
     usinaId: usinaIdImportada,
     modalidade: modalidadeImportada,
     desconto: descontoImportado,
+    tipoGd: tipoGdImportado,
   } = useLocalSearchParams<{
     id?: string;
     numero: string;
@@ -79,6 +80,7 @@ export default function EditarAlocacaoUnidade() {
     usinaId?: string;
     modalidade?: Modalidade;
     desconto?: string;
+    tipoGd?: string;
   }>();
   const [usinas, setUsinas] = useState<any[]>([]); const [usinaId, setUsinaId] = useState("");
   const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO"); const [percentual, setPercentual] = useState("");
@@ -87,6 +89,7 @@ export default function EditarAlocacaoUnidade() {
   const [repasseDisponibilidadeGD1, setRepasseDisponibilidadeGD1] = useState<RepasseGD2>("REPASSAR");
   const [repasseDisponibilidadeGD2, setRepasseDisponibilidadeGD2] = useState<RepasseGD2>("REPASSAR");
   const [repasseFioBGD2, setRepasseFioBGD2] = useState<RepasseGD2>("REPASSAR");
+  const [tipoGd, setTipoGd] = useState("");
   const [clienteIdResolvido, setClienteIdResolvido] = useState("");
   const [loading, setLoading] = useState(true); const [salvando, setSalvando] = useState(false);
 
@@ -151,6 +154,7 @@ export default function EditarAlocacaoUnidade() {
         setRepasseDisponibilidadeGD1((uc?.repassar_disponibilidade_gd1 ?? Number(uc?.percentual_repasse_disponibilidade ?? 100) > 0) ? "REPASSAR" : "ABSORVER");
         setRepasseDisponibilidadeGD2((uc?.repassar_disponibilidade_gd2 ?? Number(uc?.percentual_repasse_disponibilidade ?? 100) > 0) ? "REPASSAR" : "ABSORVER");
         setRepasseFioBGD2((uc?.repassar_diferenca_fio_b_gd2 ?? true) ? "REPASSAR" : "ABSORVER");
+        setTipoGd(String(tipoGdImportado || uc?.tipo_gd || "").toUpperCase());
         setConsumoMedio(mediaFinal > 0 ? String(Math.round(mediaFinal)) : "");
         setPercentual(
           veioDaFatura
@@ -171,7 +175,7 @@ export default function EditarAlocacaoUnidade() {
 
     void carregar();
     return () => { ativa = false; };
-  }, [clienteIdRecebido, consumoMedioImportado, descontoImportado, modalidadeImportada, numeroDaUc, unidadeIdRecebida, usinaIdImportada]);
+  }, [clienteIdRecebido, consumoMedioImportado, descontoImportado, modalidadeImportada, numeroDaUc, tipoGdImportado, unidadeIdRecebida, usinaIdImportada]);
 
   async function salvar() {
     const rateio = valorNumerico(percentual); const descontoNumero = valorNumerico(desconto); const media = Math.max(0, valorNumerico(consumoMedio));
@@ -180,7 +184,7 @@ export default function EditarAlocacaoUnidade() {
     if (!Number.isFinite(rateio) || rateio <= 0 || rateio > 100) return Alert.alert("Percentual inválido", "Informe um percentual entre 0,01% e 100%.");
     if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return Alert.alert("Desconto inválido", "Informe um desconto entre 0% e 100%.");
     try { setSalvando(true);
-      await alocarUnidade(usinaId, { clienteId: clienteIdResolvido, numero: numeroDaUc, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: false });
+      await alocarUnidade(usinaId, { clienteId: clienteIdResolvido, numero: numeroDaUc, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: false });
       Alert.alert("Alocação salva", "A UC foi vinculada à usina com sucesso.", [{ text: "OK", onPress: () => router.back() }]);
     } catch (erro: any) { Alert.alert("Não foi possível alocar", erro?.message ?? "Tente novamente."); } finally { setSalvando(false); }
   }
@@ -309,12 +313,13 @@ export default function EditarAlocacaoUnidade() {
             ]}
           />
           {formatoFatura === "UNIFICADA" ? <>
-            <ChoiceField
+            {!tipoGd || tipoGd === "GD1" || tipoGd === "MISTA" ? <ChoiceField
               label="GD I: custo de disponibilidade recalculado"
               value={repasseDisponibilidadeGD1}
               onChange={(valor) => setRepasseDisponibilidadeGD1(valor as RepasseGD2)}
               options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]}
-            />
+            /> : null}
+            {!tipoGd || tipoGd === "GD2" || tipoGd === "MISTA" ? <>
             <ChoiceField
               label="GD II: custo de disponibilidade recalculado"
               value={repasseDisponibilidadeGD2}
@@ -327,6 +332,7 @@ export default function EditarAlocacaoUnidade() {
               onChange={(valor) => setRepasseFioBGD2(valor as RepasseGD2)}
               options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]}
             />
+            </> : null}
             <Text style={styles.hint}>
               A disponibilidade é aplicada conforme a modalidade GD identificada na conta; a diferença do Fio B vale somente para GD II. Os demais encargos continuam na conta da concessionária.
             </Text>

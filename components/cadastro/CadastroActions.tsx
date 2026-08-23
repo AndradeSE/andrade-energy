@@ -22,7 +22,7 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
   const { usinaSelecionada, suspenderBloqueioTemporariamente } = useAuth();
 
   function abrirManual() {
-    router.push({ pathname: rotas[tipo] as any, params: tipo === "CLIENTE" && usinaSelecionada?.id ? { usinaId: usinaSelecionada.id, usinaNome: usinaSelecionada.nome } : {} });
+    router.push({ pathname: rotas[tipo] as any, params: tipo === "CLIENTE" && usinaSelecionada?.id ? { usinaId: usinaSelecionada.id, usinaNome: usinaSelecionada.nome } : tipo === "UNIDADE" ? { cadastroRapido: "1" } : {} });
   }
 
   async function importar() {
@@ -45,6 +45,9 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
       const enderecoExtraido = dados.endereco ?? dados.endereco_instalacao ?? dadosCadastro.endereco ?? "";
       const distribuidoraExtraida = dados.distribuidora ?? dados.concessionaria ?? dadosCadastro.distribuidora ?? "CEMIG";
       const mediaConsumo = calcularMediaConsumoFatura(dados);
+      const possuiGD1 = Number(dados.energiaCompensadaGD1 ?? 0) > 0;
+      const possuiGD2 = Number(dados.energiaCompensadaGD2 ?? 0) > 0;
+      const tipoGd = possuiGD1 && possuiGD2 ? "MISTA" : possuiGD2 ? "GD2" : possuiGD1 ? "GD1" : "";
 
       if (tipo === "USINA" && analise.classificacao !== "POSSIVEL_GERADORA") {
         Alert.alert(
@@ -67,6 +70,8 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
           arquivoUri: item.uri,
           arquivoNome: item.name,
           energiaCompensada: tipo === "UNIDADE" ? "0" : String(dados.energiaCompensada ?? 0),
+          tipoGd: tipo === "UNIDADE" ? tipoGd : "",
+          cadastroRapido: tipo === "UNIDADE" ? "1" : "",
           consumo: String(dados.consumo ?? 0),
           consumoMedio: String(Math.round(mediaConsumo)),
           usinaId: tipo === "CLIENTE" ? String(usinaSelecionada?.id ?? "") : "",

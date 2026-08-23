@@ -14,6 +14,7 @@ import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const moeda = (v: unknown) => Number(v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const documento = (valor: unknown) => { const numeros = String(valor ?? "").replace(/\D/g, ""); if (numeros.length === 11) return numeros.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4"); if (numeros.length === 14) return numeros.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5"); return String(valor ?? ""); };
+const tipoGdDaFatura = (dados: any) => Number(dados?.energiaCompensadaGD1 ?? 0) > 0 && Number(dados?.energiaCompensadaGD2 ?? 0) > 0 ? "MISTA" : Number(dados?.energiaCompensadaGD2 ?? 0) > 0 ? "GD2" : Number(dados?.energiaCompensadaGD1 ?? 0) > 0 ? "GD1" : "";
 
 export default function ClienteDetalhe() {
   const { id } = useLocalSearchParams<{ id: string }>(); const [cliente, setCliente] = useState<any>(); const [faturas, setFaturas] = useState<any[]>([]); const [unidades, setUnidades] = useState<any[]>([]); const [buscaUnidades, setBuscaUnidades] = useState(""); const [mostrarInfo, setMostrarInfo] = useState(false); const [loading, setLoading] = useState(true); const [atualizando, setAtualizando] = useState(false); const [importandoUc, setImportandoUc] = useState(false);
@@ -44,6 +45,7 @@ export default function ClienteDetalhe() {
       const numero = String(dados.uc ?? dados.numero_instalacao ?? dados.numeroInstalacao ?? "").replace(/\D/g, "");
       if (!numero) throw new Error("Não foi possível identificar o número da unidade consumidora.");
       const consumoMedio = calcularMediaConsumoFatura(dados);
+      const tipoGd = tipoGdDaFatura(dados);
       // Sem uma usina definida não criamos uma UC parcialmente vinculada.
       // O formulário seguinte pede a usina antes de salvar e usa a mesma rota
       // canônica de alocação que grava cliente, usina, média e rateio juntos.
@@ -59,6 +61,7 @@ export default function ClienteDetalhe() {
             endereco: String(dados.endereco ?? ""),
             energiaCompensada: String(dados.energiaCompensada ?? 0),
             consumoMedio: consumoMedio > 0 ? String(consumoMedio) : "",
+            tipoGd,
           },
         });
         return;
@@ -72,6 +75,7 @@ export default function ClienteDetalhe() {
         desconto: Number(cliente.desconto_percentual ?? 40),
         consumoMedio,
         endereco: String(dados.endereco ?? ""),
+        tipoGd,
         calcularAutomaticamente: true,
       });
       router.push({
@@ -84,6 +88,7 @@ export default function ClienteDetalhe() {
           usinaId: String(cliente.usina_id ?? ""),
           modalidade: String(cliente.modalidade_faturamento ?? "COMPENSACAO"),
           desconto: String(cliente.desconto_percentual ?? 40),
+          tipoGd,
         },
       });
     } catch (erro: any) {
