@@ -1,5 +1,5 @@
 import { Text, TouchableOpacity, View } from "react-native";
-import { formatarDataBrasileira } from "../utils/date";
+import { formatarDataBrasileira } from "../services/faturas.service";
 
 type Props = {
   competencia?: string;

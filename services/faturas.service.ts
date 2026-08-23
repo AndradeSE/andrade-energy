@@ -5,6 +5,13 @@ export type Fatura = {
   [campo: string]: any;
 };
 
+export function formatarDataBrasileira(valor: unknown, fallback = "Não informado") {
+  const texto = String(valor ?? "").trim();
+  if (!texto) return fallback;
+  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/.exec(texto);
+  return iso ? `${iso[3]}/${iso[2]}/${iso[1]}` : texto;
+}
+
 function consumoMensalValido(item: any) {
   const consumoExtraido = Number(item?.consumo ?? 0);
   const dias = Number(item?.dias ?? 0);

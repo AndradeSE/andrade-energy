@@ -20,9 +20,8 @@ import {
 
 import { AppHeader, Card, Divider, ElasticScrollView as ScrollView, EmptyState, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
-import { buscarFatura, confirmarFaturaRascunho, regenerarDocumentosFatura } from "../../services/faturas.service";
+import { buscarFatura, confirmarFaturaRascunho, formatarDataBrasileira, regenerarDocumentosFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
-import { formatarDataBrasileira } from "../../utils/date";
 
 const formatarMoeda = (valor: number) =>
   Number(valor || 0).toLocaleString("pt-BR", {

@@ -12,7 +12,7 @@ import {
   Typography,
 } from "../../theme";
 import { Badge, Card } from "../ui";
-import { formatarDataBrasileira } from "../../utils/date";
+import { formatarDataBrasileira } from "../../services/faturas.service";
 
 type Props = {
   competencia: string;

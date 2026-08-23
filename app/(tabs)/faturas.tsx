@@ -10,9 +10,8 @@ import { Alert, Linking, Platform, RefreshControl, StyleSheet, Text, TouchableOp
 import { AppHeader, Button, Card, ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useFaturas } from "../../hooks/useFaturas";
-import { excluirFatura } from "../../services/faturas.service";
+import { excluirFatura, formatarDataBrasileira } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
-import { formatarDataBrasileira } from "../../utils/date";
 
 type Filtro = "todas" | "abertas" | "vencidas" | "pagas";
 

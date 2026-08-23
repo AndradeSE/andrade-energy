@@ -4,12 +4,11 @@ import { useCallback, useState } from "react";
 import { Alert, Linking, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { AppHeader, Badge, Card, ElasticScrollView as ScrollView, EmptyState, Loading, Metric, Screen, Section } from "../../components/ui";
-import { excluirFatura, listarFaturas } from "../../services/faturas.service";
+import { excluirFatura, formatarDataBrasileira, listarFaturas } from "../../services/faturas.service";
 import { buscarCliente, buscarUnidade, excluirUnidadeCliente } from "../../services/clientes.service";
 import { buscarUsina } from "../../services/usinas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { IS_GERADOR_APP } from "../../config/appVariant";
-import { formatarDataBrasileira } from "../../utils/date";
 
 const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const paga = (status?: string) => ["PAGA", "PAGO", "QUITADA"].includes(String(status ?? "").toUpperCase());
