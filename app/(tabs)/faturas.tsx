@@ -12,6 +12,7 @@ import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useFaturas } from "../../hooks/useFaturas";
 import { excluirFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
+import { formatarDataBrasileira } from "../../utils/date";
 
 type Filtro = "todas" | "abertas" | "vencidas" | "pagas";
 
@@ -158,7 +159,7 @@ export default function Faturas() {
               {proprietario ? <View style={styles.customer}><Ionicons name="person-outline" size={15} color={Colors.primary} /><Text numberOfLines={1} style={styles.customerText}>{item.clientes?.nome || "Cliente não identificado"}</Text></View> : null}
               <View style={styles.invoiceDivider} />
               <View style={styles.invoiceBottom}>
-                <View><Text style={styles.metaLabel}>{paga ? "PAGAMENTO" : "VENCIMENTO"}</Text><Text style={styles.metaValue}>{paga ? item.cobrancas?.[0]?.pago_em || item.data_pagamento || "Confirmado" : item.vencimento || "Não informado"}</Text></View>
+                <View><Text style={styles.metaLabel}>{paga ? "PAGAMENTO" : "VENCIMENTO"}</Text><Text style={styles.metaValue}>{paga ? formatarDataBrasileira(item.cobrancas?.[0]?.pago_em || item.data_pagamento, "Confirmado") : formatarDataBrasileira(item.vencimento)}</Text></View>
                 <View style={styles.documentType}><Text style={styles.documentLabel}>FATURA ANDRADE ENERGY</Text><Text numberOfLines={1} style={styles.documentCode}>{item.numero_instalacao || item.id}</Text></View>
               </View>
               <View style={styles.downloads}>

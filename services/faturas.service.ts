@@ -101,6 +101,11 @@ export async function regenerarDocumentosFatura(id: string) {
   return data;
 }
 
+export async function confirmarFaturaRascunho(id: string) {
+  const { data } = await api.post(`/faturas/${id}/confirmar`);
+  return data;
+}
+
 export async function atualizarFatura(
   id: string,
   payload: any

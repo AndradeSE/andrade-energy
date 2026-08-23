@@ -7,6 +7,7 @@ import * as Sharing from "expo-sharing";
 import { useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Linking,
   Platform,
@@ -19,8 +20,9 @@ import {
 
 import { AppHeader, Card, Divider, ElasticScrollView as ScrollView, EmptyState, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
-import { buscarFatura, regenerarDocumentosFatura } from "../../services/faturas.service";
+import { buscarFatura, confirmarFaturaRascunho, regenerarDocumentosFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
+import { formatarDataBrasileira } from "../../utils/date";
 
 const formatarMoeda = (valor: number) =>
   Number(valor || 0).toLocaleString("pt-BR", {
@@ -31,12 +33,6 @@ const formatarMoeda = (valor: number) =>
 const formatarEnergia = (valor: unknown) =>
   `${Number(valor ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kWh`;
 
-const formatarData = (valor: unknown) => {
-  const texto = String(valor ?? "").trim();
-  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/.exec(texto);
-  return iso ? `${iso[3]}/${iso[2]}/${iso[1]}` : texto || "Não informado";
-};
-
 export default function DetalheFatura() {
   const { id } = useLocalSearchParams();
   const [fatura, setFatura] = useState<any>();
@@ -44,6 +40,7 @@ export default function DetalheFatura() {
   const [documentoBaixando, setDocumentoBaixando] = useState<string>();
   const [atualizando, setAtualizando] = useState(false);
   const [regenerandoPdf, setRegenerandoPdf] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
 
   const carregar = useCallback(async () => {
     setErro(false);
@@ -77,6 +74,30 @@ export default function DetalheFatura() {
       Alert.alert("Não foi possível atualizar o PDF", "Tente novamente em instantes.");
     } finally {
       setRegenerandoPdf(false);
+    }
+  }
+
+  function solicitarConfirmacao() {
+    Alert.alert(
+      "Confirmar fatura?",
+      `Será criada uma cobrança de ${formatarMoeda(Number(fatura?.valor_total_unificado ?? fatura?.valor_total ?? 0))}.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Confirmar", onPress: () => void confirmarRascunho() },
+      ],
+    );
+  }
+
+  async function confirmarRascunho() {
+    try {
+      setConfirmando(true);
+      const confirmada = await confirmarFaturaRascunho(String(id));
+      setFatura(confirmada);
+      Alert.alert("Fatura confirmada", "A fatura está aberta e a cobrança foi criada.");
+    } catch (erro: any) {
+      Alert.alert("Não foi possível confirmar", erro?.response?.data?.message ?? "Atualize a página e tente novamente.");
+    } finally {
+      setConfirmando(false);
     }
   }
 
@@ -194,7 +215,7 @@ export default function DetalheFatura() {
 
   return (
     <Screen>
-      {IS_GERADOR_APP ? <AppHeader variant="subpage" title="Detalhe da fatura" subtitle="Cobranças da carteira" contextTitle={`Fatura ${fatura.referencia ?? ""}`.trim()} contextSubtitle={`Vencimento ${formatarData(fatura.vencimento)}`} icon="receipt-outline" /> : null}
+      {IS_GERADOR_APP ? <AppHeader variant="subpage" title="Detalhe da fatura" subtitle="Cobranças da carteira" contextTitle={`Fatura ${fatura.referencia ?? ""}`.trim()} contextSubtitle={`Vencimento ${formatarDataBrasileira(fatura.vencimento)}`} icon="receipt-outline" /> : null}
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}
@@ -202,7 +223,7 @@ export default function DetalheFatura() {
       >
         <View style={styles.heading}>
           <Text style={styles.title}>Fatura {fatura.referencia}</Text>
-          <Text style={styles.headingDueDate}>Vencimento {formatarData(fatura.vencimento)}</Text>
+          <Text style={styles.headingDueDate}>Vencimento {formatarDataBrasileira(fatura.vencimento)}</Text>
         </View>
 
         <Card style={styles.customerCard}>
@@ -221,6 +242,18 @@ export default function DetalheFatura() {
         </Card>
 
         <View style={[styles.downloadActions, styles.downloadActionsTop]}>
+          {IS_GERADOR_APP && String(fatura.status ?? "").toUpperCase() === "RASCUNHO" ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              activeOpacity={0.84}
+              disabled={confirmando}
+              onPress={solicitarConfirmacao}
+              style={[styles.confirmButton, confirmando && styles.confirmButtonDisabled]}
+            >
+              {confirmando ? <ActivityIndicator color={Colors.surface} /> : <Ionicons name="checkmark-circle-outline" size={20} color={Colors.surface} />}
+              <Text style={styles.confirmButtonText}>{confirmando ? "Confirmando..." : "Confirmar fatura"}</Text>
+            </TouchableOpacity>
+          ) : null}
           {IS_GERADOR_APP ? (
             <TouchableOpacity
               activeOpacity={0.82}
@@ -323,7 +356,7 @@ export default function DetalheFatura() {
           <Divider />
           <DataRow icon="calendar-outline" label="Período" value={fatura.referencia || "Não informado"} />
           <Divider />
-          <DataRow icon="calendar-number-outline" label="Vencimento" value={formatarData(fatura.vencimento)} />
+          <DataRow icon="calendar-number-outline" label="Vencimento" value={formatarDataBrasileira(fatura.vencimento)} />
         </Card>
       </ScrollView>
     </Screen>
@@ -568,6 +601,18 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: Colors.primary,
   },
+  confirmButton: {
+    minHeight: 48,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.primary,
+  },
+  confirmButtonDisabled: { opacity: 0.65 },
+  confirmButtonText: { color: Colors.surface, fontSize: Typography.caption, fontWeight: "900" },
   noBenefitHighlight: {
     marginTop: Spacing.md,
     padding: Spacing.sm,

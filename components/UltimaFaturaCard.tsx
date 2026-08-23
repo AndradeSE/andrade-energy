@@ -1,4 +1,5 @@
 import { Text, TouchableOpacity, View } from "react-native";
+import { formatarDataBrasileira } from "../utils/date";
 
 type Props = {
   competencia?: string;
@@ -61,7 +62,7 @@ export default function UltimaFaturaCard({
               marginTop: 6,
             }}
           >
-            Vencimento: {vencimento}
+            Vencimento: {formatarDataBrasileira(vencimento)}
           </Text>
 
           <TouchableOpacity

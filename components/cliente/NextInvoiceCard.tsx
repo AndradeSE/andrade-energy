@@ -12,6 +12,7 @@ import {
   Typography,
 } from "../../theme";
 import { Badge, Card } from "../ui";
+import { formatarDataBrasileira } from "../../utils/date";
 
 type Props = {
   competencia: string;
@@ -39,7 +40,7 @@ export default function NextInvoiceCard({
     competencia || "Competência não informada";
 
   const vencimentoExibido =
-    vencimento || "Vencimento não informado";
+    formatarDataBrasileira(vencimento, "Vencimento não informado");
 
   return (
     <TouchableOpacity
