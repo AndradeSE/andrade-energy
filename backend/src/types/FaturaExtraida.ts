@@ -75,7 +75,7 @@ export interface FaturaExtraida {
   /** Tarifa da franquia sem impostos, usada no ajuste da disponibilidade. */
   tarifaDisponibilidadeSemImpostos?: number;
 
-  /** Valor líquido da disponibilidade: franquia x tarifa sem impostos. */
+  /** Diferença da disponibilidade: franquia x (tarifa cheia - tarifa unitária). */
   custoDisponibilidade: number;
 
   /** Valor que aparece inicialmente na NF, antes do ajuste de disponibilidade. */

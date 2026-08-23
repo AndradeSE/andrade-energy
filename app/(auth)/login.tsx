@@ -10,6 +10,7 @@ import {
   Platform,
   StatusBar,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -31,6 +32,7 @@ export default function Login() {
   const [senha, setSenha] = useState("");
   const [loading, setLoading] = useState(false);
   const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [ativarBiometria, setAtivarBiometria] = useState(false);
   const [erroEmail, setErroEmail] = useState("");
   const [erroSenha, setErroSenha] = useState("");
 
@@ -131,7 +133,7 @@ export default function Login() {
                 autoCapitalize="none"
                 autoComplete="current-password"
                 onChangeText={(valor) => { setSenha(valor); if (erroSenha) setErroSenha(""); }}
-                onSubmitEditing={() => void entrar()}
+                onSubmitEditing={() => void entrar(ativarBiometria)}
                 placeholder="Digite sua senha"
                 placeholderTextColor="#92979F"
                 returnKeyType="done"
@@ -154,19 +156,23 @@ export default function Login() {
                 <Text style={styles.forgotText}>Esqueceu sua senha?</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                accessibilityRole="button"
-                activeOpacity={0.75}
-                disabled={loading}
-                onPress={() => entrar(true)}
-                style={styles.biometricLink}
-              >
+              <View style={styles.biometricControl}>
                 <Ionicons name="finger-print-outline" size={17} color={Colors.primary} />
-                <Text style={styles.biometricLinkText}>Ativar biometria</Text>
-              </TouchableOpacity>
+                <Text style={styles.biometricLabel}>Biometria</Text>
+                <Switch
+                  accessibilityLabel={ativarBiometria ? "Desligar ativação da biometria" : "Ligar ativação da biometria"}
+                  disabled={loading}
+                  ios_backgroundColor="#AEB4BA"
+                  onValueChange={setAtivarBiometria}
+                  thumbColor={Colors.surface}
+                  trackColor={{ false: "#AEB4BA", true: Colors.primary }}
+                  value={ativarBiometria}
+                />
+                <Text style={[styles.biometricState, ativarBiometria && styles.biometricStateEnabled]}>{ativarBiometria ? "Ligado" : "Desligado"}</Text>
+              </View>
             </View>
 
-            <TouchableOpacity activeOpacity={0.84} disabled={loading} onPress={() => void entrar()} style={[styles.loginButton, loading && styles.loginButtonDisabled]}>
+            <TouchableOpacity activeOpacity={0.84} disabled={loading} onPress={() => void entrar(ativarBiometria)} style={[styles.loginButton, loading && styles.loginButtonDisabled]}>
               {loading ? <ActivityIndicator color={Colors.surface} /> : <><Text style={styles.loginText}>Entrar</Text><Ionicons name="arrow-forward" size={20} color={Colors.surface} /></>}
             </TouchableOpacity>
 
@@ -210,8 +216,10 @@ const styles = StyleSheet.create({
   accessActions: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 2 },
   forgotButton: { paddingVertical: Spacing.sm },
   forgotText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" },
-  biometricLink: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: Spacing.sm },
-  biometricLinkText: { color: Colors.primary, fontSize: 11, fontWeight: "800" },
+  biometricControl: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 4 },
+  biometricLabel: { color: Colors.primary, fontSize: 11, fontWeight: "800" },
+  biometricState: { minWidth: 52, color: Colors.subtitle, fontSize: 10, fontWeight: "900" },
+  biometricStateEnabled: { color: Colors.primary },
   loginButton: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.lg, borderRadius: Radius.md, backgroundColor: Colors.primary },
   loginButtonDisabled: { opacity: 0.7 },
   loginText: { color: Colors.surface, fontSize: Typography.body, fontWeight: "900" },

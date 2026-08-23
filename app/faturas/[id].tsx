@@ -31,6 +31,12 @@ const formatarMoeda = (valor: number) =>
 const formatarEnergia = (valor: unknown) =>
   `${Number(valor ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kWh`;
 
+const formatarData = (valor: unknown) => {
+  const texto = String(valor ?? "").trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/.exec(texto);
+  return iso ? `${iso[3]}/${iso[2]}/${iso[1]}` : texto || "Não informado";
+};
+
 export default function DetalheFatura() {
   const { id } = useLocalSearchParams();
   const [fatura, setFatura] = useState<any>();
@@ -188,7 +194,7 @@ export default function DetalheFatura() {
 
   return (
     <Screen>
-      {IS_GERADOR_APP ? <AppHeader variant="subpage" title="Detalhe da fatura" subtitle="Cobranças da carteira" contextTitle={`Fatura ${fatura.referencia ?? ""}`.trim()} contextSubtitle={`Vencimento ${fatura.vencimento ?? "não informado"}`} icon="receipt-outline" /> : null}
+      {IS_GERADOR_APP ? <AppHeader variant="subpage" title="Detalhe da fatura" subtitle="Cobranças da carteira" contextTitle={`Fatura ${fatura.referencia ?? ""}`.trim()} contextSubtitle={`Vencimento ${formatarData(fatura.vencimento)}`} icon="receipt-outline" /> : null}
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}
@@ -196,7 +202,7 @@ export default function DetalheFatura() {
       >
         <View style={styles.heading}>
           <Text style={styles.title}>Fatura {fatura.referencia}</Text>
-          <Text style={styles.headingDueDate}>Vencimento {fatura.vencimento}</Text>
+          <Text style={styles.headingDueDate}>Vencimento {formatarData(fatura.vencimento)}</Text>
         </View>
 
         <Card style={styles.customerCard}>
@@ -317,7 +323,7 @@ export default function DetalheFatura() {
           <Divider />
           <DataRow icon="calendar-outline" label="Período" value={fatura.referencia || "Não informado"} />
           <Divider />
-          <DataRow icon="calendar-number-outline" label="Vencimento" value={fatura.vencimento || "Não informado"} />
+          <DataRow icon="calendar-number-outline" label="Vencimento" value={formatarData(fatura.vencimento)} />
         </Card>
       </ScrollView>
     </Screen>

@@ -186,14 +186,21 @@ export function parseCemigGD(
   const tipoLigacao = extrairTipoLigacao(texto);
   const franquiaDisponibilidadeKwh = franquiaDaLigacao(tipoLigacao);
   const tarifaDoAjusteDisponibilidade = extrairTarifaDoAjusteDisponibilidade(texto);
-  // Em GD II o ajuste corresponde exatamente à franquia sem impostos.
-  // Ex.: bifásico: 50 kWh x R$ 0,92214 = R$ 46,10.
+  // A tarifa unitária é a tarifa líquida indicada na própria competência.
+  // O custo final de disponibilidade na GD II é somente a diferença entre
+  // a franquia calculada pela tarifa cheia e a mesma franquia calculada pela
+  // tarifa unitária: franquia x (tarifa cheia - tarifa unitária).
   const tarifaDisponibilidadeSemImpostos = tarifaDoAjusteDisponibilidade || (franquiaDisponibilidadeKwh > 0 && ajusteCustoDisponibilidade > 0
     ? ajusteCustoDisponibilidade / franquiaDisponibilidadeKwh
     : linhaEnergiaEletrica.quantidade === franquiaDisponibilidadeKwh
       ? linhaEnergiaEletrica.tarifaSemImpostos
       : 0);
-  const custoDisponibilidade = franquiaDisponibilidadeKwh * tarifaDisponibilidadeSemImpostos;
+  const custoDisponibilidadeCheio = franquiaDisponibilidadeKwh * tarifaCheia;
+  const custoDisponibilidadePelaTarifaUnitaria = franquiaDisponibilidadeKwh * tarifaDisponibilidadeSemImpostos;
+  const custoDisponibilidade = Math.max(
+    0,
+    custoDisponibilidadeCheio - custoDisponibilidadePelaTarifaUnitaria
+  );
   const custoBrutoDaLinhaEnergia = linhaEnergiaEletrica.quantidade === franquiaDisponibilidadeKwh
     ? linhaEnergiaEletrica.valorComImpostos
     : 0;

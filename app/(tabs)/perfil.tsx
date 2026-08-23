@@ -8,6 +8,7 @@ import {
   Platform,
   RefreshControl,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -267,19 +268,15 @@ export default function Perfil() {
               <Text style={styles.preferenceTitle}>Entrar com biometria</Text>
               <Text style={styles.preferenceDescription}>{digitalDisponivel ? "Use a biometria cadastrada no aparelho para desbloquear o app." : "Nenhuma biometria está cadastrada neste aparelho."}</Text>
             </View>
-            <TouchableOpacity
-              accessibilityLabel={digitalEnabled ? "Desativar biometria" : "Ativar biometria"}
-              activeOpacity={0.8}
+            <Switch
+              accessibilityLabel={digitalEnabled ? "Desligar biometria" : "Ligar biometria"}
               disabled={salvandoDigital || !digitalDisponivel}
-              onPress={() => void alterarDigital(!digitalEnabled)}
-              style={[
-                styles.biometricStatusButton,
-                digitalEnabled ? styles.biometricStatusEnabled : styles.biometricStatusDisabled,
-                (!digitalDisponivel || salvandoDigital) && styles.buttonDisabled,
-              ]}
-            >
-              {salvandoDigital ? <ActivityIndicator color={digitalEnabled ? Colors.surface : Colors.subtitle} size="small" /> : <Text style={[styles.biometricStatusText, digitalEnabled ? styles.biometricStatusTextEnabled : styles.biometricStatusTextDisabled]}>{digitalEnabled ? "Ativada" : "Desativada"}</Text>}
-            </TouchableOpacity>
+              ios_backgroundColor="#CBD5E1"
+              onValueChange={(valor) => void alterarDigital(valor)}
+              thumbColor={Colors.surface}
+              trackColor={{ false: "#CBD5E1", true: Colors.primary }}
+              value={digitalEnabled}
+            />
           </View>
 
           <TouchableOpacity activeOpacity={0.82} onPress={() => setMostrarSenha((aberto) => !aberto)} style={styles.linkRow}>
@@ -380,12 +377,6 @@ const styles = StyleSheet.create({
   preferenceCopy: { flex: 1, marginHorizontal: Spacing.sm },
   preferenceTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "800" },
   preferenceDescription: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 },
-  biometricStatusButton: { minWidth: 82, minHeight: 34, alignItems: "center", justifyContent: "center", paddingHorizontal: Spacing.xs, borderRadius: Radius.round },
-  biometricStatusEnabled: { backgroundColor: Colors.primary },
-  biometricStatusDisabled: { borderWidth: 1, borderColor: "#CBD5E1", backgroundColor: "#F8FAFC" },
-  biometricStatusText: { fontSize: 11, fontWeight: "900" },
-  biometricStatusTextEnabled: { color: Colors.surface },
-  biometricStatusTextDisabled: { color: Colors.subtitle },
   panel: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, borderTopWidth: 1, borderTopColor: Colors.border, backgroundColor: "#F8FAFC" },
   secondaryButton: { minHeight: 48, alignItems: "center", justifyContent: "center", marginTop: Spacing.sm, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md },
   secondaryButtonText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" },

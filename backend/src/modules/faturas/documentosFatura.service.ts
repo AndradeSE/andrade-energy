@@ -39,6 +39,12 @@ function energia(valor: unknown) {
   return `${numero(valor).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kWh`;
 }
 
+function dataBrasileira(valor: unknown) {
+  const texto = String(valor ?? "").trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/.exec(texto);
+  return iso ? `${iso[3]}/${iso[2]}/${iso[1]}` : texto || "Não informado";
+}
+
 function textoCurto(valor: unknown, maximo = 56) {
   const texto = String(valor ?? "").trim();
   return texto.length > maximo ? `${texto.slice(0, Math.max(0, maximo - 1)).trim()}…` : texto;
@@ -193,7 +199,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(11).text(fatura.referencia ?? "Não informada", 365, 55);
     pdf.strokeColor("#D8F0E3").lineWidth(0.7).moveTo(458, 38).lineTo(458, 76).stroke();
     pdf.fillColor("#D8F0E3").font("Helvetica-Bold").fontSize(7).text("VENCIMENTO", 480, 43);
-    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(11).text(fatura.vencimento ?? "Não informado", 480, 55);
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(11).text(dataBrasileira(fatura.vencimento), 480, 55);
 
     // Identificação do titular e da unidade.
     pdf.strokeColor(BORDA).lineWidth(0.7).moveTo(278, y.dados).lineTo(278, 255).stroke();
