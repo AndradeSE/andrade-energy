@@ -10,6 +10,10 @@ export type BillingInput = {
   valorCreditoEfetivo?: number;
   custoDisponibilidadeRepassavel?: number;
   percentualRepasseDisponibilidade?: number;
+  repassarCustoDisponibilidadeGD2?: boolean;
+  repassarCustoDisponibilidade?: boolean;
+  diferencaFioBRepassavel?: number;
+  repassarDiferencaFioBGD2?: boolean;
   faturaSomenteAndrade?: boolean;
   /**
    * Base usada exclusivamente para comunicar a economia percentual. Em GD II,
@@ -32,6 +36,11 @@ export type BillingOutput = {
   valorCemig: number;
   custoDisponibilidadeRepassado: number;
   percentualRepasseDisponibilidade: number;
+  repassarCustoDisponibilidadeGD2: boolean;
+  repassarCustoDisponibilidade: boolean;
+  diferencaFioB: number;
+  diferencaFioBRepassada: number;
+  repassarDiferencaFioBGD2: boolean;
   faturaSomenteAndrade: boolean;
   valorReferenciaSemAndrade: number;
   valorTotalUnificado: number;
@@ -57,6 +66,7 @@ export function calcularFaturaUnificada(input: BillingInput): BillingOutput {
 
   const percentualRepasseDisponibilidade = Number(input.percentualRepasseDisponibilidade ?? 100);
   const custoDisponibilidadeRepassavel = Math.max(0, Number(input.custoDisponibilidadeRepassavel ?? 0));
+  const diferencaFioBRepassavel = Math.max(0, Number(input.diferencaFioBRepassavel ?? 0));
   if (!Number.isFinite(percentualRepasseDisponibilidade) || percentualRepasseDisponibilidade < 0 || percentualRepasseDisponibilidade > 100) {
     throw new Error("Repasse da disponibilidade deve estar entre 0% e 100%.");
   }
@@ -77,9 +87,28 @@ export function calcularFaturaUnificada(input: BillingInput): BillingOutput {
   const tarifaAndrade = input.tarifaCheia * (1 - fatorDesconto);
   const valorEnergiaCheia = baseCalculoKwh * input.tarifaCheia;
   const valorUsinaSemDisponibilidade = baseCalculoKwh * tarifaAndrade;
-  const custoDisponibilidadeRepassado = custoDisponibilidadeRepassavel * percentualRepasseDisponibilidade / 100;
-  // A parcela não repassada é absorvida pela Andrade como desconto adicional.
-  const valorUsina = Math.max(0, valorUsinaSemDisponibilidade - (custoDisponibilidadeRepassavel - custoDisponibilidadeRepassado));
+  // A decisão sobre disponibilidade vale para GD I ou GD II; a diferença
+  // do Fio B existe somente na GD II. Para UCs antigas, preservamos o
+  // percentual legado.
+  const repassarCustoDisponibilidade = input.repassarCustoDisponibilidade
+    ?? input.repassarCustoDisponibilidadeGD2
+    ?? percentualRepasseDisponibilidade > 0;
+  const repassarCustoDisponibilidadeGD2 = input.repassarCustoDisponibilidadeGD2
+    ?? repassarCustoDisponibilidade;
+  const repassarDiferencaFioBGD2 = input.repassarDiferencaFioBGD2 ?? true;
+  const custoDisponibilidadeRepassado = repassarCustoDisponibilidade
+    ? custoDisponibilidadeRepassavel
+    : 0;
+  const diferencaFioBRepassada = repassarDiferencaFioBGD2
+    ? diferencaFioBRepassavel
+    : 0;
+  // O que não for repassado é absorvido pela Andrade como desconto adicional.
+  const valorUsina = Math.max(
+    0,
+    valorUsinaSemDisponibilidade
+      - (custoDisponibilidadeRepassavel - custoDisponibilidadeRepassado)
+      - (diferencaFioBRepassavel - diferencaFioBRepassada)
+  );
   const descontoContratadoValor = valorEnergiaCheia - valorUsina;
   const valorCreditoEfetivo = Math.min(
     valorEnergiaCheia,
@@ -112,6 +141,11 @@ export function calcularFaturaUnificada(input: BillingInput): BillingOutput {
     valorCemig: arredondar(input.valorCemig),
     custoDisponibilidadeRepassado: arredondar(custoDisponibilidadeRepassado),
     percentualRepasseDisponibilidade: arredondar(percentualRepasseDisponibilidade),
+    repassarCustoDisponibilidadeGD2,
+    repassarCustoDisponibilidade,
+    diferencaFioB: arredondar(diferencaFioBRepassavel),
+    diferencaFioBRepassada: arredondar(diferencaFioBRepassada),
+    repassarDiferencaFioBGD2,
     faturaSomenteAndrade,
     valorReferenciaSemAndrade: arredondar(valorReferenciaSemAndrade),
     valorTotalUnificado: arredondar(valorTotalUnificado),

@@ -206,7 +206,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
       .single(),
     supabase
       .from("unidades_consumidoras")
-      .select("id,usina_id,cliente_id,endereco,percentual_repasse_disponibilidade,fatura_somente_andrade")
+      .select("id,usina_id,cliente_id,endereco,percentual_repasse_disponibilidade,fatura_somente_andrade,repassar_disponibilidade_gd1,repassar_disponibilidade_gd2,repassar_diferenca_fio_b_gd2")
       .eq("numero", numero)
       .maybeSingle(),
   ]);
@@ -224,6 +224,15 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
   if (!Number.isFinite(percentualRepasseDisponibilidade) || percentualRepasseDisponibilidade < 0 || percentualRepasseDisponibilidade > 100) {
     throw new Error("Informe um percentual de repasse da disponibilidade entre 0% e 100%.");
   }
+  const repassarCustoDisponibilidadeGD2 = input.repassarCustoDisponibilidadeGD2 === undefined
+    ? (unidadeAnterior?.repassar_disponibilidade_gd2 ?? percentualRepasseDisponibilidade > 0)
+    : Boolean(input.repassarCustoDisponibilidadeGD2);
+  const repassarCustoDisponibilidadeGD1 = input.repassarCustoDisponibilidadeGD1 === undefined
+    ? (unidadeAnterior?.repassar_disponibilidade_gd1 ?? percentualRepasseDisponibilidade > 0)
+    : Boolean(input.repassarCustoDisponibilidadeGD1);
+  const repassarDiferencaFioBGD2 = input.repassarDiferencaFioBGD2 === undefined
+    ? (unidadeAnterior?.repassar_diferenca_fio_b_gd2 ?? true)
+    : Boolean(input.repassarDiferencaFioBGD2);
 
   let percentual = Number.isFinite(percentualInformado) && percentualInformado > 0
     ? percentualInformado
@@ -262,6 +271,9 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
       consumo_medio_kwh: consumoMedio,
       percentual_rateio: percentual,
       percentual_repasse_disponibilidade: percentualRepasseDisponibilidade,
+      repassar_disponibilidade_gd1: repassarCustoDisponibilidadeGD1,
+      repassar_disponibilidade_gd2: repassarCustoDisponibilidadeGD2,
+      repassar_diferenca_fio_b_gd2: repassarDiferencaFioBGD2,
       fatura_somente_andrade: somenteAndrade,
       status: "ATIVA",
     }, { onConflict: "numero" })

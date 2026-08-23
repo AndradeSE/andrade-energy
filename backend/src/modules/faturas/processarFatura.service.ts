@@ -184,6 +184,11 @@ if (!cliente.usina_id) {
   const baseCompensacaoCalculada = energiaCompensadaFaturada;
   const valorConcessionaria = Number(dados.valorTotal);
   const percentualRepasseDisponibilidade = Math.max(0, Math.min(100, Number(cliente.unidade_consumidora?.percentual_repasse_disponibilidade ?? 100)));
+  const repassarCustoDisponibilidadeGD2 = cliente.unidade_consumidora?.repassar_disponibilidade_gd2
+    ?? percentualRepasseDisponibilidade > 0;
+  const repassarCustoDisponibilidadeGD1 = cliente.unidade_consumidora?.repassar_disponibilidade_gd1
+    ?? percentualRepasseDisponibilidade > 0;
+  const repassarDiferencaFioBGD2 = cliente.unidade_consumidora?.repassar_diferenca_fio_b_gd2 ?? true;
   const faturaSomenteAndrade = Boolean(cliente.unidade_consumidora?.fatura_somente_andrade);
   const tarifaCheia = Math.max(0, Number(dados.tarifaCheia ?? 0));
   const valorEnergiaSemGD = Math.max(0, Number(dados.consumo ?? 0)) * tarifaCheia;
@@ -206,14 +211,15 @@ if (!cliente.usina_id) {
       energiaCompensadaFaturada * tarifaCheia,
       Math.max(0, valorEnergiaSemGD - Number(dados.valorEnergiaConcessionaria ?? 0))
     );
-  // No GD II, este residual corresponde ao mínimo de disponibilidade somado
-  // à diferença tarifária. É a única parcela cuja absorção pode ser definida
-  // pela UC; outros encargos continuam exclusivos da concessionária.
-  const custoDisponibilidadeRepassavel = energiaCompensadaGD2 > 0
-    ? Math.max(0, Math.min(
-      Number(dados.valorEnergiaConcessionaria ?? 0),
-      valorEnergiaSemGD - creditoGD1
-    ))
+  // Em GD I e GD II, a disponibilidade é a franquia mínima recalculada a
+  // partir da ligação e da tarifa líquida da própria fatura. Na GD II, a
+  // diferença do Fio B é a diferença entre tarifa cheia e tarifa GD II.
+  // As parcelas podem ser repassadas ou absorvidas separadamente na UC.
+  const custoDisponibilidadeRepassavel = energiaCompensadaDaFatura > 0
+    ? Math.max(0, Number(dados.custoDisponibilidade ?? 0))
+    : 0;
+  const diferencaFioBRepassavel = energiaCompensadaGD2 > 0
+    ? energiaCompensadaGD2 * Math.max(0, tarifaCheia - Number(dados.tarifaGD2 ?? dados.tarifaGD ?? 0))
     : 0;
 
   if (!["INJECAO", "COMPENSACAO"].includes(modalidade)) {
@@ -230,10 +236,15 @@ if (!cliente.usina_id) {
     valorCreditoEfetivo,
     custoDisponibilidadeRepassavel,
     percentualRepasseDisponibilidade,
+    repassarCustoDisponibilidade: energiaCompensadaGD2 > 0
+      ? repassarCustoDisponibilidadeGD2
+      : repassarCustoDisponibilidadeGD1,
+    repassarCustoDisponibilidadeGD2,
+    diferencaFioBRepassavel,
+    repassarDiferencaFioBGD2,
     faturaSomenteAndrade,
-    // No GD II, a disponibilidade (mínimo + diferença tarifária) é paga
-    // diretamente à concessionária. Ela não integra a cobrança Andrade,
-    // mas reduz a economia efetiva apresentada ao cliente.
+    // A disponibilidade e, na GD II, a diferença tarifária continuam na
+    // conta da concessionária quando não forem absorvidas pela Andrade.
     baseDescontoReal:
       energiaCompensadaGD2 > 0 ? valorEnergiaSemGD : valorCreditoEfetivo,
   });
@@ -313,6 +324,21 @@ const fatura = await inserirFatura({
 
   percentual_repasse_disponibilidade:
     calculo.percentualRepasseDisponibilidade,
+
+  repassar_disponibilidade_gd2:
+    calculo.repassarCustoDisponibilidadeGD2,
+
+  repassar_disponibilidade_gd1:
+    repassarCustoDisponibilidadeGD1,
+
+  repassar_diferenca_fio_b_gd2:
+    calculo.repassarDiferencaFioBGD2,
+
+  diferenca_fio_b:
+    calculo.diferencaFioB,
+
+  diferenca_fio_b_repassada:
+    calculo.diferencaFioBRepassada,
 
   fatura_somente_andrade:
     calculo.faturaSomenteAndrade,

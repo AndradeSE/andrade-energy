@@ -58,6 +58,7 @@ As listas também se atualizam ao voltar à tela correspondente.
 - Para **compensação**, a cobrança mensal é somente pela energia compensada lida nos campos `Energia Compensada GD1` ou `GD2`. O saldo de créditos é registrado e cobrado apenas no encerramento do contrato.
 - Na ausência de energia compensada no PDF, considerar `0 kWh`.
 - Para **injeção**, a alocação inicial é 100%, podendo ser ajustada; para compensação, a alocação é sugerida pela média de consumo dos últimos 12 meses e pode ser editada.
+- Cada UC define separadamente se a Andrade **repassa ou absorve** o custo de disponibilidade recalculado em GD I e em GD II. Para GD II, também define o repasse ou absorção da diferença do Fio B. Essas opções somente alteram a parcela correspondente; os demais encargos da concessionária continuam fora da absorção.
 
 Os cálculos com faturas CEMIG, sobretudo GD1/GD2 e tarifas com imposto, ainda devem ser conferidos com PDFs reais antes de uso comercial amplo.
 
@@ -75,10 +76,11 @@ Os cálculos com faturas CEMIG, sobretudo GD1/GD2 e tarifas com imposto, ainda d
 
 Uma alteração de ícone, pacote, permissão nativa ou versão requer novo build EAS. Alterações somente em JavaScript/TypeScript podem ser entregues por update OTA quando houver build compatível instalado.
 
-### Publicação mais recente — 21/08/2026
+### Publicação mais recente — 23/08/2026
 
 - Commits mais recentes: `0753221` (`Usa dados CEMIG no demonstrativo da fatura`) e `fddcdfe` (`Adiciona logo ao PDF da fatura`).
 - O serviço Render está configurado para deploy manual; após enviar uma alteração de backend, usar **Manual Deploy → Deploy latest commit** no painel.
+- A migration `20260823090000_opcoes_gd2_uc.sql` precisa ser aplicada no Supabase antes do deploy que contém as opções de disponibilidade GD I/GD II e Fio B; ela adiciona as configurações por UC e registra os valores na fatura.
 - Atualizações OTA Preview publicadas: Consumidor (`9acd4d63-6ef2-48ce-bd97-ca043ab9e0f2`) e Gerador (`89789091-64a4-45db-bfa5-eab649934ac9`), ambas no runtime `1.0.0`.
 - O novo APK Android para aplicar a configuração nativa do `expo-web-browser` não entrou na fila porque a cota gratuita de builds Android do EAS foi usada. A cota informada pelo EAS volta em **01/09/2026**, ou o build pode ser feito em plano com mais capacidade.
 
