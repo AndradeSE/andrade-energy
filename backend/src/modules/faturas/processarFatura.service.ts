@@ -218,8 +218,13 @@ if (!cliente.usina_id) {
   const custoDisponibilidadeRepassavel = energiaCompensadaDaFatura > 0
     ? Math.max(0, Number(dados.custoDisponibilidade ?? 0))
     : 0;
-  const diferencaFioBRepassavel = energiaCompensadaGD2 > 0
-    ? energiaCompensadaGD2 * Math.max(0, tarifaCheia - Number(dados.tarifaGD2 ?? dados.tarifaGD ?? 0))
+  // Sem a tarifa GD II lida na própria fatura não há como inferir Fio B.
+  // Considerar zero evita que uma falha de leitura transforme a tarifa GD II
+  // em R$ 0,00 e absorva indevidamente toda a cobrança Andrade.
+  const tarifaGD2 = Number(dados.tarifaGD2 ?? dados.tarifaGD ?? 0);
+  const diferencaFioBRepassavel = energiaCompensadaGD2 > 0 &&
+    Number.isFinite(tarifaGD2) && tarifaGD2 > 0 && tarifaGD2 < tarifaCheia
+    ? energiaCompensadaGD2 * (tarifaCheia - tarifaGD2)
     : 0;
 
   if (!["INJECAO", "COMPENSACAO"].includes(modalidade)) {

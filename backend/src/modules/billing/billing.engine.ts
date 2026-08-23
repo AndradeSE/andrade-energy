@@ -103,12 +103,16 @@ export function calcularFaturaUnificada(input: BillingInput): BillingOutput {
     ? diferencaFioBRepassavel
     : 0;
   // O que não for repassado é absorvido pela Andrade como desconto adicional.
-  const valorUsina = Math.max(
-    0,
-    valorUsinaSemDisponibilidade
-      - (custoDisponibilidadeRepassavel - custoDisponibilidadeRepassado)
-      - (diferencaFioBRepassavel - diferencaFioBRepassada)
+  const valorAbsorvidoDisponibilidade = custoDisponibilidadeRepassavel - custoDisponibilidadeRepassado;
+  const valorAbsorvidoFioB = diferencaFioBRepassavel - diferencaFioBRepassada;
+  // Nenhuma configuração pode consumir mais do que a própria parcela Andrade.
+  // Isso impede que uma tarifa lida incorretamente zere a cobrança e deixe
+  // como resultado apenas o valor original da conta da concessionária.
+  const descontosAbsorcao = Math.min(
+    valorUsinaSemDisponibilidade,
+    Math.max(0, valorAbsorvidoDisponibilidade + valorAbsorvidoFioB)
   );
+  const valorUsina = valorUsinaSemDisponibilidade - descontosAbsorcao;
   const descontoContratadoValor = valorEnergiaCheia - valorUsina;
   const valorCreditoEfetivo = Math.min(
     valorEnergiaCheia,

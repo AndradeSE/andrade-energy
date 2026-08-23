@@ -308,27 +308,29 @@ export default function EditarAlocacaoUnidade() {
               { label: "Somente Andrade Energy", value: "SOMENTE_ANDRADE" },
             ]}
           />
-          <ChoiceField
-            label="GD I: custo de disponibilidade recalculado"
-            value={repasseDisponibilidadeGD1}
-            onChange={(valor) => setRepasseDisponibilidadeGD1(valor as RepasseGD2)}
-            options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]}
-          />
-          <ChoiceField
-            label="GD II: custo de disponibilidade recalculado"
-            value={repasseDisponibilidadeGD2}
-            onChange={(valor) => setRepasseDisponibilidadeGD2(valor as RepasseGD2)}
-            options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]}
-          />
-          <ChoiceField
-            label="GD II: diferença do Fio B"
-            value={repasseFioBGD2}
-            onChange={(valor) => setRepasseFioBGD2(valor as RepasseGD2)}
-            options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]}
-          />
-          <Text style={styles.hint}>
-            A disponibilidade é aplicada conforme a modalidade GD identificada na conta; a diferença do Fio B vale somente para GD II. Os demais encargos continuam na conta da concessionária.
-          </Text>
+          {formatoFatura === "UNIFICADA" ? <>
+            <ChoiceField
+              label="GD I: custo de disponibilidade recalculado"
+              value={repasseDisponibilidadeGD1}
+              onChange={(valor) => setRepasseDisponibilidadeGD1(valor as RepasseGD2)}
+              options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]}
+            />
+            <ChoiceField
+              label="GD II: custo de disponibilidade recalculado"
+              value={repasseDisponibilidadeGD2}
+              onChange={(valor) => setRepasseDisponibilidadeGD2(valor as RepasseGD2)}
+              options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]}
+            />
+            <ChoiceField
+              label="GD II: diferença do Fio B"
+              value={repasseFioBGD2}
+              onChange={(valor) => setRepasseFioBGD2(valor as RepasseGD2)}
+              options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]}
+            />
+            <Text style={styles.hint}>
+              A disponibilidade é aplicada conforme a modalidade GD identificada na conta; a diferença do Fio B vale somente para GD II. Os demais encargos continuam na conta da concessionária.
+            </Text>
+          </> : null}
           <Button
             disabled={salvando || !clienteIdResolvido}
             title={salvando ? "Salvando..." : clienteIdResolvido ? "Salvar alocação da UC" : "Vincule um cliente para alocar"}
