@@ -305,6 +305,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
 async function enviarPdf(caminho: string, conteudo: Buffer) {
   const { error } = await supabase.storage.from(BUCKET).upload(caminho, conteudo, {
     contentType: "application/pdf",
+    cacheControl: "0",
     upsert: true,
   });
   if (error) throw error;
@@ -341,13 +342,16 @@ export async function armazenarDocumentosDaFatura(fatura: any, arquivoCemig: str
 /** Regera somente os demonstrativos Andrade sem alterar a conta CEMIG original. */
 export async function regenerarDocumentosGeradosDaFatura(fatura: any) {
   const pasta = `${fatura.cliente_id}/${fatura.id}`;
+  // Um caminho novo evita que o CDN ou o leitor do aparelho reutilize uma
+  // versão anterior depois que valores da fatura forem recalculados.
+  const versao = Date.now();
   const [pdfUsina, pdfUnificada] = await Promise.all([
     gerarPdfFatura(fatura, "USINA"),
     gerarPdfFatura(fatura, "UNIFICADA"),
   ]);
   const [usina, unificada] = await Promise.all([
-    enviarPdf(`${pasta}/fatura-usina.pdf`, pdfUsina),
-    enviarPdf(`${pasta}/fatura-unificada.pdf`, pdfUnificada),
+    enviarPdf(`${pasta}/fatura-usina-${versao}.pdf`, pdfUsina),
+    enviarPdf(`${pasta}/fatura-unificada-${versao}.pdf`, pdfUnificada),
   ]);
   const { error } = await supabase
     .from("faturas")
