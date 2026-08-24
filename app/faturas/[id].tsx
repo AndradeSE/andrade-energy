@@ -139,6 +139,11 @@ export default function DetalheFatura() {
   const energiaCobrada = Number(fatura.base_calculo_kwh ?? fatura.energia_compensada ?? fatura.consumo_kwh ?? fatura.consumo ?? 0);
   const tarifaCemig = Number(fatura.tarifa_cheia ?? 0);
   const tarifaAndrade = Number(fatura.tarifa_andrade ?? 0);
+  const valorCemigOriginal = Number(fatura.valor_cemig ?? 0);
+  const valorCemigRepassado = Number(fatura.valor_cemig_repassado ?? valorCemigOriginal);
+  const valorTotalAbsorvido = Number(fatura.valor_total_absorvido ?? 0);
+  const valorAbsorvidoDisponibilidade = Number(fatura.valor_absorvido_disponibilidade ?? 0);
+  const valorAbsorvidoFioB = Number(fatura.valor_absorvido_fio_b ?? 0);
   const clienteFatura = fatura.clientes ?? {};
   const unidadeFatura = fatura.unidades_consumidoras ?? {};
   const enderecoFatura = unidadeFatura.endereco ?? clienteFatura.endereco ?? "Endereço não informado";
@@ -339,13 +344,14 @@ export default function DetalheFatura() {
           <Divider />
           <ValueRow label="Tarifa Andrade Energy por kWh" value={formatarMoeda(tarifaAndrade)} />
           <Divider />
-          {!faturaSomenteAndrade ? <ValueRow label="Conta da CEMIG" value={formatarMoeda(Number(fatura.valor_cemig ?? 0))} /> : null}
-          <Divider />
+          {!faturaSomenteAndrade ? <><ValueRow label="Conta original da CEMIG" value={formatarMoeda(valorCemigOriginal)} /><Divider />{valorTotalAbsorvido > 0 ? <><ValueRow label="Custos assumidos pela usina" value={`− ${formatarMoeda(valorTotalAbsorvido)}`} /><Divider /><ValueRow label="Parcela CEMIG do cliente" value={formatarMoeda(valorCemigRepassado)} /><Divider /></> : null}</> : null}
           <ValueRow label="Energia solar Andrade Energy" value={formatarMoeda(Number(fatura.valor_usina ?? fatura.valor_andrade ?? 0))} />
           <Divider />
           <ValueRow label={tituloCobranca} value={formatarMoeda(valorUnificado)} emphasis />
         </Card>
-        <Text style={styles.calculationHint}>{faturaSomenteAndrade ? "Cálculo: energia solar Andrade Energy. A conta da CEMIG é paga diretamente à concessionária." : "Cálculo: conta CEMIG + energia solar Andrade Energy = total unificado."} As tarifas por kWh mostram os valores usados nesta competência.</Text>
+        <Text style={styles.calculationHint}>{faturaSomenteAndrade ? "Cálculo: energia solar Andrade Energy. A conta da CEMIG é paga diretamente à concessionária." : valorTotalAbsorvido > 0 ? "Cálculo: conta CEMIG − custos assumidos pela usina + energia solar = total unificado." : "Cálculo: conta CEMIG + energia solar Andrade Energy = total unificado."} As tarifas por kWh mostram os valores usados nesta competência.</Text>
+
+        {valorTotalAbsorvido > 0 ? <Card><ValueRow label="Disponibilidade absorvida" value={formatarMoeda(valorAbsorvidoDisponibilidade)} /><Divider /><ValueRow label="Fio B absorvido" value={formatarMoeda(valorAbsorvidoFioB)} /></Card> : null}
 
         {possuiCustosGD2 ? <View style={styles.gd2Notice}><Ionicons name="information-circle-outline" size={21} color="#8A5A00" /><View style={styles.gd2Copy}><Text style={styles.gd2Title}>Entenda o desconto real na GD II</Text><Text style={styles.gd2Text}>Custos obrigatórios da rede e de disponibilidade continuam na conta da CEMIG. Por isso, o desconto final pode ser menor que o desconto contratado.</Text></View></View> : null}
 

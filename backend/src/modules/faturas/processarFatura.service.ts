@@ -3,6 +3,7 @@ import { criarCobranca } from "../cobrancas/cobrancas.repository";
 import { registrarCreditosDaFatura } from "../creditos/consumo.service";
 import { buscarUsina } from "../usinas/usinas.repository";
 import {
+  calcularDiferencaFioB,
   calcularFaturaUnificada,
   ModalidadeFaturamento,
 } from "../billing/billing.engine";
@@ -101,9 +102,15 @@ if (faturaExistente) {
   // injetada pela produção da usina e pelo percentual de rateio vigente.
   const possuiRateioDaUsina = Number(cliente.unidade_consumidora?.percentual_rateio ?? cliente.percentual_rateio ?? 0) > 0;
   const energiaInjetadaComRateio = possuiRateioDaUsina && Number(faturaExistente.energia_injetada ?? 0) > 0;
+  const possuiAbsorcaoConfigurada =
+    faturaExistente.repassar_disponibilidade_gd1 === false ||
+    faturaExistente.repassar_disponibilidade_gd2 === false ||
+    faturaExistente.repassar_diferenca_fio_b_gd2 === false;
+  const calculoAbsorcaoDesatualizado =
+    possuiAbsorcaoConfigurada && faturaExistente.valor_cemig_repassado == null;
   const podeCorrigir = semBaseDeCalculo && Number(dados.consumo ?? 0) > 0;
 
-  if (podeCorrigir || totalConvencionalSomadoEmDuplicidade || valorConcessionariaFoiReduzido || compensacaoInferidaPeloConsumo || energiaDoPeriodoNaoCalculada || energiaCobradaSemCompensacao || energiaInjetadaComRateio) {
+  if (podeCorrigir || totalConvencionalSomadoEmDuplicidade || valorConcessionariaFoiReduzido || compensacaoInferidaPeloConsumo || energiaDoPeriodoNaoCalculada || energiaCobradaSemCompensacao || energiaInjetadaComRateio || calculoAbsorcaoDesatualizado) {
     for (const tabela of ["notificacoes_fatura", "cobrancas", "creditos"]) {
       await supabase.from(tabela).delete().eq("fatura_id", faturaExistente.id);
     }
@@ -232,14 +239,15 @@ if (!cliente.usina_id) {
   const custoDisponibilidadeRepassavel = energiaCompensadaDaFatura > 0
     ? Math.max(0, Number(dados.custoDisponibilidade ?? 0))
     : 0;
-  // Sem a tarifa GD II lida na própria fatura não há como inferir Fio B.
-  // Considerar zero evita que uma falha de leitura transforme a tarifa GD II
-  // em R$ 0,00 e absorva indevidamente toda a cobrança Andrade.
+  // O Fio B é a diferença entre a linha Energia SCEE Isenta e a devolução da
+  // Energia compensada GD II. A tarifa cheia inclui outros componentes e
+  // impostos e produzia um valor muito acima do efetivamente cobrado.
   const tarifaGD2 = Number(dados.tarifaGD2 ?? dados.tarifaGD ?? 0);
-  const diferencaFioBRepassavel = energiaCompensadaGD2 > 0 &&
-    Number.isFinite(tarifaGD2) && tarifaGD2 > 0 && tarifaGD2 < tarifaCheia
-    ? energiaCompensadaGD2 * (tarifaCheia - tarifaGD2)
-    : 0;
+  const diferencaFioBRepassavel = calcularDiferencaFioB(
+    energiaCompensadaGD2,
+    Number(dados.tarifaScee ?? 0),
+    tarifaGD2,
+  );
 
   if (!["INJECAO", "COMPENSACAO"].includes(modalidade)) {
     throw new Error("Modalidade de faturamento do cliente inválida.");
@@ -337,6 +345,18 @@ const fatura = await inserirFatura({
 
   valor_cemig:
     calculo.valorCemig,
+
+  valor_cemig_repassado:
+    calculo.valorCemigRepassado,
+
+  valor_absorvido_disponibilidade:
+    calculo.valorAbsorvidoDisponibilidade,
+
+  valor_absorvido_fio_b:
+    calculo.valorAbsorvidoFioB,
+
+  valor_total_absorvido:
+    calculo.valorTotalAbsorvido,
 
   custo_disponibilidade_repassado:
     calculo.custoDisponibilidadeRepassado,

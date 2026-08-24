@@ -148,28 +148,37 @@ export default function Login() {
             {erroSenha ? <Text style={styles.errorText}>{erroSenha}</Text> : null}
 
             <View style={styles.accessActions}>
+              <View style={styles.biometricControl}>
+                <View style={styles.biometricCopy}>
+                  <View style={styles.biometricIcon}><Ionicons name="finger-print-outline" size={21} color={Colors.primary} /></View>
+                  <View style={styles.biometricTextGroup}>
+                    <Text style={styles.biometricLabel}>Entrar com biometria</Text>
+                    <Text style={styles.biometricHint}>Ativar para os próximos acessos</Text>
+                  </View>
+                </View>
+                <View style={styles.biometricToggle}>
+                  <Switch
+                    accessibilityLabel={ativarBiometria ? "Desligar ativação da biometria" : "Ligar ativação da biometria"}
+                    disabled={loading}
+                    ios_backgroundColor="#AEB4BA"
+                    onValueChange={setAtivarBiometria}
+                    thumbColor={Colors.surface}
+                    trackColor={{ false: "#AEB4BA", true: Colors.primary }}
+                    value={ativarBiometria}
+                  />
+                  <Text style={[styles.biometricState, ativarBiometria && styles.biometricStateEnabled]}>{ativarBiometria ? "Ativada" : "Desativada"}</Text>
+                </View>
+              </View>
+
               <TouchableOpacity
                 accessibilityRole="button"
                 onPress={() => router.push("/(auth)/esqueci-senha")}
                 style={styles.forgotButton}
               >
+                <Ionicons name="key-outline" size={17} color={Colors.primary} />
                 <Text style={styles.forgotText}>Esqueceu sua senha?</Text>
+                <Ionicons name="chevron-forward" size={17} color={Colors.primary} />
               </TouchableOpacity>
-
-              <View style={styles.biometricControl}>
-                <Ionicons name="finger-print-outline" size={17} color={Colors.primary} />
-                <Text style={styles.biometricLabel}>Biometria</Text>
-                <Switch
-                  accessibilityLabel={ativarBiometria ? "Desligar ativação da biometria" : "Ligar ativação da biometria"}
-                  disabled={loading}
-                  ios_backgroundColor="#AEB4BA"
-                  onValueChange={setAtivarBiometria}
-                  thumbColor={Colors.surface}
-                  trackColor={{ false: "#AEB4BA", true: Colors.primary }}
-                  value={ativarBiometria}
-                />
-                <Text style={[styles.biometricState, ativarBiometria && styles.biometricStateEnabled]}>{ativarBiometria ? "Ligado" : "Desligado"}</Text>
-              </View>
             </View>
 
             <TouchableOpacity activeOpacity={0.84} disabled={loading} onPress={() => void entrar(ativarBiometria)} style={[styles.loginButton, loading && styles.loginButtonDisabled]}>
@@ -213,12 +222,17 @@ const styles = StyleSheet.create({
   input: { flex: 1, height: 52, marginLeft: Spacing.xs, color: Colors.text, fontSize: Typography.body },
   eyeButton: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
   errorText: { marginTop: 5, color: Colors.danger, fontSize: Typography.small },
-  accessActions: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 2 },
-  forgotButton: { paddingVertical: Spacing.sm },
-  forgotText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" },
-  biometricControl: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 4 },
-  biometricLabel: { color: Colors.primary, fontSize: 11, fontWeight: "800" },
-  biometricState: { minWidth: 52, color: Colors.subtitle, fontSize: 10, fontWeight: "900" },
+  accessActions: { gap: Spacing.sm, marginTop: Spacing.md },
+  forgotButton: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, paddingHorizontal: Spacing.sm, borderRadius: Radius.md },
+  forgotText: { flex: 1, color: Colors.primary, fontSize: Typography.small, fontWeight: "800", textAlign: "center" },
+  biometricControl: { minHeight: 66, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.sm, borderWidth: 1, borderColor: "#C7CACD", borderRadius: Radius.md, backgroundColor: "rgba(255,255,255,0.55)" },
+  biometricCopy: { flex: 1, flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  biometricIcon: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 19, backgroundColor: "#E7F2EC" },
+  biometricTextGroup: { flex: 1 },
+  biometricLabel: { color: Colors.text, fontSize: Typography.small, fontWeight: "900" },
+  biometricHint: { marginTop: 2, color: Colors.subtitle, fontSize: 10, lineHeight: 14 },
+  biometricToggle: { alignItems: "center", justifyContent: "center" },
+  biometricState: { marginTop: 1, color: Colors.subtitle, fontSize: 9, fontWeight: "900" },
   biometricStateEnabled: { color: Colors.primary },
   loginButton: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.lg, borderRadius: Radius.md, backgroundColor: Colors.primary },
   loginButtonDisabled: { opacity: 0.7 },

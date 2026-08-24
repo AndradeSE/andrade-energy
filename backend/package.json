@@ -4,6 +4,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
+    "test": "tsx --test src/modules/billing/billing.engine.test.ts",
     "start": "node dist/server.js",
     "microsoft:connect": "tsx src/scripts/conectarMicrosoft.ts"
   },

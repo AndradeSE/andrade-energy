@@ -142,7 +142,9 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.on("end", () => resolve(Buffer.concat(partes)));
     pdf.on("error", reject);
 
-    const valorCemig = numero(fatura.valor_cemig);
+    const valorCemigOriginal = numero(fatura.valor_cemig);
+    const valorCemig = numero(fatura.valor_cemig_repassado ?? fatura.valor_cemig);
+    const valorTotalAbsorvido = numero(fatura.valor_total_absorvido);
     const valorUsina = numero(fatura.valor_usina ?? fatura.valor_andrade);
     const faturaSomenteAndrade = Boolean(fatura.fatura_somente_andrade);
     const documentoUnificado = tipo === "UNIFICADA" && !faturaSomenteAndrade;
@@ -238,8 +240,11 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     }
 
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8.5).text(documentoUnificado ? "COMO CHEGAMOS AO TOTAL UNIFICADO" : "COMO CHEGAMOS À COBRANÇA", 48, y.composicao - 14);
+    const rotuloCemig = valorTotalAbsorvido > 0
+      ? `CEMIG DO CLIENTE\n(${moeda(valorCemigOriginal)} − ${moeda(valorTotalAbsorvido)})`
+      : "CONTA DA\nCONCESSIONÁRIA";
     const cards = documentoUnificado
-      ? [["1", "CONTA DA\nCONCESSIONÁRIA", moeda(valorCemig)], ["2", `ENERGIA ANDRADE\n(${energia(energiaCobrada)})`, moeda(valorUsina)], ["3", "TOTAL UNIFICADO", moeda(valorTotal)]]
+      ? [["1", rotuloCemig, moeda(valorCemig)], ["2", `ENERGIA ANDRADE\n(${energia(energiaCobrada)})`, moeda(valorUsina)], ["3", "TOTAL UNIFICADO", moeda(valorTotal)]]
       : [["1", "ENERGIA CONSIDERADA", energia(energiaCobrada)], ["2", "TARIFA ANDRADE", moeda(tarifaAndrade)], ["3", "TOTAL ANDRADE", moeda(valorTotal)]];
     cards.forEach(([ordem, titulo, valor], indice) => {
       const x = 48 + indice * 169;

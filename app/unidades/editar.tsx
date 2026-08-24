@@ -4,6 +4,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import ChoiceField from "../../components/cadastro/ChoiceField";
 import FormField from "../../components/cadastro/FormField";
+import RealDiscountInfo from "../../components/cadastro/RealDiscountInfo";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { buscarCliente, buscarUnidade } from "../../services/clientes.service";
@@ -336,6 +337,13 @@ export default function EditarAlocacaoUnidade() {
             <Text style={styles.hint}>
               A disponibilidade é aplicada conforme a modalidade GD identificada na conta; a diferença do Fio B vale somente para GD II. Os demais encargos continuam na conta da concessionária.
             </Text>
+            <RealDiscountInfo
+              descontoPercentual={desconto}
+              tipoGd={tipoGd}
+              disponibilidadeGd1={repasseDisponibilidadeGD1}
+              disponibilidadeGd2={repasseDisponibilidadeGD2}
+              fioBGd2={repasseFioBGD2}
+            />
           </> : null}
           <Button
             disabled={salvando || !clienteIdResolvido}

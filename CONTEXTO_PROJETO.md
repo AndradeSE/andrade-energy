@@ -59,6 +59,9 @@ As listas também se atualizam ao voltar à tela correspondente.
 - Na ausência de energia compensada no PDF, considerar `0 kWh`.
 - Para **injeção**, a alocação inicial é 100%, podendo ser ajustada; para compensação, a alocação é sugerida pela média de consumo dos últimos 12 meses e pode ser editada.
 - Cada UC define separadamente se a Andrade **repassa ou absorve** o custo de disponibilidade recalculado em GD I e em GD II. Para GD II, também define o repasse ou absorção da diferença do Fio B. Essas opções somente alteram a parcela correspondente; os demais encargos da concessionária continuam fora da absorção.
+- Na fatura unificada, disponibilidade e Fio B absorvidos são deduzidos da parcela da concessionária repassada ao cliente; a remuneração da energia solar permanece calculada por energia faturada × tarifa Andrade. O demonstrativo preserva o valor original CEMIG, mostra os custos assumidos pela usina e apresenta a parcela CEMIG líquida, cujas parcelas somam exatamente o total unificado.
+- Na GD II CEMIG, o Fio B monetário é calculado por `energia compensada GD II × (tarifa Energia SCEE Isenta − tarifa Energia compensada GD II)`. Não usar a tarifa cheia nessa diferença, pois ela inclui outros componentes e impostos.
+- O cadastro e a edição da UC exibem a fórmula do desconto real e explicam dinamicamente o impacto das escolhas de repasse/absorção. O valor exato permanece dependente da fatura de cada competência.
 
 Os cálculos com faturas CEMIG, sobretudo GD1/GD2 e tarifas com imposto, ainda devem ser conferidos com PDFs reais antes de uso comercial amplo.
 
@@ -81,6 +84,7 @@ Uma alteração de ícone, pacote, permissão nativa ou versão requer novo buil
 - Commits mais recentes de interface: `7cbd8ce` corrigiu o import do formatador de datas que impedia o bundle Android; `e061fef` passou a exibir competência como `MM/AAAA` nos cards da aba Faturas e mantém datas completas em `DD/MM/AAAA`.
 - O serviço Render está configurado para deploy manual; após enviar uma alteração de backend, usar **Manual Deploy → Deploy latest commit** no painel.
 - A migration `20260823090000_opcoes_gd2_uc.sql` precisa ser aplicada no Supabase antes do deploy que contém as opções de disponibilidade GD I/GD II e Fio B; ela adiciona as configurações por UC e registra os valores na fatura.
+- A migration `20260824120000_valores_absorvidos_fatura.sql` precisa ser aplicada antes do backend com o cálculo líquido de absorção; ela preserva o total CEMIG original e registra a parcela CEMIG do cliente, a disponibilidade absorvida e o Fio B absorvido.
 - Atualizações OTA Preview publicadas: Consumidor (`9acd4d63-6ef2-48ce-bd97-ca043ab9e0f2`) e Gerador mais recente (`92113c3b-91af-4b42-8925-7dc219fb4f5f`), ambas no runtime `1.0.0`.
 - O novo APK Android para aplicar a configuração nativa do `expo-web-browser` não entrou na fila porque a cota gratuita de builds Android do EAS foi usada. A cota informada pelo EAS volta em **01/09/2026**, ou o build pode ser feito em plano com mais capacidade.
 - Como o APK Gerador anterior instalado diretamente pelo PC não estava recebendo o canal OTA esperado, em 23/08/2026 foi criado localmente um APK release arm64 com o commit `e061fef` e instalado via ADB Wi-Fi no aparelho `SM-G975F`. O artefato local fica em `android/app/build/outputs/apk/release/app-release.apk`; o diretório nativo `android/` é gerado e não deve ser versionado.

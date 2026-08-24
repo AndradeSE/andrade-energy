@@ -4,6 +4,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import ChoiceField from "../../components/cadastro/ChoiceField";
 import FormField from "../../components/cadastro/FormField";
+import RealDiscountInfo from "../../components/cadastro/RealDiscountInfo";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { alocarUnidade } from "../../services/usinas.service";
@@ -159,6 +160,13 @@ export default function NovaUnidade() {
           <ChoiceField label="GD II: diferença do Fio B" value={repasseFioBGD2} onChange={(valor) => setRepasseFioBGD2(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} />
         </> : null}
         <Text style={styles.beneficiariaHint}>A disponibilidade é aplicada conforme a modalidade GD identificada na conta; a diferença do Fio B vale somente para GD II. Os demais encargos continuam na fatura da concessionária.</Text>
+        <RealDiscountInfo
+          descontoPercentual={desconto}
+          tipoGd={tipoGdImportado}
+          disponibilidadeGd1={repasseDisponibilidadeGD1}
+          disponibilidadeGd2={repasseDisponibilidadeGD2}
+          fioBGd2={repasseFioBGD2}
+        />
       </> : null}
       <Button disabled={salvando || (tipo !== "GERADORA" && !clienteId)} title={salvando ? "Salvando..." : "Salvar unidade"} onPress={salvar} />
     </Card>
