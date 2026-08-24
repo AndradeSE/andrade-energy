@@ -84,6 +84,7 @@ Uma alteração de ícone, pacote, permissão nativa ou versão requer novo buil
 - Atualizações OTA Preview publicadas: Consumidor (`9acd4d63-6ef2-48ce-bd97-ca043ab9e0f2`) e Gerador mais recente (`92113c3b-91af-4b42-8925-7dc219fb4f5f`), ambas no runtime `1.0.0`.
 - O novo APK Android para aplicar a configuração nativa do `expo-web-browser` não entrou na fila porque a cota gratuita de builds Android do EAS foi usada. A cota informada pelo EAS volta em **01/09/2026**, ou o build pode ser feito em plano com mais capacidade.
 - Como o APK Gerador anterior instalado diretamente pelo PC não estava recebendo o canal OTA esperado, em 23/08/2026 foi criado localmente um APK release arm64 com o commit `e061fef` e instalado via ADB Wi-Fi no aparelho `SM-G975F`. O artefato local fica em `android/app/build/outputs/apk/release/app-release.apk`; o diretório nativo `android/` é gerado e não deve ser versionado.
+- O mesmo APK Gerador foi instalado no segundo aparelho `SM-S911B`. Depois foi gerado um APK release arm64 da variante Consumidor, com o ícone nativo atualizado, e instalado nos aparelhos `SM-G975F` e `SM-S911B`. Gerador (`com.andradese.energy.gerador`) e Consumidor (`com.andradese.energy.consumidor`) permanecem como aplicativos separados no Android.
 
 ## Como executar localmente
 
