@@ -78,11 +78,12 @@ Uma alteração de ícone, pacote, permissão nativa ou versão requer novo buil
 
 ### Publicação mais recente — 23/08/2026
 
-- Commits mais recentes: `0753221` (`Usa dados CEMIG no demonstrativo da fatura`) e `fddcdfe` (`Adiciona logo ao PDF da fatura`).
+- Commits mais recentes de interface: `7cbd8ce` corrigiu o import do formatador de datas que impedia o bundle Android; `e061fef` passou a exibir competência como `MM/AAAA` nos cards da aba Faturas e mantém datas completas em `DD/MM/AAAA`.
 - O serviço Render está configurado para deploy manual; após enviar uma alteração de backend, usar **Manual Deploy → Deploy latest commit** no painel.
 - A migration `20260823090000_opcoes_gd2_uc.sql` precisa ser aplicada no Supabase antes do deploy que contém as opções de disponibilidade GD I/GD II e Fio B; ela adiciona as configurações por UC e registra os valores na fatura.
-- Atualizações OTA Preview publicadas: Consumidor (`9acd4d63-6ef2-48ce-bd97-ca043ab9e0f2`) e Gerador (`89789091-64a4-45db-bfa5-eab649934ac9`), ambas no runtime `1.0.0`.
+- Atualizações OTA Preview publicadas: Consumidor (`9acd4d63-6ef2-48ce-bd97-ca043ab9e0f2`) e Gerador mais recente (`92113c3b-91af-4b42-8925-7dc219fb4f5f`), ambas no runtime `1.0.0`.
 - O novo APK Android para aplicar a configuração nativa do `expo-web-browser` não entrou na fila porque a cota gratuita de builds Android do EAS foi usada. A cota informada pelo EAS volta em **01/09/2026**, ou o build pode ser feito em plano com mais capacidade.
+- Como o APK Gerador anterior instalado diretamente pelo PC não estava recebendo o canal OTA esperado, em 23/08/2026 foi criado localmente um APK release arm64 com o commit `e061fef` e instalado via ADB Wi-Fi no aparelho `SM-G975F`. O artefato local fica em `android/app/build/outputs/apk/release/app-release.apk`; o diretório nativo `android/` é gerado e não deve ser versionado.
 
 ## Como executar localmente
 
