@@ -10,7 +10,7 @@ import { Alert, Linking, Platform, RefreshControl, StyleSheet, Text, TouchableOp
 import { AppHeader, Button, Card, ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useFaturas } from "../../hooks/useFaturas";
-import { excluirFatura, formatarDataBrasileira } from "../../services/faturas.service";
+import { excluirFatura, formatarCompetenciaBrasileira, formatarDataBrasileira } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 type Filtro = "todas" | "abertas" | "vencidas" | "pagas";
@@ -152,7 +152,7 @@ export default function Faturas() {
               style={styles.invoiceCard}
             >
               <View style={styles.invoiceTop}>
-                <View><Text style={styles.value}>{moeda(valor)}</Text><Text style={styles.reference}>{item.referencia || "Período não informado"}</Text></View>
+                <View><Text style={styles.value}>{moeda(valor)}</Text><Text style={styles.reference}>{formatarCompetenciaBrasileira(item.referencia)}</Text></View>
                 <View style={[styles.status, paga ? styles.statusPaid : vencida ? styles.statusOverdue : styles.statusOpen]}><Text style={styles.statusText}>{paga ? "Paga" : vencida ? "Vencida" : "Em aberto"}</Text></View>
               </View>
               {proprietario ? <View style={styles.customer}><Ionicons name="person-outline" size={15} color={Colors.primary} /><Text numberOfLines={1} style={styles.customerText}>{item.clientes?.nome || "Cliente não identificado"}</Text></View> : null}

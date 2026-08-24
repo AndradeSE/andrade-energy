@@ -12,6 +12,14 @@ export function formatarDataBrasileira(valor: unknown, fallback = "Não informad
   return iso ? `${iso[3]}/${iso[2]}/${iso[1]}` : texto;
 }
 
+export function formatarCompetenciaBrasileira(valor: unknown, fallback = "Período não informado") {
+  const texto = String(valor ?? "").trim();
+  if (!texto) return fallback;
+  const competencia = /^(\d{4})-(\d{2})$/.exec(texto);
+  if (competencia) return `${competencia[2]}/${competencia[1]}`;
+  return formatarDataBrasileira(texto, fallback);
+}
+
 function consumoMensalValido(item: any) {
   const consumoExtraido = Number(item?.consumo ?? 0);
   const dias = Number(item?.dias ?? 0);
