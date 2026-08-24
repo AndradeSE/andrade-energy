@@ -20,6 +20,7 @@ import { configuracaoRouter as recebimentoFaturasRoutes, webhookRouter as recebi
 import { processarFilaDeRecebimentosFaturas } from "./modules/recebimento-faturas/recebimentoFaturas.service";
 import { conexoesEmailRouter, oauthEmailRouter } from "./modules/conexoes-email/conexoesEmail.routes";
 import { supabase } from "./config/supabase";
+import usuariosRoutes from "./modules/usuarios/usuarios.routes";
 
 dotenv.config();
 
@@ -62,6 +63,7 @@ app.use((req, _, next) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/convites", convitesRoutes);
+app.use("/api/usuarios", usuariosRoutes);
 
 app.use("/api/dashboard", dashboardRoutes);
 

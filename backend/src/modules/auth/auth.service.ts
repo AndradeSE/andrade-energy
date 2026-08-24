@@ -11,7 +11,7 @@ import {
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import { supabase } from "../../config/supabase";
 import { gerarToken, hashToken } from "../../utils/token";
-import { aceitarConvite, concluirConvite } from "../convites/convites.service";
+import { aceitarConvite, aceitarConviteGerador, concluirConvite, concluirConviteGerador } from "../convites/convites.service";
 
 type DadosPerfil = {
   nome?: unknown;
@@ -150,7 +150,9 @@ export async function excluirMinhaConta(usuarioId: string, senhaAtual: unknown) 
 }
 
 export async function cadastrarConta(input: { nome: string; cpf: string; email: string; senha: string; tipo: "CONSUMIDOR" | "GERADOR"; convite?: string }) {
-  const convite = input.tipo === "CONSUMIDOR" ? await aceitarConvite(String(input.convite ?? "")) : null;
+  const convite = input.tipo === "CONSUMIDOR"
+    ? await aceitarConvite(String(input.convite ?? ""))
+    : await aceitarConviteGerador(String(input.convite ?? ""));
   if (convite) input = { ...input, nome: convite.nome, cpf: convite.cpf, email: convite.email };
   if (!input.nome?.trim()) throw new Error("Informe seu nome.");
   if (String(input.cpf ?? "").replace(/\D/g, "").length !== 11) throw new Error("Informe um CPF válido.");
@@ -158,8 +160,8 @@ export async function cadastrarConta(input: { nome: string; cpf: string; email: 
   if ((input.senha?.length ?? 0) < 6) throw new Error("A senha deve ter pelo menos 6 caracteres.");
   if (!(["CONSUMIDOR", "GERADOR"] as const).includes(input.tipo)) throw new Error("Escolha consumidor ou gerador.");
   const usuario = await criarConta(input);
-  if (convite) await concluirConvite(convite, usuario.id);
-  else await vincularClientePorCpf(usuario);
+  if (input.tipo === "CONSUMIDOR") await concluirConvite(convite, usuario.id);
+  else await concluirConviteGerador(convite, usuario.id);
   let emailEnviado = false;
   try {
     emailEnviado = await enviarEmailTransacional({

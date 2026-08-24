@@ -28,3 +28,10 @@ export function exigirGestor(req: Request, res: Response, next: NextFunction) {
   if (perfil !== "ADMIN" && perfil !== "GESTOR") return res.status(403).json({ message: "Acesso exclusivo do gerador." });
   return next();
 }
+
+export function exigirAdministrador(req: Request, res: Response, next: NextFunction) {
+  if ((req as any).usuario?.perfil !== "ADMIN") {
+    return res.status(403).json({ message: "Apenas a conta administradora pode convidar novos geradores." });
+  }
+  return next();
+}
