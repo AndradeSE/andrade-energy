@@ -8,13 +8,13 @@ import { ElasticScrollView as ScrollView } from "../../components/ui/ElasticScro
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { criarConta } from "../../services/auth.service";
 import { IS_GERADOR_APP } from "../../config/appVariant";
-import { consultarConvite } from "../../services/convites.service";
+import { consultarConvite, consultarConviteGerador } from "../../services/convites.service";
 
 export default function CriarConta() {
   const tipo: "CONSUMIDOR" | "GERADOR" = IS_GERADOR_APP ? "GERADOR" : "CONSUMIDOR";
   const params = useLocalSearchParams<{ convite?: string }>();
   const [convite, setConvite] = useState(params.convite ?? "");
-  const [conviteValido, setConviteValido] = useState(IS_GERADOR_APP);
+  const [conviteValido, setConviteValido] = useState(false);
   const [validandoConvite, setValidandoConvite] = useState(false);
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
@@ -31,7 +31,7 @@ export default function CriarConta() {
     try {
       setValidandoConvite(true);
       setErro("");
-      const dados = await consultarConvite(convite.trim());
+      const dados = IS_GERADOR_APP ? await consultarConviteGerador(convite.trim()) : await consultarConvite(convite.trim());
       setNome(dados.nome);
       setCpf(dados.cpf);
       setEmail(dados.email);
@@ -63,14 +63,14 @@ export default function CriarConta() {
     }
   }
 
-  if (!IS_GERADOR_APP && !conviteValido) {
+  if (!conviteValido) {
     return (
       <SafeAreaView style={styles.screen}>
         <View style={styles.inviteContent}>
           <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="arrow-back" size={23} color={Colors.text} /></TouchableOpacity>
           <View style={styles.iconBox}><Ionicons name="mail-outline" size={34} color={Colors.primary} /></View>
           <Text style={styles.title}>Acessar convite</Text>
-          <Text style={styles.subtitle}>O cadastro do consumidor é liberado pelo gerador. Cole abaixo o código recebido por e-mail.</Text>
+          <Text style={styles.subtitle}>{IS_GERADOR_APP ? "O cadastro de geradores é liberado somente pela conta administradora. Cole abaixo o código recebido por e-mail." : "O cadastro do consumidor é liberado pelo gerador. Cole abaixo o código recebido por e-mail."}</Text>
           <Text style={styles.label}>Código do convite</Text>
           <View style={styles.inputBox}><TextInput autoCapitalize="none" onChangeText={(valor) => { setConvite(valor); setErro(""); }} placeholder="Cole o código aqui" placeholderTextColor="#92979F" style={styles.inputWithoutIcon} value={convite} /></View>
           {erro ? <Text style={styles.error}>{erro}</Text> : null}
@@ -103,12 +103,12 @@ export default function CriarConta() {
               <Text style={styles.label}>Nome completo</Text>
               <View style={styles.inputBox}>
                 <Ionicons name="person-outline" size={20} color={Colors.subtitle} />
-                <TextInput autoCapitalize="words" editable={IS_GERADOR_APP} onChangeText={(valor) => { setNome(valor); setErro(""); }} placeholder="Seu nome" placeholderTextColor="#92979F" style={styles.input} value={nome} />
+                <TextInput autoCapitalize="words" editable={false} onChangeText={(valor) => { setNome(valor); setErro(""); }} placeholder="Seu nome" placeholderTextColor="#92979F" style={styles.input} value={nome} />
               </View>
               <Text style={styles.label}>CPF</Text>
               <View style={styles.inputBox}>
                 <TextInput
-                  editable={IS_GERADOR_APP}
+                  editable={false}
                   keyboardType="numeric"
                   maxLength={11}
                   onChangeText={(valor) => { setCpf(valor.replace(/\D/g, "")); setErro(""); }}
@@ -121,7 +121,7 @@ export default function CriarConta() {
               <Text style={styles.label}>E-mail</Text>
               <View style={styles.inputBox}>
                 <Ionicons name="mail-outline" size={20} color={Colors.subtitle} />
-                <TextInput autoCapitalize="none" autoComplete="email" editable={IS_GERADOR_APP} keyboardType="email-address" onChangeText={(valor) => { setEmail(valor); setErro(""); }} onSubmitEditing={solicitarAcesso} placeholder="seu@email.com" placeholderTextColor="#92979F" returnKeyType="send" style={styles.input} value={email} />
+                <TextInput autoCapitalize="none" autoComplete="email" editable={false} keyboardType="email-address" onChangeText={(valor) => { setEmail(valor); setErro(""); }} onSubmitEditing={solicitarAcesso} placeholder="seu@email.com" placeholderTextColor="#92979F" returnKeyType="send" style={styles.input} value={email} />
               </View>
               <Text style={styles.label}>Senha</Text>
               <View style={styles.inputBox}><Ionicons name="lock-closed-outline" size={20} color={Colors.subtitle} /><TextInput onChangeText={(valor) => { setSenha(valor); setErro(""); }} placeholder="Mínimo de 6 caracteres" placeholderTextColor="#92979F" secureTextEntry style={styles.input} value={senha} /></View>

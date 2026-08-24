@@ -8,6 +8,7 @@ import RealDiscountInfo from "../../components/cadastro/RealDiscountInfo";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { buscarCliente, buscarUnidade } from "../../services/clientes.service";
+import { buscarFaturasCliente } from "../../services/faturas.service";
 import { alocarUnidade, listarUsinas } from "../../services/usinas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
@@ -73,6 +74,7 @@ export default function EditarAlocacaoUnidade() {
     modalidade: modalidadeImportada,
     desconto: descontoImportado,
     tipoGd: tipoGdImportado,
+    dadosFatura: dadosFaturaParam,
   } = useLocalSearchParams<{
     id?: string;
     numero: string;
@@ -82,6 +84,7 @@ export default function EditarAlocacaoUnidade() {
     modalidade?: Modalidade;
     desconto?: string;
     tipoGd?: string;
+    dadosFatura?: string;
   }>();
   const [usinas, setUsinas] = useState<any[]>([]); const [usinaId, setUsinaId] = useState("");
   const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO"); const [percentual, setPercentual] = useState("");
@@ -91,6 +94,7 @@ export default function EditarAlocacaoUnidade() {
   const [repasseDisponibilidadeGD2, setRepasseDisponibilidadeGD2] = useState<RepasseGD2>("REPASSAR");
   const [repasseFioBGD2, setRepasseFioBGD2] = useState<RepasseGD2>("REPASSAR");
   const [tipoGd, setTipoGd] = useState("");
+  const [dadosFatura, setDadosFatura] = useState<Record<string, any> | null>(null);
   const [clienteIdResolvido, setClienteIdResolvido] = useState("");
   const [loading, setLoading] = useState(true); const [salvando, setSalvando] = useState(false);
 
@@ -108,7 +112,11 @@ export default function EditarAlocacaoUnidade() {
         const consultaUnidade = eUuid(unidadeIdRecebida)
           ? buscarUnidade(unidadeIdRecebida).catch(() => null)
           : Promise.resolve(null);
-        const [lista, unidade] = await Promise.all([listarUsinas(), consultaUnidade]);
+        const [lista, unidade, faturas] = await Promise.all([
+          listarUsinas(),
+          consultaUnidade,
+          numeroDaUc ? buscarFaturasCliente(numeroDaUc).catch(() => []) : Promise.resolve([]),
+        ]);
         const uc = unidade;
         const idCliente = eUuid(clienteIdRecebido)
           ? clienteIdRecebido
@@ -156,6 +164,7 @@ export default function EditarAlocacaoUnidade() {
         setRepasseDisponibilidadeGD2((uc?.repassar_disponibilidade_gd2 ?? Number(uc?.percentual_repasse_disponibilidade ?? 100) > 0) ? "REPASSAR" : "ABSORVER");
         setRepasseFioBGD2((uc?.repassar_diferenca_fio_b_gd2 ?? true) ? "REPASSAR" : "ABSORVER");
         setTipoGd(String(tipoGdImportado || uc?.tipo_gd || "").toUpperCase());
+        setDadosFatura(faturas[0] ?? parseDadosFatura(dadosFaturaParam));
         setConsumoMedio(mediaFinal > 0 ? String(Math.round(mediaFinal)) : "");
         setPercentual(
           veioDaFatura
@@ -176,7 +185,7 @@ export default function EditarAlocacaoUnidade() {
 
     void carregar();
     return () => { ativa = false; };
-  }, [clienteIdRecebido, consumoMedioImportado, descontoImportado, modalidadeImportada, numeroDaUc, tipoGdImportado, unidadeIdRecebida, usinaIdImportada]);
+  }, [clienteIdRecebido, consumoMedioImportado, dadosFaturaParam, descontoImportado, modalidadeImportada, numeroDaUc, tipoGdImportado, unidadeIdRecebida, usinaIdImportada]);
 
   async function salvar() {
     const rateio = valorNumerico(percentual); const descontoNumero = valorNumerico(desconto); const media = Math.max(0, valorNumerico(consumoMedio));
@@ -340,6 +349,8 @@ export default function EditarAlocacaoUnidade() {
             <RealDiscountInfo
               descontoPercentual={desconto}
               tipoGd={tipoGd}
+              modalidadeFaturamento={modalidade}
+              dadosFatura={dadosFatura}
               disponibilidadeGd1={repasseDisponibilidadeGD1}
               disponibilidadeGd2={repasseDisponibilidadeGD2}
               fioBGd2={repasseFioBGD2}
@@ -354,6 +365,11 @@ export default function EditarAlocacaoUnidade() {
       </ScrollView>
     </Screen>
   );
+}
+
+function parseDadosFatura(valor?: string) {
+  try { return valor ? JSON.parse(valor) : null; }
+  catch { return null; }
 }
 
 const styles = StyleSheet.create({

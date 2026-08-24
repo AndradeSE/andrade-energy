@@ -8,6 +8,8 @@ type EscolhaRepasse = "REPASSAR" | "ABSORVER";
 type Props = {
   descontoPercentual: string | number;
   tipoGd?: string | null;
+  modalidadeFaturamento?: string | null;
+  dadosFatura?: Record<string, any> | null;
   disponibilidadeGd1: EscolhaRepasse;
   disponibilidadeGd2: EscolhaRepasse;
   fioBGd2: EscolhaRepasse;
@@ -16,6 +18,8 @@ type Props = {
 export default function RealDiscountInfo({
   descontoPercentual,
   tipoGd,
+  modalidadeFaturamento,
+  dadosFatura,
   disponibilidadeGd1,
   disponibilidadeGd2,
   fioBGd2,
@@ -39,8 +43,33 @@ export default function RealDiscountInfo({
   }
 
   const modalidadeAindaNaoIdentificada = !["GD1", "GD2", "MISTA"].includes(modalidade);
+  if (modalidadeAindaNaoIdentificada) {
+    if (disponibilidadeGd1 === "REPASSAR") configuracoesRepassadas.push("disponibilidade GD I");
+    if (disponibilidadeGd2 === "REPASSAR") configuracoesRepassadas.push("disponibilidade GD II");
+    if (fioBGd2 === "REPASSAR") configuracoesRepassadas.push("Fio B");
+  }
+  const previa = calcularPrevia({ dados: dadosFatura, desconto, modalidadeFaturamento, tipoGd: modalidade, disponibilidadeGd1, disponibilidadeGd2, fioBGd2 });
+  const descontoRealEstimado = previa
+    ? formatarPercentual(previa.descontoReal)
+    : modalidadeAindaNaoIdentificada
+    ? configuracoesRepassadas.length
+      ? `Menor que ${formatarPercentual(desconto)}`
+      : `Até ${formatarPercentual(desconto)}`
+    : configuracoesRepassadas.length
+      ? `Menor que ${formatarPercentual(desconto)}`
+      : `Próximo de ${formatarPercentual(desconto)}`;
+  const estimativaDetalhe = modalidadeAindaNaoIdentificada
+    ? configuracoesRepassadas.length
+      ? "A modalidade GD será confirmada pela conta; os custos marcados para repasse reduzem a economia real."
+      : "A modalidade GD ainda será confirmada pela conta de energia."
+    : configuracoesRepassadas.length
+      ? "Os custos repassados reduzem a economia percebida pelo cliente."
+      : "A Andrade absorve os custos selecionados; outros encargos ainda podem variar."
+  const detalheExibido = previa
+    ? `${formatarMoeda(previa.economia)} de economia sobre ${formatarMoeda(previa.baseDesconto)} de energia cheia.${referenciaFatura(dadosFatura)}`
+    : estimativaDetalhe;
   const impacto = modalidadeAindaNaoIdentificada
-    ? `Com ${formatarPercentual(desconto)} de desconto contratado, a tarifa Andrade será ${formatarPercentual(percentualTarifaAndrade)} da tarifa cheia. Na primeira conta, o sistema identificará GD I ou GD II e aplicará as escolhas correspondentes.`
+    ? `Com ${formatarPercentual(desconto)} de desconto contratado, a tarifa Andrade será ${formatarPercentual(percentualTarifaAndrade)} da tarifa cheia. Na primeira conta, o sistema identificará GD I ou GD II e aplicará as escolhas atuais de repasse ou absorção.`
     : configuracoesRepassadas.length
       ? `O desconto parte de ${formatarPercentual(desconto)}, mas ${configuracoesRepassadas.join(" e ")} permanecem com o cliente. Essas parcelas reduzem o desconto real da competência.`
       : `A usina assume disponibilidade e Fio B aplicáveis. Assim, o desconto real tende a se aproximar dos ${formatarPercentual(desconto)} contratados, embora outros encargos da concessionária possam permanecer.`;
@@ -58,6 +87,12 @@ export default function RealDiscountInfo({
       </View>
 
       <View style={styles.formula}>
+        <View style={styles.estimateBox}>
+          <Text style={styles.estimateLabel}>{previa ? "PROJEÇÃO PELA ÚLTIMA FATURA" : "DESCONTO REAL ESTIMADO"}</Text>
+          <Text style={styles.estimateValue}>{descontoRealEstimado}</Text>
+          <Text style={styles.estimateDetail}>{detalheExibido}</Text>
+        </View>
+        <View style={styles.divider} />
         <View style={styles.summaryRow}>
           <View style={styles.summaryItem}>
             <Text style={styles.formulaLabel}>DESCONTO CONTRATADO</Text>
@@ -78,13 +113,72 @@ export default function RealDiscountInfo({
       </View>
 
       <Text style={styles.impact}>{impacto}</Text>
-      <Text style={styles.footnote}>O percentual exato só será conhecido após a leitura da fatura de cada competência.</Text>
+      <Text style={styles.footnote}>{previa
+        ? "O app mantém os valores da última fatura como base e recalcula somente o desconto e as escolhas de repasse ou absorção."
+        : "Importe uma fatura ou vincule uma UC que já possua histórico para calcular a porcentagem nesta tela."}</Text>
     </View>
   );
 }
 
 function formatarPercentual(valor: number) {
   return `${valor.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`;
+}
+
+function formatarMoeda(valor: number) {
+  return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function referenciaFatura(dados: Record<string, any> | null | undefined) {
+  const valor = String(dados?.referencia ?? "").trim();
+  if (!valor) return "";
+  const correspondencia = /^(\d{4})-(\d{2})/.exec(valor);
+  return ` Base: ${correspondencia ? `${correspondencia[2]}/${correspondencia[1]}` : valor}.`;
+}
+
+function n(dados: Record<string, any> | null | undefined, ...chaves: string[]) {
+  for (const chave of chaves) {
+    const valor = Number(dados?.[chave]);
+    if (Number.isFinite(valor)) return valor;
+  }
+  return 0;
+}
+
+function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, disponibilidadeGd1, disponibilidadeGd2, fioBGd2 }: {
+  dados?: Record<string, any> | null; desconto: number; modalidadeFaturamento?: string | null; tipoGd: string;
+  disponibilidadeGd1: EscolhaRepasse; disponibilidadeGd2: EscolhaRepasse; fioBGd2: EscolhaRepasse;
+}) {
+  if (!dados) return null;
+  const tarifaCheia = n(dados, "tarifa_cheia", "tarifaCheia");
+  const valorCemig = n(dados, "valor_cemig", "valorTotal");
+  const consumo = n(dados, "consumo_kwh", "consumo");
+  const energiaGD1 = n(dados, "energia_compensada_gd1", "energiaCompensadaGD1");
+  const energiaGD2 = n(dados, "energia_compensada_gd2", "energiaCompensadaGD2");
+  const energiaCompensada = n(dados, "energia_compensada", "energiaCompensada") || energiaGD1 + energiaGD2;
+  const energiaInjetada = n(dados, "energia_injetada", "energiaInjetada");
+  const baseKwh = String(modalidadeFaturamento ?? "COMPENSACAO").toUpperCase() === "INJECAO" ? energiaInjetada : energiaCompensada;
+  if (tarifaCheia <= 0 || valorCemig <= 0 || baseKwh <= 0) return null;
+
+  const custoDisponibilidade = n(dados, "custo_disponibilidade", "custoDisponibilidade");
+  const diferencaSalva = n(dados, "diferenca_fio_b", "diferencaFioB");
+  const tarifaScee = n(dados, "tarifa_scee", "tarifaScee");
+  const tarifaGd2 = n(dados, "tarifa_gd", "tarifaGD2", "tarifaGD");
+  const diferencaFioB = diferencaSalva > 0 ? diferencaSalva : energiaGD2 > 0 && tarifaScee > tarifaGd2 && tarifaGd2 > 0 ? energiaGD2 * (tarifaScee - tarifaGd2) : 0;
+  const usaGD2 = tipoGd === "GD2" || tipoGd === "MISTA" || energiaGD2 > 0;
+  const usaGD1 = tipoGd === "GD1" || tipoGd === "MISTA" || (!usaGD2 && energiaGD1 > 0);
+  const absorveDisponibilidade = usaGD2 ? disponibilidadeGd2 === "ABSORVER" : usaGD1 && disponibilidadeGd1 === "ABSORVER";
+  const absorvido = Math.min(valorCemig, (absorveDisponibilidade ? custoDisponibilidade : 0) + (usaGD2 && fioBGd2 === "ABSORVER" ? diferencaFioB : 0));
+
+  const valorEnergiaSemGd = Math.max(0, consumo * tarifaCheia);
+  const creditoGD1 = energiaGD1 * tarifaCheia;
+  const limiteCreditoGD2 = Math.max(0, valorEnergiaSemGd - n(dados, "valor_energia_concessionaria", "valorEnergiaConcessionaria") - creditoGD1);
+  const creditoGD2 = energiaGD2 > 0 ? Math.min(energiaGD2 * tarifaCheia, limiteCreditoGD2) : 0;
+  const creditoEfetivo = energiaGD1 + energiaGD2 > 0 ? creditoGD1 + creditoGD2 : energiaCompensada * tarifaCheia;
+  const referencia = n(dados, "valor_referencia_sem_andrade") || valorCemig + creditoEfetivo;
+  const baseDesconto = usaGD2 ? valorEnergiaSemGd : Math.max(0, referencia - valorCemig);
+  if (baseDesconto <= 0) return null;
+  const valorAndrade = baseKwh * tarifaCheia * (1 - desconto / 100);
+  const economia = Math.max(0, referencia - (Math.max(0, valorCemig - absorvido) + valorAndrade));
+  return { economia, baseDesconto, descontoReal: economia / baseDesconto * 100 };
 }
 
 const styles = StyleSheet.create({
@@ -95,6 +189,10 @@ const styles = StyleSheet.create({
   title: { color: Colors.primaryDark, fontSize: Typography.caption, fontWeight: "900" },
   subtitle: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 },
   formula: { marginTop: Spacing.sm, padding: Spacing.sm, borderRadius: Radius.sm, backgroundColor: Colors.surface },
+  estimateBox: { paddingVertical: 2 },
+  estimateLabel: { color: Colors.primary, fontSize: 9, fontWeight: "900", letterSpacing: 0.8 },
+  estimateValue: { marginTop: 4, color: Colors.primaryDark, fontSize: 22, fontWeight: "900", lineHeight: 27 },
+  estimateDetail: { marginTop: 3, color: Colors.subtitle, fontSize: 10, lineHeight: 15 },
   summaryRow: { flexDirection: "row", alignItems: "stretch", gap: Spacing.sm },
   summaryItem: { flex: 1 },
   summaryDivider: { width: 1, backgroundColor: Colors.border },

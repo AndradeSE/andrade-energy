@@ -260,6 +260,17 @@ export default function Perfil() {
           </TouchableOpacity>
         </View>
 
+        {IS_GERADOR_APP && user?.perfil === "ADMIN" ? <>
+          <Text style={styles.sectionTitle}>ADMINISTRAÇÃO</Text>
+          <View style={styles.card}>
+            <TouchableOpacity activeOpacity={0.82} onPress={() => router.push("/geradores/convidar")} style={styles.linkRow}>
+              <View style={styles.preferenceIcon}><Ionicons color={Colors.primary} name="person-add-outline" size={22} /></View>
+              <View style={styles.preferenceCopy}><Text style={styles.preferenceTitle}>Convidar novo gerador</Text><Text style={styles.preferenceDescription}>Gere o único acesso autorizado para criação de contas geradoras.</Text></View>
+              <Ionicons color={Colors.subtitle} name="chevron-forward" size={21} />
+            </TouchableOpacity>
+          </View>
+        </> : null}
+
         <Text style={styles.sectionTitle}>SEGURANÇA</Text>
         <View style={styles.card}>
           <View style={styles.preferenceRow}>

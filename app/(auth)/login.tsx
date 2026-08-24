@@ -187,7 +187,7 @@ export default function Login() {
 
             <TouchableOpacity accessibilityRole="button" activeOpacity={0.8} onPress={() => router.push("/(auth)/criar-conta")} style={styles.createAccountButton}>
               <Ionicons name={IS_GERADOR_APP ? "person-add-outline" : "mail-open-outline"} size={20} color={Colors.primary} />
-              <Text style={styles.createAccountButtonText}>{IS_GERADOR_APP ? "Criar conta" : "Aceitar convite e criar conta"}</Text>
+              <Text style={styles.createAccountButtonText}>Aceitar convite e criar conta</Text>
             </TouchableOpacity>
 
             <View style={styles.securityRow}>

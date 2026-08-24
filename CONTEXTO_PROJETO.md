@@ -6,6 +6,7 @@ Plataforma de gestão de energia por assinatura, composta por dois aplicativos E
 
 - **Andrade Energy Gerador:** gestão de usinas, clientes, unidades consumidoras, alocações, operação, faturamento e financeiro.
 - **Andrade Energy Consumidor:** consulta das unidades vinculadas ao CPF da conta, economia, faturas, contrato e notificações.
+- **Portal web:** versão administrativa responsiva em `portal-web`, construída com React/Vite e preparada para publicação no OpenAI Sites. A evolução web deve reaproveitar as mesmas regras, API e identidade visual dos aplicativos, sem criar uma segunda lógica de negócio.
 
 Os dois aplicativos usam a mesma base de código. A variante é escolhida por `EXPO_PUBLIC_APP_VARIANT` no arquivo `app.config.js`; cada uma possui identificador EAS, pacote Android e ícone próprios.
 
@@ -55,6 +56,7 @@ As listas também se atualizam ao voltar à tela correspondente.
 - O demonstrativo Andrade é gerado em **uma página A4**, com o logo oficial no cabeçalho. Ao gerar ou regenerar, ele relê a conta CEMIG original arquivada para mostrar titular, CPF/CNPJ, endereço, UC e concessionária exatamente da fonte; se a conta antiga não puder ser lida, usa o cadastro da UC como contingência.
 - O PDF traz consumo, energia compensada/injetada, saldo de créditos, composição do total, economia real e gráfico de economia das últimas oito faturas disponíveis. PDFs já existentes no Storage não mudam sozinhos: no Gerador usar **Gerar PDF atualizado** na fatura.
 - Boleto e Pix ainda não estão integrados. Em 21/08/2026, duas aplicações novas Checkout Pro do Mercado Pago falharam ao ativar credenciais de teste com erros internos `DXT40`; o atendimento do provedor precisa liberar a conta antes de nova tentativa. Não recriar aplicações por enquanto. O código de barras deve ser impresso somente depois que a cobrança de boleto real for criada e seu código for retornado pela API do provedor.
+- Em 24/08/2026 foi escolhida a **Asaas** como alternativa temporária para boleto e Pix enquanto o Mercado Pago permanece bloqueado. A conta sandbox está em configuração; credenciais e tokens devem ficar apenas nas variáveis seguras do backend/Render e nunca no aplicativo, portal web, repositório ou contexto. A integração ainda não deve ser considerada concluída até criar uma cobrança de teste, receber o webhook e confirmar Pix, boleto e código de barras de ponta a ponta.
 - Para **compensação**, a cobrança mensal é somente pela energia compensada lida nos campos `Energia Compensada GD1` ou `GD2`. O saldo de créditos é registrado e cobrado apenas no encerramento do contrato.
 - Na ausência de energia compensada no PDF, considerar `0 kWh`.
 - Para **injeção**, a alocação inicial é 100%, podendo ser ajustada; para compensação, a alocação é sugerida pela média de consumo dos últimos 12 meses e pode ser editada.
@@ -89,6 +91,15 @@ Uma alteração de ícone, pacote, permissão nativa ou versão requer novo buil
 - O novo APK Android para aplicar a configuração nativa do `expo-web-browser` não entrou na fila porque a cota gratuita de builds Android do EAS foi usada. A cota informada pelo EAS volta em **01/09/2026**, ou o build pode ser feito em plano com mais capacidade.
 - Como o APK Gerador anterior instalado diretamente pelo PC não estava recebendo o canal OTA esperado, em 23/08/2026 foi criado localmente um APK release arm64 com o commit `e061fef` e instalado via ADB Wi-Fi no aparelho `SM-G975F`. O artefato local fica em `android/app/build/outputs/apk/release/app-release.apk`; o diretório nativo `android/` é gerado e não deve ser versionado.
 - O mesmo APK Gerador foi instalado no segundo aparelho `SM-S911B`. Depois foi gerado um APK release arm64 da variante Consumidor, com o ícone nativo atualizado, e instalado nos aparelhos `SM-G975F` e `SM-S911B`. Gerador (`com.andradese.energy.gerador`) e Consumidor (`com.andradese.energy.consumidor`) permanecem como aplicativos separados no Android.
+
+### Desenvolvimento local e versão web — 24/08/2026
+
+- Os APKs release arm64 das duas variantes foram gerados localmente neste PC, sem consumir a cota EAS, usando Java 17, Android SDK e Gradle locais. Os pacotes validados são `com.andradese.energy.consumidor` e `com.andradese.energy.gerador`, ambos na versão `1.0.0`.
+- Consumidor e Gerador foram instalados/atualizados no aparelho `SM-S911B` por depuração ADB via Wi-Fi, preservando os dados das instalações existentes. Códigos, portas e endereços temporários de pareamento não devem ser registrados no projeto.
+- Os APKs em `dist-apk/` são artefatos locais e não são versionados. Novos builds locais devem continuar separados por variante e arquitetura.
+- O portal administrativo existente foi incorporado ao repositório principal em `portal-web/`. Ele contém áreas de visão geral, clientes, unidades, usinas, faturas, contratos, cobranças, equipe, importações, atividades, configurações e perfil.
+- A próxima evolução deve transformar o portal em uma **versão web operacional do Andrade Energy**, conectada à mesma API do Render e ao mesmo Supabase, mantendo permissões e regras idênticas ao app Gerador. Não duplicar cálculos de faturamento, alocação, contratos ou cobrança no frontend web: essas regras continuam centralizadas no backend.
+- Antes de liberar a versão web em produção, validar autenticação, autorização por perfil, responsividade, downloads de PDF, upload de contas/contratos, faturamento, gestão de geradores e proteção de segredos. A publicação web deve usar variáveis de ambiente próprias e nunca expor chaves administrativas do Supabase ou tokens de provedores de pagamento.
 
 ## Como executar localmente
 

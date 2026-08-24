@@ -51,3 +51,7 @@ supabase/.temp/
 *.rar
 *.zip
 *.7z
+
+# Local build and deployment artifacts
+/dist-apk/
+/portal-web-deploy*.tar.gz

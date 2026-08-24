@@ -8,6 +8,7 @@ import RealDiscountInfo from "../../components/cadastro/RealDiscountInfo";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { alocarUnidade } from "../../services/usinas.service";
+import { listarFaturas } from "../../services/faturas.service";
 import { supabase } from "../../supabase";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
@@ -24,11 +25,13 @@ function numeroSeguro(valor: unknown) {
 }
 
 export default function NovaUnidade() {
-  const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, cpf: cpfImportado, energiaCompensada, endereco: enderecoImportado, cadastroRapido, consumoMedio: consumoMedioImportado, tipoGd: tipoGdImportado } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; cpf?: string; energiaCompensada?: string; endereco?: string; cadastroRapido?: string; consumoMedio?: string; tipoGd?: string }>();
+  const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, cpf: cpfImportado, energiaCompensada, endereco: enderecoImportado, cadastroRapido, consumoMedio: consumoMedioImportado, tipoGd: tipoGdImportado, dadosFatura: dadosFaturaParam } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; cpf?: string; energiaCompensada?: string; endereco?: string; cadastroRapido?: string; consumoMedio?: string; tipoGd?: string; dadosFatura?: string }>();
+  const [dadosFatura, setDadosFatura] = useState<Record<string, any> | null>(() => parseDadosFatura(dadosFaturaParam));
   const [numero, setNumero] = useState(""); const [titular, setTitular] = useState("");
   const [cpfTitular, setCpfTitular] = useState("");
   const [tipo, setTipo] = useState<Tipo>("BENEFICIARIA"); const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO");
   const [desconto, setDesconto] = useState("40"); const [endereco, setEndereco] = useState("");
+  const [consumoMedio, setConsumoMedio] = useState(consumoMedioImportado ?? "");
   const [formatoFatura, setFormatoFatura] = useState<FormatoFatura>("UNIFICADA");
   const [repasseDisponibilidadeGD1, setRepasseDisponibilidadeGD1] = useState<RepasseGD2>("REPASSAR");
   const [repasseDisponibilidadeGD2, setRepasseDisponibilidadeGD2] = useState<RepasseGD2>("REPASSAR");
@@ -60,7 +63,34 @@ export default function NovaUnidade() {
     if (!clienteSelecionado) return;
     setTipo("BENEFICIARIA");
     if (clienteSelecionado.cpf && !cpfTitular) setCpfTitular(formatarDocumento(clienteSelecionado.cpf));
-  }, [clienteId, clientes, cpfTitular]);
+    if (!numeroSeguro(consumoMedio) && numeroSeguro(clienteSelecionado.consumo_medio_kwh)) {
+      setConsumoMedio(String(clienteSelecionado.consumo_medio_kwh));
+    }
+  }, [clienteId, clientes, consumoMedio, cpfTitular]);
+
+  useEffect(() => {
+    let ativa = true;
+    const numeroLimpo = numero.replace(/\D/g, "");
+    if (!numeroLimpo && !clienteId) {
+      if (!dadosFaturaParam) setDadosFatura(null);
+      return () => { ativa = false; };
+    }
+
+    async function carregarBaseReal() {
+      try {
+        const faturasDaUc = numeroLimpo ? await listarFaturas(undefined, numeroLimpo) : [];
+        const faturasDoCliente = !faturasDaUc.length && clienteId
+          ? await listarFaturas(clienteId)
+          : [];
+        if (ativa) setDadosFatura(faturasDaUc[0] ?? faturasDoCliente[0] ?? parseDadosFatura(dadosFaturaParam));
+      } catch {
+        if (ativa && !dadosFaturaParam) setDadosFatura(null);
+      }
+    }
+
+    void carregarBaseReal();
+    return () => { ativa = false; };
+  }, [clienteId, dadosFaturaParam, numero]);
 
   async function salvar() {
     const percentual = Number(desconto.replace(",", "."));
@@ -70,8 +100,8 @@ export default function NovaUnidade() {
     const usinaFinal = usinaId || clienteSelecionado?.usina_id || null;
     const modalidadeFinal = clienteSelecionado?.modalidade_faturamento ?? modalidade;
     const descontoFinal = clienteSelecionado?.desconto_percentual ?? percentual;
-    const mediaImportada = numeroSeguro(consumoMedioImportado);
-    const consumoMedioFinal = Math.max(0, mediaImportada > 0 ? mediaImportada : numeroSeguro(clienteSelecionado?.consumo_medio_kwh));
+    const mediaInformada = numeroSeguro(consumoMedio);
+    const consumoMedioFinal = Math.max(0, mediaInformada > 0 ? mediaInformada : numeroSeguro(clienteSelecionado?.consumo_medio_kwh));
 
     if (!numero) return Alert.alert("Dados incompletos", "Informe o número da unidade consumidora.");
     if (tipo !== "GERADORA" && !clienteId) return Alert.alert("Escolha o cliente", "É necessário cadastrar e selecionar um cliente antes de adicionar a UC.");
@@ -149,6 +179,7 @@ export default function NovaUnidade() {
         <Text style={styles.beneficiariaHint}>Esta UC será cadastrada como beneficiária: ela receberá a energia alocada pela usina.</Text>
         <ChoiceField label="Faturamento" value={modalidade} onChange={setModalidade} options={[{ label: "Injeção", value: "INJECAO" }, { label: "Compensação", value: "COMPENSACAO" }]} />
         <Text style={styles.label}>Usina</Text><View style={styles.options}>{usinas.map((u) => <Pressable key={u.id} onPress={() => setUsinaId(usinaId === u.id ? "" : u.id)} style={[styles.link, usinaId === u.id && styles.linkSelected]}><Text>{u.nome}</Text></Pressable>)}</View>
+        <FormField label="Consumo médio mensal (kWh)" value={consumoMedio} onChangeText={(valor) => setConsumoMedio(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" />
         <FormField label="Desconto contratado (%)" value={desconto} onChangeText={setDesconto} keyboardType="decimal-pad" /><FormField label="Endereço" value={endereco} onChangeText={setEndereco} /></> : null}
       {clienteIdVinculado && !clientes.find((item) => item.id === clienteId)?.usina_id ? <><Text style={styles.label}>Usina geradora</Text><View style={styles.options}>{usinas.map((u) => <Pressable key={u.id} onPress={() => setUsinaId(usinaId === u.id ? "" : u.id)} style={[styles.link, usinaId === u.id && styles.linkSelected]}><Text>{u.nome}</Text></Pressable>)}</View></> : null}
       {!clienteIdVinculado ? <><Text style={styles.label}>Vincular ao cliente *</Text>{clientes.length ? <View style={styles.options}>{clientes.map((c) => <Pressable key={c.id} onPress={() => setClienteId(clienteId === c.id ? "" : c.id)} style={[styles.link, clienteId === c.id && styles.linkSelected]}><Text>{c.nome}</Text></Pressable>)}</View> : <Text style={styles.clientRequired}>Cadastre um cliente antes de adicionar uma unidade consumidora.</Text>}</> : null}
@@ -163,6 +194,8 @@ export default function NovaUnidade() {
         <RealDiscountInfo
           descontoPercentual={desconto}
           tipoGd={tipoGdImportado}
+          modalidadeFaturamento={modalidade}
+          dadosFatura={dadosFatura}
           disponibilidadeGd1={repasseDisponibilidadeGD1}
           disponibilidadeGd2={repasseDisponibilidadeGD2}
           fioBGd2={repasseFioBGD2}
@@ -171,6 +204,11 @@ export default function NovaUnidade() {
       <Button disabled={salvando || (tipo !== "GERADORA" && !clienteId)} title={salvando ? "Salvando..." : "Salvar unidade"} onPress={salvar} />
     </Card>
   </ScrollView></Screen>;
+}
+
+function parseDadosFatura(valor?: string) {
+  try { return valor ? JSON.parse(valor) : null; }
+  catch { return null; }
 }
 
 function formatarDocumento(valor: string) {

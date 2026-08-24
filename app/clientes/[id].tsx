@@ -46,6 +46,15 @@ export default function ClienteDetalhe() {
       if (!numero) throw new Error("Não foi possível identificar o número da unidade consumidora.");
       const consumoMedio = calcularMediaConsumoFatura(dados);
       const tipoGd = tipoGdDaFatura(dados);
+      const dadosFatura = JSON.stringify({
+        valorTotal: dados.valorTotal, consumo: dados.consumo,
+        energiaInjetada: dados.energiaInjetada, energiaCompensada: dados.energiaCompensada,
+        energiaCompensadaGD1: dados.energiaCompensadaGD1, energiaCompensadaGD2: dados.energiaCompensadaGD2,
+        tarifaCheia: dados.tarifaCheia, tarifaScee: dados.tarifaScee,
+        tarifaGD2: dados.tarifaGD2 ?? dados.tarifaGD,
+        custoDisponibilidade: dados.custoDisponibilidade,
+        valorEnergiaConcessionaria: dados.valorEnergiaConcessionaria,
+      });
       // Sem uma usina definida não criamos uma UC parcialmente vinculada.
       // O formulário seguinte pede a usina antes de salvar e usa a mesma rota
       // canônica de alocação que grava cliente, usina, média e rateio juntos.
@@ -62,6 +71,7 @@ export default function ClienteDetalhe() {
             energiaCompensada: String(dados.energiaCompensada ?? 0),
             consumoMedio: consumoMedio > 0 ? String(consumoMedio) : "",
             tipoGd,
+            dadosFatura,
           },
         });
         return;
@@ -89,6 +99,7 @@ export default function ClienteDetalhe() {
           modalidade: String(cliente.modalidade_faturamento ?? "COMPENSACAO"),
           desconto: String(cliente.desconto_percentual ?? 40),
           tipoGd,
+          dadosFatura,
         },
       });
     } catch (erro: any) {
