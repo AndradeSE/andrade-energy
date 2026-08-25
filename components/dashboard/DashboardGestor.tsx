@@ -79,16 +79,6 @@ export default function DashboardGestor() {
     <Screen>
       <AppHeader contextSubtitle={`Competência ${data.competencia}`} contextTitle="Visão geral da operação" icon="sunny-outline" subtitle="Sua energia em um só lugar" title="Início" />
       <ScrollView bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        <View style={styles.hero}>
-          <View style={styles.heroTop}>
-            <View><Text style={styles.heroEyebrow}>GERAÇÃO NO MÊS</Text><Text style={styles.heroValue}>{formatarEnergia(data.energiaGerada)}</Text></View>
-            <View style={styles.status}><View style={styles.statusDot} /><Text style={styles.statusText}>Operação ativa</Text></View>
-          </View>
-          <View style={styles.progressTrack}><View style={[styles.progress, { width: `${Math.min(Math.max(Number(data.ocupacao), 0), 100)}%` }]} /></View>
-          <View style={styles.heroBottom}><Text style={styles.heroCaption}>{formatarPercentual(data.ocupacao)} da energia alocada</Text><Text style={styles.heroCaption}>{formatarEnergia(data.energiaDisponivel)} disponíveis</Text></View>
-          <Pressable disabled={importando} onPress={atualizarGeracao} style={styles.importButton}><Ionicons name="document-attach-outline" size={18} color={Colors.surface} /><Text style={styles.importText}>{importando ? "Lendo conta..." : "Importar dados de produção"}</Text></Pressable>
-        </View>
-
         <Section title="Acesso rápido">
           <QuickAccessCarousel items={[{ icon: "wallet-outline", label: "Saldo em carteira", value: carteira ? formatarMoeda(carteira.saldoDisponivel) : "Carregando...", badge: novoRecebimento, onPress: () => void abrirCarteira() }, ...atalhos.map((atalho) => ({ icon: atalho.icon, label: atalho.label, onPress: () => router.push(atalho.rota as any) }))]} />
         </Section>
@@ -98,13 +88,27 @@ export default function DashboardGestor() {
           <View style={styles.walletFooter}><Text style={styles.walletFooterText}>Recebido: {formatarMoeda(carteira.totalRecebido)}</Text><Text style={styles.walletFooterText}>{carteira.transferenciaAutomatica ? "Repasse automático ativo" : "Repasse manual"}</Text></View>
         </Pressable> : null}
 
-        <Section title="Resumo da carteira">
+        <Section title="Visão geral">
           <View style={styles.grid}>
+            <View style={styles.metric}><Metric compact icon={<Ionicons name="sunny-outline" size={20} color={Colors.primary} />} title="Geração no mês" value={formatarEnergia(data.energiaGerada)} /></View>
             <View style={styles.metric}><Metric compact icon={<Ionicons name="people-outline" size={20} color={Colors.primary} />} title="Clientes ativos" value={data.clientes} /></View>
-            <View style={styles.metric}><Metric compact icon={<Ionicons name="analytics-outline" size={20} color={Colors.primary} />} title="Geração total" value={formatarEnergia(data.energiaTotal)} /></View>
             <View style={styles.metric}><Metric compact icon={<Ionicons name="wallet-outline" size={20} color={Colors.primary} />} title="Receita prevista" value={formatarMoeda(data.receitaPrevista)} /></View>
+            <View style={styles.metric}><Metric compact icon={<Ionicons name="battery-charging-outline" size={20} color={Colors.primary} />} title="Energia disponível" value={formatarEnergia(data.energiaDisponivel)} /></View>
           </View>
         </Section>
+
+        <View style={styles.operationCard}>
+          <View style={styles.operationHeading}>
+            <View><Text style={styles.operationEyebrow}>DESEMPENHO</Text><Text style={styles.operationTitle}>Uso da energia</Text></View>
+            <View style={styles.status}><View style={styles.statusDot} /><Text style={styles.statusText}>Operação ativa</Text></View>
+          </View>
+          <View style={styles.allocationRow}>
+            <View><Text style={styles.allocationValue}>{formatarPercentual(data.ocupacao)}</Text><Text style={styles.allocationLabel}>energia alocada</Text></View>
+            <View style={styles.availableCopy}><Text style={styles.availableValue}>{formatarEnergia(data.energiaDisponivel)}</Text><Text style={styles.allocationLabel}>prontos para alocação</Text></View>
+          </View>
+          <View style={styles.progressTrack}><View style={[styles.progress, { width: `${Math.min(Math.max(Number(data.ocupacao), 0), 100)}%` }]} /></View>
+          <Pressable disabled={importando} onPress={atualizarGeracao} style={[styles.importButton, importando && styles.disabled]}><Ionicons name="document-attach-outline" size={18} color={Colors.surface} /><Text style={styles.importText}>{importando ? "Lendo conta..." : "Importar dados de produção"}</Text></Pressable>
+        </View>
 
         <RevenueChart previsto={data.receitaPrevista} recebido={data.receitaRealizada} />
       </ScrollView>
@@ -115,13 +119,13 @@ export default function DashboardGestor() {
 const styles = StyleSheet.create({
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl * 3 },
   errorContent: { flex: 1, justifyContent: "center", padding: Spacing.lg },
-  hero: { minHeight: 218, overflow: "hidden", justifyContent: "space-between", marginBottom: Spacing.xl, padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: Colors.primary, ...Shadows.card },
-  heroTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }, heroEyebrow: { color: "#A7F3D0", fontSize: Typography.small, fontWeight: "700", letterSpacing: 1.1 },
-  heroValue: { marginTop: Spacing.xs, color: Colors.surface, fontSize: 32, fontWeight: "800" }, status: { flexDirection: "row", alignItems: "center", paddingHorizontal: Spacing.sm, paddingVertical: 7, borderRadius: Radius.round, backgroundColor: "rgba(255,255,255,0.14)" },
-  statusDot: { width: 7, height: 7, marginRight: 6, borderRadius: Radius.round, backgroundColor: "#34D399" }, statusText: { color: Colors.surface, fontSize: Typography.small, fontWeight: "700" },
-  progressTrack: { height: 8, overflow: "hidden", marginTop: Spacing.xl, borderRadius: Radius.round, backgroundColor: "rgba(255,255,255,0.18)" }, progress: { height: "100%", borderRadius: Radius.round, backgroundColor: "#34D399" },
-  heroBottom: { flexDirection: "row", justifyContent: "space-between", marginTop: Spacing.sm }, heroCaption: { color: "#D1FAE5", fontSize: Typography.small },
-  importButton: { minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: Spacing.md, borderRadius: Radius.md, backgroundColor: "rgba(15,143,91,0.88)" }, importText: { marginLeft: Spacing.xs, color: Colors.surface, fontSize: Typography.caption, fontWeight: "700" },
+  operationCard: { marginBottom: Spacing.xl, padding: Spacing.lg, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.xl, backgroundColor: Colors.surface, ...Shadows.card },
+  operationHeading: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, operationEyebrow: { color: Colors.primary, fontSize: 10, fontWeight: "900", letterSpacing: 1 }, operationTitle: { marginTop: 3, color: Colors.text, fontSize: Typography.card, fontWeight: "900" },
+  status: { flexDirection: "row", alignItems: "center", paddingHorizontal: Spacing.sm, paddingVertical: 7, borderRadius: Radius.round, backgroundColor: Colors.primaryLight },
+  statusDot: { width: 7, height: 7, marginRight: 6, borderRadius: Radius.round, backgroundColor: Colors.primary }, statusText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" },
+  allocationRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: Spacing.lg }, allocationValue: { color: Colors.text, fontSize: 28, fontWeight: "900" }, availableCopy: { alignItems: "flex-end" }, availableValue: { color: Colors.text, fontSize: Typography.body, fontWeight: "900" }, allocationLabel: { marginTop: 2, color: Colors.subtitle, fontSize: Typography.small },
+  progressTrack: { height: 8, overflow: "hidden", marginTop: Spacing.md, borderRadius: Radius.round, backgroundColor: Colors.primaryLight }, progress: { height: "100%", borderRadius: Radius.round, backgroundColor: Colors.primary },
+  importButton: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: Spacing.lg, borderRadius: Radius.md, backgroundColor: Colors.primary }, importText: { marginLeft: Spacing.xs, color: Colors.surface, fontSize: Typography.caption, fontWeight: "800" }, disabled: { opacity: .65 },
   walletSummary: { marginBottom: Spacing.xl, padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: "#063E31", ...Shadows.card },
   walletSummaryTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }, walletEyebrow: { color: "#86EFAC", fontSize: 11, fontWeight: "900", letterSpacing: 1 }, walletBalance: { marginTop: 5, color: "#FFFFFF", fontSize: 30, fontWeight: "900" }, walletCaption: { marginTop: 3, color: "#CDEBDE", fontSize: 12 },
   walletIcon: { width: 50, height: 50, alignItems: "center", justifyContent: "center", borderRadius: Radius.round, backgroundColor: "rgba(255,255,255,.13)" }, walletFooter: { flexDirection: "row", justifyContent: "space-between", marginTop: Spacing.lg, paddingTop: Spacing.md, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,.16)" },
