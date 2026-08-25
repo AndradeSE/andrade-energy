@@ -260,6 +260,8 @@ function PortalHome({ session, type, onLogout }: { session: PortalSession; type:
   const [actionOpen, setActionOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<WebRecord | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [walletHome, setWalletHome] = useState<WalletSummary | null>(null);
+  const [walletNotice, setWalletNotice] = useState(false);
 
   useEffect(() => {
     if (!session.token) return;
@@ -283,6 +285,25 @@ function PortalHome({ session, type, onLogout }: { session: PortalSession; type:
       .then((data) => data && setDashboard(data))
       .catch(() => undefined);
   }, [session.token, type]);
+
+  useEffect(() => {
+    if (type !== "GERADOR" || !session.token) return;
+    const loadWallet = async () => {
+      const response = await fetch(`${API_URL}/carteira`, { headers: { Authorization: `Bearer ${session.token}` } });
+      if (!response.ok) return;
+      const wallet = await response.json() as WalletSummary;
+      setWalletHome(wallet);
+      const storageKey = `andrade_wallet_received:${session.usuario?.id ?? "gerador"}`;
+      const previous = localStorage.getItem(storageKey);
+      localStorage.setItem(storageKey, String(wallet.totalRecebido));
+      if (previous !== null && wallet.totalRecebido > Number(previous)) setWalletNotice(true);
+    };
+    void loadWallet();
+    const timer = window.setInterval(() => void loadWallet(), 60_000);
+    return () => window.clearInterval(timer);
+  }, [session.token, session.usuario?.id, type]);
+
+  function openWallet() { setWalletNotice(false); setSelectedRecord(null); setActiveSection("Carteira"); }
 
   useEffect(() => {
     if (activeSection === "Visão geral" || !session.token) return;
@@ -354,13 +375,14 @@ function PortalHome({ session, type, onLogout }: { session: PortalSession; type:
       <div className="portal-layout">
         <aside className="portal-sidebar">
           <div className="sidebar-brand"><i>AE</i><span><strong>Andrade Energy</strong><small>Portal de gestão</small></span></div>
-          <nav>{menuGroups.map((group) => <div className="nav-group" key={group.label}><span>{group.label}</span>{group.items.map((item) => <button onClick={() => { setSelectedRecord(null); setActiveSection(item); setSearchQuery(""); }} className={activeSection === item ? "active" : ""} key={item}><b>{item.slice(0, 1)}</b><span>{item}</span><i>›</i></button>)}</div>)}</nav>
+          <nav>{menuGroups.map((group) => <div className="nav-group" key={group.label}><span>{group.label}</span>{group.items.map((item) => <button onClick={() => { setSelectedRecord(null); setActiveSection(item); setSearchQuery(""); if (item === "Carteira") setWalletNotice(false); }} className={activeSection === item ? "active" : ""} key={item}><b>{item.slice(0, 1)}</b><span>{item}</span>{walletNotice && item === "Carteira" ? <em className="wallet-menu-badge">NOVO</em> : null}<i>›</i></button>)}</div>)}</nav>
           <div className="sidebar-help"><small>PRECISA DE AJUDA?</small><strong>Fale com o suporte</strong><a href="mailto:contato@andradese.com.br">Entrar em contato →</a></div>
         </aside>
         <section className="portal-dashboard">
           {activeSection === "Carteira" && session.token ? <WalletPanel token={session.token} /> : null}
           <div className="dashboard-heading"><div><span className="section-label">PORTAL {type === "GERADOR" ? "DO GERADOR" : "DO CLIENTE"}</span><h1>{activeSection}</h1><p className="dashboard-lead">{activeSection === "Visão geral" ? "Decisões mais claras com os dados da sua operação." : `Gestão completa de ${activeSection.toLowerCase()} em um só lugar.`}</p></div>{canCreate && !selectedRecord ? <div className="heading-actions">{activeSection === "Clientes" ? <button className="secondary-action" onClick={() => void inviteClient()}>Convidar cliente</button> : null}<button className="primary-action" onClick={() => setActionOpen(true)}>{activeSection === "Faturas" ? "+ Importar fatura" : activeSection === "Usinas" ? "+ Nova usina" : activeSection === "Clientes" ? "+ Novo cliente" : "+ Novo fechamento"}</button></div> : null}</div>
           {activeSection === "Visão geral" ? type === "CONSUMIDOR" ? <ClientOverview data={dashboard} onNavigate={setActiveSection} /> : <>
+            {walletHome ? <button className={`wallet-home-card ${walletNotice ? "has-notice" : ""}`} onClick={openWallet}><span className="wallet-home-icon">R$</span><span><small>SALDO EM CARTEIRA</small><strong>{walletHome.saldoDisponivel.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong><em>{walletHome.transferenciaAutomatica ? "Transferência automática ativa" : "Transferência manual"}</em></span><span className="wallet-home-side">{walletNotice ? <b>Novo recebimento</b> : null}<small>Total recebido</small><strong>{walletHome.totalRecebido.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong><i>Abrir carteira →</i></span></button> : null}
             <div className="dashboard-metrics top-metrics">
               <article><small>Geração no mês</small><strong>{energy} kWh</strong><span className="metric-up">↑ 8,4% no período</span></article>
               <article><small>Clientes ativos</small><strong>{clients}</strong><span>Carteira atual</span></article>
