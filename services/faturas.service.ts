@@ -121,6 +121,11 @@ export async function confirmarFaturaRascunho(id: string) {
   return data;
 }
 
+export async function gerarCobrancaAsaas(id: string) {
+  const { data } = await api.post(`/asaas/cobrancas/${id}`);
+  return data;
+}
+
 export async function atualizarFatura(
   id: string,
   payload: any

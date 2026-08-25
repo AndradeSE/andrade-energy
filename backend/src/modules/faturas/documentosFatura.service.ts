@@ -1,4 +1,6 @@
 import PDFDocument from "pdfkit";
+import bwipjs from "bwip-js";
+import QRCode from "qrcode";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -48,6 +50,22 @@ function dataBrasileira(valor: unknown) {
 function textoCurto(valor: unknown, maximo = 56) {
   const texto = String(valor ?? "").trim();
   return texto.length > maximo ? `${texto.slice(0, Math.max(0, maximo - 1)).trim()}…` : texto;
+}
+
+function codigoDeBarrasDaLinhaDigitavel(valor: unknown) {
+  const linha = String(valor ?? "").replace(/\D/g, "");
+  if (linha.length === 44) return linha;
+  if (linha.length === 47) {
+    return `${linha.slice(0, 4)}${linha.slice(32, 33)}${linha.slice(33, 47)}${linha.slice(4, 9)}${linha.slice(10, 20)}${linha.slice(21, 31)}`;
+  }
+  if (linha.length === 48) {
+    return `${linha.slice(0, 11)}${linha.slice(12, 23)}${linha.slice(24, 35)}${linha.slice(36, 47)}`;
+  }
+  return null;
+}
+
+function formatarLinhaDigitavel(valor: unknown) {
+  return String(valor ?? "").replace(/\s+/g, "").trim();
 }
 
 function desenharLinha(pdf: PDFKit.PDFDocument, y: number) {
@@ -131,6 +149,17 @@ function desenharLogoNoCabecalho(pdf: PDFKit.PDFDocument) {
 /** Gera a fatura que o cliente recebe e pode baixar no aplicativo. */
 export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
   fatura = await incluirDadosDaUCNaFatura(fatura);
+  const codigoPix = String(fatura.codigo_pix ?? "").trim();
+  const linhaDigitavel = formatarLinhaDigitavel(fatura.linha_digitavel);
+  const codigoBarras = codigoDeBarrasDaLinhaDigitavel(linhaDigitavel);
+  const [imagemQrCode, imagemCodigoBarras] = await Promise.all([
+    codigoPix
+      ? QRCode.toBuffer(codigoPix, { type: "png", width: 240, margin: 1, errorCorrectionLevel: "M" }).catch(() => null)
+      : Promise.resolve(null),
+    codigoBarras
+      ? bwipjs.toBuffer({ bcid: "interleaved2of5", text: codigoBarras, scale: 3, height: 12, includetext: false, padding: 0 }).catch(() => null)
+      : Promise.resolve(null),
+  ]);
   return new Promise<Buffer>((resolve, reject) => {
     const pdf = new PDFDocument({
       size: "A4",
@@ -284,13 +313,21 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     });
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(5.6).text("Evolução da economia nas últimas competências", 62, y.inferior + 125, { width: 210, align: "center" });
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text("PAGUE COM PIX", 322, y.inferior + 28);
-    pdf.roundedRect(322, y.inferior + 42, 68, 61, 3).fill("#F6F8F7");
-    pdf.roundedRect(322, y.inferior + 42, 68, 61, 3).strokeColor("#9DB5AA").dash(2, { space: 2 }).stroke().undash();
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7).text("QR CODE\nPIX", 337, y.inferior + 62, { width: 38, align: "center" });
-    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text("CÓDIGO DE BARRAS", 410, y.inferior + 28);
-    const barras = [2,1,3,2,1,4,1,2,3,1,2,4,2,1,3,1,2,3,2,4,1,2,3,1,4,2,1,3,2,1,3,2,4];
-    let xBarra = 410;
-    barras.forEach((largura) => { pdf.rect(xBarra, y.inferior + 46, largura, 38).fill(TEXTO); xBarra += largura + 1.5; });
+    pdf.roundedRect(322, y.inferior + 40, 70, 70, 3).fill("#FFFFFF");
+    if (imagemQrCode) {
+      pdf.image(imagemQrCode, 325, y.inferior + 43, { fit: [64, 64], align: "center", valign: "center" });
+    } else {
+      pdf.roundedRect(322, y.inferior + 40, 70, 70, 3).strokeColor("#9DB5AA").dash(2, { space: 2 }).stroke().undash();
+      pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(6.4).text("PIX disponível\napós a emissão", 330, y.inferior + 65, { width: 54, align: "center" });
+    }
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text("BOLETO", 405, y.inferior + 28);
+    if (imagemCodigoBarras) {
+      pdf.image(imagemCodigoBarras, 405, y.inferior + 44, { fit: [126, 43], align: "center", valign: "center" });
+      pdf.fillColor(TEXTO).font("Helvetica").fontSize(4.8).text(linhaDigitavel, 402, y.inferior + 92, { width: 132, align: "center" });
+    } else {
+      pdf.roundedRect(405, y.inferior + 44, 126, 48, 3).fill("#F6F8F7");
+      pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(6.2).text("Código de barras disponível\napós a emissão", 414, y.inferior + 59, { width: 108, align: "center" });
+    }
     pdf.roundedRect(318, y.inferior + 128, 215, 11, 4).fill("#E3F0E8");
     pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.6).text("Após o vencimento, encargos poderão ser aplicados.", 327, y.inferior + 131);
 
@@ -368,6 +405,7 @@ export async function regenerarDocumentosGeradosDaFatura(fatura: any) {
 
 async function criarLinkTemporario(caminho?: string | null) {
   if (!caminho) return null;
+  if (/^https?:\/\//i.test(caminho)) return caminho;
   const { data, error } = await supabase.storage
     .from(BUCKET)
     .createSignedUrl(caminho, 300);

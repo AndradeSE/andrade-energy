@@ -20,7 +20,7 @@ import {
 
 import { AppHeader, Card, Divider, ElasticScrollView as ScrollView, EmptyState, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
-import { buscarFatura, confirmarFaturaRascunho, formatarDataBrasileira, regenerarDocumentosFatura } from "../../services/faturas.service";
+import { buscarFatura, confirmarFaturaRascunho, formatarDataBrasileira, gerarCobrancaAsaas, regenerarDocumentosFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const formatarMoeda = (valor: number) =>
@@ -40,6 +40,7 @@ export default function DetalheFatura() {
   const [atualizando, setAtualizando] = useState(false);
   const [regenerandoPdf, setRegenerandoPdf] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
+  const [gerandoCobranca, setGerandoCobranca] = useState(false);
 
   const carregar = useCallback(async () => {
     setErro(false);
@@ -97,6 +98,19 @@ export default function DetalheFatura() {
       Alert.alert("Não foi possível confirmar", erro?.response?.data?.message ?? "Atualize a página e tente novamente.");
     } finally {
       setConfirmando(false);
+    }
+  }
+
+  async function gerarCobranca() {
+    try {
+      setGerandoCobranca(true);
+      await gerarCobrancaAsaas(String(id));
+      await carregar();
+      Alert.alert("Cobrança criada", "O boleto e o PIX já estão disponíveis para o cliente.");
+    } catch (erro: any) {
+      Alert.alert("Não foi possível gerar a cobrança", erro?.response?.data?.message ?? "Confira os dados do cliente e tente novamente.");
+    } finally {
+      setGerandoCobranca(false);
     }
   }
 
@@ -267,6 +281,18 @@ export default function DetalheFatura() {
             >
               <Ionicons name={regenerandoPdf ? "hourglass-outline" : "refresh-outline"} size={18} color={Colors.primary} />
               <Text style={styles.regenerateButtonText}>{regenerandoPdf ? "Atualizando PDF..." : "Gerar PDF atualizado"}</Text>
+            </TouchableOpacity>
+          ) : null}
+          {IS_GERADOR_APP && String(fatura.status ?? "").toUpperCase() !== "RASCUNHO" && !fatura.pdf_boleto_url && !fatura.codigo_pix ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              activeOpacity={0.84}
+              disabled={gerandoCobranca}
+              onPress={() => void gerarCobranca()}
+              style={[styles.confirmButton, gerandoCobranca && styles.confirmButtonDisabled]}
+            >
+              {gerandoCobranca ? <ActivityIndicator color={Colors.surface} /> : <Ionicons name="barcode-outline" size={20} color={Colors.surface} />}
+              <Text style={styles.confirmButtonText}>{gerandoCobranca ? "Gerando cobrança..." : "Gerar boleto e PIX"}</Text>
             </TouchableOpacity>
           ) : null}
           <DownloadButton

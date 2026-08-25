@@ -1,12 +1,29 @@
 import { supabase } from "../../config/supabase";
 import { asaasRequest } from "./asaas.client";
+import { regenerarDocumentosGeradosDaFatura } from "../faturas/documentosFatura.service";
 
 function digits(value: unknown) { return String(value ?? "").replace(/\D/g, ""); }
 function dueDate(value: unknown) { const text=String(value??"").slice(0,10); return /^\d{4}-\d{2}-\d{2}$/.test(text)?text:new Date(Date.now()+7*86400000).toISOString().slice(0,10); }
 
 export async function criarCobrancaAsaas(faturaId: string) {
   const { data: existing } = await supabase.from("asaas_cobrancas").select("*").eq("fatura_id", faturaId).maybeSingle();
-  if (existing?.asaas_payment_id) return existing;
+  if (existing?.asaas_payment_id) {
+    const [pix, boleto] = await Promise.all([
+      asaasRequest<any>(`/payments/${existing.asaas_payment_id}/pixQrCode`).catch(()=>null),
+      asaasRequest<any>(`/payments/${existing.asaas_payment_id}/identificationField`).catch(()=>null),
+    ]);
+    const dadosPagamento = {
+      linha_digitavel: boleto?.identificationField ?? existing.linha_digitavel ?? null,
+      codigo_pix: pix?.payload ?? existing.codigo_pix ?? null,
+      pdf_boleto_url: existing.bank_slip_url ?? null,
+    };
+    const { data: faturaExistente, error: updateError } = await supabase.from("faturas").update(dadosPagamento).eq("id", faturaId).select().single();
+    if (updateError) throw updateError;
+    await regenerarDocumentosGeradosDaFatura(faturaExistente);
+    const { data: cobrancaAtualizada, error: chargeUpdateError } = await supabase.from("asaas_cobrancas").update({ linha_digitavel:dadosPagamento.linha_digitavel, codigo_pix:dadosPagamento.codigo_pix, atualizado_em:new Date().toISOString() }).eq("id", existing.id).select().single();
+    if (chargeUpdateError) throw chargeUpdateError;
+    return cobrancaAtualizada;
+  }
   const { data: invoice, error } = await supabase.from("faturas").select("*, clientes(*)").eq("id", faturaId).single();
   if (error || !invoice) throw new Error("Fatura não encontrada.");
   const customerData = Array.isArray(invoice.clientes) ? invoice.clientes[0] : invoice.clientes;
@@ -16,10 +33,15 @@ export async function criarCobrancaAsaas(faturaId: string) {
   const value = Number(invoice.valor_total_unificado ?? invoice.valor_total ?? 0);
   if (!(value > 0)) throw new Error("A fatura não possui valor válido para cobrança.");
   const payment = await asaasRequest<any>("/payments", { method:"POST", body:JSON.stringify({ customer:customer.id, billingType:process.env.ASAAS_BILLING_TYPE ?? "BOLETO", value, dueDate:dueDate(invoice.vencimento), description:`Andrade Energy · ${invoice.referencia ?? "fatura"}`, externalReference:faturaId }) });
-  const pix = await asaasRequest<any>(`/payments/${payment.id}/pixQrCode`).catch(()=>null);
-  const record = { fatura_id:faturaId, asaas_customer_id:customer.id, asaas_payment_id:payment.id, status:payment.status, valor:value, invoice_url:payment.invoiceUrl??null, bank_slip_url:payment.bankSlipUrl??null, linha_digitavel:payment.identificationField??null, codigo_pix:pix?.payload??null, atualizado_em:new Date().toISOString() };
+  const [pix, boleto] = await Promise.all([
+    asaasRequest<any>(`/payments/${payment.id}/pixQrCode`).catch(()=>null),
+    asaasRequest<any>(`/payments/${payment.id}/identificationField`).catch(()=>null),
+  ]);
+  const record = { fatura_id:faturaId, asaas_customer_id:customer.id, asaas_payment_id:payment.id, status:payment.status, valor:value, invoice_url:payment.invoiceUrl??null, bank_slip_url:payment.bankSlipUrl??null, linha_digitavel:boleto?.identificationField??payment.identificationField??null, codigo_pix:pix?.payload??null, atualizado_em:new Date().toISOString() };
   const { data, error: saveError } = await supabase.from("asaas_cobrancas").upsert(record,{onConflict:"fatura_id"}).select().single(); if(saveError) throw saveError;
-  await supabase.from("faturas").update({ linha_digitavel:record.linha_digitavel, codigo_pix:record.codigo_pix, pdf_boleto_url:record.bank_slip_url }).eq("id",faturaId);
+  const { data: faturaAtualizada, error: updateError } = await supabase.from("faturas").update({ linha_digitavel:record.linha_digitavel, codigo_pix:record.codigo_pix, pdf_boleto_url:record.bank_slip_url }).eq("id",faturaId).select().single();
+  if (updateError) throw updateError;
+  await regenerarDocumentosGeradosDaFatura(faturaAtualizada);
   return data;
 }
 
