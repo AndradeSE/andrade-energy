@@ -1199,25 +1199,31 @@ function UnitTools({
   ) {
     setBusy(true);
     setMessage("");
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      method,
-      headers: { Authorization: `Bearer ${token}`, ...(headers ?? {}) },
-      body,
-    });
-    const data = await response.json().catch(() => ({}));
-    setMessage(
-      response.ok
-        ? (data.mensagem ??
-            data.message ??
-            (data.endereco
-              ? `Endereço ativo: ${data.endereco}`
-              : "Operação concluída."))
-        : (data.message ?? "Não foi possível concluir."),
-    );
-    setBusy(false);
-    if (response.ok) {
-      setToolsRefresh((value) => value + 1);
-      onChanged();
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method,
+        headers: { Authorization: `Bearer ${token}`, ...(headers ?? {}) },
+        body,
+      });
+      const data = await response.json().catch(() => ({}));
+      setMessage(
+        response.ok
+          ? (data.mensagem ??
+              data.message ??
+              (data.endereco
+                ? `Novo endereço: ${data.endereco}`
+                : "Operação concluída."))
+          : (data.message ?? "Não foi possível concluir."),
+      );
+      if (response.ok) {
+        if (data.endereco || typeof data.ativo === "boolean") setReceipt(data);
+        setToolsRefresh((value) => value + 1);
+        onChanged();
+      }
+    } catch {
+      setMessage("Não foi possível acessar o servidor. Tente novamente.");
+    } finally {
+      setBusy(false);
     }
   }
   async function uploadContract(file: File | null) {
@@ -1584,6 +1590,24 @@ function UnitTools({
                   >
                     Desativar recebimento
                   </button>
+                  <div className="email-provider-group">
+                    <small>ATIVAR RECEBIMENTO POR E-MAIL</small>
+                    <span>Escolha a conta que enviará as faturas automaticamente.</span>
+                    <div>
+                      <button
+                        disabled={busy}
+                        onClick={() => void connectEmail("GMAIL")}
+                      >
+                        Conectar Gmail
+                      </button>
+                      <button
+                        disabled={busy}
+                        onClick={() => void connectEmail("OUTLOOK")}
+                      >
+                        Conectar Outlook
+                      </button>
+                    </div>
+                  </div>
                 </>
               ) : (
                 <button
@@ -1597,18 +1621,6 @@ function UnitTools({
                   Ativar recebimento por e-mail
                 </button>
               )}
-              <button
-                disabled={busy}
-                onClick={() => void connectEmail("GMAIL")}
-              >
-                Conectar Gmail
-              </button>
-              <button
-                disabled={busy}
-                onClick={() => void connectEmail("OUTLOOK")}
-              >
-                Conectar Outlook
-              </button>
               <button
                 disabled={busy}
                 onClick={() =>
