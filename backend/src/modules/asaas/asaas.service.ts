@@ -63,3 +63,38 @@ export async function processarWebhookAsaas(body: any, token?: string) {
   if(body.transfer?.id) await supabase.from("asaas_transferencias").update({status:body.transfer.status,atualizado_em:new Date().toISOString()}).eq("asaas_transfer_id",body.transfer.id);
   return {recebido:true};
 }
+
+export async function validarSaqueAsaas(body: any, token?: string) {
+  if (!process.env.ASAAS_WITHDRAWAL_WEBHOOK_TOKEN || token !== process.env.ASAAS_WITHDRAWAL_WEBHOOK_TOKEN) {
+    throw new Error("Webhook de validação de saque não autorizado.");
+  }
+
+  const transfer = body?.type === "TRANSFER" ? body.transfer : null;
+  if (!transfer?.id) {
+    return { status: "REFUSED", refuseReason: "Somente transferências registradas pelo portal são autorizadas." };
+  }
+
+  const { data: registrada, error } = await supabase
+    .from("asaas_transferencias")
+    .select("*")
+    .eq("asaas_transfer_id", transfer.id)
+    .maybeSingle();
+  if (error) throw error;
+
+  const chaveEsperada = String(process.env.ASAAS_TRANSFER_PIX_KEY ?? "").trim().toLowerCase();
+  const chaveRecebida = String(transfer.bankAccount?.pixAddressKey ?? "").trim().toLowerCase();
+  const valorCorresponde = registrada && Math.abs(Number(registrada.valor) - Number(transfer.value)) < 0.01;
+  const destinoCorresponde = chaveEsperada && chaveRecebida === chaveEsperada;
+  const pix = transfer.operationType === "PIX";
+  const aprovada = Boolean(registrada && valorCorresponde && destinoCorresponde && pix);
+
+  await supabase.from("asaas_eventos").upsert({
+    evento_id: `WITHDRAWAL:${transfer.id}`,
+    tipo: aprovada ? "WITHDRAWAL_APPROVED" : "WITHDRAWAL_REFUSED",
+    payload: body,
+  }, { onConflict: "evento_id" });
+
+  return aprovada
+    ? { status: "APPROVED" }
+    : { status: "REFUSED", refuseReason: "Transferência não reconhecida ou dados divergentes." };
+}
