@@ -93,6 +93,14 @@ module.exports = {
       "expo-local-authentication",
 
       [
+        "expo-notifications",
+        {
+          color: "#079454",
+          defaultChannel: "carteira",
+        },
+      ],
+
+      [
         "expo-web-browser",
         {
           experimentalLauncherActivity: true,

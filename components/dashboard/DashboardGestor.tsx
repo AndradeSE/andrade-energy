@@ -1,12 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { useDashboardGestor } from "../../hooks/useDashboardGestor";
 import { importarFaturaGeradora } from "../../services/usinas.service";
+import * as CarteiraService from "../../services/carteira.service";
+import { marcarCarteiraComoVista, verificarNovoRecebimento } from "../../services/carteira-notificacoes.service";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 import { AppHeader, ElasticScrollView as ScrollView, EmptyState, Loading, Metric, Screen, Section } from "../ui";
 import QuickAccessCarousel from "../QuickAccessCarousel";
@@ -30,14 +32,24 @@ const atalhos = [
   { icon: "flash-outline", label: "Unidades consumidoras", rota: "/unidades" },
   { icon: "receipt-outline", label: "Faturas", rota: "/faturas" },
   { icon: "document-text-outline", label: "Contratos", rota: "/contratos" },
-  { icon: "receipt-outline", label: "Financeiro", rota: "/financeiro" },
 ] as const;
 
 export default function DashboardGestor() {
   const { usuario, usinaSelecionada, suspenderBloqueioTemporariamente } = useAuth();
   const { data, isLoading, error, refetch } = useDashboardGestor();
+  const [carteira, setCarteira] = useState<CarteiraService.Carteira | null>(null);
+  const [novoRecebimento, setNovoRecebimento] = useState(false);
   const [importando, setImportando] = useState(false); const [atualizando, setAtualizando] = useState(false);
-  async function atualizarPagina() { setAtualizando(true); try { await refetch(); } finally { setAtualizando(false); } }
+  async function carregarCarteira() {
+    try {
+      const proxima = await CarteiraService.carregarCarteira();
+      setCarteira(proxima);
+      if (usuario?.id) setNovoRecebimento(await verificarNovoRecebimento(String(usuario.id), proxima.totalRecebido));
+    } catch { /* O dashboard continua disponível se a carteira estiver temporariamente indisponível. */ }
+  }
+  useEffect(() => { void carregarCarteira(); }, [usuario?.id]);
+  async function atualizarPagina() { setAtualizando(true); try { await Promise.all([refetch(), carregarCarteira()]); } finally { setAtualizando(false); } }
+  async function abrirCarteira() { setNovoRecebimento(false); await marcarCarteiraComoVista(); router.push("/financeiro"); }
 
   async function atualizarGeracao() {
     const usinaId = usinaSelecionada?.id ?? usuario?.usina_id;
@@ -78,8 +90,13 @@ export default function DashboardGestor() {
         </View>
 
         <Section title="Acesso rápido">
-          <QuickAccessCarousel items={atalhos.map((atalho) => ({ icon: atalho.icon, label: atalho.label, onPress: () => router.push(atalho.rota as any) }))} />
+          <QuickAccessCarousel items={[{ icon: "wallet-outline", label: "Saldo em carteira", value: carteira ? formatarMoeda(carteira.saldoDisponivel) : "Carregando...", badge: novoRecebimento, onPress: () => void abrirCarteira() }, ...atalhos.map((atalho) => ({ icon: atalho.icon, label: atalho.label, onPress: () => router.push(atalho.rota as any) }))]} />
         </Section>
+
+        {carteira ? <Pressable onPress={() => void abrirCarteira()} style={styles.walletSummary}>
+          <View style={styles.walletSummaryTop}><View><Text style={styles.walletEyebrow}>CARTEIRA ANDRADE</Text><Text style={styles.walletBalance}>{formatarMoeda(carteira.saldoDisponivel)}</Text><Text style={styles.walletCaption}>Saldo disponível para transferência</Text></View><View style={styles.walletIcon}><Ionicons name="wallet" size={25} color="#FFFFFF" /></View></View>
+          <View style={styles.walletFooter}><Text style={styles.walletFooterText}>Recebido: {formatarMoeda(carteira.totalRecebido)}</Text><Text style={styles.walletFooterText}>{carteira.transferenciaAutomatica ? "Repasse automático ativo" : "Repasse manual"}</Text></View>
+        </Pressable> : null}
 
         <Section title="Resumo da carteira">
           <View style={styles.grid}>
@@ -105,5 +122,9 @@ const styles = StyleSheet.create({
   progressTrack: { height: 8, overflow: "hidden", marginTop: Spacing.xl, borderRadius: Radius.round, backgroundColor: "rgba(255,255,255,0.18)" }, progress: { height: "100%", borderRadius: Radius.round, backgroundColor: "#34D399" },
   heroBottom: { flexDirection: "row", justifyContent: "space-between", marginTop: Spacing.sm }, heroCaption: { color: "#D1FAE5", fontSize: Typography.small },
   importButton: { minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: Spacing.md, borderRadius: Radius.md, backgroundColor: "rgba(15,143,91,0.88)" }, importText: { marginLeft: Spacing.xs, color: Colors.surface, fontSize: Typography.caption, fontWeight: "700" },
+  walletSummary: { marginBottom: Spacing.xl, padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: "#063E31", ...Shadows.card },
+  walletSummaryTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }, walletEyebrow: { color: "#86EFAC", fontSize: 11, fontWeight: "900", letterSpacing: 1 }, walletBalance: { marginTop: 5, color: "#FFFFFF", fontSize: 30, fontWeight: "900" }, walletCaption: { marginTop: 3, color: "#CDEBDE", fontSize: 12 },
+  walletIcon: { width: 50, height: 50, alignItems: "center", justifyContent: "center", borderRadius: Radius.round, backgroundColor: "rgba(255,255,255,.13)" }, walletFooter: { flexDirection: "row", justifyContent: "space-between", marginTop: Spacing.lg, paddingTop: Spacing.md, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,.16)" },
+  walletFooterText: { color: "#D1FAE5", fontSize: 11, fontWeight: "700" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm }, metric: { width: "48%" },
 });

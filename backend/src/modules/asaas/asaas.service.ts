@@ -73,7 +73,12 @@ export async function processarWebhookAsaas(body: any, token?: string) {
   if (!body?.id || !body?.event) throw new Error("Evento Asaas inválido.");
   const inserted=await supabase.from("asaas_eventos").insert({evento_id:body.id,tipo:body.event,payload:body}).select().single(); if(inserted.error?.code==="23505") return {duplicado:true}; if(inserted.error) throw inserted.error;
   if(body.payment?.id){ const {data:c}=await supabase.from("asaas_cobrancas").update({status:body.payment.status,valor_liquido:body.payment.netValue??body.payment.value??null,atualizado_em:new Date().toISOString()}).eq("asaas_payment_id",body.payment.id).select().maybeSingle(); if(c&&["PAYMENT_RECEIVED","PAYMENT_CONFIRMED"].includes(body.event)){ await supabase.from("faturas").update({status:"PAGO"}).eq("id",c.fatura_id); await transferirSaldo(c); } }
-  if(body.transfer?.id) await supabase.from("asaas_transferencias").update({status:body.transfer.status,atualizado_em:new Date().toISOString()}).eq("asaas_transfer_id",body.transfer.id);
+  if(body.transfer?.id) {
+    const { data: transferencia } = await supabase.from("asaas_transferencias").update({status:body.transfer.status,atualizado_em:new Date().toISOString()}).eq("asaas_transfer_id",body.transfer.id).select().maybeSingle();
+    if (transferencia?.cobranca_id && String(body.transfer.status).toUpperCase() === "DONE") {
+      await supabase.from("asaas_cobrancas").update({ valor_liquido: body.transfer.value, atualizado_em: new Date().toISOString() }).eq("id", transferencia.cobranca_id);
+    }
+  }
   return {recebido:true};
 }
 
