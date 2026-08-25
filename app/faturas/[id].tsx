@@ -283,7 +283,7 @@ export default function DetalheFatura() {
               <Text style={styles.regenerateButtonText}>{regenerandoPdf ? "Atualizando PDF..." : "Gerar PDF atualizado"}</Text>
             </TouchableOpacity>
           ) : null}
-          {IS_GERADOR_APP && String(fatura.status ?? "").toUpperCase() !== "RASCUNHO" && !fatura.pdf_boleto_url && !fatura.codigo_pix ? (
+          {IS_GERADOR_APP && String(fatura.status ?? "").toUpperCase() !== "RASCUNHO" ? (
             <TouchableOpacity
               accessibilityRole="button"
               activeOpacity={0.84}
@@ -292,7 +292,13 @@ export default function DetalheFatura() {
               style={[styles.confirmButton, gerandoCobranca && styles.confirmButtonDisabled]}
             >
               {gerandoCobranca ? <ActivityIndicator color={Colors.surface} /> : <Ionicons name="barcode-outline" size={20} color={Colors.surface} />}
-              <Text style={styles.confirmButtonText}>{gerandoCobranca ? "Gerando cobrança..." : "Gerar boleto e PIX"}</Text>
+              <Text style={styles.confirmButtonText}>
+                {gerandoCobranca
+                  ? "Atualizando cobrança..."
+                  : fatura.pdf_boleto_url || fatura.codigo_pix
+                    ? "Atualizar boleto, PIX e fatura"
+                    : "Gerar boleto, PIX e fatura"}
+              </Text>
             </TouchableOpacity>
           ) : null}
           <DownloadButton

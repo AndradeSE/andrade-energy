@@ -1807,7 +1807,11 @@ function RecordDetails({
   const documentLinks = [
     [
       "Fatura Andrade",
-      source.pdf_url ?? source.pdf_andrade_url ?? source.documento_url,
+      source.pdf_unificada_url ??
+        source.pdf_usina_url ??
+        source.pdf_url ??
+        source.pdf_andrade_url ??
+        source.documento_url,
     ],
     [
       "Conta da concessionária",
@@ -1838,9 +1842,15 @@ function RecordDetails({
       const refreshed = await fetch(`${API_URL}/faturas/${source.id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (refreshed.ok) setDetails(await refreshed.json());
+      if (refreshed.ok) {
+        const updated = await refreshed.json();
+        setDetails(updated);
+        setWorking(false);
+        return updated as WebRecord;
+      }
     }
     setWorking(false);
+    return null;
   }
   async function copyPix() {
     const code = String(source.codigo_pix ?? "");
@@ -2053,9 +2063,7 @@ function RecordDetails({
                   Confirmar fatura
                 </button>
               ) : null}
-              {String(source.status ?? "").toUpperCase() !== "RASCUNHO" &&
-              !source.pdf_boleto_url &&
-              !source.codigo_pix ? (
+              {String(source.status ?? "").toUpperCase() !== "RASCUNHO" ? (
                 <button
                   disabled={working}
                   onClick={() =>
@@ -2065,7 +2073,9 @@ function RecordDetails({
                     )
                   }
                 >
-                  Gerar boleto e PIX
+                  {source.pdf_boleto_url || source.codigo_pix
+                    ? "Atualizar boleto, PIX e fatura"
+                    : "Gerar boleto, PIX e fatura"}
                 </button>
               ) : null}
               {source.codigo_pix ? (
