@@ -22,6 +22,7 @@ import { conexoesEmailRouter, oauthEmailRouter } from "./modules/conexoes-email/
 import { supabase } from "./config/supabase";
 import usuariosRoutes from "./modules/usuarios/usuarios.routes";
 import { asaasRouter, asaasWebhookRouter } from "./modules/asaas/asaas.routes";
+import carteiraRoutes from "./modules/carteira/carteira.routes";
 
 dotenv.config();
 
@@ -79,6 +80,7 @@ app.use("/api/contratos", contratosRoutes);
 app.use("/api/faturas", faturasRoutes);
 
 app.use("/api/asaas", asaasRouter);
+app.use("/api/carteira", carteiraRoutes);
 
 app.use("/api/usinas", usinasRoutes);
 

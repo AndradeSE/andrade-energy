@@ -1,11 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Alert, RefreshControl, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
 import AndradeBarChart from "../../components/charts/AndradeBarChart";
 import { AppHeader, Button, Card, Divider, ElasticScrollView as ScrollView, Loading, Metric, Screen, Section } from "../../components/ui";
 import * as FinanceiroService from "../../services/financeiro.service";
+import * as CarteiraService from "../../services/carteira.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const moeda = (valor: number) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -14,12 +15,15 @@ export default function Financeiro() {
   const [loading, setLoading] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [dados, setDados] = useState({ receitaPrevista: 0, receitaRecebida: 0, valorEmAberto: 0, inadimplentes: 0, ticketMedio: 0, percentualRecebido: 0, totalFaturas: 0, historicoMensal: [] as { competencia: string; valor: number }[] });
-  const carregar = useCallback(async () => { try { setDados(await FinanceiroService.carregarFinanceiro()); } finally { setLoading(false); } }, []);
+  const [carteira, setCarteira] = useState<CarteiraService.Carteira | null>(null);
+  const [pixChave, setPixChave] = useState(""); const [pixTipo] = useState("EMAIL"); const [saque, setSaque] = useState("");
+  const carregar = useCallback(async () => { try { const [financeiro, wallet] = await Promise.all([FinanceiroService.carregarFinanceiro(), CarteiraService.carregarCarteira()]); setDados(financeiro); setCarteira(wallet); } finally { setLoading(false); } }, []);
   useFocusEffect(useCallback(() => { carregar(); }, [carregar]));
   async function atualizarPagina() { setAtualizando(true); try { await carregar(); } finally { setAtualizando(false); } }
 
   return <Screen><AppHeader title="Financeiro" subtitle="Receita da carteira" contextTitle={moeda(dados.receitaRecebida)} contextSubtitle={`${dados.percentualRecebido.toFixed(1)}% da receita recebida`} icon="wallet-outline" />
     {loading ? <Loading /> : <ScrollView bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      {carteira ? <Section title="Minha carteira"><Card style={styles.walletCard}><Text style={styles.walletLabel}>SALDO DISPONÍVEL</Text><Text style={styles.walletValue}>{moeda(carteira.saldoDisponivel)}</Text><Text style={styles.walletPending}>{moeda(carteira.saldoPendente)} a receber</Text></Card><Card><View style={styles.autoRow}><View style={styles.autoCopy}><Text style={styles.cardTitle}>Transferência automática</Text><Text style={styles.cardSubtitle}>Enviar para sua chave Pix sempre que receber.</Text></View><Switch value={carteira.transferenciaAutomatica} trackColor={{ false: Colors.border, true: Colors.primary }} onValueChange={async (value) => { try { const updated = await CarteiraService.salvarCarteira({ pixTipo: carteira.pixTipo ?? pixTipo, pixChave: pixChave || undefined, transferenciaAutomatica: value }); setCarteira(updated); setPixChave(""); } catch (error: any) { Alert.alert("Carteira", error?.response?.data?.message ?? "Cadastre sua chave Pix primeiro."); } }} /></View><Divider /><Text style={styles.inputLabel}>Chave Pix deste gerador</Text><TextInput style={styles.input} autoCapitalize="none" value={pixChave} onChangeText={setPixChave} placeholder={carteira.pixChaveMascarada ?? "E-mail, CPF ou chave"} /><Button title="Salvar chave Pix" onPress={async () => { try { const updated = await CarteiraService.salvarCarteira({ pixTipo, pixChave, transferenciaAutomatica: carteira.transferenciaAutomatica }); setCarteira(updated); setPixChave(""); Alert.alert("Carteira", "Chave salva com segurança."); } catch (error: any) { Alert.alert("Carteira", error?.response?.data?.message ?? "Não foi possível salvar."); } }} /><Divider /><Text style={styles.inputLabel}>Transferência manual</Text><TextInput style={styles.input} keyboardType="decimal-pad" value={saque} onChangeText={setSaque} placeholder="Valor" /><Button title="Transferir saldo" disabled={!carteira.pixChaveMascarada || carteira.saldoDisponivel <= 0} onPress={() => { const valor = Number(saque.replace(",", ".")); if (!(valor > 0)) return; Alert.alert("Confirmar Pix", `Transferir ${moeda(valor)} para ${carteira.pixChaveMascarada}?`, [{ text: "Cancelar", style: "cancel" }, { text: "Transferir", onPress: async () => { try { await CarteiraService.transferir(valor); setSaque(""); await carregar(); Alert.alert("Carteira", "Transferência solicitada."); } catch (error: any) { Alert.alert("Carteira", error?.response?.data?.message ?? "Transferência não concluída."); } } }]); }} /></Card></Section> : null}
       <Button title="Faturar via conta de energia" icon={<Ionicons name="document-attach-outline" size={20} color={Colors.surface} />} onPress={() => router.push("/faturamento/manual")} style={styles.billingButton} />
       <Section title="Resumo financeiro"><View style={styles.grid}>
         <View style={styles.metric}><Metric compact title="Receita prevista" value={moeda(dados.receitaPrevista)} icon={<Ionicons name="trending-up-outline" size={20} color={Colors.primary} />} /></View>
@@ -44,4 +48,5 @@ const styles = StyleSheet.create({
   progressHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, cardTitle: { color: Colors.text, fontSize: Typography.card, fontWeight: "700" }, cardSubtitle: { marginTop: 4, color: Colors.subtitle, fontSize: Typography.small }, percent: { color: Colors.primary, fontSize: Typography.section, fontWeight: "800" },
   track: { height: 10, overflow: "hidden", marginTop: Spacing.lg, borderRadius: Radius.round, backgroundColor: Colors.border }, progress: { height: "100%", borderRadius: Radius.round, backgroundColor: Colors.primary },
   info: { minHeight: 54, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, infoLabel: { color: Colors.subtitle }, infoValue: { color: Colors.text, fontWeight: "700" }, warning: { color: Colors.danger },
+  walletCard: { backgroundColor: "#083f31" }, walletLabel: { color: "#9FE0BF", fontSize: 11, fontWeight: "800", letterSpacing: 1.2 }, walletValue: { marginTop: 8, color: "#FFFFFF", fontSize: 36, fontWeight: "900" }, walletPending: { marginTop: 5, color: "#CDEBDD" }, autoRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16 }, autoCopy: { flex: 1 }, inputLabel: { marginBottom: 6, color: Colors.text, fontWeight: "700" }, input: { minHeight: 48, marginBottom: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, color: Colors.text, backgroundColor: Colors.background },
 });
