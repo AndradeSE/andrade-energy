@@ -19,6 +19,22 @@ services:
         sync: false
       - key: SUPABASE_ACCESS_TOKEN
         sync: false
+      - key: ASAAS_API_URL
+        value: https://api-sandbox.asaas.com/v3
+      - key: ASAAS_API_KEY
+        sync: false
+      - key: ASAAS_WEBHOOK_TOKEN
+        sync: false
+      - key: ASAAS_BILLING_TYPE
+        value: BOLETO
+      - key: ASAAS_AUTO_TRANSFER_ENABLED
+        value: "false"
+      - key: ASAAS_TRANSFER_PIX_KEY
+        sync: false
+      - key: ASAAS_TRANSFER_PIX_KEY_TYPE
+        sync: false
+      - key: ASAAS_TRANSFER_RESERVE_VALUE
+        value: "0"
       - key: MICROSOFT_CLIENT_ID
         sync: false
       - key: MICROSOFT_TOKEN_CACHE_BASE64

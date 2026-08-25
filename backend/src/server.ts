@@ -21,6 +21,7 @@ import { processarFilaDeRecebimentosFaturas } from "./modules/recebimento-fatura
 import { conexoesEmailRouter, oauthEmailRouter } from "./modules/conexoes-email/conexoesEmail.routes";
 import { supabase } from "./config/supabase";
 import usuariosRoutes from "./modules/usuarios/usuarios.routes";
+import { asaasRouter, asaasWebhookRouter } from "./modules/asaas/asaas.routes";
 
 dotenv.config();
 
@@ -43,6 +44,10 @@ app.use(
 );
 
 app.use(express.json());
+
+// O Asaas envia JSON e autentica o webhook pelo cabeçalho
+// `asaas-access-token`. A rota é pública, mas o token é obrigatório.
+app.use("/api/webhooks/asaas", asaasWebhookRouter);
 
 app.use(
   express.urlencoded({
@@ -72,6 +77,8 @@ app.use("/api/clientes", clientesRoutes);
 app.use("/api/contratos", contratosRoutes);
 
 app.use("/api/faturas", faturasRoutes);
+
+app.use("/api/asaas", asaasRouter);
 
 app.use("/api/usinas", usinasRoutes);
 
