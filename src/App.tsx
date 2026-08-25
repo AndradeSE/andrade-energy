@@ -1196,6 +1196,7 @@ function UnitTools({
     method = "POST",
     body?: BodyInit,
     headers?: Record<string, string>,
+    refreshParent = true,
   ) {
     setBusy(true);
     setMessage("");
@@ -1218,7 +1219,7 @@ function UnitTools({
       if (response.ok) {
         if (data.endereco || typeof data.ativo === "boolean") setReceipt(data);
         setToolsRefresh((value) => value + 1);
-        onChanged();
+        if (refreshParent) onChanged();
       }
     } catch {
       setMessage("Não foi possível acessar o servidor. Tente novamente.");
@@ -1383,6 +1384,29 @@ function UnitTools({
               </strong>
             </div>
           </div>
+          {receipt?.ativo && receipt.endereco ? (
+            <section className="email-setup-card">
+              <div className="email-setup-heading">
+                <span className="email-setup-icon">✉</span>
+                <div>
+                  <small>RECEBIMENTO AUTOMÁTICO ATIVO</small>
+                  <strong>Conecte o e-mail que recebe suas contas</strong>
+                  <p>O sistema encaminhará somente contas da concessionária com PDF para o endereço exclusivo desta UC.</p>
+                </div>
+              </div>
+              <code>{String(receipt.endereco)}</code>
+              <ol>
+                <li>Escolha Gmail ou Outlook abaixo.</li>
+                <li>Autorize a conta de e-mail no seu provedor.</li>
+                <li>As próximas contas com PDF serão encaminhadas para conferência automaticamente.</li>
+              </ol>
+              <div className="email-provider-actions">
+                <button disabled={busy} onClick={() => void connectEmail("GMAIL")}>Conectar Gmail</button>
+                <button disabled={busy} onClick={() => void connectEmail("OUTLOOK")}>Conectar Outlook</button>
+              </div>
+              <p className="email-privacy-note">Se preferir configurar manualmente, copie o endereço acima e crie uma regra para mensagens de fatura@cemig que contenham PDF.</p>
+            </section>
+          ) : null}
           {editOpen ? (
             <form className="unit-edit-form" onSubmit={saveAllocation}>
               <div>
@@ -1574,40 +1598,12 @@ function UnitTools({
                     disabled={busy}
                     onClick={() =>
                       void request(
-                        `/recebimento-faturas/unidades/${unit.id}/regenerar`,
-                      )
-                    }
-                  >
-                    Gerar novo endereço
-                  </button>
-                  <button
-                    disabled={busy}
-                    onClick={() =>
-                      void request(
                         `/recebimento-faturas/unidades/${unit.id}/desativar`,
                       )
                     }
                   >
                     Desativar recebimento
                   </button>
-                  <div className="email-provider-group">
-                    <small>ATIVAR RECEBIMENTO POR E-MAIL</small>
-                    <span>Escolha a conta que enviará as faturas automaticamente.</span>
-                    <div>
-                      <button
-                        disabled={busy}
-                        onClick={() => void connectEmail("GMAIL")}
-                      >
-                        Conectar Gmail
-                      </button>
-                      <button
-                        disabled={busy}
-                        onClick={() => void connectEmail("OUTLOOK")}
-                      >
-                        Conectar Outlook
-                      </button>
-                    </div>
-                  </div>
                 </>
               ) : (
                 <button
@@ -1615,6 +1611,10 @@ function UnitTools({
                   onClick={() =>
                     void request(
                       `/recebimento-faturas/unidades/${unit.id}/ativar`,
+                      "POST",
+                      undefined,
+                      undefined,
+                      false,
                     )
                   }
                 >
