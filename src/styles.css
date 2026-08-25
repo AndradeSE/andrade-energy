@@ -172,7 +172,7 @@ svg { display: block; }
 @media (max-width: 540px) {
   .visual-panel { min-height: 310px; }
   .brand-logo-wrap { width: 300px; height: auto; }
-  .brand span { display: none; }
+  .brand > span:last-child { display: none; }
   .visual-copy p { font-size: 15px; }
   .access-panel { padding-top: 42px; }
   h2 { font-size: 34px; }
