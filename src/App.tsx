@@ -1,9 +1,10 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import bulbImage from "./assets/lampada-dourada.png";
 import RecordEditForm from "./RecordEditForm";
 import RealDiscountInfoWeb from "./RealDiscountInfoWeb";
 
 type AccessType = "CONSUMIDOR" | "GERADOR";
+type AdminWorkspace = "COMERCIAL" | "USINAS";
 type PortalSession = {
   token?: string;
   usuario?: {
@@ -15,9 +16,21 @@ type PortalSession = {
     usina_id?: string;
   };
   accessType?: AccessType;
+  adminWorkspace?: AdminWorkspace;
   [key: string]: unknown;
 };
 type WebRecord = Record<string, unknown>;
+
+function AdminWorkspaceChoice({ name, onChoose, onLogout }: { name?: string; onChoose: (workspace: AdminWorkspace) => void; onLogout: () => void }) {
+  return <main className="admin-workspace-page">
+    <section className="admin-workspace-hero"><span className="brand-logo-wrap"><AnimatedLogo /><img className="brand-lightbulb" src={bulbImage} alt="" aria-hidden="true" /></span><small>ACESSO ADMINISTRATIVO</small><h1>Olá, {name ?? "Administrador"}</h1><p>Escolha o ambiente que deseja acessar. A administração comercial fica separada da operação das usinas.</p></section>
+    <section className="admin-workspace-options">
+      <button onClick={() => onChoose("COMERCIAL")}><i className="commercial">$</i><span><strong>Gestão Comercial</strong><small>Planos, assinaturas, mensalidades, contratos, termos e contas geradoras.</small><em>Acessar ambiente →</em></span></button>
+      <button onClick={() => onChoose("USINAS")}><i className="plants">☀</i><span><strong>Gestão de Usinas</strong><small>Usinas, clientes, unidades, geração, faturas, carteira e operação.</small><em>Acessar ambiente →</em></span></button>
+      <button className="admin-workspace-logout" onClick={onLogout}>Sair da conta</button>
+    </section>
+  </main>;
+}
 
 const API_URL =
   import.meta.env.VITE_API_URL ??
@@ -532,14 +545,16 @@ function CommercialManagementPanel({ token }: { token: string }) {
   if (loading && !data) return <div className="data-state">Carregando gestão comercial...</div>;
   const money = (value: unknown) => Number(value ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   return <div className="commercial-stack">
-    <div className="commercial-metrics">
+    <section className="commercial-home-hero"><div><small>GESTÃO DE GERADORES</small><h2>Operação comercial do software</h2><p>Geradores, licenças, planos, cobranças e conformidade em uma visão profissional.</p></div><b>↗</b></section>
+    <nav className="commercial-tabs" aria-label="Áreas da gestão comercial"><button onClick={()=>document.getElementById("comercial-resumo")?.scrollIntoView({behavior:"smooth"})}>Visão geral</button><button onClick={()=>document.getElementById("comercial-geradores")?.scrollIntoView({behavior:"smooth"})}>Geradores</button><button onClick={()=>document.getElementById("comercial-planos")?.scrollIntoView({behavior:"smooth"})}>Planos</button><button onClick={()=>document.getElementById("comercial-assinaturas")?.scrollIntoView({behavior:"smooth"})}>Assinaturas</button><button onClick={()=>document.getElementById("comercial-documentos")?.scrollIntoView({behavior:"smooth"})}>Documentos</button></nav>
+    <div className="commercial-metrics" id="comercial-resumo">
       <article><small>ASSINATURAS</small><strong>{data?.resumo?.total ?? 0}</strong><span>Contas comercializadas</span></article>
       <article><small>ATIVAS / TESTE</small><strong>{data?.resumo?.ativas ?? 0}</strong><span>Com acesso liberado</span></article>
       <article><small>INADIMPLENTES</small><strong className="danger-text">{data?.resumo?.inadimplentes ?? 0}</strong><span>Precisam de ação</span></article>
       <article><small>MRR PREVISTO</small><strong>{money(data?.resumo?.receitaMensalPrevista)}</strong><span>Receita mensal equivalente</span></article>
     </div>
     <div className="commercial-columns">
-      <section className="section-workspace">
+      <section className="section-workspace" id="comercial-geradores">
         <span className="section-label">NOVA ASSINATURA</span><h2>Vincular plano ao gerador</h2><p>Crie o contrato comercial sem misturar a mensalidade do software com as faturas de energia.</p>
         <form className="commercial-form" onSubmit={createSubscription}>
           <label>Gerador<select required value={form.geradorId} onChange={(e) => setForm({ ...form, geradorId: e.target.value })}><option value="">Selecione</option>{(data?.geradores ?? []).filter((item: any) => item.perfil === "GESTOR").map((item: any) => <option key={item.id} value={item.id}>{item.nome} · {item.email}</option>)}</select></label>
@@ -549,13 +564,13 @@ function CommercialManagementPanel({ token }: { token: string }) {
           <button className="primary-action">Ativar assinatura</button>
         </form>
       </section>
-      <section className="section-workspace"><span className="section-label">PLANOS</span><h2>Oferta comercial</h2>{(data?.planos ?? []).map((plan: any) => <article className="commercial-plan" key={plan.id}><div><strong>{plan.nome}</strong><small>{plan.descricao}</small></div><b>{money(plan.valor_mensal)}<small>/mês</small></b><p>{(plan.recursos ?? []).join(" • ")}</p><span>Anual {money(plan.valor_anual)}</span></article>)}</section>
+      <section className="section-workspace" id="comercial-planos"><span className="section-label">PLANOS</span><h2>Oferta comercial</h2>{(data?.planos ?? []).map((plan: any) => <article className="commercial-plan" key={plan.id}><div><strong>{plan.nome}</strong><small>{plan.descricao}</small></div><b>{money(plan.valor_mensal)}<small>/mês</small></b><p>{(plan.recursos ?? []).join(" • ")}</p><span>Anual {money(plan.valor_anual)}</span></article>)}</section>
     </div>
     {message ? <div className="invite-message">{message}</div> : null}
-    <section className="section-workspace"><div className="data-toolbar"><div><small>CARTEIRA COMERCIAL</small><strong>{data?.assinaturas?.length ?? 0} assinatura(s)</strong></div><button onClick={() => void load()}>Atualizar</button></div>
+    <section className="section-workspace" id="comercial-assinaturas"><div className="data-toolbar"><div><small>CARTEIRA COMERCIAL</small><strong>{data?.assinaturas?.length ?? 0} assinatura(s)</strong></div><button onClick={() => void load()}>Atualizar</button></div>
       <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Gerador</th><th>Plano</th><th>Ciclo</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Ações</th></tr></thead><tbody>{(data?.assinaturas ?? []).map((item: any) => <tr key={item.id}><td><strong>{item.gerador?.nome ?? "—"}</strong><small className="table-subline">{item.gerador?.email ?? "—"}</small></td><td>{item.plano?.nome ?? "—"}</td><td>{item.ciclo}</td><td>{money(item.valor_contratado)}</td><td>{item.proximo_vencimento ? new Date(`${item.proximo_vencimento}T12:00:00`).toLocaleDateString("pt-BR") : "—"}</td><td><span className={`table-status status-${String(item.status).toLowerCase()}`}>{item.status}</span></td><td><div className="row-actions"><button className="table-action" onClick={() => void action(item, "charge")}>Cobrar</button><button className="table-action" onClick={() => void action(item, "status", item.status === "SUSPENSA" ? "ATIVA" : "SUSPENSA")}>{item.status === "SUSPENSA" ? "Reativar" : "Suspender"}</button><button className="table-action danger" onClick={() => window.confirm("Cancelar definitivamente esta assinatura?") && void action(item, "status", "CANCELADA")}>Cancelar</button></div></td></tr>)}</tbody></table></div>
     </section>
-    <section className="section-workspace"><span className="section-label">CONFORMIDADE</span><h2>Documentos para comercialização</h2><div className="document-grid">{(data?.documentos ?? []).map((doc: any) => <article key={doc.id}><b>§</b><div><strong>{doc.titulo}</strong><small>Versão {doc.versao} · {doc.ativo ? "Publicada" : "Rascunho"}</small></div></article>)}</div><p className="legal-notice">Os modelos são uma base operacional. Antes da venda ao público, contrato, termos, política de privacidade e cancelamento devem ser revisados por advogado e responsável por proteção de dados.</p></section>
+    <section className="section-workspace" id="comercial-documentos"><span className="section-label">CONFORMIDADE</span><h2>Documentos para comercialização</h2><div className="document-grid">{(data?.documentos ?? []).map((doc: any) => <article key={doc.id}><b>§</b><div><strong>{doc.titulo}</strong><small>Versão {doc.versao} · {doc.ativo ? "Publicada" : "Rascunho"}</small></div></article>)}</div><p className="legal-notice">Os modelos são uma base operacional. Antes da venda ao público, contrato, termos, política de privacidade e cancelamento devem ser revisados por advogado e responsável por proteção de dados.</p></section>
   </div>;
 }
 
@@ -1218,6 +1233,7 @@ function UnitTools({
   const [busy, setBusy] = useState(false);
   const [receipt, setReceipt] = useState<WebRecord | null>(null);
   const [connections, setConnections] = useState<WebRecord[]>([]);
+  const [latestInvoice, setLatestInvoice] = useState<WebRecord | null>(null);
   const [toolsRefresh, setToolsRefresh] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -1240,15 +1256,20 @@ function UnitTools({
   });
   useEffect(() => {
     const headers = { Authorization: `Bearer ${token}` };
+    const unitNumber = String(unit.numero ?? unit.uc ?? "").trim();
     void Promise.all([
       fetch(`${API_URL}/recebimento-faturas/unidades/${unit.id}`, { headers }),
       fetch(`${API_URL}/conexoes-email/unidades/${unit.id}`, { headers }),
+      unitNumber
+        ? fetch(`${API_URL}/faturas?uc=${encodeURIComponent(unitNumber)}`, { headers })
+        : Promise.resolve(null),
     ])
-      .then(async ([receiptResponse, connectionResponse]) => ({
+      .then(async ([receiptResponse, connectionResponse, invoiceResponse]) => ({
         receipt: receiptResponse.ok ? await receiptResponse.json() : null,
         connections: connectionResponse.ok
           ? await connectionResponse.json()
           : {},
+        invoices: invoiceResponse?.ok ? await invoiceResponse.json() : [],
       }))
       .then((data) => {
         setReceipt(data.receipt);
@@ -1257,6 +1278,12 @@ function UnitTools({
             ? data.connections.conexoes
             : [],
         );
+        const invoices = Array.isArray(data.invoices)
+          ? data.invoices
+          : Array.isArray(data.invoices?.data)
+            ? data.invoices.data
+            : [];
+        setLatestInvoice(invoices[0] ?? null);
       })
       .catch(() => undefined);
   }, [unit.id, token, toolsRefresh]);
@@ -1377,7 +1404,6 @@ function UnitTools({
           repassarCustoDisponibilidadeGD2: allocation.gd2 === "REPASSAR",
           repassarDiferencaFioBGD2: allocation.fioB === "REPASSAR",
           faturaSomenteAndrade: allocation.formatoFatura === "SOMENTE_ANDRADE",
-          tipoGd: allocation.tipoGd,
           calcularAutomaticamente: false,
         }),
       },
@@ -1402,6 +1428,19 @@ function UnitTools({
     ["Rateio", unit.percentual_rateio ?? unit.percentual],
     ["Status", formatPortalValue("status", unit.status)],
   ];
+  const detectedGd = String(
+    latestInvoice?.tipo_gd ?? latestInvoice?.tipoGd ?? unit.tipo_gd ?? "",
+  ).toUpperCase();
+  const usesGd1 = !detectedGd || detectedGd === "GD1" || detectedGd === "MISTA";
+  const usesGd2 = !detectedGd || detectedGd === "GD2" || detectedGd === "MISTA";
+  const detectedGdLabel =
+    detectedGd === "GD1"
+      ? "GD I"
+      : detectedGd === "GD2"
+        ? "GD II"
+        : detectedGd === "MISTA"
+          ? "GD I + GD II (mista)"
+          : "Aguardando a primeira fatura";
   return (
     <article className={`unit-tool-card ${expanded ? "expanded" : ""}`}>
       <button
@@ -1581,25 +1620,13 @@ function UnitTools({
                     </option>
                   </select>
                 </label>
-                <label>
-                  Tipo de GD
-                  <select
-                    value={allocation.tipoGd}
-                    onChange={(event) =>
-                      setAllocation({
-                        ...allocation,
-                        tipoGd: event.target.value,
-                      })
-                    }
-                  >
-                    <option value="">Não informado</option>
-                    <option value="GD1">GD I</option>
-                    <option value="GD2">GD II</option>
-                    <option value="MISTA">Mista</option>
-                  </select>
-                </label>
-                <label>
-                  GD I · custo de disponibilidade
+                {allocation.formatoFatura === "UNIFICADA" ? <div className="detected-gd-info">
+                  <small>MODALIDADE IDENTIFICADA AUTOMATICAMENTE</small>
+                  <strong>{detectedGdLabel}</strong>
+                  <span>A leitura é feita pela última fatura importada e não precisa ser selecionada manualmente.</span>
+                </div> : null}
+                {allocation.formatoFatura === "UNIFICADA" && usesGd1 ? <label>
+                  GD I · custo de disponibilidade recalculado
                   <select
                     value={allocation.gd1}
                     onChange={(event) =>
@@ -1609,9 +1636,9 @@ function UnitTools({
                     <option value="REPASSAR">Repassar ao cliente</option>
                     <option value="ABSORVER">Absorver pela Andrade</option>
                   </select>
-                </label>
-                <label>
-                  GD II · custo de disponibilidade
+                </label> : null}
+                {allocation.formatoFatura === "UNIFICADA" && usesGd2 ? <label>
+                  GD II · custo de disponibilidade recalculado
                   <select
                     value={allocation.gd2}
                     onChange={(event) =>
@@ -1621,8 +1648,8 @@ function UnitTools({
                     <option value="REPASSAR">Repassar ao cliente</option>
                     <option value="ABSORVER">Absorver pela Andrade</option>
                   </select>
-                </label>
-                <label>
+                </label> : null}
+                {allocation.formatoFatura === "UNIFICADA" && usesGd2 ? <label>
                   GD II · diferença do Fio B
                   <select
                     value={allocation.fioB}
@@ -1633,15 +1660,17 @@ function UnitTools({
                     <option value="REPASSAR">Repassar ao cliente</option>
                     <option value="ABSORVER">Absorver pela Andrade</option>
                   </select>
-                </label>
+                </label> : null}
               </div>
-              <RealDiscountInfoWeb
+              {allocation.formatoFatura === "UNIFICADA" ? <RealDiscountInfoWeb
                 desconto={allocation.desconto}
-                tipoGd={allocation.tipoGd}
+                tipoGd={detectedGd}
+                modalidadeFaturamento={allocation.modalidade}
+                dadosFatura={latestInvoice}
                 gd1={allocation.gd1}
                 gd2={allocation.gd2}
                 fioB={allocation.fioB}
-              />
+              /> : null}
               <footer>
                 <button type="button" onClick={() => setEditOpen(false)}>
                   Cancelar
@@ -2451,14 +2480,30 @@ function ActionDialog({
   );
 }
 
+function MySubscriptionPanel({ token }: { token: string }) {
+  const money = (value: unknown) => Number(value ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const [data, setData] = useState<any>(null); const [loading, setLoading] = useState(true); const [message, setMessage] = useState(""); const [opening, setOpening] = useState(false);
+  const load = useCallback(async () => { setLoading(true); const response = await fetch(`${API_URL}/comercial/minha-assinatura`, { headers: { Authorization: `Bearer ${token}` } }); const payload = await response.json().catch(() => ({})); setLoading(false); response.ok ? setData(payload) : setMessage(payload.message ?? "Não foi possível consultar a assinatura."); }, [token]);
+  useEffect(() => { void load(); }, [load]);
+  async function checkout() { setOpening(true); setMessage(""); const popup = window.open("", "_blank"); const response = await fetch(`${API_URL}/comercial/minha-assinatura/checkout`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ formasPagamento: ["CREDIT_CARD", "PIX"] }) }); const payload = await response.json().catch(() => ({})); setOpening(false); if (response.ok && payload.url) { if (popup) popup.location.href = payload.url; else window.location.href = payload.url; } else { popup?.close(); setMessage(payload.message ?? "Não foi possível abrir o pagamento seguro."); } }
+  if (loading) return <div className="data-state">Carregando sua assinatura...</div>;
+  const item=data?.assinatura, plan=item?.plano, charges=[...(item?.cobrancas??[])].sort((a:any,b:any)=>String(b.vencimento).localeCompare(String(a.vencimento))); const date=(value:any)=>value?new Date(`${String(value).slice(0,10)}T12:00:00`).toLocaleDateString("pt-BR"):"Não definida";
+  if(!item) return <section className="subscription-empty"><b>◇</b><h2>Assinatura ainda não vinculada</h2><p>A administração precisa vincular um plano a esta conta geradora.</p>{message?<div className="error-message">{message}</div>:null}</section>;
+  return <div className="subscription-page"><section className="subscription-hero"><div><small>MINHA ASSINATURA</small><h2>{plan?.nome??"Andrade Energy"}</h2><p>{plan?.descricao??"Licença de uso da plataforma"}</p></div><span>{String(item.status).replace("ATIVA","ATIVA").replace("INADIMPLENTE","PAGAMENTO PENDENTE")}</span></section><div className="subscription-metrics"><article><small>VALOR</small><strong>{money(item.valor_contratado)}</strong><span>{item.ciclo==="ANUAL"?"por ano":"por mês"}</span></article><article><small>VALIDADE</small><strong>{date(item.proximo_vencimento)}</strong><span>próximo vencimento</span></article><article><small>FORMA ATUAL</small><strong>{String(item.forma_pagamento??"Não definida").replace("CREDIT_CARD","Cartão").replace("BOLETO","Boleto")}</strong><span>ciclo {String(item.ciclo).toLowerCase()}</span></article></div><button className="subscription-checkout" disabled={opening} onClick={()=>void checkout()}><b>▣</b><span><strong>{opening?"Abrindo ambiente seguro...":"Ativar pagamento recorrente"}</strong><small>Escolha cartão ou Pix no checkout protegido do Asaas</small></span><em>↗</em></button>{message?<div className="error-message">{message}</div>:null}<div className="subscription-columns"><section className="section-workspace"><span className="section-label">RECURSOS DO PLANO</span>{(plan?.recursos??[]).map((resource:string)=><p className="subscription-resource" key={resource}>✓ {resource}</p>)}</section><section className="section-workspace"><span className="section-label">COBRANÇAS</span>{charges.length?charges.map((charge:any)=><article className="subscription-charge" key={charge.id}><span><strong>{charge.competencia??"Mensalidade"}</strong><small>Vence em {date(charge.vencimento)}</small></span><span><strong>{money(charge.valor)}</strong><small>{charge.status==="PAGA"?"Paga":charge.status==="VENCIDA"?"Vencida":"Pendente"}</small></span></article>):<p>Nenhuma cobrança registrada.</p>}</section></div></div>;
+}
+
 function PortalHome({
   session,
   type,
   onLogout,
+  workspace,
+  onChangeWorkspace,
 }: {
   session: PortalSession;
   type: AccessType;
   onLogout: () => void;
+  workspace?: AdminWorkspace;
+  onChangeWorkspace: (workspace: AdminWorkspace | null) => void;
 }) {
   const name =
     session.usuario?.nome ?? (type === "GERADOR" ? "Gerador" : "Cliente");
@@ -2466,7 +2511,7 @@ function PortalHome({
     string,
     number | string
   > | null>(null);
-  const [activeSection, setActiveSection] = useState("Visão geral");
+  const [activeSection, setActiveSection] = useState(workspace === "COMERCIAL" ? "Gestão comercial" : "Visão geral");
   const [sectionData, setSectionData] = useState<WebRecord[]>([]);
   const [sectionLoading, setSectionLoading] = useState(false);
   const [sectionError, setSectionError] = useState("");
@@ -2613,9 +2658,9 @@ function PortalHome({
             ],
           },
           ...(session.usuario?.perfil === "ADMIN"
-            ? [{ label: "Administração", items: ["Gestão comercial", "Geradores"] }]
+            ? [{ label: "Administração", items: workspace === "COMERCIAL" ? ["Gestão comercial", "Geradores", "Alternar ambiente"] : ["Alternar ambiente"] }]
             : []),
-          { label: "Conta", items: ["Perfil", "Configurações"] },
+          { label: "Conta", items: ["Minha assinatura", "Perfil", "Configurações"] },
         ]
       : [
           { label: "Painel", items: ["Visão geral", "Economia"] },
@@ -2784,6 +2829,7 @@ function PortalHome({
                 {group.items.map((item) => (
                   <button
                     onClick={() => {
+                      if (item === "Alternar ambiente") { onChangeWorkspace(null); return; }
                       setSelectedRecord(null);
                       setActiveSection(item);
                       setSearchQuery("");
@@ -3017,9 +3063,11 @@ function PortalHome({
           ) : activeSection === "Geradores" && session.token ? (
             <GeneratorInvitePanel token={session.token} />
           ) : activeSection === "Gestão comercial" && session.token ? (
-            <CommercialManagementPanel token={session.token} />
+            <><div className="commercial-quick-actions"><button onClick={() => setActiveSection("Geradores")}><b>G</b><span><strong>Contas geradoras</strong><small>Convites e acessos</small></span></button><button onClick={() => onChangeWorkspace("USINAS")}><b>☀</b><span><strong>Gestão de Usinas</strong><small>Alternar ambiente</small></span></button><button onClick={() => setActiveSection("Perfil")}><b>P</b><span><strong>Perfil administrativo</strong><small>Dados e segurança</small></span></button></div><CommercialManagementPanel token={session.token} /></>
+          ) : activeSection === "Minha assinatura" && session.token ? (
+            <MySubscriptionPanel token={session.token} />
           ) : activeSection === "Perfil" && session.token ? (
-            <ProfilePanel token={session.token} fallback={session.usuario} />
+            <><div className="profile-workspace-switch"><span><small>AMBIENTE ADMINISTRATIVO</small><strong>{workspace === "COMERCIAL" ? "Gestão Comercial" : "Gestão de Usinas"}</strong></span><button onClick={() => onChangeWorkspace(workspace === "COMERCIAL" ? "USINAS" : "COMERCIAL")}>Alternar para {workspace === "COMERCIAL" ? "Gestão de Usinas" : "Gestão Comercial"}</button><button onClick={() => onChangeWorkspace(null)}>Escolher ambiente</button></div><ProfilePanel token={session.token} fallback={session.usuario} /></>
           ) : activeSection === "Configurações" ? (
             <AccountSettingsPanel />
           ) : (
@@ -3210,17 +3258,37 @@ export default function App() {
       ? "CONSUMIDOR"
       : null;
 
+  function logoutPortal() {
+    sessionStorage.removeItem("andrade_energy_portal_session");
+    setSession(null);
+    setAccessType(null);
+    window.history.replaceState({}, "", "/");
+  }
+
+  function changeAdminWorkspace(workspace: AdminWorkspace | null) {
+    if (!session) return;
+    if (!workspace) {
+      const next = { ...session };
+      delete next.adminWorkspace;
+      sessionStorage.setItem("andrade_energy_portal_session", JSON.stringify(next));
+      setSession(next);
+      return;
+    }
+    const next = { ...session, adminWorkspace: workspace };
+    sessionStorage.setItem("andrade_energy_portal_session", JSON.stringify(next));
+    setSession(next);
+  }
+
   if (routeType && session) {
+    const isAdminGenerator = (session.accessType ?? routeType) === "GERADOR" && session.usuario?.perfil === "ADMIN";
+    if (isAdminGenerator && !session.adminWorkspace) return <AdminWorkspaceChoice name={session.usuario?.nome} onChoose={changeAdminWorkspace} onLogout={logoutPortal} />;
     return (
       <PortalHome
         session={session}
         type={session.accessType ?? routeType}
-        onLogout={() => {
-          sessionStorage.removeItem("andrade_energy_portal_session");
-          setSession(null);
-          setAccessType(null);
-          window.history.replaceState({}, "", "/");
-        }}
+        workspace={session.adminWorkspace}
+        onChangeWorkspace={changeAdminWorkspace}
+        onLogout={logoutPortal}
       />
     );
   }
