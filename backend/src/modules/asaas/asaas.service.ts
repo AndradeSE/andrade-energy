@@ -6,14 +6,30 @@ import { buscarCarteiraDaFatura } from "../carteira/carteira.service";
 function digits(value: unknown) { return String(value ?? "").replace(/\D/g, ""); }
 function dueDate(value: unknown) { const text=String(value??"").slice(0,10); return /^\d{4}-\d{2}-\d{2}$/.test(text)?text:new Date(Date.now()+7*86400000).toISOString().slice(0,10); }
 
+async function esperar(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+
+async function obterDadosPagamento(paymentId: string) {
+  let pix: any = null;
+  let boleto: any = null;
+  for (let tentativa = 0; tentativa < 4; tentativa += 1) {
+    [pix, boleto] = await Promise.all([
+      pix?.payload ? Promise.resolve(pix) : asaasRequest<any>(`/payments/${paymentId}/pixQrCode`).catch(() => null),
+      boleto?.identificationField ? Promise.resolve(boleto) : asaasRequest<any>(`/payments/${paymentId}/identificationField`).catch(() => null),
+    ]);
+    if (pix?.payload && boleto?.identificationField) break;
+    if (tentativa < 3) await esperar(400 * (tentativa + 1));
+  }
+  return { pix, boleto };
+}
+
 export async function criarCobrancaAsaas(faturaId: string) {
   const { data: existing } = await supabase.from("asaas_cobrancas").select("*").eq("fatura_id", faturaId).maybeSingle();
   if (existing?.asaas_payment_id) {
-    const [payment, pix, boleto] = await Promise.all([
+    const [payment, dados] = await Promise.all([
       asaasRequest<any>(`/payments/${existing.asaas_payment_id}`).catch(()=>null),
-      asaasRequest<any>(`/payments/${existing.asaas_payment_id}/pixQrCode`).catch(()=>null),
-      asaasRequest<any>(`/payments/${existing.asaas_payment_id}/identificationField`).catch(()=>null),
+      obterDadosPagamento(existing.asaas_payment_id),
     ]);
+    const { pix, boleto } = dados;
     const dadosPagamento = {
       linha_digitavel: boleto?.identificationField ?? existing.linha_digitavel ?? null,
       codigo_pix: pix?.payload ?? existing.codigo_pix ?? null,
@@ -21,7 +37,7 @@ export async function criarCobrancaAsaas(faturaId: string) {
     };
     const { data: faturaExistente, error: updateError } = await supabase.from("faturas").update(dadosPagamento).eq("id", faturaId).select().single();
     if (updateError) throw updateError;
-    await regenerarDocumentosGeradosDaFatura(faturaExistente);
+    await regenerarDocumentosGeradosDaFatura({ ...faturaExistente, codigo_barras: boleto?.barCode ?? null });
     const { data: cobrancaAtualizada, error: chargeUpdateError } = await supabase.from("asaas_cobrancas").update({ linha_digitavel:dadosPagamento.linha_digitavel, codigo_pix:dadosPagamento.codigo_pix, bank_slip_url:dadosPagamento.pdf_boleto_url, invoice_url:payment?.invoiceUrl ?? existing.invoice_url ?? null, atualizado_em:new Date().toISOString() }).eq("id", existing.id).select().single();
     if (chargeUpdateError) throw chargeUpdateError;
     return cobrancaAtualizada;
@@ -37,15 +53,12 @@ export async function criarCobrancaAsaas(faturaId: string) {
   const carteira = await buscarCarteiraDaFatura(faturaId);
   const split = carteira?.asaas_wallet_id ? [{ walletId: carteira.asaas_wallet_id, percentualValue: 100, externalReference: faturaId }] : undefined;
   const payment = await asaasRequest<any>("/payments", { method:"POST", body:JSON.stringify({ customer:customer.id, billingType:process.env.ASAAS_BILLING_TYPE ?? "BOLETO", value, dueDate:dueDate(invoice.vencimento), description:`Andrade Energy · ${invoice.referencia ?? "fatura"}`, externalReference:faturaId, ...(split ? { split } : {}) }) });
-  const [pix, boleto] = await Promise.all([
-    asaasRequest<any>(`/payments/${payment.id}/pixQrCode`).catch(()=>null),
-    asaasRequest<any>(`/payments/${payment.id}/identificationField`).catch(()=>null),
-  ]);
+  const { pix, boleto } = await obterDadosPagamento(payment.id);
   const record = { fatura_id:faturaId, gerador_carteira_id:carteira?.id??null, asaas_customer_id:customer.id, asaas_payment_id:payment.id, status:payment.status, valor:value, valor_liquido:payment.netValue??null, invoice_url:payment.invoiceUrl??null, bank_slip_url:payment.bankSlipUrl??payment.invoiceUrl??null, linha_digitavel:boleto?.identificationField??payment.identificationField??null, codigo_pix:pix?.payload??null, atualizado_em:new Date().toISOString() };
   const { data, error: saveError } = await supabase.from("asaas_cobrancas").upsert(record,{onConflict:"fatura_id"}).select().single(); if(saveError) throw saveError;
   const { data: faturaAtualizada, error: updateError } = await supabase.from("faturas").update({ linha_digitavel:record.linha_digitavel, codigo_pix:record.codigo_pix, pdf_boleto_url:record.bank_slip_url }).eq("id",faturaId).select().single();
   if (updateError) throw updateError;
-  await regenerarDocumentosGeradosDaFatura(faturaAtualizada);
+  await regenerarDocumentosGeradosDaFatura({ ...faturaAtualizada, codigo_barras: boleto?.barCode ?? null });
   return data;
 }
 

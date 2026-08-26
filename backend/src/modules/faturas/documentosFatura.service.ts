@@ -151,7 +151,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
   fatura = await incluirDadosDaUCNaFatura(fatura);
   const codigoPix = String(fatura.codigo_pix ?? "").trim();
   const linhaDigitavel = formatarLinhaDigitavel(fatura.linha_digitavel);
-  const codigoBarras = codigoDeBarrasDaLinhaDigitavel(linhaDigitavel);
+  const codigoBarras = String(fatura.codigo_barras ?? "").replace(/\D/g, "") || codigoDeBarrasDaLinhaDigitavel(linhaDigitavel);
   const [imagemQrCode, imagemCodigoBarras] = await Promise.all([
     codigoPix
       ? QRCode.toBuffer(codigoPix, { type: "png", width: 240, margin: 1, errorCorrectionLevel: "M" }).catch(() => null)

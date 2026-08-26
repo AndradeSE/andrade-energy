@@ -1,15 +1,20 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+async function carregarNotificacoes() {
+  if (Platform.OS === "web" || Constants.appOwnership === "expo") return null;
+  const Notifications = await import("expo-notifications");
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+  return Notifications;
+}
 
 const chave = (usuarioId: string) => `carteira:recebido:${usuarioId}`;
 
@@ -20,7 +25,8 @@ export async function verificarNovoRecebimento(usuarioId: string, totalRecebido:
   const anterior = Number(anteriorTexto);
   if (!(totalRecebido > anterior)) return false;
 
-  if (Platform.OS !== "web") {
+  const Notifications = await carregarNotificacoes();
+  if (Notifications) {
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync("carteira", {
         name: "Recebimentos da carteira",
@@ -46,5 +52,6 @@ export async function verificarNovoRecebimento(usuarioId: string, totalRecebido:
 }
 
 export async function marcarCarteiraComoVista() {
-  if (Platform.OS !== "web") await Notifications.setBadgeCountAsync(0);
+  const Notifications = await carregarNotificacoes();
+  if (Notifications) await Notifications.setBadgeCountAsync(0);
 }
