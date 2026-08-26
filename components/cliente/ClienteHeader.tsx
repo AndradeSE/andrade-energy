@@ -13,7 +13,6 @@ import {
   Text,
   TouchableOpacity,
   View,
-  Image,
 } from "react-native";
 
 import { useAuth } from "../../contexts/AuthContext";
@@ -33,6 +32,7 @@ import {
 } from "../ui";
 
 import MenuItem from "./MenuItem";
+import PortalBrandLogo from "../brand/PortalBrandLogo";
 
 type Props = {
   cliente: string;
@@ -326,7 +326,7 @@ export default function ClienteHeader({
                 styles.unitLogo
               }
             >
-              <Image source={require("../../assets/images/andrade-logo-horizontal.png")} style={styles.unitLogoImage} resizeMode="contain" />
+              <PortalBrandLogo height={28} width={84} />
             </View>
 
           <View
@@ -638,8 +638,7 @@ const styles =
       backgroundColor:
         Colors.primary,
     },
-    unitLogo: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: Colors.surface },
-    unitLogoImage: { width: 32, height: 28 },
+    unitLogo: { width: 88, height: 32, alignItems: "center", justifyContent: "center" },
 
     unitContent: {
       flex: 1,

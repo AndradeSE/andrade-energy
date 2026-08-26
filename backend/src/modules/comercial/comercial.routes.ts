@@ -3,6 +3,8 @@ import { exigirAdministrador, exigirAutenticacao } from "../../middlewares/auth.
 import * as controller from "./comercial.controller";
 
 const router = Router();
+router.get("/minha-assinatura", exigirAutenticacao, controller.minhaAssinatura);
+router.post("/minha-assinatura/checkout", exigirAutenticacao, controller.checkoutMinhaAssinatura);
 router.use(exigirAutenticacao, exigirAdministrador);
 router.get("/painel", controller.painel);
 router.post("/planos", controller.criarPlano);

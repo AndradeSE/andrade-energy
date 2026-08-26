@@ -261,9 +261,19 @@ export default function Perfil() {
         </View>
 
         {IS_GERADOR_APP && user?.perfil === "ADMIN" ? <>
-          <Text style={styles.sectionTitle}>ADMINISTRAÇÃO</Text>
+          <Text style={styles.sectionTitle}>COMERCIALIZAÇÃO DO SOFTWARE</Text>
           <View style={styles.card}>
-            <TouchableOpacity activeOpacity={0.82} onPress={() => router.push("/geradores/gestao")} style={styles.linkRow}>
+            <TouchableOpacity activeOpacity={0.82} onPress={() => router.replace("/admin/comercial" as any)} style={styles.linkRow}>
+              <View style={styles.preferenceIcon}><Ionicons color={Colors.primary} name="briefcase-outline" size={22} /></View>
+              <View style={styles.preferenceCopy}><Text style={styles.preferenceTitle}>Alternar para Gestão Comercial</Text><Text style={styles.preferenceDescription}>Abra a home comercial com indicadores, assinaturas e cobranças.</Text></View>
+              <Ionicons color={Colors.subtitle} name="chevron-forward" size={21} />
+            </TouchableOpacity>
+            <TouchableOpacity activeOpacity={0.82} onPress={() => router.replace("/selecionar-unidade")} style={styles.linkRow}>
+              <View style={styles.preferenceIcon}><Ionicons color={Colors.primary} name="sunny-outline" size={22} /></View>
+              <View style={styles.preferenceCopy}><Text style={styles.preferenceTitle}>Alternar para Gestão de Usinas</Text><Text style={styles.preferenceDescription}>Escolha uma usina e acesse o ambiente operacional.</Text></View>
+              <Ionicons color={Colors.subtitle} name="chevron-forward" size={21} />
+            </TouchableOpacity>
+            <TouchableOpacity activeOpacity={0.82} onPress={() => router.push("/geradores/gestao" as any)} style={styles.linkRow}>
               <View style={styles.preferenceIcon}><Ionicons color={Colors.primary} name="business-outline" size={22} /></View>
               <View style={styles.preferenceCopy}><Text style={styles.preferenceTitle}>Gestão comercial dos geradores</Text><Text style={styles.preferenceDescription}>Planos, assinaturas, mensalidades, contratos e situação de acesso.</Text></View>
               <Ionicons color={Colors.subtitle} name="chevron-forward" size={21} />

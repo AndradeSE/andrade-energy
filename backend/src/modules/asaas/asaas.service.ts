@@ -91,8 +91,10 @@ export async function processarWebhookAsaas(body: any, token?: string) {
     if (comercial) {
       const pago = ["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"].includes(body.event);
       const vencida = ["PAYMENT_OVERDUE"].includes(body.event);
+      const assinaturaExterna = String(body.payment.externalReference).split(":")[1] || null;
       const { data: cobranca } = await supabase.from("cobrancas_assinaturas_geradores").update({ status: pago ? "PAGA" : vencida ? "VENCIDA" : "PENDENTE", pago_em: pago ? new Date().toISOString() : null, atualizado_em: new Date().toISOString() }).eq("asaas_payment_id", body.payment.id).select().maybeSingle();
-      if (cobranca?.assinatura_id && (pago || vencida)) await supabase.from("assinaturas_geradores").update({ status: pago ? "ATIVA" : "INADIMPLENTE", atualizado_em: new Date().toISOString() }).eq("id", cobranca.assinatura_id);
+      const assinaturaId = cobranca?.assinatura_id ?? assinaturaExterna;
+      if (assinaturaId && (pago || vencida)) await supabase.from("assinaturas_geradores").update({ status: pago ? "ATIVA" : "INADIMPLENTE", forma_pagamento: body.payment.billingType ?? undefined, atualizado_em: new Date().toISOString() }).eq("id", assinaturaId);
     } else {
       const {data:c}=await supabase.from("asaas_cobrancas").update({status:body.payment.status,valor_liquido:body.payment.netValue??body.payment.value??null,atualizado_em:new Date().toISOString()}).eq("asaas_payment_id",body.payment.id).select().maybeSingle();
       if(c&&["PAYMENT_RECEIVED","PAYMENT_CONFIRMED"].includes(body.event)){ await supabase.from("faturas").update({status:"PAGO"}).eq("id",c.fatura_id); await transferirSaldo(c); }

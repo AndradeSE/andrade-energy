@@ -9,3 +9,5 @@ export const contratar = (req: Request, res: Response) => respond(res, service.c
 export const status = (req: Request, res: Response) => respond(res, service.alterarStatusAssinatura(req.params.id, req.body?.status));
 export const cobrar = (req: Request, res: Response) => respond(res, service.gerarCobrancaAssinatura(req.params.id), 201);
 export const cobrancas = (req: Request, res: Response) => respond(res, service.listarCobrancasAssinatura(req.params.id));
+export const minhaAssinatura = (req: Request, res: Response) => respond(res, service.obterMinhaAssinatura((req as any).usuario.id));
+export const checkoutMinhaAssinatura = (req: Request, res: Response) => respond(res, service.criarCheckoutRecorrente((req as any).usuario, req.body), 201);

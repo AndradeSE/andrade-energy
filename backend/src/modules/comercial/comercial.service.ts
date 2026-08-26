@@ -107,3 +107,45 @@ export async function listarCobrancasAssinatura(id: string) {
   if (error) throw error;
   return data ?? [];
 }
+
+export async function obterMinhaAssinatura(geradorId: string) {
+  const { data: assinatura, error } = await supabase
+    .from("assinaturas_geradores")
+    .select("*, plano:planos_geradores(*), cobrancas:cobrancas_assinaturas_geradores(*)")
+    .eq("gerador_id", geradorId)
+    .neq("status", "CANCELADA")
+    .order("criado_em", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  const { data: planos, error: plansError } = await supabase.from("planos_geradores").select("*").eq("ativo", true).order("valor_mensal");
+  if (plansError) throw plansError;
+  return { assinatura: assinatura ?? null, planos: planos ?? [] };
+}
+
+export async function criarCheckoutRecorrente(usuario: any, input: any) {
+  const { assinatura } = await obterMinhaAssinatura(String(usuario.id));
+  if (!assinatura) throw new Error("Nenhuma assinatura ativa foi vinculada a esta conta.");
+  const billingTypes = Array.isArray(input?.formasPagamento)
+    ? input.formasPagamento.filter((item: string) => ["CREDIT_CARD", "PIX"].includes(String(item).toUpperCase()))
+    : ["CREDIT_CARD"];
+  if (!billingTypes.length) throw new Error("Escolha cartão ou Pix para a recorrência.");
+  const site = String(process.env.PORTAL_WEB_URL ?? "https://andradeenergy.com.br").replace(/\/$/, "");
+  const nextDueDate = isoDate(assinatura.proximo_vencimento ?? new Date(Date.now() + 7 * 86400000).toISOString());
+  const checkout = await asaasRequest<any>("/checkouts", {
+    method: "POST",
+    body: JSON.stringify({
+      billingTypes,
+      chargeTypes: ["RECURRENT"],
+      minutesToExpire: 1440,
+      externalReference: `assinatura:${assinatura.id}`,
+      callback: { successUrl: `${site}/gerador?assinatura=sucesso`, cancelUrl: `${site}/gerador?assinatura=cancelada`, expiredUrl: `${site}/gerador?assinatura=expirada` },
+      items: [{ name: assinatura.plano?.nome ?? "Licença Andrade Energy", description: `Licença Andrade Energy · ciclo ${String(assinatura.ciclo).toLowerCase()}`, quantity: 1, value: Number(assinatura.valor_contratado) }],
+      customerData: { name: usuario.nome, cpfCnpj: digits(usuario.cpf), email: usuario.email || undefined, phone: digits(usuario.telefone) || undefined },
+      subscription: { cycle: assinatura.ciclo === "ANUAL" ? "YEARLY" : "MONTHLY", nextDueDate: `${nextDueDate} 12:00:00` },
+    }),
+  });
+  const url = checkout.url ?? checkout.checkoutUrl ?? checkout.link;
+  if (!url) throw new Error("O Asaas criou o checkout, mas não retornou o endereço de pagamento.");
+  return { url, checkoutId: checkout.id, assinaturaId: assinatura.id };
+}

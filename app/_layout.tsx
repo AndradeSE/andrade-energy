@@ -122,6 +122,9 @@ function RootNavigator() {
           }}
         />
 
+        <Stack.Screen name="admin/escolher-area" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/comercial" options={{ headerShown: false }} />
+
         <Stack.Screen
           name="modal"
           options={{
@@ -313,6 +316,7 @@ function RootNavigator() {
         />
         <Stack.Screen name="geradores/gestao" options={{ headerShown: false }} />
         <Stack.Screen name="geradores/convidar" options={{ headerShown: false }} />
+        <Stack.Screen name="assinatura/index" options={{ headerShown: false }} />
       </Stack.Protected>
     </Stack>
     {precisaDigital ? <View style={styles.lockOverlay}><BiometricLock /></View> : null}

@@ -64,7 +64,7 @@ export default function Login() {
           }
         }
       }
-      router.replace("/selecionar-unidade");
+      router.replace((resposta.usuario?.perfil === "ADMIN" && IS_GERADOR_APP ? "/admin/escolher-area" : "/selecionar-unidade") as any);
     } catch (erro: any) {
       Alert.alert(
         "Não foi possível entrar",

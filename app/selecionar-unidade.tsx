@@ -5,7 +5,6 @@ import { useCallback, useState } from "react";
 
 import {
   Alert,
-  Image,
   Modal,
   Pressable,
   RefreshControl,
@@ -50,6 +49,7 @@ import {
   Typography,
 } from "../theme";
 import { IS_GERADOR_APP } from "../config/appVariant";
+import PortalBrandLogo from "../components/brand/PortalBrandLogo";
 
 export default function SelecionarUnidade() {
   const {
@@ -406,12 +406,7 @@ export default function SelecionarUnidade() {
                     styles.logoBox
                   }
                 >
-                  <Image
-                    source={require("../assets/images/andrade-logo-horizontal.png")}
-                    style={
-                      styles.logo
-                    }
-                  />
+                  <PortalBrandLogo height={50} width={180} />
                 </View>
               </View>
             </LinearGradient>
@@ -1180,19 +1175,12 @@ const styles =
     },
 
     logoBox: {
-      width: 132,
+      width: 180,
       height: 50,
       alignItems:
         "center",
       justifyContent:
         "center",
-    },
-
-    logo: {
-      width: 132,
-      height: 50,
-      resizeMode:
-        "contain",
     },
 
     intro: {
