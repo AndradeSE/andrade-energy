@@ -40,8 +40,10 @@ function formatPortalValue(field: string, value: unknown) {
   const text = String(value);
   if (/status|situacao/i.test(field))
     return STATUS_PT[text.toUpperCase()] ?? text;
+  if (/competencia|referencia/i.test(field) && /^\d{4}-\d{2}$/.test(text))
+    return `${text.slice(5, 7)}/${text.slice(0, 4)}`;
   if (
-    (/data|vencimento|criado|atualizado|pagamento/i.test(field) ||
+    (/data|vencimento|criado|atualizado|pagamento|competencia|referencia/i.test(field) ||
       /^\d{4}-\d{2}-\d{2}T/.test(text)) &&
     /^\d{4}-\d{2}-\d{2}/.test(text)
   )
@@ -249,7 +251,7 @@ function ClientOverview({
               currency: "BRL",
             })}
           </strong>
-          <span>{String(invoice.competencia ?? "Sem competência")}</span>
+          <span>{formatPortalValue("competencia", invoice.competencia ?? "Sem competência")}</span>
         </article>
       </div>
       <div className="client-columns">
@@ -279,8 +281,8 @@ function ClientOverview({
         </article>
         <article className="invoice-card">
           <small>PRÓXIMO VENCIMENTO</small>
-          <h2>{String(invoice.vencimento ?? "Não informado")}</h2>
-          <p>Referência {String(invoice.competencia ?? "—")}</p>
+          <h2>{formatPortalValue("vencimento", invoice.vencimento ?? "Não informado")}</h2>
+          <p>Referência {formatPortalValue("competencia", invoice.competencia ?? "—")}</p>
           <button onClick={() => onNavigate("Faturas")}>
             Ver minhas faturas →
           </button>
