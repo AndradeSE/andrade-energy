@@ -12,6 +12,12 @@ Os dois aplicativos usam a mesma base de código. A variante é escolhida por `E
 
 ## Estado implementado
 
+### Atualização de 25/08/2026
+
+- O portal do consumidor não exibe mais ferramentas administrativas da fatura. O consumidor mantém acesso aos documentos e meios de pagamento; regeneração, confirmação e baixa manual continuam exclusivas do Gerador.
+- Ao confirmar ou processar uma fatura aberta, o backend tenta criar/atualizar automaticamente a cobrança Asaas e regenera o demonstrativo com PIX, boleto e código de barras retornados pelo provedor.
+- A identidade visual dos apps Consumidor e Gerador foi aproximada da web: fundo verde-cinza claro, superfícies suavemente esverdeadas e cabeçalhos em verde profundo.
+
 ### Gerador
 
 - Abas: Home, Clientes, Usinas, Operação, Faturas, Financeiro e Perfil.

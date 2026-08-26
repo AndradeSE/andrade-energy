@@ -288,7 +288,7 @@ export default function SelecionarUnidade() {
       }
     >
       <StatusBar
-        backgroundColor="#006B3C"
+        backgroundColor="#082F26"
         barStyle="light-content"
       />
 
@@ -329,9 +329,9 @@ export default function SelecionarUnidade() {
 
             <LinearGradient
               colors={[
-                "#006B3C",
-                "#008C4A",
-                "#38A94B",
+                "#082F26",
+                "#0B4A39",
+                "#0A5B43",
               ]}
               end={{
                 x: 1,

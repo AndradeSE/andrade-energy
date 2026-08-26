@@ -14,6 +14,7 @@ import { enfileirarNotificacoesDaFatura } from "./notificacoesFatura.service";
 import { criarCobranca } from "../cobrancas/cobrancas.repository";
 import { registrarCreditosDaFatura } from "../creditos/consumo.service";
 import { supabase } from "../../config/supabase";
+import { criarCobrancaAsaas } from "../asaas/asaas.service";
 
 export async function listarFaturas(filtro?: { clienteId?: string; uc?: string }) {
   const faturas = await listarFaturasRepository(filtro);
@@ -72,8 +73,10 @@ export async function confirmarFaturaRascunho(id: string) {
     valor: Number(fatura.valor_total_unificado ?? fatura.valor_total ?? 0),
     vencimento: fatura.vencimento,
   });
+  await criarCobrancaAsaas(fatura.id).catch(() => null);
   await enfileirarNotificacoesDaFatura(fatura);
-  return incluirLinksTemporarios(fatura);
+  const atualizada = await buscarFaturaPorId(fatura.id);
+  return incluirLinksTemporarios(atualizada ?? fatura);
 }
 
 export async function analisarFatura(req: Request) {

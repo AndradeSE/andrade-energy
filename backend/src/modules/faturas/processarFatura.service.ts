@@ -1,5 +1,6 @@
 import { buscarClientePorUC } from "../clientes/clientes.repository";
 import { criarCobranca } from "../cobrancas/cobrancas.repository";
+import { criarCobrancaAsaas } from "../asaas/asaas.service";
 import { registrarCreditosDaFatura } from "../creditos/consumo.service";
 import { buscarUsina } from "../usinas/usinas.repository";
 import {
@@ -434,6 +435,10 @@ const fatura = await inserirFatura({
     vencimento,
 
   });
+
+  if ((opcoes.criarCobranca ?? true) && String(opcoes.status ?? "ABERTA").toUpperCase() !== "RASCUNHO") {
+    await criarCobrancaAsaas(fatura.id).catch(() => null);
+  }
 
   return fatura;
 

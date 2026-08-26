@@ -124,8 +124,8 @@ export default function AppHeader({
   }
 
   return (
-    <LinearGradient colors={["#006B3C", "#008C4A", "#38A94B"]} end={{ x: 1, y: 0.85 }} start={{ x: 0, y: 0 }} style={[styles.container, { marginTop: -insets.top, paddingTop: insets.top + Spacing.md }]}>
-      <StatusBar backgroundColor="#006B3C" barStyle="light-content" />
+    <LinearGradient colors={["#082F26", "#0B4A39", "#0A5B43"]} end={{ x: 1, y: 0.85 }} start={{ x: 0, y: 0 }} style={[styles.container, { marginTop: -insets.top, paddingTop: insets.top + Spacing.md }]}>
+      <StatusBar backgroundColor="#082F26" barStyle="light-content" />
       <View style={styles.top}>
         <TouchableOpacity
           accessibilityLabel="Abrir menu"

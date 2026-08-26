@@ -195,9 +195,9 @@ export default function ClienteHeader({
     <>
       <LinearGradient
         colors={[
-          "#006B3C",
-          "#008C4A",
-          "#38A94B",
+          "#082F26",
+          "#0B4A39",
+          "#0A5B43",
         ]}
         end={{
           x: 1,
