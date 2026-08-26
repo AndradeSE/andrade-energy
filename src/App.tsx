@@ -492,6 +492,73 @@ function GeneratorInvitePanel({ token }: { token: string }) {
   );
 }
 
+function CommercialManagementPanel({ token }: { token: string }) {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
+  const [form, setForm] = useState({ geradorId: "", planoId: "", ciclo: "MENSAL", formaPagamento: "BOLETO", proximoVencimento: "" });
+  const load = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/comercial/painel`, { headers: { Authorization: `Bearer ${token}` } });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.message ?? "Não foi possível carregar a gestão comercial.");
+      setData(payload);
+      setForm((current) => ({ ...current, geradorId: current.geradorId || payload.geradores?.find((item: any) => item.perfil === "GESTOR")?.id || "", planoId: current.planoId || payload.planos?.[0]?.id || "" }));
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Falha ao carregar."); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { void load(); }, [token]);
+  const request = async (path: string, options: RequestInit) => {
+    setMessage("");
+    const response = await fetch(`${API_URL}${path}`, { ...options, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(options.headers ?? {}) } });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.message ?? "Operação não concluída.");
+    return payload;
+  };
+  const createSubscription = async (event: FormEvent) => {
+    event.preventDefault();
+    try { await request("/comercial/assinaturas", { method: "POST", body: JSON.stringify({ ...form, inicioEm: new Date().toISOString().slice(0, 10) }) }); setMessage("Plano vinculado ao gerador com sucesso."); await load(); }
+    catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível vincular."); }
+  };
+  const action = async (subscription: any, kind: "charge" | "status", status?: string) => {
+    try {
+      const result = await request(kind === "charge" ? `/comercial/assinaturas/${subscription.id}/cobrancas` : `/comercial/assinaturas/${subscription.id}/status`, kind === "charge" ? { method: "POST" } : { method: "PATCH", body: JSON.stringify({ status }) });
+      setMessage(kind === "charge" ? "Cobrança gerada. O link já está disponível no histórico comercial." : "Situação da assinatura atualizada.");
+      if (kind === "charge" && result.invoice_url) window.open(result.invoice_url, "_blank", "noopener,noreferrer");
+      await load();
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Ação não concluída."); }
+  };
+  if (loading && !data) return <div className="data-state">Carregando gestão comercial...</div>;
+  const money = (value: unknown) => Number(value ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  return <div className="commercial-stack">
+    <div className="commercial-metrics">
+      <article><small>ASSINATURAS</small><strong>{data?.resumo?.total ?? 0}</strong><span>Contas comercializadas</span></article>
+      <article><small>ATIVAS / TESTE</small><strong>{data?.resumo?.ativas ?? 0}</strong><span>Com acesso liberado</span></article>
+      <article><small>INADIMPLENTES</small><strong className="danger-text">{data?.resumo?.inadimplentes ?? 0}</strong><span>Precisam de ação</span></article>
+      <article><small>MRR PREVISTO</small><strong>{money(data?.resumo?.receitaMensalPrevista)}</strong><span>Receita mensal equivalente</span></article>
+    </div>
+    <div className="commercial-columns">
+      <section className="section-workspace">
+        <span className="section-label">NOVA ASSINATURA</span><h2>Vincular plano ao gerador</h2><p>Crie o contrato comercial sem misturar a mensalidade do software com as faturas de energia.</p>
+        <form className="commercial-form" onSubmit={createSubscription}>
+          <label>Gerador<select required value={form.geradorId} onChange={(e) => setForm({ ...form, geradorId: e.target.value })}><option value="">Selecione</option>{(data?.geradores ?? []).filter((item: any) => item.perfil === "GESTOR").map((item: any) => <option key={item.id} value={item.id}>{item.nome} · {item.email}</option>)}</select></label>
+          <label>Plano<select required value={form.planoId} onChange={(e) => setForm({ ...form, planoId: e.target.value })}>{(data?.planos ?? []).filter((item: any) => item.ativo).map((item: any) => <option key={item.id} value={item.id}>{item.nome} · {money(item.valor_mensal)}/mês</option>)}</select></label>
+          <div className="commercial-form-row"><label>Ciclo<select value={form.ciclo} onChange={(e) => setForm({ ...form, ciclo: e.target.value })}><option value="MENSAL">Mensal</option><option value="ANUAL">Anual</option></select></label><label>Pagamento<select value={form.formaPagamento} onChange={(e) => setForm({ ...form, formaPagamento: e.target.value })}><option value="BOLETO">Boleto</option><option value="PIX">Pix</option><option value="CREDIT_CARD">Cartão</option></select></label></div>
+          <label>Primeiro vencimento<input required type="date" value={form.proximoVencimento} onChange={(e) => setForm({ ...form, proximoVencimento: e.target.value })} /></label>
+          <button className="primary-action">Ativar assinatura</button>
+        </form>
+      </section>
+      <section className="section-workspace"><span className="section-label">PLANOS</span><h2>Oferta comercial</h2>{(data?.planos ?? []).map((plan: any) => <article className="commercial-plan" key={plan.id}><div><strong>{plan.nome}</strong><small>{plan.descricao}</small></div><b>{money(plan.valor_mensal)}<small>/mês</small></b><p>{(plan.recursos ?? []).join(" • ")}</p><span>Anual {money(plan.valor_anual)}</span></article>)}</section>
+    </div>
+    {message ? <div className="invite-message">{message}</div> : null}
+    <section className="section-workspace"><div className="data-toolbar"><div><small>CARTEIRA COMERCIAL</small><strong>{data?.assinaturas?.length ?? 0} assinatura(s)</strong></div><button onClick={() => void load()}>Atualizar</button></div>
+      <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Gerador</th><th>Plano</th><th>Ciclo</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Ações</th></tr></thead><tbody>{(data?.assinaturas ?? []).map((item: any) => <tr key={item.id}><td><strong>{item.gerador?.nome ?? "—"}</strong><small className="table-subline">{item.gerador?.email ?? "—"}</small></td><td>{item.plano?.nome ?? "—"}</td><td>{item.ciclo}</td><td>{money(item.valor_contratado)}</td><td>{item.proximo_vencimento ? new Date(`${item.proximo_vencimento}T12:00:00`).toLocaleDateString("pt-BR") : "—"}</td><td><span className={`table-status status-${String(item.status).toLowerCase()}`}>{item.status}</span></td><td><div className="row-actions"><button className="table-action" onClick={() => void action(item, "charge")}>Cobrar</button><button className="table-action" onClick={() => void action(item, "status", item.status === "SUSPENSA" ? "ATIVA" : "SUSPENSA")}>{item.status === "SUSPENSA" ? "Reativar" : "Suspender"}</button><button className="table-action danger" onClick={() => window.confirm("Cancelar definitivamente esta assinatura?") && void action(item, "status", "CANCELADA")}>Cancelar</button></div></td></tr>)}</tbody></table></div>
+    </section>
+    <section className="section-workspace"><span className="section-label">CONFORMIDADE</span><h2>Documentos para comercialização</h2><div className="document-grid">{(data?.documentos ?? []).map((doc: any) => <article key={doc.id}><b>§</b><div><strong>{doc.titulo}</strong><small>Versão {doc.versao} · {doc.ativo ? "Publicada" : "Rascunho"}</small></div></article>)}</div><p className="legal-notice">Os modelos são uma base operacional. Antes da venda ao público, contrato, termos, política de privacidade e cancelamento devem ser revisados por advogado e responsável por proteção de dados.</p></section>
+  </div>;
+}
+
 function ProfilePanel({
   token,
   fallback,
@@ -2546,7 +2613,7 @@ function PortalHome({
             ],
           },
           ...(session.usuario?.perfil === "ADMIN"
-            ? [{ label: "Administração", items: ["Geradores"] }]
+            ? [{ label: "Administração", items: ["Gestão comercial", "Geradores"] }]
             : []),
           { label: "Conta", items: ["Perfil", "Configurações"] },
         ]
@@ -2949,6 +3016,8 @@ function PortalHome({
             />
           ) : activeSection === "Geradores" && session.token ? (
             <GeneratorInvitePanel token={session.token} />
+          ) : activeSection === "Gestão comercial" && session.token ? (
+            <CommercialManagementPanel token={session.token} />
           ) : activeSection === "Perfil" && session.token ? (
             <ProfilePanel token={session.token} fallback={session.usuario} />
           ) : activeSection === "Configurações" ? (
