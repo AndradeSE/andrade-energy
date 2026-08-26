@@ -23,6 +23,7 @@ import { supabase } from "./config/supabase";
 import usuariosRoutes from "./modules/usuarios/usuarios.routes";
 import { asaasRouter, asaasWebhookRouter } from "./modules/asaas/asaas.routes";
 import carteiraRoutes from "./modules/carteira/carteira.routes";
+import comercialRoutes from "./modules/comercial/comercial.routes";
 
 dotenv.config();
 
@@ -81,6 +82,7 @@ app.use("/api/faturas", faturasRoutes);
 
 app.use("/api/asaas", asaasRouter);
 app.use("/api/carteira", carteiraRoutes);
+app.use("/api/comercial", comercialRoutes);
 
 app.use("/api/usinas", usinasRoutes);
 
@@ -129,6 +131,7 @@ async function validarSchemaAntesDeIniciar() {
   const verificacoes = [
     { tabela: "unidades_consumidoras", colunas: "consumo_medio_kwh,percentual_rateio" },
     { tabela: "contratos", colunas: "dados_documento,contrato_gerado_url,contrato_assinado_url" },
+    { tabela: "assinaturas_geradores", colunas: "gerador_id,plano_id,ciclo,status,proximo_vencimento" },
   ];
 
   for (const verificacao of verificacoes) {

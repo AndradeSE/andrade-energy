@@ -86,7 +86,18 @@ export async function processarWebhookAsaas(body: any, token?: string) {
   if (!process.env.ASAAS_WEBHOOK_TOKEN || token !== process.env.ASAAS_WEBHOOK_TOKEN) throw new Error("Webhook Asaas não autorizado.");
   if (!body?.id || !body?.event) throw new Error("Evento Asaas inválido.");
   const inserted=await supabase.from("asaas_eventos").insert({evento_id:body.id,tipo:body.event,payload:body}).select().single(); if(inserted.error?.code==="23505") return {duplicado:true}; if(inserted.error) throw inserted.error;
-  if(body.payment?.id){ const {data:c}=await supabase.from("asaas_cobrancas").update({status:body.payment.status,valor_liquido:body.payment.netValue??body.payment.value??null,atualizado_em:new Date().toISOString()}).eq("asaas_payment_id",body.payment.id).select().maybeSingle(); if(c&&["PAYMENT_RECEIVED","PAYMENT_CONFIRMED"].includes(body.event)){ await supabase.from("faturas").update({status:"PAGO"}).eq("id",c.fatura_id); await transferirSaldo(c); } }
+  if(body.payment?.id){
+    const comercial = String(body.payment.externalReference ?? "").startsWith("assinatura:");
+    if (comercial) {
+      const pago = ["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"].includes(body.event);
+      const vencida = ["PAYMENT_OVERDUE"].includes(body.event);
+      const { data: cobranca } = await supabase.from("cobrancas_assinaturas_geradores").update({ status: pago ? "PAGA" : vencida ? "VENCIDA" : "PENDENTE", pago_em: pago ? new Date().toISOString() : null, atualizado_em: new Date().toISOString() }).eq("asaas_payment_id", body.payment.id).select().maybeSingle();
+      if (cobranca?.assinatura_id && (pago || vencida)) await supabase.from("assinaturas_geradores").update({ status: pago ? "ATIVA" : "INADIMPLENTE", atualizado_em: new Date().toISOString() }).eq("id", cobranca.assinatura_id);
+    } else {
+      const {data:c}=await supabase.from("asaas_cobrancas").update({status:body.payment.status,valor_liquido:body.payment.netValue??body.payment.value??null,atualizado_em:new Date().toISOString()}).eq("asaas_payment_id",body.payment.id).select().maybeSingle();
+      if(c&&["PAYMENT_RECEIVED","PAYMENT_CONFIRMED"].includes(body.event)){ await supabase.from("faturas").update({status:"PAGO"}).eq("id",c.fatura_id); await transferirSaldo(c); }
+    }
+  }
   if(body.transfer?.id) {
     const { data: transferencia } = await supabase.from("asaas_transferencias").update({status:body.transfer.status,atualizado_em:new Date().toISOString()}).eq("asaas_transfer_id",body.transfer.id).select().maybeSingle();
     if (transferencia?.cobranca_id && String(body.transfer.status).toUpperCase() === "DONE") {
