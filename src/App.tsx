@@ -1669,11 +1669,13 @@ function RecordDetails({
   section,
   record,
   token,
+  isGenerator,
   onClose,
 }: {
   section: string;
   record: WebRecord;
   token: string;
+  isGenerator: boolean;
   onClose: () => void;
 }) {
   const [details, setDetails] = useState<WebRecord>(record);
@@ -2031,12 +2033,14 @@ function RecordDetails({
           ))}
         </div>
       )}
-      <RecordEditForm
-        section={section}
-        record={source}
-        token={token}
-        onSaved={(data) => setDetails(data)}
-      />
+      {isGenerator ? (
+        <RecordEditForm
+          section={section}
+          record={source}
+          token={token}
+          onSaved={(data) => setDetails(data)}
+        />
+      ) : null}
       <div className="detail-tools">
         <h3>Ferramentas</h3>
         <div>
@@ -2051,7 +2055,7 @@ function RecordDetails({
               ↓ Baixar {String(label)}
             </a>
           ))}
-          {section === "Faturas" && source.id ? (
+          {section === "Faturas" && source.id && isGenerator ? (
             <>
               <button
                 disabled={working}
@@ -2940,6 +2944,7 @@ function PortalHome({
               section={activeSection}
               record={selectedRecord}
               token={session.token}
+              isGenerator={type === "GERADOR"}
               onClose={() => setSelectedRecord(null)}
             />
           ) : activeSection === "Geradores" && session.token ? (
