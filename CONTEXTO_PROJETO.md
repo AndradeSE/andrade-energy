@@ -12,6 +12,16 @@ Os dois aplicativos usam a mesma base de código. A variante é escolhida por `E
 
 ## Estado implementado
 
+### Atualização de 26/08/2026 — gestão comercial
+
+- O administrador possui uma área própria de gestão comercial de contas geradoras no portal e no app Gerador.
+- Planos de software aceitam ciclos mensal e anual, limites de usinas/clientes, recursos e preço contratado.
+- Assinaturas de geradores têm estados de teste, ativa, inadimplente, suspensa e cancelada, sem se misturar às faturas de energia dos consumidores.
+- O administrador pode vincular plano, gerar cobrança Asaas, suspender, reativar ou cancelar. O webhook diferencia pagamentos comerciais por `externalReference` e atualiza cobrança e inadimplência.
+- A migration `20260826100000_gestao_comercial_geradores.sql` cria planos, assinaturas, cobranças SaaS, documentos comerciais e aceites versionados. Ela precisa ser aplicada antes de publicar o backend correspondente.
+- Contrato SaaS, Termos de Uso, Política de Privacidade e cancelamento possuem rascunhos operacionais; a comercialização depende de revisão jurídica e fiscal.
+- Para reduzir risco de reprovação na Play Store, o Android não contém checkout nem link de compra externa. A contratação comercial ocorre pelo portal/equipe administrativa. Se a assinatura digital passar a ser vendida dentro do Android, será necessário implementar Google Play Billing e validação de compras no backend.
+
 ### Atualização de 25/08/2026
 
 - O portal do consumidor não exibe mais ferramentas administrativas da fatura. O consumidor mantém acesso aos documentos e meios de pagamento; regeneração, confirmação e baixa manual continuam exclusivas do Gerador.
