@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import PortalBrandLogo from "../../components/brand/PortalBrandLogo";
+import CommercialTabs from "../../components/commercial/CommercialTabs";
 import { ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -81,6 +82,11 @@ export default function GestaoGeradores() {
   useEffect(() => {
     void load();
   }, [load]);
+  useEffect(() => {
+    if (params.aba === "ASSINATURAS" || params.aba === "PAGAMENTOS") {
+      setAba(params.aba);
+    }
+  }, [params.aba]);
   if (user?.perfil !== "ADMIN")
     return (
       <Screen>
@@ -422,6 +428,41 @@ export default function GestaoGeradores() {
             ) : null}
             {aba === "ASSINATURAS" ? (
               <>
+                <View style={styles.walletHero}>
+                  <View>
+                    <Text style={styles.walletHeroEyebrow}>
+                      CARTEIRA COMERCIAL
+                    </Text>
+                    <Text style={styles.walletHeroValue}>
+                      {money(data?.financeiro?.totalRecebido)}
+                    </Text>
+                    <Text style={styles.walletHeroCaption}>
+                      Total confirmado em pagamentos
+                    </Text>
+                  </View>
+                  <View style={styles.walletHeroStats}>
+                    <View>
+                      <Text style={styles.walletHeroStatValue}>
+                        {data?.resumo.ativas ?? 0}
+                      </Text>
+                      <Text style={styles.walletHeroStatLabel}>ativas</Text>
+                    </View>
+                    <View>
+                      <Text
+                        style={[
+                          styles.walletHeroStatValue,
+                          { color: "#FECACA" },
+                        ]}
+                      >
+                        {data?.resumo.inadimplentes ?? 0}
+                      </Text>
+                      <Text style={styles.walletHeroStatLabel}>
+                        inadimplentes
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <Text style={styles.section}>ASSINATURAS DA CARTEIRA</Text>
                 {(data?.assinaturas ?? []).map((subscription) => (
                   <View style={styles.card} key={subscription.id}>
                     <View style={styles.row}>
@@ -662,6 +703,7 @@ export default function GestaoGeradores() {
           </>
         )}
       </ScrollView>
+      <CommercialTabs active={aba === "PAGAMENTOS" ? "RECEITA" : "CARTEIRA"} />
     </Screen>
   );
 
@@ -963,6 +1005,40 @@ const styles = StyleSheet.create({
     borderRadius: Radius.xl,
     backgroundColor: "#0A513E",
     ...Shadows.card,
+  },
+  walletHero: {
+    padding: Spacing.lg,
+    borderRadius: Radius.xl,
+    backgroundColor: "#0A513E",
+    ...Shadows.card,
+  },
+  walletHeroEyebrow: {
+    color: "#A7F3D0",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+  walletHeroValue: {
+    marginTop: 5,
+    color: "#FFF",
+    fontSize: 28,
+    fontWeight: "900",
+  },
+  walletHeroCaption: { marginTop: 3, color: "#D1FAE5", fontSize: 11 },
+  walletHeroStats: {
+    flexDirection: "row",
+    gap: Spacing.xl,
+    marginTop: Spacing.lg,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,.16)",
+  },
+  walletHeroStatValue: { color: "#FFF", fontSize: 20, fontWeight: "900" },
+  walletHeroStatLabel: {
+    marginTop: 2,
+    color: "#D1FAE5",
+    fontSize: 10,
+    fontWeight: "700",
   },
   paymentSummaryLabel: {
     color: "#A7F3D0",

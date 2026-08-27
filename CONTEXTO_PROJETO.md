@@ -173,6 +173,8 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - Os cabeçalhos do ambiente comercial no app Gerador seguem formato compacto: logo reduzido, ações laterais de 40 px, títulos sem compressão e bloco de contexto menor nas telas de gestão e monitoramento.
 - Atualização OTA Gerador publicada no canal `preview-gerador` com download direto e cabeçalhos comerciais compactos: grupo `38f83b4e-f265-490b-950a-b41de3e6241b`, runtime `1.0.0`.
 - A Gestão Comercial do app possui navegação inferior **Home / Carteira / Receita mensal**. Os cards **Assinaturas**, **Ativas** e **Inadimplentes** são acionáveis e abrem, respectivamente, assinaturas, monitoramento de clientes ativos e pagamentos.
+- A navegação inferior comercial é fixa e reutiliza o padrão visual das abas da Gestão de Usinas (ícones preenchidos na seleção, indicador verde superior, 82 px e sombra). Ela permanece disponível na home, carteira e receita mensal.
+- A Carteira apresenta total confirmado, assinaturas ativas e inadimplentes no card principal; Receita mensal apresenta recebido no mês, valor a receber e a lista das cobranças.
 - A tela Gestão de Geradores usa o mesmo cabeçalho compacto da home comercial, com logo alinhada ao título e menu lateral de três linhas para todas as áreas comerciais.
 - No perfil Gerador, o acesso rápido permite baixar os APKs Gerador e Consumidor. No perfil Consumidor, aparece somente o download do APK Consumidor.
 - O início de novos testes gratuitos pelo login web está temporariamente desabilitado; o aviso permanece visível e o formulário não é aberto enquanto `TESTE_GRATUITO_HABILITADO` estiver falso.
