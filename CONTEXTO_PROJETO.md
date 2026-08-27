@@ -161,6 +161,7 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - O período de teste do app Gerador é de 45 dias e pode ser concedido somente uma vez por CPF. O backend consulta o histórico de assinaturas de todas as contas que compartilham o CPF normalizado; reinstalar o aplicativo ou recriar o usuário não renova o teste.
 - O pagamento do software continua separado das faturas de energia. Boleto, Pix, cartão e recorrência são opções comerciais processadas pelo provedor de cobrança.
 - O portal web recebeu navegação e layout responsivos para celular, inclusive na gestão comercial, tabelas, formulários, monitoramento e botões de instalação.
+- O portal público oficial está vinculado ao projeto Sites original `appgprj_6a8c66b15ba48191baad8777fd2d1eba` e é publicado em `https://www.andradeenergy.com.br`. Não substituir esse vínculo por outro projeto Sites ao trabalhar em contas diferentes.
 - Foram gerados localmente os APKs atuais: `dist-apk/andrade-energy-gerador.apk` (arm64) e `dist-apk/andrade-energy-consumidor.apk` (universal). Eles não são versionados no Git e são publicados como ativos da release `apps-2026-08-27`.
 - Os links estáveis de download usados pelo portal apontam para a release GitHub `apps-2026-08-27` e podem ser sobrescritos por `VITE_APP_GERADOR_DOWNLOAD_URL` e `VITE_APP_CONSUMIDOR_DOWNLOAD_URL`.
 - O backend e o portal passaram na compilação de produção; as telas alteradas dos aplicativos passaram no ESLint direcionado.
