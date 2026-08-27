@@ -43,6 +43,7 @@ export default function AppHeader({
   const [notificacoesLidas, setNotificacoesLidas] = useState<string[]>([]);
   const [autonomia, setAutonomia] = useState<{ percentual: number; disponivel: number } | null>(null);
   const proprietario = IS_GERADOR_APP;
+  const podeAlternarPerfil = IS_GERADOR_APP && usuario?.perfil === "ADMIN";
   const chaveNotificacoesLidas = `andrade_energy_notificacoes_lidas_${usuario?.id ?? "anon"}`;
 
   useEffect(() => {
@@ -120,6 +121,9 @@ export default function AppHeader({
           <Text numberOfLines={1} style={styles.subpageTitle}>{title}</Text>
           <Text numberOfLines={1} style={styles.subpageSubtitle}>{subtitle}</Text>
         </View>
+        {podeAlternarPerfil ? <TouchableOpacity accessibilityLabel="Alternar perfil de gestão" activeOpacity={0.8} onPress={() => router.replace("/admin/escolher-area" as any)} style={styles.subpageSwitch}>
+          <Ionicons name="swap-horizontal-outline" size={22} color={Colors.primary} />
+        </TouchableOpacity> : null}
       </View>
     );
   }
@@ -150,6 +154,10 @@ export default function AppHeader({
             <Text numberOfLines={1} style={styles.subtitle}>{contextSubtitle}</Text>
           </View>
         </TouchableOpacity>
+
+        {podeAlternarPerfil ? <TouchableOpacity accessibilityLabel="Alternar perfil de gestão" hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }} activeOpacity={0.8} onPress={() => router.replace("/admin/escolher-area" as any)} style={styles.action}>
+          <Ionicons name="swap-horizontal-outline" size={24} color={Colors.surface} />
+        </TouchableOpacity> : null}
 
         <TouchableOpacity accessibilityLabel={notificacoes.length ? `${notificacoes.length} notificações` : "Notificações"} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} activeOpacity={0.8} onPress={() => setNotificacoesAbertas(true)} style={styles.action}>
           <Ionicons name={notificacoes.length ? "notifications" : "notifications-outline"} size={24} color={Colors.surface} />
@@ -221,6 +229,15 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryLight,
   },
   subpageCopy: { flex: 1, minWidth: 0 },
+  subpageSwitch: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: Spacing.xs,
+    borderRadius: Radius.round,
+    backgroundColor: Colors.primaryLight,
+  },
   subpageTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "800" },
   subpageSubtitle: { marginTop: 2, color: Colors.subtitle, fontSize: Typography.small },
   container: {

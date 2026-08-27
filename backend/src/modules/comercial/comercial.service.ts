@@ -11,7 +11,7 @@ const isoDate = (value: unknown) => {
 export async function obterPainelComercial() {
   const [{ data: planos, error: erroPlanos }, { data: assinaturas, error: erroAssinaturas }, { data: documentos, error: erroDocumentos }, { data: geradores, error: erroGeradores }] = await Promise.all([
     supabase.from("planos_geradores").select("*").order("valor_mensal"),
-    supabase.from("assinaturas_geradores").select("*, plano:planos_geradores(*), gerador:usuarios(id,nome,email,cpf,telefone,ativo,created_at)").order("criado_em", { ascending: false }),
+    supabase.from("assinaturas_geradores").select("*, plano:planos_geradores!assinaturas_geradores_plano_id_fkey(*), gerador:usuarios!assinaturas_geradores_gerador_id_fkey(id,nome,email,cpf,telefone,ativo,created_at)").order("criado_em", { ascending: false }),
     supabase.from("documentos_comerciais").select("id,tipo,titulo,versao,ativo,publicado_em,criado_em").order("criado_em", { ascending: false }),
     supabase.from("usuarios").select("id,nome,email,cpf,telefone,ativo,perfil,created_at").in("perfil", ["ADMIN", "GESTOR"]).order("nome"),
   ]);
@@ -72,7 +72,7 @@ export async function contratarPlano(input: any, adminId: string) {
     fim_teste_em: input?.diasTeste ? new Date(Date.now() + Number(input.diasTeste) * 86400000).toISOString().slice(0, 10) : null,
     observacoes: String(input?.observacoes ?? "").trim() || null, criado_por: adminId,
   };
-  const { data, error } = await supabase.from("assinaturas_geradores").insert(payload).select("*, plano:planos_geradores(*), gerador:usuarios(id,nome,email,cpf,telefone,ativo)").single();
+  const { data, error } = await supabase.from("assinaturas_geradores").insert(payload).select("*, plano:planos_geradores!assinaturas_geradores_plano_id_fkey(*), gerador:usuarios!assinaturas_geradores_gerador_id_fkey(id,nome,email,cpf,telefone,ativo)").single();
   if (error) throw error;
   return data;
 }
@@ -86,7 +86,7 @@ export async function alterarStatusAssinatura(id: string, status: string) {
 }
 
 export async function gerarCobrancaAssinatura(id: string) {
-  const { data: assinatura, error } = await supabase.from("assinaturas_geradores").select("*, gerador:usuarios(*)").eq("id", id).single();
+  const { data: assinatura, error } = await supabase.from("assinaturas_geradores").select("*, gerador:usuarios!assinaturas_geradores_gerador_id_fkey(*)").eq("id", id).single();
   if (error || !assinatura) throw new Error("Assinatura não encontrada.");
   if (["CANCELADA", "SUSPENSA"].includes(assinatura.status)) throw new Error("Esta assinatura não permite novas cobranças.");
   const gerador: any = Array.isArray(assinatura.gerador) ? assinatura.gerador[0] : assinatura.gerador;
@@ -111,7 +111,7 @@ export async function listarCobrancasAssinatura(id: string) {
 export async function obterMinhaAssinatura(geradorId: string) {
   const { data: assinatura, error } = await supabase
     .from("assinaturas_geradores")
-    .select("*, plano:planos_geradores(*), cobrancas:cobrancas_assinaturas_geradores(*)")
+    .select("*, plano:planos_geradores!assinaturas_geradores_plano_id_fkey(*), cobrancas:cobrancas_assinaturas_geradores!cobrancas_assinaturas_geradores_assinatura_id_fkey(*)")
     .eq("gerador_id", geradorId)
     .neq("status", "CANCELADA")
     .order("criado_em", { ascending: false })

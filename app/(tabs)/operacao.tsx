@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 
 import { AppHeader, Badge, Button, Card, ElasticFlatList as FlatList, EmptyState, Loading, Metric, Screen } from "../../components/ui";
 import { listarFechamentos, obterResumoOperacao } from "../../services/fechamentos.service";
@@ -12,8 +12,23 @@ const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { s
 
 export default function Operacao() {
   const [resumo, setResumo] = useState<any>(); const [lista, setLista] = useState<any[]>([]); const [loading, setLoading] = useState(true);
-  const carregar = useCallback(async () => { try { const [r, l] = await Promise.all([obterResumoOperacao(), listarFechamentos()]); setResumo(r); setLista(l ?? []); } finally { setLoading(false); } }, []);
-  useFocusEffect(useCallback(() => { carregar(); }, [carregar]));
+  const carregar = useCallback(async () => {
+    try {
+      const [r, l] = await Promise.all([obterResumoOperacao(), listarFechamentos()]);
+      setResumo(r);
+      setLista(l ?? []);
+    } catch (error: any) {
+      setResumo(undefined);
+      setLista([]);
+      Alert.alert(
+        "Não foi possível carregar a operação",
+        error?.response?.data?.message ?? "Verifique a conexão com o servidor e tente novamente.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useFocusEffect(useCallback(() => { void carregar(); }, [carregar]));
   const [atualizando, setAtualizando] = useState(false);
   async function atualizarPagina() { setAtualizando(true); try { await carregar(); } finally { setAtualizando(false); } }
 

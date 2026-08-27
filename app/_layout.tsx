@@ -1,5 +1,6 @@
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import { ImageBackground, StyleSheet, View } from "react-native";
+import { useRef } from "react";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
@@ -32,6 +33,7 @@ const queryClient = new QueryClient({
 });
 
 function RootNavigator() {
+  const primeiraAutenticacaoBiometrica = useRef(true);
   const {
     session,
     isLoading,
@@ -62,6 +64,14 @@ function RootNavigator() {
     loggedIn &&
     digitalEnabled &&
     !isUnlocked;
+
+  function concluirAutenticacaoBiometrica() {
+    if (!primeiraAutenticacaoBiometrica.current) return;
+    primeiraAutenticacaoBiometrica.current = false;
+    if (session?.user?.perfil === "ADMIN") {
+      router.replace("/admin/escolher-area" as any);
+    }
+  }
 
   return (
     <>
@@ -319,7 +329,7 @@ function RootNavigator() {
         <Stack.Screen name="assinatura/index" options={{ headerShown: false }} />
       </Stack.Protected>
     </Stack>
-    {precisaDigital ? <View style={styles.lockOverlay}><BiometricLock /></View> : null}
+    {precisaDigital ? <View style={styles.lockOverlay}><BiometricLock onUnlocked={concluirAutenticacaoBiometrica} /></View> : null}
     </>
   );
 }

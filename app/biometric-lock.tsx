@@ -28,7 +28,7 @@ import {
     Spacing,
 } from "../theme";
 
-export default function BiometricLock() {
+export default function BiometricLock({ onUnlocked }: { onUnlocked?: () => void }) {
   const {
     unlockWithDigital,
     signOut,
@@ -76,6 +76,8 @@ export default function BiometricLock() {
           "Biometria não reconhecida",
           "Confirme que há uma digital ou rosto cadastrado no aparelho. Você também pode entrar com a senha."
         );
+      } else {
+        onUnlocked?.();
       }
     } catch (error) {
       console.log(
@@ -92,7 +94,7 @@ export default function BiometricLock() {
         false
       );
     }
-  }, [authenticating, unlockWithDigital]);
+  }, [authenticating, onUnlocked, unlockWithDigital]);
 
   useEffect(() => {
     if (

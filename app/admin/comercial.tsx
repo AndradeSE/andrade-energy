@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, RefreshControl, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import PortalBrandLogo from "../../components/brand/PortalBrandLogo";
 import { ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
@@ -10,12 +11,13 @@ import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 
 const moeda = (value: unknown) => Number(value ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 export default function HomeComercial() {
+  const insets = useSafeAreaInsets();
   const { usuario } = useAuth(); const [data,setData]=useState<PainelComercial|null>(null); const [loading,setLoading]=useState(true);
-  const load=useCallback(async()=>{setLoading(true);try{setData(await obterPainelComercial());}finally{setLoading(false);}},[]);
+  const load=useCallback(async()=>{setLoading(true);try{setData(await obterPainelComercial());}catch(error:any){setData(null);Alert.alert("Não foi possível carregar a gestão comercial",error?.response?.data?.message??"Verifique se o backend e a migração comercial estão atualizados.");}finally{setLoading(false);}},[]);
   useEffect(()=>{void load();},[load]);
   if(usuario?.perfil!=="ADMIN"){router.replace("/selecionar-unidade");return null;}
   const resumo=data?.resumo;
-  return <Screen><View style={styles.header}><PortalBrandLogo height={45} width={164}/><View style={styles.headerCopy}><Text style={styles.headerLabel}>GESTÃO COMERCIAL</Text><Text style={styles.headerUser}>{usuario.nome}</Text></View><TouchableOpacity accessibilityLabel="Abrir perfil" onPress={()=>router.push("/(tabs)/perfil")} style={styles.profile}><Ionicons name="person-outline" size={22} color="#FFF"/></TouchableOpacity></View>
+  return <Screen><StatusBar backgroundColor="#083D31" barStyle="light-content"/><View style={[styles.header,{marginTop:-insets.top,paddingTop:insets.top+10}]}><PortalBrandLogo height={45} width={164}/><View style={styles.headerCopy}><Text style={styles.headerLabel}>GESTÃO COMERCIAL</Text><Text style={styles.headerUser}>{usuario.nome}</Text></View><TouchableOpacity accessibilityLabel="Alternar perfil de gestão" onPress={()=>router.replace("/admin/escolher-area" as any)} style={styles.profile}><Ionicons name="swap-horizontal-outline" size={22} color="#FFF"/></TouchableOpacity><TouchableOpacity accessibilityLabel="Abrir perfil" onPress={()=>router.push("/(tabs)/perfil")} style={styles.profile}><Ionicons name="person-outline" size={22} color="#FFF"/></TouchableOpacity></View>
     <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} colors={[Colors.primary]}/> }>
       <View style={styles.heading}><Text style={styles.eyebrow}>ADMINISTRAÇÃO DO SOFTWARE</Text><Text style={styles.title}>Painel comercial</Text><Text style={styles.subtitle}>Acompanhe a comercialização e o acesso dos geradores.</Text></View>
       {loading&&!data?<ActivityIndicator color={Colors.primary}/>:<View style={styles.metrics}><Metric icon="people-outline" label="Assinaturas" value={String(resumo?.total??0)}/><Metric icon="checkmark-circle-outline" label="Ativas" value={String(resumo?.ativas??0)} green/><Metric icon="alert-circle-outline" label="Inadimplentes" value={String(resumo?.inadimplentes??0)} danger/><Metric icon="trending-up-outline" label="Receita mensal" value={moeda(resumo?.receitaMensalPrevista)}/></View>}

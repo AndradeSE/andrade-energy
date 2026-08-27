@@ -17,8 +17,25 @@ export default function Financeiro() {
   const [dados, setDados] = useState({ receitaPrevista: 0, receitaRecebida: 0, valorEmAberto: 0, inadimplentes: 0, ticketMedio: 0, percentualRecebido: 0, totalFaturas: 0, historicoMensal: [] as { competencia: string; valor: number }[] });
   const [carteira, setCarteira] = useState<CarteiraService.Carteira | null>(null);
   const [pixChave, setPixChave] = useState(""); const [pixTipo] = useState("EMAIL"); const [saque, setSaque] = useState("");
-  const carregar = useCallback(async () => { try { const [financeiro, wallet] = await Promise.all([FinanceiroService.carregarFinanceiro(), CarteiraService.carregarCarteira()]); setDados(financeiro); setCarteira(wallet); } finally { setLoading(false); } }, []);
-  useFocusEffect(useCallback(() => { carregar(); }, [carregar]));
+  const carregar = useCallback(async () => {
+    try {
+      const [financeiro, wallet] = await Promise.all([
+        FinanceiroService.carregarFinanceiro(),
+        CarteiraService.carregarCarteira(),
+      ]);
+      setDados(financeiro);
+      setCarteira(wallet);
+    } catch (error: any) {
+      setCarteira(null);
+      Alert.alert(
+        "Não foi possível carregar o financeiro",
+        error?.response?.data?.message ?? "Verifique a conexão com o servidor e tente novamente.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useFocusEffect(useCallback(() => { void carregar(); }, [carregar]));
   async function atualizarPagina() { setAtualizando(true); try { await carregar(); } finally { setAtualizando(false); } }
 
   return <Screen><AppHeader title="Financeiro" subtitle="Receita da carteira" contextTitle={moeda(dados.receitaRecebida)} contextSubtitle={`${dados.percentualRecebido.toFixed(1)}% da receita recebida`} icon="wallet-outline" />

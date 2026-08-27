@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
 
 import { AppHeader, Badge, Card, Divider, ElasticScrollView as ScrollView, EmptyState, Loading, Screen, Section } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
@@ -16,7 +16,7 @@ export default function DetalheFechamento() {
   const [fechamento, setFechamento] = useState<any>();
   const [loading, setLoading] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
-  const carregar = useCallback(async () => { try { setFechamento(await buscarFechamento(id)); } finally { setLoading(false); } }, [id]);
+  const carregar = useCallback(async () => { try { setFechamento(await buscarFechamento(id)); } catch (error: any) { setFechamento(undefined); Alert.alert("Não foi possível carregar o fechamento", error?.response?.data?.message ?? "Confira sua conexão e tente novamente."); } finally { setLoading(false); } }, [id]);
   useEffect(() => { void carregar(); }, [carregar]);
 
   async function atualizarPagina() {

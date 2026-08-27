@@ -1,17 +1,19 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import PortalBrandLogo from "../../components/brand/PortalBrandLogo";
 import { useAuth } from "../../contexts/AuthContext";
 import { Colors, Radius, Shadows, Spacing } from "../../theme";
 
 export default function EscolherAreaAdmin() {
+  const insets = useSafeAreaInsets();
   const { usuario, logout } = useAuth();
   if (usuario?.perfil !== "ADMIN") { router.replace("/selecionar-unidade"); return null; }
   return <SafeAreaView style={styles.screen}>
-    <LinearGradient colors={["#082F26", "#0B4A39", "#0A5B43"]} style={styles.hero}>
+    <StatusBar backgroundColor="#082F26" barStyle="light-content" />
+    <LinearGradient colors={["#082F26", "#0B4A39", "#0A5B43"]} style={[styles.hero, { marginTop: -insets.top, paddingTop: insets.top + Spacing.xl }]}>
       <PortalBrandLogo height={58} width={208} />
       <Text style={styles.eyebrow}>ACESSO ADMINISTRATIVO</Text><Text style={styles.title}>Qual área você deseja acessar?</Text><Text style={styles.subtitle}>Os ambientes comercial e operacional permanecem separados.</Text>
     </LinearGradient>
