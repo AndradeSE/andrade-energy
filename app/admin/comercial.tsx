@@ -36,8 +36,6 @@ const moeda = (value: unknown) =>
   });
 const APP_GERADOR_URL =
   "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-gerador.apk";
-const APP_CONSUMIDOR_URL =
-  "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-consumidor.apk";
 export default function HomeComercial() {
   const insets = useSafeAreaInsets();
   const { usuario, logout } = useAuth();
@@ -361,24 +359,9 @@ export default function HomeComercial() {
               },
               {
                 icon: "download-outline",
-                label: "Baixar aplicativos",
-                value: "Gerador e consumidor",
-                onPress: () =>
-                  Alert.alert(
-                    "Aplicativos Andrade Energy",
-                    "Escolha o aplicativo que deseja baixar.",
-                    [
-                      {
-                        text: "Gerador",
-                        onPress: () => void Linking.openURL(APP_GERADOR_URL),
-                      },
-                      {
-                        text: "Consumidor",
-                        onPress: () => void Linking.openURL(APP_CONSUMIDOR_URL),
-                      },
-                      { text: "Cancelar", style: "cancel" },
-                    ],
-                  ),
+                label: "Baixar app do Gerador",
+                value: "Versão Android atual",
+                onPress: () => void Linking.openURL(APP_GERADOR_URL),
               },
               {
                 icon: "sunny-outline",
