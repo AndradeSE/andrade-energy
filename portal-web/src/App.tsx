@@ -587,6 +587,19 @@ function CommercialManagementPanel({ token }: { token: string }) {
   </div>;
 }
 
+function AppDownloadsPanel() {
+  return <section className="section-workspace commercial-apps app-downloads-panel">
+    <span className="section-label">APLICATIVOS ANDRADE ENERGY</span>
+    <h2>Instale o aplicativo ideal para seu perfil</h2>
+    <p>Baixe diretamente a versão Android mais recente. O app Gerador reúne a operação das usinas e a gestão comercial; o app Consumidor concentra faturas, economia e contratos.</p>
+    <div>
+      <a href={APP_GERADOR_URL} download><b>G</b><span><strong>Baixar app do Gerador</strong><small>Gestão comercial e gestão de usinas</small></span><em>Baixar APK ↓</em></a>
+      <a href={APP_CONSUMIDOR_URL} download><b>C</b><span><strong>Baixar app do Consumidor</strong><small>Faturas, economia e contratos</small></span><em>Baixar APK ↓</em></a>
+    </div>
+    <small className="app-download-security">Arquivos oficiais publicados pela Andrade Energy para dispositivos Android.</small>
+  </section>;
+}
+
 function ProfilePanel({
   token,
   fallback,
@@ -2665,7 +2678,7 @@ function PortalHome({
     type === "GERADOR"
       ? isCommercialWorkspace
         ? [
-            { label: "Gestão comercial", items: ["Gestão comercial", "Geradores"] },
+            { label: "Gestão comercial", items: ["Gestão comercial", "Geradores", "Aplicativos"] },
             { label: "Conta", items: ["Perfil", "Configurações"] },
             { label: "Ambiente", items: ["Alternar ambiente"] },
           ]
@@ -2688,7 +2701,7 @@ function PortalHome({
           ...(session.usuario?.perfil === "ADMIN"
             ? [{ label: "Administração", items: workspace === "COMERCIAL" ? ["Gestão comercial", "Geradores", "Alternar ambiente"] : ["Alternar ambiente"] }]
             : []),
-          { label: "Conta", items: ["Minha assinatura", "Perfil", "Configurações"] },
+          { label: "Conta", items: ["Minha assinatura", "Aplicativos", "Perfil", "Configurações"] },
         ]
         : [
           { label: "Painel", items: ["Visão geral", "Economia"] },
@@ -2696,7 +2709,7 @@ function PortalHome({
             label: "Minha energia",
             items: ["Minha unidade", "Faturas", "Contas de luz", "Contratos"],
           },
-          { label: "Conta", items: ["Perfil", "Configurações"] },
+          { label: "Conta", items: ["Aplicativos", "Perfil", "Configurações"] },
         ];
   const chart = [42, 58, 49, 68, 61, 79, 74, 88, 82, 95, 89, 100];
   const columns: Record<string, Array<[string, string]>> = {
@@ -3094,6 +3107,8 @@ function PortalHome({
             <><div className="commercial-quick-actions"><button onClick={() => setActiveSection("Geradores")}><b>G</b><span><strong>Contas geradoras</strong><small>Convites e acessos</small></span></button><button onClick={() => onChangeWorkspace("USINAS")}><b>☀</b><span><strong>Gestão de Usinas</strong><small>Alternar ambiente</small></span></button><button onClick={() => setActiveSection("Perfil")}><b>P</b><span><strong>Perfil administrativo</strong><small>Dados e segurança</small></span></button></div><CommercialManagementPanel token={session.token} /></>
           ) : activeSection === "Minha assinatura" && session.token ? (
             <MySubscriptionPanel token={session.token} />
+          ) : activeSection === "Aplicativos" ? (
+            <AppDownloadsPanel />
           ) : activeSection === "Perfil" && session.token ? (
             <><div className="profile-workspace-switch"><span><small>AMBIENTE ADMINISTRATIVO</small><strong>{workspace === "COMERCIAL" ? "Gestão Comercial" : "Gestão de Usinas"}</strong></span><button onClick={() => onChangeWorkspace(workspace === "COMERCIAL" ? "USINAS" : "COMERCIAL")}>Alternar para {workspace === "COMERCIAL" ? "Gestão de Usinas" : "Gestão Comercial"}</button><button onClick={() => onChangeWorkspace(null)}>Escolher ambiente</button></div><ProfilePanel token={session.token} fallback={session.usuario} /></>
           ) : activeSection === "Configurações" ? (

@@ -167,6 +167,9 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - O backend e o portal passaram na compilação de produção; as telas alteradas dos aplicativos passaram no ESLint direcionado.
 - O login web do Gerador oferece um fluxo público de teste gratuito: destaque de 45 dias, cadastro com nome, CPF, telefone, e-mail e senha, aceite dos termos, criação automática da conta `GESTOR`, vinculação ao plano ativo mais acessível e tela final com as datas do teste e download do APK Gerador.
 - O teste não exige cartão nem gera cobrança automática. Ao final, o gerador entra na área de assinatura e decide se contrata um plano. A elegibilidade é conferida no backend pelo histórico do CPF e o benefício não pode ser renovado por novo cadastro ou reinstalação.
+- Os ambientes web de Gestão Comercial e Gestão de Usinas possuem menus separados. Na Gestão Comercial não devem aparecer clientes, UCs, usinas ou faturamento de energia; a troca ocorre somente por **Alternar ambiente**.
+- A área **Aplicativos** está disponível diretamente no menu dos perfis Gerador, Consumidor e Administração Comercial do portal, com os APKs oficiais da release `apps-2026-08-27`.
+- No app Gerador, a home de Gestão Comercial oferece **Baixar aplicativos** no acesso rápido e o download do Gerador no menu lateral. Os links externos são abertos com a API `Linking` compatível com Expo SDK 54.
 
 ## Diagnóstico mais recente — 20/08/2026
 
