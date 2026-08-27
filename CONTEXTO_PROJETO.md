@@ -155,6 +155,16 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 6. Validar no celular a ativação, bloqueio e desbloqueio por biometria em ambos os apps.
 7. Revisar autorização de todas as rotas do backend e políticas RLS antes da operação em produção.
 
+## Gestão comercial e distribuição Android — 27/08/2026
+
+- A gestão comercial foi ampliada no aplicativo e no portal web com receita mensal, carteira, pagamentos, assinaturas, planos e monitoramento dos clientes ativos com dias decorridos.
+- O período de teste do app Gerador é de 45 dias e pode ser concedido somente uma vez por CPF. O backend consulta o histórico de assinaturas de todas as contas que compartilham o CPF normalizado; reinstalar o aplicativo ou recriar o usuário não renova o teste.
+- O pagamento do software continua separado das faturas de energia. Boleto, Pix, cartão e recorrência são opções comerciais processadas pelo provedor de cobrança.
+- O portal web recebeu navegação e layout responsivos para celular, inclusive na gestão comercial, tabelas, formulários, monitoramento e botões de instalação.
+- Foram gerados localmente os APKs atuais: `dist-apk/andrade-energy-gerador.apk` (arm64) e `dist-apk/andrade-energy-consumidor.apk` (universal). Eles não são versionados no Git e são publicados como ativos da release `apps-2026-08-27`.
+- Os links estáveis de download usados pelo portal apontam para a release GitHub `apps-2026-08-27` e podem ser sobrescritos por `VITE_APP_GERADOR_DOWNLOAD_URL` e `VITE_APP_CONSUMIDOR_DOWNLOAD_URL`.
+- O backend e o portal passaram na compilação de produção; as telas alteradas dos aplicativos passaram no ESLint direcionado.
+
 ## Diagnóstico mais recente — 20/08/2026
 
 - O fluxo Hotmail → Resend foi validado: um PDF encaminhado de `fatura@cemig` chegou ao destinatário exclusivo, o webhook respondeu `202` e o processamento terminou com status `PROCESSADO`.

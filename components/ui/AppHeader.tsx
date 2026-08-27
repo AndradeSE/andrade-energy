@@ -22,6 +22,8 @@ type Props = {
   contextBadgeTone?: "success" | "danger" | "neutral";
   icon?: keyof typeof Ionicons.glyphMap;
   variant?: "main" | "subpage";
+  showPlantContext?: boolean;
+  environmentName?: string;
 };
 
 export default function AppHeader({
@@ -33,6 +35,8 @@ export default function AppHeader({
   contextBadgeTone = "neutral",
   icon = "grid-outline",
   variant = "main",
+  showPlantContext = true,
+  environmentName = "Gestão de usinas",
 }: Props) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -159,7 +163,7 @@ export default function AppHeader({
       </View>
 
       {podeAlternarPerfil ? <TouchableOpacity accessibilityLabel="Trocar ambiente de gestão" activeOpacity={0.82} onPress={() => router.replace("/admin/escolher-area" as any)} style={styles.environmentSwitch}>
-        <View style={styles.environmentCurrent}><Ionicons name="sunny-outline" size={14} color="#A7F3D0" /><Text style={styles.environmentLabel}>Gestão de usinas</Text></View>
+        <View style={styles.environmentCurrent}><Ionicons name={environmentName === "Gestão comercial" ? "briefcase-outline" : "sunny-outline"} size={14} color="#A7F3D0" /><Text style={styles.environmentLabel}>{environmentName}</Text></View>
         <Text style={styles.environmentAction}>Trocar ambiente</Text><Ionicons name="chevron-forward" size={14} color="#F6CC32" />
       </TouchableOpacity> : null}
 
@@ -172,7 +176,7 @@ export default function AppHeader({
         </Pressable>
       </Modal>
 
-      {proprietario && usinaSelecionada ? <View style={styles.plantBar}>
+      {showPlantContext && proprietario && usinaSelecionada ? <View style={styles.plantBar}>
         <View style={styles.plantLogo}>
           <PortalBrandLogo height={30} width={90} />
         </View>

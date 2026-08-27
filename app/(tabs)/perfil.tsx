@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
@@ -54,6 +55,7 @@ function descricaoErro(erro: any, alternativa: string) {
 }
 
 export default function Perfil() {
+  const { origem } = useLocalSearchParams<{ origem?: string }>();
   const { user, digitalEnabled, atualizarUsuario, refreshDigitalStatus, signOut } = useAuth();
   const [nome, setNome] = useState(user?.nome ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
@@ -94,6 +96,15 @@ export default function Perfil() {
   useEffect(() => {
     void carregar();
   }, [carregar]);
+
+  useFocusEffect(useCallback(() => {
+    if (!IS_GERADOR_APP || user?.perfil !== "ADMIN" || origem !== "comercial") return undefined;
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      router.replace("/admin/comercial" as any);
+      return true;
+    });
+    return () => subscription.remove();
+  }, [origem, user?.perfil]));
 
   async function atualizarPagina() {
     setAtualizando(true);
@@ -231,7 +242,7 @@ export default function Perfil() {
 
   return (
     <Screen>
-      {IS_GERADOR_APP ? <AppHeader title="Perfil" subtitle="Dados e segurança" contextTitle={user?.nome ?? "Meu perfil"} contextSubtitle="Gerencie seu acesso à Andrade Energy" icon="person-outline" /> : null}
+      {IS_GERADOR_APP ? <AppHeader environmentName={origem === "comercial" ? "Gestão comercial" : "Gestão de usinas"} showPlantContext={origem !== "comercial"} title="Perfil" subtitle="Dados e segurança" contextTitle={user?.nome ?? "Meu perfil"} contextSubtitle="Gerencie seu acesso à Andrade Energy" icon="person-outline" /> : null}
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.container}>
         <ScrollView
           bounces

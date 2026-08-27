@@ -9,17 +9,26 @@ const isoDate = (value: unknown) => {
 };
 
 export async function obterPainelComercial() {
-  const [{ data: planos, error: erroPlanos }, { data: assinaturas, error: erroAssinaturas }, { data: documentos, error: erroDocumentos }, { data: geradores, error: erroGeradores }] = await Promise.all([
+  const [{ data: planos, error: erroPlanos }, { data: assinaturas, error: erroAssinaturas }, { data: cobrancas, error: erroCobrancas }, { data: documentos, error: erroDocumentos }, { data: geradores, error: erroGeradores }] = await Promise.all([
     supabase.from("planos_geradores").select("*").order("valor_mensal"),
     supabase.from("assinaturas_geradores").select("*, plano:planos_geradores!assinaturas_geradores_plano_id_fkey(*), gerador:usuarios!assinaturas_geradores_gerador_id_fkey(id,nome,email,cpf,telefone,ativo,created_at)").order("criado_em", { ascending: false }),
+    supabase.from("cobrancas_assinaturas_geradores").select("*").order("vencimento", { ascending: false }),
     supabase.from("documentos_comerciais").select("id,tipo,titulo,versao,ativo,publicado_em,criado_em").order("criado_em", { ascending: false }),
     supabase.from("usuarios").select("id,nome,email,cpf,telefone,ativo,perfil,created_at").in("perfil", ["ADMIN", "GESTOR"]).order("nome"),
   ]);
   if (erroPlanos) throw erroPlanos;
   if (erroAssinaturas) throw erroAssinaturas;
+  if (erroCobrancas) throw erroCobrancas;
   if (erroDocumentos) throw erroDocumentos;
   if (erroGeradores) throw erroGeradores;
   const lista = assinaturas ?? [];
+  const listaCobrancas = (cobrancas ?? []).map((cobranca: any) => {
+    const assinatura = lista.find((item: any) => item.id === cobranca.assinatura_id);
+    return { ...cobranca, assinatura: assinatura ? { id: assinatura.id, ciclo: assinatura.ciclo, gerador: assinatura.gerador, plano: assinatura.plano } : null };
+  });
+  const competenciaAtual = new Date().toISOString().slice(0, 7);
+  const cobrancasDoMes = listaCobrancas.filter((item: any) => item.competencia === competenciaAtual);
+  const somar = (items: any[]) => items.reduce((total: number, item: any) => total + Number(item.valor ?? 0), 0);
   return {
     resumo: {
       total: lista.length,
@@ -27,7 +36,16 @@ export async function obterPainelComercial() {
       inadimplentes: lista.filter((item: any) => item.status === "INADIMPLENTE").length,
       receitaMensalPrevista: lista.filter((item: any) => item.status === "ATIVA").reduce((total: number, item: any) => total + (item.ciclo === "ANUAL" ? Number(item.valor_contratado) / 12 : Number(item.valor_contratado)), 0),
     },
-    planos: planos ?? [], assinaturas: lista, documentos: documentos ?? [], geradores: geradores ?? [],
+    financeiro: {
+      competencia: competenciaAtual,
+      recebidoNoMes: somar(cobrancasDoMes.filter((item: any) => item.status === "PAGA")),
+      pendenteNoMes: somar(cobrancasDoMes.filter((item: any) => item.status === "PENDENTE")),
+      vencidoNoMes: somar(cobrancasDoMes.filter((item: any) => item.status === "VENCIDA")),
+      totalRecebido: somar(listaCobrancas.filter((item: any) => item.status === "PAGA")),
+      cobrancasPendentes: listaCobrancas.filter((item: any) => item.status === "PENDENTE").length,
+      cobrancasVencidas: listaCobrancas.filter((item: any) => item.status === "VENCIDA").length,
+    },
+    planos: planos ?? [], assinaturas: lista, cobrancas: listaCobrancas, documentos: documentos ?? [], geradores: geradores ?? [],
   };
 }
 
@@ -56,25 +74,41 @@ export async function contratarPlano(input: any, adminId: string) {
   const ciclo = String(input?.ciclo ?? "MENSAL").toUpperCase();
   if (!geradorId || !planoId || !["MENSAL", "ANUAL"].includes(ciclo)) throw new Error("Informe gerador, plano e ciclo.");
   const [{ data: gerador }, { data: plano }] = await Promise.all([
-    supabase.from("usuarios").select("id,perfil").eq("id", geradorId).in("perfil", ["GESTOR", "ADMIN"]).maybeSingle(),
+    supabase.from("usuarios").select("id,perfil,cpf").eq("id", geradorId).in("perfil", ["GESTOR", "ADMIN"]).maybeSingle(),
     supabase.from("planos_geradores").select("*").eq("id", planoId).eq("ativo", true).maybeSingle(),
   ]);
   if (!gerador) throw new Error("Gerador não encontrado.");
   if (!plano) throw new Error("Plano não encontrado ou inativo.");
+  const diasTesteSolicitados = input?.diasTeste === undefined ? 45 : Math.max(0, Number(input.diasTeste) || 0);
+  const cpfGerador = digits(gerador.cpf);
+  let testeAnterior = false;
+  if (diasTesteSolicitados > 0 && cpfGerador) {
+    const { data: usuariosMesmoCpf, error: erroUsuariosCpf } = await supabase.from("usuarios").select("id,cpf");
+    if (erroUsuariosCpf) throw erroUsuariosCpf;
+    const idsMesmoCpf = (usuariosMesmoCpf ?? []).filter((item: any) => digits(item.cpf) === cpfGerador).map((item: any) => item.id);
+    if (idsMesmoCpf.length) {
+      const { data: testes, error: erroTestes } = await supabase.from("assinaturas_geradores").select("id").in("gerador_id", idsMesmoCpf).not("fim_teste_em", "is", null).limit(1);
+      if (erroTestes) throw erroTestes;
+      testeAnterior = Boolean(testes?.length);
+    }
+  }
+  const diasTeste = testeAnterior ? 0 : diasTesteSolicitados;
+  const fimTeste = diasTeste > 0 ? new Date(Date.now() + diasTeste * 86400000).toISOString().slice(0, 10) : null;
+  const inicioEm = isoDate(input?.inicioEm ?? new Date().toISOString());
   await supabase.from("assinaturas_geradores").update({ status: "CANCELADA", cancelada_em: new Date().toISOString(), atualizado_em: new Date().toISOString() }).eq("gerador_id", geradorId).in("status", ["TESTE", "ATIVA", "INADIMPLENTE", "SUSPENSA"]);
   const payload = {
     gerador_id: geradorId, plano_id: planoId, ciclo,
-    status: input?.diasTeste ? "TESTE" : "ATIVA",
+    status: diasTeste > 0 ? "TESTE" : "ATIVA",
     forma_pagamento: String(input?.formaPagamento ?? "BOLETO").toUpperCase(),
     valor_contratado: ciclo === "ANUAL" ? plano.valor_anual : plano.valor_mensal,
-    inicio_em: isoDate(input?.inicioEm ?? new Date().toISOString()),
-    proximo_vencimento: isoDate(input?.proximoVencimento),
-    fim_teste_em: input?.diasTeste ? new Date(Date.now() + Number(input.diasTeste) * 86400000).toISOString().slice(0, 10) : null,
+    inicio_em: inicioEm,
+    proximo_vencimento: isoDate(testeAnterior ? inicioEm : (input?.proximoVencimento ?? fimTeste ?? inicioEm)),
+    fim_teste_em: fimTeste,
     observacoes: String(input?.observacoes ?? "").trim() || null, criado_por: adminId,
   };
   const { data, error } = await supabase.from("assinaturas_geradores").insert(payload).select("*, plano:planos_geradores!assinaturas_geradores_plano_id_fkey(*), gerador:usuarios!assinaturas_geradores_gerador_id_fkey(id,nome,email,cpf,telefone,ativo)").single();
   if (error) throw error;
-  return data;
+  return { ...data, teste_concedido: diasTeste > 0, dias_teste_concedidos: diasTeste };
 }
 
 export async function alterarStatusAssinatura(id: string, status: string) {

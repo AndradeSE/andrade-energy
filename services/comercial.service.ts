@@ -2,8 +2,10 @@ import api from "../config/api";
 
 export type PainelComercial = {
   resumo: { total: number; ativas: number; inadimplentes: number; receitaMensalPrevista: number };
+  financeiro: { competencia: string; recebidoNoMes: number; pendenteNoMes: number; vencidoNoMes: number; totalRecebido: number; cobrancasPendentes: number; cobrancasVencidas: number };
   planos: any[];
   assinaturas: any[];
+  cobrancas: any[];
   documentos: any[];
   geradores: any[];
 };
