@@ -6,7 +6,7 @@ import { Colors } from "../../theme";
 
 type CommercialTab = "HOME" | "CARTEIRA" | "RECEITA";
 
-export default function CommercialTabs({ active }: { active: CommercialTab }) {
+export default function CommercialTabs({ active }: { active?: CommercialTab }) {
   const insets = useSafeAreaInsets();
   const items = [
     {
@@ -41,7 +41,16 @@ export default function CommercialTabs({ active }: { active: CommercialTab }) {
   ] as const;
 
   return (
-    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+    <View
+      style={[
+        styles.bar,
+        {
+          minHeight: 82 + insets.bottom,
+          marginBottom: -insets.bottom,
+          paddingBottom: insets.bottom,
+        },
+      ]}
+    >
       {items.map((item) => {
         const selected = active === item.key;
         return (

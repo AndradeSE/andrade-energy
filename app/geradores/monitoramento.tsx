@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Modal,
+  Pressable,
   RefreshControl,
   StatusBar,
   StyleSheet,
@@ -16,6 +18,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import PortalBrandLogo from "../../components/brand/PortalBrandLogo";
+import CommercialTabs from "../../components/commercial/CommercialTabs";
 import { ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -43,6 +46,8 @@ export default function MonitoramentoGeradores() {
   const [painel, setPainel] = useState<PainelComercial | null>(null);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
+  const [menuAberto, setMenuAberto] = useState(false);
+  const [selecionada, setSelecionada] = useState<any>(null);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -66,6 +71,15 @@ export default function MonitoramentoGeradores() {
   const ativos = useMemo(
     () =>
       (painel?.assinaturas ?? [])
+        .map((item: any) => ({
+          ...item,
+          gerador: {
+            ...item.gerador,
+            ...(painel?.geradores ?? []).find(
+              (gerador: any) => gerador.id === item.gerador_id,
+            ),
+          },
+        }))
         .filter((item: any) =>
           ["TESTE", "ATIVA", "INADIMPLENTE", "SUSPENSA"].includes(
             String(item.status),
@@ -76,7 +90,7 @@ export default function MonitoramentoGeradores() {
             .toLowerCase()
             .includes(busca.trim().toLowerCase()),
         ),
-    [busca, painel?.assinaturas],
+    [busca, painel?.assinaturas, painel?.geradores],
   );
 
   if (user?.perfil !== "ADMIN")
@@ -105,20 +119,32 @@ export default function MonitoramentoGeradores() {
       >
         <View style={styles.headerTop}>
           <TouchableOpacity
-            accessibilityLabel="Voltar"
-            onPress={() => router.replace("/admin/comercial" as any)}
+            accessibilityLabel="Abrir menu"
+            onPress={() => setMenuAberto(true)}
             style={styles.headerAction}
           >
-            <Ionicons name="chevron-back" size={25} color="#FFF" />
+            <Ionicons name="menu-outline" size={27} color="#FFF" />
           </TouchableOpacity>
-          <PortalBrandLogo height={29} width={102} />
-          <View style={styles.headerAction} />
+          <PortalBrandLogo height={30} width={104} />
+          <View style={styles.headerCopy}>
+            <Text style={styles.headerEyebrow}>GESTÃO COMERCIAL</Text>
+            <Text numberOfLines={1} style={styles.headerTitle}>
+              Clientes ativos
+            </Text>
+          </View>
+          <TouchableOpacity
+            accessibilityLabel="Abrir perfil"
+            onPress={() =>
+              router.push({
+                pathname: "/admin/perfil",
+                params: { origem: "comercial" },
+              } as any)
+            }
+            style={styles.headerAction}
+          >
+            <Ionicons name="person-outline" size={21} color="#FFF" />
+          </TouchableOpacity>
         </View>
-        <Text style={styles.headerEyebrow}>GESTÃO COMERCIAL</Text>
-        <Text style={styles.headerTitle}>Clientes ativos</Text>
-        <Text style={styles.headerSubtitle}>
-          Acompanhe tempo de uso, período de teste e próximos vencimentos.
-        </Text>
         <View style={styles.headerStats}>
           <View>
             <Text style={styles.headerValue}>{ativos.length}</Text>
@@ -141,6 +167,56 @@ export default function MonitoramentoGeradores() {
           </View>
         </View>
       </LinearGradient>
+      <Modal
+        animationType="fade"
+        transparent
+        visible={menuAberto}
+        onRequestClose={() => setMenuAberto(false)}
+      >
+        <Pressable style={styles.backdrop} onPress={() => setMenuAberto(false)}>
+          <Pressable
+            style={styles.drawer}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <View style={styles.drawerHeader}>
+              <Text style={styles.drawerTitle}>Gestão comercial</Text>
+              <TouchableOpacity onPress={() => setMenuAberto(false)}>
+                <Ionicons name="close" size={26} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+            <DrawerLink
+              icon="home-outline"
+              label="Painel comercial"
+              onPress={() => {
+                setMenuAberto(false);
+                router.replace("/admin/comercial" as any);
+              }}
+            />
+            <DrawerLink
+              icon="wallet-outline"
+              label="Carteira"
+              onPress={() => {
+                setMenuAberto(false);
+                router.replace({
+                  pathname: "/geradores/gestao",
+                  params: { aba: "ASSINATURAS" },
+                } as any);
+              }}
+            />
+            <DrawerLink
+              icon="cash-outline"
+              label="Receita mensal"
+              onPress={() => {
+                setMenuAberto(false);
+                router.replace({
+                  pathname: "/geradores/gestao",
+                  params: { aba: "PAGAMENTOS" },
+                } as any);
+              }}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
@@ -166,7 +242,11 @@ export default function MonitoramentoGeradores() {
           <ActivityIndicator color={Colors.primary} />
         ) : (
           ativos.map((item: any) => (
-            <ClienteCard key={item.id} assinatura={item} />
+            <ClienteCard
+              key={item.id}
+              assinatura={item}
+              onPress={() => setSelecionada(item)}
+            />
           ))
         )}
         {!loading && !ativos.length ? (
@@ -179,11 +259,16 @@ export default function MonitoramentoGeradores() {
           </View>
         ) : null}
       </ScrollView>
+      <CommercialTabs />
+      <DetalhesCliente
+        assinatura={selecionada}
+        onClose={() => setSelecionada(null)}
+      />
     </Screen>
   );
 }
 
-function ClienteCard({ assinatura }: any) {
+function ClienteCard({ assinatura, onPress }: any) {
   const decorridos = diasEntre(assinatura.inicio_em);
   const testeTotal = assinatura.fim_teste_em
     ? Math.max(
@@ -207,7 +292,11 @@ function ClienteCard({ assinatura }: any) {
         ? styles.badgeTrial
         : styles.badgeActive;
   return (
-    <View style={styles.card}>
+    <TouchableOpacity
+      activeOpacity={0.84}
+      onPress={onPress}
+      style={styles.card}
+    >
       <View style={styles.cardTop}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>
@@ -259,30 +348,126 @@ function ClienteCard({ assinatura }: any) {
             {dataBr(assinatura.proximo_vencimento)}
           </Text>
         </View>
-        <TouchableOpacity
-          onPress={() =>
-            router.push({
-              pathname: "/geradores/gestao",
-              params: { aba: "ASSINATURAS" },
-            } as any)
-          }
-          style={styles.manage}
-        >
-          <Text style={styles.manageText}>Gerenciar</Text>
+        <View style={styles.manage}>
+          <Text style={styles.manageText}>Ver detalhes</Text>
           <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
-        </TouchableOpacity>
+        </View>
       </View>
+    </TouchableOpacity>
+  );
+}
+
+function DetalhesCliente({ assinatura, onClose }: any) {
+  if (!assinatura) return null;
+  const gerador = assinatura.gerador ?? {};
+  return (
+    <Modal animationType="slide" transparent visible onRequestClose={onClose}>
+      <Pressable style={styles.detailBackdrop} onPress={onClose}>
+        <Pressable
+          style={styles.detailSheet}
+          onPress={(event) => event.stopPropagation()}
+        >
+          <View style={styles.detailHandle} />
+          <View style={styles.detailHeading}>
+            <View style={styles.detailAvatar}>
+              <Text style={styles.avatarText}>
+                {String(gerador.nome ?? "G")
+                  .charAt(0)
+                  .toUpperCase()}
+              </Text>
+            </View>
+            <View style={styles.cardCopy}>
+              <Text style={styles.detailTitle}>
+                {gerador.nome ?? "Gerador"}
+              </Text>
+              <Text style={styles.email}>
+                {gerador.email ?? "E-mail não informado"}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close-circle" size={28} color={Colors.subtitle} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.detailGrid}>
+            <DetailMetric
+              icon="business-outline"
+              label="Usinas cadastradas"
+              value={String(gerador.total_usinas ?? 0)}
+            />
+            <DetailMetric
+              icon="flash-outline"
+              label="UCs ativas"
+              value={String(gerador.total_ucs_ativas ?? 0)}
+            />
+            <DetailMetric
+              icon="card-outline"
+              label="Plano"
+              value={assinatura.plano?.nome ?? "—"}
+            />
+            <DetailMetric
+              icon="calendar-outline"
+              label="Vencimento"
+              value={dataBr(assinatura.proximo_vencimento)}
+            />
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.footerLabel}>STATUS DA ASSINATURA</Text>
+            <Text style={styles.detailStatus}>{assinatura.status}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.footerLabel}>INÍCIO DO ACESSO</Text>
+            <Text style={styles.footerValue}>
+              {dataBr(assinatura.inicio_em)}
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => {
+              onClose();
+              router.push({
+                pathname: "/geradores/gestao",
+                params: { aba: "ASSINATURAS" },
+              } as any);
+            }}
+            style={styles.detailButton}
+          >
+            <Text style={styles.detailButtonText}>Gerenciar assinatura</Text>
+            <Ionicons name="arrow-forward" size={18} color="#FFF" />
+          </TouchableOpacity>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+function DetailMetric({ icon, label, value }: any) {
+  return (
+    <View style={styles.detailMetric}>
+      <Ionicons name={icon} size={20} color={Colors.primary} />
+      <Text style={styles.detailMetricLabel}>{label}</Text>
+      <Text numberOfLines={1} style={styles.detailMetricValue}>
+        {value}
+      </Text>
     </View>
   );
 }
 
+function DrawerLink({ icon, label, onPress }: any) {
+  return (
+    <TouchableOpacity onPress={onPress} style={styles.drawerLink}>
+      <Ionicons name={icon} size={21} color={Colors.primary} />
+      <Text style={styles.drawerLabel}>{label}</Text>
+      <Ionicons name="chevron-forward" size={17} color={Colors.subtitle} />
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
-  header: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md },
+  header: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm },
   headerTop: {
-    minHeight: 44,
+    minHeight: 56,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 8,
   },
   headerAction: {
     width: 40,
@@ -293,19 +478,13 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,.09)",
   },
   headerEyebrow: {
-    marginTop: Spacing.sm,
     color: "#A7F3D0",
     fontSize: 9,
     fontWeight: "900",
     letterSpacing: 1,
   },
-  headerTitle: { marginTop: 3, color: "#FFF", fontSize: 21, fontWeight: "900" },
-  headerSubtitle: {
-    marginTop: 3,
-    color: "rgba(255,255,255,.76)",
-    fontSize: 12,
-    lineHeight: 17,
-  },
+  headerCopy: { flex: 1, minWidth: 0, marginLeft: 2 },
+  headerTitle: { marginTop: 3, color: "#FFF", fontSize: 13, fontWeight: "800" },
   headerStats: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -326,7 +505,44 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textAlign: "center",
   },
-  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
+  backdrop: {
+    flex: 1,
+    alignItems: "flex-start",
+    backgroundColor: "rgba(15,23,42,.45)",
+  },
+  drawer: {
+    width: "84%",
+    height: "100%",
+    paddingHorizontal: Spacing.lg,
+    paddingTop: 58,
+    backgroundColor: Colors.surface,
+  },
+  drawerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.lg,
+  },
+  drawerTitle: {
+    color: Colors.text,
+    fontSize: Typography.title,
+    fontWeight: "900",
+  },
+  drawerLink: {
+    minHeight: 55,
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  drawerLabel: {
+    flex: 1,
+    marginLeft: Spacing.md,
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl * 2 },
   search: {
     height: 48,
     flexDirection: "row",
@@ -429,6 +645,82 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
   },
   manageText: { color: Colors.primary, fontSize: 11, fontWeight: "900" },
+  detailBackdrop: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(15,23,42,.5)",
+  },
+  detailSheet: {
+    padding: Spacing.lg,
+    paddingBottom: Spacing.xxl,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    backgroundColor: Colors.surface,
+  },
+  detailHandle: {
+    width: 46,
+    height: 5,
+    alignSelf: "center",
+    marginBottom: Spacing.lg,
+    borderRadius: Radius.round,
+    backgroundColor: Colors.border,
+  },
+  detailHeading: { flexDirection: "row", alignItems: "center" },
+  detailAvatar: {
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: Radius.round,
+    backgroundColor: Colors.primary,
+  },
+  detailTitle: { color: Colors.text, fontSize: 17, fontWeight: "900" },
+  detailGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginTop: Spacing.lg,
+  },
+  detailMetric: {
+    width: "48%",
+    minHeight: 100,
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    backgroundColor: "#E8F1EC",
+  },
+  detailMetricLabel: {
+    marginTop: 7,
+    color: Colors.subtitle,
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  detailMetricValue: {
+    marginTop: 3,
+    color: Colors.text,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: Spacing.md,
+    paddingBottom: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  detailStatus: { color: Colors.primary, fontSize: 12, fontWeight: "900" },
+  detailButton: {
+    minHeight: 50,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: Spacing.lg,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.primary,
+  },
+  detailButtonText: { color: "#FFF", fontSize: 13, fontWeight: "900" },
   empty: {
     alignItems: "center",
     padding: Spacing.xl,
