@@ -12,6 +12,7 @@ import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import { supabase } from "../../config/supabase";
 import { gerarToken, hashToken } from "../../utils/token";
 import { aceitarConvite, aceitarConviteGerador, concluirConvite, concluirConviteGerador } from "../convites/convites.service";
+import { contratarPlano } from "../comercial/comercial.service";
 
 type DadosPerfil = {
   nome?: unknown;
@@ -173,6 +174,77 @@ export async function cadastrarConta(input: { nome: string; cpf: string; email: 
     emailEnviado = false;
   }
   return { message: "Conta criada com sucesso.", emailEnviado };
+}
+
+export async function iniciarTesteGerador(input: { nome: string; cpf: string; email: string; senha: string; telefone?: string }) {
+  const cpf = cpfLimpo(input?.cpf);
+  if (cpf.length !== 11) throw new Error("Informe um CPF válido para iniciar o teste.");
+
+  const { data: usuarios, error: usuariosError } = await supabase
+    .from("usuarios")
+    .select("id,cpf,perfil,ativo");
+  if (usuariosError) throw usuariosError;
+  const idsMesmoCpf = (usuarios ?? [])
+    .filter((item: any) => ["GESTOR", "ADMIN"].includes(item.perfil) && cpfLimpo(item.cpf) === cpf)
+    .map((item: any) => item.id);
+  if (idsMesmoCpf.length) {
+    const { data: testes, error: testesError } = await supabase
+      .from("assinaturas_geradores")
+      .select("id")
+      .in("gerador_id", idsMesmoCpf)
+      .not("fim_teste_em", "is", null)
+      .limit(1);
+    if (testesError) throw testesError;
+    if (testes?.length) throw new Error("Este CPF já utilizou o teste gratuito. Entre na conta existente para escolher um plano.");
+    throw new Error("Este CPF já possui uma conta de Gerador. Entre com seu e-mail e senha para continuar.");
+  }
+
+  const { data: plano, error: planoError } = await supabase
+    .from("planos_geradores")
+    .select("*")
+    .eq("ativo", true)
+    .order("valor_mensal", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (planoError) throw planoError;
+  if (!plano) throw new Error("Nenhum plano está disponível para o teste neste momento.");
+
+  const cadastro = { ...input, cpf, tipo: "GERADOR" as const };
+  const conta = await cadastrarConta(cadastro);
+  const { data: usuario, error: usuarioError } = await supabase
+    .from("usuarios")
+    .select("*")
+    .eq("cpf", cpf)
+    .eq("perfil", "GESTOR")
+    .eq("email", emailNormalizado(input.email))
+    .single();
+  if (usuarioError || !usuario) throw usuarioError ?? new Error("Conta de teste não encontrada após o cadastro.");
+
+  if (input.telefone) {
+    const telefone = telefoneNormalizado(input.telefone);
+    const { error } = await supabase.from("usuarios").update({ telefone }).eq("id", usuario.id);
+    if (error) throw error;
+    usuario.telefone = telefone;
+  }
+
+  const assinatura = await contratarPlano({
+    geradorId: usuario.id,
+    planoId: plano.id,
+    ciclo: "MENSAL",
+    formaPagamento: "UNDEFINED",
+    diasTeste: 45,
+    inicioEm: new Date().toISOString().slice(0, 10),
+    observacoes: "Teste gratuito iniciado pelo cadastro público do portal.",
+  }, usuario.id);
+  const sessao = await autenticar(emailNormalizado(input.email), String(input.senha), "GERADOR");
+
+  return {
+    ...sessao,
+    message: conta.message,
+    emailEnviado: conta.emailEnviado,
+    assinatura,
+    downloadUrl: String(process.env.APP_GERADOR_DOWNLOAD_URL ?? "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-gerador.apk"),
+  };
 }
 
 export {

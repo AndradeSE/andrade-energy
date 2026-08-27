@@ -3222,6 +3222,9 @@ export default function App() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [trialStage, setTrialStage] = useState<"idle" | "form" | "success">("idle");
+  const [trial, setTrial] = useState({ nome: "", cpf: "", telefone: "", email: "", senha: "", confirmarSenha: "" });
+  const [trialResult, setTrialResult] = useState<any>(null);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -3258,6 +3261,29 @@ export default function App() {
           ? reason.message
           : "Confira os dados e tente novamente.",
       );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitTrial(event: FormEvent) {
+    event.preventDefault();
+    if (loading) return;
+    setError("");
+    if (trial.senha !== trial.confirmarSenha) return setError("As senhas não coincidem.");
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/auth/teste-gerador`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...trial, cpf: trial.cpf.replace(/\D/g, "") }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message ?? "Não foi possível iniciar o teste gratuito.");
+      setTrialResult(data);
+      setTrialStage("success");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Confira os dados e tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -3397,6 +3423,35 @@ export default function App() {
                 </a>
               </div>
             </div>
+          ) : trialStage === "form" ? (
+            <form className="login-view trial-signup" onSubmit={submitTrial}>
+              <button type="button" className="back-button" onClick={() => { setTrialStage("idle"); setError(""); }}><span>←</span> Voltar ao login</button>
+              <span className="trial-badge">45 DIAS GRÁTIS</span>
+              <h2>Crie sua conta de teste</h2>
+              <p className="lead">Use todos os recursos do app Gerador por 45 dias. Não pedimos cartão agora e o benefício é liberado uma vez por CPF.</p>
+              <div className="trial-form-grid">
+                <label>Nome completo<input required value={trial.nome} onChange={(e)=>setTrial({...trial,nome:e.target.value})} autoComplete="name"/></label>
+                <label>CPF<input required inputMode="numeric" maxLength={14} value={trial.cpf} onChange={(e)=>setTrial({...trial,cpf:e.target.value})} placeholder="000.000.000-00"/></label>
+                <label>Telefone<input inputMode="tel" value={trial.telefone} onChange={(e)=>setTrial({...trial,telefone:e.target.value})} placeholder="(00) 00000-0000"/></label>
+                <label>E-mail<input required type="email" value={trial.email} onChange={(e)=>setTrial({...trial,email:e.target.value})} autoComplete="email"/></label>
+                <label>Senha<input required minLength={6} type="password" value={trial.senha} onChange={(e)=>setTrial({...trial,senha:e.target.value})} autoComplete="new-password"/></label>
+                <label>Confirmar senha<input required minLength={6} type="password" value={trial.confirmarSenha} onChange={(e)=>setTrial({...trial,confirmarSenha:e.target.value})} autoComplete="new-password"/></label>
+              </div>
+              <label className="trial-consent"><input required type="checkbox"/><span>Concordo com os Termos de Uso e a Política de Privacidade. Ao final do teste, escolherei se desejo assinar.</span></label>
+              {error && <div className="error-message" role="alert">{error}</div>}
+              <button className="submit-button" disabled={loading}>{loading ? "Criando seu acesso..." : <>Começar teste grátis <Icon name="arrow"/></>}</button>
+            </form>
+          ) : trialStage === "success" ? (
+            <div className="trial-success">
+              <span className="trial-success-icon">✓</span>
+              <span className="section-label">CONTA CONFIGURADA</span>
+              <h2>Seu teste de 45 dias começou</h2>
+              <p>Olá, <strong>{trial.nome}</strong>. Sua conta do Gerador já está vinculada ao CPF informado e pronta para uso.</p>
+              <div className="trial-period"><span><small>INÍCIO</small><strong>{new Date().toLocaleDateString("pt-BR")}</strong></span><span><small>FINAL DO TESTE</small><strong>{trialResult?.assinatura?.fim_teste_em ? new Date(`${trialResult.assinatura.fim_teste_em}T12:00:00`).toLocaleDateString("pt-BR") : "45 dias"}</strong></span></div>
+              <a className="trial-download" href={trialResult?.downloadUrl || APP_GERADOR_URL} download><b>↓</b><span><strong>Baixar app do Gerador</strong><small>Android · conta de teste pronta</small></span></a>
+              <button className="trial-login-link" onClick={()=>{ setEmail(trial.email); setPassword(trial.senha); setTrialStage("idle"); }}>Entrar pelo portal com esta conta</button>
+              <p className="trial-footnote">Ao terminar o período, você poderá escolher um plano e assinar. Nenhuma cobrança será feita automaticamente sem sua confirmação.</p>
+            </div>
           ) : (
             <form className="login-view" onSubmit={submit}>
               <button
@@ -3476,6 +3531,7 @@ export default function App() {
                   </>
                 )}
               </button>
+              {accessType === "GERADOR" ? <div className="generator-trial-callout"><div><span>TESTE GRÁTIS</span><strong>45 dias para conhecer a gestão completa</strong><small>Cadastre-se com seu CPF, sem cartão. Depois você decide se quer assinar.</small></div><button type="button" onClick={()=>{setTrialStage("form");setError("");}}>Começar agora →</button></div> : null}
             </form>
           )}
         </div>

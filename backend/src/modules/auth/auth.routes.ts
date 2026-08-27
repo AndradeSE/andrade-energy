@@ -7,12 +7,14 @@ import {
   excluirMinhaContaController,
   loginController,
   meuPerfilController,
+  testeGeradorController,
 } from "./auth.controller";
 import { exigirAutenticacao } from "../../middlewares/auth.middleware";
 
 const router = Router();
 
 router.post("/cadastro", cadastroController);
+router.post("/teste-gerador", testeGeradorController);
 
 router.post(
   "/login",

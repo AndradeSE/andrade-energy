@@ -7,6 +7,7 @@ import {
   cadastrarConta,
   excluirMinhaConta,
   obterMeuPerfil,
+  iniciarTesteGerador,
 } from "./auth.service";
 
 export async function loginController(
@@ -40,6 +41,14 @@ export async function cadastroController(req: Request, res: Response) {
     return res.status(201).json(await cadastrarConta(req.body));
   } catch (err: any) {
     return res.status(400).json({ message: err.message ?? "Não foi possível criar a conta." });
+  }
+}
+
+export async function testeGeradorController(req: Request, res: Response) {
+  try {
+    return res.status(201).json(await iniciarTesteGerador(req.body));
+  } catch (err: any) {
+    return res.status(400).json({ message: err.message ?? "Não foi possível iniciar o teste gratuito." });
   }
 }
 

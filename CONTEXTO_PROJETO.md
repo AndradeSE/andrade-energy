@@ -165,6 +165,8 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - Foram gerados localmente os APKs atuais: `dist-apk/andrade-energy-gerador.apk` (arm64) e `dist-apk/andrade-energy-consumidor.apk` (universal). Eles não são versionados no Git e são publicados como ativos da release `apps-2026-08-27`.
 - Os links estáveis de download usados pelo portal apontam para a release GitHub `apps-2026-08-27` e podem ser sobrescritos por `VITE_APP_GERADOR_DOWNLOAD_URL` e `VITE_APP_CONSUMIDOR_DOWNLOAD_URL`.
 - O backend e o portal passaram na compilação de produção; as telas alteradas dos aplicativos passaram no ESLint direcionado.
+- O login web do Gerador oferece um fluxo público de teste gratuito: destaque de 45 dias, cadastro com nome, CPF, telefone, e-mail e senha, aceite dos termos, criação automática da conta `GESTOR`, vinculação ao plano ativo mais acessível e tela final com as datas do teste e download do APK Gerador.
+- O teste não exige cartão nem gera cobrança automática. Ao final, o gerador entra na área de assinatura e decide se contrata um plano. A elegibilidade é conferida no backend pelo histórico do CPF e o benefício não pode ser renovado por novo cadastro ou reinstalação.
 
 ## Diagnóstico mais recente — 20/08/2026
 
