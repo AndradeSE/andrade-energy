@@ -87,3 +87,21 @@ export async function importarContratoAssinadoDaUnidade(unidadeId: string, arqui
   });
   return data;
 }
+
+export async function registrarAceiteEletronico(contratoId: string) {
+  const { data } = await api.post(`/contratos/${contratoId}/aceite-eletronico`);
+  return data;
+}
+
+export async function importarContratoAssinadoPeloCliente(contratoId: string, arquivo: { uri: string; name: string; mimeType?: string | null }) {
+  const form = new FormData();
+  form.append("arquivo", {
+    uri: arquivo.uri,
+    name: arquivo.name,
+    type: arquivo.mimeType || "application/pdf",
+  } as any);
+  const { data } = await api.post(`/contratos/${contratoId}/contrato-assinado-cliente`, form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+}

@@ -45,7 +45,6 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
       style={[
         styles.bar,
         {
-          minHeight: 82 + insets.bottom,
           marginBottom: -insets.bottom,
           paddingBottom: insets.bottom,
         },

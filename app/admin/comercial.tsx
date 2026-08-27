@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Linking,
   Modal,
   Pressable,
   RefreshControl,
@@ -25,6 +24,10 @@ import {
 } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import {
+  AppDownload,
+  baixarAplicativo,
+} from "../../services/app-download.service";
+import {
   obterPainelComercial,
   PainelComercial,
 } from "../../services/comercial.service";
@@ -35,14 +38,27 @@ const moeda = (value: unknown) =>
     style: "currency",
     currency: "BRL",
   });
-const APP_GERADOR_URL =
-  "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-gerador.apk";
 export default function HomeComercial() {
   const insets = useSafeAreaInsets();
   const { usuario, logout } = useAuth();
   const [data, setData] = useState<PainelComercial | null>(null);
   const [loading, setLoading] = useState(true);
   const [menuAberto, setMenuAberto] = useState(false);
+  const [baixandoApp, setBaixandoApp] = useState<AppDownload | null>(null);
+  const baixarApp = async (tipo: AppDownload) => {
+    if (baixandoApp) return;
+    setBaixandoApp(tipo);
+    try {
+      await baixarAplicativo(tipo);
+    } catch (error: any) {
+      Alert.alert(
+        "Download não concluído",
+        error?.message ?? "Não foi possível baixar o aplicativo.",
+      );
+    } finally {
+      setBaixandoApp(null);
+    }
+  };
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -178,7 +194,15 @@ export default function HomeComercial() {
               label="Baixar app do Gerador"
               onPress={() => {
                 setMenuAberto(false);
-                void Linking.openURL(APP_GERADOR_URL);
+                void baixarApp("gerador");
+              }}
+            />
+            <DrawerLink
+              icon="phone-portrait-outline"
+              label="Baixar app do Consumidor"
+              onPress={() => {
+                setMenuAberto(false);
+                void baixarApp("consumidor");
               }}
             />
             <DrawerLink
@@ -374,8 +398,20 @@ export default function HomeComercial() {
               {
                 icon: "download-outline",
                 label: "Baixar app do Gerador",
-                value: "Versão Android atual",
-                onPress: () => void Linking.openURL(APP_GERADOR_URL),
+                value:
+                  baixandoApp === "gerador"
+                    ? "Baixando 45 MB..."
+                    : "Versão Android atual",
+                onPress: () => void baixarApp("gerador"),
+              },
+              {
+                icon: "phone-portrait-outline",
+                label: "Baixar app do Consumidor",
+                value:
+                  baixandoApp === "consumidor"
+                    ? "Baixando 98 MB..."
+                    : "Versão Android atual",
+                onPress: () => void baixarApp("consumidor"),
               },
               {
                 icon: "sunny-outline",

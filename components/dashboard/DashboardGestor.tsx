@@ -4,7 +4,6 @@ import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Alert,
-  Linking,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -13,6 +12,10 @@ import {
 } from "react-native";
 
 import { useAuth } from "../../contexts/AuthContext";
+import {
+  AppDownload,
+  baixarAplicativo,
+} from "../../services/app-download.service";
 import { useDashboardGestor } from "../../hooks/useDashboardGestor";
 import { importarFaturaGeradora } from "../../services/usinas.service";
 import * as CarteiraService from "../../services/carteira.service";
@@ -32,11 +35,6 @@ import {
 } from "../ui";
 import QuickAccessCarousel from "../QuickAccessCarousel";
 import RevenueChart from "./RevenueChart";
-
-const APP_GERADOR_URL =
-  "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-gerador.apk";
-const APP_CONSUMIDOR_URL =
-  "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-consumidor.apk";
 
 function formatarEnergia(valor: number) {
   return `${Number(valor).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kWh`;
@@ -71,6 +69,21 @@ export default function DashboardGestor() {
   );
   const [novoRecebimento, setNovoRecebimento] = useState(false);
   const [importando, setImportando] = useState(false);
+  const [baixandoApp, setBaixandoApp] = useState<AppDownload | null>(null);
+  async function baixarApp(tipo: AppDownload) {
+    if (baixandoApp) return;
+    setBaixandoApp(tipo);
+    try {
+      await baixarAplicativo(tipo);
+    } catch (error: any) {
+      Alert.alert(
+        "Download não concluído",
+        error?.message ?? "Não foi possível baixar o aplicativo.",
+      );
+    } finally {
+      setBaixandoApp(null);
+    }
+  }
   const [atualizando, setAtualizando] = useState(false);
   async function carregarCarteira() {
     try {
@@ -203,14 +216,20 @@ export default function DashboardGestor() {
               {
                 icon: "download-outline",
                 label: "App Gerador",
-                value: "Baixar Android",
-                onPress: () => void Linking.openURL(APP_GERADOR_URL),
+                value:
+                  baixandoApp === "gerador"
+                    ? "Baixando 45 MB..."
+                    : "Baixar Android",
+                onPress: () => void baixarApp("gerador"),
               },
               {
                 icon: "phone-portrait-outline",
                 label: "App Consumidor",
-                value: "Baixar Android",
-                onPress: () => void Linking.openURL(APP_CONSUMIDOR_URL),
+                value:
+                  baixandoApp === "consumidor"
+                    ? "Baixando 98 MB..."
+                    : "Baixar Android",
+                onPress: () => void baixarApp("consumidor"),
               },
             ]}
           />

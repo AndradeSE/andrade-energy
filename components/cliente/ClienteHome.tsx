@@ -1,5 +1,5 @@
 import {
-  Linking,
+  Alert,
   RefreshControl,
   StatusBar,
   StyleSheet,
@@ -13,6 +13,7 @@ import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useDashboard } from "../../hooks/useDashboard";
+import { baixarAplicativo } from "../../services/app-download.service";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 
 import EmptyState from "../ui/EmptyState";
@@ -26,12 +27,24 @@ import EconomiaChart from "./EconomiaChart";
 import EnergyFlowCard from "./EnergyFlowCard";
 import QuickAccessCarousel from "../QuickAccessCarousel";
 
-const APP_CONSUMIDOR_URL =
-  "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-consumidor.apk";
-
 export default function ClienteHome() {
   const { data, isLoading, error, refetch } = useDashboard();
   const [atualizando, setAtualizando] = useState(false);
+  const [baixandoApp, setBaixandoApp] = useState(false);
+  async function baixarApp() {
+    if (baixandoApp) return;
+    setBaixandoApp(true);
+    try {
+      await baixarAplicativo("consumidor");
+    } catch (error: any) {
+      Alert.alert(
+        "Download não concluído",
+        error?.message ?? "Não foi possível baixar o aplicativo.",
+      );
+    } finally {
+      setBaixandoApp(false);
+    }
+  }
   async function atualizarPagina() {
     setAtualizando(true);
     try {
@@ -145,8 +158,8 @@ export default function ClienteHome() {
             {
               icon: "download-outline",
               label: "Baixar app",
-              value: "App Consumidor",
-              onPress: () => void Linking.openURL(APP_CONSUMIDOR_URL),
+              value: baixandoApp ? "Baixando 98 MB..." : "App Consumidor",
+              onPress: () => void baixarApp(),
             },
           ]}
         />
