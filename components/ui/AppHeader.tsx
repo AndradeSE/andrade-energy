@@ -121,9 +121,6 @@ export default function AppHeader({
           <Text numberOfLines={1} style={styles.subpageTitle}>{title}</Text>
           <Text numberOfLines={1} style={styles.subpageSubtitle}>{subtitle}</Text>
         </View>
-        {podeAlternarPerfil ? <TouchableOpacity accessibilityLabel="Alternar perfil de gestão" activeOpacity={0.8} onPress={() => router.replace("/admin/escolher-area" as any)} style={styles.subpageSwitch}>
-          <Ionicons name="swap-horizontal-outline" size={22} color={Colors.primary} />
-        </TouchableOpacity> : null}
       </View>
     );
   }
@@ -155,15 +152,16 @@ export default function AppHeader({
           </View>
         </TouchableOpacity>
 
-        {podeAlternarPerfil ? <TouchableOpacity accessibilityLabel="Alternar perfil de gestão" hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }} activeOpacity={0.8} onPress={() => router.replace("/admin/escolher-area" as any)} style={styles.action}>
-          <Ionicons name="swap-horizontal-outline" size={24} color={Colors.surface} />
-        </TouchableOpacity> : null}
-
         <TouchableOpacity accessibilityLabel={notificacoes.length ? `${notificacoes.length} notificações` : "Notificações"} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} activeOpacity={0.8} onPress={() => setNotificacoesAbertas(true)} style={styles.action}>
           <Ionicons name={notificacoes.length ? "notifications" : "notifications-outline"} size={24} color={Colors.surface} />
           {notificacoes.length ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{notificacoes.length > 9 ? "9+" : notificacoes.length}</Text></View> : null}
         </TouchableOpacity>
       </View>
+
+      {podeAlternarPerfil ? <TouchableOpacity accessibilityLabel="Trocar ambiente de gestão" activeOpacity={0.82} onPress={() => router.replace("/admin/escolher-area" as any)} style={styles.environmentSwitch}>
+        <View style={styles.environmentCurrent}><Ionicons name="sunny-outline" size={14} color="#A7F3D0" /><Text style={styles.environmentLabel}>Gestão de usinas</Text></View>
+        <Text style={styles.environmentAction}>Trocar ambiente</Text><Ionicons name="chevron-forward" size={14} color="#F6CC32" />
+      </TouchableOpacity> : null}
 
       <Modal animationType="fade" transparent visible={notificacoesAbertas} onRequestClose={() => setNotificacoesAbertas(false)}>
         <Pressable style={styles.backdrop} onPress={() => setNotificacoesAbertas(false)}>
@@ -229,15 +227,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryLight,
   },
   subpageCopy: { flex: 1, minWidth: 0 },
-  subpageSwitch: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: Spacing.xs,
-    borderRadius: Radius.round,
-    backgroundColor: Colors.primaryLight,
-  },
   subpageTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "800" },
   subpageSubtitle: { marginTop: 2, color: Colors.subtitle, fontSize: Typography.small },
   container: {
@@ -249,6 +238,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
+
+  environmentSwitch: {
+    minHeight: 32,
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.md,
+    backgroundColor: "rgba(255,255,255,0.09)",
+  },
+  environmentCurrent: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
+  environmentLabel: { color: "#D8F0E3", fontSize: 11, fontWeight: "700" },
+  environmentAction: { marginRight: 3, color: "#F6CC32", fontSize: 10, fontWeight: "900" },
 
   profileButton: {
     flex: 1,

@@ -332,11 +332,21 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.6).text("Após o vencimento, encargos poderão ser aplicados.", 327, y.inferior + 131);
 
     const miniCards = [["SALDO ATUAL\nDE CRÉDITOS", energia(saldoCreditos)], ["CRÉDITOS\nGERADOS (MÊS)", energia(energiaInjetada)], ["CRÉDITOS\nUSADOS (MÊS)", energia(energiaCompensada)], ["PRÓXIMA\nLEITURA", fatura.proxima_leitura ?? "A confirmar"]];
+    const espacamentoMiniCards = 8;
+    const larguraMiniCard = (LARGURA - espacamentoMiniCards * 3) / 4;
     miniCards.forEach(([titulo, valor], indice) => {
-      const x = 48 + indice * 126;
-      desenharCartao(x, y.creditos, 116, 62, indice === 0 ? "#F2FAF5" : "#FFFFFF");
-      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text(titulo, x + 12, y.creditos + 12, { width: 90 });
-      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(indice === 0 ? 11 : 8.5).text(valor, x + 12, y.creditos + 36, { width: 92, align: "center" });
+      const x = 48 + indice * (larguraMiniCard + espacamentoMiniCards);
+      desenharCartao(x, y.creditos, larguraMiniCard, 62, indice === 0 ? "#F2FAF5" : "#FFFFFF");
+      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text(titulo, x + 12, y.creditos + 11, {
+        width: larguraMiniCard - 24,
+        height: 20,
+        lineGap: 1,
+      });
+      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(indice === 0 ? 11 : 8.5).text(valor, x + 10, y.creditos + 38, {
+        width: larguraMiniCard - 20,
+        height: 14,
+        align: "center",
+      });
     });
     pdf.rect(48, 773, LARGURA, 14).fill("#EFF6F1");
     pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.8).text("Você escolhe economia. O planeta agradece.    |    Atendimento Andrade Energy", 61, 777, { width: 470, align: "center" });
