@@ -170,6 +170,7 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - Os ambientes web de Gestão Comercial e Gestão de Usinas possuem menus separados. Na Gestão Comercial não devem aparecer clientes, UCs, usinas ou faturamento de energia; a troca ocorre somente por **Alternar ambiente**.
 - A área **Aplicativos** está disponível diretamente no menu dos perfis Gerador, Consumidor e Administração Comercial do portal, com os APKs oficiais da release `apps-2026-08-27`.
 - No app Gerador, a home de Gestão Comercial oferece **Baixar aplicativos** no acesso rápido e o download do Gerador no menu lateral. Os links externos são abertos com a API `Linking` compatível com Expo SDK 54.
+- Os cabeçalhos do ambiente comercial no app Gerador seguem formato compacto: logo reduzido, ações laterais de 40 px, títulos sem compressão e bloco de contexto menor nas telas de gestão e monitoramento.
 
 ## Diagnóstico mais recente — 20/08/2026
 
