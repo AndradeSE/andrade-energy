@@ -6,6 +6,8 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Modal,
+  Pressable,
   RefreshControl,
   StatusBar,
   StyleSheet,
@@ -44,6 +46,7 @@ export default function GestaoGeradores() {
   const { user } = useAuth();
   const [data, setData] = useState<PainelComercial | null>(null);
   const [loading, setLoading] = useState(true);
+  const [menuAberto, setMenuAberto] = useState(false);
   const [aba, setAba] = useState<
     | "RESUMO"
     | "GERADORES"
@@ -51,7 +54,18 @@ export default function GestaoGeradores() {
     | "PAGAMENTOS"
     | "PLANOS"
     | "DOCUMENTOS"
-  >(params.aba === "PAGAMENTOS" ? "PAGAMENTOS" : "RESUMO");
+  >(
+    [
+      "RESUMO",
+      "GERADORES",
+      "ASSINATURAS",
+      "PAGAMENTOS",
+      "PLANOS",
+      "DOCUMENTOS",
+    ].includes(String(params.aba))
+      ? (params.aba as any)
+      : "RESUMO",
+  );
   const load = useCallback(async () => {
     try {
       setData(await obterPainelComercial());
@@ -100,14 +114,20 @@ export default function GestaoGeradores() {
       >
         <View style={styles.headerTop}>
           <TouchableOpacity
-            accessibilityLabel="Voltar para a gestão comercial"
+            accessibilityLabel="Abrir menu"
             activeOpacity={0.78}
-            onPress={() => router.replace("/admin/comercial" as any)}
+            onPress={() => setMenuAberto(true)}
             style={styles.headerAction}
           >
-            <Ionicons name="chevron-back" size={25} color="#FFF" />
+            <Ionicons name="menu-outline" size={27} color="#FFF" />
           </TouchableOpacity>
-        <PortalBrandLogo height={29} width={102} />
+          <PortalBrandLogo height={30} width={104} />
+          <View style={styles.headerCopy}>
+            <Text style={styles.headerEyebrow}>GESTÃO COMERCIAL</Text>
+            <Text numberOfLines={1} style={styles.headerTitle}>
+              Gestão de geradores
+            </Text>
+          </View>
           <TouchableOpacity
             accessibilityLabel="Abrir perfil"
             activeOpacity={0.78}
@@ -121,15 +141,6 @@ export default function GestaoGeradores() {
           >
             <Ionicons name="person-outline" size={21} color="#FFF" />
           </TouchableOpacity>
-        </View>
-        <View style={styles.headerBody}>
-          <View style={styles.headerCopy}>
-            <Text style={styles.headerEyebrow}>ADMINISTRAÇÃO COMERCIAL</Text>
-            <Text style={styles.headerTitle}>Gestão de geradores</Text>
-          <Text numberOfLines={1} style={styles.headerSubtitle}>
-            Planos, contratos, cobranças e acessos.
-            </Text>
-          </View>
         </View>
         <TouchableOpacity
           accessibilityLabel="Trocar ambiente de gestão"
@@ -145,6 +156,90 @@ export default function GestaoGeradores() {
           <Ionicons name="chevron-forward" size={14} color="#F6CC32" />
         </TouchableOpacity>
       </LinearGradient>
+      <Modal
+        animationType="fade"
+        transparent
+        visible={menuAberto}
+        onRequestClose={() => setMenuAberto(false)}
+      >
+        <Pressable style={styles.backdrop} onPress={() => setMenuAberto(false)}>
+          <Pressable
+            style={styles.drawer}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <View style={styles.drawerHeader}>
+              <Text style={styles.drawerTitle}>Gestão de geradores</Text>
+              <TouchableOpacity onPress={() => setMenuAberto(false)}>
+                <Ionicons name="close" size={26} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+            <DrawerLink
+              icon="home-outline"
+              label="Painel comercial"
+              onPress={() => {
+                setMenuAberto(false);
+                router.replace("/admin/comercial" as any);
+              }}
+            />
+            <DrawerLink
+              icon="grid-outline"
+              label="Visão geral"
+              onPress={() => {
+                setMenuAberto(false);
+                setAba("RESUMO");
+              }}
+            />
+            <DrawerLink
+              icon="business-outline"
+              label="Geradores"
+              onPress={() => {
+                setMenuAberto(false);
+                setAba("GERADORES");
+              }}
+            />
+            <DrawerLink
+              icon="card-outline"
+              label="Assinaturas"
+              onPress={() => {
+                setMenuAberto(false);
+                setAba("ASSINATURAS");
+              }}
+            />
+            <DrawerLink
+              icon="cash-outline"
+              label="Pagamentos"
+              onPress={() => {
+                setMenuAberto(false);
+                setAba("PAGAMENTOS");
+              }}
+            />
+            <DrawerLink
+              icon="pricetags-outline"
+              label="Planos"
+              onPress={() => {
+                setMenuAberto(false);
+                setAba("PLANOS");
+              }}
+            />
+            <DrawerLink
+              icon="documents-outline"
+              label="Documentos"
+              onPress={() => {
+                setMenuAberto(false);
+                setAba("DOCUMENTOS");
+              }}
+            />
+            <DrawerLink
+              icon="pulse-outline"
+              label="Clientes ativos"
+              onPress={() => {
+                setMenuAberto(false);
+                router.push("/geradores/monitoramento" as any);
+              }}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
@@ -625,13 +720,22 @@ function Action({ label, icon, onPress }: any) {
     </TouchableOpacity>
   );
 }
+function DrawerLink({ icon, label, onPress }: any) {
+  return (
+    <TouchableOpacity onPress={onPress} style={styles.drawerLink}>
+      <Ionicons name={icon} size={21} color={Colors.primary} />
+      <Text style={styles.drawerLabel}>{label}</Text>
+      <Ionicons name="chevron-forward" size={17} color={Colors.subtitle} />
+    </TouchableOpacity>
+  );
+}
 const styles = StyleSheet.create({
-  header: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.sm },
+  header: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm },
   headerTop: {
-    minHeight: 44,
+    minHeight: 56,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 8,
   },
   headerAction: {
     width: 40,
@@ -641,23 +745,14 @@ const styles = StyleSheet.create({
     borderRadius: Radius.round,
     backgroundColor: "rgba(255,255,255,.09)",
   },
-  headerBody: {
-    marginTop: 6,
-  },
-  headerCopy: { minWidth: 0 },
+  headerCopy: { flex: 1, minWidth: 0, marginLeft: 2 },
   headerEyebrow: {
     color: "#A7F3D0",
     fontSize: 9,
     fontWeight: "900",
     letterSpacing: 0.8,
   },
-  headerTitle: { marginTop: 2, color: "#FFF", fontSize: 21, fontWeight: "900" },
-  headerSubtitle: {
-    marginTop: 3,
-    color: "rgba(255,255,255,.79)",
-    fontSize: 12,
-    lineHeight: 17,
-  },
+  headerTitle: { marginTop: 3, color: "#FFF", fontSize: 13, fontWeight: "800" },
   environmentSwitch: {
     minHeight: 36,
     flexDirection: "row",
@@ -685,6 +780,43 @@ const styles = StyleSheet.create({
     color: "#F6CC32",
     fontSize: 11,
     fontWeight: "900",
+  },
+  backdrop: {
+    flex: 1,
+    alignItems: "flex-start",
+    backgroundColor: "rgba(15,23,42,.45)",
+  },
+  drawer: {
+    width: "84%",
+    height: "100%",
+    paddingHorizontal: Spacing.lg,
+    paddingTop: 58,
+    backgroundColor: Colors.surface,
+  },
+  drawerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.lg,
+  },
+  drawerTitle: {
+    color: Colors.text,
+    fontSize: Typography.title,
+    fontWeight: "900",
+  },
+  drawerLink: {
+    minHeight: 55,
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  drawerLabel: {
+    flex: 1,
+    marginLeft: Spacing.md,
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: "700",
   },
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
   tabs: { gap: 8, paddingBottom: Spacing.md },

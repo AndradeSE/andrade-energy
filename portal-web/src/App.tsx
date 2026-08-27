@@ -6,6 +6,7 @@ import "./mobile.css";
 
 const APP_GERADOR_URL = String(import.meta.env.VITE_APP_GERADOR_DOWNLOAD_URL ?? "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-gerador.apk").trim();
 const APP_CONSUMIDOR_URL = String(import.meta.env.VITE_APP_CONSUMIDOR_DOWNLOAD_URL ?? "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-consumidor.apk").trim();
+const TESTE_GRATUITO_HABILITADO = false;
 
 type AccessType = "CONSUMIDOR" | "GERADOR";
 type AdminWorkspace = "COMERCIAL" | "USINAS";
@@ -593,8 +594,8 @@ function AppDownloadsPanel() {
     <h2>Instale o aplicativo ideal para seu perfil</h2>
     <p>Baixe diretamente a versão Android mais recente. O app Gerador reúne a operação das usinas e a gestão comercial; o app Consumidor concentra faturas, economia e contratos.</p>
     <div>
-      <a href={APP_GERADOR_URL} download><b>G</b><span><strong>Baixar app do Gerador</strong><small>Gestão comercial e gestão de usinas</small></span><em>Baixar APK ↓</em></a>
-      <a href={APP_CONSUMIDOR_URL} download><b>C</b><span><strong>Baixar app do Consumidor</strong><small>Faturas, economia e contratos</small></span><em>Baixar APK ↓</em></a>
+      <a href={APP_GERADOR_URL} rel="noopener noreferrer" target="_blank"><b>G</b><span><strong>Baixar app do Gerador</strong><small>Gestão comercial e gestão de usinas · 45 MB</small></span><em>Baixar APK ↓</em></a>
+      <a href={APP_CONSUMIDOR_URL} rel="noopener noreferrer" target="_blank"><b>C</b><span><strong>Baixar app do Consumidor</strong><small>Faturas, economia e contratos · 98 MB</small></span><em>Baixar APK ↓</em></a>
     </div>
     <small className="app-download-security">Arquivos oficiais publicados pela Andrade Energy para dispositivos Android.</small>
   </section>;
@@ -3478,7 +3479,7 @@ export default function App() {
               <h2>Seu teste de 45 dias começou</h2>
               <p>Olá, <strong>{trial.nome}</strong>. Sua conta do Gerador já está vinculada ao CPF informado e pronta para uso.</p>
               <div className="trial-period"><span><small>INÍCIO</small><strong>{new Date().toLocaleDateString("pt-BR")}</strong></span><span><small>FINAL DO TESTE</small><strong>{trialResult?.assinatura?.fim_teste_em ? new Date(`${trialResult.assinatura.fim_teste_em}T12:00:00`).toLocaleDateString("pt-BR") : "45 dias"}</strong></span></div>
-              <a className="trial-download" href={trialResult?.downloadUrl || APP_GERADOR_URL} download><b>↓</b><span><strong>Baixar app do Gerador</strong><small>Android · conta de teste pronta</small></span></a>
+              <a className="trial-download" href={trialResult?.downloadUrl || APP_GERADOR_URL} rel="noopener noreferrer" target="_blank"><b>↓</b><span><strong>Baixar app do Gerador</strong><small>Android · conta de teste pronta</small></span></a>
               <button className="trial-login-link" onClick={()=>{ setEmail(trial.email); setPassword(trial.senha); setTrialStage("idle"); }}>Entrar pelo portal com esta conta</button>
               <p className="trial-footnote">Ao terminar o período, você poderá escolher um plano e assinar. Nenhuma cobrança será feita automaticamente sem sua confirmação.</p>
             </div>
@@ -3561,7 +3562,7 @@ export default function App() {
                   </>
                 )}
               </button>
-              {accessType === "GERADOR" ? <div className="generator-trial-callout"><div><span>TESTE GRÁTIS</span><strong>45 dias para conhecer a gestão completa</strong><small>Cadastre-se com seu CPF, sem cartão. Depois você decide se quer assinar.</small></div><button type="button" onClick={()=>{setTrialStage("form");setError("");}}>Começar agora →</button></div> : null}
+              {accessType === "GERADOR" ? <div className="generator-trial-callout"><div><span>TESTE GRÁTIS</span><strong>45 dias para conhecer a gestão completa</strong><small>{TESTE_GRATUITO_HABILITADO ? "Cadastre-se com seu CPF, sem cartão. Depois você decide se quer assinar." : "Novos testes estão temporariamente pausados. O acesso será reaberto em breve."}</small></div><button disabled={!TESTE_GRATUITO_HABILITADO} type="button" onClick={()=>{if (!TESTE_GRATUITO_HABILITADO) return; setTrialStage("form");setError("");}}>{TESTE_GRATUITO_HABILITADO ? "Começar agora →" : "Temporariamente indisponível"}</button></div> : null}
             </form>
           )}
         </div>

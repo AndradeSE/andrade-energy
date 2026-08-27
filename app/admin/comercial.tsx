@@ -305,18 +305,31 @@ export default function HomeComercial() {
               icon="people-outline"
               label="Assinaturas"
               value={String(resumo?.total ?? 0)}
+              onPress={() =>
+                router.push({
+                  pathname: "/geradores/gestao",
+                  params: { aba: "ASSINATURAS" },
+                } as any)
+              }
             />
             <Metric
               icon="checkmark-circle-outline"
               label="Ativas"
               value={String(resumo?.ativas ?? 0)}
               green
+              onPress={() => router.push("/geradores/monitoramento" as any)}
             />
             <Metric
               icon="alert-circle-outline"
               label="Inadimplentes"
               value={String(resumo?.inadimplentes ?? 0)}
               danger
+              onPress={() =>
+                router.push({
+                  pathname: "/geradores/gestao",
+                  params: { aba: "PAGAMENTOS" },
+                } as any)
+              }
             />
           </View>
         )}
@@ -402,12 +415,50 @@ export default function HomeComercial() {
           </View>
         </View>
       </ScrollView>
+      <View
+        style={[
+          styles.commercialTabs,
+          { paddingBottom: Math.max(insets.bottom, 8) },
+        ]}
+      >
+        <CommercialTab
+          active
+          icon="home-outline"
+          label="Home"
+          onPress={() => router.replace("/admin/comercial" as any)}
+        />
+        <CommercialTab
+          icon="wallet-outline"
+          label="Carteira"
+          onPress={() =>
+            router.push({
+              pathname: "/geradores/gestao",
+              params: { aba: "ASSINATURAS" },
+            } as any)
+          }
+        />
+        <CommercialTab
+          icon="trending-up-outline"
+          label="Receita mensal"
+          onPress={() =>
+            router.push({
+              pathname: "/geradores/gestao",
+              params: { aba: "PAGAMENTOS" },
+            } as any)
+          }
+        />
+      </View>
     </Screen>
   );
 }
-function Metric({ icon, label, value, green, danger }: any) {
+function Metric({ icon, label, value, green, danger, onPress }: any) {
   return (
-    <View style={styles.metric}>
+    <TouchableOpacity
+      accessibilityRole="button"
+      activeOpacity={0.8}
+      onPress={onPress}
+      style={styles.metric}
+    >
       <Ionicons
         name={icon}
         size={21}
@@ -415,7 +466,38 @@ function Metric({ icon, label, value, green, danger }: any) {
       />
       <Text style={styles.metricLabel}>{label}</Text>
       <Text style={styles.metricValue}>{value}</Text>
-    </View>
+      <Ionicons
+        name="chevron-forward"
+        size={14}
+        color={Colors.subtitle}
+        style={styles.metricChevron}
+      />
+    </TouchableOpacity>
+  );
+}
+function CommercialTab({ icon, label, onPress, active = false }: any) {
+  return (
+    <TouchableOpacity
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
+      activeOpacity={0.78}
+      onPress={onPress}
+      style={styles.commercialTab}
+    >
+      <Ionicons
+        name={icon}
+        size={21}
+        color={active ? Colors.primary : Colors.subtitle}
+      />
+      <Text
+        style={[
+          styles.commercialTabLabel,
+          active && styles.commercialTabLabelActive,
+        ]}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
   );
 }
 function DrawerLink({ icon, label, onPress, danger = false }: any) {
@@ -548,6 +630,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     ...Shadows.card,
   },
+  metricChevron: { position: "absolute", top: 10, right: 9 },
   metricLabel: {
     marginTop: 6,
     color: Colors.subtitle,
@@ -669,4 +752,26 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textAlign: "center",
   },
+  commercialTabs: {
+    minHeight: 62,
+    flexDirection: "row",
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    backgroundColor: Colors.surface,
+    ...Shadows.card,
+  },
+  commercialTab: {
+    flex: 1,
+    minHeight: 54,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
+  },
+  commercialTabLabel: {
+    color: Colors.subtitle,
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  commercialTabLabelActive: { color: Colors.primary },
 });
