@@ -2534,6 +2534,15 @@ function PortalHome({
   const [refreshKey, setRefreshKey] = useState(0);
   const [walletHome, setWalletHome] = useState<WalletSummary | null>(null);
   const [walletNotice, setWalletNotice] = useState(false);
+  const isCommercialWorkspace = type === "GERADOR" && session.usuario?.perfil === "ADMIN" && workspace === "COMERCIAL";
+
+  useEffect(() => {
+    setActiveSection((current) => {
+      if (isCommercialWorkspace && !["Gestão comercial", "Geradores", "Perfil", "Configurações"].includes(current)) return "Gestão comercial";
+      if (!isCommercialWorkspace && ["Gestão comercial", "Geradores"].includes(current)) return "Visão geral";
+      return current;
+    });
+  }, [isCommercialWorkspace]);
 
   useEffect(() => {
     if (!session.token) return;
@@ -2654,7 +2663,13 @@ function PortalHome({
   );
   const menuGroups =
     type === "GERADOR"
-      ? [
+      ? isCommercialWorkspace
+        ? [
+            { label: "Gestão comercial", items: ["Gestão comercial", "Geradores"] },
+            { label: "Conta", items: ["Perfil", "Configurações"] },
+            { label: "Ambiente", items: ["Alternar ambiente"] },
+          ]
+      : [
           { label: "Painel", items: ["Visão geral"] },
           {
             label: "Gestão de energia",
@@ -2675,7 +2690,7 @@ function PortalHome({
             : []),
           { label: "Conta", items: ["Minha assinatura", "Perfil", "Configurações"] },
         ]
-      : [
+        : [
           { label: "Painel", items: ["Visão geral", "Economia"] },
           {
             label: "Minha energia",
