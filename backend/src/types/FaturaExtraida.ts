@@ -37,6 +37,12 @@ export interface FaturaExtraida {
 
   fatorMultiplicacao?: number;
 
+  /** Tensão nominal/fornecida apresentada no cadastro da unidade. */
+  tensao?: string;
+
+  /** Classe e subclasse tarifária apresentadas pela concessionária. */
+  classificacao?: string;
+
   energiaCompensada: number;
 
   energiaCompensadaGD1?: number;

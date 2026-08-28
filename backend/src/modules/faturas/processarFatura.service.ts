@@ -296,6 +296,18 @@ const fatura = await inserirFatura({
 
   consumo_kwh: dados.consumo,
 
+  leitura_anterior: dados.leituraAnterior ?? null,
+
+  leitura_atual: dados.leituraAtual ?? null,
+
+  fator_multiplicacao: dados.fatorMultiplicacao ?? 1,
+
+  tensao: dados.tensao || null,
+
+  classificacao: dados.classificacao || null,
+
+  tipo_ligacao: dados.tipoLigacao || null,
+
   energia_injetada:
     energiaInjetadaCalculada,
 

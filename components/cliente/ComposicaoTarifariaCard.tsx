@@ -19,6 +19,7 @@ export default function ComposicaoTarifariaCard({ itens = [] }: { itens?: Compon
   const [aberto, setAberto] = useState<string | null>(null);
   const validos = useMemo(() => itens.filter((item) => Number(item.valor) > 0), [itens]);
   const total = validos.reduce((soma, item) => soma + Number(item.valor), 0);
+  const valorAndrade = validos.find((item) => item.id === "energia-andrade")?.valor ?? 0;
   const raio = 72;
   const circunferencia = 2 * Math.PI * raio;
   let acumulado = 0;
@@ -49,8 +50,8 @@ export default function ComposicaoTarifariaCard({ itens = [] }: { itens?: Compon
           </G>
         </Svg>
         <View pointerEvents="none" style={styles.center}>
-          <Text style={styles.centerLabel}>TOTAL</Text>
-          <Text style={styles.centerValue}>{moeda(total)}</Text>
+          <Text style={styles.centerLabel}>FATURA ANDRADE</Text>
+          <Text style={styles.centerValue}>{moeda(valorAndrade)}</Text>
         </View>
       </View>
 

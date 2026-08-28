@@ -241,6 +241,10 @@ export function parseCemigGD(
 
     ...medicao,
 
+    tensao: cadastro.tensao,
+
+    classificacao: cadastro.classificacao,
+
     energiaCompensada,
 
     energiaCompensadaGD1: gd1?.quantidade ?? 0,

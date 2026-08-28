@@ -218,4 +218,5 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - A aba Economia do aplicativo consumidor passou a exibir um gráfico de rosca interativo com os valores reais da última competência.
 - A composição separa energia Andrade, concessionária, disponibilidade e Fio B somente quando essas parcelas existem; em fatura somente Andrade, separa cobrança e economia concedida.
 - Cada item do gráfico pode ser expandido para explicar a origem do valor, sem estimativas artificiais de tributos.
-- A fatura da usina preserva a primeira página aprovada e ganhou uma segunda página com o demonstrativo visual da composição.
+- A fatura da usina preserva o modelo aprovado em uma única página; a composição foi compactada ao lado da área de pagamento e destaca no centro o valor da fatura Andrade.
+- Leituras anterior/atual, fator, classificação, tensão e tipo de ligação agora são persistidos por competência e recuperados da conta original ao regenerar documentos antigos. Se a conta não informar tensão, o PDF mostra o tipo de ligação sem estimar uma tensão.

@@ -67,5 +67,15 @@ export function extrairCadastroCemig(texto: string) {
     texto.match(/(?:CPF\s*(?:\/\s*CNPJ)?|CNPJ)\s*[:\-]?\s*([\d.\-/]{11,20})/i)?.[1] ?? ""
   ).replace(/\D/g, "");
 
-  return { cliente, endereco, uc, cpf };
+  const tensao = (
+    texto.match(/TENS[AÃ]O(?:\s+(?:NOMINAL|FORNECIDA|DE\s+FORNECIMENTO))?(?:\s*\([^)]+\))?\s*[:\-]?\s*(\d{2,3}(?:\s*\/\s*\d{2,3})?\s*V?)/i)?.[1] ?? ""
+  ).replace(/\s+/g, " ").trim();
+  const classificacao = (
+    texto.match(/CLASSIFICA[CÇ][AÃ]O(?:\s+TARIF[AÁ]RIA)?\s*[:\-]?\s*([^\r\n]{2,48})/i)?.[1]
+      ?? texto.match(/\b(B[1-4]\s+(?:RESIDENCIAL|COMERCIAL|RURAL|INDUSTRIAL)[^\r\n]{0,28})/i)?.[1]
+      ?? texto.match(/\b((?:RESIDENCIAL|COMERCIAL|RURAL|INDUSTRIAL)(?:\s*(?:RESIDENCIAL|COMERCIAL|RURAL|INDUSTRIAL))?\s+(?:CONVENCIONAL\s+)?B[1-4])/i)?.[1]
+      ?? ""
+  ).replace(/^(Residencial|Comercial|Rural|Industrial)\1/i, "$1 ").replace(/\s+/g, " ").trim();
+
+  return { cliente, endereco, uc, cpf, tensao, classificacao };
 }

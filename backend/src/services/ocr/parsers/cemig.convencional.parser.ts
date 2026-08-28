@@ -9,7 +9,7 @@ export function parseCemigConvencional(
 
   texto = texto.replace(/\r/g, "");
 
-  const { cliente, endereco, uc } = extrairCadastroCemig(texto);
+  const { cliente, endereco, uc, tensao, classificacao } = extrairCadastroCemig(texto);
 
   // Referência + vencimento + valor
   const dadosConta =
@@ -66,6 +66,8 @@ export function parseCemigConvencional(
 
   energiaInjetada: 0,
   ...medicao,
+  tensao,
+  classificacao,
   energiaCompensada: 0,
 
   saldoAnterior: 0,
