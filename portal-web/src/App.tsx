@@ -40,17 +40,13 @@ function AppDownloadLink({
   description: string;
   detailed?: boolean;
 }) {
-  const fileName = app === "Gerador"
-    ? "andrade-energy-gerador.apk"
-    : "andrade-energy-consumidor.apk";
-
   return <a
     href={href || undefined}
     className={!href ? "disabled" : undefined}
     aria-disabled={!href}
     aria-label={`Baixar aplicativo Andrade Energy ${app} para Android`}
-    download={fileName}
-    rel="external"
+    target="_blank"
+    rel="noopener noreferrer"
   >
     <b aria-hidden="true">{app === "Gerador" ? "G" : "C"}</b>
     <span>
@@ -2622,7 +2618,6 @@ function PortalHome({
   const [walletHome, setWalletHome] = useState<WalletSummary | null>(null);
   const [walletNotice, setWalletNotice] = useState(false);
   const [company, setCompany] = useState<PortalCompany>(DEFAULT_COMPANY);
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const isCommercialWorkspace = type === "GERADOR" && session.usuario?.perfil === "ADMIN" && workspace === "COMERCIAL";
 
   useEffect(() => {
@@ -2927,14 +2922,6 @@ function PortalHome({
   return (
     <main className="portal-home" style={{ "--brand-primary": company.cor_primaria, "--brand-secondary": company.cor_secundaria } as CSSProperties}>
       <header className="portal-topbar">
-        <button
-          className="mobile-nav-button"
-          aria-label="Abrir menu de navegação"
-          aria-expanded={mobileNavOpen}
-          onClick={() => setMobileNavOpen((open) => !open)}
-        >
-          <span aria-hidden="true">{mobileNavOpen ? "×" : "☰"}</span>
-        </button>
         <div className="topbar-brand">
           {company.logo_url ? <img src={company.logo_url} alt="" aria-hidden="true" /> : <i>{company.nome.slice(0, 2).toUpperCase()}</i>}
           <span><strong>{company.nome}</strong><small>{isCommercialWorkspace ? "Gestão comercial" : type === "GERADOR" ? "Gestão de energia" : "Portal do consumidor"}</small></span>
@@ -2952,9 +2939,8 @@ function PortalHome({
           <button onClick={onLogout}>Sair</button>
         </div>
       </header>
-      {mobileNavOpen ? <button className="mobile-nav-backdrop" aria-label="Fechar menu" onClick={() => setMobileNavOpen(false)} /> : null}
       <div className="portal-layout">
-        <aside className={`portal-sidebar ${mobileNavOpen ? "mobile-open" : ""}`}>
+        <aside className="portal-sidebar">
           <div className="sidebar-brand">
             {company.logo_url ? <img src={company.logo_url} alt={`Logo ${company.nome}`} /> : <i>AE</i>}
             <span>
@@ -2974,7 +2960,6 @@ function PortalHome({
                       setActiveSection(item);
                       setSearchQuery("");
                       if (item === "Carteira") setWalletNotice(false);
-                      setMobileNavOpen(false);
                     }}
                     className={activeSection === item ? "active" : ""}
                     key={item}
