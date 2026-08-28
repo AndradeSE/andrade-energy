@@ -102,7 +102,10 @@ export async function buscarFaturasCliente(
 }
 
 export async function buscarFatura(id: string) {
-  const { data } = await api.get(`/faturas/${id}`);
+  const { data } = await api.get(`/faturas/${id}`, {
+    params: { _ts: Date.now() },
+    headers: { "Cache-Control": "no-cache" },
+  });
   return data;
 }
 

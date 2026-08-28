@@ -1,11 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
-import { Directory, File, Paths } from "expo-file-system";
 import * as FileSystemLegacy from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
-import { useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -37,6 +36,7 @@ export default function DetalheFatura() {
   const [fatura, setFatura] = useState<any>();
   const [erro, setErro] = useState(false);
   const [documentoBaixando, setDocumentoBaixando] = useState<string>();
+  const [progressoDownload, setProgressoDownload] = useState(0);
   const [atualizando, setAtualizando] = useState(false);
   const [regenerandoPdf, setRegenerandoPdf] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
@@ -51,9 +51,9 @@ export default function DetalheFatura() {
     }
   }, [id]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     void carregar();
-  }, [carregar]);
+  }, [carregar]));
 
   async function atualizarPagina() {
     setAtualizando(true);
@@ -174,19 +174,31 @@ export default function DetalheFatura() {
 
     try {
       setDocumentoBaixando(nomeArquivo);
+      setProgressoDownload(0);
 
       if (Platform.OS !== "web") {
         // Cada abertura recebe uma cópia nova. Alguns leitores Android mantêm
         // o conteúdo anterior para a mesma URI e acabavam exibindo uma folha
         // branca mesmo quando o PDF recém-baixado estava correto.
-        const pastaFaturas = new Directory(Paths.cache, "andrade-energy-faturas", String(Date.now()));
-        pastaFaturas.create({ idempotent: true, intermediates: true });
-        const arquivo = await File.downloadFileAsync(url, pastaFaturas, {
-          idempotent: true,
-        });
-        if (!arquivo.exists || !arquivo.size || arquivo.size < 512) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        const pastaFaturas = `${FileSystemLegacy.cacheDirectory}andrade-energy-faturas/${Date.now()}/`;
+        await FileSystemLegacy.makeDirectoryAsync(pastaFaturas, { intermediates: true });
+        const download = FileSystemLegacy.createDownloadResumable(
+          url,
+          `${pastaFaturas}${nomeArquivo}`,
+          {},
+          ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
+            if (totalBytesExpectedToWrite > 0) {
+              setProgressoDownload(Math.min(100, Math.round((totalBytesWritten / totalBytesExpectedToWrite) * 100)));
+            }
+          },
+        );
+        const arquivo = await download.downloadAsync();
+        if (!arquivo?.uri) {
           throw new Error("O PDF baixado está vazio.");
         }
+        const info = await FileSystemLegacy.getInfoAsync(arquivo.uri);
+        if (!info.exists || !("size" in info) || !info.size || info.size < 512) throw new Error("O PDF baixado está vazio.");
         if (Platform.OS === "android") {
           try {
             const contentUri = await FileSystemLegacy.getContentUriAsync(arquivo.uri);
@@ -216,6 +228,7 @@ export default function DetalheFatura() {
       Alert.alert("Não foi possível baixar o PDF", "Confira sua conexão e tente novamente.");
     } finally {
       setDocumentoBaixando(undefined);
+      setProgressoDownload(0);
     }
   }
 
@@ -305,18 +318,21 @@ export default function DetalheFatura() {
             available={Boolean(fatura.pdf_cemig_url)}
             label="Conta original da CEMIG"
             loading={documentoBaixando === `cemig-${referenciaArquivo}.pdf`}
+            progress={progressoDownload}
             onPress={() => baixarDocumento(fatura.pdf_cemig_url, `cemig-${referenciaArquivo}.pdf`)}
           />
           <DownloadButton
             available={Boolean(fatura.pdf_unificada_url)}
             label="Fatura Andrade Energy"
             loading={documentoBaixando === `unificada-${referenciaArquivo}.pdf`}
+            progress={progressoDownload}
             onPress={() => baixarDocumento(fatura.pdf_unificada_url, `unificada-${referenciaArquivo}.pdf`)}
           />
           <DownloadButton
             available={Boolean(fatura.pdf_boleto_url)}
             label="Boleto"
             loading={documentoBaixando === `boleto-${referenciaArquivo}.pdf`}
+            progress={progressoDownload}
             onPress={() => baixarDocumento(fatura.pdf_boleto_url, `boleto-${referenciaArquivo}.pdf`)}
           />
           <TouchableOpacity
@@ -444,11 +460,13 @@ function DownloadButton({
   available,
   label,
   loading,
+  progress,
   onPress,
 }: {
   available: boolean;
   label: string;
   loading: boolean;
+  progress: number;
   onPress: () => void;
 }) {
   return (
@@ -468,7 +486,7 @@ function DownloadButton({
       </View>
       <View style={styles.downloadContent}>
         <Text style={styles.downloadLabel}>
-          {loading ? "Baixando PDF..." : label}
+          {loading ? `Baixando PDF... ${progress}%` : label}
         </Text>
         {!available ? <Text style={styles.downloadStatus}>Em preparação</Text> : null}
       </View>

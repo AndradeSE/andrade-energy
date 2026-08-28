@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import { File, Paths } from "expo-file-system";
 import * as FileSystemLegacy from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
@@ -26,6 +25,7 @@ export default function Faturas() {
   const { data, isLoading, error, refetch } = useFaturas();
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [baixando, setBaixando] = useState<string>();
+  const [progressoDownload, setProgressoDownload] = useState(0);
   const [atualizando, setAtualizando] = useState(false);
   const faturas = useMemo(() => data ?? [], [data]);
 
@@ -71,20 +71,35 @@ export default function Faturas() {
     if (!url) return;
     try {
       setBaixando(chave);
+      setProgressoDownload(0);
       if (Platform.OS === "web") return await Linking.openURL(url);
-      const arquivo = await File.downloadFileAsync(url, new File(Paths.document, nome), { idempotent: true });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const pasta = `${FileSystemLegacy.cacheDirectory}andrade-energy-faturas/${Date.now()}/`;
+      await FileSystemLegacy.makeDirectoryAsync(pasta, { intermediates: true });
+      const download = FileSystemLegacy.createDownloadResumable(
+        url,
+        `${pasta}${nome}`,
+        {},
+        ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
+          if (totalBytesExpectedToWrite > 0) {
+            setProgressoDownload(Math.min(100, Math.round((totalBytesWritten / totalBytesExpectedToWrite) * 100)));
+          }
+        },
+      );
+      const resultado = await download.downloadAsync();
+      if (!resultado?.uri) throw new Error("O PDF não foi baixado.");
       if (Platform.OS === "android") {
         try {
-          const contentUri = await FileSystemLegacy.getContentUriAsync(arquivo.uri);
+          const contentUri = await FileSystemLegacy.getContentUriAsync(resultado.uri);
           await IntentLauncher.startActivityAsync("android.intent.action.VIEW", { data: contentUri, flags: 1, type: "application/pdf" });
           return;
         } catch { /* Abre pelo compartilhamento se não houver visualizador padrão. */ }
       }
-      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(arquivo.uri, { dialogTitle: "Abrir ou salvar fatura", mimeType: "application/pdf", UTI: "com.adobe.pdf" });
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(resultado.uri, { dialogTitle: "Abrir ou salvar fatura", mimeType: "application/pdf", UTI: "com.adobe.pdf" });
       else Alert.alert("Download concluído", "A fatura foi salva no aplicativo.");
     } catch {
       Alert.alert("Não foi possível baixar", "Confira sua conexão e tente novamente.");
-    } finally { setBaixando(undefined); }
+    } finally { setBaixando(undefined); setProgressoDownload(0); }
   }
 
   if (isLoading) return <Loading />;
@@ -162,8 +177,8 @@ export default function Faturas() {
                 <View style={styles.documentType}><Text style={styles.documentLabel}>FATURA ANDRADE ENERGY</Text><Text numberOfLines={1} style={styles.documentCode}>{item.numero_instalacao || item.id}</Text></View>
               </View>
               <View style={styles.downloads}>
-                <DownloadLink label="Concessionária" available={Boolean(item.pdf_cemig_url)} loading={baixando === `cemig-${item.id}`} onPress={() => baixarDocumento(item.pdf_cemig_url, `concessionaria-${referenciaArquivo}.pdf`, `cemig-${item.id}`)} />
-                <DownloadLink label="Unificada" available={Boolean(item.pdf_unificada_url)} loading={baixando === `unificada-${item.id}`} onPress={() => baixarDocumento(item.pdf_unificada_url, `unificada-${referenciaArquivo}.pdf`, `unificada-${item.id}`)} />
+                <DownloadLink label="Concessionária" available={Boolean(item.pdf_cemig_url)} loading={baixando === `cemig-${item.id}`} progress={progressoDownload} onPress={() => baixarDocumento(item.pdf_cemig_url, `concessionaria-${referenciaArquivo}.pdf`, `cemig-${item.id}`)} />
+                <DownloadLink label="Unificada" available={Boolean(item.pdf_unificada_url)} loading={baixando === `unificada-${item.id}`} progress={progressoDownload} onPress={() => baixarDocumento(item.pdf_unificada_url, `unificada-${referenciaArquivo}.pdf`, `unificada-${item.id}`)} />
               </View>
               <TouchableOpacity
                 accessibilityLabel={`Excluir fatura ${item.referencia || ""}`}
@@ -188,8 +203,8 @@ function FilterButton({ active, label, onPress }: { active: boolean; label: stri
   return <TouchableOpacity onPress={onPress} style={[styles.filterButton, active && styles.filterButtonActive]}><Text style={[styles.filterLabel, active && styles.filterLabelActive]}>{label}</Text></TouchableOpacity>;
 }
 
-function DownloadLink({ available, label, loading, onPress }: { available: boolean; label: string; loading: boolean; onPress: () => void }) {
-  return <TouchableOpacity disabled={!available || loading} onPress={(event) => { event.stopPropagation(); onPress(); }} style={[styles.download, !available && styles.downloadUnavailable]}><Ionicons name={loading ? "hourglass-outline" : available ? "download-outline" : "time-outline"} size={17} color={available ? Colors.primary : Colors.subtitle} /><Text style={[styles.downloadText, !available && styles.downloadTextUnavailable]}>{loading ? "Baixando..." : label}</Text></TouchableOpacity>;
+function DownloadLink({ available, label, loading, progress, onPress }: { available: boolean; label: string; loading: boolean; progress: number; onPress: () => void }) {
+  return <TouchableOpacity disabled={!available || loading} onPress={(event) => { event.stopPropagation(); onPress(); }} style={[styles.download, !available && styles.downloadUnavailable]}><Ionicons name={loading ? "hourglass-outline" : available ? "download-outline" : "time-outline"} size={17} color={available ? Colors.primary : Colors.subtitle} /><Text style={[styles.downloadText, !available && styles.downloadTextUnavailable]}>{loading ? `Baixando ${progress}%` : label}</Text></TouchableOpacity>;
 }
 
 const styles = StyleSheet.create({
