@@ -70,11 +70,13 @@ export default function DashboardGestor() {
   const [novoRecebimento, setNovoRecebimento] = useState(false);
   const [importando, setImportando] = useState(false);
   const [baixandoApp, setBaixandoApp] = useState<AppDownload | null>(null);
+  const [progressoApp, setProgressoApp] = useState(0);
   async function baixarApp(tipo: AppDownload) {
     if (baixandoApp) return;
     setBaixandoApp(tipo);
+    setProgressoApp(0);
     try {
-      await baixarAplicativo(tipo);
+      await baixarAplicativo(tipo, setProgressoApp);
     } catch (error: any) {
       Alert.alert(
         "Download não concluído",
@@ -82,6 +84,7 @@ export default function DashboardGestor() {
       );
     } finally {
       setBaixandoApp(null);
+      setProgressoApp(0);
     }
   }
   const [atualizando, setAtualizando] = useState(false);
@@ -218,7 +221,7 @@ export default function DashboardGestor() {
                 label: "App Gerador",
                 value:
                   baixandoApp === "gerador"
-                    ? "Baixando 45 MB..."
+                    ? `Baixando ${progressoApp}%`
                     : "Baixar Android",
                 onPress: () => void baixarApp("gerador"),
               },
@@ -227,7 +230,7 @@ export default function DashboardGestor() {
                 label: "App Consumidor",
                 value:
                   baixandoApp === "consumidor"
-                    ? "Baixando 98 MB..."
+                    ? `Baixando ${progressoApp}%`
                     : "Baixar Android",
                 onPress: () => void baixarApp("consumidor"),
               },

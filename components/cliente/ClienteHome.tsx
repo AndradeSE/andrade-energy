@@ -31,11 +31,13 @@ export default function ClienteHome() {
   const { data, isLoading, error, refetch } = useDashboard();
   const [atualizando, setAtualizando] = useState(false);
   const [baixandoApp, setBaixandoApp] = useState(false);
+  const [progressoApp, setProgressoApp] = useState(0);
   async function baixarApp() {
     if (baixandoApp) return;
     setBaixandoApp(true);
+    setProgressoApp(0);
     try {
-      await baixarAplicativo("consumidor");
+      await baixarAplicativo("consumidor", setProgressoApp);
     } catch (error: any) {
       Alert.alert(
         "Download não concluído",
@@ -43,6 +45,7 @@ export default function ClienteHome() {
       );
     } finally {
       setBaixandoApp(false);
+      setProgressoApp(0);
     }
   }
   async function atualizarPagina() {
@@ -158,7 +161,9 @@ export default function ClienteHome() {
             {
               icon: "download-outline",
               label: "Baixar app",
-              value: baixandoApp ? "Baixando 98 MB..." : "App Consumidor",
+              value: baixandoApp
+                ? `Baixando ${progressoApp}%`
+                : "App Consumidor",
               onPress: () => void baixarApp(),
             },
           ]}

@@ -41,6 +41,8 @@ module.exports = {
         ? "com.andradese.energy.gerador"
         : "com.andradese.energy.consumidor",
 
+      permissions: ["android.permission.REQUEST_INSTALL_PACKAGES"],
+
       predictiveBackGestureEnabled: false,
 
       softwareKeyboardLayoutMode: "resize",

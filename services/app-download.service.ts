@@ -1,4 +1,3 @@
-import { File, Paths } from "expo-file-system";
 import * as FileSystemLegacy from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
@@ -17,15 +16,36 @@ const downloads = {
   },
 } as const;
 
-export async function baixarAplicativo(tipo: AppDownload) {
+export async function baixarAplicativo(
+  tipo: AppDownload,
+  onProgress?: (percentual: number) => void,
+) {
   const app = downloads[tipo];
-  const destino = new File(Paths.cache, app.nome);
-  const arquivo = await File.downloadFileAsync(app.url, destino, {
-    idempotent: true,
-  });
-  if (!arquivo.exists || arquivo.size <= 0) {
+  const destino = `${FileSystemLegacy.cacheDirectory}${Date.now()}-${app.nome}`;
+  onProgress?.(0);
+  const download = FileSystemLegacy.createDownloadResumable(
+    app.url,
+    destino,
+    {},
+    ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
+      if (totalBytesExpectedToWrite <= 0) return;
+      onProgress?.(
+        Math.min(
+          100,
+          Math.round((totalBytesWritten / totalBytesExpectedToWrite) * 100),
+        ),
+      );
+    },
+  );
+  const arquivo = await download.downloadAsync();
+  if (!arquivo?.uri) {
+    throw new Error("O download do instalador não foi concluído.");
+  }
+  const info = await FileSystemLegacy.getInfoAsync(arquivo.uri);
+  if (!info.exists || !("size" in info) || !info.size || info.size <= 0) {
     throw new Error("O arquivo baixado está vazio.");
   }
+  onProgress?.(100);
   if (Platform.OS === "android") {
     const contentUri = await FileSystemLegacy.getContentUriAsync(arquivo.uri);
     await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
@@ -33,7 +53,7 @@ export async function baixarAplicativo(tipo: AppDownload) {
       flags: 1,
       type: "application/vnd.android.package-archive",
     });
-    return arquivo;
+    return info;
   }
   if (!(await Sharing.isAvailableAsync()))
     throw new Error("O instalador não está disponível neste aparelho.");
@@ -42,5 +62,5 @@ export async function baixarAplicativo(tipo: AppDownload) {
     mimeType: "application/vnd.android.package-archive",
     UTI: "public.apk",
   });
-  return arquivo;
+  return info;
 }
