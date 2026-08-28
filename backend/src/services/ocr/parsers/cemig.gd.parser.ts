@@ -3,6 +3,7 @@ import { buscar } from "../regex";
 import { extrairCadastroCemig } from "./cemig.cadastro.parser";
 import { extrairHistoricoConsumo } from "./cemig.historico.parser";
 import { extrairMedicaoCemig } from "./cemig.medicao.parser";
+import { extrairEncargosCemig } from "./cemig.encargos.parser";
 
 function paraNumero(valor: string): number {
   return Number(
@@ -220,6 +221,7 @@ export function parseCemigGD(
 
   const cadastro = extrairCadastroCemig(texto);
   const medicao = extrairMedicaoCemig(texto);
+  const encargosDetalhados = extrairEncargosCemig(texto);
 
   return {
 
@@ -282,6 +284,8 @@ export function parseCemigGD(
     ajusteCustoDisponibilidade,
 
     encargosAdicionais,
+
+    ...encargosDetalhados,
 
     bandeira: buscar(
       texto,

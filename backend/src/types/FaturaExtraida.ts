@@ -93,6 +93,12 @@ export interface FaturaExtraida {
   /** CIP, multas e demais itens que completam o total da conta. */
   encargosAdicionais?: number;
 
+  /** Contribuição/taxa municipal de iluminação pública destacada na conta. */
+  valorIluminacaoPublica?: number;
+
+  /** Soma de ICMS, PASEP e COFINS destacados no resumo fiscal. */
+  valorImpostos?: number;
+
   bandeira: string;
 
   historico: HistoricoConsumo[];

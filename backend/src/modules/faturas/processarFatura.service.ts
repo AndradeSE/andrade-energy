@@ -308,6 +308,10 @@ const fatura = await inserirFatura({
 
   tipo_ligacao: dados.tipoLigacao || null,
 
+  valor_iluminacao_publica: dados.valorIluminacaoPublica ?? 0,
+
+  valor_impostos: dados.valorImpostos ?? 0,
+
   energia_injetada:
     energiaInjetadaCalculada,
 

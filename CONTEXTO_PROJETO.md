@@ -220,3 +220,4 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - Cada item do gráfico pode ser expandido para explicar a origem do valor, sem estimativas artificiais de tributos.
 - A fatura da usina preserva o modelo aprovado em uma única página; a composição foi compactada ao lado da área de pagamento e destaca no centro o valor da fatura Andrade.
 - Leituras anterior/atual, fator, classificação, tensão e tipo de ligação agora são persistidos por competência e recuperados da conta original ao regenerar documentos antigos. Se a conta não informar tensão, o PDF mostra o tipo de ligação sem estimar uma tensão.
+- O demonstrativo passou a usar fundo verde suave, total a pagar em alto contraste e composição detalhada com kWh da usina, disponibilidade, Fio B, iluminação pública e impostos quando encontrados na conta original.

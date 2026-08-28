@@ -2,6 +2,7 @@ import { FaturaExtraida } from "../../../types/FaturaExtraida";
 import { extrairCadastroCemig } from "./cemig.cadastro.parser";
 import { extrairHistoricoConsumo } from "./cemig.historico.parser";
 import { extrairMedicaoCemig } from "./cemig.medicao.parser";
+import { extrairEncargosCemig } from "./cemig.encargos.parser";
 
 export function parseCemigConvencional(
   texto: string
@@ -37,6 +38,7 @@ export function parseCemigConvencional(
   );
   const historico = extrairHistoricoConsumo(texto);
   const medicao = extrairMedicaoCemig(texto);
+  const encargosDetalhados = extrairEncargosCemig(texto);
 
   // Consumo do histórico
   let consumo = 0;
@@ -68,6 +70,7 @@ export function parseCemigConvencional(
   ...medicao,
   tensao,
   classificacao,
+  ...encargosDetalhados,
   energiaCompensada: 0,
 
   saldoAnterior: 0,

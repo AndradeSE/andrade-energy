@@ -175,6 +175,8 @@ async function preencherDadosTecnicosDaContaOriginal(fatura: any) {
       tensao: fatura.tensao || extraida.tensao || null,
       classificacao: fatura.classificacao || extraida.classificacao || null,
       tipo_ligacao: fatura.tipo_ligacao || extraida.tipoLigacao || null,
+      valor_iluminacao_publica: numero(fatura.valor_iluminacao_publica) || extraida.valorIluminacaoPublica || 0,
+      valor_impostos: numero(fatura.valor_impostos) || extraida.valorImpostos || 0,
     };
     if (fatura.id) await supabase.from("faturas").update(tecnicos).eq("id", fatura.id);
     return { ...fatura, ...tecnicos };
@@ -248,18 +250,15 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     const possuiGD2 = temGD2(fatura);
     const disponibilidadeComposicao = numero(fatura.custo_disponibilidade_repassado);
     const fioBComposicao = numero(fatura.diferenca_fio_b_repassada);
-    const demaisConcessionaria = Math.max(0, valorCemig - disponibilidadeComposicao - fioBComposicao);
-    const composicaoTarifaria = (tipo === "USINA"
-      ? [
-          { rotulo: "Fatura Andrade", valor: valorUsina, cor: VERDE },
-          { rotulo: "Economia", valor: economiaReal, cor: "#F5B800" },
-        ]
-      : [
-          { rotulo: "Fatura Andrade", valor: valorUsina, cor: VERDE },
-          { rotulo: "Concessionária", valor: demaisConcessionaria, cor: "#0C9ABE" },
-          { rotulo: "Disponibilidade", valor: disponibilidadeComposicao, cor: "#F59E0B" },
-          { rotulo: "Fio B", valor: fioBComposicao, cor: "#376BC7" },
-        ]).filter((item) => item.valor > 0);
+    const iluminacaoPublica = numero(fatura.valor_iluminacao_publica);
+    const impostos = numero(fatura.valor_impostos);
+    const composicaoTarifaria = [
+      { rotulo: "Energia da usina", valor: valorUsina, cor: VERDE, complemento: energia(energiaCobrada) },
+      { rotulo: "Disponibilidade", valor: disponibilidadeComposicao, cor: "#F59E0B", complemento: null },
+      { rotulo: "Fio B", valor: fioBComposicao, cor: "#376BC7", complemento: null },
+      { rotulo: "Iluminação pública", valor: iluminacaoPublica, cor: "#8B5CF6", complemento: null },
+      { rotulo: "Impostos", valor: impostos, cor: "#D94B22", complemento: null },
+    ].filter((item) => item.valor > 0);
     const totalComposicao = composicaoTarifaria.reduce((soma, item) => soma + item.valor, 0);
     const y = { cabecalho: 0, dados: 132, total: 272, aviso: 396, composicao: 438, inferior: 548, creditos: 692 };
     const verdeCabecalho = "#063C25";
@@ -269,6 +268,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     };
 
     // Cabeçalho compacto do modelo aprovado.
+    pdf.rect(0, 0, 595, 842).fill("#E9F1ED");
     pdf.rect(0, 0, 595, 116).fill(verdeCabecalho);
     // A arte oficial da primeira versão preserva o símbolo, tipografia e
     // espaçamento do logotipo no cabeçalho da fatura.
@@ -317,16 +317,17 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(7.4).text(`Consumo faturado: ${energia(consumoKwh)}`, 298, y.dados + 89);
 
     // Painel principal: total domina, comparação fica secundária.
-    desenharCartao(48, y.total, LARGURA, 112, "#F8FCF9");
-    pdf.strokeColor(BORDA).moveTo(297, y.total + 20).lineTo(297, y.total + 95).stroke();
-    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8).text("TOTAL A PAGAR", 67, y.total + 18);
-    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(27).text(moeda(valorTotal), 67, y.total + 32);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.8).text(documentoUnificado ? "Valor referente à fatura unificada." : "Valor referente à Andrade Energy.", 67, y.total + 61);
-    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8).text("SEM ANDRADE ENERGY", 318, y.total + 18);
-    pdf.fillColor("#73827C").font("Helvetica-Bold").fontSize(18).text(moeda(valorSemAndrade), 318, y.total + 32);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7).text(`Economia: ${moeda(economiaReal)}`, 318, y.total + 57);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.2).text(`Desconto contratado: ${percentual(descontoContratado)}`, 318, y.total + 68);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(6.2).text(`Desconto após impostos: ${percentual(descontoReal)}`, 318, y.total + 78);
+    desenharCartao(48, y.total, LARGURA, 112, VERDE_ESCURO);
+    pdf.strokeColor("#4D8A76").moveTo(297, y.total + 20).lineTo(297, y.total + 95).stroke();
+    pdf.fillColor("#F6CC32").font("Helvetica-Bold").fontSize(8.5).text("TOTAL A PAGAR", 67, y.total + 17);
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(29).text(moeda(valorTotal), 67, y.total + 31);
+    pdf.fillColor("#D8EEE6").font("Helvetica").fontSize(6.8).text(documentoUnificado ? "Valor referente à fatura unificada." : "Valor referente à Andrade Energy.", 67, y.total + 66);
+    pdf.fillOpacity(0.09).roundedRect(310, y.total + 12, 221, 88, 7).fill("#FFFFFF").fillOpacity(1);
+    pdf.fillColor("#D8EEE6").font("Helvetica-Bold").fontSize(8).text("SEM ANDRADE ENERGY", 326, y.total + 19);
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(18).text(moeda(valorSemAndrade), 326, y.total + 33);
+    pdf.fillColor("#F6CC32").font("Helvetica-Bold").fontSize(7).text(`Economia: ${moeda(economiaReal)}`, 326, y.total + 58);
+    pdf.fillColor("#D8EEE6").font("Helvetica").fontSize(6.2).text(`Desconto contratado: ${percentual(descontoContratado)}`, 326, y.total + 69);
+    pdf.fillColor("#D8EEE6").font("Helvetica-Bold").fontSize(6.2).text(`Desconto após impostos: ${percentual(descontoReal)}`, 326, y.total + 79);
 
     if (possuiGD2) {
       pdf.roundedRect(48, y.aviso, LARGURA, 22, 6).fill("#FFF7E7");
@@ -355,7 +356,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     });
 
     // Composição da cobrança e área de pagamento lado a lado.
-    desenharCartao(48, y.inferior, 238, 143, "#FBFAF4");
+    desenharCartao(48, y.inferior, 238, 143, "#F7F1DF");
     desenharCartao(305, y.inferior, 241, 143, "#F2F7F3");
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8).text("COMPOSIÇÃO DA FATURA", 61, y.inferior + 12);
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8).text("PAGAMENTO", 318, y.inferior + 12);
@@ -371,14 +372,14 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(4.8).text("FATURA ANDRADE", 77, y.inferior + 72, { width: 68, align: "center" });
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(7.5).text(moeda(valorUsina), 69, y.inferior + 82, { width: 84, align: "center" });
     composicaoTarifaria.forEach((item, indice) => {
-      const top = y.inferior + 35 + indice * 23;
+      const top = y.inferior + 31 + indice * 18.5;
       const proporcao = totalComposicao > 0 ? item.valor / totalComposicao * 100 : 0;
-      pdf.roundedRect(166, top + 2, 7, 15, 2).fill(item.cor);
-      pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(5.5).text(item.rotulo, 179, top, { width: 91 });
-      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text(moeda(item.valor), 179, top + 9, { width: 62 });
-      pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(5.2).text(percentual(proporcao), 239, top + 10, { width: 32, align: "right" });
+      pdf.roundedRect(166, top + 1, 7, 14, 2).fill(item.cor);
+      pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(5.2).text(item.rotulo, 179, top, { width: 91 });
+      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(5.8).text(`${item.complemento ? `${item.complemento} · ` : ""}${moeda(item.valor)}`, 179, top + 8, { width: 89 });
+      pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(4.8).text(percentual(proporcao), 242, top + 1, { width: 29, align: "right" });
     });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(5).text("Valores efetivamente aplicados nesta competência", 61, y.inferior + 126, { width: 210, align: "center" });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(4.7).text("Tributos podem estar embutidos nas tarifas; percentuais consideram os itens detalhados.", 61, y.inferior + 124, { width: 210, align: "center" });
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text("PAGUE COM PIX", 322, y.inferior + 28);
     pdf.roundedRect(322, y.inferior + 40, 70, 70, 3).fill("#FFFFFF");
     if (imagemQrCode) {
