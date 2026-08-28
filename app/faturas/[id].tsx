@@ -693,8 +693,9 @@ const styles = StyleSheet.create({
   },
   energyMetric: {
     width: "50%",
-    minHeight: 86,
+    minHeight: 98,
     padding: Spacing.sm,
+    justifyContent: "flex-start",
     borderRightWidth: 1,
     borderBottomWidth: 1,
     borderColor: Colors.border,
@@ -707,15 +708,20 @@ const styles = StyleSheet.create({
   },
   energyMetricLabel: {
     marginTop: 6,
+    minHeight: 28,
     color: Colors.subtitle,
     fontSize: 10,
     fontWeight: "700",
+    lineHeight: 14,
+    textAlign: "center",
   },
   energyMetricValue: {
-    marginTop: 3,
+    marginTop: 6,
     color: Colors.text,
     fontSize: Typography.body,
     fontWeight: "900",
+    lineHeight: 22,
+    textAlign: "center",
   },
   energyMetricValueHighlight: {
     color: Colors.primaryDark,

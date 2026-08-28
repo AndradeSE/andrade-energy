@@ -17,7 +17,47 @@ export async function obterEmpresaAtual(usuario: any) {
   const empresaId = empresaIdDoUsuario(usuario);
   const { data, error } = await supabase.from("empresas").select("*").eq("id", empresaId).eq("ativo", true).maybeSingle();
   if (error) throw error;
-  return data ?? IDENTIDADE_ANDRADE;
+  const base = data ?? IDENTIDADE_ANDRADE;
+  if (String(usuario?.perfil).toUpperCase() !== "GESTOR") return base;
+  const { data: identidade, error: erroIdentidade } = await supabase.from("identidades_geradores").select("*").eq("gerador_id", usuario.id).eq("ativo", true).maybeSingle();
+  if (erroIdentidade) throw erroIdentidade;
+  return identidade ? { ...base, ...identidade, id: base.id, slug: base.slug, identidade_personalizada: true, identidade_gerador: true, tecnologia_andrade_energy: true } : base;
+}
+
+async function assinaturaPermiteIdentidade(geradorId: string) {
+  const { data, error } = await supabase.from("assinaturas_geradores").select("id,status").eq("gerador_id", geradorId).in("status", ["ATIVA", "TESTE"]).order("criado_em", { ascending: false }).limit(1).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function obterMinhaIdentidade(usuario: any) {
+  if (String(usuario?.perfil).toUpperCase() !== "GESTOR") throw new Error("A identidade própria está disponível para contas geradoras.");
+  const assinatura = await assinaturaPermiteIdentidade(String(usuario.id));
+  const { data, error } = await supabase.from("identidades_geradores").select("*").eq("gerador_id", usuario.id).maybeSingle();
+  if (error) throw error;
+  return { identidade: data, liberada: Boolean(assinatura), assinaturaStatus: assinatura?.status ?? null, padrao: IDENTIDADE_ANDRADE };
+}
+
+export async function salvarMinhaIdentidade(input: any, usuario: any) {
+  if (String(usuario?.perfil).toUpperCase() !== "GESTOR") throw new Error("A identidade própria está disponível para contas geradoras.");
+  if (!(await assinaturaPermiteIdentidade(String(usuario.id)))) throw new Error("Ative sua assinatura ou período de teste para personalizar a identidade.");
+  const nome = String(input?.nome ?? "").trim();
+  if (!nome) throw new Error("Informe o nome comercial.");
+  const payload = {
+    gerador_id: usuario.id,
+    nome,
+    logo_url: String(input?.logoUrl ?? "").trim() || null,
+    cor_primaria: corValida(input?.corPrimaria, IDENTIDADE_ANDRADE.cor_primaria),
+    cor_secundaria: corValida(input?.corSecundaria, IDENTIDADE_ANDRADE.cor_secundaria),
+    email_suporte: String(input?.emailSuporte ?? "").trim().toLowerCase() || null,
+    telefone_suporte: String(input?.telefoneSuporte ?? "").replace(/\D/g, "") || null,
+    dominio: String(input?.dominio ?? "").trim().toLowerCase() || null,
+    ativo: input?.ativo !== false,
+    atualizado_em: new Date().toISOString(),
+  };
+  const { data, error } = await supabase.from("identidades_geradores").upsert(payload, { onConflict: "gerador_id" }).select("*").single();
+  if (error) throw error;
+  return { ...data, identidade_personalizada: true, identidade_gerador: true, tecnologia_andrade_energy: true };
 }
 
 export async function listarEmpresas(usuario: any) {

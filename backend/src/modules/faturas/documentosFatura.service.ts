@@ -335,22 +335,26 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
 
     const miniCards = [["SALDO ATUAL\nDE CRÉDITOS", energia(saldoCreditos)], ["CRÉDITOS\nGERADOS (MÊS)", energia(energiaInjetada)], ["CRÉDITOS\nUSADOS (MÊS)", energia(energiaCompensada)], ["PRÓXIMA\nLEITURA", fatura.proxima_leitura ?? "A confirmar"]];
     const espacamentoMiniCards = 8;
-    const larguraMiniCard = (LARGURA - espacamentoMiniCards * 3) / 4;
+    // Larguras inteiras evitam que o PDF arredonde cada coluna de forma diferente.
+    const largurasMiniCards = [118, 118, 118, 120];
+    let xMiniCard = 48;
     miniCards.forEach(([titulo, valor], indice) => {
-      const x = 48 + indice * (larguraMiniCard + espacamentoMiniCards);
-      desenharCartao(x, y.creditos, larguraMiniCard, 62, indice % 2 === 0 ? "#F2F8F4" : "#FBF8EE");
+      const larguraMiniCard = largurasMiniCards[indice];
+      const x = xMiniCard;
+      desenharCartao(x, y.creditos, larguraMiniCard, 66, indice % 2 === 0 ? "#F2F8F4" : "#FBF8EE");
       pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text(titulo, x + 10, y.creditos + 10, {
         width: larguraMiniCard - 24,
-        height: 22,
+        height: 24,
         lineGap: 1,
         align: "center",
       });
-      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8.5).text(valor, x + 7, y.creditos + 39, {
+      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8.5).text(valor, x + 7, y.creditos + 43, {
         width: larguraMiniCard - 14,
         height: 14,
         align: "center",
         lineBreak: false,
       });
+      xMiniCard += larguraMiniCard + espacamentoMiniCards;
     });
     pdf.rect(48, 773, LARGURA, 14).fill("#EFF6F1");
     pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.8).text("Você escolhe economia. O planeta agradece.    |    Atendimento Andrade Energy", 61, 777, { width: 470, align: "center" });
