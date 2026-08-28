@@ -62,9 +62,6 @@ export default function ContratoDaUnidade() {
   const [locadorNome, setLocadorNome] = useState("Andrade Energy");
   const [locadorDocumento, setLocadorDocumento] = useState("");
   const [locadorEndereco, setLocadorEndereco] = useState("");
-  const [locatarioNome, setLocatarioNome] = useState("");
-  const [locatarioDocumento, setLocatarioDocumento] = useState("");
-  const [enderecoUc, setEnderecoUc] = useState("");
   const [prazoAnos, setPrazoAnos] = useState("10");
   const [foro, setForo] = useState("Itajubá/MG");
   const [gerando, setGerando] = useState(false);
@@ -114,9 +111,6 @@ export default function ContratoDaUnidade() {
         setLocadorNome(contrato.dados_documento?.locador_nome ?? "Andrade Energy");
         setLocadorDocumento(contrato.dados_documento?.locador_documento ?? "");
         setLocadorEndereco(contrato.dados_documento?.locador_endereco ?? "");
-        setLocatarioNome(contrato.dados_documento?.locatario_nome ?? unidadeCarregada?.clientes?.nome ?? cliente ?? "");
-        setLocatarioDocumento(contrato.dados_documento?.locatario_documento ?? unidadeCarregada?.clientes?.cpf ?? unidadeCarregada?.cpf_titular ?? "");
-        setEnderecoUc(contrato.dados_documento?.endereco_uc ?? unidadeCarregada?.endereco ?? unidadeCarregada?.clientes?.endereco ?? "");
         setPrazoAnos(String(contrato.dados_documento?.prazo_anos ?? "10"));
         setForo(contrato.dados_documento?.foro ?? "Itajubá/MG");
         setContratoGeradoUrl(contrato.contrato_gerado_url ?? undefined);
@@ -127,13 +121,6 @@ export default function ContratoDaUnidade() {
       })
       .finally(() => setCarregando(false));
   }, [clienteId, id]);
-
-  useEffect(() => {
-    if (!unidade) return;
-    setLocatarioNome((valor) => valor || unidade.clientes?.nome || cliente || "");
-    setLocatarioDocumento((valor) => valor || unidade.clientes?.cpf || unidade.cpf_titular || "");
-    setEnderecoUc((valor) => valor || unidade.endereco || unidade.clientes?.endereco || "");
-  }, [cliente, unidade]);
 
   function atualizarEconomiaMensal(valor: string) {
     const limpa = valor.replace(/[^\d,.]/g, "");
@@ -160,11 +147,6 @@ export default function ContratoDaUnidade() {
         locador_endereco: locadorEndereco,
         prazo_anos: prazoAnos,
         foro,
-        locatario_nome: locatarioNome.trim(),
-        locatario_documento: locatarioDocumento.trim(),
-        // Não salvamos o texto de ausência: assim a minuta pode usar o
-        // endereço extraído da última conta da concessionária, se necessário.
-        endereco_uc: enderecoUc.trim(),
       },
     };
   }
@@ -238,7 +220,7 @@ export default function ContratoDaUnidade() {
   const dadosCliente = unidade?.clientes;
   const numeroUc = unidade?.numero ?? numero ?? "Não informado";
   const concessionaria = unidade?.distribuidora ?? "Não informada";
-  const enderecoContrato = unidade?.endereco ?? dadosCliente?.endereco ?? "Endereço não informado";
+  const enderecoContrato = dadosCliente?.endereco ?? "Endereço não informado";
   const nomeCliente = dadosCliente?.nome ?? cliente ?? "Cliente não informado";
   const usinaVinculada = unidade?.usinas?.nome ?? unidade?.usina_nome ?? (unidade?.usina_id ? "Usina vinculada" : "Não informada");
 
@@ -262,16 +244,16 @@ export default function ContratoDaUnidade() {
 
         <Text style={styles.sectionTitle}>RESUMO CADASTRAL</Text>
         <Card style={styles.partyCard}>
-          <Text style={styles.partyIntro}>Estes dados vêm do cadastro da UC e serão usados para preencher a minuta.</Text>
+          <Text style={styles.partyIntro}>Estes dados vêm do cadastro vigente do consumidor e serão usados para preencher a minuta.</Text>
           <View style={styles.infoGrid}>
             <InfoContrato label="Cliente" value={nomeCliente} wide />
-            <InfoContrato label="CPF (início)" value={primeirosDigitosDocumento(dadosCliente?.cpf ?? unidade?.cpf_titular)} />
+            <InfoContrato label="CPF (início)" value={primeirosDigitosDocumento(dadosCliente?.cpf)} />
             <InfoContrato label="Concessionária" value={concessionaria} />
             <InfoContrato label="Unidade consumidora" value={`UC ${numeroUc}`} />
             <InfoContrato label="Usina vinculada" value={usinaVinculada} />
-            <InfoContrato label="Endereço da UC" value={enderecoContrato} wide />
+            <InfoContrato label="Endereço do consumidor" value={enderecoContrato} wide />
           </View>
-          <Text style={styles.editHint}>Para corrigir algum item, use Configurar UC ou Editar cliente antes de gerar a minuta.</Text>
+          <Text style={styles.editHint}>Para corrigir nome, CPF ou endereço, use Editar cliente antes de gerar a minuta.</Text>
         </Card>
 
         <Text style={styles.sectionTitle}>DADOS DO LOCADOR E VIGÊNCIA</Text>
@@ -281,14 +263,6 @@ export default function ContratoDaUnidade() {
           <FormField label="Endereço do locador" value={locadorEndereco} onChangeText={setLocadorEndereco} placeholder="Endereço completo" />
           <FormField label="Prazo do contrato (anos)" value={prazoAnos} onChangeText={(valor) => setPrazoAnos(valor.replace(/\D/g, ""))} keyboardType="number-pad" placeholder="10" />
           <FormField label="Foro" value={foro} onChangeText={setForo} placeholder="Cidade/UF" />
-        </Card>
-
-        <Text style={styles.sectionTitle}>DADOS DA FATURA NO CONTRATO</Text>
-        <Card style={styles.formCard}>
-          <Text style={styles.formHint}>Você pode corrigir estes dados para esta minuta sem alterar o cadastro da unidade.</Text>
-          <FormField label="Nome do titular / locatário" value={locatarioNome} onChangeText={setLocatarioNome} placeholder="Nome completo" />
-          <FormField label="CPF/CNPJ do titular" value={locatarioDocumento} onChangeText={setLocatarioDocumento} placeholder="Documento do titular" keyboardType="numbers-and-punctuation" />
-          <FormField label="Endereço da unidade consumidora" value={enderecoUc} onChangeText={setEnderecoUc} placeholder="Endereço conforme a conta de energia" multiline numberOfLines={3} textAlignVertical="top" />
         </Card>
 
         <Card>

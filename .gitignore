@@ -46,6 +46,10 @@ app-example
 # generated native folders
 /ios
 /android
+.local-android/
+.codex-eas-*/
+/b/
+/builds-local/
 backend/uploads/
 supabase/.temp/
 *.rar
