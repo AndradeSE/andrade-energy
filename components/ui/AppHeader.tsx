@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { Alert, Modal, Pressable, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Image, Modal, Pressable, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -12,6 +12,14 @@ import { buscarDashboardUsina } from "../../services/usinas.service";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import PortalBrandLogo from "../brand/PortalBrandLogo";
+import { useEmpresa } from "../../contexts/EmpresaContext";
+
+function escurecerCor(hex: string, fator = 0.62) {
+  const limpa = hex.replace("#", "");
+  if (!/^[0-9a-f]{6}$/i.test(limpa)) return "#082F26";
+  const canais = [0, 2, 4].map((inicio) => Math.round(parseInt(limpa.slice(inicio, inicio + 2), 16) * fator));
+  return `#${canais.map((canal) => canal.toString(16).padStart(2, "0")).join("")}`;
+}
 
 type Props = {
   title: string;
@@ -41,6 +49,9 @@ export default function AppHeader({
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { logout, usuario, usinaSelecionada } = useAuth();
+  const { empresa } = useEmpresa();
+  const corPrincipal = empresa.cor_primaria || Colors.primary;
+  const corEscura = escurecerCor(corPrincipal);
   const [menuAberto, setMenuAberto] = useState(false);
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
   const [notificacoes, setNotificacoes] = useState<any[]>([]);
@@ -130,8 +141,8 @@ export default function AppHeader({
   }
 
   return (
-    <LinearGradient colors={["#082F26", "#0B4A39", "#0A5B43"]} end={{ x: 1, y: 0.85 }} start={{ x: 0, y: 0 }} style={[styles.container, { marginTop: -insets.top, paddingTop: insets.top + Spacing.md }]}>
-      <StatusBar backgroundColor="#082F26" barStyle="light-content" />
+    <LinearGradient colors={[corEscura, corPrincipal, corPrincipal]} end={{ x: 1, y: 0.85 }} start={{ x: 0, y: 0 }} style={[styles.container, { marginTop: -insets.top, paddingTop: insets.top + Spacing.md }]}>
+      <StatusBar backgroundColor={corEscura} barStyle="light-content" />
       <View style={styles.top}>
         <TouchableOpacity
           accessibilityLabel="Abrir menu"
@@ -143,7 +154,7 @@ export default function AppHeader({
         </TouchableOpacity>
 
         <TouchableOpacity accessibilityLabel="Abrir perfil" activeOpacity={0.8} onPress={() => router.push("/perfil")} style={styles.profileButton}>
-          <View style={styles.avatar}><Ionicons name={icon} size={21} color={Colors.surface} /></View>
+          <View style={[styles.avatar, { backgroundColor: corPrincipal }]}><Ionicons name={icon} size={21} color={Colors.surface} /></View>
           <View style={styles.titleContent}>
             <Text numberOfLines={1} style={styles.sectionLabel}>{title} · {subtitle}</Text>
             <View style={styles.contextTitleRow}>
@@ -178,7 +189,9 @@ export default function AppHeader({
 
       {showPlantContext && proprietario && usinaSelecionada ? <View style={styles.plantBar}>
         <View style={styles.plantLogo}>
-          <PortalBrandLogo height={30} width={90} />
+          {empresa.identidade_personalizada && empresa.logo_url
+            ? <Image resizeMode="contain" source={{ uri: empresa.logo_url }} style={styles.companyLogo} />
+            : <PortalBrandLogo height={30} width={90} />}
         </View>
         <View style={styles.plantText}><Text numberOfLines={1} style={styles.plantName}>{usinaSelecionada.nome}</Text><Text numberOfLines={1} style={styles.plantAutonomy}>{autonomia ? `Autonomia ${autonomia.percentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% · ${autonomia.disponivel.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kWh disponíveis` : "Calculando autonomia..."}</Text></View>
       </View> : null}
@@ -311,6 +324,7 @@ const styles = StyleSheet.create({
   notificationBadgeText: { color: Colors.surface, fontSize: 10, fontWeight: "800" },
   plantBar: { flexDirection: "row", alignItems: "center", marginTop: Spacing.md, padding: Spacing.xs, borderRadius: Radius.md, backgroundColor: "rgba(255,255,255,0.12)" },
   plantLogo: { width: 94, height: 36, alignItems: "center", justifyContent: "center", marginRight: Spacing.xs },
+  companyLogo: { width: 90, height: 30 },
   plantText: { flex: 1 },
   plantName: { color: Colors.surface, fontSize: Typography.small, fontWeight: "800" },
   plantAutonomy: { marginTop: 1, color: "rgba(255,255,255,0.78)", fontSize: 11 },

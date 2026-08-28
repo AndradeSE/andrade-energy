@@ -16,6 +16,7 @@ import {
 
 import { Colors } from "../theme";
 import BiometricLock from "./biometric-lock";
+import { EmpresaProvider } from "../contexts/EmpresaContext";
 
 /*
  * React Query
@@ -339,7 +340,9 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.root}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <RootNavigator />
+          <EmpresaProvider>
+            <RootNavigator />
+          </EmpresaProvider>
         </AuthProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>

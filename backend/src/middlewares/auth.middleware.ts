@@ -3,6 +3,7 @@ import { NextFunction, Request, Response } from "express";
 import { supabase } from "../config/supabase";
 import { hashToken } from "../utils/token";
 import { empresaIdDoUsuario } from "../config/empresa";
+import { EMPRESA_ANDRADE_ID } from "../config/empresa";
 
 export async function exigirAutenticacao(req: Request, res: Response, next: NextFunction) {
   const token = req.headers.authorization?.replace(/^Bearer\s+/i, "").trim();
@@ -34,6 +35,14 @@ export function exigirGestor(req: Request, res: Response, next: NextFunction) {
 export function exigirAdministrador(req: Request, res: Response, next: NextFunction) {
   if ((req as any).usuario?.perfil !== "ADMIN") {
     return res.status(403).json({ message: "Apenas a conta administradora pode convidar novos geradores." });
+  }
+  return next();
+}
+
+export function exigirSuperAdministradorAndrade(req: Request, res: Response, next: NextFunction) {
+  const usuario = (req as any).usuario;
+  if (usuario?.perfil !== "ADMIN" || empresaIdDoUsuario(usuario) !== EMPRESA_ANDRADE_ID) {
+    return res.status(403).json({ message: "Acesso exclusivo da administração Andrade Energy." });
   }
   return next();
 }

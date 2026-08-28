@@ -1,11 +1,11 @@
 import { Router } from "express";
-import { exigirAdministrador, exigirAutenticacao } from "../../middlewares/auth.middleware";
+import { exigirAutenticacao, exigirSuperAdministradorAndrade } from "../../middlewares/auth.middleware";
 import * as controller from "./comercial.controller";
 
 const router = Router();
 router.get("/minha-assinatura", exigirAutenticacao, controller.minhaAssinatura);
 router.post("/minha-assinatura/checkout", exigirAutenticacao, controller.checkoutMinhaAssinatura);
-router.use(exigirAutenticacao, exigirAdministrador);
+router.use(exigirAutenticacao, exigirSuperAdministradorAndrade);
 router.get("/painel", controller.painel);
 router.post("/planos", controller.criarPlano);
 router.put("/planos/:id", controller.atualizarPlano);

@@ -82,6 +82,8 @@ export type AuthUsuario = {
 
   telefone?: string;
 
+  empresa_id?: string;
+
   [key: string]: any;
 };
 

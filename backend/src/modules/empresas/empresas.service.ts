@@ -21,7 +21,7 @@ export async function obterEmpresaAtual(usuario: any) {
 }
 
 export async function listarEmpresas(usuario: any) {
-  if (usuario?.perfil !== "ADMIN") throw new Error("Acesso exclusivo da administração Andrade Energy.");
+  if (usuario?.perfil !== "ADMIN" || empresaIdDoUsuario(usuario) !== EMPRESA_ANDRADE_ID) throw new Error("Acesso exclusivo da administração Andrade Energy.");
   const { data, error } = await supabase.from("empresas").select("*").order("empresa_proprietaria", { ascending: false }).order("nome");
   if (error) throw error;
   return data ?? [];
