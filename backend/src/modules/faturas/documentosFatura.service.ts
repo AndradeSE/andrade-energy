@@ -233,6 +233,8 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(11).text(dataBrasileira(fatura.vencimento), 480, 55);
 
     // Identificação do titular e da unidade.
+    desenharCartao(38, y.dados - 8, 230, 112, "#FBF7EC");
+    desenharCartao(288, y.dados - 8, 269, 112, "#F2F7F3");
     pdf.strokeColor(BORDA).lineWidth(0.7).moveTo(278, y.dados).lineTo(278, 255).stroke();
     pdf.circle(59, y.dados + 8, 7).fill(VERDE_ESCURO);
     pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(7).text("i", 57.4, y.dados + 4);
@@ -277,7 +279,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
       : [["1", "ENERGIA CONSIDERADA", energia(energiaCobrada)], ["2", "TARIFA ANDRADE", moeda(tarifaAndrade)], ["3", "TOTAL ANDRADE", moeda(valorTotal)]];
     cards.forEach(([ordem, titulo, valor], indice) => {
       const x = 48 + indice * 169;
-      desenharCartao(x, y.composicao, 151, 78);
+      desenharCartao(x, y.composicao, 151, 78, indice === 1 ? "#F2F7F3" : "#FBFAF4");
       pdf.circle(x + 17, y.composicao + 17, 10).fill(VERDE_ESCURO);
       pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(8).text(ordem, x + 14.5, y.composicao + 13);
       pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(6.4).text(titulo, x + 35, y.composicao + 13, { width: 104 });
@@ -289,8 +291,8 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     });
 
     // Gráfico de economia e área de pagamento lado a lado.
-    desenharCartao(48, y.inferior, 238, 143);
-    desenharCartao(305, y.inferior, 241, 143);
+    desenharCartao(48, y.inferior, 238, 143, "#FBFAF4");
+    desenharCartao(305, y.inferior, 241, 143, "#F2F7F3");
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8).text("ECONOMIA MENSAL", 61, y.inferior + 12);
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8).text("PAGAMENTO", 318, y.inferior + 12);
     const ultimasEconomias: number[] = historicoEconomia.slice(-6).map((item: any): number => numero(item?.economia_real ?? item?.economia ?? item));
@@ -336,16 +338,18 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     const larguraMiniCard = (LARGURA - espacamentoMiniCards * 3) / 4;
     miniCards.forEach(([titulo, valor], indice) => {
       const x = 48 + indice * (larguraMiniCard + espacamentoMiniCards);
-      desenharCartao(x, y.creditos, larguraMiniCard, 62, indice === 0 ? "#F2FAF5" : "#FFFFFF");
-      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text(titulo, x + 12, y.creditos + 11, {
+      desenharCartao(x, y.creditos, larguraMiniCard, 62, indice % 2 === 0 ? "#F2F8F4" : "#FBF8EE");
+      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text(titulo, x + 10, y.creditos + 10, {
         width: larguraMiniCard - 24,
-        height: 20,
+        height: 22,
         lineGap: 1,
+        align: "center",
       });
-      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(indice === 0 ? 11 : 8.5).text(valor, x + 10, y.creditos + 38, {
-        width: larguraMiniCard - 20,
+      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8.5).text(valor, x + 7, y.creditos + 39, {
+        width: larguraMiniCard - 14,
         height: 14,
         align: "center",
+        lineBreak: false,
       });
     });
     pdf.rect(48, 773, LARGURA, 14).fill("#EFF6F1");
