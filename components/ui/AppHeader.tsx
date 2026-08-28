@@ -124,19 +124,19 @@ export default function AppHeader({
 
   if (variant === "subpage") {
     return (
-      <View style={styles.subpageHeader}>
-        <StatusBar backgroundColor={Colors.surface} barStyle="dark-content" />
+      <LinearGradient colors={[corEscura, corPrincipal]} end={{ x: 1, y: 0.8 }} start={{ x: 0, y: 0 }} style={[styles.subpageHeader, { marginTop: -insets.top, paddingTop: insets.top + 8 }]}>
+        <StatusBar backgroundColor={corEscura} barStyle="light-content" />
         <TouchableOpacity accessibilityLabel="Voltar" activeOpacity={0.75} onPress={() => router.back()} style={styles.subpageBack}>
-          <Ionicons name="chevron-back" size={24} color={Colors.text} />
+          <Ionicons name="chevron-back" size={24} color="#FFF" />
         </TouchableOpacity>
-        <View style={styles.subpageIcon}>
-          <Ionicons name={icon} size={20} color={Colors.primary} />
+        <View style={[styles.subpageIcon, { backgroundColor: "rgba(255,255,255,.14)" }]}>
+          <Ionicons name={icon} size={20} color={empresa.cor_secundaria || "#F7D75C"} />
         </View>
         <View style={styles.subpageCopy}>
           <Text numberOfLines={1} style={styles.subpageTitle}>{title}</Text>
           <Text numberOfLines={1} style={styles.subpageSubtitle}>{subtitle}</Text>
         </View>
-      </View>
+      </LinearGradient>
     );
   }
 
@@ -201,7 +201,7 @@ export default function AppHeader({
           <Pressable style={styles.menu} onPress={(evento) => evento.stopPropagation()}>
             <View style={styles.menuHeader}><Text style={styles.menuTitle}>Menu</Text><TouchableOpacity onPress={() => setMenuAberto(false)}><Ionicons name="close" size={26} color={Colors.text} /></TouchableOpacity></View>
             <MenuLink icon="home-outline" label="Início" onPress={() => navegar("/")} />
-            {proprietario ? <><MenuLink icon="card-outline" label="Minha assinatura" onPress={() => navegar("/assinatura")} /><MenuLink icon="people-outline" label="Clientes" onPress={() => navegar("/clientes")} /><MenuLink icon="business-outline" label="Usinas" onPress={() => navegar("/usinas")} /><MenuLink icon="flash-outline" label="Unidades consumidoras" onPress={() => navegar("/unidades")} /><MenuLink icon="document-text-outline" label="Contratos dos clientes" onPress={() => navegar("/contratos")} /><MenuLink icon="wallet-outline" label="Financeiro" onPress={() => navegar("/financeiro")} /></> : <><MenuLink icon="receipt-outline" label="Minhas faturas" onPress={() => navegar("/faturas")} /><MenuLink icon="document-text-outline" label="Meu contrato" onPress={() => navegar("/contrato")} /></>}
+            {proprietario ? <><MenuLink icon="card-outline" label="Minha assinatura" onPress={() => navegar("/assinatura")} /><MenuLink icon="people-outline" label="Clientes" onPress={() => navegar("/clientes")} /><MenuLink icon="business-outline" label="Usinas" onPress={() => navegar("/usinas")} /><MenuLink icon="flash-outline" label="Unidades consumidoras" onPress={() => navegar("/unidades")} /><MenuLink icon="document-text-outline" label="Contratos dos clientes" onPress={() => navegar("/contratos")} /><MenuLink icon="wallet-outline" label="Financeiro" onPress={() => navegar("/financeiro")} />{usuario?.perfil === "ADMIN" ? <MenuLink icon="layers-outline" label="Empresas parceiras" onPress={() => navegar("/admin/empresas")} /> : null}</> : <><MenuLink icon="receipt-outline" label="Minhas faturas" onPress={() => navegar("/faturas")} /><MenuLink icon="document-text-outline" label="Meu contrato" onPress={() => navegar("/contrato")} /></>}
             <MenuLink icon="person-outline" label="Perfil" onPress={() => navegar("/perfil")} />
             <View style={styles.menuDivider} /><MenuLink icon="log-out-outline" label="Sair da conta" danger onPress={confirmarSaida} />
           </Pressable>
@@ -221,9 +221,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    backgroundColor: Colors.surface,
+    paddingBottom: 8,
   },
   subpageBack: {
     width: 40,
@@ -232,7 +230,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: Spacing.xs,
     borderRadius: Radius.round,
-    backgroundColor: Colors.background,
+    backgroundColor: "rgba(255,255,255,.12)",
   },
   subpageIcon: {
     width: 38,
@@ -244,8 +242,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryLight,
   },
   subpageCopy: { flex: 1, minWidth: 0 },
-  subpageTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "800" },
-  subpageSubtitle: { marginTop: 2, color: Colors.subtitle, fontSize: Typography.small },
+  subpageTitle: { color: "#FFF", fontSize: Typography.body, fontWeight: "800" },
+  subpageSubtitle: { marginTop: 2, color: "rgba(255,255,255,.78)", fontSize: Typography.small },
   container: {
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.lg,

@@ -182,6 +182,14 @@ export default function HomeComercial() {
               }}
             />
             <DrawerLink
+              icon="layers-outline"
+              label="Empresas parceiras"
+              onPress={() => {
+                setMenuAberto(false);
+                router.push("/admin/empresas" as any);
+              }}
+            />
+            <DrawerLink
               icon="person-add-outline"
               label="Convidar gerador"
               onPress={() => {
@@ -383,6 +391,12 @@ export default function HomeComercial() {
                     pathname: "/geradores/gestao",
                     params: { aba: "PAGAMENTOS" },
                   } as any),
+              },
+              {
+                icon: "layers-outline",
+                label: "Empresas parceiras",
+                value: "Identidade e operação",
+                onPress: () => router.push("/admin/empresas" as any),
               },
               {
                 icon: "person-add-outline",

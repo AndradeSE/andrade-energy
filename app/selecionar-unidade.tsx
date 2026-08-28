@@ -33,6 +33,7 @@ import {
   UsinaSelecionada,
   useAuth,
 } from "../contexts/AuthContext";
+import { useEmpresa } from "../contexts/EmpresaContext";
 
 import {
   listarMinhasUnidades,
@@ -52,6 +53,8 @@ import { IS_GERADOR_APP } from "../config/appVariant";
 import PortalBrandLogo from "../components/brand/PortalBrandLogo";
 
 export default function SelecionarUnidade() {
+  const { empresa } = useEmpresa();
+  const corPrincipal = empresa.cor_primaria || "#087A46";
   const {
     usuario,
     selecionarUnidade,
@@ -288,7 +291,7 @@ export default function SelecionarUnidade() {
       }
     >
       <StatusBar
-        backgroundColor="#082F26"
+        backgroundColor={corPrincipal}
         barStyle="light-content"
       />
 
@@ -329,9 +332,9 @@ export default function SelecionarUnidade() {
 
             <LinearGradient
               colors={[
+                corPrincipal,
+                corPrincipal,
                 "#082F26",
-                "#0B4A39",
-                "#0A5B43",
               ]}
               end={{
                 x: 1,

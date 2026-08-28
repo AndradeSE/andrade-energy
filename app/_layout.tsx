@@ -135,6 +135,7 @@ function RootNavigator() {
 
         <Stack.Screen name="admin/escolher-area" options={{ headerShown: false }} />
         <Stack.Screen name="admin/comercial" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/empresas" options={{ headerShown: false }} />
 
         <Stack.Screen
           name="modal"
