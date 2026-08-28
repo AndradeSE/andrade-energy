@@ -446,19 +446,19 @@ export default function HomeComercial() {
         </Section>
         <Text style={styles.section}>RESUMO DA OPERAÇÃO COMERCIAL</Text>
         <View style={styles.summary}>
-          <View>
+          <View style={styles.summaryItem}>
             <Text style={styles.summaryValue}>
               {data?.geradores.length ?? 0}
             </Text>
             <Text style={styles.summaryLabel}>contas geradoras</Text>
           </View>
-          <View>
+          <View style={styles.summaryItem}>
             <Text style={styles.summaryValue}>
               {data?.planos.filter((p) => p.ativo).length ?? 0}
             </Text>
             <Text style={styles.summaryLabel}>planos ativos</Text>
           </View>
-          <View>
+          <View style={styles.summaryItem}>
             <Text style={styles.summaryValue}>
               {data?.documentos.filter((d) => d.ativo).length ?? 0}
             </Text>
@@ -729,21 +729,40 @@ const styles = StyleSheet.create({
   summary: {
     flexDirection: "row",
     justifyContent: "space-between",
-    padding: Spacing.lg,
+    gap: 6,
+    padding: Spacing.sm,
     borderRadius: Radius.xl,
-    backgroundColor: "#D9E9E1",
+    borderWidth: 1,
+    borderColor: "#176B55",
+    backgroundColor: "#073F32",
+    shadowColor: "#042D24",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 5,
+  },
+  summaryItem: {
+    minHeight: 88,
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 5,
+    borderRadius: Radius.lg,
+    backgroundColor: "rgba(255,255,255,0.08)",
   },
   summaryValue: {
-    color: Colors.primaryDark,
-    fontSize: 23,
+    color: "#F6CC32",
+    fontSize: 25,
     fontWeight: "900",
     textAlign: "center",
   },
   summaryLabel: {
     maxWidth: 90,
     marginTop: 3,
-    color: Colors.subtitle,
+    color: "#F2F8F5",
     fontSize: 10,
+    fontWeight: "700",
+    lineHeight: 14,
     textAlign: "center",
   },
 });
