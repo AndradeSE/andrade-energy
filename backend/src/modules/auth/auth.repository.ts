@@ -80,7 +80,9 @@ export async function vincularClientePorCpf(usuario: any) {
 export async function criarConta(input: { nome: string; cpf: string; email: string; senha: string; tipo: "CONSUMIDOR" | "GERADOR"; convite?: string }) {
   const cpf = input.cpf.replace(/\D/g, "");
   const email = input.email.trim().toLowerCase();
-  const perfil = input.tipo === "GERADOR" ? "GESTOR" : "LEITURA";
+  const perfil = input.tipo === "GERADOR"
+    ? (String(input.convite ?? "").startsWith("admin_") ? "ADMIN" : "GESTOR")
+    : "LEITURA";
   const { data: emailNoMesmoPerfil } = await supabase
     .from("usuarios")
     .select("id")

@@ -3,9 +3,10 @@ import bulbImage from "./assets/lampada-dourada.png";
 import RecordEditForm from "./RecordEditForm";
 import RealDiscountInfoWeb from "./RealDiscountInfoWeb";
 import "./mobile.css";
+import "./download.css";
 
-const APP_GERADOR_URL = String(import.meta.env.VITE_APP_GERADOR_DOWNLOAD_URL ?? "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-gerador.apk").trim();
-const APP_CONSUMIDOR_URL = String(import.meta.env.VITE_APP_CONSUMIDOR_DOWNLOAD_URL ?? "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-consumidor.apk").trim();
+const APP_GERADOR_URL = String(import.meta.env.VITE_APP_GERADOR_DOWNLOAD_URL ?? "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-gerador.apk?v=20260827-2304").trim();
+const APP_CONSUMIDOR_URL = String(import.meta.env.VITE_APP_CONSUMIDOR_DOWNLOAD_URL ?? "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-consumidor.apk?v=20260827-2304").trim();
 const TESTE_GRATUITO_HABILITADO = false;
 
 type AccessType = "CONSUMIDOR" | "GERADOR";
@@ -25,6 +26,45 @@ type PortalSession = {
   [key: string]: unknown;
 };
 type WebRecord = Record<string, unknown>;
+
+function AppDownloadLink({
+  href,
+  app,
+  description,
+  detailed = false,
+}: {
+  href: string;
+  app: "Gerador" | "Consumidor";
+  description: string;
+  detailed?: boolean;
+}) {
+  const [downloading, setDownloading] = useState(false);
+
+  const startDownload = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    if (!href || downloading) return;
+    setDownloading(true);
+    window.setTimeout(() => {
+      window.location.assign(href);
+      window.setTimeout(() => setDownloading(false), 5000);
+    }, 180);
+  };
+
+  return <a
+    href={href || undefined}
+    className={`${!href ? "disabled" : ""} ${downloading ? "is-downloading" : ""}`.trim()}
+    aria-disabled={!href || downloading}
+    aria-busy={downloading}
+    onClick={startDownload}
+  >
+    <b>{downloading ? "↓" : app === "Gerador" ? "G" : "C"}</b>
+    <span>
+      <strong>{downloading ? "Iniciando download…" : `Baixar app do ${app}`}</strong>
+      <small>{downloading ? "Aguarde; o arquivo será aberto pelo navegador." : description}</small>
+    </span>
+    {detailed ? <em>{downloading ? "Preparando…" : "Baixar APK ↓"}</em> : null}
+  </a>;
+}
 
 function AdminWorkspaceChoice({ name, onChoose, onLogout }: { name?: string; onChoose: (workspace: AdminWorkspace) => void; onLogout: () => void }) {
   return <main className="admin-workspace-page">
@@ -328,7 +368,7 @@ function ClientOverview({
 }
 
 function GeneratorInvitePanel({ token }: { token: string }) {
-  const [form, setForm] = useState({ nome: "", cpf: "", email: "" });
+  const [form, setForm] = useState({ nome: "", cpf: "", email: "", perfil: "GESTOR" });
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState("");
   const [accounts, setAccounts] = useState<WebRecord[]>([]);
@@ -369,7 +409,7 @@ function GeneratorInvitePanel({ token }: { token: string }) {
           ? "Convite enviado por e-mail com sucesso."
           : `Convite criado. Código: ${data.token}`,
       );
-      setForm({ nome: "", cpf: "", email: "" });
+      setForm({ nome: "", cpf: "", email: "", perfil: "GESTOR" });
       await loadAccounts();
     } catch (reason) {
       setMessage(
@@ -406,13 +446,20 @@ function GeneratorInvitePanel({ token }: { token: string }) {
       <div className="section-workspace invite-workspace">
         <div>
           <span className="section-label">ACESSO ADMINISTRATIVO</span>
-          <h2>Convidar novo gerador</h2>
+          <h2>Criar acesso administrativo ou gerador</h2>
           <p>
-            Somente esta conta administradora pode liberar a criação de contas
-            geradoras. O convite expira em sete dias.
+            Somente uma conta administradora pode liberar novos administradores
+            ou geradores. O convite expira em sete dias.
           </p>
         </div>
         <form onSubmit={submitInvite}>
+          <label>
+            Tipo de acesso
+            <select value={form.perfil} onChange={(event) => setForm({ ...form, perfil: event.target.value })}>
+              <option value="GESTOR">Gerador</option>
+              <option value="ADMIN">Administrador</option>
+            </select>
+          </label>
           <label>
             Nome completo
             <input
@@ -515,6 +562,7 @@ function CommercialManagementPanel({ token }: { token: string }) {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [monitorSearch, setMonitorSearch] = useState("");
+  const [selectedGeneratorId, setSelectedGeneratorId] = useState<string | null>(null);
   const primeiroVencimento = new Date(Date.now() + 45 * 86_400_000).toISOString().slice(0, 10);
   const [form, setForm] = useState({ geradorId: "", planoId: "", ciclo: "MENSAL", formaPagamento: "BOLETO", proximoVencimento: primeiroVencimento });
   const load = async () => {
@@ -554,6 +602,8 @@ function CommercialManagementPanel({ token }: { token: string }) {
   const dateValue = (value: unknown) => new Date(`${String(value ?? "").slice(0, 10)}T12:00:00`).getTime();
   const elapsedDays = (value: unknown) => Math.max(0, Math.floor((dateValue(new Date().toISOString()) - dateValue(value)) / 86_400_000));
   const monitored = (data?.assinaturas ?? []).filter((item: any) => ["TESTE", "ATIVA", "INADIMPLENTE", "SUSPENSA"].includes(String(item.status))).filter((item: any) => `${item.gerador?.nome ?? ""} ${item.gerador?.email ?? ""} ${item.plano?.nome ?? ""}`.toLowerCase().includes(monitorSearch.trim().toLowerCase()));
+  const selectedGenerator = (data?.geradores ?? []).find((item: any) => String(item.id) === selectedGeneratorId);
+  const selectedSubscription = (data?.assinaturas ?? []).find((item: any) => String(item.gerador_id) === selectedGeneratorId);
   return <div className="commercial-stack">
     <section className="commercial-home-hero"><div><small>GESTÃO DE GERADORES</small><h2>Operação comercial do software</h2><p>Geradores, licenças, planos, cobranças e conformidade em uma visão profissional.</p></div><b>↗</b></section>
     <nav className="commercial-tabs" aria-label="Áreas da gestão comercial"><button onClick={()=>document.getElementById("comercial-resumo")?.scrollIntoView({behavior:"smooth"})}>Visão geral</button><button onClick={()=>document.getElementById("comercial-monitoramento")?.scrollIntoView({behavior:"smooth"})}>Clientes ativos</button><button onClick={()=>document.getElementById("comercial-pagamentos")?.scrollIntoView({behavior:"smooth"})}>Pagamentos</button><button onClick={()=>document.getElementById("comercial-geradores")?.scrollIntoView({behavior:"smooth"})}>Geradores</button><button onClick={()=>document.getElementById("comercial-planos")?.scrollIntoView({behavior:"smooth"})}>Planos</button><button onClick={()=>document.getElementById("comercial-assinaturas")?.scrollIntoView({behavior:"smooth"})}>Assinaturas</button><button onClick={()=>document.getElementById("comercial-aplicativos")?.scrollIntoView({behavior:"smooth"})}>Aplicativos</button><button onClick={()=>document.getElementById("comercial-documentos")?.scrollIntoView({behavior:"smooth"})}>Documentos</button></nav>
@@ -566,6 +616,11 @@ function CommercialManagementPanel({ token }: { token: string }) {
     </div>
     <section className="section-workspace" id="comercial-pagamentos"><div className="data-toolbar"><div><small>PAGAMENTOS E FATURAMENTO</small><strong>{data?.cobrancas?.length ?? 0} cobrança(s)</strong></div><span>{money(data?.financeiro?.vencidoNoMes)} vencido no mês</span></div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>Gerador</th><th>Plano</th><th>Competência</th><th>Valor</th><th>Vencimento</th><th>Status</th><th></th></tr></thead><tbody>{(data?.cobrancas ?? []).map((item:any)=><tr key={item.id}><td>{item.assinatura?.gerador?.nome ?? "Gerador"}</td><td>{item.assinatura?.plano?.nome ?? "Licença"}</td><td>{item.competencia}</td><td>{money(item.valor)}</td><td>{item.vencimento ? new Date(`${item.vencimento}T12:00:00`).toLocaleDateString("pt-BR") : "—"}</td><td><span className={`table-status status-${String(item.status).toLowerCase()}`}>{item.status}</span></td><td>{item.bank_slip_url || item.invoice_url ? <a className="table-action" href={item.bank_slip_url ?? item.invoice_url} rel="noreferrer" target="_blank">Abrir</a> : "—"}</td></tr>)}</tbody></table></div>{!data?.cobrancas?.length?<div className="data-state">Nenhuma cobrança gerada até o momento.</div>:null}<p className="commercial-payment-note">A conciliação é automática pelo Asaas. Cartão e Pix recorrentes são opcionais; boleto, Pix e cobrança avulsa continuam disponíveis.</p></section>
     <section className="section-workspace commercial-monitor" id="comercial-monitoramento"><div className="data-toolbar"><div><small>MONITORAMENTO DE CLIENTES</small><strong>{monitored.length} cliente(s) ativo(s)</strong></div><input aria-label="Buscar cliente ativo" onChange={(event)=>setMonitorSearch(event.target.value)} placeholder="Buscar nome, e-mail ou plano" value={monitorSearch}/></div><div className="commercial-client-grid">{monitored.map((item:any)=>{const elapsed=elapsedDays(item.inicio_em);const trialTotal=item.fim_teste_em?Math.max(1,Math.floor((dateValue(item.fim_teste_em)-dateValue(item.inicio_em))/86_400_000)):45;const trialUsed=Math.min(trialTotal,elapsed);const remaining=Math.max(0,trialTotal-trialUsed);return <article className="commercial-client-card" key={item.id}><div className="commercial-client-heading"><span>{String(item.gerador?.nome??"G").charAt(0).toUpperCase()}</span><div><strong>{item.gerador?.nome??"Gerador"}</strong><small>{item.gerador?.email??"E-mail não informado"}</small></div><em className={`table-status status-${String(item.status).toLowerCase()}`}>{item.status}</em></div><div className="commercial-days"><b>{elapsed}<small>dias decorridos</small></b><span><strong>{item.plano?.nome??"Plano"}</strong><small>{String(item.ciclo??"").toLowerCase()} · início {new Date(`${item.inicio_em}T12:00:00`).toLocaleDateString("pt-BR")}</small></span></div>{item.status==="TESTE"?<><div className="commercial-trial-track"><i style={{width:`${Math.min(100,trialUsed/trialTotal*100)}%`}}/></div><div className="commercial-trial-legend"><span>{trialUsed} de {trialTotal} dias usados</span><strong>{remaining} dias restantes</strong></div></>:null}<footer><span><small>PRÓXIMO VENCIMENTO</small><strong>{item.proximo_vencimento?new Date(`${item.proximo_vencimento}T12:00:00`).toLocaleDateString("pt-BR"):"Não definido"}</strong></span><button onClick={()=>document.getElementById("comercial-assinaturas")?.scrollIntoView({behavior:"smooth"})}>Gerenciar →</button></footer></article>})}</div>{!monitored.length?<div className="data-state">Nenhum cliente ativo encontrado.</div>:null}</section>
+    <section className="section-workspace commercial-generators-list">
+      <div className="data-toolbar"><div><small>CONTAS GERADORAS</small><strong>{(data?.geradores ?? []).filter((item:any)=>item.perfil === "GESTOR").length} gerador(es)</strong></div></div>
+      <div className="commercial-generator-grid">{(data?.geradores ?? []).filter((item:any)=>item.perfil === "GESTOR").map((item:any)=><button key={item.id} onClick={()=>setSelectedGeneratorId(String(item.id))}><b>{String(item.nome??"G").charAt(0).toUpperCase()}</b><span><strong>{item.nome??"Gerador"}</strong><small>{item.email??"E-mail não informado"}</small><em>{item.total_usinas??0} usina(s) · {item.total_ucs_ativas??0} UC(s) ativa(s)</em></span><i>Ver detalhes →</i></button>)}</div>
+      {selectedGenerator ? <article className="commercial-generator-detail"><button aria-label="Fechar detalhes" onClick={()=>setSelectedGeneratorId(null)}>×</button><div><small>GERADOR SELECIONADO</small><h3>{selectedGenerator.nome}</h3><p>{selectedGenerator.email} · {selectedGenerator.telefone || "Telefone não informado"}</p></div><dl><div><dt>Status</dt><dd>{selectedGenerator.ativo ? "Ativo" : "Inativo"}</dd></div><div><dt>Plano</dt><dd>{selectedSubscription?.plano?.nome ?? "Sem assinatura"}</dd></div><div><dt>Assinatura</dt><dd>{selectedSubscription?.status ?? "Não contratada"}</dd></div><div><dt>Vencimento</dt><dd>{selectedSubscription?.proximo_vencimento ? new Date(`${selectedSubscription.proximo_vencimento}T12:00:00`).toLocaleDateString("pt-BR") : "—"}</dd></div><div><dt>Usinas</dt><dd>{selectedGenerator.total_usinas ?? 0}</dd></div><div><dt>UCs ativas</dt><dd>{selectedGenerator.total_ucs_ativas ?? 0}</dd></div></dl></article> : null}
+    </section>
     <div className="commercial-columns">
       <section className="section-workspace" id="comercial-geradores">
         <span className="section-label">NOVA ASSINATURA</span><h2>Vincular plano ao gerador</h2><p>Crie o contrato comercial sem misturar a mensalidade do software com as faturas de energia.</p>
@@ -583,7 +638,7 @@ function CommercialManagementPanel({ token }: { token: string }) {
     <section className="section-workspace" id="comercial-assinaturas"><div className="data-toolbar"><div><small>CARTEIRA COMERCIAL</small><strong>{data?.assinaturas?.length ?? 0} assinatura(s)</strong></div><button onClick={() => void load()}>Atualizar</button></div>
       <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Gerador</th><th>Plano</th><th>Ciclo</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Ações</th></tr></thead><tbody>{(data?.assinaturas ?? []).map((item: any) => <tr key={item.id}><td><strong>{item.gerador?.nome ?? "—"}</strong><small className="table-subline">{item.gerador?.email ?? "—"}</small></td><td>{item.plano?.nome ?? "—"}</td><td>{item.ciclo}</td><td>{money(item.valor_contratado)}</td><td>{item.proximo_vencimento ? new Date(`${item.proximo_vencimento}T12:00:00`).toLocaleDateString("pt-BR") : "—"}</td><td><span className={`table-status status-${String(item.status).toLowerCase()}`}>{item.status}</span></td><td><div className="row-actions"><button className="table-action" onClick={() => void action(item, "charge")}>Cobrar</button><button className="table-action" onClick={() => void action(item, "status", item.status === "SUSPENSA" ? "ATIVA" : "SUSPENSA")}>{item.status === "SUSPENSA" ? "Reativar" : "Suspender"}</button><button className="table-action danger" onClick={() => window.confirm("Cancelar definitivamente esta assinatura?") && void action(item, "status", "CANCELADA")}>Cancelar</button></div></td></tr>)}</tbody></table></div>
     </section>
-    <section className="section-workspace commercial-apps" id="comercial-aplicativos"><span className="section-label">APLICATIVOS</span><h2>Instalação no Android</h2><p>Baixe as versões atuais. O aplicativo do Gerador libera um teste de 45 dias por CPF; reinstalar ou recriar a conta não renova o benefício.</p><div><a aria-disabled={!APP_GERADOR_URL} className={!APP_GERADOR_URL ? "disabled" : ""} href={APP_GERADOR_URL || undefined} download><b>G</b><span><strong>App do Gerador</strong><small>Gestão de usinas · teste de 45 dias</small></span></a><a aria-disabled={!APP_CONSUMIDOR_URL} className={!APP_CONSUMIDOR_URL ? "disabled" : ""} href={APP_CONSUMIDOR_URL || undefined} download><b>C</b><span><strong>App do Consumidor</strong><small>Faturas, economia e contratos</small></span></a></div>{!APP_GERADOR_URL || !APP_CONSUMIDOR_URL ? <small className="commercial-build-note">Nova versão em publicação. O botão será liberado assim que o APK atualizado estiver disponível.</small> : null}</section>
+    <section className="section-workspace commercial-apps" id="comercial-aplicativos"><span className="section-label">APLICATIVOS</span><h2>Instalação no Android</h2><p>Baixe as versões atuais. O aplicativo do Gerador libera um teste de 45 dias por CPF; reinstalar ou recriar a conta não renova o benefício.</p><div><AppDownloadLink href={APP_GERADOR_URL} app="Gerador" description="Gestão de usinas · teste de 45 dias" /><AppDownloadLink href={APP_CONSUMIDOR_URL} app="Consumidor" description="Faturas, economia e contratos" /></div>{!APP_GERADOR_URL || !APP_CONSUMIDOR_URL ? <small className="commercial-build-note">Nova versão em publicação. O botão será liberado assim que o APK atualizado estiver disponível.</small> : null}</section>
     <section className="section-workspace" id="comercial-documentos"><span className="section-label">CONFORMIDADE</span><h2>Documentos para comercialização</h2><div className="document-grid">{(data?.documentos ?? []).map((doc: any) => <article key={doc.id}><b>§</b><div><strong>{doc.titulo}</strong><small>Versão {doc.versao} · {doc.ativo ? "Publicada" : "Rascunho"}</small></div></article>)}</div><p className="legal-notice">Os modelos são uma base operacional. Antes da venda ao público, contrato, termos, política de privacidade e cancelamento devem ser revisados por advogado e responsável por proteção de dados.</p></section>
   </div>;
 }
@@ -594,10 +649,10 @@ function AppDownloadsPanel() {
     <h2>Instale o aplicativo ideal para seu perfil</h2>
     <p>Baixe diretamente a versão Android mais recente. O app Gerador reúne a operação das usinas e a gestão comercial; o app Consumidor concentra faturas, economia e contratos.</p>
     <div>
-      <a href={APP_GERADOR_URL} rel="noopener noreferrer" target="_blank"><b>G</b><span><strong>Baixar app do Gerador</strong><small>Gestão comercial e gestão de usinas · 45 MB</small></span><em>Baixar APK ↓</em></a>
-      <a href={APP_CONSUMIDOR_URL} rel="noopener noreferrer" target="_blank"><b>C</b><span><strong>Baixar app do Consumidor</strong><small>Faturas, economia e contratos · 98 MB</small></span><em>Baixar APK ↓</em></a>
+      <AppDownloadLink href={APP_GERADOR_URL} app="Gerador" description="Gestão comercial e gestão de usinas · 98 MB" detailed />
+      <AppDownloadLink href={APP_CONSUMIDOR_URL} app="Consumidor" description="Faturas, economia e contratos · 98 MB" detailed />
     </div>
-    <small className="app-download-security">Arquivos oficiais publicados pela Andrade Energy para dispositivos Android.</small>
+    <small className="app-download-security">Arquivos oficiais para Android. Depois que o download terminar, abra o arquivo na área Downloads do celular para iniciar a instalação.</small>
   </section>;
 }
 
@@ -3479,7 +3534,7 @@ export default function App() {
               <h2>Seu teste de 45 dias começou</h2>
               <p>Olá, <strong>{trial.nome}</strong>. Sua conta do Gerador já está vinculada ao CPF informado e pronta para uso.</p>
               <div className="trial-period"><span><small>INÍCIO</small><strong>{new Date().toLocaleDateString("pt-BR")}</strong></span><span><small>FINAL DO TESTE</small><strong>{trialResult?.assinatura?.fim_teste_em ? new Date(`${trialResult.assinatura.fim_teste_em}T12:00:00`).toLocaleDateString("pt-BR") : "45 dias"}</strong></span></div>
-              <a className="trial-download" href={trialResult?.downloadUrl || APP_GERADOR_URL} rel="noopener noreferrer" target="_blank"><b>↓</b><span><strong>Baixar app do Gerador</strong><small>Android · conta de teste pronta</small></span></a>
+              <div className="trial-download-wrap"><AppDownloadLink href={trialResult?.downloadUrl || APP_GERADOR_URL} app="Gerador" description="Android · conta de teste pronta" /></div>
               <button className="trial-login-link" onClick={()=>{ setEmail(trial.email); setPassword(trial.senha); setTrialStage("idle"); }}>Entrar pelo portal com esta conta</button>
               <p className="trial-footnote">Ao terminar o período, você poderá escolher um plano e assinar. Nenhuma cobrança será feita automaticamente sem sua confirmação.</p>
             </div>

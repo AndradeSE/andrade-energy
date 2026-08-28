@@ -1,0 +1,108 @@
+.commercial-apps a.is-downloading {
+  pointer-events: none;
+  border-color: #e0bd34;
+  background: #fff9df;
+  box-shadow: 0 0 0 4px rgba(247, 215, 92, 0.2);
+}
+
+.commercial-apps a.is-downloading > b,
+.trial-download-wrap a.is-downloading > b {
+  animation: download-bounce 0.72s ease-in-out infinite;
+  background: #f7d75c;
+  color: #173b2e;
+}
+
+.commercial-apps a.is-downloading > em {
+  color: #6d5300;
+  background: #f7d75c;
+}
+
+.trial-download-wrap a {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 17px;
+  border-radius: 14px;
+  color: #fff;
+  background: linear-gradient(110deg, #075e43, #0a9157);
+  box-shadow: 0 12px 27px rgba(7, 94, 67, 0.2);
+  text-decoration: none;
+}
+
+.trial-download-wrap a > b {
+  width: 43px;
+  height: 43px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: #173b2e;
+  background: #f7d75c;
+  font-size: 22px;
+}
+
+.trial-download-wrap a > span { display: grid; gap: 3px; }
+.trial-download-wrap a small { color: rgba(255, 255, 255, 0.75); }
+
+/* Mantém os indicadores comerciais juntos e legíveis em qualquer largura. */
+.commercial-metrics article {
+  display: flex;
+  min-height: 132px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+}
+
+.commercial-metrics strong { line-height: 1.05; }
+
+@keyframes download-bounce {
+  0%, 100% { transform: translateY(-3px); }
+  50% { transform: translateY(4px); }
+}
+
+.commercial-generator-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.commercial-generator-grid > button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px;
+  border: 1px solid #bfd2c8;
+  border-radius: 14px;
+  text-align: left;
+  background: #f4f8f6;
+  cursor: pointer;
+}
+
+.commercial-generator-grid > button > b {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  color: #fff;
+  background: #087a46;
+}
+
+.commercial-generator-grid span { display: grid; min-width: 0; flex: 1; gap: 2px; }
+.commercial-generator-grid small { overflow: hidden; color: #6f8178; text-overflow: ellipsis; white-space: nowrap; }
+.commercial-generator-grid em { color: #285543; font-size: 11px; font-style: normal; font-weight: 800; }
+.commercial-generator-grid i { color: #087a46; font-size: 11px; font-style: normal; font-weight: 900; }
+.commercial-generator-detail { position: relative; margin-top: 15px; padding: 19px; border-radius: 15px; background: #dcebe3; }
+.commercial-generator-detail > button { position: absolute; top: 10px; right: 12px; border: 0; color: #315647; background: transparent; font-size: 25px; cursor: pointer; }
+.commercial-generator-detail h3 { margin: 4px 0; color: #173f31; }
+.commercial-generator-detail p { margin: 0; color: #61766c; }
+.commercial-generator-detail dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0 0; }
+.commercial-generator-detail dl > div { padding: 11px; border-radius: 10px; background: rgba(255, 255, 255, 0.72); }
+.commercial-generator-detail dt { color: #71827a; font-size: 9px; font-weight: 900; text-transform: uppercase; }
+.commercial-generator-detail dd { margin: 4px 0 0; color: #173f31; font-weight: 800; }
+
+@media (max-width: 760px), (hover: none) and (pointer: coarse) {
+  .commercial-generator-grid { grid-template-columns: 1fr; }
+  .commercial-generator-grid i { display: none; }
+  .commercial-generator-detail dl { grid-template-columns: repeat(2, 1fr); }
+}

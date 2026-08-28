@@ -116,6 +116,7 @@ export async function concluirConvite(convite: any, usuarioId: string) {
 
 export async function criarConviteGerador(input: any, administrador: any) {
   if (administrador?.perfil !== "ADMIN") throw new Error("Apenas a conta administradora pode convidar novos geradores.");
+  const perfil = String(input?.perfil ?? "GESTOR").toUpperCase() === "ADMIN" ? "ADMIN" : "GESTOR";
   const cpf = cpfLimpo(input.cpf);
   const email = String(input.email ?? "").trim().toLowerCase();
   const nome = String(input.nome ?? "").trim();
@@ -124,12 +125,12 @@ export async function criarConviteGerador(input: any, administrador: any) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Informe um e-mail válido.");
 
   const [{ data: contaEmail }, { data: contaCpf }] = await Promise.all([
-    supabase.from("usuarios").select("id").eq("perfil", "GESTOR").eq("email", email).limit(1).maybeSingle(),
-    supabase.from("usuarios").select("id").eq("perfil", "GESTOR").eq("cpf", cpf).limit(1).maybeSingle(),
+    supabase.from("usuarios").select("id").eq("perfil", perfil).eq("email", email).limit(1).maybeSingle(),
+    supabase.from("usuarios").select("id").eq("perfil", perfil).eq("cpf", cpf).limit(1).maybeSingle(),
   ]);
   if (contaEmail || contaCpf) throw new Error("Este e-mail ou CPF já possui uma conta geradora.");
 
-  const token = `gerador_${gerarToken()}`;
+  const token = `${perfil === "ADMIN" ? "admin" : "gerador"}_${gerarToken()}`;
   const { error } = await supabase.from("convites_clientes").insert({
     gestor_id: administrador.id, nome, cpf, email,
     token_hash: hashToken(token),
@@ -142,15 +143,15 @@ export async function criarConviteGerador(input: any, administrador: any) {
   try {
     emailEnviado = await enviarEmailTransacional({
       destinatario: email,
-      assunto: "Convite para Andrade Energy Gerador",
-      html: `<div style="max-width:560px;margin:auto;padding:28px;font-family:Arial,sans-serif;color:#252925;line-height:1.6;background:#f7f8f7;border-radius:14px"><h2 style="margin-top:0;color:#39804a">Convite para conta geradora</h2><p>Olá, <strong>${escaparHtml(nome)}</strong>.</p><p>Você foi convidado pela administração da Andrade Energy para criar uma conta de gerador.</p><p style="margin:26px 0"><a href="${link}" style="display:inline-block;padding:14px 22px;background:#39804a;color:#fff;font-weight:700;text-decoration:none;border-radius:8px">Aceitar convite e criar conta</a></p><p style="font-size:13px;color:#6b706b">Se o botão não abrir o aplicativo, use este código:</p><div style="padding:16px 12px;border:2px dashed #39804a;border-radius:10px;background:#fff;color:#1f512e;font-family:monospace;font-size:20px;font-weight:700;text-align:center;word-break:break-all">${token}</div><p style="font-size:13px;color:#6b706b">Válido por 7 dias.</p></div>`,
+      assunto: `Convite para Andrade Energy — ${perfil === "ADMIN" ? "Administrador" : "Gerador"}`,
+      html: `<div style="max-width:560px;margin:auto;padding:28px;font-family:Arial,sans-serif;color:#252925;line-height:1.6;background:#f7f8f7;border-radius:14px"><h2 style="margin-top:0;color:#39804a">Convite para conta ${perfil === "ADMIN" ? "administrativa" : "geradora"}</h2><p>Olá, <strong>${escaparHtml(nome)}</strong>.</p><p>Você foi convidado pela administração da Andrade Energy para criar uma conta de ${perfil === "ADMIN" ? "administrador" : "gerador"}.</p><p style="margin:26px 0"><a href="${link}" style="display:inline-block;padding:14px 22px;background:#39804a;color:#fff;font-weight:700;text-decoration:none;border-radius:8px">Aceitar convite e criar conta</a></p><p style="font-size:13px;color:#6b706b">Se o botão não abrir o aplicativo, use este código:</p><div style="padding:16px 12px;border:2px dashed #39804a;border-radius:10px;background:#fff;color:#1f512e;font-family:monospace;font-size:20px;font-weight:700;text-align:center;word-break:break-all">${token}</div><p style="font-size:13px;color:#6b706b">Válido por 7 dias.</p></div>`,
     });
   } catch { emailEnviado = false; }
   return { message: "Convite de gerador criado.", emailEnviado, token: emailEnviado ? undefined : token };
 }
 
 export async function consultarConviteGerador(token: string) {
-  if (!token.startsWith("gerador_")) throw new Error("Convite de gerador inválido ou expirado.");
+  if (!token.startsWith("gerador_") && !token.startsWith("admin_")) throw new Error("Convite de acesso inválido ou expirado.");
   const { data, error } = await supabase.from("convites_clientes").select("id,nome,cpf,email,status,expira_em").eq("token_hash", hashToken(token)).maybeSingle();
   if (error || !data || data.status !== "PENDENTE" || new Date(data.expira_em) <= new Date()) throw new Error("Convite de gerador inválido ou expirado.");
   return { nome: data.nome, cpf: data.cpf, email: data.email };
