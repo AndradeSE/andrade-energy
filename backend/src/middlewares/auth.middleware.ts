@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 
 import { supabase } from "../config/supabase";
 import { hashToken } from "../utils/token";
+import { empresaIdDoUsuario } from "../config/empresa";
 
 export async function exigirAutenticacao(req: Request, res: Response, next: NextFunction) {
   const token = req.headers.authorization?.replace(/^Bearer\s+/i, "").trim();
@@ -20,6 +21,7 @@ export async function exigirAutenticacao(req: Request, res: Response, next: Next
     return res.status(401).json({ message: "Sessão inválida, expirada ou conta desativada." });
   }
   (req as any).usuario = usuario;
+  (req as any).empresaId = empresaIdDoUsuario(usuario);
   return next();
 }
 

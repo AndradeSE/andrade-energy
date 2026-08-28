@@ -48,6 +48,7 @@ function usuarioPublico(usuario: any) {
     perfil: usuario.perfil,
     cliente_id: usuario.cliente_id ?? null,
     usina_id: usuario.usina_id ?? null,
+    empresa_id: usuario.empresa_id ?? null,
   };
 }
 
@@ -150,11 +151,11 @@ export async function excluirMinhaConta(usuarioId: string, senhaAtual: unknown) 
   return { message: "Conta desativada com sucesso." };
 }
 
-export async function cadastrarConta(input: { nome: string; cpf: string; email: string; senha: string; tipo: "CONSUMIDOR" | "GERADOR"; convite?: string }) {
+export async function cadastrarConta(input: { nome: string; cpf: string; email: string; senha: string; tipo: "CONSUMIDOR" | "GERADOR"; convite?: string; empresa_id?: string }) {
   const convite = input.tipo === "CONSUMIDOR"
     ? await aceitarConvite(String(input.convite ?? ""))
     : await aceitarConviteGerador(String(input.convite ?? ""));
-  if (convite) input = { ...input, nome: convite.nome, cpf: convite.cpf, email: convite.email };
+  if (convite) input = { ...input, nome: convite.nome, cpf: convite.cpf, email: convite.email, empresa_id: convite.empresa_id };
   if (!input.nome?.trim()) throw new Error("Informe seu nome.");
   if (String(input.cpf ?? "").replace(/\D/g, "").length !== 11) throw new Error("Informe um CPF válido.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email?.trim() ?? "")) throw new Error("Informe um e-mail válido.");

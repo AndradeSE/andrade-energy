@@ -2,6 +2,7 @@ import { supabase } from "../../config/supabase";
 import { gerarToken, hashToken } from "../../utils/token";
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import { obterMinutaParaConvite } from "../contratos/contratos.service";
+import { empresaIdDoUsuario } from "../../config/empresa";
 
 function cpfLimpo(valor: unknown) { return String(valor ?? "").replace(/\D/g, ""); }
 function escaparHtml(valor: string) {
@@ -9,6 +10,7 @@ function escaparHtml(valor: string) {
 }
 
 export async function criarConvite(input: any, gestor: any) {
+  const empresaId = empresaIdDoUsuario(gestor);
   const cpf = cpfLimpo(input.cpf);
   const email = String(input.email ?? "").trim().toLowerCase();
   const nome = String(input.nome ?? "").trim();
@@ -16,11 +18,12 @@ export async function criarConvite(input: any, gestor: any) {
   if (cpf.length !== 11) throw new Error("Informe um CPF válido.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Informe um e-mail válido.");
 
-  const { data: clienteExistente } = await supabase.from("clientes").select("id").eq("cpf", cpf).limit(1).maybeSingle();
+  const { data: clienteExistente } = await supabase.from("clientes").select("id").eq("empresa_id", empresaId).eq("cpf", cpf).limit(1).maybeSingle();
   const { data: contaEmail } = await supabase
     .from("usuarios")
     .select("id,cliente_id,perfil")
     .eq("email", email)
+    .eq("empresa_id", empresaId)
     .eq("perfil", "LEITURA")
     .limit(1)
     .maybeSingle();
@@ -35,6 +38,7 @@ export async function criarConvite(input: any, gestor: any) {
     .from("usuarios")
     .select("id")
     .eq("cpf", cpf)
+    .eq("empresa_id", empresaId)
     .eq("perfil", "LEITURA")
     .limit(1)
     .maybeSingle();
@@ -47,6 +51,7 @@ export async function criarConvite(input: any, gestor: any) {
   const token = gerarToken();
   const { error } = await supabase.from("convites_clientes").insert({
     gestor_id: gestor.id,
+    empresa_id: empresaId,
     usina_id: gestor.usina_id ?? input.usina_id ?? null,
     cliente_id: clienteExistente?.id ?? null,
     nome, cpf, email,
@@ -76,16 +81,16 @@ export async function criarConvite(input: any, gestor: any) {
 
 export async function consultarConvite(token: string) {
   const { data, error } = await supabase.from("convites_clientes")
-    .select("id,nome,cpf,email,status,expira_em")
+    .select("id,nome,cpf,email,status,expira_em,empresa_id")
     .eq("token_hash", hashToken(token)).maybeSingle();
   if (error || !data || data.status !== "PENDENTE" || new Date(data.expira_em) <= new Date()) throw new Error("Convite inválido ou expirado.");
-  return { nome: data.nome, cpf: data.cpf, email: data.email };
+  return { nome: data.nome, cpf: data.cpf, email: data.email, empresa_id: data.empresa_id };
 }
 
 export async function aceitarConvite(token: string) {
   const convite = await consultarConvite(token);
-  const { data } = await supabase.from("convites_clientes").select("id,cliente_id,usina_id").eq("token_hash", hashToken(token)).single();
-  return { ...convite, id: data!.id, cliente_id: data!.cliente_id, usina_id: data!.usina_id };
+  const { data } = await supabase.from("convites_clientes").select("id,cliente_id,usina_id,empresa_id").eq("token_hash", hashToken(token)).single();
+  return { ...convite, id: data!.id, cliente_id: data!.cliente_id, usina_id: data!.usina_id, empresa_id: data!.empresa_id };
 }
 
 export async function concluirConvite(convite: any, usuarioId: string) {
@@ -97,12 +102,13 @@ export async function concluirConvite(convite: any, usuarioId: string) {
       email: convite.email,
       usina_id: convite.usina_id ?? null,
       status: "ATIVO",
+      empresa_id: convite.empresa_id,
     }).select("id").single();
     if (clienteError) throw clienteError;
     clienteId = cliente.id;
   }
 
-  const { error: usuarioError } = await supabase.from("usuarios").update({ cliente_id: clienteId }).eq("id", usuarioId);
+  const { error: usuarioError } = await supabase.from("usuarios").update({ cliente_id: clienteId, empresa_id: convite.empresa_id }).eq("id", usuarioId);
   if (usuarioError) throw usuarioError;
 
   const { error: conviteError } = await supabase.from("convites_clientes").update({
@@ -117,6 +123,7 @@ export async function concluirConvite(convite: any, usuarioId: string) {
 export async function criarConviteGerador(input: any, administrador: any) {
   if (administrador?.perfil !== "ADMIN") throw new Error("Apenas a conta administradora pode convidar novos geradores.");
   const perfil = String(input?.perfil ?? "GESTOR").toUpperCase() === "ADMIN" ? "ADMIN" : "GESTOR";
+  const empresaId = String(input?.empresaId ?? empresaIdDoUsuario(administrador));
   const cpf = cpfLimpo(input.cpf);
   const email = String(input.email ?? "").trim().toLowerCase();
   const nome = String(input.nome ?? "").trim();
@@ -125,14 +132,14 @@ export async function criarConviteGerador(input: any, administrador: any) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Informe um e-mail válido.");
 
   const [{ data: contaEmail }, { data: contaCpf }] = await Promise.all([
-    supabase.from("usuarios").select("id").eq("perfil", perfil).eq("email", email).limit(1).maybeSingle(),
-    supabase.from("usuarios").select("id").eq("perfil", perfil).eq("cpf", cpf).limit(1).maybeSingle(),
+    supabase.from("usuarios").select("id").eq("empresa_id", empresaId).eq("perfil", perfil).eq("email", email).limit(1).maybeSingle(),
+    supabase.from("usuarios").select("id").eq("empresa_id", empresaId).eq("perfil", perfil).eq("cpf", cpf).limit(1).maybeSingle(),
   ]);
   if (contaEmail || contaCpf) throw new Error("Este e-mail ou CPF já possui uma conta geradora.");
 
   const token = `${perfil === "ADMIN" ? "admin" : "gerador"}_${gerarToken()}`;
   const { error } = await supabase.from("convites_clientes").insert({
-    gestor_id: administrador.id, nome, cpf, email,
+    gestor_id: administrador.id, empresa_id: empresaId, nome, cpf, email,
     token_hash: hashToken(token),
     expira_em: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
   });
@@ -152,9 +159,9 @@ export async function criarConviteGerador(input: any, administrador: any) {
 
 export async function consultarConviteGerador(token: string) {
   if (!token.startsWith("gerador_") && !token.startsWith("admin_")) throw new Error("Convite de acesso inválido ou expirado.");
-  const { data, error } = await supabase.from("convites_clientes").select("id,nome,cpf,email,status,expira_em").eq("token_hash", hashToken(token)).maybeSingle();
+  const { data, error } = await supabase.from("convites_clientes").select("id,nome,cpf,email,status,expira_em,empresa_id").eq("token_hash", hashToken(token)).maybeSingle();
   if (error || !data || data.status !== "PENDENTE" || new Date(data.expira_em) <= new Date()) throw new Error("Convite de gerador inválido ou expirado.");
-  return { nome: data.nome, cpf: data.cpf, email: data.email };
+  return { nome: data.nome, cpf: data.cpf, email: data.email, empresa_id: data.empresa_id };
 }
 
 export async function aceitarConviteGerador(token: string) {

@@ -1,4 +1,5 @@
 import { supabase } from "../../config/supabase";
+import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
 
 export async function login(email: string, senha: string, tipo?: "CONSUMIDOR" | "GERADOR") {
   let consulta = supabase
@@ -77,9 +78,10 @@ export async function vincularClientePorCpf(usuario: any) {
   return cliente.id;
 }
 
-export async function criarConta(input: { nome: string; cpf: string; email: string; senha: string; tipo: "CONSUMIDOR" | "GERADOR"; convite?: string }) {
+export async function criarConta(input: { nome: string; cpf: string; email: string; senha: string; tipo: "CONSUMIDOR" | "GERADOR"; convite?: string; empresa_id?: string }) {
   const cpf = input.cpf.replace(/\D/g, "");
   const email = input.email.trim().toLowerCase();
+  const empresaId = input.empresa_id ?? EMPRESA_ANDRADE_ID;
   const perfil = input.tipo === "GERADOR"
     ? (String(input.convite ?? "").startsWith("admin_") ? "ADMIN" : "GESTOR")
     : "LEITURA";
@@ -87,6 +89,7 @@ export async function criarConta(input: { nome: string; cpf: string; email: stri
     .from("usuarios")
     .select("id")
     .eq("email", email)
+    .eq("empresa_id", empresaId)
     .eq("perfil", perfil)
     .limit(1);
   if (emailNoMesmoPerfil?.length) throw new Error("Já existe uma conta deste perfil com este e-mail.");
@@ -95,16 +98,27 @@ export async function criarConta(input: { nome: string; cpf: string; email: stri
     .from("usuarios")
     .select("id")
     .eq("cpf", cpf)
+    .eq("empresa_id", empresaId)
     .eq("perfil", perfil)
     .limit(1);
   if (cpfNoMesmoPerfil?.length) throw new Error("Já existe uma conta deste perfil com este CPF.");
 
   const { data, error } = await supabase
     .from("usuarios")
-    .insert({ nome: input.nome.trim(), cpf, email, senha: input.senha, perfil, ativo: true })
+    .insert({ nome: input.nome.trim(), cpf, email, senha: input.senha, perfil, ativo: true, empresa_id: empresaId })
     .select("*")
     .single();
   if (error) throw error;
+  const papel = perfil === "ADMIN" ? "ADMIN_EMPRESA" : perfil === "GESTOR" ? "GESTOR" : "LEITURA";
+  const { error: vinculoError } = await supabase.from("empresa_usuarios").upsert({
+    empresa_id: empresaId,
+    usuario_id: data.id,
+    papel,
+    principal: true,
+    ativo: true,
+    atualizado_em: new Date().toISOString(),
+  }, { onConflict: "empresa_id,usuario_id" });
+  if (vinculoError) throw vinculoError;
   return data;
 }
 

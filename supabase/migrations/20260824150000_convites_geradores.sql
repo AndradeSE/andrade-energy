@@ -1,7 +1,9 @@
--- Uma única conta proprietária administra a criação de novos geradores.
-create unique index if not exists usuarios_admin_ativo_unico_idx
-  on public.usuarios (perfil)
-  where perfil = 'ADMIN' and ativo = true;
+-- O ecossistema permite mais de uma conta administrativa. O isolamento e a
+-- autoridade são definidos pelo vínculo com a empresa, não por unicidade global.
+drop index if exists public.usuarios_admin_ativo_unico_idx;
+create index if not exists usuarios_admin_ativo_idx
+  on public.usuarios (perfil, ativo)
+  where perfil = 'ADMIN';
 
 create table if not exists public.convites_geradores (
   id uuid primary key default gen_random_uuid(),
