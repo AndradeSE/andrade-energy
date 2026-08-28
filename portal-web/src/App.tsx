@@ -40,30 +40,24 @@ function AppDownloadLink({
   description: string;
   detailed?: boolean;
 }) {
-  const [downloading, setDownloading] = useState(false);
-
-  const startDownload = () => {
-    if (!href || downloading) return;
-    setDownloading(true);
-    // Mantém a navegação nativa do link. Em navegadores Android, redirecionar
-    // por JavaScript pode reiniciar a página e deixar o download em loop.
-    window.setTimeout(() => setDownloading(false), 8000);
-  };
+  const fileName = app === "Gerador"
+    ? "andrade-energy-gerador.apk"
+    : "andrade-energy-consumidor.apk";
 
   return <a
     href={href || undefined}
-    className={`${!href ? "disabled" : ""} ${downloading ? "is-downloading" : ""}`.trim()}
-    aria-disabled={!href || downloading}
-    aria-busy={downloading}
-    onClick={startDownload}
+    className={!href ? "disabled" : undefined}
+    aria-disabled={!href}
+    aria-label={`Baixar aplicativo Andrade Energy ${app} para Android`}
+    download={fileName}
     rel="external"
   >
-    <b>{downloading ? "↓" : app === "Gerador" ? "G" : "C"}</b>
+    <b aria-hidden="true">{app === "Gerador" ? "G" : "C"}</b>
     <span>
-      <strong>{downloading ? "Iniciando download…" : `Baixar app do ${app}`}</strong>
-      <small>{downloading ? "Aguarde; o arquivo será aberto pelo navegador." : description}</small>
+      <strong>{`Baixar app do ${app}`}</strong>
+      <small>{description}</small>
     </span>
-    {detailed ? <em>{downloading ? "Preparando…" : "Baixar APK ↓"}</em> : null}
+    {detailed ? <em aria-hidden="true">Baixar APK ↓</em> : null}
   </a>;
 }
 
@@ -673,8 +667,8 @@ function AppDownloadsPanel() {
     <h2>Instale o aplicativo ideal para seu perfil</h2>
     <p>Baixe diretamente a versão Android mais recente. O app Gerador reúne a operação das usinas e a gestão comercial; o app Consumidor concentra faturas, economia e contratos.</p>
     <div>
-      <AppDownloadLink href={APP_GERADOR_URL} app="Gerador" description="Gestão comercial e gestão de usinas · 98 MB" detailed />
-      <AppDownloadLink href={APP_CONSUMIDOR_URL} app="Consumidor" description="Faturas, economia e contratos · 98 MB" detailed />
+      <AppDownloadLink href={APP_GERADOR_URL} app="Gerador" description="Gestão comercial e gestão de usinas · aprox. 103 MB" detailed />
+      <AppDownloadLink href={APP_CONSUMIDOR_URL} app="Consumidor" description="Faturas, economia e contratos · aprox. 103 MB" detailed />
     </div>
     <small className="app-download-security">Arquivos oficiais para Android. Depois que o download terminar, abra o arquivo na área Downloads do celular para iniciar a instalação.</small>
   </section>;

@@ -1,22 +1,3 @@
-.commercial-apps a.is-downloading {
-  pointer-events: none;
-  border-color: #e0bd34;
-  background: #fff9df;
-  box-shadow: 0 0 0 4px rgba(247, 215, 92, 0.2);
-}
-
-.commercial-apps a.is-downloading > b,
-.trial-download-wrap a.is-downloading > b {
-  animation: download-bounce 0.72s ease-in-out infinite;
-  background: #f7d75c;
-  color: #173b2e;
-}
-
-.commercial-apps a.is-downloading > em {
-  color: #6d5300;
-  background: #f7d75c;
-}
-
 .trial-download-wrap a {
   display: flex;
   align-items: center;
@@ -67,11 +48,6 @@
 }
 
 .commercial-metrics strong { line-height: 1.05; }
-
-@keyframes download-bounce {
-  0%, 100% { transform: translateY(-3px); }
-  50% { transform: translateY(4px); }
-}
 
 .commercial-generator-grid {
   display: grid;
