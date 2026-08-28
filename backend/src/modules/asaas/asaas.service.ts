@@ -22,8 +22,14 @@ async function obterDadosPagamento(paymentId: string) {
   return { pix, boleto };
 }
 
-export async function criarCobrancaAsaas(faturaId: string) {
-  const { data: existing } = await supabase.from("asaas_cobrancas").select("*").eq("fatura_id", faturaId).maybeSingle();
+export async function criarCobrancaAsaas(faturaId: string, empresaId?: string) {
+  let empresaResolvida = empresaId;
+  if (!empresaResolvida) {
+    const { data: referencia, error: erroReferencia } = await supabase.from("faturas").select("empresa_id").eq("id", faturaId).maybeSingle();
+    if (erroReferencia || !referencia) throw new Error("Fatura não encontrada.");
+    empresaResolvida = referencia.empresa_id;
+  }
+  const { data: existing } = await supabase.from("asaas_cobrancas").select("*").eq("fatura_id", faturaId).eq("empresa_id", empresaResolvida).maybeSingle();
   if (existing?.asaas_payment_id) {
     const [payment, dados] = await Promise.all([
       asaasRequest<any>(`/payments/${existing.asaas_payment_id}`).catch(()=>null),
@@ -42,7 +48,7 @@ export async function criarCobrancaAsaas(faturaId: string) {
     if (chargeUpdateError) throw chargeUpdateError;
     return cobrancaAtualizada;
   }
-  const { data: invoice, error } = await supabase.from("faturas").select("*, clientes(*)").eq("id", faturaId).single();
+  const { data: invoice, error } = await supabase.from("faturas").select("*, clientes(*)").eq("id", faturaId).eq("empresa_id", empresaResolvida).single();
   if (error || !invoice) throw new Error("Fatura não encontrada.");
   const customerData = Array.isArray(invoice.clientes) ? invoice.clientes[0] : invoice.clientes;
   if (!customerData?.cpf) throw new Error("Informe o CPF/CNPJ do cliente antes de gerar a cobrança.");
@@ -54,7 +60,7 @@ export async function criarCobrancaAsaas(faturaId: string) {
   const split = carteira?.asaas_wallet_id ? [{ walletId: carteira.asaas_wallet_id, percentualValue: 100, externalReference: faturaId }] : undefined;
   const payment = await asaasRequest<any>("/payments", { method:"POST", body:JSON.stringify({ customer:customer.id, billingType:process.env.ASAAS_BILLING_TYPE ?? "BOLETO", value, dueDate:dueDate(invoice.vencimento), description:`Andrade Energy · ${invoice.referencia ?? "fatura"}`, externalReference:faturaId, ...(split ? { split } : {}) }) });
   const { pix, boleto } = await obterDadosPagamento(payment.id);
-  const record = { fatura_id:faturaId, gerador_carteira_id:carteira?.id??null, asaas_customer_id:customer.id, asaas_payment_id:payment.id, status:payment.status, valor:value, valor_liquido:payment.netValue??null, invoice_url:payment.invoiceUrl??null, bank_slip_url:payment.bankSlipUrl??payment.invoiceUrl??null, linha_digitavel:boleto?.identificationField??payment.identificationField??null, codigo_pix:pix?.payload??null, atualizado_em:new Date().toISOString() };
+  const record = { empresa_id:empresaResolvida, fatura_id:faturaId, gerador_carteira_id:carteira?.id??null, asaas_customer_id:customer.id, asaas_payment_id:payment.id, status:payment.status, valor:value, valor_liquido:payment.netValue??null, invoice_url:payment.invoiceUrl??null, bank_slip_url:payment.bankSlipUrl??payment.invoiceUrl??null, linha_digitavel:boleto?.identificationField??payment.identificationField??null, codigo_pix:pix?.payload??null, atualizado_em:new Date().toISOString() };
   const { data, error: saveError } = await supabase.from("asaas_cobrancas").upsert(record,{onConflict:"fatura_id"}).select().single(); if(saveError) throw saveError;
   const { data: faturaAtualizada, error: updateError } = await supabase.from("faturas").update({ linha_digitavel:record.linha_digitavel, codigo_pix:record.codigo_pix, pdf_boleto_url:record.bank_slip_url }).eq("id",faturaId).select().single();
   if (updateError) throw updateError;
@@ -71,7 +77,7 @@ async function transferirSaldo(cobranca: any) {
   const already=await supabase.from("asaas_transferencias").select("*").eq("cobranca_id",cobranca.id).maybeSingle(); if(already.data) return already.data;
   const value=Math.max(0,Number(cobranca.valor_liquido??cobranca.valor)-Number(process.env.ASAAS_TRANSFER_RESERVE_VALUE??0)); if(!(value>0)) throw new Error("Valor líquido inválido.");
   const intencaoId=`intent:${crypto.randomUUID()}`;
-  const { data: intencao, error: intentError }=await supabase.from("asaas_transferencias").insert({cobranca_id:cobranca.id,gerador_carteira_id:carteira?.id??null,asaas_transfer_id:intencaoId,valor:value,status:"AUTHORIZING",destino_mascarado:`${keyType}:***${key.slice(-4)}`,modalidade:"AUTOMATICA"}).select().single();
+  const { data: intencao, error: intentError }=await supabase.from("asaas_transferencias").insert({empresa_id:cobranca.empresa_id,cobranca_id:cobranca.id,gerador_carteira_id:carteira?.id??null,asaas_transfer_id:intencaoId,valor:value,status:"AUTHORIZING",destino_mascarado:`${keyType}:***${key.slice(-4)}`,modalidade:"AUTOMATICA"}).select().single();
   if(intentError) throw intentError;
   try {
     const transfer=await asaasRequest<any>("/transfers",{method:"POST",body:JSON.stringify({value,pixAddressKey:key,pixAddressKeyType:keyType,operationType:"PIX",description:`Repasse Andrade ${cobranca.fatura_id}`,externalReference:String(intencao.id)})});

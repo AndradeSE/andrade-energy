@@ -6,6 +6,7 @@ import {
 } from "node:crypto";
 
 import { supabase } from "../../config/supabase";
+import { empresaIdDoUsuario } from "../../config/empresa";
 
 const DURACAO_ESTADO_MS = 15 * 60 * 1000;
 
@@ -202,6 +203,7 @@ async function buscarUnidadeAutorizada(unidadeId: string, usuario: UsuarioAutent
     .from("unidades_consumidoras")
     .select("id, numero, cliente_id, status, recebimento_email_token, recebimento_email_ativo, clientes(id, cpf)")
     .eq("id", unidadeId)
+    .eq("empresa_id", empresaIdDoUsuario(usuario))
     .maybeSingle();
 
   if (error) throw error;
@@ -212,11 +214,12 @@ async function buscarUnidadeAutorizada(unidadeId: string, usuario: UsuarioAutent
   return data;
 }
 
-async function buscarUnidadeInterna(unidadeId: string) {
+async function buscarUnidadeInterna(unidadeId: string, empresaId: string) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")
     .select("id, numero, cliente_id, status, recebimento_email_token, recebimento_email_ativo, clientes(id, cpf)")
     .eq("id", unidadeId)
+    .eq("empresa_id", empresaId)
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("A unidade consumidora desta autorização não existe mais.");
@@ -332,6 +335,7 @@ export async function iniciarConexaoEmail(
   const expiraEm = new Date(Date.now() + DURACAO_ESTADO_MS).toISOString();
 
   const { error } = await supabase.from("oauth_email_estados").insert({
+    empresa_id: empresaIdDoUsuario(usuario),
     state_hash: hashState(state),
     usuario_id: usuario.id,
     unidade_consumidora_id: unidade.id,
@@ -617,12 +621,13 @@ export async function processarCallbackOAuth(input: {
       estado.pkce_verifier,
       estado.callback_url,
     );
-    const unidade = await buscarUnidadeInterna(estado.unidade_consumidora_id);
+    const unidade = await buscarUnidadeInterna(estado.unidade_consumidora_id, estado.empresa_id);
     if (unidade.status !== "ATIVA") throw new Error("A unidade consumidora não está ativa.");
 
     const email = await obterEmailDaConta(provedor, tokens.access_token!);
     const anterior = await buscarConexaoPorUnidade(unidade.id, provedor);
     let conexao = await salvarConexao({
+      empresa_id: estado.empresa_id,
       usuario_id: estado.usuario_id,
       unidade_consumidora_id: unidade.id,
       provedor,

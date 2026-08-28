@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { supabase } from "../../config/supabase";
+import { EMPRESA_ANDRADE_ID, empresaIdDoUsuario } from "../../config/empresa";
 import { extrairTextoPDF } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
 import { armazenarContaDeEnergiaDaUsina, armazenarDocumentosDaFatura } from "../faturas/documentosFatura.service";
@@ -113,6 +114,7 @@ async function buscarUnidadeAutorizada(unidadeId: string, usuario: UsuarioAutent
     .from("unidades_consumidoras")
     .select("id, numero, cliente_id, usina_id, tipo, cpf_titular, status, recebimento_email_token, recebimento_email_ativo, recebimento_email_ativado_em, recebimento_email_ultimo_em, recebimento_email_status, recebimento_email_erro, clientes(id, cpf)")
     .eq("id", unidadeId)
+    .eq("empresa_id", empresaIdDoUsuario(usuario))
     .maybeSingle();
 
   if (error) throw error;
@@ -298,7 +300,7 @@ async function registrarEventoRecebido(evento: EventoResend, eventoId?: string) 
   if (alvo?.token) {
     const { data, error } = await supabase
       .from("unidades_consumidoras")
-      .select("id, recebimento_email_ativo, status")
+      .select("id, empresa_id, recebimento_email_ativo, status")
       // Endereços de e-mail são tratados sem distinção de maiúsculas pelo
       // provedor; o token original é base64url e pode conter maiúsculas.
       .ilike("recebimento_email_token", alvo.token)
@@ -317,6 +319,7 @@ async function registrarEventoRecebido(evento: EventoResend, eventoId?: string) 
   const status = unidade ? "PENDENTE" : "IGNORADO";
   const destinatario = alvo?.endereco ?? String(evento.data?.to?.[0] ?? "desconhecido").toLowerCase();
   const registro = {
+    empresa_id: unidade?.empresa_id ?? EMPRESA_ANDRADE_ID,
     provedor: PROVEDOR,
     provedor_email_id: emailId,
     provedor_evento_id: eventoId ?? null,
