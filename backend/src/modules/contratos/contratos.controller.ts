@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 
 import * as ContratosService from "./contratos.service";
+import { empresaIdDaRequisicao, garantirRegistroDaEmpresa, incluirEmpresa } from "../../utils/empresaScope";
 
 export async function buscarContratoController(
   req: Request,
@@ -31,10 +32,13 @@ export async function criarContratoController(
   res: Response
 ) {
   try {
+    if (req.body?.cliente_id) {
+      await garantirRegistroDaEmpresa("clientes", req.body.cliente_id, empresaIdDaRequisicao(req));
+    }
 
     const contrato =
       await ContratosService.criarContratoService(
-        req.body
+        incluirEmpresa(req.body, empresaIdDaRequisicao(req))
       );
 
     res.status(201).json(contrato);

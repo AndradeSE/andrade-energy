@@ -1,6 +1,6 @@
 import { supabase } from "../../config/supabase";
 
-export async function obterResumoOperacao() {
+export async function obterResumoOperacao(empresaId: string) {
 
   const { data, error } =
     await supabase
@@ -9,7 +9,8 @@ export async function obterResumoOperacao() {
         energia_gerada,
         energia_disponivel,
         receita_prevista
-      `);
+      `)
+      .eq("empresa_id", empresaId);
 
   if (error) throw error;
 
@@ -38,7 +39,7 @@ export async function obterResumoOperacao() {
 
 }
 
-export async function listarFechamentos() {
+export async function listarFechamentos(empresaId: string) {
 
   const { data, error } =
     await supabase
@@ -47,6 +48,7 @@ export async function listarFechamentos() {
         *,
         usinas(nome)
       `)
+      .eq("empresa_id", empresaId)
       .order("competencia", {
         ascending: false,
       });
@@ -57,7 +59,8 @@ export async function listarFechamentos() {
 }
 
 export async function buscarFechamento(
-  id: string
+  id: string,
+  empresaId: string
 ) {
 
   const { data, error } =
@@ -72,6 +75,7 @@ export async function buscarFechamento(
         )
       `)
       .eq("id", id)
+      .eq("empresa_id", empresaId)
       .single();
 
   if (error) throw error;
@@ -81,13 +85,14 @@ export async function buscarFechamento(
 }
 
 export async function criarFechamento(
-  fechamento: any
+  fechamento: any,
+  empresaId: string
 ) {
 
   const { data, error } =
     await supabase
       .from("fechamentos")
-      .insert(fechamento)
+      .insert({ ...fechamento, empresa_id: empresaId })
       .select()
       .single();
 

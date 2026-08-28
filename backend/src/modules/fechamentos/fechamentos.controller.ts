@@ -6,13 +6,14 @@ import {
   listarFechamentos,
   obterResumoOperacao,
 } from "./fechamentos.service";
+import { empresaIdDaRequisicao, garantirRegistroDaEmpresa } from "../../utils/empresaScope";
 
 export async function listarFechamentosController(
   req: Request,
   res: Response
 ) {
   try {
-    const data = await listarFechamentos();
+    const data = await listarFechamentos(empresaIdDaRequisicao(req));
 
     res.json(data);
   } catch (err: any) {
@@ -29,7 +30,7 @@ export async function resumoOperacaoController(
   res: Response
 ) {
   try {
-    const data = await obterResumoOperacao();
+    const data = await obterResumoOperacao(empresaIdDaRequisicao(req));
 
     res.json(data);
   } catch (err: any) {
@@ -47,7 +48,8 @@ export async function buscarFechamentoController(
 ) {
   try {
     const data = await buscarFechamento(
-      req.params.id
+      req.params.id,
+      empresaIdDaRequisicao(req)
     );
 
     res.json(data);
@@ -65,7 +67,9 @@ export async function criarFechamentoController(
   res: Response
 ) {
   try {
-    const data = await fecharUsina(req.body);
+    const empresaId = empresaIdDaRequisicao(req);
+    await garantirRegistroDaEmpresa("usinas", req.body?.usinaId, empresaId);
+    const data = await fecharUsina(req.body, empresaId);
 
     res.status(201).json(data);
   } catch (err: any) {

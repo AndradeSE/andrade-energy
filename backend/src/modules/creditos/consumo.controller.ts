@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { consumirCreditos } from "./consumo.service";
+import { empresaIdDaRequisicao, garantirRegistroDaEmpresa } from "../../utils/empresaScope";
 
 export async function consumirCreditosController(
   req: Request,
@@ -12,6 +13,8 @@ export async function consumirCreditosController(
       competencia,
       energia,
     } = req.body;
+
+    await garantirRegistroDaEmpresa("clientes", clienteId, empresaIdDaRequisicao(req));
 
     const data =
       await consumirCreditos(

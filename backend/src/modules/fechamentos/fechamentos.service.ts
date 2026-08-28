@@ -7,16 +7,16 @@ import {
 
 import { gerarRateio } from "../rateio/rateio.service";
 
-export async function listarFechamentos() {
-  return await listarFechamentosRepository();
+export async function listarFechamentos(empresaId: string) {
+  return await listarFechamentosRepository(empresaId);
 }
 
-export async function buscarFechamento(id: string) {
-  return await buscarFechamentoRepository(id);
+export async function buscarFechamento(id: string, empresaId: string) {
+  return await buscarFechamentoRepository(id, empresaId);
 }
 
-export async function obterResumoOperacao() {
-  return await obterResumoOperacaoRepository();
+export async function obterResumoOperacao(empresaId: string) {
+  return await obterResumoOperacaoRepository(empresaId);
 }
 
 export async function fecharUsina({
@@ -26,7 +26,7 @@ export async function fecharUsina({
   energiaAlocada,
   receitaPrevista,
   receitaRealizada,
-}: any) {
+}: any, empresaId: string) {
 
   // Converte 07/2026 -> 2026-07-01
   let competenciaDate = competencia;
@@ -70,7 +70,7 @@ export async function fecharUsina({
 
       status: "FECHADO",
 
-    });
+    }, empresaId);
 
   await gerarRateio(
     fechamento.id,

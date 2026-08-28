@@ -1,5 +1,6 @@
 import { supabase } from "../config/supabase";
 import { EMPRESA_ANDRADE_ID } from "../config/empresa";
+import { NextFunction, Request, Response } from "express";
 
 export function empresaIdDaRequisicao(req: any) {
   return String(req?.empresaId ?? req?.usuario?.empresa_id ?? EMPRESA_ANDRADE_ID);
@@ -17,4 +18,15 @@ export async function garantirRegistroDaEmpresa(tabela: string, id: string, empr
     erro.status = 404;
     throw erro;
   }
+}
+
+export function exigirRegistroDaEmpresa(tabela: string, parametro = "id") {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      await garantirRegistroDaEmpresa(tabela, req.params[parametro], empresaIdDaRequisicao(req));
+      return next();
+    } catch {
+      return res.status(404).json({ message: "Registro não encontrado para esta empresa." });
+    }
+  };
 }

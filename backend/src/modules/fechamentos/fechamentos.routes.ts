@@ -6,8 +6,11 @@ import {
   listarFechamentosController,
   resumoOperacaoController,
 } from "./fechamentos.controller";
+import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
+import { exigirRegistroDaEmpresa } from "../../utils/empresaScope";
 
 const router = Router();
+router.use(exigirAutenticacao, exigirGestor);
 
 router.get(
   "/",
@@ -21,6 +24,7 @@ router.get(
 
 router.get(
   "/:id",
+  exigirRegistroDaEmpresa("fechamentos"),
   buscarFechamentoController
 );
 
