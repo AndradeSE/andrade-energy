@@ -199,3 +199,5 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - O app possui `EmpresaProvider`, usado pelo cabeçalho compartilhado para aplicar a cor e o logo da empresa ativa. O portal autenticado também carrega essa identidade e oferece a área **Empresas** na Gestão Comercial para cadastrar novas parceiras.
 - Commits de fundação e isolamento: `21cd68e`, `3cfda9d`, `621958d`, `08d8075`, `ffb1eab` e `682ca59`.
 - Antes do deploy, ainda é obrigatório concluir testes explícitos de acesso cruzado entre duas empresas e revisar as políticas RLS das tabelas operacionais. Não publicar a camada multiempresa apenas porque o build passou.
+- O backend multiempresa foi publicado no Render em 28/08/2026 no commit `a07fbe9`. O deploy terminou como `live`, `/health` respondeu `200` e as rotas `/api/dashboard/cliente` e `/api/empresas/atual` responderam `401` quando chamadas sem sessão.
+- A validação de acesso cruzado com duas empresas continua necessária antes de cadastrar a primeira parceira real; o deploy atual protege a operação existente da Andrade Energy e disponibiliza a infraestrutura para esse teste controlado.
