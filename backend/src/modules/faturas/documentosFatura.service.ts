@@ -260,6 +260,8 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
       { rotulo: "Impostos", valor: impostos, cor: "#D94B22", complemento: null },
     ].filter((item) => item.valor > 0);
     const totalComposicao = composicaoTarifaria.reduce((soma, item) => soma + item.valor, 0);
+    const rotuloCentroGrafico = documentoUnificado ? "FATURA UNIFICADA" : "FATURA ANDRADE";
+    const valorCentroGrafico = documentoUnificado ? valorTotal : valorUsina;
     const y = { cabecalho: 0, dados: 132, total: 272, aviso: 396, composicao: 438, inferior: 548, creditos: 692 };
     const verdeCabecalho = "#063C25";
     const desenharCartao = (x: number, top: number, largura: number, altura: number, fundo = "#FFFFFF") => {
@@ -369,8 +371,8 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
         angulo += abertura;
       });
     }
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(4.8).text("FATURA ANDRADE", 77, y.inferior + 72, { width: 68, align: "center" });
-    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(7.5).text(moeda(valorUsina), 69, y.inferior + 82, { width: 84, align: "center" });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(4.5).text(rotuloCentroGrafico, 72, y.inferior + 72, { width: 78, align: "center" });
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(7.5).text(moeda(valorCentroGrafico), 69, y.inferior + 82, { width: 84, align: "center" });
     composicaoTarifaria.forEach((item, indice) => {
       const top = y.inferior + 31 + indice * 18.5;
       const proporcao = totalComposicao > 0 ? item.valor / totalComposicao * 100 : 0;
@@ -401,12 +403,9 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
 
     const miniCards = [["SALDO ATUAL\nDE CRÉDITOS", energia(saldoCreditos)], ["CRÉDITOS\nGERADOS (MÊS)", energia(energiaInjetada)], ["CRÉDITOS\nUSADOS (MÊS)", energia(energiaCompensada)], ["PRÓXIMA\nLEITURA", fatura.proxima_leitura ?? "A confirmar"]];
     const espacamentoMiniCards = 8;
-    // Larguras inteiras evitam que o PDF arredonde cada coluna de forma diferente.
-    const largurasMiniCards = [118, 118, 118, 120];
-    let xMiniCard = 48;
+    const larguraMiniCard = (LARGURA - espacamentoMiniCards * 3) / 4;
     miniCards.forEach(([titulo, valor], indice) => {
-      const larguraMiniCard = largurasMiniCards[indice];
-      const x = xMiniCard;
+      const x = 48 + indice * (larguraMiniCard + espacamentoMiniCards);
       desenharCartao(x, y.creditos, larguraMiniCard, 66, indice % 2 === 0 ? "#F2F8F4" : "#FBF8EE");
       pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text(titulo, x + 10, y.creditos + 10, {
         width: larguraMiniCard - 24,
@@ -420,7 +419,6 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
         align: "center",
         lineBreak: false,
       });
-      xMiniCard += larguraMiniCard + espacamentoMiniCards;
     });
     pdf.rect(48, 773, LARGURA, 14).fill("#EFF6F1");
     pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.8).text("Você escolhe economia. O planeta agradece.    |    Atendimento Andrade Energy", 61, 777, { width: 470, align: "center" });
