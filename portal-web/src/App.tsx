@@ -26,8 +26,8 @@ type PortalSession = {
   [key: string]: unknown;
 };
 type WebRecord = Record<string, unknown>;
-type PortalCompany = { nome: string; logo_url?: string | null; cor_primaria: string; cor_secundaria: string; identidade_personalizada: boolean };
-const DEFAULT_COMPANY: PortalCompany = { nome: "Andrade Energy", cor_primaria: "#087A46", cor_secundaria: "#F7D75C", identidade_personalizada: true };
+type PortalCompany = { nome: string; logo_url?: string | null; email_suporte?: string | null; cor_primaria: string; cor_secundaria: string; identidade_personalizada: boolean };
+const DEFAULT_COMPANY: PortalCompany = { nome: "Andrade Energy", email_suporte: "contato@andradese.com.br", cor_primaria: "#087A46", cor_secundaria: "#F7D75C", identidade_personalizada: true };
 
 function AppDownloadLink({
   href,
@@ -2636,7 +2636,10 @@ function PortalHome({
     let active = true;
     fetch(`${API_URL}/empresas/atual`, { headers: { Authorization: `Bearer ${session.token}` } })
       .then(async (response) => response.ok ? response.json() : Promise.reject())
-      .then((data) => { if (active) setCompany(data.identidade_personalizada ? data : DEFAULT_COMPANY); })
+      .then((data) => {
+        if (!active) return;
+        setCompany(data.identidade_personalizada ? { ...DEFAULT_COMPANY, ...data } : DEFAULT_COMPANY);
+      })
       .catch(() => { if (active) setCompany(DEFAULT_COMPANY); });
     return () => { active = false; };
   }, [session.token]);
@@ -2930,9 +2933,10 @@ function PortalHome({
   return (
     <main className="portal-home" style={{ "--brand-primary": company.cor_primaria, "--brand-secondary": company.cor_secundaria } as CSSProperties}>
       <header className="portal-topbar">
-        <strong>
-          {company.nome.toUpperCase()}
-        </strong>
+        <div className="topbar-brand">
+          {company.logo_url ? <img src={company.logo_url} alt="" aria-hidden="true" /> : <i>{company.nome.slice(0, 2).toUpperCase()}</i>}
+          <span><strong>{company.nome}</strong><small>{isCommercialWorkspace ? "Gestão comercial" : type === "GERADOR" ? "Gestão de energia" : "Portal do consumidor"}</small></span>
+        </div>
         <div>
           <button
             className="user-menu-button"
@@ -2985,7 +2989,7 @@ function PortalHome({
           <div className="sidebar-help">
             <small>PRECISA DE AJUDA?</small>
             <strong>Fale com o suporte</strong>
-            <a href="mailto:contato@andradese.com.br">Entrar em contato →</a>
+            <a href={`mailto:${company.email_suporte || DEFAULT_COMPANY.email_suporte}`}>Entrar em contato →</a>
           </div>
         </aside>
         <section className="portal-dashboard">
