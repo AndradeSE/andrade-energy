@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 
 import { dashboardCliente } from "./dashboard.service";
+import { empresaIdDaRequisicao } from "../../utils/empresaScope";
 
 export async function dashboardController(
   req: Request,
@@ -11,7 +12,7 @@ export async function dashboardController(
       String(req.query.clienteId);
 
     const data =
-      await dashboardCliente(clienteId, req.query.uc ? String(req.query.uc) : undefined);
+      await dashboardCliente(clienteId, req.query.uc ? String(req.query.uc) : undefined, empresaIdDaRequisicao(req));
 
     return res.json(data);
 

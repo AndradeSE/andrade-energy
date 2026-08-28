@@ -2,10 +2,11 @@ import { obterDashboardCliente } from "./dashboard.repository";
 
 export async function dashboardCliente(
   clienteId: string,
-  uc?: string
+  uc: string | undefined,
+  empresaId: string
 ) {
   const dashboard =
-    await obterDashboardCliente(clienteId, uc);
+    await obterDashboardCliente(clienteId, uc, empresaId);
 
   const faturas =
     dashboard.faturas ?? [];

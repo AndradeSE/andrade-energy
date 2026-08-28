@@ -2,7 +2,8 @@ import { supabase } from "../../config/supabase";
 
 export async function obterDashboardCliente(
   clienteId: string,
-  uc?: string
+  uc: string | undefined,
+  empresaId: string
 ) {
   // Cliente
   const { data: cliente, error: erroCliente } =
@@ -15,6 +16,7 @@ export async function obterDashboardCliente(
         distribuidora
       `)
       .eq("id", clienteId)
+      .eq("empresa_id", empresaId)
       .single();
 
   if (erroCliente) throw erroCliente;
@@ -33,7 +35,8 @@ export async function obterDashboardCliente(
         energia_injetada,
         energia_compensada
       `)
-      .eq("cliente_id", clienteId);
+      .eq("cliente_id", clienteId)
+      .eq("empresa_id", empresaId);
 
   if (uc) faturasQuery = faturasQuery.eq("numero_instalacao", uc);
   const { data: faturas, error: erroFaturas } = await faturasQuery;
@@ -46,6 +49,7 @@ export async function obterDashboardCliente(
       .from("creditos")
       .select("saldo_atual")
       .eq("cliente_id", clienteId)
+      .eq("empresa_id", empresaId)
       .order("competencia", {
         ascending: false,
       })
