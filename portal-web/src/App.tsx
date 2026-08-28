@@ -40,20 +40,21 @@ function AppDownloadLink({
   description: string;
   detailed?: boolean;
 }) {
+  const [downloading, setDownloading] = useState(false);
   return <a
     href={href || undefined}
-    className={!href ? "disabled" : undefined}
+    className={`${!href ? "disabled" : ""}${downloading ? " downloading" : ""}`.trim() || undefined}
     aria-disabled={!href}
+    aria-busy={downloading}
     aria-label={`Baixar aplicativo Andrade Energy ${app} para Android`}
-    target="_blank"
-    rel="noopener noreferrer"
+    onClick={() => href && setDownloading(true)}
   >
-    <b aria-hidden="true">{app === "Gerador" ? "G" : "C"}</b>
+    <b aria-hidden="true">{downloading ? <i className="download-spinner"/> : app === "Gerador" ? "G" : "C"}</b>
     <span>
-      <strong>{`Baixar app do ${app}`}</strong>
-      <small>{description}</small>
+      <strong>{downloading ? `Baixando app do ${app}...` : `Baixar app do ${app}`}</strong>
+      <small>{downloading ? "O download foi iniciado. Acompanhe na barra do navegador." : description}</small>
     </span>
-    {detailed ? <em aria-hidden="true">Baixar APK ↓</em> : null}
+    {detailed ? <em aria-hidden="true">{downloading ? "EM ANDAMENTO ↓" : "Baixar APK ↓"}</em> : null}
   </a>;
 }
 
@@ -2585,6 +2586,17 @@ function ActionDialog({
   );
 }
 
+function GeneratorIdentityPanel({ token }: { token: string }) {
+  const defaults = { nome: "", logoUrl: "", corPrimaria: "#087A46", corSecundaria: "#F7D75C", emailSuporte: "", telefoneSuporte: "", dominio: "", ativo: true };
+  const [form, setForm] = useState(defaults);
+  const [status, setStatus] = useState({ loading: true, saving: false, liberada: false, assinatura: "" });
+  const [message, setMessage] = useState("");
+  useEffect(() => { void fetch(`${API_URL}/empresas/minha-identidade`, { headers: { Authorization: `Bearer ${token}` } }).then(async (response) => { const payload = await response.json().catch(() => ({})); if (!response.ok) throw new Error(payload.message ?? "Não foi possível carregar sua marca."); const identity = payload.identidade ?? {}; setForm({ ...defaults, nome: identity.nome ?? "", logoUrl: identity.logo_url ?? "", corPrimaria: identity.cor_primaria ?? defaults.corPrimaria, corSecundaria: identity.cor_secundaria ?? defaults.corSecundaria, emailSuporte: identity.email_suporte ?? "", telefoneSuporte: identity.telefone_suporte ?? "", dominio: identity.dominio ?? "", ativo: identity.ativo !== false }); setStatus({ loading: false, saving: false, liberada: Boolean(payload.liberada), assinatura: payload.assinaturaStatus ?? "" }); }).catch((error) => { setMessage(error.message); setStatus((current) => ({ ...current, loading: false })); }); }, [token]);
+  async function save(event: FormEvent) { event.preventDefault(); setStatus((current) => ({ ...current, saving: true })); setMessage(""); const response = await fetch(`${API_URL}/empresas/minha-identidade`, { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(form) }); const payload = await response.json().catch(() => ({})); setStatus((current) => ({ ...current, saving: false })); if (!response.ok) return setMessage(payload.message ?? "Não foi possível salvar sua marca."); setForm((current) => ({ ...current, ...(payload.identidade ?? {}) })); setMessage("Identidade atualizada. Ela será aplicada no próximo acesso ao portal e ao app Gerador."); }
+  if (status.loading) return <div className="data-state">Carregando identidade visual...</div>;
+  return <div className="generator-brand-page"><section className="subscription-hero"><div><small>IDENTIDADE DO GERADOR</small><h2>Sua marca, tecnologia Andrade Energy</h2><p>Personalize seu ambiente sem perder a segurança e a estrutura da plataforma.</p></div><span>{status.liberada ? "LIBERADA" : status.assinatura || "INDISPONÍVEL"}</span></section><div className="generator-brand-layout"><section className="section-workspace"><span className="section-label">PERSONALIZAÇÃO</span><h2>Identidade visual</h2><form className="commercial-form" onSubmit={save}><label>Nome exibido<input required value={form.nome} onChange={(event)=>setForm({...form,nome:event.target.value})}/></label><label>URL da logo<input placeholder="https://..." value={form.logoUrl} onChange={(event)=>setForm({...form,logoUrl:event.target.value})}/></label><div className="commercial-form-row"><label>Cor principal<input type="color" value={form.corPrimaria} onChange={(event)=>setForm({...form,corPrimaria:event.target.value})}/></label><label>Cor de destaque<input type="color" value={form.corSecundaria} onChange={(event)=>setForm({...form,corSecundaria:event.target.value})}/></label></div><div className="commercial-form-row"><label>E-mail de suporte<input type="email" value={form.emailSuporte} onChange={(event)=>setForm({...form,emailSuporte:event.target.value})}/></label><label>Telefone<input value={form.telefoneSuporte} onChange={(event)=>setForm({...form,telefoneSuporte:event.target.value})}/></label></div><label>Domínio ou site<input placeholder="empresa.com.br" value={form.dominio} onChange={(event)=>setForm({...form,dominio:event.target.value})}/></label><label className="checkbox-field"><input checked={form.ativo} type="checkbox" onChange={(event)=>setForm({...form,ativo:event.target.checked})}/> Usar minha identidade visual</label><button className="primary-action" disabled={!status.liberada || status.saving}>{status.saving ? "Salvando..." : "Salvar identidade"}</button></form>{!status.liberada?<div className="error-message">Disponível para geradores com assinatura ativa ou período de teste vigente.</div>:null}{message?<div className="invite-message">{message}</div>:null}</section><aside className="generator-brand-preview" style={{ background: `linear-gradient(145deg, ${form.corPrimaria}, color-mix(in srgb, ${form.corPrimaria} 72%, #071f18))` }}><small>PRÉVIA DO AMBIENTE</small>{form.logoUrl?<img src={form.logoUrl} alt="Prévia da logo"/>:<b style={{color:form.corSecundaria}}>{(form.nome || "Sua empresa").slice(0,2).toUpperCase()}</b>}<h3>{form.nome || "Sua empresa"}</h3><p>Tecnologia Andrade Energy</p><i style={{background:form.corSecundaria}}/></aside></div></div>;
+}
+
 function MySubscriptionPanel({ token }: { token: string }) {
   const money = (value: unknown) => Number(value ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const [data, setData] = useState<any>(null); const [loading, setLoading] = useState(true); const [message, setMessage] = useState(""); const [opening, setOpening] = useState(false);
@@ -2794,7 +2806,7 @@ function PortalHome({
           ...(session.usuario?.perfil === "ADMIN"
             ? [{ label: "Administração", items: workspace === "COMERCIAL" ? ["Gestão comercial", "Geradores", "Alternar ambiente"] : ["Alternar ambiente"] }]
             : []),
-          { label: "Conta", items: ["Minha assinatura", "Aplicativos", "Perfil", "Configurações"] },
+          { label: "Conta", items: ["Minha assinatura", "Minha marca", "Aplicativos", "Perfil", "Configurações"] },
         ]
         : [
           { label: "Painel", items: ["Visão geral", "Economia"] },
@@ -3201,6 +3213,8 @@ function PortalHome({
             <GeneratorInvitePanel token={session.token} />
           ) : activeSection === "Gestão comercial" && session.token ? (
             <><div className="commercial-quick-actions"><button onClick={() => setActiveSection("Geradores")}><b>G</b><span><strong>Contas geradoras</strong><small>Convites e acessos</small></span></button><button onClick={() => setActiveSection("Empresas")}><b>E</b><span><strong>Empresas parceiras</strong><small>Identidade e isolamento</small></span></button><button onClick={() => onChangeWorkspace("USINAS")}><b>☀</b><span><strong>Gestão de Usinas</strong><small>Alternar ambiente</small></span></button><button onClick={() => setActiveSection("Perfil")}><b>P</b><span><strong>Perfil administrativo</strong><small>Dados e segurança</small></span></button></div><CommercialManagementPanel token={session.token} /></>
+          ) : activeSection === "Minha marca" && session.token ? (
+            <GeneratorIdentityPanel token={session.token} />
           ) : activeSection === "Minha assinatura" && session.token ? (
             <MySubscriptionPanel token={session.token} />
           ) : activeSection === "Aplicativos" ? (
