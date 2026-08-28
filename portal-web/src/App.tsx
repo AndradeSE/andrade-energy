@@ -365,6 +365,8 @@ function GeneratorInvitePanel({ token }: { token: string }) {
   const [message, setMessage] = useState("");
   const [accounts, setAccounts] = useState<WebRecord[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [commercial, setCommercial] = useState<any>(null);
+  const [selectedAccount, setSelectedAccount] = useState<WebRecord | null>(null);
   const loadAccounts = async () => {
     setLoadingAccounts(true);
     try {
@@ -379,6 +381,7 @@ function GeneratorInvitePanel({ token }: { token: string }) {
   };
   useEffect(() => {
     void loadAccounts();
+    void fetch(`${API_URL}/comercial/painel`, { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.ok ? response.json() : null).then(setCommercial).catch(() => undefined);
   }, [token]);
   async function submitInvite(event: FormEvent) {
     event.preventDefault();
@@ -517,7 +520,7 @@ function GeneratorInvitePanel({ token }: { token: string }) {
               </thead>
               <tbody>
                 {accounts.map((account) => (
-                  <tr key={String(account.id)}>
+                  <tr className="clickable-row" key={String(account.id)} onClick={() => setSelectedAccount(account)}>
                     <td>{String(account.nome ?? "—")}</td>
                     <td>{String(account.email ?? "—")}</td>
                     <td>{String(account.perfil ?? "—")}</td>
@@ -532,7 +535,7 @@ function GeneratorInvitePanel({ token }: { token: string }) {
                       ) : (
                         <button
                           className="table-action"
-                          onClick={() => void toggleAccount(account)}
+                          onClick={(event) => { event.stopPropagation(); void toggleAccount(account); }}
                         >
                           {account.ativo ? "Desativar" : "Ativar"}
                         </button>
@@ -544,6 +547,7 @@ function GeneratorInvitePanel({ token }: { token: string }) {
             </table>
           </div>
         )}
+        {selectedAccount ? (() => { const generator = (commercial?.geradores ?? []).find((item:any)=>String(item.id)===String(selectedAccount.id)) ?? selectedAccount; const subscription = (commercial?.assinaturas ?? []).find((item:any)=>String(item.gerador_id)===String(selectedAccount.id) && item.status!=="CANCELADA"); return <article className="commercial-generator-detail account-generator-detail"><button aria-label="Fechar detalhes" onClick={()=>setSelectedAccount(null)}>×</button><div><small>INFORMAÇÕES DO GERADOR</small><h3>{String(generator.nome??"Gerador")}</h3><p>{String(generator.email??"E-mail não informado")} · {String(generator.telefone??"Telefone não informado")}</p></div><dl><div><dt>Conta</dt><dd>{generator.ativo?"Ativa":"Inativa"}</dd></div><div><dt>Assinatura</dt><dd>{subscription?.status??"Sem assinatura"}</dd></div><div><dt>Plano</dt><dd>{subscription?.plano?.nome??"Não vinculado"}</dd></div><div><dt>Vencimento</dt><dd>{subscription?.proximo_vencimento?new Date(`${subscription.proximo_vencimento}T12:00:00`).toLocaleDateString("pt-BR"):"—"}</dd></div><div><dt>Usinas</dt><dd>{generator.total_usinas??0}</dd></div><div><dt>UCs ativas</dt><dd>{generator.total_ucs_ativas??0}</dd></div></dl></article>; })() : null}
       </div>
     </div>
   );

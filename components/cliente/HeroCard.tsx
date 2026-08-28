@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
     padding: Spacing.lg,
     borderRadius: Radius.xl,
-    backgroundColor: Colors.secondary,
+    backgroundColor: Colors.primaryDark,
   },
   glowLarge: {
     position: "absolute",
@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
     bottom: -60,
     left: -45,
     borderRadius: 55,
-    backgroundColor: "rgba(37, 99, 235, 0.12)",
+    backgroundColor: "rgba(247, 215, 92, 0.14)",
   },
   header: {
     flexDirection: "row",

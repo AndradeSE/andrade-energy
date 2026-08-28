@@ -246,14 +246,14 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
     padding: Spacing.lg,
     borderRadius: Radius.xl,
-    backgroundColor: Colors.secondary,
+    backgroundColor: Colors.primaryDark,
   },
   heroBackground: {
     borderRadius: Radius.xl,
   },
   heroOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(15, 23, 42, 0.56)",
+    backgroundColor: "rgba(4, 42, 31, 0.34)",
   },
   heroGlow: {
     position: "absolute",
