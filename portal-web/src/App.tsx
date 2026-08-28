@@ -5,8 +5,8 @@ import RealDiscountInfoWeb from "./RealDiscountInfoWeb";
 import "./mobile.css";
 import "./download.css";
 
-const APP_GERADOR_URL = String(import.meta.env.VITE_APP_GERADOR_DOWNLOAD_URL ?? "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-gerador.apk?v=20260827-2304").trim();
-const APP_CONSUMIDOR_URL = String(import.meta.env.VITE_APP_CONSUMIDOR_DOWNLOAD_URL ?? "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-consumidor.apk?v=20260827-2304").trim();
+const APP_GERADOR_URL = String(import.meta.env.VITE_APP_GERADOR_DOWNLOAD_URL ?? "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-gerador.apk").trim();
+const APP_CONSUMIDOR_URL = String(import.meta.env.VITE_APP_CONSUMIDOR_DOWNLOAD_URL ?? "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-consumidor.apk").trim();
 const TESTE_GRATUITO_HABILITADO = false;
 
 type AccessType = "CONSUMIDOR" | "GERADOR";
@@ -42,14 +42,12 @@ function AppDownloadLink({
 }) {
   const [downloading, setDownloading] = useState(false);
 
-  const startDownload = (event: React.MouseEvent<HTMLAnchorElement>) => {
-    event.preventDefault();
+  const startDownload = () => {
     if (!href || downloading) return;
     setDownloading(true);
-    window.setTimeout(() => {
-      window.location.assign(href);
-      window.setTimeout(() => setDownloading(false), 5000);
-    }, 180);
+    // Mantém a navegação nativa do link. Em navegadores Android, redirecionar
+    // por JavaScript pode reiniciar a página e deixar o download em loop.
+    window.setTimeout(() => setDownloading(false), 8000);
   };
 
   return <a
@@ -58,6 +56,7 @@ function AppDownloadLink({
     aria-disabled={!href || downloading}
     aria-busy={downloading}
     onClick={startDownload}
+    rel="external"
   >
     <b>{downloading ? "↓" : app === "Gerador" ? "G" : "C"}</b>
     <span>
@@ -3549,6 +3548,10 @@ export default function App() {
                 <a href="mailto:contato@andradese.com.br">
                   Fale com nossa equipe
                 </a>
+              </div>
+              <div className="multi-company-note">
+                <b>Plataforma multiempresa</b>
+                <span>Cada empresa opera em um ambiente isolado, com sua própria equipe, dados e identidade visual.</span>
               </div>
             </div>
           ) : trialStage === "form" ? (
