@@ -559,6 +559,29 @@ function GeneratorInvitePanel({ token }: { token: string }) {
   );
 }
 
+function CompaniesPanel({ token }: { token: string }) {
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [message, setMessage] = useState("");
+  const [form, setForm] = useState({ nome: "", documento: "", emailSuporte: "", corPrimaria: "#087A46", corSecundaria: "#F7D75C", identidadePersonalizada: false });
+  const load = useCallback(async () => {
+    const response = await fetch(`${API_URL}/empresas`, { headers: { Authorization: `Bearer ${token}` } });
+    const payload = await response.json().catch(() => []);
+    if (!response.ok) throw new Error(payload.message ?? "Não foi possível carregar as empresas.");
+    setCompanies(Array.isArray(payload) ? payload : []);
+  }, [token]);
+  useEffect(() => { void load().catch((error) => setMessage(error.message)); }, [load]);
+  async function create(event: FormEvent) {
+    event.preventDefault(); setMessage("");
+    const response = await fetch(`${API_URL}/empresas`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) return setMessage(payload.message ?? "Não foi possível cadastrar a empresa.");
+    setForm({ nome: "", documento: "", emailSuporte: "", corPrimaria: "#087A46", corSecundaria: "#F7D75C", identidadePersonalizada: false });
+    setMessage("Empresa parceira cadastrada. Agora vincule seus administradores e sua assinatura.");
+    await load();
+  }
+  return <div className="commercial-stack"><section className="commercial-home-hero"><div><small>ECOSSISTEMA ANDRADE ENERGY</small><h2>Empresas parceiras</h2><p>Ambientes isolados com a identidade Andrade Energy por padrão e personalização opcional.</p></div><b>{companies.length}</b></section><div className="commercial-columns"><section className="section-workspace"><span className="section-label">NOVA EMPRESA</span><h2>Cadastrar parceira</h2><form className="commercial-form" onSubmit={create}><label>Nome<input required value={form.nome} onChange={(event)=>setForm({...form,nome:event.target.value})}/></label><label>CPF/CNPJ<input value={form.documento} onChange={(event)=>setForm({...form,documento:event.target.value})}/></label><label>E-mail de suporte<input type="email" value={form.emailSuporte} onChange={(event)=>setForm({...form,emailSuporte:event.target.value})}/></label><div className="commercial-form-row"><label>Cor principal<input type="color" value={form.corPrimaria} onChange={(event)=>setForm({...form,corPrimaria:event.target.value})}/></label><label>Cor de destaque<input type="color" value={form.corSecundaria} onChange={(event)=>setForm({...form,corSecundaria:event.target.value})}/></label></div><label className="checkbox-field"><input checked={form.identidadePersonalizada} type="checkbox" onChange={(event)=>setForm({...form,identidadePersonalizada:event.target.checked})}/> Usar identidade personalizada</label><button className="primary-action">Cadastrar empresa</button></form>{message?<div className="invite-message">{message}</div>:null}</section><section className="section-workspace"><span className="section-label">AMBIENTES</span><h2>{companies.length} empresa(s)</h2><div className="document-grid">{companies.map((company)=><article key={company.id}><b style={{background:company.cor_primaria,color:company.cor_secundaria}}>{String(company.nome).slice(0,2).toUpperCase()}</b><div><strong>{company.nome}</strong><small>{company.empresa_proprietaria?"Empresa proprietária":company.identidade_personalizada?"Identidade personalizada":"Padrão Andrade Energy"} · {company.ativo?"Ativa":"Inativa"}</small></div></article>)}</div></section></div></div>;
+}
+
 function CommercialManagementPanel({ token }: { token: string }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -2620,7 +2643,7 @@ function PortalHome({
 
   useEffect(() => {
     setActiveSection((current) => {
-      if (isCommercialWorkspace && !["Gestão comercial", "Geradores", "Perfil", "Configurações"].includes(current)) return "Gestão comercial";
+      if (isCommercialWorkspace && !["Gestão comercial", "Empresas", "Geradores", "Aplicativos", "Perfil", "Configurações"].includes(current)) return "Gestão comercial";
       if (!isCommercialWorkspace && ["Gestão comercial", "Geradores"].includes(current)) return "Visão geral";
       return current;
     });
@@ -2747,7 +2770,7 @@ function PortalHome({
     type === "GERADOR"
       ? isCommercialWorkspace
         ? [
-            { label: "Gestão comercial", items: ["Gestão comercial", "Geradores", "Aplicativos"] },
+            { label: "Gestão comercial", items: ["Gestão comercial", "Empresas", "Geradores", "Aplicativos"] },
             { label: "Conta", items: ["Perfil", "Configurações"] },
             { label: "Ambiente", items: ["Alternar ambiente"] },
           ]
@@ -3170,6 +3193,8 @@ function PortalHome({
               isGenerator={type === "GERADOR"}
               onClose={() => setSelectedRecord(null)}
             />
+          ) : activeSection === "Empresas" && session.token ? (
+            <CompaniesPanel token={session.token} />
           ) : activeSection === "Geradores" && session.token ? (
             <GeneratorInvitePanel token={session.token} />
           ) : activeSection === "Gestão comercial" && session.token ? (

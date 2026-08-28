@@ -188,3 +188,14 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - O fluxo Hotmail → Resend foi validado: um PDF encaminhado de `fatura@cemig` chegou ao destinatário exclusivo, o webhook respondeu `202` e o processamento terminou com status `PROCESSADO`.
 - Caso um e-mail recebido não seja processado, conferir primeiro se a UC correspondente continua com recebimento ativo, se o destinatário exclusivo é o atual e se o CPF/CNPJ do titular contém ao menos os quatro primeiros dígitos necessários para abrir um PDF protegido.
 - O Render está configurado para deploy manual. Depois de enviar este commit, executar **Manual Deploy → Deploy latest commit** para ativar as alterações do backend na API pública.
+
+## Ecossistema multiempresa — 28/08/2026
+
+- A Andrade Energy permanece como empresa proprietária, identidade padrão e ambiente inicial. Empresas parceiras são cadastradas dentro do mesmo ecossistema, mas seus dados operacionais ficam isolados por `empresa_id`.
+- A migration `20260827213000_ecossistema_multiempresa.sql` foi aplicada ao Supabase. Ela criou `empresas` e `empresa_usuarios`, vinculou os dados existentes à Andrade Energy e adicionou o escopo empresarial às tabelas operacionais.
+- Clientes, unidades consumidoras, usinas, faturas, contratos, créditos, fechamentos, carteiras, cobranças Asaas, transferências, recebimento de faturas e conexões de e-mail agora respeitam a empresa da sessão nas rotas críticas.
+- A Gestão Comercial global e o cadastro de empresas parceiras são exclusivos do superadministrador da Andrade Energy. Um administrador de empresa parceira não pode consultar a operação comercial global do software.
+- O backend oferece `GET /api/empresas/atual` para os aplicativos e portal carregarem nome, logo e cores da empresa ativa. Quando `identidade_personalizada` estiver desativada ou ocorrer falha, a interface usa Andrade Energy como fallback.
+- O app possui `EmpresaProvider`, usado pelo cabeçalho compartilhado para aplicar a cor e o logo da empresa ativa. O portal autenticado também carrega essa identidade e oferece a área **Empresas** na Gestão Comercial para cadastrar novas parceiras.
+- Commits de fundação e isolamento: `21cd68e`, `3cfda9d`, `621958d`, `08d8075`, `ffb1eab` e `682ca59`.
+- Antes do deploy, ainda é obrigatório concluir testes explícitos de acesso cruzado entre duas empresas e revisar as políticas RLS das tabelas operacionais. Não publicar a camada multiempresa apenas porque o build passou.
