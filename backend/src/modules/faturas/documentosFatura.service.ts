@@ -77,6 +77,20 @@ function desenharLinhaDeValor(pdf: PDFKit.PDFDocument, y: number, rotulo: string
   pdf.fillColor(destaque ? VERDE_ESCURO : TEXTO).font(destaque ? "Helvetica-Bold" : "Helvetica").fontSize(destaque ? 12 : 10).text(valor, 365, y - (destaque ? 1 : 0), { width: 160, align: "right" });
 }
 
+function pontoPolar(cx: number, cy: number, raio: number, angulo: number) {
+  const radianos = ((angulo - 90) * Math.PI) / 180;
+  return { x: cx + raio * Math.cos(radianos), y: cy + raio * Math.sin(radianos) };
+}
+
+function caminhoRosca(cx: number, cy: number, raioExterno: number, raioInterno: number, inicio: number, fim: number) {
+  const externoInicio = pontoPolar(cx, cy, raioExterno, fim);
+  const externoFim = pontoPolar(cx, cy, raioExterno, inicio);
+  const internoInicio = pontoPolar(cx, cy, raioInterno, inicio);
+  const internoFim = pontoPolar(cx, cy, raioInterno, fim);
+  const arcoGrande = fim - inicio <= 180 ? 0 : 1;
+  return `M ${externoInicio.x} ${externoInicio.y} A ${raioExterno} ${raioExterno} 0 ${arcoGrande} 0 ${externoFim.x} ${externoFim.y} L ${internoInicio.x} ${internoInicio.y} A ${raioInterno} ${raioInterno} 0 ${arcoGrande} 1 ${internoFim.x} ${internoFim.y} Z`;
+}
+
 function temGD2(fatura: any) {
   return String(fatura.modalidade_faturamento ?? "").toUpperCase() === "COMPENSACAO" && (
     numero(fatura.custo_disponibilidade) > 0 ||
@@ -358,6 +372,71 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     });
     pdf.rect(48, 773, LARGURA, 14).fill("#EFF6F1");
     pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.8).text("Você escolhe economia. O planeta agradece.    |    Atendimento Andrade Energy", 61, 777, { width: 470, align: "center" });
+
+    if (tipo === "USINA") {
+      const disponibilidade = numero(fatura.custo_disponibilidade_repassado);
+      const fioB = numero(fatura.diferenca_fio_b_repassada);
+      const demaisConcessionaria = Math.max(0, valorCemig - disponibilidade - fioB);
+      const composicao = faturaSomenteAndrade
+        ? [
+            { rotulo: "Energia Andrade", valor: valorUsina, cor: VERDE },
+            { rotulo: "Economia concedida", valor: economiaReal, cor: "#F5B800" },
+          ]
+        : [
+            { rotulo: "Energia Andrade", valor: valorUsina, cor: VERDE },
+            { rotulo: "Concessionária", valor: demaisConcessionaria, cor: "#0C9ABE" },
+            { rotulo: "Disponibilidade", valor: disponibilidade, cor: "#F59E0B" },
+            { rotulo: "Fio B", valor: fioB, cor: "#376BC7" },
+          ];
+      const itensComposicao = composicao.filter((item) => item.valor > 0);
+      const totalComposicao = itensComposicao.reduce((soma, item) => soma + item.valor, 0);
+
+      if (totalComposicao > 0) {
+        pdf.addPage();
+        pdf.rect(0, 0, 595, 104).fill(verdeCabecalho);
+        if (caminhoLogoFatura) pdf.image(caminhoLogoFatura, 32, 8, { fit: [190, 88] });
+        pdf.fillColor("#D8F0E3").font("Helvetica-Bold").fontSize(8).text("DEMONSTRATIVO", 352, 34, { width: 178, align: "right" });
+        pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(14).text("Composição da fatura", 302, 49, { width: 228, align: "right" });
+
+        pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(18).text("Entenda o que forma sua cobrança", 48, 137);
+        pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(9).text("O gráfico considera somente valores identificados e efetivamente aplicados nesta competência.", 48, 165, { width: LARGURA });
+
+        let angulo = 0;
+        itensComposicao.forEach((item) => {
+          const abertura = (item.valor / totalComposicao) * 360;
+          const separacao = abertura > 4 ? 1 : 0;
+          pdf.path(caminhoRosca(184, 350, 116, 70, angulo + separacao, angulo + abertura - separacao)).fill(item.cor);
+          angulo += abertura;
+        });
+        pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(8).text("TOTAL", 139, 334, { width: 90, align: "center" });
+        pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(15).text(moeda(totalComposicao), 124, 350, { width: 120, align: "center" });
+
+        itensComposicao.forEach((item, indice) => {
+          const top = 245 + indice * 79;
+          const proporcao = (item.valor / totalComposicao) * 100;
+          pdf.roundedRect(337, top, 209, 62, 7).fill(indice % 2 === 0 ? "#F2F7F3" : "#FBFAF4");
+          pdf.roundedRect(337, top, 209, 62, 7).strokeColor(BORDA).lineWidth(0.7).stroke();
+          pdf.roundedRect(352, top + 14, 12, 34, 4).fill(item.cor);
+          pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(9).text(item.rotulo, 376, top + 12, { width: 150 });
+          pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(12).text(moeda(item.valor), 376, top + 29, { width: 96 });
+          pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(8).text(percentual(proporcao), 474, top + 31, { width: 54, align: "right" });
+        });
+
+        pdf.roundedRect(48, 550, LARGURA, 116, 9).fill("#F2F7F3");
+        pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("Como interpretar", 66, 570);
+        pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(9).text(
+          faturaSomenteAndrade
+            ? "A energia Andrade mostra o valor cobrado pela energia solar. A economia concedida representa a diferença em relação ao valor cheio da mesma energia."
+            : "Energia Andrade é a parcela solar. Concessionária reúne os demais valores da conta original. Disponibilidade e Fio B aparecem separados apenas quando foram efetivamente repassados.",
+          66,
+          594,
+          { width: 462, lineGap: 5 }
+        );
+        pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7).text(`Titular: ${textoCurto(titular, 68)}  |  UC: ${fatura.numero_instalacao ?? unidade.numero ?? "Não informada"}  |  Referência: ${fatura.referencia ?? "Não informada"}`, 48, 742, { width: LARGURA, align: "center" });
+        pdf.rect(48, 773, LARGURA, 14).fill("#EFF6F1");
+        pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.8).text("Andrade Energy | Demonstrativo complementar da composição da fatura", 61, 777, { width: 470, align: "center" });
+      }
+    }
     pdf.end();
   });
 }

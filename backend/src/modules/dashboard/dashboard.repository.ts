@@ -33,7 +33,15 @@ export async function obterDashboardCliente(
         status,
         economia_real,
         energia_injetada,
-        energia_compensada
+        energia_compensada,
+        valor_usina,
+        valor_andrade,
+        valor_cemig,
+        valor_cemig_repassado,
+        custo_disponibilidade_repassado,
+        diferenca_fio_b_repassada,
+        valor_energia_cheia,
+        fatura_somente_andrade
       `)
       .eq("cliente_id", clienteId)
       .eq("empresa_id", empresaId);

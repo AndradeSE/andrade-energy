@@ -12,6 +12,7 @@ import Screen from "../../components/ui/Screen";
 import { ElasticScrollView as ScrollView } from "../../components/ui/ElasticScroll";
 import EconomiaChart from "../../components/cliente/EconomiaChart";
 import ClienteHeader from "../../components/cliente/ClienteHeader";
+import ComposicaoTarifariaCard from "../../components/cliente/ComposicaoTarifariaCard";
 import { useDashboard } from "../../hooks/useDashboard";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
@@ -190,6 +191,16 @@ export default function Economia() {
             <Text style={styles.metricValue}>{formatarEnergia(data.creditos)}</Text>
           </View>
         </Card>
+
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>Entenda sua fatura</Text>
+            <Text style={styles.sectionSubtitle}>Valores que formam a cobrança</Text>
+          </View>
+          <Ionicons name="pie-chart-outline" size={22} color={Colors.primary} />
+        </View>
+
+        <ComposicaoTarifariaCard itens={data.ultimaFatura?.composicaoTarifaria} />
 
         <View style={styles.sectionHeader}>
           <View>

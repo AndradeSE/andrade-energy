@@ -213,3 +213,9 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - A versão web consolidada passou a ser a 38: o Gerador ganhou **Minha marca**, com prévia e edição da identidade quando a assinatura está ativa/em teste; os downloads Android usam navegação direta no celular e exibem spinner, texto e barra animada enquanto o arquivo inicia.
 - Os cards principais de Economia e Contrato do app Consumidor deixaram de usar o azul legado e adotaram verde escuro com detalhes da identidade Andrade Energy.
 - Geradores passaram a ser selecionáveis na web e no app: a lista comercial abre informações de conta, contato, assinatura, plano, vencimento, quantidade de usinas e UCs ativas. O app possui a rota dedicada `app/geradores/[id].tsx`.
+### 2026-08-28 - Composição da fatura no consumidor
+
+- A aba Economia do aplicativo consumidor passou a exibir um gráfico de rosca interativo com os valores reais da última competência.
+- A composição separa energia Andrade, concessionária, disponibilidade e Fio B somente quando essas parcelas existem; em fatura somente Andrade, separa cobrança e economia concedida.
+- Cada item do gráfico pode ser expandido para explicar a origem do valor, sem estimativas artificiais de tributos.
+- A fatura da usina preserva a primeira página aprovada e ganhou uma segunda página com o demonstrativo visual da composição.
