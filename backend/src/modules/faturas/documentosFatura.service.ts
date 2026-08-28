@@ -43,6 +43,15 @@ function energia(valor: unknown) {
   return `${numero(valor).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kWh`;
 }
 
+function tarifaKwh(valor: unknown) {
+  return `${numero(valor).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  })}/kWh`;
+}
+
 function dataBrasileira(valor: unknown) {
   const texto = String(valor ?? "").trim();
   const iso = /^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/.exec(texto);
@@ -239,7 +248,8 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     const energiaCompensada = numero(fatura.energia_compensada);
     const saldoCreditos = numero(fatura.saldo_atual);
     const energiaCobrada = numero(fatura.base_calculo_kwh ?? fatura.energia_compensada ?? fatura.consumo_kwh ?? fatura.consumo);
-    const tarifaAndrade = numero(fatura.tarifa_andrade);
+    const tarifaCheia = numero(fatura.tarifa_cheia) || (energiaCobrada > 0 ? numero(fatura.valor_energia_cheia) / energiaCobrada : 0);
+    const tarifaAndrade = numero(fatura.tarifa_andrade) || (energiaCobrada > 0 ? valorUsina / energiaCobrada : 0);
     const cliente = fatura.clientes ?? {};
     const unidade = fatura.unidades_consumidoras ?? {};
     // Mantemos na Andrade os mesmos dados que identificam a conta CEMIG:
@@ -324,6 +334,8 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.fillColor("#F6CC32").font("Helvetica-Bold").fontSize(8.5).text("TOTAL A PAGAR", 67, y.total + 17);
     pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(29).text(moeda(valorTotal), 67, y.total + 31);
     pdf.fillColor("#D8EEE6").font("Helvetica").fontSize(6.8).text(documentoUnificado ? "Valor referente à fatura unificada." : "Valor referente à Andrade Energy.", 67, y.total + 66);
+    pdf.fillColor("#F6CC32").font("Helvetica-Bold").fontSize(6.1).text(`kWh cheio: ${tarifaKwh(tarifaCheia)}`, 67, y.total + 82);
+    pdf.fillColor("#D8EEE6").font("Helvetica-Bold").fontSize(6.1).text(`kWh Andrade: ${tarifaKwh(tarifaAndrade)}`, 172, y.total + 82);
     pdf.fillOpacity(0.09).roundedRect(310, y.total + 12, 221, 88, 7).fill("#FFFFFF").fillOpacity(1);
     pdf.fillColor("#D8EEE6").font("Helvetica-Bold").fontSize(8).text("SEM ANDRADE ENERGY", 326, y.total + 19);
     pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(18).text(moeda(valorSemAndrade), 326, y.total + 33);
@@ -381,7 +393,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
       pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(5.8).text(`${item.complemento ? `${item.complemento} · ` : ""}${moeda(item.valor)}`, 179, top + 8, { width: 89 });
       pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(4.8).text(percentual(proporcao), 242, top + 1, { width: 29, align: "right" });
     });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(4.7).text("Tributos podem estar embutidos nas tarifas; percentuais consideram os itens detalhados.", 61, y.inferior + 124, { width: 210, align: "center" });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(4.5).text("Tributos podem estar embutidos nas tarifas; percentuais consideram os itens detalhados.", 61, y.inferior + 130, { width: 210, align: "center" });
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text("PAGUE COM PIX", 322, y.inferior + 28);
     pdf.roundedRect(322, y.inferior + 40, 70, 70, 3).fill("#FFFFFF");
     if (imagemQrCode) {
@@ -403,9 +415,15 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
 
     const miniCards = [["SALDO ATUAL\nDE CRÉDITOS", energia(saldoCreditos)], ["CRÉDITOS\nGERADOS (MÊS)", energia(energiaInjetada)], ["CRÉDITOS\nUSADOS (MÊS)", energia(energiaCompensada)], ["PRÓXIMA\nLEITURA", fatura.proxima_leitura ?? "A confirmar"]];
     const espacamentoMiniCards = 8;
-    const larguraMiniCard = (LARGURA - espacamentoMiniCards * 3) / 4;
+    // Cada dupla acompanha exatamente os limites dos dois cards superiores.
+    const posicoesMiniCards = [
+      { x: 48, largura: 115 },
+      { x: 48 + 115 + espacamentoMiniCards, largura: 115 },
+      { x: 305, largura: 116.5 },
+      { x: 305 + 116.5 + espacamentoMiniCards, largura: 116.5 },
+    ];
     miniCards.forEach(([titulo, valor], indice) => {
-      const x = 48 + indice * (larguraMiniCard + espacamentoMiniCards);
+      const { x, largura: larguraMiniCard } = posicoesMiniCards[indice];
       desenharCartao(x, y.creditos, larguraMiniCard, 66, indice % 2 === 0 ? "#F2F8F4" : "#FBF8EE");
       pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text(titulo, x + 10, y.creditos + 10, {
         width: larguraMiniCard - 24,
