@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { CSSProperties, FormEvent, useCallback, useEffect, useState } from "react";
 import bulbImage from "./assets/lampada-dourada.png";
 import RecordEditForm from "./RecordEditForm";
 import RealDiscountInfoWeb from "./RealDiscountInfoWeb";
@@ -26,6 +26,8 @@ type PortalSession = {
   [key: string]: unknown;
 };
 type WebRecord = Record<string, unknown>;
+type PortalCompany = { nome: string; logo_url?: string | null; cor_primaria: string; cor_secundaria: string; identidade_personalizada: boolean };
+const DEFAULT_COMPANY: PortalCompany = { nome: "Andrade Energy", cor_primaria: "#087A46", cor_secundaria: "#F7D75C", identidade_personalizada: true };
 
 function AppDownloadLink({
   href,
@@ -2603,7 +2605,18 @@ function PortalHome({
   const [refreshKey, setRefreshKey] = useState(0);
   const [walletHome, setWalletHome] = useState<WalletSummary | null>(null);
   const [walletNotice, setWalletNotice] = useState(false);
+  const [company, setCompany] = useState<PortalCompany>(DEFAULT_COMPANY);
   const isCommercialWorkspace = type === "GERADOR" && session.usuario?.perfil === "ADMIN" && workspace === "COMERCIAL";
+
+  useEffect(() => {
+    if (!session.token) return;
+    let active = true;
+    fetch(`${API_URL}/empresas/atual`, { headers: { Authorization: `Bearer ${session.token}` } })
+      .then(async (response) => response.ok ? response.json() : Promise.reject())
+      .then((data) => { if (active) setCompany(data.identidade_personalizada ? data : DEFAULT_COMPANY); })
+      .catch(() => { if (active) setCompany(DEFAULT_COMPANY); });
+    return () => { active = false; };
+  }, [session.token]);
 
   useEffect(() => {
     setActiveSection((current) => {
@@ -2892,10 +2905,10 @@ function PortalHome({
     );
   }
   return (
-    <main className="portal-home">
+    <main className="portal-home" style={{ "--brand-primary": company.cor_primaria, "--brand-secondary": company.cor_secundaria } as CSSProperties}>
       <header className="portal-topbar">
         <strong>
-          ANDRADE <span>ENERGY</span>
+          {company.nome.toUpperCase()}
         </strong>
         <div>
           <button
@@ -2913,9 +2926,9 @@ function PortalHome({
       <div className="portal-layout">
         <aside className="portal-sidebar">
           <div className="sidebar-brand">
-            <i>AE</i>
+            {company.logo_url ? <img src={company.logo_url} alt={`Logo ${company.nome}`} /> : <i>AE</i>}
             <span>
-              <strong>Andrade Energy</strong>
+              <strong>{company.nome}</strong>
               <small>Portal de gestão</small>
             </span>
           </div>

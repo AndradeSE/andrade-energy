@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
 
-:root { font-family: 'DM Sans', sans-serif; color: #10231c; background: #f2f5f2; font-synthesis: none; }
+:root { font-family: 'DM Sans', sans-serif; color: #10231c; background: #f2f5f2; font-synthesis: none; --brand-primary: #087a46; --brand-secondary: #f7d75c; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; }
 button, input { font: inherit; }
@@ -10,22 +10,22 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .portal-topbar > strong { color: #102d58; font: 800 25px 'Manrope', sans-serif; letter-spacing: -.04em; }
 .portal-topbar > strong span { color: #0a9b57; font-size: 13px; letter-spacing: .24em; }
 .portal-topbar > div { display: flex; align-items: center; gap: 20px; color: #52635d; }
-.portal-topbar button { padding: 9px 18px; border: 1px solid #0a9b57; border-radius: 999px; color: #087a46; background: transparent; cursor: pointer; font-weight: 700; }
+.portal-topbar button { padding: 9px 18px; border: 1px solid var(--brand-primary); border-radius: 999px; color: var(--brand-primary); background: transparent; cursor: pointer; font-weight: 700; }
 .portal-layout { display: grid; grid-template-columns: 282px minmax(0,1fr); gap: clamp(30px, 3vw, 48px); max-width: 1580px; margin: 30px auto 0; }
 .portal-sidebar { position: sticky; top: 24px; display: flex; flex-direction: column; min-height: calc(100vh - 126px); padding: 21px 17px; border: 1px solid #e2e9e5; border-radius: 16px; background: #fff; box-shadow: 0 16px 45px rgba(16,55,37,.06); align-self: start; }
-.sidebar-brand { display: flex; align-items: center; gap: 12px; padding: 3px 7px 20px; border-bottom: 1px solid #e5ece8; }.sidebar-brand > i { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 11px; color: white; background: linear-gradient(145deg,#0b3c68,#079454); font: 800 14px 'Manrope',sans-serif; font-style: normal; }.sidebar-brand > span { display: grid; gap: 2px; }.sidebar-brand strong { color: #193a2f; font: 800 14px 'Manrope',sans-serif; }.sidebar-brand small { color: #809089; font-size: 12px; }.portal-sidebar nav { display: grid; gap: 0; margin-top: 12px; }.nav-group { display: grid; gap: 4px; padding: 13px 0; border-bottom: 1px solid #edf1ef; }.nav-group:last-child { border-bottom: 0; }.nav-group > span { margin: 0 12px 6px; color: #829089; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.sidebar-brand { display: flex; align-items: center; gap: 12px; padding: 3px 7px 20px; border-bottom: 1px solid #e5ece8; }.sidebar-brand > i { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 11px; color: white; background: var(--brand-primary); font: 800 14px 'Manrope',sans-serif; font-style: normal; }.sidebar-brand > img { width: 52px; height: 42px; object-fit: contain; }.sidebar-brand > span { display: grid; gap: 2px; }.sidebar-brand strong { color: #193a2f; font: 800 14px 'Manrope',sans-serif; }.sidebar-brand small { color: #809089; font-size: 12px; }.portal-sidebar nav { display: grid; gap: 0; margin-top: 12px; }.nav-group { display: grid; gap: 4px; padding: 13px 0; border-bottom: 1px solid #edf1ef; }.nav-group:last-child { border-bottom: 0; }.nav-group > span { margin: 0 12px 6px; color: #829089; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .portal-sidebar button { width: 100%; display: flex; align-items: center; gap: 11px; min-height: 46px; padding: 10px 12px; border: 0; border-radius: 9px; color: #455b52; background: transparent; text-align: left; cursor: pointer; font-size: 14px; font-weight: 700; }
 .portal-sidebar button > span { flex: 1; }.portal-sidebar button > i { color: #a4b0aa; font-size: 20px; font-style: normal; }
 .portal-sidebar button b { width: 25px; height: 25px; display: grid; place-items: center; border-radius: 8px; color: #708078; background: #f0f4f2; font-size: 11px; }
-.portal-sidebar button:hover, .portal-sidebar button.active { color: #087a46; background: #e8f7ef; }
-.portal-sidebar button.active b { color: white; background: #0a9b57; }
+.portal-sidebar button:hover, .portal-sidebar button.active { color: var(--brand-primary); background: #e8f7ef; }
+.portal-sidebar button.active b { color: white; background: var(--brand-primary); }
 .sidebar-help { margin-top: 24px; padding: 18px 14px; border-radius: 14px; background: linear-gradient(145deg, #123e30, #087a46); color: white; }
 .sidebar-help small { display: block; color: #a8ddc3; font-size: 9px; font-weight: 800; letter-spacing: .12em; }.sidebar-help strong { display: block; margin: 6px 0 11px; font-size: 14px; }.sidebar-help a { color: #ffdd5c; font-size: 11px; font-weight: 700; text-decoration: none; }
 .portal-dashboard { min-width: 0; }
 .dashboard-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 30px; margin-bottom: 27px; }
 .portal-dashboard h1 { margin: 8px 0 4px; color: #10231c; font: 800 clamp(34px, 4vw, 52px)/1.05 'Manrope', sans-serif; letter-spacing: -.045em; }
 .dashboard-lead { margin: 0; color: #687871; }
-.primary-action { flex: 0 0 auto; padding: 12px 19px; border: 0; border-radius: 12px; color: white; background: #0a9b57; cursor: pointer; font-weight: 800; box-shadow: 0 9px 24px rgba(10,155,87,.2); }
+.primary-action { flex: 0 0 auto; padding: 12px 19px; border: 0; border-radius: 12px; color: white; background: var(--brand-primary); cursor: pointer; font-weight: 800; box-shadow: 0 9px 24px rgba(10,155,87,.2); }
 .dashboard-hero { min-height: 205px; display: flex; justify-content: space-between; align-items: flex-start; padding: clamp(28px, 4vw, 42px); border-radius: 26px; color: white; background: linear-gradient(135deg, #087a46, #0ba862); box-shadow: 0 18px 45px rgba(8,122,70,.2); }
 .dashboard-hero div { display: flex; flex-direction: column; gap: 8px; }
 .dashboard-hero small { color: #b9f3d5; font-weight: 800; letter-spacing: .12em; }
