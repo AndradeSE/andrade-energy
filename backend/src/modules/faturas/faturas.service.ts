@@ -16,30 +16,30 @@ import { registrarCreditosDaFatura } from "../creditos/consumo.service";
 import { supabase } from "../../config/supabase";
 import { criarCobrancaAsaas } from "../asaas/asaas.service";
 
-export async function listarFaturas(filtro?: { clienteId?: string; uc?: string }) {
+export async function listarFaturas(filtro?: { clienteId?: string; uc?: string; empresaId?: string }) {
   const faturas = await listarFaturasRepository(filtro);
   return Promise.all(faturas.map((fatura) => incluirLinksTemporarios(fatura)));
 }
 
-export async function detalharFatura(id: string) {
-  const fatura = await buscarFaturaPorId(id);
+export async function detalharFatura(id: string, empresaId?: string) {
+  const fatura = await buscarFaturaPorId(id, empresaId);
   if (!fatura) throw new Error("Fatura não encontrada.");
   return incluirLinksTemporarios(fatura);
 }
 
-export async function excluirFatura(id: string) {
-  await excluirFaturaPorId(id);
+export async function excluirFatura(id: string, empresaId?: string) {
+  await excluirFaturaPorId(id, empresaId);
   return { sucesso: true };
 }
 
-export async function regenerarDocumentosFatura(id: string) {
-  const fatura = await buscarFaturaPorId(id);
+export async function regenerarDocumentosFatura(id: string, empresaId?: string) {
+  const fatura = await buscarFaturaPorId(id, empresaId);
   if (!fatura) throw new Error("Fatura não encontrada.");
   return incluirLinksTemporarios(await regenerarDocumentosGeradosDaFatura(fatura));
 }
 
-export async function confirmarFaturaRascunho(id: string) {
-  const existente = await buscarFaturaPorId(id);
+export async function confirmarFaturaRascunho(id: string, empresaId?: string) {
+  const existente = await buscarFaturaPorId(id, empresaId);
   if (!existente) throw new Error("Fatura não encontrada.");
   if (String(existente.status ?? "").toUpperCase() !== "RASCUNHO") {
     throw new Error("Somente faturas em rascunho podem ser confirmadas.");
@@ -49,6 +49,7 @@ export async function confirmarFaturaRascunho(id: string) {
     .from("faturas")
     .update({ status: "ABERTA" })
     .eq("id", id)
+    .eq("empresa_id", empresaId)
     .eq("status", "RASCUNHO")
     .select()
     .maybeSingle();

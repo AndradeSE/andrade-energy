@@ -9,19 +9,20 @@ import {
   confirmarFaturaRascunho,
   listarFaturas,
 } from "./faturas.service";
+import { empresaIdDaRequisicao } from "../../utils/empresaScope";
 
 export async function excluirFaturaController(req: Request, res: Response) {
-  try { return res.json(await excluirFatura(req.params.id)); }
+  try { return res.json(await excluirFatura(req.params.id, empresaIdDaRequisicao(req))); }
   catch (err: any) { return res.status(500).json({ message: err.message }); }
 }
 
 export async function confirmarFaturaRascunhoController(req: Request, res: Response) {
-  try { return res.json(await confirmarFaturaRascunho(req.params.id)); }
+  try { return res.json(await confirmarFaturaRascunho(req.params.id, empresaIdDaRequisicao(req))); }
   catch (err: any) { return res.status(400).json({ message: err.message }); }
 }
 
 export async function regenerarDocumentosFaturaController(req: Request, res: Response) {
-  try { return res.json(await regenerarDocumentosFatura(req.params.id)); }
+  try { return res.json(await regenerarDocumentosFatura(req.params.id, empresaIdDaRequisicao(req))); }
   catch (err: any) { return res.status(err.message === "Fatura não encontrada." ? 404 : 500).json({ message: err.message }); }
 }
 
@@ -35,7 +36,7 @@ export async function analisarFaturaController(req: Request, res: Response) {
 
 export async function detalharFaturaController(req: Request, res: Response) {
   try {
-    return res.json(await detalharFatura(req.params.id));
+    return res.json(await detalharFatura(req.params.id, empresaIdDaRequisicao(req)));
   } catch (err: any) {
     const naoEncontrada = err.message === "Fatura não encontrada.";
     return res.status(naoEncontrada ? 404 : 500).json({ message: err.message });
@@ -52,6 +53,7 @@ export async function listarFaturasController(
     const data = await listarFaturas({
       clienteId: clienteId as string | undefined,
       uc: uc as string | undefined,
+      empresaId: empresaIdDaRequisicao(req),
     });
 
     return res.json(data);

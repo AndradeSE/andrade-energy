@@ -79,11 +79,11 @@ export async function importarFaturaGeradora(usinaId: string, caminhoArquivo: st
   return registrarProducaoDaFaturaGeradora(usinaId, dados);
 }
 
-export async function listarUsinasService() {
-  const usinas = await listarUsinas();
+export async function listarUsinasService(empresaId?: string) {
+  const usinas = await listarUsinas(empresaId);
   return Promise.all(usinas.map(async (usina: any) => {
     const [dashboard, producaoMedia12Meses, unidades] = await Promise.all([
-      buscarDashboardUsina(usina.id),
+      buscarDashboardUsina(usina.id, empresaId),
       calcularProducaoMedia12Meses(usina.id),
       supabase.from("unidades_consumidoras").select("id", { count: "exact", head: true }).eq("usina_id", usina.id),
     ]);
@@ -320,9 +320,10 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
 }
 
 export async function buscarUsinaService(
-  id: string
+  id: string,
+  empresaId?: string,
 ) {
-  const usina = await buscarUsina(id);
+  const usina = await buscarUsina(id, empresaId);
 
   if (!usina) {
     throw new Error("Usina não encontrada.");
@@ -332,22 +333,25 @@ export async function buscarUsinaService(
 }
 
 export async function criarUsinaService(
-  dados: any
+  dados: any,
+  empresaId?: string,
 ) {
-  return await criarUsina(dados);
+  return await criarUsina(dados, empresaId);
 }
 
 export async function atualizarUsinaService(
   id: string,
-  dados: any
+  dados: any,
+  empresaId?: string,
 ) {
-  return await editarUsina(id, dados);
+  return await editarUsina(id, dados, empresaId);
 }
 
 export async function excluirUsinaService(
-  id: string
+  id: string,
+  empresaId?: string,
 ) {
-  await excluirUsina(id);
+  await excluirUsina(id, empresaId);
 
   return {
     sucesso: true,
@@ -355,16 +359,18 @@ export async function excluirUsinaService(
 }
 
 export async function obterDashboardUsina(
-  id: string
+  id: string,
+  empresaId?: string,
 ) {
   const [dashboard, usina, clientes, unidadeGeradora] = await Promise.all([
-    buscarDashboardUsina(id),
-    buscarUsina(id),
-    supabase.from("clientes").select("id", { count: "exact", head: true }).eq("usina_id", id),
+    buscarDashboardUsina(id, empresaId),
+    buscarUsina(id, empresaId),
+    supabase.from("clientes").select("id", { count: "exact", head: true }).eq("usina_id", id).eq("empresa_id", empresaId),
     supabase
       .from("unidades_consumidoras")
       .select("id, numero, tipo, recebimento_email_ativo, recebimento_email_status")
       .eq("usina_id", id)
+      .eq("empresa_id", empresaId)
       .eq("tipo", "GERADORA")
       .maybeSingle(),
   ]);

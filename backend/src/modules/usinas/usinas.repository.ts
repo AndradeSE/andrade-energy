@@ -1,9 +1,11 @@
 import { supabase } from "../../config/supabase";
+import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
 
-export async function listarUsinas() {
+export async function listarUsinas(empresaId = EMPRESA_ANDRADE_ID) {
   const { data, error } = await supabase
     .from("usinas")
     .select("*")
+    .eq("empresa_id", empresaId)
     .order("nome");
 
   if (error) throw error;
@@ -12,12 +14,14 @@ export async function listarUsinas() {
 }
 
 export async function buscarUsina(
-  id: string
+  id: string,
+  empresaId = EMPRESA_ANDRADE_ID,
 ) {
   const { data, error } = await supabase
     .from("usinas")
     .select("*")
     .eq("id", id)
+    .eq("empresa_id", empresaId)
     .single();
 
   if (error) throw error;
@@ -26,11 +30,12 @@ export async function buscarUsina(
 }
 
 export async function criarUsina(
-  usina: any
+  usina: any,
+  empresaId = EMPRESA_ANDRADE_ID,
 ) {
   const { data, error } = await supabase
     .from("usinas")
-    .insert(usina)
+    .insert({ ...usina, empresa_id: empresaId })
     .select()
     .single();
 
@@ -41,12 +46,14 @@ export async function criarUsina(
 
 export async function editarUsina(
   id: string,
-  usina: any
+  usina: any,
+  empresaId = EMPRESA_ANDRADE_ID,
 ) {
   const { data, error } = await supabase
     .from("usinas")
     .update(usina)
     .eq("id", id)
+    .eq("empresa_id", empresaId)
     .select()
     .single();
 
@@ -56,9 +63,10 @@ export async function editarUsina(
 }
 
 export async function excluirUsina(
-  id: string
+  id: string,
+  empresaId = EMPRESA_ANDRADE_ID,
 ) {
-  const { data: faturas } = await supabase.from("faturas").select("id").eq("usina_id", id);
+  const { data: faturas } = await supabase.from("faturas").select("id").eq("usina_id", id).eq("empresa_id", empresaId);
   const faturaIds = (faturas ?? []).map((fatura) => fatura.id);
   if (faturaIds.length) {
     await supabase.from("cobrancas").delete().in("fatura_id", faturaIds);
@@ -66,7 +74,7 @@ export async function excluirUsina(
   }
 
   for (const tabela of ["creditos", "rateios", "participacoes_usina", "contratos", "fechamentos", "faturas", "unidades_consumidoras"]) {
-    const { error: dependenciaError } = await supabase.from(tabela).delete().eq("usina_id", id);
+    const { error: dependenciaError } = await supabase.from(tabela).delete().eq("usina_id", id).eq("empresa_id", empresaId);
     if (dependenciaError && dependenciaError.code !== "42P01") throw dependenciaError;
   }
 
@@ -77,13 +85,15 @@ export async function excluirUsina(
   const { error } = await supabase
     .from("usinas")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .eq("empresa_id", empresaId);
 
   if (error) throw error;
 }
 
 export async function buscarDashboardUsina(
-  usinaId: string
+  usinaId: string,
+  empresaId = EMPRESA_ANDRADE_ID,
 ) {
   const { data, error } = await supabase
     .from("fechamentos")
@@ -100,6 +110,7 @@ export async function buscarDashboardUsina(
       created_at
     `)
     .eq("usina_id", usinaId)
+    .eq("empresa_id", empresaId)
     .order("competencia", { ascending: false });
 
   if (error) throw error;

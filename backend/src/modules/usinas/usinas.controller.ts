@@ -10,15 +10,17 @@ import {
   importarFaturaGeradora,
   alocarUnidadeNaUsina,
 } from "./usinas.service";
+import { empresaIdDaRequisicao, garantirRegistroDaEmpresa } from "../../utils/empresaScope";
 
 export async function alocarUnidadeController(req: Request, res: Response) {
-  try { return res.json(await alocarUnidadeNaUsina(req.params.id, req.body)); }
+  try { await garantirRegistroDaEmpresa("usinas", req.params.id, empresaIdDaRequisicao(req)); return res.json(await alocarUnidadeNaUsina(req.params.id, req.body)); }
   catch (e: any) { return res.status(400).json({ message: e.message }); }
 }
 
 export async function importarFaturaGeradoraController(req: Request, res: Response) {
   try {
     if (!req.file) return res.status(400).json({ message: "Arquivo não enviado." });
+    await garantirRegistroDaEmpresa("usinas", req.params.id, empresaIdDaRequisicao(req));
     return res.json(await importarFaturaGeradora(req.params.id, req.file.path));
   } catch (e: any) {
     return res.status(400).json({ message: e.message });
@@ -30,7 +32,7 @@ export async function listarUsinasController(
   res: Response
 ) {
   try {
-    const data = await listarUsinasService();
+    const data = await listarUsinasService(empresaIdDaRequisicao(req));
 
     res.json(data);
   } catch (e: any) {
@@ -46,7 +48,8 @@ export async function buscarUsinaController(
 ) {
   try {
     const data = await buscarUsinaService(
-      req.params.id
+      req.params.id,
+      empresaIdDaRequisicao(req),
     );
 
     res.json(data);
@@ -63,7 +66,8 @@ export async function criarUsinaController(
 ) {
   try {
     const data = await criarUsinaService(
-      req.body
+      req.body,
+      empresaIdDaRequisicao(req),
     );
 
     res.status(201).json(data);
@@ -81,7 +85,8 @@ export async function atualizarUsinaController(
   try {
     const data = await atualizarUsinaService(
       req.params.id,
-      req.body
+      req.body,
+      empresaIdDaRequisicao(req),
     );
 
     res.json(data);
@@ -98,7 +103,8 @@ export async function excluirUsinaController(
 ) {
   try {
     const data = await excluirUsinaService(
-      req.params.id
+      req.params.id,
+      empresaIdDaRequisicao(req),
     );
 
     res.json(data);
@@ -115,7 +121,8 @@ export async function dashboardUsinaController(
 ) {
   try {
     const data = await obterDashboardUsina(
-      req.params.id
+      req.params.id,
+      empresaIdDaRequisicao(req),
     );
 
     res.json(data);

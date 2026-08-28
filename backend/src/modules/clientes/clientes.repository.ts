@@ -1,9 +1,11 @@
 import { supabase } from "../../config/supabase";
+import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
 
-export async function listarClientes() {
+export async function listarClientes(empresaId = EMPRESA_ANDRADE_ID) {
   const { data, error } = await supabase
     .from("clientes")
     .select("*")
+    .eq("empresa_id", empresaId)
     .order("nome");
 
   if (error) throw error;
@@ -11,11 +13,12 @@ export async function listarClientes() {
   return data ?? [];
 }
 
-export async function buscarCliente(id: string) {
+export async function buscarCliente(id: string, empresaId = EMPRESA_ANDRADE_ID) {
   const { data, error } = await supabase
     .from("clientes")
     .select("*")
     .eq("id", id)
+    .eq("empresa_id", empresaId)
     .single();
 
   if (error) throw error;
@@ -23,11 +26,12 @@ export async function buscarCliente(id: string) {
   return data;
 }
 
-export async function listarUnidadesCliente(clienteId: string) {
+export async function listarUnidadesCliente(clienteId: string, empresaId = EMPRESA_ANDRADE_ID) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")
     .select("id, cliente_id, usina_id, numero, titular, distribuidora, endereco, status, modalidade_faturamento, desconto_percentual, clientes(id,nome), usinas(id,nome)")
     .eq("cliente_id", clienteId)
+    .eq("empresa_id", empresaId)
     .order("numero");
 
   if (!error && data?.length) return data;
@@ -37,6 +41,7 @@ export async function listarUnidadesCliente(clienteId: string) {
     .from("clientes")
     .select("id, uc, nome, distribuidora, endereco, status, usina_id, modalidade_faturamento, desconto_percentual")
     .eq("id", clienteId)
+    .eq("empresa_id", empresaId)
     .maybeSingle();
 
   if (erroCliente) throw erroCliente;
@@ -57,22 +62,24 @@ export async function listarUnidadesCliente(clienteId: string) {
   }];
 }
 
-export async function listarTodasUnidades() {
+export async function listarTodasUnidades(empresaId = EMPRESA_ANDRADE_ID) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")
     .select("*, clientes(id,nome,cpf,endereco,email,whatsapp), usinas(id,nome,endereco)")
     .not("cliente_id", "is", null)
+    .eq("empresa_id", empresaId)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
   return data ?? [];
 }
 
-export async function buscarUnidadePorId(unidadeId: string) {
+export async function buscarUnidadePorId(unidadeId: string, empresaId = EMPRESA_ANDRADE_ID) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")
     .select("*, clientes(id,nome,cpf,endereco,email,whatsapp), usinas(id,nome,endereco)")
     .eq("id", unidadeId)
+    .eq("empresa_id", empresaId)
     .maybeSingle();
 
   if (error) throw error;
@@ -89,7 +96,7 @@ export async function buscarUnidadePorId(unidadeId: string) {
   return { ...data, usinas: usina ?? null, usina_nome: usina?.nome ?? null };
 }
 
-export async function listarUnidadesPorCpf(cpfInformado: string) {
+export async function listarUnidadesPorCpf(cpfInformado: string, empresaId = EMPRESA_ANDRADE_ID) {
   const cpf = String(cpfInformado ?? "").replace(/\D/g, "");
   if (cpf.length !== 11) return [];
   const prefixoCpf = cpf.slice(0, 9);
@@ -97,7 +104,9 @@ export async function listarUnidadesPorCpf(cpfInformado: string) {
   const { data: clientes, error: erroClientes } = await supabase
     .from("clientes")
     .select("id, cpf, uc, nome, distribuidora, endereco, status, usina_id")
-    .like("cpf", `${prefixoCpf}%`);
+    .like("cpf", `${prefixoCpf}%`)
+    .eq("empresa_id", empresaId);
+  // O CPF pode existir em empresas diferentes; somente a empresa ativa participa do vínculo.
   if (erroClientes) throw erroClientes;
   if (!clientes?.length) return [];
   const cpfsEncontrados = new Set(clientes.map((cliente) => String(cliente.cpf ?? "").replace(/\D/g, "")));
@@ -108,6 +117,7 @@ export async function listarUnidadesPorCpf(cpfInformado: string) {
     .from("unidades_consumidoras")
     .select("id, cliente_id, usina_id, numero, titular, distribuidora, endereco, status, modalidade_faturamento")
     .in("cliente_id", clienteIds)
+    .eq("empresa_id", empresaId)
     .order("numero");
   if (erroUnidades && erroUnidades.code !== "42P01") throw erroUnidades;
 
@@ -172,10 +182,10 @@ export async function buscarClientePorUC(uc: string) {
   return null;
 }
 
-export async function criarCliente(cliente: any) {
+export async function criarCliente(cliente: any, empresaId = EMPRESA_ANDRADE_ID) {
   const { data, error } = await supabase
     .from("clientes")
-    .insert(cliente)
+    .insert({ ...cliente, empresa_id: empresaId })
     .select()
     .single();
 
@@ -186,12 +196,14 @@ export async function criarCliente(cliente: any) {
 
 export async function atualizarCliente(
   id: string,
-  cliente: any
+  cliente: any,
+  empresaId = EMPRESA_ANDRADE_ID,
 ) {
   const { data, error } = await supabase
     .from("clientes")
     .update(cliente)
     .eq("id", id)
+    .eq("empresa_id", empresaId)
     .select()
     .single();
 
@@ -200,11 +212,12 @@ export async function atualizarCliente(
   return data;
 }
 
-export async function excluirCliente(id: string) {
+export async function excluirCliente(id: string, empresaId = EMPRESA_ANDRADE_ID) {
   const { data: cliente, error: erroCliente } = await supabase
     .from("clientes")
     .select("cpf")
     .eq("id", id)
+    .eq("empresa_id", empresaId)
     .maybeSingle();
   if (erroCliente) throw erroCliente;
 
@@ -221,7 +234,7 @@ export async function excluirCliente(id: string) {
   ];
 
   for (const tabela of tabelasDependentes) {
-    const { error } = await supabase.from(tabela).delete().eq("cliente_id", id);
+    const { error } = await supabase.from(tabela).delete().eq("cliente_id", id).eq("empresa_id", empresaId);
     if (error && error.code !== "42P01") throw error;
   }
 
@@ -252,15 +265,16 @@ export async function excluirCliente(id: string) {
   if (error) throw error;
 }
 
-export async function cadastrarUnidadeCliente(clienteId: string, numeroInformado: string, cpfTitularInformado?: string) {
+export async function cadastrarUnidadeCliente(clienteId: string, numeroInformado: string, cpfTitularInformado?: string, empresaId = EMPRESA_ANDRADE_ID) {
   const numero = String(numeroInformado ?? "").replace(/\D/g, "");
   if (!numero) throw new Error("Número da unidade consumidora não informado.");
 
-  const cliente = await buscarCliente(clienteId);
+  const cliente = await buscarCliente(clienteId, empresaId);
   const { data: existente, error: erroConsulta } = await supabase
     .from("unidades_consumidoras")
     .select("id,cliente_id")
     .eq("numero", numero)
+    .eq("empresa_id", empresaId)
     .maybeSingle();
   if (erroConsulta) throw erroConsulta;
   if (existente?.cliente_id && existente.cliente_id !== clienteId) {
@@ -279,6 +293,7 @@ export async function cadastrarUnidadeCliente(clienteId: string, numeroInformado
     desconto_percentual: Number(cliente.desconto_percentual ?? 40),
     cpf_titular: String(cpfTitularInformado ?? cliente.cpf ?? "").replace(/\D/g, "") || null,
     status: "ATIVA",
+    empresa_id: empresaId,
   };
   const resultado = existente
     ? await supabase.from("unidades_consumidoras").update(dados).eq("id", existente.id).select().single()
@@ -287,11 +302,12 @@ export async function cadastrarUnidadeCliente(clienteId: string, numeroInformado
   return resultado.data;
 }
 
-export async function excluirUnidadeCliente(unidadeId: string) {
+export async function excluirUnidadeCliente(unidadeId: string, empresaId = EMPRESA_ANDRADE_ID) {
   const { data: unidade, error: erroUnidade } = await supabase
     .from("unidades_consumidoras")
     .select("id, numero, cliente_id")
     .eq("id", unidadeId)
+    .eq("empresa_id", empresaId)
     .maybeSingle();
 
   if (erroUnidade) throw erroUnidade;

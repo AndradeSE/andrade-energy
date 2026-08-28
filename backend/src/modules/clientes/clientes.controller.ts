@@ -13,13 +13,14 @@ import {
   cadastrarUnidadeCliente,
   excluirUnidadeCliente,
 } from "./clientes.service";
+import { empresaIdDaRequisicao } from "../../utils/empresaScope";
 
 export async function listarClientesController(
   req: Request,
   res: Response
 ) {
   try {
-    const data = await listarClientes();
+    const data = await listarClientes(empresaIdDaRequisicao(req));
     return res.json(data);
   } catch (e: any) {
     return res.status(500).json({
@@ -33,7 +34,7 @@ export async function buscarClienteController(
   res: Response
 ) {
   try {
-    const data = await buscarCliente(req.params.id);
+    const data = await buscarCliente(req.params.id, empresaIdDaRequisicao(req));
     return res.json(data);
   } catch (e: any) {
     return res.status(500).json({
@@ -47,7 +48,7 @@ export async function criarClienteController(
   res: Response
 ) {
   try {
-    const data = await criarCliente(req.body);
+    const data = await criarCliente(req.body, empresaIdDaRequisicao(req));
     return res.status(201).json(data);
   } catch (e: any) {
     return res.status(500).json({
@@ -63,7 +64,8 @@ export async function atualizarClienteController(
   try {
     const data = await atualizarCliente(
       req.params.id,
-      req.body
+      req.body,
+      empresaIdDaRequisicao(req),
     );
 
     return res.json(data);
@@ -79,7 +81,7 @@ export async function excluirClienteController(
   res: Response
 ) {
   try {
-    await excluirCliente(req.params.id);
+    await excluirCliente(req.params.id, empresaIdDaRequisicao(req));
 
     return res.status(204).send();
   } catch (e: any) {
@@ -91,7 +93,7 @@ export async function excluirClienteController(
 
 export async function listarUnidadesClienteController(req: Request, res: Response) {
   try {
-    return res.json(await listarUnidadesCliente(req.params.id));
+    return res.json(await listarUnidadesCliente(req.params.id, empresaIdDaRequisicao(req)));
   } catch (e: any) {
     return res.status(500).json({ message: e.message });
   }
@@ -99,15 +101,15 @@ export async function listarUnidadesClienteController(req: Request, res: Respons
 
 export async function cadastrarUnidadeClienteController(req: Request, res: Response) {
   try {
-    return res.status(201).json(await cadastrarUnidadeCliente(req.params.id, req.body?.numero, req.body?.cpfTitular));
+    return res.status(201).json(await cadastrarUnidadeCliente(req.params.id, req.body?.numero, req.body?.cpfTitular, empresaIdDaRequisicao(req)));
   } catch (e: any) {
     return res.status(400).json({ message: e.message });
   }
 }
 
-export async function listarTodasUnidadesController(_: Request, res: Response) {
+export async function listarTodasUnidadesController(req: Request, res: Response) {
   try {
-    return res.json(await listarTodasUnidades());
+    return res.json(await listarTodasUnidades(empresaIdDaRequisicao(req)));
   } catch (e: any) {
     return res.status(500).json({ message: e.message });
   }
@@ -115,7 +117,7 @@ export async function listarTodasUnidadesController(_: Request, res: Response) {
 
 export async function buscarUnidadeController(req: Request, res: Response) {
   try {
-    const unidade = await buscarUnidadePorId(req.params.unidadeId);
+    const unidade = await buscarUnidadePorId(req.params.unidadeId, empresaIdDaRequisicao(req));
     if (!unidade) return res.status(404).json({ message: "Unidade consumidora não encontrada." });
 
     const usuario = (req as any).usuario;
@@ -130,7 +132,7 @@ export async function buscarUnidadeController(req: Request, res: Response) {
 
 export async function excluirUnidadeClienteController(req: Request, res: Response) {
   try {
-    await excluirUnidadeCliente(req.params.unidadeId);
+    await excluirUnidadeCliente(req.params.unidadeId, empresaIdDaRequisicao(req));
     return res.status(204).send();
   } catch (e: any) {
     return res.status(400).json({ message: e.message });
@@ -140,7 +142,7 @@ export async function excluirUnidadeClienteController(req: Request, res: Respons
 export async function listarMinhasUnidadesController(req: Request, res: Response) {
   try {
     const usuario = (req as any).usuario;
-    return res.json(await listarUnidadesPorCpf(usuario?.cpf));
+    return res.json(await listarUnidadesPorCpf(usuario?.cpf, empresaIdDaRequisicao(req)));
   } catch (e: any) {
     return res.status(500).json({ message: e.message });
   }
