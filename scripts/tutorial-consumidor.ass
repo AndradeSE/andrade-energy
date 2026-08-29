@@ -1,0 +1,51 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 720
+PlayResY: 1280
+WrapStyle: 2
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Step,Arial,22,&H0034D7F4,&H0034D7F4,&H000B352A,&H000B352A,-1,0,0,0,100,100,2,0,1,0,0,8,40,40,0,1
+Style: Title,Arial,48,&H00FFFFFF,&H00FFFFFF,&H000B352A,&H000B352A,-1,0,0,0,100,100,0,0,1,2,0,8,54,54,0,1
+Style: Body,Arial,31,&H00FFFFFF,&H00FFFFFF,&H000B352A,&HCC123F32,0,0,0,0,100,100,0,0,3,2,0,8,66,66,0,1
+Style: Hint,Arial,23,&H00DDEBE5,&H00DDEBE5,&H000B352A,&H000B352A,0,0,0,0,100,100,0,0,1,1,0,2,55,55,80,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:06.00,Step,,0,0,330,,TUTORIAL DO APP CONSUMIDOR
+Dialogue: 0,0:00:00.00,0:00:06.00,Title,,0,0,390,,Sua energia na palma da mão
+Dialogue: 0,0:00:00.00,0:00:06.00,Body,,0,0,520,,Veja como consultar unidades, faturas,\Neconomia, pagamentos e contratos.
+Dialogue: 0,0:00:00.00,0:00:06.00,Hint,,0,0,0,,Duração: aproximadamente 1 minuto
+Dialogue: 0,0:00:06.00,0:00:14.00,Step,,0,0,320,,PASSO 1 DE 8
+Dialogue: 0,0:00:06.00,0:00:14.00,Title,,0,0,380,,Entre com segurança
+Dialogue: 0,0:00:06.00,0:00:14.00,Body,,0,0,505,,Use e-mail e senha no primeiro acesso.\NAtive a biometria para entrar nas próximas\Nvezes sem digitar a senha novamente.
+Dialogue: 0,0:00:06.00,0:00:14.00,Hint,,0,0,0,,A conta precisa ter aceitado o convite do gerador.
+Dialogue: 0,0:00:14.00,0:00:22.00,Step,,0,0,320,,PASSO 2 DE 8
+Dialogue: 0,0:00:14.00,0:00:22.00,Title,,0,0,380,,Escolha sua unidade
+Dialogue: 0,0:00:14.00,0:00:22.00,Body,,0,0,505,,Na tela inicial, selecione a unidade\Nconsumidora desejada. Use a busca quando\Nhouver mais de uma UC no mesmo CPF.
+Dialogue: 0,0:00:14.00,0:00:22.00,Hint,,0,0,0,,Para trocar depois, toque em Unidades consumidoras.
+Dialogue: 0,0:00:22.00,0:00:30.00,Step,,0,0,320,,PASSO 3 DE 8
+Dialogue: 0,0:00:22.00,0:00:30.00,Title,,0,0,380,,Veja o resumo da unidade
+Dialogue: 0,0:00:22.00,0:00:30.00,Body,,0,0,505,,A Home mostra economia acumulada,\Nsaldo, faturas pendentes e os principais\Nindicadores da unidade selecionada.
+Dialogue: 0,0:00:22.00,0:00:30.00,Hint,,0,0,0,,Arraste a tela para baixo para atualizar os dados.
+Dialogue: 0,0:00:30.00,0:00:38.00,Step,,0,0,320,,PASSO 4 DE 8
+Dialogue: 0,0:00:30.00,0:00:38.00,Title,,0,0,380,,Consulte e pague a fatura
+Dialogue: 0,0:00:30.00,0:00:38.00,Body,,0,0,505,,Toque na fatura pendente ou em Ver todas.\NAbra o PDF Andrade, copie o PIX ou consulte\No boleto e a conta da concessionária.
+Dialogue: 0,0:00:30.00,0:00:38.00,Hint,,0,0,0,,O status muda automaticamente após a confirmação do pagamento.
+Dialogue: 0,0:00:38.00,0:00:46.00,Step,,0,0,320,,PASSO 5 DE 8
+Dialogue: 0,0:00:38.00,0:00:46.00,Title,,0,0,380,,Entenda sua economia
+Dialogue: 0,0:00:38.00,0:00:46.00,Body,,0,0,505,,Na aba Economia, compare o valor pago\Ncom e sem Andrade Energy e acompanhe\Na evolução mensal do benefício.
+Dialogue: 0,0:00:38.00,0:00:46.00,Hint,,0,0,0,,O demonstrativo separa energia e custos obrigatórios.
+Dialogue: 0,0:00:46.00,0:00:54.00,Step,,0,0,320,,PASSO 6 DE 8
+Dialogue: 0,0:00:46.00,0:00:54.00,Title,,0,0,380,,Confira contas de luz
+Dialogue: 0,0:00:46.00,0:00:54.00,Body,,0,0,505,,Em Conta de luz ficam somente os PDFs\Noriginais enviados pela concessionária,\Norganizados por competência.
+Dialogue: 0,0:00:46.00,0:00:54.00,Hint,,0,0,0,,A fatura Andrade fica separada no menu Faturas.
+Dialogue: 0,0:00:54.00,0:01:02.00,Step,,0,0,320,,PASSO 7 DE 8
+Dialogue: 0,0:00:54.00,0:01:02.00,Title,,0,0,380,,Acompanhe o contrato
+Dialogue: 0,0:00:54.00,0:01:02.00,Body,,0,0,505,,Abra Contrato para consultar status, termo,\Ndata de início, vencimento e economia\Nestimada da unidade.
+Dialogue: 0,0:00:54.00,0:01:02.00,Hint,,0,0,0,,O cancelamento segue as regras e o prazo contratado.
+Dialogue: 0,0:01:02.00,0:01:10.00,Step,,0,0,320,,PASSO 8 DE 8
+Dialogue: 0,0:01:02.00,0:01:10.00,Title,,0,0,380,,Notificações e perfil
+Dialogue: 0,0:01:02.00,0:01:10.00,Body,,0,0,505,,O sino avisa sobre faturas e vencimentos.\NEm Perfil, atualize telefone, senha, biometria\Ne demais dados da sua conta.
+Dialogue: 0,0:01:02.00,0:01:10.00,Hint,,0,0,0,,Andrade Energy • Transparência para o consumidor
