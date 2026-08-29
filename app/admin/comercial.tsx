@@ -68,6 +68,15 @@ export default function HomeComercial() {
       setData(await obterPainelComercial());
     } catch (error: any) {
       setData(null);
+      if (error?.response?.status === 401) {
+        await logout();
+        Alert.alert(
+          "Sessão encerrada",
+          "Esta conta entrou em outro aparelho ou a sessão expirou. Entre novamente para ativar este dispositivo.",
+        );
+        router.replace("/(auth)/login" as any);
+        return;
+      }
       Alert.alert(
         "Não foi possível carregar a gestão comercial",
         error?.response?.data?.message ??
@@ -76,7 +85,7 @@ export default function HomeComercial() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [logout]);
   useEffect(() => {
     void load();
   }, [load]);
