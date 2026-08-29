@@ -202,7 +202,7 @@ export default function HomeComercial() {
             />
             <DrawerLink
               icon="download-outline"
-              label="Baixar app do Gerador"
+              label="Compartilhar app do Gerador"
               onPress={() => {
                 setMenuAberto(false);
                 void baixarApp("gerador");
@@ -210,7 +210,7 @@ export default function HomeComercial() {
             />
             <DrawerLink
               icon="phone-portrait-outline"
-              label="Baixar app do Consumidor"
+              label="Compartilhar app do Consumidor"
               onPress={() => {
                 setMenuAberto(false);
                 void baixarApp("consumidor");
@@ -420,20 +420,20 @@ export default function HomeComercial() {
               },
               {
                 icon: "download-outline",
-                label: "Baixar app do Gerador",
+                label: "Compartilhar app Gerador",
                 value:
                   baixandoApp === "gerador"
                     ? `Baixando ${progressoApp}%`
-                    : "Versão Android atual",
+                    : "WhatsApp, e-mail ou Bluetooth",
                 onPress: () => void baixarApp("gerador"),
               },
               {
                 icon: "phone-portrait-outline",
-                label: "Baixar app do Consumidor",
+                label: "Compartilhar app Consumidor",
                 value:
                   baixandoApp === "consumidor"
                     ? `Baixando ${progressoApp}%`
-                    : "Versão Android atual",
+                    : "WhatsApp, e-mail ou Bluetooth",
                 onPress: () => void baixarApp("consumidor"),
               },
               {

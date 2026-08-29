@@ -65,6 +65,16 @@ export async function autenticar(
 
   const clienteId = await vincularClientePorCpf(usuario);
   const token = gerarToken();
+
+  // Uma conta mantém somente a sessão criada no login mais recente. Assim,
+  // entrar em outro aparelho encerra imediatamente o acesso do anterior.
+  const { error: revogacaoError } = await supabase
+    .from("sessoes_usuarios")
+    .update({ revogada_em: new Date().toISOString() })
+    .eq("usuario_id", usuario.id)
+    .is("revogada_em", null);
+  if (revogacaoError) throw revogacaoError;
+
   const { error: sessaoError } = await supabase.from("sessoes_usuarios").insert({
     usuario_id: usuario.id,
     token_hash: hashToken(token),

@@ -1,7 +1,5 @@
 import * as FileSystemLegacy from "expo-file-system/legacy";
-import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
-import { Platform } from "react-native";
 
 export type AppDownload = "gerador" | "consumidor";
 
@@ -46,19 +44,10 @@ export async function baixarAplicativo(
     throw new Error("O arquivo baixado está vazio.");
   }
   onProgress?.(100);
-  if (Platform.OS === "android") {
-    const contentUri = await FileSystemLegacy.getContentUriAsync(arquivo.uri);
-    await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
-      data: contentUri,
-      flags: 1,
-      type: "application/vnd.android.package-archive",
-    });
-    return info;
-  }
   if (!(await Sharing.isAvailableAsync()))
-    throw new Error("O instalador não está disponível neste aparelho.");
+    throw new Error("O compartilhamento não está disponível neste aparelho.");
   await Sharing.shareAsync(arquivo.uri, {
-    dialogTitle: "Instalar Andrade Energy",
+    dialogTitle: `Compartilhar app Andrade Energy ${tipo === "gerador" ? "Gerador" : "Consumidor"}`,
     mimeType: "application/vnd.android.package-archive",
     UTI: "public.apk",
   });
