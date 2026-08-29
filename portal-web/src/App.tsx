@@ -2662,6 +2662,7 @@ function PortalHome({
   const [sectionError, setSectionError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [globalSearch, setGlobalSearch] = useState("");
+  const [globalSearchFeedback, setGlobalSearchFeedback] = useState("");
   const [actionOpen, setActionOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<WebRecord | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -2849,9 +2850,16 @@ function PortalHome({
   function submitGlobalSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const query = globalSearch.trim().toLocaleLowerCase("pt-BR");
-    if (!query) return;
+    if (!query) {
+      setGlobalSearchFeedback("Digite o que deseja encontrar");
+      return;
+    }
     const target = globalSearchOptions.find((item) => item.toLocaleLowerCase("pt-BR").includes(query));
-    if (!target) return;
+    if (!target) {
+      setGlobalSearchFeedback("Nenhum resultado encontrado");
+      return;
+    }
+    setGlobalSearchFeedback("");
     setSelectedRecord(null);
     setActiveSection(target);
     setSearchQuery("");
@@ -2990,9 +2998,10 @@ function PortalHome({
         </div>
         <form className="portal-global-search" onSubmit={submitGlobalSearch}>
           <span aria-hidden="true">⌕</span>
-          <input aria-label="Pesquisar no portal" list="portal-search-options" onChange={(event) => setGlobalSearch(event.target.value)} placeholder="Pesquisar" value={globalSearch} />
+          <input aria-label="Pesquisar no portal" aria-describedby={globalSearchFeedback ? "portal-search-feedback" : undefined} list="portal-search-options" onChange={(event) => { setGlobalSearch(event.target.value); setGlobalSearchFeedback(""); }} placeholder="Pesquisar" value={globalSearch} />
           <datalist id="portal-search-options">{globalSearchOptions.map((item) => <option key={item} value={item} />)}</datalist>
           <button aria-label="Abrir resultado da pesquisa" type="submit">Ir</button>
+          {globalSearchFeedback ? <output className="portal-search-feedback" id="portal-search-feedback">{globalSearchFeedback}</output> : null}
         </form>
         <div>
           <button
