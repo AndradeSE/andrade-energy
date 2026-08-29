@@ -36,6 +36,7 @@ export async function obterPainelComercial() {
       .from("usuarios")
       .select("id,nome,email,cpf,telefone,ativo,perfil,usina_id,created_at")
       .in("perfil", ["ADMIN", "GESTOR"])
+      .eq("ativo", true)
       .order("nome"),
   ]);
   if (erroPlanos) throw erroPlanos;

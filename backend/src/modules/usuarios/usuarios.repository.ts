@@ -20,3 +20,11 @@ export async function atualizarStatusGerador(id: string, ativo: boolean) {
   if (!ativo) await supabase.from("sessoes_usuarios").update({ revogada_em: new Date().toISOString() }).eq("usuario_id", id).is("revogada_em", null);
   return data;
 }
+
+export async function removerContaGeradora(id: string) {
+  const { error } = await supabase.rpc("remover_conta_geradora", {
+    p_gerador_id: id,
+  });
+  if (error) throw error;
+  return { removido: true, id };
+}
