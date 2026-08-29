@@ -32,6 +32,7 @@ type Props = {
   variant?: "main" | "subpage";
   showPlantContext?: boolean;
   environmentName?: string;
+  onSearch?: () => void;
 };
 
 export default function AppHeader({
@@ -45,6 +46,7 @@ export default function AppHeader({
   variant = "main",
   showPlantContext = true,
   environmentName = "Gestão de usinas",
+  onSearch,
 }: Props) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -167,6 +169,9 @@ export default function AppHeader({
           </View>
         </TouchableOpacity>
 
+        {onSearch ? <TouchableOpacity accessibilityLabel="Pesquisar" hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }} activeOpacity={0.8} onPress={onSearch} style={styles.action}>
+          <Ionicons name="search-outline" size={24} color={Colors.surface} />
+        </TouchableOpacity> : null}
         <TouchableOpacity accessibilityLabel={notificacoes.length ? `${notificacoes.length} notificações` : "Notificações"} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} activeOpacity={0.8} onPress={() => setNotificacoesAbertas(true)} style={styles.action}>
           <Ionicons name={notificacoes.length ? "notifications" : "notifications-outline"} size={24} color={Colors.surface} />
           {notificacoes.length ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{notificacoes.length > 9 ? "9+" : notificacoes.length}</Text></View> : null}

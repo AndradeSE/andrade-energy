@@ -119,6 +119,13 @@ export default function HomeComercial() {
           </Text>
         </View>
         <TouchableOpacity
+          accessibilityLabel="Pesquisar"
+          onPress={() => router.push({ pathname: "/pesquisa", params: { perfil: "comercial" } } as any)}
+          style={styles.headerAction}
+        >
+          <Ionicons name="search-outline" size={23} color="#FFF" />
+        </TouchableOpacity>
+        <TouchableOpacity
           accessibilityLabel="Abrir perfil"
           onPress={() =>
             router.push({
@@ -420,12 +427,6 @@ export default function HomeComercial() {
                 label: "Contratos e termos",
                 value: `${data?.documentos.length ?? 0} documentos`,
                 onPress: () => router.push("/geradores/gestao" as any),
-              },
-              {
-                icon: "search-outline",
-                label: "Pesquisar",
-                value: "Encontre qualquer área",
-                onPress: () => router.push({ pathname: "/pesquisa", params: { perfil: "comercial" } } as any),
               },
               {
                 icon: "download-outline",

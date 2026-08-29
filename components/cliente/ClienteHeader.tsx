@@ -40,6 +40,7 @@ type Props = {
   distribuidora: string;
   onOpenProfile?: () => void;
   fullBleed?: boolean;
+  onSearch?: () => void;
 };
 
 export default function ClienteHeader({
@@ -48,6 +49,7 @@ export default function ClienteHeader({
   distribuidora,
   onOpenProfile,
   fullBleed = false,
+  onSearch,
 }: Props) {
   const [
     menuAberto,
@@ -286,6 +288,10 @@ export default function ClienteHeader({
               </Text>
             </View>
           </TouchableOpacity>
+
+          {onSearch ? <TouchableOpacity accessibilityLabel="Pesquisar" hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }} activeOpacity={0.8} onPress={onSearch} style={styles.iconButton}>
+            <Ionicons name="search-outline" size={24} color={Colors.surface} />
+          </TouchableOpacity> : null}
 
           <TouchableOpacity
             accessibilityLabel="Notificações"

@@ -74,6 +74,7 @@ export default function ClienteHome() {
         uc={data.uc}
         distribuidora={data.distribuidora}
         onOpenProfile={() => router.navigate("/perfil")}
+        onSearch={() => router.push({ pathname: "/pesquisa", params: { perfil: "consumidor" } } as any)}
       />
 
       <ScrollView
@@ -137,12 +138,6 @@ export default function ClienteHome() {
               icon: "document-text-outline",
               label: "Contrato",
               onPress: () => router.push("/contrato"),
-            },
-            {
-              icon: "search-outline",
-              label: "Pesquisar",
-              value: "Encontre qualquer área",
-              onPress: () => router.push({ pathname: "/pesquisa", params: { perfil: "consumidor" } } as any),
             },
           ]}
         />

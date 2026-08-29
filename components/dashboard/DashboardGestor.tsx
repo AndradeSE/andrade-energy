@@ -161,6 +161,7 @@ export default function DashboardGestor() {
         icon="sunny-outline"
         subtitle="Sua energia em um só lugar"
         title="Início"
+        onSearch={() => router.push({ pathname: "/pesquisa", params: { perfil: "usinas" } } as any)}
       />
       <ScrollView
         bounces
@@ -194,12 +195,6 @@ export default function DashboardGestor() {
                 label: atalho.label,
                 onPress: () => router.push(atalho.rota as any),
               })),
-              {
-                icon: "search-outline",
-                label: "Pesquisar",
-                value: "Encontre qualquer área",
-                onPress: () => router.push({ pathname: "/pesquisa", params: { perfil: "usinas" } } as any),
-              },
             ]}
           />
         </Section>
