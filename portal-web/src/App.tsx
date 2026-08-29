@@ -3399,6 +3399,30 @@ function PortalHome({
   );
 }
 
+function TutorialCenter() {
+  return (
+    <details className="tutorial-center">
+      <summary><span>▶</span><strong>Aprenda a usar os aplicativos</strong><small>Vídeos rápidos do Gerador e Consumidor</small></summary>
+      <div className="tutorial-video-grid">
+        <article>
+          <div><b>G</b><span><strong>App Gerador</strong><small>Usinas, clientes, alocação e faturamento</small></span></div>
+          <video controls playsInline preload="metadata" poster="/tutorials/tutorial-gerador.png">
+            <source src="/tutorials/tutorial-gerador.mp4" type="video/mp4" />
+            Seu navegador não oferece suporte a vídeos MP4.
+          </video>
+        </article>
+        <article>
+          <div><b>C</b><span><strong>App Consumidor</strong><small>UCs, faturas, economia e contrato</small></span></div>
+          <video controls playsInline preload="metadata" poster="/tutorials/tutorial-consumidor.png">
+            <source src="/tutorials/tutorial-consumidor.mp4" type="video/mp4" />
+            Seu navegador não oferece suporte a vídeos MP4.
+          </video>
+        </article>
+      </div>
+    </details>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState<PortalSession | null>(() =>
     readSession(),
@@ -3613,6 +3637,7 @@ export default function App() {
                 <b>Plataforma multiempresa</b>
                 <span>Cada empresa opera em um ambiente isolado, com sua própria equipe, dados e identidade visual.</span>
               </div>
+              <TutorialCenter />
             </div>
           ) : trialStage === "form" ? (
             <form className="login-view trial-signup" onSubmit={submitTrial}>

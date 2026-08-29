@@ -19,6 +19,7 @@
   .subscription-metrics,.subscription-columns{grid-template-columns:1fr}.subscription-checkout{padding:16px}.subscription-charge{align-items:flex-start;flex-direction:column}.subscription-charge span:last-child{text-align:left}
 }
 @media(max-width:600px){.topbar-brand{max-width:46%}.topbar-brand>img,.topbar-brand>i{width:34px;height:34px;flex-basis:34px}.topbar-brand strong{font-size:12px}.portal-topbar .user-menu-button{max-width:86px}.commercial-metrics{grid-template-columns:1fr}.client-orbit{margin-top:0;align-self:flex-start}.visual-copy h1{font-size:32px}.section-workspace{padding:16px}.app-downloads-panel{padding:18px}.commercial-apps a{align-items:flex-start;flex-wrap:wrap}.commercial-apps a>span{flex:1 1 calc(100% - 60px)}.commercial-apps a>em{width:100%;margin-left:59px;text-align:center}}
+@media(max-width:600px){.tutorial-video-grid{grid-template-columns:1fr}.tutorial-video-grid video{max-height:540px}.tutorial-center>summary{grid-template-columns:34px minmax(0,1fr)}}
 
 /* Correcoes finais das telas internas em celulares estreitos. */
 @media(max-width:760px){
