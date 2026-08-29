@@ -26,7 +26,9 @@ export async function removerGerador(id: string, administradorId: string) {
   if (error) throw error;
   for (const assinatura of assinaturas ?? []) {
     if (assinatura.asaas_subscription_id) {
-      await asaasRequest(`/subscriptions/${assinatura.asaas_subscription_id}`, { method: "DELETE" });
+      // O encerramento local não pode ficar bloqueado por uma assinatura que já
+      // tenha sido removida ou esteja temporariamente indisponível no Asaas.
+      await asaasRequest(`/subscriptions/${assinatura.asaas_subscription_id}`, { method: "DELETE" }).catch(() => null);
     }
   }
   return removerContaGeradora(id);

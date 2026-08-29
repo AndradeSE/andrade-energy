@@ -9,6 +9,7 @@ import { extrairTextoDoBuffer } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
 
 const BUCKET = "faturas";
+export const VERSAO_LAYOUT_FATURA = "layout-20260829-v2";
 const VERDE = "#107C5C";
 const VERDE_ESCURO = "#07533D";
 const VERDE_CLARO = "#E8F6F0";
@@ -494,8 +495,8 @@ export async function regenerarDocumentosGeradosDaFatura(fatura: any) {
     gerarPdfFatura(fatura, "UNIFICADA"),
   ]);
   const [usina, unificada] = await Promise.all([
-    enviarPdf(`${pasta}/fatura-usina-${versao}.pdf`, pdfUsina),
-    enviarPdf(`${pasta}/fatura-unificada-${versao}.pdf`, pdfUnificada),
+    enviarPdf(`${pasta}/fatura-usina-${VERSAO_LAYOUT_FATURA}-${versao}.pdf`, pdfUsina),
+    enviarPdf(`${pasta}/fatura-unificada-${VERSAO_LAYOUT_FATURA}-${versao}.pdf`, pdfUnificada),
   ]);
   const { error } = await supabase
     .from("faturas")

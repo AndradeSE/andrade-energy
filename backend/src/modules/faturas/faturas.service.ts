@@ -9,6 +9,7 @@ import {
   armazenarDocumentosDaFatura,
   incluirLinksTemporarios,
   regenerarDocumentosGeradosDaFatura,
+  VERSAO_LAYOUT_FATURA,
 } from "./documentosFatura.service";
 import { enfileirarNotificacoesDaFatura } from "./notificacoesFatura.service";
 import { criarCobranca } from "../cobrancas/cobrancas.repository";
@@ -22,8 +23,13 @@ export async function listarFaturas(filtro?: { clienteId?: string; uc?: string; 
 }
 
 export async function detalharFatura(id: string, empresaId?: string) {
-  const fatura = await buscarFaturaPorId(id, empresaId);
+  let fatura = await buscarFaturaPorId(id, empresaId);
   if (!fatura) throw new Error("Fatura não encontrada.");
+  // Atualiza uma única vez documentos salvos por versões antigas. Assim o
+  // consumidor recebe o layout vigente sem depender de um botão do gerador.
+  if (!String(fatura.pdf_unificada_url ?? "").includes(VERSAO_LAYOUT_FATURA)) {
+    fatura = await regenerarDocumentosGeradosDaFatura(fatura);
+  }
   return incluirLinksTemporarios(fatura);
 }
 
