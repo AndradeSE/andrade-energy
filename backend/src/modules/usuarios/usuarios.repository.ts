@@ -3,7 +3,7 @@ import { supabase } from "../../config/supabase";
 const camposPublicos = "id,nome,cpf,email,telefone,perfil,ativo,usina_id,created_at";
 
 export async function listarContasGeradoras() {
-  const { data, error } = await supabase.from("usuarios").select(camposPublicos).in("perfil", ["ADMIN", "GESTOR"]).order("created_at", { ascending: false });
+  const { data, error } = await supabase.from("usuarios").select(camposPublicos).in("perfil", ["ADMIN", "GESTOR"]).eq("ativo", true).order("created_at", { ascending: false });
   if (error) throw error;
   return data ?? [];
 }
