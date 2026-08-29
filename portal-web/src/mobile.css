@@ -19,3 +19,26 @@
   .subscription-metrics,.subscription-columns{grid-template-columns:1fr}.subscription-checkout{padding:16px}.subscription-charge{align-items:flex-start;flex-direction:column}.subscription-charge span:last-child{text-align:left}
 }
 @media(max-width:600px){.topbar-brand{max-width:46%}.topbar-brand>img,.topbar-brand>i{width:34px;height:34px;flex-basis:34px}.topbar-brand strong{font-size:12px}.portal-topbar .user-menu-button{max-width:86px}.commercial-metrics{grid-template-columns:1fr}.client-orbit{margin-top:0;align-self:flex-start}.visual-copy h1{font-size:32px}.section-workspace{padding:16px}.app-downloads-panel{padding:18px}.commercial-apps a{align-items:flex-start;flex-wrap:wrap}.commercial-apps a>span{flex:1 1 calc(100% - 60px)}.commercial-apps a>em{width:100%;margin-left:59px;text-align:center}}
+
+/* Correcoes finais das telas internas em celulares estreitos. */
+@media(max-width:760px){
+  .portal-topbar{margin:0 -12px;padding:10px 12px!important;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px 10px}
+  .portal-global-search{grid-column:1/-1;grid-row:2;order:initial;width:100%}
+  .portal-layout{display:block!important;grid-template-columns:none!important}
+  .portal-sidebar{width:calc(100% + 24px);margin:0 0 14px -12px;overflow:hidden}
+  .portal-sidebar nav{width:100%;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .nav-group{display:contents}
+  .portal-sidebar button{min-width:max-content;flex:0 0 auto}
+  .portal-dashboard{width:100%;min-width:0;padding:14px!important}
+  .portal-dashboard>*{min-width:0;max-width:100%}
+  .section-workspace h2,.portal-dashboard h1{overflow-wrap:anywhere}
+  .generator-remove-actions,.commercial-client-card footer{align-items:flex-start;flex-direction:column}
+  .commercial-generator-detail dl{grid-template-columns:1fr}
+  .commercial-generator-detail p{overflow-wrap:anywhere}
+}
+@media(max-width:390px){
+  .portal-home{padding-inline:8px}
+  .portal-topbar{margin-inline:-8px;padding-inline:8px!important}
+  .portal-sidebar{width:calc(100% + 16px);margin-left:-8px;padding-inline:8px}
+  .portal-dashboard{padding:11px!important}
+}
