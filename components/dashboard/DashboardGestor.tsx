@@ -12,10 +12,6 @@ import {
 } from "react-native";
 
 import { useAuth } from "../../contexts/AuthContext";
-import {
-  AppDownload,
-  baixarAplicativo,
-} from "../../services/app-download.service";
 import { useDashboardGestor } from "../../hooks/useDashboardGestor";
 import { importarFaturaGeradora } from "../../services/usinas.service";
 import * as CarteiraService from "../../services/carteira.service";
@@ -69,24 +65,6 @@ export default function DashboardGestor() {
   );
   const [novoRecebimento, setNovoRecebimento] = useState(false);
   const [importando, setImportando] = useState(false);
-  const [baixandoApp, setBaixandoApp] = useState<AppDownload | null>(null);
-  const [progressoApp, setProgressoApp] = useState(0);
-  async function baixarApp(tipo: AppDownload) {
-    if (baixandoApp) return;
-    setBaixandoApp(tipo);
-    setProgressoApp(0);
-    try {
-      await baixarAplicativo(tipo, setProgressoApp);
-    } catch (error: any) {
-      Alert.alert(
-        "Download não concluído",
-        error?.message ?? "Não foi possível baixar o aplicativo.",
-      );
-    } finally {
-      setBaixandoApp(null);
-      setProgressoApp(0);
-    }
-  }
   const [atualizando, setAtualizando] = useState(false);
   async function carregarCarteira() {
     try {
@@ -217,22 +195,10 @@ export default function DashboardGestor() {
                 onPress: () => router.push(atalho.rota as any),
               })),
               {
-                icon: "download-outline",
-                label: "App Gerador",
-                value:
-                  baixandoApp === "gerador"
-                    ? `Baixando ${progressoApp}%`
-                    : "Baixar Android",
-                onPress: () => void baixarApp("gerador"),
-              },
-              {
-                icon: "phone-portrait-outline",
-                label: "App Consumidor",
-                value:
-                  baixandoApp === "consumidor"
-                    ? `Baixando ${progressoApp}%`
-                    : "Baixar Android",
-                onPress: () => void baixarApp("consumidor"),
+                icon: "search-outline",
+                label: "Pesquisar",
+                value: "Encontre qualquer área",
+                onPress: () => router.push({ pathname: "/pesquisa", params: { perfil: "usinas" } } as any),
               },
             ]}
           />

@@ -1,12 +1,12 @@
-import { CSSProperties, FormEvent, useCallback, useEffect, useState } from "react";
+import { CSSProperties, FormEvent, MouseEvent, useCallback, useEffect, useState } from "react";
 import bulbImage from "./assets/lampada-dourada.png";
 import RecordEditForm from "./RecordEditForm";
 import RealDiscountInfoWeb from "./RealDiscountInfoWeb";
 import "./mobile.css";
 import "./download.css";
 
-const APP_GERADOR_URL = String(import.meta.env.VITE_APP_GERADOR_DOWNLOAD_URL ?? "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-gerador.apk").trim();
-const APP_CONSUMIDOR_URL = String(import.meta.env.VITE_APP_CONSUMIDOR_DOWNLOAD_URL ?? "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-consumidor.apk").trim();
+const APP_GERADOR_URL = String(import.meta.env.VITE_APP_GERADOR_DOWNLOAD_URL ?? "/downloads/andrade-energy-gerador.apk").trim();
+const APP_CONSUMIDOR_URL = String(import.meta.env.VITE_APP_CONSUMIDOR_DOWNLOAD_URL ?? "/downloads/andrade-energy-consumidor.apk").trim();
 const TESTE_GRATUITO_HABILITADO = false;
 
 type AccessType = "CONSUMIDOR" | "GERADOR";
@@ -47,7 +47,22 @@ function AppDownloadLink({
     aria-disabled={!href}
     aria-busy={downloading}
     aria-label={`Baixar aplicativo Andrade Energy ${app} para Android`}
-    onClick={() => href && setDownloading(true)}
+    download
+    onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+      if (!href) return;
+      event.preventDefault();
+      setDownloading(true);
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+        const link = document.createElement("a");
+        link.href = href;
+        link.download = "";
+        link.style.display = "none";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }));
+      window.setTimeout(() => setDownloading(false), 12000);
+    }}
   >
     <b aria-hidden="true">{downloading ? <i className="download-spinner"/> : app === "Gerador" ? "G" : "C"}</b>
     <span>
@@ -2637,6 +2652,7 @@ function PortalHome({
   const [sectionLoading, setSectionLoading] = useState(false);
   const [sectionError, setSectionError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [globalSearch, setGlobalSearch] = useState("");
   const [actionOpen, setActionOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<WebRecord | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -2820,6 +2836,18 @@ function PortalHome({
           },
           { label: "Conta", items: ["Aplicativos", "Perfil", "Configurações"] },
         ];
+  const globalSearchOptions = menuGroups.flatMap((group) => group.items).filter((item) => item !== "Alternar ambiente");
+  function submitGlobalSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const query = globalSearch.trim().toLocaleLowerCase("pt-BR");
+    if (!query) return;
+    const target = globalSearchOptions.find((item) => item.toLocaleLowerCase("pt-BR").includes(query));
+    if (!target) return;
+    setSelectedRecord(null);
+    setActiveSection(target);
+    setSearchQuery("");
+    setGlobalSearch("");
+  }
   const chart = [42, 58, 49, 68, 61, 79, 74, 88, 82, 95, 89, 100];
   const columns: Record<string, Array<[string, string]>> = {
     Usinas: [
@@ -2951,6 +2979,12 @@ function PortalHome({
           {company.logo_url ? <img src={company.logo_url} alt="" aria-hidden="true" /> : <i>{company.nome.slice(0, 2).toUpperCase()}</i>}
           <span><strong>{company.nome}</strong><small>{isCommercialWorkspace ? "Gestão comercial" : type === "GERADOR" ? "Gestão de energia" : "Portal do consumidor"}</small></span>
         </div>
+        <form className="portal-global-search" onSubmit={submitGlobalSearch}>
+          <span aria-hidden="true">⌕</span>
+          <input aria-label="Pesquisar no portal" list="portal-search-options" onChange={(event) => setGlobalSearch(event.target.value)} placeholder="Pesquisar" value={globalSearch} />
+          <datalist id="portal-search-options">{globalSearchOptions.map((item) => <option key={item} value={item} />)}</datalist>
+          <button aria-label="Abrir resultado da pesquisa" type="submit">Ir</button>
+        </form>
         <div>
           <button
             className="user-menu-button"

@@ -45,11 +45,13 @@ export default function HomeComercial() {
   const [loading, setLoading] = useState(true);
   const [menuAberto, setMenuAberto] = useState(false);
   const [baixandoApp, setBaixandoApp] = useState<AppDownload | null>(null);
+  const [progressoApp, setProgressoApp] = useState(0);
   const baixarApp = async (tipo: AppDownload) => {
     if (baixandoApp) return;
     setBaixandoApp(tipo);
+    setProgressoApp(0);
     try {
-      await baixarAplicativo(tipo);
+      await baixarAplicativo(tipo, setProgressoApp);
     } catch (error: any) {
       Alert.alert(
         "Download não concluído",
@@ -57,6 +59,7 @@ export default function HomeComercial() {
       );
     } finally {
       setBaixandoApp(null);
+      setProgressoApp(0);
     }
   };
   const load = useCallback(async () => {
@@ -410,11 +413,17 @@ export default function HomeComercial() {
                 onPress: () => router.push("/geradores/gestao" as any),
               },
               {
+                icon: "search-outline",
+                label: "Pesquisar",
+                value: "Encontre qualquer área",
+                onPress: () => router.push({ pathname: "/pesquisa", params: { perfil: "comercial" } } as any),
+              },
+              {
                 icon: "download-outline",
                 label: "Baixar app do Gerador",
                 value:
                   baixandoApp === "gerador"
-                    ? "Baixando 45 MB..."
+                    ? `Baixando ${progressoApp}%`
                     : "Versão Android atual",
                 onPress: () => void baixarApp("gerador"),
               },
@@ -423,7 +432,7 @@ export default function HomeComercial() {
                 label: "Baixar app do Consumidor",
                 value:
                   baixandoApp === "consumidor"
-                    ? "Baixando 98 MB..."
+                    ? `Baixando ${progressoApp}%`
                     : "Versão Android atual",
                 onPress: () => void baixarApp("consumidor"),
               },

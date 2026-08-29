@@ -1,5 +1,4 @@
 import {
-  Alert,
   RefreshControl,
   StatusBar,
   StyleSheet,
@@ -13,7 +12,6 @@ import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useDashboard } from "../../hooks/useDashboard";
-import { baixarAplicativo } from "../../services/app-download.service";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 
 import EmptyState from "../ui/EmptyState";
@@ -30,24 +28,6 @@ import QuickAccessCarousel from "../QuickAccessCarousel";
 export default function ClienteHome() {
   const { data, isLoading, error, refetch } = useDashboard();
   const [atualizando, setAtualizando] = useState(false);
-  const [baixandoApp, setBaixandoApp] = useState(false);
-  const [progressoApp, setProgressoApp] = useState(0);
-  async function baixarApp() {
-    if (baixandoApp) return;
-    setBaixandoApp(true);
-    setProgressoApp(0);
-    try {
-      await baixarAplicativo("consumidor", setProgressoApp);
-    } catch (error: any) {
-      Alert.alert(
-        "Download não concluído",
-        error?.message ?? "Não foi possível baixar o aplicativo.",
-      );
-    } finally {
-      setBaixandoApp(false);
-      setProgressoApp(0);
-    }
-  }
   async function atualizarPagina() {
     setAtualizando(true);
     try {
@@ -159,12 +139,10 @@ export default function ClienteHome() {
               onPress: () => router.push("/contrato"),
             },
             {
-              icon: "download-outline",
-              label: "Baixar app",
-              value: baixandoApp
-                ? `Baixando ${progressoApp}%`
-                : "App Consumidor",
-              onPress: () => void baixarApp(),
+              icon: "search-outline",
+              label: "Pesquisar",
+              value: "Encontre qualquer área",
+              onPress: () => router.push({ pathname: "/pesquisa", params: { perfil: "consumidor" } } as any),
             },
           ]}
         />
