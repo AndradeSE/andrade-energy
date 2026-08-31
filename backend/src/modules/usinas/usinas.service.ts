@@ -81,6 +81,10 @@ export async function importarFaturaGeradora(usinaId: string, caminhoArquivo: st
 
 export async function listarUsinasService(empresaId?: string) {
   const usinas = await listarUsinas(empresaId);
+  // Normaliza a projeção atual antes de entregá-la ao app. Isso também corrige
+  // cadastros antigos que foram removidos antes da regra de recálculo existir,
+  // sem reescrever as competências históricas fechadas.
+  await Promise.all(usinas.map((usina: any) => recalcularAlocacaoUsina(usina.id, empresaId)));
   return Promise.all(usinas.map(async (usina: any) => {
     const [dashboard, producaoMedia12Meses, unidades] = await Promise.all([
       buscarDashboardUsina(usina.id, empresaId),
@@ -128,15 +132,26 @@ async function calcularProducaoMedia12Meses(usinaId: string) {
  * Deve ser chamado sempre que uma UC for incluída, editada, movida ou
  * removida.
  */
-export async function recalcularAlocacaoUsina(usinaId: string) {
+export async function recalcularAlocacaoUsina(usinaId: string, empresaId?: string) {
+  const empresa = empresaId ? String(empresaId) : null;
+  let unidadesQuery = supabase
+    .from("unidades_consumidoras")
+    .select("percentual_rateio,modalidade_faturamento,consumo_medio_kwh")
+    .eq("usina_id", usinaId)
+    .eq("status", "ATIVA")
+    .neq("tipo", "GERADORA");
+  let fechamentosQuery = supabase
+    .from("fechamentos")
+    .select("id,energia_gerada,status,competencia")
+    .eq("usina_id", usinaId)
+    .order("competencia", { ascending: false });
+  if (empresa) {
+    unidadesQuery = unidadesQuery.eq("empresa_id", empresa);
+    fechamentosQuery = fechamentosQuery.eq("empresa_id", empresa);
+  }
   const [{ data: unidades, error: erroUnidades }, { data: fechamentos, error: erroFechamentos }] = await Promise.all([
-    supabase
-      .from("unidades_consumidoras")
-      .select("percentual_rateio,modalidade_faturamento,consumo_medio_kwh")
-      .eq("usina_id", usinaId)
-      .eq("status", "ATIVA")
-      .neq("tipo", "GERADORA"),
-    supabase.from("fechamentos").select("id,energia_gerada,status,competencia").eq("usina_id", usinaId).order("competencia", { ascending: false }),
+    unidadesQuery,
+    fechamentosQuery,
   ]);
   if (erroUnidades) throw erroUnidades;
   if (erroFechamentos) throw erroFechamentos;

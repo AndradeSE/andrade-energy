@@ -43,6 +43,16 @@ async function recalcularUsinasAfetadas(usinaIds: string[]) {
   await Promise.all(usinaIds.map((usinaId) => recalcularAlocacaoUsina(usinaId)));
 }
 
+async function listarUsinasDeParticipacaoDoCliente(clienteId: string, empresaId: string) {
+  const { data, error } = await supabase
+    .from("participacoes_usina")
+    .select("usina_id")
+    .eq("cliente_id", clienteId)
+    .eq("empresa_id", empresaId);
+  if (error && error.code !== "42P01") throw error;
+  return data ?? [];
+}
+
 /**
  * A remoção da UC libera sua parcela de rateio imediatamente. O identificador
  * da usina é lido antes do delete porque não há mais como descobri-lo depois.
@@ -65,11 +75,15 @@ export async function excluirUnidadeCliente(unidadeId: string, empresaId: string
  * a alocação das UCs excluídas em cascata.
  */
 export async function excluirCliente(clienteId: string, empresaId: string) {
-  const [cliente, unidades] = await Promise.all([
+  const [cliente, unidades, participacoes] = await Promise.all([
     buscarCliente(clienteId, empresaId),
     listarUnidadesCliente(clienteId, empresaId),
+    listarUsinasDeParticipacaoDoCliente(clienteId, empresaId),
   ]);
-  const usinaIds = idsDeUsinas(cliente, unidades);
+  // Alguns cadastros antigos possuíam a participação registrada numa usina
+  // diferente do campo legado do cliente/UC. Guardamos também esse vínculo
+  // antes da exclusão para recalcular toda usina que possa ter sido afetada.
+  const usinaIds = idsDeUsinas(cliente, unidades, participacoes);
 
   await excluirClienteNoBanco(clienteId, empresaId);
   await recalcularUsinasAfetadas(usinaIds);
