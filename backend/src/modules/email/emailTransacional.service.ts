@@ -39,10 +39,12 @@ export async function enviarEmailTransacional(input: EmailTransacional) {
           replyTo: { email: brevoRemetente, name: "Andrade Energy" },
           subject: input.assunto,
           htmlContent: input.html,
-          attachment: (input.anexos ?? []).map((anexo) => ({
-            name: anexo.filename,
-            content: anexo.content.toString("base64"),
-          })),
+          ...((input.anexos?.length ?? 0) > 0 ? {
+            attachment: input.anexos!.map((anexo) => ({
+              name: anexo.filename,
+              content: anexo.content.toString("base64"),
+            })),
+          } : {}),
           tags: ["cadastro", "transacional"],
         }),
       });
@@ -66,10 +68,12 @@ export async function enviarEmailTransacional(input: EmailTransacional) {
           to: [input.destinatario],
           subject: input.assunto,
           html: input.html,
-          attachments: (input.anexos ?? []).map((anexo) => ({
-            filename: anexo.filename,
-            content: anexo.content.toString("base64"),
-          })),
+          ...((input.anexos?.length ?? 0) > 0 ? {
+            attachments: input.anexos!.map((anexo) => ({
+              filename: anexo.filename,
+              content: anexo.content.toString("base64"),
+            })),
+          } : {}),
         }),
       });
       if (resposta.ok) return true;
