@@ -166,10 +166,15 @@ export async function buscarUsuarioConsumidorPorEmail(email: string) {
   return data;
 }
 
-export async function vincularUsuarioAoClientePendente(usuarioId: string, clienteId: string, empresaId: string) {
+export async function vincularUsuarioAoClientePendente(
+  usuarioId: string,
+  clienteId: string,
+  empresaId: string,
+  ativo = false,
+) {
   const { error } = await supabase
     .from("usuarios")
-    .update({ cliente_id: clienteId, empresa_id: empresaId, ativo: false })
+    .update({ cliente_id: clienteId, empresa_id: empresaId, ativo })
     .eq("id", usuarioId);
   if (error) throw error;
 }
@@ -181,7 +186,7 @@ export async function criarSolicitacaoCadastroCliente(input: {
   empresaId: string;
   gestorId?: string | null;
   cpf: string;
-  faturaCemigUrl: string;
+  faturaCemigUrl: string | null;
   dadosFatura: Record<string, unknown>;
   emailVerificacaoTokenHash: string;
   emailVerificacaoExpiraEm: string;

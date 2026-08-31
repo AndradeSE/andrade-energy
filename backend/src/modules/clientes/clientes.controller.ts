@@ -14,6 +14,8 @@ import {
   excluirUnidadeCliente,
   confirmarCadastroCliente,
   obterSolicitacaoCadastroCliente,
+  anexarFaturaAoCliente,
+  listarFaturasAnexadasDoCliente,
 } from "./clientes.service";
 import { empresaIdDaRequisicao } from "../../utils/empresaScope";
 
@@ -64,6 +66,31 @@ export async function confirmarCadastroClienteController(req: Request, res: Resp
     ));
   } catch (e: any) {
     return res.status(400).json({ message: e.message ?? "Não foi possível confirmar o cadastro." });
+  }
+}
+
+export async function listarFaturasAnexadasClienteController(req: Request, res: Response) {
+  try {
+    return res.json(await listarFaturasAnexadasDoCliente(
+      req.params.id,
+      (req as any).usuario,
+      empresaIdDaRequisicao(req),
+    ));
+  } catch (e: any) {
+    return res.status(400).json({ message: e.message ?? "Não foi possível carregar as faturas anexadas." });
+  }
+}
+
+export async function anexarFaturaClienteController(req: Request, res: Response) {
+  try {
+    return res.status(201).json(await anexarFaturaAoCliente(
+      req.params.id,
+      (req as any).usuario,
+      empresaIdDaRequisicao(req),
+      req.file,
+    ));
+  } catch (e: any) {
+    return res.status(400).json({ message: e.message ?? "Não foi possível anexar a fatura." });
   }
 }
 

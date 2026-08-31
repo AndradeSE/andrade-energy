@@ -66,6 +66,42 @@ export async function buscarSolicitacaoCadastroCliente(clienteId: string, empres
   return data;
 }
 
+export async function criarFaturaAnexadaCliente(input: {
+  clienteId: string;
+  empresaId: string;
+  usuarioId?: string | null;
+  caminhoPdf: string;
+  arquivoNome: string;
+  dadosFatura: Record<string, unknown>;
+}) {
+  const { data, error } = await supabase
+    .from("faturas_anexadas_clientes")
+    .insert({
+      cliente_id: input.clienteId,
+      empresa_id: input.empresaId,
+      usuario_id: input.usuarioId ?? null,
+      caminho_pdf: input.caminhoPdf,
+      arquivo_nome: input.arquivoNome,
+      dados_fatura: input.dadosFatura,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function listarFaturasAnexadasCliente(clienteId: string, empresaId = EMPRESA_ANDRADE_ID) {
+  const { data, error } = await supabase
+    .from("faturas_anexadas_clientes")
+    .select("id,cliente_id,empresa_id,usuario_id,caminho_pdf,arquivo_nome,dados_fatura,criado_em")
+    .eq("cliente_id", clienteId)
+    .eq("empresa_id", empresaId)
+    .order("criado_em", { ascending: false });
+  if (error?.code === "42P01") return [];
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function listarUnidadesCliente(clienteId: string, empresaId = EMPRESA_ANDRADE_ID) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")

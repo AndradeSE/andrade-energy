@@ -62,16 +62,18 @@ export type FaturaCadastro = {
 export async function criarContaConsumidorComFatura(payload: {
   convite: string;
   senha: string;
-  fatura: FaturaCadastro;
+  fatura?: FaturaCadastro;
 }) {
   const formData = new FormData();
   formData.append("convite", payload.convite);
   formData.append("senha", payload.senha);
-  formData.append("fatura", {
-    uri: payload.fatura.uri,
-    name: payload.fatura.name || "fatura-cemig.pdf",
-    type: payload.fatura.mimeType || "application/pdf",
-  } as any);
+  if (payload.fatura) {
+    formData.append("fatura", {
+      uri: payload.fatura.uri,
+      name: payload.fatura.name || "fatura-cemig.pdf",
+      type: payload.fatura.mimeType || "application/pdf",
+    } as any);
+  }
 
   const { data } = await api.post("/auth/cadastro-consumidor", formData, {
     timeout: 120_000,

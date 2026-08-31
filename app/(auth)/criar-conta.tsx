@@ -29,6 +29,7 @@ export default function CriarConta() {
   const [solicitado, setSolicitado] = useState(false);
   const [emailEnviado, setEmailEnviado] = useState(false);
   const [contaAtiva, setContaAtiva] = useState(false);
+  const [aguardandoGerador, setAguardandoGerador] = useState(false);
   const [fatura, setFatura] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [reenviando, setReenviando] = useState(false);
 
@@ -58,7 +59,6 @@ export default function CriarConta() {
     if (tipo === "GERADOR" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setErro("Informe um e-mail válido.");
     if (senha.length < 6) return setErro("Crie uma senha com pelo menos 6 caracteres.");
     if (senha !== confirmacao) return setErro("As senhas não são iguais.");
-    if (tipo === "CONSUMIDOR" && !fatura) return setErro("Envie a sua fatura CEMIG em PDF.");
     setErro("");
     try {
       setSalvando(true);
@@ -66,11 +66,12 @@ export default function CriarConta() {
         ? await criarContaConsumidorComFatura({
           convite: convite.trim(),
           senha,
-          fatura: { uri: fatura!.uri, name: fatura!.name, mimeType: fatura!.mimeType },
+          fatura: fatura ? { uri: fatura.uri, name: fatura.name, mimeType: fatura.mimeType } : undefined,
         })
         : await criarConta({ nome: nome.trim(), cpf, email: email.trim().toLowerCase(), senha, tipo, convite: convite.trim() || undefined });
       setEmailEnviado(Boolean(resultado?.emailEnviado));
       setContaAtiva(resultado?.status === "ATIVO");
+      setAguardandoGerador(resultado?.status === "AGUARDANDO_CONFIRMACAO_GERADOR");
       setSolicitado(true);
     } catch (error: any) {
       Alert.alert("Não foi possível criar a conta", error?.response?.data?.message ?? "Tente novamente.");
@@ -134,12 +135,14 @@ export default function CriarConta() {
           </TouchableOpacity>
 
           <View style={styles.iconBox}><Ionicons name={solicitado ? (tipo === "CONSUMIDOR" ? "mail-unread-outline" : "checkmark") : "person-add-outline"} size={34} color={Colors.primary} /></View>
-          <Text style={styles.title}>{solicitado ? (tipo === "CONSUMIDOR" && !contaAtiva ? "Confirme seu e-mail" : "Conta criada") : `Cadastro de ${tipo === "GERADOR" ? "gerador" : "consumidor"}`}</Text>
+          <Text style={styles.title}>{solicitado ? (tipo === "CONSUMIDOR" && aguardandoGerador ? "Cadastro recebido" : tipo === "CONSUMIDOR" && !contaAtiva ? "Confirme seu e-mail" : "Conta criada") : `Cadastro de ${tipo === "GERADOR" ? "gerador" : "consumidor"}`}</Text>
           <Text style={styles.subtitle}>
             {solicitado
               ? tipo === "CONSUMIDOR"
                 ? contaAtiva
                   ? "Sua conta está ativa. A fatura CEMIG foi conferida e permanece anexada ao seu cadastro."
+                  : aguardandoGerador
+                    ? "Você optou por não enviar a fatura agora. O gerador precisa ativar seu acesso manualmente."
                   : emailEnviado
                   ? "Enviamos um link para confirmar o seu e-mail. Depois disso, o gerador conferirá a fatura e liberará seu acesso."
                   : "O cadastro foi recebido, mas o e-mail não saiu agora. Use o botão abaixo para enviar um novo link de confirmação."
@@ -147,7 +150,7 @@ export default function CriarConta() {
                   ? "Sua conta está pronta. Enviamos a confirmação para o e-mail informado."
                   : "Sua conta está pronta, mas não conseguimos enviar o e-mail de confirmação. Você já pode entrar normalmente."
               : tipo === "CONSUMIDOR"
-                ? "Seus dados já foram preenchidos pelo convite. Envie uma fatura CEMIG em seu nome para concluir o cadastro."
+                ? "Seus dados já foram preenchidos pelo convite. Você pode enviar uma fatura CEMIG agora para ativar o acesso automaticamente ou concluir sem ela e aguardar a ativação do gerador."
                 : "Solicite seu acesso à Andrade Energy. Seus dados serão vinculados à unidade consumidora cadastrada."}
           </Text>
 
@@ -170,7 +173,7 @@ export default function CriarConta() {
                   <Ionicons name={fatura ? "document-text" : "document-attach-outline"} size={22} color={Colors.primary} />
                   <View style={styles.invoicePickerCopy}>
                     <Text numberOfLines={1} style={styles.invoicePickerTitle}>{fatura?.name ?? "Selecionar fatura em PDF"}</Text>
-                    <Text style={styles.invoicePickerHint}>{fatura ? "Fatura selecionada. Você pode tocar para trocar." : "Envie uma conta da CEMIG que esteja em seu nome."}</Text>
+                    <Text style={styles.invoicePickerHint}>{fatura ? "Fatura selecionada. Você pode tocar para trocar." : "Opcional: envie para ativar sua conta automaticamente."}</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color={Colors.subtitle} />
                 </TouchableOpacity>
@@ -189,7 +192,7 @@ export default function CriarConta() {
             </>
           ) : (
             <>
-              {tipo === "CONSUMIDOR" && !contaAtiva ? <TouchableOpacity disabled={reenviando} onPress={reenviarConfirmacao} style={[styles.secondaryButton, reenviando && { opacity: 0.7 }]}>{reenviando ? <ActivityIndicator color={Colors.primary} /> : <Text style={styles.secondaryText}>Reenviar e-mail de confirmação</Text>}</TouchableOpacity> : null}
+              {tipo === "CONSUMIDOR" && !contaAtiva && !aguardandoGerador ? <TouchableOpacity disabled={reenviando} onPress={reenviarConfirmacao} style={[styles.secondaryButton, reenviando && { opacity: 0.7 }]}>{reenviando ? <ActivityIndicator color={Colors.primary} /> : <Text style={styles.secondaryText}>Reenviar e-mail de confirmação</Text>}</TouchableOpacity> : null}
               <TouchableOpacity onPress={() => router.replace("/(auth)/login")} style={styles.primaryButton}><Text style={styles.primaryText}>Voltar para o login</Text></TouchableOpacity>
             </>
           )}

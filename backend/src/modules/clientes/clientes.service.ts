@@ -5,15 +5,21 @@ import {
   buscarClientePorUC,
   buscarUnidadePorId,
   cadastrarUnidadeCliente,
+  criarFaturaAnexadaCliente,
   criarCliente,
   excluirUnidadeCliente,
   excluirCliente,
   listarClientes,
+  listarFaturasAnexadasCliente as listarFaturasAnexadasClienteNoBanco,
   listarTodasUnidades,
   listarUnidadesCliente,
   listarUnidadesPorCpf,
 } from "./clientes.repository";
 import { supabase } from "../../config/supabase";
+import { extrairTextoPDF } from "../../services/ocr/ocr.service";
+import { interpretarFatura } from "../../services/ocr/parser.service";
+import { gerarToken } from "../../utils/token";
+import { readFile, unlink } from "node:fs/promises";
 
 export {
   atualizarCliente, buscarCliente,
@@ -22,6 +28,81 @@ export {
   cadastrarUnidadeCliente,
   criarCliente, excluirCliente, excluirUnidadeCliente, listarClientes, listarTodasUnidades, listarUnidadesCliente, listarUnidadesPorCpf
 };
+
+function cpfLimpo(valor: unknown) {
+  return String(valor ?? "").replace(/\D/g, "");
+}
+
+async function apagarArquivoTemporario(caminho?: string) {
+  if (caminho) await unlink(caminho).catch(() => undefined);
+}
+
+async function guardarFaturaAnexada(clienteId: string, caminhoArquivo: string) {
+  const conteudo = await readFile(caminhoArquivo);
+  const caminhoPdf = `anexos-clientes/${clienteId}/${gerarToken()}.pdf`;
+  const { error } = await supabase.storage.from("faturas").upload(caminhoPdf, conteudo, {
+    contentType: "application/pdf",
+    cacheControl: "0",
+    upsert: false,
+  });
+  if (error) throw error;
+  return caminhoPdf;
+}
+
+function dadosDaFaturaAnexada(dados: Record<string, any>) {
+  return {
+    ...dados,
+    titular: String(dados.cliente ?? dados.titular ?? "").trim(),
+    endereco: String(dados.endereco ?? "").trim(),
+    uc: String(dados.uc ?? dados.numero_instalacao ?? "").replace(/\D/g, ""),
+    cpfParcial: cpfLimpo(dados.cpfParcial ?? dados.cpf).slice(-4),
+    distribuidora: String(dados.distribuidora ?? "CEMIG").trim() || "CEMIG",
+  };
+}
+
+export async function listarFaturasAnexadasDoCliente(clienteId: string, usuario: any, empresaId: string) {
+  if (usuario?.perfil === "LEITURA" && String(usuario?.cliente_id ?? "") !== String(clienteId)) {
+    throw new Error("Você não possui acesso às faturas deste cliente.");
+  }
+  const anexos = await listarFaturasAnexadasClienteNoBanco(clienteId, empresaId);
+  return Promise.all(anexos.map(async (anexo: any) => {
+    const { data, error } = await supabase.storage.from("faturas").createSignedUrl(String(anexo.caminho_pdf), 5 * 60);
+    if (error) throw error;
+    return { id: anexo.id, nome: anexo.arquivo_nome, dadosFatura: anexo.dados_fatura ?? {}, criadoEm: anexo.criado_em, url: data.signedUrl };
+  }));
+}
+
+export async function anexarFaturaAoCliente(
+  clienteId: string,
+  usuario: any,
+  empresaId: string,
+  arquivo?: { path: string; originalname?: string; mimetype?: string },
+) {
+  if (!arquivo?.path) throw new Error("Selecione uma fatura em PDF.");
+  if (arquivo.mimetype && arquivo.mimetype !== "application/pdf") throw new Error("Envie a conta de energia no formato PDF.");
+  if (usuario?.perfil === "LEITURA" && String(usuario?.cliente_id ?? "") !== String(clienteId)) {
+    throw new Error("Você não possui acesso a este cliente.");
+  }
+
+  let caminhoPdf: string | null = null;
+  try {
+    const cliente = await buscarCliente(clienteId, empresaId);
+    const texto = await extrairTextoPDF(arquivo.path, cpfLimpo(cliente?.cpf).slice(0, 4) || undefined);
+    if (!/\bCEMIG\b/i.test(texto)) throw new Error("Envie uma fatura emitida pela CEMIG.");
+    const dadosFatura = dadosDaFaturaAnexada(interpretarFatura(texto) as Record<string, any>);
+    if (!dadosFatura.uc) throw new Error("Não foi possível identificar a unidade consumidora na fatura.");
+    caminhoPdf = await guardarFaturaAnexada(clienteId, arquivo.path);
+    const anexo = await criarFaturaAnexadaCliente({ clienteId, empresaId, usuarioId: usuario?.id ?? null, caminhoPdf, arquivoNome: arquivo.originalname || "fatura-cemig.pdf", dadosFatura });
+    const { data, error } = await supabase.storage.from("faturas").createSignedUrl(caminhoPdf, 5 * 60);
+    if (error) throw error;
+    return { id: anexo.id, nome: anexo.arquivo_nome, dadosFatura: anexo.dados_fatura, criadoEm: anexo.criado_em, url: data.signedUrl };
+  } catch (erro) {
+    if (caminhoPdf) await supabase.storage.from("faturas").remove([caminhoPdf]).catch(() => undefined);
+    throw erro;
+  } finally {
+    await apagarArquivoTemporario(arquivo.path);
+  }
+}
 
 export async function cadastrarClienteAutomaticamente(dados: {
   nome: string;
@@ -68,7 +149,10 @@ export async function confirmarCadastroCliente(
 ) {
   const solicitacao = await buscarSolicitacaoCadastroCliente(clienteId, empresaId);
   if (!solicitacao) throw new Error("Nenhum cadastro pendente foi encontrado para este cliente.");
-  if (!solicitacao.email_verificado_em) {
+  // Quem anexou uma fatura validada já foi liberado automaticamente. No
+  // cadastro sem fatura não há validação de e-mail pendente: a confirmação do
+  // gerador é justamente a autorização para liberar o acesso.
+  if (solicitacao.fatura_cemig_url && !solicitacao.email_verificado_em) {
     throw new Error("O cliente ainda precisa confirmar o e-mail antes da aprovação.");
   }
   if (!["AGUARDANDO_CONFIRMACAO_GERADOR", "ATIVO"].includes(String(solicitacao.status))) {

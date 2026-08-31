@@ -9,6 +9,7 @@ import { Alert, Linking, Platform, RefreshControl, StyleSheet, Text, TouchableOp
 
 import { AppHeader, Button, Card, ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
+import { useAuth } from "../../contexts/AuthContext";
 import { useFaturas } from "../../hooks/useFaturas";
 import { excluirFatura, formatarCompetenciaBrasileira, formatarDataBrasileira } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
@@ -23,6 +24,7 @@ const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { s
 
 export default function Faturas() {
   const proprietario = IS_GERADOR_APP;
+  const { user } = useAuth();
   const { data, isLoading, error, refetch } = useFaturas();
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [baixando, setBaixando] = useState<string>();
@@ -125,6 +127,12 @@ export default function Faturas() {
             />
           </Card> : null}
 
+          {!proprietario ? <TouchableOpacity disabled={!user?.cliente_id} onPress={() => router.push({ pathname: "/clientes/faturas-anexadas" as never, params: { clienteId: String(user?.cliente_id ?? "") } })} style={[styles.attachedCard, !user?.cliente_id && styles.attachedCardDisabled]}>
+            <View style={styles.attachedIcon}><Ionicons name="folder-open-outline" size={23} color={Colors.primary} /></View>
+            <View style={styles.attachedCopy}><Text style={styles.attachedTitle}>Contas anexadas</Text><Text style={styles.attachedText}>Consulte ou anexe contas da concessionária ao seu cadastro.</Text></View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
+          </TouchableOpacity> : null}
+
           <View style={styles.filterTabs}>
             <FilterButton active={filtro === "todas"} label="Todas" onPress={() => setFiltro("todas")} />
             <FilterButton active={filtro === "abertas"} label="Abertas" onPress={() => setFiltro("abertas")} />
@@ -204,6 +212,12 @@ const styles = StyleSheet.create({
   autoReceiveTitle: { color: Colors.text, fontSize: Typography.caption, fontWeight: "900" },
   autoReceiveText: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 17 },
   autoReceiveButton: { width: "100%", height: 46, borderRadius: Radius.md },
+  attachedCard: { minHeight: 74, flexDirection: "row", alignItems: "center", marginBottom: Spacing.lg, padding: Spacing.md, borderRadius: Radius.lg, backgroundColor: Colors.surface },
+  attachedCardDisabled: { opacity: 0.6 },
+  attachedIcon: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: Radius.round, backgroundColor: Colors.primaryLight },
+  attachedCopy: { flex: 1, marginHorizontal: Spacing.sm },
+  attachedTitle: { color: Colors.text, fontSize: Typography.caption, fontWeight: "900" },
+  attachedText: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 17 },
   filterTabs: { flexDirection: "row", marginBottom: Spacing.lg, borderBottomWidth: 1, borderBottomColor: Colors.border },
   filterButton: { flex: 1, minHeight: 48, alignItems: "center", justifyContent: "center", borderBottomWidth: 3, borderBottomColor: "transparent" },
   filterButtonActive: { borderBottomColor: "#8F938D" },

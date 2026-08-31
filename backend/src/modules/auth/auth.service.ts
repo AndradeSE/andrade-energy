@@ -267,8 +267,8 @@ type ArquivoDeCadastro = {
 
 /**
  * O convite continua sendo obrigatório porque determina qual gerador será
- * responsável por analisar o cadastro. A conta nasce inativa e só é liberada
- * após e-mail confirmado e confirmação expressa do gerador.
+ * responsável pelo cadastro. Com uma fatura validada, a conta é liberada
+ * automaticamente; sem a fatura, o gerador faz a ativação manual.
  */
 export async function cadastrarConsumidorComFatura(
   input: { convite?: unknown; cpf?: unknown; senha?: unknown },
@@ -277,10 +277,10 @@ export async function cadastrarConsumidorComFatura(
   const conviteToken = String(input.convite ?? "").trim();
   const cpfInformado = cpfLimpo(input.cpf);
   const senha = String(input.senha ?? "");
+  const possuiFatura = Boolean(arquivo?.path);
   if (!conviteToken) throw new Error("Informe o código do convite.");
   if (senha.length < 6) throw new Error("A senha deve ter pelo menos 6 caracteres.");
-  if (!arquivo?.path) throw new Error("Envie uma fatura CEMIG em PDF.");
-  if (arquivo.mimetype && arquivo.mimetype !== "application/pdf") {
+  if (arquivo?.mimetype && arquivo.mimetype !== "application/pdf") {
     throw new Error("Envie a fatura CEMIG no formato PDF.");
   }
 
@@ -300,25 +300,36 @@ export async function cadastrarConsumidorComFatura(
       throw new Error("O CPF informado precisa ser o mesmo CPF usado no convite.");
     }
 
-    // PDFs CEMIG protegidos usam os quatro primeiros dígitos do CPF. A mesma
-    // leitura funciona normalmente quando o PDF não possui senha.
-    const texto = await extrairTextoPDF(arquivo.path, cpf.slice(0, 4));
-    if (!/\bCEMIG\b/i.test(texto)) {
-      throw new Error("Envie uma fatura emitida pela CEMIG.");
-    }
-    const dadosBrutos = interpretarFatura(texto) as Record<string, any>;
-    const dadosFatura = dadosDeCadastroDaFatura(dadosBrutos);
-    if (!dadosFatura.uc) {
-      throw new Error("Não foi possível identificar a unidade consumidora na fatura CEMIG.");
-    }
-    if (!dadosFatura.titular) {
-      throw new Error("Não foi possível identificar o titular da fatura CEMIG.");
-    }
-    if (!nomesCompativeis(convite.nome, dadosFatura.titular)) {
-      throw new Error("A fatura enviada precisa estar no nome do titular informado no convite.");
-    }
-    if (!cpfDaFaturaConfere(cpf, dadosBrutos)) {
-      throw new Error("Os dígitos do CPF exibidos na fatura não correspondem ao CPF informado.");
+    let dadosFatura = {
+      titular: convite.nome,
+      endereco: "",
+      uc: "",
+      cpfParcial: "",
+      classificacao: "",
+      tensao: "",
+      distribuidora: "CEMIG",
+    };
+    if (possuiFatura) {
+      // PDFs CEMIG protegidos usam os quatro primeiros dígitos do CPF. A mesma
+      // leitura funciona normalmente quando o PDF não possui senha.
+      const texto = await extrairTextoPDF(arquivo!.path, cpf.slice(0, 4));
+      if (!/\bCEMIG\b/i.test(texto)) {
+        throw new Error("Envie uma fatura emitida pela CEMIG.");
+      }
+      const dadosBrutos = interpretarFatura(texto) as Record<string, any>;
+      dadosFatura = dadosDeCadastroDaFatura(dadosBrutos);
+      if (!dadosFatura.uc) {
+        throw new Error("Não foi possível identificar a unidade consumidora na fatura CEMIG.");
+      }
+      if (!dadosFatura.titular) {
+        throw new Error("Não foi possível identificar o titular da fatura CEMIG.");
+      }
+      if (!nomesCompativeis(convite.nome, dadosFatura.titular)) {
+        throw new Error("A fatura enviada precisa estar no nome do titular informado no convite.");
+      }
+      if (!cpfDaFaturaConfere(cpf, dadosBrutos)) {
+        throw new Error("Os quatro primeiros dígitos do CPF na fatura não correspondem ao CPF do convite.");
+      }
     }
 
     const empresaId = String(convite.empresa_id ?? "");
@@ -352,15 +363,17 @@ export async function cadastrarConsumidorComFatura(
       throw new Error("O CPF da fatura não corresponde ao cliente deste convite.");
     }
 
-    const { data: unidadeExistente, error: unidadeError } = await supabase
-      .from("unidades_consumidoras")
-      .select("id,cliente_id")
-      .eq("numero", dadosFatura.uc)
-      .eq("empresa_id", empresaId)
-      .maybeSingle();
-    if (unidadeError) throw unidadeError;
-    if (unidadeExistente?.cliente_id && clienteId && unidadeExistente.cliente_id !== clienteId) {
-      throw new Error("A unidade consumidora informada já está vinculada a outro cliente.");
+    if (possuiFatura) {
+      const { data: unidadeExistente, error: unidadeError } = await supabase
+        .from("unidades_consumidoras")
+        .select("id,cliente_id")
+        .eq("numero", dadosFatura.uc)
+        .eq("empresa_id", empresaId)
+        .maybeSingle();
+      if (unidadeError) throw unidadeError;
+      if (unidadeExistente?.cliente_id && clienteId && unidadeExistente.cliente_id !== clienteId) {
+        throw new Error("A unidade consumidora informada já está vinculada a outro cliente.");
+      }
     }
 
     if (!clienteId) {
@@ -396,12 +409,23 @@ export async function cadastrarConsumidorComFatura(
       tipo: "CONSUMIDOR",
       convite: conviteToken,
       empresa_id: empresaId,
-      ativo: true,
+      ativo: possuiFatura,
     });
     usuarioCriadoId = String(usuario.id);
-    await vincularUsuarioAoClientePendente(usuarioCriadoId, clienteId, empresaId);
+    await vincularUsuarioAoClientePendente(usuarioCriadoId, clienteId, empresaId, possuiFatura);
 
-    caminhoFatura = await guardarFaturaDeCadastro(arquivo.path);
+    caminhoFatura = possuiFatura ? await guardarFaturaDeCadastro(arquivo!.path) : null;
+    if (caminhoFatura) {
+      const { error: anexoError } = await supabase.from("faturas_anexadas_clientes").insert({
+        cliente_id: clienteId,
+        empresa_id: empresaId,
+        usuario_id: usuarioCriadoId,
+        caminho_pdf: caminhoFatura,
+        arquivo_nome: arquivo?.originalname || "Fatura de cadastro.pdf",
+        dados_fatura: dadosFatura,
+      });
+      if (anexoError) throw anexoError;
+    }
     const tokenVerificacao = gerarToken();
     await criarSolicitacaoCadastroCliente({
       conviteId: convite.id,
@@ -414,8 +438,8 @@ export async function cadastrarConsumidorComFatura(
       dadosFatura,
       emailVerificacaoTokenHash: hashToken(tokenVerificacao),
       emailVerificacaoExpiraEm: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      status: "ATIVO",
-      emailVerificadoEm: new Date().toISOString(),
+      status: possuiFatura ? "ATIVO" : "AGUARDANDO_CONFIRMACAO_GERADOR",
+      emailVerificadoEm: possuiFatura ? new Date().toISOString() : null,
     });
 
     const { data: conviteAtualizado, error: conviteError } = await supabase
@@ -449,8 +473,10 @@ export async function cadastrarConsumidorComFatura(
     }
 
     return {
-      message: "Conta criada e ativada. A fatura CEMIG foi anexada ao seu cadastro.",
-      status: "ATIVO",
+      message: possuiFatura
+        ? "Conta criada e ativada. A fatura CEMIG foi anexada ao seu cadastro."
+        : "Cadastro criado. O gerador precisa ativar seu acesso manualmente.",
+      status: possuiFatura ? "ATIVO" : "AGUARDANDO_CONFIRMACAO_GERADOR",
       emailEnviado: false,
     };
   } catch (erro) {

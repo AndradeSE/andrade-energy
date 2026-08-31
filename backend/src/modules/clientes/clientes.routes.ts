@@ -14,8 +14,11 @@ import {
   cadastrarUnidadeClienteController,
   excluirUnidadeClienteController,
   obterSolicitacaoCadastroClienteController,
+  anexarFaturaClienteController,
+  listarFaturasAnexadasClienteController,
 } from "./clientes.controller";
 import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
+import { upload } from "../../config/multer";
 
 const router = Router();
 
@@ -31,6 +34,8 @@ router.delete("/unidade/:unidadeId", exigirAutenticacao, exigirGestor, excluirUn
 
 router.get("/:id/solicitacao-cadastro", exigirAutenticacao, exigirGestor, obterSolicitacaoCadastroClienteController);
 router.post("/:id/confirmar-cadastro", exigirAutenticacao, exigirGestor, confirmarCadastroClienteController);
+router.get("/:id/faturas-anexadas", exigirAutenticacao, listarFaturasAnexadasClienteController);
+router.post("/:id/faturas-anexadas", exigirAutenticacao, upload.single("arquivo"), anexarFaturaClienteController);
 
 router.get("/:id", buscarClienteController);
 

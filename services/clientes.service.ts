@@ -76,6 +76,30 @@ export async function confirmarCadastroCliente(id: string) {
   return data;
 }
 
+export type FaturaAnexadaCliente = {
+  id: string;
+  nome: string;
+  dadosFatura: Record<string, any>;
+  criadoEm: string;
+  url: string;
+};
+
+export async function listarFaturasAnexadasCliente(id: string) {
+  const { data } = await api.get(`/clientes/${id}/faturas-anexadas`);
+  return data as FaturaAnexadaCliente[];
+}
+
+export async function anexarFaturaCliente(id: string, arquivo: { uri: string; name: string; mimeType?: string | null }) {
+  const form = new FormData();
+  form.append("arquivo", {
+    uri: arquivo.uri,
+    name: arquivo.name || "fatura-cemig.pdf",
+    type: arquivo.mimeType || "application/pdf",
+  } as any);
+  const { data } = await api.post(`/clientes/${id}/faturas-anexadas`, form, { timeout: 120_000 });
+  return data as FaturaAnexadaCliente;
+}
+
 export async function listarMinhasUnidades() {
   const { data } = await api.get("/clientes/minhas-unidades");
   return data;

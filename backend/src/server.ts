@@ -137,6 +137,7 @@ async function validarSchemaAntesDeIniciar() {
     { tabela: "empresas", colunas: "slug,nome,empresa_proprietaria,identidade_personalizada" },
     { tabela: "usuarios", colunas: "empresa_id" },
     { tabela: "solicitacoes_cadastro_clientes", colunas: "cliente_id,status,email_verificado_em" },
+    { tabela: "faturas_anexadas_clientes", colunas: "cliente_id,caminho_pdf,dados_fatura" },
   ];
 
   for (const verificacao of verificacoes) {
