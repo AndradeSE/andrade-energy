@@ -61,13 +61,11 @@ export type FaturaCadastro = {
 
 export async function criarContaConsumidorComFatura(payload: {
   convite: string;
-  cpf: string;
   senha: string;
   fatura: FaturaCadastro;
 }) {
   const formData = new FormData();
   formData.append("convite", payload.convite);
-  formData.append("cpf", payload.cpf);
   formData.append("senha", payload.senha);
   formData.append("fatura", {
     uri: payload.fatura.uri,

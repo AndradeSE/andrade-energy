@@ -36,8 +36,8 @@ export default function CriarConta() {
       setErro("");
       const dados = IS_GERADOR_APP ? await consultarConviteGerador(convite.trim()) : await consultarConvite(convite.trim());
       setNome(dados.nome);
-      // No consumidor o CPF é digitado novamente: ele abre a fatura CEMIG
-      // protegida e confirma que os dados exibidos pertencem ao titular.
+      // Para o consumidor, nome, CPF e e-mail já pertencem ao convite. O
+      // backend usa esse CPF para abrir faturas CEMIG protegidas.
       setCpf(IS_GERADOR_APP ? dados.cpf : "");
       setEmail(dados.email);
       setConviteValido(true);
@@ -50,9 +50,9 @@ export default function CriarConta() {
 
   async function solicitarAcesso() {
     if (salvando) return;
-    if (!nome.trim()) return setErro("Informe seu nome.");
-    if (cpf.replace(/\D/g, "").length !== 11) return setErro("Informe um CPF válido com 11 números.");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setErro("Informe um e-mail válido.");
+    if (tipo === "GERADOR" && !nome.trim()) return setErro("Informe seu nome.");
+    if (tipo === "GERADOR" && cpf.replace(/\D/g, "").length !== 11) return setErro("Informe um CPF válido com 11 números.");
+    if (tipo === "GERADOR" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setErro("Informe um e-mail válido.");
     if (senha.length < 6) return setErro("Crie uma senha com pelo menos 6 caracteres.");
     if (senha !== confirmacao) return setErro("As senhas não são iguais.");
     if (tipo === "CONSUMIDOR" && !fatura) return setErro("Envie a sua fatura CEMIG em PDF.");
@@ -62,7 +62,6 @@ export default function CriarConta() {
       const resultado = tipo === "CONSUMIDOR"
         ? await criarContaConsumidorComFatura({
           convite: convite.trim(),
-          cpf,
           senha,
           fatura: { uri: fatura!.uri, name: fatura!.name, mimeType: fatura!.mimeType },
         })
@@ -142,31 +141,23 @@ export default function CriarConta() {
                   ? "Sua conta está pronta. Enviamos a confirmação para o e-mail informado."
                   : "Sua conta está pronta, mas não conseguimos enviar o e-mail de confirmação. Você já pode entrar normalmente."
               : tipo === "CONSUMIDOR"
-                ? "Informe seu CPF completo e envie uma fatura CEMIG em seu nome. Os dados da unidade serão extraídos dela."
+                ? "Seus dados já foram preenchidos pelo convite. Envie uma fatura CEMIG em seu nome para concluir o cadastro."
                 : "Solicite seu acesso à Andrade Energy. Seus dados serão vinculados à unidade consumidora cadastrada."}
           </Text>
 
           {!solicitado ? (
             <>
-              <Text style={styles.label}>Nome completo</Text>
-              <View style={styles.inputBox}>
-                <Ionicons name="person-outline" size={20} color={Colors.subtitle} />
-                <TextInput autoCapitalize="words" editable={false} onChangeText={(valor) => { setNome(valor); setErro(""); }} placeholder="Seu nome" placeholderTextColor="#92979F" style={styles.input} value={nome} />
-              </View>
-              <Text style={styles.label}>{tipo === "CONSUMIDOR" ? "CPF do titular" : "CPF"}</Text>
-              <View style={styles.inputBox}>
-                <TextInput
-                  editable={tipo === "CONSUMIDOR"}
-                  keyboardType="numeric"
-                  maxLength={11}
-                  onChangeText={(valor) => { setCpf(valor.replace(/\D/g, "")); setErro(""); }}
-                  placeholder="Somente números"
-                  placeholderTextColor="#92979F"
-                  style={styles.inputWithoutIcon}
-                  value={cpf}
-                />
-              </View>
-              {tipo === "CONSUMIDOR" ? <Text style={styles.fieldHint}>Digite os 11 números. Usaremos os quatro primeiros para abrir a fatura CEMIG protegida e conferir os dados exibidos.</Text> : null}
+              {tipo === "GERADOR" ? <>
+                <Text style={styles.label}>Nome completo</Text>
+                <View style={styles.inputBox}>
+                  <Ionicons name="person-outline" size={20} color={Colors.subtitle} />
+                  <TextInput autoCapitalize="words" editable={false} onChangeText={(valor) => { setNome(valor); setErro(""); }} placeholder="Seu nome" placeholderTextColor="#92979F" style={styles.input} value={nome} />
+                </View>
+                <Text style={styles.label}>CPF</Text>
+                <View style={styles.inputBox}>
+                  <TextInput editable={false} keyboardType="numeric" maxLength={11} onChangeText={(valor) => { setCpf(valor.replace(/\D/g, "")); setErro(""); }} placeholder="Somente números" placeholderTextColor="#92979F" style={styles.inputWithoutIcon} value={cpf} />
+                </View>
+              </> : null}
               {tipo === "CONSUMIDOR" ? <>
                 <Text style={styles.label}>Fatura CEMIG do titular</Text>
                 <TouchableOpacity accessibilityLabel="Selecionar fatura CEMIG em PDF" activeOpacity={0.8} onPress={escolherFatura} style={[styles.invoicePicker, fatura && styles.invoicePickerSelected]}>

@@ -12,7 +12,7 @@ import { Button } from "../ui";
 type TipoCadastro = "CLIENTE" | "USINA" | "UNIDADE";
 
 const rotas = {
-  CLIENTE: "/clientes/novo",
+  CLIENTE: "/clientes/convidar",
   USINA: "/usinas/nova",
   UNIDADE: "/unidades/nova",
 } as const;
@@ -22,10 +22,18 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
   const { usinaSelecionada, suspenderBloqueioTemporariamente } = useAuth();
 
   function abrirManual() {
+    if (tipo === "CLIENTE") {
+      router.push("/clientes/convidar");
+      return;
+    }
     router.push({ pathname: rotas[tipo] as any, params: tipo === "CLIENTE" && usinaSelecionada?.id ? { usinaId: usinaSelecionada.id, usinaNome: usinaSelecionada.nome } : tipo === "UNIDADE" ? { cadastroRapido: "1" } : {} });
   }
 
   async function importar() {
+    if (tipo === "CLIENTE") {
+      router.push("/clientes/convidar");
+      return;
+    }
     const retomarBloqueio = suspenderBloqueioTemporariamente();
     try {
       const arquivo = await DocumentPicker.getDocumentAsync({
@@ -109,15 +117,15 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
         icon={<Ionicons name="create-outline" size={20} color="#FFF" />}
         onPress={abrirManual}
         style={styles.button}
-        title="Manual"
+        title={tipo === "CLIENTE" ? "Convidar consumidor" : "Manual"}
       />
-      <Button
+      {tipo !== "CLIENTE" ? <Button
         disabled={analisando}
         icon={<Ionicons name="document-attach-outline" size={20} color="#FFF" />}
         onPress={importar}
         style={[styles.button, styles.importButton]}
         title={analisando ? "Lendo..." : tipo === "UNIDADE" ? "Importar fatura" : "Via fatura"}
-      />
+      /> : null}
     </View>
   );
 }

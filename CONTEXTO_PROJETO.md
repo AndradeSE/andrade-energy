@@ -2,11 +2,12 @@
 
 ## Convites web e notificações Android — 31/08/2026
 
-- O botão **Aceitar convite e criar conta** do e-mail do consumidor passa a abrir `https://www.andradeenergy.com.br/convite?convite=...`. A página valida a chave, mostra o convidado, mantém a chave internamente e permite criar a conta pelo navegador com CPF, senha e PDF CEMIG; também oferece **Abrir no aplicativo** para quem já o instalou.
-- O backend continua exigindo convite válido, CPF igual ao convite e PDF CEMIG. A criação permanece pendente de confirmação de e-mail e da liberação do gerador; a página web não contorna essas etapas.
+- O botão **Abrir aplicativo e criar conta** do e-mail do consumidor usa `andradeenergyconsumidor://criar-conta?convite=...` para abrir diretamente o app instalado. O e-mail mantém o link alternativo `https://www.andradeenergy.com.br/convite?convite=...` para quem ainda não o possui.
+- Nome, CPF, e-mail, telefone e endereço são informados pelo gerador ao criar o convite. No cadastro da conta, o consumidor informa somente senha e a fatura CEMIG em PDF; o backend usa o CPF protegido do convite para abrir e conferir o arquivo. Unidade, modalidade, desconto e parâmetros comerciais permanecem na UC, não na ficha do cliente.
 - Avisos importantes do sino (fatura vencida e próxima do vencimento) agora também são espelhados como notificações locais no Android nos dois apps. O mesmo alerta só é emitido uma vez por usuário/dispositivo. O Gerador recebe ainda a confirmação local quando um convite é criado. Não há uso de WhatsApp pago nem envio remoto antes de o consumidor possuir o app.
 - Local notifications funcionam no Android instalado e podem solicitar a permissão do sistema quando surgir o primeiro aviso. Para notificações remotas em segundo plano seria necessário registrar tokens do dispositivo no backend e publicar em build de desenvolvimento/produção; o Expo Go não oferece push remoto no SDK 54.
 - A migration `20260831090000_onboarding_consumidor_verificado.sql` foi aplicada no Supabase em 31/08/2026. Ela cria `solicitacoes_cadastro_clientes`, necessária para as etapas de confirmação de e-mail e aprovação do gerador.
+- A migration `20260831110000_dados_cadastrais_no_convite.sql` foi aplicada no Supabase em 31/08/2026. Ela adiciona `telefone` e `endereco` a `convites_clientes`, preservando os dados de cadastro até a criação da conta do consumidor.
 - Backend publicado no Render no commit `6599078` e confirmado **Live** (deploy `dep-daasrf67bikc73c91ep0`); `/health` respondeu `{"status":"online"}`.
 - OTAs publicadas no runtime `1.0.0`: Consumidor `preview-consumidor`, grupo `ff56f7e4-93d9-4434-a83d-201daa3f35ec`; Gerador `preview-gerador`, grupo `6eaf29d5-d25d-4def-a1ae-850958a994bf`.
 

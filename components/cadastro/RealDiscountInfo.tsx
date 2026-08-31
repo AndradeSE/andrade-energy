@@ -51,17 +51,9 @@ export default function RealDiscountInfo({
   const previa = calcularPrevia({ dados: dadosFatura, desconto, modalidadeFaturamento, tipoGd: modalidade, disponibilidadeGd1, disponibilidadeGd2, fioBGd2 });
   const descontoRealEstimado = previa
     ? formatarPercentual(previa.descontoReal)
-    : modalidadeAindaNaoIdentificada
-    ? configuracoesRepassadas.length
-      ? `Menor que ${formatarPercentual(desconto)}`
-      : `Até ${formatarPercentual(desconto)}`
-    : configuracoesRepassadas.length
-      ? `Menor que ${formatarPercentual(desconto)}`
-      : `Próximo de ${formatarPercentual(desconto)}`;
+    : `Aproximadamente ${formatarPercentual(desconto)}`;
   const estimativaDetalhe = modalidadeAindaNaoIdentificada
-    ? configuracoesRepassadas.length
-      ? "A modalidade GD será confirmada pela conta; os custos marcados para repasse reduzem a economia real."
-      : "A modalidade GD ainda será confirmada pela conta de energia."
+      ? "A modalidade GD será confirmada pela conta de energia. Ao importar a fatura, a projeção passa a considerar os custos e repasses escolhidos."
     : configuracoesRepassadas.length
       ? "Os custos repassados reduzem a economia percebida pelo cliente."
       : "A Andrade absorve os custos selecionados; outros encargos ainda podem variar."

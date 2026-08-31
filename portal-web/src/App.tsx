@@ -2964,7 +2964,8 @@ function PortalHome({
   );
   const canCreate =
     type === "GERADOR" &&
-    ["Usinas", "Clientes", "Faturas", "Financeiro"].includes(activeSection);
+    ["Usinas", "Faturas", "Financeiro"].includes(activeSection);
+  const canInviteClient = type === "GERADOR" && activeSection === "Clientes";
   async function deleteRecord(item: WebRecord) {
     if (
       !session.token ||
@@ -2995,14 +2996,16 @@ function PortalHome({
     const nome = window.prompt("Nome completo do consumidor:");
     const cpf = window.prompt("CPF do consumidor (somente números):");
     const email = window.prompt("E-mail que receberá o convite:");
-    if (!nome || !cpf || !email) return;
+    const whatsapp = window.prompt("WhatsApp com DDD:");
+    const endereco = window.prompt("Endereço completo do consumidor:");
+    if (!nome || !cpf || !email || !whatsapp || !endereco) return;
     const response = await fetch(`${API_URL}/convites`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${session.token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ nome, cpf: cpf.replace(/\D/g, ""), email }),
+      body: JSON.stringify({ nome, cpf: cpf.replace(/\D/g, ""), email, whatsapp: whatsapp.replace(/\D/g, ""), endereco }),
     });
     const data = await response.json().catch(() => ({}));
     window.alert(
@@ -3096,7 +3099,7 @@ function PortalHome({
                   : `Gestão completa de ${activeSection.toLowerCase()} em um só lugar.`}
               </p>
             </div>
-            {canCreate && !selectedRecord ? (
+            {(canCreate || canInviteClient) && !selectedRecord ? (
               <div className="heading-actions">
                 {activeSection === "Clientes" ? (
                   <button
@@ -3106,7 +3109,7 @@ function PortalHome({
                     Convidar cliente
                   </button>
                 ) : null}
-                <button
+                {canCreate ? <button
                   className="primary-action"
                   onClick={() => setActionOpen(true)}
                 >
@@ -3117,7 +3120,7 @@ function PortalHome({
                       : activeSection === "Clientes"
                         ? "+ Novo cliente"
                         : "+ Novo fechamento"}
-                </button>
+                </button> : null}
               </div>
             ) : null}
           </div>
@@ -3409,7 +3412,7 @@ function PortalHome({
                     <span>
                       {searchQuery
                         ? "Tente outro termo de busca."
-                        : canCreate
+                        : canCreate || canInviteClient
                           ? "Use “Nova ação” para começar."
                           : "Os dados aparecerão aqui quando estiverem disponíveis."}
                     </span>

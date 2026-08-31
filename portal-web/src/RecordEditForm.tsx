@@ -6,10 +6,8 @@ type Field = { key: string; label: string; type?: "text" | "number" | "date" | "
 const API_URL = import.meta.env.VITE_API_URL ?? "https://andrade-energy-api-vda.onrender.com/api";
 const schemas: Record<string, Field[]> = {
   Clientes: [
-    { key:"nome",label:"Nome" },{ key:"uc",label:"Unidade consumidora" },{ key:"telefone",label:"Telefone / WhatsApp" },{ key:"email",label:"E-mail" },
-    { key:"modalidade_faturamento",label:"Modalidade de faturamento",type:"select",options:[["INJECAO","Por injeção"],["COMPENSACAO","Por compensação"]] },
-    { key:"consumo_medio_kwh",label:"Consumo médio mensal (kWh)",type:"number" },{ key:"desconto_percentual",label:"Desconto contratado (%)",type:"number" },
-    { key:"cpf",label:"CPF / CNPJ" },{ key:"distribuidora",label:"Concessionária" },{ key:"endereco",label:"Endereço" },
+    { key:"nome",label:"Nome" },{ key:"telefone",label:"Telefone / WhatsApp" },{ key:"email",label:"E-mail" },
+    { key:"cpf",label:"CPF / CNPJ" },{ key:"endereco",label:"Endereço" },
   ],
   Usinas: [
     { key:"nome",label:"Nome da usina" },{ key:"numero_instalacao",label:"Número da instalação / UC" },{ key:"potencia_kwp",label:"Potência (kWp)",type:"number" },

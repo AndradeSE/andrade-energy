@@ -14,12 +14,12 @@ import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function ConvidarCliente() {
   const { usuario } = useAuth();
-  const [nome, setNome] = useState(""); const [cpf, setCpf] = useState(""); const [email, setEmail] = useState(""); const [whatsapp, setWhatsapp] = useState(""); const [enviando, setEnviando] = useState(false);
+  const [nome, setNome] = useState(""); const [cpf, setCpf] = useState(""); const [email, setEmail] = useState(""); const [whatsapp, setWhatsapp] = useState(""); const [endereco, setEndereco] = useState(""); const [enviando, setEnviando] = useState(false);
   async function enviar() {
-    if (!nome.trim() || cpf.length !== 11 || !email.includes("@") || whatsapp.length < 10) return Alert.alert("Dados incompletos", "Informe nome, CPF, e-mail e WhatsApp com DDD.");
+    if (!nome.trim() || cpf.length !== 11 || !email.includes("@") || whatsapp.length < 10 || !endereco.trim()) return Alert.alert("Dados incompletos", "Informe nome, CPF, e-mail, WhatsApp com DDD e endereço.");
     try {
       setEnviando(true);
-      const resultado = await criarConvite({ nome: nome.trim(), cpf, email: email.trim().toLowerCase(), whatsapp });
+      const resultado = await criarConvite({ nome: nome.trim(), cpf, email: email.trim().toLowerCase(), whatsapp, endereco: endereco.trim() });
       void notificarAvisoNoAndroid({
         usuarioId: String(usuario?.id ?? ""),
         id: `convite:${resultado.token}`,
@@ -50,6 +50,7 @@ export default function ConvidarCliente() {
     <Campo label="CPF" value={cpf} onChangeText={(v: string) => setCpf(v.replace(/\D/g, "").slice(0, 11))} placeholder="Somente números" keyboardType="numeric" />
     <Campo label="E-mail" value={email} onChangeText={setEmail} placeholder="consumidor@email.com" keyboardType="email-address" />
     <Campo label="WhatsApp" value={whatsapp} onChangeText={(v: string) => setWhatsapp(v.replace(/\D/g, "").slice(0, 11))} placeholder="DDD + número" keyboardType="phone-pad" />
+    <Campo label="Endereço" value={endereco} onChangeText={setEndereco} placeholder="Rua, número, bairro, cidade/UF" />
     <TouchableOpacity disabled={enviando} onPress={enviar} style={[styles.button, enviando && { opacity: .7 }]}>{enviando ? <ActivityIndicator color="#FFF" /> : <><Ionicons name="send-outline" size={20} color="#FFF" /><Text style={styles.buttonText}>Enviar convite</Text></>}</TouchableOpacity>
   </ScrollView></KeyboardAvoidingView></SafeAreaView>;
 }

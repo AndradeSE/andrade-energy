@@ -5,7 +5,6 @@ import "./convite.css";
 type Convite = {
   nome: string;
   email: string;
-  cpf?: string;
 };
 
 type Props = {
@@ -13,13 +12,8 @@ type Props = {
   convite: string;
 };
 
-function somenteNumeros(valor: string) {
-  return valor.replace(/\D/g, "").slice(0, 11);
-}
-
 export default function ConsumerInviteSignup({ apiUrl, convite }: Props) {
   const [dados, setDados] = useState<Convite | null>(null);
-  const [cpf, setCpf] = useState("");
   const [senha, setSenha] = useState("");
   const [confirmacao, setConfirmacao] = useState("");
   const [fatura, setFatura] = useState<File | null>(null);
@@ -61,7 +55,6 @@ export default function ConsumerInviteSignup({ apiUrl, convite }: Props) {
     evento.preventDefault();
     if (enviando || !dados) return;
     setErro("");
-    if (cpf.length !== 11) return setErro("Informe o CPF completo, com 11 números.");
     if (senha.length < 6) return setErro("A senha deve ter pelo menos 6 caracteres.");
     if (senha !== confirmacao) return setErro("As senhas não coincidem.");
     if (!fatura) return setErro("Envie uma fatura CEMIG em PDF para concluir o cadastro.");
@@ -69,7 +62,6 @@ export default function ConsumerInviteSignup({ apiUrl, convite }: Props) {
 
     const formulario = new FormData();
     formulario.append("convite", convite);
-    formulario.append("cpf", cpf);
     formulario.append("senha", senha);
     formulario.append("fatura", fatura);
     setEnviando(true);
@@ -99,11 +91,10 @@ export default function ConsumerInviteSignup({ apiUrl, convite }: Props) {
         <a className="invite-app-link" href={appUrl}>Abrir no aplicativo</a>
         <div className="invite-divider"><span>ou conclua pelo navegador</span></div>
         <form className="invite-form" onSubmit={enviarCadastro}>
-          <label>CPF <input inputMode="numeric" autoComplete="off" value={cpf} onChange={(evento) => setCpf(somenteNumeros(evento.target.value))} placeholder="Somente números" required /></label>
           <label>Senha <input type="password" autoComplete="new-password" value={senha} onChange={(evento) => setSenha(evento.target.value)} placeholder="Mínimo de 6 caracteres" required /></label>
           <label>Confirmar senha <input type="password" autoComplete="new-password" value={confirmacao} onChange={(evento) => setConfirmacao(evento.target.value)} placeholder="Repita sua senha" required /></label>
           <label>Fatura CEMIG em PDF <input type="file" accept="application/pdf,.pdf" onChange={(evento) => setFatura(evento.target.files?.[0] ?? null)} required /></label>
-          <small className="invite-note">A fatura confirma a unidade consumidora e é usada apenas para finalizar seu cadastro.</small>
+          <small className="invite-note">O convite já contém nome, CPF e e-mail. Envie a fatura CEMIG em PDF para confirmar a unidade consumidora e finalizar seu cadastro.</small>
           {erro ? <p className="invite-error" role="alert">{erro}</p> : null}
           <button type="submit" disabled={enviando}>{enviando ? "Enviando cadastro…" : "Criar minha conta"}</button>
         </form>

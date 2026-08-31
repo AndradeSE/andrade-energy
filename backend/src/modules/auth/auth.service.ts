@@ -274,10 +274,9 @@ export async function cadastrarConsumidorComFatura(
   arquivo?: ArquivoDeCadastro,
 ) {
   const conviteToken = String(input.convite ?? "").trim();
-  const cpf = cpfLimpo(input.cpf);
+  const cpfInformado = cpfLimpo(input.cpf);
   const senha = String(input.senha ?? "");
   if (!conviteToken) throw new Error("Informe o código do convite.");
-  if (cpf.length !== 11) throw new Error("Informe seu CPF completo, com 11 números.");
   if (senha.length < 6) throw new Error("A senha deve ter pelo menos 6 caracteres.");
   if (!arquivo?.path) throw new Error("Envie uma fatura CEMIG em PDF.");
   if (arquivo.mimetype && arquivo.mimetype !== "application/pdf") {
@@ -290,7 +289,13 @@ export async function cadastrarConsumidorComFatura(
 
   try {
     const convite = await aceitarConvite(conviteToken);
-    if (cpf !== cpfLimpo(convite.cpf)) {
+    const cpf = cpfLimpo(convite.cpf);
+    if (cpf.length !== 11) {
+      throw new Error("O convite não possui um CPF válido. Peça ao gerador para emitir um novo convite.");
+    }
+    // Mantém a conferência para versões antigas do app, mas a versão atual não
+    // pede novamente nome nem CPF: os dados seguros vêm do próprio convite.
+    if (cpfInformado && cpfInformado !== cpf) {
       throw new Error("O CPF informado precisa ser o mesmo CPF usado no convite.");
     }
 
@@ -361,12 +366,12 @@ export async function cadastrarConsumidorComFatura(
       const { data: cliente, error: clienteError } = await supabase
         .from("clientes")
         .insert({
-          nome: dadosFatura.titular,
+          nome: convite.nome,
           cpf,
           email: emailNormalizado(convite.email),
-          uc: dadosFatura.uc,
-          endereco: dadosFatura.endereco || null,
-          distribuidora: "CEMIG",
+          telefone: convite.telefone || null,
+          whatsapp: convite.telefone || null,
+          endereco: convite.endereco || null,
           usina_id: convite.usina_id ?? null,
           status: "AGUARDANDO_VERIFICACAO_EMAIL",
           empresa_id: empresaId,
@@ -416,19 +421,18 @@ export async function cadastrarConsumidorComFatura(
     if (conviteError) throw conviteError;
     if (!conviteAtualizado) throw new Error("Este convite já foi utilizado.");
 
-    // Quando o gerador já havia criado uma ficha básica do cliente, a fatura
-    // passa a ser a fonte dos dados cadastrais e a ficha entra no mesmo estado
-    // pendente do cadastro novo.
+    // Os dados do cliente vêm do convite, não da conta de luz. A fatura é
+    // exclusivamente a comprovação da UC e fica anexada à solicitação.
     if (!clienteCriadoId) {
       const { error: atualizacaoClienteError } = await supabase
         .from("clientes")
         .update({
-          nome: dadosFatura.titular,
+          nome: convite.nome,
           cpf,
           email: emailNormalizado(convite.email),
-          uc: dadosFatura.uc,
-          endereco: dadosFatura.endereco || null,
-          distribuidora: "CEMIG",
+          telefone: convite.telefone || null,
+          whatsapp: convite.telefone || null,
+          endereco: convite.endereco || null,
           status: "AGUARDANDO_VERIFICACAO_EMAIL",
         })
         .eq("id", clienteId)

@@ -54,10 +54,12 @@ export async function criarConvite(input: any, gestor: any) {
   const email = String(input.email ?? "").trim().toLowerCase();
   const nome = String(input.nome ?? "").trim();
   const whatsapp = telefoneWhatsapp(input.whatsapp);
+  const endereco = String(input.endereco ?? "").trim();
   if (!nome) throw new Error("Informe o nome do consumidor.");
   if (cpf.length !== 11) throw new Error("Informe um CPF válido.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Informe um e-mail válido.");
   if (!whatsapp) throw new Error("Informe um WhatsApp válido com DDD.");
+  if (!endereco) throw new Error("Informe o endereço do consumidor.");
 
   const { data: clienteExistente } = await supabase.from("clientes").select("id").eq("empresa_id", empresaId).eq("cpf", cpf).limit(1).maybeSingle();
   const { data: contaEmail } = await supabase
@@ -95,16 +97,17 @@ export async function criarConvite(input: any, gestor: any) {
     empresa_id: empresaId,
     usina_id: gestor.usina_id ?? input.usina_id ?? null,
     cliente_id: clienteExistente?.id ?? null,
-    nome, cpf, email,
+    nome, cpf, email, telefone: whatsapp, endereco,
     token_hash: hashToken(token),
     expira_em: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
   });
   if (error) throw error;
 
-  // O e-mail abre primeiro uma página web: ela permite concluir o cadastro
-  // mesmo sem o aplicativo instalado e ainda oferece o atalho para o app.
+  // O botão principal abre diretamente o aplicativo instalado. O portal fica
+  // como alternativa explícita para quem ainda não possui o app.
   const portalUrl = String(process.env.PORTAL_WEB_URL ?? "https://www.andradeenergy.com.br").replace(/\/$/, "");
-  const link = `${portalUrl}/convite?convite=${encodeURIComponent(token)}`;
+  const linkWeb = `${portalUrl}/convite?convite=${encodeURIComponent(token)}`;
+  const linkApp = `andradeenergyconsumidor://criar-conta?convite=${encodeURIComponent(token)}`;
   let emailEnviado = false;
   let minutaAnexada = false;
   try {
@@ -114,7 +117,7 @@ export async function criarConvite(input: any, gestor: any) {
     emailEnviado = await enviarEmailTransacional({
       destinatario: email,
       assunto: "Convite para Andrade Energy Consumidor",
-      html: `<div style="max-width:560px;margin:auto;padding:28px;font-family:Arial,sans-serif;color:#252925;line-height:1.6;background:#f7f8f7;border-radius:14px"><h2 style="margin-top:0;color:#39804a">Você recebeu um convite</h2><p>Olá, <strong>${escaparHtml(nome)}</strong>.</p><p>Seu gerador convidou você para acompanhar unidades, economia e faturas no Andrade Energy Consumidor.</p>${minuta ? "<p>A minuta do contrato da sua unidade segue anexada para leitura. Ela não substitui o contrato assinado.</p>" : ""}<p style="margin:26px 0"><a href="${link}" style="display:inline-block;padding:14px 22px;background:#39804a;color:#fff;font-weight:700;text-decoration:none;border-radius:8px">Aceitar convite e criar conta</a></p><p style="margin-bottom:8px;font-size:13px;color:#6b706b">Se o botão não abrir o aplicativo, copie o código abaixo:</p><div style="padding:16px 12px;border:2px dashed #39804a;border-radius:10px;background:#fff;color:#1f512e;font-family:monospace;font-size:20px;font-weight:700;letter-spacing:1px;text-align:center;word-break:break-all">${token}</div><p style="margin-top:18px;font-size:13px;color:#6b706b">Este convite é válido por 7 dias.</p></div>`,
+      html: `<div style="max-width:560px;margin:auto;padding:28px;font-family:Arial,sans-serif;color:#252925;line-height:1.6;background:#f7f8f7;border-radius:14px"><h2 style="margin-top:0;color:#39804a">Você recebeu um convite</h2><p>Olá, <strong>${escaparHtml(nome)}</strong>.</p><p>Seu gerador convidou você para acompanhar unidades, economia e faturas no Andrade Energy Consumidor.</p>${minuta ? "<p>A minuta do contrato da sua unidade segue anexada para leitura. Ela não substitui o contrato assinado.</p>" : ""}<p style="margin:26px 0"><a href="${linkApp}" style="display:inline-block;padding:14px 22px;background:#39804a;color:#fff;font-weight:700;text-decoration:none;border-radius:8px">Abrir aplicativo e criar conta</a></p><p style="font-size:14px;color:#4e574e">Não tem o aplicativo instalado? <a href="${linkWeb}" style="color:#1f6e3a;font-weight:700">Criar conta pelo navegador</a>.</p><p style="margin-bottom:8px;font-size:13px;color:#6b706b">Se precisar, copie a chave do convite:</p><div style="padding:16px 12px;border:2px dashed #39804a;border-radius:10px;background:#fff;color:#1f512e;font-family:monospace;font-size:20px;font-weight:700;letter-spacing:1px;text-align:center;word-break:break-all">${token}</div><p style="margin-top:18px;font-size:13px;color:#6b706b">Este convite é válido por 7 dias.</p></div>`,
       anexos: minuta ? [minuta] : [],
     });
   } catch {
@@ -129,10 +132,10 @@ export async function consultarConvite(token: string) {
     throw new Error("Convite de consumidor inválido ou expirado.");
   }
   const { data, error } = await supabase.from("convites_clientes")
-    .select("id,nome,cpf,email,status,expira_em,empresa_id")
+    .select("id,nome,cpf,email,telefone,endereco,status,expira_em,empresa_id")
     .eq("token_hash", hashToken(token)).maybeSingle();
   if (error || !data || data.status !== "PENDENTE" || new Date(data.expira_em) <= new Date()) throw new Error("Convite inválido ou expirado.");
-  return { nome: data.nome, cpf: data.cpf, email: data.email, empresa_id: data.empresa_id };
+  return { nome: data.nome, cpf: data.cpf, email: data.email, telefone: data.telefone, endereco: data.endereco, empresa_id: data.empresa_id };
 }
 
 export async function aceitarConvite(token: string) {
