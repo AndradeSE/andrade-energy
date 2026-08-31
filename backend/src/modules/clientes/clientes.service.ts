@@ -7,8 +7,8 @@ import {
   cadastrarUnidadeCliente,
   criarFaturaAnexadaCliente,
   criarCliente,
-  excluirUnidadeCliente,
-  excluirCliente,
+  excluirUnidadeCliente as excluirUnidadeClienteNoBanco,
+  excluirCliente as excluirClienteNoBanco,
   listarClientes,
   listarFaturasAnexadasCliente as listarFaturasAnexadasClienteNoBanco,
   listarTodasUnidades,
@@ -16,6 +16,7 @@ import {
   listarUnidadesPorCpf,
 } from "./clientes.repository";
 import { supabase } from "../../config/supabase";
+import { recalcularAlocacaoUsina, sincronizarParticipacaoClienteUsina } from "../usinas/usinas.service";
 import { extrairTextoPDF } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
 import { gerarToken } from "../../utils/token";
@@ -26,8 +27,53 @@ export {
   buscarClientePorUC,
   buscarUnidadePorId,
   cadastrarUnidadeCliente,
-  criarCliente, excluirCliente, excluirUnidadeCliente, listarClientes, listarTodasUnidades, listarUnidadesCliente, listarUnidadesPorCpf
+  criarCliente, listarClientes, listarTodasUnidades, listarUnidadesCliente, listarUnidadesPorCpf
 };
+
+function idsDeUsinas(...valores: Array<unknown>) {
+  return [...new Set(
+    valores
+      .flatMap((valor) => Array.isArray(valor) ? valor : [valor])
+      .map((valor: any) => String(valor?.usina_id ?? valor ?? "").trim())
+      .filter(Boolean),
+  )];
+}
+
+async function recalcularUsinasAfetadas(usinaIds: string[]) {
+  await Promise.all(usinaIds.map((usinaId) => recalcularAlocacaoUsina(usinaId)));
+}
+
+/**
+ * A remoção da UC libera sua parcela de rateio imediatamente. O identificador
+ * da usina é lido antes do delete porque não há mais como descobri-lo depois.
+ */
+export async function excluirUnidadeCliente(unidadeId: string, empresaId: string) {
+  const unidade = await buscarUnidadePorId(unidadeId, empresaId);
+  if (!unidade) throw new Error("Unidade consumidora não encontrada.");
+
+  const usinaIds = idsDeUsinas(unidade);
+  await excluirUnidadeClienteNoBanco(unidadeId, empresaId);
+  if (unidade.cliente_id && unidade.usina_id) {
+    await sincronizarParticipacaoClienteUsina(String(unidade.usina_id), String(unidade.cliente_id));
+  }
+  await recalcularUsinasAfetadas(usinaIds);
+}
+
+/**
+ * Um cliente pode ter UCs em mais de uma usina. Ao removê-lo, recalculamos
+ * todas elas para que ocupação, energia alocada e disponível não conservem
+ * a alocação das UCs excluídas em cascata.
+ */
+export async function excluirCliente(clienteId: string, empresaId: string) {
+  const [cliente, unidades] = await Promise.all([
+    buscarCliente(clienteId, empresaId),
+    listarUnidadesCliente(clienteId, empresaId),
+  ]);
+  const usinaIds = idsDeUsinas(cliente, unidades);
+
+  await excluirClienteNoBanco(clienteId, empresaId);
+  await recalcularUsinasAfetadas(usinaIds);
+}
 
 function cpfLimpo(valor: unknown) {
   return String(valor ?? "").replace(/\D/g, "");

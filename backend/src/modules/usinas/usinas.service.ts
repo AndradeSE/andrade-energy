@@ -123,7 +123,12 @@ async function calcularProducaoMedia12Meses(usinaId: string) {
   return 0;
 }
 
-async function recalcularAlocacaoUsina(usinaId: string) {
+/**
+ * Recalcula a energia alocada, disponível e a ocupação vigente da usina.
+ * Deve ser chamado sempre que uma UC for incluída, editada, movida ou
+ * removida.
+ */
+export async function recalcularAlocacaoUsina(usinaId: string) {
   const [{ data: unidades, error: erroUnidades }, { data: fechamentos, error: erroFechamentos }] = await Promise.all([
     supabase
       .from("unidades_consumidoras")
@@ -131,12 +136,20 @@ async function recalcularAlocacaoUsina(usinaId: string) {
       .eq("usina_id", usinaId)
       .eq("status", "ATIVA")
       .neq("tipo", "GERADORA"),
-    supabase.from("fechamentos").select("id,energia_gerada").eq("usina_id", usinaId).eq("status", "ABERTO"),
+    supabase.from("fechamentos").select("id,energia_gerada,status,competencia").eq("usina_id", usinaId).order("competencia", { ascending: false }),
   ]);
   if (erroUnidades) throw erroUnidades;
   if (erroFechamentos) throw erroFechamentos;
 
-  for (const fechamento of fechamentos ?? []) {
+  // A competência aberta é a projeção que muda conforme entram ou saem UCs.
+  // Quando ainda não existe uma competência aberta, o último fechamento é o
+  // dado exibido no card da usina; atualizá-lo evita que a autonomia mostrada
+  // fique presa à alocação de um cliente/UC que já foi removido. Fechamentos
+  // históricos anteriores continuam imutáveis.
+  const competenciasAAtualizar = (fechamentos ?? []).filter((fechamento) => fechamento.status === "ABERTO");
+  const alvos = competenciasAAtualizar.length ? competenciasAAtualizar : (fechamentos ?? []).slice(0, 1);
+
+  for (const fechamento of alvos) {
     const gerada = Number(fechamento.energia_gerada ?? 0);
     const alocadaSolicitada = (unidades ?? []).reduce((total, unidade) => {
       const percentual = Math.max(0, Math.min(100, Number(unidade.percentual_rateio ?? 0)));
@@ -152,7 +165,7 @@ async function recalcularAlocacaoUsina(usinaId: string) {
   }
 }
 
-async function sincronizarParticipacaoClienteUsina(
+export async function sincronizarParticipacaoClienteUsina(
   usinaId: string,
   clienteId: string
 ) {
