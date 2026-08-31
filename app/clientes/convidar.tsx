@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Linking, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppHeader, ElasticScrollView as ScrollView } from "../../components/ui";
@@ -11,24 +11,26 @@ import { criarConvite } from "../../services/convites.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function ConvidarCliente() {
-  const [nome, setNome] = useState(""); const [cpf, setCpf] = useState(""); const [email, setEmail] = useState(""); const [enviando, setEnviando] = useState(false);
+  const [nome, setNome] = useState(""); const [cpf, setCpf] = useState(""); const [email, setEmail] = useState(""); const [whatsapp, setWhatsapp] = useState(""); const [enviando, setEnviando] = useState(false);
   async function enviar() {
-    if (!nome.trim() || cpf.length !== 11 || !email.includes("@")) return Alert.alert("Dados incompletos", "Informe nome, CPF e e-mail válidos.");
+    if (!nome.trim() || cpf.length !== 11 || !email.includes("@") || whatsapp.length < 10) return Alert.alert("Dados incompletos", "Informe nome, CPF, e-mail e WhatsApp com DDD.");
     try {
       setEnviando(true);
-      const resultado = await criarConvite({ nome: nome.trim(), cpf, email: email.trim().toLowerCase() });
-      const mensagem = resultado.emailEnviado
-        ? resultado.minutaAnexada
-          ? "O consumidor receberá o convite e a minuta do contrato em PDF. O contrato assinado não é enviado automaticamente."
-          : "O consumidor receberá o convite por e-mail. Para anexar a minuta automaticamente, configure antes os dados do locador e gere a minuta na UC."
-        : `O convite foi criado, mas o e-mail não pôde ser enviado. Compartilhe esta chave com o consumidor:\n\n${resultado.token}`;
-      const acoes = resultado.emailEnviado
-        ? [{ text: "OK", onPress: () => router.back() }]
-        : [
-            { text: "Copiar chave", onPress: async () => { await Clipboard.setStringAsync(String(resultado.token ?? "")); router.back(); } },
-            { text: "OK", onPress: () => router.back() },
-          ];
-      Alert.alert(resultado.emailEnviado ? "Convite enviado" : "Convite criado", mensagem, acoes);
+      const resultado = await criarConvite({ nome: nome.trim(), cpf, email: email.trim().toLowerCase(), whatsapp });
+      const canais = [resultado.emailEnviado ? "e-mail" : null, resultado.whatsappEnviado ? "WhatsApp" : null].filter(Boolean).join(" e ");
+      const mensagem = canais
+        ? `Convite enviado por ${canais}.${resultado.emailEnviado && !resultado.whatsappEnviado ? " Confirme agora o envio pelo WhatsApp." : ""}`
+        : `O convite foi criado, mas os envios automáticos não foram concluídos. Compartilhe esta chave:\n\n${resultado.token}`;
+      const abrirWhatsapp = async () => {
+        const texto = `Olá, ${nome.trim()}! Você recebeu um convite para criar sua conta no Andrade Energy Consumidor. Chave do convite: ${resultado.token}`;
+        await Linking.openURL(`https://wa.me/55${whatsapp}?text=${encodeURIComponent(texto)}`);
+        router.back();
+      };
+      const acoes: any[] = [];
+      if (!resultado.whatsappEnviado) acoes.push({ text: "Enviar no WhatsApp", onPress: abrirWhatsapp });
+      if (!resultado.emailEnviado) acoes.push({ text: "Copiar chave", onPress: async () => { await Clipboard.setStringAsync(String(resultado.token ?? "")); } });
+      acoes.push({ text: "OK", onPress: () => router.back() });
+      Alert.alert(canais ? "Convite enviado" : "Convite criado", mensagem, acoes);
     } catch (error: any) { Alert.alert("Não foi possível convidar", error?.response?.data?.message ?? "Tente novamente."); }
     finally { setEnviando(false); }
   }
@@ -37,6 +39,7 @@ export default function ConvidarCliente() {
     <Campo label="Nome completo" value={nome} onChangeText={setNome} placeholder="Nome do consumidor" />
     <Campo label="CPF" value={cpf} onChangeText={(v: string) => setCpf(v.replace(/\D/g, "").slice(0, 11))} placeholder="Somente números" keyboardType="numeric" />
     <Campo label="E-mail" value={email} onChangeText={setEmail} placeholder="consumidor@email.com" keyboardType="email-address" />
+    <Campo label="WhatsApp" value={whatsapp} onChangeText={(v: string) => setWhatsapp(v.replace(/\D/g, "").slice(0, 11))} placeholder="DDD + número" keyboardType="phone-pad" />
     <TouchableOpacity disabled={enviando} onPress={enviar} style={[styles.button, enviando && { opacity: .7 }]}>{enviando ? <ActivityIndicator color="#FFF" /> : <><Ionicons name="send-outline" size={20} color="#FFF" /><Text style={styles.buttonText}>Enviar convite</Text></>}</TouchableOpacity>
   </ScrollView></KeyboardAvoidingView></SafeAreaView>;
 }

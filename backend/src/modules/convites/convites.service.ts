@@ -5,8 +5,47 @@ import { obterMinutaParaConvite } from "../contratos/contratos.service";
 import { empresaIdDoUsuario } from "../../config/empresa";
 
 function cpfLimpo(valor: unknown) { return String(valor ?? "").replace(/\D/g, ""); }
+function telefoneWhatsapp(valor: unknown) {
+  const numeros = String(valor ?? "").replace(/\D/g, "");
+  if (numeros.length < 10 || numeros.length > 13) return "";
+  return numeros.startsWith("55") ? numeros : `55${numeros}`;
+}
 function escaparHtml(valor: string) {
   return valor.replace(/[&<>"']/g, (caractere) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[caractere] ?? caractere));
+}
+
+async function enviarConviteWhatsapp(input: { telefone: string; nome: string; token: string }) {
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const template = process.env.WHATSAPP_CONVITE_TEMPLATE_NAME;
+  const graphVersion = process.env.WHATSAPP_GRAPH_VERSION ?? "v22.0";
+  if (!accessToken || !phoneId || !template) return false;
+
+  const resposta = await fetch(`https://graph.facebook.com/${graphVersion}/${phoneId}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to: input.telefone,
+      type: "template",
+      template: {
+        name: template,
+        language: { code: "pt_BR" },
+        components: [{
+          type: "body",
+          parameters: [
+            { type: "text", text: input.nome },
+            { type: "text", text: input.token },
+          ],
+        }],
+      },
+    }),
+  });
+  if (!resposta.ok) {
+    console.error(`Falha no envio do convite pelo WhatsApp: HTTP ${resposta.status}`);
+    return false;
+  }
+  return true;
 }
 
 export async function criarConvite(input: any, gestor: any) {
@@ -14,9 +53,11 @@ export async function criarConvite(input: any, gestor: any) {
   const cpf = cpfLimpo(input.cpf);
   const email = String(input.email ?? "").trim().toLowerCase();
   const nome = String(input.nome ?? "").trim();
+  const whatsapp = telefoneWhatsapp(input.whatsapp);
   if (!nome) throw new Error("Informe o nome do consumidor.");
   if (cpf.length !== 11) throw new Error("Informe um CPF válido.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Informe um e-mail válido.");
+  if (!whatsapp) throw new Error("Informe um WhatsApp válido com DDD.");
 
   const { data: clienteExistente } = await supabase.from("clientes").select("id").eq("empresa_id", empresaId).eq("cpf", cpf).limit(1).maybeSingle();
   const { data: contaEmail } = await supabase
@@ -76,7 +117,8 @@ export async function criarConvite(input: any, gestor: any) {
   } catch {
     emailEnviado = false;
   }
-  return { message: "Convite criado.", emailEnviado, minutaAnexada, token: emailEnviado ? undefined : token };
+  const whatsappEnviado = await enviarConviteWhatsapp({ telefone: whatsapp, nome, token }).catch(() => false);
+  return { message: "Convite criado.", emailEnviado, whatsappEnviado, minutaAnexada, token, whatsapp };
 }
 
 export async function consultarConvite(token: string) {

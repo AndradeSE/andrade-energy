@@ -47,7 +47,8 @@ export async function enviarEmailTransacional(input: EmailTransacional) {
         }),
       });
       if (resposta.ok) return true;
-      falhas.push(`Brevo: HTTP ${resposta.status}`);
+      const detalhe = (await resposta.text()).slice(0, 500);
+      falhas.push(`Brevo: HTTP ${resposta.status}${detalhe ? ` - ${detalhe}` : ""}`);
     } catch (erro: any) {
       falhas.push(`Brevo: ${erro?.message ?? "falha desconhecida"}`);
     }
@@ -72,7 +73,8 @@ export async function enviarEmailTransacional(input: EmailTransacional) {
         }),
       });
       if (resposta.ok) return true;
-      falhas.push(`Resend: HTTP ${resposta.status}`);
+      const detalhe = (await resposta.text()).slice(0, 500);
+      falhas.push(`Resend: HTTP ${resposta.status}${detalhe ? ` - ${detalhe}` : ""}`);
     } catch (erro: any) {
       falhas.push(`Resend: ${erro?.message ?? "falha desconhecida"}`);
     }
