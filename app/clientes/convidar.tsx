@@ -26,7 +26,7 @@ export default function ConvidarCliente() {
     finally { setEnviando(false); }
   }
   return <SafeAreaView style={styles.screen}>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Convidar consumidor" subtitle="Enviar acesso ao aplicativo" contextTitle="Convidar consumidor" contextSubtitle="Envie o acesso ao aplicativo do cliente" icon="mail-unread-outline" /> : null}<KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}><ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
-    <View style={styles.icon}><Ionicons name="mail-unread-outline" size={32} color={Colors.primary} /></View><Text style={styles.title}>Convidar consumidor</Text><Text style={styles.subtitle}>O CPF conectará automaticamente a conta do consumidor ao cliente e às unidades cadastradas.</Text>
+    <View style={styles.icon}><Ionicons name="mail-unread-outline" size={32} color={Colors.primary} /></View><Text style={styles.title}>Convidar consumidor</Text><Text style={styles.subtitle}>Depois que aceitar o convite e criar a conta, o consumidor aparecerá automaticamente na lista de clientes. As unidades e condições do contrato poderão ser adicionadas dentro do cadastro dele.</Text>
     <Campo label="Nome completo" value={nome} onChangeText={setNome} placeholder="Nome do consumidor" />
     <Campo label="CPF" value={cpf} onChangeText={(v: string) => setCpf(v.replace(/\D/g, "").slice(0, 11))} placeholder="Somente números" keyboardType="numeric" />
     <Campo label="E-mail" value={email} onChangeText={setEmail} placeholder="consumidor@email.com" keyboardType="email-address" />

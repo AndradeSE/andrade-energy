@@ -11,7 +11,7 @@ export async function exigirAutenticacao(req: Request, res: Response, next: Next
 
   const { data, error } = await supabase
     .from("sessoes_usuarios")
-    .select("usuario_id, usuarios(*)")
+    .select("id, usuario_id, expira_em, usuarios(*)")
     .eq("token_hash", hashToken(token))
     .is("revogada_em", null)
     .gt("expira_em", new Date().toISOString())
@@ -21,6 +21,20 @@ export async function exigirAutenticacao(req: Request, res: Response, next: Next
   if (error || !usuario || usuario.ativo !== true) {
     return res.status(401).json({ message: "Sessão inválida, expirada ou conta desativada." });
   }
+
+  // Expiração deslizante: cada uso válido mantém a sessão deste aparelho
+  // ativa por mais 30 dias. Uma sessão revogada por login em outro aparelho
+  // continua inválida e nunca chega a este ponto.
+  const novaExpiracao = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { error: renovacaoError } = await supabase
+    .from("sessoes_usuarios")
+    .update({ expira_em: novaExpiracao })
+    .eq("id", data!.id)
+    .is("revogada_em", null);
+  if (renovacaoError) {
+    console.error("Não foi possível renovar a sessão ativa:", renovacaoError.message);
+  }
+
   (req as any).usuario = usuario;
   (req as any).empresaId = empresaIdDoUsuario(usuario);
   return next();
