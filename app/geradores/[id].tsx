@@ -6,10 +6,12 @@ import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } fr
 import { ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { obterPainelComercial, PainelComercial, removerGerador } from "../../services/comercial.service";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
+import { useAuth } from "../../contexts/AuthContext";
 
 const dataBr = (value: unknown) => value ? new Date(`${String(value).slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR") : "—";
 
 export default function DetalhesGerador() {
+  const { usuario } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [painel, setPainel] = useState<PainelComercial | null>(null);
   const [loading, setLoading] = useState(true);
@@ -18,6 +20,11 @@ export default function DetalhesGerador() {
   const gerador = painel?.geradores?.find((item:any)=>String(item.id)===String(id));
   const assinatura = painel?.assinaturas?.find((item:any)=>String(item.gerador_id)===String(id) && item.status!=="CANCELADA");
   function confirmarRemocao() {
+    if (removendo) return;
+    if (gerador?.perfil === "ADMIN" || String(id) === String(usuario?.id)) {
+      Alert.alert("Conta protegida", "Contas administradoras e a própria conta não podem ser removidas por esta tela.");
+      return;
+    }
     Alert.alert("Remover gerador", `Remover o acesso de ${gerador?.nome ?? "este gerador"}? A assinatura será cancelada e o histórico financeiro será preservado.`, [
       { text: "Cancelar", style: "cancel" },
       { text: "Remover", style: "destructive", onPress: async () => {
@@ -27,7 +34,9 @@ export default function DetalhesGerador() {
           Alert.alert("Gerador removido", "O acesso e as cobranças futuras foram encerrados.");
           router.replace("/geradores/gestao" as any);
         } catch (error: any) {
-          Alert.alert("Não foi possível remover", error?.response?.data?.message ?? "Tente novamente.");
+          const status = error?.response?.status;
+          const detalhe = status === 401 ? "Sua sessão expirou. Entre novamente antes de remover o gerador." : error?.response?.data?.message ?? (status ? `O servidor retornou HTTP ${status}.` : "Não houve resposta do servidor. Verifique a conexão.");
+          Alert.alert("Não foi possível remover", detalhe);
         } finally { setRemovendo(false); }
       } },
     ]);

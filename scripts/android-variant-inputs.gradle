@@ -1,0 +1,12 @@
+// Local builds share one generated android/ directory. Environment changes
+// must invalidate the embedded JS and update manifest, not only app.config.
+gradle.projectsEvaluated {
+    gradle.rootProject.allprojects { project ->
+        project.tasks.configureEach { task ->
+            if (task.name in ['createBundleReleaseJsAndAssets', 'createReleaseUpdatesResources', 'createExpoConfig']) {
+                task.inputs.property('andradeAppVariant', System.getenv('EXPO_PUBLIC_APP_VARIANT') ?: 'consumidor')
+                task.inputs.property('andradeApiUrl', System.getenv('EXPO_PUBLIC_API_URL') ?: '')
+            }
+        }
+    }
+}

@@ -1,6 +1,33 @@
 import { supabase } from "../../config/supabase";
 import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
 
+async function incluirStatusDoCadastro(clientes: any[], empresaId: string) {
+  const ids = clientes.map((cliente) => String(cliente?.id ?? "")).filter(Boolean);
+  if (!ids.length) return clientes;
+
+  const { data: solicitacoes, error } = await supabase
+    .from("solicitacoes_cadastro_clientes")
+    .select("cliente_id,status,created_at")
+    .eq("empresa_id", empresaId)
+    .in("cliente_id", ids)
+    .order("created_at", { ascending: false });
+  // Permite que o código continue operando durante a janela entre deploy do
+  // backend e aplicação da migração, sem esconder os clientes já existentes.
+  if (error?.code === "42P01") return clientes;
+  if (error) throw error;
+
+  const statusPorCliente = new Map<string, string>();
+  for (const solicitacao of solicitacoes ?? []) {
+    const clienteId = String(solicitacao.cliente_id ?? "");
+    if (!clienteId || statusPorCliente.has(clienteId)) continue;
+    statusPorCliente.set(clienteId, String(solicitacao.status));
+  }
+  return clientes.map((cliente) => ({
+    ...cliente,
+    cadastro_status: statusPorCliente.get(String(cliente.id)) ?? null,
+  }));
+}
+
 export async function listarClientes(empresaId = EMPRESA_ANDRADE_ID) {
   const { data, error } = await supabase
     .from("clientes")
@@ -10,7 +37,7 @@ export async function listarClientes(empresaId = EMPRESA_ANDRADE_ID) {
 
   if (error) throw error;
 
-  return data ?? [];
+  return incluirStatusDoCadastro(data ?? [], empresaId);
 }
 
 export async function buscarCliente(id: string, empresaId = EMPRESA_ANDRADE_ID) {
@@ -23,6 +50,19 @@ export async function buscarCliente(id: string, empresaId = EMPRESA_ANDRADE_ID) 
 
   if (error) throw error;
 
+  return (await incluirStatusDoCadastro([data], empresaId))[0];
+}
+
+export async function buscarSolicitacaoCadastroCliente(clienteId: string, empresaId = EMPRESA_ANDRADE_ID) {
+  const { data, error } = await supabase
+    .from("solicitacoes_cadastro_clientes")
+    .select("id,cliente_id,usuario_id,empresa_id,gestor_id,status,dados_fatura,fatura_cemig_url,email_verificado_em,confirmado_em,created_at")
+    .eq("cliente_id", clienteId)
+    .eq("empresa_id", empresaId)
+    .limit(1)
+    .maybeSingle();
+  if (error?.code === "42P01") return null;
+  if (error) throw error;
   return data;
 }
 
@@ -270,6 +310,10 @@ export async function cadastrarUnidadeCliente(clienteId: string, numeroInformado
   if (!numero) throw new Error("Número da unidade consumidora não informado.");
 
   const cliente = await buscarCliente(clienteId, empresaId);
+  const solicitacao = await buscarSolicitacaoCadastroCliente(clienteId, empresaId);
+  if (solicitacao && solicitacao.status !== "ATIVO") {
+    throw new Error("Confirme o cadastro do consumidor antes de ativar ou adicionar unidades.");
+  }
   const { data: existente, error: erroConsulta } = await supabase
     .from("unidades_consumidoras")
     .select("id,cliente_id")

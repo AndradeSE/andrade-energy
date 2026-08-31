@@ -63,9 +63,19 @@ export function extrairCadastroCemig(texto: string) {
   const ucIsolada = texto.match(/(?:^|\r?\n)\s*(\d{1,2}\.\d{3}\.\d{3}\.\d{3}-\d{2})\s*(?=\r?\n|$)/m)?.[1];
   const uc = (ucComRotulo ?? ucIsolada ?? "").replace(/\D/g, "");
 
-  const cpf = (
-    texto.match(/(?:CPF\s*(?:\/\s*CNPJ)?|CNPJ)\s*[:\-]?\s*([\d.\-/]{11,20})/i)?.[1] ?? ""
+  // A conta CEMIG pode trazer o CPF completo, mascarado ou somente quatro
+  // dígitos. Mantemos o trecho parcial separado: ele é suficiente para
+  // conferir a identidade durante o onboarding, sem fingir que é um CPF
+  // completo nos demais fluxos da aplicação.
+  const documentoInformado = (
+    texto.match(/(?:CPF\s*(?:\/\s*CNPJ)?|CNPJ)\s*[:\-]?\s*([*Xx\d.\-/]{4,20})/i)?.[1] ?? ""
   ).replace(/\D/g, "");
+  // Mantém CNPJ completo por compatibilidade com os fluxos já existentes de
+  // importação; a validação do onboarding somente aceita CPF de 11 dígitos.
+  const cpf = documentoInformado.length >= 11 ? documentoInformado : "";
+  const cpfParcial = documentoInformado.length > 0 && documentoInformado.length < 11
+    ? documentoInformado
+    : "";
 
   const tensao = (
     texto.match(/TENS[AÃ]O(?:\s+(?:NOMINAL|FORNECIDA|DE\s+FORNECIMENTO))?(?:\s*\([^)]+\))?\s*[:\-]?\s*(\d{2,3}(?:\s*\/\s*\d{2,3})?\s*V?)/i)?.[1] ?? ""
@@ -77,5 +87,5 @@ export function extrairCadastroCemig(texto: string) {
       ?? ""
   ).replace(/^(Residencial|Comercial|Rural|Industrial)\1/i, "$1 ").replace(/\s+/g, " ").trim();
 
-  return { cliente, endereco, uc, cpf, tensao, classificacao };
+  return { cliente, endereco, uc, cpf, cpfParcial, tensao, classificacao };
 }

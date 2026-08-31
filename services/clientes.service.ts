@@ -48,6 +48,34 @@ export async function excluirUnidadeCliente(unidadeId: string) {
   await api.delete(`/clientes/unidade/${unidadeId}`);
 }
 
+export type SolicitacaoCadastroCliente = {
+  id: string;
+  status: "AGUARDANDO_VERIFICACAO_EMAIL" | "AGUARDANDO_CONFIRMACAO_GERADOR" | "ATIVO" | "REJEITADO" | string;
+  dadosFatura: {
+    titular?: string;
+    endereco?: string;
+    uc?: string;
+    cpfParcial?: string;
+    classificacao?: string;
+    tensao?: string;
+    distribuidora?: string;
+  };
+  emailVerificadoEm?: string | null;
+  confirmadoEm?: string | null;
+  criadoEm?: string;
+  faturaUrl?: string | null;
+};
+
+export async function obterSolicitacaoCadastroCliente(id: string) {
+  const { data } = await api.get(`/clientes/${id}/solicitacao-cadastro`);
+  return data as SolicitacaoCadastroCliente;
+}
+
+export async function confirmarCadastroCliente(id: string) {
+  const { data } = await api.post(`/clientes/${id}/confirmar-cadastro`);
+  return data;
+}
+
 export async function listarMinhasUnidades() {
   const { data } = await api.get("/clientes/minhas-unidades");
   return data;

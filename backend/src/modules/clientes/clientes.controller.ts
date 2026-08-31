@@ -12,6 +12,8 @@ import {
   listarUnidadesPorCpf,
   cadastrarUnidadeCliente,
   excluirUnidadeCliente,
+  confirmarCadastroCliente,
+  obterSolicitacaoCadastroCliente,
 } from "./clientes.service";
 import { empresaIdDaRequisicao } from "../../utils/empresaScope";
 
@@ -40,6 +42,28 @@ export async function buscarClienteController(
     return res.status(500).json({
       message: e.message,
     });
+  }
+}
+
+export async function obterSolicitacaoCadastroClienteController(req: Request, res: Response) {
+  try {
+    const solicitacao = await obterSolicitacaoCadastroCliente(req.params.id, empresaIdDaRequisicao(req));
+    if (!solicitacao) return res.status(404).json({ message: "Nenhuma solicitação de cadastro encontrada." });
+    return res.json(solicitacao);
+  } catch (e: any) {
+    return res.status(400).json({ message: e.message ?? "Não foi possível carregar a solicitação." });
+  }
+}
+
+export async function confirmarCadastroClienteController(req: Request, res: Response) {
+  try {
+    return res.json(await confirmarCadastroCliente(
+      req.params.id,
+      (req as any).usuario.id,
+      empresaIdDaRequisicao(req),
+    ));
+  } catch (e: any) {
+    return res.status(400).json({ message: e.message ?? "Não foi possível confirmar o cadastro." });
   }
 }
 

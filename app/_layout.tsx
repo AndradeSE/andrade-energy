@@ -102,6 +102,13 @@ function RootNavigator() {
         />
 
         <Stack.Screen
+          name="(auth)/verificar-email"
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
           name="(auth)/esqueci-senha"
           options={{
             headerShown: false,
@@ -327,6 +334,7 @@ function RootNavigator() {
           }}
         />
         <Stack.Screen name="geradores/gestao" options={{ headerShown: false }} />
+        <Stack.Screen name="tutoriais" options={{ headerShown: false }} />
         <Stack.Screen name="geradores/convidar" options={{ headerShown: false }} />
         <Stack.Screen name="assinatura/index" options={{ headerShown: false }} />
       </Stack.Protected>

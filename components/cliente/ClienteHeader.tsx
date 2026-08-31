@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useReadNotifications } from "../../hooks/useReadNotifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
@@ -33,6 +33,7 @@ import {
 
 import MenuItem from "./MenuItem";
 import PortalBrandLogo from "../brand/PortalBrandLogo";
+import { notificarAvisosNoAndroid } from "../../services/carteira-notificacoes.service";
 
 type Props = {
   cliente: string;
@@ -57,8 +58,7 @@ export default function ClienteHeader({
   ] =
     useState(false);
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
-  const [notificacoes, setNotificacoes] = useState<any[]>([]);
-  const [lidas, setLidas] = useState<string[]>([]);
+  const [avisosRecebidos, setNotificacoes] = useState<any[]>([]);
 
   const {
     logout,
@@ -67,17 +67,14 @@ export default function ClienteHeader({
   } =
     useAuth();
 
-  const chaveNotificacoesLidas = `andrade_energy_notificacoes_lidas_${usuario?.id ?? "anon"}`;
+  const usuarioId = usuario?.id ? String(usuario.id) : undefined;
+  const leituras = useReadNotifications(usuarioId);
+  const notificacoes = leituras.ready ? avisosRecebidos.filter((aviso) => !leituras.ids.includes(String(aviso.id))) : [];
 
   useEffect(() => {
     let ativo = true;
-    Promise.all([AsyncStorage.getItem(chaveNotificacoesLidas), AsyncStorage.getItem("andrade_energy_notificacoes_lidas")]).then(([valor, legado]) => {
-      const ids = valor ? JSON.parse(valor) : [];
-      const idsLegados = legado ? JSON.parse(legado) : [];
-      const unidas = Array.from(new Set([...(Array.isArray(ids) ? ids : []), ...(Array.isArray(idsLegados) ? idsLegados : [])]));
-      if (ativo) setLidas(unidas);
-      void AsyncStorage.setItem(chaveNotificacoesLidas, JSON.stringify(unidas));
-    }).catch(() => undefined);
+    setNotificacoes([]);
+    if (!usuario?.id) return;
     listarFaturas().then((faturas) => {
       if (!ativo) return;
       const hoje = new Date();
@@ -89,21 +86,21 @@ export default function ClienteHeader({
         if (dias <= 5) return [{ id: fatura.id, severidade: "media", titulo: "Fatura próxima do vencimento", detalhe: `Vence em ${dias} dia${dias === 1 ? "" : "s"}`, rota: `/faturas/${fatura.id}` }];
         return [];
       });
-      Promise.all([AsyncStorage.getItem(chaveNotificacoesLidas), AsyncStorage.getItem("andrade_energy_notificacoes_lidas")]).then(([valor, legado]) => {
-        const ids = valor ? JSON.parse(valor) : [];
-        const idsLegados = legado ? JSON.parse(legado) : [];
-        const idsLidos = Array.from(new Set([...(Array.isArray(ids) ? ids : []), ...(Array.isArray(idsLegados) ? idsLegados : [])]));
-        setNotificacoes(avisos.filter((aviso: any) => !idsLidos.includes(aviso.id) && !idsLidos.includes(`vencida-${aviso.id}`) && !idsLidos.includes(`vence-${aviso.id}`)));
-      }).catch(() => setNotificacoes(avisos));
+      setNotificacoes(avisos);
+      void notificarAvisosNoAndroid(usuarioId, avisos.map((aviso: any) => ({
+        id: String(aviso.id),
+        titulo: aviso.titulo,
+        detalhe: aviso.detalhe,
+        rota: aviso.rota,
+        urgente: aviso.severidade === "alta",
+      })));
     }).catch(() => { if (ativo) setNotificacoes([]); });
     return () => { ativo = false; };
-  }, [chaveNotificacoesLidas]);
+  }, [usuarioId]);
 
   async function marcarComoLida(id: string) {
-    const novas = Array.from(new Set([...lidas, id]));
-    setLidas(novas);
-    setNotificacoes((lista) => lista.filter((item) => item.id !== id));
-    await AsyncStorage.setItem(chaveNotificacoesLidas, JSON.stringify(novas));
+    try { await leituras.mark(id); }
+    catch { Alert.alert("Leitura não salva", "Não foi possível salvar a leitura desta notificação. Tente novamente."); }
   }
 
   const insets =
@@ -120,6 +117,7 @@ export default function ClienteHeader({
       | "/perfil"
       | "/faturas"
       | "/contrato"
+      | "/tutoriais"
       | "/unidades/recebimento-email"
   ) {
     setMenuAberto(
@@ -482,6 +480,8 @@ export default function ClienteHeader({
                 )
               }
             />
+
+            <MenuItem icon="play-circle-outline" label="Tutoriais" onPress={() => navegar("/tutoriais")} />
 
             <Divider />
 

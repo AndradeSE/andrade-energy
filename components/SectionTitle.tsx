@@ -6,7 +6,7 @@ export default function SectionTitle({
   title: string;
 }) {
   return (
-    <Text className="text-lg font-bold mb-3 mt-5">
+    <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 12, marginTop: 20 }}>
       {title}
     </Text>
   );

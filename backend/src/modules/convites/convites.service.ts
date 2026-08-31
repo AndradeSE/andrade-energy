@@ -101,7 +101,10 @@ export async function criarConvite(input: any, gestor: any) {
   });
   if (error) throw error;
 
-  const link = `andradeenergyconsumidor://criar-conta?convite=${token}`;
+  // O e-mail abre primeiro uma página web: ela permite concluir o cadastro
+  // mesmo sem o aplicativo instalado e ainda oferece o atalho para o app.
+  const portalUrl = String(process.env.PORTAL_WEB_URL ?? "https://www.andradeenergy.com.br").replace(/\/$/, "");
+  const link = `${portalUrl}/convite?convite=${encodeURIComponent(token)}`;
   let emailEnviado = false;
   let minutaAnexada = false;
   try {
@@ -122,6 +125,9 @@ export async function criarConvite(input: any, gestor: any) {
 }
 
 export async function consultarConvite(token: string) {
+  if (token.startsWith("gerador_") || token.startsWith("admin_")) {
+    throw new Error("Convite de consumidor inválido ou expirado.");
+  }
   const { data, error } = await supabase.from("convites_clientes")
     .select("id,nome,cpf,email,status,expira_em,empresa_id")
     .eq("token_hash", hashToken(token)).maybeSingle();
@@ -131,8 +137,8 @@ export async function consultarConvite(token: string) {
 
 export async function aceitarConvite(token: string) {
   const convite = await consultarConvite(token);
-  const { data } = await supabase.from("convites_clientes").select("id,cliente_id,usina_id,empresa_id").eq("token_hash", hashToken(token)).single();
-  return { ...convite, id: data!.id, cliente_id: data!.cliente_id, usina_id: data!.usina_id, empresa_id: data!.empresa_id };
+  const { data } = await supabase.from("convites_clientes").select("id,gestor_id,cliente_id,usina_id,empresa_id").eq("token_hash", hashToken(token)).single();
+  return { ...convite, id: data!.id, gestor_id: data!.gestor_id, cliente_id: data!.cliente_id, usina_id: data!.usina_id, empresa_id: data!.empresa_id };
 }
 
 export async function concluirConvite(convite: any, usuarioId: string) {

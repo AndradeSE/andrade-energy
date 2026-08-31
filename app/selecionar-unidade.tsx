@@ -295,6 +295,20 @@ export default function SelecionarUnidade() {
         barStyle="light-content"
       />
 
+      <LinearGradient
+        colors={[corPrincipal, "#082F26"]}
+        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0.85 }}
+        style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}
+      >
+        <View style={styles.headerTop}>
+          <TouchableOpacity accessibilityLabel="Opções da conta" onPress={() => setMenuAberto(true)} style={styles.menuButton}>
+            <Ionicons name="menu" size={27} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={styles.logoBox}><PortalBrandLogo height={44} width={158} /></View>
+        </View>
+        <Text numberOfLines={2} style={styles.welcome}>Olá, {usuario?.nome?.trim() || "bem-vindo"}</Text>
+      </LinearGradient>
+
       <FlatList
         contentContainerStyle={
           styles.content
@@ -328,92 +342,6 @@ export default function SelecionarUnidade() {
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <>
-            {/* CABEÇALHO */}
-
-            <LinearGradient
-              colors={[
-                corPrincipal,
-                corPrincipal,
-                "#082F26",
-              ]}
-              end={{
-                x: 1,
-                y: 0.85,
-              }}
-              start={{
-                x: 0,
-                y: 0,
-              }}
-              style={[
-                styles.header,
-                {
-                  paddingTop:
-                    insets.top +
-                    Spacing.md,
-                },
-              ]}
-            >
-              <View
-                style={
-                  styles.headerTop
-                }
-              >
-                <TouchableOpacity
-                  accessibilityLabel="Opções da conta"
-                  onPress={() =>
-                    setMenuAberto(
-                      true
-                    )
-                  }
-                  style={
-                    styles.menuButton
-                  }
-                >
-                  <Ionicons
-                    name="menu"
-                    size={30}
-                    color={
-                      Colors.surface
-                    }
-                  />
-                </TouchableOpacity>
-
-                <View
-                  style={
-                    styles.avatar
-                  }
-                >
-                  <Ionicons
-                    name="person"
-                    size={24}
-                    color={
-                      Colors.surface
-                    }
-                  />
-                </View>
-
-                <Text
-                  numberOfLines={
-                    2
-                  }
-                  style={
-                    styles.welcome
-                  }
-                >
-                  Olá,{" "}
-                  {usuario?.nome}
-                </Text>
-
-                <View
-                  style={
-                    styles.logoBox
-                  }
-                >
-                  <PortalBrandLogo height={50} width={180} />
-                </View>
-              </View>
-            </LinearGradient>
-
             {/* TÍTULO */}
 
             <View
@@ -479,6 +407,8 @@ export default function SelecionarUnidade() {
 
                 {busca ? (
                   <TouchableOpacity
+                    accessibilityLabel="Limpar busca"
+                    hitSlop={10}
                     onPress={() =>
                       setBusca(
                         ""
@@ -1125,16 +1055,15 @@ const styles =
     },
 
     header: {
-      marginHorizontal:
-        -Spacing.lg,
       paddingHorizontal:
         Spacing.lg,
       paddingBottom:
-        Spacing.xl,
+        Spacing.md,
+      flexShrink: 0,
     },
 
     headerTop: {
-      minHeight: 76,
+      minHeight: 48,
       flexDirection:
         "row",
       alignItems:
@@ -1166,11 +1095,9 @@ const styles =
     },
 
     welcome: {
-      flex: 1,
-      marginHorizontal:
-        Spacing.sm,
+      marginTop: Spacing.xs,
       color:
-        Colors.surface,
+        "#FFFFFF",
       fontSize:
         Typography.body,
       fontWeight:
@@ -1178,10 +1105,10 @@ const styles =
     },
 
     logoBox: {
-      width: 180,
-      height: 50,
+      flex: 1,
+      height: 44,
       alignItems:
-        "center",
+        "flex-end",
       justifyContent:
         "center",
     },
@@ -1190,7 +1117,7 @@ const styles =
       alignItems:
         "center",
       paddingTop:
-        Spacing.xxl,
+        Spacing.lg,
       paddingBottom:
         Spacing.lg,
     },

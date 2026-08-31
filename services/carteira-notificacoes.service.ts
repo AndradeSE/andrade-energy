@@ -1,9 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import Constants from "expo-constants";
 import { Platform } from "react-native";
 
 async function carregarNotificacoes() {
-  if (Platform.OS === "web" || Constants.appOwnership === "expo") return null;
+  if (Platform.OS === "web") return null;
   const Notifications = await import("expo-notifications");
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -14,6 +13,61 @@ async function carregarNotificacoes() {
     }),
   });
   return Notifications;
+}
+
+type AvisoAndroid = {
+  usuarioId: string;
+  id: string;
+  titulo: string;
+  detalhe: string;
+  rota?: string;
+  urgente?: boolean;
+};
+
+const chaveDoAviso = (usuarioId: string, id: string) => `notificacao:android:${usuarioId}:${id}`;
+
+/**
+ * Espelha no Android os avisos importantes que já aparecem no sino do app.
+ * A chave persistida evita repetir o mesmo alerta a cada atualização da tela.
+ */
+export async function notificarAvisoNoAndroid(aviso: AvisoAndroid) {
+  if (Platform.OS !== "android" || !aviso.usuarioId || !aviso.id) return false;
+  const chaveAviso = chaveDoAviso(aviso.usuarioId, aviso.id);
+  if (await AsyncStorage.getItem(chaveAviso)) return false;
+
+  try {
+    const Notifications = await carregarNotificacoes();
+    if (!Notifications) return false;
+    await Notifications.setNotificationChannelAsync("avisos-importantes", {
+      name: "Avisos importantes",
+      importance: aviso.urgente ? Notifications.AndroidImportance.HIGH : Notifications.AndroidImportance.DEFAULT,
+    });
+    const permissaoAtual = await Notifications.getPermissionsAsync();
+    const permissao = permissaoAtual.status === "granted"
+      ? permissaoAtual
+      : await Notifications.requestPermissionsAsync();
+    if (permissao.status !== "granted") return false;
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: aviso.titulo,
+        body: aviso.detalhe,
+        data: aviso.rota ? { url: aviso.rota } : undefined,
+        sound: "default",
+      },
+      trigger: null,
+    });
+    await AsyncStorage.setItem(chaveAviso, new Date().toISOString());
+    return true;
+  } catch {
+    // Um alerta local nunca pode bloquear o carregamento das telas.
+    return false;
+  }
+}
+
+export async function notificarAvisosNoAndroid(usuarioId: string | undefined, avisos: Array<Omit<AvisoAndroid, "usuarioId">>) {
+  if (!usuarioId) return;
+  await Promise.all(avisos.map((aviso) => notificarAvisoNoAndroid({ ...aviso, usuarioId })));
 }
 
 const chave = (usuarioId: string) => `carteira:recebido:${usuarioId}`;

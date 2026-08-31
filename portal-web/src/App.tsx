@@ -2,6 +2,7 @@ import { CSSProperties, FormEvent, MouseEvent, useCallback, useEffect, useState 
 import bulbImage from "./assets/lampada-dourada.png";
 import RecordEditForm from "./RecordEditForm";
 import RealDiscountInfoWeb from "./RealDiscountInfoWeb";
+import ConsumerInviteSignup from "./ConsumerInviteSignup";
 import "./mobile.css";
 import "./download.css";
 
@@ -129,7 +130,7 @@ function formatPortalValue(field: string, value: unknown) {
 function Icon({
   name,
 }: {
-  name: "user" | "sun" | "arrow" | "mail" | "lock" | "eye" | "check";
+  name: "user" | "sun" | "arrow" | "mail" | "lock" | "eye" | "check" | "search";
 }) {
   const paths = {
     user: (
@@ -168,6 +169,7 @@ function Icon({
       </>
     ),
     check: <path d="m5 12 4 4L19 6" />,
+    search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></>,
   };
   return (
     <svg
@@ -600,6 +602,26 @@ function CompaniesPanel({ token }: { token: string }) {
   return <div className="commercial-stack"><section className="commercial-home-hero"><div><small>ECOSSISTEMA ANDRADE ENERGY</small><h2>Empresas parceiras</h2><p>Cada ambiente possui usuários e operação isolados. Andrade Energy permanece como identidade padrão.</p></div><b>{companies.length}</b></section><div className="commercial-columns"><section className="section-workspace"><span className="section-label">{editingId ? "EDITAR EMPRESA" : "NOVA EMPRESA"}</span><h2>{editingId ? "Identidade e atendimento" : "Cadastrar parceira"}</h2><form className="commercial-form" onSubmit={save}><label>Nome<input required value={form.nome} onChange={(event)=>setForm({...form,nome:event.target.value})}/></label><div className="commercial-form-row"><label>Identificador (slug)<input value={form.slug} onChange={(event)=>setForm({...form,slug:event.target.value})}/></label><label>Razão social<input value={form.razaoSocial} onChange={(event)=>setForm({...form,razaoSocial:event.target.value})}/></label></div><label>CPF/CNPJ<input value={form.documento} onChange={(event)=>setForm({...form,documento:event.target.value})}/></label><div className="commercial-form-row"><label>E-mail de suporte<input type="email" value={form.emailSuporte} onChange={(event)=>setForm({...form,emailSuporte:event.target.value})}/></label><label>Telefone de suporte<input value={form.telefoneSuporte} onChange={(event)=>setForm({...form,telefoneSuporte:event.target.value})}/></label></div><label>Domínio<input placeholder="empresa.com.br" value={form.dominio} onChange={(event)=>setForm({...form,dominio:event.target.value})}/></label><label>URL da logo<input placeholder="https://..." value={form.logoUrl} onChange={(event)=>setForm({...form,logoUrl:event.target.value})}/></label><div className="commercial-form-row"><label>Cor principal<input type="color" value={form.corPrimaria} onChange={(event)=>setForm({...form,corPrimaria:event.target.value})}/></label><label>Cor de destaque<input type="color" value={form.corSecundaria} onChange={(event)=>setForm({...form,corSecundaria:event.target.value})}/></label></div><label className="checkbox-field"><input checked={form.identidadePersonalizada} type="checkbox" onChange={(event)=>setForm({...form,identidadePersonalizada:event.target.checked})}/> Usar logo e cores próprios</label><div className="company-form-actions"><button className="primary-action">{editingId ? "Salvar alterações" : "Cadastrar empresa"}</button>{editingId?<button className="secondary-action" type="button" onClick={reset}>Cancelar</button>:null}</div></form>{message?<div className="invite-message">{message}</div>:null}</section><section className="section-workspace"><span className="section-label">AMBIENTES ISOLADOS</span><h2>{companies.length} empresa(s)</h2><p className="company-list-hint">Selecione uma empresa para editar sua identidade visual e dados de atendimento.</p><div className="document-grid company-grid">{companies.map((company)=><button className={editingId===company.id?"company-card selected":"company-card"} key={company.id} onClick={()=>edit(company)}><b style={{background:company.cor_primaria,color:company.cor_secundaria}}>{String(company.nome).slice(0,2).toUpperCase()}</b><div><strong>{company.nome}</strong><small>{company.empresa_proprietaria?"Empresa proprietária · padrão":company.identidade_personalizada?"Identidade personalizada":"Identidade Andrade Energy"} · {company.ativo?"Ativa":"Inativa"}</small><em>{company.dominio || company.email_suporte || company.slug}</em></div><span>Editar →</span></button>)}</div></section></div></div>;
 }
 
+const REMEMBER_LOGIN_KEY = "andrade_energy_portal_remembered_login";
+
+function readRememberedLogin(): { email: string; accessType: AccessType | null } {
+  try {
+    const stored = localStorage.getItem(REMEMBER_LOGIN_KEY);
+    if (!stored) return { email: "", accessType: null };
+    const parsed = JSON.parse(stored) as { email?: unknown; accessType?: unknown };
+    const rememberedType = parsed.accessType === "GERADOR" || parsed.accessType === "CONSUMIDOR"
+      ? parsed.accessType
+      : null;
+    return {
+      email: typeof parsed.email === "string" ? parsed.email : "",
+      accessType: rememberedType,
+    };
+  } catch {
+    localStorage.removeItem(REMEMBER_LOGIN_KEY);
+    return { email: "", accessType: null };
+  }
+}
+
 function CommercialManagementPanel({ token }: { token: string }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -690,22 +712,21 @@ function CommercialManagementPanel({ token }: { token: string }) {
     <section className="section-workspace" id="comercial-assinaturas"><div className="data-toolbar"><div><small>CARTEIRA COMERCIAL</small><strong>{data?.assinaturas?.length ?? 0} assinatura(s)</strong></div><button onClick={() => void load()}>Atualizar</button></div>
       <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Gerador</th><th>Plano</th><th>Ciclo</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Ações</th></tr></thead><tbody>{(data?.assinaturas ?? []).map((item: any) => <tr key={item.id}><td><strong>{item.gerador?.nome ?? "—"}</strong><small className="table-subline">{item.gerador?.email ?? "—"}</small></td><td>{item.plano?.nome ?? "—"}</td><td>{item.ciclo}</td><td>{money(item.valor_contratado)}</td><td>{item.proximo_vencimento ? new Date(`${item.proximo_vencimento}T12:00:00`).toLocaleDateString("pt-BR") : "—"}</td><td><span className={`table-status status-${String(item.status).toLowerCase()}`}>{item.status}</span></td><td><div className="row-actions"><button className="table-action" onClick={() => void action(item, "charge")}>Cobrar</button><button className="table-action" onClick={() => void action(item, "status", item.status === "SUSPENSA" ? "ATIVA" : "SUSPENSA")}>{item.status === "SUSPENSA" ? "Reativar" : "Suspender"}</button><button className="table-action danger" onClick={() => window.confirm("Cancelar definitivamente esta assinatura?") && void action(item, "status", "CANCELADA")}>Cancelar</button></div></td></tr>)}</tbody></table></div>
     </section>
-    <section className="section-workspace commercial-apps" id="comercial-aplicativos"><span className="section-label">APLICATIVOS</span><h2>Instalação e tutoriais</h2><p>Baixe as versões atuais e assista aos vídeos de uso. O aplicativo do Gerador libera um teste de 45 dias por CPF; reinstalar ou recriar a conta não renova o benefício.</p><div><AppDownloadLink href={APP_GERADOR_URL} app="Gerador" description="Gestão de usinas · teste de 45 dias" /><AppDownloadLink href={APP_CONSUMIDOR_URL} app="Consumidor" description="Faturas, economia e contratos" /></div>{!APP_GERADOR_URL || !APP_CONSUMIDOR_URL ? <small className="commercial-build-note">Nova versão em publicação. O botão será liberado assim que o APK atualizado estiver disponível.</small> : null}<TutorialCenter defaultOpen /></section>
+    <section className="section-workspace commercial-apps" id="comercial-aplicativos"><span className="section-label">APLICATIVOS</span><h2>Instalação dos aplicativos</h2><p>Baixe as versões atuais dos aplicativos. O aplicativo do Gerador libera um teste de 45 dias por CPF; reinstalar ou recriar a conta não renova o benefício.</p><div><AppDownloadLink href={APP_GERADOR_URL} app="Gerador" description="Gestão de usinas · teste de 45 dias" /><AppDownloadLink href={APP_CONSUMIDOR_URL} app="Consumidor" description="Faturas, economia e contratos" /></div>{!APP_GERADOR_URL || !APP_CONSUMIDOR_URL ? <small className="commercial-build-note">Nova versão em publicação. O botão será liberado assim que o APK atualizado estiver disponível.</small> : null}</section>
     <section className="section-workspace" id="comercial-documentos"><span className="section-label">CONFORMIDADE</span><h2>Documentos para comercialização</h2><div className="document-grid">{(data?.documentos ?? []).map((doc: any) => <article key={doc.id}><b>§</b><div><strong>{doc.titulo}</strong><small>Versão {doc.versao} · {doc.ativo ? "Publicada" : "Rascunho"}</small></div></article>)}</div><p className="legal-notice">Os modelos são uma base operacional. Antes da venda ao público, contrato, termos, política de privacidade e cancelamento devem ser revisados por advogado e responsável por proteção de dados.</p></section>
   </div>;
 }
 
-function AppDownloadsPanel() {
+function AppDownloadsPanel({ type }: { type: AccessType }) {
   return <section className="section-workspace commercial-apps app-downloads-panel">
     <span className="section-label">APLICATIVOS ANDRADE ENERGY</span>
     <h2>Instale o aplicativo ideal para seu perfil</h2>
     <p>Baixe diretamente a versão Android mais recente. O app Gerador reúne a operação das usinas e a gestão comercial; o app Consumidor concentra faturas, economia e contratos.</p>
     <div>
-      <AppDownloadLink href={APP_GERADOR_URL} app="Gerador" description="Gestão comercial e gestão de usinas · aprox. 103 MB" detailed />
+      {type === "GERADOR" ? <AppDownloadLink href={APP_GERADOR_URL} app="Gerador" description="Gestão comercial e gestão de usinas · aprox. 103 MB" detailed /> : null}
       <AppDownloadLink href={APP_CONSUMIDOR_URL} app="Consumidor" description="Faturas, economia e contratos · aprox. 103 MB" detailed />
     </div>
     <small className="app-download-security">Arquivos oficiais para Android. Depois que o download terminar, abra o arquivo na área Downloads do celular para iniciar a instalação.</small>
-    <TutorialCenter defaultOpen />
   </section>;
 }
 
@@ -2687,7 +2708,7 @@ function PortalHome({
 
   useEffect(() => {
     setActiveSection((current) => {
-      if (isCommercialWorkspace && !["Gestão comercial", "Empresas", "Geradores", "Aplicativos", "Perfil", "Configurações"].includes(current)) return "Gestão comercial";
+      if (isCommercialWorkspace && !["Gestão comercial", "Empresas", "Geradores", "Aplicativos", "Tutoriais da web", "Perfil", "Configurações"].includes(current)) return "Gestão comercial";
       if (!isCommercialWorkspace && ["Gestão comercial", "Geradores"].includes(current)) return "Visão geral";
       return current;
     });
@@ -2816,7 +2837,7 @@ function PortalHome({
         ? [
             { label: "Gestão comercial", items: ["Gestão comercial", "Empresas", "Geradores", "Aplicativos"] },
             { label: "Conta", items: ["Perfil", "Configurações"] },
-            { label: "Ambiente", items: ["Alternar ambiente"] },
+            { label: "Ambiente", items: ["Alternar ambiente", "Tutoriais da web"] },
           ]
       : [
           { label: "Painel", items: ["Visão geral"] },
@@ -2835,7 +2856,7 @@ function PortalHome({
             ],
           },
           ...(session.usuario?.perfil === "ADMIN"
-            ? [{ label: "Administração", items: workspace === "COMERCIAL" ? ["Gestão comercial", "Geradores", "Alternar ambiente"] : ["Alternar ambiente"] }]
+            ? [{ label: "Administração", items: workspace === "COMERCIAL" ? ["Gestão comercial", "Geradores", "Alternar ambiente", "Tutoriais da web"] : ["Alternar ambiente", "Tutoriais da web"] }]
             : []),
           { label: "Conta", items: ["Minha assinatura", "Minha marca", "Aplicativos", "Perfil", "Configurações"] },
         ]
@@ -2845,7 +2866,7 @@ function PortalHome({
             label: "Minha energia",
             items: ["Minha unidade", "Faturas", "Contas de luz", "Contratos"],
           },
-          { label: "Conta", items: ["Aplicativos", "Perfil", "Configurações"] },
+          { label: "Conta", items: ["Tutoriais da web", "Aplicativos", "Perfil", "Configurações"] },
         ];
   const globalSearchOptions = menuGroups.flatMap((group) => group.items).filter((item) => item !== "Alternar ambiente");
   function submitGlobalSearch(event: FormEvent<HTMLFormElement>) {
@@ -3275,7 +3296,9 @@ function PortalHome({
           ) : activeSection === "Minha assinatura" && session.token ? (
             <MySubscriptionPanel token={session.token} />
           ) : activeSection === "Aplicativos" ? (
-            <AppDownloadsPanel />
+            <AppDownloadsPanel type={type} />
+          ) : activeSection === "Tutoriais da web" ? (
+            <section className="section-workspace"><span className="section-label">CENTRAL DE AJUDA</span><h2>Tutoriais da web</h2><p>Aprenda as funções do portal no ambiente correspondente ao seu perfil.</p><TutorialCenter profile={type} defaultOpen /></section>
           ) : activeSection === "Perfil" && session.token ? (
             <><div className="profile-workspace-switch"><span><small>AMBIENTE ADMINISTRATIVO</small><strong>{workspace === "COMERCIAL" ? "Gestão Comercial" : "Gestão de Usinas"}</strong></span><button onClick={() => onChangeWorkspace(workspace === "COMERCIAL" ? "USINAS" : "COMERCIAL")}>Alternar para {workspace === "COMERCIAL" ? "Gestão de Usinas" : "Gestão Comercial"}</button><button onClick={() => onChangeWorkspace(null)}>Escolher ambiente</button></div><ProfilePanel token={session.token} fallback={session.usuario} /></>
           ) : activeSection === "Configurações" ? (
@@ -3409,37 +3432,39 @@ function PortalHome({
   );
 }
 
-function TutorialCenter({ defaultOpen = false }: { defaultOpen?: boolean }) {
+function TutorialCenter({ profile, defaultOpen = false }: { profile: AccessType; defaultOpen?: boolean }) {
+  const generator = profile === "GERADOR";
+  const [tutorialSearch, setTutorialSearch] = useState("");
+  const tutorialTitle = `Portal ${generator ? "Gerador" : "Consumidor"}`;
+  const tutorialDescription = generator ? "Da visão geral ao faturamento" : "Da escolha da UC ao contrato";
+  const normalizedSearch = tutorialSearch.trim().toLocaleLowerCase("pt-BR");
+  const tutorialVisible = !normalizedSearch || `${tutorialTitle} ${tutorialDescription}`.toLocaleLowerCase("pt-BR").includes(normalizedSearch);
   return (
     <details className="tutorial-center" open={defaultOpen || undefined}>
-      <summary><span>▶</span><strong>Tutoriais em vídeo</strong><small>Passo a passo dos aplicativos Gerador e Consumidor</small></summary>
+      <summary><span>▶</span><strong>Tutorial da web — {generator ? "Gerador" : "Consumidor"}</strong><small>{generator ? "Usinas, clientes, alocação e faturamento" : "Unidades, faturas, economia e contrato"}</small></summary>
+      <label className="tutorial-search"><span>Buscar tutorial</span><div><Icon name="search" /><input type="search" value={tutorialSearch} onChange={(event) => setTutorialSearch(event.target.value)} placeholder="Digite uma função ou assunto" /></div></label>
       <div className="tutorial-video-grid">
-        <article>
-          <div><b>G</b><span><strong>App Gerador</strong><small>Usinas, clientes, alocação e faturamento</small></span></div>
-          <video controls playsInline preload="metadata" poster="/tutorials/tutorial-gerador.png">
-            <source src="/tutorials/tutorial-gerador.mp4" type="video/mp4" />
+        {tutorialVisible ? <article className="tutorial-profile-video">
+          <div><b>{generator ? "G" : "C"}</b><span><strong>Portal {generator ? "Gerador" : "Consumidor"}</strong><small>{generator ? "Da visão geral ao faturamento" : "Da escolha da UC ao contrato"}</small></span></div>
+          <video controls playsInline preload="metadata" poster={`/tutorials/tutorial-web-${generator ? "gerador" : "consumidor"}.png`}>
+            <source src={`/tutorials/tutorial-web-${generator ? "gerador" : "consumidor"}.mp4`} type="video/mp4" />
             Seu navegador não oferece suporte a vídeos MP4.
           </video>
-        </article>
-        <article>
-          <div><b>C</b><span><strong>App Consumidor</strong><small>UCs, faturas, economia e contrato</small></span></div>
-          <video controls playsInline preload="metadata" poster="/tutorials/tutorial-consumidor.png">
-            <source src="/tutorials/tutorial-consumidor.mp4" type="video/mp4" />
-            Seu navegador não oferece suporte a vídeos MP4.
-          </video>
-        </article>
+        </article> : <p className="tutorial-empty">Nenhum tutorial encontrado.</p>}
       </div>
     </details>
   );
 }
 
-export default function App() {
+function PortalApp() {
+  const [rememberedLogin] = useState(readRememberedLogin);
   const [session, setSession] = useState<PortalSession | null>(() =>
     readSession(),
   );
-  const [accessType, setAccessType] = useState<AccessType | null>(null);
-  const [email, setEmail] = useState("");
+  const [accessType, setAccessType] = useState<AccessType | null>(rememberedLogin.accessType);
+  const [email, setEmail] = useState(rememberedLogin.email);
   const [password, setPassword] = useState("");
+  const [rememberLogin, setRememberLogin] = useState(Boolean(rememberedLogin.email));
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -3466,6 +3491,14 @@ export default function App() {
       if (!response.ok)
         throw new Error(data.message ?? "Não foi possível acessar sua conta.");
       const portalSession = { ...data, accessType } as PortalSession;
+      if (rememberLogin) {
+        localStorage.setItem(
+          REMEMBER_LOGIN_KEY,
+          JSON.stringify({ email: email.trim().toLowerCase(), accessType }),
+        );
+      } else {
+        localStorage.removeItem(REMEMBER_LOGIN_KEY);
+      }
       sessionStorage.setItem(
         "andrade_energy_portal_session",
         JSON.stringify(portalSession),
@@ -3647,7 +3680,6 @@ export default function App() {
                 <b>Plataforma multiempresa</b>
                 <span>Cada empresa opera em um ambiente isolado, com sua própria equipe, dados e identidade visual.</span>
               </div>
-              <TutorialCenter />
             </div>
           ) : trialStage === "form" ? (
             <form className="login-view trial-signup" onSubmit={submitTrial}>
@@ -3739,7 +3771,15 @@ export default function App() {
               </div>
               <div className="form-tools">
                 <label className="remember">
-                  <input type="checkbox" /> <span>Lembrar de mim</span>
+                  <input
+                    type="checkbox"
+                    checked={rememberLogin}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      setRememberLogin(checked);
+                      if (!checked) localStorage.removeItem(REMEMBER_LOGIN_KEY);
+                    }}
+                  /> <span>Lembrar de mim</span>
                 </label>
                 <a href="#recuperar">Esqueci minha senha</a>
               </div>
@@ -3768,4 +3808,12 @@ export default function App() {
       </section>
     </main>
   );
+}
+
+export default function App() {
+  const convite = new URLSearchParams(window.location.search).get("convite")?.trim() ?? "";
+  if (window.location.pathname === "/convite") {
+    return <ConsumerInviteSignup apiUrl={API_URL} convite={convite} />;
+  }
+  return <PortalApp />;
 }

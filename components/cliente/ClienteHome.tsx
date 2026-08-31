@@ -15,6 +15,9 @@ import { useDashboard } from "../../hooks/useDashboard";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 
 import EmptyState from "../ui/EmptyState";
+import Button from "../ui/Button";
+import { isAxiosError } from "axios";
+import { useAuth } from "../../contexts/AuthContext";
 import Card from "../ui/Card";
 import Loading from "../ui/Loading";
 import Screen from "../ui/Screen";
@@ -26,6 +29,7 @@ import EnergyFlowCard from "./EnergyFlowCard";
 import QuickAccessCarousel from "../QuickAccessCarousel";
 
 export default function ClienteHome() {
+  const { logout } = useAuth();
   const { data, isLoading, error, refetch } = useDashboard();
   const [atualizando, setAtualizando] = useState(false);
   async function atualizarPagina() {
@@ -40,14 +44,25 @@ export default function ClienteHome() {
   if (isLoading) return <Loading />;
 
   if (error || !data) {
+    const status = isAxiosError(error) ? error.response?.status : undefined;
+    const mensagem = status === 401
+      ? "Sua sessão expirou. Entre novamente na conta."
+      : status === 403 || status === 404
+        ? "Selecione novamente uma unidade vinculada à sua conta."
+        : isAxiosError(error)
+          ? `Não conseguimos consultar o servidor${status ? ` (HTTP ${status})` : ""}. Tente novamente.`
+          : error?.message ?? "Selecione sua unidade consumidora para continuar.";
     return (
       <Screen>
         <View style={styles.errorContent}>
           <EmptyState
             icon="alert-circle-outline"
             title="Não foi possível carregar a sua energia"
-            subtitle="Verifique sua conexão e tente novamente em alguns instantes."
+            subtitle={mensagem}
           />
+          <Button title={atualizando ? "Carregando…" : "Tentar novamente"} disabled={atualizando} onPress={atualizarPagina} style={{ marginTop: Spacing.md }} />
+          <Button title="Escolher unidade consumidora" onPress={() => router.replace("/selecionar-unidade")} style={{ marginTop: Spacing.md }} />
+          {status === 401 ? <Button title="Entrar novamente" onPress={() => { void logout(); }} style={{ marginTop: Spacing.md }} /> : null}
         </View>
       </Screen>
     );

@@ -78,13 +78,23 @@ export async function vincularClientePorCpf(usuario: any) {
   return cliente.id;
 }
 
-export async function criarConta(input: { nome: string; cpf: string; email: string; senha: string; tipo: "CONSUMIDOR" | "GERADOR"; convite?: string; empresa_id?: string }) {
+export async function criarConta(input: {
+  nome: string;
+  cpf: string;
+  email: string;
+  senha: string;
+  tipo: "CONSUMIDOR" | "GERADOR";
+  convite?: string;
+  empresa_id?: string;
+  ativo?: boolean;
+}) {
   const cpf = input.cpf.replace(/\D/g, "");
   const email = input.email.trim().toLowerCase();
   const empresaId = input.empresa_id ?? EMPRESA_ANDRADE_ID;
   const perfil = input.tipo === "GERADOR"
     ? (String(input.convite ?? "").startsWith("admin_") ? "ADMIN" : "GESTOR")
     : "LEITURA";
+  const ativo = input.ativo !== false;
   const { data: emailNoMesmoPerfil } = await supabase
     .from("usuarios")
     .select("id")
@@ -105,7 +115,7 @@ export async function criarConta(input: { nome: string; cpf: string; email: stri
 
   const { data, error } = await supabase
     .from("usuarios")
-    .insert({ nome: input.nome.trim(), cpf, email, senha: input.senha, perfil, ativo: true, empresa_id: empresaId })
+    .insert({ nome: input.nome.trim(), cpf, email, senha: input.senha, perfil, ativo, empresa_id: empresaId })
     .select("*")
     .single();
   if (error) throw error;
@@ -115,10 +125,117 @@ export async function criarConta(input: { nome: string; cpf: string; email: stri
     usuario_id: data.id,
     papel,
     principal: true,
-    ativo: true,
+    ativo,
     atualizado_em: new Date().toISOString(),
   }, { onConflict: "empresa_id,usuario_id" });
   if (vinculoError) throw vinculoError;
+  return data;
+}
+
+export async function buscarUsuarioPorCredenciais(
+  email: string,
+  senha: string,
+  tipo?: "CONSUMIDOR" | "GERADOR",
+) {
+  let consulta = supabase
+    .from("usuarios")
+    .select("*")
+    .eq("email", email)
+    .eq("senha", senha);
+
+  consulta = tipo === "CONSUMIDOR"
+    ? consulta.in("perfil", ["LEITURA", "GESTOR", "ADMIN"])
+    : tipo === "GERADOR"
+      ? consulta.in("perfil", ["GESTOR", "ADMIN"])
+      : consulta;
+
+  const { data, error } = await consulta.limit(1).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function buscarUsuarioConsumidorPorEmail(email: string) {
+  const { data, error } = await supabase
+    .from("usuarios")
+    .select("id,nome,email,cliente_id,empresa_id,ativo")
+    .eq("email", email)
+    .eq("perfil", "LEITURA")
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function vincularUsuarioAoClientePendente(usuarioId: string, clienteId: string, empresaId: string) {
+  const { error } = await supabase
+    .from("usuarios")
+    .update({ cliente_id: clienteId, empresa_id: empresaId, ativo: false })
+    .eq("id", usuarioId);
+  if (error) throw error;
+}
+
+export async function criarSolicitacaoCadastroCliente(input: {
+  conviteId: string;
+  usuarioId: string;
+  clienteId: string;
+  empresaId: string;
+  gestorId?: string | null;
+  cpf: string;
+  faturaCemigUrl: string;
+  dadosFatura: Record<string, unknown>;
+  emailVerificacaoTokenHash: string;
+  emailVerificacaoExpiraEm: string;
+}) {
+  const { data, error } = await supabase
+    .from("solicitacoes_cadastro_clientes")
+    .insert({
+      convite_id: input.conviteId,
+      usuario_id: input.usuarioId,
+      cliente_id: input.clienteId,
+      empresa_id: input.empresaId,
+      gestor_id: input.gestorId ?? null,
+      cpf: input.cpf,
+      fatura_cemig_url: input.faturaCemigUrl,
+      dados_fatura: input.dadosFatura,
+      email_verificacao_token_hash: input.emailVerificacaoTokenHash,
+      email_verificacao_expira_em: input.emailVerificacaoExpiraEm,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function buscarSolicitacaoPorTokenVerificacao(tokenHash: string) {
+  const { data, error } = await supabase
+    .from("solicitacoes_cadastro_clientes")
+    .select("*")
+    .eq("email_verificacao_token_hash", tokenHash)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function buscarSolicitacaoPorUsuario(usuarioId: string) {
+  const { data, error } = await supabase
+    .from("solicitacoes_cadastro_clientes")
+    .select("*")
+    .eq("usuario_id", usuarioId)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function atualizarSolicitacaoCadastroCliente(id: string, dados: Record<string, unknown>) {
+  const { data, error } = await supabase
+    .from("solicitacoes_cadastro_clientes")
+    .update({ ...dados, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select("*")
+    .single();
+  if (error) throw error;
   return data;
 }
 

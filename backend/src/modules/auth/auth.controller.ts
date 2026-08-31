@@ -5,9 +5,12 @@ import {
   atualizarMeuPerfil,
   autenticar,
   cadastrarConta,
+  cadastrarConsumidorComFatura,
   excluirMinhaConta,
   obterMeuPerfil,
+  reenviarVerificacaoDeCadastro,
   iniciarTesteGerador,
+  verificarEmailDeCadastro,
 } from "./auth.service";
 
 export async function loginController(
@@ -41,6 +44,30 @@ export async function cadastroController(req: Request, res: Response) {
     return res.status(201).json(await cadastrarConta(req.body));
   } catch (err: any) {
     return res.status(400).json({ message: err.message ?? "Não foi possível criar a conta." });
+  }
+}
+
+export async function cadastroConsumidorController(req: Request, res: Response) {
+  try {
+    return res.status(201).json(await cadastrarConsumidorComFatura(req.body ?? {}, req.file));
+  } catch (err: any) {
+    return res.status(400).json({ message: err.message ?? "Não foi possível receber o cadastro." });
+  }
+}
+
+export async function verificarEmailDeCadastroController(req: Request, res: Response) {
+  try {
+    return res.json(await verificarEmailDeCadastro(req.body?.token));
+  } catch (err: any) {
+    return res.status(400).json({ message: err.message ?? "Não foi possível confirmar este e-mail." });
+  }
+}
+
+export async function reenviarVerificacaoDeCadastroController(req: Request, res: Response) {
+  try {
+    return res.json(await reenviarVerificacaoDeCadastro(req.body?.email));
+  } catch (err: any) {
+    return res.status(400).json({ message: err.message ?? "Não foi possível reenviar a confirmação." });
   }
 }
 

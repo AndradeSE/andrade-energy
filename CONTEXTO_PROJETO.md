@@ -1,5 +1,12 @@
 # Andrade Energy — contexto do projeto
 
+## Convites web e notificações Android — 31/08/2026
+
+- O botão **Aceitar convite e criar conta** do e-mail do consumidor passa a abrir `https://www.andradeenergy.com.br/convite?convite=...`. A página valida a chave, mostra o convidado, mantém a chave internamente e permite criar a conta pelo navegador com CPF, senha e PDF CEMIG; também oferece **Abrir no aplicativo** para quem já o instalou.
+- O backend continua exigindo convite válido, CPF igual ao convite e PDF CEMIG. A criação permanece pendente de confirmação de e-mail e da liberação do gerador; a página web não contorna essas etapas.
+- Avisos importantes do sino (fatura vencida e próxima do vencimento) agora também são espelhados como notificações locais no Android nos dois apps. O mesmo alerta só é emitido uma vez por usuário/dispositivo. O Gerador recebe ainda a confirmação local quando um convite é criado. Não há uso de WhatsApp pago nem envio remoto antes de o consumidor possuir o app.
+- Local notifications funcionam no Android instalado e podem solicitar a permissão do sistema quando surgir o primeiro aviso. Para notificações remotas em segundo plano seria necessário registrar tokens do dispositivo no backend e publicar em build de desenvolvimento/produção; o Expo Go não oferece push remoto no SDK 54.
+
 ## Visão geral
 
 Plataforma de gestão de energia por assinatura, composta por dois aplicativos Expo SDK 54 e um backend Node/Express com Supabase:
@@ -11,6 +18,36 @@ Plataforma de gestão de energia por assinatura, composta por dois aplicativos E
 Os dois aplicativos usam a mesma base de código. A variante é escolhida por `EXPO_PUBLIC_APP_VARIANT` no arquivo `app.config.js`; cada uma possui identificador EAS, pacote Android e ícone próprios.
 
 ## Estado implementado
+
+### Correção do 404 ao remover gerador — 30/08/2026
+
+- Causa confirmada no Render: serviço ainda executava `3ecb357`, cujo `usuarios.routes.ts` não tinha `DELETE /geradores/:id`. A OTA não publica o backend.
+- Deploy manual do último commit remoto `a8fe520d1692e4bef11bef9538d0fb438bc7e73e` confirmado **Live** às 07:57 no painel, deploy `dep-daa0ojpsrm7s73dirhhg`. Inclui os commits de remoção e filtro de contas removidas.
+- Build TypeScript local passou. Quatro testes de billing passaram executados no JS compilado (`node --test dist/modules/billing/billing.engine.test.js`); o runner tsx havia falhado por limitação do ambiente Windows.
+- Nenhum cadastro real foi excluído para validar. O teste autenticado de remoção deve ser feito pelo usuário no cadastro pretendido; administradores/própria conta seguem protegidos.
+
+### OTA de tutoriais e recuperação do consumidor — 29/08/2026
+
+- Publicadas e conferidas no manifesto público (HTTP 200, runtime 1.0.0): Consumidor grupo `d4a9430b-f1fe-476b-bca1-23b3936c73d3`, Android `01a05048-d25d-7940-a91b-d5c30c55d667`; Gerador grupo `b3d21f27-bf34-49ae-9f4b-f33651a9efd7`, Android `01a05049-d861-7e0e-9327-64c120afcafd`.
+- Rota autenticada `/tutoriais`, acessível pelos menus do Consumidor, Usinas e Comercial. Cada variante mostra seu guia. MP4s existentes foram incluídos como assets na OTA; Android usa o reprodutor externo com URI de conteúdo e permissão temporária de leitura, sem adicionar módulo nativo. São guias ilustrados, não gravações reais de processos.
+- `expo-asset` declarado diretamente na mesma versão 12.0.13 já transitiva no Expo SDK 54. Não exige nova versão nativa.
+- Home recupera cliente_id de UC legada somente consultando unidades autorizadas da sessão e correspondendo à unidade selecionada; nunca usa outro cliente como substituto. Cache separado por usuário/empresa/UC. Erro oferece tentativa, escolha de unidade e novo login quando HTTP 401.
+- Validação: TypeScript do código mobile sem erros; três testes simulados de recuperação do dashboard passaram; bundles Android exportados e ambos manifestos incluem os dois MP4s (interface exibe apenas o respectivo perfil). Não houve validação física do reprodutor no aparelho.
+- Diagnóstico de energia: schema das consultas válido e resumo calculado com sucesso diretamente para o cliente existente. Causa da falha na sessão do celular ainda não reproduzida.
+- Remoção de gerador: consultas válidas e RPC `remover_conta_geradora` presente no catálogo. App explica proteção de administradores/própria conta e mostra erro de sessão/HTTP. Falha relatada ainda precisa do retorno exato do servidor; nenhum gerador real removido em teste. Backend não alterado nem publicado nesta rodada.
+- Publicação web e gravações reais de tutoriais continuam pendentes. Estas OTAs não substituem APKs dos links nem confirmam instalação no aparelho.
+
+### Publicação local Android — 29/08/2026
+
+- Consumidor universal compilado e publicado no link estável do release `apps-2026-08-27`: 102963030 bytes; SHA256 `0948bedf7c92e5388456ca932ffa1aa663b5ffff412913e0aa09aabe84c30f2d`. Download completo pelo domínio público conferido com o mesmo hash.
+- Gerador universal compilado e publicado no mesmo release: 102862930 bytes; SHA256 `7a5daadd09b39775130aec4804e245ab7616106c5d6a196a23091746ca4292fe`. Pacote, configuração incorporada, canal e assinatura conferidos. Download completo pelo domínio público também conferido com o mesmo hash, após duas falhas transitórias de conexão.
+- Ao alternar variantes no mesmo `android/`, o Gradle reutilizava bundle e autolinking do Consumidor. O problema foi corrigido na reconstrução do Gerador: invalidar o JSON gerado de autolinking e usar `scripts/android-variant-inputs.gradle` conforme `scripts/ANDROID-RELEASE.md`.
+- Publicação de APK usa `scripts/publish-apk-release.ps1`, que verifica digest e preserva o instalador anterior como asset de backup.
+- Não confundir publicação do instalador com OTA ou instalação por ADB: essas etapas não ocorreram nesta atualização.
+- OTA: falhas `ECONNRESET` foram reproduzidas em POST GraphQL por IPv6; o mesmo teste por IPv4 respondeu HTTP 200. Priorizar IPv4 no processo Node resolveu o envio sem desativar TLS ou alterar a rede do Windows. Comando reutilizável: `scripts/publish-ota.ps1 -Variant gerador -Message 'Descricao'` (ou consumidor).
+- OTA Gerador confirmada: canal `preview-gerador`, runtime `1.0.0`, grupo `edb286a7-7f41-4834-83b5-f692f1e10f44`, update Android `01a05031-abae-76b7-9844-3ad169c8e4b6`.
+- OTA Consumidor confirmada: canal `preview-consumidor`, runtime `1.0.0`, grupo `cf5cdbf0-f294-47b5-9aae-b7a162ac5b6d`, update Android `01a05034-370f-792b-a57e-46abd56fa7c4`. As duas publicações terminaram com `Published!`. Recebimento no aparelho ainda depende de abrir o app compatível com internet.
+- Alterações locais de Empresas parceiras e tutoriais por perfil ainda exigem o fechamento da publicação. Vídeos web atuais são demonstrações ilustradas, não gravações reais de operação; tutorial prático não está concluído.
 
 ### Atualização de 26/08/2026 — gestão comercial
 
@@ -221,3 +258,32 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - A fatura da usina preserva o modelo aprovado em uma única página; a composição foi compactada ao lado da área de pagamento e destaca no centro o valor da fatura Andrade.
 - Leituras anterior/atual, fator, classificação, tensão e tipo de ligação agora são persistidos por competência e recuperados da conta original ao regenerar documentos antigos. Se a conta não informar tensão, o PDF mostra o tipo de ligação sem estimar uma tensão.
 - O demonstrativo passou a usar fundo verde suave, total a pagar em alto contraste e composição detalhada com kWh da usina, disponibilidade, Fio B, iluminação pública e impostos quando encontrados na conta original.
+# Atualização — tutoriais por função (30/08/2026)
+
+- Central de tutoriais dos apps ampliada com 24 novos vídeos curtos: 15 do Gerador e 9 do Consumidor.
+- Conteúdo capturado no aparelho real, narrado com Francisca +10%, trilha instrumental baixa e marcações vermelhas nos botões efetivamente tocados.
+- Dados pessoais foram ocultos; formulários são apresentados sem salvar alterações ou simular transações concluídas.
+- Prioridades incluídas: recebimento automático (endereço ativo, Gmail e Outlook), multiempresas, identidade própria (logo e cores), carteira, operação, usinas, UC e contrato.
+- Multiempresas e identidade própria são demonstradas como recursos administrativos. A UC usada na gravação já estava com recebimento ativo; o vídeo não afirma que uma nova ativação foi concluída.
+- Cabeçalho de escolha de UC confirmado no aparelho com nome em linha própria, sem conflito com a logo.
+# Atualização de tutoriais — 30/08/2026
+
+- Os 24 vídeos do novo lote de tutoriais dos apps Gerador e Consumidor foram reeditados.
+- O ritmo visual foi reduzido em 20% para facilitar o acompanhamento.
+- A marcação vermelha deixou de usar o traço oscilante e agora é lisa e estável.
+- A posição e o tamanho da marcação são calculados pelos limites reais do botão capturado em cada tela.
+- A marcação é concluída e removida antes do toque, evitando aparecer sobre a tela seguinte.
+- Os 24 arquivos passaram por decodificação integral sem erros e as duas variantes Expo foram exportadas com sucesso.
+- OTA Gerador: grupo `969e7592-dab7-4386-8d14-97136c51b429`.
+- OTA Consumidor: grupo `fbd6aa54-54f2-4a9c-ac2e-d353158bed04`.
+# Publicação de tutoriais e login web — 31/08/2026
+
+- Os 24 vídeos de tutorial dos apps foram reprocessados em 30 fps, sem desfoque geral e na velocidade natural.
+- As marcações vermelhas aparecem aproximadamente 2 segundos antes do toque e desaparecem antes da troca de tela.
+- A narração passou a ser sincronizada com os tempos reais das ações capturadas.
+- OTA Gerador: grupo `3eead04d-caea-44c9-99ff-6b5ff1a41f81`.
+- OTA Consumidor: grupo `e8a1644d-8140-4211-9d33-88b6894e7ae1`.
+- Na web, “Lembrar de mim” agora salva e restaura somente o e-mail e o perfil escolhido; a senha não é armazenada.
+- A central “Tutoriais da web” foi movida para o menu lateral, abaixo de “Alternar ambiente”, e removida da área de aplicativos.
+- A central de tutoriais recebeu campo de pesquisa e estado “Nenhum tutorial encontrado”.
+- Portal Sites publicado como versão 53 no projeto oficial vinculado a `www.andradeenergy.com.br`.

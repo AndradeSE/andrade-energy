@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as DocumentPicker from "expo-document-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
@@ -6,7 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ElasticScrollView as ScrollView } from "../../components/ui/ElasticScroll";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
-import { criarConta } from "../../services/auth.service";
+import { criarConta, criarContaConsumidorComFatura, reenviarVerificacaoDeCadastro } from "../../services/auth.service";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { consultarConvite, consultarConviteGerador } from "../../services/convites.service";
 
@@ -25,6 +26,8 @@ export default function CriarConta() {
   const [erro, setErro] = useState("");
   const [solicitado, setSolicitado] = useState(false);
   const [emailEnviado, setEmailEnviado] = useState(false);
+  const [fatura, setFatura] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+  const [reenviando, setReenviando] = useState(false);
 
   async function validarConvite() {
     if (!convite.trim()) return setErro("Informe o código recebido no convite.");
@@ -33,7 +36,9 @@ export default function CriarConta() {
       setErro("");
       const dados = IS_GERADOR_APP ? await consultarConviteGerador(convite.trim()) : await consultarConvite(convite.trim());
       setNome(dados.nome);
-      setCpf(dados.cpf);
+      // No consumidor o CPF é digitado novamente: ele abre a fatura CEMIG
+      // protegida e confirma que os dados exibidos pertencem ao titular.
+      setCpf(IS_GERADOR_APP ? dados.cpf : "");
       setEmail(dados.email);
       setConviteValido(true);
     } catch (error: any) {
@@ -50,16 +55,53 @@ export default function CriarConta() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setErro("Informe um e-mail válido.");
     if (senha.length < 6) return setErro("Crie uma senha com pelo menos 6 caracteres.");
     if (senha !== confirmacao) return setErro("As senhas não são iguais.");
+    if (tipo === "CONSUMIDOR" && !fatura) return setErro("Envie a sua fatura CEMIG em PDF.");
     setErro("");
     try {
       setSalvando(true);
-      const resultado = await criarConta({ nome: nome.trim(), cpf, email: email.trim().toLowerCase(), senha, tipo, convite: convite.trim() || undefined });
+      const resultado = tipo === "CONSUMIDOR"
+        ? await criarContaConsumidorComFatura({
+          convite: convite.trim(),
+          cpf,
+          senha,
+          fatura: { uri: fatura!.uri, name: fatura!.name, mimeType: fatura!.mimeType },
+        })
+        : await criarConta({ nome: nome.trim(), cpf, email: email.trim().toLowerCase(), senha, tipo, convite: convite.trim() || undefined });
       setEmailEnviado(Boolean(resultado?.emailEnviado));
       setSolicitado(true);
     } catch (error: any) {
       Alert.alert("Não foi possível criar a conta", error?.response?.data?.message ?? "Tente novamente.");
     } finally {
       setSalvando(false);
+    }
+  }
+
+  async function escolherFatura() {
+    try {
+      const resultado = await DocumentPicker.getDocumentAsync({
+        type: "application/pdf",
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (!resultado.canceled) {
+        setFatura(resultado.assets[0]);
+        setErro("");
+      }
+    } catch {
+      setErro("Não foi possível selecionar a fatura. Tente novamente.");
+    }
+  }
+
+  async function reenviarConfirmacao() {
+    if (reenviando) return;
+    try {
+      setReenviando(true);
+      const resultado = await reenviarVerificacaoDeCadastro(email);
+      Alert.alert("Confirmação enviada", resultado.emailEnviado ? "Enviamos um novo link de confirmação para o seu e-mail." : resultado.message);
+    } catch (error: any) {
+      Alert.alert("Não foi possível reenviar", error?.response?.data?.message ?? "Tente novamente em alguns instantes.");
+    } finally {
+      setReenviando(false);
     }
   }
 
@@ -88,14 +130,20 @@ export default function CriarConta() {
             <Ionicons name="arrow-back" size={23} color={Colors.text} />
           </TouchableOpacity>
 
-          <View style={styles.iconBox}><Ionicons name={solicitado ? "checkmark" : "person-add-outline"} size={34} color={Colors.primary} /></View>
-          <Text style={styles.title}>{solicitado ? "Conta criada" : `Cadastro de ${tipo === "GERADOR" ? "gerador" : "consumidor"}`}</Text>
+          <View style={styles.iconBox}><Ionicons name={solicitado ? (tipo === "CONSUMIDOR" ? "mail-unread-outline" : "checkmark") : "person-add-outline"} size={34} color={Colors.primary} /></View>
+          <Text style={styles.title}>{solicitado ? (tipo === "CONSUMIDOR" ? "Confirme seu e-mail" : "Conta criada") : `Cadastro de ${tipo === "GERADOR" ? "gerador" : "consumidor"}`}</Text>
           <Text style={styles.subtitle}>
             {solicitado
-              ? emailEnviado
-                ? "Sua conta está pronta. Enviamos a confirmação para o e-mail informado."
-                : "Sua conta está pronta, mas não conseguimos enviar o e-mail de confirmação. Você já pode entrar normalmente."
-              : "Solicite seu acesso à Andrade Energy. Seus dados serão vinculados à unidade consumidora cadastrada."}
+              ? tipo === "CONSUMIDOR"
+                ? emailEnviado
+                  ? "Enviamos um link para confirmar o seu e-mail. Depois disso, o gerador conferirá a fatura e liberará seu acesso."
+                  : "O cadastro foi recebido, mas o e-mail não saiu agora. Use o botão abaixo para enviar um novo link de confirmação."
+                : emailEnviado
+                  ? "Sua conta está pronta. Enviamos a confirmação para o e-mail informado."
+                  : "Sua conta está pronta, mas não conseguimos enviar o e-mail de confirmação. Você já pode entrar normalmente."
+              : tipo === "CONSUMIDOR"
+                ? "Informe seu CPF completo e envie uma fatura CEMIG em seu nome. Os dados da unidade serão extraídos dela."
+                : "Solicite seu acesso à Andrade Energy. Seus dados serão vinculados à unidade consumidora cadastrada."}
           </Text>
 
           {!solicitado ? (
@@ -105,10 +153,10 @@ export default function CriarConta() {
                 <Ionicons name="person-outline" size={20} color={Colors.subtitle} />
                 <TextInput autoCapitalize="words" editable={false} onChangeText={(valor) => { setNome(valor); setErro(""); }} placeholder="Seu nome" placeholderTextColor="#92979F" style={styles.input} value={nome} />
               </View>
-              <Text style={styles.label}>CPF</Text>
+              <Text style={styles.label}>{tipo === "CONSUMIDOR" ? "CPF do titular" : "CPF"}</Text>
               <View style={styles.inputBox}>
                 <TextInput
-                  editable={false}
+                  editable={tipo === "CONSUMIDOR"}
                   keyboardType="numeric"
                   maxLength={11}
                   onChangeText={(valor) => { setCpf(valor.replace(/\D/g, "")); setErro(""); }}
@@ -118,6 +166,18 @@ export default function CriarConta() {
                   value={cpf}
                 />
               </View>
+              {tipo === "CONSUMIDOR" ? <Text style={styles.fieldHint}>Digite os 11 números. Usaremos os quatro primeiros para abrir a fatura CEMIG protegida e conferir os dados exibidos.</Text> : null}
+              {tipo === "CONSUMIDOR" ? <>
+                <Text style={styles.label}>Fatura CEMIG do titular</Text>
+                <TouchableOpacity accessibilityLabel="Selecionar fatura CEMIG em PDF" activeOpacity={0.8} onPress={escolherFatura} style={[styles.invoicePicker, fatura && styles.invoicePickerSelected]}>
+                  <Ionicons name={fatura ? "document-text" : "document-attach-outline"} size={22} color={Colors.primary} />
+                  <View style={styles.invoicePickerCopy}>
+                    <Text numberOfLines={1} style={styles.invoicePickerTitle}>{fatura?.name ?? "Selecionar fatura em PDF"}</Text>
+                    <Text style={styles.invoicePickerHint}>{fatura ? "Fatura selecionada. Você pode tocar para trocar." : "Envie uma conta da CEMIG que esteja em seu nome."}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={Colors.subtitle} />
+                </TouchableOpacity>
+              </> : null}
               <Text style={styles.label}>E-mail</Text>
               <View style={styles.inputBox}>
                 <Ionicons name="mail-outline" size={20} color={Colors.subtitle} />
@@ -131,7 +191,10 @@ export default function CriarConta() {
               <TouchableOpacity disabled={salvando} onPress={solicitarAcesso} style={[styles.primaryButton, salvando && { opacity: 0.7 }]}>{salvando ? <ActivityIndicator color={Colors.surface} /> : <Text style={styles.primaryText}>Criar minha conta</Text>}</TouchableOpacity>
             </>
           ) : (
-            <TouchableOpacity onPress={() => router.replace("/(auth)/login")} style={styles.primaryButton}><Text style={styles.primaryText}>Voltar para o login</Text></TouchableOpacity>
+            <>
+              {tipo === "CONSUMIDOR" ? <TouchableOpacity disabled={reenviando} onPress={reenviarConfirmacao} style={[styles.secondaryButton, reenviando && { opacity: 0.7 }]}>{reenviando ? <ActivityIndicator color={Colors.primary} /> : <Text style={styles.secondaryText}>Reenviar e-mail de confirmação</Text>}</TouchableOpacity> : null}
+              <TouchableOpacity onPress={() => router.replace("/(auth)/login")} style={styles.primaryButton}><Text style={styles.primaryText}>Voltar para o login</Text></TouchableOpacity>
+            </>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -151,7 +214,15 @@ const styles = StyleSheet.create({
   inputBox: { minHeight: 54, flexDirection: "row", alignItems: "center", paddingHorizontal: Spacing.md, borderWidth: 1, borderColor: "#C7CACD", borderRadius: Radius.md, backgroundColor: Colors.surface },
   input: { flex: 1, height: 52, marginLeft: Spacing.xs, color: Colors.text, fontSize: Typography.body },
   inputWithoutIcon: { flex: 1, height: 52, color: Colors.text, fontSize: Typography.body },
+  fieldHint: { marginTop: 6, color: Colors.subtitle, fontSize: 11, lineHeight: 16 },
+  invoicePicker: { minHeight: 70, flexDirection: "row", alignItems: "center", paddingHorizontal: Spacing.md, borderWidth: 1, borderColor: "#C7CACD", borderRadius: Radius.md, backgroundColor: Colors.surface },
+  invoicePickerSelected: { borderColor: Colors.primary, backgroundColor: "#F0F8F2" },
+  invoicePickerCopy: { flex: 1, marginHorizontal: Spacing.sm },
+  invoicePickerTitle: { color: Colors.text, fontSize: Typography.small, fontWeight: "800" },
+  invoicePickerHint: { marginTop: 3, color: Colors.subtitle, fontSize: 11, lineHeight: 15 },
   error: { marginTop: Spacing.sm, color: Colors.danger, fontSize: Typography.small },
+  secondaryButton: { minHeight: 52, alignItems: "center", justifyContent: "center", marginTop: Spacing.lg, borderWidth: 1.5, borderColor: Colors.primary, borderRadius: Radius.md, backgroundColor: "rgba(255,255,255,0.55)" },
+  secondaryText: { color: Colors.primary, fontSize: Typography.body, fontWeight: "900" },
   primaryButton: { minHeight: 56, alignItems: "center", justifyContent: "center", marginTop: Spacing.lg, borderRadius: Radius.md, backgroundColor: Colors.primary },
   primaryText: { color: Colors.surface, fontSize: Typography.body, fontWeight: "900" },
 });

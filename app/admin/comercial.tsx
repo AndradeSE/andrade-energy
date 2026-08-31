@@ -243,6 +243,7 @@ export default function HomeComercial() {
                 } as any);
               }}
             />
+            <DrawerLink icon="play-circle-outline" label="Tutoriais" onPress={() => { setMenuAberto(false); router.push("/tutoriais" as any); }} />
             <View style={styles.drawerDivider} />
             <DrawerLink
               danger

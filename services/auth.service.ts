@@ -52,3 +52,41 @@ export async function criarConta(payload: { nome: string; cpf: string; email: st
   const { data } = await api.post("/auth/cadastro", payload);
   return data;
 }
+
+export type FaturaCadastro = {
+  uri: string;
+  name: string;
+  mimeType?: string | null;
+};
+
+export async function criarContaConsumidorComFatura(payload: {
+  convite: string;
+  cpf: string;
+  senha: string;
+  fatura: FaturaCadastro;
+}) {
+  const formData = new FormData();
+  formData.append("convite", payload.convite);
+  formData.append("cpf", payload.cpf);
+  formData.append("senha", payload.senha);
+  formData.append("fatura", {
+    uri: payload.fatura.uri,
+    name: payload.fatura.name || "fatura-cemig.pdf",
+    type: payload.fatura.mimeType || "application/pdf",
+  } as any);
+
+  const { data } = await api.post("/auth/cadastro-consumidor", formData, {
+    timeout: 120_000,
+  });
+  return data as { message: string; status: string; emailEnviado: boolean };
+}
+
+export async function verificarEmailDeCadastro(token: string) {
+  const { data } = await api.post("/auth/verificar-email", { token });
+  return data as { message: string; status: string };
+}
+
+export async function reenviarVerificacaoDeCadastro(email: string) {
+  const { data } = await api.post("/auth/reenviar-verificacao-email", { email });
+  return data as { message: string; emailEnviado: boolean };
+}

@@ -243,6 +243,7 @@ export default function GestaoGeradores() {
                 router.push("/geradores/monitoramento" as any);
               }}
             />
+            <DrawerLink icon="play-circle-outline" label="Tutoriais" onPress={() => { setMenuAberto(false); router.push("/tutoriais" as any); }} />
           </Pressable>
         </Pressable>
       </Modal>

@@ -3,7 +3,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { Alert, Image, Modal, Pressable, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useEffect, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useReadNotifications } from "../../hooks/useReadNotifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "../../contexts/AuthContext";
@@ -13,6 +13,7 @@ import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import PortalBrandLogo from "../brand/PortalBrandLogo";
 import { useEmpresa } from "../../contexts/EmpresaContext";
+import { notificarAvisosNoAndroid } from "../../services/carteira-notificacoes.service";
 
 function escurecerCor(hex: string, fator = 0.62) {
   const limpa = hex.replace("#", "");
@@ -56,25 +57,20 @@ export default function AppHeader({
   const corEscura = escurecerCor(corPrincipal);
   const [menuAberto, setMenuAberto] = useState(false);
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
-  const [notificacoes, setNotificacoes] = useState<any[]>([]);
-  const [notificacoesLidas, setNotificacoesLidas] = useState<string[]>([]);
+  const [avisosRecebidos, setNotificacoes] = useState<any[]>([]);
+  const usuarioId = usuario?.id ? String(usuario.id) : undefined;
+  const leituras = useReadNotifications(usuarioId);
+  const notificacoes = leituras.ready ? avisosRecebidos.filter((aviso) => !leituras.ids.includes(String(aviso.id))) : [];
   const [autonomia, setAutonomia] = useState<{ percentual: number; disponivel: number } | null>(null);
   const proprietario = IS_GERADOR_APP;
   const podeAlternarPerfil = IS_GERADOR_APP && usuario?.perfil === "ADMIN";
-  const chaveNotificacoesLidas = `andrade_energy_notificacoes_lidas_${usuario?.id ?? "anon"}`;
 
   useEffect(() => {
     let ativo = true;
-    Promise.all([listarFaturas(), AsyncStorage.getItem(chaveNotificacoesLidas), AsyncStorage.getItem("andrade_energy_notificacoes_lidas")]).then(([faturas, salvas, legado]) => {
+    setNotificacoes([]);
+    if (!usuario?.id) return;
+    listarFaturas().then((faturas) => {
       if (!ativo) return;
-      const lidas = salvas ? JSON.parse(salvas) : [];
-      const lidasLegadas = legado ? JSON.parse(legado) : [];
-      const idsLidos = Array.from(new Set([
-        ...(Array.isArray(lidas) ? lidas : []),
-        ...(Array.isArray(lidasLegadas) ? lidasLegadas : []),
-      ]));
-      setNotificacoesLidas(idsLidos);
-      void AsyncStorage.setItem(chaveNotificacoesLidas, JSON.stringify(idsLidos));
       const hoje = new Date();
       const avisos = (faturas ?? []).flatMap((fatura: any) => {
         const status = String(fatura.cobrancas?.[0]?.status ?? fatura.status ?? "").toUpperCase();
@@ -88,16 +84,21 @@ export default function AppHeader({
         if (dias <= 5) return [{ id: String(fatura.id), severidade: "media", titulo: "Fatura próxima do vencimento", detalhe: `${fatura.clientes?.nome ?? "Cliente"} · vence em ${dias} dia${dias === 1 ? "" : "s"}`, rota: `/faturas/${fatura.id}` }];
         return [];
       }).sort((a: any, b: any) => (a.severidade === "alta" ? -1 : 1) - (b.severidade === "alta" ? -1 : 1));
-      setNotificacoes(avisos.filter((aviso: any) => !idsLidos.includes(aviso.id) && !idsLidos.includes(`vencida-${aviso.id}`) && !idsLidos.includes(`vence-${aviso.id}`)));
+      setNotificacoes(avisos);
+      void notificarAvisosNoAndroid(usuarioId, avisos.map((aviso: any) => ({
+        id: aviso.id,
+        titulo: aviso.titulo,
+        detalhe: aviso.detalhe,
+        rota: aviso.rota,
+        urgente: aviso.severidade === "alta",
+      })));
     }).catch(() => { if (ativo) setNotificacoes([]); });
     return () => { ativo = false; };
-  }, [chaveNotificacoesLidas, proprietario, usinaSelecionada?.id]);
+  }, [usuarioId, proprietario, usinaSelecionada?.id]);
 
   async function marcarNotificacaoComoLida(id: string) {
-    const atualizadas = Array.from(new Set([...notificacoesLidas, id]));
-    setNotificacoesLidas(atualizadas);
-    setNotificacoes((lista) => lista.filter((aviso) => aviso.id !== id));
-    await AsyncStorage.setItem(chaveNotificacoesLidas, JSON.stringify(atualizadas));
+    try { await leituras.mark(id); }
+    catch { Alert.alert("Leitura não salva", "Não foi possível salvar a leitura desta notificação. Tente novamente."); }
   }
 
   useEffect(() => {
@@ -208,6 +209,7 @@ export default function AppHeader({
             <MenuLink icon="home-outline" label="Início" onPress={() => navegar("/")} />
             {proprietario ? <><MenuLink icon="card-outline" label="Minha assinatura" onPress={() => navegar("/assinatura")} /><MenuLink icon="people-outline" label="Clientes" onPress={() => navegar("/clientes")} /><MenuLink icon="business-outline" label="Usinas" onPress={() => navegar("/usinas")} /><MenuLink icon="flash-outline" label="Unidades consumidoras" onPress={() => navegar("/unidades")} /><MenuLink icon="document-text-outline" label="Contratos dos clientes" onPress={() => navegar("/contratos")} /><MenuLink icon="wallet-outline" label="Financeiro" onPress={() => navegar("/financeiro")} />{usuario?.perfil === "ADMIN" ? <MenuLink icon="layers-outline" label="Empresas parceiras" onPress={() => navegar("/admin/empresas")} /> : null}</> : <><MenuLink icon="receipt-outline" label="Minhas faturas" onPress={() => navegar("/faturas")} /><MenuLink icon="document-text-outline" label="Meu contrato" onPress={() => navegar("/contrato")} /></>}
             <MenuLink icon="person-outline" label="Perfil" onPress={() => navegar("/perfil")} />
+            <MenuLink icon="play-circle-outline" label="Tutoriais" onPress={() => navegar("/tutoriais")} />
             <View style={styles.menuDivider} /><MenuLink icon="log-out-outline" label="Sair da conta" danger onPress={confirmarSaida} />
           </Pressable>
         </Pressable>

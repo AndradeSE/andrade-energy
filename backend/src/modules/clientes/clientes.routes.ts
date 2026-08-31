@@ -3,6 +3,7 @@ import { Router } from "express";
 import {
   atualizarClienteController,
   buscarClienteController,
+  confirmarCadastroClienteController,
   buscarUnidadeController,
   criarClienteController,
   excluirClienteController,
@@ -12,6 +13,7 @@ import {
   listarMinhasUnidadesController,
   cadastrarUnidadeClienteController,
   excluirUnidadeClienteController,
+  obterSolicitacaoCadastroClienteController,
 } from "./clientes.controller";
 import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
 
@@ -26,6 +28,9 @@ router.get("/unidade/:unidadeId", exigirAutenticacao, buscarUnidadeController);
 router.get("/:id/unidades", listarUnidadesClienteController);
 router.post("/:id/unidades", exigirAutenticacao, exigirGestor, cadastrarUnidadeClienteController);
 router.delete("/unidade/:unidadeId", exigirAutenticacao, exigirGestor, excluirUnidadeClienteController);
+
+router.get("/:id/solicitacao-cadastro", exigirAutenticacao, exigirGestor, obterSolicitacaoCadastroClienteController);
+router.post("/:id/confirmar-cadastro", exigirAutenticacao, exigirGestor, confirmarCadastroClienteController);
 
 router.get("/:id", buscarClienteController);
 

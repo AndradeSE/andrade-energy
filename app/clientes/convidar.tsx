@@ -8,15 +8,25 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AppHeader, ElasticScrollView as ScrollView } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { criarConvite } from "../../services/convites.service";
+import { notificarAvisoNoAndroid } from "../../services/carteira-notificacoes.service";
+import { useAuth } from "../../contexts/AuthContext";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function ConvidarCliente() {
+  const { usuario } = useAuth();
   const [nome, setNome] = useState(""); const [cpf, setCpf] = useState(""); const [email, setEmail] = useState(""); const [whatsapp, setWhatsapp] = useState(""); const [enviando, setEnviando] = useState(false);
   async function enviar() {
     if (!nome.trim() || cpf.length !== 11 || !email.includes("@") || whatsapp.length < 10) return Alert.alert("Dados incompletos", "Informe nome, CPF, e-mail e WhatsApp com DDD.");
     try {
       setEnviando(true);
       const resultado = await criarConvite({ nome: nome.trim(), cpf, email: email.trim().toLowerCase(), whatsapp });
+      void notificarAvisoNoAndroid({
+        usuarioId: String(usuario?.id ?? ""),
+        id: `convite:${resultado.token}`,
+        titulo: "Convite criado",
+        detalhe: `O convite para ${nome.trim()} está pronto para envio.`,
+        rota: "/clientes",
+      });
       const canais = [resultado.emailEnviado ? "e-mail" : null, resultado.whatsappEnviado ? "WhatsApp" : null].filter(Boolean).join(" e ");
       const mensagem = canais
         ? `Convite enviado por ${canais}.${resultado.emailEnviado && !resultado.whatsappEnviado ? " Confirme agora o envio pelo WhatsApp." : ""}`
