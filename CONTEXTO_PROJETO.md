@@ -10,8 +10,8 @@
 - A migration `20260831172000_fatura_cadastro_opcional.sql` foi aplicada no Supabase em 31/08/2026. Ela torna o anexo da fatura opcional na solicitação de cadastro, preservando a aprovação manual pelo gerador quando o consumidor optar por não enviar o PDF.
 - A migration `20260831180000_faturas_anexadas_clientes.sql` foi aplicada no Supabase em 31/08/2026. Ela cria o histórico privado de contas de energia anexadas pelo consumidor, incluindo a fatura usada no cadastro. O consumidor consulta e anexa PDFs pela aba **Faturas**; o gerador vê a lista dentro do cliente e pode escolher qualquer conta anexada para preencher o cadastro da UC.
 - A migration `20260831110000_dados_cadastrais_no_convite.sql` foi aplicada no Supabase em 31/08/2026. Ela adiciona `telefone` e `endereco` a `convites_clientes`, preservando os dados de cadastro até a criação da conta do consumidor.
-- Backend publicado no Render no commit `6599078` e confirmado **Live** (deploy `dep-daasrf67bikc73c91ep0`); `/health` respondeu `{"status":"online"}`.
-- OTAs publicadas no runtime `1.0.0`: Consumidor `preview-consumidor`, grupo `ff56f7e4-93d9-4434-a83d-201daa3f35ec`; Gerador `preview-gerador`, grupo `6eaf29d5-d25d-4def-a1ae-850958a994bf`.
+- Backend publicado no Render no commit `9c5b367` e confirmado **Live** (deploy `dep-daaucrnqj5pc73bal45g`).
+- OTAs publicadas no runtime `1.0.0`: Consumidor `preview-consumidor`, grupo `f0c245f6-2f13-41f5-8b6f-60224a7093c4`; Gerador `preview-gerador`, grupo `86735bbd-3171-4e88-be5d-49ab0c29fb15`.
 
 ## Visão geral
 
