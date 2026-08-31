@@ -28,6 +28,7 @@ export default function CriarConta() {
   const [erro, setErro] = useState("");
   const [solicitado, setSolicitado] = useState(false);
   const [emailEnviado, setEmailEnviado] = useState(false);
+  const [contaAtiva, setContaAtiva] = useState(false);
   const [fatura, setFatura] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [reenviando, setReenviando] = useState(false);
 
@@ -69,6 +70,7 @@ export default function CriarConta() {
         })
         : await criarConta({ nome: nome.trim(), cpf, email: email.trim().toLowerCase(), senha, tipo, convite: convite.trim() || undefined });
       setEmailEnviado(Boolean(resultado?.emailEnviado));
+      setContaAtiva(resultado?.status === "ATIVO");
       setSolicitado(true);
     } catch (error: any) {
       Alert.alert("Não foi possível criar a conta", error?.response?.data?.message ?? "Tente novamente.");
@@ -132,11 +134,13 @@ export default function CriarConta() {
           </TouchableOpacity>
 
           <View style={styles.iconBox}><Ionicons name={solicitado ? (tipo === "CONSUMIDOR" ? "mail-unread-outline" : "checkmark") : "person-add-outline"} size={34} color={Colors.primary} /></View>
-          <Text style={styles.title}>{solicitado ? (tipo === "CONSUMIDOR" ? "Confirme seu e-mail" : "Conta criada") : `Cadastro de ${tipo === "GERADOR" ? "gerador" : "consumidor"}`}</Text>
+          <Text style={styles.title}>{solicitado ? (tipo === "CONSUMIDOR" && !contaAtiva ? "Confirme seu e-mail" : "Conta criada") : `Cadastro de ${tipo === "GERADOR" ? "gerador" : "consumidor"}`}</Text>
           <Text style={styles.subtitle}>
             {solicitado
               ? tipo === "CONSUMIDOR"
-                ? emailEnviado
+                ? contaAtiva
+                  ? "Sua conta está ativa. A fatura CEMIG foi conferida e permanece anexada ao seu cadastro."
+                  : emailEnviado
                   ? "Enviamos um link para confirmar o seu e-mail. Depois disso, o gerador conferirá a fatura e liberará seu acesso."
                   : "O cadastro foi recebido, mas o e-mail não saiu agora. Use o botão abaixo para enviar um novo link de confirmação."
                 : emailEnviado
@@ -185,7 +189,7 @@ export default function CriarConta() {
             </>
           ) : (
             <>
-              {tipo === "CONSUMIDOR" ? <TouchableOpacity disabled={reenviando} onPress={reenviarConfirmacao} style={[styles.secondaryButton, reenviando && { opacity: 0.7 }]}>{reenviando ? <ActivityIndicator color={Colors.primary} /> : <Text style={styles.secondaryText}>Reenviar e-mail de confirmação</Text>}</TouchableOpacity> : null}
+              {tipo === "CONSUMIDOR" && !contaAtiva ? <TouchableOpacity disabled={reenviando} onPress={reenviarConfirmacao} style={[styles.secondaryButton, reenviando && { opacity: 0.7 }]}>{reenviando ? <ActivityIndicator color={Colors.primary} /> : <Text style={styles.secondaryText}>Reenviar e-mail de confirmação</Text>}</TouchableOpacity> : null}
               <TouchableOpacity onPress={() => router.replace("/(auth)/login")} style={styles.primaryButton}><Text style={styles.primaryText}>Voltar para o login</Text></TouchableOpacity>
             </>
           )}

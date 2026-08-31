@@ -73,15 +73,16 @@ function nomesCompativeis(nomeInformado: unknown, nomeDaFatura: unknown) {
 function cpfDaFaturaConfere(cpf: string, dados: Record<string, any>) {
   const cpfCompleto = cpfLimpo(dados.cpf);
   if (cpfCompleto && cpfCompleto.length !== 11) return false;
-  if (cpfCompleto && cpfCompleto.length === 11 && cpfCompleto !== cpf) return false;
+  const primeirosQuatro = cpf.slice(0, 4);
+  if (cpfCompleto && cpfCompleto.length === 11) {
+    return cpfCompleto.slice(0, 4) === primeirosQuatro;
+  }
 
   const cpfParcial = cpfLimpo(dados.cpfParcial);
-  if (!cpfParcial) return true;
-
-  // A CEMIG pode mascarar o início ou o final do documento. Aceitamos o
-  // trecho parcial apenas quando ele corresponder ao início ou ao fim do CPF
-  // informado, evitando que outro titular use uma fatura de terceiros.
-  return cpf.startsWith(cpfParcial) || cpf.endsWith(cpfParcial);
+  // O CPF usado para abrir PDFs CEMIG protegidos são os quatro primeiros
+  // dígitos. Quando a fatura também os expõe, a conferência é explícita;
+  // quando traz o CPF completo, usamos os mesmos quatro dígitos iniciais.
+  return cpfParcial.length >= 4 && cpfParcial.slice(0, 4) === primeirosQuatro;
 }
 
 function dadosDeCadastroDaFatura(dados: Record<string, any>) {
@@ -395,7 +396,7 @@ export async function cadastrarConsumidorComFatura(
       tipo: "CONSUMIDOR",
       convite: conviteToken,
       empresa_id: empresaId,
-      ativo: false,
+      ativo: true,
     });
     usuarioCriadoId = String(usuario.id);
     await vincularUsuarioAoClientePendente(usuarioCriadoId, clienteId, empresaId);
@@ -413,6 +414,8 @@ export async function cadastrarConsumidorComFatura(
       dadosFatura,
       emailVerificacaoTokenHash: hashToken(tokenVerificacao),
       emailVerificacaoExpiraEm: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      status: "ATIVO",
+      emailVerificadoEm: new Date().toISOString(),
     });
 
     const { data: conviteAtualizado, error: conviteError } = await supabase
@@ -445,16 +448,10 @@ export async function cadastrarConsumidorComFatura(
       if (atualizacaoClienteError) throw atualizacaoClienteError;
     }
 
-    const emailEnviado = await enviarEmailDeVerificacaoCadastro({
-      nome: dadosFatura.titular,
-      email: emailNormalizado(convite.email),
-      token: tokenVerificacao,
-    }).catch(() => false);
-
     return {
-      message: "Cadastro recebido. Confirme seu e-mail para encaminhá-lo ao gerador.",
-      status: "AGUARDANDO_VERIFICACAO_EMAIL",
-      emailEnviado,
+      message: "Conta criada e ativada. A fatura CEMIG foi anexada ao seu cadastro.",
+      status: "ATIVO",
+      emailEnviado: false,
     };
   } catch (erro) {
     if (caminhoFatura) await supabase.storage.from("faturas").remove([caminhoFatura]).catch(() => undefined);

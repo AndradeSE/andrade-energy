@@ -185,6 +185,8 @@ export async function criarSolicitacaoCadastroCliente(input: {
   dadosFatura: Record<string, unknown>;
   emailVerificacaoTokenHash: string;
   emailVerificacaoExpiraEm: string;
+  status?: "AGUARDANDO_VERIFICACAO_EMAIL" | "AGUARDANDO_CONFIRMACAO_GERADOR" | "ATIVO" | "REJEITADO";
+  emailVerificadoEm?: string | null;
 }) {
   const { data, error } = await supabase
     .from("solicitacoes_cadastro_clientes")
@@ -197,8 +199,10 @@ export async function criarSolicitacaoCadastroCliente(input: {
       cpf: input.cpf,
       fatura_cemig_url: input.faturaCemigUrl,
       dados_fatura: input.dadosFatura,
+      status: input.status ?? "AGUARDANDO_VERIFICACAO_EMAIL",
       email_verificacao_token_hash: input.emailVerificacaoTokenHash,
       email_verificacao_expira_em: input.emailVerificacaoExpiraEm,
+      email_verificado_em: input.emailVerificadoEm ?? null,
     })
     .select("*")
     .single();
