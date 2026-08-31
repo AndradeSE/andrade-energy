@@ -186,6 +186,7 @@ async function preencherDadosTecnicosDaContaOriginal(fatura: any) {
       classificacao: fatura.classificacao || extraida.classificacao || null,
       tipo_ligacao: fatura.tipo_ligacao || extraida.tipoLigacao || null,
       valor_iluminacao_publica: numero(fatura.valor_iluminacao_publica) || extraida.valorIluminacaoPublica || 0,
+      valor_bandeira: numero(fatura.valor_bandeira) || extraida.valorBandeira || 0,
       valor_impostos: numero(fatura.valor_impostos) || extraida.valorImpostos || 0,
     };
     if (fatura.id) await supabase.from("faturas").update(tecnicos).eq("id", fatura.id);
@@ -259,15 +260,24 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     const documento = unidade.cpf_titular ?? cliente.cpf ?? null;
     const endereco = unidade.endereco ?? cliente.endereco ?? "Endereço não informado";
     const possuiGD2 = temGD2(fatura);
-    const disponibilidadeComposicao = numero(fatura.custo_disponibilidade_repassado);
+    const disponibilidadeComposicao = numero(fatura.custo_disponibilidade_repassado) || (!energiaCompensada ? numero(fatura.custo_disponibilidade) : 0);
     const fioBComposicao = numero(fatura.diferenca_fio_b_repassada);
     const iluminacaoPublica = numero(fatura.valor_iluminacao_publica);
-    const impostos = numero(fatura.valor_impostos);
+    const bandeiraComposicao = numero(fatura.valor_bandeira);
+    const valorCemigComposicao = Math.max(0, valorCemig);
+    const custosIdentificados = disponibilidadeComposicao + fioBComposicao + iluminacaoPublica + bandeiraComposicao;
+    const impostosLidos = numero(fatura.valor_impostos);
+    const impostos = impostosLidos > valorCemigComposicao * 0.55
+      ? 0
+      : Math.min(impostosLidos, Math.max(0, valorCemigComposicao - custosIdentificados));
+    const energiaEEncargos = Math.max(0, valorCemigComposicao - custosIdentificados - impostos);
     const composicaoTarifaria = [
       { rotulo: "Energia da usina", valor: valorUsina, cor: VERDE, complemento: energia(energiaCobrada) },
+      { rotulo: "Energia e encargos", valor: energiaEEncargos, cor: "#0EA5B7", complemento: null },
       { rotulo: "Disponibilidade", valor: disponibilidadeComposicao, cor: "#F59E0B", complemento: null },
       { rotulo: "Fio B", valor: fioBComposicao, cor: "#376BC7", complemento: null },
       { rotulo: "Iluminação pública", valor: iluminacaoPublica, cor: "#8B5CF6", complemento: null },
+      { rotulo: "Bandeira tarifária", valor: bandeiraComposicao, cor: "#E65A17", complemento: null },
       { rotulo: "Impostos", valor: impostos, cor: "#D94B22", complemento: null },
     ].filter((item) => item.valor > 0);
     const totalComposicao = composicaoTarifaria.reduce((soma, item) => soma + item.valor, 0);
@@ -387,12 +397,12 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(4.5).text(rotuloCentroGrafico, 72, y.inferior + 72, { width: 78, align: "center" });
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(7.5).text(moeda(valorCentroGrafico), 69, y.inferior + 82, { width: 84, align: "center" });
     composicaoTarifaria.forEach((item, indice) => {
-      const top = y.inferior + 31 + indice * 18.5;
+      const top = y.inferior + 28 + indice * 14;
       const proporcao = totalComposicao > 0 ? item.valor / totalComposicao * 100 : 0;
-      pdf.roundedRect(166, top + 1, 7, 14, 2).fill(item.cor);
-      pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(5.2).text(item.rotulo, 179, top, { width: 91 });
-      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(5.8).text(`${item.complemento ? `${item.complemento} · ` : ""}${moeda(item.valor)}`, 179, top + 8, { width: 89 });
-      pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(4.8).text(percentual(proporcao), 242, top + 1, { width: 29, align: "right" });
+      pdf.roundedRect(166, top + 1, 7, 11, 2).fill(item.cor);
+      pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(4.8).text(item.rotulo, 179, top, { width: 91 });
+      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(5.2).text(`${item.complemento ? `${item.complemento} · ` : ""}${moeda(item.valor)}`, 179, top + 6.5, { width: 89 });
+      pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(4.3).text(percentual(proporcao), 242, top + 1, { width: 29, align: "right" });
     });
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(4.5).text("Tributos podem estar embutidos nas tarifas; percentuais consideram os itens detalhados.", 61, y.inferior + 130, { width: 210, align: "center" });
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text("PAGUE COM PIX", 322, y.inferior + 28);

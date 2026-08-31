@@ -1,10 +1,11 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 
 import ChoiceField from "../../components/cadastro/ChoiceField";
 import FormField from "../../components/cadastro/FormField";
 import RealDiscountInfo from "../../components/cadastro/RealDiscountInfo";
+import UsinaSelector from "../../components/cadastro/UsinaSelector";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { buscarCliente, buscarUnidade } from "../../services/clientes.service";
@@ -32,6 +33,14 @@ function valorNumerico(valor: unknown) {
     : texto;
   const numero = Number(normalizado);
   return Number.isFinite(numero) ? numero : 0;
+}
+
+function identificarTipoGd(dados: Record<string, any> | null | undefined) {
+  const informado = String(dados?.tipo_gd ?? dados?.tipoGd ?? "").toUpperCase();
+  if (["GD1", "GD2", "MISTA"].includes(informado)) return informado;
+  const gd1 = valorNumerico(dados?.energia_compensada_gd1 ?? dados?.energiaCompensadaGD1) > 0;
+  const gd2 = valorNumerico(dados?.energia_compensada_gd2 ?? dados?.energiaCompensadaGD2) > 0;
+  return gd1 && gd2 ? "MISTA" : gd2 ? "GD2" : gd1 ? "GD1" : "";
 }
 
 function producaoParaAlocacao(usina: any) {
@@ -163,8 +172,9 @@ export default function EditarAlocacaoUnidade() {
         setRepasseDisponibilidadeGD1((uc?.repassar_disponibilidade_gd1 ?? Number(uc?.percentual_repasse_disponibilidade ?? 100) > 0) ? "REPASSAR" : "ABSORVER");
         setRepasseDisponibilidadeGD2((uc?.repassar_disponibilidade_gd2 ?? Number(uc?.percentual_repasse_disponibilidade ?? 100) > 0) ? "REPASSAR" : "ABSORVER");
         setRepasseFioBGD2((uc?.repassar_diferenca_fio_b_gd2 ?? true) ? "REPASSAR" : "ABSORVER");
-        setTipoGd(String(tipoGdImportado || uc?.tipo_gd || "").toUpperCase());
-        setDadosFatura(faturas[0] ?? parseDadosFatura(dadosFaturaParam));
+        const faturaBase = faturas[0] ?? parseDadosFatura(dadosFaturaParam);
+        setTipoGd(String(tipoGdImportado || uc?.tipo_gd || identificarTipoGd(faturaBase) || "").toUpperCase());
+        setDadosFatura(faturaBase);
         setConsumoMedio(mediaFinal > 0 ? String(Math.round(mediaFinal)) : "");
         setPercentual(
           veioDaFatura
@@ -195,7 +205,10 @@ export default function EditarAlocacaoUnidade() {
     if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return Alert.alert("Desconto inválido", "Informe um desconto entre 0% e 100%.");
     try { setSalvando(true);
       await alocarUnidade(usinaId, { clienteId: clienteIdResolvido, numero: numeroDaUc, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: false });
-      Alert.alert("Alocação salva", "A UC foi vinculada à usina com sucesso.", [{ text: "OK", onPress: () => router.back() }]);
+      // Esta tela pode ter sido aberta a partir de uma UC ou da criação por
+      // fatura. O destino único evita ficar preso na tela anterior e exigir
+      // um segundo toque para voltar à lista atualizada.
+      router.replace("/unidades");
     } catch (erro: any) { Alert.alert("Não foi possível alocar", erro?.message ?? "Tente novamente."); } finally { setSalvando(false); }
   }
 
@@ -235,32 +248,18 @@ export default function EditarAlocacaoUnidade() {
           Defina a usina, a média de consumo e o rateio desta UC.
         </Text>
         <Card>
-          <View style={styles.sectionHeading}>
-            <Text style={styles.sectionEyebrow}>USINA GERADORA</Text>
-            <Text style={styles.label}>Escolha a usina</Text>
-          </View>
-          <View style={styles.options}>
-            {usinas.map((usina) => (
-              <Pressable
-                key={usina.id}
-                onPress={() => {
-                  setUsinaId(usina.id);
-                  setPercentual(percentualPelaMedia(usina, consumoMedio, modalidade));
-                }}
-                style={[styles.option, usinaId === usina.id && styles.selected]}
-              >
-                <View style={styles.optionCopy}>
-                  <Text style={styles.optionName}>{usina.nome}</Text>
-                  <Text style={styles.optionDetail}>{textoProducao(usina)}</Text>
-                </View>
-                {usinaId === usina.id ? (
-                  <View style={styles.selectionChip}>
-                    <Text style={styles.selectionChipText}>✓ Selecionada</Text>
-                  </View>
-                ) : null}
-              </Pressable>
-            ))}
-          </View>
+          <View style={styles.sectionHeading}><Text style={styles.sectionEyebrow}>USINA GERADORA</Text></View>
+          <UsinaSelector
+            usinas={usinas}
+            value={usinaId}
+            onChange={(idDaUsina) => {
+              const novaUsina = usinas.find((usina) => usina.id === idDaUsina);
+              setUsinaId(idDaUsina);
+              setPercentual(percentualPelaMedia(novaUsina, consumoMedio, modalidade));
+            }}
+            label="Escolha a usina"
+            detail={textoProducao}
+          />
 
           <ChoiceField
             label="Modalidade"
@@ -383,14 +382,6 @@ const styles = StyleSheet.create({
   sectionHeading: { marginBottom: Spacing.sm },
   sectionEyebrow: { marginBottom: 3, color: Colors.subtitle, fontSize: 10, fontWeight: "800", letterSpacing: 0.8 },
   label: { marginBottom: Spacing.xs, color: Colors.text, fontWeight: "700" },
-  options: { gap: Spacing.xs, marginBottom: Spacing.lg },
-  option: { minHeight: 62, flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: Spacing.sm, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, backgroundColor: Colors.surface },
-  selected: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
-  optionCopy: { flex: 1, minWidth: 0 },
-  optionName: { color: Colors.text, fontWeight: "800" },
-  optionDetail: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small },
-  selectionChip: { flexShrink: 0, marginLeft: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: 5, borderRadius: Radius.round, backgroundColor: Colors.primary },
-  selectionChipText: { color: Colors.surface, fontSize: 10, fontWeight: "900" },
   hint: { marginTop: -Spacing.sm, marginBottom: Spacing.md, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 },
   warning: { marginTop: -Spacing.sm, marginBottom: Spacing.md, padding: Spacing.sm, borderRadius: Radius.md, color: "#92400E", fontSize: Typography.small, lineHeight: 18, backgroundColor: "#FEF3C7" },
 });

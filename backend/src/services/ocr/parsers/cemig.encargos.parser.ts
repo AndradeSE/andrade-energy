@@ -13,6 +13,7 @@ export function extrairEncargosCemig(texto: string) {
   const linhas = texto.split(/\r?\n/);
   const linhaIluminacao = linhas.find((linha) => /(?:Contrib(?:ui[cç][aã]o)?|Taxa)\s+(?:de\s+)?Ilum(?:ina[cç][aã]o)?\s+P[uú]blica/i.test(linha));
   const iluminacaoCompacta = texto.match(/(?:Contrib(?:ui[cç][aã]o)?|Taxa)\s+(?:de\s+)?Ilum(?:ina[cç][aã]o)?\s+P[uú]blica(?:\s+Municipal)?\s+([\d.,]+)/i)?.[1];
+  const linhaBandeira = linhas.find((linha) => /(?:adicional\s+)?bandeira\s+(?:tarif[aá]ria\s+)?(?:verde|amarela|vermelha)/i.test(linha));
   const blocoFiscal = texto.match(/Base\s+de\s+c[aá]lculo[\s\S]{0,800}/i)?.[0] ?? "";
   const linhasFiscais = blocoFiscal.split(/\r?\n/);
   const valorFiscal = (tributo: "ICMS" | "PASEP" | "COFINS") => {
@@ -26,6 +27,7 @@ export function extrairEncargosCemig(texto: string) {
   const cofins = valorFiscal("COFINS");
   return {
     valorIluminacaoPublica: iluminacaoCompacta ? paraNumero(iluminacaoCompacta) : ultimoValorDaLinha(linhaIluminacao),
+    valorBandeira: ultimoValorDaLinha(linhaBandeira),
     valorImpostos: icms + pasep + cofins,
   };
 }

@@ -38,9 +38,11 @@ export async function obterDashboardCliente(
         valor_andrade,
         valor_cemig,
         valor_cemig_repassado,
+        custo_disponibilidade,
         custo_disponibilidade_repassado,
         diferenca_fio_b_repassada,
         valor_iluminacao_publica,
+        valor_bandeira,
         valor_impostos,
         valor_energia_cheia,
         fatura_somente_andrade

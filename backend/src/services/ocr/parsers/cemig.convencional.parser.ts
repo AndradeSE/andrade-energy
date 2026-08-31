@@ -4,6 +4,21 @@ import { extrairHistoricoConsumo } from "./cemig.historico.parser";
 import { extrairMedicaoCemig } from "./cemig.medicao.parser";
 import { extrairEncargosCemig } from "./cemig.encargos.parser";
 
+function ultimoValorDaLinha(linha?: string) {
+  if (!linha) return 0;
+  const valores = [...linha.matchAll(/-?[\d.]+(?:,\d+)?/g)]
+    .map((item) => Number(item[0].replace(/\./g, "").replace(",", ".")));
+  const valor = valores.at(-1) ?? 0;
+  return Number.isFinite(valor) ? Math.abs(valor) : 0;
+}
+
+function extrairDisponibilidadeConvencional(texto: string) {
+  const linha = texto
+    .split(/\r?\n/)
+    .find((item) => /Custo\s+de\s+Disponibilidade/i.test(item) && !/Ajuste\s+Custo\s+Disponibilidade/i.test(item));
+  return ultimoValorDaLinha(linha);
+}
+
 export function parseCemigConvencional(
   texto: string
 ): FaturaExtraida {
@@ -80,9 +95,9 @@ export function parseCemigConvencional(
 
   tarifaCheia,
   tarifaGD: 0,
-  custoDisponibilidade: 0,
+  custoDisponibilidade: extrairDisponibilidadeConvencional(texto),
 
-  bandeira: "",
+  bandeira: texto.match(/Bandeira\s+(?:Tarif[aá]ria\s+)?([A-Za-zÀ-Ý]+)/i)?.[1] ?? "",
 
   distribuidora: "CEMIG",
 

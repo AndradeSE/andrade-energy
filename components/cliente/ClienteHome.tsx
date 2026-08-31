@@ -29,7 +29,7 @@ import EnergyFlowCard from "./EnergyFlowCard";
 import QuickAccessCarousel from "../QuickAccessCarousel";
 
 export default function ClienteHome() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const { data, isLoading, error, refetch } = useDashboard();
   const [atualizando, setAtualizando] = useState(false);
   async function atualizarPagina() {
@@ -143,6 +143,18 @@ export default function ClienteHome() {
               icon: "document-attach-outline",
               label: "Conta de luz",
               onPress: () => router.push("/contas-de-luz"),
+            },
+            {
+              icon: "cloud-upload-outline",
+              label: "Anexar conta",
+              onPress: () => {
+                const clienteId = String(user?.cliente_id ?? "");
+                if (!clienteId) {
+                  router.push("/perfil");
+                  return;
+                }
+                router.push({ pathname: "/clientes/faturas-anexadas" as never, params: { clienteId } });
+              },
             },
             {
               icon: "trending-up-outline",

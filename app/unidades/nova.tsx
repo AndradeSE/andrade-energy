@@ -5,6 +5,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import ChoiceField from "../../components/cadastro/ChoiceField";
 import FormField from "../../components/cadastro/FormField";
 import RealDiscountInfo from "../../components/cadastro/RealDiscountInfo";
+import UsinaSelector from "../../components/cadastro/UsinaSelector";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { alocarUnidade } from "../../services/usinas.service";
@@ -24,6 +25,14 @@ function numeroSeguro(valor: unknown) {
   return Number.isFinite(numero) ? numero : 0;
 }
 
+function identificarTipoGd(dados: Record<string, any> | null | undefined) {
+  const informado = String(dados?.tipo_gd ?? dados?.tipoGd ?? "").toUpperCase();
+  if (["GD1", "GD2", "MISTA"].includes(informado)) return informado;
+  const gd1 = numeroSeguro(dados?.energia_compensada_gd1 ?? dados?.energiaCompensadaGD1) > 0;
+  const gd2 = numeroSeguro(dados?.energia_compensada_gd2 ?? dados?.energiaCompensadaGD2) > 0;
+  return gd1 && gd2 ? "MISTA" : gd2 ? "GD2" : gd1 ? "GD1" : "";
+}
+
 export default function NovaUnidade() {
   const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, cpf: cpfImportado, energiaCompensada, endereco: enderecoImportado, cadastroRapido, consumoMedio: consumoMedioImportado, tipoGd: tipoGdImportado, dadosFatura: dadosFaturaParam } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; cpf?: string; energiaCompensada?: string; endereco?: string; cadastroRapido?: string; consumoMedio?: string; tipoGd?: string; dadosFatura?: string }>();
   const [dadosFatura, setDadosFatura] = useState<Record<string, any> | null>(() => parseDadosFatura(dadosFaturaParam));
@@ -38,6 +47,7 @@ export default function NovaUnidade() {
   const [repasseFioBGD2, setRepasseFioBGD2] = useState<RepasseGD2>("REPASSAR");
   const [clientes, setClientes] = useState<any[]>([]); const [usinas, setUsinas] = useState<any[]>([]);
   const [clienteId, setClienteId] = useState(""); const [usinaId, setUsinaId] = useState(""); const [salvando, setSalvando] = useState(false);
+  const tipoGdEfetivo = String(tipoGdImportado || identificarTipoGd(dadosFatura) || "").toUpperCase();
 
   useEffect(() => {
     Promise.all([
@@ -126,7 +136,7 @@ export default function NovaUnidade() {
           repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR",
           repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR",
           repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR",
-          tipoGd: tipoGdImportado,
+          tipoGd: tipoGdEfetivo,
           faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE",
           calcularAutomaticamente: true,
         });
@@ -140,7 +150,7 @@ export default function NovaUnidade() {
           repassar_disponibilidade_gd1: repasseDisponibilidadeGD1 === "REPASSAR",
           repassar_disponibilidade_gd2: repasseDisponibilidadeGD2 === "REPASSAR",
           repassar_diferenca_fio_b_gd2: repasseFioBGD2 === "REPASSAR",
-          tipo_gd: ["GD1", "GD2", "MISTA"].includes(String(tipoGdImportado ?? "").toUpperCase()) ? String(tipoGdImportado).toUpperCase() : null,
+          tipo_gd: ["GD1", "GD2", "MISTA"].includes(tipoGdEfetivo) ? tipoGdEfetivo : null,
           fatura_somente_andrade: formatoFatura === "SOMENTE_ANDRADE",
         }, { onConflict: "numero" });
         if (error) throw error;
@@ -157,7 +167,7 @@ export default function NovaUnidade() {
             usinaId: usinaFinal ?? "",
             modalidade: modalidadeFinal,
             desconto: String(descontoFinal),
-            tipoGd: tipoGdImportado ?? "",
+            tipoGd: tipoGdEfetivo,
           },
         });
       } else {
@@ -178,22 +188,22 @@ export default function NovaUnidade() {
       {!clienteIdVinculado && cadastroRapido !== "1" ? <><FormField label="Titular" value={titular} onChangeText={setTitular} />
         <Text style={styles.beneficiariaHint}>Esta UC será cadastrada como beneficiária: ela receberá a energia alocada pela usina.</Text>
         <ChoiceField label="Faturamento" value={modalidade} onChange={setModalidade} options={[{ label: "Injeção", value: "INJECAO" }, { label: "Compensação", value: "COMPENSACAO" }]} />
-        <Text style={styles.label}>Usina</Text><View style={styles.options}>{usinas.map((u) => <Pressable key={u.id} onPress={() => setUsinaId(usinaId === u.id ? "" : u.id)} style={[styles.link, usinaId === u.id && styles.linkSelected]}><Text>{u.nome}</Text></Pressable>)}</View>
+        <UsinaSelector usinas={usinas} value={usinaId} onChange={setUsinaId} label="Usina geradora" />
         <FormField label="Consumo médio mensal (kWh)" value={consumoMedio} onChangeText={(valor) => setConsumoMedio(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" />
         <FormField label="Desconto contratado (%)" value={desconto} onChangeText={setDesconto} keyboardType="decimal-pad" /><FormField label="Endereço" value={endereco} onChangeText={setEndereco} /></> : null}
-      {clienteIdVinculado && !clientes.find((item) => item.id === clienteId)?.usina_id ? <><Text style={styles.label}>Usina geradora</Text><View style={styles.options}>{usinas.map((u) => <Pressable key={u.id} onPress={() => setUsinaId(usinaId === u.id ? "" : u.id)} style={[styles.link, usinaId === u.id && styles.linkSelected]}><Text>{u.nome}</Text></Pressable>)}</View></> : null}
+      {clienteIdVinculado && !clientes.find((item) => item.id === clienteId)?.usina_id ? <UsinaSelector usinas={usinas} value={usinaId} onChange={setUsinaId} label="Usina geradora" /> : null}
       {!clienteIdVinculado ? <><Text style={styles.label}>Vincular ao cliente *</Text>{clientes.length ? <View style={styles.options}>{clientes.map((c) => <Pressable key={c.id} onPress={() => setClienteId(clienteId === c.id ? "" : c.id)} style={[styles.link, clienteId === c.id && styles.linkSelected]}><Text>{c.nome}</Text></Pressable>)}</View> : <Text style={styles.clientRequired}>Cadastre um cliente antes de adicionar uma unidade consumidora.</Text>}</> : null}
       <ChoiceField label="Formato da cobrança" value={formatoFatura} onChange={(valor) => setFormatoFatura(valor as FormatoFatura)} options={[{ label: "Fatura unificada (CEMIG + Andrade)", value: "UNIFICADA" }, { label: "Somente Andrade Energy", value: "SOMENTE_ANDRADE" }]} />
       {formatoFatura === "UNIFICADA" ? <>
-        {!tipoGdImportado || tipoGdImportado === "GD1" || tipoGdImportado === "MISTA" ? <ChoiceField label="GD I: custo de disponibilidade recalculado" value={repasseDisponibilidadeGD1} onChange={(valor) => setRepasseDisponibilidadeGD1(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} /> : null}
-        {!tipoGdImportado || tipoGdImportado === "GD2" || tipoGdImportado === "MISTA" ? <>
+        {!tipoGdEfetivo || tipoGdEfetivo === "GD1" || tipoGdEfetivo === "MISTA" ? <ChoiceField label="GD I: custo de disponibilidade recalculado" value={repasseDisponibilidadeGD1} onChange={(valor) => setRepasseDisponibilidadeGD1(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} /> : null}
+        {!tipoGdEfetivo || tipoGdEfetivo === "GD2" || tipoGdEfetivo === "MISTA" ? <>
           <ChoiceField label="GD II: custo de disponibilidade recalculado" value={repasseDisponibilidadeGD2} onChange={(valor) => setRepasseDisponibilidadeGD2(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} />
           <ChoiceField label="GD II: diferença do Fio B" value={repasseFioBGD2} onChange={(valor) => setRepasseFioBGD2(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} />
         </> : null}
         <Text style={styles.beneficiariaHint}>A disponibilidade é aplicada conforme a modalidade GD identificada na conta; a diferença do Fio B vale somente para GD II. Os demais encargos continuam na fatura da concessionária.</Text>
         <RealDiscountInfo
           descontoPercentual={desconto}
-          tipoGd={tipoGdImportado}
+          tipoGd={tipoGdEfetivo}
           modalidadeFaturamento={modalidade}
           dadosFatura={dadosFatura}
           disponibilidadeGd1={repasseDisponibilidadeGD1}

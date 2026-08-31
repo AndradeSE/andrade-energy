@@ -32,10 +32,12 @@ export default function FaturasAnexadas() {
   const [atualizando, setAtualizando] = useState(false);
   const [enviando, setEnviando] = useState(false);
 
-  const titulo = selecionarUc ? "Escolher fatura para UC" : "Faturas anexadas";
+  const titulo = selecionarUc ? "Escolher fatura para UC" : "Contas vinculadas ao CPF";
   const subtitulo = selecionarUc
     ? "Escolha uma conta já anexada para preencher a unidade consumidora."
-    : "Contas de energia enviadas pelo consumidor ficam disponíveis para consulta e cadastro de UC.";
+    : IS_GERADOR_APP
+      ? "Contas da concessionária enviadas pelo consumidor ficam disponíveis para consulta e cadastro de UC."
+      : "Anexe somente contas da concessionária de pontos de instalação vinculados ao seu CPF. Não são faturas Andrade Energy.";
 
   const carregar = useCallback(async () => {
     if (!clienteId) {
@@ -67,7 +69,7 @@ export default function FaturasAnexadas() {
       setEnviando(true);
       await anexarFaturaCliente(clienteId, resultado.assets[0]);
       await carregar();
-      Alert.alert("Fatura anexada", "A conta foi salva no perfil e poderá ser usada para cadastrar a UC.");
+      Alert.alert("Conta anexada", "A conta da concessionária foi salva no seu perfil e poderá ser usada pelo gerador para cadastrar a UC vinculada ao seu CPF.");
     } catch (erro: any) {
       Alert.alert("Não foi possível anexar", erro?.response?.data?.message ?? "Confira o PDF da CEMIG e tente novamente.");
     } finally {
@@ -108,7 +110,7 @@ export default function FaturasAnexadas() {
       {!IS_GERADOR_APP ? <View style={styles.heading}><TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={23} color={Colors.text} /></TouchableOpacity><View style={styles.headingCopy}><Text style={styles.title}>{titulo}</Text><Text style={styles.subtitle}>{subtitulo}</Text></View></View> : <Text style={styles.description}>{subtitulo}</Text>}
       {!selecionarUc ? <TouchableOpacity disabled={!clienteId || enviando} onPress={selecionarArquivo} style={[styles.upload, (!clienteId || enviando) && styles.disabled]}>
         <View style={styles.uploadIcon}>{enviando ? <ActivityIndicator color={Colors.primary} /> : <Ionicons name="cloud-upload-outline" size={24} color={Colors.primary} />}</View>
-        <View style={styles.uploadCopy}><Text style={styles.uploadTitle}>{enviando ? "Anexando fatura..." : "Anexar conta de energia"}</Text><Text style={styles.uploadHint}>PDF da CEMIG; ficará disponível também para o gerador.</Text></View>
+        <View style={styles.uploadCopy}><Text style={styles.uploadTitle}>{enviando ? "Anexando conta..." : "Anexar conta vinculada ao CPF"}</Text><Text style={styles.uploadHint}>PDF da concessionária de uma UC do seu CPF; ficará disponível também para o gerador.</Text></View>
         <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
       </TouchableOpacity> : null}
       {carregando ? <View style={styles.loading}><ActivityIndicator color={Colors.primary} /></View> : faturas.length ? faturas.map((fatura) => {
@@ -122,7 +124,7 @@ export default function FaturasAnexadas() {
           </TouchableOpacity>
           {selecionarUc ? <TouchableOpacity disabled={!uc} onPress={() => usarNaUc(fatura)} style={[styles.useButton, !uc && styles.disabled]}><Ionicons name="flash-outline" size={18} color={Colors.surface} /><Text style={styles.useButtonText}>Usar para cadastrar UC</Text></TouchableOpacity> : null}
         </Card>;
-      }) : <EmptyState icon="document-outline" title="Nenhuma fatura anexada" subtitle={selecionarUc ? "O cliente ainda não enviou uma conta de energia." : "Anexe uma conta da CEMIG para mantê-la disponível no seu cadastro."} />}
+      }) : <EmptyState icon="document-outline" title="Nenhuma conta anexada" subtitle={selecionarUc ? "O cliente ainda não enviou uma conta de energia." : "Anexe uma conta da concessionária de uma unidade vinculada ao seu CPF."} />}
     </ScrollView>
   </Screen>;
 }

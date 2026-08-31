@@ -271,6 +271,25 @@ export default function Perfil() {
           </TouchableOpacity>
         </View>
 
+        {!IS_GERADOR_APP && user?.perfil === "LEITURA" && user?.cliente_id ? <>
+          <Text style={styles.sectionTitle}>CONTAS DE ENERGIA</Text>
+          <View style={styles.card}>
+            <TouchableOpacity
+              accessibilityLabel="Anexar ou consultar contas de energia"
+              activeOpacity={0.82}
+              onPress={() => router.push({ pathname: "/clientes/faturas-anexadas" as never, params: { clienteId: String(user.cliente_id) } })}
+              style={styles.linkRow}
+            >
+              <View style={styles.preferenceIcon}><Ionicons color={Colors.primary} name="document-attach-outline" size={22} /></View>
+              <View style={styles.preferenceCopy}>
+                <Text style={styles.preferenceTitle}>Anexar conta vinculada ao CPF</Text>
+                <Text style={styles.preferenceDescription}>Envie a conta da concessionária de uma UC vinculada ao seu CPF. Ela ficará no seu perfil e poderá ser usada pelo gerador ao cadastrar essa unidade.</Text>
+              </View>
+              <Ionicons color={Colors.subtitle} name="chevron-forward" size={21} />
+            </TouchableOpacity>
+          </View>
+        </> : null}
+
         {IS_GERADOR_APP && user?.perfil === "ADMIN" ? <>
           <Text style={styles.sectionTitle}>COMERCIALIZAÇÃO DO SOFTWARE</Text>
           <View style={styles.card}>

@@ -1,5 +1,13 @@
 # Andrade Energy — contexto do projeto
 
+## UCs vinculadas ao CPF e composição da fatura — 31/08/2026
+
+- Consumidores com conta confirmada agora encontram em **Perfil** a área **Contas vinculadas ao CPF**. Ela explica que o envio é exclusivamente de contas da concessionária de pontos de instalação vinculados ao CPF; os PDFs permanecem anexados à ficha do cliente e podem ser escolhidos pelo Gerador ao cadastrar uma UC.
+- A Home do Consumidor ganhou o atalho **Anexar conta**. A Home do Gerador ganhou **Faturar via fatura**. O fluxo de UC usa um único seletor de usina: tocar no campo abre a lista de usinas disponíveis, sem duplicar campos quando houver mais de uma.
+- O salvamento de alocação de uma UC retorna diretamente para a lista de UCs após confirmar, evitando a necessidade de tocar em salvar uma segunda vez. A prévia do desconto real passa a refletir GD1/GD2, disponibilidade e Fio B conforme as opções de absorção ou repasse.
+- A leitura de contas convencionais e GD passou a extrair também custo de disponibilidade e bandeira tarifária. Na composição da fatura, disponibilidade, Fio B, iluminação pública, bandeira, impostos e o saldo de energia/encargos da concessionária ficam separados; a tarifa inteira não é mais classificada indevidamente como imposto quando não existe GD.
+- A migration `20260831203000_valor_bandeira_fatura.sql` foi aplicada no Supabase em 31/08/2026. Ela adiciona `faturas.valor_bandeira` com padrão zero, sem alterar faturas existentes.
+
 ## Convites web e notificações Android — 31/08/2026
 
 - O botão **Abrir aplicativo e criar conta** do e-mail do consumidor usa `andradeenergyconsumidor://criar-conta?convite=...` para abrir diretamente o app instalado. O e-mail mantém o link alternativo `https://www.andradeenergy.com.br/convite?convite=...` para quem ainda não o possui.

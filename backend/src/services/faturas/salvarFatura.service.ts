@@ -100,6 +100,9 @@ export async function salvarFatura(
     bandeira:
       dados.bandeira,
 
+    valor_bandeira:
+      dados.valorBandeira ?? 0,
+
     status: "PROCESSADA",
 
     arquivo_url: "",

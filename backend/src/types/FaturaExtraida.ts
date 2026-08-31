@@ -96,6 +96,9 @@ export interface FaturaExtraida {
   /** Contribuição/taxa municipal de iluminação pública destacada na conta. */
   valorIluminacaoPublica?: number;
 
+  /** Adicional de bandeira tarifária destacado na conta da concessionária. */
+  valorBandeira?: number;
+
   /** Soma de ICMS, PASEP e COFINS destacados no resumo fiscal. */
   valorImpostos?: number;
 

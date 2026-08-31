@@ -52,6 +52,7 @@ const atalhos = [
   { icon: "people-outline", label: "Clientes", rota: "/clientes" },
   { icon: "business-outline", label: "Usinas", rota: "/usinas" },
   { icon: "flash-outline", label: "Unidades consumidoras", rota: "/unidades" },
+  { icon: "document-attach-outline", label: "Faturar via fatura", rota: "/faturamento/manual" },
   { icon: "receipt-outline", label: "Faturas", rota: "/faturas" },
   { icon: "document-text-outline", label: "Contratos", rota: "/contratos" },
 ] as const;

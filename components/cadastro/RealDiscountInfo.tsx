@@ -58,7 +58,7 @@ export default function RealDiscountInfo({
       ? "Os custos repassados reduzem a economia percebida pelo cliente."
       : "A Andrade absorve os custos selecionados; outros encargos ainda podem variar."
   const detalheExibido = previa
-    ? `${formatarMoeda(previa.economia)} de economia sobre ${formatarMoeda(previa.baseDesconto)} de energia cheia.${referenciaFatura(dadosFatura)}`
+    ? `${formatarMoeda(previa.economia)} de economia sobre ${formatarMoeda(previa.baseDesconto)} de energia cheia. ${resumoDosRepasses(previa)}${referenciaFatura(dadosFatura)}`
     : estimativaDetalhe;
   const impacto = modalidadeAindaNaoIdentificada
     ? `Com ${formatarPercentual(desconto)} de desconto contratado, a tarifa Andrade será ${formatarPercentual(percentualTarifaAndrade)} da tarifa cheia. Na primeira conta, o sistema identificará GD I ou GD II e aplicará as escolhas atuais de repasse ou absorção.`
@@ -127,12 +127,30 @@ function referenciaFatura(dados: Record<string, any> | null | undefined) {
   return ` Base: ${correspondencia ? `${correspondencia[2]}/${correspondencia[1]}` : valor}.`;
 }
 
+function numeroBrasileiro(valor: unknown) {
+  if (typeof valor === "number") return Number.isFinite(valor) ? valor : 0;
+  const texto = String(valor ?? "").trim();
+  if (!texto) return 0;
+  const apenasNumero = texto.replace(/[^\d,.-]/g, "");
+  const normalizado = apenasNumero.includes(",")
+    ? apenasNumero.replace(/\./g, "").replace(",", ".")
+    : apenasNumero.replace(/\.(?=\d{3}(?:\D|$))/g, "");
+  const numero = Number(normalizado);
+  return Number.isFinite(numero) ? numero : 0;
+}
+
 function n(dados: Record<string, any> | null | undefined, ...chaves: string[]) {
+  let encontrado = 0;
   for (const chave of chaves) {
-    const valor = Number(dados?.[chave]);
-    if (Number.isFinite(valor)) return valor;
+    const original = dados?.[chave];
+    if (original === undefined || original === null || String(original).trim() === "") continue;
+    const valor = numeroBrasileiro(original);
+    if (Number.isFinite(valor)) {
+      encontrado = valor;
+      if (valor !== 0) return valor;
+    }
   }
-  return 0;
+  return encontrado;
 }
 
 function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, disponibilidadeGd1, disponibilidadeGd2, fioBGd2 }: {
@@ -140,17 +158,22 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   disponibilidadeGd1: EscolhaRepasse; disponibilidadeGd2: EscolhaRepasse; fioBGd2: EscolhaRepasse;
 }) {
   if (!dados) return null;
-  const tarifaCheia = n(dados, "tarifa_cheia", "tarifaCheia");
-  const valorCemig = n(dados, "valor_cemig", "valorTotal");
+  let tarifaCheia = n(dados, "tarifa_cheia", "tarifaCheia");
+  const valorCemig = n(dados, "valor_cemig", "valorCemig", "valor_concessionaria", "valorConcessionaria", "valorTotal");
   const consumo = n(dados, "consumo_kwh", "consumo");
   const energiaGD1 = n(dados, "energia_compensada_gd1", "energiaCompensadaGD1");
   const energiaGD2 = n(dados, "energia_compensada_gd2", "energiaCompensadaGD2");
   const energiaCompensada = n(dados, "energia_compensada", "energiaCompensada") || energiaGD1 + energiaGD2;
   const energiaInjetada = n(dados, "energia_injetada", "energiaInjetada");
   const baseKwh = String(modalidadeFaturamento ?? "COMPENSACAO").toUpperCase() === "INJECAO" ? energiaInjetada : energiaCompensada;
+  if (tarifaCheia <= 0) {
+    const energiaCheia = n(dados, "valor_energia_cheia", "valorEnergiaCheia");
+    const baseTarifa = baseKwh || consumo;
+    tarifaCheia = baseTarifa > 0 ? energiaCheia / baseTarifa : 0;
+  }
   if (tarifaCheia <= 0 || valorCemig <= 0 || baseKwh <= 0) return null;
 
-  const custoDisponibilidade = n(dados, "custo_disponibilidade", "custoDisponibilidade");
+  const custoDisponibilidade = n(dados, "custo_disponibilidade", "custoDisponibilidade", "custo_disponibilidade_repassado", "custoDisponibilidadeRepassado");
   const diferencaSalva = n(dados, "diferenca_fio_b", "diferencaFioB");
   const tarifaScee = n(dados, "tarifa_scee", "tarifaScee");
   const tarifaGd2 = n(dados, "tarifa_gd", "tarifaGD2", "tarifaGD");
@@ -158,19 +181,48 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   const usaGD2 = tipoGd === "GD2" || tipoGd === "MISTA" || energiaGD2 > 0;
   const usaGD1 = tipoGd === "GD1" || tipoGd === "MISTA" || (!usaGD2 && energiaGD1 > 0);
   const absorveDisponibilidade = usaGD2 ? disponibilidadeGd2 === "ABSORVER" : usaGD1 && disponibilidadeGd1 === "ABSORVER";
-  const absorvido = Math.min(valorCemig, (absorveDisponibilidade ? custoDisponibilidade : 0) + (usaGD2 && fioBGd2 === "ABSORVER" ? diferencaFioB : 0));
+  const valorAbsorvidoDisponibilidade = absorveDisponibilidade ? custoDisponibilidade : 0;
+  const valorAbsorvidoFioB = usaGD2 && fioBGd2 === "ABSORVER" ? diferencaFioB : 0;
+  const absorvido = Math.min(valorCemig, valorAbsorvidoDisponibilidade + valorAbsorvidoFioB);
 
   const valorEnergiaSemGd = Math.max(0, consumo * tarifaCheia);
   const creditoGD1 = energiaGD1 * tarifaCheia;
   const limiteCreditoGD2 = Math.max(0, valorEnergiaSemGd - n(dados, "valor_energia_concessionaria", "valorEnergiaConcessionaria") - creditoGD1);
   const creditoGD2 = energiaGD2 > 0 ? Math.min(energiaGD2 * tarifaCheia, limiteCreditoGD2) : 0;
-  const creditoEfetivo = energiaGD1 + energiaGD2 > 0 ? creditoGD1 + creditoGD2 : energiaCompensada * tarifaCheia;
-  const referencia = n(dados, "valor_referencia_sem_andrade") || valorCemig + creditoEfetivo;
-  const baseDesconto = usaGD2 ? valorEnergiaSemGd : Math.max(0, referencia - valorCemig);
+  const creditoEfetivo = energiaGD1 + energiaGD2 > 0
+    ? creditoGD1 + creditoGD2
+    : Math.min(energiaCompensada * tarifaCheia, Math.max(0, valorEnergiaSemGd - n(dados, "valor_energia_concessionaria", "valorEnergiaConcessionaria")));
+  const referencia = n(dados, "valor_referencia_sem_andrade", "valorReferenciaSemAndrade") || valorCemig + creditoEfetivo;
+  const baseDesconto = usaGD2 ? valorEnergiaSemGd : creditoEfetivo;
   if (baseDesconto <= 0) return null;
   const valorAndrade = baseKwh * tarifaCheia * (1 - desconto / 100);
-  const economia = Math.max(0, referencia - (Math.max(0, valorCemig - absorvido) + valorAndrade));
-  return { economia, baseDesconto, descontoReal: economia / baseDesconto * 100 };
+  const valorCemigRepassado = Math.max(0, valorCemig - absorvido);
+  const economia = Math.max(0, referencia - (valorCemigRepassado + valorAndrade));
+  return {
+    economia,
+    baseDesconto,
+    descontoReal: economia / baseDesconto * 100,
+    custoDisponibilidade,
+    diferencaFioB,
+    valorAbsorvidoDisponibilidade,
+    valorAbsorvidoFioB,
+  };
+}
+
+function resumoDosRepasses(previa: ReturnType<typeof calcularPrevia>) {
+  if (!previa) return "";
+  const partes: string[] = [];
+  if (previa.custoDisponibilidade > 0) {
+    partes.push(previa.valorAbsorvidoDisponibilidade > 0
+      ? `${formatarMoeda(previa.valorAbsorvidoDisponibilidade)} de disponibilidade absorvida`
+      : `${formatarMoeda(previa.custoDisponibilidade)} de disponibilidade repassada`);
+  }
+  if (previa.diferencaFioB > 0) {
+    partes.push(previa.valorAbsorvidoFioB > 0
+      ? `${formatarMoeda(previa.valorAbsorvidoFioB)} de Fio B absorvido`
+      : `${formatarMoeda(previa.diferencaFioB)} de Fio B repassado`);
+  }
+  return partes.length ? ` ${partes.join(" e ")}.` : "";
 }
 
 const styles = StyleSheet.create({
