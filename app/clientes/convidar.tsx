@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
@@ -20,8 +21,14 @@ export default function ConvidarCliente() {
         ? resultado.minutaAnexada
           ? "O consumidor receberá o convite e a minuta do contrato em PDF. O contrato assinado não é enviado automaticamente."
           : "O consumidor receberá o convite por e-mail. Para anexar a minuta automaticamente, configure antes os dados do locador e gere a minuta na UC."
-        : `O e-mail não pôde ser enviado. Código: ${resultado.token}`;
-      Alert.alert(resultado.emailEnviado ? "Convite enviado" : "Convite criado", mensagem, [{ text: "OK", onPress: () => router.back() }]);
+        : `O convite foi criado, mas o e-mail não pôde ser enviado. Compartilhe esta chave com o consumidor:\n\n${resultado.token}`;
+      const acoes = resultado.emailEnviado
+        ? [{ text: "OK", onPress: () => router.back() }]
+        : [
+            { text: "Copiar chave", onPress: async () => { await Clipboard.setStringAsync(String(resultado.token ?? "")); router.back(); } },
+            { text: "OK", onPress: () => router.back() },
+          ];
+      Alert.alert(resultado.emailEnviado ? "Convite enviado" : "Convite criado", mensagem, acoes);
     } catch (error: any) { Alert.alert("Não foi possível convidar", error?.response?.data?.message ?? "Tente novamente."); }
     finally { setEnviando(false); }
   }
