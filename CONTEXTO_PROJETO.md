@@ -7,6 +7,8 @@
 - O salvamento de alocação de uma UC retorna diretamente para a lista de UCs após confirmar, evitando a necessidade de tocar em salvar uma segunda vez. A prévia do desconto real passa a refletir GD1/GD2, disponibilidade e Fio B conforme as opções de absorção ou repasse.
 - A leitura de contas convencionais e GD passou a extrair também custo de disponibilidade e bandeira tarifária. Na composição da fatura, disponibilidade, Fio B, iluminação pública, bandeira, impostos e o saldo de energia/encargos da concessionária ficam separados; a tarifa inteira não é mais classificada indevidamente como imposto quando não existe GD.
 - A migration `20260831203000_valor_bandeira_fatura.sql` foi aplicada no Supabase em 31/08/2026. Ela adiciona `faturas.valor_bandeira` com padrão zero, sem alterar faturas existentes.
+- Backend publicado no Render pelos commits `378d6cf` e `ad212df`; a checagem pública `GET /health` respondeu `200 {"status":"online"}`.
+- OTAs publicadas no runtime `1.0.0`: Consumidor `preview-consumidor`, grupo `71a63075-429b-4fea-8d89-68845db4e5cb`; Gerador `preview-gerador`, grupo `f7244f4c-5f27-497a-8efc-f3fa4cb8200f`. O script `scripts/publish-ota.ps1` usa `CI=1`; a opção obsoleta `--non-interactive` foi removida para compatibilidade com o EAS atual.
 
 ## Convites web e notificações Android — 31/08/2026
 
