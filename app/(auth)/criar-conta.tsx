@@ -22,6 +22,8 @@ export default function CriarConta() {
   const [cpf, setCpf] = useState("");
   const [senha, setSenha] = useState("");
   const [confirmacao, setConfirmacao] = useState("");
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [mostrarConfirmacao, setMostrarConfirmacao] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
   const [solicitado, setSolicitado] = useState(false);
@@ -175,9 +177,9 @@ export default function CriarConta() {
                 <TextInput autoCapitalize="none" autoComplete="email" editable={false} keyboardType="email-address" onChangeText={(valor) => { setEmail(valor); setErro(""); }} onSubmitEditing={solicitarAcesso} placeholder="seu@email.com" placeholderTextColor="#92979F" returnKeyType="send" style={styles.input} value={email} />
               </View>
               <Text style={styles.label}>Senha</Text>
-              <View style={styles.inputBox}><Ionicons name="lock-closed-outline" size={20} color={Colors.subtitle} /><TextInput onChangeText={(valor) => { setSenha(valor); setErro(""); }} placeholder="Mínimo de 6 caracteres" placeholderTextColor="#92979F" secureTextEntry style={styles.input} value={senha} /></View>
+              <View style={styles.inputBox}><Ionicons name="lock-closed-outline" size={20} color={Colors.subtitle} /><TextInput autoComplete="new-password" onChangeText={(valor) => { setSenha(valor); setErro(""); }} placeholder="Mínimo de 6 caracteres" placeholderTextColor="#92979F" secureTextEntry={!mostrarSenha} style={styles.input} value={senha} /><TouchableOpacity accessibilityLabel={mostrarSenha ? "Ocultar senha" : "Mostrar senha"} hitSlop={10} onPress={() => setMostrarSenha((valor) => !valor)} style={styles.passwordToggle}><Ionicons name={mostrarSenha ? "eye-off-outline" : "eye-outline"} size={21} color={Colors.subtitle} /></TouchableOpacity></View>
               <Text style={styles.label}>Confirmar senha</Text>
-              <View style={styles.inputBox}><Ionicons name="lock-closed-outline" size={20} color={Colors.subtitle} /><TextInput onChangeText={(valor) => { setConfirmacao(valor); setErro(""); }} onSubmitEditing={solicitarAcesso} placeholder="Digite a senha novamente" placeholderTextColor="#92979F" secureTextEntry style={styles.input} value={confirmacao} /></View>
+              <View style={styles.inputBox}><Ionicons name="lock-closed-outline" size={20} color={Colors.subtitle} /><TextInput autoComplete="new-password" onChangeText={(valor) => { setConfirmacao(valor); setErro(""); }} onSubmitEditing={solicitarAcesso} placeholder="Digite a senha novamente" placeholderTextColor="#92979F" secureTextEntry={!mostrarConfirmacao} style={styles.input} value={confirmacao} /><TouchableOpacity accessibilityLabel={mostrarConfirmacao ? "Ocultar confirmação de senha" : "Mostrar confirmação de senha"} hitSlop={10} onPress={() => setMostrarConfirmacao((valor) => !valor)} style={styles.passwordToggle}><Ionicons name={mostrarConfirmacao ? "eye-off-outline" : "eye-outline"} size={21} color={Colors.subtitle} /></TouchableOpacity></View>
               {erro ? <Text style={styles.error}>{erro}</Text> : null}
               <TouchableOpacity disabled={salvando} onPress={solicitarAcesso} style={[styles.primaryButton, salvando && { opacity: 0.7 }]}>{salvando ? <ActivityIndicator color={Colors.surface} /> : <Text style={styles.primaryText}>Criar minha conta</Text>}</TouchableOpacity>
             </>
@@ -204,6 +206,7 @@ const styles = StyleSheet.create({
   label: { marginTop: Spacing.sm, marginBottom: 7, color: Colors.text, fontSize: Typography.small, fontWeight: "800" },
   inputBox: { minHeight: 54, flexDirection: "row", alignItems: "center", paddingHorizontal: Spacing.md, borderWidth: 1, borderColor: "#C7CACD", borderRadius: Radius.md, backgroundColor: Colors.surface },
   input: { flex: 1, height: 52, marginLeft: Spacing.xs, color: Colors.text, fontSize: Typography.body },
+  passwordToggle: { width: 38, height: 44, alignItems: "center", justifyContent: "center" },
   inputWithoutIcon: { flex: 1, height: 52, color: Colors.text, fontSize: Typography.body },
   fieldHint: { marginTop: 6, color: Colors.subtitle, fontSize: 11, lineHeight: 16 },
   invoicePicker: { minHeight: 70, flexDirection: "row", alignItems: "center", paddingHorizontal: Spacing.md, borderWidth: 1, borderColor: "#C7CACD", borderRadius: Radius.md, backgroundColor: Colors.surface },

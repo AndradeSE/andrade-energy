@@ -328,7 +328,7 @@ export async function cadastrarConsumidorComFatura(
     if (clienteId) {
       const { data, error } = await supabase
         .from("clientes")
-        .select("id,cpf,status")
+        .select("id,cpf,status,endereco")
         .eq("id", clienteId)
         .eq("empresa_id", empresaId)
         .maybeSingle();
@@ -338,7 +338,7 @@ export async function cadastrarConsumidorComFatura(
     } else {
       const { data, error } = await supabase
         .from("clientes")
-        .select("id,cpf,status")
+        .select("id,cpf,status,endereco")
         .eq("empresa_id", empresaId)
         .eq("cpf", cpf)
         .limit(1)
@@ -371,9 +371,13 @@ export async function cadastrarConsumidorComFatura(
           email: emailNormalizado(convite.email),
           telefone: convite.telefone || null,
           whatsapp: convite.telefone || null,
-          endereco: convite.endereco || null,
+          // O endereço é conferido na conta de energia enviada pelo próprio
+          // consumidor; ele não é mais solicitado no convite.
+          endereco: dadosFatura.endereco || null,
           usina_id: convite.usina_id ?? null,
-          status: "AGUARDANDO_VERIFICACAO_EMAIL",
+          // O andamento do onboarding fica em solicitacoes_cadastro_clientes.
+          // clientes aceita apenas os estados comerciais ATIVO/INATIVO.
+          status: "ATIVO",
           empresa_id: empresaId,
         })
         .select("id")
@@ -421,8 +425,9 @@ export async function cadastrarConsumidorComFatura(
     if (conviteError) throw conviteError;
     if (!conviteAtualizado) throw new Error("Este convite já foi utilizado.");
 
-    // Os dados do cliente vêm do convite, não da conta de luz. A fatura é
-    // exclusivamente a comprovação da UC e fica anexada à solicitação.
+    // Nome, CPF, e-mail e telefone vêm do convite. A conta de luz é a fonte
+    // do endereço e da comprovação da UC, mantendo o cadastro sem digitação
+    // redundante para o consumidor.
     if (!clienteCriadoId) {
       const { error: atualizacaoClienteError } = await supabase
         .from("clientes")
@@ -432,8 +437,8 @@ export async function cadastrarConsumidorComFatura(
           email: emailNormalizado(convite.email),
           telefone: convite.telefone || null,
           whatsapp: convite.telefone || null,
-          endereco: convite.endereco || null,
-          status: "AGUARDANDO_VERIFICACAO_EMAIL",
+          endereco: dadosFatura.endereco || clienteExistente?.endereco || null,
+          status: "ATIVO",
         })
         .eq("id", clienteId)
         .eq("empresa_id", empresaId);

@@ -1,6 +1,6 @@
 import api from "../config/api";
 
-export async function criarConvite(payload: { nome: string; cpf: string; email: string; whatsapp: string; endereco: string }) {
+export async function criarConvite(payload: { nome: string; cpf: string; email: string; whatsapp?: string }) {
   const { data } = await api.post("/convites", payload);
   return data;
 }
