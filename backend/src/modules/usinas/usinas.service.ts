@@ -376,7 +376,27 @@ export async function criarUsinaService(
   dados: any,
   empresaId?: string,
 ) {
-  return await criarUsina(dados, empresaId);
+  const {
+    cpf_titular: cpfTitularSnake,
+    cpfTitular: cpfTitularCamel,
+    ...dadosUsina
+  } = dados ?? {};
+  const usina = await criarUsina(dadosUsina, empresaId);
+  const numero = String(usina?.numero_instalacao ?? "").replace(/\D/g, "");
+  if (!numero) return usina;
+
+  const { error } = await supabase.from("unidades_consumidoras").upsert({
+    empresa_id: empresaId, usina_id: usina.id, numero, tipo: "GERADORA",
+    titular: usina.titular_nome ?? usina.nome ?? "Usina",
+    cpf_titular: String(cpfTitularSnake ?? cpfTitularCamel ?? "").replace(/\D/g, "") || null,
+    distribuidora: usina.distribuidora ?? "CEMIG", endereco: usina.endereco ?? null,
+    modalidade_faturamento: "INJECAO", status: "ATIVA",
+  }, { onConflict: "numero" });
+  if (error) {
+    await supabase.from("usinas").delete().eq("id", usina.id);
+    throw error;
+  }
+  return usina;
 }
 
 export async function atualizarUsinaService(

@@ -7,6 +7,7 @@ import ChoiceField from "../../components/cadastro/ChoiceField";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
+import { criarUsina as criarUsinaRemota } from "../../services/usinas.service";
 import { supabase } from "../../supabase";
 import { Colors, Spacing, Typography } from "../../theme";
 
@@ -72,26 +73,18 @@ export default function NovaUsina() {
     }
     if (!tipoGd) return Alert.alert("Modalidade GD necessária", "A fatura não identificou GD I ou GD II. Escolha a modalidade manualmente para continuar.");
     setSalvando(true);
-    const { data: usina, error } = await supabase.from("usinas").insert({
-      nome: nome.trim(), numero_instalacao: numeroInstalacao, potencia_kwp: Number(potencia.replace(",", ".")),
-      geracao_media: Number(geracaoMedia.replace(",", ".")) || 0,
-      titular_nome: titular.trim() || null, endereco: endereco.trim() || null,
-      distribuidora: "CEMIG", modalidade: "INJECAO", tipo_gd: tipoGd, status: "ATIVA",
-    }).select("id, nome, numero_instalacao, distribuidora, endereco, status").single();
-
-    if (!error && usina) {
-      const { error: unidadeError } = await supabase.from("unidades_consumidoras").upsert({
-        usina_id: usina.id, numero: numeroInstalacao, tipo: "GERADORA", titular: titular.trim() || nome.trim(),
-        cpf_titular: cpfTitular.replace(/\D/g, "") || null,
-        distribuidora: "CEMIG", endereco: endereco.trim() || null, modalidade_faturamento: "INJECAO", status: "ATIVA",
-      }, { onConflict: "numero" });
-      if (unidadeError) {
-        Alert.alert("Usina salva", "A usina foi criada, mas a unidade geradora precisa ser vinculada novamente.");
-        await abrirNaLista(usina);
-      } else {
-        await abrirNaLista(usina);
-      }
-    } else if (error?.code === "23505" && error.message.includes("usinas_numero_instalacao_key")) {
+    try {
+      const usina = await criarUsinaRemota({
+        nome: nome.trim(), numero_instalacao: numeroInstalacao, potencia_kwp: Number(potencia.replace(",", ".")),
+        geracao_media: Number(geracaoMedia.replace(",", ".")) || 0,
+        titular_nome: titular.trim() || null, cpf_titular: cpfTitular.replace(/\D/g, "") || null,
+        endereco: endereco.trim() || null, distribuidora: "CEMIG", modalidade: "INJECAO",
+        tipo_gd: tipoGd, status: "ATIVA",
+      });
+      await abrirNaLista(usina);
+    } catch (erro: any) {
+      const mensagem = String(erro?.response?.data?.message ?? erro?.message ?? "");
+      if (/23505|usinas_numero_instalacao_key|duplicate key/i.test(mensagem)) {
       const { data: existente, error: buscaError } = await supabase
         .from("usinas")
         .select("id, nome, numero_instalacao, distribuidora, endereco, status")
@@ -104,7 +97,8 @@ export default function NovaUsina() {
         Alert.alert("Usina já cadastrada", "A instalação já existe e foi localizada na sua lista.");
         await abrirNaLista(existente);
       }
-    } else Alert.alert("Não foi possível salvar", error?.message ?? "Tente novamente.");
+      } else Alert.alert("Não foi possível salvar", mensagem || "Tente novamente.");
+    }
     setSalvando(false);
   }
 
