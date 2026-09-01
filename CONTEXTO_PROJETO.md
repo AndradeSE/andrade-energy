@@ -330,3 +330,9 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - APK Gerador oficial: SHA-256 `A2CA2112579E0BB32AF9A9081ACEC6C66CAFCE36E77BC1575AF93E67BB01ED45`.
 - APK Consumidor oficial: SHA-256 `DA2379C670B01E52150587B6FB0F59FE3D82CAE33D040B8544C91F5DF0778608`.
 - Os dois APKs foram reconstruídos nativamente e publicados no release estável `apps-2026-08-27`.
+
+# Projeção de desconto e origem do PDF da UC (01/09/2026)
+
+- O botão **Adicionar UC via PDF** no perfil do cliente passou a oferecer duas origens no mesmo fluxo: uma conta já vinculada ao CPF/perfil ou um novo PDF armazenado no aparelho.
+- A projeção do desconto real foi alinhada ao motor de faturamento: usa energia compensada/injetada conforme a modalidade, substitui a energia convencional pela tarifa Andrade em contas ainda sem GD e preserva a parcela remanescente da concessionária em contas com GD.
+- As escolhas de absorção ou repasse da disponibilidade e do Fio B agora recalculam a projeção sobre a mesma base de energia cheia usada no faturamento.
