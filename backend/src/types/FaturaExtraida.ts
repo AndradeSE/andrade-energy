@@ -36,6 +36,15 @@ export interface FaturaExtraida {
   leituraAtual?: number;
 
   fatorMultiplicacao?: number;
+  medicoes?: Array<{
+    tipo: "CONSUMO" | "INJECAO";
+    medidor: string;
+    leituraAnterior: number;
+    leituraAtual: number;
+    fatorMultiplicacao: number;
+    energiaKwh: number;
+  }>;
+  producaoMensal?: number;
 
   /** Tensão nominal/fornecida apresentada no cadastro da unidade. */
   tensao?: string;

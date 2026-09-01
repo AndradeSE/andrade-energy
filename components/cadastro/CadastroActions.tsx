@@ -62,9 +62,12 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
       const leituraAtual = Number(dados.leituraAtual ?? dados.leitura_atual ?? 0);
       const leituraAnterior = Number(dados.leituraAnterior ?? dados.leitura_anterior ?? 0);
       const fatorMultiplicacao = Number(dados.fatorMultiplicacao ?? dados.fator_multiplicacao ?? 1);
-      const geracaoDoPeriodo = leituraAtual >= leituraAnterior && fatorMultiplicacao > 0
-        ? (leituraAtual - leituraAnterior) * fatorMultiplicacao
-        : 0;
+      const producaoMensalLida = Number(dados.producaoMensal ?? dados.producao_mensal);
+      const geracaoDoPeriodo = Number.isFinite(producaoMensalLida) && Array.isArray(dados.medicoes)
+        ? Math.max(0, producaoMensalLida)
+        : leituraAtual >= leituraAnterior && fatorMultiplicacao > 0
+          ? (leituraAtual - leituraAnterior) * fatorMultiplicacao
+          : 0;
 
       if (tipo === "USINA" && analise.classificacao !== "POSSIVEL_GERADORA") {
         Alert.alert(

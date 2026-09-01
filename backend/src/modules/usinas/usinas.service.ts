@@ -33,17 +33,16 @@ export async function registrarProducaoDaFaturaGeradora(usinaId: string, dados: 
   if (!numeroUsina) throw new Error("Cadastre o número da instalação da usina antes de importar a produção.");
   if (numeroUsina && numeroFatura !== numeroUsina) throw new Error("A instalação da fatura não pertence a esta usina.");
 
+  const medicoes = Array.isArray(dados.medicoes) ? dados.medicoes : [];
+  const medicoesDeInjecao = medicoes.filter((item) => item.tipo === "INJECAO");
   const leituraAtual = Number(dados.leituraAtual);
   const leituraAnterior = Number(dados.leituraAnterior);
   const fatorMultiplicacao = Number(dados.fatorMultiplicacao ?? 1);
-  if (!Number.isFinite(leituraAtual) || !Number.isFinite(leituraAnterior)) {
-    throw new Error("Não foi possível identificar as leituras atual e anterior na conta de energia.");
-  }
-  if (!Number.isFinite(fatorMultiplicacao) || fatorMultiplicacao <= 0) {
-    throw new Error("O fator de multiplicação informado na conta é inválido.");
-  }
-  if (leituraAtual < leituraAnterior) throw new Error("A leitura atual é menor que a leitura anterior.");
-  const energiaGerada = (leituraAtual - leituraAnterior) * fatorMultiplicacao;
+  const energiaGerada = medicoesDeInjecao.length
+    ? medicoesDeInjecao.reduce((total, item) => total + Math.max(0, Number(item.energiaKwh ?? 0)), 0)
+    : Number.isFinite(leituraAtual) && Number.isFinite(leituraAnterior) && fatorMultiplicacao > 0 && leituraAtual >= leituraAnterior
+      ? (leituraAtual - leituraAnterior) * fatorMultiplicacao
+      : 0;
   if (energiaGerada <= 0) throw new Error("A diferença entre as medições não apresenta produção no período.");
 
   const competencia = competenciaData(String(dados.referencia ?? ""));
@@ -69,7 +68,7 @@ export async function registrarProducaoDaFaturaGeradora(usinaId: string, dados: 
   return {
     sucesso: true,
     origem: "CONTA_ENERGIA",
-    dados: { ...dados, leituraAtual, leituraAnterior, fatorMultiplicacao, energiaGerada },
+    dados: { ...dados, leituraAtual, leituraAnterior, fatorMultiplicacao, medicoes, energiaGerada },
     fechamento: fechamentoAtualizado ?? fechamento,
   };
 }
