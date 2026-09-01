@@ -165,7 +165,9 @@ export default function EditarAlocacaoUnidade() {
         setRepasseDisponibilidadeGD2((uc?.repassar_disponibilidade_gd2 ?? Number(uc?.percentual_repasse_disponibilidade ?? 100) > 0) ? "REPASSAR" : "ABSORVER");
         setRepasseFioBGD2((uc?.repassar_diferenca_fio_b_gd2 ?? true) ? "REPASSAR" : "ABSORVER");
         const anexoDaUc = anexos.find((item) => String(item?.dadosFatura?.uc ?? item?.dadosFatura?.numero_instalacao ?? "").replace(/\D/g, "") === numeroDaUc);
-        const faturaBase = parseDadosFatura(dadosFaturaParam) ?? faturas[0] ?? anexoDaUc?.dadosFatura ?? null;
+        // A conta original preserva SCEE, tarifa GD II e disponibilidade.
+        // Esses dados são indispensáveis para a projeção responder ao Fio B.
+        const faturaBase = parseDadosFatura(dadosFaturaParam) ?? anexoDaUc?.dadosFatura ?? faturas[0] ?? null;
         setDadosFatura(faturaBase);
         setConsumoMedio(mediaFinal > 0 ? String(Math.round(mediaFinal)) : "");
         setPercentual(

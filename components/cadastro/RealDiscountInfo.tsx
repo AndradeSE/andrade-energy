@@ -229,8 +229,15 @@ function calcularPrevia({ dados, desconto, consumoProjetado, modalidadeFaturamen
   const custoDisponibilidadeGD1 = n(dados, "custo_disponibilidade_gd1", "custoDisponibilidadeGD1") ||
     franquiaDisponibilidade * tarifaDisponibilidadeSemImpostos;
   const custoDisponibilidadeGD2 = n(dados, "custo_disponibilidade_gd2", "custoDisponibilidadeGD2") ||
-    n(dados, "custo_disponibilidade", "custoDisponibilidade", "custo_disponibilidade_repassado", "custoDisponibilidadeRepassado");
-  const diferencaSalva = n(dados, "diferenca_fio_b", "diferencaFioB");
+    n(dados, "custo_disponibilidade", "custoDisponibilidade") ||
+    n(dados, "valor_absorvido_disponibilidade", "valorAbsorvidoDisponibilidade") +
+      n(dados, "custo_disponibilidade_repassado", "custoDisponibilidadeRepassado");
+  // Faturas anteriores podem ter sido geradas quando apenas as parcelas
+  // absorvida/repassada eram persistidas. Somá-las mantém o Fio B total
+  // disponível para a simulação ao alternar a opção desta UC.
+  const diferencaSalva = n(dados, "diferenca_fio_b", "diferencaFioB") ||
+    n(dados, "valor_absorvido_fio_b", "valorAbsorvidoFioB") +
+      n(dados, "diferenca_fio_b_repassada", "diferencaFioBRepassada");
   const tarifaScee = n(dados, "tarifa_scee", "tarifaScee");
   const tarifaGd2 = n(dados, "tarifa_gd", "tarifaGD2", "tarifaGD");
   const simulaGD2 = tipoGd === "GD2" || tipoGd === "MISTA";
@@ -300,10 +307,18 @@ function calcularPrevia({ dados, desconto, consumoProjetado, modalidadeFaturamen
       (usaGD2 && fioBGd2 === "REPASSAR" ? diferencaFioB : 0);
   const valorCemigRepassado = Math.max(0, cemigSemEnergiaCompensada);
   const economia = Math.max(0, referencia - (valorCemigRepassado + valorAndrade));
+  // Esta é a mesma base do faturamento final: na GD II o desconto real é
+  // comparado com a energia cheia do consumo; na GD I, com o crédito efetivo.
+  // Dividir pelo total da fatura misturava encargos obrigatórios à energia e
+  // derrubava artificialmente a projeção para valores como 13,7%/36,54%.
+  const baseDescontoReal = usaGD2
+    ? valorEnergiaConsumida
+    : creditoEfetivo;
+  if (baseDescontoReal <= 0) return null;
   return {
     economia,
-    baseDesconto: referencia,
-    descontoReal: economia / referencia * 100,
+    baseDesconto: baseDescontoReal,
+    descontoReal: economia / baseDescontoReal * 100,
     custoDisponibilidade,
     diferencaFioB,
     valorAbsorvidoDisponibilidade,
