@@ -19,6 +19,32 @@ function competenciaData(referencia: string) {
   return `${ano}-${meses[mes]}-01`;
 }
 
+function calcularAlocacaoProjetada(unidades: any[], energiaGerada: number) {
+  const gerada = Math.max(0, Number(energiaGerada ?? 0));
+  const solicitada = (unidades ?? []).reduce((total, unidade) => {
+    const percentual = Math.max(0, Math.min(100, Number(unidade.percentual_rateio ?? 0)));
+    return total + gerada * percentual / 100;
+  }, 0);
+  const energiaAlocada = Math.min(gerada, solicitada);
+  return {
+    energia_alocada: energiaAlocada,
+    energia_disponivel: Math.max(0, gerada - energiaAlocada),
+    ocupacao: gerada > 0 ? energiaAlocada / gerada * 100 : 0,
+  };
+}
+
+async function obterAlocacaoProjetadaDaUsina(usinaId: string, energiaGerada: number, empresaId?: string) {
+  let query = supabase.from("unidades_consumidoras")
+    .select("percentual_rateio")
+    .eq("usina_id", usinaId)
+    .eq("status", "ATIVA")
+    .neq("tipo", "GERADORA");
+  if (empresaId) query = query.eq("empresa_id", empresaId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return calcularAlocacaoProjetada(data ?? [], energiaGerada);
+}
+
 /**
  * Registra a produção de uma usina a partir dos dados já lidos da conta de
  * energia. Esta função é compartilhada pela importação manual e pelo
@@ -88,12 +114,21 @@ export async function listarUsinasService(empresaId?: string) {
     const [dashboard, producaoMedia12Meses, unidades] = await Promise.all([
       buscarDashboardUsina(usina.id, empresaId),
       calcularProducaoMedia12Meses(usina.id),
-      supabase.from("unidades_consumidoras").select("id", { count: "exact", head: true }).eq("usina_id", usina.id),
+      supabase.from("unidades_consumidoras").select("id,percentual_rateio", { count: "exact" }).eq("usina_id", usina.id).eq("status", "ATIVA").neq("tipo", "GERADORA"),
     ]);
     if (unidades.error) throw unidades.error;
+    const energiaDaCompetencia = Number(dashboard.ultimo?.energia_gerada ?? 0);
+    const energiaProjetada = energiaDaCompetencia > 0
+      ? energiaDaCompetencia
+      : Math.max(0, Number(producaoMedia12Meses || usina.geracao_media || 0));
+    const alocacaoProjetada = calcularAlocacaoProjetada(unidades.data ?? [], energiaProjetada);
     return {
       ...usina,
-      fechamento_atual: dashboard.ultimo,
+      fechamento_atual: dashboard.ultimo ?? {
+        energia_gerada: energiaProjetada,
+        ...alocacaoProjetada,
+        status: "ABERTO",
+      },
       producao_media_12_meses: producaoMedia12Meses > 0 ? producaoMedia12Meses : Number(usina.geracao_media ?? 0),
       unidades_alocadas: unidades.count ?? 0,
     };
@@ -168,15 +203,9 @@ export async function recalcularAlocacaoUsina(usinaId: string, empresaId?: strin
 
   for (const fechamento of alvos) {
     const gerada = Number(fechamento.energia_gerada ?? 0);
-    const alocadaSolicitada = (unidades ?? []).reduce((total, unidade) => {
-      const percentual = Math.max(0, Math.min(100, Number(unidade.percentual_rateio ?? 0)));
-      return total + gerada * percentual / 100;
-    }, 0);
-    const alocada = Math.min(gerada, alocadaSolicitada);
+    const alocacao = calcularAlocacaoProjetada(unidades ?? [], gerada);
     const { error } = await supabase.from("fechamentos").update({
-      energia_alocada: alocada,
-      energia_disponivel: Math.max(0, gerada - alocada),
-      ocupacao: gerada > 0 ? alocada / gerada * 100 : 0,
+      ...alocacao,
     }).eq("id", fechamento.id);
     if (error) throw error;
   }
@@ -449,15 +478,17 @@ export async function obterDashboardUsina(
   const fechamento = dashboard.ultimo;
 
   if (!fechamento) {
+    const energiaProjetada = await calcularProducaoMedia12Meses(id);
+    const alocacaoProjetada = await obterAlocacaoProjetadaDaUsina(id, energiaProjetada, empresaId);
     const agora = new Date();
     return {
       usina,
       unidadeGeradora,
       clientes: clientes.count ?? 0,
-      energiaGerada: 0,
-      energiaTotal: 0,
-      energiaDisponivel: 0,
-      ocupacao: 0,
+      energiaGerada: energiaProjetada,
+      energiaTotal: energiaProjetada,
+      energiaDisponivel: alocacaoProjetada.energia_disponivel,
+      ocupacao: alocacaoProjetada.ocupacao,
       receitaPrevista: 0,
       receitaRealizada: 0,
       competencia: `${String(agora.getMonth() + 1).padStart(2, "0")}/${agora.getFullYear()}`,
