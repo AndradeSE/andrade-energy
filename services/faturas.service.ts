@@ -41,15 +41,16 @@ function consumoMensalValido(item: any) {
  * sugestão para que o gestor possa confirmar ou editar antes de alocar.
  */
 export function calcularMediaConsumoFatura(dados: any) {
-  const historico = Array.isArray(dados?.historico)
-    ? dados.historico.slice(0, 12)
+  const historicoBruto = dados?.historico ?? dados?.historicoConsumo ?? dados?.historico_consumo;
+  const historico = Array.isArray(historicoBruto)
+    ? historicoBruto.slice(0, 12)
     : [];
   const consumos = historico
     .map(consumoMensalValido)
     .filter((valor: number) => valor > 0);
   const media = consumos.length
     ? consumos.reduce((total: number, valor: number) => total + valor, 0) / consumos.length
-    : Number(dados?.consumo ?? 0);
+    : Number(dados?.consumo ?? dados?.consumo_kwh ?? dados?.consumoFaturado ?? 0);
 
   return Number.isFinite(media) && media > 0
     ? Math.round(media)

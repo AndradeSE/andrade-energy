@@ -1,5 +1,6 @@
 import axios from "axios";
 import { obterSessao } from "../storage/session";
+import { avisarSessaoSubstituida } from "../services/session-events";
 
 const apiBaseURL =
   process.env.EXPO_PUBLIC_API_URL ??
@@ -18,6 +19,10 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    const mensagem = String(error?.response?.data?.message ?? "");
+    if (error?.response?.status === 401 && /sessão inválida|sessao invalida|expirada|desativada/i.test(mensagem)) {
+      avisarSessaoSubstituida();
+    }
     return Promise.reject(error);
   }
 );

@@ -102,6 +102,22 @@ export async function listarFaturasAnexadasCliente(clienteId: string, empresaId 
   return data ?? [];
 }
 
+export async function atualizarDadosFaturaAnexada(
+  id: string,
+  empresaId: string,
+  dadosFatura: Record<string, unknown>,
+) {
+  const { data, error } = await supabase
+    .from("faturas_anexadas_clientes")
+    .update({ dados_fatura: dadosFatura })
+    .eq("id", id)
+    .eq("empresa_id", empresaId)
+    .select("id,dados_fatura")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function listarUnidadesCliente(clienteId: string, empresaId = EMPRESA_ANDRADE_ID) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")

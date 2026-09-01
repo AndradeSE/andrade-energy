@@ -1,5 +1,6 @@
 import {
   atualizarCliente,
+  atualizarDadosFaturaAnexada,
   buscarCliente,
   buscarSolicitacaoCadastroCliente,
   buscarClientePorUC,
@@ -17,7 +18,7 @@ import {
 } from "./clientes.repository";
 import { supabase } from "../../config/supabase";
 import { recalcularAlocacaoUsina, sincronizarParticipacaoClienteUsina } from "../usinas/usinas.service";
-import { extrairTextoPDF } from "../../services/ocr/ocr.service";
+import { extrairTextoDoBuffer, extrairTextoPDF } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
 import { gerarToken } from "../../utils/token";
 import { readFile, unlink } from "node:fs/promises";
@@ -120,15 +121,46 @@ function dadosDaFaturaAnexada(dados: Record<string, any>) {
   };
 }
 
+function faturaPossuiDadosDeConsumo(dados: Record<string, any>) {
+  return Number(dados?.consumo ?? dados?.consumo_kwh ?? 0) > 0 ||
+    (Array.isArray(dados?.historico) && dados.historico.some((item: any) => Number(item?.consumo ?? 0) > 0));
+}
+
+async function completarDadosDaFaturaAnexada(anexo: any, cpf?: string | null) {
+  const atuais = (anexo?.dados_fatura ?? {}) as Record<string, any>;
+  if (faturaPossuiDadosDeConsumo(atuais) || !anexo?.caminho_pdf) return atuais;
+
+  try {
+    const { data, error } = await supabase.storage.from("faturas").download(String(anexo.caminho_pdf));
+    if (error) throw error;
+    const buffer = Buffer.from(await data.arrayBuffer());
+    const texto = await extrairTextoDoBuffer(buffer, cpfLimpo(cpf).slice(0, 4) || undefined);
+    const completos = dadosDaFaturaAnexada(interpretarFatura(texto) as Record<string, any>);
+    if (!faturaPossuiDadosDeConsumo(completos)) return atuais;
+    await atualizarDadosFaturaAnexada(String(anexo.id), String(anexo.empresa_id), completos);
+    return completos;
+  } catch (erro: any) {
+    console.warn("[clientes:fatura-anexada] não foi possível completar dados antigos", {
+      anexoId: anexo?.id,
+      mensagem: String(erro?.message ?? erro),
+    });
+    return atuais;
+  }
+}
+
 export async function listarFaturasAnexadasDoCliente(clienteId: string, usuario: any, empresaId: string) {
   if (usuario?.perfil === "LEITURA" && String(usuario?.cliente_id ?? "") !== String(clienteId)) {
     throw new Error("Você não possui acesso às faturas deste cliente.");
   }
-  const anexos = await listarFaturasAnexadasClienteNoBanco(clienteId, empresaId);
+  const [anexos, cliente] = await Promise.all([
+    listarFaturasAnexadasClienteNoBanco(clienteId, empresaId),
+    buscarCliente(clienteId, empresaId),
+  ]);
   return Promise.all(anexos.map(async (anexo: any) => {
+    const dadosFatura = await completarDadosDaFaturaAnexada(anexo, cliente?.cpf);
     const { data, error } = await supabase.storage.from("faturas").createSignedUrl(String(anexo.caminho_pdf), 5 * 60);
     if (error) throw error;
-    return { id: anexo.id, nome: anexo.arquivo_nome, dadosFatura: anexo.dados_fatura ?? {}, criadoEm: anexo.criado_em, url: data.signedUrl };
+    return { id: anexo.id, nome: anexo.arquivo_nome, dadosFatura, criadoEm: anexo.criado_em, url: data.signedUrl };
   }));
 }
 

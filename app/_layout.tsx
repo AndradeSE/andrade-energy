@@ -1,6 +1,6 @@
 import { router, Stack } from "expo-router";
-import { ImageBackground, StyleSheet, View } from "react-native";
-import { useRef } from "react";
+import { Alert, ImageBackground, StyleSheet, View } from "react-native";
+import { useEffect, useRef } from "react";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
@@ -17,6 +17,7 @@ import {
 import { Colors } from "../theme";
 import BiometricLock from "./biometric-lock";
 import { EmpresaProvider } from "../contexts/EmpresaContext";
+import { aoSubstituirSessao } from "../services/session-events";
 
 /*
  * React Query
@@ -40,7 +41,36 @@ function RootNavigator() {
     isLoading,
     digitalEnabled,
     isUnlocked,
+    signOut,
   } = useAuth();
+  const alertaSessaoAberto = useRef(false);
+
+  useEffect(() => aoSubstituirSessao(() => {
+    if (alertaSessaoAberto.current) return;
+    alertaSessaoAberto.current = true;
+    Alert.alert(
+      "Conta aberta em outro aparelho",
+      "Esta sessão foi substituída por um acesso mais recente. Deseja entrar novamente aqui e desconectar o outro aparelho?",
+      [
+        {
+          text: "Voltar ao login",
+          style: "cancel",
+          onPress: () => {
+            alertaSessaoAberto.current = false;
+            void signOut().then(() => router.replace("/(auth)/login" as any));
+          },
+        },
+        {
+          text: "Entrar neste aparelho",
+          onPress: () => {
+            alertaSessaoAberto.current = false;
+            void signOut().then(() => router.replace("/(auth)/login" as any));
+          },
+        },
+      ],
+      { cancelable: false },
+    );
+  }), [signOut]);
 
   /*
    * Enquanto recuperamos a sessão,

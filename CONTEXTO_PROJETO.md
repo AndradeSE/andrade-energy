@@ -351,3 +351,10 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - OTA Gerador: grupo `08b46f56-dce6-41f3-b1dd-aaac79bd7dc0`.
 - OTA Consumidor: grupo `d272ac17-5fac-4e47-a167-f145c2e90c86`.
 - Portal Sites publicado como versão 55 no projeto oficial vinculado a `www.andradeenergy.com.br`.
+
+# Reprocessamento de anexos e troca de aparelho (01/09/2026)
+
+- Faturas anexadas antigas que continham somente os dados cadastrais passam a ser reabertas automaticamente pelo backend. O PDF original é desbloqueado com os quatro primeiros dígitos do CPF, reanalisado e atualizado com consumo, histórico de 12 meses, tarifa, total e dados GD.
+- A média de consumo também aceita os nomes de campos legados `historicoConsumo`, `historico_consumo`, `consumo_kwh` e `consumoFaturado`.
+- Validação real do anexo existente recuperou consumo de 68 kWh, 12 competências do histórico, tarifa cheia e valor total, liberando a projeção dinâmica do desconto.
+- Quando uma conta é acessada em outro aparelho e a sessão atual é substituída, o app mostra as opções **Entrar neste aparelho** ou **Voltar ao login**, em vez de repetir silenciosamente o erro de sessão expirada.
