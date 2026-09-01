@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
   filterLabel: { color: Colors.subtitle, fontSize: Typography.small, fontWeight: "700" },
   filterLabelActive: { color: Colors.text, fontWeight: "900" },
   empty: { paddingTop: Spacing.xl },
-  invoiceCard: { marginBottom: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg, backgroundColor: "#DEE0E3", shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  invoiceCard: { marginBottom: Spacing.md, padding: Spacing.md, borderWidth: 1, borderColor: "#C9DED1", borderRadius: Radius.lg, backgroundColor: "#F2F8F4", shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   invoiceTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   value: { color: Colors.text, fontSize: Typography.body, fontWeight: "900" },
   reference: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small },

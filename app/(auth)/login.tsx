@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   brandLogo: { width: "100%", height: 154, resizeMode: "contain" },
   appName: { marginTop: Spacing.md, color: Colors.surface, fontSize: Typography.body, fontWeight: "900" },
   brandSubtitle: { marginTop: 4, color: "rgba(255,255,255,0.78)", fontSize: Typography.small, textAlign: "center" },
-  formCard: { padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: "#DEE0E3", shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+  formCard: { padding: Spacing.lg, borderWidth: 1, borderColor: "#C9DED1", borderRadius: Radius.xl, backgroundColor: "#F2F8F4", shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
   eyebrow: { color: Colors.primary, fontSize: 10, fontWeight: "900", letterSpacing: 1.1 },
   title: { marginTop: 4, color: Colors.text, fontSize: Typography.section, fontWeight: "900" },
   subtitle: { marginTop: Spacing.xs, marginBottom: Spacing.lg, color: Colors.subtitle, fontSize: Typography.caption, lineHeight: 20 },

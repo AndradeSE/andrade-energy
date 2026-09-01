@@ -37,6 +37,13 @@ module.exports = {
     userInterfaceStyle: "automatic",
 
     android: {
+      // Mantém o filtro de intent específico de cada APK. Sem isso, um
+      // prebuild reutilizado pode acumular os dois schemes e o Android passa
+      // a oferecer também o app Gerador ao abrir um convite de consumidor.
+      scheme: gerador
+        ? "andradeenergygerador"
+        : "andradeenergyconsumidor",
+
       package: gerador
         ? "com.andradese.energy.gerador"
         : "com.andradese.energy.consumidor",

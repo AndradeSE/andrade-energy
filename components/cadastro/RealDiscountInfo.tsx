@@ -165,11 +165,25 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   const energiaGD2 = n(dados, "energia_compensada_gd2", "energiaCompensadaGD2");
   const energiaCompensada = n(dados, "energia_compensada", "energiaCompensada") || energiaGD1 + energiaGD2;
   const energiaInjetada = n(dados, "energia_injetada", "energiaInjetada");
-  const baseKwh = String(modalidadeFaturamento ?? "COMPENSACAO").toUpperCase() === "INJECAO" ? energiaInjetada : energiaCompensada;
+  const modalidade = String(modalidadeFaturamento ?? "COMPENSACAO").toUpperCase();
+  // Enquanto a primeira conta com GD ainda não chegou, a projeção usa o
+  // consumo da própria fatura como energia que será compensada/injetada.
+  // Assim, alterar desconto ou os repasses atualiza a estimativa em vez de
+  // manter o texto estático "aproximadamente".
+  const possuiCompensacaoLida = energiaCompensada > 0 || energiaGD1 > 0 || energiaGD2 > 0;
+  const baseKwh = modalidade === "INJECAO"
+    ? (energiaInjetada || consumo)
+    : (energiaCompensada || consumo);
   if (tarifaCheia <= 0) {
     const energiaCheia = n(dados, "valor_energia_cheia", "valorEnergiaCheia");
     const baseTarifa = baseKwh || consumo;
     tarifaCheia = baseTarifa > 0 ? energiaCheia / baseTarifa : 0;
+  }
+  if (tarifaCheia <= 0 && consumo > 0 && valorCemig > 0) {
+    // Último recurso para contas convencionais cujo PDF não separa a tarifa
+    // unitária. É uma estimativa, não substitui a tarifa extraída quando ela
+    // estiver disponível na primeira fatura GD.
+    tarifaCheia = valorCemig / consumo;
   }
   if (tarifaCheia <= 0 || valorCemig <= 0 || baseKwh <= 0) return null;
 
@@ -192,11 +206,19 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   const creditoEfetivo = energiaGD1 + energiaGD2 > 0
     ? creditoGD1 + creditoGD2
     : Math.min(energiaCompensada * tarifaCheia, Math.max(0, valorEnergiaSemGd - n(dados, "valor_energia_concessionaria", "valorEnergiaConcessionaria")));
-  const referencia = n(dados, "valor_referencia_sem_andrade", "valorReferenciaSemAndrade") || valorCemig + creditoEfetivo;
-  const baseDesconto = usaGD2 ? valorEnergiaSemGd : creditoEfetivo;
+  const referencia = n(dados, "valor_referencia_sem_andrade", "valorReferenciaSemAndrade") || (possuiCompensacaoLida ? valorCemig + creditoEfetivo : valorCemig);
+  const baseDesconto = usaGD2 || !possuiCompensacaoLida
+    ? valorEnergiaSemGd
+    : creditoEfetivo;
   if (baseDesconto <= 0) return null;
   const valorAndrade = baseKwh * tarifaCheia * (1 - desconto / 100);
-  const valorCemigRepassado = Math.max(0, valorCemig - absorvido);
+  // Sem GD na conta-base, removemos a energia cheia da parcela da
+  // concessionária antes de somar a energia Andrade. Com GD já lida, a conta
+  // contém apenas a parcela remanescente e é preservada integralmente.
+  const cemigSemEnergiaCompensada = possuiCompensacaoLida
+    ? valorCemig
+    : Math.max(0, valorCemig - valorEnergiaSemGd);
+  const valorCemigRepassado = Math.max(0, cemigSemEnergiaCompensada - absorvido);
   const economia = Math.max(0, referencia - (valorCemigRepassado + valorAndrade));
   return {
     economia,

@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
   title: { color: Colors.text, fontSize: Typography.card, fontWeight: "800" },
   subtitle: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small },
   sectionTitle: { marginTop: Spacing.md, marginBottom: Spacing.sm, color: Colors.text, fontSize: Typography.small, fontWeight: "800", letterSpacing: 0.5 },
-  paymentRow: { minHeight: 64, flexDirection: "row", alignItems: "center", marginBottom: Spacing.sm, paddingHorizontal: Spacing.md, borderRadius: Radius.md, backgroundColor: "#DEE0E3" },
+  paymentRow: { minHeight: 64, flexDirection: "row", alignItems: "center", marginBottom: Spacing.sm, paddingHorizontal: Spacing.md, borderWidth: 1, borderColor: "#C9DED1", borderRadius: Radius.md, backgroundColor: "#F2F8F4" },
   paymentIcon: { width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: "#8F938D" },
   paymentContent: { flex: 1, marginHorizontal: Spacing.sm },
   paymentLabel: { color: Colors.text, fontSize: Typography.caption, fontWeight: "800" },

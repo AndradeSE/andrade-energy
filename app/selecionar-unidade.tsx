@@ -1224,7 +1224,7 @@ const styles =
       borderRadius:
         Radius.xl,
       backgroundColor:
-        "#D6D8DC",
+        "#F2F8F4",
       shadowColor:
         "#000",
       shadowOpacity:
@@ -1487,7 +1487,7 @@ const styles =
       borderRadius:
         Radius.lg,
       backgroundColor:
-        "#DEE0E3",
+        "#EAF4ED",
     },
 
     drawerItem: {

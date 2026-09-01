@@ -33,6 +33,22 @@ function identificarTipoGd(dados: Record<string, any> | null | undefined) {
   return gd1 && gd2 ? "MISTA" : gd2 ? "GD2" : gd1 ? "GD1" : "";
 }
 
+function producaoParaAlocacao(usina: any) {
+  const producaoEmDozeMeses = numeroSeguro(usina?.producao_media_12_meses);
+  return producaoEmDozeMeses > 0
+    ? producaoEmDozeMeses
+    : Math.max(0, numeroSeguro(usina?.geracao_media));
+}
+
+function percentualPelaMedia(usina: any, consumo: unknown, modalidade: Modalidade) {
+  if (modalidade === "INJECAO") return "100";
+  const producao = producaoParaAlocacao(usina);
+  const media = numeroSeguro(consumo);
+  return producao > 0 && media > 0
+    ? String(Math.min(100, media * 1.15 / producao * 100).toFixed(2)).replace(".", ",")
+    : "";
+}
+
 export default function NovaUnidade() {
   const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, cpf: cpfImportado, energiaCompensada, endereco: enderecoImportado, cadastroRapido, consumoMedio: consumoMedioImportado, tipoGd: tipoGdImportado, dadosFatura: dadosFaturaParam } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; cpf?: string; energiaCompensada?: string; endereco?: string; cadastroRapido?: string; consumoMedio?: string; tipoGd?: string; dadosFatura?: string }>();
   const [dadosFatura, setDadosFatura] = useState<Record<string, any> | null>(() => parseDadosFatura(dadosFaturaParam));
@@ -46,13 +62,13 @@ export default function NovaUnidade() {
   const [repasseDisponibilidadeGD2, setRepasseDisponibilidadeGD2] = useState<RepasseGD2>("REPASSAR");
   const [repasseFioBGD2, setRepasseFioBGD2] = useState<RepasseGD2>("REPASSAR");
   const [clientes, setClientes] = useState<any[]>([]); const [usinas, setUsinas] = useState<any[]>([]);
-  const [clienteId, setClienteId] = useState(""); const [usinaId, setUsinaId] = useState(""); const [salvando, setSalvando] = useState(false);
+  const [clienteId, setClienteId] = useState(""); const [usinaId, setUsinaId] = useState(""); const [percentualAlocado, setPercentualAlocado] = useState(""); const [salvando, setSalvando] = useState(false);
   const tipoGdEfetivo = String(tipoGdImportado || identificarTipoGd(dadosFatura) || "").toUpperCase();
 
   useEffect(() => {
     Promise.all([
       supabase.from("clientes").select("id,nome,cpf,endereco,distribuidora,usina_id,modalidade_faturamento,desconto_percentual,consumo_medio_kwh").order("nome"),
-      supabase.from("usinas").select("id,nome").order("nome"),
+      supabase.from("usinas").select("id,nome,producao_media_12_meses,geracao_media").order("nome"),
     ]).then(([c, u]) => { setClientes(c.data ?? []); setUsinas(u.data ?? []); });
     if (clienteIdVinculado) setClienteId(clienteIdVinculado);
     if (origem !== "fatura") return;
@@ -64,7 +80,11 @@ export default function NovaUnidade() {
     if (titularExtraido) setTitular(titularExtraido);
     if (enderecoImportado) setEndereco(enderecoImportado);
     if (classificacao === "POSSIVEL_GERADORA") { setTipo("GERADORA"); setModalidade("INJECAO"); }
-    else if (cadastroRapido === "1") setTipo("BENEFICIARIA");
+    // Uma conta trazida a partir do perfil de um cliente sempre precisa ser
+    // configurada como UC beneficiária antes do primeiro salvamento, mesmo
+    // quando a fatura ainda não possui linhas GD. Assim o gestor vê usina,
+    // modalidade, alocação e desconto já nesta primeira tela.
+    else if (clienteIdVinculado || cadastroRapido === "1") setTipo("BENEFICIARIA");
     else if (!Number(energiaCompensada)) setTipo("CONSUMIDORA");
   }, [cadastroRapido, classificacao, cliente, clienteIdVinculado, cpfImportado, enderecoImportado, energiaCompensada, origem, uc]);
 
@@ -72,11 +92,18 @@ export default function NovaUnidade() {
     const clienteSelecionado = clientes.find((item) => item.id === clienteId);
     if (!clienteSelecionado) return;
     setTipo("BENEFICIARIA");
+    if (!usinaId && clienteSelecionado.usina_id) setUsinaId(String(clienteSelecionado.usina_id));
     if (clienteSelecionado.cpf && !cpfTitular) setCpfTitular(formatarDocumento(clienteSelecionado.cpf));
     if (!numeroSeguro(consumoMedio) && numeroSeguro(clienteSelecionado.consumo_medio_kwh)) {
       setConsumoMedio(String(clienteSelecionado.consumo_medio_kwh));
     }
-  }, [clienteId, clientes, consumoMedio, cpfTitular]);
+  }, [clienteId, clientes, consumoMedio, cpfTitular, usinaId]);
+
+  useEffect(() => {
+    const usinaSelecionada = usinas.find((item) => item.id === usinaId);
+    const sugestao = percentualPelaMedia(usinaSelecionada, consumoMedio, modalidade);
+    if (sugestao) setPercentualAlocado(sugestao);
+  }, [consumoMedio, modalidade, usinaId, usinas]);
 
   useEffect(() => {
     let ativa = true;
@@ -103,13 +130,17 @@ export default function NovaUnidade() {
   }, [clienteId, dadosFaturaParam, numero]);
 
   async function salvar() {
-    const percentual = Number(desconto.replace(",", "."));
+    const descontoNumero = numeroSeguro(desconto);
+    const percentualRateio = numeroSeguro(percentualAlocado);
     const documentoTitular = cpfTitular.replace(/\D/g, "");
     const cadastroManualDoGerador = IS_GERADOR_APP && origem !== "fatura";
     const clienteSelecionado = clientes.find((item) => item.id === clienteId);
     const usinaFinal = usinaId || clienteSelecionado?.usina_id || null;
-    const modalidadeFinal = clienteSelecionado?.modalidade_faturamento ?? modalidade;
-    const descontoFinal = clienteSelecionado?.desconto_percentual ?? percentual;
+    // Modalidade e desconto pertencem à UC/contrato. Dados antigos no cliente
+    // são apenas um fallback visual, nunca devem sobrescrever o que foi
+    // configurado nesta fatura antes do primeiro salvamento.
+    const modalidadeFinal = modalidade;
+    const descontoFinal = descontoNumero;
     const mediaInformada = numeroSeguro(consumoMedio);
     const consumoMedioFinal = Math.max(0, mediaInformada > 0 ? mediaInformada : numeroSeguro(clienteSelecionado?.consumo_medio_kwh));
 
@@ -120,18 +151,21 @@ export default function NovaUnidade() {
     if (cadastroManualDoGerador && ![11, 14].includes(documentoTitular.length)) {
       return Alert.alert("CPF obrigatório", "Informe o CPF do titular da conta de luz antes de salvar a unidade.");
     }
-    if (!Number.isFinite(percentual) || percentual < 0 || percentual > 100) return Alert.alert("Desconto inválido", "Informe um percentual entre 0 e 100.");
+    if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return Alert.alert("Desconto inválido", "Informe um percentual entre 0 e 100.");
+    if (tipo === "BENEFICIARIA" && (!Number.isFinite(percentualRateio) || percentualRateio <= 0 || percentualRateio > 100)) {
+      return Alert.alert("Alocação inválida", "Informe um percentual entre 0,01% e 100% para esta UC.");
+    }
     setSalvando(true);
     try {
-      let unidadeAlocadaId = "";
       if (tipo === "BENEFICIARIA") {
-        const alocacao = await alocarUnidade(String(usinaFinal), {
+        await alocarUnidade(String(usinaFinal), {
           clienteId,
           numero,
           modalidade: modalidadeFinal,
-          percentual: 100,
-          desconto: numeroSeguro(descontoFinal),
+          percentual: modalidadeFinal === "INJECAO" ? 100 : percentualRateio,
+          desconto: descontoFinal,
           consumoMedio: consumoMedioFinal,
+          endereco: endereco.trim() || clienteSelecionado?.endereco || null,
           percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0,
           repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR",
           repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR",
@@ -140,7 +174,6 @@ export default function NovaUnidade() {
           faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE",
           calcularAutomaticamente: true,
         });
-        unidadeAlocadaId = String(alocacao?.unidadeId ?? "");
       } else {
         const { error } = await supabase.from("unidades_consumidoras").upsert({
           numero, titular: titular.trim() || clienteSelecionado?.nome || null, tipo, cliente_id: clienteId || null, usina_id: usinaFinal,
@@ -158,17 +191,8 @@ export default function NovaUnidade() {
 
       if (origem === "fatura" && clienteId) {
         router.replace({
-          pathname: "/unidades/editar",
-          params: {
-            id: unidadeAlocadaId,
-            numero,
-            clienteId,
-            consumoMedio: consumoMedioFinal > 0 ? String(consumoMedioFinal) : "",
-            usinaId: usinaFinal ?? "",
-            modalidade: modalidadeFinal,
-            desconto: String(descontoFinal),
-            tipoGd: tipoGdEfetivo,
-          },
+          pathname: "/clientes/[id]",
+          params: { id: clienteId },
         });
       } else {
         router.back();
@@ -185,13 +209,17 @@ export default function NovaUnidade() {
     <Text style={styles.subtitle}>{clienteIdVinculado ? "Confirme o número. Os demais dados serão herdados do cliente." : cadastroRapido === "1" ? "Confirme o número e escolha o cliente. Os demais dados serão herdados automaticamente." : "Confira a leitura e escolha a quem esta unidade pertence."}</Text>
     <Card><FormField label="Número da UC / instalação" value={numero} onChangeText={(v) => setNumero(v.replace(/\D/g, ""))} keyboardType="numeric" />
       <FormField label={IS_GERADOR_APP && origem !== "fatura" ? "CPF/CNPJ do titular na conta de luz *" : "CPF/CNPJ do titular na conta de luz"} value={cpfTitular} onChangeText={(valor) => setCpfTitular(formatarDocumento(valor))} keyboardType="numeric" />
-      {!clienteIdVinculado && cadastroRapido !== "1" ? <><FormField label="Titular" value={titular} onChangeText={setTitular} />
-        <Text style={styles.beneficiariaHint}>Esta UC será cadastrada como beneficiária: ela receberá a energia alocada pela usina.</Text>
-        <ChoiceField label="Faturamento" value={modalidade} onChange={setModalidade} options={[{ label: "Injeção", value: "INJECAO" }, { label: "Compensação", value: "COMPENSACAO" }]} />
-        <UsinaSelector usinas={usinas} value={usinaId} onChange={setUsinaId} label="Usina geradora" />
-        <FormField label="Consumo médio mensal (kWh)" value={consumoMedio} onChangeText={(valor) => setConsumoMedio(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" />
-        <FormField label="Desconto contratado (%)" value={desconto} onChangeText={setDesconto} keyboardType="decimal-pad" /><FormField label="Endereço" value={endereco} onChangeText={setEndereco} /></> : null}
-      {clienteIdVinculado && !clientes.find((item) => item.id === clienteId)?.usina_id ? <UsinaSelector usinas={usinas} value={usinaId} onChange={setUsinaId} label="Usina geradora" /> : null}
+      {!clienteIdVinculado && cadastroRapido !== "1" ? <><FormField label="Titular" value={titular} onChangeText={setTitular} /><FormField label="Endereço" value={endereco} onChangeText={setEndereco} /></> : null}
+      {tipo !== "GERADORA" ? <>
+        <Text style={styles.configurationTitle}>CONFIGURAÇÃO DA UC</Text>
+        <Text style={styles.beneficiariaHint}>Defina as condições desta unidade antes de salvar. Elas não são copiadas do cadastro do cliente.</Text>
+        <ChoiceField label="Faturamento" value={modalidade} onChange={(valor) => setModalidade(valor as Modalidade)} options={[{ label: "Injeção", value: "INJECAO" }, { label: "Compensação", value: "COMPENSACAO" }]} />
+        <UsinaSelector usinas={usinas} value={usinaId} onChange={(valor) => { setUsinaId(valor); const selecionada = usinas.find((item) => item.id === valor); setPercentualAlocado(percentualPelaMedia(selecionada, consumoMedio, modalidade)); }} label="Usina geradora" />
+        <FormField label="Consumo médio mensal (kWh)" value={consumoMedio} onChangeText={(valor) => { const limpo = valor.replace(/[^\d,.]/g, ""); setConsumoMedio(limpo); setPercentualAlocado(percentualPelaMedia(usinas.find((item) => item.id === usinaId), limpo, modalidade)); }} keyboardType="decimal-pad" />
+        <FormField label="Percentual alocado (%)" value={percentualAlocado} onChangeText={(valor) => setPercentualAlocado(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" />
+        <Text style={styles.beneficiariaHint}>{modalidade === "INJECAO" ? "Para injeção, a alocação inicial é 100%. Você pode editar antes de salvar." : "A sugestão considera 115% do consumo médio sobre a produção média disponível da usina. Você pode editar."}</Text>
+        <FormField label="Desconto contratado (%)" value={desconto} onChangeText={(valor) => setDesconto(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" />
+      </> : <UsinaSelector usinas={usinas} value={usinaId} onChange={setUsinaId} label="Usina geradora" />}
       {!clienteIdVinculado ? <><Text style={styles.label}>Vincular ao cliente *</Text>{clientes.length ? <View style={styles.options}>{clientes.map((c) => <Pressable key={c.id} onPress={() => setClienteId(clienteId === c.id ? "" : c.id)} style={[styles.link, clienteId === c.id && styles.linkSelected]}><Text>{c.nome}</Text></Pressable>)}</View> : <Text style={styles.clientRequired}>Cadastre um cliente antes de adicionar uma unidade consumidora.</Text>}</> : null}
       <ChoiceField label="Formato da cobrança" value={formatoFatura} onChange={(valor) => setFormatoFatura(valor as FormatoFatura)} options={[{ label: "Fatura unificada (CEMIG + Andrade)", value: "UNIFICADA" }, { label: "Somente Andrade Energy", value: "SOMENTE_ANDRADE" }]} />
       {formatoFatura === "UNIFICADA" ? <>
@@ -230,7 +258,7 @@ function formatarDocumento(valor: string) {
 const styles = StyleSheet.create({
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl }, eyebrow: { color: Colors.primary, fontSize: Typography.small, fontWeight: "700", letterSpacing: 1.2 },
   title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "700" }, subtitle: { marginTop: Spacing.sm, marginBottom: Spacing.lg, color: Colors.subtitle, lineHeight: 21 },
-  label: { marginBottom: Spacing.xs, color: Colors.text, fontSize: Typography.caption, fontWeight: "700" }, beneficiariaHint: { marginTop: -Spacing.sm, marginBottom: Spacing.md, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 }, options: { gap: Spacing.xs, marginBottom: Spacing.md },
+  label: { marginBottom: Spacing.xs, color: Colors.text, fontSize: Typography.caption, fontWeight: "700" }, configurationTitle: { marginTop: Spacing.sm, marginBottom: Spacing.xs, color: Colors.primary, fontSize: Typography.small, fontWeight: "900", letterSpacing: 1 }, beneficiariaHint: { marginTop: -Spacing.sm, marginBottom: Spacing.md, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 }, options: { gap: Spacing.xs, marginBottom: Spacing.md },
   clientRequired: { marginBottom: Spacing.md, padding: Spacing.md, borderRadius: Radius.md, color: "#92400E", backgroundColor: "#FEF3C7", fontSize: Typography.small, lineHeight: 18 },
   link: { padding: Spacing.sm, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, backgroundColor: Colors.surface }, linkSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
 });

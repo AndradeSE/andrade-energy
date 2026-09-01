@@ -25,7 +25,11 @@ export default function Card({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#DEE0E3",
+    // Verde muito claro, para separar o conteúdo do fundo sem o aspecto
+    // acinzentado dos cards antigos.
+    backgroundColor: "#F2F8F4",
+    borderWidth: 1,
+    borderColor: "#C9DED1",
     borderRadius: Radius.xl,
     padding: Spacing.lg,
     marginBottom: Spacing.lg,

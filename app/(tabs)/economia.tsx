@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   documentActions: { flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.xl },
-  documentButton: { minHeight: 122, flex: 1, alignItems: "flex-start", justifyContent: "center", padding: Spacing.md, borderRadius: Radius.xl, backgroundColor: "#D6D8DC" },
+  documentButton: { minHeight: 122, flex: 1, alignItems: "flex-start", justifyContent: "center", padding: Spacing.md, borderWidth: 1, borderColor: "#C9DED1", borderRadius: Radius.xl, backgroundColor: "#F2F8F4" },
   documentIcon: { width: 42, height: 42, alignItems: "center", justifyContent: "center", marginBottom: Spacing.sm, borderRadius: Radius.md, backgroundColor: Colors.surface },
   documentTitle: { color: Colors.text, fontSize: Typography.caption, fontWeight: "900" },
   documentSubtitle: { marginTop: 2, marginBottom: Spacing.xs, color: Colors.subtitle, fontSize: Typography.small },

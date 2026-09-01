@@ -4,9 +4,12 @@ Os apps compartilham o código, mas não pacote, canal ou configuração incorpo
 
 1. Definir `EXPO_PUBLIC_APP_VARIANT` (`gerador` ou `consumidor`),
    `EXPO_PUBLIC_API_URL` e `NODE_ENV=production`.
-2. Preservar a chave já usada; executar `npx.cmd expo prebuild --platform android --no-install`.
-3. Ao trocar variante, invalidar `android/build/generated/autolinking/autolinking.json`
-   (arquivo gerado). Conferir que a versão regenerada usa o pacote correto.
+2. Preservar a chave já usada; ao trocar de variante, executar
+   `npx.cmd expo prebuild --platform android --clean --no-install`.
+   O `--clean` é obrigatório: ele recria o manifesto nativo sem carregar o
+   scheme do outro aplicativo.
+3. Conferir que a versão regenerada usa somente o pacote e o scheme corretos
+   para a variante antes de compilar.
 4. Compilar usando o init script que declara variante e API como entradas do cache:
 
    ```powershell

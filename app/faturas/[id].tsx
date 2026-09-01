@@ -912,7 +912,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: Spacing.md,
     borderRadius: Radius.md,
-    backgroundColor: "#DEE0E3",
+    backgroundColor: "#F2F8F4",
   },
   downloadButtonUnavailable: {
     opacity: 0.66,
@@ -923,7 +923,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: Spacing.md,
     borderRadius: Radius.md,
-    backgroundColor: "#DEE0E3",
+    backgroundColor: "#F2F8F4",
   },
   paymentCodeValue: {
     marginTop: 3,

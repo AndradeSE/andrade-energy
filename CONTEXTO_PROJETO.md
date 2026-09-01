@@ -303,3 +303,12 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - A central “Tutoriais da web” foi movida para o menu lateral, abaixo de “Alternar ambiente”, e removida da área de aplicativos.
 - A central de tutoriais recebeu campo de pesquisa e estado “Nenhum tutorial encontrado”.
 - Portal Sites publicado como versão 53 no projeto oficial vinculado a `www.andradeenergy.com.br`.
+
+# Organização de clientes, UCs e identidade dos cards — 31/08/2026
+
+- A tela de detalhes do cliente foi reorganizada em resumo e áreas acessadas por atalhos: **Unidades**, **Faturas**, **Contas anexadas** e **Validação**. No resumo permanecem os dados do cliente, edição, WhatsApp, economia total e gráfico do histórico de consumo.
+- O cadastro de UC a partir de uma fatura anexada passou a exibir, antes do primeiro salvamento, modalidade, usina, consumo médio, percentual alocado, desconto e configurações GD. Após salvar, retorna diretamente ao cliente.
+- A alocação inicial por compensação usa 115% do consumo médio em relação à produção média da usina; por injeção inicia em 100%, mantendo edição antes de salvar.
+- A projeção de desconto real reage em tempo real ao desconto e às escolhas de repasse/absorção. Quando a primeira conta ainda não possui GD, usa consumo e tarifa extraídos como base estimada, sem manter o percentual estático.
+- O padrão global dos cards dos dois apps deixou o cinza legado e passou a usar verde muito claro `#F2F8F4`, com borda suave `#C9DED1`. Foram atualizados também cards explícitos de login, convites, seleção de UC, faturas, pagamentos, economia, usinas e acessos rápidos.
+- Cada variante Android declara também `android.scheme` próprio. Para eliminar a oferta indevida do app Gerador ao abrir convite de consumidor, os APKs precisam ser regenerados com `expo prebuild --clean`; OTA não altera filtros nativos de link.

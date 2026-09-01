@@ -53,7 +53,7 @@ export default function VerificarEmail() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#F5F6F5" },
   content: { flex: 1, justifyContent: "center", padding: Spacing.lg },
-  iconBox: { width: 82, height: 82, alignItems: "center", justifyContent: "center", borderRadius: 25, backgroundColor: "#DEE0E3" },
+  iconBox: { width: 82, height: 82, alignItems: "center", justifyContent: "center", borderRadius: 25, backgroundColor: Colors.primaryLight },
   iconBoxSuccess: { backgroundColor: "#E4F5E8" },
   title: { marginTop: Spacing.lg, color: Colors.text, fontSize: 28, fontWeight: "900" },
   subtitle: { marginTop: Spacing.sm, color: Colors.subtitle, fontSize: Typography.body, lineHeight: 23 },

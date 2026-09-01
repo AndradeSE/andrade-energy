@@ -77,7 +77,7 @@ export default function ComposicaoTarifariaCard({ itens = [] }: { itens?: Compon
 }
 
 const styles = StyleSheet.create({
-  card: { marginBottom: Spacing.xl, padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: "#F1F3F2" },
+  card: { marginBottom: Spacing.xl, padding: Spacing.lg, borderWidth: 1, borderColor: "#C9DED1", borderRadius: Radius.xl, backgroundColor: "#F2F8F4" },
   heading: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: Spacing.sm },
   eyebrow: { color: Colors.primary, fontSize: 10, fontWeight: "900", letterSpacing: 1.1 },
   title: { marginTop: 4, color: Colors.text, fontSize: Typography.card, fontWeight: "800" },

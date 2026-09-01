@@ -44,7 +44,7 @@ export default function QuickAccessCarousel({ items }: Props) {
 const styles = StyleSheet.create({
   scroll: { marginHorizontal: -Spacing.lg },
   content: { gap: Spacing.sm, paddingHorizontal: Spacing.lg },
-  card: { width: 118, minHeight: 112, alignItems: "center", justifyContent: "center", paddingHorizontal: Spacing.xs, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.lg, backgroundColor: "#DEE0E3" },
+  card: { width: 118, minHeight: 112, alignItems: "center", justifyContent: "center", paddingHorizontal: Spacing.xs, borderWidth: 1, borderColor: "#C9DED1", borderRadius: Radius.lg, backgroundColor: "#F2F8F4" },
   badge: { position: "absolute", top: 7, right: 7, zIndex: 2, paddingHorizontal: 6, paddingVertical: 3, borderRadius: Radius.round, backgroundColor: "#E11D48" },
   badgeText: { color: "#FFFFFF", fontSize: 8, fontWeight: "900", letterSpacing: 0.5 },
   icon: { width: 48, height: 48, alignItems: "center", justifyContent: "center", borderRadius: Radius.round, backgroundColor: Colors.primaryLight },
