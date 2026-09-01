@@ -307,14 +307,11 @@ function calcularPrevia({ dados, desconto, consumoProjetado, modalidadeFaturamen
       (usaGD2 && fioBGd2 === "REPASSAR" ? diferencaFioB : 0);
   const valorCemigRepassado = Math.max(0, cemigSemEnergiaCompensada);
   const economia = Math.max(0, referencia - (valorCemigRepassado + valorAndrade));
-  // Esta é a mesma base do faturamento final: na GD II o desconto real é
-  // comparado com a energia cheia do consumo; na GD I, com o crédito efetivo.
-  // Dividir pelo total da fatura misturava encargos obrigatórios à energia e
-  // derrubava artificialmente a projeção para valores como 13,7%/36,54%.
-  const baseDescontoReal = usaGD2
-    ? valorEnergiaConsumida
-    : creditoEfetivo;
-  if (baseDescontoReal <= 0) return null;
+  // A projeção apresentada ao cliente compara o desembolso total sem Andrade
+  // com o total unificado. Os encargos obrigatórios seguem dentro dessa base;
+  // por isso absorver Fio B e disponibilidade aproxima a economia do desconto
+  // contratado, mas nunca deve ultrapassá-lo artificialmente.
+  const baseDescontoReal = referencia;
   return {
     economia,
     baseDesconto: baseDescontoReal,
