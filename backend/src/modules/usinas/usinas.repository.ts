@@ -1,6 +1,16 @@
 import { supabase } from "../../config/supabase";
 import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
 
+function dadosPersistiveisDaUsina(usina: any) {
+  const {
+    cpf_titular: _cpfTitularSnake,
+    cpfTitular: _cpfTitularCamel,
+    ...dadosDaUsina
+  } = usina ?? {};
+
+  return dadosDaUsina;
+}
+
 export async function listarUsinas(empresaId = EMPRESA_ANDRADE_ID) {
   const { data, error } = await supabase
     .from("usinas")
@@ -33,9 +43,10 @@ export async function criarUsina(
   usina: any,
   empresaId = EMPRESA_ANDRADE_ID,
 ) {
+  const dadosDaUsina = dadosPersistiveisDaUsina(usina);
   const { data, error } = await supabase
     .from("usinas")
-    .insert({ ...usina, empresa_id: empresaId })
+    .insert({ ...dadosDaUsina, empresa_id: empresaId })
     .select()
     .single();
 
@@ -49,9 +60,10 @@ export async function editarUsina(
   usina: any,
   empresaId = EMPRESA_ANDRADE_ID,
 ) {
+  const dadosDaUsina = dadosPersistiveisDaUsina(usina);
   const { data, error } = await supabase
     .from("usinas")
-    .update(usina)
+    .update(dadosDaUsina)
     .eq("id", id)
     .eq("empresa_id", empresaId)
     .select()

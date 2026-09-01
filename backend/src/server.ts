@@ -110,6 +110,7 @@ app.use("/api/oauth", oauthEmailRouter);
 app.get("/health", (_, res) => {
   res.json({
     status: "online",
+    commit: process.env.RENDER_GIT_COMMIT?.slice(0, 7) ?? "local",
   });
 });
 
