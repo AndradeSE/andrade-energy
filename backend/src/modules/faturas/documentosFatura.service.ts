@@ -354,11 +354,13 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.fillColor("#D8EEE6").font("Helvetica").fontSize(6.2).text(`Desconto contratado: ${percentual(descontoContratado)}`, 326, y.total + 69);
     pdf.fillColor("#D8EEE6").font("Helvetica-Bold").fontSize(6.2).text(`Desconto após impostos: ${percentual(descontoReal)}`, 326, y.total + 79);
 
-    if (possuiGD2) {
-      pdf.roundedRect(48, y.aviso, LARGURA, 22, 6).fill("#FFF7E7");
-      pdf.roundedRect(48, y.aviso, LARGURA, 22, 6).strokeColor("#F0C36C").lineWidth(0.7).stroke();
-      pdf.fillColor("#A36500").font("Helvetica-Bold").fontSize(6.7).text("GD II: custos obrigatórios da rede permanecem na conta da concessionária.", 64, y.aviso + 8, { width: 465, align: "center" });
-    }
+    pdf.roundedRect(48, y.aviso, LARGURA, 30, 6).fill("#FFF7E7");
+    pdf.roundedRect(48, y.aviso, LARGURA, 30, 6).strokeColor("#F0C36C").lineWidth(0.7).stroke();
+    const avisoCustos = possuiGD2
+      ? "GD II: custos obrigatórios da rede permanecem na conta da concessionária."
+      : "Custos obrigatórios da rede permanecem na conta da concessionária.";
+    pdf.fillColor("#A36500").font("Helvetica-Bold").fontSize(6.1).text(avisoCustos, 64, y.aviso + 5, { width: 465, align: "center" });
+    pdf.fillColor("#855B18").font("Helvetica").fontSize(5.6).text("Multas, iluminação pública, bandeiras e encargos extraordinários não são considerados para mensurar o desconto real.", 64, y.aviso + 16, { width: 465, align: "center" });
 
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8.5).text(documentoUnificado ? "COMO CHEGAMOS AO TOTAL UNIFICADO" : "COMO CHEGAMOS À COBRANÇA", 48, y.composicao - 14);
     const rotuloCemig = valorTotalAbsorvido > 0
