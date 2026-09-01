@@ -9,6 +9,7 @@ type Props = {
   descontoPercentual: string | number;
   tipoGd?: string | null;
   modalidadeFaturamento?: string | null;
+  consumoProjetado?: string | number | null;
   faturaSomenteAndrade?: boolean;
   dadosFatura?: Record<string, any> | null;
   disponibilidadeGd1: EscolhaRepasse;
@@ -20,6 +21,7 @@ export default function RealDiscountInfo({
   descontoPercentual,
   tipoGd,
   modalidadeFaturamento,
+  consumoProjetado,
   faturaSomenteAndrade = false,
   dadosFatura,
   disponibilidadeGd1,
@@ -54,7 +56,7 @@ export default function RealDiscountInfo({
     if (disponibilidadeGd2 === "REPASSAR") configuracoesRepassadas.push("disponibilidade GD II");
     if (fioBGd2 === "REPASSAR") configuracoesRepassadas.push("Fio B");
   }
-  const previa = contaSemGd ? null : calcularPrevia({ dados: dadosFatura, desconto, modalidadeFaturamento, tipoGd: modalidade, disponibilidadeGd1, disponibilidadeGd2, fioBGd2 });
+  const previa = contaSemGd ? null : calcularPrevia({ dados: dadosFatura, desconto, consumoProjetado, modalidadeFaturamento, tipoGd: modalidade, disponibilidadeGd1, disponibilidadeGd2, fioBGd2 });
   const descontoRealEstimado = contaSemGd
     ? "0,00%"
     : previa
@@ -181,14 +183,15 @@ function possuiLeituraGd(dados: Record<string, any> | null | undefined) {
   ) > 0;
 }
 
-function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, disponibilidadeGd1, disponibilidadeGd2, fioBGd2 }: {
-  dados?: Record<string, any> | null; desconto: number; modalidadeFaturamento?: string | null; tipoGd: string;
+function calcularPrevia({ dados, desconto, consumoProjetado, modalidadeFaturamento, tipoGd, disponibilidadeGd1, disponibilidadeGd2, fioBGd2 }: {
+  dados?: Record<string, any> | null; desconto: number; consumoProjetado?: string | number | null; modalidadeFaturamento?: string | null; tipoGd: string;
   disponibilidadeGd1: EscolhaRepasse; disponibilidadeGd2: EscolhaRepasse; fioBGd2: EscolhaRepasse;
 }) {
   if (!dados) return null;
   let tarifaCheia = n(dados, "tarifa_cheia", "tarifaCheia");
   const valorCemig = n(dados, "valor_cemig", "valorCemig", "valor_concessionaria", "valorConcessionaria", "valor_total", "valorTotal");
-  const consumo = n(dados, "consumo_kwh", "consumo");
+  const consumoMedio = numeroBrasileiro(consumoProjetado);
+  const consumo = consumoMedio > 0 ? consumoMedio : n(dados, "consumo_kwh", "consumo");
   const energiaGD1 = n(dados, "energia_compensada_gd1", "energiaCompensadaGD1");
   const energiaGD2 = n(dados, "energia_compensada_gd2", "energiaCompensadaGD2");
   const energiaCompensada = n(dados, "energia_compensada", "energiaCompensada") || energiaGD1 + energiaGD2;
@@ -258,11 +261,18 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
     Math.max(0, creditoInformado || valorEnergiaCheia),
   );
   const referenciaInformada = n(dados, "valor_referencia_sem_andrade", "valorReferenciaSemAndrade");
+  const encargosObrigatorios =
+    n(dados, "valor_iluminacao_publica", "valorIluminacaoPublica") +
+    n(dados, "valor_bandeira", "valorBandeira") +
+    n(dados, "encargos_adicionais", "encargosAdicionais");
   const referencia = referenciaInformada > 0
     ? referenciaInformada
     : possuiCompensacaoLida
       ? valorCemig + creditoEfetivo
-      : valorCemig;
+      // Na projeção de uma conta convencional, consumo e tarifa formam o
+      // cenário sem Andrade. Não misture essa energia projetada com o total
+      // histórico de um mês diferente.
+      : valorEnergiaCheia + encargosObrigatorios;
   // Espelha a base informada ao motor de faturamento: GD II mede o desconto
   // sobre toda a energia consumida; GD I usa o crédito efetivo. Em uma conta
   // ainda sem GD, a melhor projeção continua sendo a energia da modalidade.
@@ -277,10 +287,6 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   // Numa conta convencional, a parcela de energia ainda está integralmente
   // na concessionária e deve ser substituída pela energia Andrade. Numa conta
   // já processada com GD, a concessionária já traz somente o saldo remanescente.
-  const encargosObrigatorios =
-    n(dados, "valor_iluminacao_publica", "valorIluminacaoPublica") +
-    n(dados, "valor_bandeira", "valorBandeira") +
-    n(dados, "encargos_adicionais", "encargosAdicionais");
   const cemigSemEnergiaCompensada = possuiCompensacaoLida
     ? Math.max(0, valorCemig - absorvido)
     : encargosObrigatorios +

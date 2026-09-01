@@ -8,7 +8,7 @@ import RealDiscountInfo from "../../components/cadastro/RealDiscountInfo";
 import UsinaSelector from "../../components/cadastro/UsinaSelector";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
-import { buscarCliente, buscarUnidade } from "../../services/clientes.service";
+import { buscarCliente, buscarUnidade, listarFaturasAnexadasCliente } from "../../services/clientes.service";
 import { buscarFaturasCliente } from "../../services/faturas.service";
 import { alocarUnidade, listarUsinas } from "../../services/usinas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
@@ -123,6 +123,7 @@ export default function EditarAlocacaoUnidade() {
             ? String(uc.cliente_id)
             : "";
         const cliente = idCliente ? await buscarCliente(idCliente) : null;
+        const anexos = idCliente ? await listarFaturasAnexadasCliente(idCliente).catch(() => []) : [];
         if (!ativa) return;
 
         const c = cliente;
@@ -163,7 +164,8 @@ export default function EditarAlocacaoUnidade() {
         setRepasseDisponibilidadeGD1((uc?.repassar_disponibilidade_gd1 ?? Number(uc?.percentual_repasse_disponibilidade ?? 100) > 0) ? "REPASSAR" : "ABSORVER");
         setRepasseDisponibilidadeGD2((uc?.repassar_disponibilidade_gd2 ?? Number(uc?.percentual_repasse_disponibilidade ?? 100) > 0) ? "REPASSAR" : "ABSORVER");
         setRepasseFioBGD2((uc?.repassar_diferenca_fio_b_gd2 ?? true) ? "REPASSAR" : "ABSORVER");
-        const faturaBase = parseDadosFatura(dadosFaturaParam) ?? faturas[0] ?? null;
+        const anexoDaUc = anexos.find((item) => String(item?.dadosFatura?.uc ?? item?.dadosFatura?.numero_instalacao ?? "").replace(/\D/g, "") === numeroDaUc);
+        const faturaBase = parseDadosFatura(dadosFaturaParam) ?? faturas[0] ?? anexoDaUc?.dadosFatura ?? null;
         setDadosFatura(faturaBase);
         setConsumoMedio(mediaFinal > 0 ? String(Math.round(mediaFinal)) : "");
         setPercentual(
@@ -349,6 +351,7 @@ export default function EditarAlocacaoUnidade() {
               descontoPercentual={desconto}
               tipoGd={tipoGdEfetivo}
               modalidadeFaturamento={modalidade}
+              consumoProjetado={consumoMedio}
               faturaSomenteAndrade={formatoFatura === "SOMENTE_ANDRADE"}
               dadosFatura={dadosFatura}
               disponibilidadeGd1={repasseDisponibilidadeGD1}

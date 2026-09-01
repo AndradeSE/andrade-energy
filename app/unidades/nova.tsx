@@ -245,6 +245,7 @@ export default function NovaUnidade() {
           descontoPercentual={desconto}
           tipoGd={tipoGdEfetivo}
           modalidadeFaturamento={modalidade}
+          consumoProjetado={consumoMedio}
           faturaSomenteAndrade={formatoFatura === "SOMENTE_ANDRADE"}
           dadosFatura={dadosFatura}
           disponibilidadeGd1={repasseDisponibilidadeGD1}
