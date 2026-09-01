@@ -319,3 +319,14 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - A projeção de desconto real reage em tempo real ao desconto e às escolhas de repasse/absorção. Quando a primeira conta ainda não possui GD, usa consumo e tarifa extraídos como base estimada, sem manter o percentual estático.
 - O padrão global dos cards dos dois apps deixou o cinza legado e passou a usar verde muito claro `#F2F8F4`, com borda suave `#C9DED1`. Foram atualizados também cards explícitos de login, convites, seleção de UC, faturas, pagamentos, economia, usinas e acessos rápidos.
 - Cada variante Android declara também `android.scheme` próprio. Para eliminar a oferta indevida do app Gerador ao abrir convite de consumidor, os APKs precisam ser regenerados com `expo prebuild --clean`; OTA não altera filtros nativos de link.
+
+# Publicação — UCs por faturas vinculadas e tutoriais web (01/09/2026)
+
+- No Gerador, cada conta anexada ao CPF do cliente passou a oferecer **Adicionar UC por esta fatura**; a lista de UCs exibe somente as unidades, sem repetir os dados e os controles de edição do cliente.
+- A web recebeu a mesma organização do cliente, cadastro de UC por conta vinculada e uma central renovada com cinco tutoriais por perfil; o vídeo único antigo deixou de ser usado.
+- Portal oficial publicado na versão 54 (`www.andradeenergy.com.br`).
+- OTA Gerador: grupo `274fb35d-9e5a-47b7-b28a-ede4498b2179`.
+- OTA Consumidor: grupo `e2cbb3cc-227a-49aa-b358-0bafc3aa99cb`.
+- APK Gerador oficial: SHA-256 `A2CA2112579E0BB32AF9A9081ACEC6C66CAFCE36E77BC1575AF93E67BB01ED45`.
+- APK Consumidor oficial: SHA-256 `DA2379C670B01E52150587B6FB0F59FE3D82CAE33D040B8544C91F5DF0778608`.
+- Os dois APKs foram reconstruídos nativamente e publicados no release estável `apps-2026-08-27`.
