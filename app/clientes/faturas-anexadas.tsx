@@ -93,6 +93,7 @@ export default function FaturasAnexadas() {
       pathname: "/unidades/nova",
       params: {
         origem: "fatura",
+        origemFaturaPerfil: "1",
         clienteId,
         cliente: String(dados.cliente ?? dados.titular ?? params.cliente ?? ""),
         uc: numero,

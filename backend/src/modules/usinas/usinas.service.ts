@@ -23,7 +23,15 @@ function calcularAlocacaoProjetada(unidades: any[], energiaGerada: number) {
   const gerada = Math.max(0, Number(energiaGerada ?? 0));
   const solicitada = (unidades ?? []).reduce((total, unidade) => {
     const percentual = Math.max(0, Math.min(100, Number(unidade.percentual_rateio ?? 0)));
-    return total + gerada * percentual / 100;
+    if (percentual > 0) return total + gerada * percentual / 100;
+
+    // Cadastros antigos ou recém-importados podem ainda não ter o percentual
+    // persistido. Nesse intervalo, a autonomia não pode voltar a 100%: para
+    // compensação reservamos consumo médio + 15%; para injeção, toda a cota.
+    const consumoMedio = Math.max(0, Number(unidade.consumo_medio_kwh ?? 0));
+    const modalidade = String(unidade.modalidade_faturamento ?? "COMPENSACAO").toUpperCase();
+    const reserva = modalidade === "INJECAO" ? gerada : consumoMedio * 1.15;
+    return total + Math.min(gerada, reserva);
   }, 0);
   const energiaAlocada = Math.min(gerada, solicitada);
   return {
@@ -35,7 +43,7 @@ function calcularAlocacaoProjetada(unidades: any[], energiaGerada: number) {
 
 async function obterAlocacaoProjetadaDaUsina(usinaId: string, energiaGerada: number, empresaId?: string) {
   let query = supabase.from("unidades_consumidoras")
-    .select("percentual_rateio")
+    .select("percentual_rateio,modalidade_faturamento,consumo_medio_kwh")
     .eq("usina_id", usinaId)
     .eq("status", "ATIVA")
     .neq("tipo", "GERADORA");
@@ -114,7 +122,7 @@ export async function listarUsinasService(empresaId?: string) {
     const [dashboard, producaoMedia12Meses, unidades] = await Promise.all([
       buscarDashboardUsina(usina.id, empresaId),
       calcularProducaoMedia12Meses(usina.id),
-      supabase.from("unidades_consumidoras").select("id,percentual_rateio", { count: "exact" }).eq("usina_id", usina.id).eq("status", "ATIVA").neq("tipo", "GERADORA"),
+      supabase.from("unidades_consumidoras").select("id,percentual_rateio,modalidade_faturamento,consumo_medio_kwh", { count: "exact" }).eq("usina_id", usina.id).eq("status", "ATIVA").neq("tipo", "GERADORA"),
     ]);
     if (unidades.error) throw unidades.error;
     const energiaDaCompetencia = Number(dashboard.ultimo?.energia_gerada ?? 0);
@@ -451,6 +459,9 @@ export async function obterDashboardUsina(
   id: string,
   empresaId?: string,
 ) {
+  // Garante que salvar/mover/excluir uma UC seja refletido mesmo quando o app
+  // consulta novamente a mesma usina sem trocar o contexto selecionado.
+  await recalcularAlocacaoUsina(id, empresaId);
   const [dashboard, usina, clientes, buscaUnidadeGeradora] = await Promise.all([
     buscarDashboardUsina(id, empresaId),
     buscarUsina(id, empresaId),

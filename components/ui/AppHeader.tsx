@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Alert, Image, Modal, Pressable, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useReadNotifications } from "../../hooks/useReadNotifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -101,7 +101,7 @@ export default function AppHeader({
     catch { Alert.alert("Leitura não salva", "Não foi possível salvar a leitura desta notificação. Tente novamente."); }
   }
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     if (!proprietario || !usinaSelecionada?.id) { setAutonomia(null); return; }
     let ativo = true;
     buscarDashboardUsina(usinaSelecionada.id).then((dados) => {
@@ -111,7 +111,7 @@ export default function AppHeader({
       setAutonomia({ percentual: gerada > 0 ? Math.max(0, Math.min(100, disponivel / gerada * 100)) : 0, disponivel });
     }).catch(() => { if (ativo) setAutonomia(null); });
     return () => { ativo = false; };
-  }, [proprietario, usinaSelecionada?.id]);
+  }, [proprietario, usinaSelecionada?.id]));
 
   function navegar(rota: string) {
     setMenuAberto(false);
