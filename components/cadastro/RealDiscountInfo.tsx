@@ -21,7 +21,6 @@ export default function RealDiscountInfo({
   descontoPercentual,
   tipoGd,
   modalidadeFaturamento,
-  consumoProjetado,
   faturaSomenteAndrade = false,
   dadosFatura,
   disponibilidadeGd1,
@@ -48,20 +47,21 @@ export default function RealDiscountInfo({
 
   const modalidadeAindaNaoIdentificada = !["GD1", "GD2", "MISTA"].includes(modalidade);
   const contaSemLeituraGd = Boolean(dadosFatura) && !possuiLeituraGd(dadosFatura);
-  // Uma conta convencional ainda pode projetar o contrato quando a modalidade
-  // já foi definida pela usina. Só zeramos quando também falta essa origem.
-  const contaSemGd = contaSemLeituraGd && modalidadeAindaNaoIdentificada;
+  // Sem uma leitura GD não há como conhecer a parcela compensada, o Fio B ou
+  // a disponibilidade daquela competência. A tela mantém as escolhas visíveis,
+  // mas não cria percentuais artificiais a partir de médias ou tarifas fixas.
+  const contaSemGd = !dadosFatura || contaSemLeituraGd;
   if (modalidadeAindaNaoIdentificada) {
     if (disponibilidadeGd1 === "REPASSAR") configuracoesRepassadas.push("disponibilidade GD I");
     if (disponibilidadeGd2 === "REPASSAR") configuracoesRepassadas.push("disponibilidade GD II");
     if (fioBGd2 === "REPASSAR") configuracoesRepassadas.push("Fio B");
   }
-  const previa = contaSemGd ? null : calcularPrevia({ dados: dadosFatura, desconto, consumoProjetado, modalidadeFaturamento, tipoGd: modalidade, disponibilidadeGd1, disponibilidadeGd2, fioBGd2 });
+  const previa = contaSemGd ? null : calcularPrevia({ dados: dadosFatura, desconto, modalidadeFaturamento, tipoGd: modalidade, disponibilidadeGd1, disponibilidadeGd2, fioBGd2 });
   const descontoRealEstimado = contaSemGd
     ? "0,00%"
     : previa
     ? formatarPercentual(previa.descontoReal)
-    : `Aproximadamente ${formatarPercentual(desconto)}`;
+    : "Dados da fatura incompletos";
   const estimativaDetalhe = modalidadeAindaNaoIdentificada
       ? "A modalidade GD será confirmada pela conta de energia. Ao importar a fatura, a projeção passa a considerar os custos e repasses escolhidos."
     : configuracoesRepassadas.length
@@ -75,7 +75,7 @@ export default function RealDiscountInfo({
   const impacto = contaSemGd
     ? "As configurações de faturamento GD serão liberadas automaticamente quando uma conta com leitura GD for vinculada à unidade."
     : modalidadeAindaNaoIdentificada
-    ? `Com ${formatarPercentual(desconto)} de desconto contratado, a tarifa Andrade será ${formatarPercentual(percentualTarifaAndrade)} da tarifa cheia. Na primeira conta, o sistema identificará GD I ou GD II e aplicará as escolhas atuais de repasse ou absorção.`
+    ? "A modalidade GD será identificada pela fatura. Sem leitura GD, a projeção não usa estimativa."
     : configuracoesRepassadas.length
       ? `O desconto parte de ${formatarPercentual(desconto)}, mas ${configuracoesRepassadas.join(" e ")} permanecem com o cliente. Essas parcelas reduzem o desconto real da competência.`
       : `A usina assume disponibilidade e Fio B aplicáveis. Assim, o desconto real tende a se aproximar dos ${formatarPercentual(desconto)} contratados, embora outros encargos da concessionária possam permanecer.`;
@@ -123,7 +123,7 @@ export default function RealDiscountInfo({
         ? faturaSomenteAndrade
           ? "A projeção soma o que continuará sendo pago à concessionária com a cobrança Andrade para medir a economia real, mesmo em documentos separados."
           : "O app mantém os valores da última fatura como base e recalcula somente o desconto e as escolhas de repasse ou absorção."
-        : "Importe uma fatura ou vincule uma UC que já possua histórico para calcular a porcentagem nesta tela."}</Text>
+        : "Importe uma fatura com as linhas GD e as tarifas unitárias para calcular a porcentagem nesta tela."}</Text>
     </View>
   );
 }
@@ -183,44 +183,30 @@ function possuiLeituraGd(dados: Record<string, any> | null | undefined) {
   ) > 0;
 }
 
-function calcularPrevia({ dados, desconto, consumoProjetado, modalidadeFaturamento, tipoGd, disponibilidadeGd1, disponibilidadeGd2, fioBGd2 }: {
-  dados?: Record<string, any> | null; desconto: number; consumoProjetado?: string | number | null; modalidadeFaturamento?: string | null; tipoGd: string;
+function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, disponibilidadeGd1, disponibilidadeGd2, fioBGd2 }: {
+  dados?: Record<string, any> | null; desconto: number; modalidadeFaturamento?: string | null; tipoGd: string;
   disponibilidadeGd1: EscolhaRepasse; disponibilidadeGd2: EscolhaRepasse; fioBGd2: EscolhaRepasse;
 }) {
   if (!dados) return null;
   let tarifaCheia = n(dados, "tarifa_cheia", "tarifaCheia");
   const valorCemig = n(dados, "valor_cemig", "valorCemig", "valor_concessionaria", "valorConcessionaria", "valor_total", "valorTotal");
-  const consumoMedio = numeroBrasileiro(consumoProjetado);
-  const consumo = consumoMedio > 0 ? consumoMedio : n(dados, "consumo_kwh", "consumo");
   const energiaGD1 = n(dados, "energia_compensada_gd1", "energiaCompensadaGD1");
   const energiaGD2 = n(dados, "energia_compensada_gd2", "energiaCompensadaGD2");
   const energiaCompensada = n(dados, "energia_compensada", "energiaCompensada") || energiaGD1 + energiaGD2;
   const energiaInjetada = n(dados, "energia_injetada", "energiaInjetada");
   const modalidade = String(modalidadeFaturamento ?? "COMPENSACAO").toUpperCase();
   const possuiCompensacaoLida = energiaCompensada > 0 || energiaGD1 > 0 || energiaGD2 > 0;
-  // O tipo GD escolhido numa conta convencional é somente o cenário da
-  // simulação. Ele não significa que o PDF já trouxe energia GD. Enquanto a
-  // primeira conta GD não chegar, usamos o consumo mensal como base e
-  // aplicamos em tempo real as regras GD I/GD II selecionadas.
   const possuiLeituraGd = possuiCompensacaoLida || energiaInjetada > 0;
   // Numa conta GD, injeção usa a energia que veio da usina e compensação usa
   // exclusivamente Energia compensada GD I/GD II. O consumo é apenas a base
   // estimada de uma conta convencional, antes da primeira competência GD.
-  const baseKwh = !possuiLeituraGd
-    ? consumo
-    : modalidade === "INJECAO"
+  const baseKwh = modalidade === "INJECAO"
       ? energiaInjetada
       : energiaCompensada;
   if (tarifaCheia <= 0) {
     const energiaCheia = n(dados, "valor_energia_cheia", "valorEnergiaCheia");
-    const baseTarifa = baseKwh || consumo;
+    const baseTarifa = baseKwh;
     tarifaCheia = baseTarifa > 0 ? energiaCheia / baseTarifa : 0;
-  }
-  if (tarifaCheia <= 0 && consumo > 0 && valorCemig > 0) {
-    // Último recurso para contas convencionais cujo PDF não separa a tarifa
-    // unitária. É uma estimativa, não substitui a tarifa extraída quando ela
-    // estiver disponível na primeira fatura GD.
-    tarifaCheia = valorCemig / consumo;
   }
   if (tarifaCheia <= 0 || valorCemig <= 0 || baseKwh <= 0) return null;
 
@@ -240,19 +226,11 @@ function calcularPrevia({ dados, desconto, consumoProjetado, modalidadeFaturamen
       n(dados, "diferenca_fio_b_repassada", "diferencaFioBRepassada");
   const tarifaScee = n(dados, "tarifa_scee", "tarifaScee");
   const tarifaGd2 = n(dados, "tarifa_gd", "tarifaGD2", "tarifaGD");
-  const simulaGD2 = tipoGd === "GD2" || tipoGd === "MISTA";
-  // Antes da primeira conta GD II ainda não existem as duas tarifas necessárias
-  // (SCEE e Energia compensada GD II). Usamos somente uma projeção provisória
-  // da defasagem, separada de impostos. A competência GD II real sempre
-  // substitui esta estimativa pela diferença tarifária lida no PDF.
-  const diferencaFioBEstimada = !possuiLeituraGd && simulaGD2
-    ? baseKwh * tarifaCheia * 0.13
-    : 0;
   const diferencaFioB = diferencaSalva > 0
     ? diferencaSalva
     : energiaGD2 > 0 && tarifaScee > tarifaGd2 && tarifaGd2 > 0
       ? energiaGD2 * (tarifaScee - tarifaGd2)
-      : diferencaFioBEstimada;
+      : 0;
   const usaGD2 = tipoGd === "GD2" || tipoGd === "MISTA" || energiaGD2 > 0;
   const usaGD1 = tipoGd === "GD1" || tipoGd === "MISTA" || (!usaGD2 && energiaGD1 > 0);
   const custoDisponibilidade = usaGD2 ? custoDisponibilidadeGD2 : custoDisponibilidadeGD1;
@@ -261,50 +239,30 @@ function calcularPrevia({ dados, desconto, consumoProjetado, modalidadeFaturamen
   const valorAbsorvidoFioB = usaGD2 && fioBGd2 === "ABSORVER" ? diferencaFioB : 0;
   const absorvido = Math.min(valorCemig, valorAbsorvidoDisponibilidade + valorAbsorvidoFioB);
 
+  if (!possuiLeituraGd) return null;
   const valorEnergiaCheia = Math.max(0, baseKwh * tarifaCheia);
-  const creditoInformado = n(
+  const creditoEfetivo = n(
     dados,
     "valor_credito_efetivo",
     "valorCreditoEfetivo",
     "valor_credito_compensado",
     "valorCreditoCompensado",
   );
-  const creditoEfetivo = Math.min(
-    valorEnergiaCheia,
-    Math.max(0, creditoInformado || valorEnergiaCheia),
-  );
-  const referenciaInformada = n(dados, "valor_referencia_sem_andrade", "valorReferenciaSemAndrade");
-  const encargosObrigatorios =
-    n(dados, "valor_iluminacao_publica", "valorIluminacaoPublica") +
-    n(dados, "valor_bandeira", "valorBandeira") +
-    n(dados, "encargos_adicionais", "encargosAdicionais");
-  const referencia = referenciaInformada > 0
-    ? referenciaInformada
-    : possuiCompensacaoLida
-      ? valorCemig + creditoEfetivo
-      // Na projeção de uma conta convencional, consumo e tarifa formam o
-      // cenário sem Andrade. Não misture essa energia projetada com o total
-      // histórico de um mês diferente.
-      : valorEnergiaCheia + encargosObrigatorios;
+  // A referência é sempre a conta CEMIG efetivamente lida mais o crédito de
+  // energia compensada retirado dela. Não reutilizamos referência histórica
+  // nem reconstruímos o valor a partir de consumo médio.
+  const referencia = valorCemig + creditoEfetivo;
   // A economia percebida é comparada com tudo que o cliente pagaria sem a
   // Andrade. Assim os encargos que continuam obrigatórios reduzem levemente o
   // percentual final mesmo quando disponibilidade e Fio B são absorvidos.
-  const valorEnergiaConsumida = consumo > 0 ? consumo * tarifaCheia : valorEnergiaCheia;
-  const baseEnergiaBeneficiada = usaGD2
-    ? valorEnergiaConsumida
-    : possuiCompensacaoLida
-      ? creditoEfetivo
-      : valorEnergiaCheia;
-  if (baseEnergiaBeneficiada <= 0 || referencia <= 0) return null;
+  if (creditoEfetivo <= 0 || referencia <= 0) return null;
   const valorAndrade = valorEnergiaCheia * (1 - desconto / 100);
   // Numa conta convencional, a parcela de energia ainda está integralmente
   // na concessionária e deve ser substituída pela energia Andrade. Numa conta
   // já processada com GD, a concessionária já traz somente o saldo remanescente.
   const cemigSemEnergiaCompensada = possuiCompensacaoLida
     ? Math.max(0, valorCemig - absorvido)
-    : encargosObrigatorios +
-      (absorveDisponibilidade ? 0 : custoDisponibilidade) +
-      (usaGD2 && fioBGd2 === "REPASSAR" ? diferencaFioB : 0);
+    : 0;
   const valorCemigRepassado = Math.max(0, cemigSemEnergiaCompensada);
   const economia = Math.max(0, referencia - (valorCemigRepassado + valorAndrade));
   // A projeção apresentada ao cliente compara o desembolso total sem Andrade
@@ -320,7 +278,7 @@ function calcularPrevia({ dados, desconto, consumoProjetado, modalidadeFaturamen
     diferencaFioB,
     valorAbsorvidoDisponibilidade,
     valorAbsorvidoFioB,
-    fioBEstimado: diferencaFioBEstimada > 0 && diferencaSalva <= 0,
+    fioBEstimado: false,
     usaGD2,
   };
 }
