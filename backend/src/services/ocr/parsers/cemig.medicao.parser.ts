@@ -28,7 +28,10 @@ export function extrairMedicaoCemig(texto: string): MedicaoExtraida {
 
   // Formato extraído dos PDFs atuais da CEMIG, que concatena toda a linha:
   // Energia kWh + medidor + leitura anterior + leitura atual + fator + consumo.
-  const linhaCemig = trecho.match(/Energia kWh[A-Z]{2,4}\d{9}(\d{1,3}(?:\.\d{3})+)(\d{1,3}(?:\.\d{3})+)(\d+)/i);
+  // Nos PDFs atuais, a primeira ocorrência de "Leitura" pode estar no
+  // cabeçalho de datas e a linha real do medidor fica depois do recorte da
+  // seção. Por isso a tabela compactada deve ser procurada no documento todo.
+  const linhaCemig = texto.match(/Energia kWh[A-Z]{2,4}\d{9}(\d{1,3}(?:\.\d{3})+)(\d{1,3}(?:\.\d{3})+)(\d+)/i);
   if (linhaCemig) {
     const leituraAnterior = paraNumeroMedicao(linhaCemig[1]);
     const leituraAtual = paraNumeroMedicao(linhaCemig[2]);
@@ -48,7 +51,7 @@ export function extrairMedicaoCemig(texto: string): MedicaoExtraida {
     return { leituraAnterior, leituraAtual, fatorMultiplicacao };
   }
 
-  const tabela = trecho.match(/(?:N[ÚU]MERO|N[º°])(?: DO)? MEDIDOR.*?LEITURA ANTERIOR.*?LEITURA ATUAL.*?(?:FATOR|CONSTANTE)(?: DE)? MULTIPLICA[CÇ][AÃ]O.*?\b\d{5,}\b\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)/i);
+  const tabela = texto.match(/(?:N[ÚU]MERO|N[º°])(?: DO)? MEDIDOR.*?LEITURA ANTERIOR.*?LEITURA ATUAL.*?(?:FATOR|CONSTANTE)(?: DE)? MULTIPLICA[CÇ][AÃ]O.*?\b\d{5,}\b\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)/i);
   return {
     leituraAnterior: paraNumeroMedicao(tabela?.[1] ?? ""),
     leituraAtual: paraNumeroMedicao(tabela?.[2] ?? ""),
