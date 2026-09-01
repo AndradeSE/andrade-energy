@@ -391,3 +391,4 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - Enquanto a escolha não for feita, GD I e GD II ficam sem seleção e um aviso discreto pede a confirmação manual, sem criar um terceiro botão.
 - No cadastro de usina, uma linha de energia compensada não basta para definir a modalidade: sem produção/injeção comprovada no período, GD I/GD II ficam para confirmação manual.
 - A criação da usina e de sua UC geradora agora é feita pelo backend autenticado, evitando bloqueio da política RLS em `unidades_consumidoras`.
+- Os botões GD I e GD II permanecem sempre visíveis; quando a modalidade vem do PDF, o correspondente fica selecionado sem substituir os botões por texto.
