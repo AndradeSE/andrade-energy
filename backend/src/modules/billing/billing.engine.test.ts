@@ -32,7 +32,7 @@ test("mantém os custos na CEMIG quando a UC repassa disponibilidade e Fio B", (
   assert.equal(resultado.valorTotalAbsorvido, 0);
 });
 
-test("deduz da parcela CEMIG os custos absorvidos pela usina", () => {
+test("deduz da fatura Andrade os custos absorvidos pela usina", () => {
   const resultado = calcularFaturaUnificada({
     ...base,
     repassarCustoDisponibilidade: false,
@@ -40,14 +40,14 @@ test("deduz da parcela CEMIG os custos absorvidos pela usina", () => {
   });
 
   assert.equal(resultado.valorCemig, 200);
-  assert.equal(resultado.valorCemigRepassado, 50);
-  assert.equal(resultado.valorUsina, 180);
+  assert.equal(resultado.valorCemigRepassado, 200);
+  assert.equal(resultado.valorUsina, 30);
   assert.equal(resultado.valorTotalAbsorvido, 150);
   assert.equal(resultado.valorTotalUnificado, 230);
-  assert.equal(resultado.economiaReal, 270);
+  assert.equal(resultado.economiaReal, 120);
 });
 
-test("nunca reduz a parcela CEMIG abaixo de zero", () => {
+test("nunca reduz a fatura Andrade abaixo de zero", () => {
   const resultado = calcularFaturaUnificada({
     ...base,
     valorCemig: 100,
@@ -55,7 +55,7 @@ test("nunca reduz a parcela CEMIG abaixo de zero", () => {
     repassarDiferencaFioBGD2: false,
   });
 
-  assert.equal(resultado.valorCemigRepassado, 0);
-  assert.equal(resultado.valorTotalAbsorvido, 100);
-  assert.equal(resultado.valorTotalUnificado, 180);
+  assert.equal(resultado.valorCemigRepassado, 100);
+  assert.equal(resultado.valorTotalAbsorvido, 150);
+  assert.equal(resultado.valorTotalUnificado, 130);
 });

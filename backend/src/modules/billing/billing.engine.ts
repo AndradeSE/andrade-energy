@@ -127,40 +127,35 @@ export function calcularFaturaUnificada(input: BillingInput): BillingOutput {
   const diferencaFioBRepassada = repassarDiferencaFioBGD2
     ? diferencaFioBRepassavel
     : 0;
-  // O que não for repassado é assumido pela usina. Como disponibilidade e
-  // Fio B já estão dentro da conta da concessionária, a absorção deve reduzir
-  // a parcela CEMIG cobrada do cliente — não a remuneração da energia solar.
+  // O que não for repassado é assumido pela Andrade. Disponibilidade e Fio B
+  // continuam visíveis na conta CEMIG, mas o crédito é materializado como
+  // abatimento na fatura Andrade, nunca como alteração da fatura original da
+  // concessionária.
   const valorAbsorvidoDisponibilidade = custoDisponibilidadeRepassavel - custoDisponibilidadeRepassado;
   const valorAbsorvidoFioB = diferencaFioBRepassavel - diferencaFioBRepassada;
-  // As parcelas absorvidas são componentes da conta CEMIG e, portanto, nunca
-  // podem reduzir essa parte abaixo de zero.
+  // O abatimento não pode tornar a fatura Andrade negativa.
   const valorTotalAbsorvido = Math.min(
-    input.valorCemig,
+    valorUsinaSemDisponibilidade,
     Math.max(0, valorAbsorvidoDisponibilidade + valorAbsorvidoFioB)
   );
   const faturaSomenteAndrade = Boolean(input.faturaSomenteAndrade);
-  // Quando a CEMIG é paga separadamente, a única forma de materializar a
-  // absorção é conceder o crédito na cobrança Andrade. Na fatura unificada,
-  // o abatimento fica na própria parcela da concessionária.
-  const valorUsina = faturaSomenteAndrade
-    ? Math.max(0, valorUsinaSemDisponibilidade - valorTotalAbsorvido)
-    : valorUsinaSemDisponibilidade;
-  const valorCemigRepassado = faturaSomenteAndrade
-    ? input.valorCemig
-    : Math.max(0, input.valorCemig - valorTotalAbsorvido);
+  const valorUsina = Math.max(0, valorUsinaSemDisponibilidade - valorTotalAbsorvido);
+  const valorCemigRepassado = input.valorCemig;
   const descontoContratadoValor = valorEnergiaCheia - valorUsinaSemDisponibilidade;
-  const valorCreditoEfetivo = Math.min(
-    valorEnergiaCheia,
-    Math.max(0, input.valorCreditoEfetivo ?? valorEnergiaCheia)
-  );
-  const valorReferenciaSemAndrade = input.valorCemig + valorCreditoEfetivo;
+  // Sem a usina não existem Fio B nem custo de disponibilidade GD. A base de
+  // comparação é a conta original sem essas duas parcelas, mais a energia
+  // cheia que seria cobrada pela concessionária.
+  const valorReferenciaSemAndrade = Math.max(
+    0,
+    input.valorCemig - custoDisponibilidadeRepassavel - diferencaFioBRepassavel
+  ) + valorEnergiaCheia;
   const valorTotalUnificado = (faturaSomenteAndrade ? 0 : valorCemigRepassado) + valorUsina;
   // A economia considera o desembolso total do cliente. Mesmo quando a conta
   // CEMIG é paga separadamente, ela não pode parecer uma economia da Andrade.
   const economiaReal = Math.max(0, valorReferenciaSemAndrade - (valorCemigRepassado + valorUsina));
   const baseDescontoReal = Math.max(
     0,
-    input.baseDescontoReal ?? valorCreditoEfetivo
+    input.baseDescontoReal ?? valorReferenciaSemAndrade
   );
   const descontoRealPercentual =
     baseDescontoReal > 0

@@ -237,27 +237,25 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   const absorveDisponibilidade = usaGD2 ? disponibilidadeGd2 === "ABSORVER" : usaGD1 && disponibilidadeGd1 === "ABSORVER";
   const valorAbsorvidoDisponibilidade = absorveDisponibilidade ? custoDisponibilidade : 0;
   const valorAbsorvidoFioB = usaGD2 && fioBGd2 === "ABSORVER" ? diferencaFioB : 0;
-  const absorvido = Math.min(valorCemig, valorAbsorvidoDisponibilidade + valorAbsorvidoFioB);
-
   if (!possuiLeituraGd) return null;
   const valorEnergiaCheia = Math.max(0, baseKwh * tarifaCheia);
   // A referência sem Andrade é reconstituída da própria competência: a conta
   // CEMIG efetivamente cobrada mais a energia GD pela tarifa cheia lida no
   // PDF. Algumas NFs não expõem "valor do crédito" em um campo isolado; esse
   // fato não pode impedir o cálculo quando kWh e tarifa já foram extraídos.
-  const referencia = valorCemig + valorEnergiaCheia;
+  const referencia = Math.max(0, valorCemig - custoDisponibilidade - diferencaFioB) + valorEnergiaCheia;
   // A economia percebida é comparada com tudo que o cliente pagaria sem a
   // Andrade. Assim os encargos que continuam obrigatórios reduzem levemente o
   // percentual final mesmo quando disponibilidade e Fio B são absorvidos.
   if (referencia <= 0) return null;
-  const valorAndrade = valorEnergiaCheia * (1 - desconto / 100);
-  // Numa conta convencional, a parcela de energia ainda está integralmente
-  // na concessionária e deve ser substituída pela energia Andrade. Numa conta
-  // já processada com GD, a concessionária já traz somente o saldo remanescente.
-  const cemigSemEnergiaCompensada = possuiCompensacaoLida
-    ? Math.max(0, valorCemig - absorvido)
-    : 0;
-  const valorCemigRepassado = Math.max(0, cemigSemEnergiaCompensada);
+  // Quando a Andrade absorve um custo GD, o abatimento aparece na própria
+  // fatura Andrade. A conta CEMIG permanece com o valor original do PDF.
+  const valorAndrade = Math.max(
+    0,
+    valorEnergiaCheia * (1 - desconto / 100) -
+      valorAbsorvidoDisponibilidade - valorAbsorvidoFioB,
+  );
+  const valorCemigRepassado = valorCemig;
   const economia = Math.max(0, referencia - (valorCemigRepassado + valorAndrade));
   // A projeção apresentada ao cliente compara o desembolso total sem Andrade
   // com o total unificado. Os encargos obrigatórios seguem dentro dessa base;
