@@ -115,7 +115,7 @@ export default function RealDiscountInfo({
         <Text style={styles.formulaText}>Valor sem Andrade − total unificado</Text>
         <View style={styles.divider} />
         <Text style={styles.formulaLabel}>DESCONTO REAL</Text>
-        <Text style={styles.formulaText}>Economia real ÷ valor da energia cheia × 100</Text>
+        <Text style={styles.formulaText}>Economia real ÷ valor total sem Andrade × 100</Text>
       </View>
 
       <Text style={styles.impact}>{impacto}</Text>
@@ -273,16 +273,16 @@ function calcularPrevia({ dados, desconto, consumoProjetado, modalidadeFaturamen
       // cenário sem Andrade. Não misture essa energia projetada com o total
       // histórico de um mês diferente.
       : valorEnergiaCheia + encargosObrigatorios;
-  // Espelha a base informada ao motor de faturamento: GD II mede o desconto
-  // sobre toda a energia consumida; GD I usa o crédito efetivo. Em uma conta
-  // ainda sem GD, a melhor projeção continua sendo a energia da modalidade.
+  // A economia percebida é comparada com tudo que o cliente pagaria sem a
+  // Andrade. Assim os encargos que continuam obrigatórios reduzem levemente o
+  // percentual final mesmo quando disponibilidade e Fio B são absorvidos.
   const valorEnergiaConsumida = consumo > 0 ? consumo * tarifaCheia : valorEnergiaCheia;
-  const baseDesconto = usaGD2
+  const baseEnergiaBeneficiada = usaGD2
     ? valorEnergiaConsumida
     : possuiCompensacaoLida
       ? creditoEfetivo
       : valorEnergiaCheia;
-  if (baseDesconto <= 0) return null;
+  if (baseEnergiaBeneficiada <= 0 || referencia <= 0) return null;
   const valorAndrade = valorEnergiaCheia * (1 - desconto / 100);
   // Numa conta convencional, a parcela de energia ainda está integralmente
   // na concessionária e deve ser substituída pela energia Andrade. Numa conta
@@ -296,8 +296,8 @@ function calcularPrevia({ dados, desconto, consumoProjetado, modalidadeFaturamen
   const economia = Math.max(0, referencia - (valorCemigRepassado + valorAndrade));
   return {
     economia,
-    baseDesconto,
-    descontoReal: economia / baseDesconto * 100,
+    baseDesconto: referencia,
+    descontoReal: economia / referencia * 100,
     custoDisponibilidade,
     diferencaFioB,
     valorAbsorvidoDisponibilidade,
