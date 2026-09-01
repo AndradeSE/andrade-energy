@@ -358,3 +358,4 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - A média de consumo também aceita os nomes de campos legados `historicoConsumo`, `historico_consumo`, `consumo_kwh` e `consumoFaturado`.
 - Validação real do anexo existente recuperou consumo de 68 kWh, 12 competências do histórico, tarifa cheia e valor total, liberando a projeção dinâmica do desconto.
 - Quando uma conta é acessada em outro aparelho e a sessão atual é substituída, o app mostra as opções **Entrar neste aparelho** ou **Voltar ao login**, em vez de repetir silenciosamente o erro de sessão expirada.
+- Quando a conta importada ainda não possui GD, a configuração exige uma escolha exclusiva entre **GD I** e **GD II** para a projeção. Selecionar uma desativa a outra; se a fatura já identificar GD, somente as opções correspondentes são apresentadas.

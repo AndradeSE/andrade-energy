@@ -173,7 +173,7 @@ export default function EditarAlocacaoUnidade() {
         setRepasseDisponibilidadeGD2((uc?.repassar_disponibilidade_gd2 ?? Number(uc?.percentual_repasse_disponibilidade ?? 100) > 0) ? "REPASSAR" : "ABSORVER");
         setRepasseFioBGD2((uc?.repassar_diferenca_fio_b_gd2 ?? true) ? "REPASSAR" : "ABSORVER");
         const faturaBase = parseDadosFatura(dadosFaturaParam) ?? faturas[0] ?? null;
-        setTipoGd(String(tipoGdImportado || uc?.tipo_gd || identificarTipoGd(faturaBase) || "").toUpperCase());
+        setTipoGd(String(tipoGdImportado || uc?.tipo_gd || identificarTipoGd(faturaBase) || "GD1").toUpperCase());
         setDadosFatura(faturaBase);
         setConsumoMedio(mediaFinal > 0 ? String(Math.round(mediaFinal)) : "");
         setPercentual(
@@ -322,6 +322,12 @@ export default function EditarAlocacaoUnidade() {
             ]}
           />
           <>
+            {!identificarTipoGd(dadosFatura) ? <ChoiceField
+              label="Tipo de GD para projeção"
+              value={tipoGd === "GD2" ? "GD2" : "GD1"}
+              onChange={(valor) => setTipoGd(valor as "GD1" | "GD2")}
+              options={[{ label: "GD I", value: "GD1" }, { label: "GD II", value: "GD2" }]}
+            /> : null}
             {!tipoGd || tipoGd === "GD1" || tipoGd === "MISTA" ? <ChoiceField
               label="GD I: custo de disponibilidade recalculado"
               value={repasseDisponibilidadeGD1}
@@ -342,9 +348,9 @@ export default function EditarAlocacaoUnidade() {
               options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]}
             />
             </> : null}
-            <Text style={styles.hint}>{formatoFatura === "SOMENTE_ANDRADE"
-              ? "Mesmo com documentos separados, defina quem assume a disponibilidade e o Fio B. A projeção considera também o valor pago diretamente à concessionária."
-              : "A disponibilidade é aplicada conforme a modalidade GD identificada na conta; a diferença do Fio B vale somente para GD II. Os demais encargos continuam na conta da concessionária."}
+            <Text style={styles.hint}>{!identificarTipoGd(dadosFatura) ? `A conta ainda não possui GD. A projeção está simulando ${tipoGd === "GD2" ? "GD II" : "GD I"}; selecionar uma opção desativa a outra. ` : ""}{formatoFatura === "SOMENTE_ANDRADE"
+              ? "Mesmo com documentos separados, a projeção considera também o valor pago diretamente à concessionária."
+              : "Os demais encargos continuam na conta da concessionária."}
             </Text>
             <RealDiscountInfo
               descontoPercentual={desconto}

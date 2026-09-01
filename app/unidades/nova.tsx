@@ -61,9 +61,17 @@ export default function NovaUnidade() {
   const [repasseDisponibilidadeGD1, setRepasseDisponibilidadeGD1] = useState<RepasseGD2>("REPASSAR");
   const [repasseDisponibilidadeGD2, setRepasseDisponibilidadeGD2] = useState<RepasseGD2>("REPASSAR");
   const [repasseFioBGD2, setRepasseFioBGD2] = useState<RepasseGD2>("REPASSAR");
+  const [tipoGdSelecionado, setTipoGdSelecionado] = useState<"GD1" | "GD2">(
+    String(tipoGdImportado ?? "").toUpperCase() === "GD2" ? "GD2" : "GD1",
+  );
   const [clientes, setClientes] = useState<any[]>([]); const [usinas, setUsinas] = useState<any[]>([]);
   const [clienteId, setClienteId] = useState(""); const [usinaId, setUsinaId] = useState(""); const [percentualAlocado, setPercentualAlocado] = useState(""); const [salvando, setSalvando] = useState(false);
-  const tipoGdEfetivo = String(tipoGdImportado || identificarTipoGd(dadosFatura) || "").toUpperCase();
+  const tipoGdDetectado = identificarTipoGd(dadosFatura);
+  const tipoGdEfetivo = String(tipoGdDetectado || tipoGdImportado || tipoGdSelecionado).toUpperCase();
+
+  useEffect(() => {
+    if (tipoGdDetectado === "GD1" || tipoGdDetectado === "GD2") setTipoGdSelecionado(tipoGdDetectado);
+  }, [tipoGdDetectado]);
 
   useEffect(() => {
     Promise.all([
@@ -239,12 +247,18 @@ export default function NovaUnidade() {
       {!clienteIdVinculado ? <><Text style={styles.label}>Vincular ao cliente *</Text>{clientes.length ? <View style={styles.options}>{clientes.map((c) => <Pressable key={c.id} onPress={() => setClienteId(clienteId === c.id ? "" : c.id)} style={[styles.link, clienteId === c.id && styles.linkSelected]}><Text>{c.nome}</Text></Pressable>)}</View> : <Text style={styles.clientRequired}>Cadastre um cliente antes de adicionar uma unidade consumidora.</Text>}</> : null}
       <ChoiceField label="Formato da cobrança" value={formatoFatura} onChange={(valor) => setFormatoFatura(valor as FormatoFatura)} options={[{ label: "Fatura unificada (CEMIG + Andrade)", value: "UNIFICADA" }, { label: "Somente Andrade Energy", value: "SOMENTE_ANDRADE" }]} />
       <>
+        {!tipoGdDetectado ? <ChoiceField
+          label="Tipo de GD para projeção"
+          value={tipoGdSelecionado}
+          onChange={(valor) => setTipoGdSelecionado(valor as "GD1" | "GD2")}
+          options={[{ label: "GD I", value: "GD1" }, { label: "GD II", value: "GD2" }]}
+        /> : null}
         {!tipoGdEfetivo || tipoGdEfetivo === "GD1" || tipoGdEfetivo === "MISTA" ? <ChoiceField label="GD I: custo de disponibilidade recalculado" value={repasseDisponibilidadeGD1} onChange={(valor) => setRepasseDisponibilidadeGD1(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} /> : null}
         {!tipoGdEfetivo || tipoGdEfetivo === "GD2" || tipoGdEfetivo === "MISTA" ? <>
           <ChoiceField label="GD II: custo de disponibilidade recalculado" value={repasseDisponibilidadeGD2} onChange={(valor) => setRepasseDisponibilidadeGD2(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} />
           <ChoiceField label="GD II: diferença do Fio B" value={repasseFioBGD2} onChange={(valor) => setRepasseFioBGD2(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} />
         </> : null}
-        <Text style={styles.beneficiariaHint}>{formatoFatura === "SOMENTE_ANDRADE" ? "Mesmo com documentos separados, defina quem assume a disponibilidade e o Fio B. A projeção considera também o valor que continuará sendo pago à concessionária." : "A disponibilidade é aplicada conforme a modalidade GD identificada na conta; a diferença do Fio B vale somente para GD II. Os demais encargos continuam na fatura da concessionária."}</Text>
+        <Text style={styles.beneficiariaHint}>{!tipoGdDetectado ? `A conta ainda não possui GD. A projeção está simulando ${tipoGdSelecionado === "GD1" ? "GD I" : "GD II"}; escolher uma opção desativa automaticamente a outra. ` : ""}{formatoFatura === "SOMENTE_ANDRADE" ? "Mesmo com documentos separados, a projeção considera também o valor que continuará sendo pago à concessionária." : "Os demais encargos continuam na fatura da concessionária."}</Text>
         <RealDiscountInfo
           descontoPercentual={desconto}
           tipoGd={tipoGdEfetivo}
