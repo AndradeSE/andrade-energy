@@ -347,3 +347,7 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - A central web foi reduzida a tarefas de várias etapas. Todos os vídeos partem da Home, usam narração Francisca a +10%, trilha a 8%, 30 fps e marcação vermelha antes dos cliques.
 - Gerador: convite até UC, recebimento automático, faturamento pela conta e multiempresa/identidade. Consumidor: vincular conta ao CPF e entender/pagar a fatura.
 - Os dez tutoriais simples/antigos foram removidos do portal.
+- Publicação concluída no commit funcional `750f777`.
+- OTA Gerador: grupo `08b46f56-dce6-41f3-b1dd-aaac79bd7dc0`.
+- OTA Consumidor: grupo `d272ac17-5fac-4e47-a167-f145c2e90c86`.
+- Portal Sites publicado como versão 55 no projeto oficial vinculado a `www.andradeenergy.com.br`.
