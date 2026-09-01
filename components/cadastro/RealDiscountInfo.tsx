@@ -179,9 +179,11 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   // Numa conta GD, injeção usa a energia que veio da usina e compensação usa
   // exclusivamente Energia compensada GD I/GD II. O consumo é apenas a base
   // estimada de uma conta convencional, antes da primeira competência GD.
-  const baseKwh = modalidade === "INJECAO"
-    ? (energiaInjetada > 0 ? energiaInjetada : possuiLeituraGd ? 0 : consumo)
-    : (energiaCompensada > 0 ? energiaCompensada : possuiLeituraGd ? 0 : consumo);
+  const baseKwh = !possuiLeituraGd
+    ? consumo
+    : modalidade === "INJECAO"
+      ? energiaInjetada
+      : energiaCompensada;
   if (tarifaCheia <= 0) {
     const energiaCheia = n(dados, "valor_energia_cheia", "valorEnergiaCheia");
     const baseTarifa = baseKwh || consumo;
@@ -199,9 +201,13 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   const diferencaSalva = n(dados, "diferenca_fio_b", "diferencaFioB");
   const tarifaScee = n(dados, "tarifa_scee", "tarifaScee");
   const tarifaGd2 = n(dados, "tarifa_gd", "tarifaGD2", "tarifaGD");
-  const tarifaSemImpostos = n(dados, "tarifa_disponibilidade_sem_impostos", "tarifaDisponibilidadeSemImpostos");
-  const diferencaFioBEstimada = tarifaCheia > tarifaSemImpostos && tarifaSemImpostos > 0
-    ? baseKwh * (tarifaCheia - tarifaSemImpostos)
+  const simulaGD2 = tipoGd === "GD2" || tipoGd === "MISTA";
+  // Antes da primeira conta GD II ainda não existem as duas tarifas necessárias
+  // (SCEE e Energia compensada GD II). Usamos somente uma projeção provisória
+  // da defasagem, separada de impostos. A competência GD II real sempre
+  // substitui esta estimativa pela diferença tarifária lida no PDF.
+  const diferencaFioBEstimada = !possuiLeituraGd && simulaGD2
+    ? baseKwh * tarifaCheia * 0.13
     : 0;
   const diferencaFioB = diferencaSalva > 0
     ? diferencaSalva
@@ -266,6 +272,8 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
     diferencaFioB,
     valorAbsorvidoDisponibilidade,
     valorAbsorvidoFioB,
+    fioBEstimado: diferencaFioBEstimada > 0 && diferencaSalva <= 0,
+    usaGD2,
   };
 }
 
@@ -279,9 +287,10 @@ function resumoDosRepasses(previa: ReturnType<typeof calcularPrevia>) {
   }
   if (previa.diferencaFioB > 0) {
     partes.push(previa.valorAbsorvidoFioB > 0
-      ? `${formatarMoeda(previa.valorAbsorvidoFioB)} de Fio B absorvido`
-      : `${formatarMoeda(previa.diferencaFioB)} de Fio B repassado`);
+      ? `${formatarMoeda(previa.valorAbsorvidoFioB)} de Fio B ${previa.fioBEstimado ? "estimado e " : ""}absorvido`
+      : `${formatarMoeda(previa.diferencaFioB)} de Fio B ${previa.fioBEstimado ? "estimado e " : ""}repassado`);
   }
+  if (!previa.usaGD2) partes.push("GD I sem defasagem de Fio B; crédito pela tarifa cheia");
   return partes.length ? ` ${partes.join(" e ")}.` : "";
 }
 
