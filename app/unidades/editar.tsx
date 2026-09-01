@@ -172,7 +172,7 @@ export default function EditarAlocacaoUnidade() {
         setRepasseDisponibilidadeGD1((uc?.repassar_disponibilidade_gd1 ?? Number(uc?.percentual_repasse_disponibilidade ?? 100) > 0) ? "REPASSAR" : "ABSORVER");
         setRepasseDisponibilidadeGD2((uc?.repassar_disponibilidade_gd2 ?? Number(uc?.percentual_repasse_disponibilidade ?? 100) > 0) ? "REPASSAR" : "ABSORVER");
         setRepasseFioBGD2((uc?.repassar_diferenca_fio_b_gd2 ?? true) ? "REPASSAR" : "ABSORVER");
-        const faturaBase = faturas[0] ?? parseDadosFatura(dadosFaturaParam);
+        const faturaBase = parseDadosFatura(dadosFaturaParam) ?? faturas[0] ?? null;
         setTipoGd(String(tipoGdImportado || uc?.tipo_gd || identificarTipoGd(faturaBase) || "").toUpperCase());
         setDadosFatura(faturaBase);
         setConsumoMedio(mediaFinal > 0 ? String(Math.round(mediaFinal)) : "");
@@ -321,7 +321,7 @@ export default function EditarAlocacaoUnidade() {
               { label: "Somente Andrade Energy", value: "SOMENTE_ANDRADE" },
             ]}
           />
-          {formatoFatura === "UNIFICADA" ? <>
+          <>
             {!tipoGd || tipoGd === "GD1" || tipoGd === "MISTA" ? <ChoiceField
               label="GD I: custo de disponibilidade recalculado"
               value={repasseDisponibilidadeGD1}
@@ -342,19 +342,21 @@ export default function EditarAlocacaoUnidade() {
               options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]}
             />
             </> : null}
-            <Text style={styles.hint}>
-              A disponibilidade é aplicada conforme a modalidade GD identificada na conta; a diferença do Fio B vale somente para GD II. Os demais encargos continuam na conta da concessionária.
+            <Text style={styles.hint}>{formatoFatura === "SOMENTE_ANDRADE"
+              ? "Mesmo com documentos separados, defina quem assume a disponibilidade e o Fio B. A projeção considera também o valor pago diretamente à concessionária."
+              : "A disponibilidade é aplicada conforme a modalidade GD identificada na conta; a diferença do Fio B vale somente para GD II. Os demais encargos continuam na conta da concessionária."}
             </Text>
             <RealDiscountInfo
               descontoPercentual={desconto}
               tipoGd={tipoGd}
               modalidadeFaturamento={modalidade}
+              faturaSomenteAndrade={formatoFatura === "SOMENTE_ANDRADE"}
               dadosFatura={dadosFatura}
               disponibilidadeGd1={repasseDisponibilidadeGD1}
               disponibilidadeGd2={repasseDisponibilidadeGD2}
               fioBGd2={repasseFioBGD2}
             />
-          </> : null}
+          </>
           <Button
             disabled={salvando || !clienteIdResolvido}
             title={salvando ? "Salvando..." : clienteIdResolvido ? "Salvar alocação da UC" : "Vincule um cliente para alocar"}

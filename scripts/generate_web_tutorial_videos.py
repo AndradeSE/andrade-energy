@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 from pathlib import Path
+import asyncio
 import subprocess
 import tempfile
 
+import edge_tts
 from PIL import Image, ImageDraw, ImageFont
 
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "portal-web" / "public" / "tutorials"
 LOGO = ROOT / "assets" / "images" / "andrade-logo-horizontal.png"
-W, H, FPS, STEP_SECONDS = 1280, 720, 24, 4
+W, H, FPS = 1280, 720, 30
 GREEN, DEEP, YELLOW = "#087A46", "#0B3F31", "#F4CE35"
 BG, SURFACE, INK, MUTED, LINE = "#EAF1ED", "#FFFFFF", "#17382D", "#667970", "#CAD9D1"
 
@@ -97,9 +99,9 @@ def draw_browser(step, progress, local_progress):
     move = min(1, local_progress * 1.8)
     cx = int(start[0] + (end[0] - start[0]) * move)
     cy = int(start[1] + (end[1] - start[1]) * move)
-    if 0.58 < local_progress < 0.82:
-        pulse = int(14 + 18 * abs(0.7 - local_progress) / 0.12)
-        d.ellipse((cx - pulse, cy - pulse, cx + pulse, cy + pulse), outline=YELLOW, width=4)
+    if 0.48 < local_progress < 0.82:
+        pulse = 24 + int(5 * abs(0.65 - local_progress) / 0.17)
+        d.ellipse((cx - pulse, cy - pulse, cx + pulse, cy + pulse), outline="#E32636", width=6)
     d.polygon([(cx, cy), (cx + 5, cy + 22), (cx + 11, cy + 14), (cx + 22, cy + 14)], fill="#111E19")
 
     rounded(d, (282, 638, W - 55, 686), 12, "#FFF5C8")
@@ -111,49 +113,99 @@ def draw_browser(step, progress, local_progress):
     return img
 
 
-def render(name, steps):
+async def gerar_voz(texto: str, destino: Path):
+    await edge_tts.Communicate(texto, "pt-BR-FranciscaNeural", rate="+10%").save(str(destino))
+
+
+def render(name, steps, narration):
     OUTPUT.mkdir(parents=True, exist_ok=True)
     draw_browser(steps[0], 0.01, 0).save(OUTPUT / f"{name}.png", quality=95)
-    total = len(steps) * STEP_SECONDS * FPS
     ffmpeg = ROOT / ".codex-ffmpeg" / "node_modules" / "ffmpeg-static" / "ffmpeg.exe"
     with tempfile.TemporaryDirectory(prefix=f"{name}-", dir=ROOT / "tmp") as temp:
         folder = Path(temp)
+        voice = folder / "voice.mp3"
+        asyncio.run(gerar_voz(narration, voice))
+        seconds_per_step = 6
+        frames_per_step = round(seconds_per_step * FPS)
+        total = len(steps) * frames_per_step
         frame_number = 0
         for index, step in enumerate(steps):
-            for local in range(STEP_SECONDS * FPS):
-                global_frame = index * STEP_SECONDS * FPS + local + 1
-                frame = draw_browser(step, global_frame / total, local / (STEP_SECONDS * FPS - 1))
+            for local in range(frames_per_step):
+                global_frame = index * frames_per_step + local + 1
+                frame = draw_browser(step, global_frame / total, local / (frames_per_step - 1))
                 frame.save(folder / f"frame-{frame_number:05d}.jpg", quality=88)
                 frame_number += 1
+        music = ROOT / "tmp" / "tutorials-por-funcao" / "trilha-instrumental.wav"
         subprocess.run([
             str(ffmpeg), "-y", "-framerate", str(FPS), "-i", str(folder / "frame-%05d.jpg"),
+            "-i", str(voice), "-stream_loop", "-1", "-i", str(music),
+            "-filter_complex", f"[1:a]adelay=350|350,apad[voice];[2:a]volume=0.08,atrim=duration={total / FPS:.3f}[music];[voice][music]amix=inputs=2:normalize=0,alimiter=limit=0.92[a]",
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p",
+            "-map", "0:v", "-map", "[a]", "-c:a", "aac", "-b:a", "128k", "-t", f"{total / FPS:.3f}",
             "-movflags", "+faststart", str(OUTPUT / f"{name}.mp4"),
         ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 GENERATOR_MENU = ["Visão geral", "Clientes", "Unidades", "Usinas", "Faturas", "Financeiro"]
 CONSUMER_MENU = ["Visão geral", "Economia", "Minha unidade", "Faturas", "Contratos", "Perfil"]
-GENERATOR = [
-    dict(number=1, profile="PORTAL GERADOR", menu=GENERATOR_MENU, active="Visão geral", eyebrow="VISÃO GERAL", title="Acompanhe a operação", subtitle="Comece pelos indicadores e escolha a área que deseja administrar.", cards=[("GERAÇÃO DO MÊS", "12.480 kWh", "Produção consolidada"), ("CLIENTES", "28", "26 ativos"), ("FATURAS ABERTAS", "7", "2 vencidas")], panel="Acesso rápido", panel_note="Abra a área desejada sem sair do painel.", rows=["Usinas e produção", "Clientes e unidades consumidoras", "Faturamento e recebimentos"], row=0, action="Abrir", cursor=(1120, 459), tip="Clique em Usinas para selecionar a planta que será administrada."),
-    dict(number=2, profile="PORTAL GERADOR", menu=GENERATOR_MENU, active="Usinas", eyebrow="GESTÃO DE USINAS", title="Selecione a usina", subtitle="Confira produção, autonomia e unidades alocadas.", cards=[("PRODUÇÃO 12 MESES", "154,8 MWh", "Média 12,9 MWh/mês"), ("UCs ALOCADAS", "18", "83% da capacidade"), ("SALDO", "2.140 kWh", "Disponível")], panel="Usinas cadastradas", panel_note="Escolha uma usina para ver os detalhes.", rows=["Usina Solar Andrade · 120 kWp", "Usina Sul · 75 kWp", "Usina Norte · 48 kWp"], row=0, action="Detalhes", cursor=(1120, 459), tip="Abra a usina para importar produção e revisar suas alocações."),
-    dict(number=3, profile="PORTAL GERADOR", menu=GENERATOR_MENU, active="Clientes", eyebrow="CLIENTES", title="Convide o consumidor", subtitle="O cadastro aparece após o consumidor aceitar o convite e criar a conta.", cards=[("CLIENTES ATIVOS", "28", "3 novos no mês"), ("UNIDADES", "34", "32 com contrato"), ("CONVITES", "2", "Aguardando aceite")], panel="Clientes cadastrados", panel_note="Abra o cliente para consultar suas áreas sem misturar os dados.", rows=["Vinícius Duarte · 2 UCs", "Sarah Oliveira · 1 UC", "Décio Bento · 3 UCs"], row=0, action="Abrir", cursor=(1120, 459), tip="Em Contas vinculadas, escolha o PDF enviado pelo consumidor e adicione a UC."),
-    dict(number=4, profile="PORTAL GERADOR", menu=GENERATOR_MENU, active="Unidades", eyebrow="ALOCAÇÃO", title="Revise a unidade", subtitle="Confirme usina, modalidade, percentual e regras de repasse.", cards=[("CONSUMO MÉDIO", "612 kWh", "Últimos 12 meses"), ("ALOCAÇÃO", "15,4%", "Calculada pelo sistema"), ("MODALIDADE", "GD II", "Fatura unificada")], panel="Unidade consumidora 121361801894", panel_note="A alocação pode ser ajustada antes do próximo faturamento.", rows=["Usina vinculada · Usina Solar Andrade", "Percentual alocado · 15,4%", "Repasse disponibilidade · Ativo"], row=1, action="Editar", cursor=(1120, 506), tip="Salve a alocação para que o faturamento use a produção correta."),
-    dict(number=5, profile="PORTAL GERADOR", menu=GENERATOR_MENU, active="Faturas", eyebrow="FATURAMENTO", title="Gere e acompanhe faturas", subtitle="Revise a competência e gere os documentos do cliente.", cards=[("EM ABERTO", "R$ 8.940", "18 faturas"), ("RECEBIDO", "R$ 21.680", "No mês"), ("VENCIDAS", "R$ 1.204", "3 faturas")], panel="Faturas de agosto", panel_note="A conta recebida por e-mail pode ser processada automaticamente.", rows=["Vinícius Duarte · R$ 347,98", "Sarah Oliveira · R$ 582,14", "Décio Bento · R$ 441,70"], row=0, action="Abrir", cursor=(1120, 459), tip="Abra a fatura para conferir cálculo, PDF, Pix e código de barras."),
-]
-CONSUMER = [
-    dict(number=1, profile="PORTAL CONSUMIDOR", menu=CONSUMER_MENU, active="Visão geral", eyebrow="MINHA ENERGIA", title="Veja sua economia", subtitle="A página inicial reúne faturas, economia e alertas da unidade.", cards=[("ECONOMIA ACUMULADA", "R$ 1.284,70", "Desde o início"), ("FATURA ABERTA", "R$ 347,98", "Vence em 05/09"), ("SALDO", "3.099 kWh", "Créditos disponíveis")], panel="Resumo da unidade", panel_note="Selecione uma ação para consultar os detalhes.", rows=["Fatura de agosto disponível", "Economia mensal", "Contrato ativo"], row=0, action="Ver fatura", cursor=(1100, 459), tip="Clique na fatura aberta para consultar valores e pagamento."),
-    dict(number=2, profile="PORTAL CONSUMIDOR", menu=CONSUMER_MENU, active="Minha unidade", eyebrow="UNIDADE CONSUMIDORA", title="Confira os dados da UC", subtitle="Cada unidade mantém seu histórico de consumo e documentos.", cards=[("UC", "121361801894", "B3 Comercial"), ("CONSUMO MÉDIO", "612 kWh", "Últimos 12 meses"), ("USINA", "Andrade Solar", "Contrato ativo")], panel="Informações da unidade", panel_note="Use a unidade correta antes de consultar faturas.", rows=["Titular · Vinícius Duarte Andrade", "Endereço · Brazópolis/MG", "Concessionária · CEMIG"], row=0, action="Detalhes", cursor=(1100, 459), tip="Se houver mais de uma UC, selecione a desejada antes de continuar."),
-    dict(number=3, profile="PORTAL CONSUMIDOR", menu=CONSUMER_MENU, active="Faturas", eyebrow="MINHAS FATURAS", title="Abra a competência", subtitle="Acompanhe faturas abertas, pagas e vencidas.", cards=[("EM ABERTO", "1", "R$ 347,98"), ("PAGAS", "7", "Últimos 12 meses"), ("VENCIDAS", "0", "Nenhuma pendência")], panel="Histórico de competências", panel_note="Clique em uma linha para abrir o documento completo.", rows=["Agosto/2026 · Em aberto", "Julho/2026 · Paga", "Junho/2026 · Paga"], row=0, action="Abrir", cursor=(1100, 459), tip="A fatura detalha o total unificado e as formas de pagamento."),
-    dict(number=4, profile="PORTAL CONSUMIDOR", menu=CONSUMER_MENU, active="Economia", eyebrow="ECONOMIA", title="Entenda o benefício", subtitle="Compare o valor com e sem Andrade Energy.", cards=[("ECONOMIA DO MÊS", "R$ 83,47", "22,79% após impostos"), ("TOTAL PAGO", "R$ 347,98", "Fatura unificada"), ("SEM BENEFÍCIO", "R$ 431,45", "Valor de referência")], panel="Evolução mensal", panel_note="O histórico mostra a economia consolidada por competência.", rows=["Agosto/2026 · R$ 83,47", "Julho/2026 · R$ 78,96", "Junho/2026 · R$ 74,21"], row=0, action="Detalhes", cursor=(1100, 459), tip="Use a composição para entender energia, disponibilidade e encargos."),
-    dict(number=5, profile="PORTAL CONSUMIDOR", menu=CONSUMER_MENU, active="Contratos", eyebrow="CONTRATO", title="Consulte a vigência", subtitle="Veja status, datas, unidades e termo de adesão.", cards=[("STATUS", "Ativo", "Contrato vigente"), ("INÍCIO", "15/05/2026", "Adesão confirmada"), ("VENCIMENTO", "15/05/2027", "Renovação anual")], panel="Contrato da unidade", panel_note="O cancelamento segue as condições e a vigência contratadas.", rows=["Termo de adesão", "Unidade consumidora vinculada", "Economia anual estimada"], row=0, action="Abrir termo", cursor=(1090, 459), tip="Abra o termo para baixar uma cópia ou consultar as condições."),
+
+
+def scene(number, profile, menu, active, eyebrow, title, subtitle, cards, panel, panel_note, rows, row, action, tip):
+    return dict(number=number, profile=profile, menu=menu, active=active, eyebrow=eyebrow, title=title,
+                subtitle=subtitle, cards=cards, panel=panel, panel_note=panel_note, rows=rows,
+                row=row, action=action, cursor=(1110, 459 + row * 47), tip=tip)
+
+
+G_HOME = scene(1, "PORTAL GERADOR", GENERATOR_MENU, "Visão geral", "HOME", "Visão geral da operação",
+    "Todos os tutoriais começam aqui para você reconhecer o caminho.",
+    [("GERAÇÃO DO MÊS", "12.480 kWh", "Produção consolidada"), ("CLIENTES", "28", "26 ativos"), ("FATURAS", "7", "2 vencidas")],
+    "Acesso rápido", "Escolha a tarefa que deseja executar.", ["Clientes e unidades", "Faturar via conta", "Usinas e produção"], 0, "Abrir", "Partimos sempre da Home e marcamos em vermelho o botão que deve ser usado.")
+C_HOME = scene(1, "PORTAL CONSUMIDOR", CONSUMER_MENU, "Visão geral", "HOME", "Minha energia",
+    "Todos os tutoriais começam aqui para facilitar a orientação.",
+    [("ECONOMIA", "R$ 1.284,70", "Acumulada"), ("FATURA ABERTA", "R$ 347,98", "Vence em 05/09"), ("SALDO", "3.099 kWh", "Créditos")],
+    "Acesso rápido", "Escolha a tarefa que deseja executar.", ["Anexar conta ao CPF", "Abrir e pagar fatura", "Contrato da unidade"], 0, "Abrir", "Partimos sempre da Home e destacamos cada ação antes de trocar de tela.")
+
+TUTORIALS = [
+    ("web-gerador-convite-e-uc", [
+        G_HOME,
+        scene(2, "PORTAL GERADOR", GENERATOR_MENU, "Clientes", "CLIENTES", "Envie o convite", "O cliente só entra na carteira depois de aceitar e criar a conta.", [("ATIVOS", "28", "Clientes"), ("CONVITES", "2", "Aguardando"), ("UCs", "34", "Vinculadas")], "Ações do cliente", "Use o convite antes de cadastrar a unidade.", ["Enviar convite por e-mail", "Acompanhar aceite", "Abrir cliente ativo"], 0, "Convidar", "Informe o e-mail; o consumidor recebe a chave e cria a própria conta."),
+        scene(3, "PORTAL GERADOR", GENERATOR_MENU, "Clientes", "CLIENTE ATIVO", "Abra as contas vinculadas", "As contas anexadas pelo consumidor ficam disponíveis no perfil.", [("CLIENTE", "Ativo", "Cadastro confirmado"), ("CONTAS", "2", "Vinculadas ao CPF"), ("UCs", "1", "Ativa")], "Acesso rápido do cliente", "Escolha a conta que contém a nova instalação.", ["Unidades consumidoras", "Contas vinculadas ao CPF", "Faturas processadas"], 1, "Abrir", "Entre em Contas vinculadas para reaproveitar um PDF enviado pelo cliente."),
+        scene(4, "PORTAL GERADOR", GENERATOR_MENU, "Unidades", "NOVA UC", "Confirme e configure a unidade", "Revise usina, modalidade, alocação e desconto antes de salvar.", [("CONSUMO MÉDIO", "612 kWh", "12 meses"), ("ALOCAÇÃO", "15,4%", "Sugerida"), ("DESCONTO", "40%", "Contratado")], "Configuração da UC", "A projeção muda conforme as opções GD.", ["Selecionar a usina", "Revisar repasses e desconto", "Salvar unidade"], 2, "Salvar", "Confirme os dados e salve; a unidade ficará dentro do cliente."),
+    ], "Na Home, abra Clientes e envie o convite. Depois que o consumidor aceitar, abra o cliente ativo. Entre em Contas vinculadas e escolha o PDF da instalação. Por fim, revise usina, alocação, desconto e salve a unidade."),
+    ("web-gerador-recebimento-automatico", [
+        G_HOME,
+        scene(2, "PORTAL GERADOR", GENERATOR_MENU, "Unidades", "UNIDADES", "Abra a unidade correta", "O endereço automático pertence a uma UC específica.", [("UCs ATIVAS", "34", "Carteira"), ("AUTOMÁTICAS", "19", "Conectadas"), ("PENDENTES", "15", "Sem conexão")], "Lista de unidades", "Localize pelo número ou titular.", ["UC 121361801894 · Vinícius", "UC 300112459811 · Sarah", "UC 901146230002 · Décio"], 0, "Abrir", "Selecione a UC que receberá as contas da concessionária."),
+        scene(3, "PORTAL GERADOR", GENERATOR_MENU, "Unidades", "FATURA AUTOMÁTICA", "Ative o recebimento", "O sistema cria um endereço exclusivo para esta unidade.", [("STATUS", "Desativado", "Ainda sem conexão"), ("ENDEREÇO", "—", "Será gerado"), ("ÚLTIMA CONTA", "—", "Nenhuma")], "Recebimento por e-mail", "Ative para gerar o endereço da UC.", ["Ativar recebimento automático", "Conectar Gmail", "Conectar Outlook"], 0, "Ativar", "Ative o recebimento e aguarde o endereço exclusivo aparecer."),
+        scene(4, "PORTAL GERADOR", GENERATOR_MENU, "Unidades", "ENCAMINHAMENTO", "Copie e configure o endereço", "Crie uma regra no e-mail do cliente para encaminhar PDFs.", [("STATUS", "Ativo", "Conectado"), ("ENDEREÇO", "uc1213@...", "Exclusivo"), ("PROCESSAMENTO", "Automático", "PDF recebido")], "Como conectar", "Finalize no provedor de e-mail do cliente.", ["Copiar endereço exclusivo", "Criar regra no Gmail ou Outlook", "Enviar uma conta para testar"], 0, "Copiar", "Copie o endereço, configure o encaminhamento e envie uma conta de teste."),
+    ], "Comece na Home e abra Unidades. Selecione a UC correta e entre em Fatura automática. Ative o recebimento para gerar o endereço exclusivo. Copie esse endereço, crie a regra no Gmail ou Outlook e envie uma conta para testar."),
+    ("web-gerador-faturamento", [
+        G_HOME,
+        scene(2, "PORTAL GERADOR", GENERATOR_MENU, "Faturas", "FATURAMENTO", "Importe a conta da energia", "Use o PDF da competência que será faturada.", [("EM ABERTO", "18", "Faturas"), ("VENCIDAS", "3", "Pendências"), ("RECEBIDO", "R$ 21.680", "No mês")], "Faturar via conta", "O sistema identifica a UC e os dados GD.", ["Selecionar PDF da concessionária", "Aguardar leitura", "Revisar competência"], 0, "Selecionar", "Escolha a conta da concessionária e aguarde a leitura completa."),
+        scene(3, "PORTAL GERADOR", GENERATOR_MENU, "Faturas", "REVISÃO", "Confira o cálculo", "Valide energia, modalidade, repasses e desconto real.", [("ENERGIA", "303 kWh", "Compensada"), ("DESCONTO REAL", "27,2%", "Projetado"), ("TOTAL", "R$ 347,98", "Unificado")], "Composição da cobrança", "Só confirme depois de revisar os valores.", ["Conta da concessionária · R$ 128,17", "Energia Andrade · R$ 219,81", "Total unificado · R$ 347,98"], 2, "Confirmar", "Confira a composição e confirme a fatura para gerar os documentos."),
+        scene(4, "PORTAL GERADOR", GENERATOR_MENU, "Faturas", "COBRANÇA", "Gere e acompanhe o pagamento", "O cliente recebe o PDF e as opções disponíveis.", [("STATUS", "Em aberto", "Aguardando"), ("PIX", "Disponível", "Copia e cola"), ("PDF", "Gerado", "Pronto")], "Documentos e pagamento", "Abra o detalhe para baixar ou registrar a quitação.", ["Baixar fatura Andrade", "Copiar Pix ou boleto", "Registrar pagamento"], 1, "Copiar", "Envie a cobrança e acompanhe o status até a confirmação do pagamento."),
+    ], "Na Home, abra Faturar via conta e selecione o PDF da concessionária. Aguarde a leitura, confira energia, repasses, desconto e total unificado. Confirme a competência e então gere ou envie os documentos de pagamento."),
+    ("web-gerador-multiempresa-e-marca", [
+        G_HOME,
+        scene(2, "PORTAL GERADOR", GENERATOR_MENU, "Visão geral", "AMBIENTE", "Abra a administração multiempresa", "Somente administradores podem criar e alternar empresas.", [("EMPRESA ATUAL", "Andrade", "Padrão"), ("PARCEIRAS", "3", "Ativas"), ("USUÁRIOS", "8", "Administradores")], "Menu do ambiente", "Troque a empresa sem misturar carteiras.", ["Alternar ambiente", "Administração multiempresa", "Perfil administrativo"], 1, "Abrir", "Use Administração multiempresa para criar ou revisar uma empresa parceira."),
+        scene(3, "PORTAL GERADOR", GENERATOR_MENU, "Visão geral", "EMPRESA", "Cadastre a empresa parceira", "Defina responsável, plano e acesso antes de ativar.", [("STATUS", "Em teste", "45 dias"), ("PLANO", "Profissional", "Selecionado"), ("IDENTIDADE", "Pendente", "Configurar")], "Dados da empresa", "Cada empresa mantém sua própria operação.", ["Informar empresa e responsável", "Definir plano e validade", "Salvar empresa"], 2, "Salvar", "Salve a empresa para liberar o ambiente separado."),
+        scene(4, "PORTAL GERADOR", GENERATOR_MENU, "Visão geral", "MINHA MARCA", "Personalize a identidade", "Aplique logo e cores somente ao ambiente selecionado.", [("LOGO", "Enviada", "Prévia pronta"), ("COR PRINCIPAL", "#087A46", "Personalizada"), ("STATUS", "Ativa", "Aplicada")], "Identidade visual", "Revise a prévia antes de publicar.", ["Enviar a logo", "Escolher cores", "Salvar identidade"], 2, "Salvar", "Confira a prévia e salve; a marca será aplicada aos clientes da empresa."),
+    ], "Partindo da Home, abra Administração multiempresa. Cadastre a empresa, escolha o plano e salve o novo ambiente. Depois entre em Minha marca, envie a logo, escolha as cores e confirme a identidade visual."),
+    ("web-consumidor-conta-vinculada", [
+        C_HOME,
+        scene(2, "PORTAL CONSUMIDOR", CONSUMER_MENU, "Perfil", "MEU PERFIL", "Abra as contas vinculadas", "Use apenas contas de instalações ligadas ao seu CPF.", [("PERFIL", "Ativo", "CPF confirmado"), ("CONTAS", "1", "Anexada"), ("UCs", "1", "Vinculada")], "Acesso rápido", "A conta ficará disponível também para o gerador.", ["Adicionar conta ao meu perfil", "Meus dados", "Segurança e biometria"], 0, "Abrir", "Abra Adicionar conta ao meu perfil para escolher o documento."),
+        scene(3, "PORTAL CONSUMIDOR", CONSUMER_MENU, "Perfil", "CONTA VINCULADA", "Selecione o PDF", "O sistema confere o número da UC e os dados do titular.", [("ARQUIVO", "conta.pdf", "PDF selecionado"), ("CPF", "Confirmado", "Primeiros dígitos"), ("UC", "121361801894", "Identificada")], "Enviar conta da concessionária", "Confira se o documento pertence ao seu CPF.", ["Escolher PDF no aparelho", "Aguardar a análise", "Confirmar o envio"], 0, "Escolher", "Selecione o PDF e aguarde a identificação da unidade."),
+        scene(4, "PORTAL CONSUMIDOR", CONSUMER_MENU, "Perfil", "CONCLUÍDO", "Conta salva no perfil", "O gerador já pode usar esse documento para cadastrar a UC.", [("STATUS", "Anexada", "Disponível"), ("UC", "121361801894", "Identificada"), ("DATA", "Hoje", "Envio concluído")], "Contas vinculadas", "Você pode anexar outras instalações do mesmo CPF.", ["Abrir o PDF enviado", "Acompanhar a vinculação", "Adicionar outra conta"], 1, "Acompanhar", "Pronto. A conta permanece no perfil e pode ser usada pelo gerador."),
+    ], "Na Home, abra Adicionar conta ao meu perfil. Escolha uma conta da concessionária vinculada ao seu CPF e aguarde a análise. Confirme o envio. O documento ficará salvo e disponível para o gerador cadastrar a unidade."),
+    ("web-consumidor-fatura-e-pagamento", [
+        C_HOME,
+        scene(2, "PORTAL CONSUMIDOR", CONSUMER_MENU, "Faturas", "FATURAS", "Abra a competência em aberto", "Confira sempre a unidade e a data de vencimento.", [("EM ABERTO", "1", "R$ 347,98"), ("PAGAS", "7", "Histórico"), ("VENCIDAS", "0", "Sem pendências")], "Histórico de competências", "Selecione a fatura que deseja entender ou pagar.", ["Agosto/2026 · Em aberto", "Julho/2026 · Paga", "Junho/2026 · Paga"], 0, "Abrir", "Abra a competência em aberto para ver o demonstrativo completo."),
+        scene(3, "PORTAL CONSUMIDOR", CONSUMER_MENU, "Faturas", "COMPOSIÇÃO", "Entenda o total unificado", "Veja a conta da concessionária somada à energia Andrade.", [("SEM BENEFÍCIO", "R$ 431,45", "Referência"), ("ECONOMIA", "R$ 83,47", "Desconto real"), ("TOTAL", "R$ 347,98", "A pagar")], "Como chegamos ao total", "A composição separa cada parcela da cobrança.", ["Concessionária · R$ 128,17", "Energia Andrade · R$ 219,81", "Total unificado · R$ 347,98"], 2, "Detalhes", "Confira o total e a economia antes de escolher o pagamento."),
+        scene(4, "PORTAL CONSUMIDOR", CONSUMER_MENU, "Faturas", "PAGAMENTO", "Escolha a forma de pagamento", "Use o Pix, boleto ou PDF disponível para esta cobrança.", [("STATUS", "Em aberto", "Até 05/09"), ("PIX", "Disponível", "Copia e cola"), ("BOLETO", "Disponível", "Código de barras")], "Formas de pagamento", "Depois da compensação, o status muda automaticamente.", ["Copiar código Pix", "Copiar código de barras", "Baixar a fatura"], 0, "Copiar", "Escolha a forma desejada e aguarde a confirmação automática do pagamento."),
+    ], "Comece na Home e abra a fatura em aberto. Confira a unidade, o vencimento e a composição do total unificado. Depois escolha Pix, boleto ou PDF. Após a compensação, o status será atualizado automaticamente."),
 ]
 
 
 if __name__ == "__main__":
-    generator_names = ["visao-geral", "usinas", "clientes-e-ucs", "configuracao-uc", "faturamento"]
-    consumer_names = ["visao-geral", "minha-unidade", "faturas", "economia", "contratos"]
-    for name, step in zip(generator_names, GENERATOR):
-        render(f"web-gerador-{name}", [step])
-    for name, step in zip(consumer_names, CONSUMER):
-        render(f"web-consumidor-{name}", [step])
+    for name, steps, narration in TUTORIALS:
+        print("Gerando", name, flush=True)
+        render(name, steps, narration)

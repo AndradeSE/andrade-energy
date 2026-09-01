@@ -8,6 +8,7 @@ import { AppHeader, Card, ElasticScrollView as ScrollView, EmptyState, Screen } 
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
 import { anexarFaturaCliente, FaturaAnexadaCliente, listarFaturasAnexadasCliente } from "../../services/clientes.service";
+import { calcularMediaConsumoFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 function dataBrasileira(valor?: string) {
@@ -17,8 +18,10 @@ function dataBrasileira(valor?: string) {
 }
 
 function tipoGd(dados: Record<string, any>) {
-  const gd1 = Number(dados.energiaCompensadaGD1 ?? 0) > 0;
-  const gd2 = Number(dados.energiaCompensadaGD2 ?? 0) > 0;
+  const informado = String(dados.tipoGd ?? dados.tipo_gd ?? "").toUpperCase();
+  if (["GD1", "GD2", "MISTA"].includes(informado)) return informado;
+  const gd1 = Number(dados.energiaCompensadaGD1 ?? dados.energia_compensada_gd1 ?? 0) > 0;
+  const gd2 = Number(dados.energiaCompensadaGD2 ?? dados.energia_compensada_gd2 ?? 0) > 0;
   return gd1 && gd2 ? "MISTA" : gd2 ? "GD2" : gd1 ? "GD1" : "";
 }
 
@@ -81,6 +84,7 @@ export default function FaturasAnexadas() {
   function usarNaUc(fatura: FaturaAnexadaCliente) {
     const dados = fatura.dadosFatura ?? {};
     const numero = String(dados.uc ?? dados.numero_instalacao ?? "").replace(/\D/g, "");
+    const consumoMedio = calcularMediaConsumoFatura(dados);
     if (!numero) {
       Alert.alert("Dados incompletos", "Esta fatura não possui uma UC identificada.");
       return;
@@ -94,8 +98,8 @@ export default function FaturasAnexadas() {
         uc: numero,
         cpf: String(dados.cpf ?? ""),
         endereco: String(dados.endereco ?? ""),
-        energiaCompensada: String(dados.energiaCompensada ?? 0),
-        consumoMedio: String(dados.consumoMedio ?? dados.consumo ?? ""),
+        energiaCompensada: String(dados.energiaCompensada ?? dados.energia_compensada ?? 0),
+        consumoMedio: consumoMedio > 0 ? String(consumoMedio) : "",
         tipoGd: tipoGd(dados),
         dadosFatura: JSON.stringify(dados),
       },

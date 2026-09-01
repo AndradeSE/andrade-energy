@@ -8,7 +8,7 @@ import RealDiscountInfo from "../../components/cadastro/RealDiscountInfo";
 import UsinaSelector from "../../components/cadastro/UsinaSelector";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
-import { alocarUnidade } from "../../services/usinas.service";
+import { alocarUnidade, listarUsinas } from "../../services/usinas.service";
 import { listarFaturas } from "../../services/faturas.service";
 import { supabase } from "../../supabase";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
@@ -68,8 +68,14 @@ export default function NovaUnidade() {
   useEffect(() => {
     Promise.all([
       supabase.from("clientes").select("id,nome,cpf,endereco,distribuidora,usina_id,modalidade_faturamento,desconto_percentual,consumo_medio_kwh").order("nome"),
-      supabase.from("usinas").select("id,nome,producao_media_12_meses,geracao_media").order("nome"),
-    ]).then(([c, u]) => { setClientes(c.data ?? []); setUsinas(u.data ?? []); });
+      listarUsinas(),
+    ]).then(([c, u]) => {
+      if (c.error) throw c.error;
+      setClientes(c.data ?? []);
+      setUsinas(Array.isArray(u) ? u : []);
+    }).catch((erro: any) => {
+      Alert.alert("Não foi possível carregar os dados", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
+    });
     if (clienteIdVinculado) setClienteId(clienteIdVinculado);
     if (origem !== "fatura") return;
     const nomeExtraido = (cliente ?? "").trim();
@@ -108,6 +114,13 @@ export default function NovaUnidade() {
   useEffect(() => {
     let ativa = true;
     const numeroLimpo = numero.replace(/\D/g, "");
+    const dadosImportados = parseDadosFatura(dadosFaturaParam);
+    // A conta escolhida no perfil é a fonte desta inclusão. Não permita que
+    // uma competência antiga já processada sobrescreva os dados recém-lidos.
+    if (origem === "fatura" && dadosImportados && Object.keys(dadosImportados).length) {
+      setDadosFatura(dadosImportados);
+      return () => { ativa = false; };
+    }
     if (!numeroLimpo && !clienteId) {
       if (!dadosFaturaParam) setDadosFatura(null);
       return () => { ativa = false; };
@@ -119,7 +132,10 @@ export default function NovaUnidade() {
         const faturasDoCliente = !faturasDaUc.length && clienteId
           ? await listarFaturas(clienteId)
           : [];
-        if (ativa) setDadosFatura(faturasDaUc[0] ?? faturasDoCliente[0] ?? parseDadosFatura(dadosFaturaParam));
+        // Quando o usuário escolheu uma conta anexada, ela é a fonte desta
+        // tela. Uma fatura já processada da UC/cliente não pode substituir o
+        // PDF explicitamente selecionado.
+        if (ativa) setDadosFatura(parseDadosFatura(dadosFaturaParam) ?? faturasDaUc[0] ?? faturasDoCliente[0] ?? null);
       } catch {
         if (ativa && !dadosFaturaParam) setDadosFatura(null);
       }
@@ -127,7 +143,7 @@ export default function NovaUnidade() {
 
     void carregarBaseReal();
     return () => { ativa = false; };
-  }, [clienteId, dadosFaturaParam, numero]);
+  }, [clienteId, dadosFaturaParam, numero, origem]);
 
   async function salvar() {
     const descontoNumero = numeroSeguro(desconto);
@@ -222,23 +238,24 @@ export default function NovaUnidade() {
       </> : <UsinaSelector usinas={usinas} value={usinaId} onChange={setUsinaId} label="Usina geradora" />}
       {!clienteIdVinculado ? <><Text style={styles.label}>Vincular ao cliente *</Text>{clientes.length ? <View style={styles.options}>{clientes.map((c) => <Pressable key={c.id} onPress={() => setClienteId(clienteId === c.id ? "" : c.id)} style={[styles.link, clienteId === c.id && styles.linkSelected]}><Text>{c.nome}</Text></Pressable>)}</View> : <Text style={styles.clientRequired}>Cadastre um cliente antes de adicionar uma unidade consumidora.</Text>}</> : null}
       <ChoiceField label="Formato da cobrança" value={formatoFatura} onChange={(valor) => setFormatoFatura(valor as FormatoFatura)} options={[{ label: "Fatura unificada (CEMIG + Andrade)", value: "UNIFICADA" }, { label: "Somente Andrade Energy", value: "SOMENTE_ANDRADE" }]} />
-      {formatoFatura === "UNIFICADA" ? <>
+      <>
         {!tipoGdEfetivo || tipoGdEfetivo === "GD1" || tipoGdEfetivo === "MISTA" ? <ChoiceField label="GD I: custo de disponibilidade recalculado" value={repasseDisponibilidadeGD1} onChange={(valor) => setRepasseDisponibilidadeGD1(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} /> : null}
         {!tipoGdEfetivo || tipoGdEfetivo === "GD2" || tipoGdEfetivo === "MISTA" ? <>
           <ChoiceField label="GD II: custo de disponibilidade recalculado" value={repasseDisponibilidadeGD2} onChange={(valor) => setRepasseDisponibilidadeGD2(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} />
           <ChoiceField label="GD II: diferença do Fio B" value={repasseFioBGD2} onChange={(valor) => setRepasseFioBGD2(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} />
         </> : null}
-        <Text style={styles.beneficiariaHint}>A disponibilidade é aplicada conforme a modalidade GD identificada na conta; a diferença do Fio B vale somente para GD II. Os demais encargos continuam na fatura da concessionária.</Text>
+        <Text style={styles.beneficiariaHint}>{formatoFatura === "SOMENTE_ANDRADE" ? "Mesmo com documentos separados, defina quem assume a disponibilidade e o Fio B. A projeção considera também o valor que continuará sendo pago à concessionária." : "A disponibilidade é aplicada conforme a modalidade GD identificada na conta; a diferença do Fio B vale somente para GD II. Os demais encargos continuam na fatura da concessionária."}</Text>
         <RealDiscountInfo
           descontoPercentual={desconto}
           tipoGd={tipoGdEfetivo}
           modalidadeFaturamento={modalidade}
+          faturaSomenteAndrade={formatoFatura === "SOMENTE_ANDRADE"}
           dadosFatura={dadosFatura}
           disponibilidadeGd1={repasseDisponibilidadeGD1}
           disponibilidadeGd2={repasseDisponibilidadeGD2}
           fioBGd2={repasseFioBGD2}
         />
-      </> : null}
+      </>
       <Button disabled={salvando || (tipo !== "GERADORA" && !clienteId)} title={salvando ? "Salvando..." : "Salvar unidade"} onPress={salvar} />
     </Card>
   </ScrollView></Screen>;

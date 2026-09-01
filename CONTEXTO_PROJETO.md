@@ -338,3 +338,12 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - As escolhas de absorção ou repasse da disponibilidade e do Fio B agora recalculam a projeção sobre a mesma base de energia cheia usada no faturamento.
 - OTA Gerador: grupo `1cbec3a3-6d71-4cec-a97a-0876fc1441b3`.
 - OTA Consumidor: grupo `bb30143f-7a8b-4b81-9234-6bbc948493ca`.
+
+# Conta vinculada, cobrança separada e tutoriais web (01/09/2026)
+
+- Ao escolher **Adicionar UC por esta fatura**, os dados da conta anexada passam a ter prioridade sobre competências antigas da mesma UC. Consumo, tarifa, modalidade GD, disponibilidade, Fio B e endereço seguem para o primeiro cadastro.
+- A projeção distingue as modalidades: compensação usa somente Energia compensada GD I/GD II; injeção usa a energia injetada identificada. O consumo é usado como estimativa apenas antes da primeira conta GD.
+- As configurações GD e a projeção permanecem visíveis em **Somente Andrade Energy**. Nesse formato, a economia real considera conjuntamente a conta paga à concessionária e a cobrança Andrade, embora os documentos sejam separados.
+- A central web foi reduzida a tarefas de várias etapas. Todos os vídeos partem da Home, usam narração Francisca a +10%, trilha a 8%, 30 fps e marcação vermelha antes dos cliques.
+- Gerador: convite até UC, recebimento automático, faturamento pela conta e multiempresa/identidade. Consumidor: vincular conta ao CPF e entender/pagar a fatura.
+- Os dez tutoriais simples/antigos foram removidos do portal.

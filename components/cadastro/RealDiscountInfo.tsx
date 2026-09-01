@@ -9,6 +9,7 @@ type Props = {
   descontoPercentual: string | number;
   tipoGd?: string | null;
   modalidadeFaturamento?: string | null;
+  faturaSomenteAndrade?: boolean;
   dadosFatura?: Record<string, any> | null;
   disponibilidadeGd1: EscolhaRepasse;
   disponibilidadeGd2: EscolhaRepasse;
@@ -19,6 +20,7 @@ export default function RealDiscountInfo({
   descontoPercentual,
   tipoGd,
   modalidadeFaturamento,
+  faturaSomenteAndrade = false,
   dadosFatura,
   disponibilidadeGd1,
   disponibilidadeGd2,
@@ -58,7 +60,7 @@ export default function RealDiscountInfo({
       ? "Os custos repassados reduzem a economia percebida pelo cliente."
       : "A Andrade absorve os custos selecionados; outros encargos ainda podem variar."
   const detalheExibido = previa
-    ? `${formatarMoeda(previa.economia)} de economia sobre ${formatarMoeda(previa.baseDesconto)} de energia cheia. ${resumoDosRepasses(previa)}${referenciaFatura(dadosFatura)}`
+    ? `${formatarMoeda(previa.economia)} de economia sobre ${formatarMoeda(previa.baseDesconto)} de energia cheia. ${resumoDosRepasses(previa)}${faturaSomenteAndrade ? " A conta da concessionária permanece separada." : ""}${referenciaFatura(dadosFatura)}`
     : estimativaDetalhe;
   const impacto = modalidadeAindaNaoIdentificada
     ? `Com ${formatarPercentual(desconto)} de desconto contratado, a tarifa Andrade será ${formatarPercentual(percentualTarifaAndrade)} da tarifa cheia. Na primeira conta, o sistema identificará GD I ou GD II e aplicará as escolhas atuais de repasse ou absorção.`
@@ -106,7 +108,9 @@ export default function RealDiscountInfo({
 
       <Text style={styles.impact}>{impacto}</Text>
       <Text style={styles.footnote}>{previa
-        ? "O app mantém os valores da última fatura como base e recalcula somente o desconto e as escolhas de repasse ou absorção."
+        ? faturaSomenteAndrade
+          ? "A projeção soma o que continuará sendo pago à concessionária com a cobrança Andrade para medir a economia real, mesmo em documentos separados."
+          : "O app mantém os valores da última fatura como base e recalcula somente o desconto e as escolhas de repasse ou absorção."
         : "Importe uma fatura ou vincule uma UC que já possua histórico para calcular a porcentagem nesta tela."}</Text>
     </View>
   );
@@ -166,14 +170,14 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   const energiaCompensada = n(dados, "energia_compensada", "energiaCompensada") || energiaGD1 + energiaGD2;
   const energiaInjetada = n(dados, "energia_injetada", "energiaInjetada");
   const modalidade = String(modalidadeFaturamento ?? "COMPENSACAO").toUpperCase();
-  // Enquanto a primeira conta com GD ainda não chegou, a projeção usa o
-  // consumo da própria fatura como energia que será compensada/injetada.
-  // Assim, alterar desconto ou os repasses atualiza a estimativa em vez de
-  // manter o texto estático "aproximadamente".
   const possuiCompensacaoLida = energiaCompensada > 0 || energiaGD1 > 0 || energiaGD2 > 0;
+  const possuiLeituraGd = possuiCompensacaoLida || energiaInjetada > 0 || ["GD1", "GD2", "MISTA"].includes(tipoGd);
+  // Numa conta GD, injeção usa a energia que veio da usina e compensação usa
+  // exclusivamente Energia compensada GD I/GD II. O consumo é apenas a base
+  // estimada de uma conta convencional, antes da primeira competência GD.
   const baseKwh = modalidade === "INJECAO"
-    ? (energiaInjetada || consumo)
-    : (energiaCompensada || consumo);
+    ? (energiaInjetada > 0 ? energiaInjetada : possuiLeituraGd ? 0 : consumo)
+    : (energiaCompensada > 0 ? energiaCompensada : possuiLeituraGd ? 0 : consumo);
   if (tarifaCheia <= 0) {
     const energiaCheia = n(dados, "valor_energia_cheia", "valorEnergiaCheia");
     const baseTarifa = baseKwh || consumo;
@@ -200,7 +204,13 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   const absorvido = Math.min(valorCemig, valorAbsorvidoDisponibilidade + valorAbsorvidoFioB);
 
   const valorEnergiaCheia = Math.max(0, baseKwh * tarifaCheia);
-  const creditoInformado = n(dados, "valor_credito_efetivo", "valorCreditoEfetivo");
+  const creditoInformado = n(
+    dados,
+    "valor_credito_efetivo",
+    "valorCreditoEfetivo",
+    "valor_credito_compensado",
+    "valorCreditoCompensado",
+  );
   const creditoEfetivo = Math.min(
     valorEnergiaCheia,
     Math.max(0, creditoInformado || valorEnergiaCheia),
@@ -211,7 +221,15 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
     : possuiCompensacaoLida
       ? valorCemig + creditoEfetivo
       : valorCemig;
-  const baseDesconto = valorEnergiaCheia;
+  // Espelha a base informada ao motor de faturamento: GD II mede o desconto
+  // sobre toda a energia consumida; GD I usa o crédito efetivo. Em uma conta
+  // ainda sem GD, a melhor projeção continua sendo a energia da modalidade.
+  const valorEnergiaConsumida = consumo > 0 ? consumo * tarifaCheia : valorEnergiaCheia;
+  const baseDesconto = usaGD2
+    ? valorEnergiaConsumida
+    : possuiCompensacaoLida
+      ? creditoEfetivo
+      : valorEnergiaCheia;
   if (baseDesconto <= 0) return null;
   const valorAndrade = valorEnergiaCheia * (1 - desconto / 100);
   // Numa conta convencional, a parcela de energia ainda está integralmente

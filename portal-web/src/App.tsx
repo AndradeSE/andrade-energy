@@ -3433,17 +3433,13 @@ function TutorialCenter({ profile, defaultOpen = false }: { profile: AccessType;
   const [tutorialSearch, setTutorialSearch] = useState("");
   const normalizedSearch = tutorialSearch.trim().toLocaleLowerCase("pt-BR");
   const tutorials = generator ? [
-    { file: "web-gerador-visao-geral", title: "Visão geral", detail: "Indicadores e acesso à operação" },
-    { file: "web-gerador-usinas", title: "Usinas", detail: "Produção, autonomia e alocação" },
-    { file: "web-gerador-clientes-e-ucs", title: "Clientes e UCs", detail: "Convite, contas vinculadas e cadastro de UC" },
-    { file: "web-gerador-configuracao-uc", title: "Configuração da UC", detail: "Usina, modalidade, percentual e desconto" },
-    { file: "web-gerador-faturamento", title: "Faturamento", detail: "Documentos, Pix e acompanhamento" },
+    { file: "web-gerador-convite-e-uc", title: "Do convite ao cadastro da UC", detail: "Convite, aceite, conta vinculada, alocação e desconto" },
+    { file: "web-gerador-recebimento-automatico", title: "Ativar recebimento automático", detail: "UC, endereço exclusivo e encaminhamento de e-mail" },
+    { file: "web-gerador-faturamento", title: "Faturar pela conta de energia", detail: "Importação, revisão, documentos e pagamento" },
+    { file: "web-gerador-multiempresa-e-marca", title: "Multiempresa e identidade própria", detail: "Novo ambiente, plano, logo e cores" },
   ] : [
-    { file: "web-consumidor-visao-geral", title: "Visão geral", detail: "Economia, alertas e fatura aberta" },
-    { file: "web-consumidor-minha-unidade", title: "Minha unidade", detail: "Dados e histórico da UC" },
-    { file: "web-consumidor-faturas", title: "Faturas", detail: "Abertas, pagas e vencidas" },
-    { file: "web-consumidor-economia", title: "Economia", detail: "Benefício e comparação mensal" },
-    { file: "web-consumidor-contratos", title: "Contratos", detail: "Vigência, termo e unidades" },
+    { file: "web-consumidor-conta-vinculada", title: "Vincular uma conta ao CPF", detail: "Envio do PDF, análise e disponibilidade para o gerador" },
+    { file: "web-consumidor-fatura-e-pagamento", title: "Entender e pagar a fatura", detail: "Composição unificada, economia, Pix e boleto" },
   ];
   const visibleTutorials = tutorials.filter((tutorial) => !normalizedSearch || `${tutorial.title} ${tutorial.detail}`.toLocaleLowerCase("pt-BR").includes(normalizedSearch));
   return (
