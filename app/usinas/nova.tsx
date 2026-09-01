@@ -12,14 +12,16 @@ import { Colors, Spacing, Typography } from "../../theme";
 
 export default function NovaUsina() {
   const { usuario, atualizarUsuario, selecionarUsina } = useAuth();
-  const { origem, cliente, uc, endereco: enderecoImportado, tipoGd: tipoGdImportado } = useLocalSearchParams<{ origem?: string; cliente?: string; uc?: string; endereco?: string; tipoGd?: string }>();
+  const { origem, cliente, uc, endereco: enderecoImportado, tipoGd: tipoGdImportado, geracaoMedia: geracaoMediaImportada } = useLocalSearchParams<{ origem?: string; cliente?: string; uc?: string; endereco?: string; tipoGd?: string; geracaoMedia?: string }>();
   const [nome, setNome] = useState("");
   const [numeroInstalacao, setNumeroInstalacao] = useState("");
   const [potencia, setPotencia] = useState("");
+  const [geracaoMedia, setGeracaoMedia] = useState(geracaoMediaImportada ?? "");
   const [titular, setTitular] = useState("");
   const [cpfTitular, setCpfTitular] = useState("");
   const [endereco, setEndereco] = useState("");
-  const [tipoGd, setTipoGd] = useState<"GD1" | "GD2">(String(tipoGdImportado).toUpperCase() === "GD2" ? "GD2" : "GD1");
+  const tipoGdLido = String(tipoGdImportado).toUpperCase();
+  const [tipoGd, setTipoGd] = useState<"" | "GD1" | "GD2">(tipoGdLido === "GD2" ? "GD2" : tipoGdLido === "GD1" ? "GD1" : "");
   const [salvando, setSalvando] = useState(false);
 
   async function abrirNaLista(usina: {
@@ -58,17 +60,21 @@ export default function NovaUsina() {
     setTitular(titularExtraido);
     setNumeroInstalacao((uc ?? "").replace(/\D/g, ""));
     setEndereco(enderecoImportado ?? "");
-    setTipoGd(String(tipoGdImportado).toUpperCase() === "GD2" ? "GD2" : "GD1");
-  }, [cliente, enderecoImportado, origem, tipoGdImportado, uc, usuario?.nome]);
+    setGeracaoMedia(geracaoMediaImportada ?? "");
+    const tipoLido = String(tipoGdImportado).toUpperCase();
+    setTipoGd(tipoLido === "GD2" ? "GD2" : tipoLido === "GD1" ? "GD1" : "");
+  }, [cliente, enderecoImportado, geracaoMediaImportada, origem, tipoGdImportado, uc, usuario?.nome]);
 
   async function salvar() {
     if (!nome.trim() || !numeroInstalacao || !potencia) {
       Alert.alert("Dados incompletos", "Informe nome, instalação e potência da usina.");
       return;
     }
+    if (!tipoGd) return Alert.alert("Modalidade GD não identificada", origem === "fatura" ? "A conta não apresentou uma linha GD I ou GD II. Envie uma fatura que contenha a modalidade da usina." : "Escolha GD I ou GD II.");
     setSalvando(true);
     const { data: usina, error } = await supabase.from("usinas").insert({
       nome: nome.trim(), numero_instalacao: numeroInstalacao, potencia_kwp: Number(potencia.replace(",", ".")),
+      geracao_media: Number(geracaoMedia.replace(",", ".")) || 0,
       titular_nome: titular.trim() || null, endereco: endereco.trim() || null,
       distribuidora: "CEMIG", modalidade: "INJECAO", tipo_gd: tipoGd, status: "ATIVA",
     }).select("id, nome, numero_instalacao, distribuidora, endereco, status").single();
@@ -111,7 +117,8 @@ export default function NovaUsina() {
         <FormField label="Nome da usina (editável)" value={nome} onChangeText={setNome} placeholder="Ex.: Usina Solar Alfenas" />
         <FormField label="Número da instalação / UC" value={numeroInstalacao} onChangeText={(v) => setNumeroInstalacao(v.replace(/\D/g, ""))} keyboardType="numeric" />
         <FormField label="Potência (kWp)" value={potencia} onChangeText={setPotencia} keyboardType="decimal-pad" />
-        <ChoiceField label="Modalidade GD da usina" value={tipoGd} onChange={setTipoGd} options={[{ label: "GD I", value: "GD1" }, { label: "GD II", value: "GD2" }]} />
+        <FormField label="Geração média mensal (kWh)" value={geracaoMedia} onChangeText={setGeracaoMedia} keyboardType="decimal-pad" placeholder="Base inicial da alocação automática" />
+        {origem === "fatura" ? <Text style={styles.subtitle}>{tipoGd ? `Modalidade identificada automaticamente no PDF: ${tipoGd === "GD2" ? "GD II" : "GD I"}.` : "Modalidade GD não identificada no PDF."}</Text> : <ChoiceField label="Modalidade GD da usina" value={tipoGd || "GD1"} onChange={setTipoGd} options={[{ label: "GD I", value: "GD1" }, { label: "GD II", value: "GD2" }]} />}
         <FormField label="Titular" value={titular} onChangeText={setTitular} />
         <FormField label="CPF/CNPJ do titular da conta (para e-mail)" value={cpfTitular} onChangeText={(valor) => setCpfTitular(valor.replace(/\D/g, "").slice(0, 14))} keyboardType="numeric" />
         <FormField label="Endereço" value={endereco} onChangeText={setEndereco} />

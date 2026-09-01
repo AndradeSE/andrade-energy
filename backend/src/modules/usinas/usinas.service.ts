@@ -95,7 +95,7 @@ export async function listarUsinasService(empresaId?: string) {
     return {
       ...usina,
       fechamento_atual: dashboard.ultimo,
-      producao_media_12_meses: producaoMedia12Meses,
+      producao_media_12_meses: producaoMedia12Meses > 0 ? producaoMedia12Meses : Number(usina.geracao_media ?? 0),
       unidades_alocadas: unidades.count ?? 0,
     };
   }));
@@ -121,10 +121,13 @@ async function calcularProducaoMedia12Meses(usinaId: string) {
   if (producoes.length) {
     return producoes.reduce((total, valor) => total + valor, 0) / producoes.length;
   }
-
-  // A produção é apurada exclusivamente pelos fechamentos processados. A coluna
-  // legada `geracao_media` não existe em todas as bases já migradas.
-  return 0;
+  const { data: usina, error: erroUsina } = await supabase
+    .from("usinas")
+    .select("geracao_media")
+    .eq("id", usinaId)
+    .maybeSingle();
+  if (erroUsina) throw erroUsina;
+  return Math.max(0, Number(usina?.geracao_media ?? 0));
 }
 
 /**
@@ -267,12 +270,12 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
   const repassarDiferencaFioBGD2 = input.repassarDiferencaFioBGD2 === undefined
     ? (unidadeAnterior?.repassar_diferenca_fio_b_gd2 ?? true)
     : Boolean(input.repassarDiferencaFioBGD2);
-  const tipoGdInformado = String(input.tipoGd ?? "").toUpperCase();
-  const tipoGd = usina?.tipo_gd === "GD2"
-    ? "GD2"
-    : ["GD1", "GD2", "MISTA"].includes(tipoGdInformado)
-      ? tipoGdInformado
-      : unidadeAnterior?.tipo_gd ?? null;
+  // A modalidade regulatória pertence à usina. A fatura da UC e o payload do
+  // app nunca podem trocar GD I por GD II (ou o inverso).
+  const tipoGdDaUsina = String(usina?.tipo_gd ?? "").toUpperCase();
+  const tipoGd = ["GD1", "GD2"].includes(tipoGdDaUsina)
+    ? tipoGdDaUsina
+    : null;
 
   let percentual = Number.isFinite(percentualInformado) && percentualInformado > 0
     ? percentualInformado

@@ -35,14 +35,6 @@ function valorNumerico(valor: unknown) {
   return Number.isFinite(numero) ? numero : 0;
 }
 
-function identificarTipoGd(dados: Record<string, any> | null | undefined) {
-  const informado = String(dados?.tipo_gd ?? dados?.tipoGd ?? "").toUpperCase();
-  if (["GD1", "GD2", "MISTA"].includes(informado)) return informado;
-  const gd1 = valorNumerico(dados?.energia_compensada_gd1 ?? dados?.energiaCompensadaGD1) > 0;
-  const gd2 = valorNumerico(dados?.energia_compensada_gd2 ?? dados?.energiaCompensadaGD2) > 0;
-  return gd1 && gd2 ? "MISTA" : gd2 ? "GD2" : gd1 ? "GD1" : "";
-}
-
 function producaoParaAlocacao(usina: any) {
   const historico = valorNumerico(usina?.producao_media_12_meses);
   return historico > 0
@@ -82,7 +74,6 @@ export default function EditarAlocacaoUnidade() {
     usinaId: usinaIdImportada,
     modalidade: modalidadeImportada,
     desconto: descontoImportado,
-    tipoGd: tipoGdImportado,
     dadosFatura: dadosFaturaParam,
   } = useLocalSearchParams<{
     id?: string;
@@ -92,7 +83,6 @@ export default function EditarAlocacaoUnidade() {
     usinaId?: string;
     modalidade?: Modalidade;
     desconto?: string;
-    tipoGd?: string;
     dadosFatura?: string;
   }>();
   const [usinas, setUsinas] = useState<any[]>([]); const [usinaId, setUsinaId] = useState("");
@@ -102,7 +92,6 @@ export default function EditarAlocacaoUnidade() {
   const [repasseDisponibilidadeGD1, setRepasseDisponibilidadeGD1] = useState<RepasseGD2>("REPASSAR");
   const [repasseDisponibilidadeGD2, setRepasseDisponibilidadeGD2] = useState<RepasseGD2>("REPASSAR");
   const [repasseFioBGD2, setRepasseFioBGD2] = useState<RepasseGD2>("REPASSAR");
-  const [tipoGd, setTipoGd] = useState("");
   const [dadosFatura, setDadosFatura] = useState<Record<string, any> | null>(null);
   const [clienteIdResolvido, setClienteIdResolvido] = useState("");
   const [loading, setLoading] = useState(true); const [salvando, setSalvando] = useState(false);
@@ -173,9 +162,6 @@ export default function EditarAlocacaoUnidade() {
         setRepasseDisponibilidadeGD2((uc?.repassar_disponibilidade_gd2 ?? Number(uc?.percentual_repasse_disponibilidade ?? 100) > 0) ? "REPASSAR" : "ABSORVER");
         setRepasseFioBGD2((uc?.repassar_diferenca_fio_b_gd2 ?? true) ? "REPASSAR" : "ABSORVER");
         const faturaBase = parseDadosFatura(dadosFaturaParam) ?? faturas[0] ?? null;
-        // A leitura da fatura é a fonte de verdade: GD I mostra apenas GD I,
-        // GD II apenas GD II e MISTA libera os dois conjuntos de opções.
-        setTipoGd(String(identificarTipoGd(faturaBase) || tipoGdImportado || uc?.tipo_gd || "GD1").toUpperCase());
         setDadosFatura(faturaBase);
         setConsumoMedio(mediaFinal > 0 ? String(Math.round(mediaFinal)) : "");
         setPercentual(
@@ -197,7 +183,7 @@ export default function EditarAlocacaoUnidade() {
 
     void carregar();
     return () => { ativa = false; };
-  }, [clienteIdRecebido, consumoMedioImportado, dadosFaturaParam, descontoImportado, modalidadeImportada, numeroDaUc, tipoGdImportado, unidadeIdRecebida, usinaIdImportada]);
+  }, [clienteIdRecebido, consumoMedioImportado, dadosFaturaParam, descontoImportado, modalidadeImportada, numeroDaUc, unidadeIdRecebida, usinaIdImportada]);
 
   async function salvar() {
     const rateio = valorNumerico(percentual); const descontoNumero = valorNumerico(desconto); const media = Math.max(0, valorNumerico(consumoMedio));
@@ -218,7 +204,7 @@ export default function EditarAlocacaoUnidade() {
 
   const usinaSelecionada = usinas.find((usina) => usina.id === usinaId);
   const usinaGd2 = String(usinaSelecionada?.tipo_gd ?? "").toUpperCase() === "GD2";
-  const tipoGdEfetivo = usinaGd2 ? "GD2" : tipoGd;
+  const tipoGdEfetivo = String(usinaSelecionada?.tipo_gd ?? "").toUpperCase();
   const semProducaoParaSugestao =
     modalidade === "COMPENSACAO" &&
     valorNumerico(consumoMedio) > 0 &&
@@ -327,13 +313,13 @@ export default function EditarAlocacaoUnidade() {
           />
           <>
             <Text style={styles.hint}>{tipoGdEfetivo ? `Modalidade identificada: ${tipoGdEfetivo === "GD2" ? "GD II" : tipoGdEfetivo === "MISTA" ? "GD I + GD II" : "GD I"}${usinaGd2 ? ", definida automaticamente pela usina selecionada" : ""}.` : "Modalidade GD ainda não identificada. As configurações continuam disponíveis; a projeção ficará em 0% até chegar uma leitura GD."}</Text>
-            {!usinaGd2 && (!tipoGd || tipoGd === "GD1" || tipoGd === "MISTA") ? <ChoiceField
+            {(!tipoGdEfetivo || tipoGdEfetivo === "GD1") ? <ChoiceField
               label="GD I: custo de disponibilidade recalculado"
               value={repasseDisponibilidadeGD1}
               onChange={(valor) => setRepasseDisponibilidadeGD1(valor as RepasseGD2)}
               options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]}
             /> : null}
-            {usinaGd2 || !tipoGd || tipoGd === "GD2" || tipoGd === "MISTA" ? <>
+            {!tipoGdEfetivo || tipoGdEfetivo === "GD2" ? <>
             <ChoiceField
               label="GD II: custo de disponibilidade recalculado"
               value={repasseDisponibilidadeGD2}

@@ -25,14 +25,6 @@ function numeroSeguro(valor: unknown) {
   return Number.isFinite(numero) ? numero : 0;
 }
 
-function identificarTipoGd(dados: Record<string, any> | null | undefined) {
-  const informado = String(dados?.tipo_gd ?? dados?.tipoGd ?? "").toUpperCase();
-  if (["GD1", "GD2", "MISTA"].includes(informado)) return informado;
-  const gd1 = numeroSeguro(dados?.energia_compensada_gd1 ?? dados?.energiaCompensadaGD1) > 0;
-  const gd2 = numeroSeguro(dados?.energia_compensada_gd2 ?? dados?.energiaCompensadaGD2) > 0;
-  return gd1 && gd2 ? "MISTA" : gd2 ? "GD2" : gd1 ? "GD1" : "";
-}
-
 function producaoParaAlocacao(usina: any) {
   const producaoEmDozeMeses = numeroSeguro(usina?.producao_media_12_meses);
   return producaoEmDozeMeses > 0
@@ -50,7 +42,7 @@ function percentualPelaMedia(usina: any, consumo: unknown, modalidade: Modalidad
 }
 
 export default function NovaUnidade() {
-  const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, cpf: cpfImportado, energiaCompensada, endereco: enderecoImportado, cadastroRapido, consumoMedio: consumoMedioImportado, tipoGd: tipoGdImportado, dadosFatura: dadosFaturaParam } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; cpf?: string; energiaCompensada?: string; endereco?: string; cadastroRapido?: string; consumoMedio?: string; tipoGd?: string; dadosFatura?: string }>();
+  const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, cpf: cpfImportado, energiaCompensada, endereco: enderecoImportado, cadastroRapido, consumoMedio: consumoMedioImportado, dadosFatura: dadosFaturaParam } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; cpf?: string; energiaCompensada?: string; endereco?: string; cadastroRapido?: string; consumoMedio?: string; dadosFatura?: string }>();
   const [dadosFatura, setDadosFatura] = useState<Record<string, any> | null>(() => parseDadosFatura(dadosFaturaParam));
   const [numero, setNumero] = useState(""); const [titular, setTitular] = useState("");
   const [cpfTitular, setCpfTitular] = useState("");
@@ -63,10 +55,9 @@ export default function NovaUnidade() {
   const [repasseFioBGD2, setRepasseFioBGD2] = useState<RepasseGD2>("REPASSAR");
   const [clientes, setClientes] = useState<any[]>([]); const [usinas, setUsinas] = useState<any[]>([]);
   const [clienteId, setClienteId] = useState(""); const [usinaId, setUsinaId] = useState(""); const [percentualAlocado, setPercentualAlocado] = useState(""); const [salvando, setSalvando] = useState(false);
-  const tipoGdDetectado = identificarTipoGd(dadosFatura);
   const usinaSelecionada = usinas.find((item) => item.id === usinaId);
   const usinaGd2 = String(usinaSelecionada?.tipo_gd ?? "").toUpperCase() === "GD2";
-  const tipoGdEfetivo = String(usinaGd2 ? "GD2" : tipoGdDetectado || tipoGdImportado || "").toUpperCase();
+  const tipoGdEfetivo = String(usinaSelecionada?.tipo_gd ?? "").toUpperCase();
 
   useEffect(() => {
     Promise.all([
@@ -111,7 +102,7 @@ export default function NovaUnidade() {
   useEffect(() => {
     const usinaSelecionada = usinas.find((item) => item.id === usinaId);
     const sugestao = percentualPelaMedia(usinaSelecionada, consumoMedio, modalidade);
-    if (sugestao) setPercentualAlocado(sugestao);
+    setPercentualAlocado(sugestao);
   }, [consumoMedio, modalidade, usinaId, usinas]);
 
   useEffect(() => {
@@ -266,7 +257,11 @@ export default function NovaUnidade() {
 }
 
 function parseDadosFatura(valor?: string) {
-  try { return valor ? JSON.parse(valor) : null; }
+  try {
+    if (!valor) return null;
+    const lido = JSON.parse(valor);
+    return lido?.dadosFatura ?? lido?.dados_fatura ?? lido?.dadosExtraidos ?? lido?.dados_extraidos ?? lido?.dados ?? lido;
+  }
   catch { return null; }
 }
 

@@ -253,6 +253,8 @@ export function parseCemigGD(
 
     energiaCompensadaGD2: gd2?.quantidade ?? 0,
 
+    tipoGd: gd1 && gd2 ? "MISTA" : gd2 ? "GD2" : gd1 ? "GD1" : undefined,
+
     saldoAtual,
 
     economia,

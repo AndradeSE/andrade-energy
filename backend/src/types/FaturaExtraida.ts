@@ -48,6 +48,8 @@ export interface FaturaExtraida {
   energiaCompensadaGD1?: number;
 
   energiaCompensadaGD2?: number;
+  /** Modalidade identificada nas linhas de energia compensada da fatura. */
+  tipoGd?: "GD1" | "GD2" | "MISTA";
 
   saldoAnterior: number;
 
