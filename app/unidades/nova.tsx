@@ -67,7 +67,10 @@ export default function NovaUnidade() {
   const [clientes, setClientes] = useState<any[]>([]); const [usinas, setUsinas] = useState<any[]>([]);
   const [clienteId, setClienteId] = useState(""); const [usinaId, setUsinaId] = useState(""); const [percentualAlocado, setPercentualAlocado] = useState(""); const [salvando, setSalvando] = useState(false);
   const tipoGdDetectado = identificarTipoGd(dadosFatura);
-  const tipoGdEfetivo = String(tipoGdDetectado || tipoGdImportado || tipoGdSelecionado).toUpperCase();
+  const configuracaoGdBloqueada = Boolean(dadosFatura) && !tipoGdDetectado;
+  const tipoGdEfetivo = configuracaoGdBloqueada
+    ? ""
+    : String(tipoGdDetectado || tipoGdImportado || tipoGdSelecionado).toUpperCase();
 
   useEffect(() => {
     if (tipoGdDetectado === "GD1" || tipoGdDetectado === "GD2") setTipoGdSelecionado(tipoGdDetectado);
@@ -237,28 +240,23 @@ export default function NovaUnidade() {
       {tipo !== "GERADORA" ? <>
         <Text style={styles.configurationTitle}>CONFIGURAÇÃO DA UC</Text>
         <Text style={styles.beneficiariaHint}>Defina as condições desta unidade antes de salvar. Elas não são copiadas do cadastro do cliente.</Text>
-        <ChoiceField label="Faturamento" value={modalidade} onChange={(valor) => setModalidade(valor as Modalidade)} options={[{ label: "Injeção", value: "INJECAO" }, { label: "Compensação", value: "COMPENSACAO" }]} />
+        <ChoiceField disabled={configuracaoGdBloqueada} label="Faturamento" value={modalidade} onChange={(valor) => setModalidade(valor as Modalidade)} options={[{ label: "Injeção", value: "INJECAO" }, { label: "Compensação", value: "COMPENSACAO" }]} />
         <UsinaSelector usinas={usinas} value={usinaId} onChange={(valor) => { setUsinaId(valor); const selecionada = usinas.find((item) => item.id === valor); setPercentualAlocado(percentualPelaMedia(selecionada, consumoMedio, modalidade)); }} label="Usina geradora" />
         <FormField label="Consumo médio mensal (kWh)" value={consumoMedio} onChangeText={(valor) => { const limpo = valor.replace(/[^\d,.]/g, ""); setConsumoMedio(limpo); setPercentualAlocado(percentualPelaMedia(usinas.find((item) => item.id === usinaId), limpo, modalidade)); }} keyboardType="decimal-pad" />
         <FormField label="Percentual alocado (%)" value={percentualAlocado} onChangeText={(valor) => setPercentualAlocado(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" />
         <Text style={styles.beneficiariaHint}>{modalidade === "INJECAO" ? "Para injeção, a alocação inicial é 100%. Você pode editar antes de salvar." : "A sugestão considera 115% do consumo médio sobre a produção média disponível da usina. Você pode editar."}</Text>
-        <FormField label="Desconto contratado (%)" value={desconto} onChangeText={(valor) => setDesconto(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" />
+        <FormField editable={!configuracaoGdBloqueada} label="Desconto contratado (%)" value={desconto} onChangeText={(valor) => setDesconto(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" />
       </> : <UsinaSelector usinas={usinas} value={usinaId} onChange={setUsinaId} label="Usina geradora" />}
       {!clienteIdVinculado ? <><Text style={styles.label}>Vincular ao cliente *</Text>{clientes.length ? <View style={styles.options}>{clientes.map((c) => <Pressable key={c.id} onPress={() => setClienteId(clienteId === c.id ? "" : c.id)} style={[styles.link, clienteId === c.id && styles.linkSelected]}><Text>{c.nome}</Text></Pressable>)}</View> : <Text style={styles.clientRequired}>Cadastre um cliente antes de adicionar uma unidade consumidora.</Text>}</> : null}
-      <ChoiceField label="Formato da cobrança" value={formatoFatura} onChange={(valor) => setFormatoFatura(valor as FormatoFatura)} options={[{ label: "Fatura unificada (CEMIG + Andrade)", value: "UNIFICADA" }, { label: "Somente Andrade Energy", value: "SOMENTE_ANDRADE" }]} />
+      <ChoiceField disabled={configuracaoGdBloqueada} label="Formato da cobrança" value={formatoFatura} onChange={(valor) => setFormatoFatura(valor as FormatoFatura)} options={[{ label: "Fatura unificada (CEMIG + Andrade)", value: "UNIFICADA" }, { label: "Somente Andrade Energy", value: "SOMENTE_ANDRADE" }]} />
       <>
-        {!tipoGdDetectado ? <ChoiceField
-          label="Tipo de GD para projeção"
-          value={tipoGdSelecionado}
-          onChange={(valor) => setTipoGdSelecionado(valor as "GD1" | "GD2")}
-          options={[{ label: "GD I", value: "GD1" }, { label: "GD II", value: "GD2" }]}
-        /> : null}
-        {!tipoGdEfetivo || tipoGdEfetivo === "GD1" || tipoGdEfetivo === "MISTA" ? <ChoiceField label="GD I: custo de disponibilidade recalculado" value={repasseDisponibilidadeGD1} onChange={(valor) => setRepasseDisponibilidadeGD1(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} /> : null}
-        {!tipoGdEfetivo || tipoGdEfetivo === "GD2" || tipoGdEfetivo === "MISTA" ? <>
+        {configuracaoGdBloqueada ? <Text style={styles.beneficiariaHint}>Configurações GD bloqueadas: a conta importada ainda não possui energia compensada ou injetada. A projeção permanecerá em 0% até chegar uma fatura com GD.</Text> : null}
+        {!configuracaoGdBloqueada && (!tipoGdEfetivo || tipoGdEfetivo === "GD1" || tipoGdEfetivo === "MISTA") ? <ChoiceField label="GD I: custo de disponibilidade recalculado" value={repasseDisponibilidadeGD1} onChange={(valor) => setRepasseDisponibilidadeGD1(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} /> : null}
+        {!configuracaoGdBloqueada && (!tipoGdEfetivo || tipoGdEfetivo === "GD2" || tipoGdEfetivo === "MISTA") ? <>
           <ChoiceField label="GD II: custo de disponibilidade recalculado" value={repasseDisponibilidadeGD2} onChange={(valor) => setRepasseDisponibilidadeGD2(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} />
           <ChoiceField label="GD II: diferença do Fio B" value={repasseFioBGD2} onChange={(valor) => setRepasseFioBGD2(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} />
         </> : null}
-        <Text style={styles.beneficiariaHint}>{!tipoGdDetectado ? `A conta ainda não possui GD. A projeção está simulando ${tipoGdSelecionado === "GD1" ? "GD I" : "GD II"}; escolher uma opção desativa automaticamente a outra. ` : ""}{formatoFatura === "SOMENTE_ANDRADE" ? "Mesmo com documentos separados, a projeção considera também o valor que continuará sendo pago à concessionária." : "Os demais encargos continuam na fatura da concessionária."}</Text>
+        {!configuracaoGdBloqueada ? <Text style={styles.beneficiariaHint}>{formatoFatura === "SOMENTE_ANDRADE" ? "Mesmo com documentos separados, a projeção considera também o valor que continuará sendo pago à concessionária." : "Os demais encargos continuam na fatura da concessionária."}</Text> : null}
         <RealDiscountInfo
           descontoPercentual={desconto}
           tipoGd={tipoGdEfetivo}

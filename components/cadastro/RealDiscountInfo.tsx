@@ -45,13 +45,16 @@ export default function RealDiscountInfo({
   }
 
   const modalidadeAindaNaoIdentificada = !["GD1", "GD2", "MISTA"].includes(modalidade);
+  const contaSemGd = Boolean(dadosFatura) && !possuiLeituraGd(dadosFatura);
   if (modalidadeAindaNaoIdentificada) {
     if (disponibilidadeGd1 === "REPASSAR") configuracoesRepassadas.push("disponibilidade GD I");
     if (disponibilidadeGd2 === "REPASSAR") configuracoesRepassadas.push("disponibilidade GD II");
     if (fioBGd2 === "REPASSAR") configuracoesRepassadas.push("Fio B");
   }
-  const previa = calcularPrevia({ dados: dadosFatura, desconto, modalidadeFaturamento, tipoGd: modalidade, disponibilidadeGd1, disponibilidadeGd2, fioBGd2 });
-  const descontoRealEstimado = previa
+  const previa = contaSemGd ? null : calcularPrevia({ dados: dadosFatura, desconto, modalidadeFaturamento, tipoGd: modalidade, disponibilidadeGd1, disponibilidadeGd2, fioBGd2 });
+  const descontoRealEstimado = contaSemGd
+    ? "0,00%"
+    : previa
     ? formatarPercentual(previa.descontoReal)
     : `Aproximadamente ${formatarPercentual(desconto)}`;
   const estimativaDetalhe = modalidadeAindaNaoIdentificada
@@ -59,10 +62,14 @@ export default function RealDiscountInfo({
     : configuracoesRepassadas.length
       ? "Os custos repassados reduzem a economia percebida pelo cliente."
       : "A Andrade absorve os custos selecionados; outros encargos ainda podem variar."
-  const detalheExibido = previa
+  const detalheExibido = contaSemGd
+    ? "Esta conta ainda não possui energia compensada GD I/GD II nem energia injetada. A projeção permanece zerada até chegar uma fatura com GD."
+    : previa
     ? `${formatarMoeda(previa.economia)} de economia sobre ${formatarMoeda(previa.baseDesconto)} de energia cheia. ${resumoDosRepasses(previa)}${faturaSomenteAndrade ? " A conta da concessionária permanece separada." : ""}${referenciaFatura(dadosFatura)}`
     : estimativaDetalhe;
-  const impacto = modalidadeAindaNaoIdentificada
+  const impacto = contaSemGd
+    ? "As configurações de faturamento GD serão liberadas automaticamente quando uma conta com leitura GD for vinculada à unidade."
+    : modalidadeAindaNaoIdentificada
     ? `Com ${formatarPercentual(desconto)} de desconto contratado, a tarifa Andrade será ${formatarPercentual(percentualTarifaAndrade)} da tarifa cheia. Na primeira conta, o sistema identificará GD I ou GD II e aplicará as escolhas atuais de repasse ou absorção.`
     : configuracoesRepassadas.length
       ? `O desconto parte de ${formatarPercentual(desconto)}, mas ${configuracoesRepassadas.join(" e ")} permanecem com o cliente. Essas parcelas reduzem o desconto real da competência.`
@@ -82,7 +89,7 @@ export default function RealDiscountInfo({
 
       <View style={styles.formula}>
         <View style={styles.estimateBox}>
-          <Text style={styles.estimateLabel}>{previa ? "PROJEÇÃO PELA ÚLTIMA FATURA" : "DESCONTO REAL ESTIMADO"}</Text>
+          <Text style={styles.estimateLabel}>{contaSemGd ? "PROJEÇÃO AGUARDANDO GD" : previa ? "PROJEÇÃO PELA ÚLTIMA FATURA" : "DESCONTO REAL ESTIMADO"}</Text>
           <Text style={styles.estimateValue}>{descontoRealEstimado}</Text>
           <Text style={styles.estimateDetail}>{detalheExibido}</Text>
         </View>
@@ -155,6 +162,20 @@ function n(dados: Record<string, any> | null | undefined, ...chaves: string[]) {
     }
   }
   return encontrado;
+}
+
+function possuiLeituraGd(dados: Record<string, any> | null | undefined) {
+  return n(
+    dados,
+    "energia_compensada",
+    "energiaCompensada",
+    "energia_compensada_gd1",
+    "energiaCompensadaGD1",
+    "energia_compensada_gd2",
+    "energiaCompensadaGD2",
+    "energia_injetada",
+    "energiaInjetada",
+  ) > 0;
 }
 
 function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, disponibilidadeGd1, disponibilidadeGd2, fioBGd2 }: {

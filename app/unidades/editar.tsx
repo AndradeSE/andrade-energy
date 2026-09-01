@@ -106,6 +106,7 @@ export default function EditarAlocacaoUnidade() {
   const [dadosFatura, setDadosFatura] = useState<Record<string, any> | null>(null);
   const [clienteIdResolvido, setClienteIdResolvido] = useState("");
   const [loading, setLoading] = useState(true); const [salvando, setSalvando] = useState(false);
+  const configuracaoGdBloqueada = Boolean(dadosFatura) && !identificarTipoGd(dadosFatura);
 
   const numeroDaUc = textoDoParametro(numero).replace(/\D/g, "");
   const clienteIdRecebido = textoDoParametro(clienteId);
@@ -173,7 +174,9 @@ export default function EditarAlocacaoUnidade() {
         setRepasseDisponibilidadeGD2((uc?.repassar_disponibilidade_gd2 ?? Number(uc?.percentual_repasse_disponibilidade ?? 100) > 0) ? "REPASSAR" : "ABSORVER");
         setRepasseFioBGD2((uc?.repassar_diferenca_fio_b_gd2 ?? true) ? "REPASSAR" : "ABSORVER");
         const faturaBase = parseDadosFatura(dadosFaturaParam) ?? faturas[0] ?? null;
-        setTipoGd(String(tipoGdImportado || uc?.tipo_gd || identificarTipoGd(faturaBase) || "GD1").toUpperCase());
+        // A leitura da fatura é a fonte de verdade: GD I mostra apenas GD I,
+        // GD II apenas GD II e MISTA libera os dois conjuntos de opções.
+        setTipoGd(String(identificarTipoGd(faturaBase) || tipoGdImportado || uc?.tipo_gd || "GD1").toUpperCase());
         setDadosFatura(faturaBase);
         setConsumoMedio(mediaFinal > 0 ? String(Math.round(mediaFinal)) : "");
         setPercentual(
@@ -262,6 +265,7 @@ export default function EditarAlocacaoUnidade() {
           />
 
           <ChoiceField
+            disabled={configuracaoGdBloqueada}
             label="Modalidade"
             value={modalidade}
             onChange={(novaModalidade) => {
@@ -308,11 +312,13 @@ export default function EditarAlocacaoUnidade() {
           ) : null}
           <FormField
             label="Desconto contratado (%)"
+            editable={!configuracaoGdBloqueada}
             value={desconto}
             onChangeText={(valor) => setDesconto(valor.replace(/[^\d,.]/g, ""))}
             keyboardType="decimal-pad"
           />
           <ChoiceField
+            disabled={configuracaoGdBloqueada}
             label="Formato da cobrança"
             value={formatoFatura}
             onChange={(valor) => setFormatoFatura(valor as FormatoFatura)}
@@ -322,19 +328,14 @@ export default function EditarAlocacaoUnidade() {
             ]}
           />
           <>
-            {!identificarTipoGd(dadosFatura) ? <ChoiceField
-              label="Tipo de GD para projeção"
-              value={tipoGd === "GD2" ? "GD2" : "GD1"}
-              onChange={(valor) => setTipoGd(valor as "GD1" | "GD2")}
-              options={[{ label: "GD I", value: "GD1" }, { label: "GD II", value: "GD2" }]}
-            /> : null}
-            {!tipoGd || tipoGd === "GD1" || tipoGd === "MISTA" ? <ChoiceField
+            {configuracaoGdBloqueada ? <Text style={styles.hint}>Configurações GD bloqueadas: esta conta ainda não possui energia compensada ou injetada. A projeção permanecerá em 0% até chegar uma fatura com GD.</Text> : null}
+            {!configuracaoGdBloqueada && (!tipoGd || tipoGd === "GD1" || tipoGd === "MISTA") ? <ChoiceField
               label="GD I: custo de disponibilidade recalculado"
               value={repasseDisponibilidadeGD1}
               onChange={(valor) => setRepasseDisponibilidadeGD1(valor as RepasseGD2)}
               options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]}
             /> : null}
-            {!tipoGd || tipoGd === "GD2" || tipoGd === "MISTA" ? <>
+            {!configuracaoGdBloqueada && (!tipoGd || tipoGd === "GD2" || tipoGd === "MISTA") ? <>
             <ChoiceField
               label="GD II: custo de disponibilidade recalculado"
               value={repasseDisponibilidadeGD2}
@@ -348,10 +349,10 @@ export default function EditarAlocacaoUnidade() {
               options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]}
             />
             </> : null}
-            <Text style={styles.hint}>{!identificarTipoGd(dadosFatura) ? `A conta ainda não possui GD. A projeção está simulando ${tipoGd === "GD2" ? "GD II" : "GD I"}; selecionar uma opção desativa a outra. ` : ""}{formatoFatura === "SOMENTE_ANDRADE"
+            {!configuracaoGdBloqueada ? <Text style={styles.hint}>{formatoFatura === "SOMENTE_ANDRADE"
               ? "Mesmo com documentos separados, a projeção considera também o valor pago diretamente à concessionária."
               : "Os demais encargos continuam na conta da concessionária."}
-            </Text>
+            </Text> : null}
             <RealDiscountInfo
               descontoPercentual={desconto}
               tipoGd={tipoGd}

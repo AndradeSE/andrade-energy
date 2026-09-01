@@ -9,7 +9,7 @@ import { supabase } from "../../supabase";
 import { Colors, Spacing, Typography } from "../../theme";
 
 export default function NovoCliente() {
-  const { origem, cliente, nome: nomeImportado, endereco: enderecoImportado } = useLocalSearchParams<{ origem?: string; cliente?: string; nome?: string; endereco?: string }>();
+  const { origem, cliente, nome: nomeImportado, cpf: cpfImportado, endereco: enderecoImportado } = useLocalSearchParams<{ origem?: string; cliente?: string; nome?: string; cpf?: string; endereco?: string }>();
   const [nome, setNome] = useState("");
   const [cpf, setCpf] = useState("");
   const [email, setEmail] = useState("");
@@ -22,8 +22,9 @@ export default function NovoCliente() {
     const nomeExtraido = (cliente ?? nomeImportado ?? "").trim();
     const invalido = /d[eé]bito\s+autom[aá]tico|valor\s+a\s+pagar|vencimento/i.test(nomeExtraido);
     setNome(invalido ? "" : nomeExtraido);
+    setCpf(String(cpfImportado ?? "").replace(/\D/g, ""));
     setEndereco(enderecoImportado ?? "");
-  }, [cliente, enderecoImportado, nomeImportado, origem]);
+  }, [cliente, cpfImportado, enderecoImportado, nomeImportado, origem]);
 
   async function salvar() {
     if (!nome.trim()) return Alert.alert("Nome obrigatório", "Informe o nome do consumidor.");

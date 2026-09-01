@@ -6,6 +6,7 @@ import { Alert, StyleSheet, View } from "react-native";
 
 import { analisarFatura, calcularMediaConsumoFatura } from "../../services/faturas.service";
 import { useAuth } from "../../contexts/AuthContext";
+import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors, Spacing } from "../../theme";
 import { Button } from "../ui";
 
@@ -19,21 +20,18 @@ const rotas = {
 
 export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
   const [analisando, setAnalisando] = useState(false);
-  const { usinaSelecionada, suspenderBloqueioTemporariamente } = useAuth();
+  const { usuario, usinaSelecionada, suspenderBloqueioTemporariamente } = useAuth();
+  const podeImportarCliente = tipo === "CLIENTE" && IS_GERADOR_APP && usuario?.perfil === "ADMIN";
 
   function abrirManual() {
     if (tipo === "CLIENTE") {
       router.push("/clientes/convidar");
       return;
     }
-    router.push({ pathname: rotas[tipo] as any, params: tipo === "CLIENTE" && usinaSelecionada?.id ? { usinaId: usinaSelecionada.id, usinaNome: usinaSelecionada.nome } : tipo === "UNIDADE" ? { cadastroRapido: "1" } : {} });
+    router.push({ pathname: rotas[tipo] as any, params: tipo === "UNIDADE" ? { cadastroRapido: "1" } : {} });
   }
 
   async function importar() {
-    if (tipo === "CLIENTE") {
-      router.push("/clientes/convidar");
-      return;
-    }
     const retomarBloqueio = suspenderBloqueioTemporariamente();
     try {
       const arquivo = await DocumentPicker.getDocumentAsync({
@@ -51,6 +49,7 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
       const nomeExtraido = dados.cliente ?? dados.nome ?? dados.titular ?? dadosCadastro.nome ?? dadosCadastro.cliente ?? "";
       const ucExtraida = dados.uc ?? dados.numero_instalacao ?? dados.numeroInstalacao ?? dadosCadastro.uc ?? "";
       const enderecoExtraido = dados.endereco ?? dados.endereco_instalacao ?? dadosCadastro.endereco ?? "";
+      const cpfExtraido = dados.cpf ?? dados.cpf_cnpj ?? dados.documento ?? dadosCadastro.cpf ?? dadosCadastro.cpf_cnpj ?? "";
       const distribuidoraExtraida = dados.distribuidora ?? dados.concessionaria ?? dadosCadastro.distribuidora ?? "CEMIG";
       const mediaConsumo = calcularMediaConsumoFatura(dados);
       const possuiGD1 = Number(dados.energiaCompensadaGD1 ?? 0) > 0;
@@ -65,7 +64,7 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
       }
 
       router.push({
-        pathname: rotas[tipo] as any,
+        pathname: (tipo === "CLIENTE" ? "/clientes/novo" : rotas[tipo]) as any,
         params: {
           origem: "fatura",
           classificacao: tipo === "UNIDADE" ? "" : String(analise?.classificacao ?? ""),
@@ -74,6 +73,7 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
           uc: String(ucExtraida),
           numeroInstalacao: String(ucExtraida),
           endereco: tipo === "UNIDADE" ? "" : String(enderecoExtraido),
+          cpf: tipo === "CLIENTE" ? String(cpfExtraido) : "",
           distribuidora: String(distribuidoraExtraida),
           arquivoUri: item.uri,
           arquivoNome: item.name,
@@ -119,12 +119,12 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
         style={styles.button}
         title={tipo === "CLIENTE" ? "Convidar consumidor" : "Manual"}
       />
-      {tipo !== "CLIENTE" ? <Button
+      {(tipo !== "CLIENTE" || podeImportarCliente) ? <Button
         disabled={analisando}
         icon={<Ionicons name="document-attach-outline" size={20} color="#FFF" />}
         onPress={importar}
         style={[styles.button, styles.importButton]}
-        title={analisando ? "Lendo..." : tipo === "UNIDADE" ? "Importar fatura" : "Via fatura"}
+        title={analisando ? "Lendo..." : tipo === "UNIDADE" ? "Importar fatura" : tipo === "CLIENTE" ? "Cliente via fatura" : "Via fatura"}
       /> : null}
     </View>
   );
