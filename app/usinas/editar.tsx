@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 
 import FormField from "../../components/cadastro/FormField";
+import ChoiceField from "../../components/cadastro/ChoiceField";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
@@ -22,6 +23,7 @@ export default function EditarUsina() {
   const [titular, setTitular] = useState("");
   const [cpfTitular, setCpfTitular] = useState("");
   const [endereco, setEndereco] = useState("");
+  const [tipoGd, setTipoGd] = useState<"GD1" | "GD2">("GD1");
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
@@ -41,6 +43,7 @@ export default function EditarUsina() {
       setInvestimento(String(data.investimento ?? ""));
       setTitular(data.titular_nome ?? "");
       setEndereco(data.endereco ?? "");
+      setTipoGd(data.tipo_gd === "GD2" ? "GD2" : "GD1");
       const { data: unidadeGeradora } = await supabase
         .from("unidades_consumidoras")
         .select("cpf_titular")
@@ -60,16 +63,25 @@ export default function EditarUsina() {
       potencia_kwp: Number(potencia.replace(",", ".")) || 0,
       geracao_media: Number(geracaoMedia.replace(",", ".")) || 0,
       investimento: Number(investimento.replace(",", ".")) || 0,
+      tipo_gd: tipoGd,
       titular_nome: titular.trim() || null, endereco: endereco.trim() || null,
     }).eq("id", id);
     let unidadeError: any = null;
     if (!error) {
+      if (tipoGd === "GD2") {
+        const { error: erroHerancaGd2 } = await supabase
+          .from("unidades_consumidoras")
+          .update({ tipo_gd: "GD2" })
+          .eq("usina_id", id)
+          .eq("tipo", "BENEFICIARIA");
+        unidadeError = erroHerancaGd2;
+      }
       const { error: erroUnidade } = await supabase
         .from("unidades_consumidoras")
         .update({ numero: numeroInstalacao, cpf_titular: cpfTitular.replace(/\D/g, "") || null })
         .eq("usina_id", id)
         .eq("tipo", "GERADORA");
-      unidadeError = erroUnidade;
+      unidadeError = unidadeError ?? erroUnidade;
     }
     setSalvando(false);
     if (error) Alert.alert("Não foi possível salvar", error.message);
@@ -107,6 +119,7 @@ export default function EditarUsina() {
       <FormField label="Número da instalação / UC" value={numeroInstalacao} onChangeText={(valor) => setNumeroInstalacao(valor.replace(/\D/g, ""))} keyboardType="numeric" />
       <FormField label="Potência (kWp)" value={potencia} onChangeText={setPotencia} keyboardType="decimal-pad" />
       <FormField label="Geração média (kWh/mês)" value={geracaoMedia} onChangeText={setGeracaoMedia} keyboardType="decimal-pad" />
+      <ChoiceField label="Modalidade GD da usina" value={tipoGd} onChange={setTipoGd} options={[{ label: "GD I", value: "GD1" }, { label: "GD II", value: "GD2" }]} />
       <FormField label="Investimento (R$)" value={investimento} onChangeText={setInvestimento} keyboardType="decimal-pad" />
       <FormField label="Titular" value={titular} onChangeText={setTitular} />
       <FormField label="CPF/CNPJ do titular da conta (para e-mail)" value={cpfTitular} onChangeText={(valor) => setCpfTitular(valor.replace(/\D/g, "").slice(0, 14))} keyboardType="numeric" />

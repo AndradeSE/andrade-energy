@@ -67,10 +67,12 @@ export default function NovaUnidade() {
   const [clientes, setClientes] = useState<any[]>([]); const [usinas, setUsinas] = useState<any[]>([]);
   const [clienteId, setClienteId] = useState(""); const [usinaId, setUsinaId] = useState(""); const [percentualAlocado, setPercentualAlocado] = useState(""); const [salvando, setSalvando] = useState(false);
   const tipoGdDetectado = identificarTipoGd(dadosFatura);
-  const configuracaoGdBloqueada = Boolean(dadosFatura) && !tipoGdDetectado;
+  const usinaSelecionada = usinas.find((item) => item.id === usinaId);
+  const usinaGd2 = String(usinaSelecionada?.tipo_gd ?? "").toUpperCase() === "GD2";
+  const configuracaoGdBloqueada = Boolean(dadosFatura) && !tipoGdDetectado && !usinaGd2;
   const tipoGdEfetivo = configuracaoGdBloqueada
     ? ""
-    : String(tipoGdDetectado || tipoGdImportado || tipoGdSelecionado).toUpperCase();
+    : String(usinaGd2 ? "GD2" : tipoGdDetectado || tipoGdImportado || tipoGdSelecionado).toUpperCase();
 
   useEffect(() => {
     if (tipoGdDetectado === "GD1" || tipoGdDetectado === "GD2") setTipoGdSelecionado(tipoGdDetectado);
@@ -250,6 +252,7 @@ export default function NovaUnidade() {
       {!clienteIdVinculado ? <><Text style={styles.label}>Vincular ao cliente *</Text>{clientes.length ? <View style={styles.options}>{clientes.map((c) => <Pressable key={c.id} onPress={() => setClienteId(clienteId === c.id ? "" : c.id)} style={[styles.link, clienteId === c.id && styles.linkSelected]}><Text>{c.nome}</Text></Pressable>)}</View> : <Text style={styles.clientRequired}>Cadastre um cliente antes de adicionar uma unidade consumidora.</Text>}</> : null}
       <ChoiceField disabled={configuracaoGdBloqueada} label="Formato da cobrança" value={formatoFatura} onChange={(valor) => setFormatoFatura(valor as FormatoFatura)} options={[{ label: "Fatura unificada (CEMIG + Andrade)", value: "UNIFICADA" }, { label: "Somente Andrade Energy", value: "SOMENTE_ANDRADE" }]} />
       <>
+        {usinaGd2 ? <Text style={styles.beneficiariaHint}>Modalidade da UC: GD II, definida automaticamente pela usina selecionada.</Text> : null}
         {configuracaoGdBloqueada ? <Text style={styles.beneficiariaHint}>Configurações GD bloqueadas: a conta importada ainda não possui energia compensada ou injetada. A projeção permanecerá em 0% até chegar uma fatura com GD.</Text> : null}
         {!configuracaoGdBloqueada && (!tipoGdEfetivo || tipoGdEfetivo === "GD1" || tipoGdEfetivo === "MISTA") ? <ChoiceField label="GD I: custo de disponibilidade recalculado" value={repasseDisponibilidadeGD1} onChange={(valor) => setRepasseDisponibilidadeGD1(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} /> : null}
         {!configuracaoGdBloqueada && (!tipoGdEfetivo || tipoGdEfetivo === "GD2" || tipoGdEfetivo === "MISTA") ? <>

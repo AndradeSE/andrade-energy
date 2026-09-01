@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Alert, StyleSheet, Text } from "react-native";
 
 import FormField from "../../components/cadastro/FormField";
+import ChoiceField from "../../components/cadastro/ChoiceField";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
@@ -11,13 +12,14 @@ import { Colors, Spacing, Typography } from "../../theme";
 
 export default function NovaUsina() {
   const { usuario, atualizarUsuario, selecionarUsina } = useAuth();
-  const { origem, cliente, uc, endereco: enderecoImportado } = useLocalSearchParams<{ origem?: string; cliente?: string; uc?: string; endereco?: string }>();
+  const { origem, cliente, uc, endereco: enderecoImportado, tipoGd: tipoGdImportado } = useLocalSearchParams<{ origem?: string; cliente?: string; uc?: string; endereco?: string; tipoGd?: string }>();
   const [nome, setNome] = useState("");
   const [numeroInstalacao, setNumeroInstalacao] = useState("");
   const [potencia, setPotencia] = useState("");
   const [titular, setTitular] = useState("");
   const [cpfTitular, setCpfTitular] = useState("");
   const [endereco, setEndereco] = useState("");
+  const [tipoGd, setTipoGd] = useState<"GD1" | "GD2">(String(tipoGdImportado).toUpperCase() === "GD2" ? "GD2" : "GD1");
   const [salvando, setSalvando] = useState(false);
 
   async function abrirNaLista(usina: {
@@ -56,7 +58,8 @@ export default function NovaUsina() {
     setTitular(titularExtraido);
     setNumeroInstalacao((uc ?? "").replace(/\D/g, ""));
     setEndereco(enderecoImportado ?? "");
-  }, [cliente, enderecoImportado, origem, uc, usuario?.nome]);
+    setTipoGd(String(tipoGdImportado).toUpperCase() === "GD2" ? "GD2" : "GD1");
+  }, [cliente, enderecoImportado, origem, tipoGdImportado, uc, usuario?.nome]);
 
   async function salvar() {
     if (!nome.trim() || !numeroInstalacao || !potencia) {
@@ -67,7 +70,7 @@ export default function NovaUsina() {
     const { data: usina, error } = await supabase.from("usinas").insert({
       nome: nome.trim(), numero_instalacao: numeroInstalacao, potencia_kwp: Number(potencia.replace(",", ".")),
       titular_nome: titular.trim() || null, endereco: endereco.trim() || null,
-      distribuidora: "CEMIG", modalidade: "INJECAO", status: "ATIVA",
+      distribuidora: "CEMIG", modalidade: "INJECAO", tipo_gd: tipoGd, status: "ATIVA",
     }).select("id, nome, numero_instalacao, distribuidora, endereco, status").single();
 
     if (!error && usina) {
@@ -108,6 +111,7 @@ export default function NovaUsina() {
         <FormField label="Nome da usina (editável)" value={nome} onChangeText={setNome} placeholder="Ex.: Usina Solar Alfenas" />
         <FormField label="Número da instalação / UC" value={numeroInstalacao} onChangeText={(v) => setNumeroInstalacao(v.replace(/\D/g, ""))} keyboardType="numeric" />
         <FormField label="Potência (kWp)" value={potencia} onChangeText={setPotencia} keyboardType="decimal-pad" />
+        <ChoiceField label="Modalidade GD da usina" value={tipoGd} onChange={setTipoGd} options={[{ label: "GD I", value: "GD1" }, { label: "GD II", value: "GD2" }]} />
         <FormField label="Titular" value={titular} onChangeText={setTitular} />
         <FormField label="CPF/CNPJ do titular da conta (para e-mail)" value={cpfTitular} onChangeText={(valor) => setCpfTitular(valor.replace(/\D/g, "").slice(0, 14))} keyboardType="numeric" />
         <FormField label="Endereço" value={endereco} onChangeText={setEndereco} />

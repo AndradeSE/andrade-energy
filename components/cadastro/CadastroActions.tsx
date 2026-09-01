@@ -52,8 +52,8 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
       const cpfExtraido = dados.cpf ?? dados.cpf_cnpj ?? dados.documento ?? dadosCadastro.cpf ?? dadosCadastro.cpf_cnpj ?? "";
       const distribuidoraExtraida = dados.distribuidora ?? dados.concessionaria ?? dadosCadastro.distribuidora ?? "CEMIG";
       const mediaConsumo = calcularMediaConsumoFatura(dados);
-      const possuiGD1 = Number(dados.energiaCompensadaGD1 ?? 0) > 0;
-      const possuiGD2 = Number(dados.energiaCompensadaGD2 ?? 0) > 0;
+      const possuiGD1 = Number(dados.energiaCompensadaGD1 ?? dados.energia_compensada_gd1 ?? 0) > 0;
+      const possuiGD2 = Number(dados.energiaCompensadaGD2 ?? dados.energia_compensada_gd2 ?? 0) > 0;
       const tipoGd = possuiGD1 && possuiGD2 ? "MISTA" : possuiGD2 ? "GD2" : possuiGD1 ? "GD1" : "";
 
       if (tipo === "USINA" && analise.classificacao !== "POSSIVEL_GERADORA") {
@@ -78,7 +78,7 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
           arquivoUri: item.uri,
           arquivoNome: item.name,
           energiaCompensada: tipo === "UNIDADE" ? "0" : String(dados.energiaCompensada ?? 0),
-          tipoGd: tipo === "USINA" ? "" : tipoGd,
+          tipoGd,
           dadosFatura: tipo === "USINA" ? "" : JSON.stringify({
             valorTotal: dados.valorTotal,
             consumo: dados.consumo,

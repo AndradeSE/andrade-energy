@@ -226,7 +226,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
   if (!['INJECAO', 'COMPENSACAO'].includes(modalidade)) throw new Error("Modalidade inválida.");
   if (!Number.isFinite(desconto) || desconto < 0 || desconto > 100) throw new Error("Informe um desconto entre 0% e 100%.");
 
-  const [{ data: cliente, error: erroBusca }, { data: unidadeAnterior, error: erroUnidadeAnterior }] = await Promise.all([
+  const [{ data: cliente, error: erroBusca }, { data: unidadeAnterior, error: erroUnidadeAnterior }, { data: usina, error: erroUsina }] = await Promise.all([
     supabase
       .from("clientes")
       .select("nome,endereco,distribuidora,usina_id,uc")
@@ -237,9 +237,15 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
       .select("id,usina_id,cliente_id,endereco,percentual_repasse_disponibilidade,fatura_somente_andrade,repassar_disponibilidade_gd1,repassar_disponibilidade_gd2,repassar_diferenca_fio_b_gd2,tipo_gd")
       .eq("numero", numero)
       .maybeSingle(),
+    supabase
+      .from("usinas")
+      .select("tipo_gd")
+      .eq("id", usinaId)
+      .single(),
   ]);
   if (erroBusca) throw erroBusca;
   if (erroUnidadeAnterior) throw erroUnidadeAnterior;
+  if (erroUsina) throw erroUsina;
   if (unidadeAnterior?.cliente_id && unidadeAnterior.cliente_id !== clienteId) {
     throw new Error("Esta UC já está vinculada a outro cliente.");
   }
@@ -262,9 +268,11 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
     ? (unidadeAnterior?.repassar_diferenca_fio_b_gd2 ?? true)
     : Boolean(input.repassarDiferencaFioBGD2);
   const tipoGdInformado = String(input.tipoGd ?? "").toUpperCase();
-  const tipoGd = ["GD1", "GD2", "MISTA"].includes(tipoGdInformado)
-    ? tipoGdInformado
-    : unidadeAnterior?.tipo_gd ?? null;
+  const tipoGd = usina?.tipo_gd === "GD2"
+    ? "GD2"
+    : ["GD1", "GD2", "MISTA"].includes(tipoGdInformado)
+      ? tipoGdInformado
+      : unidadeAnterior?.tipo_gd ?? null;
 
   let percentual = Number.isFinite(percentualInformado) && percentualInformado > 0
     ? percentualInformado

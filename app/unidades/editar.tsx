@@ -106,7 +106,6 @@ export default function EditarAlocacaoUnidade() {
   const [dadosFatura, setDadosFatura] = useState<Record<string, any> | null>(null);
   const [clienteIdResolvido, setClienteIdResolvido] = useState("");
   const [loading, setLoading] = useState(true); const [salvando, setSalvando] = useState(false);
-  const configuracaoGdBloqueada = Boolean(dadosFatura) && !identificarTipoGd(dadosFatura);
 
   const numeroDaUc = textoDoParametro(numero).replace(/\D/g, "");
   const clienteIdRecebido = textoDoParametro(clienteId);
@@ -207,7 +206,7 @@ export default function EditarAlocacaoUnidade() {
     if (!Number.isFinite(rateio) || rateio <= 0 || rateio > 100) return Alert.alert("Percentual inválido", "Informe um percentual entre 0,01% e 100%.");
     if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return Alert.alert("Desconto inválido", "Informe um desconto entre 0% e 100%.");
     try { setSalvando(true);
-      await alocarUnidade(usinaId, { clienteId: clienteIdResolvido, numero: numeroDaUc, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: false });
+      await alocarUnidade(usinaId, { clienteId: clienteIdResolvido, numero: numeroDaUc, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd: tipoGdEfetivo, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: false });
       // Esta tela pode ter sido aberta a partir de uma UC ou da criação por
       // fatura. O destino único evita ficar preso na tela anterior e exigir
       // um segundo toque para voltar à lista atualizada.
@@ -218,6 +217,9 @@ export default function EditarAlocacaoUnidade() {
   if (loading) return <Loading />;
 
   const usinaSelecionada = usinas.find((usina) => usina.id === usinaId);
+  const usinaGd2 = String(usinaSelecionada?.tipo_gd ?? "").toUpperCase() === "GD2";
+  const configuracaoGdBloqueada = Boolean(dadosFatura) && !identificarTipoGd(dadosFatura) && !usinaGd2;
+  const tipoGdEfetivo = usinaGd2 ? "GD2" : tipoGd;
   const semProducaoParaSugestao =
     modalidade === "COMPENSACAO" &&
     valorNumerico(consumoMedio) > 0 &&
@@ -328,14 +330,15 @@ export default function EditarAlocacaoUnidade() {
             ]}
           />
           <>
+            {usinaGd2 ? <Text style={styles.hint}>Modalidade da UC: GD II, definida automaticamente pela usina selecionada.</Text> : null}
             {configuracaoGdBloqueada ? <Text style={styles.hint}>Configurações GD bloqueadas: esta conta ainda não possui energia compensada ou injetada. A projeção permanecerá em 0% até chegar uma fatura com GD.</Text> : null}
-            {!configuracaoGdBloqueada && (!tipoGd || tipoGd === "GD1" || tipoGd === "MISTA") ? <ChoiceField
+            {!configuracaoGdBloqueada && !usinaGd2 && (!tipoGd || tipoGd === "GD1" || tipoGd === "MISTA") ? <ChoiceField
               label="GD I: custo de disponibilidade recalculado"
               value={repasseDisponibilidadeGD1}
               onChange={(valor) => setRepasseDisponibilidadeGD1(valor as RepasseGD2)}
               options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]}
             /> : null}
-            {!configuracaoGdBloqueada && (!tipoGd || tipoGd === "GD2" || tipoGd === "MISTA") ? <>
+            {!configuracaoGdBloqueada && (usinaGd2 || !tipoGd || tipoGd === "GD2" || tipoGd === "MISTA") ? <>
             <ChoiceField
               label="GD II: custo de disponibilidade recalculado"
               value={repasseDisponibilidadeGD2}
@@ -355,7 +358,7 @@ export default function EditarAlocacaoUnidade() {
             </Text> : null}
             <RealDiscountInfo
               descontoPercentual={desconto}
-              tipoGd={tipoGd}
+              tipoGd={tipoGdEfetivo}
               modalidadeFaturamento={modalidade}
               faturaSomenteAndrade={formatoFatura === "SOMENTE_ANDRADE"}
               dadosFatura={dadosFatura}
