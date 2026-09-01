@@ -361,3 +361,5 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - Quando a conta importada ainda não possui GD, a configuração exige uma escolha exclusiva entre **GD I** e **GD II** para a projeção. Selecionar uma desativa a outra; se a fatura já identificar GD, somente as opções correspondentes são apresentadas.
 - OTA de sessão e recuperação dos anexos: Gerador `57d2d5ac-03a0-42de-8416-f822f482a189`; Consumidor `479bf6c6-6134-4b96-9840-0914cfe8e1e8`.
 - OTA final do Gerador com seleção exclusiva de GD: `8728264a-d3e4-451d-b08d-8719b12377ad`.
+- Contas com perfil `ADMIN` são exceção à sessão única e podem permanecer conectadas simultaneamente no app e na web. Perfis `GESTOR` e `LEITURA` continuam limitados ao acesso mais recente.
+- Na projeção de uma conta ainda sem GD, a seleção GD I/GD II é tratada como cenário de simulação, não como leitura GD existente. A base permanece sendo o consumo mensal da conta e o resultado muda imediatamente ao alterar tipo GD, desconto, disponibilidade ou Fio B.

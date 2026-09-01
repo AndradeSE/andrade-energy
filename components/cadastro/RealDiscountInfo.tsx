@@ -171,7 +171,11 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   const energiaInjetada = n(dados, "energia_injetada", "energiaInjetada");
   const modalidade = String(modalidadeFaturamento ?? "COMPENSACAO").toUpperCase();
   const possuiCompensacaoLida = energiaCompensada > 0 || energiaGD1 > 0 || energiaGD2 > 0;
-  const possuiLeituraGd = possuiCompensacaoLida || energiaInjetada > 0 || ["GD1", "GD2", "MISTA"].includes(tipoGd);
+  // O tipo GD escolhido numa conta convencional é somente o cenário da
+  // simulação. Ele não significa que o PDF já trouxe energia GD. Enquanto a
+  // primeira conta GD não chegar, usamos o consumo mensal como base e
+  // aplicamos em tempo real as regras GD I/GD II selecionadas.
+  const possuiLeituraGd = possuiCompensacaoLida || energiaInjetada > 0;
   // Numa conta GD, injeção usa a energia que veio da usina e compensação usa
   // exclusivamente Energia compensada GD I/GD II. O consumo é apenas a base
   // estimada de uma conta convencional, antes da primeira competência GD.
