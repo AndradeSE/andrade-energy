@@ -241,21 +241,15 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
 
   if (!possuiLeituraGd) return null;
   const valorEnergiaCheia = Math.max(0, baseKwh * tarifaCheia);
-  const creditoEfetivo = n(
-    dados,
-    "valor_credito_efetivo",
-    "valorCreditoEfetivo",
-    "valor_credito_compensado",
-    "valorCreditoCompensado",
-  );
-  // A referência é sempre a conta CEMIG efetivamente lida mais o crédito de
-  // energia compensada retirado dela. Não reutilizamos referência histórica
-  // nem reconstruímos o valor a partir de consumo médio.
-  const referencia = valorCemig + creditoEfetivo;
+  // A referência sem Andrade é reconstituída da própria competência: a conta
+  // CEMIG efetivamente cobrada mais a energia GD pela tarifa cheia lida no
+  // PDF. Algumas NFs não expõem "valor do crédito" em um campo isolado; esse
+  // fato não pode impedir o cálculo quando kWh e tarifa já foram extraídos.
+  const referencia = valorCemig + valorEnergiaCheia;
   // A economia percebida é comparada com tudo que o cliente pagaria sem a
   // Andrade. Assim os encargos que continuam obrigatórios reduzem levemente o
   // percentual final mesmo quando disponibilidade e Fio B são absorvidos.
-  if (creditoEfetivo <= 0 || referencia <= 0) return null;
+  if (referencia <= 0) return null;
   const valorAndrade = valorEnergiaCheia * (1 - desconto / 100);
   // Numa conta convencional, a parcela de energia ainda está integralmente
   // na concessionária e deve ser substituída pela energia Andrade. Numa conta
