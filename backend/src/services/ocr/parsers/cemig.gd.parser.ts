@@ -202,6 +202,7 @@ export function parseCemigGD(
     0,
     custoDisponibilidadeCheio - custoDisponibilidadePelaTarifaUnitaria
   );
+  const custoDisponibilidadeGD1 = Math.max(0, custoDisponibilidadePelaTarifaUnitaria);
   const custoBrutoDaLinhaEnergia = linhaEnergiaEletrica.quantidade === franquiaDisponibilidadeKwh
     ? linhaEnergiaEletrica.valorComImpostos
     : 0;
@@ -280,6 +281,10 @@ export function parseCemigGD(
     tarifaDisponibilidadeSemImpostos,
 
     custoDisponibilidade,
+
+    custoDisponibilidadeGD1,
+
+    custoDisponibilidadeGD2: custoDisponibilidade,
 
     custoDisponibilidadeComImpostos: custoDisponibilidadeBrutoFinal,
 

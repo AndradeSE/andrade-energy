@@ -73,6 +73,14 @@ export default function ClienteDetalhe() {
         tarifaCheia: dados.tarifaCheia, tarifaScee: dados.tarifaScee,
         tarifaGD2: dados.tarifaGD2 ?? dados.tarifaGD,
         custoDisponibilidade: dados.custoDisponibilidade,
+        custoDisponibilidadeGD1: dados.custoDisponibilidadeGD1,
+        custoDisponibilidadeGD2: dados.custoDisponibilidadeGD2,
+        franquiaDisponibilidadeKwh: dados.franquiaDisponibilidadeKwh,
+        tarifaDisponibilidadeSemImpostos: dados.tarifaDisponibilidadeSemImpostos,
+        tipoLigacao: dados.tipoLigacao,
+        valorIluminacaoPublica: dados.valorIluminacaoPublica,
+        valorBandeira: dados.valorBandeira,
+        encargosAdicionais: dados.encargosAdicionais,
         valorEnergiaConcessionaria: dados.valorEnergiaConcessionaria,
       });
       router.push({

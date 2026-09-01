@@ -224,7 +224,12 @@ function calcularPrevia({ dados, desconto, consumoProjetado, modalidadeFaturamen
   }
   if (tarifaCheia <= 0 || valorCemig <= 0 || baseKwh <= 0) return null;
 
-  const custoDisponibilidade = n(dados, "custo_disponibilidade", "custoDisponibilidade", "custo_disponibilidade_repassado", "custoDisponibilidadeRepassado");
+  const franquiaDisponibilidade = n(dados, "franquia_disponibilidade_kwh", "franquiaDisponibilidadeKwh");
+  const tarifaDisponibilidadeSemImpostos = n(dados, "tarifa_disponibilidade_sem_impostos", "tarifaDisponibilidadeSemImpostos");
+  const custoDisponibilidadeGD1 = n(dados, "custo_disponibilidade_gd1", "custoDisponibilidadeGD1") ||
+    franquiaDisponibilidade * tarifaDisponibilidadeSemImpostos;
+  const custoDisponibilidadeGD2 = n(dados, "custo_disponibilidade_gd2", "custoDisponibilidadeGD2") ||
+    n(dados, "custo_disponibilidade", "custoDisponibilidade", "custo_disponibilidade_repassado", "custoDisponibilidadeRepassado");
   const diferencaSalva = n(dados, "diferenca_fio_b", "diferencaFioB");
   const tarifaScee = n(dados, "tarifa_scee", "tarifaScee");
   const tarifaGd2 = n(dados, "tarifa_gd", "tarifaGD2", "tarifaGD");
@@ -243,6 +248,7 @@ function calcularPrevia({ dados, desconto, consumoProjetado, modalidadeFaturamen
       : diferencaFioBEstimada;
   const usaGD2 = tipoGd === "GD2" || tipoGd === "MISTA" || energiaGD2 > 0;
   const usaGD1 = tipoGd === "GD1" || tipoGd === "MISTA" || (!usaGD2 && energiaGD1 > 0);
+  const custoDisponibilidade = usaGD2 ? custoDisponibilidadeGD2 : custoDisponibilidadeGD1;
   const absorveDisponibilidade = usaGD2 ? disponibilidadeGd2 === "ABSORVER" : usaGD1 && disponibilidadeGd1 === "ABSORVER";
   const valorAbsorvidoDisponibilidade = absorveDisponibilidade ? custoDisponibilidade : 0;
   const valorAbsorvidoFioB = usaGD2 && fioBGd2 === "ABSORVER" ? diferencaFioB : 0;

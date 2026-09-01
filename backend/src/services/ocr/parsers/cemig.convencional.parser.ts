@@ -78,7 +78,8 @@ export function parseCemigConvencional(
   const franquiaDisponibilidadeKwh = franquiaDaLigacao(tipoLigacao);
   const tarifaDisponibilidadeSemImpostos = linhaEnergia.tarifaSemImpostos;
   const disponibilidadeDaLinha = extrairDisponibilidadeConvencional(texto);
-  const custoDisponibilidade = disponibilidadeDaLinha > 0
+  const custoDisponibilidadeGD1 = Math.max(0, franquiaDisponibilidadeKwh * tarifaDisponibilidadeSemImpostos);
+  const custoDisponibilidadeGD2 = disponibilidadeDaLinha > 0
     ? disponibilidadeDaLinha
     : Math.max(0, franquiaDisponibilidadeKwh * (tarifaCheia - tarifaDisponibilidadeSemImpostos));
   const historico = extrairHistoricoConsumo(texto);
@@ -128,7 +129,9 @@ export function parseCemigConvencional(
   tipoLigacao,
   franquiaDisponibilidadeKwh,
   tarifaDisponibilidadeSemImpostos,
-  custoDisponibilidade,
+  custoDisponibilidade: custoDisponibilidadeGD2,
+  custoDisponibilidadeGD1,
+  custoDisponibilidadeGD2,
 
   bandeira: texto.match(/Bandeira\s+(?:Tarif[aá]ria\s+)?([A-Za-zÀ-Ý]+)/i)?.[1] ?? "",
 

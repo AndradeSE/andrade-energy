@@ -238,7 +238,9 @@ if (!cliente.usina_id) {
   // diferença do Fio B é a diferença entre tarifa cheia e tarifa GD II.
   // As parcelas podem ser repassadas ou absorvidas separadamente na UC.
   const custoDisponibilidadeRepassavel = energiaCompensadaDaFatura > 0
-    ? Math.max(0, Number(dados.custoDisponibilidade ?? 0))
+    ? Math.max(0, Number(energiaCompensadaGD2 > 0
+      ? dados.custoDisponibilidadeGD2 ?? dados.custoDisponibilidade
+      : dados.custoDisponibilidadeGD1 ?? dados.custoDisponibilidade))
     : 0;
   // O Fio B é a diferença entre a linha Energia SCEE Isenta e a devolução da
   // Energia compensada GD II. A tarifa cheia inclui outros componentes e

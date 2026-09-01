@@ -85,6 +85,8 @@ export interface FaturaExtraida {
 
   /** Diferença da disponibilidade: franquia x (tarifa cheia - tarifa unitária). */
   custoDisponibilidade: number;
+  custoDisponibilidadeGD1?: number;
+  custoDisponibilidadeGD2?: number;
 
   /** Valor que aparece inicialmente na NF, antes do ajuste de disponibilidade. */
   custoDisponibilidadeComImpostos?: number;
