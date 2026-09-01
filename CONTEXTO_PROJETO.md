@@ -389,3 +389,4 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - Campos de e-mail do cadastro, convites, clientes e empresas agora normalizam o texto e bloqueiam endereços inválidos; o backend também valida o e-mail de suporte.
 - Se uma fatura de cadastro da usina não identificar GD I ou GD II, o usuário escolhe a modalidade manualmente. Quando identificada, a modalidade continua automática.
 - Enquanto a escolha manual não for feita, a tela mostra explicitamente “Selecionar manualmente” e não assume GD I como padrão.
+- No cadastro de usina, uma linha de energia compensada não basta para definir a modalidade: sem produção/injeção comprovada no período, GD I/GD II ficam para confirmação manual.
