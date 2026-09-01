@@ -96,7 +96,7 @@ export default function FaturasAnexadas() {
         clienteId,
         cliente: String(dados.cliente ?? dados.titular ?? params.cliente ?? ""),
         uc: numero,
-        cpf: String(dados.cpf ?? ""),
+        cpf: String(dados.cpfParcial ?? dados.cpf_parcial ?? dados.cpf ?? "").replace(/\D/g, "").slice(0, 4),
         endereco: String(dados.endereco ?? ""),
         energiaCompensada: String(dados.energiaCompensada ?? dados.energia_compensada ?? 0),
         consumoMedio: consumoMedio > 0 ? String(consumoMedio) : "",

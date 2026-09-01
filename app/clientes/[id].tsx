@@ -83,7 +83,7 @@ export default function ClienteDetalhe() {
           clienteId: id,
           cliente: String(dados.cliente ?? cliente.nome ?? ""),
           uc: numero,
-          cpf: String(dados.cpf ?? "").replace(/\D/g, ""),
+          cpf: String(dados.cpfParcial ?? dados.cpf_parcial ?? dados.cpf ?? "").replace(/\D/g, "").slice(0, 4),
           endereco: String(dados.endereco ?? ""),
           energiaCompensada: String(dados.energiaCompensada ?? 0),
           consumoMedio: consumoMedio > 0 ? String(consumoMedio) : "",

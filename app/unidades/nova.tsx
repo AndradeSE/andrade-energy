@@ -76,7 +76,7 @@ export default function NovaUnidade() {
     const rotuloDaFatura = /d[eé]bito\s+autom[aá]tico|valor\s+a\s+pagar|vencimento/i.test(nomeExtraido);
     const titularExtraido = rotuloDaFatura ? "" : nomeExtraido;
     setNumero((uc ?? "").replace(/\D/g, ""));
-    if (cpfImportado) setCpfTitular(formatarDocumento(cpfImportado));
+    if (cpfImportado) setCpfTitular(formatarDocumentoDaFatura(cpfImportado));
     if (titularExtraido) setTitular(titularExtraido);
     if (enderecoImportado) setEndereco(enderecoImportado);
     if (classificacao === "POSSIVEL_GERADORA") { setTipo("GERADORA"); setModalidade("INJECAO"); }
@@ -93,11 +93,11 @@ export default function NovaUnidade() {
     if (!clienteSelecionado) return;
     setTipo("BENEFICIARIA");
     if (!usinaId && clienteSelecionado.usina_id) setUsinaId(String(clienteSelecionado.usina_id));
-    if (clienteSelecionado.cpf && !cpfTitular) setCpfTitular(formatarDocumento(clienteSelecionado.cpf));
+    if (origem !== "fatura" && clienteSelecionado.cpf && !cpfTitular) setCpfTitular(formatarDocumento(clienteSelecionado.cpf));
     if (!numeroSeguro(consumoMedio) && numeroSeguro(clienteSelecionado.consumo_medio_kwh)) {
       setConsumoMedio(String(clienteSelecionado.consumo_medio_kwh));
     }
-  }, [clienteId, clientes, consumoMedio, cpfTitular, usinaId]);
+  }, [clienteId, clientes, consumoMedio, cpfTitular, origem, usinaId]);
 
   useEffect(() => {
     const usinaSelecionada = usinas.find((item) => item.id === usinaId);
@@ -176,6 +176,7 @@ export default function NovaUnidade() {
           desconto: descontoFinal,
           consumoMedio: consumoMedioFinal,
           endereco: endereco.trim() || clienteSelecionado?.endereco || null,
+          cpfTitular: documentoTitular || null,
           percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0,
           repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR",
           repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR",
@@ -269,6 +270,11 @@ function formatarDocumento(valor: string) {
   const numeros = valor.replace(/\D/g, "").slice(0, 14);
   if (numeros.length <= 11) return numeros.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2");
   return numeros.replace(/(\d{2})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1/$2").replace(/(\d{4})(\d{1,2})$/, "$1-$2");
+}
+
+function formatarDocumentoDaFatura(valor: string) {
+  const primeirosQuatro = valor.replace(/\D/g, "").slice(0, 4);
+  return primeirosQuatro ? `${primeirosQuatro}.***.***-**` : "";
 }
 
 const styles = StyleSheet.create({

@@ -50,6 +50,7 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
       const ucExtraida = dados.uc ?? dados.numero_instalacao ?? dados.numeroInstalacao ?? dadosCadastro.uc ?? "";
       const enderecoExtraido = dados.endereco ?? dados.endereco_instalacao ?? dadosCadastro.endereco ?? "";
       const cpfExtraido = dados.cpf ?? dados.cpf_cnpj ?? dados.documento ?? dadosCadastro.cpf ?? dadosCadastro.cpf_cnpj ?? "";
+      const cpfParcialExtraido = dados.cpfParcial ?? dados.cpf_parcial ?? dadosCadastro.cpfParcial ?? dadosCadastro.cpf_parcial ?? cpfExtraido;
       const distribuidoraExtraida = dados.distribuidora ?? dados.concessionaria ?? dadosCadastro.distribuidora ?? "CEMIG";
       const mediaConsumo = calcularMediaConsumoFatura(dados);
       const tipoGdInformado = String(dados.tipoGd ?? dados.tipo_gd ?? "").toUpperCase();
@@ -82,7 +83,11 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
           uc: String(ucExtraida),
           numeroInstalacao: String(ucExtraida),
           endereco: tipo === "UNIDADE" ? "" : String(enderecoExtraido),
-          cpf: tipo === "CLIENTE" ? String(cpfExtraido) : "",
+          cpf: tipo === "CLIENTE"
+            ? String(cpfExtraido)
+            : tipo === "UNIDADE"
+              ? String(cpfParcialExtraido).replace(/\D/g, "").slice(0, 4)
+              : "",
           distribuidora: String(distribuidoraExtraida),
           arquivoUri: item.uri,
           arquivoNome: item.name,

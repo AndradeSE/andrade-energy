@@ -45,7 +45,10 @@ export default function RealDiscountInfo({
   }
 
   const modalidadeAindaNaoIdentificada = !["GD1", "GD2", "MISTA"].includes(modalidade);
-  const contaSemGd = Boolean(dadosFatura) && !possuiLeituraGd(dadosFatura);
+  const contaSemLeituraGd = Boolean(dadosFatura) && !possuiLeituraGd(dadosFatura);
+  // Uma conta convencional ainda pode projetar o contrato quando a modalidade
+  // já foi definida pela usina. Só zeramos quando também falta essa origem.
+  const contaSemGd = contaSemLeituraGd && modalidadeAindaNaoIdentificada;
   if (modalidadeAindaNaoIdentificada) {
     if (disponibilidadeGd1 === "REPASSAR") configuracoesRepassadas.push("disponibilidade GD I");
     if (disponibilidadeGd2 === "REPASSAR") configuracoesRepassadas.push("disponibilidade GD II");

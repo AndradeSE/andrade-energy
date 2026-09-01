@@ -225,6 +225,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
   const calcularAutomaticamente = Boolean(input.calcularAutomaticamente);
   const desconto = Number(input.desconto);
   const consumoMedio = Math.max(0, Number(input.consumoMedio ?? 0));
+  const cpfTitular = String(input.cpfTitular ?? "").replace(/\D/g, "").slice(0, 14);
   if (!clienteId || !numero) throw new Error("Cliente e UC são obrigatórios.");
   if (!['INJECAO', 'COMPENSACAO'].includes(modalidade)) throw new Error("Modalidade inválida.");
   if (!Number.isFinite(desconto) || desconto < 0 || desconto > 100) throw new Error("Informe um desconto entre 0% e 100%.");
@@ -237,7 +238,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
       .single(),
     supabase
       .from("unidades_consumidoras")
-      .select("id,usina_id,cliente_id,endereco,percentual_repasse_disponibilidade,fatura_somente_andrade,repassar_disponibilidade_gd1,repassar_disponibilidade_gd2,repassar_diferenca_fio_b_gd2,tipo_gd")
+      .select("id,usina_id,cliente_id,endereco,cpf_titular,percentual_repasse_disponibilidade,fatura_somente_andrade,repassar_disponibilidade_gd1,repassar_disponibilidade_gd2,repassar_diferenca_fio_b_gd2,tipo_gd")
       .eq("numero", numero)
       .maybeSingle(),
     supabase
@@ -308,6 +309,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
       tipo: "BENEFICIARIA",
       titular: cliente.nome,
       endereco: enderecoDaUc,
+      cpf_titular: cpfTitular || unidadeAnterior?.cpf_titular || null,
       distribuidora: cliente.distribuidora ?? "CEMIG",
       modalidade_faturamento: modalidade,
       desconto_percentual: desconto,

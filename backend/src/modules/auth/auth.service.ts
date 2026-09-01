@@ -90,7 +90,7 @@ function dadosDeCadastroDaFatura(dados: Record<string, any>) {
     titular: String(dados.cliente ?? "").trim(),
     endereco: String(dados.endereco ?? "").trim(),
     uc: String(dados.uc ?? "").replace(/\D/g, ""),
-    cpfParcial: cpfLimpo(dados.cpfParcial) || cpfLimpo(dados.cpf).slice(-4),
+    cpfParcial: cpfLimpo(dados.cpfParcial).slice(0, 4) || cpfLimpo(dados.cpf).slice(0, 4),
     classificacao: String(dados.classificacao ?? "").trim(),
     tensao: String(dados.tensao ?? "").trim(),
     distribuidora: "CEMIG",
