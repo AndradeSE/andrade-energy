@@ -8,6 +8,7 @@ import { IS_GERADOR_APP } from "../../config/appVariant";
 import { excluirCliente } from "../../services/clientes.service";
 import { supabase } from "../../supabase";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
+import { emailOpcionalValido, normalizarEmail } from "../../utils/email";
 
 export default function EditarCliente() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -19,8 +20,9 @@ export default function EditarCliente() {
 
   async function salvar() {
     if (!nome.trim()) return Alert.alert("Nome obrigatório", "Informe o nome do cliente.");
+    if (!emailOpcionalValido(email)) return Alert.alert("E-mail inválido", "Informe um endereço de e-mail válido ou deixe o campo vazio.");
     setSalvando(true);
-    const { error } = await supabase.from("clientes").update({ nome: nome.trim(), telefone, whatsapp: telefone.replace(/\D/g, ""), email: email.trim().toLowerCase(), cpf, endereco }).eq("id", id);
+    const { error } = await supabase.from("clientes").update({ nome: nome.trim(), telefone, whatsapp: telefone.replace(/\D/g, ""), email: normalizarEmail(email) || null, cpf, endereco }).eq("id", id);
     if (error) {
       setSalvando(false);
       return Alert.alert("Não foi possível salvar", error.message);

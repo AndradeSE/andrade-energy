@@ -7,6 +7,7 @@ import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { supabase } from "../../supabase";
 import { Colors, Spacing, Typography } from "../../theme";
+import { emailOpcionalValido, normalizarEmail } from "../../utils/email";
 
 export default function NovoCliente() {
   const { origem, cliente, nome: nomeImportado, cpf: cpfImportado, endereco: enderecoImportado } = useLocalSearchParams<{ origem?: string; cliente?: string; nome?: string; cpf?: string; endereco?: string }>();
@@ -28,12 +29,13 @@ export default function NovoCliente() {
 
   async function salvar() {
     if (!nome.trim()) return Alert.alert("Nome obrigatório", "Informe o nome do consumidor.");
+    if (!emailOpcionalValido(email)) return Alert.alert("E-mail inválido", "Informe um endereço de e-mail válido ou deixe o campo vazio.");
     const cpfLimpo = cpf.replace(/\D/g, "");
     if (cpfLimpo && ![11, 14].includes(cpfLimpo.length)) return Alert.alert("Documento inválido", "Informe um CPF ou CNPJ válido.");
     setSalvando(true);
 
     const dados = {
-      nome: nome.trim(), cpf: cpfLimpo || null, email: email.trim().toLowerCase() || null,
+      nome: nome.trim(), cpf: cpfLimpo || null, email: normalizarEmail(email) || null,
       telefone: telefone.trim() || null, whatsapp: telefone.replace(/\D/g, "") || null,
       endereco: endereco.trim() || null, status: "ATIVO",
     };

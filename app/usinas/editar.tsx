@@ -12,6 +12,10 @@ import { excluirUsina as excluirUsinaRemota } from "../../services/usinas.servic
 import { supabase } from "../../supabase";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
+const formatarMoeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const moedaDigitada = (valor: string) => formatarMoeda(Number(valor.replace(/\D/g, "")) / 100);
+const numeroDaMoeda = (valor: string) => Number(valor.replace(/[^\d,]/g, "").replace(",", ".")) || 0;
+
 export default function EditarUsina() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { usuario, usinaSelecionada, selecionarUsina, atualizarUsuario } = useAuth();
@@ -40,7 +44,7 @@ export default function EditarUsina() {
       setNumeroInstalacao(String(data.numero_instalacao ?? data.ponto_instalacao ?? "").replace(/\D/g, ""));
       setPotencia(String(data.potencia_kwp ?? ""));
       setGeracaoMedia(String(data.geracao_media ?? ""));
-      setInvestimento(String(data.investimento ?? ""));
+      setInvestimento(formatarMoeda(data.investimento ?? 0));
       setTitular(data.titular_nome ?? "");
       setEndereco(data.endereco ?? "");
       setTipoGd(data.tipo_gd === "GD2" ? "GD2" : "GD1");
@@ -62,7 +66,7 @@ export default function EditarUsina() {
       nome: nome.trim(), numero_instalacao: numeroInstalacao,
       potencia_kwp: Number(potencia.replace(",", ".")) || 0,
       geracao_media: Number(geracaoMedia.replace(",", ".")) || 0,
-      investimento: Number(investimento.replace(",", ".")) || 0,
+      investimento: numeroDaMoeda(investimento),
       tipo_gd: tipoGd,
       titular_nome: titular.trim() || null, endereco: endereco.trim() || null,
     }).eq("id", id);
@@ -76,11 +80,24 @@ export default function EditarUsina() {
           .eq("tipo", "BENEFICIARIA");
         unidadeError = erroHerancaGd2;
       }
-      const { error: erroUnidade } = await supabase
+      const { data: unidadeExistente, error: erroBuscaUnidade } = await supabase
         .from("unidades_consumidoras")
-        .update({ numero: numeroInstalacao, cpf_titular: cpfTitular.replace(/\D/g, "") || null })
+        .select("id")
         .eq("usina_id", id)
-        .eq("tipo", "GERADORA");
+        .eq("tipo", "GERADORA")
+        .maybeSingle();
+      let erroUnidade = erroBuscaUnidade;
+      if (!erroBuscaUnidade) {
+        const payloadUnidade = {
+          usina_id: id, numero: numeroInstalacao, tipo: "GERADORA", titular: titular.trim() || nome.trim(),
+          cpf_titular: cpfTitular.replace(/\D/g, "") || null, distribuidora: "CEMIG",
+          endereco: endereco.trim() || null, modalidade_faturamento: "INJECAO", status: "ATIVA",
+        };
+        const resultado = unidadeExistente?.id
+          ? await supabase.from("unidades_consumidoras").update(payloadUnidade).eq("id", unidadeExistente.id)
+          : await supabase.from("unidades_consumidoras").upsert(payloadUnidade, { onConflict: "numero" });
+        erroUnidade = resultado.error;
+      }
       unidadeError = unidadeError ?? erroUnidade;
     }
     setSalvando(false);
@@ -120,7 +137,7 @@ export default function EditarUsina() {
       <FormField label="Potência (kWp)" value={potencia} onChangeText={setPotencia} keyboardType="decimal-pad" />
       <FormField label="Geração média (kWh/mês)" value={geracaoMedia} onChangeText={setGeracaoMedia} keyboardType="decimal-pad" />
       <ChoiceField label="Modalidade GD da usina" value={tipoGd} onChange={setTipoGd} options={[{ label: "GD I", value: "GD1" }, { label: "GD II", value: "GD2" }]} />
-      <FormField label="Investimento (R$)" value={investimento} onChangeText={setInvestimento} keyboardType="decimal-pad" />
+      <FormField label="Investimento" value={investimento} onChangeText={(valor) => setInvestimento(moedaDigitada(valor))} keyboardType="numeric" />
       <FormField label="Titular" value={titular} onChangeText={setTitular} />
       <FormField label="CPF/CNPJ do titular da conta (para e-mail)" value={cpfTitular} onChangeText={(valor) => setCpfTitular(valor.replace(/\D/g, "").slice(0, 14))} keyboardType="numeric" />
       <FormField label="Endereço" value={endereco} onChangeText={setEndereco} />

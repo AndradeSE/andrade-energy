@@ -402,7 +402,7 @@ export async function obterDashboardUsina(
   id: string,
   empresaId?: string,
 ) {
-  const [dashboard, usina, clientes, unidadeGeradora] = await Promise.all([
+  const [dashboard, usina, clientes, buscaUnidadeGeradora] = await Promise.all([
     buscarDashboardUsina(id, empresaId),
     buscarUsina(id, empresaId),
     supabase.from("clientes").select("id", { count: "exact", head: true }).eq("usina_id", id).eq("empresa_id", empresaId),
@@ -414,14 +414,25 @@ export async function obterDashboardUsina(
       .eq("tipo", "GERADORA")
       .maybeSingle(),
   ]);
-  if (unidadeGeradora.error) throw unidadeGeradora.error;
+  if (buscaUnidadeGeradora.error) throw buscaUnidadeGeradora.error;
+  let unidadeGeradora = buscaUnidadeGeradora.data ?? null;
+  const numeroInstalacao = String(usina?.numero_instalacao ?? "").replace(/\D/g, "");
+  if (!unidadeGeradora && numeroInstalacao) {
+    const { data, error } = await supabase.from("unidades_consumidoras").upsert({
+      empresa_id: empresaId, usina_id: id, numero: numeroInstalacao, tipo: "GERADORA",
+      titular: usina?.titular_nome ?? usina?.nome ?? "Usina", distribuidora: usina?.distribuidora ?? "CEMIG",
+      endereco: usina?.endereco ?? null, modalidade_faturamento: "INJECAO", status: "ATIVA",
+    }, { onConflict: "numero" }).select("id, numero, tipo, recebimento_email_ativo, recebimento_email_status").single();
+    if (error) throw error;
+    unidadeGeradora = data;
+  }
   const fechamento = dashboard.ultimo;
 
   if (!fechamento) {
     const agora = new Date();
     return {
       usina,
-      unidadeGeradora: unidadeGeradora.data ?? null,
+      unidadeGeradora,
       clientes: clientes.count ?? 0,
       energiaGerada: 0,
       energiaTotal: 0,
@@ -436,7 +447,7 @@ export async function obterDashboardUsina(
 
   return {
     usina,
-    unidadeGeradora: unidadeGeradora.data ?? null,
+    unidadeGeradora,
     clientes: clientes.count ?? 0,
     energiaGerada:
       Number(fechamento.energia_gerada ?? 0),

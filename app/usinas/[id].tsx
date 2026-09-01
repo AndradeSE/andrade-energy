@@ -27,8 +27,12 @@ export default function DashboardUsina() {
 
   if (isLoading) return <Loading />;
   if (error || !data) return <Screen><View style={styles.state}><EmptyState icon="sunny-outline" title="Usina não encontrada" subtitle="Não foi possível carregar os dados desta usina." /></View></Screen>;
-  const abrirRecebimentoDeProducao = () => {
-    const unidadeGeradoraId = data.unidadeGeradora?.id;
+  const abrirRecebimentoDeProducao = async () => {
+    let unidadeGeradoraId = data.unidadeGeradora?.id;
+    if (!unidadeGeradoraId) {
+      const atualizado = await refetch();
+      unidadeGeradoraId = atualizado.data?.unidadeGeradora?.id;
+    }
     if (!unidadeGeradoraId) {
       Alert.alert("Unidade geradora não localizada", "Edite a usina e confirme o número da instalação para criar o endereço de recebimento.");
       return;

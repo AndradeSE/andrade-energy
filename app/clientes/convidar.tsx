@@ -11,15 +11,16 @@ import { criarConvite } from "../../services/convites.service";
 import { notificarAvisoNoAndroid } from "../../services/carteira-notificacoes.service";
 import { useAuth } from "../../contexts/AuthContext";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
+import { emailValido, normalizarEmail } from "../../utils/email";
 
 export default function ConvidarCliente() {
   const { usuario } = useAuth();
   const [nome, setNome] = useState(""); const [cpf, setCpf] = useState(""); const [email, setEmail] = useState(""); const [whatsapp, setWhatsapp] = useState(""); const [enviando, setEnviando] = useState(false);
   async function enviar() {
-    if (!nome.trim() || cpf.length !== 11 || !email.includes("@") || (whatsapp.length > 0 && whatsapp.length < 10)) return Alert.alert("Dados incompletos", "Informe nome, CPF e e-mail. O WhatsApp é opcional, mas precisa ter DDD quando informado.");
+    if (!nome.trim() || cpf.length !== 11 || !emailValido(email) || (whatsapp.length > 0 && whatsapp.length < 10)) return Alert.alert("Dados incompletos", "Informe nome, CPF e um e-mail válido. O WhatsApp é opcional, mas precisa ter DDD quando informado.");
     try {
       setEnviando(true);
-      const resultado = await criarConvite({ nome: nome.trim(), cpf, email: email.trim().toLowerCase(), whatsapp: whatsapp || undefined });
+      const resultado = await criarConvite({ nome: nome.trim(), cpf, email: normalizarEmail(email), whatsapp: whatsapp || undefined });
       void notificarAvisoNoAndroid({
         usuarioId: String(usuario?.id ?? ""),
         id: `convite:${resultado.token}`,
@@ -55,5 +56,5 @@ export default function ConvidarCliente() {
     <TouchableOpacity disabled={enviando} onPress={enviar} style={[styles.button, enviando && { opacity: .7 }]}>{enviando ? <ActivityIndicator color="#FFF" /> : <><Ionicons name="send-outline" size={20} color="#FFF" /><Text style={styles.buttonText}>Enviar convite</Text></>}</TouchableOpacity>
   </ScrollView></KeyboardAvoidingView></SafeAreaView>;
 }
-function Campo(props: any) { return <View><Text style={styles.label}>{props.label}</Text><TextInput {...props} autoCapitalize={props.keyboardType === "email-address" ? "none" : "words"} placeholderTextColor="#92979F" style={styles.input} /></View>; }
+function Campo(props: any) { const campoEmail = props.keyboardType === "email-address"; return <View><Text style={styles.label}>{props.label}</Text><TextInput {...props} autoCapitalize={campoEmail ? "none" : "words"} autoCorrect={!campoEmail} onChangeText={(valor: string) => props.onChangeText?.(campoEmail ? normalizarEmail(valor) : valor)} placeholderTextColor="#92979F" style={styles.input} /></View>; }
 const styles = StyleSheet.create({ screen:{flex:1,backgroundColor:"#F5F6F5"},flex:{flex:1},content:{flexGrow:1,justifyContent:"center",padding:Spacing.lg},back:{position:"absolute",top:Spacing.lg,left:Spacing.lg,width:44,height:44,alignItems:"center",justifyContent:"center",borderRadius:22,backgroundColor:Colors.primaryLight},icon:{width:68,height:68,alignItems:"center",justifyContent:"center",borderRadius:22,backgroundColor:Colors.primaryLight},title:{marginTop:Spacing.lg,color:Colors.text,fontSize:28,fontWeight:"900"},subtitle:{marginTop:Spacing.sm,marginBottom:Spacing.lg,color:Colors.subtitle,lineHeight:22},label:{marginTop:Spacing.sm,marginBottom:6,color:Colors.text,fontSize:Typography.small,fontWeight:"800"},input:{height:54,paddingHorizontal:Spacing.md,borderWidth:1,borderColor:Colors.border,borderRadius:Radius.md,backgroundColor:Colors.surface,color:Colors.text},hint:{marginTop:Spacing.sm,color:Colors.subtitle,fontSize:Typography.small,lineHeight:19},button:{minHeight:56,flexDirection:"row",gap:8,alignItems:"center",justifyContent:"center",marginTop:Spacing.xl,borderRadius:Radius.md,backgroundColor:Colors.primary},buttonText:{color:"#FFF",fontWeight:"900",fontSize:Typography.body} });

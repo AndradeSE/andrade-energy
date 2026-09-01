@@ -381,3 +381,10 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - O desconto real é `economia ÷ valor total sem Andrade`, incluindo os encargos obrigatórios no denominador. Em GD II, a referência esperada é aproximadamente 23% ao absorver somente Fio B, 27% ao absorver somente disponibilidade e próxima de 40% ao absorver ambos; iluminação, bandeiras e outros encargos impedem que o último cenário seja exatamente 40%.
 - A disponibilidade é distinta por modalidade: em GD I, `franquia (30/50/100 kWh) × tarifa sem impostos`; em GD II, `franquia × (tarifa cheia − tarifa unitária compensada)`. O parser preserva os dois valores e o cálculo escolhe exclusivamente o correspondente ao `tipo_gd` da usina.
 - Contas com troca de medidor preservam todas as linhas da tabela técnica. Cada medidor é calculado isoladamente por `(leitura atual − leitura anterior) × constante de multiplicação`; a produção mensal soma somente linhas `Energia Injetada`, nunca linhas genéricas `Energia kWh`. No exemplo `Usina Andrade E.pdf`, o novo `GPC262102808` usa constante 40 e registra consumo/injeção zero, enquanto o antigo `APK258169009` registra `3.238 − 2.800 × 1 = 438 kWh` de consumo; portanto a produção correta da competência é 0 kWh.
+# Atualização 01/09/2026 — UC geradora, investimento e e-mails
+
+- O dashboard da usina agora recupera automaticamente a UC geradora pelo número da instalação quando o vínculo estiver ausente, permitindo criar o endereço de recebimento de produção por e-mail.
+- A edição da usina cria ou atualiza a UC geradora, em vez de apenas tentar atualizar um registro que poderia não existir.
+- O investimento da usina passou a usar máscara monetária brasileira e é persistido como valor numérico.
+- Campos de e-mail do cadastro, convites, clientes e empresas agora normalizam o texto e bloqueiam endereços inválidos; o backend também valida o e-mail de suporte.
+- Se uma fatura de cadastro da usina não identificar GD I ou GD II, o usuário escolhe a modalidade manualmente. Quando identificada, a modalidade continua automática.

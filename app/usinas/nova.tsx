@@ -70,7 +70,7 @@ export default function NovaUsina() {
       Alert.alert("Dados incompletos", "Informe nome, instalação e potência da usina.");
       return;
     }
-    if (!tipoGd) return Alert.alert("Modalidade GD não identificada", origem === "fatura" ? "A conta não apresentou uma linha GD I ou GD II. Envie uma fatura que contenha a modalidade da usina." : "Escolha GD I ou GD II.");
+    if (!tipoGd) return Alert.alert("Modalidade GD necessária", "A fatura não identificou GD I ou GD II. Escolha a modalidade manualmente para continuar.");
     setSalvando(true);
     const { data: usina, error } = await supabase.from("usinas").insert({
       nome: nome.trim(), numero_instalacao: numeroInstalacao, potencia_kwp: Number(potencia.replace(",", ".")),
@@ -118,7 +118,7 @@ export default function NovaUsina() {
         <FormField label="Número da instalação / UC" value={numeroInstalacao} onChangeText={(v) => setNumeroInstalacao(v.replace(/\D/g, ""))} keyboardType="numeric" />
         <FormField label="Potência (kWp)" value={potencia} onChangeText={setPotencia} keyboardType="decimal-pad" />
         <FormField label="Geração média mensal (kWh)" value={geracaoMedia} onChangeText={setGeracaoMedia} keyboardType="decimal-pad" placeholder="Base inicial da alocação automática" />
-        {origem === "fatura" ? <Text style={styles.subtitle}>{tipoGd ? `Modalidade identificada automaticamente no PDF: ${tipoGd === "GD2" ? "GD II" : "GD I"}.` : "Modalidade GD não identificada no PDF."}</Text> : <ChoiceField label="Modalidade GD da usina" value={tipoGd || "GD1"} onChange={setTipoGd} options={[{ label: "GD I", value: "GD1" }, { label: "GD II", value: "GD2" }]} />}
+        {origem === "fatura" && tipoGd ? <Text style={styles.subtitle}>{`Modalidade identificada automaticamente no PDF: ${tipoGd === "GD2" ? "GD II" : "GD I"}.`}</Text> : <ChoiceField label={origem === "fatura" ? "Modalidade GD (não identificada no PDF)" : "Modalidade GD da usina"} value={tipoGd} onChange={setTipoGd} options={[{ label: "GD I", value: "GD1" }, { label: "GD II", value: "GD2" }]} />}
         <FormField label="Titular" value={titular} onChangeText={setTitular} />
         <FormField label="CPF/CNPJ do titular da conta (para e-mail)" value={cpfTitular} onChangeText={(valor) => setCpfTitular(valor.replace(/\D/g, "").slice(0, 14))} keyboardType="numeric" />
         <FormField label="Endereço" value={endereco} onChangeText={setEndereco} />

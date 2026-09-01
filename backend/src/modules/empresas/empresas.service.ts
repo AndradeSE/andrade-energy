@@ -13,6 +13,12 @@ const slugValido = (valor: unknown) => {
   return slug;
 };
 
+const emailOpcional = (valor: unknown) => {
+  const email = String(valor ?? "").replace(/\s/g, "").toLowerCase();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(email)) throw new Error("Informe um e-mail válido.");
+  return email || null;
+};
+
 export async function obterEmpresaAtual(usuario: any) {
   const empresaId = empresaIdDoUsuario(usuario);
   const { data, error } = await supabase.from("empresas").select("*").eq("id", empresaId).eq("ativo", true).maybeSingle();
@@ -49,7 +55,7 @@ export async function salvarMinhaIdentidade(input: any, usuario: any) {
     logo_url: String(input?.logoUrl ?? "").trim() || null,
     cor_primaria: corValida(input?.corPrimaria, IDENTIDADE_ANDRADE.cor_primaria),
     cor_secundaria: corValida(input?.corSecundaria, IDENTIDADE_ANDRADE.cor_secundaria),
-    email_suporte: String(input?.emailSuporte ?? "").trim().toLowerCase() || null,
+    email_suporte: emailOpcional(input?.emailSuporte),
     telefone_suporte: String(input?.telefoneSuporte ?? "").replace(/\D/g, "") || null,
     dominio: String(input?.dominio ?? "").trim().toLowerCase() || null,
     ativo: input?.ativo !== false,
@@ -78,7 +84,7 @@ export async function criarEmpresa(input: any, usuario: any) {
     nome,
     razao_social: String(input?.razaoSocial ?? "").trim() || null,
     documento: String(input?.documento ?? "").replace(/\D/g, "") || null,
-    email_suporte: String(input?.emailSuporte ?? "").trim().toLowerCase() || null,
+    email_suporte: emailOpcional(input?.emailSuporte),
     telefone_suporte: String(input?.telefoneSuporte ?? "").replace(/\D/g, "") || null,
     dominio: String(input?.dominio ?? "").trim().toLowerCase() || null,
     logo_url: String(input?.logoUrl ?? "").trim() || null,
@@ -102,7 +108,7 @@ export async function atualizarEmpresa(id: string, input: any, usuario: any) {
   if (input?.nome !== undefined) payload.nome = String(input.nome).trim();
   if (input?.razaoSocial !== undefined) payload.razao_social = String(input.razaoSocial).trim() || null;
   if (input?.documento !== undefined) payload.documento = String(input.documento).replace(/\D/g, "") || null;
-  if (input?.emailSuporte !== undefined) payload.email_suporte = String(input.emailSuporte).trim().toLowerCase() || null;
+  if (input?.emailSuporte !== undefined) payload.email_suporte = emailOpcional(input.emailSuporte);
   if (input?.telefoneSuporte !== undefined) payload.telefone_suporte = String(input.telefoneSuporte).replace(/\D/g, "") || null;
   if (input?.dominio !== undefined) payload.dominio = String(input.dominio).trim().toLowerCase() || null;
   if (input?.logoUrl !== undefined) payload.logo_url = String(input.logoUrl).trim() || null;

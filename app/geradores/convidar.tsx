@@ -7,6 +7,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { criarConviteGerador } from "../../services/convites.service";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 import { AppHeader, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
+import { emailValido, normalizarEmail } from "../../utils/email";
 
 export default function ConvidarGerador() {
   const { user } = useAuth();
@@ -20,12 +21,12 @@ export default function ConvidarGerador() {
   }
 
   async function enviar() {
-    if (!nome.trim() || cpf.replace(/\D/g, "").length !== 11 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    if (!nome.trim() || cpf.replace(/\D/g, "").length !== 11 || !emailValido(email)) {
       return Alert.alert("Confira os dados", "Informe nome, CPF e e-mail válidos.");
     }
     try {
       setEnviando(true);
-      const resultado = await criarConviteGerador({ nome: nome.trim(), cpf, email: email.trim().toLowerCase() });
+      const resultado = await criarConviteGerador({ nome: nome.trim(), cpf, email: normalizarEmail(email) });
       Alert.alert("Convite criado", resultado.emailEnviado ? "O convite foi enviado por e-mail." : `O e-mail não pôde ser enviado. Código: ${resultado.token}`,
         [{ text: "OK", onPress: () => router.back() }]);
     } catch (erro: any) {
@@ -40,7 +41,7 @@ export default function ConvidarGerador() {
       <View style={styles.card}>
         <Text style={styles.label}>Nome completo</Text><TextInput autoCapitalize="words" onChangeText={setNome} placeholder="Nome do novo gerador" placeholderTextColor={Colors.subtitle} style={styles.input} value={nome} />
         <Text style={styles.label}>CPF</Text><TextInput keyboardType="numeric" maxLength={11} onChangeText={(value) => setCpf(value.replace(/\D/g, ""))} placeholder="Somente números" placeholderTextColor={Colors.subtitle} style={styles.input} value={cpf} />
-        <Text style={styles.label}>E-mail</Text><TextInput autoCapitalize="none" keyboardType="email-address" onChangeText={setEmail} placeholder="gerador@email.com" placeholderTextColor={Colors.subtitle} style={styles.input} value={email} />
+        <Text style={styles.label}>E-mail</Text><TextInput autoCapitalize="none" autoCorrect={false} keyboardType="email-address" onChangeText={(valor) => setEmail(normalizarEmail(valor))} placeholder="gerador@email.com" placeholderTextColor={Colors.subtitle} style={styles.input} value={email} />
         <TouchableOpacity disabled={enviando} onPress={enviar} style={[styles.button, enviando && { opacity: .65 }]}>{enviando ? <ActivityIndicator color={Colors.surface} /> : <><Ionicons name="send-outline" size={20} color={Colors.surface} /><Text style={styles.buttonText}>Enviar convite</Text></>}</TouchableOpacity>
       </View>
     </ScrollView>
