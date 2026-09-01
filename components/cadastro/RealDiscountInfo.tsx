@@ -190,6 +190,7 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   if (!dados) return null;
   let tarifaCheia = n(dados, "tarifa_cheia", "tarifaCheia");
   const valorCemig = n(dados, "valor_cemig", "valorCemig", "valor_concessionaria", "valorConcessionaria", "valor_total", "valorTotal");
+  const valorEnergiaConcessionaria = n(dados, "valor_energia_concessionaria", "valorEnergiaConcessionaria") || valorCemig;
   const energiaGD1 = n(dados, "energia_compensada_gd1", "energiaCompensadaGD1");
   const energiaGD2 = n(dados, "energia_compensada_gd2", "energiaCompensadaGD2");
   const energiaCompensada = n(dados, "energia_compensada", "energiaCompensada") || energiaGD1 + energiaGD2;
@@ -254,8 +255,9 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
     valorEnergiaCheia * (1 - desconto / 100) -
       valorAbsorvidoDisponibilidade - valorAbsorvidoFioB,
   );
-  const valorCemigRepassado = valorCemig;
-  const economia = Math.max(0, referencia - (valorCemigRepassado + valorAndrade));
+  // Iluminação, multa, bandeira e demais encargos continuam no total da
+  // competência, mas não compõem a comparação de economia da energia.
+  const economia = Math.max(0, referencia - (valorEnergiaConcessionaria + valorAndrade));
   // A projeção apresentada ao cliente compara o desembolso total sem Andrade
   // com o total unificado. Os encargos obrigatórios seguem dentro dessa base;
   // por isso absorver Fio B e disponibilidade aproxima a economia do desconto

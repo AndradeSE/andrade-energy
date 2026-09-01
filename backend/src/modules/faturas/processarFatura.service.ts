@@ -263,6 +263,7 @@ if (!cliente.usina_id) {
     tarifaCheia,
     descontoPercentual,
     valorCemig: valorConcessionaria,
+    valorEnergiaConcessionaria: Number(dados.valorEnergiaConcessionaria ?? 0) || undefined,
     valorCreditoEfetivo,
     custoDisponibilidadeRepassavel,
     percentualRepasseDisponibilidade,

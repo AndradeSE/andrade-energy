@@ -7,6 +7,8 @@ export type BillingInput = {
   tarifaCheia: number;
   descontoPercentual: number;
   valorCemig: number;
+  /** Parcela estritamente energética lida da NF, sem iluminação/multas/encargos. */
+  valorEnergiaConcessionaria?: number;
   valorCreditoEfetivo?: number;
   custoDisponibilidadeRepassavel?: number;
   percentualRepasseDisponibilidade?: number;
@@ -149,9 +151,11 @@ export function calcularFaturaUnificada(input: BillingInput): BillingOutput {
   // Sem a usina também não há Fio B nem disponibilidade GD nessa referência.
   const valorReferenciaSemAndrade = valorEnergiaCheia;
   const valorTotalUnificado = (faturaSomenteAndrade ? 0 : valorCemigRepassado) + valorUsina;
-  // A economia considera o desembolso total do cliente. Mesmo quando a conta
-  // CEMIG é paga separadamente, ela não pode parecer uma economia da Andrade.
-  const economiaReal = Math.max(0, valorReferenciaSemAndrade - (valorCemigRepassado + valorUsina));
+  // A comparação do desconto usa somente a composição energética. Iluminação
+  // pública, multas, bandeiras e encargos ficam no total exibido/pago, mas não
+  // entram na projeção porque existem com ou sem a usina.
+  const valorCemigParaProjecao = Math.max(0, Number(input.valorEnergiaConcessionaria ?? input.valorCemig));
+  const economiaReal = Math.max(0, valorReferenciaSemAndrade - (valorCemigParaProjecao + valorUsina));
   const baseDescontoReal = Math.max(
     0,
     input.baseDescontoReal ?? valorReferenciaSemAndrade
