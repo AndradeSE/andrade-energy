@@ -388,3 +388,4 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - O investimento da usina passou a usar máscara monetária brasileira e é persistido como valor numérico.
 - Campos de e-mail do cadastro, convites, clientes e empresas agora normalizam o texto e bloqueiam endereços inválidos; o backend também valida o e-mail de suporte.
 - Se uma fatura de cadastro da usina não identificar GD I ou GD II, o usuário escolhe a modalidade manualmente. Quando identificada, a modalidade continua automática.
+- Enquanto a escolha manual não for feita, a tela mostra explicitamente “Selecionar manualmente” e não assume GD I como padrão.
