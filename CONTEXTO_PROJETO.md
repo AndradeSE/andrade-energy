@@ -1,5 +1,12 @@
 # Andrade Energy — contexto do projeto
 
+## Lista de UCs, contas vinculadas e tutoriais web — 31/08/2026
+
+- No app Gerador, cada PDF em **Contas vinculadas ao CPF** oferece a ação **Adicionar UC por esta fatura**.
+- A área **Unidades** dentro do cliente não repete informações, edição ou WhatsApp do cliente: mostra busca, inclusão e somente a lista das UCs.
+- O portal web separa a ficha do cliente em resumo, UCs, contas vinculadas e faturas. As contas anexadas pelo consumidor podem ser abertas e usadas para adicionar a UC diretamente.
+- O tutorial web único e antigo deixou de ser exibido. Cada perfil possui cinco vídeos curtos e pesquisáveis, separados por função.
+
 ## UCs vinculadas ao CPF e composição da fatura — 31/08/2026
 
 - Consumidores com conta confirmada agora encontram em **Perfil** a área **Contas vinculadas ao CPF**. Ela explica que o envio é exclusivamente de contas da concessionária de pontos de instalação vinculados ao CPF; os PDFs permanecem anexados à ficha do cliente e podem ser escolhidos pelo Gerador ao cadastrar uma UC.

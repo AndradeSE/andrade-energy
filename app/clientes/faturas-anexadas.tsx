@@ -122,7 +122,7 @@ export default function FaturasAnexadas() {
             <View style={styles.cardCopy}><Text numberOfLines={1} style={styles.cardTitle}>{fatura.nome || "Conta de energia"}</Text><Text numberOfLines={1} style={styles.cardMeta}>{uc ? `UC ${uc}` : "UC não identificada"} · Anexada em {dataBrasileira(fatura.criadoEm)}</Text><Text numberOfLines={1} style={styles.cardDetail}>{dados.titular ?? dados.cliente ?? "Titular não identificado"}</Text></View>
             <Ionicons name="open-outline" size={18} color={Colors.primary} />
           </TouchableOpacity>
-          {selecionarUc ? <TouchableOpacity disabled={!uc} onPress={() => usarNaUc(fatura)} style={[styles.useButton, !uc && styles.disabled]}><Ionicons name="flash-outline" size={18} color={Colors.surface} /><Text style={styles.useButtonText}>Usar para cadastrar UC</Text></TouchableOpacity> : null}
+          {IS_GERADOR_APP ? <TouchableOpacity disabled={!uc} onPress={() => usarNaUc(fatura)} style={[styles.useButton, !uc && styles.disabled]}><Ionicons name="add-circle-outline" size={19} color={Colors.surface} /><Text style={styles.useButtonText}>{uc ? "Adicionar UC por esta fatura" : "UC não identificada nesta fatura"}</Text></TouchableOpacity> : null}
         </Card>;
       }) : <EmptyState icon="document-outline" title="Nenhuma conta anexada" subtitle={selecionarUc ? "O cliente ainda não enviou uma conta de energia." : "Anexe uma conta da concessionária de uma unidade vinculada ao seu CPF."} />}
     </ScrollView>

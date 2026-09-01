@@ -1937,7 +1937,9 @@ function RecordDetails({
   const [related, setRelated] = useState<{
     units: WebRecord[];
     invoices: WebRecord[];
-  }>({ units: [], invoices: [] });
+    attached: WebRecord[];
+  }>({ units: [], invoices: [], attached: [] });
+  const [clientArea, setClientArea] = useState<"overview" | "units" | "attached" | "invoices">("overview");
   const [relatedKey, setRelatedKey] = useState(0);
   useEffect(() => {
     const id = String(record.id ?? "");
@@ -1971,15 +1973,20 @@ function RecordDetails({
         fetch(`${API_URL}/faturas?clienteId=${encodeURIComponent(id)}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
+        fetch(`${API_URL}/clientes/${id}/faturas-anexadas`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ])
-        .then(async ([unitsResponse, invoicesResponse]) => ({
+        .then(async ([unitsResponse, invoicesResponse, attachedResponse]) => ({
           units: unitsResponse.ok ? await unitsResponse.json() : [],
           invoices: invoicesResponse.ok ? await invoicesResponse.json() : [],
+          attached: attachedResponse.ok ? await attachedResponse.json() : [],
         }))
         .then((data) =>
           setRelated({
             units: Array.isArray(data.units) ? data.units : [],
             invoices: Array.isArray(data.invoices) ? data.invoices : [],
+            attached: Array.isArray(data.attached) ? data.attached : [],
           }),
         )
         .catch(() => undefined);
@@ -2146,6 +2153,26 @@ function RecordDetails({
         ? "Unidade consumidora adicionada."
         : (data.message ?? "Não foi possível adicionar a unidade."),
     );
+    setWorking(false);
+  }
+  async function addUnitFromAttachedInvoice(invoice: WebRecord) {
+    if (!source.id) return;
+    const invoiceData = (invoice.dadosFatura && typeof invoice.dadosFatura === "object" ? invoice.dadosFatura : {}) as WebRecord;
+    const numero = String(invoiceData.uc ?? invoiceData.numero_instalacao ?? "").replace(/\D/g, "");
+    if (!numero) return setMessage("Não foi possível identificar a UC nesta conta.");
+    setWorking(true);
+    setMessage("");
+    const response = await fetch(`${API_URL}/clientes/${source.id}/unidades`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ numero, cpfTitular: String(invoiceData.cpf ?? source.cpf ?? "").replace(/\D/g, "") }),
+    });
+    const data = await response.json().catch(() => ({}));
+    setMessage(response.ok ? `UC ${numero} adicionada a partir da conta vinculada.` : (data.message ?? "Não foi possível adicionar a UC."));
+    if (response.ok) {
+      setClientArea("units");
+      setRelatedKey((value) => value + 1);
+    }
     setWorking(false);
   }
   async function importProduction(file: File | null) {
@@ -2415,50 +2442,16 @@ function RecordDetails({
       </div>
       {section === "Clientes" ? (
         <div className="related-section">
-          <div>
-            <h3>Unidades consumidoras</h3>
-            <span>
-              {related.units.length} vinculada
-              {related.units.length === 1 ? "" : "s"}
-            </span>
+          <div className="client-quick-nav">
+            <button className={clientArea === "overview" ? "active" : ""} onClick={() => setClientArea("overview")}><b>⌂</b><span><strong>Resumo</strong><small>Dados do cliente</small></span></button>
+            <button className={clientArea === "units" ? "active" : ""} onClick={() => setClientArea("units")}><b>UC</b><span><strong>Unidades</strong><small>{related.units.length} cadastrada{related.units.length === 1 ? "" : "s"}</small></span></button>
+            <button className={clientArea === "attached" ? "active" : ""} onClick={() => setClientArea("attached")}><b>PDF</b><span><strong>Contas vinculadas</strong><small>Adicionar UC pelo CPF</small></span></button>
+            <button className={clientArea === "invoices" ? "active" : ""} onClick={() => setClientArea("invoices")}><b>R$</b><span><strong>Faturas</strong><small>{related.invoices.length} processada{related.invoices.length === 1 ? "" : "s"}</small></span></button>
           </div>
-          {related.units.map((unit) => (
-            <UnitTools
-              key={String(unit.id)}
-              unit={unit}
-              token={token}
-              onChanged={() => setRelatedKey((value) => value + 1)}
-            />
-          ))}
-          {related.invoices.length ? (
-            <>
-              <div className="related-heading">
-                <h3>Histórico de faturas</h3>
-                <span>
-                  {related.invoices.length} documento
-                  {related.invoices.length === 1 ? "" : "s"}
-                </span>
-              </div>
-              <div className="related-invoices">
-                {related.invoices.map((invoice) => (
-                  <article key={String(invoice.id)}>
-                    <strong>{String(invoice.referencia ?? "Fatura")}</strong>
-                    <span>
-                      {Number(
-                        invoice.valor_total_unificado ??
-                          invoice.valor_total ??
-                          0,
-                      ).toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                    </span>
-                    <small>{String(invoice.status ?? "")}</small>
-                  </article>
-                ))}
-              </div>
-            </>
-          ) : null}
+          {clientArea === "overview" ? <div className="client-area-empty"><strong>Gestão organizada por área</strong><span>Use os atalhos acima para consultar somente as informações necessárias.</span></div> : null}
+          {clientArea === "units" ? <><div className="related-heading"><h3>Unidades consumidoras</h3><span>Lista exclusiva de UCs</span></div><div className="clean-unit-list">{related.units.map((unit) => <article key={String(unit.id)}><b>UC {String(unit.numero ?? "Não identificada")}</b><span>{String(unit.status ?? "ATIVA")}</span></article>)}{!related.units.length ? <p>Nenhuma UC cadastrada.</p> : null}</div></> : null}
+          {clientArea === "attached" ? <><div className="related-heading"><h3>Contas vinculadas ao CPF</h3><span>Escolha uma conta para cadastrar a UC</span></div><div className="attached-invoice-list">{related.attached.map((invoice) => { const invoiceData = (invoice.dadosFatura && typeof invoice.dadosFatura === "object" ? invoice.dadosFatura : {}) as WebRecord; const numero = String(invoiceData.uc ?? invoiceData.numero_instalacao ?? "").replace(/\D/g, ""); return <article key={String(invoice.id)}><span><strong>{String(invoice.nome ?? "Conta da concessionária")}</strong><small>{numero ? `UC ${numero}` : "UC não identificada"}</small></span>{invoice.url ? <a href={String(invoice.url)} target="_blank" rel="noreferrer">Abrir PDF</a> : null}<button disabled={working || !numero} onClick={() => void addUnitFromAttachedInvoice(invoice)}>{numero ? "Adicionar UC por esta fatura" : "UC não identificada"}</button></article>; })}{!related.attached.length ? <p>Nenhuma conta vinculada foi enviada pelo consumidor.</p> : null}</div></> : null}
+          {clientArea === "invoices" ? <><div className="related-heading"><h3>Histórico de faturas</h3><span>{related.invoices.length} documento{related.invoices.length === 1 ? "" : "s"}</span></div><div className="related-invoices">{related.invoices.map((invoice) => <article key={String(invoice.id)}><strong>{String(invoice.referencia ?? "Fatura")}</strong><span>{Number(invoice.valor_total_unificado ?? invoice.valor_total ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span><small>{String(invoice.status ?? "")}</small></article>)}</div></> : null}
         </div>
       ) : null}
       <div className="detail-footer">
@@ -3438,22 +3431,34 @@ function PortalHome({
 function TutorialCenter({ profile, defaultOpen = false }: { profile: AccessType; defaultOpen?: boolean }) {
   const generator = profile === "GERADOR";
   const [tutorialSearch, setTutorialSearch] = useState("");
-  const tutorialTitle = `Portal ${generator ? "Gerador" : "Consumidor"}`;
-  const tutorialDescription = generator ? "Da visão geral ao faturamento" : "Da escolha da UC ao contrato";
   const normalizedSearch = tutorialSearch.trim().toLocaleLowerCase("pt-BR");
-  const tutorialVisible = !normalizedSearch || `${tutorialTitle} ${tutorialDescription}`.toLocaleLowerCase("pt-BR").includes(normalizedSearch);
+  const tutorials = generator ? [
+    { file: "web-gerador-visao-geral", title: "Visão geral", detail: "Indicadores e acesso à operação" },
+    { file: "web-gerador-usinas", title: "Usinas", detail: "Produção, autonomia e alocação" },
+    { file: "web-gerador-clientes-e-ucs", title: "Clientes e UCs", detail: "Convite, contas vinculadas e cadastro de UC" },
+    { file: "web-gerador-configuracao-uc", title: "Configuração da UC", detail: "Usina, modalidade, percentual e desconto" },
+    { file: "web-gerador-faturamento", title: "Faturamento", detail: "Documentos, Pix e acompanhamento" },
+  ] : [
+    { file: "web-consumidor-visao-geral", title: "Visão geral", detail: "Economia, alertas e fatura aberta" },
+    { file: "web-consumidor-minha-unidade", title: "Minha unidade", detail: "Dados e histórico da UC" },
+    { file: "web-consumidor-faturas", title: "Faturas", detail: "Abertas, pagas e vencidas" },
+    { file: "web-consumidor-economia", title: "Economia", detail: "Benefício e comparação mensal" },
+    { file: "web-consumidor-contratos", title: "Contratos", detail: "Vigência, termo e unidades" },
+  ];
+  const visibleTutorials = tutorials.filter((tutorial) => !normalizedSearch || `${tutorial.title} ${tutorial.detail}`.toLocaleLowerCase("pt-BR").includes(normalizedSearch));
   return (
     <details className="tutorial-center" open={defaultOpen || undefined}>
-      <summary><span>▶</span><strong>Tutorial da web — {generator ? "Gerador" : "Consumidor"}</strong><small>{generator ? "Usinas, clientes, alocação e faturamento" : "Unidades, faturas, economia e contrato"}</small></summary>
+      <summary><span>▶</span><strong>Tutoriais da web — {generator ? "Gerador" : "Consumidor"}</strong><small>Vídeos curtos separados por função</small></summary>
       <label className="tutorial-search"><span>Buscar tutorial</span><div><Icon name="search" /><input type="search" value={tutorialSearch} onChange={(event) => setTutorialSearch(event.target.value)} placeholder="Digite uma função ou assunto" /></div></label>
       <div className="tutorial-video-grid">
-        {tutorialVisible ? <article className="tutorial-profile-video">
-          <div><b>{generator ? "G" : "C"}</b><span><strong>Portal {generator ? "Gerador" : "Consumidor"}</strong><small>{generator ? "Da visão geral ao faturamento" : "Da escolha da UC ao contrato"}</small></span></div>
-          <video controls playsInline preload="metadata" poster={`/tutorials/tutorial-web-${generator ? "gerador" : "consumidor"}.png`}>
-            <source src={`/tutorials/tutorial-web-${generator ? "gerador" : "consumidor"}.mp4`} type="video/mp4" />
+        {visibleTutorials.map((tutorial) => <article className="tutorial-profile-video" key={tutorial.file}>
+          <div><b>{generator ? "G" : "C"}</b><span><strong>{tutorial.title}</strong><small>{tutorial.detail}</small></span></div>
+          <video controls playsInline preload="metadata" poster={`/tutorials/${tutorial.file}.png`}>
+            <source src={`/tutorials/${tutorial.file}.mp4`} type="video/mp4" />
             Seu navegador não oferece suporte a vídeos MP4.
           </video>
-        </article> : <p className="tutorial-empty">Nenhum tutorial encontrado.</p>}
+        </article>)}
+        {!visibleTutorials.length ? <p className="tutorial-empty">Nenhum tutorial encontrado.</p> : null}
       </div>
     </details>
   );
