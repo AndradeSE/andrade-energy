@@ -19,6 +19,32 @@ function extrairDisponibilidadeConvencional(texto: string) {
   return ultimoValorDaLinha(linha);
 }
 
+function extrairLinhaEnergiaEletrica(texto: string) {
+  const linha = texto.split(/\r?\n/).find((item) => /Energia\s+Elétrica\s*kWh/i.test(item));
+  if (!linha) return { quantidade: 0, tarifaCheia: 0, tarifaSemImpostos: 0 };
+  const valores = [...linha.matchAll(/[\d.]+(?:,\d+)?/g)]
+    .map((item) => Number(item[0].replace(/\./g, "").replace(",", ".")));
+  return {
+    quantidade: valores[0] ?? 0,
+    tarifaCheia: valores[1] ?? 0,
+    tarifaSemImpostos: valores.at(-1) ?? 0,
+  };
+}
+
+function extrairTipoLigacao(texto: string) {
+  const tipo = texto.match(/(Monof[aá]sico|Bif[aá]sico|Trif[aá]sico)/i)?.[1]
+    ?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+  if (tipo === "MONOFASICO" || tipo === "BIFASICO" || tipo === "TRIFASICO") return tipo;
+  return undefined;
+}
+
+function franquiaDaLigacao(tipo?: string) {
+  if (tipo === "TRIFASICO") return 100;
+  if (tipo === "BIFASICO") return 50;
+  if (tipo === "MONOFASICO") return 30;
+  return 0;
+}
+
 export function parseCemigConvencional(
   texto: string
 ): FaturaExtraida {
@@ -46,11 +72,15 @@ export function parseCemigConvencional(
         .replace(",", ".")
     );
 
-  const tarifaCheia = Number(
-    (texto.match(/Energia Elétrica\s*kWh\s*\d+\s+([\d.,]+)/i)?.[1] ?? "0")
-      .replace(/\./g, "")
-      .replace(",", ".")
-  );
+  const linhaEnergia = extrairLinhaEnergiaEletrica(texto);
+  const tarifaCheia = linhaEnergia.tarifaCheia;
+  const tipoLigacao = extrairTipoLigacao(texto);
+  const franquiaDisponibilidadeKwh = franquiaDaLigacao(tipoLigacao);
+  const tarifaDisponibilidadeSemImpostos = linhaEnergia.tarifaSemImpostos;
+  const disponibilidadeDaLinha = extrairDisponibilidadeConvencional(texto);
+  const custoDisponibilidade = disponibilidadeDaLinha > 0
+    ? disponibilidadeDaLinha
+    : Math.max(0, franquiaDisponibilidadeKwh * (tarifaCheia - tarifaDisponibilidadeSemImpostos));
   const historico = extrairHistoricoConsumo(texto);
   const medicao = extrairMedicaoCemig(texto);
   const encargosDetalhados = extrairEncargosCemig(texto);
@@ -95,7 +125,10 @@ export function parseCemigConvencional(
 
   tarifaCheia,
   tarifaGD: 0,
-  custoDisponibilidade: extrairDisponibilidadeConvencional(texto),
+  tipoLigacao,
+  franquiaDisponibilidadeKwh,
+  tarifaDisponibilidadeSemImpostos,
+  custoDisponibilidade,
 
   bandeira: texto.match(/Bandeira\s+(?:Tarif[aá]ria\s+)?([A-Za-zÀ-Ý]+)/i)?.[1] ?? "",
 

@@ -199,7 +199,15 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   const diferencaSalva = n(dados, "diferenca_fio_b", "diferencaFioB");
   const tarifaScee = n(dados, "tarifa_scee", "tarifaScee");
   const tarifaGd2 = n(dados, "tarifa_gd", "tarifaGD2", "tarifaGD");
-  const diferencaFioB = diferencaSalva > 0 ? diferencaSalva : energiaGD2 > 0 && tarifaScee > tarifaGd2 && tarifaGd2 > 0 ? energiaGD2 * (tarifaScee - tarifaGd2) : 0;
+  const tarifaSemImpostos = n(dados, "tarifa_disponibilidade_sem_impostos", "tarifaDisponibilidadeSemImpostos");
+  const diferencaFioBEstimada = tarifaCheia > tarifaSemImpostos && tarifaSemImpostos > 0
+    ? baseKwh * (tarifaCheia - tarifaSemImpostos)
+    : 0;
+  const diferencaFioB = diferencaSalva > 0
+    ? diferencaSalva
+    : energiaGD2 > 0 && tarifaScee > tarifaGd2 && tarifaGd2 > 0
+      ? energiaGD2 * (tarifaScee - tarifaGd2)
+      : diferencaFioBEstimada;
   const usaGD2 = tipoGd === "GD2" || tipoGd === "MISTA" || energiaGD2 > 0;
   const usaGD1 = tipoGd === "GD1" || tipoGd === "MISTA" || (!usaGD2 && energiaGD1 > 0);
   const absorveDisponibilidade = usaGD2 ? disponibilidadeGd2 === "ABSORVER" : usaGD1 && disponibilidadeGd1 === "ABSORVER";
@@ -239,10 +247,16 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   // Numa conta convencional, a parcela de energia ainda está integralmente
   // na concessionária e deve ser substituída pela energia Andrade. Numa conta
   // já processada com GD, a concessionária já traz somente o saldo remanescente.
+  const encargosObrigatorios =
+    n(dados, "valor_iluminacao_publica", "valorIluminacaoPublica") +
+    n(dados, "valor_bandeira", "valorBandeira") +
+    n(dados, "encargos_adicionais", "encargosAdicionais");
   const cemigSemEnergiaCompensada = possuiCompensacaoLida
-    ? valorCemig
-    : Math.max(0, valorCemig - creditoEfetivo);
-  const valorCemigRepassado = Math.max(0, cemigSemEnergiaCompensada - absorvido);
+    ? Math.max(0, valorCemig - absorvido)
+    : encargosObrigatorios +
+      (absorveDisponibilidade ? 0 : custoDisponibilidade) +
+      (usaGD2 && fioBGd2 === "REPASSAR" ? diferencaFioB : 0);
+  const valorCemigRepassado = Math.max(0, cemigSemEnergiaCompensada);
   const economia = Math.max(0, referencia - (valorCemigRepassado + valorAndrade));
   return {
     economia,

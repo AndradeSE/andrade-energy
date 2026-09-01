@@ -113,6 +113,7 @@ async function guardarFaturaAnexada(clienteId: string, caminhoArquivo: string) {
 function dadosDaFaturaAnexada(dados: Record<string, any>) {
   return {
     ...dados,
+    versaoExtracao: 2,
     titular: String(dados.cliente ?? dados.titular ?? "").trim(),
     endereco: String(dados.endereco ?? "").trim(),
     uc: String(dados.uc ?? dados.numero_instalacao ?? "").replace(/\D/g, ""),
@@ -122,8 +123,9 @@ function dadosDaFaturaAnexada(dados: Record<string, any>) {
 }
 
 function faturaPossuiDadosDeConsumo(dados: Record<string, any>) {
-  return Number(dados?.consumo ?? dados?.consumo_kwh ?? 0) > 0 ||
+  const possuiConsumo = Number(dados?.consumo ?? dados?.consumo_kwh ?? 0) > 0 ||
     (Array.isArray(dados?.historico) && dados.historico.some((item: any) => Number(item?.consumo ?? 0) > 0));
+  return possuiConsumo && Number(dados?.versaoExtracao ?? 0) >= 2;
 }
 
 async function completarDadosDaFaturaAnexada(anexo: any, cpf?: string | null) {
