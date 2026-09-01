@@ -239,11 +239,10 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   const valorAbsorvidoFioB = usaGD2 && fioBGd2 === "ABSORVER" ? diferencaFioB : 0;
   if (!possuiLeituraGd) return null;
   const valorEnergiaCheia = Math.max(0, baseKwh * tarifaCheia);
-  // A referência sem Andrade é reconstituída da própria competência: a conta
-  // CEMIG efetivamente cobrada mais a energia GD pela tarifa cheia lida no
-  // PDF. Algumas NFs não expõem "valor do crédito" em um campo isolado; esse
-  // fato não pode impedir o cálculo quando kWh e tarifa já foram extraídos.
-  const referencia = Math.max(0, valorCemig - custoDisponibilidade - diferencaFioB) + valorEnergiaCheia;
+  // A conta estimada sem usina usa somente a energia convencional pela tarifa
+  // cheia da NF. Multa, iluminação, bandeira e demais encargos ficam fora da
+  // referência; eles continuam no total real que o cliente precisa pagar.
+  const referencia = valorEnergiaCheia;
   // A economia percebida é comparada com tudo que o cliente pagaria sem a
   // Andrade. Assim os encargos que continuam obrigatórios reduzem levemente o
   // percentual final mesmo quando disponibilidade e Fio B são absorvidos.

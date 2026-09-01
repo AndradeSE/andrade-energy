@@ -44,7 +44,7 @@ test("deduz da fatura Andrade os custos absorvidos pela usina", () => {
   assert.equal(resultado.valorUsina, 30);
   assert.equal(resultado.valorTotalAbsorvido, 150);
   assert.equal(resultado.valorTotalUnificado, 230);
-  assert.equal(resultado.economiaReal, 120);
+  assert.equal(resultado.economiaReal, 70);
 });
 
 test("nunca reduz a fatura Andrade abaixo de zero", () => {
