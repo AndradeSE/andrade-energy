@@ -359,3 +359,5 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - Validação real do anexo existente recuperou consumo de 68 kWh, 12 competências do histórico, tarifa cheia e valor total, liberando a projeção dinâmica do desconto.
 - Quando uma conta é acessada em outro aparelho e a sessão atual é substituída, o app mostra as opções **Entrar neste aparelho** ou **Voltar ao login**, em vez de repetir silenciosamente o erro de sessão expirada.
 - Quando a conta importada ainda não possui GD, a configuração exige uma escolha exclusiva entre **GD I** e **GD II** para a projeção. Selecionar uma desativa a outra; se a fatura já identificar GD, somente as opções correspondentes são apresentadas.
+- OTA de sessão e recuperação dos anexos: Gerador `57d2d5ac-03a0-42de-8416-f822f482a189`; Consumidor `479bf6c6-6134-4b96-9840-0914cfe8e1e8`.
+- OTA final do Gerador com seleção exclusiva de GD: `8728264a-d3e4-451d-b08d-8719b12377ad`.
