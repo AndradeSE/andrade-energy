@@ -336,3 +336,5 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - O botão **Adicionar UC via PDF** no perfil do cliente passou a oferecer duas origens no mesmo fluxo: uma conta já vinculada ao CPF/perfil ou um novo PDF armazenado no aparelho.
 - A projeção do desconto real foi alinhada ao motor de faturamento: usa energia compensada/injetada conforme a modalidade, substitui a energia convencional pela tarifa Andrade em contas ainda sem GD e preserva a parcela remanescente da concessionária em contas com GD.
 - As escolhas de absorção ou repasse da disponibilidade e do Fio B agora recalculam a projeção sobre a mesma base de energia cheia usada no faturamento.
+- OTA Gerador: grupo `1cbec3a3-6d71-4cec-a97a-0876fc1441b3`.
+- OTA Consumidor: grupo `bb30143f-7a8b-4b81-9234-6bbc948493ca`.
