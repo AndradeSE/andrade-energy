@@ -359,6 +359,9 @@ export default function EditarAlocacaoUnidade() {
               consumoProjetado={consumoMedio}
               faturaSomenteAndrade={formatoFatura === "SOMENTE_ANDRADE"}
               dadosFatura={dadosFatura}
+              projetarConsumoIntegral
+              tarifaSceeReferencia={valorNumerico(usinaSelecionada?.tarifa_scee_referencia)}
+              tarifaGd2Referencia={valorNumerico(usinaSelecionada?.tarifa_gd2_referencia)}
               disponibilidadeGd1={repasseDisponibilidadeGD1}
               disponibilidadeGd2={repasseDisponibilidadeGD2}
               fioBGd2={repasseFioBGD2}
