@@ -40,6 +40,149 @@ def wrap(draw, text, fnt, width):
     return lines
 
 
+def draw_field(d, box, label, value="", accent=False):
+    x1, y1, x2, y2 = box
+    d.text((x1, y1 - 19), label, font=font(10, True), fill=MUTED)
+    rounded(d, box, 9, "#F8FBF9", GREEN if accent else LINE, 2 if accent else 1)
+    if value:
+        d.text((x1 + 13, y1 + 10), value, font=font(12), fill=INK)
+
+
+def draw_toggle(d, x, y, label, enabled=True):
+    d.text((x, y + 4), label, font=font(11, True), fill=INK)
+    rounded(d, (x + 245, y, x + 293, y + 25), 13, GREEN if enabled else "#BBC8C2")
+    knob_x = x + 271 if enabled else x + 247
+    d.ellipse((knob_x, y + 3, knob_x + 19, y + 22), fill="white")
+
+
+def draw_unique_panel(d, step):
+    """Desenha a ferramenta real de cada etapa, evitando tutoriais visualmente repetidos."""
+    title = step["title"].lower()
+    left, top, right = 306, 427, W - 79
+
+    if "envie o convite" in title:
+        draw_field(d, (left, top + 23, 760, top + 65), "E-MAIL DO CONSUMIDOR", "cliente@email.com", True)
+        draw_field(d, (785, top + 23, right, top + 65), "TELEFONE (OPCIONAL)", "(35) 99999-9999")
+        rounded(d, (left, top + 92, 570, top + 134), 10, GREEN)
+        d.text((342, top + 104), "Enviar convite", font=font(12, True), fill="white")
+        return (470, top + 113)
+    if "contas vinculadas" in title:
+        rows = [("Conta CEMIG · agosto/2026", "UC 121361801894", "Usar esta fatura"),
+                ("Conta CEMIG · julho/2026", "UC 121361801894", "Visualizar")]
+        for i, (name, uc, action) in enumerate(rows):
+            y = top + i * 70
+            rounded(d, (left, y, right, y + 56), 10, "#F3F7F5", LINE)
+            d.text((left + 16, y + 9), name, font=font(12, True), fill=INK)
+            d.text((left + 16, y + 31), uc, font=font(10), fill=MUTED)
+            rounded(d, (right - 160, y + 12, right - 14, y + 44), 9, GREEN if i == 0 else "#E2ECE7")
+            d.text((right - 143, y + 21), action, font=font(10, True), fill="white" if i == 0 else INK)
+        return (right - 84, top + 28)
+    if "configure a unidade" in title:
+        draw_field(d, (left, top + 19, 610, top + 57), "USINA GERADORA", "Usina Andrade Energy ▼", True)
+        draw_field(d, (635, top + 19, 815, top + 57), "ALOCAÇÃO", "15,4%")
+        draw_field(d, (840, top + 19, right, top + 57), "DESCONTO", "40%")
+        draw_toggle(d, left, top + 85, "Absorver custo de disponibilidade", True)
+        draw_toggle(d, 660, top + 85, "Absorver diferença do Fio B", False)
+        rounded(d, (right - 176, top + 130, right, top + 169), 10, GREEN)
+        d.text((right - 144, top + 141), "Salvar unidade", font=font(11, True), fill="white")
+        return (right - 88, top + 149)
+    if "abra a unidade correta" in title:
+        for i, (uc, owner, status) in enumerate([
+            ("UC 121361801894", "Vinícius Duarte", "Automático ativo"),
+            ("UC 300112459811", "Sarah Andrade", "Ativar recebimento"),
+        ]):
+            y = top + i * 70
+            rounded(d, (left, y, right, y + 56), 10, "#F3F7F5", LINE)
+            d.text((left + 16, y + 8), uc, font=font(12, True), fill=INK)
+            d.text((left + 16, y + 30), owner, font=font(10), fill=MUTED)
+            d.text((right - 175, y + 20), status, font=font(10, True), fill=GREEN)
+        return (right - 90, top + 98)
+    if "ative o recebimento" in title:
+        rounded(d, (left, top, right, top + 55), 10, "#FFF8D8", "#E7C65B")
+        d.text((left + 17, top + 10), "Recebimento desativado", font=font(12, True), fill=INK)
+        d.text((left + 17, top + 31), "Ative para criar o endereço exclusivo desta UC.", font=font(10), fill=MUTED)
+        rounded(d, (left, top + 75, 570, top + 118), 10, GREEN)
+        d.text((335, top + 88), "Ativar recebimento automático", font=font(11, True), fill="white")
+        return (450, top + 96)
+    if "copie e configure" in title:
+        draw_field(d, (left, top + 20, right - 180, top + 62), "ENDEREÇO EXCLUSIVO", "uc121361801894@faturas.andradeenergy.com.br", True)
+        rounded(d, (right - 160, top + 20, right, top + 62), 9, GREEN)
+        d.text((right - 114, top + 33), "Copiar", font=font(11, True), fill="white")
+        for i, text in enumerate(["1. Copie o endereço acima", "2. Crie uma regra no Gmail ou Outlook", "3. Encaminhe uma conta para testar"]):
+            d.text((left + 8, top + 88 + i * 28), text, font=font(11, True), fill=INK)
+        return (right - 80, top + 41)
+    if "importe a conta" in title or "selecione o pdf" in title:
+        rounded(d, (left, top, right, top + 112), 12, "#F8FBF9", GREEN, 2)
+        d.text((left + 290, top + 20), "PDF", font=font(18, True), fill=GREEN)
+        d.text((left + 235, top + 51), "Arraste a conta aqui", font=font(13, True), fill=INK)
+        rounded(d, (left + 260, top + 76, left + 440, top + 106), 8, GREEN)
+        d.text((left + 291, top + 84), "Selecionar arquivo", font=font(10, True), fill="white")
+        return (left + 350, top + 91)
+    if "confira o cálculo" in title or "entenda o total" in title:
+        values = [("Conta concessionária", "R$ 128,17"), ("Energia Andrade", "R$ 219,81"), ("Total unificado", "R$ 347,98")]
+        for i, (label, value) in enumerate(values):
+            x = left + i * 282
+            rounded(d, (x, top, x + 258, top + 86), 11, DEEP if i == 2 else "#F3F7F5", LINE)
+            d.text((x + 16, top + 13), label.upper(), font=font(9, True), fill="#B9D8CA" if i == 2 else MUTED)
+            d.text((x + 16, top + 39), value, font=font(19, True), fill="white" if i == 2 else INK)
+        d.text((left, top + 108), "Economia real: R$ 83,47 · 27,2%", font=font(12, True), fill=GREEN)
+        return (right - 130, top + 43)
+    if "gere e acompanhe" in title or "forma de pagamento" in title:
+        for i, (label, value) in enumerate([("PIX COPIA E COLA", "00020126..."), ("CÓDIGO DE BARRAS", "23790.50400...")]):
+            y = top + i * 66
+            draw_field(d, (left, y + 18, right - 150, y + 56), label, value, i == 0)
+            rounded(d, (right - 130, y + 18, right, y + 56), 8, GREEN)
+            d.text((right - 94, y + 29), "Copiar", font=font(10, True), fill="white")
+        return (right - 65, top + 36)
+    if "administração multiempresa" in title:
+        for i, (name, detail) in enumerate([("Andrade Energy", "Ambiente atual"), ("Solar Minas", "Empresa parceira"), ("Nova empresa", "Criar ambiente")]):
+            x = left + i * 282
+            rounded(d, (x, top, x + 258, top + 105), 11, DEEP if i == 0 else "#F3F7F5", LINE)
+            d.text((x + 16, top + 18), name, font=font(13, True), fill="white" if i == 0 else INK)
+            d.text((x + 16, top + 48), detail, font=font(10), fill="#B9D8CA" if i == 0 else MUTED)
+        return (left + 705, top + 52)
+    if "cadastre a empresa" in title:
+        draw_field(d, (left, top + 18, 660, top + 57), "NOME DA EMPRESA", "Solar Minas", True)
+        draw_field(d, (685, top + 18, right, top + 57), "RESPONSÁVEL", "Marcos Silva")
+        draw_field(d, (left, top + 91, 660, top + 130), "PLANO", "Profissional ▼")
+        draw_field(d, (685, top + 91, right, top + 130), "PERÍODO", "45 dias de teste")
+        return (right - 70, top + 150)
+    if "personalize a identidade" in title:
+        rounded(d, (left, top, 565, top + 125), 12, "#F3F7F5", LINE)
+        d.text((left + 70, top + 22), "LOGO DA EMPRESA", font=font(11, True), fill=INK)
+        rounded(d, (left + 55, top + 55, left + 205, top + 94), 8, GREEN)
+        d.text((left + 83, top + 67), "Enviar logo", font=font(10, True), fill="white")
+        d.text((610, top + 5), "CORES DA MARCA", font=font(10, True), fill=MUTED)
+        for i, color in enumerate([GREEN, DEEP, YELLOW, "#FFFFFF"]):
+            d.ellipse((610 + i * 70, top + 40, 654 + i * 70, top + 84), fill=color, outline=LINE)
+        rounded(d, (right - 175, top + 102, right, top + 141), 9, GREEN)
+        d.text((right - 145, top + 113), "Salvar identidade", font=font(10, True), fill="white")
+        return (right - 88, top + 121)
+    if "competência em aberto" in title:
+        for i, (month, status, value) in enumerate([("Agosto/2026", "EM ABERTO", "R$ 347,98"), ("Julho/2026", "PAGA", "R$ 331,20")]):
+            y = top + i * 70
+            rounded(d, (left, y, right, y + 56), 10, "#F3F7F5", LINE)
+            d.text((left + 16, y + 9), month, font=font(12, True), fill=INK)
+            d.text((left + 16, y + 31), status, font=font(9, True), fill=GREEN)
+            d.text((right - 175, y + 19), value, font=font(14, True), fill=INK)
+        return (right - 70, top + 28)
+    if "conta salva" in title:
+        d.ellipse((left + 340, top, left + 420, top + 80), fill="#DDF1E7")
+        d.text((left + 365, top + 18), "✓", font=font(30, True), fill=GREEN)
+        d.text((left + 300, top + 96), "Conta vinculada com sucesso", font=font(15, True), fill=INK)
+        d.text((left + 270, top + 124), "O documento já está disponível para o gerador.", font=font(11), fill=MUTED)
+        return (left + 380, top + 40)
+
+    # Home: mantém o acesso rápido, mas com cartões grandes próprios do perfil.
+    for index, row in enumerate(step["rows"]):
+        x = left + index * 282
+        rounded(d, (x, top, x + 258, top + 105), 11, "#F3F7F5", LINE)
+        d.text((x + 16, top + 18), row, font=font(12, True), fill=INK)
+        rounded(d, (x + 16, top + 58, x + 122, top + 88), 8, GREEN)
+        d.text((x + 42, top + 66), "Abrir", font=font(10, True), fill="white")
+    return (left + 69, top + 73)
+
+
 def draw_browser(step, progress, local_progress):
     img = Image.new("RGB", (W, H), "#DCE5E0")
     d = ImageDraw.Draw(img)
@@ -86,16 +229,10 @@ def draw_browser(step, progress, local_progress):
     rounded(d, (282, 347, W - 55, 617), 14, SURFACE, LINE)
     d.text((306, 371), step["panel"], font=font(16, True), fill=INK)
     d.text((306, 400), step["panel_note"], font=font(11), fill=MUTED)
-    for index, row in enumerate(step["rows"]):
-        y = 438 + index * 47
-        rounded(d, (306, y, W - 79, y + 37), 9, "#F3F7F5")
-        d.text((324, y + 9), row, font=font(12, True), fill=INK)
-        if index == step.get("row", 0):
-            rounded(d, (W - 220, y + 6, W - 96, y + 31), 12, GREEN)
-            d.text((W - 196, y + 11), step["action"], font=font(10, True), fill="white")
+    target = draw_unique_panel(d, step)
 
     start = step.get("cursor_from", (995, 170))
-    end = step.get("cursor", (1110, 460))
+    end = target
     move = min(1, local_progress * 1.8)
     cx = int(start[0] + (end[0] - start[0]) * move)
     cy = int(start[1] + (end[1] - start[1]) * move)
