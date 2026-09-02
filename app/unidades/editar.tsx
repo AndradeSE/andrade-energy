@@ -122,7 +122,10 @@ export default function EditarAlocacaoUnidade() {
           : eUuid(String(uc?.cliente_id ?? ""))
             ? String(uc.cliente_id)
             : "";
-        const cliente = idCliente ? await buscarCliente(idCliente) : null;
+        // Os dados do cliente são apenas um fallback para cadastros antigos.
+        // Uma falha nessa consulta não pode impedir a seleção das usinas nem
+        // ser apresentada incorretamente como erro ao carregar o parque.
+        const cliente = idCliente ? await buscarCliente(idCliente).catch(() => null) : null;
         const anexos = idCliente ? await listarFaturasAnexadasCliente(idCliente).catch(() => []) : [];
         if (!ativa) return;
 
