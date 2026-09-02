@@ -8,7 +8,7 @@ import "./download.css";
 
 const APP_GERADOR_URL = String(import.meta.env.VITE_APP_GERADOR_DOWNLOAD_URL ?? "/downloads/andrade-energy-gerador.apk").trim();
 const APP_CONSUMIDOR_URL = String(import.meta.env.VITE_APP_CONSUMIDOR_DOWNLOAD_URL ?? "/downloads/andrade-energy-consumidor.apk").trim();
-const TESTE_GRATUITO_HABILITADO = false;
+const TESTE_GRATUITO_HABILITADO = true;
 
 type AccessType = "CONSUMIDOR" | "GERADOR";
 type AdminWorkspace = "COMERCIAL" | "USINAS";
@@ -3801,6 +3801,7 @@ function PortalApp() {
                   </>
                 )}
               </button>
+              {accessType === "CONSUMIDOR" ? <div className="generator-trial-callout"><div><span>NOVO CONSUMIDOR</span><strong>Recebeu um convite?</strong><small>Crie sua conta com a chave enviada pelo gerador.</small></div><a className="login-create-account" href="/convite">Criar conta →</a></div> : null}
               {accessType === "GERADOR" ? <div className="generator-trial-callout"><div><span>TESTE GRÁTIS</span><strong>45 dias para conhecer a gestão completa</strong><small>{TESTE_GRATUITO_HABILITADO ? "Cadastre-se com seu CPF, sem cartão. Depois você decide se quer assinar." : "Novos testes estão temporariamente pausados. O acesso será reaberto em breve."}</small></div><button disabled={!TESTE_GRATUITO_HABILITADO} type="button" onClick={()=>{if (!TESTE_GRATUITO_HABILITADO) return; setTrialStage("form");setError("");}}>{TESTE_GRATUITO_HABILITADO ? "Começar agora →" : "Temporariamente indisponível"}</button></div> : null}
             </form>
           )}

@@ -13,6 +13,8 @@ type Props = {
 };
 
 export default function ConsumerInviteSignup({ apiUrl, convite }: Props) {
+  const [chave, setChave] = useState(convite);
+  const [chaveDigitada, setChaveDigitada] = useState(convite);
   const [dados, setDados] = useState<Convite | null>(null);
   const [senha, setSenha] = useState("");
   const [confirmacao, setConfirmacao] = useState("");
@@ -23,18 +25,20 @@ export default function ConsumerInviteSignup({ apiUrl, convite }: Props) {
   const [concluido, setConcluido] = useState("");
 
   const appUrl = useMemo(
-    () => `andradeenergyconsumidor://criar-conta?convite=${encodeURIComponent(convite)}`,
-    [convite],
+    () => `andradeenergyconsumidor://criar-conta?convite=${encodeURIComponent(chave)}`,
+    [chave],
   );
 
   useEffect(() => {
     let ativo = true;
-    if (!convite) {
-      setErro("Este convite não possui uma chave válida.");
+    if (!chave) {
+      setDados(null);
+      setErro("");
       setCarregando(false);
       return () => { ativo = false; };
     }
-    fetch(`${apiUrl}/convites/${encodeURIComponent(convite)}`)
+    setCarregando(true);
+    fetch(`${apiUrl}/convites/${encodeURIComponent(chave)}`)
       .then(async (resposta) => {
         const corpo = await resposta.json().catch(() => ({}));
         if (!resposta.ok) throw new Error(corpo.message ?? "Convite inválido ou expirado.");
@@ -49,7 +53,7 @@ export default function ConsumerInviteSignup({ apiUrl, convite }: Props) {
       })
       .finally(() => { if (ativo) setCarregando(false); });
     return () => { ativo = false; };
-  }, [apiUrl, convite]);
+  }, [apiUrl, chave]);
 
   async function enviarCadastro(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
@@ -61,7 +65,7 @@ export default function ConsumerInviteSignup({ apiUrl, convite }: Props) {
     if (fatura.type && fatura.type !== "application/pdf") return setErro("Envie a fatura no formato PDF.");
 
     const formulario = new FormData();
-    formulario.append("convite", convite);
+    formulario.append("convite", chave);
     formulario.append("senha", senha);
     formulario.append("fatura", fatura);
     setEnviando(true);
@@ -82,9 +86,23 @@ export default function ConsumerInviteSignup({ apiUrl, convite }: Props) {
       <div className="invite-brand"><b>AE</b><span>ANDRADE <small>ENERGY</small></span></div>
       <p className="invite-eyebrow">CONVITE PARA CONSUMIDOR</p>
       <h1>Crie sua conta</h1>
-      <p className="invite-lead">Seu convite já foi reconhecido. Conclua o cadastro pelo navegador ou abra o aplicativo Andrade Energy Consumidor.</p>
+      <p className="invite-lead">Use a chave recebida por e-mail para criar sua conta pelo navegador ou abrir o aplicativo Andrade Energy Consumidor.</p>
 
-      {carregando ? <p className="invite-state">Validando convite…</p> : null}
+      {!chave ? <form className="invite-form" onSubmit={(evento) => {
+        evento.preventDefault();
+        const valor = chaveDigitada.trim();
+        if (!valor) return setErro("Informe a chave do convite.");
+        setErro("");
+        setChave(valor);
+        window.history.replaceState({}, "", `/convite?convite=${encodeURIComponent(valor)}`);
+      }}>
+        <label>Chave do convite <input value={chaveDigitada} onChange={(evento) => setChaveDigitada(evento.target.value)} placeholder="Cole aqui a chave recebida" autoCapitalize="none" required /></label>
+        {erro ? <p className="invite-error" role="alert">{erro}</p> : null}
+        <button type="submit">Continuar cadastro</button>
+        <a className="invite-app-link" href="/">Voltar para o login</a>
+      </form> : null}
+
+      {chave && carregando ? <p className="invite-state">Validando convite…</p> : null}
       {!carregando && erro && !dados ? <p className="invite-error" role="alert">{erro}</p> : null}
       {!carregando && dados && !concluido ? <>
         <div className="invite-person"><strong>{dados.nome}</strong><span>{dados.email}</span></div>
