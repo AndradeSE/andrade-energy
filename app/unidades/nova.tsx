@@ -249,6 +249,8 @@ export default function NovaUnidade() {
           faturaSomenteAndrade={formatoFatura === "SOMENTE_ANDRADE"}
           dadosFatura={dadosFatura}
           projetarConsumoIntegral={origemFaturaPerfil === "1"}
+          tarifaSceeReferencia={numeroSeguro(usinaSelecionada?.tarifa_scee_referencia)}
+          tarifaGd2Referencia={numeroSeguro(usinaSelecionada?.tarifa_gd2_referencia)}
           disponibilidadeGd1={repasseDisponibilidadeGD1}
           disponibilidadeGd2={repasseDisponibilidadeGD2}
           fioBGd2={repasseFioBGD2}

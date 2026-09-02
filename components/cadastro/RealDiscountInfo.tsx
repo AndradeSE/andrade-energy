@@ -13,6 +13,8 @@ type Props = {
   faturaSomenteAndrade?: boolean;
   dadosFatura?: Record<string, any> | null;
   projetarConsumoIntegral?: boolean;
+  tarifaSceeReferencia?: number;
+  tarifaGd2Referencia?: number;
   disponibilidadeGd1: EscolhaRepasse;
   disponibilidadeGd2: EscolhaRepasse;
   fioBGd2: EscolhaRepasse;
@@ -26,6 +28,8 @@ export default function RealDiscountInfo({
   faturaSomenteAndrade = false,
   dadosFatura,
   projetarConsumoIntegral = false,
+  tarifaSceeReferencia = 0,
+  tarifaGd2Referencia = 0,
   disponibilidadeGd1,
   disponibilidadeGd2,
   fioBGd2,
@@ -63,7 +67,7 @@ export default function RealDiscountInfo({
     if (disponibilidadeGd2 === "REPASSAR") configuracoesRepassadas.push("disponibilidade GD II");
     if (fioBGd2 === "REPASSAR") configuracoesRepassadas.push("Fio B");
   }
-  const previa = contaSemGd ? null : calcularPrevia({ dados: dadosFatura, desconto, modalidadeFaturamento, tipoGd: modalidade, disponibilidadeGd1, disponibilidadeGd2, fioBGd2, consumoIntegralProjetado: projecaoPelaFaturaDoPerfil ? consumoIntegral : 0 });
+  const previa = contaSemGd ? null : calcularPrevia({ dados: dadosFatura, desconto, modalidadeFaturamento, tipoGd: modalidade, disponibilidadeGd1, disponibilidadeGd2, fioBGd2, consumoIntegralProjetado: projecaoPelaFaturaDoPerfil ? consumoIntegral : 0, tarifaSceeReferencia, tarifaGd2Referencia });
   const descontoRealEstimado = contaSemGd
     ? "0,00%"
     : previa
@@ -205,9 +209,9 @@ function obterConsumoProjetado(dados: Record<string, any> | null | undefined) {
   ));
 }
 
-function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, disponibilidadeGd1, disponibilidadeGd2, fioBGd2, consumoIntegralProjetado = 0 }: {
+function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, disponibilidadeGd1, disponibilidadeGd2, fioBGd2, consumoIntegralProjetado = 0, tarifaSceeReferencia = 0, tarifaGd2Referencia = 0 }: {
   dados?: Record<string, any> | null; desconto: number; modalidadeFaturamento?: string | null; tipoGd: string;
-  disponibilidadeGd1: EscolhaRepasse; disponibilidadeGd2: EscolhaRepasse; fioBGd2: EscolhaRepasse; consumoIntegralProjetado?: number;
+  disponibilidadeGd1: EscolhaRepasse; disponibilidadeGd2: EscolhaRepasse; fioBGd2: EscolhaRepasse; consumoIntegralProjetado?: number; tarifaSceeReferencia?: number; tarifaGd2Referencia?: number;
 }) {
   if (!dados) return null;
   let tarifaCheia = n(dados, "tarifa_cheia", "tarifaCheia");
@@ -250,12 +254,13 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   const diferencaSalva = n(dados, "diferenca_fio_b", "diferencaFioB") ||
     n(dados, "valor_absorvido_fio_b", "valorAbsorvidoFioB") +
       n(dados, "diferenca_fio_b_repassada", "diferencaFioBRepassada");
-  const tarifaScee = n(dados, "tarifa_scee", "tarifaScee");
-  const tarifaGd2 = n(dados, "tarifa_gd", "tarifaGD2", "tarifaGD");
+  const tarifaScee = n(dados, "tarifa_scee", "tarifaScee") || tarifaSceeReferencia;
+  const tarifaGd2 = n(dados, "tarifa_gd", "tarifaGD2", "tarifaGD") || tarifaGd2Referencia;
+  const energiaBaseFioB = energiaGD2 > 0 ? energiaGD2 : consumoIntegralProjetado;
   const diferencaFioB = diferencaSalva > 0
     ? diferencaSalva
-    : energiaGD2 > 0 && tarifaScee > tarifaGd2 && tarifaGd2 > 0
-      ? energiaGD2 * (tarifaScee - tarifaGd2)
+    : energiaBaseFioB > 0 && tarifaScee > tarifaGd2 && tarifaGd2 > 0
+      ? energiaBaseFioB * (tarifaScee - tarifaGd2)
       : 0;
   const usaGD2 = tipoGd === "GD2" || tipoGd === "MISTA" || energiaGD2 > 0;
   const usaGD1 = tipoGd === "GD1" || tipoGd === "MISTA" || (!usaGD2 && energiaGD1 > 0);
