@@ -42,7 +42,7 @@ function percentualPelaMedia(usina: any, consumo: unknown, modalidade: Modalidad
 }
 
 export default function NovaUnidade() {
-  const { origem, origemFaturaPerfil, classificacao, cliente, clienteId: clienteIdVinculado, uc, cpf: cpfImportado, energiaCompensada, endereco: enderecoImportado, cadastroRapido, consumoMedio: consumoMedioImportado, dadosFatura: dadosFaturaParam } = useLocalSearchParams<{ origem?: string; origemFaturaPerfil?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; cpf?: string; energiaCompensada?: string; endereco?: string; cadastroRapido?: string; consumoMedio?: string; dadosFatura?: string }>();
+  const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, cpf: cpfImportado, energiaCompensada, endereco: enderecoImportado, cadastroRapido, consumoMedio: consumoMedioImportado, dadosFatura: dadosFaturaParam } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; cpf?: string; energiaCompensada?: string; endereco?: string; cadastroRapido?: string; consumoMedio?: string; dadosFatura?: string }>();
   const [dadosFatura, setDadosFatura] = useState<Record<string, any> | null>(() => parseDadosFatura(dadosFaturaParam));
   const [numero, setNumero] = useState(""); const [titular, setTitular] = useState("");
   const [cpfTitular, setCpfTitular] = useState("");
@@ -248,7 +248,7 @@ export default function NovaUnidade() {
           consumoProjetado={consumoMedio}
           faturaSomenteAndrade={formatoFatura === "SOMENTE_ANDRADE"}
           dadosFatura={dadosFatura}
-          projetarConsumoIntegral={origemFaturaPerfil === "1"}
+          projetarConsumoIntegral={origem === "fatura"}
           tarifaSceeReferencia={numeroSeguro(usinaSelecionada?.tarifa_scee_referencia)}
           tarifaGd2Referencia={numeroSeguro(usinaSelecionada?.tarifa_gd2_referencia)}
           disponibilidadeGd1={repasseDisponibilidadeGD1}

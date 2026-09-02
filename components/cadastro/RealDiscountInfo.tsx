@@ -264,7 +264,10 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   const diferencaSalva = n(dados, "diferenca_fio_b", "diferencaFioB") ||
     n(dados, "valor_absorvido_fio_b", "valorAbsorvidoFioB") +
       n(dados, "diferenca_fio_b_repassada", "diferencaFioBRepassada");
-  const tarifaScee = n(dados, "tarifa_scee", "tarifaScee") || tarifaSceeReferencia;
+  // Em uma conta convencional ainda não existe uma linha SCEE. Para a
+  // simulação, a tarifa cheia da própria conta é a referência energética; a
+  // tarifa GD2 continua vindo do histórico real da usina selecionada.
+  const tarifaScee = n(dados, "tarifa_scee", "tarifaScee") || tarifaSceeReferencia || tarifaCheia;
   const tarifaGd2 = n(dados, "tarifa_gd", "tarifaGD2", "tarifaGD") || tarifaGd2Referencia;
   const energiaBaseFioB = energiaGD2 > 0 ? energiaGD2 : consumoIntegralProjetado;
   const diferencaFioB = diferencaSalva > 0
