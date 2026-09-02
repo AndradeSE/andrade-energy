@@ -5,12 +5,6 @@ import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 type EscolhaRepasse = "REPASSAR" | "ABSORVER";
 
-// Uma conta convencional não contém a tarifa compensada GD II. Enquanto a
-// usina ainda não possuir uma competência GD II processada, usamos somente na
-// prévia uma parcela conservadora da tarifa cheia. A primeira tarifa real
-// disponível substitui este fallback automaticamente.
-const PERCENTUAL_ESTIMADO_FIO_B_SEM_HISTORICO = 0.13;
-
 type Props = {
   descontoPercentual: string | number;
   tipoGd?: string | null;
@@ -276,14 +270,12 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   const tarifaScee = n(dados, "tarifa_scee", "tarifaScee") || tarifaSceeReferencia || tarifaCheia;
   const tarifaGd2 = n(dados, "tarifa_gd", "tarifaGD2", "tarifaGD") || tarifaGd2Referencia;
   const energiaBaseFioB = energiaGD2 > 0 ? energiaGD2 : consumoIntegralProjetado;
-  const usaGD2 = tipoGd === "GD2" || tipoGd === "MISTA" || energiaGD2 > 0;
   const diferencaFioB = diferencaSalva > 0
     ? diferencaSalva
     : energiaBaseFioB > 0 && tarifaScee > tarifaGd2 && tarifaGd2 > 0
       ? energiaBaseFioB * (tarifaScee - tarifaGd2)
-      : usaGD2 && energiaBaseFioB > 0 && tarifaScee > 0
-        ? energiaBaseFioB * tarifaScee * PERCENTUAL_ESTIMADO_FIO_B_SEM_HISTORICO
       : 0;
+  const usaGD2 = tipoGd === "GD2" || tipoGd === "MISTA" || energiaGD2 > 0;
   const usaGD1 = tipoGd === "GD1" || tipoGd === "MISTA" || (!usaGD2 && energiaGD1 > 0);
   const custoDisponibilidade = usaGD2 ? custoDisponibilidadeGD2 : custoDisponibilidadeGD1;
   const absorveDisponibilidade = usaGD2 ? disponibilidadeGd2 === "ABSORVER" : usaGD1 && disponibilidadeGd1 === "ABSORVER";
@@ -329,7 +321,7 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
     diferencaFioB,
     valorAbsorvidoDisponibilidade,
     valorAbsorvidoFioB,
-    fioBEstimado: diferencaSalva <= 0 && tarifaGd2 <= 0 && diferencaFioB > 0,
+    fioBEstimado: false,
     usaGD2,
   };
 }

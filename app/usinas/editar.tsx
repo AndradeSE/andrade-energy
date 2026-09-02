@@ -8,8 +8,7 @@ import ChoiceField from "../../components/cadastro/ChoiceField";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
-import { editarUsina as editarUsinaRemota, excluirUsina as excluirUsinaRemota } from "../../services/usinas.service";
-import { supabase } from "../../supabase";
+import { buscarUsina as buscarUsinaRemota, editarUsina as editarUsinaRemota, excluirUsina as excluirUsinaRemota } from "../../services/usinas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const formatarMoeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -34,8 +33,10 @@ export default function EditarUsina() {
 
   useEffect(() => {
     async function carregar() {
-      const { data, error } = await supabase.from("usinas").select("*").eq("id", id).single();
-      if (error || !data) {
+      let data: any;
+      try {
+        data = await buscarUsinaRemota(id);
+      } catch {
         Alert.alert("Usina não encontrada", "Não foi possível carregar os dados da usina.");
         router.back();
         return;
@@ -48,13 +49,7 @@ export default function EditarUsina() {
       setTitular(data.titular_nome ?? "");
       setEndereco(data.endereco ?? "");
       setTipoGd(data.tipo_gd === "GD2" ? "GD2" : "GD1");
-      const { data: unidadeGeradora } = await supabase
-        .from("unidades_consumidoras")
-        .select("cpf_titular")
-        .eq("usina_id", id)
-        .eq("tipo", "GERADORA")
-        .maybeSingle();
-      setCpfTitular(String(unidadeGeradora?.cpf_titular ?? "").replace(/\D/g, ""));
+      setCpfTitular(String(data.cpf_titular ?? "").replace(/\D/g, ""));
     }
     carregar().finally(() => setLoading(false));
   }, [id]);

@@ -418,7 +418,16 @@ export async function buscarUsinaService(
     throw new Error("Usina não encontrada.");
   }
 
-  return usina;
+  const { data: unidadeGeradora, error } = await supabase
+    .from("unidades_consumidoras")
+    .select("cpf_titular")
+    .eq("empresa_id", empresaId)
+    .eq("usina_id", id)
+    .eq("tipo", "GERADORA")
+    .maybeSingle();
+  if (error) throw error;
+
+  return { ...usina, cpf_titular: unidadeGeradora?.cpf_titular ?? null };
 }
 
 export async function criarUsinaService(
