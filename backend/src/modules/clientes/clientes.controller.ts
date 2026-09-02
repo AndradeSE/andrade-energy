@@ -16,6 +16,7 @@ import {
   obterSolicitacaoCadastroCliente,
   anexarFaturaAoCliente,
   listarFaturasAnexadasDoCliente,
+  excluirFaturaAnexadaDoCliente,
 } from "./clientes.service";
 import { empresaIdDaRequisicao } from "../../utils/empresaScope";
 
@@ -91,6 +92,18 @@ export async function anexarFaturaClienteController(req: Request, res: Response)
     ));
   } catch (e: any) {
     return res.status(400).json({ message: e.message ?? "Não foi possível anexar a fatura." });
+  }
+}
+
+export async function excluirFaturaAnexadaClienteController(req: Request, res: Response) {
+  try {
+    return res.json(await excluirFaturaAnexadaDoCliente(
+      req.params.id,
+      req.params.anexoId,
+      empresaIdDaRequisicao(req),
+    ));
+  } catch (e: any) {
+    return res.status(400).json({ message: e.message ?? "Não foi possível excluir a fatura anexada." });
   }
 }
 

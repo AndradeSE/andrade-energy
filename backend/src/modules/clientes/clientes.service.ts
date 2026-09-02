@@ -9,6 +9,7 @@ import {
   criarFaturaAnexadaCliente,
   criarCliente,
   excluirUnidadeCliente as excluirUnidadeClienteNoBanco,
+  excluirFaturaAnexadaCliente as excluirFaturaAnexadaClienteNoBanco,
   excluirCliente as excluirClienteNoBanco,
   listarClientes,
   listarFaturasAnexadasCliente as listarFaturasAnexadasClienteNoBanco,
@@ -196,6 +197,17 @@ export async function anexarFaturaAoCliente(
   } finally {
     await apagarArquivoTemporario(arquivo.path);
   }
+}
+
+export async function excluirFaturaAnexadaDoCliente(clienteId: string, anexoId: string, empresaId: string) {
+  const anexo = await excluirFaturaAnexadaClienteNoBanco(anexoId, clienteId, empresaId);
+  if (anexo?.caminho_pdf) {
+    const { error } = await supabase.storage.from("faturas").remove([String(anexo.caminho_pdf)]);
+    // O registro já foi removido. Uma eventual falha no storage não deve
+    // ressuscitar a fatura na lista; o arquivo órfão pode ser limpo depois.
+    if (error) console.warn("[clientes:fatura-anexada] arquivo não removido do storage", error.message);
+  }
+  return { sucesso: true };
 }
 
 export async function cadastrarClienteAutomaticamente(dados: {

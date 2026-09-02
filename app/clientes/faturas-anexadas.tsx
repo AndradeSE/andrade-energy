@@ -7,7 +7,7 @@ import { ActivityIndicator, Alert, Linking, RefreshControl, StyleSheet, Text, To
 import { AppHeader, Card, ElasticScrollView as ScrollView, EmptyState, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
-import { anexarFaturaCliente, FaturaAnexadaCliente, listarFaturasAnexadasCliente } from "../../services/clientes.service";
+import { anexarFaturaCliente, excluirFaturaAnexadaCliente, FaturaAnexadaCliente, listarFaturasAnexadasCliente } from "../../services/clientes.service";
 import { calcularMediaConsumoFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
@@ -34,6 +34,7 @@ export default function FaturasAnexadas() {
   const [carregando, setCarregando] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [excluindoId, setExcluindoId] = useState("");
 
   const titulo = selecionarUc ? "Escolher fatura para UC" : "Contas vinculadas ao CPF";
   const subtitulo = selecionarUc
@@ -107,6 +108,31 @@ export default function FaturasAnexadas() {
     });
   }
 
+  function confirmarExclusao(fatura: FaturaAnexadaCliente) {
+    Alert.alert(
+      "Excluir fatura anexada",
+      `Deseja excluir definitivamente ${fatura.nome || "esta conta de energia"} do perfil do cliente?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setExcluindoId(fatura.id);
+              await excluirFaturaAnexadaCliente(clienteId, fatura.id);
+              setFaturas((atuais) => atuais.filter((item) => item.id !== fatura.id));
+            } catch (erro: any) {
+              Alert.alert("Não foi possível excluir", erro?.response?.data?.message ?? "Tente novamente.");
+            } finally {
+              setExcluindoId("");
+            }
+          },
+        },
+      ],
+    );
+  }
+
   const quantidade = useMemo(() => faturas.length, [faturas.length]);
 
   return <Screen>
@@ -128,6 +154,7 @@ export default function FaturasAnexadas() {
             <Ionicons name="open-outline" size={18} color={Colors.primary} />
           </TouchableOpacity>
           {IS_GERADOR_APP ? <TouchableOpacity disabled={!uc} onPress={() => usarNaUc(fatura)} style={[styles.useButton, !uc && styles.disabled]}><Ionicons name="add-circle-outline" size={19} color={Colors.surface} /><Text style={styles.useButtonText}>{uc ? "Adicionar UC por esta fatura" : "UC não identificada nesta fatura"}</Text></TouchableOpacity> : null}
+          {IS_GERADOR_APP ? <TouchableOpacity disabled={excluindoId === fatura.id} onPress={() => confirmarExclusao(fatura)} style={[styles.deleteButton, excluindoId === fatura.id && styles.disabled]}>{excluindoId === fatura.id ? <ActivityIndicator size="small" color={Colors.danger} /> : <Ionicons name="trash-outline" size={18} color={Colors.danger} />}<Text style={styles.deleteButtonText}>{excluindoId === fatura.id ? "Excluindo..." : "Excluir fatura do perfil"}</Text></TouchableOpacity> : null}
         </Card>;
       }) : <EmptyState icon="document-outline" title="Nenhuma conta anexada" subtitle={selecionarUc ? "O cliente ainda não enviou uma conta de energia." : "Anexe uma conta da concessionária de uma unidade vinculada ao seu CPF."} />}
     </ScrollView>
@@ -156,6 +183,8 @@ const styles = StyleSheet.create({
   cardDetail: { marginTop: 3, color: Colors.primaryDark, fontSize: Typography.small, fontWeight: "700" },
   useButton: { minHeight: 46, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.md, borderRadius: Radius.md, backgroundColor: Colors.primary },
   useButtonText: { color: Colors.surface, fontSize: Typography.small, fontWeight: "900" },
+  deleteButton: { minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.xs, borderWidth: 1, borderColor: "#F1B7B7", borderRadius: Radius.md, backgroundColor: "#FFF7F7" },
+  deleteButtonText: { color: Colors.danger, fontSize: Typography.small, fontWeight: "800" },
   loading: { padding: Spacing.xl },
   disabled: { opacity: 0.55 },
 });

@@ -102,6 +102,27 @@ export async function listarFaturasAnexadasCliente(clienteId: string, empresaId 
   return data ?? [];
 }
 
+export async function excluirFaturaAnexadaCliente(id: string, clienteId: string, empresaId: string) {
+  const { data: anexo, error: buscaError } = await supabase
+    .from("faturas_anexadas_clientes")
+    .select("id,caminho_pdf")
+    .eq("id", id)
+    .eq("cliente_id", clienteId)
+    .eq("empresa_id", empresaId)
+    .maybeSingle();
+  if (buscaError) throw buscaError;
+  if (!anexo) throw new Error("Fatura anexada não encontrada.");
+
+  const { error } = await supabase
+    .from("faturas_anexadas_clientes")
+    .delete()
+    .eq("id", id)
+    .eq("cliente_id", clienteId)
+    .eq("empresa_id", empresaId);
+  if (error) throw error;
+  return anexo;
+}
+
 export async function atualizarDadosFaturaAnexada(
   id: string,
   empresaId: string,

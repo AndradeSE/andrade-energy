@@ -100,6 +100,10 @@ export async function anexarFaturaCliente(id: string, arquivo: { uri: string; na
   return data as FaturaAnexadaCliente;
 }
 
+export async function excluirFaturaAnexadaCliente(clienteId: string, anexoId: string) {
+  await api.delete(`/clientes/${clienteId}/faturas-anexadas/${anexoId}`);
+}
+
 export async function listarMinhasUnidades() {
   const { data } = await api.get("/clientes/minhas-unidades");
   return data;
