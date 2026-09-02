@@ -2,9 +2,26 @@ import axios from "axios";
 import { obterSessao } from "../storage/session";
 import { avisarSessaoSubstituida } from "../services/session-events";
 
-const apiBaseURL =
-  process.env.EXPO_PUBLIC_API_URL ??
-  "https://andrade-energy-api-vda.onrender.com/api";
+const API_PRODUCAO = "https://andrade-energy-api-vda.onrender.com/api";
+
+function normalizarApiUrl(valor?: string) {
+  const informada = String(valor ?? "").trim();
+  if (!informada) return API_PRODUCAO;
+
+  // Builds antigos receberam do ambiente EAS o host desativado e sem `/api`.
+  // Normalizamos ambos para que uma variável remota obsoleta não quebre login
+  // nem as demais rotas do aplicativo já instalado.
+  const hostAtual = informada
+    .replace(/\/+$/, "")
+    .replace(
+      "https://andrade-energy-api.onrender.com",
+      "https://andrade-energy-api-vda.onrender.com",
+    );
+
+  return /\/api$/i.test(hostAtual) ? hostAtual : `${hostAtual}/api`;
+}
+
+export const apiBaseURL = normalizarApiUrl(process.env.EXPO_PUBLIC_API_URL);
 
 const api = axios.create({
   baseURL: apiBaseURL,
