@@ -8,7 +8,7 @@ import ChoiceField from "../../components/cadastro/ChoiceField";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
-import { excluirUsina as excluirUsinaRemota } from "../../services/usinas.service";
+import { editarUsina as editarUsinaRemota, excluirUsina as excluirUsinaRemota } from "../../services/usinas.service";
 import { supabase } from "../../supabase";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
@@ -62,48 +62,21 @@ export default function EditarUsina() {
   async function salvar() {
     if (!nome.trim() || !numeroInstalacao) return Alert.alert("Dados incompletos", "Informe o nome e o número da instalação.");
     setSalvando(true);
-    const { error } = await supabase.from("usinas").update({
-      nome: nome.trim(), numero_instalacao: numeroInstalacao,
-      potencia_kwp: Number(potencia.replace(",", ".")) || 0,
-      geracao_media: Number(geracaoMedia.replace(",", ".")) || 0,
-      investimento: numeroDaMoeda(investimento),
-      tipo_gd: tipoGd,
-      titular_nome: titular.trim() || null, endereco: endereco.trim() || null,
-    }).eq("id", id);
-    let unidadeError: any = null;
-    if (!error) {
-      if (tipoGd === "GD2") {
-        const { error: erroHerancaGd2 } = await supabase
-          .from("unidades_consumidoras")
-          .update({ tipo_gd: "GD2" })
-          .eq("usina_id", id)
-          .eq("tipo", "BENEFICIARIA");
-        unidadeError = erroHerancaGd2;
-      }
-      const { data: unidadeExistente, error: erroBuscaUnidade } = await supabase
-        .from("unidades_consumidoras")
-        .select("id")
-        .eq("usina_id", id)
-        .eq("tipo", "GERADORA")
-        .maybeSingle();
-      let erroUnidade = erroBuscaUnidade;
-      if (!erroBuscaUnidade) {
-        const payloadUnidade = {
-          usina_id: id, numero: numeroInstalacao, tipo: "GERADORA", titular: titular.trim() || nome.trim(),
-          cpf_titular: cpfTitular.replace(/\D/g, "") || null, distribuidora: "CEMIG",
-          endereco: endereco.trim() || null, modalidade_faturamento: "INJECAO", status: "ATIVA",
-        };
-        const resultado = unidadeExistente?.id
-          ? await supabase.from("unidades_consumidoras").update(payloadUnidade).eq("id", unidadeExistente.id)
-          : await supabase.from("unidades_consumidoras").upsert(payloadUnidade, { onConflict: "numero" });
-        erroUnidade = resultado.error;
-      }
-      unidadeError = unidadeError ?? erroUnidade;
+    try {
+      await editarUsinaRemota(id, {
+        nome: nome.trim(), numero_instalacao: numeroInstalacao,
+        potencia_kwp: Number(potencia.replace(",", ".")) || 0,
+        geracao_media: Number(geracaoMedia.replace(",", ".")) || 0,
+        investimento: numeroDaMoeda(investimento), tipo_gd: tipoGd,
+        titular_nome: titular.trim() || null, cpf_titular: cpfTitular.replace(/\D/g, "") || null,
+        endereco: endereco.trim() || null,
+      });
+      router.back();
+    } catch (erro: any) {
+      Alert.alert("Não foi possível salvar", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
+    } finally {
+      setSalvando(false);
     }
-    setSalvando(false);
-    if (error) Alert.alert("Não foi possível salvar", error.message);
-    else if (unidadeError) Alert.alert("Usina salva", `Os dados da UC geradora não foram atualizados: ${unidadeError.message}`);
-    else router.back();
   }
 
   function confirmarExclusao() {

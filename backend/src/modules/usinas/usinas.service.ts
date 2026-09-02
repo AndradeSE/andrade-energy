@@ -453,7 +453,47 @@ export async function atualizarUsinaService(
   dados: any,
   empresaId?: string,
 ) {
-  return await editarUsina(id, dados, empresaId);
+  const usina = await editarUsina(id, dados, empresaId);
+  const numero = String(usina?.numero_instalacao ?? dados?.numero_instalacao ?? "").replace(/\D/g, "");
+  if (!numero) return usina;
+
+  const cpfTitular = String(dados?.cpf_titular ?? dados?.cpfTitular ?? "").replace(/\D/g, "") || null;
+  const payloadUnidade = {
+    empresa_id: empresaId,
+    usina_id: id,
+    numero,
+    tipo: "GERADORA",
+    titular: usina?.titular_nome ?? usina?.nome ?? "Usina",
+    cpf_titular: cpfTitular,
+    distribuidora: usina?.distribuidora ?? "CEMIG",
+    endereco: usina?.endereco ?? null,
+    modalidade_faturamento: "INJECAO",
+    status: "ATIVA",
+    tipo_gd: usina?.tipo_gd === "GD2" ? "GD2" : "GD1",
+  };
+  const { data: unidadeExistente, error: buscaError } = await supabase
+    .from("unidades_consumidoras")
+    .select("id")
+    .eq("empresa_id", empresaId)
+    .eq("usina_id", id)
+    .eq("tipo", "GERADORA")
+    .maybeSingle();
+  if (buscaError) throw buscaError;
+  const resultado = unidadeExistente?.id
+    ? await supabase.from("unidades_consumidoras").update(payloadUnidade).eq("id", unidadeExistente.id).eq("empresa_id", empresaId)
+    : await supabase.from("unidades_consumidoras").upsert(payloadUnidade, { onConflict: "numero" });
+  if (resultado.error) throw resultado.error;
+
+  if (usina?.tipo_gd === "GD2") {
+    const { error: herancaError } = await supabase
+      .from("unidades_consumidoras")
+      .update({ tipo_gd: "GD2" })
+      .eq("empresa_id", empresaId)
+      .eq("usina_id", id)
+      .eq("tipo", "BENEFICIARIA");
+    if (herancaError) throw herancaError;
+  }
+  return usina;
 }
 
 export async function excluirUsinaService(
