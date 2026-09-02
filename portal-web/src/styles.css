@@ -283,8 +283,9 @@ svg { display: block; }
 
 /* Uma unica rolagem vertical no portal; menus internos nao criam outra pagina rolavel. */
 @media(min-width:761px){
-  .commercial-tabs{flex-wrap:wrap;overflow:visible}
-  .commercial-stack>[id]{scroll-margin-top:76px}
+  .commercial-quick-actions{position:sticky;top:0;z-index:18;padding:10px;border:1px solid #b9ccc2;border-radius:15px;background:rgba(231,239,234,.97);box-shadow:0 8px 22px rgba(5,49,37,.13);backdrop-filter:blur(12px)}
+  .commercial-tabs{top:90px;z-index:17;flex-wrap:wrap;overflow:visible;box-shadow:0 7px 18px rgba(5,49,37,.1);backdrop-filter:blur(12px)}
+  .commercial-stack>[id]{scroll-margin-top:168px}
   .commercial-stack:has(.company-grid) .company-grid{max-height:none;overflow:visible;padding-right:0}
 }
 .tutorial-search{display:grid;gap:6px;padding:0 14px 12px;color:#355348;font-size:11px;font-weight:800}.tutorial-search>div{min-height:42px;display:flex;align-items:center;gap:9px;padding:0 12px;border:1px solid #c8d8d0;border-radius:11px;background:#fff}.tutorial-search svg{width:18px;height:18px;color:#087a46}.tutorial-search input{width:100%;min-width:0;border:0;outline:0;color:#17382d;background:transparent;font:inherit;font-weight:600}.tutorial-search input::placeholder{color:#8b9892}.tutorial-empty{margin:0;padding:18px;border:1px dashed #b9ccc2;border-radius:12px;color:#64766d;background:#fff;text-align:center;font-size:12px;font-weight:700}
