@@ -124,9 +124,9 @@ export async function listarUsinasService(empresaId?: string) {
       calcularProducaoMedia12Meses(usina.id),
       supabase.from("unidades_consumidoras").select("id,percentual_rateio,modalidade_faturamento,consumo_medio_kwh", { count: "exact" }).eq("usina_id", usina.id).eq("status", "ATIVA").neq("tipo", "GERADORA"),
       supabase.from("faturas")
-        .select("tarifa_scee,tarifa_gd,referencia")
+        .select("tarifa_cheia,tarifa_gd,referencia")
         .eq("usina_id", usina.id)
-        .gt("tarifa_scee", 0)
+        .gt("tarifa_cheia", 0)
         .gt("tarifa_gd", 0)
         .order("referencia", { ascending: false })
         .limit(1)
@@ -148,7 +148,7 @@ export async function listarUsinasService(empresaId?: string) {
       },
       producao_media_12_meses: producaoMedia12Meses > 0 ? producaoMedia12Meses : Number(usina.geracao_media ?? 0),
       unidades_alocadas: unidades.count ?? 0,
-      tarifa_scee_referencia: Number(tarifaGd2Recente.data?.tarifa_scee ?? 0),
+      tarifa_scee_referencia: Number(tarifaGd2Recente.data?.tarifa_cheia ?? 0),
       tarifa_gd2_referencia: Number(tarifaGd2Recente.data?.tarifa_gd ?? 0),
       referencia_tarifa_gd2: tarifaGd2Recente.data?.referencia ?? null,
     };
