@@ -251,6 +251,7 @@ export default function NovaUnidade() {
           projetarConsumoIntegral={origem === "fatura"}
           tarifaSceeReferencia={numeroSeguro(usinaSelecionada?.tarifa_scee_referencia)}
           tarifaGd2Referencia={numeroSeguro(usinaSelecionada?.tarifa_gd2_referencia)}
+          historicoTarifasGd2={Array.isArray(usinaSelecionada?.historico_tarifas_gd2) ? usinaSelecionada.historico_tarifas_gd2 : []}
           disponibilidadeGd1={repasseDisponibilidadeGD1}
           disponibilidadeGd2={repasseDisponibilidadeGD2}
           fioBGd2={repasseFioBGD2}

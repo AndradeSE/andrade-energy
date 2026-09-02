@@ -21,6 +21,7 @@ type Props = {
   projetarConsumoIntegral?: boolean;
   tarifaSceeReferencia?: number;
   tarifaGd2Referencia?: number;
+  historicoTarifasGd2?: Array<{ referencia?: string | null; tarifa_scee?: number; tarifa_gd2?: number }>;
   disponibilidadeGd1: EscolhaRepasse;
   disponibilidadeGd2: EscolhaRepasse;
   fioBGd2: EscolhaRepasse;
@@ -36,6 +37,7 @@ export default function RealDiscountInfo({
   projetarConsumoIntegral = false,
   tarifaSceeReferencia = 0,
   tarifaGd2Referencia = 0,
+  historicoTarifasGd2 = [],
   disponibilidadeGd1,
   disponibilidadeGd2,
   fioBGd2,
@@ -73,7 +75,8 @@ export default function RealDiscountInfo({
     if (disponibilidadeGd2 === "REPASSAR") configuracoesRepassadas.push("disponibilidade GD II");
     if (fioBGd2 === "REPASSAR") configuracoesRepassadas.push("Fio B");
   }
-  const previa = contaSemGd ? null : calcularPrevia({ dados: dadosFatura, desconto, modalidadeFaturamento, tipoGd: modalidade, disponibilidadeGd1, disponibilidadeGd2, fioBGd2, consumoIntegralProjetado: projecaoPelaFaturaDoPerfil ? consumoIntegral : 0, tarifaSceeReferencia, tarifaGd2Referencia });
+  const tarifaDaCompetencia = obterTarifaDaCompetencia(dadosFatura, historicoTarifasGd2);
+  const previa = contaSemGd ? null : calcularPrevia({ dados: dadosFatura, desconto, modalidadeFaturamento, tipoGd: modalidade, disponibilidadeGd1, disponibilidadeGd2, fioBGd2, consumoIntegralProjetado: projecaoPelaFaturaDoPerfil ? consumoIntegral : 0, tarifaSceeReferencia: tarifaDaCompetencia?.tarifa_scee || tarifaSceeReferencia, tarifaGd2Referencia: tarifaDaCompetencia?.tarifa_gd2 || tarifaGd2Referencia });
   const descontoRealEstimado = contaSemGd
     ? "0,00%"
     : previa
@@ -213,6 +216,30 @@ function obterConsumoProjetado(dados: Record<string, any> | null | undefined) {
     "consumoFaturado",
     "consumo",
   ));
+}
+
+function competenciaOrdenavel(valor: unknown) {
+  const texto = String(valor ?? "").trim();
+  const iso = /^(\d{4})[-/](\d{1,2})/.exec(texto);
+  if (iso) return Number(iso[1]) * 100 + Number(iso[2]);
+  const br = /^(\d{1,2})[-/](\d{4})/.exec(texto);
+  if (br) return Number(br[2]) * 100 + Number(br[1]);
+  return 0;
+}
+
+function obterTarifaDaCompetencia(
+  dados: Record<string, any> | null | undefined,
+  historico: Array<{ referencia?: string | null; tarifa_scee?: number; tarifa_gd2?: number }>,
+) {
+  const validas = historico
+    .filter((item) => Number(item.tarifa_scee ?? 0) > 0 && Number(item.tarifa_gd2 ?? 0) > 0)
+    .sort((a, b) => competenciaOrdenavel(b.referencia) - competenciaOrdenavel(a.referencia));
+  if (!validas.length) return null;
+  const competenciaFatura = competenciaOrdenavel(dados?.referencia ?? dados?.competencia);
+  if (!competenciaFatura) return validas[0];
+  return validas.find((item) => competenciaOrdenavel(item.referencia) === competenciaFatura)
+    ?? validas.find((item) => competenciaOrdenavel(item.referencia) <= competenciaFatura)
+    ?? validas[0];
 }
 
 function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, disponibilidadeGd1, disponibilidadeGd2, fioBGd2, consumoIntegralProjetado = 0, tarifaSceeReferencia = 0, tarifaGd2Referencia = 0 }: {

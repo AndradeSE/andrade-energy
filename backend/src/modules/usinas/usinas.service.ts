@@ -116,7 +116,7 @@ export async function listarUsinasService(empresaId?: string) {
   const usinas = await listarUsinas(empresaId);
   return Promise.all(usinas.map(async (usina: any) => {
     try {
-      const [dashboard, producaoMedia12Meses, unidades, tarifaGd2Recente] = await Promise.all([
+      const [dashboard, producaoMedia12Meses, unidades, tarifasGd2] = await Promise.all([
         buscarDashboardUsina(usina.id, empresaId),
         calcularProducaoMedia12Meses(usina.id),
         supabase.from("unidades_consumidoras").select("id,percentual_rateio,modalidade_faturamento,consumo_medio_kwh", { count: "exact" }).eq("usina_id", usina.id).eq("status", "ATIVA").neq("tipo", "GERADORA"),
@@ -126,11 +126,16 @@ export async function listarUsinasService(empresaId?: string) {
           .gt("tarifa_cheia", 0)
           .gt("tarifa_gd", 0)
           .order("referencia", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
+          .limit(24),
       ]);
       if (unidades.error) throw unidades.error;
-      if (tarifaGd2Recente.error) throw tarifaGd2Recente.error;
+      if (tarifasGd2.error) throw tarifasGd2.error;
+      const historicoTarifasGd2 = (tarifasGd2.data ?? []).map((item: any) => ({
+        referencia: item.referencia ?? null,
+        tarifa_scee: Number(item.tarifa_cheia ?? 0),
+        tarifa_gd2: Number(item.tarifa_gd ?? 0),
+      }));
+      const tarifaGd2Recente = historicoTarifasGd2[0];
       const energiaDaCompetencia = Number(dashboard.ultimo?.energia_gerada ?? 0);
       const energiaProjetada = energiaDaCompetencia > 0
         ? energiaDaCompetencia
@@ -145,9 +150,10 @@ export async function listarUsinasService(empresaId?: string) {
         },
         producao_media_12_meses: producaoMedia12Meses > 0 ? producaoMedia12Meses : Number(usina.geracao_media ?? 0),
         unidades_alocadas: unidades.count ?? 0,
-        tarifa_scee_referencia: Number(tarifaGd2Recente.data?.tarifa_cheia ?? 0),
-        tarifa_gd2_referencia: Number(tarifaGd2Recente.data?.tarifa_gd ?? 0),
-        referencia_tarifa_gd2: tarifaGd2Recente.data?.referencia ?? null,
+        tarifa_scee_referencia: Number(tarifaGd2Recente?.tarifa_scee ?? 0),
+        tarifa_gd2_referencia: Number(tarifaGd2Recente?.tarifa_gd2 ?? 0),
+        referencia_tarifa_gd2: tarifaGd2Recente?.referencia ?? null,
+        historico_tarifas_gd2: historicoTarifasGd2,
       };
     } catch (error: any) {
       console.error(`[usinas] Falha ao complementar a usina ${usina.id}:`, error?.message ?? error);
@@ -159,6 +165,7 @@ export async function listarUsinasService(empresaId?: string) {
         tarifa_scee_referencia: 0,
         tarifa_gd2_referencia: 0,
         referencia_tarifa_gd2: null,
+        historico_tarifas_gd2: [],
       };
     }
   }));
