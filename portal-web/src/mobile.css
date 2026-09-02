@@ -44,3 +44,51 @@
   .portal-sidebar{width:calc(100% + 16px);margin-left:-8px;padding-inline:8px}
   .portal-dashboard{padding:11px!important}
 }
+
+/* Camada responsiva definitiva: mantém a página na largura da tela e limita
+   rolagem horizontal somente aos controles que realmente precisam dela. */
+@media(max-width:760px), (max-device-width:760px){
+  *,*::before,*::after{box-sizing:border-box}
+  html,body,#root{min-width:0!important;max-width:100%!important;overflow-x:hidden!important}
+  body{overscroll-behavior-x:none}
+  .portal-home{display:block!important;width:100%!important;max-width:100%!important;padding:0 10px 32px!important;overflow:visible!important}
+  .portal-topbar{position:relative;width:calc(100% + 20px)!important;max-width:none!important;margin:0 -10px!important;padding:10px!important;grid-template-columns:minmax(0,1fr) auto!important}
+  .topbar-brand{width:auto!important;max-width:none!important;min-width:0!important}
+  .topbar-brand>span{min-width:0}
+  .topbar-brand strong,.topbar-brand small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .portal-topbar>div:last-child{min-width:0;justify-content:flex-end}
+  .portal-topbar .user-menu-button{width:38px!important;max-width:38px!important;min-width:38px!important;padding:8px!important;font-size:0!important}
+  .portal-topbar .user-menu-button::before{content:"\2630";font-size:18px;line-height:1}
+  .portal-global-search{min-width:0!important;max-width:100%!important}
+  .portal-search-feedback{left:0!important;right:0!important;width:auto!important;max-width:none!important}
+  .portal-layout{display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;margin-top:10px!important}
+  .portal-sidebar{position:sticky!important;top:0!important;width:calc(100% + 20px)!important;max-width:none!important;margin:0 -10px 12px!important;padding:7px 10px!important;overflow:hidden!important}
+  .portal-sidebar nav{display:flex!important;width:100%!important;max-width:100%!important;gap:7px!important;overflow-x:auto!important;overflow-y:hidden!important;scroll-snap-type:x proximity;touch-action:pan-x;-webkit-overflow-scrolling:touch}
+  .portal-sidebar button{flex:0 0 auto!important;max-width:none!important;scroll-snap-align:start}
+  .portal-dashboard{display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;padding:8px 0 0!important;overflow:visible!important}
+  .portal-dashboard>*,.commercial-stack>*,.section-workspace>*,.detail-page>*{min-width:0!important;max-width:100%!important}
+  .dashboard-heading{width:100%;padding-inline:2px}
+  .dashboard-heading h1{font-size:clamp(25px,8vw,31px)!important;line-height:1.08!important}
+  .dashboard-hero,.client-hero,.commercial-home-hero,.subscription-hero{width:100%!important;padding:19px!important;border-radius:16px!important}
+  .dashboard-hero h2,.client-hero h2,.commercial-home-hero h2,.subscription-hero h2{font-size:clamp(21px,6.5vw,28px)!important;overflow-wrap:anywhere}
+  .section-workspace,.detail-tools,.detail-drawer{width:100%!important;max-width:100%!important;padding:16px!important;border-radius:15px!important;overflow:hidden}
+  .commercial-stack,.commercial-columns,.commercial-finance,.commercial-metrics,.commercial-client-grid,.commercial-apps,.subscription-page,.generator-brand-page,.generator-brand-layout{width:100%!important;max-width:100%!important;min-width:0!important}
+  .commercial-columns,.commercial-finance,.commercial-client-grid,.commercial-apps>div,.generator-brand-layout{grid-template-columns:minmax(0,1fr)!important}
+  .commercial-tabs,.client-quick-nav{width:100%!important;max-width:100%!important;overflow-x:auto!important;overflow-y:hidden!important;touch-action:pan-x;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+  .commercial-tabs button,.client-quick-nav button{flex:0 0 auto;scroll-snap-align:start}
+  .data-toolbar{width:auto!important;max-width:none!important;margin:-16px -16px 12px!important}
+  .data-table-wrap{max-width:100%!important;overflow-x:auto!important;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+  .attached-invoice-list article{grid-template-columns:minmax(0,1fr)!important;gap:8px!important}
+  .attached-invoice-list article>span{grid-column:auto!important}
+  .attached-invoice-list a,.attached-invoice-list button{display:block;width:100%!important;text-align:center!important}
+  .commercial-generator-detail{padding:18px!important;overflow:hidden}
+  .commercial-generator-detail dl{grid-template-columns:minmax(0,1fr)!important}
+  img,video,canvas,svg{max-width:100%;height:auto}
+}
+
+@media(max-width:390px){
+  .portal-home{padding-inline:8px!important}
+  .portal-topbar,.portal-sidebar{width:calc(100% + 16px)!important;margin-inline:-8px!important}
+  .section-workspace,.detail-tools,.detail-drawer{padding:14px!important}
+  .data-toolbar{margin:-14px -14px 11px!important;padding:14px!important}
+}
