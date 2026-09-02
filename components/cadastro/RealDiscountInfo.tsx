@@ -234,8 +234,18 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
       : energiaCompensada;
   if (tarifaCheia <= 0) {
     const energiaCheia = n(dados, "valor_energia_cheia", "valorEnergiaCheia");
-    const baseTarifa = baseKwh;
-    tarifaCheia = baseTarifa > 0 ? energiaCheia / baseTarifa : 0;
+    const iluminacao = n(dados, "valor_iluminacao_publica", "valorIluminacaoPublica");
+    const bandeira = n(dados, "valor_bandeira", "valorBandeira");
+    const extras = n(dados, "encargos_adicionais", "encargosAdicionais");
+    // Algumas contas convencionais anexadas ao perfil não persistem o campo
+    // tarifaCheia, embora tragam o valor energético. Primeiro usamos essa
+    // parcela; como último recurso retiramos do total somente os itens que não
+    // entram na referência (iluminação, bandeira e encargos extraordinários).
+    const valorEnergeticoProjetado = energiaCheia > 0
+      ? energiaCheia
+      : n(dados, "valor_energia_concessionaria", "valorEnergiaConcessionaria") ||
+        Math.max(0, valorCemig - iluminacao - bandeira - extras);
+    tarifaCheia = baseKwh > 0 ? valorEnergeticoProjetado / baseKwh : 0;
   }
   if (tarifaCheia <= 0 || valorCemig <= 0 || baseKwh <= 0) return null;
 
