@@ -1418,13 +1418,17 @@ function UnitTools({
       unitNumber
         ? fetch(`${API_URL}/faturas?uc=${encodeURIComponent(unitNumber)}`, { headers })
         : Promise.resolve(null),
+      unit.cliente_id
+        ? fetch(`${API_URL}/clientes/${unit.cliente_id}/faturas-anexadas`, { headers })
+        : Promise.resolve(null),
     ])
-      .then(async ([receiptResponse, connectionResponse, invoiceResponse]) => ({
+      .then(async ([receiptResponse, connectionResponse, invoiceResponse, attachedResponse]) => ({
         receipt: receiptResponse.ok ? await receiptResponse.json() : null,
         connections: connectionResponse.ok
           ? await connectionResponse.json()
           : {},
         invoices: invoiceResponse?.ok ? await invoiceResponse.json() : [],
+        attached: attachedResponse?.ok ? await attachedResponse.json() : [],
       }))
       .then((data) => {
         setReceipt(data.receipt);
@@ -1438,7 +1442,12 @@ function UnitTools({
           : Array.isArray(data.invoices?.data)
             ? data.invoices.data
             : [];
-        setLatestInvoice(invoices[0] ?? null);
+        const attached = Array.isArray(data.attached) ? data.attached : [];
+        const matchingAttachment = attached.find((item: WebRecord) => {
+          const invoiceData = item?.dadosFatura && typeof item.dadosFatura === "object" ? item.dadosFatura as WebRecord : {};
+          return String(invoiceData.uc ?? invoiceData.numero_instalacao ?? "").replace(/\D/g, "") === unitNumber.replace(/\D/g, "");
+        });
+        setLatestInvoice(invoices[0] ?? (matchingAttachment?.dadosFatura as WebRecord) ?? null);
       })
       .catch(() => undefined);
   }, [unit.id, token, toolsRefresh]);
@@ -1596,6 +1605,7 @@ function UnitTools({
         : detectedGd === "MISTA"
           ? "GD I + GD II (mista)"
           : "Aguardando a primeira fatura";
+  const selectedPlant = plants.find((plant) => String(plant.id) === allocation.usinaId);
   return (
     <article className={`unit-tool-card ${expanded ? "expanded" : ""}`}>
       <button
@@ -1821,7 +1831,12 @@ function UnitTools({
                 desconto={allocation.desconto}
                 tipoGd={detectedGd}
                 modalidadeFaturamento={allocation.modalidade}
+                consumoProjetado={allocation.consumoMedio}
                 dadosFatura={latestInvoice}
+                projetarConsumoIntegral
+                tarifaSceeReferencia={Number(selectedPlant?.tarifa_scee_referencia ?? 0)}
+                tarifaGd2Referencia={Number(selectedPlant?.tarifa_gd2_referencia ?? 0)}
+                historicoTarifasGd2={Array.isArray(selectedPlant?.historico_tarifas_gd2) ? selectedPlant.historico_tarifas_gd2 as Array<{ referencia?: string | null; tarifa_scee?: number; tarifa_gd2?: number }> : []}
                 gd1={allocation.gd1}
                 gd2={allocation.gd2}
                 fioB={allocation.fioB}
@@ -1940,6 +1955,27 @@ function RecordDetails({
   }>({ units: [], invoices: [], attached: [] });
   const [clientArea, setClientArea] = useState<"overview" | "units" | "attached" | "invoices">("overview");
   const [relatedKey, setRelatedKey] = useState(0);
+  async function deleteAttachedInvoice(invoice: WebRecord) {
+    const clientId = String(record.id ?? "");
+    const invoiceId = String(invoice.id ?? "");
+    if (!clientId || !invoiceId || !window.confirm("Excluir definitivamente esta conta anexada do perfil do cliente?")) return;
+    setWorking(true);
+    const response = await fetch(`${API_URL}/clientes/${clientId}/faturas-anexadas/${invoiceId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    setWorking(false);
+    if (!response.ok) {
+      setMessage(data.message ?? "Não foi possível excluir a conta anexada.");
+      return;
+    }
+    setRelated((current) => ({
+      ...current,
+      attached: current.attached.filter((item) => String(item.id) !== invoiceId),
+    }));
+    setMessage("Conta anexada excluída do perfil.");
+  }
   useEffect(() => {
     const id = String(record.id ?? "");
     if (!id) return;
@@ -2449,7 +2485,7 @@ function RecordDetails({
           </div>
           {clientArea === "overview" ? <div className="client-area-empty"><strong>Gestão organizada por área</strong><span>Use os atalhos acima para consultar somente as informações necessárias.</span></div> : null}
           {clientArea === "units" ? <><div className="related-heading"><h3>Unidades consumidoras</h3><span>Lista exclusiva de UCs</span></div><div className="clean-unit-list">{related.units.map((unit) => <article key={String(unit.id)}><b>UC {String(unit.numero ?? "Não identificada")}</b><span>{String(unit.status ?? "ATIVA")}</span></article>)}{!related.units.length ? <p>Nenhuma UC cadastrada.</p> : null}</div></> : null}
-          {clientArea === "attached" ? <><div className="related-heading"><h3>Contas vinculadas ao CPF</h3><span>Escolha uma conta para cadastrar a UC</span></div><div className="attached-invoice-list">{related.attached.map((invoice) => { const invoiceData = (invoice.dadosFatura && typeof invoice.dadosFatura === "object" ? invoice.dadosFatura : {}) as WebRecord; const numero = String(invoiceData.uc ?? invoiceData.numero_instalacao ?? "").replace(/\D/g, ""); return <article key={String(invoice.id)}><span><strong>{String(invoice.nome ?? "Conta da concessionária")}</strong><small>{numero ? `UC ${numero}` : "UC não identificada"}</small></span>{invoice.url ? <a href={String(invoice.url)} target="_blank" rel="noreferrer">Abrir PDF</a> : null}<button disabled={working || !numero} onClick={() => void addUnitFromAttachedInvoice(invoice)}>{numero ? "Adicionar UC por esta fatura" : "UC não identificada"}</button></article>; })}{!related.attached.length ? <p>Nenhuma conta vinculada foi enviada pelo consumidor.</p> : null}</div></> : null}
+          {clientArea === "attached" ? <><div className="related-heading"><h3>Contas vinculadas ao CPF</h3><span>Escolha uma conta para cadastrar a UC</span></div><div className="attached-invoice-list">{related.attached.map((invoice) => { const invoiceData = (invoice.dadosFatura && typeof invoice.dadosFatura === "object" ? invoice.dadosFatura : {}) as WebRecord; const numero = String(invoiceData.uc ?? invoiceData.numero_instalacao ?? "").replace(/\D/g, ""); return <article key={String(invoice.id)}><span><strong>{String(invoice.nome ?? "Conta da concessionária")}</strong><small>{numero ? `UC ${numero}` : "UC não identificada"}</small></span>{invoice.url ? <a href={String(invoice.url)} target="_blank" rel="noreferrer">Abrir PDF</a> : null}<button disabled={working || !numero} onClick={() => void addUnitFromAttachedInvoice(invoice)}>{numero ? "Adicionar UC por esta fatura" : "UC não identificada"}</button>{isGenerator ? <button className="delete-attached" disabled={working} onClick={() => void deleteAttachedInvoice(invoice)}>Excluir</button> : null}</article>; })}{!related.attached.length ? <p>Nenhuma conta vinculada foi enviada pelo consumidor.</p> : null}</div></> : null}
           {clientArea === "invoices" ? <><div className="related-heading"><h3>Histórico de faturas</h3><span>{related.invoices.length} documento{related.invoices.length === 1 ? "" : "s"}</span></div><div className="related-invoices">{related.invoices.map((invoice) => <article key={String(invoice.id)}><strong>{String(invoice.referencia ?? "Fatura")}</strong><span>{Number(invoice.valor_total_unificado ?? invoice.valor_total ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span><small>{String(invoice.status ?? "")}</small></article>)}</div></> : null}
         </div>
       ) : null}
