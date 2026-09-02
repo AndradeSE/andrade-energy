@@ -4,6 +4,7 @@ from pathlib import Path
 import asyncio
 import subprocess
 import tempfile
+import wave
 
 import edge_tts
 from PIL import Image, ImageDraw, ImageFont
@@ -260,27 +261,59 @@ def render(name, steps, narration):
     ffmpeg = ROOT / ".codex-ffmpeg" / "node_modules" / "ffmpeg-static" / "ffmpeg.exe"
     with tempfile.TemporaryDirectory(prefix=f"{name}-", dir=ROOT / "tmp") as temp:
         folder = Path(temp)
-        voice = folder / "voice.mp3"
-        asyncio.run(gerar_voz(narration, voice))
-        seconds_per_step = 6
-        frames_per_step = round(seconds_per_step * FPS)
-        total = len(steps) * frames_per_step
-        frame_number = 0
+        step_audio = []
+        step_seconds = []
         for index, step in enumerate(steps):
+            mp3 = folder / f"voice-{index}.mp3"
+            wav = folder / f"voice-{index}.wav"
+            texto = f"{step['title']}. {step['tip']}"
+            asyncio.run(gerar_voz(texto, mp3))
+            subprocess.run([
+                str(ffmpeg), "-y", "-i", str(mp3), "-ar", "44100", "-ac", "2", str(wav),
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            with wave.open(str(wav), "rb") as arquivo:
+                duracao_voz = arquivo.getnframes() / arquivo.getframerate()
+            # 350 ms antes da fala e uma pausa curta depois da conclusão.
+            duracao_etapa = max(4.2, duracao_voz + 1.15)
+            step_audio.append(wav)
+            step_seconds.append(duracao_etapa)
+
+        frames_by_step = [round(seconds * FPS) for seconds in step_seconds]
+        total = sum(frames_by_step)
+        frame_number = 0
+        rendered_before = 0
+        for index, step in enumerate(steps):
+            frames_per_step = frames_by_step[index]
             for local in range(frames_per_step):
-                global_frame = index * frames_per_step + local + 1
-                frame = draw_browser(step, global_frame / total, local / (frames_per_step - 1))
+                global_frame = rendered_before + local + 1
+                frame = draw_browser(step, global_frame / total, local / max(1, frames_per_step - 1))
                 frame.save(folder / f"frame-{frame_number:05d}.jpg", quality=88)
                 frame_number += 1
+            rendered_before += frames_per_step
         music = ROOT / "tmp" / "tutorials-por-funcao" / "trilha-instrumental.wav"
-        subprocess.run([
-            str(ffmpeg), "-y", "-framerate", str(FPS), "-i", str(folder / "frame-%05d.jpg"),
-            "-i", str(voice), "-stream_loop", "-1", "-i", str(music),
-            "-filter_complex", f"[1:a]adelay=350|350,apad[voice];[2:a]volume=0.08,atrim=duration={total / FPS:.3f}[music];[voice][music]amix=inputs=2:normalize=0,alimiter=limit=0.92[a]",
+        command = [str(ffmpeg), "-y", "-framerate", str(FPS), "-i", str(folder / "frame-%05d.jpg")]
+        for audio in step_audio:
+            command.extend(["-i", str(audio)])
+        command.extend(["-stream_loop", "-1", "-i", str(music)])
+        voice_filters = []
+        voice_labels = []
+        for index, seconds in enumerate(step_seconds):
+            label = f"voice{index}"
+            voice_filters.append(f"[{index + 1}:a]adelay=350|350,apad,atrim=duration={seconds:.3f}[{label}]")
+            voice_labels.append(f"[{label}]")
+        music_input = len(step_audio) + 1
+        total_seconds = total / FPS
+        filters = ";".join(voice_filters)
+        filters += f";{''.join(voice_labels)}concat=n={len(step_audio)}:v=0:a=1[voice]"
+        filters += f";[{music_input}:a]volume=0.08,atrim=duration={total_seconds:.3f}[music]"
+        filters += ";[voice][music]amix=inputs=2:normalize=0,alimiter=limit=0.92[a]"
+        command.extend([
+            "-filter_complex", filters,
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p",
-            "-map", "0:v", "-map", "[a]", "-c:a", "aac", "-b:a", "128k", "-t", f"{total / FPS:.3f}",
+            "-map", "0:v", "-map", "[a]", "-c:a", "aac", "-b:a", "128k", "-t", f"{total_seconds:.3f}",
             "-movflags", "+faststart", str(OUTPUT / f"{name}.mp4"),
-        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        ])
+        subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 GENERATOR_MENU = ["Visão geral", "Clientes", "Unidades", "Usinas", "Faturas", "Financeiro"]
