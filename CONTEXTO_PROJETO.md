@@ -396,3 +396,14 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - O backend remove `cpf_titular` do objeto persistido em `usinas` tanto no serviço quanto no repositório; o documento pertence exclusivamente à UC geradora. O `/health` informa o commit publicado para facilitar a conferência do Render.
 - A projeção de desconto da UC compara o total que seria pago sem a Andrade com o total unificado. A fatura original anexada tem prioridade sobre a fatura processada, preservando SCEE e a tarifa GD II para recalcular o Fio B ao vivo; disponibilidade e Fio B absorvidos reduzem o total da concessionária sem inflar o desconto acima do contratado.
 - A autonomia da usina também é projetada antes da primeira competência: as UCs ativas descontam sua alocação da geração média da usina, e o card deixa de exibir zero enquanto ainda não houver fatura de produção processada.
+
+# Atualização 02/09/2026 — referência tarifária mensal na simulação sem GD
+
+- A divergência da projeção também ocorria no Expo e não era causada por cache ou canal OTA. A causa era a ausência de uma referência tarifária GD II compatível com a competência da conta convencional usada na simulação.
+- O backend agora devolve até 24 referências tarifárias GD II válidas por usina, mantendo competência, tarifa SCEE/cheia e tarifa compensada GD II.
+- Para simular uma fatura ainda sem GD, o app procura primeiro a tarifa GD da mesma competência. Se não existir, utiliza a última competência anterior disponível; se não houver anterior, usa a referência válida mais recente.
+- A regra vale no primeiro cadastro e na edição da UC. As tarifas não ficam fixas, pois SCEE e GD II podem variar mensalmente.
+- A fórmula funcional do desconto foi preservada; a mudança está na escolha da fonte tarifária real usada para calcular a diferença do Fio B.
+- Commit funcional: `c4b7b0e` (`fix: usar tarifa gd da competencia na projecao`).
+- OTA Gerador publicada no canal `preview-gerador`, runtime `1.0.0`, grupo `0d6030bc-c348-49b9-a4b4-c58e4a78907c`, update Android `01a062ca-88e9-746a-88b8-c4b8363f016a`.
+- Deploy do backend correspondente foi confirmado como Live no Render pelo usuário.
