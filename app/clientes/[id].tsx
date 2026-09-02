@@ -7,8 +7,8 @@ import { ActivityIndicator, Alert, Linking, Pressable, RefreshControl, StyleShee
 import { AppHeader, Badge, Button, Card, ElasticScrollView as ScrollView, EmptyState, Loading, Screen, Section } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
-import { buscarCliente, confirmarCadastroCliente, listarUnidadesCliente, obterSolicitacaoCadastroCliente, SolicitacaoCadastroCliente } from "../../services/clientes.service";
-import { analisarFatura, buscarFaturasCliente, calcularMediaConsumoFatura } from "../../services/faturas.service";
+import { anexarFaturaCliente, buscarCliente, confirmarCadastroCliente, listarUnidadesCliente, obterSolicitacaoCadastroCliente, SolicitacaoCadastroCliente } from "../../services/clientes.service";
+import { buscarFaturasCliente, calcularMediaConsumoFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const moeda = (v: unknown) => Number(v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -59,8 +59,14 @@ export default function ClienteDetalhe() {
 
       setImportandoUc(true);
       const pdf = arquivo.assets[0];
-      const analise = await analisarFatura(pdf.uri, pdf.name);
-      const dados = analise?.dados ?? {};
+      // O arquivo local também passa a integrar o perfil. Assim a mesma base
+      // tarifária usada na criação continua disponível ao reabrir a UC.
+      const anexo = await anexarFaturaCliente(id, {
+        uri: pdf.uri,
+        name: pdf.name,
+        mimeType: pdf.mimeType,
+      });
+      const dados = anexo?.dadosFatura ?? {};
       faturaLida = true;
       const numero = String(dados.uc ?? dados.numero_instalacao ?? dados.numeroInstalacao ?? "").replace(/\D/g, "");
       if (!numero) throw new Error("Não foi possível identificar o número da unidade consumidora.");
