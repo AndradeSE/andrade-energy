@@ -3350,6 +3350,8 @@ function PortalHome({
             <MySubscriptionPanel token={session.token} />
           ) : activeSection === "Aplicativos" ? (
             <AppDownloadsPanel type={type} />
+          ) : activeSection === "Operação" && session.token ? (
+            <OperationPanel token={session.token} onOpen={(record) => setSelectedRecord(record)} />
           ) : activeSection === "Tutoriais da web" ? (
             <section className="section-workspace"><span className="section-label">CENTRAL DE AJUDA</span><h2>Tutoriais da web</h2><p>Aprenda as funções do portal no ambiente correspondente ao seu perfil.</p><TutorialCenter profile={type} defaultOpen /></section>
           ) : activeSection === "Perfil" && session.token ? (
@@ -3483,6 +3485,40 @@ function PortalHome({
       </div>
     </main>
   );
+}
+
+function OperationPanel({ token, onOpen }: { token: string; onOpen: (record: WebRecord) => void }) {
+  const [summary, setSummary] = useState<any>();
+  const [records, setRecords] = useState<WebRecord[]>([]);
+  const [selected, setSelected] = useState("");
+  const [loading, setLoading] = useState(true);
+  const load = useCallback(async (competencia?: string) => {
+    setLoading(true);
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const suffix = competencia ? `?competencia=${encodeURIComponent(competencia)}` : "";
+      const [summaryResponse, recordsResponse] = await Promise.all([fetch(`${API_URL}/fechamentos/resumo${suffix}`, { headers }), fetch(`${API_URL}/fechamentos`, { headers })]);
+      const nextSummary = await summaryResponse.json();
+      const nextRecords = await recordsResponse.json();
+      if (!summaryResponse.ok) throw new Error(nextSummary.message ?? "Não foi possível carregar a operação.");
+      setSummary(nextSummary);
+      setSelected(nextSummary.competencia);
+      setRecords((Array.isArray(nextRecords) ? nextRecords : []).filter((item) => String(item.competencia ?? "").slice(0, 7) === nextSummary.competencia));
+    } catch (error) { window.alert(error instanceof Error ? error.message : "Não foi possível carregar a operação."); }
+    finally { setLoading(false); }
+  }, [token]);
+  useEffect(() => { void load(); }, [load]);
+  const money = (value: unknown) => Number(value ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const power = (value: unknown) => `${Number(value ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kWh`;
+  if (loading && !summary) return <div className="data-state">Consolidando a competência...</div>;
+  return <div className="operation-workspace">
+    <div className="operation-periods">{(summary?.competencias ?? []).map((item: string) => <button className={selected === item ? "active" : ""} key={item} onClick={() => void load(item)}>{item.split("-").reverse().join("/")}</button>)}</div>
+    <section className="operation-hero"><div><small>FECHAMENTO DA COMPETÊNCIA</small><h2>{selected.split("-").reverse().join("/")}</h2><p>Produção, rateio, faturamento e recebimentos consolidados automaticamente.</p></div><span className={summary?.prontoParaFechar ? "ready" : "pending"}>{summary?.prontoParaFechar ? "Conferida" : `${summary?.alertas?.length ?? 0} pendência(s)`}</span></section>
+    <div className="operation-metrics"><article><small>ENERGIA GERADA</small><strong>{power(summary?.energiaGerada)}</strong></article><article><small>ENERGIA ALOCADA</small><strong>{power(summary?.energiaAlocada)}</strong></article><article><small>DISPONÍVEL</small><strong>{power(summary?.energiaDisponivel)}</strong></article><article><small>OCUPAÇÃO</small><strong>{Number(summary?.ocupacao ?? 0).toFixed(1)}%</strong></article></div>
+    <div className="operation-columns"><section className="operation-finance"><small>RESULTADO FINANCEIRO</small><h3>{money(summary?.receitaPrevista)}</h3><div><span>Recebido <b>{money(summary?.receitaRecebida)}</b></span><span>Pendente <b>{money(summary?.receitaPendente)}</b></span><span>Vencidas <b>{summary?.faturasVencidas ?? 0}</b></span></div></section><section className="operation-check"><small>CONFERÊNCIA</small><div><span>Usinas processadas <b>{summary?.fechamentos ?? 0}/{summary?.totalUsinas ?? 0}</b></span><span>Faturas emitidas <b>{summary?.totalFaturas ?? 0}</b></span><span>Faturas pagas <b>{summary?.faturasPagas ?? 0}</b></span><span>Faturas pendentes <b>{summary?.faturasPendentes ?? 0}</b></span></div></section></div>
+    {(summary?.alertas ?? []).length ? <section className="operation-alerts"><strong>Pendências antes do fechamento</strong>{summary.alertas.map((alert: string) => <p key={alert}>• {alert}</p>)}</section> : null}
+    <section className="section-workspace"><span className="section-label">USINAS NESTA COMPETÊNCIA</span><div className="operation-plants">{records.length ? records.map((item: any) => <button key={item.id} onClick={() => onOpen(item)}><span><strong>{item.usinas?.nome ?? "Usina"}</strong><small>{power(item.energia_gerada)} gerados · {power(item.energia_alocada)} alocados</small></span><b>{Number(item.ocupacao ?? 0).toFixed(1)}%</b></button>) : <div className="data-state">Nenhuma usina processada nesta competência.</div>}</div></section>
+  </div>;
 }
 
 function TutorialCenter({ profile, defaultOpen = false }: { profile: AccessType; defaultOpen?: boolean }) {

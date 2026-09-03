@@ -30,7 +30,10 @@ export async function resumoOperacaoController(
   res: Response
 ) {
   try {
-    const data = await obterResumoOperacao(empresaIdDaRequisicao(req));
+    const data = await obterResumoOperacao(
+      empresaIdDaRequisicao(req),
+      typeof req.query.competencia === "string" ? req.query.competencia : undefined,
+    );
 
     res.json(data);
   } catch (err: any) {

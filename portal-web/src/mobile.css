@@ -102,3 +102,4 @@
   .section-workspace,.detail-tools,.detail-drawer{padding:14px!important}
   .data-toolbar{margin:-14px -14px 11px!important;padding:14px!important}
 }
+@media(max-width:760px){.operation-hero{align-items:flex-start;padding:21px;flex-direction:column}.operation-hero h2{font-size:1.55rem}.operation-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.operation-metrics article{padding:15px}.operation-metrics strong{font-size:1.05rem}.operation-columns{grid-template-columns:1fr}.operation-finance>div{grid-template-columns:1fr}.operation-check>div{grid-template-columns:1fr 1fr}.operation-plants>button{align-items:flex-start;gap:12px}.operation-plants small{line-height:1.4}}

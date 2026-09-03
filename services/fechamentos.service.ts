@@ -5,8 +5,8 @@ export async function listarFechamentos() {
   return data;
 }
 
-export async function obterResumoOperacao() {
-  const { data } = await api.get("/fechamentos/resumo");
+export async function obterResumoOperacao(competencia?: string) {
+  const { data } = await api.get("/fechamentos/resumo", { params: competencia ? { competencia } : undefined });
   return data;
 }
 

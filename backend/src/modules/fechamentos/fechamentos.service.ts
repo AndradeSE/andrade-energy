@@ -15,8 +15,8 @@ export async function buscarFechamento(id: string, empresaId: string) {
   return await buscarFechamentoRepository(id, empresaId);
 }
 
-export async function obterResumoOperacao(empresaId: string) {
-  return await obterResumoOperacaoRepository(empresaId);
+export async function obterResumoOperacao(empresaId: string, competencia?: string) {
+  return await obterResumoOperacaoRepository(empresaId, competencia);
 }
 
 export async function fecharUsina({
