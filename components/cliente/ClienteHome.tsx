@@ -18,6 +18,7 @@ import EmptyState from "../ui/EmptyState";
 import Button from "../ui/Button";
 import { isAxiosError } from "axios";
 import { useAuth } from "../../contexts/AuthContext";
+import { useEmpresa } from "../../contexts/EmpresaContext";
 import Card from "../ui/Card";
 import Loading from "../ui/Loading";
 import Screen from "../ui/Screen";
@@ -30,6 +31,7 @@ import QuickAccessCarousel from "../QuickAccessCarousel";
 
 export default function ClienteHome() {
   const { logout, user } = useAuth();
+  const { empresa } = useEmpresa();
   const { data, isLoading, error, refetch } = useDashboard();
   const [atualizando, setAtualizando] = useState(false);
   async function atualizarPagina() {
@@ -80,6 +82,11 @@ export default function ClienteHome() {
     valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const energia = (valor: number) =>
     `${valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kWh`;
+  const concessionariaVigente = String(data.distribuidora ?? "").trim();
+  const nomeEmpresa = String(empresa.nome || "Andrade Energy").trim();
+  const nomeFaturaConcessionaria = concessionariaVigente
+    ? `Fatura ${concessionariaVigente}`
+    : "Fatura da concessionária";
 
   return (
     <SafeAreaView edges={["left", "right", "bottom"]} style={styles.screen}>
@@ -136,17 +143,17 @@ export default function ClienteHome() {
           items={[
             {
               icon: "receipt-outline",
-              label: "Faturas",
+              label: `Faturas ${nomeEmpresa}`,
               onPress: () => router.push("/faturas"),
             },
             {
               icon: "document-attach-outline",
-              label: "Conta de luz",
+              label: nomeFaturaConcessionaria,
               onPress: () => router.push("/contas-de-luz"),
             },
             {
               icon: "cloud-upload-outline",
-              label: "Anexar conta",
+              label: `Anexar ${nomeFaturaConcessionaria.toLowerCase()}`,
               onPress: () => {
                 const clienteId = String(user?.cliente_id ?? "");
                 if (!clienteId) {

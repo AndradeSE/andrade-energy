@@ -24,8 +24,27 @@ export async function obterEmpresaAtual(usuario: any) {
   const { data, error } = await supabase.from("empresas").select("*").eq("id", empresaId).eq("ativo", true).maybeSingle();
   if (error) throw error;
   const base = data ?? IDENTIDADE_ANDRADE;
-  if (String(usuario?.perfil).toUpperCase() !== "GESTOR") return base;
-  const { data: identidade, error: erroIdentidade } = await supabase.from("identidades_geradores").select("*").eq("gerador_id", usuario.id).eq("ativo", true).maybeSingle();
+  const perfil = String(usuario?.perfil).toUpperCase();
+  let geradorId = perfil === "GESTOR" ? String(usuario.id) : "";
+
+  // O consumidor herda a identidade do gerador que o cadastrou. Assim a
+  // marca acompanha toda a jornada mesmo quando ambos pertencem à empresa
+  // Andrade padrão no isolamento de dados.
+  if (perfil === "CONSUMIDOR" && usuario?.cliente_id) {
+    const { data: vinculo, error: erroVinculo } = await supabase
+      .from("solicitacoes_cadastro_clientes")
+      .select("gestor_id")
+      .eq("cliente_id", usuario.cliente_id)
+      .not("gestor_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (erroVinculo) throw erroVinculo;
+    geradorId = String(vinculo?.gestor_id ?? "");
+  }
+
+  if (!geradorId) return base;
+  const { data: identidade, error: erroIdentidade } = await supabase.from("identidades_geradores").select("*").eq("gerador_id", geradorId).eq("ativo", true).maybeSingle();
   if (erroIdentidade) throw erroIdentidade;
   return identidade ? { ...base, ...identidade, id: base.id, slug: base.slug, identidade_personalizada: true, identidade_gerador: true, tecnologia_andrade_energy: true } : base;
 }
