@@ -20,7 +20,7 @@ import {
 
 import { AppHeader, Card, Divider, ElasticScrollView as ScrollView, EmptyState, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
-import { buscarFatura, confirmarFaturaRascunho, formatarDataBrasileira, gerarCobrancaAsaas, regenerarDocumentosFatura } from "../../services/faturas.service";
+import { buscarFatura, confirmarFaturaRascunho, formatarDataBrasileira, gerarCobrancaAsaas, obterRelatorioCalculoFatura, regenerarDocumentosFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const formatarMoeda = (valor: number) =>
@@ -219,6 +219,19 @@ export default function DetalheFatura() {
     }
   }
 
+  async function baixarRelatorioCalculo() {
+    const nome = `relatorio-calculo-${referenciaArquivo}.pdf`;
+    try {
+      setDocumentoBaixando(nome);
+      const url = await obterRelatorioCalculoFatura(String(id));
+      await baixarDocumento(url, nome);
+    } catch (erro: any) {
+      Alert.alert("Não foi possível gerar o relatório", erro?.response?.data?.message ?? "Confira sua conexão e tente novamente.");
+    } finally {
+      setDocumentoBaixando(undefined);
+    }
+  }
+
   const referenciaArquivo = String(fatura.referencia ?? "fatura")
     .replace(/[^a-zA-Z0-9_-]/g, "-");
 
@@ -312,6 +325,12 @@ export default function DetalheFatura() {
             label="Fatura Andrade Energy"
             loading={documentoBaixando === `unificada-${referenciaArquivo}.pdf`}
             onPress={() => baixarDocumento(fatura.pdf_unificada_url, `unificada-${referenciaArquivo}.pdf`)}
+          />
+          <DownloadButton
+            available
+            label="Relatório do cálculo"
+            loading={documentoBaixando === `relatorio-calculo-${referenciaArquivo}.pdf`}
+            onPress={() => void baixarRelatorioCalculo()}
           />
           <DownloadButton
             available={Boolean(fatura.pdf_boleto_url)}

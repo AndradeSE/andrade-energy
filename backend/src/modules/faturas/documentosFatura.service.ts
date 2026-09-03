@@ -10,6 +10,7 @@ import { interpretarFatura } from "../../services/ocr/parser.service";
 
 const BUCKET = "faturas";
 export const VERSAO_LAYOUT_FATURA = "layout-20260829-v2";
+export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20260902-v1";
 const VERDE = "#107C5C";
 const VERDE_ESCURO = "#07533D";
 const VERDE_CLARO = "#E8F6F0";
@@ -462,6 +463,135 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
   });
 }
 
+/**
+ * Memória de cálculo entregue junto da fatura. O documento usa somente os
+ * valores efetivamente persistidos no faturamento, para que cliente e gestor
+ * consigam reproduzir o total sem depender de estimativas da interface.
+ */
+export async function gerarPdfRelatorioCalculo(fatura: any) {
+  fatura = await incluirDadosDaUCNaFatura(await preencherDadosTecnicosDaContaOriginal(fatura));
+  return new Promise<Buffer>((resolve, reject) => {
+    const pdf = new PDFDocument({
+      size: "A4",
+      margins: { top: 42, right: 48, bottom: 42, left: 48 },
+      info: { Title: `Memória de cálculo - ${fatura.referencia ?? "fatura"}` },
+    });
+    const partes: Buffer[] = [];
+    pdf.on("data", (parte) => partes.push(parte));
+    pdf.on("end", () => resolve(Buffer.concat(partes)));
+    pdf.on("error", reject);
+
+    const cliente = fatura.clientes ?? {};
+    const unidade = fatura.unidades_consumidoras ?? {};
+    const modalidade = String(fatura.modalidade_faturamento ?? "COMPENSACAO").toUpperCase();
+    const gd = temGD2(fatura) ? "GD II" : "GD I";
+    const somenteAndrade = Boolean(fatura.fatura_somente_andrade);
+    const energiaBase = numero(fatura.base_calculo_kwh ?? (modalidade === "INJECAO" ? fatura.energia_injetada : fatura.energia_compensada));
+    const tarifaCheia = numero(fatura.tarifa_cheia);
+    const tarifaAndrade = numero(fatura.tarifa_andrade) || tarifaCheia * (1 - numero(fatura.desconto_contratado_percentual ?? fatura.desconto_percentual) / 100);
+    const valorEnergiaCheia = numero(fatura.valor_energia_cheia) || energiaBase * tarifaCheia;
+    const valorAndradeBruto = energiaBase * tarifaAndrade;
+    const disponibilidade = numero(fatura.custo_disponibilidade);
+    const disponibilidadeRepassada = numero(fatura.custo_disponibilidade_repassado);
+    const disponibilidadeAbsorvida = numero(fatura.valor_absorvido_disponibilidade);
+    const fioB = numero(fatura.diferenca_fio_b);
+    const fioBRepassado = numero(fatura.diferenca_fio_b_repassada);
+    const fioBAbsorvido = numero(fatura.valor_absorvido_fio_b);
+    const valorAndrade = numero(fatura.valor_usina ?? fatura.valor_andrade);
+    const valorCemigOriginal = numero(fatura.valor_cemig);
+    const valorCemigRepassado = numero(fatura.valor_cemig_repassado ?? fatura.valor_cemig);
+    const totalUnificado = numero(fatura.valor_total_unificado ?? fatura.valor_total);
+    const referenciaSemAndrade = numero(fatura.valor_referencia_sem_andrade) || totalUnificado + numero(fatura.economia_real);
+    const economia = numero(fatura.economia_real ?? fatura.economia);
+    const descontoReal = numero(fatura.desconto_real_percentual);
+    const descontoContratado = numero(fatura.desconto_contratado_percentual ?? fatura.desconto_percentual);
+    const impostos = numero(fatura.valor_impostos);
+
+    const cartao = (x: number, y: number, largura: number, altura: number, fundo = "#FFFFFF") => {
+      pdf.roundedRect(x, y, largura, altura, 7).fill(fundo);
+      pdf.roundedRect(x, y, largura, altura, 7).strokeColor(BORDA).lineWidth(0.7).stroke();
+    };
+    const linha = (rotulo: string, valor: string, y: number, destaque = false) => {
+      pdf.fillColor(destaque ? VERDE_ESCURO : TEXTO_SECUNDARIO).font(destaque ? "Helvetica-Bold" : "Helvetica").fontSize(9).text(rotulo, 62, y, { width: 300 });
+      pdf.fillColor(destaque ? VERDE_ESCURO : TEXTO).font(destaque ? "Helvetica-Bold" : "Helvetica").fontSize(destaque ? 10 : 9).text(valor, 370, y, { width: 158, align: "right" });
+    };
+
+    pdf.rect(0, 0, 595, 842).fill("#F3F7F5");
+    pdf.rect(0, 0, 595, 112).fill("#063C25");
+    desenharLogoNoCabecalho(pdf);
+    pdf.fillColor("#F6CC32").font("Helvetica-Bold").fontSize(8).text("MEMÓRIA DE CÁLCULO", 335, 34, { width: 205, align: "right" });
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(18).text(`Faturamento ${fatura.referencia ?? ""}`, 300, 50, { width: 240, align: "right" });
+    pdf.fillColor("#D8EEE6").font("Helvetica").fontSize(8).text(`${gd} · ${modalidade === "INJECAO" ? "Injeção" : "Compensação"} · ${somenteAndrade ? "Somente Andrade" : "Fatura unificada"}`, 270, 78, { width: 270, align: "right" });
+
+    cartao(48, 128, 498, 72, "#FFFFFF");
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8).text("IDENTIFICAÇÃO", 62, 143);
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(11).text(cliente.nome ?? unidade.titular ?? "Cliente não informado", 62, 158, { width: 280 });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(`UC ${fatura.numero_instalacao ?? unidade.numero ?? "-"} · CPF ${unidade.cpf_titular ?? cliente.cpf ?? "não informado"}`, 62, 177);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(`Vencimento ${dataBrasileira(fatura.vencimento)}`, 390, 158, { width: 138, align: "right" });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(`Emissão ${dataBrasileira(fatura.data_emissao ?? fatura.created_at)}`, 390, 175, { width: 138, align: "right" });
+
+    cartao(48, 216, 498, 112, "#E8F6F0");
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(9).text("RESULTADO DO FATURAMENTO", 62, 232);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(25).text(moeda(totalUnificado), 62, 250);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(somenteAndrade ? "Cobrança Andrade Energy; a concessionária permanece separada." : "Total da fatura unificada Andrade Energy.", 62, 281, { width: 235 });
+    pdf.strokeColor("#A9CFC0").moveTo(318, 234).lineTo(318, 310).stroke();
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7).text("SEM ANDRADE ENERGY", 340, 238);
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(16).text(moeda(referenciaSemAndrade), 340, 252);
+    pdf.fillColor(VERDE).font("Helvetica-Bold").fontSize(9).text(`Economia ${moeda(economia)}`, 340, 278);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(`Contratado ${percentual(descontoContratado)} · Real ${percentual(descontoReal)}`, 340, 296);
+
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("1. BASE DE ENERGIA", 48, 352);
+    cartao(48, 370, 498, 116, "#FFFFFF");
+    linha(modalidade === "INJECAO" ? "Energia injetada faturada" : "Energia compensada faturada", energia(energiaBase), 389, true);
+    linha("Tarifa cheia da concessionária (tributos incluídos)", tarifaKwh(tarifaCheia), 412);
+    linha("Valor equivalente da energia sem o benefício", `${energia(energiaBase)} × ${tarifaKwh(tarifaCheia)} = ${moeda(valorEnergiaCheia)}`, 435);
+    linha("Tarifa Andrade após desconto contratado", tarifaKwh(tarifaAndrade), 458);
+
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("2. REGRAS DA CONFIGURAÇÃO", 48, 510);
+    cartao(48, 528, 498, 134, "#FFF9E9");
+    linha("Energia Andrade antes das absorções", moeda(valorAndradeBruto), 546);
+    linha(`Disponibilidade (${disponibilidadeAbsorvida > 0 ? "absorvida" : "repassada"})`, `${moeda(disponibilidade)} · repasse ${moeda(disponibilidadeRepassada)} · absorção ${moeda(disponibilidadeAbsorvida)}`, 569);
+    linha(`Fio B (${fioBAbsorvido > 0 ? "absorvido" : "repassado"})`, `${moeda(fioB)} · repasse ${moeda(fioBRepassado)} · absorção ${moeda(fioBAbsorvido)}`, 592);
+    linha("Fatura Andrade após as regras", moeda(valorAndrade), 615, true);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.5).text(gd === "GD II" ? "Na GD II, a diferença tarifária do Fio B é apresentada separadamente." : "Na GD I, não há diferença de Fio B; aplica-se somente a regra de disponibilidade configurada.", 62, 641, { width: 466 });
+
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("3. FECHAMENTO", 48, 686);
+    cartao(48, 704, 498, 78, "#FFFFFF");
+    linha("Conta da concessionária lida", moeda(valorCemigOriginal), 720);
+    linha("Conta da concessionária após repasses/absorções", moeda(valorCemigRepassado), 741);
+    linha(somenteAndrade ? "Cobrança emitida pela Andrade" : "Concessionária + Andrade = total unificado", somenteAndrade ? moeda(valorAndrade) : `${moeda(valorCemigRepassado)} + ${moeda(valorAndrade)} = ${moeda(totalUnificado)}`, 762, true);
+
+    pdf.addPage({ size: "A4", margins: { top: 42, right: 48, bottom: 42, left: 48 } });
+    pdf.rect(0, 0, 595, 842).fill("#F3F7F5");
+    pdf.rect(0, 0, 595, 88).fill("#063C25");
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(17).text("Detalhamento e critérios", 48, 31);
+    pdf.fillColor("#D8EEE6").font("Helvetica").fontSize(8).text(`Fatura ${fatura.referencia ?? ""} · UC ${fatura.numero_instalacao ?? unidade.numero ?? "-"}`, 48, 55);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(11).text("Como o desconto real é medido", 48, 116);
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(9.5).text("O desconto real compara apenas os componentes convencionais da energia no cenário sem usina com o custo equivalente após o benefício Andrade Energy. Multas, juros, iluminação pública, bandeiras e encargos extraordinários não aumentam nem reduzem artificialmente essa porcentagem.", 48, 139, { width: 498, lineGap: 4 });
+    cartao(48, 210, 498, 104, "#E8F6F0");
+    linha("Referência convencional sem usina", moeda(referenciaSemAndrade), 230);
+    linha("Custo comparável com Andrade", moeda(Math.max(0, referenciaSemAndrade - economia)), 254);
+    linha("Economia considerada", moeda(economia), 278);
+    linha("Fórmula", `(${moeda(referenciaSemAndrade)} - ${moeda(Math.max(0, referenciaSemAndrade - economia))}) / ${moeda(referenciaSemAndrade)} = ${percentual(descontoReal)}`, 296, true);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(11).text("Informações complementares da conta", 48, 350);
+    cartao(48, 372, 498, 142, "#FFFFFF");
+    linha("Impostos informados/embutidos", moeda(impostos), 391);
+    linha("Iluminação pública (fora da medição do desconto)", moeda(fatura.valor_iluminacao_publica), 416);
+    linha("Bandeira tarifária (fora da medição do desconto)", moeda(fatura.valor_bandeira), 441);
+    linha("Saldo atual de créditos", energia(fatura.saldo_atual), 466);
+    linha("Próxima leitura", fatura.proxima_leitura ? dataBrasileira(fatura.proxima_leitura) : "Não informada", 491);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(11).text("Observações da modalidade", 48, 552);
+    cartao(48, 574, 498, 116, "#FFF9E9");
+    const observacaoModalidade = modalidade === "INJECAO"
+      ? "Na modalidade por injeção, toda a energia enviada pela usina e destinada à UC compõe a base faturada do período."
+      : "Na modalidade por compensação, somente a energia compensada no período é faturada. O saldo acumulado permanece registrado e só é cobrado no encerramento do contrato, conforme a configuração vigente.";
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(9).text(observacaoModalidade, 64, 594, { width: 466, lineGap: 4 });
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(9).text(somenteAndrade ? "Esta UC usa documentos separados: este total representa a cobrança Andrade; a conta da concessionária continua sendo paga à parte." : "Esta UC usa fatura unificada: o total reúne a parcela da concessionária repassada ao cliente e a cobrança Andrade.", 64, 641, { width: 466, lineGap: 4 });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7).text(`Documento gerado automaticamente em ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}. Valores monetários arredondados para centavos; prevalecem os registros do faturamento.`, 48, 744, { width: 498, align: "center", lineGap: 2 });
+    pdf.end();
+  });
+}
+
 async function enviarPdf(caminho: string, conteudo: Buffer) {
   const { error } = await supabase.storage.from(BUCKET).upload(caminho, conteudo, {
     contentType: "application/pdf",
@@ -481,14 +611,16 @@ export async function armazenarContaDeEnergiaDaUsina(usinaId: string, fechamento
 export async function armazenarDocumentosDaFatura(fatura: any, arquivoCemig: string) {
   const pasta = `${fatura.cliente_id}/${fatura.id}`;
   const original = await readFile(arquivoCemig);
-  const [pdfUsina, pdfUnificada] = await Promise.all([
+  const [pdfUsina, pdfUnificada, pdfRelatorio] = await Promise.all([
     gerarPdfFatura(fatura, "USINA"),
     gerarPdfFatura(fatura, "UNIFICADA"),
+    gerarPdfRelatorioCalculo(fatura),
   ]);
-  const [cemig, usina, unificada] = await Promise.all([
+  const [cemig, usina, unificada, relatorio] = await Promise.all([
     enviarPdf(`${pasta}/cemig-original.pdf`, original),
     enviarPdf(`${pasta}/fatura-usina.pdf`, pdfUsina),
     enviarPdf(`${pasta}/fatura-unificada.pdf`, pdfUnificada),
+    enviarPdf(`${pasta}/${VERSAO_RELATORIO_CALCULO}.pdf`, pdfRelatorio),
   ]);
   const { error } = await supabase.from("faturas").update({
     pdf_cemig_url: cemig,
@@ -496,7 +628,7 @@ export async function armazenarDocumentosDaFatura(fatura: any, arquivoCemig: str
     pdf_unificada_url: unificada,
   }).eq("id", fatura.id);
   if (error) throw error;
-  return { cemig, usina, unificada };
+  return { cemig, usina, unificada, relatorio };
 }
 
 /** Regera somente os demonstrativos Andrade sem alterar a conta CEMIG original. */
@@ -506,20 +638,30 @@ export async function regenerarDocumentosGeradosDaFatura(fatura: any) {
   // Um caminho novo evita que o CDN ou o leitor do aparelho reutilize uma
   // versão anterior depois que valores da fatura forem recalculados.
   const versao = Date.now();
-  const [pdfUsina, pdfUnificada] = await Promise.all([
+  const [pdfUsina, pdfUnificada, pdfRelatorio] = await Promise.all([
     gerarPdfFatura(fatura, "USINA"),
     gerarPdfFatura(fatura, "UNIFICADA"),
+    gerarPdfRelatorioCalculo(fatura),
   ]);
   const [usina, unificada] = await Promise.all([
     enviarPdf(`${pasta}/fatura-usina-${VERSAO_LAYOUT_FATURA}-${versao}.pdf`, pdfUsina),
     enviarPdf(`${pasta}/fatura-unificada-${VERSAO_LAYOUT_FATURA}-${versao}.pdf`, pdfUnificada),
   ]);
+  await enviarPdf(`${pasta}/${VERSAO_RELATORIO_CALCULO}.pdf`, pdfRelatorio);
   const { error } = await supabase
     .from("faturas")
     .update({ pdf_usina_url: usina, pdf_unificada_url: unificada })
     .eq("id", fatura.id);
   if (error) throw error;
   return { ...fatura, pdf_usina_url: usina, pdf_unificada_url: unificada };
+}
+
+export async function obterRelatorioCalculoDaFatura(fatura: any) {
+  const pasta = `${fatura.cliente_id}/${fatura.id}`;
+  const caminho = `${pasta}/${VERSAO_RELATORIO_CALCULO}.pdf`;
+  const pdf = await gerarPdfRelatorioCalculo(fatura);
+  await enviarPdf(caminho, pdf);
+  return criarLinkTemporario(caminho);
 }
 
 async function criarLinkTemporario(caminho?: string | null) {

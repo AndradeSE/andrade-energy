@@ -2168,6 +2168,23 @@ function RecordDetails({
     await navigator.clipboard.writeText(code);
     setMessage("Código PIX copiado.");
   }
+  async function downloadCalculationReport() {
+    if (!source.id) return;
+    setWorking(true);
+    setMessage("");
+    try {
+      const response = await fetch(`${API_URL}/faturas/${source.id}/relatorio-calculo`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.url) throw new Error(data.message ?? "Relatório indisponível.");
+      window.open(String(data.url), "_blank", "noopener,noreferrer");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não foi possível gerar o relatório.");
+    } finally {
+      setWorking(false);
+    }
+  }
   async function addUnit() {
     const numero = window.prompt("Número da nova unidade consumidora:");
     if (!numero || !source.id) return;
@@ -2424,6 +2441,11 @@ function RecordDetails({
                 </button>
               ) : null}
             </>
+          ) : null}
+          {section === "Faturas" && source.id ? (
+            <button disabled={working} onClick={() => void downloadCalculationReport()}>
+              ↓ Baixar relatório do cálculo
+            </button>
           ) : null}
           {section === "Clientes" ? (
             <button disabled={working} onClick={() => void addUnit()}>

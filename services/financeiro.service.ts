@@ -3,13 +3,9 @@ import { supabase } from "../supabase";
 export async function carregarFinanceiro() {
       const { data, error } = await supabase
   .from("faturas")
-  .select(`
-    *,
-    clientes (
-      nome,
-      telefone
-    )
-  `);
+  // O resumo não usa dados do cliente. Remover o embed também evita a
+  // ambiguidade do PostgREST quando há mais de uma FK entre as tabelas.
+  .select("*");
 
   if (error) throw error;
 

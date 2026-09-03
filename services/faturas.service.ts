@@ -122,6 +122,11 @@ export async function regenerarDocumentosFatura(id: string) {
   return data;
 }
 
+export async function obterRelatorioCalculoFatura(id: string): Promise<string> {
+  const { data } = await api.get(`/faturas/${id}/relatorio-calculo`, { timeout: 60_000 });
+  return String(data?.url ?? "");
+}
+
 export async function confirmarFaturaRascunho(id: string) {
   const { data } = await api.post(`/faturas/${id}/confirmar`);
   return data;

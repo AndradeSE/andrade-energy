@@ -10,7 +10,7 @@ import { Alert, Linking, Platform, RefreshControl, StyleSheet, Text, TouchableOp
 import { AppHeader, Button, Card, ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useFaturas } from "../../hooks/useFaturas";
-import { excluirFatura, formatarCompetenciaBrasileira, formatarDataBrasileira } from "../../services/faturas.service";
+import { excluirFatura, formatarCompetenciaBrasileira, formatarDataBrasileira, obterRelatorioCalculoFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 type Filtro = "todas" | "abertas" | "vencidas" | "pagas";
@@ -87,6 +87,17 @@ export default function Faturas() {
     } finally { setBaixando(undefined); }
   }
 
+  async function baixarRelatorio(item: any, referenciaArquivo: string) {
+    const chave = `relatorio-${item.id}`;
+    try {
+      setBaixando(chave);
+      const url = await obterRelatorioCalculoFatura(item.id);
+      await baixarDocumento(url, `relatorio-calculo-${referenciaArquivo}.pdf`, chave);
+    } catch (erro: any) {
+      Alert.alert("Não foi possível gerar o relatório", erro?.response?.data?.message ?? "Confira sua conexão e tente novamente.");
+    } finally { setBaixando(undefined); }
+  }
+
   if (isLoading) return <Loading />;
 
   return (
@@ -148,6 +159,7 @@ export default function Faturas() {
               <View style={styles.downloads}>
                 <DownloadLink label="Concessionária" available={Boolean(item.pdf_cemig_url)} loading={baixando === `cemig-${item.id}`} onPress={() => baixarDocumento(item.pdf_cemig_url, `concessionaria-${referenciaArquivo}.pdf`, `cemig-${item.id}`)} />
                 <DownloadLink label="Unificada" available={Boolean(item.pdf_unificada_url)} loading={baixando === `unificada-${item.id}`} onPress={() => baixarDocumento(item.pdf_unificada_url, `unificada-${referenciaArquivo}.pdf`, `unificada-${item.id}`)} />
+                <DownloadLink label="Cálculo" available loading={baixando === `relatorio-${item.id}`} onPress={() => void baixarRelatorio(item, referenciaArquivo)} />
               </View>
               <TouchableOpacity
                 accessibilityLabel={`Excluir fatura ${item.referencia || ""}`}

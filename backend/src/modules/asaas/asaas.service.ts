@@ -11,13 +11,15 @@ async function esperar(ms: number) { return new Promise((resolve) => setTimeout(
 async function obterDadosPagamento(paymentId: string) {
   let pix: any = null;
   let boleto: any = null;
-  for (let tentativa = 0; tentativa < 4; tentativa += 1) {
+  // A geração do boleto/PIX no Asaas é assíncrona. Em produção ela pode
+  // demorar alguns segundos depois da criação do pagamento.
+  for (let tentativa = 0; tentativa < 8; tentativa += 1) {
     [pix, boleto] = await Promise.all([
       pix?.payload ? Promise.resolve(pix) : asaasRequest<any>(`/payments/${paymentId}/pixQrCode`).catch(() => null),
       boleto?.identificationField ? Promise.resolve(boleto) : asaasRequest<any>(`/payments/${paymentId}/identificationField`).catch(() => null),
     ]);
     if (pix?.payload && boleto?.identificationField) break;
-    if (tentativa < 3) await esperar(400 * (tentativa + 1));
+    if (tentativa < 7) await esperar(Math.min(2_000, 500 * (tentativa + 1)));
   }
   return { pix, boleto };
 }

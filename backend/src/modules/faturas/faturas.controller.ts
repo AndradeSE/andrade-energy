@@ -8,6 +8,7 @@ import {
   regenerarDocumentosFatura,
   confirmarFaturaRascunho,
   listarFaturas,
+  obterRelatorioCalculoFatura,
 } from "./faturas.service";
 import { processarFatura } from "./processarFatura.service";
 import { empresaIdDaRequisicao } from "../../utils/empresaScope";
@@ -43,6 +44,11 @@ export async function confirmarFaturaRascunhoController(req: Request, res: Respo
 
 export async function regenerarDocumentosFaturaController(req: Request, res: Response) {
   try { return res.json(await regenerarDocumentosFatura(req.params.id, empresaIdDaRequisicao(req))); }
+  catch (err: any) { return res.status(err.message === "Fatura não encontrada." ? 404 : 500).json({ message: err.message }); }
+}
+
+export async function obterRelatorioCalculoFaturaController(req: Request, res: Response) {
+  try { return res.json(await obterRelatorioCalculoFatura(req.params.id, empresaIdDaRequisicao(req))); }
   catch (err: any) { return res.status(err.message === "Fatura não encontrada." ? 404 : 500).json({ message: err.message }); }
 }
 

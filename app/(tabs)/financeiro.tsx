@@ -23,14 +23,15 @@ export default function Financeiro() {
   const [pixChave, setPixChave] = useState(""); const [pixTipo] = useState("EMAIL"); const [saque, setSaque] = useState("");
   const carregar = useCallback(async () => {
     try {
-      const [financeiro, wallet, recebimento] = await Promise.all([
+      const [financeiroResultado, carteiraResultado, recebimentoResultado] = await Promise.allSettled([
         FinanceiroService.carregarFinanceiro(),
         CarteiraService.carregarCarteira(),
         RecebimentoService.obterRecebimentoGeral(),
       ]);
-      setDados(financeiro);
-      setCarteira(wallet);
-      setRecebimentoGeral(recebimento);
+      if (financeiroResultado.status === "rejected") throw financeiroResultado.reason;
+      setDados(financeiroResultado.value);
+      setCarteira(carteiraResultado.status === "fulfilled" ? carteiraResultado.value : null);
+      setRecebimentoGeral(recebimentoResultado.status === "fulfilled" ? recebimentoResultado.value : null);
     } catch (error: any) {
       setCarteira(null);
       Alert.alert(

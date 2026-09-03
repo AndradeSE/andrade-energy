@@ -8,6 +8,7 @@ import { interpretarFatura } from "../../services/ocr/parser.service";
 import {
   armazenarDocumentosDaFatura,
   incluirLinksTemporarios,
+  obterRelatorioCalculoDaFatura,
   regenerarDocumentosGeradosDaFatura,
   VERSAO_LAYOUT_FATURA,
 } from "./documentosFatura.service";
@@ -86,6 +87,12 @@ export async function confirmarFaturaRascunho(id: string, empresaId?: string) {
   return incluirLinksTemporarios(atualizada ?? fatura);
 }
 
+export async function obterRelatorioCalculoFatura(id: string, empresaId?: string) {
+  const fatura = await buscarFaturaPorId(id, empresaId);
+  if (!fatura) throw new Error("Fatura não encontrada.");
+  return { url: await obterRelatorioCalculoDaFatura(fatura) };
+}
+
 export async function analisarFatura(req: Request) {
   if (!req.file) {
     throw new Error("Arquivo não enviado.");
@@ -118,8 +125,13 @@ export async function importarFatura(
   const resultado = await processarFatura(dados);
 
   if (!resultado.clienteNaoEncontrado && !resultado.jaProcessada) {
-    await armazenarDocumentosDaFatura(resultado, req.file.path);
-    await enfileirarNotificacoesDaFatura(resultado);
+    // A cobrança é criada dentro de processarFatura e pode acrescentar PIX,
+    // linha digitável e boleto. Releia antes de emitir os PDFs para não
+    // sobrescrever o documento completo com o objeto anterior à cobrança.
+    const atualizadaComPagamento = await buscarFaturaPorId(resultado.id, resultado.empresa_id);
+    const faturaFinal = atualizadaComPagamento ?? resultado;
+    await armazenarDocumentosDaFatura(faturaFinal, req.file.path);
+    await enfileirarNotificacoesDaFatura(faturaFinal);
   }
 
   return {
