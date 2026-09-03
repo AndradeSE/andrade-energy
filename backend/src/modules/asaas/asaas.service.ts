@@ -4,7 +4,16 @@ import { regenerarDocumentosGeradosDaFatura } from "../faturas/documentosFatura.
 import { buscarCarteiraDaFatura } from "../carteira/carteira.service";
 
 function digits(value: unknown) { return String(value ?? "").replace(/\D/g, ""); }
-function dueDate(value: unknown) { const text=String(value??"").slice(0,10); return /^\d{4}-\d{2}-\d{2}$/.test(text)?text:new Date(Date.now()+7*86400000).toISOString().slice(0,10); }
+function dueDate(value: unknown) {
+  const text = String(value ?? "").slice(0, 10);
+  const hoje = new Date().toISOString().slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text) && text >= hoje) return text;
+
+  // O Asaas não registra um boleto novo com vencimento no passado. A data
+  // original continua salva e exibida na fatura; somente a cobrança reemitida
+  // recebe um vencimento operacional válido.
+  return new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
 
 async function esperar(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 

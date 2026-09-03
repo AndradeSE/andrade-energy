@@ -105,8 +105,23 @@ export default function DetalheFatura() {
     try {
       setGerandoCobranca(true);
       await gerarCobrancaAsaas(String(id));
-      await carregar();
-      Alert.alert("Cobrança criada", "O boleto e o PIX já estão disponíveis para o cliente.");
+      const atualizada = await buscarFatura(String(id));
+      setFatura(atualizada);
+      const temBoleto = Boolean(atualizada?.linha_digitavel || atualizada?.pdf_boleto_url);
+      const temPix = Boolean(atualizada?.codigo_pix);
+      if (temBoleto && temPix) {
+        Alert.alert("Cobrança criada", "O boleto e o PIX já estão disponíveis para o cliente.");
+      } else if (temBoleto) {
+        Alert.alert(
+          "Boleto criado; PIX pendente",
+          "O boleto foi gerado. Para incluir o QR PIX no boleto, cadastre uma chave PIX na conta Asaas e toque em Atualizar boleto, PIX e fatura.",
+        );
+      } else {
+        Alert.alert(
+          "Cobrança ainda em processamento",
+          "O Asaas aceitou a cobrança, mas ainda não liberou os dados bancários. Aguarde alguns segundos e toque novamente em atualizar.",
+        );
+      }
     } catch (erro: any) {
       Alert.alert("Não foi possível gerar a cobrança", erro?.response?.data?.message ?? "Confira os dados do cliente e tente novamente.");
     } finally {
