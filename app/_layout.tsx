@@ -18,6 +18,7 @@ import { Colors } from "../theme";
 import BiometricLock from "./biometric-lock";
 import { EmpresaProvider } from "../contexts/EmpresaContext";
 import { aoSubstituirSessao } from "../services/session-events";
+import PersistentAppTabs from "../components/navigation/PersistentAppTabs";
 
 /*
  * React Query
@@ -106,6 +107,7 @@ function RootNavigator() {
 
   return (
     <>
+    <View style={styles.navigator}>
     <Stack
       screenOptions={{
         headerShown: false,
@@ -370,6 +372,8 @@ function RootNavigator() {
         <Stack.Screen name="assinatura/index" options={{ headerShown: false }} />
       </Stack.Protected>
     </Stack>
+    </View>
+    <PersistentAppTabs loggedIn={loggedIn && !precisaDigital} />
     {precisaDigital ? <View style={styles.lockOverlay}><BiometricLock onUnlocked={concluirAutenticacaoBiometrica} /></View> : null}
     </>
   );
@@ -391,6 +395,10 @@ export default function RootLayout() {
 
 const styles = StyleSheet.create({
   root: {
+    flex: 1,
+  },
+
+  navigator: {
     flex: 1,
   },
 

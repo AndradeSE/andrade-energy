@@ -126,7 +126,9 @@ if (faturaExistente) {
       .eq("id", faturaExistente.id)
       .select()
       .single();
-    if (erroAtualizacao) throw erroAtualizacao;
+    if (erroAtualizacao && !(erroAtualizacao.code === "PGRST204" && String(erroAtualizacao.message).includes("proxima_leitura"))) {
+      throw erroAtualizacao;
+    }
     Object.assign(faturaExistente, atualizada);
   }
 

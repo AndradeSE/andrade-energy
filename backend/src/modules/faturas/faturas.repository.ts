@@ -61,11 +61,25 @@ export async function buscarFatura(
 export async function inserirFatura(
   fatura: any
 ) {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("faturas")
     .insert(fatura)
     .select()
     .single();
+
+  // Compatibilidade com bancos que ainda não receberam a coluna opcional.
+  // A ausência da próxima leitura não pode impedir a emissão da fatura.
+  if (error?.code === "PGRST204" && String(error.message).includes("proxima_leitura")) {
+    const payloadCompativel = { ...fatura };
+    delete payloadCompativel.proxima_leitura;
+    const segundaTentativa = await supabase
+      .from("faturas")
+      .insert(payloadCompativel)
+      .select()
+      .single();
+    data = segundaTentativa.data;
+    error = segundaTentativa.error;
+  }
 
   if (error) throw error;
 
