@@ -1,6 +1,6 @@
 import axios from "axios";
 import { obterSessao } from "../storage/session";
-import { avisarSessaoSubstituida } from "../services/session-events";
+import { avisarContaExcluida, avisarSessaoSubstituida } from "../services/session-events";
 
 const API_PRODUCAO = "https://andrade-energy-api-vda.onrender.com/api";
 
@@ -37,7 +37,10 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const mensagem = String(error?.response?.data?.message ?? "");
-    if (error?.response?.status === 401 && /sessão inválida|sessao invalida|expirada|desativada/i.test(mensagem)) {
+    const codigo = String(error?.response?.data?.code ?? "");
+    if (error?.response?.status === 401 && codigo === "CONTA_EXCLUIDA") {
+      avisarContaExcluida();
+    } else if (error?.response?.status === 401 && /sessão inválida|sessao invalida|expirada|desativada/i.test(mensagem)) {
       avisarSessaoSubstituida();
     }
     return Promise.reject(error);

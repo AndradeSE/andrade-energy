@@ -19,6 +19,23 @@ export async function exigirAutenticacao(req: Request, res: Response, next: Next
 
   const usuario = Array.isArray(data?.usuarios) ? data.usuarios[0] : data?.usuarios;
   if (error || !usuario || usuario.ativo !== true) {
+    // A consulta principal ignora sessões revogadas. Fazemos uma segunda
+    // leitura apenas para distinguir a conta de consumidor excluída de uma
+    // sessão substituída/expirada, permitindo ao app voltar direto ao login.
+    const { data: sessaoAnterior } = await supabase
+      .from("sessoes_usuarios")
+      .select("usuarios(ativo, perfil)")
+      .eq("token_hash", hashToken(token))
+      .maybeSingle();
+    const usuarioAnterior = Array.isArray(sessaoAnterior?.usuarios)
+      ? sessaoAnterior.usuarios[0]
+      : sessaoAnterior?.usuarios;
+    if (usuarioAnterior?.perfil === "LEITURA" && usuarioAnterior.ativo !== true) {
+      return res.status(401).json({
+        code: "CONTA_EXCLUIDA",
+        message: "Esta conta de consumidor foi excluída. Entre novamente para continuar.",
+      });
+    }
     return res.status(401).json({ message: "Sessão inválida, expirada ou conta desativada." });
   }
 

@@ -17,7 +17,7 @@ import {
 import { Colors } from "../theme";
 import BiometricLock from "./biometric-lock";
 import { EmpresaProvider } from "../contexts/EmpresaContext";
-import { aoSubstituirSessao } from "../services/session-events";
+import { aoExcluirConta, aoSubstituirSessao } from "../services/session-events";
 import PersistentAppTabs from "../components/navigation/PersistentAppTabs";
 
 /*
@@ -71,6 +71,13 @@ function RootNavigator() {
       ],
       { cancelable: false },
     );
+  }), [signOut]);
+
+  useEffect(() => aoExcluirConta(() => {
+    // Uma conta de consumidor removida pelo gerador não possui mais uma
+    // sessão recuperável. Limpamos o estado local imediatamente para evitar
+    // que o aplicativo permaneça numa tela interna sem dados.
+    void signOut().then(() => router.replace("/(auth)/login" as any));
   }), [signOut]);
 
   /*
