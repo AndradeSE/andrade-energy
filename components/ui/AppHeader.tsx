@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
-import { Alert, Image, Modal, Pressable, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useCallback, useEffect, useState } from "react";
+import { Alert, Image, LayoutAnimation, Modal, Pressable, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useReadNotifications } from "../../hooks/useReadNotifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -14,6 +14,7 @@ import { Colors, Radius, Spacing, Typography } from "../../theme";
 import PortalBrandLogo from "../brand/PortalBrandLogo";
 import { useEmpresa } from "../../contexts/EmpresaContext";
 import { notificarAvisosNoAndroid } from "../../services/carteira-notificacoes.service";
+import { observarMovimentoDaTela } from "./headerMotion";
 
 function escurecerCor(hex: string, fator = 0.62) {
   const limpa = hex.replace("#", "");
@@ -62,8 +63,38 @@ export default function AppHeader({
   const leituras = useReadNotifications(usuarioId);
   const notificacoes = leituras.ready ? avisosRecebidos.filter((aviso) => !leituras.ids.includes(String(aviso.id))) : [];
   const [autonomia, setAutonomia] = useState<{ percentual: number; disponivel: number } | null>(null);
+  const [contextoUsinaExpandido, setContextoUsinaExpandido] = useState(true);
+  const temporizadorContexto = useRef<ReturnType<typeof setTimeout> | null>(null);
   const proprietario = IS_GERADOR_APP;
   const podeAlternarPerfil = IS_GERADOR_APP && usuario?.perfil === "ADMIN";
+
+  useEffect(() => {
+    if (variant !== "main" || !showPlantContext || !proprietario || !usinaSelecionada) return;
+
+    const recolherDepois = () => {
+      if (temporizadorContexto.current) clearTimeout(temporizadorContexto.current);
+      temporizadorContexto.current = setTimeout(() => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setContextoUsinaExpandido(false);
+      }, 3200);
+    };
+    const mostrarDuranteMovimento = () => {
+      setContextoUsinaExpandido((expandido) => {
+        if (!expandido) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        return true;
+      });
+      recolherDepois();
+    };
+
+    setContextoUsinaExpandido(true);
+    recolherDepois();
+    const pararDeObservar = observarMovimentoDaTela(mostrarDuranteMovimento);
+    return () => {
+      pararDeObservar();
+      if (temporizadorContexto.current) clearTimeout(temporizadorContexto.current);
+      temporizadorContexto.current = null;
+    };
+  }, [proprietario, showPlantContext, usinaSelecionada, variant]);
 
   useEffect(() => {
     let ativo = true;
@@ -194,7 +225,7 @@ export default function AppHeader({
         </Pressable>
       </Modal>
 
-      {showPlantContext && proprietario && usinaSelecionada ? <View style={styles.plantBar}>
+      {showPlantContext && proprietario && usinaSelecionada && contextoUsinaExpandido ? <View style={styles.plantBar}>
         <View style={styles.plantLogo}>
           {empresa.identidade_personalizada && empresa.logo_url
             ? <Image resizeMode="contain" source={{ uri: empresa.logo_url }} style={styles.companyLogo} />
