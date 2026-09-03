@@ -46,8 +46,8 @@ function franquiaDaLigacao(tipo?: string) {
 }
 
 function extrairProximaLeitura(texto: string) {
-  return texto.match(/Pr[oó]xima\s+leitura\s*:?\s*(\d{2}\/\d{2}\/\d{4})/i)?.[1]
-    ?? texto.match(/(\d{2}\/\d{2}\/\d{4})\s*Pr[oó]xima\s+leitura/i)?.[1]
+  return texto.match(/Pr[oó]xima\s+(?:data\s+(?:de|da)\s+)?leitura[^\d]{0,45}(\d{2}[\/.-]\d{2}[\/.-]\d{4})/i)?.[1]?.replace(/[.-]/g, "/")
+    ?? texto.match(/(\d{2}[\/.-]\d{2}[\/.-]\d{4})[^A-Za-zÀ-ÿ]{0,25}Pr[oó]xima\s+(?:data\s+(?:de|da)\s+)?leitura/i)?.[1]?.replace(/[.-]/g, "/")
     ?? undefined;
 }
 

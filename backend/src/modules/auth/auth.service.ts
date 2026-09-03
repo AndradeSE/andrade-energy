@@ -267,9 +267,8 @@ type ArquivoDeCadastro = {
 
 /**
  * O convite continua sendo obrigatório porque determina qual gerador será
- * responsável pelo cadastro. Com uma fatura validada, a conta é liberada
- * automaticamente. A fatura é obrigatória porque comprova o titular e já
- * fornece os dados usados para criar a primeira UC do consumidor.
+ * responsável pelo cadastro. O gerador já cadastrou o cliente e sua primeira
+ * UC antes de enviar o convite; o consumidor cria somente o acesso.
  */
 export async function cadastrarConsumidorComFatura(
   input: { convite?: unknown; cpf?: unknown; senha?: unknown },
@@ -281,7 +280,6 @@ export async function cadastrarConsumidorComFatura(
   const possuiFatura = Boolean(arquivo?.path);
   if (!conviteToken) throw new Error("Informe o código do convite.");
   if (senha.length < 6) throw new Error("A senha deve ter pelo menos 6 caracteres.");
-  if (!possuiFatura) throw new Error("Anexe a fatura CEMIG da unidade consumidora para concluir o cadastro.");
   if (arquivo?.mimetype && arquivo.mimetype !== "application/pdf") {
     throw new Error("Envie a fatura CEMIG no formato PDF.");
   }
@@ -364,6 +362,9 @@ export async function cadastrarConsumidorComFatura(
     if (clienteExistente?.cpf && cpfLimpo(clienteExistente.cpf) !== cpf) {
       throw new Error("O CPF da fatura não corresponde ao cliente deste convite.");
     }
+    if (!clienteId || !clienteExistente) {
+      throw new Error("O cliente ainda não foi cadastrado pelo gerador. Solicite um novo convite após o cadastro.");
+    }
 
     if (possuiFatura) {
       const { data: unidadeExistente, error: unidadeError } = await supabase
@@ -404,17 +405,17 @@ export async function cadastrarConsumidorComFatura(
     }
 
     const usuario = await criarConta({
-      nome: dadosFatura.titular,
+      nome: convite.nome,
       cpf,
       email: emailNormalizado(convite.email),
       senha,
       tipo: "CONSUMIDOR",
       convite: conviteToken,
       empresa_id: empresaId,
-      ativo: possuiFatura,
+      ativo: true,
     });
     usuarioCriadoId = String(usuario.id);
-    await vincularUsuarioAoClientePendente(usuarioCriadoId, clienteId, empresaId, possuiFatura);
+    await vincularUsuarioAoClientePendente(usuarioCriadoId, clienteId, empresaId, true);
 
     caminhoFatura = possuiFatura ? await guardarFaturaDeCadastro(arquivo!.path) : null;
     if (caminhoFatura) {
@@ -429,36 +430,6 @@ export async function cadastrarConsumidorComFatura(
       if (anexoError) throw anexoError;
     }
 
-    const { data: unidadeAtual, error: consultaUnidadeError } = await supabase
-      .from("unidades_consumidoras")
-      .select("id,cliente_id")
-      .eq("numero", dadosFatura.uc)
-      .eq("empresa_id", empresaId)
-      .maybeSingle();
-    if (consultaUnidadeError) throw consultaUnidadeError;
-    if (unidadeAtual?.cliente_id && unidadeAtual.cliente_id !== clienteId) {
-      throw new Error("A unidade consumidora informada já está vinculada a outro cliente.");
-    }
-    const dadosUnidade = {
-      numero: dadosFatura.uc,
-      titular: dadosFatura.titular || convite.nome,
-      tipo: "BENEFICIARIA",
-      cliente_id: clienteId,
-      usina_id: convite.usina_id ?? null,
-      distribuidora: dadosFatura.distribuidora || "CEMIG",
-      endereco: dadosFatura.endereco || null,
-      classificacao: dadosFatura.classificacao || null,
-      tensao: dadosFatura.tensao || null,
-      modalidade_faturamento: "COMPENSACAO",
-      desconto_percentual: 40,
-      cpf_titular: cpf,
-      status: "ATIVA",
-      empresa_id: empresaId,
-    };
-    const unidadeResultado = unidadeAtual
-      ? await supabase.from("unidades_consumidoras").update(dadosUnidade).eq("id", unidadeAtual.id)
-      : await supabase.from("unidades_consumidoras").insert(dadosUnidade);
-    if (unidadeResultado.error) throw unidadeResultado.error;
     const tokenVerificacao = gerarToken();
     await criarSolicitacaoCadastroCliente({
       conviteId: convite.id,
@@ -497,7 +468,7 @@ export async function cadastrarConsumidorComFatura(
           email: emailNormalizado(convite.email),
           telefone: convite.telefone || null,
           whatsapp: convite.telefone || null,
-          endereco: dadosFatura.endereco || clienteExistente?.endereco || null,
+          endereco: clienteExistente?.endereco || null,
           status: "ATIVO",
         })
         .eq("id", clienteId)
@@ -506,7 +477,7 @@ export async function cadastrarConsumidorComFatura(
     }
 
     return {
-      message: "Conta e unidade consumidora criadas. A fatura CEMIG foi anexada ao cadastro.",
+      message: "Conta criada e vinculada ao cliente cadastrado pelo gerador.",
       status: "ATIVO",
       emailEnviado: false,
     };
@@ -604,7 +575,7 @@ export async function reenviarVerificacaoDeCadastro(emailInformado: unknown) {
 
 export async function cadastrarConta(input: { nome: string; cpf: string; email: string; senha: string; tipo: "CONSUMIDOR" | "GERADOR"; convite?: string; empresa_id?: string }) {
   if (input.tipo === "CONSUMIDOR") {
-    throw new Error("Para criar uma conta de consumidor, envie a fatura CEMIG pela tela de cadastro atualizada.");
+    throw new Error("Para criar uma conta de consumidor, use o convite enviado pelo gerador.");
   }
   const convite = await aceitarConviteGerador(String(input.convite ?? ""));
   input = { ...input, nome: convite.nome, cpf: convite.cpf, email: convite.email, empresa_id: convite.empresa_id };

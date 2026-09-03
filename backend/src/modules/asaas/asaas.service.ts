@@ -94,7 +94,25 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, o
   const customerData = Array.isArray(invoice.clientes) ? invoice.clientes[0] : invoice.clientes;
   if (!customerData?.cpf) throw new Error("Informe o CPF/CNPJ do cliente antes de gerar a cobrança.");
   const customers = await asaasRequest<any>(`/customers?cpfCnpj=${digits(customerData.cpf)}`);
-  const customer = customers.data?.[0] ?? await asaasRequest<any>("/customers", { method:"POST", body:JSON.stringify({ name:customerData.nome, cpfCnpj:digits(customerData.cpf), email:customerData.email||undefined, mobilePhone:digits(customerData.whatsapp||customerData.telefone)||undefined, externalReference:customerData.id }) });
+  const cadastroAsaas = {
+    name: String(customerData.nome ?? "").trim(),
+    cpfCnpj: digits(customerData.cpf),
+    email: customerData.email || undefined,
+    mobilePhone: digits(customerData.whatsapp || customerData.telefone) || undefined,
+    externalReference: customerData.id,
+  };
+  let customer = customers.data?.[0];
+  if (customer?.id) {
+    // O sandbox pode conservar um nome usado anteriormente para o mesmo CPF.
+    // Sincronizamos os dados atuais antes da cobrança para que boleto e e-mail
+    // nunca tratem o consumidor como "João da Silva" ou outro cadastro antigo.
+    customer = await asaasRequest<any>(`/customers/${customer.id}`, {
+      method: "PUT",
+      body: JSON.stringify(cadastroAsaas),
+    });
+  } else {
+    customer = await asaasRequest<any>("/customers", { method: "POST", body: JSON.stringify(cadastroAsaas) });
+  }
   const value = Number(invoice.valor_total_unificado ?? invoice.valor_total ?? 0);
   if (!(value > 0)) throw new Error("A fatura não possui valor válido para cobrança.");
   const carteira = await buscarCarteiraDaFatura(faturaId);

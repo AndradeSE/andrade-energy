@@ -13,7 +13,7 @@ import { Button } from "../ui";
 type TipoCadastro = "CLIENTE" | "USINA" | "UNIDADE";
 
 const rotas = {
-  CLIENTE: "/clientes/convidar",
+  CLIENTE: "/clientes/novo",
   USINA: "/usinas/nova",
   UNIDADE: "/unidades/nova",
 } as const;
@@ -25,7 +25,7 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
 
   function abrirManual() {
     if (tipo === "CLIENTE") {
-      router.push("/clientes/convidar");
+      router.push("/clientes/novo");
       return;
     }
     router.push({ pathname: rotas[tipo] as any, params: tipo === "UNIDADE" ? { cadastroRapido: "1" } : {} });
@@ -150,7 +150,7 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
         icon={<Ionicons name="create-outline" size={20} color="#FFF" />}
         onPress={abrirManual}
         style={styles.button}
-        title={tipo === "CLIENTE" ? "Convidar consumidor" : "Manual"}
+        title={tipo === "CLIENTE" ? "Adicionar cliente" : "Manual"}
       />
       {(tipo !== "CLIENTE" || podeImportarCliente) ? <Button
         disabled={analisando}

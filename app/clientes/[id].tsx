@@ -9,6 +9,7 @@ import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
 import { anexarFaturaCliente, buscarCliente, listarUnidadesCliente } from "../../services/clientes.service";
 import { buscarFaturasCliente, calcularMediaConsumoFatura } from "../../services/faturas.service";
+import { criarConvite } from "../../services/convites.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const moeda = (v: unknown) => Number(v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -28,7 +29,7 @@ const statusDaSolicitacao = (status: unknown) => {
 };
 
 export default function ClienteDetalhe() {
-  const { id, area } = useLocalSearchParams<{ id: string; area?: "unidades" | "faturas" }>(); const [cliente, setCliente] = useState<any>(); const [faturas, setFaturas] = useState<any[]>([]); const [unidades, setUnidades] = useState<any[]>([]); const [buscaUnidades, setBuscaUnidades] = useState(""); const [mostrarInfo, setMostrarInfo] = useState(false); const [loading, setLoading] = useState(true); const [atualizando, setAtualizando] = useState(false); const [importandoUc, setImportandoUc] = useState(false);
+  const { id, area } = useLocalSearchParams<{ id: string; area?: "unidades" | "faturas" }>(); const [cliente, setCliente] = useState<any>(); const [faturas, setFaturas] = useState<any[]>([]); const [unidades, setUnidades] = useState<any[]>([]); const [buscaUnidades, setBuscaUnidades] = useState(""); const [mostrarInfo, setMostrarInfo] = useState(false); const [loading, setLoading] = useState(true); const [atualizando, setAtualizando] = useState(false); const [importandoUc, setImportandoUc] = useState(false); const [enviandoConvite, setEnviandoConvite] = useState(false);
   const { suspenderBloqueioTemporariamente } = useAuth();
   const carregar = useCallback(async () => { try { const [c, u] = await Promise.all([buscarCliente(id), listarUnidadesCliente(id)]); const unidadesCliente = u ?? []; setCliente(c); setUnidades(unidadesCliente); const numeros = Array.from(new Set([c.uc, ...unidadesCliente.map((item: any) => item.numero)].filter(Boolean))); const listas = await Promise.all(numeros.map((numero) => buscarFaturasCliente(String(numero)))); const unicas = Array.from(new Map(listas.flat().map((fatura: any) => [fatura.id, fatura])).values()); setFaturas(unicas); } catch (erro: any) { Alert.alert("Não foi possível atualizar", erro?.response?.data?.message ?? "Confira sua conexão e tente novamente."); } finally { setLoading(false); } }, [id]);
   useFocusEffect(useCallback(() => { carregar(); }, [carregar]));
@@ -49,6 +50,21 @@ export default function ClienteDetalhe() {
   const mostrarVisaoGeral = !area;
 
   function whatsapp() { const numero = String(cliente.whatsapp ?? cliente.telefone ?? "").replace(/\D/g, ""); if (!numero) return Alert.alert("WhatsApp não informado", "Adicione um telefone no cadastro do cliente."); Linking.openURL(`https://wa.me/${numero.startsWith("55") ? numero : `55${numero}`}?text=${encodeURIComponent(`Olá ${cliente.nome}, estou entrando em contato sobre sua energia.`)}`); }
+
+  async function enviarConvite() {
+    const cpf = String(cliente.cpf ?? "").replace(/\D/g, "");
+    const email = String(cliente.email ?? "").trim();
+    if (cpf.length !== 11 || !email) return Alert.alert("Dados incompletos", "Edite o cliente e informe CPF e e-mail antes de enviar o convite.");
+    try {
+      setEnviandoConvite(true);
+      const resultado = await criarConvite({ nome: cliente.nome, cpf, email, whatsapp: String(cliente.whatsapp ?? cliente.telefone ?? "").replace(/\D/g, "") || undefined });
+      Alert.alert(resultado.emailEnviado ? "Convite enviado" : "Convite criado", resultado.emailEnviado ? `O convite foi enviado automaticamente para ${email}.` : `O e-mail não pôde ser enviado. Chave do convite: ${resultado.token}`);
+    } catch (erro: any) {
+      Alert.alert("Não foi possível enviar o convite", erro?.response?.data?.message ?? "Tente novamente.");
+    } finally {
+      setEnviandoConvite(false);
+    }
+  }
 
   async function adicionarUnidadeViaFatura() {
     const retomarBloqueio = suspenderBloqueioTemporariamente();
@@ -143,6 +159,7 @@ export default function ClienteDetalhe() {
         <QuickAccess icon="flash-outline" label="Unidades" detail={`${unidades.length} cadastrada${unidades.length === 1 ? "" : "s"}`} onPress={() => router.push({ pathname: "/clientes/[id]", params: { id, area: "unidades" } })} />
         <QuickAccess icon="document-text-outline" label="Faturas" detail={`${faturas.length} processada${faturas.length === 1 ? "" : "s"}`} onPress={() => router.push({ pathname: "/clientes/[id]", params: { id, area: "faturas" } })} />
         {IS_GERADOR_APP ? <QuickAccess icon="folder-open-outline" label="Contas anexadas" detail="Visualizar e adicionar UCs" onPress={() => router.push({ pathname: "/clientes/faturas-anexadas" as never, params: { clienteId: id, cliente: cliente.nome, selecionarUc: "1" } })} /> : null}
+        {IS_GERADOR_APP ? <QuickAccess icon="mail-unread-outline" label={enviandoConvite ? "Enviando..." : "Enviar convite"} detail={cliente.email || "Informe o e-mail"} onPress={() => { if (!enviandoConvite) void enviarConvite(); }} /> : null}
       </View></Section>
       <Section title="Economia total"><Card><Text style={styles.summaryLabel}>Economia de todas as unidades</Text><Text style={styles.summaryValue}>{moeda(economia)}</Text><Text style={styles.summaryDetail}>{faturas.length} fatura{faturas.length === 1 ? "" : "s"} processada{faturas.length === 1 ? "" : "s"} em {unidades.length} unidade{unidades.length === 1 ? "" : "s"}</Text></Card></Section>
       <Section title="Histórico de consumo"><Card>{consumoHistorico.length ? <View style={styles.consumptionChart}>{consumoHistorico.map((item, indice) => <View key={`${item.referencia}-${indice}`} style={styles.consumptionColumn}><Text style={styles.consumptionValue}>{Math.round(item.consumo)}</Text><View style={styles.consumptionTrack}><View style={[styles.consumptionBar, { height: `${Math.max(12, item.consumo / maiorConsumo * 100)}%` }]} /></View><Text style={styles.consumptionLabel}>{item.referencia}</Text></View>)}</View> : <Text style={styles.summaryDetail}>O gráfico aparecerá após a primeira fatura processada.</Text>}</Card></Section>

@@ -118,6 +118,18 @@ if (faturaExistente) {
     await supabase.from("faturas").delete().eq("id", faturaExistente.id);
   } else {
 
+  if (dados.proximaLeitura && !faturaExistente.proxima_leitura) {
+    const proximaLeitura = converterDataBrasileiraParaIso(dados.proximaLeitura);
+    const { data: atualizada, error: erroAtualizacao } = await supabase
+      .from("faturas")
+      .update({ proxima_leitura: proximaLeitura })
+      .eq("id", faturaExistente.id)
+      .select()
+      .single();
+    if (erroAtualizacao) throw erroAtualizacao;
+    Object.assign(faturaExistente, atualizada);
+  }
+
   return {
 
     jaProcessada: true,
@@ -294,6 +306,10 @@ const fatura = await inserirFatura({
   referencia: dados.referencia,
 
   vencimento,
+
+  proxima_leitura: dados.proximaLeitura
+    ? converterDataBrasileiraParaIso(dados.proximaLeitura)
+    : null,
 
   consumo: dados.consumo,
 

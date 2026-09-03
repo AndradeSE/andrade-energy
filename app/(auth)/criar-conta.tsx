@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as DocumentPicker from "expo-document-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
@@ -30,7 +29,6 @@ export default function CriarConta() {
   const [emailEnviado, setEmailEnviado] = useState(false);
   const [contaAtiva, setContaAtiva] = useState(false);
   const [aguardandoGerador, setAguardandoGerador] = useState(false);
-  const [fatura, setFatura] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [reenviando, setReenviando] = useState(false);
 
   async function validarConvite() {
@@ -57,7 +55,6 @@ export default function CriarConta() {
     if (tipo === "GERADOR" && !nome.trim()) return setErro("Informe seu nome.");
     if (tipo === "GERADOR" && cpf.replace(/\D/g, "").length !== 11) return setErro("Informe um CPF válido com 11 números.");
     if (tipo === "GERADOR" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setErro("Informe um e-mail válido.");
-    if (tipo === "CONSUMIDOR" && !fatura) return setErro("Anexe a fatura CEMIG da unidade consumidora para continuar.");
     if (senha.length < 6) return setErro("Crie uma senha com pelo menos 6 caracteres.");
     if (senha !== confirmacao) return setErro("As senhas não são iguais.");
     setErro("");
@@ -67,7 +64,6 @@ export default function CriarConta() {
         ? await criarContaConsumidorComFatura({
           convite: convite.trim(),
           senha,
-          fatura: fatura ? { uri: fatura.uri, name: fatura.name, mimeType: fatura.mimeType } : undefined,
         })
         : await criarConta({ nome: nome.trim(), cpf, email: email.trim().toLowerCase(), senha, tipo, convite: convite.trim() || undefined });
       setEmailEnviado(Boolean(resultado?.emailEnviado));
@@ -78,22 +74,6 @@ export default function CriarConta() {
       Alert.alert("Não foi possível criar a conta", error?.response?.data?.message ?? "Tente novamente.");
     } finally {
       setSalvando(false);
-    }
-  }
-
-  async function escolherFatura() {
-    try {
-      const resultado = await DocumentPicker.getDocumentAsync({
-        type: "application/pdf",
-        copyToCacheDirectory: true,
-        multiple: false,
-      });
-      if (!resultado.canceled) {
-        setFatura(resultado.assets[0]);
-        setErro("");
-      }
-    } catch {
-      setErro("Não foi possível selecionar a fatura. Tente novamente.");
     }
   }
 
@@ -141,7 +121,7 @@ export default function CriarConta() {
             {solicitado
               ? tipo === "CONSUMIDOR"
                 ? contaAtiva
-                  ? "Sua conta está ativa. A fatura CEMIG foi conferida e permanece anexada ao seu cadastro."
+                  ? "Sua conta está ativa e vinculada aos dados cadastrados pelo seu gerador."
                   : aguardandoGerador
                     ? "Você optou por não enviar a fatura agora. O gerador precisa ativar seu acesso manualmente."
                   : emailEnviado
@@ -151,7 +131,7 @@ export default function CriarConta() {
                   ? "Sua conta está pronta. Enviamos a confirmação para o e-mail informado."
                   : "Sua conta está pronta, mas não conseguimos enviar o e-mail de confirmação. Você já pode entrar normalmente."
               : tipo === "CONSUMIDOR"
-                ? "Seus dados já foram preenchidos pelo convite. Anexe a fatura CEMIG da unidade para validar o titular e cadastrar a UC automaticamente."
+                ? "Seus dados já foram preenchidos pelo convite. Crie apenas sua senha para acessar as UCs cadastradas pelo gerador."
                 : "Solicite seu acesso à Andrade Energy. Seus dados serão vinculados à unidade consumidora cadastrada."}
           </Text>
 
@@ -167,17 +147,6 @@ export default function CriarConta() {
                 <View style={styles.inputBox}>
                   <TextInput editable={false} keyboardType="numeric" maxLength={11} onChangeText={(valor) => { setCpf(valor.replace(/\D/g, "")); setErro(""); }} placeholder="Somente números" placeholderTextColor="#92979F" style={styles.inputWithoutIcon} value={cpf} />
                 </View>
-              </> : null}
-              {tipo === "CONSUMIDOR" ? <>
-                <Text style={styles.label}>Fatura CEMIG do titular</Text>
-                <TouchableOpacity accessibilityLabel="Selecionar fatura CEMIG em PDF" activeOpacity={0.8} onPress={escolherFatura} style={[styles.invoicePicker, fatura && styles.invoicePickerSelected]}>
-                  <Ionicons name={fatura ? "document-text" : "document-attach-outline"} size={22} color={Colors.primary} />
-                  <View style={styles.invoicePickerCopy}>
-                    <Text numberOfLines={1} style={styles.invoicePickerTitle}>{fatura?.name ?? "Selecionar fatura em PDF"}</Text>
-                    <Text style={styles.invoicePickerHint}>{fatura ? "Fatura selecionada. Você pode tocar para trocar." : "Obrigatória: ela valida o cadastro e cria sua primeira UC."}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color={Colors.subtitle} />
-                </TouchableOpacity>
               </> : null}
               <Text style={styles.label}>E-mail</Text>
               <View style={styles.inputBox}>
