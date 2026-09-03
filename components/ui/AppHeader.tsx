@@ -207,8 +207,8 @@ export default function AppHeader({
             : <PortalBrandLogo height={30} width={90} />}
         </View>
         <View style={styles.plantText}><Text numberOfLines={1} style={styles.plantName}>{usinaSelecionada.nome}</Text><Text numberOfLines={1} style={styles.plantAutonomy}>{autonomia ? `Autonomia ${autonomia.percentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% · ${autonomia.disponivel.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kWh disponíveis` : "Calculando autonomia..."}</Text></View>
-        <TouchableOpacity accessibilityLabel="Fechar dados da usina" onPress={alternarContextoUsina} style={styles.plantToggle}><Text style={styles.plantToggleText}>Fechar</Text><Ionicons name="chevron-up" size={15} color="#F6CC32" /></TouchableOpacity>
-      </View> : <TouchableOpacity accessibilityLabel="Abrir dados da usina" activeOpacity={0.8} onPress={alternarContextoUsina} style={styles.plantBarCollapsed}><Ionicons name="sunny-outline" size={15} color="#A7F3D0" /><Text numberOfLines={1} style={styles.plantCollapsedName}>{usinaSelecionada.nome}</Text><Text style={styles.plantToggleText}>Abrir</Text><Ionicons name="chevron-down" size={15} color="#F6CC32" /></TouchableOpacity> : null}
+        <TouchableOpacity accessibilityLabel="Ocultar detalhes da usina" onPress={alternarContextoUsina} style={styles.plantToggle}><Text style={styles.plantToggleText}>Ocultar</Text><Ionicons name="chevron-up" size={15} color="#F6CC32" /></TouchableOpacity>
+      </View> : <TouchableOpacity accessibilityLabel="Abrir detalhes da usina" activeOpacity={0.8} onPress={alternarContextoUsina} style={styles.plantDetailsToggle}><Text style={styles.plantToggleText}>Detalhes</Text><Ionicons name="chevron-down" size={15} color="#F6CC32" /></TouchableOpacity> : null}
 
       <Modal animationType="fade" transparent visible={menuAberto} onRequestClose={() => setMenuAberto(false)}>
         <Pressable style={styles.backdrop} onPress={() => setMenuAberto(false)}>
@@ -343,8 +343,7 @@ const styles = StyleSheet.create({
   plantAutonomy: { marginTop: 1, color: "rgba(255,255,255,0.78)", fontSize: 11 },
   plantToggle: { minHeight: 34, alignItems: "center", justifyContent: "center", paddingHorizontal: 5 },
   plantToggleText: { color: "#F6CC32", fontSize: 10, fontWeight: "900" },
-  plantBarCollapsed: { minHeight: 32, flexDirection: "row", alignItems: "center", gap: 6, marginTop: Spacing.sm, paddingHorizontal: Spacing.sm, borderRadius: Radius.md, backgroundColor: "rgba(255,255,255,0.10)" },
-  plantCollapsedName: { flex: 1, color: "#D8F0E3", fontSize: 11, fontWeight: "700" },
+  plantDetailsToggle: { minHeight: 22, flexDirection: "row", alignSelf: "center", alignItems: "center", gap: 2, marginTop: 3, paddingHorizontal: Spacing.sm },
   backdrop: { flex: 1, alignItems: "flex-end", backgroundColor: "rgba(15,23,42,0.45)" },
   menu: { width: "84%", height: "100%", paddingHorizontal: Spacing.lg, paddingTop: 58, backgroundColor: Colors.surface },
   notificationPanel: { width: "88%", marginTop: 90, marginHorizontal: "6%", paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg, borderRadius: Radius.xl, backgroundColor: Colors.surface },
