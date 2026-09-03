@@ -115,7 +115,7 @@ export default function NovaUsina() {
         <FormField label="Geração média mensal (kWh)" value={geracaoMedia} onChangeText={setGeracaoMedia} keyboardType="decimal-pad" placeholder="Base inicial da alocação automática" />
         {origem === "fatura" && !tipoGd ? <Text style={styles.gdHint}>A modalidade não foi identificada nesta fatura. Escolha GD I ou GD II.</Text> : null}
         <ChoiceField label="Modalidade GD da usina" value={tipoGd} onChange={setTipoGd} options={[{ label: "GD I", value: "GD1" }, { label: "GD II", value: "GD2" }]} />
-        <ChoiceField label="Titularidade das UCs recebedoras" value={titularidadeUcs} onChange={(valor) => setTitularidadeUcs(valor as "GERADOR" | "CLIENTE")} options={[{ label: "Gerador", value: "GERADOR" }, { label: "Clientes", value: "CLIENTE" }]} />
+        <ChoiceField label="Titularidade das UCs" value={titularidadeUcs} onChange={(valor) => setTitularidadeUcs(valor as "GERADOR" | "CLIENTE")} options={[{ label: "Gerador", value: "GERADOR" }, { label: "Clientes", value: "CLIENTE" }]} />
         <Text style={styles.gdHint}>{titularidadeUcs === "GERADOR" ? "O gerador configura o envio automático das faturas na área Financeiro." : "Cada cliente deverá ativar o envio automático da própria fatura no aplicativo Consumidor."}</Text>
         <FormField label="Titular" value={titular} onChangeText={setTitular} />
         <FormField label="CPF/CNPJ do titular da conta (para e-mail)" value={cpfTitular} onChangeText={(valor) => setCpfTitular(valor.replace(/\D/g, "").slice(0, 14))} keyboardType="numeric" />
