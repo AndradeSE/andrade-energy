@@ -28,7 +28,7 @@ const tutoriaisGerador: Tutorial[] = [
   { id: "cadastro-usina", titulo: "Cadastro manual de usina", descricao: "Conheça os campos do cadastro sem criar um registro real.", duracao: "27 s", video: require("../assets/tutorials/lote-gerador-formulario-usina.mp4") },
   { id: "cadastro-cliente", titulo: "Cadastro manual de cliente", descricao: "Conheça o formulário do consumidor sem salvar dados.", duracao: "27 s", video: require("../assets/tutorials/lote-gerador-formulario-cliente.mp4") },
   { id: "fechamento", titulo: "Novo fechamento", descricao: "Veja o formulário e os dados necessários para um fechamento.", duracao: "27 s", video: require("../assets/tutorials/lote-gerador-fechamento.mp4") },
-  { id: "faturamento", titulo: "Faturar via conta de energia", descricao: "Encontre o acesso para iniciar o faturamento por documento.", duracao: "32 s", video: require("../assets/tutorials/lote-gerador-faturamento.mp4") },
+  { id: "faturamento", titulo: "Faturamento via PDF", descricao: "Encontre o acesso para iniciar o faturamento por documento.", duracao: "32 s", video: require("../assets/tutorials/lote-gerador-faturamento.mp4") },
   { id: "configurar-uc", titulo: "Configurar unidade consumidora", descricao: "Consulte modalidades e parâmetros da unidade.", duracao: "28 s", video: require("../assets/tutorials/lote-gerador-uc-configuracao.mp4") },
   { id: "contrato-uc", titulo: "Contrato da unidade", descricao: "Conheça o formulário de contrato vinculado à UC.", duracao: "28 s", video: require("../assets/tutorials/lote-gerador-uc-contrato.mp4") },
   { id: "assinatura", titulo: "Consultar assinatura", descricao: "Veja o estado e as opções apresentadas para o plano.", duracao: "23 s", video: require("../assets/tutorials/lote-gerador-assinatura.mp4") },

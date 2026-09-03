@@ -16,7 +16,7 @@ import { enfileirarNotificacoesDaFatura } from "./notificacoesFatura.service";
 import { criarCobranca } from "../cobrancas/cobrancas.repository";
 import { registrarCreditosDaFatura } from "../creditos/consumo.service";
 import { supabase } from "../../config/supabase";
-import { criarCobrancaAsaas } from "../asaas/asaas.service";
+import { tentarCriarCobrancaAsaas } from "../asaas/asaas.service";
 
 export async function listarFaturas(filtro?: { clienteId?: string; uc?: string; empresaId?: string }) {
   const faturas = await listarFaturasRepository(filtro);
@@ -31,7 +31,14 @@ export async function detalharFatura(id: string, empresaId?: string) {
   if (!String(fatura.pdf_unificada_url ?? "").includes(VERSAO_LAYOUT_FATURA)) {
     fatura = await regenerarDocumentosGeradosDaFatura(fatura);
   }
-  return incluirLinksTemporarios(fatura);
+  const temCobrancaPronta = Boolean(fatura.codigo_pix || fatura.linha_digitavel || fatura.pdf_boleto_url);
+  return incluirLinksTemporarios({
+    ...fatura,
+    cobranca_status: temCobrancaPronta ? "PRONTA" : "PENDENTE",
+    cobranca_mensagem: temCobrancaPronta
+      ? null
+      : "A cobrança ainda não foi emitida. O gestor pode tocar em Gerar boleto, PIX e fatura para ver ou corrigir o motivo.",
+  });
 }
 
 export async function excluirFatura(id: string, empresaId?: string) {
@@ -81,7 +88,7 @@ export async function confirmarFaturaRascunho(id: string, empresaId?: string) {
     valor: Number(fatura.valor_total_unificado ?? fatura.valor_total ?? 0),
     vencimento: fatura.vencimento,
   });
-  await criarCobrancaAsaas(fatura.id).catch(() => null);
+  await tentarCriarCobrancaAsaas(fatura.id, empresaId);
   await enfileirarNotificacoesDaFatura(fatura);
   const atualizada = await buscarFaturaPorId(fatura.id);
   return incluirLinksTemporarios(atualizada ?? fatura);

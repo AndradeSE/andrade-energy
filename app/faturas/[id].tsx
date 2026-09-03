@@ -328,7 +328,7 @@ export default function DetalheFatura() {
           />
           <DownloadButton
             available
-            label="Relatório do cálculo"
+            label="Baixar memória de cálculo e desconto"
             loading={documentoBaixando === `relatorio-calculo-${referenciaArquivo}.pdf`}
             onPress={() => void baixarRelatorioCalculo()}
           />

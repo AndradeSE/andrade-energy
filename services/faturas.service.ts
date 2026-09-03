@@ -20,10 +20,19 @@ export function formatarCompetenciaBrasileira(valor: unknown, fallback = "Perío
   return formatarDataBrasileira(texto, fallback);
 }
 
+function numeroDaFatura(valor: unknown) {
+  if (typeof valor === "number") return Number.isFinite(valor) ? valor : 0;
+  const texto = String(valor ?? "").trim();
+  if (!texto) return 0;
+  const normalizado = texto.includes(",") ? texto.replace(/\./g, "").replace(",", ".") : texto;
+  const numero = Number(normalizado.replace(/[^\d.-]/g, ""));
+  return Number.isFinite(numero) ? numero : 0;
+}
+
 function consumoMensalValido(item: any) {
-  const consumoExtraido = Number(item?.consumo ?? 0);
-  const dias = Number(item?.dias ?? 0);
-  const mediaDiaria = Number(item?.mediaDiaria ?? 0);
+  const consumoExtraido = numeroDaFatura(item?.consumo ?? item?.consumo_kwh ?? item?.consumoKwh ?? item?.kwh ?? item?.valor);
+  const dias = numeroDaFatura(item?.dias ?? item?.dias_faturados ?? item?.diasFaturados);
+  const mediaDiaria = numeroDaFatura(item?.mediaDiaria ?? item?.media_diaria);
   const consumoPelaMedia = mediaDiaria > 0 && dias > 0
     ? Math.round(mediaDiaria * dias)
     : 0;
@@ -41,7 +50,8 @@ function consumoMensalValido(item: any) {
  * sugestão para que o gestor possa confirmar ou editar antes de alocar.
  */
 export function calcularMediaConsumoFatura(dados: any) {
-  const historicoBruto = dados?.historico ?? dados?.historicoConsumo ?? dados?.historico_consumo;
+  const fonte = dados?.dadosFatura ?? dados?.dados_fatura ?? dados?.dadosExtraidos ?? dados?.dados_extraidos ?? dados;
+  const historicoBruto = fonte?.historico ?? fonte?.historicoConsumo ?? fonte?.historico_consumo;
   const historico = Array.isArray(historicoBruto)
     ? historicoBruto.slice(0, 12)
     : [];
@@ -50,7 +60,7 @@ export function calcularMediaConsumoFatura(dados: any) {
     .filter((valor: number) => valor > 0);
   const media = consumos.length
     ? consumos.reduce((total: number, valor: number) => total + valor, 0) / consumos.length
-    : Number(dados?.consumo ?? dados?.consumo_kwh ?? dados?.consumoFaturado ?? 0);
+    : numeroDaFatura(fonte?.consumo ?? fonte?.consumo_kwh ?? fonte?.consumoKwh ?? fonte?.consumoFaturado);
 
   return Number.isFinite(media) && media > 0
     ? Math.round(media)

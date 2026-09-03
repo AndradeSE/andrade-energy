@@ -9,7 +9,7 @@ import UsinaSelector from "../../components/cadastro/UsinaSelector";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { alocarUnidade, listarUsinas } from "../../services/usinas.service";
-import { listarFaturas } from "../../services/faturas.service";
+import { calcularMediaConsumoFatura, listarFaturas } from "../../services/faturas.service";
 import { supabase } from "../../supabase";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
@@ -87,6 +87,11 @@ export default function NovaUnidade() {
     else if (clienteIdVinculado || cadastroRapido === "1") setTipo("BENEFICIARIA");
     else if (!Number(energiaCompensada)) setTipo("CONSUMIDORA");
   }, [cadastroRapido, classificacao, cliente, clienteIdVinculado, cpfImportado, enderecoImportado, energiaCompensada, origem, uc]);
+
+  useEffect(() => {
+    const mediaExtraida = calcularMediaConsumoFatura(dadosFatura);
+    if (mediaExtraida > 0 && !numeroSeguro(consumoMedio)) setConsumoMedio(String(mediaExtraida));
+  }, [consumoMedio, dadosFatura]);
 
   useEffect(() => {
     const clienteSelecionado = clientes.find((item) => item.id === clienteId);

@@ -123,6 +123,25 @@ function dadosDaFaturaAnexada(dados: Record<string, any>) {
   };
 }
 
+function numeroDaFatura(valor: unknown) {
+  if (typeof valor === "number") return Number.isFinite(valor) ? valor : 0;
+  const texto = String(valor ?? "").trim();
+  const normalizado = texto.includes(",") ? texto.replace(/\./g, "").replace(",", ".") : texto;
+  const numero = Number(normalizado.replace(/[^\d.-]/g, ""));
+  return Number.isFinite(numero) ? numero : 0;
+}
+
+function mediaConsumoDaFatura(dados: Record<string, any>) {
+  const historico = dados?.historico ?? dados?.historicoConsumo ?? dados?.historico_consumo;
+  const consumos = (Array.isArray(historico) ? historico.slice(0, 12) : [])
+    .map((item: any) => numeroDaFatura(item?.consumo ?? item?.consumo_kwh ?? item?.consumoKwh ?? item?.kwh ?? item?.valor))
+    .filter((valor: number) => valor > 0);
+  const media = consumos.length
+    ? consumos.reduce((total: number, valor: number) => total + valor, 0) / consumos.length
+    : numeroDaFatura(dados?.consumo ?? dados?.consumo_kwh ?? dados?.consumoKwh ?? dados?.consumoFaturado);
+  return media > 0 ? Math.round(media) : 0;
+}
+
 function faturaPossuiDadosDeConsumo(dados: Record<string, any>) {
   const possuiConsumo = Number(dados?.consumo ?? dados?.consumo_kwh ?? 0) > 0 ||
     (Array.isArray(dados?.historico) && dados.historico.some((item: any) => Number(item?.consumo ?? 0) > 0));
@@ -189,12 +208,14 @@ export async function anexarFaturaAoCliente(
     caminhoPdf = await guardarFaturaAnexada(clienteId, arquivo.path);
     const anexo = await criarFaturaAnexadaCliente({ clienteId, empresaId, usuarioId: usuario?.id ?? null, caminhoPdf, arquivoNome: arquivo.originalname || "fatura-cemig.pdf", dadosFatura });
     const unidade = await cadastrarUnidadeCliente(clienteId, dadosFatura.uc, cliente?.cpf ?? dadosFatura.cpfParcial, empresaId);
+    const consumoMedio = mediaConsumoDaFatura(dadosFatura);
     const { error: unidadeError } = await supabase
       .from("unidades_consumidoras")
       .update({
         titular: dadosFatura.titular || cliente?.nome || null,
         endereco: dadosFatura.endereco || cliente?.endereco || null,
         distribuidora: dadosFatura.distribuidora || "CEMIG",
+        ...(consumoMedio > 0 ? { consumo_medio_kwh: consumoMedio } : {}),
       })
       .eq("id", unidade.id)
       .eq("empresa_id", empresaId);
@@ -315,6 +336,9 @@ export async function confirmarCadastroCliente(
       modalidade_faturamento: cliente.modalidade_faturamento ?? "COMPENSACAO",
       desconto_percentual: Number(cliente.desconto_percentual ?? 40),
       cpf_titular: cliente.cpf ?? null,
+      ...(mediaConsumoDaFatura(dadosFatura) > 0
+        ? { consumo_medio_kwh: mediaConsumoDaFatura(dadosFatura) }
+        : {}),
       status: "ATIVA",
       empresa_id: empresaId,
     };

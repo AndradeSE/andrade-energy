@@ -159,8 +159,17 @@ export default function Faturas() {
               <View style={styles.downloads}>
                 <DownloadLink label="Concessionária" available={Boolean(item.pdf_cemig_url)} loading={baixando === `cemig-${item.id}`} onPress={() => baixarDocumento(item.pdf_cemig_url, `concessionaria-${referenciaArquivo}.pdf`, `cemig-${item.id}`)} />
                 <DownloadLink label="Unificada" available={Boolean(item.pdf_unificada_url)} loading={baixando === `unificada-${item.id}`} onPress={() => baixarDocumento(item.pdf_unificada_url, `unificada-${referenciaArquivo}.pdf`, `unificada-${item.id}`)} />
-                <DownloadLink label="Cálculo" available loading={baixando === `relatorio-${item.id}`} onPress={() => void baixarRelatorio(item, referenciaArquivo)} />
               </View>
+              <TouchableOpacity
+                accessibilityLabel={`Baixar memória de cálculo da fatura ${item.referencia || ""}`}
+                disabled={baixando === `relatorio-${item.id}`}
+                onPress={(event) => { event.stopPropagation(); void baixarRelatorio(item, referenciaArquivo); }}
+                style={styles.reportDownload}
+              >
+                <Ionicons name={baixando === `relatorio-${item.id}` ? "hourglass-outline" : "document-text-outline"} size={18} color={Colors.primary} />
+                <Text style={styles.reportDownloadText}>{baixando === `relatorio-${item.id}` ? "Preparando relatório..." : "Baixar memória de cálculo e desconto"}</Text>
+                <Ionicons name="download-outline" size={17} color={Colors.primary} />
+              </TouchableOpacity>
               <TouchableOpacity
                 accessibilityLabel={`Excluir fatura ${item.referencia || ""}`}
                 onPress={(event) => {
@@ -224,6 +233,7 @@ const styles = StyleSheet.create({
   documentLabel: { color: Colors.text, fontSize: 9, fontWeight: "900" },
   documentCode: { marginTop: 4, color: Colors.subtitle, fontSize: 9 },
   downloads: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.md }, download: { flex: 1, minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md }, downloadUnavailable: { borderColor: Colors.border, opacity: 0.58 }, downloadText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" }, downloadTextUnavailable: { color: Colors.subtitle },
+  reportDownload: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, marginTop: Spacing.sm, borderRadius: Radius.md, backgroundColor: "#E1F1E6", borderWidth: 1, borderColor: "#B4D7BD" }, reportDownloadText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" },
   deleteInvoice: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: Spacing.md, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: "rgba(100,116,139,0.20)" },
   deleteInvoiceText: { color: Colors.danger, fontSize: Typography.small, fontWeight: "800" },
 });

@@ -70,6 +70,25 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string) {
   return data;
 }
 
+/**
+ * A emissão automática nunca deve impedir o registro da fatura, mas também
+ * não pode esconder o motivo da falha. Mantemos o erro apenas no log seguro
+ * do servidor (sem tokens, CPF ou e-mail) e deixamos a emissão manual mostrar
+ * a mensagem exata ao gestor.
+ */
+export async function tentarCriarCobrancaAsaas(faturaId: string, empresaId?: string) {
+  try {
+    return await criarCobrancaAsaas(faturaId, empresaId);
+  } catch (error: any) {
+    console.error("[asaas] emissão automática não concluída", {
+      faturaId,
+      empresaId: empresaId ?? null,
+      motivo: error?.message ?? "Erro desconhecido",
+    });
+    return null;
+  }
+}
+
 async function transferirSaldo(cobranca: any) {
   const { data: carteira } = cobranca.gerador_carteira_id ? await supabase.from("gerador_carteiras").select("*").eq("id", cobranca.gerador_carteira_id).maybeSingle() : { data: null };
   const automatica = carteira ? carteira.transferencia_automatica === true : process.env.ASAAS_AUTO_TRANSFER_ENABLED === "true";

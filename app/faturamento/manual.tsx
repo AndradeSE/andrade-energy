@@ -72,9 +72,9 @@ export default function FaturamentoManual() {
   }
 
   const dados = analise?.dados;
-  return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Nova fatura" subtitle="Importar conta de energia" contextTitle="Faturar via conta de energia" contextSubtitle="Importe a conta da concessionária" icon="receipt-outline" /> : null}<ScrollView contentContainerStyle={styles.content}>
+  return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Nova fatura" subtitle="Importar conta de energia" contextTitle="Faturamento via PDF" contextSubtitle="Importe a conta da concessionária" icon="receipt-outline" /> : null}<ScrollView contentContainerStyle={styles.content}>
     <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={24} color={Colors.text} /></TouchableOpacity>
-    <Text style={styles.eyebrow}>FINANCEIRO</Text><Text style={styles.title}>Faturar via conta de energia</Text><Text style={styles.subtitle}>Selecione a conta da concessionária em PDF, confira os dados e confirme a geração da cobrança.</Text>
+    <Text style={styles.eyebrow}>FINANCEIRO</Text><Text style={styles.title}>Faturamento via PDF</Text><Text style={styles.subtitle}>Selecione a conta da concessionária em PDF, confira os dados e confirme a geração da cobrança.</Text>
 
     <TouchableOpacity disabled={lendo || faturando} activeOpacity={0.84} onPress={selecionar} style={styles.upload}>
       <View style={styles.uploadIcon}><Ionicons name="document-attach-outline" size={26} color={Colors.primary} /></View>

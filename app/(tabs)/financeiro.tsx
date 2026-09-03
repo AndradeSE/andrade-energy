@@ -48,7 +48,7 @@ export default function Financeiro() {
   return <Screen><AppHeader showPlantContext={false} title="Financeiro" subtitle="Receita da carteira" contextTitle={moeda(dados.receitaRecebida)} contextSubtitle={`${dados.percentualRecebido.toFixed(1)}% da receita recebida`} icon="wallet-outline" />
     {loading ? <Loading /> : <ScrollView bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <Section title="Acesso rápido"><View style={styles.quickGrid}>
-        <QuickAction icon="document-attach-outline" label="Via conta de energia" onPress={() => router.push("/faturamento/manual")} />
+        <QuickAction icon="document-attach-outline" label="Faturamento via PDF" onPress={() => router.push("/faturamento/manual")} />
         <QuickAction icon="create-outline" label="Faturamento manual" onPress={() => router.push("/faturamento/criar-manual" as any)} />
         <QuickAction icon="swap-horizontal-outline" label="Transferir saldo" active={secaoAberta === "carteira"} onPress={() => setSecaoAberta(secaoAberta === "carteira" ? null : "carteira")} />
         <QuickAction icon="mail-unread-outline" label="Fatura automática" active={secaoAberta === "automatico"} onPress={() => setSecaoAberta(secaoAberta === "automatico" ? null : "automatico")} />
