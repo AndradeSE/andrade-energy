@@ -99,8 +99,9 @@ function franquiaDaLigacao(tipo?: string) {
 }
 
 function extrairProximaLeitura(texto: string) {
-  return texto.match(/Pr[oó]xima\s+(?:data\s+(?:de|da)\s+)?leitura[^\d]{0,45}(\d{2}[\/.-]\d{2}[\/.-]\d{4})/i)?.[1]?.replace(/[.-]/g, "/")
-    ?? texto.match(/(\d{2}[\/.-]\d{2}[\/.-]\d{4})[^A-Za-zÀ-ÿ]{0,25}Pr[oó]xima\s+(?:data\s+(?:de|da)\s+)?leitura/i)?.[1]?.replace(/[.-]/g, "/")
+  const rotulo = "(?:data\\s+(?:da|de)\\s+)?pr[oó]xima\\s+(?:data\\s+(?:de|da)\\s+)?leitura(?:\\s+prevista)?";
+  return texto.match(new RegExp(`${rotulo}[^\\d]{0,80}(\\d{2}[\\/.-]\\d{2}[\\/.-]\\d{4})`, "i"))?.[1]?.replace(/[.-]/g, "/")
+    ?? texto.match(new RegExp(`(\\d{2}[\\/.-]\\d{2}[\\/.-]\\d{4})[^A-Za-zÀ-ÿ]{0,35}${rotulo}`, "i"))?.[1]?.replace(/[.-]/g, "/")
     ?? undefined;
 }
 

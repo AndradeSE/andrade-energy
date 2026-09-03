@@ -18,3 +18,8 @@ test("extrai próxima leitura separada por conteúdo do quadro", () => {
   const dados = parseCemigConvencional("PRÓXIMA DATA DE LEITURA\nPREVISÃO DA CONCESSIONÁRIA\n18.10.2026");
   assert.equal(dados.proximaLeitura, "18/10/2026");
 });
+
+test("extrai data da próxima leitura no rótulo usado pela concessionária", () => {
+  const dados = parseCemigGD("DATA DA PRÓXIMA LEITURA\nPREVISTA PARA 19/10/2026");
+  assert.equal(dados.proximaLeitura, "19/10/2026");
+});

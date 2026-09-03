@@ -109,9 +109,12 @@ if (faturaExistente) {
     faturaExistente.repassar_diferenca_fio_b_gd2 === false;
   const calculoAbsorcaoDesatualizado =
     possuiAbsorcaoConfigurada && faturaExistente.valor_cemig_repassado == null;
+  const formatoDaCobrancaAlterado =
+    Boolean(faturaExistente.fatura_somente_andrade) !==
+    Boolean(cliente.unidade_consumidora?.fatura_somente_andrade);
   const podeCorrigir = semBaseDeCalculo && Number(dados.consumo ?? 0) > 0;
 
-  if (podeCorrigir || totalConvencionalSomadoEmDuplicidade || valorConcessionariaFoiReduzido || compensacaoInferidaPeloConsumo || energiaDoPeriodoNaoCalculada || energiaCobradaSemCompensacao || energiaInjetadaComRateio || calculoAbsorcaoDesatualizado) {
+  if (podeCorrigir || totalConvencionalSomadoEmDuplicidade || valorConcessionariaFoiReduzido || compensacaoInferidaPeloConsumo || energiaDoPeriodoNaoCalculada || energiaCobradaSemCompensacao || energiaInjetadaComRateio || calculoAbsorcaoDesatualizado || formatoDaCobrancaAlterado) {
     for (const tabela of ["notificacoes_fatura", "cobrancas", "creditos"]) {
       await supabase.from(tabela).delete().eq("fatura_id", faturaExistente.id);
     }
