@@ -5,7 +5,6 @@ import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import FormField from "../../components/cadastro/FormField";
-import ChoiceField from "../../components/cadastro/ChoiceField";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors, Spacing, Typography } from "../../theme";
@@ -20,7 +19,6 @@ export default function NovoCliente() {
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
   const [endereco, setEndereco] = useState("");
-  const [titularidadeFaturamento, setTitularidadeFaturamento] = useState<"GERADOR" | "CLIENTE">("GERADOR");
   const [salvando, setSalvando] = useState(false);
   const [pdf, setPdf] = useState<DocumentPicker.DocumentPickerAsset | null>(arquivoUri ? { uri: arquivoUri, name: arquivoNome || "fatura-cemig.pdf", mimeType: "application/pdf" } as DocumentPicker.DocumentPickerAsset : null);
 
@@ -44,7 +42,7 @@ export default function NovoCliente() {
     const dados = {
       nome: nome.trim(), cpf: cpfLimpo || null, email: normalizarEmail(email) || null,
       telefone: telefone.trim() || null, whatsapp: telefone.replace(/\D/g, "") || null,
-      endereco: endereco.trim() || null, status: "ATIVO", titularidade_faturamento: titularidadeFaturamento,
+      endereco: endereco.trim() || null, status: "ATIVO",
     };
 
     try {
@@ -88,8 +86,6 @@ export default function NovoCliente() {
       <FormField label="CPF (obrigatório)" value={cpf} onChangeText={(valor) => setCpf(valor.replace(/\D/g, "").slice(0, 11))} keyboardType="numeric" />
       <FormField label="E-mail (obrigatório)" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
       <FormField label="Telefone / WhatsApp (opcional)" value={telefone} onChangeText={setTelefone} keyboardType="phone-pad" />
-      <ChoiceField label="Titularidade das UCs recebedoras" value={titularidadeFaturamento} onChange={(valor) => setTitularidadeFaturamento(valor as "GERADOR" | "CLIENTE")} options={[{ label: "Gerador", value: "GERADOR" }, { label: "Cliente", value: "CLIENTE" }]} />
-      <Text style={styles.ownershipHint}>{titularidadeFaturamento === "GERADOR" ? "As UCs recebedoras são de titularidade do gerador; a configuração do e-mail será feita na área Financeiro." : "As UCs recebedoras são de titularidade do cliente; ele deverá ativar o envio automático de faturas no próprio aplicativo."}</Text>
       <TouchableOpacity activeOpacity={0.82} onPress={escolherFatura} style={[styles.pdfButton, pdf && styles.pdfButtonSelected]}>
         <Ionicons name={pdf ? "document-text" : "document-attach-outline"} size={22} color={Colors.primary} />
         <View style={styles.pdfCopy}><Text numberOfLines={1} style={styles.pdfTitle}>{pdf?.name ?? "Anexar fatura CEMIG"}</Text><Text style={styles.pdfHint}>{origem === "fatura" ? "Fatura usada neste cadastro" : "Obrigatória para cadastrar a UC"}</Text></View>

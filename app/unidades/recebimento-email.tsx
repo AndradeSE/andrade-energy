@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
-import { Redirect, router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
@@ -295,7 +295,6 @@ export default function RecebimentoEmail() {
     );
   }
 
-  if (!IS_GERADOR_APP) return <Redirect href="/(tabs)/faturas" />;
   if (carregando) return <Loading />;
   if (!unidadeId) return <Screen><View style={styles.state}><EmptyState icon="flash-outline" title={IS_GERADOR_APP ? "Abra uma usina" : "Escolha uma unidade"} subtitle={IS_GERADOR_APP ? "Abra os detalhes da usina e escolha receber produção por e-mail." : "Selecione uma unidade consumidora antes de configurar o recebimento automático."} /></View></Screen>;
 
@@ -306,7 +305,7 @@ export default function RecebimentoEmail() {
   const outlookConectado = conexoes.some((conexao) => conexao.provedor.toUpperCase() === "OUTLOOK" && conexaoAtiva(conexao));
 
   return <Screen>
-    {IS_GERADOR_APP ? <AppHeader variant="subpage" title="Recebimento automático" subtitle={recebimentoDeProducao ? "Produção da usina" : "Conta da unidade"} contextTitle="Recebimento automático" contextSubtitle={`${recebimentoDeProducao ? "Produção da UC" : "UC"} ${unidadeExibida?.numero ?? unidadeId}`} icon="mail-outline" /> : null}
+    {IS_GERADOR_APP ? <AppHeader variant="subpage" title="Recebimento automático" subtitle={recebimentoDeProducao ? "Produção da usina" : "Todas as UCs recebedoras"} contextTitle="Configuração de e-mail" contextSubtitle={recebimentoDeProducao ? `UC ${unidadeExibida?.numero ?? unidadeId}` : "Válida para todas as UCs deste titular"} icon="mail-outline" /> : null}
     <ScrollView bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.heading}>
         <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={24} color={Colors.text} /></TouchableOpacity>
@@ -330,7 +329,7 @@ export default function RecebimentoEmail() {
           <Text selectable style={styles.address}>{dados.endereco}</Text>
           <Ionicons name="copy-outline" size={21} color={Colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.addressHint}>Toque para copiar. Este endereço é exclusivo desta {recebimentoDeProducao ? "usina" : "UC"} e pode ser alterado a qualquer momento.</Text>
+        <Text style={styles.addressHint}>Toque para copiar. Este endereço é exclusivo desta {recebimentoDeProducao ? "usina" : "configuração"} e recebe as faturas de todas as UCs abrangidas pela titularidade.</Text>
         <TouchableOpacity disabled={salvando} onPress={confirmarRegeneracao} style={styles.secondaryAction}><Ionicons name="refresh-outline" size={19} color={Colors.primary} /><Text style={styles.secondaryText}>Gerar novo endereço</Text></TouchableOpacity>
         <TouchableOpacity disabled={salvando} onPress={confirmarDesativacao} style={styles.dangerAction}><Ionicons name="close-circle-outline" size={19} color={Colors.danger} /><Text style={styles.dangerText}>Desativar recebimento</Text></TouchableOpacity>
         <Text style={styles.inlineSectionTitle}>CONECTAR SEU E-MAIL</Text>

@@ -46,16 +46,18 @@ export default function ClienteHome() {
     if (!clienteId) return;
     Promise.all([buscarCliente(clienteId), listarMinhasUnidades()])
       .then(async ([cliente, unidades]: any[]) => {
-        setRecebimentoObrigatorio(cliente?.titularidade_faturamento === "CLIENTE");
         const unidadeAtual = unidades?.find(
           (unidade: any) => String(unidade.id) === String(unidadeSelecionada?.id ?? ""),
         ) ?? unidades?.[0];
+        const usinaAtual = Array.isArray(unidadeAtual?.usinas) ? unidadeAtual.usinas[0] : unidadeAtual?.usinas;
+        const titularidadeDoCliente = usinaAtual?.titularidade_ucs_recebedoras === "CLIENTE";
+        setRecebimentoObrigatorio(titularidadeDoCliente);
         const unidadeId = String(unidadeSelecionada?.id ?? unidadeAtual?.id ?? "");
         setConcessionariaDaUnidade(
           String(unidadeSelecionada?.distribuidora ?? unidadeAtual?.distribuidora ?? "").trim(),
         );
         setUnidadeRecebimentoId(unidadeId);
-        if (cliente?.titularidade_faturamento === "CLIENTE" && unidadeId) {
+        if (titularidadeDoCliente && unidadeId) {
           const status = await obterRecebimentoFaturas(unidadeId);
           setRecebimentoAtivo(Boolean(status.ativo));
         } else {

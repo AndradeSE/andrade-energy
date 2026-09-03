@@ -98,9 +98,13 @@ function clienteDaUnidade(unidade: any) {
   return Array.isArray(unidade?.clientes) ? unidade.clientes[0] : unidade?.clientes;
 }
 
+function usinaDaUnidade(unidade: any) {
+  return Array.isArray(unidade?.usinas) ? unidade.usinas[0] : unidade?.usinas;
+}
+
 function usuarioPodeAcessarUnidade(unidade: any, usuario: UsuarioAutenticado) {
   const perfil = String(usuario?.perfil ?? "").toUpperCase();
-  const titularidade = String(clienteDaUnidade(unidade)?.titularidade_faturamento ?? "GERADOR").toUpperCase();
+  const titularidade = String(usinaDaUnidade(unidade)?.titularidade_ucs_recebedoras ?? "GERADOR").toUpperCase();
   if (perfil === "ADMIN") return true;
   if (perfil === "GESTOR") return titularidade === "GERADOR";
   if (perfil !== "LEITURA") return false;
@@ -115,7 +119,7 @@ function usuarioPodeAcessarUnidade(unidade: any, usuario: UsuarioAutenticado) {
 async function buscarUnidadeAutorizada(unidadeId: string, usuario: UsuarioAutenticado) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")
-    .select("id, numero, cliente_id, usina_id, tipo, cpf_titular, status, recebimento_email_token, recebimento_email_ativo, recebimento_email_ativado_em, recebimento_email_ultimo_em, recebimento_email_status, recebimento_email_erro, clientes(id, cpf, titularidade_faturamento)")
+    .select("id, numero, cliente_id, usina_id, tipo, cpf_titular, status, recebimento_email_token, recebimento_email_ativo, recebimento_email_ativado_em, recebimento_email_ultimo_em, recebimento_email_status, recebimento_email_erro, clientes(id, cpf), usinas(id, titularidade_ucs_recebedoras)")
     .eq("id", unidadeId)
     .eq("empresa_id", empresaIdDoUsuario(usuario))
     .maybeSingle();
@@ -167,12 +171,12 @@ export async function obterRecebimentoFaturas(unidadeId: string, usuario: Usuari
 export async function obterRecebimentoGeral(usuario: UsuarioAutenticado) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")
-    .select("id,recebimento_email_ativo,cpf_titular,clientes(cpf,titularidade_faturamento)")
+    .select("id,recebimento_email_ativo,cpf_titular,clientes(cpf),usinas(titularidade_ucs_recebedoras)")
     .eq("empresa_id", empresaIdDoUsuario(usuario))
     .eq("tipo", "BENEFICIARIA")
     .eq("status", "ATIVA");
   if (error) throw error;
-  const unidades = (data ?? []).filter((unidade: any) => String(clienteDaUnidade(unidade)?.titularidade_faturamento ?? "GERADOR") === "GERADOR");
+  const unidades = (data ?? []).filter((unidade: any) => String(usinaDaUnidade(unidade)?.titularidade_ucs_recebedoras ?? "GERADOR") === "GERADOR");
   const aptas = unidades.filter((unidade: any) => (normalizarCpf(unidade.cpf_titular) || normalizarCpf(clienteDaUnidade(unidade)?.cpf)).length >= 4);
   const ativas = unidades.filter((unidade: any) => unidade.recebimento_email_ativo).length;
   return { ativo: unidades.length > 0 && ativas === unidades.length, total: unidades.length, ativas, aptas: aptas.length };
@@ -182,14 +186,14 @@ export async function definirRecebimentoGeral(ativo: boolean, usuario: UsuarioAu
   const empresaId = empresaIdDoUsuario(usuario);
   const { data, error } = await supabase
     .from("unidades_consumidoras")
-    .select("id,cpf_titular,clientes(cpf,titularidade_faturamento)")
+    .select("id,cpf_titular,clientes(cpf),usinas(titularidade_ucs_recebedoras)")
     .eq("empresa_id", empresaId)
     .eq("tipo", "BENEFICIARIA")
     .eq("status", "ATIVA");
   if (error) throw error;
 
   const falhas: string[] = [];
-  const unidadesDoGerador = (data ?? []).filter((unidade: any) => String(clienteDaUnidade(unidade)?.titularidade_faturamento ?? "GERADOR") === "GERADOR");
+  const unidadesDoGerador = (data ?? []).filter((unidade: any) => String(usinaDaUnidade(unidade)?.titularidade_ucs_recebedoras ?? "GERADOR") === "GERADOR");
   for (const unidade of unidadesDoGerador) {
     try {
       if (ativo) await ativarRecebimentoFaturas(String(unidade.id), usuario);
@@ -644,24 +648,56 @@ async function processarRegistro(registro: any) {
     const caminho = path.join(pasta, "conta.pdf");
     try {
       await writeFile(caminho, arquivo);
-      const { data: unidade, error: erroUnidade } = await supabase
+      const { data: unidadeConfiguracao, error: erroUnidade } = await supabase
         .from("unidades_consumidoras")
-        .select("id, numero, tipo, usina_id, cpf_titular, clientes(cpf)")
+        .select("id, numero, tipo, usina_id, cliente_id, empresa_id, cpf_titular, clientes(cpf), usinas(titularidade_ucs_recebedoras)")
         .eq("id", assumido.unidade_consumidora_id)
         .maybeSingle();
       if (erroUnidade) throw erroUnidade;
-      if (!unidade) throw new Error("Unidade consumidora não encontrada.");
+      if (!unidadeConfiguracao) throw new Error("Unidade consumidora não encontrada.");
+
+      const titularidade = String(usinaDaUnidade(unidadeConfiguracao)?.titularidade_ucs_recebedoras ?? "GERADOR").toUpperCase();
+      let consultaUnidades = supabase
+        .from("unidades_consumidoras")
+        .select("id, numero, tipo, usina_id, cliente_id, empresa_id, cpf_titular, clientes(cpf)")
+        .eq("empresa_id", unidadeConfiguracao.empresa_id)
+        .eq("usina_id", unidadeConfiguracao.usina_id)
+        .eq("status", "ATIVA")
+        .eq("tipo", "BENEFICIARIA");
+      if (titularidade === "CLIENTE") consultaUnidades = consultaUnidades.eq("cliente_id", unidadeConfiguracao.cliente_id);
+      const { data: unidadesDoEscopo, error: erroEscopo } = await consultaUnidades;
+      if (erroEscopo) throw erroEscopo;
+      const candidatas = (unidadesDoEscopo?.length ? unidadesDoEscopo : [unidadeConfiguracao]) as any[];
 
       // As faturas CEMIG protegidas usam os quatro primeiros dígitos do CPF
-      // do titular. A senha existe apenas durante a leitura, sem logs ou envio
-      // ao aplicativo.
-      const cpf = normalizarCpf(unidade.cpf_titular) || normalizarCpf(clienteDaUnidade(unidade)?.cpf);
-      const senhaPdf = cpf.length >= 4 ? cpf.slice(0, 4) : undefined;
-      const textoDaFatura = await extrairTextoPDF(caminho, senhaPdf);
-      const dados = complementarCabecalhoCemig(textoDaFatura, interpretarFatura(textoDaFatura));
-      if (normalizarNumero(dados.uc) !== normalizarNumero(unidade.numero)) {
-        throw new Error("O número da UC do PDF não corresponde ao endereço de recebimento.");
+      // do titular. Como uma única configuração atende todas as UCs do escopo,
+      // testamos somente as senhas dessas UCs e descartamos cada uma logo após
+      // a leitura, sem persistência ou logs.
+      let unidade: any = null;
+      let dados: ReturnType<typeof interpretarFatura> | null = null;
+      const tentativas = new Map<string, any>();
+      tentativas.set("", null);
+      for (const candidata of candidatas) {
+        const cpf = normalizarCpf(candidata.cpf_titular) || normalizarCpf(clienteDaUnidade(candidata)?.cpf);
+        if (cpf.length >= 4 && !tentativas.has(cpf.slice(0, 4))) tentativas.set(cpf.slice(0, 4), candidata);
       }
+      for (const [senha] of tentativas) {
+        try {
+          const texto = await extrairTextoPDF(caminho, senha || undefined);
+          const interpretados = complementarCabecalhoCemig(texto, interpretarFatura(texto));
+          const encontrada = candidatas.find((candidata) => normalizarNumero(candidata.numero) === normalizarNumero(interpretados.uc));
+          if (encontrada) {
+            unidade = encontrada;
+            dados = interpretados;
+            break;
+          }
+        } catch {
+          // A senha pode pertencer a outra UC do mesmo escopo; tentamos a próxima.
+        }
+      }
+      if (!unidade || !dados) throw new Error("A UC do PDF não pertence às UCs abrangidas por esta configuração.");
+
+      await supabase.from("recebimentos_faturas_email").update({ unidade_consumidora_id: unidade.id }).eq("id", assumido.id);
 
       // A UC geradora alimenta apenas os fechamentos de produção da própria
       // usina. Ela não representa uma fatura de cliente e, portanto, não pode
@@ -696,7 +732,7 @@ async function processarRegistro(registro: any) {
           processado_em: agora,
           updated_at: agora,
         }).eq("id", assumido.id);
-        await atualizarUnidadeRecebimento(assumido.unidade_consumidora_id, {
+        await atualizarUnidadeRecebimento(unidade.id, {
           recebimento_email_ultimo_em: agora,
           recebimento_email_status: "PRODUCAO_IMPORTADA",
           recebimento_email_erro: null,
@@ -727,7 +763,7 @@ async function processarRegistro(registro: any) {
         processado_em: agora,
         updated_at: agora,
       }).eq("id", assumido.id);
-      await atualizarUnidadeRecebimento(assumido.unidade_consumidora_id, {
+      await atualizarUnidadeRecebimento(unidade.id, {
         recebimento_email_ultimo_em: agora,
         recebimento_email_status: "AGUARDANDO_CONFERENCIA",
         recebimento_email_erro: null,

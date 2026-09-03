@@ -27,6 +27,7 @@ export default function EditarUsina() {
   const [cpfTitular, setCpfTitular] = useState("");
   const [endereco, setEndereco] = useState("");
   const [tipoGd, setTipoGd] = useState<"GD1" | "GD2">("GD1");
+  const [titularidadeUcs, setTitularidadeUcs] = useState<"GERADOR" | "CLIENTE">("GERADOR");
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
@@ -49,6 +50,7 @@ export default function EditarUsina() {
       setTitular(data.titular_nome ?? "");
       setEndereco(data.endereco ?? "");
       setTipoGd(data.tipo_gd === "GD2" ? "GD2" : "GD1");
+      setTitularidadeUcs(data.titularidade_ucs_recebedoras === "CLIENTE" ? "CLIENTE" : "GERADOR");
       setCpfTitular(String(data.cpf_titular ?? "").replace(/\D/g, ""));
     }
     carregar().finally(() => setLoading(false));
@@ -63,6 +65,7 @@ export default function EditarUsina() {
         potencia_kwp: Number(potencia.replace(",", ".")) || 0,
         geracao_media: Number(geracaoMedia.replace(",", ".")) || 0,
         investimento: numeroDaMoeda(investimento), tipo_gd: tipoGd,
+        titularidade_ucs_recebedoras: titularidadeUcs,
         titular_nome: titular.trim() || null, cpf_titular: cpfTitular.replace(/\D/g, "") || null,
         endereco: endereco.trim() || null,
       });
@@ -105,6 +108,7 @@ export default function EditarUsina() {
       <FormField label="Potência (kWp)" value={potencia} onChangeText={setPotencia} keyboardType="decimal-pad" />
       <FormField label="Geração média (kWh/mês)" value={geracaoMedia} onChangeText={setGeracaoMedia} keyboardType="decimal-pad" />
       <ChoiceField label="Modalidade GD da usina" value={tipoGd} onChange={setTipoGd} options={[{ label: "GD I", value: "GD1" }, { label: "GD II", value: "GD2" }]} />
+      <ChoiceField label="Titularidade das UCs recebedoras" value={titularidadeUcs} onChange={(valor) => setTitularidadeUcs(valor as "GERADOR" | "CLIENTE")} options={[{ label: "Gerador", value: "GERADOR" }, { label: "Clientes", value: "CLIENTE" }]} />
       <FormField label="Investimento" value={investimento} onChangeText={(valor) => setInvestimento(moedaDigitada(valor))} keyboardType="numeric" />
       <FormField label="Titular" value={titular} onChangeText={setTitular} />
       <FormField label="CPF/CNPJ do titular da conta (para e-mail)" value={cpfTitular} onChangeText={(valor) => setCpfTitular(valor.replace(/\D/g, "").slice(0, 14))} keyboardType="numeric" />

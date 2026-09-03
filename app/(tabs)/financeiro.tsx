@@ -7,37 +7,32 @@ import AndradeBarChart from "../../components/charts/AndradeBarChart";
 import { AppHeader, Button, Card, Divider, ElasticScrollView as ScrollView, Loading, Metric, Screen, Section } from "../../components/ui";
 import * as FinanceiroService from "../../services/financeiro.service";
 import * as CarteiraService from "../../services/carteira.service";
-import * as RecebimentoService from "../../services/recebimento-faturas.service";
 import { listarUnidadesGestor } from "../../services/clientes.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const moeda = (valor: number) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function Financeiro() {
-  const [secaoAberta, setSecaoAberta] = useState<"carteira" | "automatico" | null>(null);
+  const [secaoAberta, setSecaoAberta] = useState<"carteira" | null>(null);
   const [loading, setLoading] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [dados, setDados] = useState({ receitaPrevista: 0, receitaRecebida: 0, valorEmAberto: 0, inadimplentes: 0, ticketMedio: 0, percentualRecebido: 0, totalFaturas: 0, historicoMensal: [] as { competencia: string; valor: number }[] });
   const [carteira, setCarteira] = useState<CarteiraService.Carteira | null>(null);
-  const [recebimentoGeral, setRecebimentoGeral] = useState<RecebimentoService.StatusRecebimentoGeral | null>(null);
   const [unidadesRecebimento, setUnidadesRecebimento] = useState<any[]>([]);
-  const [alterandoRecebimento, setAlterandoRecebimento] = useState(false);
   const [pixChave, setPixChave] = useState(""); const [pixTipo] = useState("EMAIL"); const [saque, setSaque] = useState("");
   const carregar = useCallback(async () => {
     try {
-      const [financeiroResultado, carteiraResultado, recebimentoResultado, unidadesResultado] = await Promise.allSettled([
+      const [financeiroResultado, carteiraResultado, unidadesResultado] = await Promise.allSettled([
         FinanceiroService.carregarFinanceiro(),
         CarteiraService.carregarCarteira(),
-        RecebimentoService.obterRecebimentoGeral(),
         listarUnidadesGestor(),
       ]);
       if (financeiroResultado.status === "rejected") throw financeiroResultado.reason;
       setDados(financeiroResultado.value);
       setCarteira(carteiraResultado.status === "fulfilled" ? carteiraResultado.value : null);
-      setRecebimentoGeral(recebimentoResultado.status === "fulfilled" ? recebimentoResultado.value : null);
       setUnidadesRecebimento(unidadesResultado.status === "fulfilled" ? (unidadesResultado.value ?? []).filter((item: any) => {
-        const cliente = Array.isArray(item.clientes) ? item.clientes[0] : item.clientes;
-        return String(item.tipo ?? "BENEFICIARIA").toUpperCase() !== "GERADORA" && String(cliente?.titularidade_faturamento ?? "GERADOR") === "GERADOR";
+        const usina = Array.isArray(item.usinas) ? item.usinas[0] : item.usinas;
+        return String(item.tipo ?? "BENEFICIARIA").toUpperCase() !== "GERADORA" && String(usina?.titularidade_ucs_recebedoras ?? "GERADOR") === "GERADOR";
       }) : []);
     } catch (error: any) {
       setCarteira(null);
@@ -58,10 +53,9 @@ export default function Financeiro() {
         <QuickAction icon="document-attach-outline" label="Faturamento via PDF" onPress={() => router.push("/faturamento/manual")} />
         <QuickAction icon="create-outline" label="Faturamento manual" onPress={() => router.push("/faturamento/criar-manual" as any)} />
         <QuickAction icon="swap-horizontal-outline" label="Transferir saldo" active={secaoAberta === "carteira"} onPress={() => setSecaoAberta(secaoAberta === "carteira" ? null : "carteira")} />
-        <QuickAction icon="mail-unread-outline" label="Fatura automática" active={secaoAberta === "automatico"} onPress={() => setSecaoAberta(secaoAberta === "automatico" ? null : "automatico")} />
+        <QuickAction icon="mail-unread-outline" label="Fatura automática" onPress={() => { const unidade = unidadesRecebimento[0]; if (!unidade?.id) return Alert.alert("Fatura automática", "Cadastre e vincule uma UC recebedora a uma usina antes de configurar o e-mail."); router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidade.id, escopo: "usina" } }); }} />
       </View></Section>
       {secaoAberta === "carteira" && carteira ? <Section title="Transferências de saldo"><Card style={styles.walletCard}><Text style={styles.walletLabel}>SALDO DISPONÍVEL</Text><Text style={styles.walletValue}>{moeda(carteira.saldoDisponivel)}</Text><Text style={styles.walletPending}>{moeda(carteira.saldoPendente)} a receber</Text></Card><Card><View style={styles.autoRow}><View style={styles.autoCopy}><Text style={styles.cardTitle}>Transferência automática</Text><Text style={styles.cardSubtitle}>Enviar para sua chave Pix sempre que receber.</Text></View><Switch value={carteira.transferenciaAutomatica} trackColor={{ false: Colors.border, true: Colors.primary }} onValueChange={async (value) => { try { const updated = await CarteiraService.salvarCarteira({ pixTipo: carteira.pixTipo ?? pixTipo, pixChave: pixChave || undefined, transferenciaAutomatica: value }); setCarteira(updated); setPixChave(""); } catch (error: any) { Alert.alert("Carteira", error?.response?.data?.message ?? "Cadastre sua chave Pix primeiro."); } }} /></View><Divider /><Text style={styles.inputLabel}>Chave Pix deste gerador</Text><TextInput style={styles.input} autoCapitalize="none" value={pixChave} onChangeText={setPixChave} placeholder={carteira.pixChaveMascarada ?? "E-mail, CPF ou chave"} /><Button title="Salvar chave Pix" onPress={async () => { try { const updated = await CarteiraService.salvarCarteira({ pixTipo, pixChave, transferenciaAutomatica: carteira.transferenciaAutomatica }); setCarteira(updated); setPixChave(""); Alert.alert("Carteira", "Chave salva com segurança."); } catch (error: any) { Alert.alert("Carteira", error?.response?.data?.message ?? "Não foi possível salvar."); } }} /><Divider /><Text style={styles.inputLabel}>Transferência manual</Text><TextInput style={styles.input} keyboardType="decimal-pad" value={saque} onChangeText={setSaque} placeholder="Valor" /><Button title="Transferir saldo" disabled={!carteira.pixChaveMascarada || carteira.saldoDisponivel <= 0} onPress={() => { const valor = Number(saque.replace(",", ".")); if (!(valor > 0)) return; Alert.alert("Confirmar Pix", `Transferir ${moeda(valor)} para ${carteira.pixChaveMascarada}?`, [{ text: "Cancelar", style: "cancel" }, { text: "Transferir", onPress: async () => { try { await CarteiraService.transferir(valor); setSaque(""); await carregar(); Alert.alert("Carteira", "Transferência solicitada."); } catch (error: any) { Alert.alert("Carteira", error?.response?.data?.message ?? "Transferência não concluída."); } } }]); }} /></Card></Section> : null}
-      {secaoAberta === "automatico" ? <Section title="Faturamento automático"><Card><View style={styles.autoRow}><View style={styles.autoCopy}><Text style={styles.cardTitle}>Receber contas por e-mail</Text><Text style={styles.cardSubtitle}>{recebimentoGeral ? `${recebimentoGeral.ativas} de ${recebimentoGeral.total} UCs ativas` : "Configuração geral da carteira"}</Text></View><Switch disabled={alterandoRecebimento} value={Boolean(recebimentoGeral?.ativo)} trackColor={{ false: Colors.border, true: Colors.primary }} onValueChange={async (value) => { try { setAlterandoRecebimento(true); const atualizado = await RecebimentoService.definirRecebimentoGeral(value); setRecebimentoGeral(atualizado); Alert.alert("Faturamento automático", atualizado.mensagem ?? "Configuração atualizada."); } catch (error: any) { Alert.alert("Não foi possível atualizar", error?.response?.data?.message ?? "Tente novamente."); } finally { setAlterandoRecebimento(false); } }} /></View><Divider /><Text style={styles.cardSubtitle}>Ative para todas as UCs ou configure abaixo o Gmail, Outlook e endereço exclusivo de cada unidade.</Text></Card><Text style={styles.emailListTitle}>CONFIGURAR E-MAIL POR UNIDADE</Text>{unidadesRecebimento.length ? unidadesRecebimento.map((unidade: any) => <TouchableOpacity key={unidade.id} activeOpacity={0.82} onPress={() => router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidade.id } })} style={styles.emailUnit}><View style={styles.emailUnitIcon}><Ionicons name="mail-outline" size={20} color={Colors.primary} /></View><View style={styles.emailUnitCopy}><Text style={styles.emailUnitNumber}>UC {unidade.numero}</Text><Text numberOfLines={1} style={styles.emailUnitClient}>{unidade.clientes?.nome ?? unidade.titular ?? "Configurar recebimento"}</Text></View><View style={styles.emailUnitAction}><Text style={styles.emailUnitActionText}>Configurar</Text><Ionicons name="chevron-forward" size={17} color={Colors.primary} /></View></TouchableOpacity>) : <Card><Text style={styles.cardSubtitle}>Nenhuma UC ativa encontrada para configurar.</Text></Card>}</Section> : null}
       <Section title="Resumo financeiro"><View style={styles.grid}>
         <View style={styles.metric}><Metric compact title="Receita prevista" value={moeda(dados.receitaPrevista)} icon={<Ionicons name="trending-up-outline" size={20} color={Colors.primary} />} /></View>
         <View style={styles.metric}><Metric compact title="Recebido" value={moeda(dados.receitaRecebida)} icon={<Ionicons name="checkmark-circle-outline" size={20} color={Colors.primary} />} /></View>

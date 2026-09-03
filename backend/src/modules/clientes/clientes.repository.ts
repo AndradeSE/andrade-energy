@@ -29,6 +29,34 @@ async function incluirStatusDoCadastro(clientes: any[], empresaId: string) {
   }));
 }
 
+async function incluirConcessionariaDasUnidades(clientes: any[], empresaId: string) {
+  const ids = clientes.map((cliente) => String(cliente?.id ?? "")).filter(Boolean);
+  if (!ids.length) return clientes;
+
+  const { data: unidades, error } = await supabase
+    .from("unidades_consumidoras")
+    .select("cliente_id,distribuidora,created_at")
+    .eq("empresa_id", empresaId)
+    .in("cliente_id", ids)
+    .order("created_at", { ascending: false });
+  if (error?.code === "42P01") return clientes;
+  if (error) throw error;
+
+  const concessionariaPorCliente = new Map<string, string>();
+  for (const unidade of unidades ?? []) {
+    const clienteId = String(unidade.cliente_id ?? "");
+    const distribuidora = String(unidade.distribuidora ?? "").trim();
+    if (clienteId && distribuidora && !concessionariaPorCliente.has(clienteId)) {
+      concessionariaPorCliente.set(clienteId, distribuidora);
+    }
+  }
+
+  return clientes.map((cliente) => ({
+    ...cliente,
+    distribuidora: concessionariaPorCliente.get(String(cliente.id)) || cliente.distribuidora || null,
+  }));
+}
+
 export async function listarClientes(empresaId = EMPRESA_ANDRADE_ID) {
   const { data, error } = await supabase
     .from("clientes")
@@ -38,7 +66,8 @@ export async function listarClientes(empresaId = EMPRESA_ANDRADE_ID) {
 
   if (error) throw error;
 
-  return incluirStatusDoCadastro(data ?? [], empresaId);
+  const clientesComConcessionaria = await incluirConcessionariaDasUnidades(data ?? [], empresaId);
+  return incluirStatusDoCadastro(clientesComConcessionaria, empresaId);
 }
 
 export async function buscarCliente(id: string, empresaId = EMPRESA_ANDRADE_ID) {
@@ -51,7 +80,8 @@ export async function buscarCliente(id: string, empresaId = EMPRESA_ANDRADE_ID) 
 
   if (error) throw error;
 
-  return (await incluirStatusDoCadastro([data], empresaId))[0];
+  const [clienteComConcessionaria] = await incluirConcessionariaDasUnidades([data], empresaId);
+  return (await incluirStatusDoCadastro([clienteComConcessionaria], empresaId))[0];
 }
 
 export async function buscarSolicitacaoCadastroCliente(clienteId: string, empresaId = EMPRESA_ANDRADE_ID) {
@@ -143,7 +173,7 @@ export async function atualizarDadosFaturaAnexada(
 export async function listarUnidadesCliente(clienteId: string, empresaId = EMPRESA_ANDRADE_ID) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")
-    .select("id, cliente_id, usina_id, numero, titular, distribuidora, endereco, status, modalidade_faturamento, desconto_percentual, clientes(id,nome,titularidade_faturamento), usinas(id,nome)")
+    .select("id, cliente_id, usina_id, numero, titular, distribuidora, endereco, status, modalidade_faturamento, desconto_percentual, clientes(id,nome), usinas(id,nome,titularidade_ucs_recebedoras)")
     .eq("cliente_id", clienteId)
     .eq("empresa_id", empresaId)
     .order("numero");
@@ -179,7 +209,7 @@ export async function listarUnidadesCliente(clienteId: string, empresaId = EMPRE
 export async function listarTodasUnidades(empresaId = EMPRESA_ANDRADE_ID) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")
-    .select("*, clientes(id,nome,cpf,endereco,email,whatsapp,titularidade_faturamento), usinas(id,nome,endereco)")
+    .select("*, clientes(id,nome,cpf,endereco,email,whatsapp), usinas(id,nome,endereco,titularidade_ucs_recebedoras)")
     .not("cliente_id", "is", null)
     .eq("empresa_id", empresaId)
     .order("created_at", { ascending: false });
@@ -229,7 +259,7 @@ export async function listarUnidadesPorCpf(cpfInformado: string, empresaId = EMP
   const clienteIds = clientes.map((cliente) => cliente.id);
   const { data: unidades, error: erroUnidades } = await supabase
     .from("unidades_consumidoras")
-    .select("id, cliente_id, usina_id, numero, titular, distribuidora, endereco, status, modalidade_faturamento")
+    .select("id, cliente_id, usina_id, numero, titular, distribuidora, endereco, status, modalidade_faturamento, usinas(id,nome,titularidade_ucs_recebedoras)")
     .in("cliente_id", clienteIds)
     .eq("empresa_id", empresaId)
     .order("numero");

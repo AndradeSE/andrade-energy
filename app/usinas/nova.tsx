@@ -23,6 +23,7 @@ export default function NovaUsina() {
   const [endereco, setEndereco] = useState("");
   const tipoGdLido = String(tipoGdImportado).toUpperCase();
   const [tipoGd, setTipoGd] = useState<"" | "GD1" | "GD2">(tipoGdLido === "GD2" ? "GD2" : tipoGdLido === "GD1" ? "GD1" : "");
+  const [titularidadeUcs, setTitularidadeUcs] = useState<"GERADOR" | "CLIENTE">("GERADOR");
   const [salvando, setSalvando] = useState(false);
 
   async function abrirNaLista(usina: {
@@ -79,7 +80,7 @@ export default function NovaUsina() {
         geracao_media: Number(geracaoMedia.replace(",", ".")) || 0,
         titular_nome: titular.trim() || null, cpf_titular: cpfTitular.replace(/\D/g, "") || null,
         endereco: endereco.trim() || null, distribuidora: "CEMIG", modalidade: "INJECAO",
-        tipo_gd: tipoGd, status: "ATIVA",
+        tipo_gd: tipoGd, titularidade_ucs_recebedoras: titularidadeUcs, status: "ATIVA",
       });
       await abrirNaLista(usina);
     } catch (erro: any) {
@@ -114,6 +115,8 @@ export default function NovaUsina() {
         <FormField label="Geração média mensal (kWh)" value={geracaoMedia} onChangeText={setGeracaoMedia} keyboardType="decimal-pad" placeholder="Base inicial da alocação automática" />
         {origem === "fatura" && !tipoGd ? <Text style={styles.gdHint}>A modalidade não foi identificada nesta fatura. Escolha GD I ou GD II.</Text> : null}
         <ChoiceField label="Modalidade GD da usina" value={tipoGd} onChange={setTipoGd} options={[{ label: "GD I", value: "GD1" }, { label: "GD II", value: "GD2" }]} />
+        <ChoiceField label="Titularidade das UCs recebedoras" value={titularidadeUcs} onChange={(valor) => setTitularidadeUcs(valor as "GERADOR" | "CLIENTE")} options={[{ label: "Gerador", value: "GERADOR" }, { label: "Clientes", value: "CLIENTE" }]} />
+        <Text style={styles.gdHint}>{titularidadeUcs === "GERADOR" ? "O gerador configura o envio automático das faturas na área Financeiro." : "Cada cliente deverá ativar o envio automático da própria fatura no aplicativo Consumidor."}</Text>
         <FormField label="Titular" value={titular} onChangeText={setTitular} />
         <FormField label="CPF/CNPJ do titular da conta (para e-mail)" value={cpfTitular} onChangeText={(valor) => setCpfTitular(valor.replace(/\D/g, "").slice(0, 14))} keyboardType="numeric" />
         <FormField label="Endereço" value={endereco} onChangeText={setEndereco} />
