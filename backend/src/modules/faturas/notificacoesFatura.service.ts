@@ -3,6 +3,7 @@ import {
   enviarEmailMicrosoft,
   microsoftEmailConfigurado,
 } from "../email/microsoftEmail.service";
+import { VERSAO_RELATORIO_CALCULO } from "./documentosFatura.service";
 
 type Canal = "EMAIL" | "WHATSAPP";
 
@@ -75,14 +76,20 @@ async function enviarEmail(item: any) {
   const nomeDocumento = somenteAndrade ? "fatura-andrade.pdf" : "fatura-unificada.pdf";
   const tituloDocumento = somenteAndrade ? "Fatura Andrade Energy" : "Fatura Unificada Andrade Energy";
   const rotuloValor = somenteAndrade ? "Valor da cobrança Andrade" : "Total unificado";
-  const anexos = await Promise.all([
+  const anexosFatura = await Promise.all([
     baixarAnexo(fatura.pdf_cemig_url, "fatura-cemig.pdf"),
     baixarAnexo(fatura.pdf_usina_url, "fatura-usina.pdf"),
     baixarAnexo(fatura.pdf_unificada_url, nomeDocumento),
   ]);
+  const caminhoRelatorio = `${fatura.cliente_id}/${fatura.id}/${VERSAO_RELATORIO_CALCULO}.pdf`;
+  const relatorio = await baixarAnexo(
+    caminhoRelatorio,
+    `memoria-de-calculo-${String(fatura.referencia ?? "fatura").replace(/[^a-zA-Z0-9_-]/g, "-")}.pdf`,
+  ).catch(() => null);
+  const anexos = relatorio ? [...anexosFatura, relatorio] : anexosFatura;
   const assunto = `Sua fatura Andrade Energy — ${fatura.referencia}`;
   const avisoSeparado = somenteAndrade ? "<p><strong>Atenção:</strong> a conta da concessionária permanece separada e também deve ser paga.</p>" : "";
-  const html = `<h2>Sua ${tituloDocumento} está pronta</h2><p>${rotuloValor}: <strong>${moeda(fatura.valor_total_unificado)}</strong></p><p>Vencimento: <strong>${fatura.vencimento}</strong></p><p>Economia real: <strong>${moeda(fatura.economia_real)}</strong> (${Number(fatura.desconto_real_percentual ?? 0).toFixed(2)}%)</p>${avisoSeparado}<p>Os documentos da concessionária, da usina e a ${tituloDocumento} estão anexados.</p>`;
+  const html = `<h2>Sua ${tituloDocumento} está pronta</h2><p>${rotuloValor}: <strong>${moeda(fatura.valor_total_unificado)}</strong></p><p>Vencimento: <strong>${fatura.vencimento}</strong></p><p>Economia real: <strong>${moeda(fatura.economia_real)}</strong> (${Number(fatura.desconto_real_percentual ?? 0).toFixed(2)}%)</p>${avisoSeparado}<p>Os documentos da concessionária, da usina, a ${tituloDocumento} e a memória de cálculo estão anexados.</p>`;
 
   if (await microsoftEmailConfigurado()) {
     return enviarEmailMicrosoft({ destinatario: item.destinatario, assunto, html, anexos });
