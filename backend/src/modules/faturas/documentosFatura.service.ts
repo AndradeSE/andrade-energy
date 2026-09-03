@@ -9,7 +9,7 @@ import { extrairTextoDoBuffer } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
 
 const BUCKET = "faturas";
-export const VERSAO_LAYOUT_FATURA = "layout-20260903-v3";
+export const VERSAO_LAYOUT_FATURA = "layout-20260903-v4";
 export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20260903-v2";
 const VERDE = "#107C5C";
 const VERDE_ESCURO = "#07533D";
@@ -366,9 +366,11 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
 
     pdf.roundedRect(48, y.aviso, LARGURA, 36, 6).fill("#FFF7E7");
     pdf.roundedRect(48, y.aviso, LARGURA, 36, 6).strokeColor("#F0C36C").lineWidth(0.7).stroke();
-    const avisoCustos = possuiGD2
-      ? "GD II: custos obrigatórios da rede permanecem na conta da concessionária."
-      : "Custos obrigatórios da rede permanecem na conta da concessionária.";
+    const avisoCustos = faturaSomenteAndrade
+      ? "ATENÇÃO: esta cobrança não inclui a conta da concessionária. Ela também deve ser paga separadamente."
+      : possuiGD2
+        ? "GD II: custos obrigatórios da rede permanecem na conta da concessionária."
+        : "Custos obrigatórios da rede permanecem na conta da concessionária.";
     pdf.fillColor("#A36500").font("Helvetica-Bold").fontSize(6.1).text(avisoCustos, 64, y.aviso + 6, { width: 465, align: "center", lineGap: 1 });
     pdf.fillColor("#855B18").font("Helvetica").fontSize(5.6).text("Multas, iluminação pública, bandeiras e encargos extraordinários não são considerados para mensurar o desconto real.", 64, y.aviso + 20, { width: 465, align: "center", lineGap: 1 });
 

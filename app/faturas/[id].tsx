@@ -412,6 +412,8 @@ export default function DetalheFatura() {
           </View>
         </Card>
 
+        {faturaSomenteAndrade ? <View style={styles.gd2Notice}><Ionicons name="warning-outline" size={22} color="#8A5A00" /><View style={styles.gd2Copy}><Text style={styles.gd2Title}>Atenção: pagamento separado</Text><Text style={styles.gd2Text}>Esta cobrança inclui somente a energia Andrade Energy. A fatura da CEMIG ou da concessionária vigente também precisa ser paga separadamente.</Text></View></View> : null}
+
         <Text style={styles.sectionTitle}>DEMONSTRATIVO DE ENERGIA E CRÉDITOS</Text>
         <Card style={styles.energyStatementCard}>
           <Text style={styles.energyStatementCaption}>Leitura da competência {fatura.referencia ?? "atual"}</Text>

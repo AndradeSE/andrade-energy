@@ -26,9 +26,23 @@ export async function listarFaturas(filtro?: { clienteId?: string; uc?: string; 
 export async function detalharFatura(id: string, empresaId?: string) {
   let fatura = await buscarFaturaPorId(id, empresaId);
   if (!fatura) throw new Error("Fatura não encontrada.");
+  let pagamentoAtualizado = false;
+  const status = String(fatura.status ?? "").toUpperCase();
+  const valorCobranca = Number(fatura.valor_total_unificado ?? fatura.valor_total ?? 0);
+  const semDadosPagamento = !fatura.codigo_pix || !fatura.linha_digitavel;
+  // Ao abrir uma fatura válida, tenta completar automaticamente os dados
+  // assíncronos do Asaas. Assim o cliente não depende de regeneração manual
+  // para receber QR Pix e código de barras no documento.
+  if (!['RASCUNHO', 'CADASTRO', 'ANEXADA'].includes(status) && valorCobranca > 0 && semDadosPagamento) {
+    const cobranca = await tentarCriarCobrancaAsaas(fatura.id, empresaId);
+    if (cobranca) {
+      fatura = await buscarFaturaPorId(id, empresaId) ?? fatura;
+      pagamentoAtualizado = true;
+    }
+  }
   // Atualiza uma única vez documentos salvos por versões antigas. Assim o
   // consumidor recebe o layout vigente sem depender de um botão do gerador.
-  if (!String(fatura.pdf_unificada_url ?? "").includes(VERSAO_LAYOUT_FATURA)) {
+  if (pagamentoAtualizado || !String(fatura.pdf_unificada_url ?? "").includes(VERSAO_LAYOUT_FATURA)) {
     fatura = await regenerarDocumentosGeradosDaFatura(fatura);
   }
   const temCobrancaPronta = Boolean(fatura.codigo_pix || fatura.linha_digitavel || fatura.pdf_boleto_url);
@@ -37,7 +51,9 @@ export async function detalharFatura(id: string, empresaId?: string) {
     cobranca_status: temCobrancaPronta ? "PRONTA" : "PENDENTE",
     cobranca_mensagem: temCobrancaPronta
       ? null
-      : "A cobrança ainda não foi emitida. O gestor pode tocar em Gerar boleto, PIX e fatura para ver ou corrigir o motivo.",
+      : valorCobranca <= 0
+        ? "Não há valor Andrade a cobrar nesta competência porque nenhuma energia foi compensada."
+        : "A cobrança ainda não foi emitida. Abra novamente em alguns instantes ou procure o gestor.",
   });
 }
 
