@@ -158,7 +158,16 @@ export default function Faturas() {
               </View>
               <View style={styles.downloads}>
                 <DownloadLink label="Concessionária" available={Boolean(item.pdf_cemig_url)} loading={baixando === `cemig-${item.id}`} onPress={() => baixarDocumento(item.pdf_cemig_url, `concessionaria-${referenciaArquivo}.pdf`, `cemig-${item.id}`)} />
-                <DownloadLink label="Unificada" available={Boolean(item.pdf_unificada_url)} loading={baixando === `unificada-${item.id}`} onPress={() => baixarDocumento(item.pdf_unificada_url, `unificada-${referenciaArquivo}.pdf`, `unificada-${item.id}`)} />
+                <DownloadLink
+                  label={item.fatura_somente_andrade ? "Fatura Andrade" : "Fatura unificada"}
+                  available={Boolean(item.pdf_unificada_url)}
+                  loading={baixando === `andrade-${item.id}`}
+                  onPress={() => baixarDocumento(
+                    item.pdf_unificada_url,
+                    `${item.fatura_somente_andrade ? "fatura-andrade" : "fatura-unificada"}-${referenciaArquivo}.pdf`,
+                    `andrade-${item.id}`,
+                  )}
+                />
               </View>
               <TouchableOpacity
                 accessibilityLabel={`Baixar memória de cálculo da fatura ${item.referencia || ""}`}

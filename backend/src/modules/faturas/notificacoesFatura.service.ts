@@ -71,13 +71,18 @@ async function enviarEmail(item: any) {
   const apiKey = process.env.RESEND_API_KEY;
   const remetente = process.env.EMAIL_REMETENTE;
   const fatura = item.faturas;
+  const somenteAndrade = Boolean(fatura.fatura_somente_andrade);
+  const nomeDocumento = somenteAndrade ? "fatura-andrade.pdf" : "fatura-unificada.pdf";
+  const tituloDocumento = somenteAndrade ? "Fatura Andrade Energy" : "Fatura Unificada Andrade Energy";
+  const rotuloValor = somenteAndrade ? "Valor da cobrança Andrade" : "Total unificado";
   const anexos = await Promise.all([
     baixarAnexo(fatura.pdf_cemig_url, "fatura-cemig.pdf"),
     baixarAnexo(fatura.pdf_usina_url, "fatura-usina.pdf"),
-    baixarAnexo(fatura.pdf_unificada_url, "fatura-unificada.pdf"),
+    baixarAnexo(fatura.pdf_unificada_url, nomeDocumento),
   ]);
   const assunto = `Sua fatura Andrade Energy — ${fatura.referencia}`;
-  const html = `<h2>Sua Fatura Unificada Andrade Energy está pronta</h2><p>Total unificado: <strong>${moeda(fatura.valor_total_unificado)}</strong></p><p>Vencimento: <strong>${fatura.vencimento}</strong></p><p>Economia real: <strong>${moeda(fatura.economia_real)}</strong> (${Number(fatura.desconto_real_percentual ?? 0).toFixed(2)}%)</p><p>Os documentos da CEMIG, da usina e a Fatura Unificada Andrade Energy estão anexados.</p>`;
+  const avisoSeparado = somenteAndrade ? "<p><strong>Atenção:</strong> a conta da concessionária permanece separada e também deve ser paga.</p>" : "";
+  const html = `<h2>Sua ${tituloDocumento} está pronta</h2><p>${rotuloValor}: <strong>${moeda(fatura.valor_total_unificado)}</strong></p><p>Vencimento: <strong>${fatura.vencimento}</strong></p><p>Economia real: <strong>${moeda(fatura.economia_real)}</strong> (${Number(fatura.desconto_real_percentual ?? 0).toFixed(2)}%)</p>${avisoSeparado}<p>Os documentos da concessionária, da usina e a ${tituloDocumento} estão anexados.</p>`;
 
   if (await microsoftEmailConfigurado()) {
     return enviarEmailMicrosoft({ destinatario: item.destinatario, assunto, html, anexos });

@@ -112,9 +112,18 @@ if (faturaExistente) {
   const formatoDaCobrancaAlterado =
     Boolean(faturaExistente.fatura_somente_andrade) !==
     Boolean(cliente.unidade_consumidora?.fatura_somente_andrade);
+  const totalRegistrado = Number(faturaExistente.valor_total_unificado ?? faturaExistente.valor_total ?? 0);
+  const valorAndradeRegistrado = Number(faturaExistente.valor_usina ?? faturaExistente.valor_andrade ?? 0);
+  const valorConcessionariaRegistrado = Number(faturaExistente.valor_cemig_repassado ?? faturaExistente.valor_cemig ?? 0);
+  const totalEsperadoPeloFormato = Boolean(cliente.unidade_consumidora?.fatura_somente_andrade)
+    ? valorAndradeRegistrado
+    : valorConcessionariaRegistrado + valorAndradeRegistrado;
+  // Corrige registros antigos nos quais o formato visual foi alterado, mas o
+  // valor continuou somando (ou omitindo) a parcela da concessionária.
+  const valorDoFormatoDesatualizado = Math.abs(totalRegistrado - totalEsperadoPeloFormato) > 0.02;
   const podeCorrigir = semBaseDeCalculo && Number(dados.consumo ?? 0) > 0;
 
-  if (podeCorrigir || totalConvencionalSomadoEmDuplicidade || valorConcessionariaFoiReduzido || compensacaoInferidaPeloConsumo || energiaDoPeriodoNaoCalculada || energiaCobradaSemCompensacao || energiaInjetadaComRateio || calculoAbsorcaoDesatualizado || formatoDaCobrancaAlterado) {
+  if (podeCorrigir || totalConvencionalSomadoEmDuplicidade || valorConcessionariaFoiReduzido || compensacaoInferidaPeloConsumo || energiaDoPeriodoNaoCalculada || energiaCobradaSemCompensacao || energiaInjetadaComRateio || calculoAbsorcaoDesatualizado || formatoDaCobrancaAlterado || valorDoFormatoDesatualizado) {
     for (const tabela of ["notificacoes_fatura", "cobrancas", "creditos"]) {
       await supabase.from(tabela).delete().eq("fatura_id", faturaExistente.id);
     }

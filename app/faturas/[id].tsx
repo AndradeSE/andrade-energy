@@ -153,9 +153,6 @@ export default function DetalheFatura() {
   const tituloCobranca = faturaSomenteAndrade ? "Cobrança Andrade Energy" : "Total unificado";
   const descricaoCobranca = faturaSomenteAndrade ? "Energia solar Andrade Energy" : "CEMIG + energia solar Andrade Energy";
   const economiaReal = Number(fatura.economia_real ?? fatura.economia ?? 0);
-  const valorSemAndrade = faturaSomenteAndrade
-    ? Number(fatura.valor_referencia_sem_andrade ?? Math.max(0, valorUnificado + economiaReal))
-    : Math.max(0, valorUnificado + economiaReal);
   const descontoContratado = Number(
     fatura.desconto_contratado_percentual ?? fatura.desconto_percentual ?? 0
   );
@@ -172,6 +169,13 @@ export default function DetalheFatura() {
   const valorTotalAbsorvido = Number(fatura.valor_total_absorvido ?? 0);
   const valorAbsorvidoDisponibilidade = Number(fatura.valor_absorvido_disponibilidade ?? 0);
   const valorAbsorvidoFioB = Number(fatura.valor_absorvido_fio_b ?? 0);
+  const valorTotalDoMes = faturaSomenteAndrade
+    ? Math.max(0, valorCemigOriginal + valorUnificado)
+    : valorUnificado;
+  // O comparativo visual inclui tudo o que o consumidor desembolsa no mês.
+  // A porcentagem de desconto continua excluindo iluminação, multas e itens
+  // extraordinários para não inflar nem reduzir artificialmente a economia.
+  const valorSemAndrade = Math.max(0, valorTotalDoMes + economiaReal);
   const clienteFatura = fatura.clientes ?? {};
   const unidadeFatura = fatura.unidades_consumidoras ?? {};
   const enderecoFatura = unidadeFatura.endereco ?? clienteFatura.endereco ?? "Endereço não informado";
@@ -359,9 +363,9 @@ export default function DetalheFatura() {
           />
           <DownloadButton
             available={Boolean(fatura.pdf_unificada_url)}
-            label="Fatura Andrade Energy"
-            loading={documentoBaixando === `unificada-${referenciaArquivo}.pdf`}
-            onPress={() => baixarDocumento(fatura.pdf_unificada_url, `unificada-${referenciaArquivo}.pdf`)}
+            label={faturaSomenteAndrade ? "Fatura Andrade Energy" : "Fatura unificada Andrade Energy"}
+            loading={documentoBaixando === `${faturaSomenteAndrade ? "fatura-andrade" : "fatura-unificada"}-${referenciaArquivo}.pdf`}
+            onPress={() => baixarDocumento(fatura.pdf_unificada_url, `${faturaSomenteAndrade ? "fatura-andrade" : "fatura-unificada"}-${referenciaArquivo}.pdf`)}
           />
           <DownloadButton
             available
@@ -404,7 +408,11 @@ export default function DetalheFatura() {
             <Text style={styles.noBenefitValue}>{formatarMoeda(valorSemAndrade)}</Text>
           </View>
           <View style={styles.summaryDivider} />
-          <ComparisonRow label="Você paga neste mês" value={formatarMoeda(valorUnificado)} emphasis />
+          {faturaSomenteAndrade ? <>
+            <ComparisonRow label="Nesta cobrança Andrade" value={formatarMoeda(valorUnificado)} emphasis />
+            <ComparisonRow label="Conta da concessionária (separada)" value={formatarMoeda(valorCemigOriginal)} />
+          </> : null}
+          <ComparisonRow label={faturaSomenteAndrade ? "Total do mês nas duas faturas" : "Você paga neste mês"} value={formatarMoeda(valorTotalDoMes)} emphasis />
           <ComparisonRow label="Sua economia real" value={formatarMoeda(economiaReal)} success />
           <View style={styles.discountPills}>
             <View style={styles.discountPill}><Text style={styles.discountPillLabel}>Desconto contratado</Text><Text style={styles.discountPillValue}>{descontoContratado.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</Text></View>

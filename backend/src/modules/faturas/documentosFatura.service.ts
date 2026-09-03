@@ -9,8 +9,8 @@ import { extrairTextoDoBuffer } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
 
 const BUCKET = "faturas";
-export const VERSAO_LAYOUT_FATURA = "layout-20260903-v4";
-export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20260903-v2";
+export const VERSAO_LAYOUT_FATURA = "layout-20260903-v5";
+export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20260903-v3";
 const VERDE = "#107C5C";
 const VERDE_ESCURO = "#07533D";
 const VERDE_CLARO = "#E8F6F0";
@@ -245,14 +245,13 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     const documentoUnificado = tipo === "UNIFICADA" && !faturaSomenteAndrade;
     const valorTotal = documentoUnificado ? numero(fatura.valor_total_unificado ?? fatura.valor_total) : valorUsina;
     const economiaReal = numero(fatura.economia_real ?? fatura.economia);
+    const valorTotalDoMes = documentoUnificado ? valorTotal : valorCemigOriginal + valorUsina;
     // O valor de referência energética é usado internamente para calcular o
     // desconto real, sem cobranças extraordinárias. Já o comparativo exibido
     // como "com impostos" precisa reconstruir a conta final do consumidor:
     // total unificado + economia obtida. Não reutilize aqui a base energética
     // antiga, pois ela omite os componentes tributados da conta final.
-    const valorSemAndrade = documentoUnificado
-      ? Math.max(0, valorTotal + economiaReal)
-      : numero(fatura.valor_energia_cheia) || Math.max(0, valorTotal + economiaReal);
+    const valorSemAndrade = Math.max(0, valorTotalDoMes + economiaReal);
     const descontoContratado = numero(fatura.desconto_contratado_percentual ?? fatura.desconto_percentual);
     const descontoReal = numero(fatura.desconto_real_percentual);
     const consumoKwh = numero(fatura.consumo_kwh ?? fatura.consumo);
@@ -291,8 +290,8 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
       { rotulo: "Impostos", valor: impostos, cor: "#D94B22", complemento: null },
     ].filter((item) => item.valor > 0);
     const totalComposicao = composicaoTarifaria.reduce((soma, item) => soma + item.valor, 0);
-    const rotuloCentroGrafico = documentoUnificado ? "FATURA UNIFICADA" : "FATURA ANDRADE";
-    const valorCentroGrafico = documentoUnificado ? valorTotal : valorUsina;
+    const rotuloCentroGrafico = documentoUnificado ? "FATURA UNIFICADA" : "TOTAL DO MÊS";
+    const valorCentroGrafico = valorTotalDoMes;
     const y = { cabecalho: 0, dados: 132, total: 272, aviso: 396, composicao: 454, inferior: 564, creditos: 708 };
     const verdeCabecalho = "#063C25";
     const desenharCartao = (x: number, top: number, largura: number, altura: number, fundo = "#FFFFFF") => {
@@ -509,13 +508,12 @@ export async function gerarPdfRelatorioCalculo(fatura: any) {
     const valorCemigRepassado = numero(fatura.valor_cemig_repassado ?? fatura.valor_cemig);
     const totalUnificado = numero(fatura.valor_total_unificado ?? fatura.valor_total);
     const economia = numero(fatura.economia_real ?? fatura.economia);
+    const totalDoMes = somenteAndrade ? valorCemigOriginal + valorAndrade : totalUnificado;
     // Na fatura unificada, a referência exibida deve conter todos os tributos
     // efetivamente considerados no fechamento: total pago + economia obtida.
     // O campo legado valor_referencia_sem_andrade guarda apenas a energia em
     // algumas faturas antigas e, por isso, não serve para este demonstrativo.
-    const referenciaSemAndrade = somenteAndrade
-      ? numero(fatura.valor_referencia_sem_andrade) || totalUnificado + economia
-      : totalUnificado + economia;
+    const referenciaSemAndrade = totalDoMes + economia;
     const descontoReal = numero(fatura.desconto_real_percentual);
     const descontoContratado = numero(fatura.desconto_contratado_percentual ?? fatura.desconto_percentual);
     const impostos = numero(fatura.valor_impostos);
@@ -571,10 +569,15 @@ export async function gerarPdfRelatorioCalculo(fatura: any) {
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.5).text(gd === "GD II" ? "Na GD II, a diferença tarifária do Fio B é apresentada separadamente." : "Na GD I, não há diferença de Fio B; aplica-se somente a regra de disponibilidade configurada.", 62, 641, { width: 466 });
 
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("3. FECHAMENTO", 48, 686);
-    cartao(48, 704, 498, 78, "#FFFFFF");
-    linha("Conta da concessionária lida", moeda(valorCemigOriginal), 720);
-    linha("Conta da concessionária após repasses/absorções", moeda(valorCemigRepassado), 741);
-    linha(somenteAndrade ? "Cobrança emitida pela Andrade" : "Concessionária + Andrade = total unificado", somenteAndrade ? moeda(valorAndrade) : `${moeda(valorCemigRepassado)} + ${moeda(valorAndrade)} = ${moeda(totalUnificado)}`, 762, true);
+    cartao(48, 704, 498, somenteAndrade ? 100 : 78, "#FFFFFF");
+    linha("Conta da concessionária lida", moeda(valorCemigOriginal), 718);
+    linha(somenteAndrade ? "Cobrança Andrade emitida separadamente" : "Conta da concessionária após repasses/absorções", somenteAndrade ? moeda(valorAndrade) : moeda(valorCemigRepassado), 739);
+    if (somenteAndrade) {
+      linha("Total do mês nas duas faturas", `${moeda(valorCemigOriginal)} + ${moeda(valorAndrade)} = ${moeda(totalDoMes)}`, 760, true);
+      linha("Pagamento", "Pague a fatura Andrade e a conta da concessionária", 781);
+    } else {
+      linha("Concessionária + Andrade = total unificado", `${moeda(valorCemigRepassado)} + ${moeda(valorAndrade)} = ${moeda(totalUnificado)}`, 760, true);
+    }
 
     pdf.addPage({ size: "A4", margins: { top: 42, right: 48, bottom: 42, left: 48 } });
     pdf.rect(0, 0, 595, 842).fill("#F3F7F5");
@@ -634,7 +637,7 @@ export async function armazenarDocumentosDaFatura(fatura: any, arquivoCemig: str
   const [cemig, usina, unificada, relatorio] = await Promise.all([
     enviarPdf(`${pasta}/cemig-original.pdf`, original),
     enviarPdf(`${pasta}/fatura-usina.pdf`, pdfUsina),
-    enviarPdf(`${pasta}/fatura-unificada.pdf`, pdfUnificada),
+    enviarPdf(`${pasta}/${fatura.fatura_somente_andrade ? "fatura-andrade" : "fatura-unificada"}.pdf`, pdfUnificada),
     enviarPdf(`${pasta}/${VERSAO_RELATORIO_CALCULO}.pdf`, pdfRelatorio),
   ]);
   const { error } = await supabase.from("faturas").update({
@@ -660,7 +663,7 @@ export async function regenerarDocumentosGeradosDaFatura(fatura: any) {
   ]);
   const [usina, unificada] = await Promise.all([
     enviarPdf(`${pasta}/fatura-usina-${VERSAO_LAYOUT_FATURA}-${versao}.pdf`, pdfUsina),
-    enviarPdf(`${pasta}/fatura-unificada-${VERSAO_LAYOUT_FATURA}-${versao}.pdf`, pdfUnificada),
+    enviarPdf(`${pasta}/${fatura.fatura_somente_andrade ? "fatura-andrade" : "fatura-unificada"}-${VERSAO_LAYOUT_FATURA}-${versao}.pdf`, pdfUnificada),
   ]);
   await enviarPdf(`${pasta}/${VERSAO_RELATORIO_CALCULO}.pdf`, pdfRelatorio);
   const { error } = await supabase

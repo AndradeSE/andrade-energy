@@ -67,3 +67,19 @@ test("usa a tarifa cheia com impostos sem duplicar os tributos destacados", () =
 
   assert.equal(resultado.valorReferenciaSemAndrade, 300);
 });
+
+test("na fatura separada cobra somente a Andrade sem alterar a economia global", () => {
+  const resultado = calcularFaturaUnificada({
+    ...base,
+    valorCemig: 80,
+    valorEnergiaConcessionaria: 80,
+    faturaSomenteAndrade: true,
+    repassarCustoDisponibilidade: true,
+    repassarDiferencaFioBGD2: true,
+  });
+
+  assert.equal(resultado.valorUsina, 180);
+  assert.equal(resultado.valorTotalUnificado, 180);
+  assert.equal(resultado.valorCemig, 80);
+  assert.equal(resultado.economiaReal, 40);
+});
