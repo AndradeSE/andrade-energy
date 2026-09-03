@@ -188,9 +188,20 @@ export async function anexarFaturaAoCliente(
     if (!dadosFatura.uc) throw new Error("Não foi possível identificar a unidade consumidora na fatura.");
     caminhoPdf = await guardarFaturaAnexada(clienteId, arquivo.path);
     const anexo = await criarFaturaAnexadaCliente({ clienteId, empresaId, usuarioId: usuario?.id ?? null, caminhoPdf, arquivoNome: arquivo.originalname || "fatura-cemig.pdf", dadosFatura });
+    const unidade = await cadastrarUnidadeCliente(clienteId, dadosFatura.uc, cliente?.cpf ?? dadosFatura.cpfParcial, empresaId);
+    const { error: unidadeError } = await supabase
+      .from("unidades_consumidoras")
+      .update({
+        titular: dadosFatura.titular || cliente?.nome || null,
+        endereco: dadosFatura.endereco || cliente?.endereco || null,
+        distribuidora: dadosFatura.distribuidora || "CEMIG",
+      })
+      .eq("id", unidade.id)
+      .eq("empresa_id", empresaId);
+    if (unidadeError) throw unidadeError;
     const { data, error } = await supabase.storage.from("faturas").createSignedUrl(caminhoPdf, 5 * 60);
     if (error) throw error;
-    return { id: anexo.id, nome: anexo.arquivo_nome, dadosFatura: anexo.dados_fatura, criadoEm: anexo.criado_em, url: data.signedUrl };
+    return { id: anexo.id, nome: anexo.arquivo_nome, dadosFatura: anexo.dados_fatura, criadoEm: anexo.criado_em, url: data.signedUrl, unidade };
   } catch (erro) {
     if (caminhoPdf) await supabase.storage.from("faturas").remove([caminhoPdf]).catch(() => undefined);
     throw erro;

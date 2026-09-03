@@ -109,22 +109,6 @@ export default function Faturas() {
             <View><Text style={styles.title}>{proprietario ? "Todas as faturas" : "Faturas"}</Text>{proprietario ? <Text style={styles.subtitle}>Acompanhe as cobranças de toda a carteira.</Text> : null}</View>
           </View>
 
-          {!proprietario ? <Card style={styles.autoReceiveCard}>
-            <View style={styles.autoReceiveIcon}>
-              <Ionicons name="mail-unread-outline" size={24} color={Colors.primary} />
-            </View>
-            <View style={styles.autoReceiveCopy}>
-              <Text style={styles.autoReceiveTitle}>Receba sua conta automaticamente</Text>
-              <Text style={styles.autoReceiveText}>Conecte ou encaminhe o e-mail da concessionária para agilizar seu faturamento.</Text>
-            </View>
-            <Button
-              title="Configurar recebimento"
-              icon={<Ionicons name="arrow-forward" size={19} color={Colors.surface} />}
-              onPress={() => router.push("/unidades/recebimento-email")}
-              style={styles.autoReceiveButton}
-            />
-          </Card> : null}
-
           <View style={styles.filterTabs}>
             <FilterButton active={filtro === "todas"} label="Todas" onPress={() => setFiltro("todas")} />
             <FilterButton active={filtro === "abertas"} label="Abertas" onPress={() => setFiltro("abertas")} />

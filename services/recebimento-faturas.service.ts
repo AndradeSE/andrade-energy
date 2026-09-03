@@ -46,6 +46,18 @@ export async function desativarRecebimentoFaturas(unidadeId: string) {
   return data;
 }
 
+export type StatusRecebimentoGeral = { ativo: boolean; total: number; ativas: number; aptas: number; falhas?: number; mensagem?: string };
+
+export async function obterRecebimentoGeral() {
+  const { data } = await api.get<StatusRecebimentoGeral>("/recebimento-faturas/geral");
+  return data;
+}
+
+export async function definirRecebimentoGeral(ativo: boolean) {
+  const { data } = await api.post<StatusRecebimentoGeral>(`/recebimento-faturas/geral/${ativo ? "ativar" : "desativar"}`);
+  return data;
+}
+
 export type ConfirmacaoEncaminhamentoGmail = {
   url: string | null;
   recebidoEm: string | null;

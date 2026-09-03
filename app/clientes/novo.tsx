@@ -8,9 +8,10 @@ import { IS_GERADOR_APP } from "../../config/appVariant";
 import { supabase } from "../../supabase";
 import { Colors, Spacing, Typography } from "../../theme";
 import { emailOpcionalValido, normalizarEmail } from "../../utils/email";
+import { anexarFaturaCliente } from "../../services/clientes.service";
 
 export default function NovoCliente() {
-  const { origem, cliente, nome: nomeImportado, cpf: cpfImportado, endereco: enderecoImportado } = useLocalSearchParams<{ origem?: string; cliente?: string; nome?: string; cpf?: string; endereco?: string }>();
+  const { origem, cliente, nome: nomeImportado, cpf: cpfImportado, endereco: enderecoImportado, arquivoUri, arquivoNome } = useLocalSearchParams<{ origem?: string; cliente?: string; nome?: string; cpf?: string; endereco?: string; arquivoUri?: string; arquivoNome?: string }>();
   const [nome, setNome] = useState("");
   const [cpf, setCpf] = useState("");
   const [email, setEmail] = useState("");
@@ -28,6 +29,8 @@ export default function NovoCliente() {
   }, [cliente, cpfImportado, enderecoImportado, nomeImportado, origem]);
 
   async function salvar() {
+    if (origem !== "fatura") return Alert.alert("Fatura obrigatória", "Cadastre o consumidor por convite ou selecione uma fatura da unidade consumidora.");
+    if (!arquivoUri) return Alert.alert("Fatura obrigatória", "Selecione novamente a fatura CEMIG usada neste cadastro.");
     if (!nome.trim()) return Alert.alert("Nome obrigatório", "Informe o nome do consumidor.");
     if (!emailOpcionalValido(email)) return Alert.alert("E-mail inválido", "Informe um endereço de e-mail válido ou deixe o campo vazio.");
     const cpfLimpo = cpf.replace(/\D/g, "");
@@ -56,14 +59,20 @@ export default function NovoCliente() {
       clienteId = data.id;
     }
 
-    setSalvando(false);
-    router.back();
+    try {
+      await anexarFaturaCliente(String(clienteId), { uri: arquivoUri, name: arquivoNome || "fatura-cemig.pdf", mimeType: "application/pdf" });
+      setSalvando(false);
+      Alert.alert("Cliente e UC cadastrados", "A fatura foi anexada e a unidade consumidora foi criada automaticamente.", [{ text: "OK", onPress: () => router.replace(`/clientes/${clienteId}`) }]);
+    } catch (erro: any) {
+      setSalvando(false);
+      Alert.alert("Cliente salvo, mas a UC não foi criada", erro?.response?.data?.message ?? "Confira a fatura e tente novamente.");
+    }
   }
 
   return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Novo consumidor" subtitle="Cadastro da carteira" contextTitle="Novo consumidor" contextSubtitle={origem === "fatura" ? "Dados lidos da conta de energia" : "Cadastro manual"} icon="person-add-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
     <Text style={styles.eyebrow}>{origem === "fatura" ? "DADOS LIDOS DA FATURA" : "CADASTRO MANUAL"}</Text>
     <Text style={styles.title}>Novo consumidor</Text>
-    <Text style={styles.subtitle}>{origem === "fatura" ? "Confira os dados cadastrais extraídos antes de salvar." : "Cadastre apenas os dados do cliente. Unidades, modalidade e desconto são configurados na UC depois."}</Text>
+    <Text style={styles.subtitle}>{origem === "fatura" ? "Confira os dados. Ao salvar, a fatura será anexada e a UC será criada automaticamente." : "O cadastro de consumidor começa pelo convite; a fatura da UC é obrigatória na criação da conta."}</Text>
     <Card>
       <FormField label="Nome (obrigatório)" value={nome} onChangeText={setNome} />
       <FormField label="CPF / CNPJ (opcional)" value={cpf} onChangeText={(valor) => setCpf(valor.replace(/\D/g, ""))} keyboardType="numeric" />

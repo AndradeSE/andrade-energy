@@ -78,6 +78,11 @@ export async function analisarFatura(uri: string, nome?: string) {
   return enviarPdf(uri, "/faturas/analisar", nome);
 }
 
+export async function criarFaturaManual(dados: Record<string, unknown>) {
+  const { data } = await api.post("/faturas/manual/criar", dados);
+  return data;
+}
+
 export async function salvarImportacao(uri: string) {
   return processarFatura(uri);
 }

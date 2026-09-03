@@ -5,10 +5,27 @@ import {
   desativarRecebimentoFaturas,
   obterConfirmacaoEncaminhamentoGmail,
   obterRecebimentoFaturas,
+  obterRecebimentoGeral,
+  definirRecebimentoGeral,
   receberWebhookResend,
   regenerarEnderecoRecebimento,
   verificarWebhookResend,
 } from "./recebimentoFaturas.service";
+
+export async function obterRecebimentoGeralController(req: Request, res: Response) {
+  try { return res.json(await obterRecebimentoGeral(usuarioDaRequisicao(req))); }
+  catch (erro: any) { return res.status(400).json({ message: erro?.message ?? "Não foi possível consultar a ativação geral." }); }
+}
+
+export async function ativarRecebimentoGeralController(req: Request, res: Response) {
+  try { return res.json(await definirRecebimentoGeral(true, usuarioDaRequisicao(req))); }
+  catch (erro: any) { return res.status(400).json({ message: erro?.message ?? "Não foi possível ativar o recebimento geral." }); }
+}
+
+export async function desativarRecebimentoGeralController(req: Request, res: Response) {
+  try { return res.json(await definirRecebimentoGeral(false, usuarioDaRequisicao(req))); }
+  catch (erro: any) { return res.status(400).json({ message: erro?.message ?? "Não foi possível desativar o recebimento geral." }); }
+}
 
 function usuarioDaRequisicao(req: Request) {
   return (req as any).usuario;

@@ -74,6 +74,7 @@ export default function AppHeader({
       const hoje = new Date();
       const avisos = (faturas ?? []).flatMap((fatura: any) => {
         const status = String(fatura.cobrancas?.[0]?.status ?? fatura.status ?? "").toUpperCase();
+        if (["RASCUNHO", "CADASTRO", "ANEXADA"].includes(status)) return [];
         if (["PAGA", "PAGO", "QUITADA"].includes(status)) return [];
         const vencimento = fatura.vencimento ? new Date(`${fatura.vencimento}T23:59:59`) : null;
         if (!vencimento) return [];

@@ -80,6 +80,7 @@ export default function ClienteHeader({
       const hoje = new Date();
       const avisos = (faturas ?? []).flatMap((fatura: any) => {
         const status = String(fatura.cobrancas?.[0]?.status ?? fatura.status ?? "").toUpperCase();
+        if (["RASCUNHO", "CADASTRO", "ANEXADA"].includes(status)) return [];
         if (["PAGA", "PAGO", "QUITADA"].includes(status) || !fatura.vencimento) return [];
         const dias = Math.ceil((new Date(`${fatura.vencimento}T23:59:59`).getTime() - hoje.getTime()) / 86400000);
         if (dias < 0) return [{ id: fatura.id, severidade: "alta", titulo: "Fatura vencida", detalhe: fatura.referencia ?? "Competência não informada", rota: `/faturas/${fatura.id}` }];
@@ -457,16 +458,6 @@ export default function ClienteHeader({
               onPress={() =>
                 navegar(
                   "/faturas"
-                )
-              }
-            />
-
-            <MenuItem
-              icon="mail-unread-outline"
-              label="Receber contas automaticamente"
-              onPress={() =>
-                navegar(
-                  "/unidades/recebimento-email"
                 )
               }
             />

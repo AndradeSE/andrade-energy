@@ -24,7 +24,7 @@ export default function PagamentoFaturaPendente() {
 
         <Text style={styles.sectionTitle}>DOCUMENTOS E PAGAMENTO</Text>
         <PaymentRow icon="document-attach-outline" label="Fatura da concessionária" onPress={emPreparacao} />
-        <PaymentRow icon="documents-outline" label="Fatura unificada" onPress={emPreparacao} />
+        <PaymentRow icon="documents-outline" label="Fatura Unificada Andrade Energy" onPress={emPreparacao} />
         <PaymentRow icon="barcode-outline" label="Boleto" onPress={emPreparacao} />
         <PaymentRow icon="qr-code-outline" label="PIX copia e cola" onPress={emPreparacao} trailing="Copiar" />
 

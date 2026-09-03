@@ -334,6 +334,7 @@ function RootNavigator() {
             headerShown: false,
           }}
         />
+        <Stack.Screen name="faturamento/criar-manual" options={{ headerShown: false }} />
 
         {/* =========================== */}
         {/* OPERAÇÃO                    */}

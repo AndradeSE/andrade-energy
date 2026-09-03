@@ -82,6 +82,7 @@ export type FaturaAnexadaCliente = {
   dadosFatura: Record<string, any>;
   criadoEm: string;
   url: string;
+  unidade?: { id: string; numero: string };
 };
 
 export async function listarFaturasAnexadasCliente(id: string) {

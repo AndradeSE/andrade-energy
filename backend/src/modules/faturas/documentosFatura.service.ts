@@ -190,7 +190,11 @@ async function preencherDadosTecnicosDaContaOriginal(fatura: any) {
       valor_impostos: numero(fatura.valor_impostos) || extraida.valorImpostos || 0,
     };
     if (fatura.id) await supabase.from("faturas").update(tecnicos).eq("id", fatura.id);
-    return { ...fatura, ...tecnicos };
+    return {
+      ...fatura,
+      ...tecnicos,
+      proxima_leitura: fatura.proxima_leitura ?? extraida.proximaLeitura ?? null,
+    };
   } catch {
     return fatura;
   }
@@ -283,7 +287,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     const totalComposicao = composicaoTarifaria.reduce((soma, item) => soma + item.valor, 0);
     const rotuloCentroGrafico = documentoUnificado ? "FATURA UNIFICADA" : "FATURA ANDRADE";
     const valorCentroGrafico = documentoUnificado ? valorTotal : valorUsina;
-    const y = { cabecalho: 0, dados: 132, total: 272, aviso: 396, composicao: 438, inferior: 548, creditos: 692 };
+    const y = { cabecalho: 0, dados: 132, total: 272, aviso: 396, composicao: 454, inferior: 564, creditos: 708 };
     const verdeCabecalho = "#063C25";
     const desenharCartao = (x: number, top: number, largura: number, altura: number, fundo = "#FFFFFF") => {
       pdf.roundedRect(x, top, largura, altura, 7).fill(fundo);
@@ -344,7 +348,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.strokeColor("#4D8A76").moveTo(297, y.total + 20).lineTo(297, y.total + 95).stroke();
     pdf.fillColor("#F6CC32").font("Helvetica-Bold").fontSize(8.5).text("TOTAL A PAGAR", 67, y.total + 17);
     pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(29).text(moeda(valorTotal), 67, y.total + 31);
-    pdf.fillColor("#D8EEE6").font("Helvetica").fontSize(6.8).text(documentoUnificado ? "Valor referente à fatura unificada." : "Valor referente à Andrade Energy.", 67, y.total + 66);
+    pdf.fillColor("#D8EEE6").font("Helvetica").fontSize(6.8).text(documentoUnificado ? "Fatura Unificada Andrade Energy." : "Valor referente à Andrade Energy.", 67, y.total + 66);
     pdf.fillColor("#F6CC32").font("Helvetica-Bold").fontSize(6.1).text(`kWh cheio: ${tarifaKwh(tarifaCheia)}`, 67, y.total + 82);
     pdf.fillColor("#D8EEE6").font("Helvetica-Bold").fontSize(6.1).text(`kWh Andrade: ${tarifaKwh(tarifaAndrade)}`, 172, y.total + 82);
     pdf.fillOpacity(0.09).roundedRect(310, y.total + 12, 221, 88, 7).fill("#FFFFFF").fillOpacity(1);
@@ -354,13 +358,13 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.fillColor("#D8EEE6").font("Helvetica").fontSize(6.2).text(`Desconto contratado: ${percentual(descontoContratado)}`, 326, y.total + 69);
     pdf.fillColor("#D8EEE6").font("Helvetica-Bold").fontSize(6.2).text(`Desconto após impostos: ${percentual(descontoReal)}`, 326, y.total + 79);
 
-    pdf.roundedRect(48, y.aviso, LARGURA, 30, 6).fill("#FFF7E7");
-    pdf.roundedRect(48, y.aviso, LARGURA, 30, 6).strokeColor("#F0C36C").lineWidth(0.7).stroke();
+    pdf.roundedRect(48, y.aviso, LARGURA, 36, 6).fill("#FFF7E7");
+    pdf.roundedRect(48, y.aviso, LARGURA, 36, 6).strokeColor("#F0C36C").lineWidth(0.7).stroke();
     const avisoCustos = possuiGD2
       ? "GD II: custos obrigatórios da rede permanecem na conta da concessionária."
       : "Custos obrigatórios da rede permanecem na conta da concessionária.";
-    pdf.fillColor("#A36500").font("Helvetica-Bold").fontSize(6.1).text(avisoCustos, 64, y.aviso + 5, { width: 465, align: "center" });
-    pdf.fillColor("#855B18").font("Helvetica").fontSize(5.6).text("Multas, iluminação pública, bandeiras e encargos extraordinários não são considerados para mensurar o desconto real.", 64, y.aviso + 16, { width: 465, align: "center" });
+    pdf.fillColor("#A36500").font("Helvetica-Bold").fontSize(6.1).text(avisoCustos, 64, y.aviso + 6, { width: 465, align: "center", lineGap: 1 });
+    pdf.fillColor("#855B18").font("Helvetica").fontSize(5.6).text("Multas, iluminação pública, bandeiras e encargos extraordinários não são considerados para mensurar o desconto real.", 64, y.aviso + 20, { width: 465, align: "center", lineGap: 1 });
 
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8.5).text(documentoUnificado ? "COMO CHEGAMOS AO TOTAL UNIFICADO" : "COMO CHEGAMOS À COBRANÇA", 48, y.composicao - 14);
     const rotuloCemig = valorTotalAbsorvido > 0
@@ -426,7 +430,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.roundedRect(318, y.inferior + 128, 215, 11, 4).fill("#E3F0E8");
     pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.6).text("Após o vencimento, encargos poderão ser aplicados.", 327, y.inferior + 131);
 
-    const miniCards = [["SALDO ATUAL\nDE CRÉDITOS", energia(saldoCreditos)], ["CRÉDITOS\nGERADOS (MÊS)", energia(energiaInjetada)], ["CRÉDITOS\nUSADOS (MÊS)", energia(energiaCompensada)], ["PRÓXIMA\nLEITURA", fatura.proxima_leitura ?? "A confirmar"]];
+    const miniCards = [["SALDO ATUAL\nDE CRÉDITOS", energia(saldoCreditos)], ["CRÉDITOS\nGERADOS (MÊS)", energia(energiaInjetada)], ["CRÉDITOS\nUSADOS (MÊS)", energia(energiaCompensada)], ["PRÓXIMA\nLEITURA", fatura.proxima_leitura ? dataBrasileira(fatura.proxima_leitura) : "A confirmar"]];
     const espacamentoMiniCards = 8;
     // Cada dupla acompanha exatamente os limites dos dois cards superiores.
     const posicoesMiniCards = [

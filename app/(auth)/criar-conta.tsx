@@ -57,6 +57,7 @@ export default function CriarConta() {
     if (tipo === "GERADOR" && !nome.trim()) return setErro("Informe seu nome.");
     if (tipo === "GERADOR" && cpf.replace(/\D/g, "").length !== 11) return setErro("Informe um CPF válido com 11 números.");
     if (tipo === "GERADOR" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setErro("Informe um e-mail válido.");
+    if (tipo === "CONSUMIDOR" && !fatura) return setErro("Anexe a fatura CEMIG da unidade consumidora para continuar.");
     if (senha.length < 6) return setErro("Crie uma senha com pelo menos 6 caracteres.");
     if (senha !== confirmacao) return setErro("As senhas não são iguais.");
     setErro("");
@@ -150,7 +151,7 @@ export default function CriarConta() {
                   ? "Sua conta está pronta. Enviamos a confirmação para o e-mail informado."
                   : "Sua conta está pronta, mas não conseguimos enviar o e-mail de confirmação. Você já pode entrar normalmente."
               : tipo === "CONSUMIDOR"
-                ? "Seus dados já foram preenchidos pelo convite. Você pode enviar uma fatura CEMIG agora para ativar o acesso automaticamente ou concluir sem ela e aguardar a ativação do gerador."
+                ? "Seus dados já foram preenchidos pelo convite. Anexe a fatura CEMIG da unidade para validar o titular e cadastrar a UC automaticamente."
                 : "Solicite seu acesso à Andrade Energy. Seus dados serão vinculados à unidade consumidora cadastrada."}
           </Text>
 
@@ -173,7 +174,7 @@ export default function CriarConta() {
                   <Ionicons name={fatura ? "document-text" : "document-attach-outline"} size={22} color={Colors.primary} />
                   <View style={styles.invoicePickerCopy}>
                     <Text numberOfLines={1} style={styles.invoicePickerTitle}>{fatura?.name ?? "Selecionar fatura em PDF"}</Text>
-                    <Text style={styles.invoicePickerHint}>{fatura ? "Fatura selecionada. Você pode tocar para trocar." : "Opcional: envie para ativar sua conta automaticamente."}</Text>
+                    <Text style={styles.invoicePickerHint}>{fatura ? "Fatura selecionada. Você pode tocar para trocar." : "Obrigatória: ela valida o cadastro e cria sua primeira UC."}</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color={Colors.subtitle} />
                 </TouchableOpacity>

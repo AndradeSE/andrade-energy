@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { Redirect, router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
@@ -295,6 +295,7 @@ export default function RecebimentoEmail() {
     );
   }
 
+  if (!IS_GERADOR_APP) return <Redirect href="/(tabs)/faturas" />;
   if (carregando) return <Loading />;
   if (!unidadeId) return <Screen><View style={styles.state}><EmptyState icon="flash-outline" title={IS_GERADOR_APP ? "Abra uma usina" : "Escolha uma unidade"} subtitle={IS_GERADOR_APP ? "Abra os detalhes da usina e escolha receber produção por e-mail." : "Selecione uma unidade consumidora antes de configurar o recebimento automático."} /></View></Screen>;
 

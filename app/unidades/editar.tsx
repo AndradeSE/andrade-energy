@@ -322,7 +322,7 @@ export default function EditarAlocacaoUnidade() {
             value={formatoFatura}
             onChange={(valor) => setFormatoFatura(valor as FormatoFatura)}
             options={[
-              { label: "Fatura unificada (CEMIG + Andrade)", value: "UNIFICADA" },
+              { label: "Fatura Unificada Andrade Energy", value: "UNIFICADA" },
               { label: "Somente Andrade Energy", value: "SOMENTE_ANDRADE" },
             ]}
           />

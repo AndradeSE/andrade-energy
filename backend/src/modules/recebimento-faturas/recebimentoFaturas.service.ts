@@ -161,6 +161,43 @@ export async function obterRecebimentoFaturas(unidadeId: string, usuario: Usuari
   return serializarStatus(unidade, ultimo);
 }
 
+export async function obterRecebimentoGeral(usuario: UsuarioAutenticado) {
+  const { data, error } = await supabase
+    .from("unidades_consumidoras")
+    .select("id,recebimento_email_ativo,cpf_titular,clientes(cpf)")
+    .eq("empresa_id", empresaIdDoUsuario(usuario))
+    .eq("tipo", "BENEFICIARIA")
+    .eq("status", "ATIVA");
+  if (error) throw error;
+  const unidades = data ?? [];
+  const aptas = unidades.filter((unidade: any) => (normalizarCpf(unidade.cpf_titular) || normalizarCpf(clienteDaUnidade(unidade)?.cpf)).length >= 4);
+  const ativas = unidades.filter((unidade: any) => unidade.recebimento_email_ativo).length;
+  return { ativo: unidades.length > 0 && ativas === unidades.length, total: unidades.length, ativas, aptas: aptas.length };
+}
+
+export async function definirRecebimentoGeral(ativo: boolean, usuario: UsuarioAutenticado) {
+  const empresaId = empresaIdDoUsuario(usuario);
+  const { data, error } = await supabase
+    .from("unidades_consumidoras")
+    .select("id,cpf_titular,clientes(cpf)")
+    .eq("empresa_id", empresaId)
+    .eq("tipo", "BENEFICIARIA")
+    .eq("status", "ATIVA");
+  if (error) throw error;
+
+  const falhas: string[] = [];
+  for (const unidade of data ?? []) {
+    try {
+      if (ativo) await ativarRecebimentoFaturas(String(unidade.id), usuario);
+      else await desativarRecebimentoFaturas(String(unidade.id), usuario);
+    } catch (erro: any) {
+      falhas.push(String(erro?.message ?? "UC não configurada"));
+    }
+  }
+  const resumo = await obterRecebimentoGeral(usuario);
+  return { ...resumo, falhas: falhas.length, mensagem: falhas.length ? `${falhas.length} UC(s) precisam de CPF/CNPJ do titular antes da ativação.` : ativo ? "Recebimento automático ativado para todos os clientes." : "Recebimento automático desativado para todos os clientes." };
+}
+
 async function ignorarRecebimentosPendentes(unidadeId: string, mensagem: string, enderecoAtual?: string | null) {
   let consulta = supabase
     .from("recebimentos_faturas_email")

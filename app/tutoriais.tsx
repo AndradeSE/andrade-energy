@@ -44,8 +44,6 @@ const tutoriaisConsumidor: Tutorial[] = [
   { id: "conta-luz", titulo: "Contas da concessionária", descricao: "Consulte os documentos separados das faturas Andrade Energy.", duracao: "27 s", video: require("../assets/tutorials/lote-consumidor-conta-luz.mp4") },
   { id: "contrato", titulo: "Consultar contrato", descricao: "Veja as informações contratuais disponíveis para a UC.", duracao: "23 s", video: require("../assets/tutorials/lote-consumidor-contrato.mp4") },
   { id: "trocar-uc", titulo: "Escolher outra unidade", descricao: "Volte à seleção e alterne entre suas unidades consumidoras.", duracao: "17 s", video: require("../assets/tutorials/lote-consumidor-trocar-uc.mp4") },
-  { id: "recebimento", titulo: "Consultar recebimento ativo", descricao: "Veja o endereço exclusivo e as opções de conexão.", duracao: "27 s", video: require("../assets/tutorials/lote-consumidor-recebimento.mp4") },
-  { id: "recebimento-guia", titulo: "Configurar recebimento automático", descricao: "Siga as orientações de Gmail e Outlook dentro do app.", duracao: "43 s", video: require("../assets/tutorials/lote-consumidor-recebimento-guia.mp4") },
   { id: "notificacoes", titulo: "Consultar notificações", descricao: "Abra os avisos importantes da sua conta.", duracao: "12 s", video: require("../assets/tutorials/lote-consumidor-notificacoes.mp4") },
   { id: "perfil", titulo: "Consultar perfil", descricao: "Veja dados pessoais e opções de segurança.", duracao: "28 s", video: require("../assets/tutorials/lote-consumidor-perfil.mp4") },
 ];

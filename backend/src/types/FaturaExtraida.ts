@@ -27,6 +27,9 @@ export interface FaturaExtraida {
 
   vencimento: string;
 
+  /** Data prevista pela concessionária para a próxima leitura. */
+  proximaLeitura?: string;
+
   consumo: number;
 
   energiaInjetada: number;

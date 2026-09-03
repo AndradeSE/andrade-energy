@@ -77,7 +77,7 @@ async function enviarEmail(item: any) {
     baixarAnexo(fatura.pdf_unificada_url, "fatura-unificada.pdf"),
   ]);
   const assunto = `Sua fatura Andrade Energy — ${fatura.referencia}`;
-  const html = `<h2>Sua fatura de energia está pronta</h2><p>Total unificado: <strong>${moeda(fatura.valor_total_unificado)}</strong></p><p>Vencimento: <strong>${fatura.vencimento}</strong></p><p>Economia real: <strong>${moeda(fatura.economia_real)}</strong> (${Number(fatura.desconto_real_percentual ?? 0).toFixed(2)}%)</p><p>Os documentos da CEMIG, da usina e a fatura unificada estão anexados.</p>`;
+  const html = `<h2>Sua Fatura Unificada Andrade Energy está pronta</h2><p>Total unificado: <strong>${moeda(fatura.valor_total_unificado)}</strong></p><p>Vencimento: <strong>${fatura.vencimento}</strong></p><p>Economia real: <strong>${moeda(fatura.economia_real)}</strong> (${Number(fatura.desconto_real_percentual ?? 0).toFixed(2)}%)</p><p>Os documentos da CEMIG, da usina e a Fatura Unificada Andrade Energy estão anexados.</p>`;
 
   if (await microsoftEmailConfigurado()) {
     return enviarEmailMicrosoft({ destinatario: item.destinatario, assunto, html, anexos });

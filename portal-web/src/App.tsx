@@ -1778,7 +1778,7 @@ function UnitTools({
                     }
                   >
                     <option value="UNIFICADA">
-                      Fatura unificada (CEMIG + Andrade)
+                      Fatura Unificada Andrade Energy
                     </option>
                     <option value="SOMENTE_ANDRADE">
                       Somente Andrade Energy

@@ -45,6 +45,12 @@ function franquiaDaLigacao(tipo?: string) {
   return 0;
 }
 
+function extrairProximaLeitura(texto: string) {
+  return texto.match(/Pr[oó]xima\s+leitura\s*:?\s*(\d{2}\/\d{2}\/\d{4})/i)?.[1]
+    ?? texto.match(/(\d{2}\/\d{2}\/\d{4})\s*Pr[oó]xima\s+leitura/i)?.[1]
+    ?? undefined;
+}
+
 export function parseCemigConvencional(
   texto: string
 ): FaturaExtraida {
@@ -109,6 +115,7 @@ export function parseCemigConvencional(
   uc,
   referencia,
   vencimento,
+  proximaLeitura: extrairProximaLeitura(texto),
   valorTotal,
   consumo,
 

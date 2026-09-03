@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { File, Paths } from "expo-file-system";
+import * as FileSystemLegacy from "expo-file-system/legacy";
+import * as IntentLauncher from "expo-intent-launcher";
 import { router } from "expo-router";
-import * as Sharing from "expo-sharing";
 import { useState } from "react";
 import { Alert, Linking, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
@@ -32,10 +33,13 @@ export default function ContasDeLuz() {
       setBaixando(item.id);
       if (Platform.OS !== "web") {
         const arquivo = await File.downloadFileAsync(item.pdf_cemig_url, new File(Paths.cache, nome), { idempotent: true });
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(arquivo.uri, { dialogTitle: "Salvar conta de luz", mimeType: "application/pdf", UTI: "com.adobe.pdf" });
+        if (Platform.OS === "android") {
+          const contentUri = await FileSystemLegacy.getContentUriAsync(arquivo.uri);
+          await IntentLauncher.startActivityAsync("android.intent.action.VIEW", { data: contentUri, flags: 1, type: "application/pdf" });
           return;
         }
+        await Linking.openURL(arquivo.uri);
+        return;
       }
       if (!(await Linking.canOpenURL(item.pdf_cemig_url))) throw new Error("URL inválida");
       await Linking.openURL(item.pdf_cemig_url);
@@ -57,7 +61,7 @@ export default function ContasDeLuz() {
       return <TouchableOpacity activeOpacity={0.84} disabled={carregando} onPress={() => abrirPdf(item)} style={[styles.pdfRow, !disponivel && styles.unavailable]}>
         <View style={styles.pdfIcon}><Ionicons name="document-text-outline" size={25} color={Colors.primary} /></View>
         <View style={styles.pdfInfo}><Text style={styles.pdfTitle}>{item.referencia || "Conta de luz"}</Text><Text style={styles.pdfSubtitle}>{disponivel ? "PDF da concessionária" : "PDF em preparação"}</Text></View>
-        <Ionicons name={carregando ? "hourglass-outline" : disponivel ? "download-outline" : "time-outline"} size={22} color={disponivel ? Colors.primary : Colors.subtitle} />
+        <Ionicons name={carregando ? "hourglass-outline" : disponivel ? "open-outline" : "time-outline"} size={22} color={disponivel ? Colors.primary : Colors.subtitle} />
       </TouchableOpacity>;
     }}
   /></Screen>;

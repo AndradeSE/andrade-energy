@@ -1,15 +1,15 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 
 async function carregarNotificacoes() {
   if (Platform.OS === "web") return null;
   const Notifications = await import("expo-notifications");
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-      shouldShowBanner: true,
-      shouldShowList: true,
+      shouldPlaySound: AppState.currentState !== "active",
+      shouldSetBadge: AppState.currentState !== "active",
+      shouldShowBanner: AppState.currentState !== "active",
+      shouldShowList: AppState.currentState !== "active",
     }),
   });
   return Notifications;
@@ -34,6 +34,10 @@ export async function notificarAvisoNoAndroid(aviso: AvisoAndroid) {
   if (Platform.OS !== "android" || !aviso.usuarioId || !aviso.id) return false;
   const chaveAviso = chaveDoAviso(aviso.usuarioId, aviso.id);
   if (await AsyncStorage.getItem(chaveAviso)) return false;
+  if (AppState.currentState === "active") {
+    await AsyncStorage.setItem(chaveAviso, new Date().toISOString());
+    return false;
+  }
 
   try {
     const Notifications = await carregarNotificacoes();
@@ -78,6 +82,7 @@ export async function verificarNovoRecebimento(usuarioId: string, totalRecebido:
   if (anteriorTexto === null) return false;
   const anterior = Number(anteriorTexto);
   if (!(totalRecebido > anterior)) return false;
+  if (AppState.currentState === "active") return true;
 
   const Notifications = await carregarNotificacoes();
   if (Notifications) {
