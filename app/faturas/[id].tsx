@@ -153,10 +153,9 @@ export default function DetalheFatura() {
   const tituloCobranca = faturaSomenteAndrade ? "Cobrança Andrade Energy" : "Total unificado";
   const descricaoCobranca = faturaSomenteAndrade ? "Energia solar Andrade Energy" : "CEMIG + energia solar Andrade Energy";
   const economiaReal = Number(fatura.economia_real ?? fatura.economia ?? 0);
-  const valorSemAndrade = Number(
-    fatura.valor_referencia_sem_andrade ??
-    Math.max(0, valorUnificado + economiaReal)
-  );
+  const valorSemAndrade = faturaSomenteAndrade
+    ? Number(fatura.valor_referencia_sem_andrade ?? Math.max(0, valorUnificado + economiaReal))
+    : Math.max(0, valorUnificado + economiaReal);
   const descontoContratado = Number(
     fatura.desconto_contratado_percentual ?? fatura.desconto_percentual ?? 0
   );

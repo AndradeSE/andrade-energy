@@ -9,7 +9,7 @@ import { extrairTextoDoBuffer } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
 
 const BUCKET = "faturas";
-export const VERSAO_LAYOUT_FATURA = "layout-20260829-v2";
+export const VERSAO_LAYOUT_FATURA = "layout-20260903-v3";
 export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20260902-v1";
 const VERDE = "#107C5C";
 const VERDE_ESCURO = "#07533D";
@@ -245,8 +245,13 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     const documentoUnificado = tipo === "UNIFICADA" && !faturaSomenteAndrade;
     const valorTotal = documentoUnificado ? numero(fatura.valor_total_unificado ?? fatura.valor_total) : valorUsina;
     const economiaReal = numero(fatura.economia_real ?? fatura.economia);
+    // O valor de referência energética é usado internamente para calcular o
+    // desconto real, sem cobranças extraordinárias. Já o comparativo exibido
+    // como "com impostos" precisa reconstruir a conta final do consumidor:
+    // total unificado + economia obtida. Não reutilize aqui a base energética
+    // antiga, pois ela omite os componentes tributados da conta final.
     const valorSemAndrade = documentoUnificado
-      ? numero(fatura.valor_referencia_sem_andrade) || Math.max(0, valorTotal + economiaReal)
+      ? Math.max(0, valorTotal + economiaReal)
       : numero(fatura.valor_energia_cheia) || Math.max(0, valorTotal + economiaReal);
     const descontoContratado = numero(fatura.desconto_contratado_percentual ?? fatura.desconto_percentual);
     const descontoReal = numero(fatura.desconto_real_percentual);
