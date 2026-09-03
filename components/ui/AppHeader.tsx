@@ -14,6 +14,7 @@ import { Colors, Radius, Spacing, Typography } from "../../theme";
 import PortalBrandLogo from "../brand/PortalBrandLogo";
 import { useEmpresa } from "../../contexts/EmpresaContext";
 import { notificarAvisosNoAndroid } from "../../services/carteira-notificacoes.service";
+import { useHeaderDetailsVisibility } from "../../hooks/useHeaderDetailsVisibility";
 
 function escurecerCor(hex: string, fator = 0.62) {
   const limpa = hex.replace("#", "");
@@ -62,13 +63,13 @@ export default function AppHeader({
   const leituras = useReadNotifications(usuarioId);
   const notificacoes = leituras.ready ? avisosRecebidos.filter((aviso) => !leituras.ids.includes(String(aviso.id))) : [];
   const [autonomia, setAutonomia] = useState<{ percentual: number; disponivel: number } | null>(null);
-  const [contextoUsinaExpandido, setContextoUsinaExpandido] = useState(true);
+  const { isExpanded: contextoUsinaExpandido, setExpanded: setContextoUsinaExpandido } = useHeaderDetailsVisibility();
   const proprietario = IS_GERADOR_APP;
   const podeAlternarPerfil = IS_GERADOR_APP && usuario?.perfil === "ADMIN";
 
   function alternarContextoUsina() {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setContextoUsinaExpandido((expandido) => !expandido);
+    setContextoUsinaExpandido(!contextoUsinaExpandido);
   }
 
   useEffect(() => {

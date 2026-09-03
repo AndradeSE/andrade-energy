@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   Alert,
+  LayoutAnimation,
   Modal,
   Pressable,
   StyleSheet,
@@ -34,6 +35,7 @@ import {
 import MenuItem from "./MenuItem";
 import PortalBrandLogo from "../brand/PortalBrandLogo";
 import { notificarAvisosNoAndroid } from "../../services/carteira-notificacoes.service";
+import { useHeaderDetailsVisibility } from "../../hooks/useHeaderDetailsVisibility";
 
 type Props = {
   cliente: string;
@@ -59,6 +61,12 @@ export default function ClienteHeader({
     useState(false);
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
   const [avisosRecebidos, setNotificacoes] = useState<any[]>([]);
+  const { isExpanded: detalhesExpandidos, setExpanded: setDetalhesExpandidos } = useHeaderDetailsVisibility();
+
+  function alternarDetalhes() {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setDetalhesExpandidos(!detalhesExpandidos);
+  }
 
   const {
     logout,
@@ -314,6 +322,7 @@ export default function ClienteHeader({
           {notificacoes.length ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{notificacoes.length > 9 ? "9+" : notificacoes.length}</Text></View> : null}
         </View>
 
+        {detalhesExpandidos ? <View style={styles.unitCard}>
         <TouchableOpacity
           accessibilityLabel="Trocar unidade consumidora"
           activeOpacity={
@@ -322,9 +331,7 @@ export default function ClienteHeader({
           onPress={
             trocarUnidade
           }
-          style={
-            styles.unitCard
-          }
+          style={styles.unitMainAction}
           >
             <View
               style={
@@ -372,6 +379,12 @@ export default function ClienteHeader({
             }
           />
         </TouchableOpacity>
+        <TouchableOpacity accessibilityLabel="Ocultar detalhes" onPress={alternarDetalhes} style={styles.detailsAction}>
+          <Text style={styles.detailsActionText}>Ocultar</Text><Ionicons name="chevron-up" size={15} color="#F6CC32" />
+        </TouchableOpacity>
+        </View> : <TouchableOpacity accessibilityLabel="Abrir detalhes" onPress={alternarDetalhes} style={styles.detailsToggle}>
+          <Text style={styles.detailsActionText}>Detalhes</Text><Ionicons name="chevron-down" size={15} color="#F6CC32" />
+        </TouchableOpacity>}
       </LinearGradient>
 
       <Modal animationType="fade" transparent visible={notificacoesAbertas} onRequestClose={() => setNotificacoesAbertas(false)}>
@@ -617,6 +630,32 @@ const styles =
 
       backgroundColor:
         "rgba(255, 255, 255, 0.16)",
+    },
+    unitMainAction: {
+      flex: 1,
+      minWidth: 0,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    detailsAction: {
+      minHeight: 34,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingLeft: Spacing.xs,
+    },
+    detailsToggle: {
+      minHeight: 22,
+      flexDirection: "row",
+      alignSelf: "center",
+      alignItems: "center",
+      gap: 2,
+      marginTop: 3,
+      paddingHorizontal: Spacing.sm,
+    },
+    detailsActionText: {
+      color: "#F6CC32",
+      fontSize: 10,
+      fontWeight: "900",
     },
 
     unitIcon: {
