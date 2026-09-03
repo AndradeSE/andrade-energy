@@ -88,8 +88,8 @@ export default function NovoCliente() {
       <FormField label="CPF (obrigatório)" value={cpf} onChangeText={(valor) => setCpf(valor.replace(/\D/g, "").slice(0, 11))} keyboardType="numeric" />
       <FormField label="E-mail (obrigatório)" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
       <FormField label="Telefone / WhatsApp (opcional)" value={telefone} onChangeText={setTelefone} keyboardType="phone-pad" />
-      <ChoiceField label="Responsável pelo recebimento automático" value={titularidadeFaturamento} onChange={(valor) => setTitularidadeFaturamento(valor as "GERADOR" | "CLIENTE")} options={[{ label: "Gerador", value: "GERADOR" }, { label: "Cliente", value: "CLIENTE" }]} />
-      <Text style={styles.ownershipHint}>{titularidadeFaturamento === "GERADOR" ? "O gerador configurará o e-mail na área Financeiro." : "O cliente deverá ativar o recebimento automático no próprio aplicativo."}</Text>
+      <ChoiceField label="Titularidade das UCs recebedoras" value={titularidadeFaturamento} onChange={(valor) => setTitularidadeFaturamento(valor as "GERADOR" | "CLIENTE")} options={[{ label: "Gerador", value: "GERADOR" }, { label: "Cliente", value: "CLIENTE" }]} />
+      <Text style={styles.ownershipHint}>{titularidadeFaturamento === "GERADOR" ? "As UCs recebedoras são de titularidade do gerador; a configuração do e-mail será feita na área Financeiro." : "As UCs recebedoras são de titularidade do cliente; ele deverá ativar o envio automático de faturas no próprio aplicativo."}</Text>
       <TouchableOpacity activeOpacity={0.82} onPress={escolherFatura} style={[styles.pdfButton, pdf && styles.pdfButtonSelected]}>
         <Ionicons name={pdf ? "document-text" : "document-attach-outline"} size={22} color={Colors.primary} />
         <View style={styles.pdfCopy}><Text numberOfLines={1} style={styles.pdfTitle}>{pdf?.name ?? "Anexar fatura CEMIG"}</Text><Text style={styles.pdfHint}>{origem === "fatura" ? "Fatura usada neste cadastro" : "Obrigatória para cadastrar a UC"}</Text></View>
