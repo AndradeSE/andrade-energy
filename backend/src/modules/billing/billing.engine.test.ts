@@ -59,3 +59,11 @@ test("nunca reduz a fatura Andrade abaixo de zero", () => {
   assert.equal(resultado.valorTotalAbsorvido, 150);
   assert.equal(resultado.valorTotalUnificado, 130);
 });
+
+test("usa a tarifa cheia com impostos sem duplicar os tributos destacados", () => {
+  const resultado = calcularFaturaUnificada({
+    ...base,
+  });
+
+  assert.equal(resultado.valorReferenciaSemAndrade, 300);
+});

@@ -144,10 +144,9 @@ export function calcularFaturaUnificada(input: BillingInput): BillingOutput {
   const valorUsina = Math.max(0, valorUsinaSemDisponibilidade - valorTotalAbsorvido);
   const valorCemigRepassado = input.valorCemig;
   const descontoContratadoValor = valorEnergiaCheia - valorUsinaSemDisponibilidade;
-  // A conta estimada sem usina considera somente a energia convencional pela
-  // tarifa cheia. Multas, iluminação pública, bandeiras e demais encargos não
-  // pertencem à referência de economia; eles continuam no total a pagar da
-  // competência real, pois não deixam de existir com a geração distribuída.
+  // "Quanto pagaria sem a Andrade" usa a tarifa cheia da CEMIG, que já inclui
+  // ICMS, PASEP e COFINS. Somar os tributos destacados novamente duplicaria
+  // impostos. Multas, iluminação e cobranças extraordinárias ficam de fora.
   // Sem a usina também não há Fio B nem disponibilidade GD nessa referência.
   const valorReferenciaSemAndrade = valorEnergiaCheia;
   const valorTotalUnificado = (faturaSomenteAndrade ? 0 : valorCemigRepassado) + valorUsina;

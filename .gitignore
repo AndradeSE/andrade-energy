@@ -61,3 +61,10 @@ supabase/.temp/
 /dist-apk/
 /output/apps/*.apk
 /portal-web-deploy*.tar.gz
+
+# Temporary verification, media and OTA artifacts (also keep Metro from scanning them)
+/.codex-*/
+/tmp/
+/output/
+/dist-gerador/
+/portal-web/.openai/*.tar.gz

@@ -352,7 +352,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.fillColor("#F6CC32").font("Helvetica-Bold").fontSize(6.1).text(`kWh cheio: ${tarifaKwh(tarifaCheia)}`, 67, y.total + 82);
     pdf.fillColor("#D8EEE6").font("Helvetica-Bold").fontSize(6.1).text(`kWh Andrade: ${tarifaKwh(tarifaAndrade)}`, 172, y.total + 82);
     pdf.fillOpacity(0.09).roundedRect(310, y.total + 12, 221, 88, 7).fill("#FFFFFF").fillOpacity(1);
-    pdf.fillColor("#D8EEE6").font("Helvetica-Bold").fontSize(8).text("SEM ANDRADE ENERGY", 326, y.total + 19);
+    pdf.fillColor("#D8EEE6").font("Helvetica-Bold").fontSize(8).text("SEM ANDRADE ENERGY · COM IMPOSTOS", 326, y.total + 19);
     pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(18).text(moeda(valorSemAndrade), 326, y.total + 33);
     pdf.fillColor("#F6CC32").font("Helvetica-Bold").fontSize(7).text(`Economia: ${moeda(economiaReal)}`, 326, y.total + 58);
     pdf.fillColor("#D8EEE6").font("Helvetica").fontSize(6.2).text(`Desconto contratado: ${percentual(descontoContratado)}`, 326, y.total + 69);
