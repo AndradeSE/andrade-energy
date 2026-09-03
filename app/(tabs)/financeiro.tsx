@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as DocumentPicker from "expo-document-picker";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { Alert, RefreshControl, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
@@ -8,17 +9,21 @@ import { AppHeader, Button, Card, Divider, ElasticScrollView as ScrollView, Load
 import * as FinanceiroService from "../../services/financeiro.service";
 import * as CarteiraService from "../../services/carteira.service";
 import { listarUnidadesGestor } from "../../services/clientes.service";
+import { processarFatura } from "../../services/faturas.service";
+import { useAuth } from "../../contexts/AuthContext";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const moeda = (valor: number) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function Financeiro() {
+  const { suspenderBloqueioTemporariamente } = useAuth();
   const [secaoAberta, setSecaoAberta] = useState<"carteira" | null>(null);
   const [loading, setLoading] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [dados, setDados] = useState({ receitaPrevista: 0, receitaRecebida: 0, valorEmAberto: 0, inadimplentes: 0, ticketMedio: 0, percentualRecebido: 0, totalFaturas: 0, historicoMensal: [] as { competencia: string; valor: number }[] });
   const [carteira, setCarteira] = useState<CarteiraService.Carteira | null>(null);
   const [unidadesRecebimento, setUnidadesRecebimento] = useState<any[]>([]);
+  const [faturandoPdf, setFaturandoPdf] = useState(false);
   const [pixChave, setPixChave] = useState(""); const [pixTipo] = useState("EMAIL"); const [saque, setSaque] = useState("");
   const carregar = useCallback(async () => {
     try {
@@ -47,10 +52,41 @@ export default function Financeiro() {
   useFocusEffect(useCallback(() => { void carregar(); }, [carregar]));
   async function atualizarPagina() { setAtualizando(true); try { await carregar(); } finally { setAtualizando(false); } }
 
+  async function faturarViaPdf() {
+    if (faturandoPdf) return;
+    const retomarBloqueio = suspenderBloqueioTemporariamente();
+    try {
+      const arquivo = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
+      if (arquivo.canceled) return;
+      setFaturandoPdf(true);
+      const pdf = arquivo.assets[0];
+      const resultado = await processarFatura(pdf.uri, pdf.name);
+      if (resultado?.resultado?.clienteNaoEncontrado) {
+        const uc = String(resultado?.resultado?.dadosCadastro?.uc ?? "");
+        Alert.alert("UC ainda não cadastrada", `A unidade ${uc || "identificada na conta"} precisa ser vinculada antes do faturamento.`, [
+          { text: "Cancelar", style: "cancel" },
+          { text: "Cadastrar UC", onPress: () => router.push({ pathname: "/unidades/nova", params: { origem: "fatura", uc, cadastroRapido: "1" } }) },
+        ]);
+        return;
+      }
+      if (resultado?.resultado?.jaProcessada) {
+        Alert.alert("Fatura já processada", "Esta competência já foi faturada para a unidade.");
+        return;
+      }
+      await carregar();
+      Alert.alert("Faturamento concluído", "A fatura foi processada e a cobrança foi gerada.");
+    } catch (erro: any) {
+      Alert.alert("Não foi possível faturar", erro?.response?.data?.message ?? erro?.message ?? "Confira o PDF e tente novamente.");
+    } finally {
+      setFaturandoPdf(false);
+      retomarBloqueio();
+    }
+  }
+
   return <Screen><AppHeader showPlantContext={false} title="Financeiro" subtitle="Receita da carteira" contextTitle={moeda(dados.receitaRecebida)} contextSubtitle={`${dados.percentualRecebido.toFixed(1)}% da receita recebida`} icon="wallet-outline" />
     {loading ? <Loading /> : <ScrollView bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <Section title="Acesso rápido"><View style={styles.quickGrid}>
-        <QuickAction icon="document-attach-outline" label="Faturamento via PDF" onPress={() => router.push("/faturamento/manual")} />
+        <QuickAction icon="document-attach-outline" label={faturandoPdf ? "Processando PDF..." : "Faturamento via PDF"} active={faturandoPdf} onPress={() => void faturarViaPdf()} />
         <QuickAction icon="create-outline" label="Faturamento manual" onPress={() => router.push("/faturamento/criar-manual" as any)} />
         <QuickAction icon="swap-horizontal-outline" label="Transferir saldo" active={secaoAberta === "carteira"} onPress={() => setSecaoAberta(secaoAberta === "carteira" ? null : "carteira")} />
         <QuickAction icon="mail-unread-outline" label="Fatura automática" onPress={() => { const unidade = unidadesRecebimento[0]; if (!unidade?.id) return Alert.alert("Fatura automática", "Cadastre e vincule uma UC recebedora a uma usina antes de configurar o e-mail."); router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidade.id, escopo: "usina" } }); }} />
