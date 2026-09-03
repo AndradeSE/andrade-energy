@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -28,12 +28,42 @@ import ClienteHeader from "./ClienteHeader";
 import EconomiaChart from "./EconomiaChart";
 import EnergyFlowCard from "./EnergyFlowCard";
 import QuickAccessCarousel from "../QuickAccessCarousel";
+import { buscarCliente, listarMinhasUnidades } from "../../services/clientes.service";
+import { obterRecebimentoFaturas } from "../../services/recebimento-faturas.service";
 
 export default function ClienteHome() {
-  const { logout, user } = useAuth();
+  const { logout, user, unidadeSelecionada } = useAuth();
   const { empresa } = useEmpresa();
   const { data, isLoading, error, refetch } = useDashboard();
   const [atualizando, setAtualizando] = useState(false);
+  const [recebimentoObrigatorio, setRecebimentoObrigatorio] = useState(false);
+  const [recebimentoAtivo, setRecebimentoAtivo] = useState(false);
+  const [unidadeRecebimentoId, setUnidadeRecebimentoId] = useState("");
+  const [concessionariaDaUnidade, setConcessionariaDaUnidade] = useState("");
+
+  useEffect(() => {
+    const clienteId = String(user?.cliente_id ?? "");
+    if (!clienteId) return;
+    Promise.all([buscarCliente(clienteId), listarMinhasUnidades()])
+      .then(async ([cliente, unidades]: any[]) => {
+        setRecebimentoObrigatorio(cliente?.titularidade_faturamento === "CLIENTE");
+        const unidadeAtual = unidades?.find(
+          (unidade: any) => String(unidade.id) === String(unidadeSelecionada?.id ?? ""),
+        ) ?? unidades?.[0];
+        const unidadeId = String(unidadeSelecionada?.id ?? unidadeAtual?.id ?? "");
+        setConcessionariaDaUnidade(
+          String(unidadeSelecionada?.distribuidora ?? unidadeAtual?.distribuidora ?? "").trim(),
+        );
+        setUnidadeRecebimentoId(unidadeId);
+        if (cliente?.titularidade_faturamento === "CLIENTE" && unidadeId) {
+          const status = await obterRecebimentoFaturas(unidadeId);
+          setRecebimentoAtivo(Boolean(status.ativo));
+        } else {
+          setRecebimentoAtivo(false);
+        }
+      })
+      .catch(() => undefined);
+  }, [unidadeSelecionada?.id, user?.cliente_id]);
   async function atualizarPagina() {
     setAtualizando(true);
     try {
@@ -82,11 +112,16 @@ export default function ClienteHome() {
     valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const energia = (valor: number) =>
     `${valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kWh`;
-  const concessionariaVigente = String(data.distribuidora ?? "").trim();
+  const concessionariaVigente = String(
+    unidadeSelecionada?.distribuidora ?? concessionariaDaUnidade ?? data.distribuidora ?? "",
+  ).trim();
   const nomeEmpresa = String(empresa.nome || "Andrade Energy").trim();
   const nomeFaturaConcessionaria = concessionariaVigente
     ? `Fatura ${concessionariaVigente}`
     : "Fatura da concessionária";
+  const nomeEnvioAutomatico = concessionariaVigente
+    ? `Envio automático de fatura ${concessionariaVigente}`
+    : "Envio automático de fatura da concessionária";
 
   return (
     <SafeAreaView edges={["left", "right", "bottom"]} style={styles.screen}>
@@ -94,7 +129,7 @@ export default function ClienteHome() {
       <ClienteHeader
         cliente={data.cliente}
         uc={data.uc}
-        distribuidora={data.distribuidora}
+        distribuidora={concessionariaVigente}
         onOpenProfile={() => router.navigate("/perfil")}
         onSearch={() => router.push({ pathname: "/pesquisa", params: { perfil: "consumidor" } } as any)}
       />
@@ -139,6 +174,7 @@ export default function ClienteHome() {
           <Text style={styles.quickTitle}>Acesso rápido</Text>
           <Text style={styles.quickHint}>Arraste para navegar</Text>
         </View>
+        {recebimentoObrigatorio && !recebimentoAtivo ? <TouchableOpacity activeOpacity={0.84} onPress={() => unidadeRecebimentoId ? router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidadeRecebimentoId } }) : router.push("/selecionar-unidade")} style={styles.requiredEmailCard}><View style={styles.requiredEmailIcon}><Ionicons name="alert-circle-outline" size={23} color="#9A5B00" /></View><View style={styles.requiredEmailCopy}><Text style={styles.requiredEmailTitle}>Ativação obrigatória</Text><Text style={styles.requiredEmailText}>Conecte seu e-mail para que as próximas faturas sejam recebidas e processadas automaticamente.</Text></View><Ionicons name="chevron-forward" size={20} color="#9A5B00" /></TouchableOpacity> : null}
         <QuickAccessCarousel
           items={[
             {
@@ -163,6 +199,13 @@ export default function ClienteHome() {
                 router.push({ pathname: "/clientes/faturas-anexadas" as never, params: { clienteId } });
               },
             },
+            ...(recebimentoObrigatorio ? [{
+              icon: "mail-unread-outline" as const,
+              label: nomeEnvioAutomatico,
+              onPress: () => unidadeRecebimentoId
+                ? router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidadeRecebimentoId } })
+                : router.push("/selecionar-unidade"),
+            }] : []),
             {
               icon: "trending-up-outline",
               label: "Economia",
@@ -204,7 +247,7 @@ export default function ClienteHome() {
               {String(data.uc ?? "—")}
             </Text>
             <Text numberOfLines={1} style={styles.metricNote}>
-              {String(data.distribuidora ?? "Concessionária")}
+              {concessionariaVigente || "Concessionária"}
             </Text>
           </View>
           <TouchableOpacity
@@ -346,6 +389,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   monthSavingText: { color: "#A7F3D0", fontSize: 11, fontWeight: "800" },
+  requiredEmailCard: { minHeight: 78, flexDirection: "row", alignItems: "center", marginBottom: Spacing.md, padding: Spacing.md, borderWidth: 1, borderColor: "#F3C66B", borderRadius: Radius.lg, backgroundColor: "#FFF8E8" }, requiredEmailIcon: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: "#FFE8B2" }, requiredEmailCopy: { flex: 1, marginHorizontal: Spacing.sm }, requiredEmailTitle: { color: "#704000", fontSize: Typography.small, fontWeight: "900" }, requiredEmailText: { marginTop: 3, color: "#825B1E", fontSize: 11, lineHeight: 16 },
   compensationOrbit: {
     width: 92,
     height: 92,

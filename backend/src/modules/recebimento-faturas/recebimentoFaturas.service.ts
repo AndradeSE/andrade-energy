@@ -100,8 +100,11 @@ function clienteDaUnidade(unidade: any) {
 
 function usuarioPodeAcessarUnidade(unidade: any, usuario: UsuarioAutenticado) {
   const perfil = String(usuario?.perfil ?? "").toUpperCase();
-  if (perfil === "ADMIN" || perfil === "GESTOR") return true;
+  const titularidade = String(clienteDaUnidade(unidade)?.titularidade_faturamento ?? "GERADOR").toUpperCase();
+  if (perfil === "ADMIN") return true;
+  if (perfil === "GESTOR") return titularidade === "GERADOR";
   if (perfil !== "LEITURA") return false;
+  if (titularidade !== "CLIENTE") return false;
   if (usuario?.cliente_id && usuario.cliente_id === unidade?.cliente_id) return true;
 
   const cpfUsuario = normalizarCpf(usuario?.cpf);
@@ -112,7 +115,7 @@ function usuarioPodeAcessarUnidade(unidade: any, usuario: UsuarioAutenticado) {
 async function buscarUnidadeAutorizada(unidadeId: string, usuario: UsuarioAutenticado) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")
-    .select("id, numero, cliente_id, usina_id, tipo, cpf_titular, status, recebimento_email_token, recebimento_email_ativo, recebimento_email_ativado_em, recebimento_email_ultimo_em, recebimento_email_status, recebimento_email_erro, clientes(id, cpf)")
+    .select("id, numero, cliente_id, usina_id, tipo, cpf_titular, status, recebimento_email_token, recebimento_email_ativo, recebimento_email_ativado_em, recebimento_email_ultimo_em, recebimento_email_status, recebimento_email_erro, clientes(id, cpf, titularidade_faturamento)")
     .eq("id", unidadeId)
     .eq("empresa_id", empresaIdDoUsuario(usuario))
     .maybeSingle();
@@ -164,12 +167,12 @@ export async function obterRecebimentoFaturas(unidadeId: string, usuario: Usuari
 export async function obterRecebimentoGeral(usuario: UsuarioAutenticado) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")
-    .select("id,recebimento_email_ativo,cpf_titular,clientes(cpf)")
+    .select("id,recebimento_email_ativo,cpf_titular,clientes(cpf,titularidade_faturamento)")
     .eq("empresa_id", empresaIdDoUsuario(usuario))
     .eq("tipo", "BENEFICIARIA")
     .eq("status", "ATIVA");
   if (error) throw error;
-  const unidades = data ?? [];
+  const unidades = (data ?? []).filter((unidade: any) => String(clienteDaUnidade(unidade)?.titularidade_faturamento ?? "GERADOR") === "GERADOR");
   const aptas = unidades.filter((unidade: any) => (normalizarCpf(unidade.cpf_titular) || normalizarCpf(clienteDaUnidade(unidade)?.cpf)).length >= 4);
   const ativas = unidades.filter((unidade: any) => unidade.recebimento_email_ativo).length;
   return { ativo: unidades.length > 0 && ativas === unidades.length, total: unidades.length, ativas, aptas: aptas.length };
@@ -179,14 +182,15 @@ export async function definirRecebimentoGeral(ativo: boolean, usuario: UsuarioAu
   const empresaId = empresaIdDoUsuario(usuario);
   const { data, error } = await supabase
     .from("unidades_consumidoras")
-    .select("id,cpf_titular,clientes(cpf)")
+    .select("id,cpf_titular,clientes(cpf,titularidade_faturamento)")
     .eq("empresa_id", empresaId)
     .eq("tipo", "BENEFICIARIA")
     .eq("status", "ATIVA");
   if (error) throw error;
 
   const falhas: string[] = [];
-  for (const unidade of data ?? []) {
+  const unidadesDoGerador = (data ?? []).filter((unidade: any) => String(clienteDaUnidade(unidade)?.titularidade_faturamento ?? "GERADOR") === "GERADOR");
+  for (const unidade of unidadesDoGerador) {
     try {
       if (ativo) await ativarRecebimentoFaturas(String(unidade.id), usuario);
       else await desativarRecebimentoFaturas(String(unidade.id), usuario);

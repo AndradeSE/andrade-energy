@@ -445,10 +445,10 @@ export async function cadastrarConsumidorComFatura(
       tipo: "CONSUMIDOR",
       convite: conviteToken,
       empresa_id: empresaId,
-      ativo: false,
+      ativo: true,
     });
     usuarioCriadoId = String(usuario.id);
-    await vincularUsuarioAoClientePendente(usuarioCriadoId, clienteId, empresaId, false);
+    await vincularUsuarioAoClientePendente(usuarioCriadoId, clienteId, empresaId, true);
 
     caminhoFatura = possuiFatura ? await guardarFaturaDeCadastro(arquivo!.path) : null;
     if (caminhoFatura) {
@@ -463,7 +463,10 @@ export async function cadastrarConsumidorComFatura(
       if (anexoError) throw anexoError;
     }
 
-    const tokenVerificacao = gerarToken();
+    // Mantemos um identificador técnico único porque as colunas históricas
+    // são obrigatórias no banco, mas a conta já nasce ativa e nenhum e-mail
+    // de verificação é enviado ao consumidor.
+    const tokenCadastro = gerarToken();
     await criarSolicitacaoCadastroCliente({
       conviteId: convite.id,
       usuarioId: usuarioCriadoId,
@@ -473,10 +476,10 @@ export async function cadastrarConsumidorComFatura(
       cpf: cpfDoCliente,
       faturaCemigUrl: caminhoFatura,
       dadosFatura,
-      emailVerificacaoTokenHash: hashToken(tokenVerificacao),
-      emailVerificacaoExpiraEm: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      status: "AGUARDANDO_VERIFICACAO_EMAIL",
-      emailVerificadoEm: null,
+      emailVerificacaoTokenHash: hashToken(tokenCadastro),
+      emailVerificacaoExpiraEm: new Date().toISOString(),
+      status: "ATIVO",
+      emailVerificadoEm: new Date().toISOString(),
     });
 
     const { data: conviteAtualizado, error: conviteError } = await supabase
@@ -509,17 +512,10 @@ export async function cadastrarConsumidorComFatura(
       if (atualizacaoClienteError) throw atualizacaoClienteError;
     }
 
-    const emailEnviado = await enviarEmailDeVerificacaoCadastro({
-      nome: clienteExistente.nome,
-      email: emailDoCliente,
-      token: tokenVerificacao,
-    }).catch(() => false);
     return {
-      message: emailEnviado
-        ? "Conta criada. Confirme o e-mail para liberar o acesso."
-        : "Conta criada, mas o e-mail de confirmação não pôde ser enviado agora.",
-      status: "AGUARDANDO_VERIFICACAO_EMAIL",
-      emailEnviado,
+      message: "Conta criada e liberada para acesso.",
+      status: "ATIVO",
+      emailEnviado: false,
     };
   } catch (erro) {
     if (caminhoFatura) await supabase.storage.from("faturas").remove([caminhoFatura]).catch(() => undefined);

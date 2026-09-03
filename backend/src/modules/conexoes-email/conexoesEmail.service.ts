@@ -189,8 +189,11 @@ function clienteDaUnidade(unidade: any) {
 
 function usuarioPodeAcessarUnidade(unidade: any, usuario: UsuarioAutenticado) {
   const perfil = String(usuario?.perfil ?? "").toUpperCase();
-  if (perfil === "ADMIN" || perfil === "GESTOR") return true;
+  const titularidade = String(clienteDaUnidade(unidade)?.titularidade_faturamento ?? "GERADOR").toUpperCase();
+  if (perfil === "ADMIN") return true;
+  if (perfil === "GESTOR") return titularidade === "GERADOR";
   if (perfil !== "LEITURA") return false;
+  if (titularidade !== "CLIENTE") return false;
   if (usuario?.cliente_id && usuario.cliente_id === unidade?.cliente_id) return true;
 
   const cpfUsuario = cpfLimpo(usuario?.cpf);
@@ -201,7 +204,7 @@ function usuarioPodeAcessarUnidade(unidade: any, usuario: UsuarioAutenticado) {
 async function buscarUnidadeAutorizada(unidadeId: string, usuario: UsuarioAutenticado) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")
-    .select("id, numero, cliente_id, status, recebimento_email_token, recebimento_email_ativo, clientes(id, cpf)")
+    .select("id, numero, cliente_id, status, recebimento_email_token, recebimento_email_ativo, clientes(id, cpf, titularidade_faturamento)")
     .eq("id", unidadeId)
     .eq("empresa_id", empresaIdDoUsuario(usuario))
     .maybeSingle();

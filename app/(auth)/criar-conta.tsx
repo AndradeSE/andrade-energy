@@ -6,7 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ElasticScrollView as ScrollView } from "../../components/ui/ElasticScroll";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
-import { criarConta, criarContaConsumidorComFatura, reenviarVerificacaoDeCadastro } from "../../services/auth.service";
+import { criarConta, criarContaConsumidorComFatura } from "../../services/auth.service";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { consultarConvite, consultarConviteGerador } from "../../services/convites.service";
 
@@ -29,7 +29,6 @@ export default function CriarConta() {
   const [emailEnviado, setEmailEnviado] = useState(false);
   const [contaAtiva, setContaAtiva] = useState(false);
   const [aguardandoGerador, setAguardandoGerador] = useState(false);
-  const [reenviando, setReenviando] = useState(false);
 
   async function validarConvite() {
     if (!convite.trim()) return setErro("Informe o código recebido no convite.");
@@ -77,19 +76,6 @@ export default function CriarConta() {
     }
   }
 
-  async function reenviarConfirmacao() {
-    if (reenviando) return;
-    try {
-      setReenviando(true);
-      const resultado = await reenviarVerificacaoDeCadastro(email);
-      Alert.alert("Confirmação enviada", resultado.emailEnviado ? "Enviamos um novo link de confirmação para o seu e-mail." : resultado.message);
-    } catch (error: any) {
-      Alert.alert("Não foi possível reenviar", error?.response?.data?.message ?? "Tente novamente em alguns instantes.");
-    } finally {
-      setReenviando(false);
-    }
-  }
-
   if (!conviteValido) {
     return (
       <SafeAreaView style={styles.screen}>
@@ -116,7 +102,7 @@ export default function CriarConta() {
           </TouchableOpacity>
 
           <View style={styles.iconBox}><Ionicons name={solicitado ? (tipo === "CONSUMIDOR" ? "mail-unread-outline" : "checkmark") : "person-add-outline"} size={34} color={Colors.primary} /></View>
-          <Text style={styles.title}>{solicitado ? (tipo === "CONSUMIDOR" && aguardandoGerador ? "Cadastro recebido" : tipo === "CONSUMIDOR" && !contaAtiva ? "Confirme seu e-mail" : "Conta criada") : `Cadastro de ${tipo === "GERADOR" ? "gerador" : "consumidor"}`}</Text>
+          <Text style={styles.title}>{solicitado ? (tipo === "CONSUMIDOR" && aguardandoGerador ? "Cadastro recebido" : "Conta criada") : `Cadastro de ${tipo === "GERADOR" ? "gerador" : "consumidor"}`}</Text>
           <Text style={styles.subtitle}>
             {solicitado
               ? tipo === "CONSUMIDOR"
@@ -124,9 +110,7 @@ export default function CriarConta() {
                   ? "Sua conta está ativa e vinculada aos dados cadastrados pelo seu gerador."
                   : aguardandoGerador
                     ? "Você optou por não enviar a fatura agora. O gerador precisa ativar seu acesso manualmente."
-                  : emailEnviado
-                  ? "Enviamos um link para confirmar o seu e-mail. O acesso será liberado assim que você confirmar."
-                  : "O cadastro foi recebido, mas o e-mail não saiu agora. Use o botão abaixo para enviar um novo link de confirmação."
+                  : "Sua conta está ativa e vinculada aos dados cadastrados pelo seu gerador."
                 : emailEnviado
                   ? "Sua conta está pronta. Enviamos a confirmação para o e-mail informado."
                   : "Sua conta está pronta, mas não conseguimos enviar o e-mail de confirmação. Você já pode entrar normalmente."
@@ -162,7 +146,6 @@ export default function CriarConta() {
             </>
           ) : (
             <>
-              {tipo === "CONSUMIDOR" && !contaAtiva && !aguardandoGerador ? <TouchableOpacity disabled={reenviando} onPress={reenviarConfirmacao} style={[styles.secondaryButton, reenviando && { opacity: 0.7 }]}>{reenviando ? <ActivityIndicator color={Colors.primary} /> : <Text style={styles.secondaryText}>Reenviar e-mail de confirmação</Text>}</TouchableOpacity> : null}
               <TouchableOpacity onPress={() => router.replace("/(auth)/login")} style={styles.primaryButton}><Text style={styles.primaryText}>Voltar para o login</Text></TouchableOpacity>
             </>
           )}

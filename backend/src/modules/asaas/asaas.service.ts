@@ -100,6 +100,9 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, o
     email: customerData.email || undefined,
     mobilePhone: digits(customerData.whatsapp || customerData.telefone) || undefined,
     externalReference: customerData.id,
+    // A Andrade envia suas próprias notificações. Evita que o Asaas envie
+    // e-mails paralelos (especialmente com a identidade fictícia do Sandbox).
+    notificationDisabled: true,
   };
   let customer = customers.data?.[0];
   if (customer?.id) {

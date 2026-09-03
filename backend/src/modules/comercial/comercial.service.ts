@@ -307,18 +307,24 @@ export async function gerarCobrancaAssinatura(id: string) {
   const customers = await asaasRequest<any>(
     `/customers?cpfCnpj=${digits(gerador.cpf)}`,
   );
-  const customer =
-    customers.data?.[0] ??
-    (await asaasRequest<any>("/customers", {
-      method: "POST",
-      body: JSON.stringify({
-        name: gerador.nome,
-        cpfCnpj: digits(gerador.cpf),
-        email: gerador.email || undefined,
-        mobilePhone: digits(gerador.telefone) || undefined,
-        externalReference: gerador.id,
-      }),
-    }));
+  const dadosClienteAsaas = {
+    name: gerador.nome,
+    cpfCnpj: digits(gerador.cpf),
+    email: gerador.email || undefined,
+    mobilePhone: digits(gerador.telefone) || undefined,
+    externalReference: gerador.id,
+    notificationDisabled: true,
+  };
+  const clienteExistente = customers.data?.[0];
+  const customer = clienteExistente?.id
+    ? await asaasRequest<any>(`/customers/${clienteExistente.id}`, {
+        method: "PUT",
+        body: JSON.stringify(dadosClienteAsaas),
+      })
+    : await asaasRequest<any>("/customers", {
+        method: "POST",
+        body: JSON.stringify(dadosClienteAsaas),
+      });
   const dueDate = isoDate(
     assinatura.proximo_vencimento ??
       new Date(Date.now() + 7 * 86400000).toISOString(),

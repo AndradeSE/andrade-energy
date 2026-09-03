@@ -143,7 +143,7 @@ export async function atualizarDadosFaturaAnexada(
 export async function listarUnidadesCliente(clienteId: string, empresaId = EMPRESA_ANDRADE_ID) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")
-    .select("id, cliente_id, usina_id, numero, titular, distribuidora, endereco, status, modalidade_faturamento, desconto_percentual, clientes(id,nome), usinas(id,nome)")
+    .select("id, cliente_id, usina_id, numero, titular, distribuidora, endereco, status, modalidade_faturamento, desconto_percentual, clientes(id,nome,titularidade_faturamento), usinas(id,nome)")
     .eq("cliente_id", clienteId)
     .eq("empresa_id", empresaId)
     .order("numero");
@@ -179,7 +179,7 @@ export async function listarUnidadesCliente(clienteId: string, empresaId = EMPRE
 export async function listarTodasUnidades(empresaId = EMPRESA_ANDRADE_ID) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")
-    .select("*, clientes(id,nome,cpf,endereco,email,whatsapp), usinas(id,nome,endereco)")
+    .select("*, clientes(id,nome,cpf,endereco,email,whatsapp,titularidade_faturamento), usinas(id,nome,endereco)")
     .not("cliente_id", "is", null)
     .eq("empresa_id", empresaId)
     .order("created_at", { ascending: false });
