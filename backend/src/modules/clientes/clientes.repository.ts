@@ -1,5 +1,6 @@
 import { supabase } from "../../config/supabase";
 import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
+import { randomUUID } from "node:crypto";
 
 async function incluirStatusDoCadastro(clientes: any[], empresaId: string) {
   const ids = clientes.map((cliente) => String(cliente?.id ?? "")).filter(Boolean);
@@ -334,6 +335,43 @@ export async function excluirCliente(id: string, empresaId = EMPRESA_ANDRADE_ID)
     .maybeSingle();
   if (erroCliente) throw erroCliente;
 
+  const cpf = String(cliente?.cpf ?? "").replace(/\D/g, "");
+  const filtroConta = cpf.length === 11
+    ? `cliente_id.eq.${id},cpf.eq.${cpf}`
+    : `cliente_id.eq.${id}`;
+  const { data: contas, error: erroBuscaContas } = await supabase
+    .from("usuarios")
+    .select("id")
+    .eq("perfil", "LEITURA")
+    .eq("empresa_id", empresaId)
+    .or(filtroConta);
+  if (erroBuscaContas) throw erroBuscaContas;
+
+  // O acesso é encerrado antes da remoção dos demais registros. Isso evita
+  // que uma falha posterior deixe uma sessão antiga funcionando.
+  for (const conta of contas ?? []) {
+    const contaId = String(conta.id);
+    const { error: erroDesativacao } = await supabase
+      .from("usuarios")
+      .update({
+        ativo: false,
+        cliente_id: null,
+        cpf: null,
+        email: `excluido-${contaId}@conta-inativa.local`,
+        senha: `revogada-${randomUUID()}`,
+      })
+      .eq("id", contaId)
+      .eq("empresa_id", empresaId);
+    if (erroDesativacao) throw erroDesativacao;
+
+    const { error: erroSessoes } = await supabase
+      .from("sessoes_usuarios")
+      .update({ revogada_em: new Date().toISOString() })
+      .eq("usuario_id", contaId)
+      .is("revogada_em", null);
+    if (erroSessoes && erroSessoes.code !== "42P01") throw erroSessoes;
+  }
+
   const tabelasDependentes = [
     "notificacoes_fatura",
     "cobrancas",
@@ -351,23 +389,14 @@ export async function excluirCliente(id: string, empresaId = EMPRESA_ANDRADE_ID)
     if (error && error.code !== "42P01") throw error;
   }
 
-  await supabase.from("convites_clientes").update({ cliente_id: null }).eq("cliente_id", id);
-
-  const cpf = String(cliente?.cpf ?? "").replace(/\D/g, "");
-  const filtroConta = cpf.length === 11
-    ? `cliente_id.eq.${id},cpf.eq.${cpf}`
-    : `cliente_id.eq.${id}`;
-  const { error: erroContas } = await supabase
-    .from("usuarios")
-    .delete()
-    .eq("perfil", "LEITURA")
-    .or(filtroConta);
-  if (erroContas) throw erroContas;
+  const { error: erroConvites } = await supabase.from("convites_clientes").update({ cliente_id: null }).eq("cliente_id", id);
+  if (erroConvites) throw erroConvites;
 
   const { error: erroDesvinculo } = await supabase
     .from("usuarios")
-    .update({ cliente_id: null })
-    .eq("cliente_id", id);
+    .update({ cliente_id: null, ativo: false })
+    .eq("cliente_id", id)
+    .eq("empresa_id", empresaId);
   if (erroDesvinculo) throw erroDesvinculo;
 
   const { error } = await supabase

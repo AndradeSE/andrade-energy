@@ -23,6 +23,7 @@ import { contratarPlano } from "../comercial/comercial.service";
 import { extrairTextoPDF } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
 import { readFile, unlink } from "node:fs/promises";
+import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
 
 type DadosPerfil = {
   nome?: unknown;
@@ -171,7 +172,33 @@ export async function autenticar(
     throw new Error("E-mail ou senha inválidos.");
   }
 
-  const clienteId = await vincularClientePorCpf(usuario);
+  let clienteId = usuario.cliente_id ?? null;
+  if (usuario.perfil === "LEITURA") {
+    // O vínculo do consumidor é criado exclusivamente pelo convite. Não
+    // religamos uma conta antiga a um cliente novo apenas porque o CPF é o
+    // mesmo: isso permitiria reutilizar senha depois da exclusão.
+    if (!clienteId) {
+      throw new Error("Esta conta não possui um cadastro ativo. Solicite um novo convite ao gerador.");
+    }
+    const { data: clienteVinculado, error: erroClienteVinculado } = await supabase
+      .from("clientes")
+      .select("id,created_at")
+      .eq("id", clienteId)
+      .eq("empresa_id", usuario.empresa_id ?? EMPRESA_ANDRADE_ID)
+      .eq("status", "ATIVO")
+      .maybeSingle();
+    if (erroClienteVinculado) throw erroClienteVinculado;
+    if (!clienteVinculado) {
+      throw new Error("O cadastro vinculado a esta conta foi removido. Solicite um novo convite ao gerador.");
+    }
+    const criadoUsuarioEm = new Date(usuario.created_at ?? 0).getTime();
+    const criadoClienteEm = new Date(clienteVinculado.created_at ?? 0).getTime();
+    if (criadoUsuarioEm > 0 && criadoClienteEm > 0 && criadoUsuarioEm < criadoClienteEm) {
+      throw new Error("Esta conta pertence a um cadastro anterior que foi removido. Use o novo convite para criar a conta novamente.");
+    }
+  } else {
+    clienteId = await vincularClientePorCpf(usuario);
+  }
   const token = gerarToken();
   const { error: sessaoError } = await supabase.rpc("criar_sessao_unica", {
     p_usuario_id: usuario.id,
