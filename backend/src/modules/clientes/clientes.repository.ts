@@ -373,7 +373,8 @@ export async function excluirCliente(id: string, empresaId = EMPRESA_ANDRADE_ID)
   const { error } = await supabase
     .from("clientes")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .eq("empresa_id", empresaId);
 
   if (error) throw error;
 }

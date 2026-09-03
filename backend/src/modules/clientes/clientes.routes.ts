@@ -45,6 +45,6 @@ router.post("/", criarClienteController);
 
 router.put("/:id", atualizarClienteController);
 
-router.delete("/:id", excluirClienteController);
+router.delete("/:id", exigirAutenticacao, exigirGestor, excluirClienteController);
 
 export default router;
