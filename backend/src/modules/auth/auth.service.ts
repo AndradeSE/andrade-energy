@@ -340,7 +340,7 @@ export async function cadastrarConsumidorComFatura(
     if (clienteId) {
       const { data, error } = await supabase
         .from("clientes")
-        .select("id,cpf,status,endereco")
+        .select("id,nome,cpf,email,telefone,whatsapp,status,endereco")
         .eq("id", clienteId)
         .eq("empresa_id", empresaId)
         .maybeSingle();
@@ -350,7 +350,7 @@ export async function cadastrarConsumidorComFatura(
     } else {
       const { data, error } = await supabase
         .from("clientes")
-        .select("id,cpf,status,endereco")
+        .select("id,nome,cpf,email,telefone,whatsapp,status,endereco")
         .eq("empresa_id", empresaId)
         .eq("cpf", cpf)
         .limit(1)
@@ -404,10 +404,16 @@ export async function cadastrarConsumidorComFatura(
       clienteCriadoId = cliente.id;
     }
 
+    const emailDoCliente = emailNormalizado(clienteExistente.email);
+    const cpfDoCliente = cpfLimpo(clienteExistente.cpf);
+    if (!clienteExistente.nome || cpfDoCliente.length !== 11 || !emailDoCliente) {
+      throw new Error("Complete nome, CPF e e-mail no cadastro do cliente antes de criar a conta.");
+    }
+
     const usuario = await criarConta({
-      nome: convite.nome,
-      cpf,
-      email: emailNormalizado(convite.email),
+      nome: clienteExistente.nome,
+      cpf: cpfDoCliente,
+      email: emailDoCliente,
       senha,
       tipo: "CONSUMIDOR",
       convite: conviteToken,
@@ -437,7 +443,7 @@ export async function cadastrarConsumidorComFatura(
       clienteId,
       empresaId,
       gestorId: convite.gestor_id ?? null,
-      cpf,
+      cpf: cpfDoCliente,
       faturaCemigUrl: caminhoFatura,
       dadosFatura,
       emailVerificacaoTokenHash: hashToken(tokenVerificacao),
@@ -463,11 +469,11 @@ export async function cadastrarConsumidorComFatura(
       const { error: atualizacaoClienteError } = await supabase
         .from("clientes")
         .update({
-          nome: convite.nome,
-          cpf,
-          email: emailNormalizado(convite.email),
-          telefone: convite.telefone || null,
-          whatsapp: convite.telefone || null,
+          nome: clienteExistente.nome,
+          cpf: cpfDoCliente,
+          email: emailDoCliente,
+          telefone: clienteExistente.telefone || null,
+          whatsapp: clienteExistente.whatsapp || clienteExistente.telefone || null,
           endereco: clienteExistente?.endereco || null,
           status: "ATIVO",
         })
