@@ -10,7 +10,7 @@ import { interpretarFatura } from "../../services/ocr/parser.service";
 
 const BUCKET = "faturas";
 export const VERSAO_LAYOUT_FATURA = "layout-20260903-v3";
-export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20260902-v1";
+export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20260903-v2";
 const VERDE = "#107C5C";
 const VERDE_ESCURO = "#07533D";
 const VERDE_CLARO = "#E8F6F0";
@@ -506,8 +506,14 @@ export async function gerarPdfRelatorioCalculo(fatura: any) {
     const valorCemigOriginal = numero(fatura.valor_cemig);
     const valorCemigRepassado = numero(fatura.valor_cemig_repassado ?? fatura.valor_cemig);
     const totalUnificado = numero(fatura.valor_total_unificado ?? fatura.valor_total);
-    const referenciaSemAndrade = numero(fatura.valor_referencia_sem_andrade) || totalUnificado + numero(fatura.economia_real);
     const economia = numero(fatura.economia_real ?? fatura.economia);
+    // Na fatura unificada, a referência exibida deve conter todos os tributos
+    // efetivamente considerados no fechamento: total pago + economia obtida.
+    // O campo legado valor_referencia_sem_andrade guarda apenas a energia em
+    // algumas faturas antigas e, por isso, não serve para este demonstrativo.
+    const referenciaSemAndrade = somenteAndrade
+      ? numero(fatura.valor_referencia_sem_andrade) || totalUnificado + economia
+      : totalUnificado + economia;
     const descontoReal = numero(fatura.desconto_real_percentual);
     const descontoContratado = numero(fatura.desconto_contratado_percentual ?? fatura.desconto_percentual);
     const impostos = numero(fatura.valor_impostos);
@@ -517,8 +523,10 @@ export async function gerarPdfRelatorioCalculo(fatura: any) {
       pdf.roundedRect(x, y, largura, altura, 7).strokeColor(BORDA).lineWidth(0.7).stroke();
     };
     const linha = (rotulo: string, valor: string, y: number, destaque = false) => {
-      pdf.fillColor(destaque ? VERDE_ESCURO : TEXTO_SECUNDARIO).font(destaque ? "Helvetica-Bold" : "Helvetica").fontSize(9).text(rotulo, 62, y, { width: 300 });
-      pdf.fillColor(destaque ? VERDE_ESCURO : TEXTO).font(destaque ? "Helvetica-Bold" : "Helvetica").fontSize(destaque ? 10 : 9).text(valor, 370, y, { width: 158, align: "right" });
+      const tamanhoRotulo = rotulo.length > 48 ? 7.2 : rotulo.length > 38 ? 8 : 9;
+      const tamanhoValor = valor.length > 58 ? 6.2 : valor.length > 42 ? 7 : valor.length > 28 ? 8 : destaque ? 10 : 9;
+      pdf.fillColor(destaque ? VERDE_ESCURO : TEXTO_SECUNDARIO).font(destaque ? "Helvetica-Bold" : "Helvetica").fontSize(tamanhoRotulo).text(rotulo, 62, y, { width: 286, height: 14, ellipsis: true });
+      pdf.fillColor(destaque ? VERDE_ESCURO : TEXTO).font(destaque ? "Helvetica-Bold" : "Helvetica").fontSize(tamanhoValor).text(valor, 350, y, { width: 178, height: 14, align: "right", ellipsis: true });
     };
 
     pdf.rect(0, 0, 595, 842).fill("#F3F7F5");
@@ -538,12 +546,12 @@ export async function gerarPdfRelatorioCalculo(fatura: any) {
     cartao(48, 216, 498, 112, "#E8F6F0");
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(9).text("RESULTADO DO FATURAMENTO", 62, 232);
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(25).text(moeda(totalUnificado), 62, 250);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(somenteAndrade ? "Cobrança Andrade Energy; a concessionária permanece separada." : "Total da fatura unificada Andrade Energy.", 62, 281, { width: 235 });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(somenteAndrade ? "Cobrança Andrade Energy; a concessionária permanece separada." : "Total da fatura unificada Andrade Energy.", 62, 281, { width: 235, height: 22, ellipsis: true });
     pdf.strokeColor("#A9CFC0").moveTo(318, 234).lineTo(318, 310).stroke();
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7).text("SEM ANDRADE ENERGY", 340, 238);
     pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(16).text(moeda(referenciaSemAndrade), 340, 252);
     pdf.fillColor(VERDE).font("Helvetica-Bold").fontSize(9).text(`Economia ${moeda(economia)}`, 340, 278);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(`Contratado ${percentual(descontoContratado)} · Real ${percentual(descontoReal)}`, 340, 296);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(`Contratado ${percentual(descontoContratado)} · Real ${percentual(descontoReal)}`, 340, 296, { width: 188, height: 12, ellipsis: true });
 
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("1. BASE DE ENERGIA", 48, 352);
     cartao(48, 370, 498, 116, "#FFFFFF");

@@ -142,8 +142,8 @@ export async function confirmarFaturaRascunho(id: string) {
   return data;
 }
 
-export async function gerarCobrancaAsaas(id: string) {
-  const { data } = await api.post(`/asaas/cobrancas/${id}`);
+export async function gerarCobrancaAsaas(id: string, opcoes: { refaturar?: boolean } = {}) {
+  const { data } = await api.post(`/asaas/cobrancas/${id}`, opcoes);
   return data;
 }
 

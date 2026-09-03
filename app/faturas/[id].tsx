@@ -101,16 +101,16 @@ export default function DetalheFatura() {
     }
   }
 
-  async function gerarCobranca() {
+  async function gerarCobranca(refaturar = false) {
     try {
       setGerandoCobranca(true);
-      await gerarCobrancaAsaas(String(id));
+      await gerarCobrancaAsaas(String(id), { refaturar });
       const atualizada = await buscarFatura(String(id));
       setFatura(atualizada);
       const temBoleto = Boolean(atualizada?.linha_digitavel || atualizada?.pdf_boleto_url);
       const temPix = Boolean(atualizada?.codigo_pix);
       if (temBoleto && temPix) {
-        Alert.alert("Cobrança criada", "O boleto e o PIX já estão disponíveis para o cliente.");
+        Alert.alert(refaturar ? "Fatura reemitida" : "Cobrança criada", refaturar ? `Novo vencimento: ${formatarDataBrasileira(atualizada?.vencimento)}.` : "O boleto e o PIX já estão disponíveis para o cliente.");
       } else if (temBoleto) {
         Alert.alert(
           "Boleto criado; PIX pendente",
@@ -233,6 +233,17 @@ export default function DetalheFatura() {
     }
   }
 
+  function solicitarRefaturamento() {
+    Alert.alert(
+      "Refaturar para amanhã?",
+      "O vencimento da cobrança será alterado para amanhã e o boleto, o PIX e a fatura serão atualizados.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Refaturar", onPress: () => void gerarCobranca(true) },
+      ],
+    );
+  }
+
   async function baixarRelatorioCalculo() {
     const nome = `relatorio-calculo-${referenciaArquivo}.pdf`;
     try {
@@ -326,6 +337,18 @@ export default function DetalheFatura() {
                     ? "Atualizar boleto, PIX e fatura"
                     : "Gerar boleto, PIX e fatura"}
               </Text>
+            </TouchableOpacity>
+          ) : null}
+          {IS_GERADOR_APP && String(fatura.status ?? "").toUpperCase() !== "RASCUNHO" && (fatura.pdf_boleto_url || fatura.codigo_pix || fatura.linha_digitavel) ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              activeOpacity={0.82}
+              disabled={gerandoCobranca}
+              onPress={solicitarRefaturamento}
+              style={[styles.regenerateButton, gerandoCobranca && styles.confirmButtonDisabled]}
+            >
+              <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
+              <Text style={styles.regenerateButtonText}>Refaturar para amanhã</Text>
             </TouchableOpacity>
           ) : null}
           <DownloadButton

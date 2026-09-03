@@ -4,7 +4,7 @@ import { exigirRegistroDaEmpresa } from "../../utils/empresaScope";
 import { empresaIdDaRequisicao } from "../../utils/empresaScope";
 import { criarCobrancaAsaas, processarWebhookAsaas, validarSaqueAsaas } from "./asaas.service";
 export const asaasRouter=Router();
-asaasRouter.post("/cobrancas/:faturaId",exigirAutenticacao,exigirGestor,exigirRegistroDaEmpresa("faturas","faturaId"),async(req,res)=>{try{return res.json(await criarCobrancaAsaas(req.params.faturaId,empresaIdDaRequisicao(req)));}catch(error:any){return res.status(400).json({message:error.message});}});
+asaasRouter.post("/cobrancas/:faturaId",exigirAutenticacao,exigirGestor,exigirRegistroDaEmpresa("faturas","faturaId"),async(req,res)=>{try{return res.json(await criarCobrancaAsaas(req.params.faturaId,empresaIdDaRequisicao(req),{refaturar:req.body?.refaturar===true}));}catch(error:any){return res.status(400).json({message:error.message});}});
 export const asaasWebhookRouter=Router();
 asaasWebhookRouter.post("/",async(req,res)=>{try{return res.json(await processarWebhookAsaas(req.body,req.header("asaas-access-token")??undefined));}catch(error:any){return res.status(error.message.includes("autorizado")?401:400).json({message:error.message});}});
 asaasWebhookRouter.post("/saques",async(req,res)=>{try{return res.json(await validarSaqueAsaas(req.body,req.header("asaas-access-token")??undefined));}catch(error:any){return res.status(error.message.includes("autorizado")?401:400).json({message:error.message});}});

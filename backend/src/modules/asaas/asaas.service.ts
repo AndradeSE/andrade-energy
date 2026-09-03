@@ -4,15 +4,30 @@ import { regenerarDocumentosGeradosDaFatura } from "../faturas/documentosFatura.
 import { buscarCarteiraDaFatura } from "../carteira/carteira.service";
 
 function digits(value: unknown) { return String(value ?? "").replace(/\D/g, ""); }
+function hojeNoBrasil() {
+  const partes = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const valor = (tipo: Intl.DateTimeFormatPartTypes) => partes.find((parte) => parte.type === tipo)?.value ?? "";
+  return `${valor("year")}-${valor("month")}-${valor("day")}`;
+}
+
+function amanhaNoBrasil() {
+  const [ano, mes, dia] = hojeNoBrasil().split("-").map(Number);
+  return new Date(Date.UTC(ano, mes - 1, dia + 1)).toISOString().slice(0, 10);
+}
+
 function dueDate(value: unknown) {
   const text = String(value ?? "").slice(0, 10);
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeNoBrasil();
   if (/^\d{4}-\d{2}-\d{2}$/.test(text) && text >= hoje) return text;
 
   // O Asaas não registra um boleto novo com vencimento no passado. A data
-  // original continua salva e exibida na fatura; somente a cobrança reemitida
-  // recebe um vencimento operacional válido.
-  return new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  // recebe um vencimento operacional válido no dia seguinte.
+  return amanhaNoBrasil();
 }
 
 async function esperar(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
@@ -33,7 +48,7 @@ async function obterDadosPagamento(paymentId: string) {
   return { pix, boleto };
 }
 
-export async function criarCobrancaAsaas(faturaId: string, empresaId?: string) {
+export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, opcoes: { refaturar?: boolean } = {}) {
   let empresaResolvida = empresaId;
   if (!empresaResolvida) {
     const { data: referencia, error: erroReferencia } = await supabase.from("faturas").select("empresa_id").eq("id", faturaId).maybeSingle();
@@ -42,15 +57,30 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string) {
   }
   const { data: existing } = await supabase.from("asaas_cobrancas").select("*").eq("fatura_id", faturaId).eq("empresa_id", empresaResolvida).maybeSingle();
   if (existing?.asaas_payment_id) {
-    const [payment, dados] = await Promise.all([
-      asaasRequest<any>(`/payments/${existing.asaas_payment_id}`).catch(()=>null),
-      obterDadosPagamento(existing.asaas_payment_id),
-    ]);
+    let payment = await asaasRequest<any>(`/payments/${existing.asaas_payment_id}`);
+    const status = String(payment?.status ?? existing.status ?? "").toUpperCase();
+    const vencida = /^\d{4}-\d{2}-\d{2}$/.test(String(payment?.dueDate ?? "")) && String(payment.dueDate) < hojeNoBrasil();
+    const deveRefaturar = opcoes.refaturar === true || vencida;
+    let novoVencimento: string | undefined;
+
+    if (deveRefaturar) {
+      if (!["PENDING", "OVERDUE"].includes(status)) {
+        throw new Error("Somente cobranças pendentes ou vencidas podem ser refaturadas.");
+      }
+      novoVencimento = amanhaNoBrasil();
+      payment = await asaasRequest<any>(`/payments/${existing.asaas_payment_id}`, {
+        method: "PUT",
+        body: JSON.stringify({ dueDate: novoVencimento }),
+      });
+    }
+
+    const dados = await obterDadosPagamento(existing.asaas_payment_id);
     const { pix, boleto } = dados;
     const dadosPagamento = {
       linha_digitavel: boleto?.identificationField ?? existing.linha_digitavel ?? null,
       codigo_pix: pix?.payload ?? existing.codigo_pix ?? null,
       pdf_boleto_url: payment?.bankSlipUrl ?? existing.bank_slip_url ?? payment?.invoiceUrl ?? existing.invoice_url ?? null,
+      ...(novoVencimento ? { vencimento: novoVencimento } : {}),
     };
     const { data: faturaExistente, error: updateError } = await supabase.from("faturas").update(dadosPagamento).eq("id", faturaId).select().single();
     if (updateError) throw updateError;
@@ -69,11 +99,12 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string) {
   if (!(value > 0)) throw new Error("A fatura não possui valor válido para cobrança.");
   const carteira = await buscarCarteiraDaFatura(faturaId);
   const split = carteira?.asaas_wallet_id ? [{ walletId: carteira.asaas_wallet_id, percentualValue: 100, externalReference: faturaId }] : undefined;
-  const payment = await asaasRequest<any>("/payments", { method:"POST", body:JSON.stringify({ customer:customer.id, billingType:process.env.ASAAS_BILLING_TYPE ?? "BOLETO", value, dueDate:dueDate(invoice.vencimento), description:`Andrade Energy · ${invoice.referencia ?? "fatura"}`, externalReference:faturaId, ...(split ? { split } : {}) }) });
+  const vencimentoOperacional = opcoes.refaturar === true ? amanhaNoBrasil() : dueDate(invoice.vencimento);
+  const payment = await asaasRequest<any>("/payments", { method:"POST", body:JSON.stringify({ customer:customer.id, billingType:process.env.ASAAS_BILLING_TYPE ?? "BOLETO", value, dueDate:vencimentoOperacional, description:`Andrade Energy · ${invoice.referencia ?? "fatura"}`, externalReference:faturaId, ...(split ? { split } : {}) }) });
   const { pix, boleto } = await obterDadosPagamento(payment.id);
   const record = { empresa_id:empresaResolvida, fatura_id:faturaId, gerador_carteira_id:carteira?.id??null, asaas_customer_id:customer.id, asaas_payment_id:payment.id, status:payment.status, valor:value, valor_liquido:payment.netValue??null, invoice_url:payment.invoiceUrl??null, bank_slip_url:payment.bankSlipUrl??payment.invoiceUrl??null, linha_digitavel:boleto?.identificationField??payment.identificationField??null, codigo_pix:pix?.payload??null, atualizado_em:new Date().toISOString() };
   const { data, error: saveError } = await supabase.from("asaas_cobrancas").upsert(record,{onConflict:"fatura_id"}).select().single(); if(saveError) throw saveError;
-  const { data: faturaAtualizada, error: updateError } = await supabase.from("faturas").update({ linha_digitavel:record.linha_digitavel, codigo_pix:record.codigo_pix, pdf_boleto_url:record.bank_slip_url }).eq("id",faturaId).select().single();
+  const { data: faturaAtualizada, error: updateError } = await supabase.from("faturas").update({ linha_digitavel:record.linha_digitavel, codigo_pix:record.codigo_pix, pdf_boleto_url:record.bank_slip_url, vencimento:vencimentoOperacional }).eq("id",faturaId).select().single();
   if (updateError) throw updateError;
   await regenerarDocumentosGeradosDaFatura({ ...faturaAtualizada, codigo_barras: boleto?.barCode ?? null });
   return data;
