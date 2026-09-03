@@ -119,7 +119,7 @@ async function enviarEmailDeVerificacaoCadastro(input: { nome: string; email: st
   return enviarEmailTransacional({
     destinatario: input.email,
     assunto: "Confirme seu e-mail — Andrade Energy",
-    html: `<div style="max-width:560px;margin:auto;padding:28px;font-family:Arial,sans-serif;color:#252925;line-height:1.6;background:#f7f8f7;border-radius:14px"><h2 style="margin-top:0;color:#39804a">Confirme seu e-mail</h2><p>Olá, <strong>${escaparHtml(input.nome)}</strong>.</p><p>Recebemos seu cadastro e a sua fatura CEMIG. Confirme este e-mail para enviarmos a solicitação ao seu gerador.</p><p style="margin:26px 0"><a href="${link}" style="display:inline-block;padding:14px 22px;background:#39804a;color:#fff;font-weight:700;text-decoration:none;border-radius:8px">Confirmar meu e-mail</a></p><p style="font-size:13px;color:#6b706b">Após a confirmação, o gerador conferirá o cadastro. Seu acesso será liberado somente quando ele aprovar a solicitação.</p><p style="font-size:13px;color:#6b706b">Este link é válido por 24 horas. Se você não solicitou este cadastro, ignore esta mensagem.</p></div>`,
+    html: `<div style="max-width:560px;margin:auto;padding:28px;font-family:Arial,sans-serif;color:#252925;line-height:1.6;background:#f7f8f7;border-radius:14px"><h2 style="margin-top:0;color:#39804a">Confirme seu e-mail</h2><p>Olá, <strong>${escaparHtml(input.nome)}</strong>.</p><p>Sua conta foi criada com os dados cadastrados pelo gerador. Confirme que este endereço de e-mail pertence a você para liberar o acesso.</p><p style="margin:26px 0"><a href="${link}" style="display:inline-block;padding:14px 22px;background:#39804a;color:#fff;font-weight:700;text-decoration:none;border-radius:8px">Confirmar meu e-mail</a></p><p style="font-size:13px;color:#6b706b">Após a confirmação, você poderá entrar no aplicativo normalmente.</p><p style="font-size:13px;color:#6b706b">Este link é válido por 24 horas. Se você não solicitou este cadastro, ignore esta mensagem.</p></div>`,
   });
 }
 
@@ -418,10 +418,10 @@ export async function cadastrarConsumidorComFatura(
       tipo: "CONSUMIDOR",
       convite: conviteToken,
       empresa_id: empresaId,
-      ativo: true,
+      ativo: false,
     });
     usuarioCriadoId = String(usuario.id);
-    await vincularUsuarioAoClientePendente(usuarioCriadoId, clienteId, empresaId, true);
+    await vincularUsuarioAoClientePendente(usuarioCriadoId, clienteId, empresaId, false);
 
     caminhoFatura = possuiFatura ? await guardarFaturaDeCadastro(arquivo!.path) : null;
     if (caminhoFatura) {
@@ -448,8 +448,8 @@ export async function cadastrarConsumidorComFatura(
       dadosFatura,
       emailVerificacaoTokenHash: hashToken(tokenVerificacao),
       emailVerificacaoExpiraEm: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      status: "ATIVO",
-      emailVerificadoEm: new Date().toISOString(),
+      status: "AGUARDANDO_VERIFICACAO_EMAIL",
+      emailVerificadoEm: null,
     });
 
     const { data: conviteAtualizado, error: conviteError } = await supabase
@@ -482,10 +482,17 @@ export async function cadastrarConsumidorComFatura(
       if (atualizacaoClienteError) throw atualizacaoClienteError;
     }
 
+    const emailEnviado = await enviarEmailDeVerificacaoCadastro({
+      nome: clienteExistente.nome,
+      email: emailDoCliente,
+      token: tokenVerificacao,
+    }).catch(() => false);
     return {
-      message: "Conta criada e vinculada ao cliente cadastrado pelo gerador.",
-      status: "ATIVO",
-      emailEnviado: false,
+      message: emailEnviado
+        ? "Conta criada. Confirme o e-mail para liberar o acesso."
+        : "Conta criada, mas o e-mail de confirmação não pôde ser enviado agora.",
+      status: "AGUARDANDO_VERIFICACAO_EMAIL",
+      emailEnviado,
     };
   } catch (erro) {
     if (caminhoFatura) await supabase.storage.from("faturas").remove([caminhoFatura]).catch(() => undefined);
@@ -518,9 +525,16 @@ export async function verificarEmailDeCadastro(tokenInformado: unknown) {
 
   const agora = new Date().toISOString();
   const atualizada = await atualizarSolicitacaoCadastroCliente(solicitacao.id, {
-    status: "AGUARDANDO_CONFIRMACAO_GERADOR",
+    status: "ATIVO",
     email_verificado_em: agora,
   });
+
+  const { error: ativacaoError } = await supabase
+    .from("usuarios")
+    .update({ ativo: true })
+    .eq("id", solicitacao.usuario_id)
+    .eq("cliente_id", solicitacao.cliente_id);
+  if (ativacaoError) throw ativacaoError;
 
   const { data: cliente, error: clienteError } = await supabase
     .from("clientes")
@@ -547,15 +561,15 @@ export async function verificarEmailDeCadastro(tokenInformado: unknown) {
     if (gestor?.email) {
       geradorNotificado = await enviarEmailTransacional({
         destinatario: gestor.email,
-        assunto: "Novo cadastro aguardando confirmação — Andrade Energy",
-        html: `<div style="font-family:Arial,sans-serif;color:#252925;line-height:1.6"><h2 style="color:#39804a">Cadastro pronto para sua conferência</h2><p>Olá, <strong>${escaparHtml(gestor.nome)}</strong>.</p><p><strong>${escaparHtml(cliente?.nome ?? "Um consumidor")}</strong> confirmou o e-mail e enviou uma fatura CEMIG. Abra o aplicativo Gerador para conferir a solicitação e liberar o acesso.</p></div>`,
+        assunto: "E-mail do consumidor confirmado — Andrade Energy",
+        html: `<div style="font-family:Arial,sans-serif;color:#252925;line-height:1.6"><h2 style="color:#39804a">E-mail confirmado</h2><p>Olá, <strong>${escaparHtml(gestor.nome)}</strong>.</p><p><strong>${escaparHtml(cliente?.nome ?? "Um consumidor")}</strong> confirmou o endereço de e-mail e a conta já está liberada com os dados cadastrados por você.</p></div>`,
       }).catch(() => false);
     }
   }
 
   return {
-    status: "AGUARDANDO_CONFIRMACAO_GERADOR",
-    message: "E-mail confirmado. Agora o gerador conferirá os dados e liberará o seu acesso.",
+    status: "ATIVO",
+    message: "E-mail confirmado. Sua conta já está liberada para acesso.",
     geradorNotificado,
   };
 }

@@ -125,7 +125,7 @@ export default function CriarConta() {
                   : aguardandoGerador
                     ? "Você optou por não enviar a fatura agora. O gerador precisa ativar seu acesso manualmente."
                   : emailEnviado
-                  ? "Enviamos um link para confirmar o seu e-mail. Depois disso, o gerador conferirá a fatura e liberará seu acesso."
+                  ? "Enviamos um link para confirmar o seu e-mail. O acesso será liberado assim que você confirmar."
                   : "O cadastro foi recebido, mas o e-mail não saiu agora. Use o botão abaixo para enviar um novo link de confirmação."
                 : emailEnviado
                   ? "Sua conta está pronta. Enviamos a confirmação para o e-mail informado."
