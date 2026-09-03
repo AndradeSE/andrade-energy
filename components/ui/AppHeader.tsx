@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Alert, Image, LayoutAnimation, Modal, Pressable, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useReadNotifications } from "../../hooks/useReadNotifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -14,7 +14,6 @@ import { Colors, Radius, Spacing, Typography } from "../../theme";
 import PortalBrandLogo from "../brand/PortalBrandLogo";
 import { useEmpresa } from "../../contexts/EmpresaContext";
 import { notificarAvisosNoAndroid } from "../../services/carteira-notificacoes.service";
-import { observarMovimentoDaTela } from "./headerMotion";
 
 function escurecerCor(hex: string, fator = 0.62) {
   const limpa = hex.replace("#", "");
@@ -64,37 +63,13 @@ export default function AppHeader({
   const notificacoes = leituras.ready ? avisosRecebidos.filter((aviso) => !leituras.ids.includes(String(aviso.id))) : [];
   const [autonomia, setAutonomia] = useState<{ percentual: number; disponivel: number } | null>(null);
   const [contextoUsinaExpandido, setContextoUsinaExpandido] = useState(true);
-  const temporizadorContexto = useRef<ReturnType<typeof setTimeout> | null>(null);
   const proprietario = IS_GERADOR_APP;
   const podeAlternarPerfil = IS_GERADOR_APP && usuario?.perfil === "ADMIN";
 
-  useEffect(() => {
-    if (variant !== "main" || !showPlantContext || !proprietario || !usinaSelecionada) return;
-
-    const recolherDepois = () => {
-      if (temporizadorContexto.current) clearTimeout(temporizadorContexto.current);
-      temporizadorContexto.current = setTimeout(() => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setContextoUsinaExpandido(false);
-      }, 3200);
-    };
-    const mostrarDuranteMovimento = () => {
-      setContextoUsinaExpandido((expandido) => {
-        if (!expandido) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        return true;
-      });
-      recolherDepois();
-    };
-
-    setContextoUsinaExpandido(true);
-    recolherDepois();
-    const pararDeObservar = observarMovimentoDaTela(mostrarDuranteMovimento);
-    return () => {
-      pararDeObservar();
-      if (temporizadorContexto.current) clearTimeout(temporizadorContexto.current);
-      temporizadorContexto.current = null;
-    };
-  }, [proprietario, showPlantContext, usinaSelecionada, variant]);
+  function alternarContextoUsina() {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setContextoUsinaExpandido((expandido) => !expandido);
+  }
 
   useEffect(() => {
     let ativo = true;
@@ -225,14 +200,15 @@ export default function AppHeader({
         </Pressable>
       </Modal>
 
-      {showPlantContext && proprietario && usinaSelecionada && contextoUsinaExpandido ? <View style={styles.plantBar}>
+      {showPlantContext && proprietario && usinaSelecionada ? contextoUsinaExpandido ? <View style={styles.plantBar}>
         <View style={styles.plantLogo}>
           {empresa.identidade_personalizada && empresa.logo_url
             ? <Image resizeMode="contain" source={{ uri: empresa.logo_url }} style={styles.companyLogo} />
             : <PortalBrandLogo height={30} width={90} />}
         </View>
         <View style={styles.plantText}><Text numberOfLines={1} style={styles.plantName}>{usinaSelecionada.nome}</Text><Text numberOfLines={1} style={styles.plantAutonomy}>{autonomia ? `Autonomia ${autonomia.percentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% · ${autonomia.disponivel.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kWh disponíveis` : "Calculando autonomia..."}</Text></View>
-      </View> : null}
+        <TouchableOpacity accessibilityLabel="Fechar dados da usina" onPress={alternarContextoUsina} style={styles.plantToggle}><Text style={styles.plantToggleText}>Fechar</Text><Ionicons name="chevron-up" size={15} color="#F6CC32" /></TouchableOpacity>
+      </View> : <TouchableOpacity accessibilityLabel="Abrir dados da usina" activeOpacity={0.8} onPress={alternarContextoUsina} style={styles.plantBarCollapsed}><Ionicons name="sunny-outline" size={15} color="#A7F3D0" /><Text numberOfLines={1} style={styles.plantCollapsedName}>{usinaSelecionada.nome}</Text><Text style={styles.plantToggleText}>Abrir</Text><Ionicons name="chevron-down" size={15} color="#F6CC32" /></TouchableOpacity> : null}
 
       <Modal animationType="fade" transparent visible={menuAberto} onRequestClose={() => setMenuAberto(false)}>
         <Pressable style={styles.backdrop} onPress={() => setMenuAberto(false)}>
@@ -365,6 +341,10 @@ const styles = StyleSheet.create({
   plantText: { flex: 1 },
   plantName: { color: Colors.surface, fontSize: Typography.small, fontWeight: "800" },
   plantAutonomy: { marginTop: 1, color: "rgba(255,255,255,0.78)", fontSize: 11 },
+  plantToggle: { minHeight: 34, alignItems: "center", justifyContent: "center", paddingHorizontal: 5 },
+  plantToggleText: { color: "#F6CC32", fontSize: 10, fontWeight: "900" },
+  plantBarCollapsed: { minHeight: 32, flexDirection: "row", alignItems: "center", gap: 6, marginTop: Spacing.sm, paddingHorizontal: Spacing.sm, borderRadius: Radius.md, backgroundColor: "rgba(255,255,255,0.10)" },
+  plantCollapsedName: { flex: 1, color: "#D8F0E3", fontSize: 11, fontWeight: "700" },
   backdrop: { flex: 1, alignItems: "flex-end", backgroundColor: "rgba(15,23,42,0.45)" },
   menu: { width: "84%", height: "100%", paddingHorizontal: Spacing.lg, paddingTop: 58, backgroundColor: Colors.surface },
   notificationPanel: { width: "88%", marginTop: 90, marginHorizontal: "6%", paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg, borderRadius: Radius.xl, backgroundColor: Colors.surface },
