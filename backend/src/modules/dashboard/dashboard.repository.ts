@@ -21,6 +21,21 @@ export async function obterDashboardCliente(
 
   if (erroCliente) throw erroCliente;
 
+  // A concessionária pertence à UC, não ao cadastro geral do cliente. Esse
+  // acesso direto também evita ambiguidades quando o consumidor possui mais
+  // de uma unidade vinculada.
+  let unidadeQuery = supabase
+    .from("unidades_consumidoras")
+    .select("numero,distribuidora")
+    .eq("cliente_id", clienteId)
+    .eq("empresa_id", empresaId);
+  if (uc) unidadeQuery = unidadeQuery.eq("numero", uc);
+  const { data: unidade, error: erroUnidade } = await unidadeQuery
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (erroUnidade) throw erroUnidade;
+
   // Faturas
   let faturasQuery = supabase
       .from("faturas")
@@ -72,6 +87,8 @@ export async function obterDashboardCliente(
 
   return {
     ...cliente,
+    uc: unidade?.numero ?? uc ?? cliente.uc,
+    distribuidora: unidade?.distribuidora ?? cliente.distribuidora,
     creditos:
       Number(credito?.saldo_atual ?? 0),
     faturas: faturas ?? [],
