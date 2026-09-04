@@ -9,7 +9,7 @@ import { extrairTextoDoBuffer } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
 
 const BUCKET = "faturas";
-export const VERSAO_LAYOUT_FATURA = "layout-20260904-v7";
+export const VERSAO_LAYOUT_FATURA = "layout-20260904-v8";
 export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20260903-v3";
 const VERDE = "#107C5C";
 const VERDE_ESCURO = "#07533D";
@@ -295,18 +295,25 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
       ? 0
       : Math.min(impostosLidos, Math.max(0, valorCemigComposicao - custosIdentificados));
     const energiaEEncargos = Math.max(0, valorCemigComposicao - custosIdentificados - impostos);
-    const composicaoTarifaria = [
-      { rotulo: "Energia da usina", valor: valorUsina, cor: VERDE, complemento: energia(energiaCobrada) },
-      { rotulo: "Energia e encargos", valor: energiaEEncargos, cor: "#0EA5B7", complemento: null },
-      { rotulo: "Disponibilidade", valor: disponibilidadeComposicao, cor: "#F59E0B", complemento: null },
-      { rotulo: "Fio B", valor: fioBComposicao, cor: "#376BC7", complemento: null },
-      { rotulo: "Iluminação pública", valor: iluminacaoPublica, cor: "#8B5CF6", complemento: null },
-      { rotulo: "Bandeira tarifária", valor: bandeiraComposicao, cor: "#E65A17", complemento: null },
-      { rotulo: "Impostos", valor: impostos, cor: "#D94B22", complemento: null },
-    ].filter((item) => item.valor > 0);
+    // A fatura separada cobra exclusivamente a Andrade. Componentes que
+    // permanecem na concessionária não podem aparecer no gráfico dessa
+    // cobrança, ainda que tenham sido usados no cálculo comparativo.
+    const composicaoTarifaria = (documentoUnificado
+      ? [
+          { rotulo: "Energia da usina", valor: valorUsina, cor: VERDE, complemento: energia(energiaCobrada) },
+          { rotulo: "Energia e encargos", valor: energiaEEncargos, cor: "#0EA5B7", complemento: null },
+          { rotulo: "Disponibilidade", valor: disponibilidadeComposicao, cor: "#F59E0B", complemento: null },
+          { rotulo: "Fio B", valor: fioBComposicao, cor: "#376BC7", complemento: null },
+          { rotulo: "Iluminação pública", valor: iluminacaoPublica, cor: "#8B5CF6", complemento: null },
+          { rotulo: "Bandeira tarifária", valor: bandeiraComposicao, cor: "#E65A17", complemento: null },
+          { rotulo: "Impostos", valor: impostos, cor: "#D94B22", complemento: null },
+        ]
+      : [
+          { rotulo: "Energia Andrade", valor: valorTotal, cor: VERDE, complemento: energia(energiaCobrada) },
+        ]).filter((item) => item.valor > 0);
     const totalComposicao = composicaoTarifaria.reduce((soma, item) => soma + item.valor, 0);
-    const rotuloCentroGrafico = documentoUnificado ? "FATURA UNIFICADA" : "TOTAL DO MÊS";
-    const valorCentroGrafico = valorTotalDoMes;
+    const rotuloCentroGrafico = documentoUnificado ? "FATURA UNIFICADA" : "FATURA ANDRADE";
+    const valorCentroGrafico = documentoUnificado ? valorTotalDoMes : valorTotal;
     const y = { cabecalho: 0, dados: 132, total: 272, aviso: 396, composicao: 454, inferior: 564, creditos: 708 };
     const verdeCabecalho = "#063C25";
     const desenharCartao = (x: number, top: number, largura: number, altura: number, fundo = "#FFFFFF") => {

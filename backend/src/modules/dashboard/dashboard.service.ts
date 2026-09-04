@@ -42,8 +42,7 @@ export async function dashboardCliente(
   const economia = Number(ultima?.economia_real ?? 0);
   const composicaoTarifaria = ultima?.fatura_somente_andrade
     ? [
-        { id: "energia-andrade", label: "Energia Andrade", valor: valorUsina, cor: "#087A55", detalhe: "Valor da energia solar faturada pela Andrade Energy." },
-        { id: "economia", label: "Economia concedida", valor: economia, cor: "#F5B800", detalhe: "Parcela economizada em relação ao valor cheio da energia." },
+        { id: "energia-andrade", label: "Energia Andrade", valor: Number(ultima?.valor_total ?? valorUsina), cor: "#087A55", detalhe: "Composição exclusiva da cobrança Andrade Energy; valores da concessionária permanecem na conta separada." },
       ]
     : [
         { id: "energia-andrade", label: "Energia da usina", valor: valorUsina, cor: "#087A55", detalhe: `${Number(ultima?.energia_compensada ?? 0).toLocaleString("pt-BR")} kWh considerados nesta competência.` },
