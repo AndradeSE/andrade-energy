@@ -1598,6 +1598,7 @@ function UnitTools({
           repassarCustoDisponibilidadeGD1: allocation.gd1 === "REPASSAR",
           repassarCustoDisponibilidadeGD2: allocation.gd2 === "REPASSAR",
           repassarDiferencaFioBGD2: allocation.fioB === "REPASSAR",
+          tipoGd: allocation.tipoGd || undefined,
           faturaSomenteAndrade: allocation.formatoFatura === "SOMENTE_ANDRADE",
           calcularAutomaticamente: false,
         }),
@@ -1623,8 +1624,9 @@ function UnitTools({
     ["Rateio", unit.percentual_rateio ?? unit.percentual],
     ["Status", formatPortalValue("status", unit.status)],
   ];
+  const selectedPlant = plants.find((plant) => String(plant.id) === allocation.usinaId);
   const detectedGd = String(
-    latestInvoice?.tipo_gd ?? latestInvoice?.tipoGd ?? unit.tipo_gd ?? "",
+    selectedPlant?.tipo_gd ?? unit.tipo_gd ?? latestInvoice?.tipo_gd ?? latestInvoice?.tipoGd ?? "",
   ).toUpperCase();
   const usesGd1 = !detectedGd || detectedGd === "GD1" || detectedGd === "MISTA";
   const usesGd2 = !detectedGd || detectedGd === "GD2" || detectedGd === "MISTA";
@@ -1636,7 +1638,10 @@ function UnitTools({
         : detectedGd === "MISTA"
           ? "GD I + GD II (mista)"
           : "Aguardando a primeira fatura";
-  const selectedPlant = plants.find((plant) => String(plant.id) === allocation.usinaId);
+  const projectedPlantProduction = Number(selectedPlant?.producao_media_12_meses ?? selectedPlant?.geracao_media ?? 0);
+  const projectedInjectedEnergy = allocation.modalidade === "INJECAO"
+    ? Math.max(0, projectedPlantProduction) * Math.max(0, Number(String(allocation.percentual).replace(",", "."))) / 100
+    : 0;
   return (
     <article className={`unit-tool-card ${expanded ? "expanded" : ""}`}>
       <button
@@ -1719,12 +1724,14 @@ function UnitTools({
                   <select
                     required
                     value={allocation.usinaId}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const nextPlant = plants.find((plant) => String(plant.id) === event.target.value);
                       setAllocation({
                         ...allocation,
                         usinaId: event.target.value,
-                      })
-                    }
+                        tipoGd: String(nextPlant?.tipo_gd ?? "").toUpperCase(),
+                      });
+                    }}
                   >
                     <option value="">Selecione</option>
                     {plants.map((plant) => (
@@ -1816,12 +1823,12 @@ function UnitTools({
                     </option>
                   </select>
                 </label>
-                {allocation.formatoFatura === "UNIFICADA" ? <div className="detected-gd-info">
+                <div className="detected-gd-info">
                   <small>MODALIDADE IDENTIFICADA AUTOMATICAMENTE</small>
                   <strong>{detectedGdLabel}</strong>
                   <span>A leitura é feita pela última fatura importada e não precisa ser selecionada manualmente.</span>
-                </div> : null}
-                {allocation.formatoFatura === "UNIFICADA" && usesGd1 ? <label>
+                </div>
+                {usesGd1 ? <label>
                   GD I · custo de disponibilidade recalculado
                   <select
                     value={allocation.gd1}
@@ -1833,7 +1840,7 @@ function UnitTools({
                     <option value="ABSORVER">Absorver pela Andrade</option>
                   </select>
                 </label> : null}
-                {allocation.formatoFatura === "UNIFICADA" && usesGd2 ? <label>
+                {usesGd2 ? <label>
                   GD II · custo de disponibilidade recalculado
                   <select
                     value={allocation.gd2}
@@ -1845,7 +1852,7 @@ function UnitTools({
                     <option value="ABSORVER">Absorver pela Andrade</option>
                   </select>
                 </label> : null}
-                {allocation.formatoFatura === "UNIFICADA" && usesGd2 ? <label>
+                {usesGd2 ? <label>
                   GD II · diferença do Fio B
                   <select
                     value={allocation.fioB}
@@ -1858,11 +1865,14 @@ function UnitTools({
                   </select>
                 </label> : null}
               </div>
-              {allocation.formatoFatura === "UNIFICADA" ? <RealDiscountInfoWeb
+              <p className="form-hint">{allocation.formatoFatura === "SOMENTE_ANDRADE" ? "Mesmo com documentos separados, a projeção soma o valor pago à concessionária e a cobrança Andrade." : "Os demais encargos permanecem na conta da concessionária."}</p>
+              <RealDiscountInfoWeb
                 desconto={allocation.desconto}
                 tipoGd={detectedGd}
                 modalidadeFaturamento={allocation.modalidade}
                 consumoProjetado={allocation.consumoMedio}
+                energiaInjetadaProjetada={projectedInjectedEnergy}
+                faturaSomenteAndrade={allocation.formatoFatura === "SOMENTE_ANDRADE"}
                 dadosFatura={latestInvoice}
                 projetarConsumoIntegral
                 tarifaSceeReferencia={Number(selectedPlant?.tarifa_scee_referencia ?? 0)}
@@ -1871,7 +1881,7 @@ function UnitTools({
                 gd1={allocation.gd1}
                 gd2={allocation.gd2}
                 fioB={allocation.fioB}
-              /> : null}
+              />
               <footer>
                 <button type="button" onClick={() => setEditOpen(false)}>
                   Cancelar
