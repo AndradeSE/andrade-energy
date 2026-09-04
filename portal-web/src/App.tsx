@@ -73,6 +73,28 @@ function AppDownloadLink({
   </a>;
 }
 
+type PortalQuickAction = {
+  label: string;
+  detail: string;
+  icon: string;
+  onClick: () => void;
+  badge?: boolean;
+};
+
+function PortalQuickAccess({ items, storageKey }: { items: PortalQuickAction[]; storageKey: string }) {
+  const key = `andrade.portal.quick-access.${storageKey}.v1`;
+  const [lastUsed, setLastUsed] = useState(() => localStorage.getItem(key) ?? "");
+  const ordered = lastUsed
+    ? [...items].sort((a, b) => Number(b.label === lastUsed) - Number(a.label === lastUsed))
+    : items;
+  return <section className="portal-quick-access" aria-label="Acesso rápido">
+    <header><strong>Acesso rápido</strong><small>O último acesso aparece primeiro</small></header>
+    <div>{ordered.map((item) => <button key={item.label} onClick={() => { localStorage.setItem(key, item.label); setLastUsed(item.label); item.onClick(); }}>
+      {item.badge ? <em>NOVO</em> : null}<b aria-hidden="true">{item.icon}</b><span><strong>{item.label}</strong><small>{item.detail}</small></span>
+    </button>)}</div>
+  </section>;
+}
+
 function AdminWorkspaceChoice({ name, onChoose, onLogout }: { name?: string; onChoose: (workspace: AdminWorkspace) => void; onLogout: () => void }) {
   return <main className="admin-workspace-page">
     <section className="admin-workspace-hero"><span className="brand-logo-wrap"><AnimatedLogo /><img className="brand-lightbulb" src={bulbImage} alt="" aria-hidden="true" /></span><small>ACESSO ADMINISTRATIVO</small><h1>Olá, {name ?? "Administrador"}</h1><p>Escolha o ambiente que deseja acessar. A administração comercial fica separada da operação das usinas.</p></section>
@@ -257,9 +279,11 @@ function readSession(): PortalSession | null {
 function ClientOverview({
   data,
   onNavigate,
+  companyName,
 }: {
   data: WebRecord | null;
   onNavigate: (section: string) => void;
+  companyName: string;
 }) {
   const consumption = Number(data?.consumo ?? 0);
   const credits = Number(data?.creditos ?? 0);
@@ -291,6 +315,13 @@ function ClientOverview({
           <small>compensado</small>
         </div>
       </div>
+      <PortalQuickAccess storageKey="consumidor-home" items={[
+        { icon: "▤", label: `Faturas ${companyName}`, detail: "Cobranças e pagamentos", onClick: () => onNavigate("Faturas") },
+        { icon: "⌁", label: `Fatura ${String(data?.distribuidora ?? "da concessionária")}`, detail: "Conta de energia original", onClick: () => onNavigate("Contas de luz") },
+        { icon: "↥", label: "Anexar fatura da concessionária", detail: "Vincular uma conta ao seu CPF", onClick: () => onNavigate("Perfil") },
+        { icon: "↗", label: "Economia", detail: "Histórico e evolução", onClick: () => onNavigate("Economia") },
+        { icon: "≡", label: "Contrato", detail: "Dados da unidade", onClick: () => onNavigate("Contratos") },
+      ]} />
       <div className="dashboard-metrics top-metrics client-metrics">
         <article>
           <small>Consumo</small>
@@ -298,7 +329,7 @@ function ClientOverview({
           <span>Competência atual</span>
         </article>
         <article>
-          <small>Créditos recebidos</small>
+          <small>Energia recebida</small>
           <strong>{credits.toLocaleString("pt-BR")} kWh</strong>
           <span className="metric-up">Energia compensada</span>
         </article>
@@ -324,7 +355,7 @@ function ClientOverview({
         <article className="consumption-card">
           <div className="card-heading">
             <div>
-              <small>CONSUMO E CRÉDITOS</small>
+              <small>CONSUMO E ENERGIA</small>
               <h2>Balanço da sua energia</h2>
             </div>
           </div>
@@ -336,7 +367,7 @@ function ClientOverview({
             </div>
             <div>
               <span className="credit" style={{ width: `${compensation}%` }} />
-              <small>Créditos</small>
+              <small>Energia recebida</small>
               <strong>{credits.toLocaleString("pt-BR")} kWh</strong>
             </div>
           </div>
@@ -2551,13 +2582,12 @@ function ActionDialog({
     },
     Clientes: {
       endpoint: "/clientes",
-      title: "Cadastrar novo cliente",
+      title: "Cadastrar cliente e primeira UC",
       fields: [
         ["nome", "Nome", "text"],
-        ["cpf", "CPF/CNPJ", "text"],
+        ["cpf", "CPF", "text"],
         ["email", "E-mail", "email"],
-        ["telefone", "Telefone", "text"],
-        ["uc", "Unidade consumidora", "text"],
+        ["telefone", "Telefone / WhatsApp (opcional)", "text"],
       ],
     },
     Financeiro: {
@@ -2587,6 +2617,34 @@ function ActionDialog({
           headers: { Authorization: `Bearer ${token}` },
           body,
         });
+      } else if (section === "Clientes") {
+        if (!file) throw new Error("Anexe a fatura da concessionária que criará a primeira UC.");
+        const cpf = String(form.cpf ?? "").replace(/\D/g, "");
+        if (cpf.length !== 11) throw new Error("Informe um CPF válido com 11 números.");
+        const email = String(form.email ?? "").trim().toLocaleLowerCase("pt-BR");
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Informe um e-mail válido.");
+        response = await fetch(`${API_URL}/clientes`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ nome: form.nome?.trim(), cpf, email, telefone: form.telefone?.trim() || null, whatsapp: form.telefone?.replace(/\D/g, "") || null, status: "ATIVO" }),
+        });
+        const client = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(client.message ?? "Não foi possível cadastrar o cliente.");
+        const attachment = new FormData();
+        attachment.append("arquivo", file);
+        const attached = await fetch(`${API_URL}/clientes/${client.id}/faturas-anexadas`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: attachment });
+        const attachedPayload = await attached.json().catch(() => ({}));
+        if (!attached.ok) throw new Error(attachedPayload.message ?? "Cliente criado, mas a UC não pôde ser criada pela fatura.");
+        const invitation = await fetch(`${API_URL}/convites`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ nome: form.nome?.trim(), cpf, email, whatsapp: form.telefone?.replace(/\D/g, "") || undefined }),
+        });
+        if (!invitation.ok) window.alert("Cliente e UC criados. O convite não pôde ser enviado agora; reenvie pelo perfil do cliente.");
+        response = new Response(JSON.stringify(attachedPayload), {
+          status: attached.status,
+          headers: { "Content-Type": "application/json" },
+        });
       } else {
         const numeric = new Set([
           "potencia_kwp",
@@ -2605,7 +2663,6 @@ function ActionDialog({
             modalidade: "INJECAO",
             status: "ATIVA",
           });
-        if (section === "Clientes") Object.assign(payload, { status: "ATIVO" });
         response = await fetch(`${API_URL}${config.endpoint}`, {
           method: "POST",
           headers: {
@@ -2657,7 +2714,7 @@ function ActionDialog({
               />
             </label>
           ) : (
-            config?.fields.map(([key, label, type]) => (
+            <>{config?.fields.map(([key, label, type]) => (
               <label key={key}>
                 {label}
                 <input
@@ -2665,7 +2722,8 @@ function ActionDialog({
                     key === "nome" ||
                     key === "numero_instalacao" ||
                     key === "usina_id" ||
-                    key === "competencia"
+                    key === "competencia" ||
+                    (section === "Clientes" && ["cpf", "email"].includes(key))
                   }
                   type={type}
                   value={form[key] ?? ""}
@@ -2674,7 +2732,7 @@ function ActionDialog({
                   }
                 />
               </label>
-            ))
+            ))}{section === "Clientes" ? <label>Fatura da concessionária (obrigatória)<input accept="application/pdf" required type="file" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /><small>Os dados da conta serão usados para criar e vincular a primeira UC.</small></label> : null}</>
           )}
           {error && <div className="error-message">{error}</div>}
           <button className="submit-operation" disabled={saving}>
@@ -3014,8 +3072,7 @@ function PortalHome({
   );
   const canCreate =
     type === "GERADOR" &&
-    ["Usinas", "Faturas", "Financeiro"].includes(activeSection);
-  const canInviteClient = type === "GERADOR" && activeSection === "Clientes";
+    ["Usinas", "Clientes", "Faturas", "Financeiro"].includes(activeSection);
   async function deleteRecord(item: WebRecord) {
     if (
       !session.token ||
@@ -3040,29 +3097,6 @@ function PortalHome({
       return;
     }
     setRefreshKey((value) => value + 1);
-  }
-  async function inviteClient() {
-    if (!session.token) return;
-    const nome = window.prompt("Nome completo do consumidor:");
-    const cpf = window.prompt("CPF do consumidor (somente números):");
-    const email = window.prompt("E-mail que receberá o convite:");
-    const whatsapp = window.prompt("WhatsApp com DDD:");
-    const endereco = window.prompt("Endereço completo do consumidor:");
-    if (!nome || !cpf || !email || !whatsapp || !endereco) return;
-    const response = await fetch(`${API_URL}/convites`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${session.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ nome, cpf: cpf.replace(/\D/g, ""), email, whatsapp: whatsapp.replace(/\D/g, ""), endereco }),
-    });
-    const data = await response.json().catch(() => ({}));
-    window.alert(
-      response.ok
-        ? "Convite enviado ao consumidor."
-        : (data.message ?? "Não foi possível enviar o convite."),
-    );
   }
   return (
     <main className="portal-home" style={{ "--brand-primary": company.cor_primaria, "--brand-secondary": company.cor_secundaria } as CSSProperties}>
@@ -3149,16 +3183,8 @@ function PortalHome({
                   : `Gestão completa de ${activeSection.toLowerCase()} em um só lugar.`}
               </p>
             </div>
-            {(canCreate || canInviteClient) && !selectedRecord ? (
+            {canCreate && !selectedRecord ? (
               <div className="heading-actions">
-                {activeSection === "Clientes" ? (
-                  <button
-                    className="secondary-action"
-                    onClick={() => void inviteClient()}
-                  >
-                    Convidar cliente
-                  </button>
-                ) : null}
                 {canCreate ? <button
                   className="primary-action"
                   onClick={() => setActionOpen(true)}
@@ -3176,9 +3202,19 @@ function PortalHome({
           </div>
           {activeSection === "Visão geral" ? (
             type === "CONSUMIDOR" ? (
-              <ClientOverview data={dashboard} onNavigate={setActiveSection} />
+              <ClientOverview data={dashboard} onNavigate={setActiveSection} companyName={company.nome} />
             ) : (
               <>
+                <PortalQuickAccess storageKey="gerador-home" items={[
+                  { icon: "R$", label: "Saldo em carteira", detail: walletHome ? formatPortalValue("saldo", walletHome.saldoDisponivel) : "Consultar saldo", badge: walletNotice, onClick: openWallet },
+                  { icon: "C", label: "Clientes", detail: "Cadastros e unidades", onClick: () => setActiveSection("Clientes") },
+                  { icon: "U", label: "Usinas", detail: "Geração e produção", onClick: () => setActiveSection("Usinas") },
+                  { icon: "⚡", label: "Unidades consumidoras", detail: "Alocação e faturamento", onClick: () => setActiveSection("Unidades consumidoras") },
+                  { icon: "PDF", label: "Faturamento via PDF", detail: "Importar conta de energia", onClick: () => { setActiveSection("Faturas"); setActionOpen(true); } },
+                  { icon: "▤", label: "Faturas", detail: "Histórico da carteira", onClick: () => setActiveSection("Faturas") },
+                  { icon: "≡", label: "Contratos", detail: "Documentos das UCs", onClick: () => setActiveSection("Contratos") },
+                  { icon: "$", label: "Financeiro", detail: "Receita e transferências", onClick: () => setActiveSection("Financeiro") },
+                ]} />
                 {walletHome ? (
                   <button
                     className={`wallet-home-card ${walletNotice ? "has-notice" : ""}`}
@@ -3343,7 +3379,13 @@ function PortalHome({
           ) : activeSection === "Geradores" && session.token ? (
             <GeneratorInvitePanel token={session.token} />
           ) : activeSection === "Gestão comercial" && session.token ? (
-            <><div className="commercial-quick-actions"><button onClick={() => setActiveSection("Geradores")}><b>G</b><span><strong>Contas geradoras</strong><small>Convites e acessos</small></span></button><button onClick={() => setActiveSection("Empresas")}><b>E</b><span><strong>Empresas parceiras</strong><small>Identidade e isolamento</small></span></button><button onClick={() => onChangeWorkspace("USINAS")}><b>☀</b><span><strong>Gestão de Usinas</strong><small>Alternar ambiente</small></span></button><button onClick={() => setActiveSection("Perfil")}><b>P</b><span><strong>Perfil administrativo</strong><small>Dados e segurança</small></span></button></div><CommercialManagementPanel token={session.token} /></>
+            <><PortalQuickAccess storageKey="comercial-home" items={[
+              { icon: "G", label: "Contas geradoras", detail: "Convites e acessos", onClick: () => setActiveSection("Geradores") },
+              { icon: "E", label: "Empresas parceiras", detail: "Identidade e isolamento", onClick: () => setActiveSection("Empresas") },
+              { icon: "☀", label: "Gestão de Usinas", detail: "Alternar ambiente", onClick: () => onChangeWorkspace("USINAS") },
+              { icon: "P", label: "Perfil administrativo", detail: "Dados e segurança", onClick: () => setActiveSection("Perfil") },
+              { icon: "APP", label: "Aplicativos", detail: "Compartilhar instaladores", onClick: () => setActiveSection("Aplicativos") },
+            ]} /><CommercialManagementPanel token={session.token} /></>
           ) : activeSection === "Minha marca" && session.token ? (
             <GeneratorIdentityPanel token={session.token} />
           ) : activeSection === "Minha assinatura" && session.token ? (
@@ -3464,7 +3506,7 @@ function PortalHome({
                     <span>
                       {searchQuery
                         ? "Tente outro termo de busca."
-                        : canCreate || canInviteClient
+                        : canCreate
                           ? "Use “Nova ação” para começar."
                           : "Os dados aparecerão aqui quando estiverem disponíveis."}
                     </span>
