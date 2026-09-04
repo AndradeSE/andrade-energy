@@ -39,13 +39,13 @@ export default function ComposicaoTarifariaCard({ itens = [] }: { itens?: Compon
       <View style={styles.chartWrap}>
         <Svg width={190} height={190} viewBox="0 0 190 190">
           <G rotation="-90" origin="95, 95">
-            <Circle cx="95" cy="95" r={raio} fill="none" stroke="#E7ECE9" strokeWidth="30" />
+            <Circle cx="95" cy="95" r={raio} fill="none" stroke="#DCE9E1" strokeWidth="32" />
             {validos.map((item) => {
               const fracao = Number(item.valor) / total;
               const comprimento = Math.max(0, fracao * circunferencia - 4);
               const deslocamento = -acumulado * circunferencia;
               acumulado += fracao;
-              return <Circle key={item.id} cx="95" cy="95" r={raio} fill="none" stroke={item.cor} strokeWidth="30" strokeDasharray={`${comprimento} ${circunferencia}`} strokeDashoffset={deslocamento} strokeLinecap="butt" />;
+              return <Circle key={item.id} cx="95" cy="95" r={raio} fill="none" stroke={item.cor} strokeWidth="32" strokeDasharray={`${comprimento} ${circunferencia}`} strokeDashoffset={deslocamento} strokeLinecap="round" />;
             })}
           </G>
         </Svg>
@@ -77,11 +77,11 @@ export default function ComposicaoTarifariaCard({ itens = [] }: { itens?: Compon
 }
 
 const styles = StyleSheet.create({
-  card: { marginBottom: Spacing.xl, padding: Spacing.lg, borderWidth: 1, borderColor: "#C9DED1", borderRadius: Radius.xl, backgroundColor: "#F2F8F4" },
+  card: { marginBottom: Spacing.xl, padding: Spacing.lg, borderWidth: 1, borderColor: "#B8D8C5", borderRadius: Radius.xl, backgroundColor: "#F7FCF9", shadowColor: "#075D3A", shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 3 },
   heading: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: Spacing.sm },
   eyebrow: { color: Colors.primary, fontSize: 10, fontWeight: "900", letterSpacing: 1.1 },
   title: { marginTop: 4, color: Colors.text, fontSize: Typography.card, fontWeight: "800" },
-  totalPill: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: Radius.round, backgroundColor: "#DDE9E3" },
+  totalPill: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: Radius.round, backgroundColor: "#D8F5E6" },
   totalText: { color: Colors.primaryDark, fontSize: Typography.small, fontWeight: "900" },
   chartWrap: { width: 190, height: 190, alignSelf: "center", marginVertical: Spacing.md, alignItems: "center", justifyContent: "center" },
   center: { position: "absolute", alignItems: "center" },

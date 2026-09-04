@@ -28,20 +28,21 @@ export default function RevenueChart({ previsto, recebido }: Props) {
       <View style={styles.chart}>
         <LineChart
           areaChart
-          color={Colors.primary}
+          color="#00A86B"
           curved
           data={[
             { label: "Prevista", value: Number(previsto) },
             { label: "Realizada", value: Number(recebido) },
           ]}
-          dataPointsColor={Colors.primary}
-          endFillColor={Colors.primary}
-          endOpacity={0.04}
+          dataPointsColor="#F2C500"
+          dataPointsRadius={6}
+          endFillColor="#00A86B"
+          endOpacity={0.08}
           hideDataPoints={false}
           rulesColor={Colors.border}
-          startFillColor={Colors.primary}
-          startOpacity={0.3}
-          thickness={3}
+          startFillColor="#16D887"
+          startOpacity={0.42}
+          thickness={4}
           xAxisColor={Colors.border}
           yAxisColor={Colors.border}
         />

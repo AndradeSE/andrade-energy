@@ -22,6 +22,7 @@ export default function AndradeBarChart({
   height = 220,
 }: Props) {
   const total = data.reduce((acc, item) => acc + item.value, 0);
+  const palette = [color, "#00A7A0", "#2F80ED", "#7C5CFC", "#FF8A00", "#F2C500"];
 
   return (
     <View
@@ -57,10 +58,10 @@ export default function AndradeBarChart({
       )}
 
       <BarChart
-        data={data.map(item => ({
+        data={data.map((item, index) => ({
           value: item.value,
           label: item.label,
-          frontColor: color,
+          frontColor: palette[index % palette.length],
         }))}
         height={height}
         barWidth={28}
@@ -71,7 +72,7 @@ export default function AndradeBarChart({
         xAxisThickness={1}
         yAxisColor="#CBD5E1"
         xAxisColor="#CBD5E1"
-        rulesColor="#E5E7EB"
+        rulesColor="#DCE8E1"
         isAnimated
         xAxisLabelTextStyle={{
           color: "#64748B",
@@ -103,7 +104,7 @@ export default function AndradeBarChart({
           style={{
             fontSize: 24,
             fontWeight: "bold",
-            color: "#16A34A",
+            color,
           }}
         >
           R$ {total.toFixed(2).replace(".", ",")}

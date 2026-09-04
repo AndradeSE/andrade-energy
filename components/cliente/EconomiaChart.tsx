@@ -3,6 +3,8 @@ import { StyleSheet, Text, View } from "react-native";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { Card, EmptyState } from "../ui";
 
+const CORES_BARRAS = ["#00A86B", "#00A7A0", "#2F80ED", "#7C5CFC", "#FF8A00", "#F2C500"];
+
 type HistoricoItem = {
   competencia?: string;
   economia?: number;
@@ -64,13 +66,13 @@ export default function EconomiaChart({
                 key={`${item.competencia ?? "mes"}-${index}`}
                 style={styles.column}
               >
-                <Text numberOfLines={1} style={styles.value}>
+                <Text numberOfLines={1} style={[styles.value, { color: CORES_BARRAS[index % CORES_BARRAS.length] }]}>
                   {economia.toLocaleString("pt-BR", {
                     maximumFractionDigits: 0,
                   })}
                 </Text>
                 <View style={styles.track}>
-                  <View style={[styles.bar, { height: altura }]} />
+                  <View style={[styles.bar, { height: altura, backgroundColor: CORES_BARRAS[index % CORES_BARRAS.length] }]} />
                 </View>
                 <Text style={styles.label}>
                   {formatarCompetencia(item.competencia)}
@@ -123,11 +125,18 @@ const styles = StyleSheet.create({
   track: {
     height: 112,
     justifyContent: "flex-end",
+    paddingHorizontal: 3,
+    borderRadius: Radius.round,
+    backgroundColor: "#E8F1EC",
   },
   bar: {
-    width: 18,
+    width: 20,
     borderRadius: Radius.round,
-    backgroundColor: Colors.primary,
+    shadowColor: "#0B5D3C",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    elevation: 3,
   },
   label: {
     marginTop: 7,

@@ -9,7 +9,7 @@ import { extrairTextoDoBuffer } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
 
 const BUCKET = "faturas";
-export const VERSAO_LAYOUT_FATURA = "layout-20260904-v9";
+export const VERSAO_LAYOUT_FATURA = "layout-20260904-v10";
 export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20260903-v3";
 const VERDE = "#107C5C";
 const VERDE_ESCURO = "#07533D";
@@ -310,8 +310,8 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
         ]
       : [
           { rotulo: "Cobrado pela Andrade", valor: valorTotal, cor: VERDE, complemento: energia(energiaCobrada) },
-          { rotulo: "Disponibilidade absorvida", valor: numero(fatura.valor_absorvido_disponibilidade), cor: "#F59E0B", complemento: null },
-          { rotulo: "Fio B absorvido", valor: numero(fatura.valor_absorvido_fio_b), cor: "#376BC7", complemento: null },
+          { rotulo: "Devolução do custo de disponibilidade", valor: numero(fatura.valor_absorvido_disponibilidade), cor: "#F59E0B", complemento: null },
+          { rotulo: "Devolução do Fio B", valor: numero(fatura.valor_absorvido_fio_b), cor: "#376BC7", complemento: null },
         ]).filter((item) => item.valor > 0);
     const totalComposicao = composicaoTarifaria.reduce((soma, item) => soma + item.valor, 0);
     const rotuloCentroGrafico = documentoUnificado ? "FATURA UNIFICADA" : "FATURA ANDRADE";
@@ -403,13 +403,13 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
       : "CONTA DA\nCONCESSIONÁRIA";
     const disponibilidadeAbsorvida = numero(fatura.valor_absorvido_disponibilidade);
     const fioBAbsorvido = numero(fatura.valor_absorvido_fio_b);
-    const itensAbsorvidos = [
-      disponibilidadeAbsorvida > 0 ? "DISPONIBILIDADE" : null,
-      fioBAbsorvido > 0 ? "FIO B" : null,
-    ].filter(Boolean).join(" + ");
-    const rotuloAbsorcao = valorTotalAbsorvido > 0
-      ? `ABSORVIDO PELA ANDRADE\n${itensAbsorvidos}`
-      : "SEM VALORES\nABSORVIDOS";
+    const rotuloAbsorcao = disponibilidadeAbsorvida > 0 && fioBAbsorvido > 0
+      ? "DEVOLUÇÃO DO CUSTO DE\nDISPONIBILIDADE + FIO B"
+      : disponibilidadeAbsorvida > 0
+        ? "DEVOLUÇÃO DO CUSTO\nDE DISPONIBILIDADE"
+        : fioBAbsorvido > 0
+          ? "DEVOLUÇÃO\nDO FIO B"
+          : "SEM DEVOLUÇÕES\nNESTA COMPETÊNCIA";
     const cards = documentoUnificado
       ? [["1", rotuloCemig, moeda(valorCemig)], ["2", `ENERGIA ANDRADE\n(${energia(energiaCobrada)})`, moeda(valorUsina)], ["3", "TOTAL UNIFICADO", moeda(valorTotal)]]
       : [

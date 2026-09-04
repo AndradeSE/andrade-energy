@@ -44,9 +44,9 @@ export async function dashboardCliente(
   const economia = Number(ultima?.economia_real ?? 0);
   const composicaoTarifaria = ultima?.fatura_somente_andrade
     ? [
-        { id: "energia-andrade", label: "Cobrado pela Andrade", valor: Number(ultima?.valor_total ?? valorUsina), cor: "#087A55", detalhe: "Valor efetivamente cobrado pela Andrade Energy nesta competência." },
-        { id: "disponibilidade-absorvida", label: "Disponibilidade absorvida", valor: disponibilidadeAbsorvida, cor: "#F59E0B", detalhe: "Valor assumido pela Andrade e descontado da cobrança do cliente." },
-        { id: "fio-b-absorvido", label: "Fio B absorvido", valor: fioBAbsorvido, cor: "#376BC7", detalhe: "Parcela do Fio B assumida pela Andrade e descontada da cobrança." },
+        { id: "energia-andrade", label: "Cobrado pela Andrade", valor: Number(ultima?.valor_total ?? valorUsina), cor: "#00A86B", detalhe: "Valor efetivamente cobrado pela Andrade Energy nesta competência." },
+        { id: "disponibilidade-absorvida", label: "Devolução do custo de disponibilidade", valor: disponibilidadeAbsorvida, cor: "#FF9F0A", detalhe: "Valor devolvido pela Andrade e descontado da cobrança do cliente." },
+        { id: "fio-b-absorvido", label: "Devolução do Fio B", valor: fioBAbsorvido, cor: "#2F80ED", detalhe: "Parcela do Fio B devolvida pela Andrade e descontada da cobrança." },
       ]
     : [
         { id: "energia-andrade", label: "Energia da usina", valor: valorUsina, cor: "#087A55", detalhe: `${Number(ultima?.energia_compensada ?? 0).toLocaleString("pt-BR")} kWh considerados nesta competência.` },
