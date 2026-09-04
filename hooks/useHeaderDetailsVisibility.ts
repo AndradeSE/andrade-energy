@@ -1,5 +1,5 @@
 import * as SecureStore from "expo-secure-store";
-import { useEffect, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 const STORAGE_KEY = "andrade.header-details-expanded.v1";
 const listeners = new Set<() => void>();
@@ -38,12 +38,12 @@ export function useHeaderDetailsVisibility() {
     void loadPreference();
   }, []);
 
-  function setExpanded(value: boolean) {
+  const setExpanded = useCallback((value: boolean) => {
     if (expanded === value) return;
     expanded = value;
     emit();
     void SecureStore.setItemAsync(STORAGE_KEY, String(value)).catch(() => undefined);
-  }
+  }, []);
 
   return { isExpanded, setExpanded };
 }

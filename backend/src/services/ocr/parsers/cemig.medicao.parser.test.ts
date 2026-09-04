@@ -36,3 +36,15 @@ test("usa somente o medidor presente nas competencias seguintes", () => {
   assert.equal(resultado.medicoes[1].energiaKwh, 240);
   assert.equal(resultado.producaoMensal, 240);
 });
+
+test("interpreta a linha compactada de energia injetada da fatura atual", () => {
+  const resultado = extrairMedicaoCemig([
+    "Energia kWhART2304163896.3386.6411303",
+    "Energia InjetadaART2304163899.1719.5461375",
+  ].join("\n"));
+
+  assert.equal(resultado.medicoes.length, 2);
+  assert.equal(resultado.medicoes[1].tipo, "INJECAO");
+  assert.equal(resultado.medicoes[1].energiaKwh, 375);
+  assert.equal(resultado.producaoMensal, 375);
+});

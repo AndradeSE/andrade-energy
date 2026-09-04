@@ -388,6 +388,7 @@ export default function HomeComercial() {
         )}
         <Section title="Acesso rápido">
           <QuickAccessCarousel
+            storageKey="comercial-home"
             items={[
               {
                 icon: "business-outline",

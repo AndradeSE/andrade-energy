@@ -181,6 +181,7 @@ export default function DashboardGestor() {
       >
         <Section title="Acesso rápido">
           <QuickAccessCarousel
+            storageKey="gestor-home"
             items={[
               {
                 icon: "wallet-outline",

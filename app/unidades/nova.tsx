@@ -251,6 +251,9 @@ export default function NovaUnidade() {
           tipoGd={tipoGdEfetivo}
           modalidadeFaturamento={modalidade}
           consumoProjetado={consumoMedio}
+          energiaInjetadaProjetada={modalidade === "INJECAO"
+            ? producaoParaAlocacao(usinaSelecionada) * numeroSeguro(percentualAlocado) / 100
+            : 0}
           faturaSomenteAndrade={formatoFatura === "SOMENTE_ANDRADE"}
           dadosFatura={dadosFatura}
           projetarConsumoIntegral={origem === "fatura"}

@@ -172,7 +172,11 @@ async function obterSaldoAnterior(dados: FaturaExtraida) {
   return Number(anterior?.saldo_atual ?? 0);
 }
 
-async function obterEnergiaInjetadaDaUsina(usinaId: string, referencia: string, percentualRateio: number) {
+async function obterEnergiaInjetadaDaUsina(
+  usinaId: string,
+  referencia: string,
+  percentualRateio: number,
+) {
   const competencia = competenciaDaFatura(referencia);
   if (!competencia || percentualRateio <= 0) return 0;
 
@@ -222,10 +226,27 @@ if (!cliente.usina_id) {
     : Math.max(0, Number(dados.energiaCompensada ?? 0));
   const temCompensacaoInformada = energiaCompensadaFaturada > 0;
   const percentualAlocado = Math.max(0, Number(cliente.unidade_consumidora?.percentual_rateio ?? cliente.percentual_rateio ?? 0));
-  const [saldoAnterior, energiaInjetadaCalculada] = await Promise.all([
+  const [saldoAnterior, energiaInjetadaPelaUsina] = await Promise.all([
     obterSaldoAnterior(dados),
-    obterEnergiaInjetadaDaUsina(cliente.usina_id, dados.referencia, percentualAlocado),
+    obterEnergiaInjetadaDaUsina(
+      cliente.usina_id,
+      dados.referencia,
+      percentualAlocado,
+    ),
   ]);
+  // Algumas contas trazem explicitamente "Energia Injetada". Esse é o dado
+  // real da competência e tem prioridade; o fechamento rateado da usina é o
+  // fallback quando a linha não existe na fatura recebida.
+  const energiaInjetadaDaFatura = Math.max(0, Number(dados.energiaInjetada ?? 0));
+  const energiaInjetadaCalculada = energiaInjetadaDaFatura > 0
+    ? energiaInjetadaDaFatura
+    : energiaInjetadaPelaUsina;
+  if (modalidade === "INJECAO" && energiaInjetadaCalculada <= 0) {
+    throw new Error(
+      `A produção da usina ainda não foi importada para ${dados.referencia}. ` +
+      "Importe a fatura geradora dessa competência antes de faturar por injeção."
+    );
+  }
   // Na modalidade por compensação, a cobrança mensal considera somente a
   // energia efetivamente compensada na fatura. O saldo atual fica apenas
   // registrado para acerto no encerramento do contrato.
@@ -303,7 +324,11 @@ if (!cliente.usina_id) {
     // A disponibilidade e, na GD II, a diferença tarifária continuam na
     // conta da concessionária quando não forem absorvidas pela Andrade.
     baseDescontoReal:
-      energiaCompensadaGD2 > 0 ? valorEnergiaSemGD : valorCreditoEfetivo,
+      modalidade === "INJECAO"
+        ? energiaInjetadaCalculada * tarifaCheia
+        : energiaCompensadaGD2 > 0
+          ? valorEnergiaSemGD
+          : valorCreditoEfetivo,
   });
 
 const fatura = await inserirFatura({

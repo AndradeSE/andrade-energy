@@ -16,6 +16,7 @@ type Props = {
   tipoGd?: string | null;
   modalidadeFaturamento?: string | null;
   consumoProjetado?: string | number | null;
+  energiaInjetadaProjetada?: number;
   faturaSomenteAndrade?: boolean;
   dadosFatura?: Record<string, any> | null;
   projetarConsumoIntegral?: boolean;
@@ -32,6 +33,7 @@ export default function RealDiscountInfo({
   tipoGd,
   modalidadeFaturamento,
   consumoProjetado,
+  energiaInjetadaProjetada = 0,
   faturaSomenteAndrade = false,
   dadosFatura,
   projetarConsumoIntegral = false,
@@ -76,7 +78,7 @@ export default function RealDiscountInfo({
     if (fioBGd2 === "REPASSAR") configuracoesRepassadas.push("Fio B");
   }
   const tarifaDaCompetencia = obterTarifaDaCompetencia(dadosFatura, historicoTarifasGd2);
-  const previa = contaSemGd ? null : calcularPrevia({ dados: dadosFatura, desconto, modalidadeFaturamento, tipoGd: modalidade, disponibilidadeGd1, disponibilidadeGd2, fioBGd2, consumoIntegralProjetado: projecaoPelaFaturaDoPerfil ? consumoIntegral : 0, tarifaSceeReferencia: tarifaDaCompetencia?.tarifa_scee || tarifaSceeReferencia, tarifaGd2Referencia: tarifaDaCompetencia?.tarifa_gd2 || tarifaGd2Referencia });
+  const previa = contaSemGd ? null : calcularPrevia({ dados: dadosFatura, desconto, modalidadeFaturamento, tipoGd: modalidade, disponibilidadeGd1, disponibilidadeGd2, fioBGd2, consumoIntegralProjetado: projecaoPelaFaturaDoPerfil ? consumoIntegral : 0, energiaInjetadaProjetada, tarifaSceeReferencia: tarifaDaCompetencia?.tarifa_scee || tarifaSceeReferencia, tarifaGd2Referencia: tarifaDaCompetencia?.tarifa_gd2 || tarifaGd2Referencia });
   const descontoRealEstimado = contaSemGd
     ? "0,00%"
     : previa
@@ -242,9 +244,9 @@ function obterTarifaDaCompetencia(
     ?? validas[0];
 }
 
-function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, disponibilidadeGd1, disponibilidadeGd2, fioBGd2, consumoIntegralProjetado = 0, tarifaSceeReferencia = 0, tarifaGd2Referencia = 0 }: {
+function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, disponibilidadeGd1, disponibilidadeGd2, fioBGd2, consumoIntegralProjetado = 0, energiaInjetadaProjetada = 0, tarifaSceeReferencia = 0, tarifaGd2Referencia = 0 }: {
   dados?: Record<string, any> | null; desconto: number; modalidadeFaturamento?: string | null; tipoGd: string;
-  disponibilidadeGd1: EscolhaRepasse; disponibilidadeGd2: EscolhaRepasse; fioBGd2: EscolhaRepasse; consumoIntegralProjetado?: number; tarifaSceeReferencia?: number; tarifaGd2Referencia?: number;
+  disponibilidadeGd1: EscolhaRepasse; disponibilidadeGd2: EscolhaRepasse; fioBGd2: EscolhaRepasse; consumoIntegralProjetado?: number; energiaInjetadaProjetada?: number; tarifaSceeReferencia?: number; tarifaGd2Referencia?: number;
 }) {
   if (!dados) return null;
   let tarifaCheia = n(dados, "tarifa_cheia", "tarifaCheia");
@@ -256,14 +258,14 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   const energiaInjetada = n(dados, "energia_injetada", "energiaInjetada");
   const modalidade = String(modalidadeFaturamento ?? "COMPENSACAO").toUpperCase();
   const possuiCompensacaoLida = energiaCompensada > 0 || energiaGD1 > 0 || energiaGD2 > 0;
-  const possuiLeituraGd = possuiCompensacaoLida || energiaInjetada > 0 || consumoIntegralProjetado > 0;
+  const possuiLeituraGd = possuiCompensacaoLida || energiaInjetada > 0 || energiaInjetadaProjetada > 0 || consumoIntegralProjetado > 0;
   // Numa conta GD, injeção usa a energia que veio da usina e compensação usa
   // exclusivamente Energia compensada GD I/GD II. O consumo é apenas a base
   // estimada de uma conta convencional, antes da primeira competência GD.
   const baseKwh = consumoIntegralProjetado > 0
       ? consumoIntegralProjetado
       : modalidade === "INJECAO"
-      ? energiaInjetada
+      ? energiaInjetadaProjetada || energiaInjetada
       : energiaCompensada;
   if (tarifaCheia <= 0) {
     const energiaCheia = n(dados, "valor_energia_cheia", "valorEnergiaCheia");

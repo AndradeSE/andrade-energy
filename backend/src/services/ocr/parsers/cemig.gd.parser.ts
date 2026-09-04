@@ -147,7 +147,7 @@ export function parseCemigGD(
   const consumo = historico.find((item) => item.mes === competenciaCurta)?.consumo || consumoDoHistorico;
   const linhaEnergiaEletrica = extrairLinhaEnergiaEletrica(texto);
 
-  const energiaInjetada = Number(
+  let energiaInjetada = Number(
     buscar(
       texto,
       /Energia Injetada.*?\d+\.\d{3}\s*\d+\.\d{3}\s*1\s*(\d+)\s/i
@@ -234,6 +234,13 @@ export function parseCemigGD(
 
   const cadastro = extrairCadastroCemig(texto);
   const medicao = extrairMedicaoCemig(texto);
+  // O PDF atual da CEMIG concatena medidor, leituras, constante e energia
+  // (ex.: ART2304163899.1719.5461375). Quando a expressão simples não
+  // encontra a quantidade, use o resultado validado pela identidade
+  // (leitura atual - anterior) x constante = energia.
+  if (energiaInjetada <= 0 && medicao.producaoMensal > 0) {
+    energiaInjetada = medicao.producaoMensal;
+  }
   const encargosDetalhados = extrairEncargosCemig(texto);
 
   return {

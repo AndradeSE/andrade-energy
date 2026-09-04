@@ -35,6 +35,7 @@ type Props = {
   showPlantContext?: boolean;
   environmentName?: string;
   onSearch?: () => void;
+  collapsePlantContextOnMount?: boolean;
 };
 
 export default function AppHeader({
@@ -49,6 +50,7 @@ export default function AppHeader({
   showPlantContext = true,
   environmentName = "Gestão de usinas",
   onSearch,
+  collapsePlantContextOnMount = false,
 }: Props) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -66,6 +68,10 @@ export default function AppHeader({
   const { isExpanded: contextoUsinaExpandido, setExpanded: setContextoUsinaExpandido } = useHeaderDetailsVisibility();
   const proprietario = IS_GERADOR_APP;
   const podeAlternarPerfil = IS_GERADOR_APP && usuario?.perfil === "ADMIN";
+
+  useEffect(() => {
+    if (collapsePlantContextOnMount) setContextoUsinaExpandido(false);
+  }, [collapsePlantContextOnMount, setContextoUsinaExpandido]);
 
   function alternarContextoUsina() {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);

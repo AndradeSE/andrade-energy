@@ -357,6 +357,9 @@ export default function EditarAlocacaoUnidade() {
               tipoGd={tipoGdEfetivo}
               modalidadeFaturamento={modalidade}
               consumoProjetado={consumoMedio}
+              energiaInjetadaProjetada={modalidade === "INJECAO"
+                ? producaoParaAlocacao(usinaSelecionada) * valorNumerico(percentual) / 100
+                : 0}
               faturaSomenteAndrade={formatoFatura === "SOMENTE_ANDRADE"}
               dadosFatura={dadosFatura}
               projetarConsumoIntegral

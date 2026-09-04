@@ -1,4 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 
@@ -14,9 +16,34 @@ type Item = {
 
 type Props = {
   items: Item[];
+  storageKey?: string;
 };
 
-export default function QuickAccessCarousel({ items }: Props) {
+export default function QuickAccessCarousel({ items, storageKey = "geral" }: Props) {
+  const [ultimoUsado, setUltimoUsado] = useState<string | null>(null);
+  const chave = `andrade.quick-access.${storageKey}.v1`;
+
+  useEffect(() => {
+    let ativo = true;
+    AsyncStorage.getItem(chave).then((valor) => {
+      if (ativo) setUltimoUsado(valor);
+    }).catch(() => undefined);
+    return () => { ativo = false; };
+  }, [chave]);
+
+  const itensOrdenados = useMemo(() => {
+    if (!ultimoUsado) return items;
+    const indice = items.findIndex((item) => item.label === ultimoUsado);
+    if (indice <= 0) return items;
+    return [items[indice], ...items.slice(0, indice), ...items.slice(indice + 1)];
+  }, [items, ultimoUsado]);
+
+  function abrir(item: Item) {
+    setUltimoUsado(item.label);
+    void AsyncStorage.setItem(chave, item.label).catch(() => undefined);
+    item.onPress();
+  }
+
   return (
     <ScrollView
       horizontal
@@ -29,8 +56,8 @@ export default function QuickAccessCarousel({ items }: Props) {
       style={styles.scroll}
       contentContainerStyle={styles.content}
     >
-      {items.map((item) => (
-        <Pressable accessibilityLabel={item.label} key={item.label} onPress={item.onPress} style={styles.card}>
+      {itensOrdenados.map((item) => (
+        <Pressable accessibilityLabel={item.label} key={item.label} onPress={() => abrir(item)} style={styles.card}>
           {item.badge ? <View style={styles.badge}><Text style={styles.badgeText}>NOVO</Text></View> : null}
           <View style={styles.icon}><Ionicons name={item.icon} size={24} color={Colors.primary} /></View>
           <Text numberOfLines={2} style={styles.label}>{item.label}</Text>
