@@ -48,7 +48,7 @@ export default function HeroIllustration({
       </Text>
 
       <Text style={styles.subtitle}>
-        Os créditos produzidos pela usina serão utilizados
+        A energia produzida pela usina será utilizada
         automaticamente nas próximas faturas da sua unidade
         consumidora.
       </Text>
@@ -56,7 +56,7 @@ export default function HeroIllustration({
       <View style={styles.card}>
 
         <Text style={styles.cardLabel}>
-          Créditos disponíveis
+          Energia disponível
         </Text>
 
         <Text style={styles.cardValue}>

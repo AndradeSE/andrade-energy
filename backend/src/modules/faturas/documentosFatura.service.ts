@@ -480,7 +480,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.roundedRect(318, y.inferior + 128, 215, 11, 4).fill("#E3F0E8");
     pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.6).text("Após o vencimento, encargos poderão ser aplicados.", 327, y.inferior + 131);
 
-    const miniCards = [["SALDO ATUAL\nDE CRÉDITOS", energia(saldoCreditos)], ["CRÉDITOS\nGERADOS (MÊS)", energia(energiaInjetada)], ["CRÉDITOS\nUSADOS (MÊS)", energia(energiaCompensada)], ["PRÓXIMA\nLEITURA", fatura.proxima_leitura ? dataBrasileira(fatura.proxima_leitura) : "Não identificada"]];
+    const miniCards = [["SALDO ATUAL\nDE ENERGIA", energia(saldoCreditos)], ["ENERGIA\nINJETADA (MÊS)", energia(energiaInjetada)], ["ENERGIA\nCONSUMIDA (MÊS)", energia(energiaCompensada)], ["PRÓXIMA\nLEITURA", fatura.proxima_leitura ? dataBrasileira(fatura.proxima_leitura) : "Não identificada"]];
     const espacamentoMiniCards = 8;
     // Cada dupla acompanha exatamente os limites dos dois cards superiores.
     const posicoesMiniCards = [
@@ -639,7 +639,7 @@ export async function gerarPdfRelatorioCalculo(fatura: any) {
     linha("Impostos informados/embutidos", moeda(impostos), 391);
     linha("Iluminação pública (fora da medição do desconto)", moeda(fatura.valor_iluminacao_publica), 416);
     linha("Bandeira tarifária (fora da medição do desconto)", moeda(fatura.valor_bandeira), 441);
-    linha("Saldo atual de créditos", energia(fatura.saldo_atual), 466);
+    linha("Saldo atual de energia", energia(fatura.saldo_atual), 466);
     linha("Próxima leitura", fatura.proxima_leitura ? dataBrasileira(fatura.proxima_leitura) : "Não informada", 491);
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(11).text("Observações da modalidade", 48, 552);
     cartao(48, 574, 498, 116, "#FFF9E9");

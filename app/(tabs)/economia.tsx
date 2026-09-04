@@ -185,7 +185,7 @@ export default function Economia() {
               <Ionicons name="battery-half-outline" size={22} color={Colors.info} />
             </View>
             <View style={styles.metricContent}>
-              <Text style={styles.metricLabel}>Saldo de créditos</Text>
+              <Text style={styles.metricLabel}>Saldo de energia</Text>
               <Text style={styles.metricHint}>Disponível para compensação</Text>
             </View>
             <Text style={styles.metricValue}>{formatarEnergia(data.creditos)}</Text>

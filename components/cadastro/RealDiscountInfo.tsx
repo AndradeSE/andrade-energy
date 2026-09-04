@@ -265,7 +265,7 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   const baseKwh = consumoIntegralProjetado > 0
       ? consumoIntegralProjetado
       : modalidade === "INJECAO"
-      ? energiaInjetadaProjetada || energiaInjetada
+      ? energiaInjetada || energiaInjetadaProjetada
       : energiaCompensada;
   if (tarifaCheia <= 0) {
     const energiaCheia = n(dados, "valor_energia_cheia", "valorEnergiaCheia");
@@ -376,7 +376,7 @@ function resumoDosRepasses(previa: ReturnType<typeof calcularPrevia>) {
       ? `${formatarMoeda(previa.valorAbsorvidoFioB)} de Fio B ${previa.fioBEstimado ? "estimado e " : ""}absorvido`
       : `${formatarMoeda(previa.diferencaFioB)} de Fio B ${previa.fioBEstimado ? "estimado e " : ""}repassado`);
   }
-  if (!previa.usaGD2) partes.push("GD I sem defasagem de Fio B; crédito pela tarifa cheia");
+  if (!previa.usaGD2) partes.push("GD I sem defasagem de Fio B; energia compensada pela tarifa cheia");
   return partes.length ? ` ${partes.join(" e ")}.` : "";
 }
 

@@ -422,16 +422,16 @@ export default function DetalheFatura() {
 
         {faturaSomenteAndrade ? <View style={styles.gd2Notice}><Ionicons name="warning-outline" size={22} color="#8A5A00" /><View style={styles.gd2Copy}><Text style={styles.gd2Title}>Atenção: pagamento separado</Text><Text style={styles.gd2Text}>Esta cobrança inclui somente a energia Andrade Energy. A fatura da CEMIG ou da concessionária vigente também precisa ser paga separadamente.</Text></View></View> : null}
 
-        <Text style={styles.sectionTitle}>DEMONSTRATIVO DE ENERGIA E CRÉDITOS</Text>
+        <Text style={styles.sectionTitle}>DEMONSTRATIVO DE ENERGIA</Text>
         <Card style={styles.energyStatementCard}>
           <Text style={styles.energyStatementCaption}>Leitura da competência {fatura.referencia ?? "atual"}</Text>
           <View style={styles.energyGrid}>
             <EnergyMetric icon="flash-outline" label="Consumo da UC" value={formatarEnergia(consumoKwh)} />
-            <EnergyMetric icon="git-merge-outline" label="Compensado no mês" value={formatarEnergia(energiaCompensada)} />
-            <EnergyMetric icon="sunny-outline" label="Injetado no mês" value={formatarEnergia(energiaInjetada)} />
-            <EnergyMetric icon="battery-half-outline" label="Saldo atual de créditos" value={formatarEnergia(saldoCreditos)} highlight />
+            <EnergyMetric icon="git-merge-outline" label="Energia consumida da usina" value={formatarEnergia(energiaCompensada)} />
+            <EnergyMetric icon="sunny-outline" label="Energia injetada no mês" value={formatarEnergia(energiaInjetada)} />
+            <EnergyMetric icon="battery-half-outline" label="Saldo atual de energia" value={formatarEnergia(saldoCreditos)} highlight />
           </View>
-          <Text style={styles.energyStatementFootnote}>O saldo de créditos é o informado na conta da CEMIG e pode ser usado em competências futuras, conforme as regras da distribuidora.</Text>
+          <Text style={styles.energyStatementFootnote}>O saldo de energia é o informado na conta da concessionária e permanece disponível para compensação em competências futuras, conforme as regras vigentes.</Text>
         </Card>
 
         <Text style={styles.sectionTitle}>COMPOSIÇÃO DO VALOR</Text>

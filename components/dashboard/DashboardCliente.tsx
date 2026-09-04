@@ -90,7 +90,7 @@ export default function DashboardCliente() {
 
             <DashboardCard
               icone="🔋"
-              titulo="Créditos"
+              titulo="Saldo de energia"
               valor={`${data.creditos} kWh`}
             />
           </View>

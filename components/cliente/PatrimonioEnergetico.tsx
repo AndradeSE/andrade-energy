@@ -55,7 +55,7 @@ export default function PatrimonioEnergetico({
           </Text>
 
           <Text style={styles.label}>
-            Créditos
+            Saldo de energia
           </Text>
 
         </View>

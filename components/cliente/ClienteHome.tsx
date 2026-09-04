@@ -238,7 +238,7 @@ export default function ClienteHome() {
             <View style={styles.metricIcon}>
               <Ionicons name="sunny-outline" size={19} color={Colors.primary} />
             </View>
-            <Text style={styles.metricLabel}>Créditos recebidos</Text>
+            <Text style={styles.metricLabel}>Energia recebida</Text>
             <Text style={styles.metricValue}>{energia(creditos)}</Text>
           </View>
           <View style={styles.metricCard}>

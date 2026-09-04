@@ -44,7 +44,7 @@ export default function EnergyWalletIllustration({
       </Text>
 
       <Text style={styles.subtitle}>
-        Créditos disponíveis para compensação
+        Energia disponível para compensação
       </Text>
 
     </View>

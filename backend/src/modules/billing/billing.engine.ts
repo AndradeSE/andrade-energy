@@ -154,7 +154,14 @@ export function calcularFaturaUnificada(input: BillingInput): BillingOutput {
   // pública, multas, bandeiras e encargos ficam no total exibido/pago, mas não
   // entram na projeção porque existem com ou sem a usina.
   const valorCemigParaProjecao = Math.max(0, Number(input.valorEnergiaConcessionaria ?? input.valorCemig));
-  const economiaReal = Math.max(0, valorReferenciaSemAndrade - (valorCemigParaProjecao + valorUsina));
+  // A absorção devolve custos ao cliente, mas nunca pode transformar o desconto
+  // real em um percentual superior ao desconto contratado sobre a energia.
+  // Essa trava também elimina diferenças residuais de centavos entre as linhas
+  // da concessionária e os componentes extraídos do PDF.
+  const economiaReal = Math.min(
+    descontoContratadoValor,
+    Math.max(0, valorReferenciaSemAndrade - (valorCemigParaProjecao + valorUsina)),
+  );
   const baseDescontoReal = Math.max(
     0,
     input.baseDescontoReal ?? valorReferenciaSemAndrade
