@@ -9,7 +9,7 @@ import { extrairTextoDoBuffer } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
 
 const BUCKET = "faturas";
-export const VERSAO_LAYOUT_FATURA = "layout-20260904-v6";
+export const VERSAO_LAYOUT_FATURA = "layout-20260904-v7";
 export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20260903-v3";
 const VERDE = "#107C5C";
 const VERDE_ESCURO = "#07533D";
@@ -88,6 +88,12 @@ function desenharLinha(pdf: PDFKit.PDFDocument, y: number) {
 function desenharLinhaDeValor(pdf: PDFKit.PDFDocument, y: number, rotulo: string, valor: string, destaque = false) {
   pdf.fillColor(destaque ? TEXTO : TEXTO_SECUNDARIO).font("Helvetica").fontSize(10).text(rotulo, 64, y, { width: 290 });
   pdf.fillColor(destaque ? VERDE_ESCURO : TEXTO).font(destaque ? "Helvetica-Bold" : "Helvetica").fontSize(destaque ? 12 : 10).text(valor, 365, y - (destaque ? 1 : 0), { width: 160, align: "right" });
+}
+
+function dataIso(valor: unknown) {
+  const texto = String(valor ?? "").trim();
+  const brasileira = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(texto);
+  return brasileira ? `${brasileira[3]}-${brasileira[2]}-${brasileira[1]}` : texto || null;
 }
 
 function pontoPolar(cx: number, cy: number, raio: number, angulo: number) {
@@ -195,12 +201,13 @@ async function preencherDadosTecnicosDaContaOriginal(fatura: any) {
       valor_iluminacao_publica: numero(fatura.valor_iluminacao_publica) || extraida.valorIluminacaoPublica || 0,
       valor_bandeira: numero(fatura.valor_bandeira) || extraida.valorBandeira || 0,
       valor_impostos: numero(fatura.valor_impostos) || extraida.valorImpostos || 0,
+      proxima_leitura: fatura.proxima_leitura ?? dataIso(extraida.proximaLeitura),
     };
     if (fatura.id) await supabase.from("faturas").update(tecnicos).eq("id", fatura.id);
     return {
       ...fatura,
       ...tecnicos,
-      proxima_leitura: fatura.proxima_leitura ?? extraida.proximaLeitura ?? null,
+      proxima_leitura: tecnicos.proxima_leitura,
     };
   } catch {
     return fatura;

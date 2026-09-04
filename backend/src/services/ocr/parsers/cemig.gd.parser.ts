@@ -98,11 +98,16 @@ function franquiaDaLigacao(tipo?: string) {
   return 0;
 }
 
-function extrairProximaLeitura(texto: string) {
+function extrairProximaLeitura(texto: string, referencia?: string) {
   const rotulo = "(?:data\\s+(?:da|de)\\s+)?pr[oó]xima\\s+(?:data\\s+(?:de|da)\\s+)?leitura(?:\\s+prevista)?";
-  return texto.match(new RegExp(`${rotulo}[^\\d]{0,80}(\\d{2}[\\/.-]\\d{2}[\\/.-]\\d{4})`, "i"))?.[1]?.replace(/[.-]/g, "/")
+  const completa = texto.match(new RegExp(`${rotulo}[^\\d]{0,80}(\\d{2}[\\/.-]\\d{2}[\\/.-]\\d{4})`, "i"))?.[1]?.replace(/[.-]/g, "/")
     ?? texto.match(new RegExp(`(\\d{2}[\\/.-]\\d{2}[\\/.-]\\d{4})[^A-Za-zÀ-ÿ]{0,35}${rotulo}`, "i"))?.[1]?.replace(/[.-]/g, "/")
     ?? undefined;
+  if (completa) return completa;
+  const tabela = texto.match(/Datas\s+de\s+Leitura[\s\S]{0,180}?(\d{2}[\/.-]\d{2})\s*(\d{2}[\/.-]\d{2})\s*\d{1,2}\s*(\d{2}[\/.-]\d{2})/i);
+  const curta = tabela?.[3]?.replace(/[.-]/g, "/");
+  const ano = referencia?.match(/\/(20\d{2})$/)?.[1];
+  return curta && ano ? `${curta}/${ano}` : undefined;
 }
 
 export function parseCemigGD(
@@ -243,7 +248,7 @@ export function parseCemigGD(
 
     vencimento,
 
-    proximaLeitura: extrairProximaLeitura(texto),
+    proximaLeitura: extrairProximaLeitura(texto, referencia),
 
     valorTotal,
 

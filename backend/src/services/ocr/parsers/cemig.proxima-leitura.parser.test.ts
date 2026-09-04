@@ -23,3 +23,13 @@ test("extrai data da próxima leitura no rótulo usado pela concessionária", ()
   const dados = parseCemigGD("DATA DA PRÓXIMA LEITURA\nPREVISTA PARA 19/10/2026");
   assert.equal(dados.proximaLeitura, "19/10/2026");
 });
+
+test("extrai próxima leitura compactada sem ano usando a competência", () => {
+  const dados = parseCemigGD(`
+    JUL/2026 17/08/2026 128,17
+    Datas de Leitura
+    Residencial Convencional B1 Anterior Atual Nº de dias Próxima
+    Bifásico18/0621/07 3320/08
+  `);
+  assert.equal(dados.proximaLeitura, "20/08/2026");
+});
