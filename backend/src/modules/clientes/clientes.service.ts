@@ -1,5 +1,6 @@
 import {
   atualizarCliente,
+  atualizarApelidoDaMinhaUnidade,
   atualizarDadosFaturaAnexada,
   buscarCliente,
   buscarSolicitacaoCadastroCliente,
@@ -31,6 +32,10 @@ export {
   cadastrarUnidadeCliente,
   criarCliente, listarClientes, listarTodasUnidades, listarUnidadesCliente, listarUnidadesPorCpf
 };
+
+export async function nomearMinhaUnidade(unidadeId: string, cpf: string, apelido: string, empresaId: string) {
+  return atualizarApelidoDaMinhaUnidade(unidadeId, cpf, apelido, empresaId);
+}
 
 function idsDeUsinas(...valores: Array<unknown>) {
   return [...new Set(

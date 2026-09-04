@@ -173,7 +173,7 @@ export async function atualizarDadosFaturaAnexada(
 export async function listarUnidadesCliente(clienteId: string, empresaId = EMPRESA_ANDRADE_ID) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")
-    .select("id, cliente_id, usina_id, numero, titular, distribuidora, endereco, status, modalidade_faturamento, desconto_percentual, clientes(id,nome), usinas(id,nome,titularidade_ucs_recebedoras)")
+    .select("id, cliente_id, usina_id, numero, apelido, titular, distribuidora, endereco, status, modalidade_faturamento, desconto_percentual, clientes(id,nome), usinas(id,nome,titularidade_ucs_recebedoras)")
     .eq("cliente_id", clienteId)
     .eq("empresa_id", empresaId)
     .order("numero");
@@ -259,7 +259,7 @@ export async function listarUnidadesPorCpf(cpfInformado: string, empresaId = EMP
   const clienteIds = clientes.map((cliente) => cliente.id);
   const { data: unidades, error: erroUnidades } = await supabase
     .from("unidades_consumidoras")
-    .select("id, cliente_id, usina_id, numero, titular, distribuidora, endereco, status, modalidade_faturamento, usinas(id,nome,titularidade_ucs_recebedoras)")
+    .select("id, cliente_id, usina_id, numero, apelido, titular, distribuidora, endereco, status, modalidade_faturamento, usinas(id,nome,titularidade_ucs_recebedoras)")
     .in("cliente_id", clienteIds)
     .eq("empresa_id", empresaId)
     .order("numero");
@@ -281,6 +281,31 @@ export async function listarUnidadesPorCpf(cpfInformado: string, empresaId = EMP
     });
   }
   return [...porNumero.values()];
+}
+
+export async function atualizarApelidoDaMinhaUnidade(unidadeId: string, cpfInformado: string, apelidoInformado: string, empresaId = EMPRESA_ANDRADE_ID) {
+  const cpf = String(cpfInformado ?? "").replace(/\D/g, "");
+  if (cpf.length !== 11) throw new Error("CPF da conta não identificado.");
+  const apelido = String(apelidoInformado ?? "").trim().slice(0, 40);
+  const { data: clientes, error: erroClientes } = await supabase
+    .from("clientes")
+    .select("id,cpf")
+    .eq("empresa_id", empresaId)
+    .like("cpf", `${cpf.slice(0, 9)}%`);
+  if (erroClientes) throw erroClientes;
+  const clienteIds = (clientes ?? []).filter((item) => String(item.cpf ?? "").replace(/\D/g, "") === cpf).map((item) => item.id);
+  if (!clienteIds.length) throw new Error("Cliente vinculado ao CPF não encontrado.");
+  const { data, error } = await supabase
+    .from("unidades_consumidoras")
+    .update({ apelido: apelido || null })
+    .eq("id", unidadeId)
+    .eq("empresa_id", empresaId)
+    .in("cliente_id", clienteIds)
+    .select("id,numero,apelido")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Unidade não encontrada para esta conta.");
+  return data;
 }
 
 export async function buscarClientePorUC(uc: string) {

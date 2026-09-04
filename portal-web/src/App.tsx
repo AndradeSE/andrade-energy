@@ -1,5 +1,8 @@
 import { CSSProperties, FormEvent, MouseEvent, useCallback, useEffect, useState } from "react";
 import bulbImage from "./assets/lampada-dourada.png";
+import defaultBrandLogo from "./assets/andrade-energy-logo-clara.png";
+import generatorAppIcon from "./assets/app-gerador.png";
+import consumerAppIcon from "./assets/app-consumidor.png";
 import RecordEditForm from "./RecordEditForm";
 import RealDiscountInfoWeb from "./RealDiscountInfoWeb";
 import ConsumerInviteSignup from "./ConsumerInviteSignup";
@@ -1396,6 +1399,63 @@ function SectionInsights({
       </article>
     </div>
   );
+}
+
+function FinancialOverviewPanel({
+  records,
+  loading,
+  error,
+  onStartPdfBilling,
+  onStartManualBilling,
+  onConfigureAutomaticBilling,
+  onOpenInvoices,
+  onOpenWallet,
+}: {
+  records: WebRecord[];
+  loading: boolean;
+  error: string;
+  onStartPdfBilling: () => void;
+  onStartManualBilling: () => void;
+  onConfigureAutomaticBilling: () => void;
+  onOpenInvoices: () => void;
+  onOpenWallet: () => void;
+}) {
+  const valueOf = (item: WebRecord) => Number(item.valor_total_unificado ?? item.valor_total ?? item.valor ?? 0);
+  const total = records.reduce((sum, item) => sum + valueOf(item), 0);
+  const received = records.filter((item) => /pago|recebido/i.test(String(item.status ?? ""))).reduce((sum, item) => sum + valueOf(item), 0);
+  const overdue = records.filter((item) => /vencid|atras/i.test(String(item.status ?? ""))).reduce((sum, item) => sum + valueOf(item), 0);
+  const open = Math.max(0, total - received);
+  const percent = total > 0 ? Math.min(100, (received / total) * 100) : 0;
+  const money = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  if (loading) return <div className="section-workspace data-state">Carregando visão financeira...</div>;
+  if (error) return <div className="section-workspace data-state error-message">{error}</div>;
+  return <div className="finance-overview">
+    <section className="finance-overview-hero"><div><small>RECEITA DA CARTEIRA</small><strong>{money(received)}</strong><span>{percent.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do faturamento recebido</span></div><div className="finance-progress" aria-label={`${percent.toFixed(1)}% recebido`}><i style={{ width: `${percent}%` }} /></div></section>
+    <section className="finance-overview-actions" aria-label="Acesso rápido financeiro"><button onClick={onStartPdfBilling}><b>PDF</b><span><strong>Faturamento via PDF</strong><small>Selecionar conta da concessionária</small></span><i>→</i></button><button onClick={onStartManualBilling}><b>✎</b><span><strong>Faturamento manual</strong><small>Lançar uma competência sem PDF</small></span><i>→</i></button><button onClick={onOpenWallet}><b>R$</b><span><strong>Transferir saldo</strong><small>Pix manual ou automático</small></span><i>→</i></button><button onClick={onConfigureAutomaticBilling}><b>✉</b><span><strong>Fatura automática</strong><small>Configurar recebimento por e-mail</small></span><i>→</i></button></section>
+    <button className="finance-history-link" onClick={onOpenInvoices}>Consultar histórico completo de faturas <span>→</span></button>
+    <section className="finance-overview-metrics"><article><small>FATURAMENTO TOTAL</small><strong>{money(total)}</strong><span>{records.length} fatura{records.length === 1 ? "" : "s"}</span></article><article><small>EM ABERTO</small><strong>{money(open)}</strong><span>Aguardando recebimento</span></article><article className={overdue > 0 ? "attention" : ""}><small>VENCIDO</small><strong>{money(overdue)}</strong><span>{overdue > 0 ? "Requer acompanhamento" : "Nenhuma pendência vencida"}</span></article></section>
+  </div>;
+}
+
+function ManualBillingModal({ token, onClose, onSuccess }: { token: string; onClose: () => void; onSuccess: () => void }) {
+  const [form, setForm] = useState({ cliente: "", uc: "", referencia: "", vencimento: "", consumo: "", energiaCompensada: "", energiaInjetada: "", tarifaCheia: "", valorTotal: "", saldoAtual: "" });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const numeric = (value: string) => Number(value.replace(/\./g, "").replace(",", "."));
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!form.cliente.trim() || !form.uc.trim() || !form.referencia.trim() || !form.vencimento.trim() || !form.consumo || !form.tarifaCheia || !form.valorTotal) { setError("Preencha todos os campos obrigatórios."); return; }
+    setSaving(true); setError("");
+    try {
+      const response = await fetch(`${API_URL}/faturas/manual/criar`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ ...form, consumo: numeric(form.consumo), energiaCompensada: numeric(form.energiaCompensada), energiaInjetada: numeric(form.energiaInjetada), tarifaCheia: numeric(form.tarifaCheia), valorTotal: numeric(form.valorTotal), saldoAtual: numeric(form.saldoAtual) }) });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.message ?? "Não foi possível criar a fatura.");
+      onSuccess(); onClose();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível criar a fatura."); }
+    finally { setSaving(false); }
+  }
+  const field = (key: keyof typeof form, label: string, required = false, type = "text") => <label>{label}{required ? " *" : ""}<input required={required} type={type} value={form[key]} onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))} /></label>;
+  return <div className="modal-backdrop"><section className="modal-card manual-billing-modal"><button className="modal-close" type="button" onClick={onClose}>×</button><span className="section-label">FINANCEIRO</span><h2>Criar fatura manualmente</h2><p>Use os valores da competência. A UC precisa estar cadastrada e vinculada a uma usina.</p><form className="commercial-form" onSubmit={submit}>{field("cliente", "Nome do cliente", true)}{field("uc", "Unidade consumidora", true)}<div className="commercial-form-row">{field("referencia", "Competência (ex.: SET/2026)", true)}{field("vencimento", "Vencimento", true, "date")}</div><div className="commercial-form-row">{field("consumo", "Consumo (kWh)", true)}{field("tarifaCheia", "Tarifa cheia por kWh", true)}</div><div className="commercial-form-row">{field("energiaCompensada", "Energia compensada (kWh)")}{field("energiaInjetada", "Energia injetada (kWh)")}</div><div className="commercial-form-row">{field("valorTotal", "Valor atual da concessionária", true)}{field("saldoAtual", "Saldo atual (kWh)")}</div>{error ? <div className="error-message">{error}</div> : null}<button className="primary-action" disabled={saving}>{saving ? "Gerando..." : "Gerar fatura"}</button></form></section></div>;
 }
 
 function UnitTools({
@@ -2807,6 +2867,7 @@ function PortalHome({
   const [globalSearch, setGlobalSearch] = useState("");
   const [globalSearchFeedback, setGlobalSearchFeedback] = useState("");
   const [actionOpen, setActionOpen] = useState(false);
+  const [manualBillingOpen, setManualBillingOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<WebRecord | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [walletHome, setWalletHome] = useState<WalletSummary | null>(null);
@@ -2889,6 +2950,23 @@ function PortalHome({
     setWalletNotice(false);
     setSelectedRecord(null);
     setActiveSection("Carteira");
+  }
+
+  async function openAutomaticBilling() {
+    if (!session.token) return;
+    try {
+      const response = await fetch(`${API_URL}/clientes/unidades`, { headers: { Authorization: `Bearer ${session.token}` } });
+      const payload = await response.json().catch(() => []);
+      if (!response.ok) throw new Error(payload?.message ?? "Não foi possível carregar as unidades.");
+      const units = Array.isArray(payload) ? payload : payload?.data ?? [];
+      const unit = units.find((item: WebRecord) => {
+        const plant = Array.isArray(item.usinas) ? item.usinas[0] : item.usinas;
+        return String(item.tipo ?? "BENEFICIARIA").toUpperCase() !== "GERADORA" && String(plant?.titularidade_ucs_recebedoras ?? "GERADOR").toUpperCase() === "GERADOR";
+      });
+      if (!unit?.id) { window.alert("Cadastre e vincule uma UC recebedora a uma usina antes de configurar o e-mail."); return; }
+      setActiveSection("Unidades consumidoras");
+      setSelectedRecord(unit);
+    } catch (reason) { window.alert(reason instanceof Error ? reason.message : "Não foi possível abrir a configuração."); }
   }
 
   useEffect(() => {
@@ -3086,6 +3164,8 @@ function PortalHome({
   const canCreate =
     type === "GERADOR" &&
     ["Usinas", "Clientes", "Faturas", "Financeiro"].includes(activeSection);
+  const profileAppIcon = type === "CONSUMIDOR" ? consumerAppIcon : generatorAppIcon;
+  const usesCustomLogo = Boolean(company.logo_url);
   async function deleteRecord(item: WebRecord) {
     if (
       !session.token ||
@@ -3115,7 +3195,9 @@ function PortalHome({
     <main className="portal-home" style={{ "--brand-primary": company.cor_primaria, "--brand-secondary": company.cor_secundaria } as CSSProperties}>
       <header className="portal-topbar">
         <div className="topbar-brand">
-          {company.logo_url ? <img src={company.logo_url} alt="" aria-hidden="true" /> : <i>{company.nome.slice(0, 2).toUpperCase()}</i>}
+          <span className={`profile-brand-mark${usesCustomLogo ? " custom" : ""}`}>
+            <img src={company.logo_url || defaultBrandLogo} alt={`Logo ${company.nome}`} />
+          </span>
           <span><strong>{company.nome}</strong><small>{isCommercialWorkspace ? "Gestão comercial" : type === "GERADOR" ? "Gestão de energia" : "Portal do consumidor"}</small></span>
         </div>
         <form className="portal-global-search" onSubmit={submitGlobalSearch}>
@@ -3141,7 +3223,9 @@ function PortalHome({
       <div className="portal-layout">
         <aside className="portal-sidebar">
           <div className="sidebar-brand">
-            {company.logo_url ? <img src={company.logo_url} alt={`Logo ${company.nome}`} /> : <i>AE</i>}
+            <span className={`profile-app-icon${usesCustomLogo ? " custom" : ""}`}>
+              <img src={company.logo_url || profileAppIcon} alt={`Ícone do app ${type === "CONSUMIDOR" ? "Consumidor" : "Gerador"}`} />
+            </span>
             <span>
               <strong>{company.nome}</strong>
               <small>Portal de gestão</small>
@@ -3405,6 +3489,8 @@ function PortalHome({
             <MySubscriptionPanel token={session.token} />
           ) : activeSection === "Aplicativos" ? (
             <AppDownloadsPanel type={type} />
+          ) : activeSection === "Financeiro" && session.token ? (
+            <FinancialOverviewPanel records={visibleData} loading={sectionLoading} error={sectionError} onStartPdfBilling={() => { setActiveSection("Faturas"); setActionOpen(true); }} onStartManualBilling={() => setManualBillingOpen(true)} onConfigureAutomaticBilling={() => void openAutomaticBilling()} onOpenInvoices={() => setActiveSection("Faturas")} onOpenWallet={openWallet} />
           ) : activeSection === "Operação" && session.token ? (
             <OperationPanel token={session.token} onOpen={(record) => setSelectedRecord(record)} />
           ) : activeSection === "Tutoriais da web" ? (
@@ -3536,6 +3622,7 @@ function PortalHome({
               onSuccess={() => setRefreshKey((value) => value + 1)}
             />
           ) : null}
+          {manualBillingOpen && session.token ? <ManualBillingModal token={session.token} onClose={() => setManualBillingOpen(false)} onSuccess={() => { setRefreshKey((value) => value + 1); setActiveSection("Faturas"); }} /> : null}
         </section>
       </div>
     </main>

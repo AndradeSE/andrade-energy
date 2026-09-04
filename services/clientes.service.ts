@@ -109,3 +109,8 @@ export async function listarMinhasUnidades() {
   const { data } = await api.get("/clientes/minhas-unidades");
   return data;
 }
+
+export async function nomearMinhaUnidade(unidadeId: string, apelido: string) {
+  const { data } = await api.patch(`/clientes/minhas-unidades/${unidadeId}/apelido`, { apelido });
+  return data;
+}

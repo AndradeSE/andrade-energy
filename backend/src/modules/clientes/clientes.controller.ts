@@ -10,6 +10,7 @@ import {
   listarTodasUnidades,
   listarUnidadesCliente,
   listarUnidadesPorCpf,
+  nomearMinhaUnidade,
   cadastrarUnidadeCliente,
   excluirUnidadeCliente,
   confirmarCadastroCliente,
@@ -209,5 +210,14 @@ export async function listarMinhasUnidadesController(req: Request, res: Response
     return res.json(await listarUnidadesPorCpf(usuario?.cpf, empresaIdDaRequisicao(req)));
   } catch (e: any) {
     return res.status(500).json({ message: e.message });
+  }
+}
+
+export async function nomearMinhaUnidadeController(req: Request, res: Response) {
+  try {
+    const usuario = (req as any).usuario;
+    return res.json(await nomearMinhaUnidade(req.params.unidadeId, usuario?.cpf, req.body?.apelido, empresaIdDaRequisicao(req)));
+  } catch (e: any) {
+    return res.status(400).json({ message: e.message });
   }
 }

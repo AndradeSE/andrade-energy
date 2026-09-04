@@ -37,6 +37,7 @@ import { useEmpresa } from "../contexts/EmpresaContext";
 
 import {
   listarMinhasUnidades,
+  nomearMinhaUnidade,
 } from "../services/clientes.service";
 
 import {
@@ -90,6 +91,10 @@ export default function SelecionarUnidade() {
     menuAberto,
     setMenuAberto,
   ] = useState(false);
+
+  const [unidadeNomeando, setUnidadeNomeando] = useState<UnidadeConsumidora | null>(null);
+  const [apelido, setApelido] = useState("");
+  const [salvandoApelido, setSalvandoApelido] = useState(false);
 
   const insets =
     useSafeAreaInsets();
@@ -152,6 +157,20 @@ export default function SelecionarUnidade() {
       await carregar(false);
     } finally {
       setAtualizando(false);
+    }
+  }
+
+  async function salvarApelido() {
+    if (!unidadeNomeando?.id || salvandoApelido) return;
+    setSalvandoApelido(true);
+    try {
+      const atualizada = await nomearMinhaUnidade(unidadeNomeando.id, apelido);
+      setItens((atuais) => atuais.map((item) => item.id === unidadeNomeando.id ? { ...item, apelido: atualizada.apelido } : item));
+      setUnidadeNomeando(null);
+    } catch (error: any) {
+      Alert.alert("Não foi possível salvar", error?.response?.data?.message ?? "Tente novamente.");
+    } finally {
+      setSalvandoApelido(false);
     }
   }
 
@@ -481,7 +500,7 @@ export default function SelecionarUnidade() {
           const titulo =
             gestor
               ? usina!.nome
-              : `UC ${unidade!.numero}`;
+              : String(unidade!.apelido ?? "").trim() || `UC ${unidade!.numero}`;
 
           const detalhe =
             gestor
@@ -554,7 +573,7 @@ export default function SelecionarUnidade() {
                     >
                       {gestor
                         ? "USINA:"
-                        : "UC:"}
+                        : unidade!.apelido ? "NOME DA UNIDADE:" : "UC:"}
                     </Text>
 
                     <Text
@@ -565,10 +584,11 @@ export default function SelecionarUnidade() {
                       {gestor
                         ? usina!
                             .nome
-                        : unidade!
-                            .numero}
+                        : unidade!.apelido || unidade!.numero}
                     </Text>
                   </View>
+
+                  {!gestor && unidade ? <TouchableOpacity accessibilityLabel={`Nomear UC ${unidade.numero}`} hitSlop={8} onPress={(event) => { event.stopPropagation(); setUnidadeNomeando(unidade); setApelido(String(unidade.apelido ?? "")); }} style={styles.renameButton}><Ionicons name="pencil-outline" size={17} color={Colors.primary} /><Text style={styles.renameText}>{unidade.apelido ? "Renomear" : "Nomear"}</Text></TouchableOpacity> : null}
 
                   <View
                     style={
@@ -659,7 +679,7 @@ export default function SelecionarUnidade() {
                     styles.unitDetail
                   }
                 >
-                  {detalhe}
+                  {!gestor && unidade!.apelido ? `UC ${unidade!.numero} • ${detalhe}` : detalhe}
                 </Text>
 
                 {!gestor &&
@@ -773,6 +793,18 @@ export default function SelecionarUnidade() {
           </View>
         }
       />
+
+      <Modal animationType="fade" transparent visible={Boolean(unidadeNomeando)} onRequestClose={() => setUnidadeNomeando(null)}>
+        <Pressable style={styles.backdrop} onPress={() => setUnidadeNomeando(null)}>
+          <Pressable style={styles.renameDialog} onPress={(event) => event.stopPropagation()}>
+            <View style={styles.renameIcon}><Ionicons name="home-outline" size={24} color={Colors.primary} /></View>
+            <Text style={styles.renameTitle}>Nomear esta unidade</Text>
+            <Text style={styles.renameSubtitle}>Use um nome fácil de reconhecer. O número oficial da UC continuará visível.</Text>
+            <TextInput autoFocus maxLength={40} value={apelido} onChangeText={setApelido} placeholder="Ex.: Casa, Loja ou Escritório" placeholderTextColor={Colors.subtitle} style={styles.renameInput} />
+            <View style={styles.renameActions}><TouchableOpacity disabled={salvandoApelido} onPress={() => setUnidadeNomeando(null)}><Text style={styles.renameCancel}>Cancelar</Text></TouchableOpacity><TouchableOpacity disabled={salvandoApelido} onPress={() => void salvarApelido()} style={styles.renameSave}><Text style={styles.renameSaveText}>{salvandoApelido ? "Salvando..." : "Salvar nome"}</Text></TouchableOpacity></View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* MENU */}
 
@@ -1374,6 +1406,29 @@ const styles =
       fontWeight:
         "800",
     },
+
+    renameButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      borderWidth: 1,
+      borderColor: "#B9D8C7",
+      borderRadius: Radius.md,
+      backgroundColor: Colors.primaryLight,
+    },
+
+    renameText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" },
+    renameDialog: { width: "88%", maxWidth: 430, alignSelf: "center", marginTop: "auto", marginBottom: "auto", padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: Colors.surface },
+    renameIcon: { width: 48, height: 48, alignItems: "center", justifyContent: "center", borderRadius: Radius.lg, backgroundColor: Colors.primaryLight },
+    renameTitle: { marginTop: Spacing.md, color: Colors.text, fontSize: Typography.section, fontWeight: "900" },
+    renameSubtitle: { marginTop: 6, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 },
+    renameInput: { minHeight: 50, marginTop: Spacing.lg, paddingHorizontal: 14, borderWidth: 1, borderColor: "#BED5C8", borderRadius: Radius.md, color: Colors.text, backgroundColor: Colors.background },
+    renameActions: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: Spacing.lg, marginTop: Spacing.lg },
+    renameCancel: { color: Colors.subtitle, fontWeight: "800" },
+    renameSave: { minHeight: 44, justifyContent: "center", paddingHorizontal: 18, borderRadius: Radius.md, backgroundColor: Colors.primary },
+    renameSaveText: { color: Colors.surface, fontWeight: "900" },
 
     logout: {
       flexDirection:

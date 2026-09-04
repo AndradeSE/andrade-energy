@@ -11,6 +11,7 @@ import {
   listarTodasUnidadesController,
   listarUnidadesClienteController,
   listarMinhasUnidadesController,
+  nomearMinhaUnidadeController,
   cadastrarUnidadeClienteController,
   excluirUnidadeClienteController,
   obterSolicitacaoCadastroClienteController,
@@ -26,6 +27,7 @@ const router = Router();
 router.get("/", listarClientesController);
 
 router.get("/minhas-unidades", exigirAutenticacao, listarMinhasUnidadesController);
+router.patch("/minhas-unidades/:unidadeId/apelido", exigirAutenticacao, nomearMinhaUnidadeController);
 router.get("/unidades", exigirAutenticacao, exigirGestor, listarTodasUnidadesController);
 router.get("/unidade/:unidadeId", exigirAutenticacao, buscarUnidadeController);
 

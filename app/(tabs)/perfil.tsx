@@ -273,12 +273,12 @@ export default function Perfil() {
 
         {!IS_GERADOR_APP && user?.perfil === "LEITURA" && user?.cliente_id ? <>
           <Text style={styles.sectionTitle}>CONTAS DE ENERGIA</Text>
-          <View style={styles.card}>
+          <View style={styles.cardGroup}>
             <TouchableOpacity
               accessibilityLabel="Anexar ou consultar contas de energia"
               activeOpacity={0.82}
               onPress={() => router.push({ pathname: "/clientes/faturas-anexadas" as never, params: { clienteId: String(user.cliente_id) } })}
-              style={styles.linkRow}
+              style={[styles.linkRow, styles.standaloneRow]}
             >
               <View style={styles.preferenceIcon}><Ionicons color={Colors.primary} name="document-attach-outline" size={22} /></View>
               <View style={styles.preferenceCopy}>
@@ -292,23 +292,23 @@ export default function Perfil() {
 
         {IS_GERADOR_APP && user?.perfil === "ADMIN" ? <>
           <Text style={styles.sectionTitle}>COMERCIALIZAÇÃO DO SOFTWARE</Text>
-          <View style={styles.card}>
-            <TouchableOpacity activeOpacity={0.82} onPress={() => router.replace("/admin/comercial" as any)} style={styles.linkRow}>
+          <View style={styles.cardGroup}>
+            <TouchableOpacity activeOpacity={0.82} onPress={() => router.replace("/admin/comercial" as any)} style={[styles.linkRow, styles.standaloneRow]}>
               <View style={styles.preferenceIcon}><Ionicons color={Colors.primary} name="briefcase-outline" size={22} /></View>
               <View style={styles.preferenceCopy}><Text style={styles.preferenceTitle}>Alternar para Gestão Comercial</Text><Text style={styles.preferenceDescription}>Abra a home comercial com indicadores, assinaturas e cobranças.</Text></View>
               <Ionicons color={Colors.subtitle} name="chevron-forward" size={21} />
             </TouchableOpacity>
-            <TouchableOpacity activeOpacity={0.82} onPress={() => router.replace("/selecionar-unidade")} style={styles.linkRow}>
+            <TouchableOpacity activeOpacity={0.82} onPress={() => router.replace("/selecionar-unidade")} style={[styles.linkRow, styles.standaloneRow]}>
               <View style={styles.preferenceIcon}><Ionicons color={Colors.primary} name="sunny-outline" size={22} /></View>
               <View style={styles.preferenceCopy}><Text style={styles.preferenceTitle}>Alternar para Gestão de Usinas</Text><Text style={styles.preferenceDescription}>Escolha uma usina e acesse o ambiente operacional.</Text></View>
               <Ionicons color={Colors.subtitle} name="chevron-forward" size={21} />
             </TouchableOpacity>
-            <TouchableOpacity activeOpacity={0.82} onPress={() => router.push("/geradores/gestao" as any)} style={styles.linkRow}>
+            <TouchableOpacity activeOpacity={0.82} onPress={() => router.push("/geradores/gestao" as any)} style={[styles.linkRow, styles.standaloneRow]}>
               <View style={styles.preferenceIcon}><Ionicons color={Colors.primary} name="business-outline" size={22} /></View>
               <View style={styles.preferenceCopy}><Text style={styles.preferenceTitle}>Gestão comercial dos geradores</Text><Text style={styles.preferenceDescription}>Planos, assinaturas, mensalidades, contratos e situação de acesso.</Text></View>
               <Ionicons color={Colors.subtitle} name="chevron-forward" size={21} />
             </TouchableOpacity>
-            <TouchableOpacity activeOpacity={0.82} onPress={() => router.push("/geradores/convidar")} style={styles.linkRow}>
+            <TouchableOpacity activeOpacity={0.82} onPress={() => router.push("/geradores/convidar")} style={[styles.linkRow, styles.standaloneRow]}>
               <View style={styles.preferenceIcon}><Ionicons color={Colors.primary} name="person-add-outline" size={22} /></View>
               <View style={styles.preferenceCopy}><Text style={styles.preferenceTitle}>Convidar novo gerador</Text><Text style={styles.preferenceDescription}>Gere o único acesso autorizado para criação de contas geradoras.</Text></View>
               <Ionicons color={Colors.subtitle} name="chevron-forward" size={21} />
@@ -317,8 +317,8 @@ export default function Perfil() {
         </> : null}
 
         <Text style={styles.sectionTitle}>SEGURANÇA</Text>
-        <View style={styles.card}>
-          <View style={styles.preferenceRow}>
+        <View style={styles.cardGroup}>
+          <View style={[styles.preferenceRow, styles.standaloneRow]}>
             <View style={styles.preferenceIcon}><Ionicons color={Colors.primary} name="finger-print-outline" size={23} /></View>
             <View style={styles.preferenceCopy}>
               <Text style={styles.preferenceTitle}>Entrar com biometria</Text>
@@ -335,13 +335,13 @@ export default function Perfil() {
             />
           </View>
 
-          <TouchableOpacity activeOpacity={0.82} onPress={() => setMostrarSenha((aberto) => !aberto)} style={styles.linkRow}>
+          <TouchableOpacity activeOpacity={0.82} onPress={() => setMostrarSenha((aberto) => !aberto)} style={[styles.linkRow, styles.standaloneRow]}>
             <View style={styles.preferenceIcon}><Ionicons color={Colors.primary} name="lock-closed-outline" size={21} /></View>
             <View style={styles.preferenceCopy}><Text style={styles.preferenceTitle}>Alterar senha</Text><Text style={styles.preferenceDescription}>Atualize sua senha de acesso quando precisar.</Text></View>
             <Ionicons color={Colors.subtitle} name={mostrarSenha ? "chevron-up" : "chevron-forward"} size={21} />
           </TouchableOpacity>
 
-          {mostrarSenha ? <View style={styles.panel}>
+          {mostrarSenha ? <View style={[styles.panel, styles.standalonePanel]}>
             <Campo label="Senha atual" onChangeText={setSenhaAtual} secureTextEntry value={senhaAtual} />
             <Campo hint="Mínimo de 6 caracteres." label="Nova senha" onChangeText={setNovaSenha} secureTextEntry value={novaSenha} />
             <Campo label="Confirmar nova senha" last onChangeText={setConfirmacaoSenha} secureTextEntry value={confirmacaoSenha} />
@@ -352,20 +352,20 @@ export default function Perfil() {
         </View>
 
         <Text style={styles.sectionTitle}>CONTA</Text>
-        <View style={styles.card}>
-          <TouchableOpacity activeOpacity={0.82} onPress={sairDaConta} style={styles.linkRow}>
+        <View style={styles.cardGroup}>
+          <TouchableOpacity activeOpacity={0.82} onPress={sairDaConta} style={[styles.linkRow, styles.standaloneRow]}>
             <View style={[styles.preferenceIcon, styles.logoutIcon]}><Ionicons color={Colors.danger} name="log-out-outline" size={22} /></View>
             <View style={styles.preferenceCopy}><Text style={[styles.preferenceTitle, styles.dangerText]}>Sair da conta</Text><Text style={styles.preferenceDescription}>Encerra somente a sessão neste aparelho.</Text></View>
             <Ionicons color={Colors.subtitle} name="chevron-forward" size={21} />
           </TouchableOpacity>
 
-          <TouchableOpacity activeOpacity={0.82} onPress={() => setMostrarExclusao((aberto) => !aberto)} style={styles.linkRow}>
+          <TouchableOpacity activeOpacity={0.82} onPress={() => setMostrarExclusao((aberto) => !aberto)} style={[styles.linkRow, styles.standaloneRow]}>
             <View style={[styles.preferenceIcon, styles.deleteIcon]}><Ionicons color={Colors.danger} name="trash-outline" size={22} /></View>
             <View style={styles.preferenceCopy}><Text style={[styles.preferenceTitle, styles.dangerText]}>Excluir conta</Text><Text style={styles.preferenceDescription}>Remove seu acesso ao aplicativo de forma definitiva.</Text></View>
             <Ionicons color={Colors.subtitle} name={mostrarExclusao ? "chevron-up" : "chevron-forward"} size={21} />
           </TouchableOpacity>
 
-          {mostrarExclusao ? <View style={[styles.panel, styles.deletePanel]}>
+          {mostrarExclusao ? <View style={[styles.panel, styles.standalonePanel, styles.deletePanel]}>
             <Text style={styles.deleteWarning}>Para proteger sua conta, confirme sua senha antes de excluir o acesso.</Text>
             <Campo label="Senha atual" last onChangeText={setSenhaExclusao} secureTextEntry value={senhaExclusao} />
             <TouchableOpacity activeOpacity={0.85} disabled={excluindo} onPress={confirmarExclusao} style={[styles.deleteButton, excluindo && styles.buttonDisabled]}>
@@ -417,6 +417,9 @@ const styles = StyleSheet.create({
   subtitle: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.caption, lineHeight: 19 },
   sectionTitle: { marginTop: Spacing.lg, marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: 10, fontWeight: "900", letterSpacing: 1 },
   card: { overflow: "hidden", borderRadius: Radius.xl, backgroundColor: Colors.surface, ...Shadows.card },
+  cardGroup: { gap: Spacing.sm },
+  standaloneRow: { overflow: "hidden", borderTopWidth: 0, borderWidth: 1, borderColor: "#D4E4DB", borderRadius: Radius.lg, backgroundColor: Colors.surface, ...Shadows.card },
+  standalonePanel: { marginTop: -Spacing.xs, borderTopWidth: 0, borderWidth: 1, borderColor: "#D4E4DB", borderRadius: Radius.lg, backgroundColor: Colors.surface, ...Shadows.card },
   field: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.sm },
   fieldBorder: { borderBottomWidth: 1, borderBottomColor: Colors.border },
   fieldLabelRow: { flexDirection: "row", alignItems: "center", gap: 6 },
