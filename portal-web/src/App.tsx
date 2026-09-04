@@ -6,8 +6,8 @@ import ConsumerInviteSignup from "./ConsumerInviteSignup";
 import "./mobile.css";
 import "./download.css";
 
-const APP_GERADOR_URL = String(import.meta.env.VITE_APP_GERADOR_DOWNLOAD_URL ?? "/downloads/andrade-energy-gerador.apk").trim();
-const APP_CONSUMIDOR_URL = String(import.meta.env.VITE_APP_CONSUMIDOR_DOWNLOAD_URL ?? "/downloads/andrade-energy-consumidor.apk").trim();
+const APP_GERADOR_URL = String(import.meta.env.VITE_APP_GERADOR_DOWNLOAD_URL ?? "/downloads/andrade-energy-gerador.apk?v=2026-09-01").trim();
+const APP_CONSUMIDOR_URL = String(import.meta.env.VITE_APP_CONSUMIDOR_DOWNLOAD_URL ?? "/downloads/andrade-energy-consumidor.apk?v=2026-09-01").trim();
 
 type AccessType = "CONSUMIDOR" | "GERADOR";
 type AdminWorkspace = "COMERCIAL" | "USINAS";
@@ -48,19 +48,9 @@ function AppDownloadLink({
     aria-busy={downloading}
     aria-label={`Baixar aplicativo Andrade Energy ${app} para Android`}
     download
-    onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+    onClick={() => {
       if (!href) return;
-      event.preventDefault();
       setDownloading(true);
-      window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
-        const link = document.createElement("a");
-        link.href = href;
-        link.download = "";
-        link.style.display = "none";
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-      }));
       window.setTimeout(() => setDownloading(false), 12000);
     }}
   >
@@ -753,8 +743,8 @@ function AppDownloadsPanel({ type }: { type: AccessType }) {
     <h2>Instale o aplicativo ideal para seu perfil</h2>
     <p>Baixe diretamente a versão Android mais recente. O app Gerador reúne a operação das usinas e a gestão comercial; o app Consumidor concentra faturas, economia e contratos.</p>
     <div>
-      {type === "GERADOR" ? <AppDownloadLink href={APP_GERADOR_URL} app="Gerador" description="Gestão comercial e gestão de usinas · aprox. 103 MB" detailed /> : null}
-      <AppDownloadLink href={APP_CONSUMIDOR_URL} app="Consumidor" description="Faturas, economia e contratos · aprox. 103 MB" detailed />
+      {type === "GERADOR" ? <AppDownloadLink href={APP_GERADOR_URL} app="Gerador" description="Gestão comercial e gestão de usinas · aprox. 141 MB" detailed /> : null}
+      <AppDownloadLink href={APP_CONSUMIDOR_URL} app="Consumidor" description="Faturas, economia e contratos · aprox. 141 MB" detailed />
     </div>
     <small className="app-download-security">Arquivos oficiais para Android. Depois que o download terminar, abra o arquivo na área Downloads do celular para iniciar a instalação.</small>
   </section>;
@@ -1360,10 +1350,12 @@ function SectionInsights({
     ),
   );
   return (
-    <div className="section-insights">
+    <div className={`section-insights${section === "Financeiro" ? " finance-insights" : ""}`}>
       <article>
         <small>
-          {section === "Operação" || section === "Economia"
+          {section === "Financeiro"
+            ? "RECEITA REALIZADA"
+            : section === "Operação" || section === "Economia"
             ? "ENERGIA CONSOLIDADA"
             : "VALOR CONSOLIDADO"}
         </small>
@@ -1383,7 +1375,7 @@ function SectionInsights({
       <article className="mini-chart-card">
         <div>
           <small>EVOLUÇÃO</small>
-          <strong>Últimos lançamentos</strong>
+          <strong>{section === "Financeiro" ? "Movimentações recentes" : "Últimos lançamentos"}</strong>
         </div>
         <div className="mini-bars">
           {bars.map((value, index) => (
@@ -1392,7 +1384,7 @@ function SectionInsights({
         </div>
       </article>
       <article>
-        <small>STATUS DA CARTEIRA</small>
+        <small>{section === "Financeiro" ? "FECHAMENTOS CONCLUÍDOS" : "STATUS DA CARTEIRA"}</small>
         <strong>
           {
             records.filter((item) =>
@@ -1995,6 +1987,7 @@ function RecordDetails({
     attached: WebRecord[];
   }>({ units: [], invoices: [], attached: [] });
   const [clientArea, setClientArea] = useState<"overview" | "units" | "attached" | "invoices">("overview");
+  const [selectedClientUnit, setSelectedClientUnit] = useState<WebRecord | null>(null);
   const [relatedKey, setRelatedKey] = useState(0);
   async function deleteAttachedInvoice(invoice: WebRecord) {
     const clientId = String(record.id ?? "");
@@ -2067,6 +2060,16 @@ function RecordDetails({
         )
         .catch(() => undefined);
   }, [record, section, token, relatedKey]);
+  if (section === "Clientes" && selectedClientUnit)
+    return (
+      <RecordDetails
+        section="Unidades consumidoras"
+        record={selectedClientUnit}
+        token={token}
+        isGenerator={isGenerator}
+        onClose={() => setSelectedClientUnit(null)}
+      />
+    );
   if (section === "Unidades consumidoras")
     return (
       <section className="section-workspace detail-page">
@@ -2547,7 +2550,7 @@ function RecordDetails({
             <button className={clientArea === "invoices" ? "active" : ""} onClick={() => setClientArea("invoices")}><b>R$</b><span><strong>Faturas</strong><small>{related.invoices.length} processada{related.invoices.length === 1 ? "" : "s"}</small></span></button>
           </div>
           {clientArea === "overview" ? <div className="client-area-empty"><strong>Gestão organizada por área</strong><span>Use os atalhos acima para consultar somente as informações necessárias.</span></div> : null}
-          {clientArea === "units" ? <><div className="related-heading"><h3>Unidades consumidoras</h3><span>Lista exclusiva de UCs</span></div><div className="clean-unit-list">{related.units.map((unit) => <article key={String(unit.id)}><b>UC {String(unit.numero ?? "Não identificada")}</b><span>{String(unit.status ?? "ATIVA")}</span></article>)}{!related.units.length ? <p>Nenhuma UC cadastrada.</p> : null}</div></> : null}
+          {clientArea === "units" ? <><div className="related-heading"><h3>Unidades consumidoras</h3><span>Selecione uma UC para consultar dados e configurações</span></div><div className="clean-unit-list">{related.units.map((unit) => <button type="button" key={String(unit.id)} onClick={() => setSelectedClientUnit(unit)}><span className="clean-unit-main"><b>UC {String(unit.numero ?? unit.numero_instalacao ?? "Não identificada")}</b><small>Abrir dados e configurações</small></span><span className="clean-unit-status">{String(unit.status ?? "ATIVA")} <i aria-hidden="true">→</i></span></button>)}{!related.units.length ? <p>Nenhuma UC cadastrada.</p> : null}</div></> : null}
           {clientArea === "attached" ? <><div className="related-heading"><h3>Contas vinculadas ao CPF</h3><span>Escolha uma conta para cadastrar a UC</span></div><div className="attached-invoice-list">{related.attached.map((invoice) => { const invoiceData = (invoice.dadosFatura && typeof invoice.dadosFatura === "object" ? invoice.dadosFatura : {}) as WebRecord; const numero = String(invoiceData.uc ?? invoiceData.numero_instalacao ?? "").replace(/\D/g, ""); return <article key={String(invoice.id)}><span><strong>{String(invoice.nome ?? "Conta da concessionária")}</strong><small>{numero ? `UC ${numero}` : "UC não identificada"}</small></span>{invoice.url ? <a href={String(invoice.url)} target="_blank" rel="noreferrer">Abrir PDF</a> : null}<button disabled={working || !numero} onClick={() => void addUnitFromAttachedInvoice(invoice)}>{numero ? "Adicionar UC por esta fatura" : "UC não identificada"}</button>{isGenerator ? <button className="delete-attached" disabled={working} onClick={() => void deleteAttachedInvoice(invoice)}>Excluir</button> : null}</article>; })}{!related.attached.length ? <p>Nenhuma conta vinculada foi enviada pelo consumidor.</p> : null}</div></> : null}
           {clientArea === "invoices" ? <><div className="related-heading"><h3>Histórico de faturas</h3><span>{related.invoices.length} documento{related.invoices.length === 1 ? "" : "s"}</span></div><div className="related-invoices">{related.invoices.map((invoice) => <article key={String(invoice.id)}><strong>{String(invoice.referencia ?? "Fatura")}</strong><span>{Number(invoice.valor_total_unificado ?? invoice.valor_total ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span><small>{String(invoice.status ?? "")}</small></article>)}</div></> : null}
         </div>
@@ -3413,7 +3416,7 @@ function PortalHome({
           ) : (
             <>
               <SectionInsights section={activeSection} records={visibleData} />
-              <div className="section-workspace">
+              <div className={`section-workspace${activeSection === "Financeiro" ? " finance-workspace" : ""}`}>
                 <div className="data-toolbar">
                   <div>
                     <small>DADOS ATUALIZADOS</small>
