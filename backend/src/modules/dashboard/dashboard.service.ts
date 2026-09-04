@@ -28,6 +28,8 @@ export async function dashboardCliente(
     ? Math.max(0, Number(ultima?.custo_disponibilidade ?? 0))
     : 0);
   const fioB = Number(ultima?.diferenca_fio_b_repassada ?? 0);
+  const disponibilidadeAbsorvida = Math.max(0, Number(ultima?.valor_absorvido_disponibilidade ?? 0));
+  const fioBAbsorvido = Math.max(0, Number(ultima?.valor_absorvido_fio_b ?? 0));
   const iluminacao = Number(ultima?.valor_iluminacao_publica ?? 0);
   const bandeira = Number(ultima?.valor_bandeira ?? 0);
   const demaisEncargos = disponibilidade + fioB + iluminacao + bandeira;
@@ -42,7 +44,9 @@ export async function dashboardCliente(
   const economia = Number(ultima?.economia_real ?? 0);
   const composicaoTarifaria = ultima?.fatura_somente_andrade
     ? [
-        { id: "energia-andrade", label: "Energia Andrade", valor: Number(ultima?.valor_total ?? valorUsina), cor: "#087A55", detalhe: "Composição exclusiva da cobrança Andrade Energy; valores da concessionária permanecem na conta separada." },
+        { id: "energia-andrade", label: "Cobrado pela Andrade", valor: Number(ultima?.valor_total ?? valorUsina), cor: "#087A55", detalhe: "Valor efetivamente cobrado pela Andrade Energy nesta competência." },
+        { id: "disponibilidade-absorvida", label: "Disponibilidade absorvida", valor: disponibilidadeAbsorvida, cor: "#F59E0B", detalhe: "Valor assumido pela Andrade e descontado da cobrança do cliente." },
+        { id: "fio-b-absorvido", label: "Fio B absorvido", valor: fioBAbsorvido, cor: "#376BC7", detalhe: "Parcela do Fio B assumida pela Andrade e descontada da cobrança." },
       ]
     : [
         { id: "energia-andrade", label: "Energia da usina", valor: valorUsina, cor: "#087A55", detalhe: `${Number(ultima?.energia_compensada ?? 0).toLocaleString("pt-BR")} kWh considerados nesta competência.` },
