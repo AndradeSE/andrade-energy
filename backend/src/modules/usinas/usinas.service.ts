@@ -13,6 +13,16 @@ import type { FaturaExtraida } from "../../types/FaturaExtraida";
 
 const meses: Record<string, string> = { JAN: "01", FEV: "02", MAR: "03", ABR: "04", MAI: "05", JUN: "06", JUL: "07", AGO: "08", SET: "09", OUT: "10", NOV: "11", DEZ: "12" };
 
+function normalizarReferenciaTarifa(valor: unknown) {
+  const texto = String(valor ?? "").trim().toUpperCase();
+  const iso = /^(\d{4})-(\d{2})/.exec(texto);
+  if (iso) return `${iso[1]}-${iso[2]}`;
+  const br = /^(\d{1,2}|[A-Z]{3})\/(\d{4})/.exec(texto);
+  if (!br) return null;
+  const mes = meses[br[1]] ?? br[1].padStart(2, "0");
+  return Number(mes) >= 1 && Number(mes) <= 12 ? `${br[2]}-${mes}` : null;
+}
+
 function competenciaData(referencia: string) {
   const [mes, ano] = referencia.toUpperCase().split("/");
   if (!meses[mes] || !ano) throw new Error("Competência não identificada na fatura.");
@@ -119,9 +129,9 @@ export async function listarUsinasService(empresaId?: string) {
       const [dashboard, producaoMedia12Meses, unidades, tarifasGd2] = await Promise.all([
         buscarDashboardUsina(usina.id, empresaId),
         calcularProducaoMedia12Meses(usina.id),
-        supabase.from("unidades_consumidoras").select("id,percentual_rateio,modalidade_faturamento,consumo_medio_kwh", { count: "exact" }).eq("usina_id", usina.id).eq("status", "ATIVA").neq("tipo", "GERADORA"),
+        supabase.from("unidades_consumidoras").select("id,numero,cliente_id,percentual_rateio,modalidade_faturamento,consumo_medio_kwh", { count: "exact" }).eq("usina_id", usina.id).eq("status", "ATIVA").neq("tipo", "GERADORA"),
         supabase.from("faturas")
-          .select("tarifa_cheia,tarifa_gd,referencia")
+          .select("*")
           .eq("usina_id", usina.id)
           .gt("tarifa_cheia", 0)
           .gt("tarifa_gd", 0)
@@ -130,11 +140,21 @@ export async function listarUsinasService(empresaId?: string) {
       ]);
       if (unidades.error) throw unidades.error;
       if (tarifasGd2.error) throw tarifasGd2.error;
-      const historicoTarifasGd2 = (tarifasGd2.data ?? []).map((item: any) => ({
-        referencia: item.referencia ?? null,
-        tarifa_scee: Number(item.tarifa_cheia ?? 0),
-        tarifa_gd2: Number(item.tarifa_gd ?? 0),
-      }));
+      const clientesIds = [...new Set((unidades.data ?? []).map((item: any) => item.cliente_id).filter(Boolean))];
+      const anexos = clientesIds.length
+        ? await supabase.from("faturas_anexadas_clientes").select("dados_fatura").in("cliente_id", clientesIds).eq("empresa_id", usina.empresa_id)
+        : { data: [], error: null };
+      if (anexos.error) throw anexos.error;
+      const numeros = new Set((unidades.data ?? []).map((item: any) => String(item.numero ?? "").replace(/\D/g, "")));
+      const originais = (anexos.data ?? []).map((item: any) => item.dados_fatura).filter((item: any) => item && numeros.has(String(item.uc ?? item.numero_instalacao ?? "").replace(/\D/g, "")));
+      // SCEE e tarifa cheia são parcelas distintas. Nunca substituir SCEE pela
+      // tarifa com impostos: isso infla o Fio B na simulação dos dois clientes.
+      const historicoTarifasGd2 = [...originais, ...(tarifasGd2.data ?? [])].map((item: any) => ({
+        referencia: normalizarReferenciaTarifa(item.referencia ?? item.competencia),
+        tarifa_scee: Number(item.tarifaScee ?? item.tarifa_scee ?? 0),
+        tarifa_gd2: Number(item.tarifaGD2 ?? item.tarifaGD ?? item.tarifa_gd ?? 0),
+      })).filter((item) => item.tarifa_scee > 0 && item.tarifa_gd2 > 0 && item.tarifa_scee >= item.tarifa_gd2)
+        .sort((a, b) => String(b.referencia).localeCompare(String(a.referencia)));
       const tarifaGd2Recente = historicoTarifasGd2[0];
       const energiaDaCompetencia = Number(dashboard.ultimo?.energia_gerada ?? 0);
       const energiaProjetada = energiaDaCompetencia > 0
