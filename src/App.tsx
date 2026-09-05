@@ -1,11 +1,16 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { CSSProperties, FormEvent, MouseEvent, useCallback, useEffect, useState } from "react";
 import bulbImage from "./assets/lampada-dourada.png";
+import defaultBrandLogo from "./assets/andrade-energy-logo-clara.png";
+import generatorAppIcon from "./assets/app-gerador.png";
+import consumerAppIcon from "./assets/app-consumidor.png";
 import RecordEditForm from "./RecordEditForm";
 import RealDiscountInfoWeb from "./RealDiscountInfoWeb";
+import ConsumerInviteSignup from "./ConsumerInviteSignup";
 import "./mobile.css";
+import "./download.css";
 
-const APP_GERADOR_URL = String(import.meta.env.VITE_APP_GERADOR_DOWNLOAD_URL ?? "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-gerador.apk").trim();
-const APP_CONSUMIDOR_URL = String(import.meta.env.VITE_APP_CONSUMIDOR_DOWNLOAD_URL ?? "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-consumidor.apk").trim();
+const APP_GERADOR_URL = String(import.meta.env.VITE_APP_GERADOR_DOWNLOAD_URL ?? "/downloads/andrade-energy-gerador.apk?v=2026-09-01").trim();
+const APP_CONSUMIDOR_URL = String(import.meta.env.VITE_APP_CONSUMIDOR_DOWNLOAD_URL ?? "/downloads/andrade-energy-consumidor.apk?v=2026-09-01").trim();
 
 type AccessType = "CONSUMIDOR" | "GERADOR";
 type AdminWorkspace = "COMERCIAL" | "USINAS";
@@ -24,6 +29,64 @@ type PortalSession = {
   [key: string]: unknown;
 };
 type WebRecord = Record<string, unknown>;
+type PortalCompany = { nome: string; logo_url?: string | null; email_suporte?: string | null; cor_primaria: string; cor_secundaria: string; identidade_personalizada: boolean };
+const DEFAULT_COMPANY: PortalCompany = { nome: "Andrade Energy", email_suporte: "contato@andradese.com.br", cor_primaria: "#087A46", cor_secundaria: "#F7D75C", identidade_personalizada: true };
+
+function AppDownloadLink({
+  href,
+  app,
+  description,
+  detailed = false,
+}: {
+  href: string;
+  app: "Gerador" | "Consumidor";
+  description: string;
+  detailed?: boolean;
+}) {
+  const [downloading, setDownloading] = useState(false);
+  return <a
+    href={href || undefined}
+    className={`${!href ? "disabled" : ""}${downloading ? " downloading" : ""}`.trim() || undefined}
+    aria-disabled={!href}
+    aria-busy={downloading}
+    aria-label={`Baixar aplicativo Andrade Energy ${app} para Android`}
+    download
+    onClick={() => {
+      if (!href) return;
+      setDownloading(true);
+      window.setTimeout(() => setDownloading(false), 12000);
+    }}
+  >
+    <b aria-hidden="true">{downloading ? <i className="download-spinner"/> : app === "Gerador" ? "G" : "C"}</b>
+    <span>
+      <strong>{downloading ? `Baixando app do ${app}...` : `Baixar app do ${app}`}</strong>
+      <small>{downloading ? "O download foi iniciado. Acompanhe na barra do navegador." : description}</small>
+    </span>
+    {detailed ? <em aria-hidden="true">{downloading ? "EM ANDAMENTO ↓" : "Baixar APK ↓"}</em> : null}
+  </a>;
+}
+
+type PortalQuickAction = {
+  label: string;
+  detail: string;
+  icon: string;
+  onClick: () => void;
+  badge?: boolean;
+};
+
+function PortalQuickAccess({ items, storageKey }: { items: PortalQuickAction[]; storageKey: string }) {
+  const key = `andrade.portal.quick-access.${storageKey}.v1`;
+  const [lastUsed, setLastUsed] = useState(() => localStorage.getItem(key) ?? "");
+  const ordered = lastUsed
+    ? [...items].sort((a, b) => Number(b.label === lastUsed) - Number(a.label === lastUsed))
+    : items;
+  return <section className="portal-quick-access" aria-label="Acesso rápido">
+    <header><strong>Acesso rápido</strong><small>O último acesso aparece primeiro</small></header>
+    <div>{ordered.map((item) => <button key={item.label} onClick={() => { localStorage.setItem(key, item.label); setLastUsed(item.label); item.onClick(); }}>
+      {item.badge ? <em>NOVO</em> : null}<b aria-hidden="true">{item.icon}</b><span><strong>{item.label}</strong><small>{item.detail}</small></span>
+    </button>)}</div>
+  </section>;
+}
 
 function AdminWorkspaceChoice({ name, onChoose, onLogout }: { name?: string; onChoose: (workspace: AdminWorkspace) => void; onLogout: () => void }) {
   return <main className="admin-workspace-page">
@@ -81,7 +144,7 @@ function formatPortalValue(field: string, value: unknown) {
 function Icon({
   name,
 }: {
-  name: "user" | "sun" | "arrow" | "mail" | "lock" | "eye" | "check";
+  name: "user" | "sun" | "arrow" | "mail" | "lock" | "eye" | "check" | "search";
 }) {
   const paths = {
     user: (
@@ -120,6 +183,7 @@ function Icon({
       </>
     ),
     check: <path d="m5 12 4 4L19 6" />,
+    search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></>,
   };
   return (
     <svg
@@ -208,9 +272,13 @@ function readSession(): PortalSession | null {
 function ClientOverview({
   data,
   onNavigate,
+  companyName,
+  onConfigureAutomaticBilling,
 }: {
   data: WebRecord | null;
   onNavigate: (section: string) => void;
+  companyName: string;
+  onConfigureAutomaticBilling?: () => void;
 }) {
   const consumption = Number(data?.consumo ?? 0);
   const credits = Number(data?.creditos ?? 0);
@@ -242,6 +310,14 @@ function ClientOverview({
           <small>compensado</small>
         </div>
       </div>
+      <PortalQuickAccess storageKey="consumidor-home" items={[
+        { icon: "▤", label: `Faturas ${companyName}`, detail: "Cobranças e pagamentos", onClick: () => onNavigate("Faturas") },
+        { icon: "⌁", label: `Fatura ${String(data?.distribuidora ?? "da concessionária")}`, detail: "Conta de energia original", onClick: () => onNavigate("Contas de luz") },
+        { icon: "↥", label: "Anexar fatura da concessionária", detail: "Vincular uma conta ao seu CPF", onClick: () => onNavigate("Perfil") },
+        ...(onConfigureAutomaticBilling ? [{ icon: "✉", label: "Envio automático de faturas", detail: "Configuração única para suas UCs", onClick: onConfigureAutomaticBilling }] : []),
+        { icon: "↗", label: "Economia", detail: "Histórico e evolução", onClick: () => onNavigate("Economia") },
+        { icon: "≡", label: "Contrato", detail: "Dados da unidade", onClick: () => onNavigate("Contratos") },
+      ]} />
       <div className="dashboard-metrics top-metrics client-metrics">
         <article>
           <small>Consumo</small>
@@ -249,7 +325,7 @@ function ClientOverview({
           <span>Competência atual</span>
         </article>
         <article>
-          <small>Créditos recebidos</small>
+          <small>Energia recebida</small>
           <strong>{credits.toLocaleString("pt-BR")} kWh</strong>
           <span className="metric-up">Energia compensada</span>
         </article>
@@ -275,7 +351,7 @@ function ClientOverview({
         <article className="consumption-card">
           <div className="card-heading">
             <div>
-              <small>CONSUMO E CRÉDITOS</small>
+              <small>CONSUMO E ENERGIA</small>
               <h2>Balanço da sua energia</h2>
             </div>
           </div>
@@ -287,7 +363,7 @@ function ClientOverview({
             </div>
             <div>
               <span className="credit" style={{ width: `${compensation}%` }} />
-              <small>Créditos</small>
+              <small>Energia recebida</small>
               <strong>{credits.toLocaleString("pt-BR")} kWh</strong>
             </div>
           </div>
@@ -327,11 +403,13 @@ function ClientOverview({
 }
 
 function GeneratorInvitePanel({ token }: { token: string }) {
-  const [form, setForm] = useState({ nome: "", cpf: "", email: "" });
+  const [form, setForm] = useState({ nome: "", cpf: "", email: "", perfil: "GESTOR" });
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState("");
   const [accounts, setAccounts] = useState<WebRecord[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [commercial, setCommercial] = useState<any>(null);
+  const [selectedAccount, setSelectedAccount] = useState<WebRecord | null>(null);
   const loadAccounts = async () => {
     setLoadingAccounts(true);
     try {
@@ -346,6 +424,7 @@ function GeneratorInvitePanel({ token }: { token: string }) {
   };
   useEffect(() => {
     void loadAccounts();
+    void fetch(`${API_URL}/comercial/painel`, { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.ok ? response.json() : null).then(setCommercial).catch(() => undefined);
   }, [token]);
   async function submitInvite(event: FormEvent) {
     event.preventDefault();
@@ -368,7 +447,7 @@ function GeneratorInvitePanel({ token }: { token: string }) {
           ? "Convite enviado por e-mail com sucesso."
           : `Convite criado. Código: ${data.token}`,
       );
-      setForm({ nome: "", cpf: "", email: "" });
+      setForm({ nome: "", cpf: "", email: "", perfil: "GESTOR" });
       await loadAccounts();
     } catch (reason) {
       setMessage(
@@ -405,13 +484,20 @@ function GeneratorInvitePanel({ token }: { token: string }) {
       <div className="section-workspace invite-workspace">
         <div>
           <span className="section-label">ACESSO ADMINISTRATIVO</span>
-          <h2>Convidar novo gerador</h2>
+          <h2>Criar acesso administrativo ou gerador</h2>
           <p>
-            Somente esta conta administradora pode liberar a criação de contas
-            geradoras. O convite expira em sete dias.
+            Somente uma conta administradora pode liberar novos administradores
+            ou geradores. O convite expira em sete dias.
           </p>
         </div>
         <form onSubmit={submitInvite}>
+          <label>
+            Tipo de acesso
+            <select value={form.perfil} onChange={(event) => setForm({ ...form, perfil: event.target.value })}>
+              <option value="GESTOR">Gerador</option>
+              <option value="ADMIN">Administrador</option>
+            </select>
+          </label>
           <label>
             Nome completo
             <input
@@ -477,7 +563,7 @@ function GeneratorInvitePanel({ token }: { token: string }) {
               </thead>
               <tbody>
                 {accounts.map((account) => (
-                  <tr key={String(account.id)}>
+                  <tr className="clickable-row" key={String(account.id)} onClick={() => setSelectedAccount(account)}>
                     <td>{String(account.nome ?? "—")}</td>
                     <td>{String(account.email ?? "—")}</td>
                     <td>{String(account.perfil ?? "—")}</td>
@@ -492,7 +578,7 @@ function GeneratorInvitePanel({ token }: { token: string }) {
                       ) : (
                         <button
                           className="table-action"
-                          onClick={() => void toggleAccount(account)}
+                          onClick={(event) => { event.stopPropagation(); void toggleAccount(account); }}
                         >
                           {account.ativo ? "Desativar" : "Ativar"}
                         </button>
@@ -504,9 +590,62 @@ function GeneratorInvitePanel({ token }: { token: string }) {
             </table>
           </div>
         )}
+        {selectedAccount ? (() => { const generator = (commercial?.geradores ?? []).find((item:any)=>String(item.id)===String(selectedAccount.id)) ?? selectedAccount; const subscription = (commercial?.assinaturas ?? []).find((item:any)=>String(item.gerador_id)===String(selectedAccount.id) && item.status!=="CANCELADA"); return <article className="commercial-generator-detail account-generator-detail"><button aria-label="Fechar detalhes" onClick={()=>setSelectedAccount(null)}>×</button><div><small>INFORMAÇÕES DO GERADOR</small><h3>{String(generator.nome??"Gerador")}</h3><p>{String(generator.email??"E-mail não informado")} · {String(generator.telefone??"Telefone não informado")}</p></div><dl><div><dt>Conta</dt><dd>{generator.ativo?"Ativa":"Inativa"}</dd></div><div><dt>Assinatura</dt><dd>{subscription?.status??"Sem assinatura"}</dd></div><div><dt>Plano</dt><dd>{subscription?.plano?.nome??"Não vinculado"}</dd></div><div><dt>Vencimento</dt><dd>{subscription?.proximo_vencimento?new Date(`${subscription.proximo_vencimento}T12:00:00`).toLocaleDateString("pt-BR"):"—"}</dd></div><div><dt>Usinas</dt><dd>{generator.total_usinas??0}</dd></div><div><dt>UCs ativas</dt><dd>{generator.total_ucs_ativas??0}</dd></div></dl></article>; })() : null}
       </div>
     </div>
   );
+}
+
+function CompaniesPanel({ token }: { token: string }) {
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [message, setMessage] = useState("");
+  const emptyCompany = { nome: "", slug: "", razaoSocial: "", documento: "", emailSuporte: "", telefoneSuporte: "", dominio: "", logoUrl: "", corPrimaria: "#087A46", corSecundaria: "#F7D75C", identidadePersonalizada: true };
+  const [form, setForm] = useState(emptyCompany);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    const response = await fetch(`${API_URL}/empresas`, { headers: { Authorization: `Bearer ${token}` } });
+    const payload = await response.json().catch(() => []);
+    if (!response.ok) throw new Error(payload.message ?? "Não foi possível carregar as empresas.");
+    setCompanies(Array.isArray(payload) ? payload : []);
+  }, [token]);
+  useEffect(() => { void load().catch((error) => setMessage(error.message)); }, [load]);
+  function edit(company: any) {
+    setEditingId(company.id);
+    setForm({ nome: company.nome ?? "", slug: company.slug ?? "", razaoSocial: company.razao_social ?? "", documento: company.documento ?? "", emailSuporte: company.email_suporte ?? "", telefoneSuporte: company.telefone_suporte ?? "", dominio: company.dominio ?? "", logoUrl: company.logo_url ?? "", corPrimaria: company.cor_primaria ?? "#087A46", corSecundaria: company.cor_secundaria ?? "#F7D75C", identidadePersonalizada: Boolean(company.identidade_personalizada) });
+    setMessage("");
+  }
+  function reset() { setEditingId(null); setForm(emptyCompany); }
+  async function save(event: FormEvent) {
+    event.preventDefault(); setMessage("");
+    const response = await fetch(`${API_URL}/empresas${editingId ? `/${editingId}` : ""}`, { method: editingId ? "PATCH" : "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) return setMessage(payload.message ?? "Não foi possível salvar a empresa.");
+    const wasEditing = Boolean(editingId);
+    reset();
+    setMessage(wasEditing ? "Identidade da empresa atualizada." : "Empresa parceira cadastrada. Agora vincule seus administradores e sua assinatura.");
+    await load();
+  }
+  return <div className="commercial-stack"><section className="commercial-home-hero"><div><small>ECOSSISTEMA ANDRADE ENERGY</small><h2>Empresas parceiras</h2><p>Cada ambiente possui usuários e operação isolados. Andrade Energy permanece como identidade padrão.</p></div><b>{companies.length}</b></section><div className="commercial-columns"><section className="section-workspace"><span className="section-label">{editingId ? "EDITAR EMPRESA" : "NOVA EMPRESA"}</span><h2>{editingId ? "Identidade e atendimento" : "Cadastrar parceira"}</h2><form className="commercial-form" onSubmit={save}><label>Nome<input required value={form.nome} onChange={(event)=>setForm({...form,nome:event.target.value})}/></label><div className="commercial-form-row"><label>Identificador (slug)<input value={form.slug} onChange={(event)=>setForm({...form,slug:event.target.value})}/></label><label>Razão social<input value={form.razaoSocial} onChange={(event)=>setForm({...form,razaoSocial:event.target.value})}/></label></div><label>CPF/CNPJ<input value={form.documento} onChange={(event)=>setForm({...form,documento:event.target.value})}/></label><div className="commercial-form-row"><label>E-mail de suporte<input type="email" value={form.emailSuporte} onChange={(event)=>setForm({...form,emailSuporte:event.target.value})}/></label><label>Telefone de suporte<input value={form.telefoneSuporte} onChange={(event)=>setForm({...form,telefoneSuporte:event.target.value})}/></label></div><label>Domínio<input placeholder="empresa.com.br" value={form.dominio} onChange={(event)=>setForm({...form,dominio:event.target.value})}/></label><label>URL da logo<input placeholder="https://..." value={form.logoUrl} onChange={(event)=>setForm({...form,logoUrl:event.target.value})}/></label><div className="commercial-form-row"><label>Cor principal<input type="color" value={form.corPrimaria} onChange={(event)=>setForm({...form,corPrimaria:event.target.value})}/></label><label>Cor de destaque<input type="color" value={form.corSecundaria} onChange={(event)=>setForm({...form,corSecundaria:event.target.value})}/></label></div><label className="checkbox-field"><input checked={form.identidadePersonalizada} type="checkbox" onChange={(event)=>setForm({...form,identidadePersonalizada:event.target.checked})}/> Usar logo e cores próprios</label><div className="company-form-actions"><button className="primary-action">{editingId ? "Salvar alterações" : "Cadastrar empresa"}</button>{editingId?<button className="secondary-action" type="button" onClick={reset}>Cancelar</button>:null}</div></form>{message?<div className="invite-message">{message}</div>:null}</section><section className="section-workspace"><span className="section-label">AMBIENTES ISOLADOS</span><h2>{companies.length} empresa(s)</h2><p className="company-list-hint">Selecione uma empresa para editar sua identidade visual e dados de atendimento.</p><div className="document-grid company-grid">{companies.map((company)=><button className={editingId===company.id?"company-card selected":"company-card"} key={company.id} onClick={()=>edit(company)}><b style={{background:company.cor_primaria,color:company.cor_secundaria}}>{String(company.nome).slice(0,2).toUpperCase()}</b><div><strong>{company.nome}</strong><small>{company.empresa_proprietaria?"Empresa proprietária · padrão":company.identidade_personalizada?"Identidade personalizada":"Identidade Andrade Energy"} · {company.ativo?"Ativa":"Inativa"}</small><em>{company.dominio || company.email_suporte || company.slug}</em></div><span>Editar →</span></button>)}</div></section></div></div>;
+}
+
+const REMEMBER_LOGIN_KEY = "andrade_energy_portal_remembered_login";
+
+function readRememberedLogin(): { email: string; accessType: AccessType | null } {
+  try {
+    const stored = localStorage.getItem(REMEMBER_LOGIN_KEY);
+    if (!stored) return { email: "", accessType: null };
+    const parsed = JSON.parse(stored) as { email?: unknown; accessType?: unknown };
+    const rememberedType = parsed.accessType === "GERADOR" || parsed.accessType === "CONSUMIDOR"
+      ? parsed.accessType
+      : null;
+    return {
+      email: typeof parsed.email === "string" ? parsed.email : "",
+      accessType: rememberedType,
+    };
+  } catch {
+    localStorage.removeItem(REMEMBER_LOGIN_KEY);
+    return { email: "", accessType: null };
+  }
 }
 
 function CommercialManagementPanel({ token }: { token: string }) {
@@ -514,6 +653,7 @@ function CommercialManagementPanel({ token }: { token: string }) {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [monitorSearch, setMonitorSearch] = useState("");
+  const [selectedGeneratorId, setSelectedGeneratorId] = useState<string | null>(null);
   const primeiroVencimento = new Date(Date.now() + 45 * 86_400_000).toISOString().slice(0, 10);
   const [form, setForm] = useState({ geradorId: "", planoId: "", ciclo: "MENSAL", formaPagamento: "BOLETO", proximoVencimento: primeiroVencimento });
   const load = async () => {
@@ -548,14 +688,25 @@ function CommercialManagementPanel({ token }: { token: string }) {
       await load();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Ação não concluída."); }
   };
+  const removeGenerator = async (generator: any) => {
+    if (!window.confirm(`Remover o acesso de ${generator.nome ?? "este gerador"}? A assinatura será cancelada e o histórico financeiro será preservado.`)) return;
+    try {
+      await request(`/usuarios/geradores/${generator.id}`, { method: "DELETE" });
+      setSelectedGeneratorId(null);
+      setMessage("Gerador removido. O acesso e as cobranças futuras foram encerrados.");
+      await load();
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível remover o gerador."); }
+  };
   if (loading && !data) return <div className="data-state">Carregando gestão comercial...</div>;
   const money = (value: unknown) => Number(value ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const dateValue = (value: unknown) => new Date(`${String(value ?? "").slice(0, 10)}T12:00:00`).getTime();
   const elapsedDays = (value: unknown) => Math.max(0, Math.floor((dateValue(new Date().toISOString()) - dateValue(value)) / 86_400_000));
   const monitored = (data?.assinaturas ?? []).filter((item: any) => ["TESTE", "ATIVA", "INADIMPLENTE", "SUSPENSA"].includes(String(item.status))).filter((item: any) => `${item.gerador?.nome ?? ""} ${item.gerador?.email ?? ""} ${item.plano?.nome ?? ""}`.toLowerCase().includes(monitorSearch.trim().toLowerCase()));
+  const selectedGenerator = (data?.geradores ?? []).find((item: any) => String(item.id) === selectedGeneratorId);
+  const selectedSubscription = (data?.assinaturas ?? []).find((item: any) => String(item.gerador_id) === selectedGeneratorId);
   return <div className="commercial-stack">
     <section className="commercial-home-hero"><div><small>GESTÃO DE GERADORES</small><h2>Operação comercial do software</h2><p>Geradores, licenças, planos, cobranças e conformidade em uma visão profissional.</p></div><b>↗</b></section>
-    <nav className="commercial-tabs" aria-label="Áreas da gestão comercial"><button onClick={()=>document.getElementById("comercial-resumo")?.scrollIntoView({behavior:"smooth"})}>Visão geral</button><button onClick={()=>document.getElementById("comercial-monitoramento")?.scrollIntoView({behavior:"smooth"})}>Clientes ativos</button><button onClick={()=>document.getElementById("comercial-pagamentos")?.scrollIntoView({behavior:"smooth"})}>Pagamentos</button><button onClick={()=>document.getElementById("comercial-geradores")?.scrollIntoView({behavior:"smooth"})}>Geradores</button><button onClick={()=>document.getElementById("comercial-planos")?.scrollIntoView({behavior:"smooth"})}>Planos</button><button onClick={()=>document.getElementById("comercial-assinaturas")?.scrollIntoView({behavior:"smooth"})}>Assinaturas</button><button onClick={()=>document.getElementById("comercial-aplicativos")?.scrollIntoView({behavior:"smooth"})}>Aplicativos</button><button onClick={()=>document.getElementById("comercial-documentos")?.scrollIntoView({behavior:"smooth"})}>Documentos</button></nav>
+    <nav className="commercial-tabs" aria-label="Áreas da gestão comercial"><button onClick={()=>document.getElementById("comercial-resumo")?.scrollIntoView({behavior:"auto",block:"start"})}>Visão geral</button><button onClick={()=>document.getElementById("comercial-monitoramento")?.scrollIntoView({behavior:"auto",block:"start"})}>Clientes ativos</button><button onClick={()=>document.getElementById("comercial-pagamentos")?.scrollIntoView({behavior:"auto",block:"start"})}>Pagamentos</button><button onClick={()=>document.getElementById("comercial-geradores")?.scrollIntoView({behavior:"auto",block:"start"})}>Geradores</button><button onClick={()=>document.getElementById("comercial-planos")?.scrollIntoView({behavior:"auto",block:"start"})}>Planos</button><button onClick={()=>document.getElementById("comercial-assinaturas")?.scrollIntoView({behavior:"auto",block:"start"})}>Assinaturas</button><button onClick={()=>document.getElementById("comercial-aplicativos")?.scrollIntoView({behavior:"auto",block:"start"})}>Aplicativos</button><button onClick={()=>document.getElementById("comercial-documentos")?.scrollIntoView({behavior:"auto",block:"start"})}>Documentos</button></nav>
     <section className="commercial-finance" id="comercial-resumo"><article className="commercial-revenue"><small>RECEITA MENSAL PREVISTA</small><strong>{money(data?.resumo?.receitaMensalPrevista)}</strong><footer><span>Recebido {money(data?.financeiro?.recebidoNoMes)}</span><span>Pendente {money(data?.financeiro?.pendenteNoMes)}</span></footer></article><article className="commercial-wallet"><small>CARTEIRA COMERCIAL</small><strong>{money(data?.financeiro?.totalRecebido)}</strong><span>Total confirmado</span><footer><b>{data?.financeiro?.cobrancasPendentes ?? 0} pendentes</b><b className="danger-text">{data?.financeiro?.cobrancasVencidas ?? 0} vencidas</b></footer></article></section>
     <div className="commercial-metrics">
       <article><small>ASSINATURAS</small><strong>{data?.resumo?.total ?? 0}</strong><span>Contas comercializadas</span></article>
@@ -565,6 +716,11 @@ function CommercialManagementPanel({ token }: { token: string }) {
     </div>
     <section className="section-workspace" id="comercial-pagamentos"><div className="data-toolbar"><div><small>PAGAMENTOS E FATURAMENTO</small><strong>{data?.cobrancas?.length ?? 0} cobrança(s)</strong></div><span>{money(data?.financeiro?.vencidoNoMes)} vencido no mês</span></div><div className="data-table-wrap"><table className="data-table"><thead><tr><th>Gerador</th><th>Plano</th><th>Competência</th><th>Valor</th><th>Vencimento</th><th>Status</th><th></th></tr></thead><tbody>{(data?.cobrancas ?? []).map((item:any)=><tr key={item.id}><td>{item.assinatura?.gerador?.nome ?? "Gerador"}</td><td>{item.assinatura?.plano?.nome ?? "Licença"}</td><td>{item.competencia}</td><td>{money(item.valor)}</td><td>{item.vencimento ? new Date(`${item.vencimento}T12:00:00`).toLocaleDateString("pt-BR") : "—"}</td><td><span className={`table-status status-${String(item.status).toLowerCase()}`}>{item.status}</span></td><td>{item.bank_slip_url || item.invoice_url ? <a className="table-action" href={item.bank_slip_url ?? item.invoice_url} rel="noreferrer" target="_blank">Abrir</a> : "—"}</td></tr>)}</tbody></table></div>{!data?.cobrancas?.length?<div className="data-state">Nenhuma cobrança gerada até o momento.</div>:null}<p className="commercial-payment-note">A conciliação é automática pelo Asaas. Cartão e Pix recorrentes são opcionais; boleto, Pix e cobrança avulsa continuam disponíveis.</p></section>
     <section className="section-workspace commercial-monitor" id="comercial-monitoramento"><div className="data-toolbar"><div><small>MONITORAMENTO DE CLIENTES</small><strong>{monitored.length} cliente(s) ativo(s)</strong></div><input aria-label="Buscar cliente ativo" onChange={(event)=>setMonitorSearch(event.target.value)} placeholder="Buscar nome, e-mail ou plano" value={monitorSearch}/></div><div className="commercial-client-grid">{monitored.map((item:any)=>{const elapsed=elapsedDays(item.inicio_em);const trialTotal=item.fim_teste_em?Math.max(1,Math.floor((dateValue(item.fim_teste_em)-dateValue(item.inicio_em))/86_400_000)):45;const trialUsed=Math.min(trialTotal,elapsed);const remaining=Math.max(0,trialTotal-trialUsed);return <article className="commercial-client-card" key={item.id}><div className="commercial-client-heading"><span>{String(item.gerador?.nome??"G").charAt(0).toUpperCase()}</span><div><strong>{item.gerador?.nome??"Gerador"}</strong><small>{item.gerador?.email??"E-mail não informado"}</small></div><em className={`table-status status-${String(item.status).toLowerCase()}`}>{item.status}</em></div><div className="commercial-days"><b>{elapsed}<small>dias decorridos</small></b><span><strong>{item.plano?.nome??"Plano"}</strong><small>{String(item.ciclo??"").toLowerCase()} · início {new Date(`${item.inicio_em}T12:00:00`).toLocaleDateString("pt-BR")}</small></span></div>{item.status==="TESTE"?<><div className="commercial-trial-track"><i style={{width:`${Math.min(100,trialUsed/trialTotal*100)}%`}}/></div><div className="commercial-trial-legend"><span>{trialUsed} de {trialTotal} dias usados</span><strong>{remaining} dias restantes</strong></div></>:null}<footer><span><small>PRÓXIMO VENCIMENTO</small><strong>{item.proximo_vencimento?new Date(`${item.proximo_vencimento}T12:00:00`).toLocaleDateString("pt-BR"):"Não definido"}</strong></span><button onClick={()=>document.getElementById("comercial-assinaturas")?.scrollIntoView({behavior:"smooth"})}>Gerenciar →</button></footer></article>})}</div>{!monitored.length?<div className="data-state">Nenhum cliente ativo encontrado.</div>:null}</section>
+    <section className="section-workspace commercial-generators-list">
+      <div className="data-toolbar"><div><small>CONTAS GERADORAS</small><strong>{(data?.geradores ?? []).filter((item:any)=>item.perfil === "GESTOR").length} gerador(es)</strong></div></div>
+      <div className="commercial-generator-grid">{(data?.geradores ?? []).filter((item:any)=>item.perfil === "GESTOR").map((item:any)=><button key={item.id} onClick={()=>setSelectedGeneratorId(String(item.id))}><b>{String(item.nome??"G").charAt(0).toUpperCase()}</b><span><strong>{item.nome??"Gerador"}</strong><small>{item.email??"E-mail não informado"}</small><em>{item.total_usinas??0} usina(s) · {item.total_ucs_ativas??0} UC(s) ativa(s)</em></span><i>Ver detalhes →</i></button>)}</div>
+      {selectedGenerator ? <article className="commercial-generator-detail"><button aria-label="Fechar detalhes" onClick={()=>setSelectedGeneratorId(null)}>×</button><div><small>GERADOR SELECIONADO</small><h3>{selectedGenerator.nome}</h3><p>{selectedGenerator.email} · {selectedGenerator.telefone || "Telefone não informado"}</p></div><dl><div><dt>Status</dt><dd>{selectedGenerator.ativo ? "Ativo" : "Inativo"}</dd></div><div><dt>Plano</dt><dd>{selectedSubscription?.plano?.nome ?? "Sem assinatura"}</dd></div><div><dt>Assinatura</dt><dd>{selectedSubscription?.status ?? "Não contratada"}</dd></div><div><dt>Vencimento</dt><dd>{selectedSubscription?.proximo_vencimento ? new Date(`${selectedSubscription.proximo_vencimento}T12:00:00`).toLocaleDateString("pt-BR") : "—"}</dd></div><div><dt>Usinas</dt><dd>{selectedGenerator.total_usinas ?? 0}</dd></div><div><dt>UCs ativas</dt><dd>{selectedGenerator.total_ucs_ativas ?? 0}</dd></div></dl><footer className="generator-remove-actions"><button className="table-action danger" onClick={()=>void removeGenerator(selectedGenerator)}>Remover gerador</button><small>Cancela o acesso e preserva o histórico comercial.</small></footer></article> : null}
+    </section>
     <div className="commercial-columns">
       <section className="section-workspace" id="comercial-geradores">
         <span className="section-label">NOVA ASSINATURA</span><h2>Vincular plano ao gerador</h2><p>Crie o contrato comercial sem misturar a mensalidade do software com as faturas de energia.</p>
@@ -582,9 +738,22 @@ function CommercialManagementPanel({ token }: { token: string }) {
     <section className="section-workspace" id="comercial-assinaturas"><div className="data-toolbar"><div><small>CARTEIRA COMERCIAL</small><strong>{data?.assinaturas?.length ?? 0} assinatura(s)</strong></div><button onClick={() => void load()}>Atualizar</button></div>
       <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Gerador</th><th>Plano</th><th>Ciclo</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Ações</th></tr></thead><tbody>{(data?.assinaturas ?? []).map((item: any) => <tr key={item.id}><td><strong>{item.gerador?.nome ?? "—"}</strong><small className="table-subline">{item.gerador?.email ?? "—"}</small></td><td>{item.plano?.nome ?? "—"}</td><td>{item.ciclo}</td><td>{money(item.valor_contratado)}</td><td>{item.proximo_vencimento ? new Date(`${item.proximo_vencimento}T12:00:00`).toLocaleDateString("pt-BR") : "—"}</td><td><span className={`table-status status-${String(item.status).toLowerCase()}`}>{item.status}</span></td><td><div className="row-actions"><button className="table-action" onClick={() => void action(item, "charge")}>Cobrar</button><button className="table-action" onClick={() => void action(item, "status", item.status === "SUSPENSA" ? "ATIVA" : "SUSPENSA")}>{item.status === "SUSPENSA" ? "Reativar" : "Suspender"}</button><button className="table-action danger" onClick={() => window.confirm("Cancelar definitivamente esta assinatura?") && void action(item, "status", "CANCELADA")}>Cancelar</button></div></td></tr>)}</tbody></table></div>
     </section>
-    <section className="section-workspace commercial-apps" id="comercial-aplicativos"><span className="section-label">APLICATIVOS</span><h2>Instalação no Android</h2><p>Baixe as versões atuais. O aplicativo do Gerador libera um teste de 45 dias por CPF; reinstalar ou recriar a conta não renova o benefício.</p><div><a aria-disabled={!APP_GERADOR_URL} className={!APP_GERADOR_URL ? "disabled" : ""} href={APP_GERADOR_URL || undefined} download><b>G</b><span><strong>App do Gerador</strong><small>Gestão de usinas · teste de 45 dias</small></span></a><a aria-disabled={!APP_CONSUMIDOR_URL} className={!APP_CONSUMIDOR_URL ? "disabled" : ""} href={APP_CONSUMIDOR_URL || undefined} download><b>C</b><span><strong>App do Consumidor</strong><small>Faturas, economia e contratos</small></span></a></div>{!APP_GERADOR_URL || !APP_CONSUMIDOR_URL ? <small className="commercial-build-note">Nova versão em publicação. O botão será liberado assim que o APK atualizado estiver disponível.</small> : null}</section>
+    <section className="section-workspace commercial-apps" id="comercial-aplicativos"><span className="section-label">APLICATIVOS</span><h2>Instalação dos aplicativos</h2><p>Baixe as versões atuais dos aplicativos. O aplicativo do Gerador libera um teste de 45 dias por CPF; reinstalar ou recriar a conta não renova o benefício.</p><div><AppDownloadLink href={APP_GERADOR_URL} app="Gerador" description="Gestão de usinas · teste de 45 dias" /><AppDownloadLink href={APP_CONSUMIDOR_URL} app="Consumidor" description="Faturas, economia e contratos" /></div>{!APP_GERADOR_URL || !APP_CONSUMIDOR_URL ? <small className="commercial-build-note">Nova versão em publicação. O botão será liberado assim que o APK atualizado estiver disponível.</small> : null}</section>
     <section className="section-workspace" id="comercial-documentos"><span className="section-label">CONFORMIDADE</span><h2>Documentos para comercialização</h2><div className="document-grid">{(data?.documentos ?? []).map((doc: any) => <article key={doc.id}><b>§</b><div><strong>{doc.titulo}</strong><small>Versão {doc.versao} · {doc.ativo ? "Publicada" : "Rascunho"}</small></div></article>)}</div><p className="legal-notice">Os modelos são uma base operacional. Antes da venda ao público, contrato, termos, política de privacidade e cancelamento devem ser revisados por advogado e responsável por proteção de dados.</p></section>
   </div>;
+}
+
+function AppDownloadsPanel({ type }: { type: AccessType }) {
+  return <section className="section-workspace commercial-apps app-downloads-panel">
+    <span className="section-label">APLICATIVOS ANDRADE ENERGY</span>
+    <h2>Instale o aplicativo ideal para seu perfil</h2>
+    <p>Baixe diretamente a versão Android mais recente. O app Gerador reúne a operação das usinas e a gestão comercial; o app Consumidor concentra faturas, economia e contratos.</p>
+    <div>
+      {type === "GERADOR" ? <AppDownloadLink href={APP_GERADOR_URL} app="Gerador" description="Gestão comercial e gestão de usinas · aprox. 141 MB" detailed /> : null}
+      <AppDownloadLink href={APP_CONSUMIDOR_URL} app="Consumidor" description="Faturas, economia e contratos · aprox. 141 MB" detailed />
+    </div>
+    <small className="app-download-security">Arquivos oficiais para Android. Depois que o download terminar, abra o arquivo na área Downloads do celular para iniciar a instalação.</small>
+  </section>;
 }
 
 function ProfilePanel({
@@ -1187,10 +1356,12 @@ function SectionInsights({
     ),
   );
   return (
-    <div className="section-insights">
+    <div className={`section-insights${section === "Financeiro" ? " finance-insights" : ""}`}>
       <article>
         <small>
-          {section === "Operação" || section === "Economia"
+          {section === "Financeiro"
+            ? "RECEITA REALIZADA"
+            : section === "Operação" || section === "Economia"
             ? "ENERGIA CONSOLIDADA"
             : "VALOR CONSOLIDADO"}
         </small>
@@ -1210,7 +1381,7 @@ function SectionInsights({
       <article className="mini-chart-card">
         <div>
           <small>EVOLUÇÃO</small>
-          <strong>Últimos lançamentos</strong>
+          <strong>{section === "Financeiro" ? "Movimentações recentes" : "Últimos lançamentos"}</strong>
         </div>
         <div className="mini-bars">
           {bars.map((value, index) => (
@@ -1219,7 +1390,7 @@ function SectionInsights({
         </div>
       </article>
       <article>
-        <small>STATUS DA CARTEIRA</small>
+        <small>{section === "Financeiro" ? "FECHAMENTOS CONCLUÍDOS" : "STATUS DA CARTEIRA"}</small>
         <strong>
           {
             records.filter((item) =>
@@ -1231,6 +1402,118 @@ function SectionInsights({
       </article>
     </div>
   );
+}
+
+function FinancialOverviewPanel({
+  records,
+  loading,
+  error,
+  onStartPdfBilling,
+  onStartManualBilling,
+  onConfigureAutomaticBilling,
+  onOpenInvoices,
+  onOpenWallet,
+}: {
+  records: WebRecord[];
+  loading: boolean;
+  error: string;
+  onStartPdfBilling: () => void;
+  onStartManualBilling: () => void;
+  onConfigureAutomaticBilling: () => void;
+  onOpenInvoices: () => void;
+  onOpenWallet: () => void;
+}) {
+  const valueOf = (item: WebRecord) => Number(item.valor_total_unificado ?? item.valor_total ?? item.valor ?? 0);
+  const total = records.reduce((sum, item) => sum + valueOf(item), 0);
+  const received = records.filter((item) => /pago|recebido/i.test(String(item.status ?? ""))).reduce((sum, item) => sum + valueOf(item), 0);
+  const overdue = records.filter((item) => /vencid|atras/i.test(String(item.status ?? ""))).reduce((sum, item) => sum + valueOf(item), 0);
+  const open = Math.max(0, total - received);
+  const percent = total > 0 ? Math.min(100, (received / total) * 100) : 0;
+  const money = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  if (loading) return <div className="section-workspace data-state">Carregando visão financeira...</div>;
+  if (error) return <div className="section-workspace data-state error-message">{error}</div>;
+  return <div className="finance-overview">
+    <section className="finance-overview-hero"><div><small>RECEITA DA CARTEIRA</small><strong>{money(received)}</strong><span>{percent.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do faturamento recebido</span></div><div className="finance-progress" aria-label={`${percent.toFixed(1)}% recebido`}><i style={{ width: `${percent}%` }} /></div></section>
+    <section className="finance-overview-actions" aria-label="Acesso rápido financeiro"><button onClick={onStartPdfBilling}><b>PDF</b><span><strong>Faturamento via PDF</strong><small>Selecionar conta da concessionária</small></span><i>→</i></button><button onClick={onStartManualBilling}><b>✎</b><span><strong>Faturamento manual</strong><small>Lançar uma competência sem PDF</small></span><i>→</i></button><button onClick={onOpenWallet}><b>R$</b><span><strong>Transferir saldo</strong><small>Pix manual ou automático</small></span><i>→</i></button><button onClick={onConfigureAutomaticBilling}><b>✉</b><span><strong>Fatura automática</strong><small>Configurar recebimento por e-mail</small></span><i>→</i></button></section>
+    <button className="finance-history-link" onClick={onOpenInvoices}>Consultar histórico completo de faturas <span>→</span></button>
+    <section className="finance-overview-metrics"><article><small>FATURAMENTO TOTAL</small><strong>{money(total)}</strong><span>{records.length} fatura{records.length === 1 ? "" : "s"}</span></article><article><small>EM ABERTO</small><strong>{money(open)}</strong><span>Aguardando recebimento</span></article><article className={overdue > 0 ? "attention" : ""}><small>VENCIDO</small><strong>{money(overdue)}</strong><span>{overdue > 0 ? "Requer acompanhamento" : "Nenhuma pendência vencida"}</span></article></section>
+  </div>;
+}
+
+function ManualBillingModal({ token, onClose, onSuccess }: { token: string; onClose: () => void; onSuccess: () => void }) {
+  const [form, setForm] = useState({ cliente: "", uc: "", referencia: "", vencimento: "", consumo: "", energiaCompensada: "", energiaInjetada: "", tarifaCheia: "", valorTotal: "", saldoAtual: "" });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const numeric = (value: string) => Number(value.replace(/\./g, "").replace(",", "."));
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!form.cliente.trim() || !form.uc.trim() || !form.referencia.trim() || !form.vencimento.trim() || !form.consumo || !form.tarifaCheia || !form.valorTotal) { setError("Preencha todos os campos obrigatórios."); return; }
+    setSaving(true); setError("");
+    try {
+      const response = await fetch(`${API_URL}/faturas/manual/criar`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ ...form, consumo: numeric(form.consumo), energiaCompensada: numeric(form.energiaCompensada), energiaInjetada: numeric(form.energiaInjetada), tarifaCheia: numeric(form.tarifaCheia), valorTotal: numeric(form.valorTotal), saldoAtual: numeric(form.saldoAtual) }) });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.message ?? "Não foi possível criar a fatura.");
+      onSuccess(); onClose();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível criar a fatura."); }
+    finally { setSaving(false); }
+  }
+  const field = (key: keyof typeof form, label: string, required = false, type = "text") => <label>{label}{required ? " *" : ""}<input required={required} type={type} value={form[key]} onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))} /></label>;
+  return <div className="modal-backdrop"><section className="modal-card manual-billing-modal"><button className="modal-close" type="button" onClick={onClose}>×</button><span className="section-label">FINANCEIRO</span><h2>Criar fatura manualmente</h2><p>Use os valores da competência. A UC precisa estar cadastrada e vinculada a uma usina.</p><form className="commercial-form" onSubmit={submit}>{field("cliente", "Nome do cliente", true)}{field("uc", "Unidade consumidora", true)}<div className="commercial-form-row">{field("referencia", "Competência (ex.: SET/2026)", true)}{field("vencimento", "Vencimento", true, "date")}</div><div className="commercial-form-row">{field("consumo", "Consumo (kWh)", true)}{field("tarifaCheia", "Tarifa cheia por kWh", true)}</div><div className="commercial-form-row">{field("energiaCompensada", "Energia compensada (kWh)")}{field("energiaInjetada", "Energia injetada (kWh)")}</div><div className="commercial-form-row">{field("valorTotal", "Valor atual da concessionária", true)}{field("saldoAtual", "Saldo atual (kWh)")}</div>{error ? <div className="error-message">{error}</div> : null}<button className="primary-action" disabled={saving}>{saving ? "Gerando..." : "Gerar fatura"}</button></form></section></div>;
+}
+
+function AutomaticBillingModal({ token, unit, accessType, onClose }: { token: string; unit: WebRecord; accessType: AccessType; onClose: () => void }) {
+  const [receipt, setReceipt] = useState<WebRecord | null>(null);
+  const [connections, setConnections] = useState<WebRecord[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const unitId = String(unit.id ?? "");
+  const isGenerator = accessType === "GERADOR";
+  const load = useCallback(async () => {
+    if (!unitId) return;
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const [receiptResponse, connectionsResponse] = await Promise.all([
+        fetch(`${API_URL}/recebimento-faturas/unidades/${unitId}`, { headers }),
+        fetch(`${API_URL}/conexoes-email/unidades/${unitId}`, { headers }),
+      ]);
+      const receiptData = await receiptResponse.json().catch(() => ({}));
+      const connectionsData = await connectionsResponse.json().catch(() => ({}));
+      if (!receiptResponse.ok) throw new Error(receiptData.message ?? "Não foi possível carregar a configuração.");
+      setReceipt(receiptData);
+      setConnections(Array.isArray(connectionsData.conexoes) ? connectionsData.conexoes : []);
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : "Não foi possível carregar a configuração.");
+    }
+  }, [token, unitId]);
+  useEffect(() => { void load(); }, [load]);
+
+  async function toggle(active: boolean) {
+    setBusy(true); setMessage("");
+    try {
+      const endpoint = isGenerator
+        ? `/recebimento-faturas/geral/${active ? "ativar" : "desativar"}`
+        : `/recebimento-faturas/unidades/${unitId}/${active ? "ativar" : "desativar"}`;
+      const response = await fetch(`${API_URL}${endpoint}`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message ?? "Não foi possível salvar a configuração.");
+      setMessage(data.mensagem ?? (active ? "Recebimento automático ativado." : "Recebimento automático desativado."));
+      await load();
+    } catch (reason) { setMessage(reason instanceof Error ? reason.message : "Não foi possível salvar."); }
+    finally { setBusy(false); }
+  }
+  async function connect(provider: "GMAIL" | "OUTLOOK") {
+    setBusy(true); setMessage("");
+    try {
+      const response = await fetch(`${API_URL}/conexoes-email/unidades/${unitId}/iniciar`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ provedor: provider, app: accessType }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.url) throw new Error(data.message ?? "Não foi possível iniciar a conexão.");
+      window.open(String(data.url), "_blank", "noopener,noreferrer");
+      setMessage(`Conclua a autorização do ${provider === "GMAIL" ? "Gmail" : "Outlook"} na nova aba.`);
+    } catch (reason) { setMessage(reason instanceof Error ? reason.message : "Não foi possível conectar o e-mail."); }
+    finally { setBusy(false); }
+  }
+  const active = Boolean(receipt?.ativo);
+  return <div className="modal-backdrop"><section className="modal-card automatic-billing-modal"><button className="modal-close" type="button" onClick={onClose}>×</button><span className="section-label">FATURA AUTOMÁTICA</span><h2>Uma configuração para todas as UCs</h2><p>{isGenerator ? "A configuração é única e atende todas as UCs cuja titularidade está definida como Gerador." : "Esta opção está disponível porque a titularidade das UCs foi definida como Consumidor pelo gerador."}</p><div className="automatic-scope"><b>✓</b><span><strong>{isGenerator ? "Todas as UCs elegíveis da operação" : "Todas as UCs vinculadas ao seu perfil"}</strong><small>O sistema lê o PDF e identifica automaticamente a unidade correta.</small></span></div>{receipt?.configurado === false ? <div className="error-message">O domínio de recebimento ainda não foi configurado no servidor.</div> : <><div className={`automatic-status ${active ? "active" : ""}`}><span><small>STATUS</small><strong>{active ? "Recebimento automático ativo" : "Recebimento automático desativado"}</strong></span><button disabled={busy} onClick={() => void toggle(!active)}>{busy ? "Salvando..." : active ? "Desativar" : "Ativar para todas"}</button></div>{active && receipt?.endereco ? <section className="email-setup-card"><div className="email-setup-heading"><span className="email-setup-icon">✉</span><div><small>ENDEREÇO EXCLUSIVO</small><strong>Encaminhe as contas para este endereço</strong><p>Use uma única regra de e-mail. Os PDFs das UCs do escopo serão reconhecidos automaticamente.</p></div></div><button className="automatic-address" type="button" onClick={() => { void navigator.clipboard.writeText(String(receipt.endereco)); setMessage("Endereço copiado."); }}><code>{String(receipt.endereco)}</code><span>Copiar</span></button><ol><li>Conecte a conta do Gmail ou Outlook que recebe as faturas.</li><li>Encaminhe somente mensagens da concessionária que contenham PDF.</li><li>A fatura será vinculada à UC identificada no documento.</li></ol><div className="email-provider-actions"><button disabled={busy} onClick={() => void connect("GMAIL")}>Conectar Gmail</button><button disabled={busy} onClick={() => void connect("OUTLOOK")}>Conectar Outlook</button></div>{connections.length ? <div className="automatic-connections">{connections.map((connection) => <span key={String(connection.id)}><b>{String(connection.provedor)}</b> · {String(connection.email ?? connection.status ?? "Conectado")}</span>)}</div> : null}</section> : null}</>}{message ? <div className="automatic-message">{message}</div> : null}</section></div>;
 }
 
 function UnitTools({
@@ -1276,13 +1559,17 @@ function UnitTools({
       unitNumber
         ? fetch(`${API_URL}/faturas?uc=${encodeURIComponent(unitNumber)}`, { headers })
         : Promise.resolve(null),
+      unit.cliente_id
+        ? fetch(`${API_URL}/clientes/${unit.cliente_id}/faturas-anexadas`, { headers })
+        : Promise.resolve(null),
     ])
-      .then(async ([receiptResponse, connectionResponse, invoiceResponse]) => ({
+      .then(async ([receiptResponse, connectionResponse, invoiceResponse, attachedResponse]) => ({
         receipt: receiptResponse.ok ? await receiptResponse.json() : null,
         connections: connectionResponse.ok
           ? await connectionResponse.json()
           : {},
         invoices: invoiceResponse?.ok ? await invoiceResponse.json() : [],
+        attached: attachedResponse?.ok ? await attachedResponse.json() : [],
       }))
       .then((data) => {
         setReceipt(data.receipt);
@@ -1296,7 +1583,12 @@ function UnitTools({
           : Array.isArray(data.invoices?.data)
             ? data.invoices.data
             : [];
-        setLatestInvoice(invoices[0] ?? null);
+        const attached = Array.isArray(data.attached) ? data.attached : [];
+        const matchingAttachment = attached.find((item: WebRecord) => {
+          const invoiceData = item?.dadosFatura && typeof item.dadosFatura === "object" ? item.dadosFatura as WebRecord : {};
+          return String(invoiceData.uc ?? invoiceData.numero_instalacao ?? "").replace(/\D/g, "") === unitNumber.replace(/\D/g, "");
+        });
+        setLatestInvoice(invoices[0] ?? (matchingAttachment?.dadosFatura as WebRecord) ?? null);
       })
       .catch(() => undefined);
   }, [unit.id, token, toolsRefresh]);
@@ -1416,8 +1708,12 @@ function UnitTools({
           repassarCustoDisponibilidadeGD1: allocation.gd1 === "REPASSAR",
           repassarCustoDisponibilidadeGD2: allocation.gd2 === "REPASSAR",
           repassarDiferencaFioBGD2: allocation.fioB === "REPASSAR",
+          tipoGd: allocation.tipoGd || undefined,
           faturaSomenteAndrade: allocation.formatoFatura === "SOMENTE_ANDRADE",
-          calcularAutomaticamente: false,
+          // Na compensação, a alocação oficial é consumo médio + 15% dividido
+          // pela geração média da usina. A web não deve persistir o antigo
+          // padrão de 100%, que fazia o painel mostrar a usina toda ocupada.
+          calcularAutomaticamente: allocation.modalidade === "COMPENSACAO",
         }),
       },
     );
@@ -1441,8 +1737,9 @@ function UnitTools({
     ["Rateio", unit.percentual_rateio ?? unit.percentual],
     ["Status", formatPortalValue("status", unit.status)],
   ];
+  const selectedPlant = plants.find((plant) => String(plant.id) === allocation.usinaId);
   const detectedGd = String(
-    latestInvoice?.tipo_gd ?? latestInvoice?.tipoGd ?? unit.tipo_gd ?? "",
+    selectedPlant?.tipo_gd ?? unit.tipo_gd ?? latestInvoice?.tipo_gd ?? latestInvoice?.tipoGd ?? "",
   ).toUpperCase();
   const usesGd1 = !detectedGd || detectedGd === "GD1" || detectedGd === "MISTA";
   const usesGd2 = !detectedGd || detectedGd === "GD2" || detectedGd === "MISTA";
@@ -1454,6 +1751,17 @@ function UnitTools({
         : detectedGd === "MISTA"
           ? "GD I + GD II (mista)"
           : "Aguardando a primeira fatura";
+  const projectedPlantProduction = Number(selectedPlant?.producao_media_12_meses ?? selectedPlant?.geracao_media ?? 0);
+  useEffect(() => {
+    if (!editOpen || allocation.modalidade !== "COMPENSACAO") return;
+    const consumo = Math.max(0, Number(String(allocation.consumoMedio).replace(",", ".")) || 0);
+    if (projectedPlantProduction <= 0 || consumo <= 0) return;
+    const calculado = Math.min(100, consumo * 1.15 / projectedPlantProduction * 100).toFixed(2);
+    setAllocation((atual) => atual.percentual === calculado ? atual : { ...atual, percentual: calculado });
+  }, [allocation.consumoMedio, allocation.modalidade, editOpen, projectedPlantProduction]);
+  const projectedInjectedEnergy = allocation.modalidade === "INJECAO"
+    ? Math.max(0, projectedPlantProduction) * Math.max(0, Number(String(allocation.percentual).replace(",", "."))) / 100
+    : 0;
   return (
     <article className={`unit-tool-card ${expanded ? "expanded" : ""}`}>
       <button
@@ -1536,12 +1844,14 @@ function UnitTools({
                   <select
                     required
                     value={allocation.usinaId}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const nextPlant = plants.find((plant) => String(plant.id) === event.target.value);
                       setAllocation({
                         ...allocation,
                         usinaId: event.target.value,
-                      })
-                    }
+                        tipoGd: String(nextPlant?.tipo_gd ?? "").toUpperCase(),
+                      });
+                    }}
                   >
                     <option value="">Selecione</option>
                     {plants.map((plant) => (
@@ -1626,19 +1936,19 @@ function UnitTools({
                     }
                   >
                     <option value="UNIFICADA">
-                      Fatura unificada (CEMIG + Andrade)
+                      Fatura Unificada Andrade Energy
                     </option>
                     <option value="SOMENTE_ANDRADE">
                       Somente Andrade Energy
                     </option>
                   </select>
                 </label>
-                {allocation.formatoFatura === "UNIFICADA" ? <div className="detected-gd-info">
+                <div className="detected-gd-info">
                   <small>MODALIDADE IDENTIFICADA AUTOMATICAMENTE</small>
                   <strong>{detectedGdLabel}</strong>
                   <span>A leitura é feita pela última fatura importada e não precisa ser selecionada manualmente.</span>
-                </div> : null}
-                {allocation.formatoFatura === "UNIFICADA" && usesGd1 ? <label>
+                </div>
+                {usesGd1 ? <label>
                   GD I · custo de disponibilidade recalculado
                   <select
                     value={allocation.gd1}
@@ -1650,7 +1960,7 @@ function UnitTools({
                     <option value="ABSORVER">Absorver pela Andrade</option>
                   </select>
                 </label> : null}
-                {allocation.formatoFatura === "UNIFICADA" && usesGd2 ? <label>
+                {usesGd2 ? <label>
                   GD II · custo de disponibilidade recalculado
                   <select
                     value={allocation.gd2}
@@ -1662,7 +1972,7 @@ function UnitTools({
                     <option value="ABSORVER">Absorver pela Andrade</option>
                   </select>
                 </label> : null}
-                {allocation.formatoFatura === "UNIFICADA" && usesGd2 ? <label>
+                {usesGd2 ? <label>
                   GD II · diferença do Fio B
                   <select
                     value={allocation.fioB}
@@ -1675,15 +1985,23 @@ function UnitTools({
                   </select>
                 </label> : null}
               </div>
-              {allocation.formatoFatura === "UNIFICADA" ? <RealDiscountInfoWeb
+              <p className="form-hint">{allocation.formatoFatura === "SOMENTE_ANDRADE" ? "Mesmo com documentos separados, a projeção soma o valor pago à concessionária e a cobrança Andrade." : "Os demais encargos permanecem na conta da concessionária."}</p>
+              <RealDiscountInfoWeb
                 desconto={allocation.desconto}
                 tipoGd={detectedGd}
                 modalidadeFaturamento={allocation.modalidade}
+                consumoProjetado={allocation.consumoMedio}
+                energiaInjetadaProjetada={projectedInjectedEnergy}
+                faturaSomenteAndrade={allocation.formatoFatura === "SOMENTE_ANDRADE"}
                 dadosFatura={latestInvoice}
+                projetarConsumoIntegral
+                tarifaSceeReferencia={Number(selectedPlant?.tarifa_scee_referencia ?? 0)}
+                tarifaGd2Referencia={Number(selectedPlant?.tarifa_gd2_referencia ?? 0)}
+                historicoTarifasGd2={Array.isArray(selectedPlant?.historico_tarifas_gd2) ? selectedPlant.historico_tarifas_gd2 as Array<{ referencia?: string | null; tarifa_scee?: number; tarifa_gd2?: number }> : []}
                 gd1={allocation.gd1}
                 gd2={allocation.gd2}
                 fioB={allocation.fioB}
-              /> : null}
+              />
               <footer>
                 <button type="button" onClick={() => setEditOpen(false)}>
                   Cancelar
@@ -1794,8 +2112,32 @@ function RecordDetails({
   const [related, setRelated] = useState<{
     units: WebRecord[];
     invoices: WebRecord[];
-  }>({ units: [], invoices: [] });
+    attached: WebRecord[];
+  }>({ units: [], invoices: [], attached: [] });
+  const [clientArea, setClientArea] = useState<"overview" | "units" | "attached" | "invoices">("overview");
+  const [selectedClientUnit, setSelectedClientUnit] = useState<WebRecord | null>(null);
   const [relatedKey, setRelatedKey] = useState(0);
+  async function deleteAttachedInvoice(invoice: WebRecord) {
+    const clientId = String(record.id ?? "");
+    const invoiceId = String(invoice.id ?? "");
+    if (!clientId || !invoiceId || !window.confirm("Excluir definitivamente esta conta anexada do perfil do cliente?")) return;
+    setWorking(true);
+    const response = await fetch(`${API_URL}/clientes/${clientId}/faturas-anexadas/${invoiceId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    setWorking(false);
+    if (!response.ok) {
+      setMessage(data.message ?? "Não foi possível excluir a conta anexada.");
+      return;
+    }
+    setRelated((current) => ({
+      ...current,
+      attached: current.attached.filter((item) => String(item.id) !== invoiceId),
+    }));
+    setMessage("Conta anexada excluída do perfil.");
+  }
   useEffect(() => {
     const id = String(record.id ?? "");
     if (!id) return;
@@ -1828,19 +2170,34 @@ function RecordDetails({
         fetch(`${API_URL}/faturas?clienteId=${encodeURIComponent(id)}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
+        fetch(`${API_URL}/clientes/${id}/faturas-anexadas`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ])
-        .then(async ([unitsResponse, invoicesResponse]) => ({
+        .then(async ([unitsResponse, invoicesResponse, attachedResponse]) => ({
           units: unitsResponse.ok ? await unitsResponse.json() : [],
           invoices: invoicesResponse.ok ? await invoicesResponse.json() : [],
+          attached: attachedResponse.ok ? await attachedResponse.json() : [],
         }))
         .then((data) =>
           setRelated({
             units: Array.isArray(data.units) ? data.units : [],
             invoices: Array.isArray(data.invoices) ? data.invoices : [],
+            attached: Array.isArray(data.attached) ? data.attached : [],
           }),
         )
         .catch(() => undefined);
   }, [record, section, token, relatedKey]);
+  if (section === "Clientes" && selectedClientUnit)
+    return (
+      <RecordDetails
+        section="Unidades consumidoras"
+        record={selectedClientUnit}
+        token={token}
+        isGenerator={isGenerator}
+        onClose={() => setSelectedClientUnit(null)}
+      />
+    );
   if (section === "Unidades consumidoras")
     return (
       <section className="section-workspace detail-page">
@@ -1983,6 +2340,23 @@ function RecordDetails({
     await navigator.clipboard.writeText(code);
     setMessage("Código PIX copiado.");
   }
+  async function downloadCalculationReport() {
+    if (!source.id) return;
+    setWorking(true);
+    setMessage("");
+    try {
+      const response = await fetch(`${API_URL}/faturas/${source.id}/relatorio-calculo`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.url) throw new Error(data.message ?? "Relatório indisponível.");
+      window.open(String(data.url), "_blank", "noopener,noreferrer");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não foi possível gerar o relatório.");
+    } finally {
+      setWorking(false);
+    }
+  }
   async function addUnit() {
     const numero = window.prompt("Número da nova unidade consumidora:");
     if (!numero || !source.id) return;
@@ -2003,6 +2377,26 @@ function RecordDetails({
         ? "Unidade consumidora adicionada."
         : (data.message ?? "Não foi possível adicionar a unidade."),
     );
+    setWorking(false);
+  }
+  async function addUnitFromAttachedInvoice(invoice: WebRecord) {
+    if (!source.id) return;
+    const invoiceData = (invoice.dadosFatura && typeof invoice.dadosFatura === "object" ? invoice.dadosFatura : {}) as WebRecord;
+    const numero = String(invoiceData.uc ?? invoiceData.numero_instalacao ?? "").replace(/\D/g, "");
+    if (!numero) return setMessage("Não foi possível identificar a UC nesta conta.");
+    setWorking(true);
+    setMessage("");
+    const response = await fetch(`${API_URL}/clientes/${source.id}/unidades`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ numero, cpfTitular: String(invoiceData.cpf ?? source.cpf ?? "").replace(/\D/g, "") }),
+    });
+    const data = await response.json().catch(() => ({}));
+    setMessage(response.ok ? `UC ${numero} adicionada a partir da conta vinculada.` : (data.message ?? "Não foi possível adicionar a UC."));
+    if (response.ok) {
+      setClientArea("units");
+      setRelatedKey((value) => value + 1);
+    }
     setWorking(false);
   }
   async function importProduction(file: File | null) {
@@ -2220,6 +2614,11 @@ function RecordDetails({
               ) : null}
             </>
           ) : null}
+          {section === "Faturas" && source.id ? (
+            <button disabled={working} onClick={() => void downloadCalculationReport()}>
+              ↓ Baixar relatório do cálculo
+            </button>
+          ) : null}
           {section === "Clientes" ? (
             <button disabled={working} onClick={() => void addUnit()}>
               + Adicionar unidade
@@ -2272,50 +2671,16 @@ function RecordDetails({
       </div>
       {section === "Clientes" ? (
         <div className="related-section">
-          <div>
-            <h3>Unidades consumidoras</h3>
-            <span>
-              {related.units.length} vinculada
-              {related.units.length === 1 ? "" : "s"}
-            </span>
+          <div className="client-quick-nav">
+            <button className={clientArea === "overview" ? "active" : ""} onClick={() => setClientArea("overview")}><b>⌂</b><span><strong>Resumo</strong><small>Dados do cliente</small></span></button>
+            <button className={clientArea === "units" ? "active" : ""} onClick={() => setClientArea("units")}><b>UC</b><span><strong>Unidades</strong><small>{related.units.length} cadastrada{related.units.length === 1 ? "" : "s"}</small></span></button>
+            <button className={clientArea === "attached" ? "active" : ""} onClick={() => setClientArea("attached")}><b>PDF</b><span><strong>Contas vinculadas</strong><small>Adicionar UC pelo CPF</small></span></button>
+            <button className={clientArea === "invoices" ? "active" : ""} onClick={() => setClientArea("invoices")}><b>R$</b><span><strong>Faturas</strong><small>{related.invoices.length} processada{related.invoices.length === 1 ? "" : "s"}</small></span></button>
           </div>
-          {related.units.map((unit) => (
-            <UnitTools
-              key={String(unit.id)}
-              unit={unit}
-              token={token}
-              onChanged={() => setRelatedKey((value) => value + 1)}
-            />
-          ))}
-          {related.invoices.length ? (
-            <>
-              <div className="related-heading">
-                <h3>Histórico de faturas</h3>
-                <span>
-                  {related.invoices.length} documento
-                  {related.invoices.length === 1 ? "" : "s"}
-                </span>
-              </div>
-              <div className="related-invoices">
-                {related.invoices.map((invoice) => (
-                  <article key={String(invoice.id)}>
-                    <strong>{String(invoice.referencia ?? "Fatura")}</strong>
-                    <span>
-                      {Number(
-                        invoice.valor_total_unificado ??
-                          invoice.valor_total ??
-                          0,
-                      ).toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                    </span>
-                    <small>{String(invoice.status ?? "")}</small>
-                  </article>
-                ))}
-              </div>
-            </>
-          ) : null}
+          {clientArea === "overview" ? <div className="client-area-empty"><strong>Gestão organizada por área</strong><span>Use os atalhos acima para consultar somente as informações necessárias.</span></div> : null}
+          {clientArea === "units" ? <><div className="related-heading"><h3>Unidades consumidoras</h3><span>Selecione uma UC para consultar dados e configurações</span></div><div className="clean-unit-list">{related.units.map((unit) => <button type="button" key={String(unit.id)} onClick={() => setSelectedClientUnit(unit)}><span className="clean-unit-main"><b>UC {String(unit.numero ?? unit.numero_instalacao ?? "Não identificada")}</b><small>Abrir dados e configurações</small></span><span className="clean-unit-status">{String(unit.status ?? "ATIVA")} <i aria-hidden="true">→</i></span></button>)}{!related.units.length ? <p>Nenhuma UC cadastrada.</p> : null}</div></> : null}
+          {clientArea === "attached" ? <><div className="related-heading"><h3>Contas vinculadas ao CPF</h3><span>Escolha uma conta para cadastrar a UC</span></div><div className="attached-invoice-list">{related.attached.map((invoice) => { const invoiceData = (invoice.dadosFatura && typeof invoice.dadosFatura === "object" ? invoice.dadosFatura : {}) as WebRecord; const numero = String(invoiceData.uc ?? invoiceData.numero_instalacao ?? "").replace(/\D/g, ""); return <article key={String(invoice.id)}><span><strong>{String(invoice.nome ?? "Conta da concessionária")}</strong><small>{numero ? `UC ${numero}` : "UC não identificada"}</small></span>{invoice.url ? <a href={String(invoice.url)} target="_blank" rel="noreferrer">Abrir PDF</a> : null}<button disabled={working || !numero} onClick={() => void addUnitFromAttachedInvoice(invoice)}>{numero ? "Adicionar UC por esta fatura" : "UC não identificada"}</button>{isGenerator ? <button className="delete-attached" disabled={working} onClick={() => void deleteAttachedInvoice(invoice)}>Excluir</button> : null}</article>; })}{!related.attached.length ? <p>Nenhuma conta vinculada foi enviada pelo consumidor.</p> : null}</div></> : null}
+          {clientArea === "invoices" ? <><div className="related-heading"><h3>Histórico de faturas</h3><span>{related.invoices.length} documento{related.invoices.length === 1 ? "" : "s"}</span></div><div className="related-invoices">{related.invoices.map((invoice) => <article key={String(invoice.id)}><strong>{String(invoice.referencia ?? "Fatura")}</strong><span>{Number(invoice.valor_total_unificado ?? invoice.valor_total ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span><small>{String(invoice.status ?? "")}</small></article>)}</div></> : null}
         </div>
       ) : null}
       <div className="detail-footer">
@@ -2358,13 +2723,12 @@ function ActionDialog({
     },
     Clientes: {
       endpoint: "/clientes",
-      title: "Cadastrar novo cliente",
+      title: "Cadastrar cliente e primeira UC",
       fields: [
         ["nome", "Nome", "text"],
-        ["cpf", "CPF/CNPJ", "text"],
+        ["cpf", "CPF", "text"],
         ["email", "E-mail", "email"],
-        ["telefone", "Telefone", "text"],
-        ["uc", "Unidade consumidora", "text"],
+        ["telefone", "Telefone / WhatsApp (opcional)", "text"],
       ],
     },
     Financeiro: {
@@ -2394,6 +2758,34 @@ function ActionDialog({
           headers: { Authorization: `Bearer ${token}` },
           body,
         });
+      } else if (section === "Clientes") {
+        if (!file) throw new Error("Anexe a fatura da concessionária que criará a primeira UC.");
+        const cpf = String(form.cpf ?? "").replace(/\D/g, "");
+        if (cpf.length !== 11) throw new Error("Informe um CPF válido com 11 números.");
+        const email = String(form.email ?? "").trim().toLocaleLowerCase("pt-BR");
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Informe um e-mail válido.");
+        response = await fetch(`${API_URL}/clientes`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ nome: form.nome?.trim(), cpf, email, telefone: form.telefone?.trim() || null, whatsapp: form.telefone?.replace(/\D/g, "") || null, status: "ATIVO" }),
+        });
+        const client = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(client.message ?? "Não foi possível cadastrar o cliente.");
+        const attachment = new FormData();
+        attachment.append("arquivo", file);
+        const attached = await fetch(`${API_URL}/clientes/${client.id}/faturas-anexadas`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: attachment });
+        const attachedPayload = await attached.json().catch(() => ({}));
+        if (!attached.ok) throw new Error(attachedPayload.message ?? "Cliente criado, mas a UC não pôde ser criada pela fatura.");
+        const invitation = await fetch(`${API_URL}/convites`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ nome: form.nome?.trim(), cpf, email, whatsapp: form.telefone?.replace(/\D/g, "") || undefined }),
+        });
+        if (!invitation.ok) window.alert("Cliente e UC criados. O convite não pôde ser enviado agora; reenvie pelo perfil do cliente.");
+        response = new Response(JSON.stringify(attachedPayload), {
+          status: attached.status,
+          headers: { "Content-Type": "application/json" },
+        });
       } else {
         const numeric = new Set([
           "potencia_kwp",
@@ -2412,7 +2804,6 @@ function ActionDialog({
             modalidade: "INJECAO",
             status: "ATIVA",
           });
-        if (section === "Clientes") Object.assign(payload, { status: "ATIVO" });
         response = await fetch(`${API_URL}${config.endpoint}`, {
           method: "POST",
           headers: {
@@ -2464,7 +2855,7 @@ function ActionDialog({
               />
             </label>
           ) : (
-            config?.fields.map(([key, label, type]) => (
+            <>{config?.fields.map(([key, label, type]) => (
               <label key={key}>
                 {label}
                 <input
@@ -2472,7 +2863,8 @@ function ActionDialog({
                     key === "nome" ||
                     key === "numero_instalacao" ||
                     key === "usina_id" ||
-                    key === "competencia"
+                    key === "competencia" ||
+                    (section === "Clientes" && ["cpf", "email"].includes(key))
                   }
                   type={type}
                   value={form[key] ?? ""}
@@ -2481,7 +2873,7 @@ function ActionDialog({
                   }
                 />
               </label>
-            ))
+            ))}{section === "Clientes" ? <label>Fatura da concessionária (obrigatória)<input accept="application/pdf" required type="file" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /><small>Os dados da conta serão usados para criar e vincular a primeira UC.</small></label> : null}</>
           )}
           {error && <div className="error-message">{error}</div>}
           <button className="submit-operation" disabled={saving}>
@@ -2491,6 +2883,17 @@ function ActionDialog({
       </div>
     </div>
   );
+}
+
+function GeneratorIdentityPanel({ token }: { token: string }) {
+  const defaults = { nome: "", logoUrl: "", corPrimaria: "#087A46", corSecundaria: "#F7D75C", emailSuporte: "", telefoneSuporte: "", dominio: "", ativo: true };
+  const [form, setForm] = useState(defaults);
+  const [status, setStatus] = useState({ loading: true, saving: false, liberada: false, assinatura: "" });
+  const [message, setMessage] = useState("");
+  useEffect(() => { void fetch(`${API_URL}/empresas/minha-identidade`, { headers: { Authorization: `Bearer ${token}` } }).then(async (response) => { const payload = await response.json().catch(() => ({})); if (!response.ok) throw new Error(payload.message ?? "Não foi possível carregar sua marca."); const identity = payload.identidade ?? {}; setForm({ ...defaults, nome: identity.nome ?? "", logoUrl: identity.logo_url ?? "", corPrimaria: identity.cor_primaria ?? defaults.corPrimaria, corSecundaria: identity.cor_secundaria ?? defaults.corSecundaria, emailSuporte: identity.email_suporte ?? "", telefoneSuporte: identity.telefone_suporte ?? "", dominio: identity.dominio ?? "", ativo: identity.ativo !== false }); setStatus({ loading: false, saving: false, liberada: Boolean(payload.liberada), assinatura: payload.assinaturaStatus ?? "" }); }).catch((error) => { setMessage(error.message); setStatus((current) => ({ ...current, loading: false })); }); }, [token]);
+  async function save(event: FormEvent) { event.preventDefault(); setStatus((current) => ({ ...current, saving: true })); setMessage(""); const response = await fetch(`${API_URL}/empresas/minha-identidade`, { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(form) }); const payload = await response.json().catch(() => ({})); setStatus((current) => ({ ...current, saving: false })); if (!response.ok) return setMessage(payload.message ?? "Não foi possível salvar sua marca."); setForm((current) => ({ ...current, ...(payload.identidade ?? {}) })); setMessage("Identidade atualizada. Ela será aplicada no próximo acesso ao portal e ao app Gerador."); }
+  if (status.loading) return <div className="data-state">Carregando identidade visual...</div>;
+  return <div className="generator-brand-page"><section className="subscription-hero"><div><small>IDENTIDADE DO GERADOR</small><h2>Sua marca, tecnologia Andrade Energy</h2><p>Personalize seu ambiente sem perder a segurança e a estrutura da plataforma.</p></div><span>{status.liberada ? "LIBERADA" : status.assinatura || "INDISPONÍVEL"}</span></section><div className="generator-brand-layout"><section className="section-workspace"><span className="section-label">PERSONALIZAÇÃO</span><h2>Identidade visual</h2><form className="commercial-form" onSubmit={save}><label>Nome exibido<input required value={form.nome} onChange={(event)=>setForm({...form,nome:event.target.value})}/></label><label>URL da logo<input placeholder="https://..." value={form.logoUrl} onChange={(event)=>setForm({...form,logoUrl:event.target.value})}/></label><div className="commercial-form-row"><label>Cor principal<input type="color" value={form.corPrimaria} onChange={(event)=>setForm({...form,corPrimaria:event.target.value})}/></label><label>Cor de destaque<input type="color" value={form.corSecundaria} onChange={(event)=>setForm({...form,corSecundaria:event.target.value})}/></label></div><div className="commercial-form-row"><label>E-mail de suporte<input type="email" value={form.emailSuporte} onChange={(event)=>setForm({...form,emailSuporte:event.target.value})}/></label><label>Telefone<input value={form.telefoneSuporte} onChange={(event)=>setForm({...form,telefoneSuporte:event.target.value})}/></label></div><label>Domínio ou site<input placeholder="empresa.com.br" value={form.dominio} onChange={(event)=>setForm({...form,dominio:event.target.value})}/></label><label className="checkbox-field"><input checked={form.ativo} type="checkbox" onChange={(event)=>setForm({...form,ativo:event.target.checked})}/> Usar minha identidade visual</label><button className="primary-action" disabled={!status.liberada || status.saving}>{status.saving ? "Salvando..." : "Salvar identidade"}</button></form>{!status.liberada?<div className="error-message">Disponível para geradores com assinatura ativa ou período de teste vigente.</div>:null}{message?<div className="invite-message">{message}</div>:null}</section><aside className="generator-brand-preview" style={{ background: `linear-gradient(145deg, ${form.corPrimaria}, color-mix(in srgb, ${form.corPrimaria} 72%, #071f18))` }}><small>PRÉVIA DO AMBIENTE</small>{form.logoUrl?<img src={form.logoUrl} alt="Prévia da logo"/>:<b style={{color:form.corSecundaria}}>{(form.nome || "Sua empresa").slice(0,2).toUpperCase()}</b>}<h3>{form.nome || "Sua empresa"}</h3><p>Tecnologia Andrade Energy</p><i style={{background:form.corSecundaria}}/></aside></div></div>;
 }
 
 function MySubscriptionPanel({ token }: { token: string }) {
@@ -2529,11 +2932,56 @@ function PortalHome({
   const [sectionLoading, setSectionLoading] = useState(false);
   const [sectionError, setSectionError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [globalSearch, setGlobalSearch] = useState("");
+  const [globalSearchFeedback, setGlobalSearchFeedback] = useState("");
   const [actionOpen, setActionOpen] = useState(false);
+  const [manualBillingOpen, setManualBillingOpen] = useState(false);
+  const [automaticBillingUnit, setAutomaticBillingUnit] = useState<WebRecord | null>(null);
+  const [consumerAutomaticBillingUnit, setConsumerAutomaticBillingUnit] = useState<WebRecord | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<WebRecord | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [walletHome, setWalletHome] = useState<WalletSummary | null>(null);
   const [walletNotice, setWalletNotice] = useState(false);
+  const [company, setCompany] = useState<PortalCompany>(DEFAULT_COMPANY);
+  const isCommercialWorkspace = type === "GERADOR" && session.usuario?.perfil === "ADMIN" && workspace === "COMERCIAL";
+
+  const plantOf = (unit: WebRecord) => Array.isArray(unit.usinas) ? unit.usinas[0] as WebRecord | undefined : unit.usinas as WebRecord | undefined;
+  const hasAutomaticBillingOwnership = (unit: WebRecord, ownership: "GERADOR" | "CLIENTE") =>
+    String(unit.tipo ?? "BENEFICIARIA").toUpperCase() !== "GERADORA" &&
+    String(plantOf(unit)?.titularidade_ucs_recebedoras ?? "GERADOR").toUpperCase() === ownership;
+
+  useEffect(() => {
+    if (type !== "CONSUMIDOR" || !session.token) return;
+    void fetch(`${API_URL}/clientes/minhas-unidades`, { headers: { Authorization: `Bearer ${session.token}` } })
+      .then(async (response) => response.ok ? response.json() : Promise.reject())
+      .then((payload) => {
+        const units = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+        const eligible = units.find((unit: WebRecord) => hasAutomaticBillingOwnership(unit, "CLIENTE"));
+        setConsumerAutomaticBillingUnit(eligible ?? null);
+      })
+      .catch(() => setConsumerAutomaticBillingUnit(null));
+  }, [session.token, type]);
+
+  useEffect(() => {
+    if (!session.token) return;
+    let active = true;
+    fetch(`${API_URL}/empresas/atual`, { headers: { Authorization: `Bearer ${session.token}` } })
+      .then(async (response) => response.ok ? response.json() : Promise.reject())
+      .then((data) => {
+        if (!active) return;
+        setCompany(data.identidade_personalizada ? { ...DEFAULT_COMPANY, ...data } : DEFAULT_COMPANY);
+      })
+      .catch(() => { if (active) setCompany(DEFAULT_COMPANY); });
+    return () => { active = false; };
+  }, [session.token]);
+
+  useEffect(() => {
+    setActiveSection((current) => {
+      if (isCommercialWorkspace && !["Gestão comercial", "Empresas", "Geradores", "Aplicativos", "Tutoriais da web", "Perfil", "Configurações"].includes(current)) return "Gestão comercial";
+      if (!isCommercialWorkspace && ["Gestão comercial", "Geradores"].includes(current)) return "Visão geral";
+      return current;
+    });
+  }, [isCommercialWorkspace]);
 
   useEffect(() => {
     if (!session.token) return;
@@ -2589,6 +3037,36 @@ function PortalHome({
     setWalletNotice(false);
     setSelectedRecord(null);
     setActiveSection("Carteira");
+  }
+
+  async function openAutomaticBilling() {
+    if (!session.token) return;
+    if (type === "CONSUMIDOR") {
+      if (consumerAutomaticBillingUnit?.id) {
+        setAutomaticBillingUnit(consumerAutomaticBillingUnit);
+        return;
+      }
+      window.alert("O envio automático fica disponível quando a titularidade das UCs é definida como Consumidor pelo gerador.");
+      return;
+    }
+    try {
+      const response = await fetch(`${API_URL}/clientes/unidades`, { headers: { Authorization: `Bearer ${session.token}` } });
+      const payload = await response.json().catch(() => []);
+      if (!response.ok) throw new Error(payload?.message ?? "Não foi possível carregar as unidades.");
+      const units = Array.isArray(payload) ? payload : payload?.data ?? [];
+      const eligible = units.filter((item: WebRecord) => hasAutomaticBillingOwnership(item, "GERADOR"));
+      let unit = eligible.find((item: WebRecord) => Boolean(item.recebimento_email_ativo)) ?? eligible[0];
+      if (unit?.id && !unit.recebimento_email_ativo) {
+        const statuses = await Promise.all(eligible.slice(0, 20).map(async (item: WebRecord) => {
+          const statusResponse = await fetch(`${API_URL}/recebimento-faturas/unidades/${item.id}`, { headers: { Authorization: `Bearer ${session.token}` } });
+          const status = statusResponse.ok ? await statusResponse.json() : null;
+          return { item, status };
+        }));
+        unit = statuses.find(({ status }) => status?.ativo)?.item ?? unit;
+      }
+      if (!unit?.id) { window.alert("Cadastre e vincule uma UC recebedora a uma usina antes de configurar o e-mail."); return; }
+      setAutomaticBillingUnit(unit);
+    } catch (reason) { window.alert(reason instanceof Error ? reason.message : "Não foi possível abrir a configuração."); }
   }
 
   useEffect(() => {
@@ -2654,7 +3132,13 @@ function PortalHome({
   );
   const menuGroups =
     type === "GERADOR"
-      ? [
+      ? isCommercialWorkspace
+        ? [
+            { label: "Gestão comercial", items: ["Gestão comercial", "Empresas", "Geradores", "Aplicativos"] },
+            { label: "Conta", items: ["Perfil", "Configurações"] },
+            { label: "Ambiente", items: ["Alternar ambiente", "Tutoriais da web"] },
+          ]
+      : [
           { label: "Painel", items: ["Visão geral"] },
           {
             label: "Gestão de energia",
@@ -2671,18 +3155,37 @@ function PortalHome({
             ],
           },
           ...(session.usuario?.perfil === "ADMIN"
-            ? [{ label: "Administração", items: workspace === "COMERCIAL" ? ["Gestão comercial", "Geradores", "Alternar ambiente"] : ["Alternar ambiente"] }]
+            ? [{ label: "Administração", items: workspace === "COMERCIAL" ? ["Gestão comercial", "Geradores", "Alternar ambiente", "Tutoriais da web"] : ["Alternar ambiente", "Tutoriais da web"] }]
             : []),
-          { label: "Conta", items: ["Minha assinatura", "Perfil", "Configurações"] },
+          { label: "Conta", items: ["Minha assinatura", "Minha marca", "Aplicativos", "Perfil", "Configurações"] },
         ]
-      : [
+        : [
           { label: "Painel", items: ["Visão geral", "Economia"] },
           {
             label: "Minha energia",
             items: ["Minha unidade", "Faturas", "Contas de luz", "Contratos"],
           },
-          { label: "Conta", items: ["Perfil", "Configurações"] },
+          { label: "Conta", items: ["Tutoriais da web", "Aplicativos", "Perfil", "Configurações"] },
         ];
+  const globalSearchOptions = menuGroups.flatMap((group) => group.items).filter((item) => item !== "Alternar ambiente");
+  function submitGlobalSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const query = globalSearch.trim().toLocaleLowerCase("pt-BR");
+    if (!query) {
+      setGlobalSearchFeedback("Digite o que deseja encontrar");
+      return;
+    }
+    const target = globalSearchOptions.find((item) => item.toLocaleLowerCase("pt-BR").includes(query));
+    if (!target) {
+      setGlobalSearchFeedback("Nenhum resultado encontrado");
+      return;
+    }
+    setGlobalSearchFeedback("");
+    setSelectedRecord(null);
+    setActiveSection(target);
+    setSearchQuery("");
+    setGlobalSearch("");
+  }
   const chart = [42, 58, 49, 68, 61, 79, 74, 88, 82, 95, 89, 100];
   const columns: Record<string, Array<[string, string]>> = {
     Usinas: [
@@ -2761,6 +3264,8 @@ function PortalHome({
   const canCreate =
     type === "GERADOR" &&
     ["Usinas", "Clientes", "Faturas", "Financeiro"].includes(activeSection);
+  const profileAppIcon = type === "CONSUMIDOR" ? consumerAppIcon : generatorAppIcon;
+  const usesCustomLogo = Boolean(company.logo_url);
   async function deleteRecord(item: WebRecord) {
     if (
       !session.token ||
@@ -2786,33 +3291,22 @@ function PortalHome({
     }
     setRefreshKey((value) => value + 1);
   }
-  async function inviteClient() {
-    if (!session.token) return;
-    const nome = window.prompt("Nome completo do consumidor:");
-    const cpf = window.prompt("CPF do consumidor (somente números):");
-    const email = window.prompt("E-mail que receberá o convite:");
-    if (!nome || !cpf || !email) return;
-    const response = await fetch(`${API_URL}/convites`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${session.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ nome, cpf: cpf.replace(/\D/g, ""), email }),
-    });
-    const data = await response.json().catch(() => ({}));
-    window.alert(
-      response.ok
-        ? "Convite enviado ao consumidor."
-        : (data.message ?? "Não foi possível enviar o convite."),
-    );
-  }
   return (
-    <main className="portal-home">
+    <main className="portal-home" style={{ "--brand-primary": company.cor_primaria, "--brand-secondary": company.cor_secundaria } as CSSProperties}>
       <header className="portal-topbar">
-        <strong>
-          ANDRADE <span>ENERGY</span>
-        </strong>
+        <div className="topbar-brand">
+          <span className={`profile-brand-mark${usesCustomLogo ? " custom" : ""}`}>
+            <img src={company.logo_url || defaultBrandLogo} alt={`Logo ${company.nome}`} />
+          </span>
+          <span><strong>{company.nome}</strong><small>{isCommercialWorkspace ? "Gestão comercial" : type === "GERADOR" ? "Gestão de energia" : "Portal do consumidor"}</small></span>
+        </div>
+        <form className="portal-global-search" onSubmit={submitGlobalSearch}>
+          <span aria-hidden="true">⌕</span>
+          <input aria-label="Pesquisar no portal" aria-describedby={globalSearchFeedback ? "portal-search-feedback" : undefined} list="portal-search-options" onChange={(event) => { setGlobalSearch(event.target.value); setGlobalSearchFeedback(""); }} placeholder="Pesquisar" value={globalSearch} />
+          <datalist id="portal-search-options">{globalSearchOptions.map((item) => <option key={item} value={item} />)}</datalist>
+          <button aria-label="Abrir resultado da pesquisa" type="submit">Ir</button>
+          {globalSearchFeedback ? <output className="portal-search-feedback" id="portal-search-feedback">{globalSearchFeedback}</output> : null}
+        </form>
         <div>
           <button
             className="user-menu-button"
@@ -2829,9 +3323,11 @@ function PortalHome({
       <div className="portal-layout">
         <aside className="portal-sidebar">
           <div className="sidebar-brand">
-            <i>AE</i>
+            <span className={`profile-app-icon${usesCustomLogo ? " custom" : ""}`}>
+              <img src={company.logo_url || profileAppIcon} alt={`Ícone do app ${type === "CONSUMIDOR" ? "Consumidor" : "Gerador"}`} />
+            </span>
             <span>
-              <strong>Andrade Energy</strong>
+              <strong>{company.nome}</strong>
               <small>Portal de gestão</small>
             </span>
           </div>
@@ -2865,7 +3361,7 @@ function PortalHome({
           <div className="sidebar-help">
             <small>PRECISA DE AJUDA?</small>
             <strong>Fale com o suporte</strong>
-            <a href="mailto:contato@andradese.com.br">Entrar em contato →</a>
+            <a href={`mailto:${company.email_suporte || DEFAULT_COMPANY.email_suporte}`}>Entrar em contato →</a>
           </div>
         </aside>
         <section className="portal-dashboard">
@@ -2886,15 +3382,7 @@ function PortalHome({
             </div>
             {canCreate && !selectedRecord ? (
               <div className="heading-actions">
-                {activeSection === "Clientes" ? (
-                  <button
-                    className="secondary-action"
-                    onClick={() => void inviteClient()}
-                  >
-                    Convidar cliente
-                  </button>
-                ) : null}
-                <button
+                {canCreate ? <button
                   className="primary-action"
                   onClick={() => setActionOpen(true)}
                 >
@@ -2905,15 +3393,25 @@ function PortalHome({
                       : activeSection === "Clientes"
                         ? "+ Novo cliente"
                         : "+ Novo fechamento"}
-                </button>
+                </button> : null}
               </div>
             ) : null}
           </div>
           {activeSection === "Visão geral" ? (
             type === "CONSUMIDOR" ? (
-              <ClientOverview data={dashboard} onNavigate={setActiveSection} />
+              <ClientOverview data={dashboard} onNavigate={setActiveSection} companyName={company.nome} onConfigureAutomaticBilling={consumerAutomaticBillingUnit?.id ? () => void openAutomaticBilling() : undefined} />
             ) : (
               <>
+                <PortalQuickAccess storageKey="gerador-home" items={[
+                  { icon: "R$", label: "Saldo em carteira", detail: walletHome ? formatPortalValue("saldo", walletHome.saldoDisponivel) : "Consultar saldo", badge: walletNotice, onClick: openWallet },
+                  { icon: "C", label: "Clientes", detail: "Cadastros e unidades", onClick: () => setActiveSection("Clientes") },
+                  { icon: "U", label: "Usinas", detail: "Geração e produção", onClick: () => setActiveSection("Usinas") },
+                  { icon: "⚡", label: "Unidades consumidoras", detail: "Alocação e faturamento", onClick: () => setActiveSection("Unidades consumidoras") },
+                  { icon: "PDF", label: "Faturamento via PDF", detail: "Importar conta de energia", onClick: () => { setActiveSection("Faturas"); setActionOpen(true); } },
+                  { icon: "▤", label: "Faturas", detail: "Histórico da carteira", onClick: () => setActiveSection("Faturas") },
+                  { icon: "≡", label: "Contratos", detail: "Documentos das UCs", onClick: () => setActiveSection("Contratos") },
+                  { icon: "$", label: "Financeiro", detail: "Receita e transferências", onClick: () => setActiveSection("Financeiro") },
+                ]} />
                 {walletHome ? (
                   <button
                     className={`wallet-home-card ${walletNotice ? "has-notice" : ""}`}
@@ -3073,12 +3571,30 @@ function PortalHome({
               isGenerator={type === "GERADOR"}
               onClose={() => setSelectedRecord(null)}
             />
+          ) : activeSection === "Empresas" && session.token ? (
+            <CompaniesPanel token={session.token} />
           ) : activeSection === "Geradores" && session.token ? (
             <GeneratorInvitePanel token={session.token} />
           ) : activeSection === "Gestão comercial" && session.token ? (
-            <><div className="commercial-quick-actions"><button onClick={() => setActiveSection("Geradores")}><b>G</b><span><strong>Contas geradoras</strong><small>Convites e acessos</small></span></button><button onClick={() => onChangeWorkspace("USINAS")}><b>☀</b><span><strong>Gestão de Usinas</strong><small>Alternar ambiente</small></span></button><button onClick={() => setActiveSection("Perfil")}><b>P</b><span><strong>Perfil administrativo</strong><small>Dados e segurança</small></span></button></div><CommercialManagementPanel token={session.token} /></>
+            <><PortalQuickAccess storageKey="comercial-home" items={[
+              { icon: "G", label: "Contas geradoras", detail: "Convites e acessos", onClick: () => setActiveSection("Geradores") },
+              { icon: "E", label: "Empresas parceiras", detail: "Identidade e isolamento", onClick: () => setActiveSection("Empresas") },
+              { icon: "☀", label: "Gestão de Usinas", detail: "Alternar ambiente", onClick: () => onChangeWorkspace("USINAS") },
+              { icon: "P", label: "Perfil administrativo", detail: "Dados e segurança", onClick: () => setActiveSection("Perfil") },
+              { icon: "APP", label: "Aplicativos", detail: "Compartilhar instaladores", onClick: () => setActiveSection("Aplicativos") },
+            ]} /><CommercialManagementPanel token={session.token} /></>
+          ) : activeSection === "Minha marca" && session.token ? (
+            <GeneratorIdentityPanel token={session.token} />
           ) : activeSection === "Minha assinatura" && session.token ? (
             <MySubscriptionPanel token={session.token} />
+          ) : activeSection === "Aplicativos" ? (
+            <AppDownloadsPanel type={type} />
+          ) : activeSection === "Financeiro" && session.token ? (
+            <FinancialOverviewPanel records={visibleData} loading={sectionLoading} error={sectionError} onStartPdfBilling={() => { setActiveSection("Faturas"); setActionOpen(true); }} onStartManualBilling={() => setManualBillingOpen(true)} onConfigureAutomaticBilling={() => void openAutomaticBilling()} onOpenInvoices={() => setActiveSection("Faturas")} onOpenWallet={openWallet} />
+          ) : activeSection === "Operação" && session.token ? (
+            <OperationPanel token={session.token} onOpen={(record) => setSelectedRecord(record)} />
+          ) : activeSection === "Tutoriais da web" ? (
+            <section className="section-workspace"><span className="section-label">CENTRAL DE AJUDA</span><h2>Tutoriais da web</h2><p>Aprenda as funções do portal no ambiente correspondente ao seu perfil.</p><TutorialCenter profile={type} defaultOpen /></section>
           ) : activeSection === "Perfil" && session.token ? (
             <><div className="profile-workspace-switch"><span><small>AMBIENTE ADMINISTRATIVO</small><strong>{workspace === "COMERCIAL" ? "Gestão Comercial" : "Gestão de Usinas"}</strong></span><button onClick={() => onChangeWorkspace(workspace === "COMERCIAL" ? "USINAS" : "COMERCIAL")}>Alternar para {workspace === "COMERCIAL" ? "Gestão de Usinas" : "Gestão Comercial"}</button><button onClick={() => onChangeWorkspace(null)}>Escolher ambiente</button></div><ProfilePanel token={session.token} fallback={session.usuario} /></>
           ) : activeSection === "Configurações" ? (
@@ -3086,7 +3602,7 @@ function PortalHome({
           ) : (
             <>
               <SectionInsights section={activeSection} records={visibleData} />
-              <div className="section-workspace">
+              <div className={`section-workspace${activeSection === "Financeiro" ? " finance-workspace" : ""}`}>
                 <div className="data-toolbar">
                   <div>
                     <small>DADOS ATUALIZADOS</small>
@@ -3206,22 +3722,95 @@ function PortalHome({
               onSuccess={() => setRefreshKey((value) => value + 1)}
             />
           ) : null}
+          {manualBillingOpen && session.token ? <ManualBillingModal token={session.token} onClose={() => setManualBillingOpen(false)} onSuccess={() => { setRefreshKey((value) => value + 1); setActiveSection("Faturas"); }} /> : null}
+          {automaticBillingUnit?.id && session.token ? <AutomaticBillingModal token={session.token} unit={automaticBillingUnit} accessType={type} onClose={() => setAutomaticBillingUnit(null)} /> : null}
         </section>
       </div>
     </main>
   );
 }
 
-export default function App() {
+function OperationPanel({ token, onOpen }: { token: string; onOpen: (record: WebRecord) => void }) {
+  const [summary, setSummary] = useState<any>();
+  const [records, setRecords] = useState<WebRecord[]>([]);
+  const [selected, setSelected] = useState("");
+  const [loading, setLoading] = useState(true);
+  const load = useCallback(async (competencia?: string) => {
+    setLoading(true);
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const suffix = competencia ? `?competencia=${encodeURIComponent(competencia)}` : "";
+      const [summaryResponse, recordsResponse] = await Promise.all([fetch(`${API_URL}/fechamentos/resumo${suffix}`, { headers }), fetch(`${API_URL}/fechamentos`, { headers })]);
+      const nextSummary = await summaryResponse.json();
+      const nextRecords = await recordsResponse.json();
+      if (!summaryResponse.ok) throw new Error(nextSummary.message ?? "Não foi possível carregar a operação.");
+      setSummary(nextSummary);
+      setSelected(nextSummary.competencia);
+      setRecords((Array.isArray(nextRecords) ? nextRecords : []).filter((item) => String(item.competencia ?? "").slice(0, 7) === nextSummary.competencia));
+    } catch (error) { window.alert(error instanceof Error ? error.message : "Não foi possível carregar a operação."); }
+    finally { setLoading(false); }
+  }, [token]);
+  useEffect(() => { void load(); }, [load]);
+  const money = (value: unknown) => Number(value ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const power = (value: unknown) => `${Number(value ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kWh`;
+  if (loading && !summary) return <div className="data-state">Consolidando a competência...</div>;
+  return <div className="operation-workspace">
+    <div className="operation-periods">{(summary?.competencias ?? []).map((item: string) => <button className={selected === item ? "active" : ""} key={item} onClick={() => void load(item)}>{item.split("-").reverse().join("/")}</button>)}</div>
+    <section className="operation-hero"><div><small>FECHAMENTO DA COMPETÊNCIA</small><h2>{selected.split("-").reverse().join("/")}</h2><p>Produção, rateio, faturamento e recebimentos consolidados automaticamente.</p></div><span className={summary?.prontoParaFechar ? "ready" : "pending"}>{summary?.prontoParaFechar ? "Conferida" : `${summary?.alertas?.length ?? 0} pendência(s)`}</span></section>
+    <div className="operation-metrics"><article><small>ENERGIA GERADA</small><strong>{power(summary?.energiaGerada)}</strong></article><article><small>ENERGIA ALOCADA</small><strong>{power(summary?.energiaAlocada)}</strong></article><article><small>DISPONÍVEL</small><strong>{power(summary?.energiaDisponivel)}</strong></article><article><small>OCUPAÇÃO</small><strong>{Number(summary?.ocupacao ?? 0).toFixed(1)}%</strong></article></div>
+    <div className="operation-columns"><section className="operation-finance"><small>RESULTADO FINANCEIRO</small><h3>{money(summary?.receitaPrevista)}</h3><div><span>Recebido <b>{money(summary?.receitaRecebida)}</b></span><span>Pendente <b>{money(summary?.receitaPendente)}</b></span><span>Vencidas <b>{summary?.faturasVencidas ?? 0}</b></span></div></section><section className="operation-check"><small>CONFERÊNCIA</small><div><span>Usinas processadas <b>{summary?.fechamentos ?? 0}/{summary?.totalUsinas ?? 0}</b></span><span>Faturas emitidas <b>{summary?.totalFaturas ?? 0}</b></span><span>Faturas pagas <b>{summary?.faturasPagas ?? 0}</b></span><span>Faturas pendentes <b>{summary?.faturasPendentes ?? 0}</b></span></div></section></div>
+    {(summary?.alertas ?? []).length ? <section className="operation-alerts"><strong>Pendências antes do fechamento</strong>{summary.alertas.map((alert: string) => <p key={alert}>• {alert}</p>)}</section> : null}
+    <section className="section-workspace"><span className="section-label">USINAS NESTA COMPETÊNCIA</span><div className="operation-plants">{records.length ? records.map((item: any) => <button key={item.id} onClick={() => onOpen(item)}><span><strong>{item.usinas?.nome ?? "Usina"}</strong><small>{power(item.energia_gerada)} gerados · {power(item.energia_alocada)} alocados</small></span><b>{Number(item.ocupacao ?? 0).toFixed(1)}%</b></button>) : <div className="data-state">Nenhuma usina processada nesta competência.</div>}</div></section>
+  </div>;
+}
+
+function TutorialCenter({ profile, defaultOpen = false }: { profile: AccessType; defaultOpen?: boolean }) {
+  const generator = profile === "GERADOR";
+  const [tutorialSearch, setTutorialSearch] = useState("");
+  const normalizedSearch = tutorialSearch.trim().toLocaleLowerCase("pt-BR");
+  const tutorials = generator ? [
+    { file: "web-gerador-convite-e-uc", title: "Do convite ao cadastro da UC", detail: "Convite, aceite, conta vinculada, alocação e desconto" },
+    { file: "web-gerador-recebimento-automatico", title: "Ativar recebimento automático", detail: "UC, endereço exclusivo e encaminhamento de e-mail" },
+    { file: "web-gerador-faturamento", title: "Faturar pela conta de energia", detail: "Importação, revisão, documentos e pagamento" },
+    { file: "web-gerador-multiempresa-e-marca", title: "Multiempresa e identidade própria", detail: "Novo ambiente, plano, logo e cores" },
+  ] : [
+    { file: "web-consumidor-conta-vinculada", title: "Vincular uma conta ao CPF", detail: "Envio do PDF, análise e disponibilidade para o gerador" },
+    { file: "web-consumidor-fatura-e-pagamento", title: "Entender e pagar a fatura", detail: "Composição unificada, economia, Pix e boleto" },
+  ];
+  const visibleTutorials = tutorials.filter((tutorial) => !normalizedSearch || `${tutorial.title} ${tutorial.detail}`.toLocaleLowerCase("pt-BR").includes(normalizedSearch));
+  return (
+    <details className="tutorial-center" open={defaultOpen || undefined}>
+      <summary><span>▶</span><strong>Tutoriais da web — {generator ? "Gerador" : "Consumidor"}</strong><small>Vídeos curtos separados por função</small></summary>
+      <label className="tutorial-search"><span>Buscar tutorial</span><div><Icon name="search" /><input type="search" value={tutorialSearch} onChange={(event) => setTutorialSearch(event.target.value)} placeholder="Digite uma função ou assunto" /></div></label>
+      <div className="tutorial-video-grid">
+        {visibleTutorials.map((tutorial) => <article className="tutorial-profile-video" key={tutorial.file}>
+          <div><b>{generator ? "G" : "C"}</b><span><strong>{tutorial.title}</strong><small>{tutorial.detail}</small></span></div>
+          <video controls playsInline preload="metadata" poster={`/tutorials/${tutorial.file}.png`}>
+            <source src={`/tutorials/${tutorial.file}.mp4`} type="video/mp4" />
+            Seu navegador não oferece suporte a vídeos MP4.
+          </video>
+        </article>)}
+        {!visibleTutorials.length ? <p className="tutorial-empty">Nenhum tutorial encontrado.</p> : null}
+      </div>
+    </details>
+  );
+}
+
+function PortalApp() {
+  const [rememberedLogin] = useState(readRememberedLogin);
   const [session, setSession] = useState<PortalSession | null>(() =>
     readSession(),
   );
-  const [accessType, setAccessType] = useState<AccessType | null>(null);
-  const [email, setEmail] = useState("");
+  const [accessType, setAccessType] = useState<AccessType | null>(rememberedLogin.accessType);
+  const [email, setEmail] = useState(rememberedLogin.email);
   const [password, setPassword] = useState("");
+  const [rememberLogin, setRememberLogin] = useState(Boolean(rememberedLogin.email));
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [trialStage, setTrialStage] = useState<"idle" | "form" | "success">("idle");
+  const [trial, setTrial] = useState({ convite: "", nome: "", cpf: "", telefone: "", email: "", senha: "", confirmarSenha: "" });
+  const [trialResult, setTrialResult] = useState<any>(null);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -3242,6 +3831,14 @@ export default function App() {
       if (!response.ok)
         throw new Error(data.message ?? "Não foi possível acessar sua conta.");
       const portalSession = { ...data, accessType } as PortalSession;
+      if (rememberLogin) {
+        localStorage.setItem(
+          REMEMBER_LOGIN_KEY,
+          JSON.stringify({ email: email.trim().toLowerCase(), accessType }),
+        );
+      } else {
+        localStorage.removeItem(REMEMBER_LOGIN_KEY);
+      }
       sessionStorage.setItem(
         "andrade_energy_portal_session",
         JSON.stringify(portalSession),
@@ -3258,6 +3855,29 @@ export default function App() {
           ? reason.message
           : "Confira os dados e tente novamente.",
       );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitTrial(event: FormEvent) {
+    event.preventDefault();
+    if (loading) return;
+    setError("");
+    if (trial.senha !== trial.confirmarSenha) return setError("As senhas não coincidem.");
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/auth/cadastro`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...trial, cpf: trial.cpf.replace(/\D/g, ""), tipo: "GERADOR" }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message ?? "Não foi possível criar a conta com este convite.");
+      setTrialResult(data);
+      setTrialStage("success");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Confira os dados e tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -3396,6 +4016,40 @@ export default function App() {
                   Fale com nossa equipe
                 </a>
               </div>
+              <div className="multi-company-note">
+                <b>Plataforma multiempresa</b>
+                <span>Cada empresa opera em um ambiente isolado, com sua própria equipe, dados e identidade visual.</span>
+              </div>
+            </div>
+          ) : trialStage === "form" ? (
+            <form className="login-view trial-signup" onSubmit={submitTrial}>
+              <button type="button" className="back-button" onClick={() => { setTrialStage("idle"); setError(""); }}><span>←</span> Voltar ao login</button>
+              <span className="trial-badge">CONVITE DO ADMINISTRADOR</span>
+              <h2>Crie sua conta de gerador</h2>
+              <p className="lead">O cadastro é liberado somente com a chave enviada pela conta administradora.</p>
+              <div className="trial-form-grid">
+                <label className="trial-invite-key">Chave do convite<input required value={trial.convite} onChange={(e)=>setTrial({...trial,convite:e.target.value.trim()})} autoCapitalize="none" placeholder="Cole a chave recebida por e-mail"/></label>
+                <label>Nome completo<input required value={trial.nome} onChange={(e)=>setTrial({...trial,nome:e.target.value})} autoComplete="name"/></label>
+                <label>CPF<input required inputMode="numeric" maxLength={14} value={trial.cpf} onChange={(e)=>setTrial({...trial,cpf:e.target.value})} placeholder="000.000.000-00"/></label>
+                <label>Telefone<input inputMode="tel" value={trial.telefone} onChange={(e)=>setTrial({...trial,telefone:e.target.value})} placeholder="(00) 00000-0000"/></label>
+                <label>E-mail<input required type="email" value={trial.email} onChange={(e)=>setTrial({...trial,email:e.target.value})} autoComplete="email"/></label>
+                <label>Senha<input required minLength={6} type="password" value={trial.senha} onChange={(e)=>setTrial({...trial,senha:e.target.value})} autoComplete="new-password"/></label>
+                <label>Confirmar senha<input required minLength={6} type="password" value={trial.confirmarSenha} onChange={(e)=>setTrial({...trial,confirmarSenha:e.target.value})} autoComplete="new-password"/></label>
+              </div>
+              <label className="trial-consent"><input required type="checkbox"/><span>Concordo com os Termos de Uso e a Política de Privacidade.</span></label>
+              {error && <div className="error-message" role="alert">{error}</div>}
+              <button className="submit-button" disabled={loading}>{loading ? "Criando seu acesso..." : <>Criar conta <Icon name="arrow"/></>}</button>
+            </form>
+          ) : trialStage === "success" ? (
+            <div className="trial-success">
+              <span className="trial-success-icon">✓</span>
+              <span className="section-label">CONTA CONFIGURADA</span>
+              <h2>Sua conta foi criada</h2>
+              <p>Olá, <strong>{trial.nome}</strong>. Sua conta do Gerador já está vinculada ao CPF informado e pronta para uso.</p>
+              <div className="trial-period"><span><small>CADASTRO</small><strong>{new Date().toLocaleDateString("pt-BR")}</strong></span><span><small>STATUS</small><strong>Ativo</strong></span></div>
+              <div className="trial-download-wrap"><AppDownloadLink href={trialResult?.downloadUrl || APP_GERADOR_URL} app="Gerador" description="Android · conta de teste pronta" /></div>
+              <button className="trial-login-link" onClick={()=>{ setEmail(trial.email); setPassword(trial.senha); setTrialStage("idle"); }}>Entrar pelo portal com esta conta</button>
+              <p className="trial-footnote">A conta está vinculada à empresa que emitiu o convite.</p>
             </div>
           ) : (
             <form className="login-view" onSubmit={submit}>
@@ -3458,7 +4112,15 @@ export default function App() {
               </div>
               <div className="form-tools">
                 <label className="remember">
-                  <input type="checkbox" /> <span>Lembrar de mim</span>
+                  <input
+                    type="checkbox"
+                    checked={rememberLogin}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      setRememberLogin(checked);
+                      if (!checked) localStorage.removeItem(REMEMBER_LOGIN_KEY);
+                    }}
+                  /> <span>Lembrar de mim</span>
                 </label>
                 <a href="#recuperar">Esqueci minha senha</a>
               </div>
@@ -3476,6 +4138,8 @@ export default function App() {
                   </>
                 )}
               </button>
+              {accessType === "CONSUMIDOR" ? <div className="generator-trial-callout"><div><span>NOVO CONSUMIDOR</span><strong>Recebeu um convite?</strong><small>Crie sua conta com a chave enviada pelo gerador.</small></div><a className="login-create-account" href="/convite">Criar conta →</a></div> : null}
+              {accessType === "GERADOR" ? <div className="generator-trial-callout"><div><span>NOVO GERADOR</span><strong>Recebeu um convite do administrador?</strong><small>Crie a conta usando a chave enviada por e-mail.</small></div><button type="button" onClick={()=>{setTrialStage("form");setError("");}}>Criar conta →</button></div> : null}
             </form>
           )}
         </div>
@@ -3486,4 +4150,12 @@ export default function App() {
       </section>
     </main>
   );
+}
+
+export default function App() {
+  const convite = new URLSearchParams(window.location.search).get("convite")?.trim() ?? "";
+  if (window.location.pathname === "/convite") {
+    return <ConsumerInviteSignup apiUrl={API_URL} convite={convite} />;
+  }
+  return <PortalApp />;
 }
