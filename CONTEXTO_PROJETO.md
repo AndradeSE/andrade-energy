@@ -1,5 +1,14 @@
 # Andrade Energy — contexto do projeto
 
+## Alocação e projeção web — 05/09/2026
+
+- `890b563`: projeção web usa disponibilidade + Fio B na comparação energética. Matriz de compensação GD2 validada: 22,78%, 26,69%, 36,08% e 40%; 22 testes web passaram. O formulário solicita alocação automática em compensação.
+- `7d09225`: alocação projetada da usina usa consumo médio × 1,15 para compensação, evitando que percentual legado de 100% ocupe toda a geração. Injeção utiliza o percentual configurado. Teste: 271 kWh / usina 14.000 kWh reserva 311,65 kWh, ocupação 2,23%. Build backend e dois testes compilados passaram.
+- Ambos os commits foram enviados para origin/main. Publicação NÃO confirmada: última consulta a /health ainda retornou commit 530277f.
+- Worktree de preparação em `.worktrees/sites-portal`, branch `codex/sites-portal`, commit 6e75bf5786c915e15566001d7c46ca73a4c81994 enviado ao GitHub. Build local passou, mas NÃO foi publicado. O identificador legado de Sites appgprj_6a8dde88c4548191ac12362f730720a6 retornou "Sites project not found" na conta conectada. Não presumir que essa branch corresponda à fonte ativa do domínio; confirmar o projeto e repositório remoto de Sites antes de publicar.
+- A preparação da branch Sites incorporou também alterações locais de recebimento automático de App.tsx. Revisar seu escopo antes de publicar. As mudanças locais originais em main permanecem preservadas.
+- Controle do navegador indisponível: inicialização CUA falha com "failed to write kernel assets" (os error 3). Deploy manual do Render ainda necessário para aplicar backend; acesso à conta proprietária de Sites necessário para publicação web.
+
 ## Lista de UCs, contas vinculadas e tutoriais web — 31/08/2026
 
 - No app Gerador, cada PDF em **Contas vinculadas ao CPF** oferece a ação **Adicionar UC por esta fatura**.

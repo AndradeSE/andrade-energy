@@ -258,7 +258,16 @@ export default function DashboardGestor() {
           </Pressable>
         ) : null}
 
-        <Section title="Visão geral">
+        <View style={styles.overviewCard}>
+          <View style={styles.overviewHeading}>
+            <View style={styles.overviewIcon}>
+              <Ionicons name="grid-outline" size={20} color={Colors.primary} />
+            </View>
+            <View style={styles.overviewCopy}>
+              <Text accessibilityRole="header" style={styles.operationTitle}>Visão geral</Text>
+              <Text style={styles.overviewCaption}>Indicadores da sua usina · {data.competencia}</Text>
+            </View>
+          </View>
           <View style={styles.grid}>
             <View style={styles.metric}>
               <Metric
@@ -317,7 +326,7 @@ export default function DashboardGestor() {
               />
             </View>
           </View>
-        </Section>
+        </View>
 
         <View style={styles.operationCard}>
           <View style={styles.operationHeading}>
@@ -558,6 +567,34 @@ const styles = StyleSheet.create({
     borderTopColor: "rgba(255,255,255,.16)",
   },
   walletFooterText: { color: "#D1FAE5", fontSize: 11, fontWeight: "700" },
+  overviewCard: {
+    marginBottom: Spacing.xl,
+    padding: Spacing.md,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    ...Shadows.card,
+  },
+  overviewHeading: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingBottom: Spacing.md,
+    marginBottom: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  overviewIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  overviewCopy: { flex: 1, minWidth: 0 },
+  overviewCaption: { marginTop: 4, color: Colors.subtitle, fontSize: 12, lineHeight: 18 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm },
-  metric: { width: "48%" },
+  metric: { flexGrow: 1, flexBasis: "45%", minWidth: 120 },
 });
