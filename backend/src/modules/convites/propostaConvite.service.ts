@@ -104,6 +104,29 @@ export async function obterPropostaParaConvite(clienteId: string, empresaId: str
   });
   const { valorAndrade, economiaMensal, descontoReal } = resultado;
   const possuiGd = valor(dados, "energiaCompensada", "energia_compensada", "energiaInjetada", "energia_injetada") > 0;
+  const { data: faturas } = await supabase
+    .from("faturas")
+    .select("referencia,numero_instalacao,unidade_consumidora_id,valor_energia_cheia,valor_total_unificado,valor_total,economia_real,consumo,consumo_kwh")
+    .eq("cliente_id", clienteId)
+    .eq("empresa_id", empresaId)
+    .order("referencia", { ascending: true });
+  const historicoMensal = (faturas ?? [])
+    .filter((item: any) => item.unidade_consumidora_id === unidade.id || String(item.numero_instalacao).replace(/\D/g, "") === String(unidade.numero).replace(/\D/g, ""))
+    .map((item: any) => {
+      const semBeneficio = n(item.valor_energia_cheia) || Math.max(0, n(item.valor_total) + n(item.economia_real));
+      // Reprocessa o histórico com a configuração comercial atual. Isso evita
+      // que uma proposta nova reutilize percentuais gravados por regras antigas.
+      const economia = semBeneficio * resultado.descontoReal / 100;
+      return { referencia: String(item.referencia ?? ""), semBeneficio, comBeneficio: Math.max(0, semBeneficio - economia), economia };
+    })
+    .filter((item: any) => item.semBeneficio > 0 && item.comBeneficio > 0)
+    .slice(-6);
+  if (!historicoMensal.length) historicoMensal.push({
+    referencia: String(dados.referencia ?? "Atual"),
+    semBeneficio: resultado.base,
+    comBeneficio: resultado.totalProjetado,
+    economia: resultado.economiaMensal,
+  });
 
   const pdf = await gerarPropostaPdf({
     empresa: empresa?.nome_fantasia ?? empresa?.nome ?? "Andrade Energy",
@@ -119,6 +142,8 @@ export async function obterPropostaParaConvite(clienteId: string, empresaId: str
     disponibilidade,
     fioB,
     economiaMensal,
+    totalProjetado: resultado.totalProjetado,
+    historicoMensal,
     possuiGd,
   });
   return { filename: `proposta-comercial-uc-${String(unidade.numero).replace(/\D/g, "")}.pdf`, content: pdf };
@@ -132,59 +157,102 @@ async function gerarPropostaPdf(d: any) {
     pdf.on("end", () => resolve(Buffer.concat(partes)));
     pdf.on("error", reject);
 
-    pdf.rect(0, 0, 595, 116).fill(verde);
-    pdf.circle(535, 22, 78).fillOpacity(0.12).fill(amarelo).fillOpacity(1);
-    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(20).text(String(d.empresa).toUpperCase(), 42, 29, { width: 390 });
-    pdf.fillColor(amarelo).fontSize(9).text("PROPOSTA DE ECONOMIA EM ENERGIA", 42, 58, { characterSpacing: 1.2 });
-    pdf.fillColor("#D8EAE3").font("Helvetica").fontSize(9).text(`${d.possuiGd ? "Cálculo pela fatura GD" : "Simulação pré-GD"}  |  UC ${d.uc}  |  ${d.tipoGd}`, 42, 83);
+    const cabecalho = (pagina: string) => {
+      pdf.rect(0, 0, 595, 105).fill(verde);
+      pdf.circle(545, 8, 76).fillOpacity(0.12).fill(amarelo).fillOpacity(1);
+      pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(19).text(String(d.empresa).toUpperCase(), 42, 25, { width: 390 });
+      pdf.fillColor(amarelo).fontSize(8.5).text("PROPOSTA PERSONALIZADA DE ECONOMIA", 42, 54, { characterSpacing: 1.1 });
+      pdf.fillColor("#D8EAE3").font("Helvetica").fontSize(8.5).text(`UC ${d.uc}  |  ${d.tipoGd}  |  ${pagina}`, 42, 78);
+    };
+    const mediaHistorica = d.historicoMensal.reduce((s: number, item: any) => s + item.economia, 0) / Math.max(1, d.historicoMensal.length);
+    const mediaSemBeneficio = d.historicoMensal.reduce((s: number, item: any) => s + item.semBeneficio, 0) / Math.max(1, d.historicoMensal.length);
+    const mediaComBeneficio = d.historicoMensal.reduce((s: number, item: any) => s + item.comBeneficio, 0) / Math.max(1, d.historicoMensal.length);
+    const economiaMensalProjetada = mediaHistorica > 0 ? mediaHistorica : d.economiaMensal;
+    const economiaAnual = economiaMensalProjetada * 12;
+    const semBeneficioAnual = mediaSemBeneficio * 12;
+    const comBeneficioAnual = mediaComBeneficio * 12;
 
-    pdf.fillColor(texto).font("Helvetica-Bold").fontSize(18).text(`Olá, ${d.cliente}`, 42, 140);
-    pdf.fillColor("#61756D").font("Helvetica").fontSize(10).text(`Esta proposta apresenta o benefício estimado para a UC ${d.uc}, vinculada à ${d.usina}.`, 42, 169, { width: 510 });
-
+    cabecalho("Visão executiva");
+    pdf.fillColor(texto).font("Helvetica-Bold").fontSize(15).text(`Uma economia planejada para ${d.cliente}`, 42, 128, { width: 510, height: 40 });
+    pdf.fillColor("#61756D").font("Helvetica").fontSize(9.5).text(`Projeção construída a partir da fatura e do histórico disponível da UC, vinculada à ${d.usina}.`, 42, 170, { width: 510 });
     const cards = [
-      ["DESCONTO CONTRATADO", percentual(d.descontoContratado)],
-      ["DESCONTO REAL ESTIMADO", percentual(d.descontoReal)],
-      ["ECONOMIA MENSAL", moeda(d.economiaMensal)],
-      ["ECONOMIA EM 12 MESES", moeda(d.economiaMensal * 12)],
+      ["DESCONTO CONTRATADO", percentual(d.descontoContratado), "#EAF5EF", verde],
+      ["DESCONTO REAL ESTIMADO", percentual(d.descontoReal), "#E8F0FF", "#2255A4"],
+      ["ECONOMIA MÉDIA MENSAL", moeda(economiaMensalProjetada), "#FFF4D1", "#886300"],
+      ["ECONOMIA PROJETADA EM 12 MESES", moeda(economiaAnual), verde, "#FFFFFF"],
     ];
     cards.forEach((card, i) => {
-      const x = 42 + (i % 2) * 259, y = 207 + Math.floor(i / 2) * 79;
-      pdf.roundedRect(x, y, 243, 63, 10).fill(i === 3 ? verde : suave);
-      pdf.fillColor(i === 3 ? "#D8EAE3" : "#557067").font("Helvetica-Bold").fontSize(7.5).text(card[0], x + 15, y + 13, { width: 213 });
-      pdf.fillColor(i === 3 ? "#FFFFFF" : verde).fontSize(19).text(card[1], x + 15, y + 29, { width: 213 });
+      const x = 42 + (i % 2) * 259, y = 194 + Math.floor(i / 2) * 75;
+      pdf.roundedRect(x, y, 243, 59, 10).fill(String(card[2]));
+      pdf.fillColor(i === 3 ? "#BDE6D5" : "#61756D").font("Helvetica-Bold").fontSize(7).text(String(card[0]), x + 14, y + 12, { width: 215 });
+      pdf.fillColor(String(card[3])).fontSize(18).text(String(card[1]), x + 14, y + 28, { width: 215 });
     });
 
-    pdf.fillColor(texto).fontSize(12).text("Comparação mensal", 42, 383);
-    const max = Math.max(d.base, 1), barras = [["Sem benefício", d.base, "#B8C7C0"], ["Com benefício", d.valorAndrade + d.disponibilidade + d.fioB, verde]];
-    barras.forEach(([rotulo, numero, cor], i) => {
-      const y = 414 + i * 48;
-      pdf.fillColor("#536A61").font("Helvetica").fontSize(8).text(String(rotulo), 42, y);
-      pdf.roundedRect(42, y + 15, 400, 17, 8).fill("#E8EFEB");
-      pdf.roundedRect(42, y + 15, Math.max(8, 400 * Number(numero) / max), 17, 8).fill(String(cor));
-      pdf.fillColor(texto).font("Helvetica-Bold").fontSize(9).text(moeda(Number(numero)), 453, y + 18, { width: 100 });
+    pdf.fillColor(texto).fontSize(12).text("Projeção financeira anual", 42, 365);
+    pdf.fillColor("#6B7E77").font("Helvetica").fontSize(8).text("Cada par de colunas compara o custo estimado sem e com o benefício.", 42, 383);
+    const chartX = 50, chartY = 425, chartH = 170, chartW = 495;
+    const maxAnualMes = Math.max(mediaSemBeneficio, mediaComBeneficio, 1);
+    [0, .25, .5, .75, 1].forEach((f) => {
+      const y = chartY + chartH - chartH * f;
+      pdf.moveTo(chartX, y).lineTo(chartX + chartW, y).lineWidth(.5).strokeColor("#DCE7E1").stroke();
     });
+    const nomesMeses = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+    nomesMeses.forEach((mes, i) => {
+      const grupoX = chartX + i * 41.2;
+      const hSem = chartH * mediaSemBeneficio / maxAnualMes;
+      const hCom = chartH * mediaComBeneficio / maxAnualMes;
+      pdf.roundedRect(grupoX + 4, chartY + chartH - hSem, 12, hSem, 3).fill("#67A6E8");
+      pdf.roundedRect(grupoX + 19, chartY + chartH - hCom, 12, hCom, 3).fill(i % 2 ? "#0A7656" : "#12A06E");
+      pdf.fillColor("#60736B").font("Helvetica-Bold").fontSize(6.2).text(mes, grupoX, chartY + chartH + 8, { width: 36, align: "center" });
+    });
+    pdf.rect(42, 628, 511, 69).fill("#F3F7F5");
+    [["SEM BENEFÍCIO / ANO", semBeneficioAnual, "#67A6E8"], ["COM BENEFÍCIO / ANO", comBeneficioAnual, "#12A06E"]].forEach((item, i) => {
+      const x = 59 + i * 250;
+      pdf.circle(x, 650, 5).fill(String(item[2]));
+      pdf.fillColor("#687A73").fontSize(7).text(String(item[0]), x + 12, 644, { width: 200 });
+      pdf.fillColor(texto).font("Helvetica-Bold").fontSize(15).text(moeda(Number(item[1])), x + 12, 660, { width: 200 });
+    });
+    pdf.roundedRect(42, 720, 511, 55, 9).fill("#FFF6CF");
+    pdf.fillColor("#765900").fontSize(8).text("Estimativa anual baseada na configuração contratual e na média disponível. Consumo, tarifas e encargos podem variar mensalmente; por isso, a economia efetiva é recalculada em cada fatura.", 56, 735, { width: 478, lineGap: 2 });
 
-    pdf.fillColor(texto).fontSize(12).text("Como chegamos à estimativa", 42, 526);
+    pdf.addPage({ size: "A4", margins: { top: 0, right: 42, bottom: 32, left: 42 } });
+    cabecalho("Histórico e memória de cálculo");
+    pdf.fillColor(texto).font("Helvetica-Bold").fontSize(14).text("Histórico reprocessado da unidade", 42, 130);
+    pdf.fillColor("#64776F").font("Helvetica").fontSize(8).text("Cada mês disponível é recalculado com a configuração comercial atual da UC.", 42, 151);
+    const hist = d.historicoMensal.slice(-6);
+    const maxHist = Math.max(...hist.map((item: any) => item.semBeneficio), 1);
+    hist.forEach((item: any, i: number) => {
+      const y = 187 + i * 50;
+      pdf.fillColor(texto).font("Helvetica-Bold").fontSize(7.5).text(String(item.referencia || "Atual"), 42, y + 9, { width: 70 });
+      const larguraSem = 300 * item.semBeneficio / maxHist;
+      const larguraCom = 300 * item.comBeneficio / maxHist;
+      pdf.roundedRect(113, y, larguraSem, 10, 4).fill("#67A6E8");
+      pdf.roundedRect(113, y + 16, larguraCom, 10, 4).fill("#12A06E");
+      pdf.fillColor("#456158").font("Helvetica").fontSize(6.8).text(`Economia ${moeda(item.economia)}`, 425, y + 7, { width: 125, align: "right" });
+    });
+    const memoriaY = Math.max(280, 190 + hist.length * 50);
+    pdf.fillColor(texto).font("Helvetica-Bold").fontSize(13).text("Memória da estimativa atual", 42, memoriaY);
     const linhas = [
       ["Consumo considerado", `${d.consumo.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kWh`],
       ["Energia sem benefício", moeda(d.base)],
       ["Energia da empresa", moeda(d.valorAndrade)],
       ["Custo de disponibilidade", moeda(d.disponibilidade)],
       ["Diferença do Fio B", moeda(d.fioB)],
+      ["Total estimado com benefício", moeda(d.totalProjetado)],
     ];
     linhas.forEach(([r, v], i) => {
-      const y = 552 + i * 24;
-      if (i % 2 === 0) pdf.rect(42, y - 4, 511, 22).fill("#F5F8F6");
-      pdf.fillColor("#52685F").font("Helvetica").fontSize(8.5).text(r, 51, y);
+      const y = memoriaY + 30 + i * 26;
+      pdf.roundedRect(42, y - 5, 511, 22, 4).fill(i % 2 ? "#FFFFFF" : "#F1F6F3");
+      pdf.fillColor("#52685F").font("Helvetica").fontSize(8.5).text(r, 52, y);
       pdf.fillColor(texto).font("Helvetica-Bold").text(v, 395, y, { width: 145, align: "right" });
     });
-
-    pdf.roundedRect(42, 690, 511, 59, 9).fill("#FFF8D8");
-    pdf.fillColor("#795D00").font("Helvetica-Bold").fontSize(8.5).text("IMPORTANTE", 55, 703);
-    pdf.font("Helvetica").fontSize(8).text(d.possuiGd
-      ? "O desconto real varia conforme consumo, tarifas e custos obrigatórios de cada competência. Multas, iluminação pública e cobranças extraordinárias não mensuram o desconto energético."
-      : "Esta é uma simulação anterior à primeira injeção. O cálculo considera 100% do consumo como compensado e será atualizado automaticamente quando chegar a primeira fatura com GD.", 55, 719, { width: 482, lineGap: 2 });
-    pdf.fillColor("#718078").fontSize(7.5).text("Proposta informativa. Os valores podem variar mensalmente conforme medição e tarifas da concessionária.", 42, 783, { width: 511, align: "center" });
+    const criterioY = memoriaY + 202;
+    pdf.roundedRect(42, criterioY, 511, 62, 9).fill("#FFF6CF");
+    pdf.fillColor("#765900").font("Helvetica-Bold").fontSize(8).text("CRITÉRIO", 55, criterioY + 13);
+    pdf.font("Helvetica").fontSize(7.7).text(d.possuiGd
+      ? "O desconto real considera os custos energéticos convencionais da competência. Multas, iluminação pública, bandeiras e cobranças extraordinárias não são usados para mensurar o desconto energético."
+      : "Como esta conta ainda é pré-GD, a simulação considera o consumo como compensado. Assim que chegar a primeira fatura com GD, as tarifas e parcelas reais substituem automaticamente a estimativa.", 55, criterioY + 28, { width: 480, lineGap: 2 });
+    pdf.fillColor("#718078").fontSize(7).text("Documento informativo elaborado a partir dos dados disponíveis no sistema.", 42, 805, { width: 511, align: "center" });
     pdf.end();
   });
 }

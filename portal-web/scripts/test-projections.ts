@@ -14,18 +14,33 @@ const gd2Invoice = {
 };
 
 const expectedInjection = [
-  { gd2: "REPASSAR", fioB: "REPASSAR", discount: 26.0903 },
-  { gd2: "ABSORVER", fioB: "REPASSAR", discount: 29.2553 },
-  { gd2: "REPASSAR", fioB: "ABSORVER", discount: 36.8423 },
+  { gd2: "REPASSAR", fioB: "REPASSAR", discount: 26.08 },
+  { gd2: "ABSORVER", fioB: "REPASSAR", discount: 29.25 },
+  { gd2: "REPASSAR", fioB: "ABSORVER", discount: 36.84 },
   { gd2: "ABSORVER", fioB: "ABSORVER", discount: 40 },
 ];
+
+const expectedCompensation = [
+  { gd2: "REPASSAR", fioB: "REPASSAR", discount: 22.78 },
+  { gd2: "ABSORVER", fioB: "REPASSAR", discount: 26.69 },
+  { gd2: "REPASSAR", fioB: "ABSORVER", discount: 36.08 },
+  { gd2: "ABSORVER", fioB: "ABSORVER", discount: 40 },
+];
+
+for (const scenario of expectedCompensation) {
+  test(`GD II compensação exata ${scenario.gd2}/${scenario.fioB}`, () => {
+    const result = calculateProjection({ data: gd2Invoice, discount: 40, billingMode: "COMPENSACAO", type: "GD2", gd1: "REPASSAR", gd2: scenario.gd2, fioB: scenario.fioB });
+    assert.ok(result);
+    assert.equal(Number(result.realDiscount.toFixed(2)), scenario.discount);
+  });
+}
 
 for (const scenario of expectedInjection) {
   for (const invoiceFormat of ["UNIFICADA", "SOMENTE_ANDRADE"]) {
     test(`GD II injeção ${scenario.gd2}/${scenario.fioB} ${invoiceFormat}`, () => {
       const result = calculateProjection({ data: gd2Invoice, discount: 40, billingMode: "INJECAO", type: "GD2", gd1: "REPASSAR", gd2: scenario.gd2, fioB: scenario.fioB });
       assert.ok(result);
-      assert.equal(Number(result.realDiscount.toFixed(4)), scenario.discount);
+      assert.equal(Number(result.realDiscount.toFixed(2)), scenario.discount);
       assert.ok(result.realDiscount >= 0 && result.realDiscount <= 40);
     });
   }

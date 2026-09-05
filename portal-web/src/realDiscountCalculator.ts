@@ -44,7 +44,6 @@ export function calculateProjection({ data, discount, billingMode, type, gd1, gd
   if (!data) return null;
   let fullTariff = numberFrom(data, "tarifa_cheia", "tarifaCheia");
   const utilityTotal = numberFrom(data, "valor_cemig", "valorCemig", "valor_concessionaria", "valorConcessionaria", "valor_total", "valorTotal");
-  const utilityEnergyValue = numberFrom(data, "valor_energia_concessionaria", "valorEnergiaConcessionaria") || utilityTotal;
   const gd1Energy = numberFrom(data, "energia_compensada_gd1", "energiaCompensadaGD1"), gd2Energy = numberFrom(data, "energia_compensada_gd2", "energiaCompensadaGD2");
   const compensatedEnergy = numberFrom(data, "energia_compensada", "energiaCompensada") || gd1Energy + gd2Energy;
   const injectedEnergy = numberFrom(data, "energia_injetada", "energiaInjetada"), mode = String(billingMode ?? "COMPENSACAO").toUpperCase();
@@ -67,7 +66,11 @@ export function calculateProjection({ data, discount, billingMode, type, gd1, gd
   const absorbedAvailability = (usesGd2 ? gd2 === "ABSORVER" : usesGd1 && gd1 === "ABSORVER") ? availabilityCost : 0, absorbedWireB = usesGd2 && fioB === "ABSORVER" ? wireBCost : 0;
   const reference = Math.max(0, baseKwh * fullTariff); if (reference <= 0) return null;
   const andradeValue = Math.max(0, reference * (1 - discount / 100) - absorbedAvailability - absorbedWireB);
-  const projectedUtilityEnergy = projectedConsumption > 0 ? availabilityCost + wireBCost : utilityEnergyValue;
+  // A comparação energética considera na concessionária somente as parcelas
+  // convencionais que existem por causa da GD. Usar valor_cemig/valor_total
+  // aqui duplicava iluminação, bandeira e outros encargos e derrubava a web
+  // para 5,01%, embora a mesma configuração fosse 22,78% no app.
+  const projectedUtilityEnergy = availabilityCost + wireBCost;
   const contractedSaving = reference * discount / 100, savings = Math.min(contractedSaving, Math.max(0, reference - (projectedUtilityEnergy + andradeValue)));
   return { savings, discountBase: reference, realDiscount: Math.min(discount, savings / reference * 100), availabilityCost, wireBCost, absorbedAvailability, absorbedWireB, estimatedWireB: savedWireB <= 0 && gd2Tariff <= 0 && wireBCost > 0, usesGd2 };
 }
