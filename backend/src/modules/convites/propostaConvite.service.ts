@@ -57,7 +57,7 @@ export function calcularPropostaComercial(entrada: EntradaCalculoProposta) {
   return { base, disponibilidade, fioB, valorAndrade, totalProjetado, economiaMensal, descontoReal };
 }
 
-export async function obterPropostaParaConvite(clienteId: string, empresaId: string) {
+export async function obterPropostaParaConvite(clienteId: string, empresaId: string, unidadeId?: string) {
   const [{ data: cliente }, { data: unidades }, { data: anexos }, { data: empresa }, usinas] = await Promise.all([
     supabase.from("clientes").select("*").eq("id", clienteId).eq("empresa_id", empresaId).maybeSingle(),
     supabase.from("unidades_consumidoras").select("*").eq("cliente_id", clienteId).eq("empresa_id", empresaId).eq("status", "ATIVA").order("created_at"),
@@ -65,7 +65,9 @@ export async function obterPropostaParaConvite(clienteId: string, empresaId: str
     supabase.from("empresas").select("*").eq("id", empresaId).maybeSingle(),
     listarUsinasService(empresaId),
   ]);
-  const unidade = (unidades ?? []).find((item: any) => String(item.numero) === String(cliente?.uc)) ?? unidades?.[0];
+  const unidade = (unidades ?? []).find((item: any) => unidadeId && item.id === unidadeId)
+    ?? (unidades ?? []).find((item: any) => String(item.numero) === String(cliente?.uc))
+    ?? unidades?.[0];
   if (!cliente || !unidade) return null;
   const anexo = (anexos ?? []).find((item: any) => String(item.dados_fatura?.uc ?? "").replace(/\D/g, "") === String(unidade.numero).replace(/\D/g, "")) ?? anexos?.[0];
   const dados = anexo?.dados_fatura ?? {};

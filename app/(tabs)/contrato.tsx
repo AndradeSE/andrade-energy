@@ -27,6 +27,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import ClienteHeader from "../../components/cliente/ClienteHeader";
 import {
   cancelarContrato,
+  baixarPropostaDaUnidade,
   importarContratoAssinadoPeloCliente,
   registrarAceiteEletronico,
 } from "../../services/contratos.service";
@@ -98,6 +99,14 @@ export default function Contrato() {
     data.contrato_assinado_url ?? data.contrato_gerado_url ?? data.arquivo_pdf;
   const aceiteRegistrado = Boolean(data.aceite_cliente_em);
   const pdfAssinadoEnviado = Boolean(data.contrato_assinado_url);
+  const [abrindoProposta, setAbrindoProposta] = useState(false);
+
+  async function abrirProposta() {
+    if (!unidadeSelecionada?.id) return Alert.alert("Selecione a unidade", "Escolha a UC antes de abrir sua proposta.");
+    try { setAbrindoProposta(true); const uri = await baixarPropostaDaUnidade(unidadeSelecionada.id); await Linking.openURL(uri); }
+    catch (erro: any) { Alert.alert("Proposta indisponível", erro?.response?.data?.message ?? "Não foi possível gerar a proposta desta UC."); }
+    finally { setAbrindoProposta(false); }
+  }
 
   async function abrirContrato() {
     if (!arquivoContrato) {
@@ -307,6 +316,7 @@ export default function Contrato() {
         </View>
 
         <Text style={styles.sectionTitle}>Resumo do contrato</Text>
+        <TouchableOpacity activeOpacity={0.84} disabled={abrindoProposta} onPress={() => void abrirProposta()} style={styles.proposalLink}><Ionicons name="document-attach-outline" size={21} color={Colors.primary} /><View style={{ flex: 1 }}><Text style={styles.proposalTitle}>Proposta comercial da UC</Text><Text style={styles.proposalSubtitle}>PDF com desconto e projeção de economia desta unidade.</Text></View><Ionicons name="download-outline" size={20} color={Colors.primary} /></TouchableOpacity>
 
         <Card>
           <InfoRow
@@ -630,6 +640,9 @@ const styles = StyleSheet.create({
     fontSize: Typography.caption,
     fontWeight: "700",
   },
+  proposalLink: { minHeight: 76, flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.lg, backgroundColor: "#E9F5EF" },
+  proposalTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "800" },
+  proposalSubtitle: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.caption, lineHeight: 18 },
   infoRow: {
     minHeight: 62,
     flexDirection: "row",

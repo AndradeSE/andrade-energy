@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 
 import {
     Colors
@@ -7,11 +7,13 @@ import {
 type Props = {
   name: string;
   size?: number;
+  uri?: string;
 };
 
 export default function Avatar({
   name,
   size = 52,
+  uri,
 }: Props) {
   const initials = name
     .trim()
@@ -32,7 +34,7 @@ export default function Avatar({
         },
       ]}
     >
-      <Text
+      {uri ? <Image source={{ uri }} style={styles.image} /> : <Text
         style={[
           styles.text,
           {
@@ -41,7 +43,7 @@ export default function Avatar({
         ]}
       >
         {initials}
-      </Text>
+      </Text>}
     </View>
   );
 }
@@ -57,4 +59,5 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "700",
   },
+  image: { width: "100%", height: "100%", borderRadius: 999 },
 });

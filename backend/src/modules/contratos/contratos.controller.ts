@@ -1,6 +1,16 @@
 import { Request, Response } from "express";
 
 import * as ContratosService from "./contratos.service";
+import { obterPropostaParaConvite } from "../convites/propostaConvite.service";
+import { supabase } from "../../config/supabase";
+
+export async function propostaDaUnidadeController(req: any, res: any) {
+  const { data: unidade, error } = await supabase.from("unidades_consumidoras").select("id,cliente_id").eq("id", req.params.unidadeId).eq("empresa_id", req.usuario.empresa_id).single();
+  if (error || !unidade?.cliente_id) return res.status(404).json({ message: "Unidade não encontrada." });
+  const proposta = await obterPropostaParaConvite(unidade.cliente_id, req.usuario.empresa_id, unidade.id);
+  if (!proposta) return res.status(404).json({ message: "Dados insuficientes para gerar a proposta desta UC." });
+  return res.json({ filename: proposta.filename, base64: proposta.content.toString("base64") });
+}
 import { empresaIdDaRequisicao, garantirRegistroDaEmpresa, incluirEmpresa } from "../../utils/empresaScope";
 
 export async function buscarContratoController(

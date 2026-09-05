@@ -1323,15 +1323,17 @@ const styles =
       borderRadius:
         Radius.xl,
       backgroundColor:
-        "#F2F8F4",
+        "#FFFFFF",
+      borderWidth: 1,
+      borderColor: "#D4E5DC",
       shadowColor:
         "#000",
       shadowOpacity:
-        0.08,
-      shadowRadius: 5,
+        0.07,
+      shadowRadius: 12,
       shadowOffset: {
         width: 0,
-        height: 2,
+        height: 4,
       },
       elevation: 2,
     },
@@ -1372,8 +1374,8 @@ const styles =
 
     activeBadge: {
       paddingHorizontal:
-        Spacing.md,
-      paddingVertical: 9,
+        Spacing.sm,
+      paddingVertical: 6,
       borderRadius:
         Radius.round,
       backgroundColor:

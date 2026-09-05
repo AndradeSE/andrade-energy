@@ -12,6 +12,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  Image,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -36,6 +37,7 @@ import MenuItem from "./MenuItem";
 import PortalBrandLogo from "../brand/PortalBrandLogo";
 import { notificarAvisosNoAndroid } from "../../services/carteira-notificacoes.service";
 import { useHeaderDetailsVisibility } from "../../hooks/useHeaderDetailsVisibility";
+import { useProfilePhoto } from "../../hooks/useProfilePhoto";
 
 type Props = {
   cliente: string;
@@ -76,6 +78,7 @@ export default function ClienteHeader({
     useAuth();
 
   const usuarioId = usuario?.id ? String(usuario.id) : undefined;
+  const fotoPerfil = useProfilePhoto(usuarioId);
   const leituras = useReadNotifications(usuarioId);
   const notificacoes = leituras.ready ? avisosRecebidos.filter((aviso) => !leituras.ids.includes(String(aviso.id))) : [];
 
@@ -271,6 +274,7 @@ export default function ClienteHeader({
                 cliente
               }
               size={38}
+              uri={fotoPerfil}
             />
 
             <View

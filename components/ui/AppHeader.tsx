@@ -15,6 +15,7 @@ import PortalBrandLogo from "../brand/PortalBrandLogo";
 import { useEmpresa } from "../../contexts/EmpresaContext";
 import { notificarAvisosNoAndroid } from "../../services/carteira-notificacoes.service";
 import { useHeaderDetailsVisibility } from "../../hooks/useHeaderDetailsVisibility";
+import { useProfilePhoto } from "../../hooks/useProfilePhoto";
 
 function escurecerCor(hex: string, fator = 0.62) {
   const limpa = hex.replace("#", "");
@@ -62,6 +63,7 @@ export default function AppHeader({
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
   const [avisosRecebidos, setNotificacoes] = useState<any[]>([]);
   const usuarioId = usuario?.id ? String(usuario.id) : undefined;
+  const fotoPerfil = useProfilePhoto(usuarioId);
   const leituras = useReadNotifications(usuarioId);
   const notificacoes = leituras.ready ? avisosRecebidos.filter((aviso) => !leituras.ids.includes(String(aviso.id))) : [];
   const [autonomia, setAutonomia] = useState<{ percentual: number; disponivel: number } | null>(null);
@@ -171,7 +173,7 @@ export default function AppHeader({
         </TouchableOpacity>
 
         <TouchableOpacity accessibilityLabel="Abrir perfil" activeOpacity={0.8} onPress={() => router.push("/perfil")} style={styles.profileButton}>
-          <View style={[styles.avatar, { backgroundColor: corPrincipal }]}><Ionicons name={icon} size={21} color={Colors.surface} /></View>
+          <View style={[styles.avatar, { backgroundColor: corPrincipal }]}>{fotoPerfil ? <Image source={{ uri: fotoPerfil }} style={styles.profilePhoto} /> : <Ionicons name={icon} size={21} color={Colors.surface} />}</View>
           <View style={styles.titleContent}>
             <Text numberOfLines={1} style={styles.sectionLabel}>{title} · {subtitle}</Text>
             <View style={styles.contextTitleRow}>
@@ -302,7 +304,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: Colors.primary,
+    overflow: "hidden",
   },
+  profilePhoto: { width: "100%", height: "100%" },
 
   titleContent: {
     flex: 1,

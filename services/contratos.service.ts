@@ -1,4 +1,5 @@
 import api from "../config/api";
+import * as FileSystem from "expo-file-system/legacy";
 
 export async function buscarContrato(
   clienteId: string
@@ -56,6 +57,13 @@ export async function buscarContratoDaUnidade(
   );
 
   return data;
+}
+
+export async function baixarPropostaDaUnidade(unidadeId: string) {
+  const { data } = await api.get(`/contratos/unidade/${unidadeId}/proposta`);
+  const destino = `${FileSystem.cacheDirectory}${data.filename || `proposta-${unidadeId}.pdf`}`;
+  await FileSystem.writeAsStringAsync(destino, data.base64, { encoding: FileSystem.EncodingType.Base64 });
+  return destino;
 }
 
 export async function salvarContratoDaUnidade(
