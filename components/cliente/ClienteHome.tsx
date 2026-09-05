@@ -111,9 +111,11 @@ export default function ClienteHome() {
 
   const quantidadeEmAberto = Number(data.faturasEmAberto ?? 0);
   const valorEmAberto = Number(data.valorEmAberto ?? 0);
-  const consumo = Number(data.consumo ?? 0);
   const creditos = Number(data.creditos ?? 0);
   const energiaCompensada = Number(data.ultimaFatura?.energiaCompensada ?? 0);
+  // Backends anteriores não retornavam `consumo`. Até a atualização do
+  // serviço, a energia compensada evita que o resumo apareça zerado.
+  const consumo = Number(data.consumo ?? energiaCompensada ?? 0);
   const economiaMes = Number(data.economiaMes ?? 0);
   const economiaAcumulada = Number(data.economiaAcumulada ?? 0);
   const compensacao = consumo > 0
