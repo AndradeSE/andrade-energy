@@ -33,7 +33,6 @@ function producaoParaAlocacao(usina: any) {
 }
 
 function percentualPelaMedia(usina: any, consumo: unknown, modalidade: Modalidade) {
-  if (modalidade === "INJECAO") return "100";
   const producao = producaoParaAlocacao(usina);
   const media = numeroSeguro(consumo);
   return producao > 0 && media > 0

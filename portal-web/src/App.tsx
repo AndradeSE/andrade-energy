@@ -273,10 +273,12 @@ function ClientOverview({
   data,
   onNavigate,
   companyName,
+  onConfigureAutomaticBilling,
 }: {
   data: WebRecord | null;
   onNavigate: (section: string) => void;
   companyName: string;
+  onConfigureAutomaticBilling?: () => void;
 }) {
   const consumption = Number(data?.consumo ?? 0);
   const credits = Number(data?.creditos ?? 0);
@@ -312,6 +314,7 @@ function ClientOverview({
         { icon: "▤", label: `Faturas ${companyName}`, detail: "Cobranças e pagamentos", onClick: () => onNavigate("Faturas") },
         { icon: "⌁", label: `Fatura ${String(data?.distribuidora ?? "da concessionária")}`, detail: "Conta de energia original", onClick: () => onNavigate("Contas de luz") },
         { icon: "↥", label: "Anexar fatura da concessionária", detail: "Vincular uma conta ao seu CPF", onClick: () => onNavigate("Perfil") },
+        ...(onConfigureAutomaticBilling ? [{ icon: "✉", label: "Envio automático de faturas", detail: "Configuração única para suas UCs", onClick: onConfigureAutomaticBilling }] : []),
         { icon: "↗", label: "Economia", detail: "Histórico e evolução", onClick: () => onNavigate("Economia") },
         { icon: "≡", label: "Contrato", detail: "Dados da unidade", onClick: () => onNavigate("Contratos") },
       ]} />
@@ -1458,6 +1461,61 @@ function ManualBillingModal({ token, onClose, onSuccess }: { token: string; onCl
   return <div className="modal-backdrop"><section className="modal-card manual-billing-modal"><button className="modal-close" type="button" onClick={onClose}>×</button><span className="section-label">FINANCEIRO</span><h2>Criar fatura manualmente</h2><p>Use os valores da competência. A UC precisa estar cadastrada e vinculada a uma usina.</p><form className="commercial-form" onSubmit={submit}>{field("cliente", "Nome do cliente", true)}{field("uc", "Unidade consumidora", true)}<div className="commercial-form-row">{field("referencia", "Competência (ex.: SET/2026)", true)}{field("vencimento", "Vencimento", true, "date")}</div><div className="commercial-form-row">{field("consumo", "Consumo (kWh)", true)}{field("tarifaCheia", "Tarifa cheia por kWh", true)}</div><div className="commercial-form-row">{field("energiaCompensada", "Energia compensada (kWh)")}{field("energiaInjetada", "Energia injetada (kWh)")}</div><div className="commercial-form-row">{field("valorTotal", "Valor atual da concessionária", true)}{field("saldoAtual", "Saldo atual (kWh)")}</div>{error ? <div className="error-message">{error}</div> : null}<button className="primary-action" disabled={saving}>{saving ? "Gerando..." : "Gerar fatura"}</button></form></section></div>;
 }
 
+function AutomaticBillingModal({ token, unit, accessType, onClose }: { token: string; unit: WebRecord; accessType: AccessType; onClose: () => void }) {
+  const [receipt, setReceipt] = useState<WebRecord | null>(null);
+  const [connections, setConnections] = useState<WebRecord[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const unitId = String(unit.id ?? "");
+  const isGenerator = accessType === "GERADOR";
+  const load = useCallback(async () => {
+    if (!unitId) return;
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const [receiptResponse, connectionsResponse] = await Promise.all([
+        fetch(`${API_URL}/recebimento-faturas/unidades/${unitId}`, { headers }),
+        fetch(`${API_URL}/conexoes-email/unidades/${unitId}`, { headers }),
+      ]);
+      const receiptData = await receiptResponse.json().catch(() => ({}));
+      const connectionsData = await connectionsResponse.json().catch(() => ({}));
+      if (!receiptResponse.ok) throw new Error(receiptData.message ?? "Não foi possível carregar a configuração.");
+      setReceipt(receiptData);
+      setConnections(Array.isArray(connectionsData.conexoes) ? connectionsData.conexoes : []);
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : "Não foi possível carregar a configuração.");
+    }
+  }, [token, unitId]);
+  useEffect(() => { void load(); }, [load]);
+
+  async function toggle(active: boolean) {
+    setBusy(true); setMessage("");
+    try {
+      const endpoint = isGenerator
+        ? `/recebimento-faturas/geral/${active ? "ativar" : "desativar"}`
+        : `/recebimento-faturas/unidades/${unitId}/${active ? "ativar" : "desativar"}`;
+      const response = await fetch(`${API_URL}${endpoint}`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message ?? "Não foi possível salvar a configuração.");
+      setMessage(data.mensagem ?? (active ? "Recebimento automático ativado." : "Recebimento automático desativado."));
+      await load();
+    } catch (reason) { setMessage(reason instanceof Error ? reason.message : "Não foi possível salvar."); }
+    finally { setBusy(false); }
+  }
+  async function connect(provider: "GMAIL" | "OUTLOOK") {
+    setBusy(true); setMessage("");
+    try {
+      const response = await fetch(`${API_URL}/conexoes-email/unidades/${unitId}/iniciar`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ provedor: provider, app: accessType }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.url) throw new Error(data.message ?? "Não foi possível iniciar a conexão.");
+      window.open(String(data.url), "_blank", "noopener,noreferrer");
+      setMessage(`Conclua a autorização do ${provider === "GMAIL" ? "Gmail" : "Outlook"} na nova aba.`);
+    } catch (reason) { setMessage(reason instanceof Error ? reason.message : "Não foi possível conectar o e-mail."); }
+    finally { setBusy(false); }
+  }
+  const active = Boolean(receipt?.ativo);
+  return <div className="modal-backdrop"><section className="modal-card automatic-billing-modal"><button className="modal-close" type="button" onClick={onClose}>×</button><span className="section-label">FATURA AUTOMÁTICA</span><h2>Uma configuração para todas as UCs</h2><p>{isGenerator ? "A configuração é única e atende todas as UCs cuja titularidade está definida como Gerador." : "Esta opção está disponível porque a titularidade das UCs foi definida como Consumidor pelo gerador."}</p><div className="automatic-scope"><b>✓</b><span><strong>{isGenerator ? "Todas as UCs elegíveis da operação" : "Todas as UCs vinculadas ao seu perfil"}</strong><small>O sistema lê o PDF e identifica automaticamente a unidade correta.</small></span></div>{receipt?.configurado === false ? <div className="error-message">O domínio de recebimento ainda não foi configurado no servidor.</div> : <><div className={`automatic-status ${active ? "active" : ""}`}><span><small>STATUS</small><strong>{active ? "Recebimento automático ativo" : "Recebimento automático desativado"}</strong></span><button disabled={busy} onClick={() => void toggle(!active)}>{busy ? "Salvando..." : active ? "Desativar" : "Ativar para todas"}</button></div>{active && receipt?.endereco ? <section className="email-setup-card"><div className="email-setup-heading"><span className="email-setup-icon">✉</span><div><small>ENDEREÇO EXCLUSIVO</small><strong>Encaminhe as contas para este endereço</strong><p>Use uma única regra de e-mail. Os PDFs das UCs do escopo serão reconhecidos automaticamente.</p></div></div><button className="automatic-address" type="button" onClick={() => { void navigator.clipboard.writeText(String(receipt.endereco)); setMessage("Endereço copiado."); }}><code>{String(receipt.endereco)}</code><span>Copiar</span></button><ol><li>Conecte a conta do Gmail ou Outlook que recebe as faturas.</li><li>Encaminhe somente mensagens da concessionária que contenham PDF.</li><li>A fatura será vinculada à UC identificada no documento.</li></ol><div className="email-provider-actions"><button disabled={busy} onClick={() => void connect("GMAIL")}>Conectar Gmail</button><button disabled={busy} onClick={() => void connect("OUTLOOK")}>Conectar Outlook</button></div>{connections.length ? <div className="automatic-connections">{connections.map((connection) => <span key={String(connection.id)}><b>{String(connection.provedor)}</b> · {String(connection.email ?? connection.status ?? "Conectado")}</span>)}</div> : null}</section> : null}</>}{message ? <div className="automatic-message">{message}</div> : null}</section></div>;
+}
+
 function UnitTools({
   unit,
   token,
@@ -1652,10 +1710,10 @@ function UnitTools({
           repassarDiferencaFioBGD2: allocation.fioB === "REPASSAR",
           tipoGd: allocation.tipoGd || undefined,
           faturaSomenteAndrade: allocation.formatoFatura === "SOMENTE_ANDRADE",
-          // Na compensação, a alocação oficial é consumo médio + 15% dividido
-          // pela geração média da usina. A web não deve persistir o antigo
-          // padrão de 100%, que fazia o painel mostrar a usina toda ocupada.
-          calcularAutomaticamente: allocation.modalidade === "COMPENSACAO",
+          // A alocação oficial é consumo médio + 15% dividido pela geração
+          // média da usina em ambas as modalidades. Assim, 100% do consumo
+          // não é confundido com 100% da produção total da usina.
+          calcularAutomaticamente: true,
         }),
       },
     );
@@ -1695,7 +1753,7 @@ function UnitTools({
           : "Aguardando a primeira fatura";
   const projectedPlantProduction = Number(selectedPlant?.producao_media_12_meses ?? selectedPlant?.geracao_media ?? 0);
   useEffect(() => {
-    if (!editOpen || allocation.modalidade !== "COMPENSACAO") return;
+    if (!editOpen) return;
     const consumo = Math.max(0, Number(String(allocation.consumoMedio).replace(",", ".")) || 0);
     if (projectedPlantProduction <= 0 || consumo <= 0) return;
     const calculado = Math.min(100, consumo * 1.15 / projectedPlantProduction * 100).toFixed(2);
@@ -2878,12 +2936,31 @@ function PortalHome({
   const [globalSearchFeedback, setGlobalSearchFeedback] = useState("");
   const [actionOpen, setActionOpen] = useState(false);
   const [manualBillingOpen, setManualBillingOpen] = useState(false);
+  const [automaticBillingUnit, setAutomaticBillingUnit] = useState<WebRecord | null>(null);
+  const [consumerAutomaticBillingUnit, setConsumerAutomaticBillingUnit] = useState<WebRecord | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<WebRecord | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [walletHome, setWalletHome] = useState<WalletSummary | null>(null);
   const [walletNotice, setWalletNotice] = useState(false);
   const [company, setCompany] = useState<PortalCompany>(DEFAULT_COMPANY);
   const isCommercialWorkspace = type === "GERADOR" && session.usuario?.perfil === "ADMIN" && workspace === "COMERCIAL";
+
+  const plantOf = (unit: WebRecord) => Array.isArray(unit.usinas) ? unit.usinas[0] as WebRecord | undefined : unit.usinas as WebRecord | undefined;
+  const hasAutomaticBillingOwnership = (unit: WebRecord, ownership: "GERADOR" | "CLIENTE") =>
+    String(unit.tipo ?? "BENEFICIARIA").toUpperCase() !== "GERADORA" &&
+    String(plantOf(unit)?.titularidade_ucs_recebedoras ?? "GERADOR").toUpperCase() === ownership;
+
+  useEffect(() => {
+    if (type !== "CONSUMIDOR" || !session.token) return;
+    void fetch(`${API_URL}/clientes/minhas-unidades`, { headers: { Authorization: `Bearer ${session.token}` } })
+      .then(async (response) => response.ok ? response.json() : Promise.reject())
+      .then((payload) => {
+        const units = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+        const eligible = units.find((unit: WebRecord) => hasAutomaticBillingOwnership(unit, "CLIENTE"));
+        setConsumerAutomaticBillingUnit(eligible ?? null);
+      })
+      .catch(() => setConsumerAutomaticBillingUnit(null));
+  }, [session.token, type]);
 
   useEffect(() => {
     if (!session.token) return;
@@ -2964,18 +3041,31 @@ function PortalHome({
 
   async function openAutomaticBilling() {
     if (!session.token) return;
+    if (type === "CONSUMIDOR") {
+      if (consumerAutomaticBillingUnit?.id) {
+        setAutomaticBillingUnit(consumerAutomaticBillingUnit);
+        return;
+      }
+      window.alert("O envio automático fica disponível quando a titularidade das UCs é definida como Consumidor pelo gerador.");
+      return;
+    }
     try {
       const response = await fetch(`${API_URL}/clientes/unidades`, { headers: { Authorization: `Bearer ${session.token}` } });
       const payload = await response.json().catch(() => []);
       if (!response.ok) throw new Error(payload?.message ?? "Não foi possível carregar as unidades.");
       const units = Array.isArray(payload) ? payload : payload?.data ?? [];
-      const unit = units.find((item: WebRecord) => {
-        const plant = Array.isArray(item.usinas) ? item.usinas[0] : item.usinas;
-        return String(item.tipo ?? "BENEFICIARIA").toUpperCase() !== "GERADORA" && String(plant?.titularidade_ucs_recebedoras ?? "GERADOR").toUpperCase() === "GERADOR";
-      });
+      const eligible = units.filter((item: WebRecord) => hasAutomaticBillingOwnership(item, "GERADOR"));
+      let unit = eligible.find((item: WebRecord) => Boolean(item.recebimento_email_ativo)) ?? eligible[0];
+      if (unit?.id && !unit.recebimento_email_ativo) {
+        const statuses = await Promise.all(eligible.slice(0, 20).map(async (item: WebRecord) => {
+          const statusResponse = await fetch(`${API_URL}/recebimento-faturas/unidades/${item.id}`, { headers: { Authorization: `Bearer ${session.token}` } });
+          const status = statusResponse.ok ? await statusResponse.json() : null;
+          return { item, status };
+        }));
+        unit = statuses.find(({ status }) => status?.ativo)?.item ?? unit;
+      }
       if (!unit?.id) { window.alert("Cadastre e vincule uma UC recebedora a uma usina antes de configurar o e-mail."); return; }
-      setActiveSection("Unidades consumidoras");
-      setSelectedRecord(unit);
+      setAutomaticBillingUnit(unit);
     } catch (reason) { window.alert(reason instanceof Error ? reason.message : "Não foi possível abrir a configuração."); }
   }
 
@@ -3309,7 +3399,7 @@ function PortalHome({
           </div>
           {activeSection === "Visão geral" ? (
             type === "CONSUMIDOR" ? (
-              <ClientOverview data={dashboard} onNavigate={setActiveSection} companyName={company.nome} />
+              <ClientOverview data={dashboard} onNavigate={setActiveSection} companyName={company.nome} onConfigureAutomaticBilling={consumerAutomaticBillingUnit?.id ? () => void openAutomaticBilling() : undefined} />
             ) : (
               <>
                 <PortalQuickAccess storageKey="gerador-home" items={[
@@ -3633,6 +3723,7 @@ function PortalHome({
             />
           ) : null}
           {manualBillingOpen && session.token ? <ManualBillingModal token={session.token} onClose={() => setManualBillingOpen(false)} onSuccess={() => { setRefreshKey((value) => value + 1); setActiveSection("Faturas"); }} /> : null}
+          {automaticBillingUnit?.id && session.token ? <AutomaticBillingModal token={session.token} unit={automaticBillingUnit} accessType={type} onClose={() => setAutomaticBillingUnit(null)} /> : null}
         </section>
       </div>
     </main>

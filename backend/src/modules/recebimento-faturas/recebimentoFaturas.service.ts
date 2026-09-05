@@ -661,10 +661,14 @@ async function processarRegistro(registro: any) {
         .from("unidades_consumidoras")
         .select("id, numero, tipo, usina_id, cliente_id, empresa_id, cpf_titular, clientes(cpf)")
         .eq("empresa_id", unidadeConfiguracao.empresa_id)
-        .eq("usina_id", unidadeConfiguracao.usina_id)
         .eq("status", "ATIVA")
         .eq("tipo", "BENEFICIARIA");
-      if (titularidade === "CLIENTE") consultaUnidades = consultaUnidades.eq("cliente_id", unidadeConfiguracao.cliente_id);
+      // Uma única configuração atende todo o escopo da titularidade. Para o
+      // gerador, o PDF pode pertencer a qualquer UC sob gestão da empresa. No
+      // consumidor, o escopo permanece restrito às UCs do próprio cliente.
+      if (titularidade === "CLIENTE") {
+        consultaUnidades = consultaUnidades.eq("cliente_id", unidadeConfiguracao.cliente_id);
+      }
       const { data: unidadesDoEscopo, error: erroEscopo } = await consultaUnidades;
       if (erroEscopo) throw erroEscopo;
       const candidatas = (unidadesDoEscopo?.length ? unidadesDoEscopo : [unidadeConfiguracao]) as any[];

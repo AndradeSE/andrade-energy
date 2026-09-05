@@ -25,15 +25,14 @@ export function calcularAlocacaoProjetada(unidades: any[], energiaGerada: number
   const solicitada = (unidades ?? []).reduce((total, unidade) => {
     const percentual = Math.max(0, Math.min(100, Number(unidade.percentual_rateio ?? 0)));
     const consumoMedio = Math.max(0, Number(unidade.consumo_medio_kwh ?? 0));
-    const modalidade = String(unidade.modalidade_faturamento ?? "COMPENSACAO").toUpperCase();
 
-    // Em compensação, o rateio é calculado pela necessidade da UC. Não use o
-    // percentual antigo salvo (muitos cadastros herdaram 100%), pois isso
-    // ocupa artificialmente toda a geração da usina no painel. Em injeção, a
-    // cota percentual continua sendo a fonte oficial da alocação.
-    const reserva = modalidade === "INJECAO"
-      ? gerada * percentual / 100
-      : consumoMedio * 1.15;
+    // O percentual representa quanto do consumo da UC será atendido. Cadastros
+    // automáticos de injeção herdaram 100% e isso não significa reservar 100%
+    // da usina. A autonomia deve partir da demanda mensal da UC, com a margem
+    // operacional de 15%, em ambas as modalidades.
+    const reserva = consumoMedio > 0
+      ? consumoMedio * 1.15
+      : gerada * percentual / 100;
     return total + Math.min(gerada, reserva);
   }, 0);
   const energiaAlocada = Math.min(gerada, solicitada);
@@ -354,16 +353,12 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
     : 0;
   let producaoMedia = 0;
   if (calcularAutomaticamente) {
-    if (modalidade === "INJECAO") {
-      percentual = 100;
-    } else {
-      producaoMedia = await calcularProducaoMedia12Meses(usinaId);
-      percentual = producaoMedia > 0 && consumoMedio > 0
-        // Mantém uma margem de 15% acima do consumo médio para a UC não
-        // ficar subalocada quando houver oscilação mensal de consumo.
-        ? Math.min(100, consumoMedio * 1.15 / producaoMedia * 100)
-        : 0;
-    }
+    producaoMedia = await calcularProducaoMedia12Meses(usinaId);
+    percentual = producaoMedia > 0 && consumoMedio > 0
+      // Mantém uma margem de 15% acima do consumo médio para a UC não
+      // ficar subalocada quando houver oscilação mensal de consumo.
+      ? Math.min(100, consumoMedio * 1.15 / producaoMedia * 100)
+      : 0;
   } else if (!Number.isFinite(percentualInformado) || percentualInformado <= 0 || percentualInformado > 100) {
     throw new Error("Informe um percentual entre 0,01% e 100%.");
   }

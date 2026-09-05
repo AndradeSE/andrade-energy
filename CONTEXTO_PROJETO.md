@@ -1,5 +1,12 @@
 # Andrade Energy — contexto do projeto
 
+## Autonomia e organização do Gerador — 05/09/2026
+
+- A ocupação da usina agora parte da demanda de cada UC (`consumo médio × 1,15`) tanto em compensação quanto em injeção. O indicador de 100% no cadastro de injeção representa atendimento integral do consumo e não reserva a produção inteira da usina.
+- Com os dados atuais (271 kWh e 76 kWh em uma usina de 14.000 kWh), a reserva calculada é 399,05 kWh, a ocupação 2,85% e a autonomia 13.600,95 kWh. Três testes do backend cobrem compensação, injeção e soma das UCs.
+- Cadastro e edição de UC nos apps e na web solicitam o cálculo automático; a prévia recalcula o percentual quando consumo ou usina mudam.
+- Na home do Gerador, **Evolução dos recebimentos** fica imediatamente abaixo do card da carteira. A tela **Operação** agrupa o fechamento e a conferência em cards para eliminar textos soltos.
+
 ## Alocação e projeção web — 05/09/2026
 
 - `890b563`: projeção web usa disponibilidade + Fio B na comparação energética. Matriz de compensação GD2 validada: 22,78%, 26,69%, 36,08% e 40%; 22 testes web passaram. O formulário solicita alocação automática em compensação.

@@ -258,6 +258,11 @@ export default function DashboardGestor() {
           </Pressable>
         ) : null}
 
+        <RevenueChart
+          previsto={data.receitaPrevista}
+          recebido={data.receitaRealizada}
+        />
+
         <View style={styles.overviewCard}>
           <View style={styles.overviewHeading}>
             <View style={styles.overviewIcon}>
@@ -379,10 +384,6 @@ export default function DashboardGestor() {
           </Pressable>
         </View>
 
-        <RevenueChart
-          previsto={data.receitaPrevista}
-          recebido={data.receitaRealizada}
-        />
       </ScrollView>
     </Screen>
   );
