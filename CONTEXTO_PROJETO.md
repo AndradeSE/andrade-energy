@@ -4,10 +4,12 @@
 
 - `890b563`: projeção web usa disponibilidade + Fio B na comparação energética. Matriz de compensação GD2 validada: 22,78%, 26,69%, 36,08% e 40%; 22 testes web passaram. O formulário solicita alocação automática em compensação.
 - `7d09225`: alocação projetada da usina usa consumo médio × 1,15 para compensação, evitando que percentual legado de 100% ocupe toda a geração. Injeção utiliza o percentual configurado. Teste: 271 kWh / usina 14.000 kWh reserva 311,65 kWh, ocupação 2,23%. Build backend e dois testes compilados passaram.
-- Ambos os commits foram enviados para origin/main. Publicação NÃO confirmada: última consulta a /health ainda retornou commit 530277f.
-- Worktree de preparação em `.worktrees/sites-portal`, branch `codex/sites-portal`, commit 6e75bf5786c915e15566001d7c46ca73a4c81994 enviado ao GitHub. Build local passou, mas NÃO foi publicado. O identificador legado de Sites appgprj_6a8dde88c4548191ac12362f730720a6 retornou "Sites project not found" na conta conectada. Não presumir que essa branch corresponda à fonte ativa do domínio; confirmar o projeto e repositório remoto de Sites antes de publicar.
+- Os commits foram enviados para origin/main. O Render ainda exige deploy manual: a última consulta pública a `/health` continuou retornando o commit antigo `530277f`.
+- Portal web publicado no Sites como versão 3, fonte `6e75bf5786c915e15566001d7c46ca73a4c81994`, deployment `appgdep_6a9c473f6a5481919c5ca9542ca6dfee` concluído com sucesso. URL do projeto: `https://andrade-energy.jpmuller-contabil.chatgpt.site`.
+- O domínio `www.andradeenergy.com.br` aponta para `custom-domains.chatgpt.site`, mas ainda entregava o bundle anterior `index-DjVAuTnh.js` logo após a publicação. Verificar o vínculo/cache do domínio se não atualizar.
+- OTA Gerador publicada no canal `preview-gerador`, runtime `1.0.0`, grupo `85026c2c-dfd2-4ed0-9c5e-90e0d23e18e6`, update Android `01a0726c-1346-760f-9655-b3ec3e5d4d13`, commit `5681d8f`.
 - A preparação da branch Sites incorporou também alterações locais de recebimento automático de App.tsx. Revisar seu escopo antes de publicar. As mudanças locais originais em main permanecem preservadas.
-- Controle do navegador indisponível: inicialização CUA falha com "failed to write kernel assets" (os error 3). Deploy manual do Render ainda necessário para aplicar backend; acesso à conta proprietária de Sites necessário para publicação web.
+- Controle do navegador indisponível: inicialização CUA falha com "failed to write kernel assets" (os error 3). Deploy manual do Render ainda necessário para aplicar o backend.
 
 ## Lista de UCs, contas vinculadas e tutoriais web — 31/08/2026
 
