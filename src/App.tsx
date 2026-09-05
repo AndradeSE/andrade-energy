@@ -1710,10 +1710,10 @@ function UnitTools({
           repassarDiferencaFioBGD2: allocation.fioB === "REPASSAR",
           tipoGd: allocation.tipoGd || undefined,
           faturaSomenteAndrade: allocation.formatoFatura === "SOMENTE_ANDRADE",
-          // Na compensação, a alocação oficial é consumo médio + 15% dividido
-          // pela geração média da usina. A web não deve persistir o antigo
-          // padrão de 100%, que fazia o painel mostrar a usina toda ocupada.
-          calcularAutomaticamente: allocation.modalidade === "COMPENSACAO",
+          // A alocação oficial é consumo médio + 15% dividido pela geração
+          // média da usina em ambas as modalidades. Assim, 100% do consumo
+          // não é confundido com 100% da produção total da usina.
+          calcularAutomaticamente: true,
         }),
       },
     );
@@ -1753,7 +1753,7 @@ function UnitTools({
           : "Aguardando a primeira fatura";
   const projectedPlantProduction = Number(selectedPlant?.producao_media_12_meses ?? selectedPlant?.geracao_media ?? 0);
   useEffect(() => {
-    if (!editOpen || allocation.modalidade !== "COMPENSACAO") return;
+    if (!editOpen) return;
     const consumo = Math.max(0, Number(String(allocation.consumoMedio).replace(",", ".")) || 0);
     if (projectedPlantProduction <= 0 || consumo <= 0) return;
     const calculado = Math.min(100, consumo * 1.15 / projectedPlantProduction * 100).toFixed(2);
