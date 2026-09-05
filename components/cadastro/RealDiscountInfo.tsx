@@ -221,7 +221,9 @@ function obterConsumoProjetado(dados: Record<string, any> | null | undefined) {
 }
 
 function competenciaOrdenavel(valor: unknown) {
-  const texto = String(valor ?? "").trim();
+  const texto = String(valor ?? "").trim().toUpperCase();
+  const nomeMes = /^(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\/(\d{2}|\d{4})$/.exec(texto);
+  if (nomeMes) return Number(nomeMes[2].length === 2 ? `20${nomeMes[2]}` : nomeMes[2]) * 100 + ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"].indexOf(nomeMes[1]) + 1;
   const iso = /^(\d{4})[-/](\d{1,2})/.exec(texto);
   if (iso) return Number(iso[1]) * 100 + Number(iso[2]);
   const br = /^(\d{1,2})[-/](\d{4})/.exec(texto);
@@ -306,7 +308,7 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   const tarifaGd2 = n(dados, "tarifa_gd", "tarifaGD2", "tarifaGD") || tarifaGd2Referencia;
   const energiaBaseFioB = energiaGD2 > 0 ? energiaGD2 : consumoIntegralProjetado;
   const usaGD2 = tipoGd === "GD2" || tipoGd === "MISTA" || energiaGD2 > 0;
-  const diferencaFioB = diferencaSalva > 0
+  const diferencaFioB = !usaGD2 ? 0 : diferencaSalva > 0
     ? diferencaSalva
     : energiaBaseFioB > 0 && tarifaScee > tarifaGd2 && tarifaGd2 > 0
       ? energiaBaseFioB * (tarifaScee - tarifaGd2)

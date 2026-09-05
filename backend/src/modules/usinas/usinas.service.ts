@@ -10,6 +10,7 @@ import { supabase } from "../../config/supabase";
 import { extrairTextoPDF } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
 import type { FaturaExtraida } from "../../types/FaturaExtraida";
+import { montarHistoricoTarifasGd2 } from "./tarifasReferencia";
 
 const meses: Record<string, string> = { JAN: "01", FEV: "02", MAR: "03", ABR: "04", MAI: "05", JUN: "06", JUL: "07", AGO: "08", SET: "09", OUT: "10", NOV: "11", DEZ: "12" };
 
@@ -119,9 +120,9 @@ export async function listarUsinasService(empresaId?: string) {
       const [dashboard, producaoMedia12Meses, unidades, tarifasGd2] = await Promise.all([
         buscarDashboardUsina(usina.id, empresaId),
         calcularProducaoMedia12Meses(usina.id),
-        supabase.from("unidades_consumidoras").select("id,percentual_rateio,modalidade_faturamento,consumo_medio_kwh", { count: "exact" }).eq("usina_id", usina.id).eq("status", "ATIVA").neq("tipo", "GERADORA"),
+        supabase.from("unidades_consumidoras").select("id,numero,cliente_id,percentual_rateio,modalidade_faturamento,consumo_medio_kwh", { count: "exact" }).eq("usina_id", usina.id).eq("status", "ATIVA").neq("tipo", "GERADORA"),
         supabase.from("faturas")
-          .select("tarifa_cheia,tarifa_gd,referencia")
+          .select("*")
           .eq("usina_id", usina.id)
           .gt("tarifa_cheia", 0)
           .gt("tarifa_gd", 0)
@@ -130,11 +131,15 @@ export async function listarUsinasService(empresaId?: string) {
       ]);
       if (unidades.error) throw unidades.error;
       if (tarifasGd2.error) throw tarifasGd2.error;
-      const historicoTarifasGd2 = (tarifasGd2.data ?? []).map((item: any) => ({
-        referencia: item.referencia ?? null,
-        tarifa_scee: Number(item.tarifa_cheia ?? 0),
-        tarifa_gd2: Number(item.tarifa_gd ?? 0),
-      }));
+      const clientesIds = [...new Set((unidades.data ?? []).map((item: any) => item.cliente_id).filter(Boolean))];
+      const anexos = clientesIds.length
+        ? await supabase.from("faturas_anexadas_clientes").select("dados_fatura").in("cliente_id", clientesIds).eq("empresa_id", usina.empresa_id)
+        : { data: [], error: null };
+      if (anexos.error) throw anexos.error;
+      const numeros = new Set((unidades.data ?? []).map((item: any) => String(item.numero ?? "").replace(/\D/g, "")));
+      const originais = (anexos.data ?? []).map((item: any) => item.dados_fatura)
+        .filter((item: any) => item && numeros.has(String(item.uc ?? item.numero_instalacao ?? "").replace(/\D/g, "")));
+      const historicoTarifasGd2 = montarHistoricoTarifasGd2([...originais, ...(tarifasGd2.data ?? [])]);
       const tarifaGd2Recente = historicoTarifasGd2[0];
       const energiaDaCompetencia = Number(dashboard.ultimo?.energia_gerada ?? 0);
       const energiaProjetada = energiaDaCompetencia > 0

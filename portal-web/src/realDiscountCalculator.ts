@@ -28,6 +28,8 @@ export function projectedConsumptionFrom(data: Record<string, any> | null | unde
 }
 
 export function sortableMonth(value: unknown) {
+  const named = /^(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\/(\d{2}|\d{4})$/.exec(String(value ?? "").trim().toUpperCase());
+  if (named) return Number(named[2].length === 2 ? `20${named[2]}` : named[2]) * 100 + ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"].indexOf(named[1]) + 1;
   const text = String(value ?? "").trim(), iso = /^(\d{4})[-/](\d{1,2})/.exec(text); if (iso) return Number(iso[1]) * 100 + Number(iso[2]);
   const br = /^(\d{1,2})[-/](\d{4})/.exec(text); return br ? Number(br[2]) * 100 + Number(br[1]) : 0;
 }
@@ -60,7 +62,7 @@ export function calculateProjection({ data, discount, billingMode, type, gd1, gd
   const savedWireB = numberFrom(data, "diferenca_fio_b", "diferencaFioB") || numberFrom(data, "valor_absorvido_fio_b", "valorAbsorvidoFioB") + numberFrom(data, "diferenca_fio_b_repassada", "diferencaFioBRepassada");
   const sceeTariff = numberFrom(data, "tarifa_scee", "tarifaScee") || sceeReference || fullTariff, gd2Tariff = numberFrom(data, "tarifa_gd", "tarifaGD2", "tarifaGD") || gd2Reference;
   const wireBEnergy = gd2Energy > 0 ? gd2Energy : projectedConsumption, usesGd2 = type === "GD2" || type === "MISTA" || gd2Energy > 0;
-  const wireBCost = savedWireB > 0 ? savedWireB : wireBEnergy > 0 && sceeTariff > gd2Tariff && gd2Tariff > 0 ? wireBEnergy * (sceeTariff - gd2Tariff) : usesGd2 && wireBEnergy > 0 && sceeTariff > 0 ? wireBEnergy * sceeTariff * ESTIMATED_WIRE_B_PERCENT_WITHOUT_HISTORY : 0;
+  const wireBCost = !usesGd2 ? 0 : savedWireB > 0 ? savedWireB : wireBEnergy > 0 && sceeTariff > gd2Tariff && gd2Tariff > 0 ? wireBEnergy * (sceeTariff - gd2Tariff) : usesGd2 && wireBEnergy > 0 && sceeTariff > 0 ? wireBEnergy * sceeTariff * ESTIMATED_WIRE_B_PERCENT_WITHOUT_HISTORY : 0;
   const usesGd1 = type === "GD1" || type === "MISTA" || (!usesGd2 && gd1Energy > 0), availabilityCost = usesGd2 ? availabilityGd2 : availabilityGd1;
   const absorbedAvailability = (usesGd2 ? gd2 === "ABSORVER" : usesGd1 && gd1 === "ABSORVER") ? availabilityCost : 0, absorbedWireB = usesGd2 && fioB === "ABSORVER" ? wireBCost : 0;
   const reference = Math.max(0, baseKwh * fullTariff); if (reference <= 0) return null;
