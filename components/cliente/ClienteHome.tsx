@@ -228,7 +228,7 @@ export default function ClienteHome() {
             {
               icon: "document-text-outline",
               label: "Contrato",
-              onPress: () => router.push({ pathname: "/selecionar-unidade", params: { destino: "contrato" } }),
+              onPress: () => router.push("/contrato"),
             },
           ]}
         />
@@ -252,22 +252,18 @@ export default function ClienteHome() {
             <Text style={styles.metricLabel}>Energia recebida</Text>
             <Text style={styles.metricValue}>{energia(energiaCompensada)}</Text>
           </View>
-          <TouchableOpacity
-            activeOpacity={0.84}
-            onPress={() => router.push("/selecionar-unidade")}
-            style={styles.metricCard}
-          >
+          <View style={styles.metricCard}>
             <View style={styles.metricIcon}>
               <Ionicons name="home-outline" size={19} color={Colors.primary} />
             </View>
-            <Text style={styles.metricLabel}>Minhas unidades</Text>
+            <Text style={styles.metricLabel}>Minha unidade</Text>
             <Text numberOfLines={1} style={styles.metricValue}>
               {String(data.uc ?? "—")}
             </Text>
             <Text numberOfLines={1} style={styles.metricNote}>
               {concessionariaVigente || "Concessionária"}
             </Text>
-          </TouchableOpacity>
+          </View>
           <TouchableOpacity
             activeOpacity={0.84}
             onPress={() => router.push("/faturas")}
