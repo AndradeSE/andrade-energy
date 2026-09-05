@@ -226,7 +226,7 @@ export default function ClienteHome() {
             {
               icon: "document-text-outline",
               label: "Contrato",
-              onPress: () => router.push("/contrato"),
+              onPress: () => router.push({ pathname: "/selecionar-unidade", params: { destino: "contrato" } }),
             },
           ]}
         />

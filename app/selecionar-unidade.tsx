@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
 
 import {
@@ -54,6 +54,7 @@ import { IS_GERADOR_APP } from "../config/appVariant";
 import PortalBrandLogo from "../components/brand/PortalBrandLogo";
 
 export default function SelecionarUnidade() {
+  const { destino } = useLocalSearchParams<{ destino?: string }>();
   const { empresa } = useEmpresa();
   const corPrincipal = empresa.cor_primaria || "#087A46";
   const {
@@ -199,9 +200,7 @@ export default function SelecionarUnidade() {
         unidade.numero
       );
 
-      router.replace(
-        "/(tabs)"
-      );
+      router.replace(destino === "contrato" ? "/contrato" : "/(tabs)");
     } catch (error) {
       console.log(
         "Erro ao entrar na unidade:",

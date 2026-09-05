@@ -94,6 +94,7 @@ export default function Contrato() {
   const economiaAnual = Number(
     data.economia_anual_estimada ?? economiaMensal * 12,
   );
+  const descontoContratado = Number(data.desconto ?? 0);
   const arquivoContrato =
     data.contrato_assinado_url ?? data.contrato_gerado_url ?? data.arquivo_pdf;
   const aceiteRegistrado = Boolean(data.aceite_cliente_em);
@@ -305,6 +306,21 @@ export default function Contrato() {
             Andrade Energy · Energia por assinatura
           </Text>
         </View>
+
+        <Text style={styles.sectionTitle}>Proposta da unidade</Text>
+        <Card style={styles.proposalCard}>
+          <View style={styles.proposalHeading}>
+            <View style={styles.proposalIcon}><Ionicons name="sparkles-outline" size={21} color={Colors.primary} /></View>
+            <View style={styles.proposalCopy}>
+              <Text style={styles.proposalTitle}>Condições comerciais desta UC</Text>
+              <Text style={styles.proposalSubtitle}>A proposta permanece vinculada à unidade selecionada.</Text>
+            </View>
+          </View>
+          <View style={styles.proposalMetrics}>
+            <View style={styles.proposalMetric}><Text style={styles.proposalLabel}>DESCONTO CONTRATADO</Text><Text style={styles.proposalValue}>{descontoContratado.toLocaleString("pt-BR")}%</Text></View>
+            <View style={styles.proposalMetric}><Text style={styles.proposalLabel}>ECONOMIA ANUAL</Text><Text style={styles.proposalValue}>{economiaAnual.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</Text></View>
+          </View>
+        </Card>
 
         <Text style={styles.sectionTitle}>Resumo do contrato</Text>
 
@@ -630,6 +646,16 @@ const styles = StyleSheet.create({
     fontSize: Typography.caption,
     fontWeight: "700",
   },
+  proposalCard: { marginBottom: Spacing.lg, backgroundColor: "#E9F5EF" },
+  proposalHeading: { flexDirection: "row", alignItems: "center" },
+  proposalIcon: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: "#D4ECDD" },
+  proposalCopy: { flex: 1, marginLeft: Spacing.sm },
+  proposalTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "800" },
+  proposalSubtitle: { marginTop: 2, color: Colors.subtitle, fontSize: Typography.caption, lineHeight: 18 },
+  proposalMetrics: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.md },
+  proposalMetric: { flex: 1, minHeight: 72, padding: Spacing.sm, borderRadius: Radius.md, backgroundColor: Colors.surface },
+  proposalLabel: { color: Colors.subtitle, fontSize: 9, fontWeight: "800", letterSpacing: 0.5 },
+  proposalValue: { marginTop: 6, color: Colors.primary, fontSize: Typography.body, fontWeight: "900" },
   infoRow: {
     minHeight: 62,
     flexDirection: "row",
