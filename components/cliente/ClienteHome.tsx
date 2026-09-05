@@ -53,9 +53,16 @@ export default function ClienteHome() {
         const titularidadeDoCliente = usinaAtual?.titularidade_ucs_recebedoras === "CLIENTE";
         setRecebimentoObrigatorio(titularidadeDoCliente);
         const unidadeId = String(unidadeSelecionada?.id ?? unidadeAtual?.id ?? "");
-        setConcessionariaDaUnidade(
-          String(unidadeSelecionada?.distribuidora ?? unidadeAtual?.distribuidora ?? "").trim(),
+        const unidadeComConcessionaria = unidades?.find(
+          (unidade: any) => String(unidade?.distribuidora ?? "").trim(),
         );
+        setConcessionariaDaUnidade(String(
+          unidadeSelecionada?.distribuidora ||
+          unidadeAtual?.distribuidora ||
+          unidadeComConcessionaria?.distribuidora ||
+          cliente?.distribuidora ||
+          "",
+        ).trim());
         setUnidadeRecebimentoId(unidadeId);
         if (titularidadeDoCliente && unidadeId) {
           const status = await obterRecebimentoFaturas(unidadeId);
@@ -106,16 +113,18 @@ export default function ClienteHome() {
   const valorEmAberto = Number(data.valorEmAberto ?? 0);
   const consumo = Number(data.consumo ?? 0);
   const creditos = Number(data.creditos ?? 0);
+  const energiaCompensada = Number(data.ultimaFatura?.energiaCompensada ?? 0);
   const economiaMes = Number(data.economiaMes ?? 0);
   const economiaAcumulada = Number(data.economiaAcumulada ?? 0);
-  const compensacao =
-    consumo > 0 ? Math.min(100, Math.round((creditos / consumo) * 100)) : 0;
+  const compensacao = consumo > 0
+    ? Math.min(100, Math.round((energiaCompensada / consumo) * 100))
+    : 0;
   const moeda = (valor: number) =>
     valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const energia = (valor: number) =>
     `${valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kWh`;
   const concessionariaVigente = String(
-    unidadeSelecionada?.distribuidora ?? concessionariaDaUnidade ?? data.distribuidora ?? "",
+    unidadeSelecionada?.distribuidora || concessionariaDaUnidade || data.distribuidora || "",
   ).trim();
   const nomeEmpresa = String(empresa.nome || "Andrade Energy").trim();
   const nomeFaturaConcessionaria = concessionariaVigente
@@ -239,20 +248,24 @@ export default function ClienteHome() {
               <Ionicons name="sunny-outline" size={19} color={Colors.primary} />
             </View>
             <Text style={styles.metricLabel}>Energia recebida</Text>
-            <Text style={styles.metricValue}>{energia(creditos)}</Text>
+            <Text style={styles.metricValue}>{energia(energiaCompensada)}</Text>
           </View>
-          <View style={styles.metricCard}>
+          <TouchableOpacity
+            activeOpacity={0.84}
+            onPress={() => router.push("/selecionar-unidade")}
+            style={styles.metricCard}
+          >
             <View style={styles.metricIcon}>
               <Ionicons name="home-outline" size={19} color={Colors.primary} />
             </View>
-            <Text style={styles.metricLabel}>Minha unidade</Text>
+            <Text style={styles.metricLabel}>Minhas unidades</Text>
             <Text numberOfLines={1} style={styles.metricValue}>
               {String(data.uc ?? "—")}
             </Text>
             <Text numberOfLines={1} style={styles.metricNote}>
               {concessionariaVigente || "Concessionária"}
             </Text>
-          </View>
+          </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.84}
             onPress={() => router.push("/faturas")}

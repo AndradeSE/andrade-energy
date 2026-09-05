@@ -42,6 +42,9 @@ export async function dashboardCliente(
     : Math.min(impostosLidos, Math.max(0, valorCemig - demaisEncargos));
   const energiaEEncargosConcessionaria = Math.max(0, valorCemig - demaisEncargos - impostos);
   const economia = Number(ultima?.economia_real ?? 0);
+  const consumo = Math.max(0, Number(
+    ultima?.consumo_kwh ?? ultima?.consumo ?? ultima?.base_calculo_kwh ?? 0
+  ));
   const composicaoTarifaria = ultima?.fatura_somente_andrade
     ? [
         { id: "energia-andrade", label: "Cobrado pela Andrade", valor: Number(ultima?.valor_total ?? valorUsina), cor: "#00A86B", detalhe: "Valor efetivamente cobrado pela Andrade Energy nesta competência." },
@@ -66,6 +69,8 @@ export async function dashboardCliente(
     distribuidora: dashboard.distribuidora,
 
     creditos: dashboard.creditos,
+
+    consumo,
 
     economiaMes: Number(
       ultima?.economia_real ?? 0
