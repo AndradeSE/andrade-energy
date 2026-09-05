@@ -497,6 +497,51 @@ export default function SelecionarUnidade() {
               ? (item as UnidadeConsumidora)
               : null;
 
+          if (gestor && usina) {
+            const inativa = usina.status === "INATIVA";
+            return (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Acessar usina ${usina.nome}`}
+                onPress={() => void escolherUsina(usina)}
+                style={({ pressed }) => [styles.plantCard, pressed && styles.plantPressed]}
+              >
+                <View style={styles.plantHeading}>
+                  <View style={[styles.plantIcon, { backgroundColor: corPrincipal }]}>
+                    <Ionicons name="sunny-outline" size={27} color="#FFE16A" />
+                  </View>
+                  <View style={styles.plantIdentity}>
+                    <Text style={styles.plantEyebrow}>USINA GERADORA</Text>
+                    <Text style={styles.plantName}>{usina.nome}</Text>
+                  </View>
+                </View>
+                <View style={styles.plantStatusRow}>
+                  <View style={[styles.plantStatusDot, inativa && styles.plantInactive]} />
+                  <Text style={styles.plantStatusText}>{inativa ? "Inativa" : usina.status === "ATIVA" ? "Ativa" : "Cadastrada"}</Text>
+                  {usina.distribuidora ? <Text style={styles.plantUtility}>{usina.distribuidora}</Text> : null}
+                </View>
+                {usina.numero_instalacao ? (
+                  <View style={styles.plantDetail}>
+                    <Ionicons name="flash-outline" size={16} color="#577268" />
+                    <Text style={styles.plantDetailText}>Instalação {usina.numero_instalacao}</Text>
+                  </View>
+                ) : null}
+                {usina.endereco ? (
+                  <View style={styles.plantDetail}>
+                    <Ionicons name="location-outline" size={16} color="#577268" />
+                    <Text style={styles.plantDetailText}>{usina.endereco}</Text>
+                  </View>
+                ) : null}
+                <View style={styles.plantFooter}>
+                  <Text style={styles.plantAction}>Acessar gestão da usina</Text>
+                  <View style={[styles.plantArrow, { backgroundColor: corPrincipal }]}>
+                    <Ionicons name="arrow-forward" size={19} color="#FFFFFF" />
+                  </View>
+                </View>
+              </Pressable>
+            );
+          }
+
           const titulo =
             gestor
               ? usina!.nome
@@ -1072,6 +1117,28 @@ function DrawerItem({
 
 const styles =
   StyleSheet.create({
+    plantCard: {
+      marginBottom: 16, padding: 20, borderRadius: 22,
+      backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#D4E5DC",
+      shadowColor: "#163F30", shadowOpacity: 0.07, shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 }, elevation: 2,
+    },
+    plantPressed: { opacity: 0.85, backgroundColor: "#F1F8F4" },
+    plantHeading: { flexDirection: "row", alignItems: "center", gap: 14 },
+    plantIcon: { width: 52, height: 52, borderRadius: 17, alignItems: "center", justifyContent: "center" },
+    plantIdentity: { flex: 1, minWidth: 0 },
+    plantEyebrow: { color: "#577268", fontSize: 10, fontWeight: "700", letterSpacing: 1.2 },
+    plantName: { color: "#173D30", fontSize: 21, fontWeight: "800", marginTop: 5 },
+    plantStatusRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 7, marginTop: 18, marginBottom: 10 },
+    plantStatusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#169B63" },
+    plantInactive: { backgroundColor: "#947329" },
+    plantStatusText: { fontSize: 12, color: "#38594B", fontWeight: "600" },
+    plantUtility: { fontSize: 12, color: "#577268", marginLeft: 7, flexShrink: 1 },
+    plantDetail: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: 6 },
+    plantDetailText: { flex: 1, color: "#577268", fontSize: 13, lineHeight: 19 },
+    plantFooter: { borderTopWidth: 1, borderTopColor: "#E7EFEA", paddingTop: 14, marginTop: 17, flexDirection: "row", alignItems: "center", gap: 12 },
+    plantAction: { flex: 1, color: "#173D30", fontSize: 14, fontWeight: "700" },
+    plantArrow: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" },
     screen: {
       flex: 1,
       backgroundColor:
