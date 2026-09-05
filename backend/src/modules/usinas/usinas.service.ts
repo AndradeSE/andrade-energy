@@ -20,18 +20,20 @@ function competenciaData(referencia: string) {
   return `${ano}-${meses[mes]}-01`;
 }
 
-function calcularAlocacaoProjetada(unidades: any[], energiaGerada: number) {
+export function calcularAlocacaoProjetada(unidades: any[], energiaGerada: number) {
   const gerada = Math.max(0, Number(energiaGerada ?? 0));
   const solicitada = (unidades ?? []).reduce((total, unidade) => {
     const percentual = Math.max(0, Math.min(100, Number(unidade.percentual_rateio ?? 0)));
-    if (percentual > 0) return total + gerada * percentual / 100;
-
-    // Cadastros antigos ou recém-importados podem ainda não ter o percentual
-    // persistido. Nesse intervalo, a autonomia não pode voltar a 100%: para
-    // compensação reservamos consumo médio + 15%; para injeção, toda a cota.
     const consumoMedio = Math.max(0, Number(unidade.consumo_medio_kwh ?? 0));
     const modalidade = String(unidade.modalidade_faturamento ?? "COMPENSACAO").toUpperCase();
-    const reserva = modalidade === "INJECAO" ? gerada : consumoMedio * 1.15;
+
+    // Em compensação, o rateio é calculado pela necessidade da UC. Não use o
+    // percentual antigo salvo (muitos cadastros herdaram 100%), pois isso
+    // ocupa artificialmente toda a geração da usina no painel. Em injeção, a
+    // cota percentual continua sendo a fonte oficial da alocação.
+    const reserva = modalidade === "INJECAO"
+      ? gerada * percentual / 100
+      : consumoMedio * 1.15;
     return total + Math.min(gerada, reserva);
   }, 0);
   const energiaAlocada = Math.min(gerada, solicitada);
