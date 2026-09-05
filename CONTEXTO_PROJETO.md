@@ -4,12 +4,12 @@
 
 - `890b563`: projeção web usa disponibilidade + Fio B na comparação energética. Matriz de compensação GD2 validada: 22,78%, 26,69%, 36,08% e 40%; 22 testes web passaram. O formulário solicita alocação automática em compensação.
 - `7d09225`: alocação projetada da usina usa consumo médio × 1,15 para compensação, evitando que percentual legado de 100% ocupe toda a geração. Injeção utiliza o percentual configurado. Teste: 271 kWh / usina 14.000 kWh reserva 311,65 kWh, ocupação 2,23%. Build backend e dois testes compilados passaram.
-- Os commits foram enviados para origin/main. O Render ainda exige deploy manual: a última consulta pública a `/health` continuou retornando o commit antigo `530277f`.
+- Os commits foram enviados para origin/main. O Render atualizou e a consulta pública a `/health` confirmou o commit `5681d8f`, que contém a correção de alocação/autonomia.
 - Portal web publicado no Sites como versão 3, fonte `6e75bf5786c915e15566001d7c46ca73a4c81994`, deployment `appgdep_6a9c473f6a5481919c5ca9542ca6dfee` concluído com sucesso. URL do projeto: `https://andrade-energy.jpmuller-contabil.chatgpt.site`.
-- O domínio `www.andradeenergy.com.br` aponta para `custom-domains.chatgpt.site`, mas ainda entregava o bundle anterior `index-DjVAuTnh.js` logo após a publicação. Verificar o vínculo/cache do domínio se não atualizar.
+- O domínio `www.andradeenergy.com.br` aponta para `custom-domains.chatgpt.site`, mas continua vinculado a outro projeto Sites e entregando o bundle anterior `index-DjVAuTnh.js`. A tentativa de anexá-lo ao projeto publicado retornou `custom domain is already in use`; é necessário acessar o projeto/conta que detém o vínculo atual para trocar a publicação do domínio.
 - OTA Gerador publicada no canal `preview-gerador`, runtime `1.0.0`, grupo `85026c2c-dfd2-4ed0-9c5e-90e0d23e18e6`, update Android `01a0726c-1346-760f-9655-b3ec3e5d4d13`, commit `5681d8f`.
 - A preparação da branch Sites incorporou também alterações locais de recebimento automático de App.tsx. Revisar seu escopo antes de publicar. As mudanças locais originais em main permanecem preservadas.
-- Controle do navegador indisponível: inicialização CUA falha com "failed to write kernel assets" (os error 3). Deploy manual do Render ainda necessário para aplicar o backend.
+- Controle do navegador indisponível: inicialização CUA falha com "failed to write kernel assets" (os error 3).
 
 ## Lista de UCs, contas vinculadas e tutoriais web — 31/08/2026
 
