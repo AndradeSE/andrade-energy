@@ -14,7 +14,7 @@ export async function propostaDaUnidadeController(req: any, res: any) {
 
 export async function dadosIniciaisContratoController(req: any, res: any) {
   try {
-    const empresaId = req.usuario.empresa_id;
+    const empresaId = empresaIdDaRequisicao(req);
     const { data: unidade, error } = await supabase
       .from("unidades_consumidoras")
       .select("id,cliente_id,usina_id,desconto_percentual,usinas(id,nome,endereco,titularidade_ucs_recebedoras)")
@@ -30,9 +30,11 @@ export async function dadosIniciaisContratoController(req: any, res: any) {
     const usina = Array.isArray(unidade.usinas) ? unidade.usinas[0] : unidade.usinas as any;
     return res.json({
       locador: {
-        nome: empresa?.razao_social ?? empresa?.nome ?? req.usuario.nome ?? "Andrade Energy",
-        documento: empresa?.documento ?? req.usuario.cpf ?? "",
+        nome: req.usuario.nome ?? empresa?.razao_social ?? empresa?.nome ?? "Andrade Energy",
+        documento: req.usuario.cpf ?? empresa?.documento ?? "",
         endereco: usina?.endereco ?? "",
+        email: req.usuario.email ?? "",
+        telefone: req.usuario.telefone ?? "",
       },
       titularidadeUcs: String(usina?.titularidade_ucs_recebedoras ?? "GERADOR").toUpperCase(),
       proposta: proposta?.resumo ?? null,

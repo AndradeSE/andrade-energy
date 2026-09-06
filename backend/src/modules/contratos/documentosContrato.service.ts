@@ -42,6 +42,7 @@ export async function gerarMinutaContrato(unidadeId: string, contrato: any) {
   const locadorNome = texto(dados.locador_nome, "Andrade Energy");
   const locadorDocumento = texto(dados.locador_documento);
   const locadorEndereco = texto(dados.locador_endereco);
+  const locadorContato = [dados.locador_email, dados.locador_telefone].map((item) => String(item ?? "").trim()).filter(Boolean).join(" · ");
   // As partes do contrato precisam refletir sempre o cadastro vigente do
   // consumidor. Dados de fatura são somente operacionais e não são fonte
   // cadastral para a minuta, inclusive para UCs que trocam de titular.
@@ -72,7 +73,7 @@ export async function gerarMinutaContrato(unidadeId: string, contrato: any) {
     pdf.moveDown(1.5);
 
     clausula(pdf, "CLÁUSULA PRIMEIRA - DAS PARTES", [
-      `LOCADOR: ${locadorNome}, inscrito no CPF/CNPJ sob nº ${locadorDocumento}, com endereço em ${locadorEndereco}, doravante denominado LOCADOR.`,
+      `LOCADOR: ${locadorNome}, inscrito no CPF/CNPJ sob nº ${locadorDocumento}, com endereço em ${locadorEndereco}${locadorContato ? `, contato ${locadorContato}` : ""}, doravante denominado LOCADOR.`,
       `LOCATÁRIO: ${locatarioNome}, inscrito no CPF/CNPJ sob nº ${locatarioDocumento}, titular da unidade consumidora descrita abaixo, doravante denominado LOCATÁRIO.`,
     ]);
     clausula(pdf, "CLÁUSULA SEGUNDA - DO OBJETO", [

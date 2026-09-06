@@ -70,6 +70,8 @@ export default function ContratoDaUnidade() {
   const [locadorNome, setLocadorNome] = useState("Andrade Energy");
   const [locadorDocumento, setLocadorDocumento] = useState("");
   const [locadorEndereco, setLocadorEndereco] = useState("");
+  const [locadorEmail, setLocadorEmail] = useState("");
+  const [locadorTelefone, setLocadorTelefone] = useState("");
   const [prazoAnos, setPrazoAnos] = useState("10");
   const [foro, setForo] = useState("Itajubá/MG");
   const [gerando, setGerando] = useState(false);
@@ -105,6 +107,8 @@ export default function ContratoDaUnidade() {
           setLocadorNome(iniciais?.locador?.nome ?? "Andrade Energy");
           setLocadorDocumento(iniciais?.locador?.documento ?? "");
           setLocadorEndereco(iniciais?.locador?.endereco ?? "");
+          setLocadorEmail(iniciais?.locador?.email ?? "");
+          setLocadorTelefone(iniciais?.locador?.telefone ?? "");
           setTitularidadeUcs(iniciais?.titularidadeUcs === "CLIENTE" ? "CLIENTE" : "GERADOR");
           if (iniciais?.proposta) {
             setEconomiaMensal(valorParaCampo(iniciais.proposta.economiaMensalEstimada));
@@ -174,6 +178,8 @@ export default function ContratoDaUnidade() {
         locador_nome: locadorNome,
         locador_documento: locadorDocumento,
         locador_endereco: locadorEndereco,
+        locador_email: locadorEmail,
+        locador_telefone: locadorTelefone,
         prazo_anos: prazoAnos,
         foro,
         titularidade_ucs: titularidadeUcs,
@@ -292,6 +298,8 @@ export default function ContratoDaUnidade() {
           <FormField label="Nome ou razão social do locador *" value={locadorNome} onChangeText={setLocadorNome} placeholder="Ex.: Andrade Energy" />
           <FormField label="CPF/CNPJ do locador" value={locadorDocumento} onChangeText={setLocadorDocumento} placeholder="Para constar no contrato" />
           <FormField label="Endereço do locador" value={locadorEndereco} onChangeText={setLocadorEndereco} placeholder="Endereço completo" />
+          <FormField label="E-mail do locador" value={locadorEmail} editable={false} placeholder="E-mail do cadastro do gerador" />
+          <FormField label="Telefone do locador" value={locadorTelefone} editable={false} placeholder="Telefone do cadastro do gerador" />
           <FormField label="Prazo do contrato (anos)" value={prazoAnos} onChangeText={(valor) => setPrazoAnos(valor.replace(/\D/g, ""))} keyboardType="number-pad" placeholder="10" />
           <FormField label="Foro" value={foro} onChangeText={setForo} placeholder="Cidade/UF" />
         </Card>
