@@ -287,7 +287,7 @@ export async function sincronizarParticipacaoClienteUsina(
   if (erroParticipacao && erroParticipacao.code !== "42P01") throw erroParticipacao;
 }
 
-export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
+export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaId: string) {
   const clienteId = String(input.clienteId ?? "");
   const numero = String(input.numero ?? "").replace(/\D/g, "");
   const modalidade = String(input.modalidade ?? "COMPENSACAO").toUpperCase();
@@ -305,16 +305,19 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
       .from("clientes")
       .select("nome,endereco,distribuidora,usina_id,uc")
       .eq("id", clienteId)
+      .eq("empresa_id", empresaId)
       .single(),
     supabase
       .from("unidades_consumidoras")
       .select("id,usina_id,cliente_id,endereco,cpf_titular,percentual_repasse_disponibilidade,fatura_somente_andrade,repassar_disponibilidade_gd1,repassar_disponibilidade_gd2,repassar_diferenca_fio_b_gd2,tipo_gd")
       .eq("numero", numero)
+      .eq("empresa_id", empresaId)
       .maybeSingle(),
     supabase
       .from("usinas")
       .select("tipo_gd")
       .eq("id", usinaId)
+      .eq("empresa_id", empresaId)
       .single(),
   ]);
   if (erroBusca) throw erroBusca;
@@ -369,6 +372,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
   const { data: unidade, error: erroUc } = await supabase
     .from("unidades_consumidoras")
     .upsert({
+      empresa_id: empresaId,
       cliente_id: clienteId,
       usina_id: usinaId,
       numero,
@@ -442,7 +446,8 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
   const { error: erroCliente } = await supabase
     .from("clientes")
     .update(atualizacaoCliente)
-    .eq("id", clienteId);
+    .eq("id", clienteId)
+    .eq("empresa_id", empresaId);
   if (erroCliente) throw erroCliente;
 
   if (usinaAnterior && usinaAnterior !== usinaId) {

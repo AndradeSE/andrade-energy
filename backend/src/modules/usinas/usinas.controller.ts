@@ -13,7 +13,11 @@ import {
 import { empresaIdDaRequisicao, garantirRegistroDaEmpresa } from "../../utils/empresaScope";
 
 export async function alocarUnidadeController(req: Request, res: Response) {
-  try { await garantirRegistroDaEmpresa("usinas", req.params.id, empresaIdDaRequisicao(req)); return res.json(await alocarUnidadeNaUsina(req.params.id, req.body)); }
+  try {
+    const empresaId = empresaIdDaRequisicao(req);
+    await garantirRegistroDaEmpresa("usinas", req.params.id, empresaId);
+    return res.json(await alocarUnidadeNaUsina(req.params.id, req.body, empresaId));
+  }
   catch (e: any) { return res.status(400).json({ message: e.message }); }
 }
 
