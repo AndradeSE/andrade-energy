@@ -19,6 +19,7 @@ import {
 
 import { useAuth } from "../../contexts/AuthContext";
 import { listarFaturas } from "../../services/faturas.service";
+import { listarMinhasUnidades } from "../../services/clientes.service";
 
 import {
   Colors,
@@ -63,6 +64,7 @@ export default function ClienteHeader({
     useState(false);
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
   const [avisosRecebidos, setNotificacoes] = useState<any[]>([]);
+  const [unidadeAtual, setUnidadeAtual] = useState<any>(null);
   const { isExpanded: detalhesExpandidos, setExpanded: setDetalhesExpandidos } = useHeaderDetailsVisibility();
 
   function alternarDetalhes() {
@@ -73,6 +75,7 @@ export default function ClienteHeader({
   const {
     logout,
     selecionarUnidade,
+    unidadeSelecionada,
     usuario,
   } =
     useAuth();
@@ -81,6 +84,28 @@ export default function ClienteHeader({
   const fotoPerfil = useProfilePhoto(usuarioId);
   const leituras = useReadNotifications(usuarioId);
   const notificacoes = leituras.ready ? avisosRecebidos.filter((aviso) => !leituras.ids.includes(String(aviso.id))) : [];
+
+  useEffect(() => {
+    let ativo = true;
+    listarMinhasUnidades()
+      .then((unidades) => {
+        if (!ativo || !Array.isArray(unidades)) return;
+        const selecionada = unidades.find((item: any) =>
+          item.id === unidadeSelecionada?.id ||
+          String(item.numero ?? "") === String(unidadeSelecionada?.numero ?? uc ?? "")
+        );
+        setUnidadeAtual(selecionada ?? null);
+      })
+      .catch(() => { if (ativo) setUnidadeAtual(null); });
+    return () => { ativo = false; };
+  }, [unidadeSelecionada?.id, unidadeSelecionada?.numero, uc]);
+
+  const numeroUnidade = String(unidadeAtual?.numero || unidadeSelecionada?.numero || uc || "").trim();
+  const nomeUnidade = String(unidadeAtual?.apelido || unidadeSelecionada?.apelido || "").trim();
+  const tituloUnidade = nomeUnidade || numeroUnidade;
+  const concessionariaUnidade = String(
+    unidadeAtual?.distribuidora || unidadeSelecionada?.distribuidora || distribuidora || "Concessionária"
+  ).trim();
 
   useEffect(() => {
     let ativo = true;
@@ -295,7 +320,7 @@ export default function ClienteHeader({
                   styles.greetingSubtitle
                 }
               >
-                {distribuidora}
+                {concessionariaUnidade}
               </Text>
             </View>
           </TouchableOpacity>
@@ -355,7 +380,7 @@ export default function ClienteHeader({
                 styles.unitCode
               }
             >
-              {uc}
+              {tituloUnidade}
             </Text>
 
             <Text
@@ -363,7 +388,7 @@ export default function ClienteHeader({
                 styles.unitDetail
               }
             >
-              {distribuidora} · Unidade consumidora
+              {concessionariaUnidade} · {nomeUnidade && numeroUnidade ? `UC ${numeroUnidade}` : "Unidade consumidora"}
             </Text>
           </View>
 

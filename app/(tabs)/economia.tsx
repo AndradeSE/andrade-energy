@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import Badge from "../../components/ui/Badge";
 import Card from "../../components/ui/Card";
@@ -14,6 +14,8 @@ import EconomiaChart from "../../components/cliente/EconomiaChart";
 import ClienteHeader from "../../components/cliente/ClienteHeader";
 import ComposicaoTarifariaCard from "../../components/cliente/ComposicaoTarifariaCard";
 import { useDashboard } from "../../hooks/useDashboard";
+import { useAuth } from "../../contexts/AuthContext";
+import { listarMinhasUnidades } from "../../services/clientes.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 type HistoricoItem = {
@@ -44,7 +46,27 @@ const formatarCompetencia = (competencia?: string) => {
 
 export default function Economia() {
   const { data, isLoading, error, refetch } = useDashboard();
+  const { unidadeSelecionada } = useAuth();
   const [atualizando, setAtualizando] = useState(false);
+  const [concessionariaDaUnidade, setConcessionariaDaUnidade] = useState("");
+
+  useEffect(() => {
+    let ativo = true;
+    listarMinhasUnidades()
+      .then((unidades) => {
+        if (!ativo || !Array.isArray(unidades)) return;
+        const selecionada = unidades.find((item: any) =>
+          item.id === unidadeSelecionada?.id ||
+          String(item.numero ?? "") === String(unidadeSelecionada?.numero ?? "")
+        );
+        const comConcessionaria = unidades.find((item: any) => String(item?.distribuidora ?? "").trim());
+        setConcessionariaDaUnidade(String(
+          selecionada?.distribuidora || unidadeSelecionada?.distribuidora || comConcessionaria?.distribuidora || ""
+        ).trim());
+      })
+      .catch(() => { if (ativo) setConcessionariaDaUnidade(""); });
+    return () => { ativo = false; };
+  }, [unidadeSelecionada?.id, unidadeSelecionada?.numero, unidadeSelecionada?.distribuidora]);
 
   async function atualizarPagina() {
     setAtualizando(true);
@@ -74,6 +96,7 @@ export default function Economia() {
   const historico: HistoricoItem[] = Array.isArray(data.historico)
     ? data.historico
     : [];
+  const concessionariaVigente = concessionariaDaUnidade || String(data.distribuidora || "").trim();
 
   return (
     <Screen>
@@ -134,7 +157,7 @@ export default function Economia() {
           >
             <View style={styles.documentIcon}><Ionicons name="flash-outline" size={24} color={Colors.primary} /></View>
             <Text style={styles.documentTitle}>Conta de luz</Text>
-            <Text style={styles.documentSubtitle}>Concessionária</Text>
+            <Text style={styles.documentSubtitle}>{concessionariaVigente || "Concessionária"}</Text>
             <Ionicons name="chevron-forward" size={19} color={Colors.primary} />
           </TouchableOpacity>
         </View>
