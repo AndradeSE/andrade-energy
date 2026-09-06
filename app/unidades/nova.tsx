@@ -166,7 +166,7 @@ export default function NovaUnidade() {
       return Alert.alert("CPF obrigatório", "Informe o CPF do titular da conta de luz antes de salvar a unidade.");
     }
     if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return Alert.alert("Desconto inválido", "Informe um percentual entre 0 e 100.");
-    if (tipo === "BENEFICIARIA" && (!Number.isFinite(percentualRateio) || percentualRateio <= 0 || percentualRateio > 100)) {
+    if (tipo === "BENEFICIARIA" && percentualAlocado && (!Number.isFinite(percentualRateio) || percentualRateio <= 0 || percentualRateio > 100)) {
       return Alert.alert("Alocação inválida", "Informe um percentual entre 0,01% e 100% para esta UC.");
     }
     setSalvando(true);
@@ -176,7 +176,7 @@ export default function NovaUnidade() {
           clienteId,
           numero,
           modalidade: modalidadeFinal,
-          percentual: modalidadeFinal === "INJECAO" ? 100 : percentualRateio,
+          percentual: modalidadeFinal === "INJECAO" ? 100 : (percentualRateio || undefined),
           desconto: descontoFinal,
           consumoMedio: consumoMedioFinal,
           endereco: endereco.trim() || clienteSelecionado?.endereco || null,
@@ -205,10 +205,9 @@ export default function NovaUnidade() {
       }
 
       if (origem === "fatura" && clienteId) {
-        router.replace({
-          pathname: "/clientes/[id]",
-          params: { id: clienteId },
-        });
+        Alert.alert("UC salva", "A unidade foi cadastrada e os dados da proposta já estão disponíveis no contrato.", [
+          { text: "Continuar", onPress: () => router.dismissTo({ pathname: "/clientes/[id]", params: { id: clienteId } }) },
+        ]);
       } else {
         router.back();
       }
