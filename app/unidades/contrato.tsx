@@ -8,7 +8,7 @@ import ChoiceField from "../../components/cadastro/ChoiceField";
 import FormField from "../../components/cadastro/FormField";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
-import { buscarContratoDaUnidade, buscarDadosIniciaisContrato, gerarContratoDaUnidade, importarContratoAssinadoDaUnidade, salvarContratoDaUnidade } from "../../services/contratos.service";
+import { buscarContratoDaUnidade, buscarDadosIniciaisContrato, buscarResumoPropostaDaUnidade, gerarContratoDaUnidade, importarContratoAssinadoDaUnidade, salvarContratoDaUnidade } from "../../services/contratos.service";
 import { buscarUnidade } from "../../services/clientes.service";
 import { buscarUsina } from "../../services/usinas.service";
 import { Colors, Spacing, Typography } from "../../theme";
@@ -86,8 +86,8 @@ export default function ContratoDaUnidade() {
       return;
     }
 
-    Promise.allSettled([buscarContratoDaUnidade(id), buscarUnidade(id), buscarDadosIniciaisContrato(id)])
-      .then(async ([resultadoContrato, resultadoUnidade, resultadoDados]) => {
+    Promise.allSettled([buscarContratoDaUnidade(id), buscarUnidade(id), buscarDadosIniciaisContrato(id), buscarResumoPropostaDaUnidade(id)])
+      .then(async ([resultadoContrato, resultadoUnidade, resultadoDados, resultadoProposta]) => {
         let unidadeCarregada: any;
         if (resultadoUnidade.status === "fulfilled") {
           unidadeCarregada = resultadoUnidade.value;
@@ -110,10 +110,13 @@ export default function ContratoDaUnidade() {
           setLocadorEmail(iniciais?.locador?.email ?? "");
           setLocadorTelefone(iniciais?.locador?.telefone ?? "");
           setTitularidadeUcs(iniciais?.titularidadeUcs === "CLIENTE" ? "CLIENTE" : "GERADOR");
-          if (iniciais?.proposta) {
-            setEconomiaMensal(valorParaCampo(iniciais.proposta.economiaMensalEstimada));
-            setEconomiaAnual(valorParaCampo(iniciais.proposta.economiaAnualEstimada));
-          }
+        }
+        const propostaAtual = resultadoProposta.status === "fulfilled" && resultadoProposta.value
+          ? resultadoProposta.value
+          : resultadoDados.status === "fulfilled" ? resultadoDados.value?.proposta : null;
+        if (propostaAtual) {
+          setEconomiaMensal(valorParaCampo(propostaAtual.economiaMensalEstimada));
+          setEconomiaAnual(valorParaCampo(propostaAtual.economiaAnualEstimada));
         }
         if (resultadoContrato.status !== "fulfilled") {
           if (resultadoUnidade.status !== "fulfilled") {
@@ -129,7 +132,7 @@ export default function ContratoDaUnidade() {
         setDesconto(valorParaCampo(contrato.desconto));
         setInicio(dataParaFormulario(contrato.vigencia_inicio ?? contrato.data_assinatura) || dataHoje());
         setFim(dataParaFormulario(contrato.vigencia_fim));
-        if (resultadoDados.status !== "fulfilled" || !resultadoDados.value?.proposta) {
+        if (!propostaAtual) {
           setEconomiaMensal(valorParaCampo(contrato.economia_mensal_estimada));
           setEconomiaAnual(valorParaCampo(contrato.economia_anual_estimada));
         }
