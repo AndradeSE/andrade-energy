@@ -379,22 +379,32 @@ export default function GestaoGeradores() {
               <>
                 <Text style={styles.section}>GERADORES E ASSINATURAS</Text>
                 {(data?.geradores ?? [])
-                  .filter((generator) => generator.perfil === "GESTOR")
+                  .filter((generator) => ["ADMIN", "GESTOR"].includes(generator.perfil))
+                  .sort((a, b) => Number(b.perfil === "ADMIN") - Number(a.perfil === "ADMIN") || String(a.nome ?? "").localeCompare(String(b.nome ?? ""), "pt-BR"))
                   .map((generator) => {
                     const assinatura = (data?.assinaturas ?? []).find((item) => item.gerador_id === generator.id && item.status !== "CANCELADA");
+                    const administrador = generator.perfil === "ADMIN";
                     return (
-                    <TouchableOpacity activeOpacity={0.84} onPress={() => router.push({ pathname: "/geradores/[id]", params: { id: generator.id } } as any)} style={styles.card} key={generator.id}>
+                    <TouchableOpacity activeOpacity={0.84} onPress={() => router.push({ pathname: "/geradores/[id]", params: { id: generator.id } } as any)} style={[styles.card, administrador && styles.adminGeneratorCard]} key={generator.id}>
                       <View style={styles.row}>
                         <View style={styles.grow}>
                           <Text style={styles.cardTitle}>{generator.nome}</Text>
                           <Text style={styles.subtitle}>{generator.email}</Text>
                         </View>
-                        <Text style={assinatura ? styles.badge : styles.badgeNeutral}>{assinatura?.status ?? "SEM PLANO"}</Text>
+                        <Text style={administrador ? styles.adminBadge : assinatura ? styles.badge : styles.badgeNeutral}>{administrador ? "ADMIN · FIXO" : assinatura?.status ?? "SEM PLANO"}</Text>
+                      </View>
+                      <View style={styles.generatorDataGrid}>
+                        <Text style={styles.generatorData}>CPF: {generator.cpf || "Não informado"}</Text>
+                        <Text style={styles.generatorData}>Telefone: {generator.telefone || "Não informado"}</Text>
+                        <Text style={styles.generatorData}>Usinas: {generator.total_usinas ?? 0}</Text>
+                        <Text style={styles.generatorData}>UCs ativas: {generator.total_ucs_ativas ?? 0}</Text>
+                        <Text style={styles.generatorData}>Cadastro: {date(generator.created_at)}</Text>
+                        <Text style={styles.generatorData}>Conta: {generator.ativo ? "Ativa" : "Inativa"}</Text>
                       </View>
                       <Text style={[styles.muted, { marginTop: Spacing.sm }]}>
-                        {assinatura ? `${assinatura.plano?.nome ?? "Plano ativo"} · vence em ${date(assinatura.proximo_vencimento)}` : "Vincule um plano para liberar o acesso deste gerador."}
+                        {administrador ? "Conta administrativa principal — permanece fixa na lista." : assinatura ? `${assinatura.plano?.nome ?? "Plano ativo"} · vence em ${date(assinatura.proximo_vencimento)}` : "Vincule um plano para liberar o acesso deste gerador."}
                       </Text>
-                      {!assinatura ? <><View style={styles.trialNote}>
+                      {!administrador && !assinatura ? <><View style={styles.trialNote}>
                         <Ionicons
                           name="gift-outline"
                           size={16}
@@ -415,7 +425,7 @@ export default function GestaoGeradores() {
                           icon="calendar-number-outline"
                           onPress={() => void create(generator.id, "ANUAL")}
                         />
-                      </View></> : <View style={styles.trialNote}><Ionicons name="open-outline" size={16} color={Colors.primary}/><Text style={styles.trialNoteText}>Toque para consultar todas as informações</Text></View>}
+                      </View></> : <View style={styles.trialNote}><Ionicons name={administrador ? "shield-checkmark-outline" : "open-outline"} size={16} color={Colors.primary}/><Text style={styles.trialNoteText}>{administrador ? "Conta protegida contra remoção" : "Toque para consultar todas as informações"}</Text></View>}
                     </TouchableOpacity>
                   );})}
               </>
@@ -930,6 +940,10 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     ...Shadows.card,
   },
+  adminGeneratorCard: { borderWidth: 2, borderColor: "#D4A900", backgroundColor: "#FFFBEA" },
+  adminBadge: { fontSize: 10, fontWeight: "900", color: "#665000", backgroundColor: "#F6CC32", paddingHorizontal: 9, paddingVertical: 5, borderRadius: 99 },
+  generatorDataGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: Spacing.md },
+  generatorData: { width: "48%", color: Colors.text, fontSize: 11, lineHeight: 17 },
   row: { flexDirection: "row", alignItems: "flex-start", gap: Spacing.sm },
   grow: { flex: 1 },
   cardTitle: { fontSize: 17, fontWeight: "900", color: Colors.text },
