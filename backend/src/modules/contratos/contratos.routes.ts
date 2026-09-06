@@ -14,6 +14,7 @@ import {
     solicitarCodigoAssinaturaController,
     importarContratoAssinadoPeloClienteController,
     propostaDaUnidadeController,
+    dadosIniciaisContratoController,
 } from "./contratos.controller";
 import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
 import { upload } from "../../config/multer";
@@ -28,6 +29,7 @@ router.get(
   buscarContratoDaUnidadeController
 );
 router.get("/unidade/:unidadeId/proposta", exigirRegistroDaEmpresa("unidades_consumidoras", "unidadeId"), propostaDaUnidadeController);
+router.get("/unidade/:unidadeId/dados-iniciais", exigirGestor, exigirRegistroDaEmpresa("unidades_consumidoras", "unidadeId"), dadosIniciaisContratoController);
 
 router.get(
   "/:clienteId",

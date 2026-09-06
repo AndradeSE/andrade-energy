@@ -55,6 +55,8 @@ export async function gerarMinutaContrato(unidadeId: string, contrato: any) {
   const modalidade = String(unidade.modalidade_faturamento ?? usina?.modalidade ?? "COMPENSACAO").toUpperCase();
   const modalidadeNome = modalidade === "INJECAO" ? "Injeção de energia" : "Autoconsumo remoto por compensação";
   const desconto = Number(contrato.desconto ?? unidade.desconto_percentual ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+  const titularidadeUcs = String(dados.titularidade_ucs ?? dados.configuracao_uc?.titularidade_ucs ?? "GERADOR").toUpperCase();
+  const titularidadeTexto = titularidadeUcs === "CLIENTE" ? "do consumidor" : "do gerador";
 
   return await new Promise<Buffer>((resolve, reject) => {
     const pdf = new PDFDocument({ size: "A4", margin: MARGEM, info: { Title: `Minuta de contrato - UC ${unidade.numero}` } });
@@ -76,6 +78,7 @@ export async function gerarMinutaContrato(unidadeId: string, contrato: any) {
     clausula(pdf, "CLÁUSULA SEGUNDA - DO OBJETO", [
       `O presente contrato tem por objeto a locação da usina fotovoltaica ${texto(usina?.nome, "vinculada")} para atendimento da UC CEMIG nº ${unidade.numero}, localizada em ${enderecoUc}, na modalidade ${modalidadeNome}.`,
       `A unidade consumidora permanece identificada perante a ${texto(unidade.distribuidora, "distribuidora")} e é vinculada a esta contratação exclusivamente para fins de compensação ou apuração da energia, conforme a modalidade escolhida.`,
+      `A titularidade das UCs definida na usina é ${titularidadeTexto}, condição considerada neste instrumento e no fluxo de recebimento das faturas da distribuidora.`,
     ]);
     clausula(pdf, "CLÁUSULA TERCEIRA - DAS CARACTERÍSTICAS TÉCNICAS", [
       `Usina: ${texto(usina?.nome)}. Potência instalada: ${potencia}. Geração média estimada: ${geracao}. Distribuidora: ${texto(unidade.distribuidora)}.`,

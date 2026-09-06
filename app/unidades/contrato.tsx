@@ -8,7 +8,7 @@ import ChoiceField from "../../components/cadastro/ChoiceField";
 import FormField from "../../components/cadastro/FormField";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
-import { buscarContratoDaUnidade, gerarContratoDaUnidade, importarContratoAssinadoDaUnidade, salvarContratoDaUnidade } from "../../services/contratos.service";
+import { buscarContratoDaUnidade, buscarDadosIniciaisContrato, gerarContratoDaUnidade, importarContratoAssinadoDaUnidade, salvarContratoDaUnidade } from "../../services/contratos.service";
 import { buscarUnidade } from "../../services/clientes.service";
 import { buscarUsina } from "../../services/usinas.service";
 import { Colors, Spacing, Typography } from "../../theme";
@@ -17,6 +17,14 @@ type StatusContrato = "ATIVO" | "VIGENTE" | "VENCIDO";
 
 function dataHoje() {
   return new Date().toLocaleDateString("pt-BR");
+}
+
+function somarAnos(data: string, anos: string) {
+  const partes = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(data.trim());
+  const quantidade = Number(anos);
+  if (!partes || !Number.isInteger(quantidade) || quantidade <= 0) return "";
+  const resultado = new Date(Number(partes[3]) + quantidade, Number(partes[2]) - 1, Number(partes[1]));
+  return resultado.toLocaleDateString("pt-BR");
 }
 
 function dataParaFormulario(valor?: string | null) {
@@ -68,6 +76,7 @@ export default function ContratoDaUnidade() {
   const [importando, setImportando] = useState(false);
   const [contratoGeradoUrl, setContratoGeradoUrl] = useState<string>();
   const [contratoAssinadoUrl, setContratoAssinadoUrl] = useState<string>();
+  const [titularidadeUcs, setTitularidadeUcs] = useState("GERADOR");
 
   useEffect(() => {
     if (!id) {
@@ -75,8 +84,8 @@ export default function ContratoDaUnidade() {
       return;
     }
 
-    Promise.allSettled([buscarContratoDaUnidade(id), buscarUnidade(id)])
-      .then(async ([resultadoContrato, resultadoUnidade]) => {
+    Promise.allSettled([buscarContratoDaUnidade(id), buscarUnidade(id), buscarDadosIniciaisContrato(id)])
+      .then(async ([resultadoContrato, resultadoUnidade, resultadoDados]) => {
         let unidadeCarregada: any;
         if (resultadoUnidade.status === "fulfilled") {
           unidadeCarregada = resultadoUnidade.value;
@@ -90,6 +99,17 @@ export default function ContratoDaUnidade() {
             }
           }
           setUnidade(unidadeCarregada);
+        }
+        if (resultadoDados.status === "fulfilled") {
+          const iniciais = resultadoDados.value;
+          setLocadorNome(iniciais?.locador?.nome ?? "Andrade Energy");
+          setLocadorDocumento(iniciais?.locador?.documento ?? "");
+          setLocadorEndereco(iniciais?.locador?.endereco ?? "");
+          setTitularidadeUcs(iniciais?.titularidadeUcs === "CLIENTE" ? "CLIENTE" : "GERADOR");
+          if (iniciais?.proposta) {
+            setEconomiaMensal(valorParaCampo(iniciais.proposta.economiaMensalEstimada));
+            setEconomiaAnual(valorParaCampo(iniciais.proposta.economiaAnualEstimada));
+          }
         }
         if (resultadoContrato.status !== "fulfilled") {
           if (resultadoUnidade.status !== "fulfilled") {
@@ -105,12 +125,16 @@ export default function ContratoDaUnidade() {
         setDesconto(valorParaCampo(contrato.desconto));
         setInicio(dataParaFormulario(contrato.vigencia_inicio ?? contrato.data_assinatura) || dataHoje());
         setFim(dataParaFormulario(contrato.vigencia_fim));
-        setEconomiaMensal(valorParaCampo(contrato.economia_mensal_estimada));
-        setEconomiaAnual(valorParaCampo(contrato.economia_anual_estimada));
+        if (resultadoDados.status !== "fulfilled" || !resultadoDados.value?.proposta) {
+          setEconomiaMensal(valorParaCampo(contrato.economia_mensal_estimada));
+          setEconomiaAnual(valorParaCampo(contrato.economia_anual_estimada));
+        }
         setObservacoes(contrato.observacoes ?? "");
-        setLocadorNome(contrato.dados_documento?.locador_nome ?? "Andrade Energy");
-        setLocadorDocumento(contrato.dados_documento?.locador_documento ?? "");
-        setLocadorEndereco(contrato.dados_documento?.locador_endereco ?? "");
+        if (resultadoDados.status !== "fulfilled") {
+          setLocadorNome(contrato.dados_documento?.locador_nome ?? "Andrade Energy");
+          setLocadorDocumento(contrato.dados_documento?.locador_documento ?? "");
+          setLocadorEndereco(contrato.dados_documento?.locador_endereco ?? "");
+        }
         setPrazoAnos(String(contrato.dados_documento?.prazo_anos ?? "10"));
         setForo(contrato.dados_documento?.foro ?? "Itajubá/MG");
         setContratoGeradoUrl(contrato.contrato_gerado_url ?? undefined);
@@ -121,6 +145,11 @@ export default function ContratoDaUnidade() {
       })
       .finally(() => setCarregando(false));
   }, [clienteId, id]);
+
+  useEffect(() => {
+    const vencimento = somarAnos(inicio, prazoAnos);
+    if (vencimento) setFim(vencimento);
+  }, [inicio, prazoAnos]);
 
   function atualizarEconomiaMensal(valor: string) {
     const limpa = valor.replace(/[^\d,.]/g, "");
@@ -147,6 +176,7 @@ export default function ContratoDaUnidade() {
         locador_endereco: locadorEndereco,
         prazo_anos: prazoAnos,
         foro,
+        titularidade_ucs: titularidadeUcs,
       },
     };
   }
@@ -258,6 +288,7 @@ export default function ContratoDaUnidade() {
 
         <Text style={styles.sectionTitle}>DADOS DO LOCADOR E VIGÊNCIA</Text>
         <Card style={styles.formCard}>
+          <InfoContrato label="Titularidade das UCs" value={titularidadeUcs === "CLIENTE" ? "Consumidor" : "Gerador"} wide />
           <FormField label="Nome ou razão social do locador *" value={locadorNome} onChangeText={setLocadorNome} placeholder="Ex.: Andrade Energy" />
           <FormField label="CPF/CNPJ do locador" value={locadorDocumento} onChangeText={setLocadorDocumento} placeholder="Para constar no contrato" />
           <FormField label="Endereço do locador" value={locadorEndereco} onChangeText={setLocadorEndereco} placeholder="Endereço completo" />
@@ -271,9 +302,9 @@ export default function ContratoDaUnidade() {
           <ChoiceField label="Status" value={status} onChange={setStatus} options={[{ label: "Ativo", value: "ATIVO" }, { label: "Vigente", value: "VIGENTE" }, { label: "Vencido", value: "VENCIDO" }]} />
           <FormField label="Desconto contratado (%)" value={desconto} onChangeText={(valor) => setDesconto(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" placeholder="0" />
           <FormField label="Início da vigência" value={inicio} onChangeText={setInicio} keyboardType="numbers-and-punctuation" placeholder="DD/MM/AAAA" />
-          <FormField label="Vencimento do contrato" value={fim} onChangeText={setFim} keyboardType="numbers-and-punctuation" placeholder="DD/MM/AAAA" />
-          <FormField label="Economia mensal estimada (R$)" value={economiaMensal} onChangeText={atualizarEconomiaMensal} keyboardType="decimal-pad" placeholder="0,00" />
-          <FormField label="Economia anual estimada (R$)" value={economiaAnual} onChangeText={(valor) => setEconomiaAnual(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" placeholder="0,00" />
+          <FormField label="Vencimento do contrato (automático)" value={fim} editable={false} placeholder="Calculado pelo prazo" />
+          <FormField label="Economia mensal estimada pela proposta (R$)" value={economiaMensal} editable={false} placeholder="Calculada automaticamente" />
+          <FormField label="Economia anual estimada pela proposta (R$)" value={economiaAnual} editable={false} placeholder="Calculada automaticamente" />
           <FormField label="Observações" value={observacoes} onChangeText={setObservacoes} placeholder="Informações adicionais para o contrato" multiline numberOfLines={3} textAlignVertical="top" />
           <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar contrato"} icon={<Ionicons name="checkmark-circle-outline" size={20} color={Colors.surface} />} onPress={salvar} />
         </Card>

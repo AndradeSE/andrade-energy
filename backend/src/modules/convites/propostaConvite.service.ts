@@ -130,6 +130,10 @@ export async function obterPropostaParaConvite(clienteId: string, empresaId: str
     economia: resultado.economiaMensal,
   });
 
+  const economiaMensalProjetada = historicoMensal.reduce((soma: number, item: any) => soma + n(item.economia), 0)
+    / Math.max(1, historicoMensal.length);
+  const economiaAnualProjetada = economiaMensalProjetada * 12;
+
   const pdf = await gerarPropostaPdf({
     empresa: empresa?.nome_fantasia ?? empresa?.nome ?? "Andrade Energy",
     cliente: cliente.nome,
@@ -148,7 +152,16 @@ export async function obterPropostaParaConvite(clienteId: string, empresaId: str
     historicoMensal,
     possuiGd,
   });
-  return { filename: `proposta-comercial-uc-${String(unidade.numero).replace(/\D/g, "")}.pdf`, content: pdf };
+  return {
+    filename: `proposta-comercial-uc-${String(unidade.numero).replace(/\D/g, "")}.pdf`,
+    content: pdf,
+    resumo: {
+      economiaMensalEstimada: economiaMensalProjetada,
+      economiaAnualEstimada: economiaAnualProjetada,
+      descontoRealEstimado: resultado.descontoReal,
+      descontoContratado,
+    },
+  };
 }
 
 async function gerarPropostaPdf(d: any) {

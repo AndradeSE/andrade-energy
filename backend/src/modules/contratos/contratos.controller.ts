@@ -9,7 +9,38 @@ export async function propostaDaUnidadeController(req: any, res: any) {
   if (error || !unidade?.cliente_id) return res.status(404).json({ message: "Unidade não encontrada." });
   const proposta = await obterPropostaParaConvite(unidade.cliente_id, req.usuario.empresa_id, unidade.id);
   if (!proposta) return res.status(404).json({ message: "Dados insuficientes para gerar a proposta desta UC." });
-  return res.json({ filename: proposta.filename, base64: proposta.content.toString("base64") });
+  return res.json({ filename: proposta.filename, base64: proposta.content.toString("base64"), resumo: proposta.resumo });
+}
+
+export async function dadosIniciaisContratoController(req: any, res: any) {
+  try {
+    const empresaId = req.usuario.empresa_id;
+    const { data: unidade, error } = await supabase
+      .from("unidades_consumidoras")
+      .select("id,cliente_id,usina_id,desconto_percentual,usinas(id,nome,endereco,titularidade_ucs_recebedoras)")
+      .eq("id", req.params.unidadeId)
+      .eq("empresa_id", empresaId)
+      .single();
+    if (error || !unidade?.cliente_id) return res.status(404).json({ message: "Unidade não encontrada." });
+
+    const [{ data: empresa }, proposta] = await Promise.all([
+      supabase.from("empresas").select("nome,razao_social,documento").eq("id", empresaId).maybeSingle(),
+      obterPropostaParaConvite(unidade.cliente_id, empresaId, unidade.id),
+    ]);
+    const usina = Array.isArray(unidade.usinas) ? unidade.usinas[0] : unidade.usinas as any;
+    return res.json({
+      locador: {
+        nome: empresa?.razao_social ?? empresa?.nome ?? req.usuario.nome ?? "Andrade Energy",
+        documento: empresa?.documento ?? req.usuario.cpf ?? "",
+        endereco: usina?.endereco ?? "",
+      },
+      titularidadeUcs: String(usina?.titularidade_ucs_recebedoras ?? "GERADOR").toUpperCase(),
+      proposta: proposta?.resumo ?? null,
+    });
+  } catch (e: any) {
+    console.error(e);
+    res.status(500).json({ message: e.message });
+  }
 }
 import { empresaIdDaRequisicao, garantirRegistroDaEmpresa, incluirEmpresa } from "../../utils/empresaScope";
 

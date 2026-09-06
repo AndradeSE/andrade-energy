@@ -10,6 +10,7 @@ import { supabase } from "../../config/supabase";
 import crypto from "crypto";
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import { armazenarContratoAssinado, criarLinkContrato, gerarMinutaContrato, salvarDocumentoContrato } from "./documentosContrato.service";
+import { obterPropostaParaConvite } from "../convites/propostaConvite.service";
 
 export async function obterContratoCliente(
   clienteId: string
@@ -110,7 +111,7 @@ export async function salvarContratoDaUnidadeService(
 ) {
   const { data: unidadeEncontrada, error: erroUnidade } = await supabase
     .from("unidades_consumidoras")
-    .select("id, numero, cliente_id, usina_id, desconto_percentual, modalidade_faturamento, tipo_gd, percentual_rateio, fatura_somente_andrade, repassar_disponibilidade_gd1, repassar_disponibilidade_gd2, repassar_diferenca_fio_b_gd2")
+    .select("id, empresa_id, numero, cliente_id, usina_id, desconto_percentual, modalidade_faturamento, tipo_gd, percentual_rateio, fatura_somente_andrade, repassar_disponibilidade_gd1, repassar_disponibilidade_gd2, repassar_diferenca_fio_b_gd2, usinas(titularidade_ucs_recebedoras)")
     .eq("id", unidadeId)
     .maybeSingle();
 
@@ -142,12 +143,23 @@ export async function salvarContratoDaUnidadeService(
   if (!numero) throw new Error("Informe o número do contrato.");
 
   const vigenciaInicio = normalizarData(dados?.vigencia_inicio, "A data de início");
-  const vigenciaFim = normalizarData(dados?.vigencia_fim, "A data de vencimento");
+  const dadosDocumentoEntrada = dados?.dados_documento && typeof dados.dados_documento === "object" ? dados.dados_documento : {};
+  const prazoAnos = Math.max(1, Number.parseInt(String(dadosDocumentoEntrada.prazo_anos ?? "10"), 10) || 10);
+  let vigenciaFim = normalizarData(dados?.vigencia_fim, "A data de vencimento");
+  if (vigenciaInicio) {
+    const inicioData = new Date(`${vigenciaInicio}T12:00:00`);
+    inicioData.setFullYear(inicioData.getFullYear() + prazoAnos);
+    vigenciaFim = inicioData.toISOString().slice(0, 10);
+  }
   if (vigenciaInicio && vigenciaFim && vigenciaFim < vigenciaInicio) {
     throw new Error("A data de vencimento deve ser posterior à data de início.");
   }
 
-  const economiaMensal = normalizarMoeda(dados?.economia_mensal_estimada);
+  const proposta = unidade.empresa_id
+    ? await obterPropostaParaConvite(unidade.cliente_id, unidade.empresa_id, unidade.id)
+    : null;
+  const economiaMensal = proposta?.resumo?.economiaMensalEstimada ?? normalizarMoeda(dados?.economia_mensal_estimada);
+  const economiaAnual = proposta?.resumo?.economiaAnualEstimada ?? economiaMensal * 12;
   const desconto = normalizarPercentual(
     normalizarNumero(dados?.desconto) || unidade.desconto_percentual || 0
   );
@@ -161,6 +173,7 @@ export async function salvarContratoDaUnidadeService(
     repassar_disponibilidade_gd1: unidade.repassar_disponibilidade_gd1,
     repassar_disponibilidade_gd2: unidade.repassar_disponibilidade_gd2,
     repassar_diferenca_fio_b_gd2: unidade.repassar_diferenca_fio_b_gd2,
+    titularidade_ucs: String((Array.isArray(unidade.usinas) ? unidade.usinas[0] : unidade.usinas as any)?.titularidade_ucs_recebedoras ?? "GERADOR").toUpperCase(),
   };
 
   return await salvarContratoUnidade(unidade.id, {
@@ -176,9 +189,9 @@ export async function salvarContratoDaUnidadeService(
     vigencia_inicio: vigenciaInicio,
     vigencia_fim: vigenciaFim,
     economia_mensal_estimada: economiaMensal,
-    economia_anual_estimada: normalizarMoeda(dados?.economia_anual_estimada) || economiaMensal * 12,
+    economia_anual_estimada: economiaAnual,
     observacoes: normalizarNumero(dados?.observacoes) || null,
-    dados_documento: { ...(dados?.dados_documento && typeof dados.dados_documento === "object" ? dados.dados_documento : {}), configuracao_uc: configuracaoUc },
+    dados_documento: { ...dadosDocumentoEntrada, prazo_anos: prazoAnos, titularidade_ucs: configuracaoUc.titularidade_ucs, configuracao_uc: configuracaoUc },
     configuracao_uc_snapshot: configuracaoUc,
     revisao_configuracao_pendente: false,
   });

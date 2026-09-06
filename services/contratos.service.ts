@@ -66,6 +66,11 @@ export async function baixarPropostaDaUnidade(unidadeId: string) {
   return destino;
 }
 
+export async function buscarDadosIniciaisContrato(unidadeId: string) {
+  const { data } = await api.get(`/contratos/unidade/${unidadeId}/dados-iniciais`);
+  return data;
+}
+
 export async function salvarContratoDaUnidade(
   unidadeId: string,
   payload: any
