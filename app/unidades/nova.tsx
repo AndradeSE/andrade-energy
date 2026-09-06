@@ -10,6 +10,7 @@ import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { alocarUnidade, listarUsinas } from "../../services/usinas.service";
 import { calcularMediaConsumoFatura, listarFaturas } from "../../services/faturas.service";
+import { buscarCliente, listarClientes } from "../../services/clientes.service";
 import { supabase } from "../../supabase";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
@@ -53,18 +54,26 @@ export default function NovaUnidade() {
   const [repasseDisponibilidadeGD2, setRepasseDisponibilidadeGD2] = useState<RepasseGD2>("REPASSAR");
   const [repasseFioBGD2, setRepasseFioBGD2] = useState<RepasseGD2>("REPASSAR");
   const [clientes, setClientes] = useState<any[]>([]); const [usinas, setUsinas] = useState<any[]>([]);
-  const [clienteId, setClienteId] = useState(""); const [usinaId, setUsinaId] = useState(""); const [percentualAlocado, setPercentualAlocado] = useState(""); const [salvando, setSalvando] = useState(false);
+  const [clienteId, setClienteId] = useState(String(clienteIdVinculado ?? "")); const [usinaId, setUsinaId] = useState(""); const [percentualAlocado, setPercentualAlocado] = useState(""); const [salvando, setSalvando] = useState(false);
   const usinaSelecionada = usinas.find((item) => item.id === usinaId);
   const usinaGd2 = String(usinaSelecionada?.tipo_gd ?? "").toUpperCase() === "GD2";
   const tipoGdEfetivo = String(usinaSelecionada?.tipo_gd ?? "").toUpperCase();
 
   useEffect(() => {
     Promise.all([
-      supabase.from("clientes").select("id,nome,cpf,endereco,distribuidora,usina_id,modalidade_faturamento,desconto_percentual,consumo_medio_kwh").order("nome"),
+      listarClientes(),
       listarUsinas(),
-    ]).then(([c, u]) => {
-      if (c.error) throw c.error;
-      setClientes(c.data ?? []);
+    ]).then(async ([c, u]) => {
+      const listaClientes = Array.isArray(c) ? c : [];
+      if (clienteIdVinculado && !listaClientes.some((item: any) => item.id === clienteIdVinculado)) {
+        try {
+          const vinculado = await buscarCliente(clienteIdVinculado);
+          if (vinculado) listaClientes.unshift(vinculado);
+        } catch {
+          // A validação do servidor mostrará uma mensagem específica se o vínculo deixou de existir.
+        }
+      }
+      setClientes(listaClientes);
       setUsinas(Array.isArray(u) ? u : []);
     }).catch((erro: any) => {
       Alert.alert("Não foi possível carregar os dados", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
