@@ -23,18 +23,24 @@ export async function dadosIniciaisContratoController(req: any, res: any) {
       .single();
     if (error || !unidade?.cliente_id) return res.status(404).json({ message: "Unidade não encontrada." });
 
-    const [{ data: empresa }, proposta] = await Promise.all([
-      supabase.from("empresas").select("nome,razao_social,documento").eq("id", empresaId).maybeSingle(),
+    const [{ data: unidadeGeradora, error: erroUnidadeGeradora }, proposta] = await Promise.all([
+      supabase.from("unidades_consumidoras")
+        .select("titular,cpf_titular,endereco")
+        .eq("empresa_id", empresaId)
+        .eq("usina_id", unidade.usina_id)
+        .eq("tipo", "GERADORA")
+        .maybeSingle(),
       obterPropostaParaConvite(unidade.cliente_id, empresaId, unidade.id),
     ]);
+    if (erroUnidadeGeradora) throw erroUnidadeGeradora;
     const usina = Array.isArray(unidade.usinas) ? unidade.usinas[0] : unidade.usinas as any;
     return res.json({
       locador: {
-        nome: req.usuario.nome ?? empresa?.razao_social ?? empresa?.nome ?? "Andrade Energy",
-        documento: req.usuario.cpf ?? empresa?.documento ?? "",
-        endereco: usina?.endereco ?? "",
-        email: req.usuario.email ?? "",
-        telefone: req.usuario.telefone ?? "",
+        nome: unidadeGeradora?.titular ?? usina?.nome ?? "Titular da usina",
+        documento: unidadeGeradora?.cpf_titular ?? "",
+        endereco: unidadeGeradora?.endereco ?? usina?.endereco ?? "",
+        email: "",
+        telefone: "",
       },
       titularidadeUcs: String(usina?.titularidade_ucs_recebedoras ?? "GERADOR").toUpperCase(),
       proposta: proposta?.resumo ?? null,
