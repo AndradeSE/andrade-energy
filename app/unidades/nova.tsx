@@ -263,7 +263,8 @@ export default function NovaUnidade() {
           fioBGd2={repasseFioBGD2}
         />
       </>
-      <Button disabled={salvando || (tipo !== "GERADORA" && !clienteId)} title={salvando ? "Salvando..." : "Salvar unidade"} onPress={salvar} />
+      {!clienteId && tipo !== "GERADORA" ? <Text style={styles.saveWarning}>Selecione o cliente acima para concluir o cadastro.</Text> : null}
+      <Button disabled={salvando} title={salvando ? "Salvando UC..." : "Salvar unidade"} onPress={salvar} />
     </Card>
   </ScrollView></Screen>;
 }
@@ -293,5 +294,6 @@ const styles = StyleSheet.create({
   title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "700" }, subtitle: { marginTop: Spacing.sm, marginBottom: Spacing.lg, color: Colors.subtitle, lineHeight: 21 },
   label: { marginBottom: Spacing.xs, color: Colors.text, fontSize: Typography.caption, fontWeight: "700" }, configurationTitle: { marginTop: Spacing.sm, marginBottom: Spacing.xs, color: Colors.primary, fontSize: Typography.small, fontWeight: "900", letterSpacing: 1 }, beneficiariaHint: { marginTop: -Spacing.sm, marginBottom: Spacing.md, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 }, options: { gap: Spacing.xs, marginBottom: Spacing.md },
   clientRequired: { marginBottom: Spacing.md, padding: Spacing.md, borderRadius: Radius.md, color: "#92400E", backgroundColor: "#FEF3C7", fontSize: Typography.small, lineHeight: 18 },
+  saveWarning: { marginBottom: Spacing.sm, color: "#92400E", fontSize: Typography.small, fontWeight: "700", textAlign: "center" },
   link: { padding: Spacing.sm, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, backgroundColor: Colors.surface }, linkSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
 });
