@@ -185,7 +185,7 @@ export default function DashboardGestor() {
             items={[
               {
                 icon: "wallet-outline",
-                label: "Saldo em carteira",
+                label: "Valor financeiro disponível",
                 value: carteira
                   ? formatarMoeda(carteira.saldoDisponivel)
                   : "Carregando...",
@@ -238,7 +238,7 @@ export default function DashboardGestor() {
                   {formatarMoeda(carteira.saldoDisponivel)}
                 </Text>
                 <Text style={styles.walletCaption}>
-                  Saldo disponível para transferência
+                  Valor disponível para transferência
                 </Text>
               </View>
               <View style={styles.walletIcon}>
