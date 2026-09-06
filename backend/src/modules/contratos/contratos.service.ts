@@ -7,6 +7,8 @@ import {
     salvarContratoUnidade,
 } from "./contratos.repository";
 import { supabase } from "../../config/supabase";
+import crypto from "crypto";
+import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import { armazenarContratoAssinado, criarLinkContrato, gerarMinutaContrato, salvarDocumentoContrato } from "./documentosContrato.service";
 
 export async function obterContratoCliente(
@@ -108,7 +110,7 @@ export async function salvarContratoDaUnidadeService(
 ) {
   const { data: unidadeEncontrada, error: erroUnidade } = await supabase
     .from("unidades_consumidoras")
-    .select("id, numero, cliente_id, usina_id, desconto_percentual")
+    .select("id, numero, cliente_id, usina_id, desconto_percentual, modalidade_faturamento, tipo_gd, percentual_rateio, fatura_somente_andrade, repassar_disponibilidade_gd1, repassar_disponibilidade_gd2, repassar_diferenca_fio_b_gd2")
     .eq("id", unidadeId)
     .maybeSingle();
 
@@ -149,6 +151,17 @@ export async function salvarContratoDaUnidadeService(
   const desconto = normalizarPercentual(
     normalizarNumero(dados?.desconto) || unidade.desconto_percentual || 0
   );
+  const configuracaoUc = {
+    usina_id: unidade.usina_id,
+    modalidade_faturamento: unidade.modalidade_faturamento,
+    desconto_percentual: desconto,
+    tipo_gd: unidade.tipo_gd,
+    percentual_rateio: unidade.percentual_rateio,
+    fatura_somente_andrade: unidade.fatura_somente_andrade,
+    repassar_disponibilidade_gd1: unidade.repassar_disponibilidade_gd1,
+    repassar_disponibilidade_gd2: unidade.repassar_disponibilidade_gd2,
+    repassar_diferenca_fio_b_gd2: unidade.repassar_diferenca_fio_b_gd2,
+  };
 
   return await salvarContratoUnidade(unidade.id, {
     cliente_id: unidade.cliente_id,
@@ -165,7 +178,9 @@ export async function salvarContratoDaUnidadeService(
     economia_mensal_estimada: economiaMensal,
     economia_anual_estimada: normalizarMoeda(dados?.economia_anual_estimada) || economiaMensal * 12,
     observacoes: normalizarNumero(dados?.observacoes) || null,
-    dados_documento: dados?.dados_documento && typeof dados.dados_documento === "object" ? dados.dados_documento : {},
+    dados_documento: { ...(dados?.dados_documento && typeof dados.dados_documento === "object" ? dados.dados_documento : {}), configuracao_uc: configuracaoUc },
+    configuracao_uc_snapshot: configuracaoUc,
+    revisao_configuracao_pendente: false,
   });
 }
 
@@ -257,22 +272,84 @@ async function obterContratoDoClienteParaAceite(contratoId: string, usuario: any
   return contrato;
 }
 
-/** Registra o aceite no app. Não substitui um PDF assinado pelo GOV.BR/ICP-Brasil. */
-export async function registrarAceiteEletronicoService(contratoId: string, usuario: any, evidencias: { ip?: string; userAgent?: string }) {
-  await obterContratoDoClienteParaAceite(contratoId, usuario);
+const hashAssinatura = (valor: string) => crypto.createHash("sha256").update(valor).digest("hex");
+
+export async function solicitarCodigoAssinaturaService(contratoId: string, usuario: any) {
+  const contrato = await obterContratoDoClienteParaAceite(contratoId, usuario);
+  const email = String(usuario?.email ?? "").trim().toLowerCase();
+  if (!email || !email.includes("@")) throw new Error("Sua conta não possui um e-mail válido para confirmar a assinatura.");
+  if (!contrato.contrato_gerado_url && !contrato.arquivo_pdf) throw new Error("A minuta precisa ser gerada antes da assinatura.");
+
+  const codigo = String(crypto.randomInt(100000, 1000000));
+  const expiraEm = new Date(Date.now() + 10 * 60_000).toISOString();
+  const { error } = await supabase.from("contratos_codigos_assinatura").upsert({
+    contrato_id: contratoId,
+    usuario_id: usuario.id,
+    codigo_hash: hashAssinatura(codigo),
+    expira_em: expiraEm,
+    tentativas: 0,
+    criado_em: new Date().toISOString(),
+  }, { onConflict: "contrato_id" });
+  if (error) throw error;
+
+  const enviado = await enviarEmailTransacional({
+    destinatario: email,
+    assunto: "Código para assinar seu contrato",
+    html: `<div style="font-family:Arial,sans-serif;color:#153b30"><h2>Confirmação da assinatura</h2><p>Use o código abaixo para confirmar a assinatura do contrato <strong>${String(contrato.numero ?? "").replace(/[<>]/g, "")}</strong>:</p><div style="font-size:30px;font-weight:800;letter-spacing:8px;margin:24px 0">${codigo}</div><p>O código expira em 10 minutos. Se você não iniciou esta assinatura, ignore este e-mail.</p></div>`,
+  });
+  if (!enviado) throw new Error("Não foi possível enviar o código de assinatura. Tente novamente.");
+  return { enviado: true, emailMascarado: email.replace(/^(.{2}).*(@.*)$/, "$1***$2"), expiraEm };
+}
+
+/** Registra assinatura desenhada, código confirmado e evidências técnicas do aceite. */
+export async function registrarAceiteEletronicoService(contratoId: string, usuario: any, dados: any, evidencias: { ip?: string; userAgent?: string }) {
+  const contrato = await obterContratoDoClienteParaAceite(contratoId, usuario);
+  const codigo = String(dados?.codigo ?? "").replace(/\D/g, "");
+  const assinatura = Array.isArray(dados?.assinatura) ? dados.assinatura : [];
+  if (codigo.length !== 6) throw new Error("Informe o código de seis dígitos enviado ao seu e-mail.");
+  if (!assinatura.length || JSON.stringify(assinatura).length < 80) throw new Error("Faça sua assinatura no campo indicado.");
+
+  const { data: confirmacao, error: erroCodigo } = await supabase
+    .from("contratos_codigos_assinatura")
+    .select("*")
+    .eq("contrato_id", contratoId)
+    .eq("usuario_id", usuario.id)
+    .maybeSingle();
+  if (erroCodigo) throw erroCodigo;
+  if (!confirmacao || new Date(confirmacao.expira_em).getTime() < Date.now()) throw new Error("O código expirou. Solicite um novo código.");
+  if (confirmacao.tentativas >= 5) throw new Error("Limite de tentativas atingido. Solicite um novo código.");
+  if (confirmacao.codigo_hash !== hashAssinatura(codigo)) {
+    await supabase.from("contratos_codigos_assinatura").update({ tentativas: confirmacao.tentativas + 1 }).eq("contrato_id", contratoId);
+    throw new Error("Código incorreto.");
+  }
+
+  const assinaturaSerializada = JSON.stringify(assinatura);
+  const documentoHash = hashAssinatura(JSON.stringify({
+    id: contrato.id,
+    numero: contrato.numero,
+    geradoEm: contrato.gerado_em,
+    documento: contrato.contrato_gerado_url ?? contrato.arquivo_pdf,
+    dados: contrato.dados_documento,
+  }));
+  const agora = new Date().toISOString();
   const { data, error } = await supabase
     .from("contratos")
     .update({
-      aceite_cliente_em: new Date().toISOString(),
+      aceite_cliente_em: agora,
       aceite_cliente_usuario_id: usuario.id,
       aceite_cliente_ip: evidencias.ip ?? null,
       aceite_cliente_user_agent: evidencias.userAgent ?? null,
+      assinatura_cliente_tracos: assinatura,
+      assinatura_cliente_hash: hashAssinatura(assinaturaSerializada),
+      documento_hash: documentoHash,
+      codigo_assinatura_confirmado_em: agora,
       status: "VIGENTE",
     })
     .eq("id", contratoId)
     .select()
     .single();
   if (error) throw error;
+  await supabase.from("contratos_codigos_assinatura").delete().eq("contrato_id", contratoId);
   return anexarLinksDoContrato(data);
 }
 

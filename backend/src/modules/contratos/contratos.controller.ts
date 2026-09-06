@@ -116,10 +116,18 @@ export async function importarContratoAssinadoDaUnidadeController(req: Request, 
 
 export async function registrarAceiteEletronicoController(req: Request, res: Response) {
   try {
-    res.json(await ContratosService.registrarAceiteEletronicoService(req.params.id, (req as any).usuario, {
+    res.json(await ContratosService.registrarAceiteEletronicoService(req.params.id, (req as any).usuario, req.body, {
       ip: req.ip,
       userAgent: req.get("user-agent") ?? undefined,
     }));
+  } catch (e: any) {
+    res.status(400).json({ message: e.message });
+  }
+}
+
+export async function solicitarCodigoAssinaturaController(req: Request, res: Response) {
+  try {
+    res.json(await ContratosService.solicitarCodigoAssinaturaService(req.params.id, (req as any).usuario));
   } catch (e: any) {
     res.status(400).json({ message: e.message });
   }

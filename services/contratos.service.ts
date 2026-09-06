@@ -96,8 +96,13 @@ export async function importarContratoAssinadoDaUnidade(unidadeId: string, arqui
   return data;
 }
 
-export async function registrarAceiteEletronico(contratoId: string) {
-  const { data } = await api.post(`/contratos/${contratoId}/aceite-eletronico`);
+export async function solicitarCodigoAssinatura(contratoId: string) {
+  const { data } = await api.post(`/contratos/${contratoId}/codigo-assinatura`);
+  return data;
+}
+
+export async function registrarAceiteEletronico(contratoId: string, payload: { codigo: string; assinatura: string[] }) {
+  const { data } = await api.post(`/contratos/${contratoId}/aceite-eletronico`, payload);
   return data;
 }
 

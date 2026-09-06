@@ -4,8 +4,11 @@ import {
   Alert,
   RefreshControl,
   Linking,
+  Modal,
+  Pressable,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -33,6 +36,8 @@ import {
 } from "../../services/contratos.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { useQueryClient } from "@tanstack/react-query";
+import SignaturePad from "../../components/cliente/SignaturePad";
+import { solicitarCodigoAssinatura } from "../../services/contratos.service";
 
 function formatarData(data?: string) {
   if (!data) return "Não informado";
@@ -55,6 +60,12 @@ export default function Contrato() {
   const [atualizando, setAtualizando] = useState(false);
   const [registrandoAceite, setRegistrandoAceite] = useState(false);
   const [enviandoAssinado, setEnviandoAssinado] = useState(false);
+  const [modalAssinatura, setModalAssinatura] = useState(false);
+  const [codigoAssinatura, setCodigoAssinatura] = useState("");
+  const [tracosAssinatura, setTracosAssinatura] = useState<string[]>([]);
+  const [enviandoCodigo, setEnviandoCodigo] = useState(false);
+  const [emailCodigo, setEmailCodigo] = useState("");
+  const [abrindoProposta, setAbrindoProposta] = useState(false);
 
   async function atualizarPagina() {
     setAtualizando(true);
@@ -99,8 +110,6 @@ export default function Contrato() {
     data.contrato_assinado_url ?? data.contrato_gerado_url ?? data.arquivo_pdf;
   const aceiteRegistrado = Boolean(data.aceite_cliente_em);
   const pdfAssinadoEnviado = Boolean(data.contrato_assinado_url);
-  const [abrindoProposta, setAbrindoProposta] = useState(false);
-
   async function abrirProposta() {
     if (!unidadeSelecionada?.id) return Alert.alert("Selecione a unidade", "Escolha a UC antes de abrir sua proposta.");
     try { setAbrindoProposta(true); const uri = await baixarPropostaDaUnidade(unidadeSelecionada.id); await Linking.openURL(uri); }
@@ -126,35 +135,35 @@ export default function Contrato() {
     }
   }
 
-  function confirmarAceite() {
-    Alert.alert(
-      "Registrar aceite",
-      "Você confirma que leu e aceita as condições deste contrato? O aceite será registrado com a data, hora e sua conta. Para assinatura digital gratuita, use também o GOV.BR.",
-      [
-        { text: "Voltar", style: "cancel" },
-        {
-          text: "Li e aceito",
-          onPress: async () => {
-            setRegistrandoAceite(true);
-            try {
-              await registrarAceiteEletronico(data.id);
-              await queryClient.invalidateQueries({ queryKey: ["contrato"] });
-              Alert.alert(
-                "Aceite registrado",
-                "Seu aceite foi salvo. Se desejar, você pode assinar o PDF gratuitamente pelo GOV.BR e enviar o documento assinado aqui.",
-              );
-            } catch (erro: any) {
-              Alert.alert(
-                "Não foi possível registrar",
-                erro?.response?.data?.message ?? "Tente novamente.",
-              );
-            } finally {
-              setRegistrandoAceite(false);
-            }
-          },
-        },
-      ],
-    );
+  async function abrirAssinatura() {
+    setEnviandoCodigo(true);
+    try {
+      const resposta = await solicitarCodigoAssinatura(data.id);
+      setEmailCodigo(resposta.emailMascarado ?? "seu e-mail");
+      setCodigoAssinatura("");
+      setTracosAssinatura([]);
+      setModalAssinatura(true);
+    } catch (erro: any) {
+      Alert.alert("Código não enviado", erro?.response?.data?.message ?? "Tente novamente.");
+    } finally {
+      setEnviandoCodigo(false);
+    }
+  }
+
+  async function confirmarAceite() {
+    if (codigoAssinatura.length !== 6) return Alert.alert("Código incompleto", "Informe os seis dígitos enviados ao e-mail.");
+    if (!tracosAssinatura.length) return Alert.alert("Assinatura necessária", "Faça sua assinatura no campo indicado.");
+    setRegistrandoAceite(true);
+    try {
+      await registrarAceiteEletronico(data.id, { codigo: codigoAssinatura, assinatura: tracosAssinatura });
+      setModalAssinatura(false);
+      await queryClient.invalidateQueries({ queryKey: ["contrato"] });
+      Alert.alert("Contrato assinado", "Sua assinatura e o código de confirmação foram registrados com as evidências do aceite.");
+    } catch (erro: any) {
+      Alert.alert("Não foi possível assinar", erro?.response?.data?.message ?? "Tente novamente.");
+    } finally {
+      setRegistrandoAceite(false);
+    }
   }
 
   async function assinarComGovBr() {
@@ -410,6 +419,7 @@ export default function Contrato() {
         />
 
         <Text style={styles.sectionTitle}>Assinatura</Text>
+        {data.revisao_configuracao_pendente ? <View style={styles.revisionNotice}><Ionicons name="alert-circle-outline" size={20} color="#9A6700" /><Text style={styles.revisionNoticeText}>A configuração desta UC foi alterada. O gerador precisa emitir uma nova versão para sua assinatura.</Text></View> : null}
         <Card>
           <InfoRow
             icon={
@@ -450,11 +460,11 @@ export default function Contrato() {
                 color={Colors.surface}
               />
             }
-            onPress={confirmarAceite}
+            onPress={() => void abrirAssinatura()}
             title={
-              registrandoAceite
-                ? "Registrando aceite..."
-                : "Li e aceito o contrato"
+              registrandoAceite || enviandoCodigo
+                ? "Preparando assinatura..."
+                : "Assinar contrato no app"
             }
           />
         ) : null}
@@ -533,6 +543,31 @@ export default function Contrato() {
           </Text>
         </View>
       </ScrollView>
+      <Modal animationType="slide" transparent visible={modalAssinatura} onRequestClose={() => !registrandoAceite && setModalAssinatura(false)}>
+        <Pressable style={styles.signatureBackdrop} onPress={() => !registrandoAceite && setModalAssinatura(false)}>
+          <Pressable style={styles.signatureSheet} onPress={(event) => event.stopPropagation()}>
+            <View style={styles.signatureHandle} />
+            <Text style={styles.signatureTitle}>Assinar contrato</Text>
+            <Text style={styles.signatureSubtitle}>Confira a minuta, assine no campo abaixo e confirme com o código enviado para {emailCodigo}.</Text>
+            <SignaturePad value={tracosAssinatura} onChange={setTracosAssinatura} />
+            <Text style={styles.codeLabel}>Código de confirmação</Text>
+            <TextInput
+              autoComplete="one-time-code"
+              keyboardType="number-pad"
+              maxLength={6}
+              onChangeText={(valor) => setCodigoAssinatura(valor.replace(/\D/g, ""))}
+              placeholder="000000"
+              placeholderTextColor={Colors.subtitle}
+              style={styles.codeInput}
+              value={codigoAssinatura}
+            />
+            <TouchableOpacity disabled={enviandoCodigo} onPress={() => void abrirAssinatura()} style={styles.resendCode}>
+              <Text style={styles.resendCodeText}>{enviandoCodigo ? "Reenviando..." : "Reenviar código"}</Text>
+            </TouchableOpacity>
+            <Button disabled={registrandoAceite || codigoAssinatura.length !== 6 || !tracosAssinatura.length} title={registrandoAceite ? "Registrando assinatura..." : "Confirmar e assinar"} onPress={() => void confirmarAceite()} />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }
@@ -795,4 +830,15 @@ const styles = StyleSheet.create({
     color: Colors.subtitle,
     fontSize: Typography.small,
   },
+  signatureBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(3, 18, 13, 0.58)" },
+  revisionNotice: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.sm, padding: Spacing.md, borderRadius: Radius.lg, backgroundColor: "#FFF4CE" },
+  revisionNoticeText: { flex: 1, color: "#6B4F00", fontSize: Typography.caption, lineHeight: 18, fontWeight: "600" },
+  signatureSheet: { maxHeight: "94%", padding: Spacing.lg, paddingBottom: 30, borderTopLeftRadius: 26, borderTopRightRadius: 26, backgroundColor: Colors.background },
+  signatureHandle: { width: 42, height: 4, alignSelf: "center", marginBottom: Spacing.md, borderRadius: 2, backgroundColor: Colors.border },
+  signatureTitle: { color: Colors.text, fontSize: Typography.section, fontWeight: "800" },
+  signatureSubtitle: { marginTop: 5, marginBottom: Spacing.md, color: Colors.subtitle, fontSize: Typography.caption, lineHeight: 19 },
+  codeLabel: { marginTop: Spacing.xs, marginBottom: 6, color: Colors.text, fontSize: Typography.caption, fontWeight: "700" },
+  codeInput: { height: 54, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.lg, backgroundColor: Colors.surface, color: Colors.text, fontSize: 24, fontWeight: "800", letterSpacing: 8, textAlign: "center" },
+  resendCode: { alignSelf: "flex-end", paddingVertical: Spacing.sm },
+  resendCodeText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "700" },
 });

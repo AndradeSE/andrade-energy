@@ -70,6 +70,18 @@ export async function salvarContratoUnidade(
     );
     const novoAtivo = ["ATIVO", "VIGENTE"].includes(String(contrato.status ?? "").toUpperCase());
 
+    // Um documento já aceito nunca é sobrescrito. A edição cria a próxima
+    // versão e mantém a anterior integralmente no histórico da UC.
+    if (existente.aceite_cliente_em || existente.contrato_assinado_url) {
+      await atualizarContrato(existente.id, { status: "SUBSTITUIDO", revisao_configuracao_pendente: false });
+      return await criarContrato({
+        ...contrato,
+        status: novoAtivo ? "ATIVO" : contrato.status,
+        versao: Number(existente.versao ?? 1) + 1,
+        revisao_configuracao_pendente: false,
+      });
+    }
+
     // Renovação: preserva o contrato que venceu e libera a vigência nova.
     if (vigenciaExpirada && novoAtivo) {
       await atualizarContrato(existente.id, { status: "VENCIDO" });

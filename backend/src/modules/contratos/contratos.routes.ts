@@ -11,6 +11,7 @@ import {
     gerarContratoDaUnidadeController,
     importarContratoAssinadoDaUnidadeController,
     registrarAceiteEletronicoController,
+    solicitarCodigoAssinaturaController,
     importarContratoAssinadoPeloClienteController,
     propostaDaUnidadeController,
 } from "./contratos.controller";
@@ -62,6 +63,7 @@ router.post(
   importarContratoAssinadoDaUnidadeController
 );
 
+router.post("/:id/codigo-assinatura", exigirRegistroDaEmpresa("contratos"), solicitarCodigoAssinaturaController);
 router.post("/:id/aceite-eletronico", exigirRegistroDaEmpresa("contratos"), registrarAceiteEletronicoController);
 router.post("/:id/contrato-assinado-cliente", exigirRegistroDaEmpresa("contratos"), upload.single("arquivo"), importarContratoAssinadoPeloClienteController);
 

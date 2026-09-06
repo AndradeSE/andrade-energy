@@ -393,6 +393,42 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any) {
     .single();
   if (erroUc) throw erroUc;
 
+  // A configuração comercial pertence à UC e acompanha a minuta do contrato.
+  // Contratos já assinados permanecem imutáveis e recebem uma indicação de
+  // revisão para que uma nova versão seja emitida e aceita pelo cliente.
+  const configuracaoContrato = {
+    usina_id: usinaId,
+    modalidade_faturamento: modalidade,
+    desconto_percentual: desconto,
+    tipo_gd: tipoGd,
+    percentual_rateio: percentual,
+    fatura_somente_andrade: somenteAndrade,
+    repassar_disponibilidade_gd1: repassarCustoDisponibilidadeGD1,
+    repassar_disponibilidade_gd2: repassarCustoDisponibilidadeGD2,
+    repassar_diferenca_fio_b_gd2: repassarDiferencaFioBGD2,
+  };
+  const { data: contratoDaUc } = await supabase
+    .from("contratos")
+    .select("id,aceite_cliente_em,contrato_assinado_url,dados_documento")
+    .eq("unidade_consumidora_id", unidade.id)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (contratoDaUc?.id) {
+    const assinado = Boolean(contratoDaUc.aceite_cliente_em || contratoDaUc.contrato_assinado_url);
+    const atualizacaoContrato: Record<string, unknown> = {
+      configuracao_uc_snapshot: configuracaoContrato,
+      revisao_configuracao_pendente: assinado,
+    };
+    if (!assinado) {
+      atualizacaoContrato.usina_id = usinaId;
+      atualizacaoContrato.desconto = desconto;
+      atualizacaoContrato.dados_documento = { ...(contratoDaUc.dados_documento ?? {}), configuracao_uc: configuracaoContrato };
+    }
+    const { error: erroContrato } = await supabase.from("contratos").update(atualizacaoContrato).eq("id", contratoDaUc.id);
+    if (erroContrato) throw erroContrato;
+  }
+
   const ucPrincipal = String(cliente.uc ?? "").replace(/\D/g, "") === numero;
   const atualizacaoCliente: Record<string, unknown> = {
     usina_id: cliente.usina_id ?? usinaId,
