@@ -55,7 +55,11 @@ export default function NovaUnidade() {
   const [repasseDisponibilidadeGD2, setRepasseDisponibilidadeGD2] = useState<RepasseGD2>("REPASSAR");
   const [repasseFioBGD2, setRepasseFioBGD2] = useState<RepasseGD2>("REPASSAR");
   const [clientes, setClientes] = useState<any[]>([]); const [usinas, setUsinas] = useState<any[]>([]);
-  const [clienteId, setClienteId] = useState(String(clienteIdVinculado ?? "")); const [usinaId, setUsinaId] = useState(""); const [percentualAlocado, setPercentualAlocado] = useState(""); const [salvando, setSalvando] = useState(false);
+  const [clienteEscolhido, setClienteId] = useState("");
+  // O contexto do perfil é a fonte do vínculo, não uma seleção editável.
+  // Também funciona quando o Router entrega os parâmetros após a montagem.
+  const clienteId = String(clienteIdVinculado || clienteEscolhido || "");
+  const [usinaId, setUsinaId] = useState(""); const [percentualAlocado, setPercentualAlocado] = useState(""); const [salvando, setSalvando] = useState(false);
   const usinaSelecionada = usinas.find((item) => item.id === usinaId);
   const usinaGd2 = String(usinaSelecionada?.tipo_gd ?? "").toUpperCase() === "GD2";
   const tipoGdEfetivo = String(usinaSelecionada?.tipo_gd ?? "").toUpperCase();
