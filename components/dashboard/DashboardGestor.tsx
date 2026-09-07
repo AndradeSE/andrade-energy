@@ -30,6 +30,7 @@ import {
   Section,
 } from "../ui";
 import QuickAccessCarousel from "../QuickAccessCarousel";
+import AndradeBarChart from "../charts/AndradeBarChart";
 import RevenueChart from "./RevenueChart";
 
 function formatarEnergia(valor: number) {
@@ -45,6 +46,15 @@ function formatarMoeda(valor: number) {
     style: "currency",
     currency: "BRL",
   });
+}
+
+function rotuloCompetencia(valor: unknown) {
+  const texto = String(valor ?? "");
+  const correspondencia = texto.match(/^(\d{4})-(\d{2})/);
+  if (!correspondencia) return texto.slice(0, 3) || "—";
+  return new Intl.DateTimeFormat("pt-BR", { month: "short" })
+    .format(new Date(Number(correspondencia[1]), Number(correspondencia[2]) - 1, 1))
+    .replace(".", "");
 }
 
 const atalhos = [
@@ -154,6 +164,14 @@ export default function DashboardGestor() {
       </Screen>
     );
 
+  const historicoGeracao = (Array.isArray(data.historico) ? data.historico : [])
+    .slice(0, 12)
+    .reverse()
+    .map((item: any) => ({
+      label: rotuloCompetencia(item.competencia),
+      value: Math.max(0, Number(item.energiaGerada ?? item.energia_gerada ?? 0)),
+    }));
+
   return (
     <Screen>
       <AppHeader
@@ -225,6 +243,17 @@ export default function DashboardGestor() {
             </Text>
           </View>
         </View>
+
+        {historicoGeracao.length ? (
+          <AndradeBarChart
+            title="Desempenho da geração"
+            subtitle="Produção real processada por competência"
+            data={historicoGeracao}
+            color={Colors.primary}
+            totalLabel="Produção no período"
+            formatTotal={formatarEnergia}
+          />
+        ) : null}
 
         {carteira ? (
           <Pressable

@@ -12,6 +12,8 @@ interface Props {
   data: AndradeBarItem[];
   color?: string;
   height?: number;
+  totalLabel?: string;
+  formatTotal?: (value: number) => string;
 }
 
 export default function AndradeBarChart({
@@ -20,6 +22,8 @@ export default function AndradeBarChart({
   data,
   color = "#16A34A",
   height = 220,
+  totalLabel = "Total",
+  formatTotal = (value) => `R$ ${value.toFixed(2).replace(".", ",")}`,
 }: Props) {
   const total = data.reduce((acc, item) => acc + item.value, 0);
   const palette = [color, "#00A7A0", "#2F80ED", "#7C5CFC", "#FF8A00", "#F2C500"];
@@ -97,7 +101,7 @@ export default function AndradeBarChart({
             color: "#64748B",
           }}
         >
-          Total
+          {totalLabel}
         </Text>
 
         <Text
@@ -107,7 +111,7 @@ export default function AndradeBarChart({
             color,
           }}
         >
-          R$ {total.toFixed(2).replace(".", ",")}
+          {formatTotal(total)}
         </Text>
       </View>
     </View>
