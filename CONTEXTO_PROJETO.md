@@ -471,3 +471,7 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - A estrutura nasceu multiproveedor: PHB/SolarPortal+, Huawei/FusionSolar, Fronius/Solar.web, Intelbras e Growatt. PHB é o primeiro provedor planejado para sincronização real.
 - Senhas dos aplicativos dos fabricantes não são solicitadas nem armazenadas. Novos equipamentos permanecem como `AGUARDANDO_AUTORIZACAO` até a configuração de uma credencial oficial no backend.
 - A migração `20260907173000_integracoes_inversores_por_usina.sql` foi aplicada no Supabase remoto. A unicidade `(empresa_id, numero_serie)` impede que o mesmo inversor seja associado a duas usinas da empresa.
+- Implementação consolidada no commit `1260ab0` (`feat: vincular inversores individualmente as usinas`) e enviada para a branch `main`.
+- OTA do aplicativo Gerador publicada no canal `preview-gerador`, runtime `1.0.0`: grupo `fcefb502-1e90-4805-912e-1fabbfd48301`, atualização Android `01a07d76-923e-74d2-8626-77d82e1f53af`.
+- Deploy do backend concluído no Render e validado pelo endpoint `/health`, que respondeu `online` no commit `1260ab0`.
+- A sincronização real com PHB/SolarPortal+ é a próxima etapa e depende de credencial oficial/API de integração fornecida ou aprovada pela PHB. O cadastro atual não utiliza senha comum do aplicativo do fabricante.
