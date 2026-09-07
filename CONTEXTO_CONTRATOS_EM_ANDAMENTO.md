@@ -33,6 +33,14 @@ Gerador cadastra cliente e UC, configura UC, salva rascunho, gera/revisa contrat
 1. Executar teste integrado com uma conta exclusivamente de homologação: criar cliente/UC, salvar, revisar, enviar, criar conta, assinar e conferir a liberação por UC. Não modificar cliente real para simulação.
 2. Completar auditoria das demais rotas históricas do consumidor; os testes automatizados atuais cobrem contrato, dashboard e faturas.
 3. Não afirmar equivalência jurídica garantida somente por hash, OTP e assinatura desenhada; submeter o modelo e o processo a revisão jurídica antes do uso definitivo.
-4. Commit, deploy do backend, OTA `preview-gerador`/`preview-consumidor` e publicação do portal ainda serão registrados abaixo após conclusão.
+4. Publicação do portal está bloqueada porque o projeto Sites `appgprj_6a8c66b15ba48191baad8777fd2d1eba` pertence a outra conta: a sessão atual retorna `Sites project not found` e o remoto exige a credencial dessa conta.
+
+## Publicação de 07/09/2026
+
+- Commit principal/backend: `11ebb5a`; confirmado em produção pelo `/health` do Render.
+- Supabase: migração `20260907120000_convite_por_unidade.sql` aplicada com sucesso.
+- OTA Gerador `preview-gerador`: grupo `b607dfa6-c18e-47fe-be0a-9511e4ff729b`, Android `01a07a12-ba34-7011-9d96-66d2f8caa95d`.
+- OTA Consumidor `preview-consumidor`: grupo `509314c4-b741-42fe-ad99-277e35418607`, Android `01a07a14-bf8a-75e6-9bfb-219c9ea96003`.
+- Portal web: commit local validado `5dcc787`; publicação pendente de autenticação na conta proprietária do Sites.
 
 Preservar arquivos não relacionados: `.worktrees`, `backend/tmp`, `backend/output`, `dist-*` e outros artefatos locais não devem entrar no commit por `git add .`.

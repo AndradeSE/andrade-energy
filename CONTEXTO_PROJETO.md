@@ -442,3 +442,5 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - O acesso é isolado por UC: contrato pendente não herda assinatura de outra unidade e uma nova UC pendente não bloqueia as unidades já assinadas.
 - Dashboard e faturas do consumidor filtram as UCs liberadas. App e portal direcionam o primeiro acesso ao contrato quando nenhuma UC ainda foi liberada.
 - A migração `20260907120000_convite_por_unidade.sql` foi aplicada no Supabase vinculado. Backend compilado, 23 testes de contrato/acesso/faturamento aprovados, exportações Android dos dois perfis aprovadas e build web de produção aprovado.
+- Backend publicado e confirmado no Render no commit `11ebb5a`. OTA Gerador `b607dfa6-c18e-47fe-be0a-9511e4ff729b`; OTA Consumidor `509314c4-b741-42fe-ad99-277e35418607`.
+- Portal web commitado em `5dcc787`, com 22 testes de projeção aprovados. O deploy do Sites permanece pendente porque o projeto configurado pertence a outra conta e a sessão atual não possui acesso ao projeto/remoto.
