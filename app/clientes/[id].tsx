@@ -166,7 +166,7 @@ export default function ClienteDetalhe() {
     {area === "unidades" ? <TouchableOpacity onPress={() => router.replace({ pathname: "/clientes/[id]", params: { id } })} style={styles.backToOverview}><Ionicons name="chevron-back" size={18} color={Colors.primary} /><Text style={styles.backToOverviewText}>Voltar ao resumo do cliente</Text></TouchableOpacity> : null}
     {mostrarVisaoGeral ? <>
       <Section title="Acesso rápido"><View style={styles.quickGrid}>
-        <QuickAccess icon="flash-outline" label="Unidades" detail={`${unidades.length} cadastrada${unidades.length === 1 ? "" : "s"}`} onPress={() => router.push({ pathname: "/clientes/[id]", params: { id, area: "unidades" } })} />
+        <QuickAccess icon="flash-outline" label="Unidades" detail={`${unidades.length} cadastrada${unidades.length === 1 ? "" : "s"}`} onPress={() => router.push({ pathname: "/unidades", params: { clienteId: String(cliente.id || id), cliente: cliente.nome } })} />
         <QuickAccess icon="document-text-outline" label="Faturas" detail={`${faturas.length} processada${faturas.length === 1 ? "" : "s"}`} onPress={() => router.push({ pathname: "/clientes/[id]", params: { id, area: "faturas" } })} />
         {IS_GERADOR_APP ? <QuickAccess icon="folder-open-outline" label="Contas anexadas" detail="Visualizar e adicionar UCs" onPress={() => router.push({ pathname: "/clientes/faturas-anexadas" as never, params: { clienteId: id, cliente: cliente.nome, selecionarUc: "1" } })} /> : null}
         {IS_GERADOR_APP ? <QuickAccess icon="mail-unread-outline" label={enviandoConvite ? "Reenviando..." : "Reenviar convite"} detail={cliente.email || "Informe o e-mail"} onPress={() => { if (!enviandoConvite) void enviarConvite(); }} /> : null}

@@ -18,7 +18,7 @@ const rotas = {
   UNIDADE: "/unidades/nova",
 } as const;
 
-export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
+export default function CadastroActions({ tipo, clienteId }: { tipo: TipoCadastro; clienteId?: string }) {
   const [analisando, setAnalisando] = useState(false);
   const { usuario, usinaSelecionada, suspenderBloqueioTemporariamente } = useAuth();
   const podeImportarCliente = tipo === "CLIENTE" && IS_GERADOR_APP && usuario?.perfil === "ADMIN";
@@ -28,7 +28,7 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
       router.push("/clientes/novo");
       return;
     }
-    router.push({ pathname: rotas[tipo] as any, params: tipo === "UNIDADE" ? { cadastroRapido: "1" } : {} });
+    router.push({ pathname: rotas[tipo] as any, params: tipo === "UNIDADE" ? { cadastroRapido: "1", clienteId: clienteId || "" } : {} });
   }
 
   async function importar() {
@@ -87,6 +87,7 @@ export default function CadastroActions({ tipo }: { tipo: TipoCadastro }) {
         pathname: (tipo === "CLIENTE" ? "/clientes/novo" : rotas[tipo]) as any,
         params: {
           origem: "fatura",
+          clienteId: tipo === "UNIDADE" ? clienteId || "" : "",
           classificacao: tipo === "UNIDADE" ? "" : String(analise?.classificacao ?? ""),
           cliente: tipo === "UNIDADE" ? "" : String(nomeExtraido),
           nome: tipo === "UNIDADE" ? "" : String(nomeExtraido),

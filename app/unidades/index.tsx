@@ -1,13 +1,15 @@
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 
 import CadastroActions from "../../components/cadastro/CadastroActions";
 import { AppHeader, Card, ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../../components/ui";
-import { listarUnidadesGestor } from "../../services/clientes.service";
+import { listarUnidadesGestor, listarUnidadesCliente } from "../../services/clientes.service";
 import { Colors, Spacing, Typography } from "../../theme";
 
 export default function Unidades() {
+  const params = useLocalSearchParams<{ clienteId?: string; cliente?: string }>();
+  const clienteId = String(params.clienteId || "");
   const [unidades, setUnidades] = useState<any[]>([]);
   const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
@@ -17,13 +19,13 @@ export default function Unidades() {
   const carregar = useCallback(async () => {
     try {
       setErro("");
-      setUnidades((await listarUnidadesGestor()) ?? []);
+      setUnidades((await (clienteId ? listarUnidadesCliente(clienteId) : listarUnidadesGestor())) ?? []);
     } catch (error: any) {
       setErro(error?.response?.data?.message ?? "Não foi possível carregar as unidades agora.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [clienteId]);
 
   useFocusEffect(useCallback(() => { void carregar(); }, [carregar]));
   async function atualizarPagina() {
@@ -34,13 +36,13 @@ export default function Unidades() {
 
   return (
     <Screen>
-      <AppHeader title="Unidades consumidoras" subtitle="Carteira dos clientes" contextTitle={`${unidades.length} unidades cadastradas`} contextSubtitle="Todas as unidades vinculadas aos clientes" icon="flash-outline" />
+      <AppHeader title="Unidades consumidoras" subtitle={clienteId ? params.cliente || "Unidades do cliente" : "Carteira dos clientes"} contextTitle={`${unidades.length} unidades cadastradas`} contextSubtitle={clienteId ? "Unidades vinculadas a este cliente" : "Todas as unidades vinculadas aos clientes"} icon="flash-outline" />
       {loading ? <Loading /> : <FlatList
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}
         contentContainerStyle={styles.content}
         data={lista}
         keyExtractor={(item) => item.id}
-        ListHeaderComponent={<View><Text style={styles.title}>Unidades consumidoras</Text><Text style={styles.subtitle}>Consulte as unidades de todos os clientes.</Text><View style={styles.search}><TextInput value={busca} onChangeText={setBusca} placeholder="Buscar por UC, cliente, CPF ou endereço" placeholderTextColor={Colors.subtitle} style={styles.searchInput} /></View><CadastroActions tipo="UNIDADE" /></View>}
+        ListHeaderComponent={<View><Text style={styles.title}>Unidades consumidoras</Text><Text style={styles.subtitle}>{clienteId ? "Consulte e adicione unidades deste cliente." : "Consulte as unidades de todos os clientes."}</Text><View style={styles.search}><TextInput value={busca} onChangeText={setBusca} placeholder="Buscar por UC, cliente, CPF ou endereço" placeholderTextColor={Colors.subtitle} style={styles.searchInput} /></View><CadastroActions tipo="UNIDADE" clienteId={clienteId} /></View>}
         renderItem={({ item }) => <Pressable onPress={() => router.push({ pathname: "/unidades/[id]", params: { id: item.id, numero: item.numero, clienteId: item.cliente_id ?? item.clientes?.id ?? "", cliente: item.clientes?.nome ?? "", usinaId: item.usina_id ?? item.usinas?.id ?? "", usinaNome: item.usinas?.nome ?? item.usina_nome ?? "", titular: item.titular ?? "", distribuidora: item.distribuidora ?? "" } })}><Card style={styles.unitCard}>
           <View style={styles.row}><Text style={styles.number}>UC {item.numero}</Text><Text style={styles.badge}>{item.tipo}</Text></View>
           <Text style={styles.owner}>{item.clientes?.nome ?? item.titular ?? "Cliente não identificado"}</Text>
