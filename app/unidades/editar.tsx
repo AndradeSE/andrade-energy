@@ -88,6 +88,7 @@ export default function EditarAlocacaoUnidade() {
   const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO"); const [percentual, setPercentual] = useState("");
   const [desconto, setDesconto] = useState("40"); const [consumoMedio, setConsumoMedio] = useState("0");
   const [cpfTitular, setCpfTitular] = useState("");
+  const [apelido, setApelido] = useState("");
   const [formatoFatura, setFormatoFatura] = useState<FormatoFatura>("UNIFICADA");
   const [repasseDisponibilidadeGD1, setRepasseDisponibilidadeGD1] = useState<RepasseGD2>("REPASSAR");
   const [repasseDisponibilidadeGD2, setRepasseDisponibilidadeGD2] = useState<RepasseGD2>("REPASSAR");
@@ -158,6 +159,7 @@ export default function EditarAlocacaoUnidade() {
 
         setUsinas(listaUsinas);
         setClienteIdResolvido(idCliente);
+        setApelido(String(uc?.apelido ?? ""));
         setUsinaId(usinaPreferida);
         setModalidade(modalidadeFinal);
         setDesconto(String(descontoImportado ?? uc?.desconto_percentual ?? c?.desconto_percentual ?? 40));
@@ -200,7 +202,7 @@ export default function EditarAlocacaoUnidade() {
     if (!Number.isFinite(rateio) || rateio <= 0 || rateio > 100) return Alert.alert("Percentual inválido", "Informe um percentual entre 0,01% e 100%.");
     if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return Alert.alert("Desconto inválido", "Informe um desconto entre 0% e 100%.");
     try { setSalvando(true);
-      await alocarUnidade(usinaId, { clienteId: clienteIdResolvido, numero: numeroDaUc, cpfTitular: cpfTitular.replace(/\D/g, "") || null, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd: tipoGdEfetivo, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: true });
+      await alocarUnidade(usinaId, { apelido: apelido.trim(), clienteId: clienteIdResolvido, numero: numeroDaUc, cpfTitular: cpfTitular.replace(/\D/g, "") || null, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd: tipoGdEfetivo, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: true });
       // Esta tela pode ter sido aberta a partir de uma UC ou da criação por
       // fatura. O destino único evita ficar preso na tela anterior e exigir
       // um segundo toque para voltar à lista atualizada.
@@ -246,6 +248,7 @@ export default function EditarAlocacaoUnidade() {
           Defina a usina, a média de consumo e o rateio desta UC.
         </Text>
         <Card>
+          <FormField label="Apelido da UC" value={apelido} onChangeText={setApelido} maxLength={40} placeholder="Ex.: Casa, Loja ou Sítio" />
           <View style={styles.sectionHeading}><Text style={styles.sectionEyebrow}>USINA GERADORA</Text></View>
           <FormField
             label="CPF/CNPJ do titular na conta de luz"

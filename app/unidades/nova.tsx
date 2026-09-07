@@ -74,7 +74,14 @@ export default function NovaUnidade() {
         }
       }
       setClientes(listaClientes);
-      setUsinas(Array.isArray(u) ? u : []);
+      const listaUsinas = Array.isArray(u) ? u : [];
+      setUsinas(listaUsinas);
+      // No primeiro cadastro o cliente ainda pode não possuir usina_id. Se o
+      // gerador só administra uma usina, vinculá-la automaticamente evita que
+      // o botão Salvar pareça não responder por falta de uma escolha óbvia.
+      if (listaUsinas.length === 1) {
+        setUsinaId((atual) => atual || String(listaUsinas[0].id));
+      }
     }).catch((erro: any) => {
       Alert.alert("Não foi possível carregar os dados", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
     });

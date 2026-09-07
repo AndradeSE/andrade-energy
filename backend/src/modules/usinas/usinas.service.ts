@@ -377,6 +377,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
       usina_id: usinaId,
       numero,
       tipo: "BENEFICIARIA",
+      ...(input.apelido !== undefined ? { apelido: String(input.apelido ?? "").trim().slice(0, 40) || null } : {}),
       titular: cliente.nome,
       endereco: enderecoDaUc,
       cpf_titular: cpfTitular || unidadeAnterior?.cpf_titular || null,
