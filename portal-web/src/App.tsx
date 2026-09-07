@@ -3387,7 +3387,12 @@ function PortalHome({
               token={session.token ?? ""}
               isGenerator={false}
               onClose={() => undefined}
-              onContractSigned={() => setContractAccessKey((value) => value + 1)}
+              onContractSigned={() => {
+                setSelectedRecord(null);
+                setActiveSection("Minha unidade");
+                setContractAccessKey((value) => value + 1);
+                setRefreshKey((value) => value + 1);
+              }}
             />
           ) : activeSection === "Visão geral" ? (
             type === "CONSUMIDOR" ? (

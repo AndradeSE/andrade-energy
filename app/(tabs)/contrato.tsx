@@ -16,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { useState } from "react";
+import { router } from "expo-router";
 
 import {
   Badge,
@@ -169,8 +170,17 @@ export default function Contrato() {
     try {
       await registrarAceiteEletronico(data.id, { codigo: codigoAssinatura, assinatura: tracosAssinatura });
       setModalAssinatura(false);
-      await queryClient.invalidateQueries({ queryKey: ["contrato"] });
-      Alert.alert("Contrato assinado", "Sua assinatura e o código de confirmação foram registrados com as evidências do aceite.");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["contrato"] }),
+        queryClient.invalidateQueries({ queryKey: ["contratos-acesso"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
+      Alert.alert(
+        "Contrato assinado",
+        "A assinatura foi confirmada e sua unidade está liberada.",
+        [{ text: "Ver minhas unidades", onPress: () => router.replace("/selecionar-unidade") }],
+        { cancelable: false },
+      );
     } catch (erro: any) {
       Alert.alert("Não foi possível assinar", erro?.response?.data?.message ?? "Tente novamente.");
     } finally {

@@ -103,7 +103,7 @@ export default function ConsumerContractSignatureWeb({ apiUrl, token, contract, 
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.message ?? "Não foi possível assinar o contrato.");
-      setMessage("Contrato assinado e unidade liberada com sucesso.");
+      setMessage("Contrato assinado. Abrindo sua lista de unidades...");
       onSigned(data);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Não foi possível assinar o contrato.");
