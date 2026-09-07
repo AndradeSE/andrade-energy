@@ -44,6 +44,7 @@ function percentualPelaMedia(usina: any, consumo: unknown, modalidade: Modalidad
 export default function NovaUnidade() {
   const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, cpf: cpfImportado, energiaCompensada, endereco: enderecoImportado, cadastroRapido, consumoMedio: consumoMedioImportado, dadosFatura: dadosFaturaParam } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; cpf?: string; energiaCompensada?: string; endereco?: string; cadastroRapido?: string; consumoMedio?: string; dadosFatura?: string }>();
   const [dadosFatura, setDadosFatura] = useState<Record<string, any> | null>(() => parseDadosFatura(dadosFaturaParam));
+  const [mensagemSalvar, setMensagemSalvar] = useState("");
   const [numero, setNumero] = useState(""); const [titular, setTitular] = useState("");
   const [cpfTitular, setCpfTitular] = useState("");
   const [tipo, setTipo] = useState<Tipo>("BENEFICIARIA"); const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO");
@@ -160,6 +161,12 @@ export default function NovaUnidade() {
   }, [clienteId, dadosFaturaParam, numero, origem]);
 
   async function salvar() {
+    if (salvando) return;
+    setMensagemSalvar("Conferindo os dados da unidade...");
+    function avisar(titulo: string, mensagem: string) {
+      setMensagemSalvar(mensagem);
+      Alert.alert(titulo, mensagem);
+    }
     const descontoNumero = numeroSeguro(desconto);
     const percentualRateio = numeroSeguro(percentualAlocado);
     const documentoTitular = cpfTitular.replace(/\D/g, "");
@@ -174,18 +181,19 @@ export default function NovaUnidade() {
     const mediaInformada = numeroSeguro(consumoMedio);
     const consumoMedioFinal = Math.max(0, mediaInformada > 0 ? mediaInformada : numeroSeguro(clienteSelecionado?.consumo_medio_kwh));
 
-    if (!numero) return Alert.alert("Dados incompletos", "Informe o número da unidade consumidora.");
-    if (tipo !== "GERADORA" && !clienteId) return Alert.alert("Escolha o cliente", "É necessário cadastrar e selecionar um cliente antes de adicionar a UC.");
-    if (tipo === "BENEFICIARIA" && !usinaFinal) return Alert.alert("Escolha a usina", "Uma UC beneficiária precisa ser vinculada a uma usina antes de salvar.");
-    if (tipo !== "BENEFICIARIA" && !usinaFinal) return Alert.alert("Dados incompletos", "Vincule esta unidade a uma usina.");
+    if (!numero) return avisar("Dados incompletos", "Informe o número da unidade consumidora.");
+    if (tipo !== "GERADORA" && !clienteId) return avisar("Escolha o cliente", "É necessário cadastrar e selecionar um cliente antes de adicionar a UC.");
+    if (tipo === "BENEFICIARIA" && !usinaFinal) return avisar("Escolha a usina", "Uma UC beneficiária precisa ser vinculada a uma usina antes de salvar.");
+    if (tipo !== "BENEFICIARIA" && !usinaFinal) return avisar("Dados incompletos", "Vincule esta unidade a uma usina.");
     if (cadastroManualDoGerador && ![11, 14].includes(documentoTitular.length)) {
-      return Alert.alert("CPF obrigatório", "Informe o CPF do titular da conta de luz antes de salvar a unidade.");
+      return avisar("CPF obrigatório", "Informe o CPF do titular da conta de luz antes de salvar a unidade.");
     }
-    if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return Alert.alert("Desconto inválido", "Informe um percentual entre 0 e 100.");
+    if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return avisar("Desconto inválido", "Informe um percentual entre 0 e 100.");
     if (tipo === "BENEFICIARIA" && percentualAlocado && (!Number.isFinite(percentualRateio) || percentualRateio <= 0 || percentualRateio > 100)) {
-      return Alert.alert("Alocação inválida", "Informe um percentual entre 0,01% e 100% para esta UC.");
+      return avisar("Alocação inválida", "Informe um percentual entre 0,01% e 100% para esta UC.");
     }
     setSalvando(true);
+    setMensagemSalvar("Salvando a unidade no servidor...");
     try {
       if (tipo === "BENEFICIARIA") {
         await alocarUnidade(String(usinaFinal), {
@@ -221,6 +229,7 @@ export default function NovaUnidade() {
       }
 
       if (origem === "fatura" && clienteId) {
+        setMensagemSalvar("Unidade salva com sucesso.");
         Alert.alert("UC salva", "A unidade foi cadastrada e os dados da proposta já estão disponíveis no contrato.", [
           { text: "Continuar", onPress: () => router.dismissTo({ pathname: "/clientes/[id]", params: { id: clienteId } }) },
         ]);
@@ -228,7 +237,7 @@ export default function NovaUnidade() {
         router.back();
       }
     } catch (erro: any) {
-      Alert.alert("Não foi possível salvar", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
+      avisar("Não foi possível salvar", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
     } finally {
       setSalvando(false);
     }
@@ -281,6 +290,7 @@ export default function NovaUnidade() {
       </>
       {!clienteId && tipo !== "GERADORA" ? <Text style={styles.saveWarning}>Selecione o cliente acima para concluir o cadastro.</Text> : null}
       <Button disabled={salvando} title={salvando ? "Salvando UC..." : "Salvar unidade"} onPress={salvar} />
+      {mensagemSalvar ? <Text accessibilityLiveRegion="polite" style={styles.saveWarning}>{mensagemSalvar}</Text> : null}
     </Card>
   </ScrollView></Screen>;
 }
