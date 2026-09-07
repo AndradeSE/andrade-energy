@@ -42,7 +42,7 @@ export default function ContratosClientes() {
 
   return <Screen><AppHeader title="Contratos" subtitle="Documentos da carteira" contextTitle={`${contratos.length} contratos vinculados`} contextSubtitle="Um contrato para cada unidade consumidora" icon="document-text-outline" /><FlatList contentContainerStyle={styles.content} data={contratos} keyExtractor={(item) => item.id}
     refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}
-    ListHeaderComponent={<View style={styles.heading}><Text style={styles.title}>Contratos das unidades</Text><Text style={styles.subtitle}>Acesse os contratos vinculados a cada unidade consumidora.</Text></View>}
+    ListHeaderComponent={<Card style={styles.heading}><Text style={styles.title}>Contratos das unidades</Text><Text style={styles.subtitle}>Acesse os contratos vinculados a cada unidade consumidora.</Text></Card>}
     renderItem={({ item }) => <Card><View style={styles.row}><View style={styles.icon}><Ionicons name="document-text-outline" size={22} color={Colors.primary} /></View><View style={styles.info}><Text style={styles.client}>{item.clientes?.nome ?? item.unidades_consumidoras?.titular ?? "Cliente"}</Text><Text style={styles.detail}>{item.numero ?? "Contrato sem número"}{item.unidades_consumidoras?.numero ? ` · UC ${item.unidades_consumidoras.numero}` : " · UC não vinculada"}</Text></View><Badge label={item.status ?? "Ativo"} variant="success" /></View></Card>}
     ListEmptyComponent={!carregando ? <EmptyState icon="document-text-outline" title="Nenhum contrato vinculado" subtitle="Os contratos cadastrados para os clientes aparecerão aqui." /> : null}
   /></Screen>;

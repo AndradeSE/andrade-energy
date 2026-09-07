@@ -106,7 +106,7 @@ export default function Tutoriais() {
 }
 const styles = StyleSheet.create({
   content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing.xxl },
-  intro: { gap: Spacing.sm },
+  intro: { gap: Spacing.sm, padding: Spacing.md, borderRadius: Radius.lg, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
   list: { borderRadius: Radius.lg, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, overflow: "hidden" },
   row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 14, minHeight: 72 },
   separator: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border },
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   details: { flex: 1, gap: 4 },
   rowTitle: { fontSize: 15, lineHeight: 21, fontWeight: "600", color: Colors.text },
   metadata: { fontSize: 12, color: Colors.subtitle },
-  note: { fontSize: 12, lineHeight: 18, color: Colors.subtitle },
+  note: { fontSize: 12, lineHeight: 18, color: Colors.subtitle, padding: Spacing.md, borderRadius: Radius.lg, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
   title: { fontSize: 18, fontWeight: "700", color: Colors.text },
   copy: { fontSize: 15, lineHeight: 23, color: Colors.subtitle },
 });

@@ -68,7 +68,7 @@ export default function Usinas() {
 
   return <Screen><AppHeader title="Usinas" subtitle="Ativos de geração" contextTitle={`${usinas.length} usinas cadastradas`} contextSubtitle="Produção, unidades e operação" icon="business-outline" />
     {loading ? <Loading /> : <FlatList bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} data={usinas} keyExtractor={(item) => item.id}
-      ListHeaderComponent={<View><Text style={styles.title}>Parque gerador</Text><Text style={styles.subtitle}>Acompanhe e mantenha os dados de cada usina.</Text><CadastroActions tipo="USINA" /></View>}
+      ListHeaderComponent={<View><Card><Text style={styles.title}>Parque gerador</Text><Text style={styles.subtitle}>Acompanhe e mantenha os dados de cada usina.</Text></Card><CadastroActions tipo="USINA" /></View>}
       renderItem={({ item }) => {
         const ativa = usinaSelecionada?.id === item.id;
         const quantidadeUcs = Number(item.unidades_alocadas ?? 0);

@@ -8,6 +8,7 @@ import {
 
 import {
     Colors,
+    Radius,
 
     Spacing,
 
@@ -53,6 +54,11 @@ const styles=StyleSheet.create({
 container:{
 
 marginBottom:Spacing.xl,
+backgroundColor: Colors.surface,
+borderWidth: 1,
+borderColor: Colors.border,
+borderRadius: Radius.xl,
+padding: Spacing.md,
 
 },
 

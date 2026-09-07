@@ -249,6 +249,11 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   header: {
+    padding: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.xl,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -335,6 +340,11 @@ const styles = StyleSheet.create({
   documentTitle: { color: Colors.text, fontSize: Typography.caption, fontWeight: "900" },
   documentSubtitle: { marginTop: 2, marginBottom: Spacing.xs, color: Colors.subtitle, fontSize: Typography.small },
   sectionHeader: {
+    padding: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.lg,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
