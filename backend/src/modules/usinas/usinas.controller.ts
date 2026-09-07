@@ -9,6 +9,9 @@ import {
   obterDashboardUsina,
   importarFaturaGeradora,
   alocarUnidadeNaUsina,
+  cadastrarIntegracaoInversor,
+  excluirIntegracaoInversor,
+  listarIntegracoesInversores,
 } from "./usinas.service";
 import { empresaIdDaRequisicao, garantirRegistroDaEmpresa } from "../../utils/empresaScope";
 
@@ -134,5 +137,35 @@ export async function dashboardUsinaController(
     res.status(500).json({
       message: e.message,
     });
+  }
+}
+
+export async function listarIntegracoesInversoresController(req: Request, res: Response) {
+  try {
+    const empresaId = empresaIdDaRequisicao(req);
+    await garantirRegistroDaEmpresa("usinas", req.params.id, empresaId);
+    return res.json(await listarIntegracoesInversores(req.params.id, empresaId));
+  } catch (e: any) {
+    return res.status(400).json({ message: e.message });
+  }
+}
+
+export async function cadastrarIntegracaoInversorController(req: Request, res: Response) {
+  try {
+    const empresaId = empresaIdDaRequisicao(req);
+    await garantirRegistroDaEmpresa("usinas", req.params.id, empresaId);
+    return res.status(201).json(await cadastrarIntegracaoInversor(req.params.id, req.body, empresaId));
+  } catch (e: any) {
+    return res.status(400).json({ message: e.message });
+  }
+}
+
+export async function excluirIntegracaoInversorController(req: Request, res: Response) {
+  try {
+    const empresaId = empresaIdDaRequisicao(req);
+    await garantirRegistroDaEmpresa("usinas", req.params.id, empresaId);
+    return res.json(await excluirIntegracaoInversor(req.params.id, req.params.integracaoId, empresaId));
+  } catch (e: any) {
+    return res.status(400).json({ message: e.message });
   }
 }

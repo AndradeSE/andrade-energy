@@ -42,3 +42,18 @@ export async function alocarUnidade(id: string, payload: any) {
   const { data } = await api.post(`/usinas/${id}/alocar-unidade`, payload);
   return data;
 }
+
+export async function listarInversoresDaUsina(id: string) {
+  const { data } = await api.get(`/usinas/${id}/inversores`);
+  return data;
+}
+
+export async function cadastrarInversorNaUsina(id: string, payload: any) {
+  const { data } = await api.post(`/usinas/${id}/inversores`, payload);
+  return data;
+}
+
+export async function excluirInversorDaUsina(id: string, integracaoId: string) {
+  const { data } = await api.delete(`/usinas/${id}/inversores/${integracaoId}`);
+  return data;
+}

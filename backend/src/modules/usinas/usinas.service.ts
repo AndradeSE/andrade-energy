@@ -177,6 +177,59 @@ export async function listarUsinasService(empresaId?: string) {
   }));
 }
 
+export async function listarIntegracoesInversores(usinaId: string, empresaId: string) {
+  const { data, error } = await supabase
+    .from("integracoes_inversores")
+    .select("id,usina_id,provedor,numero_serie,modelo,potencia_nominal_kw,firmware,status,ultima_sincronizacao_em,ultimo_erro,criado_em,atualizado_em")
+    .eq("usina_id", usinaId)
+    .eq("empresa_id", empresaId)
+    .order("criado_em", { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function cadastrarIntegracaoInversor(usinaId: string, entrada: any, empresaId: string) {
+  const numeroSerie = String(entrada?.numero_serie ?? "").trim().toUpperCase();
+  if (!numeroSerie) throw new Error("Informe o número de série do inversor ou datalogger.");
+  const provedores = ["PHB_SOLARPORTAL_PLUS", "HUAWEI_FUSIONSOLAR", "FRONIUS_SOLARWEB", "INTELBRAS", "GROWATT"];
+  const provedor = String(entrada?.provedor ?? "PHB_SOLARPORTAL_PLUS").trim().toUpperCase();
+  if (!provedores.includes(provedor)) throw new Error("Fabricante ou plataforma de monitoramento inválida.");
+  const potencia = Number(entrada?.potencia_nominal_kw);
+  const payload = {
+    empresa_id: empresaId,
+    usina_id: usinaId,
+    provedor,
+    numero_serie: numeroSerie,
+    modelo: String(entrada?.modelo ?? "").trim() || null,
+    potencia_nominal_kw: Number.isFinite(potencia) && potencia >= 0 ? potencia : null,
+    firmware: String(entrada?.firmware ?? "").trim() || null,
+    status: "AGUARDANDO_AUTORIZACAO",
+    atualizado_em: new Date().toISOString(),
+  };
+  const { data, error } = await supabase
+    .from("integracoes_inversores")
+    .insert(payload)
+    .select()
+    .single();
+  if (error?.code === "23505") throw new Error("Este inversor já está vinculado a uma usina.");
+  if (error) throw error;
+  return data;
+}
+
+export async function excluirIntegracaoInversor(usinaId: string, integracaoId: string, empresaId: string) {
+  const { data, error } = await supabase
+    .from("integracoes_inversores")
+    .delete()
+    .eq("id", integracaoId)
+    .eq("usina_id", usinaId)
+    .eq("empresa_id", empresaId)
+    .select("id")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Integração não encontrada nesta usina.");
+  return { sucesso: true };
+}
+
 async function calcularProducaoMedia12Meses(usinaId: string) {
   const inicio = new Date();
   inicio.setUTCDate(1);

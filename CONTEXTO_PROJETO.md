@@ -463,3 +463,11 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - Ambos os APKs preservam a assinatura SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`, compatível com a instalação anterior.
 - A web foi compilada com um favicon quadrado próprio, formado pelo símbolo isolado da marca, e os links receberam cache-buster `2026-09-07`. Commits do portal: `ac2d5fa` e `33c4184`.
 - O pacote Sites v67 foi gerado, porém a sessão atual do conector lista zero projetos e retorna `Sites project not found` para `appgprj_6a8c66b15ba48191baad8777fd2d1eba`; o remoto também exige nova autenticação. Não criar outro projeto: reconectar a conta proprietária e publicar o pacote preparado.
+
+## 07/09/2026 — Integrações de inversores por usina
+
+- Cada inversor/datalogger é cadastrado pelo número de série e vinculado a exatamente uma usina; uma usina pode possuir vários equipamentos.
+- A tela **Inversores e monitoramento** fica dentro dos detalhes da usina e permite cadastrar, listar e remover vínculos, exibindo plataforma, modelo, potência, firmware, situação e última sincronização.
+- A estrutura nasceu multiproveedor: PHB/SolarPortal+, Huawei/FusionSolar, Fronius/Solar.web, Intelbras e Growatt. PHB é o primeiro provedor planejado para sincronização real.
+- Senhas dos aplicativos dos fabricantes não são solicitadas nem armazenadas. Novos equipamentos permanecem como `AGUARDANDO_AUTORIZACAO` até a configuração de uma credencial oficial no backend.
+- A migração `20260907173000_integracoes_inversores_por_usina.sql` foi aplicada no Supabase remoto. A unicidade `(empresa_id, numero_serie)` impede que o mesmo inversor seja associado a duas usinas da empresa.
