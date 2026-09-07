@@ -513,7 +513,10 @@ export async function excluirUnidadeCliente(unidadeId: string, empresaId = EMPRE
     .maybeSingle();
 
   if (erroUnidade) throw erroUnidade;
-  if (!unidade) throw new Error("Unidade consumidora não encontrada.");
+  // A exclusão pode ter sido concluída no servidor enquanto o aplicativo
+  // ainda exibe a tela em cache. Nesse caso, repetir a operação deve ser
+  // considerado sucesso para permitir que a interface volte à lista.
+  if (!unidade) return;
 
   const clienteId = unidade.cliente_id;
 
