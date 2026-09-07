@@ -9,6 +9,11 @@ export async function enviarContratoEConvite(unidadeId: string) {
   return data;
 }
 
+export async function listarAcessoContratos() {
+  const { data } = await api.get("/contratos/acesso/minhas-unidades");
+  return Array.isArray(data) ? data : [];
+}
+
 export async function buscarContrato(
   clienteId: string
 ) {

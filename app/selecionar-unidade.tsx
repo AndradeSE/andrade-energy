@@ -43,6 +43,7 @@ import {
 import {
   listarUsinas,
 } from "../services/usinas.service";
+import { listarAcessoContratos } from "../services/contratos.service";
 
 import {
   Colors,
@@ -124,7 +125,12 @@ export default function SelecionarUnidade() {
           return;
         }
 
-        setItens(await listarMinhasUnidades());
+        const [unidades, acessos] = await Promise.all([
+          listarMinhasUnidades(),
+          listarAcessoContratos().catch(() => []),
+        ]);
+        const acessoPorId = new Map(acessos.map((item: any) => [String(item.id), item]));
+        setItens(unidades.map((unidade: any) => ({ ...unidade, ...(acessoPorId.get(String(unidade.id)) ?? {}) })));
       } catch (error) {
         console.log(
           gestor
@@ -193,6 +199,12 @@ export default function SelecionarUnidade() {
       await selecionarUnidade(
         unidade
       );
+
+      const acesso = unidade as UnidadeConsumidora & { liberado?: boolean; contratoId?: string | null };
+      if (acesso.liberado === false && acesso.contratoId) {
+        router.replace("/(tabs)/contrato");
+        return;
+      }
 
       console.log(
         "ENTRANDO NA UNIDADE:",

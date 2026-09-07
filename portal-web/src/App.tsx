@@ -3110,6 +3110,9 @@ function PortalHome({
     Math.max(0, Number(dashboard?.ocupacao ?? 0)),
   );
   const pendingContractUnit = contractAccess?.find((unit) => !unit.liberado && unit.contratoId);
+  const selectedPendingContractUnit = selectedRecord
+    ? contractAccess?.find((unit) => String(unit.id) === String(selectedRecord.id) && !unit.liberado && unit.contratoId)
+    : null;
   const hasReleasedContractUnit = Boolean(contractAccess?.some((unit) => unit.liberado));
   const contractOnboardingBlocked = type === "CONSUMIDOR" && Boolean(pendingContractUnit) && !hasReleasedContractUnit;
   const menuGroups =
@@ -3560,6 +3563,20 @@ function PortalHome({
                 </div>
               </>
             )
+          ) : selectedPendingContractUnit && session.token ? (
+            <RecordDetails
+              section="Contratos"
+              record={{ id: selectedPendingContractUnit.id }}
+              token={session.token}
+              isGenerator={false}
+              onContractSigned={() => {
+                setSelectedRecord(null);
+                setActiveSection("Minha unidade");
+                setContractAccessKey((value) => value + 1);
+                setRefreshKey((value) => value + 1);
+              }}
+              onClose={() => setSelectedRecord(null)}
+            />
           ) : selectedRecord && session.token ? (
             <RecordDetails
               section={activeSection}
