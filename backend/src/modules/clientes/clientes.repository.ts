@@ -57,6 +57,28 @@ async function incluirConcessionariaDasUnidades(clientes: any[], empresaId: stri
   }));
 }
 
+async function incluirResumoContratos(clientes: any[], empresaId: string) {
+  const ids = clientes.map((cliente) => String(cliente?.id ?? "")).filter(Boolean);
+  if (!ids.length) return clientes;
+  const { data: contratos, error } = await supabase.from("contratos")
+    .select("id,cliente_id,status,created_at")
+    .eq("empresa_id", empresaId)
+    .in("cliente_id", ids)
+    .order("created_at", { ascending: false });
+  if (error?.code === "42P01") return clientes;
+  if (error) throw error;
+  const porCliente = new Map<string, any[]>();
+  for (const contrato of contratos ?? []) {
+    const clienteId = String(contrato.cliente_id ?? "");
+    if (!clienteId) continue;
+    porCliente.set(clienteId, [...(porCliente.get(clienteId) ?? []), contrato]);
+  }
+  return clientes.map((cliente) => {
+    const lista = porCliente.get(String(cliente.id)) ?? [];
+    return { ...cliente, total_contratos: lista.length, contratos_status: lista.map((item) => item.status) };
+  });
+}
+
 export async function listarClientes(empresaId = EMPRESA_ANDRADE_ID) {
   const { data, error } = await supabase
     .from("clientes")
@@ -67,7 +89,8 @@ export async function listarClientes(empresaId = EMPRESA_ANDRADE_ID) {
   if (error) throw error;
 
   const clientesComConcessionaria = await incluirConcessionariaDasUnidades(data ?? [], empresaId);
-  return incluirStatusDoCadastro(clientesComConcessionaria, empresaId);
+  const clientesComContratos = await incluirResumoContratos(clientesComConcessionaria, empresaId);
+  return incluirStatusDoCadastro(clientesComContratos, empresaId);
 }
 
 export async function buscarCliente(id: string, empresaId = EMPRESA_ANDRADE_ID) {
@@ -81,7 +104,8 @@ export async function buscarCliente(id: string, empresaId = EMPRESA_ANDRADE_ID) 
   if (error) throw error;
 
   const [clienteComConcessionaria] = await incluirConcessionariaDasUnidades([data], empresaId);
-  return (await incluirStatusDoCadastro([clienteComConcessionaria], empresaId))[0];
+  const [clienteComContratos] = await incluirResumoContratos([clienteComConcessionaria], empresaId);
+  return (await incluirStatusDoCadastro([clienteComContratos], empresaId))[0];
 }
 
 export async function buscarSolicitacaoCadastroCliente(clienteId: string, empresaId = EMPRESA_ANDRADE_ID) {

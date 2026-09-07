@@ -1414,7 +1414,7 @@ function FinancialOverviewPanel({
   onStartManualBilling,
   onConfigureAutomaticBilling,
   onOpenInvoices,
-  onOpenWallet,
+  token,
 }: {
   records: WebRecord[];
   loading: boolean;
@@ -1423,7 +1423,7 @@ function FinancialOverviewPanel({
   onStartManualBilling: () => void;
   onConfigureAutomaticBilling: () => void;
   onOpenInvoices: () => void;
-  onOpenWallet: () => void;
+  token: string;
 }) {
   const valueOf = (item: WebRecord) => Number(item.valor_total_unificado ?? item.valor_total ?? item.valor ?? 0);
   const total = records.reduce((sum, item) => sum + valueOf(item), 0);
@@ -1436,7 +1436,8 @@ function FinancialOverviewPanel({
   if (error) return <div className="section-workspace data-state error-message">{error}</div>;
   return <div className="finance-overview">
     <section className="finance-overview-hero"><div><small>RECEITA DA CARTEIRA</small><strong>{money(received)}</strong><span>{percent.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% do faturamento recebido</span></div><div className="finance-progress" aria-label={`${percent.toFixed(1)}% recebido`}><i style={{ width: `${percent}%` }} /></div></section>
-    <section className="finance-overview-actions" aria-label="Acesso rápido financeiro"><button onClick={onStartPdfBilling}><b>PDF</b><span><strong>Faturamento via PDF</strong><small>Selecionar conta da concessionária</small></span><i>→</i></button><button onClick={onStartManualBilling}><b>✎</b><span><strong>Faturamento manual</strong><small>Lançar uma competência sem PDF</small></span><i>→</i></button><button onClick={onOpenWallet}><b>R$</b><span><strong>Transferir saldo</strong><small>Pix manual ou automático</small></span><i>→</i></button><button onClick={onConfigureAutomaticBilling}><b>✉</b><span><strong>Fatura automática</strong><small>Configurar recebimento por e-mail</small></span><i>→</i></button></section>
+    <section><span className="section-label">FATURAMENTO</span><div className="finance-overview-actions" aria-label="Opções de faturamento"><button onClick={onStartPdfBilling}><b>PDF</b><span><strong>Faturamento via PDF</strong><small>Selecionar conta da concessionária</small></span><i>→</i></button><button onClick={onStartManualBilling}><b>✎</b><span><strong>Faturamento manual</strong><small>Lançar uma competência sem PDF</small></span><i>→</i></button><button onClick={onConfigureAutomaticBilling}><b>✉</b><span><strong>Fatura automática</strong><small>Configurar recebimento por e-mail</small></span><i>→</i></button></div></section>
+    <section className="finance-wallet-explicit"><span className="section-label">MOVIMENTAÇÃO FINANCEIRA</span><p>Recebíveis, chave Pix e transferências manuais ou automáticas.</p><WalletPanel token={token} /></section>
     <button className="finance-history-link" onClick={onOpenInvoices}>Consultar histórico completo de faturas <span>→</span></button>
     <section className="finance-overview-metrics"><article><small>FATURAMENTO TOTAL</small><strong>{money(total)}</strong><span>{records.length} fatura{records.length === 1 ? "" : "s"}</span></article><article><small>EM ABERTO</small><strong>{money(open)}</strong><span>Aguardando recebimento</span></article><article className={overdue > 0 ? "attention" : ""}><small>VENCIDO</small><strong>{money(overdue)}</strong><span>{overdue > 0 ? "Requer acompanhamento" : "Nenhuma pendência vencida"}</span></article></section>
   </div>;
@@ -2043,7 +2044,7 @@ function UnitTools({
                   Ativar recebimento por e-mail
                 </button>
               )}
-              <button disabled={busy} onClick={() => setContractOpen(true)}>Preparar contrato e convite</button>
+              <button disabled={busy} onClick={() => setContractOpen(true)}>Abrir contrato da UC</button>
               <button
                 className="danger-tool"
                 disabled={busy}
@@ -3592,7 +3593,7 @@ function PortalHome({
           ) : activeSection === "Aplicativos" ? (
             <AppDownloadsPanel type={type} />
           ) : activeSection === "Financeiro" && session.token ? (
-            <FinancialOverviewPanel records={visibleData} loading={sectionLoading} error={sectionError} onStartPdfBilling={() => { setActiveSection("Faturas"); setActionOpen(true); }} onStartManualBilling={() => setManualBillingOpen(true)} onConfigureAutomaticBilling={() => void openAutomaticBilling()} onOpenInvoices={() => setActiveSection("Faturas")} onOpenWallet={openWallet} />
+            <FinancialOverviewPanel token={session.token} records={visibleData} loading={sectionLoading} error={sectionError} onStartPdfBilling={() => { setActiveSection("Faturas"); setActionOpen(true); }} onStartManualBilling={() => setManualBillingOpen(true)} onConfigureAutomaticBilling={() => void openAutomaticBilling()} onOpenInvoices={() => setActiveSection("Faturas")} />
           ) : activeSection === "Operação" && session.token ? (
             <OperationPanel token={session.token} onOpen={(record) => setSelectedRecord(record)} />
           ) : activeSection === "Tutoriais da web" ? (

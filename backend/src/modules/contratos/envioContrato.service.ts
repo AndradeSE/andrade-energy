@@ -27,12 +27,21 @@ export async function enviarContratoEConvite(unidadeId: string, gestor: any) {
   const documentoHash = crypto.createHash("sha256").update(minuta.content).digest("hex");
   const { data: conta, error: erroConta } = await supabase.from("usuarios").select("id").eq("cliente_id", cliente.id).eq("empresa_id", empresaId).eq("perfil", "LEITURA").limit(1).maybeSingle();
   if (erroConta) throw erroConta;
+  const { data: conviteAnterior, error: erroConviteAnterior } = await supabase.from("convites_clientes")
+    .select("id,status")
+    .eq("cliente_id", cliente.id)
+    .eq("empresa_id", empresaId)
+    .order("expira_em", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (erroConviteAnterior) throw erroConviteAnterior;
   let resultado: any;
-  if (conta) {
+  if (conta || conviteAnterior) {
     const enviado = await enviarEmailTransacional({ destinatario: cliente.email, assunto: "Contrato e proposta disponíveis para análise", html: "<p>Seu gerador disponibilizou um contrato e uma proposta para sua unidade. Acesse sua conta no aplicativo Consumidor e abra a área Contrato para analisar os documentos.</p>", anexos: [minuta, { filename: proposta.filename, content: proposta.content }] });
-    resultado = { emailEnviado: enviado, contaExistente: true };
+    resultado = { emailEnviado: enviado, contaExistente: Boolean(conta), conviteExistente: Boolean(conviteAnterior), novoConvite: false };
   } else {
     resultado = await criarConvite({ nome: cliente.nome, cpf: cliente.cpf, email: cliente.email, whatsapp: cliente.whatsapp || undefined, unidade_consumidora_id: unidadeId }, gestor, { minuta, proposta });
+    resultado = { ...resultado, novoConvite: true };
   }
   // Auditoria do arquivo efetivamente selecionado para o envio. O registro é
   // feito mesmo se o provedor de e-mail falhar, distinguindo preparo e entrega.

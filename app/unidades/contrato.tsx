@@ -245,13 +245,13 @@ export default function ContratoDaUnidade() {
       Alert.alert("Revise a minuta atual", "Gere e abra a minuta com os dados atuais antes de enviar o convite.");
       return;
     }
-    Alert.alert("Enviar contrato e convite", "Será enviada a última minuta gerada com a proposta desta UC. Se alterou os dados, gere e revise a minuta novamente antes de enviar.", [
+    Alert.alert("Enviar documentos", "Será enviada a última minuta gerada com a proposta desta UC. O convite de acesso só será criado se este cliente ainda não tiver recebido um. Se alterou os dados, gere e revise a minuta novamente antes de enviar.", [
       { text: "Cancelar", style: "cancel" },
       { text: "Enviar", onPress: async () => {
         try {
           setGerando(true);
           const resultado = await enviarContratoEConvite(id);
-          Alert.alert(resultado.emailEnviado ? "Documentos enviados" : "Envio não concluído", resultado.emailEnviado ? "O cliente receberá o contrato e a proposta no e-mail cadastrado." : "Não foi possível entregar o e-mail. Tente reenviar.");
+          Alert.alert(resultado.emailEnviado ? "Documentos enviados" : "Envio não concluído", resultado.emailEnviado ? (resultado.novoConvite ? "O cliente receberá o convite, o contrato e a proposta no e-mail cadastrado." : "O cliente receberá somente o novo contrato e a proposta; o convite anterior foi preservado.") : "Não foi possível entregar o e-mail. Tente reenviar.");
         } catch (erro: any) {
           Alert.alert("Não foi possível enviar", erro?.response?.data?.message || "Tente novamente.");
         } finally { setGerando(false); }
@@ -359,7 +359,7 @@ export default function ContratoDaUnidade() {
         </Card>
 
         <View style={styles.documentActions}>
-          <Button disabled={gerando || !contratoGeradoUrl || dadosDaMinutaRevisada !== JSON.stringify(dadosParaSalvar())} title={gerando ? "Aguarde..." : "Enviar contrato e convite"} onPress={enviarParaAnalise} />
+          <Button disabled={gerando || !contratoGeradoUrl || dadosDaMinutaRevisada !== JSON.stringify(dadosParaSalvar())} title={gerando ? "Aguarde..." : "Enviar contrato e proposta"} onPress={enviarParaAnalise} />
           <Text style={styles.documentLinkText}>Gere e revise a minuta atual para habilitar o envio. Alterações nos campos exigem nova revisão.</Text>
           <Button disabled={gerando} title={gerando ? "Gerando minuta..." : "Gerar minuta do contrato"} icon={<Ionicons name="document-text-outline" size={20} color={Colors.surface} />} onPress={gerarMinuta} />
           {contratoGeradoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoGeradoUrl)} style={styles.documentLink}><Ionicons name="download-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir minuta gerada</Text></TouchableOpacity> : null}

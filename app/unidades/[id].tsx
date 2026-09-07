@@ -7,6 +7,7 @@ import { AppHeader, Badge, Card, ElasticScrollView as ScrollView, EmptyState, Lo
 import { excluirFatura, formatarDataBrasileira, listarFaturas } from "../../services/faturas.service";
 import { buscarCliente, buscarUnidade, excluirUnidadeCliente } from "../../services/clientes.service";
 import { buscarUsina } from "../../services/usinas.service";
+import { buscarContratoDaUnidade } from "../../services/contratos.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 
@@ -17,6 +18,7 @@ export default function UnidadeDocumentos() {
   const { id, numero, clienteId, cliente, usinaId, usinaNome, titular, distribuidora } = useLocalSearchParams<{ id: string; numero?: string; clienteId?: string; cliente?: string; usinaId?: string; usinaNome?: string; titular?: string; distribuidora?: string }>();
   const [unidade, setUnidade] = useState<any>();
   const [faturas, setFaturas] = useState<any[]>([]);
+  const [contrato, setContrato] = useState<any>();
   const [loading, setLoading] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
 
@@ -78,7 +80,12 @@ export default function UnidadeDocumentos() {
         clientes: dados.clientes ?? clienteVinculado ?? null,
       };
       setUnidade(dados);
-      setFaturas((await listarFaturas(undefined, dados.numero)) ?? []);
+      const [faturasResultado, contratoResultado] = await Promise.allSettled([
+        listarFaturas(undefined, dados.numero),
+        String(dados.id ?? "").startsWith("cliente-") ? Promise.resolve(null) : buscarContratoDaUnidade(dados.id),
+      ]);
+      setFaturas(faturasResultado.status === "fulfilled" ? (faturasResultado.value ?? []) : []);
+      setContrato(contratoResultado.status === "fulfilled" ? contratoResultado.value : null);
     } catch (erro: any) {
       if (!porAtualizacao) {
         Alert.alert("Não foi possível carregar", erro?.response?.data?.message ?? "Confira sua conexão e tente novamente.");
@@ -149,6 +156,8 @@ export default function UnidadeDocumentos() {
   // listas antigas, o nome relacionado pode chegar no próximo carregamento;
   // nesse intervalo a UC já está alocada e não deve aparecer como pendente.
   const nomeUsinaVinculada = unidade.usinas?.nome ?? unidade.usina_nome ?? usinaNome ?? (unidade.usina_id ? "Usina vinculada - atualize para ver o nome" : "Ainda não alocada");
+  const contratoAssinado = Boolean(contrato?.aceite_cliente_em || contrato?.contrato_assinado_url);
+  const rotuloContrato = contratoAssinado ? "Ver contrato" : contrato ? "Gerenciar contrato" : "Cadastrar contrato";
 
   return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Unidade consumidora" subtitle="Gestão da carteira" contextTitle={`UC ${unidade.numero}`} contextSubtitle={unidade.clientes?.nome ?? unidade.titular ?? "Unidade consumidora"} icon="flash-outline" /> : null}<ScrollView refreshControl={<RefreshControl refreshing={atualizando} onRefresh={() => carregar(true)} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content}>
     <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={19} color={Colors.subtitle} /><Text style={styles.backLabel}>Voltar</Text></TouchableOpacity>
@@ -184,7 +193,7 @@ export default function UnidadeDocumentos() {
           },
         });
       }} style={styles.action}><Ionicons name="options-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Configurar UC</Text></TouchableOpacity>
-      {IS_GERADOR_APP ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Adicionar ou editar contrato da unidade" onPress={() => {
+      {IS_GERADOR_APP ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel={rotuloContrato} onPress={() => {
         if (String(unidade.id ?? "").startsWith("cliente-")) {
           Alert.alert("Finalize o cadastro da UC", "Abra Configurar UC e salve a unidade antes de cadastrar ou anexar o contrato.");
           return;
@@ -196,7 +205,7 @@ export default function UnidadeDocumentos() {
           cliente: unidade.clientes?.nome ?? unidade.titular ?? cliente ?? "",
           descontoPadrao: String(unidade.desconto_percentual ?? ""),
         } });
-      }} style={styles.action}><Ionicons name="document-text-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Contrato</Text></TouchableOpacity> : null}
+      }} style={styles.action}><Ionicons name={contratoAssinado ? "document-text" : "document-text-outline"} size={18} color={Colors.primary} /><Text style={styles.actionText}>{rotuloContrato}</Text></TouchableOpacity> : null}
     </View>
     {IS_GERADOR_APP ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Excluir unidade consumidora" onPress={confirmarExclusaoUnidade} style={styles.deleteUnit}><Ionicons name="trash-outline" size={18} color={Colors.danger} /><Text style={styles.deleteUnitText}>Excluir unidade consumidora</Text></TouchableOpacity> : null}
 

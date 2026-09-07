@@ -23,6 +23,11 @@ function valor(dados: any, ...chaves: string[]) {
   return 0;
 }
 
+function dadosDaFatura(fonte: any) {
+  const dados = fonte?.dados_fatura ?? fonte ?? {};
+  return dados?.resultado?.dados ?? dados?.dados ?? dados;
+}
+
 export type EntradaCalculoProposta = {
   consumo: number;
   tarifaCheia: number;
@@ -77,9 +82,14 @@ export async function obterPropostaParaConvite(clienteId: string, empresaId: str
     .order("referencia", { ascending: false }).limit(1);
   if (erroFaturasUc) throw erroFaturasUc;
   const ultimaFatura = faturasUc?.[0];
-  const dados = anexo?.dados_fatura ?? ultimaFatura?.dados_fatura ?? ultimaFatura ?? {};
-  const consumo = valor(dados, "consumo", "consumo_kwh", "consumoFaturado") || n(unidade.consumo_medio_kwh);
-  const tarifaCheia = valor(dados, "tarifaCheia", "tarifa_cheia");
+  // O anexo do perfil pode conter apenas parte do OCR. Mescle a fatura já
+  // processada da mesma UC como fallback, sem permitir que outra UC contamine
+  // a proposta.
+  const dados = { ...dadosDaFatura(ultimaFatura), ...dadosDaFatura(anexo) };
+  const consumo = valor(dados, "consumo", "consumo_kwh", "consumoKwh", "consumoFaturado", "energiaConsumida") || n(unidade.consumo_medio_kwh);
+  const valorEnergia = valor(dados, "valorEnergia", "valor_energia", "valorEnergiaCheia", "valor_energia_cheia", "valorEnergiaConcessionaria", "valor_energia_concessionaria");
+  const tarifaCheia = valor(dados, "tarifaCheia", "tarifa_cheia", "tarifaComImpostos", "precoComImpostos")
+    || (consumo > 0 ? valorEnergia / consumo : 0);
   if (consumo <= 0 || tarifaCheia <= 0) return null;
 
   const usina = usinas.find((item: any) => item.id === unidade.usina_id);
