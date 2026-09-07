@@ -2887,10 +2887,8 @@ function PortalHome({
 }) {
   const name =
     session.usuario?.nome ?? (type === "GERADOR" ? "Gerador" : "Cliente");
-  const [dashboard, setDashboard] = useState<Record<
-    string,
-    number | string
-  > | null>(null);
+  const [dashboard, setDashboard] = useState<Record<string, any> | null>(null);
+  const [chartPeriod, setChartPeriod] = useState<6 | 12>(12);
   const [activeSection, setActiveSection] = useState(workspace === "COMERCIAL" ? "Gestão comercial" : "Visão geral");
   const [sectionData, setSectionData] = useState<WebRecord[]>([]);
   const [sectionLoading, setSectionLoading] = useState(false);
@@ -3169,7 +3167,22 @@ function PortalHome({
     setSearchQuery("");
     setGlobalSearch("");
   }
-  const chart = [42, 58, 49, 68, 61, 79, 74, 88, 82, 95, 89, 100];
+  const generationHistory = (Array.isArray(dashboard?.historico) ? dashboard.historico : [])
+    .slice(0, chartPeriod)
+    .reverse()
+    .map((item: Record<string, unknown>) => ({
+      competencia: String(item.competencia ?? ""),
+      energia: Math.max(0, Number(item.energiaGerada ?? item.energia_gerada ?? 0)),
+    }));
+  const chartMaximum = Math.max(1, ...generationHistory.map((item) => item.energia));
+  const monthLabel = (competencia: string) => {
+    const normalized = competencia.slice(0, 10);
+    const match = normalized.match(/^(\d{4})-(\d{2})/);
+    if (!match) return competencia.slice(0, 7) || "—";
+    return new Intl.DateTimeFormat("pt-BR", { month: "short" })
+      .format(new Date(Number(match[1]), Number(match[2]) - 1, 1))
+      .replace(".", "");
+  };
   const columns: Record<string, Array<[string, string]>> = {
     Usinas: [
       ["nome", "Usina"],
@@ -3476,36 +3489,22 @@ function PortalHome({
                         <small>DESEMPENHO</small>
                         <h2>Geração de energia</h2>
                       </div>
-                      <select aria-label="Período">
-                        <option>Últimos 12 meses</option>
-                        <option>Últimos 6 meses</option>
+                      <select aria-label="Período" value={chartPeriod} onChange={(event) => setChartPeriod(Number(event.target.value) === 6 ? 6 : 12)}>
+                        <option value={12}>Últimos 12 meses</option>
+                        <option value={6}>Últimos 6 meses</option>
                       </select>
                     </div>
-                    <div className="bar-chart">
-                      {chart.map((value, index) => (
-                        <div key={index}>
-                          <span style={{ height: `${value}%` }} />
-                          <small>
-                            {
-                              [
-                                "Set",
-                                "Out",
-                                "Nov",
-                                "Dez",
-                                "Jan",
-                                "Fev",
-                                "Mar",
-                                "Abr",
-                                "Mai",
-                                "Jun",
-                                "Jul",
-                                "Ago",
-                              ][index]
-                            }
-                          </small>
-                        </div>
-                      ))}
-                    </div>
+                    {generationHistory.length ? (
+                      <div className="bar-chart">
+                        {generationHistory.map((item) => (
+                          <div key={item.competencia} title={`${item.energia.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kWh · ${item.competencia}`}>
+                            <b>{item.energia.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}</b>
+                            <span style={{ height: `${Math.max(4, item.energia / chartMaximum * 100)}%` }} />
+                            <small>{monthLabel(item.competencia)}</small>
+                          </div>
+                        ))}
+                      </div>
+                    ) : <div className="chart-empty">Ainda não há produção mensal processada.</div>}
                   </article>
                   <article className="allocation-card">
                     <div className="card-heading">

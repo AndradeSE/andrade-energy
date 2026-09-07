@@ -666,9 +666,10 @@ export async function obterDashboardUsina(
     const energiaProjetada = await calcularProducaoMedia12Meses(id);
     const alocacaoProjetada = await obterAlocacaoProjetadaDaUsina(id, energiaProjetada, empresaId);
     const agora = new Date();
-    return {
-      usina,
-      unidadeGeradora,
+      return {
+        usina,
+        unidadeGeradora,
+        historico: [],
       clientes: clientes.count ?? 0,
       energiaGerada: energiaProjetada,
       energiaTotal: energiaProjetada,
@@ -681,9 +682,13 @@ export async function obterDashboardUsina(
     };
   }
 
-  return {
-    usina,
-    unidadeGeradora,
+    return {
+      usina,
+      unidadeGeradora,
+      historico: (dashboard.historico ?? []).map((item: any) => ({
+        competencia: item.competencia,
+        energiaGerada: Number(item.energia_gerada ?? 0),
+      })),
     clientes: clientes.count ?? 0,
     energiaGerada:
       Number(fechamento.energia_gerada ?? 0),

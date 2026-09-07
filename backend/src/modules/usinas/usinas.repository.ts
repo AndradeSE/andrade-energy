@@ -128,8 +128,9 @@ export async function buscarDashboardUsina(
   if (error) throw error;
 
   const lista = data ?? [];
-  return {
-    ultimo: lista[0] ?? null,
-    energiaTotal: lista.reduce((total, fechamento) => total + Number(fechamento.energia_gerada ?? 0), 0),
-  };
+    return {
+      ultimo: lista[0] ?? null,
+      historico: lista,
+      energiaTotal: lista.reduce((total, fechamento) => total + Number(fechamento.energia_gerada ?? 0), 0),
+    };
 }
