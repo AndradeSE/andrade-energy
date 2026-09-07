@@ -425,3 +425,10 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - Commit funcional: `c4b7b0e` (`fix: usar tarifa gd da competencia na projecao`).
 - OTA Gerador publicada no canal `preview-gerador`, runtime `1.0.0`, grupo `0d6030bc-c348-49b9-a4b4-c58e4a78907c`, update Android `01a062ca-88e9-746a-88b8-c4b8363f016a`.
 - Deploy do backend correspondente foi confirmado como Live no Render pelo usuário.
+
+## 07/09/2026 — Cadastro de UC no APK Gerador
+
+- O APK local usa `preview-gerador` (app.config.js e scripts/publish-ota.ps1). As publicações recentes em `production-gerador` não entregavam os ajustes a esse canal. Conferir o canal do APK antes de publicar; não presumir production.
+- OTA confirmada em `preview-gerador`: grupo `85440a04-ef18-4e89-84c7-51f4fe63d6a0`, Android `01a0794a-d59d-731e-ba7f-866a1360b487`, runtime `1.0.0`, código `3a8de9b`.
+- Inclui seleção da usina única, campo de apelido na edição e mensagens junto ao botão Salvar unidade. O backend `/health` confirmou `dc74f4e`, incluindo persistência de apelido e empresa_id na alocação.
+- Exportação Android e compilação do backend passaram. O salvamento pelo toque no aparelho do usuário ainda aguarda confirmação; testes diretos do serviço não comprovam funcionamento da interface nem entrega efetiva ao aparelho.
