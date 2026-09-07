@@ -271,6 +271,7 @@ svg { display: block; }
 .finance-history-link{justify-self:end;border:0;color:var(--brand-primary);background:transparent;cursor:pointer;font-weight:900}.finance-history-link span{margin-left:8px}
 .manual-billing-modal{width:min(760px,calc(100vw - 32px));max-height:90vh;overflow:auto}
 @media(max-width:760px){.admin-workspace-page{padding:18px;background:#dfe8e3}.admin-workspace-hero{padding:22px 20px}.manual-billing-modal .commercial-form-row{grid-template-columns:1fr}}
+.contract-workflow{width:min(760px,calc(100vw - 28px));max-height:calc(100vh - 28px);overflow:auto}.contract-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px}.contract-summary span{padding:14px;border:1px solid #c7d9cf;border-radius:11px;background:#eef6f1}.contract-summary small,.contract-summary strong{display:block}.contract-summary small{color:#66776d;font-size:11px;font-weight:800;letter-spacing:.07em}.contract-summary strong{margin-top:5px;color:#173c2d}.contract-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.contract-actions button{min-height:46px;border:1px solid #abd0bd;border-radius:10px;background:#fff;color:#087a46;font-weight:800;cursor:pointer}.contract-actions .primary-action{color:#fff;background:#087a46}.contract-actions button:disabled{opacity:.48;cursor:not-allowed}@media(max-width:640px){.contract-workflow .commercial-form-row,.contract-summary,.contract-actions{grid-template-columns:1fr}}
 .portal-home .sidebar-help,.portal-home .dashboard-hero,.portal-home .commercial-home-hero,.portal-home .subscription-hero,.portal-home .security-summary{background:linear-gradient(135deg,color-mix(in srgb,var(--brand-primary) 66%,#08261e),var(--brand-primary))}
 .portal-home .commercial-home-hero small,.portal-home .subscription-hero small,.portal-home .sidebar-help a{color:var(--brand-secondary)}
 
@@ -328,3 +329,35 @@ svg { display: block; }
 .admin-workspace-page{padding:40px 6vw;background:#dfe8e3}
 .admin-workspace-hero{padding:30px 34px;border-radius:24px;background:linear-gradient(135deg,#082f26,#0a6748);box-shadow:0 16px 36px rgba(5,40,30,.2)}
 @media(max-width:760px),(hover:none) and (pointer:coarse){.admin-workspace-page{padding:18px;background:#dfe8e3}.admin-workspace-hero{padding:22px 20px}}
+.consumer-contract-signature {
+  margin-top: 24px;
+  padding: clamp(18px, 3vw, 30px);
+  border: 1px solid rgba(10, 112, 70, 0.22);
+  border-radius: 24px;
+  background: linear-gradient(145deg, #f8fcfa, #e4f1eb);
+  color: #123d31;
+  display: grid;
+  gap: 16px;
+}
+.consumer-contract-signature h3 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); }
+.consumer-contract-signature p { margin: 0; max-width: 760px; line-height: 1.55; }
+.consumer-contract-signature canvas {
+  width: 100%;
+  max-width: 760px;
+  height: 220px;
+  border: 2px dashed rgba(10, 112, 70, 0.35);
+  border-radius: 16px;
+  background: #fff;
+  touch-action: none;
+  cursor: crosshair;
+}
+.signature-label, .signature-code { display: grid; gap: 8px; font-weight: 750; }
+.signature-code { max-width: 300px; }
+.signature-code input { padding: 13px 15px; border: 1px solid #b9d1c6; border-radius: 12px; font-size: 1.15rem; letter-spacing: .25em; background: #fff; }
+.signature-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.primary-sign-button { justify-self: start; background: #087a46 !important; color: #fff !important; }
+@media (max-width: 640px) {
+  .consumer-contract-signature { border-radius: 18px; }
+  .consumer-contract-signature canvas { height: 180px; }
+  .signature-actions > *, .primary-sign-button { width: 100%; }
+}

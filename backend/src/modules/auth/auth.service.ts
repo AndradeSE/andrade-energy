@@ -393,6 +393,20 @@ export async function cadastrarConsumidorComFatura(
       throw new Error("O cliente ainda não foi cadastrado pelo gerador. Solicite um novo convite após o cadastro.");
     }
 
+    const unidadeDoConviteId = String(convite.unidade_consumidora_id ?? "");
+    if (!unidadeDoConviteId) throw new Error("Este convite antigo não identifica a UC do contrato. Peça ao gerador para reenviar pela área Contrato.");
+    const { data: unidadeDoConvite, error: erroUnidadeConvite } = await supabase
+      .from("unidades_consumidoras").select("id,cliente_id,empresa_id")
+      .eq("id", unidadeDoConviteId).eq("cliente_id", clienteId).eq("empresa_id", empresaId).maybeSingle();
+    if (erroUnidadeConvite) throw erroUnidadeConvite;
+    if (!unidadeDoConvite) throw new Error("A UC deste convite não está mais vinculada ao cliente.");
+    const { data: contratoDoConvite, error: erroContratoConvite } = await supabase
+      .from("contratos").select("id,contrato_gerado_url,status")
+      .eq("unidade_consumidora_id", unidadeDoConviteId).eq("cliente_id", clienteId)
+      .in("status", ["ATIVO", "VIGENTE"]).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (erroContratoConvite) throw erroContratoConvite;
+    if (!contratoDoConvite?.contrato_gerado_url) throw new Error("A minuta deste convite não está mais disponível. Peça ao gerador para revisar e reenviar.");
+
     if (possuiFatura) {
       const { data: unidadeExistente, error: unidadeError } = await supabase
         .from("unidades_consumidoras")
@@ -514,6 +528,7 @@ export async function cadastrarConsumidorComFatura(
 
     return {
       message: "Conta criada e liberada para acesso.",
+      unidadeId: unidadeDoConviteId,
       status: "ATIVO",
       emailEnviado: false,
     };

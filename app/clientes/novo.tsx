@@ -10,7 +10,6 @@ import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors, Spacing, Typography } from "../../theme";
 import { emailOpcionalValido, normalizarEmail } from "../../utils/email";
 import { anexarFaturaCliente, criarCliente } from "../../services/clientes.service";
-import { criarConvite } from "../../services/convites.service";
 
 export default function NovoCliente() {
   const { origem, cliente, nome: nomeImportado, cpf: cpfImportado, endereco: enderecoImportado, arquivoUri, arquivoNome } = useLocalSearchParams<{ origem?: string; cliente?: string; nome?: string; cpf?: string; endereco?: string; arquivoUri?: string; arquivoNome?: string }>();
@@ -49,21 +48,10 @@ export default function NovoCliente() {
       const clienteCriado = await criarCliente(dados);
       const clienteId = String(clienteCriado.id);
       await anexarFaturaCliente(String(clienteId), { uri: pdf.uri, name: pdf.name || "fatura-cemig.pdf", mimeType: pdf.mimeType || "application/pdf" });
-      const convite = await criarConvite({
-        nome: dados.nome,
-        cpf: cpfLimpo,
-        email: String(dados.email),
-        whatsapp: dados.whatsapp || undefined,
-      }).catch((erro: any) => ({
-        emailEnviado: false,
-        erro: erro?.response?.data?.message ?? erro?.message ?? "Falha no envio",
-      }));
       setSalvando(false);
       Alert.alert(
-        "Cliente, UC e convite criados",
-        convite.emailEnviado
-          ? `A fatura criou a UC e o convite foi enviado automaticamente para ${dados.email}.`
-          : `A fatura criou a UC, mas o convite não pôde ser enviado agora. Use “Reenviar convite” no perfil do cliente.${convite.erro ? `\n\n${convite.erro}` : ""}`,
+        "Cliente e UC cadastrados",
+        "Configure a UC e prepare o contrato. O convite e a proposta serão enviados apenas na etapa de envio do contrato.",
         [{ text: "OK", onPress: () => router.replace(`/clientes/${clienteId}`) }],
       );
     } catch (erro: any) {

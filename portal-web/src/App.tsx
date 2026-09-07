@@ -6,6 +6,8 @@ import consumerAppIcon from "./assets/app-consumidor.png";
 import RecordEditForm from "./RecordEditForm";
 import RealDiscountInfoWeb from "./RealDiscountInfoWeb";
 import ConsumerInviteSignup from "./ConsumerInviteSignup";
+import ContractWorkflowWeb from "./ContractWorkflowWeb";
+import ConsumerContractSignatureWeb from "./ConsumerContractSignatureWeb";
 import "./mobile.css";
 import "./download.css";
 
@@ -1533,6 +1535,7 @@ function UnitTools({
   const [toolsRefresh, setToolsRefresh] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [contractOpen, setContractOpen] = useState(false);
   const [plants, setPlants] = useState<WebRecord[]>([]);
   const [allocation, setAllocation] = useState({
     usinaId: String(unit.usina_id ?? ""),
@@ -1627,16 +1630,6 @@ function UnitTools({
     } finally {
       setBusy(false);
     }
-  }
-  async function uploadContract(file: File | null) {
-    if (!file) return;
-    const body = new FormData();
-    body.append("arquivo", file);
-    await request(
-      `/contratos/unidade/${unit.id}/contrato-assinado`,
-      "POST",
-      body,
-    );
   }
   async function connectEmail(provider: "GMAIL" | "OUTLOOK") {
     setBusy(true);
@@ -2050,29 +2043,7 @@ function UnitTools({
                   Ativar recebimento por e-mail
                 </button>
               )}
-              <button
-                disabled={busy}
-                onClick={() =>
-                  void request(
-                    `/contratos/unidade/${unit.id}/gerar-documento`,
-                    "POST",
-                    "{}",
-                    { "Content-Type": "application/json" },
-                  )
-                }
-              >
-                Gerar contrato
-              </button>
-              <label className="tool-button file-tool">
-                Enviar contrato assinado
-                <input
-                  accept="application/pdf"
-                  type="file"
-                  onChange={(event) =>
-                    void uploadContract(event.target.files?.[0] ?? null)
-                  }
-                />
-              </label>
+              <button disabled={busy} onClick={() => setContractOpen(true)}>Preparar contrato e convite</button>
               <button
                 className="danger-tool"
                 disabled={busy}
@@ -2086,6 +2057,7 @@ function UnitTools({
             </div>
           </details>
           {message && <small className="unit-message">{message}</small>}
+          {contractOpen ? <ContractWorkflowWeb apiUrl={API_URL} token={token} unit={unit} onClose={() => setContractOpen(false)} onChanged={onChanged} /> : null}
         </>
       ) : null}
     </article>
@@ -2098,12 +2070,14 @@ function RecordDetails({
   token,
   isGenerator,
   onClose,
+  onContractSigned,
 }: {
   section: string;
   record: WebRecord;
   token: string;
   isGenerator: boolean;
   onClose: () => void;
+  onContractSigned?: () => void;
 }) {
   const [details, setDetails] = useState<WebRecord>(record);
   const [loading, setLoading] = useState(false);
@@ -2647,21 +2621,6 @@ function RecordDetails({
               </button>
             </>
           ) : null}
-          {section === "Contratos" &&
-          source.id &&
-          !/aceito|assinado/i.test(String(source.status ?? "")) ? (
-            <button
-              disabled={working}
-              onClick={() =>
-                void postAction(
-                  `/contratos/${source.id}/aceite-eletronico`,
-                  "Contrato aceito eletronicamente.",
-                )
-              }
-            >
-              Aceitar contrato
-            </button>
-          ) : null}
         </div>
         {!documentLinks.length &&
         !["Faturas", "Clientes", "Usinas", "Contratos"].includes(section) ? (
@@ -2669,6 +2628,17 @@ function RecordDetails({
         ) : null}
         {message && <div className="invite-message">{message}</div>}
       </div>
+      {section === "Contratos" && !isGenerator && !loading && source.id && source.unidade_consumidora_id ? (
+        <ConsumerContractSignatureWeb
+          apiUrl={API_URL}
+          token={token}
+          contract={source}
+          onSigned={(updated) => {
+            setDetails(updated);
+            onContractSigned?.();
+          }}
+        />
+      ) : null}
       {section === "Clientes" ? (
         <div className="related-section">
           <div className="client-quick-nav">
@@ -2776,12 +2746,6 @@ function ActionDialog({
         const attached = await fetch(`${API_URL}/clientes/${client.id}/faturas-anexadas`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: attachment });
         const attachedPayload = await attached.json().catch(() => ({}));
         if (!attached.ok) throw new Error(attachedPayload.message ?? "Cliente criado, mas a UC não pôde ser criada pela fatura.");
-        const invitation = await fetch(`${API_URL}/convites`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ nome: form.nome?.trim(), cpf, email, whatsapp: form.telefone?.replace(/\D/g, "") || undefined }),
-        });
-        if (!invitation.ok) window.alert("Cliente e UC criados. O convite não pôde ser enviado agora; reenvie pelo perfil do cliente.");
         response = new Response(JSON.stringify(attachedPayload), {
           status: attached.status,
           headers: { "Content-Type": "application/json" },
@@ -2940,6 +2904,8 @@ function PortalHome({
   const [consumerAutomaticBillingUnit, setConsumerAutomaticBillingUnit] = useState<WebRecord | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<WebRecord | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [contractAccessKey, setContractAccessKey] = useState(0);
+  const [contractAccess, setContractAccess] = useState<WebRecord[] | null>(null);
   const [walletHome, setWalletHome] = useState<WalletSummary | null>(null);
   const [walletNotice, setWalletNotice] = useState(false);
   const [company, setCompany] = useState<PortalCompany>(DEFAULT_COMPANY);
@@ -2961,6 +2927,20 @@ function PortalHome({
       })
       .catch(() => setConsumerAutomaticBillingUnit(null));
   }, [session.token, type]);
+
+  useEffect(() => {
+    if (type !== "CONSUMIDOR" || !session.token) {
+      setContractAccess(null);
+      return;
+    }
+    void fetch(`${API_URL}/contratos/acesso/minhas-unidades`, { headers: { Authorization: `Bearer ${session.token}` } })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => []);
+        if (!response.ok) throw new Error(payload?.message ?? "Não foi possível verificar seus contratos.");
+        setContractAccess(Array.isArray(payload) ? payload : []);
+      })
+      .catch(() => setContractAccess([]));
+  }, [contractAccessKey, session.token, type]);
 
   useEffect(() => {
     if (!session.token) return;
@@ -3130,6 +3110,9 @@ function PortalHome({
     100,
     Math.max(0, Number(dashboard?.ocupacao ?? 0)),
   );
+  const pendingContractUnit = contractAccess?.find((unit) => !unit.liberado && unit.contratoId);
+  const hasReleasedContractUnit = Boolean(contractAccess?.some((unit) => unit.liberado));
+  const contractOnboardingBlocked = type === "CONSUMIDOR" && Boolean(pendingContractUnit) && !hasReleasedContractUnit;
   const menuGroups =
     type === "GERADOR"
       ? isCommercialWorkspace
@@ -3397,7 +3380,16 @@ function PortalHome({
               </div>
             ) : null}
           </div>
-          {activeSection === "Visão geral" ? (
+          {contractOnboardingBlocked && pendingContractUnit ? (
+            <RecordDetails
+              section="Contratos"
+              record={{ id: pendingContractUnit.id }}
+              token={session.token ?? ""}
+              isGenerator={false}
+              onClose={() => undefined}
+              onContractSigned={() => setContractAccessKey((value) => value + 1)}
+            />
+          ) : activeSection === "Visão geral" ? (
             type === "CONSUMIDOR" ? (
               <ClientOverview data={dashboard} onNavigate={setActiveSection} companyName={company.nome} onConfigureAutomaticBilling={consumerAutomaticBillingUnit?.id ? () => void openAutomaticBilling() : undefined} />
             ) : (

@@ -65,12 +65,19 @@ export async function obterPropostaParaConvite(clienteId: string, empresaId: str
     supabase.from("empresas").select("*").eq("id", empresaId).maybeSingle(),
     listarUsinasService(empresaId),
   ]);
-  const unidade = (unidades ?? []).find((item: any) => unidadeId && item.id === unidadeId)
-    ?? (unidades ?? []).find((item: any) => String(item.numero) === String(cliente?.uc))
-    ?? unidades?.[0];
+  const unidade = unidadeId
+    ? (unidades ?? []).find((item: any) => item.id === unidadeId)
+    : (unidades ?? []).find((item: any) => String(item.numero) === String(cliente?.uc)) ?? unidades?.[0];
   if (!cliente || !unidade) return null;
-  const anexo = (anexos ?? []).find((item: any) => String(item.dados_fatura?.uc ?? "").replace(/\D/g, "") === String(unidade.numero).replace(/\D/g, "")) ?? anexos?.[0];
-  const dados = anexo?.dados_fatura ?? {};
+  const anexo = (anexos ?? []).find((item: any) => String(item.dados_fatura?.uc ?? item.dados_fatura?.numero_instalacao ?? "").replace(/\D/g, "") === String(unidade.numero).replace(/\D/g, ""));
+  // Cadastros importados nem sempre possuem um anexo de perfil. Nesse caso,
+  // use somente uma fatura da própria UC, mantendo o escopo da empresa.
+  const { data: faturasUc, error: erroFaturasUc } = await supabase.from("faturas")
+    .select("*").eq("empresa_id", empresaId).eq("unidade_consumidora_id", unidade.id)
+    .order("referencia", { ascending: false }).limit(1);
+  if (erroFaturasUc) throw erroFaturasUc;
+  const ultimaFatura = faturasUc?.[0];
+  const dados = anexo?.dados_fatura ?? ultimaFatura?.dados_fatura ?? ultimaFatura ?? {};
   const consumo = valor(dados, "consumo", "consumo_kwh", "consumoFaturado") || n(unidade.consumo_medio_kwh);
   const tarifaCheia = valor(dados, "tarifaCheia", "tarifa_cheia");
   if (consumo <= 0 || tarifaCheia <= 0) return null;

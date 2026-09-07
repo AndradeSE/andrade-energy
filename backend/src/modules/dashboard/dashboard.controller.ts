@@ -12,7 +12,7 @@ export async function dashboardController(
       String(req.query.clienteId);
 
     const data =
-      await dashboardCliente(clienteId, req.query.uc ? String(req.query.uc) : undefined, empresaIdDaRequisicao(req));
+      await dashboardCliente(clienteId, req.query.uc ? String(req.query.uc) : res.locals.unidadesComContrato?.[0]?.numero, empresaIdDaRequisicao(req));
 
     return res.json(data);
 

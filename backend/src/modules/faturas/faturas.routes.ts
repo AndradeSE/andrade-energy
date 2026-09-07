@@ -13,11 +13,13 @@ import {
   obterRelatorioCalculoFaturaController,
 } from "./faturas.controller";
 import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
+import { exigirContratoDaUc } from "../../middlewares/contratoAcesso.middleware";
 
 const router = Router();
 
 router.get(
   "/",
+  exigirAutenticacao, exigirContratoDaUc,
   listarFaturasController
 );
 
@@ -27,8 +29,8 @@ router.post(
   analisarFaturaController
 );
 
-router.get("/:id/relatorio-calculo", exigirAutenticacao, obterRelatorioCalculoFaturaController);
-router.get("/:id", detalharFaturaController);
+router.get("/:id/relatorio-calculo", exigirAutenticacao, exigirContratoDaUc, obterRelatorioCalculoFaturaController);
+router.get("/:id", exigirAutenticacao, exigirContratoDaUc, detalharFaturaController);
 router.delete("/:id", excluirFaturaController);
 router.post("/:id/confirmar", exigirAutenticacao, exigirGestor, confirmarFaturaRascunhoController);
 router.post("/:id/regenerar-documentos", exigirAutenticacao, exigirGestor, regenerarDocumentosFaturaController);

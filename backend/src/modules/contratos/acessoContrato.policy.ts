@@ -1,0 +1,23 @@
+/** Autorização por UC: status administrativo sozinho não comprova assinatura. */
+export function contratoLiberaUnidade(contrato: any, hoje = new Date().toISOString().slice(0, 10)): boolean {
+  if (!contrato?.unidade_consumidora_id) return false;
+  if (["CANCELADO", "VENCIDO"].includes(String(contrato.status).toUpperCase())) return false;
+  if (contrato.vigencia_fim && String(contrato.vigencia_fim).slice(0, 10) < hoje) return false;
+  const validacaoExterna = contrato.contrato_assinado_url && contrato.dados_documento?.assinatura_externa_validada_em;
+  // Compatibilidade somente para PDFs que já eram vigentes antes do novo
+  // fluxo. Novos uploads sempre nascem ATIVO + assinatura_externa_pendente.
+  const assinaturaLegada = contrato.contrato_assinado_url
+    && String(contrato.status).toUpperCase() === "VIGENTE"
+    && contrato.assinado_em && String(contrato.assinado_em) < "2026-09-07T00:00:00.000Z"
+    && contrato.dados_documento?.assinatura_externa_pendente !== true;
+  return Boolean(contrato.aceite_cliente_em || validacaoExterna || assinaturaLegada);
+}
+
+export function acessoPorUnidade(unidades: any[], contratos: any[]) {
+  return unidades.map(uc => {
+    const vinculados = contratos.filter(c => c.unidade_consumidora_id === uc.id && c.cliente_id === uc.cliente_id);
+    const liberado = vinculados.some(c => contratoLiberaUnidade(c));
+    return { ...uc, liberado, contratoId: vinculados[0]?.id ?? null,
+      aguardandoValidacao: Boolean(vinculados[0]?.dados_documento?.assinatura_externa_pendente && !liberado) };
+  });
+}

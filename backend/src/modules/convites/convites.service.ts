@@ -1,9 +1,7 @@
 import { supabase } from "../../config/supabase";
 import { gerarToken, hashToken } from "../../utils/token";
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
-import { obterMinutaParaConvite } from "../contratos/contratos.service";
 import { empresaIdDoUsuario } from "../../config/empresa";
-import { obterPropostaParaConvite } from "./propostaConvite.service";
 
 function cpfLimpo(valor: unknown) { return String(valor ?? "").replace(/\D/g, ""); }
 function telefoneWhatsapp(valor: unknown) {
@@ -50,12 +48,17 @@ async function enviarConviteWhatsapp(input: { telefone: string; nome: string; to
   return true;
 }
 
-export async function criarConvite(input: any, gestor: any) {
+export async function criarConvite(input: any, gestor: any, documentos?: { minuta: { filename: string; content: Buffer }; proposta: { filename: string; content: Buffer } }) {
+  if (!documentos?.minuta?.content?.length || !documentos?.proposta?.content?.length) {
+    throw new Error("Configure a UC, gere e revise seu contrato. Envie o convite pela área Contrato da unidade, junto com a proposta.");
+  }
   const empresaId = empresaIdDoUsuario(gestor);
   const cpf = cpfLimpo(input.cpf);
   const email = String(input.email ?? "").trim().toLowerCase();
   const nome = String(input.nome ?? "").trim();
   const whatsapp = telefoneWhatsapp(input.whatsapp);
+  const unidadeConsumidoraId = String(input.unidade_consumidora_id ?? "").trim();
+  if (!unidadeConsumidoraId) throw new Error("O convite precisa estar vinculado ao contrato de uma UC.");
   if (!nome) throw new Error("Informe o nome do consumidor.");
   if (cpf.length !== 11) throw new Error("Informe um CPF válido.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Informe um e-mail válido.");
@@ -96,6 +99,7 @@ export async function criarConvite(input: any, gestor: any) {
     gestor_id: gestor.id,
     empresa_id: empresaId,
     usina_id: gestor.usina_id ?? input.usina_id ?? null,
+    unidade_consumidora_id: unidadeConsumidoraId,
     cliente_id: clienteExistente?.id ?? null,
     nome, cpf, email, telefone: whatsapp,
     token_hash: hashToken(token),
@@ -112,12 +116,8 @@ export async function criarConvite(input: any, gestor: any) {
   let minutaAnexada = false;
   let propostaAnexada = false;
   try {
-    // O convite não pode deixar de ser enviado se a geração da minuta falhar.
-    const minuta = clienteExistente?.id ? await obterMinutaParaConvite(clienteExistente.id).catch(() => null) : null;
-    const proposta = clienteExistente?.id ? await obterPropostaParaConvite(clienteExistente.id, empresaId).catch((erro) => {
-      console.error("Falha ao gerar proposta do convite:", erro);
-      return null;
-    }) : null;
+    const minuta = documentos.minuta;
+    const proposta = documentos.proposta;
     minutaAnexada = Boolean(minuta);
     propostaAnexada = Boolean(proposta);
     emailEnviado = await enviarEmailTransacional({
@@ -140,7 +140,7 @@ export async function consultarConvite(token: string) {
     throw new Error("Convite de consumidor inválido ou expirado.");
   }
   const { data, error } = await supabase.from("convites_clientes")
-    .select("id,nome,cpf,email,telefone,endereco,status,expira_em,empresa_id")
+    .select("id,nome,cpf,email,telefone,endereco,status,expira_em,empresa_id,unidade_consumidora_id")
     .eq("token_hash", hashToken(token)).maybeSingle();
   if (error || !data || data.status !== "PENDENTE" || new Date(data.expira_em) <= new Date()) throw new Error("Convite inválido ou expirado.");
   return { nome: data.nome, cpf: data.cpf, email: data.email, telefone: data.telefone, endereco: data.endereco, empresa_id: data.empresa_id };
@@ -148,8 +148,8 @@ export async function consultarConvite(token: string) {
 
 export async function aceitarConvite(token: string) {
   const convite = await consultarConvite(token);
-  const { data } = await supabase.from("convites_clientes").select("id,gestor_id,cliente_id,usina_id,empresa_id").eq("token_hash", hashToken(token)).single();
-  return { ...convite, id: data!.id, gestor_id: data!.gestor_id, cliente_id: data!.cliente_id, usina_id: data!.usina_id, empresa_id: data!.empresa_id };
+  const { data } = await supabase.from("convites_clientes").select("id,gestor_id,cliente_id,usina_id,empresa_id,unidade_consumidora_id").eq("token_hash", hashToken(token)).single();
+  return { ...convite, id: data!.id, gestor_id: data!.gestor_id, cliente_id: data!.cliente_id, usina_id: data!.usina_id, empresa_id: data!.empresa_id, unidade_consumidora_id: data!.unidade_consumidora_id };
 }
 
 export async function concluirConvite(convite: any, usuarioId: string) {

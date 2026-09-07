@@ -18,7 +18,6 @@ export default function ConsumerInviteSignup({ apiUrl, convite }: Props) {
   const [dados, setDados] = useState<Convite | null>(null);
   const [senha, setSenha] = useState("");
   const [confirmacao, setConfirmacao] = useState("");
-  const [fatura, setFatura] = useState<File | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
@@ -61,13 +60,10 @@ export default function ConsumerInviteSignup({ apiUrl, convite }: Props) {
     setErro("");
     if (senha.length < 6) return setErro("A senha deve ter pelo menos 6 caracteres.");
     if (senha !== confirmacao) return setErro("As senhas não coincidem.");
-    if (!fatura) return setErro("Envie uma fatura CEMIG em PDF para concluir o cadastro.");
-    if (fatura.type && fatura.type !== "application/pdf") return setErro("Envie a fatura no formato PDF.");
 
     const formulario = new FormData();
     formulario.append("convite", chave);
     formulario.append("senha", senha);
-    formulario.append("fatura", fatura);
     setEnviando(true);
     try {
       const resposta = await fetch(`${apiUrl}/auth/cadastro-consumidor`, { method: "POST", body: formulario });
@@ -111,8 +107,7 @@ export default function ConsumerInviteSignup({ apiUrl, convite }: Props) {
         <form className="invite-form" onSubmit={enviarCadastro}>
           <label>Senha <input type="password" autoComplete="new-password" value={senha} onChange={(evento) => setSenha(evento.target.value)} placeholder="Mínimo de 6 caracteres" required /></label>
           <label>Confirmar senha <input type="password" autoComplete="new-password" value={confirmacao} onChange={(evento) => setConfirmacao(evento.target.value)} placeholder="Repita sua senha" required /></label>
-          <label>Fatura CEMIG em PDF <input type="file" accept="application/pdf,.pdf" onChange={(evento) => setFatura(evento.target.files?.[0] ?? null)} required /></label>
-          <small className="invite-note">O convite já contém nome, CPF e e-mail. Envie a fatura CEMIG em PDF para confirmar a unidade consumidora e finalizar seu cadastro.</small>
+          <small className="invite-note">O convite já contém seus dados, a UC cadastrada, a proposta e o contrato revisado pelo gerador. Crie sua senha e entre para analisar e assinar.</small>
           {erro ? <p className="invite-error" role="alert">{erro}</p> : null}
           <button type="submit" disabled={enviando}>{enviando ? "Enviando cadastro…" : "Criar minha conta"}</button>
         </form>

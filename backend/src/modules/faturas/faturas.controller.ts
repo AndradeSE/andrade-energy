@@ -75,14 +75,18 @@ export async function listarFaturasController(
 ) {
   try {
     const { clienteId, uc } = req.query;
+    const usuario = (req as any).usuario;
 
     const data = await listarFaturas({
-      clienteId: clienteId as string | undefined,
+      clienteId: usuario?.perfil === "LEITURA" ? usuario.cliente_id : clienteId as string | undefined,
       uc: uc as string | undefined,
       empresaId: empresaIdDaRequisicao(req),
     });
 
-    return res.json(data);
+    const permitidas = res.locals.unidadesComContrato;
+    return res.json(permitidas ? data.filter((fatura: any) => permitidas.some((unidade: any) =>
+      fatura.unidade_consumidora_id ? fatura.unidade_consumidora_id === unidade.id : String(fatura.numero_instalacao) === String(unidade.numero)
+    )) : data);
   } catch (err: any) {
     console.error(err);
 

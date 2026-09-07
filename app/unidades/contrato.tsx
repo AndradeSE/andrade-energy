@@ -9,6 +9,7 @@ import FormField from "../../components/cadastro/FormField";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { buscarContratoDaUnidade, buscarDadosIniciaisContrato, buscarResumoPropostaDaUnidade, gerarContratoDaUnidade, importarContratoAssinadoDaUnidade, salvarContratoDaUnidade } from "../../services/contratos.service";
+import { enviarContratoEConvite, validarAssinaturaExterna } from "../../services/contratos.service";
 import { buscarUnidade } from "../../services/clientes.service";
 import { buscarUsina } from "../../services/usinas.service";
 import { Colors, Spacing, Typography } from "../../theme";
@@ -76,6 +77,9 @@ export default function ContratoDaUnidade() {
   const [importando, setImportando] = useState(false);
   const [contratoGeradoUrl, setContratoGeradoUrl] = useState<string>();
   const [contratoAssinadoUrl, setContratoAssinadoUrl] = useState<string>();
+  const [contratoId, setContratoId] = useState<string>();
+  const [assinaturaPendente, setAssinaturaPendente] = useState(false);
+  const [dadosDaMinutaRevisada, setDadosDaMinutaRevisada] = useState<string>();
   const [titularidadeUcs, setTitularidadeUcs] = useState("GERADOR");
 
   useEffect(() => {
@@ -122,6 +126,8 @@ export default function ContratoDaUnidade() {
         }
         const contrato = resultadoContrato.value;
         if (!contrato) return;
+        setContratoId(contrato.id);
+        setAssinaturaPendente(Boolean(contrato.dados_documento?.assinatura_externa_pendente));
         setNumeroContrato(contrato.numero ?? "");
         setTermoAdesao(contrato.termo_adesao ?? "");
         setStatus((["ATIVO", "VIGENTE", "VENCIDO"].includes(String(contrato.status).toUpperCase()) ? String(contrato.status).toUpperCase() : "ATIVO") as StatusContrato);
@@ -206,7 +212,7 @@ export default function ContratoDaUnidade() {
     try {
       setSalvando(true);
       await salvarContratoDaUnidade(id, dadosParaSalvar());
-      Alert.alert("Contrato salvo", "As informações já estarão disponíveis na aba Contrato do aplicativo do cliente.", [
+      Alert.alert("Rascunho salvo", "Os dados foram salvos sem enviar e-mail. Revise a minuta antes de enviar o contrato e o convite.", [
         { text: "OK", onPress: () => router.back() },
       ]);
     } catch (erro: any) {
@@ -220,7 +226,9 @@ export default function ContratoDaUnidade() {
     if (!validarDados()) return;
     try {
       setGerando(true);
-      const contrato = await gerarContratoDaUnidade(id, dadosParaSalvar());
+      const dadosMinuta = dadosParaSalvar();
+      const contrato = await gerarContratoDaUnidade(id, dadosMinuta);
+      setDadosDaMinutaRevisada(JSON.stringify(dadosMinuta));
       setContratoGeradoUrl(contrato.contrato_gerado_url ?? undefined);
       setContratoAssinadoUrl(contrato.contrato_assinado_url ?? undefined);
       Alert.alert("Minuta gerada", "Revise os dados e as cláusulas antes de colher as assinaturas.");
@@ -232,6 +240,25 @@ export default function ContratoDaUnidade() {
     }
   }
 
+  function enviarParaAnalise() {
+    if (dadosDaMinutaRevisada !== JSON.stringify(dadosParaSalvar())) {
+      Alert.alert("Revise a minuta atual", "Gere e abra a minuta com os dados atuais antes de enviar o convite.");
+      return;
+    }
+    Alert.alert("Enviar contrato e convite", "Será enviada a última minuta gerada com a proposta desta UC. Se alterou os dados, gere e revise a minuta novamente antes de enviar.", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Enviar", onPress: async () => {
+        try {
+          setGerando(true);
+          const resultado = await enviarContratoEConvite(id);
+          Alert.alert(resultado.emailEnviado ? "Documentos enviados" : "Envio não concluído", resultado.emailEnviado ? "O cliente receberá o contrato e a proposta no e-mail cadastrado." : "Não foi possível entregar o e-mail. Tente reenviar.");
+        } catch (erro: any) {
+          Alert.alert("Não foi possível enviar", erro?.response?.data?.message || "Tente novamente.");
+        } finally { setGerando(false); }
+      } },
+    ]);
+  }
+
   async function importarAssinado() {
     if (!id) return;
     try {
@@ -240,12 +267,31 @@ export default function ContratoDaUnidade() {
       setImportando(true);
       const contrato = await importarContratoAssinadoDaUnidade(id, resultado.assets[0]);
       setContratoAssinadoUrl(contrato.contrato_assinado_url ?? undefined);
-      Alert.alert("Contrato assinado vinculado", "Este PDF agora é o documento oficial desta UC.");
+      setContratoId(contrato.id);
+      setAssinaturaPendente(true);
+      Alert.alert("PDF recebido para conferência", "Abra o documento e confira os dados e as assinaturas. Depois use Validar assinaturas para liberar esta UC.");
     } catch (erro: any) {
       Alert.alert("Não foi possível importar", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
     } finally {
       setImportando(false);
     }
+  }
+
+  function confirmarAssinaturaExterna() {
+    if (!contratoId || gerando) return;
+    Alert.alert("Validar assinaturas", "Confirma que abriu o PDF e conferiu os dados desta UC e as assinaturas das partes? Essa conferência manual libera o acesso à unidade.", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Conferi e confirmo", onPress: async () => {
+        try {
+          setGerando(true);
+          await validarAssinaturaExterna(contratoId);
+          setAssinaturaPendente(false);
+          Alert.alert("Conferência registrada", "O acesso a esta UC foi liberado.");
+        } catch (erro: any) {
+          Alert.alert("Não foi possível validar", erro?.response?.data?.message ?? "Tente novamente.");
+        } finally { setGerando(false); }
+      } },
+    ]);
   }
 
   if (carregando) return <Loading />;
@@ -309,14 +355,17 @@ export default function ContratoDaUnidade() {
           <FormField label="Economia mensal estimada pela proposta (R$)" value={economiaMensal} editable={false} placeholder="Calculada automaticamente" />
           <FormField label="Economia anual estimada pela proposta (R$)" value={economiaAnual} editable={false} placeholder="Calculada automaticamente" />
           <FormField label="Observações" value={observacoes} onChangeText={setObservacoes} placeholder="Informações adicionais para o contrato" multiline numberOfLines={3} textAlignVertical="top" />
-          <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar contrato"} icon={<Ionicons name="checkmark-circle-outline" size={20} color={Colors.surface} />} onPress={salvar} />
+          <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar rascunho"} icon={<Ionicons name="checkmark-circle-outline" size={20} color={Colors.surface} />} onPress={salvar} />
         </Card>
 
         <View style={styles.documentActions}>
+          <Button disabled={gerando || !contratoGeradoUrl || dadosDaMinutaRevisada !== JSON.stringify(dadosParaSalvar())} title={gerando ? "Aguarde..." : "Enviar contrato e convite"} onPress={enviarParaAnalise} />
+          <Text style={styles.documentLinkText}>Gere e revise a minuta atual para habilitar o envio. Alterações nos campos exigem nova revisão.</Text>
           <Button disabled={gerando} title={gerando ? "Gerando minuta..." : "Gerar minuta do contrato"} icon={<Ionicons name="document-text-outline" size={20} color={Colors.surface} />} onPress={gerarMinuta} />
           {contratoGeradoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoGeradoUrl)} style={styles.documentLink}><Ionicons name="download-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir minuta gerada</Text></TouchableOpacity> : null}
           <Button disabled={importando} title={importando ? "Importando contrato..." : "Importar contrato assinado"} icon={<Ionicons name="attach-outline" size={20} color={Colors.surface} />} onPress={importarAssinado} />
           {contratoAssinadoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoAssinadoUrl)} style={styles.signedLink}><Ionicons name="checkmark-circle-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Contrato assinado vinculado à UC</Text></TouchableOpacity> : null}
+          {assinaturaPendente ? <Button title="Validar assinaturas do PDF" disabled={gerando} onPress={confirmarAssinaturaExterna} /> : null}
         </View>
       </ScrollView>
     </Screen>

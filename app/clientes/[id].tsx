@@ -9,7 +9,6 @@ import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
 import { anexarFaturaCliente, buscarCliente, listarUnidadesCliente } from "../../services/clientes.service";
 import { buscarFaturasCliente, calcularMediaConsumoFatura } from "../../services/faturas.service";
-import { criarConvite } from "../../services/convites.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const moeda = (v: unknown) => Number(v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -62,18 +61,18 @@ export default function ClienteDetalhe() {
   function whatsapp() { const numero = String(cliente.whatsapp ?? cliente.telefone ?? "").replace(/\D/g, ""); if (!numero) return Alert.alert("WhatsApp não informado", "Adicione um telefone no cadastro do cliente."); Linking.openURL(`https://wa.me/${numero.startsWith("55") ? numero : `55${numero}`}?text=${encodeURIComponent(`Olá ${cliente.nome}, estou entrando em contato sobre sua energia.`)}`); }
 
   async function enviarConvite() {
-    const cpf = String(cliente.cpf ?? "").replace(/\D/g, "");
-    const email = String(cliente.email ?? "").trim();
-    if (cpf.length !== 11 || !email) return Alert.alert("Dados incompletos", "Edite o cliente e informe CPF e e-mail antes de enviar o convite.");
-    try {
-      setEnviandoConvite(true);
-      const resultado = await criarConvite({ nome: cliente.nome, cpf, email, whatsapp: String(cliente.whatsapp ?? cliente.telefone ?? "").replace(/\D/g, "") || undefined });
-      Alert.alert(resultado.emailEnviado ? "Convite enviado" : "Convite criado", resultado.emailEnviado ? `O convite foi enviado automaticamente para ${email}.` : `O e-mail não pôde ser enviado. Chave do convite: ${resultado.token}`);
-    } catch (erro: any) {
-      Alert.alert("Não foi possível enviar o convite", erro?.response?.data?.message ?? "Tente novamente.");
-    } finally {
-      setEnviandoConvite(false);
+    if (!unidades.length) {
+      Alert.alert("Cadastre a unidade", "Adicione e configure a UC antes de preparar o contrato e enviar o convite.");
+      return;
     }
+    if (unidades.length === 1) {
+      router.push({ pathname: "/unidades/contrato", params: { id: unidades[0].id, numero: unidades[0].numero, clienteId: id, cliente: cliente.nome } });
+      return;
+    }
+    Alert.alert("Escolha a unidade do contrato", "Abra a UC desejada e entre em Contrato para revisar e enviar o contrato com a proposta.", [
+      { text: "Escolher UC", onPress: () => router.push({ pathname: "/unidades", params: { clienteId: id, cliente: cliente.nome } }) },
+      { text: "Cancelar", style: "cancel" },
+    ]);
   }
 
   async function adicionarUnidadeViaFatura() {

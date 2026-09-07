@@ -181,7 +181,9 @@ export async function salvarContratoDaUnidadeService(
     usina_id: unidade.usina_id,
     unidade_consumidora_id: unidade.id,
     numero,
-    status: normalizarStatus(dados?.status),
+    // Rascunho só passa a VIGENTE pelo aceite eletrônico ou pela validação
+    // explícita de um PDF assinado.
+    status: "ATIVO",
     desconto,
     termo_adesao: normalizarNumero(dados?.termo_adesao) || null,
     unidades_consumidoras: 1,
@@ -194,6 +196,9 @@ export async function salvarContratoDaUnidadeService(
     dados_documento: { ...dadosDocumentoEntrada, prazo_anos: prazoAnos, titularidade_ucs: configuracaoUc.titularidade_ucs, configuracao_uc: configuracaoUc },
     configuracao_uc_snapshot: configuracaoUc,
     revisao_configuracao_pendente: false,
+    // Dados alterados exigem nova minuta. Não enviar nem assinar PDF anterior.
+    contrato_gerado_url: null,
+    gerado_em: null,
   });
 }
 
@@ -257,11 +262,16 @@ export async function importarContratoAssinadoDaUnidadeService(unidadeId: string
   if (arquivo.mimetype && arquivo.mimetype !== "application/pdf") throw new Error("Envie um arquivo PDF.");
   const contrato = await buscarContratoMaisRecenteUnidade(unidadeId);
   if (!contrato?.id) throw new Error("Gere ou salve a minuta antes de vincular o contrato assinado.");
+  if (contrato.aceite_cliente_em || contrato.contrato_assinado_url) throw new Error("Este contrato já possui assinatura ou documento em análise. Preserve a versão existente.");
   const caminho = await armazenarContratoAssinado(unidadeId, contrato.id, arquivo.path);
   const { data, error } = await supabase
     .from("contratos")
-    .update({ contrato_assinado_url: caminho, assinado_em: new Date().toISOString(), status: "VIGENTE" })
+    .update({ contrato_assinado_url: caminho, status: "ATIVO",
+      dados_documento: { ...contrato.dados_documento, assinatura_externa_pendente: true, assinatura_externa_validada_em: null },
+    })
     .eq("id", contrato.id)
+    .is("aceite_cliente_em", null)
+    .is("contrato_assinado_url", null)
     .select()
     .single();
   if (error) throw error;
@@ -287,6 +297,18 @@ async function obterContratoDoClienteParaAceite(contratoId: string, usuario: any
 
 const hashAssinatura = (valor: string) => crypto.createHash("sha256").update(valor).digest("hex");
 
+async function identidadeDocumentoParaAssinatura(contrato: any) {
+  if (contrato.aceite_cliente_em || contrato.contrato_assinado_url) throw new Error("Este contrato já possui uma assinatura registrada.");
+  if (["CANCELADO", "SUBSTITUIDO", "VENCIDO"].includes(String(contrato.status).toUpperCase())) throw new Error("Este contrato não está disponível para assinatura.");
+  const caminho = String(contrato.contrato_gerado_url ?? "");
+  if (!caminho || /^https?:/i.test(caminho)) throw new Error("Gere a minuta no sistema antes de solicitar a assinatura.");
+  const { data: pdf, error } = await supabase.storage.from("contratos").download(caminho);
+  if (error || !pdf) throw new Error("Não foi possível verificar o PDF do contrato.");
+  const documentoHash = crypto.createHash("sha256").update(Buffer.from(await pdf.arrayBuffer())).digest("hex");
+  const versaoHash = hashAssinatura(JSON.stringify({ documentoHash, id: contrato.id, dados: contrato.dados_documento, configuracao: contrato.configuracao_uc_snapshot, inicio: contrato.vigencia_inicio, fim: contrato.vigencia_fim }));
+  return { documentoHash, versaoHash };
+}
+
 export async function solicitarCodigoAssinaturaService(contratoId: string, usuario: any) {
   const contrato = await obterContratoDoClienteParaAceite(contratoId, usuario);
   const email = String(usuario?.email ?? "").trim().toLowerCase();
@@ -294,11 +316,12 @@ export async function solicitarCodigoAssinaturaService(contratoId: string, usuar
   if (!contrato.contrato_gerado_url && !contrato.arquivo_pdf) throw new Error("A minuta precisa ser gerada antes da assinatura.");
 
   const codigo = String(crypto.randomInt(100000, 1000000));
+  const identidade = await identidadeDocumentoParaAssinatura(contrato);
   const expiraEm = new Date(Date.now() + 10 * 60_000).toISOString();
   const { error } = await supabase.from("contratos_codigos_assinatura").upsert({
     contrato_id: contratoId,
     usuario_id: usuario.id,
-    codigo_hash: hashAssinatura(codigo),
+    codigo_hash: hashAssinatura(`${codigo}:${identidade.versaoHash}:${usuario.id}`),
     expira_em: expiraEm,
     tentativas: 0,
     criado_em: new Date().toISOString(),
@@ -331,19 +354,22 @@ export async function registrarAceiteEletronicoService(contratoId: string, usuar
   if (erroCodigo) throw erroCodigo;
   if (!confirmacao || new Date(confirmacao.expira_em).getTime() < Date.now()) throw new Error("O código expirou. Solicite um novo código.");
   if (confirmacao.tentativas >= 5) throw new Error("Limite de tentativas atingido. Solicite um novo código.");
-  if (confirmacao.codigo_hash !== hashAssinatura(codigo)) {
-    await supabase.from("contratos_codigos_assinatura").update({ tentativas: confirmacao.tentativas + 1 }).eq("contrato_id", contratoId);
-    throw new Error("Código incorreto.");
+  // Reserva a tentativa com comparação de versão para impedir que chamadas
+  // paralelas contornem o limite ou usem um código que acaba de ser substituído.
+  const { data: tentativa, error: erroTentativa } = await supabase.from("contratos_codigos_assinatura")
+    .update({ tentativas: confirmacao.tentativas + 1 })
+    .eq("contrato_id", contratoId).eq("usuario_id", usuario.id)
+    .eq("codigo_hash", confirmacao.codigo_hash).eq("tentativas", confirmacao.tentativas)
+    .select("contrato_id").maybeSingle();
+  if (erroTentativa) throw erroTentativa;
+  if (!tentativa) throw new Error("Já existe uma confirmação em andamento ou um novo código. Tente novamente.");
+  const identidade = await identidadeDocumentoParaAssinatura(contrato);
+  if (confirmacao.codigo_hash !== hashAssinatura(`${codigo}:${identidade.versaoHash}:${usuario.id}`)) {
+    throw new Error("Código incorreto ou documento atualizado. Confira a minuta e solicite um novo código.");
   }
 
   const assinaturaSerializada = JSON.stringify(assinatura);
-  const documentoHash = hashAssinatura(JSON.stringify({
-    id: contrato.id,
-    numero: contrato.numero,
-    geradoEm: contrato.gerado_em,
-    documento: contrato.contrato_gerado_url ?? contrato.arquivo_pdf,
-    dados: contrato.dados_documento,
-  }));
+  const documentoHash = identidade.documentoHash;
   const agora = new Date().toISOString();
   const { data, error } = await supabase
     .from("contratos")
@@ -359,10 +385,15 @@ export async function registrarAceiteEletronicoService(contratoId: string, usuar
       status: "VIGENTE",
     })
     .eq("id", contratoId)
+    .is("aceite_cliente_em", null)
+    .is("contrato_assinado_url", null)
+    .eq("contrato_gerado_url", contrato.contrato_gerado_url)
+    .eq("status", contrato.status)
+    .eq("dados_documento", JSON.stringify(contrato.dados_documento))
     .select()
     .single();
   if (error) throw error;
-  await supabase.from("contratos_codigos_assinatura").delete().eq("contrato_id", contratoId);
+  await supabase.from("contratos_codigos_assinatura").delete().eq("contrato_id", contratoId).eq("codigo_hash", confirmacao.codigo_hash);
   return anexarLinksDoContrato(data);
 }
 
@@ -372,15 +403,19 @@ export async function importarContratoAssinadoPeloClienteService(contratoId: str
   if (arquivo.mimetype && arquivo.mimetype !== "application/pdf") throw new Error("Envie um arquivo PDF.");
   const contrato = await obterContratoDoClienteParaAceite(contratoId, usuario);
   if (!contrato.unidade_consumidora_id) throw new Error("Este contrato não está vinculado a uma unidade consumidora.");
+  if (contrato.aceite_cliente_em || contrato.contrato_assinado_url) throw new Error("Este contrato já possui assinatura ou documento em análise.");
   const caminho = await armazenarContratoAssinado(contrato.unidade_consumidora_id, contrato.id, arquivo.path);
   const { data, error } = await supabase
     .from("contratos")
     .update({
       contrato_assinado_url: caminho,
       assinado_em: new Date().toISOString(),
-      status: "VIGENTE",
+      status: "ATIVO",
+      dados_documento: { ...contrato.dados_documento, assinatura_externa_pendente: true, assinatura_externa_validada_em: null },
     })
     .eq("id", contrato.id)
+    .is("aceite_cliente_em", null)
+    .is("contrato_assinado_url", null)
     .select()
     .single();
   if (error) throw error;

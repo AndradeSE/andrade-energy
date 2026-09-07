@@ -1,6 +1,6 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { AppHeader, Badge, Card, ElasticFlatList as FlatList, EmptyState, Screen } from "../../components/ui";
@@ -15,8 +15,16 @@ export default function ContratosClientes() {
   const carregar = useCallback(async () => {
     setCarregando(true);
     try {
-      const { data } = await supabase.from("contratos").select("*, clientes(nome), unidades_consumidoras(numero, titular)").order("created_at", { ascending: false });
-      setContratos(data ?? []);
+      const { data, error } = await supabase.from("contratos").select("*, clientes(nome), unidades_consumidoras(numero, titular)").order("created_at", { ascending: false });
+      if (error) throw error;
+      setContratos((data ?? []).map((contrato) => ({
+        ...contrato,
+        unidades_consumidoras: Array.isArray(contrato.unidades_consumidoras)
+          ? contrato.unidades_consumidoras[0]
+          : contrato.unidades_consumidoras,
+      })));
+    } catch (erro: any) {
+      Alert.alert("Não foi possível carregar os contratos", erro?.message || "Tente novamente.");
     } finally {
       setCarregando(false);
     }

@@ -19,6 +19,7 @@ import BiometricLock from "./biometric-lock";
 import { EmpresaProvider } from "../contexts/EmpresaContext";
 import { aoExcluirConta, aoSubstituirSessao } from "../services/session-events";
 import PersistentAppTabs from "../components/navigation/PersistentAppTabs";
+import ContractAccessGate from "../components/navigation/ContractAccessGate";
 
 /*
  * React Query
@@ -115,6 +116,7 @@ function RootNavigator() {
   return (
     <>
     <View style={styles.navigator}>
+    <ContractAccessGate />
     <Stack
       screenOptions={{
         headerShown: false,

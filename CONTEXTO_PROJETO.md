@@ -432,3 +432,13 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - OTA confirmada em `preview-gerador`: grupo `85440a04-ef18-4e89-84c7-51f4fe63d6a0`, Android `01a0794a-d59d-731e-ba7f-866a1360b487`, runtime `1.0.0`, código `3a8de9b`.
 - Inclui seleção da usina única, campo de apelido na edição e mensagens junto ao botão Salvar unidade. O backend `/health` confirmou `dc74f4e`, incluindo persistência de apelido e empresa_id na alocação.
 - Exportação Android e compilação do backend passaram. O salvamento pelo toque no aparelho do usuário ainda aguarda confirmação; testes diretos do serviço não comprovam funcionamento da interface nem entrega efetiva ao aparelho.
+
+## 07/09/2026 — Fluxo contratual por UC
+
+- O envio de convite deixou de ocorrer no cadastro inicial do cliente. O gerador configura a UC, salva o rascunho, gera e revisa o contrato e somente então envia contrato, proposta e convite vinculados àquela UC.
+- O contrato usa o modelo completo fornecido pelo usuário, com 26 cláusulas em 8 páginas e campos variáveis derivados da configuração da UC. O PDF é salvo em caminho imutável e qualquer alteração de rascunho invalida a minuta anterior.
+- O consumidor revisa o PDF e assina na tela com código de seis dígitos enviado ao e-mail. O código é vinculado ao hash dos bytes do PDF, à versão dos dados, ao usuário e a evidências técnicas do aceite.
+- PDF assinado externamente aguarda validação explícita do gerador. Apenas aceite eletrônico confirmado, assinatura externa validada ou contrato histórico compatível libera a UC.
+- O acesso é isolado por UC: contrato pendente não herda assinatura de outra unidade e uma nova UC pendente não bloqueia as unidades já assinadas.
+- Dashboard e faturas do consumidor filtram as UCs liberadas. App e portal direcionam o primeiro acesso ao contrato quando nenhuma UC ainda foi liberada.
+- A migração `20260907120000_convite_por_unidade.sql` foi aplicada no Supabase vinculado. Backend compilado, 23 testes de contrato/acesso/faturamento aprovados, exportações Android dos dois perfis aprovadas e build web de produção aprovado.

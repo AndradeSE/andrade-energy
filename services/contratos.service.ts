@@ -1,5 +1,13 @@
 import api from "../config/api";
 import * as FileSystem from "expo-file-system/legacy";
+export async function validarAssinaturaExterna(id: string) {
+  const { data } = await api.post(`/contratos/${id}/validar-assinatura-externa`, { confirmado: true });
+  return data;
+}
+export async function enviarContratoEConvite(unidadeId: string) {
+  const { data } = await api.post(`/contratos/unidade/${unidadeId}/enviar`);
+  return data;
+}
 
 export async function buscarContrato(
   clienteId: string

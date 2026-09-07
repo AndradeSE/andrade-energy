@@ -1,9 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
+import * as IntentLauncher from "expo-intent-launcher";
 import {
   Alert,
   RefreshControl,
   Linking,
+  Platform,
   Modal,
   Pressable,
   StyleSheet,
@@ -112,7 +115,16 @@ export default function Contrato() {
   const pdfAssinadoEnviado = Boolean(data.contrato_assinado_url);
   async function abrirProposta() {
     if (!unidadeSelecionada?.id) return Alert.alert("Selecione a unidade", "Escolha a UC antes de abrir sua proposta.");
-    try { setAbrindoProposta(true); const uri = await baixarPropostaDaUnidade(unidadeSelecionada.id); await Linking.openURL(uri); }
+    try {
+      setAbrindoProposta(true);
+      const uri = await baixarPropostaDaUnidade(unidadeSelecionada.id);
+      if (Platform.OS === "android") {
+        const contentUri = await FileSystem.getContentUriAsync(uri);
+        await IntentLauncher.startActivityAsync("android.intent.action.VIEW", { data: contentUri, flags: 1, type: "application/pdf" });
+      } else {
+        await Linking.openURL(uri);
+      }
+    }
     catch (erro: any) { Alert.alert("Proposta indisponível", erro?.response?.data?.message ?? "Não foi possível gerar a proposta desta UC."); }
     finally { setAbrindoProposta(false); }
   }
@@ -203,7 +215,7 @@ export default function Contrato() {
       await queryClient.invalidateQueries({ queryKey: ["contrato"] });
       Alert.alert(
         "Contrato enviado",
-        "O PDF assinado foi vinculado ao seu contrato.",
+        "O PDF foi enviado para conferência do gerador. O acesso a esta unidade será liberado após a validação das assinaturas.",
       );
     } catch (erro: any) {
       Alert.alert(
@@ -444,13 +456,13 @@ export default function Contrato() {
             label="Assinatura digital"
             value={
               pdfAssinadoEnviado
-                ? "PDF assinado vinculado"
+                ? data.dados_documento?.assinatura_externa_validada_em ? "Conferência do gerador registrada" : "Aguardando conferência do gerador"
                 : "Opcional pelo GOV.BR"
             }
           />
         </Card>
 
-        {!aceiteRegistrado ? (
+        {!aceiteRegistrado && !pdfAssinadoEnviado ? (
           <Button
             disabled={registrandoAceite || !arquivoContrato}
             icon={
@@ -469,7 +481,7 @@ export default function Contrato() {
           />
         ) : null}
 
-        {!pdfAssinadoEnviado ? (
+        {!pdfAssinadoEnviado && !aceiteRegistrado ? (
           <>
             <TouchableOpacity
               activeOpacity={0.85}
