@@ -1,5 +1,14 @@
 # Andrade Energy — contexto do projeto
 
+## Publicação e acabamento — 07/09/2026
+
+- Inventário estático das 51 rotas em `MAPA_TELAS_APPS.md`; não equivale a inspeção visual completa em aparelho.
+- Ajustes de agrupamento de textos publicados por OTA: Gerador `ac6aa134-69d0-40d7-9529-1bf4dfb76f1f`; Consumidor `39b558a9-478e-4466-b993-80ce84ae8ac6`, runtime 1.0.0 nos canais preview específicos.
+- Após feedback, `Section` ganhou `framed={false}` para os acessos rápidos da Home Gerador, Comercial e Financeiro. Mantém as seções informativas delimitadas sem comprimir os atalhos. Commit `f4eebaf`; publicação dessa correção e renovação dos APKs em andamento.
+- Portal publicado pelo Sites versão 66, fonte `717f46f680064e6900b307e4b2fbbc942833082f`, deployment `appgdep_6a9ec020150881919251b17430ad8b26` confirmado succeeded. Domínio www.andradeenergy.com.br respondeu HTTP 200 e contém a referência nova de favicon para a logo existente, também HTTP 200.
+- O acesso ao Sites voltou a funcionar nesta conta. Não criar outro projeto. A publicação acima inclui as alterações web previamente pendentes.
+- Os arquivos dos links ainda NÃO devem ser considerados renovados até confirmação individual de upload e hash. As OTAs não substituem APKs. SDK/JDK locais em `.local-android/`.
+
 ## Autonomia e organização do Gerador — 05/09/2026
 
 - A ocupação da usina agora parte da demanda de cada UC (`consumo médio × 1,15`) tanto em compensação quanto em injeção. O indicador de 100% no cadastro de injeção representa atendimento integral do consumo e não reserva a produção inteira da usina.
