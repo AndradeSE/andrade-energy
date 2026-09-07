@@ -11,8 +11,8 @@ import ConsumerContractSignatureWeb from "./ConsumerContractSignatureWeb";
 import "./mobile.css";
 import "./download.css";
 
-const APP_GERADOR_URL = String(import.meta.env.VITE_APP_GERADOR_DOWNLOAD_URL ?? "/downloads/andrade-energy-gerador.apk?v=2026-09-01").trim();
-const APP_CONSUMIDOR_URL = String(import.meta.env.VITE_APP_CONSUMIDOR_DOWNLOAD_URL ?? "/downloads/andrade-energy-consumidor.apk?v=2026-09-01").trim();
+const APP_GERADOR_URL = String(import.meta.env.VITE_APP_GERADOR_DOWNLOAD_URL ?? "/downloads/andrade-energy-gerador.apk?v=2026-09-07").trim();
+const APP_CONSUMIDOR_URL = String(import.meta.env.VITE_APP_CONSUMIDOR_DOWNLOAD_URL ?? "/downloads/andrade-energy-consumidor.apk?v=2026-09-07").trim();
 
 type AccessType = "CONSUMIDOR" | "GERADOR";
 type AdminWorkspace = "COMERCIAL" | "USINAS";

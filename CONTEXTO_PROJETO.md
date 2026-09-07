@@ -453,3 +453,13 @@ Por padrão, o app aponta para a API pública do Render. Para desenvolvimento co
 - A migração `20260907120000_convite_por_unidade.sql` foi aplicada no Supabase vinculado. Backend compilado, 23 testes de contrato/acesso/faturamento aprovados, exportações Android dos dois perfis aprovadas e build web de produção aprovado.
 - Backend publicado e confirmado no Render no commit `11ebb5a`. OTA Gerador `b607dfa6-c18e-47fe-be0a-9511e4ff729b`; OTA Consumidor `509314c4-b741-42fe-ad99-277e35418607`.
 - Portal web commitado em `5dcc787`, com 22 testes de projeção aprovados. O deploy do Sites permanece pendente porque o projeto configurado pertence a outra conta e a sessão atual não possui acesso ao projeto/remoto.
+
+## 07/09/2026 — acabamento visual e renovação dos aplicativos
+
+- O componente compartilhado `Section` recebeu a opção `framed`; os blocos de acesso rápido do Gerador, Gestão Comercial e Financeiro usam `framed={false}`, removendo a moldura externa duplicada sem alterar os cards de ação.
+- OTAs finais publicadas no runtime `1.0.0`: Gerador `0f2bc30c-41b8-4706-8618-6008124422fa` e Consumidor `c1d0d4b5-c131-4527-8a3c-799508367be6`.
+- APK Consumidor validado como `com.andradese.energy.consumidor`, 148.206.482 bytes, SHA-256 `470DA3002512664762C04525A6449D7878D1483B051E4F5096E94CE13BB8793E`, e publicado no link estável oficial.
+- APK Gerador validado como `com.andradese.energy.gerador`, 141.687.478 bytes, SHA-256 `AFEE3A788ACA26E8B213000BE02AE5318C9EA0326A94C9F9733EE32E08EEA31F`, e publicado no link estável oficial.
+- Ambos os APKs preservam a assinatura SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`, compatível com a instalação anterior.
+- A web foi compilada com um favicon quadrado próprio, formado pelo símbolo isolado da marca, e os links receberam cache-buster `2026-09-07`. Commits do portal: `ac2d5fa` e `33c4184`.
+- O pacote Sites v67 foi gerado, porém a sessão atual do conector lista zero projetos e retorna `Sites project not found` para `appgprj_6a8c66b15ba48191baad8777fd2d1eba`; o remoto também exige nova autenticação. Não criar outro projeto: reconectar a conta proprietária e publicar o pacote preparado.
