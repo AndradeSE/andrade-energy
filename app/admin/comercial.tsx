@@ -386,7 +386,7 @@ export default function HomeComercial() {
             />
           </View>
         )}
-        <Section title="Acesso rápido">
+        <Section title="Acesso rápido" framed={false}>
           <QuickAccessCarousel
             storageKey="comercial-home"
             items={[

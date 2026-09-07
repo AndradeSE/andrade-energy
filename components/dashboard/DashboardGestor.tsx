@@ -179,7 +179,7 @@ export default function DashboardGestor() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-        <Section title="Acesso rápido">
+        <Section title="Acesso rápido" framed={false}>
           <QuickAccessCarousel
             storageKey="gestor-home"
             items={[

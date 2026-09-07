@@ -18,6 +18,7 @@ import {
 type Props={
 
 title:string;
+framed?:boolean;
 
 children:any;
 
@@ -26,6 +27,7 @@ children:any;
 export default function Section({
 
 title,
+framed = true,
 
 children,
 
@@ -33,7 +35,7 @@ children,
 
 return(
 
-<View style={styles.container}>
+<View style={[styles.container, framed ? styles.frame : undefined]}>
 
 <Text style={styles.title}>
 
@@ -54,6 +56,8 @@ const styles=StyleSheet.create({
 container:{
 
 marginBottom:Spacing.xl,
+},
+frame:{
 backgroundColor: Colors.surface,
 borderWidth: 1,
 borderColor: Colors.border,
