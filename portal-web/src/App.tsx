@@ -3566,6 +3566,12 @@ function PortalHome({
               record={selectedRecord}
               token={session.token}
               isGenerator={type === "GERADOR"}
+              onContractSigned={() => {
+                setSelectedRecord(null);
+                setActiveSection("Minha unidade");
+                setContractAccessKey((value) => value + 1);
+                setRefreshKey((value) => value + 1);
+              }}
               onClose={() => setSelectedRecord(null)}
             />
           ) : activeSection === "Empresas" && session.token ? (

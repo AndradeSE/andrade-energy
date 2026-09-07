@@ -175,12 +175,7 @@ export default function Contrato() {
         queryClient.invalidateQueries({ queryKey: ["contratos-acesso"] }),
         queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
       ]);
-      Alert.alert(
-        "Contrato assinado",
-        "A assinatura foi confirmada e sua unidade está liberada.",
-        [{ text: "Ver minhas unidades", onPress: () => router.replace("/selecionar-unidade") }],
-        { cancelable: false },
-      );
+      router.replace("/selecionar-unidade");
     } catch (erro: any) {
       Alert.alert("Não foi possível assinar", erro?.response?.data?.message ?? "Tente novamente.");
     } finally {
