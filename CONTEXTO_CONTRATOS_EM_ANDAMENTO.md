@@ -37,6 +37,9 @@ Gerador cadastra cliente e UC, configura UC, salva rascunho, gera/revisa contrat
 
 ## Publicação de 07/09/2026
 
+- Pós-assinatura: o app Consumidor redireciona automaticamente para `/selecionar-unidade` após sucesso do servidor. Commit `e61930d`, OTA `preview-consumidor` grupo `235bbcf0-eb02-4bf4-98a8-073ab4959afc`, Android `01a07bcf-8168-78cb-b0d4-c104c71be27f` publicada com sucesso.
+- Web: redirecionamento aplicado tanto no primeiro contrato quanto na assinatura pelo histórico; commit local `b62016b`, build aprovado. Sites continua retornando projeto não encontrado nesta conta.
+
 - Commit principal/backend: `11ebb5a`; confirmado em produção pelo `/health` do Render.
 - Supabase: migração `20260907120000_convite_por_unidade.sql` aplicada com sucesso.
 - OTA Gerador `preview-gerador`: grupo `b607dfa6-c18e-47fe-be0a-9511e4ff729b`, Android `01a07a12-ba34-7011-9d96-66d2f8caa95d`.
