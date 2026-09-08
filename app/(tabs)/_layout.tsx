@@ -69,21 +69,21 @@ export default function TabLayout() {
         }}
       >
         <Tabs.Screen
-          name="index"
+          name="economia"
           options={{
-            title: "Home",
+            title: "Economia",
             tabBarIcon: ({ color, focused }) => (
-              <TabIcon name={focused ? "home" : "home-outline"} color={color} />
+              <TabIcon name={focused ? "flash" : "flash-outline"} color={color} />
             ),
           }}
         />
 
         <Tabs.Screen
-          name="economia"
+          name="index"
           options={{
-            title: "Economia",
+            title: "Home",
             tabBarIcon: ({ color, focused }) => (
-              <TabIcon featured name={focused ? "flash" : "flash-outline"} color={color} />
+              <TabIcon featured name={focused ? "home" : "home-outline"} color={color} />
             ),
           }}
         />
@@ -155,16 +155,6 @@ export default function TabLayout() {
       sceneStyle: { backgroundColor: "#DFE8E3" },
     }}>
       <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon name={focused ? "home" : "home-outline"} color={color} />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
         name="clientes"
         options={{
           title: "Clientes",
@@ -189,7 +179,17 @@ export default function TabLayout() {
         options={{
           title: "Operação",
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon featured name={focused ? "construct" : "construct-outline"} color={color} />
+            <TabIcon name={focused ? "construct" : "construct-outline"} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: "Home",
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon featured name={focused ? "home" : "home-outline"} color={color} />
           ),
         }}
       />
