@@ -78,6 +78,8 @@ export default function ContratoDaUnidade() {
   const [contratoGeradoUrl, setContratoGeradoUrl] = useState<string>();
   const [contratoAssinadoUrl, setContratoAssinadoUrl] = useState<string>();
   const [contratoId, setContratoId] = useState<string>();
+  const [aceiteRegistrado, setAceiteRegistrado] = useState(false);
+  const [novoContrato, setNovoContrato] = useState(false);
   const [assinaturaPendente, setAssinaturaPendente] = useState(false);
   const [dadosDaMinutaRevisada, setDadosDaMinutaRevisada] = useState<string>();
   const [titularidadeUcs, setTitularidadeUcs] = useState("GERADOR");
@@ -127,6 +129,7 @@ export default function ContratoDaUnidade() {
         const contrato = resultadoContrato.value;
         if (!contrato) return;
         setContratoId(contrato.id);
+        setAceiteRegistrado(Boolean(contrato.aceite_cliente_em));
         setAssinaturaPendente(Boolean(contrato.dados_documento?.assinatura_externa_pendente));
         setNumeroContrato(contrato.numero ?? "");
         setTermoAdesao(contrato.termo_adesao ?? "");
@@ -302,15 +305,17 @@ export default function ContratoDaUnidade() {
   const enderecoContrato = dadosCliente?.endereco ?? "Endereço não informado";
   const nomeCliente = dadosCliente?.nome ?? cliente ?? "Cliente não informado";
   const usinaVinculada = unidade?.usinas?.nome ?? unidade?.usina_nome ?? (unidade?.usina_id ? "Usina vinculada" : "Não informada");
+  const contratoAssinado = aceiteRegistrado || Boolean(contratoAssinadoUrl);
+  const somenteLeitura = contratoAssinado && !novoContrato;
 
   return (
     <Screen>
       {IS_GERADOR_APP ? <AppHeader variant="subpage" title="Contrato da unidade" subtitle="Dados contratuais" contextTitle={`UC ${numeroUc}`} contextSubtitle={nomeCliente} icon="document-text-outline" /> : null}
       <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
         <View style={styles.heading}>
-          <Text style={styles.eyebrow}>CONFIGURAÇÃO CONTRATUAL</Text>
+          <Text style={styles.eyebrow}>{somenteLeitura ? "CONTRATO ASSINADO" : novoContrato ? "NOVO CONTRATO" : "CONFIGURAÇÃO CONTRATUAL"}</Text>
           <Text style={styles.title}>Contrato da unidade</Text>
-          <Text style={styles.subtitle}>Revise os dados cadastrais que entrarão na minuta antes de gerar o documento.</Text>
+          <Text style={styles.subtitle}>{somenteLeitura ? "Documento preservado somente para consulta. Para alterar as condições, inicie um novo contrato." : "Revise os dados cadastrais que entrarão na minuta antes de gerar o documento."}</Text>
         </View>
 
         <Card style={styles.context}>
@@ -335,6 +340,27 @@ export default function ContratoDaUnidade() {
           <Text style={styles.editHint}>Para corrigir nome, CPF ou endereço, use Editar cliente antes de gerar a minuta.</Text>
         </Card>
 
+        {somenteLeitura ? <>
+        <Text style={styles.sectionTitle}>CONDIÇÕES DO CONTRATO</Text>
+        <Card style={styles.partyCard}>
+          <View style={styles.infoGrid}>
+            <InfoContrato label="Número" value={numeroContrato || "Não informado"} wide />
+            <InfoContrato label="Status" value={status} />
+            <InfoContrato label="Desconto contratado" value={`${desconto || "0"}%`} />
+            <InfoContrato label="Início da vigência" value={inicio || "Não informado"} />
+            <InfoContrato label="Vencimento" value={fim || "Não informado"} />
+            <InfoContrato label="Economia mensal estimada" value={`R$ ${economiaMensal || "0"}`} />
+            <InfoContrato label="Economia anual estimada" value={`R$ ${economiaAnual || "0"}`} />
+            <InfoContrato label="Locador" value={locadorNome || "Não informado"} wide />
+          </View>
+        </Card>
+        <View style={styles.documentActions}>
+          {contratoAssinadoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoAssinadoUrl)} style={styles.signedLink}><Ionicons name="document-text-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir contrato assinado</Text></TouchableOpacity> : null}
+          {!contratoAssinadoUrl && contratoGeradoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoGeradoUrl)} style={styles.documentLink}><Ionicons name="document-text-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir contrato</Text></TouchableOpacity> : null}
+          {assinaturaPendente ? <Button title="Validar assinaturas do PDF" disabled={gerando} onPress={confirmarAssinaturaExterna} /> : null}
+          {!assinaturaPendente ? <Button title="Criar novo contrato" icon={<Ionicons name="add-circle-outline" size={20} color={Colors.surface} />} onPress={() => setNovoContrato(true)} /> : null}
+        </View>
+        </> : <>
         <Text style={styles.sectionTitle}>DADOS DO LOCADOR E VIGÊNCIA</Text>
         <Card style={styles.formCard}>
           <InfoContrato label="Titularidade das UCs" value={titularidadeUcs === "CLIENTE" ? "Consumidor" : "Gerador"} wide />
@@ -367,6 +393,7 @@ export default function ContratoDaUnidade() {
           {contratoAssinadoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoAssinadoUrl)} style={styles.signedLink}><Ionicons name="checkmark-circle-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Contrato assinado vinculado à UC</Text></TouchableOpacity> : null}
           {assinaturaPendente ? <Button title="Validar assinaturas do PDF" disabled={gerando} onPress={confirmarAssinaturaExterna} /> : null}
         </View>
+        </>}
       </ScrollView>
     </Screen>
   );
