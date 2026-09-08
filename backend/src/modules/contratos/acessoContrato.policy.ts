@@ -4,13 +4,13 @@ export function contratoLiberaUnidade(contrato: any, hoje = new Date().toISOStri
   if (["CANCELADO", "VENCIDO"].includes(String(contrato.status).toUpperCase())) return false;
   if (contrato.vigencia_fim && String(contrato.vigencia_fim).slice(0, 10) < hoje) return false;
   const validacaoExterna = contrato.contrato_assinado_url && contrato.dados_documento?.assinatura_externa_validada_em;
-  // Compatibilidade somente para PDFs que já eram vigentes antes do novo
-  // fluxo. Novos uploads sempre nascem ATIVO + assinatura_externa_pendente.
-  const assinaturaLegada = contrato.contrato_assinado_url
+  // Um PDF já marcado como VIGENTE foi conferido pelo gerador e libera a UC,
+  // independentemente da data em que foi assinado. Uploads ainda aguardando
+  // conferência permanecem ATIVO + assinatura_externa_pendente.
+  const assinaturaVigente = contrato.contrato_assinado_url
     && String(contrato.status).toUpperCase() === "VIGENTE"
-    && contrato.assinado_em && String(contrato.assinado_em) < "2026-09-07T00:00:00.000Z"
     && contrato.dados_documento?.assinatura_externa_pendente !== true;
-  return Boolean(contrato.aceite_cliente_em || validacaoExterna || assinaturaLegada);
+  return Boolean(contrato.aceite_cliente_em || validacaoExterna || assinaturaVigente);
 }
 
 export function acessoPorUnidade(unidades: any[], contratos: any[]) {

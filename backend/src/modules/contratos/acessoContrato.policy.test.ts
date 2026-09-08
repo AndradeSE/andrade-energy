@@ -12,9 +12,10 @@ test("upload externo só libera depois de conferência", () => {
   assert.equal(contratoLiberaUnidade(externo), false);
   assert.equal(contratoLiberaUnidade({ ...externo, dados_documento: { assinatura_externa_validada_em: "2026-09-07" } }), true);
 });
-test("preserva PDF externo legado que já era vigente antes do novo fluxo", () => {
+test("PDF vigente libera a UC sem depender da data da assinatura", () => {
   assert.equal(contratoLiberaUnidade({ ...contrato, status: "VIGENTE", contrato_assinado_url: "antigo.pdf", assinado_em: "2026-09-06T20:00:00.000Z" }), true);
-  assert.equal(contratoLiberaUnidade({ ...contrato, status: "VIGENTE", contrato_assinado_url: "novo.pdf", assinado_em: "2026-09-07T20:00:00.000Z" }), false);
+  assert.equal(contratoLiberaUnidade({ ...contrato, status: "VIGENTE", contrato_assinado_url: "novo.pdf", assinado_em: "2026-09-07T20:00:00.000Z" }), true);
+  assert.equal(contratoLiberaUnidade({ ...contrato, status: "VIGENTE", contrato_assinado_url: "pendente.pdf", dados_documento: { assinatura_externa_pendente: true } }), false);
 });
 test("aceite não libera contrato cancelado, vencido ou sem vínculo de UC", () => {
   const assinado = { ...contrato, aceite_cliente_em: "2026-09-07" };
