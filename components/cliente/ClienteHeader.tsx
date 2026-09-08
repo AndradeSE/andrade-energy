@@ -63,6 +63,7 @@ export default function ClienteHeader({
   ] =
     useState(false);
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
+  const [fotoAberta, setFotoAberta] = useState(false);
   const [avisosRecebidos, setNotificacoes] = useState<any[]>([]);
   const [unidadeAtual, setUnidadeAtual] = useState<any>(null);
   const { isExpanded: detalhesExpandidos, setExpanded: setDetalhesExpandidos } = useHeaderDetailsVisibility();
@@ -287,9 +288,7 @@ export default function ClienteHeader({
             activeOpacity={
               0.8
             }
-            onPress={
-              abrirPerfil
-            }
+            onPress={() => fotoPerfil ? setFotoAberta(true) : abrirPerfil()}
             style={
               styles.profile
             }
@@ -422,6 +421,15 @@ export default function ClienteHeader({
             <View style={styles.notificationHeader}><Text style={styles.notificationTitle}>Notificações</Text><TouchableOpacity onPress={() => setNotificacoesAbertas(false)}><Ionicons name="close" size={25} color={Colors.text} /></TouchableOpacity></View>
             {notificacoes.length ? notificacoes.map((aviso) => <TouchableOpacity key={aviso.id} style={styles.notificationItem} onPress={async () => { await marcarComoLida(aviso.id); setNotificacoesAbertas(false); router.push(aviso.rota as any); }}><View style={[styles.notificationDot, aviso.severidade === "alta" && styles.notificationDotHigh]} /><View style={styles.notificationCopy}><Text style={styles.notificationItemTitle}>{aviso.titulo}</Text><Text style={styles.notificationDetail}>{aviso.detalhe}</Text></View><Ionicons name="chevron-forward" size={18} color={Colors.subtitle} /></TouchableOpacity>) : <View style={styles.emptyNotifications}><Ionicons name="checkmark-circle-outline" size={34} color={Colors.primary} /><Text style={styles.notificationItemTitle}>Tudo em dia</Text></View>}
           </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal animationType="fade" transparent visible={fotoAberta && Boolean(fotoPerfil)} onRequestClose={() => setFotoAberta(false)}>
+        <Pressable accessibilityLabel="Fechar foto ampliada" onPress={() => setFotoAberta(false)} style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.lg, backgroundColor: "rgba(3,15,12,0.92)" }}>
+          <View style={{ position: "relative", width: "100%", maxWidth: 520, aspectRatio: 1, overflow: "hidden", borderRadius: Radius.xl, backgroundColor: "#071A15" }}>
+            <Image resizeMode="contain" source={{ uri: fotoPerfil }} style={{ width: "100%", height: "100%" }} />
+            <View style={{ position: "absolute", top: 12, right: 12, width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: "rgba(0,0,0,0.5)" }}><Ionicons name="close" size={24} color="#FFFFFF" /></View>
+          </View>
         </Pressable>
       </Modal>
 

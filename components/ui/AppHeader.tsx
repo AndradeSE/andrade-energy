@@ -60,6 +60,7 @@ export default function AppHeader({
   const corPrincipal = empresa.cor_primaria || Colors.primary;
   const corEscura = escurecerCor(corPrincipal);
   const [menuAberto, setMenuAberto] = useState(false);
+  const [fotoAberta, setFotoAberta] = useState(false);
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
   const [avisosRecebidos, setNotificacoes] = useState<any[]>([]);
   const usuarioId = usuario?.id ? String(usuario.id) : undefined;
@@ -172,9 +173,11 @@ export default function AppHeader({
           <Ionicons name="menu-outline" size={30} color={Colors.surface} />
         </TouchableOpacity>
 
-        <TouchableOpacity accessibilityLabel="Abrir perfil" activeOpacity={0.8} onPress={() => router.push("/perfil")} style={styles.profileButton}>
-          <View style={[styles.avatar, { backgroundColor: corPrincipal }]}>{fotoPerfil ? <Image source={{ uri: fotoPerfil }} style={styles.profilePhoto} /> : <Ionicons name={icon} size={21} color={Colors.surface} />}</View>
-          <View style={styles.titleContent}>
+        <View style={styles.profileButton}>
+          <TouchableOpacity accessibilityLabel={fotoPerfil ? "Ampliar foto do perfil" : "Abrir perfil"} activeOpacity={0.8} onPress={() => fotoPerfil ? setFotoAberta(true) : router.push("/perfil")}>
+            <View style={[styles.avatar, { backgroundColor: corPrincipal }]}>{fotoPerfil ? <Image source={{ uri: fotoPerfil }} style={styles.profilePhoto} /> : <Ionicons name={icon} size={21} color={Colors.surface} />}</View>
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityLabel="Abrir perfil" activeOpacity={0.8} onPress={() => router.push("/perfil")} style={styles.titleContent}>
             <Text numberOfLines={1} style={styles.sectionLabel}>{title} · {subtitle}</Text>
             <View style={styles.contextTitleRow}>
               <Text numberOfLines={1} style={styles.title}>{contextTitle}</Text>
@@ -183,8 +186,8 @@ export default function AppHeader({
               </View> : null}
             </View>
             <Text numberOfLines={1} style={styles.subtitle}>{contextSubtitle}</Text>
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </View>
 
         {onSearch ? <TouchableOpacity accessibilityLabel="Pesquisar" hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }} activeOpacity={0.8} onPress={onSearch} style={styles.action}>
           <Ionicons name="search-outline" size={24} color={Colors.surface} />
@@ -206,6 +209,15 @@ export default function AppHeader({
             <View style={styles.menuHeader}><Text style={styles.menuTitle}>Notificações</Text><TouchableOpacity onPress={() => setNotificacoesAbertas(false)}><Ionicons name="close" size={26} color={Colors.text} /></TouchableOpacity></View>
             {notificacoes.length ? notificacoes.map((aviso) => <TouchableOpacity key={aviso.id} onPress={async () => { await marcarNotificacaoComoLida(aviso.id); setNotificacoesAbertas(false); router.push(aviso.rota as any); }} style={styles.notificationItem}><View style={[styles.notificationDot, aviso.severidade === "alta" && styles.notificationDotHigh]} /><View style={styles.notificationCopy}><Text style={styles.notificationTitle}>{aviso.titulo}</Text><Text style={styles.notificationDetail}>{aviso.detalhe}</Text></View><Ionicons name="chevron-forward" size={18} color={Colors.subtitle} /></TouchableOpacity>) : <View style={styles.emptyNotifications}><Ionicons name="checkmark-circle-outline" size={34} color={Colors.success} /><Text style={styles.emptyNotificationsTitle}>Tudo em dia</Text><Text style={styles.emptyNotificationsText}>Nenhuma pendência importante encontrada.</Text></View>}
           </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal animationType="fade" transparent visible={fotoAberta && Boolean(fotoPerfil)} onRequestClose={() => setFotoAberta(false)}>
+        <Pressable accessibilityLabel="Fechar foto ampliada" onPress={() => setFotoAberta(false)} style={styles.photoBackdrop}>
+          <View style={styles.photoPreviewCard}>
+            <Image resizeMode="contain" source={{ uri: fotoPerfil }} style={styles.photoPreview} />
+            <View style={styles.photoClose}><Ionicons name="close" size={24} color="#FFFFFF" /></View>
+          </View>
         </Pressable>
       </Modal>
 
@@ -355,6 +367,10 @@ const styles = StyleSheet.create({
   plantToggle: { minHeight: 34, alignItems: "center", justifyContent: "center", paddingHorizontal: 5 },
   plantToggleText: { color: "#F6CC32", fontSize: 10, fontWeight: "900" },
   plantDetailsToggle: { minHeight: 22, flexDirection: "row", alignSelf: "center", alignItems: "center", gap: 2, marginTop: 3, paddingHorizontal: Spacing.sm },
+  photoBackdrop: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.lg, backgroundColor: "rgba(3,15,12,0.92)" },
+  photoPreviewCard: { position: "relative", width: "100%", maxWidth: 520, aspectRatio: 1, overflow: "hidden", borderRadius: Radius.xl, backgroundColor: "#071A15" },
+  photoPreview: { width: "100%", height: "100%" },
+  photoClose: { position: "absolute", top: 12, right: 12, width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: "rgba(0,0,0,0.5)" },
   backdrop: { flex: 1, alignItems: "flex-end", backgroundColor: "rgba(15,23,42,0.45)" },
   menu: { width: "84%", height: "100%", paddingHorizontal: Spacing.lg, paddingTop: 58, backgroundColor: Colors.surface },
   notificationPanel: { width: "88%", marginTop: 90, marginHorizontal: "6%", paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg, borderRadius: Radius.xl, backgroundColor: Colors.surface },

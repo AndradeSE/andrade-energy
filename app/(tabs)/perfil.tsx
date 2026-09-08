@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  Modal,
   RefreshControl,
   StyleSheet,
   Switch,
@@ -78,6 +79,7 @@ export default function Perfil() {
   const [senhaExclusao, setSenhaExclusao] = useState("");
   const [excluindo, setExcluindo] = useState(false);
   const [fotoPerfil, setFotoPerfil] = useState("");
+  const [fotoAberta, setFotoAberta] = useState(false);
 
   const chaveFoto = `foto-perfil:${user?.id ?? "usuario"}`;
 
@@ -274,14 +276,14 @@ export default function Perfil() {
           showsVerticalScrollIndicator={false}
         >
           {!IS_GERADOR_APP ? <View style={styles.hero}>
-            <TouchableOpacity onPress={() => void alterarFoto()} style={styles.avatar}>{fotoPerfil ? <Image source={{ uri: fotoPerfil }} style={styles.avatarImage} /> : <Ionicons color={Colors.surface} name="person" size={29} />}<View style={styles.cameraBadge}><Ionicons name="camera" size={12} color="#FFF" /></View></TouchableOpacity>
+            <View style={styles.avatarWrap}><TouchableOpacity accessibilityLabel={fotoPerfil ? "Ampliar foto do perfil" : "Adicionar foto do perfil"} onPress={() => fotoPerfil ? setFotoAberta(true) : void alterarFoto()} style={styles.avatar}>{fotoPerfil ? <Image source={{ uri: fotoPerfil }} style={styles.avatarImage} /> : <Ionicons color={Colors.surface} name="person" size={29} />}</TouchableOpacity><TouchableOpacity accessibilityLabel="Alterar foto do perfil" onPress={() => void alterarFoto()} style={styles.cameraBadge}><Ionicons name="camera" size={12} color="#FFF" /></TouchableOpacity></View>
             <View style={styles.heroCopy}>
               <Text style={styles.title}>Perfil</Text>
               <Text style={styles.subtitle}>Seus dados, segurança e acesso à conta.</Text>
             </View>
           </View> : null}
 
-        {IS_GERADOR_APP ? <TouchableOpacity onPress={() => void alterarFoto()} style={styles.photoRow}><View style={styles.avatar}>{fotoPerfil ? <Image source={{ uri: fotoPerfil }} style={styles.avatarImage} /> : <Ionicons color={Colors.surface} name="person" size={29} />}</View><View style={{ flex: 1 }}><Text style={styles.preferenceTitle}>Foto do perfil</Text><Text style={styles.preferenceDescription}>Toque para escolher uma imagem.</Text></View><Ionicons name="camera-outline" size={22} color={Colors.primary} /></TouchableOpacity> : null}
+        {IS_GERADOR_APP ? <View style={styles.photoRow}><TouchableOpacity accessibilityLabel={fotoPerfil ? "Ampliar foto do perfil" : "Adicionar foto do perfil"} onPress={() => fotoPerfil ? setFotoAberta(true) : void alterarFoto()}><View style={styles.avatar}>{fotoPerfil ? <Image source={{ uri: fotoPerfil }} style={styles.avatarImage} /> : <Ionicons color={Colors.surface} name="person" size={29} />}</View></TouchableOpacity><TouchableOpacity accessibilityLabel="Alterar foto do perfil" onPress={() => void alterarFoto()} style={styles.photoEdit}><View style={{ flex: 1 }}><Text style={styles.preferenceTitle}>Foto do perfil</Text><Text style={styles.preferenceDescription}>{fotoPerfil ? "Toque aqui para alterar a imagem." : "Toque para escolher uma imagem."}</Text></View><Ionicons name="camera-outline" size={22} color={Colors.primary} /></TouchableOpacity></View> : null}
 
         <Text style={styles.sectionTitle}>DADOS PESSOAIS</Text>
         <View style={styles.card}>
@@ -398,6 +400,14 @@ export default function Perfil() {
         </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      <Modal animationType="fade" transparent visible={fotoAberta && Boolean(fotoPerfil)} onRequestClose={() => setFotoAberta(false)}>
+        <TouchableOpacity accessibilityLabel="Fechar foto ampliada" activeOpacity={1} onPress={() => setFotoAberta(false)} style={styles.photoBackdrop}>
+          <View style={styles.photoPreviewCard}>
+            <Image resizeMode="contain" source={{ uri: fotoPerfil }} style={styles.photoPreview} />
+            <View style={styles.photoClose}><Ionicons name="close" size={24} color="#FFFFFF" /></View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </Screen>
   );
 }
@@ -434,10 +444,16 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl * 3 },
   hero: { flexDirection: "row", alignItems: "center", marginBottom: Spacing.lg },
+  avatarWrap: { position: "relative", marginRight: Spacing.sm },
   avatar: { width: 55, height: 55, alignItems: "center", justifyContent: "center", marginRight: Spacing.sm, borderRadius: Radius.round, backgroundColor: Colors.primary, overflow: "hidden" },
   avatarImage: { width: "100%", height: "100%" },
   cameraBadge: { position: "absolute", right: 0, bottom: 0, width: 21, height: 21, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: Colors.primaryDark },
   photoRow: { minHeight: 78, flexDirection: "row", alignItems: "center", marginBottom: Spacing.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.lg, backgroundColor: Colors.surface },
+  photoEdit: { flex: 1, flexDirection: "row", alignItems: "center" },
+  photoBackdrop: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.lg, backgroundColor: "rgba(3,15,12,0.92)" },
+  photoPreviewCard: { position: "relative", width: "100%", maxWidth: 520, aspectRatio: 1, overflow: "hidden", borderRadius: Radius.xl, backgroundColor: "#071A15" },
+  photoPreview: { width: "100%", height: "100%" },
+  photoClose: { position: "absolute", top: 12, right: 12, width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: "rgba(0,0,0,0.5)" },
   heroCopy: { flex: 1 },
   title: { color: Colors.text, fontSize: Typography.section, fontWeight: "900" },
   subtitle: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.caption, lineHeight: 19 },
