@@ -502,10 +502,11 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
     .maybeSingle();
   if (contratoDaUc?.id) {
     const assinado = Boolean(contratoDaUc.aceite_cliente_em || contratoDaUc.contrato_assinado_url);
-    const atualizacaoContrato: Record<string, unknown> = {
-      configuracao_uc_snapshot: configuracaoContrato,
-      revisao_configuracao_pendente: assinado,
-    };
+    // O snapshot de um contrato assinado é imutável. A configuração nova já
+    // foi gravada na UC e será copiada ao criar o rascunho da próxima versão.
+    const atualizacaoContrato: Record<string, unknown> = assinado
+      ? { revisao_configuracao_pendente: true }
+      : { configuracao_uc_snapshot: configuracaoContrato, revisao_configuracao_pendente: false };
     if (!assinado) {
       atualizacaoContrato.usina_id = usinaId;
       atualizacaoContrato.desconto = desconto;

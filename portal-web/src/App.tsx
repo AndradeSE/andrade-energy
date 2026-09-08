@@ -1537,6 +1537,7 @@ function UnitTools({
   const [expanded, setExpanded] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [contractOpen, setContractOpen] = useState(false);
+  const [contractRevision, setContractRevision] = useState(false);
   const [plants, setPlants] = useState<WebRecord[]>([]);
   const [allocation, setAllocation] = useState({
     usinaId: String(unit.usina_id ?? ""),
@@ -1708,6 +1709,7 @@ function UnitTools({
           // média da usina em ambas as modalidades. Assim, 100% do consumo
           // não é confundido com 100% da produção total da usina.
           calcularAutomaticamente: true,
+          revisaoContrato: true,
         }),
       },
     );
@@ -1720,6 +1722,8 @@ function UnitTools({
     );
     if (response.ok) {
       setEditOpen(false);
+      setContractRevision(true);
+      setContractOpen(true);
       onChanged();
     }
   }
@@ -2044,7 +2048,7 @@ function UnitTools({
                   Ativar recebimento por e-mail
                 </button>
               )}
-              <button disabled={busy} onClick={() => setContractOpen(true)}>Abrir contrato da UC</button>
+              <button disabled={busy} onClick={() => { setContractRevision(false); setContractOpen(true); }}>Abrir contrato da UC</button>
               <button
                 className="danger-tool"
                 disabled={busy}
@@ -2058,7 +2062,7 @@ function UnitTools({
             </div>
           </details>
           {message && <small className="unit-message">{message}</small>}
-          {contractOpen ? <ContractWorkflowWeb apiUrl={API_URL} token={token} unit={unit} onClose={() => setContractOpen(false)} onChanged={onChanged} /> : null}
+          {contractOpen ? <ContractWorkflowWeb apiUrl={API_URL} token={token} unit={unit} revisionMode={contractRevision} onClose={() => setContractOpen(false)} onChanged={onChanged} /> : null}
         </>
       ) : null}
     </article>

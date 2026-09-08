@@ -89,6 +89,19 @@ export async function buscarContratoAtualUnidade(
   return data;
 }
 
+export async function buscarRascunhoAtualUnidade(unidadeId: string) {
+  const { data, error } = await supabase
+    .from("contratos")
+    .select("*")
+    .eq("unidade_consumidora_id", unidadeId)
+    .eq("status", "RASCUNHO")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 export async function buscarContratoMaisRecenteUnidade(
   unidadeId: string
 ) {
@@ -113,6 +126,10 @@ export async function salvarContratoUnidade(
   unidadeId: string,
   contrato: any
 ) {
+  const rascunho = await buscarRascunhoAtualUnidade(unidadeId);
+  if (rascunho?.id) {
+    return await atualizarContrato(rascunho.id, { ...contrato, status: "RASCUNHO" });
+  }
   const existente = await buscarContratoAtualUnidade(unidadeId);
 
   if (existente?.id) {
@@ -127,7 +144,9 @@ export async function salvarContratoUnidade(
     if (existente.aceite_cliente_em || existente.contrato_assinado_url) {
       return await criarContrato({
         ...contrato,
-        status: novoAtivo ? "ATIVO" : contrato.status,
+        // A versão assinada continua vigente enquanto a revisão é preparada.
+        // RASCUNHO fica fora do índice de vigência única da UC.
+        status: "RASCUNHO",
         versao: Number(existente.versao ?? 1) + 1,
         revisao_configuracao_pendente: false,
         dados_documento: { ...(contrato.dados_documento ?? {}), contrato_anterior_id: existente.id },
@@ -185,4 +204,26 @@ export async function excluirContrato(
     .eq("id", id);
 
   if (error) throw error;
+}
+
+export async function suspenderVigenciasAnteriores(unidadeId: string, contratoId: string) {
+  const { data: anteriores, error } = await supabase.from("contratos")
+    .select("id,status")
+    .eq("unidade_consumidora_id", unidadeId)
+    .neq("id", contratoId)
+    .in("status", ["ATIVO", "VIGENTE"]);
+  if (error) throw error;
+  if (!anteriores?.length) return [];
+  const { error: erroSuspensao } = await supabase.from("contratos")
+    .update({ status: "SUBSTITUIDO", revisao_configuracao_pendente: false })
+    .in("id", anteriores.map((item) => item.id));
+  if (erroSuspensao) throw erroSuspensao;
+  return anteriores;
+}
+
+export async function restaurarVigencias(contratos: Array<{ id: string; status: string }>) {
+  for (const contrato of contratos) {
+    const { error } = await supabase.from("contratos").update({ status: contrato.status }).eq("id", contrato.id);
+    if (error) throw error;
+  }
 }

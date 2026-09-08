@@ -133,10 +133,12 @@ export default function ContratoDaUnidade() {
         setContratoId(contrato.id);
         setAceiteRegistrado(Boolean(contrato.aceite_cliente_em));
         setAssinaturaPendente(Boolean(contrato.dados_documento?.assinatura_externa_pendente));
-        setNumeroContrato(contrato.numero ?? "");
+        const revisandoContratoAssinado = String(revisao ?? "") === "1"
+          && Boolean(contrato.aceite_cliente_em || contrato.contrato_assinado_url || String(contrato.status).toUpperCase() === "VIGENTE");
+        setNumeroContrato(revisandoContratoAssinado ? `AE-${numero ?? unidadeCarregada?.numero ?? "UC"}-${new Date().getFullYear()}-R${Number(contrato.versao ?? 1) + 1}` : contrato.numero ?? "");
         setTermoAdesao(contrato.termo_adesao ?? "");
         setStatus((["ATIVO", "VIGENTE", "VENCIDO"].includes(String(contrato.status).toUpperCase()) ? String(contrato.status).toUpperCase() : "ATIVO") as StatusContrato);
-        setDesconto(valorParaCampo(contrato.desconto));
+        setDesconto(revisandoContratoAssinado ? valorParaCampo(unidadeCarregada?.desconto_percentual ?? descontoPadrao) : valorParaCampo(contrato.desconto));
         setInicio(dataParaFormulario(contrato.vigencia_inicio ?? contrato.data_assinatura) || dataHoje());
         setFim(dataParaFormulario(contrato.vigencia_fim));
         if (!propostaAtual) {
@@ -151,8 +153,8 @@ export default function ContratoDaUnidade() {
         }
         setPrazoAnos(String(contrato.dados_documento?.prazo_anos ?? "10"));
         setForo(contrato.dados_documento?.foro ?? "Itajubá/MG");
-        setContratoGeradoUrl(contrato.contrato_gerado_url ?? undefined);
-        setContratoAssinadoUrl(contrato.contrato_assinado_url ?? undefined);
+        setContratoGeradoUrl(revisandoContratoAssinado ? undefined : contrato.contrato_gerado_url ?? undefined);
+        setContratoAssinadoUrl(revisandoContratoAssinado ? undefined : contrato.contrato_assinado_url ?? undefined);
       })
       .catch((erro: any) => {
         Alert.alert("Não foi possível carregar o contrato", erro?.response?.data?.message ?? "Tente novamente.");
@@ -387,10 +389,10 @@ export default function ContratoDaUnidade() {
         </Card>
 
         <View style={styles.documentActions}>
-          <Button disabled={gerando || !contratoGeradoUrl || dadosDaMinutaRevisada !== JSON.stringify(dadosParaSalvar())} title={gerando ? "Aguarde..." : "Enviar contrato e proposta"} onPress={enviarParaAnalise} />
-          <Text style={styles.documentLinkText}>Gere e revise a minuta atual para habilitar o envio. Alterações nos campos exigem nova revisão.</Text>
           <Button disabled={gerando} title={gerando ? "Gerando minuta..." : "Gerar minuta do contrato"} icon={<Ionicons name="document-text-outline" size={20} color={Colors.surface} />} onPress={gerarMinuta} />
           {contratoGeradoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoGeradoUrl)} style={styles.documentLink}><Ionicons name="download-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir minuta gerada</Text></TouchableOpacity> : null}
+          <Button disabled={gerando || !contratoGeradoUrl || dadosDaMinutaRevisada !== JSON.stringify(dadosParaSalvar())} title={gerando ? "Aguarde..." : "Enviar contrato e proposta"} onPress={enviarParaAnalise} />
+          <Text style={styles.documentLinkText}>Gere e revise a minuta atual para habilitar o envio. Alterações nos campos exigem nova revisão.</Text>
           <Button disabled={importando} title={importando ? "Importando contrato..." : "Importar contrato assinado"} icon={<Ionicons name="attach-outline" size={20} color={Colors.surface} />} onPress={importarAssinado} />
           {contratoAssinadoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoAssinadoUrl)} style={styles.signedLink}><Ionicons name="checkmark-circle-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Contrato assinado vinculado à UC</Text></TouchableOpacity> : null}
           {assinaturaPendente ? <Button title="Validar assinaturas do PDF" disabled={gerando} onPress={confirmarAssinaturaExterna} /> : null}

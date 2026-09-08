@@ -13,18 +13,18 @@ type TabItem = {
 };
 
 const generatorTabs: TabItem[] = [
-  { label: "Home", icon: "home-outline", route: "/(tabs)" },
   { label: "Clientes", icon: "people-outline", route: "/(tabs)/clientes" },
   { label: "Usinas", icon: "flash-outline", route: "/(tabs)/usinas" },
   { label: "Operação", icon: "construct-outline", route: "/(tabs)/operacao" },
+  { label: "Home", icon: "home-outline", route: "/(tabs)" },
   { label: "Faturas", icon: "receipt-outline", route: "/(tabs)/faturas" },
+  { label: "Contrato", icon: "document-text-outline", route: "/(tabs)/contrato" },
   { label: "Financeiro", icon: "cash-outline", route: "/(tabs)/financeiro" },
-  { label: "Perfil", icon: "person-outline", route: "/(tabs)/perfil" },
 ];
 
 const consumerTabs: TabItem[] = [
-  { label: "Home", icon: "home-outline", route: "/(tabs)" },
   { label: "Economia", icon: "flash-outline", route: "/(tabs)/economia" },
+  { label: "Home", icon: "home-outline", route: "/(tabs)" },
   { label: "Contrato", icon: "document-text-outline", route: "/(tabs)/contrato" },
 ];
 
@@ -32,11 +32,6 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
   const segments = useSegments();
   const insets = useSafeAreaInsets();
   const firstSegment = String(segments[0] ?? "");
-
-  // O consumidor já possui a barra oficial no layout `(tabs)`. Manter esta
-  // barra global montada em paralelo faz a navegação aparecer duplicada em
-  // algumas transições entre a seleção da UC e a área autenticada.
-  if (!IS_GERADOR_APP) return null;
 
   // As rotas principais já renderizam sua própria barra. Autenticação,
   // seleção de ambiente e gestão comercial também têm navegação própria.
@@ -52,24 +47,28 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
 
   if (hidden) return null;
 
-  const tabs = generatorTabs;
+  const tabs = IS_GERADOR_APP ? generatorTabs : consumerTabs;
 
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-      {tabs.map((tab) => (
+      {tabs.map((tab) => {
+        const featured = tab.label === "Home";
+        return (
         <Pressable
           accessibilityRole="tab"
           accessibilityLabel={`Ir para ${tab.label}`}
           key={tab.label}
           onPress={() => router.replace(tab.route as never)}
-          style={styles.item}
+          style={[styles.item, featured && styles.featuredItem]}
         >
-          <Ionicons name={tab.icon} color={Colors.subtitle} size={IS_GERADOR_APP ? 21 : 24} />
+          <View style={featured ? styles.featuredIcon : undefined}>
+            <Ionicons name={tab.icon} color={featured ? "#FFFFFF" : Colors.subtitle} size={featured ? 25 : IS_GERADOR_APP ? 21 : 24} />
+          </View>
           <Text numberOfLines={1} style={[styles.label, IS_GERADOR_APP && styles.generatorLabel]}>
             {tab.label}
           </Text>
         </Pressable>
-      ))}
+      )})}
     </View>
   );
 }
@@ -106,5 +105,11 @@ const styles = StyleSheet.create({
   generatorLabel: {
     fontSize: 8,
     lineHeight: 10,
+  },
+  featuredItem: { transform: [{ translateY: -8 }] },
+  featuredIcon: {
+    width: 50, height: 50, borderRadius: 25, alignItems: "center", justifyContent: "center",
+    backgroundColor: "#12B981", elevation: 8, shadowColor: "#12B981", shadowOpacity: 0.3,
+    shadowRadius: 9, shadowOffset: { width: 0, height: 5 },
   },
 });

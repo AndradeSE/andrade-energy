@@ -666,10 +666,14 @@ export default function SelecionarUnidade() {
                       <View style={styles.unitLiveBadge}><View style={styles.unitLiveDot} /><Text style={styles.unitLiveText}>{item.status === "INATIVA" ? "INATIVA" : "ATIVA"}</Text></View>
                       <TouchableOpacity accessibilityLabel={`Personalizar fundo da UC ${unidade!.numero}`} hitSlop={8} onPress={(event) => { event.stopPropagation(); void personalizarFundo(unidade!); }} style={styles.unitPhotoButton}><Ionicons name="image-outline" size={18} color="#FFF" /></TouchableOpacity>
                     </View>
-                    <View>
+                    <View style={styles.unitCoverIdentity}>
                       <Text style={styles.unitCoverEyebrow}>MINHA UNIDADE</Text>
                       <Text numberOfLines={1} style={styles.unitCoverTitle}>{unidade!.apelido || `UC ${unidade!.numero}`}</Text>
-                      <Text numberOfLines={1} style={styles.unitCoverUtility}>{unidade!.distribuidora || "Concessionária não informada"}</Text>
+                    </View>
+                    <View style={styles.unitCoverMetrics}>
+                      <View style={styles.unitCoverMetric}><Text style={styles.unitCoverMetricLabel}>MODALIDADE</Text><Text style={styles.unitCoverMetricValue}>{String(unidade!.modalidade_faturamento ?? "COMPENSAÇÃO").replace("_", " ")}</Text></View>
+                      <View style={styles.unitCoverDivider} />
+                      <View style={styles.unitCoverMetric}><Text style={styles.unitCoverMetricLabel}>DESCONTO</Text><Text style={styles.unitCoverMetricValue}>{Number(unidade!.desconto_percentual ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</Text></View>
                     </View>
                   </LinearGradient>
                 </ImageBackground>
@@ -1346,7 +1350,7 @@ const styles =
       elevation: 2,
     },
 
-    unitCover: { height: 142, justifyContent: "flex-end" },
+    unitCover: { height: 196, justifyContent: "flex-end" },
     unitCoverImage: { borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl },
     unitCoverShade: { flex: 1, justifyContent: "space-between", padding: Spacing.md },
     unitCoverTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
@@ -1355,8 +1359,13 @@ const styles =
     unitLiveText: { color: "#FFF", fontSize: 9, fontWeight: "900", letterSpacing: .8 },
     unitPhotoButton: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: Radius.round, backgroundColor: "rgba(2,32,23,.62)" },
     unitCoverEyebrow: { color: "rgba(255,255,255,.72)", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
-    unitCoverTitle: { marginTop: 3, color: "#FFF", fontSize: 22, fontWeight: "900", textShadowColor: "rgba(0,0,0,.35)", textShadowRadius: 4 },
-    unitCoverUtility: { marginTop: 4, color: "rgba(255,255,255,.84)", fontSize: Typography.small, fontWeight: "700" },
+    unitCoverIdentity: { alignItems: "center" },
+    unitCoverTitle: { marginTop: 4, color: "#FFF", fontSize: 28, fontWeight: "900", textShadowColor: "rgba(0,0,0,.35)", textShadowRadius: 4 },
+    unitCoverMetrics: { flexDirection: "row", alignItems: "center", paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,.28)" },
+    unitCoverMetric: { flex: 1, alignItems: "center" },
+    unitCoverMetricLabel: { color: "rgba(255,255,255,.68)", fontSize: 9, fontWeight: "800" },
+    unitCoverMetricValue: { marginTop: 3, color: "#FFF", fontSize: Typography.small, fontWeight: "900" },
+    unitCoverDivider: { width: 1, height: 28, backgroundColor: "rgba(255,255,255,.3)" },
     unitBody: { padding: Spacing.md },
 
     unitTop: {

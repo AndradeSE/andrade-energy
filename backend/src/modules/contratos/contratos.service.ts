@@ -2,9 +2,12 @@ import {
     atualizarContrato,
     buscarContratoCliente,
     buscarContratoMaisRecenteUnidade,
+    buscarRascunhoAtualUnidade,
     criarContrato,
     excluirContrato,
     salvarContratoUnidade,
+    suspenderVigenciasAnteriores,
+    restaurarVigencias,
 } from "./contratos.repository";
 import { supabase } from "../../config/supabase";
 import crypto from "crypto";
@@ -30,7 +33,8 @@ export async function obterContratoDaUnidade(
 ) {
   let contratoDaUnidade: any;
   if (preferirRascunho) {
-    contratoDaUnidade = await buscarContratoMaisRecenteUnidade(unidadeId);
+    contratoDaUnidade = await buscarRascunhoAtualUnidade(unidadeId)
+      ?? await buscarContratoMaisRecenteUnidade(unidadeId);
   } else {
     const { data: contratos, error } = await supabase.from("contratos").select("*")
       .eq("unidade_consumidora_id", unidadeId)
@@ -289,7 +293,7 @@ export async function importarContratoAssinadoDaUnidadeService(unidadeId: string
   const caminho = await armazenarContratoAssinado(unidadeId, contrato.id, arquivo.path);
   const { data, error } = await supabase
     .from("contratos")
-    .update({ contrato_assinado_url: caminho, status: "ATIVO",
+    .update({ contrato_assinado_url: caminho,
       dados_documento: { ...contrato.dados_documento, assinatura_externa_pendente: true, assinatura_externa_validada_em: null },
     })
     .eq("id", contrato.id)
@@ -394,9 +398,8 @@ export async function registrarAceiteEletronicoService(contratoId: string, usuar
   const assinaturaSerializada = JSON.stringify(assinatura);
   const documentoHash = identidade.documentoHash;
   const agora = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("contratos")
-    .update({
+  const anteriores = await suspenderVigenciasAnteriores(contrato.unidade_consumidora_id, contratoId);
+  const { data, error } = await supabase.from("contratos").update({
       aceite_cliente_em: agora,
       aceite_cliente_usuario_id: usuario.id,
       aceite_cliente_ip: evidencias.ip ?? null,
@@ -415,11 +418,10 @@ export async function registrarAceiteEletronicoService(contratoId: string, usuar
     .eq("dados_documento", JSON.stringify(contrato.dados_documento))
     .select()
     .single();
-  if (error) throw error;
-  await supabase.from("contratos").update({ status: "SUBSTITUIDO", revisao_configuracao_pendente: false })
-    .eq("unidade_consumidora_id", contrato.unidade_consumidora_id)
-    .neq("id", contratoId)
-    .eq("status", "VIGENTE");
+  if (error) {
+    await restaurarVigencias(anteriores);
+    throw error;
+  }
   await supabase.from("contratos_codigos_assinatura").delete().eq("contrato_id", contratoId).eq("codigo_hash", confirmacao.codigo_hash);
   return anexarLinksDoContrato(data);
 }
@@ -437,7 +439,6 @@ export async function importarContratoAssinadoPeloClienteService(contratoId: str
     .update({
       contrato_assinado_url: caminho,
       assinado_em: new Date().toISOString(),
-      status: "ATIVO",
       dados_documento: { ...contrato.dados_documento, assinatura_externa_pendente: true, assinatura_externa_validada_em: null },
     })
     .eq("id", contrato.id)
