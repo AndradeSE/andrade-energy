@@ -39,7 +39,7 @@ export default function Loading() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, minHeight: 260, alignItems: "center", justifyContent: "center", padding: Spacing.xl, backgroundColor: Colors.background },
+  container: { flex: 1, minHeight: 260, width: "100%", alignItems: "center", justifyContent: "center", padding: Spacing.xl, backgroundColor: Colors.surface },
   animation: { width: 94, height: 94, alignItems: "center", justifyContent: "center" },
   pulse: { position: "absolute", width: 86, height: 86, borderRadius: 43, backgroundColor: Colors.primary },
   energyCore: { width: 58, height: 58, alignItems: "center", justifyContent: "center", borderRadius: 29, backgroundColor: Colors.primary, shadowColor: Colors.primaryDark, shadowOpacity: 0.22, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 },

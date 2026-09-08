@@ -37,24 +37,32 @@ const itens: Record<string, Item[]> = {
   ],
 };
 
+function normalizarBusca(valor: string) {
+  return valor.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").trim();
+}
+
 export default function Pesquisa() {
   const { perfil = "usinas" } = useLocalSearchParams<{ perfil?: string }>();
   const [busca, setBusca] = useState("");
   const lista = itens[perfil] ?? itens.usinas;
   const filtrados = useMemo(() => {
-    const termo = busca.trim().toLocaleLowerCase("pt-BR");
-    return termo ? lista.filter((item) => `${item.label} ${item.detalhe}`.toLocaleLowerCase("pt-BR").includes(termo)) : lista;
+    const termos = normalizarBusca(busca).split(/\s+/).filter(Boolean);
+    if (!termos.length) return [];
+    return lista.filter((item) => {
+      const conteudo = normalizarBusca(`${item.label} ${item.detalhe}`);
+      return termos.every((termo) => conteudo.includes(termo));
+    });
   }, [busca, lista]);
 
   return <Screen>
     <AppHeader variant="subpage" title="Pesquisar" subtitle="Navegação rápida" contextTitle="Pesquisa" contextSubtitle="Encontre qualquer área" icon="search-outline" />
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={styles.searchBox}><Ionicons name="search-outline" size={21} color={Colors.subtitle} /><TextInput autoFocus placeholder="O que você procura?" placeholderTextColor={Colors.subtitle} value={busca} onChangeText={setBusca} style={styles.input} /></View>
-      <Text style={styles.hint}>{filtrados.length} resultado{filtrados.length === 1 ? "" : "s"}</Text>
+      <Text style={styles.hint}>{busca.trim() ? `${filtrados.length} resultado${filtrados.length === 1 ? "" : "s"}` : "Digite para ver as opções correspondentes"}</Text>
       {filtrados.map((item) => <TouchableOpacity activeOpacity={0.82} key={item.label} onPress={() => router.push(item.rota as any)} style={styles.item}>
         <View style={styles.icon}><Ionicons name={item.icon} size={21} color={Colors.primary} /></View><View style={styles.copy}><Text style={styles.label}>{item.label}</Text><Text style={styles.detail}>{item.detalhe}</Text></View><Ionicons name="chevron-forward" size={19} color={Colors.subtitle} />
       </TouchableOpacity>)}
-      {!filtrados.length ? <View style={styles.empty}><Ionicons name="search-outline" size={34} color={Colors.subtitle} /><Text style={styles.emptyTitle}>Nenhum resultado</Text><Text style={styles.detail}>Tente pesquisar com outra palavra.</Text></View> : null}
+      {busca.trim() && !filtrados.length ? <View style={styles.empty}><Ionicons name="search-outline" size={34} color={Colors.subtitle} /><Text style={styles.emptyTitle}>Nenhum resultado</Text><Text style={styles.detail}>Tente pesquisar com outra palavra.</Text></View> : null}
     </ScrollView>
   </Screen>;
 }

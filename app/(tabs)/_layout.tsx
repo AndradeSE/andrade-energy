@@ -28,9 +28,9 @@ const OwnerTabs = withLayoutContext<MaterialTopTabNavigationOptions, typeof TopT
 
 export default function TabLayout() {
   const tabStyle = {
-    height: 82,
-    paddingTop: 8,
-    paddingBottom: 12,
+    height: 64,
+    paddingTop: 5,
+    paddingBottom: 5,
     backgroundColor: "#FFFFFF",
     borderTopWidth: 0,
     elevation: 15,
@@ -70,9 +70,8 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           ...screenOptions,
-          tabBarStyle: {
-            display: "none",
-          },
+          tabBarLabelStyle: { fontSize: 10, lineHeight: 12, fontWeight: "600", marginBottom: 0 },
+          tabBarItemStyle: { paddingVertical: 3 },
         }}
       >
         <Tabs.Screen
@@ -83,7 +82,7 @@ export default function TabLayout() {
               <Ionicons
                 name={focused ? "home" : "home-outline"}
                 color={color}
-                size={24}
+                size={21}
               />
             ),
           }}
@@ -101,7 +100,7 @@ export default function TabLayout() {
                     : "flash-outline"
                 }
                 color={color}
-                size={24}
+                size={21}
               />
             ),
           }}
@@ -112,7 +111,7 @@ export default function TabLayout() {
           options={{
             title: "Contrato",
             tabBarIcon: ({ color, focused }) => (
-              <Ionicons name={focused ? "document-text" : "document-text-outline"} color={color} size={24} />
+              <Ionicons name={focused ? "document-text" : "document-text-outline"} color={color} size={21} />
             ),
           }}
         />
