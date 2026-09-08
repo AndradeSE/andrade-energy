@@ -178,7 +178,7 @@ export default function Contrato() {
       // A UC já está selecionada quando o consumidor entra neste fluxo.
       // Após a assinatura, leve-o direto ao painel dessa unidade e remova
       // a tela do contrato do histórico para não voltar ao bloqueio.
-      router.replace("/(tabs)/index");
+      router.replace("/");
     } catch (erro: any) {
       Alert.alert("Não foi possível assinar", erro?.response?.data?.message ?? "Tente novamente.");
     } finally {

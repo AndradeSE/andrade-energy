@@ -25,9 +25,13 @@ export default function ContractAccessGate() {
       const atual = data.find((uc: any) => uc.id === unidadeSelecionada?.id);
       const liberadas = data.filter((uc: any) => uc.liberado);
       const pendente = atual && !atual.liberado ? atual : !liberadas.length ? data[0] : null;
-      if (pendente) {
+      if (pendente?.contratoId) {
         await selecionarUnidade(pendente);
         if (ativo) router.replace("/(tabs)/contrato");
+      } else if (pendente) {
+        // Sem contrato vinculado não existe documento que o consumidor possa
+        // assinar. Volte à seleção em vez de prendê-lo numa aba sem saída.
+        if (ativo) router.replace("/selecionar-unidade");
       } else if (ativo) setBloqueado(false);
     }).catch(() => { if (ativo) setErro(true); });
     return () => { ativo = false; };

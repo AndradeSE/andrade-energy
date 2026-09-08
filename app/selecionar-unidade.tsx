@@ -215,7 +215,7 @@ export default function SelecionarUnidade() {
       // preservava a última aba ativa e podia devolver o consumidor à tela
       // de contrato mesmo quando não havia bloqueio de assinatura.
       router.replace(
-        "/(tabs)/index"
+        "/"
       );
     } catch (error) {
       console.log(
