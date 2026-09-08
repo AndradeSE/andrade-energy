@@ -92,7 +92,7 @@ export default function ContratoDaUnidade() {
       return;
     }
 
-    Promise.allSettled([buscarContratoDaUnidade(id), buscarUnidade(id), buscarDadosIniciaisContrato(id), buscarResumoPropostaDaUnidade(id)])
+    Promise.allSettled([buscarContratoDaUnidade(id, String(revisao ?? "") === "1"), buscarUnidade(id), buscarDadosIniciaisContrato(id), buscarResumoPropostaDaUnidade(id)])
       .then(async ([resultadoContrato, resultadoUnidade, resultadoDados, resultadoProposta]) => {
         let unidadeCarregada: any;
         if (resultadoUnidade.status === "fulfilled") {

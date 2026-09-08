@@ -195,7 +195,7 @@ export default function UnidadeDocumentos() {
           },
         });
         if (contratoAssinado) {
-          Alert.alert("Configuração protegida pelo contrato", "As condições desta UC estão vinculadas ao contrato assinado. Você pode alterar somente o apelido ou iniciar uma atualização contratual.", [
+          Alert.alert("UC com contrato ativo", "Esta UC já possui um contrato ativo. Deseja apenas consultar as condições atuais ou revisar a configuração e gerar uma atualização do contrato?", [
             { text: "Cancelar", style: "cancel" },
             { text: "Editar apelido", onPress: () => abrirEdicao("apelido") },
             { text: "Atualizar contrato", onPress: () => abrirEdicao("revisao") },

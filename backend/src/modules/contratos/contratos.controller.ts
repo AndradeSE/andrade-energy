@@ -110,7 +110,8 @@ export async function buscarContratoDaUnidadeController(
 ) {
   try {
     const contrato = await ContratosService.obterContratoDaUnidade(
-      req.params.unidadeId
+      req.params.unidadeId,
+      String(req.query.revisao ?? "") === "1",
     );
     res.json(contrato);
   } catch (e: any) {

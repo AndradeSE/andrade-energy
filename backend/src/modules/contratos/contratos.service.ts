@@ -25,9 +25,24 @@ export async function criarContratoService(
 }
 
 export async function obterContratoDaUnidade(
-  unidadeId: string
+  unidadeId: string,
+  preferirRascunho = false,
 ) {
-  const contratoDaUnidade = await buscarContratoMaisRecenteUnidade(unidadeId);
+  let contratoDaUnidade: any;
+  if (preferirRascunho) {
+    contratoDaUnidade = await buscarContratoMaisRecenteUnidade(unidadeId);
+  } else {
+    const { data: contratos, error } = await supabase.from("contratos").select("*")
+      .eq("unidade_consumidora_id", unidadeId)
+      .in("status", ["ATIVO", "VIGENTE"])
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
+    contratoDaUnidade = (contratos ?? []).find((item) =>
+      item.aceite_cliente_em
+      || item.contrato_assinado_url
+      || String(item.status ?? "").toUpperCase() === "VIGENTE"
+    ) ?? contratos?.[0] ?? null;
+  }
   if (contratoDaUnidade) return anexarLinksDoContrato(contratoDaUnidade);
 
   // Compatibilidade para contratos antigos, criados antes do vínculo por UC.

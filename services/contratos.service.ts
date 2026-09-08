@@ -63,10 +63,12 @@ export async function cancelarContrato(id: string) {
 }
 
 export async function buscarContratoDaUnidade(
-  unidadeId: string
+  unidadeId: string,
+  preferirRascunho = false,
 ) {
   const { data } = await api.get(
-    `/contratos/unidade/${unidadeId}`
+    `/contratos/unidade/${unidadeId}`,
+    { params: preferirRascunho ? { revisao: "1" } : undefined },
   );
 
   return data;
