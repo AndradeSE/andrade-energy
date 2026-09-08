@@ -25,9 +25,10 @@ export function useContrato() {
       if (unidadeId) return buscarContratoDaUnidade(unidadeId);
 
       let clienteId = clienteIdDireto;
-      if (!clienteId) {
+      if (unidadeSelecionada?.numero || !clienteId) {
         const unidades = await listarMinhasUnidades();
         const atual = unidades.find((unidade: any) => String(unidade.numero) === String(unidadeSelecionada?.numero)) ?? unidades[0];
+        if (atual?.id) return buscarContratoDaUnidade(String(atual.id));
         clienteId = atual?.cliente_id;
       }
       if (!clienteId) throw new Error("Cliente da unidade não identificado.");

@@ -55,16 +55,21 @@ export async function buscarContratoCliente(
     .from("contratos")
     .select("*")
     .eq("cliente_id", clienteId)
-    .order("updated_at", { ascending: false })
-    .limit(1);
+    .order("updated_at", { ascending: false });
 
   if (somenteLegado) query = query.is("unidade_consumidora_id", null);
 
-  const { data, error } = await query.maybeSingle();
+  const { data, error } = await query;
 
   if (error) throw error;
 
-  return data;
+  const contratos = data ?? [];
+  return contratos.find((contrato) =>
+    String(contrato.status ?? "").toUpperCase() === "VIGENTE"
+    && Boolean(contrato.aceite_cliente_em || contrato.contrato_assinado_url)
+  ) ?? contratos.find((contrato) => ["ATIVO", "VIGENTE"].includes(String(contrato.status ?? "").toUpperCase()))
+    ?? contratos[0]
+    ?? null;
 }
 
 export async function buscarContratoAtualUnidade(
