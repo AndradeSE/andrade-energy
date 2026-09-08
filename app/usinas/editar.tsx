@@ -1,7 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { Alert, ImageBackground, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import FormField from "../../components/cadastro/FormField";
 import ChoiceField from "../../components/cadastro/ChoiceField";
@@ -31,6 +34,8 @@ export default function EditarUsina() {
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
+  const [fotoCard, setFotoCard] = useState("");
+  const chaveFotoCard = `foto-card-usina:${id}`;
 
   useEffect(() => {
     async function carregar() {
@@ -52,9 +57,27 @@ export default function EditarUsina() {
       setTipoGd(data.tipo_gd === "GD2" ? "GD2" : "GD1");
       setTitularidadeUcs(data.titularidade_ucs_recebedoras === "CLIENTE" ? "CLIENTE" : "GERADOR");
       setCpfTitular(String(data.cpf_titular ?? "").replace(/\D/g, ""));
+      setFotoCard((await AsyncStorage.getItem(chaveFotoCard)) ?? "");
     }
     carregar().finally(() => setLoading(false));
   }, [id]);
+
+  async function alterarFotoCard() {
+    const resultado = await DocumentPicker.getDocumentAsync({ type: "image/*", copyToCacheDirectory: true, multiple: false });
+    if (resultado.canceled || !resultado.assets?.[0]?.uri) return;
+    try {
+      const extensao = resultado.assets[0].name?.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "") || "jpg";
+      const destino = `${FileSystem.documentDirectory}card-usina-${id}.${extensao}`;
+      await FileSystem.copyAsync({ from: resultado.assets[0].uri, to: destino });
+      await AsyncStorage.setItem(chaveFotoCard, destino);
+      setFotoCard(destino);
+    } catch { Alert.alert("Não foi possível alterar o fundo", "Escolha outra imagem e tente novamente."); }
+  }
+
+  async function removerFotoCard() {
+    await AsyncStorage.removeItem(chaveFotoCard);
+    setFotoCard("");
+  }
 
   async function salvar() {
     if (!nome.trim() || !numeroInstalacao) return Alert.alert("Dados incompletos", "Informe o nome e o número da instalação.");
@@ -103,6 +126,14 @@ export default function EditarUsina() {
   return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Editar usina" subtitle="Dados da geração" contextTitle={nome || "Editar usina"} contextSubtitle={`UC ${numeroInstalacao || "não informada"}`} icon="sunny-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
     <Text style={styles.eyebrow}>CADASTRO DA USINA</Text><Text style={styles.title}>Editar usina</Text><Text style={styles.subtitle}>Atualize os dados técnicos e cadastrais da unidade geradora.</Text>
     <Card>
+      <Text style={styles.fieldLabel}>Fundo do card da usina</Text>
+      <ImageBackground source={fotoCard ? { uri: fotoCard } : require("../../assets/images/usina-loading.jpeg")} imageStyle={styles.previewImage} style={styles.preview}>
+        <View style={styles.previewOverlay}><Ionicons name="sunny" size={25} color="#FACC15" /><Text style={styles.previewText}>{nome || "Sua usina"}</Text></View>
+      </ImageBackground>
+      <View style={styles.photoActions}>
+        <TouchableOpacity onPress={() => void alterarFotoCard()} style={styles.photoButton}><Ionicons name="image-outline" size={18} color={Colors.primary} /><Text style={styles.photoButtonText}>{fotoCard ? "Trocar imagem" : "Escolher imagem"}</Text></TouchableOpacity>
+        {fotoCard ? <TouchableOpacity onPress={() => void removerFotoCard()} style={styles.removePhoto}><Ionicons name="close-circle-outline" size={18} color={Colors.danger} /><Text style={styles.removePhotoText}>Remover</Text></TouchableOpacity> : null}
+      </View>
       <FormField label="Nome da usina" value={nome} onChangeText={setNome} />
       <FormField label="Número da instalação / UC" value={numeroInstalacao} onChangeText={(valor) => setNumeroInstalacao(valor.replace(/\D/g, ""))} keyboardType="numeric" />
       <FormField label="Potência (kWp)" value={potencia} onChangeText={setPotencia} keyboardType="decimal-pad" />
@@ -121,5 +152,6 @@ export default function EditarUsina() {
 
 const styles = StyleSheet.create({
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl }, eyebrow: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800", letterSpacing: 1.2 }, title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "800" }, subtitle: { marginTop: Spacing.sm, marginBottom: Spacing.lg, color: Colors.subtitle, lineHeight: 21 },
+  fieldLabel: { marginBottom: 7, color: Colors.text, fontSize: Typography.small, fontWeight: "800" }, preview: { height: 128, overflow: "hidden", justifyContent: "flex-end", marginBottom: Spacing.sm, borderRadius: Radius.lg }, previewImage: { borderRadius: Radius.lg }, previewOverlay: { flexDirection: "row", alignItems: "center", gap: 8, padding: Spacing.md, backgroundColor: "rgba(2,24,17,.48)" }, previewText: { flex: 1, color: "#FFF", fontSize: Typography.body, fontWeight: "900" }, photoActions: { flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.lg }, photoButton: { minHeight: 42, flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md }, photoButtonText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" }, removePhoto: { minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingHorizontal: Spacing.sm }, removePhotoText: { color: Colors.danger, fontSize: Typography.small, fontWeight: "800" },
   dangerZone: { marginTop: Spacing.lg, padding: Spacing.lg, borderWidth: 1, borderColor: "#FECACA", borderRadius: Radius.xl, backgroundColor: "#FFF7F7" }, dangerHeading: { flexDirection: "row", alignItems: "center", marginBottom: Spacing.md }, dangerText: { flex: 1, marginLeft: Spacing.sm }, dangerTitle: { color: Colors.danger, fontSize: Typography.body, fontWeight: "800" }, dangerSubtitle: { marginTop: 2, color: Colors.subtitle, fontSize: Typography.small }, deleteButton: { backgroundColor: Colors.danger },
 });
