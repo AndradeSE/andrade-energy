@@ -17,5 +17,9 @@ export async function validarAssinaturaExterna(id: string, usuario: any, confirm
     .eq("status", contrato.status).eq("dados_documento", JSON.stringify(contrato.dados_documento)).select("id").maybeSingle();
   if (erroAtualizacao) throw erroAtualizacao;
   if (!atualizado) throw new Error("O contrato mudou durante a validação. Reabra e confira a versão atual.");
+  await supabase.from("contratos").update({ status: "SUBSTITUIDO", revisao_configuracao_pendente: false })
+    .eq("unidade_consumidora_id", contrato.unidade_consumidora_id)
+    .neq("id", id)
+    .eq("status", "VIGENTE");
   return { validado: true };
 }

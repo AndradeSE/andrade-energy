@@ -393,6 +393,10 @@ export async function registrarAceiteEletronicoService(contratoId: string, usuar
     .select()
     .single();
   if (error) throw error;
+  await supabase.from("contratos").update({ status: "SUBSTITUIDO", revisao_configuracao_pendente: false })
+    .eq("unidade_consumidora_id", contrato.unidade_consumidora_id)
+    .neq("id", contratoId)
+    .eq("status", "VIGENTE");
   await supabase.from("contratos_codigos_assinatura").delete().eq("contrato_id", contratoId).eq("codigo_hash", confirmacao.codigo_hash);
   return anexarLinksDoContrato(data);
 }

@@ -49,12 +49,13 @@ function primeirosDigitosDocumento(valor: unknown) {
 }
 
 export default function ContratoDaUnidade() {
-  const { id, numero, clienteId, cliente, descontoPadrao } = useLocalSearchParams<{
+  const { id, numero, clienteId, cliente, descontoPadrao, revisao } = useLocalSearchParams<{
     id: string;
     numero: string;
     clienteId: string;
     cliente?: string;
     descontoPadrao?: string;
+    revisao?: string;
   }>();
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -85,7 +86,7 @@ export default function ContratoDaUnidade() {
   const [titularidadeUcs, setTitularidadeUcs] = useState("GERADOR");
 
   useEffect(() => {
-    setNovoContrato(false);
+    setNovoContrato(String(revisao ?? "") === "1");
     if (!id) {
       setCarregando(false);
       return;
@@ -157,7 +158,7 @@ export default function ContratoDaUnidade() {
         Alert.alert("Não foi possível carregar o contrato", erro?.response?.data?.message ?? "Tente novamente.");
       })
       .finally(() => setCarregando(false));
-  }, [clienteId, id]);
+  }, [clienteId, id, revisao]);
 
   useEffect(() => {
     const vencimento = somarAnos(inicio, prazoAnos);
@@ -359,7 +360,7 @@ export default function ContratoDaUnidade() {
           {contratoAssinadoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoAssinadoUrl)} style={styles.signedLink}><Ionicons name="document-text-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir contrato assinado</Text></TouchableOpacity> : null}
           {!contratoAssinadoUrl && contratoGeradoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoGeradoUrl)} style={styles.documentLink}><Ionicons name="document-text-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir contrato</Text></TouchableOpacity> : null}
           {assinaturaPendente ? <Button title="Validar assinaturas do PDF" disabled={gerando} onPress={confirmarAssinaturaExterna} /> : null}
-          {!assinaturaPendente ? <Button title="Criar novo contrato" icon={<Ionicons name="add-circle-outline" size={20} color={Colors.surface} />} onPress={() => setNovoContrato(true)} /> : null}
+          {!assinaturaPendente ? <Button title="Atualizar contrato e configuração" icon={<Ionicons name="sync-circle-outline" size={20} color={Colors.surface} />} onPress={() => router.push({ pathname: "/unidades/editar", params: { id, numero, clienteId, descontoPadrao: desconto, revisaoContrato: "1" } })} /> : null}
         </View>
         </> : <>
         <Text style={styles.sectionTitle}>DADOS DO LOCADOR E VIGÊNCIA</Text>

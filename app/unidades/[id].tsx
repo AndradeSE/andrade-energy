@@ -156,7 +156,7 @@ export default function UnidadeDocumentos() {
   // listas antigas, o nome relacionado pode chegar no próximo carregamento;
   // nesse intervalo a UC já está alocada e não deve aparecer como pendente.
   const nomeUsinaVinculada = unidade.usinas?.nome ?? unidade.usina_nome ?? usinaNome ?? (unidade.usina_id ? "Usina vinculada - atualize para ver o nome" : "Ainda não alocada");
-  const contratoAssinado = Boolean(contrato?.aceite_cliente_em || contrato?.contrato_assinado_url);
+  const contratoAssinado = Boolean(contrato?.aceite_cliente_em || contrato?.contrato_assinado_url || String(contrato?.status ?? "").toUpperCase() === "VIGENTE");
   const rotuloContrato = contratoAssinado ? "Ver contrato" : contrato ? "Gerenciar contrato" : "Cadastrar contrato";
 
   return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Unidade consumidora" subtitle="Gestão da carteira" contextTitle={`UC ${unidade.numero}`} contextSubtitle={unidade.clientes?.nome ?? unidade.titular ?? "Unidade consumidora"} icon="flash-outline" /> : null}<ScrollView refreshControl={<RefreshControl refreshing={atualizando} onRefresh={() => carregar(true)} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content}>
@@ -180,7 +180,7 @@ export default function UnidadeDocumentos() {
           Alert.alert("Vincule a UC a um cliente", "Esta unidade ainda não possui cliente vinculado. Abra o cadastro da UC, escolha o cliente e salve antes de fazer a alocação.");
           return;
         }
-        router.push({
+        const abrirEdicao = (modo: "apelido" | "revisao") => router.push({
           pathname: "/unidades/editar",
           params: {
             id: unidade.id,
@@ -190,8 +190,19 @@ export default function UnidadeDocumentos() {
             modalidade: unidade.modalidade_faturamento ?? "",
             desconto: unidade.desconto_percentual === null || unidade.desconto_percentual === undefined ? "" : String(unidade.desconto_percentual),
             consumoMedio: unidade.consumo_medio_kwh === null || unidade.consumo_medio_kwh === undefined ? "" : String(unidade.consumo_medio_kwh),
+            somenteApelido: modo === "apelido" ? "1" : "0",
+            revisaoContrato: modo === "revisao" ? "1" : "0",
           },
         });
+        if (contratoAssinado) {
+          Alert.alert("Configuração protegida pelo contrato", "As condições desta UC estão vinculadas ao contrato assinado. Você pode alterar somente o apelido ou iniciar uma atualização contratual.", [
+            { text: "Cancelar", style: "cancel" },
+            { text: "Editar apelido", onPress: () => abrirEdicao("apelido") },
+            { text: "Atualizar contrato", onPress: () => abrirEdicao("revisao") },
+          ]);
+          return;
+        }
+        abrirEdicao("revisao");
       }} style={styles.action}><Ionicons name="options-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Configurar UC</Text></TouchableOpacity>
       {IS_GERADOR_APP ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel={rotuloContrato} onPress={() => {
         if (String(unidade.id ?? "").startsWith("cliente-")) {

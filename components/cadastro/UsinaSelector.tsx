@@ -17,6 +17,7 @@ type Props = {
   label?: string;
   detail?: (usina: Usina) => string;
   placeholder?: string;
+  disabled?: boolean;
 };
 
 /** Um campo compacto que abre a lista de usinas apenas quando necessário. */
@@ -27,6 +28,7 @@ export default function UsinaSelector({
   label = "Usina geradora",
   detail,
   placeholder = "Toque para escolher a usina",
+  disabled = false,
 }: Props) {
   const [aberto, setAberto] = useState(false);
   const selecionada = useMemo(() => usinas.find((usina) => String(usina.id) === String(value ?? "")), [usinas, value]);
@@ -38,7 +40,7 @@ export default function UsinaSelector({
 
   return <View style={styles.group}>
     <Text style={styles.label}>{label}</Text>
-    <Pressable accessibilityRole="button" accessibilityLabel="Escolher usina geradora" onPress={() => setAberto(true)} style={styles.selector}>
+    <Pressable disabled={disabled} accessibilityRole="button" accessibilityLabel="Escolher usina geradora" onPress={() => setAberto(true)} style={[styles.selector, disabled && styles.disabled]}>
       <View style={styles.selectorIcon}><Ionicons name="sunny-outline" size={20} color={Colors.primary} /></View>
       <View style={styles.selectorCopy}>
         <Text numberOfLines={1} style={[styles.selectorTitle, !selecionada && styles.placeholder]}>{selecionada?.nome ?? placeholder}</Text>
@@ -83,6 +85,7 @@ const styles = StyleSheet.create({
   group: { marginBottom: Spacing.md },
   label: { marginBottom: Spacing.xs, color: Colors.text, fontSize: Typography.caption, fontWeight: "700" },
   selector: { minHeight: 62, flexDirection: "row", alignItems: "center", padding: Spacing.sm, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, backgroundColor: Colors.surface },
+  disabled: { opacity: 0.55 },
   selectorIcon: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: Radius.round, backgroundColor: Colors.primaryLight },
   selectorCopy: { flex: 1, minWidth: 0, marginHorizontal: Spacing.sm },
   selectorTitle: { color: Colors.text, fontSize: Typography.caption, fontWeight: "800" },

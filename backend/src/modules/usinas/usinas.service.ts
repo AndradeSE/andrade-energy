@@ -382,6 +382,30 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
     throw new Error("Esta UC já está vinculada a outro cliente.");
   }
 
+  const unidadeAnteriorId = unidadeAnterior?.id;
+  const { data: contratosProtegidos, error: erroContratoProtegido } = unidadeAnteriorId
+    ? await supabase.from("contratos").select("id,status,aceite_cliente_em,contrato_assinado_url").eq("unidade_consumidora_id", unidadeAnteriorId).in("status", ["ATIVO", "VIGENTE"]).order("updated_at", { ascending: false })
+    : { data: [], error: null };
+  if (erroContratoProtegido) throw erroContratoProtegido;
+  const contratoProtegido = (contratosProtegidos ?? []).find((item) =>
+    item.aceite_cliente_em || item.contrato_assinado_url || String(item.status ?? "").toUpperCase() === "VIGENTE"
+  );
+  const possuiContratoAssinado = Boolean(
+    contratoProtegido?.aceite_cliente_em
+    || contratoProtegido?.contrato_assinado_url
+    || String(contratoProtegido?.status ?? "").toUpperCase() === "VIGENTE"
+  );
+  if (possuiContratoAssinado && input.somenteApelido) {
+    const { error: erroApelido } = await supabase.from("unidades_consumidoras")
+      .update({ apelido: String(input.apelido ?? "").trim().slice(0, 40) || null })
+      .eq("id", unidadeAnteriorId).eq("empresa_id", empresaId);
+    if (erroApelido) throw erroApelido;
+    return { sucesso: true, unidadeId: unidadeAnteriorId, numero, apenasApelido: true };
+  }
+  if (possuiContratoAssinado && !input.revisaoContrato) {
+    throw new Error("A configuração desta UC está protegida pelo contrato assinado. Inicie uma atualização contratual para alterar as condições.");
+  }
+
   const somenteAndrade = input.faturaSomenteAndrade === undefined
     ? Boolean(unidadeAnterior?.fatura_somente_andrade)
     : Boolean(input.faturaSomenteAndrade);

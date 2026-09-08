@@ -120,12 +120,12 @@ export async function salvarContratoUnidade(
     // Um documento já aceito nunca é sobrescrito. A edição cria a próxima
     // versão e mantém a anterior integralmente no histórico da UC.
     if (existente.aceite_cliente_em || existente.contrato_assinado_url) {
-      await atualizarContrato(existente.id, { status: "SUBSTITUIDO", revisao_configuracao_pendente: false });
       return await criarContrato({
         ...contrato,
         status: novoAtivo ? "ATIVO" : contrato.status,
         versao: Number(existente.versao ?? 1) + 1,
         revisao_configuracao_pendente: false,
+        dados_documento: { ...(contrato.dados_documento ?? {}), contrato_anterior_id: existente.id },
       });
     }
 
