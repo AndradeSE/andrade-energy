@@ -200,12 +200,12 @@ export default function AppHeader({
 
       {proprietario ? <View style={styles.contextSwitches}>
         {podeAlternarPerfil ? <TouchableOpacity accessibilityLabel="Trocar ambiente de gestão" activeOpacity={0.82} onPress={() => router.replace("/admin/escolher-area" as any)} style={[styles.environmentSwitch, styles.contextSwitchButton]}>
-          <View style={styles.environmentCurrent}><Ionicons name={environmentName === "Gestão comercial" ? "briefcase-outline" : "sunny-outline"} size={14} color="#A7F3D0" /><Text numberOfLines={1} style={styles.environmentLabel}>{environmentName}</Text></View>
-          <Text numberOfLines={1} style={styles.environmentAction}>Trocar ambiente</Text><Ionicons name="chevron-forward" size={14} color="#F6CC32" />
+          <Ionicons name={environmentName === "Gestão comercial" ? "briefcase-outline" : "layers-outline"} size={17} color="#FFFFFF" />
+          <Text numberOfLines={1} style={styles.contextSwitchText}>Trocar ambiente</Text>
         </TouchableOpacity> : null}
         {usinaSelecionada ? <TouchableOpacity accessibilityLabel="Trocar de usina" activeOpacity={0.82} onPress={() => router.push("/selecionar-unidade" as any)} style={[styles.environmentSwitch, styles.contextSwitchButton]}>
-          <View style={styles.environmentCurrent}><Ionicons name="swap-horizontal" size={14} color="#A7F3D0" /><Text numberOfLines={1} style={styles.environmentLabel}>{usinaSelecionada.nome}</Text></View>
-          <Text numberOfLines={1} style={styles.environmentAction}>Trocar usina</Text><Ionicons name="chevron-forward" size={14} color="#F6CC32" />
+          <Ionicons name="swap-horizontal" size={18} color="#FFFFFF" />
+          <Text numberOfLines={1} style={styles.contextSwitchText}>Trocar usina</Text>
         </TouchableOpacity> : null}
       </View> : null}
 
@@ -297,13 +297,17 @@ const styles = StyleSheet.create({
   },
 
   environmentSwitch: {
-    minHeight: 32,
+    minHeight: 38,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
     marginTop: Spacing.sm,
     paddingHorizontal: Spacing.sm,
     borderRadius: Radius.md,
-    backgroundColor: "rgba(255,255,255,0.09)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.24)",
+    backgroundColor: "rgba(255,255,255,0.12)",
   },
   environmentCurrent: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
   environmentLabel: { color: "#D8F0E3", fontSize: 11, fontWeight: "700" },
@@ -375,6 +379,7 @@ const styles = StyleSheet.create({
   plantDetailsToggle: { minHeight: 22, flexDirection: "row", alignSelf: "center", alignItems: "center", gap: 2, marginTop: 3, paddingHorizontal: Spacing.sm },
   contextSwitches: { flexDirection: "row", alignItems: "stretch", gap: Spacing.xs },
   contextSwitchButton: { flex: 1, minWidth: 0 },
+  contextSwitchText: { color: "#FFFFFF", fontSize: 11, fontWeight: "900" },
   photoBackdrop: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.lg, backgroundColor: "rgba(3,15,12,0.92)" },
   photoPreviewCard: { position: "relative", width: "100%", maxWidth: 520, aspectRatio: 1, overflow: "hidden", borderRadius: Radius.xl, backgroundColor: "#071A15" },
   photoPreview: { width: "100%", height: "100%" },
