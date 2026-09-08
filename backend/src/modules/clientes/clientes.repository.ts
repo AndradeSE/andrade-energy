@@ -3,6 +3,35 @@ import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
 import { randomUUID } from "node:crypto";
 import { restaurarContratoAssinadoDaMesmaUc } from "../contratos/contratos.repository";
 
+const somenteDigitos = (valor: unknown) => String(valor ?? "").replace(/\D/g, "");
+
+async function incluirTitularDaFatura(unidades: any[], empresaId: string) {
+  const clienteIds = [...new Set(unidades.map((unidade) => String(unidade?.cliente_id ?? "")).filter(Boolean))];
+  if (!clienteIds.length) return unidades;
+
+  const { data: anexos, error } = await supabase
+    .from("faturas_anexadas_clientes")
+    .select("cliente_id,dados_fatura,criado_em")
+    .eq("empresa_id", empresaId)
+    .in("cliente_id", clienteIds)
+    .order("criado_em", { ascending: false });
+  if (error?.code === "42P01") return unidades;
+  if (error) throw error;
+
+  const titularPorUc = new Map<string, string>();
+  for (const anexo of anexos ?? []) {
+    const dados = (anexo?.dados_fatura ?? {}) as Record<string, any>;
+    const numero = somenteDigitos(dados.uc ?? dados.numero_instalacao);
+    const titular = String(dados.titular ?? dados.cliente ?? "").trim();
+    if (numero && titular && !titularPorUc.has(numero)) titularPorUc.set(numero, titular);
+  }
+
+  return unidades.map((unidade) => {
+    const titularFatura = titularPorUc.get(somenteDigitos(unidade?.numero));
+    return titularFatura ? { ...unidade, titular: titularFatura, titular_fatura: titularFatura } : unidade;
+  });
+}
+
 async function incluirStatusDoCadastro(clientes: any[], empresaId: string) {
   const ids = clientes.map((cliente) => String(cliente?.id ?? "")).filter(Boolean);
   if (!ids.length) return clientes;
@@ -203,7 +232,7 @@ export async function listarUnidadesCliente(clienteId: string, empresaId = EMPRE
     .eq("empresa_id", empresaId)
     .order("numero");
 
-  if (!error && data?.length) return data;
+  if (!error && data?.length) return incluirTitularDaFatura(data, empresaId);
   if (error && error.code !== "42P01") throw error;
 
   const { data: cliente, error: erroCliente } = await supabase
@@ -240,7 +269,7 @@ export async function listarTodasUnidades(empresaId = EMPRESA_ANDRADE_ID) {
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  return data ?? [];
+  return incluirTitularDaFatura(data ?? [], empresaId);
 }
 
 export async function buscarUnidadePorId(unidadeId: string, empresaId = EMPRESA_ANDRADE_ID) {
@@ -305,7 +334,7 @@ export async function listarUnidadesPorCpf(cpfInformado: string, empresaId = EMP
       status: cliente.status,
     });
   }
-  return [...porNumero.values()];
+  return incluirTitularDaFatura([...porNumero.values()], empresaId);
 }
 
 export async function atualizarApelidoDaMinhaUnidade(unidadeId: string, cpfInformado: string, apelidoInformado: string, empresaId = EMPRESA_ANDRADE_ID) {
