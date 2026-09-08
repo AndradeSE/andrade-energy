@@ -27,8 +27,11 @@ async function incluirTitularDaFatura(unidades: any[], empresaId: string) {
   }
 
   return unidades.map((unidade) => {
-    const titularFatura = titularPorUc.get(somenteDigitos(unidade?.numero));
-    return titularFatura ? { ...unidade, titular: titularFatura, titular_fatura: titularFatura } : unidade;
+    const titularFatura = titularPorUc.get(somenteDigitos(unidade?.numero)) ?? null;
+    // Não confundir o nome cadastral do cliente com o titular efetivamente
+    // lido na conta. Registros antigos sem PDF ficam explicitamente sem essa
+    // identificação até uma fatura da UC ser anexada.
+    return { ...unidade, titular_fatura: titularFatura };
   });
 }
 

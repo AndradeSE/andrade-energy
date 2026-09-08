@@ -452,7 +452,7 @@ export default function ClienteDetalhe() {
                               <Text style={[styles.statusText, inativa && styles.statusTextInactive]}>{unidade.status ?? "ATIVA"}</Text>
                               <Text style={styles.unitSeparator}>•</Text>
                               <Text numberOfLines={1} style={styles.unitDetail}>
-                                Titular da fatura: {unidade.titular_fatura || unidade.titular || "Não identificado"}
+                                Titular da fatura: {unidade.titular_fatura || "Não identificado na fatura anexada"}
                               </Text>
                             </View>
                           </View>
