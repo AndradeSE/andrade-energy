@@ -5,7 +5,7 @@ import { Alert, Linking, RefreshControl, StyleSheet, Text, TouchableOpacity, Vie
 
 import { AppHeader, Badge, Card, ElasticScrollView as ScrollView, EmptyState, Loading, Metric, Screen, Section } from "../../components/ui";
 import { excluirFatura, formatarDataBrasileira, listarFaturas } from "../../services/faturas.service";
-import { buscarCliente, buscarUnidade, excluirUnidadeCliente } from "../../services/clientes.service";
+import { buscarCliente, buscarUnidade, excluirUnidadeCliente, listarFaturasAnexadasCliente } from "../../services/clientes.service";
 import { buscarUsina } from "../../services/usinas.service";
 import { buscarContratoDaUnidade } from "../../services/contratos.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
@@ -18,6 +18,7 @@ export default function UnidadeDocumentos() {
   const { id, numero, clienteId, cliente, usinaId, usinaNome, titular, distribuidora } = useLocalSearchParams<{ id: string; numero?: string; clienteId?: string; cliente?: string; usinaId?: string; usinaNome?: string; titular?: string; distribuidora?: string }>();
   const [unidade, setUnidade] = useState<any>();
   const [faturas, setFaturas] = useState<any[]>([]);
+  const [faturasCadastro, setFaturasCadastro] = useState<any[]>([]);
   const [contrato, setContrato] = useState<any>();
   const [loading, setLoading] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
@@ -80,12 +81,20 @@ export default function UnidadeDocumentos() {
         clientes: dados.clientes ?? clienteVinculado ?? null,
       };
       setUnidade(dados);
-      const [faturasResultado, contratoResultado] = await Promise.allSettled([
+      const [faturasResultado, contratoResultado, anexosResultado] = await Promise.allSettled([
         listarFaturas(undefined, dados.numero),
         String(dados.id ?? "").startsWith("cliente-") ? Promise.resolve(null) : buscarContratoDaUnidade(dados.id),
+        dados.cliente_id ? listarFaturasAnexadasCliente(String(dados.cliente_id)) : Promise.resolve([]),
       ]);
       setFaturas(faturasResultado.status === "fulfilled" ? (faturasResultado.value ?? []) : []);
       setContrato(contratoResultado.status === "fulfilled" ? contratoResultado.value : null);
+      const numeroDaUc = String(dados.numero ?? "").replace(/\D/g, "");
+      setFaturasCadastro(anexosResultado.status === "fulfilled"
+        ? (anexosResultado.value ?? []).filter((anexo: any) => {
+          const dadosAnexo = anexo?.dadosFatura ?? {};
+          return String(dadosAnexo.uc ?? dadosAnexo.numero_instalacao ?? "").replace(/\D/g, "") === numeroDaUc;
+        })
+        : []);
     } catch (erro: any) {
       if (!porAtualizacao) {
         Alert.alert("Não foi possível carregar", erro?.response?.data?.message ?? "Confira sua conexão e tente novamente.");
@@ -158,6 +167,7 @@ export default function UnidadeDocumentos() {
   const nomeUsinaVinculada = unidade.usinas?.nome ?? unidade.usina_nome ?? usinaNome ?? (unidade.usina_id ? "Usina vinculada - atualize para ver o nome" : "Ainda não alocada");
   const contratoAssinado = Boolean(contrato?.aceite_cliente_em || contrato?.contrato_assinado_url || String(contrato?.status ?? "").toUpperCase() === "VIGENTE");
   const rotuloContrato = contratoAssinado ? "Ver contrato" : contrato ? "Gerenciar contrato" : "Cadastrar contrato";
+  const titularDaFatura = String(faturasCadastro[0]?.dadosFatura?.titular ?? faturasCadastro[0]?.dadosFatura?.cliente ?? "").trim();
 
   return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Unidade consumidora" subtitle="Gestão da carteira" contextTitle={`UC ${unidade.numero}`} contextSubtitle={unidade.clientes?.nome ?? unidade.titular ?? "Unidade consumidora"} icon="flash-outline" /> : null}<ScrollView refreshControl={<RefreshControl refreshing={atualizando} onRefresh={() => carregar(true)} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content}>
     <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={19} color={Colors.subtitle} /><Text style={styles.backLabel}>Voltar</Text></TouchableOpacity>
@@ -165,7 +175,7 @@ export default function UnidadeDocumentos() {
     <Card style={styles.unitHero}>
       <View style={styles.unitHeroTop}>
         <View style={styles.unitIcon}><Ionicons name="flash-outline" size={23} color={Colors.primary} /></View>
-        <View style={styles.unitCopy}><Text style={styles.unitEyebrow}>UNIDADE CONSUMIDORA</Text><Text style={styles.unitTitle}>UC {unidade.numero}</Text><Text numberOfLines={1} style={styles.unitOwner}>{unidade.clientes?.nome ?? unidade.titular ?? "Cliente não informado"}</Text></View>
+        <View style={styles.unitCopy}><Text style={styles.unitEyebrow}>UNIDADE CONSUMIDORA</Text><Text style={styles.unitTitle}>UC {unidade.numero}</Text><Text numberOfLines={1} style={styles.unitOwner}>{titularDaFatura ? `Titular da fatura: ${titularDaFatura}` : "Titular não identificado na fatura anexada"}</Text></View>
         <Badge label={status} variant={status === "INATIVA" ? "danger" : "success"} />
       </View>
       <View style={styles.heroDivider} />
@@ -220,7 +230,11 @@ export default function UnidadeDocumentos() {
 
     <Section title="Estatísticas da unidade"><View style={styles.metrics}><View style={styles.metric}><Metric compact title="Economia total" value={moeda(economiaTotal)} icon={<Ionicons name="trending-up-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Total faturado" value={moeda(valorFaturado)} icon={<Ionicons name="wallet-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Consumo acumulado" value={`${consumoTotal.toLocaleString("pt-BR")} kWh`} icon={<Ionicons name="flash-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Faturas processadas" value={faturas.length} icon={<Ionicons name="receipt-outline" size={20} color={Colors.primary} />} /></View></View></Section>
 
-    <Section title="Contas da concessionária"><View>{faturas.length ? faturas.map((item) => <TouchableOpacity key={`conta-${item.id}`} activeOpacity={0.84} onPress={() => abrirConta(item)}><Card style={styles.documentCard}><View style={styles.row}><View style={styles.icon}><Ionicons name="document-text-outline" size={22} color={Colors.primary} /></View><View style={styles.info}><Text style={styles.itemTitle}>{item.referencia || "Conta de luz"}</Text><Text style={styles.itemDetail}>{item.pdf_cemig_url ? "PDF disponível" : "PDF em preparação"}</Text></View><Ionicons name={item.pdf_cemig_url ? "download-outline" : "time-outline"} size={21} color={item.pdf_cemig_url ? Colors.primary : Colors.subtitle} /></View></Card></TouchableOpacity>) : <EmptyState icon="document-outline" title="0 contas da concessionária" subtitle="As contas desta UC aparecerão aqui quando forem importadas." />}</View></Section>
+    <Section title="Contas da concessionária"><View>
+      {faturasCadastro.map((item, indice) => <TouchableOpacity key={`cadastro-${item.id}`} activeOpacity={0.84} onPress={() => Linking.openURL(item.url)}><Card style={styles.documentCard}><View style={styles.row}><View style={styles.icon}><Ionicons name="document-attach-outline" size={22} color={Colors.primary} /></View><View style={styles.info}><Text style={styles.itemTitle}>{indice === 0 ? "Fatura usada no cadastro da UC" : (item.nome || "Fatura anexada à UC")}</Text><Text style={styles.itemDetail}>PDF original anexado · {item.dadosFatura?.titular ?? item.dadosFatura?.cliente ?? "Titular não identificado"}</Text></View><Ionicons name="open-outline" size={21} color={Colors.primary} /></View></Card></TouchableOpacity>)}
+      {faturas.map((item) => <TouchableOpacity key={`conta-${item.id}`} activeOpacity={0.84} onPress={() => abrirConta(item)}><Card style={styles.documentCard}><View style={styles.row}><View style={styles.icon}><Ionicons name="document-text-outline" size={22} color={Colors.primary} /></View><View style={styles.info}><Text style={styles.itemTitle}>{item.referencia || "Conta de luz"}</Text><Text style={styles.itemDetail}>{item.pdf_cemig_url ? "PDF disponível" : "PDF em preparação"}</Text></View><Ionicons name={item.pdf_cemig_url ? "download-outline" : "time-outline"} size={21} color={item.pdf_cemig_url ? Colors.primary : Colors.subtitle} /></View></Card></TouchableOpacity>)}
+      {!faturasCadastro.length && !faturas.length ? <EmptyState icon="document-outline" title="0 contas da concessionária" subtitle="A fatura usada no cadastro e as próximas contas desta UC aparecerão aqui." /> : null}
+    </View></Section>
 
     <Section title="Faturas Andrade Energy"><View>{faturas.length ? faturas.map((item) => <TouchableOpacity key={`fatura-${item.id}`} activeOpacity={0.84} onPress={() => router.push(`/faturas/${item.id}`)}><Card style={styles.documentCard}><View style={styles.invoiceTop}><View><Text style={styles.invoiceValue}>{moeda(item.valor_total_unificado ?? item.valor_total)}</Text><Text style={styles.itemDetail}>{item.referencia || "Competência não informada"}</Text></View><Badge label={paga(item.status) ? "Paga" : "Em aberto"} variant={paga(item.status) ? "success" : "warning"} /></View><View style={styles.invoiceBottom}><Text style={styles.invoiceDate}>{paga(item.status) ? "Pagamento confirmado" : `Vencimento ${formatarDataBrasileira(item.vencimento, "não informado")}`}</Text><TouchableOpacity accessibilityLabel={`Excluir fatura ${item.referencia}`} onPress={(evento) => { evento.stopPropagation(); confirmarExclusao(item); }} style={styles.deleteInvoice}><Ionicons name="trash-outline" size={19} color={Colors.danger} /></TouchableOpacity><Ionicons name="chevron-forward" size={19} color={Colors.primary} /></View></Card></TouchableOpacity>) : <EmptyState icon="receipt-outline" title="0 faturas" subtitle="As faturas Andrade Energy desta UC aparecerão aqui após o faturamento." />}</View></Section>
   </ScrollView></Screen>;

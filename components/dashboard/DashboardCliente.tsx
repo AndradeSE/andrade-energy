@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-  ActivityIndicator,
   RefreshControl,
   StyleSheet,
   Text,
@@ -11,6 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ElasticScrollView as ScrollView } from "../ui/ElasticScroll";
+import Loading from "../ui/Loading";
 
 import DashboardCard from "../DashboardCard";
 import DashboardSection from "../DashboardSection";
@@ -35,11 +35,7 @@ export default function DashboardCliente() {
   }
 
   if (isLoading) {
-    return (
-      <SafeAreaView style={styles.center}>
-        <ActivityIndicator size="large" color="#16A34A" />
-      </SafeAreaView>
-    );
+    return <Loading />;
   }
 
   if (error || !data) {

@@ -57,11 +57,19 @@ export async function obterContratoDaUnidade(
 }
 
 async function anexarLinksDoContrato(contrato: any) {
-  const [contratoGeradoUrl, contratoAssinadoUrl] = await Promise.all([
+  const [contratoGeradoUrl, contratoAssinadoUrl, arquivoPdfUrl] = await Promise.all([
     criarLinkContrato(contrato.contrato_gerado_url),
     criarLinkContrato(contrato.contrato_assinado_url),
+    criarLinkContrato(contrato.arquivo_pdf),
   ]);
-  return { ...contrato, contrato_gerado_url: contratoGeradoUrl, contrato_assinado_url: contratoAssinadoUrl };
+  const documentoAceitoUrl = contratoAssinadoUrl
+    ?? (contrato.aceite_cliente_em ? contratoGeradoUrl ?? arquivoPdfUrl : null);
+  return {
+    ...contrato,
+    contrato_gerado_url: contratoGeradoUrl ?? arquivoPdfUrl,
+    contrato_assinado_url: documentoAceitoUrl,
+    arquivo_pdf: arquivoPdfUrl,
+  };
 }
 
 function normalizarNumero(valor: unknown) {
