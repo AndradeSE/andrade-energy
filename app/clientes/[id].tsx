@@ -290,7 +290,8 @@ export default function ClienteDetalhe() {
         ) : null}
         {mostrarVisaoGeral ? (
           <>
-            <Section title="Acesso rápido">
+            <View style={styles.customerTools}>
+              <Text style={styles.customerToolsTitle}>Gestão do cliente</Text>
               <View style={styles.quickGrid}>
                 <QuickAccess
                   icon="flash-outline"
@@ -345,7 +346,7 @@ export default function ClienteDetalhe() {
                   />
                 ) : null}
               </View>
-            </Section>
+            </View>
             <Section title="Economia total">
               <Card>
                 <Text style={styles.summaryLabel}>Economia de todas as unidades</Text>
@@ -517,14 +518,10 @@ function QuickAccess({ icon, label, detail, onPress }: { icon: keyof typeof Ioni
   return (
     <TouchableOpacity activeOpacity={0.82} onPress={onPress} style={styles.quickAccess}>
       <View style={styles.quickIcon}>
-        <Ionicons name={icon} size={21} color={Colors.primary} />
+        <Ionicons name={icon} size={20} color={Colors.surface} />
       </View>
-      <Text numberOfLines={1} style={styles.quickLabel}>
-        {label}
-      </Text>
-      <Text numberOfLines={1} style={styles.quickDetail}>
-        {detail}
-      </Text>
+      <View style={styles.quickCopy}><Text numberOfLines={1} style={styles.quickLabel}>{label}</Text><Text numberOfLines={1} style={styles.quickDetail}>{detail}</Text></View>
+      <Ionicons name="chevron-forward" size={17} color={Colors.primary} />
     </TouchableOpacity>
   );
 }
@@ -623,26 +620,27 @@ const styles = StyleSheet.create({
     fontSize: Typography.small,
     fontWeight: "800",
   },
-  quickGrid: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm },
+  customerTools: { marginTop: Spacing.lg, marginBottom: Spacing.md },
+  customerToolsTitle: { marginBottom: Spacing.sm, color: Colors.text, fontSize: Typography.body, fontWeight: "900" },
+  quickGrid: { gap: Spacing.xs },
   quickAccess: {
-    width: "48%",
-    minHeight: 112,
-    padding: Spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.lg,
-    backgroundColor: Colors.surface,
+    minHeight: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.md,
+    backgroundColor: "#EAF4ED",
   },
   quickIcon: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: Radius.md,
-    backgroundColor: Colors.primaryLight,
+    borderRadius: 19,
+    backgroundColor: Colors.primary,
   },
+  quickCopy: { flex: 1, minWidth: 0, marginHorizontal: Spacing.sm },
   quickLabel: {
-    marginTop: Spacing.sm,
     color: Colors.text,
     fontSize: Typography.small,
     fontWeight: "900",
