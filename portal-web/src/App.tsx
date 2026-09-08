@@ -3120,7 +3120,7 @@ function PortalHome({
       ? isCommercialWorkspace
         ? [
             { label: "Gestão comercial", items: ["Gestão comercial", "Empresas", "Geradores", "Aplicativos"] },
-            { label: "Conta", items: ["Perfil", "Configurações"] },
+            { label: "Conta", items: ["Configurações"] },
             { label: "Ambiente", items: ["Alternar ambiente", "Tutoriais da web"] },
           ]
       : [
@@ -3142,7 +3142,7 @@ function PortalHome({
           ...(session.usuario?.perfil === "ADMIN"
             ? [{ label: "Administração", items: workspace === "COMERCIAL" ? ["Gestão comercial", "Geradores", "Alternar ambiente", "Tutoriais da web"] : ["Alternar ambiente", "Tutoriais da web"] }]
             : []),
-          { label: "Conta", items: ["Minha assinatura", "Minha marca", "Aplicativos", "Perfil", "Configurações"] },
+          { label: "Conta", items: ["Minha assinatura", "Minha marca", "Aplicativos", "Configurações"] },
         ]
         : [
           { label: "Painel", items: ["Visão geral", "Economia"] },
@@ -3153,6 +3153,25 @@ function PortalHome({
           { label: "Conta", items: ["Tutoriais da web", "Aplicativos", "Perfil", "Configurações"] },
         ];
   const globalSearchOptions = menuGroups.flatMap((group) => group.items).filter((item) => item !== "Alternar ambiente");
+  const mobileHomeSection = isCommercialWorkspace ? "Gestão comercial" : "Visão geral";
+  const mobileTabs = isCommercialWorkspace
+    ? ["Geradores", "Gestão comercial", "Aplicativos"]
+    : type === "GERADOR"
+    ? ["Clientes", "Usinas", "Operação", "Visão geral", "Faturas", "Contratos", "Financeiro"]
+    : ["Economia", "Visão geral", "Contratos"];
+  const mobileTabIcons: Record<string, string> = {
+    Clientes: "♟",
+    Usinas: "ϟ",
+    Operação: "⚙",
+    "Visão geral": "⌂",
+    Faturas: "▤",
+    Contratos: "▣",
+    Financeiro: "R$",
+    Economia: "↯",
+    Geradores: "♜",
+    "Gestão comercial": "⌂",
+    Aplicativos: "▦",
+  };
   function submitGlobalSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const query = globalSearch.trim().toLocaleLowerCase("pt-BR");
@@ -3344,7 +3363,7 @@ function PortalHome({
                       setSearchQuery("");
                       if (item === "Carteira") setWalletNotice(false);
                     }}
-                    className={activeSection === item ? "active" : ""}
+                    className={`${activeSection === item ? "active" : ""}${mobileTabs.includes(item) ? " primary-tab-source" : ""}`}
                     key={item}
                   >
                     <b>{item.slice(0, 1)}</b>
@@ -3364,6 +3383,24 @@ function PortalHome({
             <a href={`mailto:${company.email_suporte || DEFAULT_COMPANY.email_suporte}`}>Entrar em contato →</a>
           </div>
         </aside>
+        <nav className={`portal-mobile-tabs ${type === "GERADOR" ? "generator" : "consumer"}`} aria-label="Navegação principal">
+          {mobileTabs.map((item) => (
+            <button
+              aria-current={activeSection === item ? "page" : undefined}
+              className={`${item === mobileHomeSection ? "mobile-home-tab" : ""}${activeSection === item ? " active" : ""}`}
+              key={item}
+              onClick={() => {
+                setSelectedRecord(null);
+                setActiveSection(item);
+                setSearchQuery("");
+              }}
+              type="button"
+            >
+              <b aria-hidden="true">{mobileTabIcons[item]}</b>
+              <span>{item === mobileHomeSection ? "Home" : item}</span>
+            </button>
+          ))}
+        </nav>
         <section className="portal-dashboard">
           {activeSection === "Carteira" && session.token ? (
             <WalletPanel token={session.token} />
