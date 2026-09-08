@@ -57,7 +57,6 @@ export default function TabLayout() {
           tabBarLabelStyle: { fontSize: 10, lineHeight: 12, fontWeight: "700", marginBottom: 0 },
           tabBarItemStyle: { minHeight: 50, paddingVertical: 1 },
           tabBarActiveTintColor: "#0D9488",
-          sceneStyle: { backgroundColor: "#DFE8E3" },
         }}
       >
         <Tabs.Screen
@@ -85,7 +84,7 @@ export default function TabLayout() {
           options={{
             title: "Contrato",
             tabBarIcon: ({ color, focused }) => (
-              <TabIcon name={focused ? "reader" : "reader-outline"} color={color} />
+              <TabIcon name={focused ? "document-text" : "document-text-outline"} color={color} />
             ),
           }}
         />
@@ -143,6 +142,7 @@ export default function TabLayout() {
       tabBarLabelStyle: { fontSize: 8, lineHeight: 10, fontWeight: "700", marginBottom: 0 },
       tabBarItemStyle: { minHeight: 52, paddingHorizontal: 0, paddingVertical: 1 },
       tabBarStyle: { height: 66, paddingTop: 5, paddingBottom: 3, overflow: "visible", borderTopWidth: 1, borderTopColor: "#E2E8F0", borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: "#FFFFFF", elevation: 15, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: -3 } },
+      sceneStyle: { backgroundColor: "#DFE8E3" },
     }}>
       <Tabs.Screen
         name="index"
@@ -190,6 +190,16 @@ export default function TabLayout() {
           title: "Faturas",
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name={focused ? "receipt" : "receipt-outline"} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="contrato"
+        options={{
+          title: "Contrato",
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name={focused ? "document-text" : "document-text-outline"} color={color} />
           ),
         }}
       />
