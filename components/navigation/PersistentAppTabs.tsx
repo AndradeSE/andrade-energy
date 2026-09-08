@@ -76,8 +76,8 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
 
 const styles = StyleSheet.create({
   bar: {
-    minHeight: 58,
-    paddingTop: 5,
+    minHeight: 52,
+    paddingTop: 3,
     flexDirection: "row",
     alignItems: "flex-start",
     backgroundColor: Colors.surface,
@@ -94,17 +94,17 @@ const styles = StyleSheet.create({
     minWidth: 0,
     alignItems: "center",
     justifyContent: "center",
-    gap: 3,
+    gap: 1,
   },
   label: {
     color: Colors.subtitle,
-    fontSize: 10,
-    lineHeight: 12,
+    fontSize: 9,
+    lineHeight: 11,
     fontWeight: "600",
     textAlign: "center",
   },
   generatorLabel: {
-    fontSize: 9,
-    lineHeight: 12,
+    fontSize: 8,
+    lineHeight: 10,
   },
 });

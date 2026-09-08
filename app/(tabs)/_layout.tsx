@@ -28,9 +28,9 @@ const OwnerTabs = withLayoutContext<MaterialTopTabNavigationOptions, typeof TopT
 
 export default function TabLayout() {
   const tabStyle = {
-    height: 64,
-    paddingTop: 5,
-    paddingBottom: 5,
+    height: 56,
+    paddingTop: 3,
+    paddingBottom: 3,
     backgroundColor: "#FFFFFF",
     borderTopWidth: 0,
     elevation: 15,
@@ -70,8 +70,8 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           ...screenOptions,
-          tabBarLabelStyle: { fontSize: 10, lineHeight: 12, fontWeight: "600", marginBottom: 0 },
-          tabBarItemStyle: { paddingVertical: 3 },
+          tabBarLabelStyle: { fontSize: 9, lineHeight: 11, fontWeight: "700", marginBottom: 0 },
+          tabBarItemStyle: { minHeight: 50, paddingVertical: 1 },
         }}
       >
         <Tabs.Screen
@@ -82,7 +82,7 @@ export default function TabLayout() {
               <Ionicons
                 name={focused ? "home" : "home-outline"}
                 color={color}
-                size={21}
+                size={20}
               />
             ),
           }}
@@ -100,7 +100,7 @@ export default function TabLayout() {
                     : "flash-outline"
                 }
                 color={color}
-                size={21}
+                size={20}
               />
             ),
           }}
@@ -111,7 +111,7 @@ export default function TabLayout() {
           options={{
             title: "Contrato",
             tabBarIcon: ({ color, focused }) => (
-              <Ionicons name={focused ? "document-text" : "document-text-outline"} color={color} size={21} />
+              <Ionicons name={focused ? "document-text" : "document-text-outline"} color={color} size={20} />
             ),
           }}
         />
@@ -171,11 +171,11 @@ export default function TabLayout() {
       tabBarScrollEnabled: false,
       tabBarActiveTintColor: "#16A34A",
       tabBarInactiveTintColor: "#94A3B8",
-      tabBarLabelStyle: { width: "100%", margin: 0, fontSize: 10, lineHeight: 13, fontWeight: "600", textAlign: "center", textTransform: "none" },
-      tabBarItemStyle: { flex: 1, minWidth: 0, paddingHorizontal: 0, paddingVertical: 6 },
+      tabBarLabelStyle: { width: "100%", margin: 0, fontSize: 9, lineHeight: 11, fontWeight: "700", textAlign: "center", textTransform: "none" },
+      tabBarItemStyle: { flex: 1, minWidth: 0, minHeight: 56, paddingHorizontal: 0, paddingVertical: 2 },
       tabBarContentContainerStyle: { width: "100%", alignItems: "stretch" },
       tabBarIndicatorStyle: { backgroundColor: "#16A34A", height: 3, top: 0 },
-      tabBarStyle: { height: 82, paddingTop: 7, backgroundColor: "#FFFFFF", elevation: 15, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: -3 } },
+      tabBarStyle: { height: 64, paddingTop: 3, paddingBottom: 3, backgroundColor: "#FFFFFF", elevation: 15, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: -3 } },
     }}>
       <OwnerTabs.Screen
         name="index"
@@ -185,7 +185,7 @@ export default function TabLayout() {
             <Ionicons
               name={focused ? "home" : "home-outline"}
               color={color}
-              size={24}
+              size={21}
             />
           ),
         }}
@@ -203,7 +203,7 @@ export default function TabLayout() {
                   : "people-outline"
               }
               color={color}
-              size={24}
+              size={21}
             />
           ),
         }}
@@ -221,7 +221,7 @@ export default function TabLayout() {
                   : "flash-outline"
               }
               color={color}
-              size={24}
+              size={21}
             />
           ),
         }}
@@ -239,7 +239,7 @@ export default function TabLayout() {
                   : "construct-outline"
               }
               color={color}
-              size={24}
+              size={21}
             />
           ),
         }}
@@ -250,7 +250,7 @@ export default function TabLayout() {
         options={{
           title: "Faturas",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "receipt" : "receipt-outline"} color={color} size={24} />
+            <Ionicons name={focused ? "receipt" : "receipt-outline"} color={color} size={21} />
           ),
         }}
       />
@@ -267,7 +267,7 @@ export default function TabLayout() {
                   : "cash-outline"
               }
               color={color}
-              size={24}
+              size={21}
             />
           ),
         }}
@@ -278,7 +278,7 @@ export default function TabLayout() {
         options={{
           title: "Perfil",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "person" : "person-outline"} color={color} size={24} />
+            <Ionicons name={focused ? "person" : "person-outline"} color={color} size={21} />
           ),
         }}
       />
