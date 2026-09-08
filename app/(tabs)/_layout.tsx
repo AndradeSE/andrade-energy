@@ -205,12 +205,7 @@ export default function TabLayout() {
 
       <Tabs.Screen
         name="perfil"
-        options={{
-          title: "Perfil",
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon name={focused ? "person" : "person-outline"} color={color} />
-          ),
-        }}
+        options={{ href: null }}
       />
 
       <Tabs.Screen name="economia" options={{ href: null }} />

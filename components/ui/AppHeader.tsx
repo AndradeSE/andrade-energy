@@ -161,14 +161,14 @@ export default function AppHeader({
   }
 
   return (
-    <LinearGradient colors={[corEscura, corPrincipal, corPrincipal]} end={{ x: 1, y: 0.85 }} start={{ x: 0, y: 0 }} style={[styles.container, { marginTop: -insets.top, paddingTop: insets.top + Spacing.md }]}>
+    <LinearGradient colors={[corEscura, corPrincipal, corPrincipal]} end={{ x: 1, y: 0.85 }} start={{ x: 0, y: 0 }} style={[styles.container, proprietario && styles.ownerContainer, { marginTop: -insets.top, paddingTop: insets.top + Spacing.md }]}>
       <StatusBar backgroundColor={corEscura} barStyle="light-content" />
       <View style={styles.top}>
         <TouchableOpacity
           accessibilityLabel="Abrir menu"
           activeOpacity={0.8}
           onPress={() => setMenuAberto(true)}
-          style={styles.action}
+          style={[styles.action, proprietario && styles.ownerMenuAction]}
         >
           <Ionicons name="menu-outline" size={30} color={Colors.surface} />
         </TouchableOpacity>
@@ -189,7 +189,7 @@ export default function AppHeader({
           </TouchableOpacity>
         </View>
 
-        {onSearch ? <TouchableOpacity accessibilityLabel="Pesquisar" hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }} activeOpacity={0.8} onPress={onSearch} style={styles.action}>
+        {onSearch ? <TouchableOpacity accessibilityLabel="Pesquisar" hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }} activeOpacity={0.8} onPress={onSearch} style={[styles.action, !proprietario && styles.consumerSearchAction]}>
           <Ionicons name="search-outline" size={24} color={Colors.surface} />
         </TouchableOpacity> : null}
         <TouchableOpacity accessibilityLabel={notificacoes.length ? `${notificacoes.length} notificações` : "Notificações"} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} activeOpacity={0.8} onPress={() => setNotificacoesAbertas(true)} style={styles.action}>
@@ -290,6 +290,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.lg,
   },
+  ownerContainer: {
+    paddingLeft: Spacing.sm,
+    paddingRight: Spacing.md,
+  },
 
   top: {
     flexDirection: "row",
@@ -365,6 +369,14 @@ const styles = StyleSheet.create({
     height: 42,
     justifyContent: "center",
     alignItems: "center",
+  },
+  ownerMenuAction: {
+    width: 36,
+    marginLeft: -4,
+    marginRight: 2,
+  },
+  consumerSearchAction: {
+    marginRight: 8,
   },
   notificationBadge: { position: "absolute", top: 2, right: 0, minWidth: 17, height: 17, alignItems: "center", justifyContent: "center", paddingHorizontal: 3, borderRadius: Radius.round, backgroundColor: "#DC2626" },
   notificationBadgeText: { color: Colors.surface, fontSize: 10, fontWeight: "800" },
