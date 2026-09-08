@@ -74,7 +74,6 @@ export default function EditarAlocacaoUnidade() {
     modalidade: modalidadeImportada,
     desconto: descontoImportado,
     dadosFatura: dadosFaturaParam,
-    somenteApelido,
     revisaoContrato,
   } = useLocalSearchParams<{
     id?: string;
@@ -85,14 +84,12 @@ export default function EditarAlocacaoUnidade() {
     modalidade?: Modalidade;
     desconto?: string;
     dadosFatura?: string;
-    somenteApelido?: string;
     revisaoContrato?: string;
   }>();
   const [usinas, setUsinas] = useState<any[]>([]); const [usinaId, setUsinaId] = useState("");
   const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO"); const [percentual, setPercentual] = useState("");
   const [desconto, setDesconto] = useState("40"); const [consumoMedio, setConsumoMedio] = useState("0");
   const [cpfTitular, setCpfTitular] = useState("");
-  const [apelido, setApelido] = useState("");
   const [formatoFatura, setFormatoFatura] = useState<FormatoFatura>("UNIFICADA");
   const [repasseDisponibilidadeGD1, setRepasseDisponibilidadeGD1] = useState<RepasseGD2>("REPASSAR");
   const [repasseDisponibilidadeGD2, setRepasseDisponibilidadeGD2] = useState<RepasseGD2>("REPASSAR");
@@ -104,7 +101,6 @@ export default function EditarAlocacaoUnidade() {
   const numeroDaUc = textoDoParametro(numero).replace(/\D/g, "");
   const clienteIdRecebido = textoDoParametro(clienteId);
   const unidadeIdRecebida = textoDoParametro(unidadeIdImportada);
-  const editarSomenteApelido = textoDoParametro(somenteApelido) === "1";
   const atualizacaoContratual = textoDoParametro(revisaoContrato) === "1";
 
   useEffect(() => {
@@ -165,7 +161,6 @@ export default function EditarAlocacaoUnidade() {
 
         setUsinas(listaUsinas);
         setClienteIdResolvido(idCliente);
-        setApelido(String(uc?.apelido ?? ""));
         setUsinaId(usinaPreferida);
         setModalidade(modalidadeFinal);
         setDesconto(String(descontoImportado ?? uc?.desconto_percentual ?? c?.desconto_percentual ?? 40));
@@ -208,11 +203,11 @@ export default function EditarAlocacaoUnidade() {
     if (!Number.isFinite(rateio) || rateio <= 0 || rateio > 100) return Alert.alert("Percentual inválido", "Informe um percentual entre 0,01% e 100%.");
     if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return Alert.alert("Desconto inválido", "Informe um desconto entre 0% e 100%.");
     try { setSalvando(true);
-      await alocarUnidade(usinaId, { apelido: apelido.trim(), clienteId: clienteIdResolvido, numero: numeroDaUc, cpfTitular: cpfTitular.replace(/\D/g, "") || null, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd: tipoGdEfetivo, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: true, revisaoContrato: atualizacaoContratual, somenteApelido: editarSomenteApelido });
+      await alocarUnidade(usinaId, { clienteId: clienteIdResolvido, numero: numeroDaUc, cpfTitular: cpfTitular.replace(/\D/g, "") || null, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd: tipoGdEfetivo, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: true, revisaoContrato: atualizacaoContratual });
       // Esta tela pode ter sido aberta a partir de uma UC ou da criação por
       // fatura. O destino único evita ficar preso na tela anterior e exigir
       // um segundo toque para voltar à lista atualizada.
-      if (atualizacaoContratual && !editarSomenteApelido) {
+      if (atualizacaoContratual) {
         router.replace({ pathname: "/unidades/contrato", params: { id: unidadeIdRecebida, numero: numeroDaUc, clienteId: clienteIdResolvido, descontoPadrao: String(descontoNumero), revisao: "1" } });
       } else router.replace("/unidades");
     } catch (erro: any) { Alert.alert("Não foi possível alocar", erro?.message ?? "Tente novamente."); } finally { setSalvando(false); }
@@ -255,10 +250,8 @@ export default function EditarAlocacaoUnidade() {
         <Text style={styles.subtitle}>
           Defina a usina, a média de consumo e o rateio desta UC.
         </Text>
-        {editarSomenteApelido ? <Text style={styles.warning}>O contrato desta UC já foi assinado. Apenas o apelido pode ser alterado sem uma nova versão contratual.</Text> : atualizacaoContratual ? <Text style={styles.warning}>Atualização contratual iniciada. Revise as condições, salve e gere a nova minuta para assinatura.</Text> : null}
+        {atualizacaoContratual ? <Text style={styles.warning}>Atualização contratual iniciada. Revise as condições, salve e gere a nova minuta para assinatura.</Text> : null}
         <Card>
-          <FormField label="Apelido da UC" value={apelido} onChangeText={setApelido} maxLength={40} placeholder="Ex.: Casa, Loja ou Sítio" />
-          {!editarSomenteApelido ? <>
           <View style={styles.sectionHeading}><Text style={styles.sectionEyebrow}>USINA GERADORA</Text></View>
           <FormField
             label="CPF/CNPJ do titular na conta de luz"
@@ -383,10 +376,9 @@ export default function EditarAlocacaoUnidade() {
               fioBGd2={repasseFioBGD2}
             />
           </>
-          </> : null}
           <Button
             disabled={salvando || !clienteIdResolvido}
-            title={salvando ? "Salvando..." : editarSomenteApelido ? "Salvar apelido" : atualizacaoContratual ? "Salvar e preparar novo contrato" : clienteIdResolvido ? "Salvar alocação da UC" : "Vincule um cliente para alocar"}
+            title={salvando ? "Salvando..." : atualizacaoContratual ? "Salvar e preparar novo contrato" : clienteIdResolvido ? "Salvar alocação da UC" : "Vincule um cliente para alocar"}
             onPress={salvar}
           />
         </Card>

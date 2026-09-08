@@ -32,7 +32,7 @@ export default function Unidades() {
     setAtualizando(true);
     try { await carregar(); } finally { setAtualizando(false); }
   }
-  const lista = useMemo(() => { const termo = busca.trim().toLocaleLowerCase("pt-BR"); return unidades.filter((item) => `${item.numero} ${item.titular} ${item.endereco} ${item.clientes?.nome} ${item.clientes?.cpf}`.toLocaleLowerCase("pt-BR").includes(termo)); }, [busca, unidades]);
+  const lista = useMemo(() => { const termo = busca.trim().toLocaleLowerCase("pt-BR"); return unidades.filter((item) => `${item.apelido} ${item.numero} ${item.titular} ${item.endereco} ${item.clientes?.nome} ${item.clientes?.cpf}`.toLocaleLowerCase("pt-BR").includes(termo)); }, [busca, unidades]);
 
   return (
     <Screen>
@@ -44,8 +44,9 @@ export default function Unidades() {
         keyExtractor={(item) => item.id}
         ListHeaderComponent={<View><Text style={styles.title}>Unidades consumidoras</Text><Text style={styles.subtitle}>{clienteId ? "Consulte e adicione unidades deste cliente." : "Consulte as unidades de todos os clientes."}</Text><View style={styles.search}><TextInput value={busca} onChangeText={setBusca} placeholder="Buscar por UC, cliente, CPF ou endereço" placeholderTextColor={Colors.subtitle} style={styles.searchInput} /></View><CadastroActions tipo="UNIDADE" clienteId={clienteId} /></View>}
         renderItem={({ item }) => <Pressable onPress={() => router.push({ pathname: "/unidades/[id]", params: { id: item.id, numero: item.numero, clienteId: item.cliente_id ?? item.clientes?.id ?? "", cliente: item.clientes?.nome ?? "", usinaId: item.usina_id ?? item.usinas?.id ?? "", usinaNome: item.usinas?.nome ?? item.usina_nome ?? "", titular: item.titular ?? "", distribuidora: item.distribuidora ?? "" } })}><Card style={styles.unitCard}>
-          <View style={styles.row}><Text style={styles.number}>UC {item.numero}</Text><Text style={styles.badge}>{item.tipo}</Text></View>
-          <Text style={styles.owner}>{item.clientes?.nome ?? item.titular ?? "Cliente não identificado"}</Text>
+          <View style={styles.row}><View style={styles.identification}><Text numberOfLines={1} style={styles.number}>{String(item.apelido ?? "").trim() || `UC ${item.numero}`}</Text>{item.apelido ? <Text style={styles.ucNumber}>UC {item.numero}</Text> : null}</View><Text style={styles.badge}>{item.tipo}</Text></View>
+          <Text style={styles.owner}>{item.titular ?? "Titular não identificado"}</Text>
+          {item.clientes?.nome && item.clientes.nome !== item.titular ? <Text style={styles.client}>Cliente vinculado: {item.clientes.nome}</Text> : null}
           <Text style={styles.detail}>{item.usinas?.nome ?? item.usina_nome ?? (item.usina_id ? "Usina vinculada" : "Ainda não alocada")}</Text>
           <Text style={styles.detail}>{item.modalidade_faturamento === "INJECAO" ? "Faturamento por injeção" : "Faturamento por compensação"} · {item.desconto_percentual}%</Text>
         </Card></Pressable>}
@@ -61,7 +62,9 @@ const styles = StyleSheet.create({
   title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "700" },
   subtitle: { marginTop: Spacing.sm, marginBottom: Spacing.lg, color: Colors.subtitle, lineHeight: 21 },
   search: { minHeight: 52, justifyContent: "center", marginBottom: Spacing.md, paddingHorizontal: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderRadius: 14, backgroundColor: Colors.surface }, searchInput: { color: Colors.text },
-  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: Spacing.sm },
+  identification: { flex: 1 },
   number: { color: Colors.text, fontSize: Typography.body, fontWeight: "800" }, badge: { color: Colors.primaryDark, fontSize: 10, fontWeight: "700" },
-  owner: { marginTop: 5, color: Colors.text, fontSize: Typography.small, fontWeight: "600" }, detail: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small },
+  ucNumber: { marginTop: 2, color: Colors.subtitle, fontSize: Typography.small, fontWeight: "600" },
+  owner: { marginTop: 5, color: Colors.text, fontSize: Typography.small, fontWeight: "700" }, client: { marginTop: 2, color: Colors.subtitle, fontSize: 11 }, detail: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small },
 });

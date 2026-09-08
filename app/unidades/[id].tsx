@@ -180,7 +180,7 @@ export default function UnidadeDocumentos() {
           Alert.alert("Vincule a UC a um cliente", "Esta unidade ainda não possui cliente vinculado. Abra o cadastro da UC, escolha o cliente e salve antes de fazer a alocação.");
           return;
         }
-        const abrirEdicao = (modo: "apelido" | "revisao") => router.push({
+        const abrirEdicao = () => router.push({
           pathname: "/unidades/editar",
           params: {
             id: unidade.id,
@@ -190,19 +190,17 @@ export default function UnidadeDocumentos() {
             modalidade: unidade.modalidade_faturamento ?? "",
             desconto: unidade.desconto_percentual === null || unidade.desconto_percentual === undefined ? "" : String(unidade.desconto_percentual),
             consumoMedio: unidade.consumo_medio_kwh === null || unidade.consumo_medio_kwh === undefined ? "" : String(unidade.consumo_medio_kwh),
-            somenteApelido: modo === "apelido" ? "1" : "0",
-            revisaoContrato: modo === "revisao" ? "1" : "0",
+            revisaoContrato: "1",
           },
         });
         if (contratoAssinado) {
           Alert.alert("UC com contrato ativo", "Esta UC já possui um contrato ativo. Deseja apenas consultar as condições atuais ou revisar a configuração e gerar uma atualização do contrato?", [
             { text: "Cancelar", style: "cancel" },
-            { text: "Editar apelido", onPress: () => abrirEdicao("apelido") },
-            { text: "Atualizar contrato", onPress: () => abrirEdicao("revisao") },
+            { text: "Atualizar configuração e contrato", onPress: abrirEdicao },
           ]);
           return;
         }
-        abrirEdicao("revisao");
+        abrirEdicao();
       }} style={styles.action}><Ionicons name="options-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Configurar UC</Text></TouchableOpacity>
       {IS_GERADOR_APP ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel={rotuloContrato} onPress={() => {
         if (String(unidade.id ?? "").startsWith("cliente-")) {
