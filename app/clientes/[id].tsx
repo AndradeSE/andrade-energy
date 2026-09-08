@@ -124,6 +124,7 @@ export default function ClienteDetalhe() {
           uc: numero,
           cpf: String(dados.cpfParcial ?? dados.cpf_parcial ?? dados.cpf ?? "").replace(/\D/g, "").slice(0, 4),
           endereco: String(dados.endereco ?? ""),
+          distribuidora: String(dados.distribuidora ?? cliente.distribuidora ?? "CEMIG"),
           energiaCompensada: String(dados.energiaCompensada ?? 0),
           consumoMedio: consumoMedio > 0 ? String(consumoMedio) : "",
           tipoGd,

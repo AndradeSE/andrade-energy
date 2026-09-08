@@ -42,7 +42,7 @@ function percentualPelaMedia(usina: any, consumo: unknown, modalidade: Modalidad
 }
 
 export default function NovaUnidade() {
-  const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, cpf: cpfImportado, energiaCompensada, endereco: enderecoImportado, cadastroRapido, consumoMedio: consumoMedioImportado, dadosFatura: dadosFaturaParam } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; cpf?: string; energiaCompensada?: string; endereco?: string; cadastroRapido?: string; consumoMedio?: string; dadosFatura?: string }>();
+  const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, cpf: cpfImportado, energiaCompensada, endereco: enderecoImportado, distribuidora: distribuidoraImportada, cadastroRapido, consumoMedio: consumoMedioImportado, dadosFatura: dadosFaturaParam } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; cpf?: string; energiaCompensada?: string; endereco?: string; distribuidora?: string; cadastroRapido?: string; consumoMedio?: string; dadosFatura?: string }>();
   const [dadosFatura, setDadosFatura] = useState<Record<string, any> | null>(() => parseDadosFatura(dadosFaturaParam));
   const [mensagemSalvar, setMensagemSalvar] = useState("");
   const [numero, setNumero] = useState(""); const [titular, setTitular] = useState("");
@@ -208,6 +208,8 @@ export default function NovaUnidade() {
           desconto: descontoFinal,
           consumoMedio: consumoMedioFinal,
           endereco: endereco.trim() || clienteSelecionado?.endereco || null,
+          titular: titular.trim() || dadosFatura?.titular || dadosFatura?.cliente || clienteSelecionado?.nome || null,
+          distribuidora: String(distribuidoraImportada || dadosFatura?.distribuidora || clienteSelecionado?.distribuidora || "CEMIG").trim(),
           cpfTitular: documentoTitular || null,
           percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0,
           repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR",

@@ -190,6 +190,14 @@ export default function SelecionarUnidade() {
     unidade: UnidadeConsumidora
   ) {
     try {
+      const acesso = unidade as UnidadeConsumidora & { liberado?: boolean; contratoId?: string | null };
+      if (acesso.liberado === false && !acesso.contratoId) {
+        Alert.alert(
+          "Contrato em preparação",
+          "Esta UC já foi cadastrada, mas ainda precisa ter o contrato próprio gerado e enviado pelo gerador.",
+        );
+        return;
+      }
       /*
        * IMPORTANTE:
        *
@@ -200,7 +208,6 @@ export default function SelecionarUnidade() {
         unidade
       );
 
-      const acesso = unidade as UnidadeConsumidora & { liberado?: boolean; contratoId?: string | null };
       if (acesso.liberado === false && acesso.contratoId) {
         router.replace("/(tabs)/contrato");
         return;

@@ -349,6 +349,8 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
   const desconto = Number(input.desconto);
   const consumoMedio = Math.max(0, Number(input.consumoMedio ?? 0));
   const cpfTitular = String(input.cpfTitular ?? "").replace(/\D/g, "").slice(0, 14);
+  const titularInformado = String(input.titular ?? "").trim();
+  const distribuidoraInformada = String(input.distribuidora ?? "").trim();
   if (!clienteId || !numero) throw new Error("Cliente e UC são obrigatórios.");
   if (!['INJECAO', 'COMPENSACAO'].includes(modalidade)) throw new Error("Modalidade inválida.");
   if (!Number.isFinite(desconto) || desconto < 0 || desconto > 100) throw new Error("Informe um desconto entre 0% e 100%.");
@@ -431,10 +433,10 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
       numero,
       tipo: "BENEFICIARIA",
       ...(input.apelido !== undefined ? { apelido: String(input.apelido ?? "").trim().slice(0, 40) || null } : {}),
-      titular: cliente.nome,
+      titular: titularInformado || cliente.nome,
       endereco: enderecoDaUc,
       cpf_titular: cpfTitular || unidadeAnterior?.cpf_titular || null,
-      distribuidora: cliente.distribuidora ?? "CEMIG",
+      distribuidora: distribuidoraInformada || cliente.distribuidora || "CEMIG",
       modalidade_faturamento: modalidade,
       desconto_percentual: desconto,
       consumo_medio_kwh: consumoMedio,

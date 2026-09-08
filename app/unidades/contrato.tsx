@@ -85,6 +85,7 @@ export default function ContratoDaUnidade() {
   const [titularidadeUcs, setTitularidadeUcs] = useState("GERADOR");
 
   useEffect(() => {
+    setNovoContrato(false);
     if (!id) {
       setCarregando(false);
       return;
@@ -305,7 +306,7 @@ export default function ContratoDaUnidade() {
   const enderecoContrato = dadosCliente?.endereco ?? "Endereço não informado";
   const nomeCliente = dadosCliente?.nome ?? cliente ?? "Cliente não informado";
   const usinaVinculada = unidade?.usinas?.nome ?? unidade?.usina_nome ?? (unidade?.usina_id ? "Usina vinculada" : "Não informada");
-  const contratoAssinado = aceiteRegistrado || Boolean(contratoAssinadoUrl);
+  const contratoAssinado = aceiteRegistrado || Boolean(contratoAssinadoUrl) || status === "VIGENTE";
   const somenteLeitura = contratoAssinado && !novoContrato;
 
   return (
