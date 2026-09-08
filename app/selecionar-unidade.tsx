@@ -8,6 +8,7 @@ import { useCallback, useState } from "react";
 
 import {
   Alert,
+  Image,
   ImageBackground,
   Modal,
   Pressable,
@@ -564,8 +565,8 @@ export default function SelecionarUnidade() {
                 </ImageBackground>
                 <View style={styles.plantBody}>
                 <View style={styles.plantHeading}>
-                  <View style={[styles.plantIcon, { backgroundColor: corPrincipal }]}>
-                    <Ionicons name="sunny-outline" size={27} color="#FFE16A" />
+                  <View style={[styles.plantIcon, { backgroundColor: "#FFFFFF" }]}>
+                    <Image resizeMode="contain" source={require("../assets/images/android-icon-gerador-safe.png")} style={styles.plantAppIcon} />
                   </View>
                   <View style={styles.plantIdentity}>
                     <Text style={styles.plantEyebrow}>USINA GERADORA</Text>
@@ -1216,6 +1217,7 @@ const styles =
     plantPressed: { opacity: 0.85, backgroundColor: "#F1F8F4" },
     plantHeading: { flexDirection: "row", alignItems: "center", gap: 14 },
     plantIcon: { width: 52, height: 52, borderRadius: 17, alignItems: "center", justifyContent: "center" },
+    plantAppIcon: { width: 42, height: 42, borderRadius: 12 },
     plantIdentity: { flex: 1, minWidth: 0 },
     plantEyebrow: { color: "#577268", fontSize: 10, fontWeight: "700", letterSpacing: 1.2 },
     plantName: { color: "#173D30", fontSize: 21, fontWeight: "800", marginTop: 5 },

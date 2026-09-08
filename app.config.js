@@ -88,12 +88,12 @@ module.exports = {
       [
         "expo-splash-screen",
         {
-          // A imagem enviada já traz a logo Andrade Energy. Não há ícone
-          // adicional nesta tela de abertura.
-          image: "./assets/images/usina-loading.jpeg",
-          imageWidth: 390,
-          resizeMode: "cover",
-          backgroundColor: "#F5F6F5",
+          image: gerador
+            ? "./assets/images/android-icon-gerador-safe.png"
+            : "./assets/images/android-icon-consumidor-safe.png",
+          imageWidth: 150,
+          resizeMode: "contain",
+          backgroundColor: gerador ? "#F4FAF6" : "#EAF5EF",
         },
       ],
 

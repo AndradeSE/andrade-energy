@@ -1,5 +1,5 @@
 import { router, Stack } from "expo-router";
-import { Alert, ImageBackground, StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 import { useEffect, useRef } from "react";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -20,6 +20,7 @@ import { EmpresaProvider } from "../contexts/EmpresaContext";
 import { aoExcluirConta, aoSubstituirSessao } from "../services/session-events";
 import PersistentAppTabs from "../components/navigation/PersistentAppTabs";
 import ContractAccessGate from "../components/navigation/ContractAccessGate";
+import Loading from "../components/ui/Loading";
 
 /*
  * React Query
@@ -86,9 +87,7 @@ function RootNavigator() {
    * mantemos o Stack montado.
    */
   if (isLoading) {
-    return (
-      <ImageBackground source={require("../assets/images/usina-loading.jpeg")} resizeMode="cover" style={styles.loadingContainer} />
-    );
+    return <Loading />;
   }
 
   const loggedIn = Boolean(session);
@@ -416,10 +415,4 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
 
-  loadingContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: Colors.background,
-  },
 });

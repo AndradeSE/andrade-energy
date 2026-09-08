@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef } from "react";
-import { Animated, Easing, ImageBackground, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 
 import { Colors, Radius, Spacing } from "../../theme";
 
@@ -21,8 +21,9 @@ export default function Loading() {
   }, [fluxo, pulso]);
 
   return (
-    <ImageBackground accessibilityLabel="Carregando dados" source={require("../../assets/images/usina-loading.jpeg")} resizeMode="cover" style={styles.container}>
-      <View style={styles.backdrop} />
+    <View accessibilityLabel="Carregando dados" style={styles.container}>
+      <View style={styles.glowTop} />
+      <View style={styles.glowBottom} />
       <View style={styles.animation}>
         <Animated.View style={[styles.pulse, {
           opacity: pulso.interpolate({ inputRange: [0, 1], outputRange: [0.42, 0] }),
@@ -35,13 +36,14 @@ export default function Loading() {
       <View style={styles.track}>
         <Animated.View style={[styles.flow, { transform: [{ translateX: fluxo.interpolate({ inputRange: [0, 1], outputRange: [-82, 82] }) }] }]} />
       </View>
-    </ImageBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignSelf: "stretch", minHeight: 260, width: "100%", alignItems: "center", justifyContent: "center", padding: Spacing.xl, backgroundColor: Colors.primaryDark },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(239,248,243,0.88)" },
+  container: { flex: 1, alignSelf: "stretch", minHeight: 260, width: "100%", overflow: "hidden", alignItems: "center", justifyContent: "center", padding: Spacing.xl, backgroundColor: "#EAF5EF" },
+  glowTop: { position: "absolute", top: -120, right: -90, width: 280, height: 280, borderRadius: 140, backgroundColor: "rgba(16,185,129,0.15)" },
+  glowBottom: { position: "absolute", bottom: -150, left: -110, width: 330, height: 330, borderRadius: 165, backgroundColor: "rgba(250,204,21,0.12)" },
   animation: { width: 94, height: 94, alignItems: "center", justifyContent: "center" },
   pulse: { position: "absolute", width: 86, height: 86, borderRadius: 43, backgroundColor: Colors.primary },
   energyCore: { width: 58, height: 58, alignItems: "center", justifyContent: "center", borderRadius: 29, backgroundColor: Colors.primary, shadowColor: Colors.primaryDark, shadowOpacity: 0.22, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 },

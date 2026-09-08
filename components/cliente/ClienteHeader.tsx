@@ -35,7 +35,6 @@ import {
 } from "../ui";
 
 import MenuItem from "./MenuItem";
-import PortalBrandLogo from "../brand/PortalBrandLogo";
 import { notificarAvisosNoAndroid } from "../../services/carteira-notificacoes.service";
 import { useHeaderDetailsVisibility } from "../../hooks/useHeaderDetailsVisibility";
 import { useProfilePhoto } from "../../hooks/useProfilePhoto";
@@ -351,6 +350,14 @@ export default function ClienteHeader({
         </View>
 
         {detalhesExpandidos ? <View style={styles.unitCard}>
+        <View style={styles.unitSummary}>
+          <View style={styles.unitIcon}><Ionicons name="flash" size={18} color="#FFFFFF" /></View>
+          <View style={styles.unitContent}>
+            <Text numberOfLines={1} style={styles.unitCode}>{tituloUnidade}</Text>
+            <Text numberOfLines={1} style={styles.unitDetail}>{concessionariaUnidade} · {nomeUnidade && numeroUnidade ? `UC ${numeroUnidade}` : "Unidade consumidora"}</Text>
+          </View>
+        </View>
+        <View style={styles.unitActions}>
         <TouchableOpacity
           accessibilityLabel="Trocar unidade consumidora"
           activeOpacity={
@@ -361,55 +368,13 @@ export default function ClienteHeader({
           }
           style={styles.unitMainAction}
           >
-            <View
-              style={
-                styles.unitLogo
-              }
-            >
-              <PortalBrandLogo height={28} width={84} />
-            </View>
-
-          <View
-            style={
-              styles.unitContent
-            }
-          >
-            <Text
-              style={
-                styles.unitCode
-              }
-            >
-              {tituloUnidade}
-            </Text>
-
-            <Text
-              style={
-                styles.unitDetail
-              }
-            >
-              {concessionariaUnidade} · {nomeUnidade && numeroUnidade ? `UC ${numeroUnidade}` : "Unidade consumidora"}
-            </Text>
-          </View>
-
-          <Text
-            style={
-              styles.changeText
-            }
-          >
-            Trocar
-          </Text>
-
-          <Ionicons
-            name="chevron-forward"
-            size={18}
-            color={
-              Colors.primary
-            }
-          />
+          <Ionicons name="swap-horizontal" size={16} color="#FFFFFF" />
+          <Text style={styles.changeText}>Trocar unidade</Text>
         </TouchableOpacity>
         <TouchableOpacity accessibilityLabel="Ocultar detalhes" onPress={alternarDetalhes} style={styles.detailsAction}>
           <Text style={styles.detailsActionText}>Ocultar</Text><Ionicons name="chevron-up" size={15} color="#F6CC32" />
         </TouchableOpacity>
+        </View>
         </View> : <TouchableOpacity accessibilityLabel="Abrir detalhes" onPress={alternarDetalhes} style={styles.detailsToggle}>
           <Text style={styles.detailsActionText}>Detalhes</Text><Ionicons name="chevron-down" size={15} color="#F6CC32" />
         </TouchableOpacity>}
@@ -641,12 +606,6 @@ const styles =
     },
 
     unitCard: {
-      flexDirection:
-        "row",
-
-      alignItems:
-        "center",
-
       marginTop:
         Spacing.sm,
 
@@ -669,15 +628,23 @@ const styles =
         "rgba(255, 255, 255, 0.16)",
     },
     unitMainAction: {
-      flex: 1,
-      minWidth: 0,
       flexDirection: "row",
       alignItems: "center",
+      justifyContent: "center",
+      gap: 5,
+      minHeight: 34,
+      paddingHorizontal: Spacing.sm,
+      borderRadius: Radius.round,
+      backgroundColor: "rgba(255,255,255,0.16)",
     },
+    unitSummary: { flexDirection: "row", alignItems: "center", minWidth: 0 },
+    unitActions: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 7 },
     detailsAction: {
       minHeight: 34,
+      flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
+      gap: 2,
       paddingLeft: Spacing.xs,
     },
     detailsToggle: {
@@ -711,8 +678,6 @@ const styles =
       backgroundColor:
         Colors.primary,
     },
-    unitLogo: { width: 88, height: 32, alignItems: "center", justifyContent: "center" },
-
     unitContent: {
       flex: 1,
 
@@ -742,8 +707,6 @@ const styles =
     },
 
     changeText: {
-      marginRight: 3,
-
       color:
         Colors.surface,
 
