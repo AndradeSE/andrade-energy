@@ -117,7 +117,10 @@ export default function SelecionarUnidade() {
 
       try {
         if (gestor) {
-          setItens(await listarUsinas());
+          const usinas = await listarUsinas();
+          const fotos = await AsyncStorage.multiGet(usinas.map((usina: any) => `foto-card-usina:${usina.id}`));
+          const fotoPorChave = new Map(fotos);
+          setItens(usinas.map((usina: any) => ({ ...usina, foto_card_local: fotoPorChave.get(`foto-card-usina:${usina.id}`) || "" })));
           return;
         }
 
@@ -541,6 +544,10 @@ export default function SelecionarUnidade() {
 
           if (gestor && usina) {
             const inativa = usina.status === "INATIVA";
+            const energiaCompetencia = Math.max(0, Number(usina.fechamento_atual?.energia_gerada ?? 0));
+            const producaoMedia = Math.max(0, Number(usina.producao_media_12_meses ?? usina.geracao_media ?? 0));
+            const geracaoTotal = Math.max(energiaCompetencia, Number(usina.geracao_total ?? 0));
+            const energia = (valor: number) => `${valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kWh`;
             return (
               <Pressable
                 accessibilityRole="button"
@@ -548,6 +555,14 @@ export default function SelecionarUnidade() {
                 onPress={() => void escolherUsina(usina)}
                 style={({ pressed }) => [styles.plantCard, pressed && styles.plantPressed]}
               >
+                <ImageBackground source={usina.foto_card_local ? { uri: usina.foto_card_local } : require("../assets/images/usina-loading.jpeg")} imageStyle={styles.plantCoverImage} style={styles.plantCover}>
+                  <LinearGradient colors={["rgba(2,25,18,.12)", "rgba(2,25,18,.88)"]} style={styles.plantCoverShade}>
+                    <View style={styles.plantCoverTop}><View style={styles.plantLiveBadge}><View style={[styles.plantLiveDot, inativa && styles.plantLiveDotInactive]} /><Text style={styles.plantLiveText}>{inativa ? "INATIVA" : "EM OPERAÇÃO"}</Text></View><Ionicons name="chevron-forward-circle" size={27} color="#FFF" /></View>
+                    <View style={styles.plantGeneration}><Text style={styles.plantGenerationLabel}>GERAÇÃO NESTA COMPETÊNCIA</Text><Text style={styles.plantGenerationValue}>{energia(energiaCompetencia)}</Text></View>
+                    <View style={styles.plantCoverMetrics}><View style={styles.plantCoverMetric}><Text style={styles.plantCoverMetricLabel}>MÉDIA MENSAL</Text><Text style={styles.plantCoverMetricValue}>{energia(producaoMedia)}</Text></View><View style={styles.plantCoverDivider} /><View style={styles.plantCoverMetric}><Text style={styles.plantCoverMetricLabel}>ACUMULADA</Text><Text style={styles.plantCoverMetricValue}>{energia(geracaoTotal)}</Text></View></View>
+                  </LinearGradient>
+                </ImageBackground>
+                <View style={styles.plantBody}>
                 <View style={styles.plantHeading}>
                   <View style={[styles.plantIcon, { backgroundColor: corPrincipal }]}>
                     <Ionicons name="sunny-outline" size={27} color="#FFE16A" />
@@ -579,6 +594,7 @@ export default function SelecionarUnidade() {
                   <View style={[styles.plantArrow, { backgroundColor: corPrincipal }]}>
                     <Ionicons name="arrow-forward" size={19} color="#FFFFFF" />
                   </View>
+                </View>
                 </View>
               </Pressable>
             );
@@ -1175,11 +1191,28 @@ function DrawerItem({
 const styles =
   StyleSheet.create({
     plantCard: {
-      marginBottom: 16, padding: 20, borderRadius: 22,
+      marginBottom: 16, padding: 0, overflow: "hidden", borderRadius: 22,
       backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#D4E5DC",
       shadowColor: "#163F30", shadowOpacity: 0.07, shadowRadius: 12,
       shadowOffset: { width: 0, height: 4 }, elevation: 2,
     },
+    plantCover: { height: 210, justifyContent: "flex-end" },
+    plantCoverImage: { borderTopLeftRadius: 22, borderTopRightRadius: 22 },
+    plantCoverShade: { flex: 1, justifyContent: "space-between", padding: Spacing.md },
+    plantCoverTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    plantLiveBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 9, paddingVertical: 5, borderRadius: Radius.round, backgroundColor: "rgba(2,32,23,.62)" },
+    plantLiveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#38E184" },
+    plantLiveDotInactive: { backgroundColor: "#FBBF24" },
+    plantLiveText: { color: "#FFF", fontSize: 9, fontWeight: "900", letterSpacing: .8 },
+    plantGeneration: { alignItems: "center" },
+    plantGenerationLabel: { color: "rgba(255,255,255,.76)", fontSize: 10, fontWeight: "900", letterSpacing: .8 },
+    plantGenerationValue: { marginTop: 4, color: "#FFF", fontSize: 32, fontWeight: "900", textShadowColor: "rgba(0,0,0,.35)", textShadowRadius: 4 },
+    plantCoverMetrics: { flexDirection: "row", alignItems: "center", paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,.28)" },
+    plantCoverMetric: { flex: 1, alignItems: "center" },
+    plantCoverMetricLabel: { color: "rgba(255,255,255,.68)", fontSize: 9, fontWeight: "800" },
+    plantCoverMetricValue: { marginTop: 3, color: "#FFF", fontSize: Typography.small, fontWeight: "900" },
+    plantCoverDivider: { width: 1, height: 28, backgroundColor: "rgba(255,255,255,.3)" },
+    plantBody: { padding: 20 },
     plantPressed: { opacity: 0.85, backgroundColor: "#F1F8F4" },
     plantHeading: { flexDirection: "row", alignItems: "center", gap: 14 },
     plantIcon: { width: 52, height: 52, borderRadius: 17, alignItems: "center", justifyContent: "center" },

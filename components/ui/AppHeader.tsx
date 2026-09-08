@@ -228,8 +228,11 @@ export default function AppHeader({
             : <PortalBrandLogo height={30} width={90} />}
         </View>
         <View style={styles.plantText}><Text numberOfLines={1} style={styles.plantName}>{usinaSelecionada.nome}</Text><Text numberOfLines={1} style={styles.plantAutonomy}>{autonomia ? `Autonomia ${autonomia.percentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% · ${autonomia.disponivel.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kWh disponíveis` : "Calculando autonomia..."}</Text></View>
-        <TouchableOpacity accessibilityLabel="Ocultar detalhes da usina" onPress={alternarContextoUsina} style={styles.plantToggle}><Text style={styles.plantToggleText}>Ocultar</Text><Ionicons name="chevron-up" size={15} color="#F6CC32" /></TouchableOpacity>
-      </View> : <TouchableOpacity accessibilityLabel="Abrir detalhes da usina" activeOpacity={0.8} onPress={alternarContextoUsina} style={styles.plantDetailsToggle}><Text style={styles.plantToggleText}>Detalhes</Text><Ionicons name="chevron-down" size={15} color="#F6CC32" /></TouchableOpacity> : null}
+        <View style={styles.plantActions}>
+          <TouchableOpacity accessibilityLabel="Trocar de usina" activeOpacity={0.8} onPress={() => router.push("/selecionar-unidade" as any)} style={styles.changePlantButton}><Ionicons name="swap-horizontal" size={15} color="#FFFFFF" /><Text style={styles.changePlantText}>Trocar usina</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityLabel="Ocultar detalhes da usina" onPress={alternarContextoUsina} style={styles.plantToggle}><Text style={styles.plantToggleText}>Ocultar</Text><Ionicons name="chevron-up" size={15} color="#F6CC32" /></TouchableOpacity>
+        </View>
+      </View> : <View style={styles.plantDetailsCollapsed}><TouchableOpacity accessibilityLabel="Trocar de usina" activeOpacity={0.8} onPress={() => router.push("/selecionar-unidade" as any)} style={styles.changePlantButton}><Ionicons name="swap-horizontal" size={15} color="#FFFFFF" /><Text style={styles.changePlantText}>Trocar usina</Text></TouchableOpacity><TouchableOpacity accessibilityLabel="Abrir detalhes da usina" activeOpacity={0.8} onPress={alternarContextoUsina} style={styles.plantDetailsToggle}><Text style={styles.plantToggleText}>Detalhes</Text><Ionicons name="chevron-down" size={15} color="#F6CC32" /></TouchableOpacity></View> : null}
 
       <Modal animationType="fade" transparent visible={menuAberto} onRequestClose={() => setMenuAberto(false)}>
         <Pressable style={styles.backdrop} onPress={() => setMenuAberto(false)}>
@@ -367,6 +370,10 @@ const styles = StyleSheet.create({
   plantToggle: { minHeight: 34, alignItems: "center", justifyContent: "center", paddingHorizontal: 5 },
   plantToggleText: { color: "#F6CC32", fontSize: 10, fontWeight: "900" },
   plantDetailsToggle: { minHeight: 22, flexDirection: "row", alignSelf: "center", alignItems: "center", gap: 2, marginTop: 3, paddingHorizontal: Spacing.sm },
+  plantActions: { alignItems: "flex-end", justifyContent: "center", gap: 2 },
+  plantDetailsCollapsed: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.sm, marginTop: 4 },
+  changePlantButton: { minHeight: 30, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingHorizontal: Spacing.sm, borderRadius: Radius.round, backgroundColor: "rgba(255,255,255,0.16)" },
+  changePlantText: { color: "#FFFFFF", fontSize: 10, fontWeight: "900" },
   photoBackdrop: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.lg, backgroundColor: "rgba(3,15,12,0.92)" },
   photoPreviewCard: { position: "relative", width: "100%", maxWidth: 520, aspectRatio: 1, overflow: "hidden", borderRadius: Radius.xl, backgroundColor: "#071A15" },
   photoPreview: { width: "100%", height: "100%" },
