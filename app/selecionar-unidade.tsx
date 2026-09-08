@@ -211,8 +211,11 @@ export default function SelecionarUnidade() {
         unidade.numero
       );
 
+      // Abra sempre a Home da UC. Navegar apenas para o contêiner das abas
+      // preservava a última aba ativa e podia devolver o consumidor à tela
+      // de contrato mesmo quando não havia bloqueio de assinatura.
       router.replace(
-        "/(tabs)"
+        "/(tabs)/index"
       );
     } catch (error) {
       console.log(
