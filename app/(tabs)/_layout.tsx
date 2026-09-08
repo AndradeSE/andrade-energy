@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
+import { StyleSheet, View } from "react-native";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 
 function TabIcon({ name, color, featured = false }: { name: keyof typeof Ionicons.glyphMap; color: string; featured?: boolean }) {
@@ -7,14 +8,21 @@ function TabIcon({ name, color, featured = false }: { name: keyof typeof Ionicon
   return <Ionicons name={name} color="#FFFFFF" size={25} style={{ width: 50, height: 50, paddingTop: 12, textAlign: "center", borderRadius: 25, backgroundColor: "#12B981", transform: [{ translateY: -11 }], shadowColor: "#12B981", shadowOpacity: 0.3, shadowRadius: 9, shadowOffset: { width: 0, height: 5 }, elevation: 8 }} />;
 }
 
+function RoundedTabBarBackground() {
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <View style={styles.tabBarCornerFill} />
+      <View style={styles.tabBarSurface} />
+    </View>
+  );
+}
+
 export default function TabLayout() {
   const tabStyle = {
     height: 64,
     paddingTop: 5,
     paddingBottom: 3,
-    backgroundColor: "#FFFFFF",
-    borderTopWidth: 1,
-    borderTopColor: "#E2E8F0",
+    backgroundColor: "transparent",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     elevation: 15,
@@ -43,6 +51,7 @@ export default function TabLayout() {
     },
 
     tabBarStyle: tabStyle,
+    tabBarBackground: () => <RoundedTabBarBackground />,
   };
 
   // ===================================================
@@ -141,7 +150,8 @@ export default function TabLayout() {
       tabBarHideOnKeyboard: true,
       tabBarLabelStyle: { fontSize: 8, lineHeight: 10, fontWeight: "700", marginBottom: 0 },
       tabBarItemStyle: { minHeight: 52, paddingHorizontal: 0, paddingVertical: 1 },
-      tabBarStyle: { height: 66, paddingTop: 5, paddingBottom: 3, overflow: "visible", borderTopWidth: 1, borderTopColor: "#E2E8F0", borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: "#FFFFFF", elevation: 15, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: -3 } },
+      tabBarStyle: { height: 66, paddingTop: 5, paddingBottom: 3, overflow: "visible", borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: "transparent", elevation: 15, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: -3 } },
+      tabBarBackground: () => <RoundedTabBarBackground />,
       sceneStyle: { backgroundColor: "#DFE8E3" },
     }}>
       <Tabs.Screen
@@ -223,3 +233,18 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBarCornerFill: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#DFE8E3",
+  },
+  tabBarSurface: {
+    ...StyleSheet.absoluteFillObject,
+    borderTopWidth: 1,
+    borderTopColor: "#E2E8F0",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: "#FFFFFF",
+  },
+});
