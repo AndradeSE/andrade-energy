@@ -1,10 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 
 import {
   Alert,
+  ImageBackground,
   Modal,
   Pressable,
   RefreshControl,
@@ -130,7 +134,9 @@ export default function SelecionarUnidade() {
           listarAcessoContratos().catch(() => []),
         ]);
         const acessoPorId = new Map(acessos.map((item: any) => [String(item.id), item]));
-        setItens(unidades.map((unidade: any) => ({ ...unidade, ...(acessoPorId.get(String(unidade.id)) ?? {}) })));
+        const fotos = await AsyncStorage.multiGet(unidades.map((unidade: any) => `foto-card-uc:${unidade.id}`));
+        const fotoPorChave = new Map(fotos);
+        setItens(unidades.map((unidade: any) => ({ ...unidade, ...(acessoPorId.get(String(unidade.id)) ?? {}), foto_card_local: fotoPorChave.get(`foto-card-uc:${unidade.id}`) || "" })));
       } catch (error) {
         console.log(
           gestor
@@ -177,6 +183,20 @@ export default function SelecionarUnidade() {
       Alert.alert("Não foi possível salvar", error?.response?.data?.message ?? "Tente novamente.");
     } finally {
       setSalvandoApelido(false);
+    }
+  }
+
+  async function personalizarFundo(unidade: UnidadeConsumidora) {
+    const resultado = await DocumentPicker.getDocumentAsync({ type: "image/*", copyToCacheDirectory: true, multiple: false });
+    if (resultado.canceled || !resultado.assets?.[0]?.uri) return;
+    try {
+      const extensao = resultado.assets[0].name?.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "") || "jpg";
+      const destino = `${FileSystem.documentDirectory}card-uc-${unidade.id}.${extensao}`;
+      await FileSystem.copyAsync({ from: resultado.assets[0].uri, to: destino });
+      await AsyncStorage.setItem(`foto-card-uc:${unidade.id}`, destino);
+      setItens((atuais) => atuais.map((item) => item.id === unidade.id ? { ...item, foto_card_local: destino } : item));
+    } catch {
+      Alert.alert("Não foi possível alterar o fundo", "Escolha outra imagem e tente novamente.");
     }
   }
 
@@ -623,6 +643,20 @@ export default function SelecionarUnidade() {
                   styles.unitCard
                 }
               >
+                <ImageBackground source={unidade?.foto_card_local ? { uri: unidade.foto_card_local } : require("../assets/images/usina-loading.jpeg")} imageStyle={styles.unitCoverImage} style={styles.unitCover}>
+                  <LinearGradient colors={["rgba(3,30,22,.12)", "rgba(3,30,22,.88)"]} style={styles.unitCoverShade}>
+                    <View style={styles.unitCoverTop}>
+                      <View style={styles.unitLiveBadge}><View style={styles.unitLiveDot} /><Text style={styles.unitLiveText}>{item.status === "INATIVA" ? "INATIVA" : "ATIVA"}</Text></View>
+                      <TouchableOpacity accessibilityLabel={`Personalizar fundo da UC ${unidade!.numero}`} hitSlop={8} onPress={(event) => { event.stopPropagation(); void personalizarFundo(unidade!); }} style={styles.unitPhotoButton}><Ionicons name="image-outline" size={18} color="#FFF" /></TouchableOpacity>
+                    </View>
+                    <View>
+                      <Text style={styles.unitCoverEyebrow}>MINHA UNIDADE</Text>
+                      <Text numberOfLines={1} style={styles.unitCoverTitle}>{unidade!.apelido || `UC ${unidade!.numero}`}</Text>
+                      <Text numberOfLines={1} style={styles.unitCoverUtility}>{unidade!.distribuidora || "Concessionária não informada"}</Text>
+                    </View>
+                  </LinearGradient>
+                </ImageBackground>
+                <View style={styles.unitBody}>
                 <View
                   style={
                     styles.unitTop
@@ -784,6 +818,7 @@ export default function SelecionarUnidade() {
                       Colors.primary
                     }
                   />
+                </View>
                 </View>
               </View>
             </TouchableOpacity>
@@ -1340,8 +1375,8 @@ const styles =
     unitCard: {
       marginBottom:
         Spacing.md,
-      padding:
-        Spacing.lg,
+      padding: 0,
+      overflow: "hidden",
       borderRadius:
         Radius.xl,
       backgroundColor:
@@ -1359,6 +1394,19 @@ const styles =
       },
       elevation: 2,
     },
+
+    unitCover: { height: 168, justifyContent: "flex-end" },
+    unitCoverImage: { borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl },
+    unitCoverShade: { flex: 1, justifyContent: "space-between", padding: Spacing.md },
+    unitCoverTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    unitLiveBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 9, paddingVertical: 5, borderRadius: Radius.round, backgroundColor: "rgba(2,32,23,.62)" },
+    unitLiveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#38E184" },
+    unitLiveText: { color: "#FFF", fontSize: 9, fontWeight: "900", letterSpacing: .8 },
+    unitPhotoButton: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: Radius.round, backgroundColor: "rgba(2,32,23,.62)" },
+    unitCoverEyebrow: { color: "rgba(255,255,255,.72)", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+    unitCoverTitle: { marginTop: 3, color: "#FFF", fontSize: 24, fontWeight: "900", textShadowColor: "rgba(0,0,0,.35)", textShadowRadius: 4 },
+    unitCoverUtility: { marginTop: 4, color: "rgba(255,255,255,.84)", fontSize: Typography.small, fontWeight: "700" },
+    unitBody: { padding: Spacing.lg },
 
     unitTop: {
       flexDirection:
