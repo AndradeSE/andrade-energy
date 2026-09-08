@@ -26,7 +26,9 @@ export default function AndradeBarChart({
   formatTotal = (value) => `R$ ${value.toFixed(2).replace(".", ",")}`,
 }: Props) {
   const total = data.reduce((acc, item) => acc + item.value, 0);
-  const palette = [color, "#00A7A0", "#2F80ED", "#7C5CFC", "#FF8A00", "#F2C500"];
+  // Mesma leitura cromática usada no portal web: cada competência recebe
+  // uma cor própria, em vez de repetir apenas o verde institucional.
+  const palette = ["#10B968", "#FFD23F", "#24A7C5", "#72C95B", "#FF9F1C", "#6C63FF"];
 
   return (
     <View
