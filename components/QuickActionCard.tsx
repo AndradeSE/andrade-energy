@@ -22,7 +22,7 @@ export default function QuickActionCard({
       onPress={onPress}
       style={styles.card}
     >
-      <View>{icon}</View>
+      <View style={styles.icon}>{icon}</View>
 
       <Text style={styles.title}>
         {title}
@@ -34,12 +34,18 @@ export default function QuickActionCard({
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    backgroundColor: "#FFF",
-    borderRadius: 18,
-    paddingVertical: 20,
+    paddingVertical: 8,
     alignItems: "center",
     justifyContent: "center",
-    elevation: 2,
+  },
+
+  icon: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#E1F4E8",
   },
 
   title: {
