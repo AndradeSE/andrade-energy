@@ -33,6 +33,11 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
   const insets = useSafeAreaInsets();
   const firstSegment = String(segments[0] ?? "");
 
+  // O consumidor já possui a barra oficial no layout `(tabs)`. Manter esta
+  // barra global montada em paralelo faz a navegação aparecer duplicada em
+  // algumas transições entre a seleção da UC e a área autenticada.
+  if (!IS_GERADOR_APP) return null;
+
   // As rotas principais já renderizam sua própria barra. Autenticação,
   // seleção de ambiente e gestão comercial também têm navegação própria.
   const hidden =
@@ -47,7 +52,7 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
 
   if (hidden) return null;
 
-  const tabs = IS_GERADOR_APP ? generatorTabs : consumerTabs;
+  const tabs = generatorTabs;
 
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 8) }]}>

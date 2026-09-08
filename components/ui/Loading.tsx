@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef } from "react";
-import { Animated, Easing, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, ImageBackground, StyleSheet, Text, View } from "react-native";
 
 import { Colors, Radius, Spacing } from "../../theme";
 
@@ -21,7 +21,8 @@ export default function Loading() {
   }, [fluxo, pulso]);
 
   return (
-    <View accessibilityLabel="Carregando dados" style={styles.container}>
+    <ImageBackground accessibilityLabel="Carregando dados" source={require("../../assets/images/usina-loading.jpeg")} resizeMode="cover" style={styles.container}>
+      <View style={styles.backdrop} />
       <View style={styles.animation}>
         <Animated.View style={[styles.pulse, {
           opacity: pulso.interpolate({ inputRange: [0, 1], outputRange: [0.42, 0] }),
@@ -34,12 +35,13 @@ export default function Loading() {
       <View style={styles.track}>
         <Animated.View style={[styles.flow, { transform: [{ translateX: fluxo.interpolate({ inputRange: [0, 1], outputRange: [-82, 82] }) }] }]} />
       </View>
-    </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, minHeight: 260, width: "100%", alignItems: "center", justifyContent: "center", padding: Spacing.xl, backgroundColor: Colors.background },
+  container: { flex: 1, alignSelf: "stretch", minHeight: 260, width: "100%", alignItems: "center", justifyContent: "center", padding: Spacing.xl, backgroundColor: Colors.primaryDark },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(239,248,243,0.88)" },
   animation: { width: 94, height: 94, alignItems: "center", justifyContent: "center" },
   pulse: { position: "absolute", width: 86, height: 86, borderRadius: 43, backgroundColor: Colors.primary },
   energyCore: { width: 58, height: 58, alignItems: "center", justifyContent: "center", borderRadius: 29, backgroundColor: Colors.primary, shadowColor: Colors.primaryDark, shadowOpacity: 0.22, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 },
