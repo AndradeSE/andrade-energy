@@ -274,6 +274,23 @@ export default function HomeComercial() {
             Acompanhe a comercialização e o acesso dos geradores.
           </Text>
         </View>
+        <Section title="Acesso rápido" framed={false}>
+          <QuickAccessCarousel
+            storageKey="comercial-home"
+            items={[
+              { icon: "business-outline", label: "Geradores", value: `${data?.assinaturas.length ?? 0} assinaturas`, onPress: () => router.push("/geradores/gestao" as any) },
+              { icon: "pulse-outline", label: "Clientes ativos", value: `${data?.resumo.ativas ?? 0} monitorados`, onPress: () => router.push("/geradores/monitoramento" as any) },
+              { icon: "cash-outline", label: "Pagamentos", value: `${financeiro?.cobrancasPendentes ?? 0} pendentes`, badge: Boolean(financeiro?.cobrancasVencidas), onPress: () => router.push({ pathname: "/geradores/gestao", params: { aba: "PAGAMENTOS" } } as any) },
+              { icon: "layers-outline", label: "Empresas parceiras", value: "Identidade e operação", onPress: () => router.push("/admin/empresas" as any) },
+              { icon: "person-add-outline", label: "Convidar gerador", onPress: () => router.push("/geradores/convidar") },
+              { icon: "document-text-outline", label: "Contratos e termos", value: `${data?.documentos.length ?? 0} documentos`, onPress: () => router.push("/geradores/gestao" as any) },
+              { icon: "download-outline", label: "Compartilhar app Gerador", value: baixandoApp === "gerador" ? `Baixando ${progressoApp}%` : "WhatsApp, e-mail ou Bluetooth", onPress: () => void baixarApp("gerador") },
+              { icon: "phone-portrait-outline", label: "Compartilhar app Consumidor", value: baixandoApp === "consumidor" ? `Baixando ${progressoApp}%` : "WhatsApp, e-mail ou Bluetooth", onPress: () => void baixarApp("consumidor") },
+              { icon: "sunny-outline", label: "Gestão de usinas", onPress: () => router.replace("/selecionar-unidade") },
+              { icon: "person-circle-outline", label: "Perfil administrativo", onPress: () => router.push({ pathname: "/admin/perfil", params: { origem: "comercial" } } as any) },
+            ]}
+          />
+        </Section>
         {!loading && data ? (
           <View style={styles.financeGrid}>
             <TouchableOpacity
@@ -386,85 +403,6 @@ export default function HomeComercial() {
             />
           </View>
         )}
-        <Section title="Acesso rápido" framed={false}>
-          <QuickAccessCarousel
-            storageKey="comercial-home"
-            items={[
-              {
-                icon: "business-outline",
-                label: "Geradores",
-                value: `${data?.assinaturas.length ?? 0} assinaturas`,
-                onPress: () => router.push("/geradores/gestao" as any),
-              },
-              {
-                icon: "pulse-outline",
-                label: "Clientes ativos",
-                value: `${data?.resumo.ativas ?? 0} monitorados`,
-                onPress: () => router.push("/geradores/monitoramento" as any),
-              },
-              {
-                icon: "cash-outline",
-                label: "Pagamentos",
-                value: `${financeiro?.cobrancasPendentes ?? 0} pendentes`,
-                badge: Boolean(financeiro?.cobrancasVencidas),
-                onPress: () =>
-                  router.push({
-                    pathname: "/geradores/gestao",
-                    params: { aba: "PAGAMENTOS" },
-                  } as any),
-              },
-              {
-                icon: "layers-outline",
-                label: "Empresas parceiras",
-                value: "Identidade e operação",
-                onPress: () => router.push("/admin/empresas" as any),
-              },
-              {
-                icon: "person-add-outline",
-                label: "Convidar gerador",
-                onPress: () => router.push("/geradores/convidar"),
-              },
-              {
-                icon: "document-text-outline",
-                label: "Contratos e termos",
-                value: `${data?.documentos.length ?? 0} documentos`,
-                onPress: () => router.push("/geradores/gestao" as any),
-              },
-              {
-                icon: "download-outline",
-                label: "Compartilhar app Gerador",
-                value:
-                  baixandoApp === "gerador"
-                    ? `Baixando ${progressoApp}%`
-                    : "WhatsApp, e-mail ou Bluetooth",
-                onPress: () => void baixarApp("gerador"),
-              },
-              {
-                icon: "phone-portrait-outline",
-                label: "Compartilhar app Consumidor",
-                value:
-                  baixandoApp === "consumidor"
-                    ? `Baixando ${progressoApp}%`
-                    : "WhatsApp, e-mail ou Bluetooth",
-                onPress: () => void baixarApp("consumidor"),
-              },
-              {
-                icon: "sunny-outline",
-                label: "Gestão de usinas",
-                onPress: () => router.replace("/selecionar-unidade"),
-              },
-              {
-                icon: "person-circle-outline",
-                label: "Perfil administrativo",
-                onPress: () =>
-                  router.push({
-                    pathname: "/admin/perfil",
-                    params: { origem: "comercial" },
-                  } as any),
-              },
-            ]}
-          />
-        </Section>
         <Text style={styles.section}>RESUMO DA OPERAÇÃO COMERCIAL</Text>
         <View style={styles.summary}>
           <View style={styles.summaryItem}>
