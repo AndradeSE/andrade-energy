@@ -1,6 +1,46 @@
 import { supabase } from "../../config/supabase";
 import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
 import { randomUUID } from "node:crypto";
+import { contratoCorrespondeAoNumeroUc } from "../contratos/acessoContrato.policy";
+
+async function restaurarContratoAssinadoDaMesmaUc(clienteId: string, unidadeId: string, numeroUc: string, empresaId: string) {
+  const { data: orfaos, error } = await supabase
+    .from("contratos")
+    .select("id,numero,status,aceite_cliente_em,contrato_assinado_url,dados_documento,created_at")
+    .eq("cliente_id", clienteId)
+    .eq("empresa_id", empresaId)
+    .is("unidade_consumidora_id", null)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  const correspondentes = (orfaos ?? []).filter((contrato) => contratoCorrespondeAoNumeroUc(contrato, numeroUc));
+  const assinado = correspondentes.find((contrato) =>
+    Boolean(contrato.aceite_cliente_em || contrato.contrato_assinado_url)
+    && String(contrato.status).toUpperCase() === "VIGENTE"
+  );
+  if (!assinado) return null;
+
+  const { data: restaurado, error: erroRestauracao } = await supabase
+    .from("contratos")
+    .update({ unidade_consumidora_id: unidadeId })
+    .eq("id", assinado.id)
+    .is("unidade_consumidora_id", null)
+    .select("id")
+    .single();
+  if (erroRestauracao) throw erroRestauracao;
+
+  const rascunhos = correspondentes
+    .filter((contrato) => contrato.id !== assinado.id && !contrato.aceite_cliente_em && !contrato.contrato_assinado_url)
+    .map((contrato) => contrato.id);
+  if (rascunhos.length) {
+    const { error: erroRascunhos } = await supabase
+      .from("contratos")
+      .update({ status: "CANCELADO" })
+      .in("id", rascunhos);
+    if (erroRascunhos) throw erroRascunhos;
+  }
+  return restaurado;
+}
 
 async function incluirStatusDoCadastro(clientes: any[], empresaId: string) {
   const ids = clientes.map((cliente) => String(cliente?.id ?? "")).filter(Boolean);
@@ -525,7 +565,13 @@ export async function cadastrarUnidadeCliente(clienteId: string, numeroInformado
     ? await supabase.from("unidades_consumidoras").update(dados).eq("id", existente.id).select().single()
     : await supabase.from("unidades_consumidoras").insert(dados).select().single();
   if (resultado.error) throw resultado.error;
-  return resultado.data;
+  const contratoRestaurado = await restaurarContratoAssinadoDaMesmaUc(
+    clienteId,
+    resultado.data.id,
+    numero,
+    empresaId,
+  );
+  return { ...resultado.data, contrato_restaurado: Boolean(contratoRestaurado) };
 }
 
 export async function excluirUnidadeCliente(unidadeId: string, empresaId = EMPRESA_ANDRADE_ID) {

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { acessoPorUnidade, contratoLiberaUnidade } from "./acessoContrato.policy";
+import { acessoPorUnidade, contratoCorrespondeAoNumeroUc, contratoLiberaUnidade } from "./acessoContrato.policy";
 
 const contrato = { id: "c1", cliente_id: "cliente", unidade_consumidora_id: "uc1", status: "ATIVO" };
 test("rascunho e status VIGENTE sem assinatura não liberam", () => {
@@ -36,4 +36,9 @@ test("rascunho de revisão preserva acesso da versão assinada ainda vigente", (
     { ...contrato, id: "anterior", status: "SUBSTITUIDO", aceite_cliente_em: "2026-09-07" },
   ]);
   assert.equal(resultado[0].liberado, true);
+});
+test("restauração exige o mesmo número de UC", () => {
+  assert.equal(contratoCorrespondeAoNumeroUc({ numero: "AE-1204584501840-2026" }, "1204584501840"), true);
+  assert.equal(contratoCorrespondeAoNumeroUc({ numero: "AE-1204584501840-2026" }, "595935101808"), false);
+  assert.equal(contratoCorrespondeAoNumeroUc({ numero: "AE-2026", dados_documento: { numero_uc: "1204584501840" } }, "1204584501840"), true);
 });

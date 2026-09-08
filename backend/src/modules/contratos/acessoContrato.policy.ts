@@ -13,6 +13,20 @@ export function contratoLiberaUnidade(contrato: any, hoje = new Date().toISOStri
   return Boolean(contrato.aceite_cliente_em || validacaoExterna || assinaturaVigente);
 }
 
+/** Evita restaurar um contrato apenas por pertencer ao mesmo cliente. */
+export function contratoCorrespondeAoNumeroUc(contrato: any, numeroUc: unknown): boolean {
+  const uc = String(numeroUc ?? "").replace(/\D/g, "");
+  if (!uc) return false;
+  const numeroContrato = String(contrato?.numero ?? "").replace(/\D/g, "");
+  const numeroSnapshot = String(
+    contrato?.dados_documento?.numero_uc
+      ?? contrato?.dados_documento?.uc_numero
+      ?? contrato?.dados_documento?.numero_instalacao
+      ?? ""
+  ).replace(/\D/g, "");
+  return numeroSnapshot === uc || numeroContrato.includes(uc);
+}
+
 export function acessoPorUnidade(unidades: any[], contratos: any[]) {
   return unidades.map(uc => {
     const vinculados = contratos.filter(c => c.unidade_consumidora_id === uc.id && c.cliente_id === uc.cliente_id);
