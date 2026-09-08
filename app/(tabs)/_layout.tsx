@@ -1,35 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { LocaleDirContext, ParamListBase, TabNavigationState } from "@react-navigation/native";
-import { createMaterialTopTabNavigator, MaterialTopTabNavigationEventMap, MaterialTopTabNavigationOptions } from "@react-navigation/material-top-tabs";
-import { Tabs, withLayoutContext } from "expo-router";
+import { Tabs } from "expo-router";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 
 function TabIcon({ name, color, featured = false }: { name: keyof typeof Ionicons.glyphMap; color: string; featured?: boolean }) {
   if (!featured) return <Ionicons name={name} color={color} size={21} />;
   return <Ionicons name={name} color="#FFFFFF" size={25} style={{ width: 50, height: 50, paddingTop: 12, textAlign: "center", borderRadius: 25, backgroundColor: "#12B981", transform: [{ translateY: -11 }], shadowColor: "#12B981", shadowOpacity: 0.3, shadowRadius: 9, shadowOffset: { width: 0, height: 5 }, elevation: 8 }} />;
 }
-
-const TopTabs = createMaterialTopTabNavigator();
-const OWNER_TAB_ORDER = [
-  "index",
-  "clientes",
-  "usinas",
-  "operacao",
-  "faturas",
-  "financeiro",
-  "perfil",
-];
-
-const OwnerTabs = withLayoutContext<MaterialTopTabNavigationOptions, typeof TopTabs.Navigator, TabNavigationState<ParamListBase>, MaterialTopTabNavigationEventMap>(
-  TopTabs.Navigator,
-  (screens) =>
-    [...screens].sort(
-      (first, second) =>
-        OWNER_TAB_ORDER.indexOf(first.name ?? "") -
-        OWNER_TAB_ORDER.indexOf(second.name ?? "")
-    ),
-  true
-);
 
 export default function TabLayout() {
   const tabStyle = {
@@ -158,23 +134,16 @@ export default function TabLayout() {
   // ===================================================
 
   return (
-    <LocaleDirContext.Provider value="ltr">
-    <OwnerTabs initialRouteName="index" tabBarPosition="bottom" screenOptions={{
-      swipeEnabled: true,
-      animationEnabled: true,
-      lazy: true,
-      tabBarShowIcon: true,
-      tabBarShowLabel: true,
-      tabBarScrollEnabled: false,
+    <Tabs initialRouteName="index" screenOptions={{
+      headerShown: false,
       tabBarActiveTintColor: "#16A34A",
       tabBarInactiveTintColor: "#94A3B8",
-      tabBarLabelStyle: { width: "100%", margin: 0, fontSize: 9, lineHeight: 11, fontWeight: "700", textAlign: "center", textTransform: "none" },
-      tabBarItemStyle: { flex: 1, minWidth: 0, minHeight: 56, paddingHorizontal: 0, paddingVertical: 2 },
-      tabBarContentContainerStyle: { width: "100%", alignItems: "stretch" },
-      tabBarIndicatorStyle: { backgroundColor: "#16A34A", height: 3, top: 0, borderRadius: 3 },
-      tabBarStyle: { height: 70, paddingTop: 5, paddingBottom: 3, overflow: "visible", borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: "#FFFFFF", elevation: 15, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 12, shadowOffset: { width: 0, height: -4 } },
+      tabBarHideOnKeyboard: true,
+      tabBarLabelStyle: { fontSize: 8, lineHeight: 10, fontWeight: "700", marginBottom: 0 },
+      tabBarItemStyle: { minHeight: 52, paddingHorizontal: 0, paddingVertical: 1 },
+      tabBarStyle: { height: 66, paddingTop: 5, paddingBottom: 3, overflow: "visible", borderTopWidth: 1, borderTopColor: "#E2E8F0", borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: "#FFFFFF", elevation: 15, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: -3 } },
     }}>
-      <OwnerTabs.Screen
+      <Tabs.Screen
         name="index"
         options={{
           title: "Home",
@@ -184,7 +153,7 @@ export default function TabLayout() {
         }}
       />
 
-      <OwnerTabs.Screen
+      <Tabs.Screen
         name="clientes"
         options={{
           title: "Clientes",
@@ -194,7 +163,7 @@ export default function TabLayout() {
         }}
       />
 
-      <OwnerTabs.Screen
+      <Tabs.Screen
         name="usinas"
         options={{
           title: "Usinas",
@@ -204,7 +173,7 @@ export default function TabLayout() {
         }}
       />
 
-      <OwnerTabs.Screen
+      <Tabs.Screen
         name="operacao"
         options={{
           title: "Operação",
@@ -214,7 +183,7 @@ export default function TabLayout() {
         }}
       />
 
-      <OwnerTabs.Screen
+      <Tabs.Screen
         name="faturas"
         options={{
           title: "Faturas",
@@ -224,7 +193,7 @@ export default function TabLayout() {
         }}
       />
 
-      <OwnerTabs.Screen
+      <Tabs.Screen
         name="financeiro"
         options={{
           title: "Financeiro",
@@ -234,7 +203,7 @@ export default function TabLayout() {
         }}
       />
 
-      <OwnerTabs.Screen
+      <Tabs.Screen
         name="perfil"
         options={{
           title: "Perfil",
@@ -244,7 +213,7 @@ export default function TabLayout() {
         }}
       />
 
-    </OwnerTabs>
-    </LocaleDirContext.Provider>
+      <Tabs.Screen name="economia" options={{ href: null }} />
+    </Tabs>
   );
 }
