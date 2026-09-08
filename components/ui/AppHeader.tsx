@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
     marginRight: 2,
   },
   consumerSearchAction: {
-    marginRight: 8,
+    marginRight: 14,
   },
   notificationBadge: { position: "absolute", top: 2, right: 0, minWidth: 17, height: 17, alignItems: "center", justifyContent: "center", paddingHorizontal: 3, borderRadius: Radius.round, backgroundColor: "#DC2626" },
   notificationBadgeText: { color: Colors.surface, fontSize: 10, fontWeight: "800" },

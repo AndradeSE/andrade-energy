@@ -689,9 +689,7 @@ export default function SelecionarUnidade() {
                         styles.unitLabel
                       }
                     >
-                      {gestor
-                        ? "USINA:"
-                        : unidade!.apelido ? "NOME DA UNIDADE:" : "UC:"}
+                      NÚMERO DA UC
                     </Text>
 
                     <Text
@@ -699,14 +697,9 @@ export default function SelecionarUnidade() {
                         styles.unitNumber
                       }
                     >
-                      {gestor
-                        ? usina!
-                            .nome
-                        : unidade!.apelido || unidade!.numero}
+                      {unidade!.numero}
                     </Text>
                   </View>
-
-                  {!gestor && unidade ? <TouchableOpacity accessibilityLabel={`Nomear UC ${unidade.numero}`} hitSlop={8} onPress={(event) => { event.stopPropagation(); setUnidadeNomeando(unidade); setApelido(String(unidade.apelido ?? "")); }} style={styles.renameButton}><Ionicons name="pencil-outline" size={17} color={Colors.primary} /><Text style={styles.renameText}>{unidade.apelido ? "Renomear" : "Nomear"}</Text></TouchableOpacity> : null}
 
                   <View
                     style={
@@ -721,84 +714,21 @@ export default function SelecionarUnidade() {
                       {item.status ===
                       "INATIVA"
                         ? "Inativa"
-                        : gestor
-                          ? "Usina ativa"
-                          : "Contrato ativo"}
+                        : "Contrato ativo"}
                     </Text>
                   </View>
                 </View>
 
-                <View
-                  style={
-                    styles.energyFlow
-                  }
-                >
-                  <View
-                    style={
-                      styles.flowDot
-                    }
-                  />
-
-                  <View
-                    style={
-                      styles.flowLine
-                    }
-                  />
-
-                  <View
-                    style={
-                      styles.flowDot
-                    }
-                  />
-
-                  <View
-                    style={
-                      styles.flowLine
-                    }
-                  />
-
-                  <Ionicons
-                    name={
-                      gestor
-                        ? "sunny"
-                        : "flash"
-                    }
-                    size={26}
-                    color={
-                      Colors.primary
-                    }
-                  />
+                <View style={styles.unitFacts}>
+                  <View style={styles.unitFact}>
+                    <Text style={styles.holderLabel}>TITULAR DA FATURA</Text>
+                    <Text numberOfLines={1} style={styles.holder}>{unidade!.titular || usuario?.nome}</Text>
+                  </View>
+                  <View style={styles.unitFact}>
+                    <Text style={styles.holderLabel}>CONCESSIONÁRIA</Text>
+                    <Text numberOfLines={1} style={styles.holder}>{unidade!.distribuidora || "Não informada"}</Text>
+                  </View>
                 </View>
-
-                <Text
-                  style={
-                    styles.holderLabel
-                  }
-                >
-                  {gestor
-                    ? "TITULAR / RESPONSÁVEL"
-                    : "TITULAR"}
-                </Text>
-
-                <Text
-                  style={
-                    styles.holder
-                  }
-                >
-                  {gestor
-                    ? usina!.nome
-                    : unidade!
-                          .titular ||
-                      usuario?.nome}
-                </Text>
-
-                <Text
-                  style={
-                    styles.unitDetail
-                  }
-                >
-                  {!gestor && unidade!.apelido ? `UC ${unidade!.numero} • ${detalhe}` : detalhe}
-                </Text>
 
                 {!gestor &&
                 unidade!
@@ -815,26 +745,12 @@ export default function SelecionarUnidade() {
                   </Text>
                 ) : null}
 
-                <View
-                  style={
-                    styles.openHint
-                  }
-                >
-                  <Text
-                    style={
-                      styles.openText
-                    }
-                  >
-                    Selecionar
-                  </Text>
-
-                  <Ionicons
-                    name="arrow-forward"
-                    size={17}
-                    color={
-                      Colors.primary
-                    }
-                  />
+                <View style={styles.unitActionsRow}>
+                  <TouchableOpacity accessibilityLabel={`Nomear UC ${unidade!.numero}`} hitSlop={8} onPress={(event) => { event.stopPropagation(); setUnidadeNomeando(unidade!); setApelido(String(unidade!.apelido ?? "")); }} style={styles.renameButton}><Ionicons name="pencil-outline" size={17} color={Colors.primary} /><Text style={styles.renameText}>{unidade!.apelido ? "Alterar nome" : "Dar um nome"}</Text></TouchableOpacity>
+                  <View style={styles.openHint}>
+                    <Text style={styles.openText}>Acessar</Text>
+                    <Ionicons name="arrow-forward" size={17} color="#FFFFFF" />
+                  </View>
                 </View>
                 </View>
               </View>
@@ -1430,7 +1346,7 @@ const styles =
       elevation: 2,
     },
 
-    unitCover: { height: 168, justifyContent: "flex-end" },
+    unitCover: { height: 142, justifyContent: "flex-end" },
     unitCoverImage: { borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl },
     unitCoverShade: { flex: 1, justifyContent: "space-between", padding: Spacing.md },
     unitCoverTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
@@ -1439,9 +1355,9 @@ const styles =
     unitLiveText: { color: "#FFF", fontSize: 9, fontWeight: "900", letterSpacing: .8 },
     unitPhotoButton: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: Radius.round, backgroundColor: "rgba(2,32,23,.62)" },
     unitCoverEyebrow: { color: "rgba(255,255,255,.72)", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
-    unitCoverTitle: { marginTop: 3, color: "#FFF", fontSize: 24, fontWeight: "900", textShadowColor: "rgba(0,0,0,.35)", textShadowRadius: 4 },
+    unitCoverTitle: { marginTop: 3, color: "#FFF", fontSize: 22, fontWeight: "900", textShadowColor: "rgba(0,0,0,.35)", textShadowRadius: 4 },
     unitCoverUtility: { marginTop: 4, color: "rgba(255,255,255,.84)", fontSize: Typography.small, fontWeight: "700" },
-    unitBody: { padding: Spacing.lg },
+    unitBody: { padding: Spacing.md },
 
     unitTop: {
       flexDirection:
@@ -1542,6 +1458,22 @@ const styles =
         "700",
     },
 
+    unitFacts: {
+      flexDirection: "row",
+      gap: Spacing.sm,
+      marginTop: Spacing.md,
+    },
+
+    unitFact: {
+      flex: 1,
+      minWidth: 0,
+      padding: Spacing.sm,
+      borderWidth: 1,
+      borderColor: "#D7E6DE",
+      borderRadius: Radius.md,
+      backgroundColor: "#F2F7F4",
+    },
+
     unitDetail: {
       marginTop:
         Spacing.md,
@@ -1565,16 +1497,16 @@ const styles =
         "row",
       alignItems:
         "center",
-      justifyContent:
-        "flex-end",
+      justifyContent: "center",
       gap: 4,
-      marginTop:
-        Spacing.md,
+      minHeight: 40,
+      paddingHorizontal: 14,
+      borderRadius: Radius.round,
+      backgroundColor: Colors.primary,
     },
 
     openText: {
-      color:
-        Colors.primary,
+      color: "#FFFFFF",
       fontSize:
         Typography.small,
       fontWeight:
@@ -1582,6 +1514,9 @@ const styles =
     },
 
     renameButton: {
+      flex: 1,
+      minHeight: 40,
+      justifyContent: "center",
       flexDirection: "row",
       alignItems: "center",
       gap: 5,
@@ -1591,6 +1526,16 @@ const styles =
       borderColor: "#B9D8C7",
       borderRadius: Radius.md,
       backgroundColor: Colors.primaryLight,
+    },
+
+    unitActionsRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Spacing.sm,
+      marginTop: Spacing.md,
+      paddingTop: Spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: "#E0EAE5",
     },
 
     renameText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" },
