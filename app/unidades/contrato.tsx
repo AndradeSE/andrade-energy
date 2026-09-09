@@ -4,7 +4,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import ChoiceField from "../../components/cadastro/ChoiceField";
 import FormField from "../../components/cadastro/FormField";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
@@ -178,7 +177,6 @@ export default function ContratoDaUnidade() {
     return {
       numero: numeroContrato,
       termo_adesao: termoAdesao,
-      status,
       desconto,
       data_assinatura: inicio,
       vigencia_inicio: inicio,
@@ -376,9 +374,15 @@ export default function ContratoDaUnidade() {
         </Card>
 
         <Card>
+          <View style={styles.infoGrid}>
+            <InfoContrato
+              label="Status do contrato"
+              value={novoContrato ? "Nova revisão em rascunho" : "Rascunho"}
+              wide
+            />
+          </View>
           <FormField label="Número do contrato *" value={numeroContrato} onChangeText={setNumeroContrato} placeholder="Ex.: AE-2026-001" />
           <FormField label="Termo de adesão" value={termoAdesao} onChangeText={setTermoAdesao} placeholder="Ex.: Termo assinado digitalmente" />
-          <ChoiceField label="Status" value={status} onChange={setStatus} options={[{ label: "Ativo", value: "ATIVO" }, { label: "Vigente", value: "VIGENTE" }, { label: "Vencido", value: "VENCIDO" }]} />
           <FormField label="Desconto contratado (%)" value={desconto} onChangeText={(valor) => setDesconto(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" placeholder="0" />
           <FormField label="Início da vigência" value={inicio} onChangeText={setInicio} keyboardType="numbers-and-punctuation" placeholder="DD/MM/AAAA" />
           <FormField label="Vencimento do contrato (automático)" value={fim} editable={false} placeholder="Calculado pelo prazo" />
