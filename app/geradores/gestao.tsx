@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -9,16 +8,13 @@ import {
   Modal,
   Pressable,
   RefreshControl,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import PortalBrandLogo from "../../components/brand/PortalBrandLogo";
 import CommercialTabs from "../../components/commercial/CommercialTabs";
-import { ElasticScrollView as ScrollView, Screen } from "../../components/ui";
+import { AppHeader, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   alterarStatusAssinatura,
@@ -42,7 +38,6 @@ const date = (value: unknown) =>
     : "—";
 
 export default function GestaoGeradores() {
-  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ aba?: string }>();
   const { user } = useAuth();
   const [data, setData] = useState<PainelComercial | null>(null);
@@ -108,60 +103,16 @@ export default function GestaoGeradores() {
     );
   return (
     <Screen>
-      <StatusBar backgroundColor="#082F26" barStyle="light-content" />
-      <LinearGradient
-        colors={["#082F26", "#0B4A39", "#0A5B43"]}
-        end={{ x: 1, y: 0.85 }}
-        start={{ x: 0, y: 0 }}
-        style={[
-          styles.header,
-          { marginTop: -insets.top, paddingTop: insets.top + Spacing.sm },
-        ]}
-      >
-        <View style={styles.headerTop}>
-          <TouchableOpacity
-            accessibilityLabel="Abrir menu"
-            activeOpacity={0.78}
-            onPress={() => setMenuAberto(true)}
-            style={styles.headerAction}
-          >
-            <Ionicons name="menu-outline" size={27} color="#FFF" />
-          </TouchableOpacity>
-          <PortalBrandLogo height={30} width={104} />
-          <View style={styles.headerCopy}>
-            <Text style={styles.headerEyebrow}>GESTÃO COMERCIAL</Text>
-            <Text numberOfLines={1} style={styles.headerTitle}>
-              Gestão de geradores
-            </Text>
-          </View>
-          <TouchableOpacity
-            accessibilityLabel="Abrir perfil"
-            activeOpacity={0.78}
-            onPress={() =>
-              router.push({
-                pathname: "/admin/perfil",
-                params: { origem: "comercial" },
-              } as any)
-            }
-            style={styles.headerAction}
-          >
-            <Ionicons name="person-outline" size={21} color="#FFF" />
-          </TouchableOpacity>
-        </View>
-        <TouchableOpacity
-          accessibilityLabel="Trocar ambiente de gestão"
-          activeOpacity={0.82}
-          onPress={() => router.replace("/admin/escolher-area" as any)}
-          style={styles.environmentSwitch}
-        >
-          <View style={styles.environmentCurrent}>
-            <View style={styles.liveDot} />
-            <Text style={styles.environmentLabel}>Ambiente comercial</Text>
-          </View>
-          <Text style={styles.environmentAction}>Trocar</Text>
-          <Ionicons name="chevron-forward" size={14} color="#F6CC32" />
-        </TouchableOpacity>
-      </LinearGradient>
+      <AppHeader
+        collapsePlantContextOnMount
+        environmentName="Gestão comercial"
+        icon="briefcase-outline"
+        showPlantContext={false}
+        title="Gestão comercial"
+        subtitle="Administração"
+        contextTitle={aba === "ASSINATURAS" ? "Assinaturas" : aba === "GERADORES" ? "Geradores" : "Gestão de geradores"}
+        contextSubtitle="Cadastros, planos e situação comercial"
+      />
       <Modal
         animationType="fade"
         transparent
