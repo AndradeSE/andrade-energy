@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { calcularPropostaComercial } from "./propostaConvite.service";
+import { calcularPropostaComercial, gerarPropostaPdf } from "./propostaConvite.service";
 
 const base = {
   consumo: 68,
@@ -28,4 +28,33 @@ test("GD1 nunca aplica Fio B", () => {
   const resultado = calcularPropostaComercial({ ...base, tipoGd: "GD1", absorveDisponibilidade: true, absorveFioB: false });
   assert.equal(resultado.fioB, 0);
   assert.ok(resultado.descontoReal <= 40);
+});
+
+test("proposta comercial ocupa exatamente duas paginas", async () => {
+  const historicoMensal = Array.from({ length: 6 }, (_, indice) => ({
+    referencia: `0${indice + 1}/2026`,
+    semBeneficio: 300,
+    comBeneficio: 190,
+    economia: 110,
+  }));
+  const pdf = await gerarPropostaPdf({
+    empresa: "Andrade Energy",
+    uc: "123456789",
+    tipoGd: "GD2",
+    cliente: "Cliente de teste",
+    usina: "Usina de teste",
+    historicoMensal,
+    descontoContratado: 40,
+    descontoReal: 36,
+    economiaMensal: 110,
+    consumo: 300,
+    base: 360,
+    valorAndrade: 216,
+    disponibilidade: 20,
+    fioB: 12,
+    totalProjetado: 248,
+    possuiGd: false,
+  });
+  const paginas = pdf.toString("latin1").match(/\/Type\s*\/Page\b/g) ?? [];
+  assert.equal(paginas.length, 2);
 });

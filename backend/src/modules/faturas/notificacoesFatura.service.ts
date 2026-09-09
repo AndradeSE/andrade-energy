@@ -76,11 +76,22 @@ async function enviarEmail(item: any) {
   const nomeDocumento = somenteAndrade ? "fatura-andrade.pdf" : "fatura-unificada.pdf";
   const tituloDocumento = somenteAndrade ? "Fatura Andrade Energy" : "Fatura Unificada Andrade Energy";
   const rotuloValor = somenteAndrade ? "Valor da cobrança Andrade" : "Total unificado";
-  const anexosFatura = await Promise.all([
-    baixarAnexo(fatura.pdf_cemig_url, "fatura-cemig.pdf"),
-    baixarAnexo(fatura.pdf_usina_url, "fatura-usina.pdf"),
-    baixarAnexo(fatura.pdf_unificada_url, nomeDocumento),
-  ]);
+  // Na cobrança separada, pdf_usina_url e pdf_unificada_url representam a
+  // mesma cobrança Andrade. Anexar ambos duplicava o documento com nomes
+  // diferentes. A parcela da usina só é separada quando a cobrança é unificada.
+  const documentosDaCobranca = somenteAndrade
+    ? [
+        [fatura.pdf_cemig_url, "fatura-concessionaria.pdf"],
+        [fatura.pdf_unificada_url, nomeDocumento],
+      ]
+    : [
+        [fatura.pdf_cemig_url, "fatura-concessionaria.pdf"],
+        [fatura.pdf_usina_url, "demonstrativo-andrade.pdf"],
+        [fatura.pdf_unificada_url, nomeDocumento],
+      ];
+  const anexosFatura = await Promise.all(
+    documentosDaCobranca.map(([caminho, nome]) => baixarAnexo(caminho, nome)),
+  );
   const caminhoRelatorio = `${fatura.cliente_id}/${fatura.id}/${VERSAO_RELATORIO_CALCULO}.pdf`;
   const relatorio = await baixarAnexo(
     caminhoRelatorio,
@@ -89,7 +100,10 @@ async function enviarEmail(item: any) {
   const anexos = relatorio ? [...anexosFatura, relatorio] : anexosFatura;
   const assunto = `Sua fatura Andrade Energy — ${fatura.referencia}`;
   const avisoSeparado = somenteAndrade ? "<p><strong>Atenção:</strong> a conta da concessionária permanece separada e também deve ser paga.</p>" : "";
-  const html = `<h2>Sua ${tituloDocumento} está pronta</h2><p>${rotuloValor}: <strong>${moeda(fatura.valor_total_unificado)}</strong></p><p>Vencimento: <strong>${fatura.vencimento}</strong></p><p>Economia real: <strong>${moeda(fatura.economia_real)}</strong> (${Number(fatura.desconto_real_percentual ?? 0).toFixed(2)}%)</p>${avisoSeparado}<p>Os documentos da concessionária, da usina, a ${tituloDocumento} e a memória de cálculo estão anexados.</p>`;
+  const descricaoAnexos = somenteAndrade
+    ? `A conta da concessionária, a ${tituloDocumento} e a memória de cálculo estão anexadas.`
+    : `A conta da concessionária, o demonstrativo Andrade, a ${tituloDocumento} e a memória de cálculo estão anexados.`;
+  const html = `<h2>Sua ${tituloDocumento} está pronta</h2><p>${rotuloValor}: <strong>${moeda(fatura.valor_total_unificado)}</strong></p><p>Vencimento: <strong>${fatura.vencimento}</strong></p><p>Economia real: <strong>${moeda(fatura.economia_real)}</strong> (${Number(fatura.desconto_real_percentual ?? 0).toFixed(2)}%)</p>${avisoSeparado}<p>${descricaoAnexos}</p>`;
 
   if (await microsoftEmailConfigurado()) {
     return enviarEmailMicrosoft({ destinatario: item.destinatario, assunto, html, anexos });

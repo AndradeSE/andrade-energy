@@ -181,7 +181,7 @@ export async function obterPropostaParaConvite(clienteId: string, empresaId: str
   };
 }
 
-async function gerarPropostaPdf(d: any) {
+export async function gerarPropostaPdf(d: any) {
   return new Promise<Buffer>((resolve, reject) => {
     const pdf = new PDFDocument({ size: "A4", margins: { top: 0, right: 42, bottom: 32, left: 42 }, info: { Title: `Proposta comercial - UC ${d.uc}` } });
     const partes: Buffer[] = [];
@@ -284,7 +284,9 @@ async function gerarPropostaPdf(d: any) {
     pdf.font("Helvetica").fontSize(7.7).text(d.possuiGd
       ? "O desconto real considera os custos energéticos convencionais da competência. Multas, iluminação pública, bandeiras e cobranças extraordinárias não são usados para mensurar o desconto energético."
       : "Como esta conta ainda é pré-GD, a simulação considera o consumo como compensado. Assim que chegar a primeira fatura com GD, as tarifas e parcelas reais substituem automaticamente a estimativa.", 55, criterioY + 28, { width: 480, lineGap: 2 });
-    pdf.fillColor("#718078").fontSize(7).text("Documento informativo elaborado a partir dos dados disponíveis no sistema.", 42, 805, { width: 511, align: "center" });
+    // Mantém o rodapé dentro da área útil. Em y=805 o PDFKit podia criar
+    // automaticamente uma terceira página contendo apenas este texto.
+    pdf.fillColor("#718078").fontSize(7).text("Documento informativo elaborado a partir dos dados disponíveis no sistema.", 42, 782, { width: 511, align: "center", lineBreak: false });
     pdf.end();
   });
 }
