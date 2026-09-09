@@ -4,6 +4,11 @@ export function empresaIdDoUsuario(usuario: any) {
   return String(usuario?.empresa_id ?? EMPRESA_ANDRADE_ID);
 }
 
+export function usuarioEhSuperAdministradorAndrade(usuario: any) {
+  return String(usuario?.perfil ?? "").toUpperCase() === "ADMIN"
+    && String(usuario?.empresa_principal_id ?? usuario?.empresa_id ?? "") === EMPRESA_ANDRADE_ID;
+}
+
 export const IDENTIDADE_ANDRADE = {
   id: EMPRESA_ANDRADE_ID,
   slug: "andrade-energy",

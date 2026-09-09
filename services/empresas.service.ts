@@ -15,6 +15,10 @@ export type IdentidadeEmpresa = {
   ativo?: boolean;
   empresa_proprietaria: boolean;
   identidade_personalizada: boolean;
+  nome_remetente?: string | null;
+  email_remetente?: string | null;
+  email_resposta?: string | null;
+  dominio_email_verificado?: boolean;
 };
 
 export async function obterEmpresaAtual() {
@@ -34,6 +38,10 @@ export type NovaEmpresa = {
   corPrimaria?: string;
   corSecundaria?: string;
   identidadePersonalizada?: boolean;
+  nomeRemetente?: string;
+  emailRemetente?: string;
+  emailResposta?: string;
+  dominioEmailVerificado?: boolean;
 };
 
 export async function listarEmpresas() {
@@ -48,5 +56,15 @@ export async function criarEmpresa(input: NovaEmpresa) {
 
 export async function atualizarEmpresa(id: string, input: Partial<NovaEmpresa> & { ativo?: boolean }) {
   const { data } = await api.patch<IdentidadeEmpresa>(`/empresas/${id}`, input);
+  return data;
+}
+
+export async function listarMinhasEmpresas() {
+  const { data } = await api.get<Array<IdentidadeEmpresa & { papel: string; principal: boolean }>>("/empresas/minhas");
+  return data;
+}
+
+export async function selecionarEmpresa(id: string) {
+  const { data } = await api.post(`/empresas/${id}/selecionar`);
   return data;
 }

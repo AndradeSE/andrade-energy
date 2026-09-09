@@ -3,7 +3,7 @@ import { NextFunction, Request, Response } from "express";
 import { supabase } from "../config/supabase";
 import { hashToken } from "../utils/token";
 import { empresaIdDoUsuario } from "../config/empresa";
-import { EMPRESA_ANDRADE_ID } from "../config/empresa";
+import { usuarioEhSuperAdministradorAndrade } from "../config/empresa";
 
 export async function exigirAutenticacao(req: Request, res: Response, next: NextFunction) {
   const token = req.headers.authorization?.replace(/^Bearer\s+/i, "").trim();
@@ -11,7 +11,7 @@ export async function exigirAutenticacao(req: Request, res: Response, next: Next
 
   const { data, error } = await supabase
     .from("sessoes_usuarios")
-    .select("id, usuario_id, expira_em, usuarios(*)")
+    .select("id, usuario_id, empresa_ativa_id, expira_em, usuarios(*)")
     .eq("token_hash", hashToken(token))
     .is("revogada_em", null)
     .gt("expira_em", new Date().toISOString())
@@ -52,8 +52,32 @@ export async function exigirAutenticacao(req: Request, res: Response, next: Next
     console.error("Não foi possível renovar a sessão ativa:", renovacaoError.message);
   }
 
-  (req as any).usuario = usuario;
-  (req as any).empresaId = empresaIdDoUsuario(usuario);
+  let empresaAtivaId = String(data?.empresa_ativa_id ?? usuario.empresa_id ?? "");
+  const { data: vinculo } = await supabase
+    .from("empresa_usuarios")
+    .select("empresa_id,papel")
+    .eq("usuario_id", usuario.id)
+    .eq("empresa_id", empresaAtivaId)
+    .eq("ativo", true)
+    .maybeSingle();
+  if (!vinculo) {
+    const { data: principal } = await supabase
+      .from("empresa_usuarios")
+      .select("empresa_id,papel")
+      .eq("usuario_id", usuario.id)
+      .eq("ativo", true)
+      .order("principal", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!principal) return res.status(403).json({ message: "Sua conta não possui acesso a uma empresa ativa." });
+    empresaAtivaId = principal.empresa_id;
+    await supabase.from("sessoes_usuarios").update({ empresa_ativa_id: empresaAtivaId }).eq("id", data!.id);
+  }
+
+  const usuarioDaSessao = { ...usuario, empresa_principal_id: usuario.empresa_id, empresa_id: empresaAtivaId };
+  (req as any).usuario = usuarioDaSessao;
+  (req as any).empresaId = empresaAtivaId;
+  (req as any).sessaoId = data!.id;
   return next();
 }
 
@@ -72,7 +96,7 @@ export function exigirAdministrador(req: Request, res: Response, next: NextFunct
 
 export function exigirSuperAdministradorAndrade(req: Request, res: Response, next: NextFunction) {
   const usuario = (req as any).usuario;
-  if (usuario?.perfil !== "ADMIN" || empresaIdDoUsuario(usuario) !== EMPRESA_ANDRADE_ID) {
+  if (!usuarioEhSuperAdministradorAndrade(usuario)) {
     return res.status(403).json({ message: "Acesso exclusivo da administração Andrade Energy." });
   }
   return next();

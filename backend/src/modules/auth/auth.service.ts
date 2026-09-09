@@ -24,6 +24,7 @@ import { extrairTextoPDF } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
 import { readFile, unlink } from "node:fs/promises";
 import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
+import { conferirSenha, protegerSenha } from "../../utils/password";
 
 type DadosPerfil = {
   nome?: unknown;
@@ -115,9 +116,10 @@ async function guardarFaturaDeCadastro(caminhoArquivo: string) {
   return caminhoPrivado;
 }
 
-async function enviarEmailDeVerificacaoCadastro(input: { nome: string; email: string; token: string }) {
+async function enviarEmailDeVerificacaoCadastro(input: { nome: string; email: string; token: string; empresaId?: string }) {
   const link = `andradeenergyconsumidor://verificar-email?token=${encodeURIComponent(input.token)}`;
   return enviarEmailTransacional({
+    empresaId: input.empresaId,
     destinatario: input.email,
     assunto: "Confirme seu e-mail — Andrade Energy",
     html: `<div style="max-width:560px;margin:auto;padding:28px;font-family:Arial,sans-serif;color:#252925;line-height:1.6;background:#f7f8f7;border-radius:14px"><h2 style="margin-top:0;color:#39804a">Confirme seu e-mail</h2><p>Olá, <strong>${escaparHtml(input.nome)}</strong>.</p><p>Sua conta foi criada com os dados cadastrados pelo gerador. Confirme que este endereço de e-mail pertence a você para liberar o acesso.</p><p style="margin:26px 0"><a href="${link}" style="display:inline-block;padding:14px 22px;background:#39804a;color:#fff;font-weight:700;text-decoration:none;border-radius:8px">Confirmar meu e-mail</a></p><p style="font-size:13px;color:#6b706b">Após a confirmação, você poderá entrar no aplicativo normalmente.</p><p style="font-size:13px;color:#6b706b">Este link é válido por 24 horas. Se você não solicitou este cadastro, ignore esta mensagem.</p></div>`,
@@ -256,14 +258,14 @@ export async function alterarMinhaSenha(usuarioId: string, senhaAtual: unknown, 
   const usuario = await buscarUsuario(usuarioId);
   if (!usuario?.ativo) throw new Error("Conta não está ativa.");
   if (!String(senhaAtual ?? "")) throw new Error("Informe sua senha atual.");
-  if (usuario.senha !== String(senhaAtual)) throw new Error("A senha atual está incorreta.");
+  if (!(await conferirSenha(String(senhaAtual), usuario.senha))) throw new Error("A senha atual está incorreta.");
   if (String(novaSenha ?? "").length < 6) {
     throw new Error("A nova senha deve ter pelo menos 6 caracteres.");
   }
 
   const { error } = await supabase
     .from("usuarios")
-    .update({ senha: String(novaSenha) })
+    .update({ senha: await protegerSenha(String(novaSenha)) })
     .eq("id", usuarioId);
   if (error) throw error;
 
@@ -276,7 +278,7 @@ export async function excluirMinhaConta(usuarioId: string, senhaAtual: unknown) 
   const usuario = await buscarUsuario(usuarioId);
   if (!usuario?.ativo) throw new Error("Esta conta já foi desativada.");
   if (!String(senhaAtual ?? "")) throw new Error("Informe sua senha para excluir a conta.");
-  if (usuario.senha !== String(senhaAtual)) throw new Error("A senha informada está incorreta.");
+  if (!(await conferirSenha(String(senhaAtual), usuario.senha))) throw new Error("A senha informada está incorreta.");
 
   // A conta deixa de poder entrar, mas os dados comerciais continuam íntegros
   // para não apagar clientes, unidades, faturas ou histórico da usina.
@@ -627,7 +629,7 @@ export async function reenviarVerificacaoDeCadastro(emailInformado: unknown) {
     email_verificacao_token_hash: hashToken(token),
     email_verificacao_expira_em: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
   });
-  const emailEnviado = await enviarEmailDeVerificacaoCadastro({ nome: usuario.nome, email, token }).catch(() => false);
+  const emailEnviado = await enviarEmailDeVerificacaoCadastro({ nome: usuario.nome, email, token, empresaId: usuario.empresa_id }).catch(() => false);
   return { ...respostaPadrao, emailEnviado };
 }
 
@@ -646,6 +648,7 @@ export async function cadastrarConta(input: { nome: string; cpf: string; email: 
   let emailEnviado = false;
   try {
     emailEnviado = await enviarEmailTransacional({
+      empresaId: input.empresa_id,
       destinatario: input.email.trim().toLowerCase(),
       assunto: "Confirmação de cadastro — Andrade Energy",
       html: `<div style="font-family:Arial,sans-serif;color:#252925;line-height:1.6"><h2 style="color:#39804a">Sua conta foi criada</h2><p>Olá, <strong>${input.nome.trim()}</strong>.</p><p>Seu cadastro na Andrade Energy foi concluído e o acesso já está disponível.</p><p>Use seu e-mail e a senha cadastrada para entrar no aplicativo.</p><p style="color:#6b706b;font-size:13px">Se você não realizou este cadastro, entre em contato com a Andrade Energy.</p></div>`,

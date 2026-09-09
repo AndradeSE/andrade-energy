@@ -6,12 +6,14 @@ import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform,
 import { AppHeader, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import { atualizarEmpresa, criarEmpresa, IdentidadeEmpresa, listarEmpresas, NovaEmpresa } from "../../services/empresas.service";
+import { useEmpresa } from "../../contexts/EmpresaContext";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { emailOpcionalValido, normalizarEmail } from "../../utils/email";
 
-const inicial: NovaEmpresa = { nome: "", slug: "", documento: "", emailSuporte: "", telefoneSuporte: "", dominio: "", logoUrl: "", corPrimaria: "#087A46", corSecundaria: "#F7D75C", identidadePersonalizada: true };
+const inicial: NovaEmpresa = { nome: "", slug: "", documento: "", emailSuporte: "", telefoneSuporte: "", dominio: "", logoUrl: "", corPrimaria: "#087A46", corSecundaria: "#F7D75C", identidadePersonalizada: true, nomeRemetente: "", emailRemetente: "", emailResposta: "", dominioEmailVerificado: false };
 
 export default function EmpresasAdmin() {
+  const { empresa: empresaAtiva, trocarEmpresa } = useEmpresa();
   const { usuario } = useAuth();
   const [empresas, setEmpresas] = useState<IdentidadeEmpresa[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,13 +35,14 @@ export default function EmpresasAdmin() {
   const alterar = (campo: keyof NovaEmpresa, valor: any) => setForm((atual) => ({ ...atual, [campo]: valor }));
   function abrirEdicao(empresa: IdentidadeEmpresa) {
     setEditando(empresa);
-    setForm({ nome: empresa.nome, slug: empresa.slug, razaoSocial: empresa.razao_social ?? "", documento: empresa.documento ?? "", emailSuporte: empresa.email_suporte ?? "", telefoneSuporte: empresa.telefone_suporte ?? "", dominio: empresa.dominio ?? "", logoUrl: empresa.logo_url ?? "", corPrimaria: empresa.cor_primaria, corSecundaria: empresa.cor_secundaria, identidadePersonalizada: empresa.identidade_personalizada });
+    setForm({ nome: empresa.nome, slug: empresa.slug, razaoSocial: empresa.razao_social ?? "", documento: empresa.documento ?? "", emailSuporte: empresa.email_suporte ?? "", telefoneSuporte: empresa.telefone_suporte ?? "", dominio: empresa.dominio ?? "", logoUrl: empresa.logo_url ?? "", corPrimaria: empresa.cor_primaria, corSecundaria: empresa.cor_secundaria, identidadePersonalizada: empresa.identidade_personalizada, nomeRemetente: empresa.nome_remetente ?? empresa.nome, emailRemetente: empresa.email_remetente ?? "", emailResposta: empresa.email_resposta ?? empresa.email_suporte ?? "", dominioEmailVerificado: empresa.dominio_email_verificado ?? false });
     setAberto(true);
   }
   function fechar() { setAberto(false); setEditando(null); setForm(inicial); }
   async function salvar() {
     if (!form.nome.trim()) return Alert.alert("Nome obrigatório", "Informe o nome da empresa.");
     if (!emailOpcionalValido(form.emailSuporte ?? "")) return Alert.alert("E-mail inválido", "Informe um e-mail de suporte válido ou deixe o campo vazio.");
+    if (!emailOpcionalValido(form.emailRemetente ?? "") || !emailOpcionalValido(form.emailResposta ?? "")) return Alert.alert("E-mail inválido", "Revise o remetente e o e-mail de resposta.");
     const dados = { ...form, emailSuporte: normalizarEmail(form.emailSuporte ?? "") };
     setSalvando(true);
     try { if (editando) await atualizarEmpresa(editando.id, { ...dados, ativo: editando.ativo !== false }); else await criarEmpresa(dados); fechar(); await carregar(); Alert.alert(editando ? "Empresa atualizada" : "Empresa criada", editando ? "A identidade foi atualizada." : "A empresa já pode receber usuários, usinas, clientes e faturas isolados."); }
@@ -61,10 +64,12 @@ export default function EmpresasAdmin() {
         </View>
         <View style={styles.divider} />
         <View style={styles.cardBottom}><View style={styles.colors}><View style={[styles.dot, { backgroundColor: empresa.cor_primaria || Colors.primary }]} /><View style={[styles.dot, { backgroundColor: empresa.cor_secundaria || Colors.secondary }]} /><Text numberOfLines={1} style={styles.slug}>{empresa.slug}</Text></View><View style={styles.editHint}><Text style={styles.editText}>Ver e editar</Text><Ionicons name="chevron-forward" size={16} color={Colors.primary} /></View></View>
+        <TouchableOpacity disabled={empresaAtiva.id === empresa.id} onPress={async (evento) => { evento.stopPropagation(); try { await trocarEmpresa(empresa.id); Alert.alert("Ambiente alterado", `Agora você está operando ${empresa.nome}.`); } catch (error: any) { Alert.alert("Empresas", error?.response?.data?.message ?? "Não foi possível trocar o ambiente."); } }} style={[styles.save, { marginTop: 12 }, empresaAtiva.id === empresa.id && { opacity: 0.55 }]}><Text style={styles.saveText}>{empresaAtiva.id === empresa.id ? "Ambiente atual" : "Operar esta empresa"}</Text></TouchableOpacity>
       </Card></TouchableOpacity>)}
     </ScrollView>
     <Modal animationType="slide" transparent visible={aberto} onRequestClose={fechar}><KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.backdrop}><View style={styles.modal}><View style={styles.modalHeader}><View style={styles.modalTitleCopy}><Text style={styles.modalEyebrow}>{editando ? "EMPRESA PARCEIRA" : "NOVA PARCERIA"}</Text><Text style={styles.modalTitle}>{editando ? "Editar empresa" : "Nova empresa"}</Text></View><TouchableOpacity accessibilityLabel="Fechar" hitSlop={12} onPress={fechar} style={styles.close}><Ionicons name="close" size={24} color={Colors.text} /></TouchableOpacity></View>
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.form}>{([['nome','Nome da empresa'],['razaoSocial','Razão social'],['slug','Identificador (slug)'],['documento','CNPJ/CPF'],['emailSuporte','E-mail de suporte'],['telefoneSuporte','Telefone de suporte'],['dominio','Domínio'],['logoUrl','URL da logo'],['corPrimaria','Cor principal'],['corSecundaria','Cor secundária']] as [keyof NovaEmpresa,string][]).map(([campo,label]) => <View key={campo}><Text style={styles.label}>{label}</Text><TextInput autoCapitalize={campo === 'nome' || campo === 'razaoSocial' ? 'words' : 'none'} autoCorrect={false} keyboardType={campo === 'emailSuporte' ? 'email-address' : 'default'} onChangeText={(v) => alterar(campo, campo === 'emailSuporte' ? normalizarEmail(v) : v)} placeholder={label} placeholderTextColor={Colors.subtitle} style={styles.input} value={String(form[campo] ?? '')} /></View>)}
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.form}>{([['nome','Nome da empresa'],['razaoSocial','Razão social'],['slug','Identificador (slug)'],['documento','CNPJ/CPF'],['emailSuporte','E-mail de suporte'],['telefoneSuporte','Telefone de suporte'],['dominio','Domínio'],['logoUrl','URL da logo'],['corPrimaria','Cor principal'],['corSecundaria','Cor secundária'],['nomeRemetente','Nome exibido nos e-mails'],['emailRemetente','E-mail remetente (From)'],['emailResposta','E-mail para respostas (Reply-To)']] as [keyof NovaEmpresa,string][]).map(([campo,label]) => <View key={campo}><Text style={styles.label}>{label}</Text><TextInput autoCapitalize={campo === 'nome' || campo === 'razaoSocial' || campo === 'nomeRemetente' ? 'words' : 'none'} autoCorrect={false} keyboardType={['emailSuporte','emailRemetente','emailResposta'].includes(campo) ? 'email-address' : 'default'} onChangeText={(v) => alterar(campo, ['emailSuporte','emailRemetente','emailResposta'].includes(campo) ? normalizarEmail(v) : v)} placeholder={label} placeholderTextColor={Colors.subtitle} style={styles.input} value={String(form[campo] ?? '')} /></View>)}
+        <View style={styles.switchRow}><View style={styles.copy}><Text style={styles.name}>Domínio de e-mail verificado</Text><Text style={styles.meta}>Ative somente depois de validar o domínio no Resend. Até lá, o sistema usa o domínio padrão com o nome desta empresa.</Text></View><Switch value={Boolean(form.dominioEmailVerificado)} onValueChange={(v) => alterar('dominioEmailVerificado',v)} /></View>
         <View style={styles.switchRow}><View style={styles.copy}><Text style={styles.name}>Identidade própria</Text><Text style={styles.meta}>Usar logo e cores desta empresa no app.</Text></View><Switch value={Boolean(form.identidadePersonalizada)} onValueChange={(v) => alterar('identidadePersonalizada',v)} /></View>
         {editando && !editando.empresa_proprietaria ? <View style={styles.switchRow}><View style={styles.copy}><Text style={styles.name}>Empresa ativa</Text><Text style={styles.meta}>Permite que os usuários acessem esta operação.</Text></View><Switch value={editando.ativo !== false} onValueChange={(v) => setEditando((atual) => atual ? { ...atual, ativo: v } : atual)} /></View> : null}
         <TouchableOpacity disabled={salvando} onPress={salvar} style={styles.save}>{salvando ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveText}>{editando ? "Salvar alterações" : "Criar empresa"}</Text>}</TouchableOpacity>

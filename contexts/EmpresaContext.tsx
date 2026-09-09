@@ -1,7 +1,7 @@
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "./AuthContext";
-import { IdentidadeEmpresa, obterEmpresaAtual } from "../services/empresas.service";
+import { IdentidadeEmpresa, obterEmpresaAtual, selecionarEmpresa } from "../services/empresas.service";
 
 const ANDRADE_PADRAO: IdentidadeEmpresa = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -17,6 +17,7 @@ type EmpresaContextData = {
   empresa: IdentidadeEmpresa;
   carregandoEmpresa: boolean;
   recarregarEmpresa: () => Promise<void>;
+  trocarEmpresa: (empresaId: string) => Promise<void>;
 };
 
 const EmpresaContext = createContext<EmpresaContextData | undefined>(undefined);
@@ -42,12 +43,23 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function trocarEmpresa(empresaId: string) {
+    setCarregandoEmpresa(true);
+    try {
+      await selecionarEmpresa(empresaId);
+      const atual = await obterEmpresaAtual();
+      setEmpresa(atual.identidade_personalizada ? atual : { ...ANDRADE_PADRAO, id: atual.id, slug: atual.slug });
+    } finally {
+      setCarregandoEmpresa(false);
+    }
+  }
+
   useEffect(() => {
     void recarregarEmpresa();
   }, [authenticated, usuario?.id, usuario?.empresa_id]);
 
   const valor = useMemo(
-    () => ({ empresa, carregandoEmpresa, recarregarEmpresa }),
+    () => ({ empresa, carregandoEmpresa, recarregarEmpresa, trocarEmpresa }),
     [empresa, carregandoEmpresa],
   );
 
@@ -59,4 +71,3 @@ export function useEmpresa() {
   if (!contexto) throw new Error("useEmpresa deve ser usado dentro de EmpresaProvider");
   return contexto;
 }
-

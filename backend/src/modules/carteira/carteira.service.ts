@@ -1,9 +1,13 @@
 import { supabase } from "../../config/supabase";
 import { asaasRequest } from "../asaas/asaas.client";
 import { empresaIdDoUsuario } from "../../config/empresa";
+import { criptografarDado, descriptografarDado } from "../../utils/sensitiveData";
+import { auditar } from "../../utils/audit";
+import { conferirSenha } from "../../utils/password";
 
 const dinheiro = (valor: unknown) => Math.round(Number(valor ?? 0) * 100) / 100;
 const mascarar = (chave: string) => chave.length <= 6 ? "***" : `${chave.slice(0, 2)}***${chave.slice(-4)}`;
+export const chavePixDaCarteira = (carteira: any) => carteira.pix_chave_criptografada ? descriptografarDado(carteira.pix_chave_criptografada) : String(carteira.pix_chave ?? "");
 
 export async function obterOuCriarCarteira(usuario: any) {
   const empresaId = empresaIdDoUsuario(usuario);
@@ -53,7 +57,7 @@ export async function resumoCarteira(usuario: any) {
     asaasConectado: Boolean(carteira.asaas_wallet_id) || usuario.perfil === "ADMIN",
     transferenciaAutomatica: carteira.transferencia_automatica,
     pixTipo: carteira.pix_tipo,
-    pixChaveMascarada: carteira.pix_chave ? mascarar(carteira.pix_chave) : null,
+    pixChaveMascarada: chavePixDaCarteira(carteira) ? mascarar(chavePixDaCarteira(carteira)) : null,
     saldoDisponivel: dinheiro(Math.max(0, recebido - transferido)),
     saldoPendente: pendente,
     totalRecebido: recebido,
@@ -64,28 +68,39 @@ export async function resumoCarteira(usuario: any) {
 }
 
 export async function atualizarCarteira(usuario: any, input: any) {
+  if (!(await conferirSenha(String(input.senhaAtual ?? ""), String(usuario.senha ?? "")))) throw new Error("Confirme sua senha para alterar os dados financeiros.");
   const carteira = await obterOuCriarCarteira(usuario);
   const pixTipo = String(input.pixTipo ?? carteira.pix_tipo ?? "").toUpperCase();
-  const pixChave = String(input.pixChave ?? carteira.pix_chave ?? "").trim();
+  const pixChave = String(input.pixChave ?? chavePixDaCarteira(carteira)).trim();
   if (pixTipo && !["CPF","CNPJ","EMAIL","PHONE","EVP"].includes(pixTipo)) throw new Error("Tipo de chave Pix inválido.");
   if (input.transferenciaAutomatica === true && (!pixTipo || !pixChave)) throw new Error("Cadastre uma chave Pix antes de ativar a transferência automática.");
   const { error } = await supabase.from("gerador_carteiras").update({
     pix_tipo: pixTipo || null,
-    pix_chave: pixChave || null,
+    pix_chave: null,
+    pix_chave_criptografada: pixChave ? criptografarDado(pixChave) : null,
     transferencia_automatica: Boolean(input.transferenciaAutomatica),
     atualizado_em: new Date().toISOString(),
   }).eq("id", carteira.id);
   if (error) throw error;
+  await auditar({ empresaId: empresaIdDoUsuario(usuario), usuarioId: usuario.id, acao: "CARTEIRA_ATUALIZADA", recurso: "gerador_carteiras", recursoId: carteira.id, detalhes: { pixTipo: pixTipo || null, transferenciaAutomatica: Boolean(input.transferenciaAutomatica) } });
   return resumoCarteira(usuario);
 }
 
-export async function transferirCarteira(usuario: any, input: any) {
+export async function transferirCarteira(usuario: any, input: any, idempotencyKey = "") {
   if (String(input.confirmacao ?? "") !== "TRANSFERIR") throw new Error("Confirme a transferência para continuar.");
+  if (!(await conferirSenha(String(input.senhaAtual ?? ""), String(usuario.senha ?? "")))) throw new Error("Senha atual incorreta.");
   const carteira = await obterOuCriarCarteira(usuario);
-  if (!carteira.pix_chave || !carteira.pix_tipo) throw new Error("Cadastre sua chave Pix antes de transferir.");
+  const pix = chavePixDaCarteira(carteira);
+  if (!pix || !carteira.pix_tipo) throw new Error("Cadastre sua chave Pix antes de transferir.");
   const resumo = await resumoCarteira(usuario);
   const valor = dinheiro(input.valor);
   if (!(valor > 0) || valor > resumo.saldoDisponivel) throw new Error("Valor indisponível para transferência.");
+  const chaveIdempotencia = idempotencyKey.trim().slice(0, 200) || null;
+  if (chaveIdempotencia) {
+    const { data: existente, error } = await supabase.from("asaas_transferencias").select("*").eq("empresa_id", empresaIdDoUsuario(usuario)).eq("idempotency_key", chaveIdempotencia).maybeSingle();
+    if (error) throw error;
+    if (existente) return existente;
+  }
   const { data: intencao, error: intentError } = await supabase.from("asaas_transferencias").insert({
     empresa_id: empresaIdDoUsuario(usuario),
     gerador_carteira_id: carteira.id,
@@ -93,14 +108,15 @@ export async function transferirCarteira(usuario: any, input: any) {
     asaas_transfer_id: `intent:${crypto.randomUUID()}`,
     valor,
     status: "AUTHORIZING",
-    destino_mascarado: `${carteira.pix_tipo}:${mascarar(carteira.pix_chave)}`,
+    destino_mascarado: `${carteira.pix_tipo}:${mascarar(pix)}`,
     modalidade: "MANUAL",
+    idempotency_key: chaveIdempotencia,
   }).select().single();
   if (intentError) throw intentError;
   try {
     const transfer = await asaasRequest<any>("/transfers", { method: "POST", body: JSON.stringify({
       value: valor,
-      pixAddressKey: carteira.pix_chave,
+      pixAddressKey: pix,
       pixAddressKeyType: carteira.pix_tipo,
       operationType: "PIX",
       description: `Saque carteira Andrade ${carteira.id}`,
@@ -108,6 +124,7 @@ export async function transferirCarteira(usuario: any, input: any) {
     }) });
     const { data, error } = await supabase.from("asaas_transferencias").update({ asaas_transfer_id: transfer.id, status: transfer.status, atualizado_em: new Date().toISOString() }).eq("id", intencao.id).select().single();
     if (error) throw error;
+    await auditar({ empresaId: empresaIdDoUsuario(usuario), usuarioId: usuario.id, acao: "TRANSFERENCIA_SOLICITADA", recurso: "asaas_transferencias", recursoId: data.id, detalhes: { valor, destino: `${carteira.pix_tipo}:${mascarar(pix)}` } });
     return data;
   } catch (error) {
     await supabase.from("asaas_transferencias").update({ status: "REFUSED", atualizado_em: new Date().toISOString() }).eq("id", intencao.id);

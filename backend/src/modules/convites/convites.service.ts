@@ -121,6 +121,7 @@ export async function criarConvite(input: any, gestor: any, documentos?: { minut
     minutaAnexada = Boolean(minuta);
     propostaAnexada = Boolean(proposta);
     emailEnviado = await enviarEmailTransacional({
+      empresaId,
       destinatario: email,
       assunto: "Convite para Andrade Energy Consumidor",
       html: `<div style="max-width:560px;margin:auto;padding:28px;font-family:Arial,sans-serif;color:#252925;line-height:1.6;background:#f7f8f7;border-radius:14px"><h2 style="margin-top:0;color:#39804a">Você recebeu um convite</h2><p>Olá, <strong>${escaparHtml(nome)}</strong>.</p><p>Seu gerador convidou você para acompanhar unidades, economia e faturas no Andrade Energy Consumidor.</p>${proposta ? "<p>Anexamos sua proposta comercial personalizada, com o desconto contratado e a projeção de economia.</p>" : ""}${minuta ? "<p>A minuta do contrato da sua unidade também segue anexada para leitura. Ela não substitui o contrato assinado.</p>" : ""}<p style="margin:26px 0"><a href="${linkApp}" style="display:inline-block;padding:14px 22px;background:#39804a;color:#fff;font-weight:700;text-decoration:none;border-radius:8px">Abrir aplicativo e criar conta</a></p><p style="font-size:14px;color:#4e574e">Não tem o aplicativo instalado? <a href="${linkWeb}" style="color:#1f6e3a;font-weight:700">Criar conta pelo navegador</a>.</p><p style="margin-bottom:8px;font-size:13px;color:#6b706b">Se precisar, copie a chave do convite:</p><div style="padding:16px 12px;border:2px dashed #39804a;border-radius:10px;background:#fff;color:#1f512e;font-family:monospace;font-size:20px;font-weight:700;letter-spacing:1px;text-align:center;word-break:break-all">${token}</div><p style="margin-top:18px;font-size:13px;color:#6b706b">Este convite é válido por 7 dias.</p></div>`,
@@ -208,6 +209,7 @@ export async function criarConviteGerador(input: any, administrador: any) {
   let emailEnviado = false;
   try {
     emailEnviado = await enviarEmailTransacional({
+      empresaId,
       destinatario: email,
       assunto: `Convite para Andrade Energy — ${perfil === "ADMIN" ? "Administrador" : "Gerador"}`,
       html: `<div style="max-width:560px;margin:auto;padding:28px;font-family:Arial,sans-serif;color:#252925;line-height:1.6;background:#f7f8f7;border-radius:14px"><h2 style="margin-top:0;color:#39804a">Convite para conta ${perfil === "ADMIN" ? "administrativa" : "geradora"}</h2><p>Olá, <strong>${escaparHtml(nome)}</strong>.</p><p>Você foi convidado pela administração da Andrade Energy para criar uma conta de ${perfil === "ADMIN" ? "administrador" : "gerador"}.</p><p style="margin:26px 0"><a href="${link}" style="display:inline-block;padding:14px 22px;background:#39804a;color:#fff;font-weight:700;text-decoration:none;border-radius:8px">Aceitar convite e criar conta</a></p><p style="font-size:13px;color:#6b706b">Se o botão não abrir o aplicativo, use este código:</p><div style="padding:16px 12px;border:2px dashed #39804a;border-radius:10px;background:#fff;color:#1f512e;font-family:monospace;font-size:20px;font-weight:700;text-align:center;word-break:break-all">${token}</div><p style="font-size:13px;color:#6b706b">Válido por 7 dias.</p></div>`,

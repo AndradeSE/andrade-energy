@@ -1,6 +1,8 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
+import helmet from "helmet";
+import { rateLimit } from "express-rate-limit";
 
 import { errorHandler } from "./middlewares/errorHandler";
 
@@ -29,6 +31,13 @@ import empresasRoutes from "./modules/empresas/empresas.routes";
 dotenv.config();
 
 const app = express();
+app.set("trust proxy", 1);
+
+const origensPermitidas = new Set([
+  "https://www.andradeenergy.com.br",
+  "https://andradeenergy.com.br",
+  ...String(process.env.CORS_ALLOWED_ORIGINS ?? "").split(",").map((item) => item.trim()).filter(Boolean),
+]);
 
 /*
 |--------------------------------------------------------------------------
@@ -36,7 +45,15 @@ const app = express();
 |--------------------------------------------------------------------------
 */
 
-app.use(cors());
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || origensPermitidas.has(origin) || (/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin) && process.env.NODE_ENV !== "production")) return callback(null, true);
+    return callback(new Error("Origem não autorizada."));
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Authorization", "Content-Type", "Idempotency-Key", "asaas-access-token", "svix-id", "svix-signature", "svix-timestamp"],
+}));
 
 // O Resend assina o corpo original. Esta rota precisa permanecer antes do
 // express.json(), caso contrário a verificação da assinatura falha.
@@ -46,11 +63,23 @@ app.use(
   recebimentoFaturasWebhookRoutes,
 );
 
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
+
+const apiLimiter = rateLimit({ windowMs: 60_000, limit: 300, standardHeaders: "draft-8", legacyHeaders: false });
+const authLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 30, standardHeaders: "draft-8", legacyHeaders: false });
+const convitesLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false });
+const financeiroLimiter = rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false });
 
 // O Asaas envia JSON e autentica o webhook pelo cabeçalho
 // `asaas-access-token`. A rota é pública, mas o token é obrigatório.
 app.use("/api/webhooks/asaas", asaasWebhookRouter);
+
+// Os limitadores precisam ser registrados antes das rotas protegidas.
+app.use("/api", apiLimiter);
+app.use("/api/auth", authLimiter);
+app.use("/api/convites", convitesLimiter);
+app.use("/api/asaas", financeiroLimiter);
+app.use("/api/carteira", financeiroLimiter);
 
 app.use(
   express.urlencoded({

@@ -1,7 +1,7 @@
 import { supabase } from "../../config/supabase";
 import { asaasRequest } from "./asaas.client";
 import { regenerarDocumentosGeradosDaFatura } from "../faturas/documentosFatura.service";
-import { buscarCarteiraDaFatura } from "../carteira/carteira.service";
+import { buscarCarteiraDaFatura, chavePixDaCarteira } from "../carteira/carteira.service";
 
 function digits(value: unknown) { return String(value ?? "").replace(/\D/g, ""); }
 function hojeNoBrasil() {
@@ -154,7 +154,7 @@ async function transferirSaldo(cobranca: any) {
   const { data: carteira } = cobranca.gerador_carteira_id ? await supabase.from("gerador_carteiras").select("*").eq("id", cobranca.gerador_carteira_id).maybeSingle() : { data: null };
   const automatica = carteira ? carteira.transferencia_automatica === true : process.env.ASAAS_AUTO_TRANSFER_ENABLED === "true";
   if (!automatica || carteira?.asaas_wallet_id) return null;
-  const key=carteira?.pix_chave ?? process.env.ASAAS_TRANSFER_PIX_KEY; const keyType=carteira?.pix_tipo ?? process.env.ASAAS_TRANSFER_PIX_KEY_TYPE;
+  const key=carteira ? chavePixDaCarteira(carteira) : process.env.ASAAS_TRANSFER_PIX_KEY; const keyType=carteira?.pix_tipo ?? process.env.ASAAS_TRANSFER_PIX_KEY_TYPE;
   if(!key||!keyType) throw new Error("Destino Pix não configurado.");
   const already=await supabase.from("asaas_transferencias").select("*").eq("cobranca_id",cobranca.id).maybeSingle(); if(already.data) return already.data;
   const value=Math.max(0,Number(cobranca.valor_liquido??cobranca.valor)-Number(process.env.ASAAS_TRANSFER_RESERVE_VALUE??0)); if(!(value>0)) throw new Error("Valor líquido inválido.");
@@ -216,8 +216,8 @@ export async function validarSaqueAsaas(body: any, token?: string) {
 
   const { data: intencao } = registrada ? { data: null } : await supabase.from("asaas_transferencias").select("*").eq("status", "AUTHORIZING").eq("valor", transfer.value).gte("criado_em", new Date(Date.now() - 5 * 60_000).toISOString()).order("criado_em", { ascending: false }).limit(1).maybeSingle();
   const registroValido = registrada ?? intencao;
-  const { data: carteira } = registroValido?.gerador_carteira_id ? await supabase.from("gerador_carteiras").select("pix_chave").eq("id", registroValido.gerador_carteira_id).maybeSingle() : { data: null };
-  const chaveEsperada = String(carteira?.pix_chave ?? process.env.ASAAS_TRANSFER_PIX_KEY ?? "").trim().toLowerCase();
+  const { data: carteira } = registroValido?.gerador_carteira_id ? await supabase.from("gerador_carteiras").select("pix_chave,pix_chave_criptografada").eq("id", registroValido.gerador_carteira_id).maybeSingle() : { data: null };
+  const chaveEsperada = String(carteira ? chavePixDaCarteira(carteira) : process.env.ASAAS_TRANSFER_PIX_KEY ?? "").trim().toLowerCase();
   const chaveRecebida = String(transfer.bankAccount?.pixAddressKey ?? "").trim().toLowerCase();
   const valorCorresponde = registroValido && Math.abs(Number(registroValido.valor) - Number(transfer.value)) < 0.01;
   const destinoCorresponde = chaveEsperada && chaveRecebida === chaveEsperada;

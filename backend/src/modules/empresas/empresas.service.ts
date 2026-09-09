@@ -1,5 +1,6 @@
 import { supabase } from "../../config/supabase";
-import { EMPRESA_ANDRADE_ID, IDENTIDADE_ANDRADE, empresaIdDoUsuario } from "../../config/empresa";
+import { IDENTIDADE_ANDRADE, empresaIdDoUsuario, usuarioEhSuperAdministradorAndrade } from "../../config/empresa";
+import { auditar } from "../../utils/audit";
 
 const corValida = (valor: unknown, padrao: string) => {
   const cor = String(valor ?? padrao).trim();
@@ -86,14 +87,14 @@ export async function salvarMinhaIdentidade(input: any, usuario: any) {
 }
 
 export async function listarEmpresas(usuario: any) {
-  if (usuario?.perfil !== "ADMIN" || empresaIdDoUsuario(usuario) !== EMPRESA_ANDRADE_ID) throw new Error("Acesso exclusivo da administração Andrade Energy.");
+  if (!usuarioEhSuperAdministradorAndrade(usuario)) throw new Error("Acesso exclusivo da administração Andrade Energy.");
   const { data, error } = await supabase.from("empresas").select("*").order("empresa_proprietaria", { ascending: false }).order("nome");
   if (error) throw error;
   return data ?? [];
 }
 
 export async function criarEmpresa(input: any, usuario: any) {
-  if (usuario?.perfil !== "ADMIN" || empresaIdDoUsuario(usuario) !== EMPRESA_ANDRADE_ID) {
+  if (!usuarioEhSuperAdministradorAndrade(usuario)) {
     throw new Error("Somente a administração Andrade Energy pode cadastrar empresas parceiras.");
   }
   const nome = String(input?.nome ?? "").trim();
@@ -110,17 +111,31 @@ export async function criarEmpresa(input: any, usuario: any) {
     cor_primaria: corValida(input?.corPrimaria, IDENTIDADE_ANDRADE.cor_primaria),
     cor_secundaria: corValida(input?.corSecundaria, IDENTIDADE_ANDRADE.cor_secundaria),
     identidade_personalizada: Boolean(input?.identidadePersonalizada),
+    nome_remetente: String(input?.nomeRemetente ?? nome).trim(),
+    email_remetente: emailOpcional(input?.emailRemetente),
+    email_resposta: emailOpcional(input?.emailResposta ?? input?.emailSuporte),
+    dominio_email_verificado: false,
     empresa_proprietaria: false,
     ativo: true,
   };
   const { data, error } = await supabase.from("empresas").insert(payload).select("*").single();
   if (error?.code === "23505") throw new Error("Já existe uma empresa com esse identificador.");
   if (error) throw error;
+  const { error: vinculoError } = await supabase.from("empresa_usuarios").upsert({
+    empresa_id: data.id,
+    usuario_id: usuario.id,
+    papel: "ADMIN_EMPRESA",
+    principal: false,
+    ativo: true,
+    atualizado_em: new Date().toISOString(),
+  }, { onConflict: "empresa_id,usuario_id" });
+  if (vinculoError) throw vinculoError;
+  await auditar({ empresaId: data.id, usuarioId: usuario.id, acao: "EMPRESA_CRIADA", recurso: "empresas", recursoId: data.id, detalhes: { nome: data.nome, slug: data.slug } });
   return data;
 }
 
 export async function atualizarEmpresa(id: string, input: any, usuario: any) {
-  if (usuario?.perfil !== "ADMIN" || empresaIdDoUsuario(usuario) !== EMPRESA_ANDRADE_ID) {
+  if (!usuarioEhSuperAdministradorAndrade(usuario)) {
     throw new Error("Somente a administração Andrade Energy pode alterar empresas parceiras.");
   }
   const payload: Record<string, unknown> = { atualizado_em: new Date().toISOString() };
@@ -134,8 +149,38 @@ export async function atualizarEmpresa(id: string, input: any, usuario: any) {
   if (input?.corPrimaria !== undefined) payload.cor_primaria = corValida(input.corPrimaria, IDENTIDADE_ANDRADE.cor_primaria);
   if (input?.corSecundaria !== undefined) payload.cor_secundaria = corValida(input.corSecundaria, IDENTIDADE_ANDRADE.cor_secundaria);
   if (input?.identidadePersonalizada !== undefined) payload.identidade_personalizada = Boolean(input.identidadePersonalizada);
+  if (input?.nomeRemetente !== undefined) payload.nome_remetente = String(input.nomeRemetente).trim() || null;
+  if (input?.emailRemetente !== undefined) payload.email_remetente = emailOpcional(input.emailRemetente);
+  if (input?.emailResposta !== undefined) payload.email_resposta = emailOpcional(input.emailResposta);
+  if (input?.dominioEmailVerificado !== undefined) payload.dominio_email_verificado = Boolean(input.dominioEmailVerificado);
   if (input?.ativo !== undefined) payload.ativo = Boolean(input.ativo);
   const { data, error } = await supabase.from("empresas").update(payload).eq("id", id).select("*").single();
   if (error) throw error;
+  await auditar({ empresaId: id, usuarioId: usuario.id, acao: "EMPRESA_ATUALIZADA", recurso: "empresas", recursoId: id, detalhes: { campos: Object.keys(payload).filter((campo) => campo !== "atualizado_em") } });
   return data;
+}
+
+export async function listarMinhasEmpresas(usuario: any) {
+  const { data, error } = await supabase
+    .from("empresa_usuarios")
+    .select("papel,principal,empresas(*)")
+    .eq("usuario_id", usuario.id)
+    .eq("ativo", true);
+  if (error) throw error;
+  return (data ?? []).map((item: any) => ({ ...item.empresas, papel: item.papel, principal: item.principal }))
+    .filter((item: any) => item.ativo !== false)
+    .sort((a: any, b: any) => Number(b.principal) - Number(a.principal) || String(a.nome).localeCompare(String(b.nome)));
+}
+
+export async function selecionarEmpresaAtiva(empresaId: string, usuario: any, sessaoId: string) {
+  const { data: vinculo, error } = await supabase.from("empresa_usuarios")
+    .select("empresa_id,empresas(id,nome,ativo)")
+    .eq("usuario_id", usuario.id).eq("empresa_id", empresaId).eq("ativo", true).maybeSingle();
+  if (error) throw error;
+  const empresa = Array.isArray(vinculo?.empresas) ? vinculo.empresas[0] : vinculo?.empresas;
+  if (!vinculo || !empresa || empresa.ativo === false) throw new Error("Você não possui acesso a esta empresa.");
+  const { error: sessaoError } = await supabase.from("sessoes_usuarios").update({ empresa_ativa_id: empresaId }).eq("id", sessaoId).eq("usuario_id", usuario.id).is("revogada_em", null);
+  if (sessaoError) throw sessaoError;
+  await auditar({ empresaId, usuarioId: usuario.id, acao: "EMPRESA_ATIVA_ALTERADA", recurso: "sessoes_usuarios", recursoId: sessaoId, detalhes: { empresaAnteriorId: empresaIdDoUsuario(usuario), empresaNovaId: empresaId } });
+  return { empresaId, empresa };
 }

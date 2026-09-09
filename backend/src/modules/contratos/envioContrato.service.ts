@@ -37,7 +37,7 @@ export async function enviarContratoEConvite(unidadeId: string, gestor: any) {
   if (erroConviteAnterior) throw erroConviteAnterior;
   let resultado: any;
   if (conta || conviteAnterior) {
-    const enviado = await enviarEmailTransacional({ destinatario: cliente.email, assunto: "Contrato e proposta disponíveis para análise", html: "<p>Seu gerador disponibilizou um contrato e uma proposta para sua unidade. Acesse sua conta no aplicativo Consumidor e abra a área Contrato para analisar os documentos.</p>", anexos: [minuta, { filename: proposta.filename, content: proposta.content }] });
+    const enviado = await enviarEmailTransacional({ empresaId: gestor.empresa_id, destinatario: cliente.email, assunto: "Contrato e proposta disponíveis para análise", html: "<p>Seu gerador disponibilizou um contrato e uma proposta para sua unidade. Acesse sua conta no aplicativo Consumidor e abra a área Contrato para analisar os documentos.</p>", anexos: [minuta, { filename: proposta.filename, content: proposta.content }] });
     resultado = { emailEnviado: enviado, contaExistente: Boolean(conta), conviteExistente: Boolean(conviteAnterior), novoConvite: false };
   } else {
     resultado = await criarConvite({ nome: cliente.nome, cpf: cliente.cpf, email: cliente.email, whatsapp: cliente.whatsapp || undefined, unidade_consumidora_id: unidadeId }, gestor, { minuta, proposta });

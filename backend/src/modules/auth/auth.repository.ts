@@ -1,12 +1,12 @@
 import { supabase } from "../../config/supabase";
 import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
+import { conferirSenha, protegerSenha, senhaEstaProtegida } from "../../utils/password";
 
 export async function login(email: string, senha: string, tipo?: "CONSUMIDOR" | "GERADOR") {
   let consulta = supabase
     .from("usuarios")
     .select("*")
     .eq("email", email)
-    .eq("senha", senha)
     .eq("ativo", true);
 
   consulta = tipo === "CONSUMIDOR"
@@ -16,13 +16,22 @@ export async function login(email: string, senha: string, tipo?: "CONSUMIDOR" | 
       ? consulta.in("perfil", ["GESTOR", "ADMIN"])
       : consulta;
 
-  const { data, error } = await consulta.limit(1).maybeSingle();
+  const { data, error } = await consulta.limit(20);
 
   if (error) {
     return null;
   }
 
-  return data;
+  for (const usuario of data ?? []) {
+    if (!(await conferirSenha(senha, usuario.senha))) continue;
+    if (!senhaEstaProtegida(usuario.senha)) {
+      const hash = await protegerSenha(senha);
+      await supabase.from("usuarios").update({ senha: hash }).eq("id", usuario.id);
+      usuario.senha = hash;
+    }
+    return usuario;
+  }
+  return null;
 }
 
 export async function buscarUsuario(id: string) {
@@ -115,7 +124,7 @@ export async function criarConta(input: {
 
   const { data, error } = await supabase
     .from("usuarios")
-    .insert({ nome: input.nome.trim(), cpf, email, senha: input.senha, perfil, ativo, empresa_id: empresaId })
+    .insert({ nome: input.nome.trim(), cpf, email, senha: await protegerSenha(input.senha), perfil, ativo, empresa_id: empresaId })
     .select("*")
     .single();
   if (error) throw error;
@@ -140,8 +149,7 @@ export async function buscarUsuarioPorCredenciais(
   let consulta = supabase
     .from("usuarios")
     .select("*")
-    .eq("email", email)
-    .eq("senha", senha);
+    .eq("email", email);
 
   consulta = tipo === "CONSUMIDOR"
     ? consulta.in("perfil", ["LEITURA", "GESTOR", "ADMIN"])
@@ -149,9 +157,18 @@ export async function buscarUsuarioPorCredenciais(
       ? consulta.in("perfil", ["GESTOR", "ADMIN"])
       : consulta;
 
-  const { data, error } = await consulta.limit(1).maybeSingle();
+  const { data, error } = await consulta.limit(20);
   if (error) throw error;
-  return data;
+  for (const usuario of data ?? []) {
+    if (!(await conferirSenha(senha, usuario.senha))) continue;
+    if (!senhaEstaProtegida(usuario.senha)) {
+      const hash = await protegerSenha(senha);
+      await supabase.from("usuarios").update({ senha: hash }).eq("id", usuario.id);
+      usuario.senha = hash;
+    }
+    return usuario;
+  }
+  return null;
 }
 
 export async function buscarUsuarioConsumidorPorEmail(email: string) {

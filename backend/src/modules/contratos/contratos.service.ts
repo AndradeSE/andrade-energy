@@ -356,6 +356,7 @@ export async function solicitarCodigoAssinaturaService(contratoId: string, usuar
   if (error) throw error;
 
   const enviado = await enviarEmailTransacional({
+    empresaId: contrato.empresa_id,
     destinatario: email,
     assunto: "Código para assinar seu contrato",
     html: `<div style="font-family:Arial,sans-serif;color:#153b30"><h2>Confirmação da assinatura</h2><p>Use o código abaixo para confirmar a assinatura do contrato <strong>${String(contrato.numero ?? "").replace(/[<>]/g, "")}</strong>:</p><div style="font-size:30px;font-weight:800;letter-spacing:8px;margin:24px 0">${codigo}</div><p>O código expira em 10 minutos. Se você não iniciou esta assinatura, ignore este e-mail.</p></div>`,
