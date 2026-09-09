@@ -33,6 +33,7 @@ async function executar() {
 
   const tabelas = ["clientes", "usinas", "unidades_consumidoras", "faturas", "contratos", "gerador_carteiras"];
   const contagens: Record<string, { andrade: number; homologacao: number }> = {};
+  const idsAndrade: Record<string, string | null> = {};
   for (const tabela of tabelas) {
     const [andrade, homologacao] = await Promise.all([
       supabase.from(tabela).select("id", { count: "exact", head: true }).eq("empresa_id", EMPRESA_ANDRADE_ID),
@@ -41,6 +42,8 @@ async function executar() {
     if (andrade.error) throw andrade.error;
     if (homologacao.error) throw homologacao.error;
     contagens[tabela] = { andrade: andrade.count ?? 0, homologacao: homologacao.count ?? 0 };
+    const { data: primeiro } = await supabase.from(tabela).select("id").eq("empresa_id", EMPRESA_ANDRADE_ID).limit(1).maybeSingle();
+    idsAndrade[tabela] = primeiro?.id ?? null;
   }
 
   const token = gerarToken();
@@ -71,6 +74,18 @@ async function executar() {
     const usinas = await usinasResposta.json() as any[];
     if (identidade.id !== empresa.id || !Array.isArray(clientes) || clientes.length !== 0 || !Array.isArray(usinas) || usinas.length !== 0) {
       throw new Error(`Falha de isolamento detectada na API pública: identidade=${identidade.id}, clientes=${Array.isArray(clientes) ? clientes.length : "formato-invalido"}, usinas=${Array.isArray(usinas) ? usinas.length : "formato-invalido"}.`);
+    }
+
+    const tentativasCruzadas = [
+      idsAndrade.clientes ? fetch(`${base}/clientes/${idsAndrade.clientes}`, { headers: cabecalhos }) : null,
+      idsAndrade.clientes ? fetch(`${base}/creditos/${idsAndrade.clientes}`, { headers: cabecalhos }) : null,
+      idsAndrade.unidades_consumidoras ? fetch(`${base}/clientes/unidade/${idsAndrade.unidades_consumidoras}`, { headers: cabecalhos }) : null,
+      idsAndrade.faturas ? fetch(`${base}/faturas/${idsAndrade.faturas}`, { headers: cabecalhos }) : null,
+      idsAndrade.usinas ? fetch(`${base}/usinas/${idsAndrade.usinas}`, { headers: cabecalhos }) : null,
+    ].filter(Boolean) as Promise<Response>[];
+    const respostasCruzadas = await Promise.all(tentativasCruzadas);
+    if (respostasCruzadas.some((resposta) => ![403, 404].includes(resposta.status))) {
+      throw new Error(`Acesso cruzado por ID não foi bloqueado: ${respostasCruzadas.map((resposta) => resposta.status).join("/")}.`);
     }
 
     const troca = await fetch(`${base}/empresas/${EMPRESA_ANDRADE_ID}/selecionar`, { method: "POST", headers: cabecalhos });
@@ -104,6 +119,7 @@ async function executar() {
     administradoresVinculados: administradores.length,
     apiPublicaESessao: apiValidada ? "APROVADAS" : "REPROVADAS",
     rotasOperacionaisSemSessao: rotasPrivadasValidadas ? "BLOQUEADAS" : "REPROVADAS",
+    acessoCruzadoPorId: "BLOQUEADO",
     isolamento: contagens,
     observacao: "Nenhum cliente, usina, UC, fatura, contrato ou carteira foi criado no ambiente de homologação.",
   }, null, 2));

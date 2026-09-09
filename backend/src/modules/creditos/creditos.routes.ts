@@ -5,7 +5,7 @@ import { consumirCreditosController } from "./consumo.controller";
 import { Router } from "express";
 import { listarCreditosController } from "./creditos.controller";
 import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
-import { exigirRegistroDaEmpresa } from "../../utils/empresaScope";
+import { exigirClienteDaSessaoOuGestor } from "../../utils/empresaScope";
 const router = Router();
 router.use(exigirAutenticacao);
 router.post(
@@ -15,7 +15,7 @@ router.post(
 );
 router.get(
   "/:clienteId",
-  exigirRegistroDaEmpresa("clientes", "clienteId"),
+  exigirClienteDaSessaoOuGestor("clienteId"),
   listarCreditosController
 );
 
