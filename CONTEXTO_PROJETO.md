@@ -8,7 +8,8 @@
 - O teste público `npm run test:multiempresa` cria uma sessão temporária, valida a identidade selecionada, consulta clientes e usinas, retorna à Andrade e revoga a sessão ao final.
 - A homologação confirmou isolamento completo: a Andrade possuía 2 clientes, 1 usina, 3 UCs, 1 fatura, 4 contratos e 3 carteiras; a empresa de homologação retornou zero em todas essas tabelas.
 - Clientes, usinas, UCs, anexos e faturas receberam proteção adicional por autenticação, perfil, empresa ativa e vínculo do consumidor. Analisar, importar ou excluir faturas sem sessão também é bloqueado.
-- A suíte completa do backend passou com 36 testes. O Render está publicado no commit `c79901a`; a homologação final retornou `APROVADO`, `apiPublicaESessao: APROVADAS` e `rotasOperacionaisSemSessao: BLOQUEADAS`.
+- A suíte completa do backend passou com 36 testes. O Render está publicado no commit `a43425c`; a homologação final retornou `APROVADO`, `apiPublicaESessao: APROVADAS`, `rotasOperacionaisSemSessao: BLOQUEADAS` e `acessoCruzadoPorId: BLOQUEADO`.
+- O teste cruzado usa IDs reais de cliente, créditos, UC, fatura e usina da Andrade enquanto a sessão está na empresa de homologação. Todos retornaram resposta neutra `403/404`, sem conteúdo e sem revelar a existência do registro.
 
 ## Publicação e acabamento — 07/09/2026
 
