@@ -2,10 +2,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { StyleSheet, View } from "react-native";
 import { IS_GERADOR_APP } from "../../config/appVariant";
+import AppTabIcon from "../../components/navigation/AppTabIcon";
 
 function TabIcon({ name, color, featured = false }: { name: keyof typeof Ionicons.glyphMap; color: string; featured?: boolean }) {
-  if (!featured) return <Ionicons name={name} color={color} size={21} />;
-  return <Ionicons name={name} color="#FFFFFF" size={25} style={{ width: 50, height: 50, paddingTop: 12, textAlign: "center", borderRadius: 25, backgroundColor: "#12B981", transform: [{ translateY: -11 }], shadowColor: "#12B981", shadowOpacity: 0.3, shadowRadius: 9, shadowOffset: { width: 0, height: 5 }, elevation: 8 }} />;
+  return <AppTabIcon name={name} color={color} featured={featured} />;
 }
 
 function RoundedTabBarBackground() {
@@ -82,7 +82,6 @@ export default function TabLayout() {
           name="index"
           options={{
             title: "Home",
-            tabBarItemStyle: styles.featuredTabItem,
             tabBarIcon: ({ color, focused }) => (
               <TabIcon featured name={focused ? "home" : "home-outline"} color={color} />
             ),
@@ -189,7 +188,6 @@ export default function TabLayout() {
         name="index"
         options={{
           title: "Home",
-          tabBarItemStyle: styles.featuredTabItem,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon featured name={focused ? "home" : "home-outline"} color={color} />
           ),
@@ -237,11 +235,6 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  featuredTabItem: {
-    minHeight: 52,
-    paddingVertical: 1,
-    transform: [{ translateY: -7 }],
-  },
   tabBarCornerFill: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "#DFE8E3",

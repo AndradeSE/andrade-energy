@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors } from "../../theme";
+import AppTabIcon from "./AppTabIcon";
 
 type TabItem = {
   label: string;
@@ -50,7 +51,8 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
   const tabs = IS_GERADOR_APP ? generatorTabs : consumerTabs;
 
   return (
-    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+    <View style={styles.cornerFill}>
+    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 3) }]}>
       {tabs.map((tab) => {
         const featured = tab.label === "Home";
         return (
@@ -59,27 +61,36 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
           accessibilityLabel={`Ir para ${tab.label}`}
           key={tab.label}
           onPress={() => router.replace(tab.route as never)}
-          style={[styles.item, featured && styles.featuredItem]}
+          style={styles.item}
         >
-          <View style={featured ? styles.featuredIcon : undefined}>
-            <Ionicons name={tab.icon} color={featured ? "#FFFFFF" : Colors.subtitle} size={featured ? 25 : IS_GERADOR_APP ? 21 : 24} />
-          </View>
+          <AppTabIcon
+            name={tab.icon}
+            color={Colors.subtitle}
+            featured={featured}
+            size={IS_GERADOR_APP ? 21 : 24}
+          />
           <Text numberOfLines={1} style={[styles.label, IS_GERADOR_APP && styles.generatorLabel]}>
             {tab.label}
           </Text>
         </Pressable>
       )})}
     </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  cornerFill: {
+    backgroundColor: "#DFE8E3",
+  },
   bar: {
-    minHeight: 52,
-    paddingTop: 3,
+    minHeight: 64,
+    paddingTop: 5,
     flexDirection: "row",
     alignItems: "flex-start",
     backgroundColor: Colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: Colors.border,
     elevation: 15,
@@ -105,13 +116,5 @@ const styles = StyleSheet.create({
   generatorLabel: {
     fontSize: 8,
     lineHeight: 10,
-  },
-  // O conjunto inteiro (icone + texto) sobe para manter o rotulo Home
-  // na mesma linha visual dos demais rotulos da barra.
-  featuredItem: { transform: [{ translateY: -15 }] },
-  featuredIcon: {
-    width: 50, height: 50, borderRadius: 25, alignItems: "center", justifyContent: "center",
-    backgroundColor: "#12B981", elevation: 8, shadowColor: "#12B981", shadowOpacity: 0.3,
-    shadowRadius: 9, shadowOffset: { width: 0, height: 5 },
   },
 });
