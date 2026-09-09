@@ -21,17 +21,20 @@ import {
 } from "./clientes.controller";
 import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
 import { upload } from "../../config/multer";
+import { exigirClienteDaSessaoOuGestor } from "../../utils/empresaScope";
 
 const router = Router();
 
-router.get("/", listarClientesController);
+router.use(exigirAutenticacao);
+
+router.get("/", exigirGestor, listarClientesController);
 
 router.get("/minhas-unidades", exigirAutenticacao, listarMinhasUnidadesController);
 router.patch("/minhas-unidades/:unidadeId/apelido", exigirAutenticacao, nomearMinhaUnidadeController);
 router.get("/unidades", exigirAutenticacao, exigirGestor, listarTodasUnidadesController);
 router.get("/unidade/:unidadeId", exigirAutenticacao, buscarUnidadeController);
 
-router.get("/:id/unidades", listarUnidadesClienteController);
+router.get("/:id/unidades", exigirClienteDaSessaoOuGestor("id"), listarUnidadesClienteController);
 router.post("/:id/unidades", exigirAutenticacao, exigirGestor, cadastrarUnidadeClienteController);
 router.delete("/unidade/:unidadeId", exigirAutenticacao, exigirGestor, excluirUnidadeClienteController);
 
@@ -41,11 +44,11 @@ router.get("/:id/faturas-anexadas", exigirAutenticacao, listarFaturasAnexadasCli
 router.post("/:id/faturas-anexadas", exigirAutenticacao, upload.single("arquivo"), anexarFaturaClienteController);
 router.delete("/:id/faturas-anexadas/:anexoId", exigirAutenticacao, exigirGestor, excluirFaturaAnexadaClienteController);
 
-router.get("/:id", buscarClienteController);
+router.get("/:id", exigirClienteDaSessaoOuGestor("id"), buscarClienteController);
 
-router.post("/", criarClienteController);
+router.post("/", exigirGestor, criarClienteController);
 
-router.put("/:id", atualizarClienteController);
+router.put("/:id", exigirGestor, atualizarClienteController);
 
 router.delete("/:id", exigirAutenticacao, exigirGestor, excluirClienteController);
 

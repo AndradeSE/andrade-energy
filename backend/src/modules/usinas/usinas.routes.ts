@@ -15,26 +15,29 @@ import {
   listarIntegracoesInversoresController,
 } from "./usinas.controller";
 import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
+import { exigirUsinaDaSessaoOuGestor } from "../../utils/empresaScope";
 
 const router = Router();
 
-router.get("/", listarUsinasController);
+router.use(exigirAutenticacao);
 
-router.get("/:id", buscarUsinaController);
+router.get("/", exigirGestor, listarUsinasController);
 
-router.get("/:id/dashboard", dashboardUsinaController);
+router.get("/:id", exigirUsinaDaSessaoOuGestor(), buscarUsinaController);
+
+router.get("/:id/dashboard", exigirUsinaDaSessaoOuGestor(), dashboardUsinaController);
 
 router.get("/:id/inversores", exigirAutenticacao, exigirGestor, listarIntegracoesInversoresController);
 router.post("/:id/inversores", exigirAutenticacao, exigirGestor, cadastrarIntegracaoInversorController);
 router.delete("/:id/inversores/:integracaoId", exigirAutenticacao, exigirGestor, excluirIntegracaoInversorController);
 
-router.post("/:id/importar-fatura", upload.single("arquivo"), importarFaturaGeradoraController);
-router.post("/:id/alocar-unidade", alocarUnidadeController);
+router.post("/:id/importar-fatura", exigirGestor, upload.single("arquivo"), importarFaturaGeradoraController);
+router.post("/:id/alocar-unidade", exigirGestor, alocarUnidadeController);
 
-router.post("/", criarUsinaController);
+router.post("/", exigirGestor, criarUsinaController);
 
-router.put("/:id", atualizarUsinaController);
+router.put("/:id", exigirGestor, atualizarUsinaController);
 
-router.delete("/:id", excluirUsinaController);
+router.delete("/:id", exigirGestor, excluirUsinaController);
 
 export default router;
