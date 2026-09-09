@@ -369,12 +369,12 @@ export default function GestaoGeradores() {
                         <Action
                           label="Plano mensal"
                           icon="calendar-outline"
-                          onPress={() => void create(generator.id, "MENSAL")}
+                          onPress={() => escolherPlano(generator.id, "MENSAL")}
                         />
                         <Action
                           label="Plano anual"
                           icon="calendar-number-outline"
-                          onPress={() => void create(generator.id, "ANUAL")}
+                          onPress={() => escolherPlano(generator.id, "ANUAL")}
                         />
                       </View></> : <View style={styles.trialNote}><Ionicons name={administrador ? "shield-checkmark-outline" : "open-outline"} size={16} color={Colors.primary}/><Text style={styles.trialNoteText}>{administrador ? "Conta protegida contra remoção" : "Toque para consultar todas as informações"}</Text></View>}
                     </TouchableOpacity>
@@ -662,8 +662,25 @@ export default function GestaoGeradores() {
     </Screen>
   );
 
-  async function create(geradorId: string, ciclo: "MENSAL" | "ANUAL") {
-    const plan = data?.planos.find((item) => item.ativo);
+  function escolherPlano(geradorId: string, ciclo: "MENSAL" | "ANUAL") {
+    const planos = (data?.planos ?? []).filter((item) => item.ativo);
+    if (!planos.length) {
+      Alert.alert("Plano", "Nenhum plano comercial ativo foi encontrado.");
+      return;
+    }
+    Alert.alert(
+      ciclo === "ANUAL" ? "Escolha o plano anual" : "Escolha o plano mensal",
+      "Toque no plano que será vinculado ao gerador.",
+      planos.slice(0, 3).map((plano) => ({
+        text: `${plano.nome} · ${money(ciclo === "ANUAL" ? plano.valor_anual : plano.valor_mensal)}`,
+        onPress: () => void create(geradorId, ciclo, plano.id),
+      })),
+      { cancelable: true },
+    );
+  }
+
+  async function create(geradorId: string, ciclo: "MENSAL" | "ANUAL", planoId: string) {
+    const plan = data?.planos.find((item) => item.id === planoId && item.ativo);
     if (!plan)
       return Alert.alert("Plano", "Cadastre um plano ativo no portal web.");
     const due = new Date(Date.now() + 45 * 86400000).toISOString().slice(0, 10);
