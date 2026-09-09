@@ -1530,8 +1530,6 @@ function UnitTools({
 }) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [receipt, setReceipt] = useState<WebRecord | null>(null);
-  const [connections, setConnections] = useState<WebRecord[]>([]);
   const [latestInvoice, setLatestInvoice] = useState<WebRecord | null>(null);
   const [toolsRefresh, setToolsRefresh] = useState(0);
   const [expanded, setExpanded] = useState(false);
@@ -1559,8 +1557,6 @@ function UnitTools({
     const headers = { Authorization: `Bearer ${token}` };
     const unitNumber = String(unit.numero ?? unit.uc ?? "").trim();
     void Promise.all([
-      fetch(`${API_URL}/recebimento-faturas/unidades/${unit.id}`, { headers }),
-      fetch(`${API_URL}/conexoes-email/unidades/${unit.id}`, { headers }),
       unitNumber
         ? fetch(`${API_URL}/faturas?uc=${encodeURIComponent(unitNumber)}`, { headers })
         : Promise.resolve(null),
@@ -1568,21 +1564,11 @@ function UnitTools({
         ? fetch(`${API_URL}/clientes/${unit.cliente_id}/faturas-anexadas`, { headers })
         : Promise.resolve(null),
     ])
-      .then(async ([receiptResponse, connectionResponse, invoiceResponse, attachedResponse]) => ({
-        receipt: receiptResponse.ok ? await receiptResponse.json() : null,
-        connections: connectionResponse.ok
-          ? await connectionResponse.json()
-          : {},
+      .then(async ([invoiceResponse, attachedResponse]) => ({
         invoices: invoiceResponse?.ok ? await invoiceResponse.json() : [],
         attached: attachedResponse?.ok ? await attachedResponse.json() : [],
       }))
       .then((data) => {
-        setReceipt(data.receipt);
-        setConnections(
-          Array.isArray(data.connections?.conexoes)
-            ? data.connections.conexoes
-            : [],
-        );
         const invoices = Array.isArray(data.invoices)
           ? data.invoices
           : Array.isArray(data.invoices?.data)
@@ -1623,7 +1609,6 @@ function UnitTools({
           : (data.message ?? "Não foi possível concluir."),
       );
       if (response.ok) {
-        if (data.endereco || typeof data.ativo === "boolean") setReceipt(data);
         setToolsRefresh((value) => value + 1);
         if (refreshParent) onChanged();
       }
@@ -1632,35 +1617,6 @@ function UnitTools({
     } finally {
       setBusy(false);
     }
-  }
-  async function connectEmail(provider: "GMAIL" | "OUTLOOK") {
-    setBusy(true);
-    setMessage("");
-    const response = await fetch(
-      `${API_URL}/conexoes-email/unidades/${unit.id}/iniciar`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ provedor: provider, app: "GERADOR" }),
-      },
-    );
-    const data = await response.json().catch(() => ({}));
-    setBusy(false);
-    if (response.ok && data.url) {
-      const oauth = window.open(data.url, "_blank", "noopener,noreferrer");
-      setMessage(
-        oauth
-          ? `A autorização do ${provider === "GMAIL" ? "Gmail" : "Outlook"} foi aberta em uma nova aba. Conclua o acesso e depois atualize esta UC.`
-          : "O navegador bloqueou a nova aba. Permita pop-ups para conectar a conta.",
-      );
-    } else
-      setMessage(
-        data.message ??
-          "Não foi possível iniciar a conexão. Confira a configuração do provedor no servidor.",
-      );
   }
   async function openAllocationEditor() {
     setEditOpen(true);
@@ -1789,51 +1745,6 @@ function UnitTools({
                 </div>
               ))}
           </div>
-          <div className="unit-service-status">
-            <div>
-              <small>RECEBIMENTO DE CONTAS</small>
-              <strong>{receipt?.ativo ? "Ativo" : "Não ativado"}</strong>
-              {receipt?.endereco ? (
-                <code>{String(receipt.endereco)}</code>
-              ) : null}
-            </div>
-            <div>
-              <small>CONTAS CONECTADAS</small>
-              <strong>
-                {connections.length
-                  ? connections
-                      .map(
-                        (item) =>
-                          `${String(item.provedor)} · ${String(item.status)}`,
-                      )
-                      .join(" | ")
-                  : "Nenhuma conexão"}
-              </strong>
-            </div>
-          </div>
-          {receipt?.ativo && receipt.endereco ? (
-            <section className="email-setup-card">
-              <div className="email-setup-heading">
-                <span className="email-setup-icon">✉</span>
-                <div>
-                  <small>RECEBIMENTO AUTOMÁTICO ATIVO</small>
-                  <strong>Conecte o e-mail que recebe suas contas</strong>
-                  <p>O sistema encaminhará somente contas da concessionária com PDF para o endereço exclusivo desta UC.</p>
-                </div>
-              </div>
-              <code>{String(receipt.endereco)}</code>
-              <ol>
-                <li>Escolha Gmail ou Outlook abaixo.</li>
-                <li>Autorize a conta de e-mail no seu provedor.</li>
-                <li>As próximas contas com PDF serão encaminhadas para conferência automaticamente.</li>
-              </ol>
-              <div className="email-provider-actions">
-                <button disabled={busy} onClick={() => void connectEmail("GMAIL")}>Conectar Gmail</button>
-                <button disabled={busy} onClick={() => void connectEmail("OUTLOOK")}>Conectar Outlook</button>
-              </div>
-              <p className="email-privacy-note">Se preferir configurar manualmente, copie o endereço acima e crie uma regra para mensagens de fatura@cemig que contenham PDF.</p>
-            </section>
-          ) : null}
           {editOpen ? (
             <form className="unit-edit-form" onSubmit={saveAllocation}>
               <div>
@@ -2019,35 +1930,6 @@ function UnitTools({
               >
                 Editar alocação e faturamento
               </button>
-              {receipt?.ativo ? (
-                <>
-                  <button
-                    disabled={busy}
-                    onClick={() =>
-                      void request(
-                        `/recebimento-faturas/unidades/${unit.id}/desativar`,
-                      )
-                    }
-                  >
-                    Desativar recebimento
-                  </button>
-                </>
-              ) : (
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    void request(
-                      `/recebimento-faturas/unidades/${unit.id}/ativar`,
-                      "POST",
-                      undefined,
-                      undefined,
-                      false,
-                    )
-                  }
-                >
-                  Ativar recebimento por e-mail
-                </button>
-              )}
               <button disabled={busy} onClick={() => { setContractRevision(false); setContractOpen(true); }}>Abrir contrato da UC</button>
               <button
                 className="danger-tool"
@@ -2870,11 +2752,11 @@ function MySubscriptionPanel({ token }: { token: string }) {
   const [data, setData] = useState<any>(null); const [loading, setLoading] = useState(true); const [message, setMessage] = useState(""); const [opening, setOpening] = useState(false);
   const load = useCallback(async () => { setLoading(true); const response = await fetch(`${API_URL}/comercial/minha-assinatura`, { headers: { Authorization: `Bearer ${token}` } }); const payload = await response.json().catch(() => ({})); setLoading(false); response.ok ? setData(payload) : setMessage(payload.message ?? "Não foi possível consultar a assinatura."); }, [token]);
   useEffect(() => { void load(); }, [load]);
-  async function checkout() { setOpening(true); setMessage(""); const popup = window.open("", "_blank"); const response = await fetch(`${API_URL}/comercial/minha-assinatura/checkout`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ formasPagamento: ["CREDIT_CARD", "PIX"] }) }); const payload = await response.json().catch(() => ({})); setOpening(false); if (response.ok && payload.url) { if (popup) popup.location.href = payload.url; else window.location.href = payload.url; } else { popup?.close(); setMessage(payload.message ?? "Não foi possível abrir o pagamento seguro."); } }
+  async function checkout(parcelamentoAnual = false) { setOpening(true); setMessage(""); const popup = window.open("", "_blank"); const response = await fetch(`${API_URL}/comercial/minha-assinatura/checkout`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(parcelamentoAnual ? { formasPagamento: ["CREDIT_CARD"], parcelamentoAnual: true, parcelas: 12 } : { formasPagamento: ["CREDIT_CARD", "PIX"] }) }); const payload = await response.json().catch(() => ({})); setOpening(false); if (response.ok && payload.url) { if (popup) popup.location.href = payload.url; else window.location.href = payload.url; } else { popup?.close(); setMessage(payload.message ?? "Não foi possível abrir o pagamento seguro."); } }
   if (loading) return <div className="data-state">Carregando sua assinatura...</div>;
   const item=data?.assinatura, plan=item?.plano, charges=[...(item?.cobrancas??[])].sort((a:any,b:any)=>String(b.vencimento).localeCompare(String(a.vencimento))); const date=(value:any)=>value?new Date(`${String(value).slice(0,10)}T12:00:00`).toLocaleDateString("pt-BR"):"Não definida";
   if(!item) return <section className="subscription-empty"><b>◇</b><h2>Assinatura ainda não vinculada</h2><p>A administração precisa vincular um plano a esta conta geradora.</p>{message?<div className="error-message">{message}</div>:null}</section>;
-  return <div className="subscription-page"><section className="subscription-hero"><div><small>MINHA ASSINATURA</small><h2>{plan?.nome??"Andrade Energy"}</h2><p>{plan?.descricao??"Licença de uso da plataforma"}</p></div><span>{String(item.status).replace("ATIVA","ATIVA").replace("INADIMPLENTE","PAGAMENTO PENDENTE")}</span></section><div className="subscription-metrics"><article><small>VALOR</small><strong>{money(item.valor_contratado)}</strong><span>{item.ciclo==="ANUAL"?"por ano":"por mês"}</span></article><article><small>VALIDADE</small><strong>{date(item.proximo_vencimento)}</strong><span>próximo vencimento</span></article><article><small>FORMA ATUAL</small><strong>{String(item.forma_pagamento??"Não definida").replace("CREDIT_CARD","Cartão").replace("BOLETO","Boleto")}</strong><span>ciclo {String(item.ciclo).toLowerCase()}</span></article></div><button className="subscription-checkout" disabled={opening} onClick={()=>void checkout()}><b>▣</b><span><strong>{opening?"Abrindo ambiente seguro...":"Ativar pagamento recorrente"}</strong><small>Escolha cartão ou Pix no checkout protegido do Asaas</small></span><em>↗</em></button>{message?<div className="error-message">{message}</div>:null}<div className="subscription-columns"><section className="section-workspace"><span className="section-label">RECURSOS DO PLANO</span>{(plan?.recursos??[]).map((resource:string)=><p className="subscription-resource" key={resource}>✓ {resource}</p>)}</section><section className="section-workspace"><span className="section-label">COBRANÇAS</span>{charges.length?charges.map((charge:any)=><article className="subscription-charge" key={charge.id}><span><strong>{charge.competencia??"Mensalidade"}</strong><small>Vence em {date(charge.vencimento)}</small></span><span><strong>{money(charge.valor)}</strong><small>{charge.status==="PAGA"?"Paga":charge.status==="VENCIDA"?"Vencida":"Pendente"}</small></span></article>):<p>Nenhuma cobrança registrada.</p>}</section></div></div>;
+  return <div className="subscription-page"><section className="subscription-hero"><div><small>MINHA ASSINATURA</small><h2>{plan?.nome??"Andrade Energy"}</h2><p>{plan?.descricao??"Licença de uso da plataforma"}</p></div><span>{String(item.status).replace("ATIVA","ATIVA").replace("INADIMPLENTE","PAGAMENTO PENDENTE")}</span></section><div className="subscription-metrics"><article><small>VALOR</small><strong>{money(item.valor_contratado)}</strong><span>{item.ciclo==="ANUAL"?"por ano":"por mês"}</span></article><article><small>VALIDADE</small><strong>{date(item.proximo_vencimento)}</strong><span>próximo vencimento</span></article><article><small>FORMA ATUAL</small><strong>{String(item.forma_pagamento??"Não definida").replace("CREDIT_CARD","Cartão").replace("BOLETO","Boleto")}</strong><span>ciclo {String(item.ciclo).toLowerCase()}</span></article></div><div className="subscription-payment-options"><button className="subscription-checkout" disabled={opening} onClick={()=>void checkout(false)}><b>▣</b><span><strong>{opening?"Abrindo ambiente seguro...":"Ativar pagamento recorrente"}</strong><small>Cartão ou Pix no checkout protegido do Asaas</small></span><em>↗</em></button>{item.ciclo==="ANUAL"?<button className="subscription-checkout installment" disabled={opening} onClick={()=>void checkout(true)}><b>12x</b><span><strong>Parcelar plano anual</strong><small>Até 12 parcelas no cartão; renovação anual confirmada separadamente</small></span><em>↗</em></button>:null}</div>{message?<div className="error-message">{message}</div>:null}<div className="subscription-columns"><section className="section-workspace"><span className="section-label">RECURSOS DO PLANO</span>{(plan?.recursos??[]).map((resource:string)=><p className="subscription-resource" key={resource}>✓ {resource}</p>)}</section><section className="section-workspace"><span className="section-label">COBRANÇAS</span>{charges.length?charges.map((charge:any)=><article className="subscription-charge" key={charge.id}><span><strong>{charge.competencia??"Mensalidade"}</strong><small>Vence em {date(charge.vencimento)}</small></span><span><strong>{money(charge.valor)}</strong><small>{charge.status==="PAGA"?"Paga":charge.status==="VENCIDA"?"Vencida":"Pendente"}</small></span></article>):<p>Nenhuma cobrança registrada.</p>}</section></div></div>;
 }
 
 function PortalHome({
@@ -4076,6 +3958,7 @@ function PortalApp() {
                 <a href="mailto:contato@andradese.com.br">
                   Fale com nossa equipe
                 </a>
+                <a href="/planos">Conheça os planos</a>
               </div>
               <div className="multi-company-note">
                 <b>Plataforma multiempresa</b>
@@ -4213,10 +4096,21 @@ function PortalApp() {
   );
 }
 
+const PUBLIC_PLANS = [
+  { name: "Essencial", monthly: "R$ 99,90", annual: "R$ 999", installment: "12x de R$ 83,25", limit: "1 usina · até 100 clientes", features: ["Gestão de usina e UCs", "Importação de faturas por PDF", "Contratos e assinatura no app", "Faturamento, Pix e boleto", "Apps Gerador e Consumidor"] },
+  { name: "Profissional", monthly: "R$ 199,90", annual: "R$ 1.999", installment: "Até 12x (total R$ 1.999)", limit: "5 usinas · até 500 clientes", featured: true, features: ["Tudo do Essencial", "Recebimento automático por e-mail", "Rateio de múltiplas usinas", "Relatórios e memória de cálculo", "Cobranças automáticas"] },
+  { name: "Escala", monthly: "R$ 399,90", annual: "R$ 3.999", installment: "12x de R$ 333,25", limit: "20 usinas · até 2.000 clientes", features: ["Tudo do Profissional", "Gestão multiempresa", "Identidade personalizada", "Monitoramento consolidado", "Suporte e implantação prioritários"] },
+];
+
+function PricingPage() {
+  return <main className="pricing-page"><header><span className="brand-logo-wrap"><AnimatedLogo /><img className="brand-lightbulb" src={bulbImage} alt="" /></span><a href="/">Entrar no portal</a></header><section className="pricing-hero"><small>PLANOS ANDRADE ENERGY</small><h1>Gestão completa para sua operação de energia</h1><p>Comece com 45 dias para validar a plataforma. No anual, economize aproximadamente dois meses e parcele em até 12 vezes no cartão.</p></section><section className="pricing-grid">{PUBLIC_PLANS.map(plan=><article className={plan.featured?"featured":""} key={plan.name}>{plan.featured?<em>MAIS ESCOLHIDO</em>:null}<h2>{plan.name}</h2><p>{plan.limit}</p><div><strong>{plan.monthly}</strong><small>/mês</small></div><span>ou {plan.annual}/ano</span><b>{plan.installment} no cartão</b><ul>{plan.features.map(item=><li key={item}>✓ {item}</li>)}</ul><a href="mailto:andradeenergyltda@gmail.com?subject=Quero contratar o plano Andrade Energy">Quero este plano</a></article>)}</section><footer><p>Os valores do parcelamento podem variar em centavos por arredondamento do Asaas.</p><a href="/">Voltar ao portal</a></footer></main>;
+}
+
 export default function App() {
   const convite = new URLSearchParams(window.location.search).get("convite")?.trim() ?? "";
   if (window.location.pathname === "/convite") {
     return <ConsumerInviteSignup apiUrl={API_URL} convite={convite} />;
   }
+  if (window.location.pathname === "/planos") return <PricingPage />;
   return <PortalApp />;
 }
