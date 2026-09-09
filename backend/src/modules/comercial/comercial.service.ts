@@ -409,6 +409,10 @@ export async function criarCheckoutRecorrente(usuario: any, input: any) {
   const { assinatura } = await obterMinhaAssinatura(String(usuario.id));
   if (!assinatura)
     throw new Error("Nenhuma assinatura ativa foi vinculada a esta conta.");
+  if (["CANCELADA", "SUSPENSA"].includes(String(assinatura.status)))
+    throw new Error("Esta assinatura não permite iniciar um pagamento recorrente.");
+  if (!digits(usuario.cpf))
+    throw new Error("Cadastre o CPF/CNPJ do gerador antes de ativar a cobrança.");
   const billingTypes = Array.isArray(input?.formasPagamento)
     ? input.formasPagamento.filter((item: string) =>
         ["CREDIT_CARD", "PIX"].includes(String(item).toUpperCase()),
@@ -460,5 +464,13 @@ export async function criarCheckoutRecorrente(usuario: any, input: any) {
     throw new Error(
       "O Asaas criou o checkout, mas não retornou o endereço de pagamento.",
     );
+  const { error: saveError } = await supabase
+    .from("assinaturas_geradores")
+    .update({
+      asaas_checkout_id: checkout.id,
+      atualizado_em: new Date().toISOString(),
+    })
+    .eq("id", assinatura.id);
+  if (saveError) throw saveError;
   return { url, checkoutId: checkout.id, assinaturaId: assinatura.id };
 }

@@ -174,14 +174,69 @@ export async function processarWebhookAsaas(body: any, token?: string) {
   if (!process.env.ASAAS_WEBHOOK_TOKEN || token !== process.env.ASAAS_WEBHOOK_TOKEN) throw new Error("Webhook Asaas não autorizado.");
   if (!body?.id || !body?.event) throw new Error("Evento Asaas inválido.");
   const inserted=await supabase.from("asaas_eventos").insert({evento_id:body.id,tipo:body.event,payload:body}).select().single(); if(inserted.error?.code==="23505") return {duplicado:true}; if(inserted.error) throw inserted.error;
+  if (body.checkout?.id) {
+    const checkoutId = String(body.checkout.id);
+    const customerId = body.checkout.customer ? String(body.checkout.customer) : null;
+    const encerrado = ["CHECKOUT_CANCELED", "CHECKOUT_EXPIRED"].includes(String(body.event));
+    await supabase
+      .from("assinaturas_geradores")
+      .update({
+        ...(customerId ? { asaas_customer_id: customerId } : {}),
+        ...(encerrado ? { asaas_checkout_id: null } : {}),
+        atualizado_em: new Date().toISOString(),
+      })
+      .eq("asaas_checkout_id", checkoutId);
+  }
+  if (body.subscription?.id) {
+    const subscription = body.subscription;
+    const reference = String(subscription.externalReference ?? "");
+    const referenceId = reference.startsWith("assinatura:") ? reference.split(":")[1] : null;
+    let query = supabase.from("assinaturas_geradores").select("id");
+    if (referenceId) query = query.eq("id", referenceId);
+    else if (subscription.customer) query = query.eq("asaas_customer_id", String(subscription.customer));
+    else query = query.eq("asaas_subscription_id", String(subscription.id));
+    const { data: local } = await query.order("criado_em", { ascending: false }).limit(1).maybeSingle();
+    if (local?.id) {
+      const inativa = ["SUBSCRIPTION_INACTIVATED", "SUBSCRIPTION_DELETED"].includes(String(body.event));
+      await supabase.from("assinaturas_geradores").update({
+        asaas_subscription_id: String(subscription.id),
+        ...(subscription.customer ? { asaas_customer_id: String(subscription.customer) } : {}),
+        ...(subscription.billingType ? { forma_pagamento: String(subscription.billingType) } : {}),
+        ...(subscription.nextDueDate ? { proximo_vencimento: String(subscription.nextDueDate).slice(0, 10) } : {}),
+        ...(inativa ? { status: "SUSPENSA" } : {}),
+        atualizado_em: new Date().toISOString(),
+      }).eq("id", local.id);
+    }
+  }
   if(body.payment?.id){
-    const comercial = String(body.payment.externalReference ?? "").startsWith("assinatura:");
+    const referenciaComercial = String(body.payment.externalReference ?? "").startsWith("assinatura:");
+    const assinaturaAsaas = body.payment.subscription ? String(body.payment.subscription) : null;
+    const comercial = referenciaComercial || Boolean(assinaturaAsaas);
     if (comercial) {
       const pago = ["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"].includes(body.event);
       const vencida = ["PAYMENT_OVERDUE"].includes(body.event);
-      const assinaturaExterna = String(body.payment.externalReference).split(":")[1] || null;
-      const { data: cobranca } = await supabase.from("cobrancas_assinaturas_geradores").update({ status: pago ? "PAGA" : vencida ? "VENCIDA" : "PENDENTE", pago_em: pago ? new Date().toISOString() : null, atualizado_em: new Date().toISOString() }).eq("asaas_payment_id", body.payment.id).select().maybeSingle();
-      const assinaturaId = cobranca?.assinatura_id ?? assinaturaExterna;
+      const cancelada = ["PAYMENT_DELETED", "PAYMENT_REFUNDED", "PAYMENT_REFUND_IN_PROGRESS"].includes(body.event);
+      const assinaturaExterna = referenciaComercial ? String(body.payment.externalReference).split(":")[1] || null : null;
+      const { data: assinaturaLocal } = assinaturaExterna
+        ? await supabase.from("assinaturas_geradores").select("id").eq("id", assinaturaExterna).maybeSingle()
+        : await supabase.from("assinaturas_geradores").select("id").eq("asaas_subscription_id", assinaturaAsaas).maybeSingle();
+      const assinaturaId = assinaturaLocal?.id ?? assinaturaExterna;
+      if (!assinaturaId) return { recebido: true, assinaturaNaoAssociada: true };
+      const vencimento = String(body.payment.dueDate ?? new Date().toISOString()).slice(0, 10);
+      const competencia = vencimento.slice(0, 7);
+      const statusCobranca = pago ? "PAGA" : vencida ? "VENCIDA" : cancelada ? "CANCELADA" : "PENDENTE";
+      const { data: cobranca } = await supabase.from("cobrancas_assinaturas_geradores").upsert({
+        assinatura_id: assinaturaId,
+        competencia,
+        vencimento,
+        valor: Number(body.payment.value ?? 0),
+        status: statusCobranca,
+        asaas_payment_id: String(body.payment.id),
+        invoice_url: body.payment.invoiceUrl ?? null,
+        bank_slip_url: body.payment.bankSlipUrl ?? body.payment.invoiceUrl ?? null,
+        pago_em: pago ? new Date().toISOString() : null,
+        atualizado_em: new Date().toISOString(),
+      }, { onConflict: "assinatura_id,competencia" }).select().maybeSingle();
       if (assinaturaId && (pago || vencida)) await supabase.from("assinaturas_geradores").update({ status: pago ? "ATIVA" : "INADIMPLENTE", forma_pagamento: body.payment.billingType ?? undefined, atualizado_em: new Date().toISOString() }).eq("id", assinaturaId);
     } else {
       const {data:c}=await supabase.from("asaas_cobrancas").update({status:body.payment.status,valor_liquido:body.payment.netValue??body.payment.value??null,atualizado_em:new Date().toISOString()}).eq("asaas_payment_id",body.payment.id).select().maybeSingle();
