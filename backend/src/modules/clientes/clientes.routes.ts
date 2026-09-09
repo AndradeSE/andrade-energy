@@ -21,7 +21,7 @@ import {
 } from "./clientes.controller";
 import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
 import { upload } from "../../config/multer";
-import { exigirClienteDaSessaoOuGestor } from "../../utils/empresaScope";
+import { exigirClienteDaSessaoOuGestor, exigirUnidadeDaSessaoOuGestor } from "../../utils/empresaScope";
 
 const router = Router();
 
@@ -32,7 +32,7 @@ router.get("/", exigirGestor, listarClientesController);
 router.get("/minhas-unidades", exigirAutenticacao, listarMinhasUnidadesController);
 router.patch("/minhas-unidades/:unidadeId/apelido", exigirAutenticacao, nomearMinhaUnidadeController);
 router.get("/unidades", exigirAutenticacao, exigirGestor, listarTodasUnidadesController);
-router.get("/unidade/:unidadeId", exigirAutenticacao, buscarUnidadeController);
+router.get("/unidade/:unidadeId", exigirUnidadeDaSessaoOuGestor(), buscarUnidadeController);
 
 router.get("/:id/unidades", exigirClienteDaSessaoOuGestor("id"), listarUnidadesClienteController);
 router.post("/:id/unidades", exigirAutenticacao, exigirGestor, cadastrarUnidadeClienteController);
@@ -40,8 +40,8 @@ router.delete("/unidade/:unidadeId", exigirAutenticacao, exigirGestor, excluirUn
 
 router.get("/:id/solicitacao-cadastro", exigirAutenticacao, exigirGestor, obterSolicitacaoCadastroClienteController);
 router.post("/:id/confirmar-cadastro", exigirAutenticacao, exigirGestor, confirmarCadastroClienteController);
-router.get("/:id/faturas-anexadas", exigirAutenticacao, listarFaturasAnexadasClienteController);
-router.post("/:id/faturas-anexadas", exigirAutenticacao, upload.single("arquivo"), anexarFaturaClienteController);
+router.get("/:id/faturas-anexadas", exigirClienteDaSessaoOuGestor("id"), listarFaturasAnexadasClienteController);
+router.post("/:id/faturas-anexadas", exigirClienteDaSessaoOuGestor("id"), upload.single("arquivo"), anexarFaturaClienteController);
 router.delete("/:id/faturas-anexadas/:anexoId", exigirAutenticacao, exigirGestor, excluirFaturaAnexadaClienteController);
 
 router.get("/:id", exigirClienteDaSessaoOuGestor("id"), buscarClienteController);

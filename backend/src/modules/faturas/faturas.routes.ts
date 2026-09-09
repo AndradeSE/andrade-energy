@@ -17,27 +17,31 @@ import { exigirContratoDaUc } from "../../middlewares/contratoAcesso.middleware"
 
 const router = Router();
 
+router.use(exigirAutenticacao);
+
 router.get(
   "/",
-  exigirAutenticacao, exigirContratoDaUc,
+  exigirContratoDaUc,
   listarFaturasController
 );
 
 router.post(
   "/analisar",
+  exigirGestor,
   upload.single("arquivo"),
   analisarFaturaController
 );
 
-router.get("/:id/relatorio-calculo", exigirAutenticacao, exigirContratoDaUc, obterRelatorioCalculoFaturaController);
-router.get("/:id", exigirAutenticacao, exigirContratoDaUc, detalharFaturaController);
-router.delete("/:id", excluirFaturaController);
-router.post("/:id/confirmar", exigirAutenticacao, exigirGestor, confirmarFaturaRascunhoController);
-router.post("/:id/regenerar-documentos", exigirAutenticacao, exigirGestor, regenerarDocumentosFaturaController);
-router.post("/manual/criar", exigirAutenticacao, exigirGestor, criarFaturaManualController);
+router.get("/:id/relatorio-calculo", exigirContratoDaUc, obterRelatorioCalculoFaturaController);
+router.get("/:id", exigirContratoDaUc, detalharFaturaController);
+router.delete("/:id", exigirGestor, excluirFaturaController);
+router.post("/:id/confirmar", exigirGestor, confirmarFaturaRascunhoController);
+router.post("/:id/regenerar-documentos", exigirGestor, regenerarDocumentosFaturaController);
+router.post("/manual/criar", exigirGestor, criarFaturaManualController);
 
 router.post(
   "/importar",
+  exigirGestor,
   upload.single("arquivo"),
   importarFaturaController
 );

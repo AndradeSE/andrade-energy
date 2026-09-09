@@ -54,6 +54,7 @@ async function executar() {
   if (sessaoError) throw sessaoError;
 
   let apiValidada = false;
+  let rotasPrivadasValidadas = false;
   try {
     const cabecalhos = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
     const base = "https://andrade-energy-api-vda.onrender.com/api";
@@ -79,6 +80,19 @@ async function executar() {
     if (!identidadeAndradeResposta.ok || identidadeAndrade.id !== EMPRESA_ANDRADE_ID) {
       throw new Error("A troca de ambiente não persistiu na sessão.");
     }
+
+    const rotasSemSessao = await Promise.all([
+      fetch(`${base}/clientes`),
+      fetch(`${base}/usinas`),
+      fetch(`${base}/faturas`),
+      fetch(`${base}/faturas/analisar`, { method: "POST" }),
+      fetch(`${base}/faturas/importar`, { method: "POST" }),
+      fetch(`${base}/faturas/00000000-0000-0000-0000-000000000000`, { method: "DELETE" }),
+    ]);
+    if (rotasSemSessao.some((resposta) => resposta.status !== 401)) {
+      throw new Error(`Rota operacional acessível sem sessão: ${rotasSemSessao.map((resposta) => resposta.status).join("/")}.`);
+    }
+    rotasPrivadasValidadas = true;
     apiValidada = true;
   } finally {
     await supabase.from("sessoes_usuarios").update({ revogada_em: new Date().toISOString() }).eq("id", sessao.id);
@@ -89,6 +103,7 @@ async function executar() {
     empresa,
     administradoresVinculados: administradores.length,
     apiPublicaESessao: apiValidada ? "APROVADAS" : "REPROVADAS",
+    rotasOperacionaisSemSessao: rotasPrivadasValidadas ? "BLOQUEADAS" : "REPROVADAS",
     isolamento: contagens,
     observacao: "Nenhum cliente, usina, UC, fatura, contrato ou carteira foi criado no ambiente de homologação.",
   }, null, 2));

@@ -65,3 +65,21 @@ export function exigirUsinaDaSessaoOuGestor(parametro = "id") {
     return next();
   };
 }
+
+export function exigirUnidadeDaSessaoOuGestor(parametro = "unidadeId") {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const usuario: any = (req as any).usuario;
+    const perfil = String(usuario?.perfil ?? "").toUpperCase();
+    const unidadeId = String(req.params[parametro] ?? "");
+    if (!unidadeId) return res.status(400).json({ message: "Unidade consumidora não informada." });
+    const empresaId = empresaIdDaRequisicao(req);
+    const { data, error } = await supabase.from("unidades_consumidoras").select("id,cliente_id")
+      .eq("id", unidadeId).eq("empresa_id", empresaId).maybeSingle();
+    if (error || !data) return res.status(404).json({ message: "Unidade consumidora não encontrada para esta empresa." });
+    if (["ADMIN", "GESTOR"].includes(perfil)) return next();
+    if (String(data.cliente_id ?? "") !== String(usuario?.cliente_id ?? "")) {
+      return res.status(403).json({ message: "Você não tem acesso a esta unidade consumidora." });
+    }
+    return next();
+  };
+}
