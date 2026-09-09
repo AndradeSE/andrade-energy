@@ -10,6 +10,15 @@ import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors, Spacing, Typography } from "../../theme";
 import { emailOpcionalValido, normalizarEmail } from "../../utils/email";
 import { anexarFaturaCliente, criarCliente } from "../../services/clientes.service";
+import { calcularMediaConsumoFatura } from "../../services/faturas.service";
+
+function tipoGdDaFatura(dados: Record<string, any>) {
+  const informado = String(dados.tipoGd ?? dados.tipo_gd ?? "").toUpperCase();
+  if (["GD1", "GD2", "MISTA"].includes(informado)) return informado;
+  const gd1 = Number(dados.energiaCompensadaGD1 ?? dados.energia_compensada_gd1 ?? 0) > 0;
+  const gd2 = Number(dados.energiaCompensadaGD2 ?? dados.energia_compensada_gd2 ?? 0) > 0;
+  return gd1 && gd2 ? "MISTA" : gd2 ? "GD2" : gd1 ? "GD1" : "";
+}
 
 export default function NovoCliente() {
   const { origem, cliente, nome: nomeImportado, cpf: cpfImportado, endereco: enderecoImportado, arquivoUri, arquivoNome } = useLocalSearchParams<{ origem?: string; cliente?: string; nome?: string; cpf?: string; endereco?: string; arquivoUri?: string; arquivoNome?: string }>();
@@ -47,12 +56,34 @@ export default function NovoCliente() {
     try {
       const clienteCriado = await criarCliente(dados);
       const clienteId = String(clienteCriado.id);
-      await anexarFaturaCliente(String(clienteId), { uri: pdf.uri, name: pdf.name || "fatura-cemig.pdf", mimeType: pdf.mimeType || "application/pdf" });
+      const faturaAnexada = await anexarFaturaCliente(String(clienteId), { uri: pdf.uri, name: pdf.name || "fatura-cemig.pdf", mimeType: pdf.mimeType || "application/pdf" });
+      const dadosFatura = faturaAnexada.dadosFatura ?? {};
+      const numeroUc = String(faturaAnexada.unidade?.numero ?? dadosFatura.uc ?? dadosFatura.numero_instalacao ?? "").replace(/\D/g, "");
+      const consumoMedio = calcularMediaConsumoFatura(dadosFatura);
       setSalvando(false);
       Alert.alert(
         "Cliente e UC cadastrados",
-        "Configure a UC e prepare o contrato. O convite e a proposta serão enviados apenas na etapa de envio do contrato.",
-        [{ text: "OK", onPress: () => router.replace(`/clientes/${clienteId}`) }],
+        "Agora configure a UC. Depois, o fluxo continua com contrato, proposta e convite.",
+        [{
+          text: "Configurar UC",
+          onPress: () => router.replace({
+            pathname: "/unidades/nova",
+            params: {
+              origem: "fatura",
+              origemFaturaPerfil: "1",
+              clienteId,
+              cliente: String(dadosFatura.titular ?? dadosFatura.cliente ?? nome.trim()),
+              uc: numeroUc,
+              cpf: String(dadosFatura.cpfParcial ?? dadosFatura.cpf_parcial ?? cpfLimpo).replace(/\D/g, "").slice(0, 4),
+              endereco: String(dadosFatura.endereco ?? ""),
+              distribuidora: String(dadosFatura.distribuidora ?? "CEMIG"),
+              energiaCompensada: String(dadosFatura.energiaCompensada ?? dadosFatura.energia_compensada ?? 0),
+              consumoMedio: consumoMedio > 0 ? String(consumoMedio) : "",
+              tipoGd: tipoGdDaFatura(dadosFatura),
+              dadosFatura: JSON.stringify(dadosFatura),
+            },
+          }),
+        }],
       );
     } catch (erro: any) {
       setSalvando(false);
