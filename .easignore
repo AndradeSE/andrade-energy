@@ -1,0 +1,61 @@
+# Dependencies and local caches
+node_modules/
+.expo/
+.git/
+.worktrees/
+.codex-*/
+.local-android/
+.kotlin/
+
+# Generated native/build output
+android/
+ios/
+dist/
+dist-*/
+web-build/
+output/
+builds-local/
+b/
+backend/output/
+backend/tmp/
+backend/uploads/
+portal-web/node_modules/
+portal-web/dist/
+portal-web/.tmp-sites/
+portal-web/.openai/*.tar.gz
+supabase/.temp/
+scripts/__pycache__/
+
+# Local diagnostics and temporary exports
+.expo-export-*/
+.tmp-*
+tmp/
+symbols/
+latest-crash.dmp
+windbg-analysis.txt
+document.documentElement.clientWidth
+
+# Secrets and credentials
+.env
+.env.*
+!.env.example
+!**/.env.example
+.microsoft-token-cache.json
+*.jks
+*.keystore
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+
+# Archives and logs
+*.rar
+*.zip
+*.7z
+*.tar.gz
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.tsbuildinfo
+.DS_Store
