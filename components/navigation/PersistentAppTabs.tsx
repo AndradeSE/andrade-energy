@@ -30,9 +30,9 @@ const consumerTabs: TabItem[] = [
 ];
 
 const commercialTabs: TabItem[] = [
-  { label: "Geradores e assinaturas", icon: "people-outline", route: "/geradores/gestao" },
+  { label: "Geradores", icon: "people-outline", route: "/geradores/gestao?aba=GERADORES" },
   { label: "Home", icon: "home-outline", route: "/admin/comercial" },
-  { label: "Empresas", icon: "business-outline", route: "/admin/empresas" },
+  { label: "Assinaturas", icon: "card-outline", route: "/geradores/gestao?aba=ASSINATURAS" },
 ];
 
 export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
@@ -51,6 +51,7 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
     firstSegment === "(tabs)" ||
     firstSegment === "(auth)" ||
     hasOwnCommercialTabs ||
+    (firstSegment === "admin" && secondSegment === "escolher-area") ||
     firstSegment === "selecionar-unidade" ||
     firstSegment === "biometric-lock";
 

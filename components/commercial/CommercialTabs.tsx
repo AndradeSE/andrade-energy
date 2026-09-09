@@ -4,7 +4,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "../../theme";
 
-type CommercialTab = "HOME" | "CARTEIRA" | "RECEITA";
+type CommercialTab = "HOME" | "GERADORES" | "ASSINATURAS";
 
 export default function CommercialTabs({ active }: { active?: CommercialTab }) {
   const insets = useSafeAreaInsets();
@@ -17,25 +17,25 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
       onPress: () => router.replace("/admin/comercial" as any),
     },
     {
-      key: "CARTEIRA",
+      key: "GERADORES",
       icon: "people",
       outline: "people-outline",
-      label: "Geradores e assinaturas",
+      label: "Geradores",
+      onPress: () =>
+        router.replace({
+          pathname: "/geradores/gestao",
+          params: { aba: "GERADORES" },
+        } as any),
+    },
+    {
+      key: "ASSINATURAS",
+      icon: "card",
+      outline: "card-outline",
+      label: "Assinaturas",
       onPress: () =>
         router.replace({
           pathname: "/geradores/gestao",
           params: { aba: "ASSINATURAS" },
-        } as any),
-    },
-    {
-      key: "RECEITA",
-      icon: "cash",
-      outline: "cash-outline",
-      label: "Receita mensal",
-      onPress: () =>
-        router.replace({
-          pathname: "/geradores/gestao",
-          params: { aba: "PAGAMENTOS" },
         } as any),
     },
   ] as const;

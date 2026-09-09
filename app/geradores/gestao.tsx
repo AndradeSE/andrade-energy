@@ -83,8 +83,8 @@ export default function GestaoGeradores() {
     void load();
   }, [load]);
   useEffect(() => {
-    if (params.aba === "ASSINATURAS" || params.aba === "PAGAMENTOS") {
-      setAba(params.aba);
+    if (["GERADORES", "ASSINATURAS", "PAGAMENTOS"].includes(String(params.aba))) {
+      setAba(params.aba as "GERADORES" | "ASSINATURAS" | "PAGAMENTOS");
     }
   }, [params.aba]);
   if (user?.perfil !== "ADMIN")
@@ -707,7 +707,7 @@ export default function GestaoGeradores() {
           </>
         )}
       </ScrollView>
-      <CommercialTabs active={aba === "PAGAMENTOS" ? "RECEITA" : "CARTEIRA"} />
+      <CommercialTabs active={aba === "ASSINATURAS" ? "ASSINATURAS" : "GERADORES"} />
     </Screen>
   );
 

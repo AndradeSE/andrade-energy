@@ -7,17 +7,15 @@ import {
   Modal,
   Pressable,
   RefreshControl,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import PortalBrandLogo from "../../components/brand/PortalBrandLogo";
 import CommercialTabs from "../../components/commercial/CommercialTabs";
 import QuickAccessCarousel from "../../components/QuickAccessCarousel";
 import {
+  AppHeader,
   ElasticScrollView as ScrollView,
   Screen,
   Section,
@@ -39,7 +37,6 @@ const moeda = (value: unknown) =>
     currency: "BRL",
   });
 export default function HomeComercial() {
-  const insets = useSafeAreaInsets();
   const { usuario, logout } = useAuth();
   const [data, setData] = useState<PainelComercial | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,60 +94,17 @@ export default function HomeComercial() {
   const financeiro = data?.financeiro;
   return (
     <Screen>
-      <StatusBar backgroundColor="#083D31" barStyle="light-content" />
-      <View
-        style={[
-          styles.header,
-          { marginTop: -insets.top, paddingTop: insets.top + 8 },
-        ]}
-      >
-        <TouchableOpacity
-          accessibilityLabel="Abrir menu"
-          onPress={() => setMenuAberto(true)}
-          style={styles.headerAction}
-        >
-          <Ionicons name="menu-outline" size={27} color="#FFF" />
-        </TouchableOpacity>
-        <PortalBrandLogo height={30} width={104} />
-        <View style={styles.headerCopy}>
-          <Text style={styles.headerLabel}>GESTÃO COMERCIAL</Text>
-          <Text numberOfLines={1} style={styles.headerUser}>
-            Painel administrativo
-          </Text>
-        </View>
-        <TouchableOpacity
-          accessibilityLabel="Pesquisar"
-          onPress={() => router.push({ pathname: "/pesquisa", params: { perfil: "comercial" } } as any)}
-          style={styles.headerAction}
-        >
-          <Ionicons name="search-outline" size={23} color="#FFF" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          accessibilityLabel="Abrir perfil"
-          onPress={() =>
-            router.push({
-              pathname: "/admin/perfil",
-              params: { origem: "comercial" },
-            } as any)
-          }
-          style={styles.profile}
-        >
-          <Ionicons name="person-outline" size={20} color="#FFF" />
-        </TouchableOpacity>
-      </View>
-      <TouchableOpacity
-        accessibilityLabel="Trocar ambiente de gestão"
-        activeOpacity={0.82}
-        onPress={() => router.replace("/admin/escolher-area" as any)}
-        style={styles.environmentSwitch}
-      >
-        <View style={styles.environmentCurrent}>
-          <Ionicons name="briefcase-outline" size={14} color="#A7F3D0" />
-          <Text style={styles.environmentLabel}>Gestão comercial</Text>
-        </View>
-        <Text style={styles.environmentAction}>Trocar ambiente</Text>
-        <Ionicons name="chevron-forward" size={14} color="#F6CC32" />
-      </TouchableOpacity>
+      <AppHeader
+        collapsePlantContextOnMount
+        environmentName="Gestão comercial"
+        icon="briefcase-outline"
+        onSearch={() => router.push({ pathname: "/pesquisa", params: { perfil: "comercial" } } as any)}
+        showPlantContext={false}
+        title="Gestão comercial"
+        subtitle="Painel administrativo"
+        contextTitle={usuario?.nome ?? "Administração"}
+        contextSubtitle="Geradores, assinaturas e empresas"
+      />
       <Modal
         animationType="fade"
         transparent
@@ -278,7 +232,8 @@ export default function HomeComercial() {
           <QuickAccessCarousel
             storageKey="comercial-home"
             items={[
-              { icon: "business-outline", label: "Geradores", value: `${data?.assinaturas.length ?? 0} assinaturas`, onPress: () => router.push("/geradores/gestao" as any) },
+              { icon: "business-outline", label: "Geradores", value: `${data?.geradores.filter((item) => item.perfil === "GESTOR").length ?? 0} cadastrados`, onPress: () => router.push({ pathname: "/geradores/gestao", params: { aba: "GERADORES" } } as any) },
+              { icon: "card-outline", label: "Assinaturas", value: `${data?.assinaturas.length ?? 0} cadastradas`, onPress: () => router.push({ pathname: "/geradores/gestao", params: { aba: "ASSINATURAS" } } as any) },
               { icon: "pulse-outline", label: "Clientes ativos", value: `${data?.resumo.ativas ?? 0} monitorados`, onPress: () => router.push("/geradores/monitoramento" as any) },
               { icon: "cash-outline", label: "Pagamentos", value: `${financeiro?.cobrancasPendentes ?? 0} pendentes`, badge: Boolean(financeiro?.cobrancasVencidas), onPress: () => router.push({ pathname: "/geradores/gestao", params: { aba: "PAGAMENTOS" } } as any) },
               { icon: "layers-outline", label: "Empresas parceiras", value: "Identidade e operação", onPress: () => router.push("/admin/empresas" as any) },
