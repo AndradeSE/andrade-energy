@@ -55,12 +55,18 @@ export function exigirClienteDaSessaoOuGestor(parametro = "clienteId", origem: "
 export function exigirUsinaDaSessaoOuGestor(parametro = "id") {
   return async (req: Request, res: Response, next: NextFunction) => {
     const usuario: any = (req as any).usuario;
-    if (["ADMIN", "GESTOR"].includes(String(usuario?.perfil ?? "").toUpperCase())) return next();
+    const perfil = String(usuario?.perfil ?? "").toUpperCase();
     const usinaId = String(req.params[parametro] ?? "");
+    const empresaId = empresaIdDaRequisicao(req);
+    if (!usinaId) return res.status(400).json({ message: "Usina não informada." });
+    const { data: usina, error: erroUsina } = await supabase.from("usinas").select("id")
+      .eq("id", usinaId).eq("empresa_id", empresaId).maybeSingle();
+    if (erroUsina || !usina) return res.status(404).json({ message: "Usina não encontrada para esta empresa." });
+    if (["ADMIN", "GESTOR"].includes(perfil)) return next();
     const clienteId = String(usuario?.cliente_id ?? "");
-    if (!usinaId || !clienteId) return res.status(403).json({ message: "Você não tem acesso a esta usina." });
+    if (!clienteId) return res.status(403).json({ message: "Você não tem acesso a esta usina." });
     const { data, error } = await supabase.from("unidades_consumidoras").select("id")
-      .eq("empresa_id", empresaIdDaRequisicao(req)).eq("cliente_id", clienteId).eq("usina_id", usinaId).eq("status", "ATIVA").limit(1).maybeSingle();
+      .eq("empresa_id", empresaId).eq("cliente_id", clienteId).eq("usina_id", usinaId).eq("status", "ATIVA").limit(1).maybeSingle();
     if (error || !data) return res.status(403).json({ message: "Você não tem acesso a esta usina." });
     return next();
   };
