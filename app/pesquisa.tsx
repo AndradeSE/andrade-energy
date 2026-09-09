@@ -24,7 +24,7 @@ const itens: Record<string, Item[]> = {
     { icon: "document-text-outline", label: "Contratos", detalhe: "Contratos por unidade", rota: "/contratos" },
     { icon: "analytics-outline", label: "Operação", detalhe: "Competências processadas", rota: "/(tabs)/operacao" },
     { icon: "wallet-outline", label: "Financeiro", detalhe: "Receita e carteira", rota: "/financeiro" },
-    { icon: "card-outline", label: "Minha assinatura", detalhe: "Plano e vencimentos", rota: "/assinatura" },
+    { icon: "card-outline", label: "Meu plano", detalhe: "Plano, recursos e upgrade", rota: "/assinatura" },
   ],
   comercial: [
     { icon: "business-outline", label: "Geradores", detalhe: "Contas e assinaturas", rota: "/geradores/gestao" },

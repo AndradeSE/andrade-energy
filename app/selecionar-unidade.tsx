@@ -369,7 +369,10 @@ export default function SelecionarUnidade() {
           <TouchableOpacity accessibilityLabel="Opções da conta" onPress={() => setMenuAberto(true)} style={styles.menuButton}>
             <Ionicons name="menu" size={27} color="#FFFFFF" />
           </TouchableOpacity>
-          <View style={styles.logoBox}><PortalBrandLogo height={44} width={158} /></View>
+          <View style={[styles.logoBox, gestor && styles.logoBoxGerador]}>
+            <PortalBrandLogo height={44} width={158} />
+          </View>
+          {gestor ? <View pointerEvents="none" style={styles.menuSpacer} /> : null}
         </View>
         <Text numberOfLines={2} style={styles.welcome}>Olá, {usuario?.nome?.trim() || "bem-vindo"}</Text>
       </LinearGradient>
@@ -1222,6 +1225,16 @@ const styles =
         "flex-end",
       justifyContent:
         "center",
+    },
+
+    logoBoxGerador: {
+      alignItems: "center",
+    },
+
+    menuSpacer: {
+      width: 44,
+      height: 44,
+      marginLeft: Spacing.xs,
     },
 
     intro: {

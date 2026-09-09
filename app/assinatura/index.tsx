@@ -83,6 +83,9 @@ export default function MinhaAssinatura() {
   if (carregando) return <Loading />;
   const assinatura = painel?.assinatura;
   const plano = assinatura?.plano;
+  const planos = [...(painel?.planos ?? [])].sort(
+    (a: any, b: any) => Number(a.valor_mensal ?? 0) - Number(b.valor_mensal ?? 0),
+  );
   const cobrancas = [...(assinatura?.cobrancas ?? [])].sort((a: any, b: any) =>
     String(b.vencimento).localeCompare(String(a.vencimento)),
   );
@@ -90,8 +93,8 @@ export default function MinhaAssinatura() {
     <Screen>
       <AppHeader
         variant="subpage"
-        title="Minha assinatura"
-        subtitle="Plano e pagamentos"
+        title="Meu plano"
+        subtitle="Assinatura, recursos e upgrade"
         contextTitle="Licença Andrade Energy"
         contextSubtitle="Gestão da conta"
         icon="card-outline"
@@ -223,6 +226,39 @@ export default function MinhaAssinatura() {
                   <Text style={styles.resourceText}>{item}</Text>
                 </View>
               ))}
+            </View>
+            <Text style={styles.section}>CONHEÇA E ALTERE SEU PLANO</Text>
+            <View style={styles.plans}>
+              {planos.map((item: any) => {
+                const atual = String(item.id) === String(plano?.id);
+                return (
+                  <View key={item.id} style={[styles.plan, atual && styles.currentPlan]}>
+                    <View style={styles.planHeading}>
+                      <View style={styles.grow}>
+                        <Text style={styles.planName}>{item.nome}</Text>
+                        <Text style={styles.muted}>{item.descricao}</Text>
+                      </View>
+                      {atual ? <Text style={styles.currentBadge}>ATUAL</Text> : null}
+                    </View>
+                    <Text style={styles.planPrice}>
+                      {moeda(item.valor_mensal)}<Text style={styles.planPeriod}>/mês</Text>
+                    </Text>
+                    <Text style={styles.planLimits}>
+                      {item.limite_usinas ? `Até ${item.limite_usinas} usinas` : "Usinas sem limite"}
+                      {item.limite_clientes ? ` · até ${item.limite_clientes} clientes` : " · clientes sem limite"}
+                    </Text>
+                    {!atual ? (
+                      <TouchableOpacity
+                        onPress={() => void Linking.openURL("https://andradeenergy.com.br/planos")}
+                        style={styles.upgrade}
+                      >
+                        <Text style={styles.upgradeText}>Ver condições e fazer upgrade</Text>
+                        <Ionicons name="arrow-forward" size={18} color="#FFF" />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                );
+              })}
             </View>
             <Text style={styles.section}>HISTÓRICO DE COBRANÇAS</Text>
             <View style={styles.card}>
@@ -410,6 +446,23 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     backgroundColor: "#F1F6F3",
   },
+  plans: { gap: Spacing.sm },
+  plan: {
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "#C7D9D0",
+    borderRadius: Radius.lg,
+    backgroundColor: "#FFF",
+  },
+  currentPlan: { borderWidth: 2, borderColor: Colors.primary, backgroundColor: "#F1F8F4" },
+  planHeading: { flexDirection: "row", alignItems: "flex-start", gap: Spacing.sm },
+  planName: { color: Colors.text, fontSize: Typography.body, fontWeight: "900" },
+  currentBadge: { color: Colors.primary, fontSize: 9, fontWeight: "900", backgroundColor: "#DDF1E5", paddingHorizontal: 8, paddingVertical: 5, borderRadius: Radius.round },
+  planPrice: { marginTop: Spacing.sm, color: Colors.primary, fontSize: 22, fontWeight: "900" },
+  planPeriod: { color: Colors.subtitle, fontSize: 12, fontWeight: "700" },
+  planLimits: { marginTop: 4, color: Colors.text, fontSize: Typography.small, fontWeight: "700" },
+  upgrade: { marginTop: Spacing.md, minHeight: 46, paddingHorizontal: Spacing.md, borderRadius: Radius.round, backgroundColor: Colors.primary, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.sm },
+  upgradeText: { color: "#FFF", fontWeight: "900" },
   resource: {
     flexDirection: "row",
     alignItems: "center",

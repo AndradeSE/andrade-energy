@@ -58,7 +58,7 @@ function rotuloCompetencia(valor: unknown) {
 }
 
 const atalhos = [
-  { icon: "card-outline", label: "Minha assinatura", rota: "/assinatura" },
+  { icon: "card-outline", label: "Meu plano", rota: "/assinatura" },
   { icon: "people-outline", label: "Clientes", rota: "/clientes" },
   { icon: "business-outline", label: "Usinas", rota: "/usinas" },
   { icon: "flash-outline", label: "Unidades consumidoras", rota: "/unidades" },
