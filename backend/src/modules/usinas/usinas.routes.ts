@@ -16,6 +16,7 @@ import {
 } from "./usinas.controller";
 import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
 import { exigirUsinaDaSessaoOuGestor } from "../../utils/empresaScope";
+import { exigirCapacidadeDoPlano } from "../../middlewares/limitesPlano.middleware";
 
 const router = Router();
 
@@ -34,7 +35,7 @@ router.delete("/:id/inversores/:integracaoId", exigirAutenticacao, exigirGestor,
 router.post("/:id/importar-fatura", exigirGestor, upload.single("arquivo"), importarFaturaGeradoraController);
 router.post("/:id/alocar-unidade", exigirGestor, alocarUnidadeController);
 
-router.post("/", exigirGestor, criarUsinaController);
+router.post("/", exigirGestor, exigirCapacidadeDoPlano("usinas"), criarUsinaController);
 
 router.put("/:id", exigirGestor, atualizarUsinaController);
 

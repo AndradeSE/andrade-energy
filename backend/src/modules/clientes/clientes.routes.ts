@@ -22,6 +22,7 @@ import {
 import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
 import { upload } from "../../config/multer";
 import { exigirClienteDaSessaoOuGestor, exigirUnidadeDaSessaoOuGestor } from "../../utils/empresaScope";
+import { exigirCapacidadeDoPlano } from "../../middlewares/limitesPlano.middleware";
 
 const router = Router();
 
@@ -46,7 +47,7 @@ router.delete("/:id/faturas-anexadas/:anexoId", exigirAutenticacao, exigirGestor
 
 router.get("/:id", exigirClienteDaSessaoOuGestor("id"), buscarClienteController);
 
-router.post("/", exigirGestor, criarClienteController);
+router.post("/", exigirGestor, exigirCapacidadeDoPlano("clientes"), criarClienteController);
 
 router.put("/:id", exigirGestor, atualizarClienteController);
 
