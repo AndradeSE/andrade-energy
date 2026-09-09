@@ -1,5 +1,15 @@
 # Andrade Energy — contexto do projeto
 
+## Segurança e homologação multiempresa — 09/09/2026
+
+- Senhas novas usam Argon2id; hashes legados são migrados no login. Chaves Pix ficam cifradas, operações financeiras exigem nova confirmação da senha e transferências aceitam chave de idempotência.
+- A empresa ativa passou a ser persistida na sessão. Identidade, remetente de e-mail e dados operacionais seguem a empresa selecionada; a Andrade Energy continua sendo a identidade padrão.
+- Foi criada a empresa interna **Homologação Multiempresa** (`homologacao-multiempresa`), sem clientes ou movimentações reais. O administrador Andrade pode alternar entre os ambientes sem compartilhar os registros operacionais.
+- O teste público `npm run test:multiempresa` cria uma sessão temporária, valida a identidade selecionada, consulta clientes e usinas, retorna à Andrade e revoga a sessão ao final.
+- A homologação confirmou isolamento completo: a Andrade possuía 2 clientes, 1 usina, 3 UCs, 1 fatura, 4 contratos e 3 carteiras; a empresa de homologação retornou zero em todas essas tabelas.
+- Clientes, usinas, UCs, anexos e faturas receberam proteção adicional por autenticação, perfil, empresa ativa e vínculo do consumidor. Analisar, importar ou excluir faturas sem sessão também é bloqueado.
+- A suíte completa do backend passou com 36 testes. O Render está publicado no commit `c79901a`; a homologação final retornou `APROVADO`, `apiPublicaESessao: APROVADAS` e `rotasOperacionaisSemSessao: BLOQUEADAS`.
+
 ## Publicação e acabamento — 07/09/2026
 
 - Inventário estático das 51 rotas em `MAPA_TELAS_APPS.md`; não equivale a inspeção visual completa em aparelho.
