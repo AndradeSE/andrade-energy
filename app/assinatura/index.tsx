@@ -66,7 +66,7 @@ export default function MinhaAssinatura() {
     try {
       setAbrindo(true);
       const checkout = await criarCheckoutAssinatura(
-        parcelamentoAnual ? ["CREDIT_CARD"] : ["CREDIT_CARD", "PIX"],
+        ["CREDIT_CARD"],
         parcelamentoAnual ? { parcelamentoAnual: true, parcelas: 12 } : {},
       );
       await Linking.openURL(checkout.url);
@@ -160,8 +160,8 @@ export default function MinhaAssinatura() {
                     : "Ativar recorrência (opcional)"}
                 </Text>
                 <Text style={styles.paymentText}>
-                  Escolha cartão ou Pix no checkout seguro. Se preferir,
-                  continue pagando as cobranças avulsas.
+                  Cadastre o cartão no checkout seguro para renovar
+                  automaticamente. Cobranças avulsas continuam disponíveis.
                 </Text>
               </View>
               <Ionicons name="open-outline" size={20} color="#FFF" />

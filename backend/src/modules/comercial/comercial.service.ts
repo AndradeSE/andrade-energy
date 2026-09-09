@@ -419,7 +419,7 @@ export async function criarCheckoutRecorrente(usuario: any, input: any) {
       )
     : ["CREDIT_CARD"];
   if (!billingTypes.length)
-    throw new Error("Escolha cartão ou Pix para a recorrência.");
+    throw new Error("Escolha cartão para a recorrência.");
   const parcelamentoAnual = assinatura.ciclo === "ANUAL" && input?.parcelamentoAnual === true;
   const parcelas = parcelamentoAnual
     ? Math.min(12, Math.max(2, Number(input?.parcelas) || 12))
@@ -434,7 +434,9 @@ export async function criarCheckoutRecorrente(usuario: any, input: any) {
   const checkout = await asaasRequest<any>("/checkouts", {
     method: "POST",
     body: JSON.stringify({
-      billingTypes: parcelamentoAnual ? ["CREDIT_CARD"] : billingTypes,
+      // O Checkout Asaas aceita apenas cartão em cobranças RECURRENT.
+      // PIX exige uma cobrança avulsa e não renova a assinatura.
+      billingTypes: ["CREDIT_CARD"],
       chargeTypes: parcelamentoAnual ? ["DETACHED", "INSTALLMENT"] : ["RECURRENT"],
       minutesToExpire: 1440,
       externalReference: `assinatura:${assinatura.id}`,
