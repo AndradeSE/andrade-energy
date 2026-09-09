@@ -175,10 +175,19 @@ export default function Contrato() {
         queryClient.invalidateQueries({ queryKey: ["contratos-acesso"] }),
         queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
       ]);
-      // A UC já está selecionada quando o consumidor entra neste fluxo.
-      // Após a assinatura, leve-o direto ao painel dessa unidade e remova
-      // a tela do contrato do histórico para não voltar ao bloqueio.
-      router.replace("/");
+      Alert.alert(
+        "Contrato assinado com sucesso",
+        "Sua assinatura foi registrada e esta unidade já está liberada para acesso.",
+        [
+          {
+            text: "Acessar minha unidade",
+            // A UC já está selecionada quando o consumidor entra neste fluxo.
+            // Substitui a rota para impedir o retorno ao bloqueio contratual.
+            onPress: () => router.replace("/"),
+          },
+        ],
+        { cancelable: false },
+      );
     } catch (erro: any) {
       Alert.alert("Não foi possível assinar", erro?.response?.data?.message ?? "Tente novamente.");
     } finally {
