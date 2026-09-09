@@ -3887,16 +3887,25 @@ function PortalApp() {
         </header>
         <div className="visual-copy">
           <div className="pill">
-            <span /> Energia que conecta
+            <span /> Plataforma completa para geradores
           </div>
           <h1>
-            Sua energia.
+            Sua operação.
             <br />
-            <em>Seu futuro.</em>
+            <em>Mais simples.</em>
           </h1>
           <p>
-            Gestão inteligente para quem consome e para quem gera energia limpa.
+            Gerencie usinas, clientes, contratos e faturamento em um só lugar.
           </p>
+          <div className="visual-actions">
+            <a className="visual-cta primary" href="mailto:andradeenergyltda@gmail.com?subject=Quero%20testar%20a%20Andrade%20Energy%20por%2045%20dias">Solicitar teste grátis <span>→</span></a>
+            <a className="visual-cta secondary" href="/planos">Conhecer os planos</a>
+          </div>
+          <div className="visual-highlights" aria-label="Principais informações dos planos">
+            <span><strong>45 dias</strong><small>sem cobrança</small></span>
+            <span><strong>R$ 99,90</strong><small>plano inicial</small></span>
+            <span><strong>5% OFF</strong><small>no plano anual</small></span>
+          </div>
         </div>
         <div className="trust-row">
           <div>
@@ -3910,7 +3919,7 @@ function PortalApp() {
         </div>
       </section>
 
-      <section className="access-panel">
+      <section className="access-panel" id="acesso">
         <div className="access-content">
           {!accessType ? (
             <div className="choice-view">
@@ -3960,6 +3969,10 @@ function PortalApp() {
                 </a>
                 <a href="/planos">Conheça os planos</a>
               </div>
+              <a className="choice-trial-banner" href="mailto:andradeenergyltda@gmail.com?subject=Quero%20testar%20a%20Andrade%20Energy%20por%2045%20dias">
+                <span><b>TESTE GRÁTIS POR 45 DIAS</b><small>Conheça toda a gestão antes da primeira cobrança.</small></span>
+                <strong>Solicitar acesso →</strong>
+              </a>
               <div className="multi-company-note">
                 <b>Plataforma multiempresa</b>
                 <span>Cada empresa opera em um ambiente isolado, com sua própria equipe, dados e identidade visual.</span>
