@@ -106,7 +106,9 @@ const styles = StyleSheet.create({
     fontSize: 8,
     lineHeight: 10,
   },
-  featuredItem: { transform: [{ translateY: -8 }] },
+  // O conjunto inteiro (icone + texto) sobe para manter o rotulo Home
+  // na mesma linha visual dos demais rotulos da barra.
+  featuredItem: { transform: [{ translateY: -15 }] },
   featuredIcon: {
     width: 50, height: 50, borderRadius: 25, alignItems: "center", justifyContent: "center",
     backgroundColor: "#12B981", elevation: 8, shadowColor: "#12B981", shadowOpacity: 0.3,

@@ -82,6 +82,7 @@ export default function TabLayout() {
           name="index"
           options={{
             title: "Home",
+            tabBarItemStyle: styles.featuredTabItem,
             tabBarIcon: ({ color, focused }) => (
               <TabIcon featured name={focused ? "home" : "home-outline"} color={color} />
             ),
@@ -188,6 +189,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: "Home",
+          tabBarItemStyle: styles.featuredTabItem,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon featured name={focused ? "home" : "home-outline"} color={color} />
           ),
@@ -235,6 +237,11 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
+  featuredTabItem: {
+    minHeight: 52,
+    paddingVertical: 1,
+    transform: [{ translateY: -7 }],
+  },
   tabBarCornerFill: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "#DFE8E3",
