@@ -1,8 +1,8 @@
-import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "../../theme";
+import AppTabIcon from "../navigation/AppTabIcon";
 
 type CommercialTab = "HOME" | "GERADORES" | "ASSINATURAS";
 
@@ -10,16 +10,8 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
   const insets = useSafeAreaInsets();
   const items = [
     {
-      key: "HOME",
-      icon: "home",
-      outline: "home-outline",
-      label: "Home",
-      onPress: () => router.replace("/admin/comercial" as any),
-    },
-    {
       key: "GERADORES",
-      icon: "people",
-      outline: "people-outline",
+      icon: "people-outline",
       label: "Geradores",
       onPress: () =>
         router.replace({
@@ -28,9 +20,14 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
         } as any),
     },
     {
+      key: "HOME",
+      icon: "home-outline",
+      label: "Home",
+      onPress: () => router.replace("/admin/comercial" as any),
+    },
+    {
       key: "ASSINATURAS",
-      icon: "card",
-      outline: "card-outline",
+      icon: "card-outline",
       label: "Assinaturas",
       onPress: () =>
         router.replace({
@@ -41,50 +38,51 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
   ] as const;
 
   return (
-    <View
-      style={[
-        styles.bar,
-        {
-          marginBottom: -insets.bottom,
-          paddingBottom: insets.bottom,
-        },
-      ]}
-    >
+    <View style={styles.cornerFill}>
+    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 3) }]}>
       {items.map((item) => {
         const selected = active === item.key;
+        const featured = item.key === "HOME";
         return (
-          <TouchableOpacity
+          <Pressable
             accessibilityRole="tab"
             accessibilityState={{ selected }}
-            activeOpacity={0.78}
+            accessibilityLabel={`Ir para ${item.label}`}
             key={item.key}
             onPress={item.onPress}
             style={styles.item}
           >
-            <View
-              style={[styles.indicator, selected && styles.indicatorActive]}
-            />
-            <Ionicons
-              name={selected ? item.icon : item.outline}
-              color={selected ? Colors.primary : "#94A3B8"}
-              size={24}
+            <AppTabIcon
+              name={item.icon}
+              color={selected ? Colors.primary : Colors.subtitle}
+              featured={featured}
+              size={22}
             />
             <Text style={[styles.label, selected && styles.labelActive]}>
               {item.label}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         );
       })}
+    </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  cornerFill: {
+    backgroundColor: "#DFE8E3",
+  },
   bar: {
-    minHeight: 82,
+    minHeight: 64,
+    paddingTop: 5,
     flexDirection: "row",
-    alignItems: "stretch",
-    backgroundColor: "#FFFFFF",
+    alignItems: "flex-start",
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.border,
     elevation: 15,
     shadowColor: "#000",
     shadowOpacity: 0.08,
@@ -96,22 +94,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
     alignItems: "center",
     justifyContent: "center",
-    paddingTop: 8,
+    gap: 1,
   },
-  indicator: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 3,
-    backgroundColor: "transparent",
-  },
-  indicatorActive: { backgroundColor: Colors.primary },
   label: {
-    marginTop: 3,
-    color: "#94A3B8",
-    fontSize: 10,
-    lineHeight: 13,
+    color: Colors.subtitle,
+    fontSize: 9,
+    lineHeight: 11,
     fontWeight: "600",
     textAlign: "center",
   },
