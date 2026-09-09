@@ -29,26 +29,40 @@ const consumerTabs: TabItem[] = [
   { label: "Contrato", icon: "document-text-outline", route: "/(tabs)/contrato" },
 ];
 
+const commercialTabs: TabItem[] = [
+  { label: "Geradores e assinaturas", icon: "people-outline", route: "/geradores/gestao" },
+  { label: "Home", icon: "home-outline", route: "/admin/comercial" },
+  { label: "Empresas", icon: "business-outline", route: "/admin/empresas" },
+];
+
 export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
   const segments = useSegments();
   const insets = useSafeAreaInsets();
   const firstSegment = String(segments[0] ?? "");
+  const secondSegment = String(segments[1] ?? "");
+  const hasOwnCommercialTabs =
+    (firstSegment === "admin" && secondSegment === "comercial") ||
+    (firstSegment === "geradores" && ["gestao", "monitoramento"].includes(secondSegment));
 
-  // As rotas principais já renderizam sua própria barra. Autenticação,
-  // seleção de ambiente e gestão comercial também têm navegação própria.
+  // As rotas principais já renderizam sua própria barra. Nas demais telas
+  // autenticadas, esta barra permanece montada para a navegação nunca sumir.
   const hidden =
     !loggedIn ||
     firstSegment === "(tabs)" ||
     firstSegment === "(auth)" ||
-    firstSegment === "admin" ||
-    firstSegment === "geradores" ||
+    hasOwnCommercialTabs ||
     firstSegment === "selecionar-unidade" ||
-    firstSegment === "biometric-lock" ||
-    firstSegment === "email-conectado";
+    firstSegment === "biometric-lock";
 
   if (hidden) return null;
 
-  const tabs = IS_GERADOR_APP ? generatorTabs : consumerTabs;
+  const commercialEnvironment =
+    IS_GERADOR_APP && (firstSegment === "admin" || firstSegment === "geradores");
+  const tabs = commercialEnvironment
+    ? commercialTabs
+    : IS_GERADOR_APP
+      ? generatorTabs
+      : consumerTabs;
 
   return (
     <View style={styles.cornerFill}>
@@ -69,7 +83,7 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
             featured={featured}
             size={IS_GERADOR_APP ? 21 : 24}
           />
-          <Text numberOfLines={1} style={[styles.label, IS_GERADOR_APP && styles.generatorLabel]}>
+          <Text numberOfLines={commercialEnvironment ? 2 : 1} style={[styles.label, IS_GERADOR_APP && styles.generatorLabel]}>
             {tab.label}
           </Text>
         </Pressable>

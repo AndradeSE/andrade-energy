@@ -353,28 +353,24 @@ export default function ClienteHeader({
         <View style={styles.unitSummary}>
           <View style={styles.unitIcon}><Ionicons name="flash" size={18} color="#FFFFFF" /></View>
           <View style={styles.unitContent}>
-            <Text numberOfLines={1} style={styles.unitCode}>{tituloUnidade}</Text>
+            <View style={styles.unitTitleRow}>
+              <Text numberOfLines={1} style={styles.unitCode}>{tituloUnidade}</Text>
+              <TouchableOpacity
+                accessibilityLabel="Trocar unidade consumidora"
+                activeOpacity={0.82}
+                onPress={trocarUnidade}
+                style={styles.unitMainAction}
+              >
+                <Ionicons name="swap-horizontal" size={14} color="#FFFFFF" />
+                <Text numberOfLines={1} style={styles.changeText}>Trocar unidade</Text>
+              </TouchableOpacity>
+            </View>
             <Text numberOfLines={1} style={styles.unitDetail}>{concessionariaUnidade} · {nomeUnidade && numeroUnidade ? `UC ${numeroUnidade}` : "Unidade consumidora"}</Text>
           </View>
         </View>
-        <View style={styles.unitActions}>
-        <TouchableOpacity
-          accessibilityLabel="Trocar unidade consumidora"
-          activeOpacity={
-            0.82
-          }
-          onPress={
-            trocarUnidade
-          }
-          style={styles.unitMainAction}
-          >
-          <Ionicons name="swap-horizontal" size={16} color="#FFFFFF" />
-          <Text style={styles.changeText}>Trocar unidade</Text>
-        </TouchableOpacity>
         <TouchableOpacity accessibilityLabel="Ocultar detalhes" onPress={alternarDetalhes} style={styles.detailsAction}>
           <Text style={styles.detailsActionText}>Ocultar</Text><Ionicons name="chevron-up" size={15} color="#F6CC32" />
         </TouchableOpacity>
-        </View>
         </View> : <TouchableOpacity accessibilityLabel="Abrir detalhes" onPress={alternarDetalhes} style={styles.detailsToggle}>
           <Text style={styles.detailsActionText}>Detalhes</Text><Ionicons name="chevron-down" size={15} color="#F6CC32" />
         </TouchableOpacity>}
@@ -631,21 +627,24 @@ const styles =
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: 5,
-      minHeight: 34,
-      paddingHorizontal: Spacing.sm,
+      gap: 4,
+      minHeight: 28,
+      marginLeft: Spacing.xs,
+      paddingHorizontal: 9,
       borderRadius: Radius.round,
       backgroundColor: "rgba(255,255,255,0.16)",
     },
     unitSummary: { flexDirection: "row", alignItems: "center", minWidth: 0 },
-    unitActions: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 7 },
+    unitTitleRow: { flexDirection: "row", alignItems: "center", minWidth: 0 },
     detailsAction: {
-      minHeight: 34,
+      minHeight: 24,
       flexDirection: "row",
+      alignSelf: "center",
       alignItems: "center",
       justifyContent: "center",
       gap: 2,
-      paddingLeft: Spacing.xs,
+      marginTop: 5,
+      paddingHorizontal: Spacing.md,
     },
     detailsToggle: {
       minHeight: 22,
@@ -686,6 +685,7 @@ const styles =
     },
 
     unitCode: {
+      flex: 1,
       color:
         Colors.surface,
 
@@ -710,7 +710,7 @@ const styles =
       color:
         Colors.surface,
 
-      fontSize: 10,
+      fontSize: 9,
 
       fontWeight:
         "800",

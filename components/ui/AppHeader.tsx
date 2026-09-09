@@ -203,10 +203,6 @@ export default function AppHeader({
           <Ionicons name={environmentName === "Gestão comercial" ? "briefcase-outline" : "layers-outline"} size={17} color="#FFFFFF" />
           <Text numberOfLines={1} style={styles.contextSwitchText}>Trocar ambiente</Text>
         </TouchableOpacity> : null}
-        {usinaSelecionada ? <TouchableOpacity accessibilityLabel="Trocar de usina" activeOpacity={0.82} onPress={() => router.push("/selecionar-unidade" as any)} style={[styles.environmentSwitch, styles.contextSwitchButton]}>
-          <Ionicons name="swap-horizontal" size={18} color="#FFFFFF" />
-          <Text numberOfLines={1} style={styles.contextSwitchText}>Trocar usina</Text>
-        </TouchableOpacity> : null}
       </View> : null}
 
       <Modal animationType="fade" transparent visible={notificacoesAbertas} onRequestClose={() => setNotificacoesAbertas(false)}>
@@ -233,7 +229,16 @@ export default function AppHeader({
             ? <Image resizeMode="contain" source={{ uri: empresa.logo_url }} style={styles.companyLogo} />
             : <PortalBrandLogo height={30} width={90} />}
         </View>
-        <View style={styles.plantText}><Text numberOfLines={1} style={styles.plantName}>{usinaSelecionada.nome}</Text><Text numberOfLines={1} style={styles.plantAutonomy}>{autonomia ? `Autonomia ${autonomia.percentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% · ${autonomia.disponivel.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kWh disponíveis` : "Calculando autonomia..."}</Text></View>
+        <View style={styles.plantText}>
+          <View style={styles.plantTitleRow}>
+            <Text numberOfLines={1} style={styles.plantName}>{usinaSelecionada.nome}</Text>
+            <TouchableOpacity accessibilityLabel="Trocar de usina" activeOpacity={0.82} onPress={() => router.push("/selecionar-unidade" as any)} style={styles.plantSwitchButton}>
+              <Ionicons name="swap-horizontal" size={14} color="#FFFFFF" />
+              <Text numberOfLines={1} style={styles.plantSwitchText}>Trocar usina</Text>
+            </TouchableOpacity>
+          </View>
+          <Text numberOfLines={1} style={styles.plantAutonomy}>{autonomia ? `Autonomia ${autonomia.percentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% · ${autonomia.disponivel.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kWh disponíveis` : "Calculando autonomia..."}</Text>
+        </View>
         <TouchableOpacity accessibilityLabel="Ocultar detalhes da usina" onPress={alternarContextoUsina} style={styles.plantToggle}><Text style={styles.plantToggleText}>Ocultar</Text><Ionicons name="chevron-up" size={15} color="#F6CC32" /></TouchableOpacity>
       </View> : <TouchableOpacity accessibilityLabel="Abrir detalhes da usina" activeOpacity={0.8} onPress={alternarContextoUsina} style={styles.plantDetailsToggle}><Text style={styles.plantToggleText}>Detalhes</Text><Ionicons name="chevron-down" size={15} color="#F6CC32" /></TouchableOpacity> : null}
 
@@ -380,13 +385,16 @@ const styles = StyleSheet.create({
   },
   notificationBadge: { position: "absolute", top: 2, right: 0, minWidth: 17, height: 17, alignItems: "center", justifyContent: "center", paddingHorizontal: 3, borderRadius: Radius.round, backgroundColor: "#DC2626" },
   notificationBadgeText: { color: Colors.surface, fontSize: 10, fontWeight: "800" },
-  plantBar: { flexDirection: "row", alignItems: "center", marginTop: Spacing.md, padding: Spacing.xs, borderRadius: Radius.md, backgroundColor: "rgba(255,255,255,0.12)" },
+  plantBar: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", marginTop: Spacing.md, padding: Spacing.xs, borderRadius: Radius.md, backgroundColor: "rgba(255,255,255,0.12)" },
   plantLogo: { width: 94, height: 36, alignItems: "center", justifyContent: "center", marginRight: Spacing.xs },
   companyLogo: { width: 90, height: 30 },
   plantText: { flex: 1 },
-  plantName: { color: Colors.surface, fontSize: Typography.small, fontWeight: "800" },
+  plantTitleRow: { flexDirection: "row", alignItems: "center", minWidth: 0 },
+  plantName: { flex: 1, color: Colors.surface, fontSize: Typography.small, fontWeight: "800" },
+  plantSwitchButton: { minHeight: 28, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, marginLeft: Spacing.xs, paddingHorizontal: 9, borderRadius: Radius.round, backgroundColor: "rgba(255,255,255,0.16)" },
+  plantSwitchText: { color: Colors.surface, fontSize: 9, fontWeight: "800" },
   plantAutonomy: { marginTop: 1, color: "rgba(255,255,255,0.78)", fontSize: 11 },
-  plantToggle: { minHeight: 34, alignItems: "center", justifyContent: "center", paddingHorizontal: 5 },
+  plantToggle: { width: "100%", minHeight: 24, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 2, marginTop: 5 },
   plantToggleText: { color: "#F6CC32", fontSize: 10, fontWeight: "900" },
   plantDetailsToggle: { minHeight: 22, flexDirection: "row", alignSelf: "center", alignItems: "center", gap: 2, marginTop: 3, paddingHorizontal: Spacing.sm },
   contextSwitches: { flexDirection: "row", alignItems: "stretch", gap: Spacing.xs },

@@ -286,8 +286,6 @@ export default function HomeComercial() {
               { icon: "document-text-outline", label: "Contratos e termos", value: `${data?.documentos.length ?? 0} documentos`, onPress: () => router.push("/geradores/gestao" as any) },
               { icon: "download-outline", label: "Compartilhar app Gerador", value: baixandoApp === "gerador" ? `Baixando ${progressoApp}%` : "WhatsApp, e-mail ou Bluetooth", onPress: () => void baixarApp("gerador") },
               { icon: "phone-portrait-outline", label: "Compartilhar app Consumidor", value: baixandoApp === "consumidor" ? `Baixando ${progressoApp}%` : "WhatsApp, e-mail ou Bluetooth", onPress: () => void baixarApp("consumidor") },
-              { icon: "sunny-outline", label: "Gestão de usinas", onPress: () => router.replace("/selecionar-unidade") },
-              { icon: "person-circle-outline", label: "Perfil administrativo", onPress: () => router.push({ pathname: "/admin/perfil", params: { origem: "comercial" } } as any) },
             ]}
           />
         </Section>

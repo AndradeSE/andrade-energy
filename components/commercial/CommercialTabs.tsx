@@ -18,9 +18,9 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
     },
     {
       key: "CARTEIRA",
-      icon: "wallet",
-      outline: "wallet-outline",
-      label: "Carteira",
+      icon: "people",
+      outline: "people-outline",
+      label: "Geradores e assinaturas",
       onPress: () =>
         router.replace({
           pathname: "/geradores/gestao",
