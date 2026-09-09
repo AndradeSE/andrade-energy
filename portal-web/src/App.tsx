@@ -4096,14 +4096,21 @@ function PortalApp() {
   );
 }
 
+const PLAN_FEATURES = [
+  "Gestão de usinas e UCs", "Importação de faturas por PDF", "Contratos e assinatura no aplicativo",
+  "Faturamento, Pix e boleto", "Aplicativos Gerador e Consumidor", "Recebimento automático por e-mail",
+  "Rateio de múltiplas usinas", "Relatórios e memória de cálculo", "Cobranças automáticas",
+  "Gestão multiempresa", "Identidade personalizada", "Monitoramento consolidado", "Suporte e implantação prioritários",
+];
+
 const PUBLIC_PLANS = [
-  { name: "Essencial", monthly: "R$ 99,90", annual: "R$ 999", installment: "12x de R$ 83,25", limit: "1 usina · até 100 clientes", features: ["Gestão de usina e UCs", "Importação de faturas por PDF", "Contratos e assinatura no app", "Faturamento, Pix e boleto", "Apps Gerador e Consumidor"] },
-  { name: "Profissional", monthly: "R$ 199,90", annual: "R$ 1.999", installment: "Até 12x (total R$ 1.999)", limit: "5 usinas · até 500 clientes", featured: true, features: ["Tudo do Essencial", "Recebimento automático por e-mail", "Rateio de múltiplas usinas", "Relatórios e memória de cálculo", "Cobranças automáticas"] },
-  { name: "Escala", monthly: "R$ 399,90", annual: "R$ 3.999", installment: "12x de R$ 333,25", limit: "20 usinas · até 2.000 clientes", features: ["Tudo do Profissional", "Gestão multiempresa", "Identidade personalizada", "Monitoramento consolidado", "Suporte e implantação prioritários"] },
+  { name: "Essencial", monthly: "R$ 99,90", annual: "R$ 1.138,86", installment: "12x de R$ 94,91", limit: "1 usina · até 100 clientes", included: 5 },
+  { name: "Profissional", monthly: "R$ 199,90", annual: "R$ 2.278,86", installment: "12x de R$ 189,91", limit: "5 usinas · até 500 clientes", featured: true, included: 9 },
+  { name: "Escala", monthly: "R$ 399,90", annual: "R$ 4.558,86", installment: "12x de R$ 379,91", limit: "20 usinas · até 2.000 clientes", included: PLAN_FEATURES.length },
 ];
 
 function PricingPage() {
-  return <main className="pricing-page"><header><span className="brand-logo-wrap"><AnimatedLogo /><img className="brand-lightbulb" src={bulbImage} alt="" /></span><a href="/">Entrar no portal</a></header><section className="pricing-hero"><small>PLANOS ANDRADE ENERGY</small><h1>Gestão completa para sua operação de energia</h1><p>Comece com 45 dias para validar a plataforma. No anual, economize aproximadamente dois meses e parcele em até 12 vezes no cartão.</p></section><section className="pricing-grid">{PUBLIC_PLANS.map(plan=><article className={plan.featured?"featured":""} key={plan.name}>{plan.featured?<em>MAIS ESCOLHIDO</em>:null}<h2>{plan.name}</h2><p>{plan.limit}</p><div><strong>{plan.monthly}</strong><small>/mês</small></div><span>ou {plan.annual}/ano</span><b>{plan.installment} no cartão</b><ul>{plan.features.map(item=><li key={item}>✓ {item}</li>)}</ul><a href="mailto:andradeenergyltda@gmail.com?subject=Quero contratar o plano Andrade Energy">Quero este plano</a></article>)}</section><footer><p>Os valores do parcelamento podem variar em centavos por arredondamento do Asaas.</p><a href="/">Voltar ao portal</a></footer></main>;
+  return <main className="pricing-page"><header><span className="brand-logo-wrap"><AnimatedLogo /><img className="brand-lightbulb" src={bulbImage} alt="" /></span><a href="/">Entrar no portal</a></header><section className="pricing-hero"><small>PLANOS ANDRADE ENERGY</small><h1>Gestão completa para sua operação de energia</h1><p>Teste gratuitamente por 45 dias. Escolhendo o plano anual, você recebe 5% de desconto e pode parcelar em até 12 vezes no cartão.</p><span>✓ 45 dias grátis &nbsp; • &nbsp; ✓ 5% de desconto no anual</span></section><section className="pricing-grid">{PUBLIC_PLANS.map(plan=><article className={plan.featured?"featured":""} key={plan.name}>{plan.featured?<em>MAIS ESCOLHIDO</em>:null}<h2>{plan.name}</h2><p>{plan.limit}</p><div><strong>{plan.monthly}</strong><small>/mês</small></div><span className="pricing-annual">Anual com 5% OFF: <strong>{plan.annual}</strong></span><b>{plan.installment} no cartão</b><ul>{PLAN_FEATURES.map((item,index)=>{const available=index<plan.included;return <li className={available?"included":"excluded"} key={item}><i aria-hidden="true">{available?"✓":"×"}</i><span>{item}</span></li>})}</ul><a href={`mailto:andradeenergyltda@gmail.com?subject=${encodeURIComponent(`Quero testar grátis o plano ${plan.name}`)}&body=${encodeURIComponent(`Olá! Quero iniciar o teste grátis de 45 dias do plano ${plan.name}.`)}`}>Iniciar teste grátis de 45 dias</a><small className="pricing-cta-note">Sem cobrança durante o período de teste</small></article>)}</section><footer><p>O desconto anual é calculado sobre 12 mensalidades. Parcelas podem variar em centavos por arredondamento do Asaas.</p><a href="/">Voltar ao portal</a></footer></main>;
 }
 
 export default function App() {
