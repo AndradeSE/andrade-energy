@@ -1,4 +1,5 @@
 import { supabase } from "../../config/supabase";
+import { statusAssinaturaPorEvento } from "./assinaturaStatus";
 import { asaasRequest } from "./asaas.client";
 import { regenerarDocumentosGeradosDaFatura } from "../faturas/documentosFatura.service";
 import { buscarCarteiraDaFatura, chavePixDaCarteira } from "../carteira/carteira.service";
@@ -237,7 +238,8 @@ export async function processarWebhookAsaas(body: any, token?: string) {
         pago_em: pago ? new Date().toISOString() : null,
         atualizado_em: new Date().toISOString(),
       }, { onConflict: "assinatura_id,competencia" }).select().maybeSingle();
-      if (assinaturaId && (pago || vencida)) await supabase.from("assinaturas_geradores").update({ status: pago ? "ATIVA" : "INADIMPLENTE", forma_pagamento: body.payment.billingType ?? undefined, atualizado_em: new Date().toISOString() }).eq("id", assinaturaId);
+      const statusAssinatura = statusAssinaturaPorEvento(String(body.event));
+      if (assinaturaId && statusAssinatura) await supabase.from("assinaturas_geradores").update({ status: statusAssinatura, forma_pagamento: body.payment.billingType ?? undefined, atualizado_em: new Date().toISOString() }).eq("id", assinaturaId);
     } else {
       const {data:c}=await supabase.from("asaas_cobrancas").update({status:body.payment.status,valor_liquido:body.payment.netValue??body.payment.value??null,atualizado_em:new Date().toISOString()}).eq("asaas_payment_id",body.payment.id).select().maybeSingle();
       if(c&&["PAYMENT_RECEIVED","PAYMENT_CONFIRMED"].includes(body.event)){ await supabase.from("faturas").update({status:"PAGO"}).eq("id",c.fatura_id); await transferirSaldo(c); }
