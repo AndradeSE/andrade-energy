@@ -420,6 +420,10 @@ export async function criarCheckoutRecorrente(usuario: any, input: any) {
     : ["CREDIT_CARD"];
   if (!billingTypes.length)
     throw new Error("Escolha cartão ou Pix para a recorrência.");
+  const parcelamentoAnual = assinatura.ciclo === "ANUAL" && input?.parcelamentoAnual === true;
+  const parcelas = parcelamentoAnual
+    ? Math.min(12, Math.max(2, Number(input?.parcelas) || 12))
+    : 1;
   const site = String(
     process.env.PORTAL_WEB_URL ?? "https://andradeenergy.com.br",
   ).replace(/\/$/, "");
@@ -430,8 +434,8 @@ export async function criarCheckoutRecorrente(usuario: any, input: any) {
   const checkout = await asaasRequest<any>("/checkouts", {
     method: "POST",
     body: JSON.stringify({
-      billingTypes,
-      chargeTypes: ["RECURRENT"],
+      billingTypes: parcelamentoAnual ? ["CREDIT_CARD"] : billingTypes,
+      chargeTypes: parcelamentoAnual ? ["DETACHED", "INSTALLMENT"] : ["RECURRENT"],
       minutesToExpire: 1440,
       externalReference: `assinatura:${assinatura.id}`,
       callback: {
@@ -453,10 +457,14 @@ export async function criarCheckoutRecorrente(usuario: any, input: any) {
         email: usuario.email || undefined,
         phone: digits(usuario.telefone) || undefined,
       },
-      subscription: {
-        cycle: assinatura.ciclo === "ANUAL" ? "YEARLY" : "MONTHLY",
-        nextDueDate: `${nextDueDate} 12:00:00`,
-      },
+      ...(parcelamentoAnual
+        ? { installment: { maxInstallmentCount: parcelas } }
+        : {
+            subscription: {
+              cycle: assinatura.ciclo === "ANUAL" ? "YEARLY" : "MONTHLY",
+              nextDueDate: `${nextDueDate} 12:00:00`,
+            },
+          }),
     }),
   });
   const url = checkout.url ?? checkout.checkoutUrl ?? checkout.link;
@@ -468,9 +476,17 @@ export async function criarCheckoutRecorrente(usuario: any, input: any) {
     .from("assinaturas_geradores")
     .update({
       asaas_checkout_id: checkout.id,
+      forma_pagamento: parcelamentoAnual ? "CREDIT_CARD" : assinatura.forma_pagamento,
+      parcelas_cartao: parcelas,
       atualizado_em: new Date().toISOString(),
     })
     .eq("id", assinatura.id);
   if (saveError) throw saveError;
-  return { url, checkoutId: checkout.id, assinaturaId: assinatura.id };
+  return {
+    url,
+    checkoutId: checkout.id,
+    assinaturaId: assinatura.id,
+    modalidade: parcelamentoAnual ? "ANUAL_PARCELADO" : "RECORRENTE",
+    parcelas,
+  };
 }

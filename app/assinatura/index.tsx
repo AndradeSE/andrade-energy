@@ -62,10 +62,13 @@ export default function MinhaAssinatura() {
   useEffect(() => {
     void carregar();
   }, []);
-  async function pagar() {
+  async function pagar(parcelamentoAnual = false) {
     try {
       setAbrindo(true);
-      const checkout = await criarCheckoutAssinatura(["CREDIT_CARD", "PIX"]);
+      const checkout = await criarCheckoutAssinatura(
+        parcelamentoAnual ? ["CREDIT_CARD"] : ["CREDIT_CARD", "PIX"],
+        parcelamentoAnual ? { parcelamentoAnual: true, parcelas: 12 } : {},
+      );
       await Linking.openURL(checkout.url);
     } catch (e: any) {
       Alert.alert(
@@ -146,7 +149,7 @@ export default function MinhaAssinatura() {
             </View>
             <TouchableOpacity
               disabled={abrindo}
-              onPress={() => void pagar()}
+              onPress={() => void pagar(false)}
               style={styles.payment}
             >
               <Ionicons name="card-outline" size={23} color="#FFF" />
@@ -163,9 +166,25 @@ export default function MinhaAssinatura() {
               </View>
               <Ionicons name="open-outline" size={20} color="#FFF" />
             </TouchableOpacity>
+            {assinatura.ciclo === "ANUAL" ? (
+              <TouchableOpacity
+                disabled={abrindo}
+                onPress={() => void pagar(true)}
+                style={styles.installment}
+              >
+                <Ionicons name="albums-outline" size={23} color={Colors.primary} />
+                <View style={styles.grow}>
+                  <Text style={styles.installmentTitle}>Parcelar plano anual no cartão</Text>
+                  <Text style={styles.installmentText}>
+                    Pague o valor anual em até 12 parcelas. A renovação do próximo ano será confirmada separadamente.
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
+              </TouchableOpacity>
+            ) : null}
             <TouchableOpacity
               disabled={abrindo}
-              onPress={() => void pagar()}
+              onPress={() => void pagar(false)}
               style={styles.renew}
             >
               <Ionicons
@@ -361,6 +380,19 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     backgroundColor: "#E8F1EC",
   },
+  installment: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "#B99A22",
+    borderRadius: Radius.md,
+    backgroundColor: "#FFF8D8",
+  },
+  installmentTitle: { color: Colors.primary, fontWeight: "900" },
+  installmentText: { marginTop: 2, color: Colors.subtitle, fontSize: 11 },
   renewTitle: { color: Colors.primary, fontWeight: "900" },
   renewText: { marginTop: 2, color: Colors.subtitle, fontSize: 11 },
   section: {
