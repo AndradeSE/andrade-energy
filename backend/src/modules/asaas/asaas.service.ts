@@ -1,4 +1,5 @@
 import { supabase } from "../../config/supabase";
+import { transferirAutomaticamenteAssinatura } from "../comercial/comercial.service";
 import { statusAssinaturaPorEvento } from "./assinaturaStatus";
 import { asaasRequest } from "./asaas.client";
 import { regenerarDocumentosGeradosDaFatura } from "../faturas/documentosFatura.service";
@@ -172,7 +173,8 @@ async function transferirSaldo(cobranca: any) {
 }
 
 export async function processarWebhookAsaas(body: any, token?: string) {
-  if (!process.env.ASAAS_WEBHOOK_TOKEN || token !== process.env.ASAAS_WEBHOOK_TOKEN) throw new Error("Webhook Asaas não autorizado.");
+  const tokens = [process.env.ASAAS_WEBHOOK_TOKEN, process.env.ASAAS_COMERCIAL_WEBHOOK_TOKEN].filter(Boolean);
+  if (!token || !tokens.includes(token)) throw new Error("Webhook Asaas não autorizado.");
   if (!body?.id || !body?.event) throw new Error("Evento Asaas inválido.");
   const inserted=await supabase.from("asaas_eventos").insert({evento_id:body.id,tipo:body.event,payload:body}).select().single(); if(inserted.error?.code==="23505") return {duplicado:true}; if(inserted.error) throw inserted.error;
   if (body.checkout?.id) {
@@ -240,6 +242,7 @@ export async function processarWebhookAsaas(body: any, token?: string) {
       }, { onConflict: "assinatura_id,competencia" }).select().maybeSingle();
       const statusAssinatura = statusAssinaturaPorEvento(String(body.event));
       if (assinaturaId && statusAssinatura) await supabase.from("assinaturas_geradores").update({ status: statusAssinatura, forma_pagamento: body.payment.billingType ?? undefined, atualizado_em: new Date().toISOString() }).eq("id", assinaturaId);
+      if (pago) await transferirAutomaticamenteAssinatura(body.payment);
     } else {
       const {data:c}=await supabase.from("asaas_cobrancas").update({status:body.payment.status,valor_liquido:body.payment.netValue??body.payment.value??null,atualizado_em:new Date().toISOString()}).eq("asaas_payment_id",body.payment.id).select().maybeSingle();
       if(c&&["PAYMENT_RECEIVED","PAYMENT_CONFIRMED"].includes(body.event)){ await supabase.from("faturas").update({status:"PAGO"}).eq("id",c.fatura_id); await transferirSaldo(c); }

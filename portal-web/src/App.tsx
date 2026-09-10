@@ -656,6 +656,9 @@ function CommercialManagementPanel({ token }: { token: string }) {
   const [message, setMessage] = useState("");
   const [monitorSearch, setMonitorSearch] = useState("");
   const [selectedGeneratorId, setSelectedGeneratorId] = useState<string | null>(null);
+  const [planForm, setPlanForm] = useState<any>(null);
+  const [wallet, setWallet] = useState<any>(null);
+  const [walletForm, setWalletForm] = useState({ pixTipo:"CPF", pixChave:"", senhaAtual:"", valor:"" });
   const primeiroVencimento = new Date(Date.now() + 45 * 86_400_000).toISOString().slice(0, 10);
   const [form, setForm] = useState({ geradorId: "", planoId: "", ciclo: "MENSAL", formaPagamento: "BOLETO", proximoVencimento: primeiroVencimento });
   const load = async () => {
@@ -665,6 +668,7 @@ function CommercialManagementPanel({ token }: { token: string }) {
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.message ?? "Não foi possível carregar a gestão comercial.");
       setData(payload);
+      fetch(`${API_URL}/comercial/financeiro`, { headers: { Authorization: `Bearer ${token}` } }).then(async response => response.ok ? setWallet(await response.json()) : undefined).catch(()=>undefined);
       setForm((current) => ({ ...current, geradorId: current.geradorId || payload.geradores?.find((item: any) => item.perfil === "GESTOR")?.id || "", planoId: current.planoId || payload.planos?.[0]?.id || "" }));
     } catch (error) { setMessage(error instanceof Error ? error.message : "Falha ao carregar."); }
     finally { setLoading(false); }
@@ -699,6 +703,10 @@ function CommercialManagementPanel({ token }: { token: string }) {
       await load();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível remover o gerador."); }
   };
+  const editPlan = (plan:any = {}) => setPlanForm({ id:plan.id, nome:plan.nome??"", descricao:plan.descricao??"", valorMensal:plan.valor_mensal??"", valorAnual:plan.valor_anual??"", limiteUsinas:plan.limite_usinas??"", limiteClientes:plan.limite_clientes??"", recursosTexto:(plan.recursos??[]).join("\n"), ativo:plan.ativo!==false });
+  const savePlan = async (event:FormEvent) => { event.preventDefault(); try { await request(planForm.id?`/comercial/planos/${planForm.id}`:"/comercial/planos", { method:planForm.id?"PUT":"POST", body:JSON.stringify({...planForm,recursos:String(planForm.recursosTexto).split("\n").map((item:string)=>item.trim()).filter(Boolean)}) }); setPlanForm(null); setMessage("Plano salvo. Os valores já foram atualizados no app e na página pública."); await load(); } catch(error){setMessage(error instanceof Error?error.message:"Não foi possível salvar o plano.");} };
+  const saveWallet = async (automatic = wallet?.transferenciaAutomatica ?? false) => { try { const updated=await request("/comercial/financeiro",{method:"PUT",body:JSON.stringify({...walletForm,transferenciaAutomatica:automatic})});setWallet(updated);setWalletForm((current:any)=>({...current,pixChave:"",senhaAtual:""}));setMessage("Dados de transferência atualizados."); } catch(error){setMessage(error instanceof Error?error.message:"Não foi possível salvar.");} };
+  const withdraw = async (event:FormEvent) => { event.preventDefault(); if(!wallet?.asaasConectado)return setMessage("Conecte a conta Asaas exclusiva das assinaturas antes de transferir."); const value=Number(String(walletForm.valor).replace(",",".")); if(!window.confirm(`Transferir ${value.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})} para ${wallet?.pixChaveMascarada??"a chave cadastrada"}?`)) return; try { await request("/comercial/financeiro/transferencias",{method:"POST",headers:{"Idempotency-Key":`web-${Date.now()}`},body:JSON.stringify({valor:value,senhaAtual:walletForm.senhaAtual,confirmacao:"TRANSFERIR"})});setWalletForm((current:any)=>({...current,valor:"",senhaAtual:""}));setMessage("Transferência enviada ao Asaas comercial.");await load(); } catch(error){setMessage(error instanceof Error?error.message:"Transferência não concluída.");} };
   if (loading && !data) return <div className="data-state">Carregando gestão comercial...</div>;
   const money = (value: unknown) => Number(value ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const dateValue = (value: unknown) => new Date(`${String(value ?? "").slice(0, 10)}T12:00:00`).getTime();
@@ -708,7 +716,7 @@ function CommercialManagementPanel({ token }: { token: string }) {
   const selectedSubscription = (data?.assinaturas ?? []).find((item: any) => String(item.gerador_id) === selectedGeneratorId);
   return <div className="commercial-stack">
     <section className="commercial-home-hero"><div><small>GESTÃO DE GERADORES</small><h2>Operação comercial do software</h2><p>Geradores, licenças, planos, cobranças e conformidade em uma visão profissional.</p></div><b>↗</b></section>
-    <nav className="commercial-tabs" aria-label="Áreas da gestão comercial"><button onClick={()=>document.getElementById("comercial-resumo")?.scrollIntoView({behavior:"auto",block:"start"})}>Visão geral</button><button onClick={()=>document.getElementById("comercial-monitoramento")?.scrollIntoView({behavior:"auto",block:"start"})}>Clientes ativos</button><button onClick={()=>document.getElementById("comercial-pagamentos")?.scrollIntoView({behavior:"auto",block:"start"})}>Pagamentos</button><button onClick={()=>document.getElementById("comercial-geradores")?.scrollIntoView({behavior:"auto",block:"start"})}>Geradores</button><button onClick={()=>document.getElementById("comercial-planos")?.scrollIntoView({behavior:"auto",block:"start"})}>Planos</button><button onClick={()=>document.getElementById("comercial-assinaturas")?.scrollIntoView({behavior:"auto",block:"start"})}>Assinaturas</button><button onClick={()=>document.getElementById("comercial-aplicativos")?.scrollIntoView({behavior:"auto",block:"start"})}>Aplicativos</button><button onClick={()=>document.getElementById("comercial-documentos")?.scrollIntoView({behavior:"auto",block:"start"})}>Documentos</button></nav>
+    <nav className="commercial-tabs" aria-label="Áreas da gestão comercial"><button onClick={()=>document.getElementById("comercial-resumo")?.scrollIntoView({behavior:"auto",block:"start"})}>Visão geral</button><button onClick={()=>document.getElementById("comercial-monitoramento")?.scrollIntoView({behavior:"auto",block:"start"})}>Clientes ativos</button><button onClick={()=>document.getElementById("comercial-pagamentos")?.scrollIntoView({behavior:"auto",block:"start"})}>Financeiro</button><button onClick={()=>document.getElementById("comercial-geradores")?.scrollIntoView({behavior:"auto",block:"start"})}>Geradores</button><button onClick={()=>document.getElementById("comercial-planos")?.scrollIntoView({behavior:"auto",block:"start"})}>Planos</button><button onClick={()=>document.getElementById("comercial-assinaturas")?.scrollIntoView({behavior:"auto",block:"start"})}>Assinaturas</button><button onClick={()=>document.getElementById("comercial-aplicativos")?.scrollIntoView({behavior:"auto",block:"start"})}>Aplicativos</button><button onClick={()=>document.getElementById("comercial-documentos")?.scrollIntoView({behavior:"auto",block:"start"})}>Documentos</button></nav>
     <section className="commercial-finance" id="comercial-resumo"><article className="commercial-revenue"><small>RECEITA MENSAL PREVISTA</small><strong>{money(data?.resumo?.receitaMensalPrevista)}</strong><footer><span>Recebido {money(data?.financeiro?.recebidoNoMes)}</span><span>Pendente {money(data?.financeiro?.pendenteNoMes)}</span></footer></article><article className="commercial-wallet"><small>CARTEIRA COMERCIAL</small><strong>{money(data?.financeiro?.totalRecebido)}</strong><span>Total confirmado</span><footer><b>{data?.financeiro?.cobrancasPendentes ?? 0} pendentes</b><b className="danger-text">{data?.financeiro?.cobrancasVencidas ?? 0} vencidas</b></footer></article></section>
     <div className="commercial-metrics">
       <article><small>ASSINATURAS</small><strong>{data?.resumo?.total ?? 0}</strong><span>Contas comercializadas</span></article>
@@ -723,6 +731,7 @@ function CommercialManagementPanel({ token }: { token: string }) {
       <div className="commercial-generator-grid">{(data?.geradores ?? []).filter((item:any)=>item.perfil === "GESTOR").map((item:any)=><button key={item.id} onClick={()=>setSelectedGeneratorId(String(item.id))}><b>{String(item.nome??"G").charAt(0).toUpperCase()}</b><span><strong>{item.nome??"Gerador"}</strong><small>{item.email??"E-mail não informado"}</small><em>{item.total_usinas??0} usina(s) · {item.total_ucs_ativas??0} UC(s) ativa(s)</em></span><i>Ver detalhes →</i></button>)}</div>
       {selectedGenerator ? <article className="commercial-generator-detail"><button aria-label="Fechar detalhes" onClick={()=>setSelectedGeneratorId(null)}>×</button><div><small>GERADOR SELECIONADO</small><h3>{selectedGenerator.nome}</h3><p>{selectedGenerator.email} · {selectedGenerator.telefone || "Telefone não informado"}</p></div><dl><div><dt>Status</dt><dd>{selectedGenerator.ativo ? "Ativo" : "Inativo"}</dd></div><div><dt>Plano</dt><dd>{selectedSubscription?.plano?.nome ?? "Sem assinatura"}</dd></div><div><dt>Assinatura</dt><dd>{selectedSubscription?.status ?? "Não contratada"}</dd></div><div><dt>Vencimento</dt><dd>{selectedSubscription?.proximo_vencimento ? new Date(`${selectedSubscription.proximo_vencimento}T12:00:00`).toLocaleDateString("pt-BR") : "—"}</dd></div><div><dt>Usinas</dt><dd>{selectedGenerator.total_usinas ?? 0}</dd></div><div><dt>UCs ativas</dt><dd>{selectedGenerator.total_ucs_ativas ?? 0}</dd></div></dl><footer className="generator-remove-actions"><button className="table-action danger" onClick={()=>void removeGenerator(selectedGenerator)}>Remover gerador</button><small>Cancela o acesso e preserva o histórico comercial.</small></footer></article> : null}
     </section>
+    {wallet?<section className="section-workspace commercial-transfer"><div className="data-toolbar"><div><small>TRANSFERÊNCIAS ASAAS</small><strong>{money(wallet.saldoDisponivel)} disponível</strong></div><span>{money(wallet.recebidoAssinaturas??data?.financeiro?.totalRecebido)} em assinaturas recebidas</span></div><form className="commercial-form" onSubmit={withdraw}><div className="commercial-form-row"><label>Tipo da chave Pix<select value={walletForm.pixTipo} onChange={e=>setWalletForm({...walletForm,pixTipo:e.target.value})}><option>CPF</option><option>CNPJ</option><option>EMAIL</option><option>PHONE</option><option>EVP</option></select></label><label>Chave Pix<input value={walletForm.pixChave} onChange={e=>setWalletForm({...walletForm,pixChave:e.target.value})} placeholder={wallet.pixChaveMascarada??"Informe a chave"}/></label></div><label>Senha atual<input required type="password" value={walletForm.senhaAtual} onChange={e=>setWalletForm({...walletForm,senhaAtual:e.target.value})}/></label><div className="row-actions"><button type="button" className="table-action" onClick={()=>void saveWallet()}>Salvar chave</button><button type="button" className="table-action" onClick={()=>void saveWallet(!wallet.transferenciaAutomatica)}>{wallet.transferenciaAutomatica?"Desativar transferência automática":"Ativar transferência automática"}</button></div><div className="commercial-form-row"><label>Valor da transferência<input inputMode="decimal" value={walletForm.valor} onChange={e=>setWalletForm({...walletForm,valor:e.target.value})} placeholder="0,00"/></label><button className="primary-action">Transferir via Pix</button></div></form></section>:null}
     <div className="commercial-columns">
       <section className="section-workspace" id="comercial-geradores">
         <span className="section-label">NOVA ASSINATURA</span><h2>Vincular plano ao gerador</h2><p>Crie o contrato comercial sem misturar a mensalidade do software com as faturas de energia.</p>
@@ -734,7 +743,7 @@ function CommercialManagementPanel({ token }: { token: string }) {
           <button className="primary-action">Ativar assinatura</button>
         </form>
       </section>
-      <section className="section-workspace" id="comercial-planos"><span className="section-label">PLANOS</span><h2>Oferta comercial</h2>{(data?.planos ?? []).map((plan: any) => <article className="commercial-plan" key={plan.id}><div><strong>{plan.nome}</strong><small>{plan.descricao}</small></div><b>{money(plan.valor_mensal)}<small>/mês</small></b><p>{(plan.recursos ?? []).join(" • ")}</p><span>Anual {money(plan.valor_anual)}</span></article>)}</section>
+      <section className="section-workspace" id="comercial-planos"><div className="data-toolbar"><div><span className="section-label">PLANOS</span><h2>Valores e benefícios globais</h2></div><button onClick={()=>editPlan()}>Novo plano</button></div><p>As alterações desta área são refletidas no app, nas assinaturas futuras e na página pública de planos.</p>{(data?.planos ?? []).map((plan: any) => <button type="button" className="commercial-plan commercial-plan-edit" key={plan.id} onClick={()=>editPlan(plan)}><div><strong>{plan.nome}</strong><small>{plan.descricao}</small></div><b>{money(plan.valor_mensal)}<small>/mês</small></b><p>{(plan.recursos ?? []).join(" • ")}</p><span>Anual {money(plan.valor_anual)} · Editar →</span></button>)}{planForm?<form className="commercial-form plan-admin-form" onSubmit={savePlan}><h3>{planForm.id?"Editar plano":"Novo plano"}</h3><div className="commercial-form-row"><label>Nome<input required value={planForm.nome} onChange={e=>setPlanForm({...planForm,nome:e.target.value})}/></label><label>Descrição<input value={planForm.descricao} onChange={e=>setPlanForm({...planForm,descricao:e.target.value})}/></label></div><div className="commercial-form-row"><label>Mensal (R$)<input required inputMode="decimal" value={planForm.valorMensal} onChange={e=>setPlanForm({...planForm,valorMensal:e.target.value})}/></label><label>Anual (R$)<input required inputMode="decimal" value={planForm.valorAnual} onChange={e=>setPlanForm({...planForm,valorAnual:e.target.value})}/></label></div><div className="commercial-form-row"><label>Limite de usinas<input inputMode="numeric" value={planForm.limiteUsinas} onChange={e=>setPlanForm({...planForm,limiteUsinas:e.target.value})}/></label><label>Limite de clientes<input inputMode="numeric" value={planForm.limiteClientes} onChange={e=>setPlanForm({...planForm,limiteClientes:e.target.value})}/></label></div><label>Recursos, um por linha<textarea rows={7} value={planForm.recursosTexto} onChange={e=>setPlanForm({...planForm,recursosTexto:e.target.value})}/></label><label className="plan-active"><input type="checkbox" checked={planForm.ativo} onChange={e=>setPlanForm({...planForm,ativo:e.target.checked})}/> Plano disponível</label><div className="row-actions"><button type="button" className="table-action" onClick={()=>setPlanForm(null)}>Cancelar</button><button className="primary-action">Salvar em todo o sistema</button></div></form>:null}</section>
     </div>
     {message ? <div className="invite-message">{message}</div> : null}
     <section className="section-workspace" id="comercial-assinaturas"><div className="data-toolbar"><div><small>CARTEIRA COMERCIAL</small><strong>{data?.assinaturas?.length ?? 0} assinatura(s)</strong></div><button onClick={() => void load()}>Atualizar</button></div>
@@ -2752,7 +2761,7 @@ function MySubscriptionPanel({ token }: { token: string }) {
   const [data, setData] = useState<any>(null); const [loading, setLoading] = useState(true); const [message, setMessage] = useState(""); const [opening, setOpening] = useState(false);
   const load = useCallback(async () => { setLoading(true); const response = await fetch(`${API_URL}/comercial/minha-assinatura`, { headers: { Authorization: `Bearer ${token}` } }); const payload = await response.json().catch(() => ({})); setLoading(false); response.ok ? setData(payload) : setMessage(payload.message ?? "Não foi possível consultar a assinatura."); }, [token]);
   useEffect(() => { void load(); }, [load]);
-  async function checkout(parcelamentoAnual = false) { setOpening(true); setMessage(""); const popup = window.open("", "_blank"); const response = await fetch(`${API_URL}/comercial/minha-assinatura/checkout`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(parcelamentoAnual ? { formasPagamento: ["CREDIT_CARD"], parcelamentoAnual: true, parcelas: 12 } : { formasPagamento: ["CREDIT_CARD"] }) }); const payload = await response.json().catch(() => ({})); setOpening(false); if (response.ok && payload.url) { if (popup) popup.location.href = payload.url; else window.location.href = payload.url; } else { popup?.close(); setMessage(payload.message ?? "Não foi possível abrir o pagamento seguro."); } }
+  async function checkout(_parcelamentoAnual = false) { setMessage("As assinaturas estão temporariamente indisponíveis enquanto concluímos a homologação do aplicativo."); }
   if (loading) return <div className="data-state">Carregando sua assinatura...</div>;
   const item=data?.assinatura, plan=item?.plano, charges=[...(item?.cobrancas??[])].sort((a:any,b:any)=>String(b.vencimento).localeCompare(String(a.vencimento))); const date=(value:any)=>value?new Date(`${String(value).slice(0,10)}T12:00:00`).toLocaleDateString("pt-BR"):"Não definida";
   if(!item) return <section className="subscription-empty"><b>◇</b><h2>Assinatura ainda não vinculada</h2><p>A administração precisa vincular um plano a esta conta geradora.</p>{message?<div className="error-message">{message}</div>:null}</section>;
@@ -3028,7 +3037,7 @@ function PortalHome({
           ...(session.usuario?.perfil === "ADMIN"
             ? [{ label: "Administração", items: workspace === "COMERCIAL" ? ["Gestão comercial", "Geradores", "Alternar ambiente", "Tutoriais da web"] : ["Alternar ambiente", "Tutoriais da web"] }]
             : []),
-          { label: "Conta", items: ["Minha assinatura", "Minha marca", "Aplicativos", "Configurações"] },
+          { label: "Conta", items: ["Meu plano", "Minha marca", "Aplicativos", "Configurações"] },
         ]
         : [
           { label: "Painel", items: ["Visão geral", "Economia"] },
@@ -3348,6 +3357,7 @@ function PortalHome({
                   { icon: "▤", label: "Faturas", detail: "Histórico da carteira", onClick: () => setActiveSection("Faturas") },
                   { icon: "≡", label: "Contratos", detail: "Documentos das UCs", onClick: () => setActiveSection("Contratos") },
                   { icon: "$", label: "Financeiro", detail: "Receita e transferências", onClick: () => setActiveSection("Financeiro") },
+                  { icon: "◇", label: "Meu plano", detail: "Assinatura, recursos e upgrade", onClick: () => setActiveSection("Meu plano") },
                 ]} />
                 {walletHome ? (
                   <button
@@ -3528,7 +3538,7 @@ function PortalHome({
             ]} /><CommercialManagementPanel token={session.token} /></>
           ) : activeSection === "Minha marca" && session.token ? (
             <GeneratorIdentityPanel token={session.token} />
-          ) : activeSection === "Minha assinatura" && session.token ? (
+          ) : activeSection === "Meu plano" && session.token ? (
             <MySubscriptionPanel token={session.token} />
           ) : activeSection === "Aplicativos" ? (
             <AppDownloadsPanel type={type} />
@@ -3740,18 +3750,19 @@ function TutorialCenter({ profile, defaultOpen = false }: { profile: AccessType;
 }
 
 function PortalApp() {
+  const trialRequested = new URLSearchParams(window.location.search).get("teste") === "1";
   const [rememberedLogin] = useState(readRememberedLogin);
   const [session, setSession] = useState<PortalSession | null>(() =>
     readSession(),
   );
-  const [accessType, setAccessType] = useState<AccessType | null>(rememberedLogin.accessType);
+  const [accessType, setAccessType] = useState<AccessType | null>(trialRequested ? "GERADOR" : rememberedLogin.accessType);
   const [email, setEmail] = useState(rememberedLogin.email);
   const [password, setPassword] = useState("");
   const [rememberLogin, setRememberLogin] = useState(Boolean(rememberedLogin.email));
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [trialStage, setTrialStage] = useState<"idle" | "form" | "success">("idle");
+  const [trialStage, setTrialStage] = useState<"idle" | "form" | "success">(trialRequested ? "form" : "idle");
   const [trial, setTrial] = useState({ convite: "", nome: "", cpf: "", telefone: "", email: "", senha: "", confirmarSenha: "" });
   const [trialResult, setTrialResult] = useState<any>(null);
 
@@ -3897,10 +3908,6 @@ function PortalApp() {
           <p>
             Gerencie usinas, clientes, contratos e faturamento em um só lugar.
           </p>
-          <div className="visual-actions">
-            <a className="visual-cta primary" href="mailto:andradeenergyltda@gmail.com?subject=Quero%20testar%20a%20Andrade%20Energy%20por%2045%20dias">Solicitar teste grátis <span>→</span></a>
-            <a className="visual-cta secondary" href="/planos">Conhecer os planos</a>
-          </div>
           <div className="visual-highlights" aria-label="Principais informações dos planos">
             <span><strong>45 dias</strong><small>sem cobrança</small></span>
             <span><strong>R$ 99,90</strong><small>plano inicial</small></span>
@@ -3969,9 +3976,9 @@ function PortalApp() {
                 </a>
                 <a href="/planos">Conheça os planos</a>
               </div>
-              <a className="choice-trial-banner" href="mailto:andradeenergyltda@gmail.com?subject=Quero%20testar%20a%20Andrade%20Energy%20por%2045%20dias">
+              <a className="choice-trial-banner temporarily-disabled" aria-disabled="true">
                 <span><b>TESTE GRÁTIS POR 45 DIAS</b><small>Conheça toda a gestão antes da primeira cobrança.</small></span>
-                <strong>Solicitar acesso →</strong>
+                <strong>Disponível após a homologação</strong>
               </a>
               <div className="multi-company-note">
                 <b>Plataforma multiempresa</b>
@@ -4122,8 +4129,14 @@ const PUBLIC_PLANS = [
   { name: "Escala", monthly: "R$ 399,90", annual: "R$ 4.558,86", installment: "12x de R$ 379,91", limit: "20 usinas · até 2.000 clientes", included: PLAN_FEATURES.length },
 ];
 
+const planLimit = (value: string) => value;
+
 function PricingPage() {
-  return <main className="pricing-page"><header><span className="brand-logo-wrap"><AnimatedLogo /><img className="brand-lightbulb" src={bulbImage} alt="" /></span><a href="/">Entrar no portal</a></header><section className="pricing-hero"><small>PLANOS ANDRADE ENERGY</small><h1>Gestão completa para sua operação de energia</h1><p>Teste gratuitamente por 45 dias. Escolhendo o plano anual, você recebe 5% de desconto e pode parcelar em até 12 vezes no cartão.</p><span>✓ 45 dias grátis &nbsp; • &nbsp; ✓ 5% de desconto no anual</span></section><section className="pricing-grid">{PUBLIC_PLANS.map(plan=><article className={plan.featured?"featured":""} key={plan.name}>{plan.featured?<em>MAIS ESCOLHIDO</em>:null}<h2>{plan.name}</h2><p>{plan.limit}</p><div><strong>{plan.monthly}</strong><small>/mês</small></div><span className="pricing-annual">Anual com 5% OFF: <strong>{plan.annual}</strong></span><b>{plan.installment} no cartão</b><h3 className="pricing-features-title">Comparação completa</h3><ul>{PLAN_FEATURES.map((item,index)=>{const available=index<plan.included;return <li className={available?"included":"excluded"} key={item}><i aria-hidden="true">{available?"✓":"×"}</i><span>{item}<small>{available?"Incluído":"Não incluído"}</small></span></li>})}</ul><a href={`mailto:andradeenergyltda@gmail.com?subject=${encodeURIComponent(`Quero testar grátis o plano ${plan.name}`)}&body=${encodeURIComponent(`Olá! Quero iniciar o teste grátis de 45 dias do plano ${plan.name}.`)}`}>Iniciar teste grátis de 45 dias</a><small className="pricing-cta-note">Sem cobrança durante o período de teste</small></article>)}</section><footer><p>O desconto anual é calculado sobre 12 mensalidades. Parcelas podem variar em centavos por arredondamento do Asaas.</p><a href="/">Voltar ao portal</a></footer></main>;
+  const [remotePlans,setRemotePlans]=useState<any[]|null>(null);
+  useEffect(()=>{fetch(`${API_URL}/comercial/planos-publicos`).then(async response=>response.ok?setRemotePlans(await response.json()):undefined).catch(()=>undefined);},[]);
+  const currency=(value:number)=>Number(value).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+  const plans=remotePlans?.length?remotePlans.map((plan,index)=>({name:plan.nome,monthly:currency(plan.valor_mensal),annual:currency(plan.valor_anual),installment:`12x de ${currency(Number(plan.valor_anual)/12)}`,limit:`${plan.limite_usinas??"Ilimitadas"} usina(s) · até ${plan.limite_clientes??"ilimitados"} clientes`,featured:index===1,included:Array.isArray(plan.recursos)?plan.recursos.length:0,resources:plan.recursos??[]})):PUBLIC_PLANS;
+  return <main className="pricing-page"><header><span className="brand-logo-wrap"><AnimatedLogo /><img className="brand-lightbulb" src={bulbImage} alt="" /></span><a href="/">Entrar no portal</a></header><section className="pricing-hero"><small>PLANOS ANDRADE ENERGY</small><h1>Gestão completa para sua operação de energia</h1><p>Teste gratuitamente por 45 dias. Escolhendo o plano anual, você recebe 5% de desconto e pode parcelar em até 12 vezes no cartão.</p><span>✓ 45 dias grátis &nbsp; • &nbsp; ✓ 5% de desconto no anual</span></section><section className="pricing-grid">{plans.map((plan:any)=><article className={plan.featured?"featured":""} key={plan.name}>{plan.featured?<em>MAIS ESCOLHIDO</em>:null}<h2>{plan.name}</h2><p>{planLimit(plan.limit)}</p><div><strong>{plan.monthly}</strong><small>/mês</small></div><span className="pricing-annual">Anual: <strong>{plan.annual}</strong></span><b>{plan.installment} no cartão</b><h3 className="pricing-features-title">Comparação completa</h3><ul>{PLAN_FEATURES.map((item,index)=>{const available=plan.resources?plan.resources.includes(item):index<plan.included;return <li className={available?"included":"excluded"} key={item}><i aria-hidden="true">{available?"✓":"×"}</i><span>{item}{available?<small>Incluído</small>:null}</span></li>})}</ul><a className="temporarily-disabled" aria-disabled="true">Teste grátis em homologação</a><small className="pricing-cta-note">Liberação restrita aos testadores internos</small><button className="pricing-subscription-disabled" type="button" disabled>Assinatura temporariamente indisponível</button></article>)}</section><footer><p>Os valores exibidos são administrados pela Andrade Energy. Parcelas podem variar em centavos por arredondamento do Asaas.</p><a href="/">Voltar ao portal</a></footer></main>;
 }
 
 export default function App() {

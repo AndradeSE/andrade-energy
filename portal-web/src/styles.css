@@ -388,3 +388,8 @@ svg { display: block; }
   .consumer-contract-signature canvas { height: 180px; }
   .signature-actions > *, .primary-sign-button { width: 100%; }
 }
+/* Assinaturas permanecem visíveis para consulta, mas bloqueadas durante a homologação. */
+.subscription-payment-options .subscription-checkout{pointer-events:none;opacity:.58;filter:saturate(.55)}
+.pricing-subscription-disabled{width:100%;padding:11px 12px;border:1px solid #c8d6cf;border-radius:999px;color:#687a71;background:#edf2ef;font-size:10px;font-weight:900;cursor:not-allowed}
+.temporarily-disabled{pointer-events:none!important;opacity:.62!important;cursor:not-allowed!important;filter:saturate(.55)}
+.commercial-plan-edit{width:100%;border:0;background:transparent;text-align:left;cursor:pointer;font:inherit}.commercial-plan-edit:hover{background:#f2f8f4}.plan-admin-form{margin-top:18px;padding:18px;border:1px solid #bcd1c5;border-radius:14px;background:#f5faf7}.commercial-form textarea{padding:12px;border:1px solid #ccdacf;border-radius:10px;background:#fff;color:#163521;font:inherit;resize:vertical}.plan-active{display:flex!important;grid-template-columns:auto 1fr!important;align-items:center}.plan-active input{min-height:auto;width:18px;height:18px}.commercial-transfer{border-color:#a9cdbc!important;background:linear-gradient(145deg,#fafffc,#edf8f2)!important}.commercial-transfer .primary-action{align-self:end}

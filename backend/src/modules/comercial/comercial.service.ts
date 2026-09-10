@@ -1,5 +1,8 @@
 import { supabase } from "../../config/supabase";
-import { asaasRequest } from "../asaas/asaas.client";
+import { asaasComercialConfigurado, asaasComercialRequest } from "./asaasComercial.client";
+import { conferirSenha } from "../../utils/password";
+import { criptografarDado, descriptografarDado } from "../../utils/sensitiveData";
+import { empresaIdDoUsuario } from "../../config/empresa";
 
 const digits = (value: unknown) => String(value ?? "").replace(/\D/g, "");
 const isoDate = (value: unknown) => {
@@ -8,6 +11,57 @@ const isoDate = (value: unknown) => {
     throw new Error("Informe uma data válida.");
   return text;
 };
+
+export async function listarPlanosPublicos() {
+  const { data, error } = await supabase.from("planos_geradores").select("id,nome,descricao,valor_mensal,valor_anual,limite_usinas,limite_clientes,recursos").eq("ativo", true).order("valor_mensal");
+  if (error) throw error;
+  return data ?? [];
+}
+
+const mascararChave = (value:string) => value.length <= 6 ? "***" : `${value.slice(0,2)}***${value.slice(-4)}`;
+const chaveComercial = (carteira:any) => carteira?.pix_chave_criptografada ? descriptografarDado(carteira.pix_chave_criptografada) : "";
+async function carteiraComercial(usuario:any) { const existing=await supabase.from("carteira_comercial_assinaturas").select("*").eq("usuario_id",usuario.id).maybeSingle(); if(existing.error)throw existing.error;if(existing.data)return existing.data;const created=await supabase.from("carteira_comercial_assinaturas").insert({usuario_id:usuario.id}).select().single();if(created.error)throw created.error;return created.data; }
+
+export async function obterFinanceiroAssinaturas(usuario:any) {
+  const carteira = await carteiraComercial(usuario);
+  const { data: transferencias, error } = await supabase.from("asaas_transferencias").select("id,valor,status,destino_mascarado,modalidade,criado_em,atualizado_em").eq("solicitada_por", usuario.id).eq("modalidade", "ASSINATURA").order("criado_em", { ascending:false });
+  if (error) throw error;
+  const balance = asaasComercialConfigurado() ? await asaasComercialRequest<any>("/finance/balance").catch(() => null) : null;
+  return { asaasConectado:asaasComercialConfigurado(), saldoDisponivel:Number(balance?.balance ?? 0), transferenciaAutomatica:Boolean(carteira.transferencia_automatica), pixTipo:carteira.pix_tipo, pixChaveMascarada:chaveComercial(carteira)?mascararChave(chaveComercial(carteira)):null, transferencias:transferencias??[] };
+}
+
+export async function atualizarFinanceiroAssinaturas(usuario:any,input:any) {
+  if (!(await conferirSenha(String(input.senhaAtual??""),String(usuario.senha??"")))) throw new Error("Confirme sua senha para alterar o financeiro das assinaturas.");
+  const carteira=await carteiraComercial(usuario); const pixTipo=String(input.pixTipo??carteira.pix_tipo??"").toUpperCase(); const pix=String(input.pixChave??chaveComercial(carteira)).trim();
+  if (pixTipo&&!['CPF','CNPJ','EMAIL','PHONE','EVP'].includes(pixTipo)) throw new Error("Tipo de chave Pix inválido.");
+  if (input.transferenciaAutomatica===true&&(!pixTipo||!pix)) throw new Error("Cadastre a chave Pix comercial antes de ativar a transferência automática.");
+  const result=await supabase.from("carteira_comercial_assinaturas").update({pix_tipo:pixTipo||null,pix_chave_criptografada:pix?criptografarDado(pix):null,transferencia_automatica:Boolean(input.transferenciaAutomatica),atualizado_em:new Date().toISOString()}).eq("id",carteira.id);if(result.error)throw result.error;
+  return obterFinanceiroAssinaturas(usuario);
+}
+
+export async function transferirFinanceiroAssinaturas(usuario:any,input:any,idempotencyKey="") {
+  if (!asaasComercialConfigurado()) throw new Error("A conta Asaas comercial ainda não está conectada.");
+  if (String(input.confirmacao??"")!=="TRANSFERIR") throw new Error("Confirme a transferência para continuar.");
+  if (!(await conferirSenha(String(input.senhaAtual??""),String(usuario.senha??"")))) throw new Error("Senha atual incorreta.");
+  const carteira=await carteiraComercial(usuario); const pix=chaveComercial(carteira); const valor=Math.round(Number(input.valor??0)*100)/100;
+  if (!pix||!carteira.pix_tipo) throw new Error("Cadastre a chave Pix do financeiro das assinaturas.");
+  const resumo=await obterFinanceiroAssinaturas(usuario); if (!(valor>0)||valor>resumo.saldoDisponivel) throw new Error("Valor indisponível para transferência.");
+  const key=String(idempotencyKey).trim().slice(0,200)||crypto.randomUUID();
+  const { data:existing }=await supabase.from("asaas_transferencias").select("*").eq("idempotency_key",key).maybeSingle(); if(existing)return existing;
+  const { data:intent,error }=await supabase.from("asaas_transferencias").insert({empresa_id:empresaIdDoUsuario(usuario),gerador_carteira_id:null,solicitada_por:usuario.id,asaas_transfer_id:`intent:${crypto.randomUUID()}`,valor,status:"AUTHORIZING",destino_mascarado:`${carteira.pix_tipo}:${mascararChave(pix)}`,modalidade:"ASSINATURA",idempotency_key:key}).select().single(); if(error)throw error;
+  try { const transfer=await asaasComercialRequest<any>("/transfers",{method:"POST",body:JSON.stringify({value:valor,pixAddressKey:pix,pixAddressKeyType:carteira.pix_tipo,operationType:"PIX",description:"Transferência de recebimentos das assinaturas Andrade Energy",externalReference:String(intent.id)})}); const result=await supabase.from("asaas_transferencias").update({asaas_transfer_id:transfer.id,status:transfer.status,atualizado_em:new Date().toISOString()}).eq("id",intent.id).select().single(); if(result.error)throw result.error; return result.data; } catch(error){await supabase.from("asaas_transferencias").update({status:"REFUSED",atualizado_em:new Date().toISOString()}).eq("id",intent.id);throw error;}
+}
+
+export async function transferirAutomaticamenteAssinatura(payment:any) {
+  if (!asaasComercialConfigurado()) return null;
+  const { data:carteira }=await supabase.from("carteira_comercial_assinaturas").select("*").eq("transferencia_automatica",true).limit(1).maybeSingle();
+  const pix=chaveComercial(carteira); const valor=Math.round(Number(payment?.netValue??payment?.value??0)*100)/100;
+  if(!carteira||!pix||!carteira.pix_tipo||!(valor>0))return null;
+  const eventKey=`assinatura:${payment.id}`; const {data:existing}=await supabase.from("asaas_transferencias").select("*").eq("idempotency_key",eventKey).maybeSingle();if(existing)return existing;
+  const {data:usuario}=await supabase.from("usuarios").select("id,empresa_id").eq("id",carteira.usuario_id).single();if(!usuario)return null;
+  const {data:intent,error}=await supabase.from("asaas_transferencias").insert({empresa_id:empresaIdDoUsuario(usuario),gerador_carteira_id:null,solicitada_por:usuario.id,asaas_transfer_id:`intent:${crypto.randomUUID()}`,valor,status:"AUTHORIZING",destino_mascarado:`${carteira.pix_tipo}:${mascararChave(pix)}`,modalidade:"ASSINATURA",idempotency_key:eventKey}).select().single();if(error)throw error;
+  try{const transfer=await asaasComercialRequest<any>("/transfers",{method:"POST",body:JSON.stringify({value:valor,pixAddressKey:pix,pixAddressKeyType:carteira.pix_tipo,operationType:"PIX",description:"Transferência automática de assinatura Andrade Energy",externalReference:String(intent.id)})});return (await supabase.from("asaas_transferencias").update({asaas_transfer_id:transfer.id,status:transfer.status,atualizado_em:new Date().toISOString()}).eq("id",intent.id).select().single()).data;}catch(error){await supabase.from("asaas_transferencias").update({status:"REFUSED",atualizado_em:new Date().toISOString()}).eq("id",intent.id);throw error;}
+}
 
 export async function obterPainelComercial() {
   const [
@@ -304,7 +358,7 @@ export async function gerarCobrancaAssinatura(id: string) {
     : assinatura.gerador;
   if (!digits(gerador?.cpf))
     throw new Error("Cadastre o CPF/CNPJ do gerador antes de cobrar.");
-  const customers = await asaasRequest<any>(
+  const customers = await asaasComercialRequest<any>(
     `/customers?cpfCnpj=${digits(gerador.cpf)}`,
   );
   const dadosClienteAsaas = {
@@ -317,11 +371,11 @@ export async function gerarCobrancaAssinatura(id: string) {
   };
   const clienteExistente = customers.data?.[0];
   const customer = clienteExistente?.id
-    ? await asaasRequest<any>(`/customers/${clienteExistente.id}`, {
+    ? await asaasComercialRequest<any>(`/customers/${clienteExistente.id}`, {
         method: "PUT",
         body: JSON.stringify(dadosClienteAsaas),
       })
-    : await asaasRequest<any>("/customers", {
+    : await asaasComercialRequest<any>("/customers", {
         method: "POST",
         body: JSON.stringify(dadosClienteAsaas),
       });
@@ -330,7 +384,7 @@ export async function gerarCobrancaAssinatura(id: string) {
       new Date(Date.now() + 7 * 86400000).toISOString(),
   );
   const competencia = dueDate.slice(0, 7);
-  const payment = await asaasRequest<any>("/payments", {
+  const payment = await asaasComercialRequest<any>("/payments", {
     method: "POST",
     body: JSON.stringify({
       customer: customer.id,
@@ -345,8 +399,8 @@ export async function gerarCobrancaAssinatura(id: string) {
     }),
   });
   const [pix, boleto] = await Promise.all([
-    asaasRequest<any>(`/payments/${payment.id}/pixQrCode`).catch(() => null),
-    asaasRequest<any>(`/payments/${payment.id}/identificationField`).catch(
+    asaasComercialRequest<any>(`/payments/${payment.id}/pixQrCode`).catch(() => null),
+    asaasComercialRequest<any>(`/payments/${payment.id}/identificationField`).catch(
       () => null,
     ),
   ]);
@@ -431,7 +485,7 @@ export async function criarCheckoutRecorrente(usuario: any, input: any) {
     assinatura.proximo_vencimento ??
       new Date(Date.now() + 7 * 86400000).toISOString(),
   );
-  const checkout = await asaasRequest<any>("/checkouts", {
+  const checkout = await asaasComercialRequest<any>("/checkouts", {
     method: "POST",
     body: JSON.stringify({
       // O Checkout Asaas aceita apenas cartão em cobranças RECURRENT.

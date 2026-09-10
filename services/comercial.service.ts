@@ -11,6 +11,11 @@ export type PainelComercial = {
 };
 
 export const obterPainelComercial = async () => (await api.get<PainelComercial>("/comercial/painel")).data;
+export const salvarPlanoComercial = async (id: string | undefined, payload: any) =>
+  (await api[id ? "put" : "post"](id ? `/comercial/planos/${id}` : "/comercial/planos", payload)).data;
+export const obterFinanceiroAssinaturas = async () => (await api.get("/comercial/financeiro")).data;
+export const configurarFinanceiroAssinaturas = async (payload:any) => (await api.put("/comercial/financeiro",payload)).data;
+export const transferirFinanceiroAssinaturas = async (valor:number,senhaAtual:string) => (await api.post("/comercial/financeiro/transferencias",{valor,senhaAtual,confirmacao:"TRANSFERIR"},{headers:{"Idempotency-Key":`assinaturas-${Date.now()}`}})).data;
 export const contratarPlano = async (payload: any) => (await api.post("/comercial/assinaturas", payload)).data;
 export const alterarStatusAssinatura = async (id: string, status: string) => (await api.patch(`/comercial/assinaturas/${id}/status`, { status })).data;
 export const gerarCobrancaAssinatura = async (id: string) => (await api.post(`/comercial/assinaturas/${id}/cobrancas`)).data;

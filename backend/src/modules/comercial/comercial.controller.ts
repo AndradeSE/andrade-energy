@@ -3,8 +3,12 @@ import * as service from "./comercial.service";
 
 const respond = (res: Response, work: Promise<any>, status = 200) => work.then((data) => res.status(status).json(data)).catch((error) => res.status(400).json({ message: error?.message ?? "Operação comercial não concluída." }));
 export const painel = (_: Request, res: Response) => respond(res, service.obterPainelComercial());
+export const planosPublicos = (_: Request, res: Response) => respond(res, service.listarPlanosPublicos());
 export const criarPlano = (req: Request, res: Response) => respond(res, service.salvarPlano(undefined, req.body), 201);
 export const atualizarPlano = (req: Request, res: Response) => respond(res, service.salvarPlano(req.params.id, req.body));
+export const financeiro = (req: Request, res: Response) => respond(res, service.obterFinanceiroAssinaturas((req as any).usuario));
+export const configurarFinanceiro = (req: Request, res: Response) => respond(res, service.atualizarFinanceiroAssinaturas((req as any).usuario, req.body));
+export const transferirFinanceiro = (req: Request, res: Response) => respond(res, service.transferirFinanceiroAssinaturas((req as any).usuario, req.body, String(req.header("Idempotency-Key")??"")), 201);
 export const contratar = (req: Request, res: Response) => respond(res, service.contratarPlano(req.body, (req as any).usuario.id), 201);
 export const status = (req: Request, res: Response) => respond(res, service.alterarStatusAssinatura(req.params.id, req.body?.status));
 export const cobrar = (req: Request, res: Response) => respond(res, service.gerarCobrancaAssinatura(req.params.id), 201);

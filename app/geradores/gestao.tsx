@@ -9,7 +9,9 @@ import {
   Pressable,
   RefreshControl,
   StyleSheet,
+  Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -21,7 +23,11 @@ import {
   contratarPlano,
   gerarCobrancaAssinatura,
   obterPainelComercial,
+  obterFinanceiroAssinaturas,
   PainelComercial,
+  configurarFinanceiroAssinaturas,
+  salvarPlanoComercial,
+  transferirFinanceiroAssinaturas,
 } from "../../services/comercial.service";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 
@@ -43,6 +49,12 @@ export default function GestaoGeradores() {
   const [data, setData] = useState<PainelComercial | null>(null);
   const [loading, setLoading] = useState(true);
   const [menuAberto, setMenuAberto] = useState(false);
+  const [planoEditando, setPlanoEditando] = useState<any>(null);
+  const [carteira, setCarteira] = useState<any>(null);
+  const [pixTipo, setPixTipo] = useState("CPF");
+  const [pixChave, setPixChave] = useState("");
+  const [senhaFinanceira, setSenhaFinanceira] = useState("");
+  const [saque, setSaque] = useState("");
   const [aba, setAba] = useState<
     | "RESUMO"
     | "GERADORES"
@@ -64,7 +76,12 @@ export default function GestaoGeradores() {
   );
   const load = useCallback(async () => {
     try {
-      setData(await obterPainelComercial());
+      const [painel, carteiraAtual] = await Promise.all([
+        obterPainelComercial(),
+        obterFinanceiroAssinaturas().catch(() => null),
+      ]);
+      setData(painel);
+      setCarteira(carteiraAtual);
     } catch (error: any) {
       Alert.alert(
         "Gestão comercial",
@@ -164,7 +181,7 @@ export default function GestaoGeradores() {
             />
             <DrawerLink
               icon="cash-outline"
-              label="Pagamentos"
+              label="Financeiro"
               onPress={() => {
                 setMenuAberto(false);
                 setAba("PAGAMENTOS");
@@ -198,6 +215,20 @@ export default function GestaoGeradores() {
           </Pressable>
         </Pressable>
       </Modal>
+      <Modal animationType="slide" transparent visible={Boolean(planoEditando)} onRequestClose={() => setPlanoEditando(null)}>
+        <Pressable style={styles.backdrop} onPress={() => setPlanoEditando(null)}>
+          <Pressable style={styles.planEditor} onPress={(event) => event.stopPropagation()}>
+            <View style={styles.drawerHeader}><Text style={styles.drawerTitle}>{planoEditando?.id ? "Editar plano" : "Novo plano"}</Text><TouchableOpacity onPress={() => setPlanoEditando(null)}><Ionicons name="close" size={26} color={Colors.text}/></TouchableOpacity></View>
+            <Text style={styles.inputLabel}>Nome</Text><TextInput style={styles.input} value={planoEditando?.nome ?? ""} onChangeText={(nome) => setPlanoEditando((current:any) => ({...current,nome}))}/>
+            <Text style={styles.inputLabel}>Descrição</Text><TextInput style={styles.input} value={planoEditando?.descricao ?? ""} onChangeText={(descricao) => setPlanoEditando((current:any) => ({...current,descricao}))}/>
+            <View style={styles.editorRow}><View style={styles.grow}><Text style={styles.inputLabel}>Mensal (R$)</Text><TextInput keyboardType="decimal-pad" style={styles.input} value={String(planoEditando?.valorMensal ?? "")} onChangeText={(valorMensal) => setPlanoEditando((current:any) => ({...current,valorMensal}))}/></View><View style={styles.grow}><Text style={styles.inputLabel}>Anual (R$)</Text><TextInput keyboardType="decimal-pad" style={styles.input} value={String(planoEditando?.valorAnual ?? "")} onChangeText={(valorAnual) => setPlanoEditando((current:any) => ({...current,valorAnual}))}/></View></View>
+            <View style={styles.editorRow}><View style={styles.grow}><Text style={styles.inputLabel}>Limite de usinas</Text><TextInput keyboardType="number-pad" style={styles.input} value={String(planoEditando?.limiteUsinas ?? "")} onChangeText={(limiteUsinas) => setPlanoEditando((current:any) => ({...current,limiteUsinas}))}/></View><View style={styles.grow}><Text style={styles.inputLabel}>Limite de clientes</Text><TextInput keyboardType="number-pad" style={styles.input} value={String(planoEditando?.limiteClientes ?? "")} onChangeText={(limiteClientes) => setPlanoEditando((current:any) => ({...current,limiteClientes}))}/></View></View>
+            <Text style={styles.inputLabel}>Recursos (um por linha)</Text><TextInput multiline style={[styles.input,styles.resourcesInput]} value={planoEditando?.recursosTexto ?? ""} onChangeText={(recursosTexto) => setPlanoEditando((current:any) => ({...current,recursosTexto}))}/>
+            <View style={styles.switchRow}><Text style={styles.cardTitle}>Plano disponível</Text><Switch value={planoEditando?.ativo !== false} onValueChange={(ativo) => setPlanoEditando((current:any) => ({...current,ativo}))}/></View>
+            <TouchableOpacity style={styles.primaryButton} onPress={() => void savePlan()}><Text style={styles.primaryButtonText}>Salvar e refletir em todo o sistema</Text></TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
@@ -222,7 +253,7 @@ export default function GestaoGeradores() {
                   ["RESUMO", "Visão geral"],
                   ["GERADORES", "Geradores"],
                   ["ASSINATURAS", "Assinaturas"],
-                  ["PAGAMENTOS", "Pagamentos"],
+                  ["PAGAMENTOS", "Financeiro"],
                   ["PLANOS", "Planos"],
                   ["DOCUMENTOS", "Documentos"],
                 ] as const
@@ -301,9 +332,9 @@ export default function GestaoGeradores() {
             ) : null}
             {aba === "PLANOS" ? (
               <>
-                <Text style={styles.section}>PLANOS COMERCIAIS</Text>
+                <View style={styles.sectionHeader}><Text style={styles.section}>PLANOS COMERCIAIS</Text><TouchableOpacity style={styles.addButton} onPress={() => setPlanoEditando({ ativo:true, valorMensal:"", valorAnual:"", recursosTexto:"" })}><Ionicons name="add" size={18} color="#FFF"/><Text style={styles.addButtonText}>Novo plano</Text></TouchableOpacity></View>
                 {(data?.planos ?? []).map((plan) => (
-                  <View style={styles.card} key={plan.id}>
+                  <TouchableOpacity activeOpacity={0.82} style={styles.card} key={plan.id} onPress={() => setPlanoEditando({ ...plan, valorMensal:plan.valor_mensal, valorAnual:plan.valor_anual, limiteUsinas:plan.limite_usinas, limiteClientes:plan.limite_clientes, recursosTexto:(plan.recursos ?? []).join("\n") })}>
                     <View style={styles.row}>
                       <View style={styles.grow}>
                         <Text style={styles.cardTitle}>{plan.nome}</Text>
@@ -322,7 +353,8 @@ export default function GestaoGeradores() {
                     <Text style={styles.annual}>
                       Anual: {money(plan.valor_anual)}
                     </Text>
-                  </View>
+                    <Text style={styles.editHint}>Toque para editar valores e benefícios</Text>
+                  </TouchableOpacity>
                 ))}
               </>
             ) : null}
@@ -616,6 +648,19 @@ export default function GestaoGeradores() {
                     gera a cobrança avulsa.
                   </Text>
                 </View>
+                {carteira ? <>
+                  <Text style={styles.section}>TRANSFERÊNCIAS ASAAS</Text>
+                  <View style={[styles.card, styles.balanceCard]}><Text style={styles.balanceLabel}>SALDO DA CONTA ASAAS COMERCIAL</Text><Text style={styles.balanceValue}>{money(carteira.saldoDisponivel)}</Text><Text style={styles.balanceCaption}>{carteira.asaasConectado ? "Conta exclusiva das assinaturas conectada" : "Configure ASAAS_COMERCIAL_API_KEY para habilitar movimentações"}</Text></View>
+                  <View style={styles.card}>
+                    <Text style={styles.inputLabel}>Senha atual para confirmar alterações</Text><TextInput secureTextEntry autoCapitalize="none" style={styles.input} value={senhaFinanceira} onChangeText={setSenhaFinanceira} placeholder="Senha da administração"/>
+                    <Text style={styles.inputLabel}>Tipo de chave Pix</Text><View style={styles.pixTypes}>{["CPF","CNPJ","EMAIL","PHONE","EVP"].map((tipo)=><TouchableOpacity key={tipo} onPress={()=>setPixTipo(tipo)} style={[styles.pixType,pixTipo===tipo&&styles.pixTypeActive]}><Text style={[styles.pixTypeText,pixTipo===tipo&&styles.pixTypeTextActive]}>{tipo}</Text></TouchableOpacity>)}</View>
+                    <Text style={styles.inputLabel}>Chave Pix da Andrade Energy</Text><TextInput autoCapitalize="none" style={styles.input} value={pixChave} onChangeText={setPixChave} placeholder={carteira.pixChaveMascarada ?? "Informe a chave"}/>
+                    <TouchableOpacity style={styles.secondaryButton} onPress={() => void saveWallet()}><Text style={styles.secondaryButtonText}>Salvar dados de recebimento</Text></TouchableOpacity>
+                    <View style={styles.switchRow}><View style={styles.grow}><Text style={styles.cardTitle}>Transferência automática</Text><Text style={styles.subtitle}>Transfere para a chave Pix após o recebimento.</Text></View><Switch value={carteira.transferenciaAutomatica} onValueChange={(value)=>void saveWallet(value)}/></View>
+                    <Text style={styles.inputLabel}>Transferência manual</Text><TextInput keyboardType="decimal-pad" style={styles.input} value={saque} onChangeText={setSaque} placeholder="Valor em reais"/>
+                    <TouchableOpacity style={styles.primaryButton} onPress={() => void withdraw()}><Text style={styles.primaryButtonText}>Transferir via Pix</Text></TouchableOpacity>
+                  </View>
+                </> : null}
               </>
             ) : null}
             {aba === "DOCUMENTOS" ? (
@@ -708,6 +753,40 @@ export default function GestaoGeradores() {
       );
     }
   }
+
+  async function savePlan() {
+    try {
+      const current = planoEditando;
+      await salvarPlanoComercial(current?.id, {
+        nome: current?.nome,
+        descricao: current?.descricao,
+        valorMensal: Number(String(current?.valorMensal ?? "0").replace(",", ".")),
+        valorAnual: Number(String(current?.valorAnual ?? "0").replace(",", ".")),
+        limiteUsinas: current?.limiteUsinas || null,
+        limiteClientes: current?.limiteClientes || null,
+        recursos: String(current?.recursosTexto ?? "").split("\n").map((item)=>item.trim()).filter(Boolean),
+        ativo: current?.ativo !== false,
+      });
+      setPlanoEditando(null);
+      await load();
+      Alert.alert("Plano atualizado", "Os novos valores já são a referência do app e da web.");
+    } catch (error:any) { Alert.alert("Plano", error?.response?.data?.message ?? "Não foi possível salvar o plano."); }
+  }
+
+  async function saveWallet(automatic = carteira?.transferenciaAutomatica ?? false) {
+    try {
+      const updated = await configurarFinanceiroAssinaturas({ pixTipo, pixChave:pixChave || undefined, transferenciaAutomatica:automatic, senhaAtual:senhaFinanceira });
+      setCarteira(updated); setPixChave(""); setSenhaFinanceira("");
+      Alert.alert("Financeiro", "Configuração de transferência atualizada.");
+    } catch (error:any) { Alert.alert("Financeiro", error?.response?.data?.message ?? "Não foi possível salvar."); }
+  }
+
+  async function withdraw() {
+    const valor = Number(saque.replace(",", "."));
+    if (!carteira?.asaasConectado) return Alert.alert("Asaas comercial", "Conecte a conta exclusiva das assinaturas antes de transferir.");
+    if (!(valor > 0)) return Alert.alert("Transferência", "Informe um valor válido.");
+    Alert.alert("Confirmar transferência", `Transferir ${money(valor)} para ${carteira?.pixChaveMascarada ?? "a chave cadastrada"}?`, [{text:"Cancelar",style:"cancel"},{text:"Transferir",onPress:async()=>{try{await transferirFinanceiroAssinaturas(valor,senhaFinanceira);setSaque("");setSenhaFinanceira("");setCarteira(await obterFinanceiroAssinaturas());Alert.alert("Transferência solicitada","A operação foi enviada à conta Asaas das assinaturas.");}catch(error:any){Alert.alert("Transferência",error?.response?.data?.message??"Não foi possível transferir.");}}}]);
+  }
 }
 
 function Metric({ label, value, success, danger }: any) {
@@ -744,6 +823,29 @@ function DrawerLink({ icon, label, onPress }: any) {
   );
 }
 const styles = StyleSheet.create({
+  planEditor: { marginTop: "auto", maxHeight: "92%", padding: Spacing.lg, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, backgroundColor: Colors.surface },
+  inputLabel: { marginTop: Spacing.sm, marginBottom: 6, color: Colors.text, fontSize: 12, fontWeight: "800" },
+  input: { minHeight: 46, paddingHorizontal: 13, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, color: Colors.text, backgroundColor: Colors.background },
+  resourcesInput: { minHeight: 82, paddingTop: 12, textAlignVertical: "top" },
+  editorRow: { flexDirection: "row", gap: Spacing.sm },
+  switchRow: { minHeight: 58, marginVertical: Spacing.sm, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: Spacing.md },
+  primaryButton: { minHeight: 48, marginTop: Spacing.sm, paddingHorizontal: Spacing.md, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primary },
+  primaryButtonText: { color: "#FFF", fontWeight: "900", textAlign: "center" },
+  secondaryButton: { minHeight: 46, marginBottom: Spacing.sm, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md },
+  secondaryButtonText: { color: Colors.primary, fontWeight: "800" },
+  sectionHeader: { marginTop: Spacing.md, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  addButton: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 9, borderRadius: Radius.round, backgroundColor: Colors.primary },
+  addButtonText: { color: "#FFF", fontSize: 12, fontWeight: "800" },
+  editHint: { marginTop: Spacing.sm, color: Colors.primary, fontSize: 11, fontWeight: "800" },
+  balanceCard: { backgroundColor: "#083F31" },
+  balanceLabel: { color: "#A7F3D0", fontSize: 11, fontWeight: "800", letterSpacing: 1 },
+  balanceValue: { marginTop: 7, color: "#FFF", fontSize: 32, fontWeight: "900" },
+  balanceCaption: { marginTop: 4, color: "#D1FAE5", fontSize: 12 },
+  pixTypes: { marginBottom: Spacing.sm, flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  pixType: { paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.round },
+  pixTypeActive: { borderColor: Colors.primary, backgroundColor: "#E7F5EE" },
+  pixTypeText: { color: Colors.subtitle, fontSize: 11, fontWeight: "700" },
+  pixTypeTextActive: { color: Colors.primary },
   header: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm },
   headerTop: {
     minHeight: 56,
