@@ -27,6 +27,7 @@ import { asaasRouter, asaasWebhookRouter } from "./modules/asaas/asaas.routes";
 import carteiraRoutes from "./modules/carteira/carteira.routes";
 import comercialRoutes from "./modules/comercial/comercial.routes";
 import empresasRoutes from "./modules/empresas/empresas.routes";
+import { mercadoPagoWebhookRouter } from "./modules/comercial/mercadoPagoWebhook.routes";
 
 dotenv.config();
 
@@ -52,7 +53,7 @@ app.use(cors({
     return callback(new Error("Origem não autorizada."));
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Authorization", "Content-Type", "Idempotency-Key", "asaas-access-token", "svix-id", "svix-signature", "svix-timestamp"],
+  allowedHeaders: ["Authorization", "Content-Type", "Idempotency-Key", "asaas-access-token", "x-request-id", "x-signature", "svix-id", "svix-signature", "svix-timestamp"],
 }));
 
 // O Resend assina o corpo original. Esta rota precisa permanecer antes do
@@ -73,6 +74,7 @@ const financeiroLimiter = rateLimit({ windowMs: 60_000, limit: 60, standardHeade
 // O Asaas envia JSON e autentica o webhook pelo cabeçalho
 // `asaas-access-token`. A rota é pública, mas o token é obrigatório.
 app.use("/api/webhooks/asaas", asaasWebhookRouter);
+app.use("/api/webhooks/mercado-pago", mercadoPagoWebhookRouter);
 
 // Os limitadores precisam ser registrados antes das rotas protegidas.
 app.use("/api", apiLimiter);

@@ -3,6 +3,8 @@ import { asaasComercialConfigurado, asaasComercialRequest } from "./asaasComerci
 import { conferirSenha } from "../../utils/password";
 import { criptografarDado, descriptografarDado } from "../../utils/sensitiveData";
 import { empresaIdDoUsuario } from "../../config/empresa";
+import { mercadoPagoComercialRequest } from "./mercadoPagoComercial.client";
+import { provedorPagamentoComercial } from "./provedorPagamento";
 
 const digits = (value: unknown) => String(value ?? "").replace(/\D/g, "");
 const isoDate = (value: unknown) => {
@@ -507,6 +509,54 @@ export async function criarCheckoutRecorrente(usuario: any, input: any) {
     assinatura.proximo_vencimento ??
       new Date(Date.now() + 7 * 86400000).toISOString(),
   );
+  const provedor = provedorPagamentoComercial();
+  // A API de recorrência do Mercado Pago não parcela uma anuidade como o
+  // checkout avulso. Enquanto esse segundo fluxo não for homologado, o anual
+  // parcelado permanece no Asaas para não prometer parcelas inexistentes.
+  if (provedor === "MERCADO_PAGO" && !parcelamentoAnual) {
+    const preapproval = await mercadoPagoComercialRequest<any>("/preapproval", {
+      method: "POST",
+      headers: { "X-Idempotency-Key": `assinatura-${assinatura.id}` },
+      body: JSON.stringify({
+        reason: `${assinatura.plano?.nome ?? "Licença Andrade Energy"} · ciclo ${String(assinatura.ciclo).toLowerCase()}`,
+        external_reference: `assinatura:${assinatura.id}`,
+        payer_email: usuario.email,
+        auto_recurring: {
+          frequency: assinatura.ciclo === "ANUAL" ? 12 : 1,
+          frequency_type: "months",
+          start_date: new Date(`${nextDueDate}T12:00:00-03:00`).toISOString(),
+          transaction_amount: Number(assinatura.valor_contratado),
+          currency_id: "BRL",
+        },
+        back_url: `${site}/gerador?assinatura=retorno`,
+        status: "pending",
+      }),
+    });
+    const url = preapproval.init_point ?? preapproval.sandbox_init_point;
+    if (!url) throw new Error("O Mercado Pago criou a assinatura, mas não retornou o endereço do checkout.");
+    const { error: saveError } = await supabase
+      .from("assinaturas_geradores")
+      .update({
+        provedor_pagamento: "MERCADO_PAGO",
+        mercado_pago_preapproval_id: preapproval.id,
+        forma_pagamento: "CREDIT_CARD",
+        parcelas_cartao: parcelas,
+        atualizado_em: new Date().toISOString(),
+      })
+      .eq("id", assinatura.id);
+    if (saveError) throw saveError;
+    return {
+      url,
+      checkoutId: preapproval.id,
+      assinaturaId: assinatura.id,
+      provedor: "MERCADO_PAGO",
+      modalidade: parcelamentoAnual ? "ANUAL_PARCELADO" : "RECORRENTE",
+      parcelas,
+    };
+  }
+  if (provedor === "MERCADO_PAGO" && parcelamentoAnual && !asaasComercialConfigurado()) {
+    throw new Error("O parcelamento anual ainda depende do Asaas até a homologação do checkout avulso do Mercado Pago.");
+  }
   const checkout = await asaasComercialRequest<any>("/checkouts", {
     method: "POST",
     body: JSON.stringify({
@@ -553,6 +603,7 @@ export async function criarCheckoutRecorrente(usuario: any, input: any) {
   const { error: saveError } = await supabase
     .from("assinaturas_geradores")
     .update({
+      provedor_pagamento: "ASAAS",
       asaas_checkout_id: checkout.id,
       forma_pagamento: parcelamentoAnual ? "CREDIT_CARD" : assinatura.forma_pagamento,
       parcelas_cartao: parcelas,
@@ -564,6 +615,7 @@ export async function criarCheckoutRecorrente(usuario: any, input: any) {
     url,
     checkoutId: checkout.id,
     assinaturaId: assinatura.id,
+    provedor: "ASAAS",
     modalidade: parcelamentoAnual ? "ANUAL_PARCELADO" : "RECORRENTE",
     parcelas,
   };
