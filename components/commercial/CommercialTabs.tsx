@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "../../theme";
 import AppTabIcon from "../navigation/AppTabIcon";
 
-type CommercialTab = "HOME" | "GERADORES" | "ASSINATURAS";
+type CommercialTab = "HOME" | "GERADORES" | "PAGAMENTOS" | "PLANOS" | "ASSINATURAS";
 
 export default function CommercialTabs({ active }: { active?: CommercialTab }) {
   const insets = useSafeAreaInsets();
@@ -20,10 +20,30 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
         } as any),
     },
     {
+      key: "PAGAMENTOS",
+      icon: "wallet-outline",
+      label: "Financeiro",
+      onPress: () =>
+        router.replace({
+          pathname: "/geradores/gestao",
+          params: { aba: "PAGAMENTOS" },
+        } as any),
+    },
+    {
       key: "HOME",
       icon: "home-outline",
       label: "Home",
       onPress: () => router.replace("/admin/comercial" as any),
+    },
+    {
+      key: "PLANOS",
+      icon: "pricetags-outline",
+      label: "Planos",
+      onPress: () =>
+        router.replace({
+          pathname: "/geradores/gestao",
+          params: { aba: "PLANOS" },
+        } as any),
     },
     {
       key: "ASSINATURAS",

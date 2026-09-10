@@ -97,8 +97,8 @@ export default function GestaoGeradores() {
     void load();
   }, [load]);
   useEffect(() => {
-    if (["GERADORES", "ASSINATURAS", "PAGAMENTOS"].includes(String(params.aba))) {
-      setAba(params.aba as "GERADORES" | "ASSINATURAS" | "PAGAMENTOS");
+    if (["GERADORES", "ASSINATURAS", "PAGAMENTOS", "PLANOS", "DOCUMENTOS"].includes(String(params.aba))) {
+      setAba(params.aba as "GERADORES" | "ASSINATURAS" | "PAGAMENTOS" | "PLANOS" | "DOCUMENTOS");
     }
   }, [params.aba]);
   if (user?.perfil !== "ADMIN")
@@ -129,7 +129,7 @@ export default function GestaoGeradores() {
         showPlantContext={false}
         title="Gestão comercial"
         subtitle="Administração"
-        contextTitle={aba === "ASSINATURAS" ? "Assinaturas" : aba === "GERADORES" ? "Geradores" : "Gestão de geradores"}
+        contextTitle={aba === "ASSINATURAS" ? "Assinaturas" : aba === "GERADORES" ? "Geradores" : aba === "PAGAMENTOS" ? "Financeiro" : aba === "PLANOS" ? "Planos" : "Gestão de geradores"}
         contextSubtitle="Cadastros, planos e situação comercial"
       />
       <Modal
@@ -741,7 +741,7 @@ export default function GestaoGeradores() {
           </>
         )}
       </ScrollView>
-      <CommercialTabs active={aba === "ASSINATURAS" ? "ASSINATURAS" : "GERADORES"} />
+      <CommercialTabs active={aba === "ASSINATURAS" ? "ASSINATURAS" : aba === "PAGAMENTOS" ? "PAGAMENTOS" : aba === "PLANOS" ? "PLANOS" : "GERADORES"} />
     </Screen>
   );
 
