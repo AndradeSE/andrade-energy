@@ -365,13 +365,23 @@ export default function SelecionarUnidade() {
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 0.85 }}
         style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}
       >
-        <View style={styles.headerTop}>
-          <TouchableOpacity accessibilityLabel="Opções da conta" onPress={() => setMenuAberto(true)} style={styles.menuButton}>
+        <View style={[styles.headerTop, gestor && styles.headerTopGerador]}>
+          <TouchableOpacity accessibilityLabel="Opções da conta" onPress={() => setMenuAberto(true)} style={[styles.menuButton, gestor && styles.menuButtonGerador]}>
             <Ionicons name="menu" size={27} color="#FFFFFF" />
           </TouchableOpacity>
           <View pointerEvents={gestor ? "none" : "auto"} style={[styles.logoBox, gestor && styles.logoBoxGerador]}>
             <PortalBrandLogo height={44} width={158} />
           </View>
+          {gestor && usuario?.perfil === "ADMIN" ? (
+            <TouchableOpacity
+              accessibilityLabel="Trocar ambiente"
+              onPress={() => router.replace("/admin/escolher-area" as any)}
+              style={styles.environmentButton}
+            >
+              <Ionicons name="swap-horizontal" size={20} color="#FFFFFF" />
+              <Text style={styles.environmentButtonText}>Ambiente</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
         <Text numberOfLines={2} style={styles.welcome}>Olá, {usuario?.nome?.trim() || "bem-vindo"}</Text>
       </LinearGradient>
@@ -1183,6 +1193,11 @@ const styles =
         "center",
     },
 
+    headerTopGerador: {
+      justifyContent: "center",
+      position: "relative",
+    },
+
     menuButton: {
       width: 44,
       height: 44,
@@ -1192,6 +1207,13 @@ const styles =
         "center",
       marginRight:
         Spacing.xs,
+    },
+
+    menuButtonGerador: {
+      position: "absolute",
+      left: 0,
+      zIndex: 2,
+      marginRight: 0,
     },
 
     avatar: {
@@ -1227,11 +1249,26 @@ const styles =
     },
 
     logoBoxGerador: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      top: 2,
+      flex: 0,
+      width: 158,
       alignItems: "center",
+    },
+
+    environmentButton: {
+      position: "absolute",
+      right: 0,
+      zIndex: 2,
+      minWidth: 58,
+      height: 44,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+    environmentButtonText: {
+      marginTop: 1,
+      color: "#FFFFFF",
+      fontSize: 9,
+      fontWeight: "800",
     },
 
     intro: {
