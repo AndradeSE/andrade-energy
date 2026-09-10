@@ -20,6 +20,7 @@ import { AppHeader, ElasticScrollView as ScrollView, Screen } from "../../compon
 import { useAuth } from "../../contexts/AuthContext";
 import {
   alterarStatusAssinatura,
+  arquivarAssinatura,
   contratarPlano,
   gerarCobrancaAssinatura,
   obterPainelComercial,
@@ -55,6 +56,7 @@ export default function GestaoGeradores() {
   const [pixChave, setPixChave] = useState("");
   const [senhaFinanceira, setSenhaFinanceira] = useState("");
   const [saque, setSaque] = useState("");
+  const [mostrarArquivadas, setMostrarArquivadas] = useState(false);
   const [aba, setAba] = useState<
     | "RESUMO"
     | "GERADORES"
@@ -450,7 +452,15 @@ export default function GestaoGeradores() {
                   </View>
                 </View>
                 <Text style={styles.section}>ASSINATURAS DA CARTEIRA</Text>
-                {(data?.assinaturas ?? []).map((subscription) => (
+                <View style={styles.row}>
+                  <Text style={styles.muted}>Histórico cancelado preservado</Text>
+                  <TouchableOpacity onPress={() => setMostrarArquivadas((value) => !value)}>
+                    <Text style={styles.link}>{mostrarArquivadas ? "Ocultar arquivadas" : "Ver arquivadas"}</Text>
+                  </TouchableOpacity>
+                </View>
+                {(data?.assinaturas ?? [])
+                  .filter((item) => mostrarArquivadas ? Boolean(item.arquivada_em) : !item.arquivada_em)
+                  .map((subscription) => (
                   <View style={styles.card} key={subscription.id}>
                     <View style={styles.row}>
                       <View style={styles.grow}>
@@ -532,6 +542,34 @@ export default function GestaoGeradores() {
                           }
                         }}
                       />
+                      {subscription.status === "CANCELADA" ? (
+                        <Action
+                          label={subscription.arquivada_em ? "Restaurar" : "Arquivar"}
+                          icon={subscription.arquivada_em ? "arrow-undo-outline" : "archive-outline"}
+                          onPress={() =>
+                            Alert.alert(
+                              subscription.arquivada_em ? "Restaurar assinatura" : "Arquivar assinatura",
+                              subscription.arquivada_em
+                                ? "A assinatura voltará para a lista principal."
+                                : "Ela sairá da lista principal, mas cobranças e histórico serão preservados.",
+                              [
+                                { text: "Cancelar", style: "cancel" },
+                                {
+                                  text: subscription.arquivada_em ? "Restaurar" : "Arquivar",
+                                  onPress: async () => {
+                                    try {
+                                      await arquivarAssinatura(subscription.id, !subscription.arquivada_em);
+                                      await load();
+                                    } catch (e: any) {
+                                      Alert.alert("Assinatura", e?.response?.data?.message ?? "Não foi possível arquivar.");
+                                    }
+                                  },
+                                },
+                              ],
+                            )
+                          }
+                        />
+                      ) : null}
                     </View>
                   </View>
                 ))}

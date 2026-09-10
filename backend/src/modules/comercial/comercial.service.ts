@@ -344,6 +344,28 @@ export async function alterarStatusAssinatura(id: string, status: string) {
   return data;
 }
 
+export async function arquivarAssinatura(id: string, arquivada: boolean) {
+  const { data: atual, error: erroBusca } = await supabase
+    .from("assinaturas_geradores")
+    .select("id,status")
+    .eq("id", id)
+    .single();
+  if (erroBusca || !atual) throw new Error("Assinatura não encontrada.");
+  if (arquivada && atual.status !== "CANCELADA")
+    throw new Error("Cancele a assinatura antes de arquivá-la.");
+  const { data, error } = await supabase
+    .from("assinaturas_geradores")
+    .update({
+      arquivada_em: arquivada ? new Date().toISOString() : null,
+      atualizado_em: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function gerarCobrancaAssinatura(id: string) {
   const { data: assinatura, error } = await supabase
     .from("assinaturas_geradores")

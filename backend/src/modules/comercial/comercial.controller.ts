@@ -11,6 +11,7 @@ export const configurarFinanceiro = (req: Request, res: Response) => respond(res
 export const transferirFinanceiro = (req: Request, res: Response) => respond(res, service.transferirFinanceiroAssinaturas((req as any).usuario, req.body, String(req.header("Idempotency-Key")??"")), 201);
 export const contratar = (req: Request, res: Response) => respond(res, service.contratarPlano(req.body, (req as any).usuario.id), 201);
 export const status = (req: Request, res: Response) => respond(res, service.alterarStatusAssinatura(req.params.id, req.body?.status));
+export const arquivar = (req: Request, res: Response) => respond(res, service.arquivarAssinatura(req.params.id, req.body?.arquivada !== false));
 export const cobrar = (req: Request, res: Response) => respond(res, service.gerarCobrancaAssinatura(req.params.id), 201);
 export const cobrancas = (req: Request, res: Response) => respond(res, service.listarCobrancasAssinatura(req.params.id));
 export const minhaAssinatura = (req: Request, res: Response) => respond(res, service.obterMinhaAssinatura((req as any).usuario.id));

@@ -18,6 +18,7 @@ export const configurarFinanceiroAssinaturas = async (payload:any) => (await api
 export const transferirFinanceiroAssinaturas = async (valor:number,senhaAtual:string) => (await api.post("/comercial/financeiro/transferencias",{valor,senhaAtual,confirmacao:"TRANSFERIR"},{headers:{"Idempotency-Key":`assinaturas-${Date.now()}`}})).data;
 export const contratarPlano = async (payload: any) => (await api.post("/comercial/assinaturas", payload)).data;
 export const alterarStatusAssinatura = async (id: string, status: string) => (await api.patch(`/comercial/assinaturas/${id}/status`, { status })).data;
+export const arquivarAssinatura = async (id: string, arquivada = true) => (await api.patch(`/comercial/assinaturas/${id}/arquivo`, { arquivada })).data;
 export const gerarCobrancaAssinatura = async (id: string) => (await api.post(`/comercial/assinaturas/${id}/cobrancas`)).data;
 export const obterMinhaAssinatura = async () => (await api.get("/comercial/minha-assinatura")).data;
 export const criarCheckoutAssinatura = async (

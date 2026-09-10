@@ -15,6 +15,7 @@ router.put("/financeiro", controller.configurarFinanceiro);
 router.post("/financeiro/transferencias", controller.transferirFinanceiro);
 router.post("/assinaturas", controller.contratar);
 router.patch("/assinaturas/:id/status", controller.status);
+router.patch("/assinaturas/:id/arquivo", controller.arquivar);
 router.post("/assinaturas/:id/cobrancas", controller.cobrar);
 router.get("/assinaturas/:id/cobrancas", controller.cobrancas);
 export default router;
