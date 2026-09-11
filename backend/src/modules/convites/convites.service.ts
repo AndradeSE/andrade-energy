@@ -220,9 +220,9 @@ export async function criarConviteGerador(input: any, administrador: any) {
 
 export async function consultarConviteGerador(token: string) {
   if (!token.startsWith("gerador_") && !token.startsWith("admin_")) throw new Error("Convite de acesso inválido ou expirado.");
-  const { data, error } = await supabase.from("convites_clientes").select("id,nome,cpf,email,status,expira_em,empresa_id").eq("token_hash", hashToken(token)).maybeSingle();
+  const { data, error } = await supabase.from("convites_clientes").select("id,gestor_id,nome,cpf,email,status,expira_em,empresa_id").eq("token_hash", hashToken(token)).maybeSingle();
   if (error || !data || data.status !== "PENDENTE" || new Date(data.expira_em) <= new Date()) throw new Error("Convite de gerador inválido ou expirado.");
-  return { nome: data.nome, cpf: data.cpf, email: data.email, empresa_id: data.empresa_id };
+  return { nome: data.nome, cpf: data.cpf, email: data.email, empresa_id: data.empresa_id, gestor_id: data.gestor_id };
 }
 
 export async function aceitarConviteGerador(token: string) {

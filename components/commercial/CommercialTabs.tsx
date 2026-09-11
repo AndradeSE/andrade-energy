@@ -1,13 +1,11 @@
 import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "../../theme";
 import AppTabIcon from "../navigation/AppTabIcon";
 
 type CommercialTab = "HOME" | "GERADORES" | "PAGAMENTOS" | "PLANOS" | "ASSINATURAS";
 
 export default function CommercialTabs({ active }: { active?: CommercialTab }) {
-  const insets = useSafeAreaInsets();
   const items = [
     {
       key: "GERADORES",
@@ -59,7 +57,10 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
 
   return (
     <View style={styles.cornerFill}>
-    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 3) }]}>
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <View style={styles.surface} />
+      </View>
+      <View style={styles.bar}>
       {items.map((item) => {
         const selected = active === item.key;
         const featured = item.key === "HOME";
@@ -84,7 +85,7 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
           </Pressable>
         );
       })}
-    </View>
+      </View>
     </View>
   );
 }
@@ -93,16 +94,24 @@ const styles = StyleSheet.create({
   cornerFill: {
     backgroundColor: "#DFE8E3",
   },
-  bar: {
-    minHeight: 64,
-    paddingTop: 5,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    backgroundColor: Colors.surface,
+  surface: {
+    ...StyleSheet.absoluteFillObject,
+    borderTopWidth: 1,
+    borderTopColor: "#E2E8F0",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors.border,
+    backgroundColor: "#FFFFFF",
+  },
+  bar: {
+    height: 66,
+    paddingTop: 5,
+    paddingBottom: 3,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: "transparent",
+    overflow: "visible",
     elevation: 15,
     shadowColor: "#000",
     shadowOpacity: 0.08,
@@ -112,15 +121,18 @@ const styles = StyleSheet.create({
   item: {
     flex: 1,
     minWidth: 0,
+    minHeight: 52,
+    paddingHorizontal: 0,
+    paddingVertical: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 1,
   },
   label: {
     color: Colors.subtitle,
-    fontSize: 9,
-    lineHeight: 11,
-    fontWeight: "600",
+    fontSize: 8,
+    lineHeight: 10,
+    fontWeight: "700",
+    marginBottom: 0,
     textAlign: "center",
   },
   labelActive: { color: Colors.primary },

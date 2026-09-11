@@ -55,7 +55,7 @@ export default function EconomiaChart({
         </View>
       ) : null}
 
-      <Card>
+      <Card style={styles.card}>
         <View style={styles.chart}>
           {itens.map((item, index) => {
             const economia = Number(item.economia ?? 0);
@@ -90,6 +90,9 @@ export default function EconomiaChart({
 const styles = StyleSheet.create({
   container: {
     marginBottom: Spacing.md,
+  },
+  card: {
+    backgroundColor: Colors.surface,
   },
   header: {
     marginBottom: Spacing.md,

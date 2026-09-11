@@ -43,7 +43,7 @@ export default function EnergyFlowCard({
         </View>
       </View>
 
-      <Card>
+      <Card style={styles.card}>
         <View style={styles.flow}>
           <View style={styles.flowItem}>
             <View style={[styles.flowIcon, styles.sunIcon]}>
@@ -105,6 +105,9 @@ export default function EnergyFlowCard({
 const styles = StyleSheet.create({
   container: {
     marginBottom: Spacing.md,
+  },
+  card: {
+    backgroundColor: Colors.surface,
   },
   sectionHeader: {
     flexDirection: "row",

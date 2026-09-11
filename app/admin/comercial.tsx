@@ -93,7 +93,7 @@ export default function HomeComercial() {
   const resumo = data?.resumo;
   const financeiro = data?.financeiro;
   return (
-    <Screen>
+    <Screen edges={["top", "left", "right"]}>
       <AppHeader
         collapsePlantContextOnMount
         environmentName="Gestão comercial"

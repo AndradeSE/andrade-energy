@@ -300,7 +300,7 @@ export default function ClienteHome() {
             );
           }}
         >
-          <Card>
+          <Card style={styles.invoiceCard}>
             <View style={styles.emptyInvoiceHeader}>
               <View style={styles.emptyInvoiceIcon}>
                 <Ionicons
@@ -349,11 +349,11 @@ export default function ClienteHome() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.background,
   },
   scroll: {
     flex: 1,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.background,
   },
 
   errorContent: {
@@ -443,8 +443,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: Radius.lg,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.surface,
+    ...Shadows.card,
   },
+  invoiceCard: { backgroundColor: Colors.surface },
   metricIcon: {
     width: 34,
     height: 34,

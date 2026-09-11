@@ -638,12 +638,30 @@ export async function cadastrarConta(input: { nome: string; cpf: string; email: 
     throw new Error("Para criar uma conta de consumidor, use o convite enviado pelo gerador.");
   }
   const convite = await aceitarConviteGerador(String(input.convite ?? ""));
-  input = { ...input, nome: convite.nome, cpf: convite.cpf, email: convite.email, empresa_id: convite.empresa_id };
+  const nomeEmpresa = String(convite.nome ?? "").trim();
+  const slugBase = nomeEmpresa.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "gerador";
+  const { data: empresaGerador, error: empresaError } = await supabase.from("empresas").insert({
+    slug: `${slugBase}-${gerarToken().slice(0, 8).toLowerCase()}`,
+    nome: nomeEmpresa,
+    documento: String(convite.cpf ?? "").replace(/\D/g, ""),
+    email_suporte: String(convite.email ?? "").trim().toLowerCase(),
+    empresa_proprietaria: false,
+    identidade_personalizada: false,
+    ativo: true,
+  }).select("id").single();
+  if (empresaError || !empresaGerador) throw empresaError ?? new Error("Não foi possível criar a operação do gerador.");
+  input = { ...input, nome: convite.nome, cpf: convite.cpf, email: convite.email, empresa_id: empresaGerador.id };
   if (!input.nome?.trim()) throw new Error("Informe seu nome.");
   if (String(input.cpf ?? "").replace(/\D/g, "").length !== 11) throw new Error("Informe um CPF válido.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email?.trim() ?? "")) throw new Error("Informe um e-mail válido.");
   if ((input.senha?.length ?? 0) < 6) throw new Error("A senha deve ter pelo menos 6 caracteres.");
-  const usuario = await criarConta(input);
+  let usuario: any;
+  try {
+    usuario = await criarConta(input);
+  } catch (error) {
+    await supabase.from("empresas").delete().eq("id", empresaGerador.id);
+    throw error;
+  }
   await concluirConviteGerador(convite, usuario.id);
   let emailEnviado = false;
   try {
