@@ -16,19 +16,8 @@ export default function UnifiedExpoTabBar({
 
   return (
     <View style={styles.cornerFill}>
-      <LinearGradient
-        colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.22)"]}
-        pointerEvents="none"
-        style={styles.topShadow}
-      />
-      <LinearGradient
-        colors={["#FFFFFF", "#DCE3DF"]}
-        locations={[0, 1]}
-        style={[
-          styles.bar,
-          { height: 66, paddingBottom: 3 },
-        ]}
-      >
+      <View style={styles.bar}>
+        <LinearGradient colors={["#FFFFFF", "#DCE3DF"]} locations={[0, 1]} pointerEvents="none" style={styles.barBackground} />
         {routes.map((route) => {
           const routeIndex = state.routes.findIndex((item) => item.key === route.key);
           const focused = state.index === routeIndex;
@@ -63,7 +52,7 @@ export default function UnifiedExpoTabBar({
             </Pressable>
           );
         })}
-      </LinearGradient>
+      </View>
     </View>
   );
 }
@@ -73,13 +62,6 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     overflow: "visible",
   },
-  topShadow: {
-    position: "absolute",
-    top: -14,
-    left: 0,
-    right: 0,
-    height: 14,
-  },
   bar: {
     height: 66,
     paddingTop: 5,
@@ -88,7 +70,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    backgroundColor: "transparent",
+    backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#E2E8F0",
     overflow: "visible",
@@ -97,6 +79,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.18,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: -5 },
+  },
+  barBackground: {
+    ...StyleSheet.absoluteFillObject,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
   item: {
     flex: 1,

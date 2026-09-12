@@ -58,7 +58,8 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
 
   return (
     <View style={styles.cornerFill}>
-      <LinearGradient colors={["#FFFFFF", "#DCE3DF"]} locations={[0, 1]} style={styles.bar}>
+      <View style={styles.bar}>
+      <LinearGradient colors={["#FFFFFF", "#DCE3DF"]} locations={[0, 1]} pointerEvents="none" style={styles.barBackground} />
       {items.map((item) => {
         const selected = active === item.key;
         const featured = item.key === "HOME";
@@ -83,14 +84,14 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
           </Pressable>
         );
       })}
-      </LinearGradient>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   cornerFill: {
-    backgroundColor: "transparent",
+    backgroundColor: "#FFFFFF",
   },
   bar: {
     height: 66,
@@ -109,6 +110,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.18,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: -5 },
+  },
+  barBackground: {
+    ...StyleSheet.absoluteFillObject,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
   item: {
     flex: 1,
