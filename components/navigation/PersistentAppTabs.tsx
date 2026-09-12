@@ -6,6 +6,7 @@ import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors } from "../../theme";
 import AppTabIcon from "./AppTabIcon";
 import { useAuth } from "../../contexts/AuthContext";
+import CommercialTabs from "../commercial/CommercialTabs";
 import AppTabBarFrame, { appTabBarStyles as styles } from "./AppTabBarFrame";
 
 type TabItem = {
@@ -28,14 +29,6 @@ const consumerTabs: TabItem[] = [
   { label: "Economia", icon: "flash-outline", route: "/(tabs)/economia" },
   { label: "Home", icon: "home-outline", route: "/(tabs)" },
   { label: "Contrato", icon: "document-text-outline", route: "/(tabs)/contrato" },
-];
-
-const commercialTabs: TabItem[] = [
-  { label: "Geradores", icon: "people-outline", route: "/geradores/gestao?aba=GERADORES" },
-  { label: "Financeiro", icon: "wallet-outline", route: "/geradores/gestao?aba=PAGAMENTOS" },
-  { label: "Home", icon: "home-outline", route: "/admin/comercial" },
-  { label: "Planos", icon: "pricetags-outline", route: "/geradores/gestao?aba=PLANOS" },
-  { label: "Assinaturas", icon: "card-outline", route: "/geradores/gestao?aba=ASSINATURAS" },
 ];
 
 export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
@@ -67,15 +60,13 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
     firstSegment === "geradores" ||
     (firstSegment === "colaboradores" && (params.ambiente === "comercial" || user?.perfil === "ADMIN"))
   );
-  const baseTabs = commercialEnvironment
-    ? commercialTabs
-    : IS_GERADOR_APP
+  if (commercialEnvironment) return <CommercialTabs />;
+
+  const baseTabs = IS_GERADOR_APP
       ? generatorTabs
       : consumerTabs;
   const colaborador = String(user?.papel_empresa ?? "").startsWith("COLABORADOR_");
-  const tabs = colaborador
-    ? baseTabs.filter((tab) => commercialEnvironment ? ["Geradores", "Home"].includes(tab.label) : tab.label !== "Financeiro")
-    : baseTabs;
+  const tabs = colaborador ? baseTabs.filter((tab) => tab.label !== "Financeiro") : baseTabs;
 
   return (
     <AppTabBarFrame>
@@ -96,7 +87,7 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
             size={22}
           />
           <Text
-            numberOfLines={commercialEnvironment ? 2 : 1}
+            numberOfLines={1}
             style={styles.label}
           >
             {tab.label}

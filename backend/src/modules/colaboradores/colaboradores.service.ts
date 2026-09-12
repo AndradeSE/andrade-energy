@@ -40,7 +40,7 @@ export async function listarColaboradores(usuario: any) {
   ]);
   if (error) throw error;
   if (conviteError) throw conviteError;
-  return { colaboradores: vinculos ?? [], convites: (convites ?? []).filter((item: any) => item.status !== "ACEITO") };
+  return { colaboradores: vinculos ?? [], convites: (convites ?? []).filter((item: any) => item.status === "PENDENTE") };
 }
 
 export async function criarConviteColaborador(input: any, usuario: any) {
@@ -101,6 +101,11 @@ export async function atualizarColaborador(id: string, input: any, usuario: any)
 
 export async function cancelarConviteColaborador(id: string, usuario: any) {
   if (String(usuario?.papel_empresa ?? "").startsWith("COLABORADOR_")) throw new Error("A gestão da equipe é exclusiva do titular.");
+  const { data: existente, error: consultaError } = await supabase.from("convites_colaboradores").select("id,status").eq("id", id).eq("empresa_id", usuario.empresa_id).maybeSingle();
+  if (consultaError) throw consultaError;
+  if (!existente) throw new Error("Convite não encontrado.");
+  if (existente.status === "CANCELADO") return { message: "Convite já estava cancelado." };
+  if (existente.status !== "PENDENTE") throw new Error("Este convite não está mais pendente.");
   const { data, error } = await supabase.from("convites_colaboradores").update({ status: "CANCELADO", atualizado_em: new Date().toISOString() }).eq("id", id).eq("empresa_id", usuario.empresa_id).eq("status", "PENDENTE").select("id").maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("Convite pendente não encontrado.");
