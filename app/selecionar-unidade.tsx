@@ -4,7 +4,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 import {
   Alert,
@@ -49,7 +49,6 @@ import {
   listarUsinas,
 } from "../services/usinas.service";
 import { listarAcessoContratos } from "../services/contratos.service";
-import { listarMinhasEmpresas } from "../services/empresas.service";
 
 import {
   Colors,
@@ -61,7 +60,7 @@ import { IS_GERADOR_APP } from "../config/appVariant";
 import PortalBrandLogo from "../components/brand/PortalBrandLogo";
 
 export default function SelecionarUnidade() {
-  const { empresa, trocarEmpresa } = useEmpresa();
+  const { empresa } = useEmpresa();
   const corPrincipal = empresa.cor_primaria || "#087A46";
   const {
     usuario,
@@ -90,9 +89,6 @@ export default function SelecionarUnidade() {
 
   const [atualizando, setAtualizando] =
     useState(false);
-
-  const [empresasDisponiveis, setEmpresasDisponiveis] = useState<any[]>([]);
-  const [trocandoEmpresa, setTrocandoEmpresa] = useState(false);
 
   const [busca, setBusca] =
     useState("");
@@ -171,25 +167,6 @@ export default function SelecionarUnidade() {
       void carregar();
     }, [carregar])
   );
-
-  useEffect(() => {
-    if (gestor) return;
-    listarMinhasEmpresas().then(setEmpresasDisponiveis).catch(() => setEmpresasDisponiveis([]));
-  }, [gestor, usuario?.id]);
-
-  async function escolherEmpresa(empresaId: string) {
-    if (empresaId === empresa.id || trocandoEmpresa) return;
-    setTrocandoEmpresa(true);
-    try {
-      await selecionarUnidade(null);
-      await trocarEmpresa(empresaId);
-      await carregar();
-    } catch (error: any) {
-      Alert.alert("Não foi possível trocar", error?.response?.data?.message ?? "Tente novamente.");
-    } finally {
-      setTrocandoEmpresa(false);
-    }
-  }
 
   async function atualizarPagina() {
     setAtualizando(true);
@@ -443,21 +420,6 @@ export default function SelecionarUnidade() {
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <>
-            {!gestor && empresasDisponiveis.length > 1 ? (
-              <View style={styles.companySelector}>
-                <Text style={styles.companySelectorTitle}>Escolha o gerador</Text>
-                <Text style={styles.companySelectorText}>Cada ambiente mostra somente as UCs e contratos daquele gerador.</Text>
-                <View style={styles.companyOptions}>
-                  {empresasDisponiveis.map((item) => {
-                    const selecionada = item.id === empresa.id;
-                    return <TouchableOpacity key={item.id} disabled={trocandoEmpresa} onPress={() => void escolherEmpresa(item.id)} style={[styles.companyOption, selecionada && styles.companyOptionActive]}>
-                      <Ionicons name={selecionada ? "checkmark-circle" : "business-outline"} size={19} color={selecionada ? "#FFFFFF" : Colors.primary} />
-                      <Text numberOfLines={1} style={[styles.companyOptionText, selecionada && styles.companyOptionTextActive]}>{item.nome}</Text>
-                    </TouchableOpacity>;
-                  })}
-                </View>
-              </View>
-            ) : null}
             {/* TÍTULO */}
 
             <View
@@ -1021,6 +983,17 @@ export default function SelecionarUnidade() {
                 }
               />
 
+              {!gestor ? (
+                <DrawerItem
+                  icon="business-outline"
+                  label="Trocar gerador"
+                  onPress={() => {
+                    setMenuAberto(false);
+                    router.replace("/selecionar-gerador" as any);
+                  }}
+                />
+              ) : null}
+
               <DrawerItem
                 icon="document-text-outline"
                 label="Meus contratos"
@@ -1231,22 +1204,6 @@ const styles =
       alignItems:
         "center",
     },
-
-    companySelector: {
-      marginBottom: Spacing.md,
-      padding: Spacing.md,
-      borderWidth: 1,
-      borderColor: "#C9DED1",
-      borderRadius: Radius.lg,
-      backgroundColor: "#F4FAF6",
-    },
-    companySelectorTitle: { color: Colors.text, fontSize: Typography.card, fontWeight: "900" },
-    companySelectorText: { marginTop: 4, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 },
-    companyOptions: { gap: Spacing.xs, marginTop: Spacing.sm },
-    companyOption: { minHeight: 46, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: "#B9D8C7", borderRadius: Radius.md, backgroundColor: Colors.surface },
-    companyOptionActive: { borderColor: Colors.primary, backgroundColor: Colors.primary },
-    companyOptionText: { flex: 1, color: Colors.text, fontSize: Typography.small, fontWeight: "800" },
-    companyOptionTextActive: { color: "#FFFFFF" },
 
     headerTopGerador: {
       justifyContent: "center",

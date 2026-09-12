@@ -479,27 +479,24 @@ export default function Contrato() {
           />
         </Card>
 
-        {!aceiteRegistrado && !pdfAssinadoEnviado ? (
-          <Button
-            disabled={registrandoAceite || !arquivoContrato}
-            icon={
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={20}
-                color={Colors.surface}
-              />
-            }
-            onPress={() => void abrirAssinatura()}
-            title={
-              registrandoAceite || enviandoCodigo
-                ? "Preparando assinatura..."
-                : "Assinar contrato no app"
-            }
-          />
-        ) : null}
-
         {!pdfAssinadoEnviado && !aceiteRegistrado ? (
-          <>
+          <View style={styles.signatureActions}>
+            <Button
+              disabled={registrandoAceite || !arquivoContrato}
+              icon={
+                <Ionicons
+                  name="checkmark-circle-outline"
+                  size={20}
+                  color={Colors.surface}
+                />
+              }
+              onPress={() => void abrirAssinatura()}
+              title={
+                registrandoAceite || enviandoCodigo
+                  ? "Preparando assinatura..."
+                  : "Assinar contrato no app"
+              }
+            />
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={assinarComGovBr}
@@ -525,7 +522,7 @@ export default function Contrato() {
                 {enviandoAssinado ? "Enviando PDF..." : "Enviar PDF assinado"}
               </Text>
             </TouchableOpacity>
-          </>
+          </View>
         ) : null}
 
         <TouchableOpacity
@@ -824,7 +821,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
-    marginTop: Spacing.sm,
     borderColor: Colors.primary,
     borderWidth: 1,
     borderRadius: Radius.lg,
@@ -834,7 +830,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
-    marginTop: Spacing.sm,
     borderColor: Colors.primaryLight,
     borderWidth: 1,
     borderRadius: Radius.lg,
@@ -845,6 +840,9 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontSize: Typography.body,
     fontWeight: "700",
+  },
+  signatureActions: {
+    gap: Spacing.sm,
   },
   economyGrid: { flexDirection: "row", justifyContent: "space-between" },
   economyItem: { flex: 1 },

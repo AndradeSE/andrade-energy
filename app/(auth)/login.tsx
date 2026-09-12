@@ -65,7 +65,7 @@ export default function Login() {
         }
       }
       const colaboradorComercial = resposta.usuario?.papel_empresa === "COLABORADOR_COMERCIAL";
-      router.replace((colaboradorComercial ? "/admin/comercial" : resposta.usuario?.perfil === "ADMIN" && IS_GERADOR_APP ? "/admin/escolher-area" : "/selecionar-unidade") as any);
+      router.replace((colaboradorComercial ? "/admin/comercial" : resposta.usuario?.perfil === "ADMIN" && IS_GERADOR_APP ? "/admin/escolher-area" : IS_GERADOR_APP ? "/selecionar-unidade" : "/selecionar-gerador") as any);
     } catch (erro: any) {
       Alert.alert(
         "Não foi possível entrar",

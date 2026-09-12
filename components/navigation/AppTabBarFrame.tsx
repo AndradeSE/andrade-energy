@@ -62,8 +62,6 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     borderTopLeftRadius: APP_TAB_BAR_METRICS.radius,
     borderTopRightRadius: APP_TAB_BAR_METRICS.radius,
-    borderBottomLeftRadius: APP_TAB_BAR_METRICS.radius,
-    borderBottomRightRadius: APP_TAB_BAR_METRICS.radius,
     borderTopWidth: 1,
     borderTopColor: "#E2E8F0",
     backgroundColor: "#FFFFFF",
@@ -78,7 +76,5 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderTopLeftRadius: APP_TAB_BAR_METRICS.radius,
     borderTopRightRadius: APP_TAB_BAR_METRICS.radius,
-    borderBottomLeftRadius: APP_TAB_BAR_METRICS.radius,
-    borderBottomRightRadius: APP_TAB_BAR_METRICS.radius,
   },
 });

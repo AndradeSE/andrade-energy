@@ -99,9 +99,12 @@ router.post(
   importarContratoAssinadoDaUnidadeController
 );
 
-router.post("/:id/codigo-assinatura", exigirRegistroDaEmpresa("contratos"), solicitarCodigoAssinaturaController);
-router.post("/:id/aceite-eletronico", exigirRegistroDaEmpresa("contratos"), registrarAceiteEletronicoController);
-router.post("/:id/contrato-assinado-cliente", exigirRegistroDaEmpresa("contratos"), upload.single("arquivo"), importarContratoAssinadoPeloClienteController);
+// O consumidor pode participar de mais de uma empresa. Estas ações validam o
+// titular pelo cliente_id do vínculo ativo dentro do próprio serviço; exigir o
+// empresa_id principal do usuário aqui rejeitaria contratos de outro gerador.
+router.post("/:id/codigo-assinatura", solicitarCodigoAssinaturaController);
+router.post("/:id/aceite-eletronico", registrarAceiteEletronicoController);
+router.post("/:id/contrato-assinado-cliente", upload.single("arquivo"), importarContratoAssinadoPeloClienteController);
 
 router.put(
   "/:id",
