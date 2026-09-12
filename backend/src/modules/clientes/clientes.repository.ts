@@ -490,41 +490,16 @@ export async function excluirCliente(id: string, empresaId = EMPRESA_ANDRADE_ID)
   if (erroCliente) throw erroCliente;
 
   const cpf = String(cliente?.cpf ?? "").replace(/\D/g, "");
-  const filtroConta = cpf.length === 11
-    ? `cliente_id.eq.${id},cpf.eq.${cpf}`
-    : `cliente_id.eq.${id}`;
   const { data: contas, error: erroBuscaContas } = await supabase
     .from("usuarios")
-    .select("id")
-    .eq("perfil", "LEITURA")
-    .eq("empresa_id", empresaId)
-    .or(filtroConta);
+    .select("id,perfil,empresa_id")
+    .eq("cliente_id", id);
   if (erroBuscaContas) throw erroBuscaContas;
 
-  // O acesso é encerrado antes da remoção dos demais registros. Isso evita
-  // que uma falha posterior deixe uma sessão antiga funcionando.
-  for (const conta of contas ?? []) {
-    const contaId = String(conta.id);
-    const { error: erroDesativacao } = await supabase
-      .from("usuarios")
-      .update({
-        ativo: false,
-        cliente_id: null,
-        cpf: null,
-        email: `excluido-${contaId}@conta-inativa.local`,
-        senha: `revogada-${randomUUID()}`,
-      })
-      .eq("id", contaId)
-      .eq("empresa_id", empresaId);
-    if (erroDesativacao) throw erroDesativacao;
-
-    const { error: erroSessoes } = await supabase
-      .from("sessoes_usuarios")
-      .update({ revogada_em: new Date().toISOString() })
-      .eq("usuario_id", contaId)
-      .is("revogada_em", null);
-    if (erroSessoes && erroSessoes.code !== "42P01") throw erroSessoes;
-  }
+  const { data: cadastrosAlternativos, error: erroAlternativos } = cpf.length === 11
+    ? await supabase.from("clientes").select("id,empresa_id").eq("cpf", cpf).neq("id", id)
+    : { data: [], error: null };
+  if (erroAlternativos) throw erroAlternativos;
 
   // O histórico de consumo pertence à fatura, não diretamente ao cliente.
   // Resolvemos primeiro as faturas para funcionar também nos bancos legados,
@@ -532,8 +507,7 @@ export async function excluirCliente(id: string, empresaId = EMPRESA_ANDRADE_ID)
   const { data: faturasDoCliente, error: erroBuscaFaturas } = await supabase
     .from("faturas")
     .select("id")
-    .eq("cliente_id", id)
-    .eq("empresa_id", empresaId);
+    .eq("cliente_id", id);
   if (erroBuscaFaturas && erroBuscaFaturas.code !== "42P01") throw erroBuscaFaturas;
 
   const faturaIds = (faturasDoCliente ?? []).map((fatura) => String(fatura.id));
@@ -561,26 +535,73 @@ export async function excluirCliente(id: string, empresaId = EMPRESA_ANDRADE_ID)
     "creditos_cliente",
     "creditos",
     "rateios",
-    "participacoes_usina",
-    "contratos",
     "faturas",
     "unidades_consumidoras",
   ];
 
+  // Nessas duas tabelas legadas a remoção direta por cliente_id pode exceder
+  // o statement timeout por falta de índice. Buscar e apagar pela PK evita a
+  // varredura prolongada e mantém a operação previsível.
+  for (const tabela of ["participacoes_usina", "contratos"]) {
+    const { data: vinculos, error: erroBusca } = await supabase
+      .from(tabela)
+      .select("id")
+      .eq("cliente_id", id);
+    if (erroBusca && erroBusca.code !== "42P01") throw erroBusca;
+    for (const vinculo of vinculos ?? []) {
+      const { error } = await supabase.from(tabela).delete().eq("id", vinculo.id);
+      if (error) throw error;
+    }
+  }
+
   for (const tabela of tabelasDependentes) {
-    const { error } = await supabase.from(tabela).delete().eq("cliente_id", id).eq("empresa_id", empresaId);
+    // cliente_id é globalmente único. Não filtramos empresa_id aqui porque
+    // registros legados podem ter sido gravados no tenant errado; o outro
+    // cadastro da mesma pessoa possui outro UUID e permanece intacto.
+    const { error } = await supabase.from(tabela).delete().eq("cliente_id", id);
     if (error && error.code !== "42P01") throw error;
   }
 
   const { error: erroConvites } = await supabase.from("convites_clientes").update({ cliente_id: null }).eq("cliente_id", id);
   if (erroConvites) throw erroConvites;
 
-  const { error: erroDesvinculo } = await supabase
-    .from("usuarios")
-    .update({ cliente_id: null, ativo: false })
-    .eq("cliente_id", id)
-    .eq("empresa_id", empresaId);
-  if (erroDesvinculo) throw erroDesvinculo;
+  // Uma pessoa pode ser cliente de várias empresas. Ao remover apenas este
+  // cadastro, preservamos a conta e apontamos o consumidor para outro cadastro
+  // do mesmo CPF. Gestores e administradores somente perdem o vínculo legado.
+  for (const conta of contas ?? []) {
+    const contaId = String(conta.id);
+    const alternativo = (cadastrosAlternativos ?? []).find(
+      (cadastro) => String(cadastro.empresa_id) === String(conta.empresa_id),
+    ) ?? cadastrosAlternativos?.[0];
+
+    if (conta.perfil !== "LEITURA" || alternativo) {
+      const { error: erroDesvinculo } = await supabase
+        .from("usuarios")
+        .update({ cliente_id: conta.perfil === "LEITURA" ? alternativo?.id ?? null : null })
+        .eq("id", contaId);
+      if (erroDesvinculo) throw erroDesvinculo;
+      continue;
+    }
+
+    const { error: erroDesativacao } = await supabase
+      .from("usuarios")
+      .update({
+        ativo: false,
+        cliente_id: null,
+        cpf: null,
+        email: `excluido-${contaId}@conta-inativa.local`,
+        senha: `revogada-${randomUUID()}`,
+      })
+      .eq("id", contaId);
+    if (erroDesativacao) throw erroDesativacao;
+
+    const { error: erroSessoes } = await supabase
+      .from("sessoes_usuarios")
+      .update({ revogada_em: new Date().toISOString() })
+      .eq("usuario_id", contaId)
+      .is("revogada_em", null);
+    if (erroSessoes && erroSessoes.code !== "42P01") throw erroSessoes;
+  }
 
   const { error } = await supabase
     .from("clientes")

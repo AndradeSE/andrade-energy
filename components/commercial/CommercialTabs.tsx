@@ -58,7 +58,7 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
 
   return (
     <View style={styles.cornerFill}>
-      <LinearGradient colors={["#FFFFFF", "#EEF2F0"]} locations={[0, 1]} style={styles.bar}>
+      <LinearGradient colors={["#FFFFFF", "#DCE3DF"]} locations={[0, 1]} style={styles.bar}>
       {items.map((item) => {
         const selected = active === item.key;
         const featured = item.key === "HOME";

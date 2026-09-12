@@ -68,12 +68,12 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
   return (
     <View style={styles.cornerFill}>
       <LinearGradient
-        colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.15)"]}
+        colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.22)"]}
         pointerEvents="none"
         style={styles.topShadow}
       />
       <LinearGradient
-        colors={["#FFFFFF", "#EEF2F0"]}
+        colors={["#FFFFFF", "#DCE3DF"]}
         locations={[0, 1]}
         style={[
           styles.bar,
