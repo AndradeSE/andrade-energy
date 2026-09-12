@@ -69,7 +69,9 @@ export default function AppHeader({
   const notificacoes = leituras.ready ? avisosRecebidos.filter((aviso) => !leituras.ids.includes(String(aviso.id))) : [];
   const [autonomia, setAutonomia] = useState<{ percentual: number; disponivel: number } | null>(null);
   const { isExpanded: contextoUsinaExpandido, setExpanded: setContextoUsinaExpandido } = useHeaderDetailsVisibility();
-  const proprietario = IS_GERADOR_APP;
+  const papelEmpresa = String(usuario?.papel_empresa ?? "");
+  const colaborador = papelEmpresa.startsWith("COLABORADOR_");
+  const proprietario = IS_GERADOR_APP && !colaborador;
   const podeAlternarPerfil = IS_GERADOR_APP && usuario?.perfil === "ADMIN";
   const ambienteComercial = environmentName === "Gestão comercial";
 
@@ -248,12 +250,19 @@ export default function AppHeader({
           <Pressable style={styles.menu} onPress={(evento) => evento.stopPropagation()}>
             <View style={styles.menuHeader}><Text style={styles.menuTitle}>Menu</Text><TouchableOpacity onPress={() => setMenuAberto(false)}><Ionicons name="close" size={26} color={Colors.text} /></TouchableOpacity></View>
             <MenuLink icon="home-outline" label="Início" onPress={() => navegar("/")} />
-            {proprietario ? ambienteComercial ? <>
+            {IS_GERADOR_APP && colaborador ? <>
+              {usuario?.permissoes?.clientes !== false ? <MenuLink icon="people-outline" label="Clientes" onPress={() => navegar("/clientes")} /> : null}
+              {usuario?.permissoes?.usinas !== false ? <MenuLink icon="business-outline" label="Usinas" onPress={() => navegar("/usinas")} /> : null}
+              {usuario?.permissoes?.unidades !== false ? <MenuLink icon="flash-outline" label="Unidades consumidoras" onPress={() => navegar("/unidades")} /> : null}
+              {usuario?.permissoes?.contratos !== false ? <MenuLink icon="document-text-outline" label="Contratos" onPress={() => navegar("/contratos")} /> : null}
+              {papelEmpresa === "COLABORADOR_COMERCIAL" ? <MenuLink icon="people-outline" label="Geradores" onPress={() => navegar("/geradores/gestao?aba=GERADORES")} /> : null}
+            </> : proprietario ? ambienteComercial ? <>
               <MenuLink icon="people-outline" label="Geradores" onPress={() => navegar("/geradores/gestao?aba=GERADORES")} />
               <MenuLink icon="card-outline" label="Assinaturas" onPress={() => navegar("/geradores/gestao?aba=ASSINATURAS")} />
               <MenuLink icon="cash-outline" label="Pagamentos" onPress={() => navegar("/geradores/gestao?aba=PAGAMENTOS")} />
               <MenuLink icon="business-outline" label="Empresas parceiras" onPress={() => navegar("/admin/empresas")} />
-            </> : <><MenuLink icon="card-outline" label="Meu plano" onPress={() => navegar("/assinatura")} /><MenuLink icon="people-outline" label="Clientes" onPress={() => navegar("/clientes")} /><MenuLink icon="business-outline" label="Usinas" onPress={() => navegar("/usinas")} /><MenuLink icon="flash-outline" label="Unidades consumidoras" onPress={() => navegar("/unidades")} /><MenuLink icon="document-text-outline" label="Contratos dos clientes" onPress={() => navegar("/contratos")} /><MenuLink icon="wallet-outline" label="Financeiro" onPress={() => navegar("/financeiro")} />{usuario?.perfil === "ADMIN" ? <MenuLink icon="layers-outline" label="Empresas parceiras" onPress={() => navegar("/admin/empresas")} /> : null}</> : <><MenuLink icon="receipt-outline" label="Minhas faturas" onPress={() => navegar("/faturas")} /><MenuLink icon="document-text-outline" label="Meu contrato" onPress={() => navegar("/contrato")} /></>}
+              <MenuLink icon="people-circle-outline" label="Colaboradores" onPress={() => navegar("/colaboradores")} />
+            </> : <><MenuLink icon="card-outline" label="Meu plano" onPress={() => navegar("/assinatura")} /><MenuLink icon="people-outline" label="Clientes" onPress={() => navegar("/clientes")} /><MenuLink icon="business-outline" label="Usinas" onPress={() => navegar("/usinas")} /><MenuLink icon="flash-outline" label="Unidades consumidoras" onPress={() => navegar("/unidades")} /><MenuLink icon="document-text-outline" label="Contratos dos clientes" onPress={() => navegar("/contratos")} /><MenuLink icon="wallet-outline" label="Financeiro" onPress={() => navegar("/financeiro")} /><MenuLink icon="people-circle-outline" label="Colaboradores" onPress={() => navegar("/colaboradores")} />{usuario?.perfil === "ADMIN" ? <MenuLink icon="layers-outline" label="Empresas parceiras" onPress={() => navegar("/admin/empresas")} /> : null}</> : <><MenuLink icon="receipt-outline" label="Minhas faturas" onPress={() => navegar("/faturas")} /><MenuLink icon="document-text-outline" label="Meu contrato" onPress={() => navegar("/contrato")} /></>}
             <MenuLink icon="person-outline" label="Perfil" onPress={() => navegar("/perfil")} />
             <MenuLink icon="play-circle-outline" label="Tutoriais" onPress={() => navegar("/tutoriais")} />
             <View style={styles.menuDivider} /><MenuLink icon="log-out-outline" label="Sair da conta" danger onPress={confirmarSaida} />
