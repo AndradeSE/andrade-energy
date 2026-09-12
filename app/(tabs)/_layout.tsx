@@ -3,6 +3,7 @@ import { Tabs } from "expo-router";
 import { StyleSheet, View } from "react-native";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import AppTabIcon from "../../components/navigation/AppTabIcon";
+import UnifiedExpoTabBar from "../../components/navigation/UnifiedExpoTabBar";
 
 function TabIcon({ name, color, featured = false }: { name: keyof typeof Ionicons.glyphMap; color: string; featured?: boolean }) {
   return <AppTabIcon name={name} color={color} featured={featured} />;
@@ -19,9 +20,10 @@ function RoundedTabBarBackground() {
 
 export default function TabLayout() {
   const tabStyle = {
-    height: 64,
+    height: 66,
     paddingTop: 5,
     paddingBottom: 3,
+    overflow: "visible",
     backgroundColor: "transparent",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -45,9 +47,16 @@ export default function TabLayout() {
     tabBarHideOnKeyboard: true,
 
     tabBarLabelStyle: {
-      fontSize: 12,
-      fontWeight: "600" as const,
-      marginBottom: 2,
+      fontSize: 8,
+      lineHeight: 10,
+      fontWeight: "700" as const,
+      marginBottom: 0,
+    },
+
+    tabBarItemStyle: {
+      minHeight: 52,
+      paddingHorizontal: 0,
+      paddingVertical: 1,
     },
 
     tabBarStyle: tabStyle,
@@ -61,11 +70,11 @@ export default function TabLayout() {
   if (!IS_GERADOR_APP) {
     return (
       <Tabs
+        tabBar={(props) => <UnifiedExpoTabBar {...props} />}
         screenOptions={{
           ...screenOptions,
-          tabBarLabelStyle: { fontSize: 10, lineHeight: 12, fontWeight: "700", marginBottom: 0 },
-          tabBarItemStyle: { minHeight: 50, paddingVertical: 1 },
           tabBarActiveTintColor: "#0D9488",
+          sceneStyle: { backgroundColor: "#DFE8E3" },
         }}
       >
         <Tabs.Screen
@@ -143,17 +152,14 @@ export default function TabLayout() {
   // ===================================================
 
   return (
-    <Tabs initialRouteName="index" screenOptions={{
-      headerShown: false,
-      tabBarActiveTintColor: "#16A34A",
-      tabBarInactiveTintColor: "#94A3B8",
-      tabBarHideOnKeyboard: true,
-      tabBarLabelStyle: { fontSize: 8, lineHeight: 10, fontWeight: "700", marginBottom: 0 },
-      tabBarItemStyle: { minHeight: 52, paddingHorizontal: 0, paddingVertical: 1 },
-      tabBarStyle: { height: 66, paddingTop: 5, paddingBottom: 3, overflow: "visible", borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: "transparent", elevation: 15, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: -3 } },
-      tabBarBackground: () => <RoundedTabBarBackground />,
-      sceneStyle: { backgroundColor: "#DFE8E3" },
-    }}>
+    <Tabs
+      tabBar={(props) => <UnifiedExpoTabBar {...props} />}
+      initialRouteName="index"
+      screenOptions={{
+        ...screenOptions,
+        sceneStyle: { backgroundColor: "#DFE8E3" },
+      }}
+    >
       <Tabs.Screen
         name="clientes"
         options={{
@@ -205,21 +211,21 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-        name="contrato"
-        options={{
-          title: "Contrato",
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon name={focused ? "document-text" : "document-text-outline"} color={color} />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
         name="financeiro"
         options={{
           title: "Financeiro",
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name={focused ? "cash" : "cash-outline"} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="contrato"
+        options={{
+          title: "Contrato",
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name={focused ? "document-text" : "document-text-outline"} color={color} />
           ),
         }}
       />

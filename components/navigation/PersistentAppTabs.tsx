@@ -19,8 +19,8 @@ const generatorTabs: TabItem[] = [
   { label: "Operação", icon: "construct-outline", route: "/(tabs)/operacao" },
   { label: "Home", icon: "home-outline", route: "/(tabs)" },
   { label: "Faturas", icon: "receipt-outline", route: "/(tabs)/faturas" },
-  { label: "Contrato", icon: "document-text-outline", route: "/(tabs)/contrato" },
   { label: "Financeiro", icon: "cash-outline", route: "/(tabs)/financeiro" },
+  { label: "Contrato", icon: "document-text-outline", route: "/(tabs)/contrato" },
 ];
 
 const consumerTabs: TabItem[] = [
@@ -36,8 +36,9 @@ const commercialTabs: TabItem[] = [
 ];
 
 export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
-  const segments = useSegments();
   const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 3);
+  const segments = useSegments();
   const firstSegment = String(segments[0] ?? "");
   const secondSegment = String(segments[1] ?? "");
   const hasOwnCommercialTabs =
@@ -68,7 +69,15 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
 
   return (
     <View style={styles.cornerFill}>
-    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 3) }]}>
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <View style={styles.surface} />
+      </View>
+      <View
+        style={[
+          styles.bar,
+          { height: 63 + bottomInset, paddingBottom: bottomInset },
+        ]}
+      >
       {tabs.map((tab) => {
         const featured = tab.label === "Home";
         return (
@@ -85,12 +94,12 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
             featured={featured}
             size={IS_GERADOR_APP ? 21 : 24}
           />
-          <Text numberOfLines={commercialEnvironment ? 2 : 1} style={[styles.label, IS_GERADOR_APP && styles.generatorLabel]}>
+          <Text numberOfLines={commercialEnvironment ? 2 : 1} style={styles.label}>
             {tab.label}
           </Text>
         </Pressable>
       )})}
-    </View>
+      </View>
     </View>
   );
 }
@@ -99,16 +108,24 @@ const styles = StyleSheet.create({
   cornerFill: {
     backgroundColor: "#DFE8E3",
   },
-  bar: {
-    minHeight: 64,
-    paddingTop: 5,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    backgroundColor: Colors.surface,
+  surface: {
+    ...StyleSheet.absoluteFillObject,
+    borderTopWidth: 1,
+    borderTopColor: "#E2E8F0",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors.border,
+    backgroundColor: "#FFFFFF",
+  },
+  bar: {
+    height: 66,
+    paddingTop: 5,
+    paddingBottom: 3,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: "transparent",
+    overflow: "visible",
     elevation: 15,
     shadowColor: "#000",
     shadowOpacity: 0.08,
@@ -118,19 +135,18 @@ const styles = StyleSheet.create({
   item: {
     flex: 1,
     minWidth: 0,
+    minHeight: 52,
+    paddingHorizontal: 0,
+    paddingVertical: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 1,
   },
   label: {
     color: Colors.subtitle,
-    fontSize: 9,
-    lineHeight: 11,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  generatorLabel: {
     fontSize: 8,
     lineHeight: 10,
+    fontWeight: "700",
+    marginBottom: 0,
+    textAlign: "center",
   },
 });
