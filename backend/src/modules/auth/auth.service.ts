@@ -174,39 +174,46 @@ export async function autenticar(
     throw new Error("E-mail ou senha inválidos.");
   }
 
-  const { data: vinculoEmpresa } = await supabase
+  let consultaVinculos = supabase
     .from("empresa_usuarios")
-    .select("papel,permissoes,empresa_id,cliente_id")
+    .select("papel,permissoes,empresa_id,cliente_id,principal")
     .eq("usuario_id", usuario.id)
-    .eq("ativo", true)
+    .eq("ativo", true);
+  if (tipo === "CONSUMIDOR") consultaVinculos = consultaVinculos.eq("papel", "LEITURA");
+  if (tipo === "GERADOR") consultaVinculos = consultaVinculos.neq("papel", "LEITURA");
+  const { data: vinculosEmpresa, error: vinculosError } = await consultaVinculos
     .order("principal", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(20);
+  if (vinculosError) throw vinculosError;
+  let vinculoEmpresa = vinculosEmpresa?.[0] ?? null;
   const colaborador = String(vinculoEmpresa?.papel ?? "").startsWith("COLABORADOR_");
 
   let clienteId = vinculoEmpresa?.cliente_id ?? usuario.cliente_id ?? null;
-  if (usuario.perfil === "LEITURA") {
+  const acessoConsumidor = tipo === "CONSUMIDOR" || usuario.perfil === "LEITURA";
+  if (acessoConsumidor) {
     // O vínculo do consumidor é criado exclusivamente pelo convite. Não
     // religamos uma conta antiga a um cliente novo apenas porque o CPF é o
     // mesmo: isso permitiria reutilizar senha depois da exclusão.
-    if (!clienteId) {
-      throw new Error("Esta conta não possui um cadastro ativo. Solicite um novo convite ao gerador.");
+    let clienteVinculado: { id: string } | null = null;
+    for (const vinculo of vinculosEmpresa ?? []) {
+      if (!vinculo.cliente_id) continue;
+      const { data, error } = await supabase
+        .from("clientes")
+        .select("id")
+        .eq("id", vinculo.cliente_id)
+        .eq("empresa_id", vinculo.empresa_id)
+        .eq("status", "ATIVO")
+        .maybeSingle();
+      if (error) throw error;
+      if (data) {
+        vinculoEmpresa = vinculo;
+        clienteId = data.id;
+        clienteVinculado = data;
+        break;
+      }
     }
-    const { data: clienteVinculado, error: erroClienteVinculado } = await supabase
-      .from("clientes")
-      .select("id,created_at")
-      .eq("id", clienteId)
-      .eq("empresa_id", vinculoEmpresa?.empresa_id ?? usuario.empresa_id ?? EMPRESA_ANDRADE_ID)
-      .eq("status", "ATIVO")
-      .maybeSingle();
-    if (erroClienteVinculado) throw erroClienteVinculado;
     if (!clienteVinculado) {
-      throw new Error("O cadastro vinculado a esta conta foi removido. Solicite um novo convite ao gerador.");
-    }
-    const criadoUsuarioEm = new Date(usuario.created_at ?? 0).getTime();
-    const criadoClienteEm = new Date(clienteVinculado.created_at ?? 0).getTime();
-    if (criadoUsuarioEm > 0 && criadoClienteEm > 0 && criadoUsuarioEm < criadoClienteEm) {
-      throw new Error("Esta conta pertence a um cadastro anterior que foi removido. Use o novo convite para criar a conta novamente.");
+      throw new Error("Esta conta não possui um cadastro de consumidor ativo. Solicite um novo convite ao gerador.");
     }
   } else if (!colaborador) {
     clienteId = await vincularClientePorCpf(usuario);
