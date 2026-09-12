@@ -1,6 +1,7 @@
 import { supabase } from "../../config/supabase";
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import { gerarToken, hashToken } from "../../utils/token";
+import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
 
 const emailValido = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const cpfLimpo = (cpf: unknown) => String(cpf ?? "").replace(/\D/g, "");
@@ -12,7 +13,9 @@ export const PERMISSOES_COMERCIAL = { geradores: true, monitoramento: true, docu
 function papelPermitido(usuario: any, papel: string) {
   const atual = String(usuario?.papel_empresa ?? "");
   if (atual.startsWith("COLABORADOR_")) return false;
-  if (papel === "COLABORADOR_COMERCIAL") return usuario?.perfil === "ADMIN";
+  const empresaComercial = String(usuario?.empresa_id ?? "") === EMPRESA_ANDRADE_ID;
+  if (papel === "COLABORADOR_COMERCIAL") return usuario?.perfil === "ADMIN" && empresaComercial;
+  if (empresaComercial) return false;
   return ["ADMIN", "GESTOR"].includes(String(usuario?.perfil ?? ""));
 }
 
@@ -34,9 +37,10 @@ async function enviarConvite(convite: any, token: string) {
 export async function listarColaboradores(usuario: any) {
   if (String(usuario?.papel_empresa ?? "").startsWith("COLABORADOR_")) throw new Error("A gestão da equipe é exclusiva do titular.");
   const empresaId = String(usuario.empresa_id);
+  const papeisDaEmpresa = empresaId === EMPRESA_ANDRADE_ID ? ["COLABORADOR_COMERCIAL"] : ["COLABORADOR_GERADOR"];
   const [{ data: vinculos, error }, { data: convites, error: conviteError }] = await Promise.all([
-    supabase.from("empresa_usuarios").select("id,papel,permissoes,ativo,criado_em,atualizado_em,ultimo_acesso_em,usuarios!empresa_usuarios_usuario_id_fkey(id,nome,email,telefone)").eq("empresa_id", empresaId).in("papel", ["COLABORADOR_GERADOR", "COLABORADOR_COMERCIAL"]).order("criado_em", { ascending: false }),
-    supabase.from("convites_colaboradores").select("id,nome,email,telefone,papel,permissoes,status,expira_em,criado_em").eq("empresa_id", empresaId).order("criado_em", { ascending: false }),
+    supabase.from("empresa_usuarios").select("id,papel,permissoes,ativo,criado_em,atualizado_em,ultimo_acesso_em,usuarios!empresa_usuarios_usuario_id_fkey(id,nome,email,telefone)").eq("empresa_id", empresaId).in("papel", papeisDaEmpresa).order("criado_em", { ascending: false }),
+    supabase.from("convites_colaboradores").select("id,nome,email,telefone,papel,permissoes,status,expira_em,criado_em").eq("empresa_id", empresaId).in("papel", papeisDaEmpresa).order("criado_em", { ascending: false }),
   ]);
   if (error) throw error;
   if (conviteError) throw conviteError;
