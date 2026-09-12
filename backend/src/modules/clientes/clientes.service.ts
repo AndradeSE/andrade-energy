@@ -41,8 +41,9 @@ function idsDeUsinas(...valores: Array<unknown>) {
   return [...new Set(
     valores
       .flatMap((valor) => Array.isArray(valor) ? valor : [valor])
-      .map((valor: any) => String(valor?.usina_id ?? valor ?? "").trim())
-      .filter(Boolean),
+      .map((valor: any) => valor?.usina_id ?? valor)
+      .map((valor: any) => String(valor?.id ?? valor ?? "").trim())
+      .filter((valor) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(valor)),
   )];
 }
 
