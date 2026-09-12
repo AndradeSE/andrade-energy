@@ -72,7 +72,7 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
   return (
     <View style={styles.cornerFill}>
       <LinearGradient
-        colors={["rgba(15,23,42,0)", "rgba(15,23,42,0.20)"]}
+        colors={["rgba(15,23,42,0)", "rgba(15,23,42,0.10)"]}
         locations={[0, 1]}
         pointerEvents="none"
         style={styles.shadowHalo}
@@ -115,10 +115,10 @@ const styles = StyleSheet.create({
   },
   shadowHalo: {
     position: "absolute",
-    top: -14,
-    left: 5,
-    right: 5,
-    height: 22,
+    top: -6,
+    left: 8,
+    right: 8,
+    height: 8,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
   },
