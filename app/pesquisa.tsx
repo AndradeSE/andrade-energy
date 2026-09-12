@@ -34,7 +34,7 @@ const itens: Record<string, Item[]> = {
     { icon: "cash-outline", label: "Pagamentos", detalhe: "Cobranças e faturamento", rota: "/geradores/gestao?aba=PAGAMENTOS" },
     { icon: "layers-outline", label: "Empresas parceiras", detalhe: "Administração multiempresa", rota: "/admin/empresas" },
     { icon: "person-add-outline", label: "Convidar gerador", detalhe: "Criar novo acesso", rota: "/geradores/convidar" },
-    { icon: "people-circle-outline", label: "Colaboradores", detalhe: "Equipe da administração comercial", rota: "/colaboradores" },
+    { icon: "people-circle-outline", label: "Colaboradores", detalhe: "Equipe da administração comercial", rota: "/colaboradores?ambiente=comercial" },
     { icon: "download-outline", label: "Compartilhar aplicativos", detalhe: "Apps Gerador e Consumidor", rota: "/admin/comercial" },
     { icon: "person-outline", label: "Perfil administrativo", detalhe: "Dados e segurança", rota: "/admin/perfil?origem=comercial" },
   ],

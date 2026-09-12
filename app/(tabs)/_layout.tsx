@@ -1,32 +1,23 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import { StyleSheet, View } from "react-native";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import AppTabIcon from "../../components/navigation/AppTabIcon";
 import UnifiedExpoTabBar from "../../components/navigation/UnifiedExpoTabBar";
+import { APP_TAB_BAR_METRICS } from "../../components/navigation/AppTabBarFrame";
 
 function TabIcon({ name, color, featured = false }: { name: keyof typeof Ionicons.glyphMap; color: string; featured?: boolean }) {
   return <AppTabIcon name={name} color={color} featured={featured} />;
 }
 
-function RoundedTabBarBackground() {
-  return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <View style={styles.tabBarCornerFill} />
-      <View style={styles.tabBarSurface} />
-    </View>
-  );
-}
-
 export default function TabLayout() {
   const tabStyle = {
-    height: 66,
-    paddingTop: 5,
-    paddingBottom: 3,
+    height: APP_TAB_BAR_METRICS.height,
+    paddingTop: APP_TAB_BAR_METRICS.paddingTop,
+    paddingBottom: APP_TAB_BAR_METRICS.paddingBottom,
     overflow: "visible",
     backgroundColor: "transparent",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: APP_TAB_BAR_METRICS.radius,
+    borderTopRightRadius: APP_TAB_BAR_METRICS.radius,
     elevation: 15,
     shadowColor: "#000",
     shadowOpacity: 0.08,
@@ -60,7 +51,6 @@ export default function TabLayout() {
     },
 
     tabBarStyle: tabStyle,
-    tabBarBackground: () => <RoundedTabBarBackground />,
   };
 
   // ===================================================
@@ -239,18 +229,3 @@ export default function TabLayout() {
     </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  tabBarCornerFill: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#DFE8E3",
-  },
-  tabBarSurface: {
-    ...StyleSheet.absoluteFillObject,
-    borderTopWidth: 1,
-    borderTopColor: "#E2E8F0",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    backgroundColor: "#FFFFFF",
-  },
-});

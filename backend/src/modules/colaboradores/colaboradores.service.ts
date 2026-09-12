@@ -54,13 +54,18 @@ export async function criarConviteColaborador(input: any, usuario: any) {
   if (cpf.length !== 11) throw new Error("Informe um CPF válido.");
   if (!emailValido(email)) throw new Error("Informe um e-mail válido.");
   const empresaId = String(usuario.empresa_id);
-  const { data: usuariosDoEmail, error: usuariosError } = await supabase.from("usuarios").select("id").eq("email", email);
+  // Uma pessoa pode usar o mesmo e-mail como consumidora e como geradora.
+  // O convite de colaborador pertence ao login do app Gerador; por isso um
+  // vínculo LEITURA do app Consumidor não significa que ela já esteja na equipe.
+  const { data: usuariosDoEmail, error: usuariosError } = await supabase.from("usuarios").select("id,perfil").eq("email", email).in("perfil", ["GESTOR", "ADMIN"]);
   if (usuariosError) throw usuariosError;
   const idsDoEmail = (usuariosDoEmail ?? []).map((item: any) => item.id);
   if (idsDoEmail.length) {
-    const { data: vinculoExistente, error: vinculoError } = await supabase.from("empresa_usuarios").select("id").eq("empresa_id", empresaId).in("usuario_id", idsDoEmail).limit(1).maybeSingle();
+    const { data: vinculoExistente, error: vinculoError } = await supabase.from("empresa_usuarios").select("id,papel").eq("empresa_id", empresaId).in("usuario_id", idsDoEmail).limit(1).maybeSingle();
     if (vinculoError) throw vinculoError;
-    if (vinculoExistente) throw new Error("Este e-mail já é membro desta empresa. Gerencie as permissões na lista da equipe.");
+    if (vinculoExistente) throw new Error(String(vinculoExistente.papel).startsWith("COLABORADOR_")
+      ? "Este e-mail já faz parte da equipe. Gerencie as permissões na lista abaixo."
+      : "Este login já possui acesso de titular a esta empresa e não precisa de um convite de colaborador.");
   }
   await supabase.from("convites_colaboradores").update({ status: "CANCELADO", atualizado_em: new Date().toISOString() }).eq("empresa_id", empresaId).eq("email", email).eq("status", "PENDENTE");
   const token = `colaborador_${gerarToken()}`;

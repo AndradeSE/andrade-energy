@@ -65,7 +65,7 @@ const atalhos = [
   { icon: "document-attach-outline", label: "Faturar via fatura", rota: "/faturamento/manual" },
   { icon: "receipt-outline", label: "Faturas", rota: "/faturas" },
   { icon: "document-text-outline", label: "Contratos", rota: "/contratos" },
-  { icon: "people-circle-outline", label: "Colaboradores", rota: "/colaboradores" },
+  { icon: "people-circle-outline", label: "Colaboradores", rota: "/colaboradores?ambiente=gerador" },
 ] as const;
 
 export default function DashboardGestor() {
@@ -222,7 +222,7 @@ export default function DashboardGestor() {
         </Section>
 
         {!colaborador ? (
-          <Pressable onPress={() => router.push("/colaboradores" as any)} style={styles.teamCard}>
+          <Pressable onPress={() => router.push("/colaboradores?ambiente=gerador" as any)} style={styles.teamCard}>
             <View style={styles.teamIcon}>
               <Ionicons name="people-circle-outline" size={24} color={Colors.primary} />
             </View>

@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { AppHeader, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
@@ -12,8 +12,9 @@ const COMERCIAL = { geradores: "Geradores", monitoramento: "Monitoramento", docu
 
 export default function Colaboradores() {
   const { user } = useAuth();
+  const { ambiente } = useLocalSearchParams<{ ambiente?: string }>();
   const admin = user?.perfil === "ADMIN";
-  const [papel, setPapel] = useState<"COLABORADOR_GERADOR" | "COLABORADOR_COMERCIAL">("COLABORADOR_GERADOR");
+  const [papel, setPapel] = useState<"COLABORADOR_GERADOR" | "COLABORADOR_COMERCIAL">(ambiente === "comercial" ? "COLABORADOR_COMERCIAL" : "COLABORADOR_GERADOR");
   const campos = papel === "COLABORADOR_COMERCIAL" ? COMERCIAL : GERADOR;
   const [nome, setNome] = useState(""); const [cpf, setCpf] = useState(""); const [email, setEmail] = useState(""); const [telefone, setTelefone] = useState("");
   const [permissoes, setPermissoes] = useState<Record<string, boolean>>({});

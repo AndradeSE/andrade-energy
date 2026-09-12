@@ -1,12 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import { router, useSegments } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { router, useLocalSearchParams, useSegments } from "expo-router";
+import { Pressable, Text } from "react-native";
 
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors } from "../../theme";
 import AppTabIcon from "./AppTabIcon";
 import { useAuth } from "../../contexts/AuthContext";
+import AppTabBarFrame, { appTabBarStyles as styles } from "./AppTabBarFrame";
 
 type TabItem = {
   label: string;
@@ -32,13 +32,16 @@ const consumerTabs: TabItem[] = [
 
 const commercialTabs: TabItem[] = [
   { label: "Geradores", icon: "people-outline", route: "/geradores/gestao?aba=GERADORES" },
+  { label: "Financeiro", icon: "wallet-outline", route: "/geradores/gestao?aba=PAGAMENTOS" },
   { label: "Home", icon: "home-outline", route: "/admin/comercial" },
+  { label: "Planos", icon: "pricetags-outline", route: "/geradores/gestao?aba=PLANOS" },
   { label: "Assinaturas", icon: "card-outline", route: "/geradores/gestao?aba=ASSINATURAS" },
 ];
 
 export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
   const { user } = useAuth();
   const segments = useSegments();
+  const params = useLocalSearchParams<{ ambiente?: string }>();
   const firstSegment = String(segments[0] ?? "");
   const secondSegment = String(segments[1] ?? "");
   const hasOwnCommercialTabs =
@@ -59,20 +62,23 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
 
   if (hidden) return null;
 
-  const commercialEnvironment =
-    IS_GERADOR_APP && (firstSegment === "admin" || firstSegment === "geradores");
+  const commercialEnvironment = IS_GERADOR_APP && (
+    firstSegment === "admin" ||
+    firstSegment === "geradores" ||
+    (firstSegment === "colaboradores" && (params.ambiente === "comercial" || user?.perfil === "ADMIN"))
+  );
   const baseTabs = commercialEnvironment
     ? commercialTabs
     : IS_GERADOR_APP
       ? generatorTabs
       : consumerTabs;
   const colaborador = String(user?.papel_empresa ?? "").startsWith("COLABORADOR_");
-  const tabs = colaborador ? baseTabs.filter((tab) => !["Financeiro"].includes(tab.label)) : baseTabs;
+  const tabs = colaborador
+    ? baseTabs.filter((tab) => commercialEnvironment ? ["Geradores", "Home"].includes(tab.label) : tab.label !== "Financeiro")
+    : baseTabs;
 
   return (
-    <View style={styles.cornerFill}>
-      <View style={styles.bar}>
-      <LinearGradient colors={["#FFFFFF", "#DCE3DF"]} locations={[0, 1]} pointerEvents="none" style={styles.barBackground} />
+    <AppTabBarFrame>
       {tabs.map((tab) => {
         const featured = tab.label === "Home";
         return (
@@ -97,54 +103,6 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
           </Text>
         </Pressable>
       )})}
-      </View>
-    </View>
+    </AppTabBarFrame>
   );
 }
-
-const styles = StyleSheet.create({
-  cornerFill: {
-    backgroundColor: "transparent",
-    overflow: "visible",
-  },
-  bar: {
-    height: 66,
-    paddingTop: 5,
-    paddingBottom: 3,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    backgroundColor: "#FFFFFF",
-    borderTopWidth: 1,
-    borderTopColor: "#E2E8F0",
-    overflow: "visible",
-    elevation: 15,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: -3 },
-  },
-  barBackground: {
-    ...StyleSheet.absoluteFillObject,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
-  item: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 52,
-    paddingHorizontal: 0,
-    paddingVertical: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  label: {
-    color: Colors.subtitle,
-    fontSize: 8,
-    lineHeight: 10,
-    fontWeight: "700",
-    marginBottom: 0,
-    textAlign: "center",
-  },
-});
