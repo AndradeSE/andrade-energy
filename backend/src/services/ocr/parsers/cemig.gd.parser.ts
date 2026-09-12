@@ -141,8 +141,8 @@ export function parseCemigGD(
   // acidentalmente o valor de outro mês, a fonte preferencial é a própria
   // linha tarifária "Energia Elétrica" da conta.
   const historico = extrairHistoricoConsumo(texto);
-  const consumoDoHistorico = Number(
-    buscar(texto, new RegExp(`${competenciaCurta}\\s+(\\d+)`)) || "0"
+  const consumoDoHistorico = paraNumero(
+    buscar(texto, new RegExp(`${competenciaCurta}\\s+([\\d.]+(?:,\\d+)?)`)) || "0"
   );
   const consumo = historico.find((item) => item.mes === competenciaCurta)?.consumo || consumoDoHistorico;
   const linhaEnergiaEletrica = extrairLinhaEnergiaEletrica(texto);

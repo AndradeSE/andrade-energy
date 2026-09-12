@@ -1,13 +1,13 @@
 import { HistoricoConsumo } from "../../../types/FaturaExtraida";
 
 export function extrairHistoricoConsumo(texto: string): HistoricoConsumo[] {
-  const encontrados = texto.matchAll(/\b(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\/(\d{2})\s+(\d{1,6})(?:\s+([\d,.]+)\s+(\d{1,2}))?/gi);
+  const encontrados = texto.matchAll(/\b(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\/(\d{2})\s+([\d.]+(?:,\d+)?)(?:\s+([\d,.]+)\s+(\d{1,2}))?/gi);
   const meses = new Map<string, HistoricoConsumo>();
 
   for (const item of encontrados) {
     const mes = `${item[1].toUpperCase()}/${item[2]}`;
     if (meses.has(mes)) continue;
-    const consumoExtraido = Number(item[3]);
+    const consumoExtraido = Number(String(item[3]).replace(/\./g, "").replace(",", "."));
     if (!Number.isFinite(consumoExtraido) || consumoExtraido < 0) continue;
     const dias = Number(item[5] ?? 0);
     const mediaExtraida = Number(String(item[4] ?? "0").replace(".", "").replace(",", "."));

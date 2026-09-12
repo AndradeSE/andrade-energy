@@ -48,3 +48,37 @@ test("interpreta a linha compactada de energia injetada da fatura atual", () => 
   assert.equal(resultado.medicoes[1].energiaKwh, 375);
   assert.equal(resultado.producaoMensal, 375);
 });
+
+test("interpreta ponto como milhar e valida constante 120", () => {
+  const resultado = extrairMedicaoCemig("Energia kWh BPD254017913 72 117 120 5.400");
+
+  assert.equal(resultado.leituraAnterior, 72);
+  assert.equal(resultado.leituraAtual, 117);
+  assert.equal(resultado.fatorMultiplicacao, 120);
+  assert.equal(resultado.medicoes[0].energiaKwh, 5400);
+});
+
+test("aceita formato antigo com leituras de milhar e dois medidores", () => {
+  const resultado = extrairMedicaoCemig([
+    "Energia kWh ARK191032624 0 236 1 236",
+    "Energia kWh AHN860003580 97.904 97.999 1 95",
+  ].join("\n"));
+
+  assert.equal(resultado.medicoes.length, 2);
+  assert.equal(resultado.medicoes[1].leituraAnterior, 97904);
+  assert.equal(resultado.medicoes[1].energiaKwh, 95);
+});
+
+test("aceita constante decimal do layout legado", () => {
+  const resultado = extrairMedicaoCemig("Energia kWh ABC123456789 67.605 68.873 1,00000 1.268");
+
+  assert.equal(resultado.fatorMultiplicacao, 1);
+  assert.equal(resultado.medicoes[0].energiaKwh, 1268);
+});
+
+test("aceita o rótulo Energia Elétrica usado em outros layouts", () => {
+  const resultado = extrairMedicaoCemig("Energia Elétrica ABA001009185 10.321 10.424 1 103");
+
+  assert.equal(resultado.fatorMultiplicacao, 1);
+  assert.equal(resultado.medicoes[0].energiaKwh, 103);
+});

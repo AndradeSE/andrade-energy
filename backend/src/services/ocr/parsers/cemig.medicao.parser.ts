@@ -34,7 +34,7 @@ function medicaoValida(tipo: MedicaoCemig["tipo"], medidor: string, anterior: nu
 }
 
 function decomporCaudaCompactada(cauda: string) {
-  const fatoresPreferenciais = [1, 10, 20, 30, 40, 50, 80, 100, 200, 400, 800, 1000];
+  const fatoresPreferenciais = [1, 10, 20, 30, 40, 50, 80, 100, 120, 200, 400, 800, 1000];
   const candidatos: Array<{ anterior: number; atual: number; fator: number; energia: number; pontuacao: number }> = [];
 
   for (let a = 1; a <= cauda.length - 3; a += 1) {
@@ -43,8 +43,8 @@ function decomporCaudaCompactada(cauda: string) {
         const anterior = paraNumeroMedicao(cauda.slice(0, a));
         const atual = paraNumeroMedicao(cauda.slice(a, b));
         const fator = Number(cauda.slice(b, c));
-        const energia = Number(cauda.slice(c));
-        if (anterior === undefined || atual === undefined || !fatoresPreferenciais.includes(fator)) continue;
+        const energia = paraNumeroMedicao(cauda.slice(c));
+        if (anterior === undefined || atual === undefined || energia === undefined || !fatoresPreferenciais.includes(fator)) continue;
         if (atual < anterior || Math.abs((atual - anterior) * fator - energia) > 1) continue;
         const pontuacao = (fator === 1 ? 3 : 0) + (a === b - a ? 2 : 0) + Math.min(a, b - a);
         candidatos.push({ anterior, atual, fator, energia, pontuacao });
@@ -57,14 +57,29 @@ function decomporCaudaCompactada(cauda: string) {
 
 export function extrairMedicoesCemig(texto: string): MedicaoCemig[] {
   const medicoes: MedicaoCemig[] = [];
-  const linhas = texto.match(/Energia(?:\s+Injetada|\s+kWh)[A-Z]{2,4}\d{9}[^\r\n]*/gi) ?? [];
+  const linhas = texto.match(/Energia(?:\s+Injetada|\s+kWh|\s+El[ée]trica)\s*[A-Z]{2,4}\d{9}[^\r\n]*/gi) ?? [];
 
   for (const linha of linhas) {
-    const cabecalho = linha.match(/Energia(\s+Injetada|\s+kWh)([A-Z]{2,4}\d{9})(.*)/i);
+    const cabecalho = linha.match(/Energia(\s+Injetada|\s+kWh|\s+El[ée]trica)\s*([A-Z]{2,4}\d{9})(.*)/i);
     if (!cabecalho) continue;
     const tipo = /Injetada/i.test(cabecalho[1]) ? "INJECAO" : "CONSUMO";
     const medidor = cabecalho[2].toUpperCase();
-    const cauda = cabecalho[3].replace(/\s+/g, "").trim();
+    const caudaComEspacos = cabecalho[3].trim();
+    const colunas = caudaComEspacos.match(/^([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s*$/);
+    if (colunas) {
+      const anterior = paraNumeroMedicao(colunas[1]);
+      const atual = paraNumeroMedicao(colunas[2]);
+      const fator = paraNumeroMedicao(colunas[3]);
+      const energia = paraNumeroMedicao(colunas[4]);
+      if (anterior !== undefined && atual !== undefined && fator !== undefined) {
+        const medicao = medicaoValida(tipo, medidor, anterior, atual, fator, energia);
+        if (medicao) {
+          medicoes.push(medicao);
+          continue;
+        }
+      }
+    }
+    const cauda = caudaComEspacos.replace(/\s+/g, "");
     // A saída textual não separa as quatro últimas colunas. A decomposição
     // valida todas as divisões possíveis pela identidade
     // (atual - anterior) x constante = energia informada.
