@@ -29,6 +29,7 @@ export default function CriarConta() {
   const [emailEnviado, setEmailEnviado] = useState(false);
   const [contaAtiva, setContaAtiva] = useState(false);
   const [aguardandoGerador, setAguardandoGerador] = useState(false);
+  const [contaExistente, setContaExistente] = useState(false);
 
   async function validarConvite() {
     if (!convite.trim()) return setErro("Informe o código recebido no convite.");
@@ -41,6 +42,7 @@ export default function CriarConta() {
       // backend usa esse CPF para abrir faturas CEMIG protegidas.
       setCpf(IS_GERADOR_APP ? dados.cpf : "");
       setEmail(dados.email);
+      setContaExistente(!IS_GERADOR_APP && Boolean(dados.contaExistente));
       setConviteValido(true);
     } catch (error: any) {
       setErro(error?.response?.data?.message ?? "Convite inválido ou expirado.");
@@ -54,7 +56,7 @@ export default function CriarConta() {
     if (tipo === "GERADOR" && !nome.trim()) return setErro("Informe seu nome.");
     if (tipo === "GERADOR" && cpf.replace(/\D/g, "").length !== 11) return setErro("Informe um CPF válido com 11 números.");
     if (tipo === "GERADOR" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setErro("Informe um e-mail válido.");
-    if (senha.length < 6) return setErro("Crie uma senha com pelo menos 6 caracteres.");
+    if (senha.length < 6) return setErro(contaExistente ? "Informe sua senha atual." : "Crie uma senha com pelo menos 6 caracteres.");
     if (senha !== confirmacao) return setErro("As senhas não são iguais.");
     setErro("");
     try {
@@ -115,7 +117,9 @@ export default function CriarConta() {
                   ? "Sua conta está pronta. Enviamos a confirmação para o e-mail informado."
                   : "Sua conta está pronta, mas não conseguimos enviar o e-mail de confirmação. Você já pode entrar normalmente."
               : tipo === "CONSUMIDOR"
-                ? "Seus dados já foram preenchidos pelo convite. Crie apenas sua senha para acessar as UCs cadastradas pelo gerador."
+                ? contaExistente
+                  ? "Este e-mail já possui uma conta. Informe a senha atual para adicionar com segurança o acesso deste novo gerador."
+                  : "Seus dados já foram preenchidos pelo convite. Crie apenas sua senha para acessar as UCs cadastradas pelo gerador."
                 : "Solicite seu acesso à Andrade Energy. Seus dados serão vinculados à unidade consumidora cadastrada."}
           </Text>
 
@@ -137,12 +141,12 @@ export default function CriarConta() {
                 <Ionicons name="mail-outline" size={20} color={Colors.subtitle} />
                 <TextInput autoCapitalize="none" autoComplete="email" editable={false} keyboardType="email-address" onChangeText={(valor) => { setEmail(valor); setErro(""); }} onSubmitEditing={solicitarAcesso} placeholder="seu@email.com" placeholderTextColor="#92979F" returnKeyType="send" style={styles.input} value={email} />
               </View>
-              <Text style={styles.label}>Senha</Text>
-              <View style={styles.inputBox}><Ionicons name="lock-closed-outline" size={20} color={Colors.subtitle} /><TextInput autoComplete="new-password" onChangeText={(valor) => { setSenha(valor); setErro(""); }} placeholder="Mínimo de 6 caracteres" placeholderTextColor="#92979F" secureTextEntry={!mostrarSenha} style={styles.input} value={senha} /><TouchableOpacity accessibilityLabel={mostrarSenha ? "Ocultar senha" : "Mostrar senha"} hitSlop={10} onPress={() => setMostrarSenha((valor) => !valor)} style={styles.passwordToggle}><Ionicons name={mostrarSenha ? "eye-off-outline" : "eye-outline"} size={21} color={Colors.subtitle} /></TouchableOpacity></View>
-              <Text style={styles.label}>Confirmar senha</Text>
+              <Text style={styles.label}>{contaExistente ? "Senha atual" : "Senha"}</Text>
+              <View style={styles.inputBox}><Ionicons name="lock-closed-outline" size={20} color={Colors.subtitle} /><TextInput autoComplete={contaExistente ? "current-password" : "new-password"} onChangeText={(valor) => { setSenha(valor); setErro(""); }} placeholder={contaExistente ? "Senha da sua conta" : "Mínimo de 6 caracteres"} placeholderTextColor="#92979F" secureTextEntry={!mostrarSenha} style={styles.input} value={senha} /><TouchableOpacity accessibilityLabel={mostrarSenha ? "Ocultar senha" : "Mostrar senha"} hitSlop={10} onPress={() => setMostrarSenha((valor) => !valor)} style={styles.passwordToggle}><Ionicons name={mostrarSenha ? "eye-off-outline" : "eye-outline"} size={21} color={Colors.subtitle} /></TouchableOpacity></View>
+              <Text style={styles.label}>{contaExistente ? "Confirmar senha atual" : "Confirmar senha"}</Text>
               <View style={styles.inputBox}><Ionicons name="lock-closed-outline" size={20} color={Colors.subtitle} /><TextInput autoComplete="new-password" onChangeText={(valor) => { setConfirmacao(valor); setErro(""); }} onSubmitEditing={solicitarAcesso} placeholder="Digite a senha novamente" placeholderTextColor="#92979F" secureTextEntry={!mostrarConfirmacao} style={styles.input} value={confirmacao} /><TouchableOpacity accessibilityLabel={mostrarConfirmacao ? "Ocultar confirmação de senha" : "Mostrar confirmação de senha"} hitSlop={10} onPress={() => setMostrarConfirmacao((valor) => !valor)} style={styles.passwordToggle}><Ionicons name={mostrarConfirmacao ? "eye-off-outline" : "eye-outline"} size={21} color={Colors.subtitle} /></TouchableOpacity></View>
               {erro ? <Text style={styles.error}>{erro}</Text> : null}
-              <TouchableOpacity disabled={salvando} onPress={solicitarAcesso} style={[styles.primaryButton, salvando && { opacity: 0.7 }]}>{salvando ? <ActivityIndicator color={Colors.surface} /> : <Text style={styles.primaryText}>Criar minha conta</Text>}</TouchableOpacity>
+              <TouchableOpacity disabled={salvando} onPress={solicitarAcesso} style={[styles.primaryButton, salvando && { opacity: 0.7 }]}>{salvando ? <ActivityIndicator color={Colors.surface} /> : <Text style={styles.primaryText}>{contaExistente ? "Adicionar acesso do gerador" : "Criar minha conta"}</Text>}</TouchableOpacity>
             </>
           ) : (
             <>

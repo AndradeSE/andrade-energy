@@ -55,17 +55,18 @@ export async function exigirAutenticacao(req: Request, res: Response, next: Next
   let empresaAtivaId = String(data?.empresa_ativa_id ?? usuario.empresa_id ?? "");
   const { data: vinculo } = await supabase
     .from("empresa_usuarios")
-    .select("empresa_id,papel,permissoes")
+    .select("empresa_id,papel,permissoes,cliente_id")
     .eq("usuario_id", usuario.id)
     .eq("empresa_id", empresaAtivaId)
     .eq("ativo", true)
     .maybeSingle();
   let papelEmpresa = vinculo?.papel ?? null;
   let permissoesEmpresa = vinculo?.permissoes ?? {};
+  let clienteEmpresaId = vinculo?.cliente_id ?? null;
   if (!vinculo) {
     const { data: principal } = await supabase
       .from("empresa_usuarios")
-      .select("empresa_id,papel,permissoes")
+      .select("empresa_id,papel,permissoes,cliente_id")
       .eq("usuario_id", usuario.id)
       .eq("ativo", true)
       .order("principal", { ascending: false })
@@ -75,10 +76,11 @@ export async function exigirAutenticacao(req: Request, res: Response, next: Next
     empresaAtivaId = principal.empresa_id;
     papelEmpresa = principal.papel;
     permissoesEmpresa = principal.permissoes ?? {};
+    clienteEmpresaId = principal.cliente_id ?? null;
     await supabase.from("sessoes_usuarios").update({ empresa_ativa_id: empresaAtivaId }).eq("id", data!.id);
   }
 
-  const usuarioDaSessao = { ...usuario, empresa_principal_id: usuario.empresa_id, empresa_id: empresaAtivaId, papel_empresa: papelEmpresa, permissoes: permissoesEmpresa };
+  const usuarioDaSessao = { ...usuario, empresa_principal_id: usuario.empresa_id, empresa_id: empresaAtivaId, cliente_id: clienteEmpresaId ?? usuario.cliente_id, papel_empresa: papelEmpresa, permissoes: permissoesEmpresa };
   (req as any).usuario = usuarioDaSessao;
   (req as any).empresaId = empresaAtivaId;
   (req as any).sessaoId = data!.id;

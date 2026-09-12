@@ -15,12 +15,6 @@ export const APP_TAB_BAR_METRICS = {
 export default function AppTabBarFrame({ children }: PropsWithChildren) {
   return (
     <View style={styles.cornerFill}>
-      <LinearGradient
-        colors={["rgba(20, 54, 43, 0)", "rgba(20, 54, 43, 0.13)"]}
-        locations={[0, 1]}
-        pointerEvents="none"
-        style={styles.topShadow}
-      />
       <View style={styles.bar}>
         <LinearGradient
           colors={["#FFFFFF", "#F4F7F5", "#D9E1DD"]}
@@ -59,14 +53,6 @@ const styles = StyleSheet.create({
   cornerFill: {
     backgroundColor: "transparent",
     overflow: "visible",
-    position: "relative",
-  },
-  topShadow: {
-    position: "absolute",
-    top: -14,
-    left: 0,
-    right: 0,
-    height: 14,
   },
   bar: {
     height: APP_TAB_BAR_METRICS.height,
@@ -76,6 +62,8 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     borderTopLeftRadius: APP_TAB_BAR_METRICS.radius,
     borderTopRightRadius: APP_TAB_BAR_METRICS.radius,
+    borderBottomLeftRadius: APP_TAB_BAR_METRICS.radius,
+    borderBottomRightRadius: APP_TAB_BAR_METRICS.radius,
     borderTopWidth: 1,
     borderTopColor: "#E2E8F0",
     backgroundColor: "#FFFFFF",
@@ -90,5 +78,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderTopLeftRadius: APP_TAB_BAR_METRICS.radius,
     borderTopRightRadius: APP_TAB_BAR_METRICS.radius,
+    borderBottomLeftRadius: APP_TAB_BAR_METRICS.radius,
+    borderBottomRightRadius: APP_TAB_BAR_METRICS.radius,
   },
 });

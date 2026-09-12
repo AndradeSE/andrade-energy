@@ -189,11 +189,25 @@ export async function vincularUsuarioAoClientePendente(
   empresaId: string,
   ativo = false,
 ) {
-  const { error } = await supabase
-    .from("usuarios")
-    .update({ cliente_id: clienteId, empresa_id: empresaId, ativo })
-    .eq("id", usuarioId);
-  if (error) throw error;
+  const { data: vinculo, error: vinculoBuscaError } = await supabase
+    .from("empresa_usuarios")
+    .select("id,papel")
+    .eq("usuario_id", usuarioId)
+    .eq("empresa_id", empresaId)
+    .maybeSingle();
+  if (vinculoBuscaError) throw vinculoBuscaError;
+  const dadosVinculo = { cliente_id: clienteId, ativo, atualizado_em: new Date().toISOString() };
+  const { error: vinculoError } = vinculo
+    ? await supabase.from("empresa_usuarios").update(dadosVinculo).eq("id", vinculo.id)
+    : await supabase.from("empresa_usuarios").insert({ empresa_id: empresaId, usuario_id: usuarioId, papel: "LEITURA", principal: false, ...dadosVinculo });
+  if (vinculoError) throw vinculoError;
+
+  const { data: usuario, error: usuarioBuscaError } = await supabase.from("usuarios").select("empresa_id,cliente_id").eq("id", usuarioId).single();
+  if (usuarioBuscaError) throw usuarioBuscaError;
+  if (!usuario.cliente_id || usuario.empresa_id === empresaId) {
+    const { error } = await supabase.from("usuarios").update({ cliente_id: clienteId, ativo }).eq("id", usuarioId);
+    if (error) throw error;
+  }
 }
 
 export async function criarSolicitacaoCadastroCliente(input: {

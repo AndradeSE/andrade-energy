@@ -163,7 +163,7 @@ export async function atualizarEmpresa(id: string, input: any, usuario: any) {
 export async function listarMinhasEmpresas(usuario: any) {
   const { data, error } = await supabase
     .from("empresa_usuarios")
-    .select("papel,principal,empresas(*)")
+    .select("papel,principal,cliente_id,empresas(*)")
     .eq("usuario_id", usuario.id)
     .eq("ativo", true);
   if (error) throw error;
@@ -174,7 +174,7 @@ export async function listarMinhasEmpresas(usuario: any) {
 
 export async function selecionarEmpresaAtiva(empresaId: string, usuario: any, sessaoId: string) {
   const { data: vinculo, error } = await supabase.from("empresa_usuarios")
-    .select("empresa_id,empresas(id,nome,ativo)")
+    .select("empresa_id,cliente_id,papel,empresas(id,nome,ativo)")
     .eq("usuario_id", usuario.id).eq("empresa_id", empresaId).eq("ativo", true).maybeSingle();
   if (error) throw error;
   const empresa = Array.isArray(vinculo?.empresas) ? vinculo.empresas[0] : vinculo?.empresas;
@@ -182,5 +182,5 @@ export async function selecionarEmpresaAtiva(empresaId: string, usuario: any, se
   const { error: sessaoError } = await supabase.from("sessoes_usuarios").update({ empresa_ativa_id: empresaId }).eq("id", sessaoId).eq("usuario_id", usuario.id).is("revogada_em", null);
   if (sessaoError) throw sessaoError;
   await auditar({ empresaId, usuarioId: usuario.id, acao: "EMPRESA_ATIVA_ALTERADA", recurso: "sessoes_usuarios", recursoId: sessaoId, detalhes: { empresaAnteriorId: empresaIdDoUsuario(usuario), empresaNovaId: empresaId } });
-  return { empresaId, empresa };
+  return { empresaId, clienteId: vinculo.cliente_id ?? null, papel: vinculo.papel, empresa };
 }

@@ -60,7 +60,7 @@ export async function atualizarEmpresa(id: string, input: Partial<NovaEmpresa> &
 }
 
 export async function listarMinhasEmpresas() {
-  const { data } = await api.get<Array<IdentidadeEmpresa & { papel: string; principal: boolean }>>("/empresas/minhas");
+  const { data } = await api.get<Array<IdentidadeEmpresa & { papel: string; principal: boolean; cliente_id?: string | null }>>("/empresas/minhas");
   return data;
 }
 

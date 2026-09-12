@@ -246,18 +246,6 @@ export default function HomeComercial() {
             ].filter((item) => !colaboradorComercial || ["Geradores", "Clientes ativos", "Contratos e termos"].includes(item.label))) as any}
           />
         </Section>
-        {!colaboradorComercial ? (
-          <TouchableOpacity activeOpacity={0.84} onPress={() => router.push("/colaboradores?ambiente=comercial" as any)} style={styles.teamCard}>
-            <View style={styles.teamIcon}>
-              <Ionicons name="people-circle-outline" size={24} color={Colors.primary} />
-            </View>
-            <View style={styles.teamCopy}>
-              <Text style={styles.teamTitle}>Equipe comercial</Text>
-              <Text style={styles.teamText}>Crie logins próprios para colaboradores que administram geradores. Carteira, pagamentos, planos e ferramentas exclusivas do ADM continuam bloqueados.</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
-          </TouchableOpacity>
-        ) : null}
         {!colaboradorComercial && !loading && data ? (
           <View style={styles.financeGrid}>
             <TouchableOpacity
@@ -333,6 +321,18 @@ export default function HomeComercial() {
               </View>
             </TouchableOpacity>
           </View>
+        ) : null}
+        {!colaboradorComercial ? (
+          <TouchableOpacity activeOpacity={0.84} onPress={() => router.push("/colaboradores?ambiente=comercial" as any)} style={styles.teamCard}>
+            <View style={styles.teamIcon}>
+              <Ionicons name="people-circle-outline" size={24} color={Colors.primary} />
+            </View>
+            <View style={styles.teamCopy}>
+              <Text style={styles.teamTitle}>Equipe comercial</Text>
+              <Text style={styles.teamText}>Crie logins próprios para colaboradores que administram geradores. Carteira, pagamentos, planos e ferramentas exclusivas do ADM continuam bloqueados.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
+          </TouchableOpacity>
         ) : null}
         {loading && !data ? (
           <ActivityIndicator color={Colors.primary} />

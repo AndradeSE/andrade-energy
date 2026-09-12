@@ -23,7 +23,7 @@ type EmpresaContextData = {
 const EmpresaContext = createContext<EmpresaContextData | undefined>(undefined);
 
 export function EmpresaProvider({ children }: { children: ReactNode }) {
-  const { authenticated, usuario } = useAuth();
+  const { authenticated, usuario, atualizarUsuario } = useAuth();
   const [empresa, setEmpresa] = useState(ANDRADE_PADRAO);
   const [carregandoEmpresa, setCarregandoEmpresa] = useState(false);
 
@@ -46,7 +46,12 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
   async function trocarEmpresa(empresaId: string) {
     setCarregandoEmpresa(true);
     try {
-      await selecionarEmpresa(empresaId);
+      const selecao = await selecionarEmpresa(empresaId);
+      await atualizarUsuario({
+        empresa_id: selecao.empresaId,
+        cliente_id: selecao.clienteId ?? null,
+        papel_empresa: selecao.papel ?? null,
+      });
       const atual = await obterEmpresaAtual();
       setEmpresa(atual.identidade_personalizada ? atual : { ...ANDRADE_PADRAO, id: atual.id, slug: atual.slug });
     } finally {

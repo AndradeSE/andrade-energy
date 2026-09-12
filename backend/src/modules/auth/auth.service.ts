@@ -176,7 +176,7 @@ export async function autenticar(
 
   const { data: vinculoEmpresa } = await supabase
     .from("empresa_usuarios")
-    .select("papel,permissoes,empresa_id")
+    .select("papel,permissoes,empresa_id,cliente_id")
     .eq("usuario_id", usuario.id)
     .eq("ativo", true)
     .order("principal", { ascending: false })
@@ -184,7 +184,7 @@ export async function autenticar(
     .maybeSingle();
   const colaborador = String(vinculoEmpresa?.papel ?? "").startsWith("COLABORADOR_");
 
-  let clienteId = usuario.cliente_id ?? null;
+  let clienteId = vinculoEmpresa?.cliente_id ?? usuario.cliente_id ?? null;
   if (usuario.perfil === "LEITURA") {
     // O vínculo do consumidor é criado exclusivamente pelo convite. Não
     // religamos uma conta antiga a um cliente novo apenas porque o CPF é o
@@ -196,7 +196,7 @@ export async function autenticar(
       .from("clientes")
       .select("id,created_at")
       .eq("id", clienteId)
-      .eq("empresa_id", usuario.empresa_id ?? EMPRESA_ANDRADE_ID)
+      .eq("empresa_id", vinculoEmpresa?.empresa_id ?? usuario.empresa_id ?? EMPRESA_ANDRADE_ID)
       .eq("status", "ATIVO")
       .maybeSingle();
     if (erroClienteVinculado) throw erroClienteVinculado;
@@ -327,6 +327,7 @@ export async function cadastrarConsumidorComFatura(
   }
 
   let usuarioCriadoId: string | null = null;
+  let usuarioFoiCriado = false;
   let clienteCriadoId: string | null = null;
   let caminhoFatura: string | null = null;
 
@@ -466,16 +467,29 @@ export async function cadastrarConsumidorComFatura(
       throw new Error("Complete nome, CPF e e-mail no cadastro do cliente antes de criar a conta.");
     }
 
-    const usuario = await criarConta({
-      nome: clienteExistente.nome,
-      cpf: cpfDoCliente,
-      email: emailDoCliente,
-      senha,
-      tipo: "CONSUMIDOR",
-      convite: conviteToken,
-      empresa_id: empresaId,
-      ativo: true,
-    });
+    let usuario = await buscarUsuarioPorCredenciais(emailDoCliente, senha, "CONSUMIDOR");
+    if (usuario && cpfLimpo(usuario.cpf) !== cpfDoCliente) {
+      throw new Error("A conta existente deste e-mail pertence a outro CPF.");
+    }
+    if (!usuario) {
+      const { data: contasMesmoEmail, error: contasMesmoEmailError } = await supabase
+        .from("usuarios").select("id").eq("email", emailDoCliente).limit(1);
+      if (contasMesmoEmailError) throw contasMesmoEmailError;
+      if (contasMesmoEmail?.length) {
+        throw new Error("Este e-mail já possui uma conta. Use a senha atual para aceitar o acesso deste gerador.");
+      }
+      usuario = await criarConta({
+        nome: clienteExistente.nome,
+        cpf: cpfDoCliente,
+        email: emailDoCliente,
+        senha,
+        tipo: "CONSUMIDOR",
+        convite: conviteToken,
+        empresa_id: empresaId,
+        ativo: true,
+      });
+      usuarioFoiCriado = true;
+    }
     usuarioCriadoId = String(usuario.id);
     await vincularUsuarioAoClientePendente(usuarioCriadoId, clienteId, empresaId, true);
 
@@ -542,14 +556,14 @@ export async function cadastrarConsumidorComFatura(
     }
 
     return {
-      message: "Conta criada e liberada para acesso.",
+      message: usuarioFoiCriado ? "Conta criada e liberada para acesso." : "Novo acesso adicionado à sua conta existente.",
       unidadeId: unidadeDoConviteId,
       status: "ATIVO",
       emailEnviado: false,
     };
   } catch (erro) {
     if (caminhoFatura) await supabase.storage.from("faturas").remove([caminhoFatura]).catch(() => undefined);
-    if (usuarioCriadoId) await supabase.from("usuarios").delete().eq("id", usuarioCriadoId);
+    if (usuarioCriadoId && usuarioFoiCriado) await supabase.from("usuarios").delete().eq("id", usuarioCriadoId);
     if (clienteCriadoId) await supabase.from("clientes").delete().eq("id", clienteCriadoId);
     throw erro;
   } finally {
