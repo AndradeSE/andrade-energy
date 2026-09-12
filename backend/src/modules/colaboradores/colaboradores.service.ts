@@ -32,6 +32,7 @@ async function enviarConvite(convite: any, token: string) {
 }
 
 export async function listarColaboradores(usuario: any) {
+  if (String(usuario?.papel_empresa ?? "").startsWith("COLABORADOR_")) throw new Error("A gestão da equipe é exclusiva do titular.");
   const empresaId = String(usuario.empresa_id);
   const [{ data: vinculos, error }, { data: convites, error: conviteError }] = await Promise.all([
     supabase.from("empresa_usuarios").select("id,papel,permissoes,ativo,criado_em,atualizado_em,ultimo_acesso_em,usuarios(id,nome,email,telefone)").eq("empresa_id", empresaId).in("papel", ["COLABORADOR_GERADOR", "COLABORADOR_COMERCIAL"]).order("criado_em", { ascending: false }),
@@ -88,6 +89,7 @@ export async function atualizarColaborador(id: string, input: any, usuario: any)
 }
 
 export async function cancelarConviteColaborador(id: string, usuario: any) {
+  if (String(usuario?.papel_empresa ?? "").startsWith("COLABORADOR_")) throw new Error("A gestão da equipe é exclusiva do titular.");
   const { data, error } = await supabase.from("convites_colaboradores").update({ status: "CANCELADO", atualizado_em: new Date().toISOString() }).eq("id", id).eq("empresa_id", usuario.empresa_id).eq("status", "PENDENTE").select("id").maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("Convite pendente não encontrado.");
