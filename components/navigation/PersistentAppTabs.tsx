@@ -111,7 +111,7 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
 
 const styles = StyleSheet.create({
   cornerFill: {
-    backgroundColor: "#DFE8E3",
+    backgroundColor: "transparent",
     overflow: "visible",
   },
   topShadow: {

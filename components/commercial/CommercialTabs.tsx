@@ -90,7 +90,7 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
 
 const styles = StyleSheet.create({
   cornerFill: {
-    backgroundColor: "#DFE8E3",
+    backgroundColor: "transparent",
   },
   bar: {
     height: 66,

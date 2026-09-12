@@ -70,7 +70,7 @@ export default function UnifiedExpoTabBar({
 
 const styles = StyleSheet.create({
   cornerFill: {
-    backgroundColor: "#DFE8E3",
+    backgroundColor: "transparent",
     overflow: "visible",
   },
   topShadow: {
