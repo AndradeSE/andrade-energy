@@ -19,12 +19,6 @@ export default function UnifiedExpoTabBar({
 
   return (
     <View style={styles.cornerFill}>
-      <LinearGradient
-        colors={["rgba(15,23,42,0)", "rgba(15,23,42,0.10)"]}
-        locations={[0, 1]}
-        pointerEvents="none"
-        style={styles.shadowHalo}
-      />
       <View style={styles.bar}>
         <LinearGradient colors={["#FFFFFF", "#DCE3DF"]} locations={[0, 1]} pointerEvents="none" style={styles.barBackground} />
         {routes.map((route) => {
@@ -71,15 +65,6 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     overflow: "visible",
   },
-  shadowHalo: {
-    position: "absolute",
-    top: -6,
-    left: 8,
-    right: 8,
-    height: 8,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
   bar: {
     height: 66,
     paddingTop: 5,
@@ -92,11 +77,11 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#E2E8F0",
     overflow: "visible",
-    elevation: 20,
+    elevation: 15,
     shadowColor: "#000",
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: -5 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: -3 },
   },
   barBackground: {
     ...StyleSheet.absoluteFillObject,
