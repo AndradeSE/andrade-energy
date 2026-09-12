@@ -356,6 +356,14 @@ export default function ContratoDaUnidade() {
             <InfoContrato label="Locador" value={locadorNome || "Não informado"} wide />
           </View>
         </Card>
+
+        {!somenteLeitura ? <Card style={styles.stepsCard}>
+          <Text style={styles.stepsTitle}>ORDEM PARA ENVIAR O CONTRATO</Text>
+          <Text style={styles.stepText}>1. Preencha e salve a configuração contratual.</Text>
+          <Text style={styles.stepText}>2. Gere a minuta e abra o documento para revisar.</Text>
+          <Text style={styles.stepText}>3. Somente depois da revisão, envie ao cliente para assinatura.</Text>
+          <Text style={styles.stepsWarning}>O envio permanece bloqueado enquanto a minuta atual não for gerada e revisada.</Text>
+        </Card> : null}
         <View style={styles.documentActions}>
           {contratoAssinadoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoAssinadoUrl)} style={styles.signedLink}><Ionicons name="document-text-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir contrato assinado</Text></TouchableOpacity> : null}
           {!contratoAssinadoUrl && contratoGeradoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoGeradoUrl)} style={styles.documentLink}><Ionicons name="document-text-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir contrato</Text></TouchableOpacity> : null}
@@ -393,9 +401,9 @@ export default function ContratoDaUnidade() {
         </Card>
 
         <View style={styles.documentActions}>
-          <Button disabled={gerando} title={gerando ? "Gerando minuta..." : "Gerar minuta do contrato"} icon={<Ionicons name="document-text-outline" size={20} color={Colors.surface} />} onPress={gerarMinuta} />
+          <Button disabled={gerando} title={gerando ? "Gerando minuta..." : "2. Gerar e revisar a minuta"} icon={<Ionicons name="document-text-outline" size={20} color={Colors.surface} />} onPress={gerarMinuta} />
           {contratoGeradoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoGeradoUrl)} style={styles.documentLink}><Ionicons name="download-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir minuta gerada</Text></TouchableOpacity> : null}
-          <Button disabled={gerando || !contratoGeradoUrl || dadosDaMinutaRevisada !== JSON.stringify(dadosParaSalvar())} title={gerando ? "Aguarde..." : "Enviar contrato e proposta"} onPress={enviarParaAnalise} />
+          <Button disabled={gerando || !contratoGeradoUrl || dadosDaMinutaRevisada !== JSON.stringify(dadosParaSalvar())} title={gerando ? "Aguarde..." : "3. Enviar para assinatura"} onPress={enviarParaAnalise} />
           <Text style={styles.documentLinkText}>Gere e revise a minuta atual para habilitar o envio. Alterações nos campos exigem nova revisão.</Text>
           <Button disabled={importando} title={importando ? "Importando contrato..." : "Importar contrato assinado"} icon={<Ionicons name="attach-outline" size={20} color={Colors.surface} />} onPress={importarAssinado} />
           {contratoAssinadoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoAssinadoUrl)} style={styles.signedLink}><Ionicons name="checkmark-circle-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Contrato assinado vinculado à UC</Text></TouchableOpacity> : null}
@@ -421,6 +429,10 @@ const styles = StyleSheet.create({
   contextText: { flex: 1, marginLeft: Spacing.sm },
   contextLabel: { color: Colors.subtitle, fontSize: 10, fontWeight: "800", letterSpacing: 0.8 },
   contextValue: { marginTop: 3, color: Colors.text, fontSize: Typography.body, fontWeight: "700" },
+  stepsCard: { marginBottom: Spacing.lg, borderWidth: 1, borderColor: "#F3C94F", backgroundColor: "#FFF9E8" },
+  stepsTitle: { marginBottom: Spacing.sm, color: Colors.text, fontSize: Typography.small, fontWeight: "900", letterSpacing: 0.6 },
+  stepText: { marginTop: 4, color: Colors.text, fontSize: Typography.caption, fontWeight: "700", lineHeight: 19 },
+  stepsWarning: { marginTop: Spacing.sm, color: "#92400E", fontSize: Typography.small, fontWeight: "800", lineHeight: 18 },
   sectionTitle: { marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: 10, fontWeight: "900", letterSpacing: 0.8 },
   partyCard: { marginBottom: Spacing.lg },
   formCard: { marginBottom: Spacing.lg },

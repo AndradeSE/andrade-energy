@@ -13,7 +13,7 @@ function acaoContratualDaUc(unidade: any) {
   if (assinado) return { label: "Ver contrato", status: "Assinado", revisao: false, liberada: true };
   if (contrato?.revisao_configuracao_pendente) return { label: "Gerar nova versão", status: "Nova versão necessária", revisao: true, liberada: false };
   if (unidade?.convite_resumo) return { label: "Reenviar convite", status: "Aguardando assinatura", revisao: false, liberada: false };
-  return { label: "Gerar contrato e enviar convite", status: "Não enviado", revisao: false, liberada: false };
+  return { label: "Configurar contrato e gerar minuta", status: "Minuta ainda não gerada", revisao: false, liberada: false };
 }
 
 export default function Unidades() {
@@ -82,7 +82,7 @@ export default function Unidades() {
           >
             <Text style={styles.inviteText}>{acaoContrato.label}</Text>
           </TouchableOpacity>
-          <Text style={styles.accessHint}>{acaoContrato.liberada ? "Contrato assinado. Esta UC já está disponível ao cliente." : "O gerador pode editar a configuração. A UC ficará disponível ao cliente após a assinatura do contrato."}</Text>
+          <Text style={styles.accessHint}>{acaoContrato.liberada ? "Contrato assinado. Esta UC já está disponível ao cliente." : "Próximos passos: configure o contrato, gere e revise a minuta e só depois envie para assinatura."}</Text>
         </Card></Pressable>; }}
         ListEmptyComponent={<View><EmptyState title={erro ? "Não foi possível carregar as unidades" : busca ? "Nenhuma unidade encontrada" : "Nenhuma unidade cadastrada"} subtitle={erro || (busca ? "Altere os termos da busca." : "Use uma fatura da concessionária ou faça o cadastro manual.")} /></View>}
       />}
