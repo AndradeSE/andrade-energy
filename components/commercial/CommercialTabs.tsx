@@ -92,13 +92,19 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
 
 const styles = StyleSheet.create({
   cornerFill: {
-    backgroundColor: "#DFE8E3",
+    backgroundColor: "transparent",
+    elevation: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: -5 },
   },
   surface: {
     ...StyleSheet.absoluteFillObject,
     borderTopWidth: 1,
     borderTopColor: "#E2E8F0",
-    borderRadius: 24,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     backgroundColor: "#FFFFFF",
   },
   bar: {
@@ -111,11 +117,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     backgroundColor: "transparent",
     overflow: "visible",
-    elevation: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: -5 },
   },
   item: {
     flex: 1,

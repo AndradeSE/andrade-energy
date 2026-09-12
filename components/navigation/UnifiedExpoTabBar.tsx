@@ -61,23 +61,26 @@ export default function UnifiedExpoTabBar({
 }
 
 const styles = StyleSheet.create({
-  cornerFill: { backgroundColor: "#DFE8E3" },
+  cornerFill: {
+    backgroundColor: "transparent",
+    elevation: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: -5 },
+  },
   bar: {
     height: 66,
     paddingTop: 5,
     paddingBottom: 3,
     flexDirection: "row",
     alignItems: "flex-start",
-    borderRadius: 24,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#E2E8F0",
     overflow: "visible",
-    elevation: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: -5 },
   },
   item: {
     flex: 1,
