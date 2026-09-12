@@ -72,7 +72,7 @@ export default function CriarConta() {
       setAguardandoGerador(resultado?.status === "AGUARDANDO_CONFIRMACAO_GERADOR");
       setSolicitado(true);
     } catch (error: any) {
-      Alert.alert("Não foi possível criar a conta", error?.response?.data?.message ?? "Tente novamente.");
+      Alert.alert(contaExistente ? "Não foi possível adicionar o acesso" : "Não foi possível criar a conta", error?.response?.data?.message ?? "Tente novamente.");
     } finally {
       setSalvando(false);
     }

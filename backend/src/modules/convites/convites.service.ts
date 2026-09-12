@@ -144,7 +144,12 @@ export async function consultarConvite(token: string) {
     .select("id,nome,cpf,email,telefone,endereco,status,expira_em,empresa_id,unidade_consumidora_id")
     .eq("token_hash", hashToken(token)).maybeSingle();
   if (error || !data || data.status !== "PENDENTE" || new Date(data.expira_em) <= new Date()) throw new Error("Convite inválido ou expirado.");
-  const { data: conta } = await supabase.from("usuarios").select("id").eq("email", String(data.email ?? "").trim().toLowerCase()).limit(1).maybeSingle();
+  const { data: conta } = await supabase
+    .from("usuarios")
+    .select("id")
+    .ilike("email", String(data.email ?? "").trim())
+    .limit(1)
+    .maybeSingle();
   return { nome: data.nome, cpf: data.cpf, email: data.email, telefone: data.telefone, endereco: data.endereco, empresa_id: data.empresa_id, contaExistente: Boolean(conta) };
 }
 
