@@ -1,4 +1,5 @@
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
+import { LinearGradient } from "expo-linear-gradient";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Colors } from "../../theme";
@@ -15,9 +16,11 @@ export default function UnifiedExpoTabBar({
 
   return (
     <View style={styles.cornerFill}>
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <View style={styles.surface} />
-      </View>
+      <LinearGradient
+        colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.15)"]}
+        pointerEvents="none"
+        style={styles.topShadow}
+      />
       <View
         style={[
           styles.bar,
@@ -66,14 +69,14 @@ export default function UnifiedExpoTabBar({
 const styles = StyleSheet.create({
   cornerFill: {
     backgroundColor: "#DFE8E3",
+    overflow: "visible",
   },
-  surface: {
-    ...StyleSheet.absoluteFillObject,
-    borderTopWidth: 1,
-    borderTopColor: "#E2E8F0",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    backgroundColor: "#FFFFFF",
+  topShadow: {
+    position: "absolute",
+    top: -14,
+    left: 0,
+    right: 0,
+    height: 14,
   },
   bar: {
     height: 66,
@@ -83,7 +86,9 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    backgroundColor: "transparent",
+    backgroundColor: "#FFFFFF",
+    borderTopWidth: 1,
+    borderTopColor: "#E2E8F0",
     overflow: "visible",
     elevation: 20,
     shadowColor: "#000",
