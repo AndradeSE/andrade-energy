@@ -39,6 +39,14 @@ const statusDaSolicitacao = (status: unknown) => {
     };
   return { label: "Ativo", variant: "success" as const };
 };
+const acaoContratualDaUc = (unidade: any) => {
+  const contrato = unidade?.contrato_resumo;
+  const assinado = Boolean(contrato?.aceite_cliente_em || contrato?.contrato_assinado_url || String(contrato?.status ?? "").toUpperCase() === "VIGENTE");
+  if (assinado) return { label: "Ver contrato", status: "Assinado", revisao: false, liberada: true };
+  if (contrato?.revisao_configuracao_pendente) return { label: "Gerar nova versão", status: "Nova versão necessária", revisao: true, liberada: false };
+  if (unidade?.convite_resumo) return { label: "Reenviar convite", status: "Aguardando assinatura", revisao: false, liberada: false };
+  return { label: "Gerar contrato e enviar convite", status: "Não enviado", revisao: false, liberada: false };
+};
 
 export default function ClienteDetalhe() {
   const { id, area } = useLocalSearchParams<{
@@ -53,7 +61,6 @@ export default function ClienteDetalhe() {
   const [loading, setLoading] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [importandoUc, setImportandoUc] = useState(false);
-  const [enviandoConvite, setEnviandoConvite] = useState(false);
   const { suspenderBloqueioTemporariamente } = useAuth();
   const carregar = useCallback(async () => {
     try {
@@ -117,34 +124,18 @@ export default function ClienteDetalhe() {
     Linking.openURL(`https://wa.me/${numero.startsWith("55") ? numero : `55${numero}`}?text=${encodeURIComponent(`Olá ${cliente.nome}, estou entrando em contato sobre sua energia.`)}`);
   }
 
-  async function enviarConvite() {
-    if (!unidades.length) {
-      Alert.alert("Cadastre a unidade", "Adicione e configure a UC antes de preparar o contrato e enviar o convite.");
-      return;
-    }
-    if (unidades.length === 1) {
-      router.push({
-        pathname: "/unidades/contrato",
-        params: {
-          id: unidades[0].id,
-          numero: unidades[0].numero,
-          clienteId: id,
-          cliente: cliente.nome,
-        },
-      });
-      return;
-    }
-    Alert.alert("Escolha a unidade do contrato", "Abra a UC desejada e entre em Contrato para revisar e enviar o contrato com a proposta.", [
-      {
-        text: "Escolher UC",
-        onPress: () =>
-          router.push({
-            pathname: "/unidades",
-            params: { clienteId: id, cliente: cliente.nome },
-          }),
+  function abrirContratoDaUnidade(unidade: any) {
+    const acao = acaoContratualDaUc(unidade);
+    router.push({
+      pathname: "/unidades/contrato",
+      params: {
+        id: unidade.id,
+        numero: unidade.numero,
+        clienteId: unidade.cliente_id ?? id,
+        cliente: cliente.nome,
+        revisao: acao.revisao ? "1" : undefined,
       },
-      { text: "Cancelar", style: "cancel" },
-    ]);
+    });
   }
 
   async function adicionarUnidadeViaFatura() {
@@ -335,16 +326,6 @@ export default function ClienteDetalhe() {
                     }
                   />
                 ) : null}
-                {IS_GERADOR_APP ? (
-                  <QuickAccess
-                    icon="mail-unread-outline"
-                    label={enviandoConvite ? "Reenviando..." : "Reenviar convite"}
-                    detail={cliente.email || "Informe o e-mail"}
-                    onPress={() => {
-                      if (!enviandoConvite) void enviarConvite();
-                    }}
-                  />
-                ) : null}
               </View>
             </View>
             <Section title="Economia total">
@@ -418,6 +399,7 @@ export default function ClienteDetalhe() {
               {unidadesFiltradas.length ? (
                 unidadesFiltradas.map((unidade) => {
                   const inativa = unidade.status === "INATIVA";
+                  const acaoContrato = acaoContratualDaUc(unidade);
                   return (
                     <TouchableOpacity
                       key={unidade.id}
@@ -459,6 +441,29 @@ export default function ClienteDetalhe() {
                           </View>
                           <Ionicons name="chevron-forward" size={18} color={Colors.subtitle} />
                         </View>
+                        {IS_GERADOR_APP ? (
+                          <>
+                            <View style={[styles.contractStatus, acaoContrato.liberada && styles.contractStatusSigned]}>
+                              <Text style={[styles.contractStatusText, acaoContrato.liberada && styles.contractStatusTextSigned]}>{acaoContrato.status}</Text>
+                            </View>
+                            <TouchableOpacity
+                              accessibilityLabel={`Abrir contrato e convite da UC ${unidade.numero}`}
+                              onPress={(evento) => {
+                                evento.stopPropagation();
+                                abrirContratoDaUnidade(unidade);
+                              }}
+                              style={styles.unitInvite}
+                            >
+                              <Ionicons name="mail-unread-outline" size={17} color={Colors.primary} />
+                              <Text style={styles.unitInviteText}>{acaoContrato.label}</Text>
+                            </TouchableOpacity>
+                            <Text style={styles.unitAccessHint}>
+                              {acaoContrato.liberada
+                                ? "Contrato assinado. Esta UC já está disponível ao cliente."
+                                : "O gerador pode editar a configuração. A UC ficará disponível ao cliente após a assinatura do contrato."}
+                            </Text>
+                          </>
+                        ) : null}
                       </Card>
                     </TouchableOpacity>
                   );
@@ -605,6 +610,13 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.lg },
   action: { flex: 1 },
   whatsapp: { backgroundColor: Colors.success },
+  unitInvite: { minHeight: 40, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: Spacing.sm, paddingHorizontal: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border },
+  unitInviteText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" },
+  unitAccessHint: { marginTop: 2, color: Colors.subtitle, fontSize: 10, lineHeight: 14, textAlign: "center" },
+  contractStatus: { alignSelf: "flex-start", marginTop: Spacing.sm, paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.round, backgroundColor: "#FEF3C7" },
+  contractStatusSigned: { backgroundColor: "#DCFCE7" },
+  contractStatusText: { color: "#92400E", fontSize: 10, fontWeight: "800" },
+  contractStatusTextSigned: { color: "#166534" },
   backToOverview: {
     minHeight: 42,
     flexDirection: "row",

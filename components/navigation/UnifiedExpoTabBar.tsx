@@ -19,6 +19,9 @@ export default function UnifiedExpoTabBar({
 
   return (
     <View style={styles.cornerFill}>
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <View style={styles.surface} />
+      </View>
       <View
         style={[
           styles.bar,
@@ -74,15 +77,21 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    backgroundColor: "#FFFFFF",
-    borderTopWidth: 1,
-    borderTopColor: "#E2E8F0",
+    backgroundColor: "transparent",
     overflow: "visible",
     elevation: 15,
     shadowColor: "#000",
     shadowOpacity: 0.08,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: -3 },
+  },
+  surface: {
+    ...StyleSheet.absoluteFillObject,
+    borderTopWidth: 1,
+    borderTopColor: "#E2E8F0",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: "#FFFFFF",
   },
   item: {
     flex: 1,

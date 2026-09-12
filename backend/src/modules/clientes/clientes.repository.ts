@@ -35,6 +35,45 @@ async function incluirTitularDaFatura(unidades: any[], empresaId: string) {
   });
 }
 
+async function incluirEstadoContratoEConvite(unidades: any[], empresaId: string) {
+  const ids = unidades.map((unidade) => String(unidade?.id ?? "")).filter((id) => id && !id.startsWith("cliente-"));
+  if (!ids.length) return unidades;
+
+  const [{ data: contratos, error: erroContratos }, { data: convites, error: erroConvites }] = await Promise.all([
+    supabase
+      .from("contratos")
+      .select("id,unidade_consumidora_id,status,aceite_cliente_em,contrato_assinado_url,revisao_configuracao_pendente,created_at")
+      .eq("empresa_id", empresaId)
+      .in("unidade_consumidora_id", ids)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("convites_clientes")
+      .select("id,unidade_consumidora_id,status,expira_em,created_at")
+      .eq("empresa_id", empresaId)
+      .in("unidade_consumidora_id", ids)
+      .order("created_at", { ascending: false }),
+  ]);
+  if (erroContratos && erroContratos.code !== "42P01") throw erroContratos;
+  if (erroConvites && erroConvites.code !== "42P01") throw erroConvites;
+
+  const contratoPorUc = new Map<string, any>();
+  for (const contrato of contratos ?? []) {
+    const unidadeId = String(contrato.unidade_consumidora_id ?? "");
+    if (unidadeId && !contratoPorUc.has(unidadeId)) contratoPorUc.set(unidadeId, contrato);
+  }
+  const convitePorUc = new Map<string, any>();
+  for (const convite of convites ?? []) {
+    const unidadeId = String(convite.unidade_consumidora_id ?? "");
+    if (unidadeId && !convitePorUc.has(unidadeId)) convitePorUc.set(unidadeId, convite);
+  }
+
+  return unidades.map((unidade) => ({
+    ...unidade,
+    contrato_resumo: contratoPorUc.get(String(unidade.id)) ?? null,
+    convite_resumo: convitePorUc.get(String(unidade.id)) ?? null,
+  }));
+}
+
 async function incluirStatusDoCadastro(clientes: any[], empresaId: string) {
   const ids = clientes.map((cliente) => String(cliente?.id ?? "")).filter(Boolean);
   if (!ids.length) return clientes;
@@ -235,7 +274,10 @@ export async function listarUnidadesCliente(clienteId: string, empresaId = EMPRE
     .eq("empresa_id", empresaId)
     .order("numero");
 
-  if (!error && data?.length) return incluirTitularDaFatura(data, empresaId);
+  if (!error && data?.length) {
+    const comTitular = await incluirTitularDaFatura(data, empresaId);
+    return incluirEstadoContratoEConvite(comTitular, empresaId);
+  }
   if (error && error.code !== "42P01") throw error;
 
   const { data: cliente, error: erroCliente } = await supabase
@@ -272,7 +314,8 @@ export async function listarTodasUnidades(empresaId = EMPRESA_ANDRADE_ID) {
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  return incluirTitularDaFatura(data ?? [], empresaId);
+  const comTitular = await incluirTitularDaFatura(data ?? [], empresaId);
+  return incluirEstadoContratoEConvite(comTitular, empresaId);
 }
 
 export async function buscarUnidadePorId(unidadeId: string, empresaId = EMPRESA_ANDRADE_ID) {
