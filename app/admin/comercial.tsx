@@ -239,12 +239,25 @@ export default function HomeComercial() {
               { icon: "cash-outline", label: "Pagamentos", value: `${financeiro?.cobrancasPendentes ?? 0} pendentes`, badge: Boolean(financeiro?.cobrancasVencidas), onPress: () => router.push({ pathname: "/geradores/gestao", params: { aba: "PAGAMENTOS" } } as any) },
               { icon: "layers-outline", label: "Empresas parceiras", value: "Identidade e operação", onPress: () => router.push("/admin/empresas" as any) },
               { icon: "person-add-outline", label: "Convidar gerador", onPress: () => router.push("/geradores/convidar") },
+              { icon: "people-circle-outline", label: "Colaboradores", value: "Convites e permissões", onPress: () => router.push("/colaboradores" as any) },
               { icon: "document-text-outline", label: "Contratos e termos", value: `${data?.documentos.length ?? 0} documentos`, onPress: () => router.push("/geradores/gestao" as any) },
               { icon: "download-outline", label: "Compartilhar app Gerador", value: baixandoApp === "gerador" ? `Baixando ${progressoApp}%` : "WhatsApp, e-mail ou Bluetooth", onPress: () => void baixarApp("gerador") },
               { icon: "phone-portrait-outline", label: "Compartilhar app Consumidor", value: baixandoApp === "consumidor" ? `Baixando ${progressoApp}%` : "WhatsApp, e-mail ou Bluetooth", onPress: () => void baixarApp("consumidor") },
             ].filter((item) => !colaboradorComercial || ["Geradores", "Clientes ativos", "Contratos e termos"].includes(item.label))) as any}
           />
         </Section>
+        {!colaboradorComercial ? (
+          <TouchableOpacity activeOpacity={0.84} onPress={() => router.push("/colaboradores" as any)} style={styles.teamCard}>
+            <View style={styles.teamIcon}>
+              <Ionicons name="people-circle-outline" size={24} color={Colors.primary} />
+            </View>
+            <View style={styles.teamCopy}>
+              <Text style={styles.teamTitle}>Equipe comercial</Text>
+              <Text style={styles.teamText}>Crie logins próprios para colaboradores que administram geradores. Carteira, pagamentos, planos e ferramentas exclusivas do ADM continuam bloqueados.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
+          </TouchableOpacity>
+        ) : null}
         {!colaboradorComercial && !loading && data ? (
           <View style={styles.financeGrid}>
             <TouchableOpacity
@@ -515,6 +528,22 @@ const styles = StyleSheet.create({
   drawerDivider: { height: Spacing.md },
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl * 2 },
   heading: { marginBottom: Spacing.sm },
+  teamCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "#C9DED1",
+    borderRadius: Radius.xl,
+    backgroundColor: "#F4FAF6",
+    ...Shadows.card,
+  },
+  teamIcon: { width: 46, height: 46, alignItems: "center", justifyContent: "center", borderRadius: Radius.round, backgroundColor: Colors.primaryLight },
+  teamCopy: { flex: 1, minWidth: 0 },
+  teamTitle: { color: Colors.text, fontSize: Typography.caption, fontWeight: "900" },
+  teamText: { marginTop: 3, color: Colors.subtitle, fontSize: 11, lineHeight: 16 },
   eyebrow: {
     color: Colors.primary,
     fontSize: 10,

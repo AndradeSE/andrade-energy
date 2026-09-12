@@ -655,6 +655,15 @@ export async function cadastrarConta(input: { nome: string; cpf: string; email: 
     const { consultarConviteColaborador, concluirConviteColaborador } = await import("../colaboradores/colaboradores.service.js");
     const conviteColaborador = await consultarConviteColaborador(tokenConvite);
     if ((input.senha?.length ?? 0) < 6) throw new Error("A senha deve ter pelo menos 6 caracteres.");
+    const usuarioExistente = await buscarUsuarioPorCredenciais(conviteColaborador.email, input.senha, "GERADOR");
+    if (usuarioExistente) {
+      if (cpfLimpo(usuarioExistente.cpf) !== cpfLimpo(conviteColaborador.cpf)) throw new Error("Os dados do convite não correspondem à conta existente.");
+      await concluirConviteColaborador(conviteColaborador, usuarioExistente.id);
+      return { message: "Acesso de colaborador adicionado à sua conta existente.", emailEnviado: false, papel_empresa: conviteColaborador.papel, contaExistente: true };
+    }
+    const { data: contasComMesmoEmail, error: contasError } = await supabase.from("usuarios").select("id").eq("email", String(conviteColaborador.email).trim().toLowerCase()).in("perfil", ["GESTOR", "ADMIN"]).limit(1);
+    if (contasError) throw contasError;
+    if (contasComMesmoEmail?.length) throw new Error("Este e-mail já possui uma conta. Informe a senha atual para aceitar o novo acesso.");
     const usuario = await criarConta({
       ...input,
       nome: conviteColaborador.nome,

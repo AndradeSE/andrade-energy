@@ -65,12 +65,14 @@ const atalhos = [
   { icon: "document-attach-outline", label: "Faturar via fatura", rota: "/faturamento/manual" },
   { icon: "receipt-outline", label: "Faturas", rota: "/faturas" },
   { icon: "document-text-outline", label: "Contratos", rota: "/contratos" },
+  { icon: "people-circle-outline", label: "Colaboradores", rota: "/colaboradores" },
 ] as const;
 
 export default function DashboardGestor() {
   const { usuario, usinaSelecionada, suspenderBloqueioTemporariamente } =
     useAuth();
   const { data, isLoading, error, refetch } = useDashboardGestor();
+  const colaborador = String(usuario?.papel_empresa ?? "").startsWith("COLABORADOR_");
   const [carteira, setCarteira] = useState<CarteiraService.Carteira | null>(
     null,
   );
@@ -210,7 +212,7 @@ export default function DashboardGestor() {
                 badge: novoRecebimento,
                 onPress: () => void abrirCarteira(),
               },
-              ...atalhos.map((atalho) => ({
+              ...atalhos.filter((atalho) => !colaborador || atalho.label !== "Colaboradores").map((atalho) => ({
                 icon: atalho.icon,
                 label: atalho.label,
                 onPress: () => router.push(atalho.rota as any),
@@ -218,6 +220,19 @@ export default function DashboardGestor() {
             ]}
           />
         </Section>
+
+        {!colaborador ? (
+          <Pressable onPress={() => router.push("/colaboradores" as any)} style={styles.teamCard}>
+            <View style={styles.teamIcon}>
+              <Ionicons name="people-circle-outline" size={24} color={Colors.primary} />
+            </View>
+            <View style={styles.teamCopy}>
+              <Text style={styles.teamTitle}>Gerencie sua equipe</Text>
+              <Text style={styles.teamText}>Convide colaboradores, escolha as permissões operacionais e bloqueie acessos. Carteira, recebíveis e transferências permanecem exclusivos do titular.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
+          </Pressable>
+        ) : null}
 
         <View style={styles.generationSummary}>
           <View style={styles.generationSummaryTop}>
@@ -421,6 +436,22 @@ export default function DashboardGestor() {
 const styles = StyleSheet.create({
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl * 3 },
   errorContent: { flex: 1, justifyContent: "center", padding: Spacing.lg },
+  teamCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "#C9DED1",
+    borderRadius: Radius.xl,
+    backgroundColor: "#F4FAF6",
+    ...Shadows.card,
+  },
+  teamIcon: { width: 46, height: 46, alignItems: "center", justifyContent: "center", borderRadius: Radius.round, backgroundColor: Colors.primaryLight },
+  teamCopy: { flex: 1, minWidth: 0 },
+  teamTitle: { color: Colors.text, fontSize: Typography.caption, fontWeight: "900" },
+  teamText: { marginTop: 3, color: Colors.subtitle, fontSize: 11, lineHeight: 16 },
   operationCard: {
     marginBottom: Spacing.xl,
     padding: Spacing.lg,

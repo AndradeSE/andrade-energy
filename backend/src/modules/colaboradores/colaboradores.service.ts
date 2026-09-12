@@ -54,8 +54,14 @@ export async function criarConviteColaborador(input: any, usuario: any) {
   if (cpf.length !== 11) throw new Error("Informe um CPF válido.");
   if (!emailValido(email)) throw new Error("Informe um e-mail válido.");
   const empresaId = String(usuario.empresa_id);
-  const { data: existente } = await supabase.from("usuarios").select("id").eq("empresa_id", empresaId).eq("email", email).limit(1).maybeSingle();
-  if (existente) throw new Error("Este e-mail já possui acesso a esta empresa.");
+  const { data: usuariosDoEmail, error: usuariosError } = await supabase.from("usuarios").select("id").eq("email", email);
+  if (usuariosError) throw usuariosError;
+  const idsDoEmail = (usuariosDoEmail ?? []).map((item: any) => item.id);
+  if (idsDoEmail.length) {
+    const { data: vinculoExistente, error: vinculoError } = await supabase.from("empresa_usuarios").select("id").eq("empresa_id", empresaId).in("usuario_id", idsDoEmail).limit(1).maybeSingle();
+    if (vinculoError) throw vinculoError;
+    if (vinculoExistente) throw new Error("Este e-mail já é membro desta empresa. Gerencie as permissões na lista da equipe.");
+  }
   await supabase.from("convites_colaboradores").update({ status: "CANCELADO", atualizado_em: new Date().toISOString() }).eq("empresa_id", empresaId).eq("email", email).eq("status", "PENDENTE");
   const token = `colaborador_${gerarToken()}`;
   const permissoes = permissoesSeguras(papel, input?.permissoes);
@@ -104,7 +110,7 @@ export async function consultarConviteColaborador(token: string) {
 }
 
 export async function concluirConviteColaborador(convite: any, usuarioId: string) {
-  const { error: vinculoError } = await supabase.from("empresa_usuarios").update({ papel: convite.papel, permissoes: convite.permissoes, convidado_por: convite.convidado_por, ativo: true, atualizado_em: new Date().toISOString() }).eq("empresa_id", convite.empresa_id).eq("usuario_id", usuarioId);
+  const { error: vinculoError } = await supabase.from("empresa_usuarios").upsert({ empresa_id: convite.empresa_id, usuario_id: usuarioId, papel: convite.papel, permissoes: convite.permissoes, convidado_por: convite.convidado_por, principal: false, ativo: true, atualizado_em: new Date().toISOString() }, { onConflict: "empresa_id,usuario_id" });
   if (vinculoError) throw vinculoError;
   const { error } = await supabase.from("convites_colaboradores").update({ status: "ACEITO", aceito_em: new Date().toISOString(), usuario_id: usuarioId, atualizado_em: new Date().toISOString() }).eq("id", convite.id).eq("status", "PENDENTE");
   if (error) throw error;
