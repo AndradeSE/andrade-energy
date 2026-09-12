@@ -526,6 +526,19 @@ export async function excluirCliente(id: string, empresaId = EMPRESA_ANDRADE_ID)
     if (erroSessoes && erroSessoes.code !== "42P01") throw erroSessoes;
   }
 
+  // Tabelas de onboarding e histórico também podem conservar vínculo com o
+  // cliente. Alguns bancos antigos possuem essas FKs como RESTRICT, portanto
+  // removemos explicitamente antes do cadastro principal (o cliente já foi
+  // validado acima dentro da empresa da requisição).
+  for (const tabela of [
+    "faturas_anexadas_clientes",
+    "solicitacoes_cadastro_clientes",
+    "historico_consumo",
+  ]) {
+    const { error } = await supabase.from(tabela).delete().eq("cliente_id", id);
+    if (error && error.code !== "42P01") throw error;
+  }
+
   const tabelasDependentes = [
     "notificacoes_fatura",
     "cobrancas",
