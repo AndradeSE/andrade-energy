@@ -15,6 +15,7 @@ import {
 
 import { FaturaExtraida } from "../../types/FaturaExtraida";
 import { supabase } from "../../config/supabase";
+import { exigirContratoAssinadoDaUc } from "../contratos/contratoUc.service";
 
 function converterDataBrasileiraParaIso(data: string): string {
   const correspondencia = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(data.trim());
@@ -76,6 +77,7 @@ export async function processarFatura(
   };
 
 }
+await exigirContratoAssinadoDaUc(cliente.unidade_consumidora.id, cliente.empresa_id);
 const faturaExistente = await buscarFatura(
   dados.uc,
   dados.referencia

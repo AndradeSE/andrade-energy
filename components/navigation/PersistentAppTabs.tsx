@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useSegments } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors } from "../../theme";
@@ -36,8 +35,6 @@ const commercialTabs: TabItem[] = [
 ];
 
 export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
-  const insets = useSafeAreaInsets();
-  const bottomInset = Math.max(insets.bottom, 3);
   const segments = useSegments();
   const firstSegment = String(segments[0] ?? "");
   const secondSegment = String(segments[1] ?? "");
@@ -72,7 +69,7 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
       <View
         style={[
           styles.bar,
-          { height: 63 + bottomInset, paddingBottom: bottomInset },
+          { height: 66, paddingBottom: 3 },
         ]}
       >
       {tabs.map((tab) => {
@@ -89,11 +86,11 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
             name={tab.icon}
             color={Colors.subtitle}
             featured={featured}
-            size={IS_GERADOR_APP ? 21 : 24}
+            size={22}
           />
           <Text
             numberOfLines={commercialEnvironment ? 2 : 1}
-            style={[styles.label, IS_GERADOR_APP && styles.generatorLabel]}
+            style={styles.label}
           >
             {tab.label}
           </Text>
@@ -114,17 +111,16 @@ const styles = StyleSheet.create({
     paddingBottom: 3,
     flexDirection: "row",
     alignItems: "flex-start",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderRadius: 24,
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#E2E8F0",
     overflow: "visible",
-    elevation: 15,
+    elevation: 20,
     shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: -5 },
   },
   item: {
     flex: 1,
@@ -137,15 +133,10 @@ const styles = StyleSheet.create({
   },
   label: {
     color: Colors.subtitle,
-    fontSize: 9,
-    lineHeight: 11,
-    fontWeight: "600",
-    marginBottom: 0,
-    textAlign: "center",
-  },
-  generatorLabel: {
     fontSize: 8,
     lineHeight: 10,
     fontWeight: "700",
+    marginBottom: 0,
+    textAlign: "center",
   },
 });

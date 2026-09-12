@@ -1,17 +1,13 @@
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Colors } from "../../theme";
-import { IS_GERADOR_APP } from "../../config/appVariant";
 
 export default function UnifiedExpoTabBar({
   state,
   descriptors,
   navigation,
 }: BottomTabBarProps) {
-  const insets = useSafeAreaInsets();
-  const bottomInset = Math.max(insets.bottom, 3);
   const routes = state.routes.filter((route) => {
     const options = descriptors[route.key]?.options as any;
     return options?.href !== null && options?.tabBarItemStyle?.display !== "none";
@@ -19,13 +15,10 @@ export default function UnifiedExpoTabBar({
 
   return (
     <View style={styles.cornerFill}>
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <View style={styles.surface} />
-      </View>
       <View
         style={[
           styles.bar,
-          { height: (IS_GERADOR_APP ? 63 : 61) + bottomInset, paddingBottom: bottomInset },
+          { height: 66, paddingBottom: 3 },
         ]}
       >
         {routes.map((route) => {
@@ -50,12 +43,12 @@ export default function UnifiedExpoTabBar({
                 if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
               }}
               onLongPress={() => navigation.emit({ type: "tabLongPress", target: route.key })}
-              style={[styles.item, !IS_GERADOR_APP && styles.consumerItem]}
+          style={styles.item}
             >
-              {options.tabBarIcon?.({ focused, color, size: 21 })}
+              {options.tabBarIcon?.({ focused, color, size: 22 })}
               <Text
                 numberOfLines={1}
-                style={[styles.label, !IS_GERADOR_APP && styles.consumerLabel, focused && styles.labelActive]}
+                style={[styles.label, focused && styles.labelActive]}
               >
                 {label}
               </Text>
@@ -75,23 +68,16 @@ const styles = StyleSheet.create({
     paddingBottom: 3,
     flexDirection: "row",
     alignItems: "flex-start",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    backgroundColor: "transparent",
-    overflow: "visible",
-    elevation: 15,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: -3 },
-  },
-  surface: {
-    ...StyleSheet.absoluteFillObject,
+    borderRadius: 24,
+    backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#E2E8F0",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    backgroundColor: "#FFFFFF",
+    overflow: "visible",
+    elevation: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: -5 },
   },
   item: {
     flex: 1,
@@ -102,17 +88,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  consumerItem: { minHeight: 50 },
   label: {
     color: Colors.subtitle,
     fontSize: 8,
     lineHeight: 10,
     fontWeight: "700",
     textAlign: "center",
-  },
-  consumerLabel: {
-    fontSize: 10,
-    lineHeight: 12,
   },
   labelActive: { color: Colors.primary },
 });

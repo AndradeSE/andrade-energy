@@ -22,5 +22,10 @@ export async function validarAssinaturaExterna(id: string, usuario: any, confirm
     if (erroAtualizacao) throw erroAtualizacao;
     throw new Error("O contrato mudou durante a validação. Reabra e confira a versão atual.");
   }
+  const { error: erroAtivacao } = await supabase.from("unidades_consumidoras")
+    .update({ status: "ATIVA" })
+    .eq("id", contrato.unidade_consumidora_id)
+    .eq("empresa_id", contrato.empresa_id);
+  if (erroAtivacao) throw erroAtivacao;
   return { validado: true };
 }

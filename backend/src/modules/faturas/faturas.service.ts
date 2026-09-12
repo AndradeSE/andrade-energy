@@ -17,6 +17,7 @@ import { criarCobranca } from "../cobrancas/cobrancas.repository";
 import { registrarCreditosDaFatura } from "../creditos/consumo.service";
 import { supabase } from "../../config/supabase";
 import { tentarCriarCobrancaAsaas } from "../asaas/asaas.service";
+import { exigirContratoAssinadoDaUc } from "../contratos/contratoUc.service";
 
 export async function listarFaturas(filtro?: { clienteId?: string; uc?: string; empresaId?: string }) {
   const faturas = await listarFaturasRepository(filtro);
@@ -74,6 +75,8 @@ export async function confirmarFaturaRascunho(id: string, empresaId?: string) {
   if (String(existente.status ?? "").toUpperCase() !== "RASCUNHO") {
     throw new Error("Somente faturas em rascunho podem ser confirmadas.");
   }
+  if (!existente.unidade_consumidora_id) throw new Error("A fatura não está vinculada a uma UC.");
+  await exigirContratoAssinadoDaUc(existente.unidade_consumidora_id, empresaId);
 
   const { data: fatura, error } = await supabase
     .from("faturas")

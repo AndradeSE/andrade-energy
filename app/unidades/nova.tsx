@@ -236,7 +236,8 @@ export default function NovaUnidade() {
 
       if (origem === "fatura" && clienteId) {
         setMensagemSalvar("Unidade salva com sucesso.");
-        Alert.alert("UC salva", "A unidade foi cadastrada e os dados da proposta já estão disponíveis no contrato.", [
+        Alert.alert("UC salva", "A UC foi cadastrada. Próximo passo: abra a lista de UCs, configure o contrato e envie a minuta para o cliente assinar.", [
+          { text: "Ir para UCs", onPress: () => router.dismissTo("/unidades" as any) },
           { text: "Continuar", onPress: () => router.dismissTo({ pathname: "/clientes/[id]", params: { id: clienteId } }) },
         ]);
       } else {

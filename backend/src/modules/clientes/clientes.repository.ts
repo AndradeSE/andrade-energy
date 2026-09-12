@@ -42,7 +42,7 @@ async function incluirEstadoContratoEConvite(unidades: any[], empresaId: string)
   const [{ data: contratos, error: erroContratos }, { data: convites, error: erroConvites }] = await Promise.all([
     supabase
       .from("contratos")
-      .select("id,unidade_consumidora_id,status,aceite_cliente_em,contrato_assinado_url,revisao_configuracao_pendente,created_at")
+      .select("id,unidade_consumidora_id,status,aceite_cliente_em,contrato_assinado_url,contrato_gerado_url,revisao_configuracao_pendente,dados_documento,created_at")
       .eq("empresa_id", empresaId)
       .in("unidade_consumidora_id", ids)
       .order("created_at", { ascending: false }),
@@ -415,7 +415,6 @@ export async function buscarClientePorUC(uc: string) {
     .from("unidades_consumidoras")
     .select("*, clientes(*)")
     .eq("numero", ucNormalizada)
-    .eq("status", "ATIVA")
     .maybeSingle();
 
   if (!erroUnidade && unidade?.clientes) {
@@ -594,7 +593,7 @@ export async function cadastrarUnidadeCliente(clienteId: string, numeroInformado
     modalidade_faturamento: cliente.modalidade_faturamento || "COMPENSACAO",
     desconto_percentual: Number(cliente.desconto_percentual ?? 40),
     cpf_titular: String(cpfTitularInformado ?? cliente.cpf ?? "").replace(/\D/g, "") || null,
-    status: "ATIVA",
+    status: "PENDENTE_CONTRATO",
     empresa_id: empresaId,
   };
   const resultado = existente
@@ -607,7 +606,15 @@ export async function cadastrarUnidadeCliente(clienteId: string, numeroInformado
     numero,
     empresaId,
   );
-  return { ...resultado.data, contrato_restaurado: Boolean(contratoRestaurado) };
+  if (contratoRestaurado) {
+    const { error: erroAtivacao } = await supabase
+      .from("unidades_consumidoras")
+      .update({ status: "ATIVA" })
+      .eq("id", resultado.data.id)
+      .eq("empresa_id", empresaId);
+    if (erroAtivacao) throw erroAtivacao;
+  }
+  return { ...resultado.data, status: contratoRestaurado ? "ATIVA" : "PENDENTE_CONTRATO", contrato_restaurado: Boolean(contratoRestaurado) };
 }
 
 export async function excluirUnidadeCliente(unidadeId: string, empresaId = EMPRESA_ANDRADE_ID) {

@@ -8,7 +8,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { listarFaturas } from "../../services/faturas.service";
-import { listarUnidadesGestor } from "../../services/clientes.service";
 import { buscarDashboardUsina } from "../../services/usinas.service";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
@@ -87,7 +86,7 @@ export default function AppHeader({
     let ativo = true;
     setNotificacoes([]);
     if (!usuarioId) return;
-    Promise.all([listarFaturas(), proprietario ? listarUnidadesGestor() : Promise.resolve([])]).then(([faturas, unidades]) => {
+    listarFaturas().then((faturas) => {
       if (!ativo) return;
       const hoje = new Date();
       const avisos = (faturas ?? []).flatMap((fatura: any) => {
@@ -103,24 +102,8 @@ export default function AppHeader({
         if (dias <= 5) return [{ id: String(fatura.id), severidade: "media", titulo: "Fatura próxima do vencimento", detalhe: `${fatura.clientes?.nome ?? "Cliente"} · vence em ${dias} dia${dias === 1 ? "" : "s"}`, rota: `/faturas/${fatura.id}` }];
         return [];
       }).sort((a: any, b: any) => (a.severidade === "alta" ? -1 : 1) - (b.severidade === "alta" ? -1 : 1));
-      const avisosContratos = proprietario
-        ? (Array.isArray(unidades) ? unidades : []).flatMap((unidade: any) => {
-            const contrato = unidade.contrato_resumo;
-            const assinado = Boolean(contrato?.aceite_cliente_em || contrato?.contrato_assinado_url || String(contrato?.status ?? "").toUpperCase() === "VIGENTE");
-            if (!assinado) return [];
-            const numero = unidade.numero ?? unidade.uc ?? "UC";
-            return [{
-              id: `contrato-assinado-${unidade.id}`,
-              severidade: "media",
-              titulo: "Cliente assinou o contrato",
-              detalhe: `${unidade.cliente_nome ?? unidade.clientes?.nome ?? "Cliente"} · UC ${numero}`,
-              rota: `/unidades/contrato?unidadeId=${unidade.id}`,
-            }];
-          })
-        : [];
-      const avisosFinais = [...avisosContratos, ...avisos];
-      setNotificacoes(avisosFinais);
-      void notificarAvisosNoAndroid(usuarioId, avisosFinais.map((aviso: any) => ({
+      setNotificacoes(avisos);
+      void notificarAvisosNoAndroid(usuarioId, avisos.map((aviso: any) => ({
         id: aviso.id,
         titulo: aviso.titulo,
         detalhe: aviso.detalhe,

@@ -4,6 +4,7 @@ import { statusAssinaturaPorEvento } from "./assinaturaStatus";
 import { asaasRequest } from "./asaas.client";
 import { regenerarDocumentosGeradosDaFatura } from "../faturas/documentosFatura.service";
 import { buscarCarteiraDaFatura, chavePixDaCarteira } from "../carteira/carteira.service";
+import { exigirContratoAssinadoDaUc } from "../contratos/contratoUc.service";
 
 function digits(value: unknown) { return String(value ?? "").replace(/\D/g, ""); }
 function hojeNoBrasil() {
@@ -57,6 +58,9 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, o
     if (erroReferencia || !referencia) throw new Error("Fatura não encontrada.");
     empresaResolvida = referencia.empresa_id;
   }
+  const { data: referenciaUc, error: erroUc } = await supabase.from("faturas").select("unidade_consumidora_id").eq("id", faturaId).eq("empresa_id", empresaResolvida).single();
+  if (erroUc || !referenciaUc?.unidade_consumidora_id) throw new Error("Fatura sem UC válida.");
+  await exigirContratoAssinadoDaUc(referenciaUc.unidade_consumidora_id, empresaResolvida);
   const { data: existing } = await supabase.from("asaas_cobrancas").select("*").eq("fatura_id", faturaId).eq("empresa_id", empresaResolvida).maybeSingle();
   if (existing?.asaas_payment_id) {
     let payment = await asaasRequest<any>(`/payments/${existing.asaas_payment_id}`);

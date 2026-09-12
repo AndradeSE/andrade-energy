@@ -256,7 +256,7 @@ export default function ContratoDaUnidade() {
         try {
           setGerando(true);
           const resultado = await enviarContratoEConvite(id);
-          Alert.alert(resultado.emailEnviado ? "Documentos enviados" : "Envio não concluído", resultado.emailEnviado ? (resultado.novoConvite ? "O cliente receberá o convite, o contrato e a proposta no e-mail cadastrado." : "O cliente receberá somente o novo contrato e a proposta; o convite anterior foi preservado.") : "Não foi possível entregar o e-mail. Tente reenviar.");
+          Alert.alert(resultado.emailEnviado ? "Documentos enviados" : "Envio não concluído", resultado.emailEnviado ? "O contrato foi enviado ao cliente. Próximo passo: agora é só aguardar a assinatura. A UC continuará bloqueada para faturamento até o aceite." : "Não foi possível entregar o e-mail. Tente reenviar.");
         } catch (erro: any) {
           Alert.alert("Não foi possível enviar", erro?.response?.data?.message || "Tente novamente.");
         } finally { setGerando(false); }

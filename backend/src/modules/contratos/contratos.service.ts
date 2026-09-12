@@ -423,6 +423,12 @@ export async function registrarAceiteEletronicoService(contratoId: string, usuar
     await restaurarVigencias(anteriores);
     throw error;
   }
+  const { error: erroAtivacao } = await supabase
+    .from("unidades_consumidoras")
+    .update({ status: "ATIVA" })
+    .eq("id", contrato.unidade_consumidora_id)
+    .eq("empresa_id", contrato.empresa_id);
+  if (erroAtivacao) throw erroAtivacao;
   await supabase.from("contratos_codigos_assinatura").delete().eq("contrato_id", contratoId).eq("codigo_hash", confirmacao.codigo_hash);
   return anexarLinksDoContrato(data);
 }
