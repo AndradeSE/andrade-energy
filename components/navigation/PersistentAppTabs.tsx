@@ -19,8 +19,8 @@ const generatorTabs: TabItem[] = [
   { label: "Operação", icon: "construct-outline", route: "/(tabs)/operacao" },
   { label: "Home", icon: "home-outline", route: "/(tabs)" },
   { label: "Faturas", icon: "receipt-outline", route: "/(tabs)/faturas" },
-  { label: "Financeiro", icon: "cash-outline", route: "/(tabs)/financeiro" },
   { label: "Contrato", icon: "document-text-outline", route: "/(tabs)/contrato" },
+  { label: "Financeiro", icon: "cash-outline", route: "/(tabs)/financeiro" },
 ];
 
 const consumerTabs: TabItem[] = [
@@ -91,7 +91,10 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
             featured={featured}
             size={IS_GERADOR_APP ? 21 : 24}
           />
-          <Text numberOfLines={commercialEnvironment ? 2 : 1} style={styles.label}>
+          <Text
+            numberOfLines={commercialEnvironment ? 2 : 1}
+            style={[styles.label, IS_GERADOR_APP && styles.generatorLabel]}
+          >
             {tab.label}
           </Text>
         </Pressable>
@@ -134,10 +137,15 @@ const styles = StyleSheet.create({
   },
   label: {
     color: Colors.subtitle,
+    fontSize: 9,
+    lineHeight: 11,
+    fontWeight: "600",
+    marginBottom: 0,
+    textAlign: "center",
+  },
+  generatorLabel: {
     fontSize: 8,
     lineHeight: 10,
     fontWeight: "700",
-    marginBottom: 0,
-    textAlign: "center",
   },
 });

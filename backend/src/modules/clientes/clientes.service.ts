@@ -82,11 +82,23 @@ export async function excluirUnidadeCliente(unidadeId: string, empresaId: string
  * a alocação das UCs excluídas em cascata.
  */
 export async function excluirCliente(clienteId: string, empresaId: string) {
-  const [cliente, unidades, participacoes] = await Promise.all([
-    buscarCliente(clienteId, empresaId),
+  const [{ data: cliente, error: erroCliente }, unidades, participacoes] = await Promise.all([
+    supabase
+      .from("clientes")
+      .select("id,usina_id")
+      .eq("id", clienteId)
+      .eq("empresa_id", empresaId)
+      .maybeSingle(),
     listarUnidadesCliente(clienteId, empresaId),
     listarUsinasDeParticipacaoDoCliente(clienteId, empresaId),
   ]);
+  if (erroCliente) throw erroCliente;
+
+  // DELETE deve ser idempotente. Uma resposta anterior pode se perder depois
+  // de o banco concluir a remoção; repetir a ação não pode transformar esse
+  // sucesso em PGRST116 (zero linhas para um retorno exigido como único).
+  if (!cliente && unidades.length === 0 && participacoes.length === 0) return;
+
   // Alguns cadastros antigos possuíam a participação registrada numa usina
   // diferente do campo legado do cliente/UC. Guardamos também esse vínculo
   // antes da exclusão para recalcular toda usina que possa ter sido afetada.

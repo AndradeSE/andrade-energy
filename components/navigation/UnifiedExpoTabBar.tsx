@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Colors } from "../../theme";
+import { IS_GERADOR_APP } from "../../config/appVariant";
 
 export default function UnifiedExpoTabBar({
   state,
@@ -21,7 +22,7 @@ export default function UnifiedExpoTabBar({
       <View
         style={[
           styles.bar,
-          { height: 63 + bottomInset, paddingBottom: bottomInset },
+          { height: (IS_GERADOR_APP ? 63 : 61) + bottomInset, paddingBottom: bottomInset },
         ]}
       >
         {routes.map((route) => {
@@ -46,10 +47,13 @@ export default function UnifiedExpoTabBar({
                 if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
               }}
               onLongPress={() => navigation.emit({ type: "tabLongPress", target: route.key })}
-              style={styles.item}
+              style={[styles.item, !IS_GERADOR_APP && styles.consumerItem]}
             >
               {options.tabBarIcon?.({ focused, color, size: 21 })}
-              <Text numberOfLines={1} style={[styles.label, focused && styles.labelActive]}>
+              <Text
+                numberOfLines={1}
+                style={[styles.label, !IS_GERADOR_APP && styles.consumerLabel, focused && styles.labelActive]}
+              >
                 {label}
               </Text>
             </Pressable>
@@ -89,12 +93,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  consumerItem: { minHeight: 50 },
   label: {
     color: Colors.subtitle,
     fontSize: 8,
     lineHeight: 10,
     fontWeight: "700",
     textAlign: "center",
+  },
+  consumerLabel: {
+    fontSize: 10,
+    lineHeight: 12,
   },
   labelActive: { color: Colors.primary },
 });
