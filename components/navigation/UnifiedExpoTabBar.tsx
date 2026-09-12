@@ -21,7 +21,9 @@ export default function UnifiedExpoTabBar({
         pointerEvents="none"
         style={styles.topShadow}
       />
-      <View
+      <LinearGradient
+        colors={["#FFFFFF", "#EEF2F0"]}
+        locations={[0, 1]}
         style={[
           styles.bar,
           { height: 66, paddingBottom: 3 },
@@ -61,7 +63,7 @@ export default function UnifiedExpoTabBar({
             </Pressable>
           );
         })}
-      </View>
+      </LinearGradient>
     </View>
   );
 }
@@ -86,7 +88,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "transparent",
     borderTopWidth: 1,
     borderTopColor: "#E2E8F0",
     overflow: "visible",

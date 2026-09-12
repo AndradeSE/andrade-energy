@@ -1,4 +1,5 @@
 import { router } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Colors } from "../../theme";
 import AppTabIcon from "../navigation/AppTabIcon";
@@ -57,10 +58,7 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
 
   return (
     <View style={styles.cornerFill}>
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <View style={styles.surface} />
-      </View>
-      <View style={styles.bar}>
+      <LinearGradient colors={["#FFFFFF", "#EEF2F0"]} locations={[0, 1]} style={styles.bar}>
       {items.map((item) => {
         const selected = active === item.key;
         const featured = item.key === "HOME";
@@ -85,7 +83,7 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
           </Pressable>
         );
       })}
-      </View>
+      </LinearGradient>
     </View>
   );
 }
@@ -93,14 +91,6 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
 const styles = StyleSheet.create({
   cornerFill: {
     backgroundColor: "#DFE8E3",
-  },
-  surface: {
-    ...StyleSheet.absoluteFillObject,
-    borderTopWidth: 1,
-    borderTopColor: "#E2E8F0",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    backgroundColor: "#FFFFFF",
   },
   bar: {
     height: 66,
@@ -110,6 +100,8 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    borderTopWidth: 1,
+    borderTopColor: "#E2E8F0",
     backgroundColor: "transparent",
     overflow: "visible",
     elevation: 20,
