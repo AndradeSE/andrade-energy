@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors } from "../../theme";
 import AppTabIcon from "./AppTabIcon";
+import { useAuth } from "../../contexts/AuthContext";
 
 type TabItem = {
   label: string;
@@ -36,6 +37,7 @@ const commercialTabs: TabItem[] = [
 ];
 
 export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
+  const { user } = useAuth();
   const segments = useSegments();
   const firstSegment = String(segments[0] ?? "");
   const secondSegment = String(segments[1] ?? "");
@@ -59,11 +61,13 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
 
   const commercialEnvironment =
     IS_GERADOR_APP && (firstSegment === "admin" || firstSegment === "geradores");
-  const tabs = commercialEnvironment
+  const baseTabs = commercialEnvironment
     ? commercialTabs
     : IS_GERADOR_APP
       ? generatorTabs
       : consumerTabs;
+  const colaborador = String(user?.papel_empresa ?? "").startsWith("COLABORADOR_");
+  const tabs = colaborador ? baseTabs.filter((tab) => !["Financeiro"].includes(tab.label)) : baseTabs;
 
   return (
     <View style={styles.cornerFill}>

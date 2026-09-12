@@ -28,6 +28,7 @@ import carteiraRoutes from "./modules/carteira/carteira.routes";
 import comercialRoutes from "./modules/comercial/comercial.routes";
 import empresasRoutes from "./modules/empresas/empresas.routes";
 import { mercadoPagoWebhookRouter } from "./modules/comercial/mercadoPagoWebhook.routes";
+import colaboradoresRoutes from "./modules/colaboradores/colaboradores.routes";
 
 dotenv.config();
 
@@ -103,6 +104,7 @@ app.use((req, _, next) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/convites", convitesRoutes);
 app.use("/api/usuarios", usuariosRoutes);
+app.use("/api/colaboradores", colaboradoresRoutes);
 
 app.use("/api/dashboard", dashboardRoutes);
 

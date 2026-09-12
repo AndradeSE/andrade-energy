@@ -55,15 +55,17 @@ export async function exigirAutenticacao(req: Request, res: Response, next: Next
   let empresaAtivaId = String(data?.empresa_ativa_id ?? usuario.empresa_id ?? "");
   const { data: vinculo } = await supabase
     .from("empresa_usuarios")
-    .select("empresa_id,papel")
+    .select("empresa_id,papel,permissoes")
     .eq("usuario_id", usuario.id)
     .eq("empresa_id", empresaAtivaId)
     .eq("ativo", true)
     .maybeSingle();
+  let papelEmpresa = vinculo?.papel ?? null;
+  let permissoesEmpresa = vinculo?.permissoes ?? {};
   if (!vinculo) {
     const { data: principal } = await supabase
       .from("empresa_usuarios")
-      .select("empresa_id,papel")
+      .select("empresa_id,papel,permissoes")
       .eq("usuario_id", usuario.id)
       .eq("ativo", true)
       .order("principal", { ascending: false })
@@ -71,19 +73,56 @@ export async function exigirAutenticacao(req: Request, res: Response, next: Next
       .maybeSingle();
     if (!principal) return res.status(403).json({ message: "Sua conta não possui acesso a uma empresa ativa." });
     empresaAtivaId = principal.empresa_id;
+    papelEmpresa = principal.papel;
+    permissoesEmpresa = principal.permissoes ?? {};
     await supabase.from("sessoes_usuarios").update({ empresa_ativa_id: empresaAtivaId }).eq("id", data!.id);
   }
 
-  const usuarioDaSessao = { ...usuario, empresa_principal_id: usuario.empresa_id, empresa_id: empresaAtivaId };
+  const usuarioDaSessao = { ...usuario, empresa_principal_id: usuario.empresa_id, empresa_id: empresaAtivaId, papel_empresa: papelEmpresa, permissoes: permissoesEmpresa };
   (req as any).usuario = usuarioDaSessao;
   (req as any).empresaId = empresaAtivaId;
   (req as any).sessaoId = data!.id;
+  if (String(papelEmpresa ?? "").startsWith("COLABORADOR_")) {
+    void supabase.from("empresa_usuarios").update({ ultimo_acesso_em: new Date().toISOString(), atualizado_em: new Date().toISOString() }).eq("usuario_id", usuario.id).eq("empresa_id", empresaAtivaId);
+  }
   return next();
 }
 
 export function exigirGestor(req: Request, res: Response, next: NextFunction) {
   const perfil = (req as any).usuario?.perfil;
-  if (perfil !== "ADMIN" && perfil !== "GESTOR") return res.status(403).json({ message: "Acesso exclusivo do gerador." });
+  const papel = String((req as any).usuario?.papel_empresa ?? "").toUpperCase();
+  if (perfil !== "ADMIN" && perfil !== "GESTOR" && papel !== "COLABORADOR_GERADOR") return res.status(403).json({ message: "Acesso exclusivo da operação geradora." });
+  if (papel === "COLABORADOR_GERADOR") {
+    const recurso = req.baseUrl.includes("/clientes")
+      ? (req.path.includes("unidade") ? "unidades" : "clientes")
+      : req.baseUrl.includes("/usinas") ? "usinas"
+        : req.baseUrl.includes("/contratos") ? "contratos"
+          : req.baseUrl.includes("/faturas") ? "faturas"
+            : null;
+    if (recurso && (req as any).usuario?.permissoes?.[recurso] === false) {
+      return res.status(403).json({ message: `Seu acesso a ${recurso} não foi liberado pelo titular.` });
+    }
+  }
+  return next();
+}
+
+export function exigirOperacaoComercial(req: Request, res: Response, next: NextFunction) {
+  const usuario = (req as any).usuario;
+  const papel = String(usuario?.papel_empresa ?? "").toUpperCase();
+  if (usuarioEhSuperAdministradorAndrade(usuario)) return next();
+  if (papel === "COLABORADOR_COMERCIAL" && usuario?.permissoes?.geradores !== false) return next();
+  return res.status(403).json({ message: "Acesso não liberado para a gestão comercial." });
+}
+
+export function exigirTitularFinanceiro(req: Request, res: Response, next: NextFunction) {
+  const usuario = (req as any).usuario;
+  const papel = String(usuario?.papel_empresa ?? "").toUpperCase();
+  if (["COLABORADOR_GERADOR", "COLABORADOR_COMERCIAL"].includes(papel)) {
+    return res.status(403).json({ message: "Colaboradores não possuem acesso à carteira, recebíveis ou transferências." });
+  }
+  if (!["ADMIN", "GESTOR"].includes(String(usuario?.perfil ?? "").toUpperCase())) {
+    return res.status(403).json({ message: "Acesso financeiro exclusivo do titular." });
+  }
   return next();
 }
 

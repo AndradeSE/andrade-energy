@@ -5,6 +5,7 @@ import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-nativ
 
 import { AppHeader, ElasticScrollView as ScrollView, Screen } from "../components/ui";
 import { Colors, Radius, Spacing, Typography } from "../theme";
+import { useAuth } from "../contexts/AuthContext";
 
 type Item = { icon: keyof typeof Ionicons.glyphMap; label: string; detalhe: string; rota: string };
 
@@ -25,6 +26,7 @@ const itens: Record<string, Item[]> = {
     { icon: "analytics-outline", label: "Operação", detalhe: "Competências processadas", rota: "/(tabs)/operacao" },
     { icon: "wallet-outline", label: "Financeiro", detalhe: "Receita e carteira", rota: "/financeiro" },
     { icon: "card-outline", label: "Meu plano", detalhe: "Plano, recursos e upgrade", rota: "/assinatura" },
+    { icon: "people-circle-outline", label: "Colaboradores", detalhe: "Convites e permissões da equipe", rota: "/colaboradores" },
   ],
   comercial: [
     { icon: "business-outline", label: "Geradores", detalhe: "Contas e assinaturas", rota: "/geradores/gestao" },
@@ -32,6 +34,7 @@ const itens: Record<string, Item[]> = {
     { icon: "cash-outline", label: "Pagamentos", detalhe: "Cobranças e faturamento", rota: "/geradores/gestao?aba=PAGAMENTOS" },
     { icon: "layers-outline", label: "Empresas parceiras", detalhe: "Administração multiempresa", rota: "/admin/empresas" },
     { icon: "person-add-outline", label: "Convidar gerador", detalhe: "Criar novo acesso", rota: "/geradores/convidar" },
+    { icon: "people-circle-outline", label: "Colaboradores", detalhe: "Equipe da administração comercial", rota: "/colaboradores" },
     { icon: "download-outline", label: "Compartilhar aplicativos", detalhe: "Apps Gerador e Consumidor", rota: "/admin/comercial" },
     { icon: "person-outline", label: "Perfil administrativo", detalhe: "Dados e segurança", rota: "/admin/perfil?origem=comercial" },
   ],
@@ -42,9 +45,12 @@ function normalizarBusca(valor: string) {
 }
 
 export default function Pesquisa() {
+  const { user } = useAuth();
   const { perfil = "usinas" } = useLocalSearchParams<{ perfil?: string }>();
   const [busca, setBusca] = useState("");
-  const lista = itens[perfil] ?? itens.usinas;
+  const colaborador = String(user?.papel_empresa ?? "").startsWith("COLABORADOR_");
+  const bloqueadas = colaborador ? ["Financeiro", "Meu plano", "Pagamentos", "Empresas parceiras", "Convidar gerador", "Colaboradores"] : [];
+  const lista = (itens[perfil] ?? itens.usinas).filter((item) => !bloqueadas.includes(item.label));
   const filtrados = useMemo(() => {
     const termos = normalizarBusca(busca).split(/\s+/).filter(Boolean);
     if (!termos.length) return [];

@@ -86,7 +86,8 @@ export default function HomeComercial() {
   useEffect(() => {
     void load();
   }, [load]);
-  if (usuario?.perfil !== "ADMIN") {
+  const colaboradorComercial = usuario?.papel_empresa === "COLABORADOR_COMERCIAL";
+  if (usuario?.perfil !== "ADMIN" && !colaboradorComercial) {
     router.replace("/selecionar-unidade");
     return null;
   }
@@ -143,7 +144,7 @@ export default function HomeComercial() {
                 router.push("/geradores/gestao" as any);
               }}
             />
-            <DrawerLink
+            {!colaboradorComercial ? <DrawerLink
               icon="cash-outline"
               label="Pagamentos e faturamento"
               onPress={() => {
@@ -153,23 +154,23 @@ export default function HomeComercial() {
                   params: { aba: "PAGAMENTOS" },
                 } as any);
               }}
-            />
-            <DrawerLink
+            /> : null}
+            {!colaboradorComercial ? <DrawerLink
               icon="layers-outline"
               label="Empresas parceiras"
               onPress={() => {
                 setMenuAberto(false);
                 router.push("/admin/empresas" as any);
               }}
-            />
-            <DrawerLink
+            /> : null}
+            {!colaboradorComercial ? <DrawerLink
               icon="person-add-outline"
               label="Convidar gerador"
               onPress={() => {
                 setMenuAberto(false);
                 router.push("/geradores/convidar");
               }}
-            />
+            /> : null}
             <DrawerLink
               icon="download-outline"
               label="Compartilhar app do Gerador"
@@ -231,7 +232,7 @@ export default function HomeComercial() {
         <Section title="Acesso rápido" framed={false}>
           <QuickAccessCarousel
             storageKey="comercial-home"
-            items={[
+            items={([
               { icon: "business-outline", label: "Geradores", value: `${data?.geradores.filter((item) => item.perfil === "GESTOR").length ?? 0} cadastrados`, onPress: () => router.push({ pathname: "/geradores/gestao", params: { aba: "GERADORES" } } as any) },
               { icon: "card-outline", label: "Assinaturas", value: `${data?.assinaturas.length ?? 0} cadastradas`, onPress: () => router.push({ pathname: "/geradores/gestao", params: { aba: "ASSINATURAS" } } as any) },
               { icon: "pulse-outline", label: "Clientes ativos", value: `${data?.resumo.ativas ?? 0} monitorados`, onPress: () => router.push("/geradores/monitoramento" as any) },
@@ -241,10 +242,10 @@ export default function HomeComercial() {
               { icon: "document-text-outline", label: "Contratos e termos", value: `${data?.documentos.length ?? 0} documentos`, onPress: () => router.push("/geradores/gestao" as any) },
               { icon: "download-outline", label: "Compartilhar app Gerador", value: baixandoApp === "gerador" ? `Baixando ${progressoApp}%` : "WhatsApp, e-mail ou Bluetooth", onPress: () => void baixarApp("gerador") },
               { icon: "phone-portrait-outline", label: "Compartilhar app Consumidor", value: baixandoApp === "consumidor" ? `Baixando ${progressoApp}%` : "WhatsApp, e-mail ou Bluetooth", onPress: () => void baixarApp("consumidor") },
-            ]}
+            ].filter((item) => !colaboradorComercial || ["Geradores", "Clientes ativos", "Contratos e termos"].includes(item.label))) as any}
           />
         </Section>
-        {!loading && data ? (
+        {!colaboradorComercial && !loading && data ? (
           <View style={styles.financeGrid}>
             <TouchableOpacity
               activeOpacity={0.86}
@@ -322,7 +323,7 @@ export default function HomeComercial() {
         ) : null}
         {loading && !data ? (
           <ActivityIndicator color={Colors.primary} />
-        ) : (
+        ) : !colaboradorComercial ? (
           <View style={styles.metrics}>
             <Metric
               icon="people-outline"
@@ -355,7 +356,7 @@ export default function HomeComercial() {
               }
             />
           </View>
-        )}
+        ) : null}
         <Text style={styles.section}>RESUMO DA OPERAÇÃO COMERCIAL</Text>
         <View style={styles.summary}>
           <View style={styles.summaryItem}>

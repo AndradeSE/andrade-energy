@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import * as service from "./comercial.service";
 
 const respond = (res: Response, work: Promise<any>, status = 200) => work.then((data) => res.status(status).json(data)).catch((error) => res.status(400).json({ message: error?.message ?? "Operação comercial não concluída." }));
-export const painel = (_: Request, res: Response) => respond(res, service.obterPainelComercial());
+export const painel = (req: Request, res: Response) => respond(res, service.obterPainelComercial((req as any).usuario));
 export const planosPublicos = (_: Request, res: Response) => respond(res, service.listarPlanosPublicos());
 export const criarPlano = (req: Request, res: Response) => respond(res, service.salvarPlano(undefined, req.body), 201);
 export const atualizarPlano = (req: Request, res: Response) => respond(res, service.salvarPlano(req.params.id, req.body));

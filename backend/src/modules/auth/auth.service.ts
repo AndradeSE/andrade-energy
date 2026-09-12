@@ -174,6 +174,16 @@ export async function autenticar(
     throw new Error("E-mail ou senha inválidos.");
   }
 
+  const { data: vinculoEmpresa } = await supabase
+    .from("empresa_usuarios")
+    .select("papel,permissoes,empresa_id")
+    .eq("usuario_id", usuario.id)
+    .eq("ativo", true)
+    .order("principal", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const colaborador = String(vinculoEmpresa?.papel ?? "").startsWith("COLABORADOR_");
+
   let clienteId = usuario.cliente_id ?? null;
   if (usuario.perfil === "LEITURA") {
     // O vínculo do consumidor é criado exclusivamente pelo convite. Não
@@ -198,7 +208,7 @@ export async function autenticar(
     if (criadoUsuarioEm > 0 && criadoClienteEm > 0 && criadoUsuarioEm < criadoClienteEm) {
       throw new Error("Esta conta pertence a um cadastro anterior que foi removido. Use o novo convite para criar a conta novamente.");
     }
-  } else {
+  } else if (!colaborador) {
     clienteId = await vincularClientePorCpf(usuario);
   }
   const token = gerarToken();
@@ -214,6 +224,9 @@ export async function autenticar(
     usuario: {
       ...usuarioPublico(usuario),
       cliente_id: clienteId ?? usuario.cliente_id,
+      empresa_id: vinculoEmpresa?.empresa_id ?? usuario.empresa_id,
+      papel_empresa: vinculoEmpresa?.papel ?? null,
+      permissoes: vinculoEmpresa?.permissoes ?? {},
     },
   };
 }
@@ -636,6 +649,26 @@ export async function reenviarVerificacaoDeCadastro(emailInformado: unknown) {
 export async function cadastrarConta(input: { nome: string; cpf: string; email: string; senha: string; tipo: "CONSUMIDOR" | "GERADOR"; convite?: string; empresa_id?: string }) {
   if (input.tipo === "CONSUMIDOR") {
     throw new Error("Para criar uma conta de consumidor, use o convite enviado pelo gerador.");
+  }
+  const tokenConvite = String(input.convite ?? "");
+  if (tokenConvite.startsWith("colaborador_")) {
+    const { consultarConviteColaborador, concluirConviteColaborador } = await import("../colaboradores/colaboradores.service.js");
+    const conviteColaborador = await consultarConviteColaborador(tokenConvite);
+    if ((input.senha?.length ?? 0) < 6) throw new Error("A senha deve ter pelo menos 6 caracteres.");
+    const usuario = await criarConta({
+      ...input,
+      nome: conviteColaborador.nome,
+      cpf: conviteColaborador.cpf,
+      email: conviteColaborador.email,
+      empresa_id: conviteColaborador.empresa_id,
+    });
+    try {
+      await concluirConviteColaborador(conviteColaborador, usuario.id);
+    } catch (error) {
+      await supabase.from("usuarios").delete().eq("id", usuario.id);
+      throw error;
+    }
+    return { message: "Conta de colaborador criada com sucesso.", emailEnviado: false, papel_empresa: conviteColaborador.papel };
   }
   const convite = await aceitarConviteGerador(String(input.convite ?? ""));
   const nomeEmpresa = String(convite.nome ?? "").trim();

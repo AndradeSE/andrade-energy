@@ -3,15 +3,18 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Colors } from "../../theme";
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function UnifiedExpoTabBar({
   state,
   descriptors,
   navigation,
 }: BottomTabBarProps) {
+  const { user } = useAuth();
+  const colaborador = String(user?.papel_empresa ?? "").startsWith("COLABORADOR_");
   const routes = state.routes.filter((route) => {
     const options = descriptors[route.key]?.options as any;
-    return options?.href !== null && options?.tabBarItemStyle?.display !== "none";
+    return options?.href !== null && options?.tabBarItemStyle?.display !== "none" && (!colaborador || route.name !== "financeiro");
   });
 
   return (

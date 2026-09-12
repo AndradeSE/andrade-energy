@@ -3,10 +3,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Colors } from "../../theme";
 import AppTabIcon from "../navigation/AppTabIcon";
+import { useAuth } from "../../contexts/AuthContext";
 
 type CommercialTab = "HOME" | "GERADORES" | "PAGAMENTOS" | "PLANOS" | "ASSINATURAS";
 
 export default function CommercialTabs({ active }: { active?: CommercialTab }) {
+  const { user } = useAuth();
+  const colaborador = user?.papel_empresa === "COLABORADOR_COMERCIAL";
   const items = [
     {
       key: "GERADORES",
@@ -54,7 +57,7 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
           params: { aba: "ASSINATURAS" },
         } as any),
     },
-  ] as const;
+  ].filter((item) => !colaborador || ["GERADORES", "HOME"].includes(item.key)) as any[];
 
   return (
     <View style={styles.cornerFill}>

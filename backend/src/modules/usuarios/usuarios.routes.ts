@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { exigirAutenticacao, exigirSuperAdministradorAndrade } from "../../middlewares/auth.middleware";
+import { exigirAutenticacao, exigirOperacaoComercial, exigirSuperAdministradorAndrade } from "../../middlewares/auth.middleware";
 import { alterarStatusGeradorController, listarGeradoresController, removerGeradorController } from "./usuarios.controller";
 
 const router = Router();
-router.use(exigirAutenticacao, exigirSuperAdministradorAndrade);
-router.get("/geradores", listarGeradoresController);
-router.patch("/geradores/:id/status", alterarStatusGeradorController);
-router.delete("/geradores/:id", removerGeradorController);
+router.use(exigirAutenticacao);
+router.get("/geradores", exigirOperacaoComercial, listarGeradoresController);
+router.patch("/geradores/:id/status", exigirOperacaoComercial, alterarStatusGeradorController);
+router.delete("/geradores/:id", exigirSuperAdministradorAndrade, removerGeradorController);
 export default router;

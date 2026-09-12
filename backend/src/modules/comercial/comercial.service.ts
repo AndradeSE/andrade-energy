@@ -65,7 +65,16 @@ export async function transferirAutomaticamenteAssinatura(payment:any) {
   try{const transfer=await asaasComercialRequest<any>("/transfers",{method:"POST",body:JSON.stringify({value:valor,pixAddressKey:pix,pixAddressKeyType:carteira.pix_tipo,operationType:"PIX",description:"Transferência automática de assinatura Andrade Energy",externalReference:String(intent.id)})});return (await supabase.from("asaas_transferencias").update({asaas_transfer_id:transfer.id,status:transfer.status,atualizado_em:new Date().toISOString()}).eq("id",intent.id).select().single()).data;}catch(error){await supabase.from("asaas_transferencias").update({status:"REFUSED",atualizado_em:new Date().toISOString()}).eq("id",intent.id);throw error;}
 }
 
-export async function obterPainelComercial() {
+export async function obterPainelComercial(usuario?: any) {
+  if (String(usuario?.papel_empresa ?? "") === "COLABORADOR_COMERCIAL") {
+    const [{ data: geradores, error }, { data: documentos, error: documentosError }] = await Promise.all([
+      supabase.from("usuarios").select("id,nome,email,cpf,telefone,ativo,perfil,created_at").in("perfil", ["ADMIN", "GESTOR"]).eq("ativo", true).order("nome"),
+      supabase.from("documentos_comerciais").select("id,tipo,titulo,versao,ativo,publicado_em,criado_em").order("criado_em", { ascending: false }),
+    ]);
+    if (error) throw error;
+    if (documentosError) throw documentosError;
+    return { resumo: { total: geradores?.length ?? 0, ativas: 0, inadimplentes: 0, receitaMensalPrevista: 0 }, financeiro: null, planos: [], assinaturas: [], cobrancas: [], documentos: documentos ?? [], geradores: geradores ?? [], acessoColaborador: true };
+  }
   const [
     { data: planos, error: erroPlanos },
     { data: assinaturas, error: erroAssinaturas },
