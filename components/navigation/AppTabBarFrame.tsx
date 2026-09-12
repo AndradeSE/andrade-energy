@@ -17,8 +17,8 @@ export default function AppTabBarFrame({ children }: PropsWithChildren) {
     <View style={styles.cornerFill}>
       <View style={styles.bar}>
         <LinearGradient
-          colors={["#FFFFFF", "#F4F7F5", "#D9E1DD"]}
-          locations={[0, 0.48, 1]}
+          colors={["#FFFFFF", "#DCE3DF"]}
+          locations={[0, 1]}
           pointerEvents="none"
           style={styles.background}
         />
@@ -51,7 +51,7 @@ export const appTabBarStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   cornerFill: {
-    backgroundColor: "transparent",
+    backgroundColor: "#DFE8E3",
     overflow: "visible",
   },
   bar: {
