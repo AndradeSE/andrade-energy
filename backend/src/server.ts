@@ -29,6 +29,7 @@ import comercialRoutes from "./modules/comercial/comercial.routes";
 import empresasRoutes from "./modules/empresas/empresas.routes";
 import { mercadoPagoWebhookRouter } from "./modules/comercial/mercadoPagoWebhook.routes";
 import colaboradoresRoutes from "./modules/colaboradores/colaboradores.routes";
+import { auditar } from "./utils/audit";
 
 dotenv.config();
 
@@ -92,6 +93,30 @@ app.use(
 
 app.use((req, _, next) => {
   console.log(`${req.method} ${req.originalUrl}`);
+  next();
+});
+
+// Registra centralmente todas as operações autenticadas de colaboradores.
+// O listener é instalado antes das rotas e consulta req.usuario ao final,
+// depois que exigirAutenticacao identificou a pessoa e a empresa ativa.
+app.use((req, res, next) => {
+  const inicio = Date.now();
+  res.on("finish", () => {
+    const usuario = (req as any).usuario;
+    const papel = String(usuario?.papel_empresa ?? "").toUpperCase();
+    const rota = req.originalUrl.split("?")[0];
+    if (!papel.startsWith("COLABORADOR_") || rota === "/api/colaboradores/auditoria") return;
+    const partes = rota.replace(/^\/api\//, "").split("/").filter(Boolean);
+    const recursoId = partes.find((parte) => /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(parte)) ?? null;
+    void auditar({
+      empresaId: String(usuario.empresa_id),
+      usuarioId: String(usuario.id),
+      acao: `COLABORADOR_${req.method}`,
+      recurso: partes[0] ?? "api",
+      recursoId,
+      detalhes: { rota, status: res.statusCode, papel, duracao_ms: Date.now() - inicio },
+    });
+  });
   next();
 });
 

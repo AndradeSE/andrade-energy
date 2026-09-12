@@ -1,6 +1,7 @@
 import api from "../config/api";
 
 export const listarColaboradores = async () => (await api.get("/colaboradores")).data;
+export const listarAuditoriaColaboradores = async () => (await api.get("/colaboradores/auditoria")).data;
 export const convidarColaborador = async (payload: any) => (await api.post("/colaboradores/convites", payload)).data;
 export const reenviarConviteColaborador = async (id: string) => (await api.post(`/colaboradores/convites/${id}/reenviar`)).data;
 export const cancelarConviteColaborador = async (id: string) => (await api.delete(`/colaboradores/convites/${id}`)).data;

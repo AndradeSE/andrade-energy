@@ -43,6 +43,24 @@ export async function listarColaboradores(usuario: any) {
   return { colaboradores: vinculos ?? [], convites: (convites ?? []).filter((item: any) => item.status === "PENDENTE") };
 }
 
+export async function listarAuditoriaColaboradores(usuario: any) {
+  const empresaId = String(usuario?.empresa_id ?? "");
+  if (!empresaId) throw new Error("Empresa ativa não identificada.");
+  const papel = String(usuario?.papel_empresa ?? "");
+  if (!papel.startsWith("COLABORADOR_") && !["ADMIN", "GESTOR"].includes(String(usuario?.perfil ?? ""))) {
+    throw new Error("Acesso ao histórico não autorizado.");
+  }
+  const { data, error } = await supabase
+    .from("auditoria_seguranca")
+    .select("id,acao,recurso,recurso_id,detalhes,criado_em,usuarios!auditoria_seguranca_usuario_id_fkey(id,nome,email)")
+    .eq("empresa_id", empresaId)
+    .like("acao", "COLABORADOR_%")
+    .order("criado_em", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function criarConviteColaborador(input: any, usuario: any) {
   const papel = String(input?.papel ?? "COLABORADOR_GERADOR").toUpperCase();
   if (!papelPermitido(usuario, papel)) throw new Error("Você não pode convidar colaboradores para esta área.");
