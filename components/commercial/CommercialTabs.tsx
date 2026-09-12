@@ -61,6 +61,12 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
 
   return (
     <View style={styles.cornerFill}>
+      <LinearGradient
+        colors={["rgba(15,23,42,0)", "rgba(15,23,42,0.20)"]}
+        locations={[0, 1]}
+        pointerEvents="none"
+        style={styles.shadowHalo}
+      />
       <View style={styles.bar}>
       <LinearGradient colors={["#FFFFFF", "#DCE3DF"]} locations={[0, 1]} pointerEvents="none" style={styles.barBackground} />
       {items.map((item) => {
@@ -94,7 +100,17 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
 
 const styles = StyleSheet.create({
   cornerFill: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "transparent",
+    overflow: "visible",
+  },
+  shadowHalo: {
+    position: "absolute",
+    top: -14,
+    left: 5,
+    right: 5,
+    height: 22,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
   bar: {
     height: 66,
