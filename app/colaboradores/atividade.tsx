@@ -1,12 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { listarAuditoriaColaboradores } from "../../services/colaboradores.service";
 import { AppHeader, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { Colors, Spacing, Typography } from "../../theme";
-import CommercialTabs from "../../components/commercial/CommercialTabs";
 
 const verbos: Record<string, string> = {
   GET: "Consultou",
@@ -30,7 +29,6 @@ const areas: Record<string, string> = {
 };
 
 export default function AtividadeEquipe() {
-  const { ambiente } = useLocalSearchParams<{ ambiente?: string }>();
   const [itens, setItens] = useState<any[]>([]);
   const [carregando, setCarregando] = useState(true);
   const carregar = useCallback(async () => {
@@ -48,7 +46,6 @@ export default function AtividadeEquipe() {
       <Text style={styles.subtitle}>Cada operação feita por um colaborador fica vinculada ao login utilizado. O histórico não exibe senhas nem dados preenchidos nos formulários.</Text>
       {carregando ? <ActivityIndicator color={Colors.primary}/> : itens.length ? itens.map((item) => <AuditCard key={item.id} item={item}/>) : <Card><Text style={styles.empty}>Nenhuma ação de colaborador registrada ainda.</Text></Card>}
     </ScrollView>
-    {ambiente === "comercial" ? <CommercialTabs /> : null}
   </Screen>;
 }
 

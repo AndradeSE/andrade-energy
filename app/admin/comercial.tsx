@@ -532,6 +532,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
+    marginTop: Spacing.lg,
     marginBottom: Spacing.md,
     padding: Spacing.md,
     borderWidth: 1,
