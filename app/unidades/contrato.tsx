@@ -236,8 +236,21 @@ export default function ContratoDaUnidade() {
       setDadosDaMinutaRevisada(JSON.stringify(dadosMinuta));
       setContratoGeradoUrl(contrato.contrato_gerado_url ?? undefined);
       setContratoAssinadoUrl(contrato.contrato_assinado_url ?? undefined);
-      Alert.alert("Minuta gerada", "Revise os dados e as cláusulas antes de colher as assinaturas.");
-      if (contrato.contrato_gerado_url) await Linking.openURL(contrato.contrato_gerado_url);
+      const minutaUrl = contrato.contrato_gerado_url;
+      Alert.alert(
+        "Minuta gerada",
+        "Revise os dados e as cláusulas antes de colher as assinaturas.",
+        [{
+          text: "OK",
+          onPress: minutaUrl ? async () => {
+            try {
+              await Linking.openURL(minutaUrl);
+            } catch {
+              Alert.alert("Não foi possível abrir", "Use o botão Abrir minuta gerada para tentar novamente.");
+            }
+          } : undefined,
+        }],
+      );
     } catch (erro: any) {
       Alert.alert("Não foi possível gerar", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
     } finally {

@@ -15,10 +15,16 @@ export const APP_TAB_BAR_METRICS = {
 export default function AppTabBarFrame({ children }: PropsWithChildren) {
   return (
     <View style={styles.cornerFill}>
+      <LinearGradient
+        colors={["rgba(20, 54, 43, 0)", "rgba(20, 54, 43, 0.13)"]}
+        locations={[0, 1]}
+        pointerEvents="none"
+        style={styles.topShadow}
+      />
       <View style={styles.bar}>
         <LinearGradient
-          colors={["#FFFFFF", "#DCE3DF"]}
-          locations={[0, 1]}
+          colors={["#FFFFFF", "#F4F7F5", "#D9E1DD"]}
+          locations={[0, 0.48, 1]}
           pointerEvents="none"
           style={styles.background}
         />
@@ -53,6 +59,14 @@ const styles = StyleSheet.create({
   cornerFill: {
     backgroundColor: "transparent",
     overflow: "visible",
+    position: "relative",
+  },
+  topShadow: {
+    position: "absolute",
+    top: -14,
+    left: 0,
+    right: 0,
+    height: 14,
   },
   bar: {
     height: APP_TAB_BAR_METRICS.height,

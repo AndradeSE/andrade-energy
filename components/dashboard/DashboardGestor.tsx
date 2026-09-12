@@ -221,19 +221,6 @@ export default function DashboardGestor() {
           />
         </Section>
 
-        {!colaborador ? (
-          <Pressable onPress={() => router.push("/colaboradores?ambiente=gerador" as any)} style={styles.teamCard}>
-            <View style={styles.teamIcon}>
-              <Ionicons name="people-circle-outline" size={24} color={Colors.primary} />
-            </View>
-            <View style={styles.teamCopy}>
-              <Text style={styles.teamTitle}>Gerencie sua equipe</Text>
-              <Text style={styles.teamText}>Convide colaboradores, escolha as permissões operacionais e bloqueie acessos. Carteira, recebíveis e transferências permanecem exclusivos do titular.</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
-          </Pressable>
-        ) : null}
-
         <View style={styles.generationSummary}>
           <View style={styles.generationSummaryTop}>
             <View>
@@ -306,6 +293,19 @@ export default function DashboardGestor() {
           previsto={data.receitaPrevista}
           recebido={data.receitaRealizada}
         />
+
+        {!colaborador ? (
+          <Pressable onPress={() => router.push("/colaboradores?ambiente=gerador" as any)} style={styles.teamCard}>
+            <View style={styles.teamIcon}>
+              <Ionicons name="people-circle-outline" size={24} color={Colors.primary} />
+            </View>
+            <View style={styles.teamCopy}>
+              <Text style={styles.teamTitle}>Gerencie sua equipe</Text>
+              <Text style={styles.teamText}>Convide colaboradores, escolha as permissões operacionais e bloqueie acessos. Carteira, recebíveis e transferências permanecem exclusivos do titular.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
+          </Pressable>
+        ) : null}
 
         <View style={styles.overviewCard}>
           <View style={styles.overviewHeading}>
