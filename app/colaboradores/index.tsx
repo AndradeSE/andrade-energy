@@ -6,6 +6,7 @@ import { AppHeader, Card, ElasticScrollView as ScrollView, Screen } from "../../
 import { useAuth } from "../../contexts/AuthContext";
 import { atualizarColaborador, cancelarConviteColaborador, convidarColaborador, listarColaboradores, reenviarConviteColaborador } from "../../services/colaboradores.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
+import CommercialTabs from "../../components/commercial/CommercialTabs";
 
 const GERADOR = { usinas: "Usinas", clientes: "Clientes", unidades: "Unidades consumidoras", contratos: "Contratos", faturas: "Faturas", operacao: "Operação" };
 const COMERCIAL = { geradores: "Geradores", monitoramento: "Monitoramento", documentos: "Documentos" };
@@ -50,6 +51,7 @@ export default function Colaboradores() {
       <View style={styles.teamHeading}><Text style={[styles.title, styles.teamTitle]}>Equipe e convites</Text><TouchableOpacity onPress={() => router.push({ pathname: "/colaboradores/atividade", params: { ambiente: ambiente ?? (admin ? "comercial" : "gerador") } } as any)}><Text style={styles.auditLink}>Ver atividades</Text></TouchableOpacity></View>
       {carregando ? <ActivityIndicator color={Colors.primary}/> : lista.length ? lista.map((item: any) => <Member key={`${item.pendente}-${item.id}`} item={item} onChange={carregar}/>) : <Card><Text style={styles.empty}>Nenhum colaborador ou convite cadastrado.</Text></Card>}
     </ScrollView>
+    {comercial ? <CommercialTabs /> : null}
   </Screen>;
 }
 
