@@ -1,10 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { criarConviteGerador } from "../../services/convites.service";
+import { obterPainelComercial } from "../../services/comercial.service";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 import { AppHeader, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { emailValido, normalizarEmail } from "../../utils/email";
@@ -14,7 +15,14 @@ export default function ConvidarGerador() {
   const [nome, setNome] = useState("");
   const [cpf, setCpf] = useState("");
   const [email, setEmail] = useState("");
+  const [planos, setPlanos] = useState<any[]>([]);
+  const [planoId, setPlanoId] = useState("");
+  const [ciclo, setCiclo] = useState<"MENSAL" | "ANUAL">("MENSAL");
   const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    void obterPainelComercial().then((painel) => setPlanos((painel.planos ?? []).filter((plano: any) => plano.ativo !== false))).catch(() => setPlanos([]));
+  }, []);
 
   if (user?.perfil !== "ADMIN") {
     return <Screen><View style={styles.blocked}><Ionicons name="lock-closed-outline" size={38} color={Colors.danger} /><Text style={styles.title}>Acesso restrito</Text><Text style={styles.subtitle}>Somente a conta administradora pode convidar novos geradores.</Text><TouchableOpacity onPress={() => router.back()} style={styles.secondary}><Text style={styles.secondaryText}>Voltar</Text></TouchableOpacity></View></Screen>;
@@ -26,7 +34,7 @@ export default function ConvidarGerador() {
     }
     try {
       setEnviando(true);
-      const resultado = await criarConviteGerador({ nome: nome.trim(), cpf, email: normalizarEmail(email) });
+      const resultado = await criarConviteGerador({ nome: nome.trim(), cpf, email: normalizarEmail(email), planoId: planoId || undefined, ciclo, diasTeste: planoId ? 45 : 0 });
       Alert.alert("Convite criado", resultado.emailEnviado ? "O convite foi enviado por e-mail." : `O e-mail não pôde ser enviado. Código: ${resultado.token}`,
         [{ text: "OK", onPress: () => router.back() }]);
     } catch (erro: any) {
@@ -42,6 +50,12 @@ export default function ConvidarGerador() {
         <Text style={styles.label}>Nome completo</Text><TextInput autoCapitalize="words" onChangeText={setNome} placeholder="Nome do novo gerador" placeholderTextColor={Colors.subtitle} style={styles.input} value={nome} />
         <Text style={styles.label}>CPF</Text><TextInput keyboardType="numeric" maxLength={11} onChangeText={(value) => setCpf(value.replace(/\D/g, ""))} placeholder="Somente números" placeholderTextColor={Colors.subtitle} style={styles.input} value={cpf} />
         <Text style={styles.label}>E-mail</Text><TextInput autoCapitalize="none" autoCorrect={false} keyboardType="email-address" onChangeText={(valor) => setEmail(normalizarEmail(valor))} placeholder="gerador@email.com" placeholderTextColor={Colors.subtitle} style={styles.input} value={email} />
+        <Text style={styles.label}>Plano ao aceitar o convite</Text>
+        <View style={styles.options}>
+          <TouchableOpacity onPress={() => setPlanoId("")} style={[styles.option, !planoId && styles.optionActive]}><Text style={[styles.optionText, !planoId && styles.optionTextActive]}>Sem plano</Text></TouchableOpacity>
+          {planos.map((plano) => <TouchableOpacity key={plano.id} onPress={() => setPlanoId(plano.id)} style={[styles.option, planoId === plano.id && styles.optionActive]}><Text style={[styles.optionText, planoId === plano.id && styles.optionTextActive]}>{plano.nome}</Text></TouchableOpacity>)}
+        </View>
+        {planoId ? <><Text style={styles.label}>Ciclo</Text><View style={styles.options}>{(["MENSAL", "ANUAL"] as const).map((item) => <TouchableOpacity key={item} onPress={() => setCiclo(item)} style={[styles.option, ciclo === item && styles.optionActive]}><Text style={[styles.optionText, ciclo === item && styles.optionTextActive]}>{item === "MENSAL" ? "Mensal" : "Anual"}</Text></TouchableOpacity>)}</View><Text style={styles.planHint}>A assinatura será criada com 45 dias de teste quando o gerador concluir o cadastro.</Text></> : null}
         <TouchableOpacity disabled={enviando} onPress={enviar} style={[styles.button, enviando && { opacity: .65 }]}>{enviando ? <ActivityIndicator color={Colors.surface} /> : <><Ionicons name="send-outline" size={20} color={Colors.surface} /><Text style={styles.buttonText}>Enviar convite</Text></>}</TouchableOpacity>
       </View>
     </ScrollView>
@@ -53,4 +67,5 @@ const styles = StyleSheet.create({
   notice: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg, backgroundColor: "#E9F7EF" },
   card: { padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: Colors.surface, ...Shadows.card }, label: { marginTop: Spacing.sm, marginBottom: 7, color: Colors.text, fontSize: Typography.small, fontWeight: "800" }, input: { minHeight: 54, paddingHorizontal: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, color: Colors.text, backgroundColor: Colors.surface },
   button: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.xl, borderRadius: Radius.md, backgroundColor: Colors.primary }, buttonText: { color: Colors.surface, fontWeight: "900" }, secondary: { marginTop: Spacing.lg, padding: Spacing.md }, secondaryText: { color: Colors.primary, fontWeight: "800" },
+  options: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.xs }, option: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.round, backgroundColor: Colors.surface }, optionActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight }, optionText: { color: Colors.subtitle, fontSize: Typography.small, fontWeight: "700" }, optionTextActive: { color: Colors.primaryDark }, planHint: { marginTop: Spacing.sm, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 },
 });

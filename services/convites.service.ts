@@ -10,7 +10,7 @@ export async function consultarConvite(token: string) {
   return data;
 }
 
-export async function criarConviteGerador(payload: { nome: string; cpf: string; email: string }) {
+export async function criarConviteGerador(payload: { nome: string; cpf: string; email: string; planoId?: string; ciclo?: "MENSAL" | "ANUAL"; diasTeste?: number }) {
   const { data } = await api.post("/convites/geradores", payload);
   return data;
 }

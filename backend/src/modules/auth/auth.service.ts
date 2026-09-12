@@ -663,6 +663,17 @@ export async function cadastrarConta(input: { nome: string; cpf: string; email: 
     throw error;
   }
   await concluirConviteGerador(convite, usuario.id);
+  let assinatura: any = null;
+  if (convite.plano_id) {
+    assinatura = await contratarPlano({
+      geradorId: usuario.id,
+      planoId: convite.plano_id,
+      ciclo: convite.ciclo_assinatura ?? "MENSAL",
+      diasTeste: Number(convite.dias_teste ?? 45),
+      formaPagamento: "UNDEFINED",
+      observacoes: "Plano atribuído automaticamente pelo convite administrativo.",
+    }, String(convite.gestor_id));
+  }
   let emailEnviado = false;
   try {
     emailEnviado = await enviarEmailTransacional({
@@ -674,7 +685,7 @@ export async function cadastrarConta(input: { nome: string; cpf: string; email: 
   } catch {
     emailEnviado = false;
   }
-  return { message: "Conta criada com sucesso.", emailEnviado };
+  return { message: "Conta criada com sucesso.", emailEnviado, assinatura };
 }
 
 export async function iniciarTesteGerador(input: { nome: string; cpf: string; email: string; senha: string; telefone?: string }) {

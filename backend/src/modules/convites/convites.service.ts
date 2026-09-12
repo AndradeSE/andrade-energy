@@ -187,9 +187,16 @@ export async function criarConviteGerador(input: any, administrador: any) {
   const cpf = cpfLimpo(input.cpf);
   const email = String(input.email ?? "").trim().toLowerCase();
   const nome = String(input.nome ?? "").trim();
+  const planoId = String(input.planoId ?? "").trim() || null;
+  const ciclo = String(input.ciclo ?? "MENSAL").toUpperCase();
   if (!nome) throw new Error("Informe o nome do gerador.");
   if (cpf.length !== 11) throw new Error("Informe um CPF válido.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Informe um e-mail válido.");
+  if (planoId && !["MENSAL", "ANUAL"].includes(ciclo)) throw new Error("Ciclo de assinatura inválido.");
+  if (planoId) {
+    const { data: plano } = await supabase.from("planos_geradores").select("id").eq("id", planoId).eq("ativo", true).maybeSingle();
+    if (!plano) throw new Error("Plano não encontrado ou inativo.");
+  }
 
   const [{ data: contaEmail }, { data: contaCpf }] = await Promise.all([
     supabase.from("usuarios").select("id").eq("empresa_id", empresaId).eq("perfil", perfil).eq("email", email).limit(1).maybeSingle(),
@@ -200,6 +207,8 @@ export async function criarConviteGerador(input: any, administrador: any) {
   const token = `${perfil === "ADMIN" ? "admin" : "gerador"}_${gerarToken()}`;
   const { error } = await supabase.from("convites_clientes").insert({
     gestor_id: administrador.id, empresa_id: empresaId, nome, cpf, email,
+    plano_id: planoId, ciclo_assinatura: planoId ? ciclo : null,
+    dias_teste: planoId ? Math.max(0, Number(input.diasTeste ?? 45) || 0) : 0,
     token_hash: hashToken(token),
     expira_em: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
   });
@@ -220,9 +229,9 @@ export async function criarConviteGerador(input: any, administrador: any) {
 
 export async function consultarConviteGerador(token: string) {
   if (!token.startsWith("gerador_") && !token.startsWith("admin_")) throw new Error("Convite de acesso inválido ou expirado.");
-  const { data, error } = await supabase.from("convites_clientes").select("id,gestor_id,nome,cpf,email,status,expira_em,empresa_id").eq("token_hash", hashToken(token)).maybeSingle();
+  const { data, error } = await supabase.from("convites_clientes").select("id,gestor_id,nome,cpf,email,status,expira_em,empresa_id,plano_id,ciclo_assinatura,dias_teste").eq("token_hash", hashToken(token)).maybeSingle();
   if (error || !data || data.status !== "PENDENTE" || new Date(data.expira_em) <= new Date()) throw new Error("Convite de gerador inválido ou expirado.");
-  return { nome: data.nome, cpf: data.cpf, email: data.email, empresa_id: data.empresa_id, gestor_id: data.gestor_id };
+  return { nome: data.nome, cpf: data.cpf, email: data.email, empresa_id: data.empresa_id, gestor_id: data.gestor_id, plano_id: data.plano_id, ciclo_assinatura: data.ciclo_assinatura, dias_teste: data.dias_teste };
 }
 
 export async function aceitarConviteGerador(token: string) {
