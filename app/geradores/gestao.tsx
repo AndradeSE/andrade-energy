@@ -63,7 +63,6 @@ export default function GestaoGeradores() {
     | "ASSINATURAS"
     | "PAGAMENTOS"
     | "PLANOS"
-    | "DOCUMENTOS"
   >(
     [
       "RESUMO",
@@ -71,7 +70,6 @@ export default function GestaoGeradores() {
       "ASSINATURAS",
       "PAGAMENTOS",
       "PLANOS",
-      "DOCUMENTOS",
     ].includes(String(params.aba))
       ? (params.aba as any)
       : "RESUMO",
@@ -97,8 +95,8 @@ export default function GestaoGeradores() {
     void load();
   }, [load]);
   useEffect(() => {
-    if (["GERADORES", "ASSINATURAS", "PAGAMENTOS", "PLANOS", "DOCUMENTOS"].includes(String(params.aba))) {
-      setAba(params.aba as "GERADORES" | "ASSINATURAS" | "PAGAMENTOS" | "PLANOS" | "DOCUMENTOS");
+    if (["GERADORES", "ASSINATURAS", "PAGAMENTOS", "PLANOS"].includes(String(params.aba))) {
+      setAba(params.aba as "GERADORES" | "ASSINATURAS" | "PAGAMENTOS" | "PLANOS");
     }
   }, [params.aba]);
   if (user?.perfil !== "ADMIN")
@@ -198,14 +196,6 @@ export default function GestaoGeradores() {
               }}
             />
             <DrawerLink
-              icon="documents-outline"
-              label="Documentos"
-              onPress={() => {
-                setMenuAberto(false);
-                setAba("DOCUMENTOS");
-              }}
-            />
-            <DrawerLink
               icon="pulse-outline"
               label="Clientes ativos"
               onPress={() => {
@@ -257,7 +247,6 @@ export default function GestaoGeradores() {
                   ["ASSINATURAS", "Assinaturas"],
                   ["PAGAMENTOS", "Financeiro"],
                   ["PLANOS", "Planos"],
-                  ["DOCUMENTOS", "Documentos"],
                 ] as const
               ).map(([key, label]) => (
                 <TouchableOpacity
@@ -699,43 +688,6 @@ export default function GestaoGeradores() {
                     <TouchableOpacity style={styles.primaryButton} onPress={() => void withdraw()}><Text style={styles.primaryButtonText}>Transferir via Pix</Text></TouchableOpacity>
                   </View>
                 </> : null}
-              </>
-            ) : null}
-            {aba === "DOCUMENTOS" ? (
-              <>
-                <Text style={styles.section}>DOCUMENTOS COMERCIAIS</Text>
-                <View style={styles.card}>
-                  {(data?.documentos ?? []).map((doc, index) => (
-                    <View
-                      style={[styles.document, index > 0 && styles.border]}
-                      key={doc.id}
-                    >
-                      <Ionicons
-                        name="document-text-outline"
-                        size={22}
-                        color={Colors.primary}
-                      />
-                      <View style={styles.grow}>
-                        <Text style={styles.documentTitle}>{doc.titulo}</Text>
-                        <Text style={styles.muted}>
-                          Versão {doc.versao} ·{" "}
-                          {doc.ativo ? "Publicada" : "Rascunho"}
-                        </Text>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-                <View style={styles.notice}>
-                  <Ionicons
-                    name="information-circle-outline"
-                    size={22}
-                    color={Colors.warning}
-                  />
-                  <Text style={styles.noticeText}>
-                    Contratos, termos e política de privacidade precisam de
-                    revisão jurídica antes da comercialização.
-                  </Text>
-                </View>
               </>
             ) : null}
           </>
