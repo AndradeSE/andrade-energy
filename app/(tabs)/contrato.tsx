@@ -428,25 +428,6 @@ export default function Contrato() {
           </View>
         </Card>
 
-        <Button
-          disabled={!arquivoContrato}
-          icon={
-            <Ionicons
-              name="download-outline"
-              size={20}
-              color={Colors.surface}
-            />
-          }
-          onPress={abrirContrato}
-          title={
-            arquivoContrato
-              ? pdfAssinadoEnviado
-                ? "Abrir contrato assinado"
-                : "Abrir minuta do contrato"
-              : "PDF ainda não disponível"
-          }
-        />
-
         <Text style={styles.sectionTitle}>Assinatura</Text>
         {data.revisao_configuracao_pendente ? <View style={styles.revisionNotice}><Ionicons name="alert-circle-outline" size={20} color="#9A6700" /><Text style={styles.revisionNoticeText}>A configuração desta UC foi alterada. O gerador precisa emitir uma nova versão para sua assinatura.</Text></View> : null}
         <Card>
@@ -479,8 +460,16 @@ export default function Contrato() {
           />
         </Card>
 
-        {!pdfAssinadoEnviado && !aceiteRegistrado ? (
-          <View style={styles.signatureActions}>
+        <View style={styles.signatureActions}>
+          <Button
+            disabled={!arquivoContrato}
+            icon={<Ionicons name="download-outline" size={20} color={Colors.surface} />}
+            onPress={abrirContrato}
+            title={arquivoContrato
+              ? pdfAssinadoEnviado ? "Abrir contrato assinado" : "Abrir minuta do contrato"
+              : "PDF ainda não disponível"}
+          />
+          {!pdfAssinadoEnviado && !aceiteRegistrado ? <>
             <Button
               disabled={registrandoAceite || !arquivoContrato}
               icon={
@@ -522,8 +511,8 @@ export default function Contrato() {
                 {enviandoAssinado ? "Enviando PDF..." : "Enviar PDF assinado"}
               </Text>
             </TouchableOpacity>
-          </View>
-        ) : null}
+          </> : null}
+        </View>
 
         <TouchableOpacity
           activeOpacity={0.85}
@@ -826,14 +815,14 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
   },
   uploadButton: {
-    minHeight: 52,
+    minHeight: 56,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
-    borderColor: Colors.primaryLight,
-    borderWidth: 1,
+    borderColor: Colors.primary,
+    borderWidth: 2,
     borderRadius: Radius.lg,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: Colors.surface,
   },
   govButtonText: {
     marginLeft: Spacing.xs,
