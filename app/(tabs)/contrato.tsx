@@ -383,7 +383,7 @@ export default function Contrato() {
           <View style={styles.economyGrid}>
             <View style={styles.economyItem}>
               <Text style={styles.infoLabel}>Mensal</Text>
-              <Text style={styles.economyValue}>
+              <Text adjustsFontSizeToFit minimumFontScale={0.62} numberOfLines={1} style={styles.economyValue}>
                 {economiaMensal.toLocaleString("pt-BR", {
                   style: "currency",
                   currency: "BRL",
@@ -392,7 +392,7 @@ export default function Contrato() {
             </View>
             <View style={styles.economyItem}>
               <Text style={styles.infoLabel}>Anual</Text>
-              <Text style={styles.economyValue}>
+              <Text adjustsFontSizeToFit minimumFontScale={0.62} numberOfLines={1} style={styles.economyValue}>
                 {economiaAnual.toLocaleString("pt-BR", {
                   style: "currency",
                   currency: "BRL",
@@ -833,13 +833,14 @@ const styles = StyleSheet.create({
   signatureActions: {
     gap: Spacing.sm,
   },
-  economyGrid: { flexDirection: "row", justifyContent: "space-between" },
-  economyItem: { flex: 1 },
+  economyGrid: { flexDirection: "row", gap: Spacing.sm },
+  economyItem: { flex: 1, minWidth: 0 },
   economyValue: {
     marginTop: 5,
     color: Colors.primary,
     fontSize: Typography.section,
     fontWeight: "800",
+    flexShrink: 1,
   },
   securityText: {
     marginLeft: Spacing.xs,
