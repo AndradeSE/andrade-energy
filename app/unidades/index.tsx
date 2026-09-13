@@ -82,7 +82,7 @@ export default function Unidades() {
           >
             <Text style={styles.inviteText}>{acaoContrato.label}</Text>
           </TouchableOpacity>
-          <Text style={styles.accessHint}>{acaoContrato.liberada ? "Contrato assinado. Esta UC já está disponível ao cliente." : "Próximos passos: configure o contrato, gere e revise a minuta e só depois envie para assinatura."}</Text>
+          <Text style={styles.accessHint}>{acaoContrato.liberada ? "Contrato assinado. Abra a UC e acesse Financeiro para escolher a forma de faturamento." : "Próximos passos: configure o contrato, gere e revise a minuta e só depois envie para assinatura."}</Text>
         </Card></Pressable>; }}
         ListEmptyComponent={<View><EmptyState title={erro ? "Não foi possível carregar as unidades" : busca ? "Nenhuma unidade encontrada" : "Nenhuma unidade cadastrada"} subtitle={erro || (busca ? "Altere os termos da busca." : "Use uma fatura da concessionária ou faça o cadastro manual.")} /></View>}
       />}
