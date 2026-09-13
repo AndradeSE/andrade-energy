@@ -389,7 +389,13 @@ function ContratoConsumidor() {
           <View style={styles.economyGrid}>
             <View style={styles.economyItem}>
               <Text style={styles.infoLabel}>Mensal</Text>
-              <Text adjustsFontSizeToFit minimumFontScale={0.62} numberOfLines={1} style={styles.economyValue}>
+              <Text
+                adjustsFontSizeToFit
+                allowFontScaling={false}
+                minimumFontScale={0.5}
+                numberOfLines={1}
+                style={styles.economyValue}
+              >
                 {economiaMensal.toLocaleString("pt-BR", {
                   style: "currency",
                   currency: "BRL",
@@ -398,7 +404,13 @@ function ContratoConsumidor() {
             </View>
             <View style={styles.economyItem}>
               <Text style={styles.infoLabel}>Anual</Text>
-              <Text adjustsFontSizeToFit minimumFontScale={0.62} numberOfLines={1} style={styles.economyValue}>
+              <Text
+                adjustsFontSizeToFit
+                allowFontScaling={false}
+                minimumFontScale={0.5}
+                numberOfLines={1}
+                style={styles.economyValue}
+              >
                 {economiaAnual.toLocaleString("pt-BR", {
                   style: "currency",
                   currency: "BRL",
@@ -844,8 +856,10 @@ const styles = StyleSheet.create({
   economyValue: {
     marginTop: 5,
     color: Colors.primary,
-    fontSize: Typography.section,
+    width: "100%",
+    fontSize: 22,
     fontWeight: "800",
+    letterSpacing: -0.6,
     flexShrink: 1,
   },
   securityText: {
