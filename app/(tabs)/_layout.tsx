@@ -60,6 +60,8 @@ export default function TabLayout() {
   if (!IS_GERADOR_APP) {
     return (
       <Tabs
+        backBehavior="initialRoute"
+        initialRouteName="index"
         tabBar={(props) => <UnifiedExpoTabBar {...props} />}
         screenOptions={{
           ...screenOptions,
@@ -143,6 +145,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      backBehavior="initialRoute"
       tabBar={(props) => <UnifiedExpoTabBar {...props} />}
       initialRouteName="index"
       screenOptions={{
