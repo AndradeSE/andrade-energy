@@ -11,7 +11,7 @@ import { buscarContratoDaUnidade, buscarDadosIniciaisContrato, buscarResumoPropo
 import { enviarContratoEConvite, validarAssinaturaExterna } from "../../services/contratos.service";
 import { buscarUnidade } from "../../services/clientes.service";
 import { buscarUsina } from "../../services/usinas.service";
-import { Colors, Spacing, Typography } from "../../theme";
+import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 type StatusContrato = "ATIVO" | "VIGENTE" | "VENCIDO";
 
@@ -418,7 +418,10 @@ export default function ContratoDaUnidade() {
           {contratoGeradoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoGeradoUrl)} style={styles.documentLink}><Ionicons name="download-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir minuta gerada</Text></TouchableOpacity> : null}
           <Button disabled={gerando || !contratoGeradoUrl || dadosDaMinutaRevisada !== JSON.stringify(dadosParaSalvar())} title={gerando ? "Aguarde..." : "3. Enviar para assinatura"} onPress={enviarParaAnalise} />
           <Text style={styles.documentLinkText}>Gere e revise a minuta atual para habilitar o envio. Alterações nos campos exigem nova revisão.</Text>
-          <Button disabled={importando} title={importando ? "Importando contrato..." : "Importar contrato assinado"} icon={<Ionicons name="attach-outline" size={20} color={Colors.surface} />} onPress={importarAssinado} />
+          <TouchableOpacity accessibilityRole="button" activeOpacity={0.84} disabled={importando} onPress={importarAssinado} style={styles.uploadSignedButton}>
+            <Ionicons name="cloud-upload-outline" size={20} color={Colors.primary} />
+            <Text style={styles.uploadSignedButtonText}>{importando ? "Enviando contrato..." : "Enviar contrato assinado (PDF)"}</Text>
+          </TouchableOpacity>
           {contratoAssinadoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoAssinadoUrl)} style={styles.signedLink}><Ionicons name="checkmark-circle-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Contrato assinado vinculado à UC</Text></TouchableOpacity> : null}
           {assinaturaPendente ? <Button title="Validar assinaturas do PDF" disabled={gerando} onPress={confirmarAssinaturaExterna} /> : null}
         </View>
@@ -458,7 +461,9 @@ const styles = StyleSheet.create({
   infoContratoValue: { marginTop: 3, color: Colors.text, fontSize: Typography.small, fontWeight: "700", lineHeight: 19 },
   editHint: { margin: Spacing.md, color: Colors.subtitle, fontSize: Typography.caption, lineHeight: 18 },
   documentActions: { gap: Spacing.sm, marginTop: Spacing.lg },
-  documentLink: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs },
-  signedLink: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, borderRadius: 10, backgroundColor: Colors.primaryLight },
+  documentLink: { minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.lg, backgroundColor: Colors.surface },
+  signedLink: { minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.lg, backgroundColor: Colors.primaryLight },
+  uploadSignedButton: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, borderWidth: 2, borderColor: Colors.primary, borderRadius: Radius.lg, backgroundColor: Colors.surface },
+  uploadSignedButtonText: { color: Colors.primary, fontSize: Typography.body, fontWeight: "800" },
   documentLinkText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" },
 });
