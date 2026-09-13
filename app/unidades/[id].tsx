@@ -226,7 +226,7 @@ export default function UnidadeDocumentos() {
         } });
       }} style={styles.action}><Ionicons name={contratoAssinado ? "document-text" : "document-text-outline"} size={18} color={Colors.primary} /><Text style={styles.actionText}>{rotuloContrato}</Text></TouchableOpacity> : null}
     </View>
-    {IS_GERADOR_APP && contratoAssinado ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Ir para o financeiro e faturar esta unidade" onPress={() => router.push("/(tabs)/financeiro" as any)} style={styles.billingNextStep}><View style={styles.billingNextStepIcon}><Ionicons name="cash-outline" size={21} color={Colors.primary} /></View><View style={styles.billingNextStepCopy}><Text style={styles.billingNextStepEyebrow}>PRÓXIMO PASSO</Text><Text style={styles.billingNextStepTitle}>Escolha como faturar esta UC</Text><Text style={styles.billingNextStepText}>Acesse Financeiro e escolha faturamento via PDF, manual ou automático.</Text></View><Ionicons name="chevron-forward" size={20} color={Colors.primary} /></TouchableOpacity> : null}
+    {IS_GERADOR_APP && contratoAssinado ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Ir para o financeiro e faturar esta unidade" onPress={() => router.push("/(tabs)/financeiro" as any)} style={styles.billingNextStep}><View style={styles.billingNextStepIcon}><Ionicons name="cash-outline" size={21} color={Colors.surface} /></View><View style={styles.billingNextStepCopy}><Text style={styles.billingNextStepEyebrow}>PRÓXIMO PASSO</Text><Text style={styles.billingNextStepTitle}>Escolha como faturar esta UC</Text><Text style={styles.billingNextStepText}>Acesse Financeiro e escolha faturamento via PDF, manual ou automático.</Text></View><Ionicons name="chevron-forward" size={20} color={Colors.surface} /></TouchableOpacity> : null}
     {IS_GERADOR_APP ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Excluir unidade consumidora" onPress={confirmarExclusaoUnidade} style={styles.deleteUnit}><Ionicons name="trash-outline" size={18} color={Colors.danger} /><Text style={styles.deleteUnitText}>Excluir unidade consumidora</Text></TouchableOpacity> : null}
 
     <Section title="Estatísticas da unidade"><View style={styles.metrics}><View style={styles.metric}><Metric compact title="Economia total" value={moeda(economiaTotal)} icon={<Ionicons name="trending-up-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Total faturado" value={moeda(valorFaturado)} icon={<Ionicons name="wallet-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Consumo acumulado" value={`${consumoTotal.toLocaleString("pt-BR")} kWh`} icon={<Ionicons name="flash-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Faturas processadas" value={faturas.length} icon={<Ionicons name="receipt-outline" size={20} color={Colors.primary} />} /></View></View></Section>
@@ -271,13 +271,13 @@ const styles = StyleSheet.create({
   automaticInvoiceCopy: { flex: 1, marginHorizontal: Spacing.sm },
   automaticInvoiceTitle: { color: Colors.primaryDark, fontSize: Typography.small, fontWeight: "900" },
   automaticInvoiceSubtitle: { marginTop: 2, color: Colors.subtitle, fontSize: 11, lineHeight: 16 },
-  billingNextStep: { minHeight: 82, flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginTop: -Spacing.sm, marginBottom: Spacing.lg, padding: Spacing.md, borderWidth: 1, borderColor: "#A9D5BD", borderRadius: Radius.lg, backgroundColor: "#EAF7F0" },
-  billingNextStepIcon: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: Radius.round, backgroundColor: Colors.surface },
+  billingNextStep: { minHeight: 76, flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginTop: -Spacing.sm, marginBottom: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.md, backgroundColor: Colors.primary },
+  billingNextStepIcon: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
   billingNextStepCopy: { flex: 1, minWidth: 0 },
-  billingNextStepEyebrow: { color: Colors.primary, fontSize: 9, fontWeight: "900", letterSpacing: 0.8 },
-  billingNextStepTitle: { marginTop: 2, color: Colors.primaryDark, fontSize: Typography.small, fontWeight: "900" },
-  billingNextStepText: { marginTop: 3, color: Colors.subtitle, fontSize: 11, lineHeight: 15 },
-  deleteUnit: { minHeight: 46, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: -Spacing.sm, marginBottom: Spacing.lg, borderWidth: 1, borderColor: "#FECACA", borderRadius: Radius.md, backgroundColor: "#FFF7F7" },
+  billingNextStepEyebrow: { color: "#D9F5E7", fontSize: 9, fontWeight: "900", letterSpacing: 0.8 },
+  billingNextStepTitle: { marginTop: 2, color: Colors.surface, fontSize: Typography.small, fontWeight: "900" },
+  billingNextStepText: { marginTop: 3, color: "#EAF7F0", fontSize: 11, lineHeight: 15 },
+  deleteUnit: { minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: Spacing.lg },
   deleteUnitText: { color: Colors.danger, fontSize: Typography.small, fontWeight: "900" },
   metrics: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
   metric: { width: "48%", marginBottom: Spacing.sm },
