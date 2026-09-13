@@ -1,5 +1,5 @@
 import { router, Stack, usePathname } from "expo-router";
-import { Alert, BackHandler, StyleSheet, View } from "react-native";
+import { Alert, BackHandler, StyleSheet, ToastAndroid, View } from "react-native";
 import { useEffect, useRef } from "react";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -39,6 +39,7 @@ const queryClient = new QueryClient({
 
 function RootNavigator() {
   const primeiraAutenticacaoBiometrica = useRef(true);
+  const ultimoVoltarNaHome = useRef(0);
   const pathname = usePathname();
   const {
     session,
@@ -86,11 +87,6 @@ function RootNavigator() {
   useEffect(() => {
     if (!session || precisaRotaLivre(pathname)) return undefined;
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (router.canGoBack()) {
-        router.back();
-        return true;
-      }
-
       const papel = String(session.user?.papel_empresa ?? "");
       const ambienteComercial = IS_GERADOR_APP && (
         session.user?.perfil === "ADMIN" || papel === "COLABORADOR_COMERCIAL"
@@ -100,7 +96,20 @@ function RootNavigator() {
         ? pathname === "/admin/comercial"
         : pathname === "/" || pathname === "/index";
 
-      if (jaEstaNaHome) return false;
+      if (jaEstaNaHome) {
+        const agora = Date.now();
+        if (agora - ultimoVoltarNaHome.current <= 2200) return false;
+        ultimoVoltarNaHome.current = agora;
+        ToastAndroid.show("Pressione voltar novamente para sair", ToastAndroid.SHORT);
+        return true;
+      }
+
+      ultimoVoltarNaHome.current = 0;
+      if (router.canGoBack()) {
+        router.back();
+        return true;
+      }
+
       router.replace(home as any);
       return true;
     });
