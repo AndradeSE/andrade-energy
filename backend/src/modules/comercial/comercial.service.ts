@@ -492,7 +492,32 @@ export async function obterMinhaAssinatura(geradorId: string) {
   return { assinatura: assinatura ?? null, planos: planos ?? [] };
 }
 
-export async function criarCheckoutRecorrente(usuario: any, input: any) {
+const tiposTermosAssinatura = ["TERMOS_USO", "POLITICA_PRIVACIDADE", "POLITICA_CANCELAMENTO"] as const;
+
+export async function obterTermosAssinatura() {
+  const { data, error } = await supabase
+    .from("documentos_comerciais")
+    .select("id,tipo,titulo,versao,conteudo,publicado_em")
+    .in("tipo", [...tiposTermosAssinatura])
+    .eq("ativo", true)
+    .not("publicado_em", "is", null)
+    .order("publicado_em", { ascending: false });
+  if (error) throw error;
+  const documentos = tiposTermosAssinatura.map((tipo) =>
+    (data ?? []).find((documento: any) => documento.tipo === tipo),
+  ).filter(Boolean);
+  const prontos = documentos.length === tiposTermosAssinatura.length &&
+    documentos.every((documento: any) =>
+      !/deve ser revisad|revis[aã]o jur[ií]dica|antes da comercializa|vers[aã]o definitiva/i.test(String(documento.conteudo)),
+    );
+  return {
+    pronto: prontos,
+    documentos: prontos ? documentos : [],
+    mensagem: prontos ? null : "Os termos da assinatura ainda não foram publicados em versão definitiva.",
+  };
+}
+
+export async function criarCheckoutRecorrente(usuario: any, input: any, origem: { ip?: string; userAgent?: string } = {}) {
   const { assinatura } = await obterMinhaAssinatura(String(usuario.id));
   if (!assinatura)
     throw new Error("Nenhuma assinatura ativa foi vinculada a esta conta.");
@@ -500,6 +525,23 @@ export async function criarCheckoutRecorrente(usuario: any, input: any) {
     throw new Error("Esta assinatura não permite iniciar um pagamento recorrente.");
   if (!digits(usuario.cpf))
     throw new Error("Cadastre o CPF/CNPJ do gerador antes de ativar a cobrança.");
+  const termos = await obterTermosAssinatura();
+  if (!termos.pronto)
+    throw new Error(termos.mensagem ?? "Termos da assinatura indisponíveis.");
+  const aceites = Array.isArray(input?.aceitesDocumentoIds) ? input.aceitesDocumentoIds : [];
+  if (termos.documentos.some((documento: any) => !aceites.includes(documento.id)))
+    throw new Error("Leia e aceite os termos da assinatura antes de continuar.");
+  const { error: aceiteError } = await supabase.from("aceites_documentos_comerciais").upsert(
+    termos.documentos.map((documento: any) => ({
+      documento_id: documento.id,
+      usuario_id: usuario.id,
+      assinatura_id: assinatura.id,
+      ip: origem.ip ?? null,
+      user_agent: origem.userAgent ?? null,
+    })),
+    { onConflict: "documento_id,usuario_id", ignoreDuplicates: true },
+  );
+  if (aceiteError) throw aceiteError;
   const billingTypes = Array.isArray(input?.formasPagamento)
     ? input.formasPagamento.filter((item: string) =>
         ["CREDIT_CARD", "PIX"].includes(String(item).toUpperCase()),

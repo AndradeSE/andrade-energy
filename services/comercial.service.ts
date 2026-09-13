@@ -21,9 +21,14 @@ export const alterarStatusAssinatura = async (id: string, status: string) => (aw
 export const arquivarAssinatura = async (id: string, arquivada = true) => (await api.patch(`/comercial/assinaturas/${id}/arquivo`, { arquivada })).data;
 export const gerarCobrancaAssinatura = async (id: string) => (await api.post(`/comercial/assinaturas/${id}/cobrancas`)).data;
 export const obterMinhaAssinatura = async () => (await api.get("/comercial/minha-assinatura")).data;
+export const obterTermosAssinatura = async () => (await api.get("/comercial/minha-assinatura/termos")).data as {
+  pronto: boolean;
+  mensagem: string | null;
+  documentos: { id: string; tipo: string; titulo: string; versao: string; conteudo: string }[];
+};
 export const criarCheckoutAssinatura = async (
   formasPagamento: string[] = ["CREDIT_CARD"],
-  opcoes: { parcelamentoAnual?: boolean; parcelas?: number } = {},
+  opcoes: { parcelamentoAnual?: boolean; parcelas?: number; aceitesDocumentoIds?: string[] } = {},
 ) =>
   (
     await api.post("/comercial/minha-assinatura/checkout", {

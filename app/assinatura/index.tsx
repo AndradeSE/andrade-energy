@@ -3,7 +3,9 @@ import { useEffect, useState } from "react";
 import {
   Alert,
   Linking,
+  Modal,
   RefreshControl,
+  ScrollView as NativeScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -19,6 +21,7 @@ import {
 import {
   criarCheckoutAssinatura,
   obterMinhaAssinatura,
+  obterTermosAssinatura,
 } from "../../services/comercial.service";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 
@@ -43,6 +46,9 @@ export default function MinhaAssinatura() {
   const [carregando, setCarregando] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [abrindo, setAbrindo] = useState(false);
+  const [termos, setTermos] = useState<Awaited<ReturnType<typeof obterTermosAssinatura>> | null>(null);
+  const [aceitouTermos, setAceitouTermos] = useState(false);
+  const [parcelamentoPendente, setParcelamentoPendente] = useState(false);
   async function carregar(refresh = false) {
     if (refresh) setAtualizando(true);
     else setCarregando(true);
@@ -65,10 +71,32 @@ export default function MinhaAssinatura() {
   async function pagar(parcelamentoAnual = false) {
     try {
       setAbrindo(true);
+      const atuais = await obterTermosAssinatura();
+      if (!atuais.pronto) {
+        Alert.alert("Termos da assinatura", atuais.mensagem ?? "Os termos ainda não estão disponíveis.");
+        return;
+      }
+      setTermos(atuais);
+      setAceitouTermos(false);
+      setParcelamentoPendente(parcelamentoAnual);
+    } catch (e: any) {
+      Alert.alert("Termos da assinatura", e?.response?.data?.message ?? "Não foi possível consultar os termos.");
+    } finally {
+      setAbrindo(false);
+    }
+  }
+  async function confirmarPagamento() {
+    if (!termos?.pronto || !aceitouTermos) return;
+    try {
+      setAbrindo(true);
       const checkout = await criarCheckoutAssinatura(
         ["CREDIT_CARD"],
-        parcelamentoAnual ? { parcelamentoAnual: true, parcelas: 12 } : {},
+        {
+          ...(parcelamentoPendente ? { parcelamentoAnual: true, parcelas: 12 } : {}),
+          aceitesDocumentoIds: termos.documentos.map((documento) => documento.id),
+        },
       );
+      setTermos(null);
       await Linking.openURL(checkout.url);
     } catch (e: any) {
       Alert.alert(
@@ -91,6 +119,28 @@ export default function MinhaAssinatura() {
   );
   return (
     <Screen>
+      <Modal visible={Boolean(termos)} animationType="slide" onRequestClose={() => setTermos(null)}>
+        <View style={styles.termsScreen}>
+          <Text style={styles.termsTitle}>Termos da assinatura</Text>
+          <Text style={styles.termsIntro}>Leia as versões abaixo antes de seguir para o pagamento.</Text>
+          <NativeScrollView style={styles.termsScroll}>
+            {(termos?.documentos ?? []).map((documento) => (
+              <View key={documento.id} style={styles.termsDocument}>
+                <Text style={styles.termsDocumentTitle}>{documento.titulo} · versão {documento.versao}</Text>
+                <Text style={styles.termsBody}>{documento.conteudo}</Text>
+              </View>
+            ))}
+          </NativeScrollView>
+          <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{ checked: aceitouTermos }} onPress={() => setAceitouTermos((valor) => !valor)} style={styles.termsCheck}>
+            <Ionicons name={aceitouTermos ? "checkbox" : "square-outline"} size={25} color={Colors.primary} />
+            <Text style={styles.termsCheckText}>Li e aceito os termos de uso, a política de privacidade e a política de cancelamento nas versões exibidas.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity disabled={!aceitouTermos || abrindo} onPress={() => void confirmarPagamento()} style={[styles.termsContinue, (!aceitouTermos || abrindo) && styles.termsContinueDisabled]}>
+            <Text style={styles.termsContinueText}>{abrindo ? "Abrindo pagamento..." : "Aceitar e continuar"}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setTermos(null)} style={styles.termsCancel}><Text style={styles.termsCancelText}>Cancelar</Text></TouchableOpacity>
+        </View>
+      </Modal>
       <AppHeader
         variant="subpage"
         title="Meu plano"
@@ -327,6 +377,20 @@ function Info({
   );
 }
 const styles = StyleSheet.create({
+  termsScreen: { flex: 1, padding: Spacing.lg, paddingTop: Spacing.xxl, backgroundColor: Colors.background },
+  termsTitle: { color: Colors.text, fontSize: Typography.title, fontWeight: "900" },
+  termsIntro: { marginTop: Spacing.sm, marginBottom: Spacing.md, color: Colors.subtitle },
+  termsScroll: { flex: 1 },
+  termsDocument: { marginBottom: Spacing.lg, padding: Spacing.md, borderRadius: Radius.md, backgroundColor: Colors.surface },
+  termsDocumentTitle: { color: Colors.text, fontWeight: "800", marginBottom: Spacing.sm },
+  termsBody: { color: Colors.text, lineHeight: 22 },
+  termsCheck: { flexDirection: "row", alignItems: "flex-start", gap: Spacing.sm, paddingVertical: Spacing.md },
+  termsCheckText: { flex: 1, color: Colors.text, lineHeight: 20 },
+  termsContinue: { alignItems: "center", padding: Spacing.md, borderRadius: Radius.md, backgroundColor: Colors.primary },
+  termsContinueDisabled: { opacity: 0.5 },
+  termsContinueText: { color: "#FFF", fontWeight: "800" },
+  termsCancel: { alignItems: "center", padding: Spacing.md },
+  termsCancelText: { color: Colors.primary, fontWeight: "700" },
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
   hero: {
     flexDirection: "row",

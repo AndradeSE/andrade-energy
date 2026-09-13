@@ -5,6 +5,7 @@ import * as controller from "./comercial.controller";
 const router = Router();
 router.get("/planos-publicos", controller.planosPublicos);
 router.get("/minha-assinatura", exigirAutenticacao, controller.minhaAssinatura);
+router.get("/minha-assinatura/termos", exigirAutenticacao, controller.termosMinhaAssinatura);
 router.post("/minha-assinatura/checkout", exigirAutenticacao, controller.checkoutMinhaAssinatura);
 router.use(exigirAutenticacao);
 router.get("/painel", exigirOperacaoComercial, controller.painel);
