@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Modal,
   Pressable,
@@ -16,6 +15,7 @@ import QuickAccessCarousel from "../../components/QuickAccessCarousel";
 import {
   AppHeader,
   ElasticScrollView as ScrollView,
+  Loading,
   Screen,
   Section,
 } from "../../components/ui";
@@ -85,6 +85,10 @@ export default function HomeComercial() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  if (loading && !data) {
+    return <Screen edges={["top", "left", "right"]}><Loading /></Screen>;
+  }
   const colaboradorComercial = usuario?.papel_empresa === "COLABORADOR_COMERCIAL";
   if (usuario?.perfil !== "ADMIN" && !colaboradorComercial) {
     router.replace("/selecionar-unidade");
@@ -332,9 +336,7 @@ export default function HomeComercial() {
             <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
           </TouchableOpacity>
         ) : null}
-        {loading && !data ? (
-          <ActivityIndicator color={Colors.primary} />
-        ) : !colaboradorComercial ? (
+        {!colaboradorComercial ? (
           <View style={styles.metrics}>
             <Metric
               icon="people-outline"

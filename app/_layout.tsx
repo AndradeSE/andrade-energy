@@ -1,4 +1,4 @@
-import { router, Stack, usePathname } from "expo-router";
+import { router, Stack, useGlobalSearchParams, usePathname } from "expo-router";
 import { Alert, BackHandler, StyleSheet, ToastAndroid, View } from "react-native";
 import { useEffect, useRef } from "react";
 
@@ -41,6 +41,7 @@ function RootNavigator() {
   const primeiraAutenticacaoBiometrica = useRef(true);
   const ultimoVoltarNaHome = useRef(0);
   const pathname = usePathname();
+  const routeParams = useGlobalSearchParams<{ ambiente?: string; origem?: string }>();
   const {
     session,
     isLoading,
@@ -89,7 +90,10 @@ function RootNavigator() {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
       const papel = String(session.user?.papel_empresa ?? "");
       const ambienteComercial = IS_GERADOR_APP && (
-        session.user?.perfil === "ADMIN" || papel === "COLABORADOR_COMERCIAL"
+        pathname.startsWith("/admin/comercial") ||
+        pathname.startsWith("/geradores") ||
+        (pathname.startsWith("/colaboradores") && (routeParams.ambiente === "comercial" || papel === "COLABORADOR_COMERCIAL")) ||
+        (pathname.startsWith("/perfil") && routeParams.origem === "comercial")
       );
       const home = ambienteComercial ? "/admin/comercial" : "/(tabs)";
       const jaEstaNaHome = ambienteComercial
@@ -114,7 +118,7 @@ function RootNavigator() {
       return true;
     });
     return () => subscription.remove();
-  }, [pathname, session]);
+  }, [pathname, routeParams.ambiente, routeParams.origem, session]);
 
   /*
    * Enquanto recuperamos a sessão,
