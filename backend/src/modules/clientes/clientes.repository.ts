@@ -706,6 +706,16 @@ export async function excluirUnidadeCliente(unidadeId: string, empresaId = EMPRE
     }
   }
 
+  // O vínculo histórico usa ON DELETE SET NULL para proteger migrações antigas.
+  // Na exclusão explícita feita pelo titular, porém, o contrato pertence à UC e
+  // deve ser removido antes dela para não permanecer como documento órfão.
+  const { error: erroContratos } = await supabase
+    .from("contratos")
+    .delete()
+    .eq("unidade_consumidora_id", unidade.id)
+    .eq("empresa_id", empresaId);
+  if (erroContratos) throw erroContratos;
+
   const { error: erroExclusao } = await supabase
     .from("unidades_consumidoras")
     .delete()

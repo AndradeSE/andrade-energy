@@ -201,21 +201,21 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-        name="contrato"
-        options={{
-          title: "Contrato",
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon name={focused ? "document-text" : "document-text-outline"} color={color} />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
         name="financeiro"
         options={{
           title: "Financeiro",
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name={focused ? "cash" : "cash-outline"} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="contrato"
+        options={{
+          title: "Contrato",
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name={focused ? "document-text" : "document-text-outline"} color={color} />
           ),
         }}
       />

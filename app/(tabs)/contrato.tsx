@@ -42,6 +42,8 @@ import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { useQueryClient } from "@tanstack/react-query";
 import SignaturePad from "../../components/cliente/SignaturePad";
 import { solicitarCodigoAssinatura } from "../../services/contratos.service";
+import { IS_GERADOR_APP } from "../../config/appVariant";
+import ContratosClientes from "../contratos";
 
 function formatarData(data?: string) {
   if (!data) return "Não informado";
@@ -57,6 +59,10 @@ function normalizarStatus(status?: string) {
 }
 
 export default function Contrato() {
+  return IS_GERADOR_APP ? <ContratosClientes /> : <ContratoConsumidor />;
+}
+
+function ContratoConsumidor() {
   const { data, isLoading, error, refetch: recarregarContrato } = useContrato();
   const { data: dashboard, refetch: recarregarDashboard } = useDashboard();
   const { unidadeSelecionada } = useAuth();
