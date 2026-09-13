@@ -49,13 +49,16 @@ export async function restaurarContratoAssinadoDaMesmaUc(
 
 export async function buscarContratoCliente(
   clienteId: string,
-  somenteLegado = false
+  somenteLegado = false,
+  empresaId?: string,
 ) {
   let query = supabase
     .from("contratos")
     .select("*")
     .eq("cliente_id", clienteId)
     .order("updated_at", { ascending: false });
+
+  if (empresaId) query = query.eq("empresa_id", empresaId);
 
   if (somenteLegado) query = query.is("unidade_consumidora_id", null);
 
@@ -73,49 +76,54 @@ export async function buscarContratoCliente(
 }
 
 export async function buscarContratoAtualUnidade(
-  unidadeId: string
+  unidadeId: string,
+  empresaId?: string,
 ) {
-  const { data, error } = await supabase
+  let query = supabase
     .from("contratos")
     .select("*")
     .eq("unidade_consumidora_id", unidadeId)
     .in("status", ["ATIVO", "VIGENTE"])
     .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+  if (empresaId) query = query.eq("empresa_id", empresaId);
+  const { data, error } = await query.maybeSingle();
 
   if (error) throw error;
 
   return data;
 }
 
-export async function buscarRascunhoAtualUnidade(unidadeId: string) {
-  const { data, error } = await supabase
+export async function buscarRascunhoAtualUnidade(unidadeId: string, empresaId?: string) {
+  let query = supabase
     .from("contratos")
     .select("*")
     .eq("unidade_consumidora_id", unidadeId)
     .eq("status", "RASCUNHO")
     .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+  if (empresaId) query = query.eq("empresa_id", empresaId);
+  const { data, error } = await query.maybeSingle();
   if (error) throw error;
   return data;
 }
 
 export async function buscarContratoMaisRecenteUnidade(
-  unidadeId: string
+  unidadeId: string,
+  empresaId?: string,
 ) {
-  const atual = await buscarContratoAtualUnidade(unidadeId);
+  const atual = await buscarContratoAtualUnidade(unidadeId, empresaId);
   if (atual) return atual;
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("contratos")
     .select("*")
     .eq("unidade_consumidora_id", unidadeId)
     .order("vigencia_fim", { ascending: false, nullsFirst: false })
     .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+  if (empresaId) query = query.eq("empresa_id", empresaId);
+  const { data, error } = await query.maybeSingle();
 
   if (error) throw error;
 

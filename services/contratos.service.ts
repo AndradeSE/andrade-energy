@@ -14,6 +14,11 @@ export async function listarAcessoContratos() {
   return Array.isArray(data) ? data : [];
 }
 
+export async function listarContratosDaEmpresa() {
+  const { data } = await api.get("/contratos");
+  return Array.isArray(data) ? data : [];
+}
+
 export async function buscarContrato(
   clienteId: string
 ) {

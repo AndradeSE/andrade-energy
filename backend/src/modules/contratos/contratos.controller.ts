@@ -53,6 +53,15 @@ export async function dadosIniciaisContratoController(req: any, res: any) {
 }
 import { empresaIdDaRequisicao, garantirRegistroDaEmpresa, incluirEmpresa } from "../../utils/empresaScope";
 
+export async function listarContratosController(req: Request, res: Response) {
+  try {
+    res.json(await ContratosService.listarContratosDaEmpresa(empresaIdDaRequisicao(req)));
+  } catch (e: any) {
+    console.error(e);
+    res.status(500).json({ message: e.message });
+  }
+}
+
 export async function buscarContratoController(
   req: Request,
   res: Response
@@ -61,7 +70,8 @@ export async function buscarContratoController(
 
     const contrato =
       await ContratosService.obterContratoCliente(
-        req.params.clienteId
+        req.params.clienteId,
+        empresaIdDaRequisicao(req),
       );
 
     res.json(contrato);
@@ -112,6 +122,7 @@ export async function buscarContratoDaUnidadeController(
     const contrato = await ContratosService.obterContratoDaUnidade(
       req.params.unidadeId,
       String(req.query.revisao ?? "") === "1",
+      empresaIdDaRequisicao(req),
     );
     res.json(contrato);
   } catch (e: any) {

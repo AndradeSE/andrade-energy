@@ -16,6 +16,7 @@ import {
     importarContratoAssinadoPeloClienteController,
     propostaDaUnidadeController,
     dadosIniciaisContratoController,
+    listarContratosController,
 } from "./contratos.controller";
 import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
 import { upload } from "../../config/multer";
@@ -25,6 +26,7 @@ import { listarAcessoContratos } from "./acessoContrato.service";
 
 const router = Router();
 router.use(exigirAutenticacao);
+router.get("/", exigirGestor, listarContratosController);
 // A empresa pode ter vários consumidores; pertencer à mesma empresa não
 // autoriza consultar o contrato ou a proposta de outro cliente.
 function exigirTitular(tabela: string, parametro: string) {

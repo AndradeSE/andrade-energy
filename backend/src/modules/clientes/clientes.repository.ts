@@ -59,7 +59,12 @@ async function incluirEstadoContratoEConvite(unidades: any[], empresaId: string)
   const contratoPorUc = new Map<string, any>();
   for (const contrato of contratos ?? []) {
     const unidadeId = String(contrato.unidade_consumidora_id ?? "");
-    if (unidadeId && !contratoPorUc.has(unidadeId)) contratoPorUc.set(unidadeId, contrato);
+    if (!unidadeId) continue;
+    const atual = contratoPorUc.get(unidadeId);
+    const assinado = Boolean(contrato.aceite_cliente_em || contrato.contrato_assinado_url || String(contrato.status ?? "").toUpperCase() === "VIGENTE");
+    const atualAssinado = Boolean(atual?.aceite_cliente_em || atual?.contrato_assinado_url || String(atual?.status ?? "").toUpperCase() === "VIGENTE");
+    // Uma minuta mais nova não pode esconder a vigência já assinada da UC.
+    if (!atual || (assinado && !atualAssinado)) contratoPorUc.set(unidadeId, contrato);
   }
   const convitePorUc = new Map<string, any>();
   for (const convite of convites ?? []) {

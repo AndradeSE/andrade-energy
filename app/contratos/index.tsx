@@ -4,7 +4,7 @@ import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { AppHeader, Badge, Card, ElasticFlatList as FlatList, EmptyState, Screen } from "../../components/ui";
-import { supabase } from "../../supabase";
+import { listarContratosDaEmpresa } from "../../services/contratos.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function ContratosClientes() {
@@ -15,8 +15,7 @@ export default function ContratosClientes() {
   const carregar = useCallback(async () => {
     setCarregando(true);
     try {
-      const { data, error } = await supabase.from("contratos").select("*, clientes(nome), unidades_consumidoras(numero, titular)").order("created_at", { ascending: false });
-      if (error) throw error;
+      const data = await listarContratosDaEmpresa();
       setContratos((data ?? []).map((contrato) => ({
         ...contrato,
         unidades_consumidoras: Array.isArray(contrato.unidades_consumidoras)

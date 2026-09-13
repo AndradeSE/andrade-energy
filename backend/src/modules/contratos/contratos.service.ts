@@ -16,9 +16,19 @@ import { armazenarContratoAssinado, criarLinkContrato, gerarMinutaContrato, salv
 import { obterPropostaParaConvite } from "../convites/propostaConvite.service";
 
 export async function obterContratoCliente(
-  clienteId: string
+  clienteId: string,
+  empresaId: string,
 ) {
-  return await buscarContratoCliente(clienteId);
+  return await buscarContratoCliente(clienteId, false, empresaId);
+}
+
+export async function listarContratosDaEmpresa(empresaId: string) {
+  const { data, error } = await supabase.from("contratos")
+    .select("*, clientes(nome), unidades_consumidoras(numero,titular)")
+    .eq("empresa_id", empresaId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function criarContratoService(
@@ -30,16 +40,19 @@ export async function criarContratoService(
 export async function obterContratoDaUnidade(
   unidadeId: string,
   preferirRascunho = false,
+  empresaId?: string,
 ) {
   let contratoDaUnidade: any;
   if (preferirRascunho) {
-    contratoDaUnidade = await buscarRascunhoAtualUnidade(unidadeId)
-      ?? await buscarContratoMaisRecenteUnidade(unidadeId);
+    contratoDaUnidade = await buscarRascunhoAtualUnidade(unidadeId, empresaId)
+      ?? await buscarContratoMaisRecenteUnidade(unidadeId, empresaId);
   } else {
-    const { data: contratos, error } = await supabase.from("contratos").select("*")
+    let contratosQuery = supabase.from("contratos").select("*")
       .eq("unidade_consumidora_id", unidadeId)
       .in("status", ["ATIVO", "VIGENTE"])
       .order("updated_at", { ascending: false });
+    if (empresaId) contratosQuery = contratosQuery.eq("empresa_id", empresaId);
+    const { data: contratos, error } = await contratosQuery;
     if (error) throw error;
     contratoDaUnidade = (contratos ?? []).find((item) =>
       item.aceite_cliente_em
@@ -50,13 +63,14 @@ export async function obterContratoDaUnidade(
   if (contratoDaUnidade) return anexarLinksDoContrato(contratoDaUnidade);
 
   // Compatibilidade para contratos antigos, criados antes do vínculo por UC.
-  const { data: unidade, error } = await supabase
+  let unidadeQuery = supabase
     .from("unidades_consumidoras")
     .select("cliente_id")
-    .eq("id", unidadeId)
-    .maybeSingle();
+    .eq("id", unidadeId);
+  if (empresaId) unidadeQuery = unidadeQuery.eq("empresa_id", empresaId);
+  const { data: unidade, error } = await unidadeQuery.maybeSingle();
   if (error) throw error;
-  const contratoLegado = unidade?.cliente_id ? await buscarContratoCliente(unidade.cliente_id, true) : null;
+  const contratoLegado = unidade?.cliente_id ? await buscarContratoCliente(unidade.cliente_id, true, empresaId) : null;
   return contratoLegado ? anexarLinksDoContrato(contratoLegado) : null;
 }
 
