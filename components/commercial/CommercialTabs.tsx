@@ -5,7 +5,7 @@ import AppTabIcon from "../navigation/AppTabIcon";
 import { useAuth } from "../../contexts/AuthContext";
 import AppTabBarFrame, { appTabBarStyles as styles } from "../navigation/AppTabBarFrame";
 
-type CommercialTab = "HOME" | "GERADORES" | "PAGAMENTOS" | "PLANOS" | "ASSINATURAS";
+export type CommercialTab = "HOME" | "GERADORES" | "PAGAMENTOS" | "PLANOS" | "ASSINATURAS";
 
 export default function CommercialTabs({ active }: { active?: CommercialTab }) {
   const { user } = useAuth();
@@ -16,7 +16,7 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
       icon: "people-outline",
       label: "Geradores",
       onPress: () =>
-        router.replace({
+        router.push({
           pathname: "/geradores/gestao",
           params: { aba: "GERADORES" },
         } as any),
@@ -26,7 +26,7 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
       icon: "wallet-outline",
       label: "Financeiro",
       onPress: () =>
-        router.replace({
+        router.push({
           pathname: "/geradores/gestao",
           params: { aba: "PAGAMENTOS" },
         } as any),
@@ -35,14 +35,14 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
       key: "HOME",
       icon: "home-outline",
       label: "Home",
-      onPress: () => router.replace("/admin/comercial" as any),
+      onPress: () => router.push("/admin/comercial" as any),
     },
     {
       key: "PLANOS",
       icon: "pricetags-outline",
       label: "Planos",
       onPress: () =>
-        router.replace({
+        router.push({
           pathname: "/geradores/gestao",
           params: { aba: "PLANOS" },
         } as any),
@@ -52,7 +52,7 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
       icon: "card-outline",
       label: "Assinaturas",
       onPress: () =>
-        router.replace({
+        router.push({
           pathname: "/geradores/gestao",
           params: { aba: "ASSINATURAS" },
         } as any),

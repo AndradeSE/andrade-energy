@@ -1,5 +1,5 @@
-import { router, Stack } from "expo-router";
-import { Alert, StyleSheet, View } from "react-native";
+import { router, Stack, usePathname } from "expo-router";
+import { Alert, BackHandler, StyleSheet, View } from "react-native";
 import { useEffect, useRef } from "react";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -14,13 +14,13 @@ import {
   useAuth,
 } from "../contexts/AuthContext";
 
-import { Colors } from "../theme";
 import BiometricLock from "./biometric-lock";
 import { EmpresaProvider } from "../contexts/EmpresaContext";
 import { aoExcluirConta, aoSubstituirSessao } from "../services/session-events";
 import PersistentAppTabs from "../components/navigation/PersistentAppTabs";
 import ContractAccessGate from "../components/navigation/ContractAccessGate";
 import Loading from "../components/ui/Loading";
+import { IS_GERADOR_APP } from "../config/appVariant";
 
 /*
  * React Query
@@ -39,6 +39,7 @@ const queryClient = new QueryClient({
 
 function RootNavigator() {
   const primeiraAutenticacaoBiometrica = useRef(true);
+  const pathname = usePathname();
   const {
     session,
     isLoading,
@@ -81,6 +82,30 @@ function RootNavigator() {
     // que o aplicativo permaneça numa tela interna sem dados.
     void signOut().then(() => router.replace("/(auth)/login" as any));
   }), [signOut]);
+
+  useEffect(() => {
+    if (!session || precisaRotaLivre(pathname)) return undefined;
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (router.canGoBack()) {
+        router.back();
+        return true;
+      }
+
+      const papel = String(session.user?.papel_empresa ?? "");
+      const ambienteComercial = IS_GERADOR_APP && (
+        session.user?.perfil === "ADMIN" || papel === "COLABORADOR_COMERCIAL"
+      );
+      const home = ambienteComercial ? "/admin/comercial" : "/(tabs)";
+      const jaEstaNaHome = ambienteComercial
+        ? pathname === "/admin/comercial"
+        : pathname === "/" || pathname === "/index";
+
+      if (jaEstaNaHome) return false;
+      router.replace(home as any);
+      return true;
+    });
+    return () => subscription.remove();
+  }, [pathname, session]);
 
   /*
    * Enquanto recuperamos a sessão,
@@ -393,6 +418,10 @@ function RootNavigator() {
     {precisaDigital ? <View style={styles.lockOverlay}><BiometricLock onUnlocked={concluirAutenticacaoBiometrica} /></View> : null}
     </>
   );
+}
+
+function precisaRotaLivre(pathname: string) {
+  return pathname.startsWith("/login") || pathname.startsWith("/cadastro") || pathname.startsWith("/recuperar-senha");
 }
 
 export default function RootLayout() {

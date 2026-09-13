@@ -6,7 +6,7 @@ import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors } from "../../theme";
 import AppTabIcon from "./AppTabIcon";
 import { useAuth } from "../../contexts/AuthContext";
-import CommercialTabs from "../commercial/CommercialTabs";
+import CommercialTabs, { CommercialTab } from "../commercial/CommercialTabs";
 import AppTabBarFrame, { appTabBarStyles as styles } from "./AppTabBarFrame";
 
 type TabItem = {
@@ -34,20 +34,14 @@ const consumerTabs: TabItem[] = [
 export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
   const { user } = useAuth();
   const segments = useSegments();
-  const params = useLocalSearchParams<{ ambiente?: string }>();
+  const params = useLocalSearchParams<{ ambiente?: string; aba?: string }>();
   const firstSegment = String(segments[0] ?? "");
   const secondSegment = String(segments[1] ?? "");
-  const hasOwnCommercialTabs =
-    (firstSegment === "admin" && secondSegment === "comercial") ||
-    (firstSegment === "geradores" && ["gestao", "monitoramento"].includes(secondSegment));
-
-  // As rotas principais já renderizam sua própria barra. Nas demais telas
-  // autenticadas, esta barra permanece montada para a navegação nunca sumir.
   const hidden =
     !loggedIn ||
     firstSegment === "(tabs)" ||
     firstSegment === "(auth)" ||
-    hasOwnCommercialTabs ||
+    (firstSegment === "geradores" && secondSegment === "gestao") ||
     (firstSegment === "admin" && secondSegment === "escolher-area") ||
     (firstSegment === "admin" && secondSegment === "empresas") ||
     firstSegment === "selecionar-unidade" ||
@@ -61,7 +55,21 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
     firstSegment === "geradores" ||
     (firstSegment === "colaboradores" && (params.ambiente === "comercial" || user?.perfil === "ADMIN"))
   );
-  if (commercialEnvironment) return <CommercialTabs />;
+  if (commercialEnvironment) {
+    let active: CommercialTab | undefined;
+    if (firstSegment === "admin" && secondSegment === "comercial") active = "HOME";
+    if (firstSegment === "geradores" && secondSegment === "gestao") {
+      active = params.aba === "ASSINATURAS"
+        ? "ASSINATURAS"
+        : params.aba === "PAGAMENTOS"
+          ? "PAGAMENTOS"
+          : params.aba === "PLANOS"
+            ? "PLANOS"
+            : "GERADORES";
+    }
+    if (firstSegment === "geradores" && secondSegment === "monitoramento") active = "GERADORES";
+    return <CommercialTabs active={active} />;
+  }
 
   const baseTabs = IS_GERADOR_APP
       ? generatorTabs
@@ -78,7 +86,7 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
           accessibilityRole="tab"
           accessibilityLabel={`Ir para ${tab.label}`}
           key={tab.label}
-          onPress={() => router.replace(tab.route as never)}
+          onPress={() => router.push(tab.route as never)}
           style={styles.item}
         >
           <AppTabIcon

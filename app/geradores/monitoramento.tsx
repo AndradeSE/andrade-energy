@@ -18,7 +18,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import PortalBrandLogo from "../../components/brand/PortalBrandLogo";
-import CommercialTabs from "../../components/commercial/CommercialTabs";
 import { ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -108,7 +107,7 @@ export default function MonitoramentoGeradores() {
     );
 
   return (
-    <Screen>
+    <Screen edges={["top", "left", "right"]}>
       <StatusBar backgroundColor="#082F26" barStyle="light-content" />
       <LinearGradient
         colors={["#082F26", "#0B4A39", "#0A5B43"]}
@@ -259,7 +258,6 @@ export default function MonitoramentoGeradores() {
           </View>
         ) : null}
       </ScrollView>
-      <CommercialTabs />
       <DetalhesCliente
         assinatura={selecionada}
         onClose={() => setSelecionada(null)}

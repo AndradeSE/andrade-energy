@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import CommercialTabs from "../../components/commercial/CommercialTabs";
 import QuickAccessCarousel from "../../components/QuickAccessCarousel";
 import {
   AppHeader,
@@ -391,7 +390,6 @@ export default function HomeComercial() {
           </View>
         </View>
       </ScrollView>
-      <CommercialTabs active="HOME" />
     </Screen>
   );
 }
