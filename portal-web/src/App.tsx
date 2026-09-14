@@ -1737,6 +1737,12 @@ function UnitTools({
   const projectedInjectedEnergy = allocation.modalidade === "INJECAO"
     ? Math.max(0, projectedPlantProduction) * Math.max(0, Number(String(allocation.percentual).replace(",", "."))) / 100
     : 0;
+  const contractSummary = unit.contrato_resumo as WebRecord | undefined;
+  const signedContract = Boolean(
+    contractSummary?.aceite_cliente_em
+      || contractSummary?.contrato_assinado_url
+      || String(contractSummary?.status ?? "").toUpperCase() === "VIGENTE",
+  );
   return (
     <article className={`unit-tool-card ${expanded ? "expanded" : ""}`}>
       <button
@@ -1964,6 +1970,9 @@ function UnitTools({
               </button>
             </div>
           </details>
+          {signedContract ? <button className="unit-billing-next-step" type="button" onClick={() => {
+            document.querySelector<HTMLButtonElement>('button[data-portal-section="Financeiro"]')?.click();
+          }}><b>R$</b><span><small>PRÓXIMO PASSO</small><strong>Escolha como faturar esta UC</strong><em>Abra Financeiro e selecione faturamento via PDF, manual ou automático.</em></span><i>→</i></button> : null}
           {message && <small className="unit-message">{message}</small>}
           {contractOpen ? <ContractWorkflowWeb apiUrl={API_URL} token={token} unit={unit} revisionMode={contractRevision} onClose={() => setContractOpen(false)} onChanged={onChanged} /> : null}
         </>
@@ -2967,7 +2976,7 @@ function PortalHome({
       Clientes: "/clientes",
       "Unidades consumidoras": "/clientes/unidades",
       Faturas: "/faturas",
-      Contratos: "/clientes/unidades",
+      Contratos: type === "GERADOR" ? "/contratos" : "/clientes/unidades",
       Financeiro: "/faturas",
       Operação: "/fechamentos",
       "Contas de luz": "/faturas?categoria=concessionaria",
@@ -2987,13 +2996,27 @@ function PortalHome({
           throw new Error(
             payload?.message ?? "Não foi possível carregar os dados.",
           );
-        const records = Array.isArray(payload)
+        const rawRecords = Array.isArray(payload)
           ? payload
           : Array.isArray(payload?.data)
             ? payload.data
             : Array.isArray(payload?.items)
               ? payload.items
               : [payload];
+        const records = activeSection === "Contratos" && type === "GERADOR"
+          ? rawRecords.map((item: WebRecord) => {
+              const client = Array.isArray(item.clientes) ? item.clientes[0] : item.clientes;
+              const unit = Array.isArray(item.unidades_consumidoras) ? item.unidades_consumidoras[0] : item.unidades_consumidoras;
+              const signed = Boolean(item.aceite_cliente_em || item.contrato_assinado_url || String(item.status ?? "").toUpperCase() === "VIGENTE");
+              return {
+                ...item,
+                _detail_id: item.unidade_consumidora_id,
+                contract_client: (client as WebRecord | undefined)?.nome ?? (unit as WebRecord | undefined)?.titular ?? "Cliente",
+                unit_number: (unit as WebRecord | undefined)?.numero ?? "UC não vinculada",
+                contract_status: signed ? "Assinado" : item.revisao_configuracao_pendente ? "Nova versão necessária" : item.status ?? "Rascunho",
+              };
+            })
+          : rawRecords;
         setSectionData(records);
       })
       .catch((reason) => {
@@ -3005,7 +3028,7 @@ function PortalHome({
         );
       })
       .finally(() => setSectionLoading(false));
-  }, [activeSection, session.token, refreshKey]);
+  }, [activeSection, session.token, refreshKey, type]);
 
   const energy = Number(dashboard?.energiaGerada ?? 0).toLocaleString("pt-BR", {
     maximumFractionDigits: 0,
@@ -3148,10 +3171,17 @@ function PortalHome({
       ["status", "Status"],
     ],
     Contratos: [
-      ["titular", "Unidade/Titular"],
-      ["numero", "Número UC"],
-      ["modalidade", "Modalidade"],
-      ["status", "Status"],
+      ...(type === "GERADOR" ? [
+        ["contract_client", "Cliente"],
+        ["numero", "Contrato"],
+        ["unit_number", "Unidade consumidora"],
+        ["contract_status", "Status"],
+      ] : [
+        ["titular", "Unidade/Titular"],
+        ["numero", "Número UC"],
+        ["modalidade", "Modalidade"],
+        ["status", "Status"],
+      ]) as Array<[string, string]>,
     ],
     Financeiro: [
       ["competencia", "Competência"],
@@ -3273,6 +3303,7 @@ function PortalHome({
                 <span>{group.label}</span>
                 {group.items.map((item) => (
                   <button
+                    data-portal-section={item}
                     onClick={() => {
                       if (item === "Alternar ambiente") { onChangeWorkspace(null); return; }
                       setSelectedRecord(null);
@@ -3624,7 +3655,7 @@ function PortalHome({
                         {visibleData.map((item, index) => (
                           <tr
                             className="clickable-row"
-                            onClick={() => setSelectedRecord(item)}
+                            onClick={() => setSelectedRecord(item._detail_id ? { ...item, id: item._detail_id } : item)}
                             key={String(item.id ?? index)}
                           >
                             {(columns[activeSection] ?? []).map(([field]) => (

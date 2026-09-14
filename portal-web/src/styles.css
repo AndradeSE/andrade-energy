@@ -396,3 +396,14 @@ svg { display: block; }
 .pricing-subscription-disabled{width:100%;padding:11px 12px;border:1px solid #c8d6cf;border-radius:999px;color:#687a71;background:#edf2ef;font-size:10px;font-weight:900;cursor:not-allowed}
 .temporarily-disabled{pointer-events:none!important;opacity:.62!important;cursor:not-allowed!important;filter:saturate(.55)}
 .commercial-plan-edit{width:100%;border:0;background:transparent;text-align:left;cursor:pointer;font:inherit}.commercial-plan-edit:hover{background:#f2f8f4}.plan-admin-form{margin-top:18px;padding:18px;border:1px solid #bcd1c5;border-radius:14px;background:#f5faf7}.commercial-form textarea{padding:12px;border:1px solid #ccdacf;border-radius:10px;background:#fff;color:#163521;font:inherit;resize:vertical}.plan-active{display:flex!important;grid-template-columns:auto 1fr!important;align-items:center}.plan-active input{min-height:auto;width:18px;height:18px}.commercial-transfer{border-color:#a9cdbc!important;background:linear-gradient(145deg,#fafffc,#edf8f2)!important}.commercial-transfer .primary-action{align-self:end}
+.unit-billing-next-step {
+  width: 100%; margin-top: 16px; padding: 16px 18px; border: 0; border-radius: 18px;
+  background: var(--brand-primary, #087f4f); color: #fff; display: flex;
+  align-items: center; gap: 14px; text-align: left; cursor: pointer;
+}
+.unit-billing-next-step > b { font-size: 18px; }
+.unit-billing-next-step > span { display: grid; flex: 1; gap: 2px; }
+.unit-billing-next-step small { color: #d9f5e7; font-size: 10px; font-weight: 900; letter-spacing: .08em; }
+.unit-billing-next-step strong { color: #fff; }
+.unit-billing-next-step em { color: #eaf7f0; font-size: 13px; font-style: normal; }
+.unit-billing-next-step > i { font-style: normal; font-size: 20px; }
