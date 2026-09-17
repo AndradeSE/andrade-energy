@@ -14,6 +14,7 @@ function acaoContratualDaUc(unidade: any) {
   if (assinado) return { label: "Ver contrato", status: "Assinado", revisao: false, liberada: true };
   if (contrato?.revisao_configuracao_pendente) return { label: "Gerar nova versão", status: "Nova versão necessária", revisao: true, liberada: false };
   if (unidade?.convite_resumo) return { label: "Reenviar convite", status: "Aguardando assinatura", revisao: false, liberada: false };
+  if (contrato?.contrato_gerado_url) return { label: "Enviar convite", status: "Minuta pronta", revisao: false, liberada: false };
   return { label: "Configurar contrato e gerar minuta", status: "Minuta ainda não gerada", revisao: false, liberada: false };
 }
 
@@ -60,7 +61,7 @@ export default function Unidades() {
 
   async function abrirOuReenviar(item: any) {
     const acao = acaoContratualDaUc(item);
-    if (acao.label !== "Reenviar convite") return abrirContratoDaUnidade(item);
+    if (!acao.label.includes("convite")) return abrirContratoDaUnidade(item);
     try {
       const resultado = await reenviarConviteDaUnidade(String(item.id));
       Alert.alert(resultado.emailEnviado ? "Convite reenviado" : "Envio não concluído", resultado.emailEnviado
