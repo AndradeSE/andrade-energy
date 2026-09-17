@@ -357,7 +357,7 @@ export async function confirmarCadastroCliente(
       ...(mediaConsumoDaFatura(dadosFatura) > 0
         ? { consumo_medio_kwh: mediaConsumoDaFatura(dadosFatura) }
         : {}),
-      status: "ATIVA",
+      status: "PENDENTE_CONTRATO",
       empresa_id: empresaId,
     };
     const resultadoUnidade = unidadeExistente
@@ -366,9 +366,9 @@ export async function confirmarCadastroCliente(
     if (resultadoUnidade.error) throw resultadoUnidade.error;
   }
 
-  const { data: clienteAtivo, error: clienteError } = await supabase
+  const { data: clientePendente, error: clienteError } = await supabase
     .from("clientes")
-    .update({ status: "ATIVO" })
+    .update({ status: "INATIVO" })
     .eq("id", clienteId)
     .eq("empresa_id", empresaId)
     .select("*")
@@ -399,5 +399,5 @@ export async function confirmarCadastroCliente(
     .eq("empresa_id", empresaId);
   if (usuarioAtivoError) throw usuarioAtivoError;
 
-  return { ...clienteAtivo, cadastro_status: "ATIVO" };
+  return { ...clientePendente, cadastro_status: "INATIVO" };
 }

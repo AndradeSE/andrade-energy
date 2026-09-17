@@ -224,7 +224,7 @@ export default function NovaUnidade() {
         const { error } = await supabase.from("unidades_consumidoras").upsert({
           numero, titular: titular.trim() || clienteSelecionado?.nome || null, tipo, cliente_id: clienteId || null, usina_id: usinaFinal,
           distribuidora: clienteSelecionado?.distribuidora || "CEMIG", endereco: endereco.trim() || clienteSelecionado?.endereco || null, modalidade_faturamento: modalidadeFinal,
-          desconto_percentual: descontoFinal, cpf_titular: documentoTitular || clienteSelecionado?.cpf || null, status: "ATIVA",
+          desconto_percentual: descontoFinal, cpf_titular: documentoTitular || clienteSelecionado?.cpf || null, status: "PENDENTE_CONTRATO",
           percentual_repasse_disponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0,
           repassar_disponibilidade_gd1: repasseDisponibilidadeGD1 === "REPASSAR",
           repassar_disponibilidade_gd2: repasseDisponibilidadeGD2 === "REPASSAR",

@@ -676,7 +676,7 @@ export default function SelecionarUnidade() {
                 <ImageBackground source={unidade?.foto_card_local ? { uri: unidade.foto_card_local } : require("../assets/images/usina-loading.jpeg")} imageStyle={styles.unitCoverImage} style={styles.unitCover}>
                   <LinearGradient colors={["rgba(3,30,22,.12)", "rgba(3,30,22,.88)"]} style={styles.unitCoverShade}>
                     <View style={styles.unitCoverTop}>
-                      <View style={styles.unitLiveBadge}><View style={styles.unitLiveDot} /><Text style={styles.unitLiveText}>{item.status === "INATIVA" ? "INATIVA" : "ATIVA"}</Text></View>
+                      <View style={styles.unitLiveBadge}><View style={styles.unitLiveDot} /><Text style={styles.unitLiveText}>{item.status === "ATIVA" ? "ATIVA" : item.status === "PENDENTE_CONTRATO" ? "AGUARDANDO CONTRATO" : "INATIVA"}</Text></View>
                       <TouchableOpacity accessibilityLabel={`Personalizar fundo da UC ${unidade!.numero}`} hitSlop={8} onPress={(event) => { event.stopPropagation(); void personalizarFundo(unidade!); }} style={styles.unitPhotoButton}><Ionicons name="image-outline" size={18} color="#FFF" /></TouchableOpacity>
                     </View>
                     <View style={styles.unitCoverIdentity}>

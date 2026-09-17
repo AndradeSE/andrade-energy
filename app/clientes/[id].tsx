@@ -417,7 +417,8 @@ export default function ClienteDetalhe() {
               )}
               {unidadesFiltradas.length ? (
                 unidadesFiltradas.map((unidade) => {
-                  const inativa = unidade.status === "INATIVA";
+                  const inativa = unidade.status !== "ATIVA";
+                  const statusUnidade = unidade.status === "PENDENTE_CONTRATO" ? "AGUARDANDO CONTRATO" : (unidade.status ?? "INATIVA");
                   const acaoContrato = acaoContratualDaUc(unidade);
                   return (
                     <TouchableOpacity
@@ -451,7 +452,7 @@ export default function ClienteDetalhe() {
                             {unidade.apelido ? <Text style={styles.unitOfficialNumber}>UC {unidade.numero}</Text> : null}
                             <View style={styles.unitMeta}>
                               <View style={[styles.statusDot, inativa && styles.statusDotInactive]} />
-                              <Text style={[styles.statusText, inativa && styles.statusTextInactive]}>{unidade.status ?? "ATIVA"}</Text>
+                              <Text style={[styles.statusText, inativa && styles.statusTextInactive]}>{statusUnidade}</Text>
                               <Text style={styles.unitSeparator}>•</Text>
                               <Text numberOfLines={1} style={styles.unitDetail}>
                                 Titular da fatura: {unidade.titular_fatura || "Não identificado na fatura anexada"}

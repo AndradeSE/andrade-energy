@@ -621,13 +621,11 @@ export async function verificarEmailDeCadastro(tokenInformado: unknown) {
     .eq("id", solicitacao.cliente_id)
     .maybeSingle();
   if (clienteError) throw clienteError;
-  if (["AGUARDANDO_VERIFICACAO_EMAIL", "AGUARDANDO_CONFIRMACAO_GERADOR"].includes(String(cliente?.status ?? ""))) {
-    const { error } = await supabase
-      .from("clientes")
-      .update({ status: "AGUARDANDO_CONFIRMACAO_GERADOR" })
-      .eq("id", solicitacao.cliente_id);
-    if (error) throw error;
-  }
+  const { error: clienteAtivacaoError } = await supabase
+    .from("clientes")
+    .update({ status: "ATIVO" })
+    .eq("id", solicitacao.cliente_id);
+  if (clienteAtivacaoError) throw clienteAtivacaoError;
 
   let geradorNotificado = false;
   if (atualizada.gestor_id) {
