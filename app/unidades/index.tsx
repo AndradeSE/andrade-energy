@@ -61,7 +61,8 @@ export default function Unidades() {
 
   async function abrirOuReenviar(item: any) {
     const acao = acaoContratualDaUc(item);
-    if (!acao.label.includes("convite")) return abrirContratoDaUnidade(item);
+    const conviteJaPodeSerEnviado = acao.label === "Enviar convite" || acao.label === "Reenviar convite";
+    if (!conviteJaPodeSerEnviado) return abrirContratoDaUnidade(item);
     try {
       const resultado = await reenviarConviteDaUnidade(String(item.id));
       Alert.alert(resultado.emailEnviado ? "Convite reenviado" : "Envio não concluído", resultado.emailEnviado
@@ -94,9 +95,9 @@ export default function Unidades() {
               evento.stopPropagation();
               void abrirOuReenviar(item);
             }}
-            style={styles.invite}
+            style={[styles.invite, acaoContrato.status === "Minuta ainda não gerada" && styles.invitePrimary]}
           >
-            <Text style={styles.inviteText}>{acaoContrato.label}</Text>
+            <Text style={[styles.inviteText, acaoContrato.status === "Minuta ainda não gerada" && styles.inviteTextPrimary]}>{acaoContrato.label}</Text>
           </TouchableOpacity>
           <Text style={styles.accessHint}>{acaoContrato.liberada ? "Contrato assinado. Abra a UC e acesse Financeiro para escolher a forma de faturamento." : "Próximos passos: configure o contrato, gere e revise a minuta e só depois envie para assinatura."}</Text>
         </Card></Pressable>; }}
@@ -117,8 +118,10 @@ const styles = StyleSheet.create({
   number: { color: Colors.text, fontSize: Typography.body, fontWeight: "800" }, badge: { color: Colors.primaryDark, fontSize: 10, fontWeight: "700" },
   ucNumber: { marginTop: 2, color: Colors.subtitle, fontSize: Typography.small, fontWeight: "600" },
   owner: { marginTop: 5, color: Colors.text, fontSize: Typography.small, fontWeight: "700" }, client: { marginTop: 2, color: Colors.subtitle, fontSize: 11 }, detail: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small },
-  invite: { minHeight: 40, alignItems: "center", justifyContent: "center", marginTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border },
+  invite: { minHeight: 44, alignItems: "center", justifyContent: "center", marginTop: Spacing.sm, paddingHorizontal: Spacing.md, borderTopWidth: 1, borderTopColor: Colors.border, borderRadius: 14 },
+  invitePrimary: { minHeight: 52, borderTopWidth: 0, backgroundColor: Colors.primary },
   inviteText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" },
+  inviteTextPrimary: { color: Colors.surface, fontSize: Typography.body },
   accessHint: { marginTop: 2, color: Colors.subtitle, fontSize: 10, lineHeight: 14, textAlign: "center" },
   contractStatus: { alignSelf: "flex-start", marginTop: Spacing.sm, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, backgroundColor: "#FEF3C7" },
   contractStatusSigned: { backgroundColor: "#DCFCE7" },

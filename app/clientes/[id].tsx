@@ -144,7 +144,8 @@ export default function ClienteDetalhe() {
 
   async function abrirOuReenviarConvite(unidade: any) {
     const acao = acaoContratualDaUc(unidade);
-    if (!acao.label.includes("convite")) return abrirContratoDaUnidade(unidade);
+    const conviteJaPodeSerEnviado = acao.label === "Enviar convite" || acao.label === "Reenviar convite";
+    if (!conviteJaPodeSerEnviado) return abrirContratoDaUnidade(unidade);
     try {
       const resultado = await reenviarConviteDaUnidade(String(unidade.id));
       Alert.alert(resultado.emailEnviado ? "Convite reenviado" : "Envio não concluído", resultado.emailEnviado
@@ -470,10 +471,10 @@ export default function ClienteDetalhe() {
                                 evento.stopPropagation();
                                 void abrirOuReenviarConvite(unidade);
                               }}
-                              style={styles.unitInvite}
+                              style={[styles.unitInvite, acaoContrato.status === "Não enviado" && styles.unitInvitePrimary]}
                             >
-                              <Ionicons name="mail-unread-outline" size={17} color={Colors.primary} />
-                              <Text style={styles.unitInviteText}>{acaoContrato.label}</Text>
+                              <Ionicons name="mail-unread-outline" size={19} color={acaoContrato.status === "Não enviado" ? Colors.surface : Colors.primary} />
+                              <Text style={[styles.unitInviteText, acaoContrato.status === "Não enviado" && styles.unitInviteTextPrimary]}>{acaoContrato.label}</Text>
                             </TouchableOpacity>
                             <Text style={styles.unitAccessHint}>
                               {acaoContrato.liberada
@@ -628,8 +629,10 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.lg },
   action: { flex: 1 },
   whatsapp: { backgroundColor: Colors.success },
-  unitInvite: { minHeight: 40, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: Spacing.sm, paddingHorizontal: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border },
+  unitInvite: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, marginTop: Spacing.sm, paddingHorizontal: Spacing.md, borderTopWidth: 1, borderTopColor: Colors.border, borderRadius: Radius.md },
+  unitInvitePrimary: { minHeight: 52, borderTopWidth: 0, backgroundColor: Colors.primary },
   unitInviteText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" },
+  unitInviteTextPrimary: { color: Colors.surface, fontSize: Typography.body },
   unitAccessHint: { marginTop: 2, color: Colors.subtitle, fontSize: 10, lineHeight: 14, textAlign: "center" },
   contractStatus: { alignSelf: "flex-start", marginTop: Spacing.sm, paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.round, backgroundColor: "#FEF3C7" },
   contractStatusSigned: { backgroundColor: "#DCFCE7" },
