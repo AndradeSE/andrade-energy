@@ -149,11 +149,6 @@ module.exports = {
 
     updates: {
       url: `https://u.expo.dev/${easProjectId}`,
-      requestHeaders: {
-        "expo-channel-name": gerador
-          ? "preview-gerador"
-          : "preview-consumidor",
-      },
     },
   },
 };
