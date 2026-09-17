@@ -16,8 +16,17 @@ import {
   View,
 } from "react-native";
 import CommercialTabs from "../../components/commercial/CommercialTabs";
-import { AppHeader, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
+import {
+  AppHeader,
+  Button,
+  Card,
+  Divider,
+  ElasticScrollView as ScrollView,
+  Screen,
+  Section,
+} from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
+import { avisosPassoAPassoAtivos, definirAvisosPassoAPasso } from "../../services/preferencias.service";
 import {
   alterarStatusAssinatura,
   arquivarAssinatura,
@@ -50,9 +59,11 @@ export default function GestaoGeradores() {
   const [data, setData] = useState<PainelComercial | null>(null);
   const [loading, setLoading] = useState(true);
   const [menuAberto, setMenuAberto] = useState(false);
+  const [avisosPassoAPasso, setAvisosPassoAPasso] = useState(true);
+  useEffect(() => { void avisosPassoAPassoAtivos().then(setAvisosPassoAPasso); }, []);
   const [planoEditando, setPlanoEditando] = useState<any>(null);
   const [carteira, setCarteira] = useState<any>(null);
-  const [pixTipo, setPixTipo] = useState("CPF");
+  const [pixTipo] = useState("CPF");
   const [pixChave, setPixChave] = useState("");
   const [senhaFinanceira, setSenhaFinanceira] = useState("");
   const [saque, setSaque] = useState("");
@@ -99,7 +110,11 @@ export default function GestaoGeradores() {
       setAba(params.aba as "GERADORES" | "ASSINATURAS" | "PAGAMENTOS" | "PLANOS");
     }
   }, [params.aba]);
-  if (user?.perfil !== "ADMIN")
+  const colaboradorComercial = user?.papel_empresa === "COLABORADOR_COMERCIAL";
+  useEffect(() => {
+    if (colaboradorComercial && aba !== "GERADORES") setAba("GERADORES");
+  }, [aba, colaboradorComercial]);
+  if (user?.perfil !== "ADMIN" && !colaboradorComercial)
     return (
       <Screen>
         <View style={styles.blocked}>
@@ -155,14 +170,14 @@ export default function GestaoGeradores() {
                 router.replace("/admin/comercial" as any);
               }}
             />
-            <DrawerLink
+            {!colaboradorComercial ? <DrawerLink
               icon="grid-outline"
               label="Visão geral"
               onPress={() => {
                 setMenuAberto(false);
                 setAba("RESUMO");
               }}
-            />
+            /> : null}
             <DrawerLink
               icon="business-outline"
               label="Geradores"
@@ -171,22 +186,22 @@ export default function GestaoGeradores() {
                 setAba("GERADORES");
               }}
             />
-            <DrawerLink
+            {!colaboradorComercial ? <DrawerLink
               icon="card-outline"
               label="Assinaturas"
               onPress={() => {
                 setMenuAberto(false);
                 setAba("ASSINATURAS");
               }}
-            />
-            <DrawerLink
+            /> : null}
+            {!colaboradorComercial ? <DrawerLink
               icon="cash-outline"
               label="Financeiro"
               onPress={() => {
                 setMenuAberto(false);
                 setAba("PAGAMENTOS");
               }}
-            />
+            /> : null}
             <DrawerLink
               icon="pricetags-outline"
               label="Planos"
@@ -204,6 +219,7 @@ export default function GestaoGeradores() {
               }}
             />
             <DrawerLink icon="play-circle-outline" label="Tutoriais" onPress={() => { setMenuAberto(false); router.push("/tutoriais" as any); }} />
+            <View style={styles.drawerPreference}><Ionicons name="navigate-circle-outline" size={22} color={Colors.primary} /><Text style={styles.drawerPreferenceText}>Avisos passo a passo</Text><Switch value={avisosPassoAPasso} onValueChange={(valor) => { setAvisosPassoAPasso(valor); void definirAvisosPassoAPasso(valor); }} trackColor={{ false: Colors.border, true: Colors.primary }} /></View>
           </Pressable>
         </Pressable>
       </Modal>
@@ -577,23 +593,92 @@ export default function GestaoGeradores() {
             ) : null}
             {aba === "PAGAMENTOS" ? (
               <>
-                <View style={styles.paymentSummary}>
-                  <View>
-                    <Text style={styles.paymentSummaryLabel}>
-                      RECEBIDO NO MÊS
-                    </Text>
-                    <Text style={styles.paymentSummaryValue}>
-                      {money(data?.financeiro?.recebidoNoMes)}
-                    </Text>
+                <Section title="Movimentação financeira">
+                  <View style={styles.walletCardStandalone}>
+                    <View style={styles.grow}>
+                      <Text style={styles.walletLabel}>
+                        VALOR DISPONÍVEL PARA TRANSFERÊNCIA
+                      </Text>
+                      <Text style={styles.walletValue}>
+                        {money(carteira?.saldoDisponivel)}
+                      </Text>
+                    </View>
+                    <View style={styles.paymentSummarySide}>
+                      <Text style={styles.paymentSummarySideValue}>
+                        {money(carteira?.saldoPendente)}
+                      </Text>
+                      <Text style={styles.walletPending}>pendentes</Text>
+                    </View>
                   </View>
-                  <View style={styles.paymentSummarySide}>
-                    <Text style={styles.paymentSummarySideValue}>
-                      {money(data?.financeiro?.pendenteNoMes)}
-                    </Text>
-                    <Text style={styles.muted}>a receber</Text>
-                  </View>
-                </View>
-                <Text style={styles.section}>FATURAMENTO DAS ASSINATURAS</Text>
+                  {carteira ? (
+                    <Card>
+                      <Text style={styles.cardTitle}>Transferências</Text>
+                      <Text style={styles.subtitle}>
+                        Configure a chave Pix e movimente os valores recebidos
+                        pelas assinaturas.
+                      </Text>
+                      <Text style={styles.inputLabel}>
+                        Confirmação de segurança
+                      </Text>
+                      <TextInput
+                        secureTextEntry
+                        autoCapitalize="none"
+                        style={styles.input}
+                        value={senhaFinanceira}
+                        onChangeText={setSenhaFinanceira}
+                        placeholder="Sua senha atual"
+                      />
+                      <View style={styles.autoRow}>
+                        <View style={styles.grow}>
+                          <Text style={styles.cardTitle}>
+                            Transferência automática
+                          </Text>
+                          <Text style={styles.subtitle}>
+                            Enviar para a chave Pix sempre que receber.
+                          </Text>
+                        </View>
+                        <Switch
+                          value={carteira.transferenciaAutomatica}
+                          trackColor={{ false: Colors.border, true: Colors.primary }}
+                          onValueChange={(value) => void saveWallet(value)}
+                        />
+                      </View>
+                      <Divider />
+                      <Text style={styles.inputLabel}>
+                        Chave Pix da Andrade Energy
+                      </Text>
+                      <TextInput
+                        autoCapitalize="none"
+                        style={styles.input}
+                        value={pixChave}
+                        onChangeText={setPixChave}
+                        placeholder={carteira.pixChaveMascarada ?? "E-mail, CPF ou chave"}
+                      />
+                      <Button
+                        title="Salvar chave Pix"
+                        onPress={() => void saveWallet()}
+                      />
+                      <Divider />
+                      <Text style={styles.inputLabel}>Transferência manual</Text>
+                      <TextInput
+                        keyboardType="decimal-pad"
+                        style={styles.input}
+                        value={saque}
+                        onChangeText={setSaque}
+                        placeholder="Valor em reais"
+                      />
+                      <Button
+                        title="Transferir valor"
+                        disabled={
+                          !carteira.pixChaveMascarada ||
+                          Number(carteira.saldoDisponivel ?? 0) <= 0
+                        }
+                        onPress={() => void withdraw()}
+                      />
+                    </Card>
+                  ) : null}
+                </Section>
+                <Section title="Faturamento das assinaturas">
                 {(data?.cobrancas ?? []).map((charge) => {
                   const status = String(charge.status ?? "PENDENTE");
                   const customer =
@@ -669,25 +754,13 @@ export default function GestaoGeradores() {
                     color={Colors.primary}
                   />
                   <Text style={styles.noticeText}>
-                    Pagamentos são conciliados automaticamente pelo webhook do
-                    Asaas. O gerador pode optar pela recorrência em cartão ou
-                    Pix em “Minha assinatura”; sem recorrência, a administração
-                    gera a cobrança avulsa.
+                    Pagamentos são conciliados automaticamente pelo provedor
+                    configurado. O gerador pode optar pela recorrência em cartão
+                    ou Pix em “Minha assinatura”; sem recorrência, a
+                    administração gera a cobrança avulsa.
                   </Text>
                 </View>
-                {carteira ? <>
-                  <Text style={styles.section}>TRANSFERÊNCIAS ASAAS</Text>
-                  <View style={[styles.card, styles.balanceCard]}><Text style={styles.balanceLabel}>SALDO DA CONTA ASAAS COMERCIAL</Text><Text style={styles.balanceValue}>{money(carteira.saldoDisponivel)}</Text><Text style={styles.balanceCaption}>{carteira.asaasConectado ? "Conta exclusiva das assinaturas conectada" : "Configure ASAAS_COMERCIAL_API_KEY para habilitar movimentações"}</Text></View>
-                  <View style={styles.card}>
-                    <Text style={styles.inputLabel}>Senha atual para confirmar alterações</Text><TextInput secureTextEntry autoCapitalize="none" style={styles.input} value={senhaFinanceira} onChangeText={setSenhaFinanceira} placeholder="Senha da administração"/>
-                    <Text style={styles.inputLabel}>Tipo de chave Pix</Text><View style={styles.pixTypes}>{["CPF","CNPJ","EMAIL","PHONE","EVP"].map((tipo)=><TouchableOpacity key={tipo} onPress={()=>setPixTipo(tipo)} style={[styles.pixType,pixTipo===tipo&&styles.pixTypeActive]}><Text style={[styles.pixTypeText,pixTipo===tipo&&styles.pixTypeTextActive]}>{tipo}</Text></TouchableOpacity>)}</View>
-                    <Text style={styles.inputLabel}>Chave Pix da Andrade Energy</Text><TextInput autoCapitalize="none" style={styles.input} value={pixChave} onChangeText={setPixChave} placeholder={carteira.pixChaveMascarada ?? "Informe a chave"}/>
-                    <TouchableOpacity style={styles.secondaryButton} onPress={() => void saveWallet()}><Text style={styles.secondaryButtonText}>Salvar dados de recebimento</Text></TouchableOpacity>
-                    <View style={styles.switchRow}><View style={styles.grow}><Text style={styles.cardTitle}>Transferência automática</Text><Text style={styles.subtitle}>Transfere para a chave Pix após o recebimento.</Text></View><Switch value={carteira.transferenciaAutomatica} onValueChange={(value)=>void saveWallet(value)}/></View>
-                    <Text style={styles.inputLabel}>Transferência manual</Text><TextInput keyboardType="decimal-pad" style={styles.input} value={saque} onChangeText={setSaque} placeholder="Valor em reais"/>
-                    <TouchableOpacity style={styles.primaryButton} onPress={() => void withdraw()}><Text style={styles.primaryButtonText}>Transferir via Pix</Text></TouchableOpacity>
-                  </View>
-                </> : null}
+                </Section>
               </>
             ) : null}
           </>
@@ -827,10 +900,13 @@ const styles = StyleSheet.create({
   addButton: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 9, borderRadius: Radius.round, backgroundColor: Colors.primary },
   addButtonText: { color: "#FFF", fontSize: 12, fontWeight: "800" },
   editHint: { marginTop: Spacing.sm, color: Colors.primary, fontSize: 11, fontWeight: "800" },
-  balanceCard: { backgroundColor: "#083F31" },
-  balanceLabel: { color: "#A7F3D0", fontSize: 11, fontWeight: "800", letterSpacing: 1 },
-  balanceValue: { marginTop: 7, color: "#FFF", fontSize: 32, fontWeight: "900" },
-  balanceCaption: { marginTop: 4, color: "#D1FAE5", fontSize: 12 },
+  sectionLead: { marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 },
+  walletCard: { backgroundColor: "#083F31" },
+  walletCardStandalone: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.lg, padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: "#083F31", ...Shadows.card },
+  walletLabel: { color: "#9FE0BF", fontSize: 11, fontWeight: "800", letterSpacing: 1.2 },
+  walletValue: { marginTop: 8, color: "#FFFFFF", fontSize: 36, fontWeight: "900" },
+  walletPending: { marginTop: 5, color: "#CDEBDD" },
+  autoRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16 },
   pixTypes: { marginBottom: Spacing.sm, flexDirection: "row", flexWrap: "wrap", gap: 6 },
   pixType: { paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.round },
   pixTypeActive: { borderColor: Colors.primary, backgroundColor: "#E7F5EE" },
@@ -924,6 +1000,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
+  drawerPreference: { minHeight: 54, flexDirection: "row", alignItems: "center", gap: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  drawerPreferenceText: { flex: 1, color: Colors.text, fontSize: Typography.body, fontWeight: "600" },
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
   tabs: { gap: 8, paddingBottom: Spacing.md },
   tab: {

@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { consultarConvite, consultarConviteGerador, criarConvite, criarConviteGerador } from "./convites.service";
+import { enviarContratoEConvite, solicitarReenvioConviteCliente } from "../contratos/envioContrato.service";
 
 export async function criarConviteController(req: Request, res: Response) {
   try { return res.status(201).json(await criarConvite(req.body, (req as any).usuario)); }
@@ -19,4 +20,14 @@ export async function criarConviteGeradorController(req: Request, res: Response)
 export async function consultarConviteGeradorController(req: Request, res: Response) {
   try { return res.json(await consultarConviteGerador(req.params.token)); }
   catch (e: any) { return res.status(400).json({ message: e.message }); }
+}
+
+export async function reenviarConviteUnidadeController(req: Request, res: Response) {
+  try { return res.json(await enviarContratoEConvite(req.params.unidadeId, (req as any).usuario, true)); }
+  catch (e: any) { return res.status(400).json({ message: e.message }); }
+}
+
+export async function solicitarReenvioConviteController(req: Request, res: Response) {
+  try { return res.json(await solicitarReenvioConviteCliente(req.body?.email)); }
+  catch { return res.json({ message: "Se houver um convite pendente para este e-mail, enviaremos um novo link.", emailEnviado: false }); }
 }

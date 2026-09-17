@@ -265,9 +265,24 @@ export default function Perfil() {
 
   return (
     <Screen>
-      {IS_GERADOR_APP ? <AppHeader environmentName={origem === "comercial" ? "Gestão comercial" : "Gestão de usinas"} showPlantContext={origem !== "comercial"} title="Perfil" subtitle="Dados e segurança" contextTitle={user?.nome ?? "Meu perfil"} contextSubtitle="Gerencie seu acesso à Andrade Energy" icon="person-outline" /> : null}
+      <AppHeader
+        environmentName={
+          IS_GERADOR_APP
+            ? origem === "comercial"
+              ? "Gestão comercial"
+              : "Gestão de usinas"
+            : "Área do consumidor"
+        }
+        showPlantContext={IS_GERADOR_APP && origem !== "comercial"}
+        title="Perfil"
+        subtitle="Dados e segurança"
+        contextTitle={user?.nome ?? "Meu perfil"}
+        contextSubtitle="Gerencie seu acesso à Andrade Energy"
+        icon="person-outline"
+      />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.container}>
         <ScrollView
+          style={styles.profileBackground}
           bounces
           alwaysBounceVertical
           contentContainerStyle={styles.content}
@@ -432,6 +447,7 @@ function Campo({ icon, label, value, editable = true, hint, last = false, ...inp
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  profileBackground: { backgroundColor: Colors.background },
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl * 3 },
   hero: { flexDirection: "row", alignItems: "center", marginBottom: Spacing.lg },
   avatarWrap: { position: "relative", marginRight: Spacing.sm },

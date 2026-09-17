@@ -2830,6 +2830,12 @@ function PortalHome({
   const isCommercialWorkspace = type === "GERADOR" && (collaboratorRole === "COLABORADOR_COMERCIAL" || (session.usuario?.perfil === "ADMIN" && workspace === "COMERCIAL"));
   const canManageTeam = type === "GERADOR" && !isCollaborator && ["ADMIN", "GESTOR"].includes(String(session.usuario?.perfil ?? ""));
 
+  useEffect(() => {
+    // Cada item do menu representa uma nova tela lógica. Manter a rolagem da
+    // tela anterior fazia a seção seguinte abrir pela metade no portal web.
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [activeSection]);
+
   const plantOf = (unit: WebRecord) => Array.isArray(unit.usinas) ? unit.usinas[0] as WebRecord | undefined : unit.usinas as WebRecord | undefined;
   const hasAutomaticBillingOwnership = (unit: WebRecord, ownership: "GERADOR" | "CLIENTE") =>
     String(unit.tipo ?? "BENEFICIARIA").toUpperCase() !== "GERADORA" &&

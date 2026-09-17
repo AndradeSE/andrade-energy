@@ -1,10 +1,11 @@
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { Pressable, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Pressable, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import CadastroActions from "../../components/cadastro/CadastroActions";
 import { AppHeader, Card, ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../../components/ui";
 import { listarUnidadesGestor, listarUnidadesCliente } from "../../services/clientes.service";
+import { reenviarConviteDaUnidade } from "../../services/convites.service";
 import { Colors, Spacing, Typography } from "../../theme";
 
 function acaoContratualDaUc(unidade: any) {
@@ -57,6 +58,20 @@ export default function Unidades() {
     });
   }
 
+  async function abrirOuReenviar(item: any) {
+    const acao = acaoContratualDaUc(item);
+    if (acao.label !== "Reenviar convite") return abrirContratoDaUnidade(item);
+    try {
+      const resultado = await reenviarConviteDaUnidade(String(item.id));
+      Alert.alert(resultado.emailEnviado ? "Convite reenviado" : "Envio não concluído", resultado.emailEnviado
+        ? "Novo convite enviado com a proposta e a minuta existentes. Nenhum contrato foi recriado."
+        : "O convite foi renovado, mas o e-mail não pôde ser entregue.");
+      await carregar();
+    } catch (error: any) {
+      Alert.alert("Não foi possível reenviar", error?.response?.data?.message ?? "Tente novamente.");
+    }
+  }
+
   return (
     <Screen>
       <AppHeader title="Unidades consumidoras" subtitle={clienteId ? params.cliente || "Unidades do cliente" : "Carteira dos clientes"} contextTitle={`${unidades.length} unidades cadastradas`} contextSubtitle={clienteId ? "Unidades vinculadas a este cliente" : "Todas as unidades vinculadas aos clientes"} icon="flash-outline" />
@@ -76,7 +91,7 @@ export default function Unidades() {
             accessibilityLabel={`Abrir contrato e convite da UC ${item.numero}`}
             onPress={(evento) => {
               evento.stopPropagation();
-              abrirContratoDaUnidade(item);
+              void abrirOuReenviar(item);
             }}
             style={styles.invite}
           >

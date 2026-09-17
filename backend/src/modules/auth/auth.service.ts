@@ -493,12 +493,15 @@ export async function cadastrarConsumidorComFatura(
         tipo: "CONSUMIDOR",
         convite: conviteToken,
         empresa_id: empresaId,
-        ativo: true,
+        // A conta só é ativada depois que vínculo, solicitação e aceite do
+        // convite terminarem sem erro. Assim uma falha intermediária não cria
+        // um login aparentemente válido, porém incompleto.
+        ativo: false,
       });
       usuarioFoiCriado = true;
     }
     usuarioCriadoId = String(usuario.id);
-    await vincularUsuarioAoClientePendente(usuarioCriadoId, clienteId, empresaId, true);
+    await vincularUsuarioAoClientePendente(usuarioCriadoId, clienteId, empresaId, false);
 
     caminhoFatura = possuiFatura ? await guardarFaturaDeCadastro(arquivo!.path) : null;
     if (caminhoFatura) {
@@ -561,6 +564,8 @@ export async function cadastrarConsumidorComFatura(
         .eq("empresa_id", empresaId);
       if (atualizacaoClienteError) throw atualizacaoClienteError;
     }
+
+    await vincularUsuarioAoClientePendente(usuarioCriadoId, clienteId, empresaId, true);
 
     return {
       message: usuarioFoiCriado ? "Conta criada e liberada para acesso." : "Novo acesso adicionado à sua conta existente.",

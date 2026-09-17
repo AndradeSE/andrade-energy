@@ -6,7 +6,7 @@ import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import crypto from "node:crypto";
 
 /** Envia somente a minuta previamente revisada, nunca regenera ao enviar. */
-export async function enviarContratoEConvite(unidadeId: string, gestor: any) {
+export async function enviarContratoEConvite(unidadeId: string, gestor: any, forcarNovoConvite = false) {
   const empresaId = empresaIdDoUsuario(gestor);
   const { data: unidade, error } = await supabase.from("unidades_consumidoras").select("id,cliente_id")
     .eq("id", unidadeId).eq("empresa_id", empresaId).single();
@@ -25,7 +25,8 @@ export async function enviarContratoEConvite(unidadeId: string, gestor: any) {
   if (erroPdf || !pdf) throw new Error("Não foi possível obter a minuta revisada. Gere o documento novamente.");
   const minuta = { filename: "contrato-para-assinatura.pdf", content: Buffer.from(await pdf.arrayBuffer()) };
   const documentoHash = crypto.createHash("sha256").update(minuta.content).digest("hex");
-  const { data: conta, error: erroConta } = await supabase.from("usuarios").select("id").eq("cliente_id", cliente.id).eq("empresa_id", empresaId).eq("perfil", "LEITURA").limit(1).maybeSingle();
+  const { data: acessoAtivo, error: erroConta } = await supabase.from("empresa_usuarios").select("id")
+    .eq("cliente_id", cliente.id).eq("empresa_id", empresaId).eq("papel", "LEITURA").eq("ativo", true).limit(1).maybeSingle();
   if (erroConta) throw erroConta;
   const { data: conviteAnterior, error: erroConviteAnterior } = await supabase.from("convites_clientes")
     .select("id,status")
@@ -36,10 +37,17 @@ export async function enviarContratoEConvite(unidadeId: string, gestor: any) {
     .maybeSingle();
   if (erroConviteAnterior) throw erroConviteAnterior;
   let resultado: any;
-  if (conta || conviteAnterior) {
+  if (acessoAtivo && !forcarNovoConvite) {
     const enviado = await enviarEmailTransacional({ empresaId: gestor.empresa_id, destinatario: cliente.email, assunto: "Contrato e proposta disponíveis para análise", html: "<p>Seu gerador disponibilizou um contrato e uma proposta para sua unidade. Acesse sua conta no aplicativo Consumidor e abra a área Contrato para analisar os documentos.</p>", anexos: [minuta, { filename: proposta.filename, content: proposta.content }] });
-    resultado = { emailEnviado: enviado, contaExistente: Boolean(conta), conviteExistente: Boolean(conviteAnterior), novoConvite: false };
+    resultado = { emailEnviado: enviado, contaExistente: true, conviteExistente: Boolean(conviteAnterior), novoConvite: false };
   } else {
+    // Um reenvio sempre invalida os códigos pendentes anteriores e produz um
+    // token novo. O contrato e a proposta existentes são apenas anexados; não
+    // há regeneração de minuta.
+    const { error: erroCancelamento } = await supabase.from("convites_clientes")
+      .update({ status: "CANCELADO" })
+      .eq("empresa_id", empresaId).eq("unidade_consumidora_id", unidadeId).eq("status", "PENDENTE");
+    if (erroCancelamento) throw erroCancelamento;
     resultado = await criarConvite({ nome: cliente.nome, cpf: cliente.cpf, email: cliente.email, whatsapp: cliente.whatsapp || undefined, unidade_consumidora_id: unidadeId }, gestor, { minuta, proposta });
     resultado = { ...resultado, novoConvite: true };
   }
@@ -50,4 +58,30 @@ export async function enviarContratoEConvite(unidadeId: string, gestor: any) {
   }).eq("id", contrato.id).eq("contrato_gerado_url", contrato.contrato_gerado_url);
   if (erroAuditoria) throw erroAuditoria;
   return { ...resultado, contratoId: contrato.id };
+}
+
+export async function solicitarReenvioConviteCliente(emailInformado: unknown) {
+  const email = String(emailInformado ?? "").trim().toLowerCase();
+  const resposta = { message: "Se houver um convite pendente para este e-mail, enviaremos um novo link.", emailEnviado: false };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return resposta;
+  const { data: convite } = await supabase.from("convites_clientes")
+    .select("unidade_consumidora_id,gestor_id,status")
+    .ilike("email", email).eq("status", "PENDENTE")
+    .not("unidade_consumidora_id", "is", null)
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (!convite?.unidade_consumidora_id || !convite.gestor_id) return resposta;
+  const { data: gestor } = await supabase.from("usuarios").select("*").eq("id", convite.gestor_id).maybeSingle();
+  if (!gestor) return resposta;
+  const { data: unidade } = await supabase.from("unidades_consumidoras").select("numero,cliente_id,clientes(nome)").eq("id", convite.unidade_consumidora_id).maybeSingle();
+  const cliente: any = Array.isArray(unidade?.clientes) ? unidade?.clientes[0] : unidade?.clientes;
+  await supabase.from("notificacoes_app").insert({
+    usuario_id: convite.gestor_id,
+    empresa_id: gestor.empresa_id,
+    tipo: "REENVIO_CONVITE_SOLICITADO",
+    titulo: "Cliente solicitou novo convite",
+    detalhe: `${cliente?.nome ?? email} solicitou o reenvio do convite${unidade?.numero ? ` da UC ${unidade.numero}` : ""}.`,
+    rota: unidade?.cliente_id ? `/clientes/${unidade.cliente_id}?area=unidades` : "/clientes",
+  });
+  const resultado = await enviarContratoEConvite(String(convite.unidade_consumidora_id), gestor, true);
+  return { ...resposta, emailEnviado: Boolean(resultado.emailEnviado) };
 }

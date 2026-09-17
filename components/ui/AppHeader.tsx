@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
-import { Alert, Image, LayoutAnimation, Modal, Pressable, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Image, LayoutAnimation, Modal, Pressable, StatusBar, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { useCallback, useEffect, useState } from "react";
 import { useReadNotifications } from "../../hooks/useReadNotifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,6 +16,8 @@ import { useEmpresa } from "../../contexts/EmpresaContext";
 import { notificarAvisosNoAndroid } from "../../services/carteira-notificacoes.service";
 import { useHeaderDetailsVisibility } from "../../hooks/useHeaderDetailsVisibility";
 import { useProfilePhoto } from "../../hooks/useProfilePhoto";
+import { listarNotificacoesApp } from "../../services/notificacoes.service";
+import { avisosPassoAPassoAtivos, definirAvisosPassoAPasso } from "../../services/preferencias.service";
 
 function escurecerCor(hex: string, fator = 0.62) {
   const limpa = hex.replace("#", "");
@@ -60,6 +62,7 @@ export default function AppHeader({
   const corPrincipal = empresa.cor_primaria || Colors.primary;
   const corEscura = escurecerCor(corPrincipal);
   const [menuAberto, setMenuAberto] = useState(false);
+  const [avisosPassoAPasso, setAvisosPassoAPasso] = useState(true);
   const [fotoAberta, setFotoAberta] = useState(false);
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
   const [avisosRecebidos, setNotificacoes] = useState<any[]>([]);
@@ -79,6 +82,8 @@ export default function AppHeader({
     if (collapsePlantContextOnMount) setContextoUsinaExpandido(false);
   }, [collapsePlantContextOnMount, setContextoUsinaExpandido]);
 
+  useEffect(() => { void avisosPassoAPassoAtivos().then(setAvisosPassoAPasso); }, []);
+
   function alternarContextoUsina() {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setContextoUsinaExpandido(!contextoUsinaExpandido);
@@ -88,7 +93,7 @@ export default function AppHeader({
     let ativo = true;
     setNotificacoes([]);
     if (!usuarioId) return;
-    listarFaturas().then((faturas) => {
+    Promise.all([listarFaturas(), listarNotificacoesApp().catch(() => [])]).then(([faturas, notificacoesApp]) => {
       if (!ativo) return;
       const hoje = new Date();
       const avisos = (faturas ?? []).flatMap((fatura: any) => {
@@ -104,7 +109,8 @@ export default function AppHeader({
         if (dias <= 5) return [{ id: String(fatura.id), severidade: "media", titulo: "Fatura próxima do vencimento", detalhe: `${fatura.clientes?.nome ?? "Cliente"} · vence em ${dias} dia${dias === 1 ? "" : "s"}`, rota: `/faturas/${fatura.id}` }];
         return [];
       }).sort((a: any, b: any) => (a.severidade === "alta" ? -1 : 1) - (b.severidade === "alta" ? -1 : 1));
-      setNotificacoes(avisos);
+      const avisosPersistidos = notificacoesApp.map((item) => ({ id: `app-${item.id}`, severidade: "media", titulo: item.titulo, detalhe: item.detalhe ?? "", rota: item.rota ?? "/" }));
+      setNotificacoes([...avisosPersistidos, ...avisos]);
       void notificarAvisosNoAndroid(usuarioId, avisos.map((aviso: any) => ({
         id: aviso.id,
         titulo: aviso.titulo,
@@ -267,6 +273,7 @@ export default function AppHeader({
             </> : <><MenuLink icon="card-outline" label="Meu plano" onPress={() => navegar("/assinatura")} /><MenuLink icon="people-outline" label="Clientes" onPress={() => navegar("/clientes")} /><MenuLink icon="business-outline" label="Usinas" onPress={() => navegar("/usinas")} /><MenuLink icon="flash-outline" label="Unidades consumidoras" onPress={() => navegar("/unidades")} /><MenuLink icon="document-text-outline" label="Contratos dos clientes" onPress={() => navegar("/contratos")} /><MenuLink icon="wallet-outline" label="Financeiro" onPress={() => navegar("/financeiro")} /><MenuLink icon="people-circle-outline" label="Colaboradores" onPress={() => navegar("/colaboradores?ambiente=gerador")} /><MenuLink icon="time-outline" label="Atividade da equipe" onPress={() => navegar("/colaboradores/atividade?ambiente=gerador")} />{usuario?.perfil === "ADMIN" ? <MenuLink icon="layers-outline" label="Empresas parceiras" onPress={() => navegar("/admin/empresas")} /> : null}</> : <><MenuLink icon="receipt-outline" label="Minhas faturas" onPress={() => navegar("/faturas")} /><MenuLink icon="document-text-outline" label="Meu contrato" onPress={() => navegar("/contrato")} /></>}
             <MenuLink icon="person-outline" label="Perfil" onPress={() => navegar("/perfil")} />
             <MenuLink icon="play-circle-outline" label="Tutoriais" onPress={() => navegar("/tutoriais")} />
+            <View style={styles.menuPreference}><Ionicons name="navigate-circle-outline" size={22} color={Colors.primary} /><View style={styles.menuPreferenceCopy}><Text style={styles.menuPreferenceTitle}>Avisos passo a passo</Text><Text style={styles.menuPreferenceHint}>{avisosPassoAPasso ? "Ativados" : "Desativados"}</Text></View><Switch accessibilityLabel="Ativar avisos passo a passo" value={avisosPassoAPasso} onValueChange={(valor) => { setAvisosPassoAPasso(valor); void definirAvisosPassoAPasso(valor); }} trackColor={{ false: Colors.border, true: Colors.primary }} /></View>
             <View style={styles.menuDivider} /><MenuLink icon="log-out-outline" label="Sair da conta" danger onPress={confirmarSaida} />
           </Pressable>
         </Pressable>
@@ -438,6 +445,9 @@ const styles = StyleSheet.create({
   menuLink: { minHeight: 54, flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: Colors.border },
   menuLabel: { flex: 1, marginLeft: Spacing.md, color: Colors.text, fontSize: Typography.body, fontWeight: "600" },
   menuDanger: { color: Colors.danger }, menuDivider: { height: Spacing.md },
+  menuPreference: { minHeight: 62, flexDirection: "row", alignItems: "center", gap: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  menuPreferenceCopy: { flex: 1 }, menuPreferenceTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "600" },
+  menuPreferenceHint: { marginTop: 2, color: Colors.subtitle, fontSize: 11 },
 
   contextBadge: { marginLeft: Spacing.sm, paddingHorizontal: 8, paddingVertical: 3, borderRadius: Radius.round, backgroundColor: "rgba(255,255,255,0.16)" },
   contextBadgeSuccess: { backgroundColor: "rgba(22,163,74,0.28)" },

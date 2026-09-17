@@ -11,6 +11,7 @@ import { IS_GERADOR_APP } from "../../config/appVariant";
 import { alocarUnidade, listarUsinas } from "../../services/usinas.service";
 import { calcularMediaConsumoFatura, listarFaturas } from "../../services/faturas.service";
 import { buscarCliente, listarClientes } from "../../services/clientes.service";
+import { avisosPassoAPassoAtivos } from "../../services/preferencias.service";
 import { supabase } from "../../supabase";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
@@ -236,10 +237,11 @@ export default function NovaUnidade() {
 
       if (origem === "fatura" && clienteId) {
         setMensagemSalvar("Unidade salva com sucesso.");
-        Alert.alert("UC salva", "A UC foi cadastrada. Próximo passo: abra a lista de UCs, configure o contrato e envie a minuta para o cliente assinar.", [
-          { text: "Ir para UCs", onPress: () => router.dismissTo("/unidades" as any) },
-          { text: "Continuar", onPress: () => router.dismissTo({ pathname: "/clientes/[id]", params: { id: clienteId } }) },
+        const destino = { pathname: "/clientes/[id]", params: { id: clienteId, area: "unidades" } } as any;
+        if (await avisosPassoAPassoAtivos()) Alert.alert("UC configurada", "Próximos passos: abra esta UC, gere a minuta, revise o contrato e envie o convite. Depois, aguarde o cliente criar a conta e assinar; somente então ele ficará ativo e a UC será liberada.", [
+          { text: "Ir para UCs e configurar contrato", onPress: () => router.dismissTo(destino) },
         ]);
+        else router.dismissTo(destino);
       } else {
         router.back();
       }

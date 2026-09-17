@@ -17,12 +17,14 @@ export default function Button({
   title,
   icon,
   style,
+  disabled,
   ...rest
 }: Props) {
   return (
     <TouchableOpacity
       activeOpacity={0.9}
-      style={[styles.button, style]}
+      disabled={disabled}
+      style={[styles.button, disabled && styles.disabled, style]}
       {...rest}
     >
       {icon}
@@ -44,6 +46,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: Spacing.lg,
   },
+  disabled: { opacity: 0.42 },
 
   text: {
     color: "#FFF",

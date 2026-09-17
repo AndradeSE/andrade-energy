@@ -73,12 +73,9 @@ export async function criarConvite(input: any, gestor: any, documentos?: { minut
     .eq("perfil", "LEITURA")
     .limit(1)
     .maybeSingle();
-  if (contaEmail) {
-    const contaConsumidorOrfa = contaEmail.perfil === "LEITURA" && !clienteExistente;
-    if (!contaConsumidorOrfa) throw new Error("Este e-mail já possui uma conta de consumidor ativa.");
-    const { error: erroLimpeza } = await supabase.from("usuarios").delete().eq("id", contaEmail.id);
-    if (erroLimpeza) throw erroLimpeza;
-  }
+  // Uma conta é global e pode receber acesso de mais de um gerador. Não
+  // removemos nem rejeitamos a conta existente: o aceite do convite valida a
+  // senha atual e cria apenas o vínculo com esta empresa/UC.
 
   const { data: contaConsumidorCpf } = await supabase
     .from("usuarios")
@@ -88,10 +85,8 @@ export async function criarConvite(input: any, gestor: any, documentos?: { minut
     .eq("perfil", "LEITURA")
     .limit(1)
     .maybeSingle();
-  if (contaConsumidorCpf) {
-    if (clienteExistente) throw new Error("Este CPF já possui uma conta de consumidor ativa.");
-    const { error: erroLimpeza } = await supabase.from("usuarios").delete().eq("id", contaConsumidorCpf.id);
-    if (erroLimpeza) throw erroLimpeza;
+  if (contaConsumidorCpf && contaEmail && contaConsumidorCpf.id !== contaEmail.id) {
+    throw new Error("O CPF e o e-mail informados pertencem a contas diferentes. Revise o cadastro do cliente.");
   }
 
   const token = gerarToken();

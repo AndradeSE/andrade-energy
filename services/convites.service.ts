@@ -10,6 +10,16 @@ export async function consultarConvite(token: string) {
   return data;
 }
 
+export async function reenviarConviteDaUnidade(unidadeId: string) {
+  const { data } = await api.post(`/convites/unidades/${unidadeId}/reenviar`);
+  return data;
+}
+
+export async function solicitarReenvioConvite(email: string) {
+  const { data } = await api.post("/convites/solicitar-reenvio", { email });
+  return data as { message: string; emailEnviado: boolean };
+}
+
 export async function criarConviteGerador(payload: { nome: string; cpf: string; email: string; planoId?: string; ciclo?: "MENSAL" | "ANUAL"; diasTeste?: number }) {
   const { data } = await api.post("/convites/geradores", payload);
   return data;

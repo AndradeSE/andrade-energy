@@ -50,7 +50,7 @@ export default function NovoCliente() {
     const dados = {
       nome: nome.trim(), cpf: cpfLimpo || null, email: normalizarEmail(email) || null,
       telefone: telefone.trim() || null, whatsapp: telefone.replace(/\D/g, "") || null,
-      endereco: endereco.trim() || null, status: "ATIVO",
+      endereco: endereco.trim() || null, status: "INATIVO",
     };
 
     try {

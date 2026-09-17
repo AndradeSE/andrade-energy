@@ -9,6 +9,7 @@ import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
 import { anexarFaturaCliente, buscarCliente, listarUnidadesCliente } from "../../services/clientes.service";
 import { buscarFaturasCliente, calcularMediaConsumoFatura } from "../../services/faturas.service";
+import { reenviarConviteDaUnidade } from "../../services/convites.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const moeda = (v: unknown) =>
@@ -103,7 +104,9 @@ export default function ClienteDetalhe() {
   const economia = faturas.reduce((t, f) => t + Number(f.economia_real ?? f.economia ?? 0), 0);
   const termoUnidade = buscaUnidades.trim().toLocaleLowerCase("pt-BR");
   const unidadesFiltradas = unidades.filter((unidade) => `${unidade.apelido} ${unidade.numero} ${unidade.titular} ${unidade.endereco} ${unidade.distribuidora}`.toLocaleLowerCase("pt-BR").includes(termoUnidade));
-  const statusCadastro = statusDaSolicitacao(cliente.status);
+  const statusCadastro = statusDaSolicitacao(cliente.cadastro_status ?? cliente.status);
+  // O gerador precisa continuar vendo e configurando as UCs enquanto o
+  // consumidor ainda não concluiu a criação da conta.
   const cadastroPendente = false;
   const consumoHistorico = faturas
     .map((fatura) => ({
@@ -136,6 +139,20 @@ export default function ClienteDetalhe() {
         revisao: acao.revisao ? "1" : undefined,
       },
     });
+  }
+
+  async function abrirOuReenviarConvite(unidade: any) {
+    const acao = acaoContratualDaUc(unidade);
+    if (acao.label !== "Reenviar convite") return abrirContratoDaUnidade(unidade);
+    try {
+      const resultado = await reenviarConviteDaUnidade(String(unidade.id));
+      Alert.alert(resultado.emailEnviado ? "Convite reenviado" : "Envio não concluído", resultado.emailEnviado
+        ? "Enviamos um novo convite, a proposta e a minuta já existente. Não foi gerado outro contrato."
+        : "O convite foi renovado, mas o e-mail não pôde ser entregue. Confira o endereço e tente novamente.");
+      await carregar();
+    } catch (erro: any) {
+      Alert.alert("Não foi possível reenviar", erro?.response?.data?.message ?? "Tente novamente.");
+    }
   }
 
   async function adicionarUnidadeViaFatura() {
@@ -450,7 +467,7 @@ export default function ClienteDetalhe() {
                               accessibilityLabel={`Abrir contrato e convite da UC ${unidade.numero}`}
                               onPress={(evento) => {
                                 evento.stopPropagation();
-                                abrirContratoDaUnidade(unidade);
+                                void abrirOuReenviarConvite(unidade);
                               }}
                               style={styles.unitInvite}
                             >

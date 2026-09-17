@@ -23,6 +23,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { login } from "../../services/auth.service";
 import { ativarDigital, autenticarComDigital, verificarDigitalDisponivel } from "../../services/biometric.service";
 import { APP_DISPLAY_NAME, IS_GERADOR_APP } from "../../config/appVariant";
+import { solicitarReenvioConvite } from "../../services/convites.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function Login() {
@@ -35,6 +36,22 @@ export default function Login() {
   const [ativarBiometria, setAtivarBiometria] = useState(false);
   const [erroEmail, setErroEmail] = useState("");
   const [erroSenha, setErroSenha] = useState("");
+  const [reenviandoConvite, setReenviandoConvite] = useState(false);
+
+  async function solicitarNovoConvite() {
+    const emailNormalizado = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNormalizado)) {
+      setErroEmail("Informe o e-mail do convite.");
+      return;
+    }
+    try {
+      setReenviandoConvite(true);
+      const resultado = await solicitarReenvioConvite(emailNormalizado);
+      Alert.alert("Solicitação recebida", resultado.message);
+    } catch {
+      Alert.alert("Solicitação recebida", "Se houver um convite pendente para este e-mail, enviaremos um novo link.");
+    } finally { setReenviandoConvite(false); }
+  }
 
   async function entrar(ativarBiometria = false) {
     if (loading) return;
@@ -190,6 +207,9 @@ export default function Login() {
               <Ionicons name={IS_GERADOR_APP ? "person-add-outline" : "mail-open-outline"} size={20} color={Colors.primary} />
               <Text style={styles.createAccountButtonText}>Aceitar convite e criar conta</Text>
             </TouchableOpacity>
+            {!IS_GERADOR_APP ? <TouchableOpacity accessibilityRole="button" disabled={reenviandoConvite} onPress={() => void solicitarNovoConvite()} style={styles.resendInviteButton}>
+              {reenviandoConvite ? <ActivityIndicator color={Colors.primary} /> : <><Ionicons name="refresh-outline" size={18} color={Colors.primary} /><Text style={styles.resendInviteText}>Solicitar reenvio do convite</Text></>}
+            </TouchableOpacity> : null}
 
             <View style={styles.securityRow}>
               <Ionicons name="shield-checkmark-outline" size={17} color={Colors.primary} />
@@ -240,6 +260,8 @@ const styles = StyleSheet.create({
   loginText: { color: Colors.surface, fontSize: Typography.body, fontWeight: "900" },
   createAccountButton: { minHeight: 54, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.sm, borderWidth: 1.5, borderColor: Colors.primary, borderRadius: Radius.md, backgroundColor: "rgba(255,255,255,0.45)" },
   createAccountButtonText: { color: Colors.primary, fontSize: Typography.body, fontWeight: "900" },
+  resendInviteButton: { minHeight: 46, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.xs },
+  resendInviteText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" },
   securityRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: Spacing.md },
   securityText: { marginLeft: 6, color: Colors.subtitle, fontSize: 11 },
   footer: { marginTop: Spacing.lg, color: Colors.subtitle, fontSize: Typography.small, textAlign: "center" },

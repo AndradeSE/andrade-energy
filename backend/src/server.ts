@@ -29,6 +29,7 @@ import comercialRoutes from "./modules/comercial/comercial.routes";
 import empresasRoutes from "./modules/empresas/empresas.routes";
 import { mercadoPagoWebhookRouter } from "./modules/comercial/mercadoPagoWebhook.routes";
 import colaboradoresRoutes from "./modules/colaboradores/colaboradores.routes";
+import notificacoesRoutes from "./modules/notificacoes/notificacoes.routes";
 import { auditar } from "./utils/audit";
 
 dotenv.config();
@@ -130,6 +131,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/convites", convitesRoutes);
 app.use("/api/usuarios", usuariosRoutes);
 app.use("/api/colaboradores", colaboradoresRoutes);
+app.use("/api/notificacoes", notificacoesRoutes);
 
 app.use("/api/dashboard", dashboardRoutes);
 

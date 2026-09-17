@@ -7,6 +7,7 @@ import {
   Pressable,
   RefreshControl,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   View,
@@ -29,6 +30,7 @@ import {
   PainelComercial,
 } from "../../services/comercial.service";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
+import { avisosPassoAPassoAtivos, definirAvisosPassoAPasso } from "../../services/preferencias.service";
 
 const moeda = (value: unknown) =>
   Number(value ?? 0).toLocaleString("pt-BR", {
@@ -40,6 +42,8 @@ export default function HomeComercial() {
   const [data, setData] = useState<PainelComercial | null>(null);
   const [loading, setLoading] = useState(true);
   const [menuAberto, setMenuAberto] = useState(false);
+  const [avisosPassoAPasso, setAvisosPassoAPasso] = useState(true);
+  useEffect(() => { void avisosPassoAPassoAtivos().then(setAvisosPassoAPasso); }, []);
   const [baixandoApp, setBaixandoApp] = useState<AppDownload | null>(null);
   const [progressoApp, setProgressoApp] = useState(0);
   const baixarApp = async (tipo: AppDownload) => {
@@ -202,6 +206,7 @@ export default function HomeComercial() {
               }}
             />
             <DrawerLink icon="play-circle-outline" label="Tutoriais" onPress={() => { setMenuAberto(false); router.push("/tutoriais" as any); }} />
+            <View style={styles.drawerPreference}><Ionicons name="navigate-circle-outline" size={22} color={Colors.primary} /><Text style={styles.drawerPreferenceText}>Avisos passo a passo</Text><Switch value={avisosPassoAPasso} onValueChange={(valor) => { setAvisosPassoAPasso(valor); void definirAvisosPassoAPasso(valor); }} trackColor={{ false: Colors.border, true: Colors.primary }} /></View>
             <View style={styles.drawerDivider} />
             <DrawerLink
               danger
@@ -524,6 +529,8 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   drawerDanger: { color: Colors.danger },
+  drawerPreference: { minHeight: 54, flexDirection: "row", alignItems: "center", gap: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  drawerPreferenceText: { flex: 1, color: Colors.text, fontSize: Typography.body, fontWeight: "600" },
   drawerDivider: { height: Spacing.md },
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl * 2 },
   heading: { marginBottom: Spacing.sm },

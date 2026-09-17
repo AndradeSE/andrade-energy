@@ -106,6 +106,9 @@ export default function ContratoDaUnidade() {
             }
           }
           setUnidade(unidadeCarregada);
+          // No primeiro contrato ainda não existe rascunho para preencher o
+          // formulário. A fonte correta é a configuração recém-salva da UC.
+          setDesconto(valorParaCampo(unidadeCarregada?.desconto_percentual ?? descontoPadrao ?? 0));
         }
         if (resultadoDados.status === "fulfilled") {
           const iniciais = resultadoDados.value;
@@ -137,7 +140,9 @@ export default function ContratoDaUnidade() {
         setNumeroContrato(revisandoContratoAssinado ? `AE-${numero ?? unidadeCarregada?.numero ?? "UC"}-${new Date().getFullYear()}-R${Number(contrato.versao ?? 1) + 1}` : contrato.numero ?? "");
         setTermoAdesao(contrato.termo_adesao ?? "");
         setStatus((["ATIVO", "VIGENTE", "VENCIDO"].includes(String(contrato.status).toUpperCase()) ? String(contrato.status).toUpperCase() : "ATIVO") as StatusContrato);
-        setDesconto(revisandoContratoAssinado ? valorParaCampo(unidadeCarregada?.desconto_percentual ?? descontoPadrao) : valorParaCampo(contrato.desconto));
+        setDesconto(revisandoContratoAssinado
+          ? valorParaCampo(unidadeCarregada?.desconto_percentual ?? descontoPadrao)
+          : valorParaCampo(contrato.desconto ?? unidadeCarregada?.desconto_percentual ?? descontoPadrao ?? 0));
         setInicio(dataParaFormulario(contrato.vigencia_inicio ?? contrato.data_assinatura) || dataHoje());
         setFim(dataParaFormulario(contrato.vigencia_fim));
         if (!propostaAtual) {
@@ -414,9 +419,9 @@ export default function ContratoDaUnidade() {
         </Card>
 
         <View style={styles.documentActions}>
-          <Button disabled={gerando} title={gerando ? "Gerando minuta..." : "2. Gerar e revisar a minuta"} icon={<Ionicons name="document-text-outline" size={20} color={Colors.surface} />} onPress={gerarMinuta} />
+          <Button disabled={gerando} title={gerando ? "Gerando minuta..." : "Gerar e revisar a minuta"} icon={<Ionicons name="document-text-outline" size={20} color={Colors.surface} />} onPress={gerarMinuta} />
           {contratoGeradoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoGeradoUrl)} style={styles.documentLink}><Ionicons name="download-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir minuta gerada</Text></TouchableOpacity> : null}
-          <Button disabled={gerando || !contratoGeradoUrl || dadosDaMinutaRevisada !== JSON.stringify(dadosParaSalvar())} title={gerando ? "Aguarde..." : "3. Enviar para assinatura"} onPress={enviarParaAnalise} />
+          <Button disabled={gerando || !contratoGeradoUrl || dadosDaMinutaRevisada !== JSON.stringify(dadosParaSalvar())} title={gerando ? "Aguarde..." : "Enviar para assinatura"} onPress={enviarParaAnalise} />
           <Text style={styles.documentLinkText}>Gere e revise a minuta atual para habilitar o envio. Alterações nos campos exigem nova revisão.</Text>
           <TouchableOpacity accessibilityRole="button" activeOpacity={0.84} disabled={importando} onPress={importarAssinado} style={styles.uploadSignedButton}>
             <Ionicons name="cloud-upload-outline" size={20} color={Colors.primary} />

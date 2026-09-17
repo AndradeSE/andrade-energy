@@ -36,6 +36,48 @@
   .portal-mobile-tabs .mobile-home-tab b{width:50px;height:50px;margin-top:-18px;border-radius:50%;color:#fff;background:#12b981;box-shadow:0 7px 17px rgba(18,185,129,.34);font-size:23px}
   .portal-mobile-tabs .mobile-home-tab span{color:#087a46}
 }
+
+/* No desktop estas faixas tambem devem pertencer ao conteudo. Quando ficam
+   sticky, atravessam os cards e parecem barras soltas no meio da pagina. */
+.commercial-quick-actions,
+.commercial-tabs{
+  position:relative!important;
+  top:auto!important;
+}
+
+/* O painel comercial ja possui navegacao principal no menu lateral (desktop)
+   e na barra inferior (mobile). Esta segunda faixa repetia os mesmos destinos
+   dentro do conteudo e dava a impressao de uma barra cortada/flutuante. */
+.commercial-tabs{display:none!important}
+
+/* Impede que o tamanho minimo do conteudo alargue a coluna principal alem do
+   espaco disponivel ao lado do menu. Sem minmax(0, 1fr), grids e formularios
+   comerciais empurravam aproximadamente 136 px para fora da viewport. */
+.portal-dashboard,
+.commercial-stack,
+.commercial-stack>*{
+  min-width:0!important;
+  max-width:100%!important;
+}
+.commercial-stack{
+  width:100%!important;
+  grid-template-columns:minmax(0,1fr)!important;
+}
+.commercial-stack>*{
+  width:100%!important;
+}
+.commercial-finance,
+.commercial-columns{
+  grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr)!important;
+}
+.commercial-metrics{
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+}
+.commercial-stack .data-table-wrap{
+  width:100%;
+  max-width:100%;
+  overflow-x:auto;
+}
 @media(max-width:600px), (max-device-width:600px){.tutorial-video-grid{grid-template-columns:1fr}.tutorial-video-grid video{max-height:540px}.tutorial-center>summary{grid-template-columns:34px minmax(0,1fr)}}
 
 /* Correcoes finais das telas internas em celulares estreitos. */
@@ -119,3 +161,15 @@
   .data-toolbar{margin:-14px -14px 11px!important;padding:14px!important}
 }
 @media(max-width:760px){.operation-hero{align-items:flex-start;padding:21px;flex-direction:column}.operation-hero h2{font-size:1.55rem}.operation-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.operation-metrics article{padding:15px}.operation-metrics strong{font-size:1.05rem}.operation-columns{grid-template-columns:1fr}.operation-finance>div{grid-template-columns:1fr}.operation-check>div{grid-template-columns:1fr 1fr}.operation-plants>button{align-items:flex-start;gap:12px}.operation-plants small{line-height:1.4}}
+
+/* Navegacao web compacta: somente a barra principal permanece fixa.
+   Esta regra precisa ser a ultima para vencer os estilos historicos acima. */
+@media(max-width:820px){
+  .portal-home{padding-bottom:calc(92px + env(safe-area-inset-bottom))!important}
+  .portal-sidebar,.commercial-quick-actions,.commercial-tabs{position:relative!important;top:auto!important}
+  .portal-mobile-tabs{width:auto;max-width:calc(100vw - 16px);min-width:0;overflow-x:auto;overflow-y:visible;overscroll-behavior-x:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .portal-mobile-tabs::-webkit-scrollbar{display:none}
+  .portal-mobile-tabs.generator{display:flex;align-items:flex-end}
+  .portal-mobile-tabs.generator button{flex:1 0 48px}
+  .portal-mobile-tabs.consumer button{min-width:0}
+}
