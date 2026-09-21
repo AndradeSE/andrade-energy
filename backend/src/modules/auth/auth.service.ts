@@ -226,6 +226,19 @@ export async function autenticar(
   });
   if (sessaoError) throw sessaoError;
 
+  // A mesma pessoa pode ser geradora em uma empresa e consumidora em outra.
+  // A sessão deve nascer no vínculo escolhido pelo aplicativo; caso contrário,
+  // o middleware volta para a empresa principal e aplica o papel global errado.
+  if (vinculoEmpresa?.empresa_id) {
+    const { error: empresaSessaoError } = await supabase
+      .from("sessoes_usuarios")
+      .update({ empresa_ativa_id: vinculoEmpresa.empresa_id })
+      .eq("usuario_id", usuario.id)
+      .eq("token_hash", hashToken(token))
+      .is("revogada_em", null);
+    if (empresaSessaoError) throw empresaSessaoError;
+  }
+
   return {
     token,
     usuario: {

@@ -320,19 +320,29 @@ export async function importarContratoAssinadoDaUnidadeService(unidadeId: string
 }
 
 async function obterContratoDoClienteParaAceite(contratoId: string, usuario: any) {
-  if (String(usuario?.perfil ?? "").toUpperCase() !== "LEITURA") {
-    throw new Error("Somente o titular da conta pode assinar este contrato.");
-  }
-
   const { data: contrato, error } = await supabase
     .from("contratos")
     .select("*")
     .eq("id", contratoId)
     .maybeSingle();
   if (error) throw error;
-  if (!contrato || !usuario?.cliente_id || contrato.cliente_id !== usuario.cliente_id) {
+  if (!contrato) {
     throw new Error("Contrato não encontrado para esta conta.");
   }
+
+  // O perfil global pode ser GESTOR quando a mesma pessoa também administra
+  // uma geradora. A titularidade é o vínculo LEITURA desta empresa e cliente.
+  const { data: vinculoTitular, error: erroVinculo } = await supabase
+    .from("empresa_usuarios")
+    .select("id")
+    .eq("usuario_id", usuario.id)
+    .eq("empresa_id", contrato.empresa_id)
+    .eq("cliente_id", contrato.cliente_id)
+    .eq("papel", "LEITURA")
+    .eq("ativo", true)
+    .maybeSingle();
+  if (erroVinculo) throw erroVinculo;
+  if (!vinculoTitular) throw new Error("Somente o titular da conta pode assinar este contrato.");
   return contrato;
 }
 
