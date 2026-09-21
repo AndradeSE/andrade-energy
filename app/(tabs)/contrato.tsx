@@ -298,7 +298,7 @@ function ContratoConsumidor() {
       `Olá, gostaria de antecipar a renovação do contrato ${data.numero ?? data.id}, vinculado à UC ${dashboard?.uc ?? unidadeSelecionada?.numero ?? ""}. Aguardo as novas condições para confirmar.`,
     );
     void Linking.openURL(
-      `mailto:contato@andradeenergy.com.br?subject=${assunto}&body=${corpo}`,
+      `mailto:contato@andradese.com.br?subject=${assunto}&body=${corpo}`,
     );
   }
 
