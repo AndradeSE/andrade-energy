@@ -204,8 +204,11 @@ export async function vincularUsuarioAoClientePendente(
 
   const { data: usuario, error: usuarioBuscaError } = await supabase.from("usuarios").select("empresa_id,cliente_id").eq("id", usuarioId).single();
   if (usuarioBuscaError) throw usuarioBuscaError;
-  if (ativo && (!usuario.cliente_id || usuario.empresa_id === empresaId)) {
-    const { error } = await supabase.from("usuarios").update({ cliente_id: clienteId, ativo: true }).eq("id", usuarioId);
+  if (ativo) {
+    const atualizacaoUsuario = (!usuario.cliente_id || usuario.empresa_id === empresaId)
+      ? { cliente_id: clienteId, ativo: true }
+      : { ativo: true };
+    const { error } = await supabase.from("usuarios").update(atualizacaoUsuario).eq("id", usuarioId);
     if (error) throw error;
   }
 }

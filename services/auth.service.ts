@@ -90,3 +90,13 @@ export async function reenviarVerificacaoDeCadastro(email: string) {
   const { data } = await api.post("/auth/reenviar-verificacao-email", { email });
   return data as { message: string; emailEnviado: boolean };
 }
+
+export async function solicitarRecuperacaoSenha(email: string, tipo: "CONSUMIDOR" | "GERADOR") {
+  const { data } = await api.post("/auth/solicitar-recuperacao-senha", { email, tipo });
+  return data as { message: string; emailEnviado: boolean };
+}
+
+export async function redefinirSenha(token: string, novaSenha: string) {
+  const { data } = await api.post("/auth/redefinir-senha", { token, novaSenha });
+  return data as { message: string };
+}

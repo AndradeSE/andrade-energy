@@ -146,7 +146,7 @@ export default function CriarConta() {
               <Text style={styles.label}>{contaExistente ? "Confirmar senha atual" : "Confirmar senha"}</Text>
               <View style={styles.inputBox}><Ionicons name="lock-closed-outline" size={20} color={Colors.subtitle} /><TextInput autoComplete="new-password" onChangeText={(valor) => { setConfirmacao(valor); setErro(""); }} onSubmitEditing={solicitarAcesso} placeholder="Digite a senha novamente" placeholderTextColor="#92979F" secureTextEntry={!mostrarConfirmacao} style={styles.input} value={confirmacao} /><TouchableOpacity accessibilityLabel={mostrarConfirmacao ? "Ocultar confirmação de senha" : "Mostrar confirmação de senha"} hitSlop={10} onPress={() => setMostrarConfirmacao((valor) => !valor)} style={styles.passwordToggle}><Ionicons name={mostrarConfirmacao ? "eye-off-outline" : "eye-outline"} size={21} color={Colors.subtitle} /></TouchableOpacity></View>
               {erro ? <Text style={styles.error}>{erro}</Text> : null}
-              <TouchableOpacity disabled={salvando} onPress={solicitarAcesso} style={[styles.primaryButton, salvando && { opacity: 0.7 }]}>{salvando ? <ActivityIndicator color={Colors.surface} /> : <Text style={styles.primaryText}>{contaExistente ? "Adicionar acesso do gerador" : "Criar minha conta"}</Text>}</TouchableOpacity>
+              <TouchableOpacity disabled={salvando} onPress={solicitarAcesso} style={[styles.primaryButton, salvando && { opacity: 0.7 }]}>{salvando ? <ActivityIndicator color={Colors.surface} /> : <Text style={styles.primaryText}>{contaExistente ? "Adicionar acesso de consumidor" : "Criar minha conta"}</Text>}</TouchableOpacity>
             </>
           ) : (
             <>

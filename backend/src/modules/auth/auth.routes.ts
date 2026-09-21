@@ -9,6 +9,8 @@ import {
   loginController,
   meuPerfilController,
   reenviarVerificacaoDeCadastroController,
+  redefinirSenhaController,
+  solicitarRecuperacaoSenhaController,
   testeGeradorController,
   verificarEmailDeCadastroController,
 } from "./auth.controller";
@@ -21,6 +23,8 @@ router.post("/cadastro", cadastroController);
 router.post("/cadastro-consumidor", upload.single("fatura"), cadastroConsumidorController);
 router.post("/verificar-email", verificarEmailDeCadastroController);
 router.post("/reenviar-verificacao-email", reenviarVerificacaoDeCadastroController);
+router.post("/solicitar-recuperacao-senha", solicitarRecuperacaoSenhaController);
+router.post("/redefinir-senha", redefinirSenhaController);
 router.post("/teste-gerador", testeGeradorController);
 
 router.post(

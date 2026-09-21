@@ -1,25 +1,36 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ElasticScrollView as ScrollView } from "../../components/ui/ElasticScroll";
+import { IS_GERADOR_APP } from "../../config/appVariant";
+import { solicitarRecuperacaoSenha as solicitarRecuperacaoSenhaApi } from "../../services/auth.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function EsqueciSenha() {
   const [email, setEmail] = useState("");
   const [erro, setErro] = useState("");
   const [enviado, setEnviado] = useState(false);
+  const [enviando, setEnviando] = useState(false);
 
-  function solicitarRecuperacao() {
+  async function solicitarRecuperacao() {
     const normalizado = email.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizado)) {
       setErro("Informe um e-mail válido.");
       return;
     }
     setErro("");
-    setEnviado(true);
+    setEnviando(true);
+    try {
+      await solicitarRecuperacaoSenhaApi(normalizado, IS_GERADOR_APP ? "GERADOR" : "CONSUMIDOR");
+      setEnviado(true);
+    } catch (error: any) {
+      setErro(error?.response?.data?.message ?? "Não foi possível enviar o e-mail agora. Tente novamente.");
+    } finally {
+      setEnviando(false);
+    }
   }
 
   return (
@@ -59,8 +70,8 @@ export default function EsqueciSenha() {
                 />
               </View>
               {erro ? <Text style={styles.error}>{erro}</Text> : null}
-              <TouchableOpacity onPress={solicitarRecuperacao} style={styles.primaryButton}>
-                <Text style={styles.primaryText}>Enviar orientações</Text>
+              <TouchableOpacity disabled={enviando} onPress={() => void solicitarRecuperacao()} style={[styles.primaryButton, enviando && { opacity: 0.7 }]}>
+                {enviando ? <ActivityIndicator color={Colors.surface} /> : <Text style={styles.primaryText}>Enviar orientações</Text>}
               </TouchableOpacity>
             </>
           ) : (

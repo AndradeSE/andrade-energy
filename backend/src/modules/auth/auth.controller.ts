@@ -9,6 +9,8 @@ import {
   excluirMinhaConta,
   obterMeuPerfil,
   reenviarVerificacaoDeCadastro,
+  redefinirSenha,
+  solicitarRecuperacaoSenha,
   iniciarTesteGerador,
   verificarEmailDeCadastro,
 } from "./auth.service";
@@ -37,6 +39,16 @@ export async function loginController(
     });
 
   }
+}
+
+export async function solicitarRecuperacaoSenhaController(req: Request, res: Response) {
+  try { return res.json(await solicitarRecuperacaoSenha(req.body?.email, req.body?.tipo)); }
+  catch (err: any) { return res.status(400).json({ message: err.message ?? "Não foi possível solicitar a recuperação." }); }
+}
+
+export async function redefinirSenhaController(req: Request, res: Response) {
+  try { return res.json(await redefinirSenha(req.body?.token, req.body?.novaSenha ?? req.body?.nova_senha)); }
+  catch (err: any) { return res.status(400).json({ message: err.message ?? "Não foi possível redefinir a senha." }); }
 }
 
 export async function cadastroController(req: Request, res: Response) {

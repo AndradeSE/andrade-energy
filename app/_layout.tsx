@@ -406,6 +406,11 @@ function RootNavigator() {
         />
 
         <Stack.Screen
+          name="(auth)/redefinir-senha"
+          options={{ headerShown: false }}
+        />
+
+        <Stack.Screen
           name="selecionar-gerador"
           options={{
             headerShown: false,

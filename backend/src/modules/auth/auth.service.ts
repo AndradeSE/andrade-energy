@@ -679,6 +679,63 @@ export async function reenviarVerificacaoDeCadastro(emailInformado: unknown) {
   return { ...respostaPadrao, emailEnviado };
 }
 
+export async function solicitarRecuperacaoSenha(emailInformado: unknown, tipoInformado?: unknown) {
+  const email = emailNormalizado(emailInformado);
+  const resposta = { message: "Se existir uma conta com esse e-mail, enviaremos as orientações para redefinir a senha.", emailEnviado: false };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return resposta;
+
+  const { data: usuarios, error } = await supabase.from("usuarios")
+    .select("id,nome,email,empresa_id")
+    .eq("email", email)
+    .limit(1);
+  if (error) throw error;
+  const usuario = usuarios?.[0];
+  if (!usuario) return resposta;
+
+  await supabase.from("recuperacoes_senha").delete().eq("usuario_id", usuario.id).is("usado_em", null);
+  const token = gerarToken();
+  const { error: tokenError } = await supabase.from("recuperacoes_senha").insert({
+    usuario_id: usuario.id,
+    token_hash: hashToken(token),
+    expira_em: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+  });
+  if (tokenError) throw tokenError;
+
+  const scheme = String(tipoInformado).toUpperCase() === "GERADOR" ? "andradeenergygerador" : "andradeenergyconsumidor";
+  const link = `${scheme}://redefinir-senha?token=${encodeURIComponent(token)}`;
+  const emailEnviado = await enviarEmailTransacional({
+    empresaId: usuario.empresa_id,
+    destinatario: usuario.email,
+    assunto: "Redefina sua senha — Andrade Energy",
+    html: `<div style="max-width:560px;margin:auto;padding:28px;font-family:Arial,sans-serif;color:#252925;line-height:1.6;background:#f7f8f7;border-radius:14px"><h2 style="margin-top:0;color:#39804a">Redefinição de senha</h2><p>Olá, <strong>${escaparHtml(usuario.nome)}</strong>.</p><p>Recebemos uma solicitação para redefinir a senha da sua conta.</p><p style="margin:26px 0"><a href="${link}" style="display:inline-block;padding:14px 22px;background:#39804a;color:#fff;font-weight:700;text-decoration:none;border-radius:8px">Criar nova senha</a></p><p style="font-size:13px;color:#6b706b">Este link é válido por uma hora e só pode ser usado uma vez. Se você não fez esta solicitação, ignore este e-mail.</p></div>`,
+  }).catch(() => false);
+  return { ...resposta, emailEnviado };
+}
+
+export async function redefinirSenha(tokenInformado: unknown, novaSenhaInformada: unknown) {
+  const token = String(tokenInformado ?? "").trim();
+  const novaSenha = String(novaSenhaInformada ?? "");
+  if (!token) throw new Error("Link de recuperação inválido.");
+  if (novaSenha.length < 6) throw new Error("A nova senha deve ter pelo menos 6 caracteres.");
+  const { data: recuperacao, error } = await supabase.from("recuperacoes_senha")
+    .select("id,usuario_id,expira_em,usado_em")
+    .eq("token_hash", hashToken(token))
+    .maybeSingle();
+  if (error) throw error;
+  if (!recuperacao || recuperacao.usado_em || new Date(recuperacao.expira_em).getTime() <= Date.now()) {
+    throw new Error("Este link é inválido, já foi usado ou expirou.");
+  }
+  const agora = new Date().toISOString();
+  const { error: senhaError } = await supabase.from("usuarios")
+    .update({ senha: await protegerSenha(novaSenha), ativo: true })
+    .eq("id", recuperacao.usuario_id);
+  if (senhaError) throw senhaError;
+  const { error: usoError } = await supabase.from("recuperacoes_senha").update({ usado_em: agora }).eq("id", recuperacao.id).is("usado_em", null);
+  if (usoError) throw usoError;
+  await invalidarSessoesUsuario(recuperacao.usuario_id);
+  return { message: "Senha redefinida. Entre novamente com a nova senha." };
+}
+
 export async function cadastrarConta(input: { nome: string; cpf: string; email: string; senha: string; tipo: "CONSUMIDOR" | "GERADOR"; convite?: string; empresa_id?: string }) {
   if (input.tipo === "CONSUMIDOR") {
     throw new Error("Para criar uma conta de consumidor, use o convite enviado pelo gerador.");
