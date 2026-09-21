@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { PanResponder, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
@@ -8,17 +8,27 @@ type Props = { value: string[]; onChange: (paths: string[]) => void };
 export default function SignaturePad({ value, onChange }: Props) {
   const [current, setCurrent] = useState("");
   const currentRef = useRef("");
+  const originRef = useRef({ x: 0, y: 0 });
+  const sizeRef = useRef({ width: 0, height: 190 });
+  const localPoint = useCallback((pageX: number, pageY: number) => ({
+    x: Math.max(0, Math.min(sizeRef.current.width, pageX - originRef.current.x)),
+    y: Math.max(0, Math.min(sizeRef.current.height, pageY - originRef.current.y)),
+  }), []);
   const pan = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
     onPanResponderGrant: (event) => {
-      const { locationX, locationY } = event.nativeEvent;
-      currentRef.current = `M ${locationX.toFixed(1)} ${locationY.toFixed(1)}`;
+      const { locationX, locationY, pageX, pageY } = event.nativeEvent;
+      // locationX pode mudar de referência no Android quando o toque passa
+      // sobre o SVG/Path. Fixamos a origem absoluta do campo no primeiro toque.
+      originRef.current = { x: pageX - locationX, y: pageY - locationY };
+      const point = localPoint(pageX, pageY);
+      currentRef.current = `M ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
       setCurrent(currentRef.current);
     },
-    onPanResponderMove: (event) => {
-      const { locationX, locationY } = event.nativeEvent;
-      currentRef.current += ` L ${locationX.toFixed(1)} ${locationY.toFixed(1)}`;
+    onPanResponderMove: (_event, gestureState) => {
+      const point = localPoint(gestureState.moveX, gestureState.moveY);
+      currentRef.current += ` L ${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
       setCurrent(currentRef.current);
     },
     onPanResponderRelease: () => {
@@ -26,10 +36,15 @@ export default function SignaturePad({ value, onChange }: Props) {
       currentRef.current = "";
       setCurrent("");
     },
-  }), [onChange, value]);
+    onPanResponderTerminate: () => {
+      currentRef.current = "";
+      setCurrent("");
+    },
+    onPanResponderTerminationRequest: () => false,
+  }), [localPoint, onChange, value]);
 
   return <View>
-    <View style={styles.pad} {...pan.panHandlers}>
+    <View onLayout={(event) => { sizeRef.current = event.nativeEvent.layout; }} style={styles.pad} {...pan.panHandlers}>
       <Svg width="100%" height="100%">
         {value.map((path, index) => <Path key={`${index}-${path.length}`} d={path} fill="none" stroke={Colors.primaryDark} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />)}
         {current ? <Path d={current} fill="none" stroke={Colors.primaryDark} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" /> : null}
