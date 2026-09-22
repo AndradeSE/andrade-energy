@@ -17,6 +17,8 @@ import {
     propostaDaUnidadeController,
     dadosIniciaisContratoController,
     listarContratosController,
+    obterSolicitacaoCancelamentoController,
+    concluirSolicitacaoCancelamentoController,
 } from "./contratos.controller";
 import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
 import { upload } from "../../config/multer";
@@ -52,6 +54,8 @@ router.get("/acesso/minhas-unidades", async (req, res) => {
   try { res.json(await listarAcessoContratos((req as any).usuario)); }
   catch (erro: any) { res.status(500).json({ message: erro.message }); }
 });
+router.get("/:id/cancelamento", exigirGestor, exigirRegistroDaEmpresa("contratos"), obterSolicitacaoCancelamentoController);
+router.post("/:id/cancelamento/concluir", exigirGestor, exigirRegistroDaEmpresa("contratos"), concluirSolicitacaoCancelamentoController);
 router.post("/unidade/:unidadeId/enviar", exigirGestor, exigirRegistroDaEmpresa("unidades_consumidoras", "unidadeId"), async (req, res) => {
   try { res.json(await enviarContratoEConvite(req.params.unidadeId, (req as any).usuario)); }
   catch (erro: any) { res.status(400).json({ message: erro.message }); }

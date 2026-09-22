@@ -11,7 +11,7 @@ import ChoiceField from "../../components/cadastro/ChoiceField";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
-import { buscarUsina as buscarUsinaRemota, editarUsina as editarUsinaRemota, excluirUsina as excluirUsinaRemota } from "../../services/usinas.service";
+import { buscarUsina as buscarUsinaRemota, editarUsina as editarUsinaRemota, excluirUsina as excluirUsinaRemota, listarUsinas, migrarUnidadesDaUsina } from "../../services/usinas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const formatarMoeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -34,6 +34,9 @@ export default function EditarUsina() {
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
+  const [outrasUsinas, setOutrasUsinas] = useState<any[]>([]);
+  const [destinoUsinaId, setDestinoUsinaId] = useState("");
+  const [migrando, setMigrando] = useState(false);
   const [fotoCard, setFotoCard] = useState("");
   const chaveFotoCard = `foto-card-usina:${id}`;
 
@@ -58,6 +61,9 @@ export default function EditarUsina() {
       setTitularidadeUcs(data.titularidade_ucs_recebedoras === "CLIENTE" ? "CLIENTE" : "GERADOR");
       setCpfTitular(String(data.cpf_titular ?? "").replace(/\D/g, ""));
       setFotoCard((await AsyncStorage.getItem(chaveFotoCard)) ?? "");
+      const destinos = (await listarUsinas()).filter((item: any) => item.id !== id);
+      setOutrasUsinas(destinos);
+      setDestinoUsinaId(destinos[0]?.id ?? "");
     }
     carregar().finally(() => setLoading(false));
   }, [id]);
@@ -122,6 +128,17 @@ export default function EditarUsina() {
     router.replace("/selecionar-unidade");
   }
 
+  async function migrarUcs() {
+    if (!destinoUsinaId) return Alert.alert("Outra usina necessária", "Cadastre outra usina antes de migrar as UCs e excluir esta.");
+    setMigrando(true);
+    try {
+      const resultado = await migrarUnidadesDaUsina(id, destinoUsinaId);
+      Alert.alert("UCs migradas", `${resultado.migradas ?? 0} UC(s) foram transferidas para ${resultado.destino?.nome ?? "a usina escolhida"}. Agora esta usina pode ser excluída.`);
+    } catch (erro: any) {
+      Alert.alert("Não foi possível migrar", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
+    } finally { setMigrando(false); }
+  }
+
   if (loading) return <Loading />;
   return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Editar usina" subtitle="Dados da geração" contextTitle={nome || "Editar usina"} contextSubtitle={`UC ${numeroInstalacao || "não informada"}`} icon="sunny-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
     <Text style={styles.eyebrow}>CADASTRO DA USINA</Text><Text style={styles.title}>Editar usina</Text><Text style={styles.subtitle}>Atualize os dados técnicos e cadastrais da unidade geradora.</Text>
@@ -146,7 +163,7 @@ export default function EditarUsina() {
       <FormField label="Endereço" value={endereco} onChangeText={setEndereco} />
       <Button disabled={salvando || excluindo} title={salvando ? "Salvando..." : "Salvar alterações"} onPress={salvar} />
     </Card>
-    <View style={styles.dangerZone}><View style={styles.dangerHeading}><Ionicons name="trash-outline" size={21} color={Colors.danger} /><View style={styles.dangerText}><Text style={styles.dangerTitle}>Excluir usina</Text><Text style={styles.dangerSubtitle}>Remova esta usina permanentemente.</Text></View></View><Button disabled={salvando || excluindo} title={excluindo ? "Excluindo..." : "Excluir usina"} onPress={confirmarExclusao} style={styles.deleteButton} /></View>
+    <View style={styles.dangerZone}><View style={styles.dangerHeading}><Ionicons name="swap-horizontal-outline" size={21} color={Colors.danger} /><View style={styles.dangerText}><Text style={styles.dangerTitle}>Migrar UCs antes de excluir</Text><Text style={styles.dangerSubtitle}>Se houver UCs alocadas, escolha outra usina e migre todos os vínculos primeiro.</Text></View></View>{outrasUsinas.length ? <ChoiceField label="Usina de destino" value={destinoUsinaId} onChange={setDestinoUsinaId} options={outrasUsinas.map((item) => ({ label: item.nome, value: item.id }))} /> : <Text style={styles.dangerSubtitle}>Nenhuma outra usina disponível para receber as UCs.</Text>}<Button disabled={migrando || !destinoUsinaId} title={migrando ? "Migrando UCs..." : "Migrar UCs para outra usina"} onPress={migrarUcs} /><Button disabled={salvando || excluindo || migrando} title={excluindo ? "Excluindo..." : "Excluir usina"} onPress={confirmarExclusao} style={styles.deleteButton} /></View>
   </ScrollView></Screen>;
 }
 

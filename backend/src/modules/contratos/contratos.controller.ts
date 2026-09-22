@@ -246,3 +246,13 @@ export async function cancelarContratoController(req: Request, res: Response) {
   try { res.json(await ContratosService.solicitarCancelamentoContratoService(req.params.id, (req as any).usuario)); }
   catch (e: any) { res.status(500).json({ message: e.message }); }
 }
+
+export async function obterSolicitacaoCancelamentoController(req: Request, res: Response) {
+  try { return res.json(await ContratosService.obterSolicitacaoCancelamentoService(req.params.id, empresaIdDaRequisicao(req))); }
+  catch (e: any) { return res.status(400).json({ message: e.message }); }
+}
+
+export async function concluirSolicitacaoCancelamentoController(req: Request, res: Response) {
+  try { return res.json(await ContratosService.concluirSolicitacaoCancelamentoService(req.params.id, empresaIdDaRequisicao(req), (req as any).usuario, req.body?.decisao, req.body?.observacao)); }
+  catch (e: any) { return res.status(400).json({ message: e.message }); }
+}

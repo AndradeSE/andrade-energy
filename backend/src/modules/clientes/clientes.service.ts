@@ -83,6 +83,18 @@ export async function excluirUnidadeCliente(unidadeId: string, empresaId: string
  * a alocação das UCs excluídas em cascata.
  */
 export async function excluirCliente(clienteId: string, empresaId: string) {
+  const { data: contratosAtivos, error: erroContratos } = await supabase.from("contratos")
+    .select("id,numero,status")
+    .eq("cliente_id", clienteId)
+    .eq("empresa_id", empresaId)
+    .not("status", "in", "(CANCELADO,ENCERRADO)");
+  if (erroContratos) throw erroContratos;
+  if (contratosAtivos?.length) {
+    const bloqueio: any = new Error("Cancele ou encerre todos os contratos deste cliente antes de excluí-lo.");
+    bloqueio.code = "CLIENTE_COM_CONTRATO_ATIVO";
+    bloqueio.contratos = contratosAtivos;
+    throw bloqueio;
+  }
   const [{ data: cliente, error: erroCliente }, unidades, participacoes] = await Promise.all([
     supabase
       .from("clientes")

@@ -5,6 +5,7 @@ import {
   buscarUsinaService,
   criarUsinaService,
   excluirUsinaService,
+  migrarUnidadesDaUsinaService,
   listarUsinasService,
   obterDashboardUsina,
   importarFaturaGeradora,
@@ -117,9 +118,15 @@ export async function excluirUsinaController(
 
     res.json(data);
   } catch (e: any) {
-    res.status(500).json({
-      message: e.message,
-    });
+    res.status(e.code === "USINA_COM_UCS_ALOCADAS" ? 409 : 500).json({ message: e.message, code: e.code, unidades: e.unidades });
+  }
+}
+
+export async function migrarUnidadesDaUsinaController(req: Request, res: Response) {
+  try {
+    return res.json(await migrarUnidadesDaUsinaService(req.params.id, String(req.body?.destinoUsinaId ?? ""), empresaIdDaRequisicao(req)));
+  } catch (e: any) {
+    return res.status(400).json({ message: e.message ?? "Não foi possível migrar as UCs." });
   }
 }
 

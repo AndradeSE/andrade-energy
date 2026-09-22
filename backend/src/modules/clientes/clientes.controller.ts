@@ -29,9 +29,7 @@ export async function listarClientesController(
     const data = await listarClientes(empresaIdDaRequisicao(req));
     return res.json(data);
   } catch (e: any) {
-    return res.status(500).json({
-      message: e.message,
-    });
+    return res.status(e.code === "CLIENTE_COM_CONTRATO_ATIVO" ? 409 : 500).json({ message: e.message, code: e.code, contratos: e.contratos });
   }
 }
 

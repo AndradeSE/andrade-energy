@@ -22,6 +22,11 @@ export async function editarUsina(id: string, payload: any) {
 export async function excluirUsina(id: string) {
   await api.delete(`/usinas/${id}`);
 }
+
+export async function migrarUnidadesDaUsina(id: string, destinoUsinaId: string) {
+  const { data } = await api.post(`/usinas/${id}/migrar-unidades`, { destinoUsinaId });
+  return data;
+}
 export async function buscarDashboardUsina(
   id: string
 ) {

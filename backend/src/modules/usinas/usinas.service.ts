@@ -656,11 +656,50 @@ export async function excluirUsinaService(
   id: string,
   empresaId?: string,
 ) {
+  const { data: unidades, error } = await supabase.from("unidades_consumidoras")
+    .select("id,numero")
+    .eq("empresa_id", empresaId)
+    .eq("usina_id", id)
+    .eq("tipo", "BENEFICIARIA");
+  if (error) throw error;
+  if (unidades?.length) {
+    const bloqueio: any = new Error(`Esta usina possui ${unidades.length} UC(s) alocada(s). Migre todas para outra usina antes de excluir.`);
+    bloqueio.code = "USINA_COM_UCS_ALOCADAS";
+    bloqueio.unidades = unidades;
+    throw bloqueio;
+  }
   await excluirUsina(id, empresaId);
 
   return {
     sucesso: true,
   };
+}
+
+export async function migrarUnidadesDaUsinaService(id: string, destinoUsinaId: string, empresaId: string) {
+  if (!destinoUsinaId || destinoUsinaId === id) throw new Error("Escolha outra usina como destino.");
+  const { data: destino, error: erroDestino } = await supabase.from("usinas").select("id,nome")
+    .eq("id", destinoUsinaId).eq("empresa_id", empresaId).maybeSingle();
+  if (erroDestino || !destino) throw erroDestino ?? new Error("Usina de destino não encontrada nesta empresa.");
+  const { data: unidades, error: erroUnidades } = await supabase.from("unidades_consumidoras")
+    .select("id,cliente_id,numero").eq("empresa_id", empresaId).eq("usina_id", id).eq("tipo", "BENEFICIARIA");
+  if (erroUnidades) throw erroUnidades;
+  const ids = (unidades ?? []).map((item: any) => item.id);
+  if (!ids.length) return { sucesso: true, migradas: 0, destino };
+
+  const atualizacoes = await Promise.all([
+    supabase.from("unidades_consumidoras").update({ usina_id: destinoUsinaId }).eq("empresa_id", empresaId).in("id", ids),
+    supabase.from("contratos").update({ usina_id: destinoUsinaId }).eq("empresa_id", empresaId).in("unidade_consumidora_id", ids),
+    supabase.from("faturas").update({ usina_id: destinoUsinaId }).eq("empresa_id", empresaId).in("unidade_consumidora_id", ids),
+  ]);
+  const falha = atualizacoes.find((item) => item.error)?.error;
+  if (falha) throw falha;
+  const clientes = [...new Set((unidades ?? []).map((item: any) => item.cliente_id).filter(Boolean))];
+  await Promise.all(clientes.flatMap((clienteId) => [
+    sincronizarParticipacaoClienteUsina(id, String(clienteId)),
+    sincronizarParticipacaoClienteUsina(destinoUsinaId, String(clienteId)),
+  ]));
+  await Promise.all([recalcularAlocacaoUsina(id, empresaId), recalcularAlocacaoUsina(destinoUsinaId, empresaId)]);
+  return { sucesso: true, migradas: ids.length, destino };
 }
 
 export async function obterDashboardUsina(

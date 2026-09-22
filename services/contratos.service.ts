@@ -79,6 +79,16 @@ export async function buscarContratoDaUnidade(
   return data;
 }
 
+export async function obterSolicitacaoCancelamento(id: string) {
+  const { data } = await api.get(`/contratos/${id}/cancelamento`);
+  return data;
+}
+
+export async function concluirSolicitacaoCancelamento(id: string, decisao: "CANCELAR" | "RECUSAR", observacao = "") {
+  const { data } = await api.post(`/contratos/${id}/cancelamento/concluir`, { decisao, observacao });
+  return data;
+}
+
 export async function baixarPropostaDaUnidade(unidadeId: string) {
   const { data } = await api.get(`/contratos/unidade/${unidadeId}/proposta`);
   const destino = `${FileSystem.cacheDirectory}${data.filename || `proposta-${unidadeId}.pdf`}`;

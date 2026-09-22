@@ -45,7 +45,8 @@ export default function Usinas() {
           if (usuario?.usina_id === item.id) await atualizarUsuario({ usina_id: null });
           if (usinaSelecionada?.id === item.id) selecionarUsina(null);
         } catch (erro: any) {
-          Alert.alert("Não foi possível excluir", erro?.response?.data?.message ?? erro?.message);
+          const mensagem = erro?.response?.data?.message ?? erro?.message;
+          Alert.alert("Não foi possível excluir", mensagem, erro?.response?.data?.code === "USINA_COM_UCS_ALOCADAS" ? [{ text: "Fechar" }, { text: "Migrar UCs", onPress: () => router.push({ pathname: "/usinas/editar", params: { id: item.id } }) }] : [{ text: "OK" }]);
         }
       } },
     ]);

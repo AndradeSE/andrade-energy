@@ -8,6 +8,7 @@ import {
   dashboardUsinaController,
   excluirUsinaController,
   listarUsinasController,
+  migrarUnidadesDaUsinaController,
   importarFaturaGeradoraController,
   alocarUnidadeController,
   cadastrarIntegracaoInversorController,
@@ -34,6 +35,7 @@ router.delete("/:id/inversores/:integracaoId", exigirAutenticacao, exigirGestor,
 
 router.post("/:id/importar-fatura", exigirGestor, upload.single("arquivo"), importarFaturaGeradoraController);
 router.post("/:id/alocar-unidade", exigirGestor, alocarUnidadeController);
+router.post("/:id/migrar-unidades", exigirGestor, migrarUnidadesDaUsinaController);
 
 router.post("/", exigirGestor, exigirCapacidadeDoPlano("usinas"), criarUsinaController);
 

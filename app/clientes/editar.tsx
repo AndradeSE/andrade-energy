@@ -31,7 +31,7 @@ export default function EditarCliente() {
     router.back();
   }
 
-  function excluir() { Alert.alert("Excluir cliente", "Esta ação remove o cliente e seus vínculos. Deseja continuar?", [{ text: "Cancelar", style: "cancel" }, { text: "Excluir", style: "destructive", onPress: async () => { try { await excluirCliente(id); router.replace("/clientes"); } catch (erro: any) { Alert.alert("Não foi possível excluir", erro?.response?.data?.message ?? erro?.message); } } }]); }
+  function excluir() { Alert.alert("Excluir cliente", "O cliente só poderá ser excluído quando todos os contratos estiverem cancelados ou encerrados. Deseja verificar?", [{ text: "Cancelar", style: "cancel" }, { text: "Excluir", style: "destructive", onPress: async () => { try { await excluirCliente(id); router.replace("/clientes"); } catch (erro: any) { const mensagem = erro?.response?.data?.message ?? erro?.message; Alert.alert("Não foi possível excluir", mensagem, erro?.response?.data?.code === "CLIENTE_COM_CONTRATO_ATIVO" ? [{ text: "Fechar" }, { text: "Ver contratos", onPress: () => router.push("/contratos" as any) }] : [{ text: "OK" }]); } } }]); }
 
   if (loading) return <Loading />;
   return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Editar cliente" subtitle="Dados cadastrais" contextTitle="Editar cliente" contextSubtitle={nome || "Dados cadastrais do consumidor"} icon="create-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled"><Text style={styles.eyebrow}>CADASTRO DO CLIENTE</Text><Text style={styles.title}>Editar cliente</Text><Text style={styles.subtitle}>Somente o nome é obrigatório. Atualize os demais dados quando precisar.</Text>

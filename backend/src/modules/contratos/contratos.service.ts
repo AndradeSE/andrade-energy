@@ -614,3 +614,34 @@ export async function solicitarCancelamentoContratoService(id: string, usuario: 
 
   return { solicitacao, message: "Solicitação enviada ao gerador e à equipe responsável." };
 }
+
+export async function obterSolicitacaoCancelamentoService(id: string, empresaId: string) {
+  const { data: contrato, error } = await supabase.from("contratos")
+    .select("id,numero,status,cliente_id,unidade_consumidora_id,clientes(nome,email),unidades_consumidoras(numero,titular)")
+    .eq("id", id).eq("empresa_id", empresaId).maybeSingle();
+  if (error || !contrato) throw error ?? new Error("Contrato não encontrado nesta empresa.");
+  const { data: solicitacao, error: erroSolicitacao } = await supabase.from("solicitacoes_cancelamento_contrato")
+    .select("*").eq("contrato_id", id).eq("empresa_id", empresaId).order("solicitado_em", { ascending: false }).limit(1).maybeSingle();
+  if (erroSolicitacao) throw erroSolicitacao;
+  return { contrato, solicitacao };
+}
+
+export async function concluirSolicitacaoCancelamentoService(id: string, empresaId: string, usuario: any, decisao: string, observacao?: string) {
+  const acao = String(decisao ?? "").toUpperCase();
+  if (!['CANCELAR', 'RECUSAR'].includes(acao)) throw new Error("Escolha cancelar o contrato ou recusar a solicitação.");
+  const { data: solicitacao, error } = await supabase.from("solicitacoes_cancelamento_contrato")
+    .select("id,status,cliente_id").eq("contrato_id", id).eq("empresa_id", empresaId).eq("status", "PENDENTE").maybeSingle();
+  if (error) throw error;
+  if (!solicitacao) throw new Error("Não existe solicitação pendente para este contrato.");
+
+  const resultado = acao === 'CANCELAR' ? await cancelarContratoService(id) : null;
+  const novoStatus = acao === 'CANCELAR' ? 'APROVADA' : 'RECUSADA';
+  const { error: erroAtualizacao } = await supabase.from("solicitacoes_cancelamento_contrato").update({
+    status: novoStatus,
+    analisado_por: usuario?.id ?? null,
+    analisado_em: new Date().toISOString(),
+    observacao: String(observacao ?? "").trim() || null,
+  }).eq("id", solicitacao.id).eq("empresa_id", empresaId);
+  if (erroAtualizacao) throw erroAtualizacao;
+  return { sucesso: true, status: novoStatus, contrato: resultado?.contrato ?? null, faturaEncerramento: resultado?.faturaEncerramento ?? null };
+}
