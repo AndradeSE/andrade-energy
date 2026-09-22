@@ -73,9 +73,10 @@ export function calcularEnergiaProjetadaContrato(input: {
 
   const producaoMediaUsina = Math.max(0, n(input.producaoMediaUsina));
   if (producaoMediaUsina <= 0) return consumoMedioUc;
-  const percentualInformado = n(input.percentualRateio);
-  const percentual = percentualInformado > 0 ? Math.min(100, percentualInformado) : 100;
-  return producaoMediaUsina * percentual / 100;
+  // Na modalidade por injeção o contrato comercializa integralmente a energia
+  // produzida pela usina. percentual_rateio é usado apenas para a reserva
+  // operacional da UC e não pode reduzir a base econômica do contrato.
+  return producaoMediaUsina;
 }
 
 export async function obterPropostaParaConvite(clienteId: string, empresaId: string, unidadeId?: string) {
@@ -92,7 +93,11 @@ export async function obterPropostaParaConvite(clienteId: string, empresaId: str
     ? (unidades ?? []).find((item: any) => item.id === unidadeId)
     : (unidades ?? []).find((item: any) => String(item.numero) === String(cliente?.uc)) ?? unidades?.[0];
   if (!cliente || !unidade) return null;
-  const anexo = (anexos ?? []).find((item: any) => String(item.dados_fatura?.uc ?? item.dados_fatura?.numero_instalacao ?? "").replace(/\D/g, "") === String(unidade.numero).replace(/\D/g, ""));
+  const anexoCorrespondente = (anexos ?? []).find((item: any) => String(item.dados_fatura?.uc ?? item.dados_fatura?.numero_instalacao ?? "").replace(/\D/g, "") === String(unidade.numero).replace(/\D/g, ""));
+  // Alguns layouts da concessionária trazem UC e instalação em campos
+  // distintos. Se existe um único PDF no perfil, ele é inequivocamente a
+  // fonte desta primeira UC e fornece a tarifa necessária à projeção.
+  const anexo = anexoCorrespondente ?? ((anexos ?? []).length === 1 ? anexos?.[0] : undefined);
   // Cadastros importados nem sempre possuem um anexo de perfil. Nesse caso,
   // use somente uma fatura da própria UC, mantendo o escopo da empresa.
   const { data: faturasUc, error: erroFaturasUc } = await supabase.from("faturas")

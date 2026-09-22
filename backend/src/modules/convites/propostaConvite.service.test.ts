@@ -35,7 +35,7 @@ test("contrato por injeção usa 100% da produção média da usina", () => {
     modalidade: "INJECAO",
     consumoMedioUc: 420,
     producaoMediaUsina: 14_000,
-    percentualRateio: 100,
+    percentualRateio: 44.36,
   }), 14_000);
 });
 

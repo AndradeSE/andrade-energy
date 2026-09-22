@@ -5,12 +5,12 @@ import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, Linking, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { AppHeader, ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useFaturas } from "../../hooks/useFaturas";
-import { formatarCompetenciaBrasileira, formatarDataBrasileira, obterRelatorioCalculoFatura } from "../../services/faturas.service";
+import { excluirFatura, formatarCompetenciaBrasileira, formatarDataBrasileira, obterRelatorioCalculoFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 type Filtro = "todas" | "abertas" | "vencidas" | "pagas";
@@ -26,6 +26,7 @@ export default function Faturas() {
   const { data, isLoading, error, refetch } = useFaturas();
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [baixando, setBaixando] = useState<string>();
+  const [excluindo, setExcluindo] = useState<string>();
   const [atualizando, setAtualizando] = useState(false);
   const faturas = useMemo(() => data ?? [], [data]);
 
@@ -74,6 +75,31 @@ export default function Faturas() {
     } catch (erro: any) {
       Alert.alert("Não foi possível gerar o relatório", erro?.response?.data?.message ?? "Confira sua conexão e tente novamente.");
     } finally { setBaixando(undefined); }
+  }
+
+  function confirmarExclusao(item: any) {
+    Alert.alert(
+      "Excluir fatura?",
+      `A fatura ${formatarCompetenciaBrasileira(item.referencia)} será excluída definitivamente.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setExcluindo(String(item.id));
+              await excluirFatura(String(item.id));
+              await refetch();
+            } catch (erro: any) {
+              Alert.alert("Não foi possível excluir", erro?.response?.data?.message ?? "Tente novamente.");
+            } finally {
+              setExcluindo(undefined);
+            }
+          },
+        },
+      ],
+    );
   }
 
   if (isLoading) return <Loading />;
@@ -157,6 +183,17 @@ export default function Faturas() {
                 <Text style={styles.reportDownloadText}>{baixando === `relatorio-${item.id}` ? "Preparando relatório..." : "Baixar memória de cálculo e desconto"}</Text>
                 <Ionicons name="download-outline" size={17} color={Colors.primary} />
               </TouchableOpacity>
+              {proprietario ? <TouchableOpacity
+                accessibilityLabel={`Excluir fatura ${item.referencia || ""}`}
+                disabled={excluindo === String(item.id)}
+                onPress={(event) => { event.stopPropagation(); confirmarExclusao(item); }}
+                style={styles.deleteInvoice}
+              >
+                {excluindo === String(item.id)
+                  ? <ActivityIndicator size="small" color={Colors.danger} />
+                  : <Ionicons name="trash-outline" size={17} color={Colors.danger} />}
+                <Text style={styles.deleteInvoiceText}>{excluindo === String(item.id) ? "Excluindo..." : "Excluir fatura"}</Text>
+              </TouchableOpacity> : null}
             </TouchableOpacity>
           );
         }}
@@ -210,4 +247,6 @@ const styles = StyleSheet.create({
   documentCode: { marginTop: 4, color: Colors.subtitle, fontSize: 9 },
   downloads: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.md }, download: { flex: 1, minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md }, downloadUnavailable: { borderColor: Colors.border, opacity: 0.58 }, downloadText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" }, downloadTextUnavailable: { color: Colors.subtitle },
   reportDownload: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, marginTop: Spacing.sm, borderRadius: Radius.md, backgroundColor: "#E1F1E6", borderWidth: 1, borderColor: "#B4D7BD" }, reportDownloadText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" },
+  deleteInvoice: { minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: Spacing.sm, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: "rgba(100,116,139,0.20)" },
+  deleteInvoiceText: { color: Colors.danger, fontSize: Typography.small, fontWeight: "800" },
 });

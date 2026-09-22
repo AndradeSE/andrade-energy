@@ -26,13 +26,14 @@ export function calcularAlocacaoProjetada(unidades: any[], energiaGerada: number
     const percentual = Math.max(0, Math.min(100, Number(unidade.percentual_rateio ?? 0)));
     const consumoMedio = Math.max(0, Number(unidade.consumo_medio_kwh ?? 0));
 
-    // O percentual representa quanto do consumo da UC será atendido. Cadastros
-    // automáticos de injeção herdaram 100% e isso não significa reservar 100%
-    // da usina. A autonomia deve partir da demanda mensal da UC, com a margem
-    // operacional de 15%, em ambas as modalidades.
-    const reserva = consumoMedio > 0
-      ? consumoMedio * 1.15
-      : gerada * percentual / 100;
+    // Injeção comercializa a parcela definida da produção da usina; com 100%,
+    // toda a média fica alocada. Somente compensação usa a demanda da UC com
+    // margem operacional de 15%.
+    const reserva = String(unidade.modalidade_faturamento ?? "").toUpperCase() === "INJECAO"
+      ? gerada * percentual / 100
+      : consumoMedio > 0
+        ? consumoMedio * 1.15
+        : gerada * percentual / 100;
     return total + Math.min(gerada, reserva);
   }, 0);
   const energiaAlocada = Math.min(gerada, solicitada);
@@ -436,7 +437,11 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
     ? percentualInformado
     : 0;
   let producaoMedia = 0;
-  if (calcularAutomaticamente) {
+  if (modalidade === "INJECAO") {
+    // Na injeção a usina é enviada integralmente. Não aplique o rateio
+    // automático baseado no consumo da UC, reservado à compensação.
+    percentual = 100;
+  } else if (calcularAutomaticamente) {
     producaoMedia = await calcularProducaoMedia12Meses(usinaId);
     percentual = producaoMedia > 0 && consumoMedio > 0
       // Mantém uma margem de 15% acima do consumo médio para a UC não
