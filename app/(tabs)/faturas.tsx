@@ -7,10 +7,10 @@ import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { Alert, Linking, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { AppHeader, Button, Card, ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../../components/ui";
+import { AppHeader, ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useFaturas } from "../../hooks/useFaturas";
-import { excluirFatura, formatarCompetenciaBrasileira, formatarDataBrasileira, obterRelatorioCalculoFatura } from "../../services/faturas.service";
+import { formatarCompetenciaBrasileira, formatarDataBrasileira, obterRelatorioCalculoFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 type Filtro = "todas" | "abertas" | "vencidas" | "pagas";
@@ -44,28 +44,6 @@ export default function Faturas() {
       setAtualizando(false);
     }
   }
-
-  const confirmarExclusao = (item: any) => {
-    Alert.alert(
-      "Excluir fatura",
-      `Deseja excluir definitivamente a fatura ${item.referencia || "selecionada"}?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Excluir",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await excluirFatura(item.id);
-              await refetch();
-            } catch (erro: any) {
-              Alert.alert("Não foi possível excluir", erro?.message || "Tente novamente.");
-            }
-          },
-        },
-      ],
-    );
-  };
 
   async function baixarDocumento(url: string | undefined, nome: string, chave: string) {
     if (!url) return;
@@ -179,17 +157,6 @@ export default function Faturas() {
                 <Text style={styles.reportDownloadText}>{baixando === `relatorio-${item.id}` ? "Preparando relatório..." : "Baixar memória de cálculo e desconto"}</Text>
                 <Ionicons name="download-outline" size={17} color={Colors.primary} />
               </TouchableOpacity>
-              <TouchableOpacity
-                accessibilityLabel={`Excluir fatura ${item.referencia || ""}`}
-                onPress={(event) => {
-                  event.stopPropagation();
-                  confirmarExclusao(item);
-                }}
-                style={styles.deleteInvoice}
-              >
-                <Ionicons name="trash-outline" size={17} color={Colors.danger} />
-                <Text style={styles.deleteInvoiceText}>Excluir fatura</Text>
-              </TouchableOpacity>
             </TouchableOpacity>
           );
         }}
@@ -243,6 +210,4 @@ const styles = StyleSheet.create({
   documentCode: { marginTop: 4, color: Colors.subtitle, fontSize: 9 },
   downloads: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.md }, download: { flex: 1, minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md }, downloadUnavailable: { borderColor: Colors.border, opacity: 0.58 }, downloadText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" }, downloadTextUnavailable: { color: Colors.subtitle },
   reportDownload: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, marginTop: Spacing.sm, borderRadius: Radius.md, backgroundColor: "#E1F1E6", borderWidth: 1, borderColor: "#B4D7BD" }, reportDownloadText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" },
-  deleteInvoice: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: Spacing.md, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: "rgba(100,116,139,0.20)" },
-  deleteInvoiceText: { color: Colors.danger, fontSize: Typography.small, fontWeight: "800" },
 });

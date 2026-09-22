@@ -273,6 +273,16 @@ export default function DetalheFatura() {
     Alert.alert("Código PIX copiado", "Cole o código no aplicativo do seu banco para pagar.");
   }
 
+  async function abrirBoleto() {
+    const url = String(fatura?.pdf_boleto_url ?? "").trim();
+    if (!url) return Alert.alert("Boleto em preparação", "O Asaas ainda não liberou o boleto.");
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert("Não foi possível abrir o boleto", "Confira sua conexão e tente novamente.");
+    }
+  }
+
   return (
     <Screen>
       {IS_GERADOR_APP ? <AppHeader variant="subpage" title="Detalhe da fatura" subtitle="Cobranças da carteira" contextTitle={`Fatura ${fatura.referencia ?? ""}`.trim()} contextSubtitle={`Vencimento ${formatarDataBrasileira(fatura.vencimento)}`} icon="receipt-outline" /> : null}
@@ -375,9 +385,9 @@ export default function DetalheFatura() {
           />
           <DownloadButton
             available={Boolean(fatura.pdf_boleto_url)}
-            label="Boleto"
+            label="Abrir ou baixar boleto"
             loading={documentoBaixando === `boleto-${referenciaArquivo}.pdf`}
-            onPress={() => baixarDocumento(fatura.pdf_boleto_url, `boleto-${referenciaArquivo}.pdf`)}
+            onPress={() => void abrirBoleto()}
           />
           <TouchableOpacity
             accessibilityLabel="Copiar código PIX"
@@ -390,7 +400,8 @@ export default function DetalheFatura() {
             </View>
             <View style={styles.downloadContent}>
               <Text style={styles.downloadLabel}>PIX copia e cola</Text>
-              <Text numberOfLines={1} style={styles.paymentCodeValue}>{fatura.codigo_pix || "Em preparação"}</Text>
+              <Text numberOfLines={1} style={styles.paymentCodeValue}>{fatura.codigo_pix || "Aguardando código válido por 60 dias"}</Text>
+              {fatura.codigo_pix && fatura.pix_expira_em ? <Text style={styles.paymentCodeExpiry}>Válido até {formatarDataBrasileira(fatura.pix_expira_em)}</Text> : null}
             </View>
             <View style={styles.copyAction}>
               <Ionicons name="copy-outline" size={19} color={Colors.text} />
@@ -995,6 +1006,12 @@ const styles = StyleSheet.create({
     marginTop: 3,
     color: Colors.subtitle,
     fontSize: Typography.small,
+  },
+  paymentCodeExpiry: {
+    marginTop: 3,
+    color: Colors.primary,
+    fontSize: Typography.tiny,
+    fontWeight: "700",
   },
   copyAction: {
     alignItems: "center",

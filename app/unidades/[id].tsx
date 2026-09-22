@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import { Alert, Linking, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { AppHeader, Badge, Card, ElasticScrollView as ScrollView, EmptyState, Loading, Metric, Screen, Section } from "../../components/ui";
-import { excluirFatura, formatarDataBrasileira, listarFaturas } from "../../services/faturas.service";
+import { formatarDataBrasileira, listarFaturas } from "../../services/faturas.service";
 import { buscarCliente, buscarUnidade, excluirUnidadeCliente, listarFaturasAnexadasCliente } from "../../services/clientes.service";
 import { buscarUsina } from "../../services/usinas.service";
 import { buscarContratoDaUnidade } from "../../services/contratos.service";
@@ -110,16 +110,6 @@ export default function UnidadeDocumentos() {
   async function abrirConta(item: any) {
     if (!item.pdf_cemig_url) return Alert.alert("PDF em preparação", "A conta da concessionária ainda não está disponível.");
     try { await Linking.openURL(item.pdf_cemig_url); } catch { Alert.alert("Não foi possível abrir", "Confira sua conexão e tente novamente."); }
-  }
-
-  function confirmarExclusao(item: any) {
-    Alert.alert("Excluir fatura", `Deseja excluir a fatura ${item.referencia || "selecionada"}? Esta ação não pode ser desfeita.`, [
-      { text: "Cancelar", style: "cancel" },
-      { text: "Excluir", style: "destructive", onPress: async () => {
-        try { await excluirFatura(item.id); setFaturas((atuais) => atuais.filter((fatura) => fatura.id !== item.id)); }
-        catch (erro: any) { Alert.alert("Não foi possível excluir", erro?.response?.data?.message ?? erro?.message); }
-      } },
-    ]);
   }
 
   function confirmarExclusaoUnidade() {
@@ -237,7 +227,7 @@ export default function UnidadeDocumentos() {
       {!faturasCadastro.length && !faturas.length ? <EmptyState icon="document-outline" title="0 contas da concessionária" subtitle="A fatura usada no cadastro e as próximas contas desta UC aparecerão aqui." /> : null}
     </View></Section>
 
-    <Section title="Faturas Andrade Energy"><View>{faturas.length ? faturas.map((item) => <TouchableOpacity key={`fatura-${item.id}`} activeOpacity={0.84} onPress={() => router.push(`/faturas/${item.id}`)}><Card style={styles.documentCard}><View style={styles.invoiceTop}><View><Text style={styles.invoiceValue}>{moeda(item.valor_total_unificado ?? item.valor_total)}</Text><Text style={styles.itemDetail}>{item.referencia || "Competência não informada"}</Text></View><Badge label={paga(item.status) ? "Paga" : "Em aberto"} variant={paga(item.status) ? "success" : "warning"} /></View><View style={styles.invoiceBottom}><Text style={styles.invoiceDate}>{paga(item.status) ? "Pagamento confirmado" : `Vencimento ${formatarDataBrasileira(item.vencimento, "não informado")}`}</Text><TouchableOpacity accessibilityLabel={`Excluir fatura ${item.referencia}`} onPress={(evento) => { evento.stopPropagation(); confirmarExclusao(item); }} style={styles.deleteInvoice}><Ionicons name="trash-outline" size={19} color={Colors.danger} /></TouchableOpacity><Ionicons name="chevron-forward" size={19} color={Colors.primary} /></View></Card></TouchableOpacity>) : <EmptyState icon="receipt-outline" title="0 faturas" subtitle="As faturas Andrade Energy desta UC aparecerão aqui após o faturamento." />}</View></Section>
+    <Section title="Faturas Andrade Energy"><View>{faturas.length ? faturas.map((item) => <TouchableOpacity key={`fatura-${item.id}`} activeOpacity={0.84} onPress={() => router.push(`/faturas/${item.id}`)}><Card style={styles.documentCard}><View style={styles.invoiceTop}><View><Text style={styles.invoiceValue}>{moeda(item.valor_total_unificado ?? item.valor_total)}</Text><Text style={styles.itemDetail}>{item.referencia || "Competência não informada"}</Text></View><Badge label={paga(item.status) ? "Paga" : "Em aberto"} variant={paga(item.status) ? "success" : "warning"} /></View><View style={styles.invoiceBottom}><Text style={styles.invoiceDate}>{paga(item.status) ? "Pagamento confirmado" : `Vencimento ${formatarDataBrasileira(item.vencimento, "não informado")}`}</Text><Ionicons name="chevron-forward" size={19} color={Colors.primary} /></View></Card></TouchableOpacity>) : <EmptyState icon="receipt-outline" title="0 faturas" subtitle="As faturas Andrade Energy desta UC aparecerão aqui após o faturamento." />}</View></Section>
   </ScrollView></Screen>;
 }
 
@@ -291,5 +281,4 @@ const styles = StyleSheet.create({
   invoiceValue: { color: Colors.text, fontSize: Typography.body, fontWeight: "900" },
   invoiceBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: Spacing.md, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border },
   invoiceDate: { flex: 1, color: Colors.subtitle, fontSize: Typography.small },
-  deleteInvoice: { width: 38, height: 38, alignItems: "center", justifyContent: "center", marginRight: Spacing.xs, borderRadius: Radius.round, backgroundColor: "#FEE2E2" },
 });

@@ -51,6 +51,20 @@ async function obterDadosPagamento(paymentId: string) {
   return { pix, boleto };
 }
 
+const VALIDADE_MINIMA_PIX_DIAS = 60;
+
+function dadosPixComValidadeMinima(pix: any) {
+  const expiraEm = pix?.expirationDate ? new Date(pix.expirationDate) : null;
+  const limiteMinimo = new Date(Date.now() + VALIDADE_MINIMA_PIX_DIAS * 24 * 60 * 60 * 1000);
+  const validoPorSessentaDias = Boolean(
+    pix?.payload && expiraEm && !Number.isNaN(expiraEm.getTime()) && expiraEm >= limiteMinimo,
+  );
+  return {
+    codigo: validoPorSessentaDias ? pix.payload : null,
+    expiraEm: expiraEm && !Number.isNaN(expiraEm.getTime()) ? expiraEm.toISOString() : null,
+  };
+}
+
 export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, opcoes: { refaturar?: boolean } = {}) {
   let empresaResolvida = empresaId;
   if (!empresaResolvida) {
@@ -82,16 +96,18 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, o
 
     const dados = await obterDadosPagamento(existing.asaas_payment_id);
     const { pix, boleto } = dados;
+    const pixValidado = dadosPixComValidadeMinima(pix);
     const dadosPagamento = {
       linha_digitavel: boleto?.identificationField ?? existing.linha_digitavel ?? null,
-      codigo_pix: pix?.payload ?? existing.codigo_pix ?? null,
+      codigo_pix: pixValidado.codigo,
+      pix_expira_em: pixValidado.expiraEm,
       pdf_boleto_url: payment?.bankSlipUrl ?? existing.bank_slip_url ?? payment?.invoiceUrl ?? existing.invoice_url ?? null,
       ...(novoVencimento ? { vencimento: novoVencimento } : {}),
     };
     const { data: faturaExistente, error: updateError } = await supabase.from("faturas").update(dadosPagamento).eq("id", faturaId).select().single();
     if (updateError) throw updateError;
     await regenerarDocumentosGeradosDaFatura({ ...faturaExistente, codigo_barras: boleto?.barCode ?? null });
-    const { data: cobrancaAtualizada, error: chargeUpdateError } = await supabase.from("asaas_cobrancas").update({ linha_digitavel:dadosPagamento.linha_digitavel, codigo_pix:dadosPagamento.codigo_pix, bank_slip_url:dadosPagamento.pdf_boleto_url, invoice_url:payment?.invoiceUrl ?? existing.invoice_url ?? null, atualizado_em:new Date().toISOString() }).eq("id", existing.id).select().single();
+    const { data: cobrancaAtualizada, error: chargeUpdateError } = await supabase.from("asaas_cobrancas").update({ linha_digitavel:dadosPagamento.linha_digitavel, codigo_pix:dadosPagamento.codigo_pix, pix_expira_em:dadosPagamento.pix_expira_em, bank_slip_url:dadosPagamento.pdf_boleto_url, invoice_url:payment?.invoiceUrl ?? existing.invoice_url ?? null, atualizado_em:new Date().toISOString() }).eq("id", existing.id).select().single();
     if (chargeUpdateError) throw chargeUpdateError;
     return cobrancaAtualizada;
   }
@@ -129,9 +145,10 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, o
   const vencimentoOperacional = opcoes.refaturar === true ? amanhaNoBrasil() : dueDate(invoice.vencimento);
   const payment = await asaasRequest<any>("/payments", { method:"POST", body:JSON.stringify({ customer:customer.id, billingType:process.env.ASAAS_BILLING_TYPE ?? "BOLETO", value, dueDate:vencimentoOperacional, description:`Andrade Energy · ${invoice.referencia ?? "fatura"}`, externalReference:faturaId, ...(split ? { split } : {}) }) });
   const { pix, boleto } = await obterDadosPagamento(payment.id);
-  const record = { empresa_id:empresaResolvida, fatura_id:faturaId, gerador_carteira_id:carteira?.id??null, asaas_customer_id:customer.id, asaas_payment_id:payment.id, status:payment.status, valor:value, valor_liquido:payment.netValue??null, invoice_url:payment.invoiceUrl??null, bank_slip_url:payment.bankSlipUrl??payment.invoiceUrl??null, linha_digitavel:boleto?.identificationField??payment.identificationField??null, codigo_pix:pix?.payload??null, atualizado_em:new Date().toISOString() };
+  const pixValidado = dadosPixComValidadeMinima(pix);
+  const record = { empresa_id:empresaResolvida, fatura_id:faturaId, gerador_carteira_id:carteira?.id??null, asaas_customer_id:customer.id, asaas_payment_id:payment.id, status:payment.status, valor:value, valor_liquido:payment.netValue??null, invoice_url:payment.invoiceUrl??null, bank_slip_url:payment.bankSlipUrl??payment.invoiceUrl??null, linha_digitavel:boleto?.identificationField??payment.identificationField??null, codigo_pix:pixValidado.codigo, pix_expira_em:pixValidado.expiraEm, atualizado_em:new Date().toISOString() };
   const { data, error: saveError } = await supabase.from("asaas_cobrancas").upsert(record,{onConflict:"fatura_id"}).select().single(); if(saveError) throw saveError;
-  const { data: faturaAtualizada, error: updateError } = await supabase.from("faturas").update({ linha_digitavel:record.linha_digitavel, codigo_pix:record.codigo_pix, pdf_boleto_url:record.bank_slip_url, vencimento:vencimentoOperacional }).eq("id",faturaId).select().single();
+  const { data: faturaAtualizada, error: updateError } = await supabase.from("faturas").update({ linha_digitavel:record.linha_digitavel, codigo_pix:record.codigo_pix, pix_expira_em:record.pix_expira_em, pdf_boleto_url:record.bank_slip_url, vencimento:vencimentoOperacional }).eq("id",faturaId).select().single();
   if (updateError) throw updateError;
   await regenerarDocumentosGeradosDaFatura({ ...faturaAtualizada, codigo_barras: boleto?.barCode ?? null });
   return data;

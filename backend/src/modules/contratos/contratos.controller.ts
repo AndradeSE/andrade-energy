@@ -243,6 +243,6 @@ export async function excluirContratoController(
 }
 
 export async function cancelarContratoController(req: Request, res: Response) {
-  try { res.json(await ContratosService.cancelarContratoService(req.params.id)); }
+  try { res.json(await ContratosService.solicitarCancelamentoContratoService(req.params.id, (req as any).usuario)); }
   catch (e: any) { res.status(500).json({ message: e.message }); }
 }

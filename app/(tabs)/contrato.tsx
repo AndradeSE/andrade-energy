@@ -251,31 +251,19 @@ function ContratoConsumidor() {
   }
 
   function solicitarCancelamento() {
-    if (!vencido) {
-      Alert.alert(
-        "Contrato vigente",
-        "Para cancelar antes do vencimento, entre em contato com o gerador responsável.",
-      );
-      return;
-    }
     Alert.alert(
-      "Cancelar contrato",
-      "Deseja realmente cancelar este contrato vencido?",
+      "Solicitar cancelamento",
+      "O gerador e os colaboradores responsáveis serão avisados. O contrato continuará vigente até a análise da solicitação.",
       [
         { text: "Voltar", style: "cancel" },
         {
-          text: "Confirmar cancelamento",
+          text: "Enviar solicitação",
           style: "destructive",
           onPress: async () => {
             try {
               const resultado = await cancelarContrato(data.id);
               await queryClient.invalidateQueries({ queryKey: ["contrato"] });
-              Alert.alert(
-                "Contrato cancelado",
-                resultado?.faturaEncerramento
-                  ? "O contrato foi cancelado. Uma fatura de encerramento foi gerada com o saldo de energia acumulado do cliente."
-                  : "O contrato foi cancelado com sucesso.",
-              );
+              Alert.alert("Solicitação enviada", resultado?.message ?? "O gerador e a equipe responsável foram avisados.");
             } catch (erro: any) {
               Alert.alert(
                 "Não foi possível cancelar",
@@ -462,20 +450,18 @@ function ContratoConsumidor() {
                 : "Pendente"
             }
           />
-          <Divider />
-          <InfoRow
-            icon={
-              pdfAssinadoEnviado
-                ? "document-attach-outline"
-                : "document-outline"
-            }
-            label="Assinatura digital"
-            value={
-              pdfAssinadoEnviado
-                ? data.dados_documento?.assinatura_externa_validada_em ? "Conferência do gerador registrada" : "Aguardando conferência do gerador"
-                : "Opcional pelo GOV.BR"
-            }
-          />
+          {!aceiteRegistrado ? <>
+            <Divider />
+            <InfoRow
+              icon={pdfAssinadoEnviado ? "document-attach-outline" : "document-outline"}
+              label="Assinatura digital"
+              value={
+                pdfAssinadoEnviado
+                  ? data.dados_documento?.assinatura_externa_validada_em ? "Conferência do gerador registrada" : "Aguardando conferência do gerador"
+                  : "Opcional pelo GOV.BR"
+              }
+            />
+          </> : null}
         </Card>
 
         <View style={styles.signatureActions}>

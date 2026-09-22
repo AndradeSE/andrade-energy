@@ -555,3 +555,62 @@ export async function cancelarContratoService(id: string) {
   const contratoAtualizado = await atualizarContrato(id, { status: "CANCELADO" });
   return { contrato: contratoAtualizado, faturaEncerramento };
 }
+
+const escaparHtml = (valor: unknown) => String(valor ?? "").replace(/[&<>"']/g, (caractere) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[caractere]!));
+
+export async function solicitarCancelamentoContratoService(id: string, usuario: any) {
+  const { data: contrato, error } = await supabase.from("contratos")
+    .select("id,numero,empresa_id,cliente_id,unidade_consumidora_id,status,clientes(nome,email),unidades_consumidoras(numero)")
+    .eq("id", id).single();
+  if (error || !contrato) throw error ?? new Error("Contrato não encontrado.");
+  if (["CANCELADO", "ENCERRADO"].includes(String(contrato.status ?? "").toUpperCase())) {
+    throw new Error("Este contrato já está encerrado.");
+  }
+
+  const cliente: any = Array.isArray(contrato.clientes) ? contrato.clientes[0] : contrato.clientes;
+  const unidade: any = Array.isArray(contrato.unidades_consumidoras) ? contrato.unidades_consumidoras[0] : contrato.unidades_consumidoras;
+  const { data: existente, error: erroExistente } = await supabase.from("solicitacoes_cancelamento_contrato")
+    .select("id,status,solicitado_em").eq("contrato_id", id).eq("status", "PENDENTE").maybeSingle();
+  if (erroExistente) throw erroExistente;
+  if (existente) return { solicitacao: existente, message: "A solicitação de cancelamento já foi enviada e aguarda análise do gerador." };
+
+  const { data: solicitacao, error: erroSolicitacao } = await supabase.from("solicitacoes_cancelamento_contrato").insert({
+    contrato_id: id,
+    empresa_id: contrato.empresa_id,
+    cliente_id: contrato.cliente_id,
+    solicitado_por: usuario?.id ?? null,
+  }).select().single();
+  if (erroSolicitacao) throw erroSolicitacao;
+
+  const { data: vinculos, error: erroVinculos } = await supabase.from("empresa_usuarios")
+    .select("usuario_id,papel,permissoes,usuarios!empresa_usuarios_usuario_id_fkey(id,nome,email)")
+    .eq("empresa_id", contrato.empresa_id).eq("ativo", true)
+    .in("papel", ["ADMIN_EMPRESA", "GESTOR", "COLABORADOR_GERADOR"]);
+  if (erroVinculos) throw erroVinculos;
+
+  const destinatarios = (vinculos ?? []).filter((vinculo: any) =>
+    vinculo.papel !== "COLABORADOR_GERADOR" || vinculo.permissoes?.contratos !== false,
+  );
+  const identificacao = contrato.numero ?? contrato.id;
+  const uc = unidade?.numero ? `UC ${unidade.numero}` : "UC não identificada";
+  await Promise.all(destinatarios.map(async (vinculo: any) => {
+    const membro = Array.isArray(vinculo.usuarios) ? vinculo.usuarios[0] : vinculo.usuarios;
+    const { error: erroNotificacao } = await supabase.from("notificacoes_app").insert({
+      usuario_id: vinculo.usuario_id,
+      empresa_id: contrato.empresa_id,
+      tipo: "SOLICITACAO_CANCELAMENTO_CONTRATO",
+      titulo: "Cliente solicitou cancelamento",
+      detalhe: `${cliente?.nome ?? "O cliente"} solicitou o cancelamento do contrato ${identificacao}, ${uc}. Analise a solicitação antes de encerrar o vínculo.`,
+      rota: `/contratos/${contrato.id}`,
+    });
+    if (erroNotificacao) throw erroNotificacao;
+    if (membro?.email) await enviarEmailTransacional({
+      empresaId: contrato.empresa_id,
+      destinatario: membro.email,
+      assunto: `Solicitação formal de cancelamento — contrato ${identificacao}`,
+      html: `<div style="max-width:620px;margin:auto;padding:28px;font-family:Arial,sans-serif;color:#252925;line-height:1.6"><h2 style="color:#39804a">Solicitação de cancelamento de contrato</h2><p>Olá, <strong>${escaparHtml(membro.nome ?? "responsável")}</strong>.</p><p>O cliente <strong>${escaparHtml(cliente?.nome ?? "não identificado")}</strong> registrou uma solicitação de cancelamento.</p><table style="width:100%;border-collapse:collapse;margin:20px 0"><tr><td style="padding:8px;border-bottom:1px solid #ddd"><strong>Contrato</strong></td><td style="padding:8px;border-bottom:1px solid #ddd">${escaparHtml(identificacao)}</td></tr><tr><td style="padding:8px;border-bottom:1px solid #ddd"><strong>Unidade</strong></td><td style="padding:8px;border-bottom:1px solid #ddd">${escaparHtml(uc)}</td></tr><tr><td style="padding:8px;border-bottom:1px solid #ddd"><strong>Solicitado em</strong></td><td style="padding:8px;border-bottom:1px solid #ddd">${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</td></tr></table><p>Esta comunicação registra apenas a solicitação. O contrato não foi cancelado automaticamente e deve ser analisado conforme as condições contratuais.</p></div>`,
+    }).catch(() => false);
+  }));
+
+  return { solicitacao, message: "Solicitação enviada ao gerador e à equipe responsável." };
+}
