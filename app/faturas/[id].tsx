@@ -4,7 +4,7 @@ import { Directory, File, Paths } from "expo-file-system";
 import * as FileSystemLegacy from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -20,7 +20,7 @@ import {
 
 import { AppHeader, Card, Divider, ElasticScrollView as ScrollView, EmptyState, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
-import { buscarFatura, confirmarFaturaRascunho, formatarDataBrasileira, gerarCobrancaAsaas, obterRelatorioCalculoFatura, regenerarDocumentosFatura } from "../../services/faturas.service";
+import { buscarFatura, confirmarFaturaRascunho, excluirFatura, formatarDataBrasileira, gerarCobrancaAsaas, obterRelatorioCalculoFatura, regenerarDocumentosFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const formatarMoeda = (valor: number) =>
@@ -41,6 +41,7 @@ export default function DetalheFatura() {
   const [regenerandoPdf, setRegenerandoPdf] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [gerandoCobranca, setGerandoCobranca] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
 
   const carregar = useCallback(async () => {
     setErro(false);
@@ -283,6 +284,33 @@ export default function DetalheFatura() {
     }
   }
 
+  function confirmarExclusao() {
+    Alert.alert(
+      "Excluir fatura?",
+      `A fatura ${fatura?.referencia ?? "selecionada"} e os dados vinculados a ela serão removidos definitivamente.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setExcluindo(true);
+              await excluirFatura(String(id));
+              Alert.alert("Fatura excluída", "A fatura foi removida da carteira do gerador.", [
+                { text: "OK", onPress: () => router.back() },
+              ]);
+            } catch (erro: any) {
+              Alert.alert("Não foi possível excluir", erro?.response?.data?.message ?? "Atualize a tela e tente novamente.");
+            } finally {
+              setExcluindo(false);
+            }
+          },
+        },
+      ],
+    );
+  }
+
   return (
     <Screen>
       {IS_GERADOR_APP ? <AppHeader variant="subpage" title="Detalhe da fatura" subtitle="Cobranças da carteira" contextTitle={`Fatura ${fatura.referencia ?? ""}`.trim()} contextSubtitle={`Vencimento ${formatarDataBrasileira(fatura.vencimento)}`} icon="receipt-outline" /> : null}
@@ -472,6 +500,18 @@ export default function DetalheFatura() {
           <Divider />
           <DataRow icon="calendar-number-outline" label="Vencimento" value={formatarDataBrasileira(fatura.vencimento)} />
         </Card>
+        {IS_GERADOR_APP ? (
+          <TouchableOpacity
+            accessibilityLabel="Excluir fatura"
+            activeOpacity={0.82}
+            disabled={excluindo}
+            onPress={confirmarExclusao}
+            style={[styles.deleteInvoiceButton, excluindo && styles.confirmButtonDisabled]}
+          >
+            {excluindo ? <ActivityIndicator color={Colors.danger} /> : <Ionicons name="trash-outline" size={19} color={Colors.danger} />}
+            <Text style={styles.deleteInvoiceText}>{excluindo ? "Excluindo fatura..." : "Excluir fatura"}</Text>
+          </TouchableOpacity>
+        ) : null}
       </ScrollView>
     </Screen>
   );
@@ -1076,5 +1116,22 @@ const styles = StyleSheet.create({
     color: Colors.text,
     fontSize: Typography.caption,
     fontWeight: "800",
+  },
+  deleteInvoiceButton: {
+    minHeight: 48,
+    marginTop: Spacing.xl,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.danger,
+    borderRadius: Radius.md,
+    backgroundColor: "#FFF5F5",
+  },
+  deleteInvoiceText: {
+    color: Colors.danger,
+    fontSize: Typography.caption,
+    fontWeight: "900",
   },
 });
