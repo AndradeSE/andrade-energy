@@ -52,6 +52,8 @@ export async function detalharFatura(id: string, empresaId?: string) {
     cobranca_status: temCobrancaPronta ? "PRONTA" : "PENDENTE",
     cobranca_mensagem: temCobrancaPronta
       ? null
+      : fatura.cobranca_erro
+        ? String(fatura.cobranca_erro)
       : valorCobranca <= 0
         ? "Não há valor Andrade a cobrar nesta competência porque nenhuma energia foi compensada."
         : "A cobrança ainda não foi emitida. Abra novamente em alguns instantes ou procure o gestor.",

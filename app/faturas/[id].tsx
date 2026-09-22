@@ -393,6 +393,15 @@ export default function DetalheFatura() {
               <Text style={styles.regenerateButtonText}>Refaturar para amanhã</Text>
             </TouchableOpacity>
           ) : null}
+          {IS_GERADOR_APP && fatura.cobranca_mensagem && !fatura.codigo_pix && !fatura.linha_digitavel ? (
+            <View style={styles.chargeWarning}>
+              <Ionicons name="alert-circle-outline" size={20} color="#9A5B00" />
+              <View style={styles.chargeWarningCopy}>
+                <Text style={styles.chargeWarningTitle}>Cobrança não emitida</Text>
+                <Text style={styles.chargeWarningText}>{fatura.cobranca_mensagem}</Text>
+              </View>
+            </View>
+          ) : null}
           <DownloadButton
             available={Boolean(fatura.pdf_cemig_url)}
             label="Conta original da CEMIG"
@@ -428,7 +437,7 @@ export default function DetalheFatura() {
             </View>
             <View style={styles.downloadContent}>
               <Text style={styles.downloadLabel}>PIX copia e cola</Text>
-              <Text numberOfLines={1} style={styles.paymentCodeValue}>{fatura.codigo_pix || "Aguardando código válido por 60 dias"}</Text>
+              <Text numberOfLines={1} style={styles.paymentCodeValue}>{fatura.codigo_pix || "PIX ainda não disponibilizado pelo Asaas"}</Text>
               {fatura.codigo_pix && fatura.pix_expira_em ? <Text style={styles.paymentCodeExpiry}>Válido até {formatarDataBrasileira(fatura.pix_expira_em)}</Text> : null}
             </View>
             <View style={styles.copyAction}>
@@ -1042,6 +1051,19 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     backgroundColor: "#F2F8F4",
   },
+  chargeWarning: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "#E8C66B",
+    borderRadius: Radius.md,
+    backgroundColor: "#FFF8E1",
+  },
+  chargeWarningCopy: { flex: 1 },
+  chargeWarningTitle: { color: "#7A4A00", fontSize: Typography.caption, fontWeight: "900" },
+  chargeWarningText: { marginTop: 3, color: "#7A4A00", fontSize: Typography.small, lineHeight: 18 },
   paymentCodeValue: {
     marginTop: 3,
     color: Colors.subtitle,

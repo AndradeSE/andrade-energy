@@ -106,6 +106,7 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, o
     await regenerarDocumentosGeradosDaFatura({ ...faturaExistente, codigo_barras: boleto?.barCode ?? null });
     const { data: cobrancaAtualizada, error: chargeUpdateError } = await supabase.from("asaas_cobrancas").update({ linha_digitavel:dadosPagamento.linha_digitavel, codigo_pix:dadosPagamento.codigo_pix, pix_expira_em:dadosPagamento.pix_expira_em, bank_slip_url:dadosPagamento.pdf_boleto_url, invoice_url:payment?.invoiceUrl ?? existing.invoice_url ?? null, atualizado_em:new Date().toISOString() }).eq("id", existing.id).select().single();
     if (chargeUpdateError) throw chargeUpdateError;
+    await supabase.from("faturas").update({ cobranca_erro: null, cobranca_erro_em: null }).eq("id", faturaId);
     return cobrancaAtualizada;
   }
   const { data: invoice, error } = await supabase.from("faturas").select("*, clientes(*)").eq("id", faturaId).eq("empresa_id", empresaResolvida).single();
@@ -157,7 +158,7 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, o
   const pixValidado = dadosPixDaCobranca(pix);
   const record = { empresa_id:empresaResolvida, fatura_id:faturaId, gerador_carteira_id:carteira?.id??null, asaas_customer_id:customer.id, asaas_payment_id:payment.id, status:payment.status, valor:value, valor_liquido:payment.netValue??null, invoice_url:payment.invoiceUrl??null, bank_slip_url:payment.bankSlipUrl??payment.invoiceUrl??null, linha_digitavel:boleto?.identificationField??payment.identificationField??null, codigo_pix:pixValidado.codigo, pix_expira_em:pixValidado.expiraEm, atualizado_em:new Date().toISOString() };
   const { data, error: saveError } = await supabase.from("asaas_cobrancas").update(record).eq("id",cobrancaInicial.id).select().single(); if(saveError) throw saveError;
-  const { data: faturaAtualizada, error: updateError } = await supabase.from("faturas").update({ linha_digitavel:record.linha_digitavel, codigo_pix:record.codigo_pix, pix_expira_em:record.pix_expira_em, pdf_boleto_url:record.bank_slip_url, vencimento:vencimentoOperacional }).eq("id",faturaId).select().single();
+  const { data: faturaAtualizada, error: updateError } = await supabase.from("faturas").update({ linha_digitavel:record.linha_digitavel, codigo_pix:record.codigo_pix, pix_expira_em:record.pix_expira_em, pdf_boleto_url:record.bank_slip_url, vencimento:vencimentoOperacional, cobranca_erro:null, cobranca_erro_em:null }).eq("id",faturaId).select().single();
   if (updateError) throw updateError;
   await regenerarDocumentosGeradosDaFatura({ ...faturaAtualizada, codigo_barras: boleto?.barCode ?? null });
   return data;
@@ -173,10 +174,12 @@ export async function tentarCriarCobrancaAsaas(faturaId: string, empresaId?: str
   try {
     return await criarCobrancaAsaas(faturaId, empresaId);
   } catch (error: any) {
+    const motivo = String(error?.message ?? "Erro desconhecido").slice(0, 1000);
+    await supabase.from("faturas").update({ cobranca_erro: motivo, cobranca_erro_em: new Date().toISOString() }).eq("id", faturaId);
     console.error("[asaas] emissão automática não concluída", {
       faturaId,
       empresaId: empresaId ?? null,
-      motivo: error?.message ?? "Erro desconhecido",
+      motivo,
     });
     return null;
   }
