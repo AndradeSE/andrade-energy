@@ -110,8 +110,8 @@ export async function registrarProducaoDaFaturaGeradora(usinaId: string, dados: 
   };
 }
 
-export async function importarFaturaGeradora(usinaId: string, caminhoArquivo: string) {
-  const dados = interpretarFatura(await extrairTextoPDF(caminhoArquivo));
+export async function importarFaturaGeradora(usinaId: string, caminhoArquivo: string, senhaPdf?: string) {
+  const dados = interpretarFatura(await extrairTextoPDF(caminhoArquivo, String(senhaPdf ?? "").trim() || undefined));
   return registrarProducaoDaFaturaGeradora(usinaId, dados);
 }
 

@@ -90,13 +90,14 @@ export async function listarFaturasAnexadasCliente(id: string) {
   return data as FaturaAnexadaCliente[];
 }
 
-export async function anexarFaturaCliente(id: string, arquivo: { uri: string; name: string; mimeType?: string | null }) {
+export async function anexarFaturaCliente(id: string, arquivo: { uri: string; name: string; mimeType?: string | null }, senhaPdf?: string) {
   const form = new FormData();
   form.append("arquivo", {
     uri: arquivo.uri,
     name: arquivo.name || "fatura-cemig.pdf",
     type: arquivo.mimeType || "application/pdf",
   } as any);
+  if (senhaPdf?.trim()) form.append("senhaPdf", senhaPdf.trim());
   const { data } = await api.post(`/clientes/${id}/faturas-anexadas`, form, { timeout: 120_000 });
   return data as FaturaAnexadaCliente;
 }

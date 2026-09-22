@@ -5,6 +5,7 @@ import { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { AppHeader, Badge, Button, Card, ElasticScrollView as ScrollView, EmptyState, Loading, Screen, Section } from "../../components/ui";
+import PdfPasswordRetryModal from "../../components/PdfPasswordRetryModal";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
 import { anexarFaturaCliente, buscarCliente, listarUnidadesCliente } from "../../services/clientes.service";
@@ -63,6 +64,8 @@ export default function ClienteDetalhe() {
   const [loading, setLoading] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [importandoUc, setImportandoUc] = useState(false);
+  const [pdfPendente, setPdfPendente] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+  const [pedindoSenhaPdf, setPedindoSenhaPdf] = useState(false);
   const { suspenderBloqueioTemporariamente } = useAuth();
   const carregar = useCallback(async () => {
     try {
@@ -157,26 +160,24 @@ export default function ClienteDetalhe() {
     }
   }
 
-  async function adicionarUnidadeViaFatura() {
+  async function adicionarUnidadeViaFatura(pdfReenvio?: DocumentPicker.DocumentPickerAsset, senhaPdf = "") {
     const retomarBloqueio = suspenderBloqueioTemporariamente();
     let faturaLida = false;
+    let pdfSelecionado = pdfReenvio ?? null;
     try {
-      const arquivo = await DocumentPicker.getDocumentAsync({
-        type: "application/pdf",
-        copyToCacheDirectory: true,
-        multiple: false,
-      });
-      if (arquivo.canceled) return;
+      const arquivo = pdfReenvio ? null : await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
+      if (arquivo?.canceled) return;
 
       setImportandoUc(true);
-      const pdf = arquivo.assets[0];
+      const pdf = pdfReenvio ?? arquivo!.assets[0];
+      pdfSelecionado = pdf;
       // O arquivo local também passa a integrar o perfil. Assim a mesma base
       // tarifária usada na criação continua disponível ao reabrir a UC.
       const anexo = await anexarFaturaCliente(id, {
         uri: pdf.uri,
         name: pdf.name,
         mimeType: pdf.mimeType,
-      });
+      }, senhaPdf);
       const dados = anexo?.dadosFatura ?? {};
       faturaLida = true;
       const numero = String(dados.uc ?? dados.numero_instalacao ?? dados.numeroInstalacao ?? "").replace(/\D/g, "");
@@ -224,6 +225,11 @@ export default function ClienteDetalhe() {
         },
       });
     } catch (erro: any) {
+      if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED" || erro?.response?.status === 422) {
+        setPdfPendente(pdfSelecionado);
+        setPedindoSenhaPdf(true);
+        return;
+      }
       Alert.alert(faturaLida ? "Não foi possível cadastrar a UC" : "Não foi possível ler a fatura", erro?.response?.data?.message ?? erro?.message ?? (faturaLida ? "Confira a usina e tente novamente." : "Confirme se o arquivo é uma conta de energia em PDF."));
     } finally {
       setImportandoUc(false);
@@ -520,6 +526,7 @@ export default function ClienteDetalhe() {
           </Section>
         ) : null}
       </ScrollView>
+      <PdfPasswordRetryModal visible={pedindoSenhaPdf} busy={importandoUc} onCancel={() => { setPedindoSenhaPdf(false); setPdfPendente(null); }} onConfirm={(password) => { const pdf = pdfPendente; setPedindoSenhaPdf(false); if (pdf) void adicionarUnidadeViaFatura(pdf, password); }} />
     </Screen>
   );
 }

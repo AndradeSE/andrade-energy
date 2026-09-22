@@ -9,6 +9,14 @@ const dinheiro = (valor: unknown) => Math.round(Number(valor ?? 0) * 100) / 100;
 const mascarar = (chave: string) => chave.length <= 6 ? "***" : `${chave.slice(0, 2)}***${chave.slice(-4)}`;
 export const chavePixDaCarteira = (carteira: any) => carteira.pix_chave_criptografada ? descriptografarDado(carteira.pix_chave_criptografada) : String(carteira.pix_chave ?? "");
 
+export async function consultarTitularChavePix(tipo: string, chave: string) {
+  const pixTipo = String(tipo ?? "").toUpperCase();
+  const pixChave = String(chave ?? "").trim();
+  if (!pixChave || !["CPF", "CNPJ", "EMAIL", "PHONE", "EVP"].includes(pixTipo)) throw new Error("Informe uma chave Pix válida.");
+  const titular = await asaasRequest<any>(`/pix/addressKeys/external?type=${encodeURIComponent(pixTipo)}&key=${encodeURIComponent(pixChave)}`);
+  return { nome: String(titular?.name ?? titular?.nome ?? titular?.account?.name ?? "Titular não informado"), cpfCnpj: String(titular?.cpfCnpj ?? titular?.cpf_cnpj ?? ""), banco: String(titular?.bank?.name ?? titular?.bankName ?? "") };
+}
+
 export async function obterOuCriarCarteira(usuario: any) {
   const empresaId = empresaIdDoUsuario(usuario);
   const { data: existente, error } = await supabase.from("gerador_carteiras").select("*").eq("usuario_id", usuario.id).eq("empresa_id", empresaId).maybeSingle();

@@ -31,9 +31,10 @@ export async function buscarDashboardUsina(
   return data;
 }
 
-export async function importarFaturaGeradora(id: string, uri: string, nome = "fatura-geradora.pdf") {
+export async function importarFaturaGeradora(id: string, uri: string, nome = "fatura-geradora.pdf", senhaPdf?: string) {
   const formData = new FormData();
   formData.append("arquivo", { uri, name: nome, type: "application/pdf" } as any);
+  if (senhaPdf?.trim()) formData.append("senhaPdf", senhaPdf.trim());
   const { data } = await api.post(`/usinas/${id}/importar-fatura`, formData, { timeout: 60_000 });
   return data;
 }

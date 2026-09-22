@@ -7,6 +7,7 @@ import { useCallback, useState } from "react";
 import { Alert, ImageBackground, Pressable, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import CadastroActions from "../../components/cadastro/CadastroActions";
+import PdfPasswordRetryModal from "../../components/PdfPasswordRetryModal";
 import { AppHeader, Card, ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import { excluirUsina, importarFaturaGeradora, listarUsinas } from "../../services/usinas.service";
@@ -16,6 +17,8 @@ export default function Usinas() {
   const { usuario, usinaSelecionada, selecionarUsina, atualizarUsuario, suspenderBloqueioTemporariamente } = useAuth();
   const [usinas, setUsinas] = useState<any[]>([]); const [loading, setLoading] = useState(true); const [atualizando, setAtualizando] = useState(false);
   const [importandoId, setImportandoId] = useState<string | null>(null);
+  const [pdfPendente, setPdfPendente] = useState<{ item: any; pdf: DocumentPicker.DocumentPickerAsset } | null>(null);
+  const [pedindoSenhaPdf, setPedindoSenhaPdf] = useState(false);
   const carregar = useCallback(async () => {
     try {
       const lista = (await listarUsinas()) ?? [];
@@ -48,15 +51,17 @@ export default function Usinas() {
     ]);
   }
 
-  async function importarProducao(item: any) {
+  async function importarProducao(item: any, pdfReenvio?: DocumentPicker.DocumentPickerAsset, senhaPdf = "") {
     const retomarBloqueio = suspenderBloqueioTemporariamente();
+    let pdfSelecionado = pdfReenvio ?? null;
     try {
-      const arquivo = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
-      if (arquivo.canceled) return;
+      const arquivo = pdfReenvio ? null : await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
+      if (arquivo?.canceled) return;
 
       setImportandoId(item.id);
-      const pdf = arquivo.assets[0];
-      const resultado = await importarFaturaGeradora(item.id, pdf.uri, pdf.name);
+      const pdf = pdfReenvio ?? arquivo!.assets[0];
+      pdfSelecionado = pdf;
+      const resultado = await importarFaturaGeradora(item.id, pdf.uri, pdf.name, senhaPdf);
       const dados = resultado.dados;
       await carregar();
       Alert.alert(
@@ -64,6 +69,11 @@ export default function Usinas() {
         `${Number(dados.energiaGerada).toLocaleString("pt-BR")} kWh calculados\n\nLeitura anterior: ${Number(dados.leituraAnterior).toLocaleString("pt-BR")}\nLeitura atual: ${Number(dados.leituraAtual).toLocaleString("pt-BR")}\nFator: ${Number(dados.fatorMultiplicacao).toLocaleString("pt-BR")}`
       );
     } catch (erro: any) {
+      if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED" || erro?.response?.status === 422) {
+        if (pdfSelecionado) setPdfPendente({ item, pdf: pdfSelecionado });
+        setPedindoSenhaPdf(true);
+        return;
+      }
       Alert.alert("Não foi possível importar", erro?.response?.data?.message ?? erro?.message ?? "Confira a conta de energia da usina.");
     } finally {
       setImportandoId(null);
@@ -161,6 +171,7 @@ export default function Usinas() {
       }}
       ListEmptyComponent={<EmptyState icon="sunny-outline" title="Nenhuma usina cadastrada" subtitle="Cadastre manualmente ou importe a fatura da unidade geradora." />}
     />}
+    <PdfPasswordRetryModal visible={pedindoSenhaPdf} busy={Boolean(importandoId)} onCancel={() => { setPedindoSenhaPdf(false); setPdfPendente(null); }} onConfirm={(password) => { const pending = pdfPendente; setPedindoSenhaPdf(false); if (pending) void importarProducao(pending.item, pending.pdf, password); }} />
   </Screen>;
 }
 

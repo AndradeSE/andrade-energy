@@ -5,6 +5,7 @@ import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import FormField from "../../components/cadastro/FormField";
+import PdfPasswordRetryModal from "../../components/PdfPasswordRetryModal";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors, Spacing, Typography } from "../../theme";
@@ -29,6 +30,8 @@ export default function NovoCliente() {
   const [endereco, setEndereco] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [pdf, setPdf] = useState<DocumentPicker.DocumentPickerAsset | null>(arquivoUri ? { uri: arquivoUri, name: arquivoNome || "fatura-cemig.pdf", mimeType: "application/pdf" } as DocumentPicker.DocumentPickerAsset : null);
+  const [clienteCriadoId, setClienteCriadoId] = useState("");
+  const [pedindoSenhaPdf, setPedindoSenhaPdf] = useState(false);
 
   useEffect(() => {
     if (origem !== "fatura") return;
@@ -39,7 +42,7 @@ export default function NovoCliente() {
     setEndereco(enderecoImportado ?? "");
   }, [cliente, cpfImportado, enderecoImportado, nomeImportado, origem]);
 
-  async function salvar() {
+  async function salvar(senhaPdf = "") {
     if (!pdf?.uri) return Alert.alert("Fatura obrigatória", "O gerador deve anexar a fatura CEMIG para cadastrar o cliente e criar a UC.");
     if (!nome.trim()) return Alert.alert("Nome obrigatório", "Informe o nome do consumidor.");
     if (!normalizarEmail(email) || !emailOpcionalValido(email)) return Alert.alert("E-mail obrigatório", "Informe um endereço de e-mail válido para enviar o convite depois.");
@@ -54,9 +57,9 @@ export default function NovoCliente() {
     };
 
     try {
-      const clienteCriado = await criarCliente(dados);
-      const clienteId = String(clienteCriado.id);
-      const faturaAnexada = await anexarFaturaCliente(String(clienteId), { uri: pdf.uri, name: pdf.name || "fatura-cemig.pdf", mimeType: pdf.mimeType || "application/pdf" });
+      const clienteId = clienteCriadoId || String((await criarCliente(dados)).id);
+      if (!clienteCriadoId) setClienteCriadoId(clienteId);
+      const faturaAnexada = await anexarFaturaCliente(String(clienteId), { uri: pdf.uri, name: pdf.name || "fatura-cemig.pdf", mimeType: pdf.mimeType || "application/pdf" }, senhaPdf);
       const dadosFatura = faturaAnexada.dadosFatura ?? {};
       const numeroUc = String(faturaAnexada.unidade?.numero ?? dadosFatura.uc ?? dadosFatura.numero_instalacao ?? "").replace(/\D/g, "");
       const consumoMedio = calcularMediaConsumoFatura(dadosFatura);
@@ -87,6 +90,10 @@ export default function NovoCliente() {
       );
     } catch (erro: any) {
       setSalvando(false);
+      if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED" || erro?.response?.status === 422) {
+        setPedindoSenhaPdf(true);
+        return;
+      }
       Alert.alert("Não foi possível cadastrar", erro?.response?.data?.message ?? "Confira os dados e a fatura e tente novamente.");
     }
   }
@@ -109,9 +116,9 @@ export default function NovoCliente() {
         <Ionicons name={pdf ? "document-text" : "document-attach-outline"} size={22} color={Colors.primary} />
         <View style={styles.pdfCopy}><Text numberOfLines={1} style={styles.pdfTitle}>{pdf?.name ?? "Anexar fatura CEMIG"}</Text><Text style={styles.pdfHint}>{origem === "fatura" ? "Fatura usada neste cadastro" : "Obrigatória para cadastrar a UC"}</Text></View>
       </TouchableOpacity>
-      <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar consumidor"} onPress={salvar} />
+      <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar consumidor"} onPress={() => void salvar()} />
     </Card>
-  </ScrollView></Screen>;
+  </ScrollView><PdfPasswordRetryModal visible={pedindoSenhaPdf} busy={salvando} onCancel={() => setPedindoSenhaPdf(false)} onConfirm={(password) => { setPedindoSenhaPdf(false); void salvar(password); }} /></Screen>;
 }
 
 const styles = StyleSheet.create({

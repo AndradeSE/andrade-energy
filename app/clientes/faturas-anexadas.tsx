@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Linking, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { AppHeader, Card, ElasticScrollView as ScrollView, EmptyState, Screen } from "../../components/ui";
+import PdfPasswordRetryModal from "../../components/PdfPasswordRetryModal";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
 import { anexarFaturaCliente, excluirFaturaAnexadaCliente, FaturaAnexadaCliente, listarFaturasAnexadasCliente } from "../../services/clientes.service";
@@ -35,6 +36,8 @@ export default function FaturasAnexadas() {
   const [atualizando, setAtualizando] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [excluindoId, setExcluindoId] = useState("");
+  const [pdfPendente, setPdfPendente] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+  const [pedindoSenhaPdf, setPedindoSenhaPdf] = useState(false);
 
   const titulo = selecionarUc ? "Escolher fatura para UC" : "Contas vinculadas ao CPF";
   const subtitulo = selecionarUc
@@ -64,17 +67,20 @@ export default function FaturasAnexadas() {
     try { await carregar(); } finally { setAtualizando(false); }
   }
 
-  async function selecionarArquivo() {
+  async function selecionarArquivo(pdfReenvio?: DocumentPicker.DocumentPickerAsset, senhaPdf = "") {
     if (!clienteId || enviando) return;
     const retomarBloqueio = suspenderBloqueioTemporariamente();
     try {
-      const resultado = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
-      if (resultado.canceled || !resultado.assets?.[0]) return;
+      const resultado = pdfReenvio ? null : await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
+      if (resultado?.canceled || (!pdfReenvio && !resultado?.assets?.[0])) return;
       setEnviando(true);
-      await anexarFaturaCliente(clienteId, resultado.assets[0]);
+      const pdf = pdfReenvio ?? resultado!.assets[0];
+      setPdfPendente(pdf);
+      await anexarFaturaCliente(clienteId, pdf, senhaPdf);
       await carregar();
       Alert.alert("Conta anexada", "A conta da concessionária foi salva no seu perfil e poderá ser usada pelo gerador para cadastrar a UC vinculada ao seu CPF.");
     } catch (erro: any) {
+      if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED" || erro?.response?.status === 422) { setPedindoSenhaPdf(true); return; }
       Alert.alert("Não foi possível anexar", erro?.response?.data?.message ?? "Confira o PDF da CEMIG e tente novamente.");
     } finally {
       setEnviando(false);
@@ -158,6 +164,7 @@ export default function FaturasAnexadas() {
         </Card>;
       }) : <EmptyState icon="document-outline" title="Nenhuma conta anexada" subtitle={selecionarUc ? "O cliente ainda não enviou uma conta de energia." : "Anexe uma conta da concessionária de uma unidade vinculada ao seu CPF."} />}
     </ScrollView>
+    <PdfPasswordRetryModal visible={pedindoSenhaPdf} busy={enviando} onCancel={() => { setPedindoSenhaPdf(false); setPdfPendente(null); }} onConfirm={(password) => { const pdf = pdfPendente; setPedindoSenhaPdf(false); if (pdf) void selecionarArquivo(pdf, password); }} />
   </Screen>;
 }
 
