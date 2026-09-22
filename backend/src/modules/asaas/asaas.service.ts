@@ -51,16 +51,13 @@ async function obterDadosPagamento(paymentId: string) {
   return { pix, boleto };
 }
 
-const VALIDADE_MINIMA_PIX_DIAS = 60;
-
-function dadosPixComValidadeMinima(pix: any) {
+export function dadosPixDaCobranca(pix: any) {
   const expiraEm = pix?.expirationDate ? new Date(pix.expirationDate) : null;
-  const limiteMinimo = new Date(Date.now() + VALIDADE_MINIMA_PIX_DIAS * 24 * 60 * 60 * 1000);
-  const validoPorSessentaDias = Boolean(
-    pix?.payload && expiraEm && !Number.isNaN(expiraEm.getTime()) && expiraEm >= limiteMinimo,
-  );
   return {
-    codigo: validoPorSessentaDias ? pix.payload : null,
+    // A validade é definida e validada pelo Asaas. Nunca descarte um payload
+    // pagável apenas por ele ter menos de 60 dias (por exemplo, quando a conta
+    // ainda não possui chave Pix própria cadastrada).
+    codigo: pix?.payload ? String(pix.payload) : null,
     expiraEm: expiraEm && !Number.isNaN(expiraEm.getTime()) ? expiraEm.toISOString() : null,
   };
 }
@@ -96,7 +93,7 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, o
 
     const dados = await obterDadosPagamento(existing.asaas_payment_id);
     const { pix, boleto } = dados;
-    const pixValidado = dadosPixComValidadeMinima(pix);
+    const pixValidado = dadosPixDaCobranca(pix);
     const dadosPagamento = {
       linha_digitavel: boleto?.identificationField ?? existing.linha_digitavel ?? null,
       codigo_pix: pixValidado.codigo,
@@ -143,11 +140,23 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, o
   const carteira = await buscarCarteiraDaFatura(faturaId);
   const split = carteira?.asaas_wallet_id ? [{ walletId: carteira.asaas_wallet_id, percentualValue: 100, externalReference: faturaId }] : undefined;
   const vencimentoOperacional = opcoes.refaturar === true ? amanhaNoBrasil() : dueDate(invoice.vencimento);
-  const payment = await asaasRequest<any>("/payments", { method:"POST", body:JSON.stringify({ customer:customer.id, billingType:process.env.ASAAS_BILLING_TYPE ?? "BOLETO", value, dueDate:vencimentoOperacional, description:`Andrade Energy · ${invoice.referencia ?? "fatura"}`, externalReference:faturaId, ...(split ? { split } : {}) }) });
+  // Recupera uma cobrança que o Asaas tenha criado antes de uma falha nas
+  // consultas auxiliares. Isso evita boletos duplicados após timeout.
+  const pagamentosRemotos = await asaasRequest<any>(`/payments?externalReference=${encodeURIComponent(faturaId)}&limit=10`);
+  let payment = (pagamentosRemotos?.data ?? []).find((item: any) => item?.deleted !== true);
+  if (!payment?.id) {
+    payment = await asaasRequest<any>("/payments", { method:"POST", body:JSON.stringify({ customer:customer.id, billingType:process.env.ASAAS_BILLING_TYPE ?? "BOLETO", value, dueDate:vencimentoOperacional, description:`Andrade Energy · ${invoice.referencia ?? "fatura"}`, externalReference:faturaId, ...(split ? { split } : {}) }) });
+  }
+
+  // Grave o vínculo imediatamente. PIX e linha digitável são gerados de forma
+  // assíncrona e uma falha nessa etapa não pode deixar o pagamento órfão.
+  const registroInicial = { empresa_id:empresaResolvida, fatura_id:faturaId, gerador_carteira_id:carteira?.id??null, asaas_customer_id:payment.customer??customer.id, asaas_payment_id:payment.id, status:payment.status, valor:value, valor_liquido:payment.netValue??null, invoice_url:payment.invoiceUrl??null, bank_slip_url:payment.bankSlipUrl??payment.invoiceUrl??null, atualizado_em:new Date().toISOString() };
+  const { data: cobrancaInicial, error: erroRegistroInicial } = await supabase.from("asaas_cobrancas").upsert(registroInicial,{onConflict:"fatura_id"}).select().single();
+  if (erroRegistroInicial) throw erroRegistroInicial;
   const { pix, boleto } = await obterDadosPagamento(payment.id);
-  const pixValidado = dadosPixComValidadeMinima(pix);
+  const pixValidado = dadosPixDaCobranca(pix);
   const record = { empresa_id:empresaResolvida, fatura_id:faturaId, gerador_carteira_id:carteira?.id??null, asaas_customer_id:customer.id, asaas_payment_id:payment.id, status:payment.status, valor:value, valor_liquido:payment.netValue??null, invoice_url:payment.invoiceUrl??null, bank_slip_url:payment.bankSlipUrl??payment.invoiceUrl??null, linha_digitavel:boleto?.identificationField??payment.identificationField??null, codigo_pix:pixValidado.codigo, pix_expira_em:pixValidado.expiraEm, atualizado_em:new Date().toISOString() };
-  const { data, error: saveError } = await supabase.from("asaas_cobrancas").upsert(record,{onConflict:"fatura_id"}).select().single(); if(saveError) throw saveError;
+  const { data, error: saveError } = await supabase.from("asaas_cobrancas").update(record).eq("id",cobrancaInicial.id).select().single(); if(saveError) throw saveError;
   const { data: faturaAtualizada, error: updateError } = await supabase.from("faturas").update({ linha_digitavel:record.linha_digitavel, codigo_pix:record.codigo_pix, pix_expira_em:record.pix_expira_em, pdf_boleto_url:record.bank_slip_url, vencimento:vencimentoOperacional }).eq("id",faturaId).select().single();
   if (updateError) throw updateError;
   await regenerarDocumentosGeradosDaFatura({ ...faturaAtualizada, codigo_barras: boleto?.barCode ?? null });
