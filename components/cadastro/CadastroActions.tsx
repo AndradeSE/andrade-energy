@@ -9,6 +9,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors, Spacing } from "../../theme";
 import { Button } from "../ui";
+import PdfPasswordRetryModal from "../PdfPasswordRetryModal";
 
 type TipoCadastro = "CLIENTE" | "USINA" | "UNIDADE";
 
@@ -20,6 +21,8 @@ const rotas = {
 
 export default function CadastroActions({ tipo, clienteId }: { tipo: TipoCadastro; clienteId?: string }) {
   const [analisando, setAnalisando] = useState(false);
+  const [pdfPendente, setPdfPendente] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+  const [pedindoSenhaPdf, setPedindoSenhaPdf] = useState(false);
   const { usuario, usinaSelecionada, suspenderBloqueioTemporariamente } = useAuth();
   const podeImportarCliente = tipo === "CLIENTE" && IS_GERADOR_APP && usuario?.perfil === "ADMIN";
 
@@ -31,19 +34,20 @@ export default function CadastroActions({ tipo, clienteId }: { tipo: TipoCadastr
     router.push({ pathname: rotas[tipo] as any, params: tipo === "UNIDADE" ? { cadastroRapido: "1", clienteId: clienteId || "" } : {} });
   }
 
-  async function importar() {
+  async function importar(pdfReenvio?: DocumentPicker.DocumentPickerAsset, senhaPdf = "") {
     const retomarBloqueio = suspenderBloqueioTemporariamente();
     try {
-      const arquivo = await DocumentPicker.getDocumentAsync({
+      const arquivo = pdfReenvio ? null : await DocumentPicker.getDocumentAsync({
         type: "application/pdf",
         copyToCacheDirectory: true,
         multiple: false,
       });
-      if (arquivo.canceled) return;
+      if (arquivo?.canceled) return;
 
       setAnalisando(true);
-      const item = arquivo.assets[0];
-      const analise = await analisarFatura(item.uri, item.name);
+      const item = pdfReenvio ?? arquivo!.assets[0];
+      setPdfPendente(item);
+      const analise = await analisarFatura(item.uri, item.name, senhaPdf);
       const dados = analise?.dados ?? {};
       const dadosCadastro = analise?.resultado?.dadosCadastro ?? analise?.dadosCadastro ?? {};
       const nomeExtraido = dados.cliente ?? dados.nome ?? dados.titular ?? dadosCadastro.nome ?? dadosCadastro.cliente ?? "";
@@ -134,6 +138,10 @@ export default function CadastroActions({ tipo, clienteId }: { tipo: TipoCadastr
         },
       });
     } catch (erro: any) {
+      if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED" || erro?.response?.status === 422) {
+        setPedindoSenhaPdf(true);
+        return;
+      }
       const detalhe = erro?.response?.data?.message ?? erro?.message;
       Alert.alert(
         "Não foi possível ler a fatura",
@@ -146,7 +154,7 @@ export default function CadastroActions({ tipo, clienteId }: { tipo: TipoCadastr
   }
 
   return (
-    <View style={styles.row}>
+    <><View style={styles.row}>
       <Button
         icon={<Ionicons name="create-outline" size={20} color="#FFF" />}
         onPress={abrirManual}
@@ -156,11 +164,11 @@ export default function CadastroActions({ tipo, clienteId }: { tipo: TipoCadastr
       {(tipo !== "CLIENTE" || podeImportarCliente) ? <Button
         disabled={analisando}
         icon={<Ionicons name="document-attach-outline" size={20} color="#FFF" />}
-        onPress={importar}
+        onPress={() => void importar()}
         style={[styles.button, styles.importButton]}
         title={analisando ? "Lendo..." : tipo === "UNIDADE" ? "Importar fatura" : tipo === "CLIENTE" ? "Cliente via fatura" : "Via fatura"}
       /> : null}
-    </View>
+    </View><PdfPasswordRetryModal visible={pedindoSenhaPdf} busy={analisando} onCancel={() => { setPedindoSenhaPdf(false); setPdfPendente(null); }} onConfirm={(password) => { const pdf = pdfPendente; setPedindoSenhaPdf(false); if (pdf) void importar(pdf, password); }} /></>
   );
 }
 
