@@ -23,6 +23,7 @@ export default function Financeiro() {
   const [carteira, setCarteira] = useState<CarteiraService.Carteira | null>(null);
   const [unidadesRecebimento, setUnidadesRecebimento] = useState<any[]>([]);
   const [faturandoPdf, setFaturandoPdf] = useState(false);
+  const [senhaPdf, setSenhaPdf] = useState("");
   const [pixChave, setPixChave] = useState(""); const [pixTipo] = useState("EMAIL"); const [saque, setSaque] = useState(""); const [senhaFinanceira, setSenhaFinanceira] = useState("");
   const carregar = useCallback(async () => {
     try {
@@ -59,7 +60,7 @@ export default function Financeiro() {
       if (arquivo.canceled) return;
       setFaturandoPdf(true);
       const pdf = arquivo.assets[0];
-      const resultado = await processarFatura(pdf.uri, pdf.name);
+      const resultado = await processarFatura(pdf.uri, pdf.name, senhaPdf);
       if (resultado?.resultado?.clienteNaoEncontrado) {
         const uc = String(resultado?.resultado?.dadosCadastro?.uc ?? "");
         Alert.alert("UC ainda não cadastrada", `A unidade ${uc || "identificada na conta"} precisa ser vinculada antes do faturamento.`, [
@@ -73,6 +74,7 @@ export default function Financeiro() {
         return;
       }
       await carregar();
+      setSenhaPdf("");
       Alert.alert("Faturamento concluído", "A fatura foi processada e a cobrança foi gerada.");
     } catch (erro: any) {
       Alert.alert("Não foi possível faturar", erro?.response?.data?.message ?? erro?.message ?? "Confira o PDF e tente novamente.");
@@ -87,6 +89,9 @@ export default function Financeiro() {
       <Section title="Faturamento" framed={false}><Card style={styles.billingActionsCard}>
         <Text style={styles.billingTitle}>Como deseja faturar?</Text>
         <Text style={styles.billingSubtitle}>Escolha uma opção para iniciar ou configurar o faturamento.</Text>
+        <Text style={styles.inputLabel}>Senha do PDF (se houver)</Text>
+        <TextInput autoCapitalize="none" autoCorrect={false} onChangeText={setSenhaPdf} placeholder="Ex.: 4 primeiros números do CPF" secureTextEntry style={styles.input} value={senhaPdf} />
+        <Text style={styles.passwordHint}>A senha é usada somente para abrir a fatura e não fica armazenada.</Text>
         <View style={styles.fixedActions}>
           <QuickAction icon="document-attach-outline" label={faturandoPdf ? "Processando PDF..." : "Faturamento via PDF"} description="Importar a conta da concessionária" active={faturandoPdf} onPress={() => void faturarViaPdf()} />
           <QuickAction icon="create-outline" label="Faturamento manual" description="Preencher os dados da cobrança" onPress={() => router.push("/faturamento/criar-manual" as any)} />
@@ -116,6 +121,7 @@ function QuickAction({ icon, label, description, active = false, onPress }: { ic
 const styles = StyleSheet.create({
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl * 3 }, billingButton: { marginBottom: Spacing.lg }, grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }, metric: { width: "48%", marginBottom: Spacing.sm },
   billingActionsCard: { padding: Spacing.md, borderColor: "#C9DED1", backgroundColor: Colors.surface }, billingTitle: { color: Colors.primaryDark, fontSize: Typography.card, fontWeight: "900" }, billingSubtitle: { marginTop: 4, marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 }, fixedActions: { gap: Spacing.xs }, quickAction: { minHeight: 68, flexDirection: "row", alignItems: "center", paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, borderWidth: 1, borderColor: "#D6E4DC", borderRadius: Radius.md, backgroundColor: "#F8FBF9" }, quickActionActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight, opacity: 0.82 }, quickIcon: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primaryLight }, quickCopy: { flex: 1, minWidth: 0, marginHorizontal: Spacing.sm }, quickLabel: { color: Colors.text, fontSize: Typography.small, fontWeight: "900" }, quickDescription: { marginTop: 3, color: Colors.subtitle, fontSize: 11 }, sectionLead: { marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 },
+  passwordHint: { marginTop: -6, marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: 11, lineHeight: 16 },
   progressHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, cardTitle: { color: Colors.text, fontSize: Typography.card, fontWeight: "700" }, cardSubtitle: { marginTop: 4, color: Colors.subtitle, fontSize: Typography.small }, percent: { color: Colors.primary, fontSize: Typography.section, fontWeight: "800" },
   track: { height: 10, overflow: "hidden", marginTop: Spacing.lg, borderRadius: Radius.round, backgroundColor: Colors.border }, progress: { height: "100%", borderRadius: Radius.round, backgroundColor: Colors.primary },
   info: { minHeight: 54, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, infoLabel: { color: Colors.subtitle }, infoValue: { color: Colors.text, fontWeight: "700" }, warning: { color: Colors.danger },

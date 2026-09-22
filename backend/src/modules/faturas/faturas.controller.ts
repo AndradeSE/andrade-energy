@@ -108,9 +108,10 @@ export async function importarFaturaController(
 
   } catch (err: any) {
     console.error(err);
-
-    return res.status(500).json({
+    const erroDeSenha = /pdf.*(protegido|senha)|senha.*pdf/i.test(String(err.message ?? ""));
+    return res.status(erroDeSenha ? 422 : 500).json({
       message: err.message,
+      ...(erroDeSenha ? { code: "PDF_PASSWORD_REQUIRED" } : {}),
     });
   }
 }

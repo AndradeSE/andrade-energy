@@ -67,25 +67,26 @@ export function calcularMediaConsumoFatura(dados: any) {
     : 0;
 }
 
-async function enviarPdf(uri: string, endpoint: string, nome = "fatura.pdf") {
+async function enviarPdf(uri: string, endpoint: string, nome = "fatura.pdf", senhaPdf?: string) {
   const formData = new FormData();
   formData.append("arquivo", {
     uri,
     name: nome,
     type: "application/pdf",
   } as any);
+  if (senhaPdf?.trim()) formData.append("senhaPdf", senhaPdf.trim());
 
   const { data } = await api.post(endpoint, formData, { timeout: 60_000 });
 
   return data;
 }
 
-export async function processarFatura(uri: string, nome?: string) {
-  return enviarPdf(uri, "/faturas/importar", nome);
+export async function processarFatura(uri: string, nome?: string, senhaPdf?: string) {
+  return enviarPdf(uri, "/faturas/importar", nome, senhaPdf);
 }
 
-export async function analisarFatura(uri: string, nome?: string) {
-  return enviarPdf(uri, "/faturas/analisar", nome);
+export async function analisarFatura(uri: string, nome?: string, senhaPdf?: string) {
+  return enviarPdf(uri, "/faturas/analisar", nome, senhaPdf);
 }
 
 export async function criarFaturaManual(dados: Record<string, unknown>) {

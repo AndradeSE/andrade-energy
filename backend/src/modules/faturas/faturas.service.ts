@@ -126,7 +126,8 @@ export async function analisarFatura(req: Request) {
     throw new Error("Arquivo não enviado.");
   }
 
-  const texto = await extrairTextoPDF(req.file.path);
+  const senhaPdf = String(req.body?.senhaPdf ?? req.body?.senha_pdf ?? "").trim() || undefined;
+  const texto = await extrairTextoPDF(req.file.path, senhaPdf);
   const dados = interpretarFatura(texto);
 
   return {
@@ -148,7 +149,8 @@ export async function importarFatura(
     throw new Error("Arquivo não enviado.");
   }
 
-  const texto = await extrairTextoPDF(req.file.path);
+  const senhaPdf = String(req.body?.senhaPdf ?? req.body?.senha_pdf ?? "").trim() || undefined;
+  const texto = await extrairTextoPDF(req.file.path, senhaPdf);
   const dados = interpretarFatura(texto);
   const resultado = await processarFatura(dados);
 

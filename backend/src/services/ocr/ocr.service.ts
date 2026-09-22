@@ -50,7 +50,7 @@ async function extrairTextoPdfComSenha(buffer: Buffer, senha: string) {
   } catch (erro: any) {
     const mensagem = String(erro?.message ?? "");
     if (/password|senha/i.test(mensagem)) {
-      throw new Error("Não foi possível desbloquear o PDF da concessionária com os quatro primeiros dígitos do CPF cadastrado.");
+      throw new Error("A senha informada não desbloqueou o PDF. Confira a senha da fatura e tente novamente.");
     }
     throw erro;
   } finally {
@@ -76,8 +76,15 @@ export async function extrairTextoDoBuffer(
 
   if (senha) return extrairTextoPdfComSenha(buffer, senha);
 
-  const pdf = await pdfParse(buffer);
-
-  return pdf.text;
+  try {
+    const pdf = await pdfParse(buffer);
+    return pdf.text;
+  } catch (erro: any) {
+    const mensagem = String(erro?.message ?? "");
+    if (/password|senha/i.test(mensagem)) {
+      throw new Error("Este PDF é protegido. Informe a senha da fatura e tente novamente.");
+    }
+    throw erro;
+  }
 
 }
