@@ -1,5 +1,5 @@
 import { router, Stack, useGlobalSearchParams, usePathname } from "expo-router";
-import { Alert, BackHandler, Modal, StyleSheet, ToastAndroid, View } from "react-native";
+import { Alert, AppState, BackHandler, Modal, StyleSheet, ToastAndroid, View } from "react-native";
 import { useEffect, useRef, useState } from "react";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -21,6 +21,17 @@ import PersistentAppTabs from "../components/navigation/PersistentAppTabs";
 import ContractAccessGate from "../components/navigation/ContractAccessGate";
 import Loading from "../components/ui/Loading";
 import { IS_GERADOR_APP } from "../config/appVariant";
+import { registrarPushAndroid } from "../services/notificacoes.service";
+import * as Notifications from "expo-notifications";
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 /*
  * React Query
@@ -53,6 +64,27 @@ function RootNavigator() {
     signOut,
   } = useAuth();
   const alertaSessaoAberto = useRef(false);
+
+  useEffect(() => {
+    if (!session?.user?.id) return undefined;
+    let ativo = true;
+    const registrar = () => void registrarPushAndroid().catch((erro) => {
+      if (ativo) console.warn("Não foi possível registrar o push Android", erro);
+    });
+    registrar();
+    const appState = AppState.addEventListener("change", (estado) => {
+      if (estado === "active") registrar();
+    });
+    const resposta = Notifications.addNotificationResponseReceivedListener((evento) => {
+      const url = evento.notification.request.content.data?.url;
+      if (typeof url === "string" && url.startsWith("/")) router.push(url as any);
+    });
+    return () => {
+      ativo = false;
+      appState.remove();
+      resposta.remove();
+    };
+  }, [session?.user?.id, session?.user?.empresa_id]);
 
   useEffect(() => aoSubstituirSessao(() => {
     if (alertaSessaoAberto.current) return;

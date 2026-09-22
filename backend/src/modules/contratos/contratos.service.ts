@@ -14,6 +14,7 @@ import crypto from "crypto";
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import { armazenarContratoAssinado, criarLinkContrato, gerarMinutaContrato, salvarDocumentoContrato } from "./documentosContrato.service";
 import { obterPropostaParaConvite } from "../convites/propostaConvite.service";
+import { criarNotificacaoApp } from "../notificacoes/push.service";
 
 export async function obterContratoCliente(
   clienteId: string,
@@ -595,7 +596,7 @@ export async function solicitarCancelamentoContratoService(id: string, usuario: 
   const uc = unidade?.numero ? `UC ${unidade.numero}` : "UC não identificada";
   await Promise.all(destinatarios.map(async (vinculo: any) => {
     const membro = Array.isArray(vinculo.usuarios) ? vinculo.usuarios[0] : vinculo.usuarios;
-    const { error: erroNotificacao } = await supabase.from("notificacoes_app").insert({
+    await criarNotificacaoApp({
       usuario_id: vinculo.usuario_id,
       empresa_id: contrato.empresa_id,
       tipo: "SOLICITACAO_CANCELAMENTO_CONTRATO",
@@ -603,7 +604,6 @@ export async function solicitarCancelamentoContratoService(id: string, usuario: 
       detalhe: `${cliente?.nome ?? "O cliente"} solicitou o cancelamento do contrato ${identificacao}, ${uc}. Analise a solicitação antes de encerrar o vínculo.`,
       rota: `/contratos/${contrato.id}`,
     });
-    if (erroNotificacao) throw erroNotificacao;
     if (membro?.email) await enviarEmailTransacional({
       empresaId: contrato.empresa_id,
       destinatario: membro.email,

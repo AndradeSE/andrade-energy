@@ -4,6 +4,7 @@ import { criarConvite } from "../convites/convites.service";
 import { obterPropostaParaConvite } from "../convites/propostaConvite.service";
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import crypto from "node:crypto";
+import { criarNotificacaoApp } from "../notificacoes/push.service";
 
 /** Envia somente a minuta previamente revisada, nunca regenera ao enviar. */
 export async function enviarContratoEConvite(unidadeId: string, gestor: any, forcarNovoConvite = false) {
@@ -74,7 +75,7 @@ export async function solicitarReenvioConviteCliente(emailInformado: unknown) {
   if (!gestor) return resposta;
   const { data: unidade } = await supabase.from("unidades_consumidoras").select("numero,cliente_id,clientes(nome)").eq("id", convite.unidade_consumidora_id).maybeSingle();
   const cliente: any = Array.isArray(unidade?.clientes) ? unidade?.clientes[0] : unidade?.clientes;
-  await supabase.from("notificacoes_app").insert({
+  await criarNotificacaoApp({
     usuario_id: convite.gestor_id,
     empresa_id: gestor.empresa_id,
     tipo: "REENVIO_CONVITE_SOLICITADO",

@@ -25,6 +25,7 @@ import { interpretarFatura } from "../../services/ocr/parser.service";
 import { readFile, unlink } from "node:fs/promises";
 import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
 import { conferirSenha, protegerSenha } from "../../utils/password";
+import { criarNotificacaoApp } from "../notificacoes/push.service";
 
 type DadosPerfil = {
   nome?: unknown;
@@ -655,7 +656,7 @@ export async function verificarEmailDeCadastro(tokenInformado: unknown) {
         html: `<div style="font-family:Arial,sans-serif;color:#252925;line-height:1.6"><h2 style="color:#39804a">E-mail confirmado</h2><p>Olá, <strong>${escaparHtml(gestor.nome)}</strong>.</p><p><strong>${escaparHtml(cliente?.nome ?? "Um consumidor")}</strong> confirmou o endereço de e-mail e a conta já está liberada com os dados cadastrados por você.</p></div>`,
       }).catch(() => false);
     }
-    const { error: notificacaoError } = await supabase.from("notificacoes_app").insert({
+    await criarNotificacaoApp({
       usuario_id: atualizada.gestor_id,
       empresa_id: atualizada.empresa_id,
       tipo: "CONTA_CLIENTE_ATIVADA",
@@ -663,7 +664,6 @@ export async function verificarEmailDeCadastro(tokenInformado: unknown) {
       detalhe: `${cliente?.nome ?? "O cliente"} confirmou o e-mail e já pode acessar o aplicativo. A UC será liberada após a assinatura do contrato.`,
       rota: `/clientes/${solicitacao.cliente_id}?area=unidades`,
     });
-    if (notificacaoError) throw notificacaoError;
   }
 
   return {
