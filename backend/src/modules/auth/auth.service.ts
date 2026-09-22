@@ -900,7 +900,7 @@ export async function iniciarTesteGerador(input: { nome: string; cpf: string; em
     message: conta.message,
     emailEnviado: conta.emailEnviado,
     assinatura,
-    downloadUrl: String(process.env.APP_GERADOR_DOWNLOAD_URL ?? "https://andradeenergy.com.br/downloads/andrade-energy-gerador.apk"),
+    downloadUrl: String(process.env.APP_GERADOR_DOWNLOAD_URL ?? "https://www.andradeenergy.com.br/downloads/andrade-energy-gerador.apk"),
   };
 }
 
