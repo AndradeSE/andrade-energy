@@ -18,6 +18,46 @@ import { registrarCreditosDaFatura } from "../creditos/consumo.service";
 import { supabase } from "../../config/supabase";
 import { tentarCriarCobrancaAsaas } from "../asaas/asaas.service";
 import { exigirContratoAssinadoDaUc } from "../contratos/contratoUc.service";
+import { empresaIdDaRequisicao } from "../../utils/empresaScope";
+
+function erroDeSenhaPdf(erro: unknown) {
+  return /pdf.*(protegido|senha)|senha.*pdf/i.test(String((erro as any)?.message ?? ""));
+}
+
+async function senhasConhecidasDaEmpresa(req: Request) {
+  const empresaId = empresaIdDaRequisicao(req);
+  const [{ data: unidades, error: erroUnidades }, { data: clientes, error: erroClientes }] = await Promise.all([
+    supabase.from("unidades_consumidoras").select("cpf_titular").eq("empresa_id", empresaId),
+    supabase.from("clientes").select("cpf").eq("empresa_id", empresaId),
+  ]);
+  if (erroUnidades) throw erroUnidades;
+  if (erroClientes) throw erroClientes;
+
+  return [...new Set([...(unidades ?? []).map((item: any) => item.cpf_titular), ...(clientes ?? []).map((item: any) => item.cpf)]
+    .map((documento) => String(documento ?? "").replace(/\D/g, "").slice(0, 4))
+    .filter((senha) => senha.length === 4))];
+}
+
+async function extrairTextoDaFatura(req: Request) {
+  const senhaInformada = String(req.body?.senhaPdf ?? req.body?.senha_pdf ?? "").trim();
+  if (senhaInformada) return extrairTextoPDF(req.file!.path, senhaInformada);
+
+  try {
+    return await extrairTextoPDF(req.file!.path);
+  } catch (erro) {
+    if (!erroDeSenhaPdf(erro)) throw erro;
+  }
+
+  for (const senha of await senhasConhecidasDaEmpresa(req)) {
+    try {
+      return await extrairTextoPDF(req.file!.path, senha);
+    } catch (erro) {
+      if (!erroDeSenhaPdf(erro)) throw erro;
+    }
+  }
+
+  throw new Error("Este PDF é protegido e não corresponde aos CPFs já cadastrados. Informe os 4 primeiros números do CPF do titular da UC.");
+}
 
 export async function listarFaturas(filtro?: { clienteId?: string; uc?: string; empresaId?: string }) {
   const faturas = await listarFaturasRepository(filtro);
@@ -126,8 +166,7 @@ export async function analisarFatura(req: Request) {
     throw new Error("Arquivo não enviado.");
   }
 
-  const senhaPdf = String(req.body?.senhaPdf ?? req.body?.senha_pdf ?? "").trim() || undefined;
-  const texto = await extrairTextoPDF(req.file.path, senhaPdf);
+  const texto = await extrairTextoDaFatura(req);
   const dados = interpretarFatura(texto);
 
   return {
@@ -149,8 +188,7 @@ export async function importarFatura(
     throw new Error("Arquivo não enviado.");
   }
 
-  const senhaPdf = String(req.body?.senhaPdf ?? req.body?.senha_pdf ?? "").trim() || undefined;
-  const texto = await extrairTextoPDF(req.file.path, senhaPdf);
+  const texto = await extrairTextoDaFatura(req);
   const dados = interpretarFatura(texto);
   const resultado = await processarFatura(dados);
 

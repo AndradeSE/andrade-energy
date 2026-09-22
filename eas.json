@@ -26,6 +26,16 @@
       "channel": "preview-gerador",
       "env": { "EXPO_PUBLIC_APP_VARIANT": "gerador", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
     },
+    "client-consumidor": {
+      "distribution": "internal",
+      "channel": "production-consumidor",
+      "env": { "EXPO_PUBLIC_APP_VARIANT": "consumidor", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
+    },
+    "client-gerador": {
+      "distribution": "internal",
+      "channel": "production-gerador",
+      "env": { "EXPO_PUBLIC_APP_VARIANT": "gerador", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
+    },
     "production": {
       "autoIncrement": true,
       "channel": "production-consumidor",

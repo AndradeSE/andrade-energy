@@ -6,11 +6,11 @@ export type AppDownload = "gerador" | "consumidor";
 const downloads = {
   gerador: {
     nome: "andrade-energy-gerador.apk",
-    url: "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-gerador.apk",
+    url: "https://andradeenergy.com.br/downloads/andrade-energy-gerador.apk",
   },
   consumidor: {
     nome: "andrade-energy-consumidor.apk",
-    url: "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-consumidor.apk",
+    url: "https://andradeenergy.com.br/downloads/andrade-energy-consumidor.apk",
   },
 } as const;
 

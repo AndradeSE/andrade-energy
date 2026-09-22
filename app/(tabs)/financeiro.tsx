@@ -24,6 +24,7 @@ export default function Financeiro() {
   const [unidadesRecebimento, setUnidadesRecebimento] = useState<any[]>([]);
   const [faturandoPdf, setFaturandoPdf] = useState(false);
   const [senhaPdf, setSenhaPdf] = useState("");
+  const [solicitarSenhaPdf, setSolicitarSenhaPdf] = useState(false);
   const [pixChave, setPixChave] = useState(""); const [pixTipo] = useState("EMAIL"); const [saque, setSaque] = useState(""); const [senhaFinanceira, setSenhaFinanceira] = useState("");
   const carregar = useCallback(async () => {
     try {
@@ -75,8 +76,10 @@ export default function Financeiro() {
       }
       await carregar();
       setSenhaPdf("");
+      setSolicitarSenhaPdf(false);
       Alert.alert("Faturamento concluído", "A fatura foi processada e a cobrança foi gerada.");
     } catch (erro: any) {
+      if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED") setSolicitarSenhaPdf(true);
       Alert.alert("Não foi possível faturar", erro?.response?.data?.message ?? erro?.message ?? "Confira o PDF e tente novamente.");
     } finally {
       setFaturandoPdf(false);
@@ -89,9 +92,9 @@ export default function Financeiro() {
       <Section title="Faturamento" framed={false}><Card style={styles.billingActionsCard}>
         <Text style={styles.billingTitle}>Como deseja faturar?</Text>
         <Text style={styles.billingSubtitle}>Escolha uma opção para iniciar ou configurar o faturamento.</Text>
-        <Text style={styles.inputLabel}>Senha do PDF (se houver)</Text>
-        <TextInput autoCapitalize="none" autoCorrect={false} onChangeText={setSenhaPdf} placeholder="Ex.: 4 primeiros números do CPF" secureTextEntry style={styles.input} value={senhaPdf} />
-        <Text style={styles.passwordHint}>A senha é usada somente para abrir a fatura e não fica armazenada.</Text>
+        {solicitarSenhaPdf ? <><Text style={styles.inputLabel}>Senha do PDF</Text>
+        <TextInput autoCapitalize="none" autoCorrect={false} keyboardType="number-pad" maxLength={4} onChangeText={setSenhaPdf} placeholder="4 primeiros números do CPF" secureTextEntry style={styles.input} value={senhaPdf} />
+        <Text style={styles.passwordHint}>Não encontramos o CPF desta UC no cadastro. A senha é usada somente para abrir a fatura e não fica armazenada.</Text></> : null}
         <View style={styles.fixedActions}>
           <QuickAction icon="document-attach-outline" label={faturandoPdf ? "Processando PDF..." : "Faturamento via PDF"} description="Importar a conta da concessionária" active={faturandoPdf} onPress={() => void faturarViaPdf()} />
           <QuickAction icon="create-outline" label="Faturamento manual" description="Preencher os dados da cobrança" onPress={() => router.push("/faturamento/criar-manual" as any)} />

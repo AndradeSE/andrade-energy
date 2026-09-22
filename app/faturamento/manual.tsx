@@ -19,6 +19,7 @@ export default function FaturamentoManual() {
   const [lendo, setLendo] = useState(false);
   const [faturando, setFaturando] = useState(false);
   const [senhaPdf, setSenhaPdf] = useState("");
+  const [solicitarSenhaPdf, setSolicitarSenhaPdf] = useState(false);
 
   async function selecionar() {
     const retomarBloqueio = suspenderBloqueioTemporariamente();
@@ -32,6 +33,7 @@ export default function FaturamentoManual() {
       setArquivo({ uri: item.uri, name: item.name });
       setAnalise(dados);
     } catch (erro: any) {
+      if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED") setSolicitarSenhaPdf(true);
       Alert.alert("Não foi possível ler a fatura", erro?.response?.data?.message ?? erro?.message ?? "Confira o PDF.");
     } finally {
       setLendo(false);
@@ -77,9 +79,9 @@ export default function FaturamentoManual() {
     <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={24} color={Colors.text} /></TouchableOpacity>
     <Text style={styles.eyebrow}>FINANCEIRO</Text><Text style={styles.title}>Faturamento via PDF</Text><Text style={styles.subtitle}>Selecione a conta da concessionária em PDF, confira os dados e confirme a geração da cobrança.</Text>
 
-    <Text style={styles.inputLabel}>Senha do PDF (se houver)</Text>
-    <TextInput autoCapitalize="none" autoCorrect={false} onChangeText={setSenhaPdf} placeholder="Ex.: 4 primeiros números do CPF" secureTextEntry style={styles.input} value={senhaPdf} />
-    <Text style={styles.passwordHint}>A senha serve apenas para abrir o arquivo e não será armazenada.</Text>
+    {solicitarSenhaPdf ? <><Text style={styles.inputLabel}>Senha do PDF</Text>
+    <TextInput autoCapitalize="none" autoCorrect={false} keyboardType="number-pad" maxLength={4} onChangeText={setSenhaPdf} placeholder="4 primeiros números do CPF" secureTextEntry style={styles.input} value={senhaPdf} />
+    <Text style={styles.passwordHint}>Não encontramos o CPF desta UC no cadastro. A senha serve apenas para abrir o arquivo e não será armazenada.</Text></> : null}
 
     <TouchableOpacity disabled={lendo || faturando} activeOpacity={0.84} onPress={selecionar} style={styles.upload}>
       <View style={styles.uploadIcon}><Ionicons name="document-attach-outline" size={26} color={Colors.primary} /></View>

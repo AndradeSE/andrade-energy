@@ -56,7 +56,11 @@ export async function analisarFaturaController(req: Request, res: Response) {
   try {
     return res.json(await analisarFatura(req));
   } catch (err: any) {
-    return res.status(400).json({ message: err.message });
+    const erroDeSenha = /pdf.*(protegido|senha)|senha.*pdf/i.test(String(err.message ?? ""));
+    return res.status(erroDeSenha ? 422 : 400).json({
+      message: err.message,
+      ...(erroDeSenha ? { code: "PDF_PASSWORD_REQUIRED" } : {}),
+    });
   }
 }
 
