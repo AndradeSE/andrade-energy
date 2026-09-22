@@ -209,6 +209,7 @@ export async function anexarFaturaAoCliente(
   usuario: any,
   empresaId: string,
   arquivo?: { path: string; originalname?: string; mimetype?: string },
+  senhaPdf?: string,
 ) {
   if (!arquivo?.path) throw new Error("Selecione uma fatura em PDF.");
   if (arquivo.mimetype && arquivo.mimetype !== "application/pdf") throw new Error("Envie a conta de energia no formato PDF.");
@@ -219,7 +220,8 @@ export async function anexarFaturaAoCliente(
   let caminhoPdf: string | null = null;
   try {
     const cliente = await buscarCliente(clienteId, empresaId);
-    const texto = await extrairTextoPDF(arquivo.path, cpfLimpo(cliente?.cpf).slice(0, 4) || undefined);
+    const senhaInformada = String(senhaPdf ?? "").trim();
+    const texto = await extrairTextoPDF(arquivo.path, senhaInformada || cpfLimpo(cliente?.cpf).slice(0, 4) || undefined);
     if (!/\bCEMIG\b/i.test(texto)) throw new Error("Envie uma fatura emitida pela CEMIG.");
     const dadosFatura = dadosDaFaturaAnexada(interpretarFatura(texto) as Record<string, any>);
     if (!dadosFatura.uc) throw new Error("Não foi possível identificar a unidade consumidora na fatura.");

@@ -90,9 +90,14 @@ export async function anexarFaturaClienteController(req: Request, res: Response)
       (req as any).usuario,
       empresaIdDaRequisicao(req),
       req.file,
+      String(req.body?.senhaPdf ?? req.body?.senha_pdf ?? ""),
     ));
   } catch (e: any) {
-    return res.status(400).json({ message: e.message ?? "Não foi possível anexar a fatura." });
+    const erroDeSenha = /pdf.*(protegido|senha)|senha.*pdf|não desbloqueou/i.test(String(e.message ?? ""));
+    return res.status(erroDeSenha ? 422 : 400).json({
+      message: e.message ?? "Não foi possível anexar a fatura.",
+      ...(erroDeSenha ? { code: "PDF_PASSWORD_REQUIRED" } : {}),
+    });
   }
 }
 

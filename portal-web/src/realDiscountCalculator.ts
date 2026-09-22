@@ -24,7 +24,14 @@ export function hasGdReading(data: Record<string, any> | null | undefined) {
 }
 
 export function projectedConsumptionFrom(data: Record<string, any> | null | undefined) {
-  return Math.max(0, numberFrom(data, "consumo_kwh", "consumoKwh", "consumo_faturado", "consumoFaturado", "consumo"));
+  const direct = numberFrom(data, "consumo_kwh", "consumoKwh", "consumo_faturado", "consumoFaturado", "energia_consumida", "energiaConsumida", "consumo_medio_kwh", "consumoMedioKwh", "consumoMedio", "consumo");
+  if (direct > 0) return direct;
+  const history = data?.historico ?? data?.historicoConsumo ?? data?.historico_consumo;
+  if (!Array.isArray(history)) return 0;
+  const values = history.map((item) => typeof item === "object" && item !== null
+    ? numberFrom(item, "consumo", "consumo_kwh", "valor", "kwh", "quantidade")
+    : brazilianNumber(item)).filter((value) => value > 0);
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
 }
 
 export function sortableMonth(value: unknown) {
@@ -42,7 +49,7 @@ export function findMonthlyTariff(data: Record<string, any> | null | undefined, 
 
 export function calculateProjection({ data, discount, billingMode, type, gd1, gd2, fioB, projectedConsumption = 0, projectedInjectedEnergy = 0, sceeReference = 0, gd2Reference = 0 }: ProjectionInput): ProjectionResult | null {
   if (!data) return null;
-  let fullTariff = numberFrom(data, "tarifa_cheia", "tarifaCheia");
+  let fullTariff = numberFrom(data, "tarifa_cheia", "tarifaCheia", "tarifa_com_impostos", "tarifaComImpostos", "preco_com_impostos", "precoComImpostos");
   const utilityTotal = numberFrom(data, "valor_cemig", "valorCemig", "valor_concessionaria", "valorConcessionaria", "valor_total", "valorTotal");
   const gd1Energy = numberFrom(data, "energia_compensada_gd1", "energiaCompensadaGD1"), gd2Energy = numberFrom(data, "energia_compensada_gd2", "energiaCompensadaGD2");
   const compensatedEnergy = numberFrom(data, "energia_compensada", "energiaCompensada") || gd1Energy + gd2Energy;

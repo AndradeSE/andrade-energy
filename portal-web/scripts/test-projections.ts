@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateProjection } from "../src/realDiscountCalculator.ts";
+import { calculateProjection, projectedConsumptionFrom } from "../src/realDiscountCalculator.ts";
 
 const gd2Invoice = {
   energia_injetada: 375,
@@ -87,4 +87,11 @@ test("conta convencional simula 100% do consumo com tarifa mensal GD II", () => 
   assert.ok(result);
   assert.equal(Number(result.wireBCost.toFixed(2)), 48.75);
   assert.ok(result.realDiscount > 0 && result.realDiscount <= 40);
+});
+
+test("conta convencional usa a média do histórico quando o consumo atual não vem no PDF", () => {
+  const consumption = projectedConsumptionFrom({
+    historicoConsumo: [{ consumo: "300" }, { kwh: "420" }, { valor: "360" }],
+  });
+  assert.equal(consumption, 360);
 });

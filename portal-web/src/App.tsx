@@ -1,4 +1,4 @@
-import { CSSProperties, FormEvent, MouseEvent, useCallback, useEffect, useState } from "react";
+import { CSSProperties, FormEvent, MouseEvent, useCallback, useEffect, useRef, useState } from "react";
 import bulbImage from "./assets/lampada-dourada.png";
 import defaultBrandLogo from "./assets/andrade-energy-logo-clara.png";
 import generatorAppIcon from "./assets/app-gerador.png";
@@ -1557,6 +1557,10 @@ function UnitTools({
   const [editOpen, setEditOpen] = useState(false);
   const [contractOpen, setContractOpen] = useState(false);
   const [contractRevision, setContractRevision] = useState(false);
+  const pdfInputRef = useRef<HTMLInputElement | null>(null);
+  const [pendingPdf, setPendingPdf] = useState<File | null>(null);
+  const [pdfPassword, setPdfPassword] = useState("");
+  const [pdfPasswordOpen, setPdfPasswordOpen] = useState(false);
   const [plants, setPlants] = useState<WebRecord[]>([]);
   const [allocation, setAllocation] = useState({
     usinaId: String(unit.usina_id ?? ""),
@@ -1702,6 +1706,44 @@ function UnitTools({
       setContractRevision(true);
       setContractOpen(true);
       onChanged();
+    }
+  }
+  async function addInvoicePdf(file: File | null, password = "") {
+    if (!file || !unit.cliente_id) return;
+    setBusy(true);
+    setMessage("");
+    const body = new FormData();
+    body.append("arquivo", file);
+    if (password.trim()) body.append("senhaPdf", password.trim());
+    try {
+      const response = await fetch(`${API_URL}/clientes/${unit.cliente_id}/faturas-anexadas`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok && (data.code === "PDF_PASSWORD_REQUIRED" || response.status === 422)) {
+        setPendingPdf(file);
+        setPdfPasswordOpen(true);
+        setMessage("Este PDF possui senha. Informe os 4 primeiros números do CPF do titular para validar.");
+        return;
+      }
+      if (!response.ok) throw new Error(data.message ?? "Não foi possível ler o PDF.");
+      const importedNumber = String(data?.dadosFatura?.uc ?? data?.dadosFatura?.numero_instalacao ?? "").replace(/\D/g, "");
+      const currentNumber = String(unit.numero ?? unit.uc ?? "").replace(/\D/g, "");
+      setMessage(importedNumber && currentNumber && importedNumber !== currentNumber
+        ? `PDF lido e UC ${importedNumber} adicionada ao cliente.`
+        : "PDF lido e dados da UC atualizados.");
+      setToolsRefresh((value) => value + 1);
+      setPendingPdf(null);
+      setPdfPassword("");
+      setPdfPasswordOpen(false);
+      onChanged();
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : "Não foi possível adicionar a UC pelo PDF.");
+    } finally {
+      if (pdfInputRef.current) pdfInputRef.current.value = "";
+      setBusy(false);
     }
   }
   const unitFields = [
@@ -1951,6 +1993,15 @@ function UnitTools({
               Ações da UC <span>⌄</span>
             </summary>
             <div className="unit-actions">
+              <input ref={pdfInputRef} hidden type="file" accept="application/pdf,.pdf" onChange={(event) => void addInvoicePdf(event.target.files?.[0] ?? null)} />
+              <button disabled={busy || !unit.cliente_id} onClick={() => pdfInputRef.current?.click()}>
+                Adicionar UC por PDF
+              </button>
+              {pdfPasswordOpen ? <form className="pdf-password-form" onSubmit={(event) => { event.preventDefault(); void addInvoicePdf(pendingPdf, pdfPassword); }}>
+                <label>Senha do PDF<input autoFocus inputMode="numeric" maxLength={4} pattern="[0-9]{4}" placeholder="4 primeiros números do CPF" required type="password" value={pdfPassword} onChange={(event) => setPdfPassword(event.target.value.replace(/\D/g, "").slice(0, 4))} /></label>
+                <small>O arquivo será validado novamente com esta senha.</small>
+                <span><button type="button" onClick={() => { setPendingPdf(null); setPdfPassword(""); setPdfPasswordOpen(false); }}>Cancelar</button><button disabled={busy || pdfPassword.length !== 4}>Validar PDF</button></span>
+              </form> : null}
               <button
                 disabled={busy}
                 onClick={() => void openAllocationEditor()}
@@ -2825,6 +2876,9 @@ function PortalHome({
   const [walletHome, setWalletHome] = useState<WalletSummary | null>(null);
   const [walletNotice, setWalletNotice] = useState(false);
   const [company, setCompany] = useState<PortalCompany>(DEFAULT_COMPANY);
+  const [notifications, setNotifications] = useState<WebRecord[]>([]);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsSeenAt, setNotificationsSeenAt] = useState(() => localStorage.getItem(`andrade_web_notifications_seen:${session.usuario?.id ?? "user"}`) ?? "");
   const collaboratorRole = String(session.usuario?.papel_empresa ?? "");
   const isCollaborator = collaboratorRole.startsWith("COLABORADOR_");
   const isCommercialWorkspace = type === "GERADOR" && (collaboratorRole === "COLABORADOR_COMERCIAL" || (session.usuario?.perfil === "ADMIN" && workspace === "COMERCIAL"));
@@ -2879,6 +2933,32 @@ function PortalHome({
       .catch(() => { if (active) setCompany(DEFAULT_COMPANY); });
     return () => { active = false; };
   }, [session.token]);
+
+  useEffect(() => {
+    if (!session.token) return;
+    let active = true;
+    const loadNotifications = async () => {
+      const response = await fetch(`${API_URL}/notificacoes`, { headers: { Authorization: `Bearer ${session.token}` } });
+      const payload = await response.json().catch(() => []);
+      if (active && response.ok) setNotifications(Array.isArray(payload) ? payload : []);
+    };
+    void loadNotifications();
+    const timer = window.setInterval(() => void loadNotifications(), 60_000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [session.token]);
+
+  const unreadNotifications = notifications.filter((item) => !notificationsSeenAt || String(item.criado_em ?? "") > notificationsSeenAt).length;
+  function toggleNotifications() {
+    setNotificationsOpen((open) => {
+      const next = !open;
+      if (next) {
+        const seenAt = String(notifications[0]?.criado_em ?? new Date().toISOString());
+        localStorage.setItem(`andrade_web_notifications_seen:${session.usuario?.id ?? "user"}`, seenAt);
+        setNotificationsSeenAt(seenAt);
+      }
+      return next;
+    });
+  }
 
   useEffect(() => {
     setActiveSection((current) => {
@@ -3279,7 +3359,16 @@ function PortalHome({
           <button aria-label="Abrir resultado da pesquisa" type="submit">Ir</button>
           {globalSearchFeedback ? <output className="portal-search-feedback" id="portal-search-feedback">{globalSearchFeedback}</output> : null}
         </form>
-        <div>
+        <div className="topbar-actions">
+          <div className="notification-center">
+            <button className="notification-bell" type="button" aria-label={`Notificações${unreadNotifications ? `, ${unreadNotifications} novas` : ""}`} aria-expanded={notificationsOpen} onClick={toggleNotifications}>
+              <span aria-hidden="true">🔔</span>{unreadNotifications ? <b>{Math.min(99, unreadNotifications)}</b> : null}
+            </button>
+            {notificationsOpen ? <section className="notification-panel">
+              <header><strong>Notificações</strong><small>{unreadNotifications ? `${unreadNotifications} nova${unreadNotifications === 1 ? "" : "s"}` : "Tudo em dia"}</small></header>
+              <div>{notifications.length ? notifications.map((item) => <article key={String(item.id)}><i aria-hidden="true">!</i><span><strong>{String(item.titulo ?? "Aviso")}</strong><small>{String(item.detalhe ?? "")}</small><time>{item.criado_em ? new Date(String(item.criado_em)).toLocaleString("pt-BR") : ""}</time></span></article>) : <p>Nenhuma notificação por enquanto.</p>}</div>
+            </section> : null}
+          </div>
           <button
             className="user-menu-button"
             onClick={() => {
