@@ -62,10 +62,28 @@ export function calcularPropostaComercial(entrada: EntradaCalculoProposta) {
   return { base, disponibilidade, fioB, valorAndrade, totalProjetado, economiaMensal, descontoReal };
 }
 
+export function calcularEnergiaProjetadaContrato(input: {
+  modalidade: unknown;
+  consumoMedioUc: unknown;
+  producaoMediaUsina: unknown;
+  percentualRateio: unknown;
+}) {
+  const consumoMedioUc = Math.max(0, n(input.consumoMedioUc));
+  if (String(input.modalidade ?? "").toUpperCase() !== "INJECAO") return consumoMedioUc;
+
+  const producaoMediaUsina = Math.max(0, n(input.producaoMediaUsina));
+  if (producaoMediaUsina <= 0) return consumoMedioUc;
+  const percentualInformado = n(input.percentualRateio);
+  const percentual = percentualInformado > 0 ? Math.min(100, percentualInformado) : 100;
+  return producaoMediaUsina * percentual / 100;
+}
+
 export async function obterPropostaParaConvite(clienteId: string, empresaId: string, unidadeId?: string) {
   const [{ data: cliente }, { data: unidades }, { data: anexos }, { data: empresa }, usinas] = await Promise.all([
     supabase.from("clientes").select("*").eq("id", clienteId).eq("empresa_id", empresaId).maybeSingle(),
-    supabase.from("unidades_consumidoras").select("*").eq("cliente_id", clienteId).eq("empresa_id", empresaId).eq("status", "ATIVA").order("created_at"),
+    // O contrato e o convite são preparados antes de a conta do cliente ser
+    // ativada. Portanto a UC ainda pode estar pendente nesta etapa.
+    supabase.from("unidades_consumidoras").select("*").eq("cliente_id", clienteId).eq("empresa_id", empresaId).order("created_at"),
     supabase.from("faturas_anexadas_clientes").select("*").eq("cliente_id", clienteId).eq("empresa_id", empresaId).order("criado_em", { ascending: false }),
     supabase.from("empresas").select("*").eq("id", empresaId).maybeSingle(),
     listarUsinasService(empresaId),
@@ -86,13 +104,21 @@ export async function obterPropostaParaConvite(clienteId: string, empresaId: str
   // processada da mesma UC como fallback, sem permitir que outra UC contamine
   // a proposta.
   const dados = { ...dadosDaFatura(ultimaFatura), ...dadosDaFatura(anexo) };
-  const consumo = valor(dados, "consumo", "consumo_kwh", "consumoKwh", "consumoFaturado", "energiaConsumida") || n(unidade.consumo_medio_kwh);
+  const consumoDaFatura = valor(dados, "consumo", "consumo_kwh", "consumoKwh", "consumoFaturado", "energiaConsumida") || n(unidade.consumo_medio_kwh);
   const valorEnergia = valor(dados, "valorEnergia", "valor_energia", "valorEnergiaCheia", "valor_energia_cheia", "valorEnergiaConcessionaria", "valor_energia_concessionaria");
   const tarifaCheia = valor(dados, "tarifaCheia", "tarifa_cheia", "tarifaComImpostos", "precoComImpostos")
-    || (consumo > 0 ? valorEnergia / consumo : 0);
-  if (consumo <= 0 || tarifaCheia <= 0) return null;
+    || (consumoDaFatura > 0 ? valorEnergia / consumoDaFatura : 0);
 
   const usina = usinas.find((item: any) => item.id === unidade.usina_id);
+  const modalidade = String(unidade.modalidade_faturamento ?? "COMPENSACAO").toUpperCase();
+  const producaoMediaUsina = n(usina?.producao_media_12_meses) || n(usina?.geracao_media);
+  const consumo = calcularEnergiaProjetadaContrato({
+    modalidade,
+    consumoMedioUc: consumoDaFatura,
+    producaoMediaUsina,
+    percentualRateio: unidade.percentual_rateio,
+  });
+  if (consumo <= 0 || tarifaCheia <= 0) return null;
   const tipoGd = String(usina?.tipo_gd ?? unidade.tipo_gd ?? dados.tipoGd ?? "GD1").toUpperCase();
   const descontoContratado = Math.max(0, Math.min(100, n(unidade.desconto_percentual ?? cliente.desconto_percentual ?? 40)));
   const base = consumo * tarifaCheia;
@@ -140,6 +166,14 @@ export async function obterPropostaParaConvite(clienteId: string, empresaId: str
     })
     .filter((item: any) => item.semBeneficio > 0 && item.comBeneficio > 0)
     .slice(-6);
+  if (modalidade === "INJECAO") {
+    historicoMensal.splice(0, historicoMensal.length, {
+      referencia: "Média da usina",
+      semBeneficio: resultado.base,
+      comBeneficio: resultado.totalProjetado,
+      economia: resultado.economiaMensal,
+    });
+  }
   if (!historicoMensal.length) historicoMensal.push({
     referencia: String(dados.referencia ?? "Atual"),
     semBeneficio: resultado.base,
@@ -147,8 +181,13 @@ export async function obterPropostaParaConvite(clienteId: string, empresaId: str
     economia: resultado.economiaMensal,
   });
 
-  const economiaMensalProjetada = historicoMensal.reduce((soma: number, item: any) => soma + n(item.economia), 0)
-    / Math.max(1, historicoMensal.length);
+  // Na injeção o objeto do contrato é a produção alocada da usina, e não o
+  // consumo histórico da UC. Para 100% de rateio, toda a produção média entra
+  // na projeção mensal. O histórico segue útil somente para compensação.
+  const economiaMensalProjetada = modalidade === "INJECAO"
+    ? resultado.economiaMensal
+    : historicoMensal.reduce((soma: number, item: any) => soma + n(item.economia), 0)
+      / Math.max(1, historicoMensal.length);
   const economiaAnualProjetada = economiaMensalProjetada * 12;
 
   const pdf = await gerarPropostaPdf({

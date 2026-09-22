@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { calcularPropostaComercial, gerarPropostaPdf } from "./propostaConvite.service";
+import { calcularEnergiaProjetadaContrato, calcularPropostaComercial, gerarPropostaPdf } from "./propostaConvite.service";
 
 const base = {
   consumo: 68,
@@ -28,6 +28,24 @@ test("GD1 nunca aplica Fio B", () => {
   const resultado = calcularPropostaComercial({ ...base, tipoGd: "GD1", absorveDisponibilidade: true, absorveFioB: false });
   assert.equal(resultado.fioB, 0);
   assert.ok(resultado.descontoReal <= 40);
+});
+
+test("contrato por injeção usa 100% da produção média da usina", () => {
+  assert.equal(calcularEnergiaProjetadaContrato({
+    modalidade: "INJECAO",
+    consumoMedioUc: 420,
+    producaoMediaUsina: 14_000,
+    percentualRateio: 100,
+  }), 14_000);
+});
+
+test("contrato por compensação continua usando o consumo médio da UC", () => {
+  assert.equal(calcularEnergiaProjetadaContrato({
+    modalidade: "COMPENSACAO",
+    consumoMedioUc: 420,
+    producaoMediaUsina: 14_000,
+    percentualRateio: 100,
+  }), 420);
 });
 
 test("proposta comercial ocupa exatamente duas paginas", async () => {
