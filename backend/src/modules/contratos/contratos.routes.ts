@@ -44,6 +44,17 @@ function exigirTitular(tabela: string, parametro: string) {
     } catch { return res.status(503).json({ message: "Não foi possível verificar o titular do documento." }); }
   };
 }
+function exigirSolicitanteCancelamento(req: Request, res: Response, next: NextFunction) {
+  const usuario = (req as any).usuario;
+  const perfil = String(usuario?.perfil ?? "").toUpperCase();
+  const papel = String(usuario?.papel_empresa ?? "").toUpperCase();
+  if (papel.startsWith("COLABORADOR_")) {
+    return res.status(403).json({ message: "Colaboradores não podem solicitar cancelamento em nome do cliente." });
+  }
+  if (["ADMIN", "GESTOR"].includes(perfil)) return next();
+  if (perfil !== "LEITURA") return res.status(403).json({ message: "Acesso não autorizado para solicitar cancelamento." });
+  return exigirTitular("contratos", "id")(req, res, next);
+}
 router.post("/:id/validar-assinatura-externa", exigirGestor, exigirRegistroDaEmpresa("contratos"), async (req, res) => {
   try {
     const { validarAssinaturaExterna } = await import("./validacaoAssinatura.service.js");
@@ -119,7 +130,7 @@ router.put(
   atualizarContratoController
 );
 
-router.post("/:id/cancelar", exigirTitular("contratos", "id"), exigirRegistroDaEmpresa("contratos"), cancelarContratoController);
+router.post("/:id/cancelar", exigirSolicitanteCancelamento, exigirRegistroDaEmpresa("contratos"), cancelarContratoController);
 
 router.delete(
   "/:id",

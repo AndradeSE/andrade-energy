@@ -66,6 +66,7 @@ export async function resumoCarteira(usuario: any) {
     transferenciaAutomatica: carteira.transferencia_automatica,
     pixTipo: carteira.pix_tipo,
     pixChaveMascarada: chavePixDaCarteira(carteira) ? mascarar(chavePixDaCarteira(carteira)) : null,
+    pixTitularNome: carteira.pix_titular_nome ?? null,
     saldoDisponivel: dinheiro(Math.max(0, recebido - transferido)),
     saldoPendente: pendente,
     totalRecebido: recebido,
@@ -80,12 +81,17 @@ export async function atualizarCarteira(usuario: any, input: any) {
   const carteira = await obterOuCriarCarteira(usuario);
   const pixTipo = String(input.pixTipo ?? carteira.pix_tipo ?? "").toUpperCase();
   const pixChave = String(input.pixChave ?? chavePixDaCarteira(carteira)).trim();
+  const pixTitularNome = input.pixChave
+    ? String(input.pixTitularNome ?? "").trim().slice(0, 200)
+    : String(carteira.pix_titular_nome ?? "").trim();
   if (pixTipo && !["CPF","CNPJ","EMAIL","PHONE","EVP"].includes(pixTipo)) throw new Error("Tipo de chave Pix inválido.");
+  if (input.pixChave && !pixTitularNome) throw new Error("Valide o titular da chave Pix antes de salvar.");
   if (input.transferenciaAutomatica === true && (!pixTipo || !pixChave)) throw new Error("Cadastre uma chave Pix antes de ativar a transferência automática.");
   const { error } = await supabase.from("gerador_carteiras").update({
     pix_tipo: pixTipo || null,
     pix_chave: null,
     pix_chave_criptografada: pixChave ? criptografarDado(pixChave) : null,
+    pix_titular_nome: pixChave ? pixTitularNome : null,
     transferencia_automatica: Boolean(input.transferenciaAutomatica),
     atualizado_em: new Date().toISOString(),
   }).eq("id", carteira.id);

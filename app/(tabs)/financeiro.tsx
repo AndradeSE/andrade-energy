@@ -23,9 +23,10 @@ export default function Financeiro() {
   const [carteira, setCarteira] = useState<CarteiraService.Carteira | null>(null);
   const [unidadesRecebimento, setUnidadesRecebimento] = useState<any[]>([]);
   const [faturandoPdf, setFaturandoPdf] = useState(false);
+  const [pdfPendente, setPdfPendente] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [senhaPdf, setSenhaPdf] = useState("");
   const [solicitarSenhaPdf, setSolicitarSenhaPdf] = useState(false);
-  const [pixChave, setPixChave] = useState(""); const [pixTipo] = useState("EMAIL"); const [saque, setSaque] = useState(""); const [senhaFinanceira, setSenhaFinanceira] = useState("");
+  const [pixChave, setPixChave] = useState(""); const [pixTipo] = useState("EMAIL"); const [saque, setSaque] = useState(""); const [senhaFinanceira, setSenhaFinanceira] = useState(""); const [mostrarSenhaFinanceira, setMostrarSenhaFinanceira] = useState(false);
   const carregar = useCallback(async () => {
     try {
       const [financeiroResultado, carteiraResultado, unidadesResultado] = await Promise.allSettled([
@@ -62,7 +63,7 @@ export default function Financeiro() {
         { text: "Cancelar", style: "cancel" },
         { text: "Confirmar e salvar", onPress: async () => {
           try {
-            const updated = await CarteiraService.salvarCarteira({ pixTipo, pixChave, transferenciaAutomatica, senhaAtual: senhaFinanceira });
+            const updated = await CarteiraService.salvarCarteira({ pixTipo, pixChave, pixTitularNome: titular.nome, transferenciaAutomatica, senhaAtual: senhaFinanceira });
             setCarteira(updated); setPixChave(""); setSenhaFinanceira(""); Alert.alert("Carteira", "Chave salva com segurança.");
           } catch (error: any) { Alert.alert("Carteira", error?.response?.data?.message ?? "Não foi possível salvar."); }
         } },
@@ -74,12 +75,19 @@ export default function Financeiro() {
     if (faturandoPdf) return;
     const retomarBloqueio = suspenderBloqueioTemporariamente();
     try {
-      const arquivo = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
-      if (arquivo.canceled) return;
+      let pdf = pdfPendente;
+      if (!pdf) {
+        const arquivo = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
+        if (arquivo.canceled) return;
+        pdf = arquivo.assets[0];
+        setPdfPendente(pdf);
+      }
       setFaturandoPdf(true);
-      const pdf = arquivo.assets[0];
       const resultado = await processarFatura(pdf.uri, pdf.name, senhaPdf);
       if (resultado?.resultado?.clienteNaoEncontrado) {
+        setPdfPendente(null);
+        setSenhaPdf("");
+        setSolicitarSenhaPdf(false);
         const uc = String(resultado?.resultado?.dadosCadastro?.uc ?? "");
         Alert.alert("UC ainda não cadastrada", `A unidade ${uc || "identificada na conta"} precisa ser vinculada antes do faturamento.`, [
           { text: "Cancelar", style: "cancel" },
@@ -88,16 +96,27 @@ export default function Financeiro() {
         return;
       }
       if (resultado?.resultado?.jaProcessada) {
+        setPdfPendente(null);
+        setSenhaPdf("");
+        setSolicitarSenhaPdf(false);
         Alert.alert("Fatura já processada", "Esta competência já foi faturada para a unidade.");
         return;
       }
       await carregar();
+      setPdfPendente(null);
       setSenhaPdf("");
       setSolicitarSenhaPdf(false);
       Alert.alert("Faturamento concluído", "A fatura foi processada e a cobrança foi gerada.");
     } catch (erro: any) {
-      if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED") setSolicitarSenhaPdf(true);
-      Alert.alert("Não foi possível faturar", erro?.response?.data?.message ?? erro?.message ?? "Confira o PDF e tente novamente.");
+      if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED") {
+        setSolicitarSenhaPdf(true);
+        Alert.alert("PDF protegido", "Este arquivo exige senha. Informe a senha abaixo para continuar o processamento.");
+      } else {
+        setPdfPendente(null);
+        setSenhaPdf("");
+        setSolicitarSenhaPdf(false);
+        Alert.alert("Não foi possível faturar", erro?.response?.data?.message ?? erro?.message ?? "Confira o PDF e tente novamente.");
+      }
     } finally {
       setFaturandoPdf(false);
       retomarBloqueio();
@@ -109,16 +128,16 @@ export default function Financeiro() {
       <Section title="Faturamento" framed={false}><Card style={styles.billingActionsCard}>
         <Text style={styles.billingTitle}>Como deseja faturar?</Text>
         <Text style={styles.billingSubtitle}>Escolha uma opção para iniciar ou configurar o faturamento.</Text>
-        {solicitarSenhaPdf ? <><Text style={styles.inputLabel}>Senha do PDF</Text>
+        {solicitarSenhaPdf ? <View style={styles.pdfPasswordNotice}><View style={styles.noticeTitleRow}><Ionicons name="lock-closed-outline" size={18} color={Colors.warning} /><Text style={styles.noticeTitle}>Este PDF exige senha</Text></View><Text style={styles.noticeText}>Informe a senha para continuar o processamento do arquivo selecionado.</Text><Text style={styles.inputLabel}>Senha do PDF</Text>
         <TextInput autoCapitalize="none" autoCorrect={false} keyboardType="number-pad" maxLength={4} onChangeText={setSenhaPdf} placeholder="4 primeiros números do CPF" secureTextEntry style={styles.input} value={senhaPdf} />
-        <Text style={styles.passwordHint}>Não encontramos o CPF desta UC no cadastro. A senha é usada somente para abrir a fatura e não fica armazenada.</Text></> : null}
+        <Text style={styles.passwordHint}>A senha é usada somente para abrir a fatura e não fica armazenada.</Text></View> : null}
         <View style={styles.fixedActions}>
-          <QuickAction icon="document-attach-outline" label={faturandoPdf ? "Processando PDF..." : "Faturamento via PDF"} description="Importar a conta da concessionária" active={faturandoPdf} onPress={() => void faturarViaPdf()} />
+          <QuickAction icon="document-attach-outline" label={faturandoPdf ? "Processando PDF..." : solicitarSenhaPdf ? "Continuar com a senha" : "Faturamento via PDF"} description={solicitarSenhaPdf ? "Tentar novamente com o arquivo selecionado" : "Importar a conta da concessionária"} active={faturandoPdf} onPress={() => void faturarViaPdf()} />
           <QuickAction icon="create-outline" label="Faturamento manual" description="Preencher os dados da cobrança" onPress={() => router.push("/faturamento/criar-manual" as any)} />
           <QuickAction icon="mail-unread-outline" label="Fatura automática" description="Configurar o recebimento por e-mail" onPress={() => { const unidade = unidadesRecebimento[0]; if (!unidade?.id) return Alert.alert("Fatura automática", "Cadastre e vincule uma UC recebedora a uma usina antes de configurar o e-mail."); router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidade.id, escopo: "usina" } }); }} />
         </View>
       </Card></Section>
-      {carteira ? <Section title="Movimentação financeira"><Text style={styles.sectionLead}>Consulte os recebíveis e configure transferências sem sair desta tela.</Text><Card style={styles.walletCard}><Text style={styles.walletLabel}>VALOR DISPONÍVEL PARA TRANSFERÊNCIA</Text><Text style={styles.walletValue}>{moeda(carteira.saldoDisponivel)}</Text><Text style={styles.walletPending}>{moeda(carteira.saldoPendente)} em recebíveis pendentes</Text></Card><Card><Text style={styles.inputLabel}>Confirmação de segurança</Text><TextInput style={styles.input} secureTextEntry autoCapitalize="none" value={senhaFinanceira} onChangeText={setSenhaFinanceira} placeholder="Sua senha atual" /><View style={styles.autoRow}><View style={styles.autoCopy}><Text style={styles.cardTitle}>Transferência automática</Text><Text style={styles.cardSubtitle}>Enviar para sua chave Pix sempre que receber.</Text></View><Switch value={carteira.transferenciaAutomatica} trackColor={{ false: Colors.border, true: Colors.primary }} onValueChange={async (value) => { if (pixChave.trim()) return void salvarChavePixComConfirmacao(value); try { const updated = await CarteiraService.salvarCarteira({ pixTipo: carteira.pixTipo ?? pixTipo, transferenciaAutomatica: value, senhaAtual: senhaFinanceira }); setCarteira(updated); setSenhaFinanceira(""); } catch (error: any) { Alert.alert("Carteira", error?.response?.data?.message ?? "Cadastre sua chave Pix primeiro."); } }} /></View><Divider /><Text style={styles.inputLabel}>Chave Pix deste gerador</Text><TextInput style={styles.input} autoCapitalize="none" value={pixChave} onChangeText={setPixChave} placeholder={carteira.pixChaveMascarada ?? "E-mail, CPF ou chave"} /><Button title="Validar titular e salvar" onPress={() => void salvarChavePixComConfirmacao()} /><Divider /><Text style={styles.inputLabel}>Transferência manual</Text><TextInput style={styles.input} keyboardType="decimal-pad" value={saque} onChangeText={setSaque} placeholder="Valor em reais" /><Button title="Transferir valor" disabled={!carteira.pixChaveMascarada || carteira.saldoDisponivel <= 0} onPress={() => { const valor = Number(saque.replace(",", ".")); if (!(valor > 0)) return; Alert.alert("Confirmar Pix", `Transferir ${moeda(valor)} para ${carteira.pixChaveMascarada}?`, [{ text: "Cancelar", style: "cancel" }, { text: "Transferir", onPress: async () => { try { await CarteiraService.transferir(valor, senhaFinanceira); setSaque(""); setSenhaFinanceira(""); await carregar(); Alert.alert("Carteira", "Transferência solicitada."); } catch (error: any) { Alert.alert("Carteira", error?.response?.data?.message ?? "Transferência não concluída."); } } }]); }} /></Card></Section> : null}
+      {carteira ? <Section title="Movimentação financeira"><Text style={styles.sectionLead}>Consulte os recebíveis e configure transferências sem sair desta tela.</Text><Card style={styles.walletCard}><Text style={styles.walletLabel}>VALOR DISPONÍVEL PARA TRANSFERÊNCIA</Text><Text style={styles.walletValue}>{moeda(carteira.saldoDisponivel)}</Text><Text style={styles.walletPending}>{moeda(carteira.saldoPendente)} em recebíveis pendentes</Text></Card><Card><Text style={styles.inputLabel}>Confirmação de segurança</Text><View style={styles.passwordInputWrap}><TextInput style={styles.passwordInput} secureTextEntry={!mostrarSenhaFinanceira} autoCapitalize="none" value={senhaFinanceira} onChangeText={setSenhaFinanceira} placeholder="Sua senha atual" /><TouchableOpacity accessibilityLabel={mostrarSenhaFinanceira ? "Ocultar senha de confirmação" : "Mostrar senha de confirmação"} hitSlop={10} onPress={() => setMostrarSenhaFinanceira((valor) => !valor)} style={styles.passwordToggle}><Ionicons name={mostrarSenhaFinanceira ? "eye-off-outline" : "eye-outline"} size={21} color={Colors.subtitle} /></TouchableOpacity></View><View style={styles.autoRow}><View style={styles.autoCopy}><Text style={styles.cardTitle}>Transferência automática</Text><Text style={styles.cardSubtitle}>Enviar para sua chave Pix sempre que receber.</Text></View><Switch value={carteira.transferenciaAutomatica} trackColor={{ false: Colors.border, true: Colors.primary }} onValueChange={async (value) => { if (pixChave.trim()) return void salvarChavePixComConfirmacao(value); try { const updated = await CarteiraService.salvarCarteira({ pixTipo: carteira.pixTipo ?? pixTipo, transferenciaAutomatica: value, senhaAtual: senhaFinanceira }); setCarteira(updated); setSenhaFinanceira(""); } catch (error: any) { Alert.alert("Carteira", error?.response?.data?.message ?? "Cadastre sua chave Pix primeiro."); } }} /></View><Divider /><Text style={styles.inputLabel}>Chave Pix deste gerador</Text><TextInput style={styles.input} autoCapitalize="none" value={pixChave} onChangeText={setPixChave} placeholder={carteira.pixChaveMascarada ?? "E-mail, CPF ou chave"} /><Button title="Validar titular e salvar" onPress={() => void salvarChavePixComConfirmacao()} />{carteira.pixChaveMascarada ? <View style={styles.savedPix}><View style={styles.savedPixIcon}><Ionicons name="checkmark-circle" size={22} color={Colors.primary} /></View><View style={styles.savedPixCopy}><Text style={styles.savedPixLabel}>CHAVE PIX SALVA</Text><Text style={styles.savedPixKey}>{carteira.pixChaveMascarada}</Text><Text style={styles.savedPixHolder}>Titular: {carteira.pixTitularNome || "Titular não informado"}</Text></View></View> : null}<Divider /><Text style={styles.inputLabel}>Transferência manual</Text><TextInput style={styles.input} keyboardType="decimal-pad" value={saque} onChangeText={setSaque} placeholder="Valor em reais" /><Button title="Transferir valor" disabled={!carteira.pixChaveMascarada || carteira.saldoDisponivel <= 0} onPress={() => { const valor = Number(saque.replace(",", ".")); if (!(valor > 0)) return; Alert.alert("Confirmar Pix", `Transferir ${moeda(valor)} para ${carteira.pixChaveMascarada}?`, [{ text: "Cancelar", style: "cancel" }, { text: "Transferir", onPress: async () => { try { await CarteiraService.transferir(valor, senhaFinanceira); setSaque(""); setSenhaFinanceira(""); await carregar(); Alert.alert("Carteira", "Transferência solicitada."); } catch (error: any) { Alert.alert("Carteira", error?.response?.data?.message ?? "Transferência não concluída."); } } }]); }} /></Card></Section> : null}
       <Section title="Resumo financeiro"><View style={styles.grid}>
         <View style={styles.metric}><Metric compact title="Receita prevista" value={moeda(dados.receitaPrevista)} icon={<Ionicons name="trending-up-outline" size={20} color={Colors.primary} />} /></View>
         <View style={styles.metric}><Metric compact title="Recebido" value={moeda(dados.receitaRecebida)} icon={<Ionicons name="checkmark-circle-outline" size={20} color={Colors.primary} />} /></View>
@@ -141,10 +160,11 @@ function QuickAction({ icon, label, description, active = false, onPress }: { ic
 const styles = StyleSheet.create({
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl * 3 }, billingButton: { marginBottom: Spacing.lg }, grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }, metric: { width: "48%", marginBottom: Spacing.sm },
   billingActionsCard: { padding: Spacing.md, borderColor: "#C9DED1", backgroundColor: Colors.surface }, billingTitle: { color: Colors.primaryDark, fontSize: Typography.card, fontWeight: "900" }, billingSubtitle: { marginTop: 4, marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 }, fixedActions: { gap: Spacing.xs }, quickAction: { minHeight: 68, flexDirection: "row", alignItems: "center", paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, borderWidth: 1, borderColor: "#D6E4DC", borderRadius: Radius.md, backgroundColor: "#F8FBF9" }, quickActionActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight, opacity: 0.82 }, quickIcon: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primaryLight }, quickCopy: { flex: 1, minWidth: 0, marginHorizontal: Spacing.sm }, quickLabel: { color: Colors.text, fontSize: Typography.small, fontWeight: "900" }, quickDescription: { marginTop: 3, color: Colors.subtitle, fontSize: 11 }, sectionLead: { marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 },
-  passwordHint: { marginTop: -6, marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: 11, lineHeight: 16 },
+  pdfPasswordNotice: { marginBottom: Spacing.sm, padding: Spacing.sm, borderWidth: 1, borderColor: "#E8C879", borderRadius: Radius.md, backgroundColor: "#FFF9E8" }, noticeTitleRow: { flexDirection: "row", alignItems: "center", gap: 7, marginBottom: 4 }, noticeTitle: { color: Colors.text, fontWeight: "900" }, noticeText: { marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: 12, lineHeight: 17 }, passwordHint: { marginTop: -6, color: Colors.subtitle, fontSize: 11, lineHeight: 16 },
   progressHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, cardTitle: { color: Colors.text, fontSize: Typography.card, fontWeight: "700" }, cardSubtitle: { marginTop: 4, color: Colors.subtitle, fontSize: Typography.small }, percent: { color: Colors.primary, fontSize: Typography.section, fontWeight: "800" },
   track: { height: 10, overflow: "hidden", marginTop: Spacing.lg, borderRadius: Radius.round, backgroundColor: Colors.border }, progress: { height: "100%", borderRadius: Radius.round, backgroundColor: Colors.primary },
   info: { minHeight: 54, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, infoLabel: { color: Colors.subtitle }, infoValue: { color: Colors.text, fontWeight: "700" }, warning: { color: Colors.danger },
   walletCard: { backgroundColor: "#083f31" }, walletLabel: { color: "#9FE0BF", fontSize: 11, fontWeight: "800", letterSpacing: 1.2 }, walletValue: { marginTop: 8, color: "#FFFFFF", fontSize: 36, fontWeight: "900" }, walletPending: { marginTop: 5, color: "#CDEBDD" }, autoRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16 }, autoCopy: { flex: 1 }, inputLabel: { marginBottom: 6, color: Colors.text, fontWeight: "700" }, input: { minHeight: 48, marginBottom: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, color: Colors.text, backgroundColor: Colors.background },
+  passwordInputWrap: { minHeight: 48, flexDirection: "row", alignItems: "center", marginBottom: 12, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, backgroundColor: Colors.background }, passwordInput: { flex: 1, minHeight: 46, paddingLeft: 14, paddingRight: 8, color: Colors.text }, passwordToggle: { alignItems: "center", justifyContent: "center", alignSelf: "stretch", paddingHorizontal: 14 }, savedPix: { flexDirection: "row", alignItems: "center", marginTop: Spacing.sm, padding: Spacing.sm, borderWidth: 1, borderColor: "#C9DED1", borderRadius: Radius.md, backgroundColor: Colors.primaryLight }, savedPixIcon: { marginRight: Spacing.sm }, savedPixCopy: { flex: 1 }, savedPixLabel: { color: Colors.primary, fontSize: 10, fontWeight: "900", letterSpacing: .8 }, savedPixKey: { marginTop: 3, color: Colors.text, fontSize: Typography.small, fontWeight: "900" }, savedPixHolder: { marginTop: 3, color: Colors.subtitle, fontSize: 12 },
   emailListTitle: { marginTop: Spacing.lg, marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: 10, fontWeight: "900", letterSpacing: .8 }, emailUnit: { minHeight: 66, flexDirection: "row", alignItems: "center", marginBottom: Spacing.sm, padding: Spacing.sm, borderWidth: 1, borderColor: "#C9DED1", borderRadius: Radius.lg, backgroundColor: Colors.surface }, emailUnitIcon: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primaryLight }, emailUnitCopy: { flex: 1, marginLeft: Spacing.sm }, emailUnitNumber: { color: Colors.text, fontSize: Typography.small, fontWeight: "900" }, emailUnitClient: { marginTop: 3, color: Colors.subtitle, fontSize: 11 }, emailUnitAction: { flexDirection: "row", alignItems: "center", gap: 2 }, emailUnitActionText: { color: Colors.primary, fontSize: 11, fontWeight: "900" },
 });

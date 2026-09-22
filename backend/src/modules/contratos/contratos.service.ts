@@ -15,6 +15,7 @@ import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import { armazenarContratoAssinado, criarLinkContrato, gerarMinutaContrato, salvarDocumentoContrato } from "./documentosContrato.service";
 import { obterPropostaParaConvite } from "../convites/propostaConvite.service";
 import { criarNotificacaoApp } from "../notificacoes/push.service";
+import { contratoAceitaSolicitacaoCancelamento, processamentoCancelamentoExpirou } from "./cancelamentoContrato.policy";
 
 export async function obterContratoCliente(
   clienteId: string,
@@ -502,6 +503,20 @@ export async function excluirContratoService(
 export async function cancelarContratoService(id: string) {
   const { data: contrato, error: erroContrato } = await supabase.from("contratos").select("*").eq("id", id).single();
   if (erroContrato) throw erroContrato;
+  const { data: faturaExistente, error: erroFaturaExistente } = await supabase.from("faturas")
+    .select("*").eq("contrato_encerramento_id", id).maybeSingle();
+  if (erroFaturaExistente) throw erroFaturaExistente;
+  if (String(contrato.status ?? "").toUpperCase() === "CANCELADO") {
+    if (faturaExistente && faturaExistente.status !== "ABERTA") {
+      const ativada = await supabase.from("faturas").update({ status: "ABERTA" }).eq("id", faturaExistente.id).select().single();
+      if (ativada.error) throw ativada.error;
+      return { contrato, faturaEncerramento: ativada.data };
+    }
+    return { contrato, faturaEncerramento: faturaExistente ?? null };
+  }
+  if (!contratoAceitaSolicitacaoCancelamento(contrato.status)) {
+    throw new Error("O contrato não está ativo para cancelamento.");
+  }
   const [{ data: cliente, error: erroCliente }, { data: unidade, error: erroUnidade }] = await Promise.all([
     supabase.from("clientes").select("id, modalidade_faturamento, desconto_percentual, usina_id").eq("id", contrato.cliente_id).single(),
     contrato.unidade_consumidora_id
@@ -511,7 +526,7 @@ export async function cancelarContratoService(id: string) {
   if (erroCliente) throw erroCliente;
   if (erroUnidade) throw erroUnidade;
 
-  let faturaEncerramento: any = null;
+  let faturaEncerramento: any = faturaExistente ?? null;
   const modalidade = String(unidade?.modalidade_faturamento ?? cliente.modalidade_faturamento ?? "").toUpperCase();
   if (modalidade === "COMPENSACAO") {
     let ultimaQuery = supabase
@@ -543,17 +558,26 @@ export async function cancelarContratoService(id: string) {
     if (erroCredito) throw erroCredito;
 
     const saldo = Math.max(0, Number(credito?.saldo_atual ?? credito?.saldo ?? 0));
-    if (saldo > 0 && ultima) {
+    if (!faturaEncerramento && saldo > 0 && ultima) {
       const tarifa = Number(ultima.tarifa_cheia ?? 0);
       const desconto = Number(unidade?.desconto_percentual ?? contrato.desconto ?? cliente.desconto_percentual ?? ultima.desconto_percentual ?? 0);
       const valor = saldo * tarifa * (1 - desconto / 100);
       const referencia = `ENCERRAMENTO-${new Date().toISOString().slice(0, 7).replace("-", "/")}`;
-      const { data, error } = await supabase.from("faturas").insert({ cliente_id: cliente.id, usina_id: ultima.usina_id ?? unidade?.usina_id ?? cliente.usina_id, unidade_consumidora_id: contrato.unidade_consumidora_id ?? ultima.unidade_consumidora_id ?? null, numero_instalacao: ultima.numero_instalacao ?? unidade?.numero, referencia, vencimento: new Date().toISOString().slice(0, 10), consumo: saldo, consumo_kwh: saldo, energia_compensada: saldo, tarifa_cheia: tarifa, desconto_percentual: desconto, desconto_contratado_percentual: desconto, modalidade_faturamento: "COMPENSACAO", base_calculo_kwh: saldo, tarifa_andrade: tarifa * (1 - desconto / 100), valor_energia_cheia: saldo * tarifa, valor_andrade: valor, valor_usina: valor, valor_cemig: 0, valor_total_unificado: valor, valor_total: valor, economia_real: saldo * tarifa - valor, distribuidora: ultima.distribuidora, status: "ABERTA" }).select().single();
-      if (error) throw error;
-      faturaEncerramento = data;
+      const { data, error } = await supabase.from("faturas").insert({ cliente_id: cliente.id, usina_id: ultima.usina_id ?? unidade?.usina_id ?? cliente.usina_id, unidade_consumidora_id: contrato.unidade_consumidora_id ?? ultima.unidade_consumidora_id ?? null, contrato_encerramento_id: id, numero_instalacao: ultima.numero_instalacao ?? unidade?.numero, referencia, vencimento: new Date().toISOString().slice(0, 10), consumo: saldo, consumo_kwh: saldo, energia_compensada: saldo, tarifa_cheia: tarifa, desconto_percentual: desconto, desconto_contratado_percentual: desconto, modalidade_faturamento: "COMPENSACAO", base_calculo_kwh: saldo, tarifa_andrade: tarifa * (1 - desconto / 100), valor_energia_cheia: saldo * tarifa, valor_andrade: valor, valor_usina: valor, valor_cemig: 0, valor_total_unificado: valor, valor_total: valor, economia_real: saldo * tarifa - valor, distribuidora: ultima.distribuidora, status: "RASCUNHO" }).select().single();
+      if (error?.code === "23505") {
+        const recuperada = await supabase.from("faturas").select("*").eq("contrato_encerramento_id", id).single();
+        if (recuperada.error) throw recuperada.error;
+        faturaEncerramento = recuperada.data;
+      } else if (error) throw error;
+      else faturaEncerramento = data;
     }
   }
   const contratoAtualizado = await atualizarContrato(id, { status: "CANCELADO" });
+  if (faturaEncerramento && faturaEncerramento.status !== "ABERTA") {
+    const ativada = await supabase.from("faturas").update({ status: "ABERTA" }).eq("id", faturaEncerramento.id).select().single();
+    if (ativada.error) throw ativada.error;
+    faturaEncerramento = ativada.data;
+  }
   return { contrato: contratoAtualizado, faturaEncerramento };
 }
 
@@ -564,24 +588,38 @@ export async function solicitarCancelamentoContratoService(id: string, usuario: 
     .select("id,numero,empresa_id,cliente_id,unidade_consumidora_id,status,clientes(nome,email),unidades_consumidoras(numero)")
     .eq("id", id).single();
   if (error || !contrato) throw error ?? new Error("Contrato não encontrado.");
-  if (["CANCELADO", "ENCERRADO"].includes(String(contrato.status ?? "").toUpperCase())) {
-    throw new Error("Este contrato já está encerrado.");
+  if (!contratoAceitaSolicitacaoCancelamento(contrato.status)) {
+    throw new Error("Somente contratos ativos podem receber uma solicitação de cancelamento.");
   }
 
   const cliente: any = Array.isArray(contrato.clientes) ? contrato.clientes[0] : contrato.clientes;
   const unidade: any = Array.isArray(contrato.unidades_consumidoras) ? contrato.unidades_consumidoras[0] : contrato.unidades_consumidoras;
   const { data: existente, error: erroExistente } = await supabase.from("solicitacoes_cancelamento_contrato")
-    .select("id,status,solicitado_em").eq("contrato_id", id).eq("status", "PENDENTE").maybeSingle();
+    .select("id,status,solicitado_em,notificado_em").eq("contrato_id", id).in("status", ["PENDENTE", "PROCESSANDO"]).maybeSingle();
   if (erroExistente) throw erroExistente;
-  if (existente) return { solicitacao: existente, message: "A solicitação de cancelamento já foi enviada e aguarda análise do gerador." };
+  let solicitacao = existente;
+  if (!solicitacao) {
+    const criada = await supabase.from("solicitacoes_cancelamento_contrato").insert({
+      contrato_id: id,
+      empresa_id: contrato.empresa_id,
+      cliente_id: contrato.cliente_id,
+      solicitado_por: usuario?.id ?? null,
+    }).select().single();
+    if (criada.error?.code === "23505") {
+      const recuperada = await supabase.from("solicitacoes_cancelamento_contrato")
+        .select("id,status,solicitado_em,notificado_em").eq("contrato_id", id).in("status", ["PENDENTE", "PROCESSANDO"]).single();
+      if (recuperada.error) throw recuperada.error;
+      solicitacao = recuperada.data;
+    } else {
+      if (criada.error) throw criada.error;
+      solicitacao = criada.data;
+    }
+  }
+  if (!solicitacao) throw new Error("Não foi possível registrar a solicitação de cancelamento.");
 
-  const { data: solicitacao, error: erroSolicitacao } = await supabase.from("solicitacoes_cancelamento_contrato").insert({
-    contrato_id: id,
-    empresa_id: contrato.empresa_id,
-    cliente_id: contrato.cliente_id,
-    solicitado_por: usuario?.id ?? null,
-  }).select().single();
-  if (erroSolicitacao) throw erroSolicitacao;
+  if (solicitacao.notificado_em) {
+    return { solicitacao, message: "A solicitação de cancelamento já foi enviada e aguarda análise do gerador." };
+  }
 
   const { data: vinculos, error: erroVinculos } = await supabase.from("empresa_usuarios")
     .select("usuario_id,papel,permissoes,usuarios!empresa_usuarios_usuario_id_fkey(id,nome,email)")
@@ -603,6 +641,7 @@ export async function solicitarCancelamentoContratoService(id: string, usuario: 
       titulo: "Cliente solicitou cancelamento",
       detalhe: `${cliente?.nome ?? "O cliente"} solicitou o cancelamento do contrato ${identificacao}, ${uc}. Analise a solicitação antes de encerrar o vínculo.`,
       rota: `/contratos/${contrato.id}`,
+      chave_dedupe: `cancelamento:${solicitacao.id}:${vinculo.usuario_id}`,
     });
     if (membro?.email) await enviarEmailTransacional({
       empresaId: contrato.empresa_id,
@@ -611,6 +650,10 @@ export async function solicitarCancelamentoContratoService(id: string, usuario: 
       html: `<div style="max-width:620px;margin:auto;padding:28px;font-family:Arial,sans-serif;color:#252925;line-height:1.6"><h2 style="color:#39804a">Solicitação de cancelamento de contrato</h2><p>Olá, <strong>${escaparHtml(membro.nome ?? "responsável")}</strong>.</p><p>O cliente <strong>${escaparHtml(cliente?.nome ?? "não identificado")}</strong> registrou uma solicitação de cancelamento.</p><table style="width:100%;border-collapse:collapse;margin:20px 0"><tr><td style="padding:8px;border-bottom:1px solid #ddd"><strong>Contrato</strong></td><td style="padding:8px;border-bottom:1px solid #ddd">${escaparHtml(identificacao)}</td></tr><tr><td style="padding:8px;border-bottom:1px solid #ddd"><strong>Unidade</strong></td><td style="padding:8px;border-bottom:1px solid #ddd">${escaparHtml(uc)}</td></tr><tr><td style="padding:8px;border-bottom:1px solid #ddd"><strong>Solicitado em</strong></td><td style="padding:8px;border-bottom:1px solid #ddd">${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</td></tr></table><p>Esta comunicação registra apenas a solicitação. O contrato não foi cancelado automaticamente e deve ser analisado conforme as condições contratuais.</p></div>`,
     }).catch(() => false);
   }));
+
+  const { error: erroNotificado } = await supabase.from("solicitacoes_cancelamento_contrato")
+    .update({ notificado_em: new Date().toISOString() }).eq("id", solicitacao.id).is("notificado_em", null);
+  if (erroNotificado) throw erroNotificado;
 
   return { solicitacao, message: "Solicitação enviada ao gerador e à equipe responsável." };
 }
@@ -630,18 +673,55 @@ export async function concluirSolicitacaoCancelamentoService(id: string, empresa
   const acao = String(decisao ?? "").toUpperCase();
   if (!['CANCELAR', 'RECUSAR'].includes(acao)) throw new Error("Escolha cancelar o contrato ou recusar a solicitação.");
   const { data: solicitacao, error } = await supabase.from("solicitacoes_cancelamento_contrato")
-    .select("id,status,cliente_id").eq("contrato_id", id).eq("empresa_id", empresaId).eq("status", "PENDENTE").maybeSingle();
+    .select("id,status,cliente_id,solicitado_por,processamento_iniciado_em").eq("contrato_id", id).eq("empresa_id", empresaId).in("status", ["PENDENTE", "PROCESSANDO"]).maybeSingle();
   if (error) throw error;
   if (!solicitacao) throw new Error("Não existe solicitação pendente para este contrato.");
+  if (solicitacao.status === "PROCESSANDO" && !processamentoCancelamentoExpirou(solicitacao.processamento_iniciado_em)) {
+    throw new Error("Esta solicitação já está sendo processada. Aguarde alguns instantes.");
+  }
 
-  const resultado = acao === 'CANCELAR' ? await cancelarContratoService(id) : null;
-  const novoStatus = acao === 'CANCELAR' ? 'APROVADA' : 'RECUSADA';
-  const { error: erroAtualizacao } = await supabase.from("solicitacoes_cancelamento_contrato").update({
-    status: novoStatus,
-    analisado_por: usuario?.id ?? null,
-    analisado_em: new Date().toISOString(),
-    observacao: String(observacao ?? "").trim() || null,
-  }).eq("id", solicitacao.id).eq("empresa_id", empresaId);
-  if (erroAtualizacao) throw erroAtualizacao;
-  return { sucesso: true, status: novoStatus, contrato: resultado?.contrato ?? null, faturaEncerramento: resultado?.faturaEncerramento ?? null };
+  const processamentoToken = crypto.randomUUID();
+  const inicio = new Date().toISOString();
+  let claim = supabase.from("solicitacoes_cancelamento_contrato").update({
+    status: "PROCESSANDO", processamento_token: processamentoToken, processamento_iniciado_em: inicio,
+  }).eq("id", solicitacao.id).eq("empresa_id", empresaId).eq("status", solicitacao.status);
+  if (solicitacao.status === "PROCESSANDO" && solicitacao.processamento_iniciado_em) {
+    claim = claim.eq("processamento_iniciado_em", solicitacao.processamento_iniciado_em);
+  }
+  const { data: reservada, error: erroReserva } = await claim.select("id").maybeSingle();
+  if (erroReserva) throw erroReserva;
+  if (!reservada) throw new Error("Esta solicitação já está sendo processada.");
+
+  try {
+    const resultado = acao === 'CANCELAR' ? await cancelarContratoService(id) : null;
+    const novoStatus = acao === 'CANCELAR' ? 'APROVADA' : 'RECUSADA';
+    const { data: concluida, error: erroAtualizacao } = await supabase.from("solicitacoes_cancelamento_contrato").update({
+      status: novoStatus,
+      analisado_por: usuario?.id ?? null,
+      analisado_em: new Date().toISOString(),
+      observacao: String(observacao ?? "").trim() || null,
+      processamento_token: null,
+      processamento_iniciado_em: null,
+    }).eq("id", solicitacao.id).eq("empresa_id", empresaId).eq("processamento_token", processamentoToken).select("id").maybeSingle();
+    if (erroAtualizacao) throw erroAtualizacao;
+    if (!concluida) throw new Error("A conclusão perdeu a reserva de processamento.");
+
+    if (solicitacao.solicitado_por) {
+      await criarNotificacaoApp({
+        usuario_id: solicitacao.solicitado_por,
+        empresa_id: empresaId,
+        tipo: "CANCELAMENTO_CONTRATO_CONCLUIDO",
+        titulo: acao === "CANCELAR" ? "Contrato cancelado" : "Cancelamento não aprovado",
+        detalhe: acao === "CANCELAR" ? "Sua solicitação foi aprovada e o contrato foi encerrado." : "Sua solicitação foi analisada e o contrato permanece ativo.",
+        rota: "/contrato",
+        chave_dedupe: `cancelamento-resultado:${solicitacao.id}`,
+      }).catch((erroNotificacao) => console.error("Falha ao notificar resultado do cancelamento", erroNotificacao));
+    }
+    return { sucesso: true, status: novoStatus, contrato: resultado?.contrato ?? null, faturaEncerramento: resultado?.faturaEncerramento ?? null };
+  } catch (erro) {
+    await supabase.from("solicitacoes_cancelamento_contrato").update({
+      status: "PENDENTE", processamento_token: null, processamento_iniciado_em: null,
+    }).eq("id", solicitacao.id).eq("processamento_token", processamentoToken);
+    throw erro;
+  }
 }

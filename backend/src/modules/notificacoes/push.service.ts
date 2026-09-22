@@ -7,6 +7,7 @@ export type NovaNotificacaoApp = {
   titulo: string;
   detalhe?: string | null;
   rota?: string | null;
+  chave_dedupe?: string | null;
 };
 
 function tokenExpoValido(token: string) {
@@ -56,8 +57,12 @@ export async function enviarPushDaNotificacao(notificacao: NovaNotificacaoApp & 
 }
 
 export async function criarNotificacaoApp(notificacao: NovaNotificacaoApp) {
-  const { data, error } = await supabase.from("notificacoes_app").insert(notificacao).select("id").single();
+  const query = notificacao.chave_dedupe
+    ? supabase.from("notificacoes_app").upsert(notificacao, { onConflict: "chave_dedupe", ignoreDuplicates: true })
+    : supabase.from("notificacoes_app").insert(notificacao);
+  const { data, error } = await query.select("id").maybeSingle();
   if (error) throw error;
+  if (!data) return null;
   // A falha do provedor de push não pode impedir a ação de negócio nem o aviso no sino.
   void enviarPushDaNotificacao({ ...notificacao, id: data.id }).catch((erro) =>
     console.error("Falha ao enviar push Expo", erro),

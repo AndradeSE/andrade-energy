@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Alert, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { AppHeader, Badge, Button, Card, ElasticScrollView as ScrollView, Loading, Screen, Section } from "../../components/ui";
@@ -13,12 +13,12 @@ export default function SolicitacaoCancelamentoContrato() {
   const [processando, setProcessando] = useState(false);
   const [observacao, setObservacao] = useState("");
 
-  async function carregar() {
+  const carregar = useCallback(async () => {
     try { setDados(await obterSolicitacaoCancelamento(id)); }
     catch (erro: any) { Alert.alert("Cancelamento", erro?.response?.data?.message ?? "Não foi possível carregar a solicitação."); }
     finally { setLoading(false); }
-  }
-  useEffect(() => { void carregar(); }, [id]);
+  }, [id]);
+  useEffect(() => { void carregar(); }, [carregar]);
 
   function decidir(decisao: "CANCELAR" | "RECUSAR") {
     const cancelar = decisao === "CANCELAR";
@@ -50,6 +50,8 @@ export default function SolicitacaoCancelamentoContrato() {
         <Info label="Contrato" value={String(contrato.numero ?? contrato.id ?? id)} />
         <Info label="Unidade" value={unidade?.numero ? `UC ${unidade.numero}` : "Não informada"} />
         <Info label="Solicitado em" value={solicitacao?.solicitado_em ? new Date(solicitacao.solicitado_em).toLocaleString("pt-BR") : "Não informado"} />
+        {solicitacao?.analisado_em ? <Info label="Analisado em" value={new Date(solicitacao.analisado_em).toLocaleString("pt-BR")} /> : null}
+        {solicitacao?.observacao ? <Info label="Observação da análise" value={solicitacao.observacao} /> : null}
       </Card></Section>
       {pendente ? <Section title="Decisão"><Card>
         <Text style={styles.help}>Registre uma observação para manter o histórico da análise. Ao confirmar o cancelamento, o contrato será encerrado antes que o cliente possa ser excluído.</Text>

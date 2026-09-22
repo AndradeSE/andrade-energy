@@ -37,11 +37,11 @@ import {
   baixarPropostaDaUnidade,
   importarContratoAssinadoPeloCliente,
   registrarAceiteEletronico,
+  solicitarCodigoAssinatura,
 } from "../../services/contratos.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { useQueryClient } from "@tanstack/react-query";
 import SignaturePad from "../../components/cliente/SignaturePad";
-import { solicitarCodigoAssinatura } from "../../services/contratos.service";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import ContratosClientes from "../contratos";
 
@@ -518,7 +518,7 @@ function ContratoConsumidor() {
           </> : null}
         </View>
 
-        <TouchableOpacity
+        {ativo ? <TouchableOpacity
           activeOpacity={0.85}
           onPress={solicitarRenovacao}
           style={styles.renewButton}
@@ -536,7 +536,7 @@ function ContratoConsumidor() {
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
-        </TouchableOpacity>
+        </TouchableOpacity> : null}
 
         <TouchableOpacity
           activeOpacity={0.85}
