@@ -22,6 +22,8 @@ export default function Loading() {
 
   return (
     <View accessibilityLabel="Carregando dados" style={styles.container}>
+      <View pointerEvents="none" style={styles.glowTop} />
+      <View pointerEvents="none" style={styles.glowBottom} />
       <View style={styles.animation}>
         <Animated.View style={[styles.pulse, {
           opacity: pulso.interpolate({ inputRange: [0, 1], outputRange: [0.42, 0] }),
@@ -40,6 +42,8 @@ export default function Loading() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, alignSelf: "stretch", minHeight: 320, width: "100%", alignItems: "center", justifyContent: "center", padding: Spacing.xl, backgroundColor: "transparent" },
+  glowTop: { position: "absolute", top: 24, right: 24, width: 150, height: 150, borderRadius: 75, backgroundColor: "rgba(16,185,129,0.15)" },
+  glowBottom: { position: "absolute", bottom: 24, left: 24, width: 150, height: 150, borderRadius: 75, backgroundColor: "rgba(250,204,21,0.12)" },
   animation: { width: 94, height: 94, alignItems: "center", justifyContent: "center" },
   pulse: { position: "absolute", width: 86, height: 86, borderRadius: 43, backgroundColor: Colors.primary },
   energyCore: { width: 58, height: 58, alignItems: "center", justifyContent: "center", borderRadius: 29, backgroundColor: Colors.primary, shadowColor: Colors.primaryDark, shadowOpacity: 0.22, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 },
