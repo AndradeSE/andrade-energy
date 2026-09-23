@@ -14,7 +14,25 @@ export async function consultarTitularChavePix(tipo: string, chave: string) {
   const pixChave = String(chave ?? "").trim();
   if (!pixChave || !["CPF", "CNPJ", "EMAIL", "PHONE", "EVP"].includes(pixTipo)) throw new Error("Informe uma chave Pix válida.");
   const titular = await asaasRequest<any>(`/pix/addressKeys/external?type=${encodeURIComponent(pixTipo)}&key=${encodeURIComponent(pixChave)}`);
-  return { nome: String(titular?.name ?? titular?.nome ?? titular?.account?.name ?? "Titular não informado"), cpfCnpj: String(titular?.cpfCnpj ?? titular?.cpf_cnpj ?? ""), banco: String(titular?.bank?.name ?? titular?.bankName ?? "") };
+  const nome = String(
+    titular?.name ??
+    titular?.nome ??
+    titular?.holderName ??
+    titular?.ownerName ??
+    titular?.account?.name ??
+    titular?.account?.holderName ??
+    titular?.account?.ownerName ??
+    titular?.account?.holder?.name ??
+    titular?.holder?.name ??
+    titular?.owner?.name ??
+    "",
+  ).trim();
+  if (!nome) throw new Error("O Asaas localizou a chave, mas não retornou o nome do titular. Não foi possível validá-la com segurança.");
+  return {
+    nome,
+    cpfCnpj: String(titular?.cpfCnpj ?? titular?.cpf_cnpj ?? titular?.holder?.cpfCnpj ?? titular?.account?.cpfCnpj ?? ""),
+    banco: String(titular?.bank?.name ?? titular?.bankName ?? titular?.account?.bank?.name ?? ""),
+  };
 }
 
 export async function obterOuCriarCarteira(usuario: any) {
