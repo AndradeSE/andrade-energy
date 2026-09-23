@@ -613,82 +613,77 @@ export default function GestaoGeradores() {
                     </View>
                   </View>
                   {carteira ? (
-                    <Card style={styles.transferCard}>
-                      <Text style={styles.cardTitle}>Transferências</Text>
-                      <Text style={styles.subtitle}>
-                        Configure a chave Pix e movimente os valores recebidos
-                        pelas assinaturas.
-                      </Text>
-                      <Text style={styles.inputLabel}>
-                        Confirmação de segurança
-                      </Text>
-                      <TextInput
-                        secureTextEntry
-                        autoCapitalize="none"
-                        style={styles.input}
-                        value={senhaFinanceira}
-                        onChangeText={setSenhaFinanceira}
-                        placeholder="Sua senha atual"
-                      />
-                      <View style={styles.autoRow}>
-                        <View style={styles.grow}>
-                          <Text style={styles.cardTitle}>
-                            Transferência automática
-                          </Text>
-                          <Text style={styles.subtitle}>
-                            Enviar para a chave Pix sempre que receber.
-                          </Text>
-                        </View>
-                        <Switch
-                          value={carteira.transferenciaAutomatica}
-                          trackColor={{ false: Colors.border, true: Colors.primary }}
-                          onValueChange={(value) => void saveWallet(value)}
+                    <View style={styles.financeCards}>
+                      <Card style={styles.financeCard}>
+                        <Text style={styles.cardTitle}>Segurança e automação</Text>
+                        <Text style={styles.inputLabel}>Confirme sua senha para alterar o financeiro</Text>
+                        <TextInput
+                          secureTextEntry
+                          autoCapitalize="none"
+                          style={styles.input}
+                          value={senhaFinanceira}
+                          onChangeText={setSenhaFinanceira}
+                          placeholder="Sua senha atual"
                         />
-                      </View>
-                      <Divider />
-                      <Text style={styles.inputLabel}>
-                        Chave Pix da Andrade Energy
-                      </Text>
-                      <TextInput
-                        autoCapitalize="none"
-                        style={styles.input}
-                        value={pixChave}
-                        onChangeText={setPixChave}
-                        placeholder={carteira.pixChaveMascarada ?? "E-mail, CPF ou chave"}
-                      />
-                      <Button
-                        title={validandoPix ? "Validando titular..." : "Validar titular e salvar"}
-                        disabled={validandoPix}
-                        onPress={() => void saveWallet()}
-                      />
-                      {carteira.pixChaveMascarada ? (
-                        <View style={styles.savedPixCard}>
-                          <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />
+                        <View style={styles.autoRow}>
                           <View style={styles.grow}>
-                            <Text style={styles.savedPixLabel}>CHAVE PIX CONFIRMADA</Text>
-                            <Text style={styles.savedPixKey}>{carteira.pixChaveMascarada}</Text>
-                            <Text style={styles.savedPixHolder}>Titular: {carteira.pixTitularNome || "Não informado pelo Asaas"}</Text>
+                            <Text style={styles.cardTitle}>Transferência automática</Text>
+                            <Text style={styles.subtitle}>Enviar para a chave Pix sempre que receber.</Text>
                           </View>
+                          <Switch
+                            value={carteira.transferenciaAutomatica}
+                            trackColor={{ false: Colors.border, true: Colors.primary }}
+                            onValueChange={(value) => void saveWallet(value)}
+                          />
                         </View>
-                      ) : null}
-                      <Divider />
-                      <Text style={styles.inputLabel}>Transferência manual</Text>
-                      <TextInput
-                        keyboardType="decimal-pad"
-                        style={styles.input}
-                        value={saque}
-                        onChangeText={setSaque}
-                        placeholder="Valor em reais"
-                      />
-                      <Button
-                        title="Transferir valor"
-                        disabled={
-                          !carteira.pixChaveMascarada ||
-                          Number(carteira.saldoDisponivel ?? 0) <= 0
-                        }
-                        onPress={() => void withdraw()}
-                      />
-                    </Card>
+                      </Card>
+
+                      <Card style={styles.financeCard}>
+                        <Text style={styles.cardTitle}>Chave Pix da Andrade Energy</Text>
+                        <Text style={styles.subtitle}>Valide o titular antes de autorizar qualquer transferência.</Text>
+                        <TextInput
+                          autoCapitalize="none"
+                          style={[styles.input, styles.financeInput]}
+                          value={pixChave}
+                          onChangeText={setPixChave}
+                          placeholder={carteira.pixChaveMascarada ?? "E-mail, CPF ou chave"}
+                        />
+                        <Button
+                          title={validandoPix ? "Validando titular..." : "Validar titular e salvar"}
+                          disabled={validandoPix}
+                          style={styles.financeButton}
+                          onPress={() => void saveWallet()}
+                        />
+                        {carteira.pixChaveMascarada ? (
+                          <View style={styles.savedPixCard}>
+                            <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />
+                            <View style={styles.grow}>
+                              <Text style={styles.savedPixLabel}>CHAVE PIX CONFIRMADA</Text>
+                              <Text style={styles.savedPixKey}>{carteira.pixChaveMascarada}</Text>
+                              <Text style={styles.savedPixHolder}>Titular: {carteira.pixTitularNome || "Não informado pelo Asaas"}</Text>
+                            </View>
+                          </View>
+                        ) : null}
+                      </Card>
+
+                      <Card style={styles.financeCard}>
+                        <Text style={styles.cardTitle}>Transferência manual</Text>
+                        <Text style={styles.inputLabel}>Valor da transferência</Text>
+                        <TextInput
+                          keyboardType="decimal-pad"
+                          style={styles.input}
+                          value={saque}
+                          onChangeText={setSaque}
+                          placeholder="Valor em reais"
+                        />
+                        <Button
+                          title="Transferir valor"
+                          disabled={!carteira.pixChaveMascarada || Number(carteira.saldoDisponivel ?? 0) <= 0}
+                          style={styles.financeButton}
+                          onPress={() => void withdraw()}
+                        />
+                      </Card>
+                    </View>
                   ) : null}
                 </Section>
                 <View style={styles.billingSectionGap}>
@@ -931,12 +926,15 @@ const styles = StyleSheet.create({
   sectionLead: { marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 },
   walletCard: { backgroundColor: "#083F31" },
   walletCardStandalone: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.lg, padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: "#083F31", ...Shadows.card },
-  transferCard: { marginTop: Spacing.sm, marginBottom: Spacing.xl },
+  financeCards: { gap: Spacing.xl },
+  financeCard: { marginBottom: 0 },
+  financeInput: { marginTop: Spacing.md },
+  financeButton: { marginTop: Spacing.md },
   billingSectionGap: { marginTop: Spacing.md },
   walletLabel: { color: "#9FE0BF", fontSize: 11, fontWeight: "800", letterSpacing: 1.2 },
   walletValue: { marginTop: 8, color: "#FFFFFF", fontSize: 36, fontWeight: "900" },
   walletPending: { marginTop: 5, color: "#CDEBDD" },
-  autoRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16 },
+  autoRow: { marginTop: Spacing.lg, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16 },
   savedPixCard: { marginTop: Spacing.md, padding: Spacing.md, flexDirection: "row", alignItems: "center", gap: Spacing.sm, borderWidth: 1, borderColor: "#B7DECA", borderRadius: Radius.md, backgroundColor: "#ECF8F1" },
   savedPixLabel: { color: Colors.primary, fontSize: 10, fontWeight: "900", letterSpacing: 0.8 },
   savedPixKey: { marginTop: 3, color: Colors.text, fontSize: 14, fontWeight: "800" },

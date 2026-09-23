@@ -1,5 +1,5 @@
 import { router, Stack, useGlobalSearchParams, usePathname } from "expo-router";
-import { Alert, AppState, BackHandler, Modal, StyleSheet, ToastAndroid, View } from "react-native";
+import { Alert, AppState, BackHandler, StyleSheet, ToastAndroid, View } from "react-native";
 import { useEffect, useRef, useState } from "react";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -53,9 +53,6 @@ function RootNavigator() {
   const ultimoVoltarNaHome = useRef(0);
   const pathname = usePathname();
   const routeParams = useGlobalSearchParams<{ aba?: string; ambiente?: string; origem?: string }>();
-  const [carregandoRotaComercial, setCarregandoRotaComercial] = useState(false);
-  const rotaAnterior = useRef("");
-  const timerCarregamento = useRef<ReturnType<typeof setTimeout> | null>(null);
   const {
     session,
     isLoading,
@@ -119,25 +116,6 @@ function RootNavigator() {
     // que o aplicativo permaneça numa tela interna sem dados.
     void signOut().then(() => router.replace("/(auth)/login" as any));
   }), [signOut]);
-
-  useEffect(() => {
-    const anterior = rotaAnterior.current;
-    const mudouDePagina = Boolean(anterior && anterior !== pathname);
-    const envolveComercial = rotaComercial(pathname) || rotaComercial(anterior);
-    rotaAnterior.current = pathname;
-    if (!mudouDePagina || !envolveComercial) return undefined;
-
-    setCarregandoRotaComercial(true);
-    if (timerCarregamento.current) clearTimeout(timerCarregamento.current);
-    timerCarregamento.current = setTimeout(() => {
-      setCarregandoRotaComercial(false);
-      timerCarregamento.current = null;
-    }, 420);
-    return () => {
-      if (timerCarregamento.current) clearTimeout(timerCarregamento.current);
-      timerCarregamento.current = null;
-    };
-  }, [pathname]);
 
   useEffect(() => {
     if (!session || precisaRotaLivre(pathname)) return undefined;
@@ -487,9 +465,6 @@ function RootNavigator() {
     </Stack>
     </View>
     <PersistentAppTabs loggedIn={loggedIn && !precisaDigital} />
-    <Modal animationType="fade" statusBarTranslucent transparent={false} visible={carregandoRotaComercial}>
-      <Loading />
-    </Modal>
     {precisaDigital ? <View style={styles.lockOverlay}><BiometricLock onUnlocked={concluirAutenticacaoBiometrica} /></View> : null}
     </>
   );
@@ -497,10 +472,6 @@ function RootNavigator() {
 
 function precisaRotaLivre(pathname: string) {
   return pathname.startsWith("/login") || pathname.startsWith("/cadastro") || pathname.startsWith("/recuperar-senha");
-}
-
-function rotaComercial(pathname: string) {
-  return pathname.startsWith("/admin") || pathname.startsWith("/geradores") || pathname.startsWith("/colaboradores");
 }
 
 export default function RootLayout() {
