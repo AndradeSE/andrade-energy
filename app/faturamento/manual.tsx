@@ -24,14 +24,22 @@ export default function FaturamentoManual() {
   async function selecionar() {
     const retomarBloqueio = suspenderBloqueioTemporariamente();
     try {
-      const resultado = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
-      if (resultado.canceled) return;
-
-      const item = resultado.assets[0];
-      setLendo(true);
-      const dados = await analisarFatura(item.uri, item.name, senhaPdf);
+      const tentandoNovamente = solicitarSenhaPdf && arquivo && senhaPdf.length === 4;
+      let item = tentandoNovamente ? arquivo : null;
+      if (!item) {
+        const resultado = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
+        if (resultado.canceled) return;
+        item = resultado.assets[0];
+        setSenhaPdf("");
+        setSolicitarSenhaPdf(false);
+        setAnalise(undefined);
+      }
       setArquivo({ uri: item.uri, name: item.name });
+      setLendo(true);
+      const dados = await analisarFatura(item.uri, item.name, tentandoNovamente ? senhaPdf : "");
       setAnalise(dados);
+      setSolicitarSenhaPdf(false);
+      setSenhaPdf("");
     } catch (erro: any) {
       if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED") setSolicitarSenhaPdf(true);
       Alert.alert("Não foi possível ler a fatura", erro?.response?.data?.message ?? erro?.message ?? "Confira o PDF.");
@@ -85,7 +93,7 @@ export default function FaturamentoManual() {
 
     <TouchableOpacity disabled={lendo || faturando} activeOpacity={0.84} onPress={selecionar} style={styles.upload}>
       <View style={styles.uploadIcon}><Ionicons name="document-attach-outline" size={26} color={Colors.primary} /></View>
-      <View style={styles.uploadInfo}><Text style={styles.uploadTitle}>{lendo ? "Lendo fatura..." : arquivo?.name ?? "Selecionar fatura em PDF"}</Text><Text style={styles.uploadHint}>{arquivo ? "Toque para escolher outro arquivo" : "PDF da concessionária"}</Text></View>
+      <View style={styles.uploadInfo}><Text style={styles.uploadTitle}>{lendo ? "Lendo fatura..." : solicitarSenhaPdf && senhaPdf.length === 4 ? "Validar PDF com a senha" : arquivo?.name ?? "Selecionar fatura em PDF"}</Text><Text style={styles.uploadHint}>{solicitarSenhaPdf ? "Informe a senha e toque para tentar novamente" : arquivo ? "Toque para escolher outro arquivo" : "PDF da concessionária"}</Text></View>
       <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
     </TouchableOpacity>
 

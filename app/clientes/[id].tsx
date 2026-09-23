@@ -225,7 +225,7 @@ export default function ClienteDetalhe() {
         },
       });
     } catch (erro: any) {
-      if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED" || erro?.response?.status === 422) {
+      if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED") {
         setPdfPendente(pdfSelecionado);
         setPedindoSenhaPdf(true);
         return;

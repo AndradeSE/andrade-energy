@@ -90,7 +90,7 @@ export default function NovoCliente() {
       );
     } catch (erro: any) {
       setSalvando(false);
-      if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED" || erro?.response?.status === 422) {
+      if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED") {
         setPedindoSenhaPdf(true);
         return;
       }

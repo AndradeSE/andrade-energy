@@ -80,7 +80,7 @@ export default function FaturasAnexadas() {
       await carregar();
       Alert.alert("Conta anexada", "A conta da concessionária foi salva no seu perfil e poderá ser usada pelo gerador para cadastrar a UC vinculada ao seu CPF.");
     } catch (erro: any) {
-      if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED" || erro?.response?.status === 422) { setPedindoSenhaPdf(true); return; }
+      if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED") { setPedindoSenhaPdf(true); return; }
       Alert.alert("Não foi possível anexar", erro?.response?.data?.message ?? "Confira o PDF da CEMIG e tente novamente.");
     } finally {
       setEnviando(false);
@@ -145,7 +145,7 @@ export default function FaturasAnexadas() {
     {IS_GERADOR_APP ? <AppHeader variant="subpage" title={titulo} subtitle={params.cliente ? `Cliente: ${params.cliente}` : "Documentos do cliente"} contextTitle={`${quantidade} fatura${quantidade === 1 ? "" : "s"} anexada${quantidade === 1 ? "" : "s"}`} contextSubtitle={selecionarUc ? "Selecione para cadastrar a UC" : "Contas particulares da concessionária"} icon="document-text-outline" /> : null}
     <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}>
       {!IS_GERADOR_APP ? <View style={styles.heading}><TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={23} color={Colors.text} /></TouchableOpacity><View style={styles.headingCopy}><Text style={styles.title}>{titulo}</Text><Text style={styles.subtitle}>{subtitulo}</Text></View></View> : <Text style={styles.description}>{subtitulo}</Text>}
-      {!selecionarUc ? <TouchableOpacity disabled={!clienteId || enviando} onPress={selecionarArquivo} style={[styles.upload, (!clienteId || enviando) && styles.disabled]}>
+      {!selecionarUc ? <TouchableOpacity disabled={!clienteId || enviando} onPress={() => void selecionarArquivo()} style={[styles.upload, (!clienteId || enviando) && styles.disabled]}>
         <View style={styles.uploadIcon}>{enviando ? <ActivityIndicator color={Colors.primary} /> : <Ionicons name="cloud-upload-outline" size={24} color={Colors.primary} />}</View>
         <View style={styles.uploadCopy}><Text style={styles.uploadTitle}>{enviando ? "Anexando conta..." : "Anexar conta vinculada ao CPF"}</Text><Text style={styles.uploadHint}>PDF da concessionária de uma UC do seu CPF; ficará disponível também para o gerador.</Text></View>
         <Ionicons name="chevron-forward" size={20} color={Colors.primary} />

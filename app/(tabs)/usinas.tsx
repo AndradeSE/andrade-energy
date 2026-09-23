@@ -70,7 +70,7 @@ export default function Usinas() {
         `${Number(dados.energiaGerada).toLocaleString("pt-BR")} kWh calculados\n\nLeitura anterior: ${Number(dados.leituraAnterior).toLocaleString("pt-BR")}\nLeitura atual: ${Number(dados.leituraAtual).toLocaleString("pt-BR")}\nFator: ${Number(dados.fatorMultiplicacao).toLocaleString("pt-BR")}`
       );
     } catch (erro: any) {
-      if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED" || erro?.response?.status === 422) {
+      if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED") {
         if (pdfSelecionado) setPdfPendente({ item, pdf: pdfSelecionado });
         setPedindoSenhaPdf(true);
         return;
