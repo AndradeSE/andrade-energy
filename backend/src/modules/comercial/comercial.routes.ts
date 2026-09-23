@@ -13,6 +13,7 @@ router.use(exigirSuperAdministradorAndrade);
 router.post("/planos", controller.criarPlano);
 router.put("/planos/:id", controller.atualizarPlano);
 router.get("/financeiro", controller.financeiro);
+router.post("/financeiro/validar-pix", controller.validarPixFinanceiro);
 router.put("/financeiro", controller.configurarFinanceiro);
 router.post("/financeiro/transferencias", controller.transferirFinanceiro);
 router.post("/assinaturas", controller.contratar);

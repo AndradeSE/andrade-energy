@@ -16,7 +16,7 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
       icon: "people-outline",
       label: "Geradores",
       onPress: () =>
-        router.push({
+        router.replace({
           pathname: "/geradores/gestao",
           params: { aba: "GERADORES" },
         } as any),
@@ -26,7 +26,7 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
       icon: "wallet-outline",
       label: "Financeiro",
       onPress: () =>
-        router.push({
+        router.replace({
           pathname: "/geradores/gestao",
           params: { aba: "PAGAMENTOS" },
         } as any),
@@ -35,14 +35,14 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
       key: "HOME",
       icon: "home-outline",
       label: "Home",
-      onPress: () => router.push("/admin/comercial" as any),
+      onPress: () => router.replace("/admin/comercial" as any),
     },
     {
       key: "PLANOS",
       icon: "pricetags-outline",
       label: "Planos",
       onPress: () =>
-        router.push({
+        router.replace({
           pathname: "/geradores/gestao",
           params: { aba: "PLANOS" },
         } as any),
@@ -52,7 +52,7 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
       icon: "card-outline",
       label: "Assinaturas",
       onPress: () =>
-        router.push({
+        router.replace({
           pathname: "/geradores/gestao",
           params: { aba: "ASSINATURAS" },
         } as any),
@@ -70,7 +70,7 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
             accessibilityState={{ selected }}
             accessibilityLabel={`Ir para ${item.label}`}
             key={item.key}
-            onPress={item.onPress}
+            onPress={selected ? undefined : item.onPress}
             style={styles.item}
           >
             <AppTabIcon

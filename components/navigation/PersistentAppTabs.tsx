@@ -41,7 +41,6 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
     !loggedIn ||
     firstSegment === "(tabs)" ||
     firstSegment === "(auth)" ||
-    (firstSegment === "geradores" && secondSegment === "gestao") ||
     (firstSegment === "admin" && secondSegment === "escolher-area") ||
     (firstSegment === "admin" && secondSegment === "empresas") ||
     firstSegment === "selecionar-unidade" ||

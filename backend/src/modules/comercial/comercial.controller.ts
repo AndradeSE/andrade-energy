@@ -7,6 +7,7 @@ export const planosPublicos = (_: Request, res: Response) => respond(res, servic
 export const criarPlano = (req: Request, res: Response) => respond(res, service.salvarPlano(undefined, req.body), 201);
 export const atualizarPlano = (req: Request, res: Response) => respond(res, service.salvarPlano(req.params.id, req.body));
 export const financeiro = (req: Request, res: Response) => respond(res, service.obterFinanceiroAssinaturas((req as any).usuario));
+export const validarPixFinanceiro = (req: Request, res: Response) => respond(res, service.validarChavePixComercial(req.body));
 export const configurarFinanceiro = (req: Request, res: Response) => respond(res, service.atualizarFinanceiroAssinaturas((req as any).usuario, req.body));
 export const transferirFinanceiro = (req: Request, res: Response) => respond(res, service.transferirFinanceiroAssinaturas((req as any).usuario, req.body, String(req.header("Idempotency-Key")??"")), 201);
 export const contratar = (req: Request, res: Response) => respond(res, service.contratarPlano(req.body, (req as any).usuario.id), 201);

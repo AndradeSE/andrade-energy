@@ -15,7 +15,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import CommercialTabs from "../../components/commercial/CommercialTabs";
 import {
   AppHeader,
   Button,
@@ -38,6 +37,7 @@ import {
   configurarFinanceiroAssinaturas,
   salvarPlanoComercial,
   transferirFinanceiroAssinaturas,
+  validarChavePixAssinaturas,
 } from "../../services/comercial.service";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 
@@ -67,6 +67,7 @@ export default function GestaoGeradores() {
   const [pixChave, setPixChave] = useState("");
   const [senhaFinanceira, setSenhaFinanceira] = useState("");
   const [saque, setSaque] = useState("");
+  const [validandoPix, setValidandoPix] = useState(false);
   const [mostrarArquivadas, setMostrarArquivadas] = useState(false);
   const [aba, setAba] = useState<
     | "RESUMO"
@@ -655,9 +656,20 @@ export default function GestaoGeradores() {
                         placeholder={carteira.pixChaveMascarada ?? "E-mail, CPF ou chave"}
                       />
                       <Button
-                        title="Salvar chave Pix"
+                        title={validandoPix ? "Validando titular..." : "Validar titular e salvar"}
+                        disabled={validandoPix}
                         onPress={() => void saveWallet()}
                       />
+                      {carteira.pixChaveMascarada ? (
+                        <View style={styles.savedPixCard}>
+                          <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />
+                          <View style={styles.grow}>
+                            <Text style={styles.savedPixLabel}>CHAVE PIX CONFIRMADA</Text>
+                            <Text style={styles.savedPixKey}>{carteira.pixChaveMascarada}</Text>
+                            <Text style={styles.savedPixHolder}>Titular: {carteira.pixTitularNome || "Não informado pelo Asaas"}</Text>
+                          </View>
+                        </View>
+                      ) : null}
                       <Divider />
                       <Text style={styles.inputLabel}>Transferência manual</Text>
                       <TextInput
@@ -766,7 +778,6 @@ export default function GestaoGeradores() {
           </>
         )}
       </ScrollView>
-      <CommercialTabs active={aba === "ASSINATURAS" ? "ASSINATURAS" : aba === "PAGAMENTOS" ? "PAGAMENTOS" : aba === "PLANOS" ? "PLANOS" : "GERADORES"} />
     </Screen>
   );
 
@@ -837,11 +848,25 @@ export default function GestaoGeradores() {
   }
 
   async function saveWallet(automatic = carteira?.transferenciaAutomatica ?? false) {
-    try {
+    const salvar = async () => {
       const updated = await configurarFinanceiroAssinaturas({ pixTipo, pixChave:pixChave || undefined, transferenciaAutomatica:automatic, senhaAtual:senhaFinanceira });
       setCarteira(updated); setPixChave(""); setSenhaFinanceira("");
       Alert.alert("Financeiro", "Configuração de transferência atualizada.");
+    };
+    try {
+      if (!pixChave.trim()) return await salvar();
+      setValidandoPix(true);
+      const titular = await validarChavePixAssinaturas(pixTipo, pixChave.trim());
+      Alert.alert(
+        "Confirme o titular da chave Pix",
+        `Titular localizado: ${titular.nome}\n\nSalve somente se este for o destinatário correto.`,
+        [
+          { text: "Corrigir chave", style: "cancel" },
+          { text: "Confirmar e salvar", onPress: () => void salvar().catch((error:any) => Alert.alert("Financeiro", error?.response?.data?.message ?? "Não foi possível salvar.")) },
+        ],
+      );
     } catch (error:any) { Alert.alert("Financeiro", error?.response?.data?.message ?? "Não foi possível salvar."); }
+    finally { setValidandoPix(false); }
   }
 
   async function withdraw() {
@@ -907,6 +932,10 @@ const styles = StyleSheet.create({
   walletValue: { marginTop: 8, color: "#FFFFFF", fontSize: 36, fontWeight: "900" },
   walletPending: { marginTop: 5, color: "#CDEBDD" },
   autoRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16 },
+  savedPixCard: { marginTop: Spacing.md, padding: Spacing.md, flexDirection: "row", alignItems: "center", gap: Spacing.sm, borderWidth: 1, borderColor: "#B7DECA", borderRadius: Radius.md, backgroundColor: "#ECF8F1" },
+  savedPixLabel: { color: Colors.primary, fontSize: 10, fontWeight: "900", letterSpacing: 0.8 },
+  savedPixKey: { marginTop: 3, color: Colors.text, fontSize: 14, fontWeight: "800" },
+  savedPixHolder: { marginTop: 2, color: Colors.subtitle, fontSize: 12 },
   pixTypes: { marginBottom: Spacing.sm, flexDirection: "row", flexWrap: "wrap", gap: 6 },
   pixType: { paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.round },
   pixTypeActive: { borderColor: Colors.primary, backgroundColor: "#E7F5EE" },

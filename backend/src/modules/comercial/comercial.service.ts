@@ -28,6 +28,13 @@ async function consultarTitularPixComercial(tipo:string,chave:string) {
   if(!nome) throw new Error("O Asaas localizou a chave, mas não informou o titular. Confira a chave antes de continuar.");
   return nome.slice(0,200);
 }
+export async function validarChavePixComercial(input:any) {
+  const pixTipo=String(input?.pixTipo??"").toUpperCase();
+  const pixChave=String(input?.pixChave??"").trim();
+  if(!['CPF','CNPJ','EMAIL','PHONE','EVP'].includes(pixTipo)) throw new Error("Tipo de chave Pix inválido.");
+  if(!pixChave) throw new Error("Informe a chave Pix.");
+  return { nome: await consultarTitularPixComercial(pixTipo,pixChave) };
+}
 async function carteiraComercial(usuario:any) { const existing=await supabase.from("carteira_comercial_assinaturas").select("*").eq("usuario_id",usuario.id).maybeSingle(); if(existing.error)throw existing.error;if(existing.data)return existing.data;const created=await supabase.from("carteira_comercial_assinaturas").insert({usuario_id:usuario.id}).select().single();if(created.error)throw created.error;return created.data; }
 
 export async function obterFinanceiroAssinaturas(usuario:any) {
