@@ -305,19 +305,62 @@ export async function importarContratoAssinadoDaUnidadeService(unidadeId: string
   if (arquivo.mimetype && arquivo.mimetype !== "application/pdf") throw new Error("Envie um arquivo PDF.");
   const contrato = await buscarContratoMaisRecenteUnidade(unidadeId);
   if (!contrato?.id) throw new Error("Gere ou salve a minuta antes de vincular o contrato assinado.");
-  if (contrato.aceite_cliente_em || contrato.contrato_assinado_url) throw new Error("Este contrato já possui assinatura ou documento em análise. Preserve a versão existente.");
-  const caminho = await armazenarContratoAssinado(unidadeId, contrato.id, arquivo.path);
-  const { data, error } = await supabase
+  return salvarPdfAssinadoPendente(contrato, unidadeId, arquivo.path);
+}
+
+function pdfExternoAguardandoRevisao(contrato: any) {
+  return Boolean(
+    contrato?.contrato_assinado_url
+    && contrato?.dados_documento?.assinatura_externa_pendente === true
+    && !contrato?.dados_documento?.assinatura_externa_validada_em,
+  );
+}
+
+async function salvarPdfAssinadoPendente(contrato: any, unidadeId: string, arquivoTemporario: string) {
+  if (contrato.aceite_cliente_em) {
+    throw new Error("Este contrato já foi assinado no aplicativo e não pode receber outro documento.");
+  }
+  const substituindo = Boolean(contrato.contrato_assinado_url);
+  if (substituindo && !pdfExternoAguardandoRevisao(contrato)) {
+    throw new Error("Este PDF já foi validado. Para alterá-lo, crie uma nova revisão contratual.");
+  }
+
+  const agora = new Date().toISOString();
+  const caminho = await armazenarContratoAssinado(unidadeId, contrato.id, arquivoTemporario);
+  const dadosDocumento = {
+    ...(contrato.dados_documento ?? {}),
+    assinatura_externa_pendente: true,
+    assinatura_externa_enviada_em: agora,
+    assinatura_externa_validada_em: null,
+    assinatura_externa_validada_por: null,
+    assinatura_externa_validacao: null,
+    assinatura_externa_reenvios: Number(contrato.dados_documento?.assinatura_externa_reenvios ?? 0) + (substituindo ? 1 : 0),
+  };
+
+  let atualizacao = supabase
     .from("contratos")
-    .update({ contrato_assinado_url: caminho,
-      dados_documento: { ...contrato.dados_documento, assinatura_externa_pendente: true, assinatura_externa_validada_em: null },
+    .update({
+      contrato_assinado_url: caminho,
+      assinado_em: agora,
+      status: "ATIVO",
+      dados_documento: dadosDocumento,
     })
     .eq("id", contrato.id)
-    .is("aceite_cliente_em", null)
-    .is("contrato_assinado_url", null)
-    .select()
-    .single();
+    .is("aceite_cliente_em", null);
+  atualizacao = substituindo
+    ? atualizacao.eq("contrato_assinado_url", contrato.contrato_assinado_url)
+    : atualizacao.is("contrato_assinado_url", null);
+  const { data, error } = await atualizacao.select().maybeSingle();
   if (error) throw error;
+  if (!data) throw new Error("O PDF foi alterado durante o envio. Reabra o contrato e tente novamente.");
+
+  const { error: erroBloqueio } = await supabase
+    .from("unidades_consumidoras")
+    .update({ status: "PENDENTE_CONTRATO" })
+    .eq("id", unidadeId)
+    .eq("empresa_id", contrato.empresa_id);
+  if (erroBloqueio) throw erroBloqueio;
+
   return anexarLinksDoContrato(data);
 }
 
@@ -465,22 +508,7 @@ export async function importarContratoAssinadoPeloClienteService(contratoId: str
   if (arquivo.mimetype && arquivo.mimetype !== "application/pdf") throw new Error("Envie um arquivo PDF.");
   const contrato = await obterContratoDoClienteParaAceite(contratoId, usuario);
   if (!contrato.unidade_consumidora_id) throw new Error("Este contrato não está vinculado a uma unidade consumidora.");
-  if (contrato.aceite_cliente_em || contrato.contrato_assinado_url) throw new Error("Este contrato já possui assinatura ou documento em análise.");
-  const caminho = await armazenarContratoAssinado(contrato.unidade_consumidora_id, contrato.id, arquivo.path);
-  const { data, error } = await supabase
-    .from("contratos")
-    .update({
-      contrato_assinado_url: caminho,
-      assinado_em: new Date().toISOString(),
-      dados_documento: { ...contrato.dados_documento, assinatura_externa_pendente: true, assinatura_externa_validada_em: null },
-    })
-    .eq("id", contrato.id)
-    .is("aceite_cliente_em", null)
-    .is("contrato_assinado_url", null)
-    .select()
-    .single();
-  if (error) throw error;
-  return anexarLinksDoContrato(data);
+  return salvarPdfAssinadoPendente(contrato, contrato.unidade_consumidora_id, arquivo.path);
 }
 
 export async function atualizarContratoService(

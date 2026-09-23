@@ -120,6 +120,11 @@ function ContratoConsumidor() {
     data.contrato_assinado_url ?? data.contrato_gerado_url ?? data.arquivo_pdf;
   const aceiteRegistrado = Boolean(data.aceite_cliente_em);
   const pdfAssinadoEnviado = Boolean(data.contrato_assinado_url);
+  const pdfAssinadoPendente = Boolean(
+    pdfAssinadoEnviado &&
+    data.dados_documento?.assinatura_externa_pendente === true &&
+    !data.dados_documento?.assinatura_externa_validada_em,
+  );
   async function abrirProposta() {
     if (!unidadeSelecionada?.id) return Alert.alert("Selecione a unidade", "Escolha a UC antes de abrir sua proposta.");
     try {
@@ -235,10 +240,14 @@ function ContratoConsumidor() {
     setEnviandoAssinado(true);
     try {
       await importarContratoAssinadoPeloCliente(data.id, resultado.assets[0]);
-      await queryClient.invalidateQueries({ queryKey: ["contrato"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["contrato"] }),
+        queryClient.invalidateQueries({ queryKey: ["contratos-acesso"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
       Alert.alert(
-        "Contrato enviado",
-        "O PDF foi enviado para conferência do gerador. O acesso a esta unidade será liberado após a validação das assinaturas.",
+        pdfAssinadoPendente ? "PDF substituído" : "Contrato enviado",
+        "O PDF ficou aguardando conferência do gerador. Esta unidade somente será ativada depois da validação manual.",
       );
     } catch (erro: any) {
       Alert.alert(
@@ -516,6 +525,17 @@ function ContratoConsumidor() {
               </Text>
             </TouchableOpacity>
           </> : null}
+          {pdfAssinadoPendente && !aceiteRegistrado ? <TouchableOpacity
+            activeOpacity={0.85}
+            disabled={enviandoAssinado}
+            onPress={enviarPdfAssinado}
+            style={styles.uploadButton}
+          >
+            <Ionicons name="swap-horizontal-outline" size={20} color={Colors.primary} />
+            <Text style={styles.govButtonText}>
+              {enviandoAssinado ? "Substituindo PDF..." : "Trocar PDF enviado por engano"}
+            </Text>
+          </TouchableOpacity> : null}
         </View>
 
         {ativo ? <TouchableOpacity
