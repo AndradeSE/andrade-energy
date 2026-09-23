@@ -15,6 +15,9 @@ export async function enviarContratoEConvite(unidadeId: string, gestor: any, for
   const { data: contrato, error: erroContrato } = await supabase.from("contratos").select("*")
     .eq("unidade_consumidora_id", unidadeId).order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (erroContrato) throw erroContrato;
+  if (contrato?.contrato_assinado_url && contrato.dados_documento?.assinatura_externa_validada_em) {
+    return enviarConviteAposConferencia(contrato, gestor);
+  }
   if (!contrato?.contrato_gerado_url || contrato.aceite_cliente_em || contrato.contrato_assinado_url) throw new Error("Gere e revise uma minuta não assinada antes de enviar.");
   const d = contrato.dados_documento ?? {};
   if (!d.locador_nome || !d.locador_documento || !d.locador_endereco) throw new Error("Complete os dados do locador antes de enviar.");
@@ -59,6 +62,35 @@ export async function enviarContratoEConvite(unidadeId: string, gestor: any, for
   }).eq("id", contrato.id).eq("contrato_gerado_url", contrato.contrato_gerado_url);
   if (erroAuditoria) throw erroAuditoria;
   return { ...resultado, contratoId: contrato.id };
+}
+
+/** Envia acesso após a conferência do PDF externo, sem solicitar nova assinatura. */
+export async function enviarConviteAposConferencia(contrato: any, gestor: any) {
+  if (!contrato?.contrato_assinado_url || !contrato.dados_documento?.assinatura_externa_validada_em) {
+    throw new Error("Confira o PDF assinado antes de enviar o convite de acesso.");
+  }
+  const empresaId = empresaIdDoUsuario(gestor);
+  if (contrato.empresa_id !== empresaId) throw new Error("Contrato não pertence a esta empresa.");
+  const { data: acessoAtivo, error: erroAcesso } = await supabase.from("empresa_usuarios")
+    .select("id").eq("cliente_id", contrato.cliente_id).eq("empresa_id", empresaId)
+    .eq("papel", "LEITURA").eq("ativo", true).limit(1).maybeSingle();
+  if (erroAcesso) throw erroAcesso;
+  if (acessoAtivo) return { emailEnviado: false, contaExistente: true, acessoExistente: true, novoConvite: false };
+
+  const { data: cliente, error: erroCliente } = await supabase.from("clientes").select("*")
+    .eq("id", contrato.cliente_id).eq("empresa_id", empresaId).single();
+  if (erroCliente) throw erroCliente;
+  const { data: pdf, error: erroPdf } = await supabase.storage.from("contratos").download(contrato.contrato_assinado_url);
+  if (erroPdf || !pdf) throw new Error("Não foi possível anexar o contrato assinado ao convite.");
+  const { error: erroCancelamento } = await supabase.from("convites_clientes")
+    .update({ status: "CANCELADO" })
+    .eq("empresa_id", empresaId).eq("unidade_consumidora_id", contrato.unidade_consumidora_id).eq("status", "PENDENTE");
+  if (erroCancelamento) throw erroCancelamento;
+  const resultado = await criarConvite({
+    nome: cliente.nome, cpf: cliente.cpf, email: cliente.email, whatsapp: cliente.whatsapp || undefined,
+    unidade_consumidora_id: contrato.unidade_consumidora_id,
+  }, gestor, { assinado: { filename: "contrato-assinado.pdf", content: Buffer.from(await pdf.arrayBuffer()) } });
+  return { ...resultado, novoConvite: true, acessoExistente: false };
 }
 
 export async function solicitarReenvioConviteCliente(emailInformado: unknown) {

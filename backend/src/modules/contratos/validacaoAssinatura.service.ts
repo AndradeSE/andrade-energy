@@ -1,6 +1,7 @@
 import { supabase } from "../../config/supabase";
 import crypto from "node:crypto";
 import { restaurarVigencias, suspenderVigenciasAnteriores } from "./contratos.repository";
+import { enviarConviteAposConferencia } from "./envioContrato.service";
 
 /** Validação humana explícita; não se apresenta como verificação criptográfica. */
 export async function validarAssinaturaExterna(id: string, usuario: any, confirmado: boolean) {
@@ -27,5 +28,14 @@ export async function validarAssinaturaExterna(id: string, usuario: any, confirm
     .eq("id", contrato.unidade_consumidora_id)
     .eq("empresa_id", contrato.empresa_id);
   if (erroAtivacao) throw erroAtivacao;
-  return { validado: true };
+  try {
+    const convite = await enviarConviteAposConferencia({ ...contrato,
+      dados_documento: { ...contrato.dados_documento, assinatura_externa_pendente: false, assinatura_externa_validada_em: new Date().toISOString() },
+    }, usuario);
+    return { validado: true, ...convite };
+  } catch (erro: any) {
+    // A revisão já foi registrada. Informe a falha para que o convite seja
+    // reenviado pela ação existente, sem pedir nova validação do PDF.
+    return { validado: true, emailEnviado: false, conviteErro: erro?.message ?? "Não foi possível enviar o convite." };
+  }
 }

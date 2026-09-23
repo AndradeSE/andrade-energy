@@ -8,6 +8,7 @@ import { formatarDataBrasileira, listarFaturas } from "../../services/faturas.se
 import { buscarCliente, buscarUnidade, excluirUnidadeCliente, listarFaturasAnexadasCliente } from "../../services/clientes.service";
 import { buscarUsina } from "../../services/usinas.service";
 import { buscarContratoDaUnidade } from "../../services/contratos.service";
+import { reenviarConviteDaUnidade } from "../../services/convites.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 
@@ -159,6 +160,7 @@ export default function UnidadeDocumentos() {
   const contratoAssinado = contrato?.dados_documento?.assinatura_externa_pendente !== true
     && Boolean(contrato?.aceite_cliente_em || contrato?.contrato_assinado_url || String(contrato?.status ?? "").toUpperCase() === "VIGENTE");
   const rotuloContrato = contratoAssinado ? "Ver contrato" : contrato ? "Gerenciar contrato" : "Cadastrar contrato";
+  const documentoConferido = Boolean(contrato?.contrato_assinado_url && contrato?.dados_documento?.assinatura_externa_validada_em);
   const titularDaFatura = String(faturasCadastro[0]?.dadosFatura?.titular ?? faturasCadastro[0]?.dadosFatura?.cliente ?? "").trim();
 
   return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Unidade consumidora" subtitle="Gestão da carteira" contextTitle={`UC ${unidade.numero}`} contextSubtitle={unidade.clientes?.nome ?? unidade.titular ?? "Unidade consumidora"} icon="flash-outline" /> : null}<ScrollView refreshControl={<RefreshControl refreshing={atualizando} onRefresh={() => carregar(true)} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content}>
@@ -218,6 +220,21 @@ export default function UnidadeDocumentos() {
         } });
       }} style={styles.action}><Ionicons name={contratoAssinado ? "document-text" : "document-text-outline"} size={18} color={Colors.primary} /><Text style={styles.actionText}>{rotuloContrato}</Text></TouchableOpacity> : null}
     </View>
+    {IS_GERADOR_APP && documentoConferido ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Reenviar convite de acesso ao cliente" onPress={() => {
+      Alert.alert("Reenviar convite", "Será enviado um novo convite de acesso ao cliente desta UC. O contrato assinado continuará o mesmo.", [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Reenviar", onPress: async () => {
+          try {
+            const resultado = await reenviarConviteDaUnidade(String(unidade.id));
+            Alert.alert("Convite de acesso", resultado.acessoExistente
+              ? "O cliente já possui acesso ativo a esta empresa."
+              : resultado.emailEnviado ? "Novo convite enviado ao e-mail do cliente." : "O convite foi criado, mas o e-mail não foi entregue. Tente novamente.");
+          } catch (erro: any) {
+            Alert.alert("Não foi possível reenviar", erro?.response?.data?.message ?? "Tente novamente.");
+          }
+        } },
+      ]);
+    }} style={styles.resendInvite}><Ionicons name="mail-outline" size={19} color={Colors.primary} /><Text style={styles.resendInviteText}>Reenviar convite</Text></TouchableOpacity> : null}
     {IS_GERADOR_APP && contratoAssinado ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Ir para o financeiro e faturar esta unidade" onPress={() => router.push("/(tabs)/financeiro" as any)} style={styles.billingNextStep}><View style={styles.billingNextStepIcon}><Ionicons name="cash-outline" size={21} color={Colors.surface} /></View><View style={styles.billingNextStepCopy}><Text style={styles.billingNextStepEyebrow}>PRÓXIMO PASSO</Text><Text style={styles.billingNextStepTitle}>Escolha como faturar esta UC</Text><Text style={styles.billingNextStepText}>Acesse Financeiro e escolha faturamento via PDF, manual ou automático.</Text></View><Ionicons name="chevron-forward" size={20} color={Colors.surface} /></TouchableOpacity> : null}
     {IS_GERADOR_APP ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Excluir unidade consumidora" onPress={confirmarExclusaoUnidade} style={styles.deleteUnit}><Ionicons name="trash-outline" size={18} color={Colors.danger} /><Text style={styles.deleteUnitText}>Excluir unidade consumidora</Text></TouchableOpacity> : null}
 
@@ -260,6 +277,8 @@ const styles = StyleSheet.create({
   action: { flex: 1, minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: Spacing.sm, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md, backgroundColor: Colors.surface },
   actionWide: { flex: undefined, width: "100%" },
   actionText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" },
+  resendInvite: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.sm, marginBottom: Spacing.lg, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md, backgroundColor: Colors.surface },
+  resendInviteText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" },
   automaticInvoice: { minHeight: 66, flexDirection: "row", alignItems: "center", marginTop: -Spacing.sm, marginBottom: Spacing.lg, paddingHorizontal: Spacing.md, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md, backgroundColor: Colors.primaryLight },
   automaticInvoiceCopy: { flex: 1, marginHorizontal: Spacing.sm },
   automaticInvoiceTitle: { color: Colors.primaryDark, fontSize: Typography.small, fontWeight: "900" },

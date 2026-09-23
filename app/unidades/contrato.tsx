@@ -311,9 +311,13 @@ export default function ContratoDaUnidade() {
       { text: "Conferi e confirmo", onPress: async () => {
         try {
           setGerando(true);
-          await validarAssinaturaExterna(contratoId);
+          const resultado = await validarAssinaturaExterna(contratoId);
           setAssinaturaPendente(false);
-          Alert.alert("Conferência registrada", "O acesso a esta UC foi liberado.");
+          Alert.alert("Conferência registrada", resultado?.acessoExistente
+            ? "A UC foi liberada. O cliente já possui acesso à conta."
+            : resultado?.emailEnviado
+              ? "A UC foi liberada e o convite para criar ou acessar a conta foi enviado ao cliente."
+              : `A UC foi liberada, mas o convite não foi entregue. ${resultado?.conviteErro ?? "Reenvie o convite pela área da UC."}`);
         } catch (erro: any) {
           Alert.alert("Não foi possível validar", erro?.response?.data?.message ?? "Tente novamente.");
         } finally { setGerando(false); }

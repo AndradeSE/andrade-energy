@@ -48,8 +48,8 @@ async function enviarConviteWhatsapp(input: { telefone: string; nome: string; to
   return true;
 }
 
-export async function criarConvite(input: any, gestor: any, documentos?: { minuta: { filename: string; content: Buffer }; proposta: { filename: string; content: Buffer } }) {
-  if (!documentos?.minuta?.content?.length || !documentos?.proposta?.content?.length) {
+export async function criarConvite(input: any, gestor: any, documentos?: { minuta?: { filename: string; content: Buffer }; proposta?: { filename: string; content: Buffer }; assinado?: { filename: string; content: Buffer } }) {
+  if (!documentos?.assinado?.content?.length && (!documentos?.minuta?.content?.length || !documentos?.proposta?.content?.length)) {
     throw new Error("Configure a UC, gere e revise seu contrato. Envie o convite pela área Contrato da unidade, junto com a proposta.");
   }
   const empresaId = empresaIdDoUsuario(gestor);
@@ -113,14 +113,15 @@ export async function criarConvite(input: any, gestor: any, documentos?: { minut
   try {
     const minuta = documentos.minuta;
     const proposta = documentos.proposta;
+    const assinado = documentos.assinado;
     minutaAnexada = Boolean(minuta);
     propostaAnexada = Boolean(proposta);
     emailEnviado = await enviarEmailTransacional({
       empresaId,
       destinatario: email,
       assunto: "Convite para Andrade Energy Consumidor",
-      html: `<div style="max-width:560px;margin:auto;padding:28px;font-family:Arial,sans-serif;color:#252925;line-height:1.6;background:#f7f8f7;border-radius:14px"><h2 style="margin-top:0;color:#39804a">Você recebeu um convite</h2><p>Olá, <strong>${escaparHtml(nome)}</strong>.</p><p>Seu gerador convidou você para acompanhar unidades, economia e faturas no Andrade Energy Consumidor.</p>${proposta ? "<p>Anexamos sua proposta comercial personalizada, com o desconto contratado e a projeção de economia.</p>" : ""}${minuta ? "<p>A minuta do contrato da sua unidade também segue anexada para leitura. Ela não substitui o contrato assinado.</p>" : ""}<p style="margin:26px 0"><a href="${linkApp}" style="display:inline-block;padding:14px 22px;background:#39804a;color:#fff;font-weight:700;text-decoration:none;border-radius:8px">Abrir aplicativo e criar conta</a></p><p style="font-size:14px;color:#4e574e">Não tem o aplicativo instalado? <a href="${linkWeb}" style="color:#1f6e3a;font-weight:700">Criar conta pelo navegador</a>.</p><p style="margin-bottom:8px;font-size:13px;color:#6b706b">Se precisar, copie a chave do convite:</p><div style="padding:16px 12px;border:2px dashed #39804a;border-radius:10px;background:#fff;color:#1f512e;font-family:monospace;font-size:20px;font-weight:700;letter-spacing:1px;text-align:center;word-break:break-all">${token}</div><p style="margin-top:18px;font-size:13px;color:#6b706b">Este convite é válido por 7 dias.</p></div>`,
-      anexos: [proposta, minuta].filter(Boolean) as Array<{ filename: string; content: Buffer }>,
+      html: `<div style="max-width:560px;margin:auto;padding:28px;font-family:Arial,sans-serif;color:#252925;line-height:1.6;background:#f7f8f7;border-radius:14px"><h2 style="margin-top:0;color:#39804a">Você recebeu um convite</h2><p>Olá, <strong>${escaparHtml(nome)}</strong>.</p><p>Seu gerador convidou você para acompanhar unidades, economia e faturas no Andrade Energy Consumidor.</p>${assinado ? "<p>O contrato assinado foi conferido pelo gerador e segue anexado. Use este convite para acessar sua unidade.</p>" : ""}${proposta ? "<p>Anexamos sua proposta comercial personalizada, com o desconto contratado e a projeção de economia.</p>" : ""}${minuta ? "<p>A minuta do contrato da sua unidade também segue anexada para leitura. Ela não substitui o contrato assinado.</p>" : ""}<p style="margin:26px 0"><a href="${linkApp}" style="display:inline-block;padding:14px 22px;background:#39804a;color:#fff;font-weight:700;text-decoration:none;border-radius:8px">Abrir convite no aplicativo</a></p><p style="font-size:14px;color:#4e574e">Já tem conta? Use sua senha atual para adicionar este acesso. Caso contrário, crie sua senha. Não tem o aplicativo instalado? <a href="${linkWeb}" style="color:#1f6e3a;font-weight:700">Acessar convite pelo navegador</a>.</p><p style="margin-bottom:8px;font-size:13px;color:#6b706b">Se precisar, copie a chave do convite:</p><div style="padding:16px 12px;border:2px dashed #39804a;border-radius:10px;background:#fff;color:#1f512e;font-family:monospace;font-size:20px;font-weight:700;letter-spacing:1px;text-align:center;word-break:break-all">${token}</div><p style="margin-top:18px;font-size:13px;color:#6b706b">Este convite é válido por 7 dias.</p></div>`,
+      anexos: [proposta, minuta, assinado].filter(Boolean) as Array<{ filename: string; content: Buffer }>,
     });
   } catch {
     emailEnviado = false;
