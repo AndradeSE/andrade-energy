@@ -120,6 +120,9 @@ function ContratoConsumidor() {
     data.contrato_assinado_url ?? data.contrato_gerado_url ?? data.arquivo_pdf;
   const aceiteRegistrado = Boolean(data.aceite_cliente_em);
   const pdfAssinadoEnviado = Boolean(data.contrato_assinado_url);
+  const assinaturaExternaValidada = Boolean(
+    pdfAssinadoEnviado && data.dados_documento?.assinatura_externa_validada_em,
+  );
   const pdfAssinadoPendente = Boolean(
     pdfAssinadoEnviado &&
     data.dados_documento?.assinatura_externa_pendente === true &&
@@ -448,18 +451,20 @@ function ContratoConsumidor() {
         <Card>
           <InfoRow
             icon={
-              aceiteRegistrado
+              aceiteRegistrado || assinaturaExternaValidada
                 ? "checkmark-circle-outline"
                 : "shield-checkmark-outline"
             }
-            label="Aceite no aplicativo"
+            label={assinaturaExternaValidada ? "Assinatura externa" : "Aceite no aplicativo"}
             value={
-              aceiteRegistrado
+              assinaturaExternaValidada
+                ? `Conferida pelo gerador em ${formatarData(data.dados_documento.assinatura_externa_validada_em)}`
+                : aceiteRegistrado
                 ? `Registrado em ${formatarData(data.aceite_cliente_em)}`
                 : "Pendente"
             }
           />
-          {!aceiteRegistrado ? <>
+          {!aceiteRegistrado && !assinaturaExternaValidada ? <>
             <Divider />
             <InfoRow
               icon={pdfAssinadoEnviado ? "document-attach-outline" : "document-outline"}

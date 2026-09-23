@@ -150,10 +150,11 @@ export async function listarUsinasService(empresaId?: string) {
       const alocacaoProjetada = calcularAlocacaoProjetada(unidades.data ?? [], energiaProjetada);
       return {
         ...usina,
-        fechamento_atual: dashboard.ultimo ?? {
+        fechamento_atual: {
+          ...(dashboard.ultimo ?? {}),
           energia_gerada: energiaProjetada,
           ...alocacaoProjetada,
-          status: "ABERTO",
+          status: dashboard.ultimo?.status ?? "ABERTO",
         },
         producao_media_12_meses: producaoMedia12Meses > 0 ? producaoMedia12Meses : Number(usina.geracao_media ?? 0),
         geracao_total: Number(dashboard.energiaTotal ?? 0),
@@ -249,7 +250,7 @@ async function calcularProducaoMedia12Meses(usinaId: string) {
 
   const producoes = (fechamentos.data ?? [])
     .map((item) => Number(item.energia_gerada ?? 0))
-    .filter(Number.isFinite);
+    .filter((valor) => Number.isFinite(valor) && valor > 0);
   if (producoes.length) {
     return producoes.reduce((total, valor) => total + valor, 0) / producoes.length;
   }
@@ -738,10 +739,13 @@ export async function obterDashboardUsina(
     unidadeGeradora = data;
   }
   const fechamento = dashboard.ultimo;
+  const energiaAtual = Number(fechamento?.energia_gerada ?? 0);
+  const energiaProjetada = energiaAtual > 0
+    ? energiaAtual
+    : await calcularProducaoMedia12Meses(id);
+  const alocacaoAtual = await obterAlocacaoProjetadaDaUsina(id, energiaProjetada, empresaId);
 
   if (!fechamento) {
-    const energiaProjetada = await calcularProducaoMedia12Meses(id);
-    const alocacaoProjetada = await obterAlocacaoProjetadaDaUsina(id, energiaProjetada, empresaId);
     const agora = new Date();
       return {
         usina,
@@ -750,8 +754,8 @@ export async function obterDashboardUsina(
       clientes: clientes.count ?? 0,
       energiaGerada: energiaProjetada,
       energiaTotal: energiaProjetada,
-      energiaDisponivel: alocacaoProjetada.energia_disponivel,
-      ocupacao: alocacaoProjetada.ocupacao,
+      energiaDisponivel: alocacaoAtual.energia_disponivel,
+      ocupacao: alocacaoAtual.ocupacao,
       receitaPrevista: 0,
       receitaRealizada: 0,
       competencia: `${String(agora.getMonth() + 1).padStart(2, "0")}/${agora.getFullYear()}`,
@@ -767,17 +771,14 @@ export async function obterDashboardUsina(
         energiaGerada: Number(item.energia_gerada ?? 0),
       })),
     clientes: clientes.count ?? 0,
-    energiaGerada:
-      Number(fechamento.energia_gerada ?? 0),
+    energiaGerada: energiaProjetada,
 
     energiaTotal:
       Number(dashboard.energiaTotal ?? 0),
 
-    energiaDisponivel:
-      Number(fechamento.energia_disponivel ?? 0),
+    energiaDisponivel: alocacaoAtual.energia_disponivel,
 
-    ocupacao:
-      Number(fechamento.ocupacao ?? 0),
+    ocupacao: alocacaoAtual.ocupacao,
 
     receitaPrevista:
       Number(fechamento.receita_prevista ?? 0),

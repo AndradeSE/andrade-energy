@@ -661,7 +661,7 @@ export async function verificarEmailDeCadastro(tokenInformado: unknown) {
       empresa_id: atualizada.empresa_id,
       tipo: "CONTA_CLIENTE_ATIVADA",
       titulo: "Cliente ativou a conta",
-      detalhe: `${cliente?.nome ?? "O cliente"} confirmou o e-mail e já pode acessar o aplicativo. A UC será liberada após a assinatura do contrato.`,
+      detalhe: `${cliente?.nome ?? "O cliente"} confirmou o e-mail e já pode acessar o aplicativo. Consulte o status do contrato e da UC na carteira.`,
       rota: `/clientes/${solicitacao.cliente_id}?area=unidades`,
     });
   }
