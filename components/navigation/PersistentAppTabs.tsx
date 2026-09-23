@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams, useSegments } from "expo-router";
+import { router, useGlobalSearchParams, useSegments } from "expo-router";
 import { Pressable, Text } from "react-native";
 
 import { IS_GERADOR_APP } from "../../config/appVariant";
@@ -34,7 +34,7 @@ const consumerTabs: TabItem[] = [
 export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
   const { user } = useAuth();
   const segments = useSegments();
-  const params = useLocalSearchParams<{ ambiente?: string; aba?: string }>();
+  const params = useGlobalSearchParams<{ ambiente?: string; aba?: string }>();
   const firstSegment = String(segments[0] ?? "");
   const secondSegment = String(segments[1] ?? "");
   const hidden =

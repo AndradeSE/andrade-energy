@@ -612,7 +612,7 @@ export default function GestaoGeradores() {
                     </View>
                   </View>
                   {carteira ? (
-                    <Card>
+                    <Card style={styles.transferCard}>
                       <Text style={styles.cardTitle}>Transferências</Text>
                       <Text style={styles.subtitle}>
                         Configure a chave Pix e movimente os valores recebidos
@@ -690,6 +690,7 @@ export default function GestaoGeradores() {
                     </Card>
                   ) : null}
                 </Section>
+                <View style={styles.billingSectionGap}>
                 <Section title="Faturamento das assinaturas">
                 {(data?.cobrancas ?? []).map((charge) => {
                   const status = String(charge.status ?? "PENDENTE");
@@ -773,6 +774,7 @@ export default function GestaoGeradores() {
                   </Text>
                 </View>
                 </Section>
+                </View>
               </>
             ) : null}
           </>
@@ -928,6 +930,8 @@ const styles = StyleSheet.create({
   sectionLead: { marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 },
   walletCard: { backgroundColor: "#083F31" },
   walletCardStandalone: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.lg, padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: "#083F31", ...Shadows.card },
+  transferCard: { marginTop: Spacing.sm, marginBottom: Spacing.xl },
+  billingSectionGap: { marginTop: Spacing.md },
   walletLabel: { color: "#9FE0BF", fontSize: 11, fontWeight: "800", letterSpacing: 1.2 },
   walletValue: { marginTop: 8, color: "#FFFFFF", fontSize: 36, fontWeight: "900" },
   walletPending: { marginTop: 5, color: "#CDEBDD" },

@@ -1,4 +1,5 @@
 import { router } from "expo-router";
+import { useEffect, useState } from "react";
 import { Pressable, Text } from "react-native";
 import { Colors } from "../../theme";
 import AppTabIcon from "../navigation/AppTabIcon";
@@ -9,6 +10,8 @@ export type CommercialTab = "HOME" | "GERADORES" | "PAGAMENTOS" | "PLANOS" | "AS
 
 export default function CommercialTabs({ active }: { active?: CommercialTab }) {
   const { user } = useAuth();
+  const [selectedTab, setSelectedTab] = useState<CommercialTab | undefined>(active);
+  useEffect(() => setSelectedTab(active), [active]);
   const colaborador = user?.papel_empresa === "COLABORADOR_COMERCIAL";
   const items = [
     {
@@ -62,7 +65,7 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
   return (
     <AppTabBarFrame>
       {items.map((item) => {
-        const selected = active === item.key;
+        const selected = selectedTab === item.key;
         const featured = item.key === "HOME";
         return (
           <Pressable
@@ -70,7 +73,10 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
             accessibilityState={{ selected }}
             accessibilityLabel={`Ir para ${item.label}`}
             key={item.key}
-            onPress={selected ? undefined : item.onPress}
+            onPress={selected ? undefined : () => {
+              setSelectedTab(item.key as CommercialTab);
+              item.onPress();
+            }}
             style={styles.item}
           >
             <AppTabIcon
