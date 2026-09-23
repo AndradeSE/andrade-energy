@@ -69,7 +69,11 @@ export default function AppHeader({
   const usuarioId = usuario?.id ? String(usuario.id) : undefined;
   const fotoPerfil = useProfilePhoto(usuarioId);
   const leituras = useReadNotifications(usuarioId);
-  const notificacoes = leituras.ready ? avisosRecebidos.filter((aviso) => !leituras.ids.includes(String(aviso.id))) : [];
+  const notificacoes = avisosRecebidos.map((aviso) => ({
+    ...aviso,
+    lida: leituras.ready && leituras.ids.includes(String(aviso.id)),
+  }));
+  const notificacoesNaoLidas = notificacoes.filter((aviso) => !aviso.lida);
   const [autonomia, setAutonomia] = useState<{ percentual: number; disponivel: number } | null>(null);
   const { isExpanded: contextoUsinaExpandido, setExpanded: setContextoUsinaExpandido } = useHeaderDetailsVisibility();
   const papelEmpresa = String(usuario?.papel_empresa ?? "");
@@ -201,9 +205,9 @@ export default function AppHeader({
         {onSearch ? <TouchableOpacity accessibilityLabel="Pesquisar" hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }} activeOpacity={0.8} onPress={onSearch} style={[styles.action, !proprietario && styles.consumerSearchAction]}>
           <Ionicons name="search-outline" size={24} color={Colors.surface} />
         </TouchableOpacity> : null}
-        <TouchableOpacity accessibilityLabel={notificacoes.length ? `${notificacoes.length} notificações` : "Notificações"} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} activeOpacity={0.8} onPress={() => setNotificacoesAbertas(true)} style={styles.action}>
-          <Ionicons name={notificacoes.length ? "notifications" : "notifications-outline"} size={24} color={Colors.surface} />
-          {notificacoes.length ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{notificacoes.length > 9 ? "9+" : notificacoes.length}</Text></View> : null}
+        <TouchableOpacity accessibilityLabel={notificacoesNaoLidas.length ? `${notificacoesNaoLidas.length} notificações não lidas` : "Notificações"} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} activeOpacity={0.8} onPress={() => setNotificacoesAbertas(true)} style={styles.action}>
+          <Ionicons name={notificacoesNaoLidas.length ? "notifications" : "notifications-outline"} size={24} color={Colors.surface} />
+          {notificacoesNaoLidas.length ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{notificacoesNaoLidas.length > 9 ? "9+" : notificacoesNaoLidas.length}</Text></View> : null}
         </TouchableOpacity>
       </View>
 
@@ -218,7 +222,7 @@ export default function AppHeader({
         <Pressable style={styles.backdrop} onPress={() => setNotificacoesAbertas(false)}>
           <Pressable style={styles.notificationPanel} onPress={(evento) => evento.stopPropagation()}>
             <View style={styles.menuHeader}><Text style={styles.menuTitle}>Notificações</Text><TouchableOpacity onPress={() => setNotificacoesAbertas(false)}><Ionicons name="close" size={26} color={Colors.text} /></TouchableOpacity></View>
-            {notificacoes.length ? notificacoes.map((aviso) => <TouchableOpacity key={aviso.id} onPress={async () => { await marcarNotificacaoComoLida(aviso.id); setNotificacoesAbertas(false); router.push(aviso.rota as any); }} style={styles.notificationItem}><View style={[styles.notificationDot, aviso.severidade === "alta" && styles.notificationDotHigh]} /><View style={styles.notificationCopy}><Text style={styles.notificationTitle}>{aviso.titulo}</Text><Text style={styles.notificationDetail}>{aviso.detalhe}</Text></View><Ionicons name="chevron-forward" size={18} color={Colors.subtitle} /></TouchableOpacity>) : <View style={styles.emptyNotifications}><Ionicons name="checkmark-circle-outline" size={34} color={Colors.success} /><Text style={styles.emptyNotificationsTitle}>Tudo em dia</Text><Text style={styles.emptyNotificationsText}>Nenhuma pendência importante encontrada.</Text></View>}
+            {notificacoes.length ? notificacoes.map((aviso) => <TouchableOpacity key={aviso.id} onPress={async () => { if (!aviso.lida) await marcarNotificacaoComoLida(aviso.id); setNotificacoesAbertas(false); router.push(aviso.rota as any); }} style={[styles.notificationItem, aviso.lida && styles.notificationItemRead]}><View style={[styles.notificationDot, aviso.severidade === "alta" && !aviso.lida && styles.notificationDotHigh, aviso.lida && styles.notificationDotRead]} /><View style={styles.notificationCopy}><View style={styles.notificationTitleRow}><Text style={[styles.notificationTitle, aviso.lida && styles.notificationTitleRead]}>{aviso.titulo}</Text><Text style={[styles.notificationStatus, aviso.lida && styles.notificationStatusRead]}>{aviso.lida ? "Lida" : "Não lida"}</Text></View><Text style={[styles.notificationDetail, aviso.lida && styles.notificationDetailRead]}>{aviso.detalhe}</Text></View><Ionicons name="chevron-forward" size={18} color={Colors.subtitle} /></TouchableOpacity>) : <View style={styles.emptyNotifications}><Ionicons name="checkmark-circle-outline" size={34} color={Colors.success} /><Text style={styles.emptyNotificationsTitle}>Tudo em dia</Text><Text style={styles.emptyNotificationsText}>Nenhuma notificação encontrada.</Text></View>}
           </Pressable>
         </Pressable>
       </Modal>
@@ -432,11 +436,18 @@ const styles = StyleSheet.create({
   menu: { width: "84%", height: "100%", paddingHorizontal: Spacing.lg, paddingTop: 58, backgroundColor: Colors.surface },
   notificationPanel: { width: "88%", marginTop: 90, marginHorizontal: "6%", paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg, borderRadius: Radius.xl, backgroundColor: Colors.surface },
   notificationItem: { minHeight: 66, flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: Colors.border },
+  notificationItemRead: { opacity: 0.68, backgroundColor: "#F7FAF8" },
   notificationDot: { width: 10, height: 10, marginRight: Spacing.sm, borderRadius: Radius.round, backgroundColor: Colors.secondary },
   notificationDotHigh: { backgroundColor: Colors.danger },
+  notificationDotRead: { backgroundColor: Colors.border },
   notificationCopy: { flex: 1 },
+  notificationTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: Spacing.sm },
   notificationTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "800" },
+  notificationTitleRead: { fontWeight: "600" },
   notificationDetail: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small },
+  notificationDetailRead: { color: Colors.subtitle },
+  notificationStatus: { color: Colors.primary, fontSize: 10, fontWeight: "900" },
+  notificationStatusRead: { color: Colors.subtitle },
   emptyNotifications: { alignItems: "center", paddingVertical: Spacing.xl },
   emptyNotificationsTitle: { marginTop: Spacing.sm, color: Colors.text, fontSize: Typography.body, fontWeight: "800" },
   emptyNotificationsText: { marginTop: 4, color: Colors.subtitle, textAlign: "center" },

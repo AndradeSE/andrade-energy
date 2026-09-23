@@ -22,6 +22,12 @@ export async function listarPlanosPublicos() {
 
 const mascararChave = (value:string) => value.length <= 6 ? "***" : `${value.slice(0,2)}***${value.slice(-4)}`;
 const chaveComercial = (carteira:any) => carteira?.pix_chave_criptografada ? descriptografarDado(carteira.pix_chave_criptografada) : "";
+async function consultarTitularPixComercial(tipo:string,chave:string) {
+  const titular=await asaasComercialRequest<any>(`/pix/addressKeys/external?type=${encodeURIComponent(tipo)}&key=${encodeURIComponent(chave)}`);
+  const nome=String(titular?.name??titular?.nome??titular?.holderName??titular?.ownerName??titular?.account?.name??titular?.account?.holderName??titular?.account?.ownerName??titular?.account?.holder?.name??titular?.holder?.name??titular?.owner?.name??"").trim();
+  if(!nome) throw new Error("O Asaas localizou a chave, mas não informou o titular. Confira a chave antes de continuar.");
+  return nome.slice(0,200);
+}
 async function carteiraComercial(usuario:any) { const existing=await supabase.from("carteira_comercial_assinaturas").select("*").eq("usuario_id",usuario.id).maybeSingle(); if(existing.error)throw existing.error;if(existing.data)return existing.data;const created=await supabase.from("carteira_comercial_assinaturas").insert({usuario_id:usuario.id}).select().single();if(created.error)throw created.error;return created.data; }
 
 export async function obterFinanceiroAssinaturas(usuario:any) {
@@ -29,15 +35,16 @@ export async function obterFinanceiroAssinaturas(usuario:any) {
   const { data: transferencias, error } = await supabase.from("asaas_transferencias").select("id,valor,status,destino_mascarado,modalidade,criado_em,atualizado_em").eq("solicitada_por", usuario.id).eq("modalidade", "ASSINATURA").order("criado_em", { ascending:false });
   if (error) throw error;
   const balance = asaasComercialConfigurado() ? await asaasComercialRequest<any>("/finance/balance").catch(() => null) : null;
-  return { asaasConectado:asaasComercialConfigurado(), saldoDisponivel:Number(balance?.balance ?? 0), transferenciaAutomatica:Boolean(carteira.transferencia_automatica), pixTipo:carteira.pix_tipo, pixChaveMascarada:chaveComercial(carteira)?mascararChave(chaveComercial(carteira)):null, transferencias:transferencias??[] };
+  return { asaasConectado:asaasComercialConfigurado(), saldoDisponivel:Number(balance?.balance ?? 0), transferenciaAutomatica:Boolean(carteira.transferencia_automatica), pixTipo:carteira.pix_tipo, pixChaveMascarada:chaveComercial(carteira)?mascararChave(chaveComercial(carteira)):null, pixTitularNome:carteira.pix_titular_nome??null, transferencias:transferencias??[] };
 }
 
 export async function atualizarFinanceiroAssinaturas(usuario:any,input:any) {
   if (!(await conferirSenha(String(input.senhaAtual??""),String(usuario.senha??"")))) throw new Error("Confirme sua senha para alterar o financeiro das assinaturas.");
   const carteira=await carteiraComercial(usuario); const pixTipo=String(input.pixTipo??carteira.pix_tipo??"").toUpperCase(); const pix=String(input.pixChave??chaveComercial(carteira)).trim();
   if (pixTipo&&!['CPF','CNPJ','EMAIL','PHONE','EVP'].includes(pixTipo)) throw new Error("Tipo de chave Pix inválido.");
+  const pixTitularNome=input.pixChave?await consultarTitularPixComercial(pixTipo,pix):String(carteira.pix_titular_nome??"").trim();
   if (input.transferenciaAutomatica===true&&(!pixTipo||!pix)) throw new Error("Cadastre a chave Pix comercial antes de ativar a transferência automática.");
-  const result=await supabase.from("carteira_comercial_assinaturas").update({pix_tipo:pixTipo||null,pix_chave_criptografada:pix?criptografarDado(pix):null,transferencia_automatica:Boolean(input.transferenciaAutomatica),atualizado_em:new Date().toISOString()}).eq("id",carteira.id);if(result.error)throw result.error;
+  const result=await supabase.from("carteira_comercial_assinaturas").update({pix_tipo:pixTipo||null,pix_chave_criptografada:pix?criptografarDado(pix):null,pix_titular_nome:pix?pixTitularNome:null,transferencia_automatica:Boolean(input.transferenciaAutomatica),atualizado_em:new Date().toISOString()}).eq("id",carteira.id);if(result.error)throw result.error;
   return obterFinanceiroAssinaturas(usuario);
 }
 
