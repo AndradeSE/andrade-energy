@@ -388,7 +388,7 @@ export default function ContratoDaUnidade() {
         </Card> : null}
         <View style={styles.documentActions}>
           {contratoAssinadoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoAssinadoUrl)} style={styles.signedLink}><Ionicons name="document-text-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir contrato assinado</Text></TouchableOpacity> : null}
-          {assinaturaPendente ? <TouchableOpacity accessibilityRole="button" activeOpacity={0.84} disabled={importando} onPress={importarAssinado} style={styles.uploadSignedButton}><Ionicons name="swap-horizontal-outline" size={20} color={Colors.primary} /><Text style={styles.uploadSignedButtonText}>{importando ? "Substituindo PDF..." : "Trocar PDF enviado por engano"}</Text></TouchableOpacity> : null}
+          {assinaturaPendente ? <TouchableOpacity accessibilityRole="button" activeOpacity={0.84} disabled={importando} onPress={importarAssinado} style={styles.uploadSignedButton}><Ionicons name="swap-horizontal-outline" size={20} color={Colors.primary} /><Text style={styles.uploadSignedButtonText}>{importando ? "Trocando documento..." : "Trocar documento assinado"}</Text></TouchableOpacity> : null}
           {!contratoAssinadoUrl && contratoGeradoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoGeradoUrl)} style={styles.documentLink}><Ionicons name="document-text-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir contrato</Text></TouchableOpacity> : null}
           {assinaturaPendente ? <Button title="Validar assinaturas do PDF" disabled={gerando} onPress={confirmarAssinaturaExterna} /> : null}
           {!assinaturaPendente ? <Button title="Atualizar contrato e configuração" icon={<Ionicons name="sync-circle-outline" size={20} color={Colors.surface} />} onPress={() => router.push({ pathname: "/unidades/editar", params: { id, numero, clienteId, descontoPadrao: desconto, revisaoContrato: "1" } })} /> : null}
@@ -430,7 +430,7 @@ export default function ContratoDaUnidade() {
           <Text style={styles.documentLinkText}>Gere e revise a minuta atual para habilitar o envio. Alterações nos campos exigem nova revisão.</Text>
           {(!contratoAssinadoUrl || assinaturaPendente) ? <TouchableOpacity accessibilityRole="button" activeOpacity={0.84} disabled={importando} onPress={importarAssinado} style={styles.uploadSignedButton}>
             <Ionicons name="cloud-upload-outline" size={20} color={Colors.primary} />
-            <Text style={styles.uploadSignedButtonText}>{importando ? (assinaturaPendente ? "Substituindo PDF..." : "Enviando contrato...") : (assinaturaPendente ? "Trocar PDF enviado por engano" : "Enviar contrato assinado (PDF)")}</Text>
+            <Text style={styles.uploadSignedButtonText}>{importando ? (assinaturaPendente ? "Trocando documento..." : "Enviando contrato...") : (assinaturaPendente ? "Trocar documento assinado" : "Enviar contrato assinado (PDF)")}</Text>
           </TouchableOpacity> : null}
           {contratoAssinadoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoAssinadoUrl)} style={styles.signedLink}><Ionicons name="checkmark-circle-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Contrato assinado vinculado à UC</Text></TouchableOpacity> : null}
           {assinaturaPendente ? <Button title="Validar assinaturas do PDF" disabled={gerando} onPress={confirmarAssinaturaExterna} /> : null}

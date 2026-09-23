@@ -387,7 +387,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
 
   const unidadeAnteriorId = unidadeAnterior?.id;
   const { data: contratosProtegidos, error: erroContratoProtegido } = unidadeAnteriorId
-    ? await supabase.from("contratos").select("id,status,aceite_cliente_em,contrato_assinado_url").eq("unidade_consumidora_id", unidadeAnteriorId).in("status", ["ATIVO", "VIGENTE"]).order("updated_at", { ascending: false })
+    ? await supabase.from("contratos").select("id,status,aceite_cliente_em,contrato_assinado_url,dados_documento").eq("unidade_consumidora_id", unidadeAnteriorId).in("status", ["ATIVO", "VIGENTE"]).order("updated_at", { ascending: false })
     : { data: [], error: null };
   if (erroContratoProtegido) throw erroContratoProtegido;
   const contratoProtegido = (contratosProtegidos ?? []).find((item) =>
@@ -397,6 +397,9 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
     contratoProtegido?.aceite_cliente_em
     || contratoProtegido?.contrato_assinado_url
     || String(contratoProtegido?.status ?? "").toUpperCase() === "VIGENTE"
+  );
+  const existePdfPendente = (contratosProtegidos ?? []).some((contrato) =>
+    contrato.dados_documento?.assinatura_externa_pendente === true
   );
   if (possuiContratoAssinado && input.somenteApelido) {
     const { error: erroApelido } = await supabase.from("unidades_consumidoras")
@@ -478,7 +481,8 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
       repassar_diferenca_fio_b_gd2: repassarDiferencaFioBGD2,
       tipo_gd: tipoGd,
       fatura_somente_andrade: somenteAndrade,
-      status: "ATIVA",
+      status: existePdfPendente || !possuiContratoAssinado
+        ? "PENDENTE_CONTRATO" : "ATIVA",
     }, { onConflict: "numero" })
     .select("id")
     .single();

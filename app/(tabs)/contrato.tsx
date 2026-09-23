@@ -533,7 +533,7 @@ function ContratoConsumidor() {
           >
             <Ionicons name="swap-horizontal-outline" size={20} color={Colors.primary} />
             <Text style={styles.govButtonText}>
-              {enviandoAssinado ? "Substituindo PDF..." : "Trocar PDF enviado por engano"}
+              {enviandoAssinado ? "Trocando documento..." : "Trocar documento assinado"}
             </Text>
           </TouchableOpacity> : null}
         </View>

@@ -10,7 +10,9 @@ import { Colors, Spacing, Typography } from "../../theme";
 
 function acaoContratualDaUc(unidade: any) {
   const contrato = unidade?.contrato_resumo;
-  const assinado = Boolean(contrato?.aceite_cliente_em || contrato?.contrato_assinado_url || String(contrato?.status ?? "").toUpperCase() === "VIGENTE");
+  const assinado = contrato?.dados_documento?.assinatura_externa_pendente !== true
+    && Boolean(contrato?.aceite_cliente_em || contrato?.contrato_assinado_url || String(contrato?.status ?? "").toUpperCase() === "VIGENTE");
+  if (contrato?.dados_documento?.assinatura_externa_pendente === true) return { label: "Revisar documento", status: "Aguardando conferência", revisao: false, liberada: false };
   if (assinado) return { label: "Ver contrato", status: "Assinado", revisao: false, liberada: true };
   if (contrato?.revisao_configuracao_pendente) return { label: "Gerar nova versão", status: "Nova versão necessária", revisao: true, liberada: false };
   if (unidade?.convite_resumo) return { label: "Reenviar convite", status: "Aguardando assinatura", revisao: false, liberada: false };

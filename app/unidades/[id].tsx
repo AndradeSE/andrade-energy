@@ -150,12 +150,14 @@ export default function UnidadeDocumentos() {
   const valorFaturado = faturas.reduce((total, item) => total + Number(item.valor_total_unificado ?? item.valor_total ?? 0), 0);
   const consumoTotal = faturas.reduce((total, item) => total + Number(item.consumo_kwh ?? item.consumo ?? 0), 0);
 
-  const status = String(unidade.status ?? "ATIVA").toUpperCase();
+  const status = contrato?.dados_documento?.assinatura_externa_pendente === true
+    ? "PENDENTE_CONTRATO" : String(unidade.status ?? "PENDENTE_CONTRATO").toUpperCase();
   // O vínculo é determinado pelo ID da usina. Em alguns acessos a partir de
   // listas antigas, o nome relacionado pode chegar no próximo carregamento;
   // nesse intervalo a UC já está alocada e não deve aparecer como pendente.
   const nomeUsinaVinculada = unidade.usinas?.nome ?? unidade.usina_nome ?? usinaNome ?? (unidade.usina_id ? "Usina vinculada - atualize para ver o nome" : "Ainda não alocada");
-  const contratoAssinado = Boolean(contrato?.aceite_cliente_em || contrato?.contrato_assinado_url || String(contrato?.status ?? "").toUpperCase() === "VIGENTE");
+  const contratoAssinado = contrato?.dados_documento?.assinatura_externa_pendente !== true
+    && Boolean(contrato?.aceite_cliente_em || contrato?.contrato_assinado_url || String(contrato?.status ?? "").toUpperCase() === "VIGENTE");
   const rotuloContrato = contratoAssinado ? "Ver contrato" : contrato ? "Gerenciar contrato" : "Cadastrar contrato";
   const titularDaFatura = String(faturasCadastro[0]?.dadosFatura?.titular ?? faturasCadastro[0]?.dadosFatura?.cliente ?? "").trim();
 
@@ -166,7 +168,7 @@ export default function UnidadeDocumentos() {
       <View style={styles.unitHeroTop}>
         <View style={styles.unitIcon}><Ionicons name="flash-outline" size={23} color={Colors.primary} /></View>
         <View style={styles.unitCopy}><Text style={styles.unitEyebrow}>UNIDADE CONSUMIDORA</Text><Text style={styles.unitTitle}>UC {unidade.numero}</Text><Text numberOfLines={1} style={styles.unitOwner}>{titularDaFatura ? `Titular da fatura: ${titularDaFatura}` : "Titular não identificado na fatura anexada"}</Text></View>
-        <Badge label={status} variant={status === "INATIVA" ? "danger" : "success"} />
+        <Badge label={status === "PENDENTE_CONTRATO" ? "AGUARDANDO CONFERÊNCIA" : status} variant={status === "ATIVA" ? "success" : status === "INATIVA" ? "danger" : "warning"} />
       </View>
       <View style={styles.heroDivider} />
       <UnitMeta icon="business-outline" label="Concessionária" value={unidade.distribuidora ?? "Não informada"} />
