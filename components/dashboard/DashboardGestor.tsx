@@ -6,6 +6,7 @@ import {
   Alert,
   Pressable,
   RefreshControl,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -14,6 +15,7 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { useDashboardGestor } from "../../hooks/useDashboardGestor";
 import { importarFaturaGeradora } from "../../services/usinas.service";
+import { obterLinkAplicativo } from "../../services/app-download.service";
 import * as CarteiraService from "../../services/carteira.service";
 import {
   marcarCarteiraComoVista,
@@ -109,6 +111,18 @@ export default function DashboardGestor() {
     setNovoRecebimento(false);
     await marcarCarteiraComoVista();
     router.push("/financeiro");
+  }
+
+
+  async function compartilharAppCliente() {
+    try {
+      await Share.share({
+        message: `Baixe o aplicativo Andrade Energy Cliente pelo link: ${obterLinkAplicativo("consumidor")}`,
+        title: "Compartilhar app do cliente",
+      });
+    } catch {
+      Alert.alert("Não foi possível compartilhar", "Tente novamente em instantes.");
+    }
   }
 
   async function atualizarGeracao() {
@@ -217,6 +231,11 @@ export default function DashboardGestor() {
                 label: atalho.label,
                 onPress: () => router.push(atalho.rota as any),
               })),
+              {
+                icon: "share-social-outline",
+                label: "Compartilhar app do cliente",
+                onPress: () => void compartilharAppCliente(),
+              },
             ]}
           />
         </Section>

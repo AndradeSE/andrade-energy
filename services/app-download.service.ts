@@ -14,6 +14,10 @@ const downloads = {
   },
 } as const;
 
+export function obterLinkAplicativo(tipo: AppDownload) {
+  return downloads[tipo].url;
+}
+
 export async function baixarAplicativo(
   tipo: AppDownload,
   onProgress?: (percentual: number) => void,
