@@ -45,8 +45,8 @@ export default function Loading() {
 const styles = StyleSheet.create({
   container: { flex: 1, alignSelf: "stretch", minHeight: 320, width: "100%", alignItems: "center", justifyContent: "center", padding: Spacing.xl, backgroundColor: "transparent" },
   scene: { width: "100%", maxWidth: 360, height: 320, alignItems: "center", justifyContent: "center" },
-  glowTop: { position: "absolute", top: 20, right: 12, width: 220, height: 220, borderRadius: 110, backgroundColor: "rgba(16,185,129,0.15)" },
-  glowBottom: { position: "absolute", bottom: 20, left: 12, width: 220, height: 220, borderRadius: 110, backgroundColor: "rgba(250,204,21,0.12)" },
+  glowTop: { position: "absolute", top: 16, right: 0, width: 140, height: 140, borderRadius: 70, backgroundColor: "rgba(16,185,129,0.15)" },
+  glowBottom: { position: "absolute", bottom: 16, left: 0, width: 140, height: 140, borderRadius: 70, backgroundColor: "rgba(250,204,21,0.12)" },
   animation: { width: 94, height: 94, alignItems: "center", justifyContent: "center" },
   pulse: { position: "absolute", width: 86, height: 86, borderRadius: 43, backgroundColor: Colors.primary },
   energyCore: { width: 58, height: 58, alignItems: "center", justifyContent: "center", borderRadius: 29, backgroundColor: Colors.primary, shadowColor: Colors.primaryDark, shadowOpacity: 0.22, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 },
