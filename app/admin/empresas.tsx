@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, RefreshControl, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 
-import { AppHeader, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
+import { AppHeader, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import { atualizarEmpresa, criarEmpresa, IdentidadeEmpresa, listarEmpresas, NovaEmpresa } from "../../services/empresas.service";
 import { useEmpresa } from "../../contexts/EmpresaContext";
@@ -54,7 +54,7 @@ export default function EmpresasAdmin() {
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={carregar} colors={[Colors.primary]} />}>
       <View style={styles.intro}><View style={styles.introCopy}><Text style={styles.eyebrow}>ADMINISTRAÇÃO MULTIEMPRESA</Text><Text style={styles.title}>{empresas.length} {empresas.length === 1 ? "empresa no ecossistema" : "empresas no ecossistema"}</Text></View><TouchableOpacity onPress={() => setAberto(true)} style={styles.add}><Ionicons name="add" size={20} color="#FFF" /><Text style={styles.addText}>Nova empresa</Text></TouchableOpacity></View>
       <Text style={styles.help}>Cada empresa possui identidade, usuários e operação separados. Andrade Energy permanece como ambiente padrão e proprietário.</Text>
-      {loading && !empresas.length ? <View style={styles.loading}><ActivityIndicator color={Colors.primary} /><Text style={styles.loadingText}>Carregando empresas...</Text></View> : null}
+      {loading && !empresas.length ? <Loading /> : null}
       {!loading && !empresas.length ? <Card style={styles.empty}><Ionicons name="business-outline" size={30} color={Colors.primary} /><Text style={styles.emptyTitle}>Nenhuma empresa parceira</Text><Text style={styles.emptyText}>Cadastre a primeira empresa para separar identidade, usuários e operação.</Text></Card> : null}
       {empresas.map((empresa) => <TouchableOpacity key={empresa.id} activeOpacity={0.82} onPress={() => abrirEdicao(empresa)}><Card style={styles.card}>
         <View style={styles.cardTop}>

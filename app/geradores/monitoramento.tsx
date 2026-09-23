@@ -3,7 +3,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Modal,
   Pressable,
@@ -18,7 +17,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import PortalBrandLogo from "../../components/brand/PortalBrandLogo";
-import { ElasticScrollView as ScrollView, Screen } from "../../components/ui";
+import { ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   obterPainelComercial,
@@ -238,7 +237,7 @@ export default function MonitoramentoGeradores() {
           />
         </View>
         {loading && !painel ? (
-          <ActivityIndicator color={Colors.primary} />
+          <Loading />
         ) : (
           ativos.map((item: any) => (
             <ClienteCard

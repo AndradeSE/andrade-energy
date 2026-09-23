@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Linking,
   Modal,
@@ -21,6 +20,7 @@ import {
   Card,
   Divider,
   ElasticScrollView as ScrollView,
+  Loading,
   Screen,
   Section,
 } from "../../components/ui";
@@ -239,6 +239,7 @@ export default function GestaoGeradores() {
         </Pressable>
       </Modal>
       <ScrollView
+        key={aba}
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
@@ -249,7 +250,7 @@ export default function GestaoGeradores() {
         }
       >
         {loading && !data ? (
-          <ActivityIndicator color={Colors.primary} />
+          <Loading />
         ) : (
           <>
             <ScrollView
@@ -594,7 +595,7 @@ export default function GestaoGeradores() {
             ) : null}
             {aba === "PAGAMENTOS" ? (
               <>
-                <Section title="Movimentação financeira">
+                <Section title="Movimentação financeira" framed={false}>
                   <View style={styles.walletCardStandalone}>
                     <View style={styles.grow}>
                       <Text style={styles.walletLabel}>
@@ -691,7 +692,7 @@ export default function GestaoGeradores() {
                   ) : null}
                 </Section>
                 <View style={styles.billingSectionGap}>
-                <Section title="Faturamento das assinaturas">
+                <Section title="Faturamento das assinaturas" framed={false}>
                 {(data?.cobrancas ?? []).map((charge) => {
                   const status = String(charge.status ?? "PENDENTE");
                   const customer =

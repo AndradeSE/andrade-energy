@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { ElasticScrollView as ScrollView, Screen } from "../../components/ui";
+import { ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { obterPainelComercial, PainelComercial, removerGerador } from "../../services/comercial.service";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 import { useAuth } from "../../contexts/AuthContext";
@@ -41,7 +41,7 @@ export default function DetalhesGerador() {
       } },
     ]);
   }
-  if (loading) return <Screen><View style={styles.state}><ActivityIndicator color={Colors.primary}/></View></Screen>;
+  if (loading) return <Screen><Loading /></Screen>;
   if (!gerador) return <Screen><View style={styles.state}><Text style={styles.title}>Gerador não encontrado</Text><TouchableOpacity onPress={()=>router.back()}><Text style={styles.link}>Voltar</Text></TouchableOpacity></View></Screen>;
   const metrics = [
     ["business-outline", "Usinas cadastradas", String(gerador.total_usinas ?? 0)],

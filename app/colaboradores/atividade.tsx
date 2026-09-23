@@ -1,10 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { listarAuditoriaColaboradores } from "../../services/colaboradores.service";
-import { AppHeader, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
+import { AppHeader, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { Colors, Spacing, Typography } from "../../theme";
 
 const verbos: Record<string, string> = {
@@ -44,7 +44,7 @@ export default function AtividadeEquipe() {
       <TouchableOpacity onPress={() => router.back()} style={styles.back}><Ionicons name="arrow-back" size={20} color={Colors.primary}/><Text style={styles.backText}>Voltar</Text></TouchableOpacity>
       <Text style={styles.title}>Ações registradas</Text>
       <Text style={styles.subtitle}>Cada operação feita por um colaborador fica vinculada ao login utilizado. O histórico não exibe senhas nem dados preenchidos nos formulários.</Text>
-      {carregando ? <ActivityIndicator color={Colors.primary}/> : itens.length ? itens.map((item) => <AuditCard key={item.id} item={item}/>) : <Card><Text style={styles.empty}>Nenhuma ação de colaborador registrada ainda.</Text></Card>}
+      {carregando ? <Loading /> : itens.length ? itens.map((item) => <AuditCard key={item.id} item={item}/>) : <Card><Text style={styles.empty}>Nenhuma ação de colaborador registrada ainda.</Text></Card>}
     </ScrollView>
   </Screen>;
 }
