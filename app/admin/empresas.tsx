@@ -17,6 +17,7 @@ export default function EmpresasAdmin() {
   const { usuario } = useAuth();
   const [empresas, setEmpresas] = useState<IdentidadeEmpresa[]>([]);
   const [loading, setLoading] = useState(true);
+  const [inicializado, setInicializado] = useState(false);
   const [aberto, setAberto] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [editando, setEditando] = useState<IdentidadeEmpresa | null>(null);
@@ -25,7 +26,7 @@ export default function EmpresasAdmin() {
     setLoading(true);
     try { setEmpresas(await listarEmpresas()); }
     catch (error: any) { Alert.alert("Empresas", error?.response?.data?.message ?? "Não foi possível carregar as empresas."); }
-    finally { setLoading(false); }
+    finally { setLoading(false); setInicializado(true); }
   }, []);
   useEffect(() => { void carregar(); }, [carregar]);
   useEffect(() => {
@@ -51,11 +52,11 @@ export default function EmpresasAdmin() {
   }
   return <Screen>
     <AppHeader variant="subpage" title="Empresas" subtitle="Ecossistema multiempresa" contextTitle="Empresas parceiras" contextSubtitle="Identidade e dados isolados" icon="layers-outline" />
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={carregar} colors={[Colors.primary]} />}>
+    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading && inicializado} onRefresh={carregar} colors={[Colors.primary]} />}>
       <View style={styles.intro}><View style={styles.introCopy}><Text style={styles.eyebrow}>ADMINISTRAÇÃO MULTIEMPRESA</Text><Text style={styles.title}>{empresas.length} {empresas.length === 1 ? "empresa no ecossistema" : "empresas no ecossistema"}</Text></View><TouchableOpacity onPress={() => setAberto(true)} style={styles.add}><Ionicons name="add" size={20} color="#FFF" /><Text style={styles.addText}>Nova empresa</Text></TouchableOpacity></View>
       <Text style={styles.help}>Cada empresa possui identidade, usuários e operação separados. Andrade Energy permanece como ambiente padrão e proprietário.</Text>
-      {loading && !empresas.length ? <Loading /> : null}
-      {!loading && !empresas.length ? <Card style={styles.empty}><Ionicons name="business-outline" size={30} color={Colors.primary} /><Text style={styles.emptyTitle}>Nenhuma empresa parceira</Text><Text style={styles.emptyText}>Cadastre a primeira empresa para separar identidade, usuários e operação.</Text></Card> : null}
+      {loading && !inicializado ? <Loading /> : null}
+      {inicializado && !empresas.length ? <Card style={styles.empty}><Ionicons name="business-outline" size={30} color={Colors.primary} /><Text style={styles.emptyTitle}>Nenhuma empresa parceira</Text><Text style={styles.emptyText}>Cadastre a primeira empresa para separar identidade, usuários e operação.</Text></Card> : null}
       {empresas.map((empresa) => <TouchableOpacity key={empresa.id} activeOpacity={0.82} onPress={() => abrirEdicao(empresa)}><Card style={styles.card}>
         <View style={styles.cardTop}>
           {empresa.logo_url ? <Image source={{ uri: empresa.logo_url }} resizeMode="contain" style={styles.brandImage} /> : <View style={[styles.brand, { backgroundColor: empresa.cor_primaria || Colors.primary }]}><Text style={styles.brandText}>{empresa.nome.slice(0, 2).toUpperCase()}</Text></View>}

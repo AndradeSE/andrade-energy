@@ -219,7 +219,7 @@ export default function MonitoramentoGeradores() {
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
-            refreshing={loading}
+            refreshing={loading && Boolean(painel)}
             onRefresh={carregar}
             colors={[Colors.primary]}
           />

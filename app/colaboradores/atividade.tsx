@@ -31,20 +31,21 @@ const areas: Record<string, string> = {
 export default function AtividadeEquipe() {
   const [itens, setItens] = useState<any[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [inicializado, setInicializado] = useState(false);
   const carregar = useCallback(async () => {
     try { setItens(await listarAuditoriaColaboradores()); }
     catch (error: any) { Alert.alert("Atividade da equipe", error?.response?.data?.message ?? "Não foi possível carregar o histórico."); }
-    finally { setCarregando(false); }
+    finally { setCarregando(false); setInicializado(true); }
   }, []);
   useEffect(() => { void carregar(); }, [carregar]);
 
   return <Screen edges={["top", "left", "right"]}>
     <AppHeader variant="subpage" title="Atividade da equipe" subtitle="Histórico individual" contextTitle="Auditoria de colaboradores" contextSubtitle="Quem fez, onde e quando" icon="time-outline" />
-    <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={carregando} onRefresh={() => { setCarregando(true); void carregar(); }} colors={[Colors.primary]} />}>
+    <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={carregando && inicializado} onRefresh={() => { setCarregando(true); void carregar(); }} colors={[Colors.primary]} />}>
       <TouchableOpacity onPress={() => router.back()} style={styles.back}><Ionicons name="arrow-back" size={20} color={Colors.primary}/><Text style={styles.backText}>Voltar</Text></TouchableOpacity>
       <Text style={styles.title}>Ações registradas</Text>
       <Text style={styles.subtitle}>Cada operação feita por um colaborador fica vinculada ao login utilizado. O histórico não exibe senhas nem dados preenchidos nos formulários.</Text>
-      {carregando ? <Loading /> : itens.length ? itens.map((item) => <AuditCard key={item.id} item={item}/>) : <Card><Text style={styles.empty}>Nenhuma ação de colaborador registrada ainda.</Text></Card>}
+      {carregando && !inicializado ? <Loading /> : itens.length ? itens.map((item) => <AuditCard key={item.id} item={item}/>) : <Card><Text style={styles.empty}>Nenhuma ação de colaborador registrada ainda.</Text></Card>}
     </ScrollView>
   </Screen>;
 }

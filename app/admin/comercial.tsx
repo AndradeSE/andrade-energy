@@ -224,7 +224,7 @@ export default function HomeComercial() {
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
-            refreshing={loading}
+            refreshing={loading && Boolean(data)}
             onRefresh={load}
             colors={[Colors.primary]}
           />

@@ -243,7 +243,7 @@ export default function GestaoGeradores() {
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
-            refreshing={loading}
+            refreshing={loading && Boolean(data)}
             onRefresh={load}
             tintColor={Colors.primary}
           />

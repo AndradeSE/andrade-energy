@@ -41,7 +41,7 @@ export default function Loading() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignSelf: "stretch", minHeight: 260, width: "100%", overflow: "hidden", alignItems: "center", justifyContent: "center", padding: Spacing.xl, backgroundColor: "#EAF5EF" },
+  container: { flex: 1, alignSelf: "stretch", minHeight: 320, width: "100%", overflow: "hidden", alignItems: "center", justifyContent: "center", padding: Spacing.xl, backgroundColor: "transparent" },
   glowTop: { position: "absolute", top: -120, right: -90, width: 280, height: 280, borderRadius: 140, backgroundColor: "rgba(16,185,129,0.15)" },
   glowBottom: { position: "absolute", bottom: -150, left: -110, width: 330, height: 330, borderRadius: 165, backgroundColor: "rgba(250,204,21,0.12)" },
   animation: { width: 94, height: 94, alignItems: "center", justifyContent: "center" },
