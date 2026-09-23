@@ -168,8 +168,8 @@ export default function UnidadeDocumentos() {
       <View style={styles.unitHeroTop}>
         <View style={styles.unitIcon}><Ionicons name="flash-outline" size={23} color={Colors.primary} /></View>
         <View style={styles.unitCopy}><Text style={styles.unitEyebrow}>UNIDADE CONSUMIDORA</Text><Text style={styles.unitTitle}>UC {unidade.numero}</Text><Text numberOfLines={1} style={styles.unitOwner}>{titularDaFatura ? `Titular da fatura: ${titularDaFatura}` : "Titular não identificado na fatura anexada"}</Text></View>
-        <Badge label={status === "PENDENTE_CONTRATO" ? "AGUARDANDO CONFERÊNCIA" : status} variant={status === "ATIVA" ? "success" : status === "INATIVA" ? "danger" : "warning"} />
       </View>
+      <View style={styles.unitStatusRow}><Badge label={status === "PENDENTE_CONTRATO" ? "AGUARDANDO CONFERÊNCIA" : status} variant={status === "ATIVA" ? "success" : status === "INATIVA" ? "danger" : "warning"} /></View>
       <View style={styles.heroDivider} />
       <UnitMeta icon="business-outline" label="Concessionária" value={unidade.distribuidora ?? "Não informada"} />
       <UnitMeta icon="sunny-outline" label="Usina vinculada" value={nomeUsinaVinculada} last />
@@ -244,6 +244,7 @@ const styles = StyleSheet.create({
   backLabel: { color: Colors.subtitle, fontSize: Typography.small, fontWeight: "700" },
   unitHero: { marginBottom: Spacing.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.lg, backgroundColor: Colors.surface, shadowOpacity: 0, elevation: 0 },
   unitHeroTop: { flexDirection: "row", alignItems: "center" },
+  unitStatusRow: { marginTop: Spacing.sm, alignItems: "flex-start" },
   unitIcon: { width: 46, height: 46, alignItems: "center", justifyContent: "center", marginRight: Spacing.sm, borderRadius: Radius.md, backgroundColor: Colors.primaryLight },
   unitCopy: { flex: 1, minWidth: 0 },
   unitEyebrow: { color: Colors.subtitle, fontSize: 10, fontWeight: "900", letterSpacing: 0.9 },
