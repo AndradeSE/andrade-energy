@@ -1722,7 +1722,7 @@ function UnitTools({
         body,
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok && (data.code === "PDF_PASSWORD_REQUIRED" || response.status === 422)) {
+      if (!response.ok && data.code === "PDF_PASSWORD_REQUIRED") {
         setPendingPdf(file);
         setPdfPasswordOpen(true);
         setMessage("Este PDF possui senha. Informe os 4 primeiros números do CPF do titular para validar.");
