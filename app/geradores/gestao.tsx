@@ -40,6 +40,7 @@ import {
   validarChavePixAssinaturas,
 } from "../../services/comercial.service";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
+import AutenticadorFinanceiro from "../../components/financeiro/AutenticadorFinanceiro";
 
 const money = (value: unknown) =>
   Number(value ?? 0).toLocaleString("pt-BR", {
@@ -66,6 +67,7 @@ export default function GestaoGeradores() {
   const [pixTipo] = useState("CPF");
   const [pixChave, setPixChave] = useState("");
   const [senhaFinanceira, setSenhaFinanceira] = useState("");
+  const [codigoAutenticador, setCodigoAutenticador] = useState("");
   const [saque, setSaque] = useState("");
   const [validandoPix, setValidandoPix] = useState(false);
   const [mostrarArquivadas, setMostrarArquivadas] = useState(false);
@@ -614,6 +616,7 @@ export default function GestaoGeradores() {
                   </View>
                   {carteira ? (
                     <View style={styles.financeCards}>
+                      <AutenticadorFinanceiro base="/comercial/financeiro" ativo={Boolean(carteira.autenticadorAtivo)} senhaAtual={senhaFinanceira} codigo={codigoAutenticador} onCodigo={setCodigoAutenticador} onAtivo={() => void obterFinanceiroAssinaturas().then(setCarteira)} />
                       <Card style={styles.financeCard}>
                         <Text style={styles.cardTitle}>Segurança e automação</Text>
                         <Text style={styles.inputLabel}>Confirme sua senha para alterar o financeiro</Text>
@@ -847,8 +850,8 @@ export default function GestaoGeradores() {
 
   async function saveWallet(automatic = carteira?.transferenciaAutomatica ?? false) {
     const salvar = async () => {
-      const updated = await configurarFinanceiroAssinaturas({ pixTipo, pixChave:pixChave || undefined, transferenciaAutomatica:automatic, senhaAtual:senhaFinanceira });
-      setCarteira(updated); setPixChave(""); setSenhaFinanceira("");
+      const updated = await configurarFinanceiroAssinaturas({ pixTipo, pixChave:pixChave || undefined, transferenciaAutomatica:automatic, senhaAtual:senhaFinanceira, codigoAutenticador });
+      setCarteira(updated); setPixChave(""); setSenhaFinanceira(""); setCodigoAutenticador("");
       Alert.alert("Financeiro", "Configuração de transferência atualizada.");
     };
     try {
@@ -871,7 +874,7 @@ export default function GestaoGeradores() {
     const valor = Number(saque.replace(",", "."));
     if (!carteira?.asaasConectado) return Alert.alert("Asaas comercial", "Conecte a conta exclusiva das assinaturas antes de transferir.");
     if (!(valor > 0)) return Alert.alert("Transferência", "Informe um valor válido.");
-    Alert.alert("Confirmar transferência", `Transferir ${money(valor)} para ${carteira?.pixChaveMascarada ?? "a chave cadastrada"}?`, [{text:"Cancelar",style:"cancel"},{text:"Transferir",onPress:async()=>{try{await transferirFinanceiroAssinaturas(valor,senhaFinanceira);setSaque("");setSenhaFinanceira("");setCarteira(await obterFinanceiroAssinaturas());Alert.alert("Transferência solicitada","A operação foi enviada à conta Asaas das assinaturas.");}catch(error:any){Alert.alert("Transferência",error?.response?.data?.message??"Não foi possível transferir.");}}}]);
+    Alert.alert("Confirmar transferência", `Transferir ${money(valor)} para ${carteira?.pixChaveMascarada ?? "a chave cadastrada"}?`, [{text:"Cancelar",style:"cancel"},{text:"Transferir",onPress:async()=>{try{await transferirFinanceiroAssinaturas(valor,senhaFinanceira,codigoAutenticador);setSaque("");setSenhaFinanceira("");setCodigoAutenticador("");setCarteira(await obterFinanceiroAssinaturas());Alert.alert("Transferência solicitada","A operação foi enviada à conta Asaas das assinaturas.");}catch(error:any){Alert.alert("Transferência",error?.response?.data?.message??"Não foi possível transferir.");}}}]);
   }
 }
 
