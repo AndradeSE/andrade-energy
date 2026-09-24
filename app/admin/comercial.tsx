@@ -239,7 +239,7 @@ export default function HomeComercial() {
         </View>
         <Section title="Acesso rápido" framed={false}>
           <QuickAccessCarousel
-            storageKey="comercial-home"
+            storageKey={`comercial-home-${usuario?.id ?? "anonimo"}`}
             items={([
               { icon: "business-outline", label: "Geradores", value: `${data?.geradores.filter((item) => item.perfil === "GESTOR").length ?? 0} cadastrados`, onPress: () => router.push({ pathname: "/geradores/gestao", params: { aba: "GERADORES" } } as any) },
               { icon: "card-outline", label: "Assinaturas", value: `${data?.assinaturas.length ?? 0} cadastradas`, onPress: () => router.push({ pathname: "/geradores/gestao", params: { aba: "ASSINATURAS" } } as any) },

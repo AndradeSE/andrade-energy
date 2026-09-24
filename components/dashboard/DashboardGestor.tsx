@@ -62,9 +62,15 @@ function rotuloCompetencia(valor: unknown) {
 const atalhos = [
   { icon: "card-outline", label: "Meu plano", rota: "/assinatura" },
   { icon: "people-outline", label: "Clientes", rota: "/clientes" },
+  { icon: "person-add-outline", label: "Novo cliente", rota: "/clientes/novo" },
   { icon: "business-outline", label: "Usinas", rota: "/usinas" },
+  { icon: "add-circle-outline", label: "Nova usina", rota: "/usinas/nova" },
   { icon: "flash-outline", label: "Unidades consumidoras", rota: "/unidades" },
+  { icon: "flash-outline", label: "Nova UC", rota: "/unidades/nova" },
   { icon: "document-attach-outline", label: "Faturar via fatura", rota: "/faturamento/manual" },
+  { icon: "construct-outline", label: "Operação", rota: "/operacao" },
+  { icon: "receipt-outline", label: "Faturamento", rota: "/faturamento" },
+  { icon: "cash-outline", label: "Financeiro", rota: "/financeiro" },
   { icon: "receipt-outline", label: "Faturas", rota: "/faturas" },
   { icon: "document-text-outline", label: "Contratos", rota: "/contratos" },
   { icon: "people-circle-outline", label: "Colaboradores", rota: "/colaboradores?ambiente=gerador" },
@@ -215,7 +221,7 @@ export default function DashboardGestor() {
       >
         <Section title="Acesso rápido" framed={false}>
           <QuickAccessCarousel
-            storageKey="gestor-home"
+            storageKey={`gestor-home-${usuario?.id ?? "anonimo"}`}
             items={[
               {
                 icon: "wallet-outline",
@@ -226,7 +232,7 @@ export default function DashboardGestor() {
                 badge: novoRecebimento,
                 onPress: () => void abrirCarteira(),
               },
-              ...atalhos.filter((atalho) => !colaborador || atalho.label !== "Colaboradores").map((atalho) => ({
+              ...atalhos.filter((atalho) => !colaborador || !["Colaboradores", "Novo cliente", "Nova usina", "Nova UC", "Financeiro"].includes(atalho.label)).map((atalho) => ({
                 icon: atalho.icon,
                 label: atalho.label,
                 onPress: () => router.push(atalho.rota as any),
