@@ -29,7 +29,7 @@ export async function listarClientesController(
     const data = await listarClientes(empresaIdDaRequisicao(req), typeof req.query.usinaId === "string" ? req.query.usinaId : undefined);
     return res.json(data);
   } catch (e: any) {
-    return res.status(e.code === "CLIENTE_COM_CONTRATO_ATIVO" ? 409 : 500).json({ message: e.message, code: e.code, contratos: e.contratos });
+    return res.status(500).json({ message: e.message });
   }
 }
 
@@ -154,8 +154,10 @@ export async function excluirClienteController(
 
     return res.status(204).send();
   } catch (e: any) {
-    return res.status(500).json({
+    return res.status(e.code === "CLIENTE_COM_CONTRATO_ATIVO" ? 409 : 500).json({
       message: e.message,
+      code: e.code,
+      contratos: e.contratos,
     });
   }
 }

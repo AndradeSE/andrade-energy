@@ -501,6 +501,20 @@ export async function buscarClientePorUC(uc: string) {
 }
 
 export async function criarCliente(cliente: any, empresaId = EMPRESA_ANDRADE_ID) {
+  const cpf = somenteDigitos(cliente?.cpf);
+  if (cpf.length === 11) {
+    const { data: existentes, error: erroExistentes } = await supabase.from("clientes")
+      .select("*").eq("empresa_id", empresaId).eq("cpf", cpf).order("created_at", { ascending: true });
+    if (erroExistentes) throw erroExistentes;
+    if (existentes?.length) {
+      const ids = existentes.map((item) => item.id);
+      const { data: unidades, error: erroUnidades } = await supabase.from("unidades_consumidoras")
+        .select("cliente_id").eq("empresa_id", empresaId).in("cliente_id", ids).limit(1000);
+      if (erroUnidades) throw erroUnidades;
+      const comUc = new Set((unidades ?? []).map((item) => item.cliente_id));
+      return existentes.find((item) => comUc.has(item.id)) ?? existentes[0];
+    }
+  }
   const { data, error } = await supabase
     .from("clientes")
     .insert({ ...cliente, empresa_id: empresaId })
@@ -727,7 +741,7 @@ export async function cadastrarUnidadeCliente(clienteId: string, numeroInformado
       .eq("empresa_id", empresaId);
     if (erroAtivacao) throw erroAtivacao;
   }
-  return { ...resultado.data, status: contratoRestaurado ? "ATIVA" : resultado.data.status, contrato_restaurado: Boolean(contratoRestaurado) };
+  return { ...resultado.data, status: contratoRestaurado ? "ATIVA" : resultado.data.status, contrato_restaurado: Boolean(contratoRestaurado), ja_existia: Boolean(existente) };
 }
 
 export async function excluirUnidadeCliente(unidadeId: string, empresaId = EMPRESA_ANDRADE_ID) {
