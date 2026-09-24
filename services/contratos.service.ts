@@ -142,6 +142,11 @@ export async function solicitarCodigoAssinatura(contratoId: string) {
   return data;
 }
 
+export async function prepararRevisaoDaUnidade(unidadeId: string) {
+  const { data } = await api.post(`/contratos/unidade/${unidadeId}/preparar-revisao`);
+  return data;
+}
+
 export async function registrarAceiteEletronico(contratoId: string, payload: { codigo: string; assinatura: string[]; aceiteRevisao?: boolean }) {
   const { data } = await api.post(`/contratos/${contratoId}/aceite-eletronico`, payload);
   return data;

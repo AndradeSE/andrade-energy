@@ -11,6 +11,7 @@ import { IS_GERADOR_APP } from "../../config/appVariant";
 import { buscarCliente, buscarUnidade, listarFaturasAnexadasCliente } from "../../services/clientes.service";
 import { buscarFaturasCliente } from "../../services/faturas.service";
 import { alocarUnidade, listarUsinas } from "../../services/usinas.service";
+import { prepararRevisaoDaUnidade } from "../../services/contratos.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 type Modalidade = "INJECAO" | "COMPENSACAO";
@@ -209,6 +210,7 @@ export default function EditarAlocacaoUnidade() {
       // fatura. O destino único evita ficar preso na tela anterior e exigir
       // um segundo toque para voltar à lista atualizada.
       if (atualizacaoContratual) {
+        await prepararRevisaoDaUnidade(unidadeIdRecebida);
         router.replace({ pathname: "/unidades/contrato", params: { id: unidadeIdRecebida, numero: numeroDaUc, clienteId: clienteIdResolvido, descontoPadrao: String(descontoNumero), revisao: "1", revisaoToken: String(Date.now()) } });
       } else router.replace("/unidades");
     } catch (erro: any) { Alert.alert("Não foi possível alocar", erro?.message ?? "Tente novamente."); } finally { setSalvando(false); }

@@ -282,6 +282,35 @@ export async function salvarContratoDaUnidadeService(
   });
 }
 
+/** Abre de fato um rascunho editável após salvar a configuração da UC. */
+export async function prepararRevisaoDaUnidadeService(unidadeId: string) {
+  const rascunho = await buscarRascunhoAtualUnidade(unidadeId);
+  if (rascunho && !rascunho.contrato_assinado_url) return rascunho;
+  const anterior = rascunho ?? await buscarContratoMaisRecenteUnidade(unidadeId);
+  if (!anterior) throw new Error("Não há contrato desta UC para revisar.");
+  const base = String(anterior.numero ?? `AE-${unidadeId}`).replace(/-R\d+$/, "");
+  const sufixoAnterior = Number(/-R(\d+)$/.exec(String(anterior.numero ?? ""))?.[1] ?? 0);
+  return salvarContratoDaUnidadeService(unidadeId, {
+    nova_versao: true,
+    numero: `${base}-R${Math.max(Number(anterior.versao ?? 1), sufixoAnterior) + 1}`,
+    termo_adesao: anterior.termo_adesao,
+    desconto: anterior.desconto,
+    data_assinatura: anterior.data_assinatura,
+    vigencia_inicio: anterior.vigencia_inicio,
+    vigencia_fim: anterior.vigencia_fim,
+    economia_mensal_estimada: anterior.economia_mensal_estimada,
+    economia_anual_estimada: anterior.economia_anual_estimada,
+    observacoes: anterior.observacoes,
+    dados_documento: {
+      locador_nome: anterior.dados_documento?.locador_nome,
+      locador_documento: anterior.dados_documento?.locador_documento,
+      locador_endereco: anterior.dados_documento?.locador_endereco,
+      prazo_anos: anterior.dados_documento?.prazo_anos,
+      foro: anterior.dados_documento?.foro,
+    },
+  });
+}
+
 export async function gerarContratoDaUnidadeService(unidadeId: string, dados: any) {
   const contrato = await salvarContratoDaUnidadeService(unidadeId, dados);
   const pdf = await gerarMinutaContrato(unidadeId, contrato);

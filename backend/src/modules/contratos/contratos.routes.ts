@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { supabase } from "../../config/supabase";
+import * as ContratosService from "./contratos.service";
 
 import {
     atualizarContratoController,
@@ -100,6 +101,11 @@ router.put(
   exigirRegistroDaEmpresa("unidades_consumidoras", "unidadeId"),
   salvarContratoDaUnidadeController
 );
+
+router.post("/unidade/:unidadeId/preparar-revisao", exigirGestor, exigirRegistroDaEmpresa("unidades_consumidoras", "unidadeId"), async (req, res) => {
+  try { res.json(await ContratosService.prepararRevisaoDaUnidadeService(req.params.unidadeId)); }
+  catch (erro: any) { res.status(400).json({ message: erro.message }); }
+});
 
 router.post(
   "/unidade/:unidadeId/gerar-documento",
