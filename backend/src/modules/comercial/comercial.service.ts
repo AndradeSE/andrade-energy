@@ -5,6 +5,7 @@ import { criptografarDado, descriptografarDado } from "../../utils/sensitiveData
 import { empresaIdDoUsuario } from "../../config/empresa";
 import { mercadoPagoComercialRequest } from "./mercadoPagoComercial.client";
 import { provedorPagamentoComercial } from "./provedorPagamento";
+import { autenticadorAtivo, exigirCodigoFinanceiro } from "../financeiro-seguranca/financeiroSeguranca.service";
 
 const digits = (value: unknown) => String(value ?? "").replace(/\D/g, "");
 const isoDate = (value: unknown) => {
@@ -42,11 +43,12 @@ export async function obterFinanceiroAssinaturas(usuario:any) {
   const { data: transferencias, error } = await supabase.from("asaas_transferencias").select("id,valor,status,destino_mascarado,modalidade,criado_em,atualizado_em").eq("solicitada_por", usuario.id).eq("modalidade", "ASSINATURA").order("criado_em", { ascending:false });
   if (error) throw error;
   const balance = asaasComercialConfigurado() ? await asaasComercialRequest<any>("/finance/balance").catch(() => null) : null;
-  return { asaasConectado:asaasComercialConfigurado(), saldoDisponivel:Number(balance?.balance ?? 0), transferenciaAutomatica:Boolean(carteira.transferencia_automatica), pixTipo:carteira.pix_tipo, pixChaveMascarada:chaveComercial(carteira)?mascararChave(chaveComercial(carteira)):null, pixTitularNome:carteira.pix_titular_nome??null, transferencias:transferencias??[] };
+  return { asaasConectado:asaasComercialConfigurado(), saldoDisponivel:Number(balance?.balance ?? 0), transferenciaAutomatica:Boolean(carteira.transferencia_automatica), autenticadorAtivo:await autenticadorAtivo(usuario.id), pixTipo:carteira.pix_tipo, pixChaveMascarada:chaveComercial(carteira)?mascararChave(chaveComercial(carteira)):null, pixTitularNome:carteira.pix_titular_nome??null, transferencias:transferencias??[] };
 }
 
 export async function atualizarFinanceiroAssinaturas(usuario:any,input:any) {
   if (!(await conferirSenha(String(input.senhaAtual??""),String(usuario.senha??"")))) throw new Error("Confirme sua senha para alterar o financeiro das assinaturas.");
+  await exigirCodigoFinanceiro(usuario.id, String(input.codigoAutenticador ?? ""));
   const carteira=await carteiraComercial(usuario); const pixTipo=String(input.pixTipo??carteira.pix_tipo??"").toUpperCase(); const pix=String(input.pixChave??chaveComercial(carteira)).trim();
   if (pixTipo&&!['CPF','CNPJ','EMAIL','PHONE','EVP'].includes(pixTipo)) throw new Error("Tipo de chave Pix inválido.");
   const pixTitularNome=input.pixChave?await consultarTitularPixComercial(pixTipo,pix):String(carteira.pix_titular_nome??"").trim();
@@ -59,6 +61,7 @@ export async function transferirFinanceiroAssinaturas(usuario:any,input:any,idem
   if (!asaasComercialConfigurado()) throw new Error("A conta Asaas comercial ainda não está conectada.");
   if (String(input.confirmacao??"")!=="TRANSFERIR") throw new Error("Confirme a transferência para continuar.");
   if (!(await conferirSenha(String(input.senhaAtual??""),String(usuario.senha??"")))) throw new Error("Senha atual incorreta.");
+  await exigirCodigoFinanceiro(usuario.id, String(input.codigoAutenticador ?? ""));
   const carteira=await carteiraComercial(usuario); const pix=chaveComercial(carteira); const valor=Math.round(Number(input.valor??0)*100)/100;
   if (!pix||!carteira.pix_tipo) throw new Error("Cadastre a chave Pix do financeiro das assinaturas.");
   const resumo=await obterFinanceiroAssinaturas(usuario); if (!(valor>0)||valor>resumo.saldoDisponivel) throw new Error("Valor indisponível para transferência.");

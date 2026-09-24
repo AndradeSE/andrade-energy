@@ -1,9 +1,13 @@
 import { Router } from "express";
 import { exigirAutenticacao, exigirGestor, exigirTitularFinanceiro } from "../../middlewares/auth.middleware";
 import { atualizarCarteira, consultarTitularChavePix, resumoCarteira, transferirCarteira } from "./carteira.service";
+import { autenticadorAtivo, confirmarAutenticador, iniciarAutenticador } from "../financeiro-seguranca/financeiroSeguranca.service";
 
 const router = Router();
 router.use(exigirAutenticacao, exigirGestor, exigirTitularFinanceiro);
+router.get("/autenticador", async (req, res) => { try { return res.json({ ativo: await autenticadorAtivo((req as any).usuario.id) }); } catch (error: any) { return res.status(400).json({ message: error.message }); } });
+router.post("/autenticador/iniciar", async (req, res) => { try { return res.json(await iniciarAutenticador((req as any).usuario, String(req.body?.senhaAtual ?? ""))); } catch (error: any) { return res.status(400).json({ message: error.message }); } });
+router.post("/autenticador/confirmar", async (req, res) => { try { return res.json(await confirmarAutenticador((req as any).usuario.id, String(req.body?.codigo ?? ""))); } catch (error: any) { return res.status(400).json({ message: error.message }); } });
 router.get("/", async (req, res) => { try { return res.json(await resumoCarteira((req as any).usuario)); } catch (error: any) { return res.status(400).json({ message: error.message }); } });
 router.post("/validar-pix", async (req, res) => { try { return res.json(await consultarTitularChavePix(req.body?.pixTipo, req.body?.pixChave)); } catch (error: any) { return res.status(400).json({ message: error.message }); } });
 router.put("/", async (req, res) => { try { return res.json(await atualizarCarteira((req as any).usuario, req.body)); } catch (error: any) { return res.status(400).json({ message: error.message }); } });

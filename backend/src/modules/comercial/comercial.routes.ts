@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { exigirAutenticacao, exigirOperacaoComercial, exigirSuperAdministradorAndrade } from "../../middlewares/auth.middleware";
 import * as controller from "./comercial.controller";
+import { autenticadorAtivo, confirmarAutenticador, iniciarAutenticador } from "../financeiro-seguranca/financeiroSeguranca.service";
 
 const router = Router();
 router.get("/planos-publicos", controller.planosPublicos);
@@ -10,6 +11,9 @@ router.post("/minha-assinatura/checkout", exigirAutenticacao, controller.checkou
 router.use(exigirAutenticacao);
 router.get("/painel", exigirOperacaoComercial, controller.painel);
 router.use(exigirSuperAdministradorAndrade);
+router.get("/financeiro/autenticador", async (req, res) => { try { return res.json({ ativo: await autenticadorAtivo((req as any).usuario.id) }); } catch (error: any) { return res.status(400).json({ message: error.message }); } });
+router.post("/financeiro/autenticador/iniciar", async (req, res) => { try { return res.json(await iniciarAutenticador((req as any).usuario, String(req.body?.senhaAtual ?? ""))); } catch (error: any) { return res.status(400).json({ message: error.message }); } });
+router.post("/financeiro/autenticador/confirmar", async (req, res) => { try { return res.json(await confirmarAutenticador((req as any).usuario.id, String(req.body?.codigo ?? ""))); } catch (error: any) { return res.status(400).json({ message: error.message }); } });
 router.post("/planos", controller.criarPlano);
 router.put("/planos/:id", controller.atualizarPlano);
 router.get("/financeiro", controller.financeiro);

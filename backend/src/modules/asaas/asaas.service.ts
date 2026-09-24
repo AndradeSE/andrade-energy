@@ -187,9 +187,11 @@ export async function tentarCriarCobrancaAsaas(faturaId: string, empresaId?: str
 
 async function transferirSaldo(cobranca: any) {
   const { data: carteira } = cobranca.gerador_carteira_id ? await supabase.from("gerador_carteiras").select("*").eq("id", cobranca.gerador_carteira_id).maybeSingle() : { data: null };
-  const automatica = carteira ? carteira.transferencia_automatica === true : process.env.ASAAS_AUTO_TRANSFER_ENABLED === "true";
+  // Repasses automáticos só podem usar uma carteira explicitamente autorizada.
+  // A configuração legada por variável de ambiente não tem confirmação do titular.
+  const automatica = carteira?.transferencia_automatica === true;
   if (!automatica || carteira?.asaas_wallet_id) return null;
-  const key=carteira ? chavePixDaCarteira(carteira) : process.env.ASAAS_TRANSFER_PIX_KEY; const keyType=carteira?.pix_tipo ?? process.env.ASAAS_TRANSFER_PIX_KEY_TYPE;
+  const key=chavePixDaCarteira(carteira); const keyType=carteira.pix_tipo;
   if(!key||!keyType) throw new Error("Destino Pix não configurado.");
   const already=await supabase.from("asaas_transferencias").select("*").eq("cobranca_id",cobranca.id).maybeSingle(); if(already.data) return already.data;
   const value=Math.max(0,Number(cobranca.valor_liquido??cobranca.valor)-Number(process.env.ASAAS_TRANSFER_RESERVE_VALUE??0)); if(!(value>0)) throw new Error("Valor líquido inválido.");
