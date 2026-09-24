@@ -10,6 +10,7 @@ import {
   obterDashboardUsina,
   importarFaturaGeradora,
   alocarUnidadeNaUsina,
+  consultarAlocacaoDaUsina,
   cadastrarIntegracaoInversor,
   excluirIntegracaoInversor,
   listarIntegracoesInversores,
@@ -23,6 +24,14 @@ export async function alocarUnidadeController(req: Request, res: Response) {
     return res.json(await alocarUnidadeNaUsina(req.params.id, req.body, empresaId));
   }
   catch (e: any) { return res.status(400).json({ message: e.message }); }
+}
+
+export async function consultarAlocacaoController(req: Request, res: Response) {
+  try {
+    const empresaId = empresaIdDaRequisicao(req);
+    await garantirRegistroDaEmpresa("usinas", req.params.id, empresaId);
+    return res.json(await consultarAlocacaoDaUsina(req.params.id, empresaId, String(req.query.unidadeId ?? "")));
+  } catch (e: any) { return res.status(400).json({ message: e.message }); }
 }
 
 export async function importarFaturaGeradoraController(req: Request, res: Response) {

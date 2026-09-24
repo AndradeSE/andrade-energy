@@ -49,6 +49,11 @@ export async function alocarUnidade(id: string, payload: any) {
   return data;
 }
 
+export async function consultarAlocacao(id: string, unidadeId?: string): Promise<{ reservado: number; disponivel: number }> {
+  const { data } = await api.get(`/usinas/${id}/alocacao`, { params: unidadeId ? { unidadeId } : {} });
+  return data;
+}
+
 export async function listarInversoresDaUsina(id: string) {
   const { data } = await api.get(`/usinas/${id}/inversores`);
   return data;

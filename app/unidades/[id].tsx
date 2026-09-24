@@ -11,11 +11,13 @@ import { buscarContratoDaUnidade } from "../../services/contratos.service";
 import { reenviarConviteDaUnidade } from "../../services/convites.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { IS_GERADOR_APP } from "../../config/appVariant";
+import { useAuth } from "../../contexts/AuthContext";
 
 const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const paga = (status?: string) => ["PAGA", "PAGO", "QUITADA"].includes(String(status ?? "").toUpperCase());
 
 export default function UnidadeDocumentos() {
+  const { usinaSelecionada, selecionarUsina } = useAuth();
   const { id, numero, clienteId, cliente, usinaId, usinaNome, titular, distribuidora } = useLocalSearchParams<{ id: string; numero?: string; clienteId?: string; cliente?: string; usinaId?: string; usinaNome?: string; titular?: string; distribuidora?: string }>();
   const [unidade, setUnidade] = useState<any>();
   const [faturas, setFaturas] = useState<any[]>([]);
@@ -164,6 +166,18 @@ export default function UnidadeDocumentos() {
   const documentoConferido = Boolean(contrato?.contrato_assinado_url && contrato?.dados_documento?.assinatura_externa_validada_em);
   const titularDaFatura = String(faturasCadastro[0]?.dadosFatura?.titular ?? faturasCadastro[0]?.dadosFatura?.cliente ?? "").trim();
 
+  async function prepararAmbienteDaUc() {
+    if (unidade.usina_id && unidade.usina_id !== usinaSelecionada?.id) {
+      try {
+        await selecionarUsina(await buscarUsina(unidade.usina_id));
+      } catch {
+        Alert.alert("Não foi possível trocar de usina", "Atualize a lista de usinas e tente novamente.");
+        return false;
+      }
+    }
+    return true;
+  }
+
   return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Unidade consumidora" subtitle="Gestão da carteira" contextTitle={`UC ${unidade.numero}`} contextSubtitle={unidade.clientes?.nome ?? unidade.titular ?? "Unidade consumidora"} icon="flash-outline" /> : null}<ScrollView refreshControl={<RefreshControl refreshing={atualizando} onRefresh={() => carregar(true)} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content}>
     <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={19} color={Colors.subtitle} /><Text style={styles.backLabel}>Voltar</Text></TouchableOpacity>
 
@@ -179,12 +193,13 @@ export default function UnidadeDocumentos() {
     </Card>
 
       <View style={styles.actions}>
-      <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Configurar unidade consumidora" onPress={() => {
+      <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Configurar unidade consumidora" onPress={async () => {
         const clienteIdParaEdicao = unidade.cliente_id ?? (String(unidade.id).startsWith("cliente-") ? String(unidade.id).replace("cliente-", "") : "");
         if (!clienteIdParaEdicao) {
           Alert.alert("Vincule a UC a um cliente", "Esta unidade ainda não possui cliente vinculado. Abra o cadastro da UC, escolha o cliente e salve antes de fazer a alocação.");
           return;
         }
+        if (!await prepararAmbienteDaUc()) return;
         const abrirEdicao = () => router.push({
           pathname: "/unidades/editar",
           params: {
@@ -207,11 +222,12 @@ export default function UnidadeDocumentos() {
         }
         abrirEdicao();
       }} style={styles.action}><Ionicons name="options-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Configurar UC</Text></TouchableOpacity>
-      {IS_GERADOR_APP ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel={rotuloContrato} onPress={() => {
+      {IS_GERADOR_APP ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel={rotuloContrato} onPress={async () => {
         if (String(unidade.id ?? "").startsWith("cliente-")) {
           Alert.alert("Finalize o cadastro da UC", "Abra Configurar UC e salve a unidade antes de cadastrar ou anexar o contrato.");
           return;
         }
+        if (!await prepararAmbienteDaUc()) return;
         router.push({ pathname: "/unidades/contrato", params: {
           id: unidade.id,
           numero: unidade.numero,
@@ -221,20 +237,6 @@ export default function UnidadeDocumentos() {
           ...(contrato?.revisao_configuracao_pendente ? { revisao: "1" } : {}),
         } });
       }} style={styles.action}><Ionicons name={contratoAssinado ? "document-text" : "document-text-outline"} size={18} color={Colors.primary} /><Text style={styles.actionText}>{rotuloContrato}</Text></TouchableOpacity> : null}
-      {IS_GERADOR_APP && contrato?.dados_documento?.assinatura_externa_pendente !== true && !(contrato?.dados_documento?.aceite_cliente_exigido === true && !contrato?.aceite_cliente_em) && (!contratoAssinado || contrato?.revisao_configuracao_pendente) ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Enviar contrato já assinado" onPress={() => {
-        if (String(unidade.id ?? "").startsWith("cliente-") || !unidade.cliente_id || !unidade.usina_id) {
-          Alert.alert("Configure a UC primeiro", "Vincule a unidade ao cliente e à usina antes de anexar o contrato assinado.");
-          return;
-        }
-        router.push({ pathname: "/unidades/contrato", params: {
-          id: unidade.id,
-          numero: unidade.numero,
-          clienteId: unidade.cliente_id,
-          descontoPadrao: String(unidade.desconto_percentual ?? ""),
-          modoAssinado: "1",
-          ...(contratoAssinado ? { revisao: "1" } : {}),
-        } });
-      }} style={[styles.action, styles.actionWide]}><Ionicons name="cloud-upload-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Enviar contrato já assinado</Text></TouchableOpacity> : null}
     </View>
     {IS_GERADOR_APP && documentoConferido ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Reenviar convite de acesso ao cliente" onPress={() => {
       Alert.alert("Reenviar convite", "Será enviado um novo convite de acesso ao cliente desta UC. O contrato assinado continuará o mesmo.", [

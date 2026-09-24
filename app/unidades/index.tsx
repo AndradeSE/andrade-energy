@@ -88,7 +88,7 @@ export default function Unidades() {
         renderItem={({ item }) => { const acaoContrato = acaoContratualDaUc(item); return <Pressable onPress={() => router.push({ pathname: "/unidades/[id]", params: { id: item.id, numero: item.numero, clienteId: item.cliente_id ?? item.clientes?.id ?? "", cliente: item.clientes?.nome ?? "", usinaId: item.usina_id ?? item.usinas?.id ?? "", usinaNome: item.usinas?.nome ?? item.usina_nome ?? "", titular: item.titular ?? "", distribuidora: item.distribuidora ?? "" } })}><Card style={styles.unitCard}>
           <View style={styles.row}><View style={styles.identification}><Text numberOfLines={1} style={styles.number}>{String(item.apelido ?? "").trim() || `UC ${item.numero}`}</Text>{item.apelido ? <Text style={styles.ucNumber}>UC {item.numero}</Text> : null}</View><Text style={styles.badge}>{item.tipo}</Text></View>
           <Text style={styles.owner}>Titular da fatura: {item.titular_fatura ?? "Não identificado na fatura anexada"}</Text>
-          <Text style={styles.detail}>{item.usinas?.nome ?? item.usina_nome ?? (item.usina_id ? "Usina vinculada" : "Ainda não alocada")}</Text>
+          <Text style={styles.detail}>Usina: {item.usinas?.nome ?? item.usina_nome ?? (item.usina_id ? "Usina vinculada" : "Ainda não alocada")}</Text>
           <Text style={styles.detail}>{item.modalidade_faturamento === "INJECAO" ? "Faturamento por injeção" : "Faturamento por compensação"} · {item.desconto_percentual}%</Text>
           <View style={[styles.contractStatus, acaoContrato.liberada && styles.contractStatusSigned]}><Text style={[styles.contractStatusText, acaoContrato.liberada && styles.contractStatusTextSigned]}>{acaoContrato.status}</Text></View>
           <TouchableOpacity

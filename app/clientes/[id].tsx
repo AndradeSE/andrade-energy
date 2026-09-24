@@ -466,6 +466,7 @@ export default function ClienteDetalhe() {
                                 Titular da fatura: {unidade.titular_fatura || "Não identificado na fatura anexada"}
                               </Text>
                             </View>
+                            <Text numberOfLines={1} style={styles.unitDetail}>Usina: {unidade.usinas?.nome ?? unidade.usina_nome ?? (unidade.usina_id ? "Usina vinculada" : "Ainda não alocada")}</Text>
                           </View>
                           <Ionicons name="chevron-forward" size={18} color={Colors.subtitle} />
                         </View>

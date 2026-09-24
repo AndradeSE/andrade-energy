@@ -10,7 +10,7 @@ import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Scre
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { buscarCliente, buscarUnidade, listarFaturasAnexadasCliente } from "../../services/clientes.service";
 import { buscarFaturasCliente } from "../../services/faturas.service";
-import { alocarUnidade, listarUsinas } from "../../services/usinas.service";
+import { alocarUnidade, consultarAlocacao, listarUsinas } from "../../services/usinas.service";
 import { prepararRevisaoDaUnidade } from "../../services/contratos.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
@@ -90,6 +90,7 @@ export default function EditarAlocacaoUnidade() {
   }>();
   const [usinas, setUsinas] = useState<any[]>([]); const [usinaId, setUsinaId] = useState("");
   const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO"); const [percentual, setPercentual] = useState("");
+  const [percentualEditado, setPercentualEditado] = useState(false);
   const [desconto, setDesconto] = useState("40"); const [consumoMedio, setConsumoMedio] = useState("0");
   const [cpfTitular, setCpfTitular] = useState("");
   const [formatoFatura, setFormatoFatura] = useState<FormatoFatura>("UNIFICADA");
@@ -99,6 +100,8 @@ export default function EditarAlocacaoUnidade() {
   const [dadosFatura, setDadosFatura] = useState<Record<string, any> | null>(null);
   const [clienteIdResolvido, setClienteIdResolvido] = useState("");
   const [loading, setLoading] = useState(true); const [salvando, setSalvando] = useState(false);
+  const [saldoAlocacao, setSaldoAlocacao] = useState<number | null>(null);
+  const [trocandoUsina, setTrocandoUsina] = useState(false);
 
   const numeroDaUc = textoDoParametro(numero).replace(/\D/g, "");
   const clienteIdRecebido = textoDoParametro(clienteId);
@@ -198,14 +201,27 @@ export default function EditarAlocacaoUnidade() {
     return () => { ativa = false; };
   }, [clienteIdRecebido, consumoMedioImportado, dadosFaturaParam, descontoImportado, modalidadeImportada, numeroDaUc, unidadeIdRecebida, usinaIdImportada]);
 
+  useEffect(() => {
+    let ativo = true;
+    setSaldoAlocacao(null);
+    if (usinaId) consultarAlocacao(usinaId, unidadeIdRecebida).then((saldo) => {
+      if (ativo) setSaldoAlocacao(saldo.disponivel);
+    }).catch(() => { if (ativo) setSaldoAlocacao(null); });
+    return () => { ativo = false; };
+  }, [usinaId, unidadeIdRecebida]);
+
   async function salvar() {
     const rateio = valorNumerico(percentual); const descontoNumero = valorNumerico(desconto); const media = Math.max(0, valorNumerico(consumoMedio));
     if (!clienteIdResolvido) return Alert.alert("Vincule a UC a um cliente", "Esta UC ainda não tem um cliente vinculado. Volte ao cadastro da unidade, escolha o cliente e salve antes de fazer a alocação.");
     if (!usinaId) return Alert.alert("Escolha a usina", "Selecione a usina que fornecerá energia para esta UC.");
     if (!percentual.trim() || rateio <= 0 || rateio > 100) return Alert.alert("Percentual inválido", modalidade === "INJECAO" ? "O gerador deve informar o percentual de injeção entre 0,01% e 100%." : "Informe um percentual entre 0,01% e 100%.");
+    if (saldoAlocacao !== null && rateio > saldoAlocacao + 0.000001) return Alert.alert("Usina cheia", `Restam ${saldoAlocacao.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% para esta UC. Deseja trocar de usina?`, [
+      { text: "Manter usina", style: "cancel" },
+      { text: "Trocar usina", onPress: () => setTrocandoUsina(true) },
+    ]);
     if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return Alert.alert("Desconto inválido", "Informe um desconto entre 0% e 100%.");
     try { setSalvando(true);
-      await alocarUnidade(usinaId, { clienteId: clienteIdResolvido, numero: numeroDaUc, cpfTitular: cpfTitular.replace(/\D/g, "") || null, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd: tipoGdEfetivo, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: modalidade === "COMPENSACAO", revisaoContrato: atualizacaoContratual });
+      await alocarUnidade(usinaId, { clienteId: clienteIdResolvido, numero: numeroDaUc, cpfTitular: cpfTitular.replace(/\D/g, "") || null, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd: tipoGdEfetivo, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: modalidade === "COMPENSACAO" && !percentualEditado, revisaoContrato: atualizacaoContratual });
       // Esta tela pode ter sido aberta a partir de uma UC ou da criação por
       // fatura. O destino único evita ficar preso na tela anterior e exigir
       // um segundo toque para voltar à lista atualizada.
@@ -213,7 +229,14 @@ export default function EditarAlocacaoUnidade() {
         await prepararRevisaoDaUnidade(unidadeIdRecebida);
         router.replace({ pathname: "/unidades/contrato", params: { id: unidadeIdRecebida, numero: numeroDaUc, clienteId: clienteIdResolvido, descontoPadrao: String(descontoNumero), revisao: "1", revisaoToken: String(Date.now()) } });
       } else router.replace("/unidades");
-    } catch (erro: any) { Alert.alert("Não foi possível alocar", erro?.message ?? "Tente novamente."); } finally { setSalvando(false); }
+    } catch (erro: any) {
+      const mensagem = erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.";
+      if (/usina cheia|restam .*%/i.test(mensagem)) Alert.alert("Usina cheia", mensagem, [
+        { text: "Manter usina", style: "cancel" },
+        { text: "Trocar usina", onPress: () => setTrocandoUsina(true) },
+      ]);
+      else Alert.alert("Não foi possível alocar", mensagem);
+    } finally { setSalvando(false); }
   }
 
   if (loading) return <Loading />;
@@ -262,7 +285,8 @@ export default function EditarAlocacaoUnidade() {
             onChangeText={(valor) => setCpfTitular(formatarDocumentoParcialOuCompleto(valor))}
             keyboardType="numeric"
           />
-          <UsinaSelector
+          <Text style={styles.hint}>Usina vinculada: {usinaSelecionada?.nome ?? "Não informada"}</Text>
+          {trocandoUsina || !usinaId ? <UsinaSelector
             usinas={usinas}
             value={usinaId}
             onChange={(idDaUsina) => {
@@ -272,7 +296,7 @@ export default function EditarAlocacaoUnidade() {
             }}
             label="Escolha a usina"
             detail={textoProducao}
-          />
+          /> : null}
 
           <ChoiceField
             label="Modalidade"
@@ -299,9 +323,10 @@ export default function EditarAlocacaoUnidade() {
           <FormField
             label={modalidade === "INJECAO" ? "Percentual de injeção (%) *" : "Percentual alocado (%)"}
             value={percentual}
-            onChangeText={(valor) => setPercentual(valor.replace(/[^\d,.]/g, ""))}
+            onChangeText={(valor) => { setPercentualEditado(true); setPercentual(valor.replace(/[^\d,.]/g, "")); }}
             keyboardType="decimal-pad"
           />
+          <Text style={styles.hint}>{saldoAlocacao === null ? "Consultando saldo da usina..." : `Disponível para esta UC: ${saldoAlocacao.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`}</Text>
           <Text style={styles.hint}>
             {modalidade === "INJECAO"
               ? "Informe manualmente a parcela da produção da usina destinada a esta UC. Este valor é definido pelo gerador."

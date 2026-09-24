@@ -8,7 +8,8 @@ import RealDiscountInfo from "../../components/cadastro/RealDiscountInfo";
 import UsinaSelector from "../../components/cadastro/UsinaSelector";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
-import { alocarUnidade, listarUsinas } from "../../services/usinas.service";
+import { alocarUnidade, consultarAlocacao, listarUsinas } from "../../services/usinas.service";
+import { useAuth } from "../../contexts/AuthContext";
 import { calcularMediaConsumoFatura, listarFaturas } from "../../services/faturas.service";
 import { buscarCliente, listarClientes } from "../../services/clientes.service";
 import { avisosPassoAPassoAtivos } from "../../services/preferencias.service";
@@ -44,6 +45,7 @@ function percentualPelaMedia(usina: any, consumo: unknown, modalidade: Modalidad
 }
 
 export default function NovaUnidade() {
+  const { usinaSelecionada: usinaDoAmbiente } = useAuth();
   const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, cpf: cpfImportado, energiaCompensada, endereco: enderecoImportado, distribuidora: distribuidoraImportada, cadastroRapido, consumoMedio: consumoMedioImportado, dadosFatura: dadosFaturaParam } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; cpf?: string; energiaCompensada?: string; endereco?: string; distribuidora?: string; cadastroRapido?: string; consumoMedio?: string; dadosFatura?: string }>();
   const [dadosFatura, setDadosFatura] = useState<Record<string, any> | null>(() => parseDadosFatura(dadosFaturaParam));
   const [mensagemSalvar, setMensagemSalvar] = useState("");
@@ -62,6 +64,9 @@ export default function NovaUnidade() {
   // Também funciona quando o Router entrega os parâmetros após a montagem.
   const clienteId = String(clienteIdVinculado || clienteEscolhido || "");
   const [usinaId, setUsinaId] = useState(""); const [percentualAlocado, setPercentualAlocado] = useState(""); const [salvando, setSalvando] = useState(false);
+  const [percentualEditado, setPercentualEditado] = useState(false);
+  const [saldoAlocacao, setSaldoAlocacao] = useState<number | null>(null);
+  const [trocandoUsina, setTrocandoUsina] = useState(false);
   const usinaSelecionada = usinas.find((item) => item.id === usinaId);
   const usinaGd2 = String(usinaSelecionada?.tipo_gd ?? "").toUpperCase() === "GD2";
   const tipoGdEfetivo = String(usinaSelecionada?.tipo_gd ?? "").toUpperCase();
@@ -83,10 +88,13 @@ export default function NovaUnidade() {
       setClientes(listaClientes);
       const listaUsinas = Array.isArray(u) ? u : [];
       setUsinas(listaUsinas);
+      if (usinaDoAmbiente?.id && listaUsinas.some((item) => item.id === usinaDoAmbiente.id)) {
+        setUsinaId(String(usinaDoAmbiente.id));
+      }
       // No primeiro cadastro o cliente ainda pode não possuir usina_id. Se o
       // gerador só administra uma usina, vinculá-la automaticamente evita que
       // o botão Salvar pareça não responder por falta de uma escolha óbvia.
-      if (listaUsinas.length === 1) {
+      if (!usinaDoAmbiente?.id && listaUsinas.length === 1) {
         setUsinaId((atual) => atual || String(listaUsinas[0].id));
       }
     }).catch((erro: any) => {
@@ -111,6 +119,15 @@ export default function NovaUnidade() {
   }, [cadastroRapido, classificacao, cliente, clienteIdVinculado, cpfImportado, enderecoImportado, energiaCompensada, origem, uc]);
 
   useEffect(() => {
+    let ativo = true;
+    setSaldoAlocacao(null);
+    if (usinaId) consultarAlocacao(usinaId).then((saldo) => {
+      if (ativo) setSaldoAlocacao(saldo.disponivel);
+    }).catch(() => { if (ativo) setSaldoAlocacao(null); });
+    return () => { ativo = false; };
+  }, [usinaId]);
+
+  useEffect(() => {
     const mediaExtraida = calcularMediaConsumoFatura(dadosFatura);
     if (mediaExtraida > 0 && !numeroSeguro(consumoMedio)) setConsumoMedio(String(mediaExtraida));
   }, [consumoMedio, dadosFatura]);
@@ -119,7 +136,7 @@ export default function NovaUnidade() {
     const clienteSelecionado = clientes.find((item) => item.id === clienteId);
     if (!clienteSelecionado) return;
     setTipo("BENEFICIARIA");
-    if (!usinaId && clienteSelecionado.usina_id) setUsinaId(String(clienteSelecionado.usina_id));
+    if (!usinaId && !usinaDoAmbiente?.id && clienteSelecionado.usina_id) setUsinaId(String(clienteSelecionado.usina_id));
     if (origem !== "fatura" && clienteSelecionado.cpf && !cpfTitular) setCpfTitular(formatarDocumento(clienteSelecionado.cpf));
     if (!numeroSeguro(consumoMedio) && numeroSeguro(clienteSelecionado.consumo_medio_kwh)) {
       setConsumoMedio(String(clienteSelecionado.consumo_medio_kwh));
@@ -130,8 +147,8 @@ export default function NovaUnidade() {
     if (modalidade === "INJECAO") return;
     const usinaSelecionada = usinas.find((item) => item.id === usinaId);
     const sugestao = percentualPelaMedia(usinaSelecionada, consumoMedio, modalidade);
-    setPercentualAlocado(sugestao);
-  }, [consumoMedio, modalidade, usinaId, usinas]);
+    if (!percentualEditado) setPercentualAlocado(sugestao);
+  }, [consumoMedio, modalidade, usinaId, usinas, percentualEditado]);
 
   useEffect(() => {
     let ativa = true;
@@ -202,6 +219,12 @@ export default function NovaUnidade() {
     if (tipo === "BENEFICIARIA" && modalidadeFinal !== "INJECAO" && percentualAlocado && (percentualRateio <= 0 || percentualRateio > 100)) {
       return avisar("Alocação inválida", "Informe um percentual entre 0,01% e 100% para esta UC.");
     }
+    if (tipo === "BENEFICIARIA" && saldoAlocacao !== null && percentualRateio > saldoAlocacao + 0.000001) {
+      return Alert.alert("Usina cheia", `Restam ${saldoAlocacao.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% para alocação nesta usina. Deseja trocar de usina?`, [
+        { text: "Manter usina", style: "cancel" },
+        { text: "Trocar usina", onPress: () => setTrocandoUsina(true) },
+      ]);
+    }
     setSalvando(true);
     setMensagemSalvar("Salvando a unidade no servidor...");
     try {
@@ -223,7 +246,7 @@ export default function NovaUnidade() {
           repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR",
           tipoGd: tipoGdEfetivo,
           faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE",
-          calcularAutomaticamente: modalidadeFinal === "COMPENSACAO",
+          calcularAutomaticamente: modalidadeFinal === "COMPENSACAO" && !percentualEditado,
         });
       } else {
         const { error } = await supabase.from("unidades_consumidoras").upsert({
@@ -251,7 +274,13 @@ export default function NovaUnidade() {
         router.back();
       }
     } catch (erro: any) {
-      avisar("Não foi possível salvar", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
+      const mensagem = erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.";
+      if (/usina cheia|restam .*%/i.test(mensagem)) {
+        Alert.alert("Usina cheia", mensagem, [
+          { text: "Manter usina", style: "cancel" },
+          { text: "Trocar usina", onPress: () => setTrocandoUsina(true) },
+        ]);
+      } else avisar("Não foi possível salvar", mensagem);
     } finally {
       setSalvando(false);
     }
@@ -267,9 +296,11 @@ export default function NovaUnidade() {
         <Text style={styles.configurationTitle}>CONFIGURAÇÃO DA UC</Text>
         <Text style={styles.beneficiariaHint}>Defina as condições desta unidade antes de salvar. Elas não são copiadas do cadastro do cliente.</Text>
         <ChoiceField label="Faturamento" value={modalidade} onChange={(valor) => { const nova = valor as Modalidade; setModalidade(nova); setPercentualAlocado(nova === "INJECAO" ? "" : percentualPelaMedia(usinaSelecionada, consumoMedio, nova)); }} options={[{ label: "Injeção", value: "INJECAO" }, { label: "Compensação", value: "COMPENSACAO" }]} />
-        <UsinaSelector usinas={usinas} value={usinaId} onChange={(valor) => { setUsinaId(valor); if (modalidade === "COMPENSACAO") setPercentualAlocado(percentualPelaMedia(usinas.find((item) => item.id === valor), consumoMedio, modalidade)); }} label="Usina geradora" />
+        <Text style={styles.beneficiariaHint}>Usina deste ambiente: {usinaSelecionada?.nome ?? "Selecione uma usina"}</Text>
+        {trocandoUsina || !usinaId ? <UsinaSelector usinas={usinas} value={usinaId} onChange={(valor) => { setUsinaId(valor); setTrocandoUsina(false); if (modalidade === "COMPENSACAO") setPercentualAlocado(percentualPelaMedia(usinas.find((item) => item.id === valor), consumoMedio, modalidade)); }} label="Trocar usina" /> : null}
         <FormField label="Consumo médio mensal (kWh)" value={consumoMedio} onChangeText={(valor) => { const limpo = valor.replace(/[^\d,.]/g, ""); setConsumoMedio(limpo); if (modalidade === "COMPENSACAO") setPercentualAlocado(percentualPelaMedia(usinaSelecionada, limpo, modalidade)); }} keyboardType="decimal-pad" />
-        <FormField label={modalidade === "INJECAO" ? "Percentual de injeção (%) *" : "Percentual alocado (%)"} value={percentualAlocado} onChangeText={(valor) => setPercentualAlocado(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" />
+        <FormField label={modalidade === "INJECAO" ? "Percentual de injeção (%) *" : "Percentual alocado (%)"} value={percentualAlocado} onChangeText={(valor) => { setPercentualEditado(true); setPercentualAlocado(valor.replace(/[^\d,.]/g, "")); }} keyboardType="decimal-pad" />
+        <Text style={styles.beneficiariaHint}>{saldoAlocacao === null ? "Consultando saldo da usina..." : `Disponível para alocação: ${saldoAlocacao.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`}</Text>
         <Text style={styles.beneficiariaHint}>{modalidade === "INJECAO" ? "Informe manualmente a parcela da produção da usina destinada a esta UC. Este valor é definido pelo gerador." : "A sugestão considera 115% do consumo médio sobre a produção média disponível da usina. Você pode editar."}</Text>
         <FormField label="Desconto contratado (%)" value={desconto} onChangeText={(valor) => setDesconto(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" />
       </> : <UsinaSelector usinas={usinas} value={usinaId} onChange={setUsinaId} label="Usina geradora" />}

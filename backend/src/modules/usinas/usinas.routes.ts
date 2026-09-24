@@ -11,6 +11,7 @@ import {
   migrarUnidadesDaUsinaController,
   importarFaturaGeradoraController,
   alocarUnidadeController,
+  consultarAlocacaoController,
   cadastrarIntegracaoInversorController,
   excluirIntegracaoInversorController,
   listarIntegracoesInversoresController,
@@ -28,6 +29,7 @@ router.get("/", exigirGestor, listarUsinasController);
 router.get("/:id", exigirUsinaDaSessaoOuGestor(), buscarUsinaController);
 
 router.get("/:id/dashboard", exigirUsinaDaSessaoOuGestor(), dashboardUsinaController);
+router.get("/:id/alocacao", exigirGestor, consultarAlocacaoController);
 
 router.get("/:id/inversores", exigirAutenticacao, exigirGestor, listarIntegracoesInversoresController);
 router.post("/:id/inversores", exigirAutenticacao, exigirGestor, cadastrarIntegracaoInversorController);

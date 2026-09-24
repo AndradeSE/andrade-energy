@@ -313,12 +313,12 @@ export default function ContratoDaUnidade() {
 
   async function importarAssinado() {
     if (!id) return;
-    if ((novoContrato || modoAssinado === "1") && !validarDados()) return;
+    if (!validarDados()) return;
     try {
       const resultado = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true });
       if (resultado.canceled || !resultado.assets?.[0]) return;
       setImportando(true);
-      if (novoContrato || modoAssinado === "1") await salvarContratoDaUnidade(id, dadosParaSalvar());
+      await salvarContratoDaUnidade(id, dadosParaSalvar());
       const contrato = await importarContratoAssinadoDaUnidade(id, resultado.assets[0]);
       setContratoAssinadoUrl(contrato.contrato_assinado_url ?? undefined);
       setContratoId(contrato.id);
@@ -487,20 +487,20 @@ export default function ContratoDaUnidade() {
           <FormField label="Economia mensal estimada pela proposta (R$)" value={economiaMensal} editable={false} placeholder="Calculada automaticamente" />
           <FormField label="Economia anual estimada pela proposta (R$)" value={economiaAnual} editable={false} placeholder="Calculada automaticamente" />
           <FormField label="Observações" value={observacoes} onChangeText={setObservacoes} placeholder="Informações adicionais para o contrato" multiline numberOfLines={3} textAlignVertical="top" />
-          {modoAssinado !== "1" ? <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar rascunho"} icon={<Ionicons name="checkmark-circle-outline" size={20} color={Colors.surface} />} onPress={salvar} /> : null}
+          <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar rascunho"} icon={<Ionicons name="checkmark-circle-outline" size={20} color={Colors.surface} />} onPress={salvar} />
         </Card>
 
         <View style={styles.documentActions}>
           {novoContrato ? <TouchableOpacity accessibilityRole="button" onPress={() => router.push({ pathname: "/unidades/editar", params: { id, numero: numeroUc, clienteId: unidade?.cliente_id ?? clienteId, descontoPadrao: desconto, revisaoContrato: "1" } })} style={styles.documentLink}><Ionicons name="options-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Editar configuração da UC</Text></TouchableOpacity> : null}
-          {modoAssinado !== "1" ? <Button disabled={gerando} title={gerando ? "Gerando minuta..." : "Gerar e revisar a minuta"} icon={<Ionicons name="document-text-outline" size={20} color={Colors.surface} />} onPress={gerarMinuta} /> : null}
+          <Button disabled={gerando || importando} title={gerando ? "Gerando minuta..." : "Gerar e revisar a minuta"} icon={<Ionicons name="document-text-outline" size={20} color={Colors.surface} />} onPress={gerarMinuta} />
           {contratoGeradoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoGeradoUrl)} style={styles.documentLink}><Ionicons name="download-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir minuta gerada</Text></TouchableOpacity> : null}
-          {modoAssinado !== "1" ? <><Button disabled={gerando || !contratoGeradoUrl || dadosDaMinutaRevisada !== JSON.stringify(dadosParaSalvar())} title={gerando ? "Aguarde..." : novoContrato ? "Enviar revisão para aceite" : "Enviar para assinatura"} onPress={enviarParaAnalise} /><Text style={styles.documentLinkText}>Gere e revise a minuta atual para habilitar o envio. Alterações nos campos exigem nova revisão.</Text></> : null}
-          {modoAssinado === "1" && (!contratoAssinadoUrl || assinaturaPendente) ? <TouchableOpacity accessibilityRole="button" activeOpacity={0.84} disabled={importando} onPress={importarAssinado} style={styles.uploadSignedButton}>
+          <><Button disabled={gerando || importando || !contratoGeradoUrl || dadosDaMinutaRevisada !== JSON.stringify(dadosParaSalvar())} title={gerando ? "Aguarde..." : novoContrato ? "Enviar revisão para aceite" : "Enviar para assinatura"} onPress={enviarParaAnalise} /><Text style={styles.documentLinkText}>Gere e revise a minuta atual para habilitar o envio. Alterações nos campos exigem nova revisão.</Text></>
+          {!contratoAssinadoUrl ? <TouchableOpacity accessibilityRole="button" activeOpacity={0.84} disabled={importando || gerando} onPress={importarAssinado} style={styles.uploadSignedButton}>
             <Ionicons name="cloud-upload-outline" size={20} color={Colors.primary} />
             <Text style={styles.uploadSignedButtonText}>{importando ? (assinaturaPendente ? "Trocando documento..." : "Enviando contrato...") : (assinaturaPendente ? "Trocar documento assinado" : "Enviar contrato assinado (PDF)")}</Text>
           </TouchableOpacity> : null}
           {contratoAssinadoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoAssinadoUrl)} style={styles.signedLink}><Ionicons name="checkmark-circle-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Contrato assinado vinculado à UC</Text></TouchableOpacity> : null}
-          {modoAssinado === "1" && assinaturaPendente ? <Button title="Validar assinaturas do PDF" disabled={gerando} onPress={confirmarAssinaturaExterna} /> : null}
+          {assinaturaPendente ? <Button title="Validar assinaturas do PDF" disabled={gerando} onPress={confirmarAssinaturaExterna} /> : null}
         </View>
         </>}
       </ScrollView>
