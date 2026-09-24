@@ -255,6 +255,7 @@ export async function salvarContratoDaUnidadeService(
   };
 
   return await salvarContratoUnidade(unidade.id, {
+    nova_versao: dados?.nova_versao === true,
     empresa_id: unidade.empresa_id,
     cliente_id: unidade.cliente_id,
     usina_id: unidade.usina_id,

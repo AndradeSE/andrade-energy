@@ -81,6 +81,7 @@ export default function ContratoDaUnidade() {
   const [contratoId, setContratoId] = useState<string>();
   const [aceiteRegistrado, setAceiteRegistrado] = useState(false);
   const [novoContrato, setNovoContrato] = useState(false);
+  const [substituirRevisaoAssinada, setSubstituirRevisaoAssinada] = useState(false);
   const [assinaturaPendente, setAssinaturaPendente] = useState(false);
   const [dadosDaMinutaRevisada, setDadosDaMinutaRevisada] = useState<string>();
   const [titularidadeUcs, setTitularidadeUcs] = useState("GERADOR");
@@ -136,8 +137,12 @@ export default function ContratoDaUnidade() {
         setContratoId(contrato.id);
         setAceiteRegistrado(Boolean(contrato.aceite_cliente_em));
         setAssinaturaPendente(Boolean(contrato.dados_documento?.assinatura_externa_pendente));
+        const revisaoAssinadaEmRascunho = String(revisao ?? "") === "1"
+          && String(contrato.status).toUpperCase() === "RASCUNHO"
+          && Boolean(contrato.contrato_assinado_url);
+        setSubstituirRevisaoAssinada(revisaoAssinadaEmRascunho);
         const revisandoContratoAssinado = String(revisao ?? "") === "1"
-          && Boolean(contrato.aceite_cliente_em || ["ATIVO", "VIGENTE"].includes(String(contrato.status).toUpperCase()) && contrato.contrato_assinado_url);
+          && Boolean(contrato.aceite_cliente_em || contrato.contrato_assinado_url);
         setNumeroContrato(revisandoContratoAssinado ? `AE-${numero ?? unidadeCarregada?.numero ?? "UC"}-${new Date().getFullYear()}-R${Number(contrato.versao ?? 1) + 1}` : contrato.numero ?? "");
         setTermoAdesao(contrato.termo_adesao ?? "");
         setStatus((["ATIVO", "VIGENTE", "VENCIDO"].includes(String(contrato.status).toUpperCase()) ? String(contrato.status).toUpperCase() : "ATIVO") as StatusContrato);
@@ -181,6 +186,7 @@ export default function ContratoDaUnidade() {
 
   function dadosParaSalvar() {
     return {
+      ...(substituirRevisaoAssinada ? { nova_versao: true } : {}),
       numero: numeroContrato,
       termo_adesao: termoAdesao,
       desconto,

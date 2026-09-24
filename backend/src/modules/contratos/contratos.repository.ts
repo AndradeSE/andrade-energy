@@ -137,48 +137,69 @@ export async function salvarContratoUnidade(
   const rascunho = await buscarRascunhoAtualUnidade(unidadeId);
   if (rascunho?.id) {
     if (rascunho.contrato_assinado_url) {
-      throw new Error("Esta revisão já tem um PDF assinado. Confira e valide o documento ou use Trocar documento assinado antes da conferência.");
+      if (contrato.nova_versao !== true) {
+        throw new Error("Esta revisão já tem um PDF assinado. Confira e valide o documento ou inicie uma nova versão.");
+      }
+      const { nova_versao: _novaVersao, ...novaVersao } = contrato;
+      const anteriorId = rascunho.dados_documento?.contrato_anterior_id ?? rascunho.id;
+      const { error: erroSubstituicao } = await supabase.from("contratos")
+        .update({ status: "SUBSTITUIDO", revisao_configuracao_pendente: false })
+        .eq("id", rascunho.id).eq("status", "RASCUNHO");
+      if (erroSubstituicao) throw erroSubstituicao;
+      try {
+        return await criarContrato({
+          ...novaVersao,
+          status: "RASCUNHO",
+          versao: Number(rascunho.versao ?? 1) + 1,
+          dados_documento: { ...(novaVersao.dados_documento ?? {}), contrato_anterior_id: anteriorId },
+        });
+      } catch (erro) {
+        await supabase.from("contratos").update({ status: "RASCUNHO" }).eq("id", rascunho.id);
+        throw erro;
+      }
     }
+    const { nova_versao: _novaVersao, ...dadosRascunho } = contrato;
     const anteriorId = rascunho.dados_documento?.contrato_anterior_id;
     return await atualizarContrato(rascunho.id, {
-      ...contrato,
-      dados_documento: { ...(contrato.dados_documento ?? {}), ...(anteriorId ? { contrato_anterior_id: anteriorId } : {}) },
+      ...dadosRascunho,
+      dados_documento: { ...(dadosRascunho.dados_documento ?? {}), ...(anteriorId ? { contrato_anterior_id: anteriorId } : {}) },
       status: "RASCUNHO",
     });
   }
   const existente = await buscarContratoAtualUnidade(unidadeId);
+  const { nova_versao: _novaVersao, ...dadosContrato } = contrato;
 
   if (existente?.id) {
     const hoje = new Date().toISOString().slice(0, 10);
     const vigenciaExpirada = Boolean(
       existente.vigencia_fim && String(existente.vigencia_fim).slice(0, 10) < hoje
     );
-    const novoAtivo = ["ATIVO", "VIGENTE"].includes(String(contrato.status ?? "").toUpperCase());
+    const novoAtivo = ["ATIVO", "VIGENTE"].includes(String(dadosContrato.status ?? "").toUpperCase());
 
     // Um documento já aceito nunca é sobrescrito. A edição cria a próxima
     // versão e mantém a anterior integralmente no histórico da UC.
     if (existente.aceite_cliente_em || existente.contrato_assinado_url) {
       return await criarContrato({
-        ...contrato,
+        ...dadosContrato,
         // A versão assinada continua vigente enquanto a revisão é preparada.
         // RASCUNHO fica fora do índice de vigência única da UC.
         status: "RASCUNHO",
         versao: Number(existente.versao ?? 1) + 1,
         revisao_configuracao_pendente: false,
-        dados_documento: { ...(contrato.dados_documento ?? {}), contrato_anterior_id: existente.id },
+        dados_documento: { ...(dadosContrato.dados_documento ?? {}), contrato_anterior_id: existente.id },
       });
     }
 
     // Renovação: preserva o contrato que venceu e libera a vigência nova.
     if (vigenciaExpirada && novoAtivo) {
       await atualizarContrato(existente.id, { status: "VENCIDO" });
-      return await criarContrato(contrato);
+      return await criarContrato(dadosContrato);
     }
 
-    return await atualizarContrato(existente.id, contrato);
+    return await atualizarContrato(existente.id, dadosContrato);
   }
 
-  return await criarContrato(contrato);
+  return await criarContrato(dadosContrato);
 }
 
 export async function criarContrato(
