@@ -256,7 +256,9 @@ export default function ContratoDaUnidade() {
       const minutaUrl = contrato.contrato_gerado_url;
       Alert.alert(
         "Minuta gerada",
-        "Revise os dados e as cláusulas antes de colher as assinaturas.",
+        novoContrato
+          ? "Revise as alterações antes de enviar ao cliente para aceite. O contrato anterior segue vigente até a concordância."
+          : "Revise os dados e as cláusulas antes de colher as assinaturas.",
         [{
           text: "OK",
           onPress: minutaUrl ? async () => {
@@ -280,7 +282,9 @@ export default function ContratoDaUnidade() {
       Alert.alert("Revise a minuta atual", "Gere e abra a minuta com os dados atuais antes de enviar o convite.");
       return;
     }
-    Alert.alert("Enviar documentos", "Será enviada a última minuta gerada com a proposta desta UC. O convite de acesso só será criado se este cliente ainda não tiver recebido um. Se alterou os dados, gere e revise a minuta novamente antes de enviar.", [
+    Alert.alert(novoContrato ? "Enviar revisão para aceite" : "Enviar documentos", novoContrato
+      ? "A nova minuta será enviada ao cliente para leitura e concordância no aplicativo, confirmada por código de e-mail. Não será solicitada outra assinatura. O contrato anterior permanece vigente até o aceite."
+      : "Será enviada a última minuta gerada com a proposta desta UC. O convite de acesso só será criado se este cliente ainda não tiver recebido um. Se alterou os dados, gere e revise a minuta novamente antes de enviar.", [
       { text: "Cancelar", style: "cancel" },
       { text: "Enviar", onPress: async () => {
         try {
@@ -439,7 +443,7 @@ export default function ContratoDaUnidade() {
           <Text style={styles.stepsTitle}>ORDEM PARA ENVIAR O CONTRATO</Text>
           <Text style={styles.stepText}>1. Preencha e salve a configuração contratual.</Text>
           <Text style={styles.stepText}>2. Gere a minuta e abra o documento para revisar.</Text>
-          <Text style={styles.stepText}>3. Somente depois da revisão, envie ao cliente para assinatura.</Text>
+          <Text style={styles.stepText}>3. Somente depois da revisão, envie ao cliente para {novoContrato ? "aceite das alterações" : "assinatura"}.</Text>
           <Text style={styles.stepsWarning}>O envio permanece bloqueado enquanto a minuta atual não for gerada e revisada.</Text>
         </Card> : null}
         <View style={styles.documentActions}>
@@ -483,7 +487,7 @@ export default function ContratoDaUnidade() {
           {novoContrato ? <TouchableOpacity accessibilityRole="button" onPress={() => router.push({ pathname: "/unidades/editar", params: { id, numero: numeroUc, clienteId: unidade?.cliente_id ?? clienteId, descontoPadrao: desconto, revisaoContrato: "1" } })} style={styles.documentLink}><Ionicons name="options-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Editar configuração da UC</Text></TouchableOpacity> : null}
           {modoAssinado !== "1" ? <Button disabled={gerando} title={gerando ? "Gerando minuta..." : "Gerar e revisar a minuta"} icon={<Ionicons name="document-text-outline" size={20} color={Colors.surface} />} onPress={gerarMinuta} /> : null}
           {contratoGeradoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoGeradoUrl)} style={styles.documentLink}><Ionicons name="download-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir minuta gerada</Text></TouchableOpacity> : null}
-          {modoAssinado !== "1" ? <><Button disabled={gerando || !contratoGeradoUrl || dadosDaMinutaRevisada !== JSON.stringify(dadosParaSalvar())} title={gerando ? "Aguarde..." : "Enviar para assinatura"} onPress={enviarParaAnalise} /><Text style={styles.documentLinkText}>Gere e revise a minuta atual para habilitar o envio. Alterações nos campos exigem nova revisão.</Text></> : null}
+          {modoAssinado !== "1" ? <><Button disabled={gerando || !contratoGeradoUrl || dadosDaMinutaRevisada !== JSON.stringify(dadosParaSalvar())} title={gerando ? "Aguarde..." : novoContrato ? "Enviar revisão para aceite" : "Enviar para assinatura"} onPress={enviarParaAnalise} /><Text style={styles.documentLinkText}>Gere e revise a minuta atual para habilitar o envio. Alterações nos campos exigem nova revisão.</Text></> : null}
           {modoAssinado === "1" && (!contratoAssinadoUrl || assinaturaPendente) ? <TouchableOpacity accessibilityRole="button" activeOpacity={0.84} disabled={importando} onPress={importarAssinado} style={styles.uploadSignedButton}>
             <Ionicons name="cloud-upload-outline" size={20} color={Colors.primary} />
             <Text style={styles.uploadSignedButtonText}>{importando ? (assinaturaPendente ? "Trocando documento..." : "Enviando contrato...") : (assinaturaPendente ? "Trocar documento assinado" : "Enviar contrato assinado (PDF)")}</Text>

@@ -27,7 +27,8 @@ export async function enviarContratoEConvite(unidadeId: string, gestor: any, for
   if (!proposta) throw new Error("Não foi possível preparar a proposta desta UC. Nenhum convite foi enviado.");
   const { data: pdf, error: erroPdf } = await supabase.storage.from("contratos").download(contrato.contrato_gerado_url);
   if (erroPdf || !pdf) throw new Error("Não foi possível obter a minuta revisada. Gere o documento novamente.");
-  const minuta = { filename: "contrato-para-assinatura.pdf", content: Buffer.from(await pdf.arrayBuffer()) };
+  const revisaoContratual = Boolean(d.contrato_anterior_id);
+  const minuta = { filename: revisaoContratual ? "revisao-contratual-para-aceite.pdf" : "contrato-para-assinatura.pdf", content: Buffer.from(await pdf.arrayBuffer()) };
   const documentoHash = crypto.createHash("sha256").update(minuta.content).digest("hex");
   const { data: acessoAtivo, error: erroConta } = await supabase.from("empresa_usuarios").select("id")
     .eq("cliente_id", cliente.id).eq("empresa_id", empresaId).eq("papel", "LEITURA").eq("ativo", true).limit(1).maybeSingle();
@@ -42,8 +43,7 @@ export async function enviarContratoEConvite(unidadeId: string, gestor: any, for
   if (erroConviteAnterior) throw erroConviteAnterior;
   let resultado: any;
   if (acessoAtivo && !forcarNovoConvite) {
-    const revisao = Boolean(d.contrato_anterior_id);
-    const enviado = await enviarEmailTransacional({ empresaId: gestor.empresa_id, destinatario: cliente.email, assunto: revisao ? "Revisão contratual disponível para seu aceite" : "Contrato e proposta disponíveis para análise", html: revisao
+    const enviado = await enviarEmailTransacional({ empresaId: gestor.empresa_id, destinatario: cliente.email, assunto: revisaoContratual ? "Revisão contratual disponível para seu aceite" : "Contrato e proposta disponíveis para análise", html: revisaoContratual
       ? "<p>Seu gerador enviou uma revisão das condições da sua unidade. O contrato anterior continua preservado. Acesse a área Contrato no aplicativo Consumidor, leia a nova minuta anexa e confirme se concorda com as alterações. O aceite será confirmado por um código enviado ao seu e-mail.</p>"
       : "<p>Seu gerador disponibilizou um contrato e uma proposta para sua unidade. Acesse sua conta no aplicativo Consumidor e abra a área Contrato para analisar os documentos.</p>", anexos: [minuta, { filename: proposta.filename, content: proposta.content }] });
     resultado = { emailEnviado: enviado, contaExistente: true, conviteExistente: Boolean(conviteAnterior), novoConvite: false };
