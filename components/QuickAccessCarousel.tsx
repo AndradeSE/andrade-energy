@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView as NativeScrollView, StyleSheet, Text, View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 
 import { Colors, Radius, Spacing, Typography } from "../theme";
@@ -55,6 +55,10 @@ export default function QuickAccessCarousel({ items, storageKey = "geral" }: Pro
     if (indice <= 0) return visiveis;
     return [visiveis[indice], ...visiveis.slice(0, indice), ...visiveis.slice(indice + 1)];
   }, [items, ativos, selecionados, ultimoUsado]);
+  const opcoesOrdenadas = [
+    ...ativos.map((label) => items.find((item) => item.label === label)).filter((item): item is Item => Boolean(item)),
+    ...items.filter((item) => !ativos.includes(item.label)),
+  ];
 
   function salvarSelecao(proxima: string[]) {
     setSelecionados(proxima);
@@ -110,8 +114,8 @@ export default function QuickAccessCarousel({ items, storageKey = "geral" }: Pro
         <View style={styles.sheet}>
           <Text style={styles.sheetTitle}>Personalizar acesso rápido</Text>
           <Text style={styles.sheetHint}>Escolha os atalhos deste ambiente. Use as setas para mudar a ordem.</Text>
-          <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
-            {items.map((item) => {
+          <NativeScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+            {opcoesOrdenadas.map((item) => {
               const marcado = ativos.includes(item.label);
               return <View key={item.label} style={styles.option}>
                 <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: marcado }} onPress={() => alternar(item.label)} style={styles.optionMain}>
@@ -119,12 +123,12 @@ export default function QuickAccessCarousel({ items, storageKey = "geral" }: Pro
                   <Text style={styles.optionLabel}>{item.label}</Text>
                 </Pressable>
                 {marcado ? <>
-                  <Pressable accessibilityLabel={`Mover ${item.label} para cima`} onPress={() => mover(item.label, -1)} hitSlop={8}><Ionicons name="chevron-up" size={22} color={Colors.primary} /></Pressable>
-                  <Pressable accessibilityLabel={`Mover ${item.label} para baixo`} onPress={() => mover(item.label, 1)} hitSlop={8}><Ionicons name="chevron-down" size={22} color={Colors.primary} /></Pressable>
+                  <Pressable accessibilityLabel={`Mover ${item.label} para cima`} accessibilityRole="button" disabled={ativos.indexOf(item.label) === 0} onPress={() => mover(item.label, -1)} style={styles.moveButton}><Ionicons name="chevron-up" size={22} color={ativos.indexOf(item.label) === 0 ? Colors.border : Colors.primary} /></Pressable>
+                  <Pressable accessibilityLabel={`Mover ${item.label} para baixo`} accessibilityRole="button" disabled={ativos.indexOf(item.label) === ativos.length - 1} onPress={() => mover(item.label, 1)} style={styles.moveButton}><Ionicons name="chevron-down" size={22} color={ativos.indexOf(item.label) === ativos.length - 1 ? Colors.border : Colors.primary} /></Pressable>
                 </> : null}
               </View>;
             })}
-          </ScrollView>
+          </NativeScrollView>
           <Pressable onPress={() => { setSelecionados(null); void AsyncStorage.removeItem(chaveSelecao).catch(() => undefined); }} style={styles.restore}><Text style={styles.restoreText}>Restaurar padrão</Text></Pressable>
           <Pressable onPress={() => setPersonalizando(false)} style={styles.done}><Text style={styles.doneText}>Concluir</Text></Pressable>
         </View>
@@ -154,6 +158,7 @@ const styles = StyleSheet.create({
   option: { minHeight: 52, flexDirection: "row", alignItems: "center", gap: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border },
   optionMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: Spacing.sm },
   optionLabel: { flex: 1, color: Colors.text, fontWeight: "600" },
+  moveButton: { width: 38, height: 42, alignItems: "center", justifyContent: "center" },
   restore: { alignItems: "center", padding: Spacing.md },
   restoreText: { color: Colors.primary, fontWeight: "700" },
   done: { alignItems: "center", padding: Spacing.md, borderRadius: Radius.round, backgroundColor: Colors.primary },

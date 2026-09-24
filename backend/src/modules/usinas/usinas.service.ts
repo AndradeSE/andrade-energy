@@ -478,6 +478,24 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
     throw new Error("Informe um percentual entre 0,01% e 100%.");
   }
 
+  // A reserva pertence à usina, inclusive para UCs ainda pendentes de contrato.
+  // Ao editar uma UC, substituímos sua parcela antiga em vez de somá-la duas vezes.
+  const { data: alocacoesExistentes, error: erroAlocacoes } = await supabase
+    .from("unidades_consumidoras")
+    .select("id,percentual_rateio")
+    .eq("usina_id", usinaId)
+    .eq("empresa_id", empresaId)
+    .or("tipo.is.null,tipo.neq.GERADORA");
+  if (erroAlocacoes) throw erroAlocacoes;
+  const reservadoPorOutrasUcs = (alocacoesExistentes ?? []).reduce(
+    (total, unidade) => total + (unidade.id === unidadeAnteriorId ? 0 : Number(unidade.percentual_rateio ?? 0)),
+    0,
+  );
+  if (reservadoPorOutrasUcs + percentual > 100.000001) {
+    const disponivel = Math.max(0, 100 - reservadoPorOutrasUcs);
+    throw new Error(`Esta usina já tem ${reservadoPorOutrasUcs.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% alocados. Restam ${disponivel.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% para esta UC.`);
+  }
+
   const enderecoDaFatura = String(input.endereco ?? "").trim();
   const enderecoDaUc = enderecoDaFatura || unidadeAnterior?.endereco || cliente.endereco || null;
   const usinaAnterior = unidadeAnterior?.usina_id ?? null;
