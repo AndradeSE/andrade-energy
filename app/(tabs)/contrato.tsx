@@ -75,6 +75,7 @@ function ContratoConsumidor() {
   const [tracosAssinatura, setTracosAssinatura] = useState<string[]>([]);
   const [enviandoCodigo, setEnviandoCodigo] = useState(false);
   const [emailCodigo, setEmailCodigo] = useState("");
+  const [concordouRevisao, setConcordouRevisao] = useState(false);
   const [abrindoProposta, setAbrindoProposta] = useState(false);
 
   async function atualizarPagina() {
@@ -118,6 +119,9 @@ function ContratoConsumidor() {
   );
   const arquivoContrato =
     data.contrato_assinado_url ?? data.contrato_gerado_url ?? data.arquivo_pdf;
+  const revisaoPendente = Boolean(data.revisao_anterior?.id && !data.aceite_cliente_em && !data.contrato_assinado_url);
+  const configuracaoAnterior = data.revisao_anterior?.configuracao_uc_snapshot ?? {};
+  const configuracaoRevisada = data.configuracao_uc_snapshot ?? {};
   const aceiteRegistrado = Boolean(data.aceite_cliente_em);
   const pdfAssinadoEnviado = Boolean(data.contrato_assinado_url);
   const assinaturaExternaValidada = Boolean(
@@ -169,6 +173,7 @@ function ContratoConsumidor() {
       setEmailCodigo(resposta.emailMascarado ?? "seu e-mail");
       setCodigoAssinatura("");
       setTracosAssinatura([]);
+      setConcordouRevisao(false);
       setModalAssinatura(true);
     } catch (erro: any) {
       Alert.alert("Código não enviado", erro?.response?.data?.message ?? "Tente novamente.");
@@ -179,10 +184,11 @@ function ContratoConsumidor() {
 
   async function confirmarAceite() {
     if (codigoAssinatura.length !== 6) return Alert.alert("Código incompleto", "Informe os seis dígitos enviados ao e-mail.");
-    if (!tracosAssinatura.length) return Alert.alert("Assinatura necessária", "Faça sua assinatura no campo indicado.");
+    if (revisaoPendente && !concordouRevisao) return Alert.alert("Confirme a revisão", "Leia a nova minuta e confirme que concorda com as alterações.");
+    if (!revisaoPendente && !tracosAssinatura.length) return Alert.alert("Assinatura necessária", "Faça sua assinatura no campo indicado.");
     setRegistrandoAceite(true);
     try {
-      await registrarAceiteEletronico(data.id, { codigo: codigoAssinatura, assinatura: tracosAssinatura });
+      await registrarAceiteEletronico(data.id, { codigo: codigoAssinatura, assinatura: tracosAssinatura, aceiteRevisao: revisaoPendente });
       setModalAssinatura(false);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["contrato"] }),
@@ -190,8 +196,8 @@ function ContratoConsumidor() {
         queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
       ]);
       Alert.alert(
-        "Contrato assinado com sucesso",
-        "Sua assinatura foi registrada e esta unidade já está liberada para acesso.",
+        revisaoPendente ? "Alterações aceitas" : "Contrato assinado com sucesso",
+        revisaoPendente ? "Seu aceite da nova versão foi registrado. O contrato anterior permanece no histórico." : "Sua assinatura foi registrada e esta unidade já está liberada para acesso.",
         [
           {
             text: "Acessar minha unidade",
@@ -446,7 +452,23 @@ function ContratoConsumidor() {
           </View>
         </Card>
 
-        <Text style={styles.sectionTitle}>Assinatura</Text>
+        {revisaoPendente ? <View style={styles.revisionNotice}>
+          <Ionicons name="document-text-outline" size={20} color="#9A6700" />
+          <Text style={styles.revisionNoticeText}>O gerador enviou uma revisão do contrato {data.revisao_anterior?.numero ?? "anterior"}. Confira a nova minuta e as condições abaixo antes de concordar. O documento assinado anteriormente permanece preservado.</Text>
+        </View> : null}
+        {revisaoPendente ? <Card>
+          <Text style={styles.sectionTitle}>Condições alteradas</Text>
+          {([
+            ["Desconto", configuracaoAnterior.desconto_percentual ?? data.revisao_anterior?.desconto, configuracaoRevisada.desconto_percentual ?? data.desconto, "%"],
+            ["Percentual de injeção/alocação", configuracaoAnterior.percentual_rateio, configuracaoRevisada.percentual_rateio, "%"],
+            ["Modalidade", configuracaoAnterior.modalidade_faturamento, configuracaoRevisada.modalidade_faturamento, ""],
+          ] as Array<[string, unknown, unknown, string]>).filter(([, antes, depois]) => String(antes ?? "") !== String(depois ?? "")).map(([rotulo, antes, depois, unidade]) => (
+            <Text key={rotulo} style={styles.revisionNoticeText}>{rotulo}: {String(antes ?? "Não informado")}{unidade} → {String(depois ?? "Não informado")}{unidade}</Text>
+          ))}
+          {String(configuracaoAnterior.usina_id ?? "") !== String(configuracaoRevisada.usina_id ?? "") ? <Text style={styles.revisionNoticeText}>Usina vinculada alterada. Confira os detalhes na minuta.</Text> : null}
+          <Text style={styles.revisionNoticeText}>Confira todas as cláusulas e valores na nova minuta em PDF antes de aceitar.</Text>
+        </Card> : null}
+        <Text style={styles.sectionTitle}>{revisaoPendente ? "Aceite da revisão" : "Assinatura"}</Text>
         {data.revisao_configuracao_pendente ? <View style={styles.revisionNotice}><Ionicons name="alert-circle-outline" size={20} color="#9A6700" /><Text style={styles.revisionNoticeText}>A configuração desta UC foi alterada. O gerador precisa emitir uma nova versão para sua assinatura.</Text></View> : null}
         <Card>
           <InfoRow
@@ -500,11 +522,11 @@ function ContratoConsumidor() {
               onPress={() => void abrirAssinatura()}
               title={
                 registrandoAceite || enviandoCodigo
-                  ? "Preparando assinatura..."
-                  : "Assinar contrato no app"
+                  ? "Preparando confirmação..."
+                  : revisaoPendente ? "Concordar com as alterações" : "Assinar contrato no app"
               }
             />
-            <TouchableOpacity
+            {!revisaoPendente ? <TouchableOpacity
               activeOpacity={0.85}
               onPress={assinarComGovBr}
               style={styles.govButton}
@@ -513,8 +535,8 @@ function ContratoConsumidor() {
               <Text style={styles.govButtonText}>
                 Assinar gratuitamente no GOV.BR
               </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+            </TouchableOpacity> : null}
+            {!revisaoPendente ? <TouchableOpacity
               activeOpacity={0.85}
               disabled={enviandoAssinado}
               onPress={enviarPdfAssinado}
@@ -528,7 +550,7 @@ function ContratoConsumidor() {
               <Text style={styles.govButtonText}>
                 {enviandoAssinado ? "Enviando PDF..." : "Enviar PDF assinado"}
               </Text>
-            </TouchableOpacity>
+            </TouchableOpacity> : null}
           </> : null}
           {pdfAssinadoPendente && !aceiteRegistrado ? <TouchableOpacity
             activeOpacity={0.85}
@@ -543,7 +565,7 @@ function ContratoConsumidor() {
           </TouchableOpacity> : null}
         </View>
 
-        {ativo ? <TouchableOpacity
+        {ativo && !revisaoPendente ? <TouchableOpacity
           activeOpacity={0.85}
           onPress={solicitarRenovacao}
           style={styles.renewButton}
@@ -563,7 +585,7 @@ function ContratoConsumidor() {
           <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
         </TouchableOpacity> : null}
 
-        <TouchableOpacity
+        {!revisaoPendente ? <TouchableOpacity
           activeOpacity={0.85}
           onPress={solicitarCancelamento}
           style={styles.cancelButton}
@@ -574,7 +596,7 @@ function ContratoConsumidor() {
             color={vencido ? Colors.danger : Colors.subtitle}
           />
           <Text style={styles.cancelButtonText}>Cancelar contrato</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> : null}
 
         <View style={styles.securityNote}>
           <Ionicons
@@ -591,9 +613,13 @@ function ContratoConsumidor() {
         <Pressable style={styles.signatureBackdrop} onPress={() => !registrandoAceite && setModalAssinatura(false)}>
           <Pressable style={styles.signatureSheet} onPress={(event) => event.stopPropagation()}>
             <View style={styles.signatureHandle} />
-            <Text style={styles.signatureTitle}>Assinar contrato</Text>
-            <Text style={styles.signatureSubtitle}>Confira a minuta, assine no campo abaixo e confirme com o código enviado para {emailCodigo}.</Text>
-            <SignaturePad value={tracosAssinatura} onChange={setTracosAssinatura} />
+            <Text style={styles.signatureTitle}>{revisaoPendente ? "Concordar com a revisão" : "Assinar contrato"}</Text>
+            <Text style={styles.signatureSubtitle}>{revisaoPendente ? `Ao confirmar, você concorda com a nova minuta exibida nesta tela. Informe o código enviado para ${emailCodigo}.` : `Confira a minuta, assine no campo abaixo e confirme com o código enviado para ${emailCodigo}.`}</Text>
+            {revisaoPendente ? <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{ checked: concordouRevisao }} onPress={() => setConcordouRevisao((atual) => !atual)} style={styles.govButton}>
+              <Ionicons name={concordouRevisao ? "checkbox-outline" : "square-outline"} size={22} color={Colors.primary} />
+              <Text style={styles.govButtonText}>Li a nova minuta e concordo com as alterações.</Text>
+            </TouchableOpacity> : null}
+            {!revisaoPendente ? <SignaturePad value={tracosAssinatura} onChange={setTracosAssinatura} /> : null}
             <Text style={styles.codeLabel}>Código de confirmação</Text>
             <TextInput
               autoComplete="one-time-code"
@@ -608,7 +634,7 @@ function ContratoConsumidor() {
             <TouchableOpacity disabled={enviandoCodigo} onPress={() => void abrirAssinatura()} style={styles.resendCode}>
               <Text style={styles.resendCodeText}>{enviandoCodigo ? "Reenviando..." : "Reenviar código"}</Text>
             </TouchableOpacity>
-            <Button disabled={registrandoAceite || codigoAssinatura.length !== 6 || !tracosAssinatura.length} title={registrandoAceite ? "Registrando assinatura..." : "Confirmar e assinar"} onPress={() => void confirmarAceite()} />
+            <Button disabled={registrandoAceite || codigoAssinatura.length !== 6 || (revisaoPendente ? !concordouRevisao : !tracosAssinatura.length)} title={registrandoAceite ? "Registrando aceite..." : revisaoPendente ? "Confirmar concordância" : "Confirmar e assinar"} onPress={() => void confirmarAceite()} />
           </Pressable>
         </Pressable>
       </Modal>

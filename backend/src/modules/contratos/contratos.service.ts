@@ -43,12 +43,20 @@ export async function obterContratoDaUnidade(
   unidadeId: string,
   preferirRascunho = false,
   empresaId?: string,
+  preferirRevisaoEnviada = false,
 ) {
   let contratoDaUnidade: any;
-  if (preferirRascunho) {
+  if (preferirRevisaoEnviada) {
+    const rascunho = await buscarRascunhoAtualUnidade(unidadeId, empresaId);
+    const anteriorId = rascunho?.dados_documento?.contrato_anterior_id;
+    const enviado = rascunho?.dados_documento?.envio_email_concluido === true;
+    contratoDaUnidade = anteriorId && enviado && rascunho.contrato_gerado_url && !rascunho.aceite_cliente_em
+      ? rascunho : null;
+  }
+  if (!contratoDaUnidade && preferirRascunho) {
     contratoDaUnidade = await buscarRascunhoAtualUnidade(unidadeId, empresaId)
       ?? await buscarContratoMaisRecenteUnidade(unidadeId, empresaId);
-  } else {
+  } else if (!contratoDaUnidade) {
     let contratosQuery = supabase.from("contratos").select("*")
       .eq("unidade_consumidora_id", unidadeId)
       .in("status", ["ATIVO", "VIGENTE"])
@@ -56,13 +64,26 @@ export async function obterContratoDaUnidade(
     if (empresaId) contratosQuery = contratosQuery.eq("empresa_id", empresaId);
     const { data: contratos, error } = await contratosQuery;
     if (error) throw error;
-    contratoDaUnidade = (contratos ?? []).find((item) =>
+    contratoDaUnidade = (!preferirRevisaoEnviada ? (contratos ?? []).find((item) =>
+      item.dados_documento?.assinatura_externa_pendente === true
+    ) : null) ?? (contratos ?? []).find((item) =>
       item.aceite_cliente_em
       || item.contrato_assinado_url
       || String(item.status ?? "").toUpperCase() === "VIGENTE"
     ) ?? contratos?.[0] ?? null;
   }
-  if (contratoDaUnidade) return anexarLinksDoContrato(contratoDaUnidade);
+  if (contratoDaUnidade) {
+    const anteriorId = preferirRevisaoEnviada ? contratoDaUnidade.dados_documento?.contrato_anterior_id : null;
+    if (anteriorId) {
+      const { data: anterior, error: erroAnterior } = await supabase.from("contratos")
+        .select("id,numero,versao,configuracao_uc_snapshot,desconto")
+        .eq("id", anteriorId).eq("unidade_consumidora_id", unidadeId)
+        .eq("empresa_id", contratoDaUnidade.empresa_id).maybeSingle();
+      if (erroAnterior) throw erroAnterior;
+      return anexarLinksDoContrato({ ...contratoDaUnidade, revisao_anterior: anterior ?? null });
+    }
+    return anexarLinksDoContrato(contratoDaUnidade);
+  }
 
   // Compatibilidade para contratos antigos, criados antes do vínculo por UC.
   let unidadeQuery = supabase
@@ -154,7 +175,7 @@ export async function salvarContratoDaUnidadeService(
 ) {
   const { data: unidadeEncontrada, error: erroUnidade } = await supabase
     .from("unidades_consumidoras")
-    .select("id, empresa_id, numero, cliente_id, usina_id, desconto_percentual, modalidade_faturamento, tipo_gd, percentual_rateio, fatura_somente_andrade, repassar_disponibilidade_gd1, repassar_disponibilidade_gd2, repassar_diferenca_fio_b_gd2, usinas(titularidade_ucs_recebedoras)")
+    .select("id, empresa_id, numero, cliente_id, usina_id, desconto_percentual, modalidade_faturamento, tipo_gd, percentual_rateio, percentual_repasse_disponibilidade, fatura_somente_andrade, repassar_disponibilidade_gd1, repassar_disponibilidade_gd2, repassar_diferenca_fio_b_gd2, usinas(titularidade_ucs_recebedoras)")
     .eq("id", unidadeId)
     .maybeSingle();
 
@@ -212,6 +233,7 @@ export async function salvarContratoDaUnidadeService(
     desconto_percentual: desconto,
     tipo_gd: unidade.tipo_gd,
     percentual_rateio: unidade.percentual_rateio,
+    percentual_repasse_disponibilidade: unidade.percentual_repasse_disponibilidade,
     fatura_somente_andrade: unidade.fatura_somente_andrade,
     repassar_disponibilidade_gd1: unidade.repassar_disponibilidade_gd1,
     repassar_disponibilidade_gd2: unidade.repassar_disponibilidade_gd2,
@@ -220,6 +242,7 @@ export async function salvarContratoDaUnidadeService(
   };
 
   return await salvarContratoUnidade(unidade.id, {
+    empresa_id: unidade.empresa_id,
     cliente_id: unidade.cliente_id,
     usina_id: unidade.usina_id,
     unidade_consumidora_id: unidade.id,
@@ -303,7 +326,7 @@ export async function obterMinutaParaConvite(clienteId: string) {
 export async function importarContratoAssinadoDaUnidadeService(unidadeId: string, arquivo?: Express.Multer.File) {
   if (!arquivo) throw new Error("Selecione o PDF assinado.");
   if (arquivo.mimetype && arquivo.mimetype !== "application/pdf") throw new Error("Envie um arquivo PDF.");
-  const contrato = await buscarContratoMaisRecenteUnidade(unidadeId);
+  const contrato = await buscarRascunhoAtualUnidade(unidadeId) ?? await buscarContratoMaisRecenteUnidade(unidadeId);
   if (!contrato?.id) throw new Error("Gere ou salve a minuta antes de vincular o contrato assinado.");
   return salvarPdfAssinadoPendente(contrato, unidadeId, arquivo.path);
 }
@@ -396,6 +419,9 @@ const hashAssinatura = (valor: string) => crypto.createHash("sha256").update(val
 async function identidadeDocumentoParaAssinatura(contrato: any) {
   if (contrato.aceite_cliente_em || contrato.contrato_assinado_url) throw new Error("Este contrato já possui uma assinatura registrada.");
   if (["CANCELADO", "SUBSTITUIDO", "VENCIDO"].includes(String(contrato.status).toUpperCase())) throw new Error("Este contrato não está disponível para assinatura.");
+  if (contrato.dados_documento?.contrato_anterior_id && contrato.dados_documento?.envio_email_concluido !== true) {
+    throw new Error("A revisão ainda não foi enviada ao cliente.");
+  }
   const caminho = String(contrato.contrato_gerado_url ?? "");
   if (!caminho || /^https?:/i.test(caminho)) throw new Error("Gere a minuta no sistema antes de solicitar a assinatura.");
   const { data: pdf, error } = await supabase.storage.from("contratos").download(caminho);
@@ -407,6 +433,7 @@ async function identidadeDocumentoParaAssinatura(contrato: any) {
 
 export async function solicitarCodigoAssinaturaService(contratoId: string, usuario: any) {
   const contrato = await obterContratoDoClienteParaAceite(contratoId, usuario);
+  const revisao = Boolean(contrato.dados_documento?.contrato_anterior_id);
   const email = String(usuario?.email ?? "").trim().toLowerCase();
   if (!email || !email.includes("@")) throw new Error("Sua conta não possui um e-mail válido para confirmar a assinatura.");
   if (!contrato.contrato_gerado_url && !contrato.arquivo_pdf) throw new Error("A minuta precisa ser gerada antes da assinatura.");
@@ -427,8 +454,8 @@ export async function solicitarCodigoAssinaturaService(contratoId: string, usuar
   const enviado = await enviarEmailTransacional({
     empresaId: contrato.empresa_id,
     destinatario: email,
-    assunto: "Código para assinar seu contrato",
-    html: `<div style="font-family:Arial,sans-serif;color:#153b30"><h2>Confirmação da assinatura</h2><p>Use o código abaixo para confirmar a assinatura do contrato <strong>${String(contrato.numero ?? "").replace(/[<>]/g, "")}</strong>:</p><div style="font-size:30px;font-weight:800;letter-spacing:8px;margin:24px 0">${codigo}</div><p>O código expira em 10 minutos. Se você não iniciou esta assinatura, ignore este e-mail.</p></div>`,
+    assunto: revisao ? "Código para concordar com a revisão contratual" : "Código para assinar seu contrato",
+    html: `<div style="font-family:Arial,sans-serif;color:#153b30"><h2>${revisao ? "Confirmação da revisão contratual" : "Confirmação da assinatura"}</h2><p>Use o código abaixo para ${revisao ? "concordar com a nova versão do contrato" : "confirmar a assinatura do contrato"} <strong>${String(contrato.numero ?? "").replace(/[<>]/g, "")}</strong>:</p><div style="font-size:30px;font-weight:800;letter-spacing:8px;margin:24px 0">${codigo}</div><p>O código expira em 10 minutos. Se você não iniciou esta ação, ignore este e-mail.</p></div>`,
   });
   if (!enviado) throw new Error("Não foi possível enviar o código de assinatura. Tente novamente.");
   return { enviado: true, emailMascarado: email.replace(/^(.{2}).*(@.*)$/, "$1***$2"), expiraEm };
@@ -439,8 +466,21 @@ export async function registrarAceiteEletronicoService(contratoId: string, usuar
   const contrato = await obterContratoDoClienteParaAceite(contratoId, usuario);
   const codigo = String(dados?.codigo ?? "").replace(/\D/g, "");
   const assinatura = Array.isArray(dados?.assinatura) ? dados.assinatura : [];
+  const anteriorId = String(contrato.dados_documento?.contrato_anterior_id ?? "");
+  const aceiteRevisao = dados?.aceiteRevisao === true && Boolean(anteriorId);
   if (codigo.length !== 6) throw new Error("Informe o código de seis dígitos enviado ao seu e-mail.");
-  if (!assinatura.length || JSON.stringify(assinatura).length < 80) throw new Error("Faça sua assinatura no campo indicado.");
+  if (!aceiteRevisao && (!assinatura.length || JSON.stringify(assinatura).length < 80)) throw new Error("Faça sua assinatura no campo indicado.");
+  if (aceiteRevisao) {
+    const { data: anterior, error: erroAnterior } = await supabase.from("contratos")
+      .select("id,aceite_cliente_em,contrato_assinado_url,status")
+      .eq("id", anteriorId).eq("unidade_consumidora_id", contrato.unidade_consumidora_id)
+      .eq("cliente_id", contrato.cliente_id)
+      .eq("empresa_id", contrato.empresa_id).maybeSingle();
+    if (erroAnterior) throw erroAnterior;
+    if (!anterior || (!anterior.aceite_cliente_em && !anterior.contrato_assinado_url)) {
+      throw new Error("O contrato anterior assinado não foi encontrado. Esta revisão exige assinatura completa.");
+    }
+  }
 
   const { data: confirmacao, error: erroCodigo } = await supabase
     .from("contratos_codigos_assinatura")
@@ -465,7 +505,9 @@ export async function registrarAceiteEletronicoService(contratoId: string, usuar
     throw new Error("Código incorreto ou documento atualizado. Confira a minuta e solicite um novo código.");
   }
 
-  const assinaturaSerializada = JSON.stringify(assinatura);
+  const assinaturaSerializada = aceiteRevisao
+    ? `ACEITE_REVISAO:${contratoId}:${anteriorId}:${usuario.id}:${identidade.documentoHash}`
+    : JSON.stringify(assinatura);
   const documentoHash = identidade.documentoHash;
   const agora = new Date().toISOString();
   const anteriores = await suspenderVigenciasAnteriores(contrato.unidade_consumidora_id, contratoId);
@@ -478,6 +520,7 @@ export async function registrarAceiteEletronicoService(contratoId: string, usuar
       assinatura_cliente_hash: hashAssinatura(assinaturaSerializada),
       documento_hash: documentoHash,
       codigo_assinatura_confirmado_em: agora,
+      ...(aceiteRevisao ? { dados_documento: { ...contrato.dados_documento, aceite_revisao_tipo: "CONSENTIMENTO_CODIGO_EMAIL", aceite_revisao_anterior_id: anteriorId, aceite_revisao_em: agora } } : {}),
       status: "VIGENTE",
     })
     .eq("id", contratoId)

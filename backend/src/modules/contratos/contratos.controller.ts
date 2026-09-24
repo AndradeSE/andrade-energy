@@ -123,6 +123,7 @@ export async function buscarContratoDaUnidadeController(
       req.params.unidadeId,
       String(req.query.revisao ?? "") === "1",
       empresaIdDaRequisicao(req),
+      String(req.query.revisaoEnviada ?? "") === "1",
     );
     res.json(contrato);
   } catch (e: any) {

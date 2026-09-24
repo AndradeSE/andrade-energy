@@ -159,7 +159,7 @@ export default function UnidadeDocumentos() {
   const nomeUsinaVinculada = unidade.usinas?.nome ?? unidade.usina_nome ?? usinaNome ?? (unidade.usina_id ? "Usina vinculada - atualize para ver o nome" : "Ainda não alocada");
   const contratoAssinado = contrato?.dados_documento?.assinatura_externa_pendente !== true
     && Boolean(contrato?.aceite_cliente_em || contrato?.contrato_assinado_url || String(contrato?.status ?? "").toUpperCase() === "VIGENTE");
-  const rotuloContrato = contratoAssinado ? "Ver contrato" : contrato ? "Gerenciar contrato" : "Cadastrar contrato";
+  const rotuloContrato = contrato?.revisao_configuracao_pendente ? "Continuar revisão" : contratoAssinado ? "Ver contrato" : contrato ? "Gerenciar contrato" : "Gerar contrato";
   const documentoConferido = Boolean(contrato?.contrato_assinado_url && contrato?.dados_documento?.assinatura_externa_validada_em);
   const titularDaFatura = String(faturasCadastro[0]?.dadosFatura?.titular ?? faturasCadastro[0]?.dadosFatura?.cliente ?? "").trim();
 
@@ -217,8 +217,23 @@ export default function UnidadeDocumentos() {
           clienteId: unidade.cliente_id ?? unidade.clientes?.id ?? clienteId ?? "",
           cliente: unidade.clientes?.nome ?? unidade.titular ?? cliente ?? "",
           descontoPadrao: String(unidade.desconto_percentual ?? ""),
+          ...(contrato?.revisao_configuracao_pendente ? { revisao: "1" } : {}),
         } });
       }} style={styles.action}><Ionicons name={contratoAssinado ? "document-text" : "document-text-outline"} size={18} color={Colors.primary} /><Text style={styles.actionText}>{rotuloContrato}</Text></TouchableOpacity> : null}
+      {IS_GERADOR_APP && contrato?.dados_documento?.assinatura_externa_pendente !== true && (!contratoAssinado || contrato?.revisao_configuracao_pendente) ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Enviar contrato já assinado" onPress={() => {
+        if (String(unidade.id ?? "").startsWith("cliente-") || !unidade.cliente_id || !unidade.usina_id) {
+          Alert.alert("Configure a UC primeiro", "Vincule a unidade ao cliente e à usina antes de anexar o contrato assinado.");
+          return;
+        }
+        router.push({ pathname: "/unidades/contrato", params: {
+          id: unidade.id,
+          numero: unidade.numero,
+          clienteId: unidade.cliente_id,
+          descontoPadrao: String(unidade.desconto_percentual ?? ""),
+          modoAssinado: "1",
+          ...(contratoAssinado ? { revisao: "1" } : {}),
+        } });
+      }} style={styles.action}><Ionicons name="cloud-upload-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Enviar contrato já assinado</Text></TouchableOpacity> : null}
     </View>
     {IS_GERADOR_APP && documentoConferido ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Reenviar convite de acesso ao cliente" onPress={() => {
       Alert.alert("Reenviar convite", "Será enviado um novo convite de acesso ao cliente desta UC. O contrato assinado continuará o mesmo.", [

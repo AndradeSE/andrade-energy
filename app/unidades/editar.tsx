@@ -377,7 +377,7 @@ export default function EditarAlocacaoUnidade() {
           </>
           <Button
             disabled={salvando || !clienteIdResolvido}
-            title={salvando ? "Salvando..." : atualizacaoContratual ? "Salvar e preparar novo contrato" : clienteIdResolvido ? "Salvar alocação da UC" : "Vincule um cliente para alocar"}
+            title={salvando ? "Salvando..." : atualizacaoContratual ? "Salvar e preparar revisão" : clienteIdResolvido ? "Salvar alocação da UC" : "Vincule um cliente para alocar"}
             onPress={salvar}
           />
         </Card>

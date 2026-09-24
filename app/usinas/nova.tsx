@@ -18,6 +18,7 @@ export default function NovaUsina() {
   const [numeroInstalacao, setNumeroInstalacao] = useState("");
   const [potencia, setPotencia] = useState("");
   const [geracaoMedia, setGeracaoMedia] = useState(geracaoMediaImportada ?? "");
+  const [mediaEditada, setMediaEditada] = useState(false);
   const [titular, setTitular] = useState("");
   const [cpfTitular, setCpfTitular] = useState("");
   const [endereco, setEndereco] = useState("");
@@ -63,6 +64,7 @@ export default function NovaUsina() {
     setNumeroInstalacao((uc ?? "").replace(/\D/g, ""));
     setEndereco(enderecoImportado ?? "");
     setGeracaoMedia(geracaoMediaImportada ?? "");
+    setMediaEditada(false);
     const tipoLido = String(tipoGdImportado).toUpperCase();
     setTipoGd(tipoLido === "GD2" ? "GD2" : tipoLido === "GD1" ? "GD1" : "");
   }, [cliente, enderecoImportado, geracaoMediaImportada, origem, tipoGdImportado, uc, usuario?.nome]);
@@ -77,7 +79,7 @@ export default function NovaUsina() {
     try {
       const usina = await criarUsinaRemota({
         nome: nome.trim(), numero_instalacao: numeroInstalacao, potencia_kwp: Number(potencia.replace(",", ".")),
-        geracao_media: Number(geracaoMedia.replace(",", ".")) || 0,
+        geracao_media: mediaEditada ? Number(geracaoMedia.replace(",", ".")) || 0 : 0,
         titular_nome: titular.trim() || null, cpf_titular: cpfTitular.replace(/\D/g, "") || null,
         endereco: endereco.trim() || null, distribuidora: "CEMIG", modalidade: "INJECAO",
         tipo_gd: tipoGd, titularidade_ucs_recebedoras: titularidadeUcs, status: "ATIVA",
@@ -112,7 +114,8 @@ export default function NovaUsina() {
         <FormField label="Nome da usina (editável)" value={nome} onChangeText={setNome} placeholder="Ex.: Usina Solar Alfenas" />
         <FormField label="Número da instalação / UC" value={numeroInstalacao} onChangeText={(v) => setNumeroInstalacao(v.replace(/\D/g, ""))} keyboardType="numeric" />
         <FormField label="Potência (kWp)" value={potencia} onChangeText={setPotencia} keyboardType="decimal-pad" />
-        <FormField label="Geração média mensal (kWh)" value={geracaoMedia} onChangeText={setGeracaoMedia} keyboardType="decimal-pad" placeholder="Base inicial da alocação automática" />
+        <FormField label="Geração média mensal (kWh)" value={geracaoMedia} onChangeText={(valor) => { setGeracaoMedia(valor); setMediaEditada(true); }} keyboardType="decimal-pad" placeholder="Calculada após importar faturas" />
+        <Text style={styles.gdHint}>A média será calculada com as faturas da usina; edite este campo para usar uma referência manual.</Text>
         {origem === "fatura" && !tipoGd ? <Text style={styles.gdHint}>A modalidade não foi identificada nesta fatura. Escolha GD I ou GD II.</Text> : null}
         <ChoiceField label="Modalidade GD da usina" value={tipoGd} onChange={setTipoGd} options={[{ label: "GD I", value: "GD1" }, { label: "GD II", value: "GD2" }]} />
         <ChoiceField label="Titularidade das UCs" value={titularidadeUcs} onChange={(valor) => setTitularidadeUcs(valor as "GERADOR" | "CLIENTE")} options={[{ label: "Gerador", value: "GERADOR" }, { label: "Clientes", value: "CLIENTE" }]} />

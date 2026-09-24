@@ -14,6 +14,11 @@ import { montarHistoricoTarifasGd2 } from "./tarifasReferencia";
 
 const meses: Record<string, string> = { JAN: "01", FEV: "02", MAR: "03", ABR: "04", MAI: "05", JUN: "06", JUL: "07", AGO: "08", SET: "09", OUT: "10", NOV: "11", DEZ: "12" };
 
+function competenciaAtualDaUsina() {
+  const partes = new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit" }).formatToParts(new Date());
+  return `${partes.find((parte) => parte.type === "year")?.value}-${partes.find((parte) => parte.type === "month")?.value}`;
+}
+
 function competenciaData(referencia: string) {
   const [mes, ano] = referencia.toUpperCase().split("/");
   if (!meses[mes] || !ano) throw new Error("Competência não identificada na fatura.");
@@ -125,7 +130,9 @@ export async function listarUsinasService(empresaId?: string) {
         supabase.from("unidades_consumidoras").select("id,numero,cliente_id,percentual_rateio,modalidade_faturamento,consumo_medio_kwh", { count: "exact" }).eq("usina_id", usina.id).eq("status", "ATIVA").neq("tipo", "GERADORA"),
       ]);
       if (unidades.error) throw unidades.error;
-      const energiaDaCompetencia = Number(dashboard.ultimo?.energia_gerada ?? 0);
+      const competenciaAtual = competenciaAtualDaUsina();
+      const fechamentoDaCompetencia = dashboard.historico?.find((item: any) => String(item.competencia ?? "").startsWith(competenciaAtual));
+      const energiaDaCompetencia = Number(fechamentoDaCompetencia?.energia_gerada ?? 0);
       const energiaProjetada = energiaDaCompetencia > 0
         ? energiaDaCompetencia
         : Math.max(0, Number(producaoMedia12Meses || usina.geracao_media || 0));
@@ -157,12 +164,12 @@ export async function listarUsinasService(empresaId?: string) {
       return {
         ...usina,
         fechamento_atual: {
-          ...(dashboard.ultimo ?? {}),
-          energia_gerada: energiaProjetada,
+          ...(fechamentoDaCompetencia ?? {}),
+          energia_gerada: energiaDaCompetencia,
           ...alocacaoProjetada,
-          status: dashboard.ultimo?.status ?? "ABERTO",
+          status: fechamentoDaCompetencia?.status ?? "ABERTO",
         },
-        producao_media_12_meses: producaoMedia12Meses > 0 ? producaoMedia12Meses : Number(usina.geracao_media ?? 0),
+        producao_media_12_meses: Number(usina.geracao_media ?? 0) > 0 ? Number(usina.geracao_media) : producaoMedia12Meses,
         geracao_total: Number(dashboard.energiaTotal ?? 0),
         unidades_alocadas: unidades.count ?? 0,
         tarifa_scee_referencia: Number(tarifaGd2Recente?.tarifa_scee ?? 0),
@@ -506,6 +513,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
     desconto_percentual: desconto,
     tipo_gd: tipoGd,
     percentual_rateio: percentual,
+    percentual_repasse_disponibilidade: percentualRepasseDisponibilidade,
     fatura_somente_andrade: somenteAndrade,
     repassar_disponibilidade_gd1: repassarCustoDisponibilidadeGD1,
     repassar_disponibilidade_gd2: repassarCustoDisponibilidadeGD2,
@@ -746,27 +754,30 @@ export async function obterDashboardUsina(
     if (error) throw error;
     unidadeGeradora = data;
   }
-  const fechamento = dashboard.ultimo;
+  const competenciaAtual = competenciaAtualDaUsina();
+  const fechamento = dashboard.historico?.find((item: any) => String(item.competencia ?? "").startsWith(competenciaAtual)) ?? null;
   const energiaAtual = Number(fechamento?.energia_gerada ?? 0);
   const energiaProjetada = energiaAtual > 0
     ? energiaAtual
-    : await calcularProducaoMedia12Meses(id);
+    : Math.max(0, Number(usina.geracao_media ?? 0)) || await calcularProducaoMedia12Meses(id);
   const alocacaoAtual = await obterAlocacaoProjetadaDaUsina(id, energiaProjetada, empresaId);
 
   if (!fechamento) {
-    const agora = new Date();
       return {
         usina,
         unidadeGeradora,
-        historico: [],
+        historico: (dashboard.historico ?? []).map((item: any) => ({
+          competencia: item.competencia,
+          energiaGerada: Number(item.energia_gerada ?? 0),
+        })),
       clientes: clientes.count ?? 0,
-      energiaGerada: energiaProjetada,
-      energiaTotal: energiaProjetada,
+      energiaGerada: 0,
+      energiaTotal: Number(dashboard.energiaTotal ?? 0),
       energiaDisponivel: alocacaoAtual.energia_disponivel,
       ocupacao: alocacaoAtual.ocupacao,
       receitaPrevista: 0,
       receitaRealizada: 0,
-      competencia: `${String(agora.getMonth() + 1).padStart(2, "0")}/${agora.getFullYear()}`,
+      competencia: `${competenciaAtual.slice(5)}/${competenciaAtual.slice(0, 4)}`,
       status: "ABERTO",
     };
   }
@@ -779,7 +790,7 @@ export async function obterDashboardUsina(
         energiaGerada: Number(item.energia_gerada ?? 0),
       })),
     clientes: clientes.count ?? 0,
-    energiaGerada: energiaProjetada,
+    energiaGerada: energiaAtual,
 
     energiaTotal:
       Number(dashboard.energiaTotal ?? 0),

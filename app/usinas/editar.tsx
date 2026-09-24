@@ -25,6 +25,7 @@ export default function EditarUsina() {
   const [numeroInstalacao, setNumeroInstalacao] = useState("");
   const [potencia, setPotencia] = useState("");
   const [geracaoMedia, setGeracaoMedia] = useState("");
+  const [mediaEditada, setMediaEditada] = useState(false);
   const [investimento, setInvestimento] = useState("");
   const [titular, setTitular] = useState("");
   const [cpfTitular, setCpfTitular] = useState("");
@@ -53,7 +54,9 @@ export default function EditarUsina() {
       setNome(data.nome ?? "");
       setNumeroInstalacao(String(data.numero_instalacao ?? data.ponto_instalacao ?? "").replace(/\D/g, ""));
       setPotencia(String(data.potencia_kwp ?? ""));
-      setGeracaoMedia(String(data.geracao_media ?? ""));
+      const destinos = await listarUsinas();
+      const resumo = destinos.find((item: any) => item.id === id);
+      setGeracaoMedia(String(Number(data.geracao_media ?? 0) > 0 ? data.geracao_media : resumo?.producao_media_12_meses ?? ""));
       setInvestimento(formatarMoeda(data.investimento ?? 0));
       setTitular(data.titular_nome ?? "");
       setEndereco(data.endereco ?? "");
@@ -61,9 +64,9 @@ export default function EditarUsina() {
       setTitularidadeUcs(data.titularidade_ucs_recebedoras === "CLIENTE" ? "CLIENTE" : "GERADOR");
       setCpfTitular(String(data.cpf_titular ?? "").replace(/\D/g, ""));
       setFotoCard((await AsyncStorage.getItem(chaveFotoCard)) ?? "");
-      const destinos = (await listarUsinas()).filter((item: any) => item.id !== id);
-      setOutrasUsinas(destinos);
-      setDestinoUsinaId(destinos[0]?.id ?? "");
+      const outras = destinos.filter((item: any) => item.id !== id);
+      setOutrasUsinas(outras);
+      setDestinoUsinaId(outras[0]?.id ?? "");
     }
     carregar().finally(() => setLoading(false));
   }, [id]);
@@ -92,7 +95,7 @@ export default function EditarUsina() {
       await editarUsinaRemota(id, {
         nome: nome.trim(), numero_instalacao: numeroInstalacao,
         potencia_kwp: Number(potencia.replace(",", ".")) || 0,
-        geracao_media: Number(geracaoMedia.replace(",", ".")) || 0,
+        ...(mediaEditada ? { geracao_media: Number(geracaoMedia.replace(",", ".")) || 0 } : {}),
         investimento: numeroDaMoeda(investimento), tipo_gd: tipoGd,
         titularidade_ucs_recebedoras: titularidadeUcs,
         titular_nome: titular.trim() || null, cpf_titular: cpfTitular.replace(/\D/g, "") || null,
@@ -154,7 +157,8 @@ export default function EditarUsina() {
       <FormField label="Nome da usina" value={nome} onChangeText={setNome} />
       <FormField label="Número da instalação / UC" value={numeroInstalacao} onChangeText={(valor) => setNumeroInstalacao(valor.replace(/\D/g, ""))} keyboardType="numeric" />
       <FormField label="Potência (kWp)" value={potencia} onChangeText={setPotencia} keyboardType="decimal-pad" />
-      <FormField label="Geração média (kWh/mês)" value={geracaoMedia} onChangeText={setGeracaoMedia} keyboardType="decimal-pad" />
+      <FormField label="Geração média (kWh/mês)" value={geracaoMedia} onChangeText={(valor) => { setGeracaoMedia(valor); setMediaEditada(true); }} keyboardType="decimal-pad" />
+      <Text style={styles.dangerSubtitle}>Calculada pelas faturas dos últimos 12 meses quando disponível. Edite para definir um valor manual.</Text>
       <ChoiceField label="Modalidade GD da usina" value={tipoGd} onChange={setTipoGd} options={[{ label: "GD I", value: "GD1" }, { label: "GD II", value: "GD2" }]} />
       <ChoiceField label="Titularidade das UCs" value={titularidadeUcs} onChange={(valor) => setTitularidadeUcs(valor as "GERADOR" | "CLIENTE")} options={[{ label: "Gerador", value: "GERADOR" }, { label: "Clientes", value: "CLIENTE" }]} />
       <FormField label="Investimento" value={investimento} onChangeText={(valor) => setInvestimento(moedaDigitada(valor))} keyboardType="numeric" />

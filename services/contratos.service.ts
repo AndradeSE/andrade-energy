@@ -70,10 +70,11 @@ export async function cancelarContrato(id: string) {
 export async function buscarContratoDaUnidade(
   unidadeId: string,
   preferirRascunho = false,
+  preferirRevisaoEnviada = false,
 ) {
   const { data } = await api.get(
     `/contratos/unidade/${unidadeId}`,
-    { params: preferirRascunho ? { revisao: "1" } : undefined },
+    { params: preferirRascunho ? { revisao: "1" } : preferirRevisaoEnviada ? { revisaoEnviada: "1" } : undefined },
   );
 
   return data;
@@ -141,7 +142,7 @@ export async function solicitarCodigoAssinatura(contratoId: string) {
   return data;
 }
 
-export async function registrarAceiteEletronico(contratoId: string, payload: { codigo: string; assinatura: string[] }) {
+export async function registrarAceiteEletronico(contratoId: string, payload: { codigo: string; assinatura: string[]; aceiteRevisao?: boolean }) {
   const { data } = await api.post(`/contratos/${contratoId}/aceite-eletronico`, payload);
   return data;
 }

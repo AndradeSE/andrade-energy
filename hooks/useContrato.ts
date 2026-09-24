@@ -22,13 +22,13 @@ export function useContrato() {
     enabled: Boolean(unidadeId || clienteIdDireto || usuario?.cpf),
 
     queryFn: async () => {
-      if (unidadeId) return buscarContratoDaUnidade(unidadeId);
+      if (unidadeId) return buscarContratoDaUnidade(unidadeId, false, true);
 
       let clienteId = clienteIdDireto;
       if (unidadeSelecionada?.numero || !clienteId) {
         const unidades = await listarMinhasUnidades();
         const atual = unidades.find((unidade: any) => String(unidade.numero) === String(unidadeSelecionada?.numero)) ?? unidades[0];
-        if (atual?.id) return buscarContratoDaUnidade(String(atual.id));
+        if (atual?.id) return buscarContratoDaUnidade(String(atual.id), false, true);
         clienteId = atual?.cliente_id;
       }
       if (!clienteId) throw new Error("Cliente da unidade não identificado.");

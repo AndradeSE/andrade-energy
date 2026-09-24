@@ -136,7 +136,12 @@ export async function salvarContratoUnidade(
 ) {
   const rascunho = await buscarRascunhoAtualUnidade(unidadeId);
   if (rascunho?.id) {
-    return await atualizarContrato(rascunho.id, { ...contrato, status: "RASCUNHO" });
+    const anteriorId = rascunho.dados_documento?.contrato_anterior_id;
+    return await atualizarContrato(rascunho.id, {
+      ...contrato,
+      dados_documento: { ...(contrato.dados_documento ?? {}), ...(anteriorId ? { contrato_anterior_id: anteriorId } : {}) },
+      status: "RASCUNHO",
+    });
   }
   const existente = await buscarContratoAtualUnidade(unidadeId);
 

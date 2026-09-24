@@ -2,6 +2,7 @@ import { supabase } from "../../config/supabase";
 import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
 import { randomUUID } from "node:crypto";
 import { restaurarContratoAssinadoDaMesmaUc } from "../contratos/contratos.repository";
+import { configuracaoVigenteParaFaturamento } from "../contratos/contratoFaturamento.policy";
 
 const somenteDigitos = (valor: unknown) => String(valor ?? "").replace(/\D/g, "");
 
@@ -425,14 +426,27 @@ export async function buscarClientePorUC(uc: string) {
     .maybeSingle();
 
   if (!erroUnidade && unidade?.clientes) {
+    // Durante a revisão, a UC já guarda a proposta nova para a minuta. O
+    // faturamento continua usando o último contrato assinado até o aceite.
+    const { data: contratoVigente, error: erroContrato } = await supabase.from("contratos")
+      .select("id,desconto,configuracao_uc_snapshot,dados_documento,revisao_configuracao_pendente")
+      .eq("unidade_consumidora_id", unidade.id)
+      .eq("empresa_id", unidade.empresa_id)
+      .in("status", ["ATIVO", "VIGENTE"])
+      .eq("revisao_configuracao_pendente", true)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (erroContrato) throw erroContrato;
+    const unidadeParaFaturamento = configuracaoVigenteParaFaturamento(unidade, contratoVigente);
     return {
       ...unidade.clientes,
-      usina_id: unidade.usina_id ?? unidade.clientes.usina_id,
+      usina_id: unidadeParaFaturamento.usina_id ?? unidade.clientes.usina_id,
       modalidade_faturamento:
-        unidade.modalidade_faturamento ?? unidade.clientes.modalidade_faturamento,
+        unidadeParaFaturamento.modalidade_faturamento ?? unidade.clientes.modalidade_faturamento,
       desconto_percentual:
-        unidade.desconto_percentual ?? unidade.clientes.desconto_percentual,
-      unidade_consumidora: unidade,
+        unidadeParaFaturamento.desconto_percentual ?? unidade.clientes.desconto_percentual,
+      unidade_consumidora: unidadeParaFaturamento,
     };
   }
 
