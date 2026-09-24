@@ -45,7 +45,7 @@ function percentualPelaMedia(usina: any, consumo: unknown, modalidade: Modalidad
 }
 
 export default function NovaUnidade() {
-  const { usinaSelecionada: usinaDoAmbiente } = useAuth();
+  const { usinaSelecionada: usinaDoAmbiente, selecionarUsina } = useAuth();
   const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, cpf: cpfImportado, energiaCompensada, endereco: enderecoImportado, distribuidora: distribuidoraImportada, cadastroRapido, consumoMedio: consumoMedioImportado, dadosFatura: dadosFaturaParam } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; cpf?: string; energiaCompensada?: string; endereco?: string; distribuidora?: string; cadastroRapido?: string; consumoMedio?: string; dadosFatura?: string }>();
   const [dadosFatura, setDadosFatura] = useState<Record<string, any> | null>(() => parseDadosFatura(dadosFaturaParam));
   const [mensagemSalvar, setMensagemSalvar] = useState("");
@@ -248,6 +248,10 @@ export default function NovaUnidade() {
           faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE",
           calcularAutomaticamente: modalidadeFinal === "COMPENSACAO" && !percentualEditado,
         });
+        if (usinaFinal !== usinaDoAmbiente?.id) {
+          const destino = usinas.find((item) => item.id === usinaFinal);
+          if (destino) await selecionarUsina(destino);
+        }
       } else {
         const { error } = await supabase.from("unidades_consumidoras").upsert({
           numero, titular: titular.trim() || clienteSelecionado?.nome || null, tipo, cliente_id: clienteId || null, usina_id: usinaFinal,

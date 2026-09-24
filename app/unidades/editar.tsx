@@ -8,6 +8,7 @@ import RealDiscountInfo from "../../components/cadastro/RealDiscountInfo";
 import UsinaSelector from "../../components/cadastro/UsinaSelector";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
+import { useAuth } from "../../contexts/AuthContext";
 import { buscarCliente, buscarUnidade, listarFaturasAnexadasCliente } from "../../services/clientes.service";
 import { buscarFaturasCliente } from "../../services/faturas.service";
 import { alocarUnidade, consultarAlocacao, listarUsinas } from "../../services/usinas.service";
@@ -67,6 +68,7 @@ function percentualPelaMedia(
 }
 
 export default function EditarAlocacaoUnidade() {
+  const { usinaSelecionada: usinaDoAmbiente, selecionarUsina } = useAuth();
   const {
     id: unidadeIdImportada,
     numero,
@@ -222,6 +224,7 @@ export default function EditarAlocacaoUnidade() {
     if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return Alert.alert("Desconto inválido", "Informe um desconto entre 0% e 100%.");
     try { setSalvando(true);
       await alocarUnidade(usinaId, { clienteId: clienteIdResolvido, numero: numeroDaUc, cpfTitular: cpfTitular.replace(/\D/g, "") || null, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd: tipoGdEfetivo, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: modalidade === "COMPENSACAO" && !percentualEditado, revisaoContrato: atualizacaoContratual });
+      if (usinaId !== usinaDoAmbiente?.id && usinaSelecionada) await selecionarUsina(usinaSelecionada);
       // Esta tela pode ter sido aberta a partir de uma UC ou da criação por
       // fatura. O destino único evita ficar preso na tela anterior e exigir
       // um segundo toque para voltar à lista atualizada.
