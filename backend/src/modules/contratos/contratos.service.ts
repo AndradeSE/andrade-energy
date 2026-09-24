@@ -264,7 +264,7 @@ export async function salvarContratoDaUnidadeService(
     numero,
     // Rascunho só passa a VIGENTE pelo aceite eletrônico ou pela validação
     // explícita de um PDF assinado.
-    status: "ATIVO",
+    status: "RASCUNHO",
     desconto,
     termo_adesao: normalizarNumero(dados?.termo_adesao) || null,
     unidades_consumidoras: 1,
