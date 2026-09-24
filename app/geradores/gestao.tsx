@@ -616,18 +616,9 @@ export default function GestaoGeradores() {
                   </View>
                   {carteira ? (
                     <View style={styles.financeCards}>
-                      <AutenticadorFinanceiro base="/comercial/financeiro" ativo={Boolean(carteira.autenticadorAtivo)} senhaAtual={senhaFinanceira} codigo={codigoAutenticador} onCodigo={setCodigoAutenticador} onAtivo={() => void obterFinanceiroAssinaturas().then(setCarteira)} />
+                      <AutenticadorFinanceiro base="/comercial/financeiro" ativo={Boolean(carteira.autenticadorAtivo)} senhaAtual={senhaFinanceira} onSenhaAtual={setSenhaFinanceira} codigo={codigoAutenticador} onCodigo={setCodigoAutenticador} onAtivo={() => void obterFinanceiroAssinaturas().then(setCarteira)} />
                       <Card style={styles.financeCard}>
                         <Text style={styles.cardTitle}>Segurança e automação</Text>
-                        <Text style={styles.inputLabel}>Confirme sua senha para alterar o financeiro</Text>
-                        <TextInput
-                          secureTextEntry
-                          autoCapitalize="none"
-                          style={styles.input}
-                          value={senhaFinanceira}
-                          onChangeText={setSenhaFinanceira}
-                          placeholder="Sua senha atual"
-                        />
                         <View style={styles.autoRow}>
                           <View style={styles.grow}>
                             <Text style={styles.cardTitle}>Transferência automática</Text>

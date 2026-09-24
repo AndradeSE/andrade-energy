@@ -5,10 +5,11 @@ import * as Clipboard from "expo-clipboard";
 import api from "../../config/api";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
-export default function AutenticadorFinanceiro({ base, ativo, senhaAtual, codigo, onCodigo, onAtivo }: {
+export default function AutenticadorFinanceiro({ base, ativo, senhaAtual, onSenhaAtual, codigo, onCodigo, onAtivo }: {
   base: "/carteira" | "/comercial/financeiro";
   ativo: boolean;
   senhaAtual: string;
+  onSenhaAtual?: (value: string) => void;
   codigo: string;
   onCodigo: (value: string) => void;
   onAtivo: () => void;
@@ -46,9 +47,10 @@ export default function AutenticadorFinanceiro({ base, ativo, senhaAtual, codigo
   return <View style={styles.box}>
     <Text style={styles.title}>Proteção das transferências</Text>
     <Text style={styles.help}>{ativo ? "Informe um código novo do seu aplicativo autenticador para cada alteração da chave Pix, da automação ou transferência." : "Antes de movimentar dinheiro, cadastre um aplicativo autenticador (como Google Authenticator ou Microsoft Authenticator). O código muda a cada 30 segundos."}</Text>
-    {!ativo && !segredo ? <TouchableOpacity accessibilityRole="button" disabled={ocupado} onPress={() => void iniciar()} style={styles.button}><Text style={styles.buttonText}>{ocupado ? "Preparando..." : "Cadastrar autenticador"}</Text></TouchableOpacity> : null}
+    {onSenhaAtual ? <><Text style={styles.label}>1. Confirme sua senha atual</Text><TextInput accessibilityLabel="Senha atual para segurança financeira" secureTextEntry autoCapitalize="none" value={senhaAtual} onChangeText={onSenhaAtual} placeholder="Sua senha atual" style={styles.input} /></> : null}
+    {!ativo && !segredo ? <TouchableOpacity accessibilityRole="button" disabled={ocupado || !senhaAtual} onPress={() => void iniciar()} style={styles.button}><Text style={styles.buttonText}>{ocupado ? "Preparando..." : "2. Cadastrar autenticador"}</Text></TouchableOpacity> : null}
     {segredo ? <><Text style={styles.help}>No aplicativo autenticador, escolha adicionar conta manualmente e informe esta chave. Ela será mostrada apenas agora; não a compartilhe.</Text><View style={styles.secretBox}><Text selectable style={styles.secret}>{segredo}</Text></View><TouchableOpacity accessibilityRole="button" accessibilityLabel={copiado ? "Chave copiada para a área de transferência" : "Copiar chave do autenticador"} onPress={() => void copiarChave()} style={styles.copyButton}><Ionicons name={copiado ? "checkmark-circle-outline" : "copy-outline"} size={19} color={Colors.primary} /><Text style={styles.copyButtonText}>{copiado ? "Chave copiada" : "Copiar chave do autenticador"}</Text></TouchableOpacity>{copiado ? <Text accessibilityRole="alert" style={styles.help}>Agora cole a chave no aplicativo autenticador.</Text> : null}</> : null}
-    {(ativo || segredo) ? <><Text style={styles.label}>Código de 6 dígitos</Text><TextInput accessibilityLabel="Código do aplicativo autenticador" value={codigo} onChangeText={value => onCodigo(value.replace(/\D/g, "").slice(0, 6))} keyboardType="number-pad" maxLength={6} placeholder="000000" style={styles.input} />{segredo ? <TouchableOpacity accessibilityRole="button" disabled={ocupado || codigo.length !== 6} onPress={() => void confirmar()} style={styles.button}><Text style={styles.buttonText}>{ocupado ? "Confirmando..." : "Confirmar autenticador"}</Text></TouchableOpacity> : null}</> : null}
+    {(ativo || segredo) ? <><Text style={styles.label}>{segredo ? "3. Digite o código de 6 dígitos" : "Código de 6 dígitos para autorizar operações"}</Text><TextInput accessibilityLabel="Código do aplicativo autenticador" value={codigo} onChangeText={value => onCodigo(value.replace(/\D/g, "").slice(0, 6))} keyboardType="number-pad" maxLength={6} placeholder="000000" style={styles.input} />{segredo ? <TouchableOpacity accessibilityRole="button" disabled={ocupado || codigo.length !== 6} onPress={() => void confirmar()} style={styles.button}><Text style={styles.buttonText}>{ocupado ? "Confirmando..." : "4. Confirmar autenticador"}</Text></TouchableOpacity> : null}</> : null}
   </View>;
 }
 
