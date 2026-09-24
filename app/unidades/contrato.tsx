@@ -7,7 +7,7 @@ import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from "react-
 import FormField from "../../components/cadastro/FormField";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
-import { buscarContratoDaUnidade, buscarDadosIniciaisContrato, buscarResumoPropostaDaUnidade, gerarContratoDaUnidade, importarContratoAssinadoDaUnidade, salvarContratoDaUnidade } from "../../services/contratos.service";
+import { buscarContratoDaUnidade, buscarDadosIniciaisContrato, buscarResumoPropostaDaUnidade, gerarContratoDaUnidade, importarContratoAssinadoDaUnidade, prepararRevisaoDaUnidade, salvarContratoDaUnidade } from "../../services/contratos.service";
 import { enviarContratoEConvite, validarAssinaturaExterna } from "../../services/contratos.service";
 import { buscarUnidade } from "../../services/clientes.service";
 import { buscarUsina } from "../../services/usinas.service";
@@ -341,6 +341,40 @@ export default function ContratoDaUnidade() {
     ]);
   }
 
+  async function iniciarNovaVersao() {
+    if (!id || gerando) return;
+    try {
+      setGerando(true);
+      const rascunho = await prepararRevisaoDaUnidade(id);
+      setContratoId(rascunho.id);
+      setNumeroContrato(String(rascunho.numero ?? ""));
+      setTermoAdesao(String(rascunho.termo_adesao ?? ""));
+      setDesconto(valorParaCampo(unidade?.desconto_percentual ?? rascunho.desconto));
+      setInicio(dataParaFormulario(rascunho.vigencia_inicio ?? rascunho.data_assinatura) || dataHoje());
+      setFim(dataParaFormulario(rascunho.vigencia_fim));
+      setEconomiaMensal(valorParaCampo(rascunho.economia_mensal_estimada));
+      setEconomiaAnual(valorParaCampo(rascunho.economia_anual_estimada));
+      setObservacoes(String(rascunho.observacoes ?? ""));
+      setLocadorNome(String(rascunho.dados_documento?.locador_nome ?? locadorNome));
+      setLocadorDocumento(String(rascunho.dados_documento?.locador_documento ?? locadorDocumento));
+      setLocadorEndereco(String(rascunho.dados_documento?.locador_endereco ?? locadorEndereco));
+      setPrazoAnos(String(rascunho.dados_documento?.prazo_anos ?? prazoAnos));
+      setForo(String(rascunho.dados_documento?.foro ?? foro));
+      setAceiteRegistrado(false);
+      setAssinaturaPendente(false);
+      setContratoAssinadoUrl(undefined);
+      setContratoGeradoUrl(undefined);
+      setDadosDaMinutaRevisada(undefined);
+      setSubstituirRevisaoAssinada(false);
+      setStatus("ATIVO");
+      setNovoContrato(true);
+    } catch (erro: any) {
+      Alert.alert("Não foi possível iniciar a revisão", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
+    } finally {
+      setGerando(false);
+    }
+  }
+
   if (carregando) return <Loading />;
 
   const dadosCliente = unidade?.clientes;
@@ -413,7 +447,7 @@ export default function ContratoDaUnidade() {
           {assinaturaPendente ? <TouchableOpacity accessibilityRole="button" activeOpacity={0.84} disabled={importando} onPress={importarAssinado} style={styles.uploadSignedButton}><Ionicons name="swap-horizontal-outline" size={20} color={Colors.primary} /><Text style={styles.uploadSignedButtonText}>{importando ? "Trocando documento..." : "Trocar documento assinado"}</Text></TouchableOpacity> : null}
           {!contratoAssinadoUrl && contratoGeradoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoGeradoUrl)} style={styles.documentLink}><Ionicons name="document-text-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir contrato</Text></TouchableOpacity> : null}
           {assinaturaPendente ? <Button title="Validar assinaturas do PDF" disabled={gerando} onPress={confirmarAssinaturaExterna} /> : null}
-          {!assinaturaPendente ? <Button title="Atualizar contrato e configuração" icon={<Ionicons name="sync-circle-outline" size={20} color={Colors.surface} />} onPress={() => router.push({ pathname: "/unidades/editar", params: { id, numero, clienteId, descontoPadrao: desconto, revisaoContrato: "1" } })} /> : null}
+          {!assinaturaPendente ? <Button title={gerando ? "Preparando revisão..." : "Criar nova versão do contrato"} disabled={gerando} icon={<Ionicons name="sync-circle-outline" size={20} color={Colors.surface} />} onPress={iniciarNovaVersao} /> : null}
         </View>
         </> : <>
         <Text style={styles.sectionTitle}>DADOS DO LOCADOR E VIGÊNCIA</Text>
@@ -446,6 +480,7 @@ export default function ContratoDaUnidade() {
         </Card>
 
         <View style={styles.documentActions}>
+          {novoContrato ? <TouchableOpacity accessibilityRole="button" onPress={() => router.push({ pathname: "/unidades/editar", params: { id, numero: numeroUc, clienteId: unidade?.cliente_id ?? clienteId, descontoPadrao: desconto, revisaoContrato: "1" } })} style={styles.documentLink}><Ionicons name="options-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Editar configuração da UC</Text></TouchableOpacity> : null}
           {modoAssinado !== "1" ? <Button disabled={gerando} title={gerando ? "Gerando minuta..." : "Gerar e revisar a minuta"} icon={<Ionicons name="document-text-outline" size={20} color={Colors.surface} />} onPress={gerarMinuta} /> : null}
           {contratoGeradoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoGeradoUrl)} style={styles.documentLink}><Ionicons name="download-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir minuta gerada</Text></TouchableOpacity> : null}
           {modoAssinado !== "1" ? <><Button disabled={gerando || !contratoGeradoUrl || dadosDaMinutaRevisada !== JSON.stringify(dadosParaSalvar())} title={gerando ? "Aguarde..." : "Enviar para assinatura"} onPress={enviarParaAnalise} /><Text style={styles.documentLinkText}>Gere e revise a minuta atual para habilitar o envio. Alterações nos campos exigem nova revisão.</Text></> : null}
