@@ -1275,6 +1275,7 @@ const styles = StyleSheet.create({
   notice: {
     flexDirection: "row",
     gap: Spacing.sm,
+    marginTop: Spacing.md,
     backgroundColor: "#FFF7E0",
     borderRadius: Radius.lg,
     padding: Spacing.md,
