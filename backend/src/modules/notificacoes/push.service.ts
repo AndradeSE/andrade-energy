@@ -65,7 +65,7 @@ export async function criarNotificacaoApp(notificacao: NovaNotificacaoApp) {
   if (!data) return null;
   // A falha do provedor de push não pode impedir a ação de negócio nem o aviso no sino.
   void enviarPushDaNotificacao({ ...notificacao, id: data.id }).catch((erro) =>
-    console.error("Falha ao enviar push Expo", erro),
+    console.error("Falha ao enviar push Expo", { tipo: erro?.name ?? "Error" }),
   );
   return data;
 }

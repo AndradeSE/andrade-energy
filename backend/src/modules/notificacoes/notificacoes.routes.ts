@@ -23,7 +23,7 @@ router.post("/push-token", exigirAutenticacao, async (req, res) => {
     }, { onConflict: "token" });
     if (error) throw error;
     return res.json({ registrado: true });
-  } catch (erro: any) { return res.status(500).json({ message: erro.message }); }
+  } catch { return res.status(500).json({ message: "Não foi possível registrar este dispositivo." }); }
 });
 router.get("/", exigirAutenticacao, async (req, res) => {
   try {
@@ -34,6 +34,6 @@ router.get("/", exigirAutenticacao, async (req, res) => {
       .order("criado_em", { ascending: false }).limit(30);
     if (error) throw error;
     res.json(data ?? []);
-  } catch (erro: any) { res.status(500).json({ message: erro.message }); }
+  } catch { res.status(500).json({ message: "Não foi possível carregar as notificações." }); }
 });
 export default router;

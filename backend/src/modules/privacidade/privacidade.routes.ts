@@ -4,18 +4,20 @@ import { exigirAutenticacao } from "../../middlewares/auth.middleware";
 import { criarNotificacaoApp } from "../notificacoes/push.service";
 
 const router = Router();
-router.get("/politica", async (_req, res) => {
+async function documentoPublico(tipo: "POLITICA_PRIVACIDADE" | "TERMOS_USO", res: import("express").Response) {
   const { data, error } = await supabase.from("documentos_comerciais")
     .select("titulo,versao,conteudo,publicado_em")
-    .eq("tipo", "POLITICA_PRIVACIDADE").eq("ativo", true)
+    .eq("tipo", tipo).eq("ativo", true)
     .not("publicado_em", "is", null)
     .order("publicado_em", { ascending: false }).limit(1).maybeSingle();
-  if (error || !data) return res.status(503).json({ message: "Política de privacidade indisponível no momento." });
+  if (error || !data) return res.status(503).json({ message: "Documento indisponível no momento." });
   return res.json(data);
-});
+}
+router.get("/politica", async (_req, res) => documentoPublico("POLITICA_PRIVACIDADE", res));
+router.get("/termos", async (_req, res) => documentoPublico("TERMOS_USO", res));
 router.use(exigirAutenticacao);
 
-const TIPOS = new Set(["CONFIRMACAO", "ACESSO", "CORRECAO", "PORTABILIDADE", "ELIMINACAO", "OPOSICAO", "INFORMACAO"]);
+const TIPOS = new Set(["CONFIRMACAO", "ACESSO", "CORRECAO", "ANONIMIZACAO_BLOQUEIO", "PORTABILIDADE", "ELIMINACAO", "OPOSICAO", "COMPARTILHAMENTO", "REVOGACAO_CONSENTIMENTO", "INFORMACAO"]);
 
 router.post("/solicitacoes", async (req, res) => {
   const usuario = (req as any).usuario;

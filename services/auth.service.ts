@@ -48,7 +48,7 @@ export async function excluirMinhaConta(senhaAtual: string) {
   return data;
 }
 
-export async function solicitarDireitoDePrivacidade(tipo: "CONFIRMACAO" | "ACESSO" | "CORRECAO" | "PORTABILIDADE" | "ELIMINACAO" | "OPOSICAO" | "INFORMACAO") {
+export async function solicitarDireitoDePrivacidade(tipo: "CONFIRMACAO" | "ACESSO" | "CORRECAO" | "ANONIMIZACAO_BLOQUEIO" | "PORTABILIDADE" | "ELIMINACAO" | "OPOSICAO" | "COMPARTILHAMENTO" | "REVOGACAO_CONSENTIMENTO" | "INFORMACAO") {
   const { data } = await api.post("/privacidade/solicitacoes", { tipo });
   return data as { protocolo: string; status: string };
 }
@@ -56,6 +56,11 @@ export async function solicitarDireitoDePrivacidade(tipo: "CONFIRMACAO" | "ACESS
 export async function listarPedidosDePrivacidade() {
   const { data } = await api.get("/privacidade/solicitacoes");
   return data as Array<{ id: string; detalhes?: { tipo?: string; status?: string }; criado_em: string; usuarios?: { nome?: string; email?: string } | null }>;
+}
+
+export async function listarMeusPedidosDePrivacidade() {
+  const { data } = await api.get("/privacidade/solicitacoes/minhas");
+  return data as Array<{ id: string; detalhes?: { tipo?: string; status?: string }; criado_em: string }>;
 }
 
 export async function criarConta(payload: { nome: string; cpf: string; email: string; senha: string; tipo: "CONSUMIDOR" | "GERADOR"; convite?: string }) {

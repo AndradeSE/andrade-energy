@@ -34,8 +34,15 @@ export async function loginController(
 
     console.error("Falha no login", { tipo: err?.name ?? "Error" });
 
+    const mensagensEsperadas = new Set([
+      "E-mail ou senha inválidos.",
+      "Confirme o e-mail enviado para concluir esta etapa do cadastro.",
+      "Seu e-mail já foi confirmado. O cadastro agora aguarda a aprovação do gerador.",
+      "Esta conta não possui um cadastro de consumidor ativo. Solicite um novo convite ao gerador.",
+    ]);
+
     return res.status(401).json({
-      message: err.message,
+      message: mensagensEsperadas.has(err?.message) ? err.message : "Não foi possível entrar nesta conta. Tente novamente ou contate o suporte.",
     });
 
   }

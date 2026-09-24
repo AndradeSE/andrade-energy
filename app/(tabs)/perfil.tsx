@@ -30,6 +30,7 @@ import {
   PerfilUsuario,
   solicitarDireitoDePrivacidade,
   listarPedidosDePrivacidade,
+  listarMeusPedidosDePrivacidade,
 } from "../../services/auth.service";
 import {
   ativarDigital,
@@ -83,17 +84,21 @@ export default function Perfil() {
   const [fotoPerfil, setFotoPerfil] = useState("");
   const [fotoAberta, setFotoAberta] = useState(false);
   const [pedidosPrivacidade, setPedidosPrivacidade] = useState<Awaited<ReturnType<typeof listarPedidosDePrivacidade>>>([]);
+  const [meusPedidosPrivacidade, setMeusPedidosPrivacidade] = useState<Awaited<ReturnType<typeof listarMeusPedidosDePrivacidade>>>([]);
 
   function escolherPedidoDePrivacidade() {
     const opcoes = [
       { text: "Acessar meus dados", tipo: "ACESSO" as const },
       { text: "Corrigir dados", tipo: "CORRECAO" as const },
-      { text: "Solicitar eliminação", tipo: "ELIMINACAO" as const },
+      { text: "Eliminar ou anonimizar", tipo: "ELIMINACAO" as const },
       { text: "Outros direitos", tipo: "INFORMACAO" as const },
     ];
     Alert.alert("Privacidade e seus dados", "Escolha o pedido. A solicitação ficará registrada com um protocolo; documentos e dados adicionais não são enviados por esta tela.", [
       ...opcoes.map((opcao) => ({ text: opcao.text, onPress: () => void solicitarDireitoDePrivacidade(opcao.tipo)
-        .then(({ protocolo }) => Alert.alert("Pedido registrado", `Protocolo: ${protocolo}. A equipe responsável analisará sua solicitação.`))
+        .then(({ protocolo }) => {
+          void listarMeusPedidosDePrivacidade().then(setMeusPedidosPrivacidade).catch(() => undefined);
+          Alert.alert("Pedido registrado", `Protocolo: ${protocolo}. A equipe responsável analisará sua solicitação.`);
+        })
         .catch((erro) => Alert.alert("Não foi possível registrar", descricaoErro(erro, "Tente novamente."))) })),
       { text: "Cancelar", style: "cancel" as const },
     ]);
@@ -102,6 +107,7 @@ export default function Perfil() {
   const chaveFoto = `foto-perfil:${user?.id ?? "usuario"}`;
 
   useEffect(() => { void AsyncStorage.getItem(chaveFoto).then((valor) => setFotoPerfil(valor ?? "")); }, [chaveFoto]);
+  useEffect(() => { void listarMeusPedidosDePrivacidade().then(setMeusPedidosPrivacidade).catch(() => undefined); }, [user?.id]);
   useEffect(() => {
     if (!IS_GERADOR_APP || !["ADMIN", "GESTOR"].includes(String(user?.perfil ?? ""))) return;
     void listarPedidosDePrivacidade().then(setPedidosPrivacidade).catch(() => undefined);
@@ -410,6 +416,10 @@ export default function Perfil() {
             <View style={styles.preferenceCopy}><Text style={styles.preferenceTitle}>Privacidade e meus dados</Text><Text style={styles.preferenceDescription}>Solicite acesso, correção ou eliminação com protocolo.</Text></View>
             <Ionicons color={Colors.subtitle} name="chevron-forward" size={21} />
           </TouchableOpacity>
+          {meusPedidosPrivacidade.length > 0 ? <View style={[styles.panel, styles.standalonePanel]}>
+            <Text style={styles.preferenceTitle}>Meus pedidos de privacidade</Text>
+            {meusPedidosPrivacidade.map((pedido) => <Text key={pedido.id} style={styles.preferenceDescription}>{pedido.detalhes?.tipo ?? "Pedido"} · {pedido.detalhes?.status ?? "Recebido"} · {new Date(pedido.criado_em).toLocaleDateString("pt-BR")} · Protocolo {pedido.id}</Text>)}
+          </View> : null}
           {pedidosPrivacidade.length > 0 ? <View style={[styles.panel, styles.standalonePanel]}>
             <Text style={styles.preferenceTitle}>Pedidos de privacidade recebidos</Text>
             {pedidosPrivacidade.map((pedido) => <Text key={pedido.id} style={styles.preferenceDescription}>{pedido.usuarios?.nome ?? "Titular"} · {pedido.detalhes?.tipo ?? "Pedido"} · {new Date(pedido.criado_em).toLocaleDateString("pt-BR")} · Protocolo {pedido.id}</Text>)}
