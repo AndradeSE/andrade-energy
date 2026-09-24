@@ -618,21 +618,6 @@ export default function GestaoGeradores() {
                     <View style={styles.financeCards}>
                       <AutenticadorFinanceiro base="/comercial/financeiro" ativo={Boolean(carteira.autenticadorAtivo)} senhaAtual={senhaFinanceira} onSenhaAtual={setSenhaFinanceira} codigo={codigoAutenticador} onCodigo={setCodigoAutenticador} onAtivo={() => void obterFinanceiroAssinaturas().then(setCarteira)} />
                       <Card style={styles.financeCard}>
-                        <Text style={styles.cardTitle}>Segurança e automação</Text>
-                        <View style={styles.autoRow}>
-                          <View style={styles.grow}>
-                            <Text style={styles.cardTitle}>Transferência automática</Text>
-                            <Text style={styles.subtitle}>Enviar para a chave Pix sempre que receber.</Text>
-                          </View>
-                          <Switch
-                            value={carteira.transferenciaAutomatica}
-                            trackColor={{ false: Colors.border, true: Colors.primary }}
-                            onValueChange={(value) => void saveWallet(value)}
-                          />
-                        </View>
-                      </Card>
-
-                      <Card style={styles.financeCard}>
                         <Text style={styles.cardTitle}>Chave Pix da Andrade Energy</Text>
                         <Text style={styles.subtitle}>Valide o titular antes de autorizar qualquer transferência.</Text>
                         <TextInput
@@ -658,6 +643,18 @@ export default function GestaoGeradores() {
                             </View>
                           </View>
                         ) : null}
+                      </Card>
+
+                      <Card style={styles.financeCard}>
+                        <Text style={styles.cardTitle}>Transferência automática</Text>
+                        <View style={styles.autoRow}>
+                          <Text style={[styles.subtitle, styles.grow]}>Quando ativa, cada novo recebimento é enviado à chave Pix cadastrada. Para mudar, informe senha e código acima.</Text>
+                          <Switch
+                            value={carteira.transferenciaAutomatica}
+                            trackColor={{ false: Colors.border, true: Colors.primary }}
+                            onValueChange={(value) => void saveWallet(value)}
+                          />
+                        </View>
                       </Card>
 
                       <Card style={styles.financeCard}>
