@@ -20,7 +20,7 @@ const generatorTabs: TabItem[] = [
   { label: "Usinas", icon: "flash-outline", route: "/(tabs)/usinas" },
   { label: "Operação", icon: "construct-outline", route: "/(tabs)/operacao" },
   { label: "Home", icon: "home-outline", route: "/(tabs)" },
-  { label: "Faturas", icon: "receipt-outline", route: "/(tabs)/faturas" },
+  { label: "Faturamento", icon: "receipt-outline", route: "/(tabs)/faturamento" },
   { label: "Contrato", icon: "document-text-outline", route: "/(tabs)/contrato" },
   { label: "Financeiro", icon: "cash-outline", route: "/(tabs)/financeiro" },
 ];

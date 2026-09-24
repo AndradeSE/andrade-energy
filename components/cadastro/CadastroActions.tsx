@@ -10,6 +10,7 @@ import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors, Spacing } from "../../theme";
 import { Button } from "../ui";
 import PdfPasswordRetryModal from "../PdfPasswordRetryModal";
+import { producaoMedidaDaFatura } from "../../utils/producaoFatura";
 
 type TipoCadastro = "CLIENTE" | "USINA" | "UNIDADE";
 
@@ -70,15 +71,7 @@ export default function CadastroActions({ tipo, clienteId }: { tipo: TipoCadastr
       const tipoGd = tipo === "USINA" && analise.classificacao !== "POSSIVEL_GERADORA"
         ? ""
         : tipoGdDetectado;
-      const leituraAtual = Number(dados.leituraAtual ?? dados.leitura_atual ?? 0);
-      const leituraAnterior = Number(dados.leituraAnterior ?? dados.leitura_anterior ?? 0);
-      const fatorMultiplicacao = Number(dados.fatorMultiplicacao ?? dados.fator_multiplicacao ?? 1);
-      const producaoMensalLida = Number(dados.producaoMensal ?? dados.producao_mensal);
-      const geracaoDoPeriodo = Number.isFinite(producaoMensalLida) && Array.isArray(dados.medicoes)
-        ? Math.max(0, producaoMensalLida)
-        : leituraAtual >= leituraAnterior && fatorMultiplicacao > 0
-          ? (leituraAtual - leituraAnterior) * fatorMultiplicacao
-          : 0;
+      const geracaoDoPeriodo = producaoMedidaDaFatura(dados);
 
       if (tipo === "USINA" && analise.classificacao !== "POSSIVEL_GERADORA") {
         Alert.alert(
@@ -109,6 +102,8 @@ export default function CadastroActions({ tipo, clienteId }: { tipo: TipoCadastr
           energiaCompensada: tipo === "UNIDADE" ? "0" : String(dados.energiaCompensada ?? 0),
           tipoGd,
           geracaoMedia: tipo === "USINA" && geracaoDoPeriodo > 0 ? String(geracaoDoPeriodo) : "",
+          geracaoInicial: tipo === "USINA" && analise.classificacao === "POSSIVEL_GERADORA" && geracaoDoPeriodo > 0 ? String(geracaoDoPeriodo) : "",
+          referenciaInicial: tipo === "USINA" ? String(dados.referencia ?? "") : "",
           dadosFatura: tipo === "USINA" ? "" : JSON.stringify({
             valorTotal: dados.valorTotal,
             consumo: dados.consumo,

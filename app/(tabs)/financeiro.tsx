@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as DocumentPicker from "expo-document-picker";
-import { router, useFocusEffect } from "expo-router";
+import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { Alert, RefreshControl, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 
@@ -8,39 +7,25 @@ import AndradeBarChart from "../../components/charts/AndradeBarChart";
 import { AppHeader, Button, Card, Divider, ElasticScrollView as ScrollView, Loading, Metric, Screen, Section } from "../../components/ui";
 import * as FinanceiroService from "../../services/financeiro.service";
 import * as CarteiraService from "../../services/carteira.service";
-import { listarUnidadesGestor } from "../../services/clientes.service";
-import { processarFatura } from "../../services/faturas.service";
-import { useAuth } from "../../contexts/AuthContext";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const moeda = (valor: number) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function Financeiro() {
-  const { suspenderBloqueioTemporariamente } = useAuth();
   const [loading, setLoading] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [dados, setDados] = useState({ receitaPrevista: 0, receitaRecebida: 0, valorEmAberto: 0, inadimplentes: 0, ticketMedio: 0, percentualRecebido: 0, totalFaturas: 0, historicoMensal: [] as { competencia: string; valor: number }[] });
   const [carteira, setCarteira] = useState<CarteiraService.Carteira | null>(null);
-  const [unidadesRecebimento, setUnidadesRecebimento] = useState<any[]>([]);
-  const [faturandoPdf, setFaturandoPdf] = useState(false);
-  const [pdfPendente, setPdfPendente] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
-  const [senhaPdf, setSenhaPdf] = useState("");
-  const [solicitarSenhaPdf, setSolicitarSenhaPdf] = useState(false);
   const [pixChave, setPixChave] = useState(""); const [pixTipo] = useState("EMAIL"); const [saque, setSaque] = useState(""); const [senhaFinanceira, setSenhaFinanceira] = useState(""); const [mostrarSenhaFinanceira, setMostrarSenhaFinanceira] = useState(false);
   const carregar = useCallback(async () => {
     try {
-      const [financeiroResultado, carteiraResultado, unidadesResultado] = await Promise.allSettled([
+      const [financeiroResultado, carteiraResultado] = await Promise.allSettled([
         FinanceiroService.carregarFinanceiro(),
         CarteiraService.carregarCarteira(),
-        listarUnidadesGestor(),
       ]);
       if (financeiroResultado.status === "rejected") throw financeiroResultado.reason;
       setDados(financeiroResultado.value);
       setCarteira(carteiraResultado.status === "fulfilled" ? carteiraResultado.value : null);
-      setUnidadesRecebimento(unidadesResultado.status === "fulfilled" ? (unidadesResultado.value ?? []).filter((item: any) => {
-        const usina = Array.isArray(item.usinas) ? item.usinas[0] : item.usinas;
-        return String(item.tipo ?? "BENEFICIARIA").toUpperCase() !== "GERADORA" && String(usina?.titularidade_ucs_recebedoras ?? "GERADOR") === "GERADOR";
-      }) : []);
     } catch (error: any) {
       setCarteira(null);
       Alert.alert(
@@ -71,72 +56,8 @@ export default function Financeiro() {
     } catch (error: any) { Alert.alert("Chave Pix não validada", error?.response?.data?.message ?? "Não foi possível consultar o titular desta chave."); }
   }
 
-  async function faturarViaPdf() {
-    if (faturandoPdf) return;
-    const retomarBloqueio = suspenderBloqueioTemporariamente();
-    try {
-      let pdf = pdfPendente;
-      if (!pdf) {
-        const arquivo = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
-        if (arquivo.canceled) return;
-        pdf = arquivo.assets[0];
-        setPdfPendente(pdf);
-      }
-      setFaturandoPdf(true);
-      const resultado = await processarFatura(pdf.uri, pdf.name, senhaPdf);
-      if (resultado?.resultado?.clienteNaoEncontrado) {
-        setPdfPendente(null);
-        setSenhaPdf("");
-        setSolicitarSenhaPdf(false);
-        const uc = String(resultado?.resultado?.dadosCadastro?.uc ?? "");
-        Alert.alert("UC ainda não cadastrada", `A unidade ${uc || "identificada na conta"} precisa ser vinculada antes do faturamento.`, [
-          { text: "Cancelar", style: "cancel" },
-          { text: "Cadastrar UC", onPress: () => router.push({ pathname: "/unidades/nova", params: { origem: "fatura", uc, cadastroRapido: "1" } }) },
-        ]);
-        return;
-      }
-      if (resultado?.resultado?.jaProcessada) {
-        setPdfPendente(null);
-        setSenhaPdf("");
-        setSolicitarSenhaPdf(false);
-        Alert.alert("Fatura já processada", "Esta competência já foi faturada para a unidade.");
-        return;
-      }
-      await carregar();
-      setPdfPendente(null);
-      setSenhaPdf("");
-      setSolicitarSenhaPdf(false);
-      Alert.alert("Faturamento concluído", "A fatura foi processada e a cobrança foi gerada.");
-    } catch (erro: any) {
-      if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED") {
-        setSolicitarSenhaPdf(true);
-        Alert.alert("PDF protegido", "Este arquivo exige senha. Informe a senha abaixo para continuar o processamento.");
-      } else {
-        setPdfPendente(null);
-        setSenhaPdf("");
-        setSolicitarSenhaPdf(false);
-        Alert.alert("Não foi possível faturar", erro?.response?.data?.message ?? erro?.message ?? "Confira o PDF e tente novamente.");
-      }
-    } finally {
-      setFaturandoPdf(false);
-      retomarBloqueio();
-    }
-  }
-
   return <Screen><AppHeader collapsePlantContextOnMount title="Financeiro" subtitle="Receita da carteira" contextTitle={moeda(dados.receitaRecebida)} contextSubtitle={`${dados.percentualRecebido.toFixed(1)}% da receita recebida`} icon="wallet-outline" />
     {loading ? <Loading /> : <ScrollView bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <Section title="Faturamento" framed={false}><Card style={styles.billingActionsCard}>
-        <Text style={styles.billingTitle}>Como deseja faturar?</Text>
-        <Text style={styles.billingSubtitle}>Escolha uma opção para iniciar ou configurar o faturamento.</Text>
-        {solicitarSenhaPdf ? <View style={styles.pdfPasswordNotice}><View style={styles.noticeTitleRow}><Ionicons name="lock-closed-outline" size={18} color={Colors.warning} /><Text style={styles.noticeTitle}>Este PDF exige senha</Text></View><Text style={styles.noticeText}>Informe a senha para continuar o processamento do arquivo selecionado.</Text><Text style={styles.inputLabel}>Senha do PDF</Text>
-        <TextInput autoCapitalize="none" autoCorrect={false} keyboardType="number-pad" maxLength={4} onChangeText={setSenhaPdf} placeholder="4 primeiros números do CPF" secureTextEntry style={styles.input} value={senhaPdf} />
-        <Text style={styles.passwordHint}>A senha é usada somente para abrir a fatura e não fica armazenada.</Text></View> : null}
-        <View style={styles.fixedActions}>
-          <QuickAction icon="document-attach-outline" label={faturandoPdf ? "Processando PDF..." : solicitarSenhaPdf ? "Continuar com a senha" : "Faturamento via PDF"} description={solicitarSenhaPdf ? "Tentar novamente com o arquivo selecionado" : "Importar a conta da concessionária"} active={faturandoPdf} onPress={() => void faturarViaPdf()} />
-          <QuickAction icon="create-outline" label="Faturamento manual" description="Preencher os dados da cobrança" onPress={() => router.push("/faturamento/criar-manual" as any)} />
-          <QuickAction icon="mail-unread-outline" label="Fatura automática" description="Configurar o recebimento por e-mail" onPress={() => { const unidade = unidadesRecebimento[0]; if (!unidade?.id) return Alert.alert("Fatura automática", "Cadastre e vincule uma UC recebedora a uma usina antes de configurar o e-mail."); router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidade.id, escopo: "usina" } }); }} />
-        </View>
-      </Card></Section>
       {carteira ? <Section title="Movimentação financeira"><Text style={styles.sectionLead}>Consulte os recebíveis e configure transferências sem sair desta tela.</Text><Card style={styles.walletCard}><Text style={styles.walletLabel}>VALOR DISPONÍVEL PARA TRANSFERÊNCIA</Text><Text style={styles.walletValue}>{moeda(carteira.saldoDisponivel)}</Text><Text style={styles.walletPending}>{moeda(carteira.saldoPendente)} em recebíveis pendentes</Text></Card><Card><Text style={styles.inputLabel}>Confirmação de segurança</Text><View style={styles.passwordInputWrap}><TextInput style={styles.passwordInput} secureTextEntry={!mostrarSenhaFinanceira} autoCapitalize="none" value={senhaFinanceira} onChangeText={setSenhaFinanceira} placeholder="Sua senha atual" /><TouchableOpacity accessibilityLabel={mostrarSenhaFinanceira ? "Ocultar senha de confirmação" : "Mostrar senha de confirmação"} hitSlop={10} onPress={() => setMostrarSenhaFinanceira((valor) => !valor)} style={styles.passwordToggle}><Ionicons name={mostrarSenhaFinanceira ? "eye-off-outline" : "eye-outline"} size={21} color={Colors.subtitle} /></TouchableOpacity></View><View style={styles.autoRow}><View style={styles.autoCopy}><Text style={styles.cardTitle}>Transferência automática</Text><Text style={styles.cardSubtitle}>Enviar para sua chave Pix sempre que receber.</Text></View><Switch value={carteira.transferenciaAutomatica} trackColor={{ false: Colors.border, true: Colors.primary }} onValueChange={async (value) => { if (pixChave.trim()) return void salvarChavePixComConfirmacao(value); try { const updated = await CarteiraService.salvarCarteira({ pixTipo: carteira.pixTipo ?? pixTipo, transferenciaAutomatica: value, senhaAtual: senhaFinanceira }); setCarteira(updated); setSenhaFinanceira(""); } catch (error: any) { Alert.alert("Carteira", error?.response?.data?.message ?? "Cadastre sua chave Pix primeiro."); } }} /></View><Divider /><Text style={styles.inputLabel}>Chave Pix deste gerador</Text><TextInput style={styles.input} autoCapitalize="none" value={pixChave} onChangeText={setPixChave} placeholder={carteira.pixChaveMascarada ?? "E-mail, CPF ou chave"} /><Button title="Validar titular e salvar" onPress={() => void salvarChavePixComConfirmacao()} />{carteira.pixChaveMascarada ? <View style={styles.savedPix}><View style={styles.savedPixIcon}><Ionicons name="checkmark-circle" size={22} color={Colors.primary} /></View><View style={styles.savedPixCopy}><Text style={styles.savedPixLabel}>CHAVE PIX SALVA</Text><Text style={styles.savedPixKey}>{carteira.pixChaveMascarada}</Text><Text style={styles.savedPixHolder}>Titular: {carteira.pixTitularNome || "Titular não informado"}</Text></View></View> : null}<Divider /><Text style={styles.inputLabel}>Transferência manual</Text><TextInput style={styles.input} keyboardType="decimal-pad" value={saque} onChangeText={setSaque} placeholder="Valor em reais" /><Button title="Transferir valor" disabled={!carteira.pixChaveMascarada || carteira.saldoDisponivel <= 0} onPress={() => { const valor = Number(saque.replace(",", ".")); if (!(valor > 0)) return; Alert.alert("Confirmar Pix", `Transferir ${moeda(valor)} para ${carteira.pixChaveMascarada}?`, [{ text: "Cancelar", style: "cancel" }, { text: "Transferir", onPress: async () => { try { await CarteiraService.transferir(valor, senhaFinanceira); setSaque(""); setSenhaFinanceira(""); await carregar(); Alert.alert("Carteira", "Transferência solicitada."); } catch (error: any) { Alert.alert("Carteira", error?.response?.data?.message ?? "Transferência não concluída."); } } }]); }} /></Card></Section> : null}
       <Section title="Resumo financeiro"><View style={styles.grid}>
         <View style={styles.metric}><Metric compact title="Receita prevista" value={moeda(dados.receitaPrevista)} icon={<Ionicons name="trending-up-outline" size={20} color={Colors.primary} />} /></View>
@@ -155,7 +76,6 @@ export default function Financeiro() {
 }
 
 function Info({ label, value, warning = false }: { label: string; value: string; warning?: boolean }) { return <View style={styles.info}><Text style={styles.infoLabel}>{label}</Text><Text style={[styles.infoValue, warning && styles.warning]}>{value}</Text></View>; }
-function QuickAction({ icon, label, description, active = false, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; description: string; active?: boolean; onPress: () => void }) { return <TouchableOpacity disabled={active} activeOpacity={0.82} onPress={onPress} style={[styles.quickAction, active && styles.quickActionActive]}><View style={styles.quickIcon}><Ionicons name={icon} size={22} color={Colors.primary} /></View><View style={styles.quickCopy}><Text style={styles.quickLabel}>{label}</Text><Text style={styles.quickDescription}>{description}</Text></View><Ionicons name={active ? "hourglass-outline" : "chevron-forward"} size={18} color={active ? Colors.primary : Colors.subtitle} /></TouchableOpacity>; }
 
 const styles = StyleSheet.create({
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl * 3 }, billingButton: { marginBottom: Spacing.lg }, grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }, metric: { width: "48%", marginBottom: Spacing.sm },

@@ -88,12 +88,23 @@ export async function registrarProducaoDaFaturaGeradora(usinaId: string, dados: 
   if (energiaGerada <= 0) throw new Error("A diferença entre as medições não apresenta produção no período.");
 
   const competencia = competenciaData(String(dados.referencia ?? ""));
+  const fechamentoAtualizado = await persistirProducaoDaFatura(usina, competencia, energiaGerada);
+  return {
+    sucesso: true,
+    origem: "CONTA_ENERGIA",
+    dados: { ...dados, leituraAtual, leituraAnterior, fatorMultiplicacao, medicoes, energiaGerada },
+    fechamento: fechamentoAtualizado,
+  };
+}
+
+async function persistirProducaoDaFatura(usina: any, competencia: string, energiaGerada: number) {
+  const usinaId = String(usina.id);
   const { data: atual, error: buscaError } = await supabase.from("fechamentos").select("*").eq("usina_id", usinaId).eq("competencia", competencia).maybeSingle();
   if (buscaError) throw buscaError;
 
   const energiaAlocada = Number(atual?.energia_alocada ?? 0);
   const payload = {
-    usina_id: usinaId, competencia, energia_gerada: energiaGerada,
+    usina_id: usinaId, empresa_id: usina.empresa_id, competencia, energia_gerada: energiaGerada,
     energia_alocada: energiaAlocada, energia_disponivel: energiaGerada - energiaAlocada,
     ocupacao: energiaGerada ? (energiaAlocada / energiaGerada) * 100 : 0,
     receita_prevista: Number(atual?.receita_prevista ?? 0), receita_realizada: Number(atual?.receita_realizada ?? 0),
@@ -107,12 +118,7 @@ export async function registrarProducaoDaFaturaGeradora(usinaId: string, dados: 
   if (error) throw error;
   await recalcularAlocacaoUsina(usinaId);
   const { data: fechamentoAtualizado } = await supabase.from("fechamentos").select("*").eq("id", fechamento.id).single();
-  return {
-    sucesso: true,
-    origem: "CONTA_ENERGIA",
-    dados: { ...dados, leituraAtual, leituraAnterior, fatorMultiplicacao, medicoes, energiaGerada },
-    fechamento: fechamentoAtualizado ?? fechamento,
-  };
+  return fechamentoAtualizado ?? fechamento;
 }
 
 export async function importarFaturaGeradora(usinaId: string, caminhoArquivo: string, senhaPdf?: string) {
@@ -132,7 +138,8 @@ export async function listarUsinasService(empresaId?: string) {
       if (unidades.error) throw unidades.error;
       const competenciaAtual = competenciaAtualDaUsina();
       const fechamentoDaCompetencia = dashboard.historico?.find((item: any) => String(item.competencia ?? "").startsWith(competenciaAtual));
-      const energiaDaCompetencia = Number(fechamentoDaCompetencia?.energia_gerada ?? 0);
+      const fechamentoExibido = fechamentoDaCompetencia ?? dashboard.ultimo;
+      const energiaDaCompetencia = Number(fechamentoExibido?.energia_gerada ?? 0);
       const energiaProjetada = energiaDaCompetencia > 0
         ? energiaDaCompetencia
         : Math.max(0, Number(producaoMedia12Meses || usina.geracao_media || 0));
@@ -164,10 +171,10 @@ export async function listarUsinasService(empresaId?: string) {
       return {
         ...usina,
         fechamento_atual: {
-          ...(fechamentoDaCompetencia ?? {}),
+          ...(fechamentoExibido ?? {}),
           energia_gerada: energiaDaCompetencia,
           ...alocacaoProjetada,
-          status: fechamentoDaCompetencia?.status ?? "ABERTO",
+          status: fechamentoExibido?.status ?? "ABERTO",
         },
         producao_media_12_meses: Number(usina.geracao_media ?? 0) > 0 ? Number(usina.geracao_media) : producaoMedia12Meses,
         geracao_total: Number(dashboard.energiaTotal ?? 0),
@@ -605,8 +612,16 @@ export async function criarUsinaService(
   const {
     cpf_titular: cpfTitularSnake,
     cpfTitular: cpfTitularCamel,
+    producao_inicial_kwh: producaoInicial,
+    referencia_fatura_inicial: referenciaInicial,
     ...dadosUsina
   } = dados ?? {};
+  const possuiProducaoInicial = producaoInicial !== undefined || referenciaInicial !== undefined;
+  const energiaInicial = Number(producaoInicial);
+  const competenciaInicial = possuiProducaoInicial ? competenciaData(String(referenciaInicial ?? "")) : null;
+  if (possuiProducaoInicial && !(Number.isFinite(energiaInicial) && energiaInicial > 0)) {
+    throw new Error("Produção inicial da fatura inválida.");
+  }
   const usina = await criarUsina(dadosUsina, empresaId);
   const numero = String(usina?.numero_instalacao ?? "").replace(/\D/g, "");
   if (!numero) return usina;
@@ -621,6 +636,16 @@ export async function criarUsinaService(
   if (error) {
     await supabase.from("usinas").delete().eq("id", usina.id);
     throw error;
+  }
+  if (competenciaInicial) {
+    try {
+      await persistirProducaoDaFatura(usina, competenciaInicial, energiaInicial);
+    } catch (erro) {
+      await supabase.from("fechamentos").delete().eq("usina_id", usina.id).eq("competencia", competenciaInicial);
+      await supabase.from("unidades_consumidoras").delete().eq("usina_id", usina.id).eq("tipo", "GERADORA");
+      await supabase.from("usinas").delete().eq("id", usina.id);
+      throw erro;
+    }
   }
   return usina;
 }
@@ -755,7 +780,7 @@ export async function obterDashboardUsina(
     unidadeGeradora = data;
   }
   const competenciaAtual = competenciaAtualDaUsina();
-  const fechamento = dashboard.historico?.find((item: any) => String(item.competencia ?? "").startsWith(competenciaAtual)) ?? null;
+  const fechamento = dashboard.historico?.find((item: any) => String(item.competencia ?? "").startsWith(competenciaAtual)) ?? dashboard.ultimo ?? null;
   const energiaAtual = Number(fechamento?.energia_gerada ?? 0);
   const energiaProjetada = energiaAtual > 0
     ? energiaAtual
@@ -806,7 +831,7 @@ export async function obterDashboardUsina(
       Number(fechamento.receita_realizada ?? 0),
 
     competencia:
-      fechamento.competencia,
+      `${String(fechamento.competencia).slice(5, 7)}/${String(fechamento.competencia).slice(0, 4)}`,
 
     status:
       fechamento.status,

@@ -3,6 +3,9 @@ export function contratoLiberaUnidade(contrato: any, hoje = new Date().toISOStri
   if (!contrato?.unidade_consumidora_id) return false;
   if (["CANCELADO", "VENCIDO"].includes(String(contrato.status).toUpperCase())) return false;
   if (contrato.vigencia_fim && String(contrato.vigencia_fim).slice(0, 10) < hoje) return false;
+  if (contrato.dados_documento?.aceite_cliente_exigido === true) {
+    return String(contrato.status).toUpperCase() === "VIGENTE" && Boolean(contrato.aceite_cliente_em);
+  }
   const validacaoExterna = contrato.contrato_assinado_url && contrato.dados_documento?.assinatura_externa_validada_em;
   // Um PDF já marcado como VIGENTE foi conferido pelo gerador e libera a UC,
   // independentemente da data em que foi assinado. Uploads ainda aguardando

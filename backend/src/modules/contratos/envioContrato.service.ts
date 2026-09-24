@@ -78,13 +78,22 @@ export async function enviarConviteAposConferencia(contrato: any, gestor: any) {
     .select("id").eq("cliente_id", contrato.cliente_id).eq("empresa_id", empresaId)
     .eq("papel", "LEITURA").eq("ativo", true).limit(1).maybeSingle();
   if (erroAcesso) throw erroAcesso;
-  if (acessoAtivo) return { emailEnviado: false, contaExistente: true, acessoExistente: true, novoConvite: false };
-
   const { data: cliente, error: erroCliente } = await supabase.from("clientes").select("*")
     .eq("id", contrato.cliente_id).eq("empresa_id", empresaId).single();
   if (erroCliente) throw erroCliente;
   const { data: pdf, error: erroPdf } = await supabase.storage.from("contratos").download(contrato.contrato_assinado_url);
   if (erroPdf || !pdf) throw new Error("Não foi possível anexar o contrato assinado ao convite.");
+  const assinado = { filename: "contrato-assinado.pdf", content: Buffer.from(await pdf.arrayBuffer()) };
+  if (acessoAtivo) {
+    const emailEnviado = await enviarEmailTransacional({
+      empresaId,
+      destinatario: cliente.email,
+      assunto: "Contrato assinado disponível para seu aceite",
+      html: "<p>Seu gerador conferiu o contrato assinado da sua unidade. Acesse a área Contrato no aplicativo Consumidor, leia o documento e confirme seu aceite com o código enviado ao seu e-mail. Não é necessário assinar novamente.</p>",
+      anexos: [assinado],
+    });
+    return { emailEnviado, contaExistente: true, acessoExistente: true, novoConvite: false };
+  }
   const { error: erroCancelamento } = await supabase.from("convites_clientes")
     .update({ status: "CANCELADO" })
     .eq("empresa_id", empresaId).eq("unidade_consumidora_id", contrato.unidade_consumidora_id).eq("status", "PENDENTE");
@@ -92,7 +101,7 @@ export async function enviarConviteAposConferencia(contrato: any, gestor: any) {
   const resultado = await criarConvite({
     nome: cliente.nome, cpf: cliente.cpf, email: cliente.email, whatsapp: cliente.whatsapp || undefined,
     unidade_consumidora_id: contrato.unidade_consumidora_id,
-  }, gestor, { assinado: { filename: "contrato-assinado.pdf", content: Buffer.from(await pdf.arrayBuffer()) } });
+  }, gestor, { assinado });
   return { ...resultado, novoConvite: true, acessoExistente: false };
 }
 

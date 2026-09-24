@@ -311,18 +311,18 @@ export default function ContratoDaUnidade() {
 
   function confirmarAssinaturaExterna() {
     if (!contratoId || gerando) return;
-    Alert.alert("Validar assinaturas", "Confirma que abriu o PDF e conferiu os dados desta UC e as assinaturas das partes? Essa conferência manual libera o acesso à unidade.", [
+    Alert.alert("Validar assinaturas", "Confirma que abriu o PDF e conferiu os dados desta UC e as assinaturas das partes? Depois da conferência, o cliente precisará aceitar o documento no app; ele não precisará assinar novamente.", [
       { text: "Cancelar", style: "cancel" },
       { text: "Conferi e confirmo", onPress: async () => {
         try {
           setGerando(true);
           const resultado = await validarAssinaturaExterna(contratoId);
           setAssinaturaPendente(false);
-          Alert.alert("Conferência registrada", resultado?.acessoExistente
-            ? "A UC foi liberada. O cliente já possui acesso à conta."
-            : resultado?.emailEnviado
-              ? "A UC foi liberada e o convite para criar ou acessar a conta foi enviado ao cliente."
-              : `A UC foi liberada, mas o convite não foi entregue. ${resultado?.conviteErro ?? "Reenvie o convite pela área da UC."}`);
+          Alert.alert("Conferência registrada", resultado?.emailEnviado
+            ? resultado?.acessoExistente
+              ? "O cliente foi avisado por e-mail para conferir e aceitar o contrato no app. Até o aceite, continuam valendo as condições anteriores, se houver."
+              : "O convite foi enviado. Depois de criar a conta, o cliente deverá conferir e aceitar o contrato no app."
+            : `O documento foi conferido, mas o e-mail não foi entregue. ${resultado?.conviteErro ?? "Reenvie o convite pela área da UC."}`);
         } catch (erro: any) {
           Alert.alert("Não foi possível validar", erro?.response?.data?.message ?? "Tente novamente.");
         } finally { setGerando(false); }

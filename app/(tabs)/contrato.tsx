@@ -119,7 +119,8 @@ function ContratoConsumidor() {
   );
   const arquivoContrato =
     data.contrato_assinado_url ?? data.contrato_gerado_url ?? data.arquivo_pdf;
-  const revisaoPendente = Boolean(data.revisao_anterior?.id && !data.aceite_cliente_em && !data.contrato_assinado_url);
+  const aceiteExternoPendente = Boolean(data.dados_documento?.aceite_cliente_exigido && data.dados_documento?.assinatura_externa_validada_em && !data.aceite_cliente_em);
+  const revisaoPendente = Boolean(!data.aceite_cliente_em && (aceiteExternoPendente || (data.revisao_anterior?.id && !data.contrato_assinado_url)));
   const configuracaoAnterior = data.revisao_anterior?.configuracao_uc_snapshot ?? {};
   const configuracaoRevisada = data.configuracao_uc_snapshot ?? {};
   const aceiteRegistrado = Boolean(data.aceite_cliente_em);
@@ -184,7 +185,7 @@ function ContratoConsumidor() {
 
   async function confirmarAceite() {
     if (codigoAssinatura.length !== 6) return Alert.alert("Código incompleto", "Informe os seis dígitos enviados ao e-mail.");
-    if (revisaoPendente && !concordouRevisao) return Alert.alert("Confirme a revisão", "Leia a nova minuta e confirme que concorda com as alterações.");
+    if (revisaoPendente && !concordouRevisao) return Alert.alert("Confirme o aceite", "Leia o documento e confirme que concorda com suas condições.");
     if (!revisaoPendente && !tracosAssinatura.length) return Alert.alert("Assinatura necessária", "Faça sua assinatura no campo indicado.");
     setRegistrandoAceite(true);
     try {
@@ -196,8 +197,8 @@ function ContratoConsumidor() {
         queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
       ]);
       Alert.alert(
-        revisaoPendente ? "Alterações aceitas" : "Contrato assinado com sucesso",
-        revisaoPendente ? "Seu aceite da nova versão foi registrado. O contrato anterior permanece no histórico." : "Sua assinatura foi registrada e esta unidade já está liberada para acesso.",
+        revisaoPendente ? "Aceite registrado" : "Contrato assinado com sucesso",
+        revisaoPendente ? "Seu aceite do documento foi registrado. Não foi necessário assinar novamente." : "Sua assinatura foi registrada e esta unidade já está liberada para acesso.",
         [
           {
             text: "Acessar minha unidade",
@@ -452,11 +453,11 @@ function ContratoConsumidor() {
           </View>
         </Card>
 
-        {revisaoPendente ? <View style={styles.revisionNotice}>
+        {data.revisao_anterior?.id && revisaoPendente ? <View style={styles.revisionNotice}>
           <Ionicons name="document-text-outline" size={20} color="#9A6700" />
           <Text style={styles.revisionNoticeText}>O gerador enviou uma revisão do contrato {data.revisao_anterior?.numero ?? "anterior"}. Confira a nova minuta e as condições abaixo antes de concordar. O documento assinado anteriormente permanece preservado.</Text>
         </View> : null}
-        {revisaoPendente ? <Card>
+        {data.revisao_anterior?.id && revisaoPendente ? <Card>
           <Text style={styles.sectionTitle}>Condições alteradas</Text>
           {([
             ["Desconto", configuracaoAnterior.desconto_percentual ?? data.revisao_anterior?.desconto, configuracaoRevisada.desconto_percentual ?? data.desconto, "%"],
@@ -509,7 +510,7 @@ function ContratoConsumidor() {
               ? pdfAssinadoEnviado ? "Abrir contrato assinado" : "Abrir minuta do contrato"
               : "PDF ainda não disponível"}
           />
-          {!pdfAssinadoEnviado && !aceiteRegistrado ? <>
+          {(!pdfAssinadoEnviado || aceiteExternoPendente) && !aceiteRegistrado ? <>
             <Button
               disabled={registrandoAceite || !arquivoContrato}
               icon={
@@ -523,7 +524,7 @@ function ContratoConsumidor() {
               title={
                 registrandoAceite || enviandoCodigo
                   ? "Preparando confirmação..."
-                  : revisaoPendente ? "Concordar com as alterações" : "Assinar contrato no app"
+                  : aceiteExternoPendente ? "Aceitar contrato assinado" : revisaoPendente ? "Concordar com as alterações" : "Assinar contrato no app"
               }
             />
             {!revisaoPendente ? <TouchableOpacity
@@ -613,8 +614,8 @@ function ContratoConsumidor() {
         <Pressable style={styles.signatureBackdrop} onPress={() => !registrandoAceite && setModalAssinatura(false)}>
           <Pressable style={styles.signatureSheet} onPress={(event) => event.stopPropagation()}>
             <View style={styles.signatureHandle} />
-            <Text style={styles.signatureTitle}>{revisaoPendente ? "Concordar com a revisão" : "Assinar contrato"}</Text>
-            <Text style={styles.signatureSubtitle}>{revisaoPendente ? `Ao confirmar, você concorda com a nova minuta exibida nesta tela. Informe o código enviado para ${emailCodigo}.` : `Confira a minuta, assine no campo abaixo e confirme com o código enviado para ${emailCodigo}.`}</Text>
+            <Text style={styles.signatureTitle}>{aceiteExternoPendente ? "Aceitar contrato assinado" : revisaoPendente ? "Concordar com a revisão" : "Assinar contrato"}</Text>
+            <Text style={styles.signatureSubtitle}>{aceiteExternoPendente ? `Confira o PDF já assinado. Ao confirmar com o código enviado para ${emailCodigo}, você aceita as condições sem assinar novamente.` : revisaoPendente ? `Ao confirmar, você concorda com a nova minuta exibida nesta tela. Informe o código enviado para ${emailCodigo}.` : `Confira a minuta, assine no campo abaixo e confirme com o código enviado para ${emailCodigo}.`}</Text>
             {revisaoPendente ? <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{ checked: concordouRevisao }} onPress={() => setConcordouRevisao((atual) => !atual)} style={styles.govButton}>
               <Ionicons name={concordouRevisao ? "checkbox-outline" : "square-outline"} size={22} color={Colors.primary} />
               <Text style={styles.govButtonText}>Li a nova minuta e concordo com as alterações.</Text>

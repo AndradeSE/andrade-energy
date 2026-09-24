@@ -50,8 +50,21 @@ export async function obterContratoDaUnidade(
     const rascunho = await buscarRascunhoAtualUnidade(unidadeId, empresaId);
     const anteriorId = rascunho?.dados_documento?.contrato_anterior_id;
     const enviado = rascunho?.dados_documento?.envio_email_concluido === true;
-    contratoDaUnidade = anteriorId && enviado && rascunho.contrato_gerado_url && !rascunho.aceite_cliente_em
+    contratoDaUnidade = anteriorId && (enviado || rascunho?.dados_documento?.aceite_cliente_exigido === true)
+      && (rascunho.contrato_gerado_url || rascunho.contrato_assinado_url) && !rascunho.aceite_cliente_em
       ? rascunho : null;
+    if (!contratoDaUnidade) {
+      let revisoesQuery = supabase.from("contratos").select("*")
+        .eq("unidade_consumidora_id", unidadeId).eq("status", "ATIVO")
+        .not("contrato_assinado_url", "is", null)
+        .is("aceite_cliente_em", null)
+        .order("updated_at", { ascending: false }).limit(10);
+      if (empresaId) revisoesQuery = revisoesQuery.eq("empresa_id", empresaId);
+      const { data: revisoes, error: erroRevisoes } = await revisoesQuery;
+      if (erroRevisoes) throw erroRevisoes;
+      contratoDaUnidade = (revisoes ?? []).find(item => item.dados_documento?.aceite_cliente_exigido === true
+        && item.dados_documento?.contrato_anterior_id) ?? null;
+    }
   }
   if (!contratoDaUnidade && preferirRascunho) {
     contratoDaUnidade = await buscarRascunhoAtualUnidade(unidadeId, empresaId)
@@ -365,7 +378,7 @@ async function salvarPdfAssinadoPendente(contrato: any, unidadeId: string, arqui
     .update({
       contrato_assinado_url: caminho,
       assinado_em: agora,
-      status: "ATIVO",
+      status: contrato.dados_documento?.contrato_anterior_id ? "RASCUNHO" : "ATIVO",
       dados_documento: dadosDocumento,
     })
     .eq("id", contrato.id)
@@ -377,12 +390,15 @@ async function salvarPdfAssinadoPendente(contrato: any, unidadeId: string, arqui
   if (error) throw error;
   if (!data) throw new Error("O PDF foi alterado durante o envio. Reabra o contrato e tente novamente.");
 
-  const { error: erroBloqueio } = await supabase
-    .from("unidades_consumidoras")
-    .update({ status: "PENDENTE_CONTRATO" })
-    .eq("id", unidadeId)
-    .eq("empresa_id", contrato.empresa_id);
-  if (erroBloqueio) throw erroBloqueio;
+  // Uma revisão não interrompe o contrato anterior enquanto o cliente decide.
+  if (!contrato.dados_documento?.contrato_anterior_id) {
+    const { error: erroBloqueio } = await supabase
+      .from("unidades_consumidoras")
+      .update({ status: "PENDENTE_CONTRATO" })
+      .eq("id", unidadeId)
+      .eq("empresa_id", contrato.empresa_id);
+    if (erroBloqueio) throw erroBloqueio;
+  }
 
   return anexarLinksDoContrato(data);
 }
@@ -417,12 +433,14 @@ async function obterContratoDoClienteParaAceite(contratoId: string, usuario: any
 const hashAssinatura = (valor: string) => crypto.createHash("sha256").update(valor).digest("hex");
 
 async function identidadeDocumentoParaAssinatura(contrato: any) {
-  if (contrato.aceite_cliente_em || contrato.contrato_assinado_url) throw new Error("Este contrato já possui uma assinatura registrada.");
+  const aceiteExterno = contrato.dados_documento?.aceite_cliente_exigido === true
+    && Boolean(contrato.contrato_assinado_url && contrato.dados_documento?.assinatura_externa_validada_em);
+  if (contrato.aceite_cliente_em || (contrato.contrato_assinado_url && !aceiteExterno)) throw new Error("Este contrato já possui uma assinatura registrada.");
   if (["CANCELADO", "SUBSTITUIDO", "VENCIDO"].includes(String(contrato.status).toUpperCase())) throw new Error("Este contrato não está disponível para assinatura.");
-  if (contrato.dados_documento?.contrato_anterior_id && contrato.dados_documento?.envio_email_concluido !== true) {
+  if (contrato.dados_documento?.contrato_anterior_id && !aceiteExterno && contrato.dados_documento?.envio_email_concluido !== true) {
     throw new Error("A revisão ainda não foi enviada ao cliente.");
   }
-  const caminho = String(contrato.contrato_gerado_url ?? "");
+  const caminho = String(aceiteExterno ? contrato.contrato_assinado_url : contrato.contrato_gerado_url ?? "");
   if (!caminho || /^https?:/i.test(caminho)) throw new Error("Gere a minuta no sistema antes de solicitar a assinatura.");
   const { data: pdf, error } = await supabase.storage.from("contratos").download(caminho);
   if (error || !pdf) throw new Error("Não foi possível verificar o PDF do contrato.");
@@ -434,9 +452,10 @@ async function identidadeDocumentoParaAssinatura(contrato: any) {
 export async function solicitarCodigoAssinaturaService(contratoId: string, usuario: any) {
   const contrato = await obterContratoDoClienteParaAceite(contratoId, usuario);
   const revisao = Boolean(contrato.dados_documento?.contrato_anterior_id);
+  const aceiteExterno = contrato.dados_documento?.aceite_cliente_exigido === true;
   const email = String(usuario?.email ?? "").trim().toLowerCase();
   if (!email || !email.includes("@")) throw new Error("Sua conta não possui um e-mail válido para confirmar a assinatura.");
-  if (!contrato.contrato_gerado_url && !contrato.arquivo_pdf) throw new Error("A minuta precisa ser gerada antes da assinatura.");
+  if (!contrato.contrato_gerado_url && !contrato.arquivo_pdf && !contrato.contrato_assinado_url) throw new Error("O documento precisa estar disponível antes da confirmação.");
 
   const codigo = String(crypto.randomInt(100000, 1000000));
   const identidade = await identidadeDocumentoParaAssinatura(contrato);
@@ -454,8 +473,8 @@ export async function solicitarCodigoAssinaturaService(contratoId: string, usuar
   const enviado = await enviarEmailTransacional({
     empresaId: contrato.empresa_id,
     destinatario: email,
-    assunto: revisao ? "Código para concordar com a revisão contratual" : "Código para assinar seu contrato",
-    html: `<div style="font-family:Arial,sans-serif;color:#153b30"><h2>${revisao ? "Confirmação da revisão contratual" : "Confirmação da assinatura"}</h2><p>Use o código abaixo para ${revisao ? "concordar com a nova versão do contrato" : "confirmar a assinatura do contrato"} <strong>${String(contrato.numero ?? "").replace(/[<>]/g, "")}</strong>:</p><div style="font-size:30px;font-weight:800;letter-spacing:8px;margin:24px 0">${codigo}</div><p>O código expira em 10 minutos. Se você não iniciou esta ação, ignore este e-mail.</p></div>`,
+    assunto: aceiteExterno ? "Código para aceitar seu contrato assinado" : revisao ? "Código para concordar com a revisão contratual" : "Código para assinar seu contrato",
+    html: `<div style="font-family:Arial,sans-serif;color:#153b30"><h2>${aceiteExterno ? "Confirmação do aceite do contrato assinado" : revisao ? "Confirmação da revisão contratual" : "Confirmação da assinatura"}</h2><p>Use o código abaixo para ${aceiteExterno ? "aceitar o contrato já assinado" : revisao ? "concordar com a nova versão do contrato" : "confirmar a assinatura do contrato"} <strong>${String(contrato.numero ?? "").replace(/[<>]/g, "")}</strong>:</p><div style="font-size:30px;font-weight:800;letter-spacing:8px;margin:24px 0">${codigo}</div><p>O código expira em 10 minutos. Se você não iniciou esta ação, ignore este e-mail.</p></div>`,
   });
   if (!enviado) throw new Error("Não foi possível enviar o código de assinatura. Tente novamente.");
   return { enviado: true, emailMascarado: email.replace(/^(.{2}).*(@.*)$/, "$1***$2"), expiraEm };
@@ -467,10 +486,12 @@ export async function registrarAceiteEletronicoService(contratoId: string, usuar
   const codigo = String(dados?.codigo ?? "").replace(/\D/g, "");
   const assinatura = Array.isArray(dados?.assinatura) ? dados.assinatura : [];
   const anteriorId = String(contrato.dados_documento?.contrato_anterior_id ?? "");
-  const aceiteRevisao = dados?.aceiteRevisao === true && Boolean(anteriorId);
+  const aceiteExterno = contrato.dados_documento?.aceite_cliente_exigido === true
+    && Boolean(contrato.contrato_assinado_url && contrato.dados_documento?.assinatura_externa_validada_em);
+  const aceiteRevisao = dados?.aceiteRevisao === true && (Boolean(anteriorId) || aceiteExterno);
   if (codigo.length !== 6) throw new Error("Informe o código de seis dígitos enviado ao seu e-mail.");
   if (!aceiteRevisao && (!assinatura.length || JSON.stringify(assinatura).length < 80)) throw new Error("Faça sua assinatura no campo indicado.");
-  if (aceiteRevisao) {
+  if (aceiteRevisao && anteriorId) {
     const { data: anterior, error: erroAnterior } = await supabase.from("contratos")
       .select("id,aceite_cliente_em,contrato_assinado_url,status")
       .eq("id", anteriorId).eq("unidade_consumidora_id", contrato.unidade_consumidora_id)
@@ -506,12 +527,12 @@ export async function registrarAceiteEletronicoService(contratoId: string, usuar
   }
 
   const assinaturaSerializada = aceiteRevisao
-    ? `ACEITE_REVISAO:${contratoId}:${anteriorId}:${usuario.id}:${identidade.documentoHash}`
+    ? `ACEITE_DOCUMENTO:${contratoId}:${anteriorId}:${usuario.id}:${identidade.documentoHash}`
     : JSON.stringify(assinatura);
   const documentoHash = identidade.documentoHash;
   const agora = new Date().toISOString();
   const anteriores = await suspenderVigenciasAnteriores(contrato.unidade_consumidora_id, contratoId);
-  const { data, error } = await supabase.from("contratos").update({
+  let atualizacaoAceite = supabase.from("contratos").update({
       aceite_cliente_em: agora,
       aceite_cliente_usuario_id: usuario.id,
       aceite_cliente_ip: evidencias.ip ?? null,
@@ -520,16 +541,20 @@ export async function registrarAceiteEletronicoService(contratoId: string, usuar
       assinatura_cliente_hash: hashAssinatura(assinaturaSerializada),
       documento_hash: documentoHash,
       codigo_assinatura_confirmado_em: agora,
-      ...(aceiteRevisao ? { dados_documento: { ...contrato.dados_documento, aceite_revisao_tipo: "CONSENTIMENTO_CODIGO_EMAIL", aceite_revisao_anterior_id: anteriorId, aceite_revisao_em: agora } } : {}),
+      ...(aceiteRevisao ? { dados_documento: { ...contrato.dados_documento, aceite_revisao_tipo: "CONSENTIMENTO_CODIGO_EMAIL", aceite_revisao_anterior_id: anteriorId || null, aceite_revisao_em: agora } } : {}),
       status: "VIGENTE",
     })
     .eq("id", contratoId)
     .is("aceite_cliente_em", null)
-    .is("contrato_assinado_url", null)
-    .eq("contrato_gerado_url", contrato.contrato_gerado_url)
     .eq("status", contrato.status)
-    .eq("dados_documento", JSON.stringify(contrato.dados_documento))
-    .select()
+    .eq("dados_documento", JSON.stringify(contrato.dados_documento));
+  atualizacaoAceite = contrato.contrato_assinado_url
+    ? atualizacaoAceite.eq("contrato_assinado_url", contrato.contrato_assinado_url)
+    : atualizacaoAceite.is("contrato_assinado_url", null);
+  atualizacaoAceite = contrato.contrato_gerado_url
+    ? atualizacaoAceite.eq("contrato_gerado_url", contrato.contrato_gerado_url)
+    : atualizacaoAceite.is("contrato_gerado_url", null);
+  const { data, error } = await atualizacaoAceite.select()
     .single();
   if (error) {
     await restaurarVigencias(anteriores);

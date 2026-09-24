@@ -106,6 +106,8 @@ export default function TabLayout() {
           }}
         />
 
+        <Tabs.Screen name="faturamento" options={{ href: null }} />
+
         <Tabs.Screen name="perfil" options={{ href: null, tabBarItemStyle: { display: "none" } }} />
 
         <Tabs.Screen
@@ -196,7 +198,14 @@ export default function TabLayout() {
       <Tabs.Screen
         name="faturas"
         options={{
-          title: "Faturas",
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="faturamento"
+        options={{
+          title: "Faturamento",
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name={focused ? "receipt" : "receipt-outline"} color={color} />
           ),

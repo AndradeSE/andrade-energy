@@ -13,7 +13,7 @@ import { Colors, Spacing, Typography } from "../../theme";
 
 export default function NovaUsina() {
   const { usuario, atualizarUsuario, selecionarUsina } = useAuth();
-  const { origem, cliente, uc, endereco: enderecoImportado, tipoGd: tipoGdImportado, geracaoMedia: geracaoMediaImportada } = useLocalSearchParams<{ origem?: string; cliente?: string; uc?: string; endereco?: string; tipoGd?: string; geracaoMedia?: string }>();
+  const { origem, cliente, uc, endereco: enderecoImportado, tipoGd: tipoGdImportado, geracaoMedia: geracaoMediaImportada, geracaoInicial, referenciaInicial } = useLocalSearchParams<{ origem?: string; cliente?: string; uc?: string; endereco?: string; tipoGd?: string; geracaoMedia?: string; geracaoInicial?: string; referenciaInicial?: string }>();
   const [nome, setNome] = useState("");
   const [numeroInstalacao, setNumeroInstalacao] = useState("");
   const [potencia, setPotencia] = useState("");
@@ -80,6 +80,7 @@ export default function NovaUsina() {
       const usina = await criarUsinaRemota({
         nome: nome.trim(), numero_instalacao: numeroInstalacao, potencia_kwp: Number(potencia.replace(",", ".")),
         geracao_media: mediaEditada ? Number(geracaoMedia.replace(",", ".")) || 0 : 0,
+        ...(origem === "fatura" && Number(geracaoInicial) > 0 ? { producao_inicial_kwh: Number(geracaoInicial), referencia_fatura_inicial: referenciaInicial } : {}),
         titular_nome: titular.trim() || null, cpf_titular: cpfTitular.replace(/\D/g, "") || null,
         endereco: endereco.trim() || null, distribuidora: "CEMIG", modalidade: "INJECAO",
         tipo_gd: tipoGd, titularidade_ucs_recebedoras: titularidadeUcs, status: "ATIVA",

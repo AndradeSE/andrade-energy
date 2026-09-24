@@ -158,8 +158,9 @@ export default function UnidadeDocumentos() {
   // nesse intervalo a UC já está alocada e não deve aparecer como pendente.
   const nomeUsinaVinculada = unidade.usinas?.nome ?? unidade.usina_nome ?? usinaNome ?? (unidade.usina_id ? "Usina vinculada - atualize para ver o nome" : "Ainda não alocada");
   const contratoAssinado = contrato?.dados_documento?.assinatura_externa_pendente !== true
+    && !(contrato?.dados_documento?.aceite_cliente_exigido === true && !contrato?.aceite_cliente_em)
     && Boolean(contrato?.aceite_cliente_em || contrato?.contrato_assinado_url || String(contrato?.status ?? "").toUpperCase() === "VIGENTE");
-  const rotuloContrato = contrato?.revisao_configuracao_pendente ? "Continuar revisão" : contratoAssinado ? "Ver contrato" : contrato ? "Gerenciar contrato" : "Gerar contrato";
+  const rotuloContrato = contrato?.revisao_configuracao_pendente ? "Continuar revisão" : contrato?.dados_documento?.aceite_cliente_exigido === true && !contrato?.aceite_cliente_em ? "Aguardando aceite" : contratoAssinado ? "Ver contrato" : contrato ? "Gerenciar contrato" : "Gerar contrato";
   const documentoConferido = Boolean(contrato?.contrato_assinado_url && contrato?.dados_documento?.assinatura_externa_validada_em);
   const titularDaFatura = String(faturasCadastro[0]?.dadosFatura?.titular ?? faturasCadastro[0]?.dadosFatura?.cliente ?? "").trim();
 
@@ -220,7 +221,7 @@ export default function UnidadeDocumentos() {
           ...(contrato?.revisao_configuracao_pendente ? { revisao: "1" } : {}),
         } });
       }} style={styles.action}><Ionicons name={contratoAssinado ? "document-text" : "document-text-outline"} size={18} color={Colors.primary} /><Text style={styles.actionText}>{rotuloContrato}</Text></TouchableOpacity> : null}
-      {IS_GERADOR_APP && contrato?.dados_documento?.assinatura_externa_pendente !== true && (!contratoAssinado || contrato?.revisao_configuracao_pendente) ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Enviar contrato já assinado" onPress={() => {
+      {IS_GERADOR_APP && contrato?.dados_documento?.assinatura_externa_pendente !== true && !(contrato?.dados_documento?.aceite_cliente_exigido === true && !contrato?.aceite_cliente_em) && (!contratoAssinado || contrato?.revisao_configuracao_pendente) ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Enviar contrato já assinado" onPress={() => {
         if (String(unidade.id ?? "").startsWith("cliente-") || !unidade.cliente_id || !unidade.usina_id) {
           Alert.alert("Configure a UC primeiro", "Vincule a unidade ao cliente e à usina antes de anexar o contrato assinado.");
           return;
@@ -233,7 +234,7 @@ export default function UnidadeDocumentos() {
           modoAssinado: "1",
           ...(contratoAssinado ? { revisao: "1" } : {}),
         } });
-      }} style={styles.action}><Ionicons name="cloud-upload-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Enviar contrato já assinado</Text></TouchableOpacity> : null}
+      }} style={[styles.action, styles.actionWide]}><Ionicons name="cloud-upload-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Enviar contrato já assinado</Text></TouchableOpacity> : null}
     </View>
     {IS_GERADOR_APP && documentoConferido ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Reenviar convite de acesso ao cliente" onPress={() => {
       Alert.alert("Reenviar convite", "Será enviado um novo convite de acesso ao cliente desta UC. O contrato assinado continuará o mesmo.", [
@@ -242,7 +243,7 @@ export default function UnidadeDocumentos() {
           try {
             const resultado = await reenviarConviteDaUnidade(String(unidade.id));
             Alert.alert("Convite de acesso", resultado.acessoExistente
-              ? "O cliente já possui acesso ativo a esta empresa."
+              ? "A conta do cliente já foi criada e vinculada a esta empresa. Ele deve entrar no aplicativo com o e-mail do convite e a senha cadastrada. Se não lembrar a senha, use Esqueci minha senha na tela de login. Um novo convite não é necessário."
               : resultado.emailEnviado ? "Novo convite enviado ao e-mail do cliente." : "O convite foi criado, mas o e-mail não foi entregue. Tente novamente.");
           } catch (erro: any) {
             Alert.alert("Não foi possível reenviar", erro?.response?.data?.message ?? "Tente novamente.");
@@ -288,9 +289,9 @@ const styles = StyleSheet.create({
   metaCopy: { flex: 1, minWidth: 0, marginLeft: Spacing.sm },
   metaLabel: { color: Colors.subtitle, fontSize: 10, fontWeight: "800", letterSpacing: 0.4 },
   metaValue: { marginTop: 1, color: Colors.text, fontSize: Typography.small, fontWeight: "700" },
-  actions: { flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.lg },
-  action: { flex: 1, minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: Spacing.sm, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md, backgroundColor: Colors.surface },
-  actionWide: { flex: undefined, width: "100%" },
+  actions: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm, marginBottom: Spacing.lg },
+  action: { flexGrow: 1, flexBasis: "46%", minWidth: 0, minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md, backgroundColor: Colors.surface },
+  actionWide: { flexBasis: "100%" },
   actionText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" },
   resendInvite: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.sm, marginBottom: Spacing.lg, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md, backgroundColor: Colors.surface },
   resendInviteText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" },

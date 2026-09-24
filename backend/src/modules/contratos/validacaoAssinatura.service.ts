@@ -1,6 +1,5 @@
 import { supabase } from "../../config/supabase";
 import crypto from "node:crypto";
-import { restaurarVigencias, suspenderVigenciasAnteriores } from "./contratos.repository";
 import { enviarConviteAposConferencia } from "./envioContrato.service";
 
 /** Validação humana explícita; não se apresenta como verificação criptográfica. */
@@ -13,24 +12,18 @@ export async function validarAssinaturaExterna(id: string, usuario: any, confirm
   const { data: pdf, error: erroPdf } = await supabase.storage.from("contratos").download(contrato.contrato_assinado_url);
   if (erroPdf || !pdf) throw new Error("Não foi possível verificar o arquivo anexado.");
   const hash = crypto.createHash("sha256").update(Buffer.from(await pdf.arrayBuffer())).digest("hex");
-  const anteriores = await suspenderVigenciasAnteriores(contrato.unidade_consumidora_id, id);
-  const { data: atualizado, error: erroAtualizacao } = await supabase.from("contratos").update({ status: "VIGENTE", documento_hash: hash,
-    dados_documento: { ...contrato.dados_documento, assinatura_externa_pendente: false, assinatura_externa_validada_em: new Date().toISOString(), assinatura_externa_validada_por: usuario.id, assinatura_externa_validacao: "CONFERENCIA_MANUAL_GERADOR" },
+  const validadoEm = new Date().toISOString();
+  const { data: atualizado, error: erroAtualizacao } = await supabase.from("contratos").update({ status: contrato.status === "RASCUNHO" ? "RASCUNHO" : "ATIVO", documento_hash: hash,
+    dados_documento: { ...contrato.dados_documento, assinatura_externa_pendente: false, assinatura_externa_validada_em: validadoEm, assinatura_externa_validada_por: usuario.id, assinatura_externa_validacao: "CONFERENCIA_MANUAL_GERADOR", aceite_cliente_exigido: true },
   }).eq("id", id).eq("contrato_assinado_url", contrato.contrato_assinado_url)
     .eq("status", contrato.status).eq("dados_documento", JSON.stringify(contrato.dados_documento)).select("id").maybeSingle();
   if (erroAtualizacao || !atualizado) {
-    await restaurarVigencias(anteriores);
     if (erroAtualizacao) throw erroAtualizacao;
     throw new Error("O contrato mudou durante a validação. Reabra e confira a versão atual.");
   }
-  const { error: erroAtivacao } = await supabase.from("unidades_consumidoras")
-    .update({ status: "ATIVA" })
-    .eq("id", contrato.unidade_consumidora_id)
-    .eq("empresa_id", contrato.empresa_id);
-  if (erroAtivacao) throw erroAtivacao;
   try {
     const convite = await enviarConviteAposConferencia({ ...contrato,
-      dados_documento: { ...contrato.dados_documento, assinatura_externa_pendente: false, assinatura_externa_validada_em: new Date().toISOString() },
+      dados_documento: { ...contrato.dados_documento, assinatura_externa_pendente: false, assinatura_externa_validada_em: validadoEm, aceite_cliente_exigido: true },
     }, usuario);
     return { validado: true, ...convite };
   } catch (erro: any) {

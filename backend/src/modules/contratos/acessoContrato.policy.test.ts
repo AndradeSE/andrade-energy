@@ -12,6 +12,12 @@ test("upload externo só libera depois de conferência", () => {
   assert.equal(contratoLiberaUnidade(externo), false);
   assert.equal(contratoLiberaUnidade({ ...externo, dados_documento: { assinatura_externa_validada_em: "2026-09-07" } }), true);
 });
+test("contrato externo novo exige aceite mesmo depois da conferência", () => {
+  const externo = { ...contrato, contrato_assinado_url: "assinado.pdf", dados_documento: { assinatura_externa_validada_em: "2026-09-07", aceite_cliente_exigido: true } };
+  assert.equal(contratoLiberaUnidade(externo), false);
+  assert.equal(contratoLiberaUnidade({ ...externo, status: "VIGENTE" }), false);
+  assert.equal(contratoLiberaUnidade({ ...externo, status: "VIGENTE", aceite_cliente_em: "2026-09-08" }), true);
+});
 test("PDF vigente libera a UC sem depender da data da assinatura", () => {
   assert.equal(contratoLiberaUnidade({ ...contrato, status: "VIGENTE", contrato_assinado_url: "antigo.pdf", assinado_em: "2026-09-06T20:00:00.000Z" }), true);
   assert.equal(contratoLiberaUnidade({ ...contrato, status: "VIGENTE", contrato_assinado_url: "novo.pdf", assinado_em: "2026-09-07T20:00:00.000Z" }), true);

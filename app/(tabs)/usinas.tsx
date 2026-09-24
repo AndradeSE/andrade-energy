@@ -105,7 +105,7 @@ export default function Usinas() {
             <ImageBackground source={item.foto_card_local ? { uri: item.foto_card_local } : require("../../assets/images/usina-loading.jpeg")} imageStyle={styles.coverImage} style={styles.cover}>
               <LinearGradient colors={["rgba(2,25,18,.12)", "rgba(2,25,18,.86)"]} style={styles.coverShade}>
                 <View style={styles.coverTop}><View style={styles.liveBadge}><View style={styles.liveDot} /><Text style={styles.liveText}>{estaInativa ? "INATIVA" : "EM OPERAÇÃO"}</Text></View><Ionicons name="chevron-forward-circle" size={26} color="#FFF" /></View>
-                <View style={styles.generationMain}><Text style={styles.generationLabel}>GERAÇÃO NESTA COMPETÊNCIA</Text><Text style={styles.generationValue}>{formatarEnergia(geracaoCompetencia)}</Text></View>
+                <View style={styles.generationMain}><Text style={styles.generationLabel}>{item.fechamento_atual?.competencia ? `GERAÇÃO ${String(item.fechamento_atual.competencia).slice(5, 7)}/${String(item.fechamento_atual.competencia).slice(0, 4)}` : "GERAÇÃO AINDA NÃO IMPORTADA"}</Text><Text style={styles.generationValue}>{formatarEnergia(geracaoCompetencia)}</Text></View>
                 <View style={styles.coverMetrics}><View style={styles.coverMetric}><Text style={styles.coverMetricLabel}>MÉDIA MENSAL</Text><Text style={styles.coverMetricValue}>{formatarEnergia(producaoMedia)}</Text></View><View style={styles.coverDivider} /><View style={styles.coverMetric}><Text style={styles.coverMetricLabel}>GERAÇÃO ACUMULADA</Text><Text style={styles.coverMetricValue}>{formatarEnergia(geracaoTotal)}</Text></View></View>
               </LinearGradient>
             </ImageBackground>
