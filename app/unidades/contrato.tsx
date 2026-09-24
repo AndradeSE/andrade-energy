@@ -48,13 +48,14 @@ function primeirosDigitosDocumento(valor: unknown) {
 }
 
 export default function ContratoDaUnidade() {
-  const { id, numero, clienteId, cliente, descontoPadrao, revisao, modoAssinado } = useLocalSearchParams<{
+  const { id, numero, clienteId, cliente, descontoPadrao, revisao, revisaoToken, modoAssinado } = useLocalSearchParams<{
     id: string;
     numero: string;
     clienteId: string;
     cliente?: string;
     descontoPadrao?: string;
     revisao?: string;
+    revisaoToken?: string;
     modoAssinado?: string;
   }>();
   const [carregando, setCarregando] = useState(true);
@@ -87,7 +88,11 @@ export default function ContratoDaUnidade() {
   const [titularidadeUcs, setTitularidadeUcs] = useState("GERADOR");
 
   useEffect(() => {
+    setCarregando(true);
     setNovoContrato(String(revisao ?? "") === "1");
+    setContratoAssinadoUrl(undefined);
+    setContratoGeradoUrl(undefined);
+    setSubstituirRevisaoAssinada(false);
     if (!id) {
       setCarregando(false);
       return;
@@ -170,7 +175,7 @@ export default function ContratoDaUnidade() {
         Alert.alert("Não foi possível carregar o contrato", erro?.response?.data?.message ?? "Tente novamente.");
       })
       .finally(() => setCarregando(false));
-  }, [clienteId, id, revisao]);
+  }, [clienteId, id, revisao, revisaoToken]);
 
   useEffect(() => {
     const vencimento = somarAnos(inicio, prazoAnos);

@@ -209,7 +209,7 @@ export default function EditarAlocacaoUnidade() {
       // fatura. O destino único evita ficar preso na tela anterior e exigir
       // um segundo toque para voltar à lista atualizada.
       if (atualizacaoContratual) {
-        router.replace({ pathname: "/unidades/contrato", params: { id: unidadeIdRecebida, numero: numeroDaUc, clienteId: clienteIdResolvido, descontoPadrao: String(descontoNumero), revisao: "1" } });
+        router.replace({ pathname: "/unidades/contrato", params: { id: unidadeIdRecebida, numero: numeroDaUc, clienteId: clienteIdResolvido, descontoPadrao: String(descontoNumero), revisao: "1", revisaoToken: String(Date.now()) } });
       } else router.replace("/unidades");
     } catch (erro: any) { Alert.alert("Não foi possível alocar", erro?.message ?? "Tente novamente."); } finally { setSalvando(false); }
   }
