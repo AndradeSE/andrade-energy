@@ -98,7 +98,7 @@ export default function ContratoDaUnidade() {
       return;
     }
 
-    Promise.allSettled([buscarContratoDaUnidade(id, String(revisao ?? "") === "1"), buscarUnidade(id), buscarDadosIniciaisContrato(id), buscarResumoPropostaDaUnidade(id)])
+    Promise.allSettled([buscarContratoDaUnidade(id, true), buscarUnidade(id), buscarDadosIniciaisContrato(id), buscarResumoPropostaDaUnidade(id)])
       .then(async ([resultadoContrato, resultadoUnidade, resultadoDados, resultadoProposta]) => {
         let unidadeCarregada: any;
         if (resultadoUnidade.status === "fulfilled") {
@@ -139,14 +139,16 @@ export default function ContratoDaUnidade() {
         }
         const contrato = resultadoContrato.value;
         if (!contrato) return;
+        const revisaoAtual = String(revisao ?? "") === "1" || Boolean(contrato.dados_documento?.contrato_anterior_id);
+        setNovoContrato(revisaoAtual);
         setContratoId(contrato.id);
         setAceiteRegistrado(Boolean(contrato.aceite_cliente_em));
         setAssinaturaPendente(Boolean(contrato.dados_documento?.assinatura_externa_pendente));
-        const revisaoAssinadaEmRascunho = String(revisao ?? "") === "1"
+        const revisaoAssinadaEmRascunho = revisaoAtual
           && String(contrato.status).toUpperCase() === "RASCUNHO"
           && Boolean(contrato.contrato_assinado_url);
         setSubstituirRevisaoAssinada(revisaoAssinadaEmRascunho);
-        const revisandoContratoAssinado = String(revisao ?? "") === "1"
+        const revisandoContratoAssinado = revisaoAtual
           && Boolean(contrato.aceite_cliente_em || contrato.contrato_assinado_url);
         setNumeroContrato(revisandoContratoAssinado ? `AE-${numero ?? unidadeCarregada?.numero ?? "UC"}-${new Date().getFullYear()}-R${Number(contrato.versao ?? 1) + 1}` : contrato.numero ?? "");
         setTermoAdesao(contrato.termo_adesao ?? "");
@@ -250,13 +252,18 @@ export default function ContratoDaUnidade() {
       setGerando(true);
       const dadosMinuta = dadosParaSalvar();
       const contrato = await gerarContratoDaUnidade(id, dadosMinuta);
+      // A versão retornada pelo servidor é a fonte de verdade: a tela pode ter
+      // sido aberta sem o parâmetro `revisao`, mesmo havendo rascunho da revisão.
+      const minutaDeRevisao = Boolean(contrato.dados_documento?.contrato_anterior_id);
+      setNovoContrato(minutaDeRevisao);
+      setContratoId(contrato.id);
       setDadosDaMinutaRevisada(JSON.stringify(dadosMinuta));
       setContratoGeradoUrl(contrato.contrato_gerado_url ?? undefined);
       setContratoAssinadoUrl(contrato.contrato_assinado_url ?? undefined);
       const minutaUrl = contrato.contrato_gerado_url;
       Alert.alert(
         "Minuta gerada",
-        novoContrato
+        minutaDeRevisao
           ? "Revise as alterações antes de enviar ao cliente para aceite. O contrato anterior segue vigente até a concordância."
           : "Revise os dados e as cláusulas antes de colher as assinaturas.",
         [{
