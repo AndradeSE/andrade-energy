@@ -137,7 +137,7 @@ export default function ContratoDaUnidade() {
         setAceiteRegistrado(Boolean(contrato.aceite_cliente_em));
         setAssinaturaPendente(Boolean(contrato.dados_documento?.assinatura_externa_pendente));
         const revisandoContratoAssinado = String(revisao ?? "") === "1"
-          && Boolean(contrato.aceite_cliente_em || contrato.contrato_assinado_url || String(contrato.status).toUpperCase() === "VIGENTE");
+          && Boolean(contrato.aceite_cliente_em || ["ATIVO", "VIGENTE"].includes(String(contrato.status).toUpperCase()) && contrato.contrato_assinado_url);
         setNumeroContrato(revisandoContratoAssinado ? `AE-${numero ?? unidadeCarregada?.numero ?? "UC"}-${new Date().getFullYear()}-R${Number(contrato.versao ?? 1) + 1}` : contrato.numero ?? "");
         setTermoAdesao(contrato.termo_adesao ?? "");
         setStatus((["ATIVO", "VIGENTE", "VENCIDO"].includes(String(contrato.status).toUpperCase()) ? String(contrato.status).toUpperCase() : "ATIVO") as StatusContrato);
@@ -339,7 +339,9 @@ export default function ContratoDaUnidade() {
   const nomeCliente = dadosCliente?.nome ?? cliente ?? "Cliente não informado";
   const usinaVinculada = unidade?.usinas?.nome ?? unidade?.usina_nome ?? (unidade?.usina_id ? "Usina vinculada" : "Não informada");
   const contratoAssinado = aceiteRegistrado || Boolean(contratoAssinadoUrl) || status === "VIGENTE";
-  const somenteLeitura = contratoAssinado && !novoContrato;
+  // Um PDF já assinado em rascunho de revisão não é uma minuta regenerável.
+  // Ele só pode ser trocado antes da conferência ou validado pelo gerador.
+  const somenteLeitura = Boolean(contratoAssinadoUrl) || (contratoAssinado && !novoContrato);
 
   return (
     <Screen>
@@ -436,12 +438,12 @@ export default function ContratoDaUnidade() {
           {modoAssinado !== "1" ? <Button disabled={gerando} title={gerando ? "Gerando minuta..." : "Gerar e revisar a minuta"} icon={<Ionicons name="document-text-outline" size={20} color={Colors.surface} />} onPress={gerarMinuta} /> : null}
           {contratoGeradoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoGeradoUrl)} style={styles.documentLink}><Ionicons name="download-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir minuta gerada</Text></TouchableOpacity> : null}
           {modoAssinado !== "1" ? <><Button disabled={gerando || !contratoGeradoUrl || dadosDaMinutaRevisada !== JSON.stringify(dadosParaSalvar())} title={gerando ? "Aguarde..." : "Enviar para assinatura"} onPress={enviarParaAnalise} /><Text style={styles.documentLinkText}>Gere e revise a minuta atual para habilitar o envio. Alterações nos campos exigem nova revisão.</Text></> : null}
-          {(!contratoAssinadoUrl || assinaturaPendente) ? <TouchableOpacity accessibilityRole="button" activeOpacity={0.84} disabled={importando} onPress={importarAssinado} style={styles.uploadSignedButton}>
+          {modoAssinado === "1" && (!contratoAssinadoUrl || assinaturaPendente) ? <TouchableOpacity accessibilityRole="button" activeOpacity={0.84} disabled={importando} onPress={importarAssinado} style={styles.uploadSignedButton}>
             <Ionicons name="cloud-upload-outline" size={20} color={Colors.primary} />
             <Text style={styles.uploadSignedButtonText}>{importando ? (assinaturaPendente ? "Trocando documento..." : "Enviando contrato...") : (assinaturaPendente ? "Trocar documento assinado" : "Enviar contrato assinado (PDF)")}</Text>
           </TouchableOpacity> : null}
           {contratoAssinadoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoAssinadoUrl)} style={styles.signedLink}><Ionicons name="checkmark-circle-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Contrato assinado vinculado à UC</Text></TouchableOpacity> : null}
-          {assinaturaPendente ? <Button title="Validar assinaturas do PDF" disabled={gerando} onPress={confirmarAssinaturaExterna} /> : null}
+          {modoAssinado === "1" && assinaturaPendente ? <Button title="Validar assinaturas do PDF" disabled={gerando} onPress={confirmarAssinaturaExterna} /> : null}
         </View>
         </>}
       </ScrollView>

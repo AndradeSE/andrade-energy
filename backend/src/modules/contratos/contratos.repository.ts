@@ -136,6 +136,9 @@ export async function salvarContratoUnidade(
 ) {
   const rascunho = await buscarRascunhoAtualUnidade(unidadeId);
   if (rascunho?.id) {
+    if (rascunho.contrato_assinado_url) {
+      throw new Error("Esta revisão já tem um PDF assinado. Confira e valide o documento ou use Trocar documento assinado antes da conferência.");
+    }
     const anteriorId = rascunho.dados_documento?.contrato_anterior_id;
     return await atualizarContrato(rascunho.id, {
       ...contrato,

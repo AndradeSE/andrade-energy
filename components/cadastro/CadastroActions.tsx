@@ -102,7 +102,9 @@ export default function CadastroActions({ tipo, clienteId }: { tipo: TipoCadastr
           energiaCompensada: tipo === "UNIDADE" ? "0" : String(dados.energiaCompensada ?? 0),
           tipoGd,
           geracaoMedia: tipo === "USINA" && geracaoDoPeriodo > 0 ? String(geracaoDoPeriodo) : "",
-          geracaoInicial: tipo === "USINA" && analise.classificacao === "POSSIVEL_GERADORA" && geracaoDoPeriodo > 0 ? String(geracaoDoPeriodo) : "",
+          // A medição de injeção é mais confiável que a classificação heurística
+          // da fatura; preservá-la também quando a heurística não identifica GD.
+          geracaoInicial: tipo === "USINA" && geracaoDoPeriodo > 0 ? String(geracaoDoPeriodo) : "",
           referenciaInicial: tipo === "USINA" ? String(dados.referencia ?? "") : "",
           dadosFatura: tipo === "USINA" ? "" : JSON.stringify({
             valorTotal: dados.valorTotal,
