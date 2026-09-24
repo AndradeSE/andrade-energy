@@ -5,6 +5,7 @@ type ListarFaturasFiltro = {
   clienteId?: string;
   uc?: string;
   empresaId?: string;
+  usinaId?: string;
 };
 
 export async function listarFaturas(
@@ -35,8 +36,17 @@ export async function listarFaturas(
   const { data, error } = await query;
 
   if (error) throw error;
-
-  return data ?? [];
+  if (!filtro?.usinaId) return data ?? [];
+  const { data: unidades, error: erroUnidades } = await supabase.from("unidades_consumidoras")
+    .select("id,cliente_id,numero").eq("empresa_id", filtro.empresaId ?? EMPRESA_ANDRADE_ID).eq("usina_id", filtro.usinaId);
+  if (erroUnidades) throw erroUnidades;
+  const ids = new Set((unidades ?? []).map((unidade) => String(unidade.id)));
+  const numeros = new Set((unidades ?? []).map((unidade) => `${unidade.cliente_id}:${String(unidade.numero ?? "").replace(/\D/g, "")}`));
+  return (data ?? []).filter((fatura: any) => fatura.unidade_consumidora_id
+    ? ids.has(String(fatura.unidade_consumidora_id))
+    : fatura.cliente_id && fatura.numero_instalacao
+      ? numeros.has(`${fatura.cliente_id}:${String(fatura.numero_instalacao).replace(/\D/g, "")}`)
+      : fatura.usina_id === filtro.usinaId);
 }
 
 export async function buscarFatura(

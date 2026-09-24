@@ -74,14 +74,13 @@ export async function extrairTextoDoBuffer(
   senha?: string
 ): Promise<string> {
 
-  if (senha) return extrairTextoPdfComSenha(buffer, senha);
-
   try {
     const pdf = await pdfParse(buffer);
     return pdf.text;
   } catch (erro: any) {
     const mensagem = String(erro?.message ?? "");
     if (/password|senha/i.test(mensagem)) {
+      if (senha) return extrairTextoPdfComSenha(buffer, senha);
       throw new Error("Este PDF é protegido. Informe a senha da fatura e tente novamente.");
     }
     throw erro;

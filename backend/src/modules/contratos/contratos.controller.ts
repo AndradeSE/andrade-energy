@@ -55,7 +55,7 @@ import { empresaIdDaRequisicao, garantirRegistroDaEmpresa, incluirEmpresa } from
 
 export async function listarContratosController(req: Request, res: Response) {
   try {
-    res.json(await ContratosService.listarContratosDaEmpresa(empresaIdDaRequisicao(req)));
+    res.json(await ContratosService.listarContratosDaEmpresa(empresaIdDaRequisicao(req), typeof req.query.usinaId === "string" ? req.query.usinaId : undefined));
   } catch (e: any) {
     console.error(e);
     res.status(500).json({ message: e.message });

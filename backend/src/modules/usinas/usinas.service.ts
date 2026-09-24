@@ -531,6 +531,10 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
     .single();
   if (erroUc) throw erroUc;
 
+  if (usinaAnterior && usinaAnterior !== usinaId) {
+    await migrarRegistrosDaUnidade(unidade.id, usinaId, empresaId);
+  }
+
   // A configuração comercial pertence à UC e acompanha a minuta do contrato.
   // Contratos já assinados permanecem imutáveis e recebem uma indicação de
   // revisão para que uma nova versão seja emitida e aceita pelo cliente.
@@ -741,6 +745,29 @@ export async function excluirUsinaService(
   };
 }
 
+async function migrarRegistrosDaUnidade(unidadeId: string, destinoUsinaId: string, empresaId: string) {
+  // O cliente pode ter UCs em usinas distintas; movemos somente os registros
+  // desta UC. Cobranças permanecem ligadas à fatura por sua chave estrangeira.
+  const { data: unidade, error: erroUnidade } = await supabase.from("unidades_consumidoras")
+    .select("cliente_id,numero").eq("id", unidadeId).eq("empresa_id", empresaId).single();
+  if (erroUnidade) throw erroUnidade;
+  const { error: erroContratos } = await supabase.from("contratos")
+    .update({ usina_id: destinoUsinaId }).eq("empresa_id", empresaId).eq("unidade_consumidora_id", unidadeId);
+  if (erroContratos) throw erroContratos;
+  const { error: erroFaturas } = await supabase.from("faturas")
+    .update({ usina_id: destinoUsinaId }).eq("empresa_id", empresaId).eq("unidade_consumidora_id", unidadeId);
+  if (erroFaturas) throw erroFaturas;
+  // Faturas antigas podem não ter FK para a UC; número e cliente identificam
+  // a qual unidade pertencem sem levar faturas de outra UC do mesmo cliente.
+  if (unidade.cliente_id && unidade.numero) {
+    const { error: erroLegadas } = await supabase.from("faturas")
+      .update({ usina_id: destinoUsinaId }).eq("empresa_id", empresaId)
+      .eq("cliente_id", unidade.cliente_id).eq("numero_instalacao", unidade.numero)
+      .is("unidade_consumidora_id", null);
+    if (erroLegadas) throw erroLegadas;
+  }
+}
+
 export async function migrarUnidadesDaUsinaService(id: string, destinoUsinaId: string, empresaId: string) {
   if (!destinoUsinaId || destinoUsinaId === id) throw new Error("Escolha outra usina como destino.");
   const { data: destino, error: erroDestino } = await supabase.from("usinas").select("id,nome")
@@ -752,13 +779,12 @@ export async function migrarUnidadesDaUsinaService(id: string, destinoUsinaId: s
   const ids = (unidades ?? []).map((item: any) => item.id);
   if (!ids.length) return { sucesso: true, migradas: 0, destino };
 
-  const atualizacoes = await Promise.all([
-    supabase.from("unidades_consumidoras").update({ usina_id: destinoUsinaId }).eq("empresa_id", empresaId).in("id", ids),
-    supabase.from("contratos").update({ usina_id: destinoUsinaId }).eq("empresa_id", empresaId).in("unidade_consumidora_id", ids),
-    supabase.from("faturas").update({ usina_id: destinoUsinaId }).eq("empresa_id", empresaId).in("unidade_consumidora_id", ids),
-  ]);
-  const falha = atualizacoes.find((item) => item.error)?.error;
-  if (falha) throw falha;
+  for (const unidade of unidades ?? []) {
+    const { error } = await supabase.from("unidades_consumidoras").update({ usina_id: destinoUsinaId })
+      .eq("empresa_id", empresaId).eq("id", unidade.id);
+    if (error) throw error;
+    await migrarRegistrosDaUnidade(unidade.id, destinoUsinaId, empresaId);
+  }
   const clientes = [...new Set((unidades ?? []).map((item: any) => item.cliente_id).filter(Boolean))];
   await Promise.all(clientes.flatMap((clienteId) => [
     sincronizarParticipacaoClienteUsina(id, String(clienteId)),

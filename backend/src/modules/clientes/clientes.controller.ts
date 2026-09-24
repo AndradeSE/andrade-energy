@@ -26,7 +26,7 @@ export async function listarClientesController(
   res: Response
 ) {
   try {
-    const data = await listarClientes(empresaIdDaRequisicao(req));
+    const data = await listarClientes(empresaIdDaRequisicao(req), typeof req.query.usinaId === "string" ? req.query.usinaId : undefined);
     return res.json(data);
   } catch (e: any) {
     return res.status(e.code === "CLIENTE_COM_CONTRATO_ATIVO" ? 409 : 500).json({ message: e.message, code: e.code, contratos: e.contratos });
@@ -89,6 +89,7 @@ export async function anexarFaturaClienteController(req: Request, res: Response)
       empresaIdDaRequisicao(req),
       req.file,
       String(req.body?.senhaPdf ?? req.body?.senha_pdf ?? ""),
+      (req as any).usuario?.perfil === "LEITURA" ? undefined : String(req.body?.usinaId ?? "") || undefined,
     ));
   } catch (e: any) {
     const erroDeSenha = /pdf.*(protegido|senha)|senha.*pdf|não desbloqueou/i.test(String(e.message ?? ""));
@@ -177,7 +178,7 @@ export async function cadastrarUnidadeClienteController(req: Request, res: Respo
 
 export async function listarTodasUnidadesController(req: Request, res: Response) {
   try {
-    return res.json(await listarTodasUnidades(empresaIdDaRequisicao(req)));
+    return res.json(await listarTodasUnidades(empresaIdDaRequisicao(req), typeof req.query.usinaId === "string" ? req.query.usinaId : undefined));
   } catch (e: any) {
     return res.status(500).json({ message: e.message });
   }

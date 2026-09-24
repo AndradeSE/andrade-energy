@@ -78,13 +78,14 @@ export async function listarFaturasController(
   res: Response
 ) {
   try {
-    const { clienteId, uc } = req.query;
+    const { clienteId, uc, usinaId } = req.query;
     const usuario = (req as any).usuario;
 
     const data = await listarFaturas({
       clienteId: usuario?.perfil === "LEITURA" ? usuario.cliente_id : clienteId as string | undefined,
       uc: uc as string | undefined,
       empresaId: empresaIdDaRequisicao(req),
+      usinaId: usuario?.perfil === "LEITURA" ? undefined : typeof usinaId === "string" ? usinaId : undefined,
     });
 
     const permitidas = res.locals.unidadesComContrato;

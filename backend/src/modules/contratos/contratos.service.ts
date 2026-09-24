@@ -24,11 +24,12 @@ export async function obterContratoCliente(
   return await buscarContratoCliente(clienteId, false, empresaId);
 }
 
-export async function listarContratosDaEmpresa(empresaId: string) {
-  const { data, error } = await supabase.from("contratos")
+export async function listarContratosDaEmpresa(empresaId: string, usinaId?: string) {
+  let query = supabase.from("contratos")
     .select("*, clientes(nome), unidades_consumidoras(numero,titular)")
-    .eq("empresa_id", empresaId)
-    .order("created_at", { ascending: false });
+    .eq("empresa_id", empresaId);
+  if (usinaId) query = query.eq("usina_id", usinaId);
+  const { data, error } = await query.order("created_at", { ascending: false });
   if (error) throw error;
   return data ?? [];
 }

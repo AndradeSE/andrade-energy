@@ -180,7 +180,7 @@ function faturaPossuiDadosDeConsumo(dados: Record<string, any>) {
 
 async function completarDadosDaFaturaAnexada(anexo: any, cpf?: string | null) {
   const atuais = (anexo?.dados_fatura ?? {}) as Record<string, any>;
-  if (faturaPossuiDadosDeConsumo(atuais) || !anexo?.caminho_pdf) return atuais;
+  if ((faturaPossuiDadosDeConsumo(atuais) && String(atuais.titular ?? atuais.cliente ?? "").trim()) || !anexo?.caminho_pdf) return atuais;
 
   try {
     const { data, error } = await supabase.storage.from("faturas").download(String(anexo.caminho_pdf));
@@ -188,9 +188,10 @@ async function completarDadosDaFaturaAnexada(anexo: any, cpf?: string | null) {
     const buffer = Buffer.from(await data.arrayBuffer());
     const texto = await extrairTextoDoBuffer(buffer, cpfLimpo(cpf).slice(0, 4) || undefined);
     const completos = dadosDaFaturaAnexada(interpretarFatura(texto) as Record<string, any>);
-    if (!faturaPossuiDadosDeConsumo(completos)) return atuais;
-    await atualizarDadosFaturaAnexada(String(anexo.id), String(anexo.empresa_id), completos);
-    return completos;
+    if (!faturaPossuiDadosDeConsumo(completos) && !completos.titular) return atuais;
+    const atualizados = { ...atuais, ...completos };
+    await atualizarDadosFaturaAnexada(String(anexo.id), String(anexo.empresa_id), atualizados);
+    return atualizados;
   } catch (erro: any) {
     console.warn("[clientes:fatura-anexada] não foi possível completar dados antigos", {
       anexoId: anexo?.id,
@@ -222,6 +223,7 @@ export async function anexarFaturaAoCliente(
   empresaId: string,
   arquivo?: { path: string; originalname?: string; mimetype?: string },
   senhaPdf?: string,
+  usinaId?: string,
 ) {
   if (!arquivo?.path) throw new Error("Selecione uma fatura em PDF.");
   if (arquivo.mimetype && arquivo.mimetype !== "application/pdf") throw new Error("Envie a conta de energia no formato PDF.");
@@ -230,6 +232,7 @@ export async function anexarFaturaAoCliente(
   }
 
   let caminhoPdf: string | null = null;
+  let anexoId: string | null = null;
   try {
     const cliente = await buscarCliente(clienteId, empresaId);
     const senhaInformada = String(senhaPdf ?? "").trim();
@@ -239,7 +242,8 @@ export async function anexarFaturaAoCliente(
     if (!dadosFatura.uc) throw new Error("Não foi possível identificar a unidade consumidora na fatura.");
     caminhoPdf = await guardarFaturaAnexada(clienteId, arquivo.path);
     const anexo = await criarFaturaAnexadaCliente({ clienteId, empresaId, usuarioId: usuario?.id ?? null, caminhoPdf, arquivoNome: arquivo.originalname || "fatura-cemig.pdf", dadosFatura });
-    const unidade = await cadastrarUnidadeCliente(clienteId, dadosFatura.uc, cliente?.cpf ?? dadosFatura.cpfParcial, empresaId);
+    anexoId = String(anexo.id);
+    const unidade = await cadastrarUnidadeCliente(clienteId, dadosFatura.uc, dadosFatura.cpfParcial, empresaId, usinaId);
     const consumoMedio = mediaConsumoDaFatura(dadosFatura);
     const { error: unidadeError } = await supabase
       .from("unidades_consumidoras")
@@ -256,6 +260,7 @@ export async function anexarFaturaAoCliente(
     if (error) throw error;
     return { id: anexo.id, nome: anexo.arquivo_nome, dadosFatura: anexo.dados_fatura, criadoEm: anexo.criado_em, url: data.signedUrl, unidade };
   } catch (erro) {
+    if (anexoId) await excluirFaturaAnexadaClienteNoBanco(anexoId, clienteId, empresaId).catch(() => undefined);
     if (caminhoPdf) await supabase.storage.from("faturas").remove([caminhoPdf]).catch(() => undefined);
     throw erro;
   } finally {

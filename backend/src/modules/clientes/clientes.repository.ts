@@ -3,6 +3,8 @@ import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
 import { randomUUID } from "node:crypto";
 import { restaurarContratoAssinadoDaMesmaUc } from "../contratos/contratos.repository";
 import { configuracaoVigenteParaFaturamento } from "../contratos/contratoFaturamento.policy";
+import { extrairTextoDoBuffer } from "../../services/ocr/ocr.service";
+import { extrairCadastroCemig } from "../../services/ocr/parsers/cemig.cadastro.parser";
 
 const somenteDigitos = (valor: unknown) => String(valor ?? "").replace(/\D/g, "");
 
@@ -12,7 +14,7 @@ async function incluirTitularDaFatura(unidades: any[], empresaId: string) {
 
   const { data: anexos, error } = await supabase
     .from("faturas_anexadas_clientes")
-    .select("cliente_id,dados_fatura,criado_em")
+    .select("id,cliente_id,caminho_pdf,dados_fatura,criado_em")
     .eq("empresa_id", empresaId)
     .in("cliente_id", clienteIds)
     .order("criado_em", { ascending: false });
@@ -23,7 +25,22 @@ async function incluirTitularDaFatura(unidades: any[], empresaId: string) {
   for (const anexo of anexos ?? []) {
     const dados = (anexo?.dados_fatura ?? {}) as Record<string, any>;
     const numero = somenteDigitos(dados.uc ?? dados.numero_instalacao);
-    const titular = String(dados.titular ?? dados.cliente ?? "").trim();
+    let titular = String(dados.titular ?? dados.cliente ?? "").trim();
+    if (numero && !titular && anexo.caminho_pdf) {
+      try {
+        const { data: pdf, error: erroPdf } = await supabase.storage.from("faturas").download(String(anexo.caminho_pdf));
+        if (erroPdf) throw erroPdf;
+        const cadastro = extrairCadastroCemig(await extrairTextoDoBuffer(Buffer.from(await pdf.arrayBuffer())));
+        if (cadastro.uc === numero && cadastro.cliente) {
+          titular = cadastro.cliente;
+          const { error: erroAtualizacao } = await supabase.from("faturas_anexadas_clientes")
+            .update({ dados_fatura: { ...dados, titular } }).eq("id", anexo.id).eq("empresa_id", empresaId);
+          if (erroAtualizacao) throw erroAtualizacao;
+        }
+      } catch (erro) {
+        console.warn("[clientes] titular não extraído do anexo", { anexoId: anexo.id, erro: String(erro) });
+      }
+    }
     if (numero && titular && !titularPorUc.has(numero)) titularPorUc.set(numero, titular);
   }
 
@@ -109,16 +126,17 @@ async function incluirStatusDoCadastro(clientes: any[], empresaId: string) {
   }));
 }
 
-async function incluirConcessionariaDasUnidades(clientes: any[], empresaId: string) {
+async function incluirConcessionariaDasUnidades(clientes: any[], empresaId: string, usinaId?: string) {
   const ids = clientes.map((cliente) => String(cliente?.id ?? "")).filter(Boolean);
   if (!ids.length) return clientes;
 
-  const { data: unidades, error } = await supabase
+  let query = supabase
     .from("unidades_consumidoras")
     .select("cliente_id,distribuidora,created_at")
     .eq("empresa_id", empresaId)
-    .in("cliente_id", ids)
-    .order("created_at", { ascending: false });
+    .in("cliente_id", ids);
+  if (usinaId) query = query.eq("usina_id", usinaId);
+  const { data: unidades, error } = await query.order("created_at", { ascending: false });
   if (error?.code === "42P01") return clientes;
   if (error) throw error;
 
@@ -137,14 +155,15 @@ async function incluirConcessionariaDasUnidades(clientes: any[], empresaId: stri
   }));
 }
 
-async function incluirResumoContratos(clientes: any[], empresaId: string) {
+async function incluirResumoContratos(clientes: any[], empresaId: string, usinaId?: string) {
   const ids = clientes.map((cliente) => String(cliente?.id ?? "")).filter(Boolean);
   if (!ids.length) return clientes;
-  const { data: contratos, error } = await supabase.from("contratos")
+  let query = supabase.from("contratos")
     .select("id,cliente_id,status,created_at")
     .eq("empresa_id", empresaId)
-    .in("cliente_id", ids)
-    .order("created_at", { ascending: false });
+    .in("cliente_id", ids);
+  if (usinaId) query = query.eq("usina_id", usinaId);
+  const { data: contratos, error } = await query.order("created_at", { ascending: false });
   if (error?.code === "42P01") return clientes;
   if (error) throw error;
   const porCliente = new Map<string, any[]>();
@@ -159,7 +178,7 @@ async function incluirResumoContratos(clientes: any[], empresaId: string) {
   });
 }
 
-export async function listarClientes(empresaId = EMPRESA_ANDRADE_ID) {
+export async function listarClientes(empresaId = EMPRESA_ANDRADE_ID, usinaId?: string) {
   const { data, error } = await supabase
     .from("clientes")
     .select("*")
@@ -168,8 +187,17 @@ export async function listarClientes(empresaId = EMPRESA_ANDRADE_ID) {
 
   if (error) throw error;
 
-  const clientesComConcessionaria = await incluirConcessionariaDasUnidades(data ?? [], empresaId);
-  const clientesComContratos = await incluirResumoContratos(clientesComConcessionaria, empresaId);
+  let clientes = data ?? [];
+  if (usinaId) {
+    const { data: unidades, error: erroUnidades } = await supabase.from("unidades_consumidoras")
+      .select("cliente_id,usina_id").eq("empresa_id", empresaId).not("cliente_id", "is", null);
+    if (erroUnidades) throw erroUnidades;
+    const idsDaUsina = new Set((unidades ?? []).filter((unidade) => unidade.usina_id === usinaId).map((unidade) => String(unidade.cliente_id)));
+    const idsComUc = new Set((unidades ?? []).map((unidade) => String(unidade.cliente_id)));
+    clientes = clientes.filter((cliente) => idsDaUsina.has(String(cliente.id)) || (cliente.usina_id === usinaId && !idsComUc.has(String(cliente.id))));
+  }
+  const clientesComConcessionaria = await incluirConcessionariaDasUnidades(clientes, empresaId, usinaId);
+  const clientesComContratos = await incluirResumoContratos(clientesComConcessionaria, empresaId, usinaId);
   return incluirStatusDoCadastro(clientesComContratos, empresaId);
 }
 
@@ -313,13 +341,14 @@ export async function listarUnidadesCliente(clienteId: string, empresaId = EMPRE
   }];
 }
 
-export async function listarTodasUnidades(empresaId = EMPRESA_ANDRADE_ID) {
-  const { data, error } = await supabase
+export async function listarTodasUnidades(empresaId = EMPRESA_ANDRADE_ID, usinaId?: string) {
+  let query = supabase
     .from("unidades_consumidoras")
     .select("*, clientes(id,nome,cpf,endereco,email,whatsapp), usinas(id,nome,endereco,titularidade_ucs_recebedoras)")
     .not("cliente_id", "is", null)
-    .eq("empresa_id", empresaId)
-    .order("created_at", { ascending: false });
+    .eq("empresa_id", empresaId);
+  if (usinaId) query = query.eq("usina_id", usinaId);
+  const { data, error } = await query.order("created_at", { ascending: false });
 
   if (error) throw error;
   const comTitular = await incluirTitularDaFatura(data ?? [], empresaId);
@@ -633,7 +662,7 @@ export async function excluirCliente(id: string, empresaId = EMPRESA_ANDRADE_ID)
   if (error) throw error;
 }
 
-export async function cadastrarUnidadeCliente(clienteId: string, numeroInformado: string, cpfTitularInformado?: string, empresaId = EMPRESA_ANDRADE_ID) {
+export async function cadastrarUnidadeCliente(clienteId: string, numeroInformado: string, cpfTitularInformado?: string, empresaId = EMPRESA_ANDRADE_ID, usinaId?: string) {
   const numero = String(numeroInformado ?? "").replace(/\D/g, "");
   if (!numero) throw new Error("Número da unidade consumidora não informado.");
 
@@ -644,7 +673,7 @@ export async function cadastrarUnidadeCliente(clienteId: string, numeroInformado
   }
   const { data: existente, error: erroConsulta } = await supabase
     .from("unidades_consumidoras")
-    .select("id,cliente_id")
+    .select("id,cliente_id,usina_id,status,cpf_titular,titular,distribuidora,endereco,modalidade_faturamento,desconto_percentual")
     .eq("numero", numero)
     .eq("empresa_id", empresaId)
     .maybeSingle();
@@ -652,19 +681,32 @@ export async function cadastrarUnidadeCliente(clienteId: string, numeroInformado
   if (existente?.cliente_id && existente.cliente_id !== clienteId) {
     throw new Error("Esta UC já está vinculada a outro cliente.");
   }
+  if (usinaId) {
+    const { data: usina, error: erroUsina } = await supabase.from("usinas")
+      .select("id").eq("id", usinaId).eq("empresa_id", empresaId).maybeSingle();
+    if (erroUsina || !usina) throw erroUsina ?? new Error("Usina não encontrada nesta empresa.");
+    if (existente?.usina_id && existente.usina_id !== usinaId) {
+      throw new Error("Esta UC já pertence a outra usina. Migre-a pela configuração da UC para levar contratos e faturas juntos.");
+    }
+  }
+
+  const documentoExistente = String(existente?.cpf_titular ?? "").replace(/\D/g, "");
+  const documentoDaFatura = String(cpfTitularInformado ?? "").replace(/\D/g, "");
+  const cpfTitular = documentoExistente.length >= 11 && (!documentoDaFatura || documentoExistente.startsWith(documentoDaFatura))
+    ? documentoExistente : documentoDaFatura || documentoExistente || null;
 
   const dados = {
     numero,
-    titular: cliente.nome ?? null,
+    titular: existente?.titular ?? cliente.nome ?? null,
     tipo: "BENEFICIARIA",
     cliente_id: clienteId,
-    usina_id: cliente.usina_id ?? null,
-    distribuidora: cliente.distribuidora || "CEMIG",
-    endereco: cliente.endereco ?? null,
-    modalidade_faturamento: cliente.modalidade_faturamento || "COMPENSACAO",
-    desconto_percentual: Number(cliente.desconto_percentual ?? 40),
-    cpf_titular: String(cpfTitularInformado ?? cliente.cpf ?? "").replace(/\D/g, "") || null,
-    status: "PENDENTE_CONTRATO",
+    usina_id: existente?.usina_id ?? usinaId ?? cliente.usina_id ?? null,
+    distribuidora: existente?.distribuidora ?? cliente.distribuidora ?? "CEMIG",
+    endereco: existente?.endereco ?? cliente.endereco ?? null,
+    modalidade_faturamento: existente?.modalidade_faturamento ?? cliente.modalidade_faturamento ?? "COMPENSACAO",
+    desconto_percentual: Number(existente?.desconto_percentual ?? cliente.desconto_percentual ?? 40),
+    cpf_titular: cpfTitular,
+    status: existente?.status ?? "PENDENTE_CONTRATO",
     empresa_id: empresaId,
   };
   const resultado = existente
@@ -685,7 +727,7 @@ export async function cadastrarUnidadeCliente(clienteId: string, numeroInformado
       .eq("empresa_id", empresaId);
     if (erroAtivacao) throw erroAtivacao;
   }
-  return { ...resultado.data, status: contratoRestaurado ? "ATIVA" : "PENDENTE_CONTRATO", contrato_restaurado: Boolean(contratoRestaurado) };
+  return { ...resultado.data, status: contratoRestaurado ? "ATIVA" : resultado.data.status, contrato_restaurado: Boolean(contratoRestaurado) };
 }
 
 export async function excluirUnidadeCliente(unidadeId: string, empresaId = EMPRESA_ANDRADE_ID) {

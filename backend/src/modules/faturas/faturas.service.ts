@@ -59,7 +59,7 @@ async function extrairTextoDaFatura(req: Request) {
   throw new Error("Este PDF é protegido e não corresponde aos CPFs já cadastrados. Informe os 4 primeiros números do CPF do titular da UC.");
 }
 
-export async function listarFaturas(filtro?: { clienteId?: string; uc?: string; empresaId?: string }) {
+export async function listarFaturas(filtro?: { clienteId?: string; uc?: string; empresaId?: string; usinaId?: string }) {
   const faturas = await listarFaturasRepository(filtro);
   return Promise.all(faturas.map((fatura) => incluirLinksTemporarios(fatura)));
 }
