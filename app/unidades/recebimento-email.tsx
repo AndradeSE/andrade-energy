@@ -5,6 +5,7 @@ import * as WebBrowser from "expo-web-browser";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import Svg, { Path } from "react-native-svg";
 
 import { AppHeader, Card, ElasticScrollView as ScrollView, EmptyState, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
@@ -90,6 +91,15 @@ function parametroUnico(valor?: string | string[]) {
   return Array.isArray(valor) ? valor[0] : valor;
 }
 
+function GmailMark() {
+  return <Svg width={24} height={20} viewBox="0 0 24 20" fill="none" accessibilityRole="image" accessibilityLabel="Gmail">
+    <Path d="M2 18V5.5L12 12.5L22 5.5V18" stroke="#EA4335" strokeWidth={3.5} strokeLinejoin="round" />
+    <Path d="M2 18V5.5" stroke="#4285F4" strokeWidth={3.5} strokeLinecap="round" />
+    <Path d="M22 5.5V18" stroke="#34A853" strokeWidth={3.5} strokeLinecap="round" />
+    <Path d="M20.3 6.7L22 5.5" stroke="#FBBC04" strokeWidth={3.5} strokeLinecap="round" />
+  </Svg>;
+}
+
 export default function RecebimentoEmail() {
   const { unidadeSelecionada } = useAuth();
   const params = useLocalSearchParams<{ conexao?: string | string[]; unidadeId?: string | string[] }>();
@@ -101,6 +111,7 @@ export default function RecebimentoEmail() {
   const [confirmandoGmail, setConfirmandoGmail] = useState(false);
   const [conectandoProvedor, setConectandoProvedor] = useState<ProvedorEmail | null>(null);
   const [desconectandoId, setDesconectandoId] = useState<string | null>(null);
+  const [modoConfiguracao, setModoConfiguracao] = useState<"GMAIL" | "MANUAL" | null>(null);
   // A tela pode abrir tanto uma UC consumidora quanto a UC geradora. A
   // finalidade sempre vem do backend, evitando rotular uma fatura de cliente
   // como se fosse produção da usina.
@@ -302,7 +313,6 @@ export default function RecebimentoEmail() {
   const tituloStatus = titulosStatus[status] ?? "Em configuração";
   const temErro = status === "ERRO";
   const gmailConectado = conexoes.some((conexao) => conexao.provedor.toUpperCase() === "GMAIL" && conexaoAtiva(conexao));
-  const outlookConectado = conexoes.some((conexao) => conexao.provedor.toUpperCase() === "OUTLOOK" && conexaoAtiva(conexao));
 
   return <Screen>
     {IS_GERADOR_APP ? <AppHeader variant="subpage" title="Recebimento automático" subtitle={recebimentoDeProducao ? "Produção da usina" : "Todas as UCs"} contextTitle="Configuração de e-mail" contextSubtitle={recebimentoDeProducao ? `UC ${unidadeExibida?.numero ?? unidadeId}` : "Válida para todas as UCs deste titular"} icon="mail-outline" /> : null}
@@ -332,8 +342,18 @@ export default function RecebimentoEmail() {
         <Text style={styles.addressHint}>Toque para copiar. Este endereço é exclusivo desta {recebimentoDeProducao ? "usina" : "configuração"} e recebe as faturas de todas as UCs abrangidas pela titularidade.</Text>
         <TouchableOpacity disabled={salvando} onPress={confirmarRegeneracao} style={styles.secondaryAction}><Ionicons name="refresh-outline" size={19} color={Colors.primary} /><Text style={styles.secondaryText}>Gerar novo endereço</Text></TouchableOpacity>
         <TouchableOpacity disabled={salvando} onPress={confirmarDesativacao} style={styles.dangerAction}><Ionicons name="close-circle-outline" size={19} color={Colors.danger} /><Text style={styles.dangerText}>Desativar recebimento</Text></TouchableOpacity>
-        <Text style={styles.inlineSectionTitle}>CONECTAR SEU E-MAIL</Text>
-        <View style={styles.providerActions}>
+        <Text style={styles.inlineSectionTitle}>COMO DESEJA CONFIGURAR?</Text>
+        <View style={styles.choiceActions}>
+          <TouchableOpacity accessibilityLabel="Configurar com Gmail" activeOpacity={0.84} onPress={() => setModoConfiguracao("GMAIL")} style={[styles.providerButton, modoConfiguracao === "GMAIL" && styles.providerButtonSelected]}>
+            <GmailMark />
+            <Text style={styles.providerButtonText}>Gmail</Text>
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityLabel="Configurar manualmente" activeOpacity={0.84} onPress={() => setModoConfiguracao("MANUAL")} style={[styles.providerButton, modoConfiguracao === "MANUAL" && styles.providerButtonSelected]}>
+            <Ionicons name="options-outline" size={20} color={Colors.primary} />
+            <Text style={styles.providerButtonText}>Configurar manualmente</Text>
+          </TouchableOpacity>
+        </View>
+        {modoConfiguracao === "GMAIL" ? <View style={styles.providerActions}>
           <TouchableOpacity
             accessibilityLabel="Conectar Gmail"
             activeOpacity={0.84}
@@ -341,20 +361,10 @@ export default function RecebimentoEmail() {
             onPress={() => conectarEmail("GMAIL")}
             style={[styles.providerButton, (Boolean(conectandoProvedor) || gmailConectado) && styles.providerButtonDisabled]}
           >
-            <Ionicons name="logo-google" size={20} color={gmailConectado ? Colors.subtitle : Colors.primary} />
+            <GmailMark />
             <Text style={[styles.providerButtonText, gmailConectado && styles.providerButtonTextDisabled]}>{conectandoProvedor === "GMAIL" ? "Conectando..." : gmailConectado ? "Gmail conectado" : "Conectar Gmail"}</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            accessibilityLabel="Conectar Outlook"
-            activeOpacity={0.84}
-            disabled={Boolean(conectandoProvedor) || outlookConectado}
-            onPress={() => conectarEmail("OUTLOOK")}
-            style={[styles.providerButton, (Boolean(conectandoProvedor) || outlookConectado) && styles.providerButtonDisabled]}
-          >
-            <Ionicons name="mail-outline" size={20} color={outlookConectado ? Colors.subtitle : Colors.primary} />
-            <Text style={[styles.providerButtonText, outlookConectado && styles.providerButtonTextDisabled]}>{conectandoProvedor === "OUTLOOK" ? "Conectando..." : outlookConectado ? "Outlook conectado" : "Conectar Outlook"}</Text>
-          </TouchableOpacity>
-        </View>
+        </View> : null}
       </> : null}
 
       {!dados?.configurado ? <Card style={styles.pendingCard}><Ionicons name="time-outline" size={24} color={Colors.warning} /><View style={styles.pendingCopy}><Text style={styles.pendingTitle}>Configuração em preparação</Text><Text style={styles.pendingText}>O endereço de recebimento será liberado assim que a Andrade Energy concluir a configuração segura do domínio.</Text></View></Card> : <>
@@ -378,7 +388,8 @@ export default function RecebimentoEmail() {
             </Card>)}
           </View> : null}
 
-          <Text style={styles.sectionTitle}>PREFERE ENCAMINHAR MANUALMENTE?</Text>
+          {modoConfiguracao === "MANUAL" ? <>
+          <Text style={styles.sectionTitle}>CONFIGURAÇÃO MANUAL</Text>
           <Card>
             <GuiaCabecalho icon="logo-google" titulo="Gmail" subtitulo="Crie um filtro no Gmail pelo navegador." />
             <Instruction number="1" text="Abra Configurações > Ver todas as configurações > Encaminhamento e POP/IMAP > Adicionar um endereço de encaminhamento." />
@@ -402,6 +413,7 @@ export default function RecebimentoEmail() {
           </Card>
 
           <Text style={styles.connectionHint}>{recebimentoDeProducao ? "A regra encaminha as faturas com anexo da usina; o sistema só processa PDFs válidos para registrar a produção da competência." : "A regra encaminha as faturas CEMIG com anexo; o sistema só processa PDFs válidos e as demais mensagens continuam no seu e-mail."}</Text>
+          </> : null}
 
           {dados.ultimoRecebimentoEm ? <Text style={styles.lastReceipt}>Último recebimento: {formatarData(dados.ultimoRecebimentoEm)}</Text> : null}
           {dados.erro ? <Text style={styles.errorText}>{dados.erro}</Text> : null}
@@ -421,7 +433,8 @@ function GuiaCabecalho({ icon, titulo, subtitulo }: { icon: keyof typeof Ionicon
 }
 
 const styles = StyleSheet.create({
-  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl * 3 }, state: { flex: 1, justifyContent: "center", padding: Spacing.lg }, heading: { flexDirection: "row", alignItems: "flex-start", marginBottom: Spacing.lg }, back: { width: 40, height: 40, alignItems: "center", justifyContent: "center", marginRight: Spacing.xs, borderRadius: Radius.round, backgroundColor: Colors.surface }, headingText: { flex: 1 }, eyebrow: { color: Colors.primary, fontSize: 10, fontWeight: "900", letterSpacing: 1.1 }, title: { marginTop: 4, color: Colors.text, fontSize: Typography.section, fontWeight: "900" }, subtitle: { marginTop: Spacing.xs, color: Colors.subtitle, fontSize: Typography.caption, lineHeight: 20 }, unitCard: { flexDirection: "row", alignItems: "center", marginBottom: Spacing.lg, padding: Spacing.md }, unitIcon: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primaryLight }, unitInfo: { marginLeft: Spacing.sm }, unitLabel: { color: Colors.subtitle, fontSize: 10, fontWeight: "800", letterSpacing: .7 }, unitNumber: { marginTop: 3, color: Colors.text, fontSize: Typography.body, fontWeight: "900" }, privacyCard: { flexDirection: "row", alignItems: "flex-start", padding: Spacing.md }, privacyIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primaryLight }, privacyCopy: { flex: 1, marginLeft: Spacing.sm }, privacyTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "900" }, privacyText: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 }, providerActions: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.sm, marginBottom: Spacing.xl }, providerButton: { flex: 1, minHeight: 50, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md, backgroundColor: Colors.surface }, providerButtonDisabled: { borderColor: Colors.border, backgroundColor: Colors.background }, providerButtonText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" }, providerButtonTextDisabled: { color: Colors.subtitle }, connectionsList: { gap: Spacing.sm, marginTop: Spacing.sm }, connectionCard: { flexDirection: "row", alignItems: "center", padding: Spacing.md }, connectionCardError: { borderWidth: 1, borderColor: "#FECACA" }, connectionIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primaryLight }, connectionIconError: { backgroundColor: "#FEE2E2" }, connectionCopy: { flex: 1, marginLeft: Spacing.sm }, connectionTitle: { color: Colors.text, fontSize: Typography.small, fontWeight: "900" }, connectionText: { marginTop: 2, color: Colors.subtitle, fontSize: 11, lineHeight: 16 }, connectionError: { marginTop: 3, color: Colors.danger, fontSize: 11, lineHeight: 16 }, disconnectButton: { width: 38, height: 38, alignItems: "center", justifyContent: "center", marginLeft: Spacing.xs }, connectionHint: { marginTop: Spacing.sm, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 }, pendingCard: { flexDirection: "row", alignItems: "flex-start", padding: Spacing.md }, pendingCopy: { flex: 1, marginLeft: Spacing.sm }, pendingTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "800" }, pendingText: { marginTop: 4, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 }, statusCard: { flexDirection: "row", alignItems: "center", padding: Spacing.md }, statusCardError: { borderWidth: 1, borderColor: "#FECACA" }, statusIcon: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primaryLight }, statusIconError: { backgroundColor: "#FEE2E2" }, statusCopy: { flex: 1, marginLeft: Spacing.sm }, statusTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "900" }, statusText: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 }, sectionTitle: { marginTop: Spacing.xl, marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: 10, fontWeight: "900", letterSpacing: .9 }, inlineSectionTitle: { marginTop: Spacing.xl, marginBottom: Spacing.xs, color: Colors.subtitle, fontSize: 10, fontWeight: "900", letterSpacing: .9 }, addressCard: { minHeight: 68, flexDirection: "row", alignItems: "center", paddingHorizontal: Spacing.md, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.lg, backgroundColor: Colors.surface }, addressIcon: { marginRight: Spacing.sm }, address: { flex: 1, color: Colors.text, fontSize: Typography.small, fontWeight: "800" }, addressHint: { marginTop: Spacing.xs, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 }, instruction: { minHeight: 58, flexDirection: "row", alignItems: "center", paddingVertical: Spacing.sm }, instructionBorder: { borderBottomWidth: 1, borderBottomColor: Colors.border }, instructionNumber: { width: 28, height: 28, alignItems: "center", justifyContent: "center", marginRight: Spacing.sm, borderRadius: Radius.round, backgroundColor: Colors.primaryLight }, instructionNumberText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" }, instructionText: { flex: 1, color: Colors.text, fontSize: Typography.small, lineHeight: 19 }, lastReceipt: { marginTop: Spacing.lg, color: Colors.subtitle, fontSize: Typography.small }, errorText: { marginTop: Spacing.xs, color: Colors.danger, fontSize: Typography.small, lineHeight: 18 }, primaryAction: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.xl, marginBottom: Spacing.xl, borderRadius: Radius.lg, backgroundColor: Colors.primary }, primaryText: { color: Colors.surface, fontSize: Typography.body, fontWeight: "900" }, disabled: { opacity: .65 }, secondaryAction: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.xl, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md }, secondaryText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" }, dangerAction: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.sm, borderRadius: Radius.md }, dangerText: { color: Colors.danger, fontSize: Typography.small, fontWeight: "900" },
+  choiceActions: { gap: Spacing.sm, marginTop: Spacing.sm, marginBottom: Spacing.lg },
+  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl * 3 }, state: { flex: 1, justifyContent: "center", padding: Spacing.lg }, heading: { flexDirection: "row", alignItems: "flex-start", marginBottom: Spacing.lg }, back: { width: 40, height: 40, alignItems: "center", justifyContent: "center", marginRight: Spacing.xs, borderRadius: Radius.round, backgroundColor: Colors.surface }, headingText: { flex: 1 }, eyebrow: { color: Colors.primary, fontSize: 10, fontWeight: "900", letterSpacing: 1.1 }, title: { marginTop: 4, color: Colors.text, fontSize: Typography.section, fontWeight: "900" }, subtitle: { marginTop: Spacing.xs, color: Colors.subtitle, fontSize: Typography.caption, lineHeight: 20 }, unitCard: { flexDirection: "row", alignItems: "center", marginBottom: Spacing.lg, padding: Spacing.md }, unitIcon: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primaryLight }, unitInfo: { marginLeft: Spacing.sm }, unitLabel: { color: Colors.subtitle, fontSize: 10, fontWeight: "800", letterSpacing: .7 }, unitNumber: { marginTop: 3, color: Colors.text, fontSize: Typography.body, fontWeight: "900" }, privacyCard: { flexDirection: "row", alignItems: "flex-start", padding: Spacing.md }, privacyIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primaryLight }, privacyCopy: { flex: 1, marginLeft: Spacing.sm }, privacyTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "900" }, privacyText: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 }, providerActions: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.sm, marginBottom: Spacing.xl }, providerButton: { flex: 1, minHeight: 50, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md, backgroundColor: Colors.surface }, providerButtonSelected: { backgroundColor: Colors.primaryLight, borderWidth: 2 }, providerButtonDisabled: { borderColor: Colors.border, backgroundColor: Colors.background }, providerButtonText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" }, providerButtonTextDisabled: { color: Colors.subtitle }, connectionsList: { gap: Spacing.sm, marginTop: Spacing.sm }, connectionCard: { flexDirection: "row", alignItems: "center", padding: Spacing.md }, connectionCardError: { borderWidth: 1, borderColor: "#FECACA" }, connectionIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primaryLight }, connectionIconError: { backgroundColor: "#FEE2E2" }, connectionCopy: { flex: 1, marginLeft: Spacing.sm }, connectionTitle: { color: Colors.text, fontSize: Typography.small, fontWeight: "900" }, connectionText: { marginTop: 2, color: Colors.subtitle, fontSize: 11, lineHeight: 16 }, connectionError: { marginTop: 3, color: Colors.danger, fontSize: 11, lineHeight: 16 }, disconnectButton: { width: 38, height: 38, alignItems: "center", justifyContent: "center", marginLeft: Spacing.xs }, connectionHint: { marginTop: Spacing.sm, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 }, pendingCard: { flexDirection: "row", alignItems: "flex-start", padding: Spacing.md }, pendingCopy: { flex: 1, marginLeft: Spacing.sm }, pendingTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "800" }, pendingText: { marginTop: 4, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 }, statusCard: { flexDirection: "row", alignItems: "center", padding: Spacing.md }, statusCardError: { borderWidth: 1, borderColor: "#FECACA" }, statusIcon: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: Colors.primaryLight }, statusIconError: { backgroundColor: "#FEE2E2" }, statusCopy: { flex: 1, marginLeft: Spacing.sm }, statusTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "900" }, statusText: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 }, sectionTitle: { marginTop: Spacing.xl, marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: 10, fontWeight: "900", letterSpacing: .9 }, inlineSectionTitle: { marginTop: Spacing.xl, marginBottom: Spacing.xs, color: Colors.subtitle, fontSize: 10, fontWeight: "900", letterSpacing: .9 }, addressCard: { minHeight: 68, flexDirection: "row", alignItems: "center", paddingHorizontal: Spacing.md, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.lg, backgroundColor: Colors.surface }, addressIcon: { marginRight: Spacing.sm }, address: { flex: 1, color: Colors.text, fontSize: Typography.small, fontWeight: "800" }, addressHint: { marginTop: Spacing.xs, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 }, instruction: { minHeight: 58, flexDirection: "row", alignItems: "center", paddingVertical: Spacing.sm }, instructionBorder: { borderBottomWidth: 1, borderBottomColor: Colors.border }, instructionNumber: { width: 28, height: 28, alignItems: "center", justifyContent: "center", marginRight: Spacing.sm, borderRadius: Radius.round, backgroundColor: Colors.primaryLight }, instructionNumberText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" }, instructionText: { flex: 1, color: Colors.text, fontSize: Typography.small, lineHeight: 19 }, lastReceipt: { marginTop: Spacing.lg, color: Colors.subtitle, fontSize: Typography.small }, errorText: { marginTop: Spacing.xs, color: Colors.danger, fontSize: Typography.small, lineHeight: 18 }, primaryAction: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.xl, marginBottom: Spacing.xl, borderRadius: Radius.lg, backgroundColor: Colors.primary }, primaryText: { color: Colors.surface, fontSize: Typography.body, fontWeight: "900" }, disabled: { opacity: .65 }, secondaryAction: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.xl, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md }, secondaryText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" }, dangerAction: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.sm, borderRadius: Radius.md }, dangerText: { color: Colors.danger, fontSize: Typography.small, fontWeight: "900" },
 });
 
 const guiaStyles = StyleSheet.create({
