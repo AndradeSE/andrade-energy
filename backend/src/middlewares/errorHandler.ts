@@ -7,11 +7,12 @@ export function errorHandler(
   next: NextFunction
 ) {
 
-  console.error(error);
+  // Não incluir payloads, URLs ou mensagens de provedores nos logs públicos.
+  console.error("Falha interna da API", { metodo: req.method, rota: req.path.split("/").filter(Boolean).slice(0, 2).join("/"), tipo: error?.name ?? "Error" });
 
   return res.status(500).json({
     sucesso: false,
-    erro: error.message
+    erro: "Não foi possível concluir a operação. Tente novamente ou contate o suporte."
   });
 
 }

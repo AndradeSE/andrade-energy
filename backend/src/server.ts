@@ -30,6 +30,7 @@ import empresasRoutes from "./modules/empresas/empresas.routes";
 import { mercadoPagoWebhookRouter } from "./modules/comercial/mercadoPagoWebhook.routes";
 import colaboradoresRoutes from "./modules/colaboradores/colaboradores.routes";
 import notificacoesRoutes from "./modules/notificacoes/notificacoes.routes";
+import privacidadeRoutes from "./modules/privacidade/privacidade.routes";
 import { auditar } from "./utils/audit";
 
 dotenv.config();
@@ -93,7 +94,10 @@ app.use(
 );
 
 app.use((req, _, next) => {
-  console.log(`${req.method} ${req.originalUrl}`);
+  // Nunca registrar query strings nem identificadores de rota: convites,
+  // recuperação de senha e OAuth podem conter credenciais nesses locais.
+  const namespace = req.path.split("/").filter(Boolean).slice(0, 2).join("/");
+  console.log(`${req.method} /${namespace}`);
   next();
 });
 
@@ -132,6 +136,7 @@ app.use("/api/convites", convitesRoutes);
 app.use("/api/usuarios", usuariosRoutes);
 app.use("/api/colaboradores", colaboradoresRoutes);
 app.use("/api/notificacoes", notificacoesRoutes);
+app.use("/api/privacidade", privacidadeRoutes);
 
 app.use("/api/dashboard", dashboardRoutes);
 

@@ -45,8 +45,8 @@ export async function enviarEmailTransacional(input: EmailTransacional) {
         }),
       });
       if (resposta.ok) return true;
-      falhas.push(`Resend: HTTP ${resposta.status} - ${(await resposta.text()).slice(0, 500)}`);
-    } catch (erro: any) { falhas.push(`Resend: ${erro?.message ?? "falha desconhecida"}`); }
+      falhas.push(`Resend: HTTP ${resposta.status}`);
+    } catch { falhas.push("Resend: falha de conexão"); }
   }
 
   if (await microsoftEmailConfigurado()) {
@@ -60,8 +60,8 @@ export async function enviarEmailTransacional(input: EmailTransacional) {
       });
       if (enviado) return true;
       falhas.push("Microsoft sem token válido");
-    } catch (erro: any) {
-      falhas.push(`Microsoft: ${erro?.message ?? "falha desconhecida"}`);
+    } catch {
+      falhas.push("Microsoft: falha de conexão");
     }
   }
 
@@ -88,10 +88,9 @@ export async function enviarEmailTransacional(input: EmailTransacional) {
         }),
       });
       if (resposta.ok) return true;
-      const detalhe = (await resposta.text()).slice(0, 500);
-      falhas.push(`Brevo: HTTP ${resposta.status}${detalhe ? ` - ${detalhe}` : ""}`);
-    } catch (erro: any) {
-      falhas.push(`Brevo: ${erro?.message ?? "falha desconhecida"}`);
+      falhas.push(`Brevo: HTTP ${resposta.status}`);
+    } catch {
+      falhas.push("Brevo: falha de conexão");
     }
   }
 

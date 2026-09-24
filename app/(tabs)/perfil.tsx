@@ -28,6 +28,8 @@ import {
   excluirMinhaConta,
   me,
   PerfilUsuario,
+  solicitarDireitoDePrivacidade,
+  listarPedidosDePrivacidade,
 } from "../../services/auth.service";
 import {
   ativarDigital,
@@ -80,10 +82,30 @@ export default function Perfil() {
   const [excluindo, setExcluindo] = useState(false);
   const [fotoPerfil, setFotoPerfil] = useState("");
   const [fotoAberta, setFotoAberta] = useState(false);
+  const [pedidosPrivacidade, setPedidosPrivacidade] = useState<Awaited<ReturnType<typeof listarPedidosDePrivacidade>>>([]);
+
+  function escolherPedidoDePrivacidade() {
+    const opcoes = [
+      { text: "Acessar meus dados", tipo: "ACESSO" as const },
+      { text: "Corrigir dados", tipo: "CORRECAO" as const },
+      { text: "Solicitar eliminação", tipo: "ELIMINACAO" as const },
+      { text: "Outros direitos", tipo: "INFORMACAO" as const },
+    ];
+    Alert.alert("Privacidade e seus dados", "Escolha o pedido. A solicitação ficará registrada com um protocolo; documentos e dados adicionais não são enviados por esta tela.", [
+      ...opcoes.map((opcao) => ({ text: opcao.text, onPress: () => void solicitarDireitoDePrivacidade(opcao.tipo)
+        .then(({ protocolo }) => Alert.alert("Pedido registrado", `Protocolo: ${protocolo}. A equipe responsável analisará sua solicitação.`))
+        .catch((erro) => Alert.alert("Não foi possível registrar", descricaoErro(erro, "Tente novamente."))) })),
+      { text: "Cancelar", style: "cancel" as const },
+    ]);
+  }
 
   const chaveFoto = `foto-perfil:${user?.id ?? "usuario"}`;
 
   useEffect(() => { void AsyncStorage.getItem(chaveFoto).then((valor) => setFotoPerfil(valor ?? "")); }, [chaveFoto]);
+  useEffect(() => {
+    if (!IS_GERADOR_APP || !["ADMIN", "GESTOR"].includes(String(user?.perfil ?? ""))) return;
+    void listarPedidosDePrivacidade().then(setPedidosPrivacidade).catch(() => undefined);
+  }, [user?.perfil]);
 
   async function alterarFoto() {
     const resultado = await DocumentPicker.getDocumentAsync({ type: "image/*", copyToCacheDirectory: true, multiple: false });
@@ -235,7 +257,7 @@ export default function Perfil() {
     }
     Alert.alert(
       "Excluir conta?",
-      "Você perderá o acesso ao aplicativo. Os dados de faturamento e contrato necessários continuarão armazenados pela Andrade Energy.",
+      "Seu acesso será encerrado e um pedido de análise de eliminação de dados será registrado. Documentos sujeitos a obrigações legais poderão ser mantidos pelo prazo aplicável.",
       [
         { text: "Cancelar", style: "cancel" },
         { text: "Excluir conta", style: "destructive", onPress: () => void excluirConta() },
@@ -383,6 +405,15 @@ export default function Perfil() {
 
         <Text style={styles.sectionTitle}>CONTA</Text>
         <View style={styles.cardGroup}>
+          <TouchableOpacity activeOpacity={0.82} onPress={escolherPedidoDePrivacidade} style={[styles.linkRow, styles.standaloneRow]}>
+            <View style={styles.preferenceIcon}><Ionicons color={Colors.primary} name="shield-checkmark-outline" size={22} /></View>
+            <View style={styles.preferenceCopy}><Text style={styles.preferenceTitle}>Privacidade e meus dados</Text><Text style={styles.preferenceDescription}>Solicite acesso, correção ou eliminação com protocolo.</Text></View>
+            <Ionicons color={Colors.subtitle} name="chevron-forward" size={21} />
+          </TouchableOpacity>
+          {pedidosPrivacidade.length > 0 ? <View style={[styles.panel, styles.standalonePanel]}>
+            <Text style={styles.preferenceTitle}>Pedidos de privacidade recebidos</Text>
+            {pedidosPrivacidade.map((pedido) => <Text key={pedido.id} style={styles.preferenceDescription}>{pedido.usuarios?.nome ?? "Titular"} · {pedido.detalhes?.tipo ?? "Pedido"} · {new Date(pedido.criado_em).toLocaleDateString("pt-BR")} · Protocolo {pedido.id}</Text>)}
+          </View> : null}
           <TouchableOpacity activeOpacity={0.82} onPress={sairDaConta} style={[styles.linkRow, styles.standaloneRow]}>
             <View style={[styles.preferenceIcon, styles.logoutIcon]}><Ionicons color={Colors.danger} name="log-out-outline" size={22} /></View>
             <View style={styles.preferenceCopy}><Text style={[styles.preferenceTitle, styles.dangerText]}>Sair da conta</Text><Text style={styles.preferenceDescription}>Encerra somente a sessão neste aparelho.</Text></View>
@@ -391,7 +422,7 @@ export default function Perfil() {
 
           <TouchableOpacity activeOpacity={0.82} onPress={() => setMostrarExclusao((aberto) => !aberto)} style={[styles.linkRow, styles.standaloneRow]}>
             <View style={[styles.preferenceIcon, styles.deleteIcon]}><Ionicons color={Colors.danger} name="trash-outline" size={22} /></View>
-            <View style={styles.preferenceCopy}><Text style={[styles.preferenceTitle, styles.dangerText]}>Excluir conta</Text><Text style={styles.preferenceDescription}>Remove seu acesso ao aplicativo de forma definitiva.</Text></View>
+            <View style={styles.preferenceCopy}><Text style={[styles.preferenceTitle, styles.dangerText]}>Encerrar conta</Text><Text style={styles.preferenceDescription}>Encerra o acesso e registra um pedido de análise dos seus dados.</Text></View>
             <Ionicons color={Colors.subtitle} name={mostrarExclusao ? "chevron-up" : "chevron-forward"} size={21} />
           </TouchableOpacity>
 

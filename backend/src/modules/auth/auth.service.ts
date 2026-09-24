@@ -314,12 +314,23 @@ export async function excluirMinhaConta(usuarioId: string, senhaAtual: unknown) 
   if (!String(senhaAtual ?? "")) throw new Error("Informe sua senha para excluir a conta.");
   if (!(await conferirSenha(String(senhaAtual), usuario.senha))) throw new Error("A senha informada está incorreta.");
 
+  // Encerrar o acesso não elimina documentos fiscais/contratuais. Registrar
+  // explicitamente a análise de eliminação antes de revogar a sessão.
+  const { error: pedidoError } = await supabase.from("auditoria_seguranca").insert({
+    empresa_id: usuario.empresa_id ?? EMPRESA_ANDRADE_ID,
+    usuario_id: usuarioId,
+    acao: "SOLICITACAO_PRIVACIDADE",
+    recurso: "privacidade",
+    detalhes: { tipo: "ELIMINACAO", status: "RECEBIDA", origem: "ENCERRAMENTO_CONTA" },
+  });
+  if (pedidoError) throw new Error("Não foi possível registrar o pedido de privacidade. Tente novamente.");
+
   // A conta deixa de poder entrar, mas os dados comerciais continuam íntegros
   // para não apagar clientes, unidades, faturas ou histórico da usina.
   await desativarUsuario(usuarioId);
   await invalidarSessoesUsuario(usuarioId);
 
-  return { message: "Conta desativada com sucesso." };
+  return { message: "Acesso encerrado. Seu pedido de análise de eliminação de dados foi registrado." };
 }
 
 type ArquivoDeCadastro = {

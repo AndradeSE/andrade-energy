@@ -48,6 +48,16 @@ export async function excluirMinhaConta(senhaAtual: string) {
   return data;
 }
 
+export async function solicitarDireitoDePrivacidade(tipo: "CONFIRMACAO" | "ACESSO" | "CORRECAO" | "PORTABILIDADE" | "ELIMINACAO" | "OPOSICAO" | "INFORMACAO") {
+  const { data } = await api.post("/privacidade/solicitacoes", { tipo });
+  return data as { protocolo: string; status: string };
+}
+
+export async function listarPedidosDePrivacidade() {
+  const { data } = await api.get("/privacidade/solicitacoes");
+  return data as Array<{ id: string; detalhes?: { tipo?: string; status?: string }; criado_em: string; usuarios?: { nome?: string; email?: string } | null }>;
+}
+
 export async function criarConta(payload: { nome: string; cpf: string; email: string; senha: string; tipo: "CONSUMIDOR" | "GERADOR"; convite?: string }) {
   const { data } = await api.post("/auth/cadastro", payload);
   return data;

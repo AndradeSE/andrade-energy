@@ -32,7 +32,7 @@ export async function loginController(
 
   } catch (err: any) {
 
-    console.error("ERRO LOGIN:", err);
+    console.error("Falha no login", { tipo: err?.name ?? "Error" });
 
     return res.status(401).json({
       message: err.message,
