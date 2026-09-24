@@ -119,35 +119,41 @@ export async function listarUsinasService(empresaId?: string) {
   const usinas = await listarUsinas(empresaId);
   return Promise.all(usinas.map(async (usina: any) => {
     try {
-      const [dashboard, producaoMedia12Meses, unidades, tarifasGd2] = await Promise.all([
+      const [dashboard, producaoMedia12Meses, unidades] = await Promise.all([
         buscarDashboardUsina(usina.id, empresaId),
         calcularProducaoMedia12Meses(usina.id),
         supabase.from("unidades_consumidoras").select("id,numero,cliente_id,percentual_rateio,modalidade_faturamento,consumo_medio_kwh", { count: "exact" }).eq("usina_id", usina.id).eq("status", "ATIVA").neq("tipo", "GERADORA"),
-        supabase.from("faturas")
-          .select("*")
-          .eq("usina_id", usina.id)
-          .gt("tarifa_cheia", 0)
-          .gt("tarifa_gd", 0)
-          .order("referencia", { ascending: false })
-          .limit(24),
       ]);
       if (unidades.error) throw unidades.error;
-      if (tarifasGd2.error) throw tarifasGd2.error;
-      const clientesIds = [...new Set((unidades.data ?? []).map((item: any) => item.cliente_id).filter(Boolean))];
-      const anexos = clientesIds.length
-        ? await supabase.from("faturas_anexadas_clientes").select("dados_fatura").in("cliente_id", clientesIds).eq("empresa_id", usina.empresa_id)
-        : { data: [], error: null };
-      if (anexos.error) throw anexos.error;
-      const numeros = new Set((unidades.data ?? []).map((item: any) => String(item.numero ?? "").replace(/\D/g, "")));
-      const originais = (anexos.data ?? []).map((item: any) => item.dados_fatura)
-        .filter((item: any) => item && numeros.has(String(item.uc ?? item.numero_instalacao ?? "").replace(/\D/g, "")));
-      const historicoTarifasGd2 = montarHistoricoTarifasGd2([...originais, ...(tarifasGd2.data ?? [])]);
-      const tarifaGd2Recente = historicoTarifasGd2[0];
       const energiaDaCompetencia = Number(dashboard.ultimo?.energia_gerada ?? 0);
       const energiaProjetada = energiaDaCompetencia > 0
         ? energiaDaCompetencia
         : Math.max(0, Number(producaoMedia12Meses || usina.geracao_media || 0));
       const alocacaoProjetada = calcularAlocacaoProjetada(unidades.data ?? [], energiaProjetada);
+      // Tarifas enriquecem o card, mas não podem impedir a autonomia de ser exibida.
+      let historicoTarifasGd2: ReturnType<typeof montarHistoricoTarifasGd2> = [];
+      try {
+        const tarifasGd2 = await supabase.from("faturas")
+          .select("*")
+          .eq("usina_id", usina.id)
+          .gt("tarifa_cheia", 0)
+          .gt("tarifa_gd", 0)
+          .order("referencia", { ascending: false })
+          .limit(24);
+        if (tarifasGd2.error) throw tarifasGd2.error;
+        const clientesIds = [...new Set((unidades.data ?? []).map((item: any) => item.cliente_id).filter(Boolean))];
+        const anexos = clientesIds.length
+          ? await supabase.from("faturas_anexadas_clientes").select("dados_fatura").in("cliente_id", clientesIds).eq("empresa_id", usina.empresa_id)
+          : { data: [], error: null };
+        if (anexos.error) throw anexos.error;
+        const numeros = new Set((unidades.data ?? []).map((item: any) => String(item.numero ?? "").replace(/\D/g, "")));
+        const originais = (anexos.data ?? []).map((item: any) => item.dados_fatura)
+          .filter((item: any) => item && numeros.has(String(item.uc ?? item.numero_instalacao ?? "").replace(/\D/g, "")));
+        historicoTarifasGd2 = montarHistoricoTarifasGd2([...originais, ...(tarifasGd2.data ?? [])]);
+      } catch (tarifaError: any) {
+        console.warn(`[usinas] Tarifas indisponíveis para ${usina.id}:`, tarifaError?.message ?? tarifaError);
+      }
+      const tarifaGd2Recente = historicoTarifasGd2[0];
       return {
         ...usina,
         fechamento_atual: {
@@ -442,9 +448,11 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
     : 0;
   let producaoMedia = 0;
   if (modalidade === "INJECAO") {
-    // Na injeção a usina é enviada integralmente. Não aplique o rateio
-    // automático baseado no consumo da UC, reservado à compensação.
-    percentual = 100;
+    // A parcela injetada é definida pelo gerador, nunca deduzida do consumo.
+    if (!Number.isFinite(percentualInformado) || percentualInformado <= 0 || percentualInformado > 100) {
+      throw new Error("Informe o percentual de injeção entre 0,01% e 100%.");
+    }
+    percentual = percentualInformado;
   } else if (calcularAutomaticamente) {
     producaoMedia = await calcularProducaoMedia12Meses(usinaId);
     percentual = producaoMedia > 0 && consumoMedio > 0

@@ -35,6 +35,7 @@ function producaoParaAlocacao(usina: any) {
 }
 
 function percentualPelaMedia(usina: any, consumo: unknown, modalidade: Modalidade) {
+  if (modalidade === "INJECAO") return "";
   const producao = producaoParaAlocacao(usina);
   const media = numeroSeguro(consumo);
   return producao > 0 && media > 0
@@ -126,6 +127,7 @@ export default function NovaUnidade() {
   }, [clienteId, clientes, consumoMedio, cpfTitular, origem, usinaId]);
 
   useEffect(() => {
+    if (modalidade === "INJECAO") return;
     const usinaSelecionada = usinas.find((item) => item.id === usinaId);
     const sugestao = percentualPelaMedia(usinaSelecionada, consumoMedio, modalidade);
     setPercentualAlocado(sugestao);
@@ -194,7 +196,10 @@ export default function NovaUnidade() {
       return avisar("CPF obrigatório", "Informe o CPF do titular da conta de luz antes de salvar a unidade.");
     }
     if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return avisar("Desconto inválido", "Informe um percentual entre 0 e 100.");
-    if (tipo === "BENEFICIARIA" && percentualAlocado && (!Number.isFinite(percentualRateio) || percentualRateio <= 0 || percentualRateio > 100)) {
+    if (tipo === "BENEFICIARIA" && modalidadeFinal === "INJECAO" && (!percentualAlocado.trim() || percentualRateio <= 0 || percentualRateio > 100)) {
+      return avisar("Injeção inválida", "O gerador deve informar o percentual de injeção entre 0,01% e 100%.");
+    }
+    if (tipo === "BENEFICIARIA" && modalidadeFinal !== "INJECAO" && percentualAlocado && (percentualRateio <= 0 || percentualRateio > 100)) {
       return avisar("Alocação inválida", "Informe um percentual entre 0,01% e 100% para esta UC.");
     }
     setSalvando(true);
@@ -205,7 +210,7 @@ export default function NovaUnidade() {
           clienteId,
           numero,
           modalidade: modalidadeFinal,
-          percentual: modalidadeFinal === "INJECAO" ? 100 : (percentualRateio || undefined),
+          percentual: modalidadeFinal === "INJECAO" ? percentualRateio : (percentualRateio || undefined),
           desconto: descontoFinal,
           consumoMedio: consumoMedioFinal,
           endereco: endereco.trim() || clienteSelecionado?.endereco || null,
@@ -218,7 +223,7 @@ export default function NovaUnidade() {
           repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR",
           tipoGd: tipoGdEfetivo,
           faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE",
-          calcularAutomaticamente: true,
+          calcularAutomaticamente: modalidadeFinal === "COMPENSACAO",
         });
       } else {
         const { error } = await supabase.from("unidades_consumidoras").upsert({
@@ -261,11 +266,11 @@ export default function NovaUnidade() {
       {tipo !== "GERADORA" ? <>
         <Text style={styles.configurationTitle}>CONFIGURAÇÃO DA UC</Text>
         <Text style={styles.beneficiariaHint}>Defina as condições desta unidade antes de salvar. Elas não são copiadas do cadastro do cliente.</Text>
-        <ChoiceField label="Faturamento" value={modalidade} onChange={(valor) => setModalidade(valor as Modalidade)} options={[{ label: "Injeção", value: "INJECAO" }, { label: "Compensação", value: "COMPENSACAO" }]} />
-        <UsinaSelector usinas={usinas} value={usinaId} onChange={(valor) => { setUsinaId(valor); const selecionada = usinas.find((item) => item.id === valor); setPercentualAlocado(percentualPelaMedia(selecionada, consumoMedio, modalidade)); }} label="Usina geradora" />
-        <FormField label="Consumo médio mensal (kWh)" value={consumoMedio} onChangeText={(valor) => { const limpo = valor.replace(/[^\d,.]/g, ""); setConsumoMedio(limpo); setPercentualAlocado(percentualPelaMedia(usinas.find((item) => item.id === usinaId), limpo, modalidade)); }} keyboardType="decimal-pad" />
-        <FormField label="Percentual alocado (%)" value={percentualAlocado} onChangeText={(valor) => setPercentualAlocado(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" />
-        <Text style={styles.beneficiariaHint}>{modalidade === "INJECAO" ? "Para injeção, a alocação inicial é 100%. Você pode editar antes de salvar." : "A sugestão considera 115% do consumo médio sobre a produção média disponível da usina. Você pode editar."}</Text>
+        <ChoiceField label="Faturamento" value={modalidade} onChange={(valor) => { const nova = valor as Modalidade; setModalidade(nova); setPercentualAlocado(nova === "INJECAO" ? "" : percentualPelaMedia(usinaSelecionada, consumoMedio, nova)); }} options={[{ label: "Injeção", value: "INJECAO" }, { label: "Compensação", value: "COMPENSACAO" }]} />
+        <UsinaSelector usinas={usinas} value={usinaId} onChange={(valor) => { setUsinaId(valor); if (modalidade === "COMPENSACAO") setPercentualAlocado(percentualPelaMedia(usinas.find((item) => item.id === valor), consumoMedio, modalidade)); }} label="Usina geradora" />
+        <FormField label="Consumo médio mensal (kWh)" value={consumoMedio} onChangeText={(valor) => { const limpo = valor.replace(/[^\d,.]/g, ""); setConsumoMedio(limpo); if (modalidade === "COMPENSACAO") setPercentualAlocado(percentualPelaMedia(usinaSelecionada, limpo, modalidade)); }} keyboardType="decimal-pad" />
+        <FormField label={modalidade === "INJECAO" ? "Percentual de injeção (%) *" : "Percentual alocado (%)"} value={percentualAlocado} onChangeText={(valor) => setPercentualAlocado(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" />
+        <Text style={styles.beneficiariaHint}>{modalidade === "INJECAO" ? "Informe manualmente a parcela da produção da usina destinada a esta UC. Este valor é definido pelo gerador." : "A sugestão considera 115% do consumo médio sobre a produção média disponível da usina. Você pode editar."}</Text>
         <FormField label="Desconto contratado (%)" value={desconto} onChangeText={(valor) => setDesconto(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" />
       </> : <UsinaSelector usinas={usinas} value={usinaId} onChange={setUsinaId} label="Usina geradora" />}
       {!clienteIdVinculado ? <><Text style={styles.label}>Vincular ao cliente *</Text>{clientes.length ? <View style={styles.options}>{clientes.map((c) => <Pressable key={c.id} onPress={() => setClienteId(clienteId === c.id ? "" : c.id)} style={[styles.link, clienteId === c.id && styles.linkSelected]}><Text>{c.nome}</Text></Pressable>)}</View> : <Text style={styles.clientRequired}>Cadastre um cliente antes de adicionar uma unidade consumidora.</Text>}</> : null}

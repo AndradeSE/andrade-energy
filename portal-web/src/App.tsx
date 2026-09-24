@@ -1657,6 +1657,10 @@ function UnitTools({
   }
   async function saveAllocation(event: FormEvent) {
     event.preventDefault();
+    if (allocation.modalidade === "INJECAO" && (!allocation.percentual.trim() || !Number.isFinite(Number(allocation.percentual)) || Number(allocation.percentual) <= 0 || Number(allocation.percentual) > 100)) {
+      setMessage("Informe o percentual de injeção entre 0,01% e 100%. Esse valor é definido pelo gerador.");
+      return;
+    }
     if (!allocation.usinaId || !unit.cliente_id) {
       setMessage(
         "Selecione a usina e confirme se a UC está vinculada a um cliente.",
@@ -1686,10 +1690,9 @@ function UnitTools({
           repassarDiferencaFioBGD2: allocation.fioB === "REPASSAR",
           tipoGd: allocation.tipoGd || undefined,
           faturaSomenteAndrade: allocation.formatoFatura === "SOMENTE_ANDRADE",
-          // A alocação oficial é consumo médio + 15% dividido pela geração
-          // média da usina em ambas as modalidades. Assim, 100% do consumo
-          // não é confundido com 100% da produção total da usina.
-          calcularAutomaticamente: true,
+          // Só a compensação usa sugestão pelo consumo médio. Na injeção,
+          // o percentual é definido manualmente pelo gerador.
+          calcularAutomaticamente: allocation.modalidade === "COMPENSACAO",
           revisaoContrato: true,
         }),
       },
@@ -1847,6 +1850,7 @@ function UnitTools({
                       setAllocation({
                         ...allocation,
                         modalidade: event.target.value,
+                        percentual: event.target.value === "INJECAO" ? "" : allocation.percentual,
                       })
                     }
                   >
@@ -1855,7 +1859,7 @@ function UnitTools({
                   </select>
                 </label>
                 <label>
-                  Rateio (%)
+                  {allocation.modalidade === "INJECAO" ? "Percentual de injeção (%)" : "Rateio (%)"}
                   <input
                     required
                     type="number"

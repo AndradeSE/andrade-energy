@@ -89,7 +89,8 @@ export default function Usinas() {
         const ativa = usinaSelecionada?.id === item.id;
         const quantidadeUcs = Number(item.unidades_alocadas ?? 0);
         const energiaAlocada = Math.max(0, Number(item.fechamento_atual?.energia_alocada ?? 0));
-        const energiaDisponivel = Math.max(0, Number(item.fechamento_atual?.energia_disponivel ?? 0));
+        const geracaoEstimada = Math.max(0, Number(item.fechamento_atual?.energia_gerada ?? item.producao_media_12_meses ?? item.geracao_media ?? 0));
+        const energiaDisponivel = Math.max(0, Number(item.fechamento_atual?.energia_disponivel ?? geracaoEstimada));
         const energiaTotal = energiaAlocada + energiaDisponivel;
         const autonomia = energiaTotal > 0 ? Math.max(0, Math.min(100, energiaDisponivel / energiaTotal * 100)) : 0;
         const producaoMedia = Math.max(0, Number(item.producao_media_12_meses ?? 0));
