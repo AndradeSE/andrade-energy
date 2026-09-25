@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { router, usePathname } from "expo-router";
 import { useAuth } from "../../contexts/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
 import api from "../../config/api";
 import Loading from "../ui/Loading";
 
 /** Consulta o servidor em cada navegação; não usa o cache local como autorização. */
 export default function ContractAccessGate() {
+  const queryClient = useQueryClient();
   const { usuario, unidadeSelecionada, selecionarUnidade, signOut } = useAuth();
   const path = usePathname();
   const [bloqueado, setBloqueado] = useState(false);
@@ -21,9 +23,13 @@ export default function ContractAccessGate() {
     }
     const escopoAtual = `${usuario.id}:${unidadeSelecionada?.id ?? "sem-unidade"}`;
     const primeiraVerificacao = escopoVerificado.current !== escopoAtual;
+    const acessoInicial = queryClient.getQueryData<any[]>(["initial-contract-access", String(usuario.id)]);
+    const acessoPrevalidado = acessoInicial?.some((uc: any) =>
+      uc.id === unidadeSelecionada?.id && uc.liberado,
+    ) ?? false;
     // A consulta continua em toda navegação, mas uma UC já verificada não
     // precisa esconder a aba inteira enquanto a validação ocorre ao fundo.
-    setBloqueado(primeiraVerificacao);
+    setBloqueado(primeiraVerificacao && !acessoPrevalidado);
     if (primeiraVerificacao) setErro(false);
     api.get("/contratos/acesso/minhas-unidades").then(async ({ data }) => {
       if (!ativo) return;
@@ -46,7 +52,7 @@ export default function ContractAccessGate() {
       }
     }).catch(() => { if (ativo && primeiraVerificacao) setErro(true); });
     return () => { ativo = false; };
-  }, [usuario?.id, usuario?.perfil, unidadeSelecionada?.id, path, tentativa]);
+  }, [usuario?.id, usuario?.perfil, unidadeSelecionada?.id, path, tentativa, queryClient]);
   if (!bloqueado) return null;
   return <View style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0, zIndex: 10000, backgroundColor: "#EFF6F2", justifyContent: "center", alignItems: "center", padding: 28 }}>
     {erro ? <><Text>Não foi possível verificar seus contratos.</Text><Pressable onPress={() => setTentativa(v => v + 1)}><Text style={{ padding: 20 }}>Tentar novamente</Text></Pressable><Pressable onPress={() => void signOut()}><Text>Sair da conta</Text></Pressable></> : <Loading />}

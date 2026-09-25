@@ -606,6 +606,26 @@ export async function registrarAceiteEletronicoService(contratoId: string, usuar
     .eq("empresa_id", contrato.empresa_id);
   if (erroAtivacao) throw erroAtivacao;
   await supabase.from("contratos_codigos_assinatura").delete().eq("contrato_id", contratoId).eq("codigo_hash", confirmacao.codigo_hash);
+  // O aceite libera a UC imediatamente; avise quem administra o contrato sem
+  // deixar uma falha de push reverter a assinatura já confirmada.
+  void (async () => {
+    const { data: vinculos, error: erroVinculos } = await supabase.from("empresa_usuarios")
+      .select("usuario_id,papel,permissoes")
+      .eq("empresa_id", contrato.empresa_id).eq("ativo", true)
+      .in("papel", ["SUPERADMIN", "ADMIN_EMPRESA", "GESTOR", "COLABORADOR_GERADOR"]);
+    if (erroVinculos) throw erroVinculos;
+    await Promise.all((vinculos ?? []).filter((vinculo: any) =>
+      vinculo.papel !== "COLABORADOR_GERADOR" || vinculo.permissoes?.contratos !== false,
+    ).map((vinculo: any) => criarNotificacaoApp({
+      usuario_id: vinculo.usuario_id,
+      empresa_id: contrato.empresa_id,
+      tipo: aceiteRevisao ? "REVISAO_CONTRATUAL_ACEITA" : "CONTRATO_ASSINADO_PELO_CLIENTE",
+      titulo: aceiteRevisao ? "Revisão contratual aceita" : "Contrato assinado pelo cliente",
+      detalhe: "O cliente concluiu a confirmação no aplicativo. Abra o contrato para conferir o status atualizado.",
+      rota: `/unidades/contrato?id=${contrato.unidade_consumidora_id}`,
+      chave_dedupe: `contrato-aceito:${contratoId}:${vinculo.usuario_id}`,
+    })));
+  })().catch((erroNotificacao) => console.error("Falha ao notificar assinatura do contrato", erroNotificacao));
   return anexarLinksDoContrato(data);
 }
 

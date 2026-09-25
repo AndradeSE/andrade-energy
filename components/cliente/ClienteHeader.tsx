@@ -13,6 +13,7 @@ import {
   StyleSheet,
   Text,
   Image,
+  ScrollView,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -39,6 +40,7 @@ import MenuItem from "./MenuItem";
 import { notificarAvisosNoAndroid } from "../../services/carteira-notificacoes.service";
 import { useHeaderDetailsVisibility } from "../../hooks/useHeaderDetailsVisibility";
 import { useProfilePhoto } from "../../hooks/useProfilePhoto";
+import NotificationSideSheet from "../ui/NotificationSideSheet";
 
 type Props = {
   cliente: string;
@@ -336,9 +338,9 @@ export default function ClienteHeader({
             </View>
           </TouchableOpacity>
 
-          {onSearch ? <TouchableOpacity accessibilityLabel="Pesquisar" hitSlop={{ top: 10, bottom: 10, left: 8, right: 4 }} activeOpacity={0.8} onPress={onSearch} style={[styles.iconButton, styles.searchButton]}>
+          <TouchableOpacity accessibilityLabel="Pesquisar" hitSlop={{ top: 10, bottom: 10, left: 8, right: 4 }} activeOpacity={0.8} onPress={onSearch ?? (() => router.push({ pathname: "/pesquisa", params: { perfil: "consumidor" } } as any))} style={[styles.iconButton, styles.searchButton]}>
             <Ionicons name="search-outline" size={24} color={Colors.surface} />
-          </TouchableOpacity> : null}
+          </TouchableOpacity>
 
           <TouchableOpacity
             accessibilityLabel="Notificações"
@@ -389,14 +391,14 @@ export default function ClienteHeader({
         </TouchableOpacity>}
       </LinearGradient>
 
-      <Modal animationType="fade" transparent visible={notificacoesAbertas} onRequestClose={() => setNotificacoesAbertas(false)}>
-        <Pressable style={styles.notificationBackdrop} onPress={() => setNotificacoesAbertas(false)}>
-          <Pressable style={styles.notificationPanel} onPress={(evento) => evento.stopPropagation()}>
+      <NotificationSideSheet visible={notificacoesAbertas} onClose={() => setNotificacoesAbertas(false)}>
+          <View style={styles.notificationPanel}>
             <View style={styles.notificationHeader}><Text style={styles.notificationTitle}>Notificações</Text><TouchableOpacity onPress={() => setNotificacoesAbertas(false)}><Ionicons name="close" size={25} color={Colors.text} /></TouchableOpacity></View>
+            <ScrollView showsVerticalScrollIndicator={false}>
             {notificacoes.length ? notificacoes.map((aviso) => <TouchableOpacity key={aviso.id} style={styles.notificationItem} onPress={async () => { await marcarComoLida(String(aviso.id)); setNotificacoesAbertas(false); if (aviso.rota) router.push(aviso.rota as any); }}><View style={[styles.notificationDot, aviso.severidade === "alta" && styles.notificationDotHigh, leituras.ids.includes(String(aviso.id)) && { opacity: 0.25 }]} /><View style={styles.notificationCopy}><Text style={styles.notificationItemTitle}>{aviso.titulo}</Text><Text style={styles.notificationDetail}>{aviso.detalhe}</Text></View><Ionicons name="chevron-forward" size={18} color={Colors.subtitle} /></TouchableOpacity>) : <View style={styles.emptyNotifications}><Ionicons name="checkmark-circle-outline" size={34} color={Colors.primary} /><Text style={styles.notificationItemTitle}>Tudo em dia</Text></View>}
-          </Pressable>
-        </Pressable>
-      </Modal>
+            </ScrollView>
+          </View>
+      </NotificationSideSheet>
 
       <Modal animationType="fade" transparent visible={fotoAberta && Boolean(fotoPerfil)} onRequestClose={() => setFotoAberta(false)}>
         <Pressable accessibilityLabel="Fechar foto ampliada" onPress={() => setFotoAberta(false)} style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.lg, backgroundColor: "rgba(3,15,12,0.92)" }}>
@@ -567,7 +569,7 @@ const styles =
     notificationBadge: { position: "absolute", top: -2, right: -2, minWidth: 17, height: 17, alignItems: "center", justifyContent: "center", paddingHorizontal: 3, borderRadius: Radius.round, backgroundColor: "#DC2626" },
     notificationBadgeText: { color: Colors.surface, fontSize: 10, fontWeight: "800" },
     notificationBackdrop: { flex: 1, alignItems: "center", backgroundColor: "rgba(15, 23, 42, 0.45)" },
-    notificationPanel: { width: "88%", marginTop: 90, padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: Colors.surface },
+    notificationPanel: { flex: 1, width: "100%", paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, backgroundColor: Colors.surface },
     notificationHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.sm },
     notificationTitle: { color: Colors.text, fontSize: Typography.title, fontWeight: "800" },
     notificationItem: { minHeight: 62, flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: Colors.border },

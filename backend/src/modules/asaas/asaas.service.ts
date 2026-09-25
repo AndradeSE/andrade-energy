@@ -5,6 +5,7 @@ import { asaasRequest } from "./asaas.client";
 import { regenerarDocumentosGeradosDaFatura } from "../faturas/documentosFatura.service";
 import { buscarCarteiraDaFatura, chavePixDaCarteira } from "../carteira/carteira.service";
 import { exigirContratoAssinadoDaUc } from "../contratos/contratoUc.service";
+import { criarNotificacaoApp } from "../notificacoes/push.service";
 
 function digits(value: unknown) { return String(value ?? "").replace(/\D/g, ""); }
 function hojeNoBrasil() {
@@ -280,7 +281,29 @@ export async function processarWebhookAsaas(body: any, token?: string) {
       if (pago) await transferirAutomaticamenteAssinatura(body.payment);
     } else {
       const {data:c}=await supabase.from("asaas_cobrancas").update({status:body.payment.status,valor_liquido:body.payment.netValue??body.payment.value??null,atualizado_em:new Date().toISOString()}).eq("asaas_payment_id",body.payment.id).select().maybeSingle();
-      if(c&&["PAYMENT_RECEIVED","PAYMENT_CONFIRMED"].includes(body.event)){ await supabase.from("faturas").update({status:"PAGO"}).eq("id",c.fatura_id); await transferirSaldo(c); }
+      if(c&&["PAYMENT_RECEIVED","PAYMENT_CONFIRMED"].includes(body.event)){
+        await supabase.from("faturas").update({status:"PAGO"}).eq("id",c.fatura_id);
+        await transferirSaldo(c);
+        void (async () => {
+          const { data: fatura, error: erroFatura } = await supabase.from("faturas").select("cliente_id,empresa_id").eq("id", c.fatura_id).maybeSingle();
+          if (erroFatura || !fatura) throw erroFatura ?? new Error("Fatura não encontrada");
+          const { data: acessos, error: erroAcessos } = await supabase.from("empresa_usuarios")
+            .select("usuario_id,papel,cliente_id,permissoes").eq("empresa_id", fatura.empresa_id).eq("ativo", true)
+            .in("papel", ["LEITURA", "SUPERADMIN", "ADMIN_EMPRESA", "GESTOR", "COLABORADOR_GERADOR"]);
+          if (erroAcessos) throw erroAcessos;
+          await Promise.all((acessos ?? []).filter((acesso: any) =>
+            acesso.papel === "LEITURA" ? acesso.cliente_id === fatura.cliente_id : acesso.papel !== "COLABORADOR_GERADOR" || acesso.permissoes?.faturas !== false,
+          ).map((acesso: any) => criarNotificacaoApp({
+            usuario_id: acesso.usuario_id,
+            empresa_id: fatura.empresa_id,
+            tipo: "FATURA_PAGA",
+            titulo: "Pagamento confirmado",
+            detalhe: "Uma fatura foi paga. Consulte os detalhes no aplicativo.",
+            rota: `/faturas/${c.fatura_id}`,
+            chave_dedupe: `fatura-paga:${c.fatura_id}:${acesso.usuario_id}`,
+          })));
+        })().catch((erroNotificacao) => console.error("Falha ao notificar pagamento", erroNotificacao));
+      }
     }
   }
   if(body.transfer?.id) {

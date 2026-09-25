@@ -28,7 +28,9 @@ export async function enviarPushDaNotificacao(notificacao: NovaNotificacaoApp & 
   const mensagens = tokens.map((to) => ({
     to,
     title: notificacao.titulo,
-    body: notificacao.detalhe || notificacao.titulo,
+    // A tela bloqueada pode mostrar o push para terceiros. Os detalhes
+    // pessoais ficam apenas na caixa de notificações após autenticação.
+    body: "Abra o aplicativo para ver os detalhes.",
     sound: "default",
     channelId: "avisos-importantes",
     priority: "high",

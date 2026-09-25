@@ -64,6 +64,23 @@ export async function enviarContratoEConvite(unidadeId: string, gestor: any, for
     dados_documento: { ...d, envio_documento_hash: documentoHash, envio_solicitado_em: new Date().toISOString(), envio_email_concluido: Boolean(resultado.emailEnviado) },
   }).eq("id", contrato.id).eq("contrato_gerado_url", contrato.contrato_gerado_url);
   if (erroAuditoria) throw erroAuditoria;
+  if (resultado.contaExistente && resultado.emailEnviado) {
+    void (async () => {
+      const { data: acessos, error: erroAcessos } = await supabase.from("empresa_usuarios")
+        .select("usuario_id").eq("empresa_id", empresaId).eq("cliente_id", unidade.cliente_id)
+        .eq("papel", "LEITURA").eq("ativo", true);
+      if (erroAcessos) throw erroAcessos;
+      await Promise.all((acessos ?? []).map((acesso: any) => criarNotificacaoApp({
+        usuario_id: acesso.usuario_id,
+        empresa_id: empresaId,
+        tipo: revisaoContratual ? "REVISAO_CONTRATUAL_DISPONIVEL" : "CONTRATO_DISPONIVEL",
+        titulo: revisaoContratual ? "Revisão contratual disponível" : "Contrato disponível",
+        detalhe: revisaoContratual ? "Leia as alterações e confirme seu aceite no aplicativo." : "Leia o contrato disponível no aplicativo.",
+        rota: "/contrato",
+        chave_dedupe: `contrato-enviado:${contrato.id}:${acesso.usuario_id}`,
+      })));
+    })().catch((erroNotificacao) => console.error("Falha ao notificar envio do contrato", erroNotificacao));
+  }
   return { ...resultado, contratoId: contrato.id };
 }
 

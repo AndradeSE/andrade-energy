@@ -1,10 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { AppHeader, Badge, Button, Card, ElasticFlatList as FlatList, EmptyState, Loading, Metric, Screen, Section } from "../../components/ui";
 import { listarFechamentos, obterResumoOperacao } from "../../services/fechamentos.service";
+import { useAuth } from "../../contexts/AuthContext";
+import { initialTabKey } from "../../services/navigation-preload.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const energia = (valor: unknown) => `${Number(valor ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kWh`;
@@ -16,10 +19,13 @@ const competenciaNome = (valor: string) => {
 };
 
 export default function Operacao() {
-  const [resumo, setResumo] = useState<any>();
-  const [lista, setLista] = useState<any[]>([]);
-  const [competencia, setCompetencia] = useState<string>();
-  const [loading, setLoading] = useState(true);
+  const { user, usinaSelecionada } = useAuth();
+  const queryClient = useQueryClient();
+  const inicial = queryClient.getQueryData<[any, any[]]>(initialTabKey(String(user?.id ?? ""), usinaSelecionada?.id ?? user?.usina_id, "operacao"));
+  const [resumo, setResumo] = useState<any>(inicial?.[0]);
+  const [lista, setLista] = useState<any[]>(() => (inicial?.[1] ?? []).filter((item: any) => String(item.competencia ?? "").slice(0, 7) === inicial?.[0]?.competencia));
+  const [competencia, setCompetencia] = useState<string>(inicial?.[0]?.competencia);
+  const [loading, setLoading] = useState(!inicial);
   const [atualizando, setAtualizando] = useState(false);
 
   const carregar = useCallback(async (alvo?: string) => {

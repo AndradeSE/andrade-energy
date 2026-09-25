@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
   Modal,
@@ -31,6 +32,7 @@ import {
 } from "../../services/comercial.service";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 import { avisosPassoAPassoAtivos, definirAvisosPassoAPasso } from "../../services/preferencias.service";
+import { initialTabKey } from "../../services/navigation-preload.service";
 
 const moeda = (value: unknown) =>
   Number(value ?? 0).toLocaleString("pt-BR", {
@@ -39,8 +41,10 @@ const moeda = (value: unknown) =>
   });
 export default function HomeComercial() {
   const { usuario, logout } = useAuth();
-  const [data, setData] = useState<PainelComercial | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const inicial = queryClient.getQueryData<PainelComercial>(initialTabKey(String(usuario?.id ?? ""), undefined, "comercial"));
+  const [data, setData] = useState<PainelComercial | null>(inicial ?? null);
+  const [loading, setLoading] = useState(!inicial);
   const [menuAberto, setMenuAberto] = useState(false);
   const [avisosPassoAPasso, setAvisosPassoAPasso] = useState(true);
   useEffect(() => { void avisosPassoAPassoAtivos().then(setAvisosPassoAPasso); }, []);

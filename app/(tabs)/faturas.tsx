@@ -8,8 +8,11 @@ import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, BackHandler, Linking, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { AppHeader, ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../../components/ui";
+import ClienteHeader from "../../components/cliente/ClienteHeader";
 import { IS_GERADOR_APP } from "../../config/appVariant";
+import { useAuth } from "../../contexts/AuthContext";
 import { useFaturas } from "../../hooks/useFaturas";
+import { FaturaAnexadaCliente, listarFaturasAnexadasCliente } from "../../services/clientes.service";
 import { excluirFatura, formatarCompetenciaBrasileira, formatarDataBrasileira, obterRelatorioCalculoFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
@@ -23,6 +26,7 @@ const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { s
 
 export default function Faturas() {
   const proprietario = IS_GERADOR_APP;
+  const { user, unidadeSelecionada } = useAuth();
   const { origem } = useLocalSearchParams<{ origem?: string }>();
   useFocusEffect(useCallback(() => {
     if (origem !== "faturamento") return undefined;
@@ -34,10 +38,44 @@ export default function Faturas() {
   }, [origem]));
   const { data, isLoading, error, refetch } = useFaturas();
   const [filtro, setFiltro] = useState<Filtro>("todas");
+  const [categoria, setCategoria] = useState<"andrade" | "cemig">("andrade");
+  const [anexadas, setAnexadas] = useState<FaturaAnexadaCliente[]>([]);
   const [baixando, setBaixando] = useState<string>();
   const [excluindo, setExcluindo] = useState<string>();
   const [atualizando, setAtualizando] = useState(false);
   const faturas = useMemo(() => data ?? [], [data]);
+
+  useFocusEffect(useCallback(() => {
+    if (proprietario || !user?.cliente_id) return;
+    let ativo = true;
+    listarFaturasAnexadasCliente(String(user.cliente_id))
+      .then((itens) => { if (ativo) setAnexadas(itens); })
+      .catch(() => { if (ativo) setAnexadas([]); });
+    return () => { ativo = false; };
+  }, [proprietario, user?.cliente_id]));
+
+  const faturasCemig = useMemo(() => {
+    const urls = new Set<string>();
+    const itens = [
+      ...faturas.filter((item: any) => item.pdf_cemig_url).map((item: any) => ({
+        id: `fatura-${item.id}`,
+        url: String(item.pdf_cemig_url),
+        titulo: `Conta CEMIG · ${formatarCompetenciaBrasileira(item.referencia)}`,
+        detalhe: `UC ${item.numero_instalacao || unidadeSelecionada?.numero || "não informada"}`,
+      })),
+      ...anexadas.map((item) => ({
+        id: `anexo-${item.id}`,
+        url: item.url,
+        titulo: item.nome || "Conta CEMIG anexada",
+        detalhe: `UC ${item.dadosFatura?.uc ?? item.dadosFatura?.numero_instalacao ?? "não informada"}`,
+      })),
+    ];
+    return itens.filter((item) => {
+      if (!item.url || urls.has(item.url)) return false;
+      urls.add(item.url);
+      return true;
+    });
+  }, [anexadas, faturas, unidadeSelecionada?.numero]);
 
   const lista = useMemo(() => faturas.filter((item: any) => {
     if (filtro === "pagas") return estaPaga(statusEfetivo(item));
@@ -115,14 +153,14 @@ export default function Faturas() {
 
   return (
     <Screen>
-      {proprietario ? <AppHeader title="Faturas" subtitle="Todos os clientes" contextTitle={`${faturas.length} faturas cadastradas`} contextSubtitle="Abertas, vencidas e pagas" icon="receipt-outline" /> : null}
+      {proprietario ? <AppHeader title="Faturas" subtitle="Todos os clientes" contextTitle={`${faturas.length} faturas cadastradas`} contextSubtitle="Abertas, vencidas e pagas" icon="receipt-outline" /> : <ClienteHeader cliente={user?.nome ?? "Cliente"} uc={unidadeSelecionada?.numero ?? ""} distribuidora={unidadeSelecionada?.distribuidora ?? "CEMIG"} fullBleed />}
       <FlatList
         bounces
         alwaysBounceVertical
         overScrollMode="always"
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}
         contentContainerStyle={styles.content}
-        data={lista}
+        data={proprietario || categoria === "andrade" ? lista : []}
         keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={<>
@@ -133,14 +171,28 @@ export default function Faturas() {
             <View><Text style={styles.title}>{proprietario ? "Todas as faturas" : "Faturas"}</Text>{proprietario ? <Text style={styles.subtitle}>Acompanhe as cobranças de toda a carteira.</Text> : null}</View>
           </View>
 
-          <View style={styles.filterTabs}>
+          {!proprietario ? <View style={styles.categoryTabs}>
+            <TouchableOpacity accessibilityRole="tab" accessibilityState={{ selected: categoria === "andrade" }} onPress={() => setCategoria("andrade")} style={[styles.categoryButton, categoria === "andrade" && styles.categoryButtonActive]}><Text style={[styles.categoryText, categoria === "andrade" && styles.categoryTextActive]}>Andrade Energy</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="tab" accessibilityState={{ selected: categoria === "cemig" }} onPress={() => setCategoria("cemig")} style={[styles.categoryButton, categoria === "cemig" && styles.categoryButtonActive]}><Text style={[styles.categoryText, categoria === "cemig" && styles.categoryTextActive]}>CEMIG</Text></TouchableOpacity>
+          </View> : null}
+          {categoria === "cemig" && !proprietario ? <View>
+            <Text style={styles.categoryHint}>Contas originais da concessionária. Cobranças e pagamentos Andrade Energy ficam na outra categoria.</Text>
+            {faturasCemig.map((item) => <TouchableOpacity key={item.id} accessibilityLabel={`Abrir ${item.titulo}`} onPress={() => void Linking.openURL(item.url)} style={styles.cemigCard}>
+              <Ionicons name="document-text-outline" size={25} color={Colors.primary} />
+              <View style={styles.cemigCopy}><Text style={styles.cemigTitle}>{item.titulo}</Text><Text style={styles.cemigDetail}>{item.detalhe}</Text></View>
+              <Ionicons name="open-outline" size={19} color={Colors.primary} />
+            </TouchableOpacity>)}
+            {!faturasCemig.length ? <EmptyState icon="document-outline" title="Nenhuma conta CEMIG" subtitle="As contas recebidas ou anexadas aparecerão aqui." /> : null}
+            <TouchableOpacity onPress={() => router.push({ pathname: "/clientes/faturas-anexadas" as never, params: { clienteId: String(user?.cliente_id ?? "") } })} style={styles.anexarConta}><Ionicons name="add-circle-outline" size={19} color={Colors.primary} /><Text style={styles.anexarContaText}>Ver ou anexar conta CEMIG</Text></TouchableOpacity>
+          </View> : null}
+          {categoria === "andrade" || proprietario ? <View style={styles.filterTabs}>
             <FilterButton active={filtro === "todas"} label="Todas" onPress={() => setFiltro("todas")} />
             <FilterButton active={filtro === "abertas"} label="Abertas" onPress={() => setFiltro("abertas")} />
             <FilterButton active={filtro === "vencidas"} label="Vencidas" onPress={() => setFiltro("vencidas")} />
             <FilterButton active={filtro === "pagas"} label="Pagas" onPress={() => setFiltro("pagas")} />
-          </View>
+          </View> : null}
         </>}
-        ListEmptyComponent={<View style={styles.empty}>
+        ListEmptyComponent={categoria === "cemig" && !proprietario ? null : <View style={styles.empty}>
           <EmptyState
             icon={error ? "alert-circle-outline" : "receipt-outline"}
             title={error ? "Não foi possível carregar as faturas" : `0 faturas ${filtro === "todas" ? "" : filtro}`.trim()}
@@ -232,6 +284,18 @@ const styles = StyleSheet.create({
   autoReceiveText: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 17 },
   autoReceiveButton: { width: "100%", height: 46, borderRadius: Radius.md },
   filterTabs: { flexDirection: "row", marginBottom: Spacing.lg, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  categoryTabs: { flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.lg },
+  categoryButton: { flex: 1, minHeight: 46, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, backgroundColor: Colors.surface },
+  categoryButtonActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
+  categoryText: { color: Colors.subtitle, fontSize: Typography.small, fontWeight: "800" },
+  categoryTextActive: { color: Colors.primaryDark },
+  categoryHint: { marginBottom: Spacing.md, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 },
+  cemigCard: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, minHeight: 76, marginBottom: Spacing.sm, padding: Spacing.md, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
+  cemigCopy: { flex: 1 },
+  cemigTitle: { color: Colors.text, fontSize: Typography.caption, fontWeight: "800" },
+  cemigDetail: { marginTop: 4, color: Colors.subtitle, fontSize: Typography.small },
+  anexarConta: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, minHeight: 45, marginTop: Spacing.md, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md },
+  anexarContaText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" },
   filterButton: { flex: 1, minHeight: 48, alignItems: "center", justifyContent: "center", borderBottomWidth: 3, borderBottomColor: "transparent" },
   filterButtonActive: { borderBottomColor: "#8F938D" },
   filterLabel: { color: Colors.subtitle, fontSize: Typography.small, fontWeight: "700" },

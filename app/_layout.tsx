@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
   QueryClient,
   QueryClientProvider,
+  useQueryClient,
 } from "@tanstack/react-query";
 
 import {
@@ -23,6 +24,7 @@ import Loading from "../components/ui/Loading";
 import { IS_GERADOR_APP } from "../config/appVariant";
 import { registrarPushAndroid } from "../services/notificacoes.service";
 import * as Notifications from "expo-notifications";
+import { preloadNavigationData } from "../services/navigation-preload.service";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -49,6 +51,7 @@ const queryClient = new QueryClient({
 });
 
 function RootNavigator() {
+  const activeQueryClient = useQueryClient();
   const primeiraAutenticacaoBiometrica = useRef(true);
   const ultimoVoltarNaHome = useRef(0);
   const pathname = usePathname();
@@ -59,7 +62,22 @@ function RootNavigator() {
     digitalEnabled,
     isUnlocked,
     signOut,
+    unidadeSelecionada,
+    usinaSelecionada,
   } = useAuth();
+  const [readyUserId, setReadyUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const currentUser = session?.user;
+    if (isLoading || !currentUser?.id || readyUserId === String(currentUser.id)) return;
+    let active = true;
+    void Promise.race([
+      preloadNavigationData(activeQueryClient, IS_GERADOR_APP, currentUser, unidadeSelecionada, usinaSelecionada),
+      new Promise<void>((resolve) => setTimeout(resolve, 15000)),
+    ])
+      .finally(() => { if (active) setReadyUserId(String(currentUser.id)); });
+    return () => { active = false; };
+  }, [activeQueryClient, isLoading, readyUserId, session?.user?.id, unidadeSelecionada?.id, usinaSelecionada?.id]);
   const alertaSessaoAberto = useRef(false);
 
   useEffect(() => {
@@ -156,7 +174,7 @@ function RootNavigator() {
    * Enquanto recuperamos a sessão,
    * mantemos o Stack montado.
    */
-  if (isLoading) {
+  if (isLoading || (session?.user?.id && readyUserId !== String(session.user.id))) {
     return <Loading />;
   }
 

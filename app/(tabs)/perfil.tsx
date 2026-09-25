@@ -39,6 +39,7 @@ import {
   verificarDigitalDisponivel,
 } from "../../services/biometric.service";
 import { AppHeader, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
+import ClienteHeader from "../../components/cliente/ClienteHeader";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 
@@ -64,7 +65,7 @@ function descricaoErro(erro: any, alternativa: string) {
 
 export default function Perfil() {
   const { origem } = useLocalSearchParams<{ origem?: string }>();
-  const { user, digitalEnabled, atualizarUsuario, refreshDigitalStatus, signOut } = useAuth();
+  const { user, unidadeSelecionada, digitalEnabled, atualizarUsuario, refreshDigitalStatus, signOut } = useAuth();
   const [nome, setNome] = useState(user?.nome ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
   const [telefone, setTelefone] = useState(formatarTelefone(user?.telefone ?? ""));
@@ -293,7 +294,7 @@ export default function Perfil() {
 
   return (
     <Screen>
-      <AppHeader
+      {IS_GERADOR_APP ? <AppHeader
         environmentName={
           IS_GERADOR_APP
             ? origem === "comercial"
@@ -307,7 +308,7 @@ export default function Perfil() {
         contextTitle={user?.nome ?? "Meu perfil"}
         contextSubtitle="Gerencie seu acesso à Andrade Energy"
         icon="person-outline"
-      />
+      /> : <ClienteHeader cliente={user?.nome ?? "Cliente"} uc={unidadeSelecionada?.numero ?? ""} distribuidora={unidadeSelecionada?.distribuidora ?? "CEMIG"} fullBleed />}
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.container}>
         <ScrollView
           style={styles.profileBackground}
