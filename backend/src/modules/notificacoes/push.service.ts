@@ -57,10 +57,17 @@ export async function enviarPushDaNotificacao(notificacao: NovaNotificacaoApp & 
 }
 
 export async function criarNotificacaoApp(notificacao: NovaNotificacaoApp) {
-  const query = notificacao.chave_dedupe
-    ? supabase.from("notificacoes_app").upsert(notificacao, { onConflict: "chave_dedupe", ignoreDuplicates: true })
-    : supabase.from("notificacoes_app").insert(notificacao);
-  const { data, error } = await query.select("id").maybeSingle();
+  // A unicidade de chave_dedupe é um índice parcial no PostgreSQL. O
+  // PostgREST não consegue usá-lo como alvo simples de ON CONFLICT; por isso
+  // a notificação deve ser inserida normalmente e a corrida tratada por 23505.
+  if (notificacao.chave_dedupe) {
+    const { data: existente, error: erroBusca } = await supabase.from("notificacoes_app")
+      .select("id").eq("chave_dedupe", notificacao.chave_dedupe).maybeSingle();
+    if (erroBusca) throw erroBusca;
+    if (existente) return null;
+  }
+  const { data, error } = await supabase.from("notificacoes_app").insert(notificacao).select("id").maybeSingle();
+  if (error?.code === "23505" && notificacao.chave_dedupe) return null;
   if (error) throw error;
   if (!data) return null;
   // A falha do provedor de push não pode impedir a ação de negócio nem o aviso no sino.
