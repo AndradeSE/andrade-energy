@@ -21,7 +21,8 @@ export async function obterContratoCliente(
   clienteId: string,
   empresaId: string,
 ) {
-  return await buscarContratoCliente(clienteId, false, empresaId);
+  const contrato = await buscarContratoCliente(clienteId, false, empresaId);
+  return contrato ? anexarCancelamentoAoContrato(contrato) : null;
 }
 
 export async function listarContratosDaEmpresa(empresaId: string, usinaId?: string) {

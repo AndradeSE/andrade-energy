@@ -50,6 +50,11 @@ export async function enviarPushDaNotificacao(notificacao: NovaNotificacaoApp & 
 
   const corpo: any = await resposta.json();
   const tickets = Array.isArray(corpo?.data) ? corpo.data : [corpo?.data];
+  for (const ticket of tickets) {
+    if (ticket?.status === "error") {
+      console.error("Expo recusou push", { motivo: ticket?.details?.error ?? "desconhecido" });
+    }
+  }
   const invalidos = tickets.flatMap((ticket: any, indice: number) =>
     ticket?.details?.error === "DeviceNotRegistered" ? [tokens[indice]] : [],
   );

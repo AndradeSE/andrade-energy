@@ -64,8 +64,8 @@ export async function enviarContratoEConvite(unidadeId: string, gestor: any, for
     dados_documento: { ...d, envio_documento_hash: documentoHash, envio_solicitado_em: new Date().toISOString(), envio_email_concluido: Boolean(resultado.emailEnviado) },
   }).eq("id", contrato.id).eq("contrato_gerado_url", contrato.contrato_gerado_url);
   if (erroAuditoria) throw erroAuditoria;
-  if (resultado.contaExistente && resultado.emailEnviado) {
-    void (async () => {
+  if (resultado.contaExistente) {
+    await (async () => {
       const { data: acessos, error: erroAcessos } = await supabase.from("empresa_usuarios")
         .select("usuario_id").eq("empresa_id", empresaId).eq("cliente_id", unidade.cliente_id)
         .eq("papel", "LEITURA").eq("ativo", true);
