@@ -85,11 +85,14 @@ export async function enviarConviteAposConferencia(contrato: any, gestor: any) {
   if (erroPdf || !pdf) throw new Error("Não foi possível anexar o contrato assinado ao convite.");
   const assinado = { filename: "contrato-assinado.pdf", content: Buffer.from(await pdf.arrayBuffer()) };
   if (acessoAtivo) {
+    const revisaoContratual = Boolean(contrato.dados_documento?.contrato_anterior_id);
     const emailEnviado = await enviarEmailTransacional({
       empresaId,
       destinatario: cliente.email,
-      assunto: "Contrato assinado disponível para seu aceite",
-      html: "<p>Seu gerador conferiu o contrato assinado da sua unidade. Acesse a área Contrato no aplicativo Consumidor, leia o documento e confirme seu aceite com o código enviado ao seu e-mail. Não é necessário assinar novamente.</p>",
+      assunto: revisaoContratual ? "Revisão contratual disponível para seu aceite" : "Seu contrato assinado foi conferido",
+      html: revisaoContratual
+        ? "<p>Seu gerador conferiu a revisão contratual assinada. Acesse a área Contrato no aplicativo Consumidor para ler o documento e confirmar seu aceite.</p>"
+        : "<p>Seu gerador conferiu o contrato já assinado da sua unidade. O acesso à UC está liberado. Consulte o documento na área Contrato do aplicativo Consumidor; não é necessário assinar ou aceitar novamente.</p>",
       anexos: [assinado],
     });
     return { emailEnviado, contaExistente: true, acessoExistente: true, novoConvite: false };

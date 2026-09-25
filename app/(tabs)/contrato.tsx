@@ -9,13 +9,14 @@ import {
   Platform,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { router } from "expo-router";
 
 import {
@@ -23,7 +24,6 @@ import {
   Button,
   Card,
   Divider,
-  ElasticScrollView as ScrollView,
   EmptyState,
   Loading,
   Screen,
@@ -77,6 +77,8 @@ function ContratoConsumidor() {
   const [emailCodigo, setEmailCodigo] = useState("");
   const [concordouRevisao, setConcordouRevisao] = useState(false);
   const [abrindoProposta, setAbrindoProposta] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const assinaturaY = useRef(0);
 
   async function atualizarPagina() {
     setAtualizando(true);
@@ -133,6 +135,11 @@ function ContratoConsumidor() {
     data.dados_documento?.assinatura_externa_pendente === true &&
     !data.dados_documento?.assinatura_externa_validada_em,
   );
+  const assinaturaInicialPendente = status === "RASCUNHO" && !aceiteRegistrado && !pdfAssinadoEnviado;
+  const statusVisivel = assinaturaInicialPendente ? "Aguardando assinatura" : data.status || "Ativo";
+  function irParaAssinatura() {
+    scrollRef.current?.scrollTo({ y: Math.max(0, assinaturaY.current - 16), animated: true });
+  }
   async function abrirProposta() {
     if (!unidadeSelecionada?.id) return Alert.alert("Selecione a unidade", "Escolha a UC antes de abrir sua proposta.");
     try {
@@ -322,6 +329,7 @@ function ContratoConsumidor() {
         fullBleed
       />
       <ScrollView
+        ref={scrollRef}
         bounces
         alwaysBounceVertical
         overScrollMode="always"
@@ -344,7 +352,7 @@ function ContratoConsumidor() {
           </Text>
         </View>
 
-        <View style={styles.hero}>
+        <Pressable accessibilityRole={assinaturaInicialPendente ? "button" : undefined} accessibilityLabel={assinaturaInicialPendente ? "Meu contrato, aguardando assinatura. Ir para assinatura" : undefined} disabled={!assinaturaInicialPendente} onPress={irParaAssinatura} style={styles.hero}>
           <View style={styles.heroHeader}>
             <View style={styles.heroIcon}>
               <Ionicons
@@ -354,7 +362,7 @@ function ContratoConsumidor() {
               />
             </View>
             <Badge
-              label={data.status || "Ativo"}
+              label={statusVisivel}
               variant={ativo ? "success" : "warning"}
             />
           </View>
@@ -362,9 +370,9 @@ function ContratoConsumidor() {
           <Text style={styles.heroLabel}>Número do contrato</Text>
           <Text style={styles.heroValue}>{data.numero || "Não informado"}</Text>
           <Text style={styles.heroHint}>
-            Andrade Energy · Energia por assinatura
+            {assinaturaInicialPendente ? "Toque para ir à assinatura" : "Andrade Energy · Energia por assinatura"}
           </Text>
-        </View>
+        </Pressable>
 
         <Text style={styles.sectionTitle}>Resumo do contrato</Text>
         <TouchableOpacity activeOpacity={0.84} disabled={abrindoProposta} onPress={() => void abrirProposta()} style={styles.proposalLink}><Ionicons name="document-attach-outline" size={21} color={Colors.primary} /><View style={{ flex: 1 }}><Text style={styles.proposalTitle}>Proposta comercial da UC</Text><Text style={styles.proposalSubtitle}>PDF com desconto e projeção de economia desta unidade.</Text></View><Ionicons name="download-outline" size={20} color={Colors.primary} /></TouchableOpacity>
@@ -469,18 +477,21 @@ function ContratoConsumidor() {
           {String(configuracaoAnterior.usina_id ?? "") !== String(configuracaoRevisada.usina_id ?? "") ? <Text style={styles.revisionNoticeText}>Usina vinculada alterada. Confira os detalhes na minuta.</Text> : null}
           <Text style={styles.revisionNoticeText}>Confira todas as cláusulas e valores na nova minuta em PDF antes de aceitar.</Text>
         </Card> : null}
+        <View onLayout={(event) => { assinaturaY.current = event.nativeEvent.layout.y; }}>
         <Text style={styles.sectionTitle}>{revisaoPendente ? "Aceite da revisão" : "Assinatura"}</Text>
         {data.revisao_configuracao_pendente ? <View style={styles.revisionNotice}><Ionicons name="alert-circle-outline" size={20} color="#9A6700" /><Text style={styles.revisionNoticeText}>A configuração desta UC foi alterada. O gerador precisa emitir uma nova versão para sua assinatura.</Text></View> : null}
         <Card>
           <InfoRow
             icon={
-              aceiteRegistrado || assinaturaExternaValidada
+              aceiteRegistrado || (assinaturaExternaValidada && !revisaoPendente)
                 ? "checkmark-circle-outline"
                 : "shield-checkmark-outline"
             }
-            label={assinaturaExternaValidada ? "Assinatura externa" : "Aceite no aplicativo"}
+            label={revisaoPendente ? "Aceite da revisão" : assinaturaExternaValidada ? "Assinatura externa" : "Aceite no aplicativo"}
             value={
-              assinaturaExternaValidada
+              revisaoPendente
+                ? "Pendente"
+                : assinaturaExternaValidada
                 ? `Conferida pelo gerador em ${formatarData(data.dados_documento.assinatura_externa_validada_em)}`
                 : aceiteRegistrado
                 ? `Registrado em ${formatarData(data.aceite_cliente_em)}`
@@ -564,6 +575,7 @@ function ContratoConsumidor() {
               {enviandoAssinado ? "Trocando documento..." : "Trocar documento assinado"}
             </Text>
           </TouchableOpacity> : null}
+        </View>
         </View>
 
         {ativo && !revisaoPendente ? <TouchableOpacity

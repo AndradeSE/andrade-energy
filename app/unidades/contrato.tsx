@@ -7,7 +7,7 @@ import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from "react-
 import FormField from "../../components/cadastro/FormField";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
-import { buscarContratoDaUnidade, buscarDadosIniciaisContrato, buscarResumoPropostaDaUnidade, gerarContratoDaUnidade, importarContratoAssinadoDaUnidade, prepararRevisaoDaUnidade, salvarContratoDaUnidade } from "../../services/contratos.service";
+import { buscarContratoDaUnidade, buscarDadosIniciaisContrato, buscarResumoPropostaDaUnidade, gerarContratoDaUnidade, importarContratoAssinadoDaUnidade, listarContratosDaEmpresa, prepararRevisaoDaUnidade, salvarContratoDaUnidade } from "../../services/contratos.service";
 import { enviarContratoEConvite, validarAssinaturaExterna } from "../../services/contratos.service";
 import { buscarUnidade } from "../../services/clientes.service";
 import { buscarUsina } from "../../services/usinas.service";
@@ -79,6 +79,7 @@ export default function ContratoDaUnidade() {
   const [importando, setImportando] = useState(false);
   const [contratoGeradoUrl, setContratoGeradoUrl] = useState<string>();
   const [contratoAssinadoUrl, setContratoAssinadoUrl] = useState<string>();
+  const [jaPossuiContratoAssinado, setJaPossuiContratoAssinado] = useState(false);
   const [contratoId, setContratoId] = useState<string>();
   const [aceiteRegistrado, setAceiteRegistrado] = useState(false);
   const [novoContrato, setNovoContrato] = useState(false);
@@ -91,6 +92,7 @@ export default function ContratoDaUnidade() {
     setCarregando(true);
     setNovoContrato(String(revisao ?? "") === "1");
     setContratoAssinadoUrl(undefined);
+    setJaPossuiContratoAssinado(false);
     setContratoGeradoUrl(undefined);
     setSubstituirRevisaoAssinada(false);
     if (!id) {
@@ -98,8 +100,18 @@ export default function ContratoDaUnidade() {
       return;
     }
 
-    Promise.allSettled([buscarContratoDaUnidade(id, true), buscarUnidade(id), buscarDadosIniciaisContrato(id), buscarResumoPropostaDaUnidade(id)])
-      .then(async ([resultadoContrato, resultadoUnidade, resultadoDados, resultadoProposta]) => {
+    Promise.allSettled([buscarContratoDaUnidade(id, true), buscarUnidade(id), buscarDadosIniciaisContrato(id), buscarResumoPropostaDaUnidade(id), listarContratosDaEmpresa(), buscarContratoDaUnidade(id)])
+      .then(async ([resultadoContrato, resultadoUnidade, resultadoDados, resultadoProposta, resultadoContratos, resultadoVigente]) => {
+        if (resultadoVigente.status === "fulfilled" && resultadoVigente.value
+          && (resultadoVigente.value.contrato_assinado_url || resultadoVigente.value.aceite_cliente_em || String(resultadoVigente.value.status).toUpperCase() === "VIGENTE")) {
+          setJaPossuiContratoAssinado(true);
+        }
+        if (resultadoContratos.status === "fulfilled") {
+          setJaPossuiContratoAssinado(resultadoContratos.value.some((item: any) =>
+            String(item.unidade_consumidora_id) === String(id)
+            && Boolean(item.contrato_assinado_url || item.aceite_cliente_em || String(item.status).toUpperCase() === "VIGENTE"),
+          ));
+        }
         let unidadeCarregada: any;
         if (resultadoUnidade.status === "fulfilled") {
           unidadeCarregada = resultadoUnidade.value;
@@ -139,6 +151,9 @@ export default function ContratoDaUnidade() {
         }
         const contrato = resultadoContrato.value;
         if (!contrato) return;
+        if (contrato.contrato_assinado_url || contrato.aceite_cliente_em || String(contrato.status).toUpperCase() === "VIGENTE") {
+          setJaPossuiContratoAssinado(true);
+        }
         const revisaoAtual = String(revisao ?? "") === "1" || Boolean(contrato.dados_documento?.contrato_anterior_id);
         setNovoContrato(revisaoAtual);
         setContratoId(contrato.id);
@@ -285,6 +300,10 @@ export default function ContratoDaUnidade() {
   }
 
   function enviarParaAnalise() {
+    if (jaPossuiContratoAssinado && !novoContrato) {
+      Alert.alert("Contrato já assinado", "Para alterar as condições, crie uma revisão e envie-a para aceite do cliente.");
+      return;
+    }
     if (dadosDaMinutaRevisada !== JSON.stringify(dadosParaSalvar())) {
       Alert.alert("Revise a minuta atual", "Gere e abra a minuta com os dados atuais antes de enviar o convite.");
       return;
@@ -333,7 +352,7 @@ export default function ContratoDaUnidade() {
 
   function confirmarAssinaturaExterna() {
     if (!contratoId || gerando) return;
-    Alert.alert("Validar assinaturas", "Confirma que abriu o PDF e conferiu os dados desta UC e as assinaturas das partes? Depois da conferência, o cliente precisará aceitar o documento no app; ele não precisará assinar novamente.", [
+    Alert.alert("Confirmar conferência", "Confirma que abriu o PDF e conferiu os dados desta UC e as assinaturas das partes? No primeiro contrato, a UC será liberada após sua confirmação. Revisões seguem o fluxo de aceite próprio.", [
       { text: "Cancelar", style: "cancel" },
       { text: "Conferi e confirmo", onPress: async () => {
         try {
@@ -342,8 +361,12 @@ export default function ContratoDaUnidade() {
           setAssinaturaPendente(false);
           Alert.alert("Conferência registrada", resultado?.emailEnviado
             ? resultado?.acessoExistente
-              ? "O cliente foi avisado por e-mail para conferir e aceitar o contrato no app. Até o aceite, continuam valendo as condições anteriores, se houver."
-              : "O convite foi enviado. Depois de criar a conta, o cliente deverá conferir e aceitar o contrato no app."
+              ? resultado?.revisaoContratual
+                ? "O cliente foi avisado por e-mail para conferir e aceitar a revisão no app. Até o aceite, continuam valendo as condições do contrato anterior."
+                : "O contrato assinado foi conferido, a UC está liberada e o cliente foi avisado por e-mail. Não é necessário outro aceite."
+              : resultado?.revisaoContratual
+                ? "O convite foi enviado. Depois de criar a conta, o cliente poderá conferir e aceitar a revisão no app."
+                : "O contrato assinado foi conferido e a UC está liberada. O convite para criar o acesso foi enviado ao cliente."
             : `O documento foi conferido, mas o e-mail não foi entregue. ${resultado?.conviteErro ?? "Reenvie o convite pela área da UC."}`);
         } catch (erro: any) {
           Alert.alert("Não foi possível validar", erro?.response?.data?.message ?? "Tente novamente.");
@@ -494,8 +517,8 @@ export default function ContratoDaUnidade() {
           {novoContrato ? <TouchableOpacity accessibilityRole="button" onPress={() => router.push({ pathname: "/unidades/editar", params: { id, numero: numeroUc, clienteId: unidade?.cliente_id ?? clienteId, descontoPadrao: desconto, revisaoContrato: "1" } })} style={styles.documentLink}><Ionicons name="options-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Editar configuração da UC</Text></TouchableOpacity> : null}
           <Button disabled={gerando || importando} title={gerando ? "Gerando minuta..." : "Gerar e revisar a minuta"} icon={<Ionicons name="document-text-outline" size={20} color={Colors.surface} />} onPress={gerarMinuta} />
           {contratoGeradoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoGeradoUrl)} style={styles.documentLink}><Ionicons name="download-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir minuta gerada</Text></TouchableOpacity> : null}
-          <><Button disabled={gerando || importando || !contratoGeradoUrl || dadosDaMinutaRevisada !== JSON.stringify(dadosParaSalvar())} title={gerando ? "Aguarde..." : novoContrato ? "Enviar revisão para aceite" : "Enviar para assinatura"} onPress={enviarParaAnalise} /><Text style={styles.documentLinkText}>Gere e revise a minuta atual para habilitar o envio. Alterações nos campos exigem nova revisão.</Text></>
-          {!contratoAssinadoUrl ? <TouchableOpacity accessibilityRole="button" activeOpacity={0.84} disabled={importando || gerando} onPress={importarAssinado} style={styles.uploadSignedButton}>
+          <><Button disabled={gerando || importando || (jaPossuiContratoAssinado && !novoContrato) || !contratoGeradoUrl || dadosDaMinutaRevisada !== JSON.stringify(dadosParaSalvar())} title={gerando ? "Aguarde..." : novoContrato ? "Enviar revisão para aceite" : "Enviar para assinatura"} onPress={enviarParaAnalise} /><Text style={styles.documentLinkText}>{jaPossuiContratoAssinado && !novoContrato ? "Esta UC já possui contrato assinado. Crie uma revisão para solicitar novo aceite." : "Gere e revise a minuta atual para habilitar o envio. Alterações nos campos exigem nova revisão."}</Text></>
+          {!contratoAssinadoUrl && !jaPossuiContratoAssinado ? <TouchableOpacity accessibilityRole="button" activeOpacity={0.84} disabled={importando || gerando} onPress={importarAssinado} style={styles.uploadSignedButton}>
             <Ionicons name="cloud-upload-outline" size={20} color={Colors.primary} />
             <Text style={styles.uploadSignedButtonText}>{importando ? (assinaturaPendente ? "Trocando documento..." : "Enviando contrato...") : (assinaturaPendente ? "Trocar documento assinado" : "Enviar contrato assinado (PDF)")}</Text>
           </TouchableOpacity> : null}

@@ -13,22 +13,32 @@ export async function validarAssinaturaExterna(id: string, usuario: any, confirm
   if (erroPdf || !pdf) throw new Error("Não foi possível verificar o arquivo anexado.");
   const hash = crypto.createHash("sha256").update(Buffer.from(await pdf.arrayBuffer())).digest("hex");
   const validadoEm = new Date().toISOString();
-  const { data: atualizado, error: erroAtualizacao } = await supabase.from("contratos").update({ status: contrato.status === "RASCUNHO" ? "RASCUNHO" : "ATIVO", documento_hash: hash,
-    dados_documento: { ...contrato.dados_documento, assinatura_externa_pendente: false, assinatura_externa_validada_em: validadoEm, assinatura_externa_validada_por: usuario.id, assinatura_externa_validacao: "CONFERENCIA_MANUAL_GERADOR", aceite_cliente_exigido: true },
+  const revisaoContratual = Boolean(contrato.dados_documento?.contrato_anterior_id);
+  const novoStatus = revisaoContratual ? contrato.status === "RASCUNHO" ? "RASCUNHO" : "ATIVO" : "VIGENTE";
+  const dadosValidados = { ...contrato.dados_documento, assinatura_externa_pendente: false, assinatura_externa_validada_em: validadoEm, assinatura_externa_validada_por: usuario.id, assinatura_externa_validacao: "CONFERENCIA_MANUAL_GERADOR", aceite_cliente_exigido: revisaoContratual };
+  const { data: atualizado, error: erroAtualizacao } = await supabase.from("contratos").update({ status: novoStatus, documento_hash: hash,
+    dados_documento: dadosValidados,
   }).eq("id", id).eq("contrato_assinado_url", contrato.contrato_assinado_url)
     .eq("status", contrato.status).eq("dados_documento", JSON.stringify(contrato.dados_documento)).select("id").maybeSingle();
   if (erroAtualizacao || !atualizado) {
     if (erroAtualizacao) throw erroAtualizacao;
     throw new Error("O contrato mudou durante a validação. Reabra e confira a versão atual.");
   }
+  if (!revisaoContratual) {
+    const { error: erroAtivacao } = await supabase.from("unidades_consumidoras")
+      .update({ status: "ATIVA" })
+      .eq("id", contrato.unidade_consumidora_id).eq("empresa_id", contrato.empresa_id);
+    if (erroAtivacao) throw erroAtivacao;
+  }
   try {
     const convite = await enviarConviteAposConferencia({ ...contrato,
-      dados_documento: { ...contrato.dados_documento, assinatura_externa_pendente: false, assinatura_externa_validada_em: validadoEm, aceite_cliente_exigido: true },
+      status: novoStatus,
+      dados_documento: dadosValidados,
     }, usuario);
-    return { validado: true, ...convite };
+    return { validado: true, revisaoContratual, ...convite };
   } catch (erro: any) {
     // A revisão já foi registrada. Informe a falha para que o convite seja
     // reenviado pela ação existente, sem pedir nova validação do PDF.
-    return { validado: true, emailEnviado: false, conviteErro: erro?.message ?? "Não foi possível enviar o convite." };
+    return { validado: true, revisaoContratual, emailEnviado: false, conviteErro: erro?.message ?? "Não foi possível enviar o convite." };
   }
 }
