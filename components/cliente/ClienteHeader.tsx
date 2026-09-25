@@ -323,13 +323,13 @@ export default function ClienteHeader({
             </View>
           </TouchableOpacity>
 
-          {onSearch ? <TouchableOpacity accessibilityLabel="Pesquisar" hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }} activeOpacity={0.8} onPress={onSearch} style={styles.iconButton}>
+          {onSearch ? <TouchableOpacity accessibilityLabel="Pesquisar" hitSlop={{ top: 10, bottom: 10, left: 8, right: 4 }} activeOpacity={0.8} onPress={onSearch} style={[styles.iconButton, styles.searchButton]}>
             <Ionicons name="search-outline" size={24} color={Colors.surface} />
           </TouchableOpacity> : null}
 
           <TouchableOpacity
             accessibilityLabel="Notificações"
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            hitSlop={{ top: 12, bottom: 12, left: 6, right: 12 }}
             activeOpacity={
               0.8
             }
@@ -547,6 +547,9 @@ const styles =
 
       backgroundColor:
         "rgba(255, 255, 255, 0.08)",
+    },
+    searchButton: {
+      marginRight: 16,
     },
     notificationBadge: { position: "absolute", top: -2, right: -2, minWidth: 17, height: 17, alignItems: "center", justifyContent: "center", paddingHorizontal: 3, borderRadius: Radius.round, backgroundColor: "#DC2626" },
     notificationBadgeText: { color: Colors.surface, fontSize: 10, fontWeight: "800" },
