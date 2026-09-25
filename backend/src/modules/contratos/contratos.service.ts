@@ -31,7 +31,16 @@ export async function listarContratosDaEmpresa(empresaId: string, usinaId?: stri
   if (usinaId) query = query.eq("usina_id", usinaId);
   const { data, error } = await query.order("created_at", { ascending: false });
   if (error) throw error;
-  return data ?? [];
+  const contratos = data ?? [];
+  if (!contratos.length) return contratos;
+  const { data: solicitacoes, error: erroSolicitacoes } = await supabase.from("solicitacoes_cancelamento_contrato")
+    .select("contrato_id")
+    .eq("empresa_id", empresaId)
+    .in("status", ["PENDENTE", "PROCESSANDO"])
+    .in("contrato_id", contratos.map((contrato) => contrato.id));
+  if (erroSolicitacoes) throw erroSolicitacoes;
+  const pendentes = new Set((solicitacoes ?? []).map((solicitacao) => solicitacao.contrato_id));
+  return contratos.map((contrato) => ({ ...contrato, cancelamento_pendente: pendentes.has(contrato.id) }));
 }
 
 export async function criarContratoService(
