@@ -9,7 +9,7 @@ import { criarNotificacaoApp } from "../notificacoes/push.service";
 /** Envia somente a minuta previamente revisada, nunca regenera ao enviar. */
 export async function enviarContratoEConvite(unidadeId: string, gestor: any, forcarNovoConvite = false) {
   const empresaId = empresaIdDoUsuario(gestor);
-  const { data: unidade, error } = await supabase.from("unidades_consumidoras").select("id,cliente_id")
+  const { data: unidade, error } = await supabase.from("unidades_consumidoras").select("id,cliente_id,usina_id")
     .eq("id", unidadeId).eq("empresa_id", empresaId).single();
   if (error || !unidade?.cliente_id) throw new Error("UC não encontrada para este gerador.");
   const { data: contrato, error: erroContrato } = await supabase.from("contratos").select("*")
@@ -74,6 +74,8 @@ export async function enviarContratoEConvite(unidadeId: string, gestor: any, for
       await Promise.all((acessos ?? []).map((acesso: any) => criarNotificacaoApp({
         usuario_id: acesso.usuario_id,
         empresa_id: empresaId,
+        cliente_id: unidade.cliente_id,
+        usina_id: unidade.usina_id,
         tipo: revisaoContratual ? "REVISAO_CONTRATUAL_DISPONIVEL" : "CONTRATO_DISPONIVEL",
         titulo: revisaoContratual ? "Revisão contratual disponível" : "Contrato disponível",
         detalhe: revisaoContratual ? "Leia as alterações e confirme seu aceite no aplicativo." : "Leia o contrato disponível no aplicativo.",

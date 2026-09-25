@@ -8,6 +8,8 @@ export type NovaNotificacaoApp = {
   detalhe?: string | null;
   rota?: string | null;
   chave_dedupe?: string | null;
+  cliente_id?: string | null;
+  usina_id?: string | null;
 };
 
 function tokenExpoValido(token: string) {
@@ -25,14 +27,27 @@ export async function enviarPushDaNotificacao(notificacao: NovaNotificacaoApp & 
   const tokens = [...new Set((dispositivos ?? []).map((item: any) => String(item.token)).filter(tokenExpoValido))];
   if (!tokens.length) return;
 
+  const [usina, cliente] = await Promise.all([
+    notificacao.usina_id
+      ? supabase.from("usinas").select("nome").eq("id", notificacao.usina_id).eq("empresa_id", notificacao.empresa_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    notificacao.cliente_id
+      ? supabase.from("clientes").select("nome").eq("id", notificacao.cliente_id).eq("empresa_id", notificacao.empresa_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const contexto = [
+    usina.data?.nome ? `Usina: ${String(usina.data.nome).slice(0, 60)}` : null,
+    cliente.data?.nome ? `Cliente: ${String(cliente.data.nome).slice(0, 60)}` : null,
+  ].filter(Boolean).join(" · ");
+
   const mensagens = tokens.map((to) => ({
     to,
     title: notificacao.titulo,
     // A tela bloqueada pode mostrar o push para terceiros. Os detalhes
     // pessoais ficam apenas na caixa de notificações após autenticação.
-    body: "Abra o aplicativo para ver os detalhes.",
+    body: contexto || "Abra o aplicativo para ver os detalhes.",
     sound: "default",
-    channelId: "avisos-importantes",
+    channelId: "avisos-contexto",
     priority: "high",
     data: {
       notificacaoId: notificacao.id,
@@ -73,7 +88,8 @@ export async function criarNotificacaoApp(notificacao: NovaNotificacaoApp) {
     if (erroBusca) throw erroBusca;
     if (existente) return null;
   }
-  const { data, error } = await supabase.from("notificacoes_app").insert(notificacao).select("id").maybeSingle();
+  const { cliente_id, usina_id, ...registro } = notificacao;
+  const { data, error } = await supabase.from("notificacoes_app").insert(registro).select("id").maybeSingle();
   if (error?.code === "23505" && notificacao.chave_dedupe) return null;
   if (error) throw error;
   if (!data) return null;

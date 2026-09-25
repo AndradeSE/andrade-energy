@@ -76,6 +76,8 @@ export async function notificarClienteDaFaturaDisponivel(fatura: any) {
   await Promise.all(usuarios.map((usuario_id) => criarNotificacaoApp({
     usuario_id,
     empresa_id: fatura.empresa_id,
+    cliente_id: fatura.cliente_id,
+    usina_id: fatura.usina_id,
     tipo: "FATURA_DISPONIVEL",
     titulo: "Nova fatura disponível",
     detalhe: fatura.referencia ? `Fatura ${fatura.referencia} disponível para consulta.` : "Sua fatura está disponível para consulta.",
