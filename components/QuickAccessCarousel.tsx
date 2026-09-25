@@ -7,6 +7,7 @@ import { ScrollView } from "react-native-gesture-handler";
 import { Colors, Radius, Spacing, Typography } from "../theme";
 
 type Item = {
+  id?: string;
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
@@ -17,14 +18,20 @@ type Item = {
 type Props = {
   items: Item[];
   storageKey?: string;
+  customizeSignal?: number;
 };
 
-export default function QuickAccessCarousel({ items, storageKey = "geral" }: Props) {
+export default function QuickAccessCarousel({ items, storageKey = "geral", customizeSignal = 0 }: Props) {
   const [ultimoUsado, setUltimoUsado] = useState<string | null>(null);
   const [selecionados, setSelecionados] = useState<string[] | null>(null);
   const [personalizando, setPersonalizando] = useState(false);
   const chave = `andrade.quick-access.${storageKey}.v1`;
   const chaveSelecao = `andrade.quick-access.${storageKey}.selection.v1`;
+  const itemId = (item: Item) => item.id ?? item.label;
+
+  useEffect(() => {
+    if (customizeSignal > 0) setPersonalizando(true);
+  }, [customizeSignal]);
 
   useEffect(() => {
     let ativo = true;
@@ -45,19 +52,20 @@ export default function QuickAccessCarousel({ items, storageKey = "geral" }: Pro
     return () => { ativo = false; };
   }, [chaveSelecao]);
 
-  const disponiveis = useMemo(() => items.map((item) => item.label), [items]);
-  const ativos = selecionados === null ? disponiveis : selecionados.filter((label) => disponiveis.includes(label));
+  const disponiveis = useMemo(() => items.map(itemId), [items]);
+  const selecaoValida = selecionados?.map((valor) => items.find((item) => itemId(item) === valor || item.label === valor)).filter((item): item is Item => Boolean(item)).map(itemId);
+  const ativos = selecaoValida?.length ? [...new Set(selecaoValida)] : disponiveis;
 
   const itensOrdenados = useMemo(() => {
-    const visiveis = ativos.map((label) => items.find((item) => item.label === label)).filter((item): item is Item => Boolean(item));
+    const visiveis = ativos.map((id) => items.find((item) => itemId(item) === id)).filter((item): item is Item => Boolean(item));
     if (selecionados !== null || !ultimoUsado) return visiveis;
-    const indice = visiveis.findIndex((item) => item.label === ultimoUsado);
+    const indice = visiveis.findIndex((item) => itemId(item) === ultimoUsado || item.label === ultimoUsado);
     if (indice <= 0) return visiveis;
     return [visiveis[indice], ...visiveis.slice(0, indice), ...visiveis.slice(indice + 1)];
   }, [items, ativos, selecionados, ultimoUsado]);
   const opcoesOrdenadas = [
-    ...ativos.map((label) => items.find((item) => item.label === label)).filter((item): item is Item => Boolean(item)),
-    ...items.filter((item) => !ativos.includes(item.label)),
+    ...ativos.map((id) => items.find((item) => itemId(item) === id)).filter((item): item is Item => Boolean(item)),
+    ...items.filter((item) => !ativos.includes(itemId(item))),
   ];
 
   function salvarSelecao(proxima: string[]) {
@@ -65,8 +73,9 @@ export default function QuickAccessCarousel({ items, storageKey = "geral" }: Pro
     void AsyncStorage.setItem(chaveSelecao, JSON.stringify(proxima)).catch(() => undefined);
   }
 
-  function alternar(label: string) {
-    salvarSelecao(ativos.includes(label) ? ativos.filter((item) => item !== label) : [...ativos, label]);
+  function alternar(id: string) {
+    if (ativos.includes(id) && ativos.length === 1) return;
+    salvarSelecao(ativos.includes(id) ? ativos.filter((item) => item !== id) : [...ativos, id]);
   }
 
   function mover(label: string, direcao: -1 | 1) {
@@ -79,8 +88,8 @@ export default function QuickAccessCarousel({ items, storageKey = "geral" }: Pro
   }
 
   function abrir(item: Item) {
-    setUltimoUsado(item.label);
-    void AsyncStorage.setItem(chave, item.label).catch(() => undefined);
+    setUltimoUsado(itemId(item));
+    void AsyncStorage.setItem(chave, itemId(item)).catch(() => undefined);
     item.onPress();
   }
 
@@ -97,7 +106,7 @@ export default function QuickAccessCarousel({ items, storageKey = "geral" }: Pro
       contentContainerStyle={styles.content}
     >
       {itensOrdenados.map((item) => (
-        <Pressable accessibilityLabel={item.label} key={item.label} onPress={() => abrir(item)} style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
+        <Pressable accessibilityLabel={item.label} key={itemId(item)} onPress={() => abrir(item)} style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
           {item.badge ? <View style={styles.badge}><Text style={styles.badgeText}>NOVO</Text></View> : null}
           <View style={styles.icon}><Ionicons name={item.icon} size={27} color="#FFFFFF" /></View>
           <Text numberOfLines={2} style={styles.label}>{item.label}</Text>
@@ -116,15 +125,16 @@ export default function QuickAccessCarousel({ items, storageKey = "geral" }: Pro
           <Text style={styles.sheetHint}>Escolha os atalhos deste ambiente. Use as setas para mudar a ordem.</Text>
           <NativeScrollView style={styles.list} contentContainerStyle={styles.listContent}>
             {opcoesOrdenadas.map((item) => {
-              const marcado = ativos.includes(item.label);
-              return <View key={item.label} style={styles.option}>
-                <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: marcado }} onPress={() => alternar(item.label)} style={styles.optionMain}>
+              const id = itemId(item);
+              const marcado = ativos.includes(id);
+              return <View key={id} style={styles.option}>
+                <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: marcado }} onPress={() => alternar(id)} style={styles.optionMain}>
                   <Ionicons name={marcado ? "checkbox" : "square-outline"} size={23} color={Colors.primary} />
                   <Text style={styles.optionLabel}>{item.label}</Text>
                 </Pressable>
                 {marcado ? <>
-                  <Pressable accessibilityLabel={`Mover ${item.label} para cima`} accessibilityRole="button" disabled={ativos.indexOf(item.label) === 0} onPress={() => mover(item.label, -1)} style={styles.moveButton}><Ionicons name="chevron-up" size={22} color={ativos.indexOf(item.label) === 0 ? Colors.border : Colors.primary} /></Pressable>
-                  <Pressable accessibilityLabel={`Mover ${item.label} para baixo`} accessibilityRole="button" disabled={ativos.indexOf(item.label) === ativos.length - 1} onPress={() => mover(item.label, 1)} style={styles.moveButton}><Ionicons name="chevron-down" size={22} color={ativos.indexOf(item.label) === ativos.length - 1 ? Colors.border : Colors.primary} /></Pressable>
+                  <Pressable accessibilityLabel={`Mover ${item.label} para cima`} accessibilityRole="button" disabled={ativos.indexOf(id) === 0} onPress={() => mover(id, -1)} style={styles.moveButton}><Ionicons name="chevron-up" size={22} color={ativos.indexOf(id) === 0 ? Colors.border : Colors.primary} /></Pressable>
+                  <Pressable accessibilityLabel={`Mover ${item.label} para baixo`} accessibilityRole="button" disabled={ativos.indexOf(id) === ativos.length - 1} onPress={() => mover(id, 1)} style={styles.moveButton}><Ionicons name="chevron-down" size={22} color={ativos.indexOf(id) === ativos.length - 1 ? Colors.border : Colors.primary} /></Pressable>
                 </> : null}
               </View>;
             })}

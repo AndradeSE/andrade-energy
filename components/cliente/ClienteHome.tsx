@@ -40,6 +40,7 @@ export default function ClienteHome() {
   const [recebimentoAtivo, setRecebimentoAtivo] = useState(false);
   const [unidadeRecebimentoId, setUnidadeRecebimentoId] = useState("");
   const [concessionariaDaUnidade, setConcessionariaDaUnidade] = useState("");
+  const [personalizarAcesso, setPersonalizarAcesso] = useState(0);
 
   useEffect(() => {
     const clienteId = String(user?.cliente_id ?? "");
@@ -185,23 +186,29 @@ export default function ClienteHome() {
 
         <View style={styles.quickHeader}>
           <Text style={styles.quickTitle}>Acesso rápido</Text>
-          <Text style={styles.quickHint}>Arraste para navegar</Text>
+          <TouchableOpacity accessibilityLabel="Personalizar acesso rápido" onPress={() => setPersonalizarAcesso((valor) => valor + 1)}>
+            <Text style={styles.quickHint}>Personalizar  ⚙</Text>
+          </TouchableOpacity>
         </View>
         {recebimentoObrigatorio && !recebimentoAtivo ? <TouchableOpacity activeOpacity={0.84} onPress={() => unidadeRecebimentoId ? router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidadeRecebimentoId } }) : router.push("/selecionar-unidade")} style={styles.requiredEmailCard}><View style={styles.requiredEmailIcon}><Ionicons name="alert-circle-outline" size={23} color="#9A5B00" /></View><View style={styles.requiredEmailCopy}><Text style={styles.requiredEmailTitle}>Ativação obrigatória</Text><Text style={styles.requiredEmailText}>Conecte seu e-mail para que as próximas faturas sejam recebidas e processadas automaticamente.</Text></View><Ionicons name="chevron-forward" size={20} color="#9A5B00" /></TouchableOpacity> : null}
         <QuickAccessCarousel
           storageKey="consumidor-home"
+          customizeSignal={personalizarAcesso}
           items={[
             {
+              id: "faturas",
               icon: "receipt-outline",
               label: `Faturas ${nomeEmpresa}`,
               onPress: () => router.push("/faturas"),
             },
             {
+              id: "contas-de-luz",
               icon: "document-attach-outline",
               label: nomeFaturaConcessionaria,
               onPress: () => router.push("/contas-de-luz"),
             },
             {
+              id: "anexar-fatura",
               icon: "cloud-upload-outline",
               label: `Anexar ${nomeFaturaConcessionaria.toLowerCase()}`,
               onPress: () => {
@@ -214,6 +221,7 @@ export default function ClienteHome() {
               },
             },
             ...(recebimentoObrigatorio ? [{
+              id: "recebimento-automatico",
               icon: "mail-unread-outline" as const,
               label: nomeEnvioAutomatico,
               onPress: () => unidadeRecebimentoId
@@ -221,14 +229,34 @@ export default function ClienteHome() {
                 : router.push("/selecionar-unidade"),
             }] : []),
             {
+              id: "economia",
               icon: "trending-up-outline",
               label: "Economia",
               onPress: () => router.push("/(tabs)/economia"),
             },
             {
+              id: "contrato",
               icon: "document-text-outline",
               label: "Contrato",
               onPress: () => router.push("/contrato"),
+            },
+            {
+              id: "perfil",
+              icon: "person-outline",
+              label: "Meu perfil",
+              onPress: () => router.navigate("/perfil"),
+            },
+            {
+              id: "trocar-unidade",
+              icon: "swap-horizontal-outline",
+              label: "Trocar unidade",
+              onPress: () => router.push("/selecionar-unidade"),
+            },
+            {
+              id: "ajuda",
+              icon: "help-circle-outline",
+              label: "Ajuda",
+              onPress: () => router.push("/tutoriais"),
             },
           ]}
         />

@@ -80,6 +80,16 @@ export default function TabLayout() {
         />
 
         <Tabs.Screen
+          name="faturas"
+          options={{
+            title: "Faturas",
+            tabBarIcon: ({ color, focused }) => (
+              <TabIcon name={focused ? "receipt" : "receipt-outline"} color={color} />
+            ),
+          }}
+        />
+
+        <Tabs.Screen
           name="index"
           options={{
             title: "Home",
@@ -100,9 +110,12 @@ export default function TabLayout() {
         />
 
         <Tabs.Screen
-          name="faturas"
+          name="perfil"
           options={{
-            href: null,
+            title: "Perfil",
+            tabBarIcon: ({ color, focused }) => (
+              <TabIcon name={focused ? "person" : "person-outline"} color={color} />
+            ),
           }}
         />
 
@@ -110,7 +123,6 @@ export default function TabLayout() {
 
         <Tabs.Screen name="equipe" options={{ href: null }} />
 
-        <Tabs.Screen name="perfil" options={{ href: null, tabBarItemStyle: { display: "none" } }} />
 
         <Tabs.Screen
           name="clientes"
