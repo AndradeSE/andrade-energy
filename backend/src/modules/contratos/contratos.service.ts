@@ -735,18 +735,19 @@ export async function cancelarContratoService(id: string) {
 
     // Créditos não têm UC própria. Para contratos por UC, usamos somente o
     // crédito vinculado à última fatura daquela UC, evitando cobrar outra UC.
-    let creditoQuery = supabase
-      .from("creditos")
-      .select("saldo_atual, saldo")
-      .eq("cliente_id", cliente.id)
-      .order("competencia", { ascending: false })
-      .limit(1);
-    if (contrato.unidade_consumidora_id) {
-      if (!ultima?.id) creditoQuery = creditoQuery.eq("fatura_id", "__sem_fatura_da_uc__");
-      else creditoQuery = creditoQuery.eq("fatura_id", ultima.id);
+    let credito: { saldo_atual?: number | null; saldo?: number | null } | null = null;
+    if (!contrato.unidade_consumidora_id || ultima?.id) {
+      let creditoQuery = supabase
+        .from("creditos")
+        .select("saldo_atual, saldo")
+        .eq("cliente_id", cliente.id)
+        .order("competencia", { ascending: false })
+        .limit(1);
+      if (contrato.unidade_consumidora_id) creditoQuery = creditoQuery.eq("fatura_id", ultima!.id);
+      const consulta = await creditoQuery.maybeSingle();
+      if (consulta.error) throw consulta.error;
+      credito = consulta.data;
     }
-    const { data: credito, error: erroCredito } = await creditoQuery.maybeSingle();
-    if (erroCredito) throw erroCredito;
 
     const saldo = Math.max(0, Number(credito?.saldo_atual ?? credito?.saldo ?? 0));
     if (!faturaEncerramento && saldo > 0 && ultima) {
