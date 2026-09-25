@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import { useReadNotifications } from "../../hooks/useReadNotifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -19,6 +19,7 @@ import {
 
 import { useAuth } from "../../contexts/AuthContext";
 import { listarFaturas } from "../../services/faturas.service";
+import { listarNotificacoesApp } from "../../services/notificacoes.service";
 import { listarMinhasUnidades } from "../../services/clientes.service";
 
 import {
@@ -63,7 +64,8 @@ export default function ClienteHeader({
     useState(false);
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
   const [fotoAberta, setFotoAberta] = useState(false);
-  const [avisosRecebidos, setNotificacoes] = useState<any[]>([]);
+  const [avisosFaturas, setAvisosFaturas] = useState<any[]>([]);
+  const [avisosApp, setAvisosApp] = useState<any[]>([]);
   const [unidadeAtual, setUnidadeAtual] = useState<any>(null);
   const { isExpanded: detalhesExpandidos, setExpanded: setDetalhesExpandidos } = useHeaderDetailsVisibility();
 
@@ -83,7 +85,8 @@ export default function ClienteHeader({
   const usuarioId = usuario?.id ? String(usuario.id) : undefined;
   const fotoPerfil = useProfilePhoto(usuarioId);
   const leituras = useReadNotifications(usuarioId);
-  const notificacoes = leituras.ready ? avisosRecebidos.filter((aviso) => !leituras.ids.includes(String(aviso.id))) : [];
+  const notificacoes = [...avisosApp, ...avisosFaturas];
+  const naoLidas = leituras.ready ? notificacoes.filter((aviso) => !leituras.ids.includes(String(aviso.id))).length : 0;
 
   useEffect(() => {
     let ativo = true;
@@ -109,7 +112,7 @@ export default function ClienteHeader({
 
   useEffect(() => {
     let ativo = true;
-    setNotificacoes([]);
+    setAvisosFaturas([]);
     if (!usuario?.id) return;
     listarFaturas().then((faturas) => {
       if (!ativo) return;
@@ -123,7 +126,7 @@ export default function ClienteHeader({
         if (dias <= 5) return [{ id: fatura.id, severidade: "media", titulo: "Fatura próxima do vencimento", detalhe: `Vence em ${dias} dia${dias === 1 ? "" : "s"}`, rota: `/faturas/${fatura.id}` }];
         return [];
       });
-      setNotificacoes(avisos);
+      setAvisosFaturas(avisos);
       void notificarAvisosNoAndroid(usuarioId, avisos.map((aviso: any) => ({
         id: String(aviso.id),
         titulo: aviso.titulo,
@@ -131,9 +134,19 @@ export default function ClienteHeader({
         rota: aviso.rota,
         urgente: aviso.severidade === "alta",
       })));
-    }).catch(() => { if (ativo) setNotificacoes([]); });
+    }).catch(() => { if (ativo) setAvisosFaturas([]); });
     return () => { ativo = false; };
   }, [usuarioId]);
+
+  useFocusEffect(useCallback(() => {
+    if (!usuarioId) return undefined;
+    let ativo = true;
+    listarNotificacoesApp().then((itens) => {
+      if (!ativo) return;
+      setAvisosApp(itens);
+    }).catch(() => undefined);
+    return () => { ativo = false; };
+  }, [usuarioId]));
 
   async function marcarComoLida(id: string) {
     try { await leituras.mark(id); }
@@ -339,14 +352,14 @@ export default function ClienteHeader({
             }
           >
             <Ionicons
-              name={notificacoes.length ? "notifications" : "notifications-outline"}
+              name={naoLidas ? "notifications" : "notifications-outline"}
               size={24}
               color={
                 Colors.surface
               }
             />
           </TouchableOpacity>
-          {notificacoes.length ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{notificacoes.length > 9 ? "9+" : notificacoes.length}</Text></View> : null}
+          {naoLidas ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{naoLidas > 9 ? "9+" : naoLidas}</Text></View> : null}
         </View>
 
         {detalhesExpandidos ? <View style={styles.unitCard}>
@@ -380,7 +393,7 @@ export default function ClienteHeader({
         <Pressable style={styles.notificationBackdrop} onPress={() => setNotificacoesAbertas(false)}>
           <Pressable style={styles.notificationPanel} onPress={(evento) => evento.stopPropagation()}>
             <View style={styles.notificationHeader}><Text style={styles.notificationTitle}>Notificações</Text><TouchableOpacity onPress={() => setNotificacoesAbertas(false)}><Ionicons name="close" size={25} color={Colors.text} /></TouchableOpacity></View>
-            {notificacoes.length ? notificacoes.map((aviso) => <TouchableOpacity key={aviso.id} style={styles.notificationItem} onPress={async () => { await marcarComoLida(aviso.id); setNotificacoesAbertas(false); router.push(aviso.rota as any); }}><View style={[styles.notificationDot, aviso.severidade === "alta" && styles.notificationDotHigh]} /><View style={styles.notificationCopy}><Text style={styles.notificationItemTitle}>{aviso.titulo}</Text><Text style={styles.notificationDetail}>{aviso.detalhe}</Text></View><Ionicons name="chevron-forward" size={18} color={Colors.subtitle} /></TouchableOpacity>) : <View style={styles.emptyNotifications}><Ionicons name="checkmark-circle-outline" size={34} color={Colors.primary} /><Text style={styles.notificationItemTitle}>Tudo em dia</Text></View>}
+            {notificacoes.length ? notificacoes.map((aviso) => <TouchableOpacity key={aviso.id} style={styles.notificationItem} onPress={async () => { await marcarComoLida(String(aviso.id)); setNotificacoesAbertas(false); if (aviso.rota) router.push(aviso.rota as any); }}><View style={[styles.notificationDot, aviso.severidade === "alta" && styles.notificationDotHigh, leituras.ids.includes(String(aviso.id)) && { opacity: 0.25 }]} /><View style={styles.notificationCopy}><Text style={styles.notificationItemTitle}>{aviso.titulo}</Text><Text style={styles.notificationDetail}>{aviso.detalhe}</Text></View><Ionicons name="chevron-forward" size={18} color={Colors.subtitle} /></TouchableOpacity>) : <View style={styles.emptyNotifications}><Ionicons name="checkmark-circle-outline" size={34} color={Colors.primary} /><Text style={styles.notificationItemTitle}>Tudo em dia</Text></View>}
           </Pressable>
         </Pressable>
       </Modal>

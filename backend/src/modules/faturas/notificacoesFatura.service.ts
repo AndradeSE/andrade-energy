@@ -4,6 +4,7 @@ import {
   microsoftEmailConfigurado,
 } from "../email/microsoftEmail.service";
 import { VERSAO_RELATORIO_CALCULO } from "./documentosFatura.service";
+import { criarNotificacaoApp } from "../notificacoes/push.service";
 
 type Canal = "EMAIL" | "WHATSAPP";
 
@@ -20,6 +21,9 @@ function normalizarWhatsapp(valor: string) {
 }
 
 export async function enfileirarNotificacoesDaFatura(fatura: any) {
+  await notificarClienteDaFaturaDisponivel(fatura).catch((erro) => {
+    console.error("Falha ao notificar fatura no app", { tipo: erro?.name ?? "Error" });
+  });
   const { data: cliente, error } = await supabase
     .from("clientes")
     .select("email, whatsapp")
@@ -57,6 +61,27 @@ export async function enfileirarNotificacoesDaFatura(fatura: any) {
 
   if (insertError) throw insertError;
   return data ?? [];
+}
+
+export async function notificarClienteDaFaturaDisponivel(fatura: any) {
+  if (!fatura?.id || !fatura?.cliente_id || !fatura?.empresa_id || String(fatura.status).toUpperCase() !== "ABERTA") return;
+  const { data: acessos, error } = await supabase.from("empresa_usuarios")
+    .select("usuario_id")
+    .eq("empresa_id", fatura.empresa_id)
+    .eq("cliente_id", fatura.cliente_id)
+    .eq("papel", "LEITURA")
+    .eq("ativo", true);
+  if (error) throw error;
+  const usuarios = [...new Set((acessos ?? []).map((acesso: any) => String(acesso.usuario_id)).filter(Boolean))];
+  await Promise.all(usuarios.map((usuario_id) => criarNotificacaoApp({
+    usuario_id,
+    empresa_id: fatura.empresa_id,
+    tipo: "FATURA_DISPONIVEL",
+    titulo: "Nova fatura disponível",
+    detalhe: fatura.referencia ? `Fatura ${fatura.referencia} disponível para consulta.` : "Sua fatura está disponível para consulta.",
+    rota: `/faturas/${fatura.id}`,
+    chave_dedupe: `fatura-disponivel:${fatura.id}:${usuario_id}`,
+  })));
 }
 
 async function baixarAnexo(caminho: string, filename: string) {

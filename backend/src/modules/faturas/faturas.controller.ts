@@ -11,6 +11,7 @@ import {
   obterRelatorioCalculoFatura,
 } from "./faturas.service";
 import { processarFatura } from "./processarFatura.service";
+import { notificarClienteDaFaturaDisponivel } from "./notificacoesFatura.service";
 import { empresaIdDaRequisicao } from "../../utils/empresaScope";
 
 export async function criarFaturaManualController(req: Request, res: Response) {
@@ -28,7 +29,13 @@ export async function criarFaturaManualController(req: Request, res: Response) {
       tarifaCheia: Number(entrada.tarifaCheia), tarifaGD: Number(entrada.tarifaGD || 0), custoDisponibilidade: Number(entrada.custoDisponibilidade || 0), bandeira: "", historico: [], debitos: [],
       valorIluminacaoPublica: Number(entrada.valorIluminacaoPublica || 0), valorBandeira: Number(entrada.valorBandeira || 0), encargosAdicionais: Number(entrada.encargosAdicionais || 0),
     };
-    return res.status(201).json(await processarFatura(dados));
+    const resultado = await processarFatura(dados);
+    if (!resultado.jaProcessada && resultado.id) {
+      await notificarClienteDaFaturaDisponivel(resultado).catch((erro) => {
+        console.error("Falha ao notificar fatura manual no app", { tipo: erro?.name ?? "Error" });
+      });
+    }
+    return res.status(201).json(resultado);
   } catch (err: any) { return res.status(400).json({ message: err.message }); }
 }
 
