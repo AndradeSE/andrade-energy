@@ -615,7 +615,34 @@ export async function importarContratoAssinadoPeloClienteService(contratoId: str
   if (arquivo.mimetype && arquivo.mimetype !== "application/pdf") throw new Error("Envie um arquivo PDF.");
   const contrato = await obterContratoDoClienteParaAceite(contratoId, usuario);
   if (!contrato.unidade_consumidora_id) throw new Error("Este contrato não está vinculado a uma unidade consumidora.");
-  return salvarPdfAssinadoPendente(contrato, contrato.unidade_consumidora_id, arquivo.path);
+  const pendente = await salvarPdfAssinadoPendente(contrato, contrato.unidade_consumidora_id, arquivo.path);
+  try {
+    const { data: vinculos, error: erroVinculos } = await supabase.from("empresa_usuarios")
+      .select("usuario_id,papel,permissoes")
+      .eq("empresa_id", contrato.empresa_id).eq("ativo", true)
+      .in("papel", ["SUPERADMIN", "ADMIN_EMPRESA", "GESTOR", "COLABORADOR_GERADOR"]);
+    if (erroVinculos) throw erroVinculos;
+    const { data: unidade, error: erroUnidade } = await supabase.from("unidades_consumidoras")
+      .select("numero")
+      .eq("id", contrato.unidade_consumidora_id).eq("empresa_id", contrato.empresa_id).maybeSingle();
+    if (erroUnidade) throw erroUnidade;
+    const destinatarios = (vinculos ?? []).filter((vinculo: any) =>
+      vinculo.papel !== "COLABORADOR_GERADOR" || vinculo.permissoes?.contratos !== false,
+    );
+    await Promise.all(destinatarios.map((vinculo: any) => criarNotificacaoApp({
+      usuario_id: vinculo.usuario_id,
+      empresa_id: contrato.empresa_id,
+      tipo: "CONTRATO_EXTERNO_AGUARDANDO_CONFERENCIA",
+      titulo: "Contrato assinado aguardando conferência",
+      detalhe: `O cliente enviou um PDF assinado${unidade?.numero ? ` para a UC ${unidade.numero}` : ""}. Abra o documento e confira antes de validar.`,
+      rota: `/unidades/contrato?id=${contrato.unidade_consumidora_id}`,
+      chave_dedupe: `contrato-externo:${contrato.id}:${pendente.dados_documento?.assinatura_externa_reenvios ?? 0}:${vinculo.usuario_id}`,
+    })));
+  } catch (erro) {
+    // O PDF continua pendente mesmo se o serviço de notificações falhar.
+    console.error("Falha ao notificar conferência do contrato externo", erro);
+  }
+  return pendente;
 }
 
 export async function atualizarContratoService(
