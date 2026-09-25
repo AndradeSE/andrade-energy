@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useQueryClient } from "@tanstack/react-query";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { Alert, RefreshControl, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
@@ -8,15 +9,20 @@ import { AppHeader, Button, Card, Divider, ElasticScrollView as ScrollView, Load
 import * as FinanceiroService from "../../services/financeiro.service";
 import * as CarteiraService from "../../services/carteira.service";
 import AutenticadorFinanceiro from "../../components/financeiro/AutenticadorFinanceiro";
+import { useAuth } from "../../contexts/AuthContext";
+import { initialTabKey } from "../../services/navigation-preload.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const moeda = (valor: number) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function Financeiro() {
-  const [loading, setLoading] = useState(true);
+  const { user, usinaSelecionada } = useAuth();
+  const queryClient = useQueryClient();
+  const inicial = queryClient.getQueryData<[PromiseSettledResult<Awaited<ReturnType<typeof FinanceiroService.carregarFinanceiro>>>, PromiseSettledResult<CarteiraService.Carteira>]>(initialTabKey(String(user?.id ?? ""), usinaSelecionada?.id ?? user?.usina_id, "financeiro"));
+  const [loading, setLoading] = useState(!inicial);
   const [atualizando, setAtualizando] = useState(false);
-  const [dados, setDados] = useState({ receitaPrevista: 0, receitaRecebida: 0, valorEmAberto: 0, inadimplentes: 0, ticketMedio: 0, percentualRecebido: 0, totalFaturas: 0, historicoMensal: [] as { competencia: string; valor: number }[] });
-  const [carteira, setCarteira] = useState<CarteiraService.Carteira | null>(null);
+  const [dados, setDados] = useState(() => inicial?.[0]?.status === "fulfilled" ? inicial[0].value : { receitaPrevista: 0, receitaRecebida: 0, valorEmAberto: 0, inadimplentes: 0, ticketMedio: 0, percentualRecebido: 0, totalFaturas: 0, historicoMensal: [] as { competencia: string; valor: number }[] });
+  const [carteira, setCarteira] = useState<CarteiraService.Carteira | null>(() => inicial?.[1]?.status === "fulfilled" ? inicial[1].value : null);
   const [pixChave, setPixChave] = useState(""); const [pixTipo] = useState("EMAIL"); const [saque, setSaque] = useState(""); const [senhaFinanceira, setSenhaFinanceira] = useState("");
   const [codigoAutenticador, setCodigoAutenticador] = useState("");
   const carregar = useCallback(async () => {

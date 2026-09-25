@@ -2,19 +2,26 @@ import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Alert, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { AppHeader, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { listarUnidadesGestor } from "../../services/clientes.service";
 import { processarFatura } from "../../services/faturas.service";
 import { useAuth } from "../../contexts/AuthContext";
+import { initialTabKey } from "../../services/navigation-preload.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function Faturamento() {
-  const { suspenderBloqueioTemporariamente } = useAuth();
-  const [carregando, setCarregando] = useState(true);
+  const { user, usinaSelecionada, suspenderBloqueioTemporariamente } = useAuth();
+  const queryClient = useQueryClient();
+  const unidadesIniciais = queryClient.getQueryData<any[]>(initialTabKey(String(user?.id ?? ""), usinaSelecionada?.id ?? user?.usina_id, "faturamento"));
+  const [carregando, setCarregando] = useState(!unidadesIniciais);
   const [atualizando, setAtualizando] = useState(false);
-  const [unidadesRecebimento, setUnidadesRecebimento] = useState<any[]>([]);
+  const [unidadesRecebimento, setUnidadesRecebimento] = useState<any[]>(() => (unidadesIniciais ?? []).filter((item: any) => {
+    const usina = Array.isArray(item.usinas) ? item.usinas[0] : item.usinas;
+    return String(item.tipo ?? "BENEFICIARIA").toUpperCase() !== "GERADORA" && String(usina?.titularidade_ucs_recebedoras ?? "GERADOR") === "GERADOR";
+  }));
   const [faturandoPdf, setFaturandoPdf] = useState(false);
   const [pdfPendente, setPdfPendente] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [senhaPdf, setSenhaPdf] = useState("");

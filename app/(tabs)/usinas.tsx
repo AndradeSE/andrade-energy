@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from "expo-document-picker";
 import { LinearGradient } from "expo-linear-gradient";
@@ -11,11 +12,14 @@ import PdfPasswordRetryModal from "../../components/PdfPasswordRetryModal";
 import { AppHeader, Card, ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import { excluirUsina, importarFaturaGeradora, listarUsinas } from "../../services/usinas.service";
+import { initialTabKey } from "../../services/navigation-preload.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function Usinas() {
   const { usuario, usinaSelecionada, selecionarUsina, atualizarUsuario, suspenderBloqueioTemporariamente } = useAuth();
-  const [usinas, setUsinas] = useState<any[]>([]); const [loading, setLoading] = useState(true); const [atualizando, setAtualizando] = useState(false);
+  const queryClient = useQueryClient();
+  const inicial = queryClient.getQueryData<any[]>(initialTabKey(String(usuario?.id ?? ""), usinaSelecionada?.id ?? usuario?.usina_id, "usinas"));
+  const [usinas, setUsinas] = useState<any[]>(inicial ?? []); const [loading, setLoading] = useState(!inicial); const [atualizando, setAtualizando] = useState(false);
   const [importandoId, setImportandoId] = useState<string | null>(null);
   const [pdfPendente, setPdfPendente] = useState<{ item: any; pdf: DocumentPicker.DocumentPickerAsset } | null>(null);
   const [pedindoSenhaPdf, setPedindoSenhaPdf] = useState(false);

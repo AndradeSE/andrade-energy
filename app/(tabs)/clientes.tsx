@@ -1,11 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Alert, Pressable, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { AppHeader, Badge, Card, ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../../components/ui";
 import CadastroActions from "../../components/cadastro/CadastroActions";
 import { excluirCliente, listarClientes } from "../../services/clientes.service";
+import { useAuth } from "../../contexts/AuthContext";
+import { initialTabKey } from "../../services/navigation-preload.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 function formatarDocumento(valor?: string) {
@@ -32,11 +35,14 @@ function statusCadastro(cliente: any) {
 }
 
 export default function Clientes() {
-  const [clientes, setClientes] = useState<any[]>([]); const [busca, setBusca] = useState(""); const [loading, setLoading] = useState(true); const [atualizando, setAtualizando] = useState(false); const [erro, setErro] = useState<string | null>(null);
+  const { user, usinaSelecionada } = useAuth();
+  const queryClient = useQueryClient();
+  const inicial = queryClient.getQueryData<any[]>(initialTabKey(String(user?.id ?? ""), usinaSelecionada?.id ?? user?.usina_id, "clientes"));
+  const [clientes, setClientes] = useState<any[]>(inicial ?? []); const [busca, setBusca] = useState(""); const [loading, setLoading] = useState(!inicial); const [atualizando, setAtualizando] = useState(false); const [erro, setErro] = useState<string | null>(null);
   const carregar = useCallback(async () => {
     try {
       setErro(null);
-      const dados = await listarClientes();
+      const dados = await listarClientes(usinaSelecionada?.id);
       setClientes(Array.isArray(dados) ? dados : []);
     } catch (erro: any) {
       setClientes([]);
@@ -44,7 +50,7 @@ export default function Clientes() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [usinaSelecionada?.id]);
   useFocusEffect(useCallback(() => { void carregar(); }, [carregar]));
   async function atualizarPagina() { setAtualizando(true); try { await carregar(); } finally { setAtualizando(false); } }
   const lista = useMemo(() => clientes.filter((c) => `${c.nome} ${unidadeDoCliente(c)} ${c.telefone} ${c.email} ${documentoDoCliente(c)}`.toLowerCase().includes(busca.toLowerCase())), [busca, clientes]);

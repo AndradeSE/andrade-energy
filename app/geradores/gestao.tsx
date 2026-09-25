@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -41,6 +42,7 @@ import {
 } from "../../services/comercial.service";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 import AutenticadorFinanceiro from "../../components/financeiro/AutenticadorFinanceiro";
+import { initialTabKey } from "../../services/navigation-preload.service";
 
 const money = (value: unknown) =>
   Number(value ?? 0).toLocaleString("pt-BR", {
@@ -57,13 +59,16 @@ const date = (value: unknown) =>
 export default function GestaoGeradores() {
   const params = useLocalSearchParams<{ aba?: string }>();
   const { user } = useAuth();
-  const [data, setData] = useState<PainelComercial | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const painelInicial = queryClient.getQueryData<PainelComercial>(initialTabKey(String(user?.id ?? ""), undefined, "comercial"));
+  const financeiroInicial = queryClient.getQueryData<any>(initialTabKey(String(user?.id ?? ""), undefined, "comercial-financeiro"));
+  const [data, setData] = useState<PainelComercial | null>(painelInicial ?? null);
+  const [loading, setLoading] = useState(!painelInicial);
   const [menuAberto, setMenuAberto] = useState(false);
   const [avisosPassoAPasso, setAvisosPassoAPasso] = useState(true);
   useEffect(() => { void avisosPassoAPassoAtivos().then(setAvisosPassoAPasso); }, []);
   const [planoEditando, setPlanoEditando] = useState<any>(null);
-  const [carteira, setCarteira] = useState<any>(null);
+  const [carteira, setCarteira] = useState<any>(financeiroInicial ?? null);
   const [pixTipo] = useState("CPF");
   const [pixChave, setPixChave] = useState("");
   const [senhaFinanceira, setSenhaFinanceira] = useState("");

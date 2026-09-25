@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
-import { Alert, Image, LayoutAnimation, Modal, Pressable, StatusBar, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Image, LayoutAnimation, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { useCallback, useEffect, useState } from "react";
 import { useReadNotifications } from "../../hooks/useReadNotifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -18,6 +18,7 @@ import { useHeaderDetailsVisibility } from "../../hooks/useHeaderDetailsVisibili
 import { useProfilePhoto } from "../../hooks/useProfilePhoto";
 import { listarNotificacoesApp } from "../../services/notificacoes.service";
 import { avisosPassoAPassoAtivos, definirAvisosPassoAPasso } from "../../services/preferencias.service";
+import NotificationSideSheet from "./NotificationSideSheet";
 
 function escurecerCor(hex: string, fator = 0.62) {
   const limpa = hex.replace("#", "");
@@ -218,14 +219,14 @@ export default function AppHeader({
         </TouchableOpacity> : null}
       </View> : null}
 
-      <Modal animationType="fade" transparent visible={notificacoesAbertas} onRequestClose={() => setNotificacoesAbertas(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setNotificacoesAbertas(false)}>
-          <Pressable style={styles.notificationPanel} onPress={(evento) => evento.stopPropagation()}>
+      <NotificationSideSheet visible={notificacoesAbertas} onClose={() => setNotificacoesAbertas(false)}>
+          <View style={styles.notificationPanel}>
             <View style={styles.menuHeader}><Text style={styles.menuTitle}>Notificações</Text><TouchableOpacity onPress={() => setNotificacoesAbertas(false)}><Ionicons name="close" size={26} color={Colors.text} /></TouchableOpacity></View>
+            <ScrollView showsVerticalScrollIndicator={false}>
             {notificacoes.length ? notificacoes.map((aviso) => <TouchableOpacity key={aviso.id} onPress={async () => { if (!aviso.lida) await marcarNotificacaoComoLida(aviso.id); setNotificacoesAbertas(false); router.push(aviso.rota as any); }} style={[styles.notificationItem, aviso.lida && styles.notificationItemRead]}><View style={[styles.notificationDot, aviso.severidade === "alta" && !aviso.lida && styles.notificationDotHigh, aviso.lida && styles.notificationDotRead]} /><View style={styles.notificationCopy}><View style={styles.notificationTitleRow}><Text style={[styles.notificationTitle, aviso.lida && styles.notificationTitleRead]}>{aviso.titulo}</Text><Text style={[styles.notificationStatus, aviso.lida && styles.notificationStatusRead]}>{aviso.lida ? "Lida" : "Não lida"}</Text></View><Text style={[styles.notificationDetail, aviso.lida && styles.notificationDetailRead]}>{aviso.detalhe}</Text></View><Ionicons name="chevron-forward" size={18} color={Colors.subtitle} /></TouchableOpacity>) : <View style={styles.emptyNotifications}><Ionicons name="checkmark-circle-outline" size={34} color={Colors.success} /><Text style={styles.emptyNotificationsTitle}>Tudo em dia</Text><Text style={styles.emptyNotificationsText}>Nenhuma notificação encontrada.</Text></View>}
-          </Pressable>
-        </Pressable>
-      </Modal>
+            </ScrollView>
+          </View>
+      </NotificationSideSheet>
 
       <Modal animationType="fade" transparent visible={fotoAberta && Boolean(fotoPerfil)} onRequestClose={() => setFotoAberta(false)}>
         <Pressable accessibilityLabel="Fechar foto ampliada" onPress={() => setFotoAberta(false)} style={styles.photoBackdrop}>
@@ -256,7 +257,7 @@ export default function AppHeader({
       </View> : <TouchableOpacity accessibilityLabel="Abrir detalhes da usina" activeOpacity={0.8} onPress={alternarContextoUsina} style={styles.plantDetailsToggle}><Text style={styles.plantToggleText}>Detalhes</Text><Ionicons name="chevron-down" size={15} color="#F6CC32" /></TouchableOpacity> : null}
 
       <Modal animationType="fade" transparent visible={menuAberto} onRequestClose={() => setMenuAberto(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setMenuAberto(false)}>
+        <Pressable style={[styles.backdrop, proprietario && styles.ownerMenuBackdrop]} onPress={() => setMenuAberto(false)}>
           <Pressable style={styles.menu} onPress={(evento) => evento.stopPropagation()}>
             <View style={styles.menuHeader}><Text style={styles.menuTitle}>Menu</Text><TouchableOpacity onPress={() => setMenuAberto(false)}><Ionicons name="close" size={26} color={Colors.text} /></TouchableOpacity></View>
             <MenuLink icon="home-outline" label="Início" onPress={() => navegar("/")} />
@@ -433,8 +434,9 @@ const styles = StyleSheet.create({
   photoPreview: { width: "100%", height: "100%" },
   photoClose: { position: "absolute", top: 12, right: 12, width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: "rgba(0,0,0,0.5)" },
   backdrop: { flex: 1, alignItems: "flex-end", backgroundColor: "rgba(15,23,42,0.45)" },
+  ownerMenuBackdrop: { alignItems: "flex-start" },
   menu: { width: "84%", height: "100%", paddingHorizontal: Spacing.lg, paddingTop: 58, backgroundColor: Colors.surface },
-  notificationPanel: { width: "88%", marginTop: 90, marginHorizontal: "6%", paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg, borderRadius: Radius.xl, backgroundColor: Colors.surface },
+  notificationPanel: { flex: 1, width: "100%", paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, backgroundColor: Colors.surface },
   notificationItem: { minHeight: 66, flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: Colors.border },
   notificationItemRead: { opacity: 0.68, backgroundColor: "#F7FAF8" },
   notificationDot: { width: 10, height: 10, marginRight: Spacing.sm, borderRadius: Radius.round, backgroundColor: Colors.secondary },
