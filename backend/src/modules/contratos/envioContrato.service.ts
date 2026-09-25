@@ -60,8 +60,9 @@ export async function enviarContratoEConvite(unidadeId: string, gestor: any, for
   }
   // Auditoria do arquivo efetivamente selecionado para o envio. O registro é
   // feito mesmo se o provedor de e-mail falhar, distinguindo preparo e entrega.
+  const envioSolicitadoEm = new Date().toISOString();
   const { error: erroAuditoria } = await supabase.from("contratos").update({
-    dados_documento: { ...d, envio_documento_hash: documentoHash, envio_solicitado_em: new Date().toISOString(), envio_email_concluido: Boolean(resultado.emailEnviado) },
+    dados_documento: { ...d, envio_documento_hash: documentoHash, envio_solicitado_em: envioSolicitadoEm, envio_email_concluido: Boolean(resultado.emailEnviado) },
   }).eq("id", contrato.id).eq("contrato_gerado_url", contrato.contrato_gerado_url);
   if (erroAuditoria) throw erroAuditoria;
   if (resultado.contaExistente) {
@@ -77,7 +78,7 @@ export async function enviarContratoEConvite(unidadeId: string, gestor: any, for
         titulo: revisaoContratual ? "Revisão contratual disponível" : "Contrato disponível",
         detalhe: revisaoContratual ? "Leia as alterações e confirme seu aceite no aplicativo." : "Leia o contrato disponível no aplicativo.",
         rota: "/contrato",
-        chave_dedupe: `contrato-enviado:${contrato.id}:${acesso.usuario_id}`,
+        chave_dedupe: `contrato-enviado:${contrato.id}:${envioSolicitadoEm}:${acesso.usuario_id}`,
       })));
     })().catch((erroNotificacao) => console.error("Falha ao notificar envio do contrato", erroNotificacao));
   }
