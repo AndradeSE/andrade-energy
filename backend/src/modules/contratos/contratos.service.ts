@@ -620,6 +620,15 @@ export async function atualizarContratoService(
 export async function excluirContratoService(
   id: string
 ) {
+  const { data: contrato, error } = await supabase.from("contratos")
+    .select("status, aceite_cliente_em, contrato_assinado_url, dados_documento")
+    .eq("id", id).single();
+  if (error) throw error;
+  if (String(contrato.status).toUpperCase() !== "RASCUNHO"
+    || contrato.aceite_cliente_em || contrato.contrato_assinado_url
+    || contrato.dados_documento?.envio_email_concluido === true) {
+    throw new Error("Somente rascunhos não enviados e sem assinatura podem ser excluídos.");
+  }
   await excluirContrato(id);
 
   return {

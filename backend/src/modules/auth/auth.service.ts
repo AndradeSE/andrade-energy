@@ -449,11 +449,15 @@ export async function cadastrarConsumidorComFatura(
     if (erroUnidadeConvite) throw erroUnidadeConvite;
     if (!unidadeDoConvite) throw new Error("A UC deste convite não está mais vinculada ao cliente.");
     const { data: contratoDoConvite, error: erroContratoConvite } = await supabase
-      .from("contratos").select("id,contrato_gerado_url,status")
+      .from("contratos").select("id,contrato_gerado_url,contrato_assinado_url,status")
       .eq("unidade_consumidora_id", unidadeDoConviteId).eq("cliente_id", clienteId)
-      .in("status", ["ATIVO", "VIGENTE"]).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      .in("status", ["RASCUNHO", "ATIVO", "VIGENTE"]).order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (erroContratoConvite) throw erroContratoConvite;
-    if (!contratoDoConvite?.contrato_gerado_url) throw new Error("A minuta deste convite não está mais disponível. Peça ao gerador para revisar e reenviar.");
+    // Contratos enviados já assinados não possuem minuta gerada pelo aplicativo.
+    // O convite continua válido enquanto houver o documento assinado vigente.
+    if (!contratoDoConvite?.contrato_gerado_url && !contratoDoConvite?.contrato_assinado_url) {
+      throw new Error("O documento deste convite não está disponível. Peça ao gerador para revisar e reenviar.");
+    }
 
     if (possuiFatura) {
       const { data: unidadeExistente, error: unidadeError } = await supabase

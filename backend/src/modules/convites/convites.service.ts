@@ -140,7 +140,9 @@ export async function consultarConvite(token: string) {
   const { data, error } = await supabase.from("convites_clientes")
     .select("id,nome,cpf,email,telefone,endereco,status,expira_em,empresa_id,unidade_consumidora_id")
     .eq("token_hash", hashToken(token)).maybeSingle();
-  if (error || !data || data.status !== "PENDENTE" || new Date(data.expira_em) <= new Date()) throw new Error("Convite inválido ou expirado.");
+  if (error || !data) throw new Error("Convite inválido ou expirado.");
+  if (data.status === "ACEITO") throw new Error("Este convite já foi utilizado. Sua conta já foi criada; entre no aplicativo com seu e-mail e senha ou use Esqueci minha senha.");
+  if (data.status !== "PENDENTE" || new Date(data.expira_em) <= new Date()) throw new Error("Convite inválido ou expirado. Solicite um novo convite ao gerador.");
   const { data: conta } = await supabase
     .from("usuarios")
     .select("id")
