@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { router, usePathname } from "expo-router";
 import { useAuth } from "../../contexts/AuthContext";
@@ -12,16 +12,23 @@ export default function ContractAccessGate() {
   const [bloqueado, setBloqueado] = useState(false);
   const [erro, setErro] = useState(false);
   const [tentativa, setTentativa] = useState(0);
+  const escopoVerificado = useRef<string | null>(null);
   useEffect(() => {
     let ativo = true;
+    if (usuario?.perfil !== "LEITURA") escopoVerificado.current = null;
     if (usuario?.perfil !== "LEITURA" || /^(?:\/\(tabs\))?\/(?:login|criar-conta|contrato|perfil|biometric|selecionar-unidade)(?:\/|$)/.test(path)) {
       setBloqueado(false); return;
     }
-    setBloqueado(true); setErro(false);
+    const escopoAtual = `${usuario.id}:${unidadeSelecionada?.id ?? "sem-unidade"}`;
+    const primeiraVerificacao = escopoVerificado.current !== escopoAtual;
+    // A consulta continua em toda navegação, mas uma UC já verificada não
+    // precisa esconder a aba inteira enquanto a validação ocorre ao fundo.
+    setBloqueado(primeiraVerificacao);
+    if (primeiraVerificacao) setErro(false);
     api.get("/contratos/acesso/minhas-unidades").then(async ({ data }) => {
       if (!ativo) return;
       if (!Array.isArray(data) || !data.length) {
-        setErro(true); return;
+        setBloqueado(true); setErro(true); return;
       }
       const atual = data.find((uc: any) => uc.id === unidadeSelecionada?.id);
       const liberadas = data.filter((uc: any) => uc.liberado);
@@ -33,8 +40,11 @@ export default function ContractAccessGate() {
         // Sem contrato vinculado não existe documento que o consumidor possa
         // assinar. Volte à seleção em vez de prendê-lo numa aba sem saída.
         if (ativo) router.replace("/selecionar-unidade");
-      } else if (ativo) setBloqueado(false);
-    }).catch(() => { if (ativo) setErro(true); });
+      } else if (ativo) {
+        escopoVerificado.current = escopoAtual;
+        setBloqueado(false);
+      }
+    }).catch(() => { if (ativo && primeiraVerificacao) setErro(true); });
     return () => { ativo = false; };
   }, [usuario?.id, usuario?.perfil, unidadeSelecionada?.id, path, tentativa]);
   if (!bloqueado) return null;
