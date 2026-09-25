@@ -70,7 +70,7 @@ function passoValido(segredo: string, codigo: string, ultimoPasso: number) {
   }
   return null;
 }
-async function conferirCodigo(usuarioId: string, codigo: string, confirmacao: boolean) {
+async function conferirCodigo(usuarioId: string, codigo: string, confirmacao: boolean, somenteValidar = false) {
   const atual = await registro(usuarioId);
   if (!atual || Boolean(atual.confirmado) === confirmacao) throw new Error(confirmacao ? "Inicie o cadastro do autenticador." : "Cadastre o aplicativo autenticador antes de operar o Pix.");
   if (confirmacao && (!atual.expira_em || new Date(atual.expira_em).getTime() < Date.now())) throw new Error("O cadastro expirou. Inicie novamente.");
@@ -82,9 +82,19 @@ async function conferirCodigo(usuarioId: string, codigo: string, confirmacao: bo
     if (error) throw error;
     throw new Error("Código inválido ou já utilizado.");
   }
+  if (somenteValidar) return;
   const { data, error } = await supabase.from("financeiro_autenticadores").update({ confirmado: true, expira_em: null, ultimo_passo: passo, tentativas: 0, bloqueado_ate: null, atualizado_em: new Date().toISOString() }).eq("usuario_id", usuarioId).eq("ultimo_passo", atual.ultimo_passo).eq("tentativas", atual.tentativas).select("usuario_id").maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("Código já utilizado. Aguarde o próximo código e tente novamente.");
 }
 export async function confirmarAutenticador(usuarioId: string, codigo: string) { await conferirCodigo(usuarioId, codigo, true); return { ativo: true }; }
 export async function exigirCodigoFinanceiro(usuarioId: string, codigo: string) { await conferirCodigo(usuarioId, codigo, false); }
+export async function confirmarSenhaFinanceira(usuario: any, senhaAtual: string) {
+  if (!(await conferirSenha(senhaAtual, String(usuario.senha ?? "")))) throw new Error("Senha atual incorreta.");
+  return { confirmado: true };
+}
+export async function validarCodigoFinanceiro(usuario: any, senhaAtual: string, codigo: string) {
+  await confirmarSenhaFinanceira(usuario, senhaAtual);
+  await conferirCodigo(usuario.id, codigo, false, true);
+  return { confirmado: true };
+}
