@@ -393,7 +393,7 @@ export default function ClienteHeader({
 
       <NotificationSideSheet visible={notificacoesAbertas} onClose={() => setNotificacoesAbertas(false)}>
           <View style={styles.notificationPanel}>
-            <View style={styles.notificationHeader}><Text style={styles.notificationTitle}>Notificações</Text><TouchableOpacity onPress={() => setNotificacoesAbertas(false)}><Ionicons name="close" size={25} color={Colors.text} /></TouchableOpacity></View>
+            <View style={styles.notificationHeader}><TouchableOpacity accessibilityLabel="Voltar" onPress={() => setNotificacoesAbertas(false)} style={{ marginRight: Spacing.md }}><Ionicons name="arrow-back" size={25} color={Colors.text} /></TouchableOpacity><Text style={[styles.notificationTitle, { flex: 1 }]}>Notificações</Text></View>
             <ScrollView showsVerticalScrollIndicator={false}>
             {notificacoes.length ? notificacoes.map((aviso) => <TouchableOpacity key={aviso.id} style={styles.notificationItem} onPress={async () => { await marcarComoLida(String(aviso.id)); setNotificacoesAbertas(false); if (aviso.rota) router.push(aviso.rota as any); }}><View style={[styles.notificationDot, aviso.severidade === "alta" && styles.notificationDotHigh, leituras.ids.includes(String(aviso.id)) && { opacity: 0.25 }]} /><View style={styles.notificationCopy}><Text style={styles.notificationItemTitle}>{aviso.titulo}</Text><Text style={styles.notificationDetail}>{aviso.detalhe}</Text></View><Ionicons name="chevron-forward" size={18} color={Colors.subtitle} /></TouchableOpacity>) : <View style={styles.emptyNotifications}><Ionicons name="checkmark-circle-outline" size={34} color={Colors.primary} /><Text style={styles.notificationItemTitle}>Tudo em dia</Text></View>}
             </ScrollView>

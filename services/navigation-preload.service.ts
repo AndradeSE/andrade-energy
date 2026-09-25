@@ -2,7 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 
 import { buscarDashboard } from "./dashboard.service";
 import { listarClientes, listarMinhasUnidades, listarUnidadesGestor } from "./clientes.service";
-import { buscarContrato, buscarContratoDaUnidade, listarAcessoContratos } from "./contratos.service";
+import { buscarContrato, buscarContratoDaUnidade, listarAcessoContratos, listarContratosDaEmpresa } from "./contratos.service";
 import { listarFaturas } from "./faturas.service";
 import { obterResumoOperacao, listarFechamentos } from "./fechamentos.service";
 import { carregarFinanceiro } from "./financeiro.service";
@@ -51,7 +51,10 @@ export async function preloadNavigationData(
         return { ...dashboard, capacidadeReservada: capacidade.reservado, capacidadeDisponivel: capacidade.disponivel };
       },
     }));
-    tasks.push(queryClient.prefetchQuery({ queryKey: ["faturas", plantId ?? "todas", undefined], queryFn: () => listarFaturas(undefined, undefined, plantId ?? undefined) }));
+    // useFaturas usa a chave global do gerador; uma chave por usina aqui
+    // deixava a primeira visita à aba Faturas sem os dados pré-carregados.
+    tasks.push(queryClient.prefetchQuery({ queryKey: ["faturas", "todas", undefined], queryFn: () => listarFaturas() }));
+    tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, plantId, "contratos"), queryFn: () => listarContratosDaEmpresa() }));
     tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, plantId, "clientes"), queryFn: () => listarClientes(plantId ?? undefined) }));
     tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, plantId, "usinas"), queryFn: () => listarUsinas() }));
     tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, plantId, "faturamento"), queryFn: () => listarUnidadesGestor() }));

@@ -1,15 +1,21 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { AppHeader, Badge, Card, ElasticFlatList as FlatList, EmptyState, Screen } from "../../components/ui";
 import { listarContratosDaEmpresa } from "../../services/contratos.service";
+import { useAuth } from "../../contexts/AuthContext";
+import { initialTabKey } from "../../services/navigation-preload.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function ContratosClientes() {
-  const [contratos, setContratos] = useState<any[]>([]);
-  const [carregando, setCarregando] = useState(true);
+  const { user, usinaSelecionada } = useAuth();
+  const queryClient = useQueryClient();
+  const inicial = queryClient.getQueryData<any[]>(initialTabKey(String(user?.id ?? ""), usinaSelecionada?.id ?? user?.usina_id, "contratos"));
+  const [contratos, setContratos] = useState<any[]>(() => (inicial ?? []).map((contrato) => ({ ...contrato, unidades_consumidoras: Array.isArray(contrato.unidades_consumidoras) ? contrato.unidades_consumidoras[0] : contrato.unidades_consumidoras })));
+  const [carregando, setCarregando] = useState(!inicial);
   const [atualizando, setAtualizando] = useState(false);
 
   const carregar = useCallback(async () => {

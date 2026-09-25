@@ -19,7 +19,6 @@ export default function NotificationSideSheet({ visible, onClose, children }: Pr
     if (visible) {
       setMounted(true);
       offset.setValue(width);
-      Animated.timing(offset, { toValue: 0, duration: 250, useNativeDriver: true }).start();
       return;
     }
     if (!mounted) return;
@@ -28,7 +27,11 @@ export default function NotificationSideSheet({ visible, onClose, children }: Pr
     });
   }, [visible, width]);
 
-  return <Modal animationType="none" visible={mounted} onRequestClose={onClose} statusBarTranslucent>
+  // No Android, a animação iniciada antes do Modal aparecer pode terminar
+  // fora da tela. onShow garante que o deslizamento seja visto pelo usuário.
+  return <Modal animationType="none" visible={mounted} onShow={() => {
+    if (visible) Animated.timing(offset, { toValue: 0, duration: 280, useNativeDriver: true }).start();
+  }} onRequestClose={onClose} statusBarTranslucent>
     <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
     <View style={styles.canvas}>
       <Animated.View style={[styles.sheet, { paddingTop: insets.top, paddingBottom: insets.bottom, transform: [{ translateX: offset }] }]}>{children}</Animated.View>

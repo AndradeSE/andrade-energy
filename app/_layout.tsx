@@ -73,7 +73,9 @@ function RootNavigator() {
     let active = true;
     void Promise.race([
       preloadNavigationData(activeQueryClient, IS_GERADOR_APP, currentUser, unidadeSelecionada, usinaSelecionada),
-      new Promise<void>((resolve) => setTimeout(resolve, 15000)),
+      // Em instâncias gratuitas o backend pode levar ~50 s para acordar.
+      // Preserve o carregamento na abertura, não na primeira troca de aba.
+      new Promise<void>((resolve) => setTimeout(resolve, 60000)),
     ])
       .finally(() => { if (active) setReadyUserId(String(currentUser.id)); });
     return () => { active = false; };
