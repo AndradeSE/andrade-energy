@@ -111,9 +111,9 @@ export async function obterContratoDaUnidade(
         .eq("id", anteriorId).eq("unidade_consumidora_id", unidadeId)
         .eq("empresa_id", contratoDaUnidade.empresa_id).maybeSingle();
       if (erroAnterior) throw erroAnterior;
-      return anexarLinksDoContrato({ ...contratoDaUnidade, revisao_anterior: anterior ?? null });
+      return anexarCancelamentoAoContrato({ ...contratoDaUnidade, revisao_anterior: anterior ?? null });
     }
-    return anexarLinksDoContrato(contratoDaUnidade);
+    return anexarCancelamentoAoContrato(contratoDaUnidade);
   }
 
   // Compatibilidade para contratos antigos, criados antes do vínculo por UC.
@@ -125,7 +125,19 @@ export async function obterContratoDaUnidade(
   const { data: unidade, error } = await unidadeQuery.maybeSingle();
   if (error) throw error;
   const contratoLegado = unidade?.cliente_id ? await buscarContratoCliente(unidade.cliente_id, true, empresaId) : null;
-  return contratoLegado ? anexarLinksDoContrato(contratoLegado) : null;
+  return contratoLegado ? anexarCancelamentoAoContrato(contratoLegado) : null;
+}
+
+async function anexarCancelamentoAoContrato(contrato: any) {
+  const ids = [contrato.id, contrato.revisao_anterior?.id].filter(Boolean);
+  const { data, error } = await supabase.from("solicitacoes_cancelamento_contrato")
+    .select("id")
+    .eq("empresa_id", contrato.empresa_id)
+    .in("contrato_id", ids)
+    .in("status", ["PENDENTE", "PROCESSANDO"])
+    .limit(1);
+  if (error) throw error;
+  return anexarLinksDoContrato({ ...contrato, cancelamento_pendente: Boolean(data?.length) });
 }
 
 async function anexarLinksDoContrato(contrato: any) {
