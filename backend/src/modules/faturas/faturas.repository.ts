@@ -109,7 +109,7 @@ export async function buscarFaturaPorId(id: string, empresaId = EMPRESA_ANDRADE_
 }
 
 export async function excluirFaturaPorId(id: string, empresaId = EMPRESA_ANDRADE_ID) {
-  for (const tabela of ["notificacoes_fatura", "cobrancas", "creditos"]) {
+  for (const tabela of ["notificacoes_fatura", "cobrancas", "creditos", "asaas_cobrancas"]) {
     const { error } = await supabase.from(tabela).delete().eq("fatura_id", id).eq("empresa_id", empresaId);
     if (error && error.code !== "42P01") throw error;
   }

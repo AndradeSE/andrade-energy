@@ -3,9 +3,9 @@ import { File, Paths } from "expo-file-system";
 import * as FileSystemLegacy from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
-import { router } from "expo-router";
-import { useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, BackHandler, Linking, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { AppHeader, ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
@@ -23,6 +23,15 @@ const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { s
 
 export default function Faturas() {
   const proprietario = IS_GERADOR_APP;
+  const { origem } = useLocalSearchParams<{ origem?: string }>();
+  useFocusEffect(useCallback(() => {
+    if (origem !== "faturamento") return undefined;
+    const listener = BackHandler.addEventListener("hardwareBackPress", () => {
+      router.replace("/(tabs)/faturamento" as any);
+      return true;
+    });
+    return () => listener.remove();
+  }, [origem]));
   const { data, isLoading, error, refetch } = useFaturas();
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [baixando, setBaixando] = useState<string>();
@@ -80,7 +89,7 @@ export default function Faturas() {
   function confirmarExclusao(item: any) {
     Alert.alert(
       "Excluir fatura?",
-      `A fatura ${formatarCompetenciaBrasileira(item.referencia)} será excluída definitivamente.`,
+      `A fatura ${formatarCompetenciaBrasileira(item.referencia)} será excluída. Se houver cobrança pendente, ela será cancelada no Asaas primeiro. Cobranças pagas não podem ser apagadas.`,
       [
         { text: "Cancelar", style: "cancel" },
         {

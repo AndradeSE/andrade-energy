@@ -287,7 +287,7 @@ export default function DetalheFatura() {
   function confirmarExclusao() {
     Alert.alert(
       "Excluir fatura?",
-      `A fatura ${fatura?.referencia ?? "selecionada"} e os dados vinculados a ela serão removidos definitivamente.`,
+      `A fatura ${fatura?.referencia ?? "selecionada"} será removida. Se houver cobrança pendente, ela será cancelada no Asaas antes da exclusão. Cobranças já pagas não podem ser apagadas.`,
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -297,7 +297,7 @@ export default function DetalheFatura() {
             try {
               setExcluindo(true);
               await excluirFatura(String(id));
-              Alert.alert("Fatura excluída", "A fatura foi removida da carteira do gerador.", [
+              Alert.alert("Fatura excluída", "A cobrança pendente foi cancelada no Asaas, quando existente, e a fatura foi removida.", [
                 { text: "OK", onPress: () => router.back() },
               ]);
             } catch (erro: any) {

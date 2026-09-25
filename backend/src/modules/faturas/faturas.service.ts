@@ -17,6 +17,8 @@ import { criarCobranca } from "../cobrancas/cobrancas.repository";
 import { registrarCreditosDaFatura } from "../creditos/consumo.service";
 import { supabase } from "../../config/supabase";
 import { tentarCriarCobrancaAsaas } from "../asaas/asaas.service";
+import { asaasRequest } from "../asaas/asaas.client";
+import { cobrancaAsaasPodeSerExcluida } from "./exclusaoFatura.policy";
 import { exigirContratoAssinadoDaUc } from "../contratos/contratoUc.service";
 import { empresaIdDaRequisicao } from "../../utils/empresaScope";
 
@@ -101,7 +103,55 @@ export async function detalharFatura(id: string, empresaId?: string) {
 }
 
 export async function excluirFatura(id: string, empresaId?: string) {
-  await excluirFaturaPorId(id, empresaId);
+  const fatura = await buscarFaturaPorId(id, empresaId);
+  if (!fatura) throw new Error("Fatura não encontrada.");
+  if (["PAGO", "PAGA", "RECEBIDO"].includes(String(fatura.status ?? "").toUpperCase())) {
+    throw new Error("Esta fatura já foi paga. Não é possível apagá-la; confira a conciliação antes de qualquer estorno.");
+  }
+  const empresa = String(fatura.empresa_id);
+  const { data: local, error: erroLocal } = await supabase.from("asaas_cobrancas")
+    .select("id,asaas_payment_id,status")
+    .eq("fatura_id", id).eq("empresa_id", empresa).maybeSingle();
+  if (erroLocal) throw erroLocal;
+  if (local?.id) {
+    const { data: transferencias, error: erroTransferencias } = await supabase.from("asaas_transferencias")
+      .select("id").eq("cobranca_id", local.id).limit(1);
+    if (erroTransferencias) throw erroTransferencias;
+    if (transferencias?.length) throw new Error("Há repasse vinculado a esta cobrança. Concilie o financeiro antes de excluir a fatura.");
+  }
+  const { data: cobrancasLocais, error: erroCobrancas } = await supabase.from("cobrancas")
+    .select("status,pago_em").eq("fatura_id", id).eq("empresa_id", empresa);
+  if (erroCobrancas) throw erroCobrancas;
+  if (cobrancasLocais?.some((cobranca) => cobranca.pago_em || ["PAGO", "PAGA", "RECEBIDO"].includes(String(cobranca.status ?? "").toUpperCase()))) {
+    throw new Error("Existe uma cobrança já paga para esta fatura. Ela não pode ser apagada.");
+  }
+  if (!process.env.ASAAS_API_KEY) {
+    throw new Error("Não foi possível conferir a cobrança no Asaas. A fatura não foi apagada.");
+  }
+  // A cobrança pode ter sido criada remotamente antes de o vínculo local ser
+  // salvo. A referência externa impede que esse boleto fique órfão.
+  const remotas = await asaasRequest<{ data?: Array<{ id?: string; deleted?: boolean }> }>(
+    `/payments?externalReference=${encodeURIComponent(id)}&limit=100`,
+  );
+  const ids = new Set<string>();
+  for (const pagamento of remotas.data ?? []) {
+    if (pagamento.id && pagamento.deleted !== true) ids.add(pagamento.id);
+  }
+  if (local?.asaas_payment_id) ids.add(String(local.asaas_payment_id));
+  const cancelaveis: string[] = [];
+  for (const pagamentoId of ids) {
+    const pagamento = await asaasRequest<{ id: string; status?: string; deleted?: boolean }>(`/payments/${pagamentoId}`);
+    if (pagamento.deleted === true) continue;
+    if (!cobrancaAsaasPodeSerExcluida(pagamento.status)) {
+      throw new Error("A cobrança no Asaas não está pendente ou vencida. A fatura foi preservada para conferência financeira.");
+    }
+    cancelaveis.push(pagamentoId);
+  }
+  for (const pagamentoId of cancelaveis) {
+    const cancelado = await asaasRequest<{ deleted?: boolean }>(`/payments/${pagamentoId}`, { method: "DELETE" });
+    if (cancelado.deleted !== true) throw new Error("O Asaas não confirmou o cancelamento. A fatura foi preservada.");
+  }
+  await excluirFaturaPorId(id, empresa);
   return { sucesso: true };
 }
 
