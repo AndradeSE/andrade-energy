@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { exigirAutenticacao, exigirOperacaoComercial, exigirSuperAdministradorAndrade } from "../../middlewares/auth.middleware";
 import * as controller from "./comercial.controller";
+import { alterarTransferenciaAutomaticaAssinaturas } from "./comercial.service";
 import { autenticadorAtivo, confirmarAutenticador, confirmarSenhaFinanceira, iniciarAutenticador, validarCodigoFinanceiro } from "../financeiro-seguranca/financeiroSeguranca.service";
 
 const router = Router();
@@ -21,6 +22,7 @@ router.put("/planos/:id", controller.atualizarPlano);
 router.get("/financeiro", controller.financeiro);
 router.post("/financeiro/validar-pix", controller.validarPixFinanceiro);
 router.put("/financeiro", controller.configurarFinanceiro);
+router.patch("/financeiro/transferencia-automatica", async (req, res) => { try { return res.json(await alterarTransferenciaAutomaticaAssinaturas((req as any).usuario, req.body?.ativa)); } catch (error: any) { return res.status(400).json({ message: error.message }); } });
 router.post("/financeiro/transferencias", controller.transferirFinanceiro);
 router.post("/assinaturas", controller.contratar);
 router.patch("/assinaturas/:id/status", controller.status);

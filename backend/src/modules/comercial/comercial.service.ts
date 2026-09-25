@@ -6,6 +6,7 @@ import { empresaIdDoUsuario } from "../../config/empresa";
 import { mercadoPagoComercialRequest } from "./mercadoPagoComercial.client";
 import { provedorPagamentoComercial } from "./provedorPagamento";
 import { autenticadorAtivo, exigirCodigoFinanceiro } from "../financeiro-seguranca/financeiroSeguranca.service";
+import { auditar } from "../../utils/audit";
 
 const digits = (value: unknown) => String(value ?? "").replace(/\D/g, "");
 const isoDate = (value: unknown) => {
@@ -54,6 +55,18 @@ export async function atualizarFinanceiroAssinaturas(usuario:any,input:any) {
   const pixTitularNome=input.pixChave?await consultarTitularPixComercial(pixTipo,pix):String(carteira.pix_titular_nome??"").trim();
   if (input.transferenciaAutomatica===true&&(!pixTipo||!pix)) throw new Error("Cadastre a chave Pix comercial antes de ativar a transferência automática.");
   const result=await supabase.from("carteira_comercial_assinaturas").update({pix_tipo:pixTipo||null,pix_chave_criptografada:pix?criptografarDado(pix):null,pix_titular_nome:pix?pixTitularNome:null,transferencia_automatica:Boolean(input.transferenciaAutomatica),atualizado_em:new Date().toISOString()}).eq("id",carteira.id);if(result.error)throw result.error;
+  return obterFinanceiroAssinaturas(usuario);
+}
+
+export async function alterarTransferenciaAutomaticaAssinaturas(usuario: any, ativa: boolean) {
+  if (typeof ativa !== "boolean") throw new Error("Informe se a transferência automática deve ficar ligada ou desligada.");
+  const carteira = await carteiraComercial(usuario);
+  if (ativa && (!carteira.pix_tipo || !chaveComercial(carteira) || !carteira.pix_titular_nome)) {
+    throw new Error("Valide e salve uma chave Pix antes de ligar a transferência automática.");
+  }
+  const { error } = await supabase.from("carteira_comercial_assinaturas").update({ transferencia_automatica: ativa, atualizado_em: new Date().toISOString() }).eq("id", carteira.id);
+  if (error) throw error;
+  await auditar({ empresaId: empresaIdDoUsuario(usuario), usuarioId: usuario.id, acao: "CARTEIRA_COMERCIAL_AUTOMACAO_ALTERADA", recurso: "carteira_comercial_assinaturas", recursoId: carteira.id, detalhes: { transferenciaAutomatica: ativa } });
   return obterFinanceiroAssinaturas(usuario);
 }
 

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { exigirAutenticacao, exigirGestor, exigirTitularFinanceiro } from "../../middlewares/auth.middleware";
-import { atualizarCarteira, consultarTitularChavePix, resumoCarteira, transferirCarteira } from "./carteira.service";
+import { alterarTransferenciaAutomatica, atualizarCarteira, consultarTitularChavePix, resumoCarteira, transferirCarteira } from "./carteira.service";
 import { autenticadorAtivo, confirmarAutenticador, confirmarSenhaFinanceira, iniciarAutenticador, validarCodigoFinanceiro } from "../financeiro-seguranca/financeiroSeguranca.service";
 
 const router = Router();
@@ -13,6 +13,7 @@ router.post("/autenticador/confirmar", async (req, res) => { try { return res.js
 router.get("/", async (req, res) => { try { return res.json(await resumoCarteira((req as any).usuario)); } catch (error: any) { return res.status(400).json({ message: error.message }); } });
 router.post("/validar-pix", async (req, res) => { try { return res.json(await consultarTitularChavePix(req.body?.pixTipo, req.body?.pixChave)); } catch (error: any) { return res.status(400).json({ message: error.message }); } });
 router.put("/", async (req, res) => { try { return res.json(await atualizarCarteira((req as any).usuario, req.body)); } catch (error: any) { return res.status(400).json({ message: error.message }); } });
+router.patch("/transferencia-automatica", async (req, res) => { try { return res.json(await alterarTransferenciaAutomatica((req as any).usuario, req.body?.ativa)); } catch (error: any) { return res.status(400).json({ message: error.message }); } });
 router.post("/transferencias", async (req, res) => { try { return res.json(await transferirCarteira((req as any).usuario, req.body, String(req.header("Idempotency-Key") ?? ""))); } catch (error: any) { return res.status(400).json({ message: error.message }); } });
 export default router;
 

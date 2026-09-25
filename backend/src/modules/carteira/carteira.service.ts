@@ -121,6 +121,18 @@ export async function atualizarCarteira(usuario: any, input: any) {
   return resumoCarteira(usuario);
 }
 
+export async function alterarTransferenciaAutomatica(usuario: any, ativa: boolean) {
+  if (typeof ativa !== "boolean") throw new Error("Informe se a transferência automática deve ficar ligada ou desligada.");
+  const carteira = await obterOuCriarCarteira(usuario);
+  if (ativa && (!carteira.pix_tipo || !chavePixDaCarteira(carteira) || !carteira.pix_titular_nome)) {
+    throw new Error("Valide e salve uma chave Pix antes de ligar a transferência automática.");
+  }
+  const { error } = await supabase.from("gerador_carteiras").update({ transferencia_automatica: ativa, atualizado_em: new Date().toISOString() }).eq("id", carteira.id);
+  if (error) throw error;
+  await auditar({ empresaId: empresaIdDoUsuario(usuario), usuarioId: usuario.id, acao: "CARTEIRA_AUTOMACAO_ALTERADA", recurso: "gerador_carteiras", recursoId: carteira.id, detalhes: { transferenciaAutomatica: ativa } });
+  return resumoCarteira(usuario);
+}
+
 export async function transferirCarteira(usuario: any, input: any, idempotencyKey = "") {
   if (String(input.confirmacao ?? "") !== "TRANSFERIR") throw new Error("Confirme a transferência para continuar.");
   if (!(await conferirSenha(String(input.senhaAtual ?? ""), String(usuario.senha ?? "")))) throw new Error("Senha atual incorreta.");
