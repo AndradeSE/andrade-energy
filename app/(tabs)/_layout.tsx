@@ -108,6 +108,8 @@ export default function TabLayout() {
 
         <Tabs.Screen name="faturamento" options={{ href: null }} />
 
+        <Tabs.Screen name="equipe" options={{ href: null }} />
+
         <Tabs.Screen name="perfil" options={{ href: null, tabBarItemStyle: { display: "none" } }} />
 
         <Tabs.Screen
@@ -147,7 +149,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
-      backBehavior="initialRoute"
+      backBehavior="history"
       tabBar={(props) => <UnifiedExpoTabBar {...props} />}
       initialRouteName="index"
       screenOptions={{
@@ -165,15 +167,10 @@ export default function TabLayout() {
         }}
       />
 
-      <Tabs.Screen
-        name="usinas"
-        options={{
-          title: "Usinas",
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon name={focused ? "flash" : "flash-outline"} color={color} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="equipe" options={{ title: "Colaboradores", tabBarIcon: ({ color, focused }) => (
+        <TabIcon name={focused ? "people-circle" : "people-circle-outline"} color={color} />
+      ) }} />
+      <Tabs.Screen name="usinas" options={{ href: null }} />
 
       <Tabs.Screen
         name="operacao"

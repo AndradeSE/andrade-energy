@@ -85,6 +85,14 @@ export async function obterContratoDaUnidade(
       || item.contrato_assinado_url
       || String(item.status ?? "").toUpperCase() === "VIGENTE"
     ) ?? contratos?.[0] ?? null;
+    // No primeiro acesso ainda não há contrato ativo: a minuta enviada para
+    // assinatura permanece em RASCUNHO e deve ser visível ao consumidor.
+    if (!contratoDaUnidade && preferirRevisaoEnviada) {
+      const rascunho = await buscarRascunhoAtualUnidade(unidadeId, empresaId);
+      if (rascunho?.contrato_gerado_url && !rascunho?.dados_documento?.contrato_anterior_id) {
+        contratoDaUnidade = rascunho;
+      }
+    }
   }
   if (contratoDaUnidade) {
     const anteriorId = preferirRevisaoEnviada ? contratoDaUnidade.dados_documento?.contrato_anterior_id : null;
