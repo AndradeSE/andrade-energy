@@ -881,16 +881,32 @@ export async function iniciarTesteGerador(input: { nome: string; cpf: string; em
   if (planoError) throw planoError;
   if (!plano) throw new Error("Nenhum plano está disponível para o teste neste momento.");
 
-  const cadastro = { ...input, cpf, tipo: "GERADOR" as const };
-  const conta = await cadastrarConta(cadastro);
-  const { data: usuario, error: usuarioError } = await supabase
-    .from("usuarios")
-    .select("*")
-    .eq("cpf", cpf)
-    .eq("perfil", "GESTOR")
-    .eq("email", emailNormalizado(input.email))
-    .single();
-  if (usuarioError || !usuario) throw usuarioError ?? new Error("Conta de teste não encontrada após o cadastro.");
+  // O cadastro público de teste não vem de um convite administrativo.
+  // cadastrarConta exige convite; usá-lo aqui inviabilizava todo o fluxo.
+  const nome = String(input.nome ?? "").trim();
+  const email = emailNormalizado(input.email);
+  if (!nome) throw new Error("Informe seu nome.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Informe um e-mail válido.");
+  if (String(input.senha ?? "").length < 6) throw new Error("A senha deve ter pelo menos 6 caracteres.");
+  const slugBase = nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "gerador";
+  const { data: empresa, error: empresaError } = await supabase.from("empresas").insert({
+    slug: `${slugBase}-${gerarToken().slice(0, 8).toLowerCase()}`,
+    nome,
+    documento: cpf,
+    email_suporte: email,
+    empresa_proprietaria: false,
+    identidade_personalizada: false,
+    ativo: true,
+  }).select("id").single();
+  if (empresaError || !empresa) throw empresaError ?? new Error("Não foi possível criar a operação do gerador.");
+  let usuario: any;
+  try {
+    usuario = await criarConta({ nome, cpf, email, senha: input.senha, tipo: "GERADOR", empresa_id: empresa.id });
+  } catch (error) {
+    await supabase.from("empresas").delete().eq("id", empresa.id);
+    throw error;
+  }
 
   if (input.telefone) {
     const telefone = telefoneNormalizado(input.telefone);
@@ -909,11 +925,17 @@ export async function iniciarTesteGerador(input: { nome: string; cpf: string; em
     observacoes: "Teste gratuito iniciado pelo cadastro público do portal.",
   }, usuario.id);
   const sessao = await autenticar(emailNormalizado(input.email), String(input.senha), "GERADOR");
+  const emailEnviado = await enviarEmailTransacional({
+    empresaId: empresa.id,
+    destinatario: email,
+    assunto: "Teste gratuito iniciado — Andrade Energy",
+    html: `<p>Olá, <strong>${escaparHtml(nome)}</strong>.</p><p>Seu acesso ao teste do aplicativo Gerador foi criado. Entre com seu e-mail e a senha cadastrada.</p>`,
+  }).catch(() => false);
 
   return {
     ...sessao,
-    message: conta.message,
-    emailEnviado: conta.emailEnviado,
+    message: "Conta de teste criada com sucesso.",
+    emailEnviado,
     assinatura,
     downloadUrl: String(process.env.APP_GERADOR_DOWNLOAD_URL ?? "https://www.andradeenergy.com.br/downloads/andrade-energy-gerador.apk"),
   };
