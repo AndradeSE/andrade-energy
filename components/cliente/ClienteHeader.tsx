@@ -3,6 +3,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { useReadNotifications } from "../../hooks/useReadNotifications";
+import { useDismissedNotifications } from "../../hooks/useDismissedNotifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
@@ -87,7 +88,8 @@ export default function ClienteHeader({
   const usuarioId = usuario?.id ? String(usuario.id) : undefined;
   const fotoPerfil = useProfilePhoto(usuarioId);
   const leituras = useReadNotifications(usuarioId);
-  const notificacoes = [...avisosApp, ...avisosFaturas];
+  const dispensadas = useDismissedNotifications(usuarioId);
+  const notificacoes = [...avisosApp, ...avisosFaturas].filter((aviso) => !dispensadas.ids.includes(String(aviso.id)));
   const naoLidas = leituras.ready ? notificacoes.filter((aviso) => !leituras.ids.includes(String(aviso.id))).length : 0;
 
   useEffect(() => {
@@ -150,9 +152,25 @@ export default function ClienteHeader({
     return () => { ativo = false; };
   }, [usuarioId]));
 
+  useEffect(() => {
+    if (!notificacoesAbertas || !usuarioId) return;
+    let ativo = true;
+    listarNotificacoesApp().then((itens) => {
+      if (ativo) setAvisosApp(itens);
+    }).catch(() => undefined);
+    return () => { ativo = false; };
+  }, [notificacoesAbertas, usuarioId]);
+
   async function marcarComoLida(id: string) {
     try { await leituras.mark(id); }
     catch { Alert.alert("Leitura não salva", "Não foi possível salvar a leitura desta notificação. Tente novamente."); }
+  }
+
+  function confirmarLimpeza() {
+    Alert.alert("Limpar notificações", "Ocultar as notificações desta lista neste aparelho? Novos avisos continuarão chegando.", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Limpar lista", style: "destructive", onPress: () => void dispensadas.dismissAll(notificacoes.map((aviso) => String(aviso.id))).catch(() => Alert.alert("Não foi possível limpar", "Tente novamente.")) },
+    ]);
   }
 
   const insets =
@@ -393,7 +411,7 @@ export default function ClienteHeader({
 
       <NotificationSideSheet visible={notificacoesAbertas} onClose={() => setNotificacoesAbertas(false)}>
           <View style={styles.notificationPanel}>
-            <View style={styles.notificationHeader}><Text style={styles.notificationTitle}>Notificações</Text><TouchableOpacity onPress={() => setNotificacoesAbertas(false)}><Ionicons name="close" size={25} color={Colors.text} /></TouchableOpacity></View>
+            <View style={styles.notificationHeader}><Text style={styles.notificationTitle}>Notificações</Text><View style={styles.notificationHeaderActions}>{notificacoes.length ? <TouchableOpacity accessibilityLabel="Limpar lista de notificações" onPress={confirmarLimpeza}><Text style={styles.clearNotifications}>Limpar lista</Text></TouchableOpacity> : null}<TouchableOpacity onPress={() => setNotificacoesAbertas(false)}><Ionicons name="close" size={25} color={Colors.text} /></TouchableOpacity></View></View>
             <ScrollView showsVerticalScrollIndicator={false}>
             {notificacoes.length ? notificacoes.map((aviso) => <TouchableOpacity key={aviso.id} style={styles.notificationItem} onPress={async () => { await marcarComoLida(String(aviso.id)); setNotificacoesAbertas(false); if (aviso.rota) router.push(aviso.rota as any); }}><View style={[styles.notificationDot, aviso.severidade === "alta" && styles.notificationDotHigh, leituras.ids.includes(String(aviso.id)) && { opacity: 0.25 }]} /><View style={styles.notificationCopy}><Text style={styles.notificationItemTitle}>{aviso.titulo}</Text><Text style={styles.notificationDetail}>{aviso.detalhe}</Text></View><Ionicons name="chevron-forward" size={18} color={Colors.subtitle} /></TouchableOpacity>) : <View style={styles.emptyNotifications}><Ionicons name="checkmark-circle-outline" size={34} color={Colors.primary} /><Text style={styles.notificationItemTitle}>Tudo em dia</Text></View>}
             </ScrollView>
@@ -571,6 +589,8 @@ const styles =
     notificationBackdrop: { flex: 1, alignItems: "center", backgroundColor: "rgba(15, 23, 42, 0.45)" },
     notificationPanel: { flex: 1, width: "100%", paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, backgroundColor: Colors.surface },
     notificationHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.sm },
+    notificationHeaderActions: { flexDirection: "row", alignItems: "center", gap: Spacing.md },
+    clearNotifications: { color: Colors.subtitle, fontSize: 12, textDecorationLine: "underline" },
     notificationTitle: { color: Colors.text, fontSize: Typography.title, fontWeight: "800" },
     notificationItem: { minHeight: 62, flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: Colors.border },
     notificationDot: { width: 10, height: 10, marginRight: Spacing.sm, borderRadius: Radius.round, backgroundColor: Colors.secondary },
