@@ -503,17 +503,21 @@ export async function cadastrarConsumidorComFatura(
       throw new Error("Complete nome, CPF e e-mail no cadastro do cliente antes de criar a conta.");
     }
 
-    let usuario = await buscarUsuarioPorCredenciais(emailDoCliente, senha, "CONSUMIDOR");
-    if (usuario && cpfLimpo(usuario.cpf) !== cpfDoCliente) {
+    const { data: contaConsumidor, error: contaConsumidorError } = await supabase
+      .from("usuarios")
+      .select("*")
+      .eq("email", emailDoCliente)
+      .eq("perfil", "LEITURA")
+      .maybeSingle();
+    if (contaConsumidorError) throw contaConsumidorError;
+    if (contaConsumidor && cpfLimpo(contaConsumidor.cpf) !== cpfDoCliente) {
       throw new Error("A conta existente deste e-mail pertence a outro CPF.");
     }
+    if (contaConsumidor && !(await conferirSenha(senha, contaConsumidor.senha))) {
+      throw new Error("Este e-mail já possui uma conta de consumidor. Informe a senha atual dessa conta ou redefina-a no app Consumidor.");
+    }
+    let usuario = contaConsumidor;
     if (!usuario) {
-      const { data: contasMesmoEmail, error: contasMesmoEmailError } = await supabase
-        .from("usuarios").select("id").eq("email", emailDoCliente).limit(1);
-      if (contasMesmoEmailError) throw contasMesmoEmailError;
-      if (contasMesmoEmail?.length) {
-        throw new Error("Este e-mail já possui uma conta. Use a senha atual para aceitar o acesso deste gerador.");
-      }
       usuario = await criarConta({
         nome: clienteExistente.nome,
         cpf: cpfDoCliente,
@@ -709,13 +713,16 @@ export async function reenviarVerificacaoDeCadastro(emailInformado: unknown) {
 
 export async function solicitarRecuperacaoSenha(emailInformado: unknown, tipoInformado?: unknown) {
   const email = emailNormalizado(emailInformado);
+  const tipo = String(tipoInformado ?? "").toUpperCase();
   const resposta = { message: "Se existir uma conta com esse e-mail, enviaremos as orientações para redefinir a senha.", emailEnviado: false };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return resposta;
 
-  const { data: usuarios, error } = await supabase.from("usuarios")
+  let consulta = supabase.from("usuarios")
     .select("id,nome,email,empresa_id")
-    .eq("email", email)
-    .limit(1);
+    .eq("email", email);
+  if (tipo === "CONSUMIDOR") consulta = consulta.eq("perfil", "LEITURA");
+  if (tipo === "GERADOR") consulta = consulta.in("perfil", ["GESTOR", "ADMIN"]);
+  const { data: usuarios, error } = await consulta.limit(1);
   if (error) throw error;
   const usuario = usuarios?.[0];
   if (!usuario) return resposta;

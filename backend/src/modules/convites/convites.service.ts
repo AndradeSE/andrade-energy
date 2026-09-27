@@ -147,6 +147,7 @@ export async function consultarConvite(token: string) {
     .from("usuarios")
     .select("id")
     .ilike("email", String(data.email ?? "").trim())
+    .eq("perfil", "LEITURA")
     .limit(1)
     .maybeSingle();
   return { nome: data.nome, cpf: data.cpf, email: data.email, telefone: data.telefone, endereco: data.endereco, empresa_id: data.empresa_id, contaExistente: Boolean(conta) };

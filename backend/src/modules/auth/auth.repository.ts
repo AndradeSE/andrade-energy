@@ -22,7 +22,10 @@ export async function login(email: string, senha: string, tipo?: "CONSUMIDOR" | 
     return null;
   }
 
-  for (const usuario of data ?? []) {
+  const usuarios = tipo === "CONSUMIDOR"
+    ? [...(data ?? [])].sort((a, b) => Number(b.perfil === "LEITURA") - Number(a.perfil === "LEITURA"))
+    : (data ?? []);
+  for (const usuario of usuarios) {
     if (!(await conferirSenha(senha, usuario.senha))) continue;
     if (!senhaEstaProtegida(usuario.senha)) {
       const hash = await protegerSenha(senha);
@@ -196,6 +199,9 @@ export async function vincularUsuarioAoClientePendente(
     .eq("empresa_id", empresaId)
     .maybeSingle();
   if (vinculoBuscaError) throw vinculoBuscaError;
+  if (vinculo && vinculo.papel !== "LEITURA") {
+    throw new Error("O acesso administrativo não pode ser convertido em consumidor. Crie uma conta de consumidor separada para este e-mail.");
+  }
   const dadosVinculo = { cliente_id: clienteId, ativo, atualizado_em: new Date().toISOString() };
   const { error: vinculoError } = vinculo
     ? await supabase.from("empresa_usuarios").update(dadosVinculo).eq("id", vinculo.id)
