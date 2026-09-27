@@ -5,6 +5,7 @@ import {
 } from "../email/microsoftEmail.service";
 import { VERSAO_RELATORIO_CALCULO } from "./documentosFatura.service";
 import { criarNotificacaoApp } from "../notificacoes/push.service";
+import { emailDestinatarioPermitido } from "../email/destinatariosPermitidos";
 
 type Canal = "EMAIL" | "WHATSAPP";
 
@@ -94,6 +95,9 @@ async function baixarAnexo(caminho: string, filename: string) {
 }
 
 async function enviarEmail(item: any) {
+  if (!emailDestinatarioPermitido(item.destinatario)) {
+    throw new Error("Envio de e-mail bloqueado pela lista de destinatários permitidos.");
+  }
   const apiKey = process.env.RESEND_API_KEY;
   const remetente = process.env.EMAIL_REMETENTE;
   const fatura = item.faturas;

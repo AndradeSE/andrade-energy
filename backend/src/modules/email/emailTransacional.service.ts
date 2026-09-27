@@ -1,6 +1,7 @@
 import { enviarEmailMicrosoft, microsoftEmailConfigurado } from "./microsoftEmail.service";
 import { supabase } from "../../config/supabase";
 import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
+import { emailDestinatarioPermitido } from "./destinatariosPermitidos";
 
 type EmailTransacional = {
   destinatario: string;
@@ -28,6 +29,10 @@ async function identidadeDeEnvio(empresaId?: string | null) {
 }
 
 export async function enviarEmailTransacional(input: EmailTransacional) {
+  if (!emailDestinatarioPermitido(input.destinatario)) {
+    console.warn("Envio de e-mail bloqueado pela lista de destinatários permitidos.");
+    return false;
+  }
   const falhas: string[] = [];
   const identidade = await identidadeDeEnvio(input.empresaId);
 
