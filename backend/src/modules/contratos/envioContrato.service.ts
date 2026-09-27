@@ -5,18 +5,24 @@ import { obterPropostaParaConvite } from "../convites/propostaConvite.service";
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import crypto from "node:crypto";
 import { criarNotificacaoApp } from "../notificacoes/push.service";
+import { marcarPropostaRenovacaoEnviada } from "./renovacaoContrato.service";
 
 /** Envia somente a minuta previamente revisada, nunca regenera ao enviar. */
 export async function enviarContratoEConvite(unidadeId: string, gestor: any, forcarNovoConvite = false) {
   const empresaId = empresaIdDoUsuario(gestor);
-  const { data: unidade, error } = await supabase.from("unidades_consumidoras").select("id,cliente_id")
+  const { data: unidade, error } = await supabase.from("unidades_consumidoras").select("id,cliente_id,usina_id")
     .eq("id", unidadeId).eq("empresa_id", empresaId).single();
   if (error || !unidade?.cliente_id) throw new Error("UC não encontrada para este gerador.");
   const { data: contrato, error: erroContrato } = await supabase.from("contratos").select("*")
     .eq("unidade_consumidora_id", unidadeId).order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (erroContrato) throw erroContrato;
   if (contrato?.contrato_assinado_url && contrato.dados_documento?.assinatura_externa_validada_em) {
-    return enviarConviteAposConferencia(contrato, gestor);
+    const resultado = await enviarConviteAposConferencia(contrato, gestor);
+    if (resultado.emailEnviado) {
+      await marcarPropostaRenovacaoEnviada(contrato).catch((erroRenovacao) =>
+        console.error("Falha ao atualizar renovação após conferência do PDF", erroRenovacao));
+    }
+    return resultado;
   }
   if (!contrato?.contrato_gerado_url || contrato.aceite_cliente_em || contrato.contrato_assinado_url) throw new Error("Gere e revise uma minuta não assinada antes de enviar.");
   const d = contrato.dados_documento ?? {};
@@ -60,12 +66,13 @@ export async function enviarContratoEConvite(unidadeId: string, gestor: any, for
   }
   // Auditoria do arquivo efetivamente selecionado para o envio. O registro é
   // feito mesmo se o provedor de e-mail falhar, distinguindo preparo e entrega.
+  const envioSolicitadoEm = new Date().toISOString();
   const { error: erroAuditoria } = await supabase.from("contratos").update({
-    dados_documento: { ...d, envio_documento_hash: documentoHash, envio_solicitado_em: new Date().toISOString(), envio_email_concluido: Boolean(resultado.emailEnviado) },
+    dados_documento: { ...d, envio_documento_hash: documentoHash, envio_solicitado_em: envioSolicitadoEm, envio_email_concluido: Boolean(resultado.emailEnviado) },
   }).eq("id", contrato.id).eq("contrato_gerado_url", contrato.contrato_gerado_url);
   if (erroAuditoria) throw erroAuditoria;
-  if (resultado.contaExistente && resultado.emailEnviado) {
-    void (async () => {
+  if (resultado.contaExistente) {
+    await (async () => {
       const { data: acessos, error: erroAcessos } = await supabase.from("empresa_usuarios")
         .select("usuario_id").eq("empresa_id", empresaId).eq("cliente_id", unidade.cliente_id)
         .eq("papel", "LEITURA").eq("ativo", true);
@@ -73,13 +80,19 @@ export async function enviarContratoEConvite(unidadeId: string, gestor: any, for
       await Promise.all((acessos ?? []).map((acesso: any) => criarNotificacaoApp({
         usuario_id: acesso.usuario_id,
         empresa_id: empresaId,
+        cliente_id: unidade.cliente_id,
+        usina_id: unidade.usina_id,
         tipo: revisaoContratual ? "REVISAO_CONTRATUAL_DISPONIVEL" : "CONTRATO_DISPONIVEL",
         titulo: revisaoContratual ? "Revisão contratual disponível" : "Contrato disponível",
         detalhe: revisaoContratual ? "Leia as alterações e confirme seu aceite no aplicativo." : "Leia o contrato disponível no aplicativo.",
         rota: "/contrato",
-        chave_dedupe: `contrato-enviado:${contrato.id}:${acesso.usuario_id}`,
+        chave_dedupe: `contrato-enviado:${contrato.id}:${envioSolicitadoEm}:${acesso.usuario_id}`,
       })));
     })().catch((erroNotificacao) => console.error("Falha ao notificar envio do contrato", erroNotificacao));
+  }
+  if (resultado.emailEnviado) {
+    await marcarPropostaRenovacaoEnviada(contrato).catch((erroRenovacao) =>
+      console.error("Falha ao atualizar solicitação de renovação após o envio", erroRenovacao));
   }
   return { ...resultado, contratoId: contrato.id };
 }

@@ -1,6 +1,7 @@
 import { supabase } from "../../config/supabase";
 import crypto from "node:crypto";
 import { enviarConviteAposConferencia } from "./envioContrato.service";
+import { marcarPropostaRenovacaoEnviada } from "./renovacaoContrato.service";
 
 /** Validação humana explícita; não se apresenta como verificação criptográfica. */
 export async function validarAssinaturaExterna(id: string, usuario: any, confirmado: boolean) {
@@ -35,6 +36,10 @@ export async function validarAssinaturaExterna(id: string, usuario: any, confirm
       status: novoStatus,
       dados_documento: dadosValidados,
     }, usuario);
+    if (convite.emailEnviado) {
+      await marcarPropostaRenovacaoEnviada({ ...contrato, dados_documento: dadosValidados }).catch((erroRenovacao) =>
+        console.error("Falha ao atualizar renovação após validação do PDF", erroRenovacao));
+    }
     return { validado: true, revisaoContratual, ...convite };
   } catch (erro: any) {
     // A revisão já foi registrada. Informe a falha para que o convite seja

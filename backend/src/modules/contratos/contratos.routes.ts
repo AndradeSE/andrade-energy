@@ -26,6 +26,7 @@ import { upload } from "../../config/multer";
 import { exigirRegistroDaEmpresa } from "../../utils/empresaScope";
 import { enviarContratoEConvite } from "./envioContrato.service";
 import { listarAcessoContratos } from "./acessoContrato.service";
+import { solicitarRenovacaoContrato } from "./renovacaoContrato.service";
 
 const router = Router();
 router.use(exigirAutenticacao);
@@ -137,6 +138,10 @@ router.put(
 );
 
 router.post("/:id/cancelar", exigirSolicitanteCancelamento, exigirRegistroDaEmpresa("contratos"), cancelarContratoController);
+router.post("/:id/solicitar-renovacao", async (req, res) => {
+  try { res.json(await solicitarRenovacaoContrato(req.params.id, (req as any).usuario)); }
+  catch (erro: any) { res.status(400).json({ message: erro.message }); }
+});
 
 router.delete(
   "/:id",

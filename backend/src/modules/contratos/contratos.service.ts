@@ -16,6 +16,7 @@ import { armazenarContratoAssinado, criarLinkContrato, gerarMinutaContrato, salv
 import { obterPropostaParaConvite } from "../convites/propostaConvite.service";
 import { criarNotificacaoApp } from "../notificacoes/push.service";
 import { contratoAceitaSolicitacaoCancelamento, processamentoCancelamentoExpirou } from "./cancelamentoContrato.policy";
+import { listarRenovacoesAbertas, marcarPropostaRenovacaoAceita } from "./renovacaoContrato.service";
 
 export async function obterContratoCliente(
   clienteId: string,
@@ -31,7 +32,18 @@ export async function listarContratosDaEmpresa(empresaId: string, usinaId?: stri
   if (usinaId) query = query.eq("usina_id", usinaId);
   const { data, error } = await query.order("created_at", { ascending: false });
   if (error) throw error;
-  return data ?? [];
+  const contratos = data ?? [];
+  if (!contratos.length) return contratos;
+  const { data: solicitacoes, error: erroSolicitacoes } = await supabase.from("solicitacoes_cancelamento_contrato")
+    .select("contrato_id")
+    .eq("empresa_id", empresaId)
+    .in("status", ["PENDENTE", "PROCESSANDO"])
+    .in("contrato_id", contratos.map((contrato) => contrato.id));
+  if (erroSolicitacoes) throw erroSolicitacoes;
+  const pendentes = new Set((solicitacoes ?? []).map((solicitacao) => solicitacao.contrato_id));
+  const renovacoes = await listarRenovacoesAbertas(empresaId, contratos.map((contrato) => contrato.id));
+  const porContrato = new Map(renovacoes.map((item) => [item.contrato_id, item]));
+  return contratos.map((contrato) => ({ ...contrato, cancelamento_pendente: pendentes.has(contrato.id), renovacao_solicitada: porContrato.get(contrato.id) ?? null }));
 }
 
 export async function criarContratoService(
@@ -102,9 +114,9 @@ export async function obterContratoDaUnidade(
         .eq("id", anteriorId).eq("unidade_consumidora_id", unidadeId)
         .eq("empresa_id", contratoDaUnidade.empresa_id).maybeSingle();
       if (erroAnterior) throw erroAnterior;
-      return anexarLinksDoContrato({ ...contratoDaUnidade, revisao_anterior: anterior ?? null });
+      return anexarCancelamentoAoContrato({ ...contratoDaUnidade, revisao_anterior: anterior ?? null });
     }
-    return anexarLinksDoContrato(contratoDaUnidade);
+    return anexarCancelamentoAoContrato(contratoDaUnidade);
   }
 
   // Compatibilidade para contratos antigos, criados antes do vínculo por UC.
@@ -116,7 +128,20 @@ export async function obterContratoDaUnidade(
   const { data: unidade, error } = await unidadeQuery.maybeSingle();
   if (error) throw error;
   const contratoLegado = unidade?.cliente_id ? await buscarContratoCliente(unidade.cliente_id, true, empresaId) : null;
-  return contratoLegado ? anexarLinksDoContrato(contratoLegado) : null;
+  return contratoLegado ? anexarCancelamentoAoContrato(contratoLegado) : null;
+}
+
+async function anexarCancelamentoAoContrato(contrato: any) {
+  const ids = [contrato.id, contrato.revisao_anterior?.id].filter(Boolean);
+  const { data, error } = await supabase.from("solicitacoes_cancelamento_contrato")
+    .select("id")
+    .eq("empresa_id", contrato.empresa_id)
+    .in("contrato_id", ids)
+    .in("status", ["PENDENTE", "PROCESSANDO"])
+    .limit(1);
+  if (error) throw error;
+  const renovacoes = await listarRenovacoesAbertas(contrato.empresa_id, ids);
+  return anexarLinksDoContrato({ ...contrato, cancelamento_pendente: Boolean(data?.length), renovacao_solicitada: renovacoes[0] ?? null });
 }
 
 async function anexarLinksDoContrato(contrato: any) {
@@ -606,6 +631,8 @@ export async function registrarAceiteEletronicoService(contratoId: string, usuar
     .eq("empresa_id", contrato.empresa_id);
   if (erroAtivacao) throw erroAtivacao;
   await supabase.from("contratos_codigos_assinatura").delete().eq("contrato_id", contratoId).eq("codigo_hash", confirmacao.codigo_hash);
+  await marcarPropostaRenovacaoAceita(data).catch((erroRenovacao) =>
+    console.error("Falha ao concluir solicitação de renovação após o aceite", erroRenovacao));
   // O aceite libera a UC imediatamente; avise quem administra o contrato sem
   // deixar uma falha de push reverter a assinatura já confirmada.
   void (async () => {

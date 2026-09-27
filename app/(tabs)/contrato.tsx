@@ -16,8 +16,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useRef, useState } from "react";
-import { router } from "expo-router";
+import { useCallback, useRef, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
 
 import {
   Badge,
@@ -38,6 +38,7 @@ import {
   importarContratoAssinadoPeloCliente,
   registrarAceiteEletronico,
   solicitarCodigoAssinatura,
+  solicitarRenovacaoContrato,
 } from "../../services/contratos.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { useQueryClient } from "@tanstack/react-query";
@@ -77,8 +78,14 @@ function ContratoConsumidor() {
   const [emailCodigo, setEmailCodigo] = useState("");
   const [concordouRevisao, setConcordouRevisao] = useState(false);
   const [abrindoProposta, setAbrindoProposta] = useState(false);
+  const [cancelamentoEnviadoId, setCancelamentoEnviadoId] = useState<string | null>(null);
+  const [renovacaoEnviadaId, setRenovacaoEnviadaId] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const assinaturaY = useRef(0);
+
+  useFocusEffect(useCallback(() => {
+    void recarregarContrato();
+  }, [recarregarContrato]));
 
   async function atualizarPagina() {
     setAtualizando(true);
@@ -107,6 +114,8 @@ function ContratoConsumidor() {
 
   const status = normalizarStatus(data.status);
   const ativo = ["ATIVO", "VIGENTE"].includes(status);
+  const cancelamentoPendente = data.cancelamento_pendente === true || cancelamentoEnviadoId === data.id;
+  const renovacaoSolicitada = data.renovacao_solicitada || renovacaoEnviadaId === data.id;
   const vencido =
     status === "VENCIDO" ||
     Boolean(
@@ -122,7 +131,7 @@ function ContratoConsumidor() {
   const arquivoContrato =
     data.contrato_assinado_url ?? data.contrato_gerado_url ?? data.arquivo_pdf;
   const aceiteExternoPendente = Boolean(data.dados_documento?.aceite_cliente_exigido && data.dados_documento?.assinatura_externa_validada_em && !data.aceite_cliente_em);
-  const revisaoPendente = Boolean(!data.aceite_cliente_em && (aceiteExternoPendente || (data.revisao_anterior?.id && !data.contrato_assinado_url)));
+  const revisaoPendente = Boolean(!data.aceite_cliente_em && (aceiteExternoPendente || data.revisao_anterior?.id));
   const configuracaoAnterior = data.revisao_anterior?.configuracao_uc_snapshot ?? {};
   const configuracaoRevisada = data.configuracao_uc_snapshot ?? {};
   const aceiteRegistrado = Boolean(data.aceite_cliente_em);
@@ -136,7 +145,15 @@ function ContratoConsumidor() {
     !data.dados_documento?.assinatura_externa_validada_em,
   );
   const assinaturaInicialPendente = status === "RASCUNHO" && !aceiteRegistrado && !pdfAssinadoEnviado;
-  const statusVisivel = assinaturaInicialPendente ? "Aguardando assinatura" : data.status || "Ativo";
+  const statusVisivel = revisaoPendente
+    ? "Aguardando seu aceite"
+    : assinaturaInicialPendente
+      ? "Aguardando assinatura"
+      : pdfAssinadoPendente
+        ? "Aguardando conferência"
+        : status === "SUBSTITUIDO"
+          ? "Versão anterior"
+          : data.status || "Ativo";
   function irParaAssinatura() {
     scrollRef.current?.scrollTo({ y: Math.max(0, assinaturaY.current - 16), animated: true });
   }
@@ -157,19 +174,25 @@ function ContratoConsumidor() {
   }
 
   async function abrirContrato() {
-    if (!arquivoContrato) {
-      Alert.alert("Contrato", "O documento em PDF ainda não está disponível.");
-      return;
-    }
-
     try {
-      const podeAbrir = await Linking.canOpenURL(arquivoContrato);
-      if (!podeAbrir) throw new Error("URL não suportada");
-      await Linking.openURL(arquivoContrato);
-    } catch {
+      // Os links privados do PDF expiram após cinco minutos. Busque um link
+      // novo no momento da abertura, inclusive se a tela ficou em segundo plano.
+      const atualizado = (await recarregarContrato()).data ?? data;
+      const url = atualizado.contrato_assinado_url ?? atualizado.contrato_gerado_url ?? atualizado.arquivo_pdf;
+      if (!url) return Alert.alert("Contrato", "O documento em PDF ainda não está disponível.");
+      if (Platform.OS === "android") {
+        const destino = `${FileSystem.cacheDirectory}contrato-${atualizado.id}.pdf`;
+        const arquivo = await FileSystem.downloadAsync(url, destino);
+        if (arquivo.status !== 200) throw new Error(`PDF indisponível (HTTP ${arquivo.status})`);
+        const contentUri = await FileSystem.getContentUriAsync(arquivo.uri);
+        await IntentLauncher.startActivityAsync("android.intent.action.VIEW", { data: contentUri, flags: 1, type: "application/pdf" });
+      } else {
+        await Linking.openURL(url);
+      }
+    } catch (erro: any) {
       Alert.alert(
         "Não foi possível abrir o contrato",
-        "Confira sua conexão ou fale com o suporte.",
+        erro?.message ?? "Confira sua conexão ou fale com o suporte.",
       );
     }
   }
@@ -287,7 +310,14 @@ function ContratoConsumidor() {
           style: "destructive",
           onPress: async () => {
             try {
-              const resultado = await cancelarContrato(data.id);
+              const contratoAtivoId = revisaoPendente && data.revisao_anterior?.id ? data.revisao_anterior.id : data.id;
+              const resultado = await cancelarContrato(contratoAtivoId);
+              // O servidor confirmou o pedido; reflita-o antes da próxima busca
+              // para não manter o botão de cancelamento ativo na tela.
+              queryClient.setQueriesData({ queryKey: ["contrato"] }, (contrato: any) =>
+                contrato?.id === data.id ? { ...contrato, cancelamento_pendente: true } : contrato,
+              );
+              setCancelamentoEnviadoId(data.id);
               await queryClient.invalidateQueries({ queryKey: ["contrato"] });
               Alert.alert("Solicitação enviada", resultado?.message ?? "O gerador e a equipe responsável foram avisados.");
             } catch (erro: any) {
@@ -305,14 +335,22 @@ function ContratoConsumidor() {
   }
 
   function solicitarRenovacao() {
-    const assunto = encodeURIComponent(
-      `Renovação antecipada do contrato ${data.numero ?? data.id}`,
-    );
-    const corpo = encodeURIComponent(
-      `Olá, gostaria de antecipar a renovação do contrato ${data.numero ?? data.id}, vinculado à UC ${dashboard?.uc ?? unidadeSelecionada?.numero ?? ""}. Aguardo as novas condições para confirmar.`,
-    );
-    void Linking.openURL(
-      `mailto:contato@andradese.com.br?subject=${assunto}&body=${corpo}`,
+    Alert.alert(
+      "Pedir renovação antecipada",
+      "O gerador receberá seu pedido no app e revisará uma nova versão com as condições atuais pré-preenchidas. Nada muda no contrato vigente até você ler e aceitar a proposta enviada.",
+      [
+        { text: "Agora não", style: "cancel" },
+        { text: "Enviar pedido", onPress: async () => {
+          try {
+            const resultado = await solicitarRenovacaoContrato(data.id);
+            setRenovacaoEnviadaId(data.id);
+            await queryClient.invalidateQueries({ queryKey: ["contrato"] });
+            Alert.alert("Pedido registrado", resultado?.message ?? "O gerador foi avisado no aplicativo.");
+          } catch (erro: any) {
+            Alert.alert("Não foi possível pedir a renovação", erro?.response?.data?.message ?? "Tente novamente.");
+          }
+        } },
+      ],
     );
   }
 
@@ -363,16 +401,28 @@ function ContratoConsumidor() {
             </View>
             <Badge
               label={statusVisivel}
-              variant={ativo ? "success" : "warning"}
+              variant={ativo && !revisaoPendente && !pdfAssinadoPendente ? "success" : "warning"}
             />
           </View>
 
           <Text style={styles.heroLabel}>Número do contrato</Text>
           <Text style={styles.heroValue}>{data.numero || "Não informado"}</Text>
           <Text style={styles.heroHint}>
-            {assinaturaInicialPendente ? "Toque para ir à assinatura" : "Andrade Energy · Energia por assinatura"}
+            {revisaoPendente ? "Toque para conferir e aceitar a revisão" : assinaturaInicialPendente ? "Toque para ir à assinatura" : "Andrade Energy · Energia por assinatura"}
           </Text>
         </Pressable>
+
+        {revisaoPendente ? <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Conferir e aceitar a revisão do contrato"
+          activeOpacity={0.85}
+          onPress={irParaAssinatura}
+          style={styles.revisionNotice}
+        >
+          <Ionicons name="document-text-outline" size={20} color="#9A6700" />
+          <Text style={[styles.revisionNoticeText, { flex: 1 }]}>Nova versão do contrato aguardando seu aceite. Confira as alterações e confirme com o código enviado ao seu e-mail.</Text>
+          <Ionicons name="chevron-forward" size={20} color="#9A6700" />
+        </TouchableOpacity> : null}
 
         <Text style={styles.sectionTitle}>Resumo do contrato</Text>
         <TouchableOpacity activeOpacity={0.84} disabled={abrindoProposta} onPress={() => void abrirProposta()} style={styles.proposalLink}><Ionicons name="document-attach-outline" size={21} color={Colors.primary} /><View style={{ flex: 1 }}><Text style={styles.proposalTitle}>Proposta comercial da UC</Text><Text style={styles.proposalSubtitle}>PDF com desconto e projeção de economia desta unidade.</Text></View><Ionicons name="download-outline" size={20} color={Colors.primary} /></TouchableOpacity>
@@ -521,7 +571,7 @@ function ContratoConsumidor() {
               ? pdfAssinadoEnviado ? "Abrir contrato assinado" : "Abrir minuta do contrato"
               : "PDF ainda não disponível"}
           />
-          {(!pdfAssinadoEnviado || aceiteExternoPendente) && !aceiteRegistrado ? <>
+          {(revisaoPendente || !pdfAssinadoEnviado) && !aceiteRegistrado && !pdfAssinadoPendente ? <>
             <Button
               disabled={registrandoAceite || !arquivoContrato}
               icon={
@@ -578,8 +628,9 @@ function ContratoConsumidor() {
         </View>
         </View>
 
-        {ativo && !revisaoPendente ? <TouchableOpacity
+        {ativo && !revisaoPendente && !cancelamentoPendente ? <TouchableOpacity
           activeOpacity={0.85}
+          disabled={Boolean(renovacaoSolicitada)}
           onPress={solicitarRenovacao}
           style={styles.renewButton}
         >
@@ -589,26 +640,25 @@ function ContratoConsumidor() {
             color={Colors.primary}
           />
           <View style={styles.renewCopy}>
-            <Text style={styles.renewTitle}>Antecipar renovação</Text>
+            <Text style={styles.renewTitle}>{renovacaoSolicitada ? "Renovação solicitada" : "Antecipar renovação"}</Text>
             <Text style={styles.renewText}>
-              Solicite as novas condições antes do término e confirme antes de
-              renovar.
+              {renovacaoSolicitada ? "Aguarde a proposta do gerador. O contrato atual permanece em vigor até seu aceite." : "Peça uma nova versão sem enviar e-mail. Você poderá conferir as condições antes de aceitar."}
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
+          <Ionicons name={renovacaoSolicitada ? "time-outline" : "chevron-forward"} size={18} color={Colors.primary} />
         </TouchableOpacity> : null}
 
-        {!revisaoPendente ? <TouchableOpacity
+        {(ativo || revisaoPendente) ? <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={cancelamentoPendente ? "Aguardando resposta do gerador sobre o cancelamento" : "Solicitar cancelamento do contrato"}
           activeOpacity={0.85}
-          onPress={solicitarCancelamento}
+          onPress={cancelamentoPendente
+            ? () => Alert.alert("Solicitação de cancelamento", "Seu pedido foi enviado ao gerador e está em análise. O contrato continua vigente até a conclusão da solicitação.")
+            : solicitarCancelamento}
           style={styles.cancelButton}
         >
-          <Ionicons
-            name="close-circle-outline"
-            size={20}
-            color={vencido ? Colors.danger : Colors.subtitle}
-          />
-          <Text style={styles.cancelButtonText}>Cancelar contrato</Text>
+          <Ionicons name="close-circle-outline" size={20} color={vencido ? Colors.danger : Colors.subtitle} />
+          <Text style={styles.cancelButtonText}>{cancelamentoPendente ? "Aguardando resposta do gerador" : "Cancelar contrato"}</Text>
         </TouchableOpacity> : null}
 
         <View style={styles.securityNote}>
@@ -629,7 +679,9 @@ function ContratoConsumidor() {
             <Text style={styles.signatureTitle}>{aceiteExternoPendente ? "Aceitar contrato assinado" : revisaoPendente ? "Concordar com a revisão" : "Assinar contrato"}</Text>
             <Text style={styles.signatureSubtitle}>{aceiteExternoPendente ? `Confira o PDF já assinado. Ao confirmar com o código enviado para ${emailCodigo}, você aceita as condições sem assinar novamente.` : revisaoPendente ? `Ao confirmar, você concorda com a nova minuta exibida nesta tela. Informe o código enviado para ${emailCodigo}.` : `Confira a minuta, assine no campo abaixo e confirme com o código enviado para ${emailCodigo}.`}</Text>
             {revisaoPendente ? <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{ checked: concordouRevisao }} onPress={() => setConcordouRevisao((atual) => !atual)} style={styles.govButton}>
-              <Ionicons name={concordouRevisao ? "checkbox-outline" : "square-outline"} size={22} color={Colors.primary} />
+              <View style={styles.revisionCheckboxIcon}>
+                <Ionicons name={concordouRevisao ? "checkbox-outline" : "square-outline"} size={22} color={Colors.primary} />
+              </View>
               <Text style={styles.govButtonText}>Li a nova minuta e concordo com as alterações.</Text>
             </TouchableOpacity> : null}
             {!revisaoPendente ? <SignaturePad value={tracosAssinatura} onChange={setTracosAssinatura} /> : null}
@@ -876,11 +928,19 @@ const styles = StyleSheet.create({
   govButton: {
     minHeight: 52,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
     flexDirection: "row",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
     borderColor: Colors.primary,
     borderWidth: 1,
     borderRadius: Radius.lg,
+  },
+  revisionCheckboxIcon: {
+    width: 24,
+    flexShrink: 0,
+    alignItems: "center",
+    justifyContent: "center",
   },
   uploadButton: {
     minHeight: 56,
@@ -894,6 +954,8 @@ const styles = StyleSheet.create({
   },
   govButtonText: {
     marginLeft: Spacing.xs,
+    flexShrink: 1,
+    minWidth: 0,
     color: Colors.primary,
     fontSize: Typography.body,
     fontWeight: "700",

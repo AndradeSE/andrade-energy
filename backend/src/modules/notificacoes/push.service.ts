@@ -8,6 +8,8 @@ export type NovaNotificacaoApp = {
   detalhe?: string | null;
   rota?: string | null;
   chave_dedupe?: string | null;
+  cliente_id?: string | null;
+  usina_id?: string | null;
 };
 
 function tokenExpoValido(token: string) {
@@ -68,7 +70,8 @@ export async function criarNotificacaoApp(notificacao: NovaNotificacaoApp) {
     if (erroBusca) throw erroBusca;
     if (existente) return null;
   }
-  const { data, error } = await supabase.from("notificacoes_app").insert(notificacao).select("id").maybeSingle();
+  const { cliente_id, usina_id, ...registro } = notificacao;
+  const { data, error } = await supabase.from("notificacoes_app").insert(registro).select("id").maybeSingle();
   if (error?.code === "23505" && notificacao.chave_dedupe) return null;
   if (error) throw error;
   if (!data) return null;

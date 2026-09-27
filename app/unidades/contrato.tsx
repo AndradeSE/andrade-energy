@@ -48,7 +48,7 @@ function primeirosDigitosDocumento(valor: unknown) {
 }
 
 export default function ContratoDaUnidade() {
-  const { id, numero, clienteId, cliente, descontoPadrao, revisao, revisaoToken, modoAssinado } = useLocalSearchParams<{
+  const { id, numero, clienteId, cliente, descontoPadrao, revisao, revisaoToken, modoAssinado, renovacao } = useLocalSearchParams<{
     id: string;
     numero: string;
     clienteId: string;
@@ -57,6 +57,7 @@ export default function ContratoDaUnidade() {
     revisao?: string;
     revisaoToken?: string;
     modoAssinado?: string;
+    renovacao?: string;
   }>();
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -171,7 +172,7 @@ export default function ContratoDaUnidade() {
         setDesconto(revisandoContratoAssinado
           ? valorParaCampo(unidadeCarregada?.desconto_percentual ?? descontoPadrao)
           : valorParaCampo(contrato.desconto ?? unidadeCarregada?.desconto_percentual ?? descontoPadrao ?? 0));
-        setInicio(dataParaFormulario(contrato.vigencia_inicio ?? contrato.data_assinatura) || dataHoje());
+        setInicio(renovacao === "1" && revisandoContratoAssinado ? dataHoje() : dataParaFormulario(contrato.vigencia_inicio ?? contrato.data_assinatura) || dataHoje());
         setFim(dataParaFormulario(contrato.vigencia_fim));
         if (!propostaAtual) {
           setEconomiaMensal(valorParaCampo(contrato.economia_mensal_estimada));
@@ -192,7 +193,7 @@ export default function ContratoDaUnidade() {
         Alert.alert("Não foi possível carregar o contrato", erro?.response?.data?.message ?? "Tente novamente.");
       })
       .finally(() => setCarregando(false));
-  }, [clienteId, id, revisao, revisaoToken]);
+  }, [clienteId, id, revisao, revisaoToken, renovacao]);
 
   useEffect(() => {
     const vencimento = somarAnos(inicio, prazoAnos);
@@ -308,11 +309,11 @@ export default function ContratoDaUnidade() {
       Alert.alert("Revise a minuta atual", "Gere e abra a minuta com os dados atuais antes de enviar o convite.");
       return;
     }
-    Alert.alert(novoContrato ? "Enviar revisão para aceite" : "Enviar documentos", novoContrato
-      ? "A nova minuta será enviada ao cliente para leitura e concordância no aplicativo, confirmada por código de e-mail. Não será solicitada outra assinatura. O contrato anterior permanece vigente até o aceite."
+    Alert.alert(novoContrato ? (renovacao === "1" ? "Confirmar proposta de renovação" : "Enviar revisão para aceite") : "Enviar documentos", novoContrato
+      ? `${renovacao === "1" ? "Confirme que revisou as novas condições e a minuta. " : ""}A nova minuta será enviada ao cliente para leitura e concordância no aplicativo, confirmada por código de e-mail. Não será solicitada outra assinatura. O contrato anterior permanece vigente até o aceite.`
       : "Será enviada a última minuta gerada com a proposta desta UC. O convite de acesso só será criado se este cliente ainda não tiver recebido um. Se alterou os dados, gere e revise a minuta novamente antes de enviar.", [
       { text: "Cancelar", style: "cancel" },
-      { text: "Enviar", onPress: async () => {
+      { text: renovacao === "1" ? "Confirmar e enviar" : "Enviar", onPress: async () => {
         try {
           setGerando(true);
           const resultado = await enviarContratoEConvite(id);
@@ -384,7 +385,7 @@ export default function ContratoDaUnidade() {
       setNumeroContrato(String(rascunho.numero ?? ""));
       setTermoAdesao(String(rascunho.termo_adesao ?? ""));
       setDesconto(valorParaCampo(unidade?.desconto_percentual ?? rascunho.desconto));
-      setInicio(dataParaFormulario(rascunho.vigencia_inicio ?? rascunho.data_assinatura) || dataHoje());
+      setInicio(renovacao === "1" ? dataHoje() : dataParaFormulario(rascunho.vigencia_inicio ?? rascunho.data_assinatura) || dataHoje());
       setFim(dataParaFormulario(rascunho.vigencia_fim));
       setEconomiaMensal(valorParaCampo(rascunho.economia_mensal_estimada));
       setEconomiaAnual(valorParaCampo(rascunho.economia_anual_estimada));
@@ -429,7 +430,7 @@ export default function ContratoDaUnidade() {
         <View style={styles.heading}>
           <Text style={styles.eyebrow}>{somenteLeitura ? "CONTRATO ASSINADO" : novoContrato ? "REVISÃO DO CONTRATO" : modoAssinado === "1" ? "CONTRATO JÁ ASSINADO" : "CONFIGURAÇÃO CONTRATUAL"}</Text>
           <Text style={styles.title}>Contrato da unidade</Text>
-          <Text style={styles.subtitle}>{somenteLeitura ? "Documento preservado somente para consulta. Para alterar as condições, inicie uma revisão." : modoAssinado === "1" ? "Confira os dados da UC e anexe o PDF já assinado. A UC só será liberada depois da conferência manual do documento." : "Revise os dados cadastrais que entrarão na minuta antes de gerar o documento."}</Text>
+          <Text style={styles.subtitle}>{somenteLeitura ? "Documento preservado somente para consulta. Para alterar as condições, inicie uma revisão." : renovacao === "1" ? "Renovação solicitada pelo cliente. As condições atuais estão pré-preenchidas; confira prazo, início e desconto. A nova versão só valerá após o aceite do cliente." : modoAssinado === "1" ? "Confira os dados da UC e anexe o PDF já assinado. A UC só será liberada depois da conferência manual do documento." : "Revise os dados cadastrais que entrarão na minuta antes de gerar o documento."}</Text>
         </View>
 
         <Card style={styles.context}>

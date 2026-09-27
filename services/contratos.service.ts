@@ -14,8 +14,8 @@ export async function listarAcessoContratos() {
   return Array.isArray(data) ? data : [];
 }
 
-export async function listarContratosDaEmpresa() {
-  const { data } = await api.get("/contratos");
+export async function listarContratosDaEmpresa(usinaId?: string) {
+  const { data } = await api.get("/contratos", { params: usinaId ? { usinaId } : {} });
   return Array.isArray(data) ? data : [];
 }
 
@@ -77,6 +77,11 @@ export async function buscarContratoDaUnidade(
     { params: preferirRascunho ? { revisao: "1" } : preferirRevisaoEnviada ? { revisaoEnviada: "1" } : undefined },
   );
 
+  return data;
+}
+
+export async function solicitarRenovacaoContrato(id: string) {
+  const { data } = await api.post(`/contratos/${id}/solicitar-renovacao`);
   return data;
 }
 
