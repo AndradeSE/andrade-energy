@@ -1,107 +1,40 @@
 import { supabase } from "../../config/supabase";
+import { listarFaturas } from "../faturas/faturas.repository";
 
-export async function carregarFinanceiro() {
+type FaturaResumo = { valor_total: number | string | null; status: string | null; referencia: string | null };
 
-  const { data, error } = await supabase
-    .from("faturas")
-    .select(`
-      *,
-      clientes (
-        nome,
-        telefone
-      )
-    `);
+export async function carregarFinanceiro(empresaId: string, usinaId: string) {
+  const { data: usina, error: erroUsina } = await supabase
+    .from("usinas").select("id").eq("id", usinaId).eq("empresa_id", empresaId).maybeSingle();
+  if (erroUsina) throw erroUsina;
+  if (!usina) throw new Error("Usina não encontrada nesta empresa.");
 
-  if (error) throw error;
-
-  const faturas = data ?? [];
-
-  const receitaPrevista = faturas.reduce(
-    (acc, item) => acc + Number(item.valor_total || 0),
-    0
-  );
-
+  const faturas = await listarFaturas({ empresaId, usinaId }) as FaturaResumo[];
+  const receitaPrevista = faturas.reduce((total, item) => total + Number(item.valor_total ?? 0), 0);
   const receitaRecebida = faturas
-    .filter(item => item.status === "PAGO")
-    .reduce(
-      (acc, item) => acc + Number(item.valor_total || 0),
-      0
-    );
-
-  const valorEmAberto =
-    receitaPrevista - receitaRecebida;
-
-  const inadimplentes = faturas.filter(
-    item => item.status !== "PAGO"
-  ).length;
-
-  const ticketMedio =
-    faturas.length > 0
-      ? receitaPrevista / faturas.length
-      : 0;
-
-  const percentualRecebido =
-    receitaPrevista > 0
-      ? (receitaRecebida / receitaPrevista) * 100
-      : 0;
-
+    .filter((item) => String(item.status ?? "").toUpperCase() === "PAGO")
+    .reduce((total, item) => total + Number(item.valor_total ?? 0), 0);
   const agrupado: Record<string, number> = {};
-
   for (const fatura of faturas) {
-
-    const competencia = fatura.referencia;
-
-    agrupado[competencia] =
-      (agrupado[competencia] || 0) +
-      Number(fatura.valor_total || 0);
-
+    const competencia = String(fatura.referencia ?? "").trim();
+    if (competencia) agrupado[competencia] = (agrupado[competencia] ?? 0) + Number(fatura.valor_total ?? 0);
   }
-
   const historicoMensal = Object.entries(agrupado)
-    .map(([competencia, valor]) => ({
-      competencia,
-      valor,
-    }))
+    .map(([competencia, valor]) => ({ competencia, valor }))
     .sort((a, b) => {
-
-      const [mesA, anoA] =
-        a.competencia.split("/");
-
-      const [mesB, anoB] =
-        b.competencia.split("/");
-
-      return (
-        new Date(
-          Number(anoA),
-          Number(mesA) - 1
-        ).getTime() -
-        new Date(
-          Number(anoB),
-          Number(mesB) - 1
-        ).getTime()
-      );
-
+      const [mesA, anoA] = a.competencia.split("/").map(Number);
+      const [mesB, anoB] = b.competencia.split("/").map(Number);
+      return new Date(anoA, mesA - 1).getTime() - new Date(anoB, mesB - 1).getTime();
     });
 
   return {
-
     receitaPrevista,
-
     receitaRecebida,
-
-    valorEmAberto,
-
-    inadimplentes,
-
-    ticketMedio,
-
-    percentualRecebido,
-
-    totalFaturas:
-      faturas.length,
-
+    valorEmAberto: receitaPrevista - receitaRecebida,
+    inadimplentes: faturas.filter((item) => String(item.status ?? "").toUpperCase() !== "PAGO").length,
+    ticketMedio: faturas.length ? receitaPrevista / faturas.length : 0,
+    percentualRecebido: receitaPrevista ? (receitaRecebida / receitaPrevista) * 100 : 0,
+    totalFaturas: faturas.length,
     historicoMensal,
-
   };
-
 }
