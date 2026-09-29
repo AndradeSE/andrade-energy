@@ -5,8 +5,7 @@ import { Alert, StyleSheet, Text, View } from "react-native";
 import FormField from "../../components/cadastro/FormField";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
-import { excluirCliente } from "../../services/clientes.service";
-import { supabase } from "../../supabase";
+import { buscarCliente, editarCliente, excluirCliente } from "../../services/clientes.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { emailOpcionalValido, normalizarEmail } from "../../utils/email";
 
@@ -15,25 +14,42 @@ export default function EditarCliente() {
   const [nome, setNome] = useState(""); const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState(""); const [cpf, setCpf] = useState(""); const [endereco, setEndereco] = useState("");
   const [loading, setLoading] = useState(true); const [salvando, setSalvando] = useState(false);
+  const [erroCarregamento, setErroCarregamento] = useState("");
 
-  useEffect(() => { supabase.from("clientes").select("*").eq("id", id).single().then(({ data: d }) => { if (d) { setNome(d.nome ?? ""); setTelefone(d.telefone ?? d.whatsapp ?? ""); setEmail(d.email ?? ""); setCpf(d.cpf ?? ""); setEndereco(d.endereco ?? ""); } setLoading(false); }); }, [id]);
+  useEffect(() => {
+    let ativo = true;
+    setLoading(true);
+    setErroCarregamento("");
+    if (!id) { setErroCarregamento("Cliente não encontrado."); setLoading(false); return; }
+    buscarCliente(id).then((d) => {
+      if (!ativo) return;
+      setNome(d.nome ?? ""); setTelefone(d.telefone ?? d.whatsapp ?? "");
+      setEmail(d.email ?? ""); setCpf(d.cpf ?? d.cpf_cnpj ?? ""); setEndereco(d.endereco ?? "");
+    }).catch((erro: any) => {
+      if (ativo) setErroCarregamento(erro?.response?.data?.message ?? "Não foi possível carregar o cadastro. Volte e tente novamente.");
+    }).finally(() => { if (ativo) setLoading(false); });
+    return () => { ativo = false; };
+  }, [id]);
 
   async function salvar() {
+    if (loading || erroCarregamento || !id) return Alert.alert("Cadastro indisponível", "Os dados do cliente não foram carregados. Volte e tente novamente.");
     if (!nome.trim()) return Alert.alert("Nome obrigatório", "Informe o nome do cliente.");
     if (!emailOpcionalValido(email)) return Alert.alert("E-mail inválido", "Informe um endereço de e-mail válido ou deixe o campo vazio.");
     setSalvando(true);
-    const { error } = await supabase.from("clientes").update({ nome: nome.trim(), telefone, whatsapp: telefone.replace(/\D/g, ""), email: normalizarEmail(email) || null, cpf, endereco }).eq("id", id);
-    if (error) {
+    try {
+      await editarCliente(id, { nome: nome.trim(), telefone, whatsapp: telefone.replace(/\D/g, ""), email: normalizarEmail(email) || null, cpf, endereco });
+      router.back();
+    } catch (erro: any) {
       setSalvando(false);
-      return Alert.alert("Não foi possível salvar", error.message);
+      return Alert.alert("Não foi possível salvar", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
     }
     setSalvando(false);
-    router.back();
   }
 
   function excluir() { Alert.alert("Excluir cliente", "O cliente só poderá ser excluído quando todos os contratos estiverem cancelados ou encerrados. Deseja verificar?", [{ text: "Cancelar", style: "cancel" }, { text: "Excluir", style: "destructive", onPress: async () => { try { await excluirCliente(id); router.replace("/clientes"); } catch (erro: any) { const mensagem = erro?.response?.data?.message ?? erro?.message; Alert.alert("Não foi possível excluir", mensagem, erro?.response?.data?.code === "CLIENTE_COM_CONTRATO_ATIVO" ? [{ text: "Fechar" }, { text: "Ver contratos", onPress: () => router.push("/contratos" as any) }] : [{ text: "OK" }]); } } }]); }
 
   if (loading) return <Loading />;
+  if (erroCarregamento) return <Screen><Card><Text style={styles.title}>Cadastro indisponível</Text><Text style={styles.subtitle}>{erroCarregamento}</Text><Button title="Voltar" onPress={() => router.back()} /></Card></Screen>;
   return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Editar cliente" subtitle="Dados cadastrais" contextTitle="Editar cliente" contextSubtitle={nome || "Dados cadastrais do consumidor"} icon="create-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled"><Text style={styles.eyebrow}>CADASTRO DO CLIENTE</Text><Text style={styles.title}>Editar cliente</Text><Text style={styles.subtitle}>Somente o nome é obrigatório. Atualize os demais dados quando precisar.</Text>
     <Card><FormField label="Nome" value={nome} onChangeText={setNome} /><FormField label="Telefone / WhatsApp (opcional)" value={telefone} onChangeText={setTelefone} keyboardType="phone-pad" /><FormField label="E-mail (opcional)" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
       <FormField label="CPF / CNPJ (opcional)" value={cpf} onChangeText={setCpf} /><FormField label="Endereço (opcional)" value={endereco} onChangeText={setEndereco} />

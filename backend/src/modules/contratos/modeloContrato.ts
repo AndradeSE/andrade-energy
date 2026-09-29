@@ -36,7 +36,7 @@ export function preencherModeloContrato(unidade: any, contrato: any) {
   const potencia = valor(d.potencia_kwp ?? u.potencia_kwp);
   const geracao = valor(d.geracao_estimada ?? u.producao_media_12_meses ?? u.geracao_media);
   const tokens: Record<string, string> = {
-    PARTES: `LOCATÁRIO: ${locatario}, inscrito no CPF/CNPJ sob nº ${valor(c.cpf)}, com endereço em ${valor(c.endereco)}, doravante denominado simplesmente LOCATÁRIO.\nLOCADOR: ${locador}, inscrito no CPF/CNPJ sob nº ${valor(d.locador_documento)}, com endereço em ${valor(d.locador_endereco)}, doravante denominado simplesmente LOCADOR.\nAs partes declaram possuir plena capacidade civil para celebrar o presente contrato.`,
+    PARTES: `LOCATÁRIO: ${locatario}, inscrito no CPF/CNPJ sob nº ${valor(c.cpf || c.cpf_cnpj)}, com endereço em ${valor(c.endereco)}, doravante denominado simplesmente LOCATÁRIO.\nLOCADOR: ${locador}, inscrito no CPF/CNPJ sob nº ${valor(d.locador_documento)}, com endereço em ${valor(d.locador_endereco)}, doravante denominado simplesmente LOCADOR.\nAs partes declaram possuir plena capacidade civil para celebrar o presente contrato.`,
     CONCESSIONARIA: distribuidora,
     POTENCIA: /kwp/i.test(potencia) ? potencia : `${potencia} kWp`,
     GERACAO: /kwh/i.test(geracao) ? geracao : `${geracao} kWh/mês`,

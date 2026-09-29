@@ -29,6 +29,12 @@ export async function enviarContratoEConvite(unidadeId: string, gestor: any, for
   if (!d.locador_nome || !d.locador_documento || !d.locador_endereco) throw new Error("Complete os dados do locador antes de enviar.");
   const { data: cliente, error: erroCliente } = await supabase.from("clientes").select("*").eq("id", unidade.cliente_id).eq("empresa_id", empresaId).single();
   if (erroCliente) throw erroCliente;
+  if (![cliente.nome, cliente.cpf || cliente.cpf_cnpj, cliente.endereco].every((valor) => String(valor ?? "").trim())) {
+    throw new Error("Complete nome, CPF/CNPJ e endereço do cliente antes de enviar o contrato.");
+  }
+  if (!contrato.gerado_em || (cliente.updated_at && Date.parse(cliente.updated_at) > Date.parse(contrato.gerado_em))) {
+    throw new Error("O cadastro do cliente mudou após a geração da minuta. Gere e revise uma nova minuta antes de enviar.");
+  }
   const proposta = await obterPropostaParaConvite(cliente.id, empresaId, unidadeId);
   if (!proposta) throw new Error("Não foi possível preparar a proposta desta UC. Nenhum convite foi enviado.");
   const { data: pdf, error: erroPdf } = await supabase.storage.from("contratos").download(contrato.contrato_gerado_url);
