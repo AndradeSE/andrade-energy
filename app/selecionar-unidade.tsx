@@ -586,6 +586,8 @@ export default function SelecionarUnidade() {
             !gestor
               ? (item as UnidadeConsumidora)
               : null;
+          const contratoLiberado = unidade?.liberado === true;
+          const unidadeInativa = unidade?.status === "INATIVA";
 
           if (gestor && usina) {
             const inativa = usina.status === "INATIVA";
@@ -728,7 +730,7 @@ export default function SelecionarUnidade() {
                 <ImageBackground source={unidade?.foto_card_local ? { uri: unidade.foto_card_local } : require("../assets/images/usina-loading.jpeg")} imageStyle={styles.unitCoverImage} style={styles.unitCover}>
                   <LinearGradient colors={["rgba(3,30,22,.12)", "rgba(3,30,22,.88)"]} style={styles.unitCoverShade}>
                     <View style={styles.unitCoverTop}>
-                      <View style={styles.unitLiveBadge}><View style={styles.unitLiveDot} /><Text style={styles.unitLiveText}>{item.status === "ATIVA" ? "ATIVA" : item.status === "PENDENTE_CONTRATO" ? "AGUARDANDO CONTRATO" : "INATIVA"}</Text></View>
+                      <View style={styles.unitLiveBadge}><View style={styles.unitLiveDot} /><Text style={styles.unitLiveText}>{unidadeInativa ? "INATIVA" : contratoLiberado ? "ATIVA" : "AGUARDANDO CONTRATO"}</Text></View>
                       <TouchableOpacity accessibilityLabel={`Personalizar fundo da UC ${unidade!.numero}`} hitSlop={8} onPress={(event) => { event.stopPropagation(); void personalizarFundo(unidade!); }} style={styles.unitPhotoButton}><Ionicons name="image-outline" size={18} color="#FFF" /></TouchableOpacity>
                     </View>
                     <View style={styles.unitCoverIdentity}>
@@ -771,19 +773,14 @@ export default function SelecionarUnidade() {
                   </View>
 
                   <View
-                    style={
-                      styles.activeBadge
-                    }
+                    style={[styles.activeBadge, !contratoLiberado && styles.pendingBadge]}
                   >
                     <Text
                       style={
                         styles.activeText
                       }
                     >
-                      {item.status ===
-                      "INATIVA"
-                        ? "Inativa"
-                        : "Contrato ativo"}
+                      {unidadeInativa ? "Inativa" : contratoLiberado ? "Contrato vigente" : "Contrato pendente"}
                     </Text>
                   </View>
                 </View>
@@ -1511,6 +1508,9 @@ const styles =
         Radius.round,
       backgroundColor:
         Colors.success,
+    },
+    pendingBadge: {
+      backgroundColor: Colors.warning,
     },
 
     activeText: {
