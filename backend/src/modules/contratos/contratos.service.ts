@@ -12,7 +12,7 @@ import {
 import { supabase } from "../../config/supabase";
 import crypto from "crypto";
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
-import { armazenarContratoAssinado, criarLinkContrato, gerarMinutaContrato, salvarDocumentoContrato } from "./documentosContrato.service";
+import { armazenarContratoAssinado, criarLinkContrato, gerarMinutaContrato, salvarDocumentoContrato, validarCadastroParaMinuta } from "./documentosContrato.service";
 import { obterPropostaParaConvite } from "../convites/propostaConvite.service";
 import { criarNotificacaoApp } from "../notificacoes/push.service";
 import { contratoAceitaSolicitacaoCancelamento, processamentoCancelamentoExpirou } from "./cancelamentoContrato.policy";
@@ -351,6 +351,7 @@ export async function gerarContratoDaUnidadeService(unidadeId: string, dados: an
   if (![partes.locador_nome, partes.locador_documento, partes.locador_endereco].every((valor) => String(valor ?? "").trim())) {
     throw new Error("Complete nome, CPF/CNPJ e endereço do locador antes de gerar a minuta.");
   }
+  await validarCadastroParaMinuta(unidadeId);
   const contrato = await salvarContratoDaUnidadeService(unidadeId, dados);
   const pdf = await gerarMinutaContrato(unidadeId, contrato);
   const caminho = await salvarDocumentoContrato(`unidades/${unidadeId}/${contrato.id}/minuta-contrato.pdf`, pdf);
