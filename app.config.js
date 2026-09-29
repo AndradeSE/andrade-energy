@@ -34,9 +34,14 @@ module.exports = {
       ? "andradeenergygerador"
       : "andradeenergyconsumidor",
 
-    userInterfaceStyle: "automatic",
+    // As telas do aplicativo (inclusive o carregamento inicial) usam a paleta clara.
+    // Evita que o Android aplique o tema escuro apenas à janela nativa de abertura.
+    userInterfaceStyle: "light",
 
     android: {
+      userInterfaceStyle: "light",
+      backgroundColor: "#DFE8E3",
+      googleServicesFile: "./firebase/google-services.json",
       // Mantém o filtro de intent específico de cada APK. Sem isso, um
       // prebuild reutilizado pode acumular os dois schemes e o Android passa
       // a oferecer também o app Gerador ao abrir um convite de consumidor.
@@ -88,12 +93,12 @@ module.exports = {
       [
         "expo-splash-screen",
         {
-          image: gerador
-            ? "./assets/images/android-icon-gerador-safe.png"
-            : "./assets/images/android-icon-consumidor-safe.png",
-          imageWidth: 150,
+          // O splash usa apenas a logo transparente. Os arquivos quadrados
+          // acima continuam exclusivos dos ícones instalados no Android.
+          image: "./assets/images/andrade-logo-horizontal.png",
+          imageWidth: 200,
           resizeMode: "contain",
-          backgroundColor: gerador ? "#F4FAF6" : "#EAF5EF",
+          backgroundColor: "#EAF5EF",
         },
       ],
 

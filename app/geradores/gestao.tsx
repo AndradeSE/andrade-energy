@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
   Linking,
@@ -27,6 +28,7 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { avisosPassoAPassoAtivos, definirAvisosPassoAPasso } from "../../services/preferencias.service";
 import {
+  alterarTransferenciaAutomaticaAssinaturas,
   alterarStatusAssinatura,
   arquivarAssinatura,
   contratarPlano,
@@ -41,6 +43,7 @@ import {
 } from "../../services/comercial.service";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 import AutenticadorFinanceiro from "../../components/financeiro/AutenticadorFinanceiro";
+import { initialTabKey } from "../../services/navigation-preload.service";
 
 const money = (value: unknown) =>
   Number(value ?? 0).toLocaleString("pt-BR", {
@@ -57,16 +60,20 @@ const date = (value: unknown) =>
 export default function GestaoGeradores() {
   const params = useLocalSearchParams<{ aba?: string }>();
   const { user } = useAuth();
-  const [data, setData] = useState<PainelComercial | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const painelInicial = queryClient.getQueryData<PainelComercial>(initialTabKey(String(user?.id ?? ""), undefined, "comercial"));
+  const financeiroInicial = queryClient.getQueryData<any>(initialTabKey(String(user?.id ?? ""), undefined, "comercial-financeiro"));
+  const [data, setData] = useState<PainelComercial | null>(painelInicial ?? null);
+  const [loading, setLoading] = useState(!painelInicial);
   const [menuAberto, setMenuAberto] = useState(false);
   const [avisosPassoAPasso, setAvisosPassoAPasso] = useState(true);
   useEffect(() => { void avisosPassoAPassoAtivos().then(setAvisosPassoAPasso); }, []);
   const [planoEditando, setPlanoEditando] = useState<any>(null);
-  const [carteira, setCarteira] = useState<any>(null);
+  const [carteira, setCarteira] = useState<any>(financeiroInicial ?? null);
   const [pixTipo] = useState("CPF");
   const [pixChave, setPixChave] = useState("");
   const [senhaFinanceira, setSenhaFinanceira] = useState("");
+  const [financeiroAutorizado, setFinanceiroAutorizado] = useState(false);
   const [codigoAutenticador, setCodigoAutenticador] = useState("");
   const [saque, setSaque] = useState("");
   const [validandoPix, setValidandoPix] = useState(false);
@@ -96,6 +103,8 @@ export default function GestaoGeradores() {
       ]);
       setData(painel);
       setCarteira(carteiraAtual);
+      queryClient.setQueryData(initialTabKey(String(user?.id ?? ""), undefined, "comercial"), painel);
+      queryClient.setQueryData(initialTabKey(String(user?.id ?? ""), undefined, "comercial-financeiro"), carteiraAtual);
     } catch (error: any) {
       Alert.alert(
         "Gestão comercial",
@@ -104,7 +113,7 @@ export default function GestaoGeradores() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [queryClient, user?.id]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -221,7 +230,6 @@ export default function GestaoGeradores() {
                 router.push("/geradores/monitoramento" as any);
               }}
             />
-            <DrawerLink icon="play-circle-outline" label="Tutoriais" onPress={() => { setMenuAberto(false); router.push("/tutoriais" as any); }} />
             <View style={styles.drawerPreference}><Ionicons name="navigate-circle-outline" size={22} color={Colors.primary} /><Text style={styles.drawerPreferenceText}>Avisos passo a passo</Text><Switch value={avisosPassoAPasso} onValueChange={(valor) => { setAvisosPassoAPasso(valor); void definirAvisosPassoAPasso(valor); }} trackColor={{ false: Colors.border, true: Colors.primary }} /></View>
           </Pressable>
         </Pressable>
@@ -306,38 +314,6 @@ export default function GestaoGeradores() {
                     label="MRR PREVISTO"
                     value={money(data?.resumo.receitaMensalPrevista)}
                   />
-                </View>
-                <View style={styles.overviewGrid}>
-                  <TouchableOpacity
-                    onPress={() => setAba("GERADORES")}
-                    style={styles.overviewCard}
-                  >
-                    <Ionicons
-                      name="people-outline"
-                      size={24}
-                      color={Colors.primary}
-                    />
-                    <Text style={styles.overviewValue}>
-                      {data?.geradores.filter(
-                        (item) => item.perfil === "GESTOR",
-                      ).length ?? 0}
-                    </Text>
-                    <Text style={styles.muted}>contas geradoras</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => setAba("ASSINATURAS")}
-                    style={styles.overviewCard}
-                  >
-                    <Ionicons
-                      name="card-outline"
-                      size={24}
-                      color={Colors.primary}
-                    />
-                    <Text style={styles.overviewValue}>
-                      {data?.assinaturas.length ?? 0}
-                    </Text>
-                    <Text style={styles.muted}>licenças cadastradas</Text>
-                  </TouchableOpacity>
                 </View>
               </>
             ) : null}
@@ -460,11 +436,14 @@ export default function GestaoGeradores() {
                     </View>
                   </View>
                 </View>
-                <Text style={styles.section}>ASSINATURAS DA CARTEIRA</Text>
-                <View style={styles.row}>
-                  <Text style={styles.muted}>Histórico cancelado preservado</Text>
-                  <TouchableOpacity onPress={() => setMostrarArquivadas((value) => !value)}>
-                    <Text style={styles.link}>{mostrarArquivadas ? "Ocultar arquivadas" : "Ver arquivadas"}</Text>
+                <View style={styles.subscriptionToolbar}>
+                  <View style={styles.subscriptionToolbarCopy}>
+                    <Text style={styles.subscriptionToolbarTitle}>ASSINATURAS DA CARTEIRA</Text>
+                    <Text style={styles.muted}>Histórico cancelado preservado</Text>
+                  </View>
+                  <TouchableOpacity accessibilityRole="button" accessibilityLabel={mostrarArquivadas ? "Ocultar assinaturas arquivadas" : "Ver assinaturas arquivadas"} style={styles.archiveToggle} onPress={() => setMostrarArquivadas((value) => !value)}>
+                    <Ionicons name={mostrarArquivadas ? "archive" : "archive-outline"} size={16} color={Colors.primary} />
+                    <Text style={styles.archiveToggleText}>{mostrarArquivadas ? "Ocultar arquivadas" : "Ver arquivadas"}</Text>
                   </TouchableOpacity>
                 </View>
                 {(data?.assinaturas ?? [])
@@ -485,6 +464,7 @@ export default function GestaoGeradores() {
                           styles.badge,
                           subscription.status === "INADIMPLENTE" &&
                             styles.badgeDanger,
+                          subscription.status === "CANCELADA" && styles.badgeNeutral,
                         ]}
                       >
                         {subscription.status}
@@ -497,11 +477,12 @@ export default function GestaoGeradores() {
                       </Text>
                       <Text>{money(subscription.valor_contratado)}</Text>
                     </View>
-                    <Text style={styles.muted}>
+                    {subscription.status !== "CANCELADA" ? <Text style={styles.muted}>
                       Próximo vencimento:{" "}
                       {date(subscription.proximo_vencimento)}
-                    </Text>
+                    </Text> : null}
                     <View style={styles.actions}>
+                      {subscription.status !== "CANCELADA" ? <>
                       <Action
                         label="Gerar cobrança"
                         icon="receipt-outline"
@@ -551,8 +532,10 @@ export default function GestaoGeradores() {
                           }
                         }}
                       />
+                      </> : null}
                       {subscription.status === "CANCELADA" ? (
                         <Action
+                          fullWidth
                           label={subscription.arquivada_em ? "Restaurar" : "Arquivar"}
                           icon={subscription.arquivada_em ? "arrow-undo-outline" : "archive-outline"}
                           onPress={() =>
@@ -616,10 +599,10 @@ export default function GestaoGeradores() {
                   </View>
                   {carteira ? (
                     <View style={styles.financeCards}>
-                      <AutenticadorFinanceiro base="/comercial/financeiro" ativo={Boolean(carteira.autenticadorAtivo)} senhaAtual={senhaFinanceira} onSenhaAtual={setSenhaFinanceira} codigo={codigoAutenticador} onCodigo={setCodigoAutenticador} onAtivo={() => void obterFinanceiroAssinaturas().then(setCarteira)} />
+                      <AutenticadorFinanceiro base="/comercial/financeiro" ativo={Boolean(carteira.autenticadorAtivo)} senhaAtual={senhaFinanceira} onSenhaAtual={setSenhaFinanceira} codigo={codigoAutenticador} onCodigo={setCodigoAutenticador} onAutorizado={setFinanceiroAutorizado} onAtivo={() => void obterFinanceiroAssinaturas().then(setCarteira)} />
                       <Card style={styles.financeCard}>
                         <Text style={styles.cardTitle}>Chave Pix da Andrade Energy</Text>
-                        <Text style={styles.subtitle}>Valide o titular antes de autorizar qualquer transferência.</Text>
+                        <Text style={styles.subtitle}>Digite a chave primeiro. Depois confirme senha e código; somente este botão consulta o titular e salva a chave.</Text>
                         <TextInput
                           autoCapitalize="none"
                           style={[styles.input, styles.financeInput]}
@@ -630,8 +613,8 @@ export default function GestaoGeradores() {
                         <Button
                           title={validandoPix ? "Validando titular..." : "Validar titular e salvar"}
                           disabled={validandoPix}
-                          style={styles.financeButton}
-                          onPress={() => void saveWallet()}
+                          style={[styles.financeButton, !financeiroAutorizado && { opacity: 0.45 }]}
+                          onPress={() => financeiroAutorizado ? void saveWallet() : Alert.alert("Etapa pendente", "Digite a chave Pix, confirme sua senha e depois o código de 6 dígitos para validar o titular e salvar.")}
                         />
                         {carteira.pixChaveMascarada ? (
                           <View style={styles.savedPixCard}>
@@ -648,11 +631,11 @@ export default function GestaoGeradores() {
                       <Card style={styles.financeCard}>
                         <Text style={styles.cardTitle}>Transferência automática</Text>
                         <View style={styles.autoRow}>
-                          <Text style={[styles.subtitle, styles.grow]}>Quando ativa, cada novo recebimento é enviado à chave Pix cadastrada. Para mudar, informe senha e código acima.</Text>
+                          <Text style={[styles.subtitle, styles.grow]}>Liga ou desliga usando somente a chave Pix já validada e salva.</Text>
                           <Switch
                             value={carteira.transferenciaAutomatica}
                             trackColor={{ false: Colors.border, true: Colors.primary }}
-                            onValueChange={(value) => void saveWallet(value)}
+                            onValueChange={(value) => void alternarAutomacao(value)}
                           />
                         </View>
                       </Card>
@@ -669,9 +652,8 @@ export default function GestaoGeradores() {
                         />
                         <Button
                           title="Transferir valor"
-                          disabled={!carteira.pixChaveMascarada || Number(carteira.saldoDisponivel ?? 0) <= 0}
-                          style={styles.financeButton}
-                          onPress={() => void withdraw()}
+                          style={[styles.financeButton, !financeiroAutorizado && { opacity: 0.45 }]}
+                          onPress={() => !carteira.pixChaveMascarada ? Alert.alert("Chave Pix necessária", "Cadastre uma chave Pix antes de transferir.") : Number(carteira.saldoDisponivel ?? 0) <= 0 ? Alert.alert("Saldo indisponível", "Não há saldo disponível para transferência.") : financeiroAutorizado ? void withdraw() : Alert.alert("Etapa pendente", "Confirme sua senha e o código acima antes de transferir.")}
                         />
                       </Card>
                     </View>
@@ -836,14 +818,23 @@ export default function GestaoGeradores() {
     } catch (error:any) { Alert.alert("Plano", error?.response?.data?.message ?? "Não foi possível salvar o plano."); }
   }
 
-  async function saveWallet(automatic = carteira?.transferenciaAutomatica ?? false) {
+  async function alternarAutomacao(ativa: boolean) {
+    try {
+      const updated = await alterarTransferenciaAutomaticaAssinaturas(ativa);
+      setCarteira(updated);
+      Alert.alert("Transferência automática", ativa ? "Ativada para a chave Pix já salva." : "Desativada.");
+    } catch (error: any) { Alert.alert("Transferência automática", error?.response?.data?.message ?? "Não foi possível alterar a automação."); }
+  }
+
+  async function saveWallet() {
+    if (!financeiroAutorizado) return Alert.alert("Etapa pendente", "Confirme senha e código antes de continuar.");
+    if (!pixChave.trim()) return Alert.alert("Chave Pix", "Digite a chave Pix que deseja validar e salvar.");
     const salvar = async () => {
-      const updated = await configurarFinanceiroAssinaturas({ pixTipo, pixChave:pixChave || undefined, transferenciaAutomatica:automatic, senhaAtual:senhaFinanceira, codigoAutenticador });
-      setCarteira(updated); setPixChave(""); setSenhaFinanceira(""); setCodigoAutenticador("");
-      Alert.alert("Financeiro", "Configuração de transferência atualizada.");
+      const updated = await configurarFinanceiroAssinaturas({ pixTipo, pixChave:pixChave.trim(), transferenciaAutomatica:carteira?.transferenciaAutomatica ?? false, senhaAtual:senhaFinanceira, codigoAutenticador });
+      setCarteira(updated); setPixChave(""); setSenhaFinanceira(""); setCodigoAutenticador(""); setFinanceiroAutorizado(false);
+      Alert.alert("Financeiro", "Chave Pix validada e salva.");
     };
     try {
-      if (!pixChave.trim()) return await salvar();
       setValidandoPix(true);
       const titular = await validarChavePixAssinaturas(pixTipo, pixChave.trim());
       Alert.alert(
@@ -859,10 +850,11 @@ export default function GestaoGeradores() {
   }
 
   async function withdraw() {
+    if (!financeiroAutorizado) return Alert.alert("Etapa pendente", "Confirme senha e código antes de continuar.");
     const valor = Number(saque.replace(",", "."));
     if (!carteira?.asaasConectado) return Alert.alert("Asaas comercial", "Conecte a conta exclusiva das assinaturas antes de transferir.");
     if (!(valor > 0)) return Alert.alert("Transferência", "Informe um valor válido.");
-    Alert.alert("Confirmar transferência", `Transferir ${money(valor)} para ${carteira?.pixChaveMascarada ?? "a chave cadastrada"}?`, [{text:"Cancelar",style:"cancel"},{text:"Transferir",onPress:async()=>{try{await transferirFinanceiroAssinaturas(valor,senhaFinanceira,codigoAutenticador);setSaque("");setSenhaFinanceira("");setCodigoAutenticador("");setCarteira(await obterFinanceiroAssinaturas());Alert.alert("Transferência solicitada","A operação foi enviada à conta Asaas das assinaturas.");}catch(error:any){Alert.alert("Transferência",error?.response?.data?.message??"Não foi possível transferir.");}}}]);
+    Alert.alert("Confirmar transferência", `Transferir ${money(valor)} para ${carteira?.pixChaveMascarada ?? "a chave cadastrada"}?`, [{text:"Cancelar",style:"cancel"},{text:"Transferir",onPress:async()=>{try{await transferirFinanceiroAssinaturas(valor,senhaFinanceira,codigoAutenticador);setSaque("");setSenhaFinanceira("");setCodigoAutenticador("");setFinanceiroAutorizado(false);setCarteira(await obterFinanceiroAssinaturas());Alert.alert("Transferência solicitada","A operação foi enviada à conta Asaas das assinaturas.");}catch(error:any){Alert.alert("Transferência",error?.response?.data?.message??"Não foi possível transferir.");}}}]);
   }
 }
 
@@ -882,9 +874,9 @@ function Metric({ label, value, success, danger }: any) {
     </View>
   );
 }
-function Action({ label, icon, onPress }: any) {
+function Action({ label, icon, onPress, fullWidth = false }: any) {
   return (
-    <TouchableOpacity style={styles.action} onPress={onPress}>
+    <TouchableOpacity style={[styles.action, fullWidth && styles.actionFullWidth]} onPress={onPress}>
       <Ionicons name={icon} size={18} color={Colors.primary} />
       <Text style={styles.actionText}>{label}</Text>
     </TouchableOpacity>
@@ -1038,23 +1030,6 @@ const styles = StyleSheet.create({
   tabActive: { borderColor: Colors.primary, backgroundColor: Colors.primary },
   tabText: { color: Colors.text, fontSize: 12, fontWeight: "800" },
   tabTextActive: { color: "#FFF" },
-  overviewGrid: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginTop: Spacing.md,
-  },
-  overviewCard: {
-    flex: 1,
-    padding: Spacing.md,
-    borderRadius: Radius.lg,
-    backgroundColor: "#DDEBE4",
-  },
-  overviewValue: {
-    marginTop: 7,
-    color: Colors.text,
-    fontSize: 22,
-    fontWeight: "900",
-  },
   blocked: {
     flex: 1,
     alignItems: "center",
@@ -1106,6 +1081,11 @@ const styles = StyleSheet.create({
   generatorDataGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: Spacing.md },
   generatorData: { width: "48%", color: Colors.text, fontSize: 11, lineHeight: 17 },
   row: { flexDirection: "row", alignItems: "flex-start", gap: Spacing.sm },
+  subscriptionToolbar: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: Spacing.sm, marginTop: Spacing.xl, marginBottom: Spacing.lg },
+  subscriptionToolbarCopy: { flexGrow: 1, flexShrink: 1 },
+  subscriptionToolbarTitle: { fontSize: 12, fontWeight: "900", color: Colors.subtitle, letterSpacing: 1 },
+  archiveToggle: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, minHeight: 38, paddingHorizontal: Spacing.sm, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.round, backgroundColor: Colors.surface },
+  archiveToggleText: { color: Colors.primary, fontSize: 12, fontWeight: "800" },
   grow: { flex: 1 },
   cardTitle: { fontSize: 17, fontWeight: "900", color: Colors.text },
   planPrice: { alignItems: "flex-end" },
@@ -1153,19 +1133,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "800",
   },
-  actions: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.md },
+  actions: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm, marginTop: Spacing.md },
   action: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: "46%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
     minHeight: 44,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: Radius.md,
   },
-  actionText: { fontSize: 12, fontWeight: "800", color: Colors.primary },
+  actionFullWidth: { flexBasis: "100%" },
+  actionText: { flexShrink: 1, textAlign: "center", fontSize: 12, fontWeight: "800", color: Colors.primary },
   paymentSummary: {
     flexDirection: "row",
     alignItems: "center",

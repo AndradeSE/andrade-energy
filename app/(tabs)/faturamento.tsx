@@ -2,19 +2,27 @@ import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Alert, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
-import { AppHeader, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
+import { AppHeader, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
+import TabDataPending from "../../components/ui/TabDataPending";
 import { listarUnidadesGestor } from "../../services/clientes.service";
 import { processarFatura } from "../../services/faturas.service";
 import { useAuth } from "../../contexts/AuthContext";
+import { initialTabKey } from "../../services/navigation-preload.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function Faturamento() {
-  const { suspenderBloqueioTemporariamente } = useAuth();
-  const [carregando, setCarregando] = useState(true);
+  const { user, usinaSelecionada, suspenderBloqueioTemporariamente } = useAuth();
+  const queryClient = useQueryClient();
+  const unidadesIniciais = queryClient.getQueryData<any[]>(initialTabKey(String(user?.id ?? ""), usinaSelecionada?.id ?? user?.usina_id, "faturamento"));
+  const [carregando, setCarregando] = useState(!unidadesIniciais);
   const [atualizando, setAtualizando] = useState(false);
-  const [unidadesRecebimento, setUnidadesRecebimento] = useState<any[]>([]);
+  const [unidadesRecebimento, setUnidadesRecebimento] = useState<any[]>(() => (unidadesIniciais ?? []).filter((item: any) => {
+    const usina = Array.isArray(item.usinas) ? item.usinas[0] : item.usinas;
+    return String(item.tipo ?? "BENEFICIARIA").toUpperCase() !== "GERADORA" && String(usina?.titularidade_ucs_recebedoras ?? "GERADOR") === "GERADOR";
+  }));
   const [faturandoPdf, setFaturandoPdf] = useState(false);
   const [pdfPendente, setPdfPendente] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [senhaPdf, setSenhaPdf] = useState("");
@@ -89,7 +97,7 @@ export default function Faturamento() {
 
   return <Screen>
     <AppHeader title="Faturamento" subtitle="Emissão e acompanhamento" contextTitle="Faturamento" contextSubtitle="Processar, automatizar e consultar faturas" icon="receipt-outline" />
-    {carregando ? <Loading /> : <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}>
+    {carregando ? <TabDataPending /> : <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}>
       <Card>
         <Text style={styles.title}>Como deseja faturar?</Text>
         <Text style={styles.subtitle}>Escolha uma opção para iniciar ou configurar o faturamento.</Text>
@@ -107,7 +115,7 @@ export default function Faturamento() {
             if (!unidade?.id) return Alert.alert("Fatura automática", "Cadastre e vincule uma UC recebedora a uma usina antes de configurar o e-mail.");
             router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidade.id, escopo: "usina" } });
           }} />
-          <Action icon="receipt-outline" title="Faturas" description="Ver cobranças abertas, vencidas e pagas" onPress={() => router.push("/faturas" as any)} />
+          <Action icon="receipt-outline" title="Faturas" description="Ver cobranças abertas, vencidas e pagas" onPress={() => router.push({ pathname: "/(tabs)/faturas", params: { origem: "faturamento" } })} />
         </View>
       </Card>
     </ScrollView>}

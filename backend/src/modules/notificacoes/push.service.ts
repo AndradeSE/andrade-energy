@@ -27,14 +27,27 @@ export async function enviarPushDaNotificacao(notificacao: NovaNotificacaoApp & 
   const tokens = [...new Set((dispositivos ?? []).map((item: any) => String(item.token)).filter(tokenExpoValido))];
   if (!tokens.length) return;
 
+  const [usina, cliente] = await Promise.all([
+    notificacao.usina_id
+      ? supabase.from("usinas").select("nome").eq("id", notificacao.usina_id).eq("empresa_id", notificacao.empresa_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    notificacao.cliente_id
+      ? supabase.from("clientes").select("nome").eq("id", notificacao.cliente_id).eq("empresa_id", notificacao.empresa_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const contexto = [
+    usina.data?.nome ? `Usina: ${String(usina.data.nome).slice(0, 60)}` : null,
+    cliente.data?.nome ? `Cliente: ${String(cliente.data.nome).slice(0, 60)}` : null,
+  ].filter(Boolean).join(" · ");
+
   const mensagens = tokens.map((to) => ({
     to,
     title: notificacao.titulo,
     // A tela bloqueada pode mostrar o push para terceiros. Os detalhes
     // pessoais ficam apenas na caixa de notificações após autenticação.
-    body: "Abra o aplicativo para ver os detalhes.",
+    body: contexto || "Abra o aplicativo para ver os detalhes.",
     sound: "default",
-    channelId: "avisos-importantes",
+    channelId: "avisos-contexto",
     priority: "high",
     data: {
       notificacaoId: notificacao.id,
@@ -52,6 +65,11 @@ export async function enviarPushDaNotificacao(notificacao: NovaNotificacaoApp & 
 
   const corpo: any = await resposta.json();
   const tickets = Array.isArray(corpo?.data) ? corpo.data : [corpo?.data];
+  for (const ticket of tickets) {
+    if (ticket?.status === "error") {
+      console.error("Expo recusou push", { motivo: ticket?.details?.error ?? "desconhecido" });
+    }
+  }
   const invalidos = tickets.flatMap((ticket: any, indice: number) =>
     ticket?.details?.error === "DeviceNotRegistered" ? [tokens[indice]] : [],
   );

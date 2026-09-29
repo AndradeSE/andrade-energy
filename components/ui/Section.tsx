@@ -18,6 +18,7 @@ import {
 type Props={
 
 title:string;
+subtitle?:string;
 framed?:boolean;
 
 children:any;
@@ -27,6 +28,7 @@ children:any;
 export default function Section({
 
 title,
+subtitle,
 framed = true,
 
 children,
@@ -42,6 +44,8 @@ return(
 {title}
 
 </Text>
+
+{subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
 
 {children}
 
@@ -76,6 +80,12 @@ color:Colors.text,
 
 marginBottom:Spacing.md,
 
+},
+
+subtitle:{
+color:Colors.subtitle,
+fontSize:Typography.caption,
+marginBottom:Spacing.md,
 },
 
 });

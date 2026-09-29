@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { environmentKeySuffix } from "../config/environment";
 
-const CHAVE = "@andrade_energy_usuario";
+const CHAVE = `@andrade_energy_usuario${environmentKeySuffix}`;
 
 export async function salvarSessao(usuario: any) {
   await AsyncStorage.setItem(

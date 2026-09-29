@@ -3,14 +3,14 @@ import { useAuth } from "../contexts/AuthContext";
 import { listarFaturas } from "../services/faturas.service";
 
 export function useFaturas() {
-  const { usuario, unidadeSelecionada } = useAuth();
+  const { usuario, unidadeSelecionada, usinaSelecionada } = useAuth();
   const proprietario = usuario?.perfil !== "LEITURA";
 
   return useQuery({
-    queryKey: ["faturas", proprietario ? "todas" : unidadeSelecionada?.cliente_id ?? usuario?.cliente_id, proprietario ? undefined : unidadeSelecionada?.numero],
+    queryKey: ["faturas", proprietario ? usinaSelecionada?.id ?? "todas" : unidadeSelecionada?.cliente_id ?? usuario?.cliente_id, proprietario ? undefined : unidadeSelecionada?.numero],
     enabled: proprietario || !!(unidadeSelecionada?.cliente_id ?? usuario?.cliente_id),
     queryFn: () => proprietario
-      ? listarFaturas()
+      ? listarFaturas(undefined, undefined, usinaSelecionada?.id)
       : unidadeSelecionada?.numero
       ? listarFaturas(undefined, unidadeSelecionada.numero)
       : listarFaturas((unidadeSelecionada?.cliente_id ?? usuario!.cliente_id)!),

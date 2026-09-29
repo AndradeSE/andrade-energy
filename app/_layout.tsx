@@ -25,6 +25,7 @@ import { IS_GERADOR_APP } from "../config/appVariant";
 import { registrarPushAndroid } from "../services/notificacoes.service";
 import * as Notifications from "expo-notifications";
 import { preloadNavigationData } from "../services/navigation-preload.service";
+import { listarAcessoContratos } from "../services/contratos.service";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -63,9 +64,26 @@ function RootNavigator() {
     isUnlocked,
     signOut,
     unidadeSelecionada,
+    selecionarUnidade,
     usinaSelecionada,
   } = useAuth();
   const [readyUserId, setReadyUserId] = useState<string | null>(null);
+  const selecionarUnidadeRef = useRef(selecionarUnidade);
+  selecionarUnidadeRef.current = selecionarUnidade;
+  useEffect(() => {
+    if (IS_GERADOR_APP || isLoading || !session?.user?.id || unidadeSelecionada?.id || pathname.includes("selecionar-unidade")) return;
+    let active = true;
+    void activeQueryClient.fetchQuery({
+      queryKey: ["initial-contract-access", String(session.user.id)],
+      queryFn: listarAcessoContratos,
+      staleTime: 60_000,
+    }).then((unidades) => {
+      if (active && Array.isArray(unidades) && unidades.length === 1) {
+        void selecionarUnidadeRef.current(unidades[0]);
+      }
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [activeQueryClient, isLoading, pathname, session?.user?.id, unidadeSelecionada?.id]);
 
   useEffect(() => {
     const currentUser = session?.user;
@@ -77,6 +95,19 @@ function RootNavigator() {
     ])
       .finally(() => { if (active) setReadyUserId(String(currentUser.id)); });
     return () => { active = false; };
+  }, [activeQueryClient, isLoading, readyUserId, session?.user?.id, unidadeSelecionada?.id, usinaSelecionada?.id]);
+  // A seleção da UC/usina pode ser restaurada depois do pré-carregamento
+  // inicial. Atualize o cache desse contexto sem remontar a navegação.
+  const preloadedScope = useRef<string | null>(null);
+  useEffect(() => {
+    const currentUser = session?.user;
+    if (isLoading || !currentUser?.id || readyUserId !== String(currentUser.id)) return;
+    const selectionId = IS_GERADOR_APP ? usinaSelecionada?.id : unidadeSelecionada?.id;
+    if (!selectionId) return;
+    const scope = `${currentUser.id}:${selectionId}`;
+    if (preloadedScope.current === scope) return;
+    preloadedScope.current = scope;
+    void preloadNavigationData(activeQueryClient, IS_GERADOR_APP, currentUser, unidadeSelecionada, usinaSelecionada);
   }, [activeQueryClient, isLoading, readyUserId, session?.user?.id, unidadeSelecionada?.id, usinaSelecionada?.id]);
   const alertaSessaoAberto = useRef(false);
 
@@ -207,7 +238,7 @@ function RootNavigator() {
     <Stack
       screenOptions={{
         headerShown: false,
-        animation: "fade",
+        animation: "none",
       }}
     >
       {/* ============================= */}
@@ -243,6 +274,9 @@ function RootNavigator() {
           }}
         />
       </Stack.Protected>
+
+      {/* A recuperação por e-mail precisa funcionar sem sessão autenticada. */}
+      <Stack.Screen name="redefinir-senha" options={{ headerShown: false }} />
 
       {/* ============================= */}
       {/* APLICATIVO                    */}
@@ -434,11 +468,6 @@ function RootNavigator() {
         />
 
         <Stack.Screen
-          name="(auth)/redefinir-senha"
-          options={{ headerShown: false }}
-        />
-
-        <Stack.Screen
           name="selecionar-gerador"
           options={{
             headerShown: false,
@@ -489,7 +518,7 @@ function RootNavigator() {
 }
 
 function precisaRotaLivre(pathname: string) {
-  return pathname.startsWith("/login") || pathname.startsWith("/cadastro") || pathname.startsWith("/recuperar-senha");
+  return pathname.startsWith("/login") || pathname.startsWith("/cadastro") || pathname.startsWith("/recuperar-senha") || pathname.startsWith("/redefinir-senha");
 }
 
 export default function RootLayout() {

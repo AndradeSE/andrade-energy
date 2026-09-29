@@ -10,9 +10,10 @@ export async function listarNotificacoesApp() {
 export async function registrarPushAndroid() {
   if (Platform.OS !== "android") return null;
   const Notifications = await import("expo-notifications");
-  await Notifications.setNotificationChannelAsync("avisos-importantes", {
+  await Notifications.setNotificationChannelAsync("avisos-contexto", {
     name: "Avisos importantes",
     importance: Notifications.AndroidImportance.HIGH,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
     vibrationPattern: [0, 250, 180, 250],
     sound: "default",
   });

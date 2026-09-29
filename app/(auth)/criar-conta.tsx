@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -12,8 +12,16 @@ import { consultarConvite, consultarConviteGerador } from "../../services/convit
 
 export default function CriarConta() {
   const tipo: "CONSUMIDOR" | "GERADOR" = IS_GERADOR_APP ? "GERADOR" : "CONSUMIDOR";
-  const params = useLocalSearchParams<{ convite?: string }>();
-  const [convite, setConvite] = useState(params.convite ?? "");
+  const params = useLocalSearchParams<{ convite?: string | string[] }>();
+  const conviteDoLink = Array.isArray(params.convite) ? params.convite[0] : params.convite;
+  const [convite, setConvite] = useState(conviteDoLink ?? "");
+  useEffect(() => {
+    if (conviteDoLink) {
+      setConvite(conviteDoLink.trim());
+      setConviteValido(false);
+      setErro("");
+    }
+  }, [conviteDoLink]);
   const [conviteValido, setConviteValido] = useState(false);
   const [validandoConvite, setValidandoConvite] = useState(false);
   const [nome, setNome] = useState("");

@@ -51,7 +51,6 @@ export default function ContratosClientes() {
   const [historicoAberto, setHistoricoAberto] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
-    setCarregando(true);
     try {
       const data = await listarContratosDaEmpresa(usinaSelecionada?.id);
       setContratos((data ?? []).filter((contrato: any) => !usinaSelecionada?.id || contrato.usina_id === usinaSelecionada.id).map((contrato) => ({

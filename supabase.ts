@@ -1,10 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
+import { isPreviewEnvironment } from './config/environment';
 
 // O Preview usa uma API e um banco separados. A chave aqui é publicável;
 // a chave secreta de cada projeto fica exclusivamente no respectivo backend.
-const homologacao = /andrade-energy-api-homologacao\.onrender\.com/i.test(
-  process.env.EXPO_PUBLIC_API_URL ?? '',
-);
+const homologacao = isPreviewEnvironment;
 
 const supabaseUrl = homologacao
   ? 'https://qqhcjieymypowunkixmk.supabase.co'

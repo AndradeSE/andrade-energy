@@ -25,13 +25,13 @@ import {
   Card,
   Divider,
   EmptyState,
-  Loading,
   Screen,
 } from "../../components/ui";
 import { useContrato } from "../../hooks/useContrato";
 import { useDashboard } from "../../hooks/useDashboard";
 import { useAuth } from "../../contexts/AuthContext";
 import ClienteHeader from "../../components/cliente/ClienteHeader";
+import TabDataPending from "../../components/ui/TabDataPending";
 import {
   cancelarContrato,
   baixarPropostaDaUnidade,
@@ -96,7 +96,7 @@ function ContratoConsumidor() {
     }
   }
 
-  if (isLoading) return <Loading />;
+  if (isLoading) return <Screen><ClienteHeader cliente="Cliente" uc={unidadeSelecionada?.numero ?? ""} distribuidora={unidadeSelecionada?.distribuidora ?? "CEMIG"} fullBleed /><TabDataPending /></Screen>;
 
   if (error || !data) {
     return (

@@ -122,11 +122,11 @@ export default function InversoresDaUsina() {
 const styles = StyleSheet.create({
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
   deviceCard: { marginBottom: Spacing.md }, deviceHeader: { flexDirection: "row", alignItems: "center" },
-  deviceIcon: { width: 44, height: 44, borderRadius: Radius.md, backgroundColor: Colors.primarySoft, alignItems: "center", justifyContent: "center" },
+  deviceIcon: { width: 44, height: 44, borderRadius: Radius.md, backgroundColor: Colors.primaryLight, alignItems: "center", justifyContent: "center" },
   deviceTitle: { flex: 1, marginHorizontal: Spacing.sm }, model: { color: Colors.text, fontSize: Typography.body, fontWeight: "800" },
   serial: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.caption }, detail: { color: Colors.text, fontWeight: "700" },
   sync: { marginTop: Spacing.xs, color: Colors.subtitle, fontSize: Typography.caption, lineHeight: 18 },
   removeButton: { height: 44, marginTop: Spacing.md, backgroundColor: Colors.danger },
-  notice: { flexDirection: "row", gap: Spacing.sm, padding: Spacing.md, marginBottom: Spacing.md, borderRadius: Radius.md, backgroundColor: Colors.primarySoft },
+  notice: { flexDirection: "row", gap: Spacing.sm, padding: Spacing.md, marginBottom: Spacing.md, borderRadius: Radius.md, backgroundColor: Colors.primaryLight },
   noticeText: { flex: 1, color: Colors.text, fontSize: Typography.caption, lineHeight: 19 }, backButton: { marginTop: Spacing.sm },
 });

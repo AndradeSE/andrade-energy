@@ -179,11 +179,10 @@ export default function ContratoDaUnidade() {
           setEconomiaAnual(valorParaCampo(contrato.economia_anual_estimada));
         }
         setObservacoes(contrato.observacoes ?? "");
-        if (resultadoDados.status !== "fulfilled") {
-          setLocadorNome(contrato.dados_documento?.locador_nome ?? "Andrade Energy");
-          setLocadorDocumento(contrato.dados_documento?.locador_documento ?? "");
-          setLocadorEndereco(contrato.dados_documento?.locador_endereco ?? "");
-        }
+        // O rascunho salvo prevalece sobre os valores sugeridos para um contrato novo.
+        setLocadorNome(contrato.dados_documento?.locador_nome ?? (resultadoDados.status === "fulfilled" ? resultadoDados.value?.locador?.nome : undefined) ?? "Andrade Energy");
+        setLocadorDocumento(contrato.dados_documento?.locador_documento ?? (resultadoDados.status === "fulfilled" ? resultadoDados.value?.locador?.documento : undefined) ?? "");
+        setLocadorEndereco(contrato.dados_documento?.locador_endereco ?? (resultadoDados.status === "fulfilled" ? resultadoDados.value?.locador?.endereco : undefined) ?? "");
         setPrazoAnos(String(contrato.dados_documento?.prazo_anos ?? "10"));
         setForo(contrato.dados_documento?.foro ?? "Itajubá/MG");
         setContratoGeradoUrl(revisandoContratoAssinado ? undefined : contrato.contrato_gerado_url ?? undefined);
@@ -243,6 +242,10 @@ export default function ContratoDaUnidade() {
       Alert.alert("Informe o locador", "O nome ou razão social do locador é obrigatório para gerar a minuta.");
       return false;
     }
+    if (!locadorDocumento.trim() || !locadorEndereco.trim()) {
+      Alert.alert("Complete os dados do locador", "Informe o CPF/CNPJ e o endereço do locador antes de gerar ou enviar a minuta.");
+      return false;
+    }
     return true;
   }
 
@@ -297,6 +300,20 @@ export default function ContratoDaUnidade() {
       Alert.alert("Não foi possível gerar", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
     } finally {
       setGerando(false);
+    }
+  }
+
+  async function abrirDocumentoAtual(tipo: "minuta" | "assinado") {
+    try {
+      const contratoAtual = await buscarContratoDaUnidade(id, true);
+      if (contratoId && contratoAtual?.id !== contratoId) {
+        throw new Error("A versão do contrato mudou. Reabra esta tela antes de consultar o documento.");
+      }
+      const url = tipo === "assinado" ? contratoAtual?.contrato_assinado_url : contratoAtual?.contrato_gerado_url;
+      if (!url) throw new Error("Documento não disponível. Gere a minuta novamente ou atualize a tela.");
+      await Linking.openURL(url);
+    } catch (erro: any) {
+      Alert.alert("Não foi possível abrir o documento", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
     }
   }
 
@@ -478,9 +495,9 @@ export default function ContratoDaUnidade() {
           <Text style={styles.stepsWarning}>O envio permanece bloqueado enquanto a minuta atual não for gerada e revisada.</Text>
         </Card> : null}
         <View style={styles.documentActions}>
-          {contratoAssinadoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoAssinadoUrl)} style={styles.signedLink}><Ionicons name="document-text-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir contrato assinado</Text></TouchableOpacity> : null}
+          {contratoAssinadoUrl ? <TouchableOpacity onPress={() => abrirDocumentoAtual("assinado")} style={styles.signedLink}><Ionicons name="document-text-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir contrato assinado</Text></TouchableOpacity> : null}
           {assinaturaPendente ? <TouchableOpacity accessibilityRole="button" activeOpacity={0.84} disabled={importando} onPress={importarAssinado} style={styles.uploadSignedButton}><Ionicons name="swap-horizontal-outline" size={20} color={Colors.primary} /><Text style={styles.uploadSignedButtonText}>{importando ? "Trocando documento..." : "Trocar documento assinado"}</Text></TouchableOpacity> : null}
-          {!contratoAssinadoUrl && contratoGeradoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoGeradoUrl)} style={styles.documentLink}><Ionicons name="document-text-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir contrato</Text></TouchableOpacity> : null}
+          {!contratoAssinadoUrl && contratoGeradoUrl ? <TouchableOpacity onPress={() => abrirDocumentoAtual("minuta")} style={styles.documentLink}><Ionicons name="document-text-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir contrato</Text></TouchableOpacity> : null}
           {assinaturaPendente ? <Button title="Validar assinaturas do PDF" disabled={gerando} onPress={confirmarAssinaturaExterna} /> : null}
           {!assinaturaPendente ? <Button title={gerando ? "Preparando revisão..." : "Criar nova versão do contrato"} disabled={gerando} icon={<Ionicons name="sync-circle-outline" size={20} color={Colors.surface} />} onPress={iniciarNovaVersao} /> : null}
         </View>
@@ -517,13 +534,13 @@ export default function ContratoDaUnidade() {
         <View style={styles.documentActions}>
           {novoContrato ? <TouchableOpacity accessibilityRole="button" onPress={() => router.push({ pathname: "/unidades/editar", params: { id, numero: numeroUc, clienteId: unidade?.cliente_id ?? clienteId, descontoPadrao: desconto, revisaoContrato: "1" } })} style={styles.documentLink}><Ionicons name="options-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Editar configuração da UC</Text></TouchableOpacity> : null}
           <Button disabled={gerando || importando} title={gerando ? "Gerando minuta..." : "Gerar e revisar a minuta"} icon={<Ionicons name="document-text-outline" size={20} color={Colors.surface} />} onPress={gerarMinuta} />
-          {contratoGeradoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoGeradoUrl)} style={styles.documentLink}><Ionicons name="download-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir minuta gerada</Text></TouchableOpacity> : null}
+          {contratoGeradoUrl ? <TouchableOpacity onPress={() => abrirDocumentoAtual("minuta")} style={styles.documentLink}><Ionicons name="download-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Abrir minuta gerada</Text></TouchableOpacity> : null}
           <><Button disabled={gerando || importando || (jaPossuiContratoAssinado && !novoContrato) || !contratoGeradoUrl || dadosDaMinutaRevisada !== JSON.stringify(dadosParaSalvar())} title={gerando ? "Aguarde..." : novoContrato ? "Enviar revisão para aceite" : "Enviar para assinatura"} onPress={enviarParaAnalise} /><Text style={styles.documentLinkText}>{jaPossuiContratoAssinado && !novoContrato ? "Esta UC já possui contrato assinado. Crie uma revisão para solicitar novo aceite." : "Gere e revise a minuta atual para habilitar o envio. Alterações nos campos exigem nova revisão."}</Text></>
           {!contratoAssinadoUrl && !jaPossuiContratoAssinado ? <TouchableOpacity accessibilityRole="button" activeOpacity={0.84} disabled={importando || gerando} onPress={importarAssinado} style={styles.uploadSignedButton}>
             <Ionicons name="cloud-upload-outline" size={20} color={Colors.primary} />
             <Text style={styles.uploadSignedButtonText}>{importando ? (assinaturaPendente ? "Trocando documento..." : "Enviando contrato...") : (assinaturaPendente ? "Trocar documento assinado" : "Enviar contrato assinado (PDF)")}</Text>
           </TouchableOpacity> : null}
-          {contratoAssinadoUrl ? <TouchableOpacity onPress={() => Linking.openURL(contratoAssinadoUrl)} style={styles.signedLink}><Ionicons name="checkmark-circle-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Contrato assinado vinculado à UC</Text></TouchableOpacity> : null}
+          {contratoAssinadoUrl ? <TouchableOpacity onPress={() => abrirDocumentoAtual("assinado")} style={styles.signedLink}><Ionicons name="checkmark-circle-outline" size={18} color={Colors.primary} /><Text style={styles.documentLinkText}>Contrato assinado vinculado à UC</Text></TouchableOpacity> : null}
           {assinaturaPendente ? <Button title="Validar assinaturas do PDF" disabled={gerando} onPress={confirmarAssinaturaExterna} /> : null}
         </View>
         </>}

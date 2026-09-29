@@ -10,11 +10,11 @@ import { Colors, Radius, Spacing, Typography } from "../../theme";
 const GERADOR = { usinas: "Usinas", clientes: "Clientes", unidades: "Unidades consumidoras", contratos: "Contratos", faturas: "Faturas", operacao: "Operação" };
 const COMERCIAL = { geradores: "Geradores", monitoramento: "Monitoramento", documentos: "Documentos" };
 
-export default function Colaboradores() {
+export default function Colaboradores({ modoAbaGerador = false }: { modoAbaGerador?: boolean }) {
   const { user } = useAuth();
   const { ambiente } = useLocalSearchParams<{ ambiente?: string }>();
   const admin = user?.perfil === "ADMIN";
-  const comercial = ambiente === "comercial" || (admin && ambiente !== "gerador");
+  const comercial = !modoAbaGerador && (ambiente === "comercial" || (admin && ambiente !== "gerador"));
   const papel = comercial ? "COLABORADOR_COMERCIAL" : "COLABORADOR_GERADOR";
   const campos = papel === "COLABORADOR_COMERCIAL" ? COMERCIAL : GERADOR;
   const [nome, setNome] = useState(""); const [cpf, setCpf] = useState(""); const [email, setEmail] = useState(""); const [telefone, setTelefone] = useState("");
@@ -36,9 +36,9 @@ export default function Colaboradores() {
   }
 
   return <Screen edges={["top", "left", "right"]}>
-    <AppHeader variant="subpage" title="Colaboradores" subtitle="Equipe e permissões" contextTitle="Gestão de acessos" contextSubtitle="Convites e acessos operacionais" icon="people-outline" />
+    <AppHeader variant={modoAbaGerador ? "main" : "subpage"} title="Colaboradores" subtitle="Equipe e permissões" contextTitle="Gestão de acessos" contextSubtitle="Convites e acessos operacionais" icon="people-outline" />
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <TouchableOpacity onPress={() => router.back()} style={styles.back}><Ionicons name="arrow-back" size={20} color={Colors.primary}/><Text style={styles.backText}>Voltar</Text></TouchableOpacity>
+      {!modoAbaGerador ? <TouchableOpacity onPress={() => router.back()} style={styles.back}><Ionicons name="arrow-back" size={20} color={Colors.primary}/><Text style={styles.backText}>Voltar</Text></TouchableOpacity> : null}
       <Text style={styles.title}>{comercial ? "Convidar para a equipe comercial" : "Convidar para a equipe do gerador"}</Text>
       <Text style={styles.subtitle}>{comercial ? "Este acesso permite auxiliar na gestão dos geradores, sem carteira, pagamentos, planos ou ferramentas exclusivas do ADM." : "Este acesso pertence somente a esta operação geradora. Carteira, recebíveis, transferências e ferramentas do titular continuam bloqueados."}</Text>
       <Card style={styles.form}>
@@ -49,7 +49,7 @@ export default function Colaboradores() {
       </Card>
       <Text style={[styles.title, styles.teamTitle]}>Equipe e convites</Text>
       <TouchableOpacity
-        onPress={() => router.push({ pathname: "/colaboradores/atividade", params: { ambiente: ambiente ?? (admin ? "comercial" : "gerador") } } as any)}
+        onPress={() => router.push({ pathname: "/colaboradores/atividade", params: { ambiente: modoAbaGerador ? "gerador" : ambiente ?? (admin ? "comercial" : "gerador") } } as any)}
         style={styles.auditButton}
       >
         <Ionicons name="time-outline" size={18} color={Colors.primary} />

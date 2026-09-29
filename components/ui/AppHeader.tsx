@@ -1,14 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
-import { Alert, Image, LayoutAnimation, Modal, Pressable, StatusBar, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Image, LayoutAnimation, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { useCallback, useEffect, useState } from "react";
 import { useReadNotifications } from "../../hooks/useReadNotifications";
+import { useDismissedNotifications } from "../../hooks/useDismissedNotifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { listarFaturas } from "../../services/faturas.service";
-import { buscarDashboardUsina } from "../../services/usinas.service";
+import { buscarDashboardUsina, consultarAlocacao } from "../../services/usinas.service";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import PortalBrandLogo from "../brand/PortalBrandLogo";
@@ -18,6 +19,7 @@ import { useHeaderDetailsVisibility } from "../../hooks/useHeaderDetailsVisibili
 import { useProfilePhoto } from "../../hooks/useProfilePhoto";
 import { listarNotificacoesApp } from "../../services/notificacoes.service";
 import { avisosPassoAPassoAtivos, definirAvisosPassoAPasso } from "../../services/preferencias.service";
+import NotificationSideSheet from "./NotificationSideSheet";
 
 function escurecerCor(hex: string, fator = 0.62) {
   const limpa = hex.replace("#", "");
@@ -69,7 +71,8 @@ export default function AppHeader({
   const usuarioId = usuario?.id ? String(usuario.id) : undefined;
   const fotoPerfil = useProfilePhoto(usuarioId);
   const leituras = useReadNotifications(usuarioId);
-  const notificacoes = avisosRecebidos.map((aviso) => ({
+  const dispensadas = useDismissedNotifications(usuarioId);
+  const notificacoes = avisosRecebidos.filter((aviso) => !dispensadas.ids.includes(String(aviso.id))).map((aviso) => ({
     ...aviso,
     lida: leituras.ready && leituras.ids.includes(String(aviso.id)),
   }));
@@ -97,7 +100,7 @@ export default function AppHeader({
     let ativo = true;
     setNotificacoes([]);
     if (!usuarioId) return;
-    Promise.all([listarFaturas(), listarNotificacoesApp().catch(() => [])]).then(([faturas, notificacoesApp]) => {
+    Promise.all([ambienteComercial ? Promise.resolve([]) : listarFaturas(), listarNotificacoesApp().catch(() => [])]).then(([faturas, notificacoesApp]) => {
       if (!ativo) return;
       const hoje = new Date();
       const avisos = (faturas ?? []).flatMap((fatura: any) => {
@@ -113,7 +116,13 @@ export default function AppHeader({
         if (dias <= 5) return [{ id: String(fatura.id), severidade: "media", titulo: "Fatura próxima do vencimento", detalhe: `${fatura.clientes?.nome ?? "Cliente"} · vence em ${dias} dia${dias === 1 ? "" : "s"}`, rota: `/faturas/${fatura.id}` }];
         return [];
       }).sort((a: any, b: any) => (a.severidade === "alta" ? -1 : 1) - (b.severidade === "alta" ? -1 : 1));
-      const avisosPersistidos = notificacoesApp.map((item) => ({ id: `app-${item.id}`, severidade: "media", titulo: item.titulo, detalhe: item.detalhe ?? "", rota: item.rota ?? "/" }));
+      const avisosPersistidos = notificacoesApp
+        .filter((item) => {
+          const rota = String(item.rota ?? "");
+          const notificacaoComercial = rota.startsWith("/admin/comercial") || rota.startsWith("/geradores/") || rota.startsWith("/assinatura");
+          return ambienteComercial === notificacaoComercial;
+        })
+        .map((item) => ({ id: `app-${item.id}`, severidade: "media", titulo: item.titulo, detalhe: item.detalhe ?? "", rota: item.rota ?? "/" }));
       setNotificacoes([...avisosPersistidos, ...avisos]);
       void notificarAvisosNoAndroid(usuarioId, avisos.map((aviso: any) => ({
         id: aviso.id,
@@ -124,21 +133,27 @@ export default function AppHeader({
       })));
     }).catch(() => { if (ativo) setNotificacoes([]); });
     return () => { ativo = false; };
-  }, [usuarioId, proprietario, usinaSelecionada?.id]);
+  }, [usuarioId, proprietario, ambienteComercial, usinaSelecionada?.id]);
 
   async function marcarNotificacaoComoLida(id: string) {
     try { await leituras.mark(id); }
     catch { Alert.alert("Leitura não salva", "Não foi possível salvar a leitura desta notificação. Tente novamente."); }
   }
 
+  function confirmarLimpeza() {
+    Alert.alert("Limpar notificações", "Ocultar as notificações desta lista neste aparelho? Novos avisos continuarão chegando.", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Limpar lista", style: "destructive", onPress: () => void dispensadas.dismissAll(notificacoes.map((aviso) => String(aviso.id))).catch(() => Alert.alert("Não foi possível limpar", "Tente novamente.")) },
+    ]);
+  }
+
   useFocusEffect(useCallback(() => {
     if (!proprietario || !usinaSelecionada?.id) { setAutonomia(null); return; }
     let ativo = true;
-    buscarDashboardUsina(usinaSelecionada.id).then((dados) => {
+    Promise.all([buscarDashboardUsina(usinaSelecionada.id), consultarAlocacao(usinaSelecionada.id)]).then(([dados, capacidade]) => {
       if (!ativo) return;
-      const gerada = Number(dados?.energiaGerada ?? 0);
       const disponivel = Number(dados?.energiaDisponivel ?? 0);
-      setAutonomia({ percentual: gerada > 0 ? Math.max(0, Math.min(100, disponivel / gerada * 100)) : 0, disponivel });
+      setAutonomia({ percentual: Math.max(0, Math.min(100, Number(capacidade.disponivel))), disponivel });
     }).catch(() => { if (ativo) setAutonomia(null); });
     return () => { ativo = false; };
   }, [proprietario, usinaSelecionada?.id]));
@@ -216,16 +231,20 @@ export default function AppHeader({
           <Ionicons name={environmentName === "Gestão comercial" ? "briefcase-outline" : "layers-outline"} size={17} color="#FFFFFF" />
           <Text numberOfLines={1} style={styles.contextSwitchText}>Trocar ambiente</Text>
         </TouchableOpacity> : null}
+        {IS_GERADOR_APP && usinaSelecionada && !ambienteComercial ? <TouchableOpacity accessibilityLabel="Trocar de usina" activeOpacity={0.82} onPress={() => router.push("/selecionar-unidade" as any)} style={[styles.environmentSwitch, styles.contextSwitchButton]}>
+          <Ionicons name="swap-horizontal" size={17} color="#FFFFFF" />
+          <Text numberOfLines={1} style={styles.contextSwitchText}>Trocar usina</Text>
+        </TouchableOpacity> : null}
       </View> : null}
 
-      <Modal animationType="fade" transparent visible={notificacoesAbertas} onRequestClose={() => setNotificacoesAbertas(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setNotificacoesAbertas(false)}>
-          <Pressable style={styles.notificationPanel} onPress={(evento) => evento.stopPropagation()}>
-            <View style={styles.menuHeader}><Text style={styles.menuTitle}>Notificações</Text><TouchableOpacity onPress={() => setNotificacoesAbertas(false)}><Ionicons name="close" size={26} color={Colors.text} /></TouchableOpacity></View>
+      <NotificationSideSheet visible={notificacoesAbertas} onClose={() => setNotificacoesAbertas(false)}>
+          <View style={styles.notificationPanel}>
+            <View style={styles.menuHeader}><Text style={styles.menuTitle}>Notificações</Text><View style={styles.notificationHeaderActions}>{notificacoes.length ? <TouchableOpacity accessibilityLabel="Limpar lista de notificações" onPress={confirmarLimpeza}><Text style={styles.clearNotifications}>Limpar lista</Text></TouchableOpacity> : null}<TouchableOpacity onPress={() => setNotificacoesAbertas(false)}><Ionicons name="close" size={26} color={Colors.text} /></TouchableOpacity></View></View>
+            <ScrollView showsVerticalScrollIndicator={false}>
             {notificacoes.length ? notificacoes.map((aviso) => <TouchableOpacity key={aviso.id} onPress={async () => { if (!aviso.lida) await marcarNotificacaoComoLida(aviso.id); setNotificacoesAbertas(false); router.push(aviso.rota as any); }} style={[styles.notificationItem, aviso.lida && styles.notificationItemRead]}><View style={[styles.notificationDot, aviso.severidade === "alta" && !aviso.lida && styles.notificationDotHigh, aviso.lida && styles.notificationDotRead]} /><View style={styles.notificationCopy}><View style={styles.notificationTitleRow}><Text style={[styles.notificationTitle, aviso.lida && styles.notificationTitleRead]}>{aviso.titulo}</Text><Text style={[styles.notificationStatus, aviso.lida && styles.notificationStatusRead]}>{aviso.lida ? "Lida" : "Não lida"}</Text></View><Text style={[styles.notificationDetail, aviso.lida && styles.notificationDetailRead]}>{aviso.detalhe}</Text></View><Ionicons name="chevron-forward" size={18} color={Colors.subtitle} /></TouchableOpacity>) : <View style={styles.emptyNotifications}><Ionicons name="checkmark-circle-outline" size={34} color={Colors.success} /><Text style={styles.emptyNotificationsTitle}>Tudo em dia</Text><Text style={styles.emptyNotificationsText}>Nenhuma notificação encontrada.</Text></View>}
-          </Pressable>
-        </Pressable>
-      </Modal>
+            </ScrollView>
+          </View>
+      </NotificationSideSheet>
 
       <Modal animationType="fade" transparent visible={fotoAberta && Boolean(fotoPerfil)} onRequestClose={() => setFotoAberta(false)}>
         <Pressable accessibilityLabel="Fechar foto ampliada" onPress={() => setFotoAberta(false)} style={styles.photoBackdrop}>
@@ -245,24 +264,20 @@ export default function AppHeader({
         <View style={styles.plantText}>
           <View style={styles.plantTitleRow}>
             <Text numberOfLines={1} style={styles.plantName}>{usinaSelecionada.nome}</Text>
-            <TouchableOpacity accessibilityLabel="Trocar de usina" activeOpacity={0.82} onPress={() => router.push("/selecionar-unidade" as any)} style={styles.plantSwitchButton}>
-              <Ionicons name="swap-horizontal" size={14} color="#FFFFFF" />
-              <Text numberOfLines={1} style={styles.plantSwitchText}>Trocar usina</Text>
-            </TouchableOpacity>
           </View>
-          <Text numberOfLines={1} style={styles.plantAutonomy}>{autonomia ? `Autonomia ${autonomia.percentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% · ${autonomia.disponivel.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kWh disponíveis` : "Calculando autonomia..."}</Text>
+          <Text numberOfLines={1} style={styles.plantAutonomy}>{autonomia ? `Capacidade livre ${autonomia.percentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% · ${autonomia.disponivel.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kWh não distribuídos` : "Consultando capacidade..."}</Text>
         </View>
         <TouchableOpacity accessibilityLabel="Ocultar detalhes da usina" onPress={alternarContextoUsina} style={styles.plantToggle}><Text style={styles.plantToggleText}>Ocultar</Text><Ionicons name="chevron-up" size={15} color="#F6CC32" /></TouchableOpacity>
       </View> : <TouchableOpacity accessibilityLabel="Abrir detalhes da usina" activeOpacity={0.8} onPress={alternarContextoUsina} style={styles.plantDetailsToggle}><Text style={styles.plantToggleText}>Detalhes</Text><Ionicons name="chevron-down" size={15} color="#F6CC32" /></TouchableOpacity> : null}
 
-      <Modal animationType="fade" transparent visible={menuAberto} onRequestClose={() => setMenuAberto(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setMenuAberto(false)}>
+      <Modal animationType="slide" transparent visible={menuAberto} onRequestClose={() => setMenuAberto(false)}>
+        <Pressable style={[styles.backdrop, proprietario && styles.ownerMenuBackdrop]} onPress={() => setMenuAberto(false)}>
           <Pressable style={styles.menu} onPress={(evento) => evento.stopPropagation()}>
             <View style={styles.menuHeader}><Text style={styles.menuTitle}>Menu</Text><TouchableOpacity onPress={() => setMenuAberto(false)}><Ionicons name="close" size={26} color={Colors.text} /></TouchableOpacity></View>
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.menuScroll} contentContainerStyle={[styles.menuScrollContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
             <MenuLink icon="home-outline" label="Início" onPress={() => navegar("/")} />
             {IS_GERADOR_APP && colaborador ? <>
               {usuario?.permissoes?.clientes !== false ? <MenuLink icon="people-outline" label="Clientes" onPress={() => navegar("/clientes")} /> : null}
-              {usuario?.permissoes?.usinas !== false ? <MenuLink icon="business-outline" label="Usinas" onPress={() => navegar("/usinas")} /> : null}
               {usuario?.permissoes?.unidades !== false ? <MenuLink icon="flash-outline" label="Unidades consumidoras" onPress={() => navegar("/unidades")} /> : null}
               {usuario?.permissoes?.contratos !== false ? <MenuLink icon="document-text-outline" label="Contratos" onPress={() => navegar("/contratos")} /> : null}
               {papelEmpresa === "COLABORADOR_COMERCIAL" ? <MenuLink icon="people-outline" label="Geradores" onPress={() => navegar("/geradores/gestao?aba=GERADORES")} /> : null}
@@ -274,11 +289,12 @@ export default function AppHeader({
               <MenuLink icon="business-outline" label="Empresas parceiras" onPress={() => navegar("/admin/empresas")} />
               <MenuLink icon="people-circle-outline" label="Colaboradores" onPress={() => navegar("/colaboradores?ambiente=comercial")} />
               <MenuLink icon="time-outline" label="Atividade da equipe" onPress={() => navegar("/colaboradores/atividade?ambiente=comercial")} />
-            </> : <><MenuLink icon="card-outline" label="Meu plano" onPress={() => navegar("/assinatura")} /><MenuLink icon="people-outline" label="Clientes" onPress={() => navegar("/clientes")} /><MenuLink icon="business-outline" label="Usinas" onPress={() => navegar("/usinas")} /><MenuLink icon="flash-outline" label="Unidades consumidoras" onPress={() => navegar("/unidades")} /><MenuLink icon="document-text-outline" label="Contratos dos clientes" onPress={() => navegar("/contratos")} /><MenuLink icon="receipt-outline" label="Faturamento" onPress={() => navegar("/(tabs)/faturamento")} /><MenuLink icon="wallet-outline" label="Financeiro" onPress={() => navegar("/financeiro")} /><MenuLink icon="people-circle-outline" label="Colaboradores" onPress={() => navegar("/colaboradores?ambiente=gerador")} /><MenuLink icon="time-outline" label="Atividade da equipe" onPress={() => navegar("/colaboradores/atividade?ambiente=gerador")} />{usuario?.perfil === "ADMIN" ? <MenuLink icon="layers-outline" label="Empresas parceiras" onPress={() => navegar("/admin/empresas")} /> : null}</> : <><MenuLink icon="receipt-outline" label="Minhas faturas" onPress={() => navegar("/faturas")} /><MenuLink icon="document-text-outline" label="Meu contrato" onPress={() => navegar("/contrato")} /></>}
+            </> : <><MenuLink icon="card-outline" label="Meu plano" onPress={() => navegar("/assinatura")} /><MenuLink icon="people-outline" label="Clientes" onPress={() => navegar("/clientes")} /><MenuLink icon="flash-outline" label="Unidades consumidoras" onPress={() => navegar("/unidades")} /><MenuLink icon="document-text-outline" label="Contratos dos clientes" onPress={() => navegar("/contratos")} /><MenuLink icon="receipt-outline" label="Faturamento" onPress={() => navegar("/(tabs)/faturamento")} /><MenuLink icon="wallet-outline" label="Financeiro" onPress={() => navegar("/financeiro")} /><MenuLink icon="people-circle-outline" label="Colaboradores" onPress={() => navegar("/colaboradores?ambiente=gerador")} /><MenuLink icon="time-outline" label="Atividade da equipe" onPress={() => navegar("/colaboradores/atividade?ambiente=gerador")} />{usuario?.perfil === "ADMIN" ? <MenuLink icon="layers-outline" label="Empresas parceiras" onPress={() => navegar("/admin/empresas")} /> : null}</> : <><MenuLink icon="receipt-outline" label="Minhas faturas" onPress={() => navegar("/faturas")} /><MenuLink icon="document-text-outline" label="Meu contrato" onPress={() => navegar("/contrato")} /></>}
             <MenuLink icon="person-outline" label="Perfil" onPress={() => navegar("/perfil")} />
-            <MenuLink icon="play-circle-outline" label="Tutoriais" onPress={() => navegar("/tutoriais")} />
+            <MenuLink icon="play-circle-outline" label="Tutoriais" onPress={() => navegar(ambienteComercial ? "/tutoriais?ambiente=comercial" : "/tutoriais")} />
             <View style={styles.menuPreference}><Ionicons name="navigate-circle-outline" size={22} color={Colors.primary} /><View style={styles.menuPreferenceCopy}><Text style={styles.menuPreferenceTitle}>Avisos passo a passo</Text><Text style={styles.menuPreferenceHint}>{avisosPassoAPasso ? "Ativados" : "Desativados"}</Text></View><Switch accessibilityLabel="Ativar avisos passo a passo" value={avisosPassoAPasso} onValueChange={(valor) => { setAvisosPassoAPasso(valor); void definirAvisosPassoAPasso(valor); }} trackColor={{ false: Colors.border, true: Colors.primary }} /></View>
             <View style={styles.menuDivider} /><MenuLink icon="log-out-outline" label="Sair da conta" danger onPress={confirmarSaida} />
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
@@ -433,8 +449,11 @@ const styles = StyleSheet.create({
   photoPreview: { width: "100%", height: "100%" },
   photoClose: { position: "absolute", top: 12, right: 12, width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: "rgba(0,0,0,0.5)" },
   backdrop: { flex: 1, alignItems: "flex-end", backgroundColor: "rgba(15,23,42,0.45)" },
+  ownerMenuBackdrop: { alignItems: "flex-start" },
   menu: { width: "84%", height: "100%", paddingHorizontal: Spacing.lg, paddingTop: 58, backgroundColor: Colors.surface },
-  notificationPanel: { width: "88%", marginTop: 90, marginHorizontal: "6%", paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg, borderRadius: Radius.xl, backgroundColor: Colors.surface },
+  menuScroll: { flex: 1 },
+  menuScrollContent: { flexGrow: 1 },
+  notificationPanel: { flex: 1, width: "100%", paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, backgroundColor: Colors.surface },
   notificationItem: { minHeight: 66, flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: Colors.border },
   notificationItemRead: { opacity: 0.68, backgroundColor: "#F7FAF8" },
   notificationDot: { width: 10, height: 10, marginRight: Spacing.sm, borderRadius: Radius.round, backgroundColor: Colors.secondary },
@@ -452,6 +471,8 @@ const styles = StyleSheet.create({
   emptyNotificationsTitle: { marginTop: Spacing.sm, color: Colors.text, fontSize: Typography.body, fontWeight: "800" },
   emptyNotificationsText: { marginTop: 4, color: Colors.subtitle, textAlign: "center" },
   menuHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.lg },
+  notificationHeaderActions: { flexDirection: "row", alignItems: "center", gap: Spacing.md },
+  clearNotifications: { color: Colors.subtitle, fontSize: 12, textDecorationLine: "underline" },
   menuTitle: { color: Colors.text, fontSize: Typography.title, fontWeight: "800" },
   menuLink: { minHeight: 54, flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: Colors.border },
   menuLabel: { flex: 1, marginLeft: Spacing.md, color: Colors.text, fontSize: Typography.body, fontWeight: "600" },

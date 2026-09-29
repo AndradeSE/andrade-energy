@@ -4,9 +4,9 @@ import { useState } from "react";
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { ElasticScrollView as ScrollView } from "../../components/ui/ElasticScroll";
-import { redefinirSenha } from "../../services/auth.service";
-import { Colors, Radius, Spacing, Typography } from "../../theme";
+import { ElasticScrollView as ScrollView } from "../components/ui/ElasticScroll";
+import { redefinirSenha } from "../services/auth.service";
+import { Colors, Radius, Spacing, Typography } from "../theme";
 
 export default function RedefinirSenha() {
   const { token } = useLocalSearchParams<{ token?: string }>();

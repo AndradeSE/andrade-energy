@@ -318,7 +318,7 @@ export default function RecebimentoEmail() {
     {IS_GERADOR_APP ? <AppHeader variant="subpage" title="Recebimento automático" subtitle={recebimentoDeProducao ? "Produção da usina" : "Todas as UCs"} contextTitle="Configuração de e-mail" contextSubtitle={recebimentoDeProducao ? `UC ${unidadeExibida?.numero ?? unidadeId}` : "Válida para todas as UCs deste titular"} icon="mail-outline" /> : null}
     <ScrollView bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.heading}>
-        <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={24} color={Colors.text} /></TouchableOpacity>
+        {!IS_GERADOR_APP ? <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={24} color={Colors.text} /></TouchableOpacity> : null}
         <View style={styles.headingText}><Text style={styles.eyebrow}>{recebimentoDeProducao ? "SUA USINA" : "SUA CONTA DE LUZ"}</Text><Text style={styles.title}>{recebimentoDeProducao ? "Receber produção automaticamente" : "Receber contas automaticamente"}</Text><Text style={styles.subtitle}>{recebimentoDeProducao ? "Encaminhe a conta da concessionária da usina para registrar as medições e a produção com segurança." : "Encaminhe somente as faturas recebidas de fatura@cemig para leitura e cálculo seguros."}</Text></View>
       </View>
 

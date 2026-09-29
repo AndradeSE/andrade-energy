@@ -4,7 +4,8 @@ import { useCallback, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { AppHeader, Badge, Button, Card, ElasticFlatList as FlatList, EmptyState, Loading, Metric, Screen, Section } from "../../components/ui";
+import { AppHeader, Badge, Button, Card, ElasticFlatList as FlatList, EmptyState, Metric, Screen, Section } from "../../components/ui";
+import TabDataPending from "../../components/ui/TabDataPending";
 import { listarFechamentos, obterResumoOperacao } from "../../services/fechamentos.service";
 import { useAuth } from "../../contexts/AuthContext";
 import { initialTabKey } from "../../services/navigation-preload.service";
@@ -46,7 +47,7 @@ export default function Operacao() {
   const historico = useMemo(() => lista, [lista]);
 
   return <Screen><AppHeader title="Operação" subtitle="Fechamento mensal" contextTitle={competencia ? `Competência ${competenciaNome(competencia)}` : "Operação mensal"} contextSubtitle="Geração, rateio, faturamento e recebimentos" icon="analytics-outline" />
-    {loading ? <Loading /> : <FlatList bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} data={historico} keyExtractor={(item) => item.id}
+    {loading ? <TabDataPending /> : <FlatList bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} data={historico} keyExtractor={(item) => item.id}
       ListHeaderComponent={<View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>{(resumo?.competencias ?? []).map((item: string) => <Pressable key={item} onPress={() => void selecionarCompetencia(item)} style={[styles.filter, competencia === item && styles.filterSelected]}><Text style={[styles.filterText, competencia === item && styles.filterTextSelected]}>{competenciaNome(item)}</Text></Pressable>)}</ScrollView>
         <Card style={styles.summaryCard}>

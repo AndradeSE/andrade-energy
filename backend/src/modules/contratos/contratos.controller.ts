@@ -37,9 +37,11 @@ export async function dadosIniciaisContratoController(req: any, res: any) {
     const usina = Array.isArray(unidade.usinas) ? unidade.usinas[0] : unidade.usinas as any;
     return res.json({
       locador: {
-        nome: req.usuario.nome ?? empresa?.razao_social ?? empresa?.nome ?? unidadeGeradora?.titular ?? usina?.nome ?? "Andrade Energy",
-        documento: req.usuario.cpf ?? empresa?.documento ?? unidadeGeradora?.cpf_titular ?? "",
-        endereco: req.usuario.endereco ?? usina?.endereco ?? unidadeGeradora?.endereco ?? "",
+        // O usuário autenticado pode ser apenas um administrador: seus dados
+        // pessoais não identificam automaticamente a parte locadora.
+        nome: empresa?.razao_social ?? empresa?.nome ?? unidadeGeradora?.titular ?? usina?.nome ?? "Andrade Energy",
+        documento: empresa?.documento ?? unidadeGeradora?.cpf_titular ?? "",
+        endereco: usina?.endereco ?? unidadeGeradora?.endereco ?? "",
         email: req.usuario.email ?? "",
         telefone: req.usuario.telefone ?? "",
       },

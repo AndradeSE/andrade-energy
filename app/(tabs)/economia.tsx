@@ -7,11 +7,11 @@ import Badge from "../../components/ui/Badge";
 import Card from "../../components/ui/Card";
 import Divider from "../../components/ui/Divider";
 import EmptyState from "../../components/ui/EmptyState";
-import Loading from "../../components/ui/Loading";
 import Screen from "../../components/ui/Screen";
 import { ElasticScrollView as ScrollView } from "../../components/ui/ElasticScroll";
 import EconomiaChart from "../../components/cliente/EconomiaChart";
 import ClienteHeader from "../../components/cliente/ClienteHeader";
+import TabDataPending from "../../components/ui/TabDataPending";
 import ComposicaoTarifariaCard from "../../components/cliente/ComposicaoTarifariaCard";
 import { useDashboard } from "../../hooks/useDashboard";
 import { useAuth } from "../../contexts/AuthContext";
@@ -77,7 +77,7 @@ export default function Economia() {
     }
   }
 
-  if (isLoading) return <Loading />;
+  if (isLoading) return <Screen><ClienteHeader cliente="Cliente" uc={unidadeSelecionada?.numero ?? ""} distribuidora={concessionariaDaUnidade || unidadeSelecionada?.distribuidora || "CEMIG"} fullBleed /><TabDataPending /></Screen>;
 
   if (error || !data) {
     return (

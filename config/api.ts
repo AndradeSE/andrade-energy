@@ -1,6 +1,7 @@
 import axios from "axios";
 import { obterSessao } from "../storage/session";
 import { avisarContaExcluida, avisarSessaoSubstituida } from "../services/session-events";
+import { environmentApiUrl } from "./environment";
 
 const API_PRODUCAO = "https://andrade-energy-api-vda.onrender.com/api";
 
@@ -21,7 +22,7 @@ function normalizarApiUrl(valor?: string) {
   return /\/api$/i.test(hostAtual) ? hostAtual : `${hostAtual}/api`;
 }
 
-export const apiBaseURL = normalizarApiUrl(process.env.EXPO_PUBLIC_API_URL);
+export const apiBaseURL = normalizarApiUrl(environmentApiUrl);
 
 const api = axios.create({
   baseURL: apiBaseURL,

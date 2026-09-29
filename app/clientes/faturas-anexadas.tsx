@@ -8,7 +8,7 @@ import { AppHeader, Card, ElasticScrollView as ScrollView, EmptyState, Screen } 
 import PdfPasswordRetryModal from "../../components/PdfPasswordRetryModal";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
-import { anexarFaturaCliente, excluirFaturaAnexadaCliente, FaturaAnexadaCliente, listarFaturasAnexadasCliente } from "../../services/clientes.service";
+import { anexarFaturaCliente, excluirFaturaAnexadaCliente, FaturaAnexadaCliente, listarFaturasAnexadasCliente, listarUnidadesCliente } from "../../services/clientes.service";
 import { calcularMediaConsumoFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
@@ -28,7 +28,7 @@ function tipoGd(dados: Record<string, any>) {
 
 export default function FaturasAnexadas() {
   const params = useLocalSearchParams<{ clienteId?: string; selecionarUc?: string; cliente?: string }>();
-  const { user, suspenderBloqueioTemporariamente } = useAuth();
+  const { user, usinaSelecionada, suspenderBloqueioTemporariamente } = useAuth();
   const clienteId = String(params.clienteId ?? user?.cliente_id ?? "");
   const selecionarUc = IS_GERADOR_APP && params.selecionarUc === "1";
   const [faturas, setFaturas] = useState<FaturaAnexadaCliente[]>([]);
@@ -52,13 +52,20 @@ export default function FaturasAnexadas() {
       return;
     }
     try {
-      setFaturas(await listarFaturasAnexadasCliente(clienteId));
+      const [anexos, unidades] = await Promise.all([
+        listarFaturasAnexadasCliente(clienteId),
+        IS_GERADOR_APP && usinaSelecionada?.id && !selecionarUc ? listarUnidadesCliente(clienteId) : Promise.resolve([]),
+      ]);
+      const numeros = new Set(unidades.filter((unidade: any) => unidade.usina_id === usinaSelecionada?.id).map((unidade: any) => String(unidade.numero ?? "").replace(/\D/g, "")));
+      setFaturas(IS_GERADOR_APP && usinaSelecionada?.id && !selecionarUc
+        ? anexos.filter((anexo) => numeros.has(String(anexo.dadosFatura?.uc ?? anexo.dadosFatura?.numero_instalacao ?? "").replace(/\D/g, "")))
+        : anexos);
     } catch (erro: any) {
       Alert.alert("Não foi possível carregar", erro?.response?.data?.message ?? "Tente atualizar novamente.");
     } finally {
       setCarregando(false);
     }
-  }, [clienteId]);
+  }, [clienteId, selecionarUc, usinaSelecionada?.id]);
 
   useFocusEffect(useCallback(() => { void carregar(); }, [carregar]));
 
@@ -76,7 +83,7 @@ export default function FaturasAnexadas() {
       setEnviando(true);
       const pdf = pdfReenvio ?? resultado!.assets[0];
       setPdfPendente(pdf);
-      await anexarFaturaCliente(clienteId, pdf, senhaPdf);
+      await anexarFaturaCliente(clienteId, pdf, senhaPdf, IS_GERADOR_APP ? usinaSelecionada?.id : undefined);
       await carregar();
       Alert.alert("Conta anexada", "A conta da concessionária foi salva no seu perfil e poderá ser usada pelo gerador para cadastrar a UC vinculada ao seu CPF.");
     } catch (erro: any) {

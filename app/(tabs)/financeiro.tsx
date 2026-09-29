@@ -1,28 +1,36 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Alert, RefreshControl, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import AndradeBarChart from "../../components/charts/AndradeBarChart";
-import { AppHeader, Button, Card, Divider, ElasticScrollView as ScrollView, Loading, Metric, Screen, Section } from "../../components/ui";
+import { AppHeader, Button, Card, Divider, ElasticScrollView as ScrollView, Metric, Screen, Section } from "../../components/ui";
+import TabDataPending from "../../components/ui/TabDataPending";
 import * as FinanceiroService from "../../services/financeiro.service";
 import * as CarteiraService from "../../services/carteira.service";
 import AutenticadorFinanceiro from "../../components/financeiro/AutenticadorFinanceiro";
+import { useAuth } from "../../contexts/AuthContext";
+import { initialTabKey } from "../../services/navigation-preload.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const moeda = (valor: number) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function Financeiro() {
-  const [loading, setLoading] = useState(true);
+  const { user, usinaSelecionada } = useAuth();
+  const queryClient = useQueryClient();
+  const inicial = queryClient.getQueryData<[PromiseSettledResult<Awaited<ReturnType<typeof FinanceiroService.carregarFinanceiro>>>, PromiseSettledResult<CarteiraService.Carteira>]>(initialTabKey(String(user?.id ?? ""), usinaSelecionada?.id ?? user?.usina_id, "financeiro"));
+  const [loading, setLoading] = useState(!inicial);
   const [atualizando, setAtualizando] = useState(false);
-  const [dados, setDados] = useState({ receitaPrevista: 0, receitaRecebida: 0, valorEmAberto: 0, inadimplentes: 0, ticketMedio: 0, percentualRecebido: 0, totalFaturas: 0, historicoMensal: [] as { competencia: string; valor: number }[] });
-  const [carteira, setCarteira] = useState<CarteiraService.Carteira | null>(null);
+  const [dados, setDados] = useState(() => inicial?.[0]?.status === "fulfilled" ? inicial[0].value : { receitaPrevista: 0, receitaRecebida: 0, valorEmAberto: 0, inadimplentes: 0, ticketMedio: 0, percentualRecebido: 0, totalFaturas: 0, historicoMensal: [] as { competencia: string; valor: number }[] });
+  const [carteira, setCarteira] = useState<CarteiraService.Carteira | null>(() => inicial?.[1]?.status === "fulfilled" ? inicial[1].value : null);
   const [pixChave, setPixChave] = useState(""); const [pixTipo] = useState("EMAIL"); const [saque, setSaque] = useState(""); const [senhaFinanceira, setSenhaFinanceira] = useState("");
   const [codigoAutenticador, setCodigoAutenticador] = useState("");
+  const [financeiroAutorizado, setFinanceiroAutorizado] = useState(false);
   const carregar = useCallback(async () => {
     try {
       const [financeiroResultado, carteiraResultado] = await Promise.allSettled([
-        FinanceiroService.carregarFinanceiro(),
+        FinanceiroService.carregarFinanceiro(usinaSelecionada?.id ?? user?.usina_id ?? undefined),
         CarteiraService.carregarCarteira(),
       ]);
       if (financeiroResultado.status === "rejected") throw financeiroResultado.reason;
@@ -37,11 +45,12 @@ export default function Financeiro() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [usinaSelecionada?.id, user?.usina_id]);
   useFocusEffect(useCallback(() => { void carregar(); }, [carregar]));
   async function atualizarPagina() { setAtualizando(true); try { await carregar(); } finally { setAtualizando(false); } }
 
   async function salvarChavePixComConfirmacao(transferenciaAutomatica = carteira?.transferenciaAutomatica ?? false) {
+    if (!financeiroAutorizado) return Alert.alert("Etapa pendente", "Confirme sua senha e o código de 6 dígitos antes de cadastrar a chave Pix.");
     try {
       if (!pixChave.trim()) return Alert.alert("Chave Pix", "Informe a chave que deseja cadastrar.");
       const titular = await CarteiraService.validarChavePix(pixTipo, pixChave);
@@ -51,17 +60,26 @@ export default function Financeiro() {
         { text: "Confirmar e salvar", onPress: async () => {
           try {
             const updated = await CarteiraService.salvarCarteira({ pixTipo, pixChave, pixTitularNome: titular.nome, transferenciaAutomatica, senhaAtual: senhaFinanceira, codigoAutenticador });
-            setCarteira(updated); setPixChave(""); setSenhaFinanceira(""); setCodigoAutenticador(""); Alert.alert("Carteira", "Chave salva com segurança.");
+            setCarteira(updated); setPixChave(""); setSenhaFinanceira(""); setCodigoAutenticador(""); setFinanceiroAutorizado(false); Alert.alert("Carteira", "Chave salva com segurança.");
           } catch (error: any) { Alert.alert("Carteira", error?.response?.data?.message ?? "Não foi possível salvar."); }
         } },
       ]);
     } catch (error: any) { Alert.alert("Chave Pix não validada", error?.response?.data?.message ?? "Não foi possível consultar o titular desta chave."); }
   }
 
+  async function alternarTransferenciaAutomatica(value: boolean) {
+    if (value && !carteira?.pixChaveMascarada) return Alert.alert("Chave Pix necessária", "Use 'Validar titular e salvar' antes de ligar a transferência automática.");
+    try {
+      const updated = await CarteiraService.alterarTransferenciaAutomatica(value);
+      setCarteira(updated);
+      Alert.alert("Transferência automática", value ? "Ativada com sucesso." : "Desativada com sucesso.");
+    } catch (error: any) { Alert.alert("Carteira", error?.response?.data?.message ?? "Não foi possível alterar a automação."); }
+  }
+
 
   return <Screen><AppHeader collapsePlantContextOnMount title="Financeiro" subtitle="Receita da carteira" contextTitle={moeda(dados.receitaRecebida)} contextSubtitle={`${dados.percentualRecebido.toFixed(1)}% da receita recebida`} icon="wallet-outline" />
-    {loading ? <Loading /> : <ScrollView bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      {carteira ? <Section title="Movimentação financeira"><Text style={styles.sectionLead}>Consulte os recebíveis e configure transferências sem sair desta tela.</Text><Card style={styles.walletCard}><Text style={styles.walletLabel}>VALOR DISPONÍVEL PARA TRANSFERÊNCIA</Text><Text style={styles.walletValue}>{moeda(carteira.saldoDisponivel)}</Text><Text style={styles.walletPending}>{moeda(carteira.saldoPendente)} em recebíveis pendentes</Text></Card><AutenticadorFinanceiro base="/carteira" ativo={carteira.autenticadorAtivo} senhaAtual={senhaFinanceira} onSenhaAtual={setSenhaFinanceira} codigo={codigoAutenticador} onCodigo={setCodigoAutenticador} onAtivo={() => void carregar()} /><Card><Text style={styles.inputLabel}>Chave Pix deste gerador</Text><TextInput style={styles.input} autoCapitalize="none" value={pixChave} onChangeText={setPixChave} placeholder={carteira.pixChaveMascarada ?? "E-mail, CPF ou chave"} /><Button title="Validar titular e salvar" onPress={() => void salvarChavePixComConfirmacao()} />{carteira.pixChaveMascarada ? <View style={styles.savedPix}><View style={styles.savedPixIcon}><Ionicons name="checkmark-circle" size={22} color={Colors.primary} /></View><View style={styles.savedPixCopy}><Text style={styles.savedPixLabel}>CHAVE PIX SALVA</Text><Text style={styles.savedPixKey}>{carteira.pixChaveMascarada}</Text><Text style={styles.savedPixHolder}>Titular: {carteira.pixTitularNome || "Titular não informado"}</Text></View></View> : null}<Divider /><View style={styles.autoRow}><View style={styles.autoCopy}><Text style={styles.cardTitle}>Transferência automática</Text><Text style={styles.cardSubtitle}>Quando ativa, cada novo recebimento é enviado à chave Pix cadastrada. Para mudar, informe senha e código acima.</Text></View><Switch value={carteira.transferenciaAutomatica} trackColor={{ false: Colors.border, true: Colors.primary }} onValueChange={async (value) => { if (pixChave.trim()) return void salvarChavePixComConfirmacao(value); try { const updated = await CarteiraService.salvarCarteira({ pixTipo: carteira.pixTipo ?? pixTipo, transferenciaAutomatica: value, senhaAtual: senhaFinanceira, codigoAutenticador }); setCarteira(updated); setSenhaFinanceira(""); setCodigoAutenticador(""); } catch (error: any) { Alert.alert("Carteira", error?.response?.data?.message ?? "Cadastre sua chave Pix primeiro."); } }} /></View><Divider /><Text style={styles.inputLabel}>Transferência manual</Text><TextInput style={styles.input} keyboardType="decimal-pad" value={saque} onChangeText={setSaque} placeholder="Valor em reais" /><Button title="Transferir valor" disabled={!carteira.pixChaveMascarada || carteira.saldoDisponivel <= 0} onPress={() => { const valor = Number(saque.replace(",", ".")); if (!(valor > 0)) return; Alert.alert("Confirmar Pix", `Transferir ${moeda(valor)} para ${carteira.pixChaveMascarada}?`, [{ text: "Cancelar", style: "cancel" }, { text: "Transferir", onPress: async () => { try { await CarteiraService.transferir(valor, senhaFinanceira, codigoAutenticador); setSaque(""); setSenhaFinanceira(""); setCodigoAutenticador(""); await carregar(); Alert.alert("Carteira", "Transferência solicitada."); } catch (error: any) { Alert.alert("Carteira", error?.response?.data?.message ?? "Transferência não concluída."); } } }]); }} /></Card></Section> : null}
+    {loading ? <TabDataPending /> : <ScrollView bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      {carteira ? <Section title="Movimentação financeira"><Text style={styles.sectionLead}>Consulte os recebíveis e configure transferências sem sair desta tela.</Text><Card style={styles.walletCard}><Text style={styles.walletLabel}>VALOR DISPONÍVEL PARA TRANSFERÊNCIA</Text><Text style={styles.walletValue}>{moeda(carteira.saldoDisponivel)}</Text><Text style={styles.walletPending}>{moeda(carteira.saldoPendente)} em recebíveis pendentes</Text></Card><AutenticadorFinanceiro base="/carteira" ativo={carteira.autenticadorAtivo} senhaAtual={senhaFinanceira} onSenhaAtual={setSenhaFinanceira} codigo={codigoAutenticador} onCodigo={setCodigoAutenticador} onAutorizado={setFinanceiroAutorizado} onAtivo={() => void carregar()} /><Card><Text style={styles.inputLabel}>Chave Pix deste gerador</Text><Text style={styles.cardSubtitle}>Digite a chave antes de confirmar o código. Só “Validar titular e salvar” consulta o titular e grava a chave.</Text><TextInput style={styles.input} autoCapitalize="none" value={pixChave} onChangeText={setPixChave} placeholder={carteira.pixChaveMascarada ?? "E-mail, CPF ou chave"} /><Button title="Validar titular e salvar" style={!financeiroAutorizado ? { opacity: 0.45 } : undefined} onPress={() => void salvarChavePixComConfirmacao()} />{carteira.pixChaveMascarada ? <View style={styles.savedPix}><View style={styles.savedPixIcon}><Ionicons name="checkmark-circle" size={22} color={Colors.primary} /></View><View style={styles.savedPixCopy}><Text style={styles.savedPixLabel}>CHAVE PIX SALVA</Text><Text style={styles.savedPixKey}>{carteira.pixChaveMascarada}</Text><Text style={styles.savedPixHolder}>Titular: {carteira.pixTitularNome || "Titular não informado"}</Text></View></View> : null}<Divider /><View style={styles.autoRow}><View style={styles.autoCopy}><Text style={styles.cardTitle}>Transferência automática</Text><Text style={styles.cardSubtitle}>Liga ou desliga usando a chave Pix já salva; não altera a chave digitada acima.</Text></View><Switch value={carteira.transferenciaAutomatica} trackColor={{ false: Colors.border, true: Colors.primary }} onValueChange={(value) => void alternarTransferenciaAutomatica(value)} /></View><Divider /><Text style={styles.inputLabel}>Transferência manual</Text><TextInput style={styles.input} keyboardType="decimal-pad" value={saque} onChangeText={setSaque} placeholder="Valor em reais" /><Button title="Transferir valor" disabled={!carteira.pixChaveMascarada || carteira.saldoDisponivel <= 0} onPress={() => { if (!financeiroAutorizado) return Alert.alert("Etapa pendente", "Confirme sua senha e o código de 6 dígitos antes de transferir."); const valor = Number(saque.replace(",", ".")); if (!(valor > 0)) return Alert.alert("Valor inválido", "Informe o valor a transferir."); Alert.alert("Confirmar Pix", `Transferir ${moeda(valor)} para ${carteira.pixChaveMascarada}?`, [{ text: "Cancelar", style: "cancel" }, { text: "Transferir", onPress: async () => { try { await CarteiraService.transferir(valor, senhaFinanceira, codigoAutenticador); setSaque(""); setSenhaFinanceira(""); setCodigoAutenticador(""); setFinanceiroAutorizado(false); await carregar(); Alert.alert("Transferência solicitada", "A operação foi enviada para processamento."); } catch (error: any) { Alert.alert("Carteira", error?.response?.data?.message ?? "Transferência não concluída."); } } }]); }} /></Card></Section> : null}
       <Section title="Resumo financeiro"><View style={styles.grid}>
         <View style={styles.metric}><Metric compact title="Receita prevista" value={moeda(dados.receitaPrevista)} icon={<Ionicons name="trending-up-outline" size={20} color={Colors.primary} />} /></View>
         <View style={styles.metric}><Metric compact title="Recebido" value={moeda(dados.receitaRecebida)} icon={<Ionicons name="checkmark-circle-outline" size={20} color={Colors.primary} />} /></View>

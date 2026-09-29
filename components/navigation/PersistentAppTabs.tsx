@@ -27,8 +27,10 @@ const generatorTabs: TabItem[] = [
 
 const consumerTabs: TabItem[] = [
   { label: "Economia", icon: "flash-outline", route: "/(tabs)/economia" },
+  { label: "Faturas", icon: "receipt-outline", route: "/(tabs)/faturas" },
   { label: "Home", icon: "home-outline", route: "/(tabs)" },
   { label: "Contrato", icon: "document-text-outline", route: "/(tabs)/contrato" },
+  { label: "Perfil", icon: "person-outline", route: "/(tabs)/perfil" },
 ];
 
 export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {

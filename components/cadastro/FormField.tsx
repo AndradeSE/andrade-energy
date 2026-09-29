@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NativeSyntheticEvent, StyleSheet, Text, TextInput, TextInputFocusEventData, TextInputProps, View } from "react-native";
+import { StyleSheet, Text, TextInput, TextInputProps, View } from "react-native";
 
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { emailValido, normalizarEmail } from "../../utils/email";
@@ -11,7 +11,7 @@ export default function FormField({ label, ...inputProps }: Props) {
   const campoEmail = inputProps.keyboardType === "email-address";
   const emailInvalido = campoEmail && emailTocado && Boolean(inputProps.value) && !emailValido(String(inputProps.value));
   const alterar = (valor: string) => inputProps.onChangeText?.(campoEmail ? normalizarEmail(valor) : valor);
-  const sair = (evento: NativeSyntheticEvent<TextInputFocusEventData>) => {
+  const sair = (evento: Parameters<NonNullable<TextInputProps["onBlur"]>>[0]) => {
     if (campoEmail) setEmailTocado(true);
     inputProps.onBlur?.(evento);
   };

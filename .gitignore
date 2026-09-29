@@ -30,6 +30,9 @@ yarn-error.*
 # macOS
 .DS_Store
 *.pem
+# Firebase service-account private keys (public mobile config is not covered)
+/firebase/*service-account*.json
+/firebase/andrade-energy-push-*.json
 
 # local env files
 .env*.local
@@ -66,5 +69,7 @@ supabase/.temp/
 /.codex-*/
 /tmp/
 /output/
+/outputs/
+/.tmp-tutorial-export-*/
 /dist-gerador/
 /portal-web/.openai/*.tar.gz

@@ -11,6 +11,7 @@ import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors, Spacing, Typography } from "../../theme";
 import { emailOpcionalValido, normalizarEmail } from "../../utils/email";
 import { anexarFaturaCliente, criarCliente } from "../../services/clientes.service";
+import { useAuth } from "../../contexts/AuthContext";
 import { calcularMediaConsumoFatura } from "../../services/faturas.service";
 
 function tipoGdDaFatura(dados: Record<string, any>) {
@@ -22,6 +23,7 @@ function tipoGdDaFatura(dados: Record<string, any>) {
 }
 
 export default function NovoCliente() {
+  const { usinaSelecionada } = useAuth();
   const { origem, cliente, nome: nomeImportado, cpf: cpfImportado, endereco: enderecoImportado, arquivoUri, arquivoNome } = useLocalSearchParams<{ origem?: string; cliente?: string; nome?: string; cpf?: string; endereco?: string; arquivoUri?: string; arquivoNome?: string }>();
   const [nome, setNome] = useState("");
   const [cpf, setCpf] = useState("");
@@ -64,6 +66,13 @@ export default function NovoCliente() {
       const numeroUc = String(faturaAnexada.unidade?.numero ?? dadosFatura.uc ?? dadosFatura.numero_instalacao ?? "").replace(/\D/g, "");
       const consumoMedio = calcularMediaConsumoFatura(dadosFatura);
       setSalvando(false);
+      const unidadeExistente = faturaAnexada.unidade;
+      if (unidadeExistente?.ja_existia && unidadeExistente.usina_id && unidadeExistente.usina_id !== usinaSelecionada?.id) {
+        Alert.alert("UC já cadastrada", "Esta UC pertence ao mesmo cliente em outra usina. Para transferi-la, use a edição da UC; contrato e faturas acompanham a migração.", [
+          { text: "Abrir UC", onPress: () => router.replace({ pathname: "/unidades/[id]", params: { id: String(unidadeExistente.id) } }) },
+        ]);
+        return;
+      }
       Alert.alert(
         "Cliente e UC cadastrados",
         "Agora configure a UC. Depois, o fluxo continua com contrato, proposta e convite.",
@@ -116,11 +125,12 @@ export default function NovoCliente() {
         <Ionicons name={pdf ? "document-text" : "document-attach-outline"} size={22} color={Colors.primary} />
         <View style={styles.pdfCopy}><Text numberOfLines={1} style={styles.pdfTitle}>{pdf?.name ?? "Anexar fatura CEMIG"}</Text><Text style={styles.pdfHint}>{origem === "fatura" ? "Fatura usada neste cadastro" : "Obrigatória para cadastrar a UC"}</Text></View>
       </TouchableOpacity>
+      {pdf ? <TouchableOpacity accessibilityRole="button" onPress={() => { setPdf(null); setPedindoSenhaPdf(false); }} style={styles.removePdf}><Text style={styles.removePdfText}>Remover fatura</Text></TouchableOpacity> : null}
       <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar consumidor"} onPress={() => void salvar()} />
     </Card>
   </ScrollView><PdfPasswordRetryModal visible={pedindoSenhaPdf} busy={salvando} onCancel={() => setPedindoSenhaPdf(false)} onConfirm={(password) => { setPedindoSenhaPdf(false); void salvar(password); }} /></Screen>;
 }
 
 const styles = StyleSheet.create({
-  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl }, eyebrow: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800", letterSpacing: 1.2 }, title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "800" }, subtitle: { marginTop: Spacing.sm, marginBottom: Spacing.lg, color: Colors.subtitle, lineHeight: 21 }, ownershipHint: { marginTop: -Spacing.sm, marginBottom: Spacing.md, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 }, pdfButton: { minHeight: 68, flexDirection: "row", alignItems: "center", marginBottom: Spacing.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, backgroundColor: Colors.surface }, pdfButtonSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight }, pdfCopy: { flex: 1, marginLeft: Spacing.sm }, pdfTitle: { color: Colors.text, fontWeight: "800" }, pdfHint: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small },
+  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl }, eyebrow: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800", letterSpacing: 1.2 }, title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "800" }, subtitle: { marginTop: Spacing.sm, marginBottom: Spacing.lg, color: Colors.subtitle, lineHeight: 21 }, ownershipHint: { marginTop: -Spacing.sm, marginBottom: Spacing.md, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 }, pdfButton: { minHeight: 68, flexDirection: "row", alignItems: "center", marginBottom: Spacing.xs, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, backgroundColor: Colors.surface }, pdfButtonSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight }, pdfCopy: { flex: 1, marginLeft: Spacing.sm }, pdfTitle: { color: Colors.text, fontWeight: "800" }, pdfHint: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small }, removePdf: { alignSelf: "flex-start", marginBottom: Spacing.md, paddingVertical: Spacing.xs }, removePdfText: { color: Colors.danger, fontWeight: "700", textDecorationLine: "underline" },
 });

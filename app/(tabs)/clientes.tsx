@@ -1,11 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Alert, Pressable, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
-import { AppHeader, Badge, Card, ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../../components/ui";
+import { AppHeader, Badge, Card, ElasticFlatList as FlatList, EmptyState, Screen } from "../../components/ui";
+import TabDataPending from "../../components/ui/TabDataPending";
 import CadastroActions from "../../components/cadastro/CadastroActions";
 import { excluirCliente, listarClientes } from "../../services/clientes.service";
+import { useAuth } from "../../contexts/AuthContext";
+import { initialTabKey } from "../../services/navigation-preload.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 function formatarDocumento(valor?: string) {
@@ -32,11 +36,14 @@ function statusCadastro(cliente: any) {
 }
 
 export default function Clientes() {
-  const [clientes, setClientes] = useState<any[]>([]); const [busca, setBusca] = useState(""); const [loading, setLoading] = useState(true); const [atualizando, setAtualizando] = useState(false); const [erro, setErro] = useState<string | null>(null);
+  const { user, usinaSelecionada } = useAuth();
+  const queryClient = useQueryClient();
+  const inicial = queryClient.getQueryData<any[]>(initialTabKey(String(user?.id ?? ""), usinaSelecionada?.id ?? user?.usina_id, "clientes"));
+  const [clientes, setClientes] = useState<any[]>(inicial ?? []); const [busca, setBusca] = useState(""); const [loading, setLoading] = useState(!inicial); const [atualizando, setAtualizando] = useState(false); const [erro, setErro] = useState<string | null>(null);
   const carregar = useCallback(async () => {
     try {
       setErro(null);
-      const dados = await listarClientes();
+      const dados = await listarClientes(usinaSelecionada?.id);
       setClientes(Array.isArray(dados) ? dados : []);
     } catch (erro: any) {
       setClientes([]);
@@ -44,12 +51,16 @@ export default function Clientes() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [usinaSelecionada?.id]);
   useFocusEffect(useCallback(() => { void carregar(); }, [carregar]));
   async function atualizarPagina() { setAtualizando(true); try { await carregar(); } finally { setAtualizando(false); } }
   const lista = useMemo(() => clientes.filter((c) => `${c.nome} ${unidadeDoCliente(c)} ${c.telefone} ${c.email} ${documentoDoCliente(c)}`.toLowerCase().includes(busca.toLowerCase())), [busca, clientes]);
 
   function confirmarExclusao(item: any) {
+    if (Array.isArray(item.contratos_status) && item.contratos_status.some((status: unknown) => !["CANCELADO", "ENCERRADO"].includes(String(status).toUpperCase()))) {
+      Alert.alert("Cliente com contrato", "Cancele ou encerre os contratos deste cliente antes de excluí-lo.");
+      return;
+    }
     Alert.alert("Excluir cliente", `Deseja excluir ${item.nome}? Esta ação não pode ser desfeita.`, [
       { text: "Cancelar", style: "cancel" },
       { text: "Excluir", style: "destructive", onPress: async () => {
@@ -65,7 +76,7 @@ export default function Clientes() {
 
   return <Screen>
     <AppHeader title="Clientes" subtitle="Gestão da carteira" contextTitle={`${clientes.length} clientes cadastrados`} contextSubtitle="Cadastre primeiro; depois envie o convite" icon="people-outline" />
-    {loading ? <Loading /> : <FlatList bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} data={lista} keyExtractor={(item, index) => item?.id ? String(item.id) : `cliente-${index}`} showsVerticalScrollIndicator={false}
+    {loading ? <TabDataPending /> : <FlatList bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} data={lista} keyExtractor={(item, index) => item?.id ? String(item.id) : `cliente-${index}`} showsVerticalScrollIndicator={false}
       ListHeaderComponent={<View><View style={styles.heading}><Text style={styles.title}>Sua carteira</Text><Text style={styles.subtitle}>Consulte clientes, contatos e unidades vinculadas.</Text></View><View style={styles.search}><Ionicons name="search-outline" size={20} color={Colors.subtitle} /><TextInput value={busca} onChangeText={setBusca} placeholder="Buscar por nome, CPF, UC ou telefone" placeholderTextColor={Colors.subtitle} style={styles.input} /></View><CadastroActions tipo="CLIENTE" /><Text style={styles.inviteHint}>O gerador cadastra o cliente e a UC pela fatura. Depois, o convite é enviado pelo próprio card do cliente.</Text></View>}
       renderItem={({ item }) => { const status = statusCadastro(item); const totalContratos = Number(item.total_contratos ?? 0); return <Pressable onPress={() => router.push(`/clientes/${item.id}`)}><Card style={styles.clientCard}><View style={styles.row}><View style={styles.avatar}><Text style={styles.avatarText}>{item.nome?.charAt(0)?.toUpperCase() ?? "C"}</Text></View><View style={styles.info}><Text numberOfLines={2} style={styles.name}>{item.nome}</Text><View style={styles.documentInfo}><Ionicons name="person-outline" size={14} color={Colors.primary} /><Text style={styles.detail}>{documentoDoCliente(item) ? `CPF/CNPJ ${formatarDocumento(documentoDoCliente(item))}` : "CPF não informado"}</Text></View></View><TouchableOpacity accessibilityLabel={`Excluir cliente ${item.nome}`} onPress={(event) => { event.stopPropagation(); confirmarExclusao(item); }} style={styles.delete}><Ionicons name="trash-outline" size={18} color={Colors.danger} /></TouchableOpacity></View><View style={styles.meta}><View style={styles.metaItem}><Ionicons name="business-outline" size={14} color={Colors.primary} /><Text style={styles.metaText}>{item.distribuidora ?? "Concessionária não informada"}</Text></View><View style={styles.metaItem}><Ionicons name="document-text-outline" size={14} color={Colors.primary} /><Text style={styles.metaText}>{totalContratos ? `${totalContratos} contrato${totalContratos === 1 ? "" : "s"}` : "Nenhum contrato cadastrado"}</Text></View><View style={styles.metaItem}><Ionicons name="call-outline" size={14} color={Colors.primary} /><Text style={styles.metaText}>{item.telefone || "Contato não informado"}</Text></View></View><View style={styles.footer}><Badge label={status.label} variant={status.variant} /><View style={styles.openLink}><Text style={styles.openText}>Ver cliente</Text><Ionicons name="chevron-forward" size={16} color={Colors.primary} /></View></View></Card></Pressable>; }}
       ListEmptyComponent={<View><EmptyState icon={erro ? "alert-circle-outline" : "people-outline"} title={erro ? "Não foi possível carregar os clientes" : "Nenhum cliente encontrado"} subtitle={erro ?? (busca ? "Altere a busca e tente novamente." : "Envie um convite. O cliente será adicionado depois que criar a conta.")} />{erro ? <TouchableOpacity onPress={atualizarPagina} style={styles.retry}><Ionicons name="refresh-outline" size={18} color={Colors.primary} /><Text style={styles.retryText}>Tentar novamente</Text></TouchableOpacity> : null}</View>}

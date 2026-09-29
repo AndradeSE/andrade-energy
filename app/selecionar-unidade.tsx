@@ -4,12 +4,14 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 
 import {
   Alert,
   Image,
   ImageBackground,
+  Linking,
   Modal,
   Pressable,
   RefreshControl,
@@ -41,11 +43,13 @@ import {
 import { useEmpresa } from "../contexts/EmpresaContext";
 
 import {
+  listarUnidadesGestor,
   listarMinhasUnidades,
   nomearMinhaUnidade,
 } from "../services/clientes.service";
 
 import {
+  consultarAlocacao,
   listarUsinas,
 } from "../services/usinas.service";
 import { listarAcessoContratos } from "../services/contratos.service";
@@ -58,8 +62,10 @@ import {
 } from "../theme";
 import { IS_GERADOR_APP } from "../config/appVariant";
 import PortalBrandLogo from "../components/brand/PortalBrandLogo";
+import { preloadNavigationData } from "../services/navigation-preload.service";
 
 export default function SelecionarUnidade() {
+  const queryClient = useQueryClient();
   const { empresa } = useEmpresa();
   const corPrincipal = empresa.cor_primaria || "#087A46";
   const {
@@ -119,9 +125,21 @@ export default function SelecionarUnidade() {
       try {
         if (gestor) {
           const usinas = await listarUsinas();
-          const fotos = await AsyncStorage.multiGet(usinas.map((usina: any) => `foto-card-usina:${usina.id}`));
+          const [fotos, capacidades, unidades] = await Promise.all([
+            AsyncStorage.multiGet(usinas.map((usina: any) => `foto-card-usina:${usina.id}`)),
+            Promise.all(usinas.map((usina: any) => consultarAlocacao(usina.id).then((capacidade) => capacidade.disponivel).catch(() => null))),
+            listarUnidadesGestor().catch(() => []),
+          ]);
           const fotoPorChave = new Map(fotos);
-          setItens(usinas.map((usina: any) => ({ ...usina, foto_card_local: fotoPorChave.get(`foto-card-usina:${usina.id}`) || "" })));
+          const clientesPorUsina = new Map<string, Set<string>>();
+          for (const unidade of Array.isArray(unidades) ? unidades : []) {
+            const usinaId = String(unidade.usina_id ?? unidade.usinas?.id ?? "");
+            const clienteId = String(unidade.cliente_id ?? unidade.clientes?.id ?? "");
+            if (!usinaId || !clienteId) continue;
+            if (!clientesPorUsina.has(usinaId)) clientesPorUsina.set(usinaId, new Set());
+            clientesPorUsina.get(usinaId)!.add(clienteId);
+          }
+          setItens(usinas.map((usina: any, index: number) => ({ ...usina, quantidade_clientes: clientesPorUsina.get(String(usina.id))?.size ?? 0, capacidade_livre: capacidades[index], foto_card_local: fotoPorChave.get(`foto-card-usina:${usina.id}`) || "" })));
           return;
         }
 
@@ -232,6 +250,9 @@ export default function SelecionarUnidade() {
       await selecionarUnidade(
         unidade
       );
+      if (usuario) {
+        await preloadNavigationData(queryClient, false, usuario, unidade, null);
+      }
 
       if (acesso.liberado === false && acesso.contratoId) {
         router.replace("/(tabs)/contrato");
@@ -275,6 +296,9 @@ export default function SelecionarUnidade() {
       await selecionarUsina(
         usina
       );
+      if (usuario) {
+        await preloadNavigationData(queryClient, true, usuario, null, usina);
+      }
 
       console.log(
         "ENTRANDO NA USINA:",
@@ -376,11 +400,14 @@ export default function SelecionarUnidade() {
           {gestor && usuario?.perfil === "ADMIN" ? (
             <TouchableOpacity
               accessibilityLabel="Trocar ambiente"
+              accessibilityHint="Abre a escolha entre os ambientes do aplicativo"
               onPress={() => router.replace("/admin/escolher-area" as any)}
               style={styles.environmentButton}
             >
-              <Ionicons name="swap-horizontal" size={20} color="#FFFFFF" />
-              <Text style={styles.environmentButtonText}>Ambiente</Text>
+              <View style={styles.environmentButtonCircle}>
+                <Ionicons name="swap-horizontal" size={23} color="#FFFFFF" />
+              </View>
+              <Text style={styles.environmentButtonLabel}>Trocar ambiente</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -504,6 +531,12 @@ export default function SelecionarUnidade() {
                 ) : null}
               </View>
             </View>
+            {gestor ? (
+              <View style={styles.generatorActions}>
+                <Text style={styles.generatorActionsTitle}>Adicionar nova usina</Text>
+                <CadastroActions tipo="USINA" />
+              </View>
+            ) : null}
           </>
         }
         ListEmptyComponent={
@@ -535,11 +568,9 @@ export default function SelecionarUnidade() {
                 ? "Confira sua conexão e tente entrar novamente."
                 : busca
                   ? "Altere os termos da busca e tente novamente."
-                  : `Use as opções abaixo para adicionar ${
-                      gestor
-                        ? "uma usina"
-                        : "uma unidade"
-                    }.`
+                  : gestor
+                    ? "Use as opções acima para adicionar uma usina."
+                    : "As unidades são localizadas pelo CPF da sua conta."
             }
           />
         }
@@ -561,6 +592,7 @@ export default function SelecionarUnidade() {
             const energiaCompetencia = Math.max(0, Number(usina.fechamento_atual?.energia_gerada ?? 0));
             const producaoMedia = Math.max(0, Number(usina.producao_media_12_meses ?? usina.geracao_media ?? 0));
             const geracaoTotal = Math.max(energiaCompetencia, Number(usina.geracao_total ?? 0));
+            const autonomia = usina.capacidade_livre == null ? null : Math.max(0, Math.min(100, Number(usina.capacidade_livre)));
             const energia = (valor: number) => `${valor.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kWh`;
             return (
               <Pressable
@@ -603,6 +635,26 @@ export default function SelecionarUnidade() {
                     <Text style={styles.plantDetailText}>{usina.endereco}</Text>
                   </View>
                 ) : null}
+                <View style={styles.plantDetail}>
+                  <Ionicons name="battery-half-outline" size={16} color="#577268" />
+                  <Text style={styles.plantDetailText}>Capacidade livre para novas UCs: {autonomia === null ? "indisponível" : `${autonomia.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`}</Text>
+                </View>
+                <View style={styles.plantDetail}>
+                  <Ionicons name="people-outline" size={16} color="#577268" />
+                  <Text style={styles.plantDetailText}>{Number((usina as any).quantidade_clientes ?? 0)} {Number((usina as any).quantidade_clientes ?? 0) === 1 ? "cliente" : "clientes"}</Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Editar dados da usina ${usina.nome}`}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    router.push({ pathname: "/usinas/editar", params: { id: usina.id } });
+                  }}
+                  style={styles.plantEditButton}
+                >
+                  <Ionicons name="create-outline" size={18} color={corPrincipal} />
+                  <Text style={[styles.plantEditText, { color: corPrincipal }]}>Editar dados da usina</Text>
+                </Pressable>
                 <View style={styles.plantFooter}>
                   <Text style={styles.plantAction}>Acessar gestão da usina</Text>
                   <View style={[styles.plantArrow, { backgroundColor: corPrincipal }]}>
@@ -776,25 +828,7 @@ export default function SelecionarUnidade() {
         }}
         ListFooterComponent={
           <View>
-            {gestor ? (
-              <View
-                style={
-                  styles.generatorActions
-                }
-              >
-                <Text
-                  style={
-                    styles.generatorActionsTitle
-                  }
-                >
-                  Adicionar nova usina
-                </Text>
-
-                <CadastroActions
-                  tipo="USINA"
-                />
-              </View>
-            ) : (
+            {!gestor ? (
               <View
                 style={
                   styles.cpfNotice
@@ -816,7 +850,7 @@ export default function SelecionarUnidade() {
                   As unidades são localizadas automaticamente pelo CPF da sua conta.
                 </Text>
               </View>
-            )}
+            ) : null}
 
             <TouchableOpacity
               onPress={
@@ -1012,12 +1046,7 @@ export default function SelecionarUnidade() {
               <DrawerItem
                 icon="shield-checkmark-outline"
                 label="Política de privacidade"
-                onPress={() =>
-                  Alert.alert(
-                    "Privacidade",
-                    "Seus dados são utilizados apenas para prestar os serviços da Andrade Energy."
-                  )
-                }
+                onPress={() => void Linking.openURL("https://www.andradeenergy.com.br/privacidade")}
               />
 
               <DrawerItem
@@ -1173,6 +1202,8 @@ const styles =
     plantDetail: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: 6 },
     plantDetailText: { flex: 1, color: "#577268", fontSize: 13, lineHeight: 19 },
     plantFooter: { borderTopWidth: 1, borderTopColor: "#E7EFEA", paddingTop: 14, marginTop: 17, flexDirection: "row", alignItems: "center", gap: 12 },
+    plantEditButton: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 8, marginTop: 14, paddingVertical: 8, paddingRight: 12 },
+    plantEditText: { fontSize: 14, fontWeight: "700" },
     plantAction: { flex: 1, color: "#173D30", fontSize: 14, fontWeight: "700" },
     plantArrow: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" },
     screen: {
@@ -1208,6 +1239,7 @@ const styles =
     headerTopGerador: {
       justifyContent: "center",
       position: "relative",
+      minHeight: 76,
     },
 
     menuButton: {
@@ -1270,17 +1302,27 @@ const styles =
       position: "absolute",
       right: 0,
       zIndex: 2,
-      minWidth: 58,
-      height: 44,
+      width: 100,
+      minHeight: 72,
       alignItems: "center",
       justifyContent: "center",
     },
 
-    environmentButtonText: {
-      marginTop: 1,
+    environmentButtonCircle: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: "rgba(255,255,255,0.18)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+    environmentButtonLabel: {
+      marginTop: 3,
       color: "#FFFFFF",
-      fontSize: 9,
+      fontSize: 10,
       fontWeight: "800",
+      textAlign: "center",
     },
 
     intro: {
@@ -1368,8 +1410,8 @@ const styles =
     },
 
     generatorActions: {
-      marginTop:
-        Spacing.xxl,
+      marginTop: Spacing.md,
+      marginBottom: Spacing.lg,
     },
 
     generatorActionsTitle: {

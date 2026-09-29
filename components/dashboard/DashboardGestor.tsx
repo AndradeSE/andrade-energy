@@ -26,12 +26,12 @@ import {
   AppHeader,
   ElasticScrollView as ScrollView,
   EmptyState,
-  Loading,
   Metric,
   Screen,
   Section,
 } from "../ui";
 import QuickAccessCarousel from "../QuickAccessCarousel";
+import TabDataPending from "../ui/TabDataPending";
 import AndradeBarChart from "../charts/AndradeBarChart";
 import RevenueChart from "./RevenueChart";
 
@@ -63,11 +63,9 @@ const atalhos = [
   { icon: "card-outline", label: "Meu plano", rota: "/assinatura" },
   { icon: "people-outline", label: "Clientes", rota: "/clientes" },
   { icon: "person-add-outline", label: "Novo cliente", rota: "/clientes/novo" },
-  { icon: "business-outline", label: "Usinas", rota: "/usinas" },
-  { icon: "add-circle-outline", label: "Nova usina", rota: "/usinas/nova" },
   { icon: "flash-outline", label: "Unidades consumidoras", rota: "/unidades" },
   { icon: "flash-outline", label: "Nova UC", rota: "/unidades/nova" },
-  { icon: "document-attach-outline", label: "Faturar via fatura", rota: "/faturamento/manual" },
+  { icon: "document-attach-outline", label: "Faturar via PDF", rota: "/faturamento/manual" },
   { icon: "construct-outline", label: "Operação", rota: "/operacao" },
   { icon: "receipt-outline", label: "Faturamento", rota: "/faturamento" },
   { icon: "cash-outline", label: "Financeiro", rota: "/financeiro" },
@@ -172,7 +170,7 @@ export default function DashboardGestor() {
     }
   }
 
-  if (isLoading) return <Loading />;
+  if (isLoading) return <Screen><AppHeader title="Início" subtitle="Sua energia em um só lugar" contextTitle="Visão geral da operação" contextSubtitle="Preparando dados da usina" icon="sunny-outline" /><TabDataPending /></Screen>;
   if (error || !data)
     return (
       <Screen>
@@ -237,6 +235,11 @@ export default function DashboardGestor() {
                 label: atalho.label,
                 onPress: () => router.push(atalho.rota as any),
               })),
+              ...(!colaborador && usinaSelecionada?.id ? [{
+                icon: "create-outline" as const,
+                label: "Editar dados da usina",
+                onPress: () => router.push({ pathname: "/usinas/editar", params: { id: usinaSelecionada.id } }),
+              }] : []),
               {
                 icon: "share-social-outline",
                 label: "Compartilhar app do cliente",
@@ -263,10 +266,10 @@ export default function DashboardGestor() {
           </View>
           <View style={styles.generationFooter}>
             <Text style={styles.generationFooterText}>
-              {formatarPercentual(data.ocupacao)} alocada
+              {formatarPercentual(data.capacidadeReservada)} reservada
             </Text>
             <Text style={styles.generationFooterText}>
-              {formatarEnergia(data.energiaDisponivel)} disponíveis
+              {formatarPercentual(data.capacidadeDisponivel)} livre
             </Text>
           </View>
         </View>
@@ -424,7 +427,7 @@ export default function DashboardGestor() {
               <Text style={styles.availableValue}>
                 {formatarEnergia(data.energiaDisponivel)}
               </Text>
-              <Text style={styles.allocationLabel}>prontos para alocação</Text>
+              <Text style={styles.allocationLabel}>energia não distribuída</Text>
             </View>
           </View>
           <View style={styles.progressTrack}>

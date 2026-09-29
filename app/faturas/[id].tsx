@@ -1072,7 +1072,7 @@ const styles = StyleSheet.create({
   paymentCodeExpiry: {
     marginTop: 3,
     color: Colors.primary,
-    fontSize: Typography.tiny,
+    fontSize: Typography.small,
     fontWeight: "700",
   },
   copyAction: {

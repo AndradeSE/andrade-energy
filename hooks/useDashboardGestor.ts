@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../contexts/AuthContext";
-import { buscarDashboardUsina, listarUsinas } from "../services/usinas.service";
+import { buscarDashboardUsina, consultarAlocacao, listarUsinas } from "../services/usinas.service";
 
 export function useDashboardGestor() {
   const { usuario, usinaSelecionada } = useAuth();
@@ -24,7 +24,11 @@ export function useDashboardGestor() {
         throw new Error("Nenhuma usina cadastrada.");
       }
 
-      return buscarDashboardUsina(usinaId);
+      const [dashboard, capacidade] = await Promise.all([
+        buscarDashboardUsina(usinaId),
+        consultarAlocacao(usinaId),
+      ]);
+      return { ...dashboard, capacidadeReservada: capacidade.reservado, capacidadeDisponivel: capacidade.disponivel };
     },
   });
 }

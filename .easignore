@@ -1,5 +1,6 @@
 # Dependencies and local caches
 node_modules/
+.pnpm-store/
 .expo/
 .git/
 .worktrees/
@@ -29,6 +30,7 @@ scripts/__pycache__/
 # Local diagnostics and temporary exports
 .expo-export-*/
 .tmp-*
+outputs/
 tmp/
 symbols/
 latest-crash.dmp
@@ -48,6 +50,8 @@ document.documentElement.clientWidth
 *.key
 *.mobileprovision
 *.pem
+/firebase/*service-account*.json
+/firebase/andrade-energy-push-*.json
 
 # Archives and logs
 *.rar

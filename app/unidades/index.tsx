@@ -7,9 +7,11 @@ import { AppHeader, Card, ElasticFlatList as FlatList, EmptyState, Loading, Scre
 import { listarUnidadesGestor, listarUnidadesCliente } from "../../services/clientes.service";
 import { reenviarConviteDaUnidade } from "../../services/convites.service";
 import { Colors, Spacing, Typography } from "../../theme";
+import { useAuth } from "../../contexts/AuthContext";
 
 function acaoContratualDaUc(unidade: any) {
   const contrato = unidade?.contrato_resumo;
+  if (String(contrato?.status ?? "").toUpperCase() === "CANCELADO") return { label: "Ver contrato", status: "Cancelado", revisao: false, liberada: false };
   const assinado = contrato?.dados_documento?.assinatura_externa_pendente !== true
     && Boolean(contrato?.aceite_cliente_em || contrato?.contrato_assinado_url || String(contrato?.status ?? "").toUpperCase() === "VIGENTE");
   if (contrato?.dados_documento?.assinatura_externa_pendente === true) return { label: "Revisar documento", status: "Aguardando conferência", revisao: false, liberada: false };
@@ -21,6 +23,7 @@ function acaoContratualDaUc(unidade: any) {
 }
 
 export default function Unidades() {
+  const { usinaSelecionada } = useAuth();
   const params = useLocalSearchParams<{ clienteId?: string; cliente?: string }>();
   const clienteId = String(params.clienteId || "");
   const [unidades, setUnidades] = useState<any[]>([]);
@@ -32,13 +35,14 @@ export default function Unidades() {
   const carregar = useCallback(async () => {
     try {
       setErro("");
-      setUnidades((await (clienteId ? listarUnidadesCliente(clienteId) : listarUnidadesGestor())) ?? []);
+      const dados = (await (clienteId ? listarUnidadesCliente(clienteId) : listarUnidadesGestor(usinaSelecionada?.id))) ?? [];
+      setUnidades(dados.filter((uc: any) => !usinaSelecionada?.id || uc.usina_id === usinaSelecionada.id));
     } catch (error: any) {
       setErro(error?.response?.data?.message ?? "Não foi possível carregar as unidades agora.");
     } finally {
       setLoading(false);
     }
-  }, [clienteId]);
+  }, [clienteId, usinaSelecionada?.id]);
 
   useFocusEffect(useCallback(() => { void carregar(); }, [carregar]));
   async function atualizarPagina() {
@@ -87,10 +91,11 @@ export default function Unidades() {
         ListHeaderComponent={<View><Text style={styles.title}>Unidades consumidoras</Text><Text style={styles.subtitle}>{clienteId ? "Consulte e adicione unidades deste cliente." : "Consulte as unidades de todos os clientes."}</Text><View style={styles.search}><TextInput value={busca} onChangeText={setBusca} placeholder="Buscar por UC, cliente, CPF ou endereço" placeholderTextColor={Colors.subtitle} style={styles.searchInput} /></View><CadastroActions tipo="UNIDADE" clienteId={clienteId} /></View>}
         renderItem={({ item }) => { const acaoContrato = acaoContratualDaUc(item); return <Pressable onPress={() => router.push({ pathname: "/unidades/[id]", params: { id: item.id, numero: item.numero, clienteId: item.cliente_id ?? item.clientes?.id ?? "", cliente: item.clientes?.nome ?? "", usinaId: item.usina_id ?? item.usinas?.id ?? "", usinaNome: item.usinas?.nome ?? item.usina_nome ?? "", titular: item.titular ?? "", distribuidora: item.distribuidora ?? "" } })}><Card style={styles.unitCard}>
           <View style={styles.row}><View style={styles.identification}><Text numberOfLines={1} style={styles.number}>{String(item.apelido ?? "").trim() || `UC ${item.numero}`}</Text>{item.apelido ? <Text style={styles.ucNumber}>UC {item.numero}</Text> : null}</View><Text style={styles.badge}>{item.tipo}</Text></View>
-          <Text style={styles.owner}>Titular da fatura: {item.titular_fatura ?? "Não identificado na fatura anexada"}</Text>
+          <Text style={styles.client}>Cliente: {item.clientes?.nome ?? params.cliente ?? "Não identificado"}</Text>
+          <Text style={styles.owner}>Titular da fatura: {item.titular_fatura ?? "Sem titular confirmado por fatura desta UC"}</Text>
           <Text style={styles.detail}>Usina: {item.usinas?.nome ?? item.usina_nome ?? (item.usina_id ? "Usina vinculada" : "Ainda não alocada")}</Text>
           <Text style={styles.detail}>{item.modalidade_faturamento === "INJECAO" ? "Faturamento por injeção" : "Faturamento por compensação"} · {item.desconto_percentual}%</Text>
-          <View style={[styles.contractStatus, acaoContrato.liberada && styles.contractStatusSigned]}><Text style={[styles.contractStatusText, acaoContrato.liberada && styles.contractStatusTextSigned]}>{acaoContrato.status}</Text></View>
+          <View style={[styles.contractStatus, acaoContrato.liberada && styles.contractStatusSigned, acaoContrato.status === "Cancelado" && styles.contractStatusCanceled]}><Text style={[styles.contractStatusText, acaoContrato.liberada && styles.contractStatusTextSigned, acaoContrato.status === "Cancelado" && styles.contractStatusTextCanceled]}>{acaoContrato.status}</Text></View>
           <TouchableOpacity
             accessibilityLabel={`Abrir contrato e convite da UC ${item.numero}`}
             onPress={(evento) => {
@@ -101,7 +106,7 @@ export default function Unidades() {
           >
             <Text style={[styles.inviteText, acaoContrato.status === "Minuta ainda não gerada" && styles.inviteTextPrimary]}>{acaoContrato.label}</Text>
           </TouchableOpacity>
-          <Text style={styles.accessHint}>{acaoContrato.liberada ? "Contrato assinado. Abra a UC e acesse Financeiro para escolher a forma de faturamento." : "Próximos passos: configure o contrato, gere e revise a minuta e só depois envie para assinatura."}</Text>
+          <Text style={styles.accessHint}>{acaoContrato.status === "Cancelado" ? "Contrato encerrado. Esta UC não está liberada para faturamento." : acaoContrato.liberada ? "Contrato assinado. Abra a UC e acesse Financeiro para escolher a forma de faturamento." : "Próximos passos: configure o contrato, gere e revise a minuta e só depois envie para assinatura."}</Text>
         </Card></Pressable>; }}
         ListEmptyComponent={<View><EmptyState title={erro ? "Não foi possível carregar as unidades" : busca ? "Nenhuma unidade encontrada" : "Nenhuma unidade cadastrada"} subtitle={erro || (busca ? "Altere os termos da busca." : "Use uma fatura da concessionária ou faça o cadastro manual.")} /></View>}
       />}
@@ -127,6 +132,8 @@ const styles = StyleSheet.create({
   accessHint: { marginTop: 2, color: Colors.subtitle, fontSize: 10, lineHeight: 14, textAlign: "center" },
   contractStatus: { alignSelf: "flex-start", marginTop: Spacing.sm, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, backgroundColor: "#FEF3C7" },
   contractStatusSigned: { backgroundColor: "#DCFCE7" },
+  contractStatusCanceled: { backgroundColor: "#FEE2E2" },
   contractStatusText: { color: "#92400E", fontSize: 10, fontWeight: "800" },
   contractStatusTextSigned: { color: "#166534" },
+  contractStatusTextCanceled: { color: "#991B1B" },
 });

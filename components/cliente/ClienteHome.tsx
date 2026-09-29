@@ -252,12 +252,6 @@ export default function ClienteHome() {
               label: "Trocar unidade",
               onPress: () => router.push("/selecionar-unidade"),
             },
-            {
-              id: "ajuda",
-              icon: "help-circle-outline",
-              label: "Ajuda",
-              onPress: () => router.push("/tutoriais"),
-            },
           ]}
         />
 

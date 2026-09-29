@@ -79,7 +79,6 @@ export default function ClienteHeader({
 
   const {
     logout,
-    selecionarUnidade,
     unidadeSelecionada,
     usuario,
   } =
@@ -101,7 +100,7 @@ export default function ClienteHeader({
           item.id === unidadeSelecionada?.id ||
           String(item.numero ?? "") === String(unidadeSelecionada?.numero ?? uc ?? "")
         );
-        setUnidadeAtual(selecionada ?? null);
+        setUnidadeAtual(selecionada ?? (unidades.length === 1 ? unidades[0] : null));
       })
       .catch(() => { if (ativo) setUnidadeAtual(null); });
     return () => { ativo = false; };
@@ -218,10 +217,6 @@ export default function ClienteHeader({
 
   async function trocarUnidade() {
     try {
-      await selecionarUnidade(
-        null
-      );
-
       router.push(
         "/selecionar-unidade"
       );
@@ -347,11 +342,12 @@ export default function ClienteHeader({
               </Text>
 
               <Text
+                numberOfLines={1}
                 style={
                   styles.greetingSubtitle
                 }
               >
-                {concessionariaUnidade}
+                {numeroUnidade ? `UC ${numeroUnidade}` : concessionariaUnidade}
               </Text>
             </View>
           </TouchableOpacity>
@@ -398,7 +394,7 @@ export default function ClienteHeader({
                 <Text numberOfLines={1} style={styles.changeText}>Trocar unidade</Text>
               </TouchableOpacity>
             </View>
-            <Text numberOfLines={1} style={styles.unitDetail}>{concessionariaUnidade} · {nomeUnidade && numeroUnidade ? `UC ${numeroUnidade}` : "Unidade consumidora"}</Text>
+            <Text numberOfLines={1} style={styles.unitDetail}>{concessionariaUnidade} · {numeroUnidade ? `UC ${numeroUnidade}` : "Unidade consumidora"}</Text>
           </View>
         </View>
         <TouchableOpacity accessibilityLabel="Ocultar detalhes" onPress={alternarDetalhes} style={styles.detailsAction}>
@@ -516,7 +512,12 @@ export default function ClienteHeader({
               }
             />
 
-            <MenuItem icon="play-circle-outline" label="Tutoriais" onPress={() => navegar("/tutoriais")} />
+            <MenuItem
+              icon="play-circle-outline"
+              label="Tutoriais"
+              onPress={() => navegar("/tutoriais")}
+            />
+
 
             <Divider />
 
@@ -575,11 +576,6 @@ const styles =
       alignItems:
         "center",
 
-      borderRadius:
-        Radius.round,
-
-      backgroundColor:
-        "rgba(255, 255, 255, 0.08)",
     },
     searchButton: {
       marginRight: 16,
@@ -616,6 +612,8 @@ const styles =
     greetingContent: {
       marginLeft:
         Spacing.sm,
+      flex: 1,
+      minWidth: 0,
     },
 
     greeting: {

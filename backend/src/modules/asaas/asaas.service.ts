@@ -285,7 +285,7 @@ export async function processarWebhookAsaas(body: any, token?: string) {
         await supabase.from("faturas").update({status:"PAGO"}).eq("id",c.fatura_id);
         await transferirSaldo(c);
         void (async () => {
-          const { data: fatura, error: erroFatura } = await supabase.from("faturas").select("cliente_id,empresa_id").eq("id", c.fatura_id).maybeSingle();
+          const { data: fatura, error: erroFatura } = await supabase.from("faturas").select("cliente_id,empresa_id,usina_id").eq("id", c.fatura_id).maybeSingle();
           if (erroFatura || !fatura) throw erroFatura ?? new Error("Fatura não encontrada");
           const { data: acessos, error: erroAcessos } = await supabase.from("empresa_usuarios")
             .select("usuario_id,papel,cliente_id,permissoes").eq("empresa_id", fatura.empresa_id).eq("ativo", true)
@@ -296,6 +296,8 @@ export async function processarWebhookAsaas(body: any, token?: string) {
           ).map((acesso: any) => criarNotificacaoApp({
             usuario_id: acesso.usuario_id,
             empresa_id: fatura.empresa_id,
+            cliente_id: fatura.cliente_id,
+            usina_id: fatura.usina_id,
             tipo: "FATURA_PAGA",
             titulo: "Pagamento confirmado",
             detalhe: "Uma fatura foi paga. Consulte os detalhes no aplicativo.",

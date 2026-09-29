@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "488073312231",
+    "project_id": "andrade-energy-push",
+    "storage_bucket": "andrade-energy-push.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:488073312231:android:f197443dfb5c0c91676f42",
+        "android_client_info": {
+          "package_name": "com.andradese.energy.consumidor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAWa0PZDEW65OTVWJQytre3a1AnmYYRURQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:488073312231:android:7c890f31bfd5d455676f42",
+        "android_client_info": {
+          "package_name": "com.andradese.energy.gerador"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAWa0PZDEW65OTVWJQytre3a1AnmYYRURQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -56,7 +56,7 @@ export async function preloadNavigationData(
     tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, plantId, "usinas"), queryFn: () => listarUsinas() }));
     tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, plantId, "faturamento"), queryFn: () => listarUnidadesGestor() }));
     tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, plantId, "operacao"), queryFn: () => Promise.all([obterResumoOperacao(), listarFechamentos()]) }));
-    tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, plantId, "financeiro"), queryFn: () => Promise.allSettled([carregarFinanceiro(), carregarCarteira()]) }));
+    tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, plantId, "financeiro"), queryFn: () => Promise.allSettled([carregarFinanceiro(plantId ?? undefined), carregarCarteira()]) }));
   } else {
     tasks.push(queryClient.prefetchQuery({ queryKey: ["initial-contract-access", userId], queryFn: listarAcessoContratos }));
     let clientId = unit?.cliente_id ?? user.cliente_id;
@@ -79,7 +79,7 @@ export async function preloadNavigationData(
       queryFn: () => number ? listarFaturas(undefined, number) : listarFaturas(String(clientId)),
     }));
     tasks.push(queryClient.prefetchQuery({
-      queryKey: ["contrato", contractKey],
+      queryKey: ["contrato", "por-uc-v2", contractKey],
       queryFn: () => unit?.id ? buscarContratoDaUnidade(String(unit.id), false, true) : buscarContrato(String(clientId)),
     }));
   }

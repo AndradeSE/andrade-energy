@@ -4,27 +4,35 @@ import * as DocumentPicker from "expo-document-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Alert, ImageBackground, Pressable, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import CadastroActions from "../../components/cadastro/CadastroActions";
 import PdfPasswordRetryModal from "../../components/PdfPasswordRetryModal";
-import { AppHeader, Card, ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../../components/ui";
+import { AppHeader, Card, ElasticFlatList as FlatList, EmptyState, Screen } from "../../components/ui";
+import TabDataPending from "../../components/ui/TabDataPending";
 import { useAuth } from "../../contexts/AuthContext";
-import { excluirUsina, importarFaturaGeradora, listarUsinas } from "../../services/usinas.service";
+import { consultarAlocacao, excluirUsina, importarFaturaGeradora, listarUsinas } from "../../services/usinas.service";
+import { initialTabKey } from "../../services/navigation-preload.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function Usinas() {
   const { usuario, usinaSelecionada, selecionarUsina, atualizarUsuario, suspenderBloqueioTemporariamente } = useAuth();
-  const [usinas, setUsinas] = useState<any[]>([]); const [loading, setLoading] = useState(true); const [atualizando, setAtualizando] = useState(false);
+  const queryClient = useQueryClient();
+  const inicial = queryClient.getQueryData<any[]>(initialTabKey(String(usuario?.id ?? ""), usinaSelecionada?.id ?? usuario?.usina_id, "usinas"));
+  const [usinas, setUsinas] = useState<any[]>(inicial ?? []); const [loading, setLoading] = useState(!inicial); const [atualizando, setAtualizando] = useState(false);
   const [importandoId, setImportandoId] = useState<string | null>(null);
   const [pdfPendente, setPdfPendente] = useState<{ item: any; pdf: DocumentPicker.DocumentPickerAsset } | null>(null);
   const [pedindoSenhaPdf, setPedindoSenhaPdf] = useState(false);
   const carregar = useCallback(async () => {
     try {
       const lista = (await listarUsinas()) ?? [];
-      const fotos = await AsyncStorage.multiGet(lista.map((item: any) => `foto-card-usina:${item.id}`));
+      const [fotos, capacidades] = await Promise.all([
+        AsyncStorage.multiGet(lista.map((item: any) => `foto-card-usina:${item.id}`)),
+        Promise.all(lista.map((item: any) => consultarAlocacao(item.id).then((capacidade) => capacidade.disponivel).catch(() => null))),
+      ]);
       const porChave = new Map(fotos);
-      setUsinas(lista.map((item: any) => ({ ...item, foto_card_local: porChave.get(`foto-card-usina:${item.id}`) || "" })));
+      setUsinas(lista.map((item: any, index: number) => ({ ...item, capacidade_livre: capacidades[index], foto_card_local: porChave.get(`foto-card-usina:${item.id}`) || "" })));
     } catch (erro: any) {
       setUsinas([]);
       Alert.alert("Não foi possível carregar as usinas", erro?.response?.data?.message ?? "Tente novamente em instantes.");
@@ -83,7 +91,7 @@ export default function Usinas() {
   }
 
   return <Screen><AppHeader title="Usinas" subtitle="Ativos de geração" contextTitle={`${usinas.length} usinas cadastradas`} contextSubtitle="Produção, unidades e operação" icon="business-outline" />
-    {loading ? <Loading /> : <FlatList bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} data={usinas} keyExtractor={(item) => item.id}
+    {loading ? <TabDataPending /> : <FlatList bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} data={usinas} keyExtractor={(item) => item.id}
       ListHeaderComponent={<View><Card><Text style={styles.title}>Parque gerador</Text><Text style={styles.subtitle}>Acompanhe e mantenha os dados de cada usina.</Text></Card><CadastroActions tipo="USINA" /></View>}
       renderItem={({ item }) => {
         const ativa = usinaSelecionada?.id === item.id;
@@ -91,8 +99,7 @@ export default function Usinas() {
         const energiaAlocada = Math.max(0, Number(item.fechamento_atual?.energia_alocada ?? 0));
         const geracaoEstimada = Math.max(0, Number(item.fechamento_atual?.energia_gerada ?? item.producao_media_12_meses ?? item.geracao_media ?? 0));
         const energiaDisponivel = Math.max(0, Number(item.fechamento_atual?.energia_disponivel ?? geracaoEstimada));
-        const energiaTotal = energiaAlocada + energiaDisponivel;
-        const autonomia = energiaTotal > 0 ? Math.max(0, Math.min(100, energiaDisponivel / energiaTotal * 100)) : 0;
+        const autonomia = item.capacidade_livre == null ? null : Math.max(0, Math.min(100, Number(item.capacidade_livre)));
         const producaoMedia = Math.max(0, Number(item.producao_media_12_meses ?? 0));
         const geracaoCompetencia = Math.max(0, Number(item.fechamento_atual?.energia_gerada ?? 0));
         const geracaoTotal = Math.max(geracaoCompetencia, Number(item.geracao_total ?? 0));
@@ -136,10 +143,10 @@ export default function Usinas() {
 
             <View style={styles.energyPanel}>
               <View style={styles.energyHeading}>
-                <Text style={styles.energyLabel}>Autonomia da usina</Text>
-                <Text style={styles.autonomyValue}>{energiaTotal > 0 ? `${autonomia.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% livre` : "Sem medição"}</Text>
+                <Text style={styles.energyLabel}>Capacidade livre para novas UCs</Text>
+                <Text style={styles.autonomyValue}>{autonomia === null ? "Indisponível" : `${autonomia.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% livre`}</Text>
               </View>
-              <View style={styles.progressTrack}><View style={[styles.progressAvailable, { width: `${autonomia}%` }]} /></View>
+              <View style={styles.progressTrack}><View style={[styles.progressAvailable, { width: `${autonomia ?? 0}%` }]} /></View>
               <View style={styles.energyValues}>
                 <View style={styles.energyMetric}>
                   <Text style={styles.metricLabel}>DISPONÍVEL</Text>

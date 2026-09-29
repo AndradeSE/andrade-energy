@@ -98,9 +98,9 @@ export async function salvarImportacao(uri: string) {
   return processarFatura(uri);
 }
 
-export async function listarFaturas(clienteId?: string, uc?: string): Promise<Fatura[]> {
+export async function listarFaturas(clienteId?: string, uc?: string, usinaId?: string): Promise<Fatura[]> {
   const { data } = await api.get("/faturas", {
-    params: { ...(clienteId ? { clienteId } : {}), ...(uc ? { uc } : {}) },
+    params: { ...(clienteId ? { clienteId } : {}), ...(uc ? { uc } : {}), ...(usinaId ? { usinaId } : {}) },
   });
 
   return Array.isArray(data) ? data as Fatura[] : [];

@@ -69,7 +69,9 @@ export default function HomeComercial() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setData(await obterPainelComercial());
+      const painel = await obterPainelComercial();
+      setData(painel);
+      queryClient.setQueryData(initialTabKey(String(usuario?.id ?? ""), undefined, "comercial"), painel);
     } catch (error: any) {
       setData(null);
       if (error?.response?.status === 401) {
@@ -89,7 +91,7 @@ export default function HomeComercial() {
     } finally {
       setLoading(false);
     }
-  }, [logout]);
+  }, [logout, queryClient, usuario?.id]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -209,7 +211,6 @@ export default function HomeComercial() {
                 } as any);
               }}
             />
-            <DrawerLink icon="play-circle-outline" label="Tutoriais" onPress={() => { setMenuAberto(false); router.push("/tutoriais" as any); }} />
             <View style={styles.drawerPreference}><Ionicons name="navigate-circle-outline" size={22} color={Colors.primary} /><Text style={styles.drawerPreferenceText}>Avisos passo a passo</Text><Switch value={avisosPassoAPasso} onValueChange={(valor) => { setAvisosPassoAPasso(valor); void definirAvisosPassoAPasso(valor); }} trackColor={{ false: Colors.border, true: Colors.primary }} /></View>
             <View style={styles.drawerDivider} />
             <DrawerLink

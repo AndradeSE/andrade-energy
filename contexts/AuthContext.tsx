@@ -11,6 +11,7 @@ import {
 
 import * as SecureStore from "expo-secure-store";
 import { AppState } from "react-native";
+import { environmentKeySuffix } from "../config/environment";
 
 import {
   autenticarComDigital,
@@ -44,10 +45,10 @@ import {
  */
 
 const UNIDADE_KEY =
-  "andrade_energy_unidade";
+  `andrade_energy_unidade${environmentKeySuffix}`;
 
 const USINA_KEY =
-  "andrade_energy_usina";
+  `andrade_energy_usina${environmentKeySuffix}`;
 
 /*
  * Trocas rápidas com recursos do aparelho (por exemplo, abrir uma notificação)

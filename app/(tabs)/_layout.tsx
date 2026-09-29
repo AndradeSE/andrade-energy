@@ -30,6 +30,7 @@ export default function TabLayout() {
 
   const screenOptions = {
     headerShown: false,
+    animation: "none" as const,
 
     tabBarActiveTintColor: "#16A34A",
 
@@ -61,6 +62,7 @@ export default function TabLayout() {
     return (
       <Tabs
         backBehavior="initialRoute"
+        detachInactiveScreens={false}
         initialRouteName="index"
         tabBar={(props) => <UnifiedExpoTabBar {...props} />}
         screenOptions={{
@@ -72,6 +74,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="economia"
           options={{
+            lazy: false,
             title: "Economia",
             tabBarIcon: ({ color, focused }) => (
               <TabIcon name={focused ? "flash" : "flash-outline"} color={color} />
@@ -82,6 +85,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="faturas"
           options={{
+            lazy: false,
             title: "Faturas",
             tabBarIcon: ({ color, focused }) => (
               <TabIcon name={focused ? "receipt" : "receipt-outline"} color={color} />
@@ -92,6 +96,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="index"
           options={{
+            lazy: false,
             title: "Home",
             tabBarIcon: ({ color, focused }) => (
               <TabIcon featured name={focused ? "home" : "home-outline"} color={color} />
@@ -102,6 +107,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="contrato"
           options={{
+            lazy: false,
             title: "Contrato",
             tabBarIcon: ({ color, focused }) => (
               <TabIcon name={focused ? "document-text" : "document-text-outline"} color={color} />
@@ -112,6 +118,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="perfil"
           options={{
+            lazy: false,
             title: "Perfil",
             tabBarIcon: ({ color, focused }) => (
               <TabIcon name={focused ? "person" : "person-outline"} color={color} />
@@ -162,6 +169,7 @@ export default function TabLayout() {
   return (
     <Tabs
       backBehavior="history"
+      detachInactiveScreens={false}
       tabBar={(props) => <UnifiedExpoTabBar {...props} />}
       initialRouteName="index"
       screenOptions={{
@@ -172,6 +180,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="clientes"
         options={{
+          lazy: false,
           title: "Clientes",
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name={focused ? "people" : "people-outline"} color={color} />
@@ -179,7 +188,7 @@ export default function TabLayout() {
         }}
       />
 
-      <Tabs.Screen name="equipe" options={{ title: "Colaboradores", tabBarIcon: ({ color, focused }) => (
+      <Tabs.Screen name="equipe" options={{ lazy: false, title: "Colaboradores", tabBarIcon: ({ color, focused }) => (
         <TabIcon name={focused ? "people-circle" : "people-circle-outline"} color={color} />
       ) }} />
       <Tabs.Screen name="usinas" options={{ href: null }} />
@@ -187,6 +196,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="operacao"
         options={{
+          lazy: false,
           title: "Operação",
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name={focused ? "construct" : "construct-outline"} color={color} />
@@ -197,6 +207,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
+          lazy: false,
           title: "Home",
           tabBarIcon: ({ color, focused }) => (
             <TabIcon featured name={focused ? "home" : "home-outline"} color={color} />
@@ -214,6 +225,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="faturamento"
         options={{
+          lazy: false,
           title: "Faturamento",
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name={focused ? "receipt" : "receipt-outline"} color={color} />
@@ -224,6 +236,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="financeiro"
         options={{
+          lazy: false,
           title: "Financeiro",
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name={focused ? "cash" : "cash-outline"} color={color} />
@@ -234,6 +247,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="contrato"
         options={{
+          lazy: false,
           title: "Contrato",
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name={focused ? "document-text" : "document-text-outline"} color={color} />

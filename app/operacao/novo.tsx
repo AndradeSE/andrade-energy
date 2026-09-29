@@ -1,36 +1,28 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { Alert, StyleSheet, Text, View } from "react-native";
 
 import FormField from "../../components/cadastro/FormField";
-import { AppHeader, Button, Card, ElasticScrollView as ScrollView, EmptyState, Loading, Screen } from "../../components/ui";
+import { AppHeader, Button, Card, ElasticScrollView as ScrollView, EmptyState, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
+import { useAuth } from "../../contexts/AuthContext";
 import { fecharUsina } from "../../services/fechamentos.service";
-import { listarUsinas } from "../../services/usinas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 export default function NovoFechamento() {
-  const [usinas, setUsinas] = useState<any[]>([]);
-  const [usinaId, setUsinaId] = useState("");
+  const { usinaSelecionada } = useAuth();
+  const usinaId = usinaSelecionada?.id;
   const [competencia, setCompetencia] = useState("");
   const [energiaGerada, setEnergiaGerada] = useState("");
   const [energiaAlocada, setEnergiaAlocada] = useState("");
   const [receitaPrevista, setReceitaPrevista] = useState("");
   const [receitaRealizada, setReceitaRealizada] = useState("");
-  const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
-
-  useEffect(() => {
-    listarUsinas().then((lista) => {
-      setUsinas(lista ?? []);
-      if (lista?.length) setUsinaId(lista[0].id);
-    }).catch(() => Alert.alert("Não foi possível carregar", "Confira sua conexão e tente novamente.")).finally(() => setLoading(false));
-  }, []);
 
   async function salvar() {
     const correspondencia = /^(0[1-9]|1[0-2])\/(\d{4})$/.exec(competencia.trim());
-    if (!usinaId) return Alert.alert("Escolha uma usina", "Selecione a usina deste fechamento.");
+    if (!usinaId) return Alert.alert("Usina não selecionada", "Volte à lista de usinas e abra a usina deste fechamento.");
     if (!correspondencia) return Alert.alert("Competência inválida", "Informe no formato MM/AAAA, por exemplo 07/2026.");
     if (!energiaGerada.trim()) return Alert.alert("Energia obrigatória", "Informe a energia gerada.");
 
@@ -50,11 +42,10 @@ export default function NovoFechamento() {
     } finally { setSalvando(false); }
   }
 
-  if (loading) return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Novo fechamento" subtitle="Operação da usina" contextTitle="Novo fechamento" contextSubtitle="Carregando usinas" icon="analytics-outline" /> : null}<Loading /></Screen>;
   return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Novo fechamento" subtitle="Operação da usina" contextTitle="Novo fechamento" contextSubtitle="Registre a competência da usina" icon="analytics-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
     <Text style={styles.eyebrow}>AJUSTE EXCEPCIONAL</Text><Text style={styles.title}>Registrar fechamento manual</Text><Text style={styles.subtitle}>Use somente quando a produção não puder ser importada automaticamente. Os valores ficam registrados no histórico da competência.</Text>
-    {!usinas.length ? <EmptyState icon="sunny-outline" title="Nenhuma usina cadastrada" subtitle="Cadastre uma usina antes de criar o fechamento." /> : <>
-      <Text style={styles.label}>Usina</Text><View style={styles.options}>{usinas.map((usina) => <Pressable key={usina.id} onPress={() => setUsinaId(usina.id)} style={[styles.option, usinaId === usina.id && styles.optionSelected]}><View style={[styles.radio, usinaId === usina.id && styles.radioSelected]}>{usinaId === usina.id ? <View style={styles.radioDot} /> : null}</View><Text style={[styles.optionText, usinaId === usina.id && styles.optionTextSelected]}>{usina.nome}</Text></Pressable>)}</View>
+    {!usinaId ? <EmptyState icon="sunny-outline" title="Nenhuma usina selecionada" subtitle="Abra uma usina na lista para registrar o fechamento." /> : <>
+      <Text style={styles.label}>Usina deste fechamento: {usinaSelecionada?.nome ?? "Usina selecionada"}</Text>
       <Card>
         <FormField label="Competência" placeholder="MM/AAAA" value={competencia} onChangeText={setCompetencia} keyboardType="numeric" />
         <FormField label="Energia gerada (kWh)" value={energiaGerada} onChangeText={setEnergiaGerada} keyboardType="decimal-pad" />

@@ -72,20 +72,7 @@ export default function NovaUnidade() {
   const tipoGdEfetivo = String(usinaSelecionada?.tipo_gd ?? "").toUpperCase();
 
   useEffect(() => {
-    Promise.all([
-      listarClientes(),
-      listarUsinas(),
-    ]).then(async ([c, u]) => {
-      const listaClientes = Array.isArray(c) ? c : [];
-      if (clienteIdVinculado && !listaClientes.some((item: any) => item.id === clienteIdVinculado)) {
-        try {
-          const vinculado = await buscarCliente(clienteIdVinculado);
-          if (vinculado) listaClientes.unshift(vinculado);
-        } catch {
-          // A validação do servidor mostrará uma mensagem específica se o vínculo deixou de existir.
-        }
-      }
-      setClientes(listaClientes);
+    listarUsinas().then((u) => {
       const listaUsinas = Array.isArray(u) ? u : [];
       setUsinas(listaUsinas);
       if (usinaDoAmbiente?.id && listaUsinas.some((item) => item.id === usinaDoAmbiente.id)) {
@@ -116,7 +103,27 @@ export default function NovaUnidade() {
     // modalidade, alocação e desconto já nesta primeira tela.
     else if (clienteIdVinculado || cadastroRapido === "1") setTipo("BENEFICIARIA");
     else if (!Number(energiaCompensada)) setTipo("CONSUMIDORA");
-  }, [cadastroRapido, classificacao, cliente, clienteIdVinculado, cpfImportado, enderecoImportado, energiaCompensada, origem, uc]);
+  }, [cadastroRapido, classificacao, cliente, clienteIdVinculado, cpfImportado, enderecoImportado, energiaCompensada, origem, uc, usinaDoAmbiente?.id]);
+
+  useEffect(() => {
+    const usinaDaLista = usinaId || usinaDoAmbiente?.id;
+    if (!usinaDaLista) { setClientes([]); return; }
+    let ativo = true;
+    setClientes([]);
+    void listarClientes(usinaDaLista).then(async (resultado) => {
+      const listaClientes = Array.isArray(resultado) ? resultado : [];
+      if (clienteIdVinculado && !listaClientes.some((item: any) => item.id === clienteIdVinculado)) {
+        const vinculado = await buscarCliente(clienteIdVinculado).catch(() => null);
+        if (vinculado) listaClientes.unshift(vinculado);
+      }
+      if (!ativo) return;
+      setClientes(listaClientes);
+      if (!clienteIdVinculado) setClienteId((atual) => listaClientes.some((item: any) => item.id === atual) ? atual : "");
+    }).catch((erro: any) => {
+      if (ativo) Alert.alert("Não foi possível carregar os clientes", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
+    });
+    return () => { ativo = false; };
+  }, [clienteIdVinculado, usinaDoAmbiente?.id, usinaId]);
 
   useEffect(() => {
     let ativo = true;
@@ -196,7 +203,7 @@ export default function NovaUnidade() {
     const documentoTitular = cpfTitular.replace(/\D/g, "");
     const cadastroManualDoGerador = IS_GERADOR_APP && origem !== "fatura";
     const clienteSelecionado = clientes.find((item) => item.id === clienteId);
-    const usinaFinal = usinaId || clienteSelecionado?.usina_id || null;
+    const usinaFinal = usinaId || usinaDoAmbiente?.id || null;
     // Modalidade e desconto pertencem à UC/contrato. Dados antigos no cliente
     // são apenas um fallback visual, nunca devem sobrescrever o que foi
     // configurado nesta fatura antes do primeiro salvamento.
@@ -304,11 +311,12 @@ export default function NovaUnidade() {
         {trocandoUsina || !usinaId ? <UsinaSelector usinas={usinas} value={usinaId} onChange={(valor) => { setUsinaId(valor); setTrocandoUsina(false); if (modalidade === "COMPENSACAO") setPercentualAlocado(percentualPelaMedia(usinas.find((item) => item.id === valor), consumoMedio, modalidade)); }} label="Trocar usina" /> : null}
         <FormField label="Consumo médio mensal (kWh)" value={consumoMedio} onChangeText={(valor) => { const limpo = valor.replace(/[^\d,.]/g, ""); setConsumoMedio(limpo); if (modalidade === "COMPENSACAO") setPercentualAlocado(percentualPelaMedia(usinaSelecionada, limpo, modalidade)); }} keyboardType="decimal-pad" />
         <FormField label={modalidade === "INJECAO" ? "Percentual de injeção (%) *" : "Percentual alocado (%)"} value={percentualAlocado} onChangeText={(valor) => { setPercentualEditado(true); setPercentualAlocado(valor.replace(/[^\d,.]/g, "")); }} keyboardType="decimal-pad" />
+        <Text style={styles.beneficiariaHint}>{producaoParaAlocacao(usinaSelecionada) > 0 ? `Energia estimada para esta UC: aproximadamente ${(producaoParaAlocacao(usinaSelecionada) * numeroSeguro(percentualAlocado) / 100).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kWh/mês (${percentualAlocado || "0"}% da produção média da usina).` : "Informe a produção média da usina para estimar os kWh mensais desta porcentagem."}</Text>
         <Text style={styles.beneficiariaHint}>{saldoAlocacao === null ? "Consultando saldo da usina..." : `Disponível para alocação: ${saldoAlocacao.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`}</Text>
         <Text style={styles.beneficiariaHint}>{modalidade === "INJECAO" ? "Informe manualmente a parcela da produção da usina destinada a esta UC. Este valor é definido pelo gerador." : "A sugestão considera 115% do consumo médio sobre a produção média disponível da usina. Você pode editar."}</Text>
         <FormField label="Desconto contratado (%)" value={desconto} onChangeText={(valor) => setDesconto(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" />
       </> : <UsinaSelector usinas={usinas} value={usinaId} onChange={setUsinaId} label="Usina geradora" />}
-      {!clienteIdVinculado ? <><Text style={styles.label}>Vincular ao cliente *</Text>{clientes.length ? <View style={styles.options}>{clientes.map((c) => <Pressable key={c.id} onPress={() => setClienteId(clienteId === c.id ? "" : c.id)} style={[styles.link, clienteId === c.id && styles.linkSelected]}><Text>{c.nome}</Text></Pressable>)}</View> : <Text style={styles.clientRequired}>Cadastre um cliente antes de adicionar uma unidade consumidora.</Text>}</> : null}
+      {!clienteIdVinculado ? <><Text style={styles.label}>Vincular ao cliente *</Text><Text style={styles.beneficiariaHint}>Mostrando clientes da usina {usinaSelecionada?.nome ?? "selecionada"}. Se o cliente estiver em outra usina, volte e troque de usina antes de continuar.</Text>{clientes.length ? <View style={styles.options}>{clientes.map((c) => <Pressable key={c.id} onPress={() => setClienteId(clienteId === c.id ? "" : c.id)} style={[styles.link, clienteId === c.id && styles.linkSelected]}><Text>{c.nome}</Text></Pressable>)}</View> : <Text style={styles.clientRequired}>Nenhum cliente vinculado a esta usina. Cadastre o cliente ou selecione a usina correta antes de adicionar a UC.</Text>}</> : null}
       <ChoiceField label="Formato da cobrança" value={formatoFatura} onChange={(valor) => setFormatoFatura(valor as FormatoFatura)} options={[{ label: "Fatura Unificada Andrade Energy", value: "UNIFICADA" }, { label: "Somente Andrade Energy", value: "SOMENTE_ANDRADE" }]} />
       <>
         <Text style={styles.beneficiariaHint}>{tipoGdEfetivo ? `Modalidade identificada: ${tipoGdEfetivo === "GD2" ? "GD II" : tipoGdEfetivo === "MISTA" ? "GD I + GD II" : "GD I"}${usinaGd2 ? ", definida automaticamente pela usina selecionada" : ""}.` : "Modalidade GD ainda não identificada. As configurações podem ser preparadas; a projeção ficará em 0% até chegar uma leitura GD."}</Text>

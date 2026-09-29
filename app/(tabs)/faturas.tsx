@@ -7,8 +7,9 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, BackHandler, Linking, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { AppHeader, ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../../components/ui";
+import { AppHeader, ElasticFlatList as FlatList, EmptyState, Screen } from "../../components/ui";
 import ClienteHeader from "../../components/cliente/ClienteHeader";
+import TabDataPending from "../../components/ui/TabDataPending";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
 import { useFaturas } from "../../hooks/useFaturas";
@@ -149,7 +150,7 @@ export default function Faturas() {
     );
   }
 
-  if (isLoading) return <Loading />;
+  if (isLoading) return <Screen>{proprietario ? <AppHeader title="Faturas" subtitle="Todos os clientes" contextTitle="Faturas da carteira" contextSubtitle="Abertas, vencidas e pagas" icon="receipt-outline" /> : <ClienteHeader cliente={user?.nome ?? "Cliente"} uc={unidadeSelecionada?.numero ?? ""} distribuidora={unidadeSelecionada?.distribuidora ?? "CEMIG"} fullBleed />}<TabDataPending /></Screen>;
 
   return (
     <Screen>

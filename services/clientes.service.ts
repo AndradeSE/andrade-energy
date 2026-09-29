@@ -1,7 +1,7 @@
 import api from "../config/api";
 
-export async function listarClientes() {
-  const { data } = await api.get("/clientes");
+export async function listarClientes(usinaId?: string) {
+  const { data } = await api.get("/clientes", { params: usinaId ? { usinaId } : {} });
   return data;
 }
 
@@ -29,8 +29,8 @@ export async function listarUnidadesCliente(id: string) {
   return data;
 }
 
-export async function listarUnidadesGestor() {
-  const { data } = await api.get("/clientes/unidades");
+export async function listarUnidadesGestor(usinaId?: string) {
+  const { data } = await api.get("/clientes/unidades", { params: usinaId ? { usinaId } : {} });
   return data;
 }
 
@@ -82,7 +82,7 @@ export type FaturaAnexadaCliente = {
   dadosFatura: Record<string, any>;
   criadoEm: string;
   url: string;
-  unidade?: { id: string; numero: string };
+  unidade?: { id: string; numero: string; usina_id?: string | null; ja_existia?: boolean };
 };
 
 export async function listarFaturasAnexadasCliente(id: string) {
@@ -90,7 +90,7 @@ export async function listarFaturasAnexadasCliente(id: string) {
   return data as FaturaAnexadaCliente[];
 }
 
-export async function anexarFaturaCliente(id: string, arquivo: { uri: string; name: string; mimeType?: string | null }, senhaPdf?: string) {
+export async function anexarFaturaCliente(id: string, arquivo: { uri: string; name: string; mimeType?: string | null }, senhaPdf?: string, usinaId?: string) {
   const form = new FormData();
   form.append("arquivo", {
     uri: arquivo.uri,
@@ -98,6 +98,7 @@ export async function anexarFaturaCliente(id: string, arquivo: { uri: string; na
     type: arquivo.mimeType || "application/pdf",
   } as any);
   if (senhaPdf?.trim()) form.append("senhaPdf", senhaPdf.trim());
+  if (usinaId) form.append("usinaId", usinaId);
   const { data } = await api.post(`/clientes/${id}/faturas-anexadas`, form, { timeout: 120_000 });
   return data as FaturaAnexadaCliente;
 }

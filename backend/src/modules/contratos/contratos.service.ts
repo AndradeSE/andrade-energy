@@ -22,7 +22,8 @@ export async function obterContratoCliente(
   clienteId: string,
   empresaId: string,
 ) {
-  return await buscarContratoCliente(clienteId, false, empresaId);
+  const contrato = await buscarContratoCliente(clienteId, false, empresaId);
+  return contrato ? anexarCancelamentoAoContrato(contrato) : null;
 }
 
 export async function listarContratosDaEmpresa(empresaId: string, usinaId?: string) {
@@ -346,6 +347,10 @@ export async function prepararRevisaoDaUnidadeService(unidadeId: string) {
 }
 
 export async function gerarContratoDaUnidadeService(unidadeId: string, dados: any) {
+  const partes = dados?.dados_documento ?? {};
+  if (![partes.locador_nome, partes.locador_documento, partes.locador_endereco].every((valor) => String(valor ?? "").trim())) {
+    throw new Error("Complete nome, CPF/CNPJ e endereço do locador antes de gerar a minuta.");
+  }
   const contrato = await salvarContratoDaUnidadeService(unidadeId, dados);
   const pdf = await gerarMinutaContrato(unidadeId, contrato);
   const caminho = await salvarDocumentoContrato(`unidades/${unidadeId}/${contrato.id}/minuta-contrato.pdf`, pdf);
@@ -762,18 +767,19 @@ export async function cancelarContratoService(id: string) {
 
     // Créditos não têm UC própria. Para contratos por UC, usamos somente o
     // crédito vinculado à última fatura daquela UC, evitando cobrar outra UC.
-    let creditoQuery = supabase
-      .from("creditos")
-      .select("saldo_atual, saldo")
-      .eq("cliente_id", cliente.id)
-      .order("competencia", { ascending: false })
-      .limit(1);
-    if (contrato.unidade_consumidora_id) {
-      if (!ultima?.id) creditoQuery = creditoQuery.eq("fatura_id", "__sem_fatura_da_uc__");
-      else creditoQuery = creditoQuery.eq("fatura_id", ultima.id);
+    let credito: { saldo_atual?: number | null; saldo?: number | null } | null = null;
+    if (!contrato.unidade_consumidora_id || ultima?.id) {
+      let creditoQuery = supabase
+        .from("creditos")
+        .select("saldo_atual, saldo")
+        .eq("cliente_id", cliente.id)
+        .order("competencia", { ascending: false })
+        .limit(1);
+      if (contrato.unidade_consumidora_id) creditoQuery = creditoQuery.eq("fatura_id", ultima!.id);
+      const consulta = await creditoQuery.maybeSingle();
+      if (consulta.error) throw consulta.error;
+      credito = consulta.data;
     }
-    const { data: credito, error: erroCredito } = await creditoQuery.maybeSingle();
-    if (erroCredito) throw erroCredito;
 
     const saldo = Math.max(0, Number(credito?.saldo_atual ?? credito?.saldo ?? 0));
     if (!faturaEncerramento && saldo > 0 && ultima) {
@@ -803,7 +809,7 @@ const escaparHtml = (valor: unknown) => String(valor ?? "").replace(/[&<>"']/g, 
 
 export async function solicitarCancelamentoContratoService(id: string, usuario: any) {
   const { data: contrato, error } = await supabase.from("contratos")
-    .select("id,numero,empresa_id,cliente_id,unidade_consumidora_id,status,clientes(nome,email),unidades_consumidoras(numero)")
+    .select("id,numero,empresa_id,cliente_id,unidade_consumidora_id,status,clientes(nome,email),unidades_consumidoras(numero,usina_id)")
     .eq("id", id).single();
   if (error || !contrato) throw error ?? new Error("Contrato não encontrado.");
   if (!contratoAceitaSolicitacaoCancelamento(contrato.status)) {
@@ -855,6 +861,8 @@ export async function solicitarCancelamentoContratoService(id: string, usuario: 
     await criarNotificacaoApp({
       usuario_id: vinculo.usuario_id,
       empresa_id: contrato.empresa_id,
+      cliente_id: contrato.cliente_id,
+      usina_id: unidade?.usina_id,
       tipo: "SOLICITACAO_CANCELAMENTO_CONTRATO",
       titulo: "Cliente solicitou cancelamento",
       detalhe: `${cliente?.nome ?? "O cliente"} solicitou o cancelamento do contrato ${identificacao}, ${uc}. Analise a solicitação antes de encerrar o vínculo.`,
@@ -924,18 +932,45 @@ export async function concluirSolicitacaoCancelamentoService(id: string, empresa
     if (erroAtualizacao) throw erroAtualizacao;
     if (!concluida) throw new Error("A conclusão perdeu a reserva de processamento.");
 
-    if (solicitacao.solicitado_por) {
-      await criarNotificacaoApp({
-        usuario_id: solicitacao.solicitado_por,
+    const { data: acessosCliente, error: erroAcessosCliente } = await supabase.from("empresa_usuarios")
+      .select("usuario_id").eq("empresa_id", empresaId).eq("cliente_id", solicitacao.cliente_id)
+      .eq("papel", "LEITURA").eq("ativo", true);
+    if (erroAcessosCliente) console.error("Falha ao buscar destinatários do cancelamento", erroAcessosCliente);
+    const destinatarios = [...new Set([
+      solicitacao.solicitado_por,
+      ...(acessosCliente ?? []).map((acesso: any) => acesso.usuario_id),
+    ].filter(Boolean))];
+    const { data: contratoContexto } = await supabase.from("contratos")
+      .select("unidade_consumidora_id").eq("id", id).eq("empresa_id", empresaId).maybeSingle();
+    const { data: unidadeContexto } = contratoContexto?.unidade_consumidora_id
+      ? await supabase.from("unidades_consumidoras").select("usina_id")
+        .eq("id", contratoContexto.unidade_consumidora_id).eq("empresa_id", empresaId).maybeSingle()
+      : { data: null };
+    await Promise.all(destinatarios.map((usuarioId) => criarNotificacaoApp({
+        usuario_id: usuarioId,
         empresa_id: empresaId,
+        cliente_id: solicitacao.cliente_id,
+        usina_id: unidadeContexto?.usina_id ?? null,
         tipo: "CANCELAMENTO_CONTRATO_CONCLUIDO",
         titulo: acao === "CANCELAR" ? "Contrato cancelado" : "Cancelamento não aprovado",
         detalhe: acao === "CANCELAR" ? "Sua solicitação foi aprovada e o contrato foi encerrado." : "Sua solicitação foi analisada e o contrato permanece ativo.",
         rota: "/contrato",
-        chave_dedupe: `cancelamento-resultado:${solicitacao.id}`,
-      }).catch((erroNotificacao) => console.error("Falha ao notificar resultado do cancelamento", erroNotificacao));
+        chave_dedupe: `cancelamento-resultado:${solicitacao.id}:${usuarioId}`,
+      }).catch((erroNotificacao) => console.error("Falha ao notificar resultado do cancelamento", erroNotificacao))));
+    const { data: clienteAvisado } = await supabase.from("clientes")
+      .select("email").eq("id", solicitacao.cliente_id).eq("empresa_id", empresaId).maybeSingle();
+    let emailEnviado = false;
+    if (clienteAvisado?.email) {
+      emailEnviado = await enviarEmailTransacional({
+        empresaId,
+        destinatario: clienteAvisado.email,
+        assunto: acao === "CANCELAR" ? "Confirmação do cancelamento do contrato" : "Resposta à solicitação de cancelamento",
+        html: acao === "CANCELAR"
+          ? "<p>Sua solicitação de cancelamento foi aprovada e o contrato foi encerrado. Consulte os detalhes no aplicativo.</p>"
+          : "<p>Sua solicitação de cancelamento foi analisada, mas não aprovada. O contrato permanece ativo. Consulte os detalhes no aplicativo ou entre em contato com o gerador para esclarecimentos.</p>",
+      }).catch((erroEmail) => { console.error("Falha ao enviar resposta de cancelamento", erroEmail); return false; });
     }
-    return { sucesso: true, status: novoStatus, contrato: resultado?.contrato ?? null, faturaEncerramento: resultado?.faturaEncerramento ?? null };
+    return { sucesso: true, status: novoStatus, emailEnviado, notificacoesCriadas: destinatarios.length, contrato: resultado?.contrato ?? null, faturaEncerramento: resultado?.faturaEncerramento ?? null };
   } catch (erro) {
     await supabase.from("solicitacoes_cancelamento_contrato").update({
       status: "PENDENTE", processamento_token: null, processamento_iniciado_em: null,

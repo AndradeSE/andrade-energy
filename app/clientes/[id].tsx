@@ -43,6 +43,7 @@ const statusDaSolicitacao = (status: unknown) => {
 };
 const acaoContratualDaUc = (unidade: any) => {
   const contrato = unidade?.contrato_resumo;
+  if (String(contrato?.status ?? "").toUpperCase() === "CANCELADO") return { label: "Ver contrato", status: "Cancelado", revisao: false, liberada: false };
   const assinado = contrato?.dados_documento?.assinatura_externa_pendente !== true
     && Boolean(contrato?.aceite_cliente_em || contrato?.contrato_assinado_url || String(contrato?.status ?? "").toUpperCase() === "VIGENTE");
   if (contrato?.dados_documento?.assinatura_externa_pendente === true) return { label: "Revisar documento", status: "Aguardando conferência", revisao: false, liberada: false };
@@ -68,23 +69,23 @@ export default function ClienteDetalhe() {
   const [importandoUc, setImportandoUc] = useState(false);
   const [pdfPendente, setPdfPendente] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [pedindoSenhaPdf, setPedindoSenhaPdf] = useState(false);
-  const { suspenderBloqueioTemporariamente } = useAuth();
+  const { suspenderBloqueioTemporariamente, usinaSelecionada } = useAuth();
   const carregar = useCallback(async () => {
     try {
       const [c, u] = await Promise.all([buscarCliente(id), listarUnidadesCliente(id)]);
-      const unidadesCliente = u ?? [];
+      const unidadesCliente = (u ?? []).filter((unidade: any) => !IS_GERADOR_APP || !usinaSelecionada?.id || unidade.usina_id === usinaSelecionada.id);
       setCliente(c);
       setUnidades(unidadesCliente);
-      const numeros = Array.from(new Set([c.uc, ...unidadesCliente.map((item: any) => item.numero)].filter(Boolean)));
+      const numeros = Array.from(new Set([...(usinaSelecionada?.id ? [] : [c.uc]), ...unidadesCliente.map((item: any) => item.numero)].filter(Boolean)));
       const listas = await Promise.all(numeros.map((numero) => buscarFaturasCliente(String(numero))));
       const unicas = Array.from(new Map(listas.flat().map((fatura: any) => [fatura.id, fatura])).values());
-      setFaturas(unicas);
+      setFaturas(unicas.filter((fatura: any) => !IS_GERADOR_APP || !usinaSelecionada?.id || fatura.usina_id === usinaSelecionada.id));
     } catch (erro: any) {
       Alert.alert("Não foi possível atualizar", erro?.response?.data?.message ?? "Confira sua conexão e tente novamente.");
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, usinaSelecionada?.id]);
   useFocusEffect(
     useCallback(() => {
       carregar();
@@ -179,7 +180,7 @@ export default function ClienteDetalhe() {
         uri: pdf.uri,
         name: pdf.name,
         mimeType: pdf.mimeType,
-      }, senhaPdf);
+      }, senhaPdf, IS_GERADOR_APP ? usinaSelecionada?.id : undefined);
       const dados = anexo?.dadosFatura ?? {};
       faturaLida = true;
       const numero = String(dados.uc ?? dados.numero_instalacao ?? dados.numeroInstalacao ?? "").replace(/\D/g, "");
@@ -472,8 +473,8 @@ export default function ClienteDetalhe() {
                         </View>
                         {IS_GERADOR_APP ? (
                           <>
-                            <View style={[styles.contractStatus, acaoContrato.liberada && styles.contractStatusSigned]}>
-                              <Text style={[styles.contractStatusText, acaoContrato.liberada && styles.contractStatusTextSigned]}>{acaoContrato.status}</Text>
+                            <View style={[styles.contractStatus, acaoContrato.liberada && styles.contractStatusSigned, acaoContrato.status === "Cancelado" && styles.contractStatusCanceled]}>
+                              <Text style={[styles.contractStatusText, acaoContrato.liberada && styles.contractStatusTextSigned, acaoContrato.status === "Cancelado" && styles.contractStatusTextCanceled]}>{acaoContrato.status}</Text>
                             </View>
                             <TouchableOpacity
                               accessibilityLabel={`Abrir contrato e convite da UC ${unidade.numero}`}
@@ -487,7 +488,9 @@ export default function ClienteDetalhe() {
                               <Text style={[styles.unitInviteText, acaoContrato.status === "Não enviado" && styles.unitInviteTextPrimary]}>{acaoContrato.label}</Text>
                             </TouchableOpacity>
                             <Text style={styles.unitAccessHint}>
-                              {acaoContrato.liberada
+                              {acaoContrato.status === "Cancelado"
+                                ? "Contrato encerrado. Esta UC não está liberada para faturamento."
+                                : acaoContrato.liberada
                                 ? "Contrato assinado. Esta UC já está disponível ao cliente."
                                 : "O gerador pode editar a configuração. A UC ficará disponível ao cliente após a assinatura do contrato."}
                             </Text>
@@ -647,8 +650,10 @@ const styles = StyleSheet.create({
   unitAccessHint: { marginTop: 2, color: Colors.subtitle, fontSize: 10, lineHeight: 14, textAlign: "center" },
   contractStatus: { alignSelf: "flex-start", marginTop: Spacing.sm, paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.round, backgroundColor: "#FEF3C7" },
   contractStatusSigned: { backgroundColor: "#DCFCE7" },
+  contractStatusCanceled: { backgroundColor: "#FEE2E2" },
   contractStatusText: { color: "#92400E", fontSize: 10, fontWeight: "800" },
   contractStatusTextSigned: { color: "#166534" },
+  contractStatusTextCanceled: { color: "#991B1B" },
   backToOverview: {
     minHeight: 42,
     flexDirection: "row",

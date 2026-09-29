@@ -329,6 +329,7 @@ export default function EditarAlocacaoUnidade() {
             onChangeText={(valor) => { setPercentualEditado(true); setPercentual(valor.replace(/[^\d,.]/g, "")); }}
             keyboardType="decimal-pad"
           />
+          <Text style={styles.hint}>{producaoParaAlocacao(usinaSelecionada) > 0 ? `Energia estimada para esta UC: aproximadamente ${(producaoParaAlocacao(usinaSelecionada) * valorNumerico(percentual) / 100).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kWh/mês (${percentual || "0"}% da produção média da usina).` : "Informe a produção média da usina para estimar os kWh mensais desta porcentagem."}</Text>
           <Text style={styles.hint}>{saldoAlocacao === null ? "Consultando saldo da usina..." : `Disponível para esta UC: ${saldoAlocacao.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`}</Text>
           <Text style={styles.hint}>
             {modalidade === "INJECAO"
