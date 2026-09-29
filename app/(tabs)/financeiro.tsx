@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Alert, RefreshControl, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import AndradeBarChart from "../../components/charts/AndradeBarChart";

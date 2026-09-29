@@ -5,7 +5,6 @@ import * as DocumentPicker from "expo-document-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Alert, ImageBackground, Pressable, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import CadastroActions from "../../components/cadastro/CadastroActions";
