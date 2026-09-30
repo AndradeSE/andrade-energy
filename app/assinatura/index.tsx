@@ -40,6 +40,11 @@ const status: Record<string, string> = {
   INADIMPLENTE: "Pendente",
   SUSPENSA: "Suspensa",
 };
+const formasPagamento: Record<string, string> = {
+  CREDIT_CARD: "Cartão",
+  BOLETO: "Boleto",
+  PIX: "Pix",
+};
 
 export default function MinhaAssinatura() {
   const [painel, setPainel] = useState<any>(null);
@@ -189,9 +194,7 @@ export default function MinhaAssinatura() {
               />
               <Info
                 label="FORMA ATUAL"
-                value={String(assinatura.forma_pagamento ?? "Não definida")
-                  .replace("CREDIT_CARD", "Cartão")
-                  .replace("BOLETO", "Boleto")}
+                value={formasPagamento[String(assinatura.forma_pagamento ?? "").trim().toUpperCase()] ?? "Não definida"}
                 detail={String(assinatura.ciclo).toLowerCase()}
               />
               <Info

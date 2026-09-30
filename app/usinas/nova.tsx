@@ -7,12 +7,11 @@ import ChoiceField from "../../components/cadastro/ChoiceField";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
-import { criarUsina as criarUsinaRemota } from "../../services/usinas.service";
-import { supabase } from "../../supabase";
+import { criarUsina as criarUsinaRemota, listarUsinas } from "../../services/usinas.service";
 import { Colors, Spacing, Typography } from "../../theme";
 
 export default function NovaUsina() {
-  const { usuario, atualizarUsuario, selecionarUsina } = useAuth();
+  const { usuario, selecionarUsina } = useAuth();
   const { origem, cliente, uc, endereco: enderecoImportado, tipoGd: tipoGdImportado, geracaoMedia: geracaoMediaImportada, geracaoInicial, referenciaInicial } = useLocalSearchParams<{ origem?: string; cliente?: string; uc?: string; endereco?: string; tipoGd?: string; geracaoMedia?: string; geracaoInicial?: string; referenciaInicial?: string }>();
   const [nome, setNome] = useState("");
   const [numeroInstalacao, setNumeroInstalacao] = useState("");
@@ -35,21 +34,9 @@ export default function NovaUsina() {
     endereco?: string | null;
     status?: string | null;
   }) {
-    if (usuario?.perfil === "GESTOR" && !usuario.usina_id) {
-      const { error: vinculoError } = await supabase
-        .from("usuarios")
-        .update({ usina_id: usina.id })
-        .eq("id", usuario.id);
-
-      if (vinculoError) {
-        Alert.alert("Usina localizada", "Não foi possível vinculá-la à sua conta.");
-        return false;
-      }
-
-      await atualizarUsuario({ usina_id: usina.id });
-    }
-
-    selecionarUsina(usina);
+    // A API cria a usina na empresa autenticada. O acesso do gestor é
+    // por empresa; não depende de atualizar usuarios via cliente Supabase.
+    await selecionarUsina(usina);
     router.replace("/(tabs)/usinas");
     return true;
   }
@@ -89,13 +76,12 @@ export default function NovaUsina() {
     } catch (erro: any) {
       const mensagem = String(erro?.response?.data?.message ?? erro?.message ?? "");
       if (/23505|usinas_numero_instalacao_key|duplicate key/i.test(mensagem)) {
-      const { data: existente, error: buscaError } = await supabase
-        .from("usinas")
-        .select("id, nome, numero_instalacao, distribuidora, endereco, status")
-        .eq("numero_instalacao", numeroInstalacao)
-        .single();
+      const existentes = await listarUsinas().catch(() => []);
+      const existente = existentes.find((item: any) =>
+        String(item.numero_instalacao).replace(/\D/g, "") === numeroInstalacao,
+      );
 
-      if (buscaError || !existente) {
+      if (!existente) {
         Alert.alert("Usina já cadastrada", "Esta instalação já existe, mas não foi possível carregá-la.");
       } else {
         Alert.alert("Usina já cadastrada", "A instalação já existe e foi localizada na sua lista.");

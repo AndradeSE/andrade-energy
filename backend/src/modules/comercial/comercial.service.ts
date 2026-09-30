@@ -660,12 +660,9 @@ export async function criarCheckoutRecorrente(usuario: any, input: any, origem: 
           value: Number(assinatura.valor_contratado),
         },
       ],
-      customerData: {
-        name: usuario.nome,
-        cpfCnpj: digits(usuario.cpf),
-        email: usuario.email || undefined,
-        phone: digits(usuario.telefone) || undefined,
-      },
+      // Sem cadastro completo de endereço, customerData provoca HTTP 400.
+      // O Checkout coleta e valida os dados do pagador quando o objeto é omitido.
+      // A assinatura continua vinculada ao titular via externalReference.
       ...(parcelamentoAnual
         ? { installment: { maxInstallmentCount: parcelas } }
         : {
