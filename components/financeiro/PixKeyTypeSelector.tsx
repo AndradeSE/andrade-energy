@@ -28,7 +28,7 @@ export default function PixKeyTypeSelector({ value, onChange, pixKey }: { value:
       style={styles.control}
       onPress={() => setVisible(true)}
     >
-      <Text style={styles.text}>{automatic ? (detected ? `Tipo identificado: ${label}` : "Tipo automático — digite a chave") : `Tipo de chave: ${label}`} ▾</Text>
+      <Text style={styles.text}>{automatic ? (detected ? `${label} ▾` : "") : `${label} ▾`}</Text>
       </TouchableOpacity>
       <Modal visible={visible} transparent animationType="slide" onRequestClose={() => setVisible(false)}>
         <View style={styles.backdrop}>
