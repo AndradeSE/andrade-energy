@@ -605,13 +605,13 @@ export default function GestaoGeradores() {
                       <Card style={styles.financeCard}>
                         <Text style={styles.cardTitle}>Chave Pix da Andrade Energy</Text>
                         <Text style={styles.subtitle}>Digite a chave primeiro. Depois confirme senha e código; somente este botão consulta o titular e salva a chave.</Text>
-                        <PixKeyTypeSelector pixKey={pixChave} value={pixTipo} onChange={(tipo) => { setPixTipo(tipo); setFinanceiroAutorizado(false); }} />
+                        <PixKeyTypeSelector pixKey={pixChave} value={pixTipo} onChange={setPixTipo} />
                         <TextInput
                           autoCapitalize="none"
                           style={[styles.input, styles.financeInput]}
                           value={pixChave}
                           onChangeText={setPixChave}
-                          placeholder={carteira.pixChaveMascarada ?? "E-mail, CPF ou chave"}
+                          placeholder={carteira.pixChaveMascarada ?? "CPF/CNPJ, e-mail, telefone ou chave aleatória"}
                         />
                         <Button
                           title={validandoPix ? "Validando titular..." : "Validar titular e salvar"}
