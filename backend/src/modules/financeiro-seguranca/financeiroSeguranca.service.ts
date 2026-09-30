@@ -2,6 +2,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { supabase } from "../../config/supabase";
 import { conferirSenha } from "../../utils/password";
 import { criptografarDado, descriptografarDado } from "../../utils/sensitiveData";
+import { ContextoPix, emitirAutorizacaoPix, verificarAutorizacaoPix } from "./autorizacaoPix";
 
 const ALFABETO = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 function base32(bytes: Buffer) {
@@ -82,7 +83,7 @@ async function conferirCodigo(usuarioId: string, codigo: string, confirmacao: bo
     if (error) throw error;
     throw new Error("Código inválido ou já utilizado.");
   }
-  if (somenteValidar) return;
+  if (somenteValidar) return passo;
   const { data, error } = await supabase.from("financeiro_autenticadores").update({ confirmado: true, expira_em: null, ultimo_passo: passo, tentativas: 0, bloqueado_ate: null, atualizado_em: new Date().toISOString() }).eq("usuario_id", usuarioId).eq("ultimo_passo", atual.ultimo_passo).eq("tentativas", atual.tentativas).select("usuario_id").maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("Código já utilizado. Aguarde o próximo código e tente novamente.");
@@ -93,8 +94,25 @@ export async function confirmarSenhaFinanceira(usuario: any, senhaAtual: string)
   if (!(await conferirSenha(senhaAtual, String(usuario.senha ?? "")))) throw new Error("Senha atual incorreta.");
   return { confirmado: true };
 }
-export async function validarCodigoFinanceiro(usuario: any, senhaAtual: string, codigo: string) {
+export async function validarCodigoFinanceiro(usuario: any, senhaAtual: string, codigo: string, contexto: ContextoPix = "carteira") {
   await confirmarSenhaFinanceira(usuario, senhaAtual);
-  await conferirCodigo(usuario.id, codigo, false, true);
-  return { confirmado: true };
+  const passo = await conferirCodigo(usuario.id, codigo, false, true);
+  const atual = await registro(usuario.id);
+  return { confirmado: true, autorizacaoPix: emitirAutorizacaoPix(usuario, atual.segredo_criptografado, passo!, contexto), validadeSegundos: 300 };
+}
+
+export async function exigirAutorizacaoCadastroPix(usuario: any, token: string, codigo: string, contexto: ContextoPix) {
+  if (!token) return exigirCodigoFinanceiro(usuario.id, codigo); // APKs anteriores continuam exigindo TOTP atual.
+  const atual = await registro(usuario.id);
+  if (!atual?.confirmado) throw new Error("Cadastre o aplicativo autenticador antes de operar o Pix.");
+  if (atual.bloqueado_ate && new Date(atual.bloqueado_ate).getTime() > Date.now()) throw new Error("Muitas tentativas. Aguarde 15 minutos.");
+  const passo = verificarAutorizacaoPix(token, usuario, atual.segredo_criptografado, contexto);
+  if (passo <= Number(atual.ultimo_passo)) throw new Error("Autorização já utilizada. Confirme um novo código.");
+  // Compare-and-swap no banco: dois pedidos ou tokens do mesmo TOTP não podem ser usados duas vezes.
+  const { data, error } = await supabase.from("financeiro_autenticadores").update({
+    ultimo_passo: passo, tentativas: 0, bloqueado_ate: null, atualizado_em: new Date().toISOString(),
+  }).eq("usuario_id", usuario.id).eq("confirmado", true).eq("segredo_criptografado", atual.segredo_criptografado)
+    .eq("ultimo_passo", atual.ultimo_passo).eq("tentativas", atual.tentativas).select("usuario_id").maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Autorização já utilizada. Confirme um novo código.");
 }

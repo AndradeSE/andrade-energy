@@ -76,6 +76,7 @@ export default function GestaoGeradores() {
   const [senhaFinanceira, setSenhaFinanceira] = useState("");
   const [financeiroAutorizado, setFinanceiroAutorizado] = useState(false);
   const [codigoAutenticador, setCodigoAutenticador] = useState("");
+  const [autorizacaoPix, setAutorizacaoPix] = useState("");
   const [saque, setSaque] = useState("");
   const [validandoPix, setValidandoPix] = useState(false);
   const [mostrarArquivadas, setMostrarArquivadas] = useState(false);
@@ -600,7 +601,7 @@ export default function GestaoGeradores() {
                   </View>
                   {carteira ? (
                     <View style={styles.financeCards}>
-                      <AutenticadorFinanceiro base="/comercial/financeiro" ativo={Boolean(carteira.autenticadorAtivo)} senhaAtual={senhaFinanceira} onSenhaAtual={setSenhaFinanceira} codigo={codigoAutenticador} onCodigo={setCodigoAutenticador} onAutorizado={setFinanceiroAutorizado} onAtivo={() => void obterFinanceiroAssinaturas().then(setCarteira)} />
+                      <AutenticadorFinanceiro base="/comercial/financeiro" ativo={Boolean(carteira.autenticadorAtivo)} senhaAtual={senhaFinanceira} onSenhaAtual={setSenhaFinanceira} codigo={codigoAutenticador} onCodigo={setCodigoAutenticador} onAutorizado={setFinanceiroAutorizado} onAutorizacaoPix={setAutorizacaoPix} onAtivo={() => void obterFinanceiroAssinaturas().then(setCarteira)} />
                       <Card style={styles.financeCard}>
                         <Text style={styles.cardTitle}>Chave Pix da Andrade Energy</Text>
                         <Text style={styles.subtitle}>Digite a chave primeiro. Depois confirme senha e código; somente este botão consulta o titular e salva a chave.</Text>
@@ -832,7 +833,7 @@ export default function GestaoGeradores() {
     if (!financeiroAutorizado) return Alert.alert("Etapa pendente", "Confirme senha e código antes de continuar.");
     if (!pixChave.trim()) return Alert.alert("Chave Pix", "Digite a chave Pix que deseja validar e salvar.");
     const salvar = async () => {
-      const updated = await configurarFinanceiroAssinaturas({ pixTipo, pixChave:pixChave.trim(), transferenciaAutomatica:carteira?.transferenciaAutomatica ?? false, senhaAtual:senhaFinanceira, codigoAutenticador });
+      const updated = await configurarFinanceiroAssinaturas({ pixTipo, pixChave:pixChave.trim(), transferenciaAutomatica:carteira?.transferenciaAutomatica ?? false, senhaAtual:senhaFinanceira, codigoAutenticador, autorizacaoPix });
       setCarteira(updated); setPixChave(""); setSenhaFinanceira(""); setCodigoAutenticador(""); setFinanceiroAutorizado(false);
       Alert.alert("Financeiro", "Chave Pix validada e salva.");
     };

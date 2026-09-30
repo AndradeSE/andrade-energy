@@ -4,7 +4,7 @@ import { empresaIdDoUsuario } from "../../config/empresa";
 import { criptografarDado, descriptografarDado } from "../../utils/sensitiveData";
 import { auditar } from "../../utils/audit";
 import { conferirSenha } from "../../utils/password";
-import { autenticadorAtivo, exigirCodigoFinanceiro } from "../financeiro-seguranca/financeiroSeguranca.service";
+import { autenticadorAtivo, exigirCodigoFinanceiro, exigirAutorizacaoCadastroPix } from "../financeiro-seguranca/financeiroSeguranca.service";
 
 const dinheiro = (valor: unknown) => Math.round(Number(valor ?? 0) * 100) / 100;
 const mascarar = (chave: string) => chave.length <= 6 ? "***" : `${chave.slice(0, 2)}***${chave.slice(-4)}`;
@@ -98,7 +98,6 @@ export async function resumoCarteira(usuario: any) {
 
 export async function atualizarCarteira(usuario: any, input: any) {
   if (!(await conferirSenha(String(input.senhaAtual ?? ""), String(usuario.senha ?? "")))) throw new Error("Confirme sua senha para alterar os dados financeiros.");
-  await exigirCodigoFinanceiro(usuario.id, String(input.codigoAutenticador ?? ""));
   const carteira = await obterOuCriarCarteira(usuario);
   const pixTipo = String(input.pixTipo ?? carteira.pix_tipo ?? "").toUpperCase();
   const pixChave = String(input.pixChave ?? chavePixDaCarteira(carteira)).trim();
@@ -108,6 +107,7 @@ export async function atualizarCarteira(usuario: any, input: any) {
     ? (await consultarTitularChavePix(pixTipo, pixChave)).nome.slice(0, 200)
     : String(carteira.pix_titular_nome ?? "").trim();
   if (input.transferenciaAutomatica === true && (!pixTipo || !pixChave)) throw new Error("Cadastre uma chave Pix antes de ativar a transferência automática.");
+  await exigirAutorizacaoCadastroPix(usuario, String(input.autorizacaoPix ?? ""), String(input.codigoAutenticador ?? ""), "carteira");
   const { error } = await supabase.from("gerador_carteiras").update({
     pix_tipo: pixTipo || null,
     pix_chave: null,

@@ -5,7 +5,7 @@ import { criptografarDado, descriptografarDado } from "../../utils/sensitiveData
 import { empresaIdDoUsuario } from "../../config/empresa";
 import { mercadoPagoComercialRequest } from "./mercadoPagoComercial.client";
 import { provedorPagamentoComercial } from "./provedorPagamento";
-import { autenticadorAtivo, exigirCodigoFinanceiro } from "../financeiro-seguranca/financeiroSeguranca.service";
+import { autenticadorAtivo, exigirCodigoFinanceiro, exigirAutorizacaoCadastroPix } from "../financeiro-seguranca/financeiroSeguranca.service";
 import { auditar } from "../../utils/audit";
 
 const digits = (value: unknown) => String(value ?? "").replace(/\D/g, "");
@@ -49,11 +49,11 @@ export async function obterFinanceiroAssinaturas(usuario:any) {
 
 export async function atualizarFinanceiroAssinaturas(usuario:any,input:any) {
   if (!(await conferirSenha(String(input.senhaAtual??""),String(usuario.senha??"")))) throw new Error("Confirme sua senha para alterar o financeiro das assinaturas.");
-  await exigirCodigoFinanceiro(usuario.id, String(input.codigoAutenticador ?? ""));
   const carteira=await carteiraComercial(usuario); const pixTipo=String(input.pixTipo??carteira.pix_tipo??"").toUpperCase(); const pix=String(input.pixChave??chaveComercial(carteira)).trim();
   if (pixTipo&&!['CPF','CNPJ','EMAIL','PHONE','EVP'].includes(pixTipo)) throw new Error("Tipo de chave Pix inválido.");
   const pixTitularNome=input.pixChave?await consultarTitularPixComercial(pixTipo,pix):String(carteira.pix_titular_nome??"").trim();
   if (input.transferenciaAutomatica===true&&(!pixTipo||!pix)) throw new Error("Cadastre a chave Pix comercial antes de ativar a transferência automática.");
+    await exigirAutorizacaoCadastroPix(usuario, String(input.autorizacaoPix ?? ""), String(input.codigoAutenticador ?? ""), "comercial");
   const result=await supabase.from("carteira_comercial_assinaturas").update({pix_tipo:pixTipo||null,pix_chave_criptografada:pix?criptografarDado(pix):null,pix_titular_nome:pix?pixTitularNome:null,transferencia_automatica:Boolean(input.transferenciaAutomatica),atualizado_em:new Date().toISOString()}).eq("id",carteira.id);if(result.error)throw result.error;
   return obterFinanceiroAssinaturas(usuario);
 }

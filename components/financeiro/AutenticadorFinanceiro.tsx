@@ -5,7 +5,7 @@ import * as Clipboard from "expo-clipboard";
 import api from "../../config/api";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
-export default function AutenticadorFinanceiro({ base, ativo, senhaAtual, onSenhaAtual, codigo, onCodigo, onAtivo, onAutorizado }: {
+export default function AutenticadorFinanceiro({ base, ativo, senhaAtual, onSenhaAtual, codigo, onCodigo, onAtivo, onAutorizado, onAutorizacaoPix }: {
   base: "/carteira" | "/comercial/financeiro";
   ativo: boolean;
   senhaAtual: string;
@@ -14,12 +14,14 @@ export default function AutenticadorFinanceiro({ base, ativo, senhaAtual, onSenh
   onCodigo: (value: string) => void;
   onAtivo: () => void;
   onAutorizado?: (value: boolean) => void;
+  onAutorizacaoPix?: (value: string) => void;
 }) {
   const [segredo, setSegredo] = useState("");
   const [copiado, setCopiado] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const [senhaConfirmada, setSenhaConfirmada] = useState(false);
   const [codigoConfirmado, setCodigoConfirmado] = useState(false);
+  useEffect(() => { onAutorizacaoPix?.(""); }, [senhaAtual, codigo]);
   useEffect(() => { if (!senhaAtual || !codigo) { setCodigoConfirmado(false); onAutorizado?.(false); } }, [senhaAtual, codigo]);
   function alterarSenha(value: string) { onSenhaAtual?.(value); setSenhaConfirmada(false); setCodigoConfirmado(false); onAutorizado?.(false); onCodigo(""); }
   function alterarCodigo(value: string) { onCodigo(value.replace(/\D/g, "").slice(0, 6)); setCodigoConfirmado(false); onAutorizado?.(false); }
@@ -38,9 +40,10 @@ export default function AutenticadorFinanceiro({ base, ativo, senhaAtual, onSenh
     if (codigo.length !== 6) return Alert.alert("Código incompleto", "Digite os 6 dígitos do aplicativo autenticador.");
     setOcupado(true);
     try {
-      await api.post(`${base}/autenticador/validar-codigo`, { senhaAtual, codigo });
+      const { data } = await api.post(`${base}/autenticador/validar-codigo`, { senhaAtual, codigo });
+      onAutorizacaoPix?.(String(data.autorizacaoPix ?? ""));
       setCodigoConfirmado(true); onAutorizado?.(true);
-      Alert.alert("Código confirmado", "Agora conclua a operação desejada. Se o código mudar antes de salvar, informe o novo código e confirme novamente.");
+      Alert.alert("Código confirmado", data.autorizacaoPix ? "Você tem 5 minutos para validar o titular e salvar a chave Pix uma única vez. Transferências continuam exigindo um código atual." : "Agora conclua a operação desejada. Se o código mudar antes de salvar, informe o novo código e confirme novamente.");
     } catch (error: any) { Alert.alert("Código não confirmado", error?.response?.data?.message ?? "Confira o código e tente novamente."); }
     finally { setOcupado(false); }
   }
