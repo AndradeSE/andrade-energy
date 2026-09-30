@@ -1,3 +1,4 @@
+import PixKeyTypeSelector, { PixKeyType } from "../../components/financeiro/PixKeyTypeSelector";
 import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
@@ -70,7 +71,7 @@ export default function GestaoGeradores() {
   useEffect(() => { void avisosPassoAPassoAtivos().then(setAvisosPassoAPasso); }, []);
   const [planoEditando, setPlanoEditando] = useState<any>(null);
   const [carteira, setCarteira] = useState<any>(financeiroInicial ?? null);
-  const [pixTipo] = useState("CPF");
+  const [pixTipo, setPixTipo] = useState<PixKeyType>("CPF");
   const [pixChave, setPixChave] = useState("");
   const [senhaFinanceira, setSenhaFinanceira] = useState("");
   const [financeiroAutorizado, setFinanceiroAutorizado] = useState(false);
@@ -603,6 +604,7 @@ export default function GestaoGeradores() {
                       <Card style={styles.financeCard}>
                         <Text style={styles.cardTitle}>Chave Pix da Andrade Energy</Text>
                         <Text style={styles.subtitle}>Digite a chave primeiro. Depois confirme senha e código; somente este botão consulta o titular e salva a chave.</Text>
+                        <PixKeyTypeSelector value={pixTipo} onChange={(tipo) => { setPixTipo(tipo); setFinanceiroAutorizado(false); }} />
                         <TextInput
                           autoCapitalize="none"
                           style={[styles.input, styles.financeInput]}
