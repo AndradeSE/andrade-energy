@@ -1,8 +1,8 @@
 import multer from "multer";
-import path from "path";
+import { uploadDirectory } from "./uploadDirectory";
 
 export const upload = multer({
-  dest: path.resolve("uploads"),
+  dest: uploadDirectory(),
   limits: {
     fileSize: 10 * 1024 * 1024,
   },

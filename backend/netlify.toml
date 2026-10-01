@@ -1,0 +1,26 @@
+# Homologation only. Production fallback is not enabled.
+[build]
+  base = "backend"
+  command = "npm run build"
+  publish = "netlify/public"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "22"
+  API_RUNTIME = "serverless"
+  BACKGROUND_JOBS_ENABLED = "false"
+  NETLIFY_HOMOLOGATION_ENABLED = "true"
+  EMAIL_DESTINATARIOS_PERMITIDOS = ""
+
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["argon2", "pdfkit", "pdf-parse"]
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/api/:splat"
+  status = 200
+[[redirects]]
+  from = "/health"
+  to = "/.netlify/functions/api/health"
+  status = 200

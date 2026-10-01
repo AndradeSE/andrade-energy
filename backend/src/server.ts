@@ -32,10 +32,11 @@ import colaboradoresRoutes from "./modules/colaboradores/colaboradores.routes";
 import notificacoesRoutes from "./modules/notificacoes/notificacoes.routes";
 import privacidadeRoutes from "./modules/privacidade/privacidade.routes";
 import { auditar } from "./utils/audit";
+import { backgroundJobsEnabled } from "./config/backgroundJobs";
 
 dotenv.config();
 
-const app = express();
+export const app = express();
 app.set("trust proxy", 1);
 
 const origensPermitidas = new Set([
@@ -175,7 +176,7 @@ app.use("/api/oauth", oauthEmailRouter);
 app.get("/health", (_, res) => {
   res.json({
     status: "online",
-    commit: process.env.RENDER_GIT_COMMIT?.slice(0, 7) ?? "local",
+    commit: (process.env.RENDER_GIT_COMMIT ?? process.env.COMMIT_REF)?.slice(0, 7) ?? "local",
   });
 });
 
@@ -195,7 +196,7 @@ app.use(errorHandler);
 
 const PORT = Number(process.env.PORT) || 3333;
 
-async function validarSchemaAntesDeIniciar() {
+export async function validarSchemaAntesDeIniciar() {
   const verificacoes = [
     { tabela: "unidades_consumidoras", colunas: "consumo_medio_kwh,percentual_rateio" },
     { tabela: "contratos", colunas: "dados_documento,contrato_gerado_url,contrato_assinado_url" },
@@ -217,9 +218,14 @@ async function validarSchemaAntesDeIniciar() {
 }
 
 async function iniciarServidor() {
+  const executarAgendadores = backgroundJobsEnabled();
   await validarSchemaAntesDeIniciar();
   app.listen(PORT, () => {
   console.log(`Servidor iniciado na porta ${PORT}`);
+  if (!executarAgendadores) {
+    console.log("Instância HTTP reserva: agendadores desativados.");
+    return;
+  }
   processarFilaDeNotificacoes().catch((erro) => console.error("Falha ao processar notificações:", erro.message));
   processarContasDeEnergiaRecebidas().catch((erro) => console.error("Falha ao importar produção por e-mail:", erro.message));
   processarFilaDeRecebimentosFaturas().catch((erro) => console.error("Falha ao processar faturas recebidas por e-mail:", erro.message));
@@ -235,7 +241,10 @@ async function iniciarServidor() {
   });
 }
 
-iniciarServidor().catch((erro: any) => {
-  console.error("Servidor não iniciado:", erro?.message ?? erro);
-  process.exit(1);
-});
+// Functions import the Express app but must never open a port or run timers.
+if (process.env.API_RUNTIME !== "serverless") {
+  iniciarServidor().catch((erro: any) => {
+    console.error("Servidor não iniciado:", erro?.message ?? erro);
+    process.exit(1);
+  });
+}
