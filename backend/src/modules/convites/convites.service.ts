@@ -1,4 +1,5 @@
 import { supabase } from "../../config/supabase";
+import { appScheme } from "../../utils/appScheme";
 import { gerarToken, hashToken } from "../../utils/token";
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import { empresaIdDoUsuario } from "../../config/empresa";
@@ -106,7 +107,7 @@ export async function criarConvite(input: any, gestor: any, documentos?: { minut
   // como alternativa explícita para quem ainda não possui o app.
   const portalUrl = String(process.env.PORTAL_WEB_URL ?? "https://www.andradeenergy.com.br").replace(/\/$/, "");
   const linkWeb = `${portalUrl}/convite?convite=${encodeURIComponent(token)}`;
-  const linkApp = `andradeenergyconsumidor://criar-conta?convite=${encodeURIComponent(token)}`;
+  const linkApp = `${appScheme("consumidor")}://criar-conta?convite=${encodeURIComponent(token)}`;
   const linkDownload = "https://www.andradeenergy.com.br/downloads/andrade-energy-consumidor.apk";
   let emailEnviado = false;
   let minutaAnexada = false;
@@ -220,7 +221,7 @@ export async function criarConviteGerador(input: any, administrador: any) {
   });
   if (error) throw error;
 
-  const link = `andradeenergygerador://criar-conta?convite=${token}`;
+  const link = `${appScheme("gerador")}://criar-conta?convite=${token}`;
   let emailEnviado = false;
   try {
     emailEnviado = await enviarEmailTransacional({

@@ -1,5 +1,10 @@
 const gerador =
   process.env.EXPO_PUBLIC_APP_VARIANT === "gerador";
+const preview = process.env.EXPO_PUBLIC_APP_ENV === "preview";
+const variant = gerador ? "gerador" : "consumidor";
+const packageId = `com.andradese.energy.${variant}${preview ? ".preview" : ""}`;
+const scheme = `andradeenergy${variant}${preview ? "preview" : ""}`;
+const icon = `./assets/images/android-icon-${variant}-${preview ? "preview" : "safe"}.png`;
 
 const consumerProjectId =
   "45f35f6f-4f6a-4452-b2e4-02932e778b2b";
@@ -14,9 +19,7 @@ const easProjectId =
 
 module.exports = {
   expo: {
-    name: gerador
-      ? "Andrade Energy Gerador"
-      : "Andrade Energy Consumidor",
+    name: `Andrade Energy ${gerador ? "Gerador" : "Consumidor"}${preview ? " Preview" : ""}`,
 
     slug: gerador
       ? "andrade-energy-gerador"
@@ -26,13 +29,9 @@ module.exports = {
 
     orientation: "portrait",
 
-    icon: gerador
-      ? "./assets/images/android-icon-gerador-safe.png"
-      : "./assets/images/android-icon-consumidor-safe.png",
+    icon,
 
-    scheme: gerador
-      ? "andradeenergygerador"
-      : "andradeenergyconsumidor",
+    scheme,
 
     // As telas do aplicativo (inclusive o carregamento inicial) usam a paleta clara.
     // Evita que o Android aplique o tema escuro apenas à janela nativa de abertura.
@@ -41,17 +40,13 @@ module.exports = {
     android: {
       userInterfaceStyle: "light",
       backgroundColor: "#DFE8E3",
-      googleServicesFile: "./firebase/google-services.json",
+      googleServicesFile: preview ? "./firebase/google-services-preview.json" : "./firebase/google-services.json",
       // Mantém o filtro de intent específico de cada APK. Sem isso, um
       // prebuild reutilizado pode acumular os dois schemes e o Android passa
       // a oferecer também o app Gerador ao abrir um convite de consumidor.
-      scheme: gerador
-        ? "andradeenergygerador"
-        : "andradeenergyconsumidor",
+      scheme,
 
-      package: gerador
-        ? "com.andradese.energy.gerador"
-        : "com.andradese.energy.consumidor",
+      package: packageId,
 
       permissions: ["android.permission.REQUEST_INSTALL_PACKAGES", "android.permission.POST_NOTIFICATIONS"],
 
@@ -61,9 +56,7 @@ module.exports = {
 
       adaptiveIcon: {
         backgroundColor: gerador ? "#FFFFFF" : "#020617",
-        foregroundImage: gerador
-          ? "./assets/images/android-icon-gerador-safe.png"
-          : "./assets/images/android-icon-consumidor-safe.png",
+        foregroundImage: icon,
       },
     },
 
@@ -75,9 +68,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
 
-      bundleIdentifier: gerador
-        ? "com.andradese.energy.gerador"
-        : "com.andradese.energy.consumidor",
+      bundleIdentifier: packageId,
     },
 
     web: {
@@ -137,6 +128,7 @@ module.exports = {
     },
 
     extra: {
+      appEnvironment: preview ? "preview" : "production",
       appVariant: gerador
         ? "gerador"
         : "consumidor",
@@ -148,7 +140,7 @@ module.exports = {
       },
     },
 
-    runtimeVersion: {
+    runtimeVersion: preview ? "1.0.0-preview" : {
       policy: "appVersion",
     },
 
