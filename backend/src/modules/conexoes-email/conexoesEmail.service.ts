@@ -1,3 +1,4 @@
+import { appScheme } from "../../utils/appScheme";
 import {
   createCipheriv,
   createDecipheriv,
@@ -484,8 +485,8 @@ async function revogarAcessoGmail(refreshToken: string) {
 
 function callbackDoAplicativo(app: AppOrigem, state: string, status: string) {
   const padrao = app === "GERADOR"
-    ? "andradeenergygerador://email-conectado"
-    : "andradeenergyconsumidor://email-conectado";
+    ? `${appScheme("gerador")}://email-conectado`
+    : `${appScheme("consumidor")}://email-conectado`;
   const configurada = app === "GERADOR"
     ? valorAmbiente("OAUTH_APP_CALLBACK_GERADOR")
     : valorAmbiente("OAUTH_APP_CALLBACK_CONSUMIDOR");

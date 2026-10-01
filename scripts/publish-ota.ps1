@@ -11,6 +11,7 @@ $apiUrl = if ($Audience -eq 'clients') {
   'https://andrade-energy-api-homologacao.onrender.com/api'
 }
 $values = @{
+  EXPO_PUBLIC_APP_ENV = $(if ($Audience -eq 'clients') { 'production' } else { 'preview' })
   EXPO_PUBLIC_APP_VARIANT = $Variant
   EXPO_PUBLIC_API_URL = $apiUrl
   CI = '1'

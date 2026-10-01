@@ -1,3 +1,4 @@
+import { appScheme } from "../../utils/appScheme";
 import {
   atualizarPerfilUsuario,
   buscarUsuario,
@@ -118,7 +119,7 @@ async function guardarFaturaDeCadastro(caminhoArquivo: string) {
 }
 
 async function enviarEmailDeVerificacaoCadastro(input: { nome: string; email: string; token: string; empresaId?: string }) {
-  const link = `andradeenergyconsumidor://verificar-email?token=${encodeURIComponent(input.token)}`;
+  const link = `${appScheme("consumidor")}://verificar-email?token=${encodeURIComponent(input.token)}`;
   return enviarEmailTransacional({
     empresaId: input.empresaId,
     destinatario: input.email,
@@ -736,7 +737,7 @@ export async function solicitarRecuperacaoSenha(emailInformado: unknown, tipoInf
   });
   if (tokenError) throw tokenError;
 
-  const scheme = String(tipoInformado).toUpperCase() === "GERADOR" ? "andradeenergygerador" : "andradeenergyconsumidor";
+  const scheme = appScheme(String(tipoInformado).toUpperCase() === "GERADOR" ? "gerador" : "consumidor");
   const link = `${scheme}://redefinir-senha?token=${encodeURIComponent(token)}`;
   const emailEnviado = await enviarEmailTransacional({
     empresaId: usuario.empresa_id,
