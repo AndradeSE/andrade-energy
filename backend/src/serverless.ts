@@ -1,4 +1,4 @@
-import { createServerlessHandler } from "./config/serverlessAdapter";
+import { createServerlessHandler, normalizeNetlifyEvent } from "./config/serverlessAdapter";
 
 // Fail closed until the isolated homologation deployment is configured.
 let ready: Promise<ReturnType<typeof createServerlessHandler>> | undefined;
@@ -19,7 +19,9 @@ export async function handler(event: object, context: object) {
     return createServerlessHandler(app);
   })();
   try {
-    return await (await ready)(event, context);
+    const normalized = normalizeNetlifyEvent(event);
+    if (!normalized) return { statusCode: 503, body: JSON.stringify({ error: "Metadados de conexão indisponíveis." }) };
+    return await (await ready)(normalized, context);
   } catch {
     ready = undefined;
     return { statusCode: 503, body: JSON.stringify({ error: "API temporariamente indisponível." }) };

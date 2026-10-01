@@ -1,7 +1,21 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
-import { createServerlessHandler } from "./serverlessAdapter";
+import { createServerlessHandler, normalizeNetlifyEvent } from "./serverlessAdapter";
+
+test("Netlify address is normalized without trusting a forged forwarding chain", async () => {
+  const app = express();
+  app.set("trust proxy", 1);
+  app.get("/ip", (req, res) => res.json({ ip: req.ip }));
+  const incoming = { ...event("/ip"), headers: {
+    "x-nf-client-connection-ip": "203.0.113.9", "x-forwarded-for": "198.51.100.8",
+  } };
+  const normalized = normalizeNetlifyEvent(incoming);
+  const response = await createServerlessHandler(app)(normalized!, {});
+  assert.equal(JSON.parse(response.body).ip, "203.0.113.9");
+  assert.equal(normalizeNetlifyEvent({ headers: {} }), null);
+  assert.equal(normalizeNetlifyEvent({ headers: { "x-nf-client-connection-ip": "invalid" } }), null);
+});
 
 const event = (path: string, body: string | null = null, encoded = false) => ({
   httpMethod: body === null ? "GET" : "POST", path,
