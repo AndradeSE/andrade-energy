@@ -1,4 +1,5 @@
 import { supabase } from "../../config/supabase";
+import { appScheme } from "../../utils/appScheme";
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import { gerarToken, hashToken } from "../../utils/token";
 import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
@@ -25,7 +26,7 @@ function permissoesSeguras(papel: string, entrada: any) {
 }
 
 async function enviarConvite(convite: any, token: string) {
-  const link = `andradeenergygerador://criar-conta?convite=${token}`;
+  const link = `${appScheme("gerador")}://criar-conta?convite=${token}`;
   return enviarEmailTransacional({
     empresaId: convite.empresa_id,
     destinatario: convite.email,
