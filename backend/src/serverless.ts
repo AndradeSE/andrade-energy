@@ -10,7 +10,7 @@ export async function handler(event: object, context: object) {
   }
   if (process.env.API_RUNTIME !== "serverless" || process.env.BACKGROUND_JOBS_ENABLED !== "false" ||
       process.env.NETLIFY_HOMOLOGATION_ENABLED !== "true" ||
-      process.env.SUPABASE_URL !== "https://qqhcjieymypowunkixmk.supabase.co") {
+      !isHomologationDatabase(process.env.SUPABASE_URL)) {
     return { statusCode: 503, body: JSON.stringify({ error: "API de homologação não configurada." }) };
   }
   ready ??= (async () => {
@@ -23,5 +23,15 @@ export async function handler(event: object, context: object) {
   } catch {
     ready = undefined;
     return { statusCode: 503, body: JSON.stringify({ error: "API temporariamente indisponível." }) };
+  }
+}
+
+function isHomologationDatabase(value: string | undefined): boolean {
+  try {
+    const url = new URL(value ?? "");
+    return url.protocol === "https:" && url.hostname.split(".")[0] === "qqhcjieymypowunkixmk" &&
+      url.hostname.endsWith(".supabase.co");
+  } catch {
+    return false;
   }
 }
