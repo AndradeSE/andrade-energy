@@ -17,7 +17,7 @@ type TabItem = {
 
 const generatorTabs: TabItem[] = [
   { label: "Clientes", icon: "people-outline", route: "/(tabs)/clientes" },
-  { label: "Usinas", icon: "flash-outline", route: "/(tabs)/usinas" },
+  { label: "Colaboradores", icon: "people-circle-outline", route: "/(tabs)/equipe" },
   { label: "Operação", icon: "construct-outline", route: "/(tabs)/operacao" },
   { label: "Home", icon: "home-outline", route: "/(tabs)" },
   { label: "Faturamento", icon: "receipt-outline", route: "/(tabs)/faturamento" },

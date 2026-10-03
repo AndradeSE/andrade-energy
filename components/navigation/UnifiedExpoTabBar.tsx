@@ -2,6 +2,7 @@ import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Pressable, Text } from "react-native";
 
 import { Colors } from "../../theme";
+import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
 import AppTabBarFrame, { appTabBarStyles as styles } from "./AppTabBarFrame";
 
@@ -12,9 +13,12 @@ export default function UnifiedExpoTabBar({
 }: BottomTabBarProps) {
   const { user } = useAuth();
   const colaborador = String(user?.papel_empresa ?? "").startsWith("COLABORADOR_");
+  const abasVisiveis = IS_GERADOR_APP
+    ? new Set(["clientes", "equipe", "operacao", "index", "faturamento", "financeiro", "contrato"])
+    : new Set(["economia", "faturas", "index", "contrato", "perfil"]);
   const routes = state.routes.filter((route) => {
     const options = descriptors[route.key]?.options as any;
-    return options?.href !== null && options?.tabBarItemStyle?.display !== "none" && (!colaborador || route.name !== "financeiro");
+    return abasVisiveis.has(route.name) && options?.href !== null && options?.tabBarItemStyle?.display !== "none" && (!colaborador || route.name !== "financeiro");
   });
 
   return (
