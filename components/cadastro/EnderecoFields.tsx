@@ -33,13 +33,13 @@ export default function EnderecoFields({ value, onChange }: { value: EnderecoCli
   }, [cep]);
   const campo = (chave: keyof EnderecoCliente, texto: string) => onChange({ ...value, [chave]: texto });
   return <>
-    <FormField label="CEP (obrigatório)" value={value.cep} keyboardType="number-pad" maxLength={9} onChangeText={v => campo("cep", v.replace(/\D/g, "").slice(0, 8).replace(/(\d{5})(\d)/, "$1-$2"))} />
+    <FormField label="CEP" required value={value.cep} keyboardType="number-pad" maxLength={9} onChangeText={v => campo("cep", v.replace(/\D/g, "").slice(0, 8).replace(/(\d{5})(\d)/, "$1-$2"))} />
     {mensagem ? <Text accessibilityLiveRegion="polite" style={{ marginBottom: 12 }}>{mensagem}</Text> : null}
-    <FormField label="Rua / avenida (obrigatório)" value={value.logradouro} onChangeText={v => campo("logradouro", v)} />
-    <FormField label="Número (ou S/N)" value={value.numero} onChangeText={v => campo("numero", v)} />
+    <FormField label="Rua / avenida" required value={value.logradouro} onChangeText={v => campo("logradouro", v)} />
+    <FormField label="Número (ou S/N)" required value={value.numero} onChangeText={v => campo("numero", v)} />
     <FormField label="Complemento (opcional)" value={value.complemento} onChangeText={v => campo("complemento", v)} />
-    <FormField label="Bairro (obrigatório)" value={value.bairro} onChangeText={v => campo("bairro", v)} />
-    <FormField label="Cidade (obrigatório)" value={value.cidade} onChangeText={v => campo("cidade", v)} />
-    <FormField label="UF (obrigatório)" value={value.uf} maxLength={2} autoCapitalize="characters" onChangeText={v => campo("uf", v.replace(/[^a-z]/gi, "").toUpperCase())} />
+    <FormField label="Bairro" required value={value.bairro} onChangeText={v => campo("bairro", v)} />
+    <FormField label="Cidade" required value={value.cidade} onChangeText={v => campo("cidade", v)} />
+    <FormField label="UF" required value={value.uf} maxLength={2} autoCapitalize="characters" onChangeText={v => campo("uf", v.replace(/[^a-z]/gi, "").toUpperCase())} />
   </>;
 }
