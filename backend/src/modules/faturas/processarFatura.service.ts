@@ -201,7 +201,7 @@ if (!cliente.usina_id) {
     "Cliente não possui usina vinculada."
   );
   }
-  const usina = await buscarUsina(cliente.usina_id);
+  const usina = await buscarUsina(cliente.usina_id, cliente.empresa_id);
   const modalidade = String(
     cliente.modalidade_faturamento ??
       usina.modelo ??
