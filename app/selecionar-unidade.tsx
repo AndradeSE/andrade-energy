@@ -29,6 +29,7 @@ import {
 } from "react-native-safe-area-context";
 
 import CadastroActions from "../components/cadastro/CadastroActions";
+import ImportarProducaoPdfButton from "../components/usinas/ImportarProducaoPdfButton";
 import {
   ElasticFlatList as FlatList,
   EmptyState,
@@ -549,6 +550,12 @@ export default function SelecionarUnidade() {
               <View style={styles.generatorActions}>
                 <Text style={styles.generatorActionsTitle}>Adicionar nova usina</Text>
                 <CadastroActions tipo="USINA" />
+              </View>
+            ) : null}
+            {gestor && itens.length > 0 ? (
+              <View style={styles.generatorActions}>
+                <Text style={styles.generatorActionsTitle}>Produção da usina</Text>
+                <ImportarProducaoPdfButton onSuccess={() => carregar(false)} />
               </View>
             ) : null}
           </>

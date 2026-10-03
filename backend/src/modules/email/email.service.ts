@@ -44,7 +44,7 @@ export async function processarContasDeEnergiaRecebidas() {
         const uc = String(dados.uc ?? "").replace(/\D/g, "");
         const usina = usinas.find((item: any) => String(item.numero_instalacao ?? "").replace(/\D/g, "") === uc);
         if (!usina) continue;
-        await importarFaturaGeradora(usina.id, arquivo);
+        await importarFaturaGeradora(usina.id, arquivo, undefined, usina.empresa_id);
         producaoImportada = true;
         processadas += 1;
       } finally {

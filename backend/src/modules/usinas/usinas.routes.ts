@@ -10,6 +10,7 @@ import {
   listarUsinasController,
   migrarUnidadesDaUsinaController,
   importarFaturaGeradoraController,
+  importarProducaoPelaUcController,
   alocarUnidadeController,
   consultarAlocacaoController,
   cadastrarIntegracaoInversorController,
@@ -25,6 +26,7 @@ const router = Router();
 router.use(exigirAutenticacao);
 
 router.get("/", exigirGestor, listarUsinasController);
+router.post("/importar-producao-pdf", exigirGestor, upload.single("arquivo"), importarProducaoPelaUcController);
 
 router.get("/:id", exigirUsinaDaSessaoOuGestor(), buscarUsinaController);
 

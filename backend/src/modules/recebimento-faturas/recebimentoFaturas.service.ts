@@ -736,7 +736,7 @@ async function processarRegistro(registro: any) {
       // criar cobrança, crédito ou notificação de consumidor.
       if (String(unidade.tipo ?? "").toUpperCase() === "GERADORA") {
         if (!unidade.usina_id) throw new Error("A UC geradora recebida não está vinculada a uma usina.");
-        const producao = await registrarProducaoDaFaturaGeradora(unidade.usina_id, dados);
+        const producao = await registrarProducaoDaFaturaGeradora(unidade.usina_id, dados, unidade.empresa_id);
         const fechamentoId = String(producao.fechamento?.id ?? "");
         if (!fechamentoId) throw new Error("Não foi possível registrar o fechamento de produção da usina.");
 

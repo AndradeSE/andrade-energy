@@ -9,6 +9,7 @@ import {
   listarUsinasService,
   obterDashboardUsina,
   importarFaturaGeradora,
+  importarProducaoPelaUc,
   alocarUnidadeNaUsina,
   consultarAlocacaoDaUsina,
   cadastrarIntegracaoInversor,
@@ -38,7 +39,17 @@ export async function importarFaturaGeradoraController(req: Request, res: Respon
   try {
     if (!req.file) return res.status(400).json({ message: "Arquivo não enviado." });
     await garantirRegistroDaEmpresa("usinas", req.params.id, empresaIdDaRequisicao(req));
-    return res.json(await importarFaturaGeradora(req.params.id, req.file.path, req.body?.senhaPdf ?? req.body?.senha_pdf));
+    return res.json(await importarFaturaGeradora(req.params.id, req.file.path, req.body?.senhaPdf ?? req.body?.senha_pdf, empresaIdDaRequisicao(req)));
+  } catch (e: any) {
+    const erroDeSenha = /pdf.*(protegido|senha)|senha.*pdf|não desbloqueou/i.test(String(e.message ?? ""));
+    return res.status(erroDeSenha ? 422 : 400).json({ message: e.message, ...(erroDeSenha ? { code: "PDF_PASSWORD_REQUIRED" } : {}) });
+  }
+}
+
+export async function importarProducaoPelaUcController(req: Request, res: Response) {
+  try {
+    if (!req.file) return res.status(400).json({ message: "Arquivo não enviado." });
+    return res.json(await importarProducaoPelaUc(req.file.path, empresaIdDaRequisicao(req), req.body?.senhaPdf ?? req.body?.senha_pdf));
   } catch (e: any) {
     const erroDeSenha = /pdf.*(protegido|senha)|senha.*pdf|não desbloqueou/i.test(String(e.message ?? ""));
     return res.status(erroDeSenha ? 422 : 400).json({ message: e.message, ...(erroDeSenha ? { code: "PDF_PASSWORD_REQUIRED" } : {}) });

@@ -67,8 +67,8 @@ async function obterAlocacaoProjetadaDaUsina(usinaId: string, energiaGerada: num
  * recebimento automático por e-mail, garantindo que ambos usem a mesma
  * validação das leituras, fator de multiplicação e competência.
  */
-export async function registrarProducaoDaFaturaGeradora(usinaId: string, dados: FaturaExtraida) {
-  const usina = await buscarUsina(usinaId);
+export async function registrarProducaoDaFaturaGeradora(usinaId: string, dados: FaturaExtraida, empresaId?: string) {
+  const usina = await buscarUsina(usinaId, empresaId);
   const numeroFatura = String(dados.uc ?? "").replace(/\D/g, "");
   const numeroUsina = String(usina.numero_instalacao ?? "").replace(/\D/g, "");
   if (!numeroFatura) throw new Error("Não foi possível identificar a UC na conta de energia.");
@@ -121,9 +121,22 @@ async function persistirProducaoDaFatura(usina: any, competencia: string, energi
   return fechamentoAtualizado ?? fechamento;
 }
 
-export async function importarFaturaGeradora(usinaId: string, caminhoArquivo: string, senhaPdf?: string) {
+export async function importarFaturaGeradora(usinaId: string, caminhoArquivo: string, senhaPdf?: string, empresaId?: string) {
   const dados = interpretarFatura(await extrairTextoPDF(caminhoArquivo, String(senhaPdf ?? "").trim() || undefined));
-  return registrarProducaoDaFaturaGeradora(usinaId, dados);
+  return registrarProducaoDaFaturaGeradora(usinaId, dados, empresaId);
+}
+
+export async function importarProducaoPelaUc(caminhoArquivo: string, empresaId: string, senhaPdf?: string) {
+  const dados = interpretarFatura(await extrairTextoPDF(caminhoArquivo, String(senhaPdf ?? "").trim() || undefined));
+  const numeroFatura = String(dados.uc ?? "").replace(/\D/g, "");
+  if (!numeroFatura) throw new Error("Não foi possível identificar a UC na conta de energia.");
+  const usinas = await listarUsinas(empresaId);
+  const correspondentes = usinas.filter((usina: any) => String(usina.numero_instalacao ?? "").replace(/\D/g, "") === numeroFatura);
+  if (correspondentes.length !== 1) {
+    throw new Error(correspondentes.length ? "Há mais de uma usina com esta UC. Revise o cadastro antes de importar." : "Nenhuma usina desta empresa corresponde à UC do PDF.");
+  }
+  const resultado = await registrarProducaoDaFaturaGeradora(correspondentes[0].id, dados, empresaId);
+  return { ...resultado, usina: { id: correspondentes[0].id, nome: correspondentes[0].nome } };
 }
 
 export async function listarUsinasService(empresaId?: string) {

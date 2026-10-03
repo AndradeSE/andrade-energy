@@ -44,6 +44,14 @@ export async function importarFaturaGeradora(id: string, uri: string, nome = "fa
   return data;
 }
 
+export async function importarProducaoPelaUc(uri: string, nome = "fatura-geradora.pdf", senhaPdf?: string) {
+  const formData = new FormData();
+  formData.append("arquivo", { uri, name: nome, type: "application/pdf" } as any);
+  if (senhaPdf?.trim()) formData.append("senhaPdf", senhaPdf.trim());
+  const { data } = await api.post("/usinas/importar-producao-pdf", formData, { timeout: 60_000 });
+  return data;
+}
+
 export async function alocarUnidade(id: string, payload: any) {
   const { data } = await api.post(`/usinas/${id}/alocar-unidade`, payload);
   return data;
