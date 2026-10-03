@@ -14,6 +14,7 @@ import { registrarProducaoDaFaturaGeradora } from "../usinas/usinas.service";
 const PROVEDOR = "RESEND";
 const TOLERANCIA_ASSINATURA_SEGUNDOS = 5 * 60;
 const TENTATIVAS_MAXIMAS = 3;
+const recebimentosEmExecucao = new Set<string>();
 
 type UsuarioAutenticado = {
   id?: string | number;
@@ -438,7 +439,7 @@ async function buscarAnexoResend(emailId: string, anexoId: string) {
   const chave = chaveApiResend();
   const resposta = await fetch(
     `https://api.resend.com/emails/receiving/${encodeURIComponent(emailId)}/attachments/${encodeURIComponent(anexoId)}`,
-    { headers: { Authorization: `Bearer ${chave}`, "User-Agent": "Andrade-Energy/1.0" } },
+    { headers: { Authorization: `Bearer ${chave}`, "User-Agent": "Andrade-Energy/1.0" }, signal: AbortSignal.timeout(30_000) },
   );
   if (!resposta.ok) throw new Error(`Não foi possível obter o anexo recebido (${resposta.status}).`);
   const corpo = await resposta.json() as { data?: AnexoResend } | AnexoResend;
@@ -449,6 +450,7 @@ async function buscarAnexosResend(emailId: string, anexosDoEvento: AnexoResend[]
   const chave = chaveApiResend();
   if (!chave) throw new Error("Chave do Resend não configurada.");
   const resposta = await fetch(`https://api.resend.com/emails/receiving/${encodeURIComponent(emailId)}/attachments`, {
+    signal: AbortSignal.timeout(30_000),
     headers: { Authorization: `Bearer ${chave}`, "User-Agent": "Andrade-Energy/1.0" },
   });
   if (resposta.ok) {
@@ -469,6 +471,7 @@ async function buscarEmailRecebidoResend(emailId: string) {
   if (!chave) throw new Error("Chave do Resend não configurada.");
 
   const resposta = await fetch(`https://api.resend.com/emails/receiving/${encodeURIComponent(emailId)}`, {
+    signal: AbortSignal.timeout(30_000),
     headers: { Authorization: `Bearer ${chave}`, "User-Agent": "Andrade-Energy/1.0" },
   });
   if (!resposta.ok) throw new Error(`Não foi possível obter o conteúdo do e-mail recebido (${resposta.status}).`);
@@ -547,7 +550,7 @@ function escolherPdf(anexos: AnexoResend[]) {
 async function baixarPdf(anexo: AnexoResend) {
   if (!anexo.download_url) throw new Error("O anexo recebido não possui link de download.");
   if (Number(anexo.size ?? 0) > limiteArquivo()) throw new Error("O PDF recebido excede o limite de 10 MB.");
-  const resposta = await fetch(anexo.download_url);
+  const resposta = await fetch(anexo.download_url, { signal: AbortSignal.timeout(60_000) });
   if (!resposta.ok) throw new Error(`Não foi possível baixar o PDF recebido (${resposta.status}).`);
   const arquivo = Buffer.from(await resposta.arrayBuffer());
   if (arquivo.length > limiteArquivo()) throw new Error("O PDF recebido excede o limite de 10 MB.");
@@ -575,6 +578,7 @@ async function processarRegistro(registro: any) {
     .maybeSingle();
   if (erroAssumir) throw erroAssumir;
   if (!assumido) return;
+  recebimentosEmExecucao.add(String(assumido.id));
 
   try {
     if (!assumido.unidade_consumidora_id) {
@@ -793,11 +797,28 @@ async function processarRegistro(registro: any) {
         recebimento_email_erro: mensagem,
       });
     }
+  } finally {
+    recebimentosEmExecucao.delete(String(assumido.id));
   }
 }
 
 export async function processarFilaDeRecebimentosFaturas() {
   if (!chaveApiResend()) return { processados: 0 };
+  // Não reenviar automaticamente: o processo interrompido pode já ter salvo
+  // a fatura. A recuperação exige conferência antes de repetir efeitos.
+  const limiteAbandono = new Date(Date.now() - 30 * 60_000).toISOString();
+  const abandonados = await supabase.from("recebimentos_faturas_email")
+    .select("id,updated_at").eq("status", "PROCESSANDO").lt("updated_at", limiteAbandono);
+  if (abandonados.error) throw abandonados.error;
+  for (const item of abandonados.data ?? []) {
+    if (recebimentosEmExecucao.has(String(item.id))) continue;
+    const recuperacao = await supabase.from("recebimentos_faturas_email").update({
+      status: "ERRO",
+      erro: "Processamento interrompido. Confira se a fatura já existe antes de reprocessar o e-mail.",
+      updated_at: new Date().toISOString(),
+    }).eq("id", item.id).eq("status", "PROCESSANDO").eq("updated_at", item.updated_at);
+    if (recuperacao.error) throw recuperacao.error;
+  }
   const { data, error } = await supabase
     .from("recebimentos_faturas_email")
     .select("*")
