@@ -617,7 +617,7 @@ export default function SelecionarUnidade() {
                 onPress={() => void escolherUsina(usina)}
                 style={({ pressed }) => [styles.plantCard, pressed && styles.plantPressed]}
               >
-                <ImageBackground source={usina.foto_card_local ? { uri: usina.foto_card_local } : require("../assets/images/usina-loading.jpeg")} imageStyle={styles.plantCoverImage} style={styles.plantCover}>
+                <ImageBackground source={usina.foto_card_local ? { uri: usina.foto_card_local } : require("../assets/images/login-solar-header.png")} imageStyle={styles.plantCoverImage} style={styles.plantCover}>
                   <LinearGradient colors={["rgba(2,25,18,.12)", "rgba(2,25,18,.88)"]} style={styles.plantCoverShade}>
                     <View style={styles.plantCoverTop}><View style={styles.plantLiveBadge}><View style={[styles.plantLiveDot, inativa && styles.plantLiveDotInactive]} /><Text style={styles.plantLiveText}>{inativa ? "INATIVA" : "EM OPERAÇÃO"}</Text></View><TouchableOpacity accessibilityRole="button" accessibilityLabel={`Personalizar fundo da usina ${usina.nome}`} hitSlop={8} onPress={(event) => { event.stopPropagation(); void personalizarFundoUsina(usina); }} style={styles.unitPhotoButton}><Ionicons name="image-outline" size={18} color="#FFF" /></TouchableOpacity></View>
                     <View style={styles.plantGeneration}><Text style={styles.plantGenerationLabel}>GERAÇÃO NESTA COMPETÊNCIA</Text><Text style={styles.plantGenerationValue}>{energia(energiaCompetencia)}</Text></View>
@@ -741,7 +741,7 @@ export default function SelecionarUnidade() {
                   styles.unitCard
                 }
               >
-                <ImageBackground source={unidade?.foto_card_local ? { uri: unidade.foto_card_local } : require("../assets/images/usina-loading.jpeg")} imageStyle={styles.unitCoverImage} style={styles.unitCover}>
+                <ImageBackground source={unidade?.foto_card_local ? { uri: unidade.foto_card_local } : require("../assets/images/login-solar-header.png")} imageStyle={styles.unitCoverImage} style={styles.unitCover}>
                   <LinearGradient colors={["rgba(3,30,22,.12)", "rgba(3,30,22,.88)"]} style={styles.unitCoverShade}>
                     <View style={styles.unitCoverTop}>
                       <View style={styles.unitLiveBadge}><View style={styles.unitLiveDot} /><Text style={styles.unitLiveText}>{unidadeInativa ? "INATIVA" : contratoLiberado ? "ATIVA" : "AGUARDANDO CONTRATO"}</Text></View>
