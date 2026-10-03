@@ -32,6 +32,7 @@ type OpcoesProcessamentoFatura = {
   status?: "ABERTA" | "RASCUNHO";
   criarCobranca?: boolean;
   registrarCreditos?: boolean;
+  empresaId?: string;
 };
 
 const mesesDaCompetencia: Record<string, string> = {
@@ -56,7 +57,7 @@ export async function processarFatura(
 
   const vencimento = converterDataBrasileiraParaIso(dados.vencimento);
 
-  const cliente = await buscarClientePorUC(dados.uc);
+  const cliente = await buscarClientePorUC(dados.uc, opcoes.empresaId);
 
   if (!cliente) {
 
@@ -80,7 +81,8 @@ export async function processarFatura(
 await exigirContratoAssinadoDaUc(cliente.unidade_consumidora.id, cliente.empresa_id);
 const faturaExistente = await buscarFatura(
   dados.uc,
-  dados.referencia
+  dados.referencia,
+  cliente.empresa_id,
 );
 
 if (faturaExistente) {
@@ -164,6 +166,7 @@ async function obterSaldoAnterior(dados: FaturaExtraida) {
   const { data: anterior, error } = await supabase
     .from("faturas")
     .select("saldo_atual")
+    .eq("empresa_id", cliente.empresa_id)
     .eq("numero_instalacao", dados.uc)
     .neq("referencia", dados.referencia)
     .lt("vencimento", vencimento)
@@ -334,6 +337,8 @@ if (!cliente.usina_id) {
   });
 
 const fatura = await inserirFatura({
+
+  empresa_id: cliente.empresa_id,
 
   cliente_id: cliente.id,
 

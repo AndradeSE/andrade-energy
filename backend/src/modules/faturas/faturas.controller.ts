@@ -29,7 +29,7 @@ export async function criarFaturaManualController(req: Request, res: Response) {
       tarifaCheia: Number(entrada.tarifaCheia), tarifaGD: Number(entrada.tarifaGD || 0), custoDisponibilidade: Number(entrada.custoDisponibilidade || 0), bandeira: "", historico: [], debitos: [],
       valorIluminacaoPublica: Number(entrada.valorIluminacaoPublica || 0), valorBandeira: Number(entrada.valorBandeira || 0), encargosAdicionais: Number(entrada.encargosAdicionais || 0),
     };
-    const resultado = await processarFatura(dados);
+    const resultado = await processarFatura(dados, { empresaId: empresaIdDaRequisicao(req) });
     if (!resultado.jaProcessada && resultado.id) {
       await notificarClienteDaFaturaDisponivel(resultado).catch((erro) => {
         console.error("Falha ao notificar fatura manual no app", { tipo: erro?.name ?? "Error" });

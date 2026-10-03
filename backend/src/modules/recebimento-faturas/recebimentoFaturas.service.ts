@@ -777,6 +777,7 @@ async function processarRegistro(registro: any) {
         status: "ABERTA",
         criarCobranca: true,
         registrarCreditos: true,
+        empresaId: unidade.empresa_id,
       });
       if (resultado?.clienteNaoEncontrado) throw new Error("A UC recebida ainda não está vinculada a um cliente.");
       if (resultado?.jaProcessada) {

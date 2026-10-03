@@ -445,14 +445,15 @@ export async function atualizarApelidoDaMinhaUnidade(unidadeId: string, cpfInfor
   return data;
 }
 
-export async function buscarClientePorUC(uc: string) {
+export async function buscarClientePorUC(uc: string, empresaId?: string) {
   const ucNormalizada = String(uc).replace(/\D/g, "");
 
-  const { data: unidade, error: erroUnidade } = await supabase
+  let consultaUnidade = supabase
     .from("unidades_consumidoras")
     .select("*, clientes(*)")
-    .eq("numero", ucNormalizada)
-    .maybeSingle();
+    .eq("numero", ucNormalizada);
+  if (empresaId) consultaUnidade = consultaUnidade.eq("empresa_id", empresaId);
+  const { data: unidade, error: erroUnidade } = await consultaUnidade.maybeSingle();
 
   if (!erroUnidade && unidade?.clientes) {
     // Durante a revisão, a UC já guarda a proposta nova para a minuta. O
@@ -483,9 +484,11 @@ export async function buscarClientePorUC(uc: string) {
     throw erroUnidade;
   }
 
-  const { data, error } = await supabase
+  let consultaClientes = supabase
     .from("clientes")
     .select("*");
+  if (empresaId) consultaClientes = consultaClientes.eq("empresa_id", empresaId);
+  const { data, error } = await consultaClientes;
 
   if (error) throw error;
 

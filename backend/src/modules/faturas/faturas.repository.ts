@@ -51,17 +51,19 @@ export async function listarFaturas(
 
 export async function buscarFatura(
   numeroInstalacao: string,
-  referencia: string
+  referencia: string,
+  empresaId?: string,
 ) {
-  const { data, error } = await supabase
+  let consulta = supabase
     .from("faturas")
     .select("*")
     .eq(
       "numero_instalacao",
       numeroInstalacao
     )
-    .eq("referencia", referencia)
-    .maybeSingle();
+    .eq("referencia", referencia);
+  if (empresaId) consulta = consulta.eq("empresa_id", empresaId);
+  const { data, error } = await consulta.maybeSingle();
 
   if (error) throw error;
 

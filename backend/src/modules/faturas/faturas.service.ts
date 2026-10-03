@@ -241,7 +241,7 @@ export async function importarFatura(
 
   const texto = await extrairTextoDaFatura(req);
   const dados = interpretarFatura(texto);
-  const resultado = await processarFatura(dados);
+  const resultado = await processarFatura(dados, { empresaId: empresaIdDaRequisicao(req) });
 
   if (!resultado.clienteNaoEncontrado && !resultado.jaProcessada) {
     // A cobrança é criada dentro de processarFatura e pode acrescentar PIX,
