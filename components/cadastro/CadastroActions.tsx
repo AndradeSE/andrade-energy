@@ -95,7 +95,9 @@ export default function CadastroActions({ tipo, clienteId }: { tipo: TipoCadastr
             ? String(cpfExtraido)
             : tipo === "UNIDADE"
               ? String(cpfParcialExtraido).replace(/\D/g, "").slice(0, 4)
-              : "",
+              : [11, 14].includes(String(cpfExtraido).replace(/\D/g, "").length)
+                ? String(cpfExtraido).replace(/\D/g, "")
+                : "",
           distribuidora: String(distribuidoraExtraida),
           arquivoUri: item.uri,
           arquivoNome: item.name,

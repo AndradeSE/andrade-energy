@@ -40,3 +40,22 @@ export function lerEndereco(texto: string): EnderecoCliente {
   if (!texto.startsWith("Logradouro:")) e.logradouro = texto;
   return e;
 }
+
+// A extração da fatura é texto livre. Aproveita apenas trechos inequívocos;
+// o restante permanece visível para revisão manual antes de salvar.
+export function lerEnderecoFatura(texto: string): EnderecoCliente {
+  if (texto.startsWith("Logradouro:")) return lerEndereco(texto);
+  const endereco = { ...enderecoVazio };
+  const limpo = texto.replace(/\s+/g, " ").trim();
+  const cep = limpo.match(/\b\d{5}-?\d{3}\b/)?.[0] ?? "";
+  endereco.cep = cep.replace(/\D/g, "").replace(/(\d{5})(\d{3})/, "$1-$2");
+  let restante = cep ? limpo.replace(cep, "").trim() : limpo;
+  const inicio = restante.match(/^(.+?),\s*(\d+[A-Za-z]?|S\/?N)(?:\s*[-,]\s*(.*))?$/i);
+  if (inicio) {
+    endereco.logradouro = inicio[1].trim();
+    endereco.numero = inicio[2].trim();
+    restante = inicio[3]?.trim() ?? "";
+    if (restante && !/\d/.test(restante)) endereco.bairro = restante;
+  } else endereco.logradouro = restante;
+  return endereco;
+}

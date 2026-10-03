@@ -181,8 +181,8 @@ export default function ContratoDaUnidade() {
         setObservacoes(contrato.observacoes ?? "");
         // O rascunho salvo prevalece sobre os valores sugeridos para um contrato novo.
         setLocadorNome(contrato.dados_documento?.locador_nome ?? (resultadoDados.status === "fulfilled" ? resultadoDados.value?.locador?.nome : undefined) ?? "Andrade Energy");
-        setLocadorDocumento(contrato.dados_documento?.locador_documento ?? (resultadoDados.status === "fulfilled" ? resultadoDados.value?.locador?.documento : undefined) ?? "");
-        setLocadorEndereco(contrato.dados_documento?.locador_endereco ?? (resultadoDados.status === "fulfilled" ? resultadoDados.value?.locador?.endereco : undefined) ?? "");
+        setLocadorDocumento(contrato.dados_documento?.locador_documento?.trim() || (resultadoDados.status === "fulfilled" ? resultadoDados.value?.locador?.documento : undefined) || "");
+        setLocadorEndereco(contrato.dados_documento?.locador_endereco?.trim() || (resultadoDados.status === "fulfilled" ? resultadoDados.value?.locador?.endereco : undefined) || "");
         setPrazoAnos(String(contrato.dados_documento?.prazo_anos ?? "10"));
         setForo(contrato.dados_documento?.foro ?? "Itajubá/MG");
         setContratoGeradoUrl(revisandoContratoAssinado ? undefined : contrato.contrato_gerado_url ?? undefined);

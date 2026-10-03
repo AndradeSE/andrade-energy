@@ -7,6 +7,22 @@ const numero = (v: unknown) => Number(String(v ?? 0).replace(",", "."));
 const formatar = (v: number) => v.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 const data = (v: unknown) => /^\d{4}-\d{2}-\d{2}/.test(String(v)) ? String(v).slice(0, 10).split("-").reverse().join("/") : "[não informada]";
 
+function enderecoLegivel(v: unknown) {
+  const texto = String(v ?? "").trim();
+  if (!texto.startsWith("Logradouro:")) return valor(v);
+  const campos = Object.fromEntries(texto.split(/\r?\n/).map(linha => {
+    const separador = linha.indexOf(":");
+    return separador < 0 ? ["", ""] : [linha.slice(0, separador), linha.slice(separador + 1).trim()];
+  }));
+  return [
+    [campos.Logradouro, campos.Número].filter(Boolean).join(", "),
+    campos.Complemento,
+    campos.Bairro,
+    [campos.Cidade, campos.UF].filter(Boolean).join("/"),
+    campos.CEP ? `CEP ${campos.CEP}` : "",
+  ].filter(Boolean).join(" - ") || "[não informado]";
+}
+
 /** Texto integral do modelo do usuário. Não contém dados das partes do exemplo. */
 export function preencherModeloContrato(unidade: any, contrato: any) {
   const d = contrato.dados_documento ?? {};
@@ -25,7 +41,7 @@ export function preencherModeloContrato(unidade: any, contrato: any) {
   const devolucoes = [devolveDisponibilidade ? "custo de disponibilidade" : "", devolveFio ? "Fio B" : ""].filter(Boolean);
   const locador = valor(d.locador_nome);
   const locatario = valor(c.nome);
-  const endereco = valor(unidade.endereco);
+  const endereco = enderecoLegivel(unidade.endereco);
   const distribuidora = valor(unidade.distribuidora, "concessionária");
   const energia = injecao ? "Energia Injetada" : "Energia Compensada";
   const responsabilidade = somente
@@ -36,7 +52,7 @@ export function preencherModeloContrato(unidade: any, contrato: any) {
   const potencia = valor(d.potencia_kwp ?? u.potencia_kwp);
   const geracao = valor(d.geracao_estimada ?? u.producao_media_12_meses ?? u.geracao_media);
   const tokens: Record<string, string> = {
-    PARTES: `LOCATÁRIO: ${locatario}, inscrito no CPF/CNPJ sob nº ${valor(c.cpf || c.cpf_cnpj)}, com endereço em ${valor(c.endereco)}, doravante denominado simplesmente LOCATÁRIO.\nLOCADOR: ${locador}, inscrito no CPF/CNPJ sob nº ${valor(d.locador_documento)}, com endereço em ${valor(d.locador_endereco)}, doravante denominado simplesmente LOCADOR.\nAs partes declaram possuir plena capacidade civil para celebrar o presente contrato.`,
+    PARTES: `LOCATÁRIO: ${locatario}, inscrito no CPF/CNPJ sob nº ${valor(c.cpf || c.cpf_cnpj)}, com endereço em ${enderecoLegivel(c.endereco)}, doravante denominado simplesmente LOCATÁRIO.\nLOCADOR: ${locador}, inscrito no CPF/CNPJ sob nº ${valor(d.locador_documento)}, com endereço em ${enderecoLegivel(d.locador_endereco)}, doravante denominado simplesmente LOCADOR.\nAs partes declaram possuir plena capacidade civil para celebrar o presente contrato.`,
     CONCESSIONARIA: distribuidora,
     POTENCIA: /kwp/i.test(potencia) ? potencia : `${potencia} kWp`,
     GERACAO: /kwh/i.test(geracao) ? geracao : `${geracao} kWh/mês`,

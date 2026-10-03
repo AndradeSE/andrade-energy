@@ -7,7 +7,9 @@ import { useEffect, useState } from "react";
 import { Alert, ImageBackground, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import FormField from "../../components/cadastro/FormField";
+import EnderecoFields from "../../components/cadastro/EnderecoFields";
 import ChoiceField from "../../components/cadastro/ChoiceField";
+import { enderecoVazio, erroEndereco, lerEndereco, serializarEndereco } from "../../utils/cadastroCliente";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
@@ -29,7 +31,7 @@ export default function EditarUsina() {
   const [investimento, setInvestimento] = useState("");
   const [titular, setTitular] = useState("");
   const [cpfTitular, setCpfTitular] = useState("");
-  const [endereco, setEndereco] = useState("");
+  const [endereco, setEndereco] = useState({ ...enderecoVazio });
   const [tipoGd, setTipoGd] = useState<"GD1" | "GD2">("GD1");
   const [titularidadeUcs, setTitularidadeUcs] = useState<"GERADOR" | "CLIENTE">("GERADOR");
   const [loading, setLoading] = useState(true);
@@ -59,7 +61,7 @@ export default function EditarUsina() {
       setGeracaoMedia(String(Number(data.geracao_media ?? 0) > 0 ? data.geracao_media : resumo?.producao_media_12_meses ?? ""));
       setInvestimento(formatarMoeda(data.investimento ?? 0));
       setTitular(data.titular_nome ?? "");
-      setEndereco(data.endereco ?? "");
+      setEndereco(lerEndereco(data.endereco ?? ""));
       setTipoGd(data.tipo_gd === "GD2" ? "GD2" : "GD1");
       setTitularidadeUcs(data.titularidade_ucs_recebedoras === "CLIENTE" ? "CLIENTE" : "GERADOR");
       setCpfTitular(String(data.cpf_titular ?? "").replace(/\D/g, ""));
@@ -90,6 +92,8 @@ export default function EditarUsina() {
 
   async function salvar() {
     if (!nome.trim() || !numeroInstalacao) return Alert.alert("Dados incompletos", "Informe o nome e o número da instalação.");
+    const erroDoEndereco = erroEndereco(endereco);
+    if (erroDoEndereco) return Alert.alert("Endereço da usina", erroDoEndereco);
     setSalvando(true);
     try {
       await editarUsinaRemota(id, {
@@ -99,7 +103,7 @@ export default function EditarUsina() {
         investimento: numeroDaMoeda(investimento), tipo_gd: tipoGd,
         titularidade_ucs_recebedoras: titularidadeUcs,
         titular_nome: titular.trim() || null, cpf_titular: cpfTitular.replace(/\D/g, "") || null,
-        endereco: endereco.trim() || null,
+        endereco: serializarEndereco(endereco),
       });
       router.back();
     } catch (erro: any) {
@@ -164,7 +168,8 @@ export default function EditarUsina() {
       <FormField label="Investimento" value={investimento} onChangeText={(valor) => setInvestimento(moedaDigitada(valor))} keyboardType="numeric" />
       <FormField label="Titular" value={titular} onChangeText={setTitular} />
       <FormField label="CPF/CNPJ do titular da conta (para e-mail)" value={cpfTitular} onChangeText={(valor) => setCpfTitular(valor.replace(/\D/g, "").slice(0, 14))} keyboardType="numeric" />
-      <FormField label="Endereço" value={endereco} onChangeText={setEndereco} />
+      <Text style={styles.fieldLabel}>Endereço da usina</Text>
+      <EnderecoFields value={endereco} onChange={setEndereco} />
       <Button disabled={salvando || excluindo} title={salvando ? "Salvando..." : "Salvar alterações"} onPress={salvar} />
     </Card>
     <View style={styles.dangerZone}><View style={styles.dangerHeading}><Ionicons name="swap-horizontal-outline" size={21} color={Colors.danger} /><View style={styles.dangerText}><Text style={styles.dangerTitle}>Migrar UCs antes de excluir</Text><Text style={styles.dangerSubtitle}>Se houver UCs alocadas, escolha outra usina e migre todos os vínculos primeiro.</Text></View></View>{outrasUsinas.length ? <ChoiceField label="Usina de destino" value={destinoUsinaId} onChange={setDestinoUsinaId} options={outrasUsinas.map((item) => ({ label: item.nome, value: item.id }))} /> : <Text style={styles.dangerSubtitle}>Nenhuma outra usina disponível para receber as UCs.</Text>}<Button disabled={migrando || !destinoUsinaId} title={migrando ? "Migrando UCs..." : "Migrar UCs para outra usina"} onPress={migrarUcs} /><Button disabled={salvando || excluindo || migrando} title={excluindo ? "Excluindo..." : "Excluir usina"} onPress={confirmarExclusao} style={styles.deleteButton} /></View>

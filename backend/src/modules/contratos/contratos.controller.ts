@@ -39,9 +39,9 @@ export async function dadosIniciaisContratoController(req: any, res: any) {
       locador: {
         // O usuário autenticado pode ser apenas um administrador: seus dados
         // pessoais não identificam automaticamente a parte locadora.
-        nome: empresa?.razao_social ?? empresa?.nome ?? unidadeGeradora?.titular ?? usina?.nome ?? "Andrade Energy",
-        documento: empresa?.documento ?? unidadeGeradora?.cpf_titular ?? "",
-        endereco: usina?.endereco ?? unidadeGeradora?.endereco ?? "",
+        nome: empresa?.razao_social?.trim() || empresa?.nome?.trim() || unidadeGeradora?.titular?.trim() || usina?.nome || "Andrade Energy",
+        documento: empresa?.documento?.trim() || unidadeGeradora?.cpf_titular || "",
+        endereco: usina?.endereco?.trim() || unidadeGeradora?.endereco || "",
         email: req.usuario.email ?? "",
         telefone: req.usuario.telefone ?? "",
       },

@@ -3,7 +3,9 @@ import { useEffect, useState } from "react";
 import { Alert, StyleSheet, Text } from "react-native";
 
 import FormField from "../../components/cadastro/FormField";
+import EnderecoFields from "../../components/cadastro/EnderecoFields";
 import ChoiceField from "../../components/cadastro/ChoiceField";
+import { enderecoVazio, erroEndereco, lerEnderecoFatura, serializarEndereco } from "../../utils/cadastroCliente";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
@@ -12,7 +14,7 @@ import { Colors, Spacing, Typography } from "../../theme";
 
 export default function NovaUsina() {
   const { usuario, selecionarUsina } = useAuth();
-  const { origem, cliente, uc, endereco: enderecoImportado, tipoGd: tipoGdImportado, geracaoMedia: geracaoMediaImportada, geracaoInicial, referenciaInicial } = useLocalSearchParams<{ origem?: string; cliente?: string; uc?: string; endereco?: string; tipoGd?: string; geracaoMedia?: string; geracaoInicial?: string; referenciaInicial?: string }>();
+  const { origem, cliente, uc, cpf: cpfImportado, endereco: enderecoImportado, tipoGd: tipoGdImportado, geracaoMedia: geracaoMediaImportada, geracaoInicial, referenciaInicial } = useLocalSearchParams<{ origem?: string; cliente?: string; uc?: string; cpf?: string; endereco?: string; tipoGd?: string; geracaoMedia?: string; geracaoInicial?: string; referenciaInicial?: string }>();
   const [nome, setNome] = useState("");
   const [numeroInstalacao, setNumeroInstalacao] = useState("");
   const [potencia, setPotencia] = useState("");
@@ -20,7 +22,7 @@ export default function NovaUsina() {
   const [mediaEditada, setMediaEditada] = useState(false);
   const [titular, setTitular] = useState("");
   const [cpfTitular, setCpfTitular] = useState("");
-  const [endereco, setEndereco] = useState("");
+  const [endereco, setEndereco] = useState({ ...enderecoVazio });
   const tipoGdLido = String(tipoGdImportado).toUpperCase();
   const [tipoGd, setTipoGd] = useState<"" | "GD1" | "GD2">(tipoGdLido === "GD2" ? "GD2" : tipoGdLido === "GD1" ? "GD1" : "");
   const [titularidadeUcs, setTitularidadeUcs] = useState<"GERADOR" | "CLIENTE">("GERADOR");
@@ -48,13 +50,14 @@ export default function NovaUsina() {
     const titularExtraido = rotuloDaFatura || !nomeExtraido ? usuario?.nome?.trim() ?? "" : nomeExtraido;
     setNome(titularExtraido ? `Usina ${titularExtraido}` : "");
     setTitular(titularExtraido);
+    setCpfTitular(cpfImportado ?? "");
     setNumeroInstalacao((uc ?? "").replace(/\D/g, ""));
-    setEndereco(enderecoImportado ?? "");
+    setEndereco(lerEnderecoFatura(enderecoImportado ?? ""));
     setGeracaoMedia(geracaoMediaImportada ?? "");
     setMediaEditada(false);
     const tipoLido = String(tipoGdImportado).toUpperCase();
     setTipoGd(tipoLido === "GD2" ? "GD2" : tipoLido === "GD1" ? "GD1" : "");
-  }, [cliente, enderecoImportado, geracaoMediaImportada, origem, tipoGdImportado, uc, usuario?.nome]);
+  }, [cliente, cpfImportado, enderecoImportado, geracaoMediaImportada, origem, tipoGdImportado, uc, usuario?.nome]);
 
   async function salvar() {
     if (!nome.trim() || !numeroInstalacao || !potencia) {
@@ -62,6 +65,8 @@ export default function NovaUsina() {
       return;
     }
     if (!tipoGd) return Alert.alert("Modalidade GD necessária", "A fatura não identificou GD I ou GD II. Escolha a modalidade manualmente para continuar.");
+    const erroDoEndereco = erroEndereco(endereco);
+    if (erroDoEndereco) return Alert.alert("Endereço da usina", erroDoEndereco);
     setSalvando(true);
     try {
       const usina = await criarUsinaRemota({
@@ -69,7 +74,7 @@ export default function NovaUsina() {
         geracao_media: mediaEditada ? Number(geracaoMedia.replace(",", ".")) || 0 : 0,
         ...(origem === "fatura" && Number(geracaoInicial) > 0 ? { producao_inicial_kwh: Number(geracaoInicial), referencia_fatura_inicial: referenciaInicial } : {}),
         titular_nome: titular.trim() || null, cpf_titular: cpfTitular.replace(/\D/g, "") || null,
-        endereco: endereco.trim() || null, distribuidora: "CEMIG", modalidade: "INJECAO",
+        endereco: serializarEndereco(endereco), distribuidora: "CEMIG", modalidade: "INJECAO",
         tipo_gd: tipoGd, titularidade_ucs_recebedoras: titularidadeUcs, status: "ATIVA",
       });
       await abrirNaLista(usina);
@@ -109,7 +114,9 @@ export default function NovaUsina() {
         <Text style={styles.gdHint}>{titularidadeUcs === "GERADOR" ? "O gerador configura o envio automático das faturas na área Financeiro." : "Cada cliente deverá ativar o envio automático da própria fatura no aplicativo Consumidor."}</Text>
         <FormField label="Titular" value={titular} onChangeText={setTitular} />
         <FormField label="CPF/CNPJ do titular da conta (para e-mail)" value={cpfTitular} onChangeText={(valor) => setCpfTitular(valor.replace(/\D/g, "").slice(0, 14))} keyboardType="numeric" />
-        <FormField label="Endereço" value={endereco} onChangeText={setEndereco} />
+        <Text style={styles.addressTitle}>ENDEREÇO DA USINA</Text>
+        <Text style={styles.gdHint}>Confira os dados lidos da fatura e complete ou corrija os campos abaixo.</Text>
+        <EnderecoFields value={endereco} onChange={setEndereco} />
         <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar usina"} onPress={salvar} />
       </Card>
     </ScrollView></Screen>
@@ -122,4 +129,5 @@ const styles = StyleSheet.create({
   title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "700" },
   subtitle: { marginTop: Spacing.sm, marginBottom: Spacing.lg, color: Colors.subtitle, lineHeight: 21 },
   gdHint: { marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 },
+  addressTitle: { marginTop: Spacing.md, marginBottom: Spacing.sm, color: Colors.text, fontSize: Typography.small, fontWeight: "800" },
 });
