@@ -200,9 +200,10 @@ export async function confirmarFaturaRascunho(id: string, empresaId?: string) {
     vencimento: fatura.vencimento,
   });
   await tentarCriarCobrancaAsaas(fatura.id, empresaId);
-  await enfileirarNotificacoesDaFatura(fatura);
   const atualizada = await buscarFaturaPorId(fatura.id);
-  return incluirLinksTemporarios(atualizada ?? fatura);
+  const documentada = await regenerarDocumentosGeradosDaFatura(atualizada ?? fatura);
+  await enfileirarNotificacoesDaFatura(documentada);
+  return incluirLinksTemporarios(documentada);
 }
 
 export async function obterRelatorioCalculoFatura(id: string, empresaId?: string) {

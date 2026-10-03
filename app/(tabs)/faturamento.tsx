@@ -7,6 +7,7 @@ import { Alert, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, V
 
 import { AppHeader, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import TabDataPending from "../../components/ui/TabDataPending";
+import OperationLoading from "../../components/ui/OperationLoading";
 import { listarUnidadesGestor } from "../../services/clientes.service";
 import { processarFatura } from "../../services/faturas.service";
 import { useAuth } from "../../contexts/AuthContext";
@@ -96,6 +97,7 @@ export default function Faturamento() {
   }
 
   return <Screen>
+    <OperationLoading visible={faturandoPdf} title="Gerando fatura e dados de pagamento…" />
     <AppHeader title="Faturamento" subtitle="Emissão e acompanhamento" contextTitle="Faturamento" contextSubtitle="Processar, automatizar e consultar faturas" icon="receipt-outline" />
     {carregando ? <TabDataPending /> : <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}>
       <Card>

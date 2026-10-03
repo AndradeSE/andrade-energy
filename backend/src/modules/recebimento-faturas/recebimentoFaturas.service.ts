@@ -5,15 +5,18 @@ import path from "node:path";
 
 import { supabase } from "../../config/supabase";
 import { EMPRESA_ANDRADE_ID, empresaIdDoUsuario } from "../../config/empresa";
-import { extrairTextoPDF } from "../../services/ocr/ocr.service";
+import { extrairTextoPdfIsolado } from "../../services/ocr/ocrIsolado.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
 import { armazenarContaDeEnergiaDaUsina, armazenarDocumentosDaFatura } from "../faturas/documentosFatura.service";
 import { processarFatura } from "../faturas/processarFatura.service";
+import { confirmarFaturaRascunho, detalharFatura } from "../faturas/faturas.service";
+import { enfileirarNotificacoesDaFatura } from "../faturas/notificacoesFatura.service";
 import { registrarProducaoDaFaturaGeradora } from "../usinas/usinas.service";
 
 const PROVEDOR = "RESEND";
 const TOLERANCIA_ASSINATURA_SEGUNDOS = 5 * 60;
 const TENTATIVAS_MAXIMAS = 3;
+const recebimentosEmExecucao = new Set<string>();
 
 type UsuarioAutenticado = {
   id?: string | number;
@@ -438,7 +441,7 @@ async function buscarAnexoResend(emailId: string, anexoId: string) {
   const chave = chaveApiResend();
   const resposta = await fetch(
     `https://api.resend.com/emails/receiving/${encodeURIComponent(emailId)}/attachments/${encodeURIComponent(anexoId)}`,
-    { headers: { Authorization: `Bearer ${chave}`, "User-Agent": "Andrade-Energy/1.0" } },
+    { headers: { Authorization: `Bearer ${chave}`, "User-Agent": "Andrade-Energy/1.0" }, signal: AbortSignal.timeout(30_000) },
   );
   if (!resposta.ok) throw new Error(`Não foi possível obter o anexo recebido (${resposta.status}).`);
   const corpo = await resposta.json() as { data?: AnexoResend } | AnexoResend;
@@ -449,6 +452,7 @@ async function buscarAnexosResend(emailId: string, anexosDoEvento: AnexoResend[]
   const chave = chaveApiResend();
   if (!chave) throw new Error("Chave do Resend não configurada.");
   const resposta = await fetch(`https://api.resend.com/emails/receiving/${encodeURIComponent(emailId)}/attachments`, {
+    signal: AbortSignal.timeout(30_000),
     headers: { Authorization: `Bearer ${chave}`, "User-Agent": "Andrade-Energy/1.0" },
   });
   if (resposta.ok) {
@@ -469,6 +473,7 @@ async function buscarEmailRecebidoResend(emailId: string) {
   if (!chave) throw new Error("Chave do Resend não configurada.");
 
   const resposta = await fetch(`https://api.resend.com/emails/receiving/${encodeURIComponent(emailId)}`, {
+    signal: AbortSignal.timeout(30_000),
     headers: { Authorization: `Bearer ${chave}`, "User-Agent": "Andrade-Energy/1.0" },
   });
   if (!resposta.ok) throw new Error(`Não foi possível obter o conteúdo do e-mail recebido (${resposta.status}).`);
@@ -547,7 +552,7 @@ function escolherPdf(anexos: AnexoResend[]) {
 async function baixarPdf(anexo: AnexoResend) {
   if (!anexo.download_url) throw new Error("O anexo recebido não possui link de download.");
   if (Number(anexo.size ?? 0) > limiteArquivo()) throw new Error("O PDF recebido excede o limite de 10 MB.");
-  const resposta = await fetch(anexo.download_url);
+  const resposta = await fetch(anexo.download_url, { signal: AbortSignal.timeout(60_000) });
   if (!resposta.ok) throw new Error(`Não foi possível baixar o PDF recebido (${resposta.status}).`);
   const arquivo = Buffer.from(await resposta.arrayBuffer());
   if (arquivo.length > limiteArquivo()) throw new Error("O PDF recebido excede o limite de 10 MB.");
@@ -575,6 +580,8 @@ async function processarRegistro(registro: any) {
     .maybeSingle();
   if (erroAssumir) throw erroAssumir;
   if (!assumido) return;
+  recebimentosEmExecucao.add(String(assumido.id));
+  const etapa = (nome: string) => console.info("Recebimento de fatura", { id: assumido.id, etapa: nome });
 
   try {
     if (!assumido.unidade_consumidora_id) {
@@ -611,6 +618,7 @@ async function processarRegistro(registro: any) {
       return;
     }
 
+    etapa("CONSULTAR_ANEXOS");
     const anexosDoEvento = Array.isArray(assumido.payload?.attachments) ? assumido.payload.attachments as AnexoResend[] : [];
     const anexos = await buscarAnexosResend(assumido.provedor_email_id, anexosDoEvento);
     const anexo = escolherPdf(anexos);
@@ -628,30 +636,48 @@ async function processarRegistro(registro: any) {
       }).eq("id", assumido.id);
       return;
     }
+    etapa("BAIXAR_PDF");
     const arquivo = await baixarPdf(anexo);
+    etapa("VERIFICAR_DUPLICIDADE");
     const hash = createHash("sha256").update(arquivo).digest("hex");
 
     const { data: duplicado, error: erroDuplicado } = await supabase
       .from("recebimentos_faturas_email")
-      .select("id, fatura_id")
+      .select("id, fatura_id, status, payload")
       .eq("unidade_consumidora_id", assumido.unidade_consumidora_id)
       .eq("arquivo_hash", hash)
       .neq("id", assumido.id)
+      .abortSignal(AbortSignal.timeout(30_000))
       .maybeSingle();
     if (erroDuplicado) throw erroDuplicado;
-    if (duplicado) {
-      await supabase.from("recebimentos_faturas_email").update({ status: "IGNORADO", arquivo_nome: anexo.filename ?? "fatura.pdf", arquivo_hash: hash, fatura_id: duplicado.fatura_id ?? null, erro: "Este PDF já foi recebido anteriormente.", processado_em: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", assumido.id);
+    if (duplicado && (duplicado.fatura_id || duplicado.status !== "PROCESSADO")) {
+      // O hash já pertence ao recibo original: não violar o índice único.
+      const { error: erroIgnorar } = await supabase.from("recebimentos_faturas_email").update({ status: "IGNORADO", arquivo_nome: anexo.filename ?? "fatura.pdf", fatura_id: duplicado.fatura_id ?? null, erro: "Este PDF já foi recebido anteriormente.", processado_em: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", assumido.id);
+      if (erroIgnorar) throw erroIgnorar;
       return;
+    }
+    if (duplicado) {
+      // A exclusão da fatura remove o vínculo por FK. Permitir a recriação
+      // pedida pelo usuário, preservando o fingerprint no histórico do recibo.
+      const { data: liberado, error: erroLiberar } = await supabase.from("recebimentos_faturas_email").update({
+        arquivo_hash: null,
+        payload: adicionarMetadadosDeProcessamento(duplicado.payload, { arquivo_hash_anterior: hash, motivo: "Fatura anterior excluída" }),
+        updated_at: new Date().toISOString(),
+      }).eq("id", duplicado.id).eq("arquivo_hash", hash).eq("status", "PROCESSADO").is("fatura_id", null).select("id").maybeSingle();
+      if (erroLiberar) throw erroLiberar;
+      if (!liberado) throw new Error("O recebimento anterior mudou durante a conferência. Tente novamente.");
     }
 
     const pasta = await mkdtemp(path.join(os.tmpdir(), "andrade-fatura-email-"));
     const caminho = path.join(pasta, "conta.pdf");
     try {
       await writeFile(caminho, arquivo);
+      etapa("CONSULTAR_CONFIGURACAO_UC");
       const { data: unidadeConfiguracao, error: erroUnidade } = await supabase
         .from("unidades_consumidoras")
         .select("id, numero, tipo, usina_id, cliente_id, empresa_id, cpf_titular, clientes(cpf), usinas(titularidade_ucs_recebedoras)")
         .eq("id", assumido.unidade_consumidora_id)
+        .abortSignal(AbortSignal.timeout(30_000))
         .maybeSingle();
       if (erroUnidade) throw erroUnidade;
       if (!unidadeConfiguracao) throw new Error("Unidade consumidora não encontrada.");
@@ -669,7 +695,8 @@ async function processarRegistro(registro: any) {
       if (titularidade === "CLIENTE") {
         consultaUnidades = consultaUnidades.eq("cliente_id", unidadeConfiguracao.cliente_id);
       }
-      const { data: unidadesDoEscopo, error: erroEscopo } = await consultaUnidades;
+      etapa("CONSULTAR_ESCOPO_UCS");
+      const { data: unidadesDoEscopo, error: erroEscopo } = await consultaUnidades.abortSignal(AbortSignal.timeout(30_000));
       if (erroEscopo) throw erroEscopo;
       const candidatas = (unidadesDoEscopo?.length ? unidadesDoEscopo : [unidadeConfiguracao]) as any[];
 
@@ -687,7 +714,8 @@ async function processarRegistro(registro: any) {
       }
       for (const [senha] of tentativas) {
         try {
-          const texto = await extrairTextoPDF(caminho, senha || undefined);
+          etapa("LER_PDF");
+          const texto = await extrairTextoPdfIsolado(caminho, senha || undefined);
           const interpretados = complementarCabecalhoCemig(texto, interpretarFatura(texto));
           const encontrada = candidatas.find((candidata) => normalizarNumero(candidata.numero) === normalizarNumero(interpretados.uc));
           if (encontrada) {
@@ -744,10 +772,11 @@ async function processarRegistro(registro: any) {
         return;
       }
 
+      etapa("FATURAR_AUTOMATICAMENTE");
       const resultado = await processarFatura(dados, {
-        status: "RASCUNHO",
-        criarCobranca: false,
-        registrarCreditos: false,
+        status: "ABERTA",
+        criarCobranca: true,
+        registrarCreditos: true,
       });
       if (resultado?.clienteNaoEncontrado) throw new Error("A UC recebida ainda não está vinculada a um cliente.");
       if (resultado?.jaProcessada) {
@@ -755,9 +784,14 @@ async function processarRegistro(registro: any) {
         return;
       }
 
-      const documentos = await armazenarDocumentosDaFatura(resultado, caminho);
+      etapa("ARMAZENAR_DOCUMENTOS");
+      // A emissão grava os códigos no banco; o objeto original é anterior a ela.
+      const { data: faturaEmitida, error: erroEmitida } = await supabase.from("faturas").select("*").eq("id", resultado.id).single();
+      if (erroEmitida) throw erroEmitida;
+      const documentos = await armazenarDocumentosDaFatura(faturaEmitida, caminho);
+      await enfileirarNotificacoesDaFatura(faturaEmitida);
       const agora = new Date().toISOString();
-      await supabase.from("recebimentos_faturas_email").update({
+      const { error: erroConcluir } = await supabase.from("recebimentos_faturas_email").update({
         status: "PROCESSADO",
         arquivo_nome: anexo.filename ?? "fatura.pdf",
         arquivo_hash: hash,
@@ -767,9 +801,10 @@ async function processarRegistro(registro: any) {
         processado_em: agora,
         updated_at: agora,
       }).eq("id", assumido.id);
+      if (erroConcluir) throw erroConcluir;
       await atualizarUnidadeRecebimento(unidade.id, {
         recebimento_email_ultimo_em: agora,
-        recebimento_email_status: "AGUARDANDO_CONFERENCIA",
+        recebimento_email_status: "PROCESSADO",
         recebimento_email_erro: null,
       });
     } finally {
@@ -793,11 +828,51 @@ async function processarRegistro(registro: any) {
         recebimento_email_erro: mensagem,
       });
     }
+  } finally {
+    recebimentosEmExecucao.delete(String(assumido.id));
   }
 }
 
 export async function processarFilaDeRecebimentosFaturas() {
   if (!chaveApiResend()) return { processados: 0 };
+  // Corrige somente rascunhos originados do recebimento automático ativo.
+  // Não promove rascunhos manuais; completa códigos pendentes sem refazer a fatura.
+  const legados = await supabase.from("recebimentos_faturas_email")
+    .select("id,empresa_id,fatura_id,faturas!inner(status,codigo_pix,linha_digitavel,valor_total_unificado,valor_total),unidades_consumidoras!inner(recebimento_email_ativo)")
+    .eq("status", "PROCESSADO").in("faturas.status", ["RASCUNHO", "ABERTA"])
+    .eq("unidades_consumidoras.recebimento_email_ativo", true)
+    .or("status.eq.RASCUNHO,codigo_pix.is.null,linha_digitavel.is.null", { foreignTable: "faturas" }).limit(10);
+  if (legados.error) throw legados.error;
+  for (const legado of legados.data ?? []) {
+    if (!legado.fatura_id || recebimentosEmExecucao.has(String(legado.id))) continue;
+    const fatura = Array.isArray(legado.faturas) ? legado.faturas[0] : legado.faturas;
+    if (fatura?.status !== "RASCUNHO" && (Number(fatura?.valor_total_unificado ?? fatura?.valor_total ?? 0) <= 0 || (fatura?.codigo_pix && fatura?.linha_digitavel))) continue;
+    recebimentosEmExecucao.add(String(legado.id));
+    try {
+      if (fatura?.status === "RASCUNHO") await confirmarFaturaRascunho(legado.fatura_id, legado.empresa_id);
+      const atualizada = await detalharFatura(legado.fatura_id, legado.empresa_id);
+      await enfileirarNotificacoesDaFatura(atualizada);
+    } catch (erro: any) {
+      console.error("Falha na recuperação de cobrança automática", { recebimento_id: legado.id, tipo: erro?.name ?? "Error" });
+    } finally {
+      recebimentosEmExecucao.delete(String(legado.id));
+    }
+  }
+  // Não reenviar automaticamente: o processo interrompido pode já ter salvo
+  // a fatura. A recuperação exige conferência antes de repetir efeitos.
+  const limiteAbandono = new Date(Date.now() - 30 * 60_000).toISOString();
+  const abandonados = await supabase.from("recebimentos_faturas_email")
+    .select("id,updated_at").eq("status", "PROCESSANDO").lt("updated_at", limiteAbandono);
+  if (abandonados.error) throw abandonados.error;
+  for (const item of abandonados.data ?? []) {
+    if (recebimentosEmExecucao.has(String(item.id))) continue;
+    const recuperacao = await supabase.from("recebimentos_faturas_email").update({
+      status: "ERRO",
+      erro: "Processamento interrompido. Confira se a fatura já existe antes de reprocessar o e-mail.",
+      updated_at: new Date().toISOString(),
+    }).eq("id", item.id).eq("status", "PROCESSANDO").eq("updated_at", item.updated_at);
+    if (recuperacao.error) throw recuperacao.error;
+  }
   const { data, error } = await supabase
     .from("recebimentos_faturas_email")
     .select("*")

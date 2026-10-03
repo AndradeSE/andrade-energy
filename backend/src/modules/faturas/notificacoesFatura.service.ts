@@ -22,8 +22,18 @@ function normalizarWhatsapp(valor: string) {
 }
 
 export async function enfileirarNotificacoesDaFatura(fatura: any) {
+  if (!fatura?.id) return [];
+  // A emissão Asaas atualiza o banco, não necessariamente o objeto do chamador.
+  const atual = await supabase.from("faturas").select("*").eq("id", fatura.id).single();
+  if (atual.error) throw atual.error;
+  fatura = atual.data;
+  // Não anunciar ao cliente uma cobrança positiva ainda sem os dois códigos.
+  if (Number(fatura?.valor_total_unificado ?? fatura?.valor_total ?? 0) > 0 && (!fatura?.codigo_pix || !fatura?.linha_digitavel)) return [];
   await notificarClienteDaFaturaDisponivel(fatura).catch((erro) => {
     console.error("Falha ao notificar fatura no app", { tipo: erro?.name ?? "Error" });
+  });
+  await notificarGeradorDoClienteFaturado(fatura).catch((erro) => {
+    console.error("Falha ao notificar gerador", { tipo: erro?.name ?? "Error" });
   });
   const { data: cliente, error } = await supabase
     .from("clientes")
@@ -84,6 +94,29 @@ export async function notificarClienteDaFaturaDisponivel(fatura: any) {
     detalhe: fatura.referencia ? `Fatura ${fatura.referencia} disponível para consulta.` : "Sua fatura está disponível para consulta.",
     rota: `/faturas/${fatura.id}`,
     chave_dedupe: `fatura-disponivel:${fatura.id}:${usuario_id}`,
+  })));
+}
+
+export async function notificarGeradorDoClienteFaturado(fatura: any) {
+  if (!fatura?.id || !fatura?.cliente_id || !fatura?.empresa_id || String(fatura.status).toUpperCase() !== "ABERTA") return;
+  const [acessos, cliente, usina] = await Promise.all([
+    supabase.from("empresa_usuarios").select("usuario_id,papel,permissoes")
+      .eq("empresa_id", fatura.empresa_id).eq("ativo", true)
+      .in("papel", ["ADMIN_EMPRESA", "GESTOR", "COLABORADOR_GERADOR"]),
+    supabase.from("clientes").select("nome").eq("id", fatura.cliente_id).eq("empresa_id", fatura.empresa_id).maybeSingle(),
+    fatura.usina_id
+      ? supabase.from("usinas").select("nome").eq("id", fatura.usina_id).eq("empresa_id", fatura.empresa_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  for (const resultado of [acessos, cliente, usina]) if (resultado.error) throw resultado.error;
+  const usuarios = [...new Set((acessos.data ?? []).filter((acesso: any) =>
+    acesso.papel !== "COLABORADOR_GERADOR" || acesso.permissoes?.faturamento !== false,
+  ).map((acesso: any) => String(acesso.usuario_id)).filter(Boolean))];
+  await Promise.all(usuarios.map((usuario_id) => criarNotificacaoApp({
+    usuario_id, empresa_id: fatura.empresa_id, cliente_id: fatura.cliente_id, usina_id: fatura.usina_id,
+    tipo: "CLIENTE_FATURADO", titulo: "Cliente faturado",
+    detalhe: `${cliente.data?.nome ?? "Cliente"}${usina.data?.nome ? ` · ${usina.data.nome}` : ""}${fatura.referencia ? ` · ${fatura.referencia}` : ""}. Fatura disponível para consulta.`,
+    rota: `/faturas/${fatura.id}`, chave_dedupe: `cliente-faturado:${fatura.id}:${usuario_id}`,
   })));
 }
 
