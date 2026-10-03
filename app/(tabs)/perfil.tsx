@@ -42,6 +42,8 @@ import { AppHeader, ElasticScrollView as ScrollView, Screen } from "../../compon
 import ClienteHeader from "../../components/cliente/ClienteHeader";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
+import EnderecoFields from "../../components/cadastro/EnderecoFields";
+import { enderecoVazio, erroEndereco, lerEndereco, serializarEndereco } from "../../utils/cadastroCliente";
 
 function formatarCpf(valor?: string | null) {
   const digitos = String(valor ?? "").replace(/\D/g, "").slice(0, 11);
@@ -70,6 +72,8 @@ export default function Perfil() {
   const [email, setEmail] = useState(user?.email ?? "");
   const [telefone, setTelefone] = useState(formatarTelefone(user?.telefone ?? ""));
   const [cpf, setCpf] = useState(user?.cpf ?? "");
+  const [endereco, setEndereco] = useState({ ...enderecoVazio });
+  const [enderecoOriginal, setEnderecoOriginal] = useState("");
   const [digitalDisponivel, setDigitalDisponivel] = useState(false);
   const [atualizando, setAtualizando] = useState(false);
   const [salvando, setSalvando] = useState(false);
@@ -131,12 +135,14 @@ export default function Perfil() {
     setEmail(dados.email ?? "");
     setTelefone(formatarTelefone(dados.telefone ?? ""));
     setCpf(dados.cpf ?? "");
+    setEnderecoOriginal(dados.endereco ?? "");
+    setEndereco(lerEndereco(dados.endereco ?? ""));
   }, []);
 
   const carregar = useCallback(async () => {
     const disponibilidade = verificarDigitalDisponivel();
     try {
-      const dados = await me();
+      const dados = await me(IS_GERADOR_APP ? "GERADOR" : "CONSUMIDOR");
       preencherUsuario(dados);
       await atualizarUsuario({ ...dados, cpf: dados.cpf ?? undefined, telefone: dados.telefone ?? undefined });
     } catch {
@@ -179,6 +185,11 @@ export default function Perfil() {
       Alert.alert("E-mail inválido", "Informe um e-mail válido.");
       return;
     }
+    const enderecoFoiAlterado = JSON.stringify(endereco) !== JSON.stringify(lerEndereco(enderecoOriginal));
+    if (enderecoFoiAlterado) {
+      const erro = erroEndereco(endereco);
+      if (erro) return Alert.alert("Confira o endereço", erro);
+    }
 
     try {
       setSalvando(true);
@@ -186,6 +197,8 @@ export default function Perfil() {
         nome: nomeNormalizado,
         email: emailNormalizado,
         telefone: telefone.replace(/\D/g, "") || null,
+        tipo: IS_GERADOR_APP ? "GERADOR" : "CONSUMIDOR",
+        ...(enderecoFoiAlterado ? { endereco: serializarEndereco(endereco) } : {}),
       });
       preencherUsuario(perfilAtualizado);
       await atualizarUsuario({ ...perfilAtualizado, cpf: perfilAtualizado.cpf ?? undefined, telefone: perfilAtualizado.telefone ?? undefined });
@@ -335,6 +348,8 @@ export default function Perfil() {
           <Campo editable={false} hint="O CPF identifica suas unidades consumidoras." icon="card-outline" label="CPF" value={formatarCpf(cpf)} />
           <Campo autoCapitalize="none" autoCorrect={false} icon="mail-outline" keyboardType="email-address" label="E-mail" onChangeText={setEmail} value={email} />
           <Campo icon="call-outline" keyboardType="phone-pad" label="Telefone" last onChangeText={(valor) => setTelefone(formatarTelefone(valor))} placeholder="(00) 00000-0000" value={telefone} />
+          <Text style={styles.sectionTitle}>ENDEREÇO {IS_GERADOR_APP ? "DO GERADOR" : "DO CONSUMIDOR"}</Text>
+          <EnderecoFields value={endereco} onChange={setEndereco} />
           <TouchableOpacity accessibilityRole="button" activeOpacity={0.85} disabled={salvando} onPress={salvarDados} style={[styles.primaryButton, salvando && styles.buttonDisabled]}>
             {salvando ? <ActivityIndicator color={Colors.surface} /> : <><Ionicons color={Colors.surface} name="checkmark-circle-outline" size={20} /><Text style={styles.primaryButtonText}>Salvar alterações</Text></>}
           </TouchableOpacity>

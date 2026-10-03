@@ -6,6 +6,7 @@ export type PerfilUsuario = {
   cpf: string | null;
   email: string;
   telefone: string | null;
+  endereco?: string | null;
   perfil: string;
 };
 export async function login(
@@ -25,15 +26,13 @@ export async function login(
   return data;
 }
 
-export async function me() {
-  const { data } = await api.get(
-    "/auth/me"
-  );
+export async function me(tipo: "CONSUMIDOR" | "GERADOR" = "GERADOR") {
+  const { data } = await api.get("/auth/me", { params: { tipo } });
 
   return (data.usuario ?? data) as PerfilUsuario;
 }
 
-export async function atualizarMeuPerfil(payload: Pick<PerfilUsuario, "nome" | "email" | "telefone">) {
+export async function atualizarMeuPerfil(payload: Pick<PerfilUsuario, "nome" | "email" | "telefone"> & { endereco?: string; tipo?: "CONSUMIDOR" | "GERADOR" }) {
   const { data } = await api.put("/auth/me", payload);
   return (data.usuario ?? data) as PerfilUsuario;
 }

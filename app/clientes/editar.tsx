@@ -9,7 +9,7 @@ import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Scre
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { buscarCliente, editarCliente, excluirCliente } from "../../services/clientes.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
-import { emailOpcionalValido, normalizarEmail } from "../../utils/email";
+import { emailValido, normalizarEmail } from "../../utils/email";
 
 export default function EditarCliente() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -38,10 +38,10 @@ export default function EditarCliente() {
     if (!nomeCompletoValido(nome)) return Alert.alert("Nome completo obrigatório", "Informe o nome e o sobrenome do cliente.");
     if (!cpfValido(cpf)) return Alert.alert("CPF inválido", "Confira os 11 números e os dígitos verificadores do CPF.");
     if (erroEndereco(endereco)) return Alert.alert("Endereço obrigatório", erroEndereco(endereco));
-    if (!emailOpcionalValido(email)) return Alert.alert("E-mail inválido", "Informe um endereço de e-mail válido ou deixe o campo vazio.");
+    if (!emailValido(email)) return Alert.alert("E-mail obrigatório", "Informe um endereço de e-mail válido para enviar o contrato e o convite.");
     setSalvando(true);
     try {
-      await editarCliente(id, { nome: nome.trim(), telefone, whatsapp: telefone.replace(/\D/g, ""), email: normalizarEmail(email) || null, cpf: cpf.replace(/\D/g, ""), endereco: serializarEndereco(endereco) });
+      await editarCliente(id, { nome: nome.trim(), telefone, whatsapp: telefone.replace(/\D/g, ""), email: normalizarEmail(email), cpf: cpf.replace(/\D/g, ""), endereco: serializarEndereco(endereco) });
       router.back();
     } catch (erro: any) {
       setSalvando(false);
@@ -55,7 +55,7 @@ export default function EditarCliente() {
   if (loading) return <Loading />;
   if (erroCarregamento) return <Screen><Card><Text style={styles.title}>Cadastro indisponível</Text><Text style={styles.subtitle}>{erroCarregamento}</Text><Button title="Voltar" onPress={() => router.back()} /></Card></Screen>;
   return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Editar cliente" subtitle="Dados cadastrais" contextTitle="Editar cliente" contextSubtitle={nome || "Dados cadastrais do consumidor"} icon="create-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled"><Text style={styles.eyebrow}>CADASTRO DO CLIENTE</Text><Text style={styles.title}>Editar cliente</Text><Text style={styles.subtitle}>Confira nome completo, CPF e endereço. O contrato utiliza o endereço deste cadastro.</Text>
-    <Card><FormField label="Nome e sobrenome" required value={nome} onChangeText={setNome} autoCapitalize="words" /><FormField label="Telefone / WhatsApp (opcional)" value={telefone} onChangeText={setTelefone} keyboardType="phone-pad" /><FormField label="E-mail (opcional)" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
+    <Card><FormField label="Nome e sobrenome" required value={nome} onChangeText={setNome} autoCapitalize="words" /><FormField label="Telefone / WhatsApp (opcional)" value={telefone} onChangeText={setTelefone} keyboardType="phone-pad" /><FormField label="E-mail" required value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
       <FormField label="CPF" required value={cpf} onChangeText={v => setCpf(formatarCpf(v))} keyboardType="number-pad" maxLength={14} />
     </Card>
     <Card><Text style={styles.sectionTitle}>Endereço do cliente</Text><Text style={styles.sectionHint}>Informe o CEP para preencher rua, bairro, cidade e estado. Confira e complete o número.</Text><EnderecoFields value={endereco} onChange={setEndereco} /></Card>

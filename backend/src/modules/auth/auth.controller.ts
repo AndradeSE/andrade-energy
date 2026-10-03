@@ -104,7 +104,7 @@ function usuarioDaRequisicao(req: Request) {
 
 export async function meuPerfilController(req: Request, res: Response) {
   try {
-    return res.json(await obterMeuPerfil(usuarioDaRequisicao(req).id));
+    return res.json(await obterMeuPerfil(usuarioDaRequisicao(req).id, req.query.tipo === "CONSUMIDOR" ? "CONSUMIDOR" : "GERADOR"));
   } catch (err: any) {
     return res.status(400).json({ message: err.message ?? "Não foi possível carregar o perfil." });
   }

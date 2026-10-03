@@ -24,7 +24,7 @@ export async function dadosIniciaisContratoController(req: any, res: any) {
     if (error || !unidade?.cliente_id) return res.status(404).json({ message: "Unidade não encontrada." });
 
     const [{ data: empresa }, { data: unidadeGeradora, error: erroUnidadeGeradora }, proposta] = await Promise.all([
-      supabase.from("empresas").select("nome,razao_social,documento").eq("id", empresaId).maybeSingle(),
+      supabase.from("empresas").select("nome,razao_social,documento,endereco").eq("id", empresaId).maybeSingle(),
       supabase.from("unidades_consumidoras")
         .select("titular,cpf_titular,endereco")
         .eq("empresa_id", empresaId)
@@ -41,7 +41,7 @@ export async function dadosIniciaisContratoController(req: any, res: any) {
         // pessoais não identificam automaticamente a parte locadora.
         nome: empresa?.razao_social?.trim() || empresa?.nome?.trim() || unidadeGeradora?.titular?.trim() || usina?.nome || "Andrade Energy",
         documento: empresa?.documento?.trim() || unidadeGeradora?.cpf_titular || "",
-        endereco: usina?.endereco?.trim() || unidadeGeradora?.endereco || "",
+        endereco: empresa?.endereco?.trim() || "",
         email: req.usuario.email ?? "",
         telefone: req.usuario.telefone ?? "",
       },

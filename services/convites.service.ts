@@ -20,7 +20,7 @@ export async function solicitarReenvioConvite(email: string) {
   return data as { message: string; emailEnviado: boolean };
 }
 
-export async function criarConviteGerador(payload: { nome: string; cpf: string; email: string; planoId?: string; ciclo?: "MENSAL" | "ANUAL"; diasTeste?: number }) {
+export async function criarConviteGerador(payload: { nome: string; cpf: string; email: string; endereco: string; planoId?: string; ciclo?: "MENSAL" | "ANUAL"; diasTeste?: number }) {
   const { data } = await api.post("/convites/geradores", payload);
   return data;
 }

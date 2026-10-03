@@ -27,12 +27,15 @@ import { readFile, unlink } from "node:fs/promises";
 import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
 import { conferirSenha, protegerSenha } from "../../utils/password";
 import { criarNotificacaoApp } from "../notificacoes/push.service";
+import { validarEnderecoCadastro } from "../clientes/validacaoCadastro";
 
 type DadosPerfil = {
   nome?: unknown;
   email?: unknown;
   telefone?: unknown;
   cpf?: unknown;
+  endereco?: unknown;
+  tipo?: unknown;
 };
 
 function cpfLimpo(valor: unknown) {
@@ -253,10 +256,24 @@ export async function autenticar(
   };
 }
 
-export async function obterMeuPerfil(usuarioId: string) {
+async function enderecoDoPerfil(usuario: any, tipo: "GERADOR" | "CONSUMIDOR") {
+  if (tipo === "CONSUMIDOR" && usuario.cliente_id) {
+    const { data, error } = await supabase.from("clientes").select("endereco").eq("id", usuario.cliente_id).eq("empresa_id", usuario.empresa_id).maybeSingle();
+    if (error) throw error;
+    return String(data?.endereco ?? "");
+  }
+  if (tipo === "GERADOR" && ["ADMIN", "GESTOR"].includes(usuario.perfil)) {
+    const { data, error } = await supabase.from("empresas").select("endereco").eq("id", usuario.empresa_id).maybeSingle();
+    if (error) throw error;
+    return String(data?.endereco ?? "");
+  }
+  return "";
+}
+
+export async function obterMeuPerfil(usuarioId: string, tipo: "GERADOR" | "CONSUMIDOR" = "GERADOR") {
   const usuario = await buscarUsuario(usuarioId);
   if (!usuario?.ativo) throw new Error("Conta não está ativa.");
-  return usuarioPublico(usuario);
+  return { ...usuarioPublico(usuario), endereco: await enderecoDoPerfil(usuario, tipo) };
 }
 
 export async function atualizarMeuPerfil(usuarioId: string, dados: DadosPerfil) {
@@ -278,9 +295,29 @@ export async function atualizarMeuPerfil(usuarioId: string, dados: DadosPerfil) 
     throw new Error("O CPF não pode ser alterado pelo aplicativo. Entre em contato com a Andrade Energy.");
   }
 
+  const tipo = dados.tipo === "CONSUMIDOR" ? "CONSUMIDOR" : "GERADOR";
+  if (dados.endereco !== undefined) {
+    const endereco = String(dados.endereco ?? "").trim();
+    const erroEndereco = validarEnderecoCadastro(endereco);
+    if (erroEndereco) throw new Error(erroEndereco);
+    if (tipo === "CONSUMIDOR") {
+      if (!usuarioAtual.cliente_id) throw new Error("Não há cadastro de cliente vinculado a esta conta.");
+      const { data, error } = await supabase.from("clientes").update({ endereco })
+        .eq("id", usuarioAtual.cliente_id).eq("empresa_id", usuarioAtual.empresa_id).select("id").maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Cadastro de cliente não encontrado.");
+    } else {
+      if (!["ADMIN", "GESTOR"].includes(usuarioAtual.perfil)) throw new Error("Este perfil não pode alterar os dados do gerador.");
+      const { data, error } = await supabase.from("empresas").update({ endereco })
+        .eq("id", usuarioAtual.empresa_id).select("id").maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Cadastro do gerador não encontrado.");
+    }
+  }
+
   try {
     const usuario = await atualizarPerfilUsuario(usuarioId, { nome, email, telefone });
-    return usuarioPublico(usuario);
+    return { ...usuarioPublico(usuario), endereco: await enderecoDoPerfil(usuario, tipo) };
   } catch (erro: any) {
     if (erro?.code === "23505") {
       throw new Error("Já existe uma conta deste perfil com este e-mail.");
@@ -812,6 +849,7 @@ export async function cadastrarConta(input: { nome: string; cpf: string; email: 
     slug: `${slugBase}-${gerarToken().slice(0, 8).toLowerCase()}`,
     nome: nomeEmpresa,
     documento: String(convite.cpf ?? "").replace(/\D/g, ""),
+    endereco: String(convite.endereco ?? "").trim(),
     email_suporte: String(convite.email ?? "").trim().toLowerCase(),
     empresa_proprietaria: false,
     identidade_personalizada: false,

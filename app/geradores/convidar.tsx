@@ -9,12 +9,15 @@ import { obterPainelComercial } from "../../services/comercial.service";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 import { AppHeader, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { emailValido, normalizarEmail } from "../../utils/email";
+import EnderecoFields from "../../components/cadastro/EnderecoFields";
+import { cpfValido, enderecoVazio, erroEndereco, formatarCpf, nomeCompletoValido, serializarEndereco } from "../../utils/cadastroCliente";
 
 export default function ConvidarGerador() {
   const { user } = useAuth();
   const [nome, setNome] = useState("");
   const [cpf, setCpf] = useState("");
   const [email, setEmail] = useState("");
+  const [endereco, setEndereco] = useState({ ...enderecoVazio });
   const [planos, setPlanos] = useState<any[]>([]);
   const [planoId, setPlanoId] = useState("");
   const [ciclo, setCiclo] = useState<"MENSAL" | "ANUAL">("MENSAL");
@@ -29,12 +32,12 @@ export default function ConvidarGerador() {
   }
 
   async function enviar() {
-    if (!nome.trim() || cpf.replace(/\D/g, "").length !== 11 || !emailValido(email)) {
-      return Alert.alert("Confira os dados", "Informe nome, CPF e e-mail válidos.");
-    }
+    if (!nomeCompletoValido(nome) || !cpfValido(cpf) || !emailValido(email)) return Alert.alert("Confira os dados", "Informe nome e sobrenome, CPF e e-mail válidos.");
+    const erroDoEndereco = erroEndereco(endereco);
+    if (erroDoEndereco) return Alert.alert("Endereço do gerador", erroDoEndereco);
     try {
       setEnviando(true);
-      const resultado = await criarConviteGerador({ nome: nome.trim(), cpf, email: normalizarEmail(email), planoId: planoId || undefined, ciclo, diasTeste: planoId ? 45 : 0 });
+      const resultado = await criarConviteGerador({ nome: nome.trim(), cpf: cpf.replace(/\D/g, ""), email: normalizarEmail(email), endereco: serializarEndereco(endereco), planoId: planoId || undefined, ciclo, diasTeste: planoId ? 45 : 0 });
       Alert.alert("Convite criado", resultado.emailEnviado ? "O convite foi enviado por e-mail." : `O e-mail não pôde ser enviado. Código: ${resultado.token}`,
         [{ text: "OK", onPress: () => router.back() }]);
     } catch (erro: any) {
@@ -48,8 +51,10 @@ export default function ConvidarGerador() {
       <View style={styles.notice}><Ionicons name="shield-checkmark-outline" size={23} color={Colors.primary} /><Text>Esta função está disponível exclusivamente para a conta administradora.</Text></View>
       <View style={styles.card}>
         <Text style={styles.label}>Nome completo</Text><TextInput autoCapitalize="words" onChangeText={setNome} placeholder="Nome do novo gerador" placeholderTextColor={Colors.subtitle} style={styles.input} value={nome} />
-        <Text style={styles.label}>CPF</Text><TextInput keyboardType="numeric" maxLength={11} onChangeText={(value) => setCpf(value.replace(/\D/g, ""))} placeholder="Somente números" placeholderTextColor={Colors.subtitle} style={styles.input} value={cpf} />
+        <Text style={styles.label}>CPF</Text><TextInput keyboardType="numeric" maxLength={14} onChangeText={(value) => setCpf(formatarCpf(value))} placeholder="000.000.000-00" placeholderTextColor={Colors.subtitle} style={styles.input} value={cpf} />
         <Text style={styles.label}>E-mail</Text><TextInput autoCapitalize="none" autoCorrect={false} keyboardType="email-address" onChangeText={(valor) => setEmail(normalizarEmail(valor))} placeholder="gerador@email.com" placeholderTextColor={Colors.subtitle} style={styles.input} value={email} />
+        <Text style={styles.label}>Endereço do gerador</Text>
+        <EnderecoFields value={endereco} onChange={setEndereco} />
         <Text style={styles.label}>Plano ao aceitar o convite</Text>
         <View style={styles.options}>
           <TouchableOpacity onPress={() => setPlanoId("")} style={[styles.option, !planoId && styles.optionActive]}><Text style={[styles.optionText, !planoId && styles.optionTextActive]}>Sem plano</Text></TouchableOpacity>

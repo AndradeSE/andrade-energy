@@ -3,6 +3,7 @@ import { appScheme } from "../../utils/appScheme";
 import { gerarToken, hashToken } from "../../utils/token";
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import { empresaIdDoUsuario } from "../../config/empresa";
+import { validarCadastroCliente } from "../clientes/validacaoCadastro";
 
 function cpfLimpo(valor: unknown) { return String(valor ?? "").replace(/\D/g, ""); }
 function telefoneWhatsapp(valor: unknown) {
@@ -194,10 +195,11 @@ export async function criarConviteGerador(input: any, administrador: any) {
   const cpf = cpfLimpo(input.cpf);
   const email = String(input.email ?? "").trim().toLowerCase();
   const nome = String(input.nome ?? "").trim();
+  const endereco = String(input.endereco ?? "").trim();
   const planoId = String(input.planoId ?? "").trim() || null;
   const ciclo = String(input.ciclo ?? "MENSAL").toUpperCase();
-  if (!nome) throw new Error("Informe o nome do gerador.");
-  if (cpf.length !== 11) throw new Error("Informe um CPF válido.");
+  const erroCadastro = validarCadastroCliente({ nome, cpf, email, endereco });
+  if (erroCadastro) throw new Error(erroCadastro);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Informe um e-mail válido.");
   if (planoId && !["MENSAL", "ANUAL"].includes(ciclo)) throw new Error("Ciclo de assinatura inválido.");
   if (planoId) {
@@ -213,7 +215,7 @@ export async function criarConviteGerador(input: any, administrador: any) {
 
   const token = `${perfil === "ADMIN" ? "admin" : "gerador"}_${gerarToken()}`;
   const { error } = await supabase.from("convites_clientes").insert({
-    gestor_id: administrador.id, empresa_id: empresaId, nome, cpf, email,
+    gestor_id: administrador.id, empresa_id: empresaId, nome, cpf, email, endereco,
     plano_id: planoId, ciclo_assinatura: planoId ? ciclo : null,
     dias_teste: planoId ? Math.max(0, Number(input.diasTeste ?? 45) || 0) : 0,
     token_hash: hashToken(token),
@@ -241,9 +243,9 @@ export async function consultarConviteGerador(token: string) {
     return { nome: convite.nome, cpf: convite.cpf, email: convite.email, empresa_id: convite.empresa_id, papel_destino: convite.papel, colaborador: true };
   }
   if (!token.startsWith("gerador_") && !token.startsWith("admin_")) throw new Error("Convite de acesso inválido ou expirado.");
-  const { data, error } = await supabase.from("convites_clientes").select("id,gestor_id,nome,cpf,email,status,expira_em,empresa_id,plano_id,ciclo_assinatura,dias_teste").eq("token_hash", hashToken(token)).maybeSingle();
+  const { data, error } = await supabase.from("convites_clientes").select("id,gestor_id,nome,cpf,email,endereco,status,expira_em,empresa_id,plano_id,ciclo_assinatura,dias_teste").eq("token_hash", hashToken(token)).maybeSingle();
   if (error || !data || data.status !== "PENDENTE" || new Date(data.expira_em) <= new Date()) throw new Error("Convite de gerador inválido ou expirado.");
-  return { nome: data.nome, cpf: data.cpf, email: data.email, empresa_id: data.empresa_id, gestor_id: data.gestor_id, plano_id: data.plano_id, ciclo_assinatura: data.ciclo_assinatura, dias_teste: data.dias_teste };
+  return { nome: data.nome, cpf: data.cpf, email: data.email, endereco: data.endereco, empresa_id: data.empresa_id, gestor_id: data.gestor_id, plano_id: data.plano_id, ciclo_assinatura: data.ciclo_assinatura, dias_teste: data.dias_teste };
 }
 
 export async function aceitarConviteGerador(token: string) {
