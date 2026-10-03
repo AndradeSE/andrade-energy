@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { supabase } from "../../config/supabase";
 import { EMPRESA_ANDRADE_ID, empresaIdDoUsuario } from "../../config/empresa";
-import { extrairTextoPDF } from "../../services/ocr/ocr.service";
+import { extrairTextoPdfIsolado } from "../../services/ocr/ocrIsolado.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
 import { armazenarContaDeEnergiaDaUsina, armazenarDocumentosDaFatura } from "../faturas/documentosFatura.service";
 import { processarFatura } from "../faturas/processarFatura.service";
@@ -579,6 +579,7 @@ async function processarRegistro(registro: any) {
   if (erroAssumir) throw erroAssumir;
   if (!assumido) return;
   recebimentosEmExecucao.add(String(assumido.id));
+  const etapa = (nome: string) => console.info("Recebimento de fatura", { id: assumido.id, etapa: nome });
 
   try {
     if (!assumido.unidade_consumidora_id) {
@@ -615,6 +616,7 @@ async function processarRegistro(registro: any) {
       return;
     }
 
+    etapa("CONSULTAR_ANEXOS");
     const anexosDoEvento = Array.isArray(assumido.payload?.attachments) ? assumido.payload.attachments as AnexoResend[] : [];
     const anexos = await buscarAnexosResend(assumido.provedor_email_id, anexosDoEvento);
     const anexo = escolherPdf(anexos);
@@ -632,6 +634,7 @@ async function processarRegistro(registro: any) {
       }).eq("id", assumido.id);
       return;
     }
+    etapa("BAIXAR_PDF");
     const arquivo = await baixarPdf(anexo);
     const hash = createHash("sha256").update(arquivo).digest("hex");
 
@@ -691,7 +694,8 @@ async function processarRegistro(registro: any) {
       }
       for (const [senha] of tentativas) {
         try {
-          const texto = await extrairTextoPDF(caminho, senha || undefined);
+          etapa("LER_PDF");
+          const texto = await extrairTextoPdfIsolado(caminho, senha || undefined);
           const interpretados = complementarCabecalhoCemig(texto, interpretarFatura(texto));
           const encontrada = candidatas.find((candidata) => normalizarNumero(candidata.numero) === normalizarNumero(interpretados.uc));
           if (encontrada) {
@@ -748,6 +752,7 @@ async function processarRegistro(registro: any) {
         return;
       }
 
+      etapa("CRIAR_RASCUNHO");
       const resultado = await processarFatura(dados, {
         status: "RASCUNHO",
         criarCobranca: false,
@@ -759,6 +764,7 @@ async function processarRegistro(registro: any) {
         return;
       }
 
+      etapa("ARMAZENAR_DOCUMENTOS");
       const documentos = await armazenarDocumentosDaFatura(resultado, caminho);
       const agora = new Date().toISOString();
       await supabase.from("recebimentos_faturas_email").update({
