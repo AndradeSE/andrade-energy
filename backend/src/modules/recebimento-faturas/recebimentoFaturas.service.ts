@@ -636,6 +636,7 @@ async function processarRegistro(registro: any) {
     }
     etapa("BAIXAR_PDF");
     const arquivo = await baixarPdf(anexo);
+    etapa("VERIFICAR_DUPLICIDADE");
     const hash = createHash("sha256").update(arquivo).digest("hex");
 
     const { data: duplicado, error: erroDuplicado } = await supabase
@@ -644,6 +645,7 @@ async function processarRegistro(registro: any) {
       .eq("unidade_consumidora_id", assumido.unidade_consumidora_id)
       .eq("arquivo_hash", hash)
       .neq("id", assumido.id)
+      .abortSignal(AbortSignal.timeout(30_000))
       .maybeSingle();
     if (erroDuplicado) throw erroDuplicado;
     if (duplicado) {
@@ -655,10 +657,12 @@ async function processarRegistro(registro: any) {
     const caminho = path.join(pasta, "conta.pdf");
     try {
       await writeFile(caminho, arquivo);
+      etapa("CONSULTAR_CONFIGURACAO_UC");
       const { data: unidadeConfiguracao, error: erroUnidade } = await supabase
         .from("unidades_consumidoras")
         .select("id, numero, tipo, usina_id, cliente_id, empresa_id, cpf_titular, clientes(cpf), usinas(titularidade_ucs_recebedoras)")
         .eq("id", assumido.unidade_consumidora_id)
+        .abortSignal(AbortSignal.timeout(30_000))
         .maybeSingle();
       if (erroUnidade) throw erroUnidade;
       if (!unidadeConfiguracao) throw new Error("Unidade consumidora não encontrada.");
@@ -676,7 +680,8 @@ async function processarRegistro(registro: any) {
       if (titularidade === "CLIENTE") {
         consultaUnidades = consultaUnidades.eq("cliente_id", unidadeConfiguracao.cliente_id);
       }
-      const { data: unidadesDoEscopo, error: erroEscopo } = await consultaUnidades;
+      etapa("CONSULTAR_ESCOPO_UCS");
+      const { data: unidadesDoEscopo, error: erroEscopo } = await consultaUnidades.abortSignal(AbortSignal.timeout(30_000));
       if (erroEscopo) throw erroEscopo;
       const candidatas = (unidadesDoEscopo?.length ? unidadesDoEscopo : [unidadeConfiguracao]) as any[];
 
