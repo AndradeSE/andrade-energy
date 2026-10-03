@@ -9,6 +9,7 @@ import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
 import { analisarFatura, processarFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
+import OperationLoading from "../../components/ui/OperationLoading";
 
 const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -84,6 +85,7 @@ export default function FaturamentoManual() {
 
   const dados = analise?.dados;
   return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Nova fatura" subtitle="Importar conta de energia" contextTitle="Faturamento via PDF" contextSubtitle="Importe a conta da concessionária" icon="receipt-outline" /> : null}<ScrollView contentContainerStyle={styles.content}>
+    <OperationLoading visible={faturando || lendo} title={lendo ? "Analisando a conta…" : "Gerando fatura e dados de pagamento…"} />
     <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={24} color={Colors.text} /></TouchableOpacity>
     <Text style={styles.eyebrow}>FINANCEIRO</Text><Text style={styles.title}>Faturamento via PDF</Text><Text style={styles.subtitle}>Selecione a conta da concessionária em PDF, confira os dados e confirme a geração da cobrança.</Text>
 

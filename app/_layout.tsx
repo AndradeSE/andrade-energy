@@ -123,10 +123,18 @@ function RootNavigator() {
     const appState = AppState.addEventListener("change", (estado) => {
       if (estado === "active") registrar();
     });
-    const resposta = Notifications.addNotificationResponseReceivedListener((evento) => {
+    const abrirNotificacao = (evento: Notifications.NotificationResponse) => {
+      if (!ativo) return;
       const url = evento.notification.request.content.data?.url;
-      if (typeof url === "string" && url.startsWith("/")) router.push(url as any);
-    });
+      if (typeof url === "string" && url.startsWith("/") && !url.startsWith("//")) {
+        router.push(url as any);
+        void Notifications.clearLastNotificationResponseAsync().catch(() => undefined);
+      }
+    };
+    const resposta = Notifications.addNotificationResponseReceivedListener(abrirNotificacao);
+    void Notifications.getLastNotificationResponseAsync().then((evento) => {
+      if (evento) abrirNotificacao(evento);
+    }).catch(() => undefined);
     return () => {
       ativo = false;
       appState.remove();

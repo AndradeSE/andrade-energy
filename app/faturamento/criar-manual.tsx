@@ -7,6 +7,7 @@ import FormField from "../../components/cadastro/FormField";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { criarFaturaManual } from "../../services/faturas.service";
 import { Colors, Spacing, Typography } from "../../theme";
+import OperationLoading from "../../components/ui/OperationLoading";
 
 export default function CriarFaturaManual() {
   const [dados, setDados] = useState({ cliente: "", uc: "", referencia: "", vencimento: "", consumo: "", energiaCompensada: "", energiaInjetada: "", tarifaCheia: "", valorTotal: "", saldoAtual: "" });
@@ -47,7 +48,7 @@ export default function CriarFaturaManual() {
       <FormField label="Saldo atual (kWh)" value={dados.saldoAtual} onChangeText={campo("saldoAtual")} keyboardType="decimal-pad" />
       <Button disabled={salvando} icon={<Ionicons name="checkmark-circle-outline" size={20} color={Colors.surface} />} title={salvando ? "Gerando..." : "Gerar fatura"} onPress={salvar} />
     </Card>
-  </ScrollView></Screen>;
+  </ScrollView><OperationLoading visible={salvando} title="Gerando fatura e dados de pagamento…" /></Screen>;
 }
 
 const styles = StyleSheet.create({ content: { padding: Spacing.lg, paddingBottom: Spacing.xxl * 2 }, title: { color: Colors.text, fontSize: Typography.title, fontWeight: "900" }, subtitle: { marginTop: Spacing.xs, marginBottom: Spacing.lg, color: Colors.subtitle, lineHeight: 21 } });

@@ -9,6 +9,8 @@ import { extrairTextoPdfIsolado } from "../../services/ocr/ocrIsolado.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
 import { armazenarContaDeEnergiaDaUsina, armazenarDocumentosDaFatura } from "../faturas/documentosFatura.service";
 import { processarFatura } from "../faturas/processarFatura.service";
+import { confirmarFaturaRascunho, detalharFatura } from "../faturas/faturas.service";
+import { enfileirarNotificacoesDaFatura } from "../faturas/notificacoesFatura.service";
 import { registrarProducaoDaFaturaGeradora } from "../usinas/usinas.service";
 
 const PROVEDOR = "RESEND";
@@ -770,11 +772,11 @@ async function processarRegistro(registro: any) {
         return;
       }
 
-      etapa("CRIAR_RASCUNHO");
+      etapa("FATURAR_AUTOMATICAMENTE");
       const resultado = await processarFatura(dados, {
-        status: "RASCUNHO",
-        criarCobranca: false,
-        registrarCreditos: false,
+        status: "ABERTA",
+        criarCobranca: true,
+        registrarCreditos: true,
       });
       if (resultado?.clienteNaoEncontrado) throw new Error("A UC recebida ainda não está vinculada a um cliente.");
       if (resultado?.jaProcessada) {
@@ -783,7 +785,11 @@ async function processarRegistro(registro: any) {
       }
 
       etapa("ARMAZENAR_DOCUMENTOS");
-      const documentos = await armazenarDocumentosDaFatura(resultado, caminho);
+      // A emissão grava os códigos no banco; o objeto original é anterior a ela.
+      const { data: faturaEmitida, error: erroEmitida } = await supabase.from("faturas").select("*").eq("id", resultado.id).single();
+      if (erroEmitida) throw erroEmitida;
+      const documentos = await armazenarDocumentosDaFatura(faturaEmitida, caminho);
+      await enfileirarNotificacoesDaFatura(faturaEmitida);
       const agora = new Date().toISOString();
       const { error: erroConcluir } = await supabase.from("recebimentos_faturas_email").update({
         status: "PROCESSADO",
@@ -798,7 +804,7 @@ async function processarRegistro(registro: any) {
       if (erroConcluir) throw erroConcluir;
       await atualizarUnidadeRecebimento(unidade.id, {
         recebimento_email_ultimo_em: agora,
-        recebimento_email_status: "AGUARDANDO_CONFERENCIA",
+        recebimento_email_status: "PROCESSADO",
         recebimento_email_erro: null,
       });
     } finally {
@@ -829,6 +835,29 @@ async function processarRegistro(registro: any) {
 
 export async function processarFilaDeRecebimentosFaturas() {
   if (!chaveApiResend()) return { processados: 0 };
+  // Corrige somente rascunhos originados do recebimento automático ativo.
+  // Não promove rascunhos manuais; completa códigos pendentes sem refazer a fatura.
+  const legados = await supabase.from("recebimentos_faturas_email")
+    .select("id,empresa_id,fatura_id,faturas!inner(status,codigo_pix,linha_digitavel,valor_total_unificado,valor_total),unidades_consumidoras!inner(recebimento_email_ativo)")
+    .eq("status", "PROCESSADO").in("faturas.status", ["RASCUNHO", "ABERTA"])
+    .eq("unidades_consumidoras.recebimento_email_ativo", true)
+    .or("status.eq.RASCUNHO,codigo_pix.is.null,linha_digitavel.is.null", { foreignTable: "faturas" }).limit(10);
+  if (legados.error) throw legados.error;
+  for (const legado of legados.data ?? []) {
+    if (!legado.fatura_id || recebimentosEmExecucao.has(String(legado.id))) continue;
+    const fatura = Array.isArray(legado.faturas) ? legado.faturas[0] : legado.faturas;
+    if (fatura?.status !== "RASCUNHO" && (Number(fatura?.valor_total_unificado ?? fatura?.valor_total ?? 0) <= 0 || (fatura?.codigo_pix && fatura?.linha_digitavel))) continue;
+    recebimentosEmExecucao.add(String(legado.id));
+    try {
+      if (fatura?.status === "RASCUNHO") await confirmarFaturaRascunho(legado.fatura_id, legado.empresa_id);
+      const atualizada = await detalharFatura(legado.fatura_id, legado.empresa_id);
+      await enfileirarNotificacoesDaFatura(atualizada);
+    } catch (erro: any) {
+      console.error("Falha na recuperação de cobrança automática", { recebimento_id: legado.id, tipo: erro?.name ?? "Error" });
+    } finally {
+      recebimentosEmExecucao.delete(String(legado.id));
+    }
+  }
   // Não reenviar automaticamente: o processo interrompido pode já ter salvo
   // a fatura. A recuperação exige conferência antes de repetir efeitos.
   const limiteAbandono = new Date(Date.now() - 30 * 60_000).toISOString();
