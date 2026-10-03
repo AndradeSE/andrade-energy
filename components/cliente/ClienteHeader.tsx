@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { abrirSiteApp } from "../../utils/siteApp";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -187,6 +188,7 @@ export default function ClienteHeader({
       | "/faturas"
       | "/contrato"
       | "/tutoriais"
+      | "/sobre"
       | "/unidades/recebimento-email"
   ) {
     setMenuAberto(
@@ -517,6 +519,8 @@ export default function ClienteHeader({
               label="Tutoriais"
               onPress={() => navegar("/tutoriais")}
             />
+            <MenuItem icon="globe-outline" label="Site Andrade Energy" onPress={() => { setMenuAberto(false); void abrirSiteApp(); }} />
+            <MenuItem icon="information-circle-outline" label="Sobre o app" onPress={() => navegar("/sobre")} />
 
 
             <Divider />

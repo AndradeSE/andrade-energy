@@ -216,7 +216,7 @@ function RootNavigator() {
    * mantemos o Stack montado.
    */
   if (isLoading || (session?.user?.id && readyUserId !== String(session.user.id))) {
-    return <Loading />;
+    return <Loading showRevision />;
   }
 
   const loggedIn = Boolean(session);
@@ -515,6 +515,7 @@ function RootNavigator() {
         />
         <Stack.Screen name="geradores/gestao" options={{ headerShown: false }} />
         <Stack.Screen name="tutoriais" options={{ headerShown: false }} />
+        <Stack.Screen name="sobre" options={{ headerShown: false }} />
         <Stack.Screen name="geradores/convidar" options={{ headerShown: false }} />
         <Stack.Screen name="colaboradores/index" options={{ headerShown: false }} />
         <Stack.Screen name="assinatura/index" options={{ headerShown: false }} />

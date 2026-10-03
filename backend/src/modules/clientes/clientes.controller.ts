@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { validarCadastroCliente } from "./validacaoCadastro";
 
 import {
   atualizarCliente,
@@ -116,6 +117,9 @@ export async function criarClienteController(
   req: Request,
   res: Response
 ) {
+  const erroCadastro = validarCadastroCliente(req.body);
+  if (erroCadastro) return res.status(400).json({ message: erroCadastro });
+  req.body.cpf = String(req.body.cpf).replace(/\D/g, "");
   try {
     const data = await criarCliente(req.body, empresaIdDaRequisicao(req));
     return res.status(201).json(data);
@@ -130,6 +134,9 @@ export async function atualizarClienteController(
   req: Request,
   res: Response
 ) {
+  const erroCadastro = validarCadastroCliente(req.body, true);
+  if (erroCadastro) return res.status(400).json({ message: erroCadastro });
+  if (req.body.cpf !== undefined) req.body.cpf = String(req.body.cpf).replace(/\D/g, "");
   try {
     const data = await atualizarCliente(
       req.params.id,

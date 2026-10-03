@@ -1,10 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
+import * as Updates from "expo-updates";
 import { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 
 import { Colors, Radius, Spacing } from "../../theme";
 
-export default function Loading() {
+export default function Loading({ showRevision = false }: { showRevision?: boolean }) {
+  const version = Constants.expoConfig?.version ?? Updates.runtimeVersion ?? "1.0.0";
+  const revision = Updates.updateId?.slice(-8) ?? "APK";
   const pulso = useRef(new Animated.Value(0)).current;
   const fluxo = useRef(new Animated.Value(0)).current;
 
@@ -36,6 +40,7 @@ export default function Loading() {
       <View style={styles.track}>
         <Animated.View style={[styles.flow, { transform: [{ translateX: fluxo.interpolate({ inputRange: [0, 1], outputRange: [-82, 82] }) }] }]} />
       </View>
+      {showRevision && <Text style={styles.revision}>{`v${version} · revisão ${revision}`}</Text>}
     </View>
   );
 }
@@ -51,4 +56,5 @@ const styles = StyleSheet.create({
   subtitle: { marginTop: 4, color: Colors.subtitle, fontSize: 12, fontWeight: "600" },
   track: { width: 116, height: 4, overflow: "hidden", marginTop: Spacing.md, borderRadius: Radius.round, backgroundColor: Colors.primaryLight },
   flow: { width: 42, height: 4, borderRadius: Radius.round, backgroundColor: Colors.primary },
+  revision: { marginTop: 16, color: Colors.subtitle, opacity: 0.65, fontSize: 10, letterSpacing: 0.2 },
 });

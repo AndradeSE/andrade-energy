@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { abrirSiteApp } from "../../utils/siteApp";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Alert, Image, LayoutAnimation, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
@@ -292,6 +293,8 @@ export default function AppHeader({
             </> : <><MenuLink icon="card-outline" label="Meu plano" onPress={() => navegar("/assinatura")} /><MenuLink icon="people-outline" label="Clientes" onPress={() => navegar("/clientes")} /><MenuLink icon="flash-outline" label="Unidades consumidoras" onPress={() => navegar("/unidades")} /><MenuLink icon="document-text-outline" label="Contratos dos clientes" onPress={() => navegar("/contratos")} /><MenuLink icon="receipt-outline" label="Faturamento" onPress={() => navegar("/(tabs)/faturamento")} /><MenuLink icon="wallet-outline" label="Financeiro" onPress={() => navegar("/financeiro")} /><MenuLink icon="people-circle-outline" label="Colaboradores" onPress={() => navegar("/colaboradores?ambiente=gerador")} /><MenuLink icon="time-outline" label="Atividade da equipe" onPress={() => navegar("/colaboradores/atividade?ambiente=gerador")} />{usuario?.perfil === "ADMIN" ? <MenuLink icon="layers-outline" label="Empresas parceiras" onPress={() => navegar("/admin/empresas")} /> : null}</> : <><MenuLink icon="receipt-outline" label="Minhas faturas" onPress={() => navegar("/faturas")} /><MenuLink icon="document-text-outline" label="Meu contrato" onPress={() => navegar("/contrato")} /></>}
             <MenuLink icon="person-outline" label="Perfil" onPress={() => navegar("/perfil")} />
             <MenuLink icon="play-circle-outline" label="Tutoriais" onPress={() => navegar(ambienteComercial ? "/tutoriais?ambiente=comercial" : "/tutoriais")} />
+            <MenuLink icon="globe-outline" label="Site Andrade Energy" onPress={() => { setMenuAberto(false); void abrirSiteApp(); }} />
+            <MenuLink icon="information-circle-outline" label="Sobre o app" onPress={() => navegar("/sobre")} />
             <View style={styles.menuPreference}><Ionicons name="navigate-circle-outline" size={22} color={Colors.primary} /><View style={styles.menuPreferenceCopy}><Text style={styles.menuPreferenceTitle}>Avisos passo a passo</Text><Text style={styles.menuPreferenceHint}>{avisosPassoAPasso ? "Ativados" : "Desativados"}</Text></View><Switch accessibilityLabel="Ativar avisos passo a passo" value={avisosPassoAPasso} onValueChange={(valor) => { setAvisosPassoAPasso(valor); void definirAvisosPassoAPasso(valor); }} trackColor={{ false: Colors.border, true: Colors.primary }} /></View>
             <View style={styles.menuDivider} /><MenuLink icon="log-out-outline" label="Sair da conta" danger onPress={confirmarSaida} />
             </ScrollView>
