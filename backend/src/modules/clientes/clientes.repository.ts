@@ -396,7 +396,7 @@ export async function listarUnidadesPorCpf(cpfInformado: string, empresaId = EMP
   const clienteIds = clientes.map((cliente) => cliente.id);
   const { data: unidades, error: erroUnidades } = await supabase
     .from("unidades_consumidoras")
-    .select("id, cliente_id, usina_id, numero, apelido, titular, distribuidora, endereco, status, modalidade_faturamento, usinas(id,nome,titularidade_ucs_recebedoras)")
+    .select("id, cliente_id, usina_id, numero, apelido, titular, distribuidora, endereco, status, modalidade_faturamento, desconto_percentual, usinas(id,nome,titularidade_ucs_recebedoras)")
     .in("cliente_id", clienteIds)
     .eq("empresa_id", empresaId)
     .order("numero");
