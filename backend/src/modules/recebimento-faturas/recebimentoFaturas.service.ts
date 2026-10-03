@@ -641,16 +641,29 @@ async function processarRegistro(registro: any) {
 
     const { data: duplicado, error: erroDuplicado } = await supabase
       .from("recebimentos_faturas_email")
-      .select("id, fatura_id")
+      .select("id, fatura_id, status, payload")
       .eq("unidade_consumidora_id", assumido.unidade_consumidora_id)
       .eq("arquivo_hash", hash)
       .neq("id", assumido.id)
       .abortSignal(AbortSignal.timeout(30_000))
       .maybeSingle();
     if (erroDuplicado) throw erroDuplicado;
-    if (duplicado) {
-      await supabase.from("recebimentos_faturas_email").update({ status: "IGNORADO", arquivo_nome: anexo.filename ?? "fatura.pdf", arquivo_hash: hash, fatura_id: duplicado.fatura_id ?? null, erro: "Este PDF já foi recebido anteriormente.", processado_em: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", assumido.id);
+    if (duplicado && (duplicado.fatura_id || duplicado.status !== "PROCESSADO")) {
+      // O hash já pertence ao recibo original: não violar o índice único.
+      const { error: erroIgnorar } = await supabase.from("recebimentos_faturas_email").update({ status: "IGNORADO", arquivo_nome: anexo.filename ?? "fatura.pdf", fatura_id: duplicado.fatura_id ?? null, erro: "Este PDF já foi recebido anteriormente.", processado_em: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", assumido.id);
+      if (erroIgnorar) throw erroIgnorar;
       return;
+    }
+    if (duplicado) {
+      // A exclusão da fatura remove o vínculo por FK. Permitir a recriação
+      // pedida pelo usuário, preservando o fingerprint no histórico do recibo.
+      const { data: liberado, error: erroLiberar } = await supabase.from("recebimentos_faturas_email").update({
+        arquivo_hash: null,
+        payload: adicionarMetadadosDeProcessamento(duplicado.payload, { arquivo_hash_anterior: hash, motivo: "Fatura anterior excluída" }),
+        updated_at: new Date().toISOString(),
+      }).eq("id", duplicado.id).eq("arquivo_hash", hash).eq("status", "PROCESSADO").is("fatura_id", null).select("id").maybeSingle();
+      if (erroLiberar) throw erroLiberar;
+      if (!liberado) throw new Error("O recebimento anterior mudou durante a conferência. Tente novamente.");
     }
 
     const pasta = await mkdtemp(path.join(os.tmpdir(), "andrade-fatura-email-"));
@@ -772,7 +785,7 @@ async function processarRegistro(registro: any) {
       etapa("ARMAZENAR_DOCUMENTOS");
       const documentos = await armazenarDocumentosDaFatura(resultado, caminho);
       const agora = new Date().toISOString();
-      await supabase.from("recebimentos_faturas_email").update({
+      const { error: erroConcluir } = await supabase.from("recebimentos_faturas_email").update({
         status: "PROCESSADO",
         arquivo_nome: anexo.filename ?? "fatura.pdf",
         arquivo_hash: hash,
@@ -782,6 +795,7 @@ async function processarRegistro(registro: any) {
         processado_em: agora,
         updated_at: agora,
       }).eq("id", assumido.id);
+      if (erroConcluir) throw erroConcluir;
       await atualizarUnidadeRecebimento(unidade.id, {
         recebimento_email_ultimo_em: agora,
         recebimento_email_status: "AGUARDANDO_CONFERENCIA",
