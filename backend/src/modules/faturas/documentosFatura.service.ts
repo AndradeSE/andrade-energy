@@ -9,7 +9,7 @@ import { extrairTextoDoBuffer } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
 
 const BUCKET = "faturas";
-export const VERSAO_LAYOUT_FATURA = "layout-20260904-v10";
+export const VERSAO_LAYOUT_FATURA = "layout-20261003-v11";
 export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20260903-v3";
 const VERDE = "#107C5C";
 const VERDE_ESCURO = "#07533D";
@@ -399,7 +399,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
 
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8.5).text(documentoUnificado ? "COMO CHEGAMOS AO TOTAL UNIFICADO" : "COMO CHEGAMOS À COBRANÇA", 48, y.composicao - 14);
     const rotuloCemig = valorTotalAbsorvido > 0
-      ? `CEMIG DO CLIENTE\n(${moeda(valorCemigOriginal)} − ${moeda(valorTotalAbsorvido)})`
+      ? `CEMIG DO CLIENTE\n(${moeda(valorCemigOriginal)} - ${moeda(valorTotalAbsorvido)})`
       : "CONTA DA\nCONCESSIONÁRIA";
     const disponibilidadeAbsorvida = numero(fatura.valor_absorvido_disponibilidade);
     const fioBAbsorvido = numero(fatura.valor_absorvido_fio_b);

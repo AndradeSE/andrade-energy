@@ -51,9 +51,12 @@ export async function preloadNavigationData(
         return { ...dashboard, capacidadeReservada: capacidade.reservado, capacidadeDisponivel: capacidade.disponivel };
       },
     }));
-    // useFaturas usa a chave global do gerador; uma chave por usina aqui
-    // deixava a primeira visita à aba Faturas sem os dados pré-carregados.
-    tasks.push(queryClient.prefetchQuery({ queryKey: ["faturas", "todas", undefined], queryFn: () => listarFaturas() }));
+    // A chave e o filtro precisam coincidir com useFaturas, inclusive por usina.
+    const invoicePlantId = plant?.id ?? undefined;
+    tasks.push(queryClient.prefetchQuery({
+      queryKey: ["faturas", invoicePlantId ?? "todas", undefined],
+      queryFn: () => listarFaturas(undefined, undefined, invoicePlantId),
+    }));
     tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, plantId, "contratos"), queryFn: () => listarContratosDaEmpresa() }));
     tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, plantId, "clientes"), queryFn: () => listarClientes(plantId ?? undefined) }));
     tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, plantId, "usinas"), queryFn: () => listarUsinas() }));
