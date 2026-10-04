@@ -40,7 +40,7 @@ export default function SolicitacaoCancelamentoContrato() {
   const solicitacao = dados?.solicitacao;
   const cliente = Array.isArray(contrato.clientes) ? contrato.clientes[0] : contrato.clientes;
   const unidade = Array.isArray(contrato.unidades_consumidoras) ? contrato.unidades_consumidoras[0] : contrato.unidades_consumidoras;
-  const pendente = solicitacao?.status === "PENDENTE";
+  const pendente = dados?.pode_analisar === true && solicitacao?.status === "PENDENTE";
 
   return <Screen><AppHeader variant="subpage" title="Cancelamento de contrato" subtitle="Análise da solicitação" contextTitle={cliente?.nome ?? "Cliente"} contextSubtitle={unidade?.numero ? `UC ${unidade.numero}` : `Contrato ${contrato.numero ?? id}`} icon="document-text-outline" />
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -58,7 +58,7 @@ export default function SolicitacaoCancelamentoContrato() {
         <TextInput multiline value={observacao} onChangeText={setObservacao} placeholder="Observação da análise (opcional)" style={styles.input} />
         <Button disabled={processando} title={processando ? "Processando..." : "Confirmar cancelamento"} onPress={() => decidir("CANCELAR")} style={styles.cancelButton} />
         <Button disabled={processando} title="Recusar solicitação" onPress={() => decidir("RECUSAR")} />
-      </Card></Section> : <Card><Text style={styles.help}>Esta solicitação já foi analisada. Nenhuma ação adicional é necessária.</Text></Card>}
+      </Card></Section> : <Card><Text style={styles.help}>{String(contrato.status ?? "").toUpperCase() === "SUBSTITUIDO" ? "Esta é uma versão anterior do contrato. O contrato vigente não tem cancelamento pendente." : "Esta solicitação já foi analisada. Nenhuma ação adicional é necessária."}</Text></Card>}
     </ScrollView>
   </Screen>;
 }

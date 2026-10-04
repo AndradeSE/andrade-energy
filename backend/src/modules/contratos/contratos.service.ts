@@ -45,7 +45,11 @@ export async function listarContratosDaEmpresa(empresaId: string, usinaId?: stri
   const pendentes = new Set((solicitacoes ?? []).map((solicitacao) => solicitacao.contrato_id));
   const renovacoes = await listarRenovacoesAbertas(empresaId, contratos.map((contrato) => contrato.id));
   const porContrato = new Map(renovacoes.map((item) => [item.contrato_id, item]));
-  return contratos.map((contrato) => ({ ...contrato, cancelamento_pendente: pendentes.has(contrato.id), renovacao_solicitada: porContrato.get(contrato.id) ?? null }));
+  return contratos.map((contrato) => ({
+    ...contrato,
+    cancelamento_pendente: contratoAceitaSolicitacaoCancelamento(contrato.status) && pendentes.has(contrato.id),
+    renovacao_solicitada: porContrato.get(contrato.id) ?? null,
+  }));
 }
 
 export async function criarContratoService(
@@ -138,12 +142,12 @@ async function anexarCancelamentoAoContrato(contrato: any) {
   const { data, error } = await supabase.from("solicitacoes_cancelamento_contrato")
     .select("id")
     .eq("empresa_id", contrato.empresa_id)
-    .in("contrato_id", ids)
+    .eq("contrato_id", contrato.id)
     .in("status", ["PENDENTE", "PROCESSANDO"])
     .limit(1);
   if (error) throw error;
   const renovacoes = await listarRenovacoesAbertas(contrato.empresa_id, ids);
-  return anexarLinksDoContrato({ ...contrato, cancelamento_pendente: Boolean(data?.length), renovacao_solicitada: renovacoes[0] ?? null });
+  return anexarLinksDoContrato({ ...contrato, cancelamento_pendente: contratoAceitaSolicitacaoCancelamento(contrato.status) && Boolean(data?.length), renovacao_solicitada: renovacoes[0] ?? null });
 }
 
 async function anexarLinksDoContrato(contrato: any) {
@@ -896,12 +900,18 @@ export async function obterSolicitacaoCancelamentoService(id: string, empresaId:
   const { data: solicitacao, error: erroSolicitacao } = await supabase.from("solicitacoes_cancelamento_contrato")
     .select("*").eq("contrato_id", id).eq("empresa_id", empresaId).order("solicitado_em", { ascending: false }).limit(1).maybeSingle();
   if (erroSolicitacao) throw erroSolicitacao;
-  return { contrato, solicitacao };
+  return { contrato, solicitacao, pode_analisar: contratoAceitaSolicitacaoCancelamento(contrato.status) && ["PENDENTE", "PROCESSANDO"].includes(String(solicitacao?.status ?? "")) };
 }
 
 export async function concluirSolicitacaoCancelamentoService(id: string, empresaId: string, usuario: any, decisao: string, observacao?: string) {
   const acao = String(decisao ?? "").toUpperCase();
   if (!['CANCELAR', 'RECUSAR'].includes(acao)) throw new Error("Escolha cancelar o contrato ou recusar a solicitação.");
+  const { data: contrato, error: erroContrato } = await supabase.from("contratos")
+    .select("status").eq("id", id).eq("empresa_id", empresaId).maybeSingle();
+  if (erroContrato || !contrato) throw erroContrato ?? new Error("Contrato não encontrado nesta empresa.");
+  if (!contratoAceitaSolicitacaoCancelamento(contrato.status)) {
+    throw new Error("Esta versão do contrato já foi substituída ou encerrada e não pode ser cancelada.");
+  }
   const { data: solicitacao, error } = await supabase.from("solicitacoes_cancelamento_contrato")
     .select("id,status,cliente_id,solicitado_por,processamento_iniciado_em").eq("contrato_id", id).eq("empresa_id", empresaId).in("status", ["PENDENTE", "PROCESSANDO"]).maybeSingle();
   if (error) throw error;

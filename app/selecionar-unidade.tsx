@@ -1249,6 +1249,8 @@ const styles =
 
     headerTop: {
       minHeight: 48,
+      position: "relative",
+      justifyContent: "center",
       flexDirection:
         "row",
       alignItems:
@@ -1262,6 +1264,9 @@ const styles =
     },
 
     menuButton: {
+      position: "absolute",
+      left: 0,
+      zIndex: 2,
       width: 44,
       height: 44,
       alignItems:
@@ -1303,10 +1308,10 @@ const styles =
     },
 
     logoBox: {
-      flex: 1,
+      width: 158,
       height: 44,
       alignItems:
-        "flex-end",
+        "center",
       justifyContent:
         "center",
     },

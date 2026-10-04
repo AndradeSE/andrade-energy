@@ -13,7 +13,7 @@ import { Colors, Radius, Spacing, Typography } from "../../theme";
 function statusContrato(contrato: any) {
   const status = String(contrato.status ?? "").toUpperCase();
   const documento = contrato.dados_documento ?? {};
-  if (contrato.cancelamento_pendente) return "Cancelamento solicitado";
+  if (["ATIVO", "VIGENTE"].includes(status) && contrato.cancelamento_pendente) return "Cancelamento solicitado";
   if (contrato.renovacao_solicitada?.status === "PENDENTE") return "Renovação solicitada";
   if (documento.assinatura_externa_pendente === true) return "Aguardando conferência";
   if (!contrato.aceite_cliente_em && documento.aceite_cliente_exigido === true) return "Aguardando aceite";
@@ -118,7 +118,7 @@ export default function ContratosClientes() {
         </View>
         {String(contrato.status).toUpperCase() === "RASCUNHO" && !contrato.aceite_cliente_em && !contrato.contrato_assinado_url && contrato.dados_documento?.envio_email_concluido !== true && <Pressable accessibilityRole="button" accessibilityLabel={`Excluir rascunho ${contrato.numero ?? "sem número"}`} onPress={() => confirmarExclusao(contrato)} style={styles.deleteButton}><Ionicons name="trash-outline" size={18} color={Colors.danger} /></Pressable>}
       </View>
-      {contrato.cancelamento_pendente ? <Pressable accessibilityRole="button" accessibilityLabel={`Analisar cancelamento do contrato ${contrato.numero ?? ""}`} onPress={() => router.push(`/contratos/${contrato.id}` as any)} style={styles.cancelReviewButton}><Ionicons name="alert-circle-outline" size={18} color={Colors.danger} /><Text style={styles.cancelReviewText}>Analisar cancelamento</Text><Ionicons name="chevron-forward" size={17} color={Colors.danger} /></Pressable> : null}
+      {(["ATIVO", "VIGENTE"].includes(String(contrato.status ?? "").toUpperCase()) && contrato.cancelamento_pendente) ? <Pressable accessibilityRole="button" accessibilityLabel={`Analisar cancelamento do contrato ${contrato.numero ?? ""}`} onPress={() => router.push(`/contratos/${contrato.id}` as any)} style={styles.cancelReviewButton}><Ionicons name="alert-circle-outline" size={18} color={Colors.danger} /><Text style={styles.cancelReviewText}>Analisar cancelamento</Text><Ionicons name="chevron-forward" size={17} color={Colors.danger} /></Pressable> : null}
       {contrato.renovacao_solicitada?.status === "PENDENTE" && contrato.unidade_consumidora_id ? <Pressable accessibilityRole="button" accessibilityLabel={`Preparar renovação do contrato ${contrato.numero ?? ""}`} onPress={() => router.push({ pathname: "/unidades/contrato", params: { id: contrato.unidade_consumidora_id, numero: contrato.unidades_consumidoras?.numero ?? "", clienteId: contrato.cliente_id, revisao: "1", renovacao: "1" } })} style={styles.renewReviewButton}><Ionicons name="refresh-outline" size={18} color={Colors.primary} /><Text style={styles.renewReviewText}>Preparar renovação</Text><Ionicons name="chevron-forward" size={17} color={Colors.primary} /></Pressable> : null}
     </View>;
   }
