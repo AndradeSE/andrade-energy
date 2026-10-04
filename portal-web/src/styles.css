@@ -465,3 +465,10 @@ svg { display: block; }
 .notification-panel article.notification-unread { background: #eaf5ee; }
 .notification-panel article.notification-read { opacity: .72; }
 .notification-panel article span > button { width: fit-content; padding: 3px 0; border: 0; border-radius: 0; color: #087a46; background: transparent; font-size: 12px; text-decoration: underline; }
+.structured-address { grid-column: 1 / -1; min-width: 0; margin: 12px 0; padding: 16px; border: 1px solid #c7dfd1; border-radius: 12px; }
+.structured-address legend { padding: 0 6px; font-weight: 700; }
+.record-editor form > fieldset, .commercial-form > fieldset { min-width: 0; border: 0; padding: 0; margin: 0; }
+.structured-address .record-editor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.structured-address label { min-width: 0; }
+.structured-address input, .structured-address select { width: 100%; box-sizing: border-box; }
+@media (max-width: 600px) { .structured-address .record-editor-grid { grid-template-columns: 1fr; } }

@@ -4,6 +4,12 @@ import defaultBrandLogo from "./assets/andrade-energy-logo-clara.png";
 import generatorAppIcon from "./assets/app-gerador.png";
 import consumerAppIcon from "./assets/app-consumidor.png";
 import RecordEditForm from "./RecordEditForm";
+import AddressFields from "./AddressFields";
+import ProductionPdfImport from "./ProductionPdfImport";
+import PixKeyField from "./PixKeyField";
+import PasswordField from "./PasswordField";
+import PersonNameFields from "./PersonNameFields";
+import { cpfValido, erroEndereco, lerEnderecoFatura, nomeCompletoValido } from "../../utils/cadastroCliente";
 import RealDiscountInfoWeb from "./RealDiscountInfoWeb";
 import ConsumerInviteSignup from "./ConsumerInviteSignup";
 import PublicSubscriptionSignup from "./PublicSubscriptionSignup";
@@ -410,7 +416,7 @@ function ClientOverview({
 }
 
 function GeneratorInvitePanel({ token }: { token: string }) {
-  const [form, setForm] = useState({ nome: "", cpf: "", email: "", perfil: "GESTOR" });
+  const [form, setForm] = useState({ nome: "", cpf: "", email: "", endereco: "", perfil: "GESTOR" });
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState("");
   const [accounts, setAccounts] = useState<WebRecord[]>([]);
@@ -435,6 +441,10 @@ function GeneratorInvitePanel({ token }: { token: string }) {
   }, [token]);
   async function submitInvite(event: FormEvent) {
     event.preventDefault();
+    if (!nomeCompletoValido(form.nome)) return setMessage("Informe nome e sobrenome válidos.");
+    if (!cpfValido(form.cpf)) return setMessage("Informe um CPF válido.");
+    const addressError = erroEndereco(lerEnderecoFatura(form.endereco));
+    if (addressError) return setMessage(addressError);
     setSending(true);
     setMessage("");
     try {
@@ -454,7 +464,7 @@ function GeneratorInvitePanel({ token }: { token: string }) {
           ? "Convite enviado por e-mail com sucesso."
           : `Convite criado. Código: ${data.token}`,
       );
-      setForm({ nome: "", cpf: "", email: "", perfil: "GESTOR" });
+      setForm({ nome: "", cpf: "", email: "", endereco: "", perfil: "GESTOR" });
       await loadAccounts();
     } catch (reason) {
       setMessage(
@@ -505,16 +515,8 @@ function GeneratorInvitePanel({ token }: { token: string }) {
               <option value="ADMIN">Administrador</option>
             </select>
           </label>
-          <label>
-            Nome completo
-            <input
-              required
-              value={form.nome}
-              onChange={(event) =>
-                setForm({ ...form, nome: event.target.value })
-              }
-            />
-          </label>
+          <PersonNameFields value={form.nome} onChange={nome => setForm(current => ({...current,nome}))}/>
+          <AddressFields value={form.endereco} onChange={endereco => setForm(current => ({...current,endereco}))}/>
           <label>
             CPF
             <input
@@ -746,7 +748,7 @@ function CommercialManagementPanel({ token }: { token: string }) {
       <div className="commercial-generator-grid">{(data?.geradores ?? []).filter((item:any)=>item.perfil === "GESTOR").map((item:any)=><button key={item.id} onClick={()=>setSelectedGeneratorId(String(item.id))}><b>{String(item.nome??"G").charAt(0).toUpperCase()}</b><span><strong>{item.nome??"Gerador"}</strong><small>{item.email??"E-mail não informado"}</small><em>{item.total_usinas??0} usina(s) · {item.total_ucs_ativas??0} UC(s) ativa(s)</em></span><i>Ver detalhes →</i></button>)}</div>
       {selectedGenerator ? <article className="commercial-generator-detail"><button aria-label="Fechar detalhes" onClick={()=>setSelectedGeneratorId(null)}>×</button><div><small>GERADOR SELECIONADO</small><h3>{selectedGenerator.nome}</h3><p>{selectedGenerator.email} · {selectedGenerator.telefone || "Telefone não informado"}</p></div><dl><div><dt>Status</dt><dd>{selectedGenerator.ativo ? "Ativo" : "Inativo"}</dd></div><div><dt>Plano</dt><dd>{selectedSubscription?.plano?.nome ?? "Sem assinatura"}</dd></div><div><dt>Assinatura</dt><dd>{selectedSubscription?.status ?? "Não contratada"}</dd></div><div><dt>Vencimento</dt><dd>{selectedSubscription?.proximo_vencimento ? new Date(`${selectedSubscription.proximo_vencimento}T12:00:00`).toLocaleDateString("pt-BR") : "—"}</dd></div><div><dt>Usinas</dt><dd>{selectedGenerator.total_usinas ?? 0}</dd></div><div><dt>UCs ativas</dt><dd>{selectedGenerator.total_ucs_ativas ?? 0}</dd></div></dl><footer className="generator-remove-actions"><button className="table-action danger" onClick={()=>void removeGenerator(selectedGenerator)}>Remover gerador</button><small>Cancela o acesso e preserva o histórico comercial.</small></footer></article> : null}
     </section>
-    {wallet?<section className="section-workspace commercial-transfer"><div className="data-toolbar"><div><small>TRANSFERÊNCIAS ASAAS</small><strong>{money(wallet.saldoDisponivel)} disponível</strong></div><span>{money(wallet.recebidoAssinaturas??data?.financeiro?.totalRecebido)} em assinaturas recebidas</span></div><form className="commercial-form" onSubmit={withdraw}><div className="commercial-form-row"><label>Tipo da chave Pix<select value={walletForm.pixTipo} onChange={e=>setWalletForm({...walletForm,pixTipo:e.target.value})}><option>CPF</option><option>CNPJ</option><option>EMAIL</option><option>PHONE</option><option>EVP</option></select></label><label>Chave Pix<input value={walletForm.pixChave} onChange={e=>setWalletForm({...walletForm,pixChave:e.target.value})} placeholder={wallet.pixChaveMascarada??"Informe a chave"}/></label></div>{wallet.pixTitularNome?<div className="commercial-pix-confirmation"><small>TITULAR VALIDADO</small><strong>{wallet.pixTitularNome}</strong><span>Confira o nome antes de ativar transferências automáticas.</span></div>:null}<label>Senha atual<input required type="password" value={walletForm.senhaAtual} onChange={e=>setWalletForm({...walletForm,senhaAtual:e.target.value})}/></label><div className="row-actions"><button type="button" className="table-action" onClick={()=>void saveWallet()}>Validar titular e salvar</button><button type="button" className="table-action" onClick={()=>void saveWallet(!wallet.transferenciaAutomatica)}>{wallet.transferenciaAutomatica?"Desativar transferência automática":"Ativar transferência automática"}</button></div><div className="commercial-form-row"><label>Valor da transferência<input inputMode="decimal" value={walletForm.valor} onChange={e=>setWalletForm({...walletForm,valor:e.target.value})} placeholder="0,00"/></label><button className="primary-action">Transferir via Pix</button></div></form></section>:null}
+    {wallet?<section className="section-workspace commercial-transfer"><div className="data-toolbar"><div><small>TRANSFERÊNCIAS ASAAS</small><strong>{money(wallet.saldoDisponivel)} disponível</strong></div><span>{money(wallet.recebidoAssinaturas??data?.financeiro?.totalRecebido)} em assinaturas recebidas</span></div><form className="commercial-form" onSubmit={withdraw}><div className="commercial-form-row"><PixKeyField value={walletForm.pixChave} placeholder={wallet.pixChaveMascarada??"Informe a chave"} onChange={(pixChave,pixTipo)=>setWalletForm(current=>({...current,pixChave,pixTipo:pixTipo??""}))}/></div>{wallet.pixTitularNome?<div className="commercial-pix-confirmation"><small>TITULAR VALIDADO</small><strong>{wallet.pixTitularNome}</strong><span>Confira o nome antes de ativar transferências automáticas.</span></div>:null}<PasswordField required value={walletForm.senhaAtual} onChange={senhaAtual=>setWalletForm(current=>({...current,senhaAtual}))}/><div className="row-actions"><button type="button" className="table-action" onClick={()=>void saveWallet()}>Validar titular e salvar</button><button type="button" className="table-action" onClick={()=>void saveWallet(!wallet.transferenciaAutomatica)}>{wallet.transferenciaAutomatica?"Desativar transferência automática":"Ativar transferência automática"}</button></div><div className="commercial-form-row"><label>Valor da transferência<input inputMode="decimal" value={walletForm.valor} onChange={e=>setWalletForm({...walletForm,valor:e.target.value})} placeholder="0,00"/></label><button className="primary-action">Transferir via Pix</button></div></form></section>:null}
     {wallet ? <FinancialAuthenticator token={token} base="/comercial/financeiro" active={Boolean(wallet.autenticadorAtivo)} password={walletForm.senhaAtual} code={walletForm.codigoAutenticador} onCode={code => setWalletForm(current => ({ ...current, codigoAutenticador: code }))} onActive={() => void load()} /> : null}
     <div className="commercial-columns">
       <section className="section-workspace" id="comercial-geradores">
@@ -793,7 +795,9 @@ function ProfilePanel({
     nome: fallback?.nome ?? "",
     email: fallback?.email ?? "",
     telefone: "",
+    endereco: "",
   });
+  const profileType = fallback?.perfil === "LEITURA" ? "CONSUMIDOR" : "GERADOR";
   const [passwords, setPasswords] = useState({
     senhaAtual: "",
     novaSenha: "",
@@ -807,7 +811,7 @@ function ProfilePanel({
   const [privacyRequests, setPrivacyRequests] = useState<Array<{ id: string; detalhes?: { tipo?: string; status?: string }; criado_em: string; usuarios?: { nome?: string; email?: string } }>>([]);
   const [myPrivacyRequests, setMyPrivacyRequests] = useState<Array<{ id: string; detalhes?: { tipo?: string; status?: string }; criado_em: string }>>([]);
   useEffect(() => {
-    void fetch(`${API_URL}/auth/me`, {
+    void fetch(`${API_URL}/auth/me?tipo=${profileType}`, {
       headers: { Authorization: `Bearer ${token}` },
     }).then(async (response) => {
       if (response.ok) {
@@ -816,10 +820,11 @@ function ProfilePanel({
           nome: data.nome ?? "",
           email: data.email ?? "",
           telefone: data.telefone ?? "",
+          endereco: data.endereco ?? "",
         });
       }
     });
-  }, [token]);
+  }, [token, profileType]);
   useEffect(() => {
     void fetch(`${API_URL}/privacidade/solicitacoes/minhas`, { headers: { Authorization: `Bearer ${token}` } })
       .then((response) => response.ok ? response.json() : [])
@@ -834,24 +839,21 @@ function ProfilePanel({
       .catch(() => undefined);
   }, [fallback?.perfil, token]);
   async function saveProfile(event: FormEvent) {
-    event.preventDefault();
-    setSaving(true);
-    setMessage("");
-    const response = await fetch(`${API_URL}/auth/me`, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(profile),
-    });
-    const data = await response.json().catch(() => ({}));
-    setMessage(
-      response.ok
-        ? "Perfil atualizado com sucesso."
-        : (data.message ?? "Não foi possível atualizar o perfil."),
-    );
-    setSaving(false);
+    event.preventDefault(); if (saving) return;
+    if (!nomeCompletoValido(profile.nome)) return setMessage("Informe nome e sobrenome válidos.");
+    const addressError = erroEndereco(lerEnderecoFatura(profile.endereco));
+    if (addressError) return setMessage(addressError);
+    setSaving(true); setMessage("");
+    try {
+      const response = await fetch(`${API_URL}/auth/me`, {
+        method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({...profile, tipo: profileType}),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message ?? "Não foi possível atualizar o perfil.");
+      setMessage("Perfil atualizado com sucesso.");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível salvar. Tente novamente."); }
+    finally { setSaving(false); }
   }
   async function savePassword(event: FormEvent) {
     event.preventDefault();
@@ -915,16 +917,8 @@ function ProfilePanel({
           {(profile.nome || "U").slice(0, 1).toUpperCase()}
         </div>
         <form onSubmit={saveProfile}>
-          <label>
-            Nome completo
-            <input
-              required
-              value={profile.nome}
-              onChange={(event) =>
-                setProfile({ ...profile, nome: event.target.value })
-              }
-            />
-          </label>
+          <PersonNameFields value={profile.nome} onChange={nome => setProfile(current => ({...current,nome}))}/>
+          <AddressFields value={profile.endereco} onChange={endereco => setProfile(current => ({...current,endereco}))}/>
           <label>
             E-mail
             <input
@@ -1302,32 +1296,8 @@ function WalletPanel({ token }: { token: string }) {
             terão carteiras e destinos separados.
           </p>
           <form onSubmit={save}>
-            <label>Senha atual<input type="password" autoComplete="current-password" value={financialPassword} onChange={event => setFinancialPassword(event.target.value)} /></label>
-            <label>
-              Tipo da chave
-              <select
-                value={form.pixTipo}
-                onChange={(event) =>
-                  setForm({ ...form, pixTipo: event.target.value })
-                }
-              >
-                <option value="EMAIL">E-mail</option>
-                <option value="CPF">CPF</option>
-                <option value="CNPJ">CNPJ</option>
-                <option value="PHONE">Telefone</option>
-                <option value="EVP">Chave aleatória</option>
-              </select>
-            </label>
-            <label>
-              Chave Pix
-              <input
-                value={form.pixChave}
-                onChange={(event) =>
-                  setForm({ ...form, pixChave: event.target.value })
-                }
-                placeholder={wallet.pixChaveMascarada ?? "Informe sua chave"}
-              />
-            </label>
+            <PasswordField value={financialPassword} onChange={setFinancialPassword}/>
+            <PixKeyField value={form.pixChave} placeholder={wallet.pixChaveMascarada ?? "Informe sua chave"} onChange={(pixChave,pixTipo)=>setForm(current=>({...current,pixChave,pixTipo:pixTipo??""}))}/>
             <button
               type="button"
               className={`wallet-toggle ${form.transferenciaAutomatica ? "on" : ""}`}
@@ -2785,6 +2755,7 @@ function ActionDialog({
         ["cpf", "CPF", "text"],
         ["email", "E-mail", "email"],
         ["telefone", "Telefone / WhatsApp (opcional)", "text"],
+        ["endereco", "Endereço", "text"],
       ],
     },
     Financeiro: {
@@ -2817,13 +2788,16 @@ function ActionDialog({
       } else if (section === "Clientes") {
         if (!file) throw new Error("Anexe a fatura da concessionária que criará a primeira UC.");
         const cpf = String(form.cpf ?? "").replace(/\D/g, "");
-        if (cpf.length !== 11) throw new Error("Informe um CPF válido com 11 números.");
+        if (!cpfValido(cpf)) throw new Error("Informe um CPF válido.");
+        if (!nomeCompletoValido(form.nome ?? "")) throw new Error("Informe nome e sobrenome válidos.");
+        const addressError = erroEndereco(lerEnderecoFatura(form.endereco ?? ""));
+        if (addressError) throw new Error(addressError);
         const email = String(form.email ?? "").trim().toLocaleLowerCase("pt-BR");
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Informe um e-mail válido.");
         response = await fetch(`${API_URL}/clientes`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ nome: form.nome?.trim(), cpf, email, telefone: form.telefone?.trim() || null, whatsapp: form.telefone?.replace(/\D/g, "") || null, status: "ATIVO" }),
+          body: JSON.stringify({ nome: form.nome?.trim(), cpf, email, endereco: form.endereco, telefone: form.telefone?.trim() || null, whatsapp: form.telefone?.replace(/\D/g, "") || null, status: "ATIVO" }),
         });
         const client = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(client.message ?? "Não foi possível cadastrar o cliente.");
@@ -2905,7 +2879,7 @@ function ActionDialog({
               />
             </label>
           ) : (
-            <>{config?.fields.map(([key, label, type]) => (
+            <>{config?.fields.map(([key, label, type]) => key === "endereco" ? <AddressFields key={key} value={form[key] ?? ""} onChange={value => setForm(current => ({...current,[key]:value}))}/> : section === "Clientes" && key === "nome" ? <PersonNameFields key={key} value={form.nome ?? ""} onChange={nome => setForm(current => ({...current,nome}))}/> : (
               <label key={key}>
                 {label}
                 <input
@@ -2923,7 +2897,7 @@ function ActionDialog({
                   }
                 />
               </label>
-            ))}{section === "Clientes" ? <label>Fatura da concessionária (obrigatória)<input accept="application/pdf" required type="file" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /><small>Os dados da conta serão usados para criar e vincular a primeira UC.</small></label> : null}</>
+            ))}{section === "Clientes" ? <label>Fatura da concessionária <span style={{color:"#b42318"}}>*</span><input accept="application/pdf" required type="file" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /><small>Os dados da conta serão usados para criar e vincular a primeira UC.</small></label> : null}</>
           )}
           {error && <div className="error-message">{error}</div>}
           <button className="submit-operation" disabled={saving}>
@@ -2988,6 +2962,7 @@ function PortalHome({
   const [globalSearchFeedback, setGlobalSearchFeedback] = useState("");
   const [actionOpen, setActionOpen] = useState(false);
   const [manualBillingOpen, setManualBillingOpen] = useState(false);
+  const [productionPdfOpen, setProductionPdfOpen] = useState(false);
   const [automaticBillingUnit, setAutomaticBillingUnit] = useState<WebRecord | null>(null);
   const [consumerAutomaticBillingUnit, setConsumerAutomaticBillingUnit] = useState<WebRecord | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<WebRecord | null>(null);
@@ -3506,7 +3481,7 @@ function PortalHome({
         {type === "GERADOR" && !isCommercialWorkspace && workspacePlants.length > 0 ? <select className="portal-plant-select" aria-label="Usina ativa" value={activePlantId} onChange={(event) => { setActivePlantId(event.target.value); setSelectedRecord(null); }}>
           {workspacePlants.map((plant) => <option key={String(plant.id)} value={String(plant.id)}>{String(plant.nome ?? "Usina")}</option>)}
         </select> : null}
-        {type === "GERADOR" && !isCommercialWorkspace && !isCollaborator ? <button type="button" className="portal-plant-manage" onClick={() => { setActiveSection("Usinas"); setSelectedRecord(workspacePlants.find((plant) => String(plant.id) === activePlantId) ?? null); }}>{activePlantId ? "Editar usina" : "Cadastrar usina"}</button> : null}
+        {type === "GERADOR" && !isCommercialWorkspace && !isCollaborator ? <><button type="button" className="portal-plant-manage" onClick={() => { setActiveSection("Usinas"); setSelectedRecord(workspacePlants.find((plant) => String(plant.id) === activePlantId) ?? null); }}>{activePlantId ? "Editar usina" : "Cadastrar usina"}</button><button type="button" className="portal-plant-manage" onClick={()=>setProductionPdfOpen(true)}>Importar dados de produção</button></> : null}
         <form className="portal-global-search" onSubmit={submitGlobalSearch}>
           <span aria-hidden="true">⌕</span>
           <input aria-label="Pesquisar no portal" aria-describedby={globalSearchFeedback ? "portal-search-feedback" : undefined} list="portal-search-options" onChange={(event) => { setGlobalSearch(event.target.value); setGlobalSearchFeedback(""); }} placeholder="Pesquisar" value={globalSearch} />
@@ -3991,6 +3966,7 @@ function PortalHome({
             />
           ) : null}
           {manualBillingOpen && session.token ? <ManualBillingModal token={session.token} onClose={() => setManualBillingOpen(false)} onSuccess={() => { setRefreshKey((value) => value + 1); setActiveSection("Faturas"); }} /> : null}
+          {productionPdfOpen && session.token ? <ProductionPdfImport apiUrl={API_URL} token={session.token} onClose={()=>setProductionPdfOpen(false)} onSuccess={()=>setRefreshKey(value=>value+1)}/> : null}
           {automaticBillingUnit?.id && session.token ? <AutomaticBillingModal token={session.token} unit={automaticBillingUnit} accessType={type} onClose={() => setAutomaticBillingUnit(null)} /> : null}
         </section>
       </div>

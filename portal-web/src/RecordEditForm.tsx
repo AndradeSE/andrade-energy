@@ -1,4 +1,6 @@
 import { FormEvent, useMemo, useState } from "react";
+import AddressFields from "./AddressFields";
+import { cpfValido, erroEndereco, lerEnderecoFatura, nomeCompletoValido } from "../../utils/cadastroCliente";
 
 type RecordData = Record<string, unknown>;
 type Field = { key: string; label: string; type?: "text" | "number" | "date" | "select" | "textarea"; options?: Array<[string,string]> };
@@ -34,6 +36,34 @@ export default function RecordEditForm({ section, record, token, onSaved }: { se
   const [form, setForm] = useState<Record<string,string>>(initial); const [message,setMessage]=useState(""); const [saving,setSaving]=useState(false);
   if (!fields.length || !record.id) return null;
   const endpoints: Record<string,string> = { Clientes:`/clientes/${record.id}`,Usinas:`/usinas/${record.id}`,Operação:`/fechamentos/${record.id}`,Contratos:`/contratos/unidade/${record.id}` };
-  async function submit(event: FormEvent) { event.preventDefault(); setSaving(true); setMessage(""); const numeric=new Set(fields.filter((f)=>f.type==="number").map((f)=>f.key)); const payload=Object.fromEntries(Object.entries(form).map(([key,value])=>[key,numeric.has(key)?Number(value||0):value||null])); const response=await fetch(`${API_URL}${endpoints[section]}`,{method:"PUT",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify(payload)}); const data=await response.json().catch(()=>({})); setSaving(false); setMessage(response.ok?"Alterações salvas.":data.message??"Não foi possível salvar."); if(response.ok) onSaved({...record,...payload,...data}); }
-  return <details className="record-editor"><summary>Editar dados completos <span>⌄</span></summary><form onSubmit={submit}><div className="record-editor-grid">{fields.map((field)=><label key={field.key}>{field.label}{field.type==="select"?<select value={form[field.key]} onChange={(e)=>setForm({...form,[field.key]:e.target.value})}>{field.options?.map(([value,label])=><option value={value} key={value}>{label}</option>)}</select>:field.type==="textarea"?<textarea value={form[field.key]} onChange={(e)=>setForm({...form,[field.key]:e.target.value})}/>:<input type={field.type??"text"} step={field.type==="number"?"0.01":undefined} value={form[field.key]} onChange={(e)=>setForm({...form,[field.key]:e.target.value})}/>}</label>)}</div><button disabled={saving}>{saving?"Salvando...":"Salvar alterações"}</button>{message&&<small>{message}</small>}</form></details>;
+  const addressKeys = new Set(["endereco", "locador_endereco", "endereco_uc"]);
+  async function submit(event: FormEvent) {
+    event.preventDefault(); if (saving) return;
+    if (section === "Clientes" && !nomeCompletoValido(form.nome)) return setMessage("Informe nome e sobrenome válidos.");
+    if (section === "Clientes" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return setMessage("Informe um e-mail válido.");
+    if (section === "Clientes" && !cpfValido(form.cpf)) return setMessage("Informe um CPF válido.");
+    for (const field of fields.filter(f => addressKeys.has(f.key))) {
+      const error = erroEndereco(lerEnderecoFatura(form[field.key]));
+      if (error) return setMessage(`${field.label}: ${error}`);
+    }
+    setSaving(true); setMessage("");
+    try {
+      const numeric = new Set(fields.filter(f => f.type === "number").map(f => f.key));
+      const payload = Object.fromEntries(Object.entries(form).map(([key, value]) => [key, numeric.has(key) ? Number(value || 0) : value.trim() || null]));
+      const response = await fetch(`${API_URL}${endpoints[section]}`, { method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message ?? "Não foi possível salvar.");
+      setMessage("Alterações salvas."); onSaved({ ...record, ...payload, ...data });
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível salvar. Tente novamente."); }
+    finally { setSaving(false); }
+  }
+  return <details className="record-editor"><summary>Editar dados completos <span>⌄</span></summary><form onSubmit={submit}><fieldset disabled={saving}><div className="record-editor-grid">{fields.map(field => {
+    if (addressKeys.has(field.key)) return <AddressFields key={field.key} title={field.label} value={form[field.key]} onChange={value => setForm(current => ({ ...current, [field.key]: value }))}/>;
+    if (section === "Clientes" && field.key === "nome") {
+      const parts = form.nome.split(" ");
+      return <div key={field.key} className="record-editor-grid"><label>Nome <span style={{color:"#b42318"}}>*</span><input required autoComplete="given-name" value={parts[0] ?? ""} onChange={e => setForm(current => ({ ...current, nome: `${e.target.value.replace(/\s/g, "")} ${parts.slice(1).join(" ")}` }))}/></label><label>Sobrenome <span style={{color:"#b42318"}}>*</span><input required autoComplete="family-name" value={parts.slice(1).join(" ")} onChange={e => setForm(current => ({ ...current, nome: `${parts[0]} ${e.target.value}` }))}/></label></div>;
+    }
+    const required = section === "Clientes" && ["email", "cpf"].includes(field.key);
+    return <label key={field.key}>{field.label}{required && <span style={{color:"#b42318"}}> *</span>}{field.type === "select" ? <select value={form[field.key]} onChange={e => setForm({...form,[field.key]:e.target.value})}>{field.options?.map(([value,label]) => <option value={value} key={value}>{label}</option>)}</select> : field.type === "textarea" ? <textarea value={form[field.key]} onChange={e=>setForm({...form,[field.key]:e.target.value})}/> : <input required={required} type={field.key === "email" ? "email" : field.type ?? "text"} step={field.type === "number" ? "0.01" : undefined} value={form[field.key]} onChange={e=>setForm({...form,[field.key]:e.target.value})}/>}</label>;
+  })}</div></fieldset><button disabled={saving}>{saving?"Salvando...":"Salvar alterações"}</button>{message&&<small role="status">{message}</small>}</form></details>;
 }

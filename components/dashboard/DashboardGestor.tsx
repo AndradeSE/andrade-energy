@@ -274,6 +274,17 @@ export default function DashboardGestor() {
           </View>
         </View>
 
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Importar dados de produção"
+          disabled={importando}
+          onPress={atualizarGeracao}
+          style={[styles.importButton, { marginTop: Spacing.sm, marginBottom: Spacing.lg }, importando && styles.disabled]}
+        >
+          <Ionicons name="document-attach-outline" size={18} color={Colors.surface} />
+          <Text style={styles.importText}>{importando ? "Lendo conta..." : "Importar dados de produção"}</Text>
+        </Pressable>
+
         {historicoGeracao.length ? (
           <AndradeBarChart
             title="Desempenho da geração"
@@ -440,20 +451,6 @@ export default function DashboardGestor() {
               ]}
             />
           </View>
-          <Pressable
-            disabled={importando}
-            onPress={atualizarGeracao}
-            style={[styles.importButton, importando && styles.disabled]}
-          >
-            <Ionicons
-              name="document-attach-outline"
-              size={18}
-              color={Colors.surface}
-            />
-            <Text style={styles.importText}>
-              {importando ? "Lendo conta..." : "Importar dados de produção"}
-            </Text>
-          </Pressable>
         </View>
 
       </ScrollView>

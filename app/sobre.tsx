@@ -5,15 +5,23 @@ import { AppHeader, Card, ElasticScrollView, Screen } from "../components/ui";
 import { APP_DISPLAY_NAME, IS_GERADOR_APP } from "../config/appVariant";
 import { Colors, Spacing } from "../theme";
 const atualizacaoAtual = {
-  numero: "1.0.0-r20261004.2", data: "04/10/2026",
+  numero: "1.0.0-r20261004.3", data: "04/10/2026",
   melhorias: IS_GERADOR_APP ? [
-    "Logo animada na abertura, com lâmpada e cabo iluminados até o app ficar pronto.",
-    "Quantidade de UCs vinculadas exibida no card de cada cliente.",
+    "Abertura sem a mensagem de carregamento, com versão e revisão discretas no rodapé.",
+    "Tutoriais revisados com ajustes de ritmo, áudio e marcações.",
+    "Histórico atualizado com as melhorias específicas do Gerador.",
+    "Importar dados de produção abaixo da geração do mês e padronizado na lista de usinas.",
   ] : [
-    "Logo animada na abertura, com lâmpada e cabo iluminados até o app ficar pronto.",
+    "Abertura sem a mensagem de carregamento, com versão e revisão discretas no rodapé.",
+    "Tutoriais revisados com ajustes de ritmo, áudio e marcações.",
+    "Histórico atualizado com as melhorias específicas do Consumidor.",
   ],
 };
 const historico = IS_GERADOR_APP ? [
+  { numero: "1.0.0-r20261004.2", data: "04/10/2026", melhorias: [
+    "Logo animada na abertura, com lâmpada e cabo iluminados até o app ficar pronto.",
+    "Quantidade de UCs vinculadas exibida no card de cada cliente.",
+  ] },
   { numero: "1.0.0-r20261004.1", data: "04/10/2026", melhorias: [
     "Pedidos antigos de cancelamento não aparecem como pendentes em contratos substituídos.",
     "Nome e Sobrenome separados e obrigatórios nos cadastros de pessoas.",
@@ -33,6 +41,9 @@ const historico = IS_GERADOR_APP ? [
     "Ícones e identificação separados para os aplicativos Preview e produção.",
   ] },
 ] : [
+  { numero: "1.0.0-r20261004.2", data: "04/10/2026", melhorias: [
+    "Logo animada na abertura, com lâmpada e cabo iluminados até o app ficar pronto.",
+  ] },
   { numero: "1.0.0-r20261004.1", data: "04/10/2026", melhorias: [
     "Logo centralizada na escolha da unidade consumidora.",
     "Nome e Sobrenome separados e obrigatórios no perfil.",

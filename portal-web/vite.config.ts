@@ -11,5 +11,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Local testing stays on homologation without weakening API CORS.
+    proxy: { "/api": { target: "https://andrade-energy-api-homologacao.onrender.com", changeOrigin: true } },
   },
 });
