@@ -1,17 +1,21 @@
 import Constants from "expo-constants";
 import * as Updates from "expo-updates";
 import { StyleSheet, Text, View } from "react-native";
-import { AppHeader, Button, Card, ElasticScrollView, Screen } from "../components/ui";
+import { AppHeader, Card, ElasticScrollView, Screen } from "../components/ui";
 import { APP_DISPLAY_NAME } from "../config/appVariant";
 import { Colors, Spacing } from "../theme";
-import { abrirSiteApp } from "../utils/siteApp";
-
-const melhorias = [
-  "Tutoriais revisados com gravações reais, organizados por ambiente.",
-  "Cadastro do cliente com nome completo, CPF validado e endereço com busca por CEP.",
-  "O contrato aproveita o endereço informado no cadastro do cliente.",
-  "Identificação discreta da versão e da revisão na tela de carregamento.",
-  "Acesso ao site e às informações do aplicativo pelo menu.",
+const historico = [
+  { data: "03/10/2026", melhorias: [
+    "Importação da produção da usina por PDF, identificando a UC na carteira ativa.",
+    "Cadastro com endereço completo e busca por CEP para cliente, gerador e usina.",
+    "Faturamento automático com códigos de pagamento e progresso da emissão.",
+  ] },
+  { data: "02/10/2026", melhorias: [
+    "Desconto da UC visível na lista de unidades consumidoras.",
+  ] },
+  { data: "01/10/2026", melhorias: [
+    "Ícones e identificação separados para os aplicativos Preview e produção.",
+  ] },
 ];
 
 export default function SobreApp() {
@@ -22,8 +26,7 @@ export default function SobreApp() {
     <AppHeader variant="subpage" title="Sobre o app" subtitle="Andrade Energy" contextTitle="" contextSubtitle="" icon="information-circle-outline" />
     <ElasticScrollView contentContainerStyle={styles.content}>
       <Card><Text style={styles.title}>{APP_DISPLAY_NAME}</Text><Text style={styles.text}>Versão {version}</Text><Text style={styles.text}>Revisão: {revision}</Text><Text style={styles.text}>{ambiente}</Text></Card>
-      <Card><Text style={styles.title}>Últimas melhorias</Text><Text style={styles.date}>Revisão de 03/10/2026</Text>{melhorias.map(texto => <View key={texto} style={styles.item}><Text style={styles.dot}>•</Text><Text style={[styles.text, { flex: 1 }]}>{texto}</Text></View>)}</Card>
-      <Button title="Acessar o site Andrade Energy" onPress={() => void abrirSiteApp()} />
+      <Card><Text style={styles.title}>Histórico de atualizações</Text>{historico.map(versao => <View key={versao.data}><Text style={styles.date}>{versao.data}</Text>{versao.melhorias.map(texto => <View key={texto} style={styles.item}><Text style={styles.dot}>•</Text><Text style={[styles.text, { flex: 1 }]}>{texto}</Text></View>)}</View>)}</Card>
     </ElasticScrollView>
   </Screen>;
 }

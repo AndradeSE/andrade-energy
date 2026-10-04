@@ -18,6 +18,7 @@ const fixture = {
   valor_usina: 269.61, valor_total_unificado: 374.92, energia_compensada: 401, desconto_percentual: 15,
 };
 compiled.exports.gerarPdfFatura(fixture, 'UNIFICADA').then(buffer => {
-  const dir = path.resolve(__dirname, '../tmp/pdfs'); fs.mkdirSync(dir, {recursive: true});
-  const target = path.join(dir, 'invoice-minus-qa.pdf'); fs.writeFileSync(target, buffer); console.log(target);
+  const target = process.argv[2] ? path.resolve(process.argv[2]) : path.resolve(__dirname, '../tmp/pdfs/invoice-minus-qa.pdf');
+  fs.mkdirSync(path.dirname(target), {recursive: true});
+  fs.writeFileSync(target, buffer); console.log(target);
 }).catch(error => {console.error(error.message);process.exitCode=1;});

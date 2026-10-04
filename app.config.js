@@ -86,10 +86,10 @@ module.exports = {
         {
           // O splash usa apenas a logo transparente. Os arquivos quadrados
           // acima continuam exclusivos dos ícones instalados no Android.
-          image: "./assets/images/andrade-logo-horizontal.png",
+          image: "./assets/images/andrade-portal-logo-final.png",
           imageWidth: 200,
           resizeMode: "contain",
-          backgroundColor: "#EAF5EF",
+          backgroundColor: "#07533D",
         },
       ],
 

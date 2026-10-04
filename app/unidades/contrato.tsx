@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import FormField from "../../components/cadastro/FormField";
+import EnderecoFields from "../../components/cadastro/EnderecoFields";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { buscarContratoDaUnidade, buscarDadosIniciaisContrato, buscarResumoPropostaDaUnidade, gerarContratoDaUnidade, importarContratoAssinadoDaUnidade, listarContratosDaEmpresa, prepararRevisaoDaUnidade, salvarContratoDaUnidade } from "../../services/contratos.service";
@@ -12,8 +13,21 @@ import { enviarContratoEConvite, validarAssinaturaExterna } from "../../services
 import { buscarUnidade } from "../../services/clientes.service";
 import { buscarUsina } from "../../services/usinas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
+import { enderecoVazio, erroEndereco, lerEndereco, lerEnderecoFatura, serializarEndereco } from "../../utils/cadastroCliente";
 
 type StatusContrato = "ATIVO" | "VIGENTE" | "VENCIDO";
+
+function lerEnderecoLocador(texto: string) {
+  if (texto.startsWith("Logradouro:")) return lerEndereco(texto);
+  if (!/\bCidade:|\bUF:|\bCEP:/i.test(texto)) return lerEnderecoFatura(texto);
+  return {
+    ...enderecoVazio,
+    logradouro: texto.split(/\bCidade:|\bUF:|\bCEP:/i)[0].replace(/^[,\s]+|[,\s]+$/g, ""),
+    cidade: texto.match(/\bCidade:\s*(.*?)\s*(?=\bUF:|\bCEP:|$)/i)?.[1]?.trim() ?? "",
+    uf: texto.match(/\bUF:\s*([A-Z]{2})\b/i)?.[1]?.toUpperCase() ?? "",
+    cep: texto.match(/\bCEP:\s*(\d{5}-?\d{3})\b/i)?.[1] ?? "",
+  };
+}
 
 function dataHoje() {
   return new Date().toLocaleDateString("pt-BR");
@@ -74,6 +88,7 @@ export default function ContratoDaUnidade() {
   const [locadorNome, setLocadorNome] = useState("Andrade Energy");
   const [locadorDocumento, setLocadorDocumento] = useState("");
   const [locadorEndereco, setLocadorEndereco] = useState("");
+  const enderecoLocador = lerEnderecoLocador(locadorEndereco);
   const [prazoAnos, setPrazoAnos] = useState("10");
   const [foro, setForo] = useState("Itajubá/MG");
   const [gerando, setGerando] = useState(false);
@@ -242,8 +257,13 @@ export default function ContratoDaUnidade() {
       Alert.alert("Informe o locador", "O nome ou razão social do locador é obrigatório para gerar a minuta.");
       return false;
     }
-    if (!locadorDocumento.trim() || !locadorEndereco.trim()) {
-      Alert.alert("Complete os dados do locador", "Informe o CPF/CNPJ e o endereço do locador antes de gerar ou enviar a minuta.");
+    if (!locadorDocumento.trim()) {
+      Alert.alert("Complete os dados do locador", "Informe o CPF/CNPJ do locador antes de gerar ou enviar a minuta.");
+      return false;
+    }
+    const erroDoEndereco = erroEndereco(enderecoLocador);
+    if (erroDoEndereco) {
+      Alert.alert("Complete o endereço do locador", erroDoEndereco);
       return false;
     }
     return true;
@@ -507,7 +527,9 @@ export default function ContratoDaUnidade() {
           <InfoContrato label="Titularidade das UCs" value={titularidadeUcs === "CLIENTE" ? "Consumidor" : "Gerador"} wide />
           <FormField label="Nome ou razão social do locador *" value={locadorNome} onChangeText={setLocadorNome} placeholder="Ex.: Andrade Energy" />
           <FormField label="CPF/CNPJ do locador" value={locadorDocumento} onChangeText={setLocadorDocumento} placeholder="Para constar no contrato" />
-          <FormField label="Endereço do locador" value={locadorEndereco} onChangeText={setLocadorEndereco} placeholder="Endereço completo" />
+          <Text style={styles.addressTitle}>Endereço do locador</Text>
+          {locadorEndereco && erroEndereco(enderecoLocador) ? <Text style={styles.formHint}>O endereço cadastrado está incompleto. Confira os campos antes de gerar a minuta.</Text> : null}
+          <EnderecoFields value={enderecoLocador} onChange={campos => setLocadorEndereco(serializarEndereco(campos))} />
           <FormField label="Prazo do contrato (anos)" value={prazoAnos} onChangeText={(valor) => setPrazoAnos(valor.replace(/\D/g, ""))} keyboardType="number-pad" placeholder="10" />
           <FormField label="Foro" value={foro} onChangeText={setForo} placeholder="Cidade/UF" />
         </Card>
@@ -571,6 +593,7 @@ const styles = StyleSheet.create({
   partyCard: { marginBottom: Spacing.lg },
   formCard: { marginBottom: Spacing.lg },
   formHint: { marginBottom: Spacing.md, color: Colors.subtitle, fontSize: Typography.caption, lineHeight: 18 },
+  addressTitle: { marginBottom: Spacing.md, color: Colors.text, fontSize: Typography.body, fontWeight: "800" },
   partyIntro: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, color: Colors.subtitle, fontSize: Typography.caption, lineHeight: 18 },
   infoGrid: { flexDirection: "row", flexWrap: "wrap", padding: Spacing.sm, gap: Spacing.sm },
   infoContrato: { width: "48%", minHeight: 72, padding: Spacing.sm, borderRadius: 10, backgroundColor: Colors.background },

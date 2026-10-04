@@ -17,6 +17,7 @@ import { obterPropostaParaConvite } from "../convites/propostaConvite.service";
 import { criarNotificacaoApp } from "../notificacoes/push.service";
 import { contratoAceitaSolicitacaoCancelamento, processamentoCancelamentoExpirou } from "./cancelamentoContrato.policy";
 import { listarRenovacoesAbertas, marcarPropostaRenovacaoAceita } from "./renovacaoContrato.service";
+import { validarEnderecoCadastro } from "../clientes/validacaoCadastro";
 
 export async function obterContratoCliente(
   clienteId: string,
@@ -351,6 +352,8 @@ export async function gerarContratoDaUnidadeService(unidadeId: string, dados: an
   if (![partes.locador_nome, partes.locador_documento, partes.locador_endereco].every((valor) => String(valor ?? "").trim())) {
     throw new Error("Complete nome, CPF/CNPJ e endereço do locador antes de gerar a minuta.");
   }
+  const erroEnderecoLocador = validarEnderecoCadastro(partes.locador_endereco);
+  if (erroEnderecoLocador) throw new Error(`Endereço do locador: ${erroEnderecoLocador}`);
   await validarCadastroParaMinuta(unidadeId);
   const contrato = await salvarContratoDaUnidadeService(unidadeId, dados);
   const pdf = await gerarMinutaContrato(unidadeId, contrato);

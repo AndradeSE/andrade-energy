@@ -21,6 +21,7 @@ import { useProfilePhoto } from "../../hooks/useProfilePhoto";
 import { listarNotificacoesApp } from "../../services/notificacoes.service";
 import { avisosPassoAPassoAtivos, definirAvisosPassoAPasso } from "../../services/preferencias.service";
 import NotificationSideSheet from "./NotificationSideSheet";
+import { textoLegivel } from "../../utils/textoLegado";
 
 function escurecerCor(hex: string, fator = 0.62) {
   const limpa = hex.replace("#", "");
@@ -209,7 +210,7 @@ export default function AppHeader({
           <TouchableOpacity accessibilityLabel="Abrir perfil" activeOpacity={0.8} onPress={() => router.push("/perfil")} style={styles.titleContent}>
             <Text numberOfLines={1} style={styles.sectionLabel}>{title} · {subtitle}</Text>
             <View style={styles.contextTitleRow}>
-              <Text numberOfLines={1} style={styles.title}>{contextTitle}</Text>
+              <Text numberOfLines={1} style={styles.title}>{textoLegivel(contextTitle)}</Text>
               {contextBadge ? <View style={[styles.contextBadge, contextBadgeTone === "success" && styles.contextBadgeSuccess, contextBadgeTone === "danger" && styles.contextBadgeDanger]}>
                 <Text numberOfLines={1} style={[styles.contextBadgeText, contextBadgeTone === "success" && styles.contextBadgeTextSuccess, contextBadgeTone === "danger" && styles.contextBadgeTextDanger]}>{contextBadge}</Text>
               </View> : null}

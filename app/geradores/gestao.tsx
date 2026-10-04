@@ -45,6 +45,7 @@ import {
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 import AutenticadorFinanceiro from "../../components/financeiro/AutenticadorFinanceiro";
 import { initialTabKey } from "../../services/navigation-preload.service";
+import { textoLegivel } from "../../utils/textoLegado";
 
 const money = (value: unknown) =>
   Number(value ?? 0).toLocaleString("pt-BR", {
@@ -360,7 +361,7 @@ export default function GestaoGeradores() {
                     <TouchableOpacity activeOpacity={0.84} onPress={() => router.push({ pathname: "/geradores/[id]", params: { id: generator.id } } as any)} style={[styles.card, administrador && styles.adminGeneratorCard]} key={generator.id}>
                       <View style={styles.row}>
                         <View style={styles.grow}>
-                          <Text style={styles.cardTitle}>{generator.nome}</Text>
+                          <Text style={styles.cardTitle}>{textoLegivel(generator.nome)}</Text>
                           <Text style={styles.subtitle}>{generator.email}</Text>
                         </View>
                         <Text style={administrador ? styles.adminBadge : assinatura ? styles.badge : styles.badgeNeutral}>{administrador ? "ADMIN · FIXO" : assinatura?.status ?? "SEM PLANO"}</Text>

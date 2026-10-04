@@ -44,6 +44,7 @@ import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 import EnderecoFields from "../../components/cadastro/EnderecoFields";
 import { enderecoVazio, erroEndereco, lerEndereco, serializarEndereco } from "../../utils/cadastroCliente";
+import { textoLegivel } from "../../utils/textoLegado";
 
 function formatarCpf(valor?: string | null) {
   const digitos = String(valor ?? "").replace(/\D/g, "").slice(0, 11);
@@ -131,7 +132,7 @@ export default function Perfil() {
   }
 
   const preencherUsuario = useCallback((dados: Partial<PerfilUsuario>) => {
-    setNome(dados.nome ?? "");
+    setNome(textoLegivel(dados.nome));
     setEmail(dados.email ?? "");
     setTelefone(formatarTelefone(dados.telefone ?? ""));
     setCpf(dados.cpf ?? "");
@@ -348,8 +349,10 @@ export default function Perfil() {
           <Campo editable={false} hint="O CPF identifica suas unidades consumidoras." icon="card-outline" label="CPF" value={formatarCpf(cpf)} />
           <Campo autoCapitalize="none" autoCorrect={false} icon="mail-outline" keyboardType="email-address" label="E-mail" onChangeText={setEmail} value={email} />
           <Campo icon="call-outline" keyboardType="phone-pad" label="Telefone" last onChangeText={(valor) => setTelefone(formatarTelefone(valor))} placeholder="(00) 00000-0000" value={telefone} />
-          <Text style={styles.sectionTitle}>ENDEREÇO {IS_GERADOR_APP ? "DO GERADOR" : "DO CONSUMIDOR"}</Text>
-          <EnderecoFields value={endereco} onChange={setEndereco} />
+          <View style={styles.addressFields}>
+            <Text style={styles.sectionTitle}>ENDEREÇO {IS_GERADOR_APP ? "DO GERADOR" : "DO CONSUMIDOR"}</Text>
+            <EnderecoFields value={endereco} onChange={setEndereco} />
+          </View>
           <TouchableOpacity accessibilityRole="button" activeOpacity={0.85} disabled={salvando} onPress={salvarDados} style={[styles.primaryButton, salvando && styles.buttonDisabled]}>
             {salvando ? <ActivityIndicator color={Colors.surface} /> : <><Ionicons color={Colors.surface} name="checkmark-circle-outline" size={20} /><Text style={styles.primaryButtonText}>Salvar alterações</Text></>}
           </TouchableOpacity>
@@ -522,6 +525,7 @@ const styles = StyleSheet.create({
   subtitle: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.caption, lineHeight: 19 },
   sectionTitle: { marginTop: Spacing.lg, marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: 10, fontWeight: "900", letterSpacing: 1 },
   card: { overflow: "hidden", borderRadius: Radius.xl, backgroundColor: Colors.surface, ...Shadows.card },
+  addressFields: { paddingHorizontal: Spacing.md },
   cardGroup: { gap: Spacing.sm },
   standaloneRow: { overflow: "hidden", borderTopWidth: 0, borderWidth: 1, borderColor: "#D4E4DB", borderRadius: Radius.lg, backgroundColor: Colors.surface, ...Shadows.card },
   standalonePanel: { marginTop: -Spacing.xs, borderTopWidth: 0, borderWidth: 1, borderColor: "#D4E4DB", borderRadius: Radius.lg, backgroundColor: Colors.surface, ...Shadows.card },

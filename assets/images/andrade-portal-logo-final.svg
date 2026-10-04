@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="790" height="220" viewBox="0 0 790 220">
+  <defs>
+    <linearGradient id="leafGreen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5cf2a7"/>
+      <stop offset=".48" stop-color="#20cf7a"/>
+      <stop offset="1" stop-color="#079454"/>
+    </linearGradient>
+  </defs>
+  <path d="M26 179 C35 72 96 31 153 34 C202 36 229 72 235 127" fill="none" stroke="#ffd43b" stroke-width="17" stroke-linecap="round"/>
+  <path d="M45 190 L142 18 L237 190 L194 190 L142 94 L89 190 Z" fill="#fffdf7"/>
+  <text x="255" y="132" fill="#fffdf7" font-family="Manrope,Arial,sans-serif" font-size="88" font-weight="800" letter-spacing="-4">NDRADE</text>
+  <line x1="258" y1="180" x2="318" y2="180" stroke="#ffd43b" stroke-width="7" stroke-linecap="round"/>
+  <text x="338" y="191" fill="#25d17f" font-family="Manrope,Arial,sans-serif" font-size="35" font-weight="700" letter-spacing="15">ENERGY</text>
+  <path d="M580 180 H645 C660 180 662 172 651 169 C639 166 638 153 650 145 L650 142" fill="none" stroke="#ffd43b" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M25 184 C74 176 102 147 141 134 C183 120 226 128 276 151 C224 144 190 150 151 172 C109 196 65 204 25 184 Z" fill="url(#leafGreen)"/>
+  <path d="M42 184 C93 179 139 160 194 145 C219 138 242 142 263 149" fill="none" stroke="#ecfff5" stroke-opacity=".68" stroke-width="2.3" stroke-linecap="round"/>
+  <path d="M108 174 C113 161 121 151 134 139 M157 158 C164 145 174 137 187 132" fill="none" stroke="#ecfff5" stroke-opacity=".34" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

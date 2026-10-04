@@ -30,6 +30,7 @@ import {
 
 import CadastroActions from "../components/cadastro/CadastroActions";
 import ImportarProducaoPdfButton from "../components/usinas/ImportarProducaoPdfButton";
+import { textoLegivel } from "../utils/textoLegado";
 import {
   ElasticFlatList as FlatList,
   EmptyState,
@@ -420,13 +421,13 @@ export default function SelecionarUnidade() {
               style={styles.environmentButton}
             >
               <View style={styles.environmentButtonCircle}>
-                <Ionicons name="swap-horizontal" size={23} color="#FFFFFF" />
+                <Ionicons name="grid-outline" size={23} color="#FFFFFF" />
               </View>
               <Text style={styles.environmentButtonLabel}>Trocar ambiente</Text>
             </TouchableOpacity>
           ) : null}
         </View>
-        <Text numberOfLines={2} style={styles.welcome}>Olá, {usuario?.nome?.trim() || "bem-vindo"}</Text>
+        <Text numberOfLines={2} style={styles.welcome}>Olá, {textoLegivel(usuario?.nome?.trim()) || "bem-vindo"}</Text>
       </LinearGradient>
 
       <FlatList

@@ -24,6 +24,11 @@ const CAMINHOS_LOGO = [
   resolve(process.cwd(), "../assets/images/andrade-logo-horizontal.png"),
   resolve(process.cwd(), "assets/images/andrade-logo-horizontal.png"),
 ];
+const CAMINHOS_LOGO_WEB = [
+  resolve(process.cwd(), "assets/andrade-portal-logo-final.png"),
+  resolve(process.cwd(), "../assets/images/andrade-portal-logo-final.png"),
+  resolve(process.cwd(), "assets/images/andrade-portal-logo-final.png"),
+];
 
 function moeda(valor: unknown) {
   return Number(valor ?? 0).toLocaleString("pt-BR", {
@@ -326,11 +331,11 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     // Cabeçalho compacto do modelo aprovado.
     pdf.rect(0, 0, 595, 842).fill("#E9F1ED");
     pdf.rect(0, 0, 595, 116).fill(verdeCabecalho);
-    // A arte oficial da primeira versão preserva o símbolo, tipografia e
-    // espaçamento do logotipo no cabeçalho da fatura.
-    const caminhoLogoFatura = CAMINHOS_LOGO.find((caminho) => caminho.includes("andrade-fatura-logo") && existsSync(caminho));
+    // Usa a mesma arte clara do cabeçalho web, preservando sua proporção.
+    const caminhoLogoFatura = CAMINHOS_LOGO_WEB.find((caminho) => existsSync(caminho))
+      ?? CAMINHOS_LOGO.find((caminho) => caminho.includes("andrade-fatura-logo") && existsSync(caminho));
     if (caminhoLogoFatura) {
-      pdf.image(caminhoLogoFatura, 30, 8, { fit: [210, 98] });
+      pdf.image(caminhoLogoFatura, 30, 23, { fit: [255, 70] });
     } else {
       pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(23).text("ANDRADE", 54, 36);
       pdf.fillColor("#EAF6EF").font("Helvetica-Bold").fontSize(7.2).text("E N E R G Y", 86, 70);
@@ -342,12 +347,12 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
       pdf.moveTo(x + 12, top - 2).lineTo(x + 12, top + 3).stroke();
     };
     desenharCalendario(342, 45);
-    desenharCalendario(462, 45);
+    desenharCalendario(467, 45);
     pdf.fillColor("#D8F0E3").font("Helvetica-Bold").fontSize(7).text("REFERÊNCIA", 365, 43);
     pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(11).text(fatura.referencia ?? "Não informada", 365, 55);
-    pdf.strokeColor("#D8F0E3").lineWidth(0.7).moveTo(458, 38).lineTo(458, 76).stroke();
-    pdf.fillColor("#D8F0E3").font("Helvetica-Bold").fontSize(7).text("VENCIMENTO", 480, 43);
-    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(11).text(dataBrasileira(fatura.vencimento), 480, 55);
+    pdf.strokeColor("#6BA18A").lineWidth(0.6).moveTo(449, 44).lineTo(449, 67).stroke();
+    pdf.fillColor("#D8F0E3").font("Helvetica-Bold").fontSize(7).text("VENCIMENTO", 490, 43, { width: 88, lineBreak: false });
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(11).text(dataBrasileira(fatura.vencimento), 490, 55, { width: 88, lineBreak: false });
 
     // Identificação do titular e da unidade.
     desenharCartao(38, y.dados - 8, 230, 112, "#FBF7EC");
