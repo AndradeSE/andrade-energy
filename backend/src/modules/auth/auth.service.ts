@@ -868,9 +868,21 @@ export async function cadastrarConta(input: { nome: string; cpf: string; email: 
     await supabase.from("empresas").delete().eq("id", empresaGerador.id);
     throw error;
   }
-  await concluirConviteGerador(convite, usuario.id);
   let assinatura: any = null;
-  if (convite.plano_id) {
+  const { concluirAdesaoNoCadastro } = await import("../comercial/adesaoAssinatura.service.js");
+  let adesaoAssinaturaId: string | null;
+  try {
+    adesaoAssinaturaId = await concluirAdesaoNoCadastro(convite.id, usuario.id);
+  } catch (error) {
+    await supabase.from("usuarios").delete().eq("id", usuario.id);
+    await supabase.from("empresas").delete().eq("id", empresaGerador.id);
+    throw error;
+  }
+  if (adesaoAssinaturaId) {
+    const resultado = await supabase.from("assinaturas_geradores").select("*").eq("id", adesaoAssinaturaId).single();
+    if (resultado.error) throw resultado.error;
+    assinatura = resultado.data;
+  } else if (convite.plano_id) {
     assinatura = await contratarPlano({
       geradorId: usuario.id,
       planoId: convite.plano_id,
@@ -880,6 +892,7 @@ export async function cadastrarConta(input: { nome: string; cpf: string; email: 
       observacoes: "Plano atribuído automaticamente pelo convite administrativo.",
     }, String(convite.gestor_id));
   }
+    if (!adesaoAssinaturaId) await concluirConviteGerador(convite, usuario.id);
   let emailEnviado = false;
   try {
     emailEnviado = await enviarEmailTransacional({

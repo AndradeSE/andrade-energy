@@ -212,6 +212,11 @@ export async function processarWebhookAsaas(body: any, token?: string) {
   const tokens = [process.env.ASAAS_WEBHOOK_TOKEN, process.env.ASAAS_COMERCIAL_WEBHOOK_TOKEN].filter(Boolean);
   if (!token || !tokens.includes(token)) throw new Error("Webhook Asaas não autorizado.");
   if (!body?.id || !body?.event) throw new Error("Evento Asaas inválido.");
+  // A adesão pública mantém sua própria confirmação durável e aceita retentativas.
+  // A consulta financeira sempre usa a conta comercial das assinaturas.
+  const { processarAdesaoAsaas } = await import("../comercial/adesaoAssinatura.service.js");
+  const adesao = await processarAdesaoAsaas(body);
+  if (adesao) return adesao;
   const inserted=await supabase.from("asaas_eventos").insert({evento_id:body.id,tipo:body.event,payload:body}).select().single(); if(inserted.error?.code==="23505") return {duplicado:true}; if(inserted.error) throw inserted.error;
   if (body.checkout?.id) {
     const checkoutId = String(body.checkout.id);

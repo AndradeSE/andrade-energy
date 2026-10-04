@@ -16,6 +16,7 @@ import fechamentosRoutes from "./modules/fechamentos/fechamentos.routes";
 import rateioRoutes from "./modules/rateio/rateio.routes";
 import usinasRoutes from "./modules/usinas/usinas.routes";
 import { processarFilaDeNotificacoes } from "./modules/faturas/notificacoesFatura.service";
+import { processarConvitesAdesoes } from "./modules/comercial/adesaoAssinatura.service";
 import convitesRoutes from "./modules/convites/convites.routes";
 import { processarContasDeEnergiaRecebidas } from "./modules/email/email.service";
 import { configuracaoRouter as recebimentoFaturasRoutes, webhookRouter as recebimentoFaturasWebhookRoutes } from "./modules/recebimento-faturas/recebimentoFaturas.routes";
@@ -227,10 +228,12 @@ async function iniciarServidor() {
     return;
   }
   processarFilaDeNotificacoes().catch((erro) => console.error("Falha ao processar notificações:", erro.message));
+  processarConvitesAdesoes().catch(() => console.error("Falha ao processar convites de assinaturas."));
   processarContasDeEnergiaRecebidas().catch((erro) => console.error("Falha ao importar produção por e-mail:", erro.message));
   processarFilaDeRecebimentosFaturas().catch((erro) => console.error("Falha ao processar faturas recebidas por e-mail:", erro.message));
   setInterval(() => {
     processarFilaDeNotificacoes().catch((erro) => console.error("Falha ao processar notificações:", erro.message));
+    processarConvitesAdesoes().catch(() => console.error("Falha ao processar convites de assinaturas."));
   }, 60_000);
   setInterval(() => {
     processarContasDeEnergiaRecebidas().catch((erro) => console.error("Falha ao importar produção por e-mail:", erro.message));
