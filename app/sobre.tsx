@@ -5,19 +5,24 @@ import { AppHeader, Card, ElasticScrollView, Screen } from "../components/ui";
 import { APP_DISPLAY_NAME, IS_GERADOR_APP } from "../config/appVariant";
 import { Colors, Spacing } from "../theme";
 const atualizacaoAtual = {
-  numero: "1.0.0-r20261004.3", data: "04/10/2026",
+  numero: "1.0.0-r20261004.4", data: "04/10/2026",
   melhorias: IS_GERADOR_APP ? [
-    "Abertura sem a mensagem de carregamento, com versão e revisão discretas no rodapé.",
-    "Tutoriais revisados com ajustes de ritmo, áudio e marcações.",
-    "Histórico atualizado com as melhorias específicas do Gerador.",
-    "Importar dados de produção abaixo da geração do mês e padronizado na lista de usinas.",
+    "Imagem original do portal atrás da logo animada na abertura, sem alterar o carregamento interno.",
+    "Tutoriais com borrões no lugar de blocos opacos e setas para controles largos.",
+    "Pausas encurtadas com cortes conjuntos de imagem e áudio e volume controlado.",
+    "Contagem de UCs vinculadas retornada também pela consulta da carteira de clientes.",
   ] : [
-    "Abertura sem a mensagem de carregamento, com versão e revisão discretas no rodapé.",
-    "Tutoriais revisados com ajustes de ritmo, áudio e marcações.",
-    "Histórico atualizado com as melhorias específicas do Consumidor.",
+    "Imagem original do portal atrás da logo animada na abertura, sem alterar o carregamento interno.",
+    "Tutoriais com borrões no lugar de blocos opacos e setas para controles largos.",
+    "Pausas encurtadas com cortes conjuntos de imagem e áudio e volume controlado.",
   ],
 };
 const historico = IS_GERADOR_APP ? [
+  { numero: "1.0.0-r20261004.3", data: "04/10/2026", melhorias: [
+    "Versão e revisão discretas no rodapé da abertura.",
+    "Primeira revisão de ritmo e áudio dos tutoriais.",
+    "Importar dados de produção abaixo da geração do mês e padronizado na lista de usinas.",
+  ] },
   { numero: "1.0.0-r20261004.2", data: "04/10/2026", melhorias: [
     "Logo animada na abertura, com lâmpada e cabo iluminados até o app ficar pronto.",
     "Quantidade de UCs vinculadas exibida no card de cada cliente.",
@@ -41,6 +46,10 @@ const historico = IS_GERADOR_APP ? [
     "Ícones e identificação separados para os aplicativos Preview e produção.",
   ] },
 ] : [
+  { numero: "1.0.0-r20261004.3", data: "04/10/2026", melhorias: [
+    "Versão e revisão discretas no rodapé da abertura.",
+    "Primeira revisão de ritmo e áudio dos tutoriais.",
+  ] },
   { numero: "1.0.0-r20261004.2", data: "04/10/2026", melhorias: [
     "Logo animada na abertura, com lâmpada e cabo iluminados até o app ficar pronto.",
   ] },

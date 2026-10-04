@@ -1,7 +1,8 @@
 import Constants from "expo-constants";
 import * as Updates from "expo-updates";
 import { useEffect, useRef } from "react";
-import { Animated, Easing, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, Image, StyleSheet, Text, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import PortalAnimatedLogo from "../brand/PortalAnimatedLogo";
 
 import { Colors, Radius, Spacing } from "../../theme";
@@ -28,8 +29,13 @@ export default function Loading({ showRevision = false, animateBrand = true, onB
 
   return (
     <View accessibilityLabel="Carregando dados" style={styles.container}>
-      <View pointerEvents="none" style={styles.glowTop} />
-      <View pointerEvents="none" style={styles.glowBottom} />
+      {showRevision ? <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <Image source={require("../../assets/images/portal-solar-radiante.png")} resizeMode="cover" style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={["rgba(2,25,17,0.68)", "rgba(3,48,29,0.48)", "rgba(3,73,39,0.22)"]} locations={[0, 0.48, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+      </View> : <>
+        <View pointerEvents="none" style={styles.glowTop} />
+        <View pointerEvents="none" style={styles.glowBottom} />
+      </>}
       {showRevision ? <Animated.View style={[styles.brandFrame, { opacity: entrada, transform: [{ scale: entrada.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }] }]}>
         <PortalAnimatedLogo animate={animateBrand} onReady={onBrandReady} />
       </Animated.View> : <>
@@ -61,6 +67,6 @@ const styles = StyleSheet.create({
   subtitle: { marginTop: Spacing.sm, color: Colors.subtitle, fontSize: 12, fontWeight: "600" },
   track: { width: 116, height: 4, overflow: "hidden", marginTop: Spacing.md, borderRadius: Radius.round, backgroundColor: Colors.primaryLight },
   flow: { width: 42, height: 4, borderRadius: Radius.round, backgroundColor: Colors.primary },
-  revision: { position: "absolute", bottom: Spacing.xl, alignSelf: "center", color: Colors.subtitle, opacity: 0.5, fontSize: 9, letterSpacing: 0.2 },
+  revision: { position: "absolute", bottom: Spacing.xl, alignSelf: "center", color: "#FFFFFF", opacity: 0.65, fontSize: 9, letterSpacing: 0.2 },
 });
 import { Ionicons } from "@expo/vector-icons";

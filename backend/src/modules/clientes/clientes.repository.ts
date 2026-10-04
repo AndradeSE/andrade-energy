@@ -141,8 +141,10 @@ async function incluirConcessionariaDasUnidades(clientes: any[], empresaId: stri
   if (error) throw error;
 
   const concessionariaPorCliente = new Map<string, string>();
+  const totalUcsPorCliente = new Map<string, number>();
   for (const unidade of unidades ?? []) {
     const clienteId = String(unidade.cliente_id ?? "");
+    if (clienteId) totalUcsPorCliente.set(clienteId, (totalUcsPorCliente.get(clienteId) ?? 0) + 1);
     const distribuidora = String(unidade.distribuidora ?? "").trim();
     if (clienteId && distribuidora && !concessionariaPorCliente.has(clienteId)) {
       concessionariaPorCliente.set(clienteId, distribuidora);
@@ -151,6 +153,7 @@ async function incluirConcessionariaDasUnidades(clientes: any[], empresaId: stri
 
   return clientes.map((cliente) => ({
     ...cliente,
+    total_ucs: totalUcsPorCliente.get(String(cliente.id)) ?? 0,
     distribuidora: concessionariaPorCliente.get(String(cliente.id)) || cliente.distribuidora || null,
   }));
 }

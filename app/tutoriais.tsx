@@ -15,20 +15,20 @@ import { Colors, Radius, Spacing } from "../theme";
 type Tutorial = { id: string; titulo: string; descricao: string; duracao: string; video: number };
 
 const tutoriaisGerador: Tutorial[] = [
-  { id: "faturamento-pdf", titulo: "Faturar por PDF", descricao: "Importe a fatura, revise os valores e confira o resultado real do faturamento no Preview.", duracao: "1 min 24 s", video: require("../assets/tutorials/tutorial-faturamento-comercial-real.mp4") },
-  { id: "analise-cancelamento", titulo: "Analisar solicitação de cancelamento", descricao: "Localize o pedido, registre a análise e confira uma recusa no ambiente de teste.", duracao: "1 min 46 s", video: require("../assets/tutorials/tutorial-analise-cancelamento-comercial-real.mp4") },
-  { id: "renovacao", titulo: "Preparar proposta de renovação", descricao: "Revise as condições, abra a minuta e confira o encaminhamento para aceite do cliente.", duracao: "2 min 20 s", video: require("../assets/tutorials/tutorial-renovacao-gerador-real.mp4") },
-  { id: "chave-pix", titulo: "Cadastrar chave Pix com segurança", descricao: "Da Home ao Financeiro: confirme a proteção, confira o titular e veja a chave salva. Nenhuma transferência é feita no vídeo.", duracao: "58 s", video: require("../assets/tutorials/tutorial-chave-pix-salva-real.mp4") },
+  { id: "faturamento-pdf", titulo: "Faturar por PDF", descricao: "Importe a fatura, revise os valores e confira o resultado real do faturamento no Preview.", duracao: "59 s", video: require("../assets/tutorials/tutorial-faturamento-comercial-real.mp4") },
+  { id: "analise-cancelamento", titulo: "Analisar solicitação de cancelamento", descricao: "Localize o pedido, registre a análise e confira uma recusa no ambiente de teste.", duracao: "1 min 01 s", video: require("../assets/tutorials/tutorial-analise-cancelamento-comercial-real.mp4") },
+  { id: "renovacao", titulo: "Preparar proposta de renovação", descricao: "Revise as condições, abra a minuta e confira o encaminhamento para aceite do cliente.", duracao: "1 min 24 s", video: require("../assets/tutorials/tutorial-renovacao-gerador-real.mp4") },
+  { id: "chave-pix", titulo: "Cadastrar chave Pix com segurança", descricao: "Da Home ao Financeiro: confirme a proteção, confira o titular e veja a chave salva. Nenhuma transferência é feita no vídeo.", duracao: "48 s", video: require("../assets/tutorials/tutorial-chave-pix-salva-real.mp4") },
 ];
 
 const tutoriaisComercial: Tutorial[] = [
-  { id: "plano", titulo: "Cadastrar plano comercial", descricao: "Confira preços, recursos e disponibilidade antes de salvar um plano de teste.", duracao: "1 min 17 s", video: require("../assets/tutorials/tutorial-plano-comercial-real.mp4") },
-  { id: "multiempresas", titulo: "Criar e operar outra empresa", descricao: "Cadastre uma empresa de teste e acompanhe a troca para o ambiente separado.", duracao: "1 min 56 s", video: require("../assets/tutorials/tutorial-multiempresas-comercial-real.mp4") },
+  { id: "plano", titulo: "Cadastrar plano comercial", descricao: "Confira preços, recursos e disponibilidade antes de salvar um plano de teste.", duracao: "59 s", video: require("../assets/tutorials/tutorial-plano-comercial-real.mp4") },
+  { id: "multiempresas", titulo: "Criar e operar outra empresa", descricao: "Cadastre uma empresa de teste e acompanhe a troca para o ambiente separado.", duracao: "1 min 17 s", video: require("../assets/tutorials/tutorial-multiempresas-comercial-real.mp4") },
 ];
 
 const tutoriaisConsumidor: Tutorial[] = [
-  { id: "cancelamento", titulo: "Solicitar cancelamento", descricao: "Comece na Home, revise o aviso, envie o pedido e confira o status aguardando resposta.", duracao: "42 s", video: require("../assets/tutorials/tutorial-cancelamento-completo-real.mp4") },
-  { id: "revisao-contrato", titulo: "Conferir revisão do contrato", descricao: "Abra a minuta real e confira as condições antes de aceitar. Nenhum aceite é enviado no vídeo.", duracao: "35 s", video: require("../assets/tutorials/tutorial-revisao-real-consumidor.mp4") },
+  { id: "cancelamento", titulo: "Solicitar cancelamento", descricao: "Comece na Home, revise o aviso, envie o pedido e confira o status aguardando resposta.", duracao: "35 s", video: require("../assets/tutorials/tutorial-cancelamento-completo-real.mp4") },
+  { id: "revisao-contrato", titulo: "Conferir revisão do contrato", descricao: "Abra a minuta real e confira as condições antes de aceitar. Nenhum aceite é enviado no vídeo.", duracao: "26 s", video: require("../assets/tutorials/tutorial-revisao-real-consumidor.mp4") },
 ];
 
 export default function Tutoriais() {
