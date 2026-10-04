@@ -84,9 +84,9 @@ module.exports = {
       [
         "expo-splash-screen",
         {
-          // O Preview abre em uma cor neutra enquanto a logo animada do app
-          // carrega. Esta alteração nativa requer um novo APK Preview.
-          ...(preview ? {} : { image: "./assets/images/andrade-portal-logo-startup.png" }),
+          // A logo nativa usa a mesma arte da abertura animada do app.
+          // Esta alteração exige um novo APK.
+          image: "./assets/images/andrade-portal-logo-startup.png",
           imageWidth: 200,
           resizeMode: "contain",
           backgroundColor: preview ? "#DFE8E3" : "#EAF5EF",
