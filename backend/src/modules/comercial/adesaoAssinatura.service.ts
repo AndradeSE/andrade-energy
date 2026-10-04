@@ -172,8 +172,9 @@ export async function registrarPagamentoAdesao(id: string, provedor: string, pag
 
 export async function processarAdesaoAsaas(body: any) {
   const id = adesaoIdDaReferencia(body.payment?.externalReference ?? body.checkout?.externalReference ?? body.subscription?.externalReference);
+  const checkoutId = body.checkout?.id ?? body.payment?.checkoutSession;
   const a = id ? ok(await supabase.from("adesoes_assinaturas").select("*").eq("id",id).eq("provedor","ASAAS").maybeSingle())
-    : body.checkout?.id ? ok(await supabase.from("adesoes_assinaturas").select("*").eq("checkout_id",String(body.checkout.id)).eq("provedor","ASAAS").maybeSingle())
+    : checkoutId ? ok(await supabase.from("adesoes_assinaturas").select("*").eq("checkout_id",String(checkoutId)).eq("provedor","ASAAS").maybeSingle())
     : body.payment?.subscription || body.subscription?.id
       ? ok(await supabase.from("adesoes_assinaturas").select("*").eq("subscription_id",String(body.payment?.subscription ?? body.subscription.id)).eq("provedor","ASAAS").maybeSingle())
       : null;
@@ -181,7 +182,9 @@ export async function processarAdesaoAsaas(body: any) {
   if (body.subscription?.id) ok(await supabase.from("adesoes_assinaturas").update({ subscription_id: String(body.subscription.id), customer_id: body.subscription.customer ?? a.customer_id }).eq("id",a.id));
   if (body.payment?.id) {
     const pagamento = await asaasComercialRequest<any>(`/payments/${encodeURIComponent(body.payment.id)}`);
-    if (adesaoIdDaReferencia(pagamento.externalReference) !== a.id && !(a.subscription_id && String(pagamento.subscription ?? "") === String(a.subscription_id))) throw new Error("Pagamento não corresponde à contratação.");
+    if (adesaoIdDaReferencia(pagamento.externalReference) !== a.id
+      && !(a.subscription_id && String(pagamento.subscription ?? "") === String(a.subscription_id))
+      && !(a.checkout_id && String(pagamento.checkoutSession ?? "") === String(a.checkout_id))) throw new Error("Pagamento não corresponde à contratação.");
     if (["REFUNDED","REFUND_REQUESTED","DELETED"].includes(String(pagamento.status))) {
       if (a.assinatura_id) ok(await supabase.from("assinaturas_geradores").update({status:"SUSPENSA"}).eq("id",a.assinatura_id));
       else { ok(await supabase.from("adesoes_assinaturas").update({status:"CANCELADO"}).eq("id",a.id)); if(a.convite_id) ok(await supabase.from("convites_clientes").update({status:"CANCELADO"}).eq("id",a.convite_id).eq("status","PENDENTE")); }
