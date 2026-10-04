@@ -84,12 +84,12 @@ module.exports = {
       [
         "expo-splash-screen",
         {
-          // O splash usa apenas a logo transparente. Os arquivos quadrados
-          // acima continuam exclusivos dos ícones instalados no Android.
-          image: "./assets/images/andrade-portal-logo-startup.png",
+          // O Preview abre em uma cor neutra enquanto a logo animada do app
+          // carrega. Esta alteração nativa requer um novo APK Preview.
+          ...(preview ? {} : { image: "./assets/images/andrade-portal-logo-startup.png" }),
           imageWidth: 200,
           resizeMode: "contain",
-          backgroundColor: "#EAF5EF",
+          backgroundColor: preview ? "#DFE8E3" : "#EAF5EF",
         },
       ],
 

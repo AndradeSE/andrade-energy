@@ -68,6 +68,7 @@ function RootNavigator() {
     usinaSelecionada,
   } = useAuth();
   const [readyUserId, setReadyUserId] = useState<string | null>(null);
+  const [startupComplete, setStartupComplete] = useState(false);
   const selecionarUnidadeRef = useRef(selecionarUnidade);
   selecionarUnidadeRef.current = selecionarUnidade;
   useEffect(() => {
@@ -215,8 +216,8 @@ function RootNavigator() {
    * Enquanto recuperamos a sessão,
    * mantemos o Stack montado.
    */
-  if (isLoading || (session?.user?.id && readyUserId !== String(session.user.id))) {
-    return <Loading showRevision />;
+  if (!startupComplete || isLoading || (session?.user?.id && readyUserId !== String(session.user.id))) {
+    return <Loading showRevision animateBrand={!startupComplete} onBrandReady={() => setStartupComplete(true)} />;
   }
 
   const loggedIn = Boolean(session);

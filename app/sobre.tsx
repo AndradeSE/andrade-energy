@@ -5,18 +5,20 @@ import { AppHeader, Card, ElasticScrollView, Screen } from "../components/ui";
 import { APP_DISPLAY_NAME, IS_GERADOR_APP } from "../config/appVariant";
 import { Colors, Spacing } from "../theme";
 const atualizacaoAtual = {
-  numero: "1.0.0-r20261004.1", data: "04/10/2026",
+  numero: "1.0.0-r20261004.2", data: "04/10/2026",
   melhorias: IS_GERADOR_APP ? [
-    "Pedidos antigos de cancelamento não aparecem como pendentes em contratos substituídos.",
-    "Nome e Sobrenome separados e obrigatórios nos cadastros de pessoas.",
-    "Novos ícones para escolher usina e unidade consumidora.",
+    "Logo animada na abertura, com lâmpada e cabo iluminados até o app ficar pronto.",
+    "Quantidade de UCs vinculadas exibida no card de cada cliente.",
   ] : [
-    "Logo centralizada na escolha da unidade consumidora.",
-    "Nome e Sobrenome separados e obrigatórios no perfil.",
-    "Novo ícone para escolher unidade consumidora.",
+    "Logo animada na abertura, com lâmpada e cabo iluminados até o app ficar pronto.",
   ],
 };
 const historico = IS_GERADOR_APP ? [
+  { numero: "1.0.0-r20261004.1", data: "04/10/2026", melhorias: [
+    "Pedidos antigos de cancelamento não aparecem como pendentes em contratos substituídos.",
+    "Nome e Sobrenome separados e obrigatórios nos cadastros de pessoas.",
+    "Novos ícones para escolher usina e unidade consumidora.",
+  ] },
   { numero: "1.0.0-r20261003.2", data: "03/10/2026", melhorias: [
     "Nova logo no carregamento e na fatura, com referência e vencimento alinhados.",
     "Endereço do locador com campos separados e validação antes de gerar a minuta.",
@@ -31,6 +33,11 @@ const historico = IS_GERADOR_APP ? [
     "Ícones e identificação separados para os aplicativos Preview e produção.",
   ] },
 ] : [
+  { numero: "1.0.0-r20261004.1", data: "04/10/2026", melhorias: [
+    "Logo centralizada na escolha da unidade consumidora.",
+    "Nome e Sobrenome separados e obrigatórios no perfil.",
+    "Novo ícone para escolher unidade consumidora.",
+  ] },
   { numero: "1.0.0-r20261003.2", data: "03/10/2026", melhorias: [
     "Nova logo com animação de entrada no carregamento.",
     "Campos de endereço do perfil com espaçamento corrigido.",
