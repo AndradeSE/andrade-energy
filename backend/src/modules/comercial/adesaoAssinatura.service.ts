@@ -16,6 +16,12 @@ import { mercadoPagoComercialRequest } from "./mercadoPagoComercial.client";
 const sha = (v: string) => createHash("sha256").update(v).digest("hex");
 export const adesaoIdDaReferencia = (v: unknown) => /^adesao:([0-9a-f-]{36})$/i.exec(String(v ?? ""))?.[1] ?? null;
 const site = () => String(process.env.PORTAL_WEB_URL ?? "https://andradeenergy.com.br").replace(/\/$/, "");
+const portalRetorno = (origin?: string) => {
+  const preview = process.env.APP_ENV === "preview" ||
+    /^https:\/\/qqhcjieymypowunkixmk\.supabase\.co\/?$/.test(process.env.SUPABASE_URL ?? "");
+  if (preview && /^http:\/\/(?:localhost|127\.0\.0\.1):\d+$/.test(origin ?? "")) return origin!;
+  return site();
+};
 const escape = (v: string) => v.replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]!));
 const ok = (result: any) => { if (result.error) throw result.error; return result.data; };
 const centavos = (v: unknown) => Math.round(Number(v) * 100);
@@ -30,7 +36,7 @@ export async function configuracaoAdesaoPublica() {
     parcelamentoAnual: asaasComercialConfigurado(), provedor };
 }
 
-export async function criarAdesaoPublica(input: any, chave: string, origem: { ip?: string; userAgent?: string }) {
+export async function criarAdesaoPublica(input: any, chave: string, origem: { ip?: string; userAgent?: string; origin?: string }) {
   if (!/^[a-z0-9-]{32,80}$/i.test(chave)) throw new Error("Reabra o formulário e tente novamente.");
   const dados = {
     nome: `${String(input?.nome ?? "").trim()} ${String(input?.sobrenome ?? "").trim()}`.trim(),
@@ -73,7 +79,7 @@ export async function criarAdesaoPublica(input: any, chave: string, origem: { ip
     ip: origem.ip ?? null, user_agent: origem.userAgent?.slice(0,500) ?? null }).select().single();
   if (insercao.error?.code === "23505") throw new Error("Esta contratação já está em andamento. Aguarde antes de tentar novamente.");
   const a = ok(insercao);
-  const retorno = `${site()}/assinar#${encodeURIComponent(chave)}`;
+  const retorno = `${portalRetorno(origem.origin)}/assinar#${encodeURIComponent(chave)}`;
   try {
     let checkout: any;
     if (provedor === "MERCADO_PAGO") {
@@ -192,9 +198,12 @@ export async function processarAdesaoAsaas(body: any) {
     }
     return registrarPagamentoAdesao(a.id,"ASAAS",pagamento);
   }
-  if (body.event === "CHECKOUT_PAID") {
-    const lista = await asaasComercialRequest<any>(`/payments?externalReference=${encodeURIComponent(`adesao:${a.id}`)}&limit=100`);
-    for (const p of lista.data ?? []) if (pagamentoAdesaoValido(a,p)) return registrarPagamentoAdesao(a.id,"ASAAS",p);
+  if (body.event === "CHECKOUT_PAID" && a.checkout_id) {
+    const lista = await asaasComercialRequest<any>(`/payments?checkoutSession=${encodeURIComponent(String(a.checkout_id))}&limit=100`);
+    for (const p of lista.data ?? []) {
+      if (String(p.checkoutSession ?? "") === String(a.checkout_id) && pagamentoAdesaoValido(a,p))
+        return registrarPagamentoAdesao(a.id,"ASAAS",p);
+    }
   }
   return { recebido: true };
 }

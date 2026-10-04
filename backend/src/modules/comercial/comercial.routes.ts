@@ -13,7 +13,7 @@ router.get("/adesao/configuracao", async (_req, res) => {
   catch { return res.status(503).json({ message: "Não foi possível consultar os planos agora." }); }
 });
 router.post("/adesao/checkout", rateLimit({ windowMs: 15*60_000, limit: 10, standardHeaders: "draft-8", legacyHeaders: false }), async (req,res) => {
-  try { return res.status(201).json(await criarAdesaoPublica(req.body, String(req.header("Idempotency-Key") ?? ""), { ip: req.ip, userAgent: req.get("user-agent") })); }
+  try { return res.status(201).json(await criarAdesaoPublica(req.body, String(req.header("Idempotency-Key") ?? ""), { ip: req.ip, userAgent: req.get("user-agent"), origin: req.get("origin") })); }
   catch (e: any) { return res.status(400).json({ message: e?.message ?? "Não foi possível iniciar a contratação." }); }
 });
 router.get("/adesao/status", async (req,res) => {
