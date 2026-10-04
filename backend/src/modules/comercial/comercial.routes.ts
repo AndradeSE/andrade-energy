@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { rateLimit } from "express-rate-limit";
+import { configuracaoAdesaoPublica, criarAdesaoPublica, statusAdesaoPublica } from "./adesaoAssinatura.service";
 import { exigirAutenticacao, exigirOperacaoComercial, exigirSuperAdministradorAndrade } from "../../middlewares/auth.middleware";
 import * as controller from "./comercial.controller";
 import { alterarTransferenciaAutomaticaAssinaturas } from "./comercial.service";
@@ -6,6 +8,18 @@ import { autenticadorAtivo, confirmarAutenticador, confirmarSenhaFinanceira, ini
 
 const router = Router();
 router.get("/planos-publicos", controller.planosPublicos);
+router.get("/adesao/configuracao", async (_req, res) => {
+  try { res.setHeader("Cache-Control", "no-store"); return res.json(await configuracaoAdesaoPublica()); }
+  catch { return res.status(503).json({ message: "Não foi possível consultar os planos agora." }); }
+});
+router.post("/adesao/checkout", rateLimit({ windowMs: 15*60_000, limit: 10, standardHeaders: "draft-8", legacyHeaders: false }), async (req,res) => {
+  try { return res.status(201).json(await criarAdesaoPublica(req.body, String(req.header("Idempotency-Key") ?? ""), { ip: req.ip, userAgent: req.get("user-agent") })); }
+  catch (e: any) { return res.status(400).json({ message: e?.message ?? "Não foi possível iniciar a contratação." }); }
+});
+router.get("/adesao/status", async (req,res) => {
+  try { res.setHeader("Cache-Control", "no-store"); return res.json(await statusAdesaoPublica(String(req.header("X-Adesao-Chave") ?? ""))); }
+  catch { return res.status(404).json({ message: "Contratação não encontrada." }); }
+});
 router.get("/minha-assinatura", exigirAutenticacao, controller.minhaAssinatura);
 router.get("/minha-assinatura/termos", exigirAutenticacao, controller.termosMinhaAssinatura);
 router.post("/minha-assinatura/checkout", exigirAutenticacao, controller.checkoutMinhaAssinatura);

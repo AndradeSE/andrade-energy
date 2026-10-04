@@ -39,7 +39,7 @@ export default function Loading({ showRevision = false, animateBrand = true, onB
         </View>
         <Text style={styles.title}>Andrade Energy</Text>
       </>}
-      <Text style={styles.subtitle}>Carregando sua energia</Text>
+      {!showRevision && <Text style={styles.subtitle}>Carregando sua energia</Text>}
       {!showRevision && <View style={styles.track}>
         <Animated.View style={[styles.flow, { transform: [{ translateX: fluxo.interpolate({ inputRange: [0, 1], outputRange: [-82, 82] }) }] }]} />
       </View>}
@@ -61,6 +61,6 @@ const styles = StyleSheet.create({
   subtitle: { marginTop: Spacing.sm, color: Colors.subtitle, fontSize: 12, fontWeight: "600" },
   track: { width: 116, height: 4, overflow: "hidden", marginTop: Spacing.md, borderRadius: Radius.round, backgroundColor: Colors.primaryLight },
   flow: { width: 42, height: 4, borderRadius: Radius.round, backgroundColor: Colors.primary },
-  revision: { marginTop: 16, color: Colors.subtitle, opacity: 0.65, fontSize: 10, letterSpacing: 0.2 },
+  revision: { position: "absolute", bottom: Spacing.xl, alignSelf: "center", color: Colors.subtitle, opacity: 0.5, fontSize: 9, letterSpacing: 0.2 },
 });
 import { Ionicons } from "@expo/vector-icons";

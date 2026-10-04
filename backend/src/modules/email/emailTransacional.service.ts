@@ -9,6 +9,7 @@ type EmailTransacional = {
   html: string;
   anexos?: Array<{ filename: string; content: Buffer; contentType?: string }>;
   empresaId?: string | null;
+  idempotencyKey?: string;
 };
 
 const emailValido = (valor: unknown) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(String(valor ?? "").trim());
@@ -41,7 +42,7 @@ export async function enviarEmailTransacional(input: EmailTransacional) {
     try {
       const resposta = await fetch("https://api.resend.com/emails", {
         method: "POST",
-        headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json", ...(input.idempotencyKey ? { "Idempotency-Key": input.idempotencyKey } : {}) },
         body: JSON.stringify({
           from: identidade.from,
           reply_to: identidade.resposta,
