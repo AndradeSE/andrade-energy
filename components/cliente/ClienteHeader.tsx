@@ -392,7 +392,7 @@ export default function ClienteHeader({
                 onPress={trocarUnidade}
                 style={styles.unitMainAction}
               >
-                <Ionicons name="swap-horizontal" size={14} color="#FFFFFF" />
+                <Ionicons name="layers-outline" size={14} color="#FFFFFF" />
                 <Text numberOfLines={1} style={styles.changeText}>Trocar unidade</Text>
               </TouchableOpacity>
             </View>

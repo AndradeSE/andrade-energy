@@ -3,7 +3,7 @@ import { appScheme } from "../../utils/appScheme";
 import { gerarToken, hashToken } from "../../utils/token";
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import { empresaIdDoUsuario } from "../../config/empresa";
-import { validarCadastroCliente } from "../clientes/validacaoCadastro";
+import { nomePessoaValido, validarCadastroCliente } from "../clientes/validacaoCadastro";
 
 function cpfLimpo(valor: unknown) { return String(valor ?? "").replace(/\D/g, ""); }
 function telefoneWhatsapp(valor: unknown) {
@@ -61,7 +61,7 @@ export async function criarConvite(input: any, gestor: any, documentos?: { minut
   const whatsapp = telefoneWhatsapp(input.whatsapp);
   const unidadeConsumidoraId = String(input.unidade_consumidora_id ?? "").trim();
   if (!unidadeConsumidoraId) throw new Error("O convite precisa estar vinculado ao contrato de uma UC.");
-  if (!nome) throw new Error("Informe o nome do consumidor.");
+  if (!nomePessoaValido(nome)) throw new Error("Informe nome e sobrenome do consumidor.");
   if (cpf.length !== 11) throw new Error("Informe um CPF válido.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Informe um e-mail válido.");
   if (whatsapp === "") throw new Error("Informe um WhatsApp válido com DDD ou deixe o campo em branco.");

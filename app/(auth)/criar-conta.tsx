@@ -9,6 +9,8 @@ import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { criarConta, criarContaConsumidorComFatura } from "../../services/auth.service";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { consultarConvite, consultarConviteGerador } from "../../services/convites.service";
+import { nomeCompletoValido } from "../../utils/cadastroCliente";
+import { separarNomePessoa } from "../../utils/nomePessoa";
 
 export default function CriarConta() {
   const tipo: "CONSUMIDOR" | "GERADOR" = IS_GERADOR_APP ? "GERADOR" : "CONSUMIDOR";
@@ -61,7 +63,7 @@ export default function CriarConta() {
 
   async function solicitarAcesso() {
     if (salvando) return;
-    if (tipo === "GERADOR" && !nome.trim()) return setErro("Informe seu nome.");
+    if (tipo === "GERADOR" && !nomeCompletoValido(nome)) return setErro("O convite precisa conter nome e sobrenome válidos.");
     if (tipo === "GERADOR" && cpf.replace(/\D/g, "").length !== 11) return setErro("Informe um CPF válido com 11 números.");
     if (tipo === "GERADOR" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setErro("Informe um e-mail válido.");
     if (senha.length < 6) return setErro(contaExistente ? "Informe sua senha atual." : "Crie uma senha com pelo menos 6 caracteres.");
@@ -134,10 +136,15 @@ export default function CriarConta() {
           {!solicitado ? (
             <>
               {tipo === "GERADOR" ? <>
-                <Text style={styles.label}>Nome completo</Text>
+                <Text style={styles.label}>Nome</Text>
                 <View style={styles.inputBox}>
                   <Ionicons name="person-outline" size={20} color={Colors.subtitle} />
-                  <TextInput autoCapitalize="words" editable={false} onChangeText={(valor) => { setNome(valor); setErro(""); }} placeholder="Seu nome" placeholderTextColor="#92979F" style={styles.input} value={nome} />
+                  <TextInput autoCapitalize="words" editable={false} placeholder="Seu nome" placeholderTextColor="#92979F" style={styles.input} value={separarNomePessoa(nome).nome} />
+                </View>
+                <Text style={styles.label}>Sobrenome</Text>
+                <View style={styles.inputBox}>
+                  <Ionicons name="person-outline" size={20} color={Colors.subtitle} />
+                  <TextInput autoCapitalize="words" editable={false} placeholder="Seu sobrenome" placeholderTextColor="#92979F" style={styles.input} value={separarNomePessoa(nome).sobrenome} />
                 </View>
                 <Text style={styles.label}>CPF</Text>
                 <View style={styles.inputBox}>

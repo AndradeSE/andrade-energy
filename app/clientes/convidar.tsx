@@ -12,20 +12,22 @@ import { notificarAvisoNoAndroid } from "../../services/carteira-notificacoes.se
 import { useAuth } from "../../contexts/AuthContext";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { emailValido, normalizarEmail } from "../../utils/email";
+import { juntarNomePessoa, nomePessoaValido } from "../../utils/nomePessoa";
 
 export default function ConvidarCliente() {
   const { usuario } = useAuth();
-  const [nome, setNome] = useState(""); const [cpf, setCpf] = useState(""); const [email, setEmail] = useState(""); const [whatsapp, setWhatsapp] = useState(""); const [enviando, setEnviando] = useState(false);
+  const [nome, setNome] = useState(""); const [sobrenome, setSobrenome] = useState(""); const [cpf, setCpf] = useState(""); const [email, setEmail] = useState(""); const [whatsapp, setWhatsapp] = useState(""); const [enviando, setEnviando] = useState(false);
+  const nomeCompleto = juntarNomePessoa(nome, sobrenome);
   async function enviar() {
-    if (!nome.trim() || cpf.length !== 11 || !emailValido(email) || (whatsapp.length > 0 && whatsapp.length < 10)) return Alert.alert("Dados incompletos", "Informe nome, CPF e um e-mail válido. O WhatsApp é opcional, mas precisa ter DDD quando informado.");
+    if (!nomePessoaValido(nome, sobrenome) || cpf.length !== 11 || !emailValido(email) || (whatsapp.length > 0 && whatsapp.length < 10)) return Alert.alert("Dados incompletos", "Informe nome, sobrenome, CPF e um e-mail válido. O WhatsApp é opcional, mas precisa ter DDD quando informado.");
     try {
       setEnviando(true);
-      const resultado = await criarConvite({ nome: nome.trim(), cpf, email: normalizarEmail(email), whatsapp: whatsapp || undefined });
+      const resultado = await criarConvite({ nome: nomeCompleto, cpf, email: normalizarEmail(email), whatsapp: whatsapp || undefined });
       void notificarAvisoNoAndroid({
         usuarioId: String(usuario?.id ?? ""),
         id: `convite:${resultado.token}`,
         titulo: "Convite criado",
-        detalhe: `O convite para ${nome.trim()} está pronto para envio.`,
+        detalhe: `O convite para ${nomeCompleto} está pronto para envio.`,
         rota: "/clientes",
       });
       const canais = [resultado.emailEnviado ? "e-mail" : null, resultado.whatsappEnviado ? "WhatsApp" : null].filter(Boolean).join(" e ");
@@ -34,7 +36,7 @@ export default function ConvidarCliente() {
         : `O convite foi criado, mas os envios automáticos não foram concluídos. Compartilhe esta chave:\n\n${resultado.token}`;
       const abrirWhatsapp = async () => {
         if (!whatsapp) return;
-        const texto = `Olá, ${nome.trim()}! Você recebeu um convite para criar sua conta no Andrade Energy Consumidor. Chave do convite: ${resultado.token}`;
+        const texto = `Olá, ${nomeCompleto}! Você recebeu um convite para criar sua conta no Andrade Energy Consumidor. Chave do convite: ${resultado.token}`;
         await Linking.openURL(`https://wa.me/55${whatsapp}?text=${encodeURIComponent(texto)}`);
         router.back();
       };
@@ -48,7 +50,8 @@ export default function ConvidarCliente() {
   }
   return <SafeAreaView style={styles.screen}>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Convidar consumidor" subtitle="Enviar acesso ao aplicativo" contextTitle="Convidar consumidor" contextSubtitle="Envie o acesso ao aplicativo do cliente" icon="mail-unread-outline" /> : null}<KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}><ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
     <View style={styles.icon}><Ionicons name="mail-unread-outline" size={32} color={Colors.primary} /></View><Text style={styles.title}>Convidar consumidor</Text><Text style={styles.subtitle}>Depois que aceitar o convite e criar a conta, o consumidor aparecerá automaticamente na lista de clientes. As unidades e condições do contrato poderão ser adicionadas dentro do cadastro dele.</Text>
-    <Campo label="Nome completo" value={nome} onChangeText={setNome} placeholder="Nome do consumidor" />
+    <Campo label="Nome *" value={nome} onChangeText={setNome} placeholder="Nome do consumidor" />
+    <Campo label="Sobrenome *" value={sobrenome} onChangeText={setSobrenome} placeholder="Sobrenome do consumidor" />
     <Campo label="CPF" value={cpf} onChangeText={(v: string) => setCpf(v.replace(/\D/g, "").slice(0, 11))} placeholder="Somente números" keyboardType="numeric" />
     <Campo label="E-mail" value={email} onChangeText={setEmail} placeholder="consumidor@email.com" keyboardType="email-address" />
     <Campo label="WhatsApp (opcional)" value={whatsapp} onChangeText={(v: string) => setWhatsapp(v.replace(/\D/g, "").slice(0, 11))} placeholder="DDD + número" keyboardType="phone-pad" />

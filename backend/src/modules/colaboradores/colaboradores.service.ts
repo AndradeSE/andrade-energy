@@ -3,6 +3,7 @@ import { appScheme } from "../../utils/appScheme";
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import { gerarToken, hashToken } from "../../utils/token";
 import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
+import { nomePessoaValido } from "../clientes/validacaoCadastro";
 
 const emailValido = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const cpfLimpo = (cpf: unknown) => String(cpf ?? "").replace(/\D/g, "");
@@ -73,7 +74,7 @@ export async function criarConviteColaborador(input: any, usuario: any) {
   const cpf = cpfLimpo(input?.cpf);
   const email = String(input?.email ?? "").trim().toLowerCase();
   const telefone = String(input?.telefone ?? "").replace(/\D/g, "") || null;
-  if (!nome) throw new Error("Informe o nome do colaborador.");
+  if (!nomePessoaValido(nome)) throw new Error("Informe nome e sobrenome do colaborador.");
   if (cpf.length !== 11) throw new Error("Informe um CPF válido.");
   if (!emailValido(email)) throw new Error("Informe um e-mail válido.");
   const empresaId = String(usuario.empresa_id);

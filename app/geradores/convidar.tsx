@@ -10,11 +10,13 @@ import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 import { AppHeader, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { emailValido, normalizarEmail } from "../../utils/email";
 import EnderecoFields from "../../components/cadastro/EnderecoFields";
-import { cpfValido, enderecoVazio, erroEndereco, formatarCpf, nomeCompletoValido, serializarEndereco } from "../../utils/cadastroCliente";
+import { cpfValido, enderecoVazio, erroEndereco, formatarCpf, serializarEndereco } from "../../utils/cadastroCliente";
+import { juntarNomePessoa, nomePessoaValido } from "../../utils/nomePessoa";
 
 export default function ConvidarGerador() {
   const { user } = useAuth();
   const [nome, setNome] = useState("");
+  const [sobrenome, setSobrenome] = useState("");
   const [cpf, setCpf] = useState("");
   const [email, setEmail] = useState("");
   const [endereco, setEndereco] = useState({ ...enderecoVazio });
@@ -32,12 +34,12 @@ export default function ConvidarGerador() {
   }
 
   async function enviar() {
-    if (!nomeCompletoValido(nome) || !cpfValido(cpf) || !emailValido(email)) return Alert.alert("Confira os dados", "Informe nome e sobrenome, CPF e e-mail válidos.");
+    if (!nomePessoaValido(nome, sobrenome) || !cpfValido(cpf) || !emailValido(email)) return Alert.alert("Confira os dados", "Informe nome e sobrenome, CPF e e-mail válidos.");
     const erroDoEndereco = erroEndereco(endereco);
     if (erroDoEndereco) return Alert.alert("Endereço do gerador", erroDoEndereco);
     try {
       setEnviando(true);
-      const resultado = await criarConviteGerador({ nome: nome.trim(), cpf: cpf.replace(/\D/g, ""), email: normalizarEmail(email), endereco: serializarEndereco(endereco), planoId: planoId || undefined, ciclo, diasTeste: planoId ? 45 : 0 });
+      const resultado = await criarConviteGerador({ nome: juntarNomePessoa(nome, sobrenome), cpf: cpf.replace(/\D/g, ""), email: normalizarEmail(email), endereco: serializarEndereco(endereco), planoId: planoId || undefined, ciclo, diasTeste: planoId ? 45 : 0 });
       Alert.alert("Convite criado", resultado.emailEnviado ? "O convite foi enviado por e-mail." : `O e-mail não pôde ser enviado. Código: ${resultado.token}`,
         [{ text: "OK", onPress: () => router.back() }]);
     } catch (erro: any) {
@@ -50,7 +52,8 @@ export default function ConvidarGerador() {
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={styles.notice}><Ionicons name="shield-checkmark-outline" size={23} color={Colors.primary} /><Text>Esta função está disponível exclusivamente para a conta administradora.</Text></View>
       <View style={styles.card}>
-        <Text style={styles.label}>Nome completo</Text><TextInput autoCapitalize="words" onChangeText={setNome} placeholder="Nome do novo gerador" placeholderTextColor={Colors.subtitle} style={styles.input} value={nome} />
+        <Text style={styles.label}>Nome *</Text><TextInput autoCapitalize="words" onChangeText={setNome} placeholder="Nome do novo gerador" placeholderTextColor={Colors.subtitle} style={styles.input} value={nome} />
+        <Text style={styles.label}>Sobrenome *</Text><TextInput autoCapitalize="words" onChangeText={setSobrenome} placeholder="Sobrenome do novo gerador" placeholderTextColor={Colors.subtitle} style={styles.input} value={sobrenome} />
         <Text style={styles.label}>CPF</Text><TextInput keyboardType="numeric" maxLength={14} onChangeText={(value) => setCpf(formatarCpf(value))} placeholder="000.000.000-00" placeholderTextColor={Colors.subtitle} style={styles.input} value={cpf} />
         <Text style={styles.label}>E-mail</Text><TextInput autoCapitalize="none" autoCorrect={false} keyboardType="email-address" onChangeText={(valor) => setEmail(normalizarEmail(valor))} placeholder="gerador@email.com" placeholderTextColor={Colors.subtitle} style={styles.input} value={email} />
         <Text style={styles.label}>Endereço do gerador</Text>

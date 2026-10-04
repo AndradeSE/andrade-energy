@@ -5,23 +5,23 @@ import { AppHeader, Card, ElasticScrollView, Screen } from "../components/ui";
 import { APP_DISPLAY_NAME, IS_GERADOR_APP } from "../config/appVariant";
 import { Colors, Spacing } from "../theme";
 const atualizacaoAtual = {
-  numero: "1.0.0-r20261003.2", data: "03/10/2026",
+  numero: "1.0.0-r20261004.1", data: "04/10/2026",
   melhorias: IS_GERADOR_APP ? [
-    "Nova logo no carregamento e na fatura, com referência e vencimento alinhados.",
-    "Endereço do locador com campos separados e validação antes de gerar a minuta.",
-    "Campos de endereço do perfil com espaçamento corrigido.",
-    "Correção de nomes com acentuação e novo ícone de troca de ambiente.",
-    "Carregamento visual nas seções que ainda não possuem dados disponíveis.",
-    "Atualização atual e histórico numerado específicos do Gerador.",
+    "Pedidos antigos de cancelamento não aparecem como pendentes em contratos substituídos.",
+    "Nome e Sobrenome separados e obrigatórios nos cadastros de pessoas.",
+    "Novos ícones para escolher usina e unidade consumidora.",
   ] : [
-    "Nova logo com animação de entrada no carregamento.",
-    "Campos de endereço do perfil com espaçamento corrigido.",
-    "Correção da exibição de nomes com acentuação.",
-    "Carregamento visual nas seções que ainda não possuem dados disponíveis.",
-    "Atualização atual e histórico numerado específicos do Consumidor.",
+    "Logo centralizada na escolha da unidade consumidora.",
+    "Nome e Sobrenome separados e obrigatórios no perfil.",
+    "Novo ícone para escolher unidade consumidora.",
   ],
 };
 const historico = IS_GERADOR_APP ? [
+  { numero: "1.0.0-r20261003.2", data: "03/10/2026", melhorias: [
+    "Nova logo no carregamento e na fatura, com referência e vencimento alinhados.",
+    "Endereço do locador com campos separados e validação antes de gerar a minuta.",
+    "Correção de nomes com acentuação e histórico por aplicativo.",
+  ] },
   { numero: "1.0.0-r20261003.1", data: "03/10/2026", melhorias: [
     "Importação da produção da usina por PDF, identificando a UC na carteira ativa.",
     "Cadastro com endereço completo e busca por CEP para cliente, gerador e usina.",
@@ -31,6 +31,11 @@ const historico = IS_GERADOR_APP ? [
     "Ícones e identificação separados para os aplicativos Preview e produção.",
   ] },
 ] : [
+  { numero: "1.0.0-r20261003.2", data: "03/10/2026", melhorias: [
+    "Nova logo com animação de entrada no carregamento.",
+    "Campos de endereço do perfil com espaçamento corrigido.",
+    "Correção da exibição de nomes com acentuação e histórico por aplicativo.",
+  ] },
   { numero: "1.0.0-r20261003.1", data: "03/10/2026", melhorias: [
     "Endereço completo no perfil e aproveitamento dos dados cadastrais no contrato.",
     "Identificação da versão e acesso às informações do aplicativo pelo menu.",

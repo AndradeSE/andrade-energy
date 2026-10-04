@@ -1,3 +1,8 @@
+export function nomePessoaValido(valor: unknown) {
+  const nome = String(valor ?? "").trim();
+  return /^[\p{L}\s'’.-]+$/u.test(nome) && nome.split(/\s+/).filter(p => /\p{L}{2}/u.test(p)).length >= 2;
+}
+
 export function validarEnderecoCadastro(endereco: unknown): string | null {
   const texto = String(endereco ?? "");
   const campo = (nome: string) => texto.match(new RegExp(`^${nome}: (.*)$`, "m"))?.[1]?.trim() ?? "";
@@ -14,7 +19,7 @@ export function validarCadastroCliente(dados: any, parcial = false): string | nu
   }
   if (!parcial || dados.nome !== undefined) {
     const nome = String(dados.nome ?? "").trim();
-    if (!/^[\p{L}\s'’.-]+$/u.test(nome) || nome.split(/\s+/).filter(p => /\p{L}{2}/u.test(p)).length < 2) return "Informe nome e sobrenome do cliente.";
+    if (!nomePessoaValido(nome)) return "Informe nome e sobrenome do cliente.";
   }
   if (!parcial || dados.cpf !== undefined) {
     const valor = String(dados.cpf ?? "");

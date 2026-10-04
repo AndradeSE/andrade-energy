@@ -234,7 +234,7 @@ export default function AppHeader({
           <Text numberOfLines={1} style={styles.contextSwitchText}>Trocar ambiente</Text>
         </TouchableOpacity> : null}
         {IS_GERADOR_APP && usinaSelecionada && !ambienteComercial ? <TouchableOpacity accessibilityLabel="Trocar de usina" activeOpacity={0.82} onPress={() => router.push("/selecionar-unidade" as any)} style={[styles.environmentSwitch, styles.contextSwitchButton]}>
-          <Ionicons name="swap-horizontal" size={17} color="#FFFFFF" />
+          <Ionicons name="grid-outline" size={17} color="#FFFFFF" />
           <Text numberOfLines={1} style={styles.contextSwitchText}>Trocar usina</Text>
         </TouchableOpacity> : null}
       </View> : null}

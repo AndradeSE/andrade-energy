@@ -248,7 +248,7 @@ export default function ClienteHome() {
             },
             {
               id: "trocar-unidade",
-              icon: "swap-horizontal-outline",
+              icon: "layers-outline",
               label: "Trocar unidade",
               onPress: () => router.push("/selecionar-unidade"),
             },

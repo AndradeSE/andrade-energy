@@ -27,7 +27,7 @@ import { readFile, unlink } from "node:fs/promises";
 import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
 import { conferirSenha, protegerSenha } from "../../utils/password";
 import { criarNotificacaoApp } from "../notificacoes/push.service";
-import { validarEnderecoCadastro } from "../clientes/validacaoCadastro";
+import { nomePessoaValido, validarEnderecoCadastro } from "../clientes/validacaoCadastro";
 
 type DadosPerfil = {
   nome?: unknown;
@@ -284,7 +284,7 @@ export async function atualizarMeuPerfil(usuarioId: string, dados: DadosPerfil) 
   const email = emailNormalizado(dados.email);
   const telefone = telefoneNormalizado(dados.telefone);
 
-  if (!nome) throw new Error("Informe seu nome completo.");
+  if (!nomePessoaValido(nome)) throw new Error("Informe nome e sobrenome válidos.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new Error("Informe um e-mail válido.");
   }
@@ -857,7 +857,7 @@ export async function cadastrarConta(input: { nome: string; cpf: string; email: 
   }).select("id").single();
   if (empresaError || !empresaGerador) throw empresaError ?? new Error("Não foi possível criar a operação do gerador.");
   input = { ...input, nome: convite.nome, cpf: convite.cpf, email: convite.email, empresa_id: empresaGerador.id };
-  if (!input.nome?.trim()) throw new Error("Informe seu nome.");
+  if (!nomePessoaValido(input.nome)) throw new Error("Informe nome e sobrenome válidos.");
   if (String(input.cpf ?? "").replace(/\D/g, "").length !== 11) throw new Error("Informe um CPF válido.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email?.trim() ?? "")) throw new Error("Informe um e-mail válido.");
   if ((input.senha?.length ?? 0) < 6) throw new Error("A senha deve ter pelo menos 6 caracteres.");
@@ -931,7 +931,7 @@ export async function iniciarTesteGerador(input: { nome: string; cpf: string; em
   // cadastrarConta exige convite; usá-lo aqui inviabilizava todo o fluxo.
   const nome = String(input.nome ?? "").trim();
   const email = emailNormalizado(input.email);
-  if (!nome) throw new Error("Informe seu nome.");
+  if (!nomePessoaValido(nome)) throw new Error("Informe nome e sobrenome válidos.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Informe um e-mail válido.");
   if (String(input.senha ?? "").length < 6) throw new Error("A senha deve ter pelo menos 6 caracteres.");
   const slugBase = nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")

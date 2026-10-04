@@ -6,6 +6,7 @@ import { AppHeader, Card, ElasticScrollView as ScrollView, Loading, Screen } fro
 import { useAuth } from "../../contexts/AuthContext";
 import { atualizarColaborador, cancelarConviteColaborador, convidarColaborador, listarColaboradores, reenviarConviteColaborador } from "../../services/colaboradores.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
+import { juntarNomePessoa, nomePessoaValido } from "../../utils/nomePessoa";
 
 const GERADOR = { usinas: "Usinas", clientes: "Clientes", unidades: "Unidades consumidoras", contratos: "Contratos", faturas: "Faturas", operacao: "Operação" };
 const COMERCIAL = { geradores: "Geradores", monitoramento: "Monitoramento", documentos: "Documentos" };
@@ -17,7 +18,7 @@ export default function Colaboradores({ modoAbaGerador = false }: { modoAbaGerad
   const comercial = !modoAbaGerador && (ambiente === "comercial" || (admin && ambiente !== "gerador"));
   const papel = comercial ? "COLABORADOR_COMERCIAL" : "COLABORADOR_GERADOR";
   const campos = papel === "COLABORADOR_COMERCIAL" ? COMERCIAL : GERADOR;
-  const [nome, setNome] = useState(""); const [cpf, setCpf] = useState(""); const [email, setEmail] = useState(""); const [telefone, setTelefone] = useState("");
+  const [nome, setNome] = useState(""); const [sobrenome, setSobrenome] = useState(""); const [cpf, setCpf] = useState(""); const [email, setEmail] = useState(""); const [telefone, setTelefone] = useState("");
   const [permissoes, setPermissoes] = useState<Record<string, boolean>>({});
   const [dados, setDados] = useState<any>({ colaboradores: [], convites: [] });
   const [carregando, setCarregando] = useState(true); const [enviando, setEnviando] = useState(false);
@@ -27,10 +28,11 @@ export default function Colaboradores({ modoAbaGerador = false }: { modoAbaGerad
   const lista = useMemo(() => [...(dados.colaboradores ?? []).map((item: any) => ({ ...item, pendente: false })), ...(dados.convites ?? []).map((item: any) => ({ ...item, pendente: true }))], [dados]);
 
   async function enviar() {
+    if (!nomePessoaValido(nome, sobrenome)) return Alert.alert("Nome completo obrigatório", "Informe nome e sobrenome válidos do colaborador.");
     try {
       setEnviando(true);
-      const resultado = await convidarColaborador({ nome, cpf, email, telefone, papel, permissoes });
-      setNome(""); setCpf(""); setEmail(""); setTelefone(""); await carregar();
+      const resultado = await convidarColaborador({ nome: juntarNomePessoa(nome, sobrenome), cpf, email, telefone, papel, permissoes });
+      setNome(""); setSobrenome(""); setCpf(""); setEmail(""); setTelefone(""); await carregar();
       Alert.alert("Convite criado", resultado.emailEnviado ? "O convite foi enviado por e-mail." : `O e-mail não foi entregue. Compartilhe este código:\n\n${resultado.token ?? ""}`);
     } catch (e: any) { Alert.alert("Não foi possível convidar", e?.response?.data?.message ?? "Confira os dados."); } finally { setEnviando(false); }
   }
@@ -42,7 +44,7 @@ export default function Colaboradores({ modoAbaGerador = false }: { modoAbaGerad
       <Text style={styles.title}>{comercial ? "Convidar para a equipe comercial" : "Convidar para a equipe do gerador"}</Text>
       <Text style={styles.subtitle}>{comercial ? "Este acesso permite auxiliar na gestão dos geradores, sem carteira, pagamentos, planos ou ferramentas exclusivas do ADM." : "Este acesso pertence somente a esta operação geradora. Carteira, recebíveis, transferências e ferramentas do titular continuam bloqueados."}</Text>
       <Card style={styles.form}>
-        <Field label="Nome completo" value={nome} onChangeText={setNome}/><Field label="CPF" value={cpf} onChangeText={(v: string) => setCpf(v.replace(/\D/g, "").slice(0, 11))} keyboardType="numeric"/><Field label="E-mail" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address"/><Field label="Telefone" value={telefone} onChangeText={setTelefone} keyboardType="phone-pad"/>
+        <Field label="Nome *" value={nome} onChangeText={setNome}/><Field label="Sobrenome *" value={sobrenome} onChangeText={setSobrenome}/><Field label="CPF" value={cpf} onChangeText={(v: string) => setCpf(v.replace(/\D/g, "").slice(0, 11))} keyboardType="numeric"/><Field label="E-mail" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address"/><Field label="Telefone" value={telefone} onChangeText={setTelefone} keyboardType="phone-pad"/>
         <Text style={styles.permissionTitle}>PERMISSÕES OPERACIONAIS</Text>
         {Object.entries(campos).map(([chave, label]) => <View key={chave} style={styles.permission}><Text style={styles.permissionText}>{label}</Text><Switch value={permissoes[chave] !== false} onValueChange={(valor) => setPermissoes((atual) => ({ ...atual, [chave]: valor }))} trackColor={{ false: Colors.border, true: Colors.primary }}/></View>)}
         <TouchableOpacity disabled={enviando} onPress={() => void enviar()} style={[styles.primary, enviando && styles.disabled]}>{enviando ? <ActivityIndicator color="#FFF"/> : <Text style={styles.primaryText}>Enviar convite</Text>}</TouchableOpacity>

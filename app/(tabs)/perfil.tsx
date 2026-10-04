@@ -45,6 +45,7 @@ import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 import EnderecoFields from "../../components/cadastro/EnderecoFields";
 import { enderecoVazio, erroEndereco, lerEndereco, serializarEndereco } from "../../utils/cadastroCliente";
 import { textoLegivel } from "../../utils/textoLegado";
+import { juntarNomePessoa, nomePessoaValido, separarNomePessoa } from "../../utils/nomePessoa";
 
 function formatarCpf(valor?: string | null) {
   const digitos = String(valor ?? "").replace(/\D/g, "").slice(0, 11);
@@ -69,7 +70,8 @@ function descricaoErro(erro: any, alternativa: string) {
 export default function Perfil() {
   const { origem } = useLocalSearchParams<{ origem?: string }>();
   const { user, unidadeSelecionada, digitalEnabled, atualizarUsuario, refreshDigitalStatus, signOut } = useAuth();
-  const [nome, setNome] = useState(user?.nome ?? "");
+  const [nome, setNome] = useState(() => separarNomePessoa(user?.nome ?? "").nome);
+  const [sobrenome, setSobrenome] = useState(() => separarNomePessoa(user?.nome ?? "").sobrenome);
   const [email, setEmail] = useState(user?.email ?? "");
   const [telefone, setTelefone] = useState(formatarTelefone(user?.telefone ?? ""));
   const [cpf, setCpf] = useState(user?.cpf ?? "");
@@ -132,7 +134,9 @@ export default function Perfil() {
   }
 
   const preencherUsuario = useCallback((dados: Partial<PerfilUsuario>) => {
-    setNome(textoLegivel(dados.nome));
+    const partes = separarNomePessoa(textoLegivel(dados.nome));
+    setNome(partes.nome);
+    setSobrenome(partes.sobrenome);
     setEmail(dados.email ?? "");
     setTelefone(formatarTelefone(dados.telefone ?? ""));
     setCpf(dados.cpf ?? "");
@@ -176,10 +180,10 @@ export default function Perfil() {
   }
 
   async function salvarDados() {
-    const nomeNormalizado = nome.trim();
+    const nomeNormalizado = juntarNomePessoa(nome, sobrenome);
     const emailNormalizado = email.trim().toLowerCase();
-    if (!nomeNormalizado) {
-      Alert.alert("Informe seu nome", "Preencha o nome completo para salvar as alterações.");
+    if (!nomePessoaValido(nome, sobrenome)) {
+      Alert.alert("Informe seu nome", "Preencha nome e sobrenome válidos para salvar as alterações.");
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNormalizado)) {
@@ -345,7 +349,8 @@ export default function Perfil() {
 
         <Text style={styles.sectionTitle}>DADOS PESSOAIS</Text>
         <View style={styles.card}>
-          <Campo icon="person-outline" label="Nome completo" onChangeText={setNome} value={nome} />
+          <Campo icon="person-outline" label="Nome *" onChangeText={setNome} value={nome} />
+          <Campo icon="person-outline" label="Sobrenome *" onChangeText={setSobrenome} value={sobrenome} />
           <Campo editable={false} hint="O CPF identifica suas unidades consumidoras." icon="card-outline" label="CPF" value={formatarCpf(cpf)} />
           <Campo autoCapitalize="none" autoCorrect={false} icon="mail-outline" keyboardType="email-address" label="E-mail" onChangeText={setEmail} value={email} />
           <Campo icon="call-outline" keyboardType="phone-pad" label="Telefone" last onChangeText={(valor) => setTelefone(formatarTelefone(valor))} placeholder="(00) 00000-0000" value={telefone} />

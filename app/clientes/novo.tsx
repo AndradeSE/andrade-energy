@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import FormField from "../../components/cadastro/FormField";
 import EnderecoFields from "../../components/cadastro/EnderecoFields";
-import { cpfValido, formatarCpf, nomeCompletoValido, enderecoVazio, lerEndereco, erroEndereco, serializarEndereco } from "../../utils/cadastroCliente";
+import { cpfValido, formatarCpf, enderecoVazio, lerEndereco, erroEndereco, serializarEndereco } from "../../utils/cadastroCliente";
 import PdfPasswordRetryModal from "../../components/PdfPasswordRetryModal";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
@@ -15,6 +15,7 @@ import { emailOpcionalValido, normalizarEmail } from "../../utils/email";
 import { anexarFaturaCliente, criarCliente } from "../../services/clientes.service";
 import { useAuth } from "../../contexts/AuthContext";
 import { calcularMediaConsumoFatura } from "../../services/faturas.service";
+import { juntarNomePessoa, nomePessoaValido, separarNomePessoa } from "../../utils/nomePessoa";
 
 function tipoGdDaFatura(dados: Record<string, any>) {
   const informado = String(dados.tipoGd ?? dados.tipo_gd ?? "").toUpperCase();
@@ -28,6 +29,8 @@ export default function NovoCliente() {
   const { usinaSelecionada } = useAuth();
   const { origem, cliente, nome: nomeImportado, cpf: cpfImportado, endereco: enderecoImportado, arquivoUri, arquivoNome } = useLocalSearchParams<{ origem?: string; cliente?: string; nome?: string; cpf?: string; endereco?: string; arquivoUri?: string; arquivoNome?: string }>();
   const [nome, setNome] = useState("");
+  const [sobrenome, setSobrenome] = useState("");
+  const nomeCompleto = juntarNomePessoa(nome, sobrenome);
   const [cpf, setCpf] = useState("");
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
@@ -41,14 +44,16 @@ export default function NovoCliente() {
     if (origem !== "fatura") return;
     const nomeExtraido = (cliente ?? nomeImportado ?? "").trim();
     const invalido = /d[eé]bito\s+autom[aá]tico|valor\s+a\s+pagar|vencimento/i.test(nomeExtraido);
-    setNome(invalido ? "" : nomeExtraido);
+    const partes = separarNomePessoa(invalido ? "" : nomeExtraido);
+    setNome(partes.nome);
+    setSobrenome(partes.sobrenome);
     setCpf(formatarCpf(String(cpfImportado ?? "")));
     setEndereco(lerEndereco(enderecoImportado ?? ""));
   }, [cliente, cpfImportado, enderecoImportado, nomeImportado, origem]);
 
   async function salvar(senhaPdf = "") {
     if (!pdf?.uri) return Alert.alert("Fatura obrigatória", "O gerador deve anexar a fatura CEMIG para cadastrar o cliente e criar a UC.");
-    if (!nomeCompletoValido(nome)) return Alert.alert("Nome completo obrigatório", "Informe o nome e o sobrenome do consumidor.");
+    if (!nomePessoaValido(nome, sobrenome)) return Alert.alert("Nome completo obrigatório", "Informe nome e sobrenome válidos do consumidor.");
     if (!normalizarEmail(email) || !emailOpcionalValido(email)) return Alert.alert("E-mail obrigatório", "Informe um endereço de e-mail válido para enviar o convite depois.");
     const cpfLimpo = cpf.replace(/\D/g, "");
     if (!cpfValido(cpf)) return Alert.alert("CPF inválido", "Confira os 11 números e os dígitos verificadores do CPF.");
@@ -56,7 +61,7 @@ export default function NovoCliente() {
     setSalvando(true);
 
     const dados = {
-      nome: nome.trim(), cpf: cpfLimpo || null, email: normalizarEmail(email) || null,
+      nome: nomeCompleto, cpf: cpfLimpo || null, email: normalizarEmail(email) || null,
       telefone: telefone.trim() || null, whatsapp: telefone.replace(/\D/g, "") || null,
       endereco: serializarEndereco(endereco), status: "INATIVO",
     };
@@ -87,7 +92,7 @@ export default function NovoCliente() {
               origem: "fatura",
               origemFaturaPerfil: "1",
               clienteId,
-              cliente: String(dadosFatura.titular ?? dadosFatura.cliente ?? nome.trim()),
+              cliente: String(dadosFatura.titular ?? dadosFatura.cliente ?? nomeCompleto),
               uc: numeroUc,
               cpf: String(dadosFatura.cpfParcial ?? dadosFatura.cpf_parcial ?? cpfLimpo).replace(/\D/g, "").slice(0, 4),
               endereco: String(dadosFatura.endereco ?? ""),
@@ -120,7 +125,8 @@ export default function NovoCliente() {
     <Text style={styles.title}>Novo consumidor</Text>
     <Text style={styles.subtitle}>{origem === "fatura" ? "Confira os mesmos dados do cadastro manual. A fatura já selecionada será usada para criar a UC." : "Cadastre os dados do cliente e anexe obrigatoriamente a fatura que criará a primeira UC."}</Text>
     <Card>
-      <FormField label="Nome e sobrenome" required value={nome} onChangeText={setNome} autoCapitalize="words" />
+      <FormField label="Nome" required value={nome} onChangeText={setNome} autoCapitalize="words" />
+      <FormField label="Sobrenome" required value={sobrenome} onChangeText={setSobrenome} autoCapitalize="words" />
       <FormField label="CPF" required value={cpf} onChangeText={(valor) => setCpf(formatarCpf(valor))} keyboardType="number-pad" maxLength={14} />
       <FormField label="E-mail" required value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
       <FormField label="Telefone / WhatsApp (opcional)" value={telefone} onChangeText={setTelefone} keyboardType="phone-pad" />
