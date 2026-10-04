@@ -584,7 +584,7 @@ export async function criarCheckoutRecorrente(usuario: any, input: any, origem: 
     ? Math.min(12, Math.max(2, Number(input?.parcelas) || 12))
     : 1;
   const site = String(
-    process.env.PORTAL_WEB_URL ?? "https://andradeenergy.com.br",
+    process.env.PORTAL_WEB_URL ?? "https://www.andradeenergy.com.br",
   ).replace(/\/$/, "");
   const nextDueDate = isoDate(
     assinatura.proximo_vencimento ??
