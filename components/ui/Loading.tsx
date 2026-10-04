@@ -30,7 +30,7 @@ export default function Loading({ showRevision = false }: { showRevision?: boole
       <View pointerEvents="none" style={styles.glowTop} />
       <View pointerEvents="none" style={styles.glowBottom} />
       {showRevision ? <Animated.View style={[styles.brandFrame, { opacity: entrada, transform: [{ scale: entrada.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }] }]}>
-        <Image accessibilityLabel="Andrade Energy" resizeMode="contain" source={require("../../assets/images/andrade-portal-logo-final.png")} style={styles.brandLogo} />
+        <Image accessibilityLabel="Andrade Energy" resizeMode="contain" source={require("../../assets/images/andrade-portal-logo-startup.png")} style={styles.brandLogo} />
       </Animated.View> : <>
         <View style={styles.animation}>
           <Animated.View style={[styles.pulse, { opacity: pulso.interpolate({ inputRange: [0, 1], outputRange: [0.42, 0] }), transform: [{ scale: pulso.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1.35] }) }] }]} />
@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, alignSelf: "stretch", minHeight: 320, width: "100%", alignItems: "center", justifyContent: "center", padding: Spacing.xl, backgroundColor: Colors.background },
   glowTop: { position: "absolute", top: 16, right: 16, width: 140, height: 140, borderRadius: 70, backgroundColor: "rgba(16,185,129,0.15)" },
   glowBottom: { position: "absolute", bottom: 16, left: 16, width: 140, height: 140, borderRadius: 70, backgroundColor: "rgba(250,204,21,0.12)" },
-  brandFrame: { backgroundColor: "#07533D", borderRadius: 16, paddingHorizontal: 14, paddingVertical: 8 },
+  brandFrame: { paddingVertical: 8 },
   brandLogo: { width: 250, height: 70 },
   animation: { width: 94, height: 94, alignItems: "center", justifyContent: "center" },
   pulse: { position: "absolute", width: 86, height: 86, borderRadius: 43, backgroundColor: Colors.primary },
