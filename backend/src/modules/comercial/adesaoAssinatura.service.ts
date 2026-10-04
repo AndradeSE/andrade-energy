@@ -87,7 +87,7 @@ export async function criarAdesaoPublica(input: any, chave: string, origem: { ip
         billingTypes: ["CREDIT_CARD"], chargeTypes: dados.parcelas > 1 ? ["INSTALLMENT"] : ["RECURRENT"], minutesToExpire: 1440,
         externalReference: `adesao:${a.id}`, callback: { successUrl: retorno, cancelUrl: retorno, expiredUrl: retorno },
         items: [{ name: plano.nome, description: `Assinatura ${dados.ciclo.toLowerCase()} Andrade Energy`, quantity: 1, value: valor }],
-        customerData: { name: dados.nome, cpfCnpj: dados.cpf, email: dados.email, mobilePhone: dados.telefone,
+        customerData: { name: dados.nome, cpfCnpj: dados.cpf, email: dados.email, phone: dados.telefone,
           postalCode: campo("CEP").replace(/\D/g,""), address: campo("Logradouro"), addressNumber: campo("Número"), complement: campo("Complemento"), province: campo("Bairro") },
         ...(dados.parcelas > 1 ? { installment: { maxInstallmentCount: 12 } } : { subscription: { cycle: dados.ciclo === "ANUAL" ? "YEARLY" : "MONTHLY", nextDueDate: `${new Date().toISOString().slice(0,10)} 12:00:00` } }),
       }) });
