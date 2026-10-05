@@ -46,7 +46,7 @@ const atualizacaoTutoriaisFluidos = {
     "Duração dos vídeos atualizada no catálogo; música e dados pessoais desfocados preservados.",
   ],
 };
-const atualizacaoAtual = {
+const atualizacaoSelecaoUsina = {
   numero: "1.0.0-r20261005.5", data: "05/10/2026",
   melhorias: [
     "Entrada nas abas valida a usina salva na conta atual; seleção antiga ou inexistente retorna à lista.",
@@ -54,7 +54,12 @@ const atualizacaoAtual = {
     "Falha na Home permite escolher outra usina ou tentar novamente, sem ficar presa no aviso.",
   ],
 };
+const atualizacaoAtual = {
+  numero: "1.0.0-r20261005.6", data: "05/10/2026",
+  melhorias: ["Tutorial de faturamento orienta localizar o atalho pelo nome, pois sua posição é personalizável."],
+};
 const historico = IS_GERADOR_APP ? [
+  atualizacaoSelecaoUsina,
   atualizacaoTutoriaisFluidos,
   atualizacaoSetasAnterior,
   atualizacaoTutoriaisAnterior,
