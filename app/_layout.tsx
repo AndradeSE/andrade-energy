@@ -69,6 +69,13 @@ function RootNavigator() {
   } = useAuth();
   const [readyUserId, setReadyUserId] = useState<string | null>(null);
   const [startupComplete, setStartupComplete] = useState(false);
+  const initialSelectionRef = useRef({ unidadeSelecionada, usinaSelecionada });
+  initialSelectionRef.current = { unidadeSelecionada, usinaSelecionada };
+  useEffect(() => {
+    // A paused/interrupted animation must not trap a restored session in splash.
+    const timer = setTimeout(() => setStartupComplete(true), 8000);
+    return () => clearTimeout(timer);
+  }, []);
   const selecionarUnidadeRef = useRef(selecionarUnidade);
   selecionarUnidadeRef.current = selecionarUnidade;
   useEffect(() => {
@@ -90,15 +97,11 @@ function RootNavigator() {
     const currentUser = session?.user;
     if (isLoading || !currentUser?.id || readyUserId === String(currentUser.id)) return;
     let active = true;
-    void Promise.race([
-      preloadNavigationData(activeQueryClient, IS_GERADOR_APP, currentUser, unidadeSelecionada, usinaSelecionada),
-      // Em instâncias gratuitas o backend pode levar ~50 s para acordar.
-      // Preserve o carregamento na abertura, não na primeira troca de aba.
-      new Promise<void>((resolve) => setTimeout(resolve, 60000)),
-    ])
+    const selection = initialSelectionRef.current;
+    void preloadNavigationData(activeQueryClient, IS_GERADOR_APP, currentUser, selection.unidadeSelecionada, selection.usinaSelecionada)
       .finally(() => { if (active) setReadyUserId(String(currentUser.id)); });
     return () => { active = false; };
-  }, [activeQueryClient, isLoading, readyUserId, session?.user?.id, unidadeSelecionada?.id, usinaSelecionada?.id]);
+  }, [activeQueryClient, isLoading, readyUserId, session?.user?.id]);
   // A seleção da UC/usina pode ser restaurada depois do pré-carregamento
   // inicial. Atualize o cache desse contexto sem remontar a navegação.
   const preloadedScope = useRef<string | null>(null);
