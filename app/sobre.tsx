@@ -54,8 +54,9 @@ const atualizacaoTutoriaisFluidos = {
   ],
 };
 const atualizacaoAtual = {
-  numero: "1.0.0-r20261005.4", data: "05/10/2026",
+  numero: "1.0.0-r20261005.5", data: "05/10/2026",
   melhorias: [
+    "Entrada nas abas valida a usina salva na conta atual; seleção antiga ou inexistente retorna à lista.",
     "Sem usina selecionada, Início e Financeiro abrem a lista para escolher ou cadastrar uma usina.",
     "Falha na Home permite escolher outra usina ou tentar novamente, sem ficar presa no aviso.",
   ],
