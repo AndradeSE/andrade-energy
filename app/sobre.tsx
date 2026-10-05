@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { AppHeader, Card, ElasticScrollView, Screen } from "../components/ui";
 import { APP_DISPLAY_NAME, IS_GERADOR_APP } from "../config/appVariant";
 import { Colors, Spacing } from "../theme";
-const atualizacaoAtual = {
+const atualizacaoAnterior = {
   numero: "1.0.0-r20261004.2", data: "04/10/2026",
   melhorias: IS_GERADOR_APP ? [
     "Logo animada na abertura, com lâmpada e cabo iluminados até o app ficar pronto.",
@@ -13,7 +13,15 @@ const atualizacaoAtual = {
     "Logo animada na abertura, com lâmpada e cabo iluminados até o app ficar pronto.",
   ],
 };
+const atualizacaoAtual = {
+  numero: "1.0.0-r20261004.3", data: "04/10/2026",
+  melhorias: [
+    "Notificações com os mesmos controles da web: Marcar todas como lidas e Marcar como lida.",
+    "Leitura individual e em lote salva no aparelho, sem perder os avisos anteriores.",
+  ],
+};
 const historico = IS_GERADOR_APP ? [
+  atualizacaoAnterior,
   { numero: "1.0.0-r20261004.1", data: "04/10/2026", melhorias: [
     "Pedidos antigos de cancelamento não aparecem como pendentes em contratos substituídos.",
     "Nome e Sobrenome separados e obrigatórios nos cadastros de pessoas.",
@@ -33,6 +41,7 @@ const historico = IS_GERADOR_APP ? [
     "Ícones e identificação separados para os aplicativos Preview e produção.",
   ] },
 ] : [
+  atualizacaoAnterior,
   { numero: "1.0.0-r20261004.1", data: "04/10/2026", melhorias: [
     "Logo centralizada na escolha da unidade consumidora.",
     "Nome e Sobrenome separados e obrigatórios no perfil.",

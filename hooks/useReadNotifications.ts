@@ -16,5 +16,6 @@ export function useReadNotifications(userId?: string) {
     ready: Boolean(userId && snapshot?.userId === userId),
     ids: snapshot?.userId === userId ? snapshot?.ids ?? [] : [],
     mark: (id: string) => userId ? store.mark(userId, id) : Promise.reject(new Error("Sessão indisponível")),
+    markMany: (ids: string[]) => userId ? store.markMany(userId, ids) : Promise.reject(new Error("Sessão indisponível")),
   };
 }

@@ -33,6 +33,13 @@ export function createNotificationReadStore(storage: Storage) {
         notify(user, ids);
       });
     },
+    markMany(user: string, notificationIds: string[]) {
+      return enqueue(user, async () => {
+        const ids = [...new Set([...(await read(user)), ...notificationIds.map((id) => normalize(String(id)))])];
+        await storage.setItem(key(user), JSON.stringify(ids));
+        notify(user, ids);
+      });
+    },
     subscribe(user: string, listener: (ids: string[]) => void) {
       const group = listeners.get(user) ?? new Set();
       group.add(listener); listeners.set(user, group);

@@ -21,6 +21,7 @@ import { useProfilePhoto } from "../../hooks/useProfilePhoto";
 import { listarNotificacoesApp } from "../../services/notificacoes.service";
 import { avisosPassoAPassoAtivos, definirAvisosPassoAPasso } from "../../services/preferencias.service";
 import NotificationSideSheet from "./NotificationSideSheet";
+import NotificationInbox from "./NotificationInbox";
 import { textoLegivel } from "../../utils/textoLegado";
 
 function escurecerCor(hex: string, fator = 0.62) {
@@ -240,12 +241,11 @@ export default function AppHeader({
       </View> : null}
 
       <NotificationSideSheet visible={notificacoesAbertas} onClose={() => setNotificacoesAbertas(false)}>
-          <View style={styles.notificationPanel}>
-            <View style={styles.menuHeader}><Text style={styles.menuTitle}>Notificações</Text><View style={styles.notificationHeaderActions}>{notificacoes.length ? <TouchableOpacity accessibilityLabel="Limpar lista de notificações" onPress={confirmarLimpeza}><Text style={styles.clearNotifications}>Limpar lista</Text></TouchableOpacity> : null}<TouchableOpacity onPress={() => setNotificacoesAbertas(false)}><Ionicons name="close" size={26} color={Colors.text} /></TouchableOpacity></View></View>
-            <ScrollView showsVerticalScrollIndicator={false}>
-            {notificacoes.length ? notificacoes.map((aviso) => <TouchableOpacity key={aviso.id} onPress={async () => { if (!aviso.lida) await marcarNotificacaoComoLida(aviso.id); setNotificacoesAbertas(false); router.push(aviso.rota as any); }} style={[styles.notificationItem, aviso.lida && styles.notificationItemRead]}><View style={[styles.notificationDot, aviso.severidade === "alta" && !aviso.lida && styles.notificationDotHigh, aviso.lida && styles.notificationDotRead]} /><View style={styles.notificationCopy}><View style={styles.notificationTitleRow}><Text style={[styles.notificationTitle, aviso.lida && styles.notificationTitleRead]}>{aviso.titulo}</Text><Text style={[styles.notificationStatus, aviso.lida && styles.notificationStatusRead]}>{aviso.lida ? "Lida" : "Não lida"}</Text></View><Text style={[styles.notificationDetail, aviso.lida && styles.notificationDetailRead]}>{aviso.detalhe}</Text></View><Ionicons name="chevron-forward" size={18} color={Colors.subtitle} /></TouchableOpacity>) : <View style={styles.emptyNotifications}><Ionicons name="checkmark-circle-outline" size={34} color={Colors.success} /><Text style={styles.emptyNotificationsTitle}>Tudo em dia</Text><Text style={styles.emptyNotificationsText}>Nenhuma notificação encontrada.</Text></View>}
-            </ScrollView>
-          </View>
+        <NotificationInbox items={notificacoes} readIds={leituras.ids} ready={leituras.ready} onMark={leituras.markMany} onClose={() => setNotificacoesAbertas(false)} onOpen={(aviso) => {
+          if (!leituras.ids.includes(String(aviso.id))) void marcarNotificacaoComoLida(String(aviso.id));
+          setNotificacoesAbertas(false);
+          if (aviso.rota) router.push(aviso.rota as any);
+        }} />
       </NotificationSideSheet>
 
       <Modal animationType="fade" transparent visible={fotoAberta && Boolean(fotoPerfil)} onRequestClose={() => setFotoAberta(false)}>
