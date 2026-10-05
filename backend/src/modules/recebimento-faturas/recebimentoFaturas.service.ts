@@ -695,10 +695,16 @@ async function processarRegistro(registro: any) {
       if (titularidade === "CLIENTE") {
         consultaUnidades = consultaUnidades.eq("cliente_id", unidadeConfiguracao.cliente_id);
       }
-      etapa("CONSULTAR_ESCOPO_UCS");
-      const { data: unidadesDoEscopo, error: erroEscopo } = await consultaUnidades.abortSignal(AbortSignal.timeout(30_000));
-      if (erroEscopo) throw erroEscopo;
-      const candidatas = (unidadesDoEscopo?.length ? unidadesDoEscopo : [unidadeConfiguracao]) as any[];
+      let candidatas: any[];
+      if (String(unidadeConfiguracao.tipo).toUpperCase() === "GERADORA") {
+        // A configuração da usina só pode importar o PDF da própria UC geradora.
+        candidatas = [unidadeConfiguracao];
+      } else {
+        etapa("CONSULTAR_ESCOPO_UCS");
+        const { data: unidadesDoEscopo, error: erroEscopo } = await consultaUnidades.abortSignal(AbortSignal.timeout(30_000));
+        if (erroEscopo) throw erroEscopo;
+        candidatas = (unidadesDoEscopo?.length ? unidadesDoEscopo : [unidadeConfiguracao]) as any[];
+      }
 
       // As faturas CEMIG protegidas usam os quatro primeiros dígitos do CPF
       // do titular. Como uma única configuração atende todas as UCs do escopo,
