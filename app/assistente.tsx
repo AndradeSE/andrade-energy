@@ -1,0 +1,161 @@
+import { useEffect, useRef, useState } from "react";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Redirect, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { useAuth } from "../contexts/AuthContext";
+import { isPreviewEnvironment } from "../config/environment";
+import { IS_GERADOR_APP } from "../config/appVariant";
+import { answerInConversation, LocalReply, LocalTopic } from "../services/local-assistant";
+import { answerWithLocalModel, installLocalModel, isModelInstalled, releaseLocalModel } from "../services/on-device-model";
+import { installVoiceModels, isVoiceInstalled, pauseContinuousListening, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
+import * as Speech from "expo-speech";
+import { Colors } from "../theme";
+
+type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"] };
+
+export default function Assistente() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { authenticated } = useAuth();
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [topic, setTopic] = useState<LocalTopic>();
+  const [modelReady, setModelReady] = useState(isModelInstalled);
+  const [busy, setBusy] = useState(false);
+  const [installStage, setInstallStage] = useState<string>();
+  const [installProgress, setInstallProgress] = useState<number | null>(null);
+  const [voiceReady, setVoiceReady] = useState(isVoiceInstalled);
+  const [listening, setListening] = useState(false);
+  const voiceActive = useRef(false);
+  const busyRef = useRef(false);
+  const messagesRef = useRef<Message[]>([]);
+  const topicRef = useRef<LocalTopic | undefined>(undefined);
+  useEffect(() => () => { voiceActive.current = false; Speech.stop(); void stopContinuousListening(); void releaseLocalModel(); }, []);
+
+  if (!isPreviewEnvironment || !authenticated) return <Redirect href="/" />;
+
+  async function send(spokenQuestion?: string) {
+    const question = (spokenQuestion ?? input).trim();
+    if (!question || busyRef.current) return;
+    busyRef.current = true;
+    if (voiceActive.current) await pauseContinuousListening();
+    const { reply, topic: nextTopic } = answerInConversation(question, {
+      authenticated: true,
+      variant: IS_GERADOR_APP ? "gerador" : "consumidor",
+    }, topicRef.current);
+    setInput("");
+    setBusy(true);
+    const userMessage: Message = { from: "user", text: question };
+    const nextMessages = [...messagesRef.current, userMessage].slice(-39);
+    messagesRef.current = nextMessages;
+    setMessages(nextMessages);
+    try {
+      let response: Message = { from: "assistant", text: reply.text, route: reply.route };
+      if (modelReady && reply.kind !== "navigate" && reply.kind !== "blocked") {
+        const history = nextMessages.slice(-8).map(message => ({ role: message.from, content: message.text }));
+        response = { from: "assistant", text: await answerWithLocalModel(history, reply.kind === "help" ? reply.text : undefined) };
+      }
+      messagesRef.current = [...messagesRef.current, response].slice(-40);
+      setMessages(messagesRef.current);
+      topicRef.current = nextTopic;
+      setTopic(nextTopic);
+      if (voiceActive.current) {
+        Speech.speak(response.text, { language: "pt-BR", rate: 0.95, onDone: () => { if (voiceActive.current) void resumeVoice(); }, onError: () => { if (voiceActive.current) void resumeVoice(); } });
+      }
+    } catch {
+      const fallback: Message = { from: "assistant", text: "O modelo local não respondeu. Tente novamente ou use a ajuda básica." };
+      messagesRef.current = [...messagesRef.current, fallback].slice(-40);
+      setMessages(messagesRef.current);
+      if (voiceActive.current) void resumeVoice();
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }
+
+  async function resumeVoice() {
+    try { await startContinuousListening(text => { void send(text); }, error => { setInstallStage(error); void toggleVoice(); }); }
+    catch (error) { voiceActive.current = false; setListening(false); setInstallStage(error instanceof Error ? error.message : "O microfone não iniciou."); }
+  }
+
+  async function toggleVoice() {
+    if (voiceActive.current) {
+      voiceActive.current = false;
+      setListening(false);
+      Speech.stop();
+      await stopContinuousListening();
+      return;
+    }
+    if (!voiceReady) {
+      setBusy(true);
+      try { await installVoiceModels((stage, progress) => setInstallStage(progress == null ? stage : `${stage}: ${Math.round(progress * 100)}%`)); setVoiceReady(true); }
+      catch (error) { setInstallStage(error instanceof Error ? error.message : "Não foi possível instalar a voz."); return; }
+      finally { setBusy(false); }
+    }
+    voiceActive.current = true;
+    setListening(true);
+    setInstallStage(undefined);
+    await resumeVoice();
+  }
+
+  async function install() {
+    if (busy) return;
+    setBusy(true);
+    setInstallProgress(0);
+    try {
+      await installLocalModel((stage, progress, downloadedBytes) => {
+        setInstallProgress(progress ?? null);
+        const baixados = downloadedBytes ? ` · ${(downloadedBytes / 1_000_000).toFixed(1)} MB` : "";
+        setInstallStage(stage === "baixando"
+          ? progress == null ? `Baixando modelo${baixados}…` : `Baixando modelo: ${Math.round(progress * 100)}%${baixados}`
+          : `Verificando modelo: ${Math.round((progress ?? 0) * 100)}%`);
+      });
+      setModelReady(true);
+      setInstallStage(undefined);
+      setInstallProgress(null);
+    } catch (error) {
+      setInstallStage(error instanceof Error ? error.message : "Não foi possível instalar o modelo.");
+      setInstallProgress(null);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+      <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Voltar" style={styles.back}><Text style={styles.backText}>‹</Text></Pressable>
+      <View style={styles.headerText}><Text style={styles.title}>Ajuda Andrade Energy</Text><Text style={styles.subtitle}>Conversa local em teste</Text></View>
+      <Pressable disabled={busy} onPress={() => { messagesRef.current = []; topicRef.current = undefined; setMessages([]); setTopic(undefined); void releaseLocalModel(); }} accessibilityRole="button" accessibilityLabel="Limpar conversa"><Text style={styles.clear}>Limpar</Text></Pressable>
+    </View>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Pergunte sobre faturas, contratos, atalhos ou uso sem internet. Também posso abrir uma seção do app quando você pedir.</Text><Text style={styles.limit}>{modelReady ? "Modelo local instalado. A conversa livre pode conter erros; confira dados importantes no aplicativo." : "A ajuda básica já funciona. Instale o modelo opcional para conversar livremente em português."}</Text>{!modelReady ? <Pressable accessibilityRole="button" disabled={busy} onPress={() => void install()} style={styles.action}><Text style={styles.actionText}>Instalar modelo local</Text></Pressable> : null}</View> : null}
+      {installStage ? <View style={styles.progressCard} accessibilityLiveRegion="polite"><Text style={styles.limit}>{installStage}</Text>{installProgress !== null ? <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(installProgress * 100)}%` }]} /></View> : null}</View> : null}
+      {messages.map((message, index) => <View key={index} style={[styles.bubble, message.from === "user" ? styles.userBubble : styles.assistantBubble]}>
+        <Text style={styles.message}>{message.text}</Text>
+        {message.route ? <Pressable accessibilityRole="button" onPress={() => router.push(message.route!)} style={styles.action}><Text style={styles.actionText}>Abrir seção</Text></Pressable> : null}
+      </View>)}
+    </ScrollView>
+    <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+      <Pressable onPress={() => void toggleVoice()} disabled={busy && !listening} accessibilityRole="button" accessibilityLabel={listening ? "Parar conversa por voz" : "Iniciar conversa por voz"} style={[styles.send, listening && styles.voiceActive]}><Text style={styles.sendText}>{listening ? "Parar" : "Voz"}</Text></Pressable>
+      <TextInput value={input} onChangeText={setInput} placeholder="Escreva sua pergunta" placeholderTextColor={Colors.subtitle} multiline maxLength={1000} accessibilityLabel="Sua pergunta" style={styles.input} />
+      <Pressable onPress={() => void send()} disabled={!input.trim() || busy} accessibilityRole="button" accessibilityLabel="Enviar pergunta" style={[styles.send, (!input.trim() || busy) && styles.disabled]}><Text style={styles.sendText}>{busy ? "…" : "Enviar"}</Text></Pressable>
+    </View>
+  </KeyboardAvoidingView>;
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: Colors.background },
+  header: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.header, paddingHorizontal: 16, paddingBottom: 14, gap: 12 },
+  back: { width: 32, alignItems: "center" }, backText: { color: "white", fontSize: 32 },
+  headerText: { flex: 1 }, title: { color: "white", fontSize: 18, fontWeight: "700" }, subtitle: { color: "#D8EBE1", fontSize: 12 }, clear: { color: "white", fontSize: 14 },
+  scroll: { flex: 1 }, content: { padding: 18, gap: 12 }, intro: { backgroundColor: Colors.surface, padding: 18, borderRadius: 18 },
+  introTitle: { color: Colors.text, fontSize: 19, fontWeight: "700" }, introBody: { color: Colors.text, marginTop: 8, lineHeight: 22 }, limit: { color: Colors.subtitle, marginTop: 12, lineHeight: 20 },
+  bubble: { maxWidth: "88%", padding: 14, borderRadius: 18 }, userBubble: { alignSelf: "flex-end", backgroundColor: Colors.primaryLight }, assistantBubble: { alignSelf: "flex-start", backgroundColor: Colors.surface }, message: { color: Colors.text, fontSize: 16, lineHeight: 22 },
+  action: { marginTop: 10, alignSelf: "flex-start", backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12 }, actionText: { color: "white", fontWeight: "700" },
+  progressCard: { backgroundColor: Colors.surface, paddingHorizontal: 18, paddingBottom: 16, borderRadius: 18 },
+  progressTrack: { height: 9, marginTop: 10, borderRadius: 8, overflow: "hidden", backgroundColor: Colors.primaryLight },
+  progressFill: { height: "100%", backgroundColor: Colors.primary },
+  composer: { flexDirection: "row", alignItems: "flex-end", gap: 8, backgroundColor: Colors.surface, paddingHorizontal: 12, paddingTop: 10 }, input: { flex: 1, maxHeight: 120, minHeight: 48, borderWidth: 1, borderColor: Colors.border, borderRadius: 16, padding: 12, color: Colors.text },
+  send: { minHeight: 48, justifyContent: "center", paddingHorizontal: 14, backgroundColor: Colors.primary, borderRadius: 14 }, voiceActive: { backgroundColor: "#A33131" }, disabled: { opacity: 0.45 }, sendText: { color: "white", fontWeight: "700" },
+});

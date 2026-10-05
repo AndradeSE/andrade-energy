@@ -3,7 +3,9 @@ node_modules/
 .pnpm-store/
 .expo/
 .git/
+.git
 .worktrees/
+.eas-archive-*/
 .codex-*/
 .local-android/
 .kotlin/
@@ -63,3 +65,32 @@ yarn-debug.*
 yarn-error.*
 *.tsbuildinfo
 .DS_Store
+
+# The Android client build does not need server, portal, or local test material.
+backend/
+portal-web/*
+!portal-web/src
+portal-web/src/*
+!portal-web/src/assets
+portal-web/src/assets/*
+!portal-web/src/assets/lampada-dourada.png
+supabase/
+scripts/
+docs/
+postman/
+.postman/
+.claude/
+.vscode/
+netlify-probe/
+output/
+
+# Include only the tutorial media referenced by the app bundle.
+assets/tutorials/*
+!assets/tutorials/tutorial-faturamento-comercial-real.mp4
+!assets/tutorials/tutorial-analise-cancelamento-comercial-real.mp4
+!assets/tutorials/tutorial-renovacao-gerador-real.mp4
+!assets/tutorials/tutorial-chave-pix-salva-real.mp4
+!assets/tutorials/tutorial-plano-comercial-real.mp4
+!assets/tutorials/tutorial-multiempresas-comercial-real.mp4
+!assets/tutorials/tutorial-cancelamento-completo-real.mp4
+!assets/tutorials/tutorial-revisao-real-consumidor.mp4

@@ -48,7 +48,7 @@ module.exports = {
 
       package: packageId,
 
-      permissions: ["android.permission.REQUEST_INSTALL_PACKAGES", "android.permission.POST_NOTIFICATIONS"],
+      permissions: ["android.permission.REQUEST_INSTALL_PACKAGES", "android.permission.POST_NOTIFICATIONS", ...(preview ? ["android.permission.RECORD_AUDIO"] : [])],
 
       predictiveBackGestureEnabled: false,
 
@@ -69,6 +69,7 @@ module.exports = {
       supportsTablet: true,
 
       bundleIdentifier: packageId,
+      ...(preview ? { infoPlist: { NSMicrophoneUsageDescription: "A voz do assistente é processada neste aparelho, sem enviar o áudio a servidores." } } : {}),
     },
 
     web: {
@@ -80,6 +81,7 @@ module.exports = {
 
     plugins: [
       "expo-router",
+      ...(preview ? [["expo-audio", { microphonePermission: "A voz do assistente é processada neste aparelho, sem enviar o áudio a servidores." }]] : []),
 
       [
         "expo-splash-screen",
@@ -117,9 +119,11 @@ module.exports = {
         {
           android: {
             usesCleartextTraffic: true,
+            ...(preview ? { buildArchs: ["arm64-v8a"] } : {}),
           },
         },
       ],
+      ...(preview ? [["llama.rn", { enableEntitlements: true, entitlementsProfile: "production", forceCxx20: true, enableOpenCL: false }]] : []),
     ],
 
     experiments: {
@@ -140,7 +144,7 @@ module.exports = {
       },
     },
 
-    runtimeVersion: preview ? "1.0.0-preview" : {
+    runtimeVersion: preview ? "1.0.1-preview-local-ai" : {
       policy: "appVersion",
     },
 

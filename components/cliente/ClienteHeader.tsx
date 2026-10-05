@@ -21,6 +21,7 @@ import {
 } from "react-native";
 
 import { useAuth } from "../../contexts/AuthContext";
+import { isPreviewEnvironment } from "../../config/environment";
 import { listarFaturas } from "../../services/faturas.service";
 import { listarNotificacoesApp } from "../../services/notificacoes.service";
 import { listarMinhasUnidades } from "../../services/clientes.service";
@@ -189,6 +190,7 @@ export default function ClienteHeader({
       | "/faturas"
       | "/contrato"
       | "/tutoriais"
+      | "/assistente"
       | "/sobre"
       | "/unidades/recebimento-email"
   ) {
@@ -519,6 +521,7 @@ export default function ClienteHeader({
               label="Tutoriais"
               onPress={() => navegar("/tutoriais")}
             />
+            {isPreviewEnvironment ? <MenuItem icon="chatbubble-ellipses-outline" label="Ajuda Andrade Energy" onPress={() => navegar("/assistente")} /> : null}
             <MenuItem icon="globe-outline" label="Site Andrade Energy" onPress={() => { setMenuAberto(false); void abrirSiteApp(); }} />
             <MenuItem icon="information-circle-outline" label="Sobre o app" onPress={() => navegar("/sobre")} />
 
