@@ -20,7 +20,7 @@ const atualizacaoNotificacoes = {
     "Leitura individual e em lote salva no aparelho, sem perder os avisos anteriores.",
   ],
 };
-const atualizacaoAtual = {
+const atualizacaoTutoriaisAnterior = {
   numero: "1.0.0-r20261004.4", data: "04/10/2026",
   melhorias: IS_GERADOR_APP ? [
     "Tutoriais de faturamento, cancelamento, renovação, Pix, planos e empresas revisados com dados pessoais desfocados.",
@@ -31,7 +31,15 @@ const atualizacaoAtual = {
     "Voz nivelada e música de fundo mais audível.",
   ],
 };
+const atualizacaoAtual = {
+  numero: "1.0.0-r20261005.1", data: "05/10/2026",
+  melhorias: [
+    "Setas curvas vermelhas preenchidas nos tutoriais, com entrada suave e ponta fixa no controle indicado.",
+    "Imagem do portal restaurada atrás da logo na abertura, preservando a animação e o rodapé discreto.",
+  ],
+};
 const historico = IS_GERADOR_APP ? [
+  atualizacaoTutoriaisAnterior,
   atualizacaoNotificacoes,
   atualizacaoAnterior,
   { numero: "1.0.0-r20261004.1", data: "04/10/2026", melhorias: [
@@ -53,6 +61,7 @@ const historico = IS_GERADOR_APP ? [
     "Ícones e identificação separados para os aplicativos Preview e produção.",
   ] },
 ] : [
+  atualizacaoTutoriaisAnterior,
   atualizacaoNotificacoes,
   atualizacaoAnterior,
   { numero: "1.0.0-r20261004.1", data: "04/10/2026", melhorias: [
