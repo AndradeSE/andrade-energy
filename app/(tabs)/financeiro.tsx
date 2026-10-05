@@ -1,7 +1,7 @@
 import PixKeyTypeSelector, { PixKeyType } from "../../components/financeiro/PixKeyTypeSelector";
 import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
-import { useFocusEffect } from "expo-router";
+import { Redirect, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { Alert, RefreshControl, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 
@@ -30,6 +30,10 @@ export default function Financeiro() {
   const [financeiroAutorizado, setFinanceiroAutorizado] = useState(false);
   const [autorizacaoPix, setAutorizacaoPix] = useState("");
   const carregar = useCallback(async () => {
+    if (!usinaSelecionada?.id && !user?.usina_id) {
+      setLoading(false);
+      return;
+    }
     try {
       const [financeiroResultado, carteiraResultado] = await Promise.allSettled([
         FinanceiroService.carregarFinanceiro(usinaSelecionada?.id ?? user?.usina_id ?? undefined),
@@ -78,6 +82,9 @@ export default function Financeiro() {
     } catch (error: any) { Alert.alert("Carteira", error?.response?.data?.message ?? "Não foi possível alterar a automação."); }
   }
 
+  if (!usinaSelecionada?.id && !user?.usina_id) {
+    return <Redirect href="/selecionar-unidade" />;
+  }
 
   return <Screen><AppHeader collapsePlantContextOnMount title="Financeiro" subtitle="Receita da carteira" contextTitle={moeda(dados.receitaRecebida)} contextSubtitle={`${dados.percentualRecebido.toFixed(1)}% da receita recebida`} icon="wallet-outline" />
     {loading ? <TabDataPending /> : <ScrollView bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

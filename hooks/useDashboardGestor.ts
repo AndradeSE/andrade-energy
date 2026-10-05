@@ -10,7 +10,7 @@ export function useDashboardGestor() {
   return useQuery({
     queryKey: ["dashboard-usina", usinaSelecionada?.id ?? usuario?.usina_id],
 
-    enabled: proprietario,
+    enabled: proprietario && Boolean(usinaSelecionada?.id ?? usuario?.usina_id),
 
     queryFn: async () => {
       let usinaId = usinaSelecionada?.id ?? usuario?.usina_id;

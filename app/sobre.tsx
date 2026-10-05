@@ -45,7 +45,7 @@ const atualizacaoCarregamentoPreview = {
     "Proteção contra animação inicial interrompida e consultas de usinas sem resposta.",
   ],
 };
-const atualizacaoAtual = {
+const atualizacaoTutoriaisFluidos = {
   numero: "1.0.0-r20261005.3", data: "05/10/2026",
   melhorias: [
     "Pausas estáticas encurtadas nos tutoriais, preservando a narração e as ações reais.",
@@ -53,7 +53,15 @@ const atualizacaoAtual = {
     "Duração dos vídeos atualizada no catálogo; música e dados pessoais desfocados preservados.",
   ],
 };
+const atualizacaoAtual = {
+  numero: "1.0.0-r20261005.4", data: "05/10/2026",
+  melhorias: [
+    "Sem usina selecionada, Início e Financeiro abrem a lista para escolher ou cadastrar uma usina.",
+    "Falha na Home permite escolher outra usina ou tentar novamente, sem ficar presa no aviso.",
+  ],
+};
 const historico = IS_GERADOR_APP ? [
+  atualizacaoTutoriaisFluidos,
   atualizacaoCarregamentoPreview,
   atualizacaoSetasAnterior,
   atualizacaoTutoriaisAnterior,

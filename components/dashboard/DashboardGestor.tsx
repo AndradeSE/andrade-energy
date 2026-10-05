@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
-import { router } from "expo-router";
+import { Redirect, router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Alert,
@@ -24,6 +24,7 @@ import {
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 import {
   AppHeader,
+  Button,
   ElasticScrollView as ScrollView,
   EmptyState,
   Metric,
@@ -170,6 +171,11 @@ export default function DashboardGestor() {
     }
   }
 
+  // Sem seleção, inclusive no primeiro cadastro, a Home não é o destino.
+  // A lista permite escolher uma usina existente ou cadastrar a primeira.
+  if (!usinaSelecionada?.id && !usuario?.usina_id) {
+    return <Redirect href="/selecionar-unidade" />;
+  }
   if (isLoading) return <Screen><AppHeader title="Início" subtitle="Sua energia em um só lugar" contextTitle="Visão geral da operação" contextSubtitle="Preparando dados da usina" icon="sunny-outline" /><TabDataPending /></Screen>;
   if (error || !data)
     return (
@@ -180,6 +186,8 @@ export default function DashboardGestor() {
             title="Não foi possível carregar a usina"
             subtitle="Verifique sua conexão e tente novamente."
           />
+          <Button title="Escolher ou cadastrar usina" onPress={() => router.replace("/selecionar-unidade")} />
+          <Button title="Tentar novamente" onPress={() => void refetch()} />
         </View>
       </Screen>
     );
