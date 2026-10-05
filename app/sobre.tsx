@@ -13,14 +13,26 @@ const atualizacaoAnterior = {
     "Logo animada na abertura, com lâmpada e cabo iluminados até o app ficar pronto.",
   ],
 };
-const atualizacaoAtual = {
+const atualizacaoNotificacoes = {
   numero: "1.0.0-r20261004.3", data: "04/10/2026",
   melhorias: [
     "Notificações com os mesmos controles da web: Marcar todas como lidas e Marcar como lida.",
     "Leitura individual e em lote salva no aparelho, sem perder os avisos anteriores.",
   ],
 };
+const atualizacaoAtual = {
+  numero: "1.0.0-r20261004.4", data: "04/10/2026",
+  melhorias: IS_GERADOR_APP ? [
+    "Tutoriais de faturamento, cancelamento, renovação, Pix, planos e empresas revisados com dados pessoais desfocados.",
+    "Setas redesenhadas, voz nivelada entre os passos e música de fundo mais audível.",
+  ] : [
+    "Tutoriais de cancelamento e revisão do contrato com desfoque de dados pessoais e marcações revistas.",
+    "Navegação do cancelamento sincronizada com a fala e menor espera na abertura da revisão.",
+    "Voz nivelada e música de fundo mais audível.",
+  ],
+};
 const historico = IS_GERADOR_APP ? [
+  atualizacaoNotificacoes,
   atualizacaoAnterior,
   { numero: "1.0.0-r20261004.1", data: "04/10/2026", melhorias: [
     "Pedidos antigos de cancelamento não aparecem como pendentes em contratos substituídos.",
@@ -41,6 +53,7 @@ const historico = IS_GERADOR_APP ? [
     "Ícones e identificação separados para os aplicativos Preview e produção.",
   ] },
 ] : [
+  atualizacaoNotificacoes,
   atualizacaoAnterior,
   { numero: "1.0.0-r20261004.1", data: "04/10/2026", melhorias: [
     "Logo centralizada na escolha da unidade consumidora.",

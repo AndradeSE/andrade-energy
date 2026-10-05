@@ -28,7 +28,7 @@ const tutoriaisComercial: Tutorial[] = [
 
 const tutoriaisConsumidor: Tutorial[] = [
   { id: "cancelamento", titulo: "Solicitar cancelamento", descricao: "Comece na Home, revise o aviso, envie o pedido e confira o status aguardando resposta.", duracao: "42 s", video: require("../assets/tutorials/tutorial-cancelamento-completo-real.mp4") },
-  { id: "revisao-contrato", titulo: "Conferir revisão do contrato", descricao: "Abra a minuta real e confira as condições antes de aceitar. Nenhum aceite é enviado no vídeo.", duracao: "35 s", video: require("../assets/tutorials/tutorial-revisao-real-consumidor.mp4") },
+  { id: "revisao-contrato", titulo: "Conferir revisão do contrato", descricao: "Abra a minuta real e confira as condições antes de aceitar. Nenhum aceite é enviado no vídeo.", duracao: "32 s", video: require("../assets/tutorials/tutorial-revisao-real-consumidor.mp4") },
 ];
 
 export default function Tutoriais() {
