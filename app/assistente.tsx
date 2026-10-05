@@ -7,7 +7,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { isPreviewEnvironment } from "../config/environment";
 import { IS_GERADOR_APP } from "../config/appVariant";
 import { answerInConversation, LocalReply, LocalTopic } from "../services/local-assistant";
-import { answerWithLocalModel, installLocalModel, isModelInstalled, releaseLocalModel } from "../services/on-device-model";
+import { answerWithLocalModel, cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel } from "../services/on-device-model";
 import { installVoiceModels, isVoiceInstalled, pauseContinuousListening, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
 import * as Speech from "expo-speech";
 import { Colors } from "../theme";
@@ -25,6 +25,7 @@ export default function Assistente() {
   const [busy, setBusy] = useState(false);
   const [installStage, setInstallStage] = useState<string>();
   const [installProgress, setInstallProgress] = useState<number | null>(null);
+  const [downloadingModel, setDownloadingModel] = useState(false);
   const [voiceReady, setVoiceReady] = useState(isVoiceInstalled);
   const [listening, setListening] = useState(false);
   const voiceActive = useRef(false);
@@ -102,12 +103,15 @@ export default function Assistente() {
   async function install() {
     if (busy) return;
     setBusy(true);
+    setDownloadingModel(true);
+    setInstallStage("Conectando ao servidor do modelo…");
     setInstallProgress(0);
     try {
       await installLocalModel((stage, progress, downloadedBytes) => {
+        setDownloadingModel(stage !== "verificando");
         setInstallProgress(progress ?? null);
         const baixados = downloadedBytes ? ` · ${(downloadedBytes / 1_000_000).toFixed(1)} MB` : "";
-        setInstallStage(stage === "baixando"
+        setInstallStage(stage === "conectando" ? "Conectando ao servidor do modelo…" : stage === "baixando"
           ? progress == null ? `Baixando modelo${baixados}…` : `Baixando modelo: ${Math.round(progress * 100)}%${baixados}`
           : `Verificando modelo: ${Math.round((progress ?? 0) * 100)}%`);
       });
@@ -118,6 +122,7 @@ export default function Assistente() {
       setInstallStage(error instanceof Error ? error.message : "Não foi possível instalar o modelo.");
       setInstallProgress(null);
     } finally {
+      setDownloadingModel(false);
       setBusy(false);
     }
   }
@@ -130,7 +135,7 @@ export default function Assistente() {
     </View>
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Pergunte sobre faturas, contratos, atalhos ou uso sem internet. Também posso abrir uma seção do app quando você pedir.</Text><Text style={styles.limit}>{modelReady ? "Modelo local instalado. A conversa livre pode conter erros; confira dados importantes no aplicativo." : "A ajuda básica já funciona. Instale o modelo opcional para conversar livremente em português."}</Text>{!modelReady ? <Pressable accessibilityRole="button" disabled={busy} onPress={() => void install()} style={styles.action}><Text style={styles.actionText}>Instalar modelo local</Text></Pressable> : null}</View> : null}
-      {installStage ? <View style={styles.progressCard} accessibilityLiveRegion="polite"><Text style={styles.limit}>{installStage}</Text>{installProgress !== null ? <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(installProgress * 100)}%` }]} /></View> : null}</View> : null}
+      {installStage ? <View style={styles.progressCard} accessibilityLiveRegion="polite"><Text style={styles.limit}>{installStage}</Text>{installProgress !== null ? <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(installProgress * 100)}%` }]} /></View> : null}{downloadingModel ? <Pressable accessibilityRole="button" accessibilityLabel="Cancelar download do modelo" onPress={() => void cancelModelDownload()} style={styles.cancelDownload}><Text style={styles.cancelDownloadText}>Cancelar download</Text></Pressable> : null}</View> : null}
       {messages.map((message, index) => <View key={index} style={[styles.bubble, message.from === "user" ? styles.userBubble : styles.assistantBubble]}>
         <Text style={styles.message}>{message.text}</Text>
         {message.route ? <Pressable accessibilityRole="button" onPress={() => router.push(message.route!)} style={styles.action}><Text style={styles.actionText}>Abrir seção</Text></Pressable> : null}
@@ -156,6 +161,8 @@ const styles = StyleSheet.create({
   progressCard: { backgroundColor: Colors.surface, paddingHorizontal: 18, paddingBottom: 16, borderRadius: 18 },
   progressTrack: { height: 9, marginTop: 10, borderRadius: 8, overflow: "hidden", backgroundColor: Colors.primaryLight },
   progressFill: { height: "100%", backgroundColor: Colors.primary },
+  cancelDownload: { alignSelf: "flex-start", marginTop: 12, paddingVertical: 6 },
+  cancelDownloadText: { color: Colors.primary, fontWeight: "700" },
   composer: { flexDirection: "row", alignItems: "flex-end", gap: 8, backgroundColor: Colors.surface, paddingHorizontal: 12, paddingTop: 10 }, input: { flex: 1, maxHeight: 120, minHeight: 48, borderWidth: 1, borderColor: Colors.border, borderRadius: 16, padding: 12, color: Colors.text },
   send: { minHeight: 48, justifyContent: "center", paddingHorizontal: 14, backgroundColor: Colors.primary, borderRadius: 14 }, voiceActive: { backgroundColor: "#A33131" }, disabled: { opacity: 0.45 }, sendText: { color: "white", fontWeight: "700" },
 });
