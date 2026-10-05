@@ -31,14 +31,23 @@ const atualizacaoTutoriaisAnterior = {
     "Voz nivelada e música de fundo mais audível.",
   ],
 };
-const atualizacaoAtual = {
+const atualizacaoSetasAnterior = {
   numero: "1.0.0-r20261005.1", data: "05/10/2026",
   melhorias: [
     "Setas curvas vermelhas preenchidas nos tutoriais, com entrada suave e ponta fixa no controle indicado.",
     "Imagem do portal restaurada atrás da logo na abertura, preservando a animação e o rodapé discreto.",
   ],
 };
+const atualizacaoAtual = {
+  numero: "1.0.0-r20261005.3", data: "05/10/2026",
+  melhorias: [
+    "Pausas estáticas encurtadas nos tutoriais, preservando a narração e as ações reais.",
+    "Setas vermelhas com cabeça triangular nítida e bordas suaves, sem ponta arredondada.",
+    "Duração dos vídeos atualizada no catálogo; música e dados pessoais desfocados preservados.",
+  ],
+};
 const historico = IS_GERADOR_APP ? [
+  atualizacaoSetasAnterior,
   atualizacaoTutoriaisAnterior,
   atualizacaoNotificacoes,
   atualizacaoAnterior,
@@ -61,6 +70,7 @@ const historico = IS_GERADOR_APP ? [
     "Ícones e identificação separados para os aplicativos Preview e produção.",
   ] },
 ] : [
+  atualizacaoSetasAnterior,
   atualizacaoTutoriaisAnterior,
   atualizacaoNotificacoes,
   atualizacaoAnterior,

@@ -2,28 +2,35 @@
 import asyncio
 import math
 import hashlib
+import re
 import subprocess
 import sys
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
+from tutorial_annotations import privacy_graph, draw_marker
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'outputs/tutorial-previews'
 FF = ROOT / '.codex-ffmpeg/node_modules/ffmpeg-static/ffmpeg.exe'
-FPS = 15
+FPS = 30
+ACTION_LEAD = 1.8
 TITLE = 'Como cadastrar um plano comercial?'
 PREFIX = 'plano'
 TITLE_LINES = ['Como cadastrar um', 'plano comercial?']
 END_LINES = ['Tutorial concluído', 'Confira sempre os valores.']
 BRAND = 'COMERCIAL'
-SPEEDS = {}
+SPEEDS = {0: 3, 1: 1.5}
+LEADS = {0: .5, 1: .3, 2: .8}
 SCENES = [
-    ('comercial-plano-real', 10, 22,
-     'Na Home do Comercial, abra Planos. Confira que você está na administração comercial antes de cadastrar um novo plano.',
+    ('comercial-plano-real', 8, 16,
+     'Na Home do Comercial, abra Planos.',
      (650, 2150, 875, 2305)),
-    ('comercial-plano-real', 48, 60,
-     'Toque em Novo plano. Preencha o nome e a descrição. Use uma descrição clara dos serviços incluídos, para o gerador entender a proposta.',
+    ('comercial-plano-real', 49, 54,
+     'Na lista de planos, toque em Novo plano.',
      (720, 765, 1060, 895)),
+    ('comercial-plano-real', 54, 65,
+     'No formulário, preencha o nome e a descrição. Use uma descrição clara dos serviços incluídos.',
+     (70, 650, 940, 1060)),
     ('comercial-plano-final', 23, 38,
      'Defina os preços mensal e anual. São valores separados: confira os dois antes de continuar. Neste exemplo, usamos dez reais por mês e cem reais por ano, somente para teste.',
      (70, 1120, 790, 1320)),
@@ -44,9 +51,9 @@ if '--multiempresas' in sys.argv:
         ('multiempresas-inicio', 5, 20,
          'Na Home, toque em Trocar ambiente. Essa seleção separa a operação das usinas, a gestão comercial e as empresas parceiras.', (80,310,535,410)),
         ('multiempresas-inicio', 61, 77,
-         'Escolha Empresas parceiras. Na lista, confira as empresas existentes e toque em Nova empresa. Cada empresa mantém seus usuários, usinas, clientes e faturas separados.', (60,400,510,550)),
+         'Escolha Empresas parceiras. Aguarde a abertura da lista: cada empresa mantém usuários, usinas, clientes e faturas separados.', (60,400,510,550)),
         ('multiempresas-inicio', 112, 126,
-         'No formulário, informe nome, razão social e identificador. Complete os dados de suporte conforme a empresa. Aqui usamos somente uma empresa fictícia de homologação.', (90,700,990,1200)),
+         'Na lista, toque em Nova empresa. No formulário, informe nome, razão social e identificador. Complete os dados de suporte conforme a empresa. Aqui usamos somente uma empresa fictícia de homologação.', (90,700,990,1200)),
         ('multiempresas-final', 12, 28,
          'Revise a identidade da empresa e os dados de envio de e-mail. Não ative Domínio de e-mail verificado sem validar o domínio no provedor. Neste teste, esse campo permaneceu desligado.', (45,1550,1020,1860)),
         ('multiempresas-final', 38, 74,
@@ -55,9 +62,12 @@ if '--multiempresas' in sys.argv:
          'No cartão da empresa correta, toque em Operar esta empresa. A mensagem Ambiente alterado confirma a troca. Confira o nome do ambiente antes de cadastrar qualquer dado. Ambiente atual indica a empresa em que você está trabalhando.', (55,1920,1020,2110)),
     ]
     SPEEDS = {4: 2}
+    LEADS = {}
 
 if '--faturamento' in sys.argv:
     PREFIX = 'faturamento'
+    SPEEDS = {}
+    LEADS = {}
     BRAND = 'GERADOR'
     TITLE = 'Como faturar a conta de energia por PDF?'
     TITLE_LINES = ['Como faturar a conta', 'de energia por PDF?']
@@ -72,6 +82,8 @@ if '--faturamento' in sys.argv:
 
 if '--analise-cancelamento' in sys.argv:
     PREFIX = 'analise-cancelamento'
+    SPEEDS = {}
+    LEADS = {}
     BRAND = 'GERADOR'
     TITLE = 'Como analisar um pedido de cancelamento?'
     TITLE_LINES = ['Como analisar um', 'pedido de cancelamento?']
@@ -87,6 +99,8 @@ if '--analise-cancelamento' in sys.argv:
 
 if '--renovacao-gerador' in sys.argv:
     PREFIX = 'renovacao-gerador'
+    SPEEDS = {}
+    LEADS = {}
     BRAND = 'GERADOR'
     TITLE = 'Como preparar uma proposta de renovação?'
     TITLE_LINES = ['Como preparar uma', 'proposta de renovação?']
@@ -102,7 +116,16 @@ if '--renovacao-gerador' in sys.argv:
     ]
 
 def run(args):
-    subprocess.run([str(FF), '-y', *args], check=True)
+    tail = 3 if len(args) >= 3 and args[-2] == '-loglevel' else 1
+    subprocess.run([str(FF), '-y', '-filter_complex_threads', '2', *args[:-tail], '-threads', '2', *args[-tail:]], check=True)
+
+def audio_duration(path):
+    probe = subprocess.run([str(FF), '-hide_banner', '-i', str(path)], capture_output=True, text=True)
+    match = re.search(r'Duration: (\d+):(\d+):([\d.]+)', probe.stderr)
+    if not match:
+        raise RuntimeError(f'Cannot inspect narration: {path}')
+    hours, minutes, seconds = map(float, match.groups())
+    return hours * 3600 + minutes * 60 + seconds
 
 def card(path, lines, ending=False):
     im = Image.new('RGB', (1080, 2340), '#083e31')
@@ -120,57 +143,107 @@ def card(path, lines, ending=False):
 async def voices():
     result = []
     for i, text in enumerate([TITLE] + [s[3] for s in SCENES]):
-        key = hashlib.sha256(text.encode()).hexdigest()[:8] if PREFIX == 'renovacao-gerador' else str(i)
+        key = hashlib.sha256(('pt-BR-FranciscaNeural:'+text).encode()).hexdigest()[:8]
         path = OUT / f'{PREFIX}-real-20260930-voz-{key}.mp3'
         if not path.exists():
             sys.path.insert(0, str(ROOT / 'tmp/tts-tools'))
             import edge_tts
-            await edge_tts.Communicate(text, 'pt-BR-ThalitaMultilingualNeural', rate='-3%').save(str(path))
+            await edge_tts.Communicate(text, 'pt-BR-FranciscaNeural', rate='+2%').save(str(path))
         result.append(path)
     return result
 
 def build():
     audio = asyncio.run(voices())
+    # Never cut off speech. Preserve a short pause after each narrated section.
+    scene_durations = [max((s[2]-s[1])/SPEEDS.get(i,1)+LEADS.get(i,ACTION_LEAD), audio_duration(audio[i+1])+.8)
+                      for i,s in enumerate(SCENES)]
     intro, outro = OUT / f'{PREFIX}-real-titulo.png', OUT / f'{PREFIX}-real-final.png'
     card(intro, TITLE_LINES)
     card(outro, END_LINES, True)
     cuts = []
+    plan_marks = {
+        0: [((695, 2130, 825, 2300), 1.2, 3.2)],
+        1: [((695, 780, 1025, 925), 1.0, 3.5)],
+        2: [((55, 710, 900, 885), 1.1, 3.3), ((55, 940, 900, 1120), 4.0, 6.2)],
+        3: [((55, 1150, 465, 1350), 1.0, 3.2), ((480, 1150, 905, 1350), 4.0, 6.2)],
+        4: [((55, 1370, 905, 1570), 1.1, 3.3), ((55, 1620, 900, 1880), 5.0, 7.2), ((755, 1900, 900, 2070), 9.0, 11.2)],
+        5: [((55, 2130, 900, 2300), 1.0, 3.8)],
+    }
+    multi_marks = {
+        0: [((55, 315, 500, 445), 1.8, 4.2)],
+        1: [((325, 1820, 780, 1970), 0.1, 1.6)],
+        2: [((65, 650, 500, 770), 1.8, 4.0),
+            ((65, 680, 1000, 850), 6.2, 8.2)],
+        3: [((65, 1030, 1015, 1190), 2.0, 4.2),
+            ((905, 1680, 1050, 1840), 10.0, 12.2)],
+        4: [((70, 2100, 1020, 2300), 2.0, 4.6)],
+        5: [((95, 1950, 965, 2130), 2.0, 4.6)],
+    }
+    billing_marks = {
+        0: [((65, 750, 320, 1020), 1.8, 4.0)],
+        1: [((55, 500, 400, 1040), 1.8, 4.0)],
+        # The selected PDF card stays visible here; marking the instruction
+        # paragraph above it would point to the wrong control.
+        2: [((60, 880, 1010, 1130), 1.8, 4.0)],
+        3: [((90, 650, 950, 850), 1.8, 3.4),
+            ((90, 880, 950, 1080), 3.8, 5.4),
+            ((90, 1110, 950, 1320), 5.8, 7.4),
+            ((65, 1930, 1010, 2095), 9.0, 11.5)],
+        4: [((290, 1130, 880, 1510), 2.0, 5.0)],
+    }
+    cancellation_marks = {
+        4: [((170, 1535, 910, 1700), 7.0, 9.4),
+            ((765, 1280, 950, 1390), 11.3, 13.6)],
+    }
     for i, (name, start, stop, _, bounds) in enumerate(SCENES):
         speed = SPEEDS.get(i, 1)
-        duration = math.ceil((stop-start)/speed)
-        normalized = OUT / f'{name}-normalizado-20260930.mp4'
+        action_lead = LEADS.get(i,ACTION_LEAD)
+        duration = scene_durations[i]
+        # Normalize capture timestamps once so independent cuts seek to the same frame.
+        normalized = OUT / f'{name}-timeline30-20261001.mp4'
         if not normalized.exists():
-            run(['-i', str(ROOT / f'tmp/device-debug/{name}-20260930.mp4'), '-vf',
-                 'fps=15,setpts=N/(15*TB)', '-an', '-c:v', 'libx264', '-preset', 'veryfast',
-                 '-crf', '22', str(normalized), '-loglevel', 'error'])
-        frames = OUT / f'frames-{PREFIX}-real-{i}'
+            run(['-i',str(ROOT / f'tmp/device-debug/{name}-20260930.mp4'),
+                 '-vf',f'fps={FPS},setpts=PTS-STARTPTS','-an','-c:v','libx264',
+                 '-preset','veryfast','-crf','22',str(normalized),'-loglevel','error'])
+        frames = OUT / f'frames-{PREFIX}-sincronia-v2-{i}'
         frames.mkdir(exist_ok=True)
-        for n in range(duration*FPS):
+        for n in range(math.ceil(duration*FPS)):
             t = n/FPS
             layer = Image.new('RGBA', (1080,2340), (0,0,0,0))
             mark_start, mark_stop = (9, 12) if PREFIX == 'multiempresas' and i == 3 else (1, 4)
             if PREFIX in ('analise-cancelamento', 'renovacao-gerador') and i == 1:
                 mark_start, mark_stop = 10, 13
-            if mark_start <= t <= mark_stop:
-                x1,y1,x2,y2 = bounds
-                p = min(1, (t-mark_start)/.8)
-                pts = [((x1+x2)/2+(x2-x1)/2*math.cos(math.radians(-120+350*p*j/100)),
-                        (y1+y2)/2+(y2-y1)/2*math.sin(math.radians(-120+350*p*j/100))) for j in range(101)]
-                d = ImageDraw.Draw(layer)
-                alpha = round(235*min(1,(mark_stop-t)/.4))
-                d.line(pts, fill=(255,255,255,round(alpha*.6)), width=14, joint='curve')
-                d.line(pts, fill=(222,35,43,alpha), width=8, joint='curve')
+            mark_start += action_lead
+            mark_stop += action_lead
+            marks = (plan_marks[i] if PREFIX == 'plano' else
+                     multi_marks[i] if PREFIX == 'multiempresas' else
+                     billing_marks[i] if PREFIX == 'faturamento' else
+                     cancellation_marks[i] if PREFIX == 'analise-cancelamento' and i in cancellation_marks else
+                     [(bounds, mark_start, mark_stop)])
+            if PREFIX == 'renovacao-gerador' and i == 4:
+                # The document is intentionally blurred: there is no specific
+                # readable control to point at while narrating its review.
+                marks = []
+            for (x1,y1,x2,y2), begin, end in marks:
+                if begin <= t <= end:
+                    p = min(1, (t-begin)/.9)
+                    d = ImageDraw.Draw(layer)
+                    alpha = round(235*min(1,(end-t)/.4))
+                    draw_marker(d, (x1,y1,x2,y2), p, alpha)
             layer.save(frames / f'{n:04d}.png')
-        cut = OUT / f'{PREFIX}-real-cena-{i}.mp4'
+        revision = 'v10' if PREFIX in ('multiempresas', 'faturamento', 'analise-cancelamento') else 'v9'
+        cut = OUT / f'{PREFIX}-sincronia-{revision}-cena-{i}.mp4'
         # Names in the commercial header and keyboard predictions are private.
         privacy = 'drawbox=x=160:y=120:w=690:h=180:color=0x07513d:t=fill' if PREFIX == 'plano' else 'null'
         if PREFIX == 'faturamento':
             if i == 1:
                 privacy = 'drawbox=x=0:y=1500:w=1080:h=840:color=0x181818:t=fill'
             elif i == 2:
-                privacy = 'drawbox=x=540:y=1200:w=540:h=650:color=0xf1f7f3:t=fill'
+                privacy = 'drawbox=x=540:y=1300:w=440:h=80:color=0xf1f7f3:t=fill,drawbox=x=540:y=1540:w=440:h=80:color=0xf1f7f3:t=fill'
             elif i >= 3:
-                privacy = 'drawbox=x=540:y=245:w=530:h=390:color=0xf1f7f3:t=fill'
+                # These cuts are already scrolled to public billing values.
+                # A fixed identity mask here obscures the concessionaria row.
+                privacy = 'null'
         if PREFIX == 'analise-cancelamento':
             if i == 1:
                 privacy = "drawbox=x=200:y=1360:w=740:h=130:color=0xf1f7f3:t=fill,drawbox=x=230:y=1715:w=750:h=155:color=0xf1f7f3:t=fill,drawbox=x=200:y=1640:w=800:h=230:color=0xf1f7f3:t=fill:enable='lt(t,6)'"
@@ -185,8 +258,8 @@ def build():
                 privacy = 'gblur=sigma=24'
             elif i == 6:
                 privacy = "drawtext=fontfile='C\\:/Windows/Fonts/arialbd.ttf':text='NO APP CONSUMIDOR':x=(w-tw)/2:y=1950:fontsize=38:fontcolor=0x083e31"
-        run(['-ss',str(start),'-t',str(stop-start),'-i',str(normalized),'-framerate','15',
-             '-i',str(frames/'%04d.png'),'-filter_complex',f'[0:v]{privacy},setpts=(PTS-STARTPTS)/{speed},fps=15,tpad=stop_mode=clone:stop_duration=1,trim=duration={duration}[p];[p][1:v]overlay=shortest=1[v]',
+        run(['-ss',str(start),'-t',str(stop-start),'-i',str(normalized),'-framerate',str(FPS),
+             '-i',str(frames/'%04d.png'),'-filter_complex',privacy_graph('0:v', privacy, 'private', f'mask{i}')+f';[private]setpts=(PTS-STARTPTS)/{speed},fps={FPS},tpad=start_mode=clone:start_duration={action_lead}:stop_mode=clone:stop_duration={duration},trim=duration={duration}[p];[p][1:v]overlay=shortest=1[v]',
              '-map','[v]','-an','-c:v','libx264','-preset','veryfast','-crf','22',str(cut),'-loglevel','error'])
         cuts.append(cut)
     args = ['-loop','1','-i',str(intro)]
@@ -194,21 +267,22 @@ def build():
     args += ['-loop','1','-i',str(outro)]
     for path in audio: args += ['-i',str(path)]
     args += ['-stream_loop','-1','-i',str(ROOT/'tmp/tutorials-por-funcao/trilha-instrumental.wav')]
-    durations = [5] + [math.ceil((s[2]-s[1])/SPEEDS.get(i,1)) for i,s in enumerate(SCENES)] + [3]
-    filters = [f'[{i}:v]fps=15,trim=duration={dur},setpts=PTS-STARTPTS[v{i}]' for i,dur in enumerate(durations)]
+    durations = [max(5,audio_duration(audio[0])+1)] + scene_durations + [3]
+    filters = [f'[{i}:v]fps={FPS},trim=duration={dur},setpts=PTS-STARTPTS[v{i}]' for i,dur in enumerate(durations)]
     nv = len(durations)
     filters += [''.join(f'[v{i}]' for i in range(nv))+f'concat=n={nv}:v=1:a=0[v]']
     for i,dur in enumerate(durations[:-1]):
-        filters += [f'[{nv+i}:a]highpass=f=70,adelay=200,apad,atrim=duration={dur},asetpts=PTS-STARTPTS[a{i}]']
+        filters += [f'[{nv+i}:a]highpass=f=70,loudnorm=I=-18:TP=-2:LRA=7,aresample=48000,adelay=200,apad,atrim=duration={dur},asetpts=PTS-STARTPTS[a{i}]']
     total = sum(durations)
     na = len(audio)
     filters += [''.join(f'[a{i}]' for i in range(na))+f'concat=n={na}:v=0:a=1,apad,atrim=duration={total}[voice]',
                 f'[{nv+na}:a]volume=1.9,atrim=duration={total},afade=t=out:st={total-3}:d=3[music]',
                 '[voice][music]amix=inputs=2:duration=first:normalize=0,alimiter=limit=.92[a]']
-    target = OUT / f'tutorial-{PREFIX}-comercial-real-20260930.mp4'
+    revision = 'v10' if PREFIX in ('multiempresas', 'faturamento', 'analise-cancelamento') else 'v9'
+    target = OUT / f'tutorial-{PREFIX}-real-blur-arrows-20261004.mp4'
     run([*args,'-filter_complex',';'.join(filters),'-map','[v]','-map','[a]','-t',str(total),
          '-c:v','libx264','-preset','veryfast','-crf','22','-pix_fmt','yuv420p','-c:a','aac',
-         '-b:a','128k','-movflags','+faststart',str(target),'-loglevel','error'])
+         '-b:a','128k','-metadata:s:a:0','language=por','-metadata:s:v:0','language=por','-movflags','+faststart',str(target),'-loglevel','error'])
     print(target)
 
 if __name__ == '__main__':
