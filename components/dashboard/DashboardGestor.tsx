@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
-import { Redirect, router } from "expo-router";
-import { useEffect, useState } from "react";
+import { Redirect, router, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Pressable,
@@ -86,6 +86,7 @@ export default function DashboardGestor() {
   const [novoRecebimento, setNovoRecebimento] = useState(false);
   const [importando, setImportando] = useState(false);
   const [atualizando, setAtualizando] = useState(false);
+  useFocusEffect(useCallback(() => { void refetch(); }, [refetch]));
   async function carregarCarteira() {
     try {
       const proxima = await CarteiraService.carregarCarteira();
@@ -199,6 +200,16 @@ export default function DashboardGestor() {
       label: rotuloCompetencia(item.competencia),
       value: Math.max(0, Number(item.energiaGerada ?? item.energia_gerada ?? 0)),
     }));
+  const recebimentoProducaoAtivo = data.unidadeGeradora?.recebimento_email_ativo === true;
+  const abrirRecebimentoProducao = () => {
+    const unidadeGeradoraId = data.unidadeGeradora?.id;
+    if (unidadeGeradoraId) {
+      router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidadeGeradoraId, finalidade: "PRODUCAO_USINA" } });
+      return;
+    }
+    const usinaId = usinaSelecionada?.id ?? usuario?.usina_id;
+    if (usinaId) router.push({ pathname: "/usinas/[id]", params: { id: usinaId } });
+  };
 
   return (
     <Screen>
@@ -267,6 +278,10 @@ export default function DashboardGestor() {
               <Text style={styles.generationCaption}>
                 Energia produzida na competência atual
               </Text>
+              {recebimentoProducaoAtivo ? <View style={styles.generationAutoBadge}>
+                <Ionicons name="checkmark-circle" size={15} color="#A7F3D0" />
+                <Text style={styles.generationAutoText}>Dados automáticos ativados</Text>
+              </View> : null}
             </View>
             <View style={styles.generationIcon}>
               <Ionicons name="sunny" size={27} color="#F6CC32" />
@@ -279,6 +294,29 @@ export default function DashboardGestor() {
             <Text style={styles.generationFooterText}>
               {formatarPercentual(data.capacidadeDisponivel)} livre
             </Text>
+          </View>
+          <View style={styles.generationActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Importar dados de produção via PDF"
+              disabled={importando}
+              onPress={atualizarGeracao}
+              style={[styles.generationAction, styles.generationActionPrimary, importando && styles.disabled]}
+            >
+              <Ionicons name="document-attach-outline" size={22} color="#0A513E" />
+              <Text style={styles.generationActionTitle}>{importando ? "Lendo PDF..." : "Importar via PDF"}</Text>
+              <Text style={styles.generationActionSubtitle}>Dados de produção</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={recebimentoProducaoAtivo ? "Gerenciar recebimento automático de dados da usina" : "Ativar recebimento automático de dados de produção"}
+              onPress={abrirRecebimentoProducao}
+              style={[styles.generationAction, styles.generationActionSecondary]}
+            >
+              <Ionicons name={recebimentoProducaoAtivo ? "checkmark-circle-outline" : "mail-unread-outline"} size={22} color="#FFFFFF" />
+              <Text style={[styles.generationActionTitle, styles.generationActionTitleSecondary]}>{recebimentoProducaoAtivo ? "Gerenciar automático" : "Receber automático"}</Text>
+              <Text style={[styles.generationActionSubtitle, styles.generationActionSubtitleSecondary]}>Dados da usina</Text>
+            </Pressable>
           </View>
         </View>
 
@@ -448,20 +486,6 @@ export default function DashboardGestor() {
               ]}
             />
           </View>
-          <Pressable
-            disabled={importando}
-            onPress={atualizarGeracao}
-            style={[styles.importButton, importando && styles.disabled]}
-          >
-            <Ionicons
-              name="document-attach-outline"
-              size={18}
-              color={Colors.surface}
-            />
-            <Text style={styles.importText}>
-              {importando ? "Lendo conta..." : "Importar dados de produção"}
-            </Text>
-          </Pressable>
         </View>
 
       </ScrollView>
@@ -564,21 +588,6 @@ const styles = StyleSheet.create({
     borderRadius: Radius.round,
     backgroundColor: Colors.primary,
   },
-  importButton: {
-    minHeight: 44,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.lg,
-    borderRadius: Radius.md,
-    backgroundColor: Colors.primary,
-  },
-  importText: {
-    marginLeft: Spacing.xs,
-    color: Colors.surface,
-    fontSize: Typography.caption,
-    fontWeight: "800",
-  },
   disabled: { opacity: 0.65 },
   generationSummary: {
     marginBottom: Spacing.md,
@@ -605,6 +614,34 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   generationCaption: { marginTop: 3, color: "#CDEBDE", fontSize: 12 },
+  generationAutoBadge: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 5,
+    borderRadius: Radius.round,
+    backgroundColor: "rgba(255,255,255,.12)",
+  },
+  generationAutoText: { color: "#D1FAE5", fontSize: 11, fontWeight: "700" },
+  generationActions: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.lg },
+  generationAction: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 96,
+    alignItems: "flex-start",
+    justifyContent: "center",
+    padding: Spacing.sm,
+    borderRadius: Radius.md,
+  },
+  generationActionPrimary: { backgroundColor: "#E5F8ED" },
+  generationActionSecondary: { borderWidth: 1, borderColor: "rgba(255,255,255,.45)", backgroundColor: "rgba(255,255,255,.10)" },
+  generationActionTitle: { marginTop: 5, color: "#0A513E", fontSize: 12, fontWeight: "900" },
+  generationActionTitleSecondary: { color: "#FFFFFF" },
+  generationActionSubtitle: { marginTop: 2, color: "#305C4C", fontSize: 10 },
+  generationActionSubtitleSecondary: { color: "#D1FAE5" },
   generationIcon: {
     width: 50,
     height: 50,

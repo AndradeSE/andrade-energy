@@ -319,7 +319,7 @@ export default function RecebimentoEmail() {
     <ScrollView bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.heading}>
         {!IS_GERADOR_APP ? <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={24} color={Colors.text} /></TouchableOpacity> : null}
-        <View style={styles.headingText}><Text style={styles.eyebrow}>{recebimentoDeProducao ? "SUA USINA" : "SUA CONTA DE LUZ"}</Text><Text style={styles.title}>{recebimentoDeProducao ? "Receber produção automaticamente" : "Receber contas automaticamente"}</Text><Text style={styles.subtitle}>{recebimentoDeProducao ? "Encaminhe a conta da concessionária da usina para registrar as medições e a produção com segurança." : "Encaminhe somente as faturas recebidas de fatura@cemig para leitura e cálculo seguros."}</Text></View>
+        <View style={styles.headingText}><Text style={styles.eyebrow}>{recebimentoDeProducao ? "SUA USINA" : "SUA CONTA DE LUZ"}</Text><Text style={styles.title}>{recebimentoDeProducao ? "Receber dados da usina automaticamente" : "Receber contas automaticamente"}</Text><Text style={styles.subtitle}>{recebimentoDeProducao ? "A conta da UC geradora recebida por e-mail permite importar medições e produção da usina automaticamente, quando o PDF é válido." : "Encaminhe somente as faturas recebidas de fatura@cemig para leitura e cálculo seguros."}</Text></View>
       </View>
 
       <Card style={styles.unitCard}>
