@@ -1,5 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs } from "expo-router";
+import { Redirect, Tabs } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "../../contexts/AuthContext";
+import { listarUsinas } from "../../services/usinas.service";
+import { plantSelectionExists } from "../../utils/plant-selection";
+import { Screen, Button, EmptyState } from "../../components/ui";
+import TabDataPending from "../../components/ui/TabDataPending";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import AppTabIcon from "../../components/navigation/AppTabIcon";
 import UnifiedExpoTabBar from "../../components/navigation/UnifiedExpoTabBar";
@@ -10,6 +16,22 @@ function TabIcon({ name, color, featured = false }: { name: keyof typeof Ionicon
 }
 
 export default function TabLayout() {
+  const { usuario, usinaSelecionada, isLoading } = useAuth();
+  const validarUsina = IS_GERADOR_APP && (usuario?.perfil === "ADMIN" || usuario?.perfil === "GESTOR");
+  const usinaId = usinaSelecionada?.id ?? usuario?.usina_id;
+  const usinas = useQuery<{ id: string }[]>({
+    queryKey: ["usinas-validacao-entrada", usuario?.id, usuario?.empresa_id],
+    queryFn: listarUsinas,
+    enabled: validarUsina && !isLoading && Boolean(usinaId),
+    refetchOnMount: "always",
+    retry: 1,
+  });
+  if (validarUsina) {
+    if (isLoading || (usinaId && (usinas.isPending || usinas.isFetching))) return <Screen><TabDataPending /></Screen>;
+    if (!usinaId) return <Redirect href="/selecionar-unidade" />;
+    if (usinas.isError) return <Screen><EmptyState title="Não foi possível verificar suas usinas" subtitle="Não foi possível consultar a conta. Isso não significa que suas usinas foram removidas." /><Button title="Tentar novamente" onPress={() => void usinas.refetch()} /></Screen>;
+    if (!plantSelectionExists(usinas.data ?? [], usinaId)) return <Redirect href="/selecionar-unidade" />;
+  }
   const tabStyle = {
     height: APP_TAB_BAR_METRICS.height,
     paddingTop: APP_TAB_BAR_METRICS.paddingTop,
