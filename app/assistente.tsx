@@ -11,7 +11,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../contexts/AuthContext";
 import { isPreviewEnvironment } from "../config/environment";
 import { IS_GERADOR_APP } from "../config/appVariant";
-import { answerInConversation, asksLatestInvoiceAmount, LocalReply, LocalTopic, normalizeAssistantQuery, VERIFIED_APP_CONTEXT } from "../services/local-assistant";
+import { answerInConversation, asksLatestInvoiceAmount, LocalReply, LocalTopic, normalizeAssistantQuery, shouldUseConversationalModel, VERIFIED_APP_CONTEXT } from "../services/local-assistant";
 import { buscarFatura, listarFaturas } from "../services/faturas.service";
 import { asksLatestInvoiceDocument, latestInvoiceAmountReply, latestIssuedInvoice } from "../services/local-assistant-invoices";
 import { detectFinancialMetric, financialMetricReply } from "../services/assistant-financial";
@@ -169,27 +169,26 @@ export default function Assistente() {
             response = { from: "assistant", text: "Não consegui consultar o resumo financeiro agora. Verifique a conexão e tente novamente; não vou estimar valores." };
           }
         }
-      } else if (modelReady && reply.kind === "unknown" && interpretedQuestion.split(/\s+/).length > 2) {
+      } else if (shouldUseConversationalModel(reply.kind, voiceActive.current, modelReady, interpretedQuestion.split(/\s+/).length)) {
         const history = nextMessages.slice(-8).map(message => ({ role: message.from, content: message.text }));
-        response = { from: "assistant", text: await answerWithLocalModel(history, VERIFIED_APP_CONTEXT) };
+        const verifiedAnswer = reply.kind === "help" ? ` Para esta pergunta, a informação verificada é: ${reply.text} Responda de modo natural, sem mudar esses fatos.` : "";
+        response = { from: "assistant", text: await answerWithLocalModel(history, VERIFIED_APP_CONTEXT + verifiedAnswer, voiceActive.current) };
       }
       messagesRef.current = [...messagesRef.current, response].slice(-40);
       setMessages(messagesRef.current);
       topicRef.current = nextTopic;
       setTopic(nextTopic);
       if (voiceActive.current) {
-        setVoiceStatus("Respondendo… depois volto a ouvir.");
+        setVoiceStatus("Falando com você… depois volto a ouvir.");
         speakAssistantReply(response.text, () => { if (voiceActive.current) void resumeVoice(); });
       }
-    } catch (error) {
-      const fallback: Message = { from: "assistant", text: reply.kind === "help" ? reply.text : "O modelo local não respondeu a esta pergunta. Tente reformular; também posso ajudar com funções do aplicativo." };
+    } catch {
+      const fallback: Message = { from: "assistant", text: reply.kind === "help" ? reply.text : "Não consegui responder com segurança. Pode fazer a pergunta de outra forma?" };
       messagesRef.current = [...messagesRef.current, fallback].slice(-40);
       setMessages(messagesRef.current);
       if (voiceActive.current) {
-        setVoiceStatus(error instanceof Error ? error.message : "Não consegui processar a fala.");
-        voiceActive.current = false;
-        setListening(false);
-        void stopContinuousListening();
+        setVoiceStatus("Não consegui processar esta resposta. Vou ouvir sua próxima pergunta.");
+        speakAssistantReply(fallback.text, () => { if (voiceActive.current) void resumeVoice(); });
       }
     } finally {
       busyRef.current = false;

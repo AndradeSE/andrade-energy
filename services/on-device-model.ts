@@ -151,7 +151,7 @@ export function installLocalModel(): Promise<void> {
   return activeInstall;
 }
 
-export async function answerWithLocalModel(turns: ChatTurn[], validatedContext?: string) {
+export async function answerWithLocalModel(turns: ChatTurn[], validatedContext?: string, concise = false) {
   if (!isModelInstalled()) throw new Error("Instale o modelo local antes de conversar livremente.");
   if (!context) {
     const { initLlama } = await import("llama.rn");
@@ -164,7 +164,7 @@ export async function answerWithLocalModel(turns: ChatTurn[], validatedContext?:
       ...recent,
     ],
     enable_thinking: false,
-    n_predict: 160,
+    n_predict: concise ? 96 : 160,
     temperature: 0.35,
   });
   const answer = result.text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();

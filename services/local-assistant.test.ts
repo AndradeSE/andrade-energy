@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { answerInConversation, answerLocally, asksLatestInvoiceAmount, normalizeAssistantQuery } from "./local-assistant";
+import { answerInConversation, answerLocally, asksLatestInvoiceAmount, normalizeAssistantQuery, shouldUseConversationalModel } from "./local-assistant";
 import { asksLatestInvoiceDocument, latestInvoiceAmountReply, latestIssuedInvoice } from "./local-assistant-invoices";
 import { detectFinancialMetric, financialMetricReply } from "./assistant-financial";
 const generator = { variant: "gerador", authenticated: true } as const;
@@ -19,6 +19,12 @@ test("small spelling errors in app terms are understood without changing names",
   assert.equal(asksLatestInvoiceAmount("Qual valor da ultma fatura?"), true);
   assert.equal(normalizeAssistantQuery("Cliente Vinicius Andradde"), "cliente vinicius andradde");
   assert.match(answerLocally("xpt?", generator).text, /reformular/);
+});
+test("voice help uses conversation while live-data and blocked operations stay deterministic", () => {
+  assert.equal(shouldUseConversationalModel("help", true, true, 5), true);
+  assert.equal(shouldUseConversationalModel("help", false, true, 5), false);
+  assert.equal(shouldUseConversationalModel("blocked", true, true, 5), false);
+  assert.equal(shouldUseConversationalModel("unknown", true, true, 2), false);
 });
 test("generator knows the two distinct automatic billing flows", () => {
   assert.match(answerLocally("Como funciona a fatura automática da usina?", generator).text, /sem criar cobrança/);

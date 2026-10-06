@@ -33,6 +33,10 @@ export function normalizeAssistantQuery(input: string) {
   });
 }
 
+export function shouldUseConversationalModel(kind: LocalReply["kind"], voiceMode: boolean, modelReady: boolean, wordCount: number) {
+  return modelReady && wordCount > 2 && (kind === "unknown" || (voiceMode && kind === "help"));
+}
+
 export function asksLatestInvoiceAmount(input: string) {
   const text = normalizeAssistantQuery(input);
   return /\b(fatura|cobranca)\b/.test(text)
