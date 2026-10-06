@@ -1,5 +1,6 @@
 import api from "../config/api";
 import { isPreviewEnvironment } from "../config/environment";
+import { IS_GERADOR_APP } from "../config/appVariant";
 
 // Only these public app topics cross the network. Never send the question,
 // transcript, conversation history, account identifiers or financial values.
@@ -21,7 +22,7 @@ export function publicHelpTopic(question: string): PublicHelpTopic | undefined {
 export async function answerPublicHelpOnline(topic: PublicHelpTopic): Promise<string | undefined> {
   if (!isPreviewEnvironment) return undefined;
   try {
-    const response = await api.post<{ answer?: string }>("/assistente/responder", { topic, variant: "gerador" }, { timeout: 6500 });
+    const response = await api.post<{ answer?: string }>("/assistente/responder", { topic, variant: IS_GERADOR_APP ? "gerador" : "consumidor" }, { timeout: 6500 });
     return typeof response.data.answer === "string" && response.data.answer.length <= 800 ? response.data.answer : undefined;
   } catch {
     return undefined;

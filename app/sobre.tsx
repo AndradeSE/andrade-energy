@@ -5,6 +5,7 @@ import { AppHeader, Card, ElasticScrollView, Screen } from "../components/ui";
 import { APP_DISPLAY_NAME, IS_GERADOR_APP } from "../config/appVariant";
 import { Colors, Spacing } from "../theme";
 const geradorPreview = IS_GERADOR_APP && (Constants.expoConfig?.extra?.appEnvironment === "preview" || Updates.channel?.startsWith("preview"));
+const previewApp = Constants.expoConfig?.extra?.appEnvironment === "preview" || Updates.channel?.startsWith("preview");
 const atualizacaoAnterior = {
   numero: "1.0.0-r20261004.2", data: "04/10/2026",
   melhorias: IS_GERADOR_APP ? [
@@ -109,15 +110,25 @@ const atualizacaoConversaContinua = {
   numero: "1.0.0-r20261006.5", data: "06/10/2026",
   melhorias: ["Conversa por voz usa o modelo local nas perguntas comuns, responde falando e volta a ouvir automaticamente; dados financeiros seguem consulta autenticada."],
 };
-const atualizacaoAtual = geradorPreview ? {
+const atualizacaoVozAnterior = {
   numero: "1.0.0-r20261006.6", data: "06/10/2026",
   melhorias: [
     "Voz pt-BR de maior qualidade priorizada quando disponível no aparelho, com alternativa local.",
     "Conversa inicia com saudação pelo primeiro nome e ondas animadas durante fala e resposta.",
     "Ditado aguarda a transcrição final ao soltar o microfone e prepara o reconhecimento ao abrir a ajuda.",
   ],
+};
+const atualizacaoAtual = previewApp ? {
+  numero: "1.0.0-r20261006.7", data: "06/10/2026",
+  melhorias: [
+    "Ajuda online do Gemini priorizada para assuntos públicos do app; valores e documentos continuam na consulta autenticada.",
+    "Reconhecimento de voz em português pelo Android quando o idioma está instalado, com alternativa offline.",
+    "Botão flutuante inicia logo acima da barra inferior e continua disponível para arrastar.",
+    "Processamento pesado deixa de iniciar automaticamente ao abrir a ajuda.",
+  ],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
+  ...(geradorPreview ? [atualizacaoVozAnterior] : []),
   ...(geradorPreview ? [atualizacaoConversaContinua, atualizacaoVozNatural, atualizacaoFaturamentoAutomatico, atualizacaoAtalhosFaturamento, atualizacaoChat, atualizacaoVozPdf, atualizacaoSolEletrico, atualizacaoAssistente, atualizacaoTutoriais] : []),
   atualizacaoSelecaoUsina,
   atualizacaoTutoriaisFluidos,

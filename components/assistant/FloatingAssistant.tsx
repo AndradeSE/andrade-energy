@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { Animated, Image, PanResponder, StyleSheet, useWindowDimensions } from "react-native";
 import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { APP_TAB_BAR_METRICS } from "../navigation/AppTabBarFrame";
 import { isAssistantLoading, subscribeAssistantLoading } from "../../services/assistant-overlay-visibility";
 
 const SIZE = 54;
@@ -8,8 +10,9 @@ let savedPosition: { x: number; y: number } | undefined;
 
 export default function FloatingAssistant() {
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const loading = useSyncExternalStore(subscribeAssistantLoading, isAssistantLoading);
-  const position = useRef(savedPosition ?? { x: Math.max(0, width - SIZE - 12), y: Math.max(0, height * 0.65) });
+  const position = useRef(savedPosition ?? { x: Math.max(0, width - SIZE - 12), y: Math.max(0, height - insets.bottom - APP_TAB_BAR_METRICS.height - SIZE - 12) });
   const origin = useRef({ ...position.current });
   const animated = useRef(new Animated.ValueXY(position.current)).current;
   const breathe = useRef(new Animated.Value(0)).current;
