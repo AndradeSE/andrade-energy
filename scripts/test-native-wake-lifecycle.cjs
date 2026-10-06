@@ -22,7 +22,8 @@ vm.runInNewContext(code, { exports: exported, setTimeout, clearTimeout, require:
   await exported.startNativePortugueseSpeech(() => finals++, error => { throw new Error(error); }, undefined, undefined, { onPartial: text => partial = text, onEnd: () => ended++, onReady: () => ready = true });
   // A consulta de idiomas simulada falha; isso não deve impedir start().
   assert.equal(ready, false);
-  handlers.get("audiostart")();
+  assert.equal(handlers.has("audiostart"), false);
+  handlers.get("start")();
   assert.equal(ready, true); // Só informa microfone aberto depois do evento real.
   handlers.get("result")({ results: [{ transcript: "E aí chat" }], isFinal: false });
   assert.equal(partial, "E aí chat");
@@ -36,7 +37,7 @@ vm.runInNewContext(code, { exports: exported, setTimeout, clearTimeout, require:
   assert.equal(stale, false);
   assert.equal(starts.length, 1); // Não abre o microfone depois de cancelar/ir para segundo plano.
   await exported.startNativePortugueseSpeech(() => finals++, () => {});
-  handlers.get("audiostart")();
+  handlers.get("start")();
   handlers.get("result")({ results: [{ transcript: "pergunta normal" }], isFinal: true });
   assert.equal(finals, 1); // Conversa e ditado existentes continuam recebendo só resultados finais.
   await exported.stopNativePortugueseSpeech();

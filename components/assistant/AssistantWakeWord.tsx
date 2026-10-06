@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Alert, AppState } from "react-native";
 import { router, usePathname } from "expo-router";
-import { containsAssistantWakeWord, setWakeWordEnabled, setWakeWordReady, subscribeWakeWord, wakeWordEnabled, wakeWordPaused } from "../../services/assistant-wake-word";
+import { containsAssistantWakeWord, setWakeWordEnabled, setWakeWordReady, subscribeWakeWord, wakeWordEnabled, wakeWordPaused, wakeWordReady } from "../../services/assistant-wake-word";
 import { startNativePortugueseSpeech, stopNativePortugueseSpeech, nativeSpeechAvailabilityError } from "../../services/native-speech";
 import { isAssistantLoading, subscribeAssistantLoading } from "../../services/assistant-overlay-visibility";
 
@@ -11,6 +11,17 @@ export default function AssistantWakeWord() {
   const loading = useSyncExternalStore(subscribeAssistantLoading, isAssistantLoading);
   const pathname = usePathname();
   const [foreground, setForeground] = useState(AppState.currentState === "active");
+  useEffect(() => {
+    if (!enabled) return;
+    // Independente de pathname/paused: uma troca de estado não renova a espera.
+    const deadline = setTimeout(() => {
+      if (wakeWordEnabled() && !wakeWordReady() && !wakeWordPaused()) {
+        setWakeWordEnabled(false);
+        Alert.alert("Escuta não iniciada", "O Android não confirmou o reconhecimento de voz. A ativação foi desligada.");
+      }
+    }, 12000);
+    return () => clearTimeout(deadline);
+  }, [enabled]);
   useEffect(() => {
     const subscription = AppState.addEventListener("change", state => setForeground(state === "active"));
     return () => { subscription.remove(); setWakeWordEnabled(false); };

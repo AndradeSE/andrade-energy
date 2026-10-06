@@ -41,7 +41,11 @@ function cleanup() {
 
 export async function startNativePortugueseSpeech(onFinal: (text: string) => void, onError: (message: string) => void, onActivity?: (active: boolean) => void, onEmptyEnd?: () => void, options?: { onPartial?: (text: string) => void; onEnd?: () => void; shouldContinue?: () => boolean; onReady?: () => void; owner?: string }) {
   if (!(await nativePortugueseSpeechAvailable()) || !ExpoSpeechRecognitionModule) return false;
-  const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+  let permissionTimer: ReturnType<typeof setTimeout> | undefined;
+  const permission = await Promise.race([
+    ExpoSpeechRecognitionModule.requestPermissionsAsync(),
+    new Promise<never>((_, reject) => { permissionTimer = setTimeout(() => reject(new Error("O Android não respondeu à permissão do microfone. A escuta não iniciou.")), 10000); }),
+  ]).finally(() => { if (permissionTimer) clearTimeout(permissionTimer); });
   if (!permission.granted) throw new Error("O microfone não foi autorizado.");
   if (options?.shouldContinue && !options.shouldContinue()) return false;
   if (active) await stopNativePortugueseSpeech();
@@ -50,7 +54,9 @@ export async function startNativePortugueseSpeech(onFinal: (text: string) => voi
   completed = "";
   let microphoneOpened = false;
   subscriptions = [
-    ExpoSpeechRecognitionModule.addListener("audiostart", () => {
+    // audiostart é emitido logo após startListening(), antes da resposta do motor.
+    // start corresponde a onReadyForSpeech: só então o Android está ouvindo.
+    ExpoSpeechRecognitionModule.addListener("start", () => {
       microphoneOpened = true;
       if (startupTimer) clearTimeout(startupTimer);
       startupTimer = undefined;
