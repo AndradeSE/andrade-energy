@@ -2,6 +2,7 @@ import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
 import { exigirAutenticacao } from "../../middlewares/auth.middleware";
 import { PUBLIC_VOICE_LINES } from "./voice-lines";
+import { conversationContents } from "./conversation-text";
 
 const PUBLIC_HELP_CONTEXT = {
   faturamento: "Na aba Faturamento, o gerador pode emitir manualmente, importar PDF e configurar o faturamento automático das UCs. A conta geradora é configurada separadamente. Cobranças exigem revisão antes de confirmar.",
@@ -24,8 +25,8 @@ const PUBLIC_CONSUMER_HELP_CONTEXT = {
   tutoriais: PUBLIC_HELP_CONTEXT.tutoriais,
 } as const;
 
-// A camada gratuita do Gemini não deve receber falas, nomes ou dados da conta.
-// O cliente envia somente um identificador; o texto é fixo e auditável aqui.
+// Preview conversation sends authorized, redacted text only, never microphone audio.
+// Keep legacy topic requests working for older installers.
 
 export const assistenteVoiceRouter = Router();
 const cachedAudio = new Map<keyof typeof PUBLIC_VOICE_LINES, string>();
@@ -36,23 +37,28 @@ assistenteVoiceRouter.post("/responder", async (req, res) => {
   const isPreview = process.env.APP_ENV === "preview" ||
     /^https:\/\/qqhcjieymypowunkixmk\.supabase\.co\/?$/.test(process.env.SUPABASE_URL ?? "");
   if (!isPreview) return res.status(404).json({ message: "Indisponível." });
-  const { topic, variant } = req.body ?? {};
-  if ((variant !== "gerador" && variant !== "consumidor") || typeof topic !== "string" || !Object.prototype.hasOwnProperty.call(PUBLIC_HELP_CONTEXT, topic)) {
+  const { topic, variant, question, history } = req.body ?? {};
+  const conversation = typeof question === "string" && question.trim().length > 0 && question.length <= 1200;
+  if ((variant !== "gerador" && variant !== "consumidor") || (!conversation && (typeof topic !== "string" || !Object.prototype.hasOwnProperty.call(PUBLIC_HELP_CONTEXT, topic)))) {
     return res.status(400).json({ message: "Assunto inválido." });
+  }
+  if (conversation && history !== undefined && (!Array.isArray(history) || history.length > 8 || history.some((turn: any) => !turn || !["user", "model"].includes(turn.role) || typeof turn.text !== "string" || turn.text.length > 1200))) {
+    return res.status(400).json({ message: "Histórico inválido." });
   }
   const key = (process.env.GEMINI_ASSISTANT_API_KEY || process.env.GEMINI_TTS_API_KEY)?.trim();
   if (!key) return res.status(503).json({ message: "Assistente online não configurado." });
   try {
-    const context = (variant === "consumidor" ? PUBLIC_CONSUMER_HELP_CONTEXT : PUBLIC_HELP_CONTEXT)[topic as keyof typeof PUBLIC_HELP_CONTEXT];
+    const contexts = variant === "consumidor" ? PUBLIC_CONSUMER_HELP_CONTEXT : PUBLIC_HELP_CONTEXT;
+    const context = conversation ? Object.values(contexts).join("\n") : contexts[topic as keyof typeof PUBLIC_HELP_CONTEXT];
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: `Explique de modo breve e cordial este recurso do aplicativo Andrade Energy ${variant}: ${context}` }] }],
-        systemInstruction: { parts: [{ text: "Responda somente em português do Brasil, com até 90 palavras. Use apenas o contexto fornecido. Não invente valores, status, botões ou ações. Não peça dados pessoais. Se faltar detalhe, indique a tela correspondente." }] },
+        contents: conversation ? conversationContents(question, history ?? []) : [{ role: "user", parts: [{ text: `Explique de modo breve e cordial este recurso do aplicativo Andrade Energy ${variant}: ${context}` }] }],
+        systemInstruction: { parts: [{ text: `Você é o assistente cordial do Andrade Energy ${variant}. Converse em português brasileiro, respondendo à pergunta atual no contexto do histórico, sem repetir orientações já dadas. Entenda erros de escrita; se houver ambiguidade, pergunte. Até 90 palavras. Não invente valores, status, botões ou ações executadas. Não tem acesso aos dados privados da conta; consultas são feitas separadamente pelo aplicativo. Não peça senhas nem documentos. Use estes recursos verificados como referência, e explique quando não souber: ${context}` }] },
         generationConfig: { temperature: 0.2, maxOutputTokens: 220 },
       }),
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(10000),
     });
     if (!response.ok) return res.status(503).json({ message: "Assistente online indisponível." });
     const payload = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
