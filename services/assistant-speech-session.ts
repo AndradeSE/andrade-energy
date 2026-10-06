@@ -1,12 +1,14 @@
 import { startNativePortugueseSpeech, stopNativePortugueseSpeech, finishNativePortugueseSpeech, nativeSpeechAvailabilityError } from "./native-speech";
 import { isVoiceInstalled, startContinuousListening, stopContinuousListening, finishDictation } from "./on-device-voice";
+import { startOnlineSpeech, stopOnlineSpeech, finishOnlineSpeech } from "./assistant-online-speech";
+import { isPreviewEnvironment } from "../config/environment";
 
-// Uma sessão possui o microfone inteiro: motor Android primeiro, Whisper local
-// já instalado em caso de falha. Nunca envia áudio nem baixa modelo implicitamente.
+// Uma sessão possui o microfone inteiro. Preview usa transcrição online somente
+// com consentimento; a frase-chave permanece local. Nunca baixa modelos aqui.
 let generation = 0;
 let owner: string | undefined;
-let engine: "native" | "local" | undefined;
-type Options = { onPartial?: (text: string) => void; onEnd?: () => void; shouldContinue?: () => boolean; onReady?: () => void; owner?: string };
+let engine: "native" | "local" | "online" | undefined;
+type Options = { onPartial?: (text: string) => void; onEnd?: () => void; shouldContinue?: () => boolean; onReady?: () => void; owner?: string; audioConsent?: boolean };
 
 export async function startAssistantSpeech(onFinal: (text: string) => void, onError: (message: string) => void, onActivity?: (active: boolean) => void, onEmptyEnd?: () => void, options?: Options) {
   // Uma chamada atrasada da frase-chave não pode encerrar o ditado/conversa.
@@ -21,7 +23,17 @@ export async function startAssistantSpeech(onFinal: (text: string) => void, onEr
   // Reserve a geração antes de qualquer await: a última solicitação vence.
   await stopNativePortugueseSpeech();
   if (previous === "local") await stopContinuousListening();
+  if (previous === "online") await stopOnlineSpeech();
   if (!valid()) return false;
+  if (isPreviewEnvironment && !options?.owner?.startsWith("wake-")) {
+    if (options?.audioConsent !== true) { onError("Autorize a transcrição online antes de iniciar a escuta."); return false; }
+    engine = "online";
+    try {
+      return await startOnlineSpeech(onFinal, onError, onActivity, onEmptyEnd, {
+        valid, dictation: Boolean(options?.onPartial), onReady: options?.onReady,
+      });
+    } catch (error) { if (valid()) onError(error instanceof Error ? error.message : "O microfone não iniciou."); return false; }
+  }
   let fallingBack = false;
   let ready = false;
   let deadline: ReturnType<typeof setTimeout> | undefined;
@@ -83,8 +95,9 @@ export async function stopAssistantSpeech(requestOwner?: string) {
   engine = undefined;
   await stopNativePortugueseSpeech();
   if (previous === "local") await stopContinuousListening();
+  if (previous === "online") await stopOnlineSpeech();
 }
 
 export async function finishAssistantSpeech() {
-  return engine === "local" ? finishDictation() : finishNativePortugueseSpeech();
+  return engine === "online" ? finishOnlineSpeech() : engine === "local" ? finishDictation() : finishNativePortugueseSpeech();
 }

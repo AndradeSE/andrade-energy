@@ -15,8 +15,20 @@ const local = {
   stopContinuousListening: async () => { localStops++; }, finishDictation: async () => "ditado local",
 };
 const exported = {};
+const environment = { isPreviewEnvironment: false };
+let onlineStarts = 0;
+const online = {
+  startOnlineSpeech: async () => { onlineStarts++; return true; },
+  stopOnlineSpeech: async () => {}, finishOnlineSpeech: async () => "ditado online",
+};
 const code = ts.transpileModule(fs.readFileSync("services/assistant-speech-session.ts", "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
-vm.runInNewContext(code, { exports: exported, setTimeout: (fn, ms) => { const id = ++timerId; timers.set(id, { fn, ms }); return id; }, clearTimeout: id => timers.delete(id), require: name => name === "./native-speech" ? native : local });
+vm.runInNewContext(code, { exports: exported, console, setTimeout: (fn, ms) => { const id = ++timerId; timers.set(id, { fn, ms }); return id; }, clearTimeout: id => timers.delete(id), require: name => {
+  if (name === "./native-speech") return native;
+  if (name === "./on-device-voice") return local;
+  if (name === "./assistant-online-speech") return online;
+  if (name === "../config/environment") return environment;
+  throw new Error(`Unexpected dependency ${name}`);
+} });
 const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
 (async () => {
   let ready = 0, answer = "", failure = "";
@@ -54,6 +66,18 @@ const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve()
   nativeCallbacks.error("falha");
   await flush();
   assert.equal(localCallbacks.auto, true);
+  await exported.stopAssistantSpeech();
+  environment.isPreviewEnvironment = true;
+  assert.equal(await exported.startAssistantSpeech(() => {}, error => failure = error, undefined, undefined, { owner: "dictation" }), false);
+  assert.equal(onlineStarts, 0);
+  assert.match(failure, /Autorize/);
+  await exported.stopAssistantSpeech();
+  assert.equal(await exported.startAssistantSpeech(() => {}, () => {}, undefined, undefined, { owner: "dictation", audioConsent: true, onPartial: () => {} }), true);
+  assert.equal(onlineStarts, 1);
+  assert.equal(await exported.finishAssistantSpeech(), "ditado online");
+  await exported.stopAssistantSpeech();
+  await exported.startAssistantSpeech(() => {}, () => {}, undefined, undefined, { owner: "wake-test" });
+  assert.equal(onlineStarts, 1); // Hotword nunca envia áudio ao provedor.
   await exported.stopAssistantSpeech();
   console.log("PASS: falha/timeout Android usa voz local instalada, ditado, ativação, isolamento e nenhum download implícito");
 })().catch(error => { console.error(error); process.exitCode = 1; });

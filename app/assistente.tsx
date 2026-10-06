@@ -20,7 +20,7 @@ import { carregarFinanceiro } from "../services/financeiro.service";
 import { cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
 import { finishDictation, installVoiceModels, isVoiceInstalled, pauseContinuousListening, releaseVoiceRecognition, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
 import { speakConversationOnline, speakSafeOnlineOrLocal, speakAuthorizedAccountOnline, stopAssistantVoice } from "../services/assistant-voice";
-import { accountVoiceConsent, setAccountVoiceConsent } from "../services/assistant-voice-consent";
+import { accountVoiceConsent, setAccountVoiceConsent, onlineAudioConsent, setOnlineAudioConsent } from "../services/assistant-voice-consent";
 import { answerConversationOnline } from "../services/assistant-online";
 import { assistantConnectionError, speechStatusReply } from "../services/assistant-diagnostics";
 import { nativePortugueseSpeechAvailable, nativeSpeechAvailabilityError } from "../services/native-speech";
@@ -385,8 +385,9 @@ export default function Assistente() {
         setVoiceStatus(error);
       }, setHearingSpeech, () => {
         if (voiceActive.current && !busyRef.current) void resumeVoice();
-      }, { onReady: () => setVoiceStatus("Ouvindo sua pergunta…"), shouldContinue: () => voiceActive.current });
+      }, { onReady: () => setVoiceStatus("Ouvindo sua pergunta…"), shouldContinue: () => voiceActive.current, audioConsent: true });
       if (usingNativeSpeech.current) return;
+      if (isPreviewEnvironment) return; // A sessão unificada apresenta a falha online.
       await startContinuousListening(text => { void send(text); }, error => {
         voiceActive.current = false;
         setListening(false);
@@ -398,6 +399,20 @@ export default function Assistente() {
       setListening(false);
       setVoiceStatus(error instanceof Error ? error.message : "O microfone não iniciou.");
     }
+  }
+
+  async function authorizeAudio() {
+    if (!usuario?.id) return false;
+    const id = String(usuario.id);
+    if (await onlineAudioConsent(id)) return true;
+    const allowed = await new Promise<boolean>(resolve => Alert.alert(
+      "Transcrição online no Preview",
+      "Ao usar o microfone ou a conversa, trechos de até 30 segundos da sua voz serão enviados à Groq (api.groq.com) para transcrição em português. Não enviamos PDFs nem histórico da conta junto do áudio. O arquivo temporário é apagado após o processamento. A frase “E aí, chat” continua local. Autoriza?",
+      [{ text: "Agora não", style: "cancel", onPress: () => resolve(false) }, { text: "Autorizar", onPress: () => resolve(true) }],
+      { cancelable: true, onDismiss: () => resolve(false) },
+    ));
+    await setOnlineAudioConsent(id, allowed);
+    return allowed;
   }
 
   async function toggleVoice() {
@@ -413,9 +428,10 @@ export default function Assistente() {
       setVoiceStatus(undefined);
       return;
     }
+    if (!(await authorizeAudio())) return;
     setWakeWordPaused(true);
     await stopNativePortugueseSpeech();
-    if (!voiceReady && !(await nativePortugueseSpeechAvailable())) {
+    if (!isPreviewEnvironment && !voiceReady && !(await nativePortugueseSpeechAvailable())) {
       setBusy(true);
       setVoiceInstalling(true);
       try { await installVoiceModels((stage, progress) => setVoiceStatus(progress == null ? stage : `${stage}: ${Math.round(progress * 100)}%`)); setVoiceReady(true); }
@@ -487,6 +503,8 @@ export default function Assistente() {
   async function beginDictation() {
     if (voiceActive.current || busy) return;
     micHeld.current = true;
+    if (!(await authorizeAudio())) { micHeld.current = false; return; }
+    if (!micHeld.current) { setVoiceStatus("Transcrição autorizada. Segure o microfone novamente para falar."); return; }
     dictatedText.current = "";
     dictationStarting.current = true;
     setBusy(true);
@@ -494,7 +512,7 @@ export default function Assistente() {
     try {
       setWakeWordPaused(true);
       await stopNativePortugueseSpeech();
-      if (!voiceReady && !(await nativePortugueseSpeechAvailable())) {
+      if (!isPreviewEnvironment && !voiceReady && !(await nativePortugueseSpeechAvailable())) {
         await installVoiceModels((stage, progress) => setVoiceStatus(progress == null ? stage : `${stage}: ${Math.round(progress * 100)}%`));
         setVoiceReady(true);
       }
@@ -505,8 +523,9 @@ export default function Assistente() {
         text => { dictatedText.current = text; setInput(text); setVoiceStatus("Fala capturada. Solte para enviar."); },
         error => { dictationActive.current = false; setTranscribing(false); setVoiceStatus(error); },
         undefined, undefined,
-        { onReady: () => setVoiceStatus("Microfone aberto. Solte para enviar."), onPartial: text => { dictatedText.current = text; setInput(text); } },
+        { audioConsent: true, onReady: () => setVoiceStatus("Microfone aberto. Solte para enviar."), onPartial: text => { dictatedText.current = text; setInput(text); } },
       );
+      if (isPreviewEnvironment) return;
       if (!usingNativeSpeech.current) await startContinuousListening(
         text => { dictatedText.current = `${dictatedText.current} ${text}`.trim(); setInput(dictatedText.current); setVoiceStatus("Fala capturada. Solte para enviar."); },
         error => {
