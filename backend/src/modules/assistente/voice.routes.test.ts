@@ -2,6 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { PUBLIC_VOICE_LINES } from "./voice-lines";
 import { conversationContents, redactConversationText } from "./conversation-text";
+import { GEMINI_CONVERSATION_MODEL, GEMINI_CONVERSATION_URL } from "./gemini-model";
+
+test("conversa usa o modelo atual em vez do 2.5 restrito", () => {
+  assert.equal(GEMINI_CONVERSATION_MODEL, "gemini-3.5-flash-lite");
+  assert.equal(GEMINI_CONVERSATION_URL, "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent");
+});
 
 test("Gemini recebe a pergunta atual e os turnos anteriores na ordem", () => {
   const contents = conversationContents("E se não chegar?", [{ role: "user", text: "Como funciona o convite?" }, { role: "model", text: "O convite chega por email." }]);

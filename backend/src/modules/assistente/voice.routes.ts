@@ -3,6 +3,7 @@ import { rateLimit } from "express-rate-limit";
 import { exigirAutenticacao } from "../../middlewares/auth.middleware";
 import { PUBLIC_VOICE_LINES } from "./voice-lines";
 import { conversationContents } from "./conversation-text";
+import { GEMINI_CONVERSATION_URL } from "./gemini-model";
 
 const PUBLIC_HELP_CONTEXT = {
   faturamento: "Na aba Faturamento, o gerador pode emitir manualmente, importar PDF e configurar o faturamento automático das UCs. A conta geradora é configurada separadamente. Cobranças exigem revisão antes de confirmar.",
@@ -49,7 +50,7 @@ assistenteVoiceRouter.post("/responder", async (req, res) => {
   try {
     const contexts = variant === "consumidor" ? PUBLIC_CONSUMER_HELP_CONTEXT : PUBLIC_HELP_CONTEXT;
     const context = conversation ? Object.values(contexts).join("\n") : contexts[topic as keyof typeof PUBLIC_HELP_CONTEXT];
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent", {
+    const response = await fetch(GEMINI_CONVERSATION_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({
