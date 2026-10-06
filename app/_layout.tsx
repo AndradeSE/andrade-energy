@@ -27,6 +27,7 @@ import * as Notifications from "expo-notifications";
 import { preloadNavigationData } from "../services/navigation-preload.service";
 import { listarAcessoContratos } from "../services/contratos.service";
 import FloatingAssistant from "../components/assistant/FloatingAssistant";
+import AssistantWakeWord from "../components/assistant/AssistantWakeWord";
 import { isPreviewEnvironment } from "../config/environment";
 
 Notifications.setNotificationHandler({
@@ -529,6 +530,7 @@ function RootNavigator() {
     </Stack>
     </View>
     <PersistentAppTabs loggedIn={loggedIn && !precisaDigital} />
+    {isPreviewEnvironment && loggedIn && !precisaDigital ? <AssistantWakeWord /> : null}
     {isPreviewEnvironment && loggedIn && !precisaDigital && pathname !== "/assistente" ? <FloatingAssistant /> : null}
     {precisaDigital ? <View style={styles.lockOverlay}><BiometricLock onUnlocked={concluirAutenticacaoBiometrica} /></View> : null}
     </>

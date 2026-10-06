@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, Alert, Animated, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { File, Paths } from "expo-file-system";
 import * as FileSystemLegacy from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
-import { Redirect, useRouter } from "expo-router";
+import { Redirect, useRouter, useLocalSearchParams } from "expo-router";
+import { setWakeWordEnabled, subscribeWakeWord, wakeWordEnabled } from "../services/assistant-wake-word";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -34,6 +35,9 @@ type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["r
 
 export default function Assistente() {
   const router = useRouter();
+  const { voiceWake } = useLocalSearchParams<{ voiceWake?: string }>();
+  const wakeEnabled = useSyncExternalStore(subscribeWakeWord, wakeWordEnabled);
+  const handledWake = useRef<string | undefined>(undefined);
   const insets = useSafeAreaInsets();
   const { authenticated, usuario, usinaSelecionada, unidadeSelecionada } = useAuth();
   const [accountVoiceAllowed, setAccountVoiceAllowed] = useState(false);
@@ -405,6 +409,26 @@ export default function Assistente() {
     void speakSafeOnlineOrLocal("welcome", greeting, finishGreeting, reason => { setVoiceStatus(reason); setVoiceNotice(reason); });
   }
 
+  useEffect(() => {
+    if (!voiceWake || handledWake.current === voiceWake) return;
+    const timer = setTimeout(() => {
+      handledWake.current = voiceWake;
+      if (!voiceActive.current && !busyRef.current) void toggleVoice();
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [voiceWake]);
+
+  async function configureWakeWord() {
+    if (wakeEnabled) { setWakeWordEnabled(false); return; }
+    Alert.alert("Ativar “E aí, chat”?", "Enquanto o app estiver aberto, o microfone reconhecerá a frase no aparelho para abrir a conversa. A escuta pausa no chat, nos carregamentos e em segundo plano. Pode consumir bateria. Não enviamos essa escuta aos provedores de IA. Ao sair da conta, ela é desligada.", [
+      { text: "Agora não", style: "cancel" },
+      { text: "Ativar", onPress: () => { void nativePortugueseSpeechAvailable().then(available => {
+        if (available) setWakeWordEnabled(true);
+        else Alert.alert("Indisponível neste aparelho", "Esta ativação exige reconhecimento offline em português. O botão de conversa continua disponível.");
+      }).catch(() => Alert.alert("Não foi possível ativar", "Tente novamente.")); } },
+    ]);
+  }
+
   async function endDictation() {
     micHeld.current = false;
     if (dictationStarting.current || !dictationActive.current) return;
@@ -485,6 +509,7 @@ export default function Assistente() {
     <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
       {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Consulte dados da sua conta, peça documentos ou abra as funções do app para revisão. Para ditar, segure o microfone e solte; para conversar por voz, toque nas ondas.</Text><Text style={styles.limit}>A conversa usa o Gemini online. Não é necessário baixar um modelo local. Consultas respeitam seu acesso; alterações exigem revisão nas telas do aplicativo.</Text></View> : null}
       <Pressable accessibilityRole="button" accessibilityLabel="Configurar voz natural nos dados da conta" onPress={configureAccountVoice} style={styles.action}><Text style={styles.actionText}>Voz natural nos dados · {accountVoiceAllowed ? "autorizada" : "autorizar"}</Text></Pressable>
+      <Pressable accessibilityRole="switch" accessibilityState={{ checked: wakeEnabled }} onPress={() => { void configureWakeWord(); }} style={styles.action}><Text style={styles.actionText}>“E aí, chat” · {wakeEnabled ? "ativado · toque para desligar" : "ativar com o app aberto"}</Text></Pressable>
       {installStage ? <View style={styles.progressCard} accessibilityLiveRegion="polite"><Text style={styles.limit}>{installStage}</Text>{installProgress !== null ? <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(installProgress * 100)}%` }]} /></View> : null}{downloadingModel ? <Pressable accessibilityRole="button" accessibilityLabel="Cancelar download do modelo" onPress={() => void cancelModelDownload()} style={styles.cancelDownload}><Text style={styles.cancelDownloadText}>Cancelar download</Text></Pressable> : null}</View> : null}
       {messages.map((message, index) => <View key={index} style={[styles.bubble, message.from === "user" ? styles.userBubble : styles.assistantBubble]}>
         <Text style={styles.message}>{message.text}</Text>

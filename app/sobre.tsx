@@ -181,12 +181,16 @@ const atualizacaoFaturasAnterior = {
   numero: "1.0.0-r20261006.15", data: "06/10/2026",
   melhorias: ["Consultas de faturas atrasadas e boletos vencidos usam os registros da conta, com PDFs disponíveis no chat.", "Ao atingir o limite da voz natural, a conversa usa temporariamente a voz do aparelho e tenta a natural novamente depois."],
 };
-const atualizacaoAtual = previewApp ? {
+const atualizacaoAzureAnterior = {
   numero: "1.0.0-r20261006.16", data: "06/10/2026",
   melhorias: ["Voz neural Microsoft Azure Free F0 como segunda opção após o Google; voz do aparelho fica por último.", "Nova autorização individual para enviar textos com nomes e valores aos provedores de voz; PDFs, senhas e códigos não são enviados."],
+};
+const atualizacaoAtual = previewApp ? {
+  numero: "1.0.0-r20261006.17", data: "06/10/2026",
+  melhorias: ["Ativação opcional por “E aí, chat” com o app aberto e reconhecimento offline em português compatível.", "A frase abre a conversa por voz. Escuta pausada no chat, em carregamentos e em segundo plano, com indicador para desligar e encerramento ao sair da conta."],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
-  ...(previewApp ? [atualizacaoFaturasAnterior, atualizacaoDocumentosAnterior] : []),
+  ...(previewApp ? [atualizacaoAzureAnterior, atualizacaoFaturasAnterior, atualizacaoDocumentosAnterior] : []),
   ...(previewApp ? [atualizacaoModulosAnterior, atualizacaoConsultasAnterior, atualizacaoVozPublicaAnterior, atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
   ...(geradorPreview ? [atualizacaoVozAnterior] : []),
   ...(geradorPreview ? [atualizacaoConversaContinua, atualizacaoVozNatural, atualizacaoFaturamentoAutomatico, atualizacaoAtalhosFaturamento, atualizacaoChat, atualizacaoVozPdf, atualizacaoSolEletrico, atualizacaoAssistente, atualizacaoTutoriais] : []),
@@ -216,7 +220,7 @@ const historico = IS_GERADOR_APP ? [
     "Ícones e identificação separados para os aplicativos Preview e produção.",
   ] },
 ] : [
-  ...(previewApp ? [atualizacaoFaturasAnterior, atualizacaoDocumentosAnterior] : []),
+  ...(previewApp ? [atualizacaoAzureAnterior, atualizacaoFaturasAnterior, atualizacaoDocumentosAnterior] : []),
   ...(previewApp ? [atualizacaoModulosAnterior, atualizacaoConsultasAnterior, atualizacaoVozPublicaAnterior, atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
   atualizacaoSetasAnterior,
   atualizacaoTutoriaisAnterior,
