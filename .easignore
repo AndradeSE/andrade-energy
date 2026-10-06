@@ -1,6 +1,7 @@
 # Dependencies and local caches
 node_modules/
 .pnpm-store/
+.npm-cache/
 .expo/
 .git/
 .git

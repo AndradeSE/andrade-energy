@@ -123,7 +123,7 @@ module.exports = {
           },
         },
       ],
-      ...(preview ? [["llama.rn", { enableEntitlements: true, entitlementsProfile: "production", forceCxx20: true, enableOpenCL: false }]] : []),
+      ...(preview ? [["llama.rn", { enableEntitlements: true, entitlementsProfile: "production", forceCxx20: true, enableOpenCL: false }], "expo-speech-recognition"] : []),
     ],
 
     experiments: {
@@ -144,7 +144,7 @@ module.exports = {
       },
     },
 
-    runtimeVersion: preview ? "1.0.1-preview-local-ai" : {
+    runtimeVersion: preview ? "1.0.2-preview-native-speech" : {
       policy: "appVersion",
     },
 

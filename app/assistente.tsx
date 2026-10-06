@@ -17,8 +17,10 @@ import { asksLatestInvoiceDocument, latestInvoiceAmountReply, latestIssuedInvoic
 import { detectFinancialMetric, financialMetricReply } from "../services/assistant-financial";
 import { carregarFinanceiro } from "../services/financeiro.service";
 import { answerWithLocalModel, cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
-import { finishDictation, installVoiceModels, isVoiceInstalled, pauseContinuousListening, prepareVoiceRecognition, releaseVoiceRecognition, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
+import { finishDictation, installVoiceModels, isVoiceInstalled, pauseContinuousListening, releaseVoiceRecognition, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
 import { prepareAssistantVoice, speakAssistantReply, speakSafeOnlineOrLocal, stopAssistantVoice } from "../services/assistant-voice";
+import { answerPublicHelpOnline, publicHelpTopic } from "../services/assistant-online";
+import { finishNativePortugueseSpeech, nativePortugueseSpeechAvailable, startNativePortugueseSpeech, stopNativePortugueseSpeech } from "../services/native-speech";
 import { Colors } from "../theme";
 
 type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string };
@@ -46,6 +48,7 @@ export default function Assistente() {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const voiceActive = useRef(false);
   const dictationActive = useRef(false);
+  const usingNativeSpeech = useRef(false);
   const micHeld = useRef(false);
   const dictationStarting = useRef(false);
   const dictatedText = useRef("");
@@ -55,8 +58,7 @@ export default function Assistente() {
   const topicRef = useRef<LocalTopic | undefined>(undefined);
   const scrollRef = useRef<ScrollView>(null);
   const wave = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
-  useEffect(() => () => { voiceActive.current = false; dictationActive.current = false; stopAssistantVoice(); void releaseVoiceRecognition(); void releaseLocalModel(); }, []);
-  useEffect(() => { if (voiceReady) void prepareVoiceRecognition().catch(() => undefined); }, [voiceReady]);
+  useEffect(() => () => { voiceActive.current = false; dictationActive.current = false; stopAssistantVoice(); void stopNativePortugueseSpeech(); void releaseVoiceRecognition(); void releaseLocalModel(); }, []);
   useEffect(() => {
     if (!listening || (!hearingSpeech && !speakingReply)) {
       wave.forEach(value => value.setValue(0));
@@ -145,7 +147,8 @@ export default function Assistente() {
       if (voiceActive.current) {
         setVoiceStatus("Processando sua pergunta…");
         setHearingSpeech(false);
-        await pauseContinuousListening();
+        if (usingNativeSpeech.current) await stopNativePortugueseSpeech();
+        else await pauseContinuousListening();
       }
       let response: Message = { from: "assistant", text: reply.text, route: reply.route };
       if (wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion)) {
@@ -185,9 +188,15 @@ export default function Assistente() {
             response = { from: "assistant", text: "Não consegui consultar o resumo financeiro agora. Verifique a conexão e tente novamente; não vou estimar valores." };
           }
         }
-      } else if (reply.kind !== "help" && shouldUseConversationalModel(reply.kind, voiceActive.current, modelReady, interpretedQuestion.split(/\s+/).length)) {
-        const history = nextMessages.slice(-8).map(message => ({ role: message.from, content: message.text }));
-        response = { from: "assistant", text: await answerWithLocalModel(history, VERIFIED_APP_CONTEXT, voiceActive.current) };
+      } else if (reply.kind === "help" || reply.kind === "unknown") {
+        const safeTopic = publicHelpTopic(question);
+        const onlineAnswer = safeTopic ? await answerPublicHelpOnline(safeTopic) : undefined;
+        if (onlineAnswer) {
+          response = { from: "assistant", text: onlineAnswer };
+        } else if (reply.kind === "unknown" && !voiceActive.current && shouldUseConversationalModel(reply.kind, false, modelReady, interpretedQuestion.split(/\s+/).length)) {
+          const history = nextMessages.slice(-8).map(message => ({ role: message.from, content: message.text }));
+          response = { from: "assistant", text: await answerWithLocalModel(history, VERIFIED_APP_CONTEXT, voiceActive.current) };
+        }
       }
       messagesRef.current = [...messagesRef.current, response].slice(-40);
       setMessages(messagesRef.current);
@@ -218,6 +227,14 @@ export default function Assistente() {
   async function resumeVoice() {
     try {
       setVoiceStatus("Ouvindo sua pergunta…");
+      usingNativeSpeech.current = await startNativePortugueseSpeech(text => { void send(text); }, error => {
+        voiceActive.current = false;
+        setListening(false);
+        setVoiceStatus(error);
+      }, setHearingSpeech, () => {
+        if (voiceActive.current && !busyRef.current) void resumeVoice();
+      });
+      if (usingNativeSpeech.current) return;
       await startContinuousListening(text => { void send(text); }, error => {
         voiceActive.current = false;
         setListening(false);
@@ -239,11 +256,12 @@ export default function Assistente() {
       setHearingSpeech(false);
       setSpeakingReply(false);
       stopAssistantVoice();
-      await stopContinuousListening();
+      if (usingNativeSpeech.current) await stopNativePortugueseSpeech();
+      else await stopContinuousListening();
       setVoiceStatus(undefined);
       return;
     }
-    if (!voiceReady) {
+    if (!voiceReady && !(await nativePortugueseSpeechAvailable())) {
       setBusy(true);
       setVoiceInstalling(true);
       try { await installVoiceModels((stage, progress) => setVoiceStatus(progress == null ? stage : `${stage}: ${Math.round(progress * 100)}%`)); setVoiceReady(true); }
@@ -271,7 +289,7 @@ export default function Assistente() {
     setTranscribing(false);
     setVoiceStatus("Transcrevendo sua fala…");
     try {
-      const finalTranscription = await finishDictation();
+      const finalTranscription = usingNativeSpeech.current ? await finishNativePortugueseSpeech() : await finishDictation();
       const spoken = (dictatedText.current || finalTranscription).trim();
       dictatedText.current = "";
       if (spoken) {
@@ -283,7 +301,8 @@ export default function Assistente() {
       }
     } catch (error) {
       setVoiceStatus(error instanceof Error ? error.message : "Não consegui transcrever a fala.");
-      await stopContinuousListening();
+      if (usingNativeSpeech.current) await stopNativePortugueseSpeech();
+      else await stopContinuousListening();
     }
   }
 
@@ -295,14 +314,18 @@ export default function Assistente() {
     setBusy(true);
     setVoiceInstalling(true);
     try {
-      if (!voiceReady) {
+      if (!voiceReady && !(await nativePortugueseSpeechAvailable())) {
         await installVoiceModels((stage, progress) => setVoiceStatus(progress == null ? stage : `${stage}: ${Math.round(progress * 100)}%`));
         setVoiceReady(true);
       }
       dictationActive.current = true;
       setTranscribing(true);
       setVoiceStatus("Ouvindo… solte o microfone para enviar.");
-      await startContinuousListening(
+      usingNativeSpeech.current = await startNativePortugueseSpeech(
+        text => { dictatedText.current = text; setInput(text); setVoiceStatus("Fala capturada. Solte para enviar."); },
+        error => { setVoiceStatus(error); },
+      );
+      if (!usingNativeSpeech.current) await startContinuousListening(
         text => { dictatedText.current = `${dictatedText.current} ${text}`.trim(); setInput(dictatedText.current); setVoiceStatus("Fala capturada. Solte para enviar."); },
         error => {
           dictationActive.current = false;
@@ -315,7 +338,8 @@ export default function Assistente() {
       dictationActive.current = false;
       setTranscribing(false);
       setVoiceStatus(error instanceof Error ? error.message : "Não foi possível iniciar a transcrição.");
-      await stopContinuousListening();
+      if (usingNativeSpeech.current) await stopNativePortugueseSpeech();
+      else await stopContinuousListening();
     } finally {
       dictationStarting.current = false;
       setBusy(false);
