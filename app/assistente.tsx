@@ -23,7 +23,8 @@ import { speakConversationOnline, speakSafeOnlineOrLocal, speakAuthorizedAccount
 import { accountVoiceConsent, setAccountVoiceConsent } from "../services/assistant-voice-consent";
 import { answerConversationOnline } from "../services/assistant-online";
 import { assistantConnectionError, speechStatusReply } from "../services/assistant-diagnostics";
-import { finishNativePortugueseSpeech, nativePortugueseSpeechAvailable, nativeSpeechAvailabilityError, startNativePortugueseSpeech, stopNativePortugueseSpeech } from "../services/native-speech";
+import { nativePortugueseSpeechAvailable, nativeSpeechAvailabilityError } from "../services/native-speech";
+import { finishAssistantSpeech as finishNativePortugueseSpeech, startAssistantSpeech as startNativePortugueseSpeech, stopAssistantSpeech as stopNativePortugueseSpeech } from "../services/assistant-speech-session";
 import { Colors } from "../theme";
 import { playActivationBeep } from "../services/assistant-beep";
 import { buscarDashboardUsina } from "../services/usinas.service";
@@ -450,7 +451,7 @@ export default function Assistente() {
     Alert.alert("Ativar “E aí, chat”?", "Enquanto o app estiver aberto, o microfone reconhecerá a frase no aparelho para abrir a conversa, inclusive no chat em silêncio. A escuta pausa durante a conversa, o ditado, os carregamentos e em segundo plano. Pode consumir bateria. Não enviamos essa escuta aos provedores de IA. Ao sair da conta, ela é desligada.", [
       { text: "Agora não", style: "cancel" },
       { text: "Ativar", onPress: () => { void nativePortugueseSpeechAvailable().then(available => {
-        if (available) setWakeWordEnabled(true);
+        if (available || isVoiceInstalled()) setWakeWordEnabled(true);
         else Alert.alert("Não foi possível ativar", nativeSpeechAvailabilityError());
       }).catch(() => Alert.alert("Não foi possível ativar", "Tente novamente.")); } },
     ]);
