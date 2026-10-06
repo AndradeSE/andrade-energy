@@ -37,6 +37,8 @@ export default function Assistente() {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const voiceActive = useRef(false);
   const dictationActive = useRef(false);
+  const micHeld = useRef(false);
+  const dictationStarting = useRef(false);
   const busyRef = useRef(false);
   const messagesRef = useRef<Message[]>([]);
   const topicRef = useRef<LocalTopic | undefined>(undefined);
@@ -171,16 +173,25 @@ export default function Assistente() {
     await resumeVoice();
   }
 
-  async function toggleDictation() {
-    if (dictationActive.current) {
-      dictationActive.current = false;
-      setTranscribing(false);
-      setVoiceStatus("Finalizando transcrição…");
+  async function endDictation() {
+    micHeld.current = false;
+    if (dictationStarting.current || !dictationActive.current) return;
+    dictationActive.current = false;
+    setTranscribing(false);
+    setVoiceStatus("Transcrevendo sua fala…");
+    try {
       await finishDictation();
-      setVoiceStatus(undefined);
-      return;
+      setVoiceStatus("Texto pronto para revisar e enviar.");
+    } catch (error) {
+      setVoiceStatus(error instanceof Error ? error.message : "Não consegui transcrever a fala.");
+      await stopContinuousListening();
     }
+  }
+
+  async function beginDictation() {
     if (voiceActive.current || busy) return;
+    micHeld.current = true;
+    dictationStarting.current = true;
     setBusy(true);
     setVoiceInstalling(true);
     try {
@@ -190,9 +201,9 @@ export default function Assistente() {
       }
       dictationActive.current = true;
       setTranscribing(true);
-      setVoiceStatus("Ouvindo… toque no microfone para terminar.");
+      setVoiceStatus("Ouvindo… solte o microfone para transcrever.");
       await startContinuousListening(
-        text => { setInput(previous => `${previous.trim()} ${text}`.trim()); setVoiceStatus("Texto capturado. Continue falando ou toque para terminar."); },
+        text => { setInput(previous => `${previous.trim()} ${text}`.trim()); setVoiceStatus("Fala capturada. Solte para terminar."); },
         error => {
           dictationActive.current = false;
           setTranscribing(false);
@@ -206,8 +217,10 @@ export default function Assistente() {
       setVoiceStatus(error instanceof Error ? error.message : "Não foi possível iniciar a transcrição.");
       await stopContinuousListening();
     } finally {
+      dictationStarting.current = false;
       setBusy(false);
       setVoiceInstalling(false);
+      if (!micHeld.current && dictationActive.current) void endDictation();
     }
   }
 
@@ -223,7 +236,7 @@ export default function Assistente() {
       <Pressable disabled={busy} onPress={() => { messagesRef.current = []; topicRef.current = undefined; setMessages([]); setTopic(undefined); void releaseLocalModel(); }} accessibilityRole="button" accessibilityLabel="Limpar conversa"><Text style={styles.clear}>Limpar</Text></Pressable>
     </View>
     <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
-      {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Pergunte sobre faturas, contratos, atalhos ou uso sem internet. Também posso abrir uma seção do app quando você pedir.</Text><Text style={styles.limit}>{modelReady ? "Modelo local instalado. A conversa livre pode conter erros; confira dados importantes no aplicativo." : "A ajuda básica já funciona. Instale o modelo opcional para conversar livremente em português."}</Text>{!modelReady ? <Pressable accessibilityRole="button" disabled={busy} onPress={() => void install()} style={styles.action}><Text style={styles.actionText}>Instalar modelo local</Text></Pressable> : null}</View> : null}
+      {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Pergunte sobre faturas, contratos e funções do app. Para ditar, segure o microfone e solte; para conversar por voz, toque nas ondas.</Text><Text style={styles.limit}>{modelReady ? "Modelo local instalado. A conversa livre pode conter erros; confira dados importantes no aplicativo." : "A ajuda básica já funciona. Instale o modelo opcional para conversar livremente em português."}</Text>{!modelReady ? <Pressable accessibilityRole="button" disabled={busy} onPress={() => void install()} style={styles.action}><Text style={styles.actionText}>Instalar modelo local</Text></Pressable> : null}</View> : null}
       {installStage ? <View style={styles.progressCard} accessibilityLiveRegion="polite"><Text style={styles.limit}>{installStage}</Text>{installProgress !== null ? <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(installProgress * 100)}%` }]} /></View> : null}{downloadingModel ? <Pressable accessibilityRole="button" accessibilityLabel="Cancelar download do modelo" onPress={() => void cancelModelDownload()} style={styles.cancelDownload}><Text style={styles.cancelDownloadText}>Cancelar download</Text></Pressable> : null}</View> : null}
       {messages.map((message, index) => <View key={index} style={[styles.bubble, message.from === "user" ? styles.userBubble : styles.assistantBubble]}>
         <Text style={styles.message}>{message.text}</Text>
@@ -233,14 +246,13 @@ export default function Assistente() {
     <View style={[styles.composer, { paddingBottom: keyboardVisible ? 10 : Math.max(insets.bottom, 12) }]}>
       {voiceStatus ? <View style={styles.voiceStatus}><Ionicons name={voiceInstalling ? "cloud-download-outline" : transcribing || listening ? "radio-outline" : "information-circle-outline"} size={17} color={Colors.primary} /><Text style={styles.voiceStatusText}>{voiceStatus}</Text></View> : null}
       <View style={styles.inputPill}>
-        <TextInput value={input} onChangeText={setInput} placeholder="Pergunte qualquer coisa" placeholderTextColor={Colors.subtitle} multiline maxLength={1000} accessibilityLabel="Sua pergunta" style={styles.input} />
-        <Pressable onPress={() => { Keyboard.dismiss(); void toggleDictation(); }} disabled={listening || (busy && !transcribing)} accessibilityRole="button" accessibilityLabel={transcribing ? "Parar transcrição" : "Transcrever fala"} style={[styles.pillAction, transcribing && styles.voiceActive, listening && styles.disabled]}><Ionicons name={transcribing ? "stop" : "mic-outline"} size={22} color={transcribing ? "white" : Colors.primary} /></Pressable>
-        <Pressable onPress={() => void send()} disabled={!input.trim() || busy || transcribing} accessibilityRole="button" accessibilityLabel="Enviar pergunta" style={[styles.pillSend, (!input.trim() || busy || transcribing) && styles.disabled]}><Ionicons name="arrow-up" size={22} color="white" /></Pressable>
+        <TextInput value={input} onChangeText={setInput} placeholder="Pergunte à Andrade Energy" placeholderTextColor={Colors.subtitle} multiline maxLength={1000} accessibilityLabel="Sua pergunta" style={styles.input} />
+        <Pressable onPressIn={() => { Keyboard.dismiss(); void beginDictation(); }} onPressOut={() => { void endDictation(); }} disabled={listening || (busy && !dictationStarting.current && !transcribing)} accessibilityRole="button" accessibilityLabel="Segure para falar e solte para transcrever" style={[styles.pillAction, transcribing && styles.voiceActive, listening && styles.disabled]}><Ionicons name="mic-outline" size={22} color={transcribing ? "white" : Colors.primary} /></Pressable>
+        <Pressable onPress={() => { Keyboard.dismiss(); void toggleVoice(); }} disabled={transcribing || (busy && !listening)} accessibilityRole="button" accessibilityLabel={listening ? "Encerrar conversa por voz" : "Iniciar conversa por voz"} style={[styles.pillAction, listening && styles.voiceActive, transcribing && styles.disabled]}>
+          {voiceInstalling ? <ActivityIndicator size="small" color={Colors.primary} /> : <Ionicons name={listening ? "stop-circle-outline" : "pulse-outline"} size={23} color={listening ? "white" : Colors.primary} />}
+        </Pressable>
+        {input.trim() ? <Pressable onPress={() => void send()} disabled={busy || transcribing} accessibilityRole="button" accessibilityLabel="Enviar pergunta" style={[styles.pillSend, (busy || transcribing) && styles.disabled]}><Ionicons name="arrow-up" size={22} color="white" /></Pressable> : null}
       </View>
-      <Pressable onPress={() => { Keyboard.dismiss(); void toggleVoice(); }} disabled={transcribing || (busy && !listening)} accessibilityRole="button" accessibilityLabel={listening ? "Encerrar conversa por voz" : "Iniciar conversa por voz"} style={[styles.liveButton, listening && styles.voiceActive, transcribing && styles.disabled]}>
-        {voiceInstalling ? <ActivityIndicator size="small" color={Colors.primary} /> : <Ionicons name={listening ? "stop-circle-outline" : "radio-outline"} size={20} color={listening ? "white" : Colors.primary} />}
-        <Text style={[styles.liveText, listening && styles.liveTextActive]}>{listening ? "Encerrar conversa" : "Conversar por voz"}</Text>
-      </Pressable>
     </View>
   </KeyboardAvoidingView>;
 }
@@ -262,12 +274,9 @@ const styles = StyleSheet.create({
   composer: { gap: 8, backgroundColor: Colors.surface, paddingHorizontal: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: Colors.border },
   voiceStatus: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 9, paddingVertical: 5 },
   voiceStatusText: { flex: 1, color: Colors.subtitle, fontSize: 12, lineHeight: 17 },
-  inputPill: { minHeight: 56, flexDirection: "row", alignItems: "flex-end", gap: 4, paddingHorizontal: 6, paddingVertical: 5, borderWidth: 1, borderColor: Colors.border, borderRadius: 28, backgroundColor: Colors.background },
-  input: { flex: 1, maxHeight: 120, minHeight: 44, paddingHorizontal: 12, paddingVertical: 11, color: Colors.text, fontSize: 15 },
+  inputPill: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: 2, paddingHorizontal: 7, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border, borderRadius: 30, backgroundColor: Colors.background },
+  input: { flex: 1, maxHeight: 120, minHeight: 44, paddingHorizontal: 12, paddingVertical: 9, color: Colors.text, fontSize: 15 },
   pillAction: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 22 },
   pillSend: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 22, backgroundColor: Colors.primary },
-  liveButton: { alignSelf: "flex-start", minHeight: 36, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 13, borderRadius: 18, backgroundColor: Colors.primaryLight },
-  liveText: { color: Colors.primary, fontSize: 13, fontWeight: "700" },
-  liveTextActive: { color: "white" },
   voiceActive: { backgroundColor: "#A33131" }, disabled: { opacity: 0.45 },
 });
