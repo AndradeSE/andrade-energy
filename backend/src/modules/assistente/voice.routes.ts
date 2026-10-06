@@ -13,6 +13,16 @@ const PUBLIC_HELP_CONTEXT = {
   navegacao: "As abas e o menu permitem encontrar funções pelo nome. Acessos rápidos são personalizáveis; a posição pode mudar. Trocar ambiente, usina ou UC altera o contexto dos dados.",
   tutoriais: "Em Tutoriais, escolha um vídeo do processo. Assistir não executa cadastros, cobranças nem contratos.",
 } as const;
+const PUBLIC_CONSUMER_HELP_CONTEXT = {
+  faturamento: "No aplicativo Consumidor, Faturas mostra cobranças da UC selecionada, valores e formas de pagamento disponíveis. A configuração de faturamento automático deve respeitar a titularidade e as opções disponíveis na conta. O consumidor não emite cobranças para outros clientes.",
+  producao: "O consumidor consulta informações da usina e da energia da UC selecionada. Cadastro da usina e importação de produção são recursos do Gerador.",
+  contrato: "Na aba Contrato, leia a minuta e as condições. Confira os dados e siga as opções de assinatura ou aceite disponíveis. O assistente não assina nem cancela por você.",
+  cadastro: "O consumidor cria seu acesso pelo convite recebido e pode consultar suas UCs vinculadas. Cadastros e vínculos da carteira são feitos pelo gerador. Nunca compartilhe senha ou código de acesso.",
+  perfil: PUBLIC_HELP_CONTEXT.perfil,
+  notificacoes: PUBLIC_HELP_CONTEXT.notificacoes,
+  navegacao: PUBLIC_HELP_CONTEXT.navegacao,
+  tutoriais: PUBLIC_HELP_CONTEXT.tutoriais,
+} as const;
 
 // A camada gratuita do Gemini não deve receber falas, nomes ou dados da conta.
 // O cliente envia somente um identificador; o texto é fixo e auditável aqui.
@@ -27,18 +37,18 @@ assistenteVoiceRouter.post("/responder", async (req, res) => {
     /^https:\/\/qqhcjieymypowunkixmk\.supabase\.co\/?$/.test(process.env.SUPABASE_URL ?? "");
   if (!isPreview) return res.status(404).json({ message: "Indisponível." });
   const { topic, variant } = req.body ?? {};
-  if (variant !== "gerador" || typeof topic !== "string" || !Object.prototype.hasOwnProperty.call(PUBLIC_HELP_CONTEXT, topic)) {
+  if ((variant !== "gerador" && variant !== "consumidor") || typeof topic !== "string" || !Object.prototype.hasOwnProperty.call(PUBLIC_HELP_CONTEXT, topic)) {
     return res.status(400).json({ message: "Assunto inválido." });
   }
   const key = (process.env.GEMINI_ASSISTANT_API_KEY || process.env.GEMINI_TTS_API_KEY)?.trim();
   if (!key) return res.status(503).json({ message: "Assistente online não configurado." });
   try {
-    const context = PUBLIC_HELP_CONTEXT[topic as keyof typeof PUBLIC_HELP_CONTEXT];
+    const context = (variant === "consumidor" ? PUBLIC_CONSUMER_HELP_CONTEXT : PUBLIC_HELP_CONTEXT)[topic as keyof typeof PUBLIC_HELP_CONTEXT];
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: `Explique de modo breve e cordial este recurso do aplicativo Andrade Energy Gerador: ${context}` }] }],
+        contents: [{ role: "user", parts: [{ text: `Explique de modo breve e cordial este recurso do aplicativo Andrade Energy ${variant}: ${context}` }] }],
         systemInstruction: { parts: [{ text: "Responda somente em português do Brasil, com até 90 palavras. Use apenas o contexto fornecido. Não invente valores, status, botões ou ações. Não peça dados pessoais. Se faltar detalhe, indique a tela correspondente." }] },
         generationConfig: { temperature: 0.2, maxOutputTokens: 220 },
       }),
