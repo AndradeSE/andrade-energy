@@ -86,12 +86,16 @@ const atualizacaoVozPdf = {
     "Quando não há PDF, a ajuda explica a ausência do arquivo sem repetir instruções de navegação.",
   ],
 };
-const atualizacaoAtual = geradorPreview ? {
+const atualizacaoChat = {
   numero: "1.0.0-r20261006.1", data: "06/10/2026",
   melhorias: ["Botão flutuante da IA redesenhado como chat 3D verde e dourado, com animação suave e sem a antiga aura elétrica."],
+};
+const atualizacaoAtual = geradorPreview ? {
+  numero: "1.0.0-r20261006.2", data: "06/10/2026",
+  melhorias: ["Atalho de recebimento automático da usina mantido somente no card de geração da Home; Faturas renomeado para Faturas emitidas na aba Faturamento."],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
-  ...(geradorPreview ? [atualizacaoVozPdf, atualizacaoSolEletrico, atualizacaoAssistente, atualizacaoTutoriais] : []),
+  ...(geradorPreview ? [atualizacaoChat, atualizacaoVozPdf, atualizacaoSolEletrico, atualizacaoAssistente, atualizacaoTutoriais] : []),
   atualizacaoSelecaoUsina,
   atualizacaoTutoriaisFluidos,
   atualizacaoCarregamentoPreview,

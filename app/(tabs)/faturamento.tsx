@@ -10,7 +10,6 @@ import TabDataPending from "../../components/ui/TabDataPending";
 import OperationLoading from "../../components/ui/OperationLoading";
 import { listarUnidadesGestor } from "../../services/clientes.service";
 import { processarFatura } from "../../services/faturas.service";
-import { buscarDashboardUsina } from "../../services/usinas.service";
 import { useAuth } from "../../contexts/AuthContext";
 import { initialTabKey } from "../../services/navigation-preload.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
@@ -29,7 +28,6 @@ export default function Faturamento() {
   const [pdfPendente, setPdfPendente] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [senhaPdf, setSenhaPdf] = useState("");
   const [solicitarSenhaPdf, setSolicitarSenhaPdf] = useState(false);
-  const [abrindoRecebimentoUsina, setAbrindoRecebimentoUsina] = useState(false);
 
   const carregar = useCallback(async () => {
     try {
@@ -98,28 +96,6 @@ export default function Faturamento() {
     }
   }
 
-  async function abrirRecebimentoUsina() {
-    const usinaId = usinaSelecionada?.id ?? user?.usina_id;
-    if (!usinaId || abrindoRecebimentoUsina) {
-      if (!usinaId) Alert.alert("Escolha uma usina", "Selecione a usina para configurar o recebimento da conta geradora.");
-      return;
-    }
-    try {
-      setAbrindoRecebimentoUsina(true);
-      const dashboard = await buscarDashboardUsina(usinaId);
-      const unidadeGeradoraId = dashboard?.unidadeGeradora?.id;
-      if (!unidadeGeradoraId) {
-        Alert.alert("UC geradora não encontrada", "Confira o número da instalação no cadastro da usina antes de configurar o recebimento.");
-        return;
-      }
-      router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidadeGeradoraId, finalidade: "PRODUCAO_USINA" } });
-    } catch (erro: any) {
-      Alert.alert("Não foi possível abrir", erro?.response?.data?.message ?? "Confira sua conexão e tente novamente.");
-    } finally {
-      setAbrindoRecebimentoUsina(false);
-    }
-  }
-
   return <Screen>
     <OperationLoading visible={faturandoPdf} title="Gerando fatura e dados de pagamento…" />
     <AppHeader title="Faturamento" subtitle="Emissão e acompanhamento" contextTitle="Faturamento" contextSubtitle="Processar, automatizar e consultar faturas" icon="receipt-outline" />
@@ -141,8 +117,7 @@ export default function Faturamento() {
             if (!unidade?.id) return Alert.alert("Fatura automática", "Cadastre e vincule uma UC recebedora a uma usina antes de configurar o e-mail.");
             router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidade.id, escopo: "usina" } });
           }} />
-          <Action icon="sunny-outline" title="Fatura automática da usina" description="Receber a conta geradora para atualizar a produção, sem criar cobrança" disabled={abrindoRecebimentoUsina} onPress={() => void abrirRecebimentoUsina()} />
-          <Action icon="receipt-outline" title="Faturas" description="Ver cobranças abertas, vencidas e pagas" onPress={() => router.push({ pathname: "/(tabs)/faturas", params: { origem: "faturamento" } })} />
+          <Action icon="receipt-outline" title="Faturas emitidas" description="Ver cobranças abertas, vencidas e pagas" onPress={() => router.push({ pathname: "/(tabs)/faturas", params: { origem: "faturamento" } })} />
         </View>
       </Card>
     </ScrollView>}
