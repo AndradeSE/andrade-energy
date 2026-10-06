@@ -78,16 +78,20 @@ const atualizacaoSolEletrico = {
   numero: "1.0.0-r20261005.8", data: "05/10/2026",
   melhorias: ["Sol 3D ganhou aura dourada pulsante e relâmpagos azulados animados no Gerador Preview."],
 };
-const atualizacaoAtual = geradorPreview ? {
+const atualizacaoVozPdf = {
   numero: "1.0.0-r20261005.9", data: "05/10/2026",
   melhorias: [
     "Microfone envia a pergunta ao soltar; conversa por voz retoma a escuta após responder.",
     "A última fatura emitida pode ser aberta como PDF diretamente na conversa quando o documento está disponível.",
     "Quando não há PDF, a ajuda explica a ausência do arquivo sem repetir instruções de navegação.",
   ],
+};
+const atualizacaoAtual = geradorPreview ? {
+  numero: "1.0.0-r20261006.1", data: "06/10/2026",
+  melhorias: ["Botão flutuante da IA redesenhado como chat 3D verde e dourado, com animação suave e sem a antiga aura elétrica."],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
-  ...(geradorPreview ? [atualizacaoSolEletrico, atualizacaoAssistente, atualizacaoTutoriais] : []),
+  ...(geradorPreview ? [atualizacaoVozPdf, atualizacaoSolEletrico, atualizacaoAssistente, atualizacaoTutoriais] : []),
   atualizacaoSelecaoUsina,
   atualizacaoTutoriaisFluidos,
   atualizacaoCarregamentoPreview,
