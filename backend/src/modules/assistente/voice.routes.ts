@@ -10,6 +10,7 @@ import { hashToken } from "../../utils/token";
 import { authorizedAccountSpeech } from "./account-speech";
 import { groqFallback } from "./groq-fallback";
 import { azureVoice } from "./azure-voice";
+import { transcriptionRouter } from "./transcription.routes";
 
 const PUBLIC_HELP_CONTEXT = {
   faturamento: "Na aba Faturamento, o gerador pode emitir manualmente, importar PDF e configurar o faturamento automático das UCs. A conta geradora é configurada separadamente. Cobranças exigem revisão antes de confirmar.",
@@ -32,7 +33,7 @@ const PUBLIC_CONSUMER_HELP_CONTEXT = {
   tutoriais: PUBLIC_HELP_CONTEXT.tutoriais,
 } as const;
 
-// Preview conversation sends authorized, redacted text only, never microphone audio.
+// Conversation text and explicitly consented audio transcription are separate.
 // Keep legacy topic requests working for older installers.
 export const assistenteVoiceRouter = Router();
 const cachedAudio = new Map<keyof typeof PUBLIC_VOICE_LINES, string>();
@@ -40,6 +41,7 @@ const publicAnswerAudio = new Map<string, { audio: string; expires: number }>();
 let providerQuotaUntil = 0;
 const voiceAnswers = new VoiceAnswerStore();
 assistenteVoiceRouter.use(exigirAutenticacao);
+assistenteVoiceRouter.use("/transcrever", transcriptionRouter);
 assistenteVoiceRouter.use(rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: "draft-8", legacyHeaders: false }));
 
 assistenteVoiceRouter.post("/responder", async (req, res) => {
