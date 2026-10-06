@@ -1,0 +1,17 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const ts = require("typescript");
+const exported = {};
+const code = ts.transpileModule(fs.readFileSync("services/assistant-beep.ts", "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
+vm.runInNewContext(code, { exports: exported, require: () => ({}) });
+const bytes = exported.activationTone();
+const view = new DataView(bytes.buffer);
+assert.equal(Buffer.from(bytes.slice(0, 4)).toString(), "RIFF");
+assert.equal(Buffer.from(bytes.slice(8, 12)).toString(), "WAVE");
+assert.equal(view.getUint32(24, true), 16000);
+assert.equal(view.getUint32(40, true), bytes.length - 44);
+assert.equal((bytes.length - 44) / 2 / 16000, 0.14);
+assert.equal(view.getInt16(44, true), 0);
+assert.equal(view.getInt16(bytes.length - 2, true), 0);
+console.log("PASS: bip WAV de 140 ms, cabeçalho e transições suaves, sem download");

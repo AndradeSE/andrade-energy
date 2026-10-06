@@ -30,7 +30,17 @@ function load(relative) {
   return exports;
 }
 (async () => {
-  const { asksOverdueInvoices, overdueInvoiceReply } = load("services/local-assistant-invoices.ts");
+  const { asksOverdueInvoices, overdueInvoiceReply, asksLatestInvoiceDocument, invoiceDocumentChoices } = load("services/local-assistant-invoices.ts");
+  for (const phrase of ["baixe o arquivo do ultimo faturamento da usina", "abra a última fatura da usina", "mande o PDF da última cobrança"]) assert.equal(asksLatestInvoiceDocument(phrase), true);
+  for (const phrase of ["gere uma fatura PDF", "crie uma fatura", "emita uma fatura PDF", "fature a usina"]) assert.equal(asksLatestInvoiceDocument(phrase, true), false);
+  const latestDocument = invoiceDocumentChoices("baixe o arquivo do ultimo faturamento da usina", [
+    { id: "old", status: "ABERTA", created_at: "2026-09-01", pdf_unificada_url: "https://example.test/old.pdf" },
+    { id: "latest", status: "ABERTA", created_at: "2026-10-01", pdf_unificada_url: "https://example.test/latest.pdf" },
+    { id: "draft", status: "RASCUNHO", created_at: "2026-10-06" },
+  ]);
+  assert.equal(latestDocument.length, 1);
+  assert.equal(latestDocument[0].id, "latest");
+  assert.equal(latestDocument[0].pdf_unificada_url, "https://example.test/latest.pdf");
   assert.equal(asksOverdueInvoices("tenho fatura atrasada?"), true);
   assert.equal(asksOverdueInvoices("tenho boletos vencidos?"), true);
   const late = overdueInvoiceReply([

@@ -17,13 +17,13 @@ export function overdueInvoiceReply(invoices: InvoiceSnapshot[], today = new Int
 
 export function asksLatestInvoiceDocument(input: string, previousInvoiceRequest = false) {
   const text = input.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  const mentionsInvoice = /\b(fatura|cobranca)\b/.test(text);
+  const mentionsInvoice = /\b(faturas?|cobrancas?|faturamento|boleto)\b/.test(text);
   const mentionsLatest = /\b(ultima|ultimo|mais recente)\b/.test(text);
-  const asksDocument = /\b(pdf|arquivo|documento|abrir|baixar|download|enviar|envie|mandar|manda|mostre|mostrar|quero|me de|me da|aqui)\b/.test(text);
-  const explicitDocument = /\b(pdf|arquivo|documento|baixar|download|envie|manda|mandar|enviar|abrir|mostre|mostrar)\b/.test(text);
-  const creatingInvoice = /\b(emitir|faturar|gerar|criar)\b/.test(text);
+  const asksDocument = /\b(pdf|arquivo|documento|abrir|abra|baixar|baixe|download|enviar|envie|mandar|manda|mande|entregue|mostre|mostrar|quero|me de|me da|aqui)\b/.test(text);
+  const explicitDocument = /\b(pdf|arquivo|documento|baixar|baixe|download|envie|manda|mande|mandar|enviar|abrir|abra|entregue|mostre|mostrar)\b/.test(text);
+  const creatingInvoice = /\b(emitir|emita|faturar|fature|gerar|gere|criar|crie)\b/.test(text);
   return (mentionsInvoice && !creatingInvoice && asksDocument && (mentionsLatest || explicitDocument))
-    || (previousInvoiceRequest && asksDocument && /\b(pdf|fatura|arquivo|documento|aqui|me de|mandar|manda)\b/.test(text));
+    || (previousInvoiceRequest && !creatingInvoice && asksDocument && /\b(pdf|fatura|arquivo|documento|aqui|me de|mandar|manda)\b/.test(text));
 }
 
 export function latestIssuedInvoice(invoices: InvoiceSnapshot[]) {

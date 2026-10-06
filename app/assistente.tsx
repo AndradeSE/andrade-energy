@@ -5,7 +5,7 @@ import * as FileSystemLegacy from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
 import { Redirect, useRouter, useLocalSearchParams } from "expo-router";
-import { setWakeWordEnabled, subscribeWakeWord, wakeWordEnabled } from "../services/assistant-wake-word";
+import { setWakeWordEnabled, setWakeWordPaused, subscribeWakeWord, wakeWordEnabled } from "../services/assistant-wake-word";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -25,6 +25,7 @@ import { answerConversationOnline } from "../services/assistant-online";
 import { assistantConnectionError, speechStatusReply } from "../services/assistant-diagnostics";
 import { finishNativePortugueseSpeech, nativePortugueseSpeechAvailable, startNativePortugueseSpeech, stopNativePortugueseSpeech } from "../services/native-speech";
 import { Colors } from "../theme";
+import { playActivationBeep } from "../services/assistant-beep";
 import { buscarDashboardUsina } from "../services/usinas.service";
 import { detectProductionMetric, productionMetricReply } from "../services/assistant-production";
 import { detectAccountQuery, consultAccount } from "../services/assistant-account";
@@ -63,6 +64,10 @@ export default function Assistente() {
   const [voiceStatus, setVoiceStatus] = useState<string>();
   const [voiceNotice, setVoiceNotice] = useState<string>();
   const [voiceInstalling, setVoiceInstalling] = useState(false);
+  useEffect(() => {
+    setWakeWordPaused(listening || speakingReply || transcribing || busy || voiceInstalling);
+  }, [listening, speakingReply, transcribing, busy, voiceInstalling]);
+  useEffect(() => () => setWakeWordPaused(false), []);
   const [openingInvoiceId, setOpeningInvoiceId] = useState<string>();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const voiceActive = useRef(false);
@@ -88,6 +93,18 @@ export default function Assistente() {
   }, [accountContextKey]);
   const wave = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
   useEffect(() => () => { voiceActive.current = false; dictationActive.current = false; stopAssistantVoice(); void stopNativePortugueseSpeech(); void releaseVoiceRecognition(); void releaseLocalModel(); }, []);
+  useEffect(() => {
+    if (!listening || busy || hearingSpeech || speakingReply || transcribing) return;
+    const timer = setTimeout(() => {
+      voiceActive.current = false;
+      setListening(false);
+      setHearingSpeech(false);
+      setVoiceStatus("Conversa encerrada após 30 segundos sem fala. Diga “E aí, chat” ou toque nas ondas para voltar.");
+      void stopNativePortugueseSpeech();
+      void stopContinuousListening();
+    }, 30_000);
+    return () => clearTimeout(timer);
+  }, [listening, busy, hearingSpeech, speakingReply, transcribing]);
   useEffect(() => {
     if (!listening || (!hearingSpeech && !speakingReply)) {
       wave.forEach(value => value.setValue(0));
@@ -209,9 +226,13 @@ export default function Assistente() {
     if (!question || busyRef.current) return;
     const interpretedQuestion = normalizeAssistantQuery(question);
     const wantsOverdue = asksOverdueInvoices(interpretedQuestion);
-    const capability = wantsOverdue ? undefined : detectCapability(interpretedQuestion);
     const generation = contextGeneration.current;
     const wantsInvoiceDocument = asksLatestInvoiceDocument(interpretedQuestion, lastInvoiceRequest.current);
+    const detectedCapability = detectCapability(interpretedQuestion);
+    // PDF de fatura tem precedência sobre abrir a usina/aba, mas não sobre
+    // documentos específicos (CEMIG, cálculo, contratos) nem alterações.
+    const invoiceOverridesNavigation = wantsInvoiceDocument && !detectedCapability?.review && ["usinas", "faturamento", "pagamento"].includes(detectedCapability?.module ?? "");
+    const capability = wantsOverdue || invoiceOverridesNavigation ? undefined : detectedCapability;
     lastInvoiceRequest.current = wantsInvoiceDocument || /\b(ultima|mais recente)\b.*\b(fatura|cobranca)\b|\b(fatura|cobranca)\b.*\b(ultima|mais recente)\b/i.test(interpretedQuestion);
     busyRef.current = true;
     const { reply, topic: nextTopic } = answerInConversation(question, {
@@ -389,17 +410,21 @@ export default function Assistente() {
       setVoiceStatus(undefined);
       return;
     }
+    setWakeWordPaused(true);
+    await stopNativePortugueseSpeech();
     if (!voiceReady && !(await nativePortugueseSpeechAvailable())) {
       setBusy(true);
       setVoiceInstalling(true);
       try { await installVoiceModels((stage, progress) => setVoiceStatus(progress == null ? stage : `${stage}: ${Math.round(progress * 100)}%`)); setVoiceReady(true); }
       catch (error) { setVoiceStatus(error instanceof Error ? error.message : "Não foi possível instalar a voz."); return; }
-      finally { setBusy(false); setVoiceInstalling(false); }
+      finally { setBusy(false); setVoiceInstalling(false); setWakeWordPaused(false); }
     }
     voiceActive.current = true;
     setListening(true);
     setVoiceStatus("Falando com você…");
     setSpeakingReply(true);
+    await playActivationBeep();
+    if (!voiceActive.current) return;
     // A frase online é fixa para não enviar o nome do cliente ao provedor de voz.
     const greeting = "Olá! Como posso ajudar?";
     const finishGreeting = () => {
@@ -420,7 +445,7 @@ export default function Assistente() {
 
   async function configureWakeWord() {
     if (wakeEnabled) { setWakeWordEnabled(false); return; }
-    Alert.alert("Ativar “E aí, chat”?", "Enquanto o app estiver aberto, o microfone reconhecerá a frase no aparelho para abrir a conversa. A escuta pausa no chat, nos carregamentos e em segundo plano. Pode consumir bateria. Não enviamos essa escuta aos provedores de IA. Ao sair da conta, ela é desligada.", [
+    Alert.alert("Ativar “E aí, chat”?", "Enquanto o app estiver aberto, o microfone reconhecerá a frase no aparelho para abrir a conversa, inclusive no chat em silêncio. A escuta pausa durante a conversa, o ditado, os carregamentos e em segundo plano. Pode consumir bateria. Não enviamos essa escuta aos provedores de IA. Ao sair da conta, ela é desligada.", [
       { text: "Agora não", style: "cancel" },
       { text: "Ativar", onPress: () => { void nativePortugueseSpeechAvailable().then(available => {
         if (available) setWakeWordEnabled(true);
@@ -461,6 +486,8 @@ export default function Assistente() {
     setBusy(true);
     setVoiceInstalling(true);
     try {
+      setWakeWordPaused(true);
+      await stopNativePortugueseSpeech();
       if (!voiceReady && !(await nativePortugueseSpeechAvailable())) {
         await installVoiceModels((stage, progress) => setVoiceStatus(progress == null ? stage : `${stage}: ${Math.round(progress * 100)}%`));
         setVoiceReady(true);

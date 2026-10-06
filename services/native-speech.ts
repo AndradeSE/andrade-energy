@@ -30,10 +30,11 @@ function cleanup() {
   active = false;
 }
 
-export async function startNativePortugueseSpeech(onFinal: (text: string) => void, onError: (message: string) => void, onActivity?: (active: boolean) => void, onEmptyEnd?: () => void) {
+export async function startNativePortugueseSpeech(onFinal: (text: string) => void, onError: (message: string) => void, onActivity?: (active: boolean) => void, onEmptyEnd?: () => void, options?: { onPartial?: (text: string) => void; onEnd?: () => void; shouldContinue?: () => boolean }) {
   if (!(await nativePortugueseSpeechAvailable()) || !ExpoSpeechRecognitionModule) return false;
   const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
   if (!permission.granted) throw new Error("O microfone não foi autorizado.");
+  if (options?.shouldContinue && !options.shouldContinue()) return false;
   if (active) await stopNativePortugueseSpeech();
   lastText = "";
   completed = "";
@@ -43,6 +44,7 @@ export async function startNativePortugueseSpeech(onFinal: (text: string) => voi
       if (!text) return;
       lastText = text;
       onActivity?.(true);
+      if (!event.isFinal) options?.onPartial?.(text);
       if (event.isFinal) {
         completed = text;
         finishResolver?.(text);
@@ -68,6 +70,7 @@ export async function startNativePortugueseSpeech(onFinal: (text: string) => voi
       cleanup();
       onActivity?.(false);
       if (empty) onEmptyEnd?.();
+      options?.onEnd?.();
     }),
   ];
   active = true;
