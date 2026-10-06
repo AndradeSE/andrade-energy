@@ -167,7 +167,7 @@ const atualizacaoModulosAnterior = {
     "Dados privados não são enviados ao Gemini; operações de alteração continuam nas telas de confirmação do aplicativo.",
   ],
 };
-const atualizacaoAtual = previewApp ? {
+const atualizacaoDocumentosAnterior = {
   numero: "1.0.0-r20261006.13", data: "06/10/2026",
   melhorias: [
     "Assistente ampliado para carteira, economia, equipe, operação, inversores, planos, perfil e recebimento automático.",
@@ -176,8 +176,13 @@ const atualizacaoAtual = previewApp ? {
     "Voz natural dos dados com autorização individual revogável; limite do Google é informado sem trocar para a voz sintética.",
     "Histórico da conversa é limpo ao trocar conta, ambiente, usina ou UC.",
   ],
+};
+const atualizacaoAtual = previewApp ? {
+  numero: "1.0.0-r20261006.14", data: "06/10/2026",
+  melhorias: ["Ao atingir o limite da voz natural, a conversa usa temporariamente a voz do aparelho e tenta a natural novamente depois."],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
+  ...(previewApp ? [atualizacaoDocumentosAnterior] : []),
   ...(previewApp ? [atualizacaoModulosAnterior, atualizacaoConsultasAnterior, atualizacaoVozPublicaAnterior, atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
   ...(geradorPreview ? [atualizacaoVozAnterior] : []),
   ...(geradorPreview ? [atualizacaoConversaContinua, atualizacaoVozNatural, atualizacaoFaturamentoAutomatico, atualizacaoAtalhosFaturamento, atualizacaoChat, atualizacaoVozPdf, atualizacaoSolEletrico, atualizacaoAssistente, atualizacaoTutoriais] : []),
@@ -207,6 +212,7 @@ const historico = IS_GERADOR_APP ? [
     "Ícones e identificação separados para os aplicativos Preview e produção.",
   ] },
 ] : [
+  ...(previewApp ? [atualizacaoDocumentosAnterior] : []),
   ...(previewApp ? [atualizacaoModulosAnterior, atualizacaoConsultasAnterior, atualizacaoVozPublicaAnterior, atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
   atualizacaoSetasAnterior,
   atualizacaoTutoriaisAnterior,

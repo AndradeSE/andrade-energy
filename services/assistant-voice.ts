@@ -9,6 +9,7 @@ let preferredVoice: string | undefined;
 let fallbackVoice: string | undefined;
 let voicesChecked = false;
 let onlineUnavailableUntil = 0;
+let onlineQuotaReached = false;
 let lastOnlineFailure = "A voz natural está temporariamente indisponível.";
 let activePlayer: ReturnType<typeof createAudioPlayer> | undefined;
 let activeFile: string | undefined;
@@ -48,11 +49,17 @@ async function speakOnlineVoice(request: { lineId: "welcome" | "retry" } | { ans
   }
   if (Date.now() < onlineUnavailableUntil) {
     onFallback?.(lastOnlineFailure);
+    if (onlineQuotaReached) {
+      await prepareAssistantVoice();
+      if (generation === voiceGeneration) speakAssistantReply(localText, onDone);
+      return;
+    }
     onDone();
     return;
   }
   try {
     const response = await api.post<{ audio: string; mimeType: string }>("/assistente/voz", request, { timeout: 16_000 });
+    onlineQuotaReached = false;
     if (generation !== voiceGeneration) return;
     if (response.data.mimeType !== "audio/wav" || !response.data.audio) throw new Error("Áudio inválido");
     const file = `${FileSystem.cacheDirectory}andrade-voice-${Date.now()}.wav`;
@@ -81,10 +88,17 @@ async function speakOnlineVoice(request: { lineId: "welcome" | "retry" } | { ans
     // sintética até o próximo reinício do aplicativo.
     const failure = error as { response?: { status?: number; data?: { code?: string }; headers?: Record<string, string> } };
     const quota = failure.response?.status === 429 || failure.response?.data?.code === "TTS_QUOTA";
-    lastOnlineFailure = quota ? "O Google limitou temporariamente a voz natural. A resposta está no chat; não troquei para a voz do aparelho." : "Não consegui gerar a voz natural agora. A resposta está no chat; não troquei para a voz do aparelho.";
+    onlineQuotaReached = quota;
+    lastOnlineFailure = quota ? "Limite da voz natural atingido. Usando temporariamente a voz do aparelho." : "Não consegui gerar a voz natural agora. A resposta está no chat; não troquei para a voz do aparelho.";
     onlineUnavailableUntil = Date.now() + (quota ? 60_000 : 5_000);
     stopAssistantVoice();
     onFallback?.(lastOnlineFailure);
+    if (quota) {
+      const localGeneration = voiceGeneration;
+      await prepareAssistantVoice();
+      if (localGeneration === voiceGeneration) speakAssistantReply(localText, onDone);
+      return;
+    }
     onDone();
   }
 }
