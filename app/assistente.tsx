@@ -160,7 +160,7 @@ export default function Assistente() {
   function configureAccountVoice() {
     if (!usuario?.id) return;
     const userId = String(usuario.id);
-    Alert.alert("Voz natural nos dados da conta", "Ao autorizar, o texto das respostas com valores de faturas, produção e nomes será enviado ao Google Gemini somente para gerar a voz. Não enviaremos PDFs, senhas ou códigos de acesso. Você pode revogar nesta opção.", [
+    Alert.alert("Voz natural nos dados da conta", "Ao autorizar, o texto das respostas com valores de faturas, produção e nomes será enviado ao Google Gemini e, se necessário, à Microsoft Azure somente para gerar a voz. Não enviaremos PDFs, senhas ou códigos de acesso. Você pode revogar nesta opção.", [
       { text: "Voltar", style: "cancel" },
       { text: accountVoiceAllowed ? "Revogar autorização" : "Autorizar voz natural", onPress: () => {
         const allowed = !accountVoiceAllowed;

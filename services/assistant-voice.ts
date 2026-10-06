@@ -35,10 +35,10 @@ export async function speakConversationOnline(answerId: string, localText: strin
 }
 
 export async function speakAuthorizedAccountOnline(text: string, onDone: () => void, onFailure?: (reason: string) => void) {
-  return speakOnlineVoice({ speechText: text.slice(0, 1600), accountVoiceConsent: true }, text, onDone, onFailure);
+  return speakOnlineVoice({ speechText: text.slice(0, 1600), accountVoiceConsent: true, azureVoiceConsent: true }, text, onDone, onFailure);
 }
 
-async function speakOnlineVoice(request: { lineId: "welcome" | "retry" } | { answerId: string } | { speechText: string; accountVoiceConsent: true }, localText: string, onDone: () => void, onFallback?: (reason: string) => void) {
+async function speakOnlineVoice(request: { lineId: "welcome" | "retry" } | { answerId: string } | { speechText: string; accountVoiceConsent: true; azureVoiceConsent: true }, localText: string, onDone: () => void, onFallback?: (reason: string) => void) {
   const generation = voiceGeneration;
   // Desligado por padrão: só pode ser ativado no Preview depois de configurar
   // GEMINI_TTS_API_KEY no backend de homologação e verificar o limite gratuito.
