@@ -78,8 +78,17 @@ export async function startNativePortugueseSpeech(onFinal: (text: string) => voi
       }
     }),
     ExpoSpeechRecognitionModule.addListener("error", event => {
+      console.info("[AssistantSpeech] native-error", event.error);
       const noSpeech = event.error === "no-speech" || event.error === "speech-timeout";
-      if (event.error !== "aborted" && event.error !== "no-speech" && event.error !== "speech-timeout") {
+      if (event.error === "aborted") {
+        cleanup();
+        finishResolver?.(lastText);
+        finishResolver = undefined;
+        onActivity?.(false);
+        onError("O reconhecedor Android interrompeu a escuta inesperadamente.");
+        return;
+      }
+      if (event.error !== "no-speech" && event.error !== "speech-timeout") {
         onError(event.error === "not-allowed" ? "Permissão do microfone negada. Autorize nas configurações do aplicativo." : event.error === "language-not-supported" ? "O reconhecedor não conseguiu iniciar português (Brasil) offline. Instale esse idioma no serviço de reconhecimento do Android." : event.error === "audio-capture" ? "O Android não conseguiu capturar áudio. Confira se o acesso ao microfone está ligado e se outro aplicativo o está usando." : `O reconhecimento de voz do Android falhou (${event.error}). Confira o idioma e o acesso ao microfone.`);
       }
       finishResolver?.(lastText);
@@ -93,6 +102,10 @@ export async function startNativePortugueseSpeech(onFinal: (text: string) => voi
       if (noSpeech) onEmptyEnd?.();
     }),
     ExpoSpeechRecognitionModule.addListener("end", () => {
+      console.info("[AssistantSpeech] native-end", Boolean(lastText), Boolean(completed));
+      // Alguns motores encerram a sessão depois de fornecer apenas resultados
+      // parciais. Preserve essa fala em vez de deixar a conversa em "Ouvindo".
+      const partialFinal = !completed && lastText ? lastText : "";
       const empty = !completed && !lastText && !finishResolver;
       finishResolver?.(completed || lastText);
       finishResolver = undefined;
@@ -102,6 +115,7 @@ export async function startNativePortugueseSpeech(onFinal: (text: string) => voi
         onError("O reconhecedor encerrou antes de abrir o microfone. Nenhuma escuta foi ativada.");
         return;
       }
+      if (partialFinal) onFinal(partialFinal);
       if (empty) onEmptyEnd?.();
       options?.onEnd?.();
     }),
@@ -129,15 +143,19 @@ export async function finishNativePortugueseSpeech() {
   const text = await Promise.race([result, timeout]);
   if (timer) clearTimeout(timer);
   finishResolver = undefined;
-  if (active) ExpoSpeechRecognitionModule.abort();
+  const shouldAbort = active;
   cleanup();
+  if (shouldAbort) ExpoSpeechRecognitionModule.abort();
   return text;
 }
 
 export async function stopNativePortugueseSpeech(owner?: string) {
   if (owner !== undefined && activeOwner !== owner) return;
-  if (active) ExpoSpeechRecognitionModule?.abort();
+  const shouldAbort = active;
+  // Retire os listeners antes do cancelamento solicitado pelo app. Assim um
+  // cancelamento voluntário não parece uma falha e não dispara o fallback.
   cleanup();
+  if (shouldAbort) ExpoSpeechRecognitionModule?.abort();
   finishResolver?.("");
   finishResolver = undefined;
 }

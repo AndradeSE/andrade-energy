@@ -30,6 +30,7 @@ vm.runInNewContext(code, { exports: exported, setTimeout, clearTimeout, require:
   assert.equal(finals, 0);
   handlers.get("end")();
   assert.equal(ended, 1); // Escuta pode reiniciar mesmo com parcial e sem resultado final.
+  assert.equal(finals, 1); // Fala parcial é entregue quando o motor encerra sem final.
   assert.equal(handlers.size, 0);
   assert.equal(starts[0].requiresOnDeviceRecognition, true);
   assert.equal(starts[0].androidRecognitionServicePackage, undefined);
@@ -39,7 +40,7 @@ vm.runInNewContext(code, { exports: exported, setTimeout, clearTimeout, require:
   await exported.startNativePortugueseSpeech(() => finals++, () => {});
   handlers.get("start")();
   handlers.get("result")({ results: [{ transcript: "pergunta normal" }], isFinal: true });
-  assert.equal(finals, 1); // Conversa e ditado existentes continuam recebendo só resultados finais.
+  assert.equal(finals, 2); // Cada sessão entrega a fala uma única vez.
   await exported.stopNativePortugueseSpeech();
   assert.equal(handlers.size, 0);
   await exported.startNativePortugueseSpeech(() => {}, () => {}, undefined, undefined, { owner: "dictation" });
@@ -54,6 +55,16 @@ vm.runInNewContext(code, { exports: exported, setTimeout, clearTimeout, require:
   handlers.get("end")();
   assert.match(startupFailure, /antes de abrir o microfone/);
   assert.equal(retries, 0); // Fim antes de captura não vira loop de novas tentativas.
+  let interruption = "";
+  await exported.startNativePortugueseSpeech(() => {}, message => interruption = message);
+  handlers.get("start")();
+  handlers.get("error")({ error: "aborted" });
+  assert.match(interruption, /interrompeu/);
+  assert.equal(handlers.size, 0);
+  interruption = "";
+  await exported.startNativePortugueseSpeech(() => {}, message => interruption = message);
+  await exported.stopNativePortugueseSpeech();
+  assert.equal(interruption, ""); // Cancelamento explícito não ativa fallback.
   microphoneAllowed = false;
   await assert.rejects(exported.startNativePortugueseSpeech(() => {}, () => {}), /microfone não foi autorizado/);
   console.log("PASS: resultado parcial, fim sem resultado final, cancelamento e compatibilidade com conversa");

@@ -5,7 +5,7 @@ const ts = require("typescript");
 const timers = new Map();
 let timerId = 0, installed = true, nativeCallbacks, localCallbacks, localStarts = 0, localStops = 0;
 const native = {
-  startNativePortugueseSpeech: async (final, error, activity, empty, options) => { nativeCallbacks = { final, error, options }; return true; },
+  startNativePortugueseSpeech: async (final, error, activity, empty, options) => { nativeCallbacks = { final, error, empty, options }; return true; },
   stopNativePortugueseSpeech: async () => {}, finishNativePortugueseSpeech: async () => "nativo",
   nativeSpeechAvailabilityError: () => "Android indisponível",
 };
@@ -40,6 +40,11 @@ const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve()
   assert.equal(localStarts, 1);
   installed = false;
   await exported.startAssistantSpeech(() => {}, error => failure = error);
+  const foregroundSession = nativeCallbacks;
+  assert.equal(await exported.startAssistantSpeech(() => {}, () => {}, undefined, undefined, { owner: "wake-late", shouldContinue: () => false }), false);
+  assert.equal(nativeCallbacks, foregroundSession); // Cancelada não toca a sessão atual.
+  assert.equal(await exported.startAssistantSpeech(() => {}, () => {}, undefined, undefined, { owner: "wake-background" }), false);
+  assert.equal(nativeCallbacks, foregroundSession); // Frase-chave não rouba o microfone.
   nativeCallbacks.error("não iniciou");
   await flush();
   assert.match(failure, /alternativo ainda não está instalado/);

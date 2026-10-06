@@ -9,10 +9,19 @@ let engine: "native" | "local" | undefined;
 type Options = { onPartial?: (text: string) => void; onEnd?: () => void; shouldContinue?: () => boolean; onReady?: () => void; owner?: string };
 
 export async function startAssistantSpeech(onFinal: (text: string) => void, onError: (message: string) => void, onActivity?: (active: boolean) => void, onEmptyEnd?: () => void, options?: Options) {
-  await stopAssistantSpeech();
+  // Uma chamada atrasada da frase-chave não pode encerrar o ditado/conversa.
+  if (options?.shouldContinue && !options.shouldContinue()) return false;
+  if (options?.owner?.startsWith("wake-") && engine && !owner?.startsWith("wake-")) return false;
   const current = ++generation;
+  const previous = engine;
+  engine = "native"; // Reserva também durante permissões/encerramento pendentes.
+  console.info("[AssistantSpeech] session-start", current);
   owner = options?.owner;
   const valid = () => current === generation && (!options?.shouldContinue || options.shouldContinue());
+  // Reserve a geração antes de qualquer await: a última solicitação vence.
+  await stopNativePortugueseSpeech();
+  if (previous === "local") await stopContinuousListening();
+  if (!valid()) return false;
   let fallingBack = false;
   let ready = false;
   let deadline: ReturnType<typeof setTimeout> | undefined;
@@ -26,6 +35,7 @@ export async function startAssistantSpeech(onFinal: (text: string) => void, onEr
   const fallback = async (nativeError: string) => {
     if (!valid() || fallingBack) return;
     fallingBack = true;
+    console.info("[AssistantSpeech] local-fallback", current);
     clearDeadline();
     await stopNativePortugueseSpeech();
     if (!valid()) return;
@@ -51,11 +61,13 @@ export async function startAssistantSpeech(onFinal: (text: string) => void, onEr
   try {
     engine = "native";
     deadline = setTimeout(() => { if (!ready) void fallback("O reconhecedor Android não ficou pronto."); }, 3500);
-    const started = await startNativePortugueseSpeech(text => { if (valid() && !fallingBack) onFinal(text); }, message => { void fallback(message); }, value => { if (valid() && !fallingBack) onActivity?.(value); }, () => { if (valid() && !fallingBack) onEmptyEnd?.(); }, {
+    const started = await startNativePortugueseSpeech(text => { if (valid() && !fallingBack) { console.info("[AssistantSpeech] transcript-received", current); onFinal(text); } }, message => { void fallback(message); }, value => { if (valid() && !fallingBack) onActivity?.(value); }, () => {
+      if (valid() && !fallingBack) void fallback("O Android encerrou sem reconhecer a fala.");
+    }, {
       ...options,
       shouldContinue: () => valid() && !fallingBack,
       onEnd: () => { if (valid() && !fallingBack) options?.onEnd?.(); },
-      onReady: () => { if (valid() && !fallingBack) { ready = true; clearDeadline(); options?.onReady?.(); } },
+      onReady: () => { if (valid() && !fallingBack) { console.info("[AssistantSpeech] native-ready", current); ready = true; clearDeadline(); options?.onReady?.(); } },
     });
     if (!valid()) { clearDeadline(); return false; }
     if (!started) await fallback(nativeSpeechAvailabilityError());
