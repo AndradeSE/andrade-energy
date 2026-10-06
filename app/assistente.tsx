@@ -20,6 +20,7 @@ import { cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalM
 import { finishDictation, installVoiceModels, isVoiceInstalled, pauseContinuousListening, releaseVoiceRecognition, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
 import { prepareAssistantVoice, speakAssistantReply, speakSafeOnlineOrLocal, stopAssistantVoice } from "../services/assistant-voice";
 import { answerConversationOnline } from "../services/assistant-online";
+import { assistantConnectionError, speechStatusReply } from "../services/assistant-diagnostics";
 import { finishNativePortugueseSpeech, nativePortugueseSpeechAvailable, startNativePortugueseSpeech, stopNativePortugueseSpeech } from "../services/native-speech";
 import { Colors } from "../theme";
 
@@ -152,7 +153,10 @@ export default function Assistente() {
         else await pauseContinuousListening();
       }
       let response: Message = { from: "assistant", text: reply.text, route: reply.route };
-      if (wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion)) {
+      const speechStatus = speechStatusReply(question, Boolean(spokenQuestion));
+      if (speechStatus) {
+        response = { from: "assistant", text: speechStatus, private: true };
+      } else if (wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion)) {
         try {
           const invoices = usuario?.perfil === "LEITURA"
             ? unidadeSelecionada?.numero
@@ -192,7 +196,7 @@ export default function Assistente() {
       } else if (reply.kind === "help" || reply.kind === "unknown") {
         response = { from: "assistant", text: await answerConversationOnline(question, nextMessages.slice(0, -1)) };
       }
-      response.private = privateTurn;
+      response.private = response.private || privateTurn;
       messagesRef.current = [...messagesRef.current, response].slice(-40);
       setMessages(messagesRef.current);
       topicRef.current = nextTopic;
@@ -202,16 +206,15 @@ export default function Assistente() {
         setSpeakingReply(true);
         speakAssistantReply(response.text, () => { setSpeakingReply(false); if (voiceActive.current) void resumeVoice(); });
       }
-    } catch {
-      const fallback: Message = { from: "assistant", private: true, text: "Não consegui conectar ao Gemini agora. Tente novamente em alguns instantes. Não substituí a conversa pela IA local." };
+    } catch (error) {
+      const fallback: Message = { from: "assistant", private: true, text: assistantConnectionError(error) };
       messagesRef.current = [...messagesRef.current, fallback].slice(-40);
       setMessages(messagesRef.current);
       if (voiceActive.current) {
         setVoiceStatus("Não consegui processar esta resposta. Vou ouvir sua próxima pergunta.");
         setSpeakingReply(true);
         const finishFallback = () => { setSpeakingReply(false); if (voiceActive.current) void resumeVoice(); };
-        if (reply.kind === "help") speakAssistantReply(fallback.text, finishFallback);
-        else void speakSafeOnlineOrLocal("retry", fallback.text, finishFallback);
+        speakAssistantReply(fallback.text, finishFallback);
       }
     } finally {
       busyRef.current = false;
@@ -370,8 +373,8 @@ export default function Assistente() {
         {input.trim() && !transcribing && !dictationStarting.current
           ? <Pressable onPress={() => void send()} disabled={busy} accessibilityRole="button" accessibilityLabel="Enviar pergunta" style={[styles.pillSend, busy && styles.disabled]}><Ionicons name="arrow-up" size={22} color="white" /></Pressable>
           : <Pressable onPressIn={() => { Keyboard.dismiss(); void beginDictation(); }} onPressOut={() => { void endDictation(); }} disabled={listening || (busy && !dictationStarting.current && !transcribing)} accessibilityRole="button" accessibilityLabel="Segure para falar e solte para enviar" style={[styles.pillAction, transcribing && styles.voiceActive, listening && styles.disabled]}><Ionicons name="mic-outline" size={22} color={transcribing ? "white" : Colors.text} /></Pressable>}
-        <Pressable onPress={() => { Keyboard.dismiss(); void toggleVoice(); }} disabled={transcribing || (busy && !listening)} accessibilityRole="button" accessibilityLabel={listening ? "Encerrar conversa por voz" : "Iniciar conversa por voz"} style={[styles.pillAction, listening && styles.voiceActive, transcribing && styles.disabled]}>
-          {voiceInstalling ? <ActivityIndicator size="small" color={Colors.primary} /> : <View style={styles.waveform}>{[7, 16, 10, 5].map((height, index) => <Animated.View key={index} style={[styles.waveBar, { height, backgroundColor: listening ? "white" : Colors.text, transform: [{ scaleY: wave[index].interpolate({ inputRange: [0, 1], outputRange: [1, 1.8] }) }] }]} />)}</View>}
+        <Pressable onPress={() => { Keyboard.dismiss(); void toggleVoice(); }} disabled={transcribing || (busy && !listening)} accessibilityRole="button" accessibilityLabel={listening ? "Encerrar conversa por voz" : "Iniciar conversa por voz"} style={[styles.pillAction, transcribing && styles.disabled]}>
+          {voiceInstalling ? <ActivityIndicator size="small" color={Colors.primary} /> : <View style={styles.waveform}>{[7, 16, 10, 5].map((height, index) => <Animated.View key={index} style={[styles.waveBar, { height, backgroundColor: Colors.text, transform: [{ scaleY: wave[index].interpolate({ inputRange: [0, 1], outputRange: [1, 1.8] }) }] }]} />)}</View>}
         </Pressable>
       </View>
     </View>
