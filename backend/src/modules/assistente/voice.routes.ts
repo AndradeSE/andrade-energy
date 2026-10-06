@@ -46,7 +46,7 @@ assistenteVoiceRouter.post("/responder", async (req, res) => {
     return res.status(400).json({ message: "Histórico inválido." });
   }
   const key = (process.env.GEMINI_ASSISTANT_API_KEY || process.env.GEMINI_TTS_API_KEY)?.trim();
-  if (!key) return res.status(503).json({ message: "Assistente online não configurado." });
+  if (!key) return res.status(503).json({ code: "GEMINI_NOT_CONFIGURED", message: "Assistente online não configurado." });
   try {
     const contexts = variant === "consumidor" ? PUBLIC_CONSUMER_HELP_CONTEXT : PUBLIC_HELP_CONTEXT;
     const context = conversation ? Object.values(contexts).join("\n") : contexts[topic as keyof typeof PUBLIC_HELP_CONTEXT];
@@ -60,14 +60,19 @@ assistenteVoiceRouter.post("/responder", async (req, res) => {
       }),
       signal: AbortSignal.timeout(10000),
     });
-    if (!response.ok) return res.status(503).json({ message: "Assistente online indisponível." });
+    if (!response.ok) {
+      console.warn("Gemini conversation unavailable, provider status:", response.status);
+      const code = response.status === 429 ? "GEMINI_QUOTA" : [400, 401, 403].includes(response.status) ? "GEMINI_CREDENTIAL" : "GEMINI_UNAVAILABLE";
+      return res.status(503).json({ code, message: "Assistente online indisponível." });
+    }
     const payload = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
     const answer = payload.candidates?.[0]?.content?.parts?.map(part => part.text ?? "").join(" ").trim();
     if (!answer || answer.length > 800) return res.status(503).json({ message: "Resposta indisponível." });
     res.setHeader("Cache-Control", "no-store");
     return res.json({ answer });
-  } catch {
-    return res.status(503).json({ message: "Assistente online indisponível." });
+  } catch (error) {
+    const code = error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name) ? "GEMINI_TIMEOUT" : "GEMINI_UNAVAILABLE";
+    return res.status(503).json({ code, message: "Assistente online indisponível." });
   }
 });
 
