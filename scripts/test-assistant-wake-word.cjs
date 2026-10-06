@@ -26,3 +26,7 @@ assert.equal(wakeWordPaused(), true);
 setWakeWordPaused(false);
 assert.equal(wakeWordPaused(), false);
 console.log("PASS: frase de ativação, falsos positivos, escuta desligada por padrão e controle de sessão");
+const component = fs.readFileSync("components/assistant/AssistantWakeWord.tsx", "utf8");
+assert.equal(component.includes('pathname === "/assistente"'), false, "Chat ocioso não deve bloquear a captura nem o prazo de inicialização");
+assert.match(component, /!foreground \|\| paused \|\| loading/);
+assert.match(component, /startupDeadline = setTimeout/);

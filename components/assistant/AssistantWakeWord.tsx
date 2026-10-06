@@ -13,7 +13,7 @@ export default function AssistantWakeWord() {
   const pathname = usePathname();
   const [foreground, setForeground] = useState(AppState.currentState === "active");
   useEffect(() => {
-    if (!enabled || pathname === "/assistente" || !foreground || paused || loading) return;
+    if (!enabled || !foreground || paused || loading) return;
     // O prazo só vale quando a frase-chave pode realmente iniciar a captura.
     const deadline = setTimeout(() => {
       if (wakeWordEnabled() && !wakeWordReady() && !wakeWordPaused()) {
@@ -29,7 +29,7 @@ export default function AssistantWakeWord() {
   }, []);
   useEffect(() => {
     setWakeWordReady(false);
-    if (!enabled || !foreground || loading || paused || pathname === "/assistente") return;
+    if (!enabled || !foreground || loading || paused) return;
     let cancelled = false;
     let triggered = false;
     const owner = `wake-${Date.now()}-${Math.random()}`;
