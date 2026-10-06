@@ -18,7 +18,8 @@ import { detectFinancialMetric, financialMetricReply } from "../services/assista
 import { carregarFinanceiro } from "../services/financeiro.service";
 import { cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
 import { finishDictation, installVoiceModels, isVoiceInstalled, pauseContinuousListening, releaseVoiceRecognition, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
-import { prepareAssistantVoice, speakAssistantReply, speakConversationOnline, speakSafeOnlineOrLocal, stopAssistantVoice } from "../services/assistant-voice";
+import { speakConversationOnline, speakSafeOnlineOrLocal, speakAuthorizedAccountOnline, stopAssistantVoice } from "../services/assistant-voice";
+import { accountVoiceConsent, setAccountVoiceConsent } from "../services/assistant-voice-consent";
 import { answerConversationOnline } from "../services/assistant-online";
 import { assistantConnectionError, speechStatusReply } from "../services/assistant-diagnostics";
 import { finishNativePortugueseSpeech, nativePortugueseSpeechAvailable, startNativePortugueseSpeech, stopNativePortugueseSpeech } from "../services/native-speech";
@@ -26,13 +27,22 @@ import { Colors } from "../theme";
 import { buscarDashboardUsina } from "../services/usinas.service";
 import { detectProductionMetric, productionMetricReply } from "../services/assistant-production";
 import { detectAccountQuery, consultAccount } from "../services/assistant-account";
+import { detectCapability, type AssistantAction, type AssistantDocument } from "../services/assistant-capabilities";
+import { executeAssistantTool, resolveAssistantDocument } from "../services/assistant-tools";
 
-type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string; invoiceChoices?: Array<{ id: string; label: string }>; private?: boolean; voiceAnswerId?: string };
+type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string; invoiceChoices?: Array<{ id: string; label: string }>; actions?: AssistantAction[]; documents?: AssistantDocument[]; private?: boolean; voiceAnswerId?: string };
 
 export default function Assistente() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { authenticated, usuario, usinaSelecionada, unidadeSelecionada } = useAuth();
+  const [accountVoiceAllowed, setAccountVoiceAllowed] = useState(false);
+  useEffect(() => {
+    let active = true;
+    setAccountVoiceAllowed(false);
+    if (usuario?.id) void accountVoiceConsent(String(usuario.id)).then(allowed => { if (active) setAccountVoiceAllowed(allowed); }).catch(() => {});
+    return () => { active = false; };
+  }, [usuario?.id]);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [topic, setTopic] = useState<LocalTopic>();
@@ -47,6 +57,7 @@ export default function Assistente() {
   const [speakingReply, setSpeakingReply] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState<string>();
+  const [voiceNotice, setVoiceNotice] = useState<string>();
   const [voiceInstalling, setVoiceInstalling] = useState(false);
   const [openingInvoiceId, setOpeningInvoiceId] = useState<string>();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -61,6 +72,16 @@ export default function Assistente() {
   const messagesRef = useRef<Message[]>([]);
   const topicRef = useRef<LocalTopic | undefined>(undefined);
   const scrollRef = useRef<ScrollView>(null);
+  const accountContextKey = `${usuario?.id ?? ""}:${usuario?.empresa_id ?? ""}:${usinaSelecionada?.id ?? ""}:${unidadeSelecionada?.id ?? ""}`;
+  const contextGeneration = useRef(0);
+  useEffect(() => {
+    contextGeneration.current += 1;
+    messagesRef.current = [];
+    setMessages([]);
+    topicRef.current = undefined;
+    lastInvoiceRequest.current = false;
+    stopAssistantVoice();
+  }, [accountContextKey]);
   const wave = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
   useEffect(() => () => { voiceActive.current = false; dictationActive.current = false; stopAssistantVoice(); void stopNativePortugueseSpeech(); void releaseVoiceRecognition(); void releaseLocalModel(); }, []);
   useEffect(() => {
@@ -130,10 +151,61 @@ export default function Assistente() {
     }
   }
 
+  function openAssistantAction(action: AssistantAction) {
+    const open = () => router.push({ pathname: action.route, params: action.params } as any);
+    if (action.review) Alert.alert("Revisar no aplicativo", "Vou abrir a tela correspondente. Nenhuma alteração foi executada pela IA; confira os dados e confirme na própria tela.", [{ text: "Voltar", style: "cancel" }, { text: "Abrir revisão", onPress: open }]);
+    else open();
+  }
+
+  function configureAccountVoice() {
+    if (!usuario?.id) return;
+    const userId = String(usuario.id);
+    Alert.alert("Voz natural nos dados da conta", "Ao autorizar, o texto das respostas com valores de faturas, produção e nomes será enviado ao Google Gemini somente para gerar a voz. Não enviaremos PDFs, senhas ou códigos de acesso. Você pode revogar nesta opção.", [
+      { text: "Voltar", style: "cancel" },
+      { text: accountVoiceAllowed ? "Revogar autorização" : "Autorizar voz natural", onPress: () => {
+        const allowed = !accountVoiceAllowed;
+        void setAccountVoiceConsent(userId, allowed).then(() => setAccountVoiceAllowed(allowed)).catch(() => Alert.alert("Não foi possível salvar", "Tente novamente."));
+      } },
+    ]);
+  }
+
+  async function openToolDocument(doc: AssistantDocument) {
+    if (openingInvoiceId) return;
+    const key = `${doc.kind}:${doc.id}`;
+    const generation = contextGeneration.current;
+    setOpeningInvoiceId(key);
+    try {
+      const resolved = await resolveAssistantDocument(doc);
+      if (generation !== contextGeneration.current) return;
+      let uri = resolved.file;
+      if (!uri) {
+        if (!resolved.url || !/^https:\/\//i.test(resolved.url)) throw new Error("Documento indisponível");
+        if (Platform.OS === "web") { await Linking.openURL(resolved.url); return; }
+        const file = await File.downloadFileAsync(resolved.url, new File(Paths.cache, `documento-${doc.kind}-${doc.id.replace(/[^a-zA-Z0-9-]/g, "")}.pdf`), { idempotent: true });
+        if (!file.exists || !file.size || file.size < 512) throw new Error("Arquivo vazio");
+        uri = file.uri;
+      }
+      if (generation !== contextGeneration.current) return;
+      if (Platform.OS === "android") {
+        try {
+          const contentUri = await FileSystemLegacy.getContentUriAsync(uri);
+          await IntentLauncher.startActivityAsync("android.intent.action.VIEW", { data: contentUri, flags: 1, type: "application/pdf" });
+          return;
+        } catch { /* Sem leitor instalado: oferecer salvar/compartilhar. */ }
+      }
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { dialogTitle: "Abrir ou salvar documento", mimeType: "application/pdf", UTI: "com.adobe.pdf" });
+      else Alert.alert("Documento salvo", "O documento foi salvo no aplicativo.");
+    } catch {
+      Alert.alert("Documento indisponível", "O PDF pode não ter sido gerado ou seu acesso pode ter mudado. Confira o contexto e tente novamente; não vou criar um arquivo inexistente.");
+    } finally { setOpeningInvoiceId(undefined); }
+  }
+
   async function send(spokenQuestion?: string) {
     const question = (spokenQuestion ?? input).trim();
     if (!question || busyRef.current) return;
     const interpretedQuestion = normalizeAssistantQuery(question);
+    const capability = detectCapability(interpretedQuestion);
+    const generation = contextGeneration.current;
     const wantsInvoiceDocument = asksLatestInvoiceDocument(interpretedQuestion, lastInvoiceRequest.current);
     lastInvoiceRequest.current = wantsInvoiceDocument || /\b(ultima|mais recente)\b.*\b(fatura|cobranca)\b|\b(fatura|cobranca)\b.*\b(ultima|mais recente)\b/i.test(interpretedQuestion);
     busyRef.current = true;
@@ -143,7 +215,7 @@ export default function Assistente() {
     }, topicRef.current);
     setInput("");
     setBusy(true);
-    const privateTurn = wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion) || Boolean(detectFinancialMetric(interpretedQuestion)) || Boolean(detectProductionMetric(interpretedQuestion)) || Boolean(detectAccountQuery(interpretedQuestion));
+    const privateTurn = Boolean(capability) || wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion) || Boolean(detectFinancialMetric(interpretedQuestion)) || Boolean(detectProductionMetric(interpretedQuestion)) || Boolean(detectAccountQuery(interpretedQuestion));
     const userMessage: Message = { from: "user", text: question, private: privateTurn };
     const nextMessages = [...messagesRef.current, userMessage].slice(-39);
     messagesRef.current = nextMessages;
@@ -159,6 +231,16 @@ export default function Assistente() {
       const speechStatus = speechStatusReply(question, Boolean(spokenQuestion));
       if (speechStatus) {
         response = { from: "assistant", text: speechStatus, private: true };
+      } else if (capability) {
+        try {
+          response = { from: "assistant", ...await executeAssistantTool(capability, {
+            generator: IS_GERADOR_APP, role: usuario?.perfil,
+            plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id,
+            unitNumber: unidadeSelecionada?.numero, clientId: unidadeSelecionada?.cliente_id ?? usuario?.cliente_id,
+          }, interpretedQuestion) };
+        } catch {
+          response = { from: "assistant", text: "Não consegui consultar essa função agora com seu acesso. Não alterei dados nem estimei valores. Confira o contexto da conta e tente novamente." };
+        }
       } else if (wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion)) {
         try {
           const invoices = usuario?.perfil === "LEITURA"
@@ -222,6 +304,7 @@ export default function Assistente() {
       } else if (reply.kind === "help" || reply.kind === "unknown") {
         response = { from: "assistant", ...await answerConversationOnline(question, nextMessages.slice(0, -1)) };
       }
+      if (generation !== contextGeneration.current) return;
       response.private = response.private || privateTurn;
       messagesRef.current = [...messagesRef.current, response].slice(-40);
       setMessages(messagesRef.current);
@@ -233,12 +316,18 @@ export default function Assistente() {
         const finishReply = () => { setSpeakingReply(false); if (voiceActive.current) void resumeVoice(); };
         if (response.voiceAnswerId && !response.private) {
           setVoiceStatus("Preparando a voz natural…");
-          void speakConversationOnline(response.voiceAnswerId, response.text, finishReply, () => setVoiceStatus("Voz online indisponível; usando a voz do aparelho nesta resposta."));
+          void speakConversationOnline(response.voiceAnswerId, response.text, finishReply, reason => { setVoiceStatus(reason); setVoiceNotice(reason); });
+        } else if (accountVoiceAllowed) {
+          setVoiceStatus("Preparando a voz natural da consulta…");
+          void speakAuthorizedAccountOnline(response.text, finishReply, reason => { setVoiceStatus(reason); setVoiceNotice(reason); });
         } else {
-          speakAssistantReply(response.text, finishReply);
+          setVoiceStatus("Resposta no chat. Autorize Voz natural nos dados para ouvir esta consulta; não usei a voz do aparelho.");
+          setVoiceNotice("Autorize Voz natural nos dados para ouvir consultas da conta. A voz do aparelho não será usada automaticamente.");
+          finishReply();
         }
       }
     } catch (error) {
+      if (generation !== contextGeneration.current) return;
       const fallback: Message = { from: "assistant", private: true, text: assistantConnectionError(error) };
       messagesRef.current = [...messagesRef.current, fallback].slice(-40);
       setMessages(messagesRef.current);
@@ -246,7 +335,8 @@ export default function Assistente() {
         setVoiceStatus("Não consegui processar esta resposta. Vou ouvir sua próxima pergunta.");
         setSpeakingReply(true);
         const finishFallback = () => { setSpeakingReply(false); if (voiceActive.current) void resumeVoice(); };
-        speakAssistantReply(fallback.text, finishFallback);
+        setVoiceStatus("Resposta no chat. Não troquei para a voz do aparelho.");
+        finishFallback();
       }
     } finally {
       busyRef.current = false;
@@ -300,7 +390,6 @@ export default function Assistente() {
     }
     voiceActive.current = true;
     setListening(true);
-    await prepareAssistantVoice();
     setVoiceStatus("Falando com você…");
     setSpeakingReply(true);
     // A frase online é fixa para não enviar o nome do cliente ao provedor de voz.
@@ -309,7 +398,7 @@ export default function Assistente() {
       setSpeakingReply(false);
       if (voiceActive.current) void resumeVoice();
     };
-    void speakSafeOnlineOrLocal("welcome", greeting, finishGreeting, () => setVoiceStatus("Voz online indisponível; usando a voz do aparelho."));
+    void speakSafeOnlineOrLocal("welcome", greeting, finishGreeting, reason => { setVoiceStatus(reason); setVoiceNotice(reason); });
   }
 
   async function endDictation() {
@@ -390,17 +479,21 @@ export default function Assistente() {
       <Pressable disabled={busy} onPress={() => { messagesRef.current = []; topicRef.current = undefined; setMessages([]); setTopic(undefined); void releaseLocalModel(); }} accessibilityRole="button" accessibilityLabel="Limpar conversa"><Text style={styles.clear}>Limpar</Text></Pressable>
     </View>
     <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
-      {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Pergunte sobre faturas, contratos e funções do app. Para ditar, segure o microfone e solte; para conversar por voz, toque nas ondas.</Text><Text style={styles.limit}>{modelReady ? "Modelo local instalado. A conversa livre pode conter erros; confira dados importantes no aplicativo." : "A ajuda básica já funciona. Instale o modelo opcional para conversar livremente em português."}</Text>{!modelReady ? <Pressable accessibilityRole="button" disabled={busy} onPress={() => void install()} style={styles.action}><Text style={styles.actionText}>Instalar modelo local</Text></Pressable> : null}</View> : null}
+      {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Consulte dados da sua conta, peça documentos ou abra as funções do app para revisão. Para ditar, segure o microfone e solte; para conversar por voz, toque nas ondas.</Text><Text style={styles.limit}>A conversa usa o Gemini online. Não é necessário baixar um modelo local. Consultas respeitam seu acesso; alterações exigem revisão nas telas do aplicativo.</Text></View> : null}
+      <Pressable accessibilityRole="button" accessibilityLabel="Configurar voz natural nos dados da conta" onPress={configureAccountVoice} style={styles.action}><Text style={styles.actionText}>Voz natural nos dados · {accountVoiceAllowed ? "autorizada" : "autorizar"}</Text></Pressable>
       {installStage ? <View style={styles.progressCard} accessibilityLiveRegion="polite"><Text style={styles.limit}>{installStage}</Text>{installProgress !== null ? <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(installProgress * 100)}%` }]} /></View> : null}{downloadingModel ? <Pressable accessibilityRole="button" accessibilityLabel="Cancelar download do modelo" onPress={() => void cancelModelDownload()} style={styles.cancelDownload}><Text style={styles.cancelDownloadText}>Cancelar download</Text></Pressable> : null}</View> : null}
       {messages.map((message, index) => <View key={index} style={[styles.bubble, message.from === "user" ? styles.userBubble : styles.assistantBubble]}>
         <Text style={styles.message}>{message.text}</Text>
         {message.invoiceId ? <Pressable accessibilityRole="button" accessibilityLabel="Abrir PDF da última fatura" disabled={Boolean(openingInvoiceId)} onPress={() => void openInvoicePdf(message.invoiceId!)} style={styles.action}><Text style={styles.actionText}>{openingInvoiceId === message.invoiceId ? "Abrindo PDF…" : "Abrir PDF da fatura"}</Text></Pressable> : null}
         {message.invoiceChoices?.map(document => <Pressable key={document.id} accessibilityRole="button" accessibilityLabel={`Abrir ${document.label}`} disabled={Boolean(openingInvoiceId)} onPress={() => void openInvoicePdf(document.id)} style={styles.action}><Text style={styles.actionText}>{openingInvoiceId === document.id ? "Abrindo PDF…" : document.label}</Text></Pressable>)}
+        {message.documents?.map(document => <Pressable key={`${document.kind}:${document.id}`} accessibilityRole="button" accessibilityLabel={`Abrir ${document.label}`} disabled={Boolean(openingInvoiceId)} onPress={() => void openToolDocument(document)} style={styles.action}><Text style={styles.actionText}>{openingInvoiceId === `${document.kind}:${document.id}` ? "Abrindo documento…" : document.label}</Text></Pressable>)}
+        {message.actions?.map((action, index) => <Pressable key={`${action.route}:${index}`} accessibilityRole="button" accessibilityLabel={action.label} onPress={() => openAssistantAction(action)} style={styles.action}><Text style={styles.actionText}>{action.label}</Text></Pressable>)}
         {message.route ? <Pressable accessibilityRole="button" onPress={() => router.push(message.route!)} style={styles.action}><Text style={styles.actionText}>Abrir seção</Text></Pressable> : null}
       </View>)}
     </ScrollView>
     <View style={[styles.composer, { paddingBottom: keyboardVisible ? 10 : Math.max(insets.bottom, 12) }]}>
       {voiceStatus ? <View style={styles.voiceStatus}><Ionicons name={voiceInstalling ? "cloud-download-outline" : transcribing || listening ? "radio-outline" : "information-circle-outline"} size={17} color={Colors.primary} /><Text style={styles.voiceStatusText}>{voiceStatus}</Text></View> : null}
+      {voiceNotice ? <Pressable accessibilityRole="button" accessibilityLabel="Dispensar aviso de voz" onPress={() => setVoiceNotice(undefined)} style={styles.voiceStatus}><Ionicons name="information-circle-outline" size={17} color={Colors.primary} /><Text style={styles.voiceStatusText}>{voiceNotice}</Text></Pressable> : null}
       <View style={styles.inputPill}>
         <TextInput value={input} onChangeText={setInput} placeholder="Escreva sua pergunta" placeholderTextColor={Colors.subtitle} multiline maxLength={1000} accessibilityLabel="Sua pergunta" style={styles.input} />
         {input.trim() && !transcribing && !dictationStarting.current

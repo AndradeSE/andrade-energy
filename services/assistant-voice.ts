@@ -9,6 +9,7 @@ let preferredVoice: string | undefined;
 let fallbackVoice: string | undefined;
 let voicesChecked = false;
 let onlineUnavailableUntil = 0;
+let lastOnlineFailure = "A voz natural está temporariamente indisponível.";
 let activePlayer: ReturnType<typeof createAudioPlayer> | undefined;
 let activeFile: string | undefined;
 let voiceGeneration = 0;
@@ -22,27 +23,32 @@ export function stopAssistantVoice() {
   activeFile = undefined;
 }
 
-export async function speakSafeOnlineOrLocal(lineId: "welcome" | "retry", localText: string, onDone: () => void, onFallback?: () => void) {
+export async function speakSafeOnlineOrLocal(lineId: "welcome" | "retry", localText: string, onDone: () => void, onFallback?: (reason: string) => void) {
   return speakOnlineVoice({ lineId }, localText, onDone, onFallback);
 }
 
 // Only a short-lived server-issued reference is transmitted. Private invoice
 // or financial answers never receive this reference and remain on the device.
-export async function speakConversationOnline(answerId: string, localText: string, onDone: () => void, onFallback?: () => void) {
+export async function speakConversationOnline(answerId: string, localText: string, onDone: () => void, onFallback?: (reason: string) => void) {
   return speakOnlineVoice({ answerId }, localText, onDone, onFallback);
 }
 
-async function speakOnlineVoice(request: { lineId: "welcome" | "retry" } | { answerId: string }, localText: string, onDone: () => void, onFallback?: () => void) {
+export async function speakAuthorizedAccountOnline(text: string, onDone: () => void, onFailure?: (reason: string) => void) {
+  return speakOnlineVoice({ speechText: text.slice(0, 1600), accountVoiceConsent: true }, text, onDone, onFailure);
+}
+
+async function speakOnlineVoice(request: { lineId: "welcome" | "retry" } | { answerId: string } | { speechText: string; accountVoiceConsent: true }, localText: string, onDone: () => void, onFallback?: (reason: string) => void) {
   const generation = voiceGeneration;
   // Desligado por padrão: só pode ser ativado no Preview depois de configurar
   // GEMINI_TTS_API_KEY no backend de homologação e verificar o limite gratuito.
   if (!isPreviewEnvironment || process.env.EXPO_PUBLIC_ENABLE_SAFE_ONLINE_VOICE !== "1" || !FileSystem.cacheDirectory) {
-    speakAssistantReply(localText, onDone);
+    onFallback?.("A voz natural não está habilitada nesta instalação.");
+    onDone();
     return;
   }
   if (Date.now() < onlineUnavailableUntil) {
-    onFallback?.();
-    speakAssistantReply(localText, onDone);
+    onFallback?.(lastOnlineFailure);
+    onDone();
     return;
   }
   try {
@@ -69,14 +75,17 @@ async function speakOnlineVoice(request: { lineId: "welcome" | "retry" } | { ans
     });
     const timeout = setTimeout(finish, 90_000);
     player.play();
-  } catch {
+  } catch (error) {
     if (generation !== voiceGeneration) return;
     // Falha temporária: tente novamente em outra interação, sem travar na voz
     // sintética até o próximo reinício do aplicativo.
-    onlineUnavailableUntil = Date.now() + 30_000;
+    const failure = error as { response?: { status?: number; data?: { code?: string }; headers?: Record<string, string> } };
+    const quota = failure.response?.status === 429 || failure.response?.data?.code === "TTS_QUOTA";
+    lastOnlineFailure = quota ? "O Google limitou temporariamente a voz natural. A resposta está no chat; não troquei para a voz do aparelho." : "Não consegui gerar a voz natural agora. A resposta está no chat; não troquei para a voz do aparelho.";
+    onlineUnavailableUntil = Date.now() + (quota ? 60_000 : 5_000);
     stopAssistantVoice();
-    onFallback?.();
-    speakAssistantReply(localText, onDone);
+    onFallback?.(lastOnlineFailure);
+    onDone();
   }
 }
 

@@ -159,16 +159,26 @@ const atualizacaoConsultasAnterior = {
     "Pedidos com várias faturas mostram documentos para escolher; dados privados não entram no histórico online.",
   ],
 };
-const atualizacaoAtual = previewApp ? {
+const atualizacaoModulosAnterior = {
   numero: "1.0.0-r20261006.12", data: "06/10/2026",
   melhorias: [
     "Consultas autenticadas de clientes, usinas, UCs, registros de contratos e notificações no assistente.",
     "Produção, financeiro e PDFs de faturas disponíveis no chat, respeitando a carteira selecionada e as permissões.",
     "Dados privados não são enviados ao Gemini; operações de alteração continuam nas telas de confirmação do aplicativo.",
   ],
+};
+const atualizacaoAtual = previewApp ? {
+  numero: "1.0.0-r20261006.13", data: "06/10/2026",
+  melhorias: [
+    "Assistente ampliado para carteira, economia, equipe, operação, inversores, planos, perfil e recebimento automático.",
+    "Contratos, propostas, contas de luz, anexos e relatórios de cálculo podem ser abertos no chat conforme o acesso.",
+    "Comandos de alteração abrem as telas de revisão sem executar cobranças, pagamentos ou assinaturas silenciosamente.",
+    "Voz natural dos dados com autorização individual revogável; limite do Google é informado sem trocar para a voz sintética.",
+    "Histórico da conversa é limpo ao trocar conta, ambiente, usina ou UC.",
+  ],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
-  ...(previewApp ? [atualizacaoConsultasAnterior, atualizacaoVozPublicaAnterior, atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
+  ...(previewApp ? [atualizacaoModulosAnterior, atualizacaoConsultasAnterior, atualizacaoVozPublicaAnterior, atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
   ...(geradorPreview ? [atualizacaoVozAnterior] : []),
   ...(geradorPreview ? [atualizacaoConversaContinua, atualizacaoVozNatural, atualizacaoFaturamentoAutomatico, atualizacaoAtalhosFaturamento, atualizacaoChat, atualizacaoVozPdf, atualizacaoSolEletrico, atualizacaoAssistente, atualizacaoTutoriais] : []),
   atualizacaoSelecaoUsina,
@@ -197,7 +207,7 @@ const historico = IS_GERADOR_APP ? [
     "Ícones e identificação separados para os aplicativos Preview e produção.",
   ] },
 ] : [
-  ...(previewApp ? [atualizacaoConsultasAnterior, atualizacaoVozPublicaAnterior, atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
+  ...(previewApp ? [atualizacaoModulosAnterior, atualizacaoConsultasAnterior, atualizacaoVozPublicaAnterior, atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
   atualizacaoSetasAnterior,
   atualizacaoTutoriaisAnterior,
   atualizacaoNotificacoes,

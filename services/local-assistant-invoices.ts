@@ -1,4 +1,4 @@
-type InvoiceSnapshot = { id: string; status?: string; created_at?: string; referencia?: string; valor_total_unificado?: number; valor_total?: number; pdf_unificada_url?: string };
+type InvoiceSnapshot = { id: string; status?: string; created_at?: string; referencia?: string; valor_total_unificado?: number; valor_total?: number; pdf_unificada_url?: string; pdf_cemig_url?: string };
 
 export function asksLatestInvoiceDocument(input: string, previousInvoiceRequest = false) {
   const text = input.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
