@@ -5,8 +5,8 @@ type ExpoSpeechRecognitionModuleType = typeof import("expo-speech-recognition").
 const ExpoSpeechRecognitionModule = Platform.OS === "android"
   ? requireOptionalNativeModule<ExpoSpeechRecognitionModuleType>("ExpoSpeechRecognition") : null;
 
-let available: boolean | undefined;
 let active = false;
+let startupTimer: ReturnType<typeof setTimeout> | undefined;
 let activeOwner: string | undefined;
 let availabilityError = "O reconhecimento offline em português não está disponível neste aparelho.";
 export const nativeSpeechAvailabilityError = () => availabilityError;
@@ -16,29 +16,23 @@ let finishResolver: ((text: string) => void) | undefined;
 let subscriptions: Array<{ remove(): void }> = [];
 
 export async function nativePortugueseSpeechAvailable() {
-  if (available === true) return true;
   if (!ExpoSpeechRecognitionModule) { availabilityError = "Esta instalação não contém o módulo de microfone. É necessário atualizar o APK Preview."; return false; }
-  if (!ExpoSpeechRecognitionModule.supportsOnDeviceRecognition()) return false;
-  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    // Verifique o mesmo reconhecedor offline do sistema usado por start().
-    // Fixar o pacote Google aqui verificava um serviço diferente em alguns aparelhos.
-    const locales = await Promise.race([
-      ExpoSpeechRecognitionModule.getSupportedLocales({}),
-      new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("timeout")), 5000); }),
-    ]);
-    available = locales.installedLocales.some(locale => /^pt[-_]br$/i.test(locale));
-    availabilityError = "O serviço offline do Android não possui português (Brasil) instalado. Confira os idiomas de reconhecimento de fala nas configurações do aparelho.";
+    // checkRecognitionSupport/getSupportedLocales falha em alguns serviços OEM.
+    // A disponibilidade do motor é suficiente para tentar abrir pt-BR offline;
+    // só os eventos reais de start() confirmam captura ou idioma indisponível.
+    const supported = ExpoSpeechRecognitionModule.supportsOnDeviceRecognition();
+    availabilityError = "Este Android não disponibiliza reconhecimento offline. Use a transcrição local instalada ou configure um serviço de reconhecimento compatível.";
+    return supported;
   } catch {
-    available = false;
-    availabilityError = "O serviço de reconhecimento do Android não respondeu. Tente novamente ou confira o serviço de voz nas configurações do aparelho.";
-  } finally {
-    if (timer) clearTimeout(timer);
+    availabilityError = "Não consegui verificar o motor de reconhecimento offline deste Android.";
+    return false;
   }
-  return available;
 }
 
 function cleanup() {
+  if (startupTimer) clearTimeout(startupTimer);
+  startupTimer = undefined;
   subscriptions.forEach(subscription => subscription.remove());
   subscriptions = [];
   active = false;
@@ -55,7 +49,11 @@ export async function startNativePortugueseSpeech(onFinal: (text: string) => voi
   lastText = "";
   completed = "";
   subscriptions = [
-    ExpoSpeechRecognitionModule.addListener("audiostart", () => options?.onReady?.()),
+    ExpoSpeechRecognitionModule.addListener("audiostart", () => {
+      if (startupTimer) clearTimeout(startupTimer);
+      startupTimer = undefined;
+      options?.onReady?.();
+    }),
     ExpoSpeechRecognitionModule.addListener("speechstart", () => onActivity?.(true)),
     ExpoSpeechRecognitionModule.addListener("speechend", () => onActivity?.(false)),
     ExpoSpeechRecognitionModule.addListener("result", event => {
@@ -74,7 +72,7 @@ export async function startNativePortugueseSpeech(onFinal: (text: string) => voi
     ExpoSpeechRecognitionModule.addListener("error", event => {
       const noSpeech = event.error === "no-speech" || event.error === "speech-timeout";
       if (event.error !== "aborted" && event.error !== "no-speech" && event.error !== "speech-timeout") {
-        onError(event.error === "not-allowed" ? "Permissão do microfone negada. Autorize nas configurações do aplicativo." : `O reconhecimento de voz do Android falhou (${event.error}). Confira o idioma e o acesso ao microfone.`);
+        onError(event.error === "not-allowed" ? "Permissão do microfone negada. Autorize nas configurações do aplicativo." : event.error === "language-not-supported" ? "O reconhecedor não conseguiu iniciar português (Brasil) offline. Instale esse idioma no serviço de reconhecimento do Android." : event.error === "audio-capture" ? "O Android não conseguiu capturar áudio. Confira se o acesso ao microfone está ligado e se outro aplicativo o está usando." : `O reconhecimento de voz do Android falhou (${event.error}). Confira o idioma e o acesso ao microfone.`);
       }
       finishResolver?.(lastText);
       finishResolver = undefined;
@@ -94,6 +92,9 @@ export async function startNativePortugueseSpeech(onFinal: (text: string) => voi
   ];
   active = true;
   activeOwner = options?.owner;
+  startupTimer = setTimeout(() => {
+    void stopNativePortugueseSpeech(options?.owner).then(() => onError("O motor offline não abriu o microfone em 8 segundos. Confira o serviço de reconhecimento do Android e a permissão do microfone."));
+  }, 8000);
   try {
     ExpoSpeechRecognitionModule.start({ lang: "pt-BR", continuous: false, interimResults: true, requiresOnDeviceRecognition: true });
   } catch (error) {

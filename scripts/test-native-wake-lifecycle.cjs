@@ -4,12 +4,11 @@ const vm = require("node:vm");
 const ts = require("typescript");
 const handlers = new Map();
 const starts = [];
-let localeChecks = 0;
 let microphoneAllowed = true;
 let aborts = 0;
 const native = {
   supportsOnDeviceRecognition: () => true,
-  getSupportedLocales: async options => { assert.equal(options.androidRecognitionServicePackage, undefined); return { installedLocales: ++localeChecks === 1 ? [] : ["pt-BR"] }; },
+  getSupportedLocales: async () => { throw new Error("Consulta de idiomas indisponível neste Android"); },
   requestPermissionsAsync: async () => ({ granted: microphoneAllowed }),
   addListener: (name, callback) => { handlers.set(name, callback); return { remove: () => handlers.delete(name) }; },
   start: options => starts.push(options), abort: () => aborts++,
@@ -18,10 +17,10 @@ const exported = {};
 const code = ts.transpileModule(fs.readFileSync("services/native-speech.ts", "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
 vm.runInNewContext(code, { exports: exported, setTimeout, clearTimeout, require: name => name === "react-native" ? { Platform: { OS: "android" } } : { requireOptionalNativeModule: () => native } });
 (async () => {
-  assert.equal(await exported.nativePortugueseSpeechAvailable(), false);
+  assert.equal(await exported.nativePortugueseSpeechAvailable(), true);
   let partial = "", finals = 0, ended = 0, ready = false;
   await exported.startNativePortugueseSpeech(() => finals++, error => { throw new Error(error); }, undefined, undefined, { onPartial: text => partial = text, onEnd: () => ended++, onReady: () => ready = true });
-  assert.equal(localeChecks, 2); // Uma indisponibilidade temporária não fica presa no cache.
+  // A consulta de idiomas simulada falha; isso não deve impedir start().
   assert.equal(ready, false);
   handlers.get("audiostart")();
   assert.equal(ready, true); // Só informa microfone aberto depois do evento real.
