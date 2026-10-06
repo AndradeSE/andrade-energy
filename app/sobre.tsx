@@ -178,8 +178,8 @@ const atualizacaoDocumentosAnterior = {
   ],
 };
 const atualizacaoAtual = previewApp ? {
-  numero: "1.0.0-r20261006.14", data: "06/10/2026",
-  melhorias: ["Ao atingir o limite da voz natural, a conversa usa temporariamente a voz do aparelho e tenta a natural novamente depois."],
+  numero: "1.0.0-r20261006.15", data: "06/10/2026",
+  melhorias: ["Consultas de faturas atrasadas e boletos vencidos usam os registros da conta, com PDFs disponíveis no chat.", "Ao atingir o limite da voz natural, a conversa usa temporariamente a voz do aparelho e tenta a natural novamente depois."],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
   ...(previewApp ? [atualizacaoDocumentosAnterior] : []),
