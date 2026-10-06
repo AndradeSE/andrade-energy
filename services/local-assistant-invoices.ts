@@ -5,7 +5,9 @@ export function asksLatestInvoiceDocument(input: string, previousInvoiceRequest 
   const mentionsInvoice = /\b(fatura|cobranca)\b/.test(text);
   const mentionsLatest = /\b(ultima|ultimo|mais recente)\b/.test(text);
   const asksDocument = /\b(pdf|arquivo|documento|abrir|baixar|download|enviar|envie|mandar|manda|mostre|mostrar|quero|me de|me da|aqui)\b/.test(text);
-  return (mentionsInvoice && mentionsLatest && asksDocument)
+  const explicitDocument = /\b(pdf|arquivo|documento|baixar|download|envie|manda|mandar|enviar|abrir|mostre|mostrar)\b/.test(text);
+  const creatingInvoice = /\b(emitir|faturar|gerar|criar)\b/.test(text);
+  return (mentionsInvoice && !creatingInvoice && asksDocument && (mentionsLatest || explicitDocument))
     || (previousInvoiceRequest && asksDocument && /\b(pdf|fatura|arquivo|documento|aqui|me de|mandar|manda)\b/.test(text));
 }
 
@@ -13,6 +15,28 @@ export function latestIssuedInvoice(invoices: InvoiceSnapshot[]) {
   return invoices
     .filter(invoice => !["RASCUNHO", "CANCELADA", "EXCLUIDA"].includes(String(invoice.status ?? "").toUpperCase()))
     .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")) || String(b.referencia ?? "").localeCompare(String(a.referencia ?? "")))[0];
+}
+
+export function invoiceDocumentChoices(question: string, invoices: InvoiceSnapshot[]) {
+  const text = question.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const months = ["janeiro", "fevereiro", "marco", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+  const namedMonth = months.findIndex(month => new RegExp(`\\b${month}\\b`).test(text));
+  const numeric = /\b(0?[1-9]|1[012])[/-](20\d{2})\b/.exec(text);
+  const year = numeric?.[2] ?? /\b20\d{2}\b/.exec(text)?.[0];
+  const month = numeric ? Number(numeric[1]) : namedMonth >= 0 ? namedMonth + 1 : undefined;
+  let candidates = invoices.filter(invoice => !["RASCUNHO", "CANCELADA", "EXCLUIDA"].includes(String(invoice.status ?? "").toUpperCase()));
+  if (month || year) candidates = candidates.filter(invoice => {
+    const ref = String(invoice.referencia ?? "").toLowerCase();
+    const iso = /^(20\d{2})-(\d{2})/.exec(ref);
+    const br = /^(\d{1,2})\/(20\d{2})/.exec(ref);
+    const named = months.findIndex(name => ref.startsWith(name.slice(0, 3)));
+    const refMonth = iso ? Number(iso[2]) : br ? Number(br[1]) : named >= 0 ? named + 1 : undefined;
+    const refYear = iso?.[1] ?? br?.[2] ?? /20\d{2}/.exec(ref)?.[0];
+    return (!month || refMonth === month) && (!year || refYear === year);
+  });
+  candidates.sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
+  if (/\b(ultima|ultimo|mais recente)\b/.test(text) && !month && !year) candidates = candidates.slice(0, 1);
+  return candidates.slice(0, 12);
 }
 
 function formatReference(value: string) {

@@ -13,7 +13,7 @@ import { isPreviewEnvironment } from "../config/environment";
 import { IS_GERADOR_APP } from "../config/appVariant";
 import { answerInConversation, asksLatestInvoiceAmount, LocalReply, LocalTopic, normalizeAssistantQuery } from "../services/local-assistant";
 import { buscarFatura, listarFaturas } from "../services/faturas.service";
-import { asksLatestInvoiceDocument, latestInvoiceAmountReply, latestIssuedInvoice } from "../services/local-assistant-invoices";
+import { asksLatestInvoiceDocument, invoiceDocumentChoices, latestInvoiceAmountReply } from "../services/local-assistant-invoices";
 import { detectFinancialMetric, financialMetricReply } from "../services/assistant-financial";
 import { carregarFinanceiro } from "../services/financeiro.service";
 import { cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
@@ -23,8 +23,10 @@ import { answerConversationOnline } from "../services/assistant-online";
 import { assistantConnectionError, speechStatusReply } from "../services/assistant-diagnostics";
 import { finishNativePortugueseSpeech, nativePortugueseSpeechAvailable, startNativePortugueseSpeech, stopNativePortugueseSpeech } from "../services/native-speech";
 import { Colors } from "../theme";
+import { buscarDashboardUsina } from "../services/usinas.service";
+import { detectProductionMetric, productionMetricReply } from "../services/assistant-production";
 
-type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string; private?: boolean; voiceAnswerId?: string };
+type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string; invoiceChoices?: Array<{ id: string; label: string }>; private?: boolean; voiceAnswerId?: string };
 
 export default function Assistente() {
   const router = useRouter();
@@ -140,7 +142,7 @@ export default function Assistente() {
     }, topicRef.current);
     setInput("");
     setBusy(true);
-    const privateTurn = wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion) || Boolean(detectFinancialMetric(interpretedQuestion));
+    const privateTurn = wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion) || Boolean(detectFinancialMetric(interpretedQuestion)) || Boolean(detectProductionMetric(interpretedQuestion));
     const userMessage: Message = { from: "user", text: question, private: privateTurn };
     const nextMessages = [...messagesRef.current, userMessage].slice(-39);
     messagesRef.current = nextMessages;
@@ -170,17 +172,34 @@ export default function Assistente() {
           if (usuario?.perfil !== "LEITURA" && !usinaSelecionada?.id) {
             response = { from: "assistant", text: "Não consigo escolher uma fatura sem uma usina selecionada. Selecione a usina da carteira para eu consultar o documento correto." };
           } else if (wantsInvoiceDocument) {
-            const invoice = latestIssuedInvoice(invoices);
+            const candidates = invoiceDocumentChoices(question, invoices);
+            const invoice = candidates[0];
+            const available = candidates.filter(item => item.pdf_unificada_url);
+            if (candidates.length > 1) {
+              response = available.length ? { from: "assistant", text: "Encontrei estas faturas no seu acesso. Toque no documento que deseja abrir ou salvar.", invoiceChoices: available.map(item => ({ id: item.id, label: `PDF · ${item.referencia ?? "Fatura emitida"}` })) } : { from: "assistant", text: "Encontrei as faturas, mas seus PDFs ainda não estão disponíveis. Não posso entregar um documento que ainda não foi gerado." };
+            } else {
             response = !invoice
-              ? { from: "assistant", text: "Não encontrei uma fatura emitida nesta conta ou usina. Por isso não há PDF para eu anexar aqui." }
+              ? { from: "assistant", text: "Não encontrei uma fatura emitida que corresponda ao seu pedido nesta conta ou usina. Por isso não há PDF para eu anexar aqui." }
               : invoice.pdf_unificada_url
                 ? { from: "assistant", text: `Encontrei a última fatura${invoice.referencia ? ` (${invoice.referencia})` : ""}. Toque abaixo para abrir ou salvar o PDF.`, invoiceId: invoice.id }
                 : { from: "assistant", text: "Encontrei a última fatura, mas o PDF unificado ainda não está disponível no servidor. Não posso criar um arquivo que ainda não foi gerado; confira o detalhe da fatura mais tarde." };
+            }
           } else {
             response = { from: "assistant", text: latestInvoiceAmountReply(invoices) };
           }
         } catch {
           response = { from: "assistant", text: "Não consegui consultar as faturas agora. Verifique a conexão e tente novamente; não vou estimar um valor." };
+        }
+      } else if (detectProductionMetric(interpretedQuestion)) {
+        const selectedPlantId = IS_GERADOR_APP ? usinaSelecionada?.id : unidadeSelecionada?.usina_id;
+        if (!selectedPlantId) {
+          response = { from: "assistant", text: "Selecione uma usina ou UC vinculada para eu consultar os dados de produção corretos." };
+        } else {
+          try {
+            response = { from: "assistant", text: productionMetricReply(await buscarDashboardUsina(selectedPlantId), detectProductionMetric(interpretedQuestion)!) };
+          } catch {
+            response = { from: "assistant", text: "Não consegui consultar a produção desta usina com seu acesso. Não vou inventar valores; tente novamente ou confira a usina selecionada." };
+          }
         }
       } else if (IS_GERADOR_APP && detectFinancialMetric(interpretedQuestion)) {
         const metric = detectFinancialMetric(interpretedQuestion)!;
@@ -360,7 +379,7 @@ export default function Assistente() {
   return <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : "height"}>
     <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
       <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Voltar" style={styles.back}><Text style={styles.backText}>‹</Text></Pressable>
-      <View style={styles.headerText}><Text style={styles.title}>Ajuda Andrade Energy</Text><Text style={styles.subtitle}>{modelReady ? "IA local pronta · respostas em teste" : "Ajuda básica · instale o modelo para conversar"}</Text></View>
+      <View style={styles.headerText}><Text style={styles.title}>Ajuda Andrade Energy</Text><Text style={styles.subtitle}>Conversa online · consultas da sua conta</Text></View>
       <Pressable disabled={busy} onPress={() => { messagesRef.current = []; topicRef.current = undefined; setMessages([]); setTopic(undefined); void releaseLocalModel(); }} accessibilityRole="button" accessibilityLabel="Limpar conversa"><Text style={styles.clear}>Limpar</Text></Pressable>
     </View>
     <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
@@ -369,6 +388,7 @@ export default function Assistente() {
       {messages.map((message, index) => <View key={index} style={[styles.bubble, message.from === "user" ? styles.userBubble : styles.assistantBubble]}>
         <Text style={styles.message}>{message.text}</Text>
         {message.invoiceId ? <Pressable accessibilityRole="button" accessibilityLabel="Abrir PDF da última fatura" disabled={Boolean(openingInvoiceId)} onPress={() => void openInvoicePdf(message.invoiceId!)} style={styles.action}><Text style={styles.actionText}>{openingInvoiceId === message.invoiceId ? "Abrindo PDF…" : "Abrir PDF da fatura"}</Text></Pressable> : null}
+        {message.invoiceChoices?.map(document => <Pressable key={document.id} accessibilityRole="button" accessibilityLabel={`Abrir ${document.label}`} disabled={Boolean(openingInvoiceId)} onPress={() => void openInvoicePdf(document.id)} style={styles.action}><Text style={styles.actionText}>{openingInvoiceId === document.id ? "Abrindo PDF…" : document.label}</Text></Pressable>)}
         {message.route ? <Pressable accessibilityRole="button" onPress={() => router.push(message.route!)} style={styles.action}><Text style={styles.actionText}>Abrir seção</Text></Pressable> : null}
       </View>)}
     </ScrollView>

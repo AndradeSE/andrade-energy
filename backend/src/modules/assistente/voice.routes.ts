@@ -123,7 +123,7 @@ assistenteVoiceRouter.post("/voz", async (req, res) => {
     }
     const payload = await response.json() as { output_audio?: { data?: string }; steps?: Array<{ type?: string; content?: Array<{ type?: string; data?: string }> }> };
     const audio = payload.output_audio?.data ?? payload.steps?.flatMap(step => step.content ?? []).reverse().find(content => content.type === "audio")?.data;
-    if (!audio || audio.length > 2_000_000) return res.status(503).json({ message: "Áudio indisponível." });
+    if (!audio || audio.length > (fixedLine ? 2_000_000 : 8_000_000)) return res.status(503).json({ message: "Áudio indisponível." });
     if (fixedLine) cachedAudio.set(lineId as keyof typeof PUBLIC_VOICE_LINES, audio);
     res.setHeader("Cache-Control", "no-store");
     return res.json({ audio, mimeType: "audio/wav" });

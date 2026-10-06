@@ -143,16 +143,24 @@ const atualizacaoOndasAnterior = {
     "Falhas mostram o motivo da conexão e não reproduzem áudio genérico de segurança.",
   ],
 };
-const atualizacaoAtual = previewApp ? {
+const atualizacaoVozPublicaAnterior = {
   numero: "1.0.0-r20261006.10", data: "06/10/2026",
   melhorias: [
     "Respostas públicas do Gemini passam a solicitar a mesma voz natural online da saudação.",
     "Falhas da voz online são informadas antes de usar a voz do aparelho.",
     "Dados privados continuam no aparelho; respostas válidas longas deixam de virar erro de conexão.",
   ],
+};
+const atualizacaoAtual = previewApp ? {
+  numero: "1.0.0-r20261006.11", data: "06/10/2026",
+  melhorias: [
+    "Assistente consulta produção, energia disponível, acumulado e ocupação da usina selecionada.",
+    "PDFs de faturas podem ser pedidos por competência e abertos diretamente no chat.",
+    "Pedidos com várias faturas mostram documentos para escolher; dados privados não entram no histórico online.",
+  ],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
-  ...(previewApp ? [atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
+  ...(previewApp ? [atualizacaoVozPublicaAnterior, atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
   ...(geradorPreview ? [atualizacaoVozAnterior] : []),
   ...(geradorPreview ? [atualizacaoConversaContinua, atualizacaoVozNatural, atualizacaoFaturamentoAutomatico, atualizacaoAtalhosFaturamento, atualizacaoChat, atualizacaoVozPdf, atualizacaoSolEletrico, atualizacaoAssistente, atualizacaoTutoriais] : []),
   atualizacaoSelecaoUsina,
@@ -181,7 +189,7 @@ const historico = IS_GERADOR_APP ? [
     "Ícones e identificação separados para os aplicativos Preview e produção.",
   ] },
 ] : [
-  ...(previewApp ? [atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
+  ...(previewApp ? [atualizacaoVozPublicaAnterior, atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
   atualizacaoSetasAnterior,
   atualizacaoTutoriaisAnterior,
   atualizacaoNotificacoes,
