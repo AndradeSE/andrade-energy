@@ -301,10 +301,10 @@ export default function DashboardGestor() {
               <Text style={styles.generationActionTitle}>{importando ? "Lendo PDF..." : "Importar via PDF"}</Text>
               <Text style={styles.generationActionSubtitle}>Dados de produção</Text>
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={recebimentoProducaoAtivo ? "Gerenciar recebimento automático de dados da usina" : "Ativar recebimento automático de dados de produção"} onPress={abrirRecebimentoProducao} style={[styles.generationAction, styles.generationActionSecondary]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Gerenciar recebimento de dados automático" onPress={abrirRecebimentoProducao} style={[styles.generationAction, styles.generationActionSecondary]}>
               <Ionicons name={recebimentoProducaoAtivo ? "checkmark-circle-outline" : "mail-unread-outline"} size={22} color="#FFFFFF" />
-              <Text style={[styles.generationActionTitle, styles.generationActionTitleSecondary]}>{recebimentoProducaoAtivo ? "Gerenciar automático" : "Receber automático"}</Text>
-              <Text style={[styles.generationActionSubtitle, styles.generationActionSubtitleSecondary]}>Dados da usina</Text>
+              <Text style={[styles.generationActionTitle, styles.generationActionTitleSecondary]}>Gerenciar recebimento</Text>
+              <Text style={[styles.generationActionSubtitle, styles.generationActionSubtitleSecondary]}>de dados automático</Text>
             </Pressable>
           </View>
         </View>

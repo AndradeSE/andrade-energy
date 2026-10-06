@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Redirect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 
 import { useAuth } from "../contexts/AuthContext";
 import { isPreviewEnvironment } from "../config/environment";
@@ -28,11 +29,20 @@ export default function Assistente() {
   const [downloadingModel, setDownloadingModel] = useState(false);
   const [voiceReady, setVoiceReady] = useState(isVoiceInstalled);
   const [listening, setListening] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const voiceActive = useRef(false);
+  const dictationActive = useRef(false);
   const busyRef = useRef(false);
   const messagesRef = useRef<Message[]>([]);
   const topicRef = useRef<LocalTopic | undefined>(undefined);
-  useEffect(() => () => { voiceActive.current = false; Speech.stop(); void stopContinuousListening(); void releaseLocalModel(); }, []);
+  const scrollRef = useRef<ScrollView>(null);
+  useEffect(() => () => { voiceActive.current = false; dictationActive.current = false; Speech.stop(); void stopContinuousListening(); void releaseLocalModel(); }, []);
+  useEffect(() => {
+    const show = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
   useEffect(() => subscribeModelInstall(state => {
     setDownloadingModel(state.phase === "conectando" || state.phase === "baixando");
     setInstallProgress(state.progress);
@@ -83,7 +93,7 @@ export default function Assistente() {
         Speech.speak(response.text, { language: "pt-BR", rate: 0.95, onDone: () => { if (voiceActive.current) void resumeVoice(); }, onError: () => { if (voiceActive.current) void resumeVoice(); } });
       }
     } catch {
-      const fallback: Message = { from: "assistant", text: "O modelo local não respondeu. Tente novamente ou use a ajuda básica." };
+      const fallback: Message = { from: "assistant", text: reply.kind === "help" ? reply.text : "O modelo local não respondeu a esta pergunta. Tente reformular; também posso ajudar com funções do aplicativo." };
       messagesRef.current = [...messagesRef.current, fallback].slice(-40);
       setMessages(messagesRef.current);
       if (voiceActive.current) void resumeVoice();
@@ -99,6 +109,7 @@ export default function Assistente() {
   }
 
   async function toggleVoice() {
+    if (dictationActive.current) return;
     if (voiceActive.current) {
       voiceActive.current = false;
       setListening(false);
@@ -118,18 +129,54 @@ export default function Assistente() {
     await resumeVoice();
   }
 
+  async function toggleDictation() {
+    if (dictationActive.current) {
+      dictationActive.current = false;
+      setTranscribing(false);
+      await stopContinuousListening();
+      return;
+    }
+    if (voiceActive.current || busy) return;
+    setBusy(true);
+    try {
+      if (!voiceReady) {
+        await installVoiceModels((stage, progress) => setInstallStage(progress == null ? stage : `${stage}: ${Math.round(progress * 100)}%`));
+        setVoiceReady(true);
+      }
+      dictationActive.current = true;
+      setTranscribing(true);
+      setInstallStage("Ouvindo… toque no microfone para parar e revise o texto antes de enviar.");
+      await startContinuousListening(
+        text => setInput(previous => `${previous.trim()} ${text}`.trim()),
+        error => {
+          dictationActive.current = false;
+          setTranscribing(false);
+          setInstallStage(error);
+          void stopContinuousListening();
+        },
+      );
+    } catch (error) {
+      dictationActive.current = false;
+      setTranscribing(false);
+      setInstallStage(error instanceof Error ? error.message : "Não foi possível iniciar a transcrição.");
+      await stopContinuousListening();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function install() {
     if (busy) return;
     try { await installLocalModel(); } catch { /* O estado global exibe o erro. */ }
   }
 
-  return <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+  return <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : "height"}>
     <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
       <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Voltar" style={styles.back}><Text style={styles.backText}>‹</Text></Pressable>
-      <View style={styles.headerText}><Text style={styles.title}>Ajuda Andrade Energy</Text><Text style={styles.subtitle}>Conversa local em teste</Text></View>
+      <View style={styles.headerText}><Text style={styles.title}>Ajuda Andrade Energy</Text><Text style={styles.subtitle}>{modelReady ? "IA local pronta · respostas em teste" : "Ajuda básica · instale o modelo para conversar"}</Text></View>
       <Pressable disabled={busy} onPress={() => { messagesRef.current = []; topicRef.current = undefined; setMessages([]); setTopic(undefined); void releaseLocalModel(); }} accessibilityRole="button" accessibilityLabel="Limpar conversa"><Text style={styles.clear}>Limpar</Text></Pressable>
     </View>
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
       {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Pergunte sobre faturas, contratos, atalhos ou uso sem internet. Também posso abrir uma seção do app quando você pedir.</Text><Text style={styles.limit}>{modelReady ? "Modelo local instalado. A conversa livre pode conter erros; confira dados importantes no aplicativo." : "A ajuda básica já funciona. Instale o modelo opcional para conversar livremente em português."}</Text>{!modelReady ? <Pressable accessibilityRole="button" disabled={busy} onPress={() => void install()} style={styles.action}><Text style={styles.actionText}>Instalar modelo local</Text></Pressable> : null}</View> : null}
       {installStage ? <View style={styles.progressCard} accessibilityLiveRegion="polite"><Text style={styles.limit}>{installStage}</Text>{installProgress !== null ? <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(installProgress * 100)}%` }]} /></View> : null}{downloadingModel ? <Pressable accessibilityRole="button" accessibilityLabel="Cancelar download do modelo" onPress={() => void cancelModelDownload()} style={styles.cancelDownload}><Text style={styles.cancelDownloadText}>Cancelar download</Text></Pressable> : null}</View> : null}
       {messages.map((message, index) => <View key={index} style={[styles.bubble, message.from === "user" ? styles.userBubble : styles.assistantBubble]}>
@@ -137,10 +184,11 @@ export default function Assistente() {
         {message.route ? <Pressable accessibilityRole="button" onPress={() => router.push(message.route!)} style={styles.action}><Text style={styles.actionText}>Abrir seção</Text></Pressable> : null}
       </View>)}
     </ScrollView>
-    <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-      <Pressable onPress={() => void toggleVoice()} disabled={busy && !listening} accessibilityRole="button" accessibilityLabel={listening ? "Parar conversa por voz" : "Iniciar conversa por voz"} style={[styles.send, listening && styles.voiceActive]}><Text style={styles.sendText}>{listening ? "Parar" : "Voz"}</Text></Pressable>
+    <View style={[styles.composer, { paddingBottom: keyboardVisible ? 12 : Math.max(insets.bottom, 12) }]}>
+      <Pressable onPress={() => void toggleVoice()} disabled={transcribing || (busy && !listening)} accessibilityRole="button" accessibilityLabel={listening ? "Parar conversa por voz" : "Iniciar conversa por voz"} style={[styles.send, listening && styles.voiceActive, transcribing && styles.disabled]}><Text style={styles.sendText}>{listening ? "Parar" : "Voz"}</Text></Pressable>
+      <Pressable onPress={() => void toggleDictation()} disabled={listening || (busy && !transcribing)} accessibilityRole="button" accessibilityLabel={transcribing ? "Parar transcrição" : "Transcrever fala"} style={[styles.mic, transcribing && styles.voiceActive, listening && styles.disabled]}><Ionicons name={transcribing ? "stop" : "mic"} size={21} color="white" /></Pressable>
       <TextInput value={input} onChangeText={setInput} placeholder="Escreva sua pergunta" placeholderTextColor={Colors.subtitle} multiline maxLength={1000} accessibilityLabel="Sua pergunta" style={styles.input} />
-      <Pressable onPress={() => void send()} disabled={!input.trim() || busy} accessibilityRole="button" accessibilityLabel="Enviar pergunta" style={[styles.send, (!input.trim() || busy) && styles.disabled]}><Text style={styles.sendText}>{busy ? "…" : "Enviar"}</Text></Pressable>
+      <Pressable onPress={() => void send()} disabled={!input.trim() || busy || transcribing} accessibilityRole="button" accessibilityLabel="Enviar pergunta" style={[styles.send, (!input.trim() || busy || transcribing) && styles.disabled]}><Text style={styles.sendText}>{busy ? "…" : "Enviar"}</Text></Pressable>
     </View>
   </KeyboardAvoidingView>;
 }
@@ -161,4 +209,5 @@ const styles = StyleSheet.create({
   cancelDownloadText: { color: Colors.primary, fontWeight: "700" },
   composer: { flexDirection: "row", alignItems: "flex-end", gap: 8, backgroundColor: Colors.surface, paddingHorizontal: 12, paddingTop: 10 }, input: { flex: 1, maxHeight: 120, minHeight: 48, borderWidth: 1, borderColor: Colors.border, borderRadius: 16, padding: 12, color: Colors.text },
   send: { minHeight: 48, justifyContent: "center", paddingHorizontal: 14, backgroundColor: Colors.primary, borderRadius: 14 }, voiceActive: { backgroundColor: "#A33131" }, disabled: { opacity: 0.45 }, sendText: { color: "white", fontWeight: "700" },
+  mic: { minHeight: 48, width: 48, alignItems: "center", justifyContent: "center", backgroundColor: Colors.primary, borderRadius: 14 },
 });

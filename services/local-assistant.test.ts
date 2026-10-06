@@ -5,6 +5,11 @@ const generator = { variant: "gerador", authenticated: true } as const;
 test("only recognized navigation commands produce routes", () => assert.equal(answerLocally("Abra faturamento", generator).route, "/faturamento"));
 test("consumer cannot navigate to generator billing", () => assert.equal(answerLocally("Abra faturamento", { ...generator, variant: "consumidor" }).route, undefined));
 test("sensitive commands never produce an action", () => assert.equal(answerLocally("transferir dinheiro", generator).kind, "blocked"));
+test("questions about sensitive features are explained instead of blocked", () => {
+  assert.equal(answerLocally("Como gerar uma fatura?", generator).kind, "help");
+  assert.equal(answerLocally("Como pagar uma fatura?", generator).kind, "help");
+  assert.equal(answerLocally("Pode pagar minha fatura?", generator).kind, "blocked");
+});
 test("unauthenticated requests are blocked", () => assert.equal(answerLocally("abrir perfil", { ...generator, authenticated: false }).kind, "blocked"));
 test("unknown request does not invent private data", () => assert.equal(answerLocally("qual e meu saldo", generator).kind, "unknown"));
 test("follow-up keeps the previous topic without exposing a sensitive action", () => {
