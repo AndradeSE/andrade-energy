@@ -1,5 +1,5 @@
 import { Directory, File, Paths } from "expo-file-system";
-import { createDownloadResumable } from "expo-file-system/legacy";
+import { createDownloadResumable, getInfoAsync } from "expo-file-system/legacy";
 import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex } from "@noble/hashes/utils";
 
@@ -8,6 +8,9 @@ import { bytesToHex } from "@noble/hashes/utils";
 const MODEL_NAME = "Qwen_Qwen3-0.6B-Q4_K_M.gguf";
 const MODEL_URL = "https://huggingface.co/bartowski/Qwen_Qwen3-0.6B-GGUF/resolve/9e43cb1438c9523e11af66d6b4b2a424a1aa0e39/Qwen_Qwen3-0.6B-Q4_K_M.gguf";
 const MODEL_SHA256 = "9acfc1e001311f34b4252001b626f2e466d592a42065f66571bff3790d4e1b14";
+// Calculado sobre o arquivo do commit acima, após confirmar seu SHA-256.
+// getInfoAsync calcula MD5 nativamente, sem bloquear a thread JavaScript.
+const MODEL_MD5 = "c2eb98e4a2d6ff396fa064b28a012a06";
 const MODEL_BYTES = 484_220_320;
 const MIN_MODEL_BYTES = 400_000_000;
 const MODEL_DIR = new Directory(Paths.document, "assistente-local");
@@ -87,7 +90,7 @@ async function performInstallLocalModel() {
   try {
     const prontoParaVerificar = temporary.exists && temporary.size === MODEL_BYTES;
     if (temporary.exists && !prontoParaVerificar) temporary.delete();
-    reportInstall(prontoParaVerificar ? "verificando" : "conectando", 0);
+    reportInstall(prontoParaVerificar ? "verificando" : "conectando", null);
     await new Promise<void>(resolve => setTimeout(resolve, 50));
     if (cancelRequested) throw new Error("Download cancelado.");
     if (!prontoParaVerificar) {
@@ -110,10 +113,13 @@ async function performInstallLocalModel() {
       activeDownload = null;
       if (cancelRequested) throw new Error("Download cancelado.");
       if (!result || result.status < 200 || result.status >= 300) throw new Error("Não foi possível baixar o modelo local.");
-      reportInstall("verificando", 0, temporary.size);
+      reportInstall("verificando", null, temporary.size);
     }
     try {
-      await verifyLocalFileSha256(temporary, MODEL_SHA256, MIN_MODEL_BYTES, progress => reportInstall("verificando", progress, temporary.size));
+      const info = await getInfoAsync(temporary.uri, { md5: true });
+      if (!info.exists || info.isDirectory || info.size !== MODEL_BYTES || info.md5?.toLowerCase() !== MODEL_MD5) {
+        throw new Error("O arquivo recebido não passou na verificação de integridade.");
+      }
     } catch (error) {
       if (temporary.exists) temporary.delete();
       throw error;

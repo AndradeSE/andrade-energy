@@ -47,7 +47,7 @@ export default function Assistente() {
       const baixados = state.downloadedBytes ? ` · ${(state.downloadedBytes / 1_000_000).toFixed(1)} MB` : "";
       setInstallStage(`Baixando modelo: ${Math.round((state.progress ?? 0) * 100)}%${baixados}`);
     } else if (state.phase === "verificando") {
-      setInstallStage(`Verificando modelo: ${Math.round((state.progress ?? 0) * 100)}%`);
+      setInstallStage("Verificando a integridade do modelo no aparelho…");
     }
     setBusy(state.active);
   }), []);
