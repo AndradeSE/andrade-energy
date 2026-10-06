@@ -2,6 +2,15 @@
 export type AssistantScope = { variant: "gerador" | "consumidor"; authenticated: boolean };
 export type LocalReply = { text: string; route?: "/tutoriais" | "/perfil" | "/faturas" | "/faturamento" | "/contrato"; kind: "help" | "navigate" | "blocked" | "unknown" };
 export type LocalTopic = "faturas" | "contrato" | "atalhos" | "offline";
+export const VERIFIED_APP_CONTEXT = [
+  "No Gerador, Faturamento oferece fatura manual, fatura automática das UCs e fatura automática da usina.",
+  "A fatura automática da usina recebe a conta geradora para atualizar produção; não cria cobrança ao cliente.",
+  "Produção da usina também pode ser informada por PDF na Home e na lista de usinas.",
+  "O Gerador consulta faturas na aba Faturamento e contratos na aba Contrato.",
+  "O Consumidor consulta faturas e contrato nas respectivas abas; assinatura ou aceite exige revisão da pessoa.",
+  "Acessos rápidos são personalizáveis; indique sempre o nome da aba ou função, nunca a posição do atalho.",
+  "Dados e valores atuais só podem ser informados após consulta autenticada; nunca estime valores.",
+].join(" ");
 const normalize = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[!?.,]/g, "").trim();
 
 export function asksLatestInvoiceAmount(input: string) {
@@ -25,6 +34,9 @@ export function answerLocally(input: string, scope: AssistantScope): LocalReply 
   if (command && routes[command[1]]) return { kind: "navigate", route: routes[command[1]], text: `Abrir ${command[1]}.` };
   if (/\b(atalho|atalhos|acesso rapido)\b/.test(text)) return { kind: "help", text: "Os acessos rápidos são personalizáveis. Procure pelo nome da função, não pela posição. As abas oferecem caminhos fixos." };
   if (/\b(offline|internet)\b/.test(text)) return { kind: "help", text: "Esta ajuda funciona localmente. Consultar dados atualizados, faturar e enviar documentos depende de internet." };
+  if (scope.variant === "gerador" && /\b(producao|usina)\b/.test(text) && /\b(pdf|importar|informar|conta)\b/.test(text)) return { kind: "help", text: "Para informar a produção da usina por PDF, use o botão no card Geração do mês da Home ou na lista de usinas. A conta é associada pela UC identificada no documento." };
+  if (scope.variant === "gerador" && /\b(automatico|automatica)\b/.test(text) && /\b(usina|producao)\b/.test(text)) return { kind: "help", text: "A opção Fatura automática da usina fica em Faturamento. Ela recebe a conta geradora para atualizar os dados de produção, sem criar cobrança ao cliente. É separada da fatura automática das UCs." };
+  if (/\b(automatico|automatica)\b/.test(text) && /\b(fatura|faturamento|recebimento)\b/.test(text)) return { kind: "help", text: "Em Faturamento, abra Fatura automática para configurar o recebimento das contas das UCs por e-mail. O recebimento da conta geradora usa a opção separada Fatura automática da usina." };
   if (/\b(fatura|faturas|faturamento)\b/.test(text)) return { kind: "help", text: scope.variant === "gerador" ? "Abra a aba Faturamento para acessar as opções de emissão e configuração. Revise os dados antes de confirmar qualquer operação." : "Abra Faturas para consultar as cobranças disponíveis. Os dados atualizados precisam de conexão." };
   if (/\b(contrato|contratos)\b/.test(text)) return { kind: "help", text: "Abra Contrato para consultar o documento e as opções disponíveis. Leia as condições antes de confirmar qualquer aceite." };
   return { kind: "unknown", text: "Ainda não tenho uma resposta validada para isso. Posso explicar faturas, contratos, atalhos e uso offline, ou abrir tutoriais e perfil." };

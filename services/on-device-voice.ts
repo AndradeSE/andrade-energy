@@ -89,7 +89,7 @@ export async function startContinuousListening(onSpeech: (text: string) => void,
     const vad = await initWhisperVad({ filePath: new File(VOICE_DIR, VAD_MODEL.name).uri, useGpu: false });
     const transcriber = new RealtimeTranscriber(
       { whisperContext: whisper, vadContext: new RingBufferVad(vad), audioStream: new AudioPcmStreamAdapter() },
-      { audioSliceSec: 20, audioMinSec: 1, maxSlicesInMemory: 3, transcribeOptions: { language: "pt" } },
+      { audioSliceSec: 8, audioMinSec: 0.6, maxSlicesInMemory: 3, transcribeOptions: { language: "pt" } },
       { onSliceTranscriptionStabilized: (text: string) => { if (text.trim()) onSpeech(text.trim()); }, onError },
     );
     session = { transcriber, whisper, vad };

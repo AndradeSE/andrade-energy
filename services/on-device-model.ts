@@ -164,7 +164,7 @@ export async function answerWithLocalModel(turns: ChatTurn[], validatedContext?:
       ...recent,
     ],
     enable_thinking: false,
-    n_predict: 300,
+    n_predict: 160,
     temperature: 0.35,
   });
   const answer = result.text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();

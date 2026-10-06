@@ -13,6 +13,10 @@ test("questions about sensitive features are explained instead of blocked", () =
 });
 test("unauthenticated requests are blocked", () => assert.equal(answerLocally("abrir perfil", { ...generator, authenticated: false }).kind, "blocked"));
 test("unknown request does not invent private data", () => assert.equal(answerLocally("qual e meu saldo", generator).kind, "unknown"));
+test("generator knows the two distinct automatic billing flows", () => {
+  assert.match(answerLocally("Como funciona a fatura automática da usina?", generator).text, /sem criar cobrança/);
+  assert.match(answerLocally("Onde configuro faturamento automático das UCs?", generator).text, /Faturamento/);
+});
 test("latest invoice amount uses a live-data intent, not generative text", () => {
   assert.equal(asksLatestInvoiceAmount("Qual o valor da última fatura gerada?"), true);
   assert.equal(asksLatestInvoiceAmount("Como emitir uma fatura?"), false);

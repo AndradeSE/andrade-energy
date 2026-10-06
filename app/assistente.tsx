@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../contexts/AuthContext";
 import { isPreviewEnvironment } from "../config/environment";
 import { IS_GERADOR_APP } from "../config/appVariant";
-import { answerInConversation, asksLatestInvoiceAmount, LocalReply, LocalTopic } from "../services/local-assistant";
+import { answerInConversation, asksLatestInvoiceAmount, LocalReply, LocalTopic, VERIFIED_APP_CONTEXT } from "../services/local-assistant";
 import { listarFaturas } from "../services/faturas.service";
 import { latestInvoiceAmountReply } from "../services/local-assistant-invoices";
 import { answerWithLocalModel, cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
@@ -72,7 +72,6 @@ export default function Assistente() {
     const question = (spokenQuestion ?? input).trim();
     if (!question || busyRef.current) return;
     busyRef.current = true;
-    if (voiceActive.current) await pauseContinuousListening();
     const { reply, topic: nextTopic } = answerInConversation(question, {
       authenticated: true,
       variant: IS_GERADOR_APP ? "gerador" : "consumidor",
@@ -84,6 +83,10 @@ export default function Assistente() {
     messagesRef.current = nextMessages;
     setMessages(nextMessages);
     try {
+      if (voiceActive.current) {
+        setVoiceStatus("Processando sua pergunta…");
+        await pauseContinuousListening();
+      }
       let response: Message = { from: "assistant", text: reply.text, route: reply.route };
       if (asksLatestInvoiceAmount(question)) {
         try {
@@ -104,20 +107,26 @@ export default function Assistente() {
         }
       } else if (modelReady && reply.kind === "unknown") {
         const history = nextMessages.slice(-8).map(message => ({ role: message.from, content: message.text }));
-        response = { from: "assistant", text: await answerWithLocalModel(history) };
+        response = { from: "assistant", text: await answerWithLocalModel(history, VERIFIED_APP_CONTEXT) };
       }
       messagesRef.current = [...messagesRef.current, response].slice(-40);
       setMessages(messagesRef.current);
       topicRef.current = nextTopic;
       setTopic(nextTopic);
       if (voiceActive.current) {
+        setVoiceStatus("Respondendo… depois volto a ouvir.");
         Speech.speak(response.text, { language: "pt-BR", rate: 0.95, onDone: () => { if (voiceActive.current) void resumeVoice(); }, onError: () => { if (voiceActive.current) void resumeVoice(); } });
       }
-    } catch {
+    } catch (error) {
       const fallback: Message = { from: "assistant", text: reply.kind === "help" ? reply.text : "O modelo local não respondeu a esta pergunta. Tente reformular; também posso ajudar com funções do aplicativo." };
       messagesRef.current = [...messagesRef.current, fallback].slice(-40);
       setMessages(messagesRef.current);
-      if (voiceActive.current) void resumeVoice();
+      if (voiceActive.current) {
+        setVoiceStatus(error instanceof Error ? error.message : "Não consegui processar a fala.");
+        voiceActive.current = false;
+        setListening(false);
+        void stopContinuousListening();
+      }
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -127,7 +136,12 @@ export default function Assistente() {
   async function resumeVoice() {
     try {
       setVoiceStatus("Ouvindo sua pergunta…");
-      await startContinuousListening(text => { void send(text); }, error => { setVoiceStatus(error); void toggleVoice(); });
+      await startContinuousListening(text => { void send(text); }, error => {
+        voiceActive.current = false;
+        setListening(false);
+        setVoiceStatus(error);
+        void stopContinuousListening();
+      });
     } catch (error) {
       voiceActive.current = false;
       setListening(false);
