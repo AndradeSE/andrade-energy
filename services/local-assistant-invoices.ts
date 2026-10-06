@@ -1,4 +1,19 @@
-type InvoiceSnapshot = { id: string; status?: string; created_at?: string; referencia?: string; valor_total_unificado?: number; valor_total?: number; pdf_unificada_url?: string; pdf_cemig_url?: string };
+type InvoiceSnapshot = { id: string; status?: string; vencimento?: string; pago_em?: string; cobrancas?: Array<{ status?: string; pago_em?: string }>; created_at?: string; referencia?: string; valor_total_unificado?: number; valor_total?: number; pdf_unificada_url?: string; pdf_cemig_url?: string };
+
+export function asksOverdueInvoices(input: string) {
+  const text = input.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return /\b(faturas?|cobrancas?|boletos?|contas?|dividas?)\b/.test(text) && /\b(atrasad[ao]s?|vencid[ao]s?|em atraso|em aberto|pendentes?|devendo)\b/.test(text);
+}
+
+export function overdueInvoiceReply(invoices: InvoiceSnapshot[], today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date())) {
+  const settled = ["PAGO", "PAGA", "RECEBIDO", "RECEBIDA", "RECEIVED", "CONFIRMED"];
+  const overdue = invoices.filter(invoice => {
+    const status = String(invoice.status ?? "").toUpperCase();
+    if ([...settled, "RASCUNHO", "CANCELADA", "EXCLUIDA", "CANCELADO"].includes(status) || invoice.pago_em || invoice.cobrancas?.some(c => c.pago_em || settled.includes(String(c.status ?? "").toUpperCase()))) return false;
+    return ["VENCIDA", "ATRASADA", "OVERDUE"].includes(status) || (["ABERTA", "PENDENTE", "PENDING", "EMITIDA"].includes(status) && /^\d{4}-\d{2}-\d{2}/.test(invoice.vencimento ?? "") && invoice.vencimento!.slice(0, 10) < today);
+  });
+  return { invoices: overdue, text: overdue.length ? `Encontrei ${overdue.length} fatura(s) em atraso neste contexto.\n${overdue.slice(0, 12).map(f => `${f.referencia ?? "Fatura"} · vencimento ${f.vencimento?.slice(0, 10) ?? "não informado"} · ${Number.isFinite(Number(f.valor_total_unificado ?? f.valor_total)) ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(f.valor_total_unificado ?? f.valor_total)) : "valor não informado"}`).join("\n")}\nA consulta reflete os pagamentos registrados no aplicativo.` : "Não identifiquei faturas em atraso nos registros deste contexto. Pagamentos ainda não sincronizados podem alterar o resultado." };
+}
 
 export function asksLatestInvoiceDocument(input: string, previousInvoiceRequest = false) {
   const text = input.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();

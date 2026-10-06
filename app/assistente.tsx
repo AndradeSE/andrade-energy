@@ -13,7 +13,7 @@ import { isPreviewEnvironment } from "../config/environment";
 import { IS_GERADOR_APP } from "../config/appVariant";
 import { answerInConversation, asksLatestInvoiceAmount, LocalReply, LocalTopic, normalizeAssistantQuery } from "../services/local-assistant";
 import { buscarFatura, listarFaturas } from "../services/faturas.service";
-import { asksLatestInvoiceDocument, invoiceDocumentChoices, latestInvoiceAmountReply } from "../services/local-assistant-invoices";
+import { asksLatestInvoiceDocument, invoiceDocumentChoices, latestInvoiceAmountReply, asksOverdueInvoices, overdueInvoiceReply } from "../services/local-assistant-invoices";
 import { detectFinancialMetric, financialMetricReply } from "../services/assistant-financial";
 import { carregarFinanceiro } from "../services/financeiro.service";
 import { cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
@@ -204,7 +204,8 @@ export default function Assistente() {
     const question = (spokenQuestion ?? input).trim();
     if (!question || busyRef.current) return;
     const interpretedQuestion = normalizeAssistantQuery(question);
-    const capability = detectCapability(interpretedQuestion);
+    const wantsOverdue = asksOverdueInvoices(interpretedQuestion);
+    const capability = wantsOverdue ? undefined : detectCapability(interpretedQuestion);
     const generation = contextGeneration.current;
     const wantsInvoiceDocument = asksLatestInvoiceDocument(interpretedQuestion, lastInvoiceRequest.current);
     lastInvoiceRequest.current = wantsInvoiceDocument || /\b(ultima|mais recente)\b.*\b(fatura|cobranca)\b|\b(fatura|cobranca)\b.*\b(ultima|mais recente)\b/i.test(interpretedQuestion);
@@ -215,7 +216,7 @@ export default function Assistente() {
     }, topicRef.current);
     setInput("");
     setBusy(true);
-    const privateTurn = Boolean(capability) || wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion) || Boolean(detectFinancialMetric(interpretedQuestion)) || Boolean(detectProductionMetric(interpretedQuestion)) || Boolean(detectAccountQuery(interpretedQuestion));
+    const privateTurn = wantsOverdue || Boolean(capability) || wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion) || Boolean(detectFinancialMetric(interpretedQuestion)) || Boolean(detectProductionMetric(interpretedQuestion)) || Boolean(detectAccountQuery(interpretedQuestion));
     const userMessage: Message = { from: "user", text: question, private: privateTurn };
     const nextMessages = [...messagesRef.current, userMessage].slice(-39);
     messagesRef.current = nextMessages;
@@ -241,7 +242,7 @@ export default function Assistente() {
         } catch {
           response = { from: "assistant", text: "Não consegui consultar essa função agora com seu acesso. Não alterei dados nem estimei valores. Confira o contexto da conta e tente novamente." };
         }
-      } else if (wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion)) {
+      } else if (wantsOverdue || wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion)) {
         try {
           const invoices = usuario?.perfil === "LEITURA"
             ? unidadeSelecionada?.numero
@@ -254,6 +255,9 @@ export default function Assistente() {
               : [];
           if (usuario?.perfil !== "LEITURA" && !usinaSelecionada?.id) {
             response = { from: "assistant", text: "Não consigo escolher uma fatura sem uma usina selecionada. Selecione a usina da carteira para eu consultar o documento correto." };
+          } else if (wantsOverdue) {
+            const result = overdueInvoiceReply(invoices);
+            response = { from: "assistant", text: result.text, invoiceChoices: result.invoices.filter(f => f.pdf_unificada_url).slice(0, 12).map(f => ({ id: f.id, label: `PDF · ${f.referencia ?? "Fatura em atraso"}` })) };
           } else if (wantsInvoiceDocument) {
             const candidates = invoiceDocumentChoices(question, invoices);
             const invoice = candidates[0];

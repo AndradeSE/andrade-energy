@@ -30,6 +30,17 @@ function load(relative) {
   return exports;
 }
 (async () => {
+  const { asksOverdueInvoices, overdueInvoiceReply } = load("services/local-assistant-invoices.ts");
+  assert.equal(asksOverdueInvoices("tenho fatura atrasada?"), true);
+  assert.equal(asksOverdueInvoices("tenho boletos vencidos?"), true);
+  const late = overdueInvoiceReply([
+    { id: "late", status: "ABERTA", vencimento: "2026-10-01", valor_total: 100 },
+    { id: "today", status: "ABERTA", vencimento: "2026-10-06" },
+    { id: "paid", status: "ABERTA", vencimento: "2026-10-01", cobrancas: [{ pago_em: "2026-10-02" }] },
+    { id: "cancelled", status: "CANCELADA", vencimento: "2026-10-01" },
+  ], "2026-10-06");
+  assert.equal(late.invoices.length, 1);
+  assert.equal(late.invoices[0].id, "late");
   const { detectCapability, displayNumber, ASSISTANT_MODULES } = load("services/assistant-capabilities.ts");
   const { executeAssistantTool, resolveAssistantDocument } = load("services/assistant-tools.ts");
   const { authorizedAccountSpeech } = load("backend/src/modules/assistente/account-speech.ts");
