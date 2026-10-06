@@ -9,6 +9,7 @@ import { VoiceAnswerStore } from "./voice-answer-store";
 import { hashToken } from "../../utils/token";
 import { authorizedAccountSpeech } from "./account-speech";
 import { groqFallback } from "./groq-fallback";
+import { azureVoice } from "./azure-voice";
 
 const PUBLIC_HELP_CONTEXT = {
   faturamento: "Na aba Faturamento, o gerador pode emitir manualmente, importar PDF e configurar o faturamento automático das UCs. A conta geradora é configurada separadamente. Cobranças exigem revisão antes de confirmar.",
@@ -117,6 +118,18 @@ assistenteVoiceRouter.post("/voz", async (req, res) => {
     return res.status(400).json({ message: "Frase não permitida." });
   }
   const key = process.env.GEMINI_TTS_API_KEY?.trim();
+  const speechText = accountSpeech ?? answerText ?? PUBLIC_VOICE_LINES[lineId as keyof typeof PUBLIC_VOICE_LINES];
+  const fallbackVoice = async () => {
+    // Old installers consented to Google only; do not silently widen recipients.
+    if (accountSpeech && req.body?.azureVoiceConsent !== true) return false;
+    const audio = await azureVoice(speechText);
+    if (!audio) return false;
+    console.info("Azure natural audio delivered:", accountSpeech ? "account-consented" : "public");
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ audio, mimeType: "audio/wav", provider: "azure" });
+    return true;
+  };
+  if (!key && await fallbackVoice()) return;
   if (!key) return res.status(503).json({ message: "Voz online não configurada." });
   const cached = fixedLine ? cachedAudio.get(lineId as keyof typeof PUBLIC_VOICE_LINES) : undefined;
   if (cached) return res.json({ audio: cached, mimeType: "audio/wav" });
@@ -124,6 +137,7 @@ assistenteVoiceRouter.post("/voz", async (req, res) => {
   const publicCached = publicAudioKey ? publicAnswerAudio.get(publicAudioKey) : undefined;
   if (publicCached && publicCached.expires > Date.now()) return res.json({ audio: publicCached.audio, mimeType: "audio/wav" });
   if (providerQuotaUntil > Date.now()) {
+    if (await fallbackVoice()) return;
     res.setHeader("Retry-After", String(Math.ceil((providerQuotaUntil - Date.now()) / 1000)));
     return res.status(429).json({ code: "TTS_QUOTA", message: "Limite temporário da voz natural." });
   }
@@ -138,16 +152,20 @@ assistenteVoiceRouter.post("/voz", async (req, res) => {
         response_format: { type: "audio", mime_type: "audio/wav" },
         generation_config: { speech_config: [{ voice: "Kore" }] },
       }),
-      signal: AbortSignal.timeout(14_000),
+      signal: AbortSignal.timeout(process.env.AZURE_SPEECH_KEY ? 7000 : 14_000),
     });
     if (!response.ok) {
       console.warn("Assistente TTS indisponível, status:", response.status);
       if (response.status === 429) providerQuotaUntil = Date.now() + 60_000;
+      if (await fallbackVoice()) return;
       return res.status(response.status === 429 ? 429 : 503).json({ code: response.status === 429 ? "TTS_QUOTA" : "TTS_UNAVAILABLE", message: "Voz online indisponível." });
     }
     const payload = await response.json() as { output_audio?: { data?: string }; steps?: Array<{ type?: string; content?: Array<{ type?: string; data?: string }> }> };
     const audio = payload.output_audio?.data ?? payload.steps?.flatMap(step => step.content ?? []).reverse().find(content => content.type === "audio")?.data;
-    if (!audio || audio.length > (fixedLine ? 2_000_000 : 8_000_000)) return res.status(503).json({ message: "Áudio indisponível." });
+    if (!audio || audio.length > (fixedLine ? 2_000_000 : 8_000_000)) {
+      if (await fallbackVoice()) return;
+      return res.status(503).json({ message: "Áudio indisponível." });
+    }
     if (fixedLine) cachedAudio.set(lineId as keyof typeof PUBLIC_VOICE_LINES, audio);
     if (publicAudioKey) {
       for (const [id, entry] of publicAnswerAudio) if (entry.expires <= Date.now()) publicAnswerAudio.delete(id);
@@ -158,6 +176,7 @@ assistenteVoiceRouter.post("/voz", async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     return res.json({ audio, mimeType: "audio/wav" });
   } catch {
+    if (await fallbackVoice()) return;
     return res.status(503).json({ message: "Voz online indisponível." });
   }
 });
