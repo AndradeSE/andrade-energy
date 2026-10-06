@@ -1,6 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { Alert, AppState, Pressable, Text } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Alert, AppState } from "react-native";
 import { router, usePathname } from "expo-router";
 import { containsAssistantWakeWord, setWakeWordEnabled, setWakeWordReady, subscribeWakeWord, wakeWordEnabled, wakeWordPaused } from "../../services/assistant-wake-word";
 import { startNativePortugueseSpeech, stopNativePortugueseSpeech, nativeSpeechAvailabilityError } from "../../services/native-speech";
@@ -9,17 +8,14 @@ import { isAssistantLoading, subscribeAssistantLoading } from "../../services/as
 export default function AssistantWakeWord() {
   const enabled = useSyncExternalStore(subscribeWakeWord, wakeWordEnabled);
   const paused = useSyncExternalStore(subscribeWakeWord, wakeWordPaused);
-  const [ready, setReady] = useState(false);
   const loading = useSyncExternalStore(subscribeAssistantLoading, isAssistantLoading);
   const pathname = usePathname();
-  const insets = useSafeAreaInsets();
   const [foreground, setForeground] = useState(AppState.currentState === "active");
   useEffect(() => {
     const subscription = AppState.addEventListener("change", state => setForeground(state === "active"));
     return () => { subscription.remove(); setWakeWordEnabled(false); };
   }, []);
   useEffect(() => {
-    setReady(false);
     setWakeWordReady(false);
     if (!enabled || !foreground || loading || paused) return;
     let cancelled = false;
@@ -55,7 +51,7 @@ export default function AssistantWakeWord() {
         };
         const started = await startNativePortugueseSpeech(detect, fail, undefined, retry, {
           onPartial: detect, onEnd: retry, shouldContinue: () => !cancelled && !triggered,
-          owner, onReady: () => { if (!cancelled && !triggered) { opened = true; clearTimeout(startupDeadline); setReady(true); setWakeWordReady(true); } },
+          owner, onReady: () => { if (!cancelled && !triggered) { opened = true; clearTimeout(startupDeadline); setWakeWordReady(true); } },
         });
         if (cancelled) await stopNativePortugueseSpeech(owner);
         else if (!started && !triggered) fail(nativeSpeechAvailabilityError());
@@ -66,6 +62,5 @@ export default function AssistantWakeWord() {
     retry();
     return () => { cancelled = true; clearTimeout(timer); clearTimeout(startupDeadline); setWakeWordReady(false); void stopNativePortugueseSpeech(owner); };
   }, [enabled, foreground, loading, paused, pathname]);
-  if (!enabled || !foreground || loading || paused) return null;
-  return <Pressable accessibilityLabel="Ativação por voz. Toque para desligar" onPress={() => setWakeWordEnabled(false)} style={{ position: "absolute", top: insets.top + 4, right: 12, zIndex: 60, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, backgroundColor: "#F0FFF6" }}><Text style={{ color: "#075E42", fontSize: 11 }}>{ready ? "🎙 E aí, chat · desligar" : "Iniciando escuta…"}</Text></Pressable>;
+  return null;
 }

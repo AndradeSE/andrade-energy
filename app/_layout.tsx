@@ -531,7 +531,7 @@ function RootNavigator() {
     </View>
     <PersistentAppTabs loggedIn={loggedIn && !precisaDigital} />
     {isPreviewEnvironment && loggedIn && !precisaDigital ? <AssistantWakeWord /> : null}
-    {isPreviewEnvironment && loggedIn && !precisaDigital && pathname !== "/assistente" ? <FloatingAssistant /> : null}
+    {isPreviewEnvironment && loggedIn && !precisaDigital ? <FloatingAssistant /> : null}
     {precisaDigital ? <View style={styles.lockOverlay}><BiometricLock onUnlocked={concluirAutenticacaoBiometrica} /></View> : null}
     </>
   );

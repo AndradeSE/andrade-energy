@@ -201,12 +201,16 @@ const atualizacaoInicioDiretoAnterior = {
   numero: "1.0.0-r20261006.20", data: "06/10/2026",
   melhorias: ["Ativação, transcrição e conversa tentam abrir o reconhecedor offline diretamente, sem depender da consulta de idiomas que falha em alguns serviços Android.", "A captura precisa iniciar em até 8 segundos; erros de idioma, acesso ao microfone ou captura de áudio são informados sem enviar a escuta à nuvem."],
 };
-const atualizacaoAtual = previewApp ? {
+const atualizacaoLoopAnterior = {
   numero: "1.0.0-r20261006.21", data: "06/10/2026",
   melhorias: ["Ativação só aparece como ativa depois que o Android confirma a abertura do microfone.", "Tentativas encerradas antes da captura não reiniciam indefinidamente. A ativação pendente tem prazo global de 10 segundos e pode ser cancelada."],
+};
+const atualizacaoAtual = previewApp ? {
+  numero: "1.0.0-r20261006.22", data: "06/10/2026",
+  melhorias: ["Aviso de escuta removido do topo. O botão flutuante mostra ondas verdes animadas somente quando o microfone está ativo.", "Atalho mantém o arraste, aparece no chat durante a escuta ativa e fica oculto nos carregamentos."],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
-  ...(previewApp ? [atualizacaoInicioDiretoAnterior, atualizacaoReconhecedorAnterior, atualizacaoMicrofoneAnterior, atualizacaoAtivacaoAnterior, atualizacaoAzureAnterior, atualizacaoFaturasAnterior, atualizacaoDocumentosAnterior] : []),
+  ...(previewApp ? [atualizacaoLoopAnterior, atualizacaoInicioDiretoAnterior, atualizacaoReconhecedorAnterior, atualizacaoMicrofoneAnterior, atualizacaoAtivacaoAnterior, atualizacaoAzureAnterior, atualizacaoFaturasAnterior, atualizacaoDocumentosAnterior] : []),
   ...(previewApp ? [atualizacaoModulosAnterior, atualizacaoConsultasAnterior, atualizacaoVozPublicaAnterior, atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
   ...(geradorPreview ? [atualizacaoVozAnterior] : []),
   ...(geradorPreview ? [atualizacaoConversaContinua, atualizacaoVozNatural, atualizacaoFaturamentoAutomatico, atualizacaoAtalhosFaturamento, atualizacaoChat, atualizacaoVozPdf, atualizacaoSolEletrico, atualizacaoAssistente, atualizacaoTutoriais] : []),
@@ -236,7 +240,7 @@ const historico = IS_GERADOR_APP ? [
     "Ícones e identificação separados para os aplicativos Preview e produção.",
   ] },
 ] : [
-  ...(previewApp ? [atualizacaoInicioDiretoAnterior, atualizacaoReconhecedorAnterior, atualizacaoMicrofoneAnterior, atualizacaoAtivacaoAnterior, atualizacaoAzureAnterior, atualizacaoFaturasAnterior, atualizacaoDocumentosAnterior] : []),
+  ...(previewApp ? [atualizacaoLoopAnterior, atualizacaoInicioDiretoAnterior, atualizacaoReconhecedorAnterior, atualizacaoMicrofoneAnterior, atualizacaoAtivacaoAnterior, atualizacaoAzureAnterior, atualizacaoFaturasAnterior, atualizacaoDocumentosAnterior] : []),
   ...(previewApp ? [atualizacaoModulosAnterior, atualizacaoConsultasAnterior, atualizacaoVozPublicaAnterior, atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
   atualizacaoSetasAnterior,
   atualizacaoTutoriaisAnterior,
