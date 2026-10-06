@@ -41,6 +41,8 @@ windbg-analysis.txt
 document.documentElement.clientWidth
 
 # Secrets and credentials
+/credentials.json
+/credentials/
 .env
 .env.*
 !.env.example

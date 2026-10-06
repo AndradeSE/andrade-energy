@@ -150,6 +150,7 @@ module.exports = {
 
     updates: {
       url: `https://u.expo.dev/${easProjectId}`,
+      ...(preview ? { requestHeaders: { "expo-channel-name": `preview-${variant}` } } : {}),
     },
   },
 };

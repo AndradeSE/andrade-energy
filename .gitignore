@@ -50,6 +50,8 @@ app-example
 # generated native folders
 /ios
 /android
+/credentials.json
+/credentials/
 .local-android/
 .codex-eas-*/
 /b/

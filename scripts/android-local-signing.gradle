@@ -1,0 +1,20 @@
+import groovy.json.JsonSlurper
+
+// Read locally downloaded EAS credentials; never put passwords on the CLI.
+gradle.beforeProject { app ->
+  if (app.path != ':app') return
+  app.pluginManager.withPlugin('com.android.application') {
+   app.extensions.getByName('androidComponents').finalizeDsl { android ->
+    def variant = System.getenv('EXPO_PUBLIC_APP_VARIANT') ?: 'consumidor'
+    def credentialsFile = new File(gradle.rootProject.projectDir.parentFile, "credentials/${variant}.json")
+    if (!credentialsFile.exists()) throw new GradleException('Missing local EAS credentials')
+    def credentials = new JsonSlurper().parse(credentialsFile).android.keystore
+    def signing = android.signingConfigs.findByName('localEas') ?: android.signingConfigs.create('localEas')
+    signing.storeFile = new File(gradle.rootProject.projectDir.parentFile, "credentials/android/${variant}.jks")
+    signing.storePassword = credentials.keystorePassword
+    signing.keyAlias = credentials.keyAlias
+    signing.keyPassword = credentials.keyPassword
+    android.buildTypes.release.signingConfig = signing
+   }
+  }
+}
