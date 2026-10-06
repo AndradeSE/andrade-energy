@@ -36,13 +36,13 @@ export function redactConversationText(text: string): string {
     .replace(/\d[\d .()/+-]{6,}\d/g, "[identificador privado]").slice(0, 1200);
 }
 
-export async function answerConversationOnline(question: string, history: Array<{ from: "user" | "assistant"; text: string; private?: boolean }>): Promise<string> {
+export async function answerConversationOnline(question: string, history: Array<{ from: "user" | "assistant"; text: string; private?: boolean }>): Promise<{ text: string; voiceAnswerId?: string }> {
   if (!isPreviewEnvironment) throw new Error("Conversa online disponível apenas no Preview.");
-  const response = await api.post<{ answer?: string }>("/assistente/responder", {
+  const response = await api.post<{ answer?: string; voiceAnswerId?: string }>("/assistente/responder", {
     question: redactConversationText(question),
     history: history.filter(message => !message.private).slice(-8).map(message => ({ role: message.from === "assistant" ? "model" : "user", text: redactConversationText(message.text) })),
     variant: IS_GERADOR_APP ? "gerador" : "consumidor",
   }, { timeout: 12000 });
   if (!response.data.answer) throw new Error("Gemini sem resposta.");
-  return response.data.answer;
+  return { text: response.data.answer, voiceAnswerId: response.data.voiceAnswerId };
 }

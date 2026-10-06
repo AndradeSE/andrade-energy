@@ -23,6 +23,16 @@ export function stopAssistantVoice() {
 }
 
 export async function speakSafeOnlineOrLocal(lineId: "welcome" | "retry", localText: string, onDone: () => void, onFallback?: () => void) {
+  return speakOnlineVoice({ lineId }, localText, onDone, onFallback);
+}
+
+// Only a short-lived server-issued reference is transmitted. Private invoice
+// or financial answers never receive this reference and remain on the device.
+export async function speakConversationOnline(answerId: string, localText: string, onDone: () => void, onFallback?: () => void) {
+  return speakOnlineVoice({ answerId }, localText, onDone, onFallback);
+}
+
+async function speakOnlineVoice(request: { lineId: "welcome" | "retry" } | { answerId: string }, localText: string, onDone: () => void, onFallback?: () => void) {
   const generation = voiceGeneration;
   // Desligado por padrão: só pode ser ativado no Preview depois de configurar
   // GEMINI_TTS_API_KEY no backend de homologação e verificar o limite gratuito.
@@ -36,7 +46,7 @@ export async function speakSafeOnlineOrLocal(lineId: "welcome" | "retry", localT
     return;
   }
   try {
-    const response = await api.post<{ audio: string; mimeType: string }>("/assistente/voz", { lineId }, { timeout: 16_000 });
+    const response = await api.post<{ audio: string; mimeType: string }>("/assistente/voz", request, { timeout: 16_000 });
     if (generation !== voiceGeneration) return;
     if (response.data.mimeType !== "audio/wav" || !response.data.audio) throw new Error("Áudio inválido");
     const file = `${FileSystem.cacheDirectory}andrade-voice-${Date.now()}.wav`;
@@ -57,7 +67,7 @@ export async function speakSafeOnlineOrLocal(lineId: "welcome" | "retry", localT
     const subscription = player.addListener("playbackStatusUpdate", status => {
       if (status.didJustFinish) finish();
     });
-    const timeout = setTimeout(finish, 20_000);
+    const timeout = setTimeout(finish, 90_000);
     player.play();
   } catch {
     if (generation !== voiceGeneration) return;

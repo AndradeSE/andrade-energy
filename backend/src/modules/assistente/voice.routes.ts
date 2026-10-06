@@ -4,6 +4,9 @@ import { exigirAutenticacao } from "../../middlewares/auth.middleware";
 import { PUBLIC_VOICE_LINES } from "./voice-lines";
 import { conversationContents } from "./conversation-text";
 import { GEMINI_CONVERSATION_URL } from "./gemini-model";
+import { geminiAnswer, GeminiAnswerPayload } from "./gemini-answer";
+import { VoiceAnswerStore } from "./voice-answer-store";
+import { hashToken } from "../../utils/token";
 
 const PUBLIC_HELP_CONTEXT = {
   faturamento: "Na aba Faturamento, o gerador pode emitir manualmente, importar PDF e configurar o faturamento automático das UCs. A conta geradora é configurada separadamente. Cobranças exigem revisão antes de confirmar.",
@@ -31,6 +34,7 @@ const PUBLIC_CONSUMER_HELP_CONTEXT = {
 
 export const assistenteVoiceRouter = Router();
 const cachedAudio = new Map<keyof typeof PUBLIC_VOICE_LINES, string>();
+const voiceAnswers = new VoiceAnswerStore();
 assistenteVoiceRouter.use(exigirAutenticacao);
 assistenteVoiceRouter.use(rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: "draft-8", legacyHeaders: false }));
 
@@ -57,7 +61,7 @@ assistenteVoiceRouter.post("/responder", async (req, res) => {
       body: JSON.stringify({
         contents: conversation ? conversationContents(question, history ?? []) : [{ role: "user", parts: [{ text: `Explique de modo breve e cordial este recurso do aplicativo Andrade Energy ${variant}: ${context}` }] }],
         systemInstruction: { parts: [{ text: `Você é o assistente cordial do Andrade Energy ${variant}. Converse em português brasileiro, respondendo à pergunta atual no contexto do histórico, sem repetir orientações já dadas. Entenda erros de escrita; se houver ambiguidade, pergunte. Até 90 palavras. Não invente valores, status, botões ou ações executadas. Não tem acesso aos dados privados da conta; consultas são feitas separadamente pelo aplicativo. Não peça senhas nem documentos. Use estes recursos verificados como referência, e explique quando não souber: ${context}` }] },
-        generationConfig: { temperature: 0.2, maxOutputTokens: 220 },
+        generationConfig: { temperature: 0.2, maxOutputTokens: 1024, thinkingConfig: { thinkingLevel: "minimal" } },
       }),
       signal: AbortSignal.timeout(10000),
     });
@@ -66,13 +70,20 @@ assistenteVoiceRouter.post("/responder", async (req, res) => {
       const code = response.status === 429 ? "GEMINI_QUOTA" : [400, 401, 403].includes(response.status) ? "GEMINI_CREDENTIAL" : "GEMINI_UNAVAILABLE";
       return res.status(503).json({ code, message: "Assistente online indisponível." });
     }
-    const payload = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-    const answer = payload.candidates?.[0]?.content?.parts?.map(part => part.text ?? "").join(" ").trim();
-    if (!answer || answer.length > 800) return res.status(503).json({ message: "Resposta indisponível." });
+    const payload = await response.json() as GeminiAnswerPayload;
+    const answer = geminiAnswer(payload);
+    if (!answer) {
+      const finishReason = payload.candidates?.[0]?.finishReason;
+      console.warn("Gemini conversation empty response, finish:", typeof finishReason === "string" && /^[A-Z_]{1,40}$/.test(finishReason) ? finishReason : "UNKNOWN");
+      return res.status(503).json({ code: "GEMINI_EMPTY_RESPONSE", message: "Resposta indisponível." });
+    }
+    console.info("Gemini conversation answered");
     res.setHeader("Cache-Control", "no-store");
-    return res.json({ answer });
+    const owner = hashToken(req.headers.authorization ?? "");
+    return res.json({ answer, voiceAnswerId: voiceAnswers.put(owner, answer) });
   } catch (error) {
     const code = error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name) ? "GEMINI_TIMEOUT" : "GEMINI_UNAVAILABLE";
+    console.warn("Gemini conversation failed:", code);
     return res.status(503).json({ code, message: "Assistente online indisponível." });
   }
 });
@@ -83,12 +94,15 @@ assistenteVoiceRouter.post("/voz", async (req, res) => {
   if (!isPreview) return res.status(404).json({ message: "Indisponível." });
 
   const lineId = req.body?.lineId;
-  if (typeof lineId !== "string" || !Object.prototype.hasOwnProperty.call(PUBLIC_VOICE_LINES, lineId)) {
+  const answerId = req.body?.answerId;
+  const answerText = typeof answerId === "string" ? voiceAnswers.get(hashToken(req.headers.authorization ?? ""), answerId) : undefined;
+  const fixedLine = typeof lineId === "string" && Object.prototype.hasOwnProperty.call(PUBLIC_VOICE_LINES, lineId);
+  if (!fixedLine && !answerText) {
     return res.status(400).json({ message: "Frase não permitida." });
   }
   const key = process.env.GEMINI_TTS_API_KEY?.trim();
   if (!key) return res.status(503).json({ message: "Voz online não configurada." });
-  const cached = cachedAudio.get(lineId as keyof typeof PUBLIC_VOICE_LINES);
+  const cached = fixedLine ? cachedAudio.get(lineId as keyof typeof PUBLIC_VOICE_LINES) : undefined;
   if (cached) return res.json({ audio: cached, mimeType: "audio/wav" });
 
   try {
@@ -97,7 +111,7 @@ assistenteVoiceRouter.post("/voz", async (req, res) => {
       headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({
         model: "gemini-3.8-flash-lite-tts",
-        input: [{ type: "user_input", content: [{ type: "text", text: PUBLIC_VOICE_LINES[lineId as keyof typeof PUBLIC_VOICE_LINES], annotations: [{ type: "speech_metadata", style: "Voz brasileira natural, cordial e clara." }] }] }],
+        input: [{ type: "user_input", content: [{ type: "text", text: answerText ?? PUBLIC_VOICE_LINES[lineId as keyof typeof PUBLIC_VOICE_LINES], annotations: [{ type: "speech_metadata", style: "Voz brasileira natural, cordial e clara." }] }] }],
         response_format: { type: "audio", mime_type: "audio/wav" },
         generation_config: { speech_config: [{ voice: "Kore" }] },
       }),
@@ -110,7 +124,7 @@ assistenteVoiceRouter.post("/voz", async (req, res) => {
     const payload = await response.json() as { output_audio?: { data?: string }; steps?: Array<{ type?: string; content?: Array<{ type?: string; data?: string }> }> };
     const audio = payload.output_audio?.data ?? payload.steps?.flatMap(step => step.content ?? []).reverse().find(content => content.type === "audio")?.data;
     if (!audio || audio.length > 2_000_000) return res.status(503).json({ message: "Áudio indisponível." });
-    cachedAudio.set(lineId as keyof typeof PUBLIC_VOICE_LINES, audio);
+    if (fixedLine) cachedAudio.set(lineId as keyof typeof PUBLIC_VOICE_LINES, audio);
     res.setHeader("Cache-Control", "no-store");
     return res.json({ audio, mimeType: "audio/wav" });
   } catch {

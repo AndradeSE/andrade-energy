@@ -135,16 +135,24 @@ const atualizacaoConversaGeminiAnterior = {
     "Falhas do Gemini são informadas, sem substituição silenciosa pela IA local.",
   ],
 };
-const atualizacaoAtual = previewApp ? {
+const atualizacaoOndasAnterior = {
   numero: "1.0.0-r20261006.9", data: "06/10/2026",
   melhorias: [
     "Botão de conversa mantém a cor normal e indica fala pelas ondas animadas.",
     "Perguntas sobre escuta confirmam a transcrição recebida, sem depender do Gemini.",
     "Falhas mostram o motivo da conexão e não reproduzem áudio genérico de segurança.",
   ],
+};
+const atualizacaoAtual = previewApp ? {
+  numero: "1.0.0-r20261006.10", data: "06/10/2026",
+  melhorias: [
+    "Respostas públicas do Gemini passam a solicitar a mesma voz natural online da saudação.",
+    "Falhas da voz online são informadas antes de usar a voz do aparelho.",
+    "Dados privados continuam no aparelho; respostas válidas longas deixam de virar erro de conexão.",
+  ],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
-  ...(previewApp ? [atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
+  ...(previewApp ? [atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
   ...(geradorPreview ? [atualizacaoVozAnterior] : []),
   ...(geradorPreview ? [atualizacaoConversaContinua, atualizacaoVozNatural, atualizacaoFaturamentoAutomatico, atualizacaoAtalhosFaturamento, atualizacaoChat, atualizacaoVozPdf, atualizacaoSolEletrico, atualizacaoAssistente, atualizacaoTutoriais] : []),
   atualizacaoSelecaoUsina,
@@ -173,7 +181,7 @@ const historico = IS_GERADOR_APP ? [
     "Ícones e identificação separados para os aplicativos Preview e produção.",
   ] },
 ] : [
-  ...(previewApp ? [atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
+  ...(previewApp ? [atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
   atualizacaoSetasAnterior,
   atualizacaoTutoriaisAnterior,
   atualizacaoNotificacoes,

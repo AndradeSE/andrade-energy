@@ -18,13 +18,13 @@ import { detectFinancialMetric, financialMetricReply } from "../services/assista
 import { carregarFinanceiro } from "../services/financeiro.service";
 import { cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
 import { finishDictation, installVoiceModels, isVoiceInstalled, pauseContinuousListening, releaseVoiceRecognition, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
-import { prepareAssistantVoice, speakAssistantReply, speakSafeOnlineOrLocal, stopAssistantVoice } from "../services/assistant-voice";
+import { prepareAssistantVoice, speakAssistantReply, speakConversationOnline, speakSafeOnlineOrLocal, stopAssistantVoice } from "../services/assistant-voice";
 import { answerConversationOnline } from "../services/assistant-online";
 import { assistantConnectionError, speechStatusReply } from "../services/assistant-diagnostics";
 import { finishNativePortugueseSpeech, nativePortugueseSpeechAvailable, startNativePortugueseSpeech, stopNativePortugueseSpeech } from "../services/native-speech";
 import { Colors } from "../theme";
 
-type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string; private?: boolean };
+type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string; private?: boolean; voiceAnswerId?: string };
 
 export default function Assistente() {
   const router = useRouter();
@@ -194,7 +194,7 @@ export default function Assistente() {
           }
         }
       } else if (reply.kind === "help" || reply.kind === "unknown") {
-        response = { from: "assistant", text: await answerConversationOnline(question, nextMessages.slice(0, -1)) };
+        response = { from: "assistant", ...await answerConversationOnline(question, nextMessages.slice(0, -1)) };
       }
       response.private = response.private || privateTurn;
       messagesRef.current = [...messagesRef.current, response].slice(-40);
@@ -204,7 +204,13 @@ export default function Assistente() {
       if (voiceActive.current) {
         setVoiceStatus("Falando com você… depois volto a ouvir.");
         setSpeakingReply(true);
-        speakAssistantReply(response.text, () => { setSpeakingReply(false); if (voiceActive.current) void resumeVoice(); });
+        const finishReply = () => { setSpeakingReply(false); if (voiceActive.current) void resumeVoice(); };
+        if (response.voiceAnswerId && !response.private) {
+          setVoiceStatus("Preparando a voz natural…");
+          void speakConversationOnline(response.voiceAnswerId, response.text, finishReply, () => setVoiceStatus("Voz online indisponível; usando a voz do aparelho nesta resposta."));
+        } else {
+          speakAssistantReply(response.text, finishReply);
+        }
       }
     } catch (error) {
       const fallback: Message = { from: "assistant", private: true, text: assistantConnectionError(error) };
