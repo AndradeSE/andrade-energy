@@ -28,6 +28,7 @@ export default function AssistantWakeWord() {
     return () => { subscription.remove(); setWakeWordEnabled(false); };
   }, []);
   useEffect(() => {
+    console.info("[AssistantWake] conditions", enabled, foreground, loading, paused);
     setWakeWordReady(false);
     if (!enabled || !foreground || loading || paused) return;
     let cancelled = false;

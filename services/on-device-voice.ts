@@ -1,6 +1,6 @@
 import { Directory, File, Paths } from "expo-file-system";
 import { createDownloadResumable, getInfoAsync } from "expo-file-system/legacy";
-import { requestRecordingPermissionsAsync, setAudioModeAsync } from "expo-audio";
+import { getRecordingPermissionsAsync, requestRecordingPermissionsAsync, setAudioModeAsync } from "expo-audio";
 
 const VOICE_DIR = new Directory(Paths.document, "assistente-local", "voz");
 const VOICE_MODEL = {
@@ -116,7 +116,8 @@ export async function prepareVoiceRecognition() {
 export async function startContinuousListening(onSpeech: (text: string) => void, onError: (error: string) => void, autoSubmit = false, onActivity?: (speaking: boolean) => void) {
   if (!isVoiceInstalled()) throw new Error("Instale os arquivos de voz antes de começar.");
   await prepareVoiceRecognition();
-  const permission = await requestRecordingPermissionsAsync();
+  const existingPermission = await getRecordingPermissionsAsync();
+  const permission = existingPermission.granted ? existingPermission : await requestRecordingPermissionsAsync();
   if (!permission.granted) throw new Error("O microfone não foi autorizado.");
   await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
   clearPendingSpeech();
