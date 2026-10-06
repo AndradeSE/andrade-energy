@@ -246,12 +246,13 @@ export default function Assistente() {
     <View style={[styles.composer, { paddingBottom: keyboardVisible ? 10 : Math.max(insets.bottom, 12) }]}>
       {voiceStatus ? <View style={styles.voiceStatus}><Ionicons name={voiceInstalling ? "cloud-download-outline" : transcribing || listening ? "radio-outline" : "information-circle-outline"} size={17} color={Colors.primary} /><Text style={styles.voiceStatusText}>{voiceStatus}</Text></View> : null}
       <View style={styles.inputPill}>
-        <TextInput value={input} onChangeText={setInput} placeholder="Pergunte à Andrade Energy" placeholderTextColor={Colors.subtitle} multiline maxLength={1000} accessibilityLabel="Sua pergunta" style={styles.input} />
-        <Pressable onPressIn={() => { Keyboard.dismiss(); void beginDictation(); }} onPressOut={() => { void endDictation(); }} disabled={listening || (busy && !dictationStarting.current && !transcribing)} accessibilityRole="button" accessibilityLabel="Segure para falar e solte para transcrever" style={[styles.pillAction, transcribing && styles.voiceActive, listening && styles.disabled]}><Ionicons name="mic-outline" size={22} color={transcribing ? "white" : Colors.primary} /></Pressable>
+        <TextInput value={input} onChangeText={setInput} placeholder="Escreva sua pergunta" placeholderTextColor={Colors.subtitle} multiline maxLength={1000} accessibilityLabel="Sua pergunta" style={styles.input} />
+        {input.trim() && !transcribing && !dictationStarting.current
+          ? <Pressable onPress={() => void send()} disabled={busy} accessibilityRole="button" accessibilityLabel="Enviar pergunta" style={[styles.pillSend, busy && styles.disabled]}><Ionicons name="arrow-up" size={22} color="white" /></Pressable>
+          : <Pressable onPressIn={() => { Keyboard.dismiss(); void beginDictation(); }} onPressOut={() => { void endDictation(); }} disabled={listening || (busy && !dictationStarting.current && !transcribing)} accessibilityRole="button" accessibilityLabel="Segure para falar e solte para transcrever" style={[styles.pillAction, transcribing && styles.voiceActive, listening && styles.disabled]}><Ionicons name="mic-outline" size={22} color={transcribing ? "white" : Colors.text} /></Pressable>}
         <Pressable onPress={() => { Keyboard.dismiss(); void toggleVoice(); }} disabled={transcribing || (busy && !listening)} accessibilityRole="button" accessibilityLabel={listening ? "Encerrar conversa por voz" : "Iniciar conversa por voz"} style={[styles.pillAction, listening && styles.voiceActive, transcribing && styles.disabled]}>
-          {voiceInstalling ? <ActivityIndicator size="small" color={Colors.primary} /> : <Ionicons name={listening ? "stop-circle-outline" : "pulse-outline"} size={23} color={listening ? "white" : Colors.primary} />}
+          {voiceInstalling ? <ActivityIndicator size="small" color={Colors.primary} /> : listening ? <Ionicons name="stop" size={20} color="white" /> : <View style={styles.waveform}><View style={[styles.waveBar, { height: 7 }]} /><View style={[styles.waveBar, { height: 16 }]} /><View style={[styles.waveBar, { height: 10 }]} /><View style={[styles.waveBar, { height: 5 }]} /></View>}
         </Pressable>
-        {input.trim() ? <Pressable onPress={() => void send()} disabled={busy || transcribing} accessibilityRole="button" accessibilityLabel="Enviar pergunta" style={[styles.pillSend, (busy || transcribing) && styles.disabled]}><Ionicons name="arrow-up" size={22} color="white" /></Pressable> : null}
       </View>
     </View>
   </KeyboardAvoidingView>;
@@ -271,12 +272,14 @@ const styles = StyleSheet.create({
   progressFill: { height: "100%", backgroundColor: Colors.primary },
   cancelDownload: { alignSelf: "flex-start", marginTop: 12, paddingVertical: 6 },
   cancelDownloadText: { color: Colors.primary, fontWeight: "700" },
-  composer: { gap: 8, backgroundColor: Colors.surface, paddingHorizontal: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: Colors.border },
+  composer: { gap: 8, backgroundColor: Colors.background, paddingHorizontal: 12, paddingTop: 10 },
   voiceStatus: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 9, paddingVertical: 5 },
   voiceStatusText: { flex: 1, color: Colors.subtitle, fontSize: 12, lineHeight: 17 },
-  inputPill: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: 2, paddingHorizontal: 7, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border, borderRadius: 30, backgroundColor: Colors.background },
+  inputPill: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: 2, paddingHorizontal: 7, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border, borderRadius: 30, backgroundColor: Colors.surface, elevation: 3 },
   input: { flex: 1, maxHeight: 120, minHeight: 44, paddingHorizontal: 12, paddingVertical: 9, color: Colors.text, fontSize: 15 },
   pillAction: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 22 },
+  waveform: { width: 23, height: 22, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 2 },
+  waveBar: { width: 2, borderRadius: 2, backgroundColor: Colors.text },
   pillSend: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 22, backgroundColor: Colors.primary },
   voiceActive: { backgroundColor: "#A33131" }, disabled: { opacity: 0.45 },
 });
