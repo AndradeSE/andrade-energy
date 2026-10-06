@@ -18,8 +18,7 @@ import { detectFinancialMetric, financialMetricReply } from "../services/assista
 import { carregarFinanceiro } from "../services/financeiro.service";
 import { answerWithLocalModel, cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
 import { finishDictation, installVoiceModels, isVoiceInstalled, pauseContinuousListening, prepareVoiceRecognition, releaseVoiceRecognition, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
-import * as Speech from "expo-speech";
-import { prepareAssistantVoice, speakAssistantReply } from "../services/assistant-voice";
+import { prepareAssistantVoice, speakAssistantReply, speakSafeOnlineOrLocal, stopAssistantVoice } from "../services/assistant-voice";
 import { Colors } from "../theme";
 
 type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string };
@@ -56,7 +55,7 @@ export default function Assistente() {
   const topicRef = useRef<LocalTopic | undefined>(undefined);
   const scrollRef = useRef<ScrollView>(null);
   const wave = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
-  useEffect(() => () => { voiceActive.current = false; dictationActive.current = false; Speech.stop(); void releaseVoiceRecognition(); void releaseLocalModel(); }, []);
+  useEffect(() => () => { voiceActive.current = false; dictationActive.current = false; stopAssistantVoice(); void releaseVoiceRecognition(); void releaseLocalModel(); }, []);
   useEffect(() => { if (voiceReady) void prepareVoiceRecognition().catch(() => undefined); }, [voiceReady]);
   useEffect(() => {
     if (!listening || (!hearingSpeech && !speakingReply)) {
@@ -207,7 +206,9 @@ export default function Assistente() {
       if (voiceActive.current) {
         setVoiceStatus("Não consegui processar esta resposta. Vou ouvir sua próxima pergunta.");
         setSpeakingReply(true);
-        speakAssistantReply(fallback.text, () => { setSpeakingReply(false); if (voiceActive.current) void resumeVoice(); });
+        const finishFallback = () => { setSpeakingReply(false); if (voiceActive.current) void resumeVoice(); };
+        if (reply.kind === "help") speakAssistantReply(fallback.text, finishFallback);
+        else void speakSafeOnlineOrLocal("retry", fallback.text, finishFallback);
       }
     } finally {
       busyRef.current = false;
@@ -238,7 +239,7 @@ export default function Assistente() {
       setListening(false);
       setHearingSpeech(false);
       setSpeakingReply(false);
-      Speech.stop();
+      stopAssistantVoice();
       await stopContinuousListening();
       setVoiceStatus(undefined);
       return;
@@ -256,10 +257,13 @@ export default function Assistente() {
     const firstName = usuario?.nome?.trim().split(/\s+/)[0];
     setVoiceStatus("Falando com você…");
     setSpeakingReply(true);
-    speakAssistantReply(firstName ? `Olá, ${firstName}! Como posso ajudar?` : "Olá! Como posso ajudar?", () => {
+    const greeting = firstName ? `Olá, ${firstName}! Como posso ajudar?` : "Olá! Como posso ajudar?";
+    const finishGreeting = () => {
       setSpeakingReply(false);
       if (voiceActive.current) void resumeVoice();
-    });
+    };
+    if (firstName) speakAssistantReply(greeting, finishGreeting);
+    else void speakSafeOnlineOrLocal("welcome", greeting, finishGreeting);
   }
 
   async function endDictation() {

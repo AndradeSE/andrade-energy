@@ -34,6 +34,7 @@ import notificacoesRoutes from "./modules/notificacoes/notificacoes.routes";
 import privacidadeRoutes from "./modules/privacidade/privacidade.routes";
 import { auditar } from "./utils/audit";
 import { backgroundJobsEnabled } from "./config/backgroundJobs";
+import { assistenteVoiceRouter } from "./modules/assistente/voice.routes";
 
 dotenv.config();
 
@@ -139,6 +140,7 @@ app.use("/api/usuarios", usuariosRoutes);
 app.use("/api/colaboradores", colaboradoresRoutes);
 app.use("/api/notificacoes", notificacoesRoutes);
 app.use("/api/privacidade", privacidadeRoutes);
+app.use("/api/assistente", assistenteVoiceRouter);
 
 app.use("/api/dashboard", dashboardRoutes);
 
