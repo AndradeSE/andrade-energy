@@ -22,7 +22,7 @@ export function stopAssistantVoice() {
   activeFile = undefined;
 }
 
-export async function speakSafeOnlineOrLocal(lineId: "welcome" | "retry", localText: string, onDone: () => void) {
+export async function speakSafeOnlineOrLocal(lineId: "welcome" | "retry", localText: string, onDone: () => void, onFallback?: () => void) {
   const generation = voiceGeneration;
   // Desligado por padrão: só pode ser ativado no Preview depois de configurar
   // GEMINI_TTS_API_KEY no backend de homologação e verificar o limite gratuito.
@@ -58,6 +58,7 @@ export async function speakSafeOnlineOrLocal(lineId: "welcome" | "retry", localT
     if (generation !== voiceGeneration) return;
     onlineUnavailable = true;
     stopAssistantVoice();
+    onFallback?.();
     speakAssistantReply(localText, onDone);
   }
 }

@@ -254,16 +254,15 @@ export default function Assistente() {
     voiceActive.current = true;
     setListening(true);
     await prepareAssistantVoice();
-    const firstName = usuario?.nome?.trim().split(/\s+/)[0];
     setVoiceStatus("Falando com você…");
     setSpeakingReply(true);
-    const greeting = firstName ? `Olá, ${firstName}! Como posso ajudar?` : "Olá! Como posso ajudar?";
+    // A frase online é fixa para não enviar o nome do cliente ao provedor de voz.
+    const greeting = "Olá! Como posso ajudar?";
     const finishGreeting = () => {
       setSpeakingReply(false);
       if (voiceActive.current) void resumeVoice();
     };
-    if (firstName) speakAssistantReply(greeting, finishGreeting);
-    else void speakSafeOnlineOrLocal("welcome", greeting, finishGreeting);
+    void speakSafeOnlineOrLocal("welcome", greeting, finishGreeting, () => setVoiceStatus("Voz online indisponível; usando a voz do aparelho."));
   }
 
   async function endDictation() {

@@ -22,6 +22,7 @@ const VAD_MODEL = {
 type Artifact = typeof VOICE_MODEL;
 type VoiceSession = {
   transcriber: InstanceType<typeof import("whisper.rn/realtime-transcription/")["RealtimeTranscriber"]>;
+  dictationTranscriber: InstanceType<typeof import("whisper.rn/realtime-transcription/")["RealtimeTranscriber"]>;
   whisper: Awaited<ReturnType<typeof import("whisper.rn/index")["initWhisper"]>>;
   vad: Awaited<ReturnType<typeof import("whisper.rn/index")["initWhisperVad"]>>;
 };
@@ -29,6 +30,8 @@ let session: VoiceSession | undefined;
 let preparingSession: Promise<VoiceSession> | undefined;
 let pendingSpeechTimer: ReturnType<typeof setTimeout> | undefined;
 let lastDictationCandidate = "";
+let activeTranscriber: VoiceSession["transcriber"] | undefined;
+let resolveDictationFlush: (() => void) | undefined;
 
 function clearPendingSpeech() {
   if (pendingSpeechTimer) clearTimeout(pendingSpeechTimer);
@@ -98,7 +101,13 @@ export async function prepareVoiceRecognition() {
       { audioSliceSec: 8, audioMinSec: 0.6, maxSlicesInMemory: 3, transcribeOptions: { language: "pt" } },
       {},
     );
-    return { transcriber, whisper, vad };
+    // Ditado por botão não depende do VAD: falas curtas podem não atingir o limiar de voz.
+    const dictationTranscriber = new RealtimeTranscriber(
+      { whisperContext: whisper, audioStream: new AudioPcmStreamAdapter() },
+      { audioSliceSec: 30, audioMinSec: 0.4, maxSlicesInMemory: 2, transcribeOptions: { language: "pt" } },
+      {},
+    );
+    return { transcriber, dictationTranscriber, whisper, vad };
   })();
   try { session = await preparingSession; }
   finally { preparingSession = undefined; }
@@ -121,7 +130,14 @@ export async function startContinuousListening(onSpeech: (text: string) => void,
     onSpeech(spoken);
   };
   const callbacks = {
-    onSliceTranscriptionStabilized: emit,
+    onSliceTranscriptionStabilized: (text: string) => {
+      if (!autoSubmit) {
+        lastDictationCandidate = text.trim() || lastDictationCandidate;
+        resolveDictationFlush?.();
+        return;
+      }
+      emit(text);
+    },
     onTranscribe: (event: { type: string; data?: { result?: string } }) => {
       if (event.type !== "transcribe" || !event.data?.result?.trim()) return;
       const candidate = event.data.result.trim();
@@ -138,19 +154,31 @@ export async function startContinuousListening(onSpeech: (text: string) => void,
   };
   const prepared = session;
   if (!prepared) throw new Error("O reconhecimento de voz não iniciou.");
-  prepared.transcriber.updateCallbacks(callbacks);
-  await prepared.transcriber.start();
+  const transcriber = autoSubmit ? prepared.transcriber : prepared.dictationTranscriber;
+  activeTranscriber = transcriber;
+  transcriber.updateCallbacks(callbacks);
+  await transcriber.start();
 }
 
 export async function pauseContinuousListening() {
   clearPendingSpeech();
-  if (session) await session.transcriber.stop();
+  if (activeTranscriber) await activeTranscriber.stop();
+  activeTranscriber = undefined;
   await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
 }
 
 export async function finishDictation() {
-  // stop() finaliza a gravação, força a última fatia e aguarda a transcrição pendente.
-  // nextSlice() antes do stop dividia a fala e podia descartar o resultado final.
+  // whisper.rn ignora transcrições quando stop() desativa a sessão. Finalize e aguarde
+  // a fatia ainda com a sessão ativa, antes de desligar o microfone.
+  if (activeTranscriber === session?.dictationTranscriber) {
+    await new Promise<void>(async resolve => {
+      const timer = setTimeout(resolve, 12_000);
+      resolveDictationFlush = () => { clearTimeout(timer); resolve(); };
+      try { await activeTranscriber?.nextSlice(); }
+      catch { clearTimeout(timer); resolve(); }
+    });
+    resolveDictationFlush = undefined;
+  }
   await stopContinuousListening();
   const result = lastDictationCandidate;
   lastDictationCandidate = "";
@@ -159,8 +187,9 @@ export async function finishDictation() {
 
 export async function stopContinuousListening() {
   clearPendingSpeech();
-  if (!session) return;
-  await session.transcriber.stop();
+  if (!activeTranscriber) return;
+  await activeTranscriber.stop();
+  activeTranscriber = undefined;
   await setAudioModeAsync({ allowsRecording: false });
 }
 
