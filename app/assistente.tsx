@@ -11,19 +11,19 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../contexts/AuthContext";
 import { isPreviewEnvironment } from "../config/environment";
 import { IS_GERADOR_APP } from "../config/appVariant";
-import { answerInConversation, asksLatestInvoiceAmount, LocalReply, LocalTopic, normalizeAssistantQuery, shouldUseConversationalModel, VERIFIED_APP_CONTEXT } from "../services/local-assistant";
+import { answerInConversation, asksLatestInvoiceAmount, LocalReply, LocalTopic, normalizeAssistantQuery } from "../services/local-assistant";
 import { buscarFatura, listarFaturas } from "../services/faturas.service";
 import { asksLatestInvoiceDocument, latestInvoiceAmountReply, latestIssuedInvoice } from "../services/local-assistant-invoices";
 import { detectFinancialMetric, financialMetricReply } from "../services/assistant-financial";
 import { carregarFinanceiro } from "../services/financeiro.service";
-import { answerWithLocalModel, cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
+import { cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
 import { finishDictation, installVoiceModels, isVoiceInstalled, pauseContinuousListening, releaseVoiceRecognition, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
 import { prepareAssistantVoice, speakAssistantReply, speakSafeOnlineOrLocal, stopAssistantVoice } from "../services/assistant-voice";
-import { answerPublicHelpOnline, publicHelpTopic } from "../services/assistant-online";
+import { answerConversationOnline } from "../services/assistant-online";
 import { finishNativePortugueseSpeech, nativePortugueseSpeechAvailable, startNativePortugueseSpeech, stopNativePortugueseSpeech } from "../services/native-speech";
 import { Colors } from "../theme";
 
-type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string };
+type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string; private?: boolean };
 
 export default function Assistente() {
   const router = useRouter();
@@ -139,7 +139,8 @@ export default function Assistente() {
     }, topicRef.current);
     setInput("");
     setBusy(true);
-    const userMessage: Message = { from: "user", text: question };
+    const privateTurn = wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion) || Boolean(detectFinancialMetric(interpretedQuestion));
+    const userMessage: Message = { from: "user", text: question, private: privateTurn };
     const nextMessages = [...messagesRef.current, userMessage].slice(-39);
     messagesRef.current = nextMessages;
     setMessages(nextMessages);
@@ -189,15 +190,9 @@ export default function Assistente() {
           }
         }
       } else if (reply.kind === "help" || reply.kind === "unknown") {
-        const safeTopic = publicHelpTopic(question);
-        const onlineAnswer = safeTopic ? await answerPublicHelpOnline(safeTopic) : undefined;
-        if (onlineAnswer) {
-          response = { from: "assistant", text: onlineAnswer };
-        } else if (reply.kind === "unknown" && !voiceActive.current && shouldUseConversationalModel(reply.kind, false, modelReady, interpretedQuestion.split(/\s+/).length)) {
-          const history = nextMessages.slice(-8).map(message => ({ role: message.from, content: message.text }));
-          response = { from: "assistant", text: await answerWithLocalModel(history, VERIFIED_APP_CONTEXT, voiceActive.current) };
-        }
+        response = { from: "assistant", text: await answerConversationOnline(question, nextMessages.slice(0, -1)) };
       }
+      response.private = privateTurn;
       messagesRef.current = [...messagesRef.current, response].slice(-40);
       setMessages(messagesRef.current);
       topicRef.current = nextTopic;
@@ -208,7 +203,7 @@ export default function Assistente() {
         speakAssistantReply(response.text, () => { setSpeakingReply(false); if (voiceActive.current) void resumeVoice(); });
       }
     } catch {
-      const fallback: Message = { from: "assistant", text: reply.kind === "help" ? reply.text : "Não consegui responder com segurança. Pode fazer a pergunta de outra forma?" };
+      const fallback: Message = { from: "assistant", private: true, text: "Não consegui conectar ao Gemini agora. Tente novamente em alguns instantes. Não substituí a conversa pela IA local." };
       messagesRef.current = [...messagesRef.current, fallback].slice(-40);
       setMessages(messagesRef.current);
       if (voiceActive.current) {

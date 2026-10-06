@@ -118,7 +118,7 @@ const atualizacaoVozAnterior = {
     "Ditado aguarda a transcrição final ao soltar o microfone e prepara o reconhecimento ao abrir a ajuda.",
   ],
 };
-const atualizacaoAtual = previewApp ? {
+const atualizacaoGeminiAnterior = {
   numero: "1.0.0-r20261006.7", data: "06/10/2026",
   melhorias: [
     "Ajuda online do Gemini priorizada para assuntos públicos do app; valores e documentos continuam na consulta autenticada.",
@@ -126,8 +126,17 @@ const atualizacaoAtual = previewApp ? {
     "Botão flutuante inicia logo acima da barra inferior e continua disponível para arrastar.",
     "Processamento pesado deixa de iniciar automaticamente ao abrir a ajuda.",
   ],
+};
+const atualizacaoAtual = previewApp ? {
+  numero: "1.0.0-r20261006.8", data: "06/10/2026",
+  melhorias: [
+    "Gemini recebe a pergunta e o contexto recente autorizado para responder à conversa, não apenas ao assunto.",
+    "Consultas de faturas e financeiro ficam separadas do histórico enviado ao Gemini.",
+    "Falhas do Gemini são informadas, sem substituição silenciosa pela IA local.",
+  ],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
+  ...(previewApp ? [atualizacaoGeminiAnterior] : []),
   ...(geradorPreview ? [atualizacaoVozAnterior] : []),
   ...(geradorPreview ? [atualizacaoConversaContinua, atualizacaoVozNatural, atualizacaoFaturamentoAutomatico, atualizacaoAtalhosFaturamento, atualizacaoChat, atualizacaoVozPdf, atualizacaoSolEletrico, atualizacaoAssistente, atualizacaoTutoriais] : []),
   atualizacaoSelecaoUsina,
@@ -156,6 +165,7 @@ const historico = IS_GERADOR_APP ? [
     "Ícones e identificação separados para os aplicativos Preview e produção.",
   ] },
 ] : [
+  ...(previewApp ? [atualizacaoGeminiAnterior] : []),
   atualizacaoSetasAnterior,
   atualizacaoTutoriaisAnterior,
   atualizacaoNotificacoes,
