@@ -8,6 +8,7 @@ import { geminiAnswer, GeminiAnswerPayload } from "./gemini-answer";
 import { VoiceAnswerStore } from "./voice-answer-store";
 import { hashToken } from "../../utils/token";
 import { authorizedAccountSpeech } from "./account-speech";
+import { groqFallback } from "./groq-fallback";
 
 const PUBLIC_HELP_CONTEXT = {
   faturamento: "Na aba Faturamento, o gerador pode emitir manualmente, importar PDF e configurar o faturamento automático das UCs. A conta geradora é configurada separadamente. Cobranças exigem revisão antes de confirmar.",
@@ -53,10 +54,19 @@ assistenteVoiceRouter.post("/responder", async (req, res) => {
     return res.status(400).json({ message: "Histórico inválido." });
   }
   const key = (process.env.GEMINI_ASSISTANT_API_KEY || process.env.GEMINI_TTS_API_KEY)?.trim();
+  const contexts = variant === "consumidor" ? PUBLIC_CONSUMER_HELP_CONTEXT : PUBLIC_HELP_CONTEXT;
+  const context = conversation ? Object.values(contexts).join("\n") : contexts[topic as keyof typeof PUBLIC_HELP_CONTEXT];
+  const fallback = async () => {
+    const answer = await groqFallback(`Você é o assistente cordial do Andrade Energy ${variant}. Responda em português brasileiro, até 90 palavras. Não invente dados, valores, status ou ações. Não execute operações. Não tem acesso à conta. Se houver ambiguidade, pergunte. Recursos verificados: ${context}`, conversation ? question : `Explique este recurso: ${context}`, conversation ? history ?? [] : []);
+    if (!answer) return false;
+    res.setHeader("Cache-Control", "no-store");
+    console.info("Groq fallback answered");
+    res.json({ answer, provider: "groq", voiceAnswerId: voiceAnswers.put(hashToken(req.headers.authorization ?? ""), answer) });
+    return true;
+  };
+  if (!key && await fallback()) return;
   if (!key) return res.status(503).json({ code: "GEMINI_NOT_CONFIGURED", message: "Assistente online não configurado." });
   try {
-    const contexts = variant === "consumidor" ? PUBLIC_CONSUMER_HELP_CONTEXT : PUBLIC_HELP_CONTEXT;
-    const context = conversation ? Object.values(contexts).join("\n") : contexts[topic as keyof typeof PUBLIC_HELP_CONTEXT];
     const response = await fetch(GEMINI_CONVERSATION_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": key },
@@ -65,10 +75,11 @@ assistenteVoiceRouter.post("/responder", async (req, res) => {
         systemInstruction: { parts: [{ text: `Você é o assistente cordial do Andrade Energy ${variant}. Converse em português brasileiro, respondendo à pergunta atual no contexto do histórico, sem repetir orientações já dadas. Entenda erros de escrita; se houver ambiguidade, pergunte. Até 90 palavras. Não invente valores, status, botões ou ações executadas. Não tem acesso aos dados privados da conta; consultas são feitas separadamente pelo aplicativo. Não peça senhas nem documentos. Use estes recursos verificados como referência, e explique quando não souber: ${context}` }] },
         generationConfig: { temperature: 0.2, maxOutputTokens: 1024, thinkingConfig: { thinkingLevel: "minimal" } },
       }),
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(5000),
     });
     if (!response.ok) {
       console.warn("Gemini conversation unavailable, provider status:", response.status);
+      if ((response.status === 429 || response.status >= 500) && await fallback()) return;
       const code = response.status === 429 ? "GEMINI_QUOTA" : [400, 401, 403].includes(response.status) ? "GEMINI_CREDENTIAL" : "GEMINI_UNAVAILABLE";
       return res.status(503).json({ code, message: "Assistente online indisponível." });
     }
@@ -86,6 +97,7 @@ assistenteVoiceRouter.post("/responder", async (req, res) => {
   } catch (error) {
     const code = error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name) ? "GEMINI_TIMEOUT" : "GEMINI_UNAVAILABLE";
     console.warn("Gemini conversation failed:", code);
+    if (await fallback()) return;
     return res.status(503).json({ code, message: "Assistente online indisponível." });
   }
 });
