@@ -90,12 +90,16 @@ const atualizacaoChat = {
   numero: "1.0.0-r20261006.1", data: "06/10/2026",
   melhorias: ["Botão flutuante da IA redesenhado como chat 3D verde e dourado, com animação suave e sem a antiga aura elétrica."],
 };
-const atualizacaoAtual = geradorPreview ? {
+const atualizacaoAtalhosFaturamento = {
   numero: "1.0.0-r20261006.2", data: "06/10/2026",
   melhorias: ["Atalho de recebimento automático da usina mantido somente no card de geração da Home; Faturas renomeado para Faturas emitidas na aba Faturamento."],
+};
+const atualizacaoAtual = geradorPreview ? {
+  numero: "1.0.0-r20261006.3", data: "06/10/2026",
+  melhorias: ["Opção de recebimento de contas renomeada para Faturamento automático na aba Faturamento."],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
-  ...(geradorPreview ? [atualizacaoChat, atualizacaoVozPdf, atualizacaoSolEletrico, atualizacaoAssistente, atualizacaoTutoriais] : []),
+  ...(geradorPreview ? [atualizacaoAtalhosFaturamento, atualizacaoChat, atualizacaoVozPdf, atualizacaoSolEletrico, atualizacaoAssistente, atualizacaoTutoriais] : []),
   atualizacaoSelecaoUsina,
   atualizacaoTutoriaisFluidos,
   atualizacaoCarregamentoPreview,

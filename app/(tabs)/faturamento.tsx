@@ -112,9 +112,9 @@ export default function Faturamento() {
         <View style={styles.actions}>
           <Action icon="document-attach-outline" title={faturandoPdf ? "Processando PDF..." : solicitarSenhaPdf ? "Continuar com a senha" : "Faturamento via PDF"} description="Importar a conta da concessionária" disabled={faturandoPdf} onPress={() => void faturarViaPdf()} />
           <Action icon="create-outline" title="Faturamento manual" description="Preencher os dados da cobrança" onPress={() => router.push("/faturamento/criar-manual" as any)} />
-          <Action icon="mail-unread-outline" title="Fatura automática" description="Configurar o recebimento por e-mail" onPress={() => {
+          <Action icon="mail-unread-outline" title="Faturamento automático" description="Configurar o recebimento por e-mail" onPress={() => {
             const unidade = unidadesRecebimento[0];
-            if (!unidade?.id) return Alert.alert("Fatura automática", "Cadastre e vincule uma UC recebedora a uma usina antes de configurar o e-mail.");
+            if (!unidade?.id) return Alert.alert("Faturamento automático", "Cadastre e vincule uma UC recebedora a uma usina antes de configurar o e-mail.");
             router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidade.id, escopo: "usina" } });
           }} />
           <Action icon="receipt-outline" title="Faturas emitidas" description="Ver cobranças abertas, vencidas e pagas" onPress={() => router.push({ pathname: "/(tabs)/faturas", params: { origem: "faturamento" } })} />
