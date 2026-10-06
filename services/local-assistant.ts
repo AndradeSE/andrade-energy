@@ -4,6 +4,13 @@ export type LocalReply = { text: string; route?: "/tutoriais" | "/perfil" | "/fa
 export type LocalTopic = "faturas" | "contrato" | "atalhos" | "offline";
 const normalize = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[!?.,]/g, "").trim();
 
+export function asksLatestInvoiceAmount(input: string) {
+  const text = normalize(input);
+  return /\b(fatura|cobranca)\b/.test(text)
+    && /\b(ultima|ultimo|mais recente)\b/.test(text)
+    && /\b(valor|quanto|total|foi|deu)\b/.test(text);
+}
+
 export function answerLocally(input: string, scope: AssistantScope): LocalReply {
   const text = normalize(input);
   if (input.length > 1000) return { kind: "unknown", text: "Use uma pergunta ou comando curto." };

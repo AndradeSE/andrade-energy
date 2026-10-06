@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Redirect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,9 +7,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../contexts/AuthContext";
 import { isPreviewEnvironment } from "../config/environment";
 import { IS_GERADOR_APP } from "../config/appVariant";
-import { answerInConversation, LocalReply, LocalTopic } from "../services/local-assistant";
+import { answerInConversation, asksLatestInvoiceAmount, LocalReply, LocalTopic } from "../services/local-assistant";
+import { listarFaturas } from "../services/faturas.service";
+import { latestInvoiceAmountReply } from "../services/local-assistant-invoices";
 import { answerWithLocalModel, cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
-import { installVoiceModels, isVoiceInstalled, pauseContinuousListening, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
+import { finishDictation, installVoiceModels, isVoiceInstalled, pauseContinuousListening, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
 import * as Speech from "expo-speech";
 import { Colors } from "../theme";
 
@@ -18,7 +20,7 @@ type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["r
 export default function Assistente() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { authenticated } = useAuth();
+  const { authenticated, usuario, usinaSelecionada, unidadeSelecionada } = useAuth();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [topic, setTopic] = useState<LocalTopic>();
@@ -30,6 +32,8 @@ export default function Assistente() {
   const [voiceReady, setVoiceReady] = useState(isVoiceInstalled);
   const [listening, setListening] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState<string>();
+  const [voiceInstalling, setVoiceInstalling] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const voiceActive = useRef(false);
   const dictationActive = useRef(false);
@@ -81,9 +85,26 @@ export default function Assistente() {
     setMessages(nextMessages);
     try {
       let response: Message = { from: "assistant", text: reply.text, route: reply.route };
-      if (modelReady && reply.kind !== "navigate" && reply.kind !== "blocked") {
+      if (asksLatestInvoiceAmount(question)) {
+        try {
+          const invoices = usuario?.perfil === "LEITURA"
+            ? unidadeSelecionada?.numero
+              ? await listarFaturas(undefined, unidadeSelecionada.numero)
+              : (unidadeSelecionada?.cliente_id ?? usuario?.cliente_id)
+                ? await listarFaturas(unidadeSelecionada?.cliente_id ?? usuario?.cliente_id)
+                : []
+            : usinaSelecionada?.id
+              ? await listarFaturas(undefined, undefined, usinaSelecionada.id)
+              : [];
+          response = { from: "assistant", text: usuario?.perfil !== "LEITURA" && !usinaSelecionada?.id
+            ? "Selecione uma usina para consultar a última fatura da carteira."
+            : latestInvoiceAmountReply(invoices) };
+        } catch {
+          response = { from: "assistant", text: "Não consegui consultar as faturas agora. Verifique a conexão e tente novamente; não vou estimar um valor." };
+        }
+      } else if (modelReady && reply.kind === "unknown") {
         const history = nextMessages.slice(-8).map(message => ({ role: message.from, content: message.text }));
-        response = { from: "assistant", text: await answerWithLocalModel(history, reply.kind === "help" ? reply.text : undefined) };
+        response = { from: "assistant", text: await answerWithLocalModel(history) };
       }
       messagesRef.current = [...messagesRef.current, response].slice(-40);
       setMessages(messagesRef.current);
@@ -104,8 +125,14 @@ export default function Assistente() {
   }
 
   async function resumeVoice() {
-    try { await startContinuousListening(text => { void send(text); }, error => { setInstallStage(error); void toggleVoice(); }); }
-    catch (error) { voiceActive.current = false; setListening(false); setInstallStage(error instanceof Error ? error.message : "O microfone não iniciou."); }
+    try {
+      setVoiceStatus("Ouvindo sua pergunta…");
+      await startContinuousListening(text => { void send(text); }, error => { setVoiceStatus(error); void toggleVoice(); });
+    } catch (error) {
+      voiceActive.current = false;
+      setListening(false);
+      setVoiceStatus(error instanceof Error ? error.message : "O microfone não iniciou.");
+    }
   }
 
   async function toggleVoice() {
@@ -115,17 +142,18 @@ export default function Assistente() {
       setListening(false);
       Speech.stop();
       await stopContinuousListening();
+      setVoiceStatus(undefined);
       return;
     }
     if (!voiceReady) {
       setBusy(true);
-      try { await installVoiceModels((stage, progress) => setInstallStage(progress == null ? stage : `${stage}: ${Math.round(progress * 100)}%`)); setVoiceReady(true); }
-      catch (error) { setInstallStage(error instanceof Error ? error.message : "Não foi possível instalar a voz."); return; }
-      finally { setBusy(false); }
+      setVoiceInstalling(true);
+      try { await installVoiceModels((stage, progress) => setVoiceStatus(progress == null ? stage : `${stage}: ${Math.round(progress * 100)}%`)); setVoiceReady(true); }
+      catch (error) { setVoiceStatus(error instanceof Error ? error.message : "Não foi possível instalar a voz."); return; }
+      finally { setBusy(false); setVoiceInstalling(false); }
     }
     voiceActive.current = true;
     setListening(true);
-    setInstallStage(undefined);
     await resumeVoice();
   }
 
@@ -133,35 +161,39 @@ export default function Assistente() {
     if (dictationActive.current) {
       dictationActive.current = false;
       setTranscribing(false);
-      await stopContinuousListening();
+      setVoiceStatus("Finalizando transcrição…");
+      await finishDictation();
+      setVoiceStatus(undefined);
       return;
     }
     if (voiceActive.current || busy) return;
     setBusy(true);
+    setVoiceInstalling(true);
     try {
       if (!voiceReady) {
-        await installVoiceModels((stage, progress) => setInstallStage(progress == null ? stage : `${stage}: ${Math.round(progress * 100)}%`));
+        await installVoiceModels((stage, progress) => setVoiceStatus(progress == null ? stage : `${stage}: ${Math.round(progress * 100)}%`));
         setVoiceReady(true);
       }
       dictationActive.current = true;
       setTranscribing(true);
-      setInstallStage("Ouvindo… toque no microfone para parar e revise o texto antes de enviar.");
+      setVoiceStatus("Ouvindo… toque no microfone para terminar.");
       await startContinuousListening(
-        text => setInput(previous => `${previous.trim()} ${text}`.trim()),
+        text => { setInput(previous => `${previous.trim()} ${text}`.trim()); setVoiceStatus("Texto capturado. Continue falando ou toque para terminar."); },
         error => {
           dictationActive.current = false;
           setTranscribing(false);
-          setInstallStage(error);
+          setVoiceStatus(error);
           void stopContinuousListening();
         },
       );
     } catch (error) {
       dictationActive.current = false;
       setTranscribing(false);
-      setInstallStage(error instanceof Error ? error.message : "Não foi possível iniciar a transcrição.");
+      setVoiceStatus(error instanceof Error ? error.message : "Não foi possível iniciar a transcrição.");
       await stopContinuousListening();
     } finally {
       setBusy(false);
+      setVoiceInstalling(false);
     }
   }
 
@@ -184,11 +216,17 @@ export default function Assistente() {
         {message.route ? <Pressable accessibilityRole="button" onPress={() => router.push(message.route!)} style={styles.action}><Text style={styles.actionText}>Abrir seção</Text></Pressable> : null}
       </View>)}
     </ScrollView>
-    <View style={[styles.composer, { paddingBottom: keyboardVisible ? 12 : Math.max(insets.bottom, 12) }]}>
-      <Pressable onPress={() => void toggleVoice()} disabled={transcribing || (busy && !listening)} accessibilityRole="button" accessibilityLabel={listening ? "Parar conversa por voz" : "Iniciar conversa por voz"} style={[styles.send, listening && styles.voiceActive, transcribing && styles.disabled]}><Text style={styles.sendText}>{listening ? "Parar" : "Voz"}</Text></Pressable>
-      <Pressable onPress={() => void toggleDictation()} disabled={listening || (busy && !transcribing)} accessibilityRole="button" accessibilityLabel={transcribing ? "Parar transcrição" : "Transcrever fala"} style={[styles.mic, transcribing && styles.voiceActive, listening && styles.disabled]}><Ionicons name={transcribing ? "stop" : "mic"} size={21} color="white" /></Pressable>
-      <TextInput value={input} onChangeText={setInput} placeholder="Escreva sua pergunta" placeholderTextColor={Colors.subtitle} multiline maxLength={1000} accessibilityLabel="Sua pergunta" style={styles.input} />
-      <Pressable onPress={() => void send()} disabled={!input.trim() || busy || transcribing} accessibilityRole="button" accessibilityLabel="Enviar pergunta" style={[styles.send, (!input.trim() || busy || transcribing) && styles.disabled]}><Text style={styles.sendText}>{busy ? "…" : "Enviar"}</Text></Pressable>
+    <View style={[styles.composer, { paddingBottom: keyboardVisible ? 10 : Math.max(insets.bottom, 12) }]}>
+      {voiceStatus ? <View style={styles.voiceStatus}><Ionicons name={voiceInstalling ? "cloud-download-outline" : transcribing || listening ? "radio-outline" : "information-circle-outline"} size={17} color={Colors.primary} /><Text style={styles.voiceStatusText}>{voiceStatus}</Text></View> : null}
+      <View style={styles.inputPill}>
+        <TextInput value={input} onChangeText={setInput} placeholder="Pergunte qualquer coisa" placeholderTextColor={Colors.subtitle} multiline maxLength={1000} accessibilityLabel="Sua pergunta" style={styles.input} />
+        <Pressable onPress={() => { Keyboard.dismiss(); void toggleDictation(); }} disabled={listening || (busy && !transcribing)} accessibilityRole="button" accessibilityLabel={transcribing ? "Parar transcrição" : "Transcrever fala"} style={[styles.pillAction, transcribing && styles.voiceActive, listening && styles.disabled]}><Ionicons name={transcribing ? "stop" : "mic-outline"} size={22} color={transcribing ? "white" : Colors.primary} /></Pressable>
+        <Pressable onPress={() => void send()} disabled={!input.trim() || busy || transcribing} accessibilityRole="button" accessibilityLabel="Enviar pergunta" style={[styles.pillSend, (!input.trim() || busy || transcribing) && styles.disabled]}><Ionicons name="arrow-up" size={22} color="white" /></Pressable>
+      </View>
+      <Pressable onPress={() => { Keyboard.dismiss(); void toggleVoice(); }} disabled={transcribing || (busy && !listening)} accessibilityRole="button" accessibilityLabel={listening ? "Encerrar conversa por voz" : "Iniciar conversa por voz"} style={[styles.liveButton, listening && styles.voiceActive, transcribing && styles.disabled]}>
+        {voiceInstalling ? <ActivityIndicator size="small" color={Colors.primary} /> : <Ionicons name={listening ? "stop-circle-outline" : "radio-outline"} size={20} color={listening ? "white" : Colors.primary} />}
+        <Text style={[styles.liveText, listening && styles.liveTextActive]}>{listening ? "Encerrar conversa" : "Conversar por voz"}</Text>
+      </Pressable>
     </View>
   </KeyboardAvoidingView>;
 }
@@ -207,7 +245,15 @@ const styles = StyleSheet.create({
   progressFill: { height: "100%", backgroundColor: Colors.primary },
   cancelDownload: { alignSelf: "flex-start", marginTop: 12, paddingVertical: 6 },
   cancelDownloadText: { color: Colors.primary, fontWeight: "700" },
-  composer: { flexDirection: "row", alignItems: "flex-end", gap: 8, backgroundColor: Colors.surface, paddingHorizontal: 12, paddingTop: 10 }, input: { flex: 1, maxHeight: 120, minHeight: 48, borderWidth: 1, borderColor: Colors.border, borderRadius: 16, padding: 12, color: Colors.text },
-  send: { minHeight: 48, justifyContent: "center", paddingHorizontal: 14, backgroundColor: Colors.primary, borderRadius: 14 }, voiceActive: { backgroundColor: "#A33131" }, disabled: { opacity: 0.45 }, sendText: { color: "white", fontWeight: "700" },
-  mic: { minHeight: 48, width: 48, alignItems: "center", justifyContent: "center", backgroundColor: Colors.primary, borderRadius: 14 },
+  composer: { gap: 8, backgroundColor: Colors.surface, paddingHorizontal: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: Colors.border },
+  voiceStatus: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 9, paddingVertical: 5 },
+  voiceStatusText: { flex: 1, color: Colors.subtitle, fontSize: 12, lineHeight: 17 },
+  inputPill: { minHeight: 56, flexDirection: "row", alignItems: "flex-end", gap: 4, paddingHorizontal: 6, paddingVertical: 5, borderWidth: 1, borderColor: Colors.border, borderRadius: 28, backgroundColor: Colors.background },
+  input: { flex: 1, maxHeight: 120, minHeight: 44, paddingHorizontal: 12, paddingVertical: 11, color: Colors.text, fontSize: 15 },
+  pillAction: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 22 },
+  pillSend: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 22, backgroundColor: Colors.primary },
+  liveButton: { alignSelf: "flex-start", minHeight: 36, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 13, borderRadius: 18, backgroundColor: Colors.primaryLight },
+  liveText: { color: Colors.primary, fontSize: 13, fontWeight: "700" },
+  liveTextActive: { color: "white" },
+  voiceActive: { backgroundColor: "#A33131" }, disabled: { opacity: 0.45 },
 });
