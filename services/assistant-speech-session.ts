@@ -70,6 +70,12 @@ export async function startAssistantSpeech(onFinal: (text: string) => void, onEr
       options?.onReady?.();
     } catch (error) { fail(error instanceof Error ? error.message : "O reconhecimento local não iniciou."); }
   };
+  // Neste aparelho o motor Android reinicia sem confirmar captura. A frase-chave
+  // usa primeiro os modelos locais já presentes, sem enviar áudio ou baixar nada.
+  if (options?.owner?.startsWith("wake-") && isVoiceInstalled()) {
+    await fallback("Ativação local");
+    return valid();
+  }
   try {
     engine = "native";
     deadline = setTimeout(() => { if (!ready) void fallback("O reconhecedor Android não ficou pronto."); }, 3500);
