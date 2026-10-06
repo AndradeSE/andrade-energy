@@ -19,4 +19,4 @@ if ($LASTEXITCODE -ne 0) { throw 'Prebuild failed' }
 & .\android\gradlew.bat -p android -I ../scripts/android-variant-inputs.gradle -I ../scripts/android-local-signing.gradle :app:assembleRelease '-Dorg.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=1024m' --max-workers=2 --no-parallel --no-daemon
 if ($LASTEXITCODE -ne 0) { throw 'Android build failed' }
 New-Item -ItemType Directory -Path output/apk-native-speech -Force | Out-Null
-Copy-Item -LiteralPath android/app/build/outputs/apk/release/app-release.apk -Destination "output/apk-native-speech/andrade-energy-$Variant-preview-r20261006.7.apk"
+Copy-Item -LiteralPath android/app/build/outputs/apk/release/app-release.apk -Destination "output/apk-native-speech/andrade-energy-$Variant-preview-r20261006.8.apk"
