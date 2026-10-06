@@ -25,6 +25,7 @@ import { finishNativePortugueseSpeech, nativePortugueseSpeechAvailable, startNat
 import { Colors } from "../theme";
 import { buscarDashboardUsina } from "../services/usinas.service";
 import { detectProductionMetric, productionMetricReply } from "../services/assistant-production";
+import { detectAccountQuery, consultAccount } from "../services/assistant-account";
 
 type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string; invoiceChoices?: Array<{ id: string; label: string }>; private?: boolean; voiceAnswerId?: string };
 
@@ -142,7 +143,7 @@ export default function Assistente() {
     }, topicRef.current);
     setInput("");
     setBusy(true);
-    const privateTurn = wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion) || Boolean(detectFinancialMetric(interpretedQuestion)) || Boolean(detectProductionMetric(interpretedQuestion));
+    const privateTurn = wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion) || Boolean(detectFinancialMetric(interpretedQuestion)) || Boolean(detectProductionMetric(interpretedQuestion)) || Boolean(detectAccountQuery(interpretedQuestion));
     const userMessage: Message = { from: "user", text: question, private: privateTurn };
     const nextMessages = [...messagesRef.current, userMessage].slice(-39);
     messagesRef.current = nextMessages;
@@ -211,6 +212,12 @@ export default function Assistente() {
           } catch {
             response = { from: "assistant", text: "Não consegui consultar o resumo financeiro agora. Verifique a conexão e tente novamente; não vou estimar valores." };
           }
+        }
+      } else if (detectAccountQuery(interpretedQuestion)) {
+        try {
+          response = { from: "assistant", text: await consultAccount(detectAccountQuery(interpretedQuestion)!, IS_GERADOR_APP, usinaSelecionada?.id) };
+        } catch {
+          response = { from: "assistant", text: "Não consegui consultar esses registros agora com seu acesso. Tente novamente; não vou inventar dados nem contornar suas permissões." };
         }
       } else if (reply.kind === "help" || reply.kind === "unknown") {
         response = { from: "assistant", ...await answerConversationOnline(question, nextMessages.slice(0, -1)) };

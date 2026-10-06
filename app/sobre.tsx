@@ -151,16 +151,24 @@ const atualizacaoVozPublicaAnterior = {
     "Dados privados continuam no aparelho; respostas válidas longas deixam de virar erro de conexão.",
   ],
 };
-const atualizacaoAtual = previewApp ? {
+const atualizacaoConsultasAnterior = {
   numero: "1.0.0-r20261006.11", data: "06/10/2026",
   melhorias: [
     "Assistente consulta produção, energia disponível, acumulado e ocupação da usina selecionada.",
     "PDFs de faturas podem ser pedidos por competência e abertos diretamente no chat.",
     "Pedidos com várias faturas mostram documentos para escolher; dados privados não entram no histórico online.",
   ],
+};
+const atualizacaoAtual = previewApp ? {
+  numero: "1.0.0-r20261006.12", data: "06/10/2026",
+  melhorias: [
+    "Consultas autenticadas de clientes, usinas, UCs, registros de contratos e notificações no assistente.",
+    "Produção, financeiro e PDFs de faturas disponíveis no chat, respeitando a carteira selecionada e as permissões.",
+    "Dados privados não são enviados ao Gemini; operações de alteração continuam nas telas de confirmação do aplicativo.",
+  ],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
-  ...(previewApp ? [atualizacaoVozPublicaAnterior, atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
+  ...(previewApp ? [atualizacaoConsultasAnterior, atualizacaoVozPublicaAnterior, atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
   ...(geradorPreview ? [atualizacaoVozAnterior] : []),
   ...(geradorPreview ? [atualizacaoConversaContinua, atualizacaoVozNatural, atualizacaoFaturamentoAutomatico, atualizacaoAtalhosFaturamento, atualizacaoChat, atualizacaoVozPdf, atualizacaoSolEletrico, atualizacaoAssistente, atualizacaoTutoriais] : []),
   atualizacaoSelecaoUsina,
@@ -189,7 +197,7 @@ const historico = IS_GERADOR_APP ? [
     "Ícones e identificação separados para os aplicativos Preview e produção.",
   ] },
 ] : [
-  ...(previewApp ? [atualizacaoVozPublicaAnterior, atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
+  ...(previewApp ? [atualizacaoConsultasAnterior, atualizacaoVozPublicaAnterior, atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
   atualizacaoSetasAnterior,
   atualizacaoTutoriaisAnterior,
   atualizacaoNotificacoes,
