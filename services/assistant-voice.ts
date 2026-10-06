@@ -8,7 +8,7 @@ import { choosePortugueseVoices } from "./assistant-voice-selection";
 let preferredVoice: string | undefined;
 let fallbackVoice: string | undefined;
 let voicesChecked = false;
-let onlineUnavailable = false;
+let onlineUnavailableUntil = 0;
 let activePlayer: ReturnType<typeof createAudioPlayer> | undefined;
 let activeFile: string | undefined;
 let voiceGeneration = 0;
@@ -26,12 +26,17 @@ export async function speakSafeOnlineOrLocal(lineId: "welcome" | "retry", localT
   const generation = voiceGeneration;
   // Desligado por padrão: só pode ser ativado no Preview depois de configurar
   // GEMINI_TTS_API_KEY no backend de homologação e verificar o limite gratuito.
-  if (!isPreviewEnvironment || process.env.EXPO_PUBLIC_ENABLE_SAFE_ONLINE_VOICE !== "1" || onlineUnavailable || !FileSystem.cacheDirectory) {
+  if (!isPreviewEnvironment || process.env.EXPO_PUBLIC_ENABLE_SAFE_ONLINE_VOICE !== "1" || !FileSystem.cacheDirectory) {
+    speakAssistantReply(localText, onDone);
+    return;
+  }
+  if (Date.now() < onlineUnavailableUntil) {
+    onFallback?.();
     speakAssistantReply(localText, onDone);
     return;
   }
   try {
-    const response = await api.post<{ audio: string; mimeType: string }>("/assistente/voz", { lineId }, { timeout: 9000 });
+    const response = await api.post<{ audio: string; mimeType: string }>("/assistente/voz", { lineId }, { timeout: 16_000 });
     if (generation !== voiceGeneration) return;
     if (response.data.mimeType !== "audio/wav" || !response.data.audio) throw new Error("Áudio inválido");
     const file = `${FileSystem.cacheDirectory}andrade-voice-${Date.now()}.wav`;
@@ -56,7 +61,9 @@ export async function speakSafeOnlineOrLocal(lineId: "welcome" | "retry", localT
     player.play();
   } catch {
     if (generation !== voiceGeneration) return;
-    onlineUnavailable = true;
+    // Falha temporária: tente novamente em outra interação, sem travar na voz
+    // sintética até o próximo reinício do aplicativo.
+    onlineUnavailableUntil = Date.now() + 30_000;
     stopAssistantVoice();
     onFallback?.();
     speakAssistantReply(localText, onDone);

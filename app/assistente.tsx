@@ -185,10 +185,9 @@ export default function Assistente() {
             response = { from: "assistant", text: "Não consegui consultar o resumo financeiro agora. Verifique a conexão e tente novamente; não vou estimar valores." };
           }
         }
-      } else if (shouldUseConversationalModel(reply.kind, voiceActive.current, modelReady, interpretedQuestion.split(/\s+/).length)) {
+      } else if (reply.kind !== "help" && shouldUseConversationalModel(reply.kind, voiceActive.current, modelReady, interpretedQuestion.split(/\s+/).length)) {
         const history = nextMessages.slice(-8).map(message => ({ role: message.from, content: message.text }));
-        const verifiedAnswer = reply.kind === "help" ? ` Para esta pergunta, a informação verificada é: ${reply.text} Responda de modo natural, sem mudar esses fatos.` : "";
-        response = { from: "assistant", text: await answerWithLocalModel(history, VERIFIED_APP_CONTEXT + verifiedAnswer, voiceActive.current) };
+        response = { from: "assistant", text: await answerWithLocalModel(history, VERIFIED_APP_CONTEXT, voiceActive.current) };
       }
       messagesRef.current = [...messagesRef.current, response].slice(-40);
       setMessages(messagesRef.current);

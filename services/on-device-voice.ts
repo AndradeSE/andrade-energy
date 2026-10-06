@@ -98,13 +98,13 @@ export async function prepareVoiceRecognition() {
     const vad = await initWhisperVad({ filePath: new File(VOICE_DIR, VAD_MODEL.name).uri, useGpu: false });
     const transcriber = new RealtimeTranscriber(
       { whisperContext: whisper, vadContext: new RingBufferVad(vad), audioStream: new AudioPcmStreamAdapter() },
-      { audioSliceSec: 8, audioMinSec: 0.6, maxSlicesInMemory: 3, transcribeOptions: { language: "pt" } },
+      { audioSliceSec: 8, audioMinSec: 0.6, maxSlicesInMemory: 3, realtimeProcessingPauseMs: 1600, initRealtimeAfterMs: 900, transcribeOptions: { language: "pt" } },
       {},
     );
     // Ditado por botão não depende do VAD: falas curtas podem não atingir o limiar de voz.
     const dictationTranscriber = new RealtimeTranscriber(
       { whisperContext: whisper, audioStream: new AudioPcmStreamAdapter() },
-      { audioSliceSec: 30, audioMinSec: 0.4, maxSlicesInMemory: 2, transcribeOptions: { language: "pt" } },
+      { audioSliceSec: 30, audioMinSec: 0.4, maxSlicesInMemory: 2, realtimeProcessingPauseMs: 60_000, initRealtimeAfterMs: 60_000, transcribeOptions: { language: "pt" } },
       {},
     );
     return { transcriber, dictationTranscriber, whisper, vad };
@@ -144,7 +144,9 @@ export async function startContinuousListening(onSpeech: (text: string) => void,
       if (!autoSubmit) { lastDictationCandidate = candidate; return; }
       if (submitted) return;
       clearPendingSpeech();
-      pendingSpeechTimer = setTimeout(() => emit(candidate), 1200);
+      // Não envie uma hipótese parcial cedo demais. O resultado final do VAD
+      // tem prioridade; a hipótese serve apenas se ele não vier.
+      pendingSpeechTimer = setTimeout(() => emit(candidate), 2400);
     },
     onError,
     onVad: (event: { type: string }) => {
