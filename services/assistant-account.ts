@@ -24,7 +24,7 @@ export async function consultAccount(topic: NonNullable<ReturnType<typeof detect
     : topic === "contratos" ? generator ? await listarContratosDaEmpresa(plantId) : await listarAcessoContratos()
     : await listarNotificacoesApp();
   if (!Array.isArray(result)) throw new Error("Resposta de consulta inválida");
-  const labels: Record<string, string> = { clientes: "clientes", usinas: "usinas", unidades: "UCs", contratos: "registros de contrato", notificacoes: "notificações" };
+  const labels: Record<string, string> = { clientes: "clientes", usinas: "usinas", unidades: "UCs", contratos: generator ? "registros de contrato" : "UCs com acesso contratual", notificacoes: "notificações" };
   const rows = result.slice(0, 12).map(item => {
     const label = item.titulo ?? item.nome ?? item.apelido ?? item.numero ?? item.numero_instalacao ?? item.cliente_nome ?? "Registro disponível";
     const status = typeof item.status === "string" ? ` · ${item.status}` : "";
