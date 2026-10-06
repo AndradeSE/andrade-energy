@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { File, Paths } from "expo-file-system";
 import * as FileSystemLegacy from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
@@ -17,7 +17,7 @@ import { asksLatestInvoiceDocument, latestInvoiceAmountReply, latestIssuedInvoic
 import { detectFinancialMetric, financialMetricReply } from "../services/assistant-financial";
 import { carregarFinanceiro } from "../services/financeiro.service";
 import { answerWithLocalModel, cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
-import { finishDictation, installVoiceModels, isVoiceInstalled, pauseContinuousListening, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
+import { finishDictation, installVoiceModels, isVoiceInstalled, pauseContinuousListening, prepareVoiceRecognition, releaseVoiceRecognition, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
 import * as Speech from "expo-speech";
 import { prepareAssistantVoice, speakAssistantReply } from "../services/assistant-voice";
 import { Colors } from "../theme";
@@ -38,6 +38,8 @@ export default function Assistente() {
   const [downloadingModel, setDownloadingModel] = useState(false);
   const [voiceReady, setVoiceReady] = useState(isVoiceInstalled);
   const [listening, setListening] = useState(false);
+  const [hearingSpeech, setHearingSpeech] = useState(false);
+  const [speakingReply, setSpeakingReply] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState<string>();
   const [voiceInstalling, setVoiceInstalling] = useState(false);
@@ -53,7 +55,21 @@ export default function Assistente() {
   const messagesRef = useRef<Message[]>([]);
   const topicRef = useRef<LocalTopic | undefined>(undefined);
   const scrollRef = useRef<ScrollView>(null);
-  useEffect(() => () => { voiceActive.current = false; dictationActive.current = false; Speech.stop(); void stopContinuousListening(); void releaseLocalModel(); }, []);
+  const wave = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
+  useEffect(() => () => { voiceActive.current = false; dictationActive.current = false; Speech.stop(); void releaseVoiceRecognition(); void releaseLocalModel(); }, []);
+  useEffect(() => { if (voiceReady) void prepareVoiceRecognition().catch(() => undefined); }, [voiceReady]);
+  useEffect(() => {
+    if (!listening || (!hearingSpeech && !speakingReply)) {
+      wave.forEach(value => value.setValue(0));
+      return;
+    }
+    const animations = wave.map((value, index) => Animated.loop(Animated.sequence([
+      Animated.timing(value, { toValue: 1, duration: 170 + index * 45, useNativeDriver: true }),
+      Animated.timing(value, { toValue: 0, duration: 220 + index * 35, useNativeDriver: true }),
+    ])));
+    animations.forEach(animation => animation.start());
+    return () => animations.forEach(animation => animation.stop());
+  }, [listening, hearingSpeech, speakingReply, wave]);
   useEffect(() => {
     const show = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
     const hide = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));
@@ -129,6 +145,7 @@ export default function Assistente() {
     try {
       if (voiceActive.current) {
         setVoiceStatus("Processando sua pergunta…");
+        setHearingSpeech(false);
         await pauseContinuousListening();
       }
       let response: Message = { from: "assistant", text: reply.text, route: reply.route };
@@ -180,7 +197,8 @@ export default function Assistente() {
       setTopic(nextTopic);
       if (voiceActive.current) {
         setVoiceStatus("Falando com você… depois volto a ouvir.");
-        speakAssistantReply(response.text, () => { if (voiceActive.current) void resumeVoice(); });
+        setSpeakingReply(true);
+        speakAssistantReply(response.text, () => { setSpeakingReply(false); if (voiceActive.current) void resumeVoice(); });
       }
     } catch {
       const fallback: Message = { from: "assistant", text: reply.kind === "help" ? reply.text : "Não consegui responder com segurança. Pode fazer a pergunta de outra forma?" };
@@ -188,7 +206,8 @@ export default function Assistente() {
       setMessages(messagesRef.current);
       if (voiceActive.current) {
         setVoiceStatus("Não consegui processar esta resposta. Vou ouvir sua próxima pergunta.");
-        speakAssistantReply(fallback.text, () => { if (voiceActive.current) void resumeVoice(); });
+        setSpeakingReply(true);
+        speakAssistantReply(fallback.text, () => { setSpeakingReply(false); if (voiceActive.current) void resumeVoice(); });
       }
     } finally {
       busyRef.current = false;
@@ -204,7 +223,7 @@ export default function Assistente() {
         setListening(false);
         setVoiceStatus(error);
         void stopContinuousListening();
-      }, true);
+      }, true, setHearingSpeech);
     } catch (error) {
       voiceActive.current = false;
       setListening(false);
@@ -217,6 +236,8 @@ export default function Assistente() {
     if (voiceActive.current) {
       voiceActive.current = false;
       setListening(false);
+      setHearingSpeech(false);
+      setSpeakingReply(false);
       Speech.stop();
       await stopContinuousListening();
       setVoiceStatus(undefined);
@@ -232,7 +253,13 @@ export default function Assistente() {
     voiceActive.current = true;
     setListening(true);
     await prepareAssistantVoice();
-    await resumeVoice();
+    const firstName = usuario?.nome?.trim().split(/\s+/)[0];
+    setVoiceStatus("Falando com você…");
+    setSpeakingReply(true);
+    speakAssistantReply(firstName ? `Olá, ${firstName}! Como posso ajudar?` : "Olá! Como posso ajudar?", () => {
+      setSpeakingReply(false);
+      if (voiceActive.current) void resumeVoice();
+    });
   }
 
   async function endDictation() {
@@ -242,8 +269,8 @@ export default function Assistente() {
     setTranscribing(false);
     setVoiceStatus("Transcrevendo sua fala…");
     try {
-      await finishDictation();
-      const spoken = dictatedText.current.trim();
+      const finalTranscription = await finishDictation();
+      const spoken = (dictatedText.current || finalTranscription).trim();
       dictatedText.current = "";
       if (spoken) {
         setVoiceStatus("Enviando sua pergunta…");
@@ -323,7 +350,7 @@ export default function Assistente() {
           ? <Pressable onPress={() => void send()} disabled={busy} accessibilityRole="button" accessibilityLabel="Enviar pergunta" style={[styles.pillSend, busy && styles.disabled]}><Ionicons name="arrow-up" size={22} color="white" /></Pressable>
           : <Pressable onPressIn={() => { Keyboard.dismiss(); void beginDictation(); }} onPressOut={() => { void endDictation(); }} disabled={listening || (busy && !dictationStarting.current && !transcribing)} accessibilityRole="button" accessibilityLabel="Segure para falar e solte para enviar" style={[styles.pillAction, transcribing && styles.voiceActive, listening && styles.disabled]}><Ionicons name="mic-outline" size={22} color={transcribing ? "white" : Colors.text} /></Pressable>}
         <Pressable onPress={() => { Keyboard.dismiss(); void toggleVoice(); }} disabled={transcribing || (busy && !listening)} accessibilityRole="button" accessibilityLabel={listening ? "Encerrar conversa por voz" : "Iniciar conversa por voz"} style={[styles.pillAction, listening && styles.voiceActive, transcribing && styles.disabled]}>
-          {voiceInstalling ? <ActivityIndicator size="small" color={Colors.primary} /> : listening ? <Ionicons name="stop" size={20} color="white" /> : <View style={styles.waveform}><View style={[styles.waveBar, { height: 7 }]} /><View style={[styles.waveBar, { height: 16 }]} /><View style={[styles.waveBar, { height: 10 }]} /><View style={[styles.waveBar, { height: 5 }]} /></View>}
+          {voiceInstalling ? <ActivityIndicator size="small" color={Colors.primary} /> : <View style={styles.waveform}>{[7, 16, 10, 5].map((height, index) => <Animated.View key={index} style={[styles.waveBar, { height, backgroundColor: listening ? "white" : Colors.text, transform: [{ scaleY: wave[index].interpolate({ inputRange: [0, 1], outputRange: [1, 1.8] }) }] }]} />)}</View>}
         </Pressable>
       </View>
     </View>

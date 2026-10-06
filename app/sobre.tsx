@@ -105,12 +105,20 @@ const atualizacaoVozNatural = {
     "Ajuda reconhece pequenos erros de digitação em termos do app e pede esclarecimento quando a pergunta fica ambígua.",
   ],
 };
-const atualizacaoAtual = geradorPreview ? {
+const atualizacaoConversaContinua = {
   numero: "1.0.0-r20261006.5", data: "06/10/2026",
   melhorias: ["Conversa por voz usa o modelo local nas perguntas comuns, responde falando e volta a ouvir automaticamente; dados financeiros seguem consulta autenticada."],
+};
+const atualizacaoAtual = geradorPreview ? {
+  numero: "1.0.0-r20261006.6", data: "06/10/2026",
+  melhorias: [
+    "Voz pt-BR de maior qualidade priorizada quando disponível no aparelho, com alternativa local.",
+    "Conversa inicia com saudação pelo primeiro nome e ondas animadas durante fala e resposta.",
+    "Ditado aguarda a transcrição final ao soltar o microfone e prepara o reconhecimento ao abrir a ajuda.",
+  ],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
-  ...(geradorPreview ? [atualizacaoVozNatural, atualizacaoFaturamentoAutomatico, atualizacaoAtalhosFaturamento, atualizacaoChat, atualizacaoVozPdf, atualizacaoSolEletrico, atualizacaoAssistente, atualizacaoTutoriais] : []),
+  ...(geradorPreview ? [atualizacaoConversaContinua, atualizacaoVozNatural, atualizacaoFaturamentoAutomatico, atualizacaoAtalhosFaturamento, atualizacaoChat, atualizacaoVozPdf, atualizacaoSolEletrico, atualizacaoAssistente, atualizacaoTutoriais] : []),
   atualizacaoSelecaoUsina,
   atualizacaoTutoriaisFluidos,
   atualizacaoCarregamentoPreview,
