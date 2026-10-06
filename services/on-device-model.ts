@@ -13,6 +13,22 @@ const MIN_MODEL_BYTES = 400_000_000;
 const MODEL_DIR = new Directory(Paths.document, "assistente-local");
 let activeDownload: ReturnType<typeof createDownloadResumable> | null = null;
 let cancelRequested = false;
+type InstallPhase = "parado" | "conectando" | "baixando" | "verificando" | "pronto" | "erro";
+export type ModelInstallState = { phase: InstallPhase; progress: number | null; downloadedBytes: number; message?: string; active: boolean };
+let installState: ModelInstallState = { phase: "parado", progress: null, downloadedBytes: 0, active: false };
+let activeInstall: Promise<void> | null = null;
+const installListeners = new Set<(state: ModelInstallState) => void>();
+
+function reportInstall(phase: InstallPhase, progress: number | null = null, downloadedBytes = 0, message?: string) {
+  installState = { phase, progress, downloadedBytes, message, active: phase === "conectando" || phase === "baixando" || phase === "verificando" };
+  installListeners.forEach(listener => listener(installState));
+}
+
+export function subscribeModelInstall(listener: (state: ModelInstallState) => void) {
+  installListeners.add(listener);
+  listener(installState);
+  return () => { installListeners.delete(listener); };
+}
 
 type ChatTurn = { role: "user" | "assistant"; content: string };
 type LlamaContext = Awaited<ReturnType<typeof import("llama.rn")["initLlama"]>>;
@@ -32,19 +48,15 @@ export async function verifyLocalFileSha256(file: File, expectedHash: string, mi
   const hash = sha256.create();
   const handle = file.open();
   let reportedPercent = -1;
-  let chunksSinceYield = 0;
   try {
     const size = handle.size;
     if (!size) throw new Error("Arquivo do modelo vazio.");
     while ((handle.offset ?? 0) < size) {
-      const chunk = handle.readBytes(Math.min(262_144, size - (handle.offset ?? 0)));
+      const chunk = handle.readBytes(Math.min(131_072, size - (handle.offset ?? 0)));
       if (chunk.length === 0) throw new Error("Leitura incompleta do modelo.");
       hash.update(chunk);
-      // A leitura e o hash são síncronos; ceda tempo à UI durante arquivos grandes.
-      if (++chunksSinceYield >= 8) {
-        chunksSinceYield = 0;
-        await new Promise<void>(resolve => setTimeout(resolve, 0));
-      }
+      // Ceda a thread após cada bloco: o hash em JS não pode travar a navegação.
+      await new Promise<void>(resolve => setTimeout(resolve, 0));
       const percent = Math.floor(((handle.offset ?? 0) / size) * 100);
       if (percent !== reportedPercent) {
         reportedPercent = percent;
@@ -65,7 +77,7 @@ export async function cancelModelDownload() {
   }
 }
 
-export async function installLocalModel(onProgress?: (stage: "conectando" | "baixando" | "verificando", progress?: number, downloadedBytes?: number) => void) {
+async function performInstallLocalModel() {
   if (isModelInstalled()) return;
   if (Paths.availableDiskSpace < 1_200_000_000) throw new Error("Libere pelo menos 1,2 GB de espaço para instalar o modelo.");
   cancelRequested = false;
@@ -73,44 +85,64 @@ export async function installLocalModel(onProgress?: (stage: "conectando" | "bai
   const temporary = new File(MODEL_DIR, `${MODEL_NAME}.download`);
   const marker = markerFile();
   try {
-    if (temporary.exists) temporary.delete();
-    onProgress?.("conectando", 0);
+    const prontoParaVerificar = temporary.exists && temporary.size === MODEL_BYTES;
+    if (temporary.exists && !prontoParaVerificar) temporary.delete();
+    reportInstall(prontoParaVerificar ? "verificando" : "conectando", 0);
     await new Promise<void>(resolve => setTimeout(resolve, 50));
     if (cancelRequested) throw new Error("Download cancelado.");
-    let lastReportAt = 0;
-    let lastReportedPercent = -1;
-    const download = createDownloadResumable(MODEL_URL, temporary.uri, {}, ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
-      if (cancelRequested) return;
-      const progress = Math.min(1, totalBytesWritten / (totalBytesExpectedToWrite > 0 ? totalBytesExpectedToWrite : MODEL_BYTES));
-      const percent = Math.floor(progress * 100);
-      const now = Date.now();
-      if (percent !== lastReportedPercent && (lastReportedPercent < 0 || now - lastReportAt >= 250 || percent === 100)) {
-        lastReportedPercent = percent;
-        lastReportAt = now;
-        onProgress?.("baixando", progress, totalBytesWritten);
-      }
-    });
-    activeDownload = download;
-    if (cancelRequested) throw new Error("Download cancelado.");
-    const result = await download.downloadAsync();
-    activeDownload = null;
-    if (cancelRequested) throw new Error("Download cancelado.");
-    if (!result || result.status < 200 || result.status >= 300) throw new Error("Não foi possível baixar o modelo local.");
-    onProgress?.("baixando", 1);
-    onProgress?.("verificando", 0);
-    await verifyLocalFileSha256(temporary, MODEL_SHA256, MIN_MODEL_BYTES, progress => onProgress?.("verificando", progress));
+    if (!prontoParaVerificar) {
+      let lastReportAt = 0;
+      let lastReportedPercent = -1;
+      const download = createDownloadResumable(MODEL_URL, temporary.uri, {}, ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
+        if (cancelRequested) return;
+        const progress = Math.min(1, totalBytesWritten / (totalBytesExpectedToWrite > 0 ? totalBytesExpectedToWrite : MODEL_BYTES));
+        const percent = Math.floor(progress * 100);
+        const now = Date.now();
+        if (percent !== lastReportedPercent && (lastReportedPercent < 0 || now - lastReportAt >= 250 || percent === 100)) {
+          lastReportedPercent = percent;
+          lastReportAt = now;
+          reportInstall("baixando", progress, totalBytesWritten);
+        }
+      });
+      activeDownload = download;
+      if (cancelRequested) throw new Error("Download cancelado.");
+      const result = await download.downloadAsync();
+      activeDownload = null;
+      if (cancelRequested) throw new Error("Download cancelado.");
+      if (!result || result.status < 200 || result.status >= 300) throw new Error("Não foi possível baixar o modelo local.");
+      reportInstall("verificando", 0, temporary.size);
+    }
+    try {
+      await verifyLocalFileSha256(temporary, MODEL_SHA256, MIN_MODEL_BYTES, progress => reportInstall("verificando", progress, temporary.size));
+    } catch (error) {
+      if (temporary.exists) temporary.delete();
+      throw error;
+    }
     const previous = modelFile();
     if (previous.exists) previous.delete();
     if (marker.exists) marker.delete();
     temporary.move(previous);
     marker.write(MODEL_SHA256);
   } catch (error) {
-    if (temporary.exists) temporary.delete();
+    // Preserve o download completo quando a verificação é interrompida.
+    if (temporary.exists && temporary.size !== MODEL_BYTES) temporary.delete();
     throw cancelRequested ? new Error("Download cancelado.") : error;
   } finally {
     activeDownload = null;
     cancelRequested = false;
   }
+}
+
+export function installLocalModel(): Promise<void> {
+  if (activeInstall) return activeInstall;
+  activeInstall = performInstallLocalModel()
+    .then(() => { reportInstall("pronto", 1, MODEL_BYTES); })
+    .catch((error: unknown) => {
+      reportInstall("erro", null, 0, error instanceof Error ? error.message : "Não foi possível instalar o modelo.");
+      throw error;
+    })
+    .finally(() => { activeInstall = null; });
+  return activeInstall;
 }
 
 export async function answerWithLocalModel(turns: ChatTurn[], validatedContext?: string) {

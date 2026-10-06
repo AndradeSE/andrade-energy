@@ -7,7 +7,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { isPreviewEnvironment } from "../config/environment";
 import { IS_GERADOR_APP } from "../config/appVariant";
 import { answerInConversation, LocalReply, LocalTopic } from "../services/local-assistant";
-import { answerWithLocalModel, cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel } from "../services/on-device-model";
+import { answerWithLocalModel, cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
 import { installVoiceModels, isVoiceInstalled, pauseContinuousListening, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
 import * as Speech from "expo-speech";
 import { Colors } from "../theme";
@@ -33,6 +33,24 @@ export default function Assistente() {
   const messagesRef = useRef<Message[]>([]);
   const topicRef = useRef<LocalTopic | undefined>(undefined);
   useEffect(() => () => { voiceActive.current = false; Speech.stop(); void stopContinuousListening(); void releaseLocalModel(); }, []);
+  useEffect(() => subscribeModelInstall(state => {
+    setDownloadingModel(state.phase === "conectando" || state.phase === "baixando");
+    setInstallProgress(state.progress);
+    if (state.phase === "pronto") {
+      setModelReady(true);
+      setInstallStage(undefined);
+    } else if (state.phase === "erro") {
+      setInstallStage(state.message ?? "Não foi possível instalar o modelo.");
+    } else if (state.phase === "conectando") {
+      setInstallStage("Conectando ao servidor do modelo…");
+    } else if (state.phase === "baixando") {
+      const baixados = state.downloadedBytes ? ` · ${(state.downloadedBytes / 1_000_000).toFixed(1)} MB` : "";
+      setInstallStage(`Baixando modelo: ${Math.round((state.progress ?? 0) * 100)}%${baixados}`);
+    } else if (state.phase === "verificando") {
+      setInstallStage(`Verificando modelo: ${Math.round((state.progress ?? 0) * 100)}%`);
+    }
+    setBusy(state.active);
+  }), []);
 
   if (!isPreviewEnvironment || !authenticated) return <Redirect href="/" />;
 
@@ -102,29 +120,7 @@ export default function Assistente() {
 
   async function install() {
     if (busy) return;
-    setBusy(true);
-    setDownloadingModel(true);
-    setInstallStage("Conectando ao servidor do modelo…");
-    setInstallProgress(0);
-    try {
-      await installLocalModel((stage, progress, downloadedBytes) => {
-        setDownloadingModel(stage !== "verificando");
-        setInstallProgress(progress ?? null);
-        const baixados = downloadedBytes ? ` · ${(downloadedBytes / 1_000_000).toFixed(1)} MB` : "";
-        setInstallStage(stage === "conectando" ? "Conectando ao servidor do modelo…" : stage === "baixando"
-          ? progress == null ? `Baixando modelo${baixados}…` : `Baixando modelo: ${Math.round(progress * 100)}%${baixados}`
-          : `Verificando modelo: ${Math.round((progress ?? 0) * 100)}%`);
-      });
-      setModelReady(true);
-      setInstallStage(undefined);
-      setInstallProgress(null);
-    } catch (error) {
-      setInstallStage(error instanceof Error ? error.message : "Não foi possível instalar o modelo.");
-      setInstallProgress(null);
-    } finally {
-      setDownloadingModel(false);
-      setBusy(false);
-    }
+    try { await installLocalModel(); } catch { /* O estado global exibe o erro. */ }
   }
 
   return <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
