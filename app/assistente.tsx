@@ -10,6 +10,8 @@ import { IS_GERADOR_APP } from "../config/appVariant";
 import { answerInConversation, asksLatestInvoiceAmount, LocalReply, LocalTopic, VERIFIED_APP_CONTEXT } from "../services/local-assistant";
 import { listarFaturas } from "../services/faturas.service";
 import { latestInvoiceAmountReply } from "../services/local-assistant-invoices";
+import { detectFinancialMetric, financialMetricReply } from "../services/assistant-financial";
+import { carregarFinanceiro } from "../services/financeiro.service";
 import { answerWithLocalModel, cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
 import { finishDictation, installVoiceModels, isVoiceInstalled, pauseContinuousListening, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
 import * as Speech from "expo-speech";
@@ -106,6 +108,17 @@ export default function Assistente() {
             : latestInvoiceAmountReply(invoices) };
         } catch {
           response = { from: "assistant", text: "Não consegui consultar as faturas agora. Verifique a conexão e tente novamente; não vou estimar um valor." };
+        }
+      } else if (IS_GERADOR_APP && detectFinancialMetric(question)) {
+        const metric = detectFinancialMetric(question)!;
+        if (!usinaSelecionada?.id) {
+          response = { from: "assistant", text: "Selecione uma usina para consultar os valores do resumo financeiro." };
+        } else {
+          try {
+            response = { from: "assistant", text: financialMetricReply(await carregarFinanceiro(usinaSelecionada.id), metric) };
+          } catch {
+            response = { from: "assistant", text: "Não consegui consultar o resumo financeiro agora. Verifique a conexão e tente novamente; não vou estimar valores." };
+          }
         }
       } else if (modelReady && reply.kind === "unknown") {
         const history = nextMessages.slice(-8).map(message => ({ role: message.from, content: message.text }));
