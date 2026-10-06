@@ -36,6 +36,7 @@ vm.runInNewContext(code, { exports: exported, setTimeout, clearTimeout, require:
   assert.equal(stale, false);
   assert.equal(starts.length, 1); // Não abre o microfone depois de cancelar/ir para segundo plano.
   await exported.startNativePortugueseSpeech(() => finals++, () => {});
+  handlers.get("audiostart")();
   handlers.get("result")({ results: [{ transcript: "pergunta normal" }], isFinal: true });
   assert.equal(finals, 1); // Conversa e ditado existentes continuam recebendo só resultados finais.
   await exported.stopNativePortugueseSpeech();
@@ -47,6 +48,11 @@ vm.runInNewContext(code, { exports: exported, setTimeout, clearTimeout, require:
   assert.equal(handlers.has("result"), true); // A escuta antiga não fecha o novo ditado.
   await exported.stopNativePortugueseSpeech("dictation");
   assert.equal(handlers.size, 0);
+  let startupFailure = "", retries = 0;
+  await exported.startNativePortugueseSpeech(() => {}, message => startupFailure = message, undefined, () => retries++, { onEnd: () => retries++ });
+  handlers.get("end")();
+  assert.match(startupFailure, /antes de abrir o microfone/);
+  assert.equal(retries, 0); // Fim antes de captura não vira loop de novas tentativas.
   microphoneAllowed = false;
   await assert.rejects(exported.startNativePortugueseSpeech(() => {}, () => {}), /microfone não foi autorizado/);
   console.log("PASS: resultado parcial, fim sem resultado final, cancelamento e compatibilidade com conversa");

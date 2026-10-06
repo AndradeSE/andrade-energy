@@ -48,8 +48,10 @@ export async function startNativePortugueseSpeech(onFinal: (text: string) => voi
   if (options?.shouldContinue && !options.shouldContinue()) return false;
   lastText = "";
   completed = "";
+  let microphoneOpened = false;
   subscriptions = [
     ExpoSpeechRecognitionModule.addListener("audiostart", () => {
+      microphoneOpened = true;
       if (startupTimer) clearTimeout(startupTimer);
       startupTimer = undefined;
       options?.onReady?.();
@@ -78,6 +80,10 @@ export async function startNativePortugueseSpeech(onFinal: (text: string) => voi
       finishResolver = undefined;
       cleanup();
       onActivity?.(false);
+      if (!microphoneOpened && noSpeech) {
+        onError("O reconhecedor encerrou antes de abrir o microfone. Nenhuma escuta foi ativada.");
+        return;
+      }
       if (noSpeech) onEmptyEnd?.();
     }),
     ExpoSpeechRecognitionModule.addListener("end", () => {
@@ -86,6 +92,10 @@ export async function startNativePortugueseSpeech(onFinal: (text: string) => voi
       finishResolver = undefined;
       cleanup();
       onActivity?.(false);
+      if (!microphoneOpened) {
+        onError("O reconhecedor encerrou antes de abrir o microfone. Nenhuma escuta foi ativada.");
+        return;
+      }
       if (empty) onEmptyEnd?.();
       options?.onEnd?.();
     }),

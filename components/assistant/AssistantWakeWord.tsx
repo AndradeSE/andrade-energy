@@ -2,7 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { Alert, AppState, Pressable, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, usePathname } from "expo-router";
-import { containsAssistantWakeWord, setWakeWordEnabled, subscribeWakeWord, wakeWordEnabled, wakeWordPaused } from "../../services/assistant-wake-word";
+import { containsAssistantWakeWord, setWakeWordEnabled, setWakeWordReady, subscribeWakeWord, wakeWordEnabled, wakeWordPaused } from "../../services/assistant-wake-word";
 import { startNativePortugueseSpeech, stopNativePortugueseSpeech, nativeSpeechAvailabilityError } from "../../services/native-speech";
 import { isAssistantLoading, subscribeAssistantLoading } from "../../services/assistant-overlay-visibility";
 
@@ -20,11 +20,14 @@ export default function AssistantWakeWord() {
   }, []);
   useEffect(() => {
     setReady(false);
+    setWakeWordReady(false);
     if (!enabled || !foreground || loading || paused) return;
     let cancelled = false;
     let triggered = false;
     const owner = `wake-${Date.now()}-${Math.random()}`;
     let timer: ReturnType<typeof setTimeout>;
+    let opened = false;
+    let startupDeadline: ReturnType<typeof setTimeout>;
     const retry = () => {
       if (cancelled || triggered) return;
       clearTimeout(timer);
@@ -32,6 +35,10 @@ export default function AssistantWakeWord() {
     };
     const fail = (message: string) => {
       if (cancelled) return;
+      cancelled = true;
+      clearTimeout(timer);
+      clearTimeout(startupDeadline);
+      void stopNativePortugueseSpeech(owner);
       setWakeWordEnabled(false);
       Alert.alert("Ativação por voz pausada", message);
     };
@@ -48,14 +55,16 @@ export default function AssistantWakeWord() {
         };
         const started = await startNativePortugueseSpeech(detect, fail, undefined, retry, {
           onPartial: detect, onEnd: retry, shouldContinue: () => !cancelled && !triggered,
-          owner, onReady: () => { if (!cancelled && !triggered) setReady(true); },
+          owner, onReady: () => { if (!cancelled && !triggered) { opened = true; clearTimeout(startupDeadline); setReady(true); setWakeWordReady(true); } },
         });
         if (cancelled) await stopNativePortugueseSpeech(owner);
         else if (!started && !triggered) fail(nativeSpeechAvailabilityError());
       } catch { fail("Não consegui iniciar o microfone. Confira a permissão e tente novamente."); }
     };
+    // Prazo global: reinícios e permissões pendentes não podem renovar a espera.
+    startupDeadline = setTimeout(() => { if (!opened) fail("O microfone não iniciou. A ativação foi desligada para evitar ficar presa em ‘Iniciando escuta’. Confira a permissão e o serviço de voz do Android."); }, 10000);
     retry();
-    return () => { cancelled = true; clearTimeout(timer); void stopNativePortugueseSpeech(owner); };
+    return () => { cancelled = true; clearTimeout(timer); clearTimeout(startupDeadline); setWakeWordReady(false); void stopNativePortugueseSpeech(owner); };
   }, [enabled, foreground, loading, paused, pathname]);
   if (!enabled || !foreground || loading || paused) return null;
   return <Pressable accessibilityLabel="Ativação por voz. Toque para desligar" onPress={() => setWakeWordEnabled(false)} style={{ position: "absolute", top: insets.top + 4, right: 12, zIndex: 60, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, backgroundColor: "#F0FFF6" }}><Text style={{ color: "#075E42", fontSize: 11 }}>{ready ? "🎙 E aí, chat · desligar" : "Iniciando escuta…"}</Text></Pressable>;
