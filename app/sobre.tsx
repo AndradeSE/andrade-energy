@@ -94,12 +94,19 @@ const atualizacaoAtalhosFaturamento = {
   numero: "1.0.0-r20261006.2", data: "06/10/2026",
   melhorias: ["Atalho de recebimento automático da usina mantido somente no card de geração da Home; Faturas renomeado para Faturas emitidas na aba Faturamento."],
 };
-const atualizacaoAtual = geradorPreview ? {
+const atualizacaoFaturamentoAutomatico = {
   numero: "1.0.0-r20261006.3", data: "06/10/2026",
   melhorias: ["Opção de recebimento de contas renomeada para Faturamento automático na aba Faturamento."],
+};
+const atualizacaoAtual = geradorPreview ? {
+  numero: "1.0.0-r20261006.4", data: "06/10/2026",
+  melhorias: [
+    "Conversa por voz prioriza a melhor voz pt-BR instalada no aparelho.",
+    "Ajuda reconhece pequenos erros de digitação em termos do app e pede esclarecimento quando a pergunta fica ambígua.",
+  ],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
-  ...(geradorPreview ? [atualizacaoAtalhosFaturamento, atualizacaoChat, atualizacaoVozPdf, atualizacaoSolEletrico, atualizacaoAssistente, atualizacaoTutoriais] : []),
+  ...(geradorPreview ? [atualizacaoFaturamentoAutomatico, atualizacaoAtalhosFaturamento, atualizacaoChat, atualizacaoVozPdf, atualizacaoSolEletrico, atualizacaoAssistente, atualizacaoTutoriais] : []),
   atualizacaoSelecaoUsina,
   atualizacaoTutoriaisFluidos,
   atualizacaoCarregamentoPreview,

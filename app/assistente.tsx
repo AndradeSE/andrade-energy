@@ -11,7 +11,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../contexts/AuthContext";
 import { isPreviewEnvironment } from "../config/environment";
 import { IS_GERADOR_APP } from "../config/appVariant";
-import { answerInConversation, asksLatestInvoiceAmount, LocalReply, LocalTopic, VERIFIED_APP_CONTEXT } from "../services/local-assistant";
+import { answerInConversation, asksLatestInvoiceAmount, LocalReply, LocalTopic, normalizeAssistantQuery, VERIFIED_APP_CONTEXT } from "../services/local-assistant";
 import { buscarFatura, listarFaturas } from "../services/faturas.service";
 import { asksLatestInvoiceDocument, latestInvoiceAmountReply, latestIssuedInvoice } from "../services/local-assistant-invoices";
 import { detectFinancialMetric, financialMetricReply } from "../services/assistant-financial";
@@ -19,6 +19,7 @@ import { carregarFinanceiro } from "../services/financeiro.service";
 import { answerWithLocalModel, cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
 import { finishDictation, installVoiceModels, isVoiceInstalled, pauseContinuousListening, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
 import * as Speech from "expo-speech";
+import { prepareAssistantVoice, speakAssistantReply } from "../services/assistant-voice";
 import { Colors } from "../theme";
 
 type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string };
@@ -111,8 +112,9 @@ export default function Assistente() {
   async function send(spokenQuestion?: string) {
     const question = (spokenQuestion ?? input).trim();
     if (!question || busyRef.current) return;
-    const wantsInvoiceDocument = asksLatestInvoiceDocument(question, lastInvoiceRequest.current);
-    lastInvoiceRequest.current = wantsInvoiceDocument || /\b(última|ultima|mais recente)\b.*\b(fatura|cobrança|cobranca)\b|\b(fatura|cobrança|cobranca)\b.*\b(última|ultima|mais recente)\b/i.test(question);
+    const interpretedQuestion = normalizeAssistantQuery(question);
+    const wantsInvoiceDocument = asksLatestInvoiceDocument(interpretedQuestion, lastInvoiceRequest.current);
+    lastInvoiceRequest.current = wantsInvoiceDocument || /\b(ultima|mais recente)\b.*\b(fatura|cobranca)\b|\b(fatura|cobranca)\b.*\b(ultima|mais recente)\b/i.test(interpretedQuestion);
     busyRef.current = true;
     const { reply, topic: nextTopic } = answerInConversation(question, {
       authenticated: true,
@@ -130,7 +132,7 @@ export default function Assistente() {
         await pauseContinuousListening();
       }
       let response: Message = { from: "assistant", text: reply.text, route: reply.route };
-      if (wantsInvoiceDocument || asksLatestInvoiceAmount(question)) {
+      if (wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion)) {
         try {
           const invoices = usuario?.perfil === "LEITURA"
             ? unidadeSelecionada?.numero
@@ -156,8 +158,8 @@ export default function Assistente() {
         } catch {
           response = { from: "assistant", text: "Não consegui consultar as faturas agora. Verifique a conexão e tente novamente; não vou estimar um valor." };
         }
-      } else if (IS_GERADOR_APP && detectFinancialMetric(question)) {
-        const metric = detectFinancialMetric(question)!;
+      } else if (IS_GERADOR_APP && detectFinancialMetric(interpretedQuestion)) {
+        const metric = detectFinancialMetric(interpretedQuestion)!;
         if (!usinaSelecionada?.id) {
           response = { from: "assistant", text: "Selecione uma usina para consultar os valores do resumo financeiro." };
         } else {
@@ -167,7 +169,7 @@ export default function Assistente() {
             response = { from: "assistant", text: "Não consegui consultar o resumo financeiro agora. Verifique a conexão e tente novamente; não vou estimar valores." };
           }
         }
-      } else if (modelReady && reply.kind === "unknown") {
+      } else if (modelReady && reply.kind === "unknown" && interpretedQuestion.split(/\s+/).length > 2) {
         const history = nextMessages.slice(-8).map(message => ({ role: message.from, content: message.text }));
         response = { from: "assistant", text: await answerWithLocalModel(history, VERIFIED_APP_CONTEXT) };
       }
@@ -177,7 +179,7 @@ export default function Assistente() {
       setTopic(nextTopic);
       if (voiceActive.current) {
         setVoiceStatus("Respondendo… depois volto a ouvir.");
-        Speech.speak(response.text, { language: "pt-BR", rate: 0.95, onDone: () => { if (voiceActive.current) void resumeVoice(); }, onError: () => { if (voiceActive.current) void resumeVoice(); } });
+        speakAssistantReply(response.text, () => { if (voiceActive.current) void resumeVoice(); });
       }
     } catch (error) {
       const fallback: Message = { from: "assistant", text: reply.kind === "help" ? reply.text : "O modelo local não respondeu a esta pergunta. Tente reformular; também posso ajudar com funções do aplicativo." };
@@ -230,6 +232,7 @@ export default function Assistente() {
     }
     voiceActive.current = true;
     setListening(true);
+    await prepareAssistantVoice();
     await resumeVoice();
   }
 

@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { answerInConversation, answerLocally, asksLatestInvoiceAmount } from "./local-assistant";
+import { answerInConversation, answerLocally, asksLatestInvoiceAmount, normalizeAssistantQuery } from "./local-assistant";
 import { asksLatestInvoiceDocument, latestInvoiceAmountReply, latestIssuedInvoice } from "./local-assistant-invoices";
 import { detectFinancialMetric, financialMetricReply } from "./assistant-financial";
 const generator = { variant: "gerador", authenticated: true } as const;
@@ -14,6 +14,12 @@ test("questions about sensitive features are explained instead of blocked", () =
 });
 test("unauthenticated requests are blocked", () => assert.equal(answerLocally("abrir perfil", { ...generator, authenticated: false }).kind, "blocked"));
 test("unknown request does not invent private data", () => assert.equal(answerLocally("qual e meu saldo", generator).kind, "unknown"));
+test("small spelling errors in app terms are understood without changing names", () => {
+  assert.equal(answerLocally("Abra faturamnto", generator).route, "/faturamento");
+  assert.equal(asksLatestInvoiceAmount("Qual valor da ultma fatura?"), true);
+  assert.equal(normalizeAssistantQuery("Cliente Vinicius Andradde"), "cliente vinicius andradde");
+  assert.match(answerLocally("xpt?", generator).text, /reformular/);
+});
 test("generator knows the two distinct automatic billing flows", () => {
   assert.match(answerLocally("Como funciona a fatura automática da usina?", generator).text, /sem criar cobrança/);
   assert.match(answerLocally("Onde configuro faturamento automático das UCs?", generator).text, /Faturamento/);
