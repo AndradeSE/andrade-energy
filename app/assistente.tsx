@@ -23,7 +23,7 @@ import { speakConversationOnline, speakSafeOnlineOrLocal, speakAuthorizedAccount
 import { accountVoiceConsent, setAccountVoiceConsent } from "../services/assistant-voice-consent";
 import { answerConversationOnline } from "../services/assistant-online";
 import { assistantConnectionError, speechStatusReply } from "../services/assistant-diagnostics";
-import { finishNativePortugueseSpeech, nativePortugueseSpeechAvailable, startNativePortugueseSpeech, stopNativePortugueseSpeech } from "../services/native-speech";
+import { finishNativePortugueseSpeech, nativePortugueseSpeechAvailable, nativeSpeechAvailabilityError, startNativePortugueseSpeech, stopNativePortugueseSpeech } from "../services/native-speech";
 import { Colors } from "../theme";
 import { playActivationBeep } from "../services/assistant-beep";
 import { buscarDashboardUsina } from "../services/usinas.service";
@@ -375,14 +375,14 @@ export default function Assistente() {
 
   async function resumeVoice() {
     try {
-      setVoiceStatus("Ouvindo sua pergunta…");
+      setVoiceStatus("Iniciando o microfone…");
       usingNativeSpeech.current = await startNativePortugueseSpeech(text => { void send(text); }, error => {
         voiceActive.current = false;
         setListening(false);
         setVoiceStatus(error);
       }, setHearingSpeech, () => {
         if (voiceActive.current && !busyRef.current) void resumeVoice();
-      });
+      }, { onReady: () => setVoiceStatus("Ouvindo sua pergunta…"), shouldContinue: () => voiceActive.current });
       if (usingNativeSpeech.current) return;
       await startContinuousListening(text => { void send(text); }, error => {
         voiceActive.current = false;
@@ -449,7 +449,7 @@ export default function Assistente() {
       { text: "Agora não", style: "cancel" },
       { text: "Ativar", onPress: () => { void nativePortugueseSpeechAvailable().then(available => {
         if (available) setWakeWordEnabled(true);
-        else Alert.alert("Indisponível neste aparelho", "Esta ativação exige reconhecimento offline em português. O botão de conversa continua disponível.");
+        else Alert.alert("Não foi possível ativar", nativeSpeechAvailabilityError());
       }).catch(() => Alert.alert("Não foi possível ativar", "Tente novamente.")); } },
     ]);
   }
@@ -458,11 +458,12 @@ export default function Assistente() {
     micHeld.current = false;
     if (dictationStarting.current || !dictationActive.current) return;
     dictationActive.current = false;
+    setBusy(true);
     setTranscribing(false);
     setVoiceStatus("Transcrevendo sua fala…");
     try {
       const finalTranscription = usingNativeSpeech.current ? await finishNativePortugueseSpeech() : await finishDictation();
-      const spoken = (dictatedText.current || finalTranscription).trim();
+      const spoken = (finalTranscription || dictatedText.current).trim();
       dictatedText.current = "";
       if (spoken) {
         setVoiceStatus("Enviando sua pergunta…");
@@ -475,6 +476,8 @@ export default function Assistente() {
       setVoiceStatus(error instanceof Error ? error.message : "Não consegui transcrever a fala.");
       if (usingNativeSpeech.current) await stopNativePortugueseSpeech();
       else await stopContinuousListening();
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -494,10 +497,12 @@ export default function Assistente() {
       }
       dictationActive.current = true;
       setTranscribing(true);
-      setVoiceStatus("Ouvindo… solte o microfone para enviar.");
+      setVoiceStatus("Iniciando o microfone… mantenha pressionado.");
       usingNativeSpeech.current = await startNativePortugueseSpeech(
         text => { dictatedText.current = text; setInput(text); setVoiceStatus("Fala capturada. Solte para enviar."); },
-        error => { setVoiceStatus(error); },
+        error => { dictationActive.current = false; setTranscribing(false); setVoiceStatus(error); },
+        undefined, undefined,
+        { onReady: () => setVoiceStatus("Microfone aberto. Solte para enviar."), onPartial: text => { dictatedText.current = text; setInput(text); } },
       );
       if (!usingNativeSpeech.current) await startContinuousListening(
         text => { dictatedText.current = `${dictatedText.current} ${text}`.trim(); setInput(dictatedText.current); setVoiceStatus("Fala capturada. Solte para enviar."); },
