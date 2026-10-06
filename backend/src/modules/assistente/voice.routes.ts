@@ -7,6 +7,7 @@ import { GEMINI_CONVERSATION_URL } from "./gemini-model";
 import { geminiAnswer, GeminiAnswerPayload } from "./gemini-answer";
 import { VoiceAnswerStore } from "./voice-answer-store";
 import { hashToken } from "../../utils/token";
+import { authorizedAccountSpeech } from "./account-speech";
 
 const PUBLIC_HELP_CONTEXT = {
   faturamento: "Na aba Faturamento, o gerador pode emitir manualmente, importar PDF e configurar o faturamento automático das UCs. A conta geradora é configurada separadamente. Cobranças exigem revisão antes de confirmar.",
@@ -33,6 +34,8 @@ const PUBLIC_CONSUMER_HELP_CONTEXT = {
 // Keep legacy topic requests working for older installers.
 export const assistenteVoiceRouter = Router();
 const cachedAudio = new Map<keyof typeof PUBLIC_VOICE_LINES, string>();
+const publicAnswerAudio = new Map<string, { audio: string; expires: number }>();
+let providerQuotaUntil = 0;
 const voiceAnswers = new VoiceAnswerStore();
 assistenteVoiceRouter.use(exigirAutenticacao);
 assistenteVoiceRouter.use(rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: "draft-8", legacyHeaders: false }));
@@ -96,13 +99,21 @@ assistenteVoiceRouter.post("/voz", async (req, res) => {
   const answerId = req.body?.answerId;
   const answerText = typeof answerId === "string" ? voiceAnswers.get(hashToken(req.headers.authorization ?? ""), answerId) : undefined;
   const fixedLine = typeof lineId === "string" && Object.prototype.hasOwnProperty.call(PUBLIC_VOICE_LINES, lineId);
-  if (!fixedLine && !answerText) {
+  const accountSpeech = authorizedAccountSpeech(req.body ?? {});
+  if ([Boolean(fixedLine), Boolean(answerText), Boolean(accountSpeech)].filter(Boolean).length !== 1) {
     return res.status(400).json({ message: "Frase não permitida." });
   }
   const key = process.env.GEMINI_TTS_API_KEY?.trim();
   if (!key) return res.status(503).json({ message: "Voz online não configurada." });
   const cached = fixedLine ? cachedAudio.get(lineId as keyof typeof PUBLIC_VOICE_LINES) : undefined;
   if (cached) return res.json({ audio: cached, mimeType: "audio/wav" });
+  const publicAudioKey = !accountSpeech && answerText ? hashToken(answerText) : undefined;
+  const publicCached = publicAudioKey ? publicAnswerAudio.get(publicAudioKey) : undefined;
+  if (publicCached && publicCached.expires > Date.now()) return res.json({ audio: publicCached.audio, mimeType: "audio/wav" });
+  if (providerQuotaUntil > Date.now()) {
+    res.setHeader("Retry-After", String(Math.ceil((providerQuotaUntil - Date.now()) / 1000)));
+    return res.status(429).json({ code: "TTS_QUOTA", message: "Limite temporário da voz natural." });
+  }
 
   try {
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
@@ -110,7 +121,7 @@ assistenteVoiceRouter.post("/voz", async (req, res) => {
       headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({
         model: "gemini-3.8-flash-lite-tts",
-        input: [{ type: "user_input", content: [{ type: "text", text: answerText ?? PUBLIC_VOICE_LINES[lineId as keyof typeof PUBLIC_VOICE_LINES], annotations: [{ type: "speech_metadata", style: "Voz brasileira natural, cordial e clara." }] }] }],
+        input: [{ type: "user_input", content: [{ type: "text", text: accountSpeech ?? answerText ?? PUBLIC_VOICE_LINES[lineId as keyof typeof PUBLIC_VOICE_LINES], annotations: [{ type: "speech_metadata", style: "Voz brasileira natural, cordial e clara." }] }] }],
         response_format: { type: "audio", mime_type: "audio/wav" },
         generation_config: { speech_config: [{ voice: "Kore" }] },
       }),
@@ -118,12 +129,19 @@ assistenteVoiceRouter.post("/voz", async (req, res) => {
     });
     if (!response.ok) {
       console.warn("Assistente TTS indisponível, status:", response.status);
-      return res.status(503).json({ message: "Voz online indisponível." });
+      if (response.status === 429) providerQuotaUntil = Date.now() + 60_000;
+      return res.status(response.status === 429 ? 429 : 503).json({ code: response.status === 429 ? "TTS_QUOTA" : "TTS_UNAVAILABLE", message: "Voz online indisponível." });
     }
     const payload = await response.json() as { output_audio?: { data?: string }; steps?: Array<{ type?: string; content?: Array<{ type?: string; data?: string }> }> };
     const audio = payload.output_audio?.data ?? payload.steps?.flatMap(step => step.content ?? []).reverse().find(content => content.type === "audio")?.data;
     if (!audio || audio.length > (fixedLine ? 2_000_000 : 8_000_000)) return res.status(503).json({ message: "Áudio indisponível." });
     if (fixedLine) cachedAudio.set(lineId as keyof typeof PUBLIC_VOICE_LINES, audio);
+    if (publicAudioKey) {
+      for (const [id, entry] of publicAnswerAudio) if (entry.expires <= Date.now()) publicAnswerAudio.delete(id);
+      if (publicAnswerAudio.size >= 4) publicAnswerAudio.delete(publicAnswerAudio.keys().next().value!);
+      publicAnswerAudio.set(publicAudioKey, { audio, expires: Date.now() + 600_000 });
+    }
+    console.info("Assistente natural audio delivered:", accountSpeech ? "account-consented" : "public");
     res.setHeader("Cache-Control", "no-store");
     return res.json({ audio, mimeType: "audio/wav" });
   } catch {
