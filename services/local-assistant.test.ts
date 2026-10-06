@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { answerInConversation, answerLocally, asksLatestInvoiceAmount } from "./local-assistant";
-import { latestInvoiceAmountReply } from "./local-assistant-invoices";
+import { asksLatestInvoiceDocument, latestInvoiceAmountReply, latestIssuedInvoice } from "./local-assistant-invoices";
 import { detectFinancialMetric, financialMetricReply } from "./assistant-financial";
 const generator = { variant: "gerador", authenticated: true } as const;
 test("only recognized navigation commands produce routes", () => assert.equal(answerLocally("Abra faturamento", generator).route, "/faturamento"));
@@ -36,6 +36,16 @@ test("latest invoice amount uses a live-data intent, not generative text", () =>
     { id: "draft", created_at: "2026-10-05", referencia: "2026-10", status: "RASCUNHO", valor_total_unificado: 900 },
     { id: "new", created_at: "2026-10-01", referencia: "2026-10", status: "ABERTA", valor_total_unificado: 387.44 },
   ]), /R\$\s?387,44.*10\/2026/);
+});
+test("latest invoice document intent and follow-up use a real issued invoice", () => {
+  assert.equal(asksLatestInvoiceDocument("Me dê a última fatura gerada para abrir o PDF"), true);
+  assert.equal(asksLatestInvoiceDocument("Quero a última fatura aqui"), true);
+  assert.equal(asksLatestInvoiceDocument("Não, quero que você me dê aqui", true), true);
+  assert.equal(asksLatestInvoiceDocument("Como emitir uma fatura?"), false);
+  assert.equal(latestIssuedInvoice([
+    { id: "draft", status: "RASCUNHO", created_at: "2026-10-05", pdf_unificada_url: "https://example.com/draft.pdf" },
+    { id: "issued", status: "ABERTA", created_at: "2026-10-04", pdf_unificada_url: "https://example.com/issued.pdf" },
+  ])?.id, "issued");
 });
 test("follow-up keeps the previous topic without exposing a sensitive action", () => {
   const initial = answerInConversation("Onde vejo minhas faturas?", generator);

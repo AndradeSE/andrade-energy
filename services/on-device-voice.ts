@@ -26,6 +26,12 @@ type VoiceSession = {
   vad: Awaited<ReturnType<typeof import("whisper.rn/index")["initWhisperVad"]>>;
 };
 let session: VoiceSession | undefined;
+let pendingSpeechTimer: ReturnType<typeof setTimeout> | undefined;
+
+function clearPendingSpeech() {
+  if (pendingSpeechTimer) clearTimeout(pendingSpeechTimer);
+  pendingSpeechTimer = undefined;
+}
 
 function verified(artifact: Artifact) {
   const file = new File(VOICE_DIR, artifact.name);
@@ -76,11 +82,30 @@ export async function installVoiceModels(onProgress?: (stage: string, progress?:
   onProgress?.("Arquivos de voz prontos", 1);
 }
 
-export async function startContinuousListening(onSpeech: (text: string) => void, onError: (error: string) => void) {
+export async function startContinuousListening(onSpeech: (text: string) => void, onError: (error: string) => void, autoSubmit = false) {
   if (!isVoiceInstalled()) throw new Error("Instale os arquivos de voz antes de começar.");
   const permission = await requestRecordingPermissionsAsync();
   if (!permission.granted) throw new Error("O microfone não foi autorizado.");
   await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+  clearPendingSpeech();
+  let submitted = false;
+  const emit = (text: string) => {
+    const spoken = text.trim();
+    if (!spoken || (autoSubmit && submitted)) return;
+    clearPendingSpeech();
+    if (autoSubmit) submitted = true;
+    onSpeech(spoken);
+  };
+  const callbacks = {
+    onSliceTranscriptionStabilized: emit,
+    onTranscribe: (event: { type: string; data?: { result?: string } }) => {
+      if (!autoSubmit || submitted || event.type !== "transcribe" || !event.data?.result?.trim()) return;
+      const candidate = event.data.result.trim();
+      clearPendingSpeech();
+      pendingSpeechTimer = setTimeout(() => emit(candidate), 1200);
+    },
+    onError,
+  };
   if (!session) {
     const [{ initWhisper, initWhisperVad }, { RealtimeTranscriber, RingBufferVad }, { AudioPcmStreamAdapter }] = await Promise.all([
       import("whisper.rn/index"), import("whisper.rn/realtime-transcription/"), import("whisper.rn/realtime-transcription/adapters/AudioPcmStreamAdapter"),
@@ -90,19 +115,18 @@ export async function startContinuousListening(onSpeech: (text: string) => void,
     const transcriber = new RealtimeTranscriber(
       { whisperContext: whisper, vadContext: new RingBufferVad(vad), audioStream: new AudioPcmStreamAdapter() },
       { audioSliceSec: 8, audioMinSec: 0.6, maxSlicesInMemory: 3, transcribeOptions: { language: "pt" } },
-      { onSliceTranscriptionStabilized: (text: string) => { if (text.trim()) onSpeech(text.trim()); }, onError },
+      callbacks,
     );
     session = { transcriber, whisper, vad };
   }
-  session.transcriber.updateCallbacks({
-    onSliceTranscriptionStabilized: (text: string) => { if (text.trim()) onSpeech(text.trim()); },
-    onError,
-  });
+  session.transcriber.updateCallbacks(callbacks);
   await session.transcriber.start();
 }
 
 export async function pauseContinuousListening() {
+  clearPendingSpeech();
   if (session) await session.transcriber.stop();
+  await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
 }
 
 export async function finishDictation() {
@@ -111,6 +135,7 @@ export async function finishDictation() {
 }
 
 export async function stopContinuousListening() {
+  clearPendingSpeech();
   if (!session) return;
   const current = session;
   session = undefined;

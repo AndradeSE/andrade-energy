@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { AppHeader, Card, ElasticScrollView, Screen } from "../components/ui";
 import { APP_DISPLAY_NAME, IS_GERADOR_APP } from "../config/appVariant";
 import { Colors, Spacing } from "../theme";
+const geradorPreview = IS_GERADOR_APP && (Constants.expoConfig?.extra?.appEnvironment === "preview" || Updates.channel?.startsWith("preview"));
 const atualizacaoAnterior = {
   numero: "1.0.0-r20261004.2", data: "04/10/2026",
   melhorias: IS_GERADOR_APP ? [
@@ -61,11 +62,32 @@ const atualizacaoSelecaoUsina = {
     "Falha na Home permite escolher outra usina ou tentar novamente, sem ficar presa no aviso.",
   ],
 };
-const atualizacaoAtual = {
+const atualizacaoTutoriais = {
   numero: "1.0.0-r20261005.6", data: "05/10/2026",
   melhorias: ["Tutorial de faturamento orienta localizar o atalho pelo nome, pois sua posição é personalizável."],
 };
+const atualizacaoAssistente = {
+  numero: "1.0.0-r20261005.7", data: "05/10/2026",
+  melhorias: [
+    "Ajuda local ampliada para cadastros, usinas, UCs, faturamento, contratos e perfil, com linguagem mais cordial.",
+    "Consulta autenticada da última fatura e de indicadores financeiros, sem estimar valores.",
+    "Sol 3D de óculos escuros pode ser arrastado pela tela e desaparece durante o carregamento.",
+  ],
+};
+const atualizacaoSolEletrico = {
+  numero: "1.0.0-r20261005.8", data: "05/10/2026",
+  melhorias: ["Sol 3D ganhou aura dourada pulsante e relâmpagos azulados animados no Gerador Preview."],
+};
+const atualizacaoAtual = geradorPreview ? {
+  numero: "1.0.0-r20261005.9", data: "05/10/2026",
+  melhorias: [
+    "Microfone envia a pergunta ao soltar; conversa por voz retoma a escuta após responder.",
+    "A última fatura emitida pode ser aberta como PDF diretamente na conversa quando o documento está disponível.",
+    "Quando não há PDF, a ajuda explica a ausência do arquivo sem repetir instruções de navegação.",
+  ],
+} : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
+  ...(geradorPreview ? [atualizacaoSolEletrico, atualizacaoAssistente, atualizacaoTutoriais] : []),
   atualizacaoSelecaoUsina,
   atualizacaoTutoriaisFluidos,
   atualizacaoCarregamentoPreview,
@@ -121,7 +143,7 @@ const historico = IS_GERADOR_APP ? [
 export default function SobreApp() {
   const version = Constants.expoConfig?.version ?? "Não informada";
   const revision = Updates.updateId?.slice(-8) ?? "Versão incluída no instalador";
-  const ambiente = Constants.expoConfig?.extra?.appEnv === "preview" || Updates.channel?.startsWith("preview") ? "Preview / homologação" : "Produção";
+  const ambiente = Constants.expoConfig?.extra?.appEnvironment === "preview" || Updates.channel?.startsWith("preview") ? "Preview / homologação" : "Produção";
   return <Screen>
     <AppHeader variant="subpage" title="Sobre o app" subtitle="Andrade Energy" contextTitle="" contextSubtitle="" icon="information-circle-outline" />
     <ElasticScrollView contentContainerStyle={styles.content}>

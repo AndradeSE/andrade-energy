@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { File, Paths } from "expo-file-system";
+import * as FileSystemLegacy from "expo-file-system/legacy";
+import * as IntentLauncher from "expo-intent-launcher";
+import * as Sharing from "expo-sharing";
 import { Redirect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -8,8 +12,8 @@ import { useAuth } from "../contexts/AuthContext";
 import { isPreviewEnvironment } from "../config/environment";
 import { IS_GERADOR_APP } from "../config/appVariant";
 import { answerInConversation, asksLatestInvoiceAmount, LocalReply, LocalTopic, VERIFIED_APP_CONTEXT } from "../services/local-assistant";
-import { listarFaturas } from "../services/faturas.service";
-import { latestInvoiceAmountReply } from "../services/local-assistant-invoices";
+import { buscarFatura, listarFaturas } from "../services/faturas.service";
+import { asksLatestInvoiceDocument, latestInvoiceAmountReply, latestIssuedInvoice } from "../services/local-assistant-invoices";
 import { detectFinancialMetric, financialMetricReply } from "../services/assistant-financial";
 import { carregarFinanceiro } from "../services/financeiro.service";
 import { answerWithLocalModel, cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
@@ -17,7 +21,7 @@ import { finishDictation, installVoiceModels, isVoiceInstalled, pauseContinuousL
 import * as Speech from "expo-speech";
 import { Colors } from "../theme";
 
-type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"] };
+type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string };
 
 export default function Assistente() {
   const router = useRouter();
@@ -36,11 +40,14 @@ export default function Assistente() {
   const [transcribing, setTranscribing] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState<string>();
   const [voiceInstalling, setVoiceInstalling] = useState(false);
+  const [openingInvoiceId, setOpeningInvoiceId] = useState<string>();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const voiceActive = useRef(false);
   const dictationActive = useRef(false);
   const micHeld = useRef(false);
   const dictationStarting = useRef(false);
+  const dictatedText = useRef("");
+  const lastInvoiceRequest = useRef(false);
   const busyRef = useRef(false);
   const messagesRef = useRef<Message[]>([]);
   const topicRef = useRef<LocalTopic | undefined>(undefined);
@@ -72,9 +79,40 @@ export default function Assistente() {
 
   if (!isPreviewEnvironment || !authenticated) return <Redirect href="/" />;
 
+  async function openInvoicePdf(id: string) {
+    if (openingInvoiceId) return;
+    setOpeningInvoiceId(id);
+    try {
+      const invoice = await buscarFatura(id);
+      const url = String(invoice?.pdf_unificada_url ?? "").trim();
+      if (!/^https:\/\//i.test(url)) {
+        Alert.alert("PDF indisponível", "A fatura foi encontrada, mas o PDF unificado ainda não está disponível para baixar.");
+        return;
+      }
+      if (Platform.OS === "web") { await Linking.openURL(url); return; }
+      const file = await File.downloadFileAsync(url, new File(Paths.document, `fatura-andrade-${id.replace(/[^a-zA-Z0-9-]/g, "")}.pdf`), { idempotent: true });
+      if (!file.exists || !file.size || file.size < 512) throw new Error("Arquivo vazio");
+      if (Platform.OS === "android") {
+        try {
+          const contentUri = await FileSystemLegacy.getContentUriAsync(file.uri);
+          await IntentLauncher.startActivityAsync("android.intent.action.VIEW", { data: contentUri, flags: 1, type: "application/pdf" });
+          return;
+        } catch { /* Usa o compartilhamento quando não há visualizador de PDF. */ }
+      }
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { dialogTitle: "Abrir ou salvar fatura", mimeType: "application/pdf", UTI: "com.adobe.pdf" });
+      else Alert.alert("PDF salvo", "A fatura foi salva no aplicativo.");
+    } catch {
+      Alert.alert("Não consegui abrir o PDF", "O link pode ter expirado ou a conexão falhou. Tente novamente; não gere outra cobrança.");
+    } finally {
+      setOpeningInvoiceId(undefined);
+    }
+  }
+
   async function send(spokenQuestion?: string) {
     const question = (spokenQuestion ?? input).trim();
     if (!question || busyRef.current) return;
+    const wantsInvoiceDocument = asksLatestInvoiceDocument(question, lastInvoiceRequest.current);
+    lastInvoiceRequest.current = wantsInvoiceDocument || /\b(última|ultima|mais recente)\b.*\b(fatura|cobrança|cobranca)\b|\b(fatura|cobrança|cobranca)\b.*\b(última|ultima|mais recente)\b/i.test(question);
     busyRef.current = true;
     const { reply, topic: nextTopic } = answerInConversation(question, {
       authenticated: true,
@@ -92,7 +130,7 @@ export default function Assistente() {
         await pauseContinuousListening();
       }
       let response: Message = { from: "assistant", text: reply.text, route: reply.route };
-      if (asksLatestInvoiceAmount(question)) {
+      if (wantsInvoiceDocument || asksLatestInvoiceAmount(question)) {
         try {
           const invoices = usuario?.perfil === "LEITURA"
             ? unidadeSelecionada?.numero
@@ -103,9 +141,18 @@ export default function Assistente() {
             : usinaSelecionada?.id
               ? await listarFaturas(undefined, undefined, usinaSelecionada.id)
               : [];
-          response = { from: "assistant", text: usuario?.perfil !== "LEITURA" && !usinaSelecionada?.id
-            ? "Selecione uma usina para consultar a última fatura da carteira."
-            : latestInvoiceAmountReply(invoices) };
+          if (usuario?.perfil !== "LEITURA" && !usinaSelecionada?.id) {
+            response = { from: "assistant", text: "Não consigo escolher uma fatura sem uma usina selecionada. Selecione a usina da carteira para eu consultar o documento correto." };
+          } else if (wantsInvoiceDocument) {
+            const invoice = latestIssuedInvoice(invoices);
+            response = !invoice
+              ? { from: "assistant", text: "Não encontrei uma fatura emitida nesta conta ou usina. Por isso não há PDF para eu anexar aqui." }
+              : invoice.pdf_unificada_url
+                ? { from: "assistant", text: `Encontrei a última fatura${invoice.referencia ? ` (${invoice.referencia})` : ""}. Toque abaixo para abrir ou salvar o PDF.`, invoiceId: invoice.id }
+                : { from: "assistant", text: "Encontrei a última fatura, mas o PDF unificado ainda não está disponível no servidor. Não posso criar um arquivo que ainda não foi gerado; confira o detalhe da fatura mais tarde." };
+          } else {
+            response = { from: "assistant", text: latestInvoiceAmountReply(invoices) };
+          }
         } catch {
           response = { from: "assistant", text: "Não consegui consultar as faturas agora. Verifique a conexão e tente novamente; não vou estimar um valor." };
         }
@@ -156,7 +203,7 @@ export default function Assistente() {
         setListening(false);
         setVoiceStatus(error);
         void stopContinuousListening();
-      });
+      }, true);
     } catch (error) {
       voiceActive.current = false;
       setListening(false);
@@ -194,7 +241,15 @@ export default function Assistente() {
     setVoiceStatus("Transcrevendo sua fala…");
     try {
       await finishDictation();
-      setVoiceStatus("Texto pronto para revisar e enviar.");
+      const spoken = dictatedText.current.trim();
+      dictatedText.current = "";
+      if (spoken) {
+        setVoiceStatus("Enviando sua pergunta…");
+        await send(spoken);
+        setVoiceStatus(undefined);
+      } else {
+        setVoiceStatus("Não consegui reconhecer sua fala. Segure o microfone e tente novamente.");
+      }
     } catch (error) {
       setVoiceStatus(error instanceof Error ? error.message : "Não consegui transcrever a fala.");
       await stopContinuousListening();
@@ -204,6 +259,7 @@ export default function Assistente() {
   async function beginDictation() {
     if (voiceActive.current || busy) return;
     micHeld.current = true;
+    dictatedText.current = "";
     dictationStarting.current = true;
     setBusy(true);
     setVoiceInstalling(true);
@@ -214,9 +270,9 @@ export default function Assistente() {
       }
       dictationActive.current = true;
       setTranscribing(true);
-      setVoiceStatus("Ouvindo… solte o microfone para transcrever.");
+      setVoiceStatus("Ouvindo… solte o microfone para enviar.");
       await startContinuousListening(
-        text => { setInput(previous => `${previous.trim()} ${text}`.trim()); setVoiceStatus("Fala capturada. Solte para terminar."); },
+        text => { dictatedText.current = `${dictatedText.current} ${text}`.trim(); setInput(dictatedText.current); setVoiceStatus("Fala capturada. Solte para enviar."); },
         error => {
           dictationActive.current = false;
           setTranscribing(false);
@@ -253,6 +309,7 @@ export default function Assistente() {
       {installStage ? <View style={styles.progressCard} accessibilityLiveRegion="polite"><Text style={styles.limit}>{installStage}</Text>{installProgress !== null ? <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(installProgress * 100)}%` }]} /></View> : null}{downloadingModel ? <Pressable accessibilityRole="button" accessibilityLabel="Cancelar download do modelo" onPress={() => void cancelModelDownload()} style={styles.cancelDownload}><Text style={styles.cancelDownloadText}>Cancelar download</Text></Pressable> : null}</View> : null}
       {messages.map((message, index) => <View key={index} style={[styles.bubble, message.from === "user" ? styles.userBubble : styles.assistantBubble]}>
         <Text style={styles.message}>{message.text}</Text>
+        {message.invoiceId ? <Pressable accessibilityRole="button" accessibilityLabel="Abrir PDF da última fatura" disabled={Boolean(openingInvoiceId)} onPress={() => void openInvoicePdf(message.invoiceId!)} style={styles.action}><Text style={styles.actionText}>{openingInvoiceId === message.invoiceId ? "Abrindo PDF…" : "Abrir PDF da fatura"}</Text></Pressable> : null}
         {message.route ? <Pressable accessibilityRole="button" onPress={() => router.push(message.route!)} style={styles.action}><Text style={styles.actionText}>Abrir seção</Text></Pressable> : null}
       </View>)}
     </ScrollView>
@@ -262,7 +319,7 @@ export default function Assistente() {
         <TextInput value={input} onChangeText={setInput} placeholder="Escreva sua pergunta" placeholderTextColor={Colors.subtitle} multiline maxLength={1000} accessibilityLabel="Sua pergunta" style={styles.input} />
         {input.trim() && !transcribing && !dictationStarting.current
           ? <Pressable onPress={() => void send()} disabled={busy} accessibilityRole="button" accessibilityLabel="Enviar pergunta" style={[styles.pillSend, busy && styles.disabled]}><Ionicons name="arrow-up" size={22} color="white" /></Pressable>
-          : <Pressable onPressIn={() => { Keyboard.dismiss(); void beginDictation(); }} onPressOut={() => { void endDictation(); }} disabled={listening || (busy && !dictationStarting.current && !transcribing)} accessibilityRole="button" accessibilityLabel="Segure para falar e solte para transcrever" style={[styles.pillAction, transcribing && styles.voiceActive, listening && styles.disabled]}><Ionicons name="mic-outline" size={22} color={transcribing ? "white" : Colors.text} /></Pressable>}
+          : <Pressable onPressIn={() => { Keyboard.dismiss(); void beginDictation(); }} onPressOut={() => { void endDictation(); }} disabled={listening || (busy && !dictationStarting.current && !transcribing)} accessibilityRole="button" accessibilityLabel="Segure para falar e solte para enviar" style={[styles.pillAction, transcribing && styles.voiceActive, listening && styles.disabled]}><Ionicons name="mic-outline" size={22} color={transcribing ? "white" : Colors.text} /></Pressable>}
         <Pressable onPress={() => { Keyboard.dismiss(); void toggleVoice(); }} disabled={transcribing || (busy && !listening)} accessibilityRole="button" accessibilityLabel={listening ? "Encerrar conversa por voz" : "Iniciar conversa por voz"} style={[styles.pillAction, listening && styles.voiceActive, transcribing && styles.disabled]}>
           {voiceInstalling ? <ActivityIndicator size="small" color={Colors.primary} /> : listening ? <Ionicons name="stop" size={20} color="white" /> : <View style={styles.waveform}><View style={[styles.waveBar, { height: 7 }]} /><View style={[styles.waveBar, { height: 16 }]} /><View style={[styles.waveBar, { height: 10 }]} /><View style={[styles.waveBar, { height: 5 }]} /></View>}
         </Pressable>
