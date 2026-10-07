@@ -6,7 +6,7 @@ const source = fs.readFileSync('services/on-device-voice.ts', 'utf8');
 const adapter = source.slice(source.indexOf('    class RestartableAudioStream'), source.indexOf('    const whisper ='));
 class AudioPcmStreamAdapter {
   onData(callback) { this.callback = callback; }
-  async initialize() { this.callback = undefined; }
+  async initialize(config) { this.config = config; this.callback = undefined; }
 }
 const capture = { hasAudio: false };
 const context = { AudioPcmStreamAdapter, capture };
@@ -17,7 +17,12 @@ vm.runInContext(ts.transpileModule(adapter + '\nglobalThis.Stream = RestartableA
   let packets = 0;
   stream.onData(() => packets++);
   for (let attempt = 0; attempt < 3; attempt++) {
-    await stream.initialize({});
+    await stream.initialize({ audioSource: 6, sampleRate: 48000 });
+    assert.equal(stream.config.audioSource, 1, 'Usar microfone mesmo quando a biblioteca perde a configuração');
+    assert.equal(stream.config.sampleRate, 16000);
+    assert.equal(stream.config.channels, 1);
+    assert.equal(stream.config.bitsPerSample, 16);
+    assert.equal(stream.config.bufferSize, 4096);
     assert.equal(capture.hasAudio, false);
     stream.callback({ data: new Uint8Array(8) });
     assert.equal(capture.hasAudio, true);

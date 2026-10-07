@@ -105,7 +105,9 @@ export async function prepareVoiceRecognition() {
       }
       async initialize(config: Parameters<InstanceType<typeof AudioPcmStreamAdapter>["initialize"]>[0]) {
         capture.hasAudio = false;
-        await super.initialize(config);
+        // RealtimeTranscriber 0.7.4 não copia audioStreamConfig para suas opções.
+        // Configure o adaptador diretamente, sem depender desse repasse.
+        await super.initialize({ ...config, sampleRate: 16000, channels: 1, bitsPerSample: 16, audioSource: 1, bufferSize: 4096 });
         // initialize() libera o adaptador anterior e apaga seu callback de PCM.
         if (this.receiver) this.onData(this.receiver);
       }
