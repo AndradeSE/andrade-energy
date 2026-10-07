@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { Alert, AppState } from "react-native";
+import { Alert, AppState, Vibration } from "react-native";
 import { router, usePathname } from "expo-router";
 import { consumeWakeWordDiagnostic, containsAssistantWakeWord, setWakeWordEnabled, setWakeWordReady, subscribeWakeWord, wakeWordEnabled, wakeWordPaused, wakeWordReady } from "../../services/assistant-wake-word";
 import { nativeSpeechAvailabilityError } from "../../services/native-speech";
@@ -50,7 +50,7 @@ export default function AssistantWakeWord() {
     const retry = () => {
       if (cancelled || triggered) return;
       clearTimeout(timer);
-      timer = setTimeout(() => { void listen(); }, 900);
+      timer = setTimeout(() => { void listen(); }, online ? 100 : 900);
     };
     const fail = (message: string) => {
       if (cancelled) return;
@@ -75,6 +75,7 @@ export default function AssistantWakeWord() {
           console.info("[AssistantWake] candidate", text.trim().length, containsAssistantWakeWord(text));
           if (!containsAssistantWakeWord(text)) { if (online) retry(); return; }
           triggered = true;
+          Vibration.vibrate(120);
           void stopNativePortugueseSpeech(owner).then(() => {
             if (!cancelled) router.push({ pathname: "/assistente", params: { voiceWake: String(Date.now()) } });
           });
@@ -82,7 +83,7 @@ export default function AssistantWakeWord() {
         const started = await startNativePortugueseSpeech(detect, fail, undefined, retry, {
           onPartial: detect, onEnd: retry, wakeOnlineConsent: online,
           shouldContinue: () => !cancelled && !triggered && wakeWordRemainingMs() > 0,
-          owner, onReady: () => { if (!cancelled && !triggered) { opened = true; clearTimeout(startupDeadline); setWakeWordReady(true); } },
+          owner, onReady: () => { if (!cancelled && !triggered) { if (!opened) Vibration.vibrate(50); opened = true; clearTimeout(startupDeadline); setWakeWordReady(true); } },
         });
         if (cancelled) await stopNativePortugueseSpeech(owner);
         else if (!started && !triggered) fail(nativeSpeechAvailabilityError());
