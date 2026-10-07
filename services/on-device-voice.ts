@@ -2,6 +2,7 @@ import { Directory, File, Paths } from "expo-file-system";
 import { createDownloadResumable, getInfoAsync } from "expo-file-system/legacy";
 import { getRecordingPermissionsAsync, requestRecordingPermissionsAsync, setAudioModeAsync } from "expo-audio";
 import { hasAssistantVoiceEnergy } from "./assistant-audio-energy";
+import { AssistantLocalWake } from "./assistant-local-wake";
 
 const VOICE_DIR = new Directory(Paths.document, "assistente-local", "voz");
 const VOICE_MODEL = {
@@ -22,6 +23,7 @@ const VAD_MODEL = {
 };
 type Artifact = typeof VOICE_MODEL;
 type VoiceSession = {
+  wake: AssistantLocalWake;
   capture: { hasAudio: boolean };
   transcriber: InstanceType<typeof import("whisper.rn/realtime-transcription/")["RealtimeTranscriber"]>;
   dictationTranscriber: InstanceType<typeof import("whisper.rn/realtime-transcription/")["RealtimeTranscriber"]>;
@@ -33,6 +35,7 @@ let preparingSession: Promise<VoiceSession> | undefined;
 let pendingSpeechTimer: ReturnType<typeof setTimeout> | undefined;
 let lastDictationCandidate = "";
 let activeTranscriber: VoiceSession["transcriber"] | undefined;
+let activeWake: AssistantLocalWake | undefined;
 let resolveDictationFlush: (() => void) | undefined;
 
 function clearPendingSpeech() {
@@ -128,7 +131,8 @@ export async function prepareVoiceRecognition() {
       { audioSliceSec: 30, audioMinSec: 0.4, maxSlicesInMemory: 2, realtimeProcessingPauseMs: 60_000, initRealtimeAfterMs: 60_000, transcribeOptions: { language: "pt" } },
       {},
     );
-    return { transcriber, dictationTranscriber, whisper, vad, capture };
+    const wake = new AssistantLocalWake(new AudioPcmStreamAdapter(), whisper);
+    return { transcriber, dictationTranscriber, whisper, vad, capture, wake };
   })();
   try { session = await preparingSession; }
   finally { preparingSession = undefined; }
@@ -144,6 +148,13 @@ export async function startContinuousListening(onSpeech: (text: string) => void,
   if (!shouldContinue()) return;
   await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
   clearPendingSpeech();
+  if (keepListening) {
+    const wake = session?.wake;
+    if (!wake) throw new Error("O reconhecimento da frase-chave não iniciou.");
+    activeWake = wake;
+    await wake.start(onSpeech, onError, shouldContinue);
+    return;
+  }
   if (!autoSubmit) lastDictationCandidate = "";
   let submitted = false;
   const emit = (text: string) => {
@@ -199,6 +210,8 @@ export async function startContinuousListening(onSpeech: (text: string) => void,
 
 export async function pauseContinuousListening() {
   clearPendingSpeech();
+  const wake = activeWake; activeWake = undefined;
+  if (wake) await wake.stop();
   if (activeTranscriber) await activeTranscriber.stop();
   activeTranscriber = undefined;
   await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
@@ -224,9 +237,11 @@ export async function finishDictation() {
 
 export async function stopContinuousListening() {
   clearPendingSpeech();
-  if (!activeTranscriber) return;
-  await activeTranscriber.stop();
-  activeTranscriber = undefined;
+  const wake = activeWake; activeWake = undefined;
+  if (wake) await wake.stop();
+  const transcriber = activeTranscriber; activeTranscriber = undefined;
+  if (transcriber) await transcriber.stop();
+  if (!wake && !transcriber) return;
   await setAudioModeAsync({ allowsRecording: false });
 }
 
