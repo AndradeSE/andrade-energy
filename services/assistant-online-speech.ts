@@ -1,5 +1,5 @@
 import { AppState } from "react-native";
-import { AudioModule, RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync } from "expo-audio";
+import { AudioModule, RecordingPresets, getRecordingPermissionsAsync, requestRecordingPermissionsAsync, setAudioModeAsync } from "expo-audio";
 import { File } from "expo-file-system";
 import api from "../config/api";
 import { isPreviewEnvironment } from "../config/environment";
@@ -73,7 +73,10 @@ export async function finishOnlineSpeech(): Promise<string> {
 export async function startOnlineSpeech(onFinal: (text: string) => void, onError: (message: string) => void, onActivity: ((active: boolean) => void) | undefined, onEmpty: (() => void) | undefined, options: { valid: () => boolean; dictation: boolean; wakeMode?: boolean; onReady?: () => void }) {
   if (!isPreviewEnvironment) throw new Error("Transcrição online disponível apenas no Preview.");
   await stopOnlineSpeech();
-  const permission = await requestRecordingPermissionsAsync();
+  // Pedir novamente pode abrir uma Activity de permissões mesmo já autorizado,
+  // fazendo a proteção de segundo plano cancelar a ativação antes da captura.
+  const existingPermission = await getRecordingPermissionsAsync();
+  const permission = existingPermission.granted ? existingPermission : await requestRecordingPermissionsAsync();
   if (!permission.granted) throw new Error("Autorize o microfone nas configurações do aplicativo.");
   if (!options.valid() || AppState.currentState !== "active") return false;
   await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, shouldPlayInBackground: false });
