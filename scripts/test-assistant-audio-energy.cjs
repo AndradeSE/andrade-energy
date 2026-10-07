@@ -1,0 +1,15 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const ts = require('typescript');
+const exportsForTest = {};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('services/assistant-audio-energy.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: exportsForTest, DataView });
+const check = exportsForTest.hasAssistantVoiceEnergy;
+assert.equal(check(new Uint8Array()), false);
+assert.equal(check(new Uint8Array(32000)), false);
+const bytes = new Uint8Array(32000);
+const pcm = new DataView(bytes.buffer);
+for (let i = 0; i < 16000; i++) pcm.setInt16(i * 2, Math.round(Math.sin(i / 10) * 1800), true);
+assert.equal(check(bytes), true);
+assert.equal(check(bytes.subarray(2)), true);
+console.log('PASS: silêncio rejeitado e PCM16 com energia aceito, inclusive subarray');

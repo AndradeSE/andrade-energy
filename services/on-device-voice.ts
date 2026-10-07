@@ -1,6 +1,7 @@
 import { Directory, File, Paths } from "expo-file-system";
 import { createDownloadResumable, getInfoAsync } from "expo-file-system/legacy";
 import { getRecordingPermissionsAsync, requestRecordingPermissionsAsync, setAudioModeAsync } from "expo-audio";
+import { hasAssistantVoiceEnergy } from "./assistant-audio-energy";
 
 const VOICE_DIR = new Directory(Paths.document, "assistente-local", "voz");
 const VOICE_MODEL = {
@@ -112,8 +113,9 @@ export async function prepareVoiceRecognition() {
     const whisper = await initWhisper({ filePath: new File(VOICE_DIR, VOICE_MODEL.name).uri });
     const vad = await initWhisperVad({ filePath: new File(VOICE_DIR, VAD_MODEL.name).uri, useGpu: false });
     const transcriber = new RealtimeTranscriber(
-      { whisperContext: whisper, vadContext: new RingBufferVad(vad), audioStream: new RestartableAudioStream() },
-      { audioSliceSec: 8, audioMinSec: 0.6, maxSlicesInMemory: 3, realtimeProcessingPauseMs: 1600, initRealtimeAfterMs: 900, transcribeOptions: { language: "pt" } },
+      { whisperContext: whisper, audioStream: new RestartableAudioStream() },
+      // A frase curta não pode depender do VAD silencioso de alguns aparelhos.
+      { audioSliceSec: 3, audioMinSec: 0.6, maxSlicesInMemory: 3, realtimeProcessingPauseMs: 1500, initRealtimeAfterMs: 1200, audioStreamConfig: { sampleRate: 16000, channels: 1, bitsPerSample: 16, audioSource: 1 }, transcribeOptions: { language: "pt", maxThreads: 2 } },
       {},
     );
     // Ditado por botão não depende do VAD: falas curtas podem não atingir o limiar de voz.
@@ -148,6 +150,7 @@ export async function startContinuousListening(onSpeech: (text: string) => void,
     onSpeech(spoken);
   };
   const callbacks = {
+    onBeginTranscribe: async (slice: { audioData: Uint8Array }) => !keepListening || (shouldContinue() && hasAssistantVoiceEnergy(slice.audioData)),
     onSliceTranscriptionStabilized: (text: string) => {
       if (!autoSubmit) {
         lastDictationCandidate = text.trim() || lastDictationCandidate;
@@ -157,6 +160,7 @@ export async function startContinuousListening(onSpeech: (text: string) => void,
       emit(text);
     },
     onTranscribe: (event: { type: string; data?: { result?: string } }) => {
+      if (keepListening && event.type === "transcribe") console.info("[AssistantWake] local-result", Boolean(event.data?.result?.trim()));
       if (event.type !== "transcribe" || !event.data?.result?.trim()) return;
       const candidate = event.data.result.trim();
       if (!autoSubmit) { lastDictationCandidate = candidate; return; }
