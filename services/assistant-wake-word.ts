@@ -12,5 +12,7 @@ export function subscribeWakeWord(listener: () => void) { listeners.add(listener
 export function setWakeWordEnabled(value: boolean) { enabled = value; if (!value) ready = false; listeners.forEach(listener => listener()); }
 export function containsAssistantWakeWord(text: string) {
   const normalized = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9\s]/g, " ");
-  return /\be\s+ai+\s+(chat|chate|chatbot)\b/.test(normalized);
+  // O reconhecedor pode juntar "e aí" ou escrever a interjeição como "ei/hey".
+  // Exige a chamada + chat; mencionar só "chat" nunca ativa a conversa.
+  return /\b(?:e\s*ai+|ei|hey|ai+)\s*(?:chat|chate|chatbot)\b/.test(normalized);
 }

@@ -163,6 +163,7 @@ export async function startContinuousListening(onSpeech: (text: string) => void,
       if (keepListening && event.type === "transcribe") console.info("[AssistantWake] local-result", Boolean(event.data?.result?.trim()));
       if (event.type !== "transcribe" || !event.data?.result?.trim()) return;
       const candidate = event.data.result.trim();
+      if (keepListening) { emit(candidate); return; }
       if (!autoSubmit) { lastDictationCandidate = candidate; return; }
       if (submitted && !keepListening) return;
       clearPendingSpeech();
