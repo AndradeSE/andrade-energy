@@ -4,11 +4,11 @@ import { startOnlineSpeech, stopOnlineSpeech, finishOnlineSpeech } from "./assis
 import { isPreviewEnvironment } from "../config/environment";
 
 // Uma sessão possui o microfone inteiro. Preview usa transcrição online somente
-// com consentimento; a frase-chave permanece local. Nunca baixa modelos aqui.
+// com consentimento específico; a frase-chave local continua disponível no teste.
 let generation = 0;
 let owner: string | undefined;
 let engine: "native" | "local" | "online" | undefined;
-type Options = { onPartial?: (text: string) => void; onEnd?: () => void; shouldContinue?: () => boolean; onReady?: () => void; owner?: string; audioConsent?: boolean };
+type Options = { onPartial?: (text: string) => void; onEnd?: () => void; shouldContinue?: () => boolean; onReady?: () => void; owner?: string; audioConsent?: boolean; wakeOnlineConsent?: boolean };
 
 export async function startAssistantSpeech(onFinal: (text: string) => void, onError: (message: string) => void, onActivity?: (active: boolean) => void, onEmptyEnd?: () => void, options?: Options) {
   // Uma chamada atrasada da frase-chave não pode encerrar o ditado/conversa.
@@ -25,13 +25,14 @@ export async function startAssistantSpeech(onFinal: (text: string) => void, onEr
   if (previous === "local") await stopContinuousListening();
   if (previous === "online") await stopOnlineSpeech();
   if (!valid()) return false;
-  if (isPreviewEnvironment && !options?.owner?.startsWith("wake-")) {
-    if (options?.audioConsent !== true) { onError("Autorize a transcrição online antes de iniciar a escuta."); return false; }
+  const wakeSession = Boolean(options?.owner?.startsWith("wake-"));
+  if (isPreviewEnvironment && (!wakeSession || options?.wakeOnlineConsent === true)) {
+    if (!(wakeSession ? options?.wakeOnlineConsent : options?.audioConsent)) { onError("Autorize a transcrição online antes de iniciar a escuta."); return false; }
     engine = "online";
     try {
       const release = () => { if (valid()) { engine = undefined; owner = undefined; } };
       return await startOnlineSpeech(text => { release(); onFinal(text); }, message => { release(); onError(message); }, onActivity, () => { release(); onEmptyEnd?.(); }, {
-        valid, dictation: Boolean(options?.onPartial), onReady: options?.onReady,
+        valid, dictation: !wakeSession && Boolean(options?.onPartial), wakeMode: wakeSession, onReady: options?.onReady,
       });
     } catch (error) { if (valid()) onError(error instanceof Error ? error.message : "O microfone não iniciou."); return false; }
   }

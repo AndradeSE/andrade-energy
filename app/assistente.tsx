@@ -465,12 +465,9 @@ export default function Assistente() {
 
   async function configureWakeWord() {
     if (wakeWordEnabled()) { setWakeWordEnabled(false); return; }
-    Alert.alert("Ativar “E aí, chat”?", "Enquanto o app estiver aberto, o microfone reconhecerá a frase no aparelho para abrir a conversa, inclusive no chat em silêncio. A escuta pausa durante a conversa, o ditado, os carregamentos e em segundo plano. Pode consumir bateria. Não enviamos essa escuta aos provedores de IA. Ao sair da conta, ela é desligada.", [
+    Alert.alert("Testar “E aí, chat” online?", "Durante até 60 segundos, com o app aberto, trechos curtos de áudio serão enviados à transcrição online usada pela conversa, incluindo falas antes do comando. Usa internet. A escuta pausa durante a conversa, o ditado e os carregamentos, e é desligada ao colocar o app em segundo plano. Você pode desligar a qualquer momento.", [
       { text: "Agora não", style: "cancel" },
-      { text: "Ativar", onPress: () => { void nativePortugueseSpeechAvailable().then(available => {
-        if (available || isVoiceInstalled()) setWakeWordEnabled(true);
-        else Alert.alert("Não foi possível ativar", nativeSpeechAvailabilityError());
-      }).catch(() => Alert.alert("Não foi possível ativar", "Tente novamente.")); } },
+      { text: "Ativar online", onPress: () => setWakeWordEnabled(true, true) },
     ]);
   }
 

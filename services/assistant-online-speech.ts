@@ -70,7 +70,7 @@ export async function finishOnlineSpeech(): Promise<string> {
   return current.finishing;
 }
 
-export async function startOnlineSpeech(onFinal: (text: string) => void, onError: (message: string) => void, onActivity: ((active: boolean) => void) | undefined, onEmpty: (() => void) | undefined, options: { valid: () => boolean; dictation: boolean; onReady?: () => void }) {
+export async function startOnlineSpeech(onFinal: (text: string) => void, onError: (message: string) => void, onActivity: ((active: boolean) => void) | undefined, onEmpty: (() => void) | undefined, options: { valid: () => boolean; dictation: boolean; wakeMode?: boolean; onReady?: () => void }) {
   if (!isPreviewEnvironment) throw new Error("Transcrição online disponível apenas no Preview.");
   await stopOnlineSpeech();
   const permission = await requestRecordingPermissionsAsync();
@@ -94,7 +94,10 @@ export async function startOnlineSpeech(onFinal: (text: string) => void, onError
     options.onReady?.();
     let lastVoiceAt = 0;
     const startedAt = Date.now();
+    let submitting = false;
     const submit = async () => {
+      if (submitting) return;
+      submitting = true;
       try {
         const text = await finishOnlineSpeech();
         onActivity?.(false);
@@ -114,9 +117,16 @@ export async function startOnlineSpeech(onFinal: (text: string) => void, onError
       onActivity?.(speaking);
       if (options.dictation) {
         if (now - startedAt >= 30_000) { void stopOnlineSpeech(); onError("Limite de 30 segundos. Solte e grave uma nova pergunta."); }
-      } else if ((lastVoiceAt && now - lastVoiceAt >= 1300) || now - startedAt >= 15_000) {
+      } else if ((lastVoiceAt && now - lastVoiceAt >= (options.wakeMode ? 800 : 1300)) || now - startedAt >= (options.wakeMode ? 5000 : 15_000)) {
         if (lastVoiceAt) void submit();
-        else { void stopOnlineSpeech(); onError("Não detectei fala. Toque nas ondas para tentar novamente."); }
+        else if (!submitting) {
+          submitting = true;
+          void stopOnlineSpeech().then(() => {
+            if (!options.valid()) return;
+            if (options.wakeMode) onEmpty?.();
+            else onError("Não detectei fala. Toque nas ondas para tentar novamente.");
+          });
+        }
       }
     }, 150);
     return true;

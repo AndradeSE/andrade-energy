@@ -16,9 +16,9 @@ const local = {
 };
 const exported = {};
 const environment = { isPreviewEnvironment: false };
-let onlineStarts = 0;
+let onlineStarts = 0, onlineOptions;
 const online = {
-  startOnlineSpeech: async () => { onlineStarts++; return true; },
+  startOnlineSpeech: async (final, error, activity, empty, options) => { onlineStarts++; onlineOptions = options; return true; },
   stopOnlineSpeech: async () => {}, finishOnlineSpeech: async () => "ditado online",
 };
 const code = ts.transpileModule(fs.readFileSync("services/assistant-speech-session.ts", "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
@@ -77,7 +77,15 @@ const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve()
   assert.equal(await exported.finishAssistantSpeech(), "ditado online");
   await exported.stopAssistantSpeech();
   await exported.startAssistantSpeech(() => {}, () => {}, undefined, undefined, { owner: "wake-test" });
-  assert.equal(onlineStarts, 1); // Hotword nunca envia áudio ao provedor.
+  assert.equal(onlineStarts, 1); // Sem consentimento específico, hotword permanece local.
+  await exported.stopAssistantSpeech();
+  await exported.startAssistantSpeech(() => {}, () => {}, undefined, undefined, { owner: "wake-test", audioConsent: true });
+  assert.equal(onlineStarts, 1); // Consentimento da conversa não autoriza escuta prévia.
+  await exported.stopAssistantSpeech();
+  await exported.startAssistantSpeech(() => {}, () => {}, undefined, undefined, { owner: "wake-test", wakeOnlineConsent: true, onPartial: () => {} });
+  assert.equal(onlineStarts, 2);
+  assert.equal(onlineOptions.wakeMode, true);
+  assert.equal(onlineOptions.dictation, false);
   await exported.stopAssistantSpeech();
   console.log("PASS: falha/timeout Android usa voz local instalada, ditado, ativação, isolamento e nenhum download implícito");
 })().catch(error => { console.error(error); process.exitCode = 1; });

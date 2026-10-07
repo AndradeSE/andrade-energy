@@ -6,6 +6,8 @@ const exportsForTest = {};
 const code = ts.transpileModule(fs.readFileSync("services/assistant-wake-word.ts", "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
 vm.runInNewContext(code, { exports: exportsForTest });
 const { containsAssistantWakeWord, wakeWordEnabled, setWakeWordEnabled, subscribeWakeWord, wakeWordPaused, setWakeWordPaused } = exportsForTest;
+for (const phrase of ["e,chate!", "E, chat!", " e chate "]) assert.equal(containsAssistantWakeWord(phrase), true, phrase);
+for (const phrase of ["e chato", "email e chat", "e chat está aberto", "chate", "e chatbotice", "e e e o chechinho"]) assert.equal(containsAssistantWakeWord(phrase), false, phrase);
 for (const phrase of ["E aí, chat!", "e ai chat", "e aii chat", "E aí chate", "e aí chat como vai?", "Ei, chat!", "Hey chat", "Eai chat", "E aíchat", "AI Chat"]) assert.equal(containsAssistantWakeWord(phrase), true, phrase);
 for (const phrase of ["chat", "e aí", "esse chat", "abri o chat", "e aí chato", "obrigado", "boa noite", "deixei chat aberto", "achei chat", "e ai chatbotice"]) assert.equal(containsAssistantWakeWord(phrase), false, phrase);
 assert.equal(wakeWordEnabled(), false);
