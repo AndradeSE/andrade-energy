@@ -29,7 +29,8 @@ export async function startAssistantSpeech(onFinal: (text: string) => void, onEr
     if (options?.audioConsent !== true) { onError("Autorize a transcrição online antes de iniciar a escuta."); return false; }
     engine = "online";
     try {
-      return await startOnlineSpeech(onFinal, onError, onActivity, onEmptyEnd, {
+      const release = () => { if (valid()) { engine = undefined; owner = undefined; } };
+      return await startOnlineSpeech(text => { release(); onFinal(text); }, message => { release(); onError(message); }, onActivity, () => { release(); onEmptyEnd?.(); }, {
         valid, dictation: Boolean(options?.onPartial), onReady: options?.onReady,
       });
     } catch (error) { if (valid()) onError(error instanceof Error ? error.message : "O microfone não iniciou."); return false; }
@@ -105,5 +106,8 @@ export async function stopAssistantSpeech(requestOwner?: string) {
 }
 
 export async function finishAssistantSpeech() {
-  return engine === "online" ? finishOnlineSpeech() : engine === "local" ? finishDictation() : finishNativePortugueseSpeech();
+  const current = generation;
+  const previous = engine;
+  try { return await (previous === "online" ? finishOnlineSpeech() : previous === "local" ? finishDictation() : finishNativePortugueseSpeech()); }
+  finally { if (current === generation) { engine = undefined; owner = undefined; } }
 }
