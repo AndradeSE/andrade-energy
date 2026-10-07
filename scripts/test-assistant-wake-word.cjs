@@ -30,3 +30,4 @@ const component = fs.readFileSync("components/assistant/AssistantWakeWord.tsx", 
 assert.equal(component.includes('pathname === "/assistente"'), false, "Chat ocioso não deve bloquear a captura nem o prazo de inicialização");
 assert.match(component, /!foreground \|\| paused \|\| loading/);
 assert.match(component, /startupDeadline = setTimeout/);
+assert.match(fs.readFileSync("services/on-device-voice.ts", "utf8"), /promptPreviousSlices: false/, "Resultados anteriores não podem contaminar a frase de ativação seguinte");
