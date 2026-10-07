@@ -13,3 +13,10 @@ for (let i = 0; i < 16000; i++) pcm.setInt16(i * 2, Math.round(Math.sin(i / 10) 
 assert.equal(check(bytes), true);
 assert.equal(check(bytes.subarray(2)), true);
 console.log('PASS: silêncio rejeitado e PCM16 com energia aceito, inclusive subarray');
+const known = new ArrayBuffer(8);
+const knownPcm = new DataView(known);
+[0, 32767, -32768, 16384].forEach((value, index) => knownPcm.setInt16(index * 2, value, true));
+const converted = new Float32Array(exportsForTest.assistantPcm16ToFloat32(known));
+assert.deepEqual(Array.from(converted), [0, 32767 / 32768, -1, 0.5]);
+assert.equal(converted.byteLength, 16);
+console.log('PASS: PCM16 convertido para Float32 normalizado sem reinterpretar bytes');

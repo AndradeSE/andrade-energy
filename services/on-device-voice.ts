@@ -1,7 +1,7 @@
 import { Directory, File, Paths } from "expo-file-system";
 import { createDownloadResumable, getInfoAsync } from "expo-file-system/legacy";
 import { getRecordingPermissionsAsync, requestRecordingPermissionsAsync, setAudioModeAsync } from "expo-audio";
-import { hasAssistantVoiceEnergy } from "./assistant-audio-energy";
+import { assistantPcm16ToFloat32, hasAssistantVoiceEnergy } from "./assistant-audio-energy";
 
 const VOICE_DIR = new Directory(Paths.document, "assistente-local", "voz");
 const VOICE_MODEL = {
@@ -112,15 +112,17 @@ export async function prepareVoiceRecognition() {
     }
     const whisper = await initWhisper({ filePath: new File(VOICE_DIR, VOICE_MODEL.name).uri });
     const vad = await initWhisperVad({ filePath: new File(VOICE_DIR, VAD_MODEL.name).uri, useGpu: false });
+    // RealtimeTranscriber trabalha em PCM16; a API JSI do Whisper recebe Float32.
+    const pcmWhisper = { transcribeData: (audio: ArrayBuffer, options: Parameters<typeof whisper.transcribeData>[1]) => whisper.transcribeData(assistantPcm16ToFloat32(audio), options) };
     const transcriber = new RealtimeTranscriber(
-      { whisperContext: whisper, audioStream: new RestartableAudioStream() },
+      { whisperContext: pcmWhisper, audioStream: new RestartableAudioStream() },
       // A frase curta não pode depender do VAD silencioso de alguns aparelhos.
       { audioSliceSec: 3, audioMinSec: 0.6, maxSlicesInMemory: 3, realtimeProcessingPauseMs: 1500, initRealtimeAfterMs: 1200, audioStreamConfig: { sampleRate: 16000, channels: 1, bitsPerSample: 16, audioSource: 1 }, transcribeOptions: { language: "pt", maxThreads: 2 } },
       {},
     );
     // Ditado por botão não depende do VAD: falas curtas podem não atingir o limiar de voz.
     const dictationTranscriber = new RealtimeTranscriber(
-      { whisperContext: whisper, audioStream: new RestartableAudioStream() },
+      { whisperContext: pcmWhisper, audioStream: new RestartableAudioStream() },
       { audioSliceSec: 30, audioMinSec: 0.4, maxSlicesInMemory: 2, realtimeProcessingPauseMs: 60_000, initRealtimeAfterMs: 60_000, transcribeOptions: { language: "pt" } },
       {},
     );
