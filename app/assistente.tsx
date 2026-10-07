@@ -109,7 +109,8 @@ export default function Assistente() {
     return () => clearTimeout(timer);
   }, [listening, busy, hearingSpeech, speakingReply, transcribing]);
   useEffect(() => {
-    if (!listening || (!hearingSpeech && !speakingReply)) {
+    const commandListening = wakeEnabled && wakeReady && !wakePaused;
+    if (!commandListening && (!listening || (!hearingSpeech && !speakingReply))) {
       wave.forEach(value => value.setValue(0));
       return;
     }
@@ -119,7 +120,7 @@ export default function Assistente() {
     ])));
     animations.forEach(animation => animation.start());
     return () => animations.forEach(animation => animation.stop());
-  }, [listening, hearingSpeech, speakingReply, wave]);
+  }, [listening, hearingSpeech, speakingReply, wave, wakeEnabled, wakeReady, wakePaused]);
   useEffect(() => {
     const show = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
     const hide = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));

@@ -67,7 +67,8 @@ export default function FloatingAssistant() {
     },
   }), [animated, height, width]);
 
-  if (loading || (pathname === "/assistente" && !listening)) return null;
+  // Na Ajuda, as ondas já pertencem à barra de escrita: não sobreponha outro botão.
+  if (loading || pathname === "/assistente") return null;
   return <Animated.View {...pan.panHandlers} accessibilityRole="button" accessibilityLabel={listening ? "Desativar comando de voz; arraste para mover" : "Abrir chat com a Ajuda Andrade Energy; arraste para mover"} style={[styles.button, { transform: animated.getTranslateTransform() }]}>
     <Animated.View pointerEvents="none" style={[styles.halo, { opacity: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.4] }), transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.08] }) }] }]} />
     {listening ? <View pointerEvents="none" style={styles.waves}>{[12, 23, 32, 23, 12].map((height, index) => <Animated.View key={index} style={{ width: 4, height, borderRadius: 2, marginHorizontal: 2, backgroundColor: "#ECFFF5", transform: [{ scaleY: wave.interpolate({ inputRange: [0, 1], outputRange: index % 2 ? [1, 0.45] : [0.45, 1] }) }] }} />)}</View> : <Animated.View pointerEvents="none" style={{ transform: [{ translateY: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, -2] }) }, { scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) }] }}>
