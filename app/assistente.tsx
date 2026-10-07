@@ -5,7 +5,7 @@ import * as FileSystemLegacy from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
 import { Redirect, useRouter, useLocalSearchParams } from "expo-router";
-import { setWakeWordEnabled, setWakeWordPaused, subscribeWakeWord, wakeWordEnabled, wakeWordReady, wakeWordPaused } from "../services/assistant-wake-word";
+import { armWakeWordDiagnostic, setWakeWordEnabled, setWakeWordPaused, subscribeWakeWord, wakeWordEnabled, wakeWordReady, wakeWordPaused } from "../services/assistant-wake-word";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -474,6 +474,13 @@ export default function Assistente() {
     ]);
   }
 
+  function diagnoseWakeWord() {
+    Alert.alert("Testar frase de ativação", "Mostra somente o próximo texto reconhecido e desliga a escuta. Não salva áudio nem registra o texto nos logs. Diga apenas ‘E aí, chat’.", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Iniciar teste", onPress: () => { armWakeWordDiagnostic(); setWakeWordEnabled(true); } },
+    ]);
+  }
+
   async function endDictation() {
     micHeld.current = false;
     if (dictationStarting.current || !dictationActive.current) return;
@@ -564,7 +571,7 @@ export default function Assistente() {
     <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
       {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Consulte dados da sua conta, peça documentos ou abra as funções do app para revisão. Para ditar, segure o microfone e solte; para conversar por voz, toque nas ondas.</Text><Text style={styles.limit}>A conversa usa o Gemini online. Não é necessário baixar um modelo local. Consultas respeitam seu acesso; alterações exigem revisão nas telas do aplicativo.</Text></View> : null}
       <Pressable accessibilityRole="button" accessibilityLabel="Configurar voz natural nos dados da conta" onPress={configureAccountVoice} style={styles.action}><Text style={styles.actionText}>Voz natural nos dados · {accountVoiceAllowed ? "autorizada" : "autorizar"}</Text></Pressable>
-      <Pressable accessibilityRole="switch" accessibilityState={{ checked: wakeEnabled && wakeReady }} onPress={() => { void configureWakeWord(); }} style={styles.action}><Text style={styles.actionText}>{wakeEnabled ? wakePaused ? "Comando de voz pausado · desativar" : wakeReady ? "Ouvindo ‘E aí, chat’ · desativar comando" : "Iniciando escuta · cancelar" : "Ativar comando de voz ‘E aí, chat’"}</Text></Pressable>
+      <Pressable accessibilityRole="switch" accessibilityState={{ checked: wakeEnabled && wakeReady }} onLongPress={diagnoseWakeWord} onPress={() => { void configureWakeWord(); }} style={styles.action}><Text style={styles.actionText}>{wakeEnabled ? wakePaused ? "Comando de voz pausado · desativar" : wakeReady ? "Ouvindo ‘E aí, chat’ · desativar comando" : "Iniciando escuta · cancelar" : "Ativar comando de voz ‘E aí, chat’"}</Text></Pressable>
       {installStage ? <View style={styles.progressCard} accessibilityLiveRegion="polite"><Text style={styles.limit}>{installStage}</Text>{installProgress !== null ? <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(installProgress * 100)}%` }]} /></View> : null}{downloadingModel ? <Pressable accessibilityRole="button" accessibilityLabel="Cancelar download do modelo" onPress={() => void cancelModelDownload()} style={styles.cancelDownload}><Text style={styles.cancelDownloadText}>Cancelar download</Text></Pressable> : null}</View> : null}
       {messages.map((message, index) => <View key={index} style={[styles.bubble, message.from === "user" ? styles.userBubble : styles.assistantBubble]}>
         <Text style={styles.message}>{message.text}</Text>

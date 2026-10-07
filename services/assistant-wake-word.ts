@@ -2,6 +2,13 @@
 let enabled = false;
 let paused = false;
 let ready = false;
+let diagnosticUntil = 0;
+export function armWakeWordDiagnostic() { diagnosticUntil = Date.now() + 60000; }
+export function consumeWakeWordDiagnostic() {
+  const armed = diagnosticUntil > Date.now();
+  diagnosticUntil = 0;
+  return armed;
+}
 const listeners = new Set<() => void>();
 export const wakeWordEnabled = () => enabled;
 export const wakeWordPaused = () => paused;

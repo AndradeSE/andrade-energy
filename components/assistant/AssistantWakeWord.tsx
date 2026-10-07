@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Alert, AppState } from "react-native";
 import { router, usePathname } from "expo-router";
-import { containsAssistantWakeWord, setWakeWordEnabled, setWakeWordReady, subscribeWakeWord, wakeWordEnabled, wakeWordPaused, wakeWordReady } from "../../services/assistant-wake-word";
+import { consumeWakeWordDiagnostic, containsAssistantWakeWord, setWakeWordEnabled, setWakeWordReady, subscribeWakeWord, wakeWordEnabled, wakeWordPaused, wakeWordReady } from "../../services/assistant-wake-word";
 import { nativeSpeechAvailabilityError } from "../../services/native-speech";
 import { startAssistantSpeech as startNativePortugueseSpeech, stopAssistantSpeech as stopNativePortugueseSpeech } from "../../services/assistant-speech-session";
 import { isAssistantLoading, subscribeAssistantLoading } from "../../services/assistant-overlay-visibility";
@@ -57,6 +57,12 @@ export default function AssistantWakeWord() {
       try {
         const detect = (text: string) => {
           if (cancelled || triggered) return;
+          if (consumeWakeWordDiagnostic()) {
+            triggered = true;
+            setWakeWordEnabled(false);
+            void stopNativePortugueseSpeech(owner).then(() => Alert.alert("Texto reconhecido neste teste", text.slice(0, 180)));
+            return;
+          }
           console.info("[AssistantWake] candidate", text.trim().length, containsAssistantWakeWord(text));
           if (!containsAssistantWakeWord(text)) return;
           triggered = true;
