@@ -1,0 +1,29 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const ts = require('typescript');
+const source = fs.readFileSync('services/on-device-voice.ts', 'utf8');
+const adapter = source.slice(source.indexOf('    class RestartableAudioStream'), source.indexOf('    const whisper ='));
+class AudioPcmStreamAdapter {
+  onData(callback) { this.callback = callback; }
+  async initialize() { this.callback = undefined; }
+}
+const capture = { hasAudio: false };
+const context = { AudioPcmStreamAdapter, capture };
+vm.createContext(context);
+vm.runInContext(ts.transpileModule(adapter + '\nglobalThis.Stream = RestartableAudioStream;', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context);
+(async () => {
+  const stream = new context.Stream();
+  let packets = 0;
+  stream.onData(() => packets++);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await stream.initialize({});
+    assert.equal(capture.hasAudio, false);
+    stream.callback({ data: new Uint8Array(8) });
+    assert.equal(capture.hasAudio, true);
+  }
+  assert.equal(packets, 3);
+  assert.match(source, /if \(!shouldContinue\(\)\) return;/);
+  assert.match(source, /!prepared.capture.hasAudio/);
+  console.log('PASS: callback PCM preservado em três reinícios e confirmação de áudio real');
+})().catch(error => { console.error(error); process.exitCode = 1; });

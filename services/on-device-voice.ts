@@ -21,6 +21,7 @@ const VAD_MODEL = {
 };
 type Artifact = typeof VOICE_MODEL;
 type VoiceSession = {
+  capture: { hasAudio: boolean };
   transcriber: InstanceType<typeof import("whisper.rn/realtime-transcription/")["RealtimeTranscriber"]>;
   dictationTranscriber: InstanceType<typeof import("whisper.rn/realtime-transcription/")["RealtimeTranscriber"]>;
   whisper: Awaited<ReturnType<typeof import("whisper.rn/index")["initWhisper"]>>;
@@ -94,31 +95,47 @@ export async function prepareVoiceRecognition() {
     const [{ initWhisper, initWhisperVad }, { RealtimeTranscriber, RingBufferVad }, { AudioPcmStreamAdapter }] = await Promise.all([
       import("whisper.rn/index"), import("whisper.rn/realtime-transcription/"), import("whisper.rn/realtime-transcription/adapters/AudioPcmStreamAdapter"),
     ]);
+    const capture = { hasAudio: false };
+    class RestartableAudioStream extends AudioPcmStreamAdapter {
+      private receiver?: Parameters<InstanceType<typeof AudioPcmStreamAdapter>["onData"]>[0];
+      onData(callback: Parameters<InstanceType<typeof AudioPcmStreamAdapter>["onData"]>[0]) {
+        this.receiver = callback;
+        super.onData(data => { capture.hasAudio = true; callback(data); });
+      }
+      async initialize(config: Parameters<InstanceType<typeof AudioPcmStreamAdapter>["initialize"]>[0]) {
+        capture.hasAudio = false;
+        await super.initialize(config);
+        // initialize() libera o adaptador anterior e apaga seu callback de PCM.
+        if (this.receiver) this.onData(this.receiver);
+      }
+    }
     const whisper = await initWhisper({ filePath: new File(VOICE_DIR, VOICE_MODEL.name).uri });
     const vad = await initWhisperVad({ filePath: new File(VOICE_DIR, VAD_MODEL.name).uri, useGpu: false });
     const transcriber = new RealtimeTranscriber(
-      { whisperContext: whisper, vadContext: new RingBufferVad(vad), audioStream: new AudioPcmStreamAdapter() },
+      { whisperContext: whisper, vadContext: new RingBufferVad(vad), audioStream: new RestartableAudioStream() },
       { audioSliceSec: 8, audioMinSec: 0.6, maxSlicesInMemory: 3, realtimeProcessingPauseMs: 1600, initRealtimeAfterMs: 900, transcribeOptions: { language: "pt" } },
       {},
     );
     // Ditado por botão não depende do VAD: falas curtas podem não atingir o limiar de voz.
     const dictationTranscriber = new RealtimeTranscriber(
-      { whisperContext: whisper, audioStream: new AudioPcmStreamAdapter() },
+      { whisperContext: whisper, audioStream: new RestartableAudioStream() },
       { audioSliceSec: 30, audioMinSec: 0.4, maxSlicesInMemory: 2, realtimeProcessingPauseMs: 60_000, initRealtimeAfterMs: 60_000, transcribeOptions: { language: "pt" } },
       {},
     );
-    return { transcriber, dictationTranscriber, whisper, vad };
+    return { transcriber, dictationTranscriber, whisper, vad, capture };
   })();
   try { session = await preparingSession; }
   finally { preparingSession = undefined; }
 }
 
-export async function startContinuousListening(onSpeech: (text: string) => void, onError: (error: string) => void, autoSubmit = false, onActivity?: (speaking: boolean) => void) {
+export async function startContinuousListening(onSpeech: (text: string) => void, onError: (error: string) => void, autoSubmit = false, onActivity?: (speaking: boolean) => void, shouldContinue = () => true) {
   if (!isVoiceInstalled()) throw new Error("Instale os arquivos de voz antes de começar.");
   await prepareVoiceRecognition();
+  if (!shouldContinue()) return;
   const existingPermission = await getRecordingPermissionsAsync();
   const permission = existingPermission.granted ? existingPermission : await requestRecordingPermissionsAsync();
   if (!permission.granted) throw new Error("O microfone não foi autorizado.");
+  if (!shouldContinue()) return;
   await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
   clearPendingSpeech();
   if (!autoSubmit) lastDictationCandidate = "";
@@ -161,6 +178,14 @@ export async function startContinuousListening(onSpeech: (text: string) => void,
   activeTranscriber = transcriber;
   transcriber.updateCallbacks(callbacks);
   await transcriber.start();
+  const captureDeadline = Date.now() + 4000;
+  while (!prepared.capture.hasAudio && shouldContinue() && Date.now() < captureDeadline) {
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  if (!shouldContinue() || !prepared.capture.hasAudio) {
+    await stopContinuousListening();
+    if (shouldContinue()) throw new Error("O microfone abriu, mas não entregou áudio. A escuta foi desligada.");
+  }
 }
 
 export async function pauseContinuousListening() {

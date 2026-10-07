@@ -64,7 +64,7 @@ export async function startAssistantSpeech(onFinal: (text: string) => void, onEr
         // O reconhecedor local de conversa envia uma fala por sessão.
         // A ativação precisa continuar quando essa fala não contém a frase-chave.
         if (options?.owner?.startsWith("wake-")) options.onEnd?.();
-      }, message => fail(message), !dictation, onActivity);
+      }, message => fail(message), !dictation, onActivity, valid);
       if (!valid()) { await stopContinuousListening(); return; }
       clearDeadline();
       ready = true;
