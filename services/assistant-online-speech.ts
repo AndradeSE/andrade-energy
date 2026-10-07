@@ -31,7 +31,7 @@ export async function stopOnlineSpeech() {
   try { uri = current.recorder.uri; } catch { /* A cancelled upload may have released it. */ }
   try { current.recorder.release(); } catch { /* Already released. */ }
   deleteAudio(uri);
-  await setAudioModeAsync({ allowsRecording: false, interruptionMode: "mixWithOthers" });
+  await setAudioModeAsync({ allowsRecording: false });
 }
 export async function finishOnlineSpeech(): Promise<string> {
   const current = session;
@@ -44,7 +44,7 @@ export async function finishOnlineSpeech(): Promise<string> {
       const duration = current.recorder.getStatus().durationMillis;
       await current.recorder.stop();
       uri = current.recorder.uri;
-      await setAudioModeAsync({ allowsRecording: false, interruptionMode: "mixWithOthers" });
+      await setAudioModeAsync({ allowsRecording: false });
       if (current.closed || !current.valid() || !uri || duration < 300) return "";
       const file = new File(uri);
       if (!file.exists || file.size > 2_000_000) throw new Error("O áudio excedeu o tamanho permitido.");
@@ -79,10 +79,10 @@ export async function startOnlineSpeech(onFinal: (text: string) => void, onError
   const permission = existingPermission.granted ? existingPermission : await requestRecordingPermissionsAsync();
   if (!permission.granted) throw new Error("Autorize o microfone nas configurações do aplicativo.");
   if (!options.valid() || AppState.currentState !== "active") return false;
-  await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, shouldPlayInBackground: false, interruptionMode: "doNotMix" });
+  await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, shouldPlayInBackground: false });
   if (!options.valid() || AppState.currentState !== "active") return false;
   const preset = RecordingPresets.HIGH_QUALITY;
-  const recorder = new AudioModule.AudioRecorder({ ...preset, android: { ...preset.android, audioSource: "voice_recognition" }, sampleRate: 16000, numberOfChannels: 1, bitRate: 32000, isMeteringEnabled: true });
+  const recorder = new AudioModule.AudioRecorder({ ...preset, ...preset.android, sampleRate: 16000, numberOfChannels: 1, bitRate: 32000, isMeteringEnabled: true });
   const current: Session = { recorder, valid: options.valid, closed: false, controller: new AbortController() };
   session = current;
   try {
@@ -96,8 +96,6 @@ export async function startOnlineSpeech(onFinal: (text: string) => void, onError
     console.info("[AssistantSpeech] online-recording");
     options.onReady?.();
     let lastVoiceAt = 0;
-    let consecutiveVoiceFrames = 0;
-    let heardSpeech = false;
     const startedAt = Date.now();
     let submitting = false;
     const submit = async () => {
@@ -117,20 +115,19 @@ export async function startOnlineSpeech(onFinal: (text: string) => void, onError
       if (current.closed || !options.valid()) { if (session === current) void stopOnlineSpeech(); return; }
       const now = Date.now();
       const level = recorder.getStatus().metering ?? -160;
-      const speaking = level > -34;
-      consecutiveVoiceFrames = speaking ? consecutiveVoiceFrames + 1 : 0;
-      if (consecutiveVoiceFrames >= (options.wakeMode ? 3 : 2)) heardSpeech = true;
-      if (heardSpeech && speaking) lastVoiceAt = now;
-      onActivity?.(heardSpeech && speaking);
+      const speaking = level > -40;
+      if (speaking) lastVoiceAt = now;
+      onActivity?.(speaking);
       if (options.dictation) {
         if (now - startedAt >= 30_000) { void stopOnlineSpeech(); onError("Limite de 30 segundos. Solte e grave uma nova pergunta."); }
       } else if ((lastVoiceAt && now - lastVoiceAt >= (options.wakeMode ? 800 : 1300)) || now - startedAt >= (options.wakeMode ? 5000 : 15_000)) {
-        if (heardSpeech) void submit();
+        if (lastVoiceAt) void submit();
         else if (!submitting) {
           submitting = true;
           void stopOnlineSpeech().then(() => {
             if (!options.valid()) return;
-            onEmpty?.();
+            if (options.wakeMode) onEmpty?.();
+            else onError("Não detectei fala. Toque nas ondas para tentar novamente.");
           });
         }
       }
