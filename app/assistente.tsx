@@ -463,7 +463,7 @@ export default function Assistente() {
   }, [voiceWake]);
 
   async function configureWakeWord() {
-    if (wakeEnabled) { setWakeWordEnabled(false); return; }
+    if (wakeWordEnabled()) { setWakeWordEnabled(false); return; }
     Alert.alert("Ativar “E aí, chat”?", "Enquanto o app estiver aberto, o microfone reconhecerá a frase no aparelho para abrir a conversa, inclusive no chat em silêncio. A escuta pausa durante a conversa, o ditado, os carregamentos e em segundo plano. Pode consumir bateria. Não enviamos essa escuta aos provedores de IA. Ao sair da conta, ela é desligada.", [
       { text: "Agora não", style: "cancel" },
       { text: "Ativar", onPress: () => { void nativePortugueseSpeechAvailable().then(available => {

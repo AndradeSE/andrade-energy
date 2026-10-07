@@ -36,6 +36,7 @@ export default function AssistantWakeWord() {
     const owner = `wake-${Date.now()}-${Math.random()}`;
     let timer: ReturnType<typeof setTimeout>;
     let opened = false;
+    const idleDeadline = setTimeout(() => { setWakeWordEnabled(false); }, 60000);
     let startupDeadline: ReturnType<typeof setTimeout>;
     const retry = () => {
       if (cancelled || triggered) return;
@@ -56,6 +57,7 @@ export default function AssistantWakeWord() {
       try {
         const detect = (text: string) => {
           if (cancelled || triggered) return;
+          console.info("[AssistantWake] candidate", text.trim().length, containsAssistantWakeWord(text));
           if (!containsAssistantWakeWord(text)) return;
           triggered = true;
           void stopNativePortugueseSpeech(owner).then(() => {
@@ -73,7 +75,7 @@ export default function AssistantWakeWord() {
     // Prazo global: reinícios e permissões pendentes não podem renovar a espera.
     startupDeadline = setTimeout(() => { if (!opened) fail("Nenhum reconhecedor conseguiu iniciar o microfone. A ativação foi desligada."); }, 20000);
     retry();
-    return () => { cancelled = true; clearTimeout(timer); clearTimeout(startupDeadline); setWakeWordReady(false); void stopNativePortugueseSpeech(owner); };
+    return () => { cancelled = true; clearTimeout(timer); clearTimeout(startupDeadline); clearTimeout(idleDeadline); setWakeWordReady(false); void stopNativePortugueseSpeech(owner); };
   }, [enabled, foreground, loading, paused, pathname]);
   return null;
 }

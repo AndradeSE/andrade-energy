@@ -4,7 +4,7 @@ import { router, usePathname } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { APP_TAB_BAR_METRICS } from "../navigation/AppTabBarFrame";
 import { isAssistantLoading, subscribeAssistantLoading } from "../../services/assistant-overlay-visibility";
-import { subscribeWakeWord, wakeWordEnabled, wakeWordPaused, wakeWordReady } from "../../services/assistant-wake-word";
+import { setWakeWordEnabled, subscribeWakeWord, wakeWordEnabled, wakeWordPaused, wakeWordReady } from "../../services/assistant-wake-word";
 
 const SIZE = 54;
 let savedPosition: { x: number; y: number } | undefined;
@@ -60,12 +60,15 @@ export default function FloatingAssistant() {
       savedPosition = { x, y };
     },
     onPanResponderRelease: (_event, gesture) => {
-      if (Math.abs(gesture.dx) < 8 && Math.abs(gesture.dy) < 8) router.push("/assistente");
+      if (Math.abs(gesture.dx) < 8 && Math.abs(gesture.dy) < 8) {
+        if (wakeWordEnabled()) setWakeWordEnabled(false);
+        else router.push("/assistente");
+      }
     },
   }), [animated, height, width]);
 
   if (loading || (pathname === "/assistente" && !listening)) return null;
-  return <Animated.View {...pan.panHandlers} accessibilityRole="button" accessibilityLabel={listening ? "Escuta ativa. Abrir chat; arraste para mover" : "Abrir chat com a Ajuda Andrade Energy; arraste para mover"} style={[styles.button, { transform: animated.getTranslateTransform() }]}>
+  return <Animated.View {...pan.panHandlers} accessibilityRole="button" accessibilityLabel={listening ? "Desativar comando de voz; arraste para mover" : "Abrir chat com a Ajuda Andrade Energy; arraste para mover"} style={[styles.button, { transform: animated.getTranslateTransform() }]}>
     <Animated.View pointerEvents="none" style={[styles.halo, { opacity: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.4] }), transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.08] }) }] }]} />
     {listening ? <View pointerEvents="none" style={styles.waves}>{[12, 23, 32, 23, 12].map((height, index) => <Animated.View key={index} style={{ width: 4, height, borderRadius: 2, marginHorizontal: 2, backgroundColor: "#ECFFF5", transform: [{ scaleY: wave.interpolate({ inputRange: [0, 1], outputRange: index % 2 ? [1, 0.45] : [0.45, 1] }) }] }} />)}</View> : <Animated.View pointerEvents="none" style={{ transform: [{ translateY: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, -2] }) }, { scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) }] }}>
       <Image source={require("../../assets/images/assistant-chat-3d-v2.png")} style={styles.chat} resizeMode="contain" />

@@ -128,7 +128,7 @@ export async function prepareVoiceRecognition() {
   finally { preparingSession = undefined; }
 }
 
-export async function startContinuousListening(onSpeech: (text: string) => void, onError: (error: string) => void, autoSubmit = false, onActivity?: (speaking: boolean) => void, shouldContinue = () => true) {
+export async function startContinuousListening(onSpeech: (text: string) => void, onError: (error: string) => void, autoSubmit = false, onActivity?: (speaking: boolean) => void, shouldContinue = () => true, keepListening = false) {
   if (!isVoiceInstalled()) throw new Error("Instale os arquivos de voz antes de começar.");
   await prepareVoiceRecognition();
   if (!shouldContinue()) return;
@@ -142,7 +142,7 @@ export async function startContinuousListening(onSpeech: (text: string) => void,
   let submitted = false;
   const emit = (text: string) => {
     const spoken = text.trim();
-    if (!spoken || (autoSubmit && submitted)) return;
+    if (!shouldContinue() || !spoken || (autoSubmit && submitted && !keepListening)) return;
     clearPendingSpeech();
     if (autoSubmit) submitted = true;
     onSpeech(spoken);
@@ -160,7 +160,7 @@ export async function startContinuousListening(onSpeech: (text: string) => void,
       if (event.type !== "transcribe" || !event.data?.result?.trim()) return;
       const candidate = event.data.result.trim();
       if (!autoSubmit) { lastDictationCandidate = candidate; return; }
-      if (submitted) return;
+      if (submitted && !keepListening) return;
       clearPendingSpeech();
       // Não envie uma hipótese parcial cedo demais. O resultado final do VAD
       // tem prioridade; a hipótese serve apenas se ele não vier.
