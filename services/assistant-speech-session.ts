@@ -109,5 +109,5 @@ export async function finishAssistantSpeech() {
   const current = generation;
   const previous = engine;
   try { return await (previous === "online" ? finishOnlineSpeech() : previous === "local" ? finishDictation() : finishNativePortugueseSpeech()); }
-  finally { if (current === generation) { engine = undefined; owner = undefined; } }
+  finally { if (previous === "online" && current === generation) { engine = undefined; owner = undefined; } }
 }
