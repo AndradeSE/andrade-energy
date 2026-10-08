@@ -31,3 +31,7 @@ assert.equal(component.includes('pathname === "/assistente"'), false, "Chat ocio
 assert.match(component, /!foreground \|\| paused \|\| loading/);
 assert.match(component, /startupDeadline = setTimeout/);
 assert.match(fs.readFileSync("services/on-device-voice.ts", "utf8"), /promptPreviousSlices: false/, "Resultados anteriores não podem contaminar a frase de ativação seguinte");
+const floating = fs.readFileSync("components/assistant/FloatingAssistant.tsx", "utf8");
+assert.match(floating, /router\.push\(\{ pathname: "\/assistente", params: \{ voiceWake:/, "Toque no botão flutuante deve iniciar a conversa");
+const helpScreen = fs.readFileSync("app/assistente.tsx", "utf8");
+assert.match(helpScreen, /toggleVoice\(true\)/, "Ativação por comando deve escutar sem aguardar a saudação online");

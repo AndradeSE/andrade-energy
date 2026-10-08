@@ -120,7 +120,7 @@ export async function startOnlineSpeech(onFinal: (text: string) => void, onError
       onActivity?.(speaking);
       if (options.dictation) {
         if (now - startedAt >= 30_000) { void stopOnlineSpeech(); onError("Limite de 30 segundos. Solte e grave uma nova pergunta."); }
-      } else if ((lastVoiceAt && now - lastVoiceAt >= (options.wakeMode ? 800 : 1300)) || now - startedAt >= (options.wakeMode ? 5000 : 15_000)) {
+      } else if ((lastVoiceAt && now - lastVoiceAt >= (options.wakeMode ? 800 : 950)) || now - startedAt >= (options.wakeMode ? 5000 : 10_000)) {
         if (lastVoiceAt) void submit();
         else if (!submitting) {
           submitting = true;

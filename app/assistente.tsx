@@ -416,7 +416,7 @@ export default function Assistente() {
     return allowed;
   }
 
-  async function toggleVoice() {
+  async function toggleVoice(startFromCommand = false) {
     if (dictationActive.current) return;
     if (voiceActive.current) {
       voiceActive.current = false;
@@ -445,6 +445,11 @@ export default function Assistente() {
     setSpeakingReply(true);
     await playActivationBeep();
     if (!voiceActive.current) return;
+    if (startFromCommand) {
+      setSpeakingReply(false);
+      void resumeVoice();
+      return;
+    }
     // A frase online é fixa para não enviar o nome do cliente ao provedor de voz.
     const greeting = "Olá! Como posso ajudar?";
     const finishGreeting = () => {
@@ -458,7 +463,7 @@ export default function Assistente() {
     if (!voiceWake || handledWake.current === voiceWake) return;
     const timer = setTimeout(() => {
       handledWake.current = voiceWake;
-      if (!voiceActive.current && !busyRef.current) void toggleVoice();
+      if (!voiceActive.current && !busyRef.current) void toggleVoice(true);
     }, 800);
     return () => clearTimeout(timer);
   }, [voiceWake]);
