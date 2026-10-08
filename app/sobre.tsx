@@ -214,13 +214,14 @@ const atualizacaoProntidaoAnterior = {
   melhorias: ["Escuta aguarda a confirmação de prontidão do reconhecedor Android, não apenas o pedido de abertura do áudio.", "Permissão do microfone tem limite de espera. Ativação pausada durante conversa é distinguida de uma tentativa de início."],
 };
 const atualizacaoAtual = geradorPreview ? {
-  numero: "1.0.0-r20261008.3", data: "08/10/2026",
-  melhorias: ["Ao tocar no botão flutuante, a conversa abre com saudação falada; o comando “Andrade” continua indo direto à pergunta.", "Picos isolados de ruído não são mais enviados como perguntas para a transcrição."],
+  numero: "1.0.0-r20261008.4", data: "08/10/2026",
+  melhorias: ["O botão flutuante abre a Ajuda sem iniciar a fala nem desligar o comando opcional.", "Ao dizer “Andrade” na Home, a conversa aparece sobre a tela atual, sem navegar para Ajuda."],
 } : previewApp ? {
   numero: "1.0.0-r20261006.24", data: "06/10/2026",
   melhorias: ["Ativação, ditado e conversa usam reconhecimento local já instalado quando o motor Android falha ou não fica pronto.", "Sem envio do áudio à nuvem ou download implícito. A captura alternativa não muda o provedor da voz natural das respostas."],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
+  ...(geradorPreview ? [{ numero: "1.0.0-r20261008.3", data: "08/10/2026", melhorias: ["Saudação falada ao tocar no flutuante e filtro contra picos curtos de ruído na transcrição."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.2", data: "08/10/2026", melhorias: ["Botão flutuante abre a conversa e a espera máxima por trecho de fala foi reduzida para 10 segundos."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.1", data: "08/10/2026", melhorias: ["Comando opcional alterado para a palavra isolada “Andrade”; citações da marca em frases não ativam a conversa."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261006.24", data: "06/10/2026", melhorias: ["Ativação, ditado e conversa usam reconhecimento local já instalado quando o motor Android falha ou não fica pronto.", "Sem envio do áudio à nuvem ou download implícito."] }] : []),

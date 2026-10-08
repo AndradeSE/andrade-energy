@@ -6,11 +6,13 @@ import { nativeSpeechAvailabilityError } from "../../services/native-speech";
 import { startAssistantSpeech as startNativePortugueseSpeech, stopAssistantSpeech as stopNativePortugueseSpeech } from "../../services/assistant-speech-session";
 import { isAssistantLoading, subscribeAssistantLoading } from "../../services/assistant-overlay-visibility";
 import { wakeWordOnlineConsent, wakeWordRemainingMs } from "../../services/assistant-wake-word";
+import { floatingConversationRequest, openFloatingConversation, subscribeFloatingConversation } from "../../services/assistant-floating-conversation";
 
 export default function AssistantWakeWord() {
   const enabled = useSyncExternalStore(subscribeWakeWord, wakeWordEnabled);
   const paused = useSyncExternalStore(subscribeWakeWord, wakeWordPaused);
   const loading = useSyncExternalStore(subscribeAssistantLoading, isAssistantLoading);
+  const floatingConversation = useSyncExternalStore(subscribeFloatingConversation, floatingConversationRequest);
   const pathname = usePathname();
   const [foreground, setForeground] = useState(AppState.currentState === "active");
   useEffect(() => {
@@ -19,7 +21,7 @@ export default function AssistantWakeWord() {
     return () => clearTimeout(expiry);
   }, [enabled]);
   useEffect(() => {
-    if (!enabled || !foreground || paused || loading) return;
+    if (!enabled || !foreground || paused || loading || floatingConversation) return;
     // O prazo só vale quando a frase-chave pode realmente iniciar a captura.
     const deadline = setTimeout(() => {
       if (wakeWordEnabled() && !wakeWordReady() && !wakeWordPaused()) {
@@ -28,7 +30,7 @@ export default function AssistantWakeWord() {
       }
     }, 22000);
     return () => clearTimeout(deadline);
-  }, [enabled, pathname, foreground, paused, loading]);
+  }, [enabled, pathname, foreground, paused, loading, floatingConversation]);
   useEffect(() => {
     const subscription = AppState.addEventListener("change", state => {
       setForeground(state === "active");
@@ -39,7 +41,7 @@ export default function AssistantWakeWord() {
   useEffect(() => {
     console.info("[AssistantWake] conditions", enabled, foreground, loading, paused);
     setWakeWordReady(false);
-    if (!enabled || !foreground || loading || paused) return;
+    if (!enabled || !foreground || loading || paused || floatingConversation) return;
     let cancelled = false;
     let triggered = false;
     const owner = `wake-${Date.now()}-${Math.random()}`;
@@ -78,7 +80,10 @@ export default function AssistantWakeWord() {
           triggered = true;
           Vibration.vibrate(120);
           void stopNativePortugueseSpeech(owner).then(() => {
-            if (!cancelled) router.push({ pathname: "/assistente", params: { voiceWake: String(Date.now()) } });
+            if (!cancelled) {
+              if (pathname === "/assistente") router.push({ pathname: "/assistente", params: { voiceWake: String(Date.now()) } });
+              else openFloatingConversation();
+            }
           });
         };
         const started = await startNativePortugueseSpeech(detect, fail, undefined, retry, {
@@ -94,6 +99,6 @@ export default function AssistantWakeWord() {
     startupDeadline = setTimeout(() => { if (!opened) fail("Nenhum reconhecedor conseguiu iniciar o microfone. A ativação foi desligada."); }, 20000);
     retry();
     return () => { cancelled = true; clearTimeout(timer); clearTimeout(startupDeadline); setWakeWordReady(false); void stopNativePortugueseSpeech(owner); };
-  }, [enabled, foreground, loading, paused, pathname]);
+  }, [enabled, foreground, loading, paused, pathname, floatingConversation]);
   return null;
 }

@@ -4,7 +4,10 @@ import { router, usePathname } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { APP_TAB_BAR_METRICS } from "../navigation/AppTabBarFrame";
 import { isAssistantLoading, subscribeAssistantLoading } from "../../services/assistant-overlay-visibility";
-import { setWakeWordEnabled, subscribeWakeWord, wakeWordEnabled, wakeWordPaused, wakeWordReady } from "../../services/assistant-wake-word";
+import { subscribeWakeWord, wakeWordEnabled, wakeWordPaused, wakeWordReady } from "../../services/assistant-wake-word";
+import { closeFloatingConversation, floatingConversationRequest, subscribeFloatingConversation } from "../../services/assistant-floating-conversation";
+import Assistente from "../../app/assistente";
+import { setWakeWordPaused } from "../../services/assistant-wake-word";
 
 const SIZE = 54;
 let savedPosition: { x: number; y: number } | undefined;
@@ -14,6 +17,7 @@ export default function FloatingAssistant() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const loading = useSyncExternalStore(subscribeAssistantLoading, isAssistantLoading);
+  const conversationRequest = useSyncExternalStore(subscribeFloatingConversation, floatingConversationRequest);
   const enabled = useSyncExternalStore(subscribeWakeWord, wakeWordEnabled);
   const ready = useSyncExternalStore(subscribeWakeWord, wakeWordReady);
   const paused = useSyncExternalStore(subscribeWakeWord, wakeWordPaused);
@@ -61,15 +65,17 @@ export default function FloatingAssistant() {
     },
     onPanResponderRelease: (_event, gesture) => {
       if (Math.abs(gesture.dx) < 8 && Math.abs(gesture.dy) < 8) {
-        if (wakeWordEnabled()) setWakeWordEnabled(false);
-        router.push({ pathname: "/assistente", params: { voiceWake: String(Date.now()), voiceGreeting: "1" } });
+        router.push("/assistente");
       }
     },
   }), [animated, height, width]);
 
   // Na Ajuda, as ondas já pertencem à barra de escrita: não sobreponha outro botão.
+  if (conversationRequest) return <View style={[styles.conversationPanel, { top: insets.top + 48, bottom: APP_TAB_BAR_METRICS.height + insets.bottom + 12 }]}>
+    <Assistente embeddedVoiceWake={conversationRequest} onClose={() => { setWakeWordPaused(true); closeFloatingConversation(); }} />
+  </View>;
   if (loading || pathname === "/assistente") return null;
-  return <Animated.View {...pan.panHandlers} accessibilityRole="button" accessibilityLabel="Iniciar conversa por voz com a Ajuda Andrade Energy; arraste para mover" style={[styles.button, { transform: animated.getTranslateTransform() }]}>
+  return <Animated.View {...pan.panHandlers} accessibilityRole="button" accessibilityLabel="Abrir Ajuda Andrade Energy; arraste para mover" style={[styles.button, { transform: animated.getTranslateTransform() }]}>
     <Animated.View pointerEvents="none" style={[styles.halo, { opacity: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.4] }), transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.08] }) }] }]} />
     {listening ? <View pointerEvents="none" style={styles.waves}>{[12, 23, 32, 23, 12].map((height, index) => <Animated.View key={index} style={{ width: 4, height, borderRadius: 2, marginHorizontal: 2, backgroundColor: "#ECFFF5", transform: [{ scaleY: wave.interpolate({ inputRange: [0, 1], outputRange: index % 2 ? [1, 0.45] : [0.45, 1] }) }] }} />)}</View> : <Animated.View pointerEvents="none" style={{ transform: [{ translateY: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, -2] }) }, { scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) }] }}>
       <Image source={require("../../assets/images/assistant-chat-3d-v2.png")} style={styles.chat} resizeMode="contain" />
@@ -78,6 +84,7 @@ export default function FloatingAssistant() {
 }
 
 const styles = StyleSheet.create({
+  conversationPanel: { position: "absolute", left: 12, right: 12, zIndex: 80, elevation: 12, overflow: "hidden", borderRadius: 20, backgroundColor: "#E5EFEA", shadowColor: "#102D21", shadowOpacity: 0.25, shadowRadius: 14 },
   button: { position: "absolute", left: 0, top: 0, zIndex: 50, width: SIZE, height: SIZE, alignItems: "center", justifyContent: "center", elevation: 5 },
   chat: { width: 64, height: 64 },
   waves: { width: 50, height: 50, borderRadius: 25, backgroundColor: "#087A52", flexDirection: "row", alignItems: "center", justifyContent: "center" },

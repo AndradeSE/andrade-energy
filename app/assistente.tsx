@@ -35,9 +35,10 @@ import { executeAssistantTool, resolveAssistantDocument } from "../services/assi
 
 type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string; invoiceChoices?: Array<{ id: string; label: string }>; actions?: AssistantAction[]; documents?: AssistantDocument[]; private?: boolean; voiceAnswerId?: string };
 
-export default function Assistente() {
+export default function Assistente({ embeddedVoiceWake, onClose }: { embeddedVoiceWake?: string; onClose?: () => void } = {}) {
   const router = useRouter();
-  const { voiceWake, voiceGreeting } = useLocalSearchParams<{ voiceWake?: string; voiceGreeting?: string }>();
+  const params = useLocalSearchParams<{ voiceWake?: string }>();
+  const voiceWake = embeddedVoiceWake ?? params.voiceWake;
   const wakeEnabled = useSyncExternalStore(subscribeWakeWord, wakeWordEnabled);
   const wakeReady = useSyncExternalStore(subscribeWakeWord, wakeWordReady);
   const wakePaused = useSyncExternalStore(subscribeWakeWord, wakeWordPaused);
@@ -70,7 +71,6 @@ export default function Assistente() {
   useEffect(() => {
     setWakeWordPaused(listening || speakingReply || transcribing || busy || voiceInstalling);
   }, [listening, speakingReply, transcribing, busy, voiceInstalling]);
-  useEffect(() => () => setWakeWordPaused(false), []);
   const [openingInvoiceId, setOpeningInvoiceId] = useState<string>();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const voiceActive = useRef(false);
@@ -95,7 +95,15 @@ export default function Assistente() {
     stopAssistantVoice();
   }, [accountContextKey]);
   const wave = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
-  useEffect(() => () => { voiceActive.current = false; dictationActive.current = false; stopAssistantVoice(); void stopNativePortugueseSpeech(); void releaseVoiceRecognition(); void releaseLocalModel(); }, []);
+  useEffect(() => () => {
+    voiceActive.current = false;
+    dictationActive.current = false;
+    stopAssistantVoice();
+    // Só retome a frase-chave depois que a conversa liberar o microfone.
+    void stopNativePortugueseSpeech().finally(() => setWakeWordPaused(false));
+    void releaseVoiceRecognition();
+    void releaseLocalModel();
+  }, []);
   useEffect(() => {
     if (!listening || busy || hearingSpeech || speakingReply || transcribing) return;
     const timer = setTimeout(() => {
@@ -463,10 +471,10 @@ export default function Assistente() {
     if (!voiceWake || handledWake.current === voiceWake) return;
     const timer = setTimeout(() => {
       handledWake.current = voiceWake;
-      if (!voiceActive.current && !busyRef.current) void toggleVoice(voiceGreeting !== "1");
+      if (!voiceActive.current && !busyRef.current) void toggleVoice(true);
     }, 800);
     return () => clearTimeout(timer);
-  }, [voiceWake, voiceGreeting]);
+  }, [voiceWake]);
 
   async function configureWakeWord() {
     if (wakeWordEnabled()) { setWakeWordEnabled(false); return; }
@@ -570,7 +578,7 @@ export default function Assistente() {
 
   return <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : "height"}>
     <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-      <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Voltar" style={styles.back}><Text style={styles.backText}>‹</Text></Pressable>
+      <Pressable onPress={onClose ?? (() => router.back())} accessibilityRole="button" accessibilityLabel={onClose ? "Fechar conversa" : "Voltar"} style={styles.back}><Text style={styles.backText}>‹</Text></Pressable>
       <View style={styles.headerText}><Text style={styles.title}>Ajuda Andrade Energy</Text><Text style={styles.subtitle}>Conversa online · consultas da sua conta</Text></View>
       <Pressable disabled={busy} onPress={() => { messagesRef.current = []; topicRef.current = undefined; setMessages([]); setTopic(undefined); void releaseLocalModel(); }} accessibilityRole="button" accessibilityLabel="Limpar conversa"><Text style={styles.clear}>Limpar</Text></Pressable>
     </View>
