@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   BackHandler,
   KeyboardAvoidingView,
   Platform,
@@ -41,6 +42,10 @@ import {
 import { AppHeader, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import ClienteHeader from "../../components/cliente/ClienteHeader";
 import { IS_GERADOR_APP } from "../../config/appVariant";
+import { isPreviewEnvironment } from "../../config/environment";
+import { automaticLocalWakeConsent, setAutomaticLocalWakeConsent } from "../../services/assistant-voice-consent";
+import { setWakeWordEnabled } from "../../services/assistant-wake-word";
+import { installVoiceModels, isVoiceInstalled } from "../../services/on-device-voice";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 import EnderecoFields from "../../components/cadastro/EnderecoFields";
 import { enderecoVazio, erroEndereco, lerEndereco, serializarEndereco } from "../../utils/cadastroCliente";
@@ -81,6 +86,9 @@ export default function Perfil() {
   const [atualizando, setAtualizando] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [salvandoDigital, setSalvandoDigital] = useState(false);
+  const [escutaAutomatica, setEscutaAutomatica] = useState(false);
+  const [preparandoEscuta, setPreparandoEscuta] = useState(false);
+  const [progressoEscuta, setProgressoEscuta] = useState("");
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [senhaAtual, setSenhaAtual] = useState("");
   const [novaSenha, setNovaSenha] = useState("");
@@ -115,6 +123,35 @@ export default function Perfil() {
   const chaveFoto = `foto-perfil:${user?.id ?? "usuario"}`;
 
   useEffect(() => { void AsyncStorage.getItem(chaveFoto).then((valor) => setFotoPerfil(valor ?? "")); }, [chaveFoto]);
+  useEffect(() => {
+    if (!IS_GERADOR_APP || !isPreviewEnvironment || !user?.id) return;
+    let active = true;
+    void automaticLocalWakeConsent(String(user.id)).then(allowed => { if (active) setEscutaAutomatica(allowed); });
+    return () => { active = false; };
+  }, [user?.id]);
+  async function alterarEscutaAutomatica(allowed: boolean) {
+    if (!user?.id || preparandoEscuta) return;
+    if (!allowed) {
+      await setAutomaticLocalWakeConsent(String(user.id), false);
+      setEscutaAutomatica(false);
+      setWakeWordEnabled(false);
+      return;
+    }
+    Alert.alert("Ativar comando ‘Andrade’", "Com o app aberto, a escuta local aguarda a palavra ‘Andrade’. Antes do comando, o áudio fica no aparelho. O modelo ocupa cerca de 33 MB e a escuta pode consumir bateria. Você poderá desligá-la aqui no Perfil.", [
+      { text: "Agora não", style: "cancel" },
+      { text: "Autorizar", onPress: () => { void (async () => {
+        setPreparandoEscuta(true);
+        try {
+          if (!isVoiceInstalled()) await installVoiceModels((stage, progress) => setProgressoEscuta(progress == null ? stage : `${stage}: ${Math.round(progress * 100)}%`));
+          await setAutomaticLocalWakeConsent(String(user.id), true);
+          setEscutaAutomatica(true);
+          if (AppState.currentState === "active") setWakeWordEnabled(true, false, true);
+        } catch (error) {
+          Alert.alert("Não foi possível preparar a escuta", error instanceof Error ? error.message : "Tente novamente.");
+        } finally { setPreparandoEscuta(false); setProgressoEscuta(""); }
+      })(); } },
+    ]);
+  }
   useEffect(() => { void listarMeusPedidosDePrivacidade().then(setMeusPedidosPrivacidade).catch(() => undefined); }, [user?.id]);
   useEffect(() => {
     if (!IS_GERADOR_APP || !["ADMIN", "GESTOR"].includes(String(user?.perfil ?? ""))) return;
@@ -400,6 +437,14 @@ export default function Perfil() {
 
         <Text style={styles.sectionTitle}>SEGURANÇA</Text>
         <View style={styles.cardGroup}>
+          {IS_GERADOR_APP && isPreviewEnvironment ? <View style={[styles.preferenceRow, styles.standaloneRow]}>
+            <View style={styles.preferenceIcon}><Ionicons color={Colors.primary} name="mic-outline" size={23} /></View>
+            <View style={styles.preferenceCopy}>
+              <Text style={styles.preferenceTitle}>Comando de voz “Andrade”</Text>
+              <Text style={styles.preferenceDescription}>{progressoEscuta || "Com o app aberto, diga “Andrade” para começar a conversa. Desliga ao sair do app."}</Text>
+            </View>
+            {preparandoEscuta ? <ActivityIndicator color={Colors.primary} /> : <Switch accessibilityLabel={escutaAutomatica ? "Desligar comando de voz Andrade" : "Autorizar comando de voz Andrade"} value={escutaAutomatica} onValueChange={(value) => void alterarEscutaAutomatica(value)} thumbColor={Colors.surface} trackColor={{ false: "#CBD5E1", true: Colors.primary }} />}
+          </View> : null}
           <View style={[styles.preferenceRow, styles.standaloneRow]}>
             <View style={styles.preferenceIcon}><Ionicons color={Colors.primary} name="finger-print-outline" size={23} /></View>
             <View style={styles.preferenceCopy}>
