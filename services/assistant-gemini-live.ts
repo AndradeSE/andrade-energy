@@ -103,13 +103,13 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
     listener.onFailure(message);
   };
   const startMic = async () => {
-    if (closed || microphone.isRecording()) return;
+    if (closed) return;
     speaking = false;
     microphoneOperation = microphoneOperation.then(async () => {
       if (closed) return;
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, shouldPlayInBackground: false });
       if (closed) return;
-      await microphone.start();
+      if (!microphone.isRecording()) await microphone.start();
     });
     await microphoneOperation;
     if (closed) return;
@@ -199,7 +199,8 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
         speaking = true;
         listening = false;
         listener.onState("speaking");
-        void stopMic();
+        // Android's native stop releases AudioRecord. Keep it alive for this
+        // session; onData discards every packet while the assistant speaks.
       }
       const rate = Number(String(audio.mimeType).match(/rate=(\d+)/)?.[1] ?? 24000);
       if (!Number.isFinite(rate) || rate < 8000 || rate > 48000) continue;

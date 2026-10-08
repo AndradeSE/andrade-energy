@@ -5,6 +5,8 @@ const ts = require('typescript');
 const sockets = [];
 const timers = new Set();
 const playback = [];
+const microphones = [];
+const shortTimers = new Set();
 class Socket {
   static OPEN = 1;
   readyState = 1;
@@ -15,13 +17,15 @@ class Socket {
 }
 class Microphone {
   recording = false;
+  released = false;
+  constructor() { microphones.push(this); }
   async initialize() {}
   isRecording() { return this.recording; }
-  async start() { this.recording = true; }
-  async stop() { this.recording = false; }
+  async start() { assert.equal(this.released, false, 'Android AudioRecord cannot restart after stop'); this.recording = true; }
+  async stop() { this.recording = false; this.released = true; }
   async release() {}
   onError() {}
-  onData() {}
+  onData(callback) { this.data = callback; }
 }
 const imports = {
   'react-native': { AppState: { addEventListener: () => ({ remove() {} }) } },
@@ -42,7 +46,7 @@ const imports = {
 const moduleResult = { exports: {} };
 const source = fs.readFileSync('services/assistant-gemini-live.ts', 'utf8');
 const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-vm.runInNewContext(js, { exports: moduleResult.exports, require: key => { assert.ok(imports[key], key); return imports[key]; }, WebSocket: Socket, setTimeout: fn => { timers.add(fn); return fn; }, clearTimeout: fn => timers.delete(fn), setInterval: fn => { timers.add(fn); return fn; }, clearInterval: fn => timers.delete(fn), Date, Promise, ArrayBuffer, Uint8Array, DataView, Float32Array });
+vm.runInNewContext(js, { exports: moduleResult.exports, require: key => { assert.ok(imports[key], key); return imports[key]; }, WebSocket: Socket, setTimeout: (fn, ms) => { timers.add(fn); if (ms < 1000) shortTimers.add(fn); return fn; }, clearTimeout: fn => { timers.delete(fn); shortTimers.delete(fn); }, setInterval: fn => { timers.add(fn); return fn; }, clearInterval: fn => timers.delete(fn), Date, Promise, ArrayBuffer, Uint8Array, DataView, Float32Array });
 (async () => {
   const failures = [];
   let releaseBeep;
@@ -72,6 +76,23 @@ vm.runInNewContext(js, { exports: moduleResult.exports, require: key => { assert
   socket.onmessage({ data: new TextEncoder().encode(JSON.stringify({ serverContent: { modelTurn: { parts: [{ inlineData: { mimeType: 'audio/pcm;rate=24000', data: 'AAA=' } }] }, turnComplete: true } })).buffer });
   for (let index = 0; index < 12; index++) await Promise.resolve();
   assert.deepEqual(playback, ['beep', 'resume', 'buffer', 'start']);
+  const finishPlayback = async () => {
+    for (const timer of [...shortTimers]) { shortTimers.delete(timer); timers.delete(timer); timer(); }
+    for (let i = 0; i < 15; i++) await Promise.resolve();
+  };
+  await finishPlayback();
+  const mic = microphones[0];
+  mic.data({ data: new Uint8Array(1280) });
+  const firstPackets = socket.sent.filter(value => value.realtimeInput?.audio).length;
+  assert.equal(firstPackets, 1);
+  socket.onmessage({ data: JSON.stringify({ serverContent: { modelTurn: { parts: [{ inlineData: { mimeType: 'audio/pcm;rate=24000', data: 'AAA=' } }] }, turnComplete: true } }) });
+  for (let i = 0; i < 15; i++) await Promise.resolve();
+  mic.data({ data: new Uint8Array(1280) });
+  assert.equal(socket.sent.filter(value => value.realtimeInput?.audio).length, firstPackets, 'Discard assistant audio, avoiding echo');
+  await finishPlayback();
+  mic.data({ data: new Uint8Array(1280) });
+  assert.equal(socket.sent.filter(value => value.realtimeInput?.audio).length, firstPackets + 1, 'Follow-up question must stream on the same microphone');
+  assert.equal(mic.released, false);
   const pcm = Buffer.alloc(48000); // One second of 24 kHz mono PCM16.
   const samples = moduleResult.exports.livePcmSamples(pcm.toString('base64'), 24000, 48000);
   assert.equal(samples.length / 48000, 1); // Never replay at double speed.
