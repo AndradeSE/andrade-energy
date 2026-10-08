@@ -46,7 +46,7 @@ vm.runInNewContext(js, { exports: moduleResult.exports, require: key => { assert
 (async () => {
   const failures = [];
   let releaseBeep;
-  const session = await moduleResult.exports.startGeminiLive('Teste', { onState() {}, onFailure: value => failures.push(value), onAccountQuery: async () => 'sem dados fictícios', onReady: () => new Promise(resolve => { playback.push('beep'); releaseBeep = resolve; }) });
+  const session = await moduleResult.exports.startGeminiLive('Teste', { onState() {}, onFailure: value => failures.push(value), onLatestInvoice: async () => 'Última fatura fictícia: R$ 123,45, referência OUT/2026.', onAccountQuery: async () => 'sem dados fictícios', onReady: () => new Promise(resolve => { playback.push('beep'); releaseBeep = resolve; }) });
   const socket = sockets[0];
   assert.equal(socket.binaryType, 'arraybuffer');
   const text = JSON.stringify({ setupComplete: {}, texto: 'produção e áudio' });
@@ -56,6 +56,9 @@ vm.runInNewContext(js, { exports: moduleResult.exports, require: key => { assert
   assert.equal(moduleResult.exports.decodeLiveMessage(text), text);
   socket.onopen();
   const setup = socket.sent[0].setup;
+  assert.ok(JSON.stringify(setup.systemInstruction).includes('123,45'));
+  assert.ok(source.includes('IDLE_MS = 30_000'));
+  assert.ok(source.includes('!awaitingResponseAt'));
   assert.deepEqual(Array.from(setup.generationConfig.responseModalities), ['AUDIO']);
   assert.equal(setup.responseModalities, undefined); // Wire schema, not the SDK config shape.
   assert.equal(setup.realtimeInputConfig.automaticActivityDetection.silenceDurationMs, 350);

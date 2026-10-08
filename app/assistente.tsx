@@ -488,7 +488,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     if (await geminiLiveAudioConsent(id)) return true;
     const allowed = await new Promise<boolean>(resolve => Alert.alert(
       "Conversa direta no Preview",
-      "Com sua autorização, sua voz, seu primeiro nome e os dados necessários para responder às suas consultas (como valores de faturas e produção) serão enviados ao Google Gemini Live enquanto a conversa estiver aberta. Não enviamos PDFs nem credenciais. Não exibiremos a transcrição na Home. A sessão fecha após cinco segundos sem fala; o uso pode consumir a franquia do serviço. Autoriza?",
+      "Com sua autorização, sua voz, seu primeiro nome e os dados necessários para responder às suas consultas (como valores de faturas e produção) serão enviados ao Google Gemini Live enquanto a conversa estiver aberta. Não enviamos PDFs nem credenciais. Não exibiremos a transcrição na Home. A sessão fecha após trinta segundos sem fala; o uso pode consumir a franquia do serviço. Autoriza?",
       [{ text: "Agora não", style: "cancel", onPress: () => resolve(false) }, { text: "Autorizar", onPress: () => resolve(true) }],
       { cancelable: true, onDismiss: () => resolve(false) },
     ));
@@ -545,6 +545,15 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
           await stopNativePortugueseSpeech(conversationOwner.current);
           const session = await startGeminiLive(firstName, {
             onReady: () => playActivationBeep(true),
+            onLatestInvoice: async () => {
+              const generation = contextGeneration.current;
+              const reply = await queryLiveAccount("Qual o valor da última fatura gerada?", {
+                generator: IS_GERADOR_APP, role: usuario?.perfil,
+                plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id,
+                unitNumber: unidadeSelecionada?.numero, clientId: unidadeSelecionada?.cliente_id ?? usuario?.cliente_id,
+              });
+              return generation === contextGeneration.current ? redactLiveAccountText(reply.text) : "O contexto da conta mudou. Consulte novamente.";
+            },
             onAccountQuery: async question => {
               const generation = contextGeneration.current;
               const reply = await queryLiveAccount(question, {

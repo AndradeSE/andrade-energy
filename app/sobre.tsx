@@ -214,13 +214,14 @@ const atualizacaoProntidaoAnterior = {
   melhorias: ["Escuta aguarda a confirmação de prontidão do reconhecedor Android, não apenas o pedido de abertura do áudio.", "Permissão do microfone tem limite de espera. Ativação pausada durante conversa é distinguida de uma tentativa de início."],
 };
 const atualizacaoAtual = geradorPreview ? {
-  numero: "1.0.0-r20261008.17", data: "08/10/2026",
-  melhorias: ["Menor espera de silêncio e pacotes menores na captura local do comando Andrade.", "Mantida a palavra completa e o bipe apenas após confirmação da sessão de voz."],
+  numero: "1.0.0-r20261008.18", data: "08/10/2026",
+  melhorias: ["Conversa permanece aberta por 30 segundos após a resposta, sem repetir Andrade.", "Consulta autenticada da última fatura disponibilizada à voz; respostas de valores não devem virar passo a passo.", "Espera de resposta separada do prazo de silêncio."],
 } : previewApp ? {
   numero: "1.0.0-r20261006.24", data: "06/10/2026",
   melhorias: ["Ativação, ditado e conversa usam reconhecimento local já instalado quando o motor Android falha ou não fica pronto.", "Sem envio do áudio à nuvem ou download implícito. A captura alternativa não muda o provedor da voz natural das respostas."],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
+  ...(geradorPreview ? [{ numero: "1.0.0-r20261008.17", data: "08/10/2026", melhorias: ["Menor espera local para fechar a frase Andrade, mantendo a palavra completa."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.16", data: "08/10/2026", melhorias: ["Velocidade da voz Live corrigida, bipe antes da saudação e reserva de áudio contra cortes."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.15", data: "08/10/2026", melhorias: ["Bipe suave, remoção da vibração inicial e diagnóstico seguro da abertura Live."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.14", data: "08/10/2026", melhorias: ["Tratamento das respostas binárias Gemini Live e ativação do motor de reprodução."] }] : []),

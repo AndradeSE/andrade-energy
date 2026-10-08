@@ -19,7 +19,8 @@ export async function queryLiveAccount(question: string, ctx: AssistantAccountCo
   const document = asksLatestInvoiceDocument(text);
   const overdue = asksOverdueInvoices(text);
   const financial = detectFinancialMetric(text);
-  if (capability && !overdue && !(document && !capability.review && ["usinas", "faturamento", "pagamento"].includes(capability.module))) {
+  const invoiceAmount = asksLatestInvoiceAmount(text);
+  if (capability && !overdue && !invoiceAmount && !(document && !capability.review && ["usinas", "faturamento", "pagamento"].includes(capability.module))) {
     return executeAssistantTool(capability, ctx, text);
   }
   if (overdue || document || asksLatestInvoiceAmount(text) || (!financial && /\bfaturas?\b/.test(text))) {
