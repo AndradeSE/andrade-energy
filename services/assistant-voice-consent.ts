@@ -9,3 +9,6 @@ export async function setOnlineAudioConsent(userId: string, allowed: boolean) { 
 const localWakeKey = (userId: string) => `assistant-local-wake-foreground-v1${environmentKeySuffix}:${userId}`;
 export async function automaticLocalWakeConsent(userId: string) { return (await AsyncStorage.getItem(localWakeKey(userId))) === "allowed"; }
 export async function setAutomaticLocalWakeConsent(userId: string, allowed: boolean) { await AsyncStorage.setItem(localWakeKey(userId), allowed ? "allowed" : "denied"); }
+const liveKey = (userId: string) => `assistant-gemini-live-audio-v1${environmentKeySuffix}:${userId}`;
+export async function geminiLiveAudioConsent(userId: string) { return (await AsyncStorage.getItem(liveKey(userId))) === "allowed"; }
+export async function setGeminiLiveAudioConsent(userId: string, allowed: boolean) { await AsyncStorage.setItem(liveKey(userId), allowed ? "allowed" : "denied"); }

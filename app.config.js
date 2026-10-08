@@ -69,7 +69,7 @@ module.exports = {
       supportsTablet: true,
 
       bundleIdentifier: packageId,
-      ...(preview ? { infoPlist: { NSMicrophoneUsageDescription: "A voz do assistente é processada neste aparelho, sem enviar o áudio a servidores." } } : {}),
+      ...(preview ? { infoPlist: { NSMicrophoneUsageDescription: "A conversa de voz pode enviar áudio ao Gemini Live após sua autorização." } } : {}),
     },
 
     web: {
@@ -81,7 +81,8 @@ module.exports = {
 
     plugins: [
       "expo-router",
-      ...(preview ? [["expo-audio", { microphonePermission: "A voz do assistente é processada neste aparelho, sem enviar o áudio a servidores." }]] : []),
+      ...(preview ? [["expo-audio", { microphonePermission: "A conversa de voz pode enviar áudio ao Gemini Live após sua autorização." }]] : []),
+      ...(preview && gerador ? [["react-native-audio-api", { iosBackgroundMode: false, androidForegroundService: false, androidPermissions: [], disableFFmpeg: true }]] : []),
 
       [
         "expo-splash-screen",
@@ -144,7 +145,7 @@ module.exports = {
       },
     },
 
-    runtimeVersion: preview ? "1.0.2-preview-native-speech" : {
+    runtimeVersion: preview && gerador ? "1.0.3-preview-live-audio" : preview ? "1.0.2-preview-native-speech" : {
       policy: "appVersion",
     },
 

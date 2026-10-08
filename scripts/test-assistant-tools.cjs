@@ -6,17 +6,19 @@ const ts = require("typescript");
 const calls = [];
 const fixture = (name, value) => async (...args) => { calls.push({ name, args }); return value; };
 const mocks = {
+  "./notificacoes.service": { listarNotificacoesApp: fixture("notifications", []) },
   "./auth.service": { me: fixture("me", { nome: "Cliente fictício", email: "teste@example.test" }), listarMeusPedidosDePrivacidade: fixture("privacy", []) },
   "./dashboard.service": { buscarDashboard: fixture("dashboard", { economiaMes: 31, economiaAcumulada: 100, creditos: 12, ultimaFatura: { competencia: "2026-09" } }) },
   "./carteira.service": { carregarCarteira: fixture("wallet", { saldoDisponivel: 123, saldoPendente: 10, totalRecebido: 250, totalTransferido: 117, status: "ATIVA" }) },
   "./colaboradores.service": { listarColaboradores: fixture("team", { colaboradores: [{ nome: "Teste equipe", status: "ATIVO" }], convites: [] }), listarAuditoriaColaboradores: fixture("audit", []) },
   "./fechamentos.service": { listarFechamentos: fixture("closures", [{ usina_id: "ours", competencia: "2026-09", energia_gerada: 200 }, { usina_id: "other", energia_gerada: 99999 }]) },
-  "./usinas.service": { buscarDashboardUsina: fixture("plant", { unidadeGeradora: { id: "generator-unit" } }), listarInversoresDaUsina: fixture("inverters", []) },
+  "./usinas.service": { buscarDashboardUsina: fixture("plant", { energiaGerada: 400, unidadeGeradora: { id: "generator-unit" } }), listarInversoresDaUsina: fixture("inverters", []) },
+  "./financeiro.service": { carregarFinanceiro: fixture("financial", { totalFaturas: 2, receitaRecebida: 250 }) },
   "./empresas.service": { listarMinhasEmpresas: fixture("companies", []) },
   "./comercial.service": { obterMinhaAssinatura: fixture("subscription", { assinatura: { status: "ATIVA", valor_contratado: 20, plano: { nome: "Teste" } } }), obterTermosAssinatura: fixture("terms", { documentos: [] }), obterPainelComercial: fixture("commercial", { resumo: { total: 1 }, planos: [], assinaturas: [] }) },
   "./recebimento-faturas.service": { obterRecebimentoFaturas: fixture("receiving", { ativo: true, configurado: true, status: "AGUARDANDO" }) },
   "./conexoes-email.service": { listarConexoesEmail: fixture("email", [{ provedor: "GMAIL", status: "CONECTADO" }]) },
-  "./faturas.service": { listarFaturas: fixture("invoices", [{ id: "invoice", referencia: "09/2026", pdf_cemig_url: "https://example.test/original.pdf", status: "ABERTA" }]), buscarFatura: fixture("invoice", { pdf_cemig_url: "https://example.test/fresh.pdf" }), obterRelatorioCalculoFatura: fixture("report", "https://example.test/report.pdf") },
+  "./faturas.service": { listarFaturas: fixture("invoices", [{ id: "invoice", referencia: "09/2026", valor_total: 123.45, pdf_unificada_url: "https://example.test/unified.pdf", pdf_cemig_url: "https://example.test/original.pdf", status: "ABERTA" }]), buscarFatura: fixture("invoice", { pdf_cemig_url: "https://example.test/fresh.pdf" }), obterRelatorioCalculoFatura: fixture("report", "https://example.test/report.pdf") },
   "./clientes.service": { listarClientes: fixture("clients", []), listarFaturasAnexadasCliente: fixture("attachments", [{ id: "attachment", nome: "Original", url: "https://example.test/attachment.pdf" }]), listarUnidadesGestor: fixture("units", [{ id: "unit", numero: "123" }]), listarMinhasUnidades: fixture("my-units", [{ id: "unit", numero: "123", cliente_id: "client" }]) },
   "./contratos.service": { buscarContratoDaUnidade: fixture("contract", { status: "VIGENTE", contrato_assinado_url: "https://example.test/contract.pdf" }), listarContratosDaEmpresa: fixture("contracts", []), baixarPropostaDaUnidade: fixture("proposal", "file:///proposal.pdf") },
 };
@@ -87,5 +89,22 @@ function load(relative) {
   const speech = authorizedAccountSpeech({ accountVoiceConsent: true, speechText: "Nome Teste\nValor R$ 123,50 senha: abc token=xyz teste@example.test https://example.test/a.pdf" });
   assert.doesNotMatch(speech, /abc|xyz|example.test/);
   assert.match(speech, /123,50/);
-  console.log("PASS: 25 módulos, intenções, escopo, permissões, ações sem escrita, economia, operação, recebimento, PDFs e consentimento da voz");
+  const { queryLiveAccount, redactLiveAccountText } = load("services/assistant-live-account.ts");
+  calls.length = 0;
+  assert.match((await queryLiveAccount("qual o valor da última fatura", { generator: true })).text, /Selecione/);
+  assert.equal(calls.length, 0);
+  assert.match((await queryLiveAccount("qual o valor da última fatura", generator)).text, /123,45/);
+  assert.equal(calls.at(-1).args[2], "ours");
+  assert.match((await queryLiveAccount("quanto a usina produziu", generator)).text, /400/);
+  assert.match((await queryLiveAccount("quantas faturas", generator)).text, /2 faturas/);
+  const livePdf = await queryLiveAccount("baixe a última fatura", consumer);
+  assert.equal(livePdf.invoiceId, "invoice");
+  assert.equal(calls.at(-1).args[0], "client");
+  assert.equal(calls.at(-1).args[1], "123");
+  assert.doesNotMatch(redactLiveAccountText("R$ 123,45 https://private.test/pdf?token=segredo token=abc teste@example.test\nCPF: 12345678901"), /segredo|abc|example|12345678901/);
+  calls.length = 0;
+  const liveMutation = await queryLiveAccount("cancelar contrato", generator);
+  assert.equal(liveMutation.actions[0].review, true);
+  assert.equal(calls.length, 0);
+  console.log("PASS: ferramentas de 25 módulos e Live, consultas no contexto, PDFs, dados omitidos e alterações apenas para revisão");
 })().catch(error => { console.error(error); process.exitCode = 1; });

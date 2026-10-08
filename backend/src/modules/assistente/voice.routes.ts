@@ -43,6 +43,39 @@ const voiceAnswers = new VoiceAnswerStore();
 assistenteVoiceRouter.use(exigirAutenticacao);
 assistenteVoiceRouter.use(rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: "draft-8", legacyHeaders: false }));
 
+// Nunca envie a chave permanente ao aplicativo. Um token de sessão, limitado
+// ao Live e a uma única abertura, só é emitido na homologação autenticada.
+assistenteVoiceRouter.post("/live-token", async (req, res) => {
+  const isPreview = process.env.APP_ENV === "preview" ||
+    /^https:\/\/qqhcjieymypowunkixmk\.supabase\.co\/?$/.test(process.env.SUPABASE_URL ?? "");
+  if (!isPreview) return res.status(404).json({ message: "Indisponível." });
+  if (req.body?.liveAudioConsent !== true) return res.status(400).json({ message: "Autorize a conversa direta antes de iniciar." });
+  const key = (process.env.GEMINI_LIVE_API_KEY || process.env.GEMINI_ASSISTANT_API_KEY || process.env.GEMINI_TTS_API_KEY)?.trim();
+  if (!key) return res.status(503).json({ message: "Gemini Live não configurado." });
+  const model = process.env.GEMINI_LIVE_MODEL || "gemini-3.8-live";
+  if (!/^[a-z0-9][a-z0-9.-]{5,90}$/.test(model)) return res.status(503).json({ message: "Modelo Live inválido." });
+  try {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/auth_tokens", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+      body: JSON.stringify({
+        uses: 1,
+        expireTime: new Date(Date.now() + 10 * 60_000).toISOString(),
+        newSessionExpireTime: new Date(Date.now() + 60_000).toISOString(),
+        liveConnectConstraints: { model: `models/${model}`, config: { responseModalities: ["AUDIO"] } },
+      }),
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!response.ok) return res.status(503).json({ message: "Sessão de voz indisponível." });
+    const payload = await response.json() as { name?: string };
+    if (!payload.name || payload.name.length > 2000) return res.status(503).json({ message: "Token de sessão inválido." });
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({ token: payload.name, model });
+  } catch {
+    return res.status(503).json({ message: "Não consegui preparar a conversa direta." });
+  }
+});
+
 assistenteVoiceRouter.post("/responder", async (req, res) => {
   const isPreview = process.env.APP_ENV === "preview" ||
     /^https:\/\/qqhcjieymypowunkixmk\.supabase\.co\/?$/.test(process.env.SUPABASE_URL ?? "");

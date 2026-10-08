@@ -214,13 +214,14 @@ const atualizacaoProntidaoAnterior = {
   melhorias: ["Escuta aguarda a confirmação de prontidão do reconhecedor Android, não apenas o pedido de abertura do áudio.", "Permissão do microfone tem limite de espera. Ativação pausada durante conversa é distinguida de uma tentativa de início."],
 };
 const atualizacaoAtual = geradorPreview ? {
-  numero: "1.0.0-r20261008.11", data: "08/10/2026",
-  melhorias: ["A conversa pelo comando ‘Andrade’ permanece na Home, indicada apenas pela animação do ícone flutuante.", "Escuta reabre após a conversa, não expira enquanto o microfone inicia ou a pergunta é transcrita, e o reconhecimento da frase termina após menos silêncio."],
+  numero: "1.0.0-r20261008.12", data: "08/10/2026",
+  melhorias: ["Conversa de áudio direto com Gemini Live no Gerador Preview, após autorização, sem transcrição visível na Home.", "Consultas autenticadas de faturas, documentos, produção e financeiro durante a conversa.", "Autorização de áudio revogável e encerramento após cinco segundos sem fala. Esta revisão requer o novo APK Preview."],
 } : previewApp ? {
   numero: "1.0.0-r20261006.24", data: "06/10/2026",
   melhorias: ["Ativação, ditado e conversa usam reconhecimento local já instalado quando o motor Android falha ou não fica pronto.", "Sem envio do áudio à nuvem ou download implícito. A captura alternativa não muda o provedor da voz natural das respostas."],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
+  ...(geradorPreview ? [{ numero: "1.0.0-r20261008.11", data: "08/10/2026", melhorias: ["A conversa pelo comando ‘Andrade’ permanece na Home, indicada apenas pela animação do ícone flutuante.", "Escuta reabre após a conversa e aguarda o processamento da pergunta."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.10", data: "08/10/2026", melhorias: ["O comando ‘Andrade’ abriu conversa compacta sobre a Home, com bipe e saudação pelo primeiro nome quando autorizada."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.9", data: "08/10/2026", melhorias: ["Ícone de chat com três pontos animados durante a conversa; toque longo oculta e Acesso rápido restaura."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.8", data: "08/10/2026", melhorias: ["Autorização do comando ‘Andrade’ no Perfil, sem botão duplicado na Ajuda; conversa termina após cinco segundos sem fala."] }] : []),

@@ -20,7 +20,7 @@ import { carregarFinanceiro } from "../services/financeiro.service";
 import { cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
 import { finishDictation, installVoiceModels, isVoiceInstalled, pauseContinuousListening, releaseVoiceRecognition, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
 import { speakConversationOnline, speakSafeOnlineOrLocal, speakAuthorizedAccountOnline, stopAssistantVoice } from "../services/assistant-voice";
-import { accountVoiceConsent, setAccountVoiceConsent, onlineAudioConsent, setOnlineAudioConsent } from "../services/assistant-voice-consent";
+import { accountVoiceConsent, setAccountVoiceConsent, onlineAudioConsent, setOnlineAudioConsent, geminiLiveAudioConsent, setGeminiLiveAudioConsent } from "../services/assistant-voice-consent";
 import { answerConversationOnline } from "../services/assistant-online";
 import { assistantConnectionError, speechStatusReply } from "../services/assistant-diagnostics";
 import { nativePortugueseSpeechAvailable, nativeSpeechAvailabilityError } from "../services/native-speech";
@@ -32,6 +32,8 @@ import { detectProductionMetric, productionMetricReply } from "../services/assis
 import { detectAccountQuery, consultAccount } from "../services/assistant-account";
 import { detectCapability, type AssistantAction, type AssistantDocument } from "../services/assistant-capabilities";
 import { executeAssistantTool, resolveAssistantDocument } from "../services/assistant-tools";
+import { queryLiveAccount, redactLiveAccountText } from "../services/assistant-live-account";
+import { setFloatingConversationPhase } from "../services/assistant-floating-conversation";
 
 type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string; invoiceChoices?: Array<{ id: string; label: string }>; actions?: AssistantAction[]; documents?: AssistantDocument[]; private?: boolean; voiceAnswerId?: string };
 
@@ -72,11 +74,17 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   const [voiceNotice, setVoiceNotice] = useState<string>();
   const [voiceInstalling, setVoiceInstalling] = useState(false);
   useEffect(() => {
+    if (voiceOnly) setFloatingConversationPhase(speakingReply ? "speaking" : listening ? "listening" : "connecting");
+  }, [voiceOnly, speakingReply, listening]);
+  useEffect(() => {
     setWakeWordPaused(listening || speakingReply || transcribing || busy || voiceInstalling);
   }, [listening, speakingReply, transcribing, busy, voiceInstalling]);
   const [openingInvoiceId, setOpeningInvoiceId] = useState<string>();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const voiceActive = useRef(false);
+  const liveSession = useRef<{ stop: () => Promise<void> } | null>(null);
+  const liveStarting = useRef(false);
+  const liveGeneration = useRef(0);
   const conversationOwner = useRef(`conversation-${Date.now()}-${Math.random()}`);
   const dictationActive = useRef(false);
   const usingNativeSpeech = useRef(false);
@@ -92,6 +100,14 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   const contextGeneration = useRef(0);
   useEffect(() => {
     contextGeneration.current += 1;
+    liveGeneration.current += 1;
+    if (liveSession.current) {
+      void liveSession.current.stop();
+      liveSession.current = null;
+      voiceActive.current = false;
+      setListening(false);
+      setSpeakingReply(false);
+    }
     messagesRef.current = [];
     setMessages([]);
     topicRef.current = undefined;
@@ -100,8 +116,11 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   }, [accountContextKey]);
   const wave = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
   useEffect(() => () => {
+    liveGeneration.current += 1;
     const hadAssistantSession = voiceActive.current || dictationActive.current;
     voiceActive.current = false;
+    void liveSession.current?.stop();
+    liveSession.current = null;
     dictationActive.current = false;
     stopAssistantVoice();
     // Não encerre a captura da frase-chave ao simplesmente sair da Ajuda.
@@ -444,10 +463,40 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     return allowed;
   }
 
-  async function toggleVoice(startFromCommand = false) {
+  async function authorizeLiveAudio() {
+    if (!usuario?.id) return false;
+    const id = String(usuario.id);
+    if (await geminiLiveAudioConsent(id)) return true;
+    const allowed = await new Promise<boolean>(resolve => Alert.alert(
+      "Conversa direta no Preview",
+      "Com sua autorização, sua voz, seu primeiro nome e os dados necessários para responder às suas consultas (como valores de faturas e produção) serão enviados ao Google Gemini Live enquanto a conversa estiver aberta. Não enviamos PDFs nem credenciais. Não exibiremos a transcrição na Home. A sessão fecha após cinco segundos sem fala; o uso pode consumir a franquia do serviço. Autoriza?",
+      [{ text: "Agora não", style: "cancel", onPress: () => resolve(false) }, { text: "Autorizar", onPress: () => resolve(true) }],
+      { cancelable: true, onDismiss: () => resolve(false) },
+    ));
+    await setGeminiLiveAudioConsent(id, allowed);
+    return allowed;
+  }
+
+  async function configureLiveAudio() {
+    if (!usuario?.id) return;
+    const id = String(usuario.id);
+    const allowed = await geminiLiveAudioConsent(id);
+    if (!allowed) { await authorizeLiveAudio(); return; }
+    Alert.alert("Conversa direta", "A autorização permite enviar áudio ao Gemini Live enquanto a conversa estiver aberta. Deseja revogá-la?", [
+      { text: "Manter", style: "cancel" },
+      { text: "Revogar", onPress: () => { void setGeminiLiveAudioConsent(id, false).then(() => { void liveSession.current?.stop(); liveSession.current = null; voiceActive.current = false; setListening(false); setSpeakingReply(false); }); } },
+    ]);
+  }
+
+  async function toggleVoice(startFromCommand = false, preferLive = true) {
     if (dictationActive.current) return;
     if (voiceActive.current) {
+      liveGeneration.current += 1;
       voiceActive.current = false;
+      liveStarting.current = false;
+      const currentLive = liveSession.current;
+      liveSession.current = null;
+      if (currentLive) await currentLive.stop();
       setListening(false);
       setVoiceCaptureReady(false);
       setHearingSpeech(false);
@@ -457,6 +506,71 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       else await stopContinuousListening();
       setVoiceStatus(undefined);
       return;
+    }
+    if (preferLive && process.env.EXPO_PUBLIC_ENABLE_GEMINI_LIVE === "1" && isPreviewEnvironment && IS_GERADOR_APP && Platform.OS === "android") {
+      if (liveStarting.current) return;
+      const allowed = await authorizeLiveAudio();
+      if (allowed) {
+        const liveAttempt = ++liveGeneration.current;
+        liveStarting.current = true;
+        voiceActive.current = true;
+        setWakeWordPaused(true);
+        setVoiceStatus("Conectando a conversa…");
+        const firstName = String(usuario?.nome ?? "").trim().split(/\s+/)[0]?.replace(/[^\p{L}-]/gu, "").slice(0, 28) ?? "";
+        try {
+          // Só carregue o módulo nativo no APK Gerador Preview. Os APKs
+          // existentes de produção não contêm react-native-audio-api.
+          const { startGeminiLive } = await import("../services/assistant-gemini-live");
+          await stopNativePortugueseSpeech(conversationOwner.current);
+          const session = await startGeminiLive(firstName, {
+            onAccountQuery: async question => {
+              const generation = contextGeneration.current;
+              const reply = await queryLiveAccount(question, {
+                generator: IS_GERADOR_APP, role: usuario?.perfil,
+                plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id,
+                unitNumber: unidadeSelecionada?.numero, clientId: unidadeSelecionada?.cliente_id ?? usuario?.cliente_id,
+              });
+              if (generation !== contextGeneration.current) return "A conta selecionada mudou. Repita sua consulta.";
+              if (voiceOnly) {
+                if (reply.invoiceId) { void openInvoicePdf(reply.invoiceId); return "Encontrei o PDF e solicitei sua abertura no aplicativo."; }
+                if (reply.documents?.length === 1) { void openToolDocument(reply.documents[0]); return "Encontrei o documento e solicitei sua abertura no aplicativo."; }
+                if (reply.invoiceChoices?.length || reply.documents?.length) return "Encontrei mais de um documento. Pergunte por uma referência específica ou pela última fatura.";
+              }
+              if (!voiceOnly) {
+                messagesRef.current = [...messagesRef.current, { from: "user" as const, text: question, private: true }, { from: "assistant" as const, ...reply, private: true }].slice(-39);
+                setMessages(messagesRef.current);
+              }
+              return redactLiveAccountText(reply.text);
+            },
+            onState: state => {
+              if (liveGeneration.current !== liveAttempt) return;
+              setListening(state === "listening");
+              setSpeakingReply(state === "speaking");
+              setVoiceStatus(state === "connecting" ? "Conectando a conversa…" : undefined);
+            },
+            onFailure: message => {
+              if (liveGeneration.current !== liveAttempt) return;
+              liveStarting.current = false;
+              liveSession.current = null;
+              voiceActive.current = false;
+              setListening(false);
+              setSpeakingReply(false);
+              setVoiceStatus(message);
+              if (message.startsWith("Conversa encerrada") || message.startsWith("Sessão encerrada")) onClose?.();
+              else void toggleVoice(startFromCommand, false);
+            },
+          });
+          if (!voiceActive.current || liveGeneration.current !== liveAttempt) { await session.stop(); return; }
+          liveSession.current = session;
+          liveStarting.current = false;
+          return;
+        } catch (error) {
+          if (liveGeneration.current !== liveAttempt) return;
+          liveStarting.current = false;
+          voiceActive.current = false;
+          setVoiceStatus(error instanceof Error ? error.message : "Conversa direta indisponível.");
+        }
+      }
     }
     if (!(await authorizeAudio())) return;
     setWakeWordPaused(true);
@@ -599,6 +713,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
       {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Consulte dados da sua conta, peça documentos ou abra as funções do app para revisão. Para ditar, segure o microfone e solte; para conversar por voz, toque nas ondas.</Text><Text style={styles.limit}>A conversa usa o Gemini online. Não é necessário baixar um modelo local. Consultas respeitam seu acesso; alterações exigem revisão nas telas do aplicativo.</Text></View> : null}
       <Pressable accessibilityRole="button" accessibilityLabel="Configurar voz natural nos dados da conta" onPress={configureAccountVoice} style={styles.action}><Text style={styles.actionText}>Voz natural nos dados · {accountVoiceAllowed ? "autorizada" : "autorizar"}</Text></Pressable>
+      {IS_GERADOR_APP && Platform.OS === "android" && process.env.EXPO_PUBLIC_ENABLE_GEMINI_LIVE === "1" ? <Pressable accessibilityRole="button" accessibilityLabel="Configurar ou revogar conversa direta" onPress={() => void configureLiveAudio()} style={styles.action}><Text style={styles.actionText}>Conversa direta · configurar ou revogar</Text></Pressable> : null}
       {installStage ? <View style={styles.progressCard} accessibilityLiveRegion="polite"><Text style={styles.limit}>{installStage}</Text>{installProgress !== null ? <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(installProgress * 100)}%` }]} /></View> : null}{downloadingModel ? <Pressable accessibilityRole="button" accessibilityLabel="Cancelar download do modelo" onPress={() => void cancelModelDownload()} style={styles.cancelDownload}><Text style={styles.cancelDownloadText}>Cancelar download</Text></Pressable> : null}</View> : null}
       {messages.map((message, index) => <View key={index} style={[styles.bubble, message.from === "user" ? styles.userBubble : styles.assistantBubble]}>
         <Text style={styles.message}>{message.text}</Text>

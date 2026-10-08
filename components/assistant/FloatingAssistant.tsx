@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { APP_TAB_BAR_METRICS } from "../navigation/AppTabBarFrame";
 import { isAssistantLoading, subscribeAssistantLoading } from "../../services/assistant-overlay-visibility";
 import { subscribeWakeWord, wakeWordEnabled, wakeWordPaused, wakeWordReady } from "../../services/assistant-wake-word";
-import { closeFloatingConversation, floatingConversationRequest, subscribeFloatingConversation } from "../../services/assistant-floating-conversation";
+import { closeFloatingConversation, floatingConversationRequest, subscribeFloatingConversation, floatingConversationPhase } from "../../services/assistant-floating-conversation";
 import Assistente from "../../app/assistente";
 import { setWakeWordPaused } from "../../services/assistant-wake-word";
 import { floatingHidden, loadFloatingPreference, setFloatingHidden, subscribeFloatingHidden } from "../../services/assistant-floating-preference";
@@ -21,6 +21,8 @@ export default function FloatingAssistant() {
   const loading = useSyncExternalStore(subscribeAssistantLoading, isAssistantLoading);
   const conversationRequest = useSyncExternalStore(subscribeFloatingConversation, floatingConversationRequest);
   const conversationOpen = Boolean(conversationRequest);
+  const phase = useSyncExternalStore(subscribeFloatingConversation, floatingConversationPhase);
+  const audioActive = conversationOpen && (phase === "listening" || phase === "speaking");
   const { usuario } = useAuth();
   const userId = usuario?.id ? String(usuario.id) : "";
   const hidden = useSyncExternalStore(subscribeFloatingHidden, floatingHidden);
@@ -40,14 +42,14 @@ export default function FloatingAssistant() {
   useEffect(() => () => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }, []);
   useEffect(() => {
     wave.setValue(0);
-    if (!conversationOpen || loading) return;
+    if (!audioActive || loading) return;
     const animation = Animated.loop(Animated.sequence([
       Animated.timing(wave, { toValue: 1, duration: 350, useNativeDriver: true }),
       Animated.timing(wave, { toValue: 0, duration: 350, useNativeDriver: true }),
     ]));
     animation.start();
     return () => animation.stop();
-  }, [conversationOpen, loading, wave]);
+  }, [audioActive, loading, wave]);
   const position = useRef(savedPosition ?? { x: Math.max(0, width - SIZE - 12), y: Math.max(0, height - insets.bottom - APP_TAB_BAR_METRICS.height - SIZE - 12) });
   const origin = useRef({ ...position.current });
   const animated = useRef(new Animated.ValueXY(position.current)).current;
@@ -115,7 +117,7 @@ export default function FloatingAssistant() {
     <Animated.View pointerEvents="none" style={[styles.halo, { opacity: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.4] }), transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.08] }) }] }]} />
     <Animated.View pointerEvents="none" style={{ transform: [{ translateY: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, -2] }) }, { scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) }] }}>
       <Image source={require("../../assets/images/assistant-chat-3d-v2.png")} style={styles.chat} resizeMode="contain" />
-      {conversationOpen ? <View style={styles.dotWave} pointerEvents="none">{[0, 1, 2].map(index => <Animated.View key={index} style={[styles.dotBar, { transform: [{ scaleY: wave.interpolate({ inputRange: [0, 1], outputRange: index === 1 ? [1, 2.5] : [2.2, 1] }) }] }]} />)}</View> : null}
+      {audioActive ? <View style={styles.dotWave} pointerEvents="none">{[0, 1, 2].map(index => <Animated.View key={index} style={[styles.dotBar, { transform: [{ scaleY: wave.interpolate({ inputRange: [0, 1], outputRange: index === 1 ? [1, 2.5] : [2.2, 1] }) }] }]} />)}</View> : null}
     </Animated.View>
   </Animated.View> : null}
   </>;
