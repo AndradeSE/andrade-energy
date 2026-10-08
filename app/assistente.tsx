@@ -106,7 +106,8 @@ export default function Assistente({ embeddedVoiceWake, onClose }: { embeddedVoi
     // Não encerre a captura da frase-chave ao simplesmente sair da Ajuda.
     if (hadAssistantSession) void stopNativePortugueseSpeech().finally(() => setWakeWordPaused(false));
     else setWakeWordPaused(false);
-    void releaseVoiceRecognition();
+    // A escuta de "Andrade" pertence ao app, não à tela Ajuda.
+    if (!wakeWordEnabled()) void releaseVoiceRecognition();
     void releaseLocalModel();
   }, []);
   useEffect(() => {

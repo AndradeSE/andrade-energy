@@ -46,5 +46,7 @@ assert.match(floating, /embeddedVoiceWake=\{conversationRequest\}/, "A conversa 
 const helpScreen = fs.readFileSync("app/assistente.tsx", "utf8");
 assert.match(helpScreen, /toggleVoice\(true\)/, "Ativação pelo comando falado deve iniciar a escuta");
 assert.match(helpScreen, /stopNativePortugueseSpeech\(\)\.finally\(\(\) => setWakeWordPaused\(false\)\)/, "Ao voltar, solte o microfone antes de retomar o comando");
+assert.match(helpScreen, /if \(!wakeWordEnabled\(\)\) void releaseVoiceRecognition\(\)/, "Sair da Ajuda não pode liberar a escuta global ativa na Home");
+assert.match(fs.readFileSync("services/on-device-voice.ts", "utf8"), /export async function releaseVoiceRecognition\(\) \{\s*await stopContinuousListening\(\)/, "Liberar o reconhecedor também encerra a escuta global");
 const wakeScreen = fs.readFileSync("components/assistant/AssistantWakeWord.tsx", "utf8");
 assert.match(wakeScreen, /else openFloatingConversation\(\)/, "O comando fora da Ajuda deve permanecer na tela atual");
