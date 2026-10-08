@@ -6,7 +6,7 @@ import { AssistantVoicePhrases } from "./assistant-voice-phrases";
 export class AssistantLocalWake {
   private active = false;
   private epoch = 0;
-  private phrases = new AssistantVoicePhrases();
+  private phrases: AssistantVoicePhrases;
   private pending?: Uint8Array;
   private draining = false;
   private task?: ReturnType<WhisperContext["transcribeData"]>;
@@ -15,7 +15,10 @@ export class AssistantLocalWake {
   private watchdog?: ReturnType<typeof setInterval>;
   private stopping?: Promise<void>;
 
-  constructor(private stream: AudioStreamInterface, private whisper: WhisperContext) {}
+  constructor(private stream: AudioStreamInterface, private whisper: WhisperContext, private fastWake = false) {
+    // Keep the full word and pre-roll; only shorten trailing silence in Preview.
+    this.phrases = new AssistantVoicePhrases(fastWake ? 13 : 25);
+  }
 
   async start(onSpeech: (text: string) => void, onError: (message: string) => void, valid: () => boolean) {
     await this.stop();
@@ -50,7 +53,7 @@ export class AssistantLocalWake {
       finally { this.draining = false; }
     };
     try {
-      await this.stream.initialize({ sampleRate: 16000, channels: 1, bitsPerSample: 16, audioSource: 1, bufferSize: 4096 });
+      await this.stream.initialize({ sampleRate: 16000, channels: 1, bitsPerSample: 16, audioSource: 1, bufferSize: this.fastWake ? 1280 : 4096 });
       if (!current()) { await this.stream.release(); return; }
       // initialize() remove listeners antigos: registrar sempre depois dele.
       this.stream.onError(fail);

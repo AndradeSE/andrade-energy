@@ -12,6 +12,7 @@ function join(frames: Uint8Array[]) {
 }
 
 export class AssistantVoicePhrases {
+  constructor(private endSilenceFrames = END_SILENCE_FRAMES) {}
   private remainder = new Uint8Array(0);
   private preRoll: Uint8Array[] = [];
   private phrase: Uint8Array[] = [];
@@ -54,7 +55,7 @@ export class AssistantVoicePhrases {
       this.phrase.push(frame);
       if (voiced) { this.voicedFrames++; this.silenceFrames = 0; }
       else this.silenceFrames++;
-      if (this.silenceFrames >= END_SILENCE_FRAMES || this.phrase.length >= MAX_PHRASE_FRAMES) {
+      if (this.silenceFrames >= this.endSilenceFrames || this.phrase.length >= MAX_PHRASE_FRAMES) {
         // Estalos e silêncio não devem acionar o modelo de linguagem.
         if (this.voicedFrames >= 10) completed.push(join(this.phrase));
         this.preRoll = this.phrase.slice(-PRE_ROLL_FRAMES);

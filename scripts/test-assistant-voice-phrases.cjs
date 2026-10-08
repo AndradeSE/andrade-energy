@@ -37,3 +37,10 @@ assert.ok(segmenter.bufferedBytes < 180000, 'Fala contínua mantém memória lim
 segmenter.reset();
 assert.equal(segmenter.bufferedBytes, 0);
 console.log('PASS: silêncio, estalo, frase completa entre pacotes, pausas, PCM intacto e memória limitada');
+const faster = new AssistantVoicePhrases(13);
+assert.equal(faster.push(pcm(440, 3000)).length, 0);
+assert.equal(faster.push(pcm(240)).length, 0, 'Não cortar antes do fim da palavra');
+assert.equal(faster.push(pcm(20)).length, 1, 'Preview fecha após 260 ms de silêncio');
+const pausedWord = new AssistantVoicePhrases(13);
+assert.equal(pausedWord.push(concat(pcm(300, 3000), pcm(200), pcm(300, 3000))).length, 0);
+assert.equal(pausedWord.push(pcm(260)).length, 1, 'Pausa curta dentro da palavra preserva uma frase');
