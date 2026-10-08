@@ -52,7 +52,10 @@ assistenteVoiceRouter.post("/live-token", async (req, res) => {
   if (!isPreview) return res.status(404).json({ message: "Indisponível." });
   if (req.body?.liveAudioConsent !== true) return res.status(400).json({ message: "Autorize a conversa direta antes de iniciar." });
   const key = (process.env.GEMINI_LIVE_API_KEY || process.env.GEMINI_ASSISTANT_API_KEY || process.env.GEMINI_TTS_API_KEY)?.trim();
-  if (!key) return res.status(503).json({ message: "Gemini Live não configurado." });
+  if (!key) {
+    console.warn("[AssistantLiveToken] missing-key");
+    return res.status(503).json({ message: "Gemini Live não configurado." });
+  }
   const model = process.env.GEMINI_LIVE_MODEL || "gemini-3.8-live";
   if (!/^[a-z0-9][a-z0-9.-]{5,90}$/.test(model)) return res.status(503).json({ message: "Modelo Live inválido." });
   try {
@@ -67,12 +70,20 @@ assistenteVoiceRouter.post("/live-token", async (req, res) => {
       }),
       signal: AbortSignal.timeout(6000),
     });
-    if (!response.ok) return res.status(503).json({ message: "Sessão de voz indisponível." });
+    if (!response.ok) {
+      // Do not log Google's error message: it can contain credentials or URLs.
+      const failure = await response.json().catch(() => null) as { error?: { status?: string } } | null;
+      const allowedStatuses = ["INVALID_ARGUMENT", "UNAUTHENTICATED", "PERMISSION_DENIED", "NOT_FOUND", "RESOURCE_EXHAUSTED", "UNAVAILABLE", "INTERNAL", "FAILED_PRECONDITION"];
+      const providerStatus = allowedStatuses.includes(failure?.error?.status ?? "") ? failure!.error!.status : "UNKNOWN";
+      console.warn("[AssistantLiveToken] rejected", { httpStatus: response.status, providerStatus });
+      return res.status(503).json({ message: "Sessão de voz indisponível." });
+    }
     const payload = await response.json() as { name?: string };
     if (!payload.name || payload.name.length > 2000) return res.status(503).json({ message: "Token de sessão inválido." });
     res.setHeader("Cache-Control", "no-store");
     return res.json({ token: payload.name, model });
-  } catch {
+  } catch (error) {
+    console.warn("[AssistantLiveToken] failed", { reason: error instanceof Error && ["TimeoutError", "AbortError", "SyntaxError", "TypeError"].includes(error.name) ? error.name : "UNKNOWN" });
     return res.status(503).json({ message: "Não consegui preparar a conversa direta." });
   }
 });
