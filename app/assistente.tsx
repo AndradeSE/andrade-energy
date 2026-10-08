@@ -527,8 +527,10 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       return;
     }
     if (preferLive && process.env.EXPO_PUBLIC_ENABLE_GEMINI_LIVE === "1" && isPreviewEnvironment && IS_GERADOR_APP && Platform.OS === "android") {
+      console.info("[AssistantLive] requested");
       if (liveStarting.current) return;
       const allowed = await authorizeLiveAudio();
+      console.info("[AssistantLive] consent", allowed);
       if (allowed) {
         const liveAttempt = ++liveGeneration.current;
         liveStarting.current = true;
@@ -542,6 +544,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
           const { startGeminiLive } = await import("../services/assistant-gemini-live");
           await stopNativePortugueseSpeech(conversationOwner.current);
           const session = await startGeminiLive(firstName, {
+            onReady: () => playActivationBeep(true),
             onAccountQuery: async question => {
               const generation = contextGeneration.current;
               const reply = await queryLiveAccount(question, {
@@ -579,6 +582,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
               else {
                 setVoiceNotice(`${message} A conversa direta foi encerrada; não troquei silenciosamente para transcrição.`);
                 setWakeWordPaused(false);
+                if (voiceOnly) Alert.alert("Conversa indisponível", message);
                 if (voiceOnly) onClose?.();
               }
             },
@@ -588,12 +592,14 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
           liveStarting.current = false;
           return;
         } catch (error) {
+          console.info("[AssistantLive] start-failed", (error as any)?.response?.status ?? "native-or-network");
           if (liveGeneration.current !== liveAttempt) return;
           liveStarting.current = false;
           voiceActive.current = false;
           setVoiceStatus(error instanceof Error ? error.message : "Conversa direta indisponível.");
           setVoiceNotice("Não consegui abrir a conversa direta. Tente novamente; não ativei a transcrição como substituta.");
           setWakeWordPaused(false);
+          if (voiceOnly) Alert.alert("Conversa indisponível", "Não consegui abrir a conversa direta. Confira a conexão e tente novamente.");
           if (voiceOnly) onClose?.();
           return;
         }

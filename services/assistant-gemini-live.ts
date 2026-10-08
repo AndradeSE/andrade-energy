@@ -9,6 +9,7 @@ type Listener = {
   onState: (state: "connecting" | "listening" | "speaking") => void;
   onFailure: (message: string) => void;
   onAccountQuery: (question: string) => Promise<string>;
+  onReady?: () => Promise<void>;
 };
 
 const LIVE_ENDPOINT = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained";
@@ -26,9 +27,11 @@ export function decodeLiveMessage(data: unknown): string {
 }
 
 export async function startGeminiLive(firstName: string, listener: Listener) {
+  console.info("[AssistantLive] preparing");
   const permission = await getRecordingPermissionsAsync();
   if (!(permission.granted || (await requestRecordingPermissionsAsync()).granted)) throw new Error("Autorize o microfone para conversar.");
   const result = await api.post<{ token?: string; model?: string }>("/assistente/live-token", { liveAudioConsent: true }, { timeout: 8_000 });
+  console.info("[AssistantLive] token-ready");
   const token = result.data.token;
   const model = result.data.model;
   if (!token || !model || !/^[a-z0-9][a-z0-9.-]{5,90}$/.test(model)) throw new Error("Sessão de voz indisponível.");
@@ -43,6 +46,7 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
   let setupTimer: ReturnType<typeof setTimeout> | undefined;
   let microphoneOperation = Promise.resolve();
   let toolBusy = false;
+  let signalledReady = false;
   const context = new AudioContext();
   const microphone = new AudioPcmStreamAdapter();
   const socket = new WebSocket(`${LIVE_ENDPOINT}?access_token=${encodeURIComponent(token)}`);
@@ -69,7 +73,9 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
   };
   const fail = (message: string) => {
     if (closed) return;
-    void stop().finally(() => listener.onFailure(message));
+    console.info("[AssistantLive] failure", message);
+    void stop();
+    listener.onFailure(message);
   };
   const startMic = async () => {
     if (closed || microphone.isRecording()) return;
@@ -77,6 +83,8 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
     microphoneOperation = microphoneOperation.then(async () => {
       if (closed) return;
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, shouldPlayInBackground: false });
+      if (!signalledReady) { signalledReady = true; await listener.onReady?.(); }
+      if (closed) return;
       await microphone.start();
     });
     await microphoneOperation;
@@ -84,6 +92,7 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
     listening = true;
     lastActivity = Date.now();
     listener.onState("listening");
+    console.info("[AssistantLive] microphone-ready");
   };
   const idleTimer = setInterval(() => {
     if (!closed && !toolBusy && listening && Date.now() - lastActivity >= IDLE_MS) fail("Conversa encerrada após cinco segundos sem fala.");
@@ -106,6 +115,7 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
   });
 
   socket.onopen = () => {
+    console.info("[AssistantLive] socket-open");
     if (closed) return;
     socket.send(JSON.stringify({ setup: {
       model: `models/${model}`, generationConfig: { responseModalities: ["AUDIO"] },
@@ -119,7 +129,7 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
     } }));
   };
   socket.onerror = () => fail("Não consegui conectar a conversa ao Gemini Live.");
-  socket.onclose = () => fail("A conversa Live foi interrompida.");
+  socket.onclose = event => { console.info("[AssistantLive] socket-close", event.code); fail("A conversa Live foi interrompida."); };
   socket.onmessage = event => {
     if (closed) return;
     let message: any;
@@ -127,6 +137,7 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
     catch { fail("Não consegui interpretar a resposta da conversa direta."); return; }
     if (message.error) { fail("O Gemini Live recusou a sessão de áudio."); return; }
     if (message.setupComplete) {
+      console.info("[AssistantLive] setup-ready");
       clearTimeout(setupTimer);
       setupTimer = setTimeout(() => fail("O Gemini Live não iniciou a resposta de voz."), 12_000);
       const greeting = firstName ? `E aí, ${firstName}, como posso ajudá-lo?` : "E aí, como posso ajudá-lo?";
@@ -152,6 +163,7 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
       if (typeof audio?.data !== "string" || !String(audio?.mimeType ?? "").startsWith("audio/pcm")) continue;
       clearTimeout(setupTimer);
       if (!speaking) {
+        console.info("[AssistantLive] audio-received");
         speaking = true;
         listening = false;
         listener.onState("speaking");
