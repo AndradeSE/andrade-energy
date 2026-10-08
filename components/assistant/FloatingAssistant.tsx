@@ -110,9 +110,7 @@ export default function FloatingAssistant() {
 
   if (loading || pathname === "/assistente") return null;
   return <>
-  {conversationRequest ? <View style={[styles.conversationPanel, { bottom: APP_TAB_BAR_METRICS.height + insets.bottom + SIZE + 12 }]}>
-    <Assistente voiceOnly embeddedVoiceWake={conversationRequest} onClose={() => { setWakeWordPaused(true); closeFloatingConversation(); }} />
-  </View> : null}
+  {conversationRequest ? <Assistente voiceOnly embeddedVoiceWake={conversationRequest} onClose={() => { setWakeWordPaused(true); closeFloatingConversation(); }} /> : null}
   {!hidden ? <Animated.View {...pan.panHandlers} accessibilityRole="button" accessibilityLabel={conversationOpen ? "Conversa por voz aberta; segure para ocultar" : "Abrir Ajuda Andrade Energy; arraste ou segure para ocultar"} style={[styles.button, { opacity: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }), transform: [...animated.getTranslateTransform(), { translateX: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -120] }) }, { translateY: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -170] }) }, { scale: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.2] }) }] }]}>
     <Animated.View pointerEvents="none" style={[styles.halo, { opacity: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.4] }), transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.08] }) }] }]} />
     <Animated.View pointerEvents="none" style={{ transform: [{ translateY: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, -2] }) }, { scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) }] }}>

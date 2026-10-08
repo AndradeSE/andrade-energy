@@ -103,6 +103,9 @@ export async function startOnlineSpeech(onFinal: (text: string) => void, onError
     const submit = async () => {
       if (submitting) return;
       submitting = true;
+      // A requisição de transcrição pode levar mais que o limite de silêncio
+      // da conversa. Mantenha-a ocupada até chegar texto ou falha.
+      onActivity?.(true);
       try {
         const text = await finishOnlineSpeech();
         onActivity?.(false);

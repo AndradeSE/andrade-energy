@@ -46,10 +46,12 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   const insets = useSafeAreaInsets();
   const { authenticated, usuario, usinaSelecionada, unidadeSelecionada } = useAuth();
   const [accountVoiceAllowed, setAccountVoiceAllowed] = useState(false);
+  const accountVoiceAllowedRef = useRef(false);
   useEffect(() => {
     let active = true;
     setAccountVoiceAllowed(false);
-    if (usuario?.id) void accountVoiceConsent(String(usuario.id)).then(allowed => { if (active) setAccountVoiceAllowed(allowed); }).catch(() => {});
+    accountVoiceAllowedRef.current = false;
+    if (usuario?.id) void accountVoiceConsent(String(usuario.id)).then(allowed => { if (active) { accountVoiceAllowedRef.current = allowed; setAccountVoiceAllowed(allowed); } }).catch(() => {});
     return () => { active = false; };
   }, [usuario?.id]);
   const [input, setInput] = useState("");
@@ -62,6 +64,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   const [downloadingModel, setDownloadingModel] = useState(false);
   const [voiceReady, setVoiceReady] = useState(isVoiceInstalled);
   const [listening, setListening] = useState(false);
+  const [voiceCaptureReady, setVoiceCaptureReady] = useState(false);
   const [hearingSpeech, setHearingSpeech] = useState(false);
   const [speakingReply, setSpeakingReply] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
@@ -74,6 +77,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   const [openingInvoiceId, setOpeningInvoiceId] = useState<string>();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const voiceActive = useRef(false);
+  const conversationOwner = useRef(`conversation-${Date.now()}-${Math.random()}`);
   const dictationActive = useRef(false);
   const usingNativeSpeech = useRef(false);
   const micHeld = useRef(false);
@@ -101,25 +105,24 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     dictationActive.current = false;
     stopAssistantVoice();
     // Não encerre a captura da frase-chave ao simplesmente sair da Ajuda.
-    if (hadAssistantSession) void stopNativePortugueseSpeech().finally(() => setWakeWordPaused(false));
+    if (hadAssistantSession) void stopNativePortugueseSpeech(conversationOwner.current).finally(() => setWakeWordPaused(false));
     else setWakeWordPaused(false);
     // A escuta de "Andrade" pertence ao app, não à tela Ajuda.
     if (!wakeWordEnabled()) void releaseVoiceRecognition();
     void releaseLocalModel();
   }, []);
   useEffect(() => {
-    if (!listening || busy || hearingSpeech || speakingReply || transcribing) return;
+    if (!listening || !voiceCaptureReady || busy || hearingSpeech || speakingReply || transcribing) return;
     const timer = setTimeout(() => {
       voiceActive.current = false;
       setListening(false);
       setHearingSpeech(false);
+      setVoiceCaptureReady(false);
       setVoiceStatus("Conversa encerrada após 5 segundos sem fala. Diga “Andrade” ou toque nas ondas para voltar.");
-      void stopNativePortugueseSpeech();
-      void stopContinuousListening();
-      onClose?.();
+      void stopNativePortugueseSpeech(conversationOwner.current).finally(() => onClose?.());
     }, 5_000);
     return () => clearTimeout(timer);
-  }, [listening, busy, hearingSpeech, speakingReply, transcribing]);
+  }, [listening, voiceCaptureReady, busy, hearingSpeech, speakingReply, transcribing]);
   useEffect(() => {
     const commandListening = wakeEnabled && wakeReady && !wakePaused;
     if (!commandListening && (!listening || (!hearingSpeech && !speakingReply))) {
@@ -201,7 +204,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       { text: "Voltar", style: "cancel" },
       { text: accountVoiceAllowed ? "Revogar autorização" : "Autorizar voz natural", onPress: () => {
         const allowed = !accountVoiceAllowed;
-        void setAccountVoiceConsent(userId, allowed).then(() => setAccountVoiceAllowed(allowed)).catch(() => Alert.alert("Não foi possível salvar", "Tente novamente."));
+        void setAccountVoiceConsent(userId, allowed).then(() => { accountVoiceAllowedRef.current = allowed; setAccountVoiceAllowed(allowed); }).catch(() => Alert.alert("Não foi possível salvar", "Tente novamente."));
       } },
     ]);
   }
@@ -266,7 +269,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       if (voiceActive.current) {
         setVoiceStatus("Processando sua pergunta…");
         setHearingSpeech(false);
-        if (usingNativeSpeech.current) await stopNativePortugueseSpeech();
+        if (usingNativeSpeech.current) await stopNativePortugueseSpeech(conversationOwner.current);
         else await pauseContinuousListening();
       }
       let response: Message = { from: "assistant", text: reply.text, route: reply.route };
@@ -362,7 +365,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
         if (response.voiceAnswerId && !response.private) {
           setVoiceStatus("Preparando a voz natural…");
           void speakConversationOnline(response.voiceAnswerId, response.text, finishReply, reason => { setVoiceStatus(reason); setVoiceNotice(reason); });
-        } else if (accountVoiceAllowed) {
+        } else if (accountVoiceAllowedRef.current) {
           setVoiceStatus("Preparando a voz natural da consulta…");
           void speakAuthorizedAccountOnline(response.text, finishReply, reason => { setVoiceStatus(reason); setVoiceNotice(reason); });
         } else {
@@ -391,16 +394,27 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
 
   async function resumeVoice() {
     try {
+      setVoiceCaptureReady(false);
       setVoiceStatus("Iniciando o microfone…");
       usingNativeSpeech.current = await startNativePortugueseSpeech(text => { void send(text); }, error => {
         voiceActive.current = false;
         setListening(false);
+        setVoiceCaptureReady(false);
         setVoiceStatus(error);
+        if (voiceOnly) onClose?.();
       }, setHearingSpeech, () => {
         if (voiceActive.current && !busyRef.current) void resumeVoice();
-      }, { onReady: () => setVoiceStatus("Ouvindo sua pergunta…"), shouldContinue: () => voiceActive.current, audioConsent: true });
+      }, { owner: conversationOwner.current, onReady: () => { setVoiceCaptureReady(true); setVoiceStatus("Ouvindo sua pergunta…"); }, shouldContinue: () => voiceActive.current, audioConsent: true });
       if (usingNativeSpeech.current) return;
-      if (isPreviewEnvironment) return; // A sessão unificada apresenta a falha online.
+      if (isPreviewEnvironment) {
+        if (voiceActive.current) {
+          voiceActive.current = false;
+          setListening(false);
+          setVoiceStatus("Não consegui iniciar a escuta. Toque no ícone para tentar novamente.");
+          if (voiceOnly) onClose?.();
+        }
+        return;
+      }
       await startContinuousListening(text => { void send(text); }, error => {
         voiceActive.current = false;
         setListening(false);
@@ -410,7 +424,9 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     } catch (error) {
       voiceActive.current = false;
       setListening(false);
+      setVoiceCaptureReady(false);
       setVoiceStatus(error instanceof Error ? error.message : "O microfone não iniciou.");
+      if (voiceOnly) onClose?.();
     }
   }
 
@@ -433,10 +449,11 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     if (voiceActive.current) {
       voiceActive.current = false;
       setListening(false);
+      setVoiceCaptureReady(false);
       setHearingSpeech(false);
       setSpeakingReply(false);
       stopAssistantVoice();
-      if (usingNativeSpeech.current) await stopNativePortugueseSpeech();
+      if (usingNativeSpeech.current) await stopNativePortugueseSpeech(conversationOwner.current);
       else await stopContinuousListening();
       setVoiceStatus(undefined);
       return;
@@ -453,6 +470,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     }
     voiceActive.current = true;
     setListening(true);
+    setVoiceCaptureReady(false);
     setVoiceStatus("Falando com você…");
     setSpeakingReply(true);
     if (!startFromCommand) await playActivationBeep();
@@ -527,7 +545,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     setVoiceInstalling(true);
     try {
       setWakeWordPaused(true);
-      await stopNativePortugueseSpeech();
+      await stopNativePortugueseSpeech(conversationOwner.current);
       if (!isPreviewEnvironment && !voiceReady && !(await nativePortugueseSpeechAvailable())) {
         await installVoiceModels((stage, progress) => setVoiceStatus(progress == null ? stage : `${stage}: ${Math.round(progress * 100)}%`));
         setVoiceReady(true);
@@ -555,7 +573,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       dictationActive.current = false;
       setTranscribing(false);
       setVoiceStatus(error instanceof Error ? error.message : "Não foi possível iniciar a transcrição.");
-      if (usingNativeSpeech.current) await stopNativePortugueseSpeech();
+      if (usingNativeSpeech.current) await stopNativePortugueseSpeech(conversationOwner.current);
       else await stopContinuousListening();
     } finally {
       dictationStarting.current = false;
@@ -570,11 +588,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     try { await installLocalModel(); } catch { /* O estado global exibe o erro. */ }
   }
 
-  if (voiceOnly) return <View style={styles.voiceCompact} accessibilityLiveRegion="polite">
-    <View style={styles.voiceCompactWave}>{[0, 1, 2, 3].map(index => <Animated.View key={index} style={[styles.voiceCompactBar, { transform: [{ scaleY: wave[index].interpolate({ inputRange: [0, 1], outputRange: [1, listening ? 1.8 : 1] }) }] }]} />)}</View>
-    <Text numberOfLines={2} style={styles.voiceCompactText}>{voiceStatus ?? (listening ? "Ouvindo sua pergunta…" : "Iniciando conversa…")}</Text>
-    <Pressable accessibilityRole="button" accessibilityLabel="Encerrar conversa" onPress={onClose} style={styles.voiceCompactClose}><Ionicons name="close" size={20} color={Colors.text} /></Pressable>
-  </View>;
+  if (voiceOnly) return null;
 
   return <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : "height"}>
     <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
@@ -612,11 +626,6 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
 }
 
 const styles = StyleSheet.create({
-  voiceCompact: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, borderRadius: 22, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, elevation: 5 },
-  voiceCompactWave: { height: 28, flexDirection: "row", alignItems: "center", gap: 3 },
-  voiceCompactBar: { width: 3, height: 15, borderRadius: 2, backgroundColor: Colors.primary },
-  voiceCompactText: { flex: 1, color: Colors.text, fontSize: 14, fontWeight: "600" },
-  voiceCompactClose: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   root: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.header, paddingHorizontal: 16, paddingBottom: 14, gap: 12 },
   back: { width: 32, alignItems: "center" }, backText: { color: "white", fontSize: 32 },

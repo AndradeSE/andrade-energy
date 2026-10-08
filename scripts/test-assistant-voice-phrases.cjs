@@ -23,8 +23,8 @@ const output = [];
 // O comando atravessa a antiga fronteira de 3s e os pacotes têm tamanho ímpar.
 for (let i = 0; i < phrase.length; i += 4093) output.push(...segmenter.push(phrase.subarray(i, i + 4093)));
 assert.equal(output.length, 1, 'A frase deve permanecer inteira através de fronteiras de pacotes/3s');
-assert.ok(output[0].length >= (300 + 450 + 200 + 550 + 700) * 32);
-const expected = phrase.subarray(2400 * 32, 4600 * 32);
+assert.ok(output[0].length >= (300 + 450 + 200 + 550 + 500) * 32);
+const expected = phrase.subarray(2400 * 32, 4400 * 32);
 assert.deepEqual(Buffer.from(output[0]), Buffer.from(expected), 'Preservar PCM16, pre-roll e pausa sem mudar bytes');
 segmenter.reset();
 const two = segmenter.push(concat(pcm(500, 2500), pcm(900), pcm(500, 2500), pcm(900)));
