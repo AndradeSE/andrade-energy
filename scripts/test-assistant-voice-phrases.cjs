@@ -44,3 +44,8 @@ assert.equal(faster.push(pcm(20)).length, 1, 'Preview fecha após 260 ms de sil�
 const pausedWord = new AssistantVoicePhrases(13);
 assert.equal(pausedWord.push(concat(pcm(300, 3000), pcm(200), pcm(300, 3000))).length, 0);
 assert.equal(pausedWord.push(pcm(260)).length, 1, 'Pausa curta dentro da palavra preserva uma frase');
+const noisyWake = new AssistantVoicePhrases(13, 100);
+const noisySegments = noisyWake.push(pcm(6000, 3000));
+assert.equal(noisySegments.length, 5, 'Janelas curtas de 2s sobrepostas em ruído contínuo');
+assert.ok(noisySegments.every(audio => audio.length === 2000 * 32));
+assert.deepEqual(Buffer.from(noisySegments[0].slice(-32000)), Buffer.from(noisySegments[1].slice(0, 32000)), 'Preservar palavra atravessando a fronteira');

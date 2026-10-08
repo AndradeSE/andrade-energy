@@ -214,14 +214,14 @@ const atualizacaoProntidaoAnterior = {
   melhorias: ["Escuta aguarda a confirmação de prontidão do reconhecedor Android, não apenas o pedido de abertura do áudio.", "Permissão do microfone tem limite de espera. Ativação pausada durante conversa é distinguida de uma tentativa de início."],
 };
 const atualizacaoAtual = geradorPreview ? {
-  numero: "1.0.0-r20261008.19", data: "08/10/2026",
-  melhorias: ["Microfone permanece disponível entre perguntas; o áudio é descartado enquanto a IA responde para evitar eco.", "Correção na homologação permite ao Gemini receber instruções do app e usar as consultas autenticadas.", "Conversa aguarda 30 segundos após cada resposta."],
+  numero: "1.0.0-r20261008.20", data: "08/10/2026",
+  melhorias: ["Bipe confirma o comando reconhecido sem esperar a conexão online; a saudação aguarda o fim do bipe.", "Reconhecimento de Andrade usa trechos de até 2 segundos no Preview, com sobreposição para preservar a palavra em ruído contínuo."],
 } : previewApp ? {
   numero: "1.0.0-r20261006.24", data: "06/10/2026",
   melhorias: ["Ativação, ditado e conversa usam reconhecimento local já instalado quando o motor Android falha ou não fica pronto.", "Sem envio do áudio à nuvem ou download implícito. A captura alternativa não muda o provedor da voz natural das respostas."],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
-  ...(geradorPreview ? [{ numero: "1.0.0-r20261008.18", data: "08/10/2026", melhorias: ["Consulta inicial da última fatura e espera de 30 segundos pela próxima pergunta.", "Reconhecimento de pedidos falados de documentos e referências ao pedido anterior."] }, { numero: "1.0.0-r20261008.17", data: "08/10/2026", melhorias: ["Menor espera local para fechar a frase Andrade, mantendo a palavra completa."] }] : []),
+  ...(geradorPreview ? [{ numero: "1.0.0-r20261008.19", data: "08/10/2026", melhorias: ["Microfone contínuo entre perguntas, descartando áudio enquanto a IA fala.", "Token de homologação corrigido para permitir instruções e consultas do aplicativo."] }, { numero: "1.0.0-r20261008.18", data: "08/10/2026", melhorias: ["Consulta inicial da última fatura e espera de 30 segundos pela próxima pergunta.", "Reconhecimento de pedidos falados de documentos e referências ao pedido anterior."] }, { numero: "1.0.0-r20261008.17", data: "08/10/2026", melhorias: ["Menor espera local para fechar a frase Andrade, mantendo a palavra completa."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.16", data: "08/10/2026", melhorias: ["Velocidade da voz Live corrigida, bipe antes da saudação e reserva de áudio contra cortes."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.15", data: "08/10/2026", melhorias: ["Bipe suave, remoção da vibração inicial e diagnóstico seguro da abertura Live."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.14", data: "08/10/2026", melhorias: ["Tratamento das respostas binárias Gemini Live e ativação do motor de reprodução."] }] : []),

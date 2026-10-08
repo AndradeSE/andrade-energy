@@ -46,6 +46,9 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
   console.info("[AssistantLive] preparing");
   const permission = await getRecordingPermissionsAsync();
   if (!(permission.granted || (await requestRecordingPermissionsAsync()).granted)) throw new Error("Autorize o microfone para conversar.");
+  // Acknowledge the accepted command immediately; connection setup continues
+  // in parallel. The greeting still waits until the beep finishes.
+  const activationBeep = Promise.resolve().then(() => listener.onReady?.()).catch(() => undefined);
   // Read a small, authorized snapshot in parallel, with a strict deadline.
   // No PDFs, credentials or account IDs are sent to the voice provider.
   const invoiceSnapshot = listener.onLatestInvoice ? new Promise<string>(resolve => {
@@ -71,7 +74,6 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
   let setupTimer: ReturnType<typeof setTimeout> | undefined;
   let microphoneOperation = Promise.resolve();
   let toolBusy = false;
-  let signalledReady = false;
   const context = new AudioContext();
   const microphone = new AudioPcmStreamAdapter();
   const socket = new WebSocket(`${LIVE_ENDPOINT}?access_token=${encodeURIComponent(token)}`);
@@ -168,7 +170,7 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
       setupTimer = setTimeout(() => fail("O Gemini Live não iniciou a resposta de voz."), 12_000);
       const greeting = firstName ? `E aí, ${firstName}, como posso ajudá-lo?` : "E aí, como posso ajudá-lo?";
       void (async () => {
-        if (!signalledReady) { signalledReady = true; await listener.onReady?.(); }
+        await activationBeep;
         if (closed) return;
         socket.send(JSON.stringify({ clientContent: { turns: [{ role: "user", parts: [{ text: `Diga exatamente esta saudação e depois aguarde em silêncio: ${greeting}` }] }], turnComplete: true } }));
       })().catch(() => fail("Não consegui preparar o áudio da conversa."));

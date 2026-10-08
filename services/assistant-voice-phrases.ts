@@ -12,7 +12,7 @@ function join(frames: Uint8Array[]) {
 }
 
 export class AssistantVoicePhrases {
-  constructor(private endSilenceFrames = END_SILENCE_FRAMES) {}
+  constructor(private endSilenceFrames = END_SILENCE_FRAMES, private maxPhraseFrames = MAX_PHRASE_FRAMES) {}
   private remainder = new Uint8Array(0);
   private preRoll: Uint8Array[] = [];
   private phrase: Uint8Array[] = [];
@@ -55,10 +55,13 @@ export class AssistantVoicePhrases {
       this.phrase.push(frame);
       if (voiced) { this.voicedFrames++; this.silenceFrames = 0; }
       else this.silenceFrames++;
-      if (this.silenceFrames >= this.endSilenceFrames || this.phrase.length >= MAX_PHRASE_FRAMES) {
+      if (this.silenceFrames >= this.endSilenceFrames || this.phrase.length >= this.maxPhraseFrames) {
         // Estalos e silêncio não devem acionar o modelo de linguagem.
         if (this.voicedFrames >= 10) completed.push(join(this.phrase));
-        this.preRoll = this.phrase.slice(-PRE_ROLL_FRAMES);
+        // Short wake windows overlap by one second when noise prevents a
+        // silence boundary, preserving a keyword crossing the window edge.
+        const overlap = this.silenceFrames < this.endSilenceFrames && this.maxPhraseFrames < MAX_PHRASE_FRAMES ? 50 : PRE_ROLL_FRAMES;
+        this.preRoll = this.phrase.slice(-overlap);
         this.phrase = []; this.voicedFrames = 0; this.silenceFrames = 0;
       }
     }

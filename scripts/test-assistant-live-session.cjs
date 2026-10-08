@@ -52,6 +52,7 @@ vm.runInNewContext(js, { exports: moduleResult.exports, require: key => { assert
   let releaseBeep;
   const session = await moduleResult.exports.startGeminiLive('Teste', { onState() {}, onFailure: value => failures.push(value), onLatestInvoice: async () => 'Última fatura fictícia: R$ 123,45, referência OUT/2026.', onAccountQuery: async () => 'sem dados fictícios', onReady: () => new Promise(resolve => { playback.push('beep'); releaseBeep = resolve; }) });
   const socket = sockets[0];
+  assert.deepEqual(playback, ['beep'], 'Confirm command before waiting for the network setup');
   assert.equal(socket.binaryType, 'arraybuffer');
   const text = JSON.stringify({ setupComplete: {}, texto: 'produção e áudio' });
   const bytes = new TextEncoder().encode(text);

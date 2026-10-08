@@ -17,7 +17,7 @@ export class AssistantLocalWake {
 
   constructor(private stream: AudioStreamInterface, private whisper: WhisperContext, private fastWake = false) {
     // Keep the full word and pre-roll; only shorten trailing silence in Preview.
-    this.phrases = new AssistantVoicePhrases(fastWake ? 13 : 25);
+    this.phrases = new AssistantVoicePhrases(fastWake ? 13 : 25, fastWake ? 100 : 250);
   }
 
   async start(onSpeech: (text: string) => void, onError: (message: string) => void, valid: () => boolean) {
