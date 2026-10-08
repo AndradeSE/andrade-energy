@@ -11,6 +11,7 @@ import { authorizedAccountSpeech } from "./account-speech";
 import { groqFallback } from "./groq-fallback";
 import { azureVoice } from "./azure-voice";
 import { transcriptionRouter } from "./transcription.routes";
+import { createLiveToken } from "./live-token";
 
 const PUBLIC_HELP_CONTEXT = {
   faturamento: "Na aba Faturamento, o gerador pode emitir manualmente, importar PDF e configurar o faturamento automático das UCs. A conta geradora é configurada separadamente. Cobranças exigem revisão antes de confirmar.",
@@ -59,31 +60,14 @@ assistenteVoiceRouter.post("/live-token", async (req, res) => {
   const model = process.env.GEMINI_LIVE_MODEL || "gemini-3.8-live";
   if (!/^[a-z0-9][a-z0-9.-]{5,90}$/.test(model)) return res.status(503).json({ message: "Modelo Live inválido." });
   try {
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/auth_tokens", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-      body: JSON.stringify({
-        uses: 1,
-        expireTime: new Date(Date.now() + 10 * 60_000).toISOString(),
-        newSessionExpireTime: new Date(Date.now() + 60_000).toISOString(),
-        liveConnectConstraints: { model: `models/${model}`, config: { responseModalities: ["AUDIO"] } },
-      }),
-      signal: AbortSignal.timeout(6000),
-    });
-    if (!response.ok) {
-      // Do not log Google's error message: it can contain credentials or URLs.
-      const failure = await response.json().catch(() => null) as { error?: { status?: string } } | null;
-      const allowedStatuses = ["INVALID_ARGUMENT", "UNAUTHENTICATED", "PERMISSION_DENIED", "NOT_FOUND", "RESOURCE_EXHAUSTED", "UNAVAILABLE", "INTERNAL", "FAILED_PRECONDITION"];
-      const providerStatus = allowedStatuses.includes(failure?.error?.status ?? "") ? failure!.error!.status : "UNKNOWN";
-      console.warn("[AssistantLiveToken] rejected", { httpStatus: response.status, providerStatus });
-      return res.status(503).json({ message: "Sessão de voz indisponível." });
-    }
-    const payload = await response.json() as { name?: string };
+    const payload = await createLiveToken(key, model);
     if (!payload.name || payload.name.length > 2000) return res.status(503).json({ message: "Token de sessão inválido." });
     res.setHeader("Cache-Control", "no-store");
+    console.info("[AssistantLiveToken] issued");
     return res.json({ token: payload.name, model });
   } catch (error) {
-    console.warn("[AssistantLiveToken] failed", { reason: error instanceof Error && ["TimeoutError", "AbortError", "SyntaxError", "TypeError"].includes(error.name) ? error.name : "UNKNOWN" });
+    const status = (error as { status?: unknown })?.status;
+    console.warn("[AssistantLiveToken] failed", { httpStatus: typeof status === "number" ? status : undefined, reason: error instanceof Error && ["TimeoutError", "AbortError", "SyntaxError", "TypeError", "ApiError"].includes(error.name) ? error.name : "UNKNOWN" });
     return res.status(503).json({ message: "Não consegui preparar a conversa direta." });
   }
 });
