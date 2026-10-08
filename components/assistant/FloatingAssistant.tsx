@@ -62,7 +62,7 @@ export default function FloatingAssistant() {
     onPanResponderRelease: (_event, gesture) => {
       if (Math.abs(gesture.dx) < 8 && Math.abs(gesture.dy) < 8) {
         if (wakeWordEnabled()) setWakeWordEnabled(false);
-        router.push({ pathname: "/assistente", params: { voiceWake: String(Date.now()) } });
+        router.push({ pathname: "/assistente", params: { voiceWake: String(Date.now()), voiceGreeting: "1" } });
       }
     },
   }), [animated, height, width]);

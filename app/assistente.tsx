@@ -37,7 +37,7 @@ type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["r
 
 export default function Assistente() {
   const router = useRouter();
-  const { voiceWake } = useLocalSearchParams<{ voiceWake?: string }>();
+  const { voiceWake, voiceGreeting } = useLocalSearchParams<{ voiceWake?: string; voiceGreeting?: string }>();
   const wakeEnabled = useSyncExternalStore(subscribeWakeWord, wakeWordEnabled);
   const wakeReady = useSyncExternalStore(subscribeWakeWord, wakeWordReady);
   const wakePaused = useSyncExternalStore(subscribeWakeWord, wakeWordPaused);
@@ -463,10 +463,10 @@ export default function Assistente() {
     if (!voiceWake || handledWake.current === voiceWake) return;
     const timer = setTimeout(() => {
       handledWake.current = voiceWake;
-      if (!voiceActive.current && !busyRef.current) void toggleVoice(true);
+      if (!voiceActive.current && !busyRef.current) void toggleVoice(voiceGreeting !== "1");
     }, 800);
     return () => clearTimeout(timer);
-  }, [voiceWake]);
+  }, [voiceWake, voiceGreeting]);
 
   async function configureWakeWord() {
     if (wakeWordEnabled()) { setWakeWordEnabled(false); return; }

@@ -97,6 +97,8 @@ export async function startOnlineSpeech(onFinal: (text: string) => void, onError
     options.onReady?.();
     let lastVoiceAt = 0;
     const startedAt = Date.now();
+    let voiceSamples = 0;
+    let firstVoiceAt = 0;
     let submitting = false;
     const submit = async () => {
       if (submitting) return;
@@ -116,12 +118,17 @@ export async function startOnlineSpeech(onFinal: (text: string) => void, onError
       const now = Date.now();
       const level = recorder.getStatus().metering ?? -160;
       const speaking = level > -40;
-      if (speaking) lastVoiceAt = now;
+      if (speaking) {
+        if (!firstVoiceAt) firstVoiceAt = now;
+        voiceSamples += 1;
+        lastVoiceAt = now;
+      }
       onActivity?.(speaking);
       if (options.dictation) {
         if (now - startedAt >= 30_000) { void stopOnlineSpeech(); onError("Limite de 30 segundos. Solte e grave uma nova pergunta."); }
       } else if ((lastVoiceAt && now - lastVoiceAt >= (options.wakeMode ? 800 : 950)) || now - startedAt >= (options.wakeMode ? 5000 : 10_000)) {
-        if (lastVoiceAt) void submit();
+        // Um pico isolado de ruído não deve virar uma pergunta inventada.
+        if (lastVoiceAt && voiceSamples >= 3 && lastVoiceAt - firstVoiceAt >= 300) void submit();
         else if (!submitting) {
           submitting = true;
           void stopOnlineSpeech().then(() => {
