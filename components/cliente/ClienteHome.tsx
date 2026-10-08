@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -28,6 +28,8 @@ import ClienteHeader from "./ClienteHeader";
 import EconomiaChart from "./EconomiaChart";
 import EnergyFlowCard from "./EnergyFlowCard";
 import QuickAccessCarousel from "../QuickAccessCarousel";
+import { floatingHidden, loadFloatingPreference, setFloatingHidden, subscribeFloatingHidden } from "../../services/assistant-floating-preference";
+import { isPreviewEnvironment } from "../../config/environment";
 import { buscarCliente, listarMinhasUnidades } from "../../services/clientes.service";
 import { obterRecebimentoFaturas } from "../../services/recebimento-faturas.service";
 
@@ -41,6 +43,8 @@ export default function ClienteHome() {
   const [unidadeRecebimentoId, setUnidadeRecebimentoId] = useState("");
   const [concessionariaDaUnidade, setConcessionariaDaUnidade] = useState("");
   const [personalizarAcesso, setPersonalizarAcesso] = useState(0);
+  const assistantHidden = useSyncExternalStore(subscribeFloatingHidden, floatingHidden);
+  useEffect(() => { if (user?.id) void loadFloatingPreference(String(user.id)); }, [user?.id]);
 
   useEffect(() => {
     const clienteId = String(user?.cliente_id ?? "");
@@ -194,7 +198,9 @@ export default function ClienteHome() {
         <QuickAccessCarousel
           storageKey="consumidor-home"
           customizeSignal={personalizarAcesso}
+          pinnedIds={isPreviewEnvironment && assistantHidden ? ["mostrar-assistente"] : []}
           items={[
+            ...(isPreviewEnvironment && assistantHidden ? [{ id: "mostrar-assistente", icon: "chatbubble-ellipses-outline" as const, image: require("../../assets/images/assistant-chat-3d-v2.png"), label: "Mostrar Ajuda", onPress: () => void setFloatingHidden(String(user?.id ?? ""), false) }] : []),
             {
               id: "faturas",
               icon: "receipt-outline",

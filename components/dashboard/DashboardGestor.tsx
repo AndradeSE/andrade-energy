@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { Redirect, router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import {
   Alert,
   Pressable,
@@ -32,6 +32,8 @@ import {
   Section,
 } from "../ui";
 import QuickAccessCarousel from "../QuickAccessCarousel";
+import { floatingHidden, loadFloatingPreference, setFloatingHidden, subscribeFloatingHidden } from "../../services/assistant-floating-preference";
+import { isPreviewEnvironment } from "../../config/environment";
 import TabDataPending from "../ui/TabDataPending";
 import AndradeBarChart from "../charts/AndradeBarChart";
 import RevenueChart from "./RevenueChart";
@@ -80,6 +82,8 @@ export default function DashboardGestor() {
     useAuth();
   const { data, isLoading, error, refetch } = useDashboardGestor();
   const colaborador = String(usuario?.papel_empresa ?? "").startsWith("COLABORADOR_");
+  const assistantHidden = useSyncExternalStore(subscribeFloatingHidden, floatingHidden);
+  useEffect(() => { if (usuario?.id) void loadFloatingPreference(String(usuario.id)); }, [usuario?.id]);
   const [carteira, setCarteira] = useState<CarteiraService.Carteira | null>(
     null,
   );
@@ -239,7 +243,9 @@ export default function DashboardGestor() {
         <Section title="Acesso rápido" framed={false}>
           <QuickAccessCarousel
             storageKey={`gestor-home-${usuario?.id ?? "anonimo"}`}
+            pinnedIds={isPreviewEnvironment && assistantHidden ? ["mostrar-assistente"] : []}
             items={[
+              ...(isPreviewEnvironment && assistantHidden ? [{ id: "mostrar-assistente", icon: "chatbubble-ellipses-outline" as const, image: require("../../assets/images/assistant-chat-3d-v2.png"), label: "Mostrar Ajuda", onPress: () => void setFloatingHidden(String(usuario?.id ?? ""), false) }] : []),
               {
                 icon: "wallet-outline",
                 label: "Valor financeiro disponível",

@@ -214,13 +214,14 @@ const atualizacaoProntidaoAnterior = {
   melhorias: ["Escuta aguarda a confirmação de prontidão do reconhecedor Android, não apenas o pedido de abertura do áudio.", "Permissão do microfone tem limite de espera. Ativação pausada durante conversa é distinguida de uma tentativa de início."],
 };
 const atualizacaoAtual = geradorPreview ? {
-  numero: "1.0.0-r20261008.8", data: "08/10/2026",
-  melhorias: ["A autorização do comando ‘Andrade’ fica no Perfil, sem botão duplicado na Ajuda.", "Após abrir a conversa por voz, ela se fecha em cinco segundos sem fala."],
+  numero: "1.0.0-r20261008.9", data: "08/10/2026",
+  melhorias: ["O ícone de chat mantém a imagem durante a conversa e anima somente os três pontos.", "Segure o ícone para ocultá-lo; restaure-o pelo Acesso rápido da Home."],
 } : previewApp ? {
   numero: "1.0.0-r20261006.24", data: "06/10/2026",
   melhorias: ["Ativação, ditado e conversa usam reconhecimento local já instalado quando o motor Android falha ou não fica pronto.", "Sem envio do áudio à nuvem ou download implícito. A captura alternativa não muda o provedor da voz natural das respostas."],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
+  ...(geradorPreview ? [{ numero: "1.0.0-r20261008.8", data: "08/10/2026", melhorias: ["Autorização do comando ‘Andrade’ no Perfil, sem botão duplicado na Ajuda; conversa termina após cinco segundos sem fala."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.7", data: "08/10/2026", melhorias: ["A escuta de ‘Andrade’ continua ativa na Home ao sair da Ajuda."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.6", data: "08/10/2026", melhorias: ["A conversa não é descartada durante a liberação do microfone; encerramentos intencionais não desativam o comando."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.5", data: "08/10/2026", melhorias: ["Escuta local automática de ‘Andrade’ enquanto o app está aberto, após autorização única."] }] : []),
