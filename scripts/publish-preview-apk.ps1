@@ -28,8 +28,21 @@ try {
   if($old){Invoke-RestMethod "$api/releases/assets/$($old.id)" -Method Patch -Headers $headers -ContentType 'application/json' -Body (@{name=$name}|ConvertTo-Json)|Out-Null}
   throw
  }
- $checkPath=Join-Path $apk.DirectoryName "download-check-$name"
- Invoke-WebRequest $published.browser_download_url -OutFile $checkPath
- if((Get-FileHash -LiteralPath $checkPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $hash){throw 'Download mismatch'}
+ # Valide o download sem duplicar um APK grande no disco local.
+ $downloadClient=[System.Net.Http.HttpClient]::new()
+ $downloadResponse=$null; $downloadStream=$null; $downloadHasher=$null
+ try {
+  $downloadResponse=$downloadClient.GetAsync($published.browser_download_url,[System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+  $downloadResponse.EnsureSuccessStatusCode()|Out-Null
+  $downloadStream=$downloadResponse.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+  $downloadHasher=[Security.Cryptography.SHA256]::Create()
+  $downloadHash=([BitConverter]::ToString($downloadHasher.ComputeHash($downloadStream))).Replace('-','').ToLowerInvariant()
+  if($downloadHash -ne $hash){throw 'Download mismatch'}
+ } finally {
+  if($downloadStream){$downloadStream.Dispose()}
+  if($downloadHasher){$downloadHasher.Dispose()}
+  if($downloadResponse){$downloadResponse.Dispose()}
+  $downloadClient.Dispose()
+ }
  $published | Select-Object name,size,digest,browser_download_url | ConvertTo-Json
 } finally {$headers.Clear();$auth.Clear()}

@@ -15,6 +15,16 @@ const LIVE_ENDPOINT = "wss://generativelanguage.googleapis.com/ws/google.ai.gene
 const MAX_SESSION_MS = 10 * 60_000;
 const IDLE_MS = 5_000;
 
+export function decodeLiveMessage(data: unknown): string {
+  if (typeof data === "string") return data;
+  const bytes = data instanceof ArrayBuffer ? new Uint8Array(data)
+    : ArrayBuffer.isView(data) ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength) : undefined;
+  if (!bytes || bytes.byteLength > 1_048_576) throw new Error("Resposta de áudio inválida.");
+  if (typeof TextDecoder !== "undefined") return new TextDecoder("utf-8").decode(bytes);
+  // Hermes sem TextDecoder: preserve os caracteres UTF-8 das mensagens JSON.
+  return decodeURIComponent(Array.from(bytes, byte => `%${byte.toString(16).padStart(2, "0")}`).join(""));
+}
+
 export async function startGeminiLive(firstName: string, listener: Listener) {
   const permission = await getRecordingPermissionsAsync();
   if (!(permission.granted || (await requestRecordingPermissionsAsync()).granted)) throw new Error("Autorize o microfone para conversar.");
@@ -36,6 +46,7 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
   const context = new AudioContext();
   const microphone = new AudioPcmStreamAdapter();
   const socket = new WebSocket(`${LIVE_ENDPOINT}?access_token=${encodeURIComponent(token)}`);
+  socket.binaryType = "arraybuffer";
   listener.onState("connecting");
 
   const stopMic = async () => {
@@ -110,9 +121,10 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
   socket.onerror = () => fail("Não consegui conectar a conversa ao Gemini Live.");
   socket.onclose = () => fail("A conversa Live foi interrompida.");
   socket.onmessage = event => {
-    if (closed || typeof event.data !== "string") return;
+    if (closed) return;
     let message: any;
-    try { message = JSON.parse(event.data); } catch { return; }
+    try { message = JSON.parse(decodeLiveMessage(event.data)); }
+    catch { fail("Não consegui interpretar a resposta da conversa direta."); return; }
     if (message.error) { fail("O Gemini Live recusou a sessão de áudio."); return; }
     if (message.setupComplete) {
       clearTimeout(setupTimer);
@@ -149,6 +161,7 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
       if (!Number.isFinite(rate) || rate < 8000 || rate > 48000) continue;
       playbackChain = playbackChain.then(async () => {
         if (closed) return;
+        await context.resume();
         const buffer = await context.decodePCMInBase64(audio.data, rate, 1);
         if (closed) return;
         const source = context.createBufferSource();
