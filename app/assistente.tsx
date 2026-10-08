@@ -5,7 +5,7 @@ import * as FileSystemLegacy from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
 import { Redirect, useRouter, useLocalSearchParams } from "expo-router";
-import { armWakeWordDiagnostic, setWakeWordEnabled, setWakeWordPaused, subscribeWakeWord, wakeWordEnabled, wakeWordReady, wakeWordPaused } from "../services/assistant-wake-word";
+import { armWakeWordDiagnostic, setWakeWordEnabled, setWakeWordPaused, subscribeWakeWord, wakeWordEnabled, wakeWordReady, wakeWordPaused, wakeWordOnlineConsent } from "../services/assistant-wake-word";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -474,7 +474,11 @@ export default function Assistente() {
   function diagnoseWakeWord() {
     Alert.alert("Testar frase de ativação", "Mostra somente o próximo texto reconhecido e desliga a escuta. Não salva áudio nem registra o texto nos logs. Diga apenas ‘E aí, chat’.", [
       { text: "Cancelar", style: "cancel" },
-      { text: "Iniciar teste", onPress: () => { armWakeWordDiagnostic(); setWakeWordEnabled(true); } },
+      { text: "Iniciar teste", onPress: () => {
+        armWakeWordDiagnostic();
+        if (!wakeWordEnabled()) setWakeWordEnabled(true, true);
+        else if (!wakeWordOnlineConsent()) { setWakeWordEnabled(false); setTimeout(() => setWakeWordEnabled(true, true), 0); }
+      } },
     ]);
   }
 
