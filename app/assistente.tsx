@@ -91,6 +91,25 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   const micHeld = useRef(false);
   const dictationStarting = useRef(false);
   const dictatedText = useRef("");
+  const conversationAwake = isPreviewEnvironment && voiceActive.current;
+  useEffect(() => {
+    if (!conversationAwake) return;
+    let disposed = false;
+    const tag = conversationOwner.current;
+    // Escopo da conversa: nunca mantém a tela ligada apenas pela frase-chave.
+    const awake = import("expo-keep-awake");
+    void awake.then(async module => {
+      if (disposed) return;
+      await module.activateKeepAwakeAsync(tag);
+      if (disposed) await module.deactivateKeepAwake(tag);
+    }).catch(() => {
+      if (!disposed) setVoiceNotice("Para manter a tela ligada durante a conversa, instale o novo APK Preview.");
+    });
+    return () => {
+      disposed = true;
+      void awake.then(module => module.deactivateKeepAwake(tag)).catch(() => undefined);
+    };
+  }, [conversationAwake]);
   const lastInvoiceRequest = useRef(false);
   const busyRef = useRef(false);
   const messagesRef = useRef<Message[]>([]);
@@ -557,7 +576,11 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
               setSpeakingReply(false);
               setVoiceStatus(message);
               if (message.startsWith("Conversa encerrada") || message.startsWith("Sessão encerrada")) onClose?.();
-              else void toggleVoice(startFromCommand, false);
+              else {
+                setVoiceNotice(`${message} A conversa direta foi encerrada; não troquei silenciosamente para transcrição.`);
+                setWakeWordPaused(false);
+                if (voiceOnly) onClose?.();
+              }
             },
           });
           if (!voiceActive.current || liveGeneration.current !== liveAttempt) { await session.stop(); return; }
@@ -569,6 +592,10 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
           liveStarting.current = false;
           voiceActive.current = false;
           setVoiceStatus(error instanceof Error ? error.message : "Conversa direta indisponível.");
+          setVoiceNotice("Não consegui abrir a conversa direta. Tente novamente; não ativei a transcrição como substituta.");
+          setWakeWordPaused(false);
+          if (voiceOnly) onClose?.();
+          return;
         }
       }
     }
