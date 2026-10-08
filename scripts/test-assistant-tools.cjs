@@ -99,6 +99,9 @@ function load(relative) {
   assert.match((await queryLiveAccount("quantas faturas", generator)).text, /2 faturas/);
   const livePdf = await queryLiveAccount("baixe a última fatura", consumer);
   assert.equal(livePdf.invoiceId, "invoice");
+  assert.equal((await queryLiveAccount("baixa a última fatura pra mim", consumer)).invoiceId, "invoice");
+  const originalPdf = await queryLiveAccount("baixa a fatura original importada", consumer);
+  assert.equal(originalPdf.documents[0].kind, "conta-luz");
   assert.equal(calls.at(-1).args[0], "client");
   assert.equal(calls.at(-1).args[1], "123");
   assert.doesNotMatch(redactLiveAccountText("R$ 123,45 https://private.test/pdf?token=segredo token=abc teste@example.test\nCPF: 12345678901"), /segredo|abc|example|12345678901/);
