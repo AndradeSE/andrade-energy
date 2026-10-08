@@ -48,9 +48,9 @@ function phrase() {
   assert.equal(requests.length, 1);
   assert.equal(requests[0].options.language, 'pt');
   assert.equal(requests[0].options.maxContext, 0);
-  resolveTask({ result: 'E aí, chat!', isAborted: false });
+  resolveTask({ result: 'Andrade', isAborted: false });
   await tick();
-  assert.deepEqual(replies, ['E aí, chat!']);
+  assert.deepEqual(replies, ['Andrade']);
   stream.data({ data: phrase() });
   await tick();
   assert.equal(requests.length, 2);

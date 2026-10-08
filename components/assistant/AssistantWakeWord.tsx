@@ -72,8 +72,9 @@ export default function AssistantWakeWord() {
             void stopNativePortugueseSpeech(owner).then(() => Alert.alert("Texto reconhecido neste teste", text.slice(0, 180)));
             return;
           }
-          console.info("[AssistantWake] candidate", text.trim().length, containsAssistantWakeWord(text));
-          if (!containsAssistantWakeWord(text)) { if (online) retry(); return; }
+          const matched = containsAssistantWakeWord(text);
+          console.info("[AssistantWake] candidate", text.trim().length, matched);
+          if (!matched) { if (online) retry(); return; }
           triggered = true;
           Vibration.vibrate(120);
           void stopNativePortugueseSpeech(owner).then(() => {

@@ -213,11 +213,15 @@ const atualizacaoProntidaoAnterior = {
   numero: "1.0.0-r20261006.23", data: "06/10/2026",
   melhorias: ["Escuta aguarda a confirmação de prontidão do reconhecedor Android, não apenas o pedido de abertura do áudio.", "Permissão do microfone tem limite de espera. Ativação pausada durante conversa é distinguida de uma tentativa de início."],
 };
-const atualizacaoAtual = previewApp ? {
+const atualizacaoAtual = geradorPreview ? {
+  numero: "1.0.0-r20261008.1", data: "08/10/2026",
+  melhorias: ["Comando de voz opcional alterado para a palavra isolada “Andrade” no Gerador Preview.", "O comando só ativa a conversa quando a transcrição contém apenas essa palavra, reduzindo ativações por citações da marca."],
+} : previewApp ? {
   numero: "1.0.0-r20261006.24", data: "06/10/2026",
   melhorias: ["Ativação, ditado e conversa usam reconhecimento local já instalado quando o motor Android falha ou não fica pronto.", "Sem envio do áudio à nuvem ou download implícito. A captura alternativa não muda o provedor da voz natural das respostas."],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
+  ...(geradorPreview ? [{ numero: "1.0.0-r20261006.24", data: "06/10/2026", melhorias: ["Ativação, ditado e conversa usam reconhecimento local já instalado quando o motor Android falha ou não fica pronto.", "Sem envio do áudio à nuvem ou download implícito."] }] : []),
   ...(previewApp ? [atualizacaoProntidaoAnterior, atualizacaoOndasFlutuantesAnterior, atualizacaoLoopAnterior, atualizacaoInicioDiretoAnterior, atualizacaoReconhecedorAnterior, atualizacaoMicrofoneAnterior, atualizacaoAtivacaoAnterior, atualizacaoAzureAnterior, atualizacaoFaturasAnterior, atualizacaoDocumentosAnterior] : []),
   ...(previewApp ? [atualizacaoModulosAnterior, atualizacaoConsultasAnterior, atualizacaoVozPublicaAnterior, atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
   ...(geradorPreview ? [atualizacaoVozAnterior] : []),

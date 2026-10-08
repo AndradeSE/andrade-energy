@@ -28,11 +28,8 @@ export function setWakeWordEnabled(value: boolean, allowOnline = false) {
   listeners.forEach(listener => listener());
 }
 export function containsAssistantWakeWord(text: string) {
-  const normalized = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9\s]/g, " ");
-  // O reconhecedor pode juntar "e aí" ou escrever a interjeição como "ei/hey".
-  // Exige a chamada + chat; mencionar só "chat" nunca ativa a conversa.
-  // Variante observada no aparelho: "e,chate!". Aceitar apenas como
-  // chamada isolada, para não ativar ao mencionar "e chat" numa frase comum.
-  const shortCall = /^\s*e\s+(?:chat|chate)\s*$/.test(normalized);
-  return shortCall || /\b(?:e\s*ai+|ei|hey|ai+)\s*(?:chat|chate|chatbot)\b/.test(normalized);
+  // Palavra isolada: citar a marca numa frase não pode abrir a conversa.
+  const normalized = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ").trim().replace(/\s+/g, " ");
+  return normalized === "andrade";
 }

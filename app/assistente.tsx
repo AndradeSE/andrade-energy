@@ -102,7 +102,7 @@ export default function Assistente() {
       voiceActive.current = false;
       setListening(false);
       setHearingSpeech(false);
-      setVoiceStatus("Conversa encerrada após 30 segundos sem fala. Diga “E aí, chat” ou toque nas ondas para voltar.");
+      setVoiceStatus("Conversa encerrada após 30 segundos sem fala. Diga “Andrade” ou toque nas ondas para voltar.");
       void stopNativePortugueseSpeech();
       void stopContinuousListening();
     }, 30_000);
@@ -408,7 +408,7 @@ export default function Assistente() {
     if (await onlineAudioConsent(id)) return true;
     const allowed = await new Promise<boolean>(resolve => Alert.alert(
       "Transcrição online no Preview",
-      "Ao usar o microfone ou a conversa, trechos de até 30 segundos da sua voz serão enviados à Groq (api.groq.com) para transcrição em português. Não enviamos PDFs nem histórico da conta junto do áudio. O arquivo temporário é apagado após o processamento. A frase “E aí, chat” continua local. Autoriza?",
+      "Ao usar o microfone ou a conversa, trechos de até 30 segundos da sua voz serão enviados à Groq (api.groq.com) para transcrição em português. Não enviamos PDFs nem histórico da conta junto do áudio. O arquivo temporário é apagado após o processamento. O comando opcional “Andrade” também pode usar transcrição online com autorização separada. Autoriza?",
       [{ text: "Agora não", style: "cancel", onPress: () => resolve(false) }, { text: "Autorizar", onPress: () => resolve(true) }],
       { cancelable: true, onDismiss: () => resolve(false) },
     ));
@@ -465,14 +465,14 @@ export default function Assistente() {
 
   async function configureWakeWord() {
     if (wakeWordEnabled()) { setWakeWordEnabled(false); return; }
-    Alert.alert("Testar “E aí, chat” online?", "Durante até 60 segundos, com o app aberto, trechos curtos de áudio serão enviados à transcrição online usada pela conversa, incluindo falas antes do comando. Usa internet. A escuta pausa durante a conversa, o ditado e os carregamentos, e é desligada ao colocar o app em segundo plano. Você pode desligar a qualquer momento.", [
+    Alert.alert("Ativar “Andrade” online?", "Durante até 60 segundos, com o app aberto, trechos curtos de áudio serão enviados à transcrição online usada pela conversa, incluindo falas antes do comando. Usa internet. A escuta pausa durante a conversa, o ditado e os carregamentos, e é desligada ao colocar o app em segundo plano. Você pode desligar a qualquer momento.", [
       { text: "Agora não", style: "cancel" },
       { text: "Ativar online", onPress: () => setWakeWordEnabled(true, true) },
     ]);
   }
 
   function diagnoseWakeWord() {
-    Alert.alert("Testar frase de ativação", "Mostra somente o próximo texto reconhecido e desliga a escuta. Não salva áudio nem registra o texto nos logs. Diga apenas ‘E aí, chat’.", [
+    Alert.alert("Testar frase de ativação", "Mostra somente o próximo texto reconhecido e desliga a escuta. Não salva áudio nem registra o texto nos logs. Diga apenas ‘Andrade’.", [
       { text: "Cancelar", style: "cancel" },
       { text: "Iniciar teste", onPress: () => {
         armWakeWordDiagnostic();
@@ -572,7 +572,7 @@ export default function Assistente() {
     <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
       {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Consulte dados da sua conta, peça documentos ou abra as funções do app para revisão. Para ditar, segure o microfone e solte; para conversar por voz, toque nas ondas.</Text><Text style={styles.limit}>A conversa usa o Gemini online. Não é necessário baixar um modelo local. Consultas respeitam seu acesso; alterações exigem revisão nas telas do aplicativo.</Text></View> : null}
       <Pressable accessibilityRole="button" accessibilityLabel="Configurar voz natural nos dados da conta" onPress={configureAccountVoice} style={styles.action}><Text style={styles.actionText}>Voz natural nos dados · {accountVoiceAllowed ? "autorizada" : "autorizar"}</Text></Pressable>
-      <Pressable accessibilityRole="switch" accessibilityState={{ checked: wakeEnabled && wakeReady }} onLongPress={diagnoseWakeWord} onPress={() => { void configureWakeWord(); }} style={styles.action}><Text style={styles.actionText}>{wakeEnabled ? wakePaused ? "Comando de voz pausado · desativar" : wakeReady ? "Ouvindo ‘E aí, chat’ · desativar comando" : "Iniciando escuta · cancelar" : "Ativar comando de voz ‘E aí, chat’"}</Text></Pressable>
+      <Pressable accessibilityRole="switch" accessibilityState={{ checked: wakeEnabled && wakeReady }} onLongPress={diagnoseWakeWord} onPress={() => { void configureWakeWord(); }} style={styles.action}><Text style={styles.actionText}>{wakeEnabled ? wakePaused ? "Comando de voz pausado · desativar" : wakeReady ? "Ouvindo ‘Andrade’ · desativar comando" : "Iniciando escuta · cancelar" : "Ativar comando de voz ‘Andrade’"}</Text></Pressable>
       {installStage ? <View style={styles.progressCard} accessibilityLiveRegion="polite"><Text style={styles.limit}>{installStage}</Text>{installProgress !== null ? <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(installProgress * 100)}%` }]} /></View> : null}{downloadingModel ? <Pressable accessibilityRole="button" accessibilityLabel="Cancelar download do modelo" onPress={() => void cancelModelDownload()} style={styles.cancelDownload}><Text style={styles.cancelDownloadText}>Cancelar download</Text></Pressable> : null}</View> : null}
       {messages.map((message, index) => <View key={index} style={[styles.bubble, message.from === "user" ? styles.userBubble : styles.assistantBubble]}>
         <Text style={styles.message}>{message.text}</Text>
