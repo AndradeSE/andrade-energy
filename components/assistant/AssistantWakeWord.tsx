@@ -7,6 +7,10 @@ import { startAssistantSpeech as startNativePortugueseSpeech, stopAssistantSpeec
 import { isAssistantLoading, subscribeAssistantLoading } from "../../services/assistant-overlay-visibility";
 import { wakeWordOnlineConsent, wakeWordRemainingMs } from "../../services/assistant-wake-word";
 import { floatingConversationRequest, openFloatingConversation, subscribeFloatingConversation } from "../../services/assistant-floating-conversation";
+import { automaticLocalWakeConsent } from "../../services/assistant-voice-consent";
+import { isVoiceInstalled } from "../../services/on-device-voice";
+import { IS_GERADOR_APP } from "../../config/appVariant";
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function AssistantWakeWord() {
   const enabled = useSyncExternalStore(subscribeWakeWord, wakeWordEnabled);
@@ -14,10 +18,24 @@ export default function AssistantWakeWord() {
   const loading = useSyncExternalStore(subscribeAssistantLoading, isAssistantLoading);
   const floatingConversation = useSyncExternalStore(subscribeFloatingConversation, floatingConversationRequest);
   const pathname = usePathname();
+  const { usuario } = useAuth();
+  const userId = usuario?.id ? String(usuario.id) : undefined;
   const [foreground, setForeground] = useState(AppState.currentState === "active");
   useEffect(() => {
+    if (!IS_GERADOR_APP || !foreground || !userId) return;
+    let cancelled = false;
+    void automaticLocalWakeConsent(userId).then(allowed => {
+      if (!cancelled && allowed && isVoiceInstalled() && !wakeWordEnabled() && !floatingConversationRequest()) {
+        setWakeWordEnabled(true, false, true);
+      }
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [foreground, userId]);
+  useEffect(() => {
     if (!enabled) return;
-    const expiry = setTimeout(() => setWakeWordEnabled(false), wakeWordRemainingMs());
+    const remaining = wakeWordRemainingMs();
+    if (!Number.isFinite(remaining)) return;
+    const expiry = setTimeout(() => setWakeWordEnabled(false), remaining);
     return () => clearTimeout(expiry);
   }, [enabled]);
   useEffect(() => {
@@ -70,8 +88,11 @@ export default function AssistantWakeWord() {
           if (cancelled || triggered) return;
           if (consumeWakeWordDiagnostic()) {
             triggered = true;
+            const restoreLocal = wakeWordRemainingMs() === Infinity;
             setWakeWordEnabled(false);
-            void stopNativePortugueseSpeech(owner).then(() => Alert.alert("Texto reconhecido neste teste", text.slice(0, 180)));
+            void stopNativePortugueseSpeech(owner).then(() => Alert.alert("Texto reconhecido neste teste", text.slice(0, 180), [
+              { text: "OK", onPress: () => { if (restoreLocal && AppState.currentState === "active") setWakeWordEnabled(true, false, true); } },
+            ]));
             return;
           }
           const matched = containsAssistantWakeWord(text);

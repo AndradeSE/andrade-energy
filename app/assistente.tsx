@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ActivityIndicator, Alert, Animated, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, AppState, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { File, Paths } from "expo-file-system";
 import * as FileSystemLegacy from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
@@ -20,7 +20,7 @@ import { carregarFinanceiro } from "../services/financeiro.service";
 import { cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
 import { finishDictation, installVoiceModels, isVoiceInstalled, pauseContinuousListening, releaseVoiceRecognition, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
 import { speakConversationOnline, speakSafeOnlineOrLocal, speakAuthorizedAccountOnline, stopAssistantVoice } from "../services/assistant-voice";
-import { accountVoiceConsent, setAccountVoiceConsent, onlineAudioConsent, setOnlineAudioConsent } from "../services/assistant-voice-consent";
+import { accountVoiceConsent, setAccountVoiceConsent, onlineAudioConsent, setOnlineAudioConsent, automaticLocalWakeConsent, setAutomaticLocalWakeConsent } from "../services/assistant-voice-consent";
 import { answerConversationOnline } from "../services/assistant-online";
 import { assistantConnectionError, speechStatusReply } from "../services/assistant-diagnostics";
 import { nativePortugueseSpeechAvailable, nativeSpeechAvailabilityError } from "../services/native-speech";
@@ -46,10 +46,13 @@ export default function Assistente({ embeddedVoiceWake, onClose }: { embeddedVoi
   const insets = useSafeAreaInsets();
   const { authenticated, usuario, usinaSelecionada, unidadeSelecionada } = useAuth();
   const [accountVoiceAllowed, setAccountVoiceAllowed] = useState(false);
+  const [autoLocalWakeAllowed, setAutoLocalWakeAllowed] = useState(false);
   useEffect(() => {
     let active = true;
     setAccountVoiceAllowed(false);
+    setAutoLocalWakeAllowed(false);
     if (usuario?.id) void accountVoiceConsent(String(usuario.id)).then(allowed => { if (active) setAccountVoiceAllowed(allowed); }).catch(() => {});
+    if (usuario?.id && IS_GERADOR_APP) void automaticLocalWakeConsent(String(usuario.id)).then(allowed => { if (active) setAutoLocalWakeAllowed(allowed); }).catch(() => {});
     return () => { active = false; };
   }, [usuario?.id]);
   const [input, setInput] = useState("");
@@ -96,11 +99,13 @@ export default function Assistente({ embeddedVoiceWake, onClose }: { embeddedVoi
   }, [accountContextKey]);
   const wave = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
   useEffect(() => () => {
+    const hadAssistantSession = voiceActive.current || dictationActive.current;
     voiceActive.current = false;
     dictationActive.current = false;
     stopAssistantVoice();
-    // Só retome a frase-chave depois que a conversa liberar o microfone.
-    void stopNativePortugueseSpeech().finally(() => setWakeWordPaused(false));
+    // Não encerre a captura da frase-chave ao simplesmente sair da Ajuda.
+    if (hadAssistantSession) void stopNativePortugueseSpeech().finally(() => setWakeWordPaused(false));
+    else setWakeWordPaused(false);
     void releaseVoiceRecognition();
     void releaseLocalModel();
   }, []);
@@ -477,6 +482,30 @@ export default function Assistente({ embeddedVoiceWake, onClose }: { embeddedVoi
   }, [voiceWake]);
 
   async function configureWakeWord() {
+    if (IS_GERADOR_APP && usuario?.id) {
+      const userId = String(usuario.id);
+      if (autoLocalWakeAllowed) {
+        await setAutomaticLocalWakeConsent(userId, false);
+        setAutoLocalWakeAllowed(false);
+        setWakeWordEnabled(false);
+        return;
+      }
+      Alert.alert("Escuta automática local", "Com sua autorização, o microfone ouvirá a palavra ‘Andrade’ enquanto o aplicativo estiver aberto. Antes do comando, o áudio fica no aparelho e não é enviado à internet. O reconhecimento ocupa cerca de 33 MB e pode consumir mais bateria. Ao sair do app, a escuta para. Deseja ativar?", [
+        { text: "Agora não", style: "cancel" },
+        { text: "Ativar", onPress: () => { void (async () => {
+          setVoiceInstalling(true);
+          try {
+            if (!isVoiceInstalled()) await installVoiceModels((stage, progress) => setVoiceStatus(progress == null ? stage : `${stage}: ${Math.round(progress * 100)}%`));
+            await setAutomaticLocalWakeConsent(userId, true);
+            setAutoLocalWakeAllowed(true);
+            if (AppState.currentState === "active") setWakeWordEnabled(true, false, true);
+            setVoiceStatus("Escuta local ativa enquanto o app estiver aberto.");
+          } catch (error) { setVoiceStatus(error instanceof Error ? error.message : "Não consegui preparar a escuta local."); }
+          finally { setVoiceInstalling(false); }
+        })(); } },
+      ]);
+      return;
+    }
     if (wakeWordEnabled()) { setWakeWordEnabled(false); return; }
     Alert.alert("Ativar “Andrade” online?", "Durante até 60 segundos, com o app aberto, trechos curtos de áudio serão enviados à transcrição online usada pela conversa, incluindo falas antes do comando. Usa internet. A escuta pausa durante a conversa, o ditado e os carregamentos, e é desligada ao colocar o app em segundo plano. Você pode desligar a qualquer momento.", [
       { text: "Agora não", style: "cancel" },
@@ -489,6 +518,10 @@ export default function Assistente({ embeddedVoiceWake, onClose }: { embeddedVoi
       { text: "Cancelar", style: "cancel" },
       { text: "Iniciar teste", onPress: () => {
         armWakeWordDiagnostic();
+        if (IS_GERADOR_APP && autoLocalWakeAllowed) {
+          if (!wakeWordEnabled()) setWakeWordEnabled(true, false, true);
+          return;
+        }
         if (!wakeWordEnabled()) setWakeWordEnabled(true, true);
         else if (!wakeWordOnlineConsent()) { setWakeWordEnabled(false); setTimeout(() => setWakeWordEnabled(true, true), 0); }
       } },
@@ -585,7 +618,7 @@ export default function Assistente({ embeddedVoiceWake, onClose }: { embeddedVoi
     <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
       {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Consulte dados da sua conta, peça documentos ou abra as funções do app para revisão. Para ditar, segure o microfone e solte; para conversar por voz, toque nas ondas.</Text><Text style={styles.limit}>A conversa usa o Gemini online. Não é necessário baixar um modelo local. Consultas respeitam seu acesso; alterações exigem revisão nas telas do aplicativo.</Text></View> : null}
       <Pressable accessibilityRole="button" accessibilityLabel="Configurar voz natural nos dados da conta" onPress={configureAccountVoice} style={styles.action}><Text style={styles.actionText}>Voz natural nos dados · {accountVoiceAllowed ? "autorizada" : "autorizar"}</Text></Pressable>
-      <Pressable accessibilityRole="switch" accessibilityState={{ checked: wakeEnabled && wakeReady }} onLongPress={diagnoseWakeWord} onPress={() => { void configureWakeWord(); }} style={styles.action}><Text style={styles.actionText}>{wakeEnabled ? wakePaused ? "Comando de voz pausado · desativar" : wakeReady ? "Ouvindo ‘Andrade’ · desativar comando" : "Iniciando escuta · cancelar" : "Ativar comando de voz ‘Andrade’"}</Text></Pressable>
+      <Pressable accessibilityRole="switch" accessibilityState={{ checked: IS_GERADOR_APP ? autoLocalWakeAllowed : wakeEnabled && wakeReady }} onLongPress={diagnoseWakeWord} onPress={() => { void configureWakeWord(); }} style={styles.action}><Text style={styles.actionText}>{IS_GERADOR_APP ? autoLocalWakeAllowed ? wakePaused ? "Escuta automática local · pausada durante conversa" : wakeReady ? "Escuta automática local · ouvindo ‘Andrade’" : "Escuta automática local · preparando" : "Ativar escuta automática local de ‘Andrade’" : wakeEnabled ? wakePaused ? "Comando de voz pausado · desativar" : wakeReady ? "Ouvindo ‘Andrade’ · desativar comando" : "Iniciando escuta · cancelar" : "Ativar comando de voz ‘Andrade’"}</Text></Pressable>
       {installStage ? <View style={styles.progressCard} accessibilityLiveRegion="polite"><Text style={styles.limit}>{installStage}</Text>{installProgress !== null ? <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(installProgress * 100)}%` }]} /></View> : null}{downloadingModel ? <Pressable accessibilityRole="button" accessibilityLabel="Cancelar download do modelo" onPress={() => void cancelModelDownload()} style={styles.cancelDownload}><Text style={styles.cancelDownloadText}>Cancelar download</Text></Pressable> : null}</View> : null}
       {messages.map((message, index) => <View key={index} style={[styles.bubble, message.from === "user" ? styles.userBubble : styles.assistantBubble]}>
         <Text style={styles.message}>{message.text}</Text>

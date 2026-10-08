@@ -20,10 +20,10 @@ export const wakeWordReady = () => ready;
 export function setWakeWordReady(value: boolean) { ready = value; listeners.forEach(listener => listener()); }
 export function setWakeWordPaused(value: boolean) { paused = value; listeners.forEach(listener => listener()); }
 export function subscribeWakeWord(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; }
-export function setWakeWordEnabled(value: boolean, allowOnline = false) {
+export function setWakeWordEnabled(value: boolean, allowOnline = false, persistentLocal = false) {
   enabled = value;
   onlineConsent = value && allowOnline;
-  expiresAt = value ? Date.now() + 60000 : 0;
+  expiresAt = value ? persistentLocal && !allowOnline ? Infinity : Date.now() + 60000 : 0;
   if (!value) ready = false;
   listeners.forEach(listener => listener());
 }
