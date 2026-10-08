@@ -1,7 +1,7 @@
 import { AppState } from "react-native";
 import { getRecordingPermissionsAsync, requestRecordingPermissionsAsync, setAudioModeAsync } from "expo-audio";
 import { AudioContext } from "react-native-audio-api";
-import { fromByteArray } from "base64-js";
+import { fromByteArray, toByteArray } from "base64-js";
 import { AudioPcmStreamAdapter } from "whisper.rn/realtime-transcription/adapters/AudioPcmStreamAdapter";
 import api from "../config/api";
 
@@ -15,6 +15,21 @@ type Listener = {
 const LIVE_ENDPOINT = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained";
 const MAX_SESSION_MS = 10 * 60_000;
 const IDLE_MS = 5_000;
+
+export function livePcmSamples(data: string, inputRate: number, outputRate: number): Float32Array {
+  const bytes = toByteArray(data);
+  if (!bytes.length || bytes.length % 2 !== 0) throw new Error("Áudio PCM inválido.");
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const frames = bytes.length / 2;
+  const samples = new Float32Array(Math.max(1, Math.round(frames * outputRate / inputRate)));
+  for (let i = 0; i < samples.length; i++) {
+    const position = Math.min(frames - 1, i * inputRate / outputRate);
+    const left = Math.floor(position), right = Math.min(frames - 1, left + 1);
+    const fraction = position - left;
+    samples[i] = (view.getInt16(left * 2, true) * (1 - fraction) + view.getInt16(right * 2, true) * fraction) / 32768;
+  }
+  return samples;
+}
 
 export function decodeLiveMessage(data: unknown): string {
   if (typeof data === "string") return data;
@@ -83,7 +98,6 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
     microphoneOperation = microphoneOperation.then(async () => {
       if (closed) return;
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, shouldPlayInBackground: false });
-      if (!signalledReady) { signalledReady = true; await listener.onReady?.(); }
       if (closed) return;
       await microphone.start();
     });
@@ -141,7 +155,11 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
       clearTimeout(setupTimer);
       setupTimer = setTimeout(() => fail("O Gemini Live não iniciou a resposta de voz."), 12_000);
       const greeting = firstName ? `E aí, ${firstName}, como posso ajudá-lo?` : "E aí, como posso ajudá-lo?";
-      socket.send(JSON.stringify({ clientContent: { turns: [{ role: "user", parts: [{ text: `Diga exatamente esta saudação e depois aguarde em silêncio: ${greeting}` }] }], turnComplete: true } }));
+      void (async () => {
+        if (!signalledReady) { signalledReady = true; await listener.onReady?.(); }
+        if (closed) return;
+        socket.send(JSON.stringify({ clientContent: { turns: [{ role: "user", parts: [{ text: `Diga exatamente esta saudação e depois aguarde em silêncio: ${greeting}` }] }], turnComplete: true } }));
+      })().catch(() => fail("Não consegui preparar o áudio da conversa."));
       return;
     }
     if (Array.isArray(message.toolCall?.functionCalls)) {
@@ -174,12 +192,16 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
       playbackChain = playbackChain.then(async () => {
         if (closed) return;
         await context.resume();
-        const buffer = await context.decodePCMInBase64(audio.data, rate, 1);
+        // Native buffer sources consume frames at the context rate. Explicitly
+        // resample PCM16 rather than replaying 24 kHz speech at device 48 kHz.
+        const samples = livePcmSamples(audio.data, rate, context.sampleRate);
+        const buffer = context.createBuffer(1, samples.length, context.sampleRate);
+        buffer.copyToChannel(samples, 0);
         if (closed) return;
         const source = context.createBufferSource();
         source.buffer = buffer;
         source.connect(context.destination);
-        nextAudioAt = Math.max(nextAudioAt, context.currentTime + 0.04);
+        nextAudioAt = nextAudioAt > context.currentTime ? nextAudioAt : context.currentTime + 0.12;
         source.start(nextAudioAt);
         nextAudioAt += buffer.duration;
       }).catch(() => fail("Não consegui reproduzir a resposta por voz."));

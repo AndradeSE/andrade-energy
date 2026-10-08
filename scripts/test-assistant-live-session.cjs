@@ -27,24 +27,26 @@ const imports = {
   'react-native': { AppState: { addEventListener: () => ({ remove() {} }) } },
   'expo-audio': { getRecordingPermissionsAsync: async () => ({ granted: true }), setAudioModeAsync: async () => {} },
   'react-native-audio-api': { AudioContext: class {
+    sampleRate = 48000;
     currentTime = 0;
     destination = {};
     async close() {}
     async resume() { playback.push('resume'); }
-    async decodePCMInBase64() { playback.push('decode'); return { duration: 0.1 }; }
+    createBuffer(channels, length, rate) { playback.push('buffer'); return { duration: length / rate, copyToChannel(samples) { assert.equal(samples.length, length); } }; }
     createBufferSource() { return { connect() {}, start() { playback.push('start'); } }; }
   } },
-  'base64-js': { fromByteArray: () => '' },
+  'base64-js': require('base64-js'),
   'whisper.rn/realtime-transcription/adapters/AudioPcmStreamAdapter': { AudioPcmStreamAdapter: Microphone },
   '../config/api': { default: { post: async () => ({ data: { token: 'test-only', model: 'gemini-3.8-live' } }) } },
 };
 const moduleResult = { exports: {} };
 const source = fs.readFileSync('services/assistant-gemini-live.ts', 'utf8');
 const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-vm.runInNewContext(js, { exports: moduleResult.exports, require: key => { assert.ok(imports[key], key); return imports[key]; }, WebSocket: Socket, setTimeout: fn => { timers.add(fn); return fn; }, clearTimeout: fn => timers.delete(fn), setInterval: fn => { timers.add(fn); return fn; }, clearInterval: fn => timers.delete(fn), Date, Promise, ArrayBuffer, Uint8Array });
+vm.runInNewContext(js, { exports: moduleResult.exports, require: key => { assert.ok(imports[key], key); return imports[key]; }, WebSocket: Socket, setTimeout: fn => { timers.add(fn); return fn; }, clearTimeout: fn => timers.delete(fn), setInterval: fn => { timers.add(fn); return fn; }, clearInterval: fn => timers.delete(fn), Date, Promise, ArrayBuffer, Uint8Array, DataView, Float32Array });
 (async () => {
   const failures = [];
-  const session = await moduleResult.exports.startGeminiLive('Teste', { onState() {}, onFailure: value => failures.push(value), onAccountQuery: async () => 'sem dados fictícios' });
+  let releaseBeep;
+  const session = await moduleResult.exports.startGeminiLive('Teste', { onState() {}, onFailure: value => failures.push(value), onAccountQuery: async () => 'sem dados fictícios', onReady: () => new Promise(resolve => { playback.push('beep'); releaseBeep = resolve; }) });
   const socket = sockets[0];
   assert.equal(socket.binaryType, 'arraybuffer');
   const text = JSON.stringify({ setupComplete: {}, texto: 'produção e áudio' });
@@ -60,10 +62,16 @@ vm.runInNewContext(js, { exports: moduleResult.exports, require: key => { assert
   assert.equal(setup.inputAudioTranscription, undefined);
   assert.equal(setup.outputAudioTranscription, undefined);
   socket.onmessage({ data: bytes.buffer });
+  assert.equal(socket.sent.length, 1); // Greeting must wait for the beep to finish.
+  releaseBeep();
+  for (let index = 0; index < 4; index++) await Promise.resolve();
   assert.equal(socket.sent[1].clientContent.turnComplete, true);
-  socket.onmessage({ data: new TextEncoder().encode(JSON.stringify({ serverContent: { modelTurn: { parts: [{ inlineData: { mimeType: 'audio/pcm;rate=24000', data: 'AAAA' } }] }, turnComplete: true } })).buffer });
+  socket.onmessage({ data: new TextEncoder().encode(JSON.stringify({ serverContent: { modelTurn: { parts: [{ inlineData: { mimeType: 'audio/pcm;rate=24000', data: 'AAA=' } }] }, turnComplete: true } })).buffer });
   for (let index = 0; index < 12; index++) await Promise.resolve();
-  assert.deepEqual(playback, ['resume', 'decode', 'start']);
+  assert.deepEqual(playback, ['beep', 'resume', 'buffer', 'start']);
+  const pcm = Buffer.alloc(48000); // One second of 24 kHz mono PCM16.
+  const samples = moduleResult.exports.livePcmSamples(pcm.toString('base64'), 24000, 48000);
+  assert.equal(samples.length / 48000, 1); // Never replay at double speed.
   await session.stop();
   assert.equal(timers.size, 0);
   assert.equal(failures.length, 0); // Closing intentionally must not trigger fallback.
