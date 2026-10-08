@@ -36,6 +36,8 @@ assert.match(component, /!foreground \|\| paused \|\| loading/);
 assert.match(component, /startupDeadline = setTimeout/);
 assert.match(component, /automaticLocalWakeConsent\(userId\)/, "Preferência local deve voltar ao abrir o app");
 assert.match(component, /isVoiceInstalled\(\)/, "Não iniciar escuta local sem modelo instalado");
+assert.match(component, /if \(cancelled \|\| triggered\) return;/, "Encerramento após reconhecer a frase não pode tratar o stop como falha");
+assert.match(component, /AppState\.currentState !== "active" \|\| !wakeWordEnabled\(\)/, "Handoff não deve depender da montagem da escuta antiga");
 assert.match(fs.readFileSync("services/on-device-voice.ts", "utf8"), /promptPreviousSlices: false/, "Resultados anteriores não podem contaminar a frase de ativação seguinte");
 const floating = fs.readFileSync("components/assistant/FloatingAssistant.tsx", "utf8");
 assert.match(floating, /router\.push\("\/assistente"\)/, "Toque no botão flutuante deve apenas abrir a Ajuda");

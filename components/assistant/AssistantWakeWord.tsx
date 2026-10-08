@@ -73,7 +73,7 @@ export default function AssistantWakeWord() {
       timer = setTimeout(() => { void listen(); }, online ? 100 : 900);
     };
     const fail = (message: string) => {
-      if (cancelled) return;
+      if (cancelled || triggered) return;
       cancelled = true;
       clearTimeout(timer);
       clearTimeout(startupDeadline);
@@ -99,13 +99,16 @@ export default function AssistantWakeWord() {
           console.info("[AssistantWake] candidate", text.trim().length, matched);
           if (!matched) { if (online) retry(); return; }
           triggered = true;
+          console.info("[AssistantWake] matched; releasing microphone");
           Vibration.vibrate(120);
           void stopNativePortugueseSpeech(owner).then(() => {
-            if (!cancelled) {
-              if (pathname === "/assistente") router.push({ pathname: "/assistente", params: { voiceWake: String(Date.now()) } });
-              else openFloatingConversation();
-            }
-          });
+            // Uma atualização de tela pode desmontar esta escuta enquanto o
+            // microfone é liberado. Isso não deve descartar o comando já aceito.
+            if (AppState.currentState !== "active" || !wakeWordEnabled()) return;
+            console.info("[AssistantWake] opening conversation");
+            if (pathname === "/assistente") router.push({ pathname: "/assistente", params: { voiceWake: String(Date.now()) } });
+            else openFloatingConversation();
+          }).catch(() => { if (AppState.currentState === "active") Alert.alert("Não consegui abrir a conversa", "O microfone não foi liberado. Toque nas ondas para tentar novamente."); });
         };
         const started = await startNativePortugueseSpeech(detect, fail, undefined, retry, {
           onPartial: detect, onEnd: retry, wakeOnlineConsent: online,

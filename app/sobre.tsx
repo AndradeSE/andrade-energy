@@ -214,13 +214,14 @@ const atualizacaoProntidaoAnterior = {
   melhorias: ["Escuta aguarda a confirmação de prontidão do reconhecedor Android, não apenas o pedido de abertura do áudio.", "Permissão do microfone tem limite de espera. Ativação pausada durante conversa é distinguida de uma tentativa de início."],
 };
 const atualizacaoAtual = geradorPreview ? {
-  numero: "1.0.0-r20261008.5", data: "08/10/2026",
-  melhorias: ["Após autorização única, a palavra ‘Andrade’ é reconhecida localmente enquanto o app estiver aberto, sem enviar áudio ambiente à internet.", "A escuta para ao sair do app e retoma ao voltar; o botão na Ajuda permite desligá-la."],
+  numero: "1.0.0-r20261008.6", data: "08/10/2026",
+  melhorias: ["Depois de reconhecer ‘Andrade’, a conversa não é mais descartada se a tela atualizar durante a liberação do microfone.", "Erros gerados pelo encerramento intencional da escuta não desativam o comando."],
 } : previewApp ? {
   numero: "1.0.0-r20261006.24", data: "06/10/2026",
   melhorias: ["Ativação, ditado e conversa usam reconhecimento local já instalado quando o motor Android falha ou não fica pronto.", "Sem envio do áudio à nuvem ou download implícito. A captura alternativa não muda o provedor da voz natural das respostas."],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
+  ...(geradorPreview ? [{ numero: "1.0.0-r20261008.5", data: "08/10/2026", melhorias: ["Escuta local automática de ‘Andrade’ enquanto o app está aberto, após autorização única."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.4", data: "08/10/2026", melhorias: ["O flutuante passou a abrir apenas a Ajuda, e o comando de voz abre a conversa sobre a Home."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.3", data: "08/10/2026", melhorias: ["Saudação falada ao tocar no flutuante e filtro contra picos curtos de ruído na transcrição."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.2", data: "08/10/2026", melhorias: ["Botão flutuante abre a conversa e a espera máxima por trecho de fala foi reduzida para 10 segundos."] }] : []),
