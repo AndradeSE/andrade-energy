@@ -10,5 +10,8 @@ export async function createLiveToken(apiKey: string, model: string) {
     expireTime: new Date(Date.now() + 10 * 60_000).toISOString(),
     newSessionExpireTime: new Date(Date.now() + 60_000).toISOString(),
     liveConnectConstraints: { model, config: { responseModalities: [Modality.AUDIO] } },
+    // Omitted means lock ALL config fields, silently ignoring the client's
+    // system instruction, tools and VAD. [] locks only the explicitly set fields.
+    lockAdditionalFields: [],
   } });
 }

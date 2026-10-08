@@ -15,6 +15,7 @@ test("SDK serializes a single-use audio-only Live token using REST setup fields"
     const token = await createLiveToken("test-key-not-a-secret", "gemini-3.8-live");
     assert.equal(token.name, "auth_tokens/test-only");
     assert.equal(body.uses, 1);
+    assert.deepEqual(body.fieldMask, "model,generationConfig.responseModalities");
     assert.equal(body.liveConnectConstraints, undefined);
     assert.equal(body.bidiGenerateContentSetup.model, "models/gemini-3.8-live");
     assert.deepEqual(body.bidiGenerateContentSetup.generationConfig.responseModalities, ["AUDIO"]);
