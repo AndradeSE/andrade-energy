@@ -101,7 +101,8 @@ export default function FloatingAssistant() {
       longPressTimer.current = undefined;
       if (longPressed.current) return;
       if (Math.abs(gesture.dx) < 8 && Math.abs(gesture.dy) < 8) {
-        if (!conversationOpen) router.push("/assistente");
+        if (conversationOpen) { setWakeWordPaused(true); closeFloatingConversation(); }
+        else router.push("/assistente");
       }
     },
     onPanResponderTerminate: () => { if (longPressTimer.current) clearTimeout(longPressTimer.current); longPressTimer.current = undefined; },
@@ -109,8 +110,8 @@ export default function FloatingAssistant() {
 
   if (loading || pathname === "/assistente") return null;
   return <>
-  {conversationRequest ? <View style={[styles.conversationPanel, { top: insets.top + 48, bottom: APP_TAB_BAR_METRICS.height + insets.bottom + 12 }]}>
-    <Assistente embeddedVoiceWake={conversationRequest} onClose={() => { setWakeWordPaused(true); closeFloatingConversation(); }} />
+  {conversationRequest ? <View style={[styles.conversationPanel, { bottom: APP_TAB_BAR_METRICS.height + insets.bottom + SIZE + 12 }]}>
+    <Assistente voiceOnly embeddedVoiceWake={conversationRequest} onClose={() => { setWakeWordPaused(true); closeFloatingConversation(); }} />
   </View> : null}
   {!hidden ? <Animated.View {...pan.panHandlers} accessibilityRole="button" accessibilityLabel={conversationOpen ? "Conversa por voz aberta; segure para ocultar" : "Abrir Ajuda Andrade Energy; arraste ou segure para ocultar"} style={[styles.button, { opacity: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }), transform: [...animated.getTranslateTransform(), { translateX: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -120] }) }, { translateY: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -170] }) }, { scale: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.2] }) }] }]}>
     <Animated.View pointerEvents="none" style={[styles.halo, { opacity: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.4] }), transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.08] }) }] }]} />
@@ -123,7 +124,7 @@ export default function FloatingAssistant() {
 }
 
 const styles = StyleSheet.create({
-  conversationPanel: { position: "absolute", left: 12, right: 12, zIndex: 80, elevation: 12, overflow: "hidden", borderRadius: 20, backgroundColor: "#E5EFEA", shadowColor: "#102D21", shadowOpacity: 0.25, shadowRadius: 14 },
+  conversationPanel: { position: "absolute", left: 12, right: 12, zIndex: 80, elevation: 12, borderRadius: 22, backgroundColor: "transparent", shadowColor: "#102D21", shadowOpacity: 0.25, shadowRadius: 14 },
   button: { position: "absolute", left: 0, top: 0, zIndex: 90, width: SIZE, height: SIZE, alignItems: "center", justifyContent: "center", elevation: 15 },
   chat: { width: 64, height: 64 },
   dotWave: { position: "absolute", left: 18, top: 26, flexDirection: "row", alignItems: "center", gap: 1 },

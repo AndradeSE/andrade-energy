@@ -35,7 +35,7 @@ import { executeAssistantTool, resolveAssistantDocument } from "../services/assi
 
 type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string; invoiceChoices?: Array<{ id: string; label: string }>; actions?: AssistantAction[]; documents?: AssistantDocument[]; private?: boolean; voiceAnswerId?: string };
 
-export default function Assistente({ embeddedVoiceWake, onClose }: { embeddedVoiceWake?: string; onClose?: () => void } = {}) {
+export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = false }: { embeddedVoiceWake?: string; onClose?: () => void; voiceOnly?: boolean } = {}) {
   const router = useRouter();
   const params = useLocalSearchParams<{ voiceWake?: string }>();
   const voiceWake = embeddedVoiceWake ?? params.voiceWake;
@@ -443,7 +443,7 @@ export default function Assistente({ embeddedVoiceWake, onClose }: { embeddedVoi
     }
     if (!(await authorizeAudio())) return;
     setWakeWordPaused(true);
-    await stopNativePortugueseSpeech();
+    // A nova sessão de conversa libera o microfone anterior ao iniciar.
     if (!isPreviewEnvironment && !voiceReady && !(await nativePortugueseSpeechAvailable())) {
       setBusy(true);
       setVoiceInstalling(true);
@@ -455,11 +455,23 @@ export default function Assistente({ embeddedVoiceWake, onClose }: { embeddedVoi
     setListening(true);
     setVoiceStatus("Falando com você…");
     setSpeakingReply(true);
-    await playActivationBeep();
+    if (!startFromCommand) await playActivationBeep();
     if (!voiceActive.current) return;
     if (startFromCommand) {
-      setSpeakingReply(false);
-      void resumeVoice();
+      const firstName = String(usuario?.nome ?? "").trim().split(/\s+/)[0]?.replace(/[^\p{L}-]/gu, "").slice(0, 28);
+      const greeting = firstName ? `E aí, ${firstName}, como posso ajudá-lo?` : "E aí, como posso ajudá-lo?";
+      const finishGreeting = () => {
+        setSpeakingReply(false);
+        if (voiceActive.current) void resumeVoice();
+      };
+      setVoiceStatus("Respondendo e abrindo a conversa…");
+      const personalizedVoiceAllowed = Boolean(firstName && usuario?.id && await accountVoiceConsent(String(usuario.id)));
+      if (personalizedVoiceAllowed) {
+        void speakAuthorizedAccountOnline(greeting, finishGreeting, reason => { setVoiceStatus(reason); setVoiceNotice(reason); });
+      } else {
+        // Sem autorização para enviar o nome, use a frase pública fixa.
+        void speakSafeOnlineOrLocal("welcome", greeting, finishGreeting, reason => { setVoiceStatus(reason); setVoiceNotice(reason); });
+      }
       return;
     }
     // A frase online é fixa para não enviar o nome do cliente ao provedor de voz.
@@ -473,11 +485,8 @@ export default function Assistente({ embeddedVoiceWake, onClose }: { embeddedVoi
 
   useEffect(() => {
     if (!voiceWake || handledWake.current === voiceWake) return;
-    const timer = setTimeout(() => {
-      handledWake.current = voiceWake;
-      if (!voiceActive.current && !busyRef.current) void toggleVoice(true);
-    }, 800);
-    return () => clearTimeout(timer);
+    handledWake.current = voiceWake;
+    if (!voiceActive.current && !busyRef.current) void toggleVoice(true);
   }, [voiceWake]);
 
   async function endDictation() {
@@ -561,6 +570,12 @@ export default function Assistente({ embeddedVoiceWake, onClose }: { embeddedVoi
     try { await installLocalModel(); } catch { /* O estado global exibe o erro. */ }
   }
 
+  if (voiceOnly) return <View style={styles.voiceCompact} accessibilityLiveRegion="polite">
+    <View style={styles.voiceCompactWave}>{[0, 1, 2, 3].map(index => <Animated.View key={index} style={[styles.voiceCompactBar, { transform: [{ scaleY: wave[index].interpolate({ inputRange: [0, 1], outputRange: [1, listening ? 1.8 : 1] }) }] }]} />)}</View>
+    <Text numberOfLines={2} style={styles.voiceCompactText}>{voiceStatus ?? (listening ? "Ouvindo sua pergunta…" : "Iniciando conversa…")}</Text>
+    <Pressable accessibilityRole="button" accessibilityLabel="Encerrar conversa" onPress={onClose} style={styles.voiceCompactClose}><Ionicons name="close" size={20} color={Colors.text} /></Pressable>
+  </View>;
+
   return <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : "height"}>
     <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
       <Pressable onPress={onClose ?? (() => router.back())} accessibilityRole="button" accessibilityLabel={onClose ? "Fechar conversa" : "Voltar"} style={styles.back}><Text style={styles.backText}>‹</Text></Pressable>
@@ -597,6 +612,11 @@ export default function Assistente({ embeddedVoiceWake, onClose }: { embeddedVoi
 }
 
 const styles = StyleSheet.create({
+  voiceCompact: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, borderRadius: 22, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, elevation: 5 },
+  voiceCompactWave: { height: 28, flexDirection: "row", alignItems: "center", gap: 3 },
+  voiceCompactBar: { width: 3, height: 15, borderRadius: 2, backgroundColor: Colors.primary },
+  voiceCompactText: { flex: 1, color: Colors.text, fontSize: 14, fontWeight: "600" },
+  voiceCompactClose: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   root: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.header, paddingHorizontal: 16, paddingBottom: 14, gap: 12 },
   back: { width: 32, alignItems: "center" }, backText: { color: "white", fontSize: 32 },

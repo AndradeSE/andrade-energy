@@ -11,6 +11,7 @@ import { automaticLocalWakeConsent } from "../../services/assistant-voice-consen
 import { isVoiceInstalled } from "../../services/on-device-voice";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
+import { playActivationBeep } from "../../services/assistant-beep";
 
 export default function AssistantWakeWord() {
   const enabled = useSyncExternalStore(subscribeWakeWord, wakeWordEnabled);
@@ -101,6 +102,7 @@ export default function AssistantWakeWord() {
           triggered = true;
           console.info("[AssistantWake] matched; releasing microphone");
           Vibration.vibrate(120);
+          void playActivationBeep();
           void stopNativePortugueseSpeech(owner).then(() => {
             // Uma atualização de tela pode desmontar esta escuta enquanto o
             // microfone é liberado. Isso não deve descartar o comando já aceito.

@@ -45,6 +45,9 @@ assert.doesNotMatch(floating, /setWakeWordEnabled\(false\)/, "Abrir a Ajuda não
 assert.match(floating, /embeddedVoiceWake=\{conversationRequest\}/, "A conversa iniciada por voz deve aparecer sobre a tela atual");
 const helpScreen = fs.readFileSync("app/assistente.tsx", "utf8");
 assert.match(helpScreen, /toggleVoice\(true\)/, "Ativação pelo comando falado deve iniciar a escuta");
+assert.match(helpScreen, /if \(voiceOnly\) return <View style=\{styles\.voiceCompact\}/, "Comando de voz não deve abrir a Ajuda completa");
+assert.doesNotMatch(helpScreen, /\}, 800\)/, "Comando reconhecido não deve esperar 800 ms antes de iniciar a conversa");
+assert.match(helpScreen, /E aí, \$\{firstName\}, como posso ajudá-lo\?/, "Saudação por voz usa o primeiro nome com autorização");
 assert.doesNotMatch(helpScreen, /configureWakeWord|Ativar escuta automática local/, "A Ajuda não deve repetir o controle de ativação da conversa");
 assert.match(helpScreen, /}, 5_000\)/, "A conversa aberta pelo comando deve encerrar após cinco segundos sem fala");
 const profile = fs.readFileSync("app/(tabs)/perfil.tsx", "utf8");
