@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
+import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -19,8 +20,11 @@ import {
 } from "../../services/recebimento-faturas.service";
 import {
   ConexaoEmail,
+  concluirConexaoEmailUmaVez,
   desconectarConexaoEmail,
+  iniciarConexaoEmail,
   listarConexoesEmail,
+  ProvedorEmail,
 } from "../../services/conexoes-email.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
@@ -40,8 +44,10 @@ function formatarData(valor?: string | null) {
   return Number.isNaN(data.getTime()) ? null : data.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 }
 
-// Conexões OAuth antigas continuam visíveis, mas o Gmail novo usa a regra de
-// encaminhamento existente; não se cria outra autorização do Google aqui.
+WebBrowser.maybeCompleteAuthSession();
+
+// O cliente pode escolher conectar a conta diretamente ou seguir o tutorial
+// de encaminhamento por regra, logo abaixo. Os dois caminhos são opcionais.
 const CONEXAO_DIRETA_DISPONIVEL = true;
 
 const STATUS_CONEXAO_ATIVA = [
@@ -57,10 +63,14 @@ function tituloProvedor(provedor: string) {
   return provedor.toUpperCase() === "OUTLOOK" ? "Outlook" : "Gmail";
 }
 
+function conexaoAtiva(conexao: ConexaoEmail) {
+  return STATUS_CONEXAO_ATIVA.includes(conexao.status.toUpperCase());
+}
+
 function tituloStatusConexao(status: string) {
   const statusNormalizado = status.toUpperCase();
   if (statusNormalizado === "REGRA_ATIVA") return "Regra de faturas ativa";
-  if (statusNormalizado === "LEITURA_AUTORIZADA") return "Leitura autorizada";
+  if (statusNormalizado === "LEITURA_AUTORIZADA") return "Aguardando primeira consulta";
   if (statusNormalizado === "CONECTADO_SEM_REGRA") return "Conectado";
   if (STATUS_CONEXAO_ATIVA.includes(statusNormalizado)) return "Conectado";
   if (["PENDENTE", "AGUARDANDO_AUTORIZACAO"].includes(statusNormalizado)) return "Aguardando autorização";
@@ -72,8 +82,25 @@ function mensagemConexao(conexao: ConexaoEmail) {
   return conexao.erro ?? conexao.regra?.erro ?? conexao.mensagem ?? null;
 }
 
+function valorDaUrl(url: string, nome: string) {
+  const valor = Linking.parse(url).queryParams?.[nome];
+  return Array.isArray(valor) ? valor[0] : valor;
+}
+
 function parametroUnico(valor?: string | string[]) {
   return Array.isArray(valor) ? valor[0] : valor;
+}
+
+function OutlookMark() {
+  return <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" accessibilityRole="image" accessibilityLabel="Hotmail e Outlook">
+    <Path d="M9 3h12v15H9z" fill="#0078D4" />
+    <Path d="M9 5h6v5H9z" fill="#28A8EA" />
+    <Path d="M15 5h6v5h-6z" fill="#50D9FF" />
+    <Path d="M8 10h15v11H8z" fill="#1490DF" />
+    <Path d="m8 10 7.5 6L23 10v11H8z" fill="#0078D4" />
+    <Path d="M1 6h12v14H1z" fill="#0364B8" />
+    <Path d="M7 9c-2.2 0-3.5 1.5-3.5 4s1.3 4 3.5 4 3.5-1.5 3.5-4S9.2 9 7 9Zm0 1.6c1.1 0 1.7.9 1.7 2.4s-.6 2.4-1.7 2.4-1.7-.9-1.7-2.4.6-2.4 1.7-2.4Z" fill="white" />
+  </Svg>;
 }
 
 function GmailMark() {
@@ -94,6 +121,7 @@ export default function RecebimentoEmail() {
   const [atualizando, setAtualizando] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [confirmandoGmail, setConfirmandoGmail] = useState(false);
+  const [conectandoProvedor, setConectandoProvedor] = useState<ProvedorEmail | null>(null);
   const [desconectandoId, setDesconectandoId] = useState<string | null>(null);
   const [modoConfiguracao, setModoConfiguracao] = useState<"GMAIL" | "MANUAL" | null>(null);
   // A tela pode abrir tanto uma UC consumidora quanto a UC geradora. A
@@ -226,6 +254,42 @@ export default function RecebimentoEmail() {
     ]);
   }
 
+  async function conectarEmail(provedor: ProvedorEmail) {
+    if (!unidadeId) return;
+
+    try {
+      setConectandoProvedor(provedor);
+      const { url } = await iniciarConexaoEmail(unidadeId, provedor);
+      const redirectUrl = Linking.createURL("email-conectado");
+      const resultado = await WebBrowser.openAuthSessionAsync(url, redirectUrl);
+
+      if (resultado.type !== "success") {
+        return;
+      }
+
+      const state = valorDaUrl(resultado.url, "state");
+      const erro = valorDaUrl(resultado.url, "error");
+      if (!state || erro) {
+        router.replace(rotaAtual("erro"));
+        return;
+      }
+
+      // A confirmação é feita com o state no backend; tokens do provedor não
+      // passam pelo aplicativo. A rota de deep link mantém este mesmo fluxo
+      // como alternativa quando o SO abre o app diretamente.
+      await concluirConexaoEmailUmaVez(state);
+      await carregar();
+      router.replace(rotaAtual("sucesso"));
+    } catch (erro: any) {
+      Alert.alert(
+        `Não foi possível conectar o ${tituloProvedor(provedor)}`,
+        erro?.response?.data?.message ?? "Confira sua conexão e tente novamente.",
+      );
+    } finally {
+      setConectandoProvedor(null);
+    }
+  }
+
   function confirmarDesconexao(conexao: ConexaoEmail) {
     const provedor = tituloProvedor(conexao.provedor);
     Alert.alert(
@@ -260,6 +324,9 @@ export default function RecebimentoEmail() {
   const status = dados?.status ?? "NAO_CONFIGURADO";
   const tituloStatus = titulosStatus[status] ?? "Em configuração";
   const temErro = status === "ERRO";
+  const gmailConectado = conexoes.some((conexao) => conexao.provedor.toUpperCase() === "GMAIL" && conexaoAtiva(conexao));
+  const outlookConectado = conexoes.some((conexao) => conexao.provedor.toUpperCase() === "OUTLOOK" && conexao.automatico && !conexao.erro);
+
   return <Screen>
     {IS_GERADOR_APP ? <AppHeader variant="subpage" title="Recebimento automático" subtitle={recebimentoDeProducao ? "Produção da usina" : "Todas as UCs"} contextTitle="Configuração de e-mail" contextSubtitle={recebimentoDeProducao ? `UC ${unidadeExibida?.numero ?? unidadeId}` : "Válida para todas as UCs deste titular"} icon="mail-outline" /> : null}
     <ScrollView bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -289,19 +356,22 @@ export default function RecebimentoEmail() {
         <TouchableOpacity disabled={salvando} onPress={confirmarRegeneracao} style={styles.secondaryAction}><Ionicons name="refresh-outline" size={19} color={Colors.primary} /><Text style={styles.secondaryText}>Gerar novo endereço</Text></TouchableOpacity>
         <TouchableOpacity disabled={salvando} onPress={confirmarDesativacao} style={styles.dangerAction}><Ionicons name="close-circle-outline" size={19} color={Colors.danger} /><Text style={styles.dangerText}>Desativar recebimento</Text></TouchableOpacity>
         <Text style={styles.inlineSectionTitle}>COMO DESEJA CONFIGURAR?</Text>
-        <Text style={styles.setupHelp}>{dados.ultimoRecebimentoEm ? "Já houve recebimento nesta configuração. Se o filtro do seu e-mail aponta para o endereço acima, não crie outro." : "Se você já ativou o faturamento automático com este mesmo endereço, não precisa configurar o Gmail novamente. Confira o destino do filtro antes de criar uma nova regra."}</Text>
+        <Text style={styles.setupHelp}>Conecte o Gmail ou o Hotmail / Outlook para configurar o recebimento automático. Você também pode configurar o encaminhamento manualmente.</Text>
         <Text style={styles.setupNotice}>Importante: use a conta de e-mail que recebe as faturas da CEMIG.</Text>
         <View style={styles.choiceActions}>
-          <TouchableOpacity accessibilityLabel="Configurar com Gmail" activeOpacity={0.84} onPress={() => setModoConfiguracao("GMAIL")} style={[styles.providerButton, modoConfiguracao === "GMAIL" && styles.providerButtonSelected]}>
+          <TouchableOpacity accessibilityLabel="Conectar Gmail" activeOpacity={0.84} disabled={Boolean(conectandoProvedor) || gmailConectado} onPress={() => { setModoConfiguracao("GMAIL"); void conectarEmail("GMAIL"); }} style={[styles.providerButton, (Boolean(conectandoProvedor) || gmailConectado) && styles.providerButtonDisabled]}>
             <GmailMark />
-            <Text style={styles.providerButtonText}>Gmail</Text>
+            <Text style={[styles.providerButtonText, gmailConectado && styles.providerButtonTextDisabled]}>{conectandoProvedor === "GMAIL" ? "Conectando..." : gmailConectado ? "Gmail conectado" : "Conectar Gmail"}</Text>
           </TouchableOpacity>
-          <TouchableOpacity accessibilityLabel="Configurar Outlook ou Hotmail" activeOpacity={0.84} onPress={() => setModoConfiguracao("MANUAL")} style={[styles.providerButton, modoConfiguracao === "MANUAL" && styles.providerButtonSelected]}>
+          <TouchableOpacity accessibilityLabel="Conectar Hotmail ou Outlook" activeOpacity={0.84} disabled={Boolean(conectandoProvedor) || outlookConectado} onPress={() => conectarEmail("OUTLOOK")} style={[styles.providerButton, (Boolean(conectandoProvedor) || outlookConectado) && styles.providerButtonDisabled]}>
+            <OutlookMark />
+            <Text style={[styles.providerButtonText, outlookConectado && styles.providerButtonTextDisabled]}>{conectandoProvedor === "OUTLOOK" ? "Conectando..." : outlookConectado ? "Hotmail / Outlook automático ativo" : "Conectar Hotmail / Outlook"}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityLabel="Configurar manualmente" activeOpacity={0.84} onPress={() => setModoConfiguracao("MANUAL")} style={[styles.providerButton, modoConfiguracao === "MANUAL" && styles.providerButtonSelected]}>
             <Ionicons name="options-outline" size={20} color={Colors.primary} />
-            <Text style={styles.providerButtonText}>Outlook / Hotmail</Text>
+            <Text style={styles.providerButtonText}>Configurar manualmente</Text>
           </TouchableOpacity>
         </View>
-        {modoConfiguracao === "GMAIL" ? <Text style={[styles.setupHelp, { marginTop: Spacing.sm, marginBottom: Spacing.xl }]}>Use as instruções abaixo somente se ainda não existir um filtro da CEMIG para o endereço exclusivo acima. A conexão direta com o Google não está configurada neste ambiente.</Text> : null}
       </> : null}
 
       {!dados?.configurado ? <Card style={styles.pendingCard}><Ionicons name="time-outline" size={24} color={Colors.warning} /><View style={styles.pendingCopy}><Text style={styles.pendingTitle}>Configuração em preparação</Text><Text style={styles.pendingText}>O endereço de recebimento será liberado assim que a Andrade Energy concluir a configuração segura do domínio.</Text></View></Card> : <>
@@ -315,7 +385,7 @@ export default function RecebimentoEmail() {
             {conexoes.map((conexao) => <Card key={conexao.id} style={[styles.connectionCard, conexao.status.toUpperCase() === "ERRO" && styles.connectionCardError]}>
               <View style={[styles.connectionIcon, conexao.status.toUpperCase() === "ERRO" && styles.connectionIconError]}><Ionicons name={conexao.status.toUpperCase() === "ERRO" ? "alert-circle-outline" : "mail-open-outline"} size={21} color={conexao.status.toUpperCase() === "ERRO" ? Colors.danger : Colors.primary} /></View>
               <View style={styles.connectionCopy}>
-                <Text style={styles.connectionTitle}>{tituloProvedor(conexao.provedor)} · {tituloStatusConexao(conexao.status)}</Text>
+                <Text style={styles.connectionTitle}>{tituloProvedor(conexao.provedor)} · {conexao.erro ? "Atenção necessária" : conexao.automatico ? "Importação automática ativa" : tituloStatusConexao(conexao.status)}</Text>
                 <Text style={styles.connectionText}>{conexao.email ?? "Conta autorizada"}{conexao.conectadoEm ? ` · ${formatarData(conexao.conectadoEm)}` : ""}</Text>
                 {mensagemConexao(conexao) ? <Text style={styles.connectionError}>{mensagemConexao(conexao)}</Text> : null}
               </View>
@@ -325,8 +395,8 @@ export default function RecebimentoEmail() {
             </Card>)}
           </View> : null}
 
-          {modoConfiguracao === "GMAIL" ? <>
-          <Text style={styles.sectionTitle}>CONFIGURAR GMAIL</Text>
+          {modoConfiguracao === "MANUAL" ? <>
+          <Text style={styles.sectionTitle}>CONFIGURAÇÃO MANUAL</Text>
           <Card>
             <GuiaCabecalho icon="logo-google" titulo="Gmail" subtitulo="Crie um filtro no Gmail pelo navegador." />
             <Instruction number="1" text="Abra Configurações > Ver todas as configurações > Encaminhamento e POP/IMAP > Adicionar um endereço de encaminhamento." />
@@ -340,11 +410,7 @@ export default function RecebimentoEmail() {
             <Instruction number="4" text="No Gmail, abra Filtros e endereços bloqueados > Criar um filtro. No campo de pesquisa, cole: from:(fatura@cemig) has:attachment filename:pdf" />
             <Instruction number="5" text="Clique em Criar filtro, marque Encaminhar para, escolha o endereço exclusivo confirmado e finalize o filtro." last />
           </Card>
-          <Text style={styles.connectionHint}>Se o filtro já está configurado para este endereço, aguarde a próxima fatura; não o duplique. Caso contrário, confirme o endereço e crie o filtro uma única vez no Gmail.</Text>
-          </> : null}
 
-          {modoConfiguracao === "MANUAL" ? <>
-          <Text style={styles.sectionTitle}>CONFIGURAR OUTLOOK / HOTMAIL</Text>
           <Card>
             <GuiaCabecalho icon="mail-outline" titulo="Outlook / Hotmail" subtitulo="Crie uma regra no Outlook pelo navegador." />
             <Instruction number="1" text="Abra Configurações > E-mail > Regras e toque em Adicionar nova regra." />

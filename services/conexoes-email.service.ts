@@ -9,6 +9,7 @@ export type ConexaoEmail = {
   status: string;
   email: string | null;
   erro?: string | null;
+  automatico?: boolean;
   mensagem?: string | null;
   regra?: {
     ativa: boolean;
