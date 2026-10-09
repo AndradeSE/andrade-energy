@@ -21,8 +21,8 @@ const generatorTabs: TabItem[] = [
   { label: "Operação", icon: "construct-outline", route: "/(tabs)/operacao" },
   { label: "Home", icon: "home-outline", route: "/(tabs)" },
   { label: "Faturamento", icon: "receipt-outline", route: "/(tabs)/faturamento" },
-  { label: "Contrato", icon: "document-text-outline", route: "/(tabs)/contrato" },
   { label: "Financeiro", icon: "cash-outline", route: "/(tabs)/financeiro" },
+  { label: "Contrato", icon: "document-text-outline", route: "/(tabs)/contrato" },
 ];
 
 const consumerTabs: TabItem[] = [
