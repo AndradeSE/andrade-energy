@@ -27,7 +27,7 @@ test("dados do gerador continuam disponíveis quando a proposta falha", async ()
       : ++unidades === 1
         ? { id: "uc-teste", cliente_id: "cliente-teste", usina_id: "usina-teste", usinas: { nome: "Usina teste", endereco: "Endereço da usina", titularidade_ucs_recebedoras: "GERADOR" } }
         : { titular: "Titular teste", cpf_titular: "12345678900", endereco: "Endereço cadastrado da geradora" };
-    const consulta: any = { select() { return this; }, eq() { return this; }, single: async () => ({ data, error: null }), maybeSingle: async () => ({ data, error: null }) };
+    const consulta: any = { select(colunas: string) { if (tabela === "empresas") assert.equal(colunas, "*", "Não exigir coluna opcional endereco da empresa"); return this; }, eq() { return this; }, single: async () => ({ data, error: null }), maybeSingle: async () => ({ data, error: null }) };
     return consulta;
   }) as any;
   const resposta = { codigo: 200, corpo: null as any, status(codigo: number) { this.codigo = codigo; return this; }, json(corpo: any) { this.corpo = corpo; return this; } };

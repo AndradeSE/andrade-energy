@@ -29,7 +29,7 @@ export async function dadosIniciaisContratoController(req: any, res: any) {
 
     let avisoProposta: string | null = null;
     const [{ data: empresa, error: erroEmpresa }, { data: unidadeGeradora, error: erroUnidadeGeradora }, proposta] = await Promise.all([
-      supabase.from("empresas").select("nome,razao_social,documento,endereco").eq("id", empresaId).maybeSingle(),
+      supabase.from("empresas").select("*").eq("id", empresaId).maybeSingle(),
       supabase.from("unidades_consumidoras")
         .select("titular,cpf_titular,endereco")
         .eq("empresa_id", empresaId)
