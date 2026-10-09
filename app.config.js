@@ -50,7 +50,7 @@ module.exports = {
 
       package: packageId,
 
-      versionCode: preview ? 1 : gerador ? 4 : 7,
+      versionCode: preview ? 2 : gerador ? 5 : 8,
       permissions: ["android.permission.REQUEST_INSTALL_PACKAGES", "android.permission.POST_NOTIFICATIONS", ...(assistantNative ? ["android.permission.RECORD_AUDIO"] : [])],
 
       predictiveBackGestureEnabled: false,
