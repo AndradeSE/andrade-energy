@@ -25,8 +25,8 @@ vm.runInNewContext(code, { exports: exported, setTimeout, clearTimeout, require:
   assert.equal(handlers.has("audiostart"), false);
   handlers.get("start")();
   assert.equal(ready, true); // Só informa microfone aberto depois do evento real.
-  handlers.get("result")({ results: [{ transcript: "Andrade" }], isFinal: false });
-  assert.equal(partial, "Andrade");
+  handlers.get("result")({ results: [{ transcript: "Solar" }], isFinal: false });
+  assert.equal(partial, "Solar");
   assert.equal(finals, 0);
   handlers.get("end")();
   assert.equal(ended, 1); // Escuta pode reiniciar mesmo com parcial e sem resultado final.

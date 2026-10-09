@@ -1,4 +1,4 @@
-// A conversa iniciada por "Andrade" permanece sobre a tela atual.
+// A conversa iniciada por "Solar" permanece sobre a tela atual.
 let requestId = "";
 let phase: "idle" | "connecting" | "listening" | "speaking" = "idle";
 export function floatingConversationPhase() { return phase; }

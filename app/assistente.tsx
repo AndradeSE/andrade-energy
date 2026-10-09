@@ -151,7 +151,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
         stopNativePortugueseSpeech(conversationOwner.current),
       ]).then(() => setWakeWordPaused(false));
     } else setWakeWordPaused(false);
-    // A escuta de "Andrade" pertence ao app, não à tela Ajuda.
+    // A escuta de "Solar" pertence ao app, não à tela Ajuda.
     if (!wakeWordEnabled()) void releaseVoiceRecognition();
     void releaseLocalModel();
   }, []);
@@ -162,7 +162,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       setListening(false);
       setHearingSpeech(false);
       setVoiceCaptureReady(false);
-      setVoiceStatus("Conversa encerrada após 5 segundos sem fala. Diga “Andrade” ou toque nas ondas para voltar.");
+      setVoiceStatus("Conversa encerrada após 5 segundos sem fala. Diga “Solar” ou toque nas ondas para voltar.");
       void stopNativePortugueseSpeech(conversationOwner.current).finally(() => onClose?.());
     }, 5_000);
     return () => clearTimeout(timer);
@@ -480,7 +480,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     if (await onlineAudioConsent(id)) return true;
     const allowed = await new Promise<boolean>(resolve => Alert.alert(
       "Transcrição online no Preview",
-      "Ao usar o microfone ou a conversa, trechos de até 30 segundos da sua voz serão enviados à Groq (api.groq.com) para transcrição em português. Não enviamos PDFs nem histórico da conta junto do áudio. O arquivo temporário é apagado após o processamento. O comando opcional “Andrade” também pode usar transcrição online com autorização separada. Autoriza?",
+      "Ao usar o microfone ou a conversa, trechos de até 30 segundos da sua voz serão enviados à Groq (api.groq.com) para transcrição em português. Não enviamos PDFs nem histórico da conta junto do áudio. O arquivo temporário é apagado após o processamento. O comando opcional “Solar” também pode usar transcrição online com autorização separada. Autoriza?",
       [{ text: "Agora não", style: "cancel", onPress: () => resolve(false) }, { text: "Autorizar", onPress: () => resolve(true) }],
       { cancelable: true, onDismiss: () => resolve(false) },
     ));

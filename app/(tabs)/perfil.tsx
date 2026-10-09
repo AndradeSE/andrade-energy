@@ -440,8 +440,8 @@ export default function Perfil() {
           {isPreviewEnvironment ? <View style={[styles.preferenceRow, styles.standaloneRow]}>
             <View style={styles.preferenceIcon}><Ionicons color={Colors.primary} name="mic-outline" size={23} /></View>
             <View style={styles.preferenceCopy}>
-              <Text style={styles.preferenceTitle}>Comando de voz “Andrade”</Text>
-              <Text style={styles.preferenceDescription}>{progressoEscuta || "Com o app aberto, diga “Andrade” para começar a conversa. Desliga ao sair do app."}</Text>
+              <Text style={styles.preferenceTitle}>Comando de voz “Solar”</Text>
+              <Text style={styles.preferenceDescription}>{progressoEscuta || "Com o app aberto, diga “Solar” para começar a conversa. Desliga ao sair do app."}</Text>
             </View>
             {preparandoEscuta ? <ActivityIndicator color={Colors.primary} /> : <Switch accessibilityLabel={escutaAutomatica ? "Desligar comando de voz Andrade" : "Autorizar comando de voz Andrade"} value={escutaAutomatica} onValueChange={(value) => void alterarEscutaAutomatica(value)} thumbColor={Colors.surface} trackColor={{ false: "#CBD5E1", true: Colors.primary }} />}
           </View> : null}

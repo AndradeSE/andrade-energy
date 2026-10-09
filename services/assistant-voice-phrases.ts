@@ -1,7 +1,7 @@
 // Segmentação PCM16 mono/16 kHz em memória. Nenhum áudio é salvo ou enviado.
 const FRAME_BYTES = 640; // 20 ms
 const PRE_ROLL_FRAMES = 15;
-const END_SILENCE_FRAMES = 25; // 500 ms: fecha "Andrade" sem aguardar silêncio excessivo.
+const END_SILENCE_FRAMES = 25; // 500 ms: fecha "Solar" sem aguardar silêncio excessivo.
 const MAX_PHRASE_FRAMES = 250;
 
 function join(frames: Uint8Array[]) {

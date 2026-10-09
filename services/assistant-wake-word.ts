@@ -28,8 +28,8 @@ export function setWakeWordEnabled(value: boolean, allowOnline = false, persiste
   listeners.forEach(listener => listener());
 }
 export function containsAssistantWakeWord(text: string) {
-  // Palavra isolada: citar a marca numa frase não pode abrir a conversa.
+  // Palavra isolada: citar o nome numa frase não pode abrir a conversa.
   const normalized = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ").trim().replace(/\s+/g, " ");
-  return normalized === "andrade";
+  return normalized === "solar";
 }

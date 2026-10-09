@@ -122,7 +122,7 @@ module.exports = {
         "expo-build-properties",
         {
           android: {
-            usesCleartextTraffic: true,
+            usesCleartextTraffic: false,
             ...(preview ? { buildArchs: ["arm64-v8a"] } : {}),
           },
         },
