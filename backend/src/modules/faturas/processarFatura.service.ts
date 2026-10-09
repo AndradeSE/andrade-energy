@@ -15,6 +15,7 @@ import {
 
 import { FaturaExtraida } from "../../types/FaturaExtraida";
 import { supabase } from "../../config/supabase";
+import { calcularEnergiaInjetadaPelosSaldos } from "../billing/energiaInjetada";
 import { exigirContratoAssinadoDaUc } from "../contratos/contratoUc.service";
 
 function converterDataBrasileiraParaIso(data: string): string {
@@ -34,21 +35,6 @@ type OpcoesProcessamentoFatura = {
   registrarCreditos?: boolean;
   empresaId?: string;
 };
-
-const mesesDaCompetencia: Record<string, string> = {
-  JAN: "01", FEV: "02", MAR: "03", ABR: "04", MAI: "05", JUN: "06",
-  JUL: "07", AGO: "08", SET: "09", OUT: "10", NOV: "11", DEZ: "12",
-};
-
-function competenciaDaFatura(referencia: string) {
-  const referenciaNormalizada = String(referencia ?? "").trim().toUpperCase();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(referenciaNormalizada)) return referenciaNormalizada.slice(0, 10);
-
-  const partes = referenciaNormalizada.split("/");
-  const mes = mesesDaCompetencia[partes[0]] ?? (Number(partes[0]) >= 1 && Number(partes[0]) <= 12 ? String(Number(partes[0])).padStart(2, "0") : null);
-  const ano = partes[1];
-  return mes && /^\d{4}$/.test(String(ano)) ? `${ano}-${mes}-01` : null;
-}
 
 export async function processarFatura(
   dados: FaturaExtraida,
@@ -103,10 +89,6 @@ if (faturaExistente) {
   const energiaCobradaSemCompensacao =
     Number(dados.energiaCompensada ?? 0) === 0 &&
     Number(faturaExistente.base_calculo_kwh ?? 0) > 0;
-  // Reimportar uma conta de uma UC já alocada também atualiza a energia
-  // injetada pela produção da usina e pelo percentual de rateio vigente.
-  const possuiRateioDaUsina = Number(cliente.unidade_consumidora?.percentual_rateio ?? cliente.percentual_rateio ?? 0) > 0;
-  const energiaInjetadaComRateio = possuiRateioDaUsina && Number(faturaExistente.energia_injetada ?? 0) > 0;
   const possuiAbsorcaoConfigurada =
     faturaExistente.repassar_disponibilidade_gd1 === false ||
     faturaExistente.repassar_disponibilidade_gd2 === false ||
@@ -127,7 +109,7 @@ if (faturaExistente) {
   const valorDoFormatoDesatualizado = Math.abs(totalRegistrado - totalEsperadoPeloFormato) > 0.02;
   const podeCorrigir = semBaseDeCalculo && Number(dados.consumo ?? 0) > 0;
 
-  if (podeCorrigir || totalConvencionalSomadoEmDuplicidade || valorConcessionariaFoiReduzido || compensacaoInferidaPeloConsumo || energiaDoPeriodoNaoCalculada || energiaCobradaSemCompensacao || energiaInjetadaComRateio || calculoAbsorcaoDesatualizado || formatoDaCobrancaAlterado || valorDoFormatoDesatualizado) {
+  if (podeCorrigir || totalConvencionalSomadoEmDuplicidade || valorConcessionariaFoiReduzido || compensacaoInferidaPeloConsumo || energiaDoPeriodoNaoCalculada || energiaCobradaSemCompensacao || calculoAbsorcaoDesatualizado || formatoDaCobrancaAlterado || valorDoFormatoDesatualizado) {
     for (const tabela of ["notificacoes_fatura", "cobrancas", "creditos"]) {
       await supabase.from(tabela).delete().eq("fatura_id", faturaExistente.id);
     }
@@ -177,25 +159,6 @@ async function obterSaldoAnterior(dados: FaturaExtraida) {
   return Number(anterior?.saldo_atual ?? 0);
 }
 
-async function obterEnergiaInjetadaDaUsina(
-  usinaId: string,
-  referencia: string,
-  percentualRateio: number,
-) {
-  const competencia = competenciaDaFatura(referencia);
-  if (!competencia || percentualRateio <= 0) return 0;
-
-  const { data: fechamento, error } = await supabase
-    .from("fechamentos")
-    .select("energia_gerada")
-    .eq("usina_id", usinaId)
-    .eq("competencia", competencia)
-    .maybeSingle();
-  if (error) throw error;
-
-  const energiaGerada = Math.max(0, Number(fechamento?.energia_gerada ?? 0));
-  return Number((energiaGerada * Math.min(100, percentualRateio) / 100).toFixed(3));
-}
 if (!cliente.usina_id) {
   throw new Error(
     "Cliente não possui usina vinculada."
@@ -230,28 +193,14 @@ if (!cliente.usina_id) {
     ? energiaCompensadaDaFatura
     : Math.max(0, Number(dados.energiaCompensada ?? 0));
   const temCompensacaoInformada = energiaCompensadaFaturada > 0;
-  const percentualAlocado = Math.max(0, Number(cliente.unidade_consumidora?.percentual_rateio ?? cliente.percentual_rateio ?? 0));
-  const [saldoAnterior, energiaInjetadaPelaUsina] = await Promise.all([
-    obterSaldoAnterior(dados),
-    obterEnergiaInjetadaDaUsina(
-      cliente.usina_id,
-      dados.referencia,
-      percentualAlocado,
-    ),
-  ]);
-  // Algumas contas trazem explicitamente "Energia Injetada". Esse é o dado
-  // real da competência e tem prioridade; o fechamento rateado da usina é o
-  // fallback quando a linha não existe na fatura recebida.
-  const energiaInjetadaDaFatura = Math.max(0, Number(dados.energiaInjetada ?? 0));
-  const energiaInjetadaCalculada = energiaInjetadaDaFatura > 0
-    ? energiaInjetadaDaFatura
-    : energiaInjetadaPelaUsina;
-  if (modalidade === "INJECAO" && energiaInjetadaCalculada <= 0) {
-    throw new Error(
-      `A produção da usina ainda não foi importada para ${dados.referencia}. ` +
-      "Importe a fatura geradora dessa competência antes de faturar por injeção."
-    );
-  }
+  const saldoAnterior = await obterSaldoAnterior(dados);
+  // Os créditos recebidos pela UC são a compensação do período mais a
+  // variação do saldo acumulado. Sem histórico, o saldo anterior é zero.
+  const energiaInjetadaCalculada = calcularEnergiaInjetadaPelosSaldos(
+    energiaCompensadaFaturada,
+    Number(dados.saldoAtual ?? 0),
+    saldoAnterior,
+  );
   // Na modalidade por compensação, a cobrança mensal considera somente a
   // energia efetivamente compensada na fatura. O saldo atual fica apenas
   // registrado para acerto no encerramento do contrato.

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { calcularEnergiaInjetadaPelosSaldos } from "./energiaInjetada";
 import { calcularDiferencaFioB, calcularFaturaUnificada } from "./billing.engine";
 
 const base = {
@@ -191,4 +192,23 @@ test("matriz completa de modalidades, repasses e formatos preserva as invariante
       }
     }
   }
+});
+
+test("injeção considera a compensação e a variação do saldo da UC", () => {
+  const energia = calcularEnergiaInjetadaPelosSaldos(281, 119.96, 50);
+  assert.equal(energia, 350.96);
+  const resultado = calcularFaturaUnificada({ ...base, modalidade: "INJECAO", energiaInjetada: energia });
+  assert.equal(resultado.valorUsina, 210.58);
+});
+test("injeção considera saldo anterior zero quando não há histórico", () => {
+  assert.equal(calcularEnergiaInjetadaPelosSaldos(281, 119.96), 400.96);
+});
+test("injeção pode ser zero e menor que a compensação ao consumir saldo acumulado", () => {
+  assert.equal(calcularEnergiaInjetadaPelosSaldos(300, 50, 250), 100);
+  assert.equal(calcularEnergiaInjetadaPelosSaldos(300, 0, 300), 0);
+  assert.equal(calcularEnergiaInjetadaPelosSaldos(0, 75, 0), 75);
+});
+test("injeção rejeita saldos inválidos ou resultado negativo", () => {
+  assert.throws(() => calcularEnergiaInjetadaPelosSaldos(100, 0, 200), /negativa/);
+  assert.throws(() => calcularEnergiaInjetadaPelosSaldos(100, NaN, 0), /válidos/);
 });
