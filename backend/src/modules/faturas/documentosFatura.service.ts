@@ -8,10 +8,11 @@ import { supabase } from "../../config/supabase";
 import { caminhoDocumentoPrivado } from "../../utils/documentoPrivado";
 import { extrairTextoDoBuffer } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
+import { identificarTipoGdDocumento, rotuloTipoGdDocumento } from "./tipoGdDocumento";
 
 const BUCKET = "faturas";
 export const VERSAO_LAYOUT_FATURA = "layout-20261003-v11";
-export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20260903-v3";
+export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20261009-v4";
 const VERDE = "#107C5C";
 const VERDE_ESCURO = "#07533D";
 const VERDE_CLARO = "#E8F6F0";
@@ -129,7 +130,7 @@ async function incluirDadosDaUCNaFatura(fatura: any) {
       ? supabase.from("clientes").select("id,nome,cpf,endereco,email,whatsapp").eq("id", fatura.cliente_id).maybeSingle()
       : Promise.resolve({ data: null, error: null })),
     fatura.unidades_consumidoras?.id ? Promise.resolve({ data: fatura.unidades_consumidoras, error: null }) : (fatura.unidade_consumidora_id
-      ? supabase.from("unidades_consumidoras").select("id,numero,titular,cpf_titular,endereco,distribuidora").eq("id", fatura.unidade_consumidora_id).maybeSingle()
+      ? supabase.from("unidades_consumidoras").select("id,numero,titular,cpf_titular,endereco,distribuidora,tipo_gd,usinas(tipo_gd)").eq("id", fatura.unidade_consumidora_id).maybeSingle()
       : Promise.resolve({ data: null, error: null })),
   ]);
   if (clienteResultado.error) throw clienteResultado.error;
@@ -207,6 +208,7 @@ async function preencherDadosTecnicosDaContaOriginal(fatura: any) {
     return {
       ...fatura,
       ...tecnicos,
+      tipo_gd_documento: extraida.tipoGd,
       proxima_leitura: tecnicos.proxima_leitura,
     };
   } catch {
@@ -533,7 +535,7 @@ export async function gerarPdfRelatorioCalculo(fatura: any) {
     const cliente = fatura.clientes ?? {};
     const unidade = fatura.unidades_consumidoras ?? {};
     const modalidade = String(fatura.modalidade_faturamento ?? "COMPENSACAO").toUpperCase();
-    const gd = temGD2(fatura) ? "GD II" : "GD I";
+    const gd = rotuloTipoGdDocumento(identificarTipoGdDocumento(fatura));
     const somenteAndrade = Boolean(fatura.fatura_somente_andrade);
     const energiaBase = numero(fatura.base_calculo_kwh ?? (modalidade === "INJECAO" ? fatura.energia_injetada : fatura.energia_compensada));
     const tarifaCheia = numero(fatura.tarifa_cheia);
@@ -612,7 +614,14 @@ export async function gerarPdfRelatorioCalculo(fatura: any) {
     linha(`Disponibilidade (${disponibilidadeAbsorvida > 0 ? "absorvida" : "repassada"})`, `${moeda(disponibilidade)} · repasse ${moeda(disponibilidadeRepassada)} · absorção ${moeda(disponibilidadeAbsorvida)}`, 569);
     linha(`Fio B (${fioBAbsorvido > 0 ? "absorvido" : "repassado"})`, `${moeda(fioB)} · repasse ${moeda(fioBRepassado)} · absorção ${moeda(fioBAbsorvido)}`, 592);
     linha("Fatura Andrade após as regras", moeda(valorAndrade), 615, true);
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.5).text(gd === "GD II" ? "Na GD II, a diferença tarifária do Fio B é apresentada separadamente." : "Na GD I, não há diferença de Fio B; aplica-se somente a regra de disponibilidade configurada.", 62, 641, { width: 466 });
+    const explicacaoGd = modalidade === "INJECAO"
+      ? "Modelo de injeção: valores, repasses e absorções seguem os registros deste faturamento."
+      : gd === "GD II" || gd === "GD I + GD II"
+        ? "A diferença tarifária do Fio B registrada neste faturamento é apresentada separadamente."
+        : gd === "GD I"
+          ? "Na GD I, não há diferença de Fio B; aplica-se a regra de disponibilidade configurada."
+          : "Enquadramento GD não informado; valores e regras seguem os registros deste faturamento.";
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.5).text(explicacaoGd, 62, 641, { width: 466 });
 
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("3. FECHAMENTO", 48, 686);
     cartao(48, 704, 498, somenteAndrade ? 100 : 78, "#FFFFFF");

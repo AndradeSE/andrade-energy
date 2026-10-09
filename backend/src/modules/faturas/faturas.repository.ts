@@ -101,7 +101,7 @@ export async function inserirFatura(
 export async function buscarFaturaPorId(id: string, empresaId = EMPRESA_ANDRADE_ID) {
   const { data, error } = await supabase
     .from("faturas")
-    .select("*, clientes(id,nome,cpf,endereco,email,whatsapp), unidades_consumidoras(id,numero,titular,cpf_titular,endereco,distribuidora)")
+    .select("*, clientes(id,nome,cpf,endereco,email,whatsapp), unidades_consumidoras(id,numero,titular,cpf_titular,endereco,distribuidora,tipo_gd,usinas(tipo_gd))")
     .eq("id", id)
     .eq("empresa_id", empresaId)
     .maybeSingle();
