@@ -485,14 +485,8 @@ export default function Perfil() {
             <View style={styles.preferenceCopy}><Text style={styles.preferenceTitle}>Privacidade e meus dados</Text><Text style={styles.preferenceDescription}>Solicite acesso, correção ou eliminação com protocolo.</Text></View>
             <Ionicons color={Colors.subtitle} name="chevron-forward" size={21} />
           </TouchableOpacity>
-          {meusPedidosPrivacidade.length > 0 ? <View style={[styles.panel, styles.standalonePanel]}>
-            <Text style={styles.preferenceTitle}>Meus pedidos de privacidade</Text>
-            {meusPedidosPrivacidade.map((pedido) => <Text key={pedido.id} style={styles.preferenceDescription}>{pedido.detalhes?.tipo ?? "Pedido"} · {pedido.detalhes?.status ?? "Recebido"} · {new Date(pedido.criado_em).toLocaleDateString("pt-BR")} · Protocolo {pedido.id}</Text>)}
-          </View> : null}
-          {pedidosPrivacidade.length > 0 ? <View style={[styles.panel, styles.standalonePanel]}>
-            <Text style={styles.preferenceTitle}>Pedidos de privacidade recebidos</Text>
-            {pedidosPrivacidade.map((pedido) => <Text key={pedido.id} style={styles.preferenceDescription}>{pedido.usuarios?.nome ?? "Titular"} · {pedido.detalhes?.tipo ?? "Pedido"} · {new Date(pedido.criado_em).toLocaleDateString("pt-BR")} · Protocolo {pedido.id}</Text>)}
-          </View> : null}
+          <PedidosPrivacidadeCard titulo="Meus pedidos de privacidade" pedidos={meusPedidosPrivacidade} />
+          <PedidosPrivacidadeCard titulo="Pedidos de privacidade recebidos" pedidos={pedidosPrivacidade} recebidos />
           <TouchableOpacity activeOpacity={0.82} onPress={sairDaConta} style={[styles.linkRow, styles.standaloneRow]}>
             <View style={[styles.preferenceIcon, styles.logoutIcon]}><Ionicons color={Colors.danger} name="log-out-outline" size={22} /></View>
             <View style={styles.preferenceCopy}><Text style={[styles.preferenceTitle, styles.dangerText]}>Sair da conta</Text><Text style={styles.preferenceDescription}>Encerra somente a sessão neste aparelho.</Text></View>
@@ -555,6 +549,28 @@ function Campo({ icon, label, value, editable = true, hint, last = false, ...inp
   );
 }
 
+type PedidoPrivacidade = Awaited<ReturnType<typeof listarPedidosDePrivacidade>>[number];
+
+function PedidosPrivacidadeCard({ titulo, pedidos, recebidos = false }: { titulo: string; pedidos: PedidoPrivacidade[]; recebidos?: boolean }) {
+  const [aberto, setAberto] = useState(false);
+  if (!pedidos.length) return null;
+  const nomes: Record<string, string> = { ACESSO: "Acesso aos dados", CORRECAO: "Correção de dados", ELIMINACAO: "Eliminação de dados", INFORMACAO: "Informações", CONFIRMACAO: "Confirmação de tratamento", ANONIMIZACAO_BLOQUEIO: "Anonimização ou bloqueio", PORTABILIDADE: "Portabilidade", OPOSICAO: "Oposição", COMPARTILHAMENTO: "Compartilhamento", REVOGACAO_CONSENTIMENTO: "Revogação do consentimento", RECEBIDO: "Recebido", EM_ANALISE: "Em análise", CONCLUIDO: "Concluído" };
+  const legivel = (valor: string | undefined, padrao: string) => valor ? nomes[valor.toUpperCase()] ?? textoLegivel(valor.replace(/_/g, " ")) : padrao;
+  return <View style={styles.privacyCard}>
+    <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: aberto }} accessibilityLabel={`${titulo}, ${pedidos.length} pedidos`} onPress={() => setAberto(!aberto)} activeOpacity={0.82} style={styles.privacyHeader}>
+      <View style={styles.preferenceIcon}><Ionicons color={Colors.primary} name={recebidos ? "file-tray-outline" : "shield-checkmark-outline"} size={22} /></View>
+      <View style={styles.preferenceCopy}><Text style={styles.preferenceTitle}>{titulo}</Text><Text style={styles.preferenceDescription}>{pedidos.length} {pedidos.length === 1 ? "pedido registrado" : "pedidos registrados"}</Text></View>
+      <Ionicons color={Colors.subtitle} name={aberto ? "chevron-up" : "chevron-down"} size={21} />
+    </TouchableOpacity>
+    {aberto ? <View style={styles.privacyList}>{pedidos.map((pedido) => <View key={pedido.id} style={styles.privacyRequest}>
+      {recebidos ? <Text style={styles.preferenceTitle}>{pedido.usuarios?.nome ?? "Titular"}</Text> : null}
+      <Text style={styles.privacyRequestTitle}>{legivel(pedido.detalhes?.tipo, "Pedido de privacidade")}</Text>
+      <Text style={styles.preferenceDescription}>{legivel(pedido.detalhes?.status, "Recebido")} · {new Date(pedido.criado_em).toLocaleDateString("pt-BR")}</Text>
+      <Text selectable style={styles.privacyProtocol}>Protocolo: {pedido.id}</Text>
+    </View>)}</View> : null}
+  </View>;
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   profileBackground: { backgroundColor: Colors.background },
@@ -577,6 +593,12 @@ const styles = StyleSheet.create({
   card: { overflow: "hidden", borderRadius: Radius.xl, backgroundColor: Colors.surface, ...Shadows.card },
   addressFields: { paddingHorizontal: Spacing.md },
   cardGroup: { gap: Spacing.sm },
+  privacyCard: { overflow: "hidden", borderWidth: 1, borderColor: "#D4E4DB", borderRadius: Radius.lg, backgroundColor: Colors.surface, ...Shadows.card },
+  privacyHeader: { minHeight: 84, flexDirection: "row", alignItems: "center", padding: Spacing.md },
+  privacyList: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.sm },
+  privacyRequest: { padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, backgroundColor: "#F8FAFC" },
+  privacyRequestTitle: { color: Colors.text, fontSize: Typography.small, fontWeight: "700", marginTop: 3 },
+  privacyProtocol: { marginTop: Spacing.sm, color: Colors.subtitle, fontSize: 11, lineHeight: 17, flexShrink: 1 },
   standaloneRow: { overflow: "hidden", borderTopWidth: 0, borderWidth: 1, borderColor: "#D4E4DB", borderRadius: Radius.lg, backgroundColor: Colors.surface, ...Shadows.card },
   standalonePanel: { marginTop: -Spacing.xs, borderTopWidth: 0, borderWidth: 1, borderColor: "#D4E4DB", borderRadius: Radius.lg, backgroundColor: Colors.surface, ...Shadows.card },
   field: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.sm },
