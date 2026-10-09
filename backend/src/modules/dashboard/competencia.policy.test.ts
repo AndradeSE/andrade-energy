@@ -1,11 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ordemCompetencia } from "./competencia.policy";
+import { chaveCompetencia, ordemCompetencia } from "./competencia.policy";
 
 test("outubro com compensação substitui setembro zerado no painel", () => {
   const faturas = [{ referencia: "SET/2026", energia: 0 }, { referencia: "OUT/2026", energia: 5880 }];
   const ultima = faturas.sort((a, b) => ordemCompetencia(b.referencia) - ordemCompetencia(a.referencia))[0];
   assert.equal(ultima.energia, 5880);
+});
+
+test("operação agrupa a fatura SET/2026 com o fechamento 2026-09", () => {
+  assert.equal(chaveCompetencia("SET/2026"), "2026-09");
+  assert.equal(chaveCompetencia("SET/2026"), chaveCompetencia("2026-09-01"));
+  assert.equal(chaveCompetencia("9/2026"), "2026-09");
+  assert.equal(chaveCompetencia(null), "");
 });
 
 test("competências de formatos diferentes respeitam mês e ano", () => {

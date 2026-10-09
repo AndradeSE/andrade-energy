@@ -12,3 +12,9 @@ export function ordemCompetencia(valor: unknown): number {
   const mes = /^\d+$/.test(br[1]) ? Number(br[1]) : meses.indexOf(br[1]) + 1;
   return mes >= 1 && mes <= 12 ? Number(br[2]) * 100 + mes : 0;
 }
+
+export function chaveCompetencia(valor: unknown): string {
+  const ordem = ordemCompetencia(valor);
+  if (!ordem) return String(valor ?? "").trim();
+  return `${Math.floor(ordem / 100)}-${String(ordem % 100).padStart(2, "0")}`;
+}
