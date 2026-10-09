@@ -1,4 +1,5 @@
 import { exigirPermissaoLeituraGmail } from "./gmailPermissoes.policy";
+import { emailOAuthState, emailWebReturn } from "./web-return";
 import { erroRegraAutomaticaOutlook } from "./outlookRegra.policy";
 import { appScheme } from "../../utils/appScheme";
 import {
@@ -330,7 +331,7 @@ function criarUrlAutorizacao(
 export async function iniciarConexaoEmail(
   unidadeId: string,
   usuario: UsuarioAutenticado,
-  entrada: { provedor?: unknown; app?: unknown },
+  entrada: { provedor?: unknown; app?: unknown; origem?: unknown },
 ) {
   if (!usuario.id) throw new Error("Sessão inválida.");
   const unidade = await buscarUnidadeAutorizada(unidadeId, usuario);
@@ -342,7 +343,7 @@ export async function iniciarConexaoEmail(
   // Falha antes de abrir o navegador se o backend não puder guardar o token com segurança.
   chaveCifra();
 
-  const state = randomBytes(32).toString("base64url");
+  const state = emailOAuthState(randomBytes(32).toString("base64url"), entrada.origem);
   const { verifier, challenge } = gerarPkce();
   const callback = callbackOAuth(provedor);
   const expiraEm = new Date(Date.now() + DURACAO_ESTADO_MS).toISOString();
@@ -509,6 +510,8 @@ async function revogarAcessoGmail(refreshToken: string) {
 }
 
 function callbackDoAplicativo(app: AppOrigem, state: string, status: string) {
+  const webReturn = emailWebReturn(state, status, urlPublicaBackend());
+  if (webReturn) return webReturn;
   const padrao = app === "GERADOR"
     ? `${appScheme("gerador")}://email-conectado`
     : `${appScheme("consumidor")}://email-conectado`;
