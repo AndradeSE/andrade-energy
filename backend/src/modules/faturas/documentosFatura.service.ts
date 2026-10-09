@@ -5,6 +5,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { supabase } from "../../config/supabase";
+import { caminhoDocumentoPrivado } from "../../utils/documentoPrivado";
 import { extrairTextoDoBuffer } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
 
@@ -185,16 +186,10 @@ async function preencherDadosTecnicosDaContaOriginal(fatura: any) {
   if (!origem) return fatura;
 
   try {
-    let buffer: Buffer;
-    if (/^https?:\/\//i.test(origem)) {
-      const resposta = await fetch(origem);
-      if (!resposta.ok) return fatura;
-      buffer = Buffer.from(await resposta.arrayBuffer());
-    } else {
-      const { data, error } = await supabase.storage.from(BUCKET).download(origem);
-      if (error || !data) return fatura;
-      buffer = Buffer.from(await data.arrayBuffer());
-    }
+    const caminho = caminhoDocumentoPrivado(origem, BUCKET, String(process.env.SUPABASE_URL ?? ""));
+    const { data, error } = await supabase.storage.from(BUCKET).download(caminho);
+    if (error || !data) return fatura;
+    const buffer = Buffer.from(await data.arrayBuffer());
     const extraida = interpretarFatura(await extrairTextoDoBuffer(buffer));
     const tecnicos = {
       leitura_anterior: fatura.leitura_anterior ?? extraida.leituraAnterior ?? null,

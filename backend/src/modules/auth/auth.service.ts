@@ -276,7 +276,7 @@ export async function obterMeuPerfil(usuarioId: string, tipo: "GERADOR" | "CONSU
   return { ...usuarioPublico(usuario), endereco: await enderecoDoPerfil(usuario, tipo) };
 }
 
-export async function atualizarMeuPerfil(usuarioId: string, dados: DadosPerfil) {
+export async function atualizarMeuPerfil(usuarioId: string, dados: DadosPerfil, contexto?: { empresa_id: string; papel_empresa?: unknown }) {
   const usuarioAtual = await buscarUsuario(usuarioId);
   if (!usuarioAtual?.ativo) throw new Error("Conta não está ativa.");
 
@@ -297,6 +297,9 @@ export async function atualizarMeuPerfil(usuarioId: string, dados: DadosPerfil) 
 
   const tipo = dados.tipo === "CONSUMIDOR" ? "CONSUMIDOR" : "GERADOR";
   if (dados.endereco !== undefined) {
+    if (tipo === "GERADOR" && (!contexto || !["ADMIN_EMPRESA", "GESTOR"].includes(String(contexto.papel_empresa)))) {
+      throw new Error("Somente o titular pode alterar o endereço do gerador.");
+    }
     const endereco = String(dados.endereco ?? "").trim();
     const erroEndereco = validarEnderecoCadastro(endereco);
     if (erroEndereco) throw new Error(erroEndereco);
@@ -309,7 +312,7 @@ export async function atualizarMeuPerfil(usuarioId: string, dados: DadosPerfil) 
     } else {
       if (!["ADMIN", "GESTOR"].includes(usuarioAtual.perfil)) throw new Error("Este perfil não pode alterar os dados do gerador.");
       const { data, error } = await supabase.from("empresas").update({ endereco })
-        .eq("id", usuarioAtual.empresa_id).select("id").maybeSingle();
+        .eq("id", contexto!.empresa_id).select("id").maybeSingle();
       if (error) throw error;
       if (!data) throw new Error("Cadastro do gerador não encontrado.");
     }
@@ -317,7 +320,7 @@ export async function atualizarMeuPerfil(usuarioId: string, dados: DadosPerfil) 
 
   try {
     const usuario = await atualizarPerfilUsuario(usuarioId, { nome, email, telefone });
-    return { ...usuarioPublico(usuario), endereco: await enderecoDoPerfil(usuario, tipo) };
+    return { ...usuarioPublico(usuario), endereco: await enderecoDoPerfil(tipo === "GERADOR" && contexto ? { ...usuario, empresa_id: contexto.empresa_id } : usuario, tipo) };
   } catch (erro: any) {
     if (erro?.code === "23505") {
       throw new Error("Já existe uma conta deste perfil com este e-mail.");
@@ -799,12 +802,18 @@ export async function redefinirSenha(tokenInformado: unknown, novaSenhaInformada
     throw new Error("Este link é inválido, já foi usado ou expirou.");
   }
   const agora = new Date().toISOString();
+  const senhaProtegida = await protegerSenha(novaSenha);
+  // Consuma o link antes de alterar a senha: apenas uma requisição vence,
+  // mesmo quando dois pedidos chegam juntos ou o link expira durante o hash.
+  const { data: consumida, error: usoError } = await supabase.from("recuperacoes_senha")
+    .update({ usado_em: agora }).eq("id", recuperacao.id).is("usado_em", null)
+    .gt("expira_em", new Date().toISOString()).select("id").maybeSingle();
+  if (usoError) throw usoError;
+  if (!consumida) throw new Error("Este link é inválido, já foi usado ou expirou.");
   const { error: senhaError } = await supabase.from("usuarios")
-    .update({ senha: await protegerSenha(novaSenha), ativo: true })
+    .update({ senha: senhaProtegida })
     .eq("id", recuperacao.usuario_id);
   if (senhaError) throw senhaError;
-  const { error: usoError } = await supabase.from("recuperacoes_senha").update({ usado_em: agora }).eq("id", recuperacao.id).is("usado_em", null);
-  if (usoError) throw usoError;
   await invalidarSessoesUsuario(recuperacao.usuario_id);
   return { message: "Senha redefinida. Entre novamente com a nova senha." };
 }

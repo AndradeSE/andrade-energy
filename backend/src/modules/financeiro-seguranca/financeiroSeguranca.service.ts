@@ -78,9 +78,21 @@ async function conferirCodigo(usuarioId: string, codigo: string, confirmacao: bo
   if (atual.bloqueado_ate && new Date(atual.bloqueado_ate).getTime() > Date.now()) throw new Error("Muitas tentativas. Aguarde 15 minutos.");
   const passo = passoValido(descriptografarDado(atual.segredo_criptografado), String(codigo ?? "").trim(), Number(atual.ultimo_passo));
   if (passo === null) {
-    const tentativas = Number(atual.tentativas ?? 0) + 1;
-    const { error } = await supabase.from("financeiro_autenticadores").update({ tentativas: tentativas >= 5 ? 0 : tentativas, bloqueado_ate: tentativas >= 5 ? new Date(Date.now() + 15 * 60_000).toISOString() : null }).eq("usuario_id", usuarioId).eq("tentativas", atual.tentativas);
-    if (error) throw error;
+    let tentativaAtual = atual;
+    // Uma colisão não pode descartar uma tentativa. Releia e conte até que
+    // este pedido seja registrado ou os cinco erros bloqueiem o autenticador.
+    for (let colisao = 0; colisao < 6; colisao++) {
+      if (!tentativaAtual || (tentativaAtual.bloqueado_ate && new Date(tentativaAtual.bloqueado_ate).getTime() > Date.now())) break;
+      const tentativas = Number(tentativaAtual.tentativas ?? 0) + 1;
+      let consulta = supabase.from("financeiro_autenticadores").update({ tentativas: tentativas >= 5 ? 0 : tentativas, bloqueado_ate: tentativas >= 5 ? new Date(Date.now() + 15 * 60_000).toISOString() : null })
+        .eq("usuario_id", usuarioId).eq("tentativas", tentativaAtual.tentativas)
+        .eq("ultimo_passo", tentativaAtual.ultimo_passo).eq("segredo_criptografado", tentativaAtual.segredo_criptografado);
+      consulta = tentativaAtual.bloqueado_ate ? consulta.eq("bloqueado_ate", tentativaAtual.bloqueado_ate) : consulta.is("bloqueado_ate", null);
+      const { data: contada, error } = await consulta.select("usuario_id").maybeSingle();
+      if (error) throw error;
+      if (contada) break;
+      tentativaAtual = await registro(usuarioId);
+    }
     throw new Error("Código inválido ou já utilizado.");
   }
   if (somenteValidar) return passo;
