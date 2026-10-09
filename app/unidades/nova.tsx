@@ -259,6 +259,7 @@ export default function NovaUnidade() {
           if (destino) await selecionarUsina(destino);
         }
       } else {
+        if (!usinaFinal) throw new Error("Selecione uma usina antes de cadastrar esta unidade.");
         await cadastrarUnidadeOperacional(usinaFinal, {
           numero, titular: titular.trim() || clienteSelecionado?.nome || null, tipo, cliente_id: clienteId || null, usina_id: usinaFinal,
           distribuidora: clienteSelecionado?.distribuidora || "CEMIG", endereco: endereco.trim() || clienteSelecionado?.endereco || null, modalidade_faturamento: modalidadeFinal,
