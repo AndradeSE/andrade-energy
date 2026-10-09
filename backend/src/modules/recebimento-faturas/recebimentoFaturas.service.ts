@@ -13,6 +13,11 @@ import { confirmarFaturaRascunho, detalharFatura } from "../faturas/faturas.serv
 import { enfileirarNotificacoesDaFatura } from "../faturas/notificacoesFatura.service";
 import { registrarProducaoDaFaturaGeradora } from "../usinas/usinas.service";
 
+import { buscarFatura } from "../faturas/faturas.repository";
+import { obterTokenLeituraGmail } from "../conexoes-email/conexoesEmail.service";
+import { baixarAnexoGmail } from "../conexoes-email/gmailLeitura.client";
+import { enfileirarFaturasGmail } from "../conexoes-email/gmailImportacao.service";
+import { unidadesNoEscopoRecebimento } from "./recebimentoEscopo.policy";
 const PROVEDOR = "RESEND";
 const TOLERANCIA_ASSINATURA_SEGUNDOS = 5 * 60;
 const TENTATIVAS_MAXIMAS = 3;
@@ -592,10 +597,13 @@ async function processarRegistro(registro: any) {
     // O item pode ter chegado pouco antes de o usuário desativar o recurso ou
     // gerar um novo endereço. Confirmamos a configuração atual antes de
     // baixar/processar o PDF para nunca faturar por um endereço revogado.
+    const gmail = assumido.provedor === "GMAIL" ? assumido.payload?.gmail : null;
+    const unidadeOrigemId = gmail?.unidadeOrigemId ?? assumido.unidade_consumidora_id;
     const { data: unidadeAtual, error: erroUnidadeAtual } = await supabase
       .from("unidades_consumidoras")
       .select("id, status, recebimento_email_ativo, recebimento_email_token")
-      .eq("id", assumido.unidade_consumidora_id)
+      .eq("id", unidadeOrigemId)
+      .eq("empresa_id", assumido.empresa_id)
       .maybeSingle();
     if (erroUnidadeAtual) throw erroUnidadeAtual;
 
@@ -605,8 +613,7 @@ async function processarRegistro(registro: any) {
       unidadeAtual &&
       unidadeAtual.status === "ATIVA" &&
       unidadeAtual.recebimento_email_ativo &&
-      enderecoAtual &&
-      destinatarioAtual === enderecoAtual.toLowerCase(),
+      (gmail || (enderecoAtual && destinatarioAtual === enderecoAtual.toLowerCase())),
     );
     if (!recebimentoValido) {
       await supabase.from("recebimentos_faturas_email").update({
@@ -620,7 +627,9 @@ async function processarRegistro(registro: any) {
 
     etapa("CONSULTAR_ANEXOS");
     const anexosDoEvento = Array.isArray(assumido.payload?.attachments) ? assumido.payload.attachments as AnexoResend[] : [];
-    const anexos = await buscarAnexosResend(assumido.provedor_email_id, anexosDoEvento);
+    const tokenGmail = gmail ? await obterTokenLeituraGmail(gmail.conexaoId, assumido.empresa_id) : null;
+    const anexos = gmail ? [{ filename: assumido.arquivo_nome ?? "fatura.pdf", content_type: "application/pdf" }]
+      : await buscarAnexosResend(assumido.provedor_email_id, anexosDoEvento);
     const anexo = escolherPdf(anexos);
     // A confirmação de encaminhamento do Gmail chega ao endereço da UC sem
     // anexo. Ela é esperada no primeiro uso e não deve colocar a unidade em
@@ -637,7 +646,9 @@ async function processarRegistro(registro: any) {
       return;
     }
     etapa("BAIXAR_PDF");
-    const arquivo = await baixarPdf(anexo);
+    const arquivo = gmail && tokenGmail
+      ? await baixarAnexoGmail(tokenGmail, gmail.mensagemId, gmail.anexoId, gmail.parteId, limiteArquivo())
+      : await baixarPdf(anexo);
     etapa("VERIFICAR_DUPLICIDADE");
     const hash = createHash("sha256").update(arquivo).digest("hex");
 
@@ -676,7 +687,8 @@ async function processarRegistro(registro: any) {
       const { data: unidadeConfiguracao, error: erroUnidade } = await supabase
         .from("unidades_consumidoras")
         .select("id, numero, tipo, usina_id, cliente_id, empresa_id, cpf_titular, clientes(cpf), usinas(titularidade_ucs_recebedoras)")
-        .eq("id", assumido.unidade_consumidora_id)
+        .eq("id", unidadeOrigemId)
+        .eq("empresa_id", assumido.empresa_id)
         .abortSignal(AbortSignal.timeout(30_000))
         .maybeSingle();
       if (erroUnidade) throw erroUnidade;
@@ -685,9 +697,10 @@ async function processarRegistro(registro: any) {
       const titularidade = String(usinaDaUnidade(unidadeConfiguracao)?.titularidade_ucs_recebedoras ?? "GERADOR").toUpperCase();
       let consultaUnidades = supabase
         .from("unidades_consumidoras")
-        .select("id, numero, tipo, usina_id, cliente_id, empresa_id, cpf_titular, clientes(cpf)")
+        .select("id, numero, tipo, usina_id, cliente_id, empresa_id, cpf_titular, clientes(cpf), usinas(titularidade_ucs_recebedoras)")
         .eq("empresa_id", unidadeConfiguracao.empresa_id)
         .eq("status", "ATIVA")
+        .eq("recebimento_email_ativo", true)
         .eq("tipo", "BENEFICIARIA");
       // Uma única configuração atende todo o escopo da titularidade. Para o
       // gerador, o PDF pode pertencer a qualquer UC sob gestão da empresa. No
@@ -703,7 +716,7 @@ async function processarRegistro(registro: any) {
         etapa("CONSULTAR_ESCOPO_UCS");
         const { data: unidadesDoEscopo, error: erroEscopo } = await consultaUnidades.abortSignal(AbortSignal.timeout(30_000));
         if (erroEscopo) throw erroEscopo;
-        candidatas = (unidadesDoEscopo?.length ? unidadesDoEscopo : [unidadeConfiguracao]) as any[];
+        candidatas = unidadesNoEscopoRecebimento(unidadeConfiguracao, unidadesDoEscopo ?? []);
       }
 
       // As faturas CEMIG protegidas usam os quatro primeiros dígitos do CPF
@@ -778,6 +791,16 @@ async function processarRegistro(registro: any) {
         return;
       }
 
+      // A recuperação de e-mails recentes preserva competências já faturadas.
+      const existente = await buscarFatura(dados.uc, dados.referencia, unidade.empresa_id);
+      if (existente) {
+        const { error } = await supabase.from("recebimentos_faturas_email").update({
+          status: "IGNORADO", arquivo_nome: anexo.filename ?? "fatura.pdf", fatura_id: existente.id,
+          erro: "Esta competência já foi faturada.", processado_em: new Date().toISOString(), updated_at: new Date().toISOString(),
+        }).eq("id", assumido.id);
+        if (error) throw error;
+        return;
+      }
       etapa("FATURAR_AUTOMATICAMENTE");
       const resultado = await processarFatura(dados, {
         status: "ABERTA",
@@ -841,7 +864,7 @@ async function processarRegistro(registro: any) {
 }
 
 export async function processarFilaDeRecebimentosFaturas() {
-  if (!chaveApiResend()) return { processados: 0 };
+  await enfileirarFaturasGmail().catch(() => console.error("Falha na consulta automática ao Gmail."));
   // Corrige somente rascunhos originados do recebimento automático ativo.
   // Não promove rascunhos manuais; completa códigos pendentes sem refazer a fatura.
   const legados = await supabase.from("recebimentos_faturas_email")
@@ -880,13 +903,15 @@ export async function processarFilaDeRecebimentosFaturas() {
     }).eq("id", item.id).eq("status", "PROCESSANDO").eq("updated_at", item.updated_at);
     if (recuperacao.error) throw recuperacao.error;
   }
-  const { data, error } = await supabase
+  let fila = supabase
     .from("recebimentos_faturas_email")
     .select("*")
     .eq("status", "PENDENTE")
     .lte("proxima_tentativa_em", new Date().toISOString())
     .order("created_at")
     .limit(10);
+  if (!chaveApiResend()) fila = fila.eq("provedor", "GMAIL");
+  const { data, error } = await fila;
   if (error) throw error;
   for (const item of data ?? []) await processarRegistro(item);
   return { processados: data?.length ?? 0 };

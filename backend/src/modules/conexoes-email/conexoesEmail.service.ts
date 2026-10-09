@@ -242,7 +242,9 @@ function mensagemDaConexao(conexao: any, endereco: string | null) {
     return conexao.regra_erro || "O Outlook foi conectado, mas a regra automática ainda não está ativa.";
   }
   if (conexao.status === "LEITURA_AUTORIZADA") {
-    return "O Gmail foi conectado com autorização somente de leitura. O encaminhamento automático não é criado em contas Gmail pessoais; a leitura programada será habilitada em uma próxima etapa.";
+    return conexao.regra_erro || (conexao.regra_status === "ATIVA"
+      ? "A consulta automática ao Gmail está ativa. Novas contas são buscadas a cada minuto e encaminhadas ao faturamento automático."
+      : "Gmail autorizado. Aguardando a primeira consulta automática para confirmar a importação das contas.");
   }
   if (conexao.status === "REVOGADA") return "Esta conexão foi removida.";
   return conexao.regra_erro || "Não foi possível concluir a conexão do e-mail.";
@@ -261,7 +263,8 @@ function serializarConexao(conexao: any, unidade: any) {
       status: conexao.regra_status,
       erro: conexao.regra_erro ?? null,
     },
-    automatico: conexao.status === "REGRA_ATIVA" && conexao.regra_status === "ATIVA",
+    automatico: Boolean(unidade.recebimento_email_ativo) && ((conexao.status === "REGRA_ATIVA" && conexao.regra_status === "ATIVA")
+      || (conexao.provedor === "GMAIL" && conexao.status === "LEITURA_AUTORIZADA" && conexao.regra_status === "ATIVA" && !conexao.regra_erro)),
     mensagem: mensagemDaConexao(conexao, endereco),
     conectadoEm: conexao.conectado_em ?? null,
     atualizadoEm: conexao.updated_at ?? null,
@@ -424,6 +427,19 @@ async function trocarRefreshPorAccessToken(configuracao: ConfiguracaoOAuth, refr
   const tokens = await resposta.json() as TokensOAuth;
   if (!tokens.access_token) throw new Error("O provedor não retornou um token de acesso.");
   return tokens;
+}
+
+/** Tokens permanecem no servidor e nunca são serializados para o aplicativo. */
+export async function obterTokenLeituraGmail(conexaoId: string, empresaId: string) {
+  const { data, error } = await supabase.from("conexoes_email")
+    .select("refresh_token_criptografado,status,provedor")
+    .eq("id", conexaoId).eq("empresa_id", empresaId).maybeSingle();
+  if (error) throw error;
+  if (!data || data.provedor !== "GMAIL" || data.status !== "LEITURA_AUTORIZADA") {
+    throw new Error("A conexão Gmail não está autorizada. Conecte a conta novamente.");
+  }
+  const tokens = await trocarRefreshPorAccessToken(configuracaoOAuth("GMAIL"), descriptografarSegredoOAuth(data.refresh_token_criptografado));
+  return tokens.access_token!;
 }
 
 async function obterEmailDaConta(provedor: ProvedorEmail, accessToken: string) {
@@ -648,9 +664,7 @@ export async function processarCallbackOAuth(input: {
       status: provedor === "OUTLOOK" ? "CONECTADO_SEM_REGRA" : "LEITURA_AUTORIZADA",
       regra_id: null,
       regra_status: provedor === "OUTLOOK" ? "NAO_CONFIGURADA" : "NAO_APLICAVEL",
-      regra_erro: provedor === "GMAIL"
-        ? "O Gmail pessoal não permite que o aplicativo crie uma regra de encaminhamento sem confirmação do usuário. A autorização de leitura foi salva para a futura importação programada."
-        : null,
+      regra_erro: null,
       conectado_em: new Date().toISOString(),
       ultima_validacao_em: new Date().toISOString(),
       updated_at: new Date().toISOString(),

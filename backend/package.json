@@ -7,7 +7,8 @@
     "test": "tsx --test src/modules/billing/billing.engine.test.ts src/modules/asaas/assinaturaStatus.test.ts src/modules/auth/*.test.ts src/modules/comercial/limitesPlano.test.ts src/modules/comercial/provedorPagamento.test.ts src/modules/contratos/*.test.ts src/modules/convites/*.test.ts src/services/ocr/parsers/*.test.ts",
     "test:multiempresa": "tsx src/scripts/homologarMultiempresa.ts",
     "start": "node dist/server.js",
-    "microsoft:connect": "tsx src/scripts/conectarMicrosoft.ts"
+    "microsoft:connect": "tsx src/scripts/conectarMicrosoft.ts",
+    "test:gmail": "tsx --test src/modules/conexoes-email/*.test.ts"
   },
   "dependencies": {
     "@azure/msal-node": "^5.5.0",

@@ -70,7 +70,7 @@ function conexaoAtiva(conexao: ConexaoEmail) {
 function tituloStatusConexao(status: string) {
   const statusNormalizado = status.toUpperCase();
   if (statusNormalizado === "REGRA_ATIVA") return "Regra de faturas ativa";
-  if (statusNormalizado === "LEITURA_AUTORIZADA") return "Leitura autorizada";
+  if (statusNormalizado === "LEITURA_AUTORIZADA") return "Aguardando primeira consulta";
   if (statusNormalizado === "CONECTADO_SEM_REGRA") return "Conectado";
   if (STATUS_CONEXAO_ATIVA.includes(statusNormalizado)) return "Conectado";
   if (["PENDENTE", "AGUARDANDO_AUTORIZACAO"].includes(statusNormalizado)) return "Aguardando autorização";
@@ -380,7 +380,7 @@ export default function RecebimentoEmail() {
             {conexoes.map((conexao) => <Card key={conexao.id} style={[styles.connectionCard, conexao.status.toUpperCase() === "ERRO" && styles.connectionCardError]}>
               <View style={[styles.connectionIcon, conexao.status.toUpperCase() === "ERRO" && styles.connectionIconError]}><Ionicons name={conexao.status.toUpperCase() === "ERRO" ? "alert-circle-outline" : "mail-open-outline"} size={21} color={conexao.status.toUpperCase() === "ERRO" ? Colors.danger : Colors.primary} /></View>
               <View style={styles.connectionCopy}>
-                <Text style={styles.connectionTitle}>{tituloProvedor(conexao.provedor)} · {tituloStatusConexao(conexao.status)}</Text>
+                <Text style={styles.connectionTitle}>{tituloProvedor(conexao.provedor)} · {conexao.erro ? "Atenção necessária" : conexao.automatico ? "Importação automática ativa" : tituloStatusConexao(conexao.status)}</Text>
                 <Text style={styles.connectionText}>{conexao.email ?? "Conta autorizada"}{conexao.conectadoEm ? ` · ${formatarData(conexao.conectadoEm)}` : ""}</Text>
                 {mensagemConexao(conexao) ? <Text style={styles.connectionError}>{mensagemConexao(conexao)}</Text> : null}
               </View>
