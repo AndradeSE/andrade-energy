@@ -532,7 +532,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       setVoiceStatus(undefined);
       return;
     }
-    if (preferLive && process.env.EXPO_PUBLIC_ENABLE_GEMINI_LIVE === "1" && isPreviewEnvironment && IS_GERADOR_APP && Platform.OS === "android") {
+    if (preferLive && process.env.EXPO_PUBLIC_ENABLE_GEMINI_LIVE === "1" && isPreviewEnvironment && Platform.OS === "android") {
       console.info("[AssistantLive] requested");
       if (liveStarting.current) return;
       const allowed = await authorizeLiveAudio();
@@ -545,7 +545,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
         setVoiceStatus("Conectando a conversa…");
         const firstName = String(usuario?.nome ?? "").trim().split(/\s+/)[0]?.replace(/[^\p{L}-]/gu, "").slice(0, 28) ?? "";
         try {
-          // Só carregue o módulo nativo no APK Gerador Preview. Os APKs
+          // Só carregue o módulo nativo nos novos APKs Preview. Os APKs
           // existentes de produção não contêm react-native-audio-api.
           const { startGeminiLive } = await import("../services/assistant-gemini-live");
           await stopNativePortugueseSpeech(conversationOwner.current);
@@ -761,7 +761,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
       {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Consulte dados da sua conta, peça documentos ou abra as funções do app para revisão. Para ditar, segure o microfone e solte; para conversar por voz, toque nas ondas.</Text><Text style={styles.limit}>A conversa usa o Gemini online. Não é necessário baixar um modelo local. Consultas respeitam seu acesso; alterações exigem revisão nas telas do aplicativo.</Text></View> : null}
       <Pressable accessibilityRole="button" accessibilityLabel="Configurar voz natural nos dados da conta" onPress={configureAccountVoice} style={styles.action}><Text style={styles.actionText}>Voz natural nos dados · {accountVoiceAllowed ? "autorizada" : "autorizar"}</Text></Pressable>
-      {IS_GERADOR_APP && Platform.OS === "android" && process.env.EXPO_PUBLIC_ENABLE_GEMINI_LIVE === "1" ? <Pressable accessibilityRole="button" accessibilityLabel="Configurar ou revogar conversa direta" onPress={() => void configureLiveAudio()} style={styles.action}><Text style={styles.actionText}>Conversa direta · configurar ou revogar</Text></Pressable> : null}
+      {isPreviewEnvironment && Platform.OS === "android" && process.env.EXPO_PUBLIC_ENABLE_GEMINI_LIVE === "1" ? <Pressable accessibilityRole="button" accessibilityLabel="Configurar ou revogar conversa direta" onPress={() => void configureLiveAudio()} style={styles.action}><Text style={styles.actionText}>Conversa direta · configurar ou revogar</Text></Pressable> : null}
       {installStage ? <View style={styles.progressCard} accessibilityLiveRegion="polite"><Text style={styles.limit}>{installStage}</Text>{installProgress !== null ? <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(installProgress * 100)}%` }]} /></View> : null}{downloadingModel ? <Pressable accessibilityRole="button" accessibilityLabel="Cancelar download do modelo" onPress={() => void cancelModelDownload()} style={styles.cancelDownload}><Text style={styles.cancelDownloadText}>Cancelar download</Text></Pressable> : null}</View> : null}
       {messages.map((message, index) => <View key={index} style={[styles.bubble, message.from === "user" ? styles.userBubble : styles.assistantBubble]}>
         <Text style={styles.message}>{message.text}</Text>

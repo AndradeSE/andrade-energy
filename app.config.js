@@ -82,7 +82,7 @@ module.exports = {
     plugins: [
       "expo-router",
       ...(preview ? [["expo-audio", { microphonePermission: "A conversa de voz pode enviar áudio ao Gemini Live após sua autorização." }]] : []),
-      ...(preview && gerador ? [["react-native-audio-api", { iosBackgroundMode: false, androidForegroundService: false, androidPermissions: [], disableFFmpeg: true }]] : []),
+      ...(preview ? [["react-native-audio-api", { iosBackgroundMode: false, androidForegroundService: false, androidPermissions: [], disableFFmpeg: true }]] : []),
 
       [
         "expo-splash-screen",
@@ -145,7 +145,7 @@ module.exports = {
       },
     },
 
-    runtimeVersion: preview && gerador ? "1.0.4-preview-live-awake" : preview ? "1.0.2-preview-native-speech" : {
+    runtimeVersion: preview ? "1.0.4-preview-live-awake" : {
       policy: "appVersion",
     },
 

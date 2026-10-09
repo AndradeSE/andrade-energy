@@ -24,7 +24,7 @@ export default function AssistantWakeWord() {
   const userId = usuario?.id ? String(usuario.id) : undefined;
   const [foreground, setForeground] = useState(AppState.currentState === "active");
   useEffect(() => {
-    if (!IS_GERADOR_APP || !foreground || !userId) return;
+    if (!isPreviewEnvironment || !foreground || !userId) return;
     let cancelled = false;
     void automaticLocalWakeConsent(userId).then(allowed => {
       if (!cancelled && allowed && isVoiceInstalled() && !wakeWordEnabled() && !floatingConversationRequest()) {

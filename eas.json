@@ -19,7 +19,7 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview-consumidor",
-      "env": { "EXPO_PUBLIC_APP_ENV": "preview", "EXPO_PUBLIC_APP_VARIANT": "consumidor", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-homologacao.onrender.com/api", "EXPO_PUBLIC_ENABLE_SAFE_ONLINE_VOICE": "1" }
+      "env": { "EXPO_PUBLIC_APP_ENV": "preview", "EXPO_PUBLIC_APP_VARIANT": "consumidor", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-homologacao.onrender.com/api", "EXPO_PUBLIC_ENABLE_SAFE_ONLINE_VOICE": "1", "EXPO_PUBLIC_ENABLE_GEMINI_LIVE": "1" }
     },
     "preview-gerador": {
       "distribution": "internal",
