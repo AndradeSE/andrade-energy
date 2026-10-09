@@ -1,3 +1,4 @@
+import { apiFetch as fetch } from "./apiClient";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import "./web-improvements.css";
 import { accountIntent, answerAccountQuestion, type WebAssistantContext } from "./assistantAccountWeb";

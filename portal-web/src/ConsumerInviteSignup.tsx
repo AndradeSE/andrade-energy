@@ -1,3 +1,4 @@
+import { apiFetch as fetch } from "./apiClient";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import "./convite.css";
@@ -30,6 +31,7 @@ export default function ConsumerInviteSignup({ apiUrl, convite }: Props) {
 
   useEffect(() => {
     let ativo = true;
+    setDados(null); setErro(""); setConcluido(""); setSenha(""); setConfirmacao("");
     if (!chave) {
       setDados(null);
       setErro("");

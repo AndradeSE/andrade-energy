@@ -1,3 +1,4 @@
+import { apiFetch as fetch } from "./apiClient";
 import { FormEvent, useEffect, useState } from "react";
 import "./convite.css";
 
@@ -7,6 +8,7 @@ export default function GeneratorInviteSignup({ apiUrl, convite }: { apiUrl:stri
   const [mostrar,setMostrar]=useState(false);const [busy,setBusy]=useState(false);
   const [erro,setErro]=useState("");const [concluido,setConcluido]=useState(false);
   useEffect(()=>{
+    setDados(null); setErro(""); setConcluido(false); setSenha(""); setConfirmacao("");
     const controller=new AbortController();
     fetch(`${apiUrl}/convites/geradores/${encodeURIComponent(convite)}`,{signal:controller.signal})
       .then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.message);return d;})

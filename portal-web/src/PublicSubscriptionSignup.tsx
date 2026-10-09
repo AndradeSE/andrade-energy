@@ -1,3 +1,5 @@
+import { apiFetch as fetch } from "./apiClient";
+import { checkoutKey, safeRead, safeWrite, securePaymentUrl } from "./flowSafety";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import "./subscription-signup.css";
 
@@ -13,7 +15,7 @@ export default function PublicSubscriptionSignup({ apiUrl }: { apiUrl: string })
   const [cepBusy,setCepBusy] = useState(false);
   const [accepted,setAccepted] = useState(false);
   const [status,setStatus] = useState<any>(null);
-  const [key] = useState(() => decodeURIComponent(window.location.hash.slice(1)) || sessionStorage.getItem("andrade_adesao_chave") || crypto.randomUUID());
+  const [key] = useState(() => checkoutKey(window.location.hash, safeRead(sessionStorage, "andrade_adesao_chave"), crypto.randomUUID()));
   const fromCheckout = Boolean(window.location.hash);
   const [form,setForm] = useState({ nome:"", sobrenome:"", cpf:"", email:"", telefone:"", cep:"", rua:"", numero:"", complemento:"", bairro:"", cidade:"", uf:"", planoId:new URLSearchParams(window.location.search).get("plano") ?? "", ciclo:"MENSAL", parcelamentoAnual:false });
   const cepRequest = useRef(0);
@@ -27,7 +29,7 @@ export default function PublicSubscriptionSignup({ apiUrl }: { apiUrl: string })
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? "Não foi possível carregar os planos.");
       return data;
-    })).then(([p,c]) => { setPlans(p); setConfig(c); setForm(f=>({...f,planoId:p.some((item:any)=>item.id===f.planoId)?f.planoId:p[0]?.id??""})); })
+    })).then(([p,c]) => { if (!Array.isArray(p) || !Array.isArray(c?.documentos)) throw new Error("Planos ou documentos indisponíveis. Tente novamente."); setPlans(p); setConfig({...c, disponivel: c.disponivel === true && c.documentos.length > 0}); setForm(f=>({...f,planoId:p.some((item:any)=>item.id===f.planoId)?f.planoId:p[0]?.id??""})); })
       .catch(e=>{if(e.name!=="AbortError")setError(e.message);});
     return ()=>controller.abort();
   },[apiUrl]);
@@ -48,6 +50,8 @@ export default function PublicSubscriptionSignup({ apiUrl }: { apiUrl: string })
     void check();
     return ()=>{alive=false;clearTimeout(timer);};
   },[apiUrl,fromCheckout,key]);
+
+  useEffect(() => { setAccepted(false); }, [form.planoId, form.ciclo, form.parcelamentoAnual, config]);
 
   async function buscarCep() {
     const cep=digits(form.cep);
@@ -70,13 +74,13 @@ export default function PublicSubscriptionSignup({ apiUrl }: { apiUrl: string })
     e.preventDefault();
     if(busy||!accepted||!config?.disponivel)return;
     setBusy(true);setError("");
-    sessionStorage.setItem("andrade_adesao_chave",key);
+    safeWrite(sessionStorage, "andrade_adesao_chave",key);
     const endereco = `Logradouro: ${form.rua.trim()}\nNúmero: ${form.numero.trim()}\nComplemento: ${form.complemento.trim()}\nBairro: ${form.bairro.trim()}\nCidade: ${form.cidade.trim()}\nUF: ${form.uf}\nCEP: ${digits(form.cep).replace(/(\d{5})(\d{3})/,"$1-$2")}`;
     try {
       const res=await fetch(`${apiUrl}/comercial/adesao/checkout`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":key},body:JSON.stringify({...form,endereco,aceitesDocumentoIds:config.documentos.map((d:any)=>d.id)})});
       const data=await res.json();
       if(!res.ok)throw new Error(data.message??"Não foi possível abrir o pagamento.");
-      window.location.assign(data.url);
+      window.location.assign(securePaymentUrl(data.url));
     }catch(e){setError(e instanceof Error?e.message:"Não foi possível continuar.");setBusy(false);}
   }
 

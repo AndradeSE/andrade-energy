@@ -1,3 +1,4 @@
+import { apiFetch as fetch } from "./apiClient";
 import { useEffect, useRef, useState } from "react";
 type Connection = { id?: unknown; provedor?: unknown; email_conectado?: unknown; email?: unknown; status?: unknown; regra_status?: unknown; regra_erro?: unknown; conectado?: unknown };
 export function emailConnectionStatus(connection: Connection): string {
@@ -15,12 +16,14 @@ export default function EmailProviderSetupWeb({ apiUrl, token, unitId, accessTyp
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const mounted = useRef(true);
+  const inFlight = useRef(false);
+  const generation = useRef(0);
   const pollingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestController = useRef<AbortController | null>(null);
   const pendingState = useRef<string | null>(null);
   useEffect(() => {
-    mounted.current = true;
-    return () => { mounted.current = false; pendingState.current = null; requestController.current?.abort(); if (pollingTimer.current) clearTimeout(pollingTimer.current); };
+    mounted.current = true; generation.current++; inFlight.current = false; setBusy(false); setMessage("");
+    return () => { mounted.current = false; generation.current++; inFlight.current = false; pendingState.current = null; requestController.current?.abort(); if (pollingTimer.current) clearTimeout(pollingTimer.current); };
   }, [token, unitId]);
   async function request(path: string, method: string, body?: unknown) {
     requestController.current = new AbortController();
@@ -30,43 +33,47 @@ export default function EmailProviderSetupWeb({ apiUrl, token, unitId, accessTyp
     return data;
   }
   async function connect(provider: "GMAIL" | "OUTLOOK") {
+    if (inFlight.current) return;
+    const scope = generation.current;
     const popup = window.open("about:blank", "_blank");
     if (!popup) { setMessage("Permita a abertura de uma nova aba para autorizar o e-mail."); return; }
     popup.opener = null;
     popup.document.title = "Conectar e-mail — Andrade Energy";
     popup.document.body.textContent = "Preparando autorização segura…";
-    setBusy(true); setMessage("");
+    inFlight.current = true; setBusy(true); setMessage("");
     try {
       const data = await request(`unidades/${encodeURIComponent(unitId)}/iniciar`, "POST", { provedor: provider, app: accessType, origem: "WEB" });
-      if (!mounted.current) { popup.close(); return; }
+      if (!mounted.current || generation.current !== scope) { popup.close(); return; }
       const url = new URL(String(data.url));
       if (url.protocol !== "https:" || !["accounts.google.com", "login.microsoftonline.com", "login.live.com"].includes(url.hostname) || typeof data.state !== "string" || !/^web_[A-Za-z0-9_-]{43}$/.test(data.state)) throw new Error("O servidor retornou uma autorização inválida.");
       popup.location.href = url.toString(); pendingState.current = data.state;
       setMessage("Conclua a autorização na nova aba e volte ao portal. Aguardando confirmação…");
       const deadline = Date.now() + 15 * 60_000;
       async function poll() {
-        if (!mounted.current || pendingState.current !== data.state) return;
-        if (Date.now() >= deadline) { pendingState.current = null; setBusy(false); setMessage("A autorização expirou. Conecte novamente."); return; }
+        if (!mounted.current || generation.current !== scope || pendingState.current !== data.state) return;
+        if (Date.now() >= deadline) { pendingState.current = null; inFlight.current = false; setBusy(false); setMessage("A autorização expirou. Conecte novamente."); return; }
         try {
           const result = await request("concluir", "POST", { state: data.state });
-          if (!mounted.current || pendingState.current !== data.state) return;
-          if (result.pronto === true) { pendingState.current = null; setBusy(false); setMessage(result.conexao ? emailConnectionStatus(result.conexao) : "Autorização confirmada."); await reload(); return; }
+          if (!mounted.current || generation.current !== scope || pendingState.current !== data.state) return;
+          if (result.pronto === true) { pendingState.current = null; inFlight.current = false; setBusy(false); setMessage(result.conexao ? emailConnectionStatus(result.conexao) : "Autorização confirmada."); await reload(); return; }
           if (["ERRO", "EXPIRADO"].includes(result.status)) throw new Error(result.message ?? "Não foi possível concluir a conexão.");
           pollingTimer.current = setTimeout(() => void poll(), 3000);
         } catch (reason) {
-          if (!mounted.current) return;
-          pendingState.current = null; setBusy(false); setMessage(reason instanceof Error ? reason.message : "Não foi possível confirmar a conexão.");
+          if (!mounted.current || generation.current !== scope) return;
+          pendingState.current = null; inFlight.current = false; setBusy(false); setMessage(reason instanceof Error ? reason.message : "Não foi possível confirmar a conexão.");
         }
       }
       pollingTimer.current = setTimeout(() => void poll(), 2000);
-    } catch (reason) { popup.close(); if (mounted.current) { setBusy(false); setMessage(reason instanceof Error ? reason.message : "Não foi possível conectar."); } }
+    } catch (reason) { popup.close(); if (mounted.current && generation.current === scope) { inFlight.current = false; setBusy(false); setMessage(reason instanceof Error ? reason.message : "Não foi possível conectar."); } }
   }
   async function disconnect(id: string) {
+    if (inFlight.current) return;
+    const scope = generation.current;
     if (!window.confirm("Desconectar este e-mail e remover sua automação de recebimento?")) return;
-    setBusy(true); setMessage("");
-    try { const data = await request(encodeURIComponent(id), "DELETE"); await reload(); if (mounted.current) setMessage(data.aviso ?? data.message ?? "E-mail desconectado."); }
-    catch (reason) { if (mounted.current) setMessage(reason instanceof Error ? reason.message : "Não foi possível desconectar."); }
-    finally { if (mounted.current) setBusy(false); }
+    inFlight.current = true; setBusy(true); setMessage("");
+    try { const data = await request(encodeURIComponent(id), "DELETE"); await reload(); if (mounted.current && generation.current === scope) setMessage(data.aviso ?? data.message ?? "E-mail desconectado."); }
+    catch (reason) { if (mounted.current && generation.current === scope) setMessage(reason instanceof Error ? reason.message : "Não foi possível desconectar."); }
+    finally { if (mounted.current && generation.current === scope) { inFlight.current = false; setBusy(false); } }
   }
   return <div><p>Conecte a conta que recebe as faturas da concessionária.</p><div className="email-provider-actions">
     <button className="provider-gmail" disabled={busy} type="button" onClick={() => void connect("GMAIL")}><GmailLogo/>Conectar Gmail</button>
@@ -75,6 +82,6 @@ export default function EmailProviderSetupWeb({ apiUrl, token, unitId, accessTyp
   </div>{manual ? <ol><li>Crie uma regra na conta que recebe os PDFs da concessionária.</li><li>Encaminhe as mensagens para o endereço exclusivo acima.</li><li>Confira o resultado na UC identificada no documento.</li></ol> : null}
   {connections.length ? <div className="automatic-connections">{connections.map(connection => <article key={String(connection.id)}><strong>{String(connection.provedor ?? "E-mail")} · {String(connection.email_conectado ?? connection.email ?? "")}</strong><span>{emailConnectionStatus(connection)}</span>{connection.regra_erro ? <small>{String(connection.regra_erro)}</small> : null}{connection.id ? <button disabled={busy} type="button" onClick={() => void disconnect(String(connection.id))}>Desconectar</button> : null}</article>)}</div> : null}
   {message ? <p role="status" className="automatic-message">{message}</p> : null}
-  {pendingState.current ? <button type="button" onClick={() => { pendingState.current = null; requestController.current?.abort(); if (pollingTimer.current) clearTimeout(pollingTimer.current); setBusy(false); setMessage("Espera cancelada. A autorização no provedor pode ser retomada conectando novamente."); }}>Cancelar espera</button> : null}
+  {pendingState.current ? <button type="button" onClick={() => { pendingState.current = null; inFlight.current = false; generation.current++; requestController.current?.abort(); if (pollingTimer.current) clearTimeout(pollingTimer.current); setBusy(false); setMessage("Espera cancelada. A autorização no provedor pode ser retomada conectando novamente."); }}>Cancelar espera</button> : null}
   </div>;
 }
