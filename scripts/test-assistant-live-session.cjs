@@ -28,6 +28,8 @@ class Microphone {
   onData(callback) { this.data = callback; }
 }
 const imports = {
+  './assistant-app-guide': { verifiedAppGuide: () => 'Guia verificado de teste.' },
+  '../config/appVariant': { IS_GERADOR_APP: false },
   'react-native': { AppState: { addEventListener: () => ({ remove() {} }) } },
   'expo-audio': { getRecordingPermissionsAsync: async () => ({ granted: true }), setAudioModeAsync: async () => {} },
   'react-native-audio-api': { AudioContext: class {
