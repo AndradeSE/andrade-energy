@@ -138,13 +138,19 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     liveGeneration.current += 1;
     const hadAssistantSession = voiceActive.current || dictationActive.current;
     voiceActive.current = false;
-    void liveSession.current?.stop();
+    const liveStop = liveSession.current?.stop();
     liveSession.current = null;
     dictationActive.current = false;
     stopAssistantVoice();
     // Não encerre a captura da frase-chave ao simplesmente sair da Ajuda.
-    if (hadAssistantSession) void stopNativePortugueseSpeech(conversationOwner.current).finally(() => setWakeWordPaused(false));
-    else setWakeWordPaused(false);
+    // Retome a frase-chave somente depois de ambos os capturadores liberarem
+    // o microfone. Retomar antes permite que o stop antigo encerre a nova escuta.
+    if (hadAssistantSession || liveStop) {
+      void Promise.allSettled([
+        liveStop ?? Promise.resolve(),
+        stopNativePortugueseSpeech(conversationOwner.current),
+      ]).then(() => setWakeWordPaused(false));
+    } else setWakeWordPaused(false);
     // A escuta de "Andrade" pertence ao app, não à tela Ajuda.
     if (!wakeWordEnabled()) void releaseVoiceRecognition();
     void releaseLocalModel();

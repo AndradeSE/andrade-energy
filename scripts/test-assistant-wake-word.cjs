@@ -56,7 +56,8 @@ assert.doesNotMatch(helpScreen, /configureWakeWord|Ativar escuta automática loc
 assert.match(helpScreen, /}, 5_000\)/, "A conversa aberta pelo comando deve encerrar após cinco segundos sem fala");
 const profile = fs.readFileSync("app/(tabs)/perfil.tsx", "utf8");
 assert.match(profile, /Comando de voz “Andrade”/, "O consentimento da escuta deve ficar no Perfil, fora da Ajuda");
-assert.match(helpScreen, /stopNativePortugueseSpeech\(conversationOwner\.current\)\.finally\(\(\) => setWakeWordPaused\(false\)\)/, "Ao voltar, solte só o microfone desta conversa antes de retomar o comando");
+assert.match(helpScreen, /Promise\.allSettled\(\[\s*liveStop \?\? Promise\.resolve\(\),\s*stopNativePortugueseSpeech\(conversationOwner\.current\),\s*\]\)\.then\(\(\) => setWakeWordPaused\(false\)\)/, "Ao voltar, aguarde os dois capturadores antes de retomar o comando");
+assert.match(floating, /if \(!hidden && !conversationOpen\) \{\s*hideProgress\.stopAnimation\(\);\s*hideProgress\.setValue\(0\);/, "Encerrar a conversa deve restaurar a opacidade do ícone não ocultado");
 assert.match(helpScreen, /if \(!wakeWordEnabled\(\)\) void releaseVoiceRecognition\(\)/, "Sair da Ajuda não pode liberar a escuta global ativa na Home");
 assert.match(fs.readFileSync("services/on-device-voice.ts", "utf8"), /export async function releaseVoiceRecognition\(\) \{\s*await stopContinuousListening\(\)/, "Liberar o reconhecedor também encerra a escuta global");
 const wakeScreen = fs.readFileSync("components/assistant/AssistantWakeWord.tsx", "utf8");
