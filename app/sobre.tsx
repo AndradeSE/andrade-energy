@@ -228,11 +228,18 @@ const atualizacaoAnteriorPublicada = Updates.runtimeVersion === "1.0.4-productio
   numero: "1.0.0-r20261008.22", data: "08/10/2026",
   melhorias: ["Novo APK Preview com conversa Gemini Live e comando Andrade após autorização.", "Guia de funções do Consumidor na conversa e consulta do titular e cliente da UC selecionada."],
 } : atualizacaoTutoriais;
-const atualizacaoAtual = {
+const atualizacaoContratoAnterior = {
   numero: "1.0.0-r20261009.2", data: "09/10/2026",
   melhorias: [
     "Desconto real considera somente energia compensada, sem antecipar economia dos créditos futuros; cobrança contratual preservada.",
     ...(IS_GERADOR_APP ? ["Próximo passo abre Faturamento e só aparece quando não há recebimento automático nem fatura emitida.", "Preparação da proposta informa os dados faltantes ou a consulta que falhou, sem enviar convite incompleto."] : []),
+  ],
+};
+const atualizacaoAtual = {
+  numero: "1.0.0-r20261009.3", data: "09/10/2026",
+  melhorias: [
+    "Notificação de contrato abre a UC correspondente, mesmo quando outra unidade está selecionada.",
+    "Proposta e assinatura acompanham a UC do contrato aberto, sem misturar os dados da unidade anterior.",
   ],
 };
 const historicoAnterior = IS_GERADOR_APP ? [
@@ -315,7 +322,7 @@ const historicoAnterior = IS_GERADOR_APP ? [
   ] },
 ];
 
-const historico = [atualizacaoAnteriorPublicada, ...historicoAnterior];
+const historico = [atualizacaoContratoAnterior, atualizacaoAnteriorPublicada, ...historicoAnterior];
 
 export default function SobreApp() {
   const version = Constants.expoConfig?.version ?? "Não informada";

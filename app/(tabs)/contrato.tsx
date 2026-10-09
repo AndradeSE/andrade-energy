@@ -16,8 +16,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useCallback, useRef, useState } from "react";
-import { router, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import {
   Badge,
@@ -64,9 +64,13 @@ export default function Contrato() {
 }
 
 function ContratoConsumidor() {
-  const { data, isLoading, error, refetch: recarregarContrato } = useContrato();
-  const { data: dashboard, refetch: recarregarDashboard } = useDashboard();
+  const params = useLocalSearchParams<{ unidadeId?: string | string[] }>();
+  const unidadeDestinoId = Array.isArray(params.unidadeId) ? params.unidadeId[0] : params.unidadeId;
+  const { data, isLoading, error, refetch: recarregarContrato } = useContrato(unidadeDestinoId);
+  const { data: dashboardSelecionado, refetch: recarregarDashboard } = useDashboard();
   const { unidadeSelecionada } = useAuth();
+  const mesmoDestino = !unidadeDestinoId || unidadeDestinoId === unidadeSelecionada?.id;
+  const dashboard = mesmoDestino ? dashboardSelecionado : undefined;
   const queryClient = useQueryClient();
   const [atualizando, setAtualizando] = useState(false);
   const [registrandoAceite, setRegistrandoAceite] = useState(false);
@@ -82,6 +86,14 @@ function ContratoConsumidor() {
   const [renovacaoEnviadaId, setRenovacaoEnviadaId] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const assinaturaY = useRef(0);
+
+  useEffect(() => {
+    setModalAssinatura(false);
+    setCodigoAssinatura("");
+    setTracosAssinatura([]);
+    setConcordouRevisao(false);
+    setEmailCodigo("");
+  }, [data?.id]);
 
   useFocusEffect(useCallback(() => {
     void recarregarContrato();
@@ -123,7 +135,7 @@ function ContratoConsumidor() {
       new Date(`${data.vigencia_fim}T23:59:59`).getTime() < Date.now(),
     );
   const economiaMensal = Number(
-    dashboard?.economiaMes ?? data.economia_mensal_estimada ?? 0,
+    data.economia_mensal_estimada ?? dashboard?.economiaMes ?? 0,
   );
   const economiaAnual = Number(
     data.economia_anual_estimada ?? economiaMensal * 12,
@@ -158,10 +170,11 @@ function ContratoConsumidor() {
     scrollRef.current?.scrollTo({ y: Math.max(0, assinaturaY.current - 16), animated: true });
   }
   async function abrirProposta() {
-    if (!unidadeSelecionada?.id) return Alert.alert("Selecione a unidade", "Escolha a UC antes de abrir sua proposta.");
+    const unidadeId = unidadeDestinoId || unidadeSelecionada?.id;
+    if (!unidadeId) return Alert.alert("Selecione a unidade", "Escolha a UC antes de abrir sua proposta.");
     try {
       setAbrindoProposta(true);
-      const uri = await baixarPropostaDaUnidade(unidadeSelecionada.id);
+      const uri = await baixarPropostaDaUnidade(unidadeId);
       if (Platform.OS === "android") {
         const contentUri = await FileSystem.getContentUriAsync(uri);
         await IntentLauncher.startActivityAsync("android.intent.action.VIEW", { data: contentUri, flags: 1, type: "application/pdf" });
@@ -232,9 +245,8 @@ function ContratoConsumidor() {
         [
           {
             text: "Acessar minha unidade",
-            // A UC já está selecionada quando o consumidor entra neste fluxo.
-            // Substitui a rota para impedir o retorno ao bloqueio contratual.
-            onPress: () => router.replace("/"),
+            // Um push pode abrir uma UC diferente da seleção atual.
+            onPress: () => router.replace(mesmoDestino ? "/" : "/selecionar-unidade"),
           },
         ],
         { cancelable: false },
@@ -358,10 +370,10 @@ function ContratoConsumidor() {
     <Screen>
       <ClienteHeader
         cliente={dashboard?.cliente ?? "Cliente"}
-        uc={dashboard?.uc ?? unidadeSelecionada?.numero ?? ""}
+        uc={dashboard?.uc ?? (mesmoDestino ? unidadeSelecionada?.numero : undefined) ?? ""}
         distribuidora={
           dashboard?.distribuidora ??
-          unidadeSelecionada?.distribuidora ??
+          (mesmoDestino ? unidadeSelecionada?.distribuidora : undefined) ??
           "Concessionária"
         }
         fullBleed
