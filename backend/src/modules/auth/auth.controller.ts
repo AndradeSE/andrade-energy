@@ -112,7 +112,8 @@ export async function meuPerfilController(req: Request, res: Response) {
 
 export async function atualizarMeuPerfilController(req: Request, res: Response) {
   try {
-    return res.json(await atualizarMeuPerfil(usuarioDaRequisicao(req).id, req.body ?? {}));
+    const usuario = usuarioDaRequisicao(req);
+    return res.json(await atualizarMeuPerfil(usuario.id, req.body ?? {}, { empresa_id: usuario.empresa_id, papel_empresa: usuario.papel_empresa }));
   } catch (err: any) {
     return res.status(400).json({ message: err.message ?? "Não foi possível atualizar o perfil." });
   }
