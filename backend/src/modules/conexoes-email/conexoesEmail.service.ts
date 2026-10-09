@@ -423,7 +423,13 @@ async function trocarRefreshPorAccessToken(configuracao: ConfiguracaoOAuth, refr
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: corpo,
   });
-  if (!resposta.ok) throw new Error("Não foi possível renovar a autorização do e-mail.");
+  if (!resposta.ok) {
+    const detalhe = await resposta.json().catch(() => null) as any;
+    const codigo = detalhe?.error === "invalid_grant" ? "OAUTH_REAUTORIZACAO" : "OAUTH_HTTP_" + resposta.status;
+    const erro = new Error("Não foi possível renovar a autorização do e-mail.");
+    Object.assign(erro, { codigoGmail: codigo });
+    throw erro;
+  }
   const tokens = await resposta.json() as TokensOAuth;
   if (!tokens.access_token) throw new Error("O provedor não retornou um token de acesso.");
   return tokens;

@@ -19,7 +19,14 @@ export async function consultarGmail<T>(token: string, caminho: string): Promise
   const resposta = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/${caminho}`, {
     headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30_000),
   });
-  if (!resposta.ok) throw new Error(`Não foi possível consultar o Gmail (HTTP ${resposta.status}). Verifique a autorização da conta.`);
+  if (!resposta.ok) {
+    const detalhe = await resposta.json().catch(() => null) as any;
+    const motivos = [detalhe?.error?.status, ...(detalhe?.error?.details ?? []).map((item: any) => item?.reason)];
+    const codigo = motivos.includes("SERVICE_DISABLED") ? "GMAIL_API_DESATIVADA" : "GMAIL_HTTP_" + resposta.status;
+    const erro = new Error(`Não foi possível consultar o Gmail (HTTP ${resposta.status}). Verifique a autorização da conta.`);
+    Object.assign(erro, { codigoGmail: codigo });
+    throw erro;
+  }
   return resposta.json() as Promise<T>;
 }
 
