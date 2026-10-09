@@ -73,7 +73,9 @@ export async function enfileirarFaturasGmail(deps: DependenciasGmail = {
         // Sem tokens ou conteúdo do e-mail nos logs.
         const { error: erroAtualizar } = await deps.db.from("conexoes_email").update({
           regra_status: "ERRO",
-          regra_erro: codigo === "OAUTH_REAUTORIZACAO"
+          regra_erro: codigo === "GMAIL_LEITURA_NAO_AUTORIZADA"
+            ? "O Gmail foi conectado sem permissão para ler as faturas. Conecte a conta novamente e autorize a leitura dos e-mails."
+            : codigo === "OAUTH_REAUTORIZACAO"
             ? "A autorização do Gmail expirou ou foi revogada. Conecte a conta novamente para retomar a importação."
             : codigo === "GMAIL_API_DESATIVADA"
               ? "A API Gmail precisa ser ativada na integração Google da Andrade Energy."

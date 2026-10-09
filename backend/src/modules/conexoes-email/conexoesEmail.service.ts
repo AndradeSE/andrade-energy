@@ -1,3 +1,4 @@
+import { exigirPermissaoLeituraGmail } from "./gmailPermissoes.policy";
 import { appScheme } from "../../utils/appScheme";
 import {
   createCipheriv,
@@ -438,12 +439,13 @@ async function trocarRefreshPorAccessToken(configuracao: ConfiguracaoOAuth, refr
 /** Tokens permanecem no servidor e nunca são serializados para o aplicativo. */
 export async function obterTokenLeituraGmail(conexaoId: string, empresaId: string) {
   const { data, error } = await supabase.from("conexoes_email")
-    .select("refresh_token_criptografado,status,provedor")
+    .select("refresh_token_criptografado,status,provedor,escopos")
     .eq("id", conexaoId).eq("empresa_id", empresaId).maybeSingle();
   if (error) throw error;
   if (!data || data.provedor !== "GMAIL" || data.status !== "LEITURA_AUTORIZADA") {
     throw new Error("A conexão Gmail não está autorizada. Conecte a conta novamente.");
   }
+  exigirPermissaoLeituraGmail(data.escopos);
   const tokens = await trocarRefreshPorAccessToken(configuracaoOAuth("GMAIL"), descriptografarSegredoOAuth(data.refresh_token_criptografado));
   return tokens.access_token!;
 }
@@ -654,6 +656,7 @@ export async function processarCallbackOAuth(input: {
     const unidade = await buscarUnidadeInterna(estado.unidade_consumidora_id, estado.empresa_id);
     if (unidade.status !== "ATIVA") throw new Error("A unidade consumidora não está ativa.");
 
+    if (provedor === "GMAIL") exigirPermissaoLeituraGmail(tokens.scope);
     const email = await obterEmailDaConta(provedor, tokens.access_token!);
     const anterior = await buscarConexaoPorUnidade(unidade.id, provedor);
     let conexao = await salvarConexao({
