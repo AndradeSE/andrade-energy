@@ -48,8 +48,9 @@ export async function listarMensagensFaturaGmail(token: string, desde: Date) {
 
 export async function baixarAnexoGmail(token: string, mensagemId: string, anexoId: string, parteId: string, limite: number) {
   const mensagem = await consultarGmail<{ payload?: ParteGmail }>(token, `messages/${encodeURIComponent(mensagemId)}?format=full`);
-  const parte = anexosPdfGmail(mensagem.payload).find(p => anexoId
-    ? p.body?.attachmentId === anexoId : p.partId === parteId);
+  const partes = anexosPdfGmail(mensagem.payload);
+  const parte = (parteId ? partes.find(p => p.partId === parteId) : undefined)
+    ?? partes.find(p => p.body?.attachmentId === anexoId);
   if (!parte) throw new Error("O PDF não está mais disponível no Gmail.");
   if (Number(parte.body?.size ?? 0) > limite) throw new Error("O PDF recebido excede o limite de 10 MB.");
   const corpo = parte.body?.attachmentId
