@@ -11,9 +11,10 @@ type Props = {
   onMark: (ids: string[]) => Promise<void>;
   onOpen: (item: Notification) => void;
   onClose: () => void;
+  onClear: () => void;
 };
 
-export default function NotificationInbox({ items, readIds, ready, onMark, onOpen, onClose }: Props) {
+export default function NotificationInbox({ items, readIds, ready, onMark, onOpen, onClose, onClear }: Props) {
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const read = new Set(readIds);
@@ -31,6 +32,7 @@ export default function NotificationInbox({ items, readIds, ready, onMark, onOpe
       <View style={styles.heading}><Text style={styles.title}>Notificações</Text><Text style={styles.summary}>{!ready ? "Carregando…" : unread.length ? `${unread.length} nova${unread.length === 1 ? "" : "s"}` : "Tudo em dia"}</Text></View>
       <Pressable accessibilityRole="button" accessibilityLabel="Fechar notificações" onPress={onClose} hitSlop={12} style={styles.close}><Ionicons name="close" size={26} color={Colors.text} /></Pressable>
     </View>
+    {ready && items.length > 0 ? <Pressable accessibilityRole="button" accessibilityLabel="Limpar lista de notificações" disabled={saving} onPress={onClear} style={[styles.clear, saving && styles.disabled]}><Text style={styles.clearText}>Limpar lista</Text></Pressable> : null}
     {ready && unread.length > 0 ? <Pressable accessibilityRole="button" accessibilityState={{ disabled: saving, busy: saving }} disabled={saving} onPress={() => void mark(unread.map((item) => String(item.id)))} style={[styles.markAll, saving && styles.disabled]}><Text style={styles.buttonText}>{saving ? "Salvando…" : "Marcar todas como lidas"}</Text></Pressable> : null}
     <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
       {items.map((item) => {
@@ -56,6 +58,8 @@ const styles = StyleSheet.create({
   title: { color: Colors.text, fontSize: 22, fontWeight: "800" },
   summary: { color: Colors.subtitle, fontSize: 14 },
   close: { padding: 9 },
+  clear: { alignSelf: "flex-end", paddingVertical: 12, paddingHorizontal: 4, marginBottom: 8 },
+  clearText: { color: Colors.subtitle, fontSize: 12, textDecorationLine: "underline" },
   markAll: { alignSelf: "flex-start", borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 16 },
   buttonText: { color: Colors.primary, fontSize: 14, fontWeight: "700" },
   list: { paddingBottom: Spacing.xxl, gap: 12 },

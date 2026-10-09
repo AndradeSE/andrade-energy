@@ -411,7 +411,7 @@ export default function ClienteHeader({
       </LinearGradient>
 
       <NotificationSideSheet visible={notificacoesAbertas} onClose={() => setNotificacoesAbertas(false)}>
-        <NotificationInbox items={notificacoes} readIds={leituras.ids} ready={leituras.ready} onMark={leituras.markMany} onClose={() => setNotificacoesAbertas(false)} onOpen={(aviso) => {
+        <NotificationInbox onClear={confirmarLimpeza} items={notificacoes} readIds={leituras.ids} ready={leituras.ready} onMark={leituras.markMany} onClose={() => setNotificacoesAbertas(false)} onOpen={(aviso) => {
           if (!leituras.ids.includes(String(aviso.id))) void marcarComoLida(String(aviso.id));
           setNotificacoesAbertas(false);
           if (aviso.rota) router.push(aviso.rota as any);
