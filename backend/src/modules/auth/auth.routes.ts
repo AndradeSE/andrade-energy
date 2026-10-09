@@ -16,6 +16,8 @@ import {
 } from "./auth.controller";
 import { exigirAutenticacao } from "../../middlewares/auth.middleware";
 import { upload } from "../../config/multer";
+import { supabase } from "../../config/supabase";
+import { publicSessionUser, revokeAuthenticatedSession } from "./session";
 
 const router = Router();
 
@@ -33,6 +35,17 @@ router.post(
 );
 
 router.get("/me", exigirAutenticacao, meuPerfilController);
+router.get("/session", exigirAutenticacao, (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  return res.json({ usuario: publicSessionUser((req as any).usuario) });
+});
+router.post("/logout", exigirAutenticacao, async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  try {
+    await revokeAuthenticatedSession(supabase, (req as any).sessaoId, (req as any).usuario.id);
+    return res.json({ message: "Sessão encerrada." });
+  } catch { return res.status(503).json({ message: "Não foi possível encerrar a sessão." }); }
+});
 router.put("/me", exigirAutenticacao, atualizarMeuPerfilController);
 router.post("/me/senha", exigirAutenticacao, alterarMinhaSenhaController);
 router.delete("/me", exigirAutenticacao, excluirMinhaContaController);
