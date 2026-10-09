@@ -30,8 +30,8 @@ Correções implementadas no código e verificadas localmente. Esta revisão nã
 
 ## Publicação e limites
 
-A web **não está publicada com estas correções**. O identificador salvo em `portal-web/.openai/hosting.json` não foi encontrado na conexão atual do Sites. O endereço do portal em uso foi solicitado para identificar o destino correto; nenhum outro projeto foi selecionado como substituto.
+A web **não está publicada com estas correções**. O identificador salvo em `portal-web/.openai/hosting.json` não foi encontrado na conexão atual do Sites. O domínio confirmado pelo usuário é www.andradeenergy.com.br, cujo CNAME aponta para custom-domains.chatgpt.site. A conexão atual lista zero projetos e não encontra o identificador original; é necessário acesso à conta/espaço que administra o projeto. Nenhum projeto substituto foi criado.
 
-Os backends preparados também ainda precisam ser publicados. Publicar os endpoints de sessão/retorno OAuth e a preservação do CPF **antes** da nova web. Só depois verificar login, cookie e OAuth no domínio real. Não validar o editor de usina contra o backend antigo, que ainda possui a falha de edição parcial descrita acima.
+Backends publicados e confirmados pelo /health em 09/10/2026: produção e772766 e preview cee4617. Render confirmou sucesso em produção. Nos dois ambientes, GET /api/auth/session e POST /api/auth/logout sem autenticação retornaram 401; GET /api/oauth/email/retorno-web retornou 200. A publicação ocorreu antes da nova web; login, cookie e OAuth autenticado no domínio real permanecem pendentes do acesso ao Sites.
 
 Entrega real de push, OAuth real, microfone e transações financeiras não foram executadas nesta revisão local. A divergência pré-existente entre simuladores no script `test-two-uc-projections.cjs` permanece registrada na adaptação anterior; não foi alterada a fórmula para forçar equivalência entre premissas distintas.
