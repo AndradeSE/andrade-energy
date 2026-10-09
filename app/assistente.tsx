@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useAuth } from "../contexts/AuthContext";
-import { isPreviewEnvironment } from "../config/environment";
+import { isAssistantEnabled as isPreviewEnvironment } from "../config/environment";
 import { IS_GERADOR_APP } from "../config/appVariant";
 import { answerInConversation, asksLatestInvoiceAmount, LocalReply, LocalTopic, normalizeAssistantQuery } from "../services/local-assistant";
 import { buscarFatura, listarFaturas } from "../services/faturas.service";
@@ -138,13 +138,19 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     liveGeneration.current += 1;
     const hadAssistantSession = voiceActive.current || dictationActive.current;
     voiceActive.current = false;
-    void liveSession.current?.stop();
+    const liveStop = liveSession.current?.stop();
     liveSession.current = null;
     dictationActive.current = false;
     stopAssistantVoice();
     // Não encerre a captura da frase-chave ao simplesmente sair da Ajuda.
-    if (hadAssistantSession) void stopNativePortugueseSpeech(conversationOwner.current).finally(() => setWakeWordPaused(false));
-    else setWakeWordPaused(false);
+    // Retome a frase-chave somente depois de ambos os capturadores liberarem
+    // o microfone. Retomar antes permite que o stop antigo encerre a nova escuta.
+    if (hadAssistantSession || liveStop) {
+      void Promise.allSettled([
+        liveStop ?? Promise.resolve(),
+        stopNativePortugueseSpeech(conversationOwner.current),
+      ]).then(() => setWakeWordPaused(false));
+    } else setWakeWordPaused(false);
     // A escuta de "Andrade" pertence ao app, não à tela Ajuda.
     if (!wakeWordEnabled()) void releaseVoiceRecognition();
     void releaseLocalModel();
@@ -488,7 +494,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     if (await geminiLiveAudioConsent(id)) return true;
     const allowed = await new Promise<boolean>(resolve => Alert.alert(
       "Conversa direta no Preview",
-      "Com sua autorização, sua voz, seu primeiro nome e os dados necessários para responder às suas consultas (como valores de faturas e produção) serão enviados ao Google Gemini Live enquanto a conversa estiver aberta. Não enviamos PDFs nem credenciais. Não exibiremos a transcrição na Home. A sessão fecha após cinco segundos sem fala; o uso pode consumir a franquia do serviço. Autoriza?",
+      "Com sua autorização, sua voz, seu primeiro nome e os dados necessários para responder às suas consultas (como valores de faturas e produção) serão enviados ao Google Gemini Live enquanto a conversa estiver aberta. Não enviamos PDFs nem credenciais. Não exibiremos a transcrição na Home. A sessão fecha após trinta segundos sem fala; o uso pode consumir a franquia do serviço. Autoriza?",
       [{ text: "Agora não", style: "cancel", onPress: () => resolve(false) }, { text: "Autorizar", onPress: () => resolve(true) }],
       { cancelable: true, onDismiss: () => resolve(false) },
     ));
@@ -526,9 +532,11 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       setVoiceStatus(undefined);
       return;
     }
-    if (preferLive && process.env.EXPO_PUBLIC_ENABLE_GEMINI_LIVE === "1" && isPreviewEnvironment && IS_GERADOR_APP && Platform.OS === "android") {
+    if (preferLive && process.env.EXPO_PUBLIC_ENABLE_GEMINI_LIVE === "1" && isPreviewEnvironment && Platform.OS === "android") {
+      console.info("[AssistantLive] requested");
       if (liveStarting.current) return;
       const allowed = await authorizeLiveAudio();
+      console.info("[AssistantLive] consent", allowed);
       if (allowed) {
         const liveAttempt = ++liveGeneration.current;
         liveStarting.current = true;
@@ -537,11 +545,21 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
         setVoiceStatus("Conectando a conversa…");
         const firstName = String(usuario?.nome ?? "").trim().split(/\s+/)[0]?.replace(/[^\p{L}-]/gu, "").slice(0, 28) ?? "";
         try {
-          // Só carregue o módulo nativo no APK Gerador Preview. Os APKs
+          // Só carregue o módulo nativo nos novos APKs Preview. Os APKs
           // existentes de produção não contêm react-native-audio-api.
           const { startGeminiLive } = await import("../services/assistant-gemini-live");
           await stopNativePortugueseSpeech(conversationOwner.current);
           const session = await startGeminiLive(firstName, {
+            onReady: () => playActivationBeep(true),
+            onLatestInvoice: async () => {
+              const generation = contextGeneration.current;
+              const reply = await queryLiveAccount("Qual o valor da última fatura gerada?", {
+                generator: IS_GERADOR_APP, role: usuario?.perfil,
+                plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id,
+                unitNumber: unidadeSelecionada?.numero, clientId: unidadeSelecionada?.cliente_id ?? usuario?.cliente_id,
+              });
+              return generation === contextGeneration.current ? redactLiveAccountText(reply.text) : "O contexto da conta mudou. Consulte novamente.";
+            },
             onAccountQuery: async question => {
               const generation = contextGeneration.current;
               const reply = await queryLiveAccount(question, {
@@ -579,6 +597,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
               else {
                 setVoiceNotice(`${message} A conversa direta foi encerrada; não troquei silenciosamente para transcrição.`);
                 setWakeWordPaused(false);
+                if (voiceOnly) Alert.alert("Conversa indisponível", message);
                 if (voiceOnly) onClose?.();
               }
             },
@@ -588,12 +607,14 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
           liveStarting.current = false;
           return;
         } catch (error) {
+          console.info("[AssistantLive] start-failed", (error as any)?.response?.status ?? "native-or-network");
           if (liveGeneration.current !== liveAttempt) return;
           liveStarting.current = false;
           voiceActive.current = false;
           setVoiceStatus(error instanceof Error ? error.message : "Conversa direta indisponível.");
           setVoiceNotice("Não consegui abrir a conversa direta. Tente novamente; não ativei a transcrição como substituta.");
           setWakeWordPaused(false);
+          if (voiceOnly) Alert.alert("Conversa indisponível", "Não consegui abrir a conversa direta. Confira a conexão e tente novamente.");
           if (voiceOnly) onClose?.();
           return;
         }
@@ -740,7 +761,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
       {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Consulte dados da sua conta, peça documentos ou abra as funções do app para revisão. Para ditar, segure o microfone e solte; para conversar por voz, toque nas ondas.</Text><Text style={styles.limit}>A conversa usa o Gemini online. Não é necessário baixar um modelo local. Consultas respeitam seu acesso; alterações exigem revisão nas telas do aplicativo.</Text></View> : null}
       <Pressable accessibilityRole="button" accessibilityLabel="Configurar voz natural nos dados da conta" onPress={configureAccountVoice} style={styles.action}><Text style={styles.actionText}>Voz natural nos dados · {accountVoiceAllowed ? "autorizada" : "autorizar"}</Text></Pressable>
-      {IS_GERADOR_APP && Platform.OS === "android" && process.env.EXPO_PUBLIC_ENABLE_GEMINI_LIVE === "1" ? <Pressable accessibilityRole="button" accessibilityLabel="Configurar ou revogar conversa direta" onPress={() => void configureLiveAudio()} style={styles.action}><Text style={styles.actionText}>Conversa direta · configurar ou revogar</Text></Pressable> : null}
+      {isPreviewEnvironment && Platform.OS === "android" && process.env.EXPO_PUBLIC_ENABLE_GEMINI_LIVE === "1" ? <Pressable accessibilityRole="button" accessibilityLabel="Configurar ou revogar conversa direta" onPress={() => void configureLiveAudio()} style={styles.action}><Text style={styles.actionText}>Conversa direta · configurar ou revogar</Text></Pressable> : null}
       {installStage ? <View style={styles.progressCard} accessibilityLiveRegion="polite"><Text style={styles.limit}>{installStage}</Text>{installProgress !== null ? <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(installProgress * 100)}%` }]} /></View> : null}{downloadingModel ? <Pressable accessibilityRole="button" accessibilityLabel="Cancelar download do modelo" onPress={() => void cancelModelDownload()} style={styles.cancelDownload}><Text style={styles.cancelDownloadText}>Cancelar download</Text></Pressable> : null}</View> : null}
       {messages.map((message, index) => <View key={index} style={[styles.bubble, message.from === "user" ? styles.userBubble : styles.assistantBubble]}>
         <Text style={styles.message}>{message.text}</Text>

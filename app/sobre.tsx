@@ -213,14 +213,43 @@ const atualizacaoProntidaoAnterior = {
   numero: "1.0.0-r20261006.23", data: "06/10/2026",
   melhorias: ["Escuta aguarda a confirmação de prontidão do reconhecedor Android, não apenas o pedido de abertura do áudio.", "Permissão do microfone tem limite de espera. Ativação pausada durante conversa é distinguida de uma tentativa de início."],
 };
-const atualizacaoAtual = geradorPreview ? {
-  numero: "1.0.0-r20261008.13", data: "08/10/2026",
-  melhorias: ["Tela permanece ligada durante a conversa ativa e volta ao comportamento normal ao encerrar.", "Correção do formato da sessão Gemini Live e ajuste do fim da fala para reduzir a espera.", "Falhas da conversa direta não acionam silenciosamente o fluxo antigo de transcrição. Requer o novo APK Preview."],
+const atualizacaoAnteriorPublicada = Updates.runtimeVersion === "1.0.4-production-live-awake" ? {
+  numero: "1.0.0-r20261009.1", data: "09/10/2026",
+  melhorias: [
+    "Assistente com conversa Gemini Live e comando Andrade após autorização do microfone e áudio.",
+    "Consultas autenticadas da conta e abertura de PDFs disponíveis, respeitando o perfil e a UC ou usina selecionada.",
+    "Guia verificado dos fluxos do aplicativo e consulta do titular e cliente da UC.",
+    IS_GERADOR_APP ? "Novo ícone de produção com a logo e identificação de Gerador por sol." : "Novo ícone de produção com a logo e identificação de Consumidor por casa.",
+  ],
+} : geradorPreview ? {
+  numero: "1.0.0-r20261008.22", data: "08/10/2026",
+  melhorias: ["Conversa Live recebe o guia verificado dos fluxos do aplicativo.", "Consulta do titular da UC e do cliente cadastrado, respeitando a unidade selecionada."],
 } : previewApp ? {
-  numero: "1.0.0-r20261006.24", data: "06/10/2026",
-  melhorias: ["Ativação, ditado e conversa usam reconhecimento local já instalado quando o motor Android falha ou não fica pronto.", "Sem envio do áudio à nuvem ou download implícito. A captura alternativa não muda o provedor da voz natural das respostas."],
+  numero: "1.0.0-r20261008.22", data: "08/10/2026",
+  melhorias: ["Novo APK Preview com conversa Gemini Live e comando Andrade após autorização.", "Guia de funções do Consumidor na conversa e consulta do titular e cliente da UC selecionada."],
 } : atualizacaoTutoriais;
-const historico = IS_GERADOR_APP ? [
+const atualizacaoContratoAnterior = {
+  numero: "1.0.0-r20261009.2", data: "09/10/2026",
+  melhorias: [
+    "Desconto real considera somente energia compensada, sem antecipar economia dos créditos futuros; cobrança contratual preservada.",
+    ...(IS_GERADOR_APP ? ["Próximo passo abre Faturamento e só aparece quando não há recebimento automático nem fatura emitida.", "Preparação da proposta informa os dados faltantes ou a consulta que falhou, sem enviar convite incompleto."] : []),
+  ],
+};
+const atualizacaoAtual = {
+  numero: "1.0.0-r20261009.3", data: "09/10/2026",
+  melhorias: [
+    "Notificação de contrato abre a UC correspondente, mesmo quando outra unidade está selecionada.",
+    "Proposta e assinatura acompanham a UC do contrato aberto, sem misturar os dados da unidade anterior.",
+  ],
+};
+const historicoAnterior = IS_GERADOR_APP ? [
+  ...(geradorPreview ? [{ numero: "1.0.0-r20261008.21", data: "08/10/2026", melhorias: ["Retomada da escuta após liberar os capturadores e restauração da visibilidade do flutuante."] }] : []),
+  ...(geradorPreview ? [{ numero: "1.0.0-r20261008.20", data: "08/10/2026", melhorias: ["Bipe confirma o comando reconhecido sem esperar a conexão online; a saudação aguarda o fim do bipe.", "Reconhecimento de Andrade usa trechos de até 2 segundos no Preview, com sobreposição para preservar a palavra em ruído contínuo."] }] : []),
+  ...(geradorPreview ? [{ numero: "1.0.0-r20261008.19", data: "08/10/2026", melhorias: ["Microfone contínuo entre perguntas, descartando áudio enquanto a IA fala.", "Token de homologação corrigido para permitir instruções e consultas do aplicativo."] }, { numero: "1.0.0-r20261008.18", data: "08/10/2026", melhorias: ["Consulta inicial da última fatura e espera de 30 segundos pela próxima pergunta.", "Reconhecimento de pedidos falados de documentos e referências ao pedido anterior."] }, { numero: "1.0.0-r20261008.17", data: "08/10/2026", melhorias: ["Menor espera local para fechar a frase Andrade, mantendo a palavra completa."] }] : []),
+  ...(geradorPreview ? [{ numero: "1.0.0-r20261008.16", data: "08/10/2026", melhorias: ["Velocidade da voz Live corrigida, bipe antes da saudação e reserva de áudio contra cortes."] }] : []),
+  ...(geradorPreview ? [{ numero: "1.0.0-r20261008.15", data: "08/10/2026", melhorias: ["Bipe suave, remoção da vibração inicial e diagnóstico seguro da abertura Live."] }] : []),
+  ...(geradorPreview ? [{ numero: "1.0.0-r20261008.14", data: "08/10/2026", melhorias: ["Tratamento das respostas binárias Gemini Live e ativação do motor de reprodução."] }] : []),
+  ...(geradorPreview ? [{ numero: "1.0.0-r20261008.13", data: "08/10/2026", melhorias: ["Tela ligada durante a conversa, correção da abertura Live e ajuste de detecção do fim da fala."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.12", data: "08/10/2026", melhorias: ["Conversa direta Gemini Live após autorização, com consultas autenticadas e sem transcrição visível na Home."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.11", data: "08/10/2026", melhorias: ["A conversa pelo comando ‘Andrade’ permanece na Home, indicada apenas pela animação do ícone flutuante.", "Escuta reabre após a conversa e aguarda o processamento da pergunta."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.10", data: "08/10/2026", melhorias: ["O comando ‘Andrade’ abriu conversa compacta sobre a Home, com bipe e saudação pelo primeiro nome quando autorizada."] }] : []),
@@ -264,6 +293,7 @@ const historico = IS_GERADOR_APP ? [
     "Ícones e identificação separados para os aplicativos Preview e produção.",
   ] },
 ] : [
+  ...(previewApp ? [{ numero: "1.0.0-r20261008.21", data: "08/10/2026", melhorias: ["Retomada da escuta após liberar os capturadores e restauração da visibilidade do flutuante."] }, { numero: "1.0.0-r20261006.24", data: "06/10/2026", melhorias: ["Captura local instalada como alternativa ao serviço Android de reconhecimento."] }] : []),
   ...(previewApp ? [atualizacaoProntidaoAnterior, atualizacaoOndasFlutuantesAnterior, atualizacaoLoopAnterior, atualizacaoInicioDiretoAnterior, atualizacaoReconhecedorAnterior, atualizacaoMicrofoneAnterior, atualizacaoAtivacaoAnterior, atualizacaoAzureAnterior, atualizacaoFaturasAnterior, atualizacaoDocumentosAnterior] : []),
   ...(previewApp ? [atualizacaoModulosAnterior, atualizacaoConsultasAnterior, atualizacaoVozPublicaAnterior, atualizacaoOndasAnterior, atualizacaoConversaGeminiAnterior, atualizacaoGeminiAnterior] : []),
   atualizacaoSetasAnterior,
@@ -291,6 +321,8 @@ const historico = IS_GERADOR_APP ? [
     "Ícones e identificação separados para os aplicativos Preview e produção.",
   ] },
 ];
+
+const historico = [atualizacaoContratoAnterior, atualizacaoAnteriorPublicada, ...historicoAnterior];
 
 export default function SobreApp() {
   const version = Constants.expoConfig?.version ?? "Não informada";

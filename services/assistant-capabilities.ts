@@ -10,13 +10,14 @@ export function detectCapability(input: string): AssistantIntent | undefined {
   const text = normalizeCapabilityText(input);
   if (/^(como|onde|por que|porque|explique|me explique)\b/.test(text)) return undefined;
   const review = /\b(excluir|apagar|transferir|pagar|assinar|cancelar|faturar|criar|cadastrar|editar|alterar|ativar|desativar|convidar|renovar|importar|enviar convite|aceitar)\b/.test(text);
-  const mode = review || /^(abrir|abra|ir para|acesse|acessar)\b/.test(text) ? "action" : /\b(pdf|documento|baixar|baixe|mande|envie|entregue|anexo)\b/.test(text) ? "document" : "query";
+  const wantsDocument = /\b(pdf|arquivo|documento|baixar|baixa|baixe|download|mande|manda|envie|entregue|anexo)\b/.test(text);
+  const mode = review ? "action" : wantsDocument ? "document" : /^(abrir|abra|ir para|acesse|acessar)\b/.test(text) ? "action" : "query";
   let module: AssistantModule | undefined;
   if (/\b(termos|politica de privacidade|politica de cancelamento)\b/.test(text)) module = "termos";
   else if (/\b(privacidade|lgpd|dados pessoais|portabilidade)\b/.test(text)) module = "privacidade";
   else if (/\b(relatorio de calculo|memoria de calculo|calculo da fatura)\b/.test(text)) module = "calculo";
   else if (/\b(faturas anexadas|anexos|anexo do cliente)\b/.test(text)) module = "anexos";
-  else if (/\b(conta de luz|conta da cemig|pdf da cemig|conta da concessionaria)\b/.test(text)) module = "conta-luz";
+  else if (/\b(conta de luz|conta da cemig|pdf da cemig|conta da concessionaria)\b/.test(text) || (wantsDocument && /\b(fatura|conta)\b/.test(text) && /\b(original|usada|importada)\b/.test(text))) module = "conta-luz";
   else if (/\b(proposta)\b/.test(text)) module = "proposta";
   else if (/\b(contrato|contratos|minuta|cancelamento|renovacao)\b/.test(text)) module = "contratos";
   else if (/\b(automatico|automatica|gmail|outlook|encaminhamento|recebimento)\b/.test(text)) module = "recebimento";

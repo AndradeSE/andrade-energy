@@ -3,6 +3,7 @@ import { createDownloadResumable, getInfoAsync } from "expo-file-system/legacy";
 import { getRecordingPermissionsAsync, requestRecordingPermissionsAsync, setAudioModeAsync } from "expo-audio";
 import { hasAssistantVoiceEnergy } from "./assistant-audio-energy";
 import { AssistantLocalWake } from "./assistant-local-wake";
+import { isPreviewEnvironment } from "../config/environment";
 
 const VOICE_DIR = new Directory(Paths.document, "assistente-local", "voz");
 const VOICE_MODEL = {
@@ -131,7 +132,7 @@ export async function prepareVoiceRecognition() {
       { audioSliceSec: 30, audioMinSec: 0.4, maxSlicesInMemory: 2, realtimeProcessingPauseMs: 60_000, initRealtimeAfterMs: 60_000, transcribeOptions: { language: "pt" } },
       {},
     );
-    const wake = new AssistantLocalWake(new AudioPcmStreamAdapter(), whisper);
+    const wake = new AssistantLocalWake(new AudioPcmStreamAdapter(), whisper, isPreviewEnvironment);
     return { transcriber, dictationTranscriber, whisper, vad, capture, wake };
   })();
   try { session = await preparingSession; }

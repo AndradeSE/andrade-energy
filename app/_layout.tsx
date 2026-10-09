@@ -28,7 +28,7 @@ import { preloadNavigationData } from "../services/navigation-preload.service";
 import { listarAcessoContratos } from "../services/contratos.service";
 import FloatingAssistant from "../components/assistant/FloatingAssistant";
 import AssistantWakeWord from "../components/assistant/AssistantWakeWord";
-import { isPreviewEnvironment } from "../config/environment";
+import { isAssistantEnabled as isPreviewEnvironment } from "../config/environment";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({

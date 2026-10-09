@@ -39,6 +39,14 @@ export default function FloatingAssistant() {
     }
     previousHidden.current = hidden;
   }, [hidden, hideProgress]);
+  useEffect(() => {
+    // Encerrar uma conversa não é ocultar o atalho. Uma animação interrompida
+    // não pode deixar o ícone visível na preferência, mas transparente na tela.
+    if (!hidden && !conversationOpen) {
+      hideProgress.stopAnimation();
+      hideProgress.setValue(0);
+    }
+  }, [hidden, conversationOpen, hideProgress]);
   useEffect(() => () => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }, []);
   useEffect(() => {
     wave.setValue(0);

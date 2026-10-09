@@ -9,17 +9,28 @@ import { detectFinancialMetric, financialMetricReply } from "./assistant-financi
 import { carregarFinanceiro } from "./financeiro.service";
 import { detectAccountQuery, consultAccount } from "./assistant-account";
 import type { AssistantToolReply } from "./assistant-capabilities";
+import { buscarUnidade, buscarCliente } from "./clientes.service";
 
 export type LiveAccountReply = AssistantToolReply & { invoiceId?: string; invoiceChoices?: Array<{ id: string; label: string }> };
 
 // Contexto vem da sessão do app. O modelo não fornece IDs, URLs ou endpoints.
 export async function queryLiveAccount(question: string, ctx: AssistantAccountContext): Promise<LiveAccountReply> {
   const text = normalizeAssistantQuery(question);
+  if (/\b(titular|nome do cliente|nome da cliente)\b/.test(text) && !/^(como|onde)\b/.test(text)) {
+    if (!ctx.unitId) return { text: "Qual UC você quer consultar? Selecione a unidade para eu informar o titular e o cliente corretos." };
+    const unit = await buscarUnidade(ctx.unitId);
+    const clientId = unit?.cliente_id ?? ctx.clientId;
+    const client = clientId ? await buscarCliente(clientId) : undefined;
+    const holder = typeof unit?.titular === "string" ? unit.titular.trim() : "";
+    const name = typeof client?.nome === "string" ? client.nome.trim() : "";
+    return { text: [holder ? `Titular da UC ${unit.numero ?? "selecionada"}: ${holder}.` : "Não há nome do titular preenchido nesta UC.", name ? `Cliente cadastrado: ${name}.` : "Não há nome de cliente disponível neste registro."].join(" ") };
+  }
   const capability = detectCapability(text);
   const document = asksLatestInvoiceDocument(text);
   const overdue = asksOverdueInvoices(text);
   const financial = detectFinancialMetric(text);
-  if (capability && !overdue && !(document && !capability.review && ["usinas", "faturamento", "pagamento"].includes(capability.module))) {
+  const invoiceAmount = asksLatestInvoiceAmount(text);
+  if (capability && !overdue && !invoiceAmount && !(document && !capability.review && ["usinas", "faturamento", "pagamento"].includes(capability.module))) {
     return executeAssistantTool(capability, ctx, text);
   }
   if (overdue || document || asksLatestInvoiceAmount(text) || (!financial && /\bfaturas?\b/.test(text))) {

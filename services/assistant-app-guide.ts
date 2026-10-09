@@ -41,3 +41,8 @@ const GUIDE: GuideEntry[] = [
 export function guideAppAnswer(normalizedQuestion: string, variant: "gerador" | "consumidor") {
   return GUIDE.find(item => (item.audience === "ambos" || item.audience === variant) && item.match.test(normalizedQuestion))?.answer;
 }
+
+export function verifiedAppGuide(variant: "gerador" | "consumidor") {
+  return GUIDE.filter(item => item.audience === "ambos" || item.audience === variant)
+    .map(item => item.answer).join("\n");
+}

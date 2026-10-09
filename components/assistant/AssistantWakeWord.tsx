@@ -12,6 +12,7 @@ import { isVoiceInstalled } from "../../services/on-device-voice";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
 import { playActivationBeep } from "../../services/assistant-beep";
+import { isAssistantEnabled as isPreviewEnvironment } from "../../config/environment";
 
 export default function AssistantWakeWord() {
   const enabled = useSyncExternalStore(subscribeWakeWord, wakeWordEnabled);
@@ -23,7 +24,7 @@ export default function AssistantWakeWord() {
   const userId = usuario?.id ? String(usuario.id) : undefined;
   const [foreground, setForeground] = useState(AppState.currentState === "active");
   useEffect(() => {
-    if (!IS_GERADOR_APP || !foreground || !userId) return;
+    if (!isPreviewEnvironment || !foreground || !userId) return;
     let cancelled = false;
     void automaticLocalWakeConsent(userId).then(allowed => {
       if (!cancelled && allowed && isVoiceInstalled() && !wakeWordEnabled() && !floatingConversationRequest()) {
@@ -101,8 +102,10 @@ export default function AssistantWakeWord() {
           if (!matched) { if (online) retry(); return; }
           triggered = true;
           console.info("[AssistantWake] matched; releasing microphone");
-          Vibration.vibrate(120);
-          void playActivationBeep();
+          if (!isPreviewEnvironment) {
+            Vibration.vibrate(120);
+            void playActivationBeep();
+          }
           void stopNativePortugueseSpeech(owner).then(() => {
             // Uma atualização de tela pode desmontar esta escuta enquanto o
             // microfone é liberado. Isso não deve descartar o comando já aceito.
@@ -115,7 +118,7 @@ export default function AssistantWakeWord() {
         const started = await startNativePortugueseSpeech(detect, fail, undefined, retry, {
           onPartial: detect, onEnd: retry, wakeOnlineConsent: online,
           shouldContinue: () => !cancelled && !triggered && wakeWordRemainingMs() > 0,
-          owner, onReady: () => { if (!cancelled && !triggered) { if (!opened) Vibration.vibrate(50); opened = true; clearTimeout(startupDeadline); setWakeWordReady(true); } },
+          owner, onReady: () => { if (!cancelled && !triggered) { if (!opened && !isPreviewEnvironment) Vibration.vibrate(50); opened = true; clearTimeout(startupDeadline); setWakeWordReady(true); } },
         });
         if (cancelled) await stopNativePortugueseSpeech(owner);
         else if (!started && !triggered) fail(nativeSpeechAvailabilityError());

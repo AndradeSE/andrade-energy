@@ -1,5 +1,5 @@
 import api from "../config/api";
-import { isPreviewEnvironment } from "../config/environment";
+import { isAssistantEnabled as isPreviewEnvironment } from "../config/environment";
 import { IS_GERADOR_APP } from "../config/appVariant";
 
 // Legacy topic-only support for older Preview installers.

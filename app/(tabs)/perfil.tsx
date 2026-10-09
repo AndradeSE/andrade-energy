@@ -42,7 +42,7 @@ import {
 import { AppHeader, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import ClienteHeader from "../../components/cliente/ClienteHeader";
 import { IS_GERADOR_APP } from "../../config/appVariant";
-import { isPreviewEnvironment } from "../../config/environment";
+import { isAssistantEnabled as isPreviewEnvironment } from "../../config/environment";
 import { automaticLocalWakeConsent, setAutomaticLocalWakeConsent } from "../../services/assistant-voice-consent";
 import { setWakeWordEnabled } from "../../services/assistant-wake-word";
 import { installVoiceModels, isVoiceInstalled } from "../../services/on-device-voice";
@@ -124,7 +124,7 @@ export default function Perfil() {
 
   useEffect(() => { void AsyncStorage.getItem(chaveFoto).then((valor) => setFotoPerfil(valor ?? "")); }, [chaveFoto]);
   useEffect(() => {
-    if (!IS_GERADOR_APP || !isPreviewEnvironment || !user?.id) return;
+    if (!isPreviewEnvironment || !user?.id) return;
     let active = true;
     void automaticLocalWakeConsent(String(user.id)).then(allowed => { if (active) setEscutaAutomatica(allowed); });
     return () => { active = false; };
@@ -437,7 +437,7 @@ export default function Perfil() {
 
         <Text style={styles.sectionTitle}>SEGURANÇA</Text>
         <View style={styles.cardGroup}>
-          {IS_GERADOR_APP && isPreviewEnvironment ? <View style={[styles.preferenceRow, styles.standaloneRow]}>
+          {isPreviewEnvironment ? <View style={[styles.preferenceRow, styles.standaloneRow]}>
             <View style={styles.preferenceIcon}><Ionicons color={Colors.primary} name="mic-outline" size={23} /></View>
             <View style={styles.preferenceCopy}>
               <Text style={styles.preferenceTitle}>Comando de voz “Andrade”</Text>
