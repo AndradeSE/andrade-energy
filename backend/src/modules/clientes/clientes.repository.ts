@@ -1,5 +1,6 @@
 import { supabase } from "../../config/supabase";
 import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
+import { garantirRegistroDaEmpresa } from "../../utils/empresaScope";
 import { randomUUID } from "node:crypto";
 import { restaurarContratoAssinadoDaMesmaUc } from "../contratos/contratos.repository";
 import { configuracaoVigenteParaFaturamento } from "../contratos/contratoFaturamento.policy";
@@ -504,6 +505,7 @@ export async function buscarClientePorUC(uc: string, empresaId?: string) {
 }
 
 export async function criarCliente(cliente: any, empresaId = EMPRESA_ANDRADE_ID) {
+  if (cliente?.usina_id) await garantirRegistroDaEmpresa("usinas", cliente.usina_id, empresaId);
   const cpf = somenteDigitos(cliente?.cpf);
   if (cpf.length === 11) {
     const { data: existentes, error: erroExistentes } = await supabase.from("clientes")
@@ -534,9 +536,11 @@ export async function atualizarCliente(
   cliente: any,
   empresaId = EMPRESA_ANDRADE_ID,
 ) {
+  const { id: _id, empresa_id: _empresaId, ...dadosCliente } = cliente ?? {};
+  if (dadosCliente.usina_id) await garantirRegistroDaEmpresa("usinas", dadosCliente.usina_id, empresaId);
   const { data, error } = await supabase
     .from("clientes")
-    .update(cliente)
+    .update(dadosCliente)
     .eq("id", id)
     .eq("empresa_id", empresaId)
     .select()

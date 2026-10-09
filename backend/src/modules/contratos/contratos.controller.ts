@@ -107,6 +107,9 @@ export async function criarContratoController(
     if (req.body?.cliente_id) {
       await garantirRegistroDaEmpresa("clientes", req.body.cliente_id, empresaIdDaRequisicao(req));
     }
+    for (const [campo, tabela] of [["usina_id", "usinas"], ["unidade_consumidora_id", "unidades_consumidoras"]]) {
+      if (req.body?.[campo]) await garantirRegistroDaEmpresa(tabela, req.body[campo], empresaIdDaRequisicao(req));
+    }
 
     const contrato =
       await ContratosService.criarContratoService(

@@ -514,9 +514,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
   const enderecoDaFatura = String(input.endereco ?? "").trim();
   const enderecoDaUc = enderecoDaFatura || unidadeAnterior?.endereco || cliente.endereco || null;
   const usinaAnterior = unidadeAnterior?.usina_id ?? null;
-  const { data: unidade, error: erroUc } = await supabase
-    .from("unidades_consumidoras")
-    .upsert({
+  const dadosUnidade = {
       empresa_id: empresaId,
       cliente_id: clienteId,
       usina_id: usinaId,
@@ -539,9 +537,12 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
       fatura_somente_andrade: somenteAndrade,
       status: existePdfPendente || !possuiContratoAssinado
         ? "PENDENTE_CONTRATO" : "ATIVA",
-    }, { onConflict: "numero" })
-    .select("id")
-    .single();
+    };
+  // A unicidade global do número não autoriza atualizar a UC de outra empresa.
+  const consultaUnidade = unidadeAnterior?.id
+    ? supabase.from("unidades_consumidoras").update(dadosUnidade).eq("id", unidadeAnterior.id).eq("empresa_id", empresaId)
+    : supabase.from("unidades_consumidoras").insert(dadosUnidade);
+  const { data: unidade, error: erroUc } = await consultaUnidade.select("id").single();
   if (erroUc) throw erroUc;
 
   if (usinaAnterior && usinaAnterior !== usinaId) {
@@ -663,13 +664,13 @@ export async function criarUsinaService(
   const numero = String(usina?.numero_instalacao ?? "").replace(/\D/g, "");
   if (!numero) return usina;
 
-  const { error } = await supabase.from("unidades_consumidoras").upsert({
+  const { error } = await supabase.from("unidades_consumidoras").insert({
     empresa_id: empresaId, usina_id: usina.id, numero, tipo: "GERADORA",
     titular: usina.titular_nome ?? usina.nome ?? "Usina",
     cpf_titular: String(cpfTitularSnake ?? cpfTitularCamel ?? "").replace(/\D/g, "") || null,
     distribuidora: usina.distribuidora ?? "CEMIG", endereco: usina.endereco ?? null,
     modalidade_faturamento: "INJECAO", status: "ATIVA",
-  }, { onConflict: "numero" });
+  });
   if (error) {
     await supabase.from("usinas").delete().eq("id", usina.id);
     throw error;
@@ -720,7 +721,7 @@ export async function atualizarUsinaService(
   if (buscaError) throw buscaError;
   const resultado = unidadeExistente?.id
     ? await supabase.from("unidades_consumidoras").update(payloadUnidade).eq("id", unidadeExistente.id).eq("empresa_id", empresaId)
-    : await supabase.from("unidades_consumidoras").upsert(payloadUnidade, { onConflict: "numero" });
+    : await supabase.from("unidades_consumidoras").insert(payloadUnidade);
   if (resultado.error) throw resultado.error;
 
   if (usina?.tipo_gd === "GD2") {
@@ -830,11 +831,11 @@ export async function obterDashboardUsina(
   let unidadeGeradora = buscaUnidadeGeradora.data ?? null;
   const numeroInstalacao = String(usina?.numero_instalacao ?? "").replace(/\D/g, "");
   if (!unidadeGeradora && numeroInstalacao) {
-    const { data, error } = await supabase.from("unidades_consumidoras").upsert({
+    const { data, error } = await supabase.from("unidades_consumidoras").insert({
       empresa_id: empresaId, usina_id: id, numero: numeroInstalacao, tipo: "GERADORA",
       titular: usina?.titular_nome ?? usina?.nome ?? "Usina", distribuidora: usina?.distribuidora ?? "CEMIG",
       endereco: usina?.endereco ?? null, modalidade_faturamento: "INJECAO", status: "ATIVA",
-    }, { onConflict: "numero" }).select("id, numero, tipo, recebimento_email_ativo, recebimento_email_status").single();
+    }).select("id, numero, tipo, recebimento_email_ativo, recebimento_email_status").single();
     if (error) throw error;
     unidadeGeradora = data;
   }
