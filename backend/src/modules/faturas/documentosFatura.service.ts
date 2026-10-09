@@ -564,6 +564,9 @@ export async function gerarPdfRelatorioCalculo(fatura: any) {
     const referenciaSemAndrade = totalDoMes + economia;
     const descontoReal = numero(fatura.desconto_real_percentual);
     const descontoContratado = numero(fatura.desconto_contratado_percentual ?? fatura.desconto_percentual);
+    const referenciaDoDesconto = String(fatura.modalidade_faturamento).toUpperCase() === "INJECAO"
+      ? numero(fatura.energia_compensada) * numero(fatura.tarifa_cheia)
+      : referenciaSemAndrade;
     const impostos = numero(fatura.valor_impostos);
 
     const cartao = (x: number, y: number, largura: number, altura: number, fundo = "#FFFFFF") => {
@@ -635,10 +638,10 @@ export async function gerarPdfRelatorioCalculo(fatura: any) {
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(11).text("Como o desconto real é medido", 48, 116);
     pdf.fillColor(TEXTO).font("Helvetica").fontSize(9.5).text("O desconto real compara apenas os componentes convencionais da energia no cenário sem usina com o custo equivalente após o benefício Andrade Energy. Multas, juros, iluminação pública, bandeiras e encargos extraordinários não aumentam nem reduzem artificialmente essa porcentagem.", 48, 139, { width: 498, lineGap: 4 });
     cartao(48, 210, 498, 104, "#E8F6F0");
-    linha("Referência convencional sem usina", moeda(referenciaSemAndrade), 230);
-    linha("Custo comparável com Andrade", moeda(Math.max(0, referenciaSemAndrade - economia)), 254);
+    linha("Referência da energia compensada", moeda(referenciaDoDesconto), 230);
+    linha("Custo comparável com Andrade", moeda(Math.max(0, referenciaDoDesconto - economia)), 254);
     linha("Economia considerada", moeda(economia), 278);
-    linha("Fórmula", `(${moeda(referenciaSemAndrade)} - ${moeda(Math.max(0, referenciaSemAndrade - economia))}) / ${moeda(referenciaSemAndrade)} = ${percentual(descontoReal)}`, 296, true);
+    linha("Fórmula", referenciaDoDesconto > 0 ? `(${moeda(referenciaDoDesconto)} - ${moeda(Math.max(0, referenciaDoDesconto - economia))}) / ${moeda(referenciaDoDesconto)} = ${percentual(descontoReal)}` : "Sem energia compensada: desconto real 0%", 296, true);
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(11).text("Informações complementares da conta", 48, 350);
     cartao(48, 372, 498, 142, "#FFFFFF");
     linha("Impostos informados/embutidos", moeda(impostos), 391);

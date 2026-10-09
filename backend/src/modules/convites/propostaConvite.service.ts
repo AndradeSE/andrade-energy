@@ -79,8 +79,17 @@ export function calcularEnergiaProjetadaContrato(input: {
   return producaoMediaUsina;
 }
 
+export function validarDadosDaProposta(consumo: number, tarifaCheia: number, modalidade: string) {
+  const faltantes: string[] = [];
+  if (!Number.isFinite(consumo) || consumo <= 0) faltantes.push(modalidade === "INJECAO"
+    ? "produção média da usina ou consumo médio da UC"
+    : "consumo médio da UC");
+  if (!Number.isFinite(tarifaCheia) || tarifaCheia <= 0) faltantes.push("tarifa cheia da conta de energia");
+  if (faltantes.length) throw new Error(`Não foi possível preparar a proposta: faltam ${faltantes.join(" e ")}. Confira a configuração da UC e anexe uma conta com consumo e tarifa legíveis; na modalidade por injeção, confira também a produção média da usina. Nenhum convite foi enviado.`);
+}
+
 export async function obterPropostaParaConvite(clienteId: string, empresaId: string, unidadeId?: string) {
-  const [{ data: cliente }, { data: unidades }, { data: anexos }, { data: empresa }, usinas] = await Promise.all([
+  const [{ data: cliente, error: erroCliente }, { data: unidades, error: erroUnidades }, { data: anexos, error: erroAnexos }, { data: empresa, error: erroEmpresa }, usinas] = await Promise.all([
     supabase.from("clientes").select("*").eq("id", clienteId).eq("empresa_id", empresaId).maybeSingle(),
     // O contrato e o convite são preparados antes de a conta do cliente ser
     // ativada. Portanto a UC ainda pode estar pendente nesta etapa.
@@ -89,10 +98,13 @@ export async function obterPropostaParaConvite(clienteId: string, empresaId: str
     supabase.from("empresas").select("*").eq("id", empresaId).maybeSingle(),
     listarUsinasService(empresaId),
   ]);
+  const fonteComFalha = erroCliente ? "cadastro do cliente" : erroUnidades ? "unidades consumidoras" : erroAnexos ? "contas anexadas ao cliente" : erroEmpresa ? "cadastro da empresa" : null;
+  if (fonteComFalha) throw new Error(`Não foi possível consultar ${fonteComFalha} para preparar a proposta. Tente novamente. Nenhum convite foi enviado.`);
   const unidade = unidadeId
     ? (unidades ?? []).find((item: any) => item.id === unidadeId)
     : (unidades ?? []).find((item: any) => String(item.numero) === String(cliente?.uc)) ?? unidades?.[0];
-  if (!cliente || !unidade) return null;
+  if (!cliente) throw new Error("Não foi possível preparar a proposta: cliente não encontrado nesta empresa. Nenhum convite foi enviado.");
+  if (!unidade) throw new Error("Não foi possível preparar a proposta: a UC não está vinculada a este cliente nesta empresa. Confira o cadastro da UC. Nenhum convite foi enviado.");
   const anexoCorrespondente = (anexos ?? []).find((item: any) => String(item.dados_fatura?.uc ?? item.dados_fatura?.numero_instalacao ?? "").replace(/\D/g, "") === String(unidade.numero).replace(/\D/g, ""));
   // Alguns layouts da concessionária trazem UC e instalação em campos
   // distintos. Se existe um único PDF no perfil, ele é inequivocamente a
@@ -123,7 +135,7 @@ export async function obterPropostaParaConvite(clienteId: string, empresaId: str
     producaoMediaUsina,
     percentualRateio: unidade.percentual_rateio,
   });
-  if (consumo <= 0 || tarifaCheia <= 0) return null;
+  validarDadosDaProposta(consumo, tarifaCheia, modalidade);
   const tipoGd = String(usina?.tipo_gd ?? unidade.tipo_gd ?? dados.tipoGd ?? "GD1").toUpperCase();
   const descontoContratado = Math.max(0, Math.min(100, n(unidade.desconto_percentual ?? cliente.desconto_percentual ?? 40)));
   const base = consumo * tarifaCheia;

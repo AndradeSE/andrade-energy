@@ -279,7 +279,7 @@ if (!cliente.usina_id) {
     // conta da concessionária quando não forem absorvidas pela Andrade.
     baseDescontoReal:
       modalidade === "INJECAO"
-        ? energiaInjetadaCalculada * tarifaCheia
+        ? baseCompensacaoCalculada * tarifaCheia
         : energiaCompensadaGD2 > 0
           ? valorEnergiaSemGD
           : valorCreditoEfetivo,
