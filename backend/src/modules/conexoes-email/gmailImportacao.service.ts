@@ -24,6 +24,7 @@ export async function enfileirarFaturasGmail(deps: DependenciasGmail = {
     if (error) throw error;
     const caixasConsultadas = new Set<string>();
     for (const conexao of conexoes ?? []) {
+      let etapa = "CONFIGURACAO_UC";
       try {
         const { data: unidade, error: erroUc } = await deps.db.from("unidades_consumidoras")
           .select("id,cliente_id,tipo,status,recebimento_email_ativo,usinas(titularidade_ucs_recebedoras)")
@@ -35,9 +36,11 @@ export async function enfileirarFaturasGmail(deps: DependenciasGmail = {
           : usina?.titularidade_ucs_recebedoras === "CLIENTE" ? unidade.cliente_id : "GERADOR";
         const caixa = `${conexao.empresa_id}:${conexao.email_conectado}:${escopo}`;
         if (caixasConsultadas.has(caixa)) continue;
+        etapa = "AUTORIZACAO";
         const token = await deps.obterToken(conexao.id, conexao.empresa_id);
         // Recupera contas recentes que chegaram antes da correção, sem ler toda a caixa.
         const desde = new Date(Date.now() - 30 * 24 * 60 * 60_000);
+        etapa = "CONSULTAR_MENSAGENS";
         for (const mensagem of await deps.listar(token, desde)) {
           const dados = await deps.consultar<{ payload?: ParteGmail & { headers?: Array<{ name: string; value: string }> }; internalDate?: string }>(token,
             `messages/${encodeURIComponent(mensagem.id)}?format=full`);
@@ -46,6 +49,7 @@ export async function enfileirarFaturasGmail(deps: DependenciasGmail = {
           if (!/(?:^|<)fatura@cemig\.com\.br(?:>|$)/i.test(remetente.trim())) continue;
           for (const parte of anexosPdfGmail(dados.payload)) {
             const chave = createHash("sha256").update(`${caixa}:${mensagem.id}:${parte.partId ?? parte.body?.attachmentId}`).digest("hex");
+            etapa = "ENFILEIRAR_PDF";
             const { error: erroFila } = await deps.db.from("recebimentos_faturas_email").upsert({
               empresa_id: conexao.empresa_id, provedor: "GMAIL", provedor_email_id: chave,
               unidade_consumidora_id: unidade.id, destinatario: conexao.email_conectado,
@@ -63,11 +67,17 @@ export async function enfileirarFaturasGmail(deps: DependenciasGmail = {
           .eq("empresa_id", conexao.empresa_id).eq("email_conectado", conexao.email_conectado)
           .eq("provedor", "GMAIL").eq("status", "LEITURA_AUTORIZADA");
         if (erroAtualizar) throw erroAtualizar;
-      } catch {
-        // Sem tokens, conteúdo do e-mail ou detalhes do provedor nos logs.
+      } catch (erro: any) {
+        const codigo = String(erro?.codigoGmail ?? erro?.code ?? "INDEFINIDO");
+        console.warn("Falha na leitura Gmail", { etapa, codigo: /^[A-Z0-9_]{1,60}$/.test(codigo) ? codigo : "INDEFINIDO" });
+        // Sem tokens ou conteúdo do e-mail nos logs.
         const { error: erroAtualizar } = await deps.db.from("conexoes_email").update({
           regra_status: "ERRO",
-          regra_erro: "A consulta automática ao Gmail falhou. Confira a conexão e, se necessário, conecte a conta novamente.",
+          regra_erro: codigo === "OAUTH_REAUTORIZACAO"
+            ? "A autorização do Gmail expirou ou foi revogada. Conecte a conta novamente para retomar a importação."
+            : codigo === "GMAIL_API_DESATIVADA"
+              ? "A API Gmail precisa ser ativada na integração Google da Andrade Energy."
+              : "A consulta automática ao Gmail falhou. Confira a conexão e, se necessário, conecte a conta novamente.",
           updated_at: new Date().toISOString(),
         }).eq("id", conexao.id);
         if (erroAtualizar) throw erroAtualizar;
