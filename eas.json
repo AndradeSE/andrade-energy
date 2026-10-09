@@ -30,23 +30,23 @@
       "distribution": "internal",
       "environment": "production",
       "channel": "production-consumidor",
-      "env": { "EXPO_PUBLIC_APP_VARIANT": "consumidor", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
+      "env": { "EXPO_PUBLIC_APP_ENV": "production", "EXPO_PUBLIC_APP_VARIANT": "consumidor", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api", "EXPO_PUBLIC_ENABLE_GEMINI_LIVE": "1", "EXPO_PUBLIC_ENABLE_SAFE_ONLINE_VOICE": "1" }
     },
     "client-gerador": {
       "distribution": "internal",
       "environment": "production",
       "channel": "production-gerador",
-      "env": { "EXPO_PUBLIC_APP_VARIANT": "gerador", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
+      "env": { "EXPO_PUBLIC_APP_ENV": "production", "EXPO_PUBLIC_APP_VARIANT": "gerador", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api", "EXPO_PUBLIC_ENABLE_GEMINI_LIVE": "1", "EXPO_PUBLIC_ENABLE_SAFE_ONLINE_VOICE": "1" }
     },
     "production": {
       "autoIncrement": true,
       "channel": "production-consumidor",
-      "env": { "EXPO_PUBLIC_APP_VARIANT": "consumidor", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
+      "env": { "EXPO_PUBLIC_APP_ENV": "production", "EXPO_PUBLIC_APP_VARIANT": "consumidor", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api", "EXPO_PUBLIC_ENABLE_GEMINI_LIVE": "1", "EXPO_PUBLIC_ENABLE_SAFE_ONLINE_VOICE": "1" }
     },
     "production-gerador": {
       "autoIncrement": true,
       "channel": "production-gerador",
-      "env": { "EXPO_PUBLIC_APP_VARIANT": "gerador", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
+      "env": { "EXPO_PUBLIC_APP_ENV": "production", "EXPO_PUBLIC_APP_VARIANT": "gerador", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api", "EXPO_PUBLIC_ENABLE_GEMINI_LIVE": "1", "EXPO_PUBLIC_ENABLE_SAFE_ONLINE_VOICE": "1" }
     }
   },
   "submit": {

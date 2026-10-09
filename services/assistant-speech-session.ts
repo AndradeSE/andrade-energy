@@ -1,7 +1,7 @@
 import { startNativePortugueseSpeech, stopNativePortugueseSpeech, finishNativePortugueseSpeech, nativeSpeechAvailabilityError } from "./native-speech";
 import { isVoiceInstalled, startContinuousListening, stopContinuousListening, finishDictation } from "./on-device-voice";
 import { startOnlineSpeech, stopOnlineSpeech, finishOnlineSpeech } from "./assistant-online-speech";
-import { isPreviewEnvironment } from "../config/environment";
+import { isAssistantEnabled as isPreviewEnvironment } from "../config/environment";
 
 // Uma sessão possui o microfone inteiro. Preview usa transcrição online somente
 // com consentimento específico; a frase-chave local continua disponível no teste.

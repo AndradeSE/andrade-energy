@@ -213,7 +213,15 @@ const atualizacaoProntidaoAnterior = {
   numero: "1.0.0-r20261006.23", data: "06/10/2026",
   melhorias: ["Escuta aguarda a confirmação de prontidão do reconhecedor Android, não apenas o pedido de abertura do áudio.", "Permissão do microfone tem limite de espera. Ativação pausada durante conversa é distinguida de uma tentativa de início."],
 };
-const atualizacaoAtual = geradorPreview ? {
+const atualizacaoAtual = Updates.runtimeVersion === "1.0.4-production-live-awake" ? {
+  numero: "1.0.0-r20261009.1", data: "09/10/2026",
+  melhorias: [
+    "Assistente com conversa Gemini Live e comando Andrade após autorização do microfone e áudio.",
+    "Consultas autenticadas da conta e abertura de PDFs disponíveis, respeitando o perfil e a UC ou usina selecionada.",
+    "Guia verificado dos fluxos do aplicativo e consulta do titular e cliente da UC.",
+    IS_GERADOR_APP ? "Novo ícone de produção com a logo e identificação de Gerador por sol." : "Novo ícone de produção com a logo e identificação de Consumidor por casa.",
+  ],
+} : geradorPreview ? {
   numero: "1.0.0-r20261008.22", data: "08/10/2026",
   melhorias: ["Conversa Live recebe o guia verificado dos fluxos do aplicativo.", "Consulta do titular da UC e do cliente cadastrado, respeitando a unidade selecionada."],
 } : previewApp ? {

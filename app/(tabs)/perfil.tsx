@@ -42,7 +42,7 @@ import {
 import { AppHeader, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import ClienteHeader from "../../components/cliente/ClienteHeader";
 import { IS_GERADOR_APP } from "../../config/appVariant";
-import { isPreviewEnvironment } from "../../config/environment";
+import { isAssistantEnabled as isPreviewEnvironment } from "../../config/environment";
 import { automaticLocalWakeConsent, setAutomaticLocalWakeConsent } from "../../services/assistant-voice-consent";
 import { setWakeWordEnabled } from "../../services/assistant-wake-word";
 import { installVoiceModels, isVoiceInstalled } from "../../services/on-device-voice";

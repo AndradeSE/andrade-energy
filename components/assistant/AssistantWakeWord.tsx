@@ -12,7 +12,7 @@ import { isVoiceInstalled } from "../../services/on-device-voice";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
 import { playActivationBeep } from "../../services/assistant-beep";
-import { isPreviewEnvironment } from "../../config/environment";
+import { isAssistantEnabled as isPreviewEnvironment } from "../../config/environment";
 
 export default function AssistantWakeWord() {
   const enabled = useSyncExternalStore(subscribeWakeWord, wakeWordEnabled);

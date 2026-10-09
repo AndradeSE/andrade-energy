@@ -2,7 +2,7 @@ import { AppState } from "react-native";
 import { AudioModule, RecordingPresets, getRecordingPermissionsAsync, requestRecordingPermissionsAsync, setAudioModeAsync } from "expo-audio";
 import { File } from "expo-file-system";
 import api from "../config/api";
-import { isPreviewEnvironment } from "../config/environment";
+import { isAssistantEnabled as isPreviewEnvironment } from "../config/environment";
 
 type Session = {
   recorder: InstanceType<typeof AudioModule.AudioRecorder>;

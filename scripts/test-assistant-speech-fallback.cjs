@@ -15,7 +15,7 @@ const local = {
   stopContinuousListening: async () => { localStops++; }, finishDictation: async () => "ditado local",
 };
 const exported = {};
-const environment = { isPreviewEnvironment: false };
+const environment = { isPreviewEnvironment: false, get isAssistantEnabled() { return this.isPreviewEnvironment; } };
 let onlineStarts = 0, onlineOptions;
 const online = {
   startOnlineSpeech: async (final, error, activity, empty, options) => { onlineStarts++; onlineOptions = options; return true; },

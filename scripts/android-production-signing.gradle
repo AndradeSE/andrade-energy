@@ -1,0 +1,28 @@
+// Use the original EAS production key, never the Preview credentials.
+gradle.beforeProject { app ->
+  if (app.path != ':app') return
+  app.pluginManager.withPlugin('com.android.application') {
+    app.extensions.getByName('androidComponents').finalizeDsl { android ->
+      def variant = System.getenv('EXPO_PUBLIC_APP_VARIANT')
+      if (!(variant in ['gerador', 'consumidor'])) throw new GradleException('Invalid production variant')
+      if (System.getenv('EXPO_PUBLIC_APP_ENV') != 'production') throw new GradleException('Production signing requires production environment')
+      def prefix = variant == 'gerador' ? '@caradepau__andrade-energy-gerador' : '@caradepau__andrade-energy'
+      def directory = new File(gradle.rootProject.projectDir.parentFile, "credentials/production-${variant}")
+      def credentialsFile = new File(directory, "${prefix}-keystore-credentials.md")
+      def keyFile = new File(directory, "${prefix}-keystore.bak.jks")
+      if (!credentialsFile.exists() || !keyFile.exists()) throw new GradleException('Missing original production key')
+      def lines = credentialsFile.readLines('UTF-8')
+      def field = { label ->
+        def line = lines.find { it.startsWith("- ${label}:") }
+        if (!line) throw new GradleException('Invalid EAS credential backup format')
+        line.substring(line.indexOf(':') + 1).trim().replace('`', '')
+      }
+      def signing = android.signingConfigs.findByName('originalProduction') ?: android.signingConfigs.create('originalProduction')
+      signing.storeFile = keyFile
+      signing.storePassword = field('Android upload keystore password')
+      signing.keyAlias = field('Android key alias')
+      signing.keyPassword = field('Android key password')
+      android.buildTypes.release.signingConfig = signing
+    }
+  }
+}

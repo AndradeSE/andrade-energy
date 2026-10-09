@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useAuth } from "../contexts/AuthContext";
-import { isPreviewEnvironment } from "../config/environment";
+import { isAssistantEnabled as isPreviewEnvironment } from "../config/environment";
 import { IS_GERADOR_APP } from "../config/appVariant";
 import { answerInConversation, asksLatestInvoiceAmount, LocalReply, LocalTopic, normalizeAssistantQuery } from "../services/local-assistant";
 import { buscarFatura, listarFaturas } from "../services/faturas.service";

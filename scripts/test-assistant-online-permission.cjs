@@ -26,7 +26,7 @@ vm.runInNewContext(ts.transpileModule(fs.readFileSync('services/assistant-online
     if (name === 'react-native') return { AppState: { currentState: 'active', addEventListener: () => ({ remove() {} }) } };
     if (name === 'expo-file-system') return { File: class {} };
     if (name === '../config/api') return {};
-    if (name === '../config/environment') return { isPreviewEnvironment: true };
+    if (name === '../config/environment') return { isPreviewEnvironment: true, isAssistantEnabled: true };
     throw new Error(name);
   },
 });

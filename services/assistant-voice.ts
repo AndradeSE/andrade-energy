@@ -2,7 +2,7 @@ import * as Speech from "expo-speech";
 import { createAudioPlayer } from "expo-audio";
 import * as FileSystem from "expo-file-system/legacy";
 import api from "../config/api";
-import { isPreviewEnvironment } from "../config/environment";
+import { isAssistantEnabled as isPreviewEnvironment } from "../config/environment";
 import { choosePortugueseVoices } from "./assistant-voice-selection";
 
 let preferredVoice: string | undefined;
