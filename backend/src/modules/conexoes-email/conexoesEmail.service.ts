@@ -1,4 +1,5 @@
 import { exigirPermissaoLeituraGmail } from "./gmailPermissoes.policy";
+import { erroRegraAutomaticaOutlook } from "./outlookRegra.policy";
 import { appScheme } from "../../utils/appScheme";
 import {
   createCipheriv,
@@ -681,6 +682,8 @@ export async function processarCallbackOAuth(input: {
 
     if (provedor === "OUTLOOK") {
       conexao = await concluirAutorizacaoOutlook(conexao, anterior, tokens.access_token!, unidade);
+      const erroRegra = erroRegraAutomaticaOutlook(conexao);
+      if (erroRegra) throw new Error(erroRegra);
     }
 
     await atualizarEstado(estado.id, {
@@ -730,6 +733,11 @@ export async function concluirConexaoEmail(usuario: UsuarioAutenticado, stateRec
     .maybeSingle();
   if (error) throw error;
   if (!conexao) return { status: "ERRO", pronto: false, message: "A conexão foi removida antes da confirmação." };
+
+  if (conexao.provedor === "OUTLOOK") {
+    const erroRegra = erroRegraAutomaticaOutlook(conexao);
+    if (erroRegra) return { status: "ERRO", pronto: false, message: erroRegra, conexao: serializarConexao(conexao, unidade) };
+  }
 
   if (estado.status === "AUTORIZADO") {
     await atualizarEstado(estado.id, { status: "CONCLUIDO", consumido_em: new Date().toISOString() });
