@@ -145,7 +145,7 @@ module.exports = {
       },
     },
 
-    runtimeVersion: preview && gerador ? "1.0.4-preview-live-awake" : preview ? "1.0.2-preview-native-speech" : {
+    runtimeVersion: preview ? "1.0.4-preview-live-awake" : {
       policy: "appVersion",
     },
 
