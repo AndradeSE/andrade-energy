@@ -1,0 +1,13 @@
+# Solar nos fluxos da web
+
+Implementação local, ainda sem publicação no Sites. O projeto original `appgprj_6a8c66b15ba48191baad8777fd2d1eba` continua retornando NOT_FOUND na conexão atual.
+
+A Solar recebe as áreas disponíveis no menu do usuário e no ambiente atual. O portal verifica novamente as permissões ao abrir um fluxo; o backend continua autorizando cada consulta. A restrição de aceite de contrato da UC limita também os comandos e as consultas. Mudanças de usuário, ambiente, UC ou usina reiniciam a conversa e cancelam consultas em andamento.
+
+Comandos abrem perfil, contratos, contas de luz, faturas, carteira, financeiro, plano, marca, empresas, geradores, colaboradores, comercial, clientes, usinas, unidades, economia, operação, tutoriais, aplicativos, configurações e home quando disponíveis. Notificações abrem o painel da própria conta. Cadastro de cliente/usina e emissão de fatura abrem o formulário existente; faturamento manual abre seu formulário específico. Configuração de e-mail do consumidor usa sua UC recebedora autorizada; gerador precisa escolher a UC no fluxo de unidades, sem escolha automática pela Solar. Seleção de UC por número e usina por nome exige correspondência exata e única na lista carregada para o usuário.
+
+Consultas adicionais: contrato do consumidor por UC, contas da concessionária por UC/usina, notificações, fechamentos, geradores, identidade da marca e disponibilidade do painel comercial. Dados financeiros ausentes são apresentados como não informados. Consulta de carteira permanece restrita ao gerador e aos recursos disponíveis no ambiente. Não existe endpoint arbitrário fornecido pelo modelo nem execução de código gerado pela IA.
+
+Esta implementação não salva cadastros, emite faturas, transfere dinheiro, envia e-mails ou assina contratos pelo chat. As ações finais continuam nos formulários, com revisão e confirmação do usuário. Edição de registros específicos, anexos e demais operações são concluídos nas telas existentes; a Solar conduz a navegação, não automatiza todas as etapas de todos os formulários. Não houve alteração do motor de faturamento nem das permissões do backend.
+
+Validação: 56 testes passaram; build TypeScript/Vite/worker passou. Navegador com dados fictícios confirmou comando de abertura, consulta do contrato da UC e bloqueio de área sem permissão. A entrada temporária de QA foi movida para `C:/Users/vini_/.codex/portal-web-qa-20261009/solar-flows/` antes do build. Evidência: `C:/Users/vini_/.codex/solar-web-flows-20261009.png`. Testes autenticados no domínio real dependem da publicação e do acesso ao projeto original.

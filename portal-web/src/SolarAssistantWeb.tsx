@@ -2,8 +2,9 @@ import { apiFetch as fetch } from "./apiClient";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import "./web-improvements.css";
 import { accountIntent, answerAccountQuestion, type WebAssistantContext } from "./assistantAccountWeb";
+import { planSolarFlow, solarTopic, type SolarFlow } from "./assistantFlows";
 type Message = { role: "user" | "model"; text: string; answerId?: string; private?: boolean; section?: string };
-export default function SolarAssistantWeb({ apiUrl, token, variant, context, onNavigate }: { apiUrl: string; token: string; variant: "CONSUMIDOR" | "GERADOR"; context: WebAssistantContext; onNavigate: (section: string) => void }) {
+export default function SolarAssistantWeb({ apiUrl, token, variant, context, onNavigate, onFlow }: { apiUrl: string; token: string; variant: "CONSUMIDOR" | "GERADOR"; context: WebAssistantContext; onNavigate: (section: string) => void; onFlow: (flow: SolarFlow) => Promise<string> | string }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState("");
@@ -18,6 +19,7 @@ export default function SolarAssistantWeb({ apiUrl, token, variant, context, onN
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
   const active = useRef(true);
+  const submitting = useRef(false);
   const acceptingAudio = useRef(false);
   const mediaGeneration = useRef(0);
   const microphoneSupported = typeof MediaRecorder !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia);
@@ -47,12 +49,24 @@ export default function SolarAssistantWeb({ apiUrl, token, variant, context, onN
   async function submit(event: FormEvent) {
     event.preventDefault();
     const text = question.trim();
-    if (!text || busy || recording) return;
-    const privateQuestion = Boolean(accountIntent(text));
+    if (!text || submitting.current || busy || recording) return;
+    submitting.current = true;
+    const flow = planSolarFlow(text, variant, context.allowedSections ?? []);
+    const privateQuestion = Boolean(accountIntent(text) || solarTopic(text, variant));
     const history = messages.filter(message => !message.private).slice(-8).map(({ role, text }) => ({ role, text: text.slice(0, 1200) }));
     setMessages(current => [...current, { role: "user", text, private: privateQuestion }]); setQuestion(""); setBusy(true); setError("");
     controller.current = new AbortController();
     try {
+      if (/o que (voce|você|a solar) (pode|consegue)|suas funcoes|suas funções/i.test(text)) {
+        setMessages(current => [...current, { role: "model", private: true, text: `Posso abrir os fluxos disponíveis neste acesso: ${(context.allowedSections ?? []).join(", ")}. Também consulto notificações e dados da UC/usina selecionada. Você revisa e confirma alterações no formulário correspondente.` }]);
+        return;
+      }
+      if (flow) {
+        const result = await onFlow(flow);
+        if (active.current) setMessages(current => [...current, { role: "model", text: result, private: true }]);
+        return;
+      }
+      if (solarTopic(text, variant) && /\b(abrir|abra|selecione|selecionar|trocar|troque|configurar|configure|editar|edite)\b/i.test(text)) throw new Error("Esse fluxo não está disponível no seu ambiente atual. Peça as funções disponíveis para conferir seu acesso.");
       const accountReply = await answerAccountQuestion(text, context, async path => {
         const response = await fetch(`${apiUrl}${path}`, { headers: { Authorization: `Bearer ${token}` }, signal: controller.current!.signal });
         const data = await response.json().catch(() => ({}));
@@ -67,7 +81,7 @@ export default function SolarAssistantWeb({ apiUrl, token, variant, context, onN
       if (!data.answer || typeof data.answer !== "string") throw new Error("O Solar não retornou uma resposta. Tente novamente.");
       if (active.current) setMessages(current => [...current, { role: "model", text: data.answer, answerId: data.voiceAnswerId }]);
     } catch (reason) { if (active.current && !(reason instanceof DOMException && reason.name === "AbortError")) setError(reason instanceof Error ? reason.message : "Não foi possível responder."); }
-    finally { if (active.current) setBusy(false); }
+    finally { submitting.current = false; if (active.current) setBusy(false); }
   }
   async function speak(answerId: string) {
     if (voiceBusy || recording) return;
@@ -122,7 +136,7 @@ export default function SolarAssistantWeb({ apiUrl, token, variant, context, onN
   return <aside className="solar-web">
     <button className="solar-launch" type="button" aria-expanded={open} aria-controls="solar-web-panel" onClick={() => open ? close() : setOpen(true)}>☀ Solar</button>
     {open ? <section id="solar-web-panel" aria-label="Assistente Solar"><header><span><strong>Solar</strong><small>Assistente Andrade Energy</small></span><button type="button" aria-label="Fechar assistente" onClick={close}>×</button></header>
-      <p className="solar-intro">Posso explicar os recursos e consultar os dados do seu acesso na UC ou usina selecionada. Não realizo cobranças nem assino contratos.</p>
+      <p className="solar-intro">Posso consultar sua conta, abrir os fluxos e preparar a navegação para os formulários. Peça “abrir contratos”, “criar cliente” ou “selecionar UC 123”. Você revisa e confirma alterações na tela correspondente.</p>
       <div className="solar-messages" role="log" aria-live="polite">{messages.map((item, index) => <article key={index} className={`solar-${item.role}`}><small>{item.role === "user" ? "Você" : "Solar"}{item.private && item.role === "model" ? " · consulta da conta" : ""}</small><p>{item.text}</p>{item.answerId ? <button disabled={voiceBusy || recording} type="button" onClick={() => void speak(item.answerId!)}>Ouvir resposta</button> : null}{item.section ? <button type="button" onClick={() => onNavigate(item.section!)}>Abrir {item.section}</button> : null}</article>)}{busy ? <p role="status">Solar está respondendo…</p> : null}</div>
       {error ? <p className="solar-error" role="alert">{error}</p> : null}
       <form onSubmit={event => void submit(event)}><label htmlFor="solar-question">Sua mensagem</label><textarea id="solar-question" maxLength={1200} value={question} onChange={event => setQuestion(event.target.value)} placeholder="Como posso ajudar?" disabled={busy || recording}/><div><button disabled={busy || recording || !question.trim()} type="submit">Enviar</button><button disabled={busy || voiceBusy || recording} type="button" onClick={() => { stopMedia(); setMessages([]); setError(""); }}>Limpar conversa</button></div></form>

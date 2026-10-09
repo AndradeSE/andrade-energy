@@ -17,6 +17,7 @@ import CollaboratorsPanel from "./CollaboratorsPanel";
 import EmailProviderSetupWeb from "./EmailProviderSetupWeb";
 import PrivacyRequestsWeb from "./PrivacyRequestsWeb";
 import SolarAssistantWeb from "./SolarAssistantWeb";
+import { findSolarSelection, type SolarFlow } from "./assistantFlows";
 import { consumerEnergySummary } from "./consumerEnergySummary";
 import { mergeNotificationIds, readNotificationIds } from "./notificationPreferences";
 import "./mobile.css";
@@ -3396,6 +3397,39 @@ function PortalHome({
           { label: "Conta", items: ["Tutoriais da web", "Aplicativos", "Perfil", "Configurações"] },
         ]).map((group) => ({ ...group, items: group.items.filter(hasSectionPermission) }));
   const globalSearchOptions = menuGroups.flatMap((group) => group.items).filter((item) => item !== "Alternar ambiente");
+  const solarSections = contractOnboardingBlocked ? ["Contratos", "Perfil", "Configurações"] : [...globalSearchOptions, "Perfil", ...(type === "GERADOR" && !isCommercialWorkspace && hasSectionPermission("Usinas") ? ["Usinas"] : [])];
+  async function runSolarFlow(flow: SolarFlow): Promise<string> {
+    if (flow.mode === "notifications") { setNotificationsOpen(true); return "Abri suas notificações."; }
+    if (contractOnboardingBlocked && !["Contratos", "Perfil", "Configurações"].includes(flow.section)) throw new Error("Conclua o aceite do contrato da UC selecionada para acessar este fluxo.");
+    if (flow.mode === "email") {
+      if (!solarSections.includes("Faturas")) throw new Error("Recebimento indisponível neste acesso.");
+      if (type === "CONSUMIDOR") {
+        if (!consumerAutomaticBillingUnit?.id) throw new Error("Selecione uma UC com recebimento autorizado ao consumidor.");
+        setAutomaticBillingUnit(consumerAutomaticBillingUnit);
+        return `Abri o recebimento da UC ${consumerAutomaticBillingUnit.numero}. Revise e confirme a conexão pelo formulário.`;
+      }
+      setSelectedRecord(null); setActiveSection("Unidades consumidoras");
+      return "Escolha a UC recebedora em Unidades consumidoras e abra sua configuração de e-mail. A conexão será confirmada nesse fluxo.";
+    }
+    if (!solarSections.includes(flow.section)) throw new Error("Fluxo indisponível nas permissões do seu acesso.");
+    if (flow.selection) {
+      const rows = flow.selection.kind === "plant" ? workspacePlants : consumerUnits;
+      const id = findSolarSelection(rows, flow.selection.kind, flow.selection.value);
+      if (!id) throw new Error("Não encontrei uma única UC/usina com esse identificador no seu acesso. Use o seletor do portal.");
+      setSelectedRecord(null);
+      if (flow.selection.kind === "plant") setActivePlantId(id); else setSelectedConsumerUnitId(id);
+      return "Seleção atualizada. As próximas consultas usarão a unidade escolhida.";
+    }
+    setSelectedRecord(null); setSearchQuery(""); setActiveSection(flow.section);
+    if (flow.mode === "manualBilling") {
+      if (type !== "GERADOR" || isCollaborator) throw new Error("Faturamento manual indisponível neste acesso.");
+      setManualBillingOpen(true);
+    } else if (flow.mode === "create") {
+      if (type !== "GERADOR" || !hasSectionPermission(flow.section)) throw new Error("Cadastro indisponível neste acesso.");
+      setActionOpen(true);
+    }
+    return `Abri ${flow.section}${flow.mode ? " e o formulário correspondente" : ""}. Revise os dados e confirme a operação nessa tela. Nenhuma alteração foi realizada por mim.`;
+  }
   const mobileHomeSection = isCommercialWorkspace ? "Gestão comercial" : "Visão geral";
   const mobileTabsBase = isCommercialWorkspace
     ? ["Geradores", "Gestão comercial", "Aplicativos"]
@@ -4072,7 +4106,7 @@ function PortalHome({
           {automaticBillingUnit?.id && session.token ? <AutomaticBillingModal token={session.token} unit={automaticBillingUnit} accessType={type} onClose={() => setAutomaticBillingUnit(null)} /> : null}
         </section>
       </div>
-      {session.token ? <SolarAssistantWeb key={`${session.usuario?.id}:${type}:${activePlantId}:${selectedConsumerUnitId}`} apiUrl={API_URL} token={session.token} variant={type} context={{ variant: type, plantId: activePlantId, unit: selectedConsumerUnit, clientId: session.usuario?.cliente_id }} onNavigate={section => { setSelectedRecord(null); setActiveSection(section); }} /> : null}
+      {session.token ? <SolarAssistantWeb key={`${session.usuario?.id}:${type}:${workspace}:${activePlantId}:${selectedConsumerUnitId}`} apiUrl={API_URL} token={session.token} variant={type} context={{ variant: type, plantId: activePlantId, unit: selectedConsumerUnit, clientId: session.usuario?.cliente_id, allowedSections: solarSections }} onFlow={runSolarFlow} onNavigate={section => { if (solarSections.includes(section)) void runSolarFlow({ section }).catch(reason => window.alert(reason.message)); }} /> : null}
     </main>
   );
 }
