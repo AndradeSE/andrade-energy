@@ -12,6 +12,8 @@ import { reenviarConviteDaUnidade } from "../../services/convites.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
+import { obterRecebimentoFaturas } from "../../services/recebimento-faturas.service";
+import { mostrarProximoPassoFaturamento } from "../../utils/faturamentoNextStep";
 
 const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const paga = (status?: string) => ["PAGA", "PAGO", "QUITADA"].includes(String(status ?? "").toUpperCase());
@@ -25,8 +27,10 @@ export default function UnidadeDocumentos() {
   const [contrato, setContrato] = useState<any>();
   const [loading, setLoading] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
+  const [recebimentoAtivo, setRecebimentoAtivo] = useState<boolean | null>(null);
 
   const carregar = useCallback(async (porAtualizacao = false) => {
+    setRecebimentoAtivo(null);
     if (porAtualizacao) setAtualizando(true);
     try {
       let dados: any;
@@ -84,11 +88,19 @@ export default function UnidadeDocumentos() {
         clientes: dados.clientes ?? clienteVinculado ?? null,
       };
       setUnidade(dados);
-      const [faturasResultado, contratoResultado, anexosResultado] = await Promise.allSettled([
+      const [faturasResultado, contratoResultado, anexosResultado, recebimentoResultado] = await Promise.allSettled([
         listarFaturas(undefined, dados.numero),
         String(dados.id ?? "").startsWith("cliente-") ? Promise.resolve(null) : buscarContratoDaUnidade(dados.id),
         dados.cliente_id ? listarFaturasAnexadasCliente(String(dados.cliente_id)) : Promise.resolve([]),
+        IS_GERADOR_APP && !String(dados.id ?? "").startsWith("cliente-")
+          ? obterRecebimentoFaturas(dados.id)
+          : Promise.resolve(null),
       ]);
+      setRecebimentoAtivo(
+        faturasResultado.status === "fulfilled" && recebimentoResultado.status === "fulfilled" && recebimentoResultado.value
+          ? recebimentoResultado.value.ativo
+          : null,
+      );
       setFaturas(faturasResultado.status === "fulfilled" ? (faturasResultado.value ?? []) : []);
       setContrato(contratoResultado.status === "fulfilled" ? contratoResultado.value : null);
       const numeroDaUc = String(dados.numero ?? "").replace(/\D/g, "");
@@ -256,7 +268,7 @@ export default function UnidadeDocumentos() {
         } },
       ]);
     }} style={styles.resendInvite}><Ionicons name="mail-outline" size={19} color={Colors.primary} /><Text style={styles.resendInviteText}>Reenviar convite</Text></TouchableOpacity> : null}
-    {IS_GERADOR_APP && contratoAssinado ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Ir para o financeiro e faturar esta unidade" onPress={() => router.push("/(tabs)/financeiro" as any)} style={styles.billingNextStep}><View style={styles.billingNextStepIcon}><Ionicons name="cash-outline" size={21} color={Colors.surface} /></View><View style={styles.billingNextStepCopy}><Text style={styles.billingNextStepEyebrow}>PRÓXIMO PASSO</Text><Text style={styles.billingNextStepTitle}>Escolha como faturar esta UC</Text><Text style={styles.billingNextStepText}>Acesse Financeiro e escolha faturamento via PDF, manual ou automático.</Text></View><Ionicons name="chevron-forward" size={20} color={Colors.surface} /></TouchableOpacity> : null}
+    {IS_GERADOR_APP && mostrarProximoPassoFaturamento(contratoAssinado, recebimentoAtivo, faturas) ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Configurar o faturamento desta unidade" onPress={async () => { if (await prepararAmbienteDaUc()) router.push("/(tabs)/faturamento" as any); }} style={styles.billingNextStep}><View style={styles.billingNextStepIcon}><Ionicons name="receipt-outline" size={21} color={Colors.surface} /></View><View style={styles.billingNextStepCopy}><Text style={styles.billingNextStepEyebrow}>PRÓXIMO PASSO</Text><Text style={styles.billingNextStepTitle}>Escolha como faturar esta UC</Text><Text style={styles.billingNextStepText}>Acesse Faturamento e escolha faturamento via PDF, manual ou automático.</Text></View><Ionicons name="chevron-forward" size={20} color={Colors.surface} /></TouchableOpacity> : null}
     {IS_GERADOR_APP ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Excluir unidade consumidora" onPress={confirmarExclusaoUnidade} style={styles.deleteUnit}><Ionicons name="trash-outline" size={18} color={Colors.danger} /><Text style={styles.deleteUnitText}>Excluir unidade consumidora</Text></TouchableOpacity> : null}
 
     <Section title="Estatísticas da unidade"><View style={styles.metrics}><View style={styles.metric}><Metric compact title="Economia total" value={moeda(economiaTotal)} icon={<Ionicons name="trending-up-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Total faturado" value={moeda(valorFaturado)} icon={<Ionicons name="wallet-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Consumo acumulado" value={`${consumoTotal.toLocaleString("pt-BR")} kWh`} icon={<Ionicons name="flash-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Faturas processadas" value={faturas.length} icon={<Ionicons name="receipt-outline" size={20} color={Colors.primary} />} /></View></View></Section>

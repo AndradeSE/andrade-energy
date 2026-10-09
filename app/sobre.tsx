@@ -213,7 +213,7 @@ const atualizacaoProntidaoAnterior = {
   numero: "1.0.0-r20261006.23", data: "06/10/2026",
   melhorias: ["Escuta aguarda a confirmação de prontidão do reconhecedor Android, não apenas o pedido de abertura do áudio.", "Permissão do microfone tem limite de espera. Ativação pausada durante conversa é distinguida de uma tentativa de início."],
 };
-const atualizacaoAtual = Updates.runtimeVersion === "1.0.4-production-live-awake" ? {
+const atualizacaoAnteriorPublicada = Updates.runtimeVersion === "1.0.4-production-live-awake" ? {
   numero: "1.0.0-r20261009.1", data: "09/10/2026",
   melhorias: [
     "Assistente com conversa Gemini Live e comando Andrade após autorização do microfone e áudio.",
@@ -228,7 +228,14 @@ const atualizacaoAtual = Updates.runtimeVersion === "1.0.4-production-live-awake
   numero: "1.0.0-r20261008.22", data: "08/10/2026",
   melhorias: ["Novo APK Preview com conversa Gemini Live e comando Andrade após autorização.", "Guia de funções do Consumidor na conversa e consulta do titular e cliente da UC selecionada."],
 } : atualizacaoTutoriais;
-const historico = IS_GERADOR_APP ? [
+const atualizacaoAtual = {
+  numero: "1.0.0-r20261009.2", data: "09/10/2026",
+  melhorias: [
+    "Desconto real considera somente energia compensada, sem antecipar economia dos créditos futuros; cobrança contratual preservada.",
+    ...(IS_GERADOR_APP ? ["Próximo passo abre Faturamento e só aparece quando não há recebimento automático nem fatura emitida.", "Preparação da proposta informa os dados faltantes ou a consulta que falhou, sem enviar convite incompleto."] : []),
+  ],
+};
+const historicoAnterior = IS_GERADOR_APP ? [
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.21", data: "08/10/2026", melhorias: ["Retomada da escuta após liberar os capturadores e restauração da visibilidade do flutuante."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.20", data: "08/10/2026", melhorias: ["Bipe confirma o comando reconhecido sem esperar a conexão online; a saudação aguarda o fim do bipe.", "Reconhecimento de Andrade usa trechos de até 2 segundos no Preview, com sobreposição para preservar a palavra em ruído contínuo."] }] : []),
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.19", data: "08/10/2026", melhorias: ["Microfone contínuo entre perguntas, descartando áudio enquanto a IA fala.", "Token de homologação corrigido para permitir instruções e consultas do aplicativo."] }, { numero: "1.0.0-r20261008.18", data: "08/10/2026", melhorias: ["Consulta inicial da última fatura e espera de 30 segundos pela próxima pergunta.", "Reconhecimento de pedidos falados de documentos e referências ao pedido anterior."] }, { numero: "1.0.0-r20261008.17", data: "08/10/2026", melhorias: ["Menor espera local para fechar a frase Andrade, mantendo a palavra completa."] }] : []),
@@ -307,6 +314,8 @@ const historico = IS_GERADOR_APP ? [
     "Ícones e identificação separados para os aplicativos Preview e produção.",
   ] },
 ];
+
+const historico = [atualizacaoAnteriorPublicada, ...historicoAnterior];
 
 export default function SobreApp() {
   const version = Constants.expoConfig?.version ?? "Não informada";

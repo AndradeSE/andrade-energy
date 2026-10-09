@@ -110,7 +110,7 @@ export default function RealDiscountInfo({
         </View>
         <View style={styles.headerCopy}>
           <Text style={styles.title}>Como calculamos o desconto real</Text>
-          <Text style={styles.subtitle}>O percentual contratado é aplicado à energia; o real considera tudo que o cliente efetivamente paga.</Text>
+          <Text style={styles.subtitle}>O desconto real considera a energia compensada e seus custos nesta competência, sem antecipar economia do saldo.</Text>
         </View>
       </View>
 
@@ -134,10 +134,10 @@ export default function RealDiscountInfo({
         </View>
         <View style={styles.divider} />
         <Text style={styles.formulaLabel}>ECONOMIA REAL</Text>
-        <Text style={styles.formulaText}>Valor sem Andrade − total unificado</Text>
+        <Text style={styles.formulaText}>Valor da energia compensada sem Andrade − custo equivalente com Andrade</Text>
         <View style={styles.divider} />
         <Text style={styles.formulaLabel}>DESCONTO REAL</Text>
-        <Text style={styles.formulaText}>Economia real ÷ valor total sem Andrade × 100</Text>
+        <Text style={styles.formulaText}>Economia real ÷ valor cheio da energia compensada × 100</Text>
       </View>
 
       <Text style={styles.impact}>{impacto}</Text>
@@ -321,14 +321,13 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
   const valorAbsorvidoDisponibilidade = absorveDisponibilidade ? custoDisponibilidade : 0;
   const valorAbsorvidoFioB = usaGD2 && fioBGd2 === "ABSORVER" ? diferencaFioB : 0;
   if (!possuiLeituraGd) return null;
-  const valorEnergiaCheia = Math.max(0, baseKwh * tarifaCheia);
-  // A conta estimada sem usina usa somente a energia convencional pela tarifa
-  // cheia da NF. Multa, iluminação, bandeira e demais encargos ficam fora da
-  // referência; eles continuam no total real que o cliente precisa pagar.
+  // Esta prévia mede economia, não altera a base da cobrança por injeção.
+  // Créditos ainda não compensados não representam desconto realizado.
+  const energiaDaEconomia = consumoIntegralProjetado > 0 ? consumoIntegralProjetado : energiaCompensada;
+  const valorEnergiaCheia = Math.max(0, energiaDaEconomia * tarifaCheia);
+  // A comparação usa somente a energia compensada pela tarifa cheia da NF.
+  // Multa, iluminação, bandeira e créditos ainda não usados ficam fora dela.
   const referencia = valorEnergiaCheia;
-  // A economia percebida é comparada com tudo que o cliente pagaria sem a
-  // Andrade. Assim os encargos que continuam obrigatórios reduzem levemente o
-  // percentual final mesmo quando disponibilidade e Fio B são absorvidos.
   if (referencia <= 0) return null;
   // Quando a Andrade absorve um custo GD, o abatimento aparece na própria
   // fatura Andrade. A conta CEMIG permanece com o valor original do PDF.
@@ -346,11 +345,8 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
     : valorEnergiaConcessionaria;
   // Iluminação, multa, bandeira e demais encargos continuam no total da
   // competência, mas não compõem a comparação de economia da energia.
-  const economia = Math.max(0, referencia - (valorEnergiaConcessionariaProjetada + valorAndrade));
-  // A projeção apresentada ao cliente compara o desembolso total sem Andrade
-  // com o total unificado. Os encargos obrigatórios seguem dentro dessa base;
-  // por isso absorver Fio B e disponibilidade aproxima a economia do desconto
-  // contratado, mas nunca deve ultrapassá-lo artificialmente.
+  const economia = Math.min(referencia * desconto / 100, Math.max(0, referencia - (valorEnergiaConcessionariaProjetada + valorAndrade)));
+  // A cobrança por injeção é independente deste indicador de economia.
   const baseDescontoReal = referencia;
   return {
     economia,
