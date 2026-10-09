@@ -1,3 +1,4 @@
+import { cpfTitularPatch } from "./cpfTitularPatch";
 import {
   buscarDashboardUsina,
   buscarUsina,
@@ -697,14 +698,13 @@ export async function atualizarUsinaService(
   const numero = String(usina?.numero_instalacao ?? dados?.numero_instalacao ?? "").replace(/\D/g, "");
   if (!numero) return usina;
 
-  const cpfTitular = String(dados?.cpf_titular ?? dados?.cpfTitular ?? "").replace(/\D/g, "") || null;
   const payloadUnidade = {
     empresa_id: empresaId,
     usina_id: id,
     numero,
     tipo: "GERADORA",
     titular: usina?.titular_nome ?? usina?.nome ?? "Usina",
-    cpf_titular: cpfTitular,
+    ...cpfTitularPatch(dados),
     distribuidora: usina?.distribuidora ?? "CEMIG",
     endereco: usina?.endereco ?? null,
     modalidade_faturamento: "INJECAO",
