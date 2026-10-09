@@ -217,8 +217,8 @@ const atualizacaoAtual = geradorPreview ? {
   numero: "1.0.0-r20261008.21", data: "08/10/2026",
   melhorias: ["Encerramento aguarda a liberação dos capturadores antes de retomar a escuta de Andrade.", "Visibilidade do ícone flutuante restaurada ao encerrar a conversa, sem alterar a preferência de ocultar."],
 } : previewApp ? {
-  numero: "1.0.0-r20261006.24", data: "06/10/2026",
-  melhorias: ["Ativação, ditado e conversa usam reconhecimento local já instalado quando o motor Android falha ou não fica pronto.", "Sem envio do áudio à nuvem ou download implícito. A captura alternativa não muda o provedor da voz natural das respostas."],
+  numero: "1.0.0-r20261008.21", data: "08/10/2026",
+  melhorias: ["Encerramento aguarda a liberação dos capturadores antes de retomar a escuta.", "Ícone flutuante recupera a visibilidade ao encerrar a conversa, mantendo a opção de ocultar."],
 } : atualizacaoTutoriais;
 const historico = IS_GERADOR_APP ? [
   ...(geradorPreview ? [{ numero: "1.0.0-r20261008.20", data: "08/10/2026", melhorias: ["Bipe confirma o comando reconhecido sem esperar a conexão online; a saudação aguarda o fim do bipe.", "Reconhecimento de Andrade usa trechos de até 2 segundos no Preview, com sobreposição para preservar a palavra em ruído contínuo."] }] : []),
