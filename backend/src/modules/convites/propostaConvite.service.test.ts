@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { calcularEnergiaProjetadaContrato, calcularPropostaComercial, gerarPropostaPdf } from "./propostaConvite.service";
+import { calcularEnergiaProjetadaContrato, calcularPropostaComercial, gerarPropostaPdf, validarDadosDaProposta } from "./propostaConvite.service";
+
+test("proposta informa o motivo e impede envio quando faltam dados energéticos", () => {
+  assert.throws(() => validarDadosDaProposta(0, 1.2, "COMPENSACAO"), /consumo médio da UC/);
+  assert.throws(() => validarDadosDaProposta(300, 0, "COMPENSACAO"), /tarifa cheia da conta/);
+  assert.throws(() => validarDadosDaProposta(0, 0, "INJECAO"), /produção média da usina.*tarifa cheia.*Nenhum convite foi enviado/);
+  assert.throws(() => validarDadosDaProposta(NaN, Infinity, "COMPENSACAO"), /faltam/);
+  assert.doesNotThrow(() => validarDadosDaProposta(300, 1.2, "COMPENSACAO"));
+});
 
 const base = {
   consumo: 68,

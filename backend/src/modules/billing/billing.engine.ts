@@ -18,10 +18,9 @@ export type BillingInput = {
   repassarDiferencaFioBGD2?: boolean;
   faturaSomenteAndrade?: boolean;
   /**
-   * Base usada exclusivamente para comunicar a economia percentual. Em GD II,
-   * o cliente continua pagando a disponibilidade na fatura da concessionária;
-   * por isso o desconto real deve ser medido sobre a energia cheia, e não
-   * somente sobre a parcela que restou elegível ao crédito.
+   * Referência energética para a modalidade por compensação. Por injeção,
+   * o desconto real sempre usa a energia compensada na competência, nunca
+   * a energia cobrada que ainda ficará como crédito para uso futuro.
    */
   baseDescontoReal?: number;
 };
@@ -148,7 +147,7 @@ export function calcularFaturaUnificada(input: BillingInput): BillingOutput {
   // ICMS, PASEP e COFINS. Somar os tributos destacados novamente duplicaria
   // impostos. Multas, iluminação e cobranças extraordinárias ficam de fora.
   // Sem a usina também não há Fio B nem disponibilidade GD nessa referência.
-  const valorReferenciaSemAndrade = valorEnergiaCheia;
+  const valorReferenciaSemAndrade = input.energiaCompensada * input.tarifaCheia;
   const valorTotalUnificado = (faturaSomenteAndrade ? 0 : valorCemigRepassado) + valorUsina;
   // A comparação do desconto usa somente a composição energética. Iluminação
   // pública, multas, bandeiras e encargos ficam no total exibido/pago, mas não
@@ -158,13 +157,22 @@ export function calcularFaturaUnificada(input: BillingInput): BillingOutput {
   // real em um percentual superior ao desconto contratado sobre a energia.
   // Essa trava também elimina diferenças residuais de centavos entre as linhas
   // da concessionária e os componentes extraídos do PDF.
+  // Separe a cobrança contratual (injeção ou compensação) do benefício já
+  // realizado. A parcela Andrade dos créditos ainda não usados fica fora
+  // desta comparação; os abatimentos efetivamente concedidos são preservados.
+  const valorAndradeCompensado = Math.max(
+    0,
+    input.energiaCompensada * tarifaAndrade - valorTotalAbsorvido,
+  );
   const economiaReal = Math.min(
-    descontoContratadoValor,
-    Math.max(0, valorReferenciaSemAndrade - (valorCemigParaProjecao + valorUsina)),
+    valorReferenciaSemAndrade * fatorDesconto,
+    Math.max(0, valorReferenciaSemAndrade - (valorCemigParaProjecao + valorAndradeCompensado)),
   );
   const baseDescontoReal = Math.max(
     0,
-    input.baseDescontoReal ?? valorReferenciaSemAndrade
+    input.modalidade === "INJECAO"
+      ? valorReferenciaSemAndrade
+      : input.baseDescontoReal ?? valorReferenciaSemAndrade
   );
   const descontoRealPercentual =
     baseDescontoReal > 0

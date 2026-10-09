@@ -99,10 +99,10 @@ const faturaRealGd2Injecao = {
 };
 
 const cenariosGd2 = [
-  { disponibilidade: true, fioB: true, valorAndrade: 272.04, economia: 118.29, desconto: 26.0903 },
-  { disponibilidade: false, fioB: true, valorAndrade: 257.69, economia: 132.64, desconto: 29.2553 },
-  { disponibilidade: true, fioB: false, valorAndrade: 223.29, economia: 167.04, desconto: 36.8423 },
-  { disponibilidade: false, fioB: false, valorAndrade: 208.94, economia: 181.36, desconto: 40 },
+  { disponibilidade: true, fioB: true, valorAndrade: 272.04, economia: 83.47, desconto: 22.7851 },
+  { disponibilidade: false, fioB: true, valorAndrade: 257.69, economia: 97.82, desconto: 26.7021 },
+  { disponibilidade: true, fioB: false, valorAndrade: 223.29, economia: 132.22, desconto: 36.092 },
+  { disponibilidade: false, fioB: false, valorAndrade: 208.94, economia: 146.54, desconto: 40 },
 ];
 
 for (const cenario of cenariosGd2) {
@@ -192,6 +192,32 @@ test("matriz completa de modalidades, repasses e formatos preserva as invariante
       }
     }
   }
+});
+
+test("saldo futuro não aumenta a economia realizada nem altera a cobrança contratual", () => {
+  const atual = calcularFaturaUnificada(faturaRealGd2Injecao);
+  const maisCredito = calcularFaturaUnificada({ ...faturaRealGd2Injecao, energiaInjetada: 900, baseDescontoReal: 900 * 1.20907534 });
+  assert.equal(maisCredito.economiaReal, atual.economiaReal);
+  assert.equal(maisCredito.descontoRealPercentual, atual.descontoRealPercentual);
+  assert.equal(maisCredito.valorReferenciaSemAndrade, 366.35);
+  assert.equal(maisCredito.baseCalculoKwh, 900);
+  assert.equal(maisCredito.valorUsina, Number((900 * 1.20907534 * .6).toFixed(2)));
+});
+
+test("injeção sem compensação tem cobrança, mas não tem economia realizada", () => {
+  const resultado = calcularFaturaUnificada({ ...faturaRealGd2Injecao, energiaCompensada: 0 });
+  assert.equal(resultado.valorUsina, 272.04);
+  assert.equal(resultado.valorTotalUnificado, 400.21);
+  assert.equal(resultado.economiaReal, 0);
+  assert.equal(resultado.descontoRealPercentual, 0);
+});
+
+test("crédito usado de saldo anterior gera economia mesmo com injeção menor", () => {
+  const resultado = calcularFaturaUnificada({ ...faturaRealGd2Injecao, energiaInjetada: 100 });
+  assert.equal(resultado.baseCalculoKwh, 100);
+  assert.equal(resultado.valorUsina, 72.54);
+  assert.equal(resultado.economiaReal, 83.47);
+  assert.equal(resultado.descontoRealPercentual, 22.7851);
 });
 
 test("injeção considera a compensação e a variação do saldo da UC", () => {
