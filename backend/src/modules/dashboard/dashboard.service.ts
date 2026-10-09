@@ -1,4 +1,5 @@
 import { obterDashboardCliente } from "./dashboard.repository";
+import { ordemCompetencia } from "./competencia.policy";
 
 export async function dashboardCliente(
   clienteId: string,
@@ -13,7 +14,7 @@ export async function dashboardCliente(
 
   const ultima =
     [...faturas].sort((a, b) =>
-      b.referencia.localeCompare(a.referencia)
+      ordemCompetencia(b.referencia) - ordemCompetencia(a.referencia)
     )[0];
 
   const faturasEmAberto = faturas.filter((fatura) =>
@@ -93,9 +94,7 @@ export async function dashboardCliente(
     historico:
       [...faturas]
         .sort((a, b) =>
-          a.referencia.localeCompare(
-            b.referencia
-          )
+          ordemCompetencia(a.referencia) - ordemCompetencia(b.referencia)
         )
         .slice(-12)
         .map((f) => ({
