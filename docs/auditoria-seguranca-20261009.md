@@ -25,9 +25,10 @@ O cadastro manual de UC que usava o SDK público foi movido para uma rota autent
 - Dados financeiros reais: produção tem uma chave Pix de gerador, uma comercial e um autenticador protegidos e decifráveis com a configuração vigente; preview tem uma chave Pix de gerador e dois autenticadores. Nenhuma chave Pix em texto simples foi encontrada em gerador_carteiras. Os valores nunca foram impressos.
 - API externa: sete rotas privadas verificadas em cada ambiente retornaram 401 sem sessão. Origem CORS não autorizada não recebeu permissão de acesso; atualmente a API responde 500 para essa rejeição.
 - Webhooks sem assinatura/token: produção negou Asaas/Mercado Pago com 401 e Resend com 400; preview negou Asaas e Mercado Pago com 401 e Resend com 400.
-- 131 testes automatizados do backend passaram, incluindo concorrência de recuperação/TOTP, adulteração AES-GCM, SSRF e isolamento empresarial. Compilação TypeScript do backend aprovada.
+- 137 testes automatizados do backend passaram, incluindo concorrência de recuperação/TOTP, adulteração AES-GCM, SSRF e isolamento empresarial. Compilação TypeScript do backend aprovada.
 - TypeScript do aplicativo e testes de migração segura, falha do cofre, corrupção, logout concorrente e isolamento preview aprovados. Exportações Android de Gerador e Consumidor concluídas; publicação reexporta os bundles finais.
 - 122 arquivos exportados inspecionados contra 17 segredos da configuração de produção e 13 do preview: nenhum valor secreto encontrado. Busca estática no código rastreado não encontrou padrões de chave privada/secret key nos arquivos examinados. Isso não equivale a uma auditoria completa do histórico Git.
+- APK Gerador Preview instalado no S23: assinatura validada por apksigner; build sem depuração via run-as; runtime 1.0.4-preview-live-awake e canal preview-gerador conferidos no APK. XMLs de backup e transferência excluem SecureStore. A permissão nativa para HTTP foi confirmada no APK atual; sua remoção requer novo build e instalação.
 - Motor `backend/src/modules/billing/billing.engine.ts` sem alterações. Não foram criadas faturas, realizados pagamentos ou aceites de contrato durante a auditoria. Migrações alteraram permissões e hashes de senha, sem recalcular contas.
 
 ## Dependências
@@ -58,3 +59,13 @@ App: `ef92ca8` (segurança de sessão/dependências e UC pela API). Backend prod
 - [Supabase — papéis do PostgreSQL](https://supabase.com/docs/guides/database/postgres/roles)
 
 Configurações privadas foram usadas somente localmente, sem incluí-las em commits, relatórios ou bundles; arquivos temporários privados foram removidos após a validação.
+
+## Atualização: memória de cálculo e publicação final
+
+A identificação GD no PDF deixou de inferir GD2 pelos custos ou pela diferença entre tarifas. Ela utiliza o enquadramento registrado na fatura/leitura original e a configuração vinculada, com identificação explícita de GD1, GD2 ou mista. Sem dados suficientes, informa que o GD não foi informado. O motor financeiro e os valores registrados não foram alterados. A versão do relatório passou para `relatorio-calculo-20261009-v4` para evitar reaproveitar o PDF antigo.
+
+Foram geradas somente quatro memórias sintéticas, identificadas como teste sem cobrança: GD2 em injeção, GD2 em compensação, GD1 e mista. Todas as oito páginas foram inspecionadas visualmente. Seis testes adicionais passaram; produção está online com `a11dd35`; preview está online com `da7f351`.
+
+A palavra de ativação passou para Solar, sem renomear a empresa. Cards de privacidade e melhorias de sessão foram publicados nos seis alvos OTA: preview Consumidor `7f44c791-f16e-4840-b199-57e63704fe26`, preview Gerador `1a1a53e5-3097-488c-baea-b3636bfc253d`, produção Consumidor `e30f1dc8-b3ac-44eb-8be4-7567da2e3ae7`, produção Gerador `3a2dd9c0-48a5-4a8c-a861-e711fd67299a`, produção legada Consumidor `22ae28af-fd7c-4582-8d41-75421861077d` e produção legada Gerador `17cce29f-bdf6-4626-a0ec-0de815eea8d5`.
+
+A cota gratuita EAS Android foi esgotada; os quatro novos APKs estão sendo compilados localmente com as assinaturas existentes, sem contratação de plano. A entrega do bloqueio HTTP nativo continua pendente da conclusão, verificação e publicação desses APKs.
