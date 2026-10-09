@@ -11,14 +11,22 @@ import GeneratorInviteSignup from "./GeneratorInviteSignup";
 import ContractWorkflowWeb from "./ContractWorkflowWeb";
 import ConsumerContractSignatureWeb from "./ConsumerContractSignatureWeb";
 import CollaboratorsPanel from "./CollaboratorsPanel";
+import EmailProviderSetupWeb from "./EmailProviderSetupWeb";
+import PrivacyRequestsWeb from "./PrivacyRequestsWeb";
+import SolarAssistantWeb from "./SolarAssistantWeb";
+import { consumerEnergySummary } from "./consumerEnergySummary";
+import { mergeNotificationIds, readNotificationIds } from "./notificationPreferences";
 import "./mobile.css";
 import "./download.css";
 
-const APP_GERADOR_URL = String(import.meta.env.VITE_APP_GERADOR_DOWNLOAD_URL ?? "/downloads/andrade-energy-gerador.apk?v=2026-09-23").trim();
-const APP_CONSUMIDOR_URL = String(import.meta.env.VITE_APP_CONSUMIDOR_DOWNLOAD_URL ?? "/downloads/andrade-energy-consumidor.apk?v=2026-09-23").trim();
+const APP_GERADOR_URL = String(import.meta.env.VITE_APP_GERADOR_DOWNLOAD_URL ?? "/downloads/andrade-energy-gerador.apk?v=2026-10-09").trim();
+const APP_CONSUMIDOR_URL = String(import.meta.env.VITE_APP_CONSUMIDOR_DOWNLOAD_URL ?? "/downloads/andrade-energy-consumidor.apk?v=2026-10-09").trim();
 
 type AccessType = "CONSUMIDOR" | "GERADOR";
 type AdminWorkspace = "COMERCIAL" | "USINAS";
+function readNotificationIdsFromStorage(key: string) {
+  try { return readNotificationIds(localStorage, key); } catch { return []; }
+}
 type PortalSession = {
   token?: string;
   usuario?: {
@@ -106,9 +114,7 @@ function AdminWorkspaceChoice({ name, onChoose, onLogout }: { name?: string; onC
   </main>;
 }
 
-const API_URL =
-  import.meta.env.VITE_API_URL ??
-  "https://andrade-energy-api-vda.onrender.com/api";
+const API_URL = "/api";
 
 const STATUS_PT: Record<string, string> = {
   DONE: "Concluída",
@@ -271,7 +277,7 @@ function readSession(): PortalSession | null {
     const stored = sessionStorage.getItem("andrade_energy_portal_session");
     return stored ? (JSON.parse(stored) as PortalSession) : null;
   } catch {
-    sessionStorage.removeItem("andrade_energy_portal_session");
+    try { sessionStorage.removeItem("andrade_energy_portal_session"); } catch { /* O navegador pode bloquear armazenamento. */ }
     return null;
   }
 }
@@ -287,13 +293,11 @@ function ClientOverview({
   companyName: string;
   onConfigureAutomaticBilling?: () => void;
 }) {
-  const consumption = Number(data?.consumo ?? 0);
-  const credits = Number(data?.creditos ?? 0);
+  const energySummary = consumerEnergySummary(data);
+  const consumption = energySummary.consumed;
+  const credits = energySummary.compensated;
   const savings = Number(data?.economiaMes ?? 0);
-  const compensation =
-    consumption > 0
-      ? Math.min(100, Math.round((credits / consumption) * 100))
-      : 0;
+  const compensation = energySummary.percentage;
   const invoice = (
     data?.ultimaFatura && typeof data.ultimaFatura === "object"
       ? data.ultimaFatura
@@ -731,7 +735,6 @@ function CommercialManagementPanel({ token }: { token: string }) {
   const selectedSubscription = (data?.assinaturas ?? []).find((item: any) => String(item.gerador_id) === selectedGeneratorId);
   return <div className="commercial-stack">
     <section className="commercial-home-hero"><div><small>GESTÃO DE GERADORES</small><h2>Operação comercial do software</h2><p>Geradores, licenças, planos, cobranças e conformidade em uma visão profissional.</p></div><b>↗</b></section>
-    <nav className="commercial-tabs" aria-label="Áreas da gestão comercial"><button onClick={()=>document.getElementById("comercial-resumo")?.scrollIntoView({behavior:"auto",block:"start"})}>Visão geral</button><button onClick={()=>document.getElementById("comercial-monitoramento")?.scrollIntoView({behavior:"auto",block:"start"})}>Clientes ativos</button><button onClick={()=>document.getElementById("comercial-pagamentos")?.scrollIntoView({behavior:"auto",block:"start"})}>Financeiro</button><button onClick={()=>document.getElementById("comercial-geradores")?.scrollIntoView({behavior:"auto",block:"start"})}>Geradores</button><button onClick={()=>document.getElementById("comercial-planos")?.scrollIntoView({behavior:"auto",block:"start"})}>Planos</button><button onClick={()=>document.getElementById("comercial-assinaturas")?.scrollIntoView({behavior:"auto",block:"start"})}>Assinaturas</button><button onClick={()=>document.getElementById("comercial-aplicativos")?.scrollIntoView({behavior:"auto",block:"start"})}>Aplicativos</button></nav>
     <section className="commercial-finance" id="comercial-resumo"><article className="commercial-revenue"><small>RECEITA MENSAL PREVISTA</small><strong>{money(data?.resumo?.receitaMensalPrevista)}</strong><footer><span>Recebido {money(data?.financeiro?.recebidoNoMes)}</span><span>Pendente {money(data?.financeiro?.pendenteNoMes)}</span></footer></article><article className="commercial-wallet"><small>CARTEIRA COMERCIAL</small><strong>{money(data?.financeiro?.totalRecebido)}</strong><span>Total confirmado</span><footer><b>{data?.financeiro?.cobrancasPendentes ?? 0} pendentes</b><b className="danger-text">{data?.financeiro?.cobrancasVencidas ?? 0} vencidas</b></footer></article></section>
     <div className="commercial-metrics">
       <article><small>ASSINATURAS</small><strong>{data?.resumo?.total ?? 0}</strong><span>Contas comercializadas</span></article>
@@ -1017,16 +1020,8 @@ function ProfilePanel({
         </form>
         {privacyMessage ? <div className="invite-message" role="status">{privacyMessage}</div> : null}
       </section>
-      {myPrivacyRequests.length > 0 ? <section className="section-workspace profile-card">
-        <span className="section-label">ACOMPANHAMENTO</span>
-        <h2>Meus pedidos</h2>
-        {myPrivacyRequests.map((request) => <p key={request.id}>{request.detalhes?.tipo ?? "Pedido"} · {request.detalhes?.status ?? "RECEBIDA"} · {new Date(request.criado_em).toLocaleDateString("pt-BR")}<br /><small>Protocolo {request.id}</small></p>)}
-      </section> : null}
-      {privacyRequests.length > 0 ? <section className="section-workspace profile-card">
-        <span className="section-label">ATENDIMENTO DE PRIVACIDADE</span>
-        <h2>Pedidos recebidos</h2>
-        {privacyRequests.map((request) => <p key={request.id}><strong>{request.usuarios?.nome ?? "Titular"}</strong> · {request.detalhes?.tipo ?? "Pedido"} · {new Date(request.criado_em).toLocaleDateString("pt-BR")}<br /><small>Protocolo {request.id}</small></p>)}
-      </section> : null}
+      <PrivacyRequestsWeb requests={myPrivacyRequests} />
+      <PrivacyRequestsWeb requests={privacyRequests} received />
     </div>
   );
 }
@@ -1597,7 +1592,6 @@ function ManualBillingModal({ token, onClose, onSuccess }: { token: string; onCl
 }
 
 function AutomaticBillingModal({ token, unit, accessType, onClose }: { token: string; unit: WebRecord; accessType: AccessType; onClose: () => void }) {
-  const [setupMode, setSetupMode] = useState<"GMAIL" | "MANUAL" | null>(null);
   const [receipt, setReceipt] = useState<WebRecord | null>(null);
   const [connections, setConnections] = useState<WebRecord[]>([]);
   const [busy, setBusy] = useState(false);
@@ -1615,6 +1609,7 @@ function AutomaticBillingModal({ token, unit, accessType, onClose }: { token: st
       const receiptData = await receiptResponse.json().catch(() => ({}));
       const connectionsData = await connectionsResponse.json().catch(() => ({}));
       if (!receiptResponse.ok) throw new Error(receiptData.message ?? "Não foi possível carregar a configuração.");
+      if (!connectionsResponse.ok) throw new Error(connectionsData.message ?? "Não foi possível consultar as conexões de e-mail.");
       setReceipt(receiptData);
       setConnections(Array.isArray(connectionsData.conexoes) ? connectionsData.conexoes : []);
     } catch (reason) {
@@ -1637,19 +1632,8 @@ function AutomaticBillingModal({ token, unit, accessType, onClose }: { token: st
     } catch (reason) { setMessage(reason instanceof Error ? reason.message : "Não foi possível salvar."); }
     finally { setBusy(false); }
   }
-  async function connect(provider: "GMAIL" | "OUTLOOK") {
-    setBusy(true); setMessage("");
-    try {
-      const response = await fetch(`${API_URL}/conexoes-email/unidades/${unitId}/iniciar`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ provedor: provider, app: accessType }) });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.url) throw new Error(data.message ?? "Não foi possível iniciar a conexão.");
-      window.open(String(data.url), "_blank", "noopener,noreferrer");
-      setMessage(`Conclua a autorização do ${provider === "GMAIL" ? "Gmail" : "Outlook"} na nova aba.`);
-    } catch (reason) { setMessage(reason instanceof Error ? reason.message : "Não foi possível conectar o e-mail."); }
-    finally { setBusy(false); }
-  }
   const active = Boolean(receipt?.ativo);
-  return <div className="modal-backdrop"><section className="modal-card automatic-billing-modal"><button className="modal-close" type="button" onClick={onClose}>×</button><span className="section-label">FATURA AUTOMÁTICA</span><h2>Uma configuração para todas as UCs</h2><p>{isGenerator ? "A configuração é única e atende todas as UCs cuja titularidade está definida como Gerador." : "Esta opção está disponível porque a titularidade das UCs foi definida como Consumidor pelo gerador."}</p><div className="automatic-scope"><b>✓</b><span><strong>{isGenerator ? "Todas as UCs elegíveis da operação" : "Todas as UCs vinculadas ao seu perfil"}</strong><small>O sistema lê o PDF e identifica automaticamente a unidade correta.</small></span></div>{receipt?.configurado === false ? <div className="error-message">O domínio de recebimento ainda não foi configurado no servidor.</div> : <><div className={`automatic-status ${active ? "active" : ""}`}><span><small>STATUS</small><strong>{active ? "Recebimento automático ativo" : "Recebimento automático desativado"}</strong></span><button disabled={busy} onClick={() => void toggle(!active)}>{busy ? "Salvando..." : active ? "Desativar" : "Ativar para todas"}</button></div>{active && receipt?.endereco ? <section className="email-setup-card"><div className="email-setup-heading"><span className="email-setup-icon">✉</span><div><small>ENDEREÇO EXCLUSIVO</small><strong>Encaminhe as contas para este endereço</strong><p>Use uma única regra de e-mail. Os PDFs das UCs do escopo serão reconhecidos automaticamente.</p></div></div><button className="automatic-address" type="button" onClick={() => { void navigator.clipboard.writeText(String(receipt.endereco)); setMessage("Endereço copiado."); }}><code>{String(receipt.endereco)}</code><span>Copiar</span></button><p>Tem Gmail? Use o botão Gmail. Para Outlook ou Hotmail, configure manualmente. Use a conta que recebe as faturas da CEMIG.</p><div className="email-provider-actions"><button type="button" onClick={() => setSetupMode("GMAIL")}>Gmail</button><button type="button" onClick={() => setSetupMode("MANUAL")}>Configurar manualmente</button></div>{setupMode === "GMAIL" ? <button type="button" disabled={busy} onClick={() => void connect("GMAIL")}>Conectar Gmail</button> : null}{setupMode === "MANUAL" ? <ol><li>No Outlook ou Hotmail, crie uma regra para mensagens da CEMIG com PDF anexo.</li><li>Encaminhe essas mensagens para o endereço exclusivo acima.</li><li>A fatura será vinculada à UC identificada no documento.</li></ol> : null}{connections.length ? <div className="automatic-connections">{connections.map((connection) => <span key={String(connection.id)}><b>{String(connection.provedor)}</b> · {String(connection.email ?? connection.status ?? "Conectado")}</span>)}</div> : null}</section> : null}</>}{message ? <div className="automatic-message">{message}</div> : null}</section></div>;
+  return <div className="modal-backdrop"><section className="modal-card automatic-billing-modal"><button className="modal-close" type="button" onClick={onClose}>×</button><span className="section-label">FATURA AUTOMÁTICA</span><h2>Uma configuração para todas as UCs</h2><p>{isGenerator ? "A configuração é única e atende todas as UCs cuja titularidade está definida como Gerador." : "Esta opção está disponível porque a titularidade das UCs foi definida como Consumidor pelo gerador."}</p><div className="automatic-scope"><b>✓</b><span><strong>{isGenerator ? "Todas as UCs elegíveis da operação" : "Todas as UCs vinculadas ao seu perfil"}</strong><small>O sistema lê o PDF e identifica automaticamente a unidade correta.</small></span></div>{receipt?.configurado === false ? <div className="error-message">O domínio de recebimento ainda não foi configurado no servidor.</div> : <><div className={`automatic-status ${active ? "active" : ""}`}><span><small>STATUS</small><strong>{active ? "Recebimento automático ativo" : "Recebimento automático desativado"}</strong></span><button disabled={busy} onClick={() => void toggle(!active)}>{busy ? "Salvando..." : active ? "Desativar" : "Ativar para todas"}</button></div>{active && receipt?.endereco ? <section className="email-setup-card"><div className="email-setup-heading"><span className="email-setup-icon">✉</span><div><small>ENDEREÇO EXCLUSIVO</small><strong>Encaminhe as contas para este endereço</strong><p>Use uma única regra de e-mail. Os PDFs das UCs do escopo serão reconhecidos automaticamente.</p></div></div><button className="automatic-address" type="button" onClick={() => { void navigator.clipboard.writeText(String(receipt.endereco)); setMessage("Endereço copiado."); }}><code>{String(receipt.endereco)}</code><span>Copiar</span></button><EmailProviderSetupWeb apiUrl={API_URL} token={token} unitId={unitId} accessType={accessType} connections={connections} reload={load} /></section> : null}</>}{message ? <div className="automatic-message">{message}</div> : null}</section></div>;
 }
 
 function UnitTools({
@@ -2990,6 +2974,9 @@ function PortalHome({
   const [manualBillingOpen, setManualBillingOpen] = useState(false);
   const [automaticBillingUnit, setAutomaticBillingUnit] = useState<WebRecord | null>(null);
   const [consumerAutomaticBillingUnit, setConsumerAutomaticBillingUnit] = useState<WebRecord | null>(null);
+  const [consumerUnits, setConsumerUnits] = useState<WebRecord[]>([]);
+  const [selectedConsumerUnitId, setSelectedConsumerUnitId] = useState("");
+  const selectedConsumerUnit = consumerUnits.find(unit => String(unit.id) === selectedConsumerUnitId);
   const [selectedRecord, setSelectedRecord] = useState<WebRecord | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("andrade_portal_sidebar_collapsed") === "1");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -3001,10 +2988,14 @@ function PortalHome({
   const [notifications, setNotifications] = useState<WebRecord[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const notificationReadKey = `andrade_web_notifications_read:${session.usuario?.id ?? "user"}`;
-  const [readNotificationIds, setReadNotificationIds] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem(notificationReadKey) ?? "[]"); }
-    catch { return []; }
-  });
+  const [readNotificationIds, setReadNotificationIds] = useState<string[]>(() => readNotificationIdsFromStorage(notificationReadKey));
+  const notificationHiddenKey = `andrade_web_notifications_hidden:${session.usuario?.id ?? "user"}`;
+  const [hiddenNotificationIds, setHiddenNotificationIds] = useState<string[]>(() => readNotificationIdsFromStorage(notificationHiddenKey));
+  useEffect(() => {
+    setReadNotificationIds(readNotificationIdsFromStorage(notificationReadKey));
+    setHiddenNotificationIds(readNotificationIdsFromStorage(notificationHiddenKey));
+    setNotifications([]);
+  }, [notificationReadKey, notificationHiddenKey]);
   const [notificationsError, setNotificationsError] = useState("");
   const collaboratorRole = String(session.usuario?.papel_empresa ?? "");
   const isCollaborator = collaboratorRole.startsWith("COLABORADOR_");
@@ -3037,15 +3028,24 @@ function PortalHome({
 
   useEffect(() => {
     if (type !== "CONSUMIDOR" || !session.token) return;
-    void fetch(`${API_URL}/clientes/minhas-unidades`, { headers: { Authorization: `Bearer ${session.token}` } })
+    const controller = new AbortController();
+    void fetch(`${API_URL}/clientes/minhas-unidades`, { headers: { Authorization: `Bearer ${session.token}` }, signal: controller.signal })
       .then(async (response) => response.ok ? response.json() : Promise.reject())
       .then((payload) => {
+        if (controller.signal.aborted) return;
         const units = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+        setConsumerUnits(units);
+        setSelectedConsumerUnitId(current => units.some((unit: WebRecord) => String(unit.id) === current) ? current : String(units[0]?.id ?? ""));
         const eligible = units.find((unit: WebRecord) => hasAutomaticBillingOwnership(unit, "CLIENTE"));
         setConsumerAutomaticBillingUnit(eligible ?? null);
       })
-      .catch(() => setConsumerAutomaticBillingUnit(null));
+      .catch(() => { if (!controller.signal.aborted) { setConsumerAutomaticBillingUnit(null); setConsumerUnits([]); } });
+    return () => controller.abort();
   }, [session.token, type]);
+  useEffect(() => {
+    if (type !== "CONSUMIDOR") return;
+    setConsumerAutomaticBillingUnit(selectedConsumerUnit && hasAutomaticBillingOwnership(selectedConsumerUnit, "CLIENTE") ? selectedConsumerUnit : null);
+  }, [type, selectedConsumerUnit]);
 
   useEffect(() => {
     if (type !== "CONSUMIDOR" || !session.token) {
@@ -3093,7 +3093,14 @@ function PortalHome({
     return () => { active = false; window.clearInterval(timer); };
   }, [session.token]);
 
-  const unreadNotifications = notifications.filter((item) => !readNotificationIds.includes(String(item.id))).length;
+  const visibleNotifications = notifications.filter(item => !hiddenNotificationIds.includes(String(item.id)));
+  const unreadNotifications = visibleNotifications.filter((item) => !readNotificationIds.includes(String(item.id))).length;
+  function clearNotificationList() {
+    const next = mergeNotificationIds(hiddenNotificationIds, visibleNotifications.map(item => String(item.id)));
+    try { localStorage.setItem(notificationHiddenKey, JSON.stringify(next)); }
+    catch { setNotificationsError("Não foi possível guardar a preferência neste navegador."); return; }
+    setHiddenNotificationIds(next);
+  }
   function markNotificationsRead(ids: string[]) {
     setReadNotificationIds((current) => {
       const next = [...new Set([...current, ...ids])].slice(-500);
@@ -3118,15 +3125,17 @@ function PortalHome({
     const headers = { Authorization: `Bearer ${session.token}` };
     if (type === "CONSUMIDOR") {
       const clienteId = session.usuario?.cliente_id ?? session.usuario?.id;
-      if (!clienteId) return;
+      if (!clienteId || !selectedConsumerUnit?.numero) return;
+      const controller = new AbortController();
+      setDashboard(null);
       void fetch(
-        `${API_URL}/dashboard/cliente?clienteId=${encodeURIComponent(clienteId)}`,
-        { headers },
+        `${API_URL}/dashboard/cliente?clienteId=${encodeURIComponent(clienteId)}&uc=${encodeURIComponent(String(selectedConsumerUnit.numero))}`,
+        { headers, signal: controller.signal },
       )
         .then((response) => (response.ok ? response.json() : Promise.reject()))
-        .then((data) => setDashboard(data))
+        .then((data) => { if (!controller.signal.aborted) setDashboard(data); })
         .catch(() => undefined);
-      return;
+      return () => controller.abort();
     }
     if (isCommercialWorkspace || !workspacePlantsReady || !activePlantId) return;
     setDashboard(null);
@@ -3134,7 +3143,7 @@ function PortalHome({
       .then((response) => (response?.ok ? response.json() : null))
       .then((data) => data && setDashboard(data))
       .catch(() => undefined);
-  }, [activePlantId, isCommercialWorkspace, session.token, type, workspacePlantsReady]);
+  }, [activePlantId, isCommercialWorkspace, session.token, type, workspacePlantsReady, selectedConsumerUnit]);
 
   useEffect(() => {
     if (type !== "GERADOR" || !session.token) return;
@@ -3200,7 +3209,7 @@ function PortalHome({
       Clientes: "/clientes",
       "Unidades consumidoras": "/clientes/unidades",
       Faturas: "/faturas",
-      Contratos: type === "GERADOR" ? "/contratos" : "/clientes/unidades",
+      Contratos: type === "GERADOR" ? "/contratos" : "/clientes/minhas-unidades",
       Financeiro: "/faturas",
       Operação: "/fechamentos",
       "Contas de luz": "/faturas?categoria=concessionaria",
@@ -3214,10 +3223,15 @@ function PortalHome({
     if (plantScoped && !activePlantId) { setSectionData([]); setSectionError("Selecione ou cadastre uma usina para ver os registros."); return; }
     setSectionLoading(true);
     setSectionError("");
-    const scopedEndpoint = plantScoped
+    const baseScopedEndpoint = plantScoped
       ? `${endpoint}${endpoint.includes("?") ? "&" : "?"}usinaId=${encodeURIComponent(activePlantId)}` : endpoint;
+    const consumerScoped = type === "CONSUMIDOR" && ["Faturas", "Financeiro", "Contas de luz", "Economia"].includes(activeSection);
+    if (consumerScoped && !selectedConsumerUnit?.numero) { setSectionLoading(false); setSectionData([]); return; }
+    const scopedEndpoint = consumerScoped ? `${baseScopedEndpoint}${baseScopedEndpoint.includes("?") ? "&" : "?"}uc=${encodeURIComponent(String(selectedConsumerUnit!.numero))}` : baseScopedEndpoint;
+    const controller = new AbortController();
     void fetch(`${API_URL}${scopedEndpoint}`, {
       headers: { Authorization: `Bearer ${session.token}` },
+      signal: controller.signal,
     })
       .then(async (response) => {
         const payload = await response.json().catch(() => ({}));
@@ -3246,9 +3260,10 @@ function PortalHome({
               };
             })
           : rawRecords;
-        setSectionData(records);
+        if (!controller.signal.aborted) setSectionData(records);
       })
       .catch((reason) => {
+        if (controller.signal.aborted) return;
         setSectionData([]);
         setSectionError(
           reason instanceof Error
@@ -3256,8 +3271,9 @@ function PortalHome({
             : "Falha ao carregar os dados.",
         );
       })
-      .finally(() => setSectionLoading(false));
-  }, [activePlantId, activeSection, isCommercialWorkspace, session.token, refreshKey, type, workspacePlantsReady]);
+      .finally(() => { if (!controller.signal.aborted) setSectionLoading(false); });
+    return () => controller.abort();
+  }, [activePlantId, activeSection, isCommercialWorkspace, session.token, refreshKey, type, workspacePlantsReady, selectedConsumerUnit]);
 
   const energy = Number(dashboard?.energiaGerada ?? 0).toLocaleString("pt-BR", {
     maximumFractionDigits: 0,
@@ -3522,8 +3538,9 @@ function PortalHome({
             {notificationsOpen ? <section className="notification-panel">
               <header><strong>Notificações</strong><small>{unreadNotifications ? `${unreadNotifications} nova${unreadNotifications === 1 ? "" : "s"}` : "Tudo em dia"}</small></header>
               {unreadNotifications > 0 ? <button className="notification-mark-all" type="button" onClick={() => markNotificationsRead(notifications.map((item) => String(item.id)))}>Marcar todas como lidas</button> : null}
+              {visibleNotifications.length > 0 ? <button className="notification-clear-list" type="button" onClick={clearNotificationList}>Limpar lista</button> : null}
               {notificationsError ? <p className="notification-error" role="status">{notificationsError}</p> : null}
-              <div>{notifications.length ? notifications.map((item) => {
+              <div>{visibleNotifications.length ? visibleNotifications.map((item) => {
                 const read = readNotificationIds.includes(String(item.id));
                 return <article className={read ? "notification-read" : "notification-unread"} key={String(item.id)}><i aria-hidden="true">{read ? "✓" : "!"}</i><span><strong>{String(item.titulo ?? "Aviso")}</strong><small>{String(item.detalhe ?? "")}</small><time>{item.criado_em ? new Date(String(item.criado_em)).toLocaleString("pt-BR") : ""}</time>{!read ? <button type="button" onClick={() => markNotificationsRead([String(item.id)])}>Marcar como lida</button> : null}</span></article>;
               }) : !notificationsError ? <p>Nenhuma notificação por enquanto.</p> : null}</div>
@@ -3617,6 +3634,7 @@ function PortalHome({
                 PORTAL {type === "GERADOR" ? "DO GERADOR" : "DO CLIENTE"}
               </span>
               <h1>{activeSection}</h1>
+              {type === "CONSUMIDOR" && consumerUnits.length > 0 ? <label className="consumer-unit-select">Unidade consumidora <select value={selectedConsumerUnitId} onChange={event => { setSelectedConsumerUnitId(event.target.value); setSelectedRecord(null); }}>{consumerUnits.map(unit => <option key={String(unit.id)} value={String(unit.id)}>UC {String(unit.numero ?? "Não informada")}</option>)}</select></label> : null}
               <p className="dashboard-lead">
                 {activeSection === "Visão geral"
                   ? "Decisões mais claras com os dados da sua operação."
@@ -3994,6 +4012,7 @@ function PortalHome({
           {automaticBillingUnit?.id && session.token ? <AutomaticBillingModal token={session.token} unit={automaticBillingUnit} accessType={type} onClose={() => setAutomaticBillingUnit(null)} /> : null}
         </section>
       </div>
+      {session.token ? <SolarAssistantWeb key={`${session.usuario?.id}:${type}:${activePlantId}:${selectedConsumerUnitId}`} apiUrl={API_URL} token={session.token} variant={type} context={{ variant: type, plantId: activePlantId, unit: selectedConsumerUnit, clientId: session.usuario?.cliente_id }} onNavigate={section => { setSelectedRecord(null); setActiveSection(section); }} /> : null}
     </main>
   );
 }
@@ -4067,9 +4086,29 @@ function TutorialCenter({ profile, defaultOpen = false }: { profile: AccessType;
 function PortalApp() {
   const trialRequested = new URLSearchParams(window.location.search).get("teste") === "1";
   const [rememberedLogin] = useState(readRememberedLogin);
-  const [session, setSession] = useState<PortalSession | null>(() =>
-    readSession(),
-  );
+  const [session, setSession] = useState<PortalSession | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
+  useEffect(() => {
+    let active = true;
+    const stored = readSession();
+    const accessType: AccessType = stored?.accessType ?? (window.location.pathname.startsWith("/cliente") ? "CONSUMIDOR" : "GERADOR");
+    void fetch(`${API_URL}/auth/session`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...(stored?.token && stored.token !== "cookie-session" ? { legacyToken: stored.token } : {}) }),
+    }).then(async response => {
+      if (response.status === 401) { sessionStorage.removeItem("andrade_energy_portal_session"); return; }
+      const data = await response.json();
+      if (!response.ok || !data.usuario?.id || data.token !== "cookie-session") throw new Error("Não foi possível validar sua sessão. Tente recarregar o portal.");
+      const next: PortalSession = { ...stored, ...data, accessType };
+      sessionStorage.setItem("andrade_energy_portal_session", JSON.stringify(next));
+      if (active) {
+        setSession(next);
+        if (!window.location.pathname.startsWith("/cliente") && !window.location.pathname.startsWith("/gerador")) window.history.replaceState({}, "", accessType === "GERADOR" ? "/gerador" : "/cliente");
+      }
+    }).catch(() => { if (active) setError("Não foi possível validar sua sessão. Recarregue o portal ou entre novamente."); })
+      .finally(() => { if (active) setCheckingSession(false); });
+    return () => { active = false; };
+  }, []);
   const [accessType, setAccessType] = useState<AccessType | null>(trialRequested ? "GERADOR" : rememberedLogin.accessType);
   const [email, setEmail] = useState(rememberedLogin.email);
   const [password, setPassword] = useState("");
@@ -4160,7 +4199,11 @@ function PortalApp() {
       ? "CONSUMIDOR"
       : null;
 
-  function logoutPortal() {
+  async function logoutPortal() {
+    try {
+      const response = await fetch(`${API_URL}/auth/logout`, { method: "POST" });
+      if (!response.ok && response.status !== 401) setError("Acesso local encerrado. Não foi possível confirmar a revogação no servidor.");
+    } catch { setError("Não foi possível encerrar a sessão no servidor. Tente novamente."); return; }
     sessionStorage.removeItem("andrade_energy_portal_session");
     setSession(null);
     setAccessType(null);
@@ -4181,6 +4224,7 @@ function PortalApp() {
     setSession(next);
   }
 
+  if (checkingSession) return <main className="page-shell"><p role="status">Verificando sua sessão…</p></main>;
   if (routeType && session) {
     const isAdminGenerator = (session.accessType ?? routeType) === "GERADOR" && session.usuario?.perfil === "ADMIN";
     if (isAdminGenerator && !session.adminWorkspace) return <AdminWorkspaceChoice name={session.usuario?.nome} onChoose={changeAdminWorkspace} onLogout={logoutPortal} />;

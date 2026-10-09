@@ -68,4 +68,19 @@ Foram geradas somente quatro memórias sintéticas, identificadas como teste sem
 
 A palavra de ativação passou para Solar, sem renomear a empresa. Cards de privacidade e melhorias de sessão foram publicados nos seis alvos OTA: preview Consumidor `7f44c791-f16e-4840-b199-57e63704fe26`, preview Gerador `1a1a53e5-3097-488c-baea-b3636bfc253d`, produção Consumidor `e30f1dc8-b3ac-44eb-8be4-7567da2e3ae7`, produção Gerador `3a2dd9c0-48a5-4a8c-a861-e711fd67299a`, produção legada Consumidor `22ae28af-fd7c-4582-8d41-75421861077d` e produção legada Gerador `17cce29f-bdf6-4626-a0ec-0de815eea8d5`.
 
-A cota gratuita EAS Android foi esgotada; os quatro novos APKs estão sendo compilados localmente com as assinaturas existentes, sem contratação de plano. A entrega do bloqueio HTTP nativo continua pendente da conclusão, verificação e publicação desses APKs.
+A cota gratuita EAS Android foi esgotada; os quatro novos APKs foram compilados localmente com as assinaturas existentes, sem contratação de plano. Assinatura, pacote, versionCode, runtime, canal OTA, exclusão do SecureStore no backup e `usesCleartextTraffic=false` foram verificados nos quatro arquivos. Os downloads publicados foram conferidos por SHA-256.
+
+| APK | versionCode | SHA-256 |
+| --- | --- | --- |
+| Consumidor Preview | 2 | `e201ad0faf2aef9f30c51106d6a95e3c1995f62402654aca4b43a64871054204` |
+| Gerador Preview | 2 | `a2df717503a2def1f2526dd9b12159466b6643a269c8693263f57a81bc0736b0` |
+| Consumidor Produção | 8 | `2532da21451b8f004a98ad800bb50d9a2529aeff2cc7fae71e1b248b230a2e93` |
+| Gerador Produção | 5 | `2d20f6b89e7377f28a6b2b732a3d10b4e432c057f59b481a717e52478ab668b3` |
+
+O prebuild reutilizado acumulava rotas da variante anterior. A verificação detectou um Gerador Preview com rotas do Consumidor antes da publicação; ele foi reprovado. Um plugin passou a remover somente as rotas próprias de outras variantes. O APK foi recompilado e os quatro arquivos finais passaram na verificação. Os testes das quatro variantes e de idempotência passaram.
+
+Os quatro APKs ARM64 foram copiados por ADB para `Download/Andrade-Energy-20261009` no Samsung S23, com os quatro hashes confirmados no aparelho. A cópia não instala nem inicia o aplicativo: a proteção HTTP só passa a valer depois de instalar a nova versão.
+
+A revisão automática bloqueou a remoção adicional de caches e do APK reprovado. Esses arquivos foram preservados; o APK reprovado não foi publicado nem copiado para o celular.
+
+Observação operacional: logs anteriores do Gmail em produção apresentaram `GMAIL_LEITURA_NAO_AUTORIZADA`. A auditoria de segurança não confirma que essa autorização de leitura tenha sido restabelecida.

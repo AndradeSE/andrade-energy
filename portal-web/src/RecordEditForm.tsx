@@ -3,7 +3,7 @@ import { FormEvent, useMemo, useState } from "react";
 type RecordData = Record<string, unknown>;
 type Field = { key: string; label: string; type?: "text" | "number" | "date" | "select" | "textarea"; options?: Array<[string,string]> };
 
-const API_URL = import.meta.env.VITE_API_URL ?? "https://andrade-energy-api-vda.onrender.com/api";
+const API_URL = "/api";
 const schemas: Record<string, Field[]> = {
   Clientes: [
     { key:"nome",label:"Nome" },{ key:"telefone",label:"Telefone / WhatsApp" },{ key:"email",label:"E-mail" },
