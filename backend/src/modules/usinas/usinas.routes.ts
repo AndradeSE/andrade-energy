@@ -20,10 +20,19 @@ import {
 import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
 import { exigirUsinaDaSessaoOuGestor } from "../../utils/empresaScope";
 import { exigirCapacidadeDoPlano } from "../../middlewares/limitesPlano.middleware";
+import { empresaIdDaRequisicao } from "../../utils/empresaScope";
+import { cadastrarUnidadeOperacional } from "./unidadeOperacional.service";
 
 const router = Router();
 
 router.use(exigirAutenticacao);
+router.post("/:id/unidades", exigirGestor, async (req, res) => {
+  if (String((req as any).usuario?.papel_empresa ?? "").startsWith("COLABORADOR_") && (req as any).usuario?.permissoes?.unidades === false) {
+    return res.status(403).json({ message: "Seu acesso às unidades não foi liberado pelo titular." });
+  }
+  try { return res.status(201).json(await cadastrarUnidadeOperacional(req.params.id, req.body, empresaIdDaRequisicao(req))); }
+  catch (error: any) { return res.status(400).json({ message: error.message }); }
+});
 
 router.get("/", exigirGestor, listarUsinasController);
 router.post("/importar-producao-pdf", exigirGestor, upload.single("arquivo"), importarProducaoPelaUcController);

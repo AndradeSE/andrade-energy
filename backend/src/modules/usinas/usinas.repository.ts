@@ -3,6 +3,8 @@ import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
 
 function dadosPersistiveisDaUsina(usina: any) {
   const {
+    id: _id,
+    empresa_id: _empresaId,
     cpf_titular: _cpfTitularSnake,
     cpfTitular: _cpfTitularCamel,
     ...dadosDaUsina
