@@ -75,3 +75,16 @@ supabase/.temp/
 /.tmp-tutorial-export-*/
 /dist-gerador/
 /portal-web/.openai/*.tar.gz
+
+# Local exports and device verification captures
+/.eas-archive-*/
+/.expo-export-*/
+/.npm-cache/
+/.tmp-*.png
+/.tmp-*.xml
+/.tmp-*.json
+/.tmp-*.mp4
+/.tmp-*.log
+/.tmp-*.wav
+/.tmp-*.ogg
+/.tmp-*.txt
