@@ -1,12 +1,5 @@
 import { supabase } from "../../config/supabase";
-
-const competenciaChave = (valor: unknown) => {
-  const texto = String(valor ?? "").trim();
-  const iso = /^(\d{4})-(\d{2})/.exec(texto);
-  if (iso) return `${iso[1]}-${iso[2]}`;
-  const br = /^(\d{2})\/(\d{4})$/.exec(texto);
-  return br ? `${br[2]}-${br[1]}` : texto;
-};
+import { chaveCompetencia as competenciaChave } from "../dashboard/competencia.policy";
 
 export async function obterResumoOperacao(empresaId: string, competenciaSolicitada?: string) {
   const [fechamentosResult, faturasResult, usinasResult] = await Promise.all([
