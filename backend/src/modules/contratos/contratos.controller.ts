@@ -27,7 +27,8 @@ export async function dadosIniciaisContratoController(req: any, res: any) {
       .single();
     if (error || !unidade?.cliente_id) return res.status(404).json({ message: "Unidade não encontrada." });
 
-    const [{ data: empresa }, { data: unidadeGeradora, error: erroUnidadeGeradora }, proposta] = await Promise.all([
+    let avisoProposta: string | null = null;
+    const [{ data: empresa, error: erroEmpresa }, { data: unidadeGeradora, error: erroUnidadeGeradora }, proposta] = await Promise.all([
       supabase.from("empresas").select("nome,razao_social,documento,endereco").eq("id", empresaId).maybeSingle(),
       supabase.from("unidades_consumidoras")
         .select("titular,cpf_titular,endereco")
@@ -35,8 +36,12 @@ export async function dadosIniciaisContratoController(req: any, res: any) {
         .eq("usina_id", unidade.usina_id)
         .eq("tipo", "GERADORA")
         .maybeSingle(),
-      obterPropostaParaConvite(unidade.cliente_id, empresaId, unidade.id),
+      obterPropostaParaConvite(unidade.cliente_id, empresaId, unidade.id).catch((erro: any) => {
+        avisoProposta = erro?.message ?? "Não foi possível calcular a proposta desta UC.";
+        return null;
+      }),
     ]);
+    if (erroEmpresa) throw erroEmpresa;
     if (erroUnidadeGeradora) throw erroUnidadeGeradora;
     const usina = Array.isArray(unidade.usinas) ? unidade.usinas[0] : unidade.usinas as any;
     return res.json({
@@ -45,12 +50,13 @@ export async function dadosIniciaisContratoController(req: any, res: any) {
         // pessoais não identificam automaticamente a parte locadora.
         nome: empresa?.razao_social?.trim() || empresa?.nome?.trim() || unidadeGeradora?.titular?.trim() || usina?.nome || "Andrade Energy",
         documento: empresa?.documento?.trim() || unidadeGeradora?.cpf_titular || "",
-        endereco: empresa?.endereco?.trim() || "",
+        endereco: empresa?.endereco?.trim() || unidadeGeradora?.endereco?.trim() || usina?.endereco?.trim() || "",
         email: req.usuario.email ?? "",
         telefone: req.usuario.telefone ?? "",
       },
       titularidadeUcs: String(usina?.titularidade_ucs_recebedoras ?? "GERADOR").toUpperCase(),
       proposta: proposta?.resumo ?? null,
+      avisoProposta,
     });
   } catch (e: any) {
     console.error(e);
