@@ -30,7 +30,11 @@ Consumidor: início, lista de faturas, abertura do PDF, contrato, perfil, notifi
 
 ## Limites da auditoria
 
-Não foram executados pagamentos/Pix, emissão de novas faturas, aceite de contratos, envio de convites, envio de e-mails nem novo consentimento OAuth. Entrega real de push e encaminhamento Gmail/Hotmail permanecem sem validação ponta a ponta nesta rodada. Não há garantia de ausência de falhas em fluxos não executados.
+### Verificação adicional de push — 09/10, 14:54–14:56
+
+Com autorização do usuário, enviado aviso neutro para a conta Vinícius no Consumidor Preview, usando enviarPushDaNotificacao do backend com a configuração de homologação. Registro do dispositivo ativo e atualizado hoje; permissão Android concedida, canal avisos-contexto com importância HIGH. Entrega confirmada no Android em segundo plano e com o app aberto. Tickets e recibos Expo retornaram status ok. Avisos de teste apareceram na central Android; não foi confirmada visualmente a animação de banner nem o som. Nenhuma fatura ou contrato foi criado ou alterado. Os gatilhos de negócio, outros destinatários e o Gerador não foram exercitados neste teste real. A exportação temporária de configuração usada no diagnóstico foi removida.
+
+Não foram executados pagamentos/Pix, emissão de novas faturas, aceite de contratos, envio de convites, envio de e-mails nem novo consentimento OAuth. Encaminhamento Gmail/Hotmail permanece sem validação ponta a ponta nesta rodada. Não há garantia de ausência de falhas em fluxos não executados.
 
 Publicações: aplicativo 108f4b4, runtime 1.0.4-preview-live-awake. Gerador: grupo OTA 918d8e81-523e-4860-a280-8d02a0a57372. Consumidor: grupo OTA d50600d7-16f7-4cae-989c-c6c550b59c1b. Backend c1d47cc, 818236c e dce63d4, branch codex/preview-voice-backend. Produção não recebeu estas publicações.
 
