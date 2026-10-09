@@ -67,3 +67,15 @@ test("falha de autorização não expõe token nem resposta privada do provedor"
     return mensagem.includes("401") && !mensagem.includes("token-secreto") && !mensagem.includes("dados privados");
   });
 });
+
+test("usa a parte MIME estável quando o Gmail renova o identificador do anexo", async t => {
+  const arquivo = Buffer.from("%PDF-1.7\nconta");
+  const urls: string[] = [];
+  t.mock.method(globalThis, "fetch", async (url: string) => {
+    urls.push(url);
+    return Response.json(url.includes("/attachments/") ? { data: arquivo.toString("base64url") }
+      : { payload: { parts: [{ partId: "1", filename: "conta.pdf", body: { attachmentId: "atual", size: arquivo.length } }] } });
+  });
+  assert.deepEqual(await baixarAnexoGmail("token", "m", "anterior", "1", 1024), arquivo);
+  assert.ok(urls[1].endsWith("/attachments/atual"));
+});
