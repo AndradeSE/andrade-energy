@@ -8,12 +8,11 @@ import RealDiscountInfo from "../../components/cadastro/RealDiscountInfo";
 import UsinaSelector from "../../components/cadastro/UsinaSelector";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
-import { alocarUnidade, consultarAlocacao, listarUsinas } from "../../services/usinas.service";
+import { alocarUnidade, cadastrarUnidadeOperacional, consultarAlocacao, listarUsinas } from "../../services/usinas.service";
 import { useAuth } from "../../contexts/AuthContext";
 import { calcularMediaConsumoFatura, listarFaturas } from "../../services/faturas.service";
 import { buscarCliente, listarClientes } from "../../services/clientes.service";
 import { avisosPassoAPassoAtivos } from "../../services/preferencias.service";
-import { supabase } from "../../supabase";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 type Tipo = "CONSUMIDORA" | "BENEFICIARIA" | "GERADORA";
@@ -260,7 +259,7 @@ export default function NovaUnidade() {
           if (destino) await selecionarUsina(destino);
         }
       } else {
-        const { error } = await supabase.from("unidades_consumidoras").upsert({
+        await cadastrarUnidadeOperacional(usinaFinal, {
           numero, titular: titular.trim() || clienteSelecionado?.nome || null, tipo, cliente_id: clienteId || null, usina_id: usinaFinal,
           distribuidora: clienteSelecionado?.distribuidora || "CEMIG", endereco: endereco.trim() || clienteSelecionado?.endereco || null, modalidade_faturamento: modalidadeFinal,
           desconto_percentual: descontoFinal, cpf_titular: documentoTitular || clienteSelecionado?.cpf || null, status: "PENDENTE_CONTRATO",
@@ -270,8 +269,7 @@ export default function NovaUnidade() {
           repassar_diferenca_fio_b_gd2: repasseFioBGD2 === "REPASSAR",
           tipo_gd: ["GD1", "GD2", "MISTA"].includes(tipoGdEfetivo) ? tipoGdEfetivo : null,
           fatura_somente_andrade: formatoFatura === "SOMENTE_ANDRADE",
-        }, { onConflict: "numero" });
-        if (error) throw error;
+        });
       }
 
       if (origem === "fatura" && clienteId) {

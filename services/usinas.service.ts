@@ -14,6 +14,10 @@ export async function criarUsina(payload: any) {
   const { data } = await api.post("/usinas", payload);
   return data;
 }
+export async function cadastrarUnidadeOperacional(id: string, payload: any) {
+  const { data } = await api.post(`/usinas/${id}/unidades`, payload);
+  return data;
+}
 
 export async function editarUsina(id: string, payload: any) {
   const { data } = await api.put(`/usinas/${id}`, payload);
