@@ -313,6 +313,7 @@ export default function RecebimentoEmail() {
   const tituloStatus = titulosStatus[status] ?? "Em configuração";
   const temErro = status === "ERRO";
   const gmailConectado = conexoes.some((conexao) => conexao.provedor.toUpperCase() === "GMAIL" && conexaoAtiva(conexao));
+  const outlookConectado = conexoes.some((conexao) => conexao.provedor.toUpperCase() === "OUTLOOK" && conexao.automatico && !conexao.erro);
 
   return <Screen>
     {IS_GERADOR_APP ? <AppHeader variant="subpage" title="Recebimento automático" subtitle={recebimentoDeProducao ? "Produção da usina" : "Todas as UCs"} contextTitle="Configuração de e-mail" contextSubtitle={recebimentoDeProducao ? `UC ${unidadeExibida?.numero ?? unidadeId}` : "Válida para todas as UCs deste titular"} icon="mail-outline" /> : null}
@@ -343,7 +344,7 @@ export default function RecebimentoEmail() {
         <TouchableOpacity disabled={salvando} onPress={confirmarRegeneracao} style={styles.secondaryAction}><Ionicons name="refresh-outline" size={19} color={Colors.primary} /><Text style={styles.secondaryText}>Gerar novo endereço</Text></TouchableOpacity>
         <TouchableOpacity disabled={salvando} onPress={confirmarDesativacao} style={styles.dangerAction}><Ionicons name="close-circle-outline" size={19} color={Colors.danger} /><Text style={styles.dangerText}>Desativar recebimento</Text></TouchableOpacity>
         <Text style={styles.inlineSectionTitle}>COMO DESEJA CONFIGURAR?</Text>
-        <Text style={styles.setupHelp}>Tem Gmail? Use o botão Gmail. Se usa Outlook ou Hotmail, escolha Configurar manualmente e siga as instruções.</Text>
+        <Text style={styles.setupHelp}>Conecte o Gmail ou o Hotmail / Outlook para configurar o recebimento automático. Você também pode configurar o encaminhamento manualmente.</Text>
         <Text style={styles.setupNotice}>Importante: use a conta de e-mail que recebe as faturas da CEMIG.</Text>
         <View style={styles.choiceActions}>
           <TouchableOpacity accessibilityLabel="Configurar com Gmail" activeOpacity={0.84} onPress={() => setModoConfiguracao("GMAIL")} style={[styles.providerButton, modoConfiguracao === "GMAIL" && styles.providerButtonSelected]}>
@@ -353,6 +354,18 @@ export default function RecebimentoEmail() {
           <TouchableOpacity accessibilityLabel="Configurar manualmente" activeOpacity={0.84} onPress={() => setModoConfiguracao("MANUAL")} style={[styles.providerButton, modoConfiguracao === "MANUAL" && styles.providerButtonSelected]}>
             <Ionicons name="options-outline" size={20} color={Colors.primary} />
             <Text style={styles.providerButtonText}>Configurar manualmente</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.providerActions}>
+          <TouchableOpacity
+            accessibilityLabel="Conectar Hotmail ou Outlook"
+            activeOpacity={0.84}
+            disabled={Boolean(conectandoProvedor) || outlookConectado}
+            onPress={() => conectarEmail("OUTLOOK")}
+            style={[styles.providerButton, (Boolean(conectandoProvedor) || outlookConectado) && styles.providerButtonDisabled]}
+          >
+            <Ionicons name="mail-outline" size={20} color={outlookConectado ? Colors.subtitle : Colors.primary} />
+            <Text style={[styles.providerButtonText, outlookConectado && styles.providerButtonTextDisabled]}>{conectandoProvedor === "OUTLOOK" ? "Conectando..." : outlookConectado ? "Hotmail / Outlook conectado" : "Conectar Hotmail / Outlook"}</Text>
           </TouchableOpacity>
         </View>
         {modoConfiguracao === "GMAIL" ? <View style={styles.providerActions}>
