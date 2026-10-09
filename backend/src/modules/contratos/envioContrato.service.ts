@@ -91,7 +91,7 @@ export async function enviarContratoEConvite(unidadeId: string, gestor: any, for
         tipo: revisaoContratual ? "REVISAO_CONTRATUAL_DISPONIVEL" : "CONTRATO_DISPONIVEL",
         titulo: revisaoContratual ? "Revisão contratual disponível" : "Contrato disponível",
         detalhe: revisaoContratual ? "Leia as alterações e confirme seu aceite no aplicativo." : "Leia o contrato disponível no aplicativo.",
-        rota: "/contrato",
+        rota: `/contrato?unidadeId=${encodeURIComponent(unidadeId)}`,
         chave_dedupe: `contrato-enviado:${contrato.id}:${envioSolicitadoEm}:${acesso.usuario_id}`,
       })));
     })().catch((erroNotificacao) => console.error("Falha ao notificar envio do contrato", erroNotificacao));
