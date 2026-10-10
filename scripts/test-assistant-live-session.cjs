@@ -68,7 +68,7 @@ vm.runInNewContext(js, { exports: moduleResult.exports, require: key => { assert
   assert.ok(source.includes('!awaitingResponseAt'));
   assert.deepEqual(Array.from(setup.generationConfig.responseModalities), ['AUDIO']);
   assert.equal(setup.responseModalities, undefined); // Wire schema, not the SDK config shape.
-  assert.equal(setup.realtimeInputConfig.automaticActivityDetection.silenceDurationMs, 350);
+  assert.equal(setup.realtimeInputConfig.automaticActivityDetection.silenceDurationMs, 250);
   assert.equal(setup.inputAudioTranscription, undefined);
   assert.equal(setup.outputAudioTranscription, undefined);
   socket.onmessage({ data: bytes.buffer });
