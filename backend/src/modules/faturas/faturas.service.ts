@@ -7,6 +7,7 @@ import { extrairTextoPDF } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
 import {
   armazenarDocumentosDaFatura,
+  prepararDownloadDaConcessionaria,
   incluirLinksTemporarios,
   obterRelatorioCalculoDaFatura,
   regenerarDocumentosGeradosDaFatura,
@@ -42,17 +43,17 @@ async function senhasConhecidasDaEmpresa(req: Request) {
 
 async function extrairTextoDaFatura(req: Request) {
   const senhaInformada = String(req.body?.senhaPdf ?? req.body?.senha_pdf ?? "").trim();
-  if (senhaInformada) return extrairTextoPDF(req.file!.path, senhaInformada);
+  if (senhaInformada) return { texto: await extrairTextoPDF(req.file!.path, senhaInformada), senha: senhaInformada };
 
   try {
-    return await extrairTextoPDF(req.file!.path);
+    return { texto: await extrairTextoPDF(req.file!.path), senha: undefined };
   } catch (erro) {
     if (!erroDeSenhaPdf(erro)) throw erro;
   }
 
   for (const senha of await senhasConhecidasDaEmpresa(req)) {
     try {
-      return await extrairTextoPDF(req.file!.path, senha);
+      return { texto: await extrairTextoPDF(req.file!.path, senha), senha };
     } catch (erro) {
       if (!erroDeSenhaPdf(erro)) throw erro;
     }
@@ -69,6 +70,12 @@ export async function listarFaturas(filtro?: { clienteId?: string; uc?: string; 
 export async function detalharFatura(id: string, empresaId?: string) {
   let fatura = await buscarFaturaPorId(id, empresaId);
   if (!fatura) throw new Error("Fatura não encontrada.");
+  try {
+    fatura = await prepararDownloadDaConcessionaria(fatura);
+  } catch {
+    // Uma falha de armazenamento não deve impedir a consulta de valores.
+    console.warn("Não foi possível preparar a cópia da concessionária para download.");
+  }
   let pagamentoAtualizado = false;
   const status = String(fatura.status ?? "").toUpperCase();
   const valorCobranca = Number(fatura.valor_total_unificado ?? fatura.valor_total ?? 0);
@@ -217,7 +224,7 @@ export async function analisarFatura(req: Request) {
     throw new Error("Arquivo não enviado.");
   }
 
-  const texto = await extrairTextoDaFatura(req);
+  const { texto } = await extrairTextoDaFatura(req);
   const dados = interpretarFatura(texto);
 
   return {
@@ -239,7 +246,7 @@ export async function importarFatura(
     throw new Error("Arquivo não enviado.");
   }
 
-  const texto = await extrairTextoDaFatura(req);
+  const { texto, senha } = await extrairTextoDaFatura(req);
   const dados = interpretarFatura(texto);
   const resultado = await processarFatura(dados, { empresaId: empresaIdDaRequisicao(req) });
 
@@ -249,7 +256,7 @@ export async function importarFatura(
     // sobrescrever o documento completo com o objeto anterior à cobrança.
     const atualizadaComPagamento = await buscarFaturaPorId(resultado.id, resultado.empresa_id);
     const faturaFinal = atualizadaComPagamento ?? resultado;
-    await armazenarDocumentosDaFatura(faturaFinal, req.file.path);
+    await armazenarDocumentosDaFatura(faturaFinal, req.file.path, senha);
     await enfileirarNotificacoesDaFatura(faturaFinal);
   }
 
