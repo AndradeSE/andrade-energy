@@ -1,5 +1,7 @@
 # Automação da Solar na web
 
+Registro da primeira etapa web. A evolução com código compartilhado e integração no app está documentada em [solar-web-app-20261009.md](solar-web-app-20261009.md).
+
 Código preparado e verificado localmente. Publicação no domínio real continua bloqueada pelo acesso ao projeto original do Sites. Nenhuma conta real foi alterada no desenvolvimento ou nos testes.
 
 A Solar pode preparar e salvar, após confirmação explícita no chat:
