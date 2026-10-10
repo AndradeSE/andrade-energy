@@ -68,6 +68,7 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
   let closed = false;
   let listening = false;
   let speaking = false;
+  let resumeScheduled = false;
   let nextAudioAt = 0;
   let playbackChain = Promise.resolve();
   let lastActivity = Date.now();
@@ -201,12 +202,14 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
       }).finally(() => { toolBusy = false; lastActivity = Date.now(); });
     }
     const content = message.serverContent;
-    if (content) console.info("[AssistantLive] response-state", Boolean(content.modelTurn), Boolean(content.turnComplete), Boolean(content.interrupted));
+    if (content?.generationComplete || content?.turnComplete) console.info("[AssistantLive] response-finished", Boolean(content.generationComplete), Boolean(content.turnComplete));
     if (content?.modelTurn?.parts) for (const part of content.modelTurn.parts) {
       const audio = part?.inlineData;
       if (typeof audio?.data !== "string" || !String(audio?.mimeType ?? "").startsWith("audio/pcm")) continue;
       clearTimeout(setupTimer);
       if (!speaking) {
+        resumeScheduled = false;
+        clearTimeout(endTurnTimer);
         awaitingResponseAt = 0;
         console.info("[AssistantLive] audio-received");
         speaking = true;
@@ -234,7 +237,10 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
         nextAudioAt += buffer.duration;
       }).catch(() => fail("Não consegui reproduzir a resposta por voz."));
     }
-    if (content?.turnComplete) {
+    // Generation ends before the server's estimated playback time. Our own
+    // queue knows the actual playback end: don't wait twice before listening.
+    if ((content?.generationComplete || content?.turnComplete) && !resumeScheduled) {
+      resumeScheduled = true;
       void playbackChain.then(() => {
         if (closed) return;
         const delay = Math.max(0, (nextAudioAt - context.currentTime) * 1000 + 80);

@@ -89,13 +89,17 @@ vm.runInNewContext(js, { exports: moduleResult.exports, require: key => { assert
   mic.data({ data: new Uint8Array(1280) });
   const firstPackets = socket.sent.filter(value => value.realtimeInput?.audio).length;
   assert.equal(firstPackets, 1);
-  socket.onmessage({ data: JSON.stringify({ serverContent: { modelTurn: { parts: [{ inlineData: { mimeType: 'audio/pcm;rate=24000', data: 'AAA=' } }] }, turnComplete: true } }) });
+  socket.onmessage({ data: JSON.stringify({ serverContent: { modelTurn: { parts: [{ inlineData: { mimeType: 'audio/pcm;rate=24000', data: 'AAA=' } }] }, generationComplete: true } }) });
   for (let i = 0; i < 15; i++) await Promise.resolve();
   mic.data({ data: new Uint8Array(1280) });
   assert.equal(socket.sent.filter(value => value.realtimeInput?.audio).length, firstPackets, 'Discard assistant audio, avoiding echo');
   await finishPlayback();
   mic.data({ data: new Uint8Array(1280) });
   assert.equal(socket.sent.filter(value => value.realtimeInput?.audio).length, firstPackets + 1, 'Follow-up question must stream on the same microphone');
+  const pendingTimers = timers.size;
+  socket.onmessage({ data: JSON.stringify({ serverContent: { turnComplete: true } }) });
+  for (let i = 0; i < 15; i++) await Promise.resolve();
+  assert.equal(timers.size, pendingTimers, 'Delayed turnComplete must not postpone or restart listening');
   assert.equal(mic.released, false);
   const pcm = Buffer.alloc(48000); // One second of 24 kHz mono PCM16.
   const samples = moduleResult.exports.livePcmSamples(pcm.toString('base64'), 24000, 48000);
