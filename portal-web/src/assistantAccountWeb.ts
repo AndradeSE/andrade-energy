@@ -1,5 +1,5 @@
 type RecordData = Record<string, any>;
-export type WebAssistantContext = { variant: "GERADOR" | "CONSUMIDOR"; plantId?: string; unit?: RecordData; clientId?: string; allowedSections?: string[] };
+export type WebAssistantContext = { variant: "GERADOR" | "CONSUMIDOR"; plantId?: string; unit?: RecordData; clientId?: string; allowedSections?: string[]; scope?: string };
 export type AccountReply = { text: string; section?: string };
 export function accountIntent(question: string) {
   const text = question.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();

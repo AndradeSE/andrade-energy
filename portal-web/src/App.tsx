@@ -3073,7 +3073,7 @@ function PortalHome({
         setWorkspacePlantsReady(true);
       })
       .catch(() => { setWorkspacePlants([]); setWorkspacePlantsReady(true); });
-  }, [isCommercialWorkspace, session.token, type]);
+  }, [isCommercialWorkspace, session.token, type, refreshKey]);
 
   useEffect(() => {
     // Cada item do menu representa uma nova tela lógica. Manter a rolagem da
@@ -3101,7 +3101,7 @@ function PortalHome({
       })
       .catch(() => { if (!controller.signal.aborted) { setConsumerAutomaticBillingUnit(null); setConsumerUnits([]); } });
     return () => controller.abort();
-  }, [session.token, type]);
+  }, [session.token, type, refreshKey]);
   useEffect(() => {
     if (type !== "CONSUMIDOR") return;
     setConsumerAutomaticBillingUnit(selectedConsumerUnit && hasAutomaticBillingOwnership(selectedConsumerUnit, "CLIENTE") ? selectedConsumerUnit : null);
@@ -3976,7 +3976,7 @@ function PortalHome({
           ) : activeSection === "Tutoriais da web" ? (
             <section className="section-workspace"><span className="section-label">CENTRAL DE AJUDA</span><h2>Tutoriais da web</h2><p>Aprenda as funções do portal no ambiente correspondente ao seu perfil.</p><TutorialCenter profile={type} defaultOpen /></section>
           ) : activeSection === "Perfil" && session.token ? (
-            <>{type === "GERADOR" && session.usuario?.perfil === "ADMIN" ? <div className="profile-workspace-switch"><span><small>AMBIENTE ADMINISTRATIVO</small><strong>{workspace === "COMERCIAL" ? "Gestão Comercial" : "Gestão de Usinas"}</strong></span><button onClick={() => onChangeWorkspace(workspace === "COMERCIAL" ? "USINAS" : "COMERCIAL")}>Alternar para {workspace === "COMERCIAL" ? "Gestão de Usinas" : "Gestão Comercial"}</button><button onClick={() => onChangeWorkspace(null)}>Escolher ambiente</button></div> : null}<ProfilePanel type={type} token={session.token} fallback={session.usuario} /></>
+            <>{type === "GERADOR" && session.usuario?.perfil === "ADMIN" ? <div className="profile-workspace-switch"><span><small>AMBIENTE ADMINISTRATIVO</small><strong>{workspace === "COMERCIAL" ? "Gestão Comercial" : "Gestão de Usinas"}</strong></span><button onClick={() => onChangeWorkspace(workspace === "COMERCIAL" ? "USINAS" : "COMERCIAL")}>Alternar para {workspace === "COMERCIAL" ? "Gestão de Usinas" : "Gestão Comercial"}</button><button onClick={() => onChangeWorkspace(null)}>Escolher ambiente</button></div> : null}<ProfilePanel key={refreshKey} type={type} token={session.token} fallback={session.usuario} /></>
           ) : activeSection === "Configurações" ? (
             <AccountSettingsPanel />
           ) : (
@@ -4106,7 +4106,7 @@ function PortalHome({
           {automaticBillingUnit?.id && session.token ? <AutomaticBillingModal token={session.token} unit={automaticBillingUnit} accessType={type} onClose={() => setAutomaticBillingUnit(null)} /> : null}
         </section>
       </div>
-      {session.token ? <SolarAssistantWeb key={`${session.usuario?.id}:${type}:${workspace}:${activePlantId}:${selectedConsumerUnitId}`} apiUrl={API_URL} token={session.token} variant={type} context={{ variant: type, plantId: activePlantId, unit: selectedConsumerUnit, clientId: session.usuario?.cliente_id, allowedSections: solarSections }} onFlow={runSolarFlow} onNavigate={section => { if (solarSections.includes(section)) void runSolarFlow({ section }).catch(reason => window.alert(reason.message)); }} /> : null}
+      {session.token ? <SolarAssistantWeb key={`${session.usuario?.id}:${type}:${workspace}:${activePlantId}:${selectedConsumerUnitId}`} apiUrl={API_URL} token={session.token} variant={type} context={{ variant: type, plantId: activePlantId, unit: selectedConsumerUnit, clientId: session.usuario?.cliente_id, allowedSections: solarSections, scope: JSON.stringify([session.usuario?.id, type, workspace, activePlantId, selectedConsumerUnitId, session.usuario?.papel_empresa, session.usuario?.permissoes, solarSections]) }} onChanged={() => { setSelectedRecord(null); setRefreshKey(value => value + 1); }} onFlow={runSolarFlow} onNavigate={section => { if (solarSections.includes(section)) void runSolarFlow({ section }).catch(reason => window.alert(reason.message)); }} /> : null}
     </main>
   );
 }
