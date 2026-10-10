@@ -16,8 +16,9 @@ export class AssistantLocalWake {
   private stopping?: Promise<void>;
 
   constructor(private stream: AudioStreamInterface, private whisper: WhisperContext, private fastWake = false) {
-    // Keep the full word and pre-roll; only shorten trailing silence in Preview.
-    this.phrases = new AssistantVoicePhrases(fastWake ? 9 : 25, fastWake ? 100 : 250);
+    // Preserve a short pause between "so" and "lar", and accept short calls.
+    // The keyword matcher still rejects unrelated speech and single clicks.
+    this.phrases = new AssistantVoicePhrases(fastWake ? 12 : 25, fastWake ? 100 : 250, 6);
   }
 
   async start(onSpeech: (text: string) => void, onError: (message: string) => void, valid: () => boolean) {
