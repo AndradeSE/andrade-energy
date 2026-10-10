@@ -31,7 +31,7 @@ function routeFor(intent: AssistantIntent, ctx: AssistantAccountContext, questio
     case "contratos": return action("Revisar contrato", ctx.generator && unit ? "/unidades/contrato" : ctx.generator ? "/contratos" : "/(tabs)/contrato", ctx.generator ? unit : undefined, review);
     case "carteira": return action("Revisar Financeiro", "/(tabs)/financeiro", undefined, review);
     case "perfil": case "privacidade": return action("Revisar perfil e segurança", "/(tabs)/perfil", undefined, review);
-    case "faturamento": return action("Revisar faturamento", "/(tabs)/faturamento", undefined, review);
+    case "faturamento": return action(ctx.generator ? "Revisar faturamento" : "Abrir faturas", ctx.generator ? "/(tabs)/faturamento" : "/(tabs)/faturas", undefined, review);
     case "recebimento": return ctx.unitId ? action("Gerenciar recebimento automático", "/unidades/recebimento-email", { unidadeId: ctx.unitId }, review) : undefined;
     case "assinatura": case "termos": return action("Revisar Meu plano", "/assinatura", undefined, review);
     case "comercial": return action("Abrir Comercial", "/admin/comercial", undefined, review);
@@ -51,7 +51,8 @@ function routeFor(intent: AssistantIntent, ctx: AssistantAccountContext, questio
 }
 
 export async function executeAssistantTool(intent: AssistantIntent, ctx: AssistantAccountContext, question: string): Promise<AssistantToolReply> {
-  const generatorOnly = ["carteira", "equipe", "atividade", "operacao", "inversores", "assinatura", "termos", "comercial", "clientes", "usinas", "faturamento"];
+  const generatorOnly = ["carteira", "equipe", "atividade", "operacao", "inversores", "assinatura", "termos", "comercial", "clientes", "usinas"];
+  if (!ctx.generator && intent.module === "faturamento" && intent.review) return { text: "Emissão e alterações de faturamento exigem acesso de gerador autorizado. Posso consultar suas faturas." };
   if (!ctx.generator && generatorOnly.includes(intent.module)) return { text: "Essa função pertence ao gerador ou à administração e não está disponível no seu acesso. Posso consultar os dados, faturas e contrato das suas UCs." };
   if (intent.module === "comercial" && ctx.role !== "ADMIN") return { text: "Esta consulta administrativa exige acesso de administrador. Não vou ampliar suas permissões." };
   if (intent.mode === "action") {
@@ -65,6 +66,12 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
   const target = routeFor(intent, ctx, question);
   const actions = target ? [target] : [];
   switch (intent.module) {
+    case "faturamento": {
+      if (ctx.generator && !ctx.plantId) return { text: "Selecione a usina para consultar as faturas." };
+      if (!ctx.generator && !ctx.unitNumber) return { text: "Selecione sua UC para consultar as faturas." };
+      const invoices = onlyArray(await listarFaturas(ctx.generator ? undefined : ctx.clientId, ctx.generator ? undefined : ctx.unitNumber, ctx.generator ? ctx.plantId : undefined));
+      return { text: listText(invoices, "faturas", row => `${scalar(row.referencia)} · ${scalar(row.status)} · ${displayNumber(row.valor_total_unificado ?? row.valor_total, true)}`), actions };
+    }
     case "perfil": {
       const profile = await me(ctx.generator ? "GERADOR" : "CONSUMIDOR");
       return { text: `Seu cadastro atual:\nNome: ${scalar(profile.nome)}\nE-mail: ${scalar(profile.email)}\nTelefone: ${scalar(profile.telefone)}\nEndereço: ${scalar(profile.endereco)}\nNão consulte nem envie senhas ou códigos no chat.`, actions };

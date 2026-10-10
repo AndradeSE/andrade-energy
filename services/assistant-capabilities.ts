@@ -5,12 +5,13 @@ export type AssistantAction = { label: string; route: string; params?: Record<st
 export type AssistantDocument = { kind: "contrato" | "conta-luz" | "calculo" | "anexo" | "proposta"; id: string; label: string; clientId?: string };
 export type AssistantToolReply = { text: string; actions?: AssistantAction[]; documents?: AssistantDocument[] };
 export const ASSISTANT_MODULES: AssistantModule[] = ["perfil", "economia", "carteira", "equipe", "atividade", "operacao", "inversores", "recebimento", "assinatura", "termos", "empresas", "comercial", "privacidade", "contratos", "conta-luz", "calculo", "anexos", "proposta", "pagamento", "clientes", "usinas", "unidades", "faturamento", "tutoriais", "sobre"];
-export function normalizeCapabilityText(text: string) { return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim(); }
+import { normalizeSolarRequest, hasSolarMutation, isSolarHelp } from "../shared/solar-language";
+export function normalizeCapabilityText(text: string) { return normalizeSolarRequest(text); }
 export function detectCapability(input: string): AssistantIntent | undefined {
   const text = normalizeCapabilityText(input);
-  if (/^(como|onde|por que|porque|explique|me explique)\b/.test(text)) return undefined;
-  const review = /\b(excluir|apagar|transferir|pagar|assinar|cancelar|faturar|criar|cadastrar|editar|alterar|ativar|desativar|convidar|renovar|importar|enviar convite|aceitar)\b/.test(text);
+  if (isSolarHelp(text)) return undefined;
   const wantsDocument = /\b(pdf|arquivo|documento|baixar|baixa|baixe|download|mande|manda|envie|entregue|anexo)\b/.test(text);
+  const review = hasSolarMutation(text) && !(wantsDocument && !hasSolarMutation(text.replace(/\b(enviar|envie)\b/g, "")));
   const mode = review ? "action" : wantsDocument ? "document" : /^(abrir|abra|ir para|acesse|acessar)\b/.test(text) ? "action" : "query";
   let module: AssistantModule | undefined;
   if (/\b(termos|politica de privacidade|politica de cancelamento)\b/.test(text)) module = "termos";
@@ -37,7 +38,7 @@ export function detectCapability(input: string): AssistantIntent | undefined {
   else if (mode === "action" && /\b(cliente|clientes|consumidor)\b/.test(text)) module = "clientes";
   else if (mode === "action" && /\b(usina|usinas)\b/.test(text)) module = "usinas";
   else if (mode === "action" && /\b(uc|ucs|unidade|unidades)\b/.test(text)) module = "unidades";
-  else if (mode === "action" && /\b(fatura|faturas|faturamento)\b/.test(text)) module = "faturamento";
+  else if (/\b(fatura|faturas|faturamento)\b/.test(text)) module = "faturamento";
   return module ? { module, mode, review } : undefined;
 }
 export function safeNumber(value: unknown): number | undefined {

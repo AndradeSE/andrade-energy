@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseAutomationCommand, prepareAutomation, createAutomationExecutor, type AutomationContext, type AutomationDraft } from "../src/assistantAutomation.ts";
+import { parseAutomationCommand, prepareAutomation, createAutomationExecutor, type AutomationContext, type AutomationDraft } from "../../shared/solar-automation.ts";
 const consumer: AutomationContext = {variant:"CONSUMIDOR",scope:"consumer:owned",allowedSections:["Perfil","Minha unidade"]};
 const generator: AutomationContext = {variant:"GERADOR",scope:"generator:plant",plantId:"plant",allowedSections:["Clientes","Usinas","Perfil"]};
 test("comandos mantêm valor literal e não aceitam campos financeiros, CPF ou endpoints", () => {

@@ -6,6 +6,10 @@ const ts = require("typescript");
 const calls = [];
 const fixture = (name, value) => async (...args) => { calls.push({ name, args }); return value; };
 const mocks = {
+  "../config/api": { default: {
+    get: async (url, config) => { calls.push({ name: "api-get", args: [url, config] }); return { data: { id: "test" } }; },
+    request: async config => { calls.push({ name: "api-change", args: [config] }); if (config.url === "/timeout") throw Error("network"); return { data: { id: "test" } }; },
+  } },
   "./notificacoes.service": { listarNotificacoesApp: fixture("notifications", []) },
   "./auth.service": { me: fixture("me", { nome: "Cliente fictício", email: "teste@example.test" }), listarMeusPedidosDePrivacidade: fixture("privacy", []) },
   "./dashboard.service": { buscarDashboard: fixture("dashboard", { economiaMes: 31, economiaAcumulada: 100, creditos: 12, ultimaFatura: { competencia: "2026-09" } }) },
@@ -32,6 +36,20 @@ function load(relative) {
   return exports;
 }
 (async () => {
+  const { nativeAutomationContext, nativeAutomationIO } = load("services/assistant-native-automation.ts");
+  assert.deepEqual(Array.from(nativeAutomationContext({ perfil: "LEITURA" }, true, "ours", "scope").allowedSections), ["Perfil"]);
+  assert.deepEqual(Array.from(nativeAutomationContext({ perfil: "GESTOR", permissoes: { clientes: false } }, true, "ours", "scope").allowedSections), ["Perfil", "Usinas"]);
+  assert.deepEqual(Array.from(nativeAutomationContext({ perfil: "GESTOR", papel_empresa: "COLABORADOR_GESTOR" }, true, "ours", "scope").allowedSections), ["Perfil", "Clientes"]);
+  const staleIO = nativeAutomationIO(() => false);
+  await assert.rejects(() => staleIO.change("/profile", "PUT", {}), /Nenhuma alteração foi enviada/);
+  assert.equal(calls.length, 0);
+  const currentIO = nativeAutomationIO(() => true);
+  await currentIO.get("/profile");
+  assert.equal(calls.at(-1).args[1].timeout, 12000);
+  await currentIO.change("/profile", "PUT", { nome: "Teste" });
+  assert.equal(calls.at(-1).args[0].timeout, 15000);
+  await assert.rejects(() => currentIO.change("/timeout", "PUT", {}), /Consulte o cadastro antes de repetir/);
+  calls.length = 0;
   const { asksOverdueInvoices, overdueInvoiceReply, asksLatestInvoiceDocument, invoiceDocumentChoices } = load("services/local-assistant-invoices.ts");
   for (const phrase of ["baixe o arquivo do ultimo faturamento da usina", "abra a última fatura da usina", "mande o PDF da última cobrança"]) assert.equal(asksLatestInvoiceDocument(phrase), true);
   for (const phrase of ["gere uma fatura PDF", "crie uma fatura", "emita uma fatura PDF", "fature a usina"]) assert.equal(asksLatestInvoiceDocument(phrase, true), false);
@@ -61,10 +79,19 @@ function load(relative) {
   assert.equal(detectCapability("excluir cliente").review, true);
   assert.equal(detectCapability("quero PDF da CEMIG").module, "conta-luz");
   assert.equal(detectCapability("envie o contrato").mode, "document");
+  assert.equal(detectCapability("Solar, por favor, transfira o saldo da carteira").review, true);
+  assert.equal(detectCapability("assine contrato").review, true);
   assert.equal(displayNumber(undefined, true), "não informado");
   assert.equal(displayNumber("123.50", true).replace(/\s/g, ""), "R$123,50");
   const consumer = { generator: false, role: "LEITURA", unitId: "unit", unitNumber: "123", clientId: "client" };
   const generator = { generator: true, role: "GESTOR", plantId: "ours", unitId: "unit" };
+  const consumerInvoices = await executeAssistantTool(detectCapability("minhas faturas"), consumer, "minhas faturas");
+  assert.match(consumerInvoices.text, /123,45/);
+  assert.deepEqual(calls.at(-1).args, ["client", "123", undefined]);
+  const plantInvoices = await executeAssistantTool(detectCapability("minhas faturas"), generator, "minhas faturas");
+  assert.match(plantInvoices.text, /123,45/);
+  assert.deepEqual(calls.at(-1).args, [undefined, undefined, "ours"]);
+  calls.length = 0;
   assert.match((await executeAssistantTool(detectCapability("saldo da carteira"), consumer, "saldo da carteira")).text, /não está disponível/);
   assert.equal(calls.length, 0);
   assert.match((await executeAssistantTool(detectCapability("planos comercial"), generator, "planos comercial")).text, /administrador/);

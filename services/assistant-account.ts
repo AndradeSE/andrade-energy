@@ -2,11 +2,11 @@ import { listarClientes, listarMinhasUnidades, listarUnidadesGestor } from "./cl
 import { listarUsinas } from "./usinas.service";
 import { listarNotificacoesApp } from "./notificacoes.service";
 import { listarAcessoContratos, listarContratosDaEmpresa } from "./contratos.service";
+import { normalizeSolarRequest, hasSolarMutation, isSolarHelp } from "../shared/solar-language";
 
 export function detectAccountQuery(text: string) {
-  if (/\b(excluir|apagar|transferir|pagar|assinar|cancelar|faturar|criar|editar)\b/.test(text)) return undefined;
-  if (/^(como|onde|por que|porque)\b/.test(text)) return undefined;
-  if (!/\b(quantos|quantas|listar|liste|mostrar|mostre|consultar|consulte|quais|meus|minhas|tenho)\b/.test(text)) return undefined;
+  text = normalizeSolarRequest(text);
+  if (hasSolarMutation(text) || isSolarHelp(text)) return undefined;
   if (/\b(notificacoes|avisos)\b/.test(text)) return "notificacoes";
   if (/\b(contrato|contratos)\b/.test(text)) return "contratos";
   if (/\b(ucs|uc|unidades)\b/.test(text)) return "unidades";

@@ -1,5 +1,6 @@
 export type SolarFlow = { section: string; mode?: "create" | "manualBilling" | "email" | "notifications"; selection?: { kind: "unit" | "plant"; value: string } };
-const normalize = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+import { normalizeSolarRequest } from "../../shared/solar-language.ts";
+const normalize = normalizeSolarRequest;
 const topics: Array<[RegExp, string]> = [
   [/notificac|avisos|push/, "Notificações"],
   [/hotmail|outlook|gmail|recebimento|faturamento automatico/, "Recebimento"],

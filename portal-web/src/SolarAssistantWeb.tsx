@@ -4,12 +4,14 @@ import "./web-improvements.css";
 import { accountIntent, answerAccountQuestion, type WebAssistantContext } from "./assistantAccountWeb";
 import { planSolarFlow, solarTopic, type SolarFlow } from "./assistantFlows";
 import { createAutomationExecutor, parseAutomationCommand, prepareAutomation, type AutomationDraft, type AutomationContext } from "./assistantAutomation";
+import { solarSuggestions } from "../../shared/solar-language";
 type Message = { role: "user" | "model"; text: string; answerId?: string; private?: boolean; section?: string };
 export default function SolarAssistantWeb({ apiUrl, token, variant, context, onNavigate, onFlow, onChanged }: { apiUrl: string; token: string; variant: "CONSUMIDOR" | "GERADOR"; context: WebAssistantContext; onNavigate: (section: string) => void; onFlow: (flow: SolarFlow) => Promise<string> | string; onChanged?: () => void }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
+  const [processingMode, setProcessingMode] = useState<"query" | "writing">("query");
   const [error, setError] = useState("");
   const [consent, setConsent] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -46,6 +48,7 @@ export default function SolarAssistantWeb({ apiUrl, token, variant, context, onN
     return () => { active.current = false; controller.current?.abort(); stopMedia(); document.removeEventListener("visibilitychange", hidden); };
   }, [token]);
   useEffect(() => { setDraft(null); }, [context.scope]);
+  useEffect(() => { if (messages.length > 40) setMessages(current => current.slice(-40)); }, [messages.length]);
   useEffect(() => {
     if (!draft) return;
     const timeout = setTimeout(() => setDraft(current => current === draft ? null : current), Math.max(0, draft.preparedAt + 300_000 - Date.now()));
@@ -67,7 +70,7 @@ export default function SolarAssistantWeb({ apiUrl, token, variant, context, onN
   }
   async function confirmAutomation() {
     if (!draft || submitting.current || busy || recording) return;
-    submitting.current = true; setBusy(true); setError("");
+    submitting.current = true; setBusy(true); setProcessingMode("writing"); setError("");
     const confirmed = draft;
     setDraft(null); // A lost response cannot leave a repeatable confirmation button.
     try {
@@ -94,8 +97,10 @@ export default function SolarAssistantWeb({ apiUrl, token, variant, context, onN
     const flow = planSolarFlow(text, variant, context.allowedSections ?? []);
     const privateQuestion = Boolean(command || accountIntent(text) || solarTopic(text, variant));
     const history = messages.filter(message => !message.private).slice(-8).map(({ role, text }) => ({ role, text: text.slice(0, 1200) }));
-    setMessages(current => [...current, { role: "user", text, private: privateQuestion }]); setQuestion(""); setBusy(true); setError("");
+    setMessages(current => [...current, { role: "user", text, private: privateQuestion }]); setQuestion(""); setBusy(true); setProcessingMode("query"); setError("");
     controller.current = new AbortController();
+    const queryController = controller.current;
+    const timeout = setTimeout(() => { if (active.current) setError("A consulta demorou mais que o esperado. Tente novamente."); queryController.abort(); }, 25_000);
     setDraft(null);
     try {
       if (command) {
@@ -127,7 +132,7 @@ export default function SolarAssistantWeb({ apiUrl, token, variant, context, onN
       if (!data.answer || typeof data.answer !== "string") throw new Error("O Solar não retornou uma resposta. Tente novamente.");
       if (active.current) setMessages(current => [...current, { role: "model", text: data.answer, answerId: data.voiceAnswerId }]);
     } catch (reason) { if (active.current && !(reason instanceof DOMException && reason.name === "AbortError")) setError(reason instanceof Error ? reason.message : "Não foi possível responder."); }
-    finally { submitting.current = false; if (active.current) setBusy(false); }
+    finally { clearTimeout(timeout); submitting.current = false; if (active.current) setBusy(false); }
   }
   async function speak(answerId: string) {
     if (voiceBusy || recording) return;
@@ -184,8 +189,10 @@ export default function SolarAssistantWeb({ apiUrl, token, variant, context, onN
     <button className="solar-launch" type="button" aria-expanded={open} aria-controls="solar-web-panel" onClick={() => open ? close() : setOpen(true)}>☀ Solar</button>
     {open ? <section id="solar-web-panel" aria-label="Assistente Solar"><header><span><strong>Solar</strong><small>Assistente Andrade Energy</small></span><button type="button" aria-label="Fechar assistente" onClick={close}>×</button></header>
       <p className="solar-intro">Posso consultar, abrir fluxos e salvar alterações após sua confirmação. Experimente “altere o telefone do meu perfil para 31999999999” ou “renomeie UC 123 para Casa”.</p>
+      {messages.length === 0 ? <div className="solar-suggestions">{solarSuggestions(variant === "GERADOR").map(text => <button type="button" key={text} onClick={() => setQuestion(text)}>{text}</button>)}</div> : null}
       <div className="solar-messages" role="log" aria-live="polite">{messages.map((item, index) => <article key={index} className={`solar-${item.role}`}><small>{item.role === "user" ? "Você" : "Solar"}{item.private && item.role === "model" ? " · consulta da conta" : ""}</small><p>{item.text}</p>{item.answerId ? <button disabled={voiceBusy || recording} type="button" onClick={() => void speak(item.answerId!)}>Ouvir resposta</button> : null}{item.section ? <button type="button" onClick={() => onNavigate(item.section!)}>Abrir {item.section}</button> : null}</article>)}{busy ? <p role="status">Solar está respondendo…</p> : null}</div>
       {error ? <p className="solar-error" role="alert">{error}</p> : null}
+      {busy && processingMode === "query" ? <button type="button" onClick={() => { controller.current?.abort(); setError("Consulta cancelada."); }}>Cancelar consulta</button> : null}
       {draft ? <div className="solar-confirmation" role="region" aria-label="Revisar alteração"><strong>Revisar alteração</strong><p>{draft.targetLabel}</p><dl><dt>Campo</dt><dd>{({ nome: "Nome", email: "E-mail", telefone: "Telefone", apelido: "Apelido" })[draft.command.field]}</dd><dt>Valor atual</dt><dd>{String(draft.before[draft.command.field] ?? "Não informado")}</dd><dt>Novo valor</dt><dd>{draft.command.value}</dd></dl><p>A confirmação vale por 5 minutos, neste ambiente.</p><button type="button" disabled={busy || recording} onClick={() => void confirmAutomation()}>Confirmar e salvar</button><button type="button" disabled={busy} onClick={() => setDraft(null)}>Cancelar alteração</button></div> : null}
       <form onSubmit={event => void submit(event)}><label htmlFor="solar-question">Sua mensagem</label><textarea id="solar-question" maxLength={1200} value={question} onChange={event => { setDraft(null); setQuestion(event.target.value); }} placeholder="Como posso ajudar?" disabled={busy || recording}/><div><button disabled={busy || recording || !question.trim()} type="submit">Enviar</button><button disabled={busy || voiceBusy || recording} type="button" onClick={() => { stopMedia(); setDraft(null); setMessages([]); setError(""); }}>Limpar conversa</button></div></form>
       {microphoneSupported ? <div className="solar-dictation"><label><input type="checkbox" checked={consent} disabled={recording || voiceBusy} onChange={event => setConsent(event.target.checked)}/>Autorizo enviar minha gravação para transcrição.</label><button type="button" disabled={!consent || busy || (voiceBusy && !recording)} onClick={() => void dictate()}>{recording ? "Parar e transcrever" : voiceBusy ? "Processando…" : "Ditar mensagem"}</button><small>{recording ? "Microfone ativo · limite de 25 segundos" : "Revise o texto antes de enviar."}</small></div> : null}

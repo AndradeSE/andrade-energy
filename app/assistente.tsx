@@ -34,8 +34,11 @@ import { detectCapability, type AssistantAction, type AssistantDocument } from "
 import { executeAssistantTool, resolveAssistantDocument } from "../services/assistant-tools";
 import { queryLiveAccount, redactLiveAccountText } from "../services/assistant-live-account";
 import { setFloatingConversationPhase } from "../services/assistant-floating-conversation";
+import { parseAutomationCommand, prepareAutomation, createAutomationExecutor, type AutomationDraft } from "../shared/solar-automation";
+import { nativeAutomationContext, nativeAutomationIO } from "../services/assistant-native-automation";
+import { solarSuggestions, normalizeSolarRequest } from "../shared/solar-language";
 
-type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string; invoiceChoices?: Array<{ id: string; label: string }>; actions?: AssistantAction[]; documents?: AssistantDocument[]; private?: boolean; voiceAnswerId?: string };
+type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string; invoiceChoices?: Array<{ id: string; label: string }>; actions?: AssistantAction[]; documents?: AssistantDocument[]; private?: boolean; voiceAnswerId?: string; automation?: AutomationDraft };
 
 export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = false }: { embeddedVoiceWake?: string; onClose?: () => void; voiceOnly?: boolean } = {}) {
   const router = useRouter();
@@ -46,7 +49,12 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   const wakePaused = useSyncExternalStore(subscribeWakeWord, wakeWordPaused);
   const handledWake = useRef<string | undefined>(undefined);
   const insets = useSafeAreaInsets();
-  const { authenticated, usuario, usinaSelecionada, unidadeSelecionada } = useAuth();
+  const { authenticated, usuario, usinaSelecionada, unidadeSelecionada, atualizarUsuario, selecionarUsina, selecionarUnidade } = useAuth();
+  const [pendingAutomation, setPendingAutomation] = useState<AutomationDraft>();
+  const pendingAutomationRef = useRef<AutomationDraft | undefined>(undefined);
+  pendingAutomationRef.current = pendingAutomation;
+  const automationExecutor = useRef(createAutomationExecutor());
+  const assistantMounted = useRef(true);
   const [accountVoiceAllowed, setAccountVoiceAllowed] = useState(false);
   const accountVoiceAllowedRef = useRef(false);
   useEffect(() => {
@@ -115,7 +123,15 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   const messagesRef = useRef<Message[]>([]);
   const topicRef = useRef<LocalTopic | undefined>(undefined);
   const scrollRef = useRef<ScrollView>(null);
-  const accountContextKey = `${usuario?.id ?? ""}:${usuario?.empresa_id ?? ""}:${usinaSelecionada?.id ?? ""}:${unidadeSelecionada?.id ?? ""}`;
+  const accountContextKey = JSON.stringify([usuario?.id, usuario?.empresa_id, usuario?.perfil, usuario?.papel_empresa, usuario?.permissoes, usinaSelecionada?.id, unidadeSelecionada?.id]);
+  const automationScope = useRef(accountContextKey);
+  automationScope.current = accountContextKey;
+  useEffect(() => { assistantMounted.current = true; return () => { assistantMounted.current = false; }; }, []);
+  useEffect(() => {
+    if (!pendingAutomation) return;
+    const timeout = setTimeout(() => setPendingAutomation(current => current === pendingAutomation ? undefined : current), Math.max(0, pendingAutomation.preparedAt + 300_000 - Date.now()));
+    return () => clearTimeout(timeout);
+  }, [pendingAutomation]);
   const contextGeneration = useRef(0);
   useEffect(() => {
     contextGeneration.current += 1;
@@ -129,6 +145,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     }
     messagesRef.current = [];
     setMessages([]);
+    setPendingAutomation(undefined);
     topicRef.current = undefined;
     lastInvoiceRequest.current = false;
     stopAssistantVoice();
@@ -284,10 +301,39 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     } finally { setOpeningInvoiceId(undefined); }
   }
 
+  async function confirmAutomation(draft: AutomationDraft) {
+    if (busyRef.current) return;
+    if (draft !== pendingAutomationRef.current) { Alert.alert("Revisão encerrada", "Prepare a alteração novamente antes de confirmar."); return; }
+    pendingAutomationRef.current = undefined;
+    busyRef.current = true; setBusy(true); setPendingAutomation(undefined);
+    const current = () => assistantMounted.current && automationScope.current === draft.scope;
+    try {
+      const result = await automationExecutor.current(draft, nativeAutomationContext(usuario, IS_GERADOR_APP, usinaSelecionada?.id, accountContextKey), nativeAutomationIO(current));
+      if (!current()) return;
+      messagesRef.current = [...messagesRef.current, { from: "assistant" as const, private: true, text: `Alteração salva em ${draft.targetLabel}: ${draft.command.field} = ${draft.command.value}.` }].slice(-40);
+      setMessages(messagesRef.current);
+      // Sync only the changed field; do not copy response permissions into AuthContext.
+      const patch = { [draft.command.field]: result[draft.command.field] };
+      try {
+        if (draft.command.entity === "profile") await atualizarUsuario(patch);
+        if (draft.command.entity === "plant" && usinaSelecionada?.id === draft.targetId) await selecionarUsina({ ...usinaSelecionada, nome: String(result.nome) });
+        if (draft.command.entity === "unit" && unidadeSelecionada?.id === draft.targetId) await selecionarUnidade({ ...unidadeSelecionada, apelido: String(result.apelido) });
+      } catch { Alert.alert("Alteração salva", "Os dados foram salvos no servidor. Reabra a tela para atualizar a exibição."); }
+    } catch (error) {
+      if (current()) {
+        messagesRef.current = [...messagesRef.current, { from: "assistant" as const, private: true, text: error instanceof Error ? error.message : "Não foi possível confirmar. Consulte o cadastro antes de repetir." }].slice(-40);
+        setMessages(messagesRef.current);
+      }
+    } finally { busyRef.current = false; if (assistantMounted.current) setBusy(false); }
+  }
+
   async function send(spokenQuestion?: string) {
     const question = (spokenQuestion ?? input).trim();
     if (!question || busyRef.current) return;
     const interpretedQuestion = normalizeAssistantQuery(question);
+    const automationCommand = parseAutomationCommand(question);
+    pendingAutomationRef.current = undefined;
+    setPendingAutomation(undefined);
     const wantsOverdue = asksOverdueInvoices(interpretedQuestion);
     const generation = contextGeneration.current;
     const wantsInvoiceDocument = asksLatestInvoiceDocument(interpretedQuestion, lastInvoiceRequest.current);
@@ -295,7 +341,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     // PDF de fatura tem precedência sobre abrir a usina/aba, mas não sobre
     // documentos específicos (CEMIG, cálculo, contratos) nem alterações.
     const invoiceOverridesNavigation = wantsInvoiceDocument && !detectedCapability?.review && ["usinas", "faturamento", "pagamento"].includes(detectedCapability?.module ?? "");
-    const capability = wantsOverdue || invoiceOverridesNavigation ? undefined : detectedCapability;
+    const capability = wantsOverdue || (IS_GERADOR_APP && detectFinancialMetric(interpretedQuestion)) || asksLatestInvoiceAmount(interpretedQuestion) || invoiceOverridesNavigation ? undefined : detectedCapability;
     lastInvoiceRequest.current = wantsInvoiceDocument || /\b(ultima|mais recente)\b.*\b(fatura|cobranca)\b|\b(fatura|cobranca)\b.*\b(ultima|mais recente)\b/i.test(interpretedQuestion);
     busyRef.current = true;
     const { reply, topic: nextTopic } = answerInConversation(question, {
@@ -304,7 +350,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     }, topicRef.current);
     setInput("");
     setBusy(true);
-    const privateTurn = wantsOverdue || Boolean(capability) || wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion) || Boolean(detectFinancialMetric(interpretedQuestion)) || Boolean(detectProductionMetric(interpretedQuestion)) || Boolean(detectAccountQuery(interpretedQuestion));
+    const privateTurn = Boolean(automationCommand) || wantsOverdue || Boolean(capability) || wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion) || Boolean(detectFinancialMetric(interpretedQuestion)) || Boolean(detectProductionMetric(interpretedQuestion)) || Boolean(detectAccountQuery(interpretedQuestion));
     const userMessage: Message = { from: "user", text: question, private: privateTurn };
     const nextMessages = [...messagesRef.current, userMessage].slice(-39);
     messagesRef.current = nextMessages;
@@ -318,7 +364,19 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       }
       let response: Message = { from: "assistant", text: reply.text, route: reply.route };
       const speechStatus = speechStatusReply(question, Boolean(spokenQuestion));
-      if (speechStatus) {
+      if (automationCommand) {
+        const scope = accountContextKey;
+        try {
+          const draft = await prepareAutomation(automationCommand, nativeAutomationContext(usuario, IS_GERADOR_APP, usinaSelecionada?.id, scope), nativeAutomationIO(() => assistantMounted.current && automationScope.current === scope));
+          if (generation !== contextGeneration.current) return;
+          setPendingAutomation(draft);
+          pendingAutomationRef.current = draft;
+          response = { from: "assistant", private: true, automation: draft, text: `Revisar alteração em ${draft.targetLabel}\nCampo: ${draft.command.field}\nAtual: ${String(draft.before[draft.command.field] ?? "Não informado")}\nNovo: ${draft.command.value}\nConfirme no botão abaixo para salvar. A revisão vale por 5 minutos.` };
+          if (voiceOnly) Alert.alert("Revisar alteração", response.text, [{ text: "Cancelar", style: "cancel", onPress: () => setPendingAutomation(undefined) }, { text: "Confirmar e salvar", onPress: () => void confirmAutomation(draft) }]);
+        } catch (error) { response = { from: "assistant", private: true, text: error instanceof Error ? error.message : "Não consegui preparar a alteração. Nenhum dado foi salvo." }; }
+      } else if (/o que (voce|a solar) (pode|consegue)|suas funcoes/.test(normalizeSolarRequest(question))) {
+        response = { from: "assistant", private: true, text: "Posso consultar os dados disponíveis na sua conta, abrir funções e documentos e preparar alterações de nome, e-mail ou telefone do perfil, contato de clientes autorizados, nome da usina selecionada e apelido de UC própria. Você revisa e confirma no chat. Faturamento, pagamentos, assinaturas e permissões continuam nas telas próprias." };
+      } else if (speechStatus) {
         response = { from: "assistant", text: speechStatus, private: true };
       } else if (capability) {
         try {
@@ -755,11 +813,12 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   return <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : "height"}>
     <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
       <Pressable onPress={onClose ?? (() => router.back())} accessibilityRole="button" accessibilityLabel={onClose ? "Fechar conversa" : "Voltar"} style={styles.back}><Text style={styles.backText}>‹</Text></Pressable>
-      <View style={styles.headerText}><Text style={styles.title}>Ajuda Andrade Energy</Text><Text style={styles.subtitle}>Conversa online · consultas da sua conta</Text></View>
-      <Pressable disabled={busy} onPress={() => { messagesRef.current = []; topicRef.current = undefined; setMessages([]); setTopic(undefined); void releaseLocalModel(); }} accessibilityRole="button" accessibilityLabel="Limpar conversa"><Text style={styles.clear}>Limpar</Text></Pressable>
+      <View style={styles.headerText}><Text style={styles.title}>Solar</Text><Text style={styles.subtitle}>Consultas e ações da sua conta</Text></View>
+      <Pressable disabled={busy} onPress={() => { setPendingAutomation(undefined); messagesRef.current = []; topicRef.current = undefined; setMessages([]); setTopic(undefined); void releaseLocalModel(); }} accessibilityRole="button" accessibilityLabel="Limpar conversa"><Text style={styles.clear}>Limpar</Text></Pressable>
     </View>
     <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
-      {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Consulte dados da sua conta, peça documentos ou abra as funções do app para revisão. Para ditar, segure o microfone e solte; para conversar por voz, toque nas ondas.</Text><Text style={styles.limit}>A conversa usa o Gemini online. Não é necessário baixar um modelo local. Consultas respeitam seu acesso; alterações exigem revisão nas telas do aplicativo.</Text></View> : null}
+      {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Consulte dados da sua conta, peça documentos ou abra as funções do app para revisão. Para ditar, segure o microfone e solte; para conversar por voz, toque nas ondas.</Text><Text style={styles.limit}>A conversa usa o Gemini online. Não é necessário baixar um modelo local. Consultas respeitam seu acesso. Alterações de contato e nomes podem ser confirmadas aqui; operações financeiras e contratos continuam nas telas próprias.</Text></View> : null}
+      {messages.length === 0 ? <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>{solarSuggestions(IS_GERADOR_APP).map(text => <Pressable key={text} disabled={busy} accessibilityRole="button" accessibilityLabel={text} onPress={() => void send(text)} style={styles.action}><Text style={styles.actionText}>{text}</Text></Pressable>)}</View> : null}
       <Pressable accessibilityRole="button" accessibilityLabel="Configurar voz natural nos dados da conta" onPress={configureAccountVoice} style={styles.action}><Text style={styles.actionText}>Voz natural nos dados · {accountVoiceAllowed ? "autorizada" : "autorizar"}</Text></Pressable>
       {isPreviewEnvironment && Platform.OS === "android" && process.env.EXPO_PUBLIC_ENABLE_GEMINI_LIVE === "1" ? <Pressable accessibilityRole="button" accessibilityLabel="Configurar ou revogar conversa direta" onPress={() => void configureLiveAudio()} style={styles.action}><Text style={styles.actionText}>Conversa direta · configurar ou revogar</Text></Pressable> : null}
       {installStage ? <View style={styles.progressCard} accessibilityLiveRegion="polite"><Text style={styles.limit}>{installStage}</Text>{installProgress !== null ? <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(installProgress * 100)}%` }]} /></View> : null}{downloadingModel ? <Pressable accessibilityRole="button" accessibilityLabel="Cancelar download do modelo" onPress={() => void cancelModelDownload()} style={styles.cancelDownload}><Text style={styles.cancelDownloadText}>Cancelar download</Text></Pressable> : null}</View> : null}
@@ -769,6 +828,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
         {message.invoiceChoices?.map(document => <Pressable key={document.id} accessibilityRole="button" accessibilityLabel={`Abrir ${document.label}`} disabled={Boolean(openingInvoiceId)} onPress={() => void openInvoicePdf(document.id)} style={styles.action}><Text style={styles.actionText}>{openingInvoiceId === document.id ? "Abrindo PDF…" : document.label}</Text></Pressable>)}
         {message.documents?.map(document => <Pressable key={`${document.kind}:${document.id}`} accessibilityRole="button" accessibilityLabel={`Abrir ${document.label}`} disabled={Boolean(openingInvoiceId)} onPress={() => void openToolDocument(document)} style={styles.action}><Text style={styles.actionText}>{openingInvoiceId === `${document.kind}:${document.id}` ? "Abrindo documento…" : document.label}</Text></Pressable>)}
         {message.actions?.map((action, index) => <Pressable key={`${action.route}:${index}`} accessibilityRole="button" accessibilityLabel={action.label} onPress={() => openAssistantAction(action)} style={styles.action}><Text style={styles.actionText}>{action.label}</Text></Pressable>)}
+        {message.automation && message.automation === pendingAutomation ? <><Pressable disabled={busy} accessibilityRole="button" accessibilityLabel="Confirmar e salvar alteração" onPress={() => void confirmAutomation(message.automation!)} style={styles.action}><Text style={styles.actionText}>Confirmar e salvar</Text></Pressable><Pressable disabled={busy} accessibilityRole="button" accessibilityLabel="Cancelar alteração" onPress={() => setPendingAutomation(undefined)} style={styles.action}><Text style={styles.actionText}>Cancelar alteração</Text></Pressable></> : null}
         {message.route ? <Pressable accessibilityRole="button" onPress={() => router.push(message.route!)} style={styles.action}><Text style={styles.actionText}>Abrir seção</Text></Pressable> : null}
       </View>)}
     </ScrollView>
@@ -776,7 +836,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       {voiceStatus ? <View style={styles.voiceStatus}><Ionicons name={voiceInstalling ? "cloud-download-outline" : transcribing || listening ? "radio-outline" : "information-circle-outline"} size={17} color={Colors.primary} /><Text style={styles.voiceStatusText}>{voiceStatus}</Text></View> : null}
       {voiceNotice ? <Pressable accessibilityRole="button" accessibilityLabel="Dispensar aviso de voz" onPress={() => setVoiceNotice(undefined)} style={styles.voiceStatus}><Ionicons name="information-circle-outline" size={17} color={Colors.primary} /><Text style={styles.voiceStatusText}>{voiceNotice}</Text></Pressable> : null}
       <View style={styles.inputPill}>
-        <TextInput value={input} onChangeText={setInput} placeholder="Escreva sua pergunta" placeholderTextColor={Colors.subtitle} multiline maxLength={1000} accessibilityLabel="Sua pergunta" style={styles.input} />
+        <TextInput value={input} onChangeText={text => { setPendingAutomation(undefined); setInput(text); }} editable={!busy} placeholder="Escreva sua pergunta" placeholderTextColor={Colors.subtitle} multiline maxLength={1000} accessibilityLabel="Sua pergunta" style={styles.input} />
         {input.trim() && !transcribing && !dictationStarting.current
           ? <Pressable onPress={() => void send()} disabled={busy} accessibilityRole="button" accessibilityLabel="Enviar pergunta" style={[styles.pillSend, busy && styles.disabled]}><Ionicons name="arrow-up" size={22} color="white" /></Pressable>
           : <Pressable onPressIn={() => { Keyboard.dismiss(); void beginDictation(); }} onPressOut={() => { void endDictation(); }} disabled={listening || (busy && !dictationStarting.current && !transcribing)} accessibilityRole="button" accessibilityLabel="Segure para falar e solte para enviar" style={[styles.pillAction, transcribing && styles.voiceActive, listening && styles.disabled]}><Ionicons name="mic-outline" size={22} color={transcribing ? "white" : Colors.text} /></Pressable>}

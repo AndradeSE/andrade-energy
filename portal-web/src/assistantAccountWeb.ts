@@ -1,10 +1,11 @@
 type RecordData = Record<string, any>;
+import { normalizeSolarRequest, hasSolarMutation, isSolarHelp } from "../../shared/solar-language.ts";
 export type WebAssistantContext = { variant: "GERADOR" | "CONSUMIDOR"; plantId?: string; unit?: RecordData; clientId?: string; allowedSections?: string[]; scope?: string };
 export type AccountReply = { text: string; section?: string };
 export function accountIntent(question: string) {
-  const text = question.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  if (/\b(como|o que|explique|ajuda|tutorial|onde)\b/.test(text)) return null;
-  if (/\b(criar|crie|emitir|emita|faturar|fature|enviar|envie|pagar|pague|transferir|transfira|assinar|assine|cancelar|cancele|excluir|exclua|apagar|apague|alterar|altere|ativar|ative|desativar|desative)\b/.test(text)) return "review";
+  const text = normalizeSolarRequest(question);
+  if (isSolarHelp(text)) return null;
+  if (hasSolarMutation(text)) return "review";
   if (/notificac|avisos|push/.test(text)) return "notifications";
   if (/contas? de luz|concessionaria/.test(text)) return "bills";
   if (/fechamentos|operacao/.test(text)) return "operation";
