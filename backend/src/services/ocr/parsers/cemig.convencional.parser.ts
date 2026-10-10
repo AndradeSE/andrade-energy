@@ -1,4 +1,5 @@
 import { FaturaExtraida } from "../../../types/FaturaExtraida";
+import { extrairProximaLeituraDoQuadro } from "./cemig.proxima-leitura";
 import { extrairCadastroCemig } from "./cemig.cadastro.parser";
 import { extrairHistoricoConsumo } from "./cemig.historico.parser";
 import { extrairMedicaoCemig } from "./cemig.medicao.parser";
@@ -51,10 +52,7 @@ function extrairProximaLeitura(texto: string, referencia?: string) {
     ?? texto.match(new RegExp(`(\\d{2}[\\/.-]\\d{2}[\\/.-]\\d{4})[^A-Za-zÀ-ÿ]{0,35}${rotulo}`, "i"))?.[1]?.replace(/[.-]/g, "/")
     ?? undefined;
   if (completa) return completa;
-  const tabela = texto.match(/Datas\s+de\s+Leitura[\s\S]{0,180}?(\d{2}[\/.-]\d{2})\s*(\d{2}[\/.-]\d{2})\s*\d{1,2}\s*(\d{2}[\/.-]\d{2})/i);
-  const curta = tabela?.[3]?.replace(/[.-]/g, "/");
-  const ano = referencia?.match(/\/(20\d{2})$/)?.[1];
-  return curta && ano ? `${curta}/${ano}` : undefined;
+  return extrairProximaLeituraDoQuadro(texto, referencia);
 }
 
 export function parseCemigConvencional(

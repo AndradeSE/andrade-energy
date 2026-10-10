@@ -7,11 +7,12 @@ import { resolve } from "node:path";
 import { supabase } from "../../config/supabase";
 import { caminhoDocumentoPrivado } from "../../utils/documentoPrivado";
 import { extrairTextoDoBuffer } from "../../services/ocr/ocr.service";
+import { prepararPdfParaDownload } from "../../services/ocr/pdfDownload.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
 import { identificarTipoGdDocumento, rotuloTipoGdDocumento } from "./tipoGdDocumento";
 
 const BUCKET = "faturas";
-export const VERSAO_LAYOUT_FATURA = "layout-20261003-v11";
+export const VERSAO_LAYOUT_FATURA = "layout-20261009-v12";
 export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20261009-v4";
 const VERDE = "#107C5C";
 const VERDE_ESCURO = "#07533D";
@@ -675,15 +676,38 @@ async function enviarPdf(caminho: string, conteudo: Buffer) {
   return caminho;
 }
 
+/** Recupera contas antigas usando apenas o titular/cliente desta UC e empresa. */
+export async function prepararDownloadDaConcessionaria(fatura: any) {
+  if (!fatura.pdf_cemig_url || !fatura.empresa_id || String(fatura.pdf_cemig_url).includes("download-sem-senha")) return fatura;
+  const caminho = caminhoDocumentoPrivado(String(fatura.pdf_cemig_url), BUCKET, String(process.env.SUPABASE_URL ?? ""));
+  const [{ data: unidade, error: erroUc }, { data: cliente, error: erroCliente }] = await Promise.all([
+    fatura.unidade_consumidora_id ? supabase.from("unidades_consumidoras").select("cpf_titular").eq("id", fatura.unidade_consumidora_id).eq("empresa_id", fatura.empresa_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    supabase.from("clientes").select("cpf").eq("id", fatura.cliente_id).eq("empresa_id", fatura.empresa_id).maybeSingle(),
+  ]);
+  if (erroUc || erroCliente) throw erroUc || erroCliente;
+  const senhas = [unidade?.cpf_titular, cliente?.cpf].map(valor => String(valor ?? "").replace(/\D/g, "").slice(0, 4)).filter(valor => valor.length === 4);
+  const { data, error } = await supabase.storage.from(BUCKET).download(caminho);
+  if (error || !data) throw error ?? new Error("Conta original não encontrada.");
+  const original = Buffer.from(await data.arrayBuffer());
+  const copia = await prepararPdfParaDownload(original, senhas);
+  if (copia === original) return fatura;
+  const destino = `${fatura.cliente_id}/${fatura.id}/cemig-download-sem-senha.pdf`;
+  await enviarPdf(destino, copia);
+  const { error: erroAtualizar } = await supabase.from("faturas").update({ pdf_cemig_url: destino }).eq("id", fatura.id).eq("empresa_id", fatura.empresa_id).eq("pdf_cemig_url", fatura.pdf_cemig_url);
+  if (erroAtualizar) throw erroAtualizar;
+  return { ...fatura, pdf_cemig_url: destino };
+}
+
 /** Guarda a conta original que serviu de base para a produção da usina. */
 export async function armazenarContaDeEnergiaDaUsina(usinaId: string, fechamentoId: string, arquivoCemig: string) {
   const original = await readFile(arquivoCemig);
   return enviarPdf(`usinas/${usinaId}/${fechamentoId}/conta-concessionaria.pdf`, original);
 }
 
-export async function armazenarDocumentosDaFatura(fatura: any, arquivoCemig: string) {
+export async function armazenarDocumentosDaFatura(fatura: any, arquivoCemig: string, senhaPdf?: string) {
   const pasta = `${fatura.cliente_id}/${fatura.id}`;
   const original = await readFile(arquivoCemig);
+  const copiaDownload = await prepararPdfParaDownload(original, senhaPdf ? [senhaPdf] : []);
   const [pdfUsina, pdfUnificada, pdfRelatorio] = await Promise.all([
     gerarPdfFatura(fatura, "USINA"),
     gerarPdfFatura(fatura, "UNIFICADA"),
@@ -695,13 +719,14 @@ export async function armazenarDocumentosDaFatura(fatura: any, arquivoCemig: str
     enviarPdf(`${pasta}/${fatura.fatura_somente_andrade ? "fatura-andrade" : "fatura-unificada"}.pdf`, pdfUnificada),
     enviarPdf(`${pasta}/${VERSAO_RELATORIO_CALCULO}.pdf`, pdfRelatorio),
   ]);
+  const cemigDownload = copiaDownload === original ? cemig : await enviarPdf(`${pasta}/cemig-download-sem-senha.pdf`, copiaDownload);
   const { error } = await supabase.from("faturas").update({
-    pdf_cemig_url: cemig,
+    pdf_cemig_url: cemigDownload,
     pdf_usina_url: usina,
     pdf_unificada_url: unificada,
   }).eq("id", fatura.id);
   if (error) throw error;
-  return { cemig, usina, unificada, relatorio };
+  return { cemig: cemigDownload, usina, unificada, relatorio };
 }
 
 /** Regera somente os demonstrativos Andrade sem alterar a conta CEMIG original. */

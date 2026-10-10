@@ -3,6 +3,23 @@ import test from "node:test";
 
 import { parseCemigConvencional } from "./cemig.convencional.parser";
 import { parseCemigGD } from "./cemig.gd.parser";
+import { extrairProximaLeituraDoQuadro } from "./cemig.proxima-leitura";
+
+test("extrai quadro sem cabeçalho textual, como no PDF protegido de outubro", () => {
+  const texto = "OUT/2026 17/11/2026 1.022,38\nComercial\nConvencional B3\nTrifásico\ne outras atividades\n09/09 08/10 29 04/11\nSALDO ATUAL DE GERAÇÃO";
+  for (const parser of [parseCemigGD, parseCemigConvencional]) {
+    assert.equal(parser(texto).proximaLeitura, "04/11/2026");
+  }
+});
+
+test("rejeita sequências que não correspondem ao intervalo de leitura", () => {
+  assert.equal(extrairProximaLeituraDoQuadro("Trifásico 09/09 08/10 12 04/11", "OUT/2026"), undefined);
+  assert.equal(extrairProximaLeituraDoQuadro("Trifásico 31/09 08/10 7 04/11", "OUT/2026"), undefined);
+});
+
+test("próxima leitura passa corretamente para o ano seguinte", () => {
+  assert.equal(extrairProximaLeituraDoQuadro("Trifásico 09/11 09/12 30 08/01", "DEZ/2026"), "08/01/2027");
+});
 
 test("extrai próxima leitura quando a data vem depois do rótulo", () => {
   const dados = parseCemigConvencional("Próxima leitura: 16/10/2026");

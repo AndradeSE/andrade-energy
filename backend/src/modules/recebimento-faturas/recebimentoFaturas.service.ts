@@ -725,6 +725,7 @@ async function processarRegistro(registro: any) {
       // a leitura, sem persistência ou logs.
       let unidade: any = null;
       let dados: ReturnType<typeof interpretarFatura> | null = null;
+      let senhaDoPdf: string | undefined;
       const tentativas = new Map<string, any>();
       tentativas.set("", null);
       for (const candidata of candidatas) {
@@ -740,6 +741,7 @@ async function processarRegistro(registro: any) {
           if (encontrada) {
             unidade = encontrada;
             dados = interpretados;
+            senhaDoPdf = senha || undefined;
             break;
           }
         } catch {
@@ -818,7 +820,7 @@ async function processarRegistro(registro: any) {
       // A emissão grava os códigos no banco; o objeto original é anterior a ela.
       const { data: faturaEmitida, error: erroEmitida } = await supabase.from("faturas").select("*").eq("id", resultado.id).single();
       if (erroEmitida) throw erroEmitida;
-      const documentos = await armazenarDocumentosDaFatura(faturaEmitida, caminho);
+      const documentos = await armazenarDocumentosDaFatura(faturaEmitida, caminho, senhaDoPdf);
       await enfileirarNotificacoesDaFatura(faturaEmitida);
       const agora = new Date().toISOString();
       const { error: erroConcluir } = await supabase.from("recebimentos_faturas_email").update({
