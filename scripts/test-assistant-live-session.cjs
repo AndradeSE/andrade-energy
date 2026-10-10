@@ -75,7 +75,8 @@ vm.runInNewContext(js, { exports: moduleResult.exports, require: key => { assert
   assert.equal(socket.sent.length, 1); // Greeting must wait for the beep to finish.
   releaseBeep();
   for (let index = 0; index < 4; index++) await Promise.resolve();
-  assert.equal(socket.sent[1].clientContent.turnComplete, true);
+  assert.match(socket.sent[1].realtimeInput.text, /E aí, Teste/);
+  assert.equal(socket.sent[1].clientContent, undefined, 'Greeting uses the real-time input channel');
   socket.onmessage({ data: new TextEncoder().encode(JSON.stringify({ serverContent: { modelTurn: { parts: [{ inlineData: { mimeType: 'audio/pcm;rate=24000', data: 'AAA=' } }] }, turnComplete: true } })).buffer });
   for (let index = 0; index < 12; index++) await Promise.resolve();
   assert.deepEqual(playback, ['beep', 'resume', 'buffer', 'start']);

@@ -178,7 +178,8 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
       void (async () => {
         await activationBeep;
         if (closed) return;
-        socket.send(JSON.stringify({ clientContent: { turns: [{ role: "user", parts: [{ text: `Diga exatamente esta saudação e depois aguarde em silêncio: ${greeting}` }] }], turnComplete: true } }));
+        socket.send(JSON.stringify({ realtimeInput: { text: `Diga exatamente esta saudação e depois aguarde a próxima pergunta: ${greeting}` } }));
+        console.info("[AssistantLive] greeting-sent");
       })().catch(() => fail("Não consegui preparar o áudio da conversa."));
       return;
     }
@@ -197,6 +198,7 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
       }).finally(() => { toolBusy = false; lastActivity = Date.now(); });
     }
     const content = message.serverContent;
+    if (content) console.info("[AssistantLive] response-state", Boolean(content.modelTurn), Boolean(content.turnComplete), Boolean(content.interrupted));
     if (content?.modelTurn?.parts) for (const part of content.modelTurn.parts) {
       const audio = part?.inlineData;
       if (typeof audio?.data !== "string" || !String(audio?.mimeType ?? "").startsWith("audio/pcm")) continue;
