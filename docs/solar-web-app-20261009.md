@@ -11,3 +11,12 @@ As duas interfaces oferecem sugestões iniciais. A web permite cancelar consulta
 Validação local: 68 testes da web passaram; build TypeScript/Vite/worker passou; TypeScript do app passou. O teste das ferramentas do app cobre 25 módulos, consultas de faturas no contexto, PDFs, imperativos, permissões da automação nativa, bloqueio antes de escrita após troca de contexto e tratamento de falha de rede. Os testes usam dados fictícios, sem alterações em contas reais.
 
 O projeto original do domínio `www.andradeenergy.com.br` continua retornando `NOT_FOUND` na conexão Sites. A web não foi publicada por essa conexão. Esta documentação complementa `solar-automacao-web-20261009.md`, que registra a validação anterior da interface web. A validação física das novas alterações no celular ainda está pendente.
+
+## Publicação dos apps
+
+O Expo confirmou exportação Android e publicação OTA no runtime `1.0.4-preview-live-awake`:
+
+- Consumidor Preview: grupo `a3c9131b-621f-4075-b4ec-e0e4aae76979`, código `6390a75`.
+- Gerador Preview: grupo `74d9b0bc-7c17-41f4-b72b-7a06bf2a3dea`, código `1602963` (a diferença é documental).
+
+A produção não recebeu esta atualização: a homologação física do preview está pendente. Os dois comandos registram árvore suja por arquivos de trabalho preexistentes, fora do código desta alteração; esses arquivos não foram incluídos nos commits. Publicação OTA confirmada não comprova recebimento ou execução no aparelho.
