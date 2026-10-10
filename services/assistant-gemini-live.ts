@@ -17,7 +17,7 @@ type Listener = {
 
 const LIVE_ENDPOINT = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained";
 const MAX_SESSION_MS = 10 * 60_000;
-const IDLE_MS = 30_000;
+const IDLE_MS = 5_000;
 
 export function livePcmSamples(data: string, inputRate: number, outputRate: number): Float32Array {
   const bytes = toByteArray(data);
@@ -73,6 +73,7 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
   let playbackChain = Promise.resolve();
   let lastActivity = Date.now();
   let awaitingResponseAt = 0;
+  let speechFrames = 0;
   let endTurnTimer: ReturnType<typeof setTimeout> | undefined;
   let setupTimer: ReturnType<typeof setTimeout> | undefined;
   let microphoneOperation = Promise.resolve();
@@ -119,13 +120,14 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
     await microphoneOperation;
     if (closed) return;
     listening = true;
+    speechFrames = 0;
     awaitingResponseAt = 0;
     lastActivity = Date.now();
     listener.onState("listening");
     console.info("[AssistantLive] microphone-ready");
   };
   const idleTimer = setInterval(() => {
-    if (!closed && !toolBusy && listening && !awaitingResponseAt && Date.now() - lastActivity >= IDLE_MS) fail("Conversa encerrada após trinta segundos sem fala.");
+    if (!closed && !toolBusy && listening && !awaitingResponseAt && Date.now() - lastActivity >= IDLE_MS) fail("Conversa encerrada após cinco segundos sem fala.");
     if (!closed && !toolBusy && awaitingResponseAt && Date.now() - awaitingResponseAt >= 30_000) fail("A resposta demorou demais. Tente novamente.");
   }, 250);
   const maxTimer = setTimeout(() => fail("Sessão encerrada após dez minutos."), MAX_SESSION_MS);
@@ -141,7 +143,10 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
     let sum = 0;
     const view = new DataView(pcm.buffer, pcm.byteOffset, pcm.byteLength);
     for (let index = 0; index + 1 < pcm.length; index += 16) sum += Math.abs(view.getInt16(index, true));
-    if (sum / Math.max(1, pcm.length / 16) > 500) { lastActivity = Date.now(); awaitingResponseAt = lastActivity; }
+    // Um clique ou ruído isolado não deve abrir a espera longa por resposta.
+    // Três pacotes de 40 ms confirmam atividade sustentada antes de renová-la.
+    speechFrames = sum / Math.max(1, pcm.length / 16) > 500 ? speechFrames + 1 : 0;
+    if (speechFrames >= 3) { lastActivity = Date.now(); awaitingResponseAt = lastActivity; }
     socket.send(JSON.stringify({ realtimeInput: { audio: { data: fromByteArray(pcm), mimeType: "audio/pcm;rate=16000" } } }));
   });
 

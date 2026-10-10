@@ -7,6 +7,9 @@ const timers = new Set();
 const playback = [];
 const microphones = [];
 const shortTimers = new Set();
+const intervals = new Set();
+let clock = Date.now();
+class ClockDate extends Date { static now() { return clock; } }
 class Socket {
   static OPEN = 1;
   readyState = 1;
@@ -48,7 +51,7 @@ const imports = {
 const moduleResult = { exports: {} };
 const source = fs.readFileSync('services/assistant-gemini-live.ts', 'utf8');
 const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-vm.runInNewContext(js, { exports: moduleResult.exports, require: key => { assert.ok(imports[key], key); return imports[key]; }, WebSocket: Socket, setTimeout: (fn, ms) => { timers.add(fn); if (ms < 1000) shortTimers.add(fn); return fn; }, clearTimeout: fn => { timers.delete(fn); shortTimers.delete(fn); }, setInterval: fn => { timers.add(fn); return fn; }, clearInterval: fn => timers.delete(fn), Date, Promise, ArrayBuffer, Uint8Array, DataView, Float32Array });
+vm.runInNewContext(js, { exports: moduleResult.exports, require: key => { assert.ok(imports[key], key); return imports[key]; }, WebSocket: Socket, setTimeout: (fn, ms) => { timers.add(fn); if (ms < 1000) shortTimers.add(fn); return fn; }, clearTimeout: fn => { timers.delete(fn); shortTimers.delete(fn); }, setInterval: fn => { timers.add(fn); intervals.add(fn); return fn; }, clearInterval: fn => { timers.delete(fn); intervals.delete(fn); }, Date: ClockDate, Promise, ArrayBuffer, Uint8Array, DataView, Float32Array });
 (async () => {
   const failures = [];
   let releaseBeep;
@@ -64,7 +67,7 @@ vm.runInNewContext(js, { exports: moduleResult.exports, require: key => { assert
   socket.onopen();
   const setup = socket.sent[0].setup;
   assert.ok(JSON.stringify(setup.systemInstruction).includes('123,45'));
-  assert.ok(source.includes('IDLE_MS = 30_000'));
+  assert.ok(source.includes('IDLE_MS = 5_000'));
   assert.ok(source.includes('!awaitingResponseAt'));
   assert.deepEqual(Array.from(setup.generationConfig.responseModalities), ['AUDIO']);
   assert.equal(setup.responseModalities, undefined); // Wire schema, not the SDK config shape.
@@ -93,6 +96,9 @@ vm.runInNewContext(js, { exports: moduleResult.exports, require: key => { assert
   for (let i = 0; i < 15; i++) await Promise.resolve();
   mic.data({ data: new Uint8Array(1280) });
   assert.equal(socket.sent.filter(value => value.realtimeInput?.audio).length, firstPackets, 'Discard assistant audio, avoiding echo');
+  clock += 6_000;
+  for (const tick of [...intervals]) tick();
+  assert.equal(failures.length, 0, 'Do not time out while the assistant is speaking');
   await finishPlayback();
   mic.data({ data: new Uint8Array(1280) });
   assert.equal(socket.sent.filter(value => value.realtimeInput?.audio).length, firstPackets + 1, 'Follow-up question must stream on the same microphone');
@@ -104,9 +110,22 @@ vm.runInNewContext(js, { exports: moduleResult.exports, require: key => { assert
   const pcm = Buffer.alloc(48000); // One second of 24 kHz mono PCM16.
   const samples = moduleResult.exports.livePcmSamples(pcm.toString('base64'), 24000, 48000);
   assert.equal(samples.length / 48000, 1); // Never replay at double speed.
+  // A short noise must not keep the microphone open for the 30-second network wait.
+  clock += 4_999;
+  const noise = Buffer.alloc(1280);
+  for (let i = 0; i < noise.length; i += 2) noise.writeInt16LE(1000, i);
+  mic.data({ data: noise });
+  mic.data({ data: new Uint8Array(1280) });
+  for (const tick of [...intervals]) tick();
+  assert.equal(failures.length, 0);
+  clock += 1;
+  for (const tick of [...intervals]) tick();
+  for (let i = 0; i < 15; i++) await Promise.resolve();
+  assert.match(failures[0], /cinco segundos sem fala/);
+  assert.equal(mic.recording, false, 'Idle closure must release the actual microphone');
   await session.stop();
   assert.equal(timers.size, 0);
-  assert.equal(failures.length, 0); // Closing intentionally must not trigger fallback.
+  assert.equal(failures.length, 1); // Idempotent stop must not trigger another failure.
   const screen = fs.readFileSync('app/assistente.tsx', 'utf8');
   assert.ok(screen.includes('activateKeepAwakeAsync(tag)'));
   assert.ok(screen.includes('deactivateKeepAwake(tag)'));
