@@ -13,6 +13,10 @@ export const environmentKeySuffix = isPreviewEnvironment ? "_preview" : "";
 // Never enable native IA through an OTA variable on an older production APK.
 export const isAssistantEnabled = isPreviewEnvironment ||
   Updates.runtimeVersion === "1.0.4-production-live-awake";
+// Native audio support belongs to the installed runtime, not OTA export flags.
+export const supportsAssistantLive = Updates.runtimeVersion === "1.0.4-preview-live-awake" ||
+  Updates.runtimeVersion === "1.0.4-production-live-awake" ||
+  (!Updates.runtimeVersion && process.env.EXPO_PUBLIC_ENABLE_GEMINI_LIVE === "1");
 export const environmentApiUrl = isPreviewEnvironment
   ? PREVIEW_API_URL
   : channel

@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useAuth } from "../contexts/AuthContext";
-import { isAssistantEnabled as isPreviewEnvironment } from "../config/environment";
+import { isAssistantEnabled as isPreviewEnvironment, supportsAssistantLive } from "../config/environment";
 import { IS_GERADOR_APP } from "../config/appVariant";
 import { answerInConversation, asksLatestInvoiceAmount, LocalReply, LocalTopic, normalizeAssistantQuery } from "../services/local-assistant";
 import { buscarFatura, listarFaturas } from "../services/faturas.service";
@@ -590,11 +590,16 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       setVoiceStatus(undefined);
       return;
     }
-    if (preferLive && process.env.EXPO_PUBLIC_ENABLE_GEMINI_LIVE === "1" && isPreviewEnvironment && Platform.OS === "android") {
+    if (preferLive && supportsAssistantLive && isPreviewEnvironment && Platform.OS === "android") {
       console.info("[AssistantLive] requested");
       if (liveStarting.current) return;
       const allowed = await authorizeLiveAudio();
       console.info("[AssistantLive] consent", allowed);
+      if (!allowed) {
+        setVoiceNotice("A conversa direta precisa da sua autorização. Nenhuma gravação foi iniciada.");
+        if (voiceOnly) onClose?.();
+        return;
+      }
       if (allowed) {
         const liveAttempt = ++liveGeneration.current;
         liveStarting.current = true;
@@ -820,7 +825,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Consulte dados da sua conta, peça documentos ou abra as funções do app para revisão. Para ditar, segure o microfone e solte; para conversar por voz, toque nas ondas.</Text><Text style={styles.limit}>A conversa usa o Gemini online. Não é necessário baixar um modelo local. Consultas respeitam seu acesso. Alterações de contato e nomes podem ser confirmadas aqui; operações financeiras e contratos continuam nas telas próprias.</Text></View> : null}
       {messages.length === 0 ? <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>{solarSuggestions(IS_GERADOR_APP).map(text => <Pressable key={text} disabled={busy} accessibilityRole="button" accessibilityLabel={text} onPress={() => void send(text)} style={styles.action}><Text style={styles.actionText}>{text}</Text></Pressable>)}</View> : null}
       <Pressable accessibilityRole="button" accessibilityLabel="Configurar voz natural nos dados da conta" onPress={configureAccountVoice} style={styles.action}><Text style={styles.actionText}>Voz natural nos dados · {accountVoiceAllowed ? "autorizada" : "autorizar"}</Text></Pressable>
-      {isPreviewEnvironment && Platform.OS === "android" && process.env.EXPO_PUBLIC_ENABLE_GEMINI_LIVE === "1" ? <Pressable accessibilityRole="button" accessibilityLabel="Configurar ou revogar conversa direta" onPress={() => void configureLiveAudio()} style={styles.action}><Text style={styles.actionText}>Conversa direta · configurar ou revogar</Text></Pressable> : null}
+      {isPreviewEnvironment && Platform.OS === "android" && supportsAssistantLive ? <Pressable accessibilityRole="button" accessibilityLabel="Configurar ou revogar conversa direta" onPress={() => void configureLiveAudio()} style={styles.action}><Text style={styles.actionText}>Conversa direta · configurar ou revogar</Text></Pressable> : null}
       {installStage ? <View style={styles.progressCard} accessibilityLiveRegion="polite"><Text style={styles.limit}>{installStage}</Text>{installProgress !== null ? <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(installProgress * 100)}%` }]} /></View> : null}{downloadingModel ? <Pressable accessibilityRole="button" accessibilityLabel="Cancelar download do modelo" onPress={() => void cancelModelDownload()} style={styles.cancelDownload}><Text style={styles.cancelDownloadText}>Cancelar download</Text></Pressable> : null}</View> : null}
       {messages.map((message, index) => <View key={index} style={[styles.bubble, message.from === "user" ? styles.userBubble : styles.assistantBubble]}>
         <Text style={styles.message}>{message.text}</Text>
