@@ -19,4 +19,13 @@ O Expo confirmou exportação Android e publicação OTA no runtime `1.0.4-previ
 - Consumidor Preview: grupo `a3c9131b-621f-4075-b4ec-e0e4aae76979`, código `6390a75`.
 - Gerador Preview: grupo `74d9b0bc-7c17-41f4-b72b-7a06bf2a3dea`, código `1602963` (a diferença é documental).
 
-A produção não recebeu esta atualização: a homologação física do preview está pendente. Os dois comandos registram árvore suja por arquivos de trabalho preexistentes, fora do código desta alteração; esses arquivos não foram incluídos nos commits. Publicação OTA confirmada não comprova recebimento ou execução no aparelho.
+Na etapa inicial, a produção permaneceu pendente de homologação física. Os comandos registram árvore suja por arquivos de trabalho preexistentes, fora do código desta alteração; esses arquivos não foram incluídos nos commits. Publicação OTA confirmada não comprova recebimento ou execução no aparelho.
+
+## Produção publicada após solicitação explícita
+
+Em 09/10/2026, o usuário solicitou também a publicação em produção. O Expo confirmou os dois canais Android no runtime `1.0.4-production-live-awake`, com código `15d3297`:
+
+- Consumidor: grupo `5fb73758-9ed4-4968-9b0d-9918f23ae017`.
+- Gerador: grupo `ce6abf2f-eb42-4df4-bc3f-421c319515fa`.
+
+Foram habilitadas as flags de Gemini Live e voz online usadas nos APKs de produção para manter a compatibilidade do runtime. A API de produção respondeu `online`, commit `e581f6a`. Não houve redeploy de backend nem alteração em faturamento nesta publicação. A entrega no aparelho não foi verificada fisicamente. A publicação web continua bloqueada pelo acesso ao Sites.
