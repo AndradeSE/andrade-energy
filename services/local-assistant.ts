@@ -56,7 +56,6 @@ export function answerLocally(input: string, scope: AssistantScope): LocalReply 
   if (scope.variant === "gerador") routes.faturamento = "/faturamento";
   const command = text.match(/^(?:abrir|abra|mostrar|mostre|ir para|quero abrir) (?:a |o |os |as )?(.+)$/);
   if (command && routes[command[1]]) return { kind: "navigate", route: routes[command[1]], text: `Abrir ${command[1]}.` };
-  if (/\b(atalho|atalhos|acesso rapido)\b/.test(text)) return { kind: "help", text: "Os acessos rápidos são personalizáveis. Procure pelo nome da função, não pela posição. As abas oferecem caminhos fixos." };
   if (/\b(offline|internet)\b/.test(text)) return { kind: "help", text: "Esta ajuda funciona localmente. Consultar dados atualizados, faturar e enviar documentos depende de internet." };
   const guided = guideAppAnswer(text, scope.variant);
   if (guided) return { kind: "help", text: guided };

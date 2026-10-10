@@ -3,6 +3,16 @@ type GuideEntry = { audience: Audience; match: RegExp; answer: string };
 
 // Respostas extraídas dos fluxos e rótulos reais do aplicativo. Não incluem dados pessoais.
 const GUIDE: GuideEntry[] = [
+  { audience: "ambos", match: /\b(personalizar|organizar|reordenar|ocultar|adicionar).*(atalho|acesso rapido|botao)\b|\b(atalho|atalhos|acesso rapido|acessos rapidos)\b/, answer: "Na Home, toque em Personalizar acesso rápido para escolher quais atalhos aparecem e mudar a ordem. As escolhas são salvas neste aparelho por área de trabalho. As opções dependem do seu perfil, das permissões e da unidade ou usina selecionada. Não repetimos as abas do menu inferior. Procure sempre pelo nome da função, nunca pela posição; novas opções podem precisar ser selecionadas em Personalizar." },
+  { audience: "gerador", match: /\b(faturas emitidas)\b/, answer: "Faturas emitidas abre a lista de cobranças já geradas. É diferente de Faturar via PDF, que importa a conta da concessionária para revisar uma nova cobrança, e de Faturamento manual, que permite preencher seus dados. Emitir exige revisão; abrir o atalho não emite nem envia nada." },
+  { audience: "gerador", match: /\b(recebimento da usina)\b/, answer: "Recebimento da usina abre a configuração da conta geradora para importar os dados de produção recebidos por e-mail. Também há acesso pelo card Geração do mês. É separado de Faturamento automático, usado para contas das UCs consumidoras; ativar um não significa ativar o outro." },
+  { audience: "gerador", match: /\b(importar producao pdf)\b/, answer: "Importar produção PDF abre o seletor de arquivos para informar a geração da usina. Confira a UC geradora reconhecida antes de concluir. Não é emissão de cobrança ao cliente. O atalho depende das permissões; Inversores e Editar dados da usina também dependem da usina selecionada." },
+  { audience: "gerador", match: /\b(editar dados da usina)\b/, answer: "Editar dados da usina abre o cadastro da usina selecionada para revisão e edição. Nova usina inicia outro cadastro; Trocar usina muda apenas o contexto consultado. Esses atalhos não salvam mudanças sozinhos e podem não estar disponíveis para colaboradores." },
+  { audience: "gerador", match: /\b(compartilhar).*(app|aplicativo)\b/, answer: "Compartilhar app do cliente permite baixar e compartilhar o instalador do Consumidor. No Comercial existem Compartilhar app Gerador e Compartilhar app Consumidor. Compartilhar instalador não cria conta, não envia convite de acesso e não compartilha sua sessão." },
+  { audience: "gerador", match: /\b(clientes ativos|empresas parceiras|convidar gerador)\b/, answer: "No acesso rápido do Comercial, Clientes ativos abre o monitoramento, Empresas parceiras abre a gestão das empresas e Convidar gerador inicia o convite de um gerador. Colaboradores abre convites e permissões da equipe comercial. A disponibilidade depende do papel; não confunda Clientes ativos com a lista de consumidores da usina." },
+  { audience: "consumidor", match: /\b(anexar|envio automatico|recebimento automatico)\b/, answer: "No acesso rápido do Consumidor, Conta de luz abre documentos da concessionária; Anexar conta de luz permite selecionar um PDF. O nome pode variar conforme a concessionária. A opção de envio automático aparece quando a titularidade e o acesso permitem e abre a configuração da UC selecionada; sem uma UC selecionada, escolha a unidade primeiro." },
+  { audience: "ambos", match: /\b(solar|mostrar ajuda)\b/, answer: "Solar abre a tela de Ajuda com conversa, escrita e os controles de voz disponíveis nesta instalação. Mostrar Ajuda restaura o botão flutuante ocultado, quando disponível. Não é um comando para consultar outras contas: dados e documentos continuam limitados à sua sessão e às permissões." },
+  { audience: "ambos", match: /\b(sobre e atualizacoes|pesquisar|meu perfil|tutoriais)\b/, answer: "Tutoriais abre os vídeos de orientação; Pesquisar encontra funções pelo nome dentro da área atual; Sobre e atualizações mostra a versão e o histórico. Meu perfil abre dados pessoais e segurança, quando não existe uma aba inferior equivalente. Os atalhos ficam em Personalizar acesso rápido e podem variar por ambiente." },
   { audience: "gerador", match: /\b(cadastr|adicion|nova|criar).*(usina)\b|\b(usina).*(cadastr|adicion|nova|criar)\b/, answer: "Para cadastrar uma usina, abra a lista de usinas e escolha Manual ou Via fatura. Depois confira a UC geradora e os dados da usina antes de salvar." },
   { audience: "gerador", match: /\b(cadastr|adicion|novo|criar).*(cliente|consumidor)\b|\b(cliente|consumidor).*(cadastr|adicion|novo|criar)\b/, answer: "Na aba Clientes, cadastre os dados do consumidor e confira nome, contato, documento e endereço. Depois vincule a UC e, quando os dados estiverem corretos, envie o convite para o acesso." },
   { audience: "gerador", match: /\b(cadastr|adicion|vincul|nova|criar).*(uc|unidade consumidora)\b|\b(uc|unidade consumidora).*(cadastr|adicion|vincul|nova|criar)\b/, answer: "Para adicionar uma UC, abra Unidades consumidoras e escolha o cadastro manual ou por fatura. Confira o número da instalação e o vínculo com cliente e usina antes de seguir para o contrato." },
@@ -38,11 +48,19 @@ const GUIDE: GuideEntry[] = [
   { audience: "ambos", match: /\b(sobre o app|versao|atualizacao|historico de atualizacoes)\b/, answer: "Em Sobre o app você encontra a versão e o histórico de melhorias exibidos nesta instalação. Se não corresponderem ao comportamento atual, confira se há atualização disponível." },
 ];
 
+const QUICK_ACCESS = {
+  gerador: "No Gerador, o catálogo pode incluir Meu plano, Novo cliente, Unidades consumidoras, Nova UC, Faturar via PDF, Faturas emitidas, Faturamento manual, Nova usina, Trocar usina, Meu perfil, Tutoriais, Sobre e atualizações, Pesquisar, Solar, Editar dados da usina, Importar produção PDF, Recebimento da usina, Faturamento automático, Inversores e Compartilhar app do cliente. No Comercial: Clientes ativos, Empresas parceiras, Convidar gerador, Colaboradores, Compartilhar app Gerador, Compartilhar app Consumidor, Tutoriais, Sobre e atualizações, Pesquisar, Meu perfil e Solar. Nem todas as opções estão liberadas a colaboradores. Faturamento automático abre diretamente apenas quando há uma única UC consumidora elegível, da usina atual e de titularidade do gerador; se houver várias ou nenhuma, selecione ou cadastre a UC em Unidades consumidoras.",
+  consumidor: "No Consumidor, o catálogo pode incluir Conta de luz, Anexar conta de luz, envio automático conforme titularidade, Trocar unidade, Tutoriais, Pesquisar, Sobre e atualizações e Solar. Os nomes da conta e do envio variam conforme a concessionária e a titularidade. Faturas, Economia, Contrato e Perfil continuam nas abas inferiores, sem atalhos duplicados.",
+};
+
 export function guideAppAnswer(normalizedQuestion: string, variant: "gerador" | "consumidor") {
-  return GUIDE.find(item => (item.audience === "ambos" || item.audience === variant) && item.match.test(normalizedQuestion))?.answer;
+  const matches = GUIDE.filter(item => (item.audience === "ambos" || item.audience === variant) && item.match.test(normalizedQuestion));
+  // Prefira a função perguntada a uma menção genérica ao "atalho".
+  const entry = matches.find(item => item !== GUIDE[0]) ?? matches[0];
+  return entry === GUIDE[0] ? `${entry.answer} ${QUICK_ACCESS[variant]}` : entry?.answer;
 }
 
 export function verifiedAppGuide(variant: "gerador" | "consumidor") {
   return GUIDE.filter(item => item.audience === "ambos" || item.audience === variant)
-    .map(item => item.answer).join("\n");
+    .map(item => item.answer).concat(QUICK_ACCESS[variant]).join("\n");
 }
