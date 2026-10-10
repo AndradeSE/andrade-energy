@@ -29,7 +29,7 @@ import EconomiaChart from "./EconomiaChart";
 import EnergyFlowCard from "./EnergyFlowCard";
 import QuickAccessCarousel from "../QuickAccessCarousel";
 import { floatingHidden, loadFloatingPreference, setFloatingHidden, subscribeFloatingHidden } from "../../services/assistant-floating-preference";
-import { isPreviewEnvironment } from "../../config/environment";
+import { isAssistantEnabled as isPreviewEnvironment } from "../../config/environment";
 import { buscarCliente, listarMinhasUnidades } from "../../services/clientes.service";
 import { obterRecebimentoFaturas } from "../../services/recebimento-faturas.service";
 
@@ -201,12 +201,7 @@ export default function ClienteHome() {
           pinnedIds={isPreviewEnvironment && assistantHidden ? ["mostrar-assistente"] : []}
           items={[
             ...(isPreviewEnvironment && assistantHidden ? [{ id: "mostrar-assistente", icon: "chatbubble-ellipses-outline" as const, image: require("../../assets/images/assistant-chat-3d-v2.png"), label: "Mostrar Ajuda", onPress: () => void setFloatingHidden(String(user?.id ?? ""), false) }] : []),
-            {
-              id: "faturas",
-              icon: "receipt-outline",
-              label: `Faturas ${nomeEmpresa}`,
-              onPress: () => router.push("/faturas"),
-            },
+            ...(isPreviewEnvironment ? [{ id: "solar", icon: "chatbubble-ellipses-outline" as const, label: "Solar", onPress: () => router.push("/assistente") }] : []),
             {
               id: "contas-de-luz",
               icon: "document-attach-outline",
@@ -234,24 +229,9 @@ export default function ClienteHome() {
                 ? router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidadeRecebimentoId } })
                 : router.push("/selecionar-unidade"),
             }] : []),
-            {
-              id: "economia",
-              icon: "trending-up-outline",
-              label: "Economia",
-              onPress: () => router.push("/(tabs)/economia"),
-            },
-            {
-              id: "contrato",
-              icon: "document-text-outline",
-              label: "Contrato",
-              onPress: () => router.push("/contrato"),
-            },
-            {
-              id: "perfil",
-              icon: "person-outline",
-              label: "Meu perfil",
-              onPress: () => router.navigate("/perfil"),
-            },
+            { id: "tutoriais", icon: "play-circle-outline", label: "Tutoriais", onPress: () => router.push("/tutoriais") },
+            { id: "pesquisar", icon: "search-outline", label: "Pesquisar", onPress: () => router.push({ pathname: "/pesquisa", params: { perfil: "consumidor" } }) },
+            { id: "sobre", icon: "information-circle-outline", label: "Sobre e atualizações", onPress: () => router.push("/sobre") },
             {
               id: "trocar-unidade",
               icon: "layers-outline",

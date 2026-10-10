@@ -15,6 +15,7 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { useDashboardGestor } from "../../hooks/useDashboardGestor";
 import { importarFaturaGeradora } from "../../services/usinas.service";
+import { listarUnidadesGestor } from "../../services/clientes.service";
 import { obterLinkAplicativo } from "../../services/app-download.service";
 import * as CarteiraService from "../../services/carteira.service";
 import {
@@ -33,7 +34,7 @@ import {
 } from "../ui";
 import QuickAccessCarousel from "../QuickAccessCarousel";
 import { floatingHidden, loadFloatingPreference, setFloatingHidden, subscribeFloatingHidden } from "../../services/assistant-floating-preference";
-import { isPreviewEnvironment } from "../../config/environment";
+import { isAssistantEnabled as isPreviewEnvironment } from "../../config/environment";
 import TabDataPending from "../ui/TabDataPending";
 import AndradeBarChart from "../charts/AndradeBarChart";
 import RevenueChart from "./RevenueChart";
@@ -64,17 +65,18 @@ function rotuloCompetencia(valor: unknown) {
 
 const atalhos = [
   { icon: "card-outline", label: "Meu plano", rota: "/assinatura" },
-  { icon: "people-outline", label: "Clientes", rota: "/clientes" },
   { icon: "person-add-outline", label: "Novo cliente", rota: "/clientes/novo" },
   { icon: "flash-outline", label: "Unidades consumidoras", rota: "/unidades" },
   { icon: "flash-outline", label: "Nova UC", rota: "/unidades/nova" },
   { icon: "document-attach-outline", label: "Faturar via PDF", rota: "/faturamento/manual" },
-  { icon: "construct-outline", label: "Operação", rota: "/operacao" },
-  { icon: "receipt-outline", label: "Faturamento", rota: "/faturamento" },
-  { icon: "cash-outline", label: "Financeiro", rota: "/financeiro" },
-  { icon: "receipt-outline", label: "Faturas", rota: "/faturas" },
-  { icon: "document-text-outline", label: "Contratos", rota: "/contratos" },
-  { icon: "people-circle-outline", label: "Colaboradores", rota: "/colaboradores?ambiente=gerador" },
+  { icon: "receipt-outline", label: "Faturas emitidas", rota: "/faturas" },
+  { icon: "create-outline", label: "Faturamento manual", rota: "/faturamento/criar-manual" },
+  { icon: "business-outline", label: "Nova usina", rota: "/usinas/nova" },
+  { icon: "layers-outline", label: "Trocar usina", rota: "/selecionar-unidade" },
+  { icon: "person-outline", label: "Meu perfil", rota: "/perfil" },
+  { icon: "play-circle-outline", label: "Tutoriais", rota: "/tutoriais" },
+  { icon: "information-circle-outline", label: "Sobre e atualizações", rota: "/sobre" },
+  { icon: "search-outline", label: "Pesquisar", rota: "/pesquisa?perfil=usinas" },
 ] as const;
 
 export default function DashboardGestor() {
@@ -176,6 +178,27 @@ export default function DashboardGestor() {
     }
   }
 
+  async function abrirFaturamentoAutomatico() {
+    try {
+      const usinaId = String(usinaSelecionada?.id ?? usuario?.usina_id ?? "");
+      const unidades = (await listarUnidadesGestor(usinaId)).filter((item: any) => {
+        const usina = Array.isArray(item.usinas) ? item.usinas[0] : item.usinas;
+        return String(item.usina_id ?? usina?.id ?? "") === usinaId &&
+          String(item.tipo ?? "BENEFICIARIA").toUpperCase() !== "GERADORA" &&
+          String(usina?.titularidade_ucs_recebedoras ?? "GERADOR") === "GERADOR";
+      });
+      if (unidades.length === 1) {
+        router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidades[0].id, escopo: "usina" } });
+      } else {
+        Alert.alert("Faturamento automático", unidades.length ? "Escolha a UC na lista para configurar o recebimento de suas contas." : "Cadastre uma UC recebedora sob titularidade do gerador antes de configurar o recebimento.", [
+          { text: "Agora não", style: "cancel" }, { text: "Ver unidades", onPress: () => router.push("/unidades") },
+        ]);
+      }
+    } catch {
+      Alert.alert("Não foi possível consultar as unidades", "Confira sua conexão e tente novamente.");
+    }
+  }
+
   // Sem seleção, inclusive no primeiro cadastro, a Home não é o destino.
   // A lista permite escolher uma usina existente ou cadastrar a primeira.
   if (!usinaSelecionada?.id && !usuario?.usina_id) {
@@ -246,15 +269,7 @@ export default function DashboardGestor() {
             pinnedIds={isPreviewEnvironment && assistantHidden ? ["mostrar-assistente"] : []}
             items={[
               ...(isPreviewEnvironment && assistantHidden ? [{ id: "mostrar-assistente", icon: "chatbubble-ellipses-outline" as const, image: require("../../assets/images/assistant-chat-3d-v2.png"), label: "Mostrar Ajuda", onPress: () => void setFloatingHidden(String(usuario?.id ?? ""), false) }] : []),
-              {
-                icon: "wallet-outline",
-                label: "Valor financeiro disponível",
-                value: carteira
-                  ? formatarMoeda(carteira.saldoDisponivel)
-                  : "Carregando...",
-                badge: novoRecebimento,
-                onPress: () => void abrirCarteira(),
-              },
+              ...(isPreviewEnvironment ? [{ id: "solar", icon: "chatbubble-ellipses-outline" as const, label: "Solar", onPress: () => router.push("/assistente") }] : []),
               ...atalhos.filter((atalho) => !colaborador || !["Colaboradores", "Novo cliente", "Nova usina", "Nova UC", "Financeiro"].includes(atalho.label)).map((atalho) => ({
                 icon: atalho.icon,
                 label: atalho.label,
@@ -265,6 +280,12 @@ export default function DashboardGestor() {
                 label: "Editar dados da usina",
                 onPress: () => router.push({ pathname: "/usinas/editar", params: { id: usinaSelecionada.id } }),
               }] : []),
+              ...(!colaborador ? [
+                { id: "importar-producao", icon: "document-attach-outline" as const, label: importando ? "Importando produção…" : "Importar produção PDF", onPress: () => { if (!importando) void atualizarGeracao(); } },
+                { id: "recebimento-producao", icon: "mail-unread-outline" as const, label: "Recebimento da usina", onPress: abrirRecebimentoProducao },
+                { id: "faturamento-automatico", icon: "mail-outline" as const, label: "Faturamento automático", onPress: () => void abrirFaturamentoAutomatico() },
+                ...(usinaSelecionada?.id ? [{ id: "inversores", icon: "hardware-chip-outline" as const, label: "Inversores", onPress: () => router.push({ pathname: "/usinas/inversores", params: { id: usinaSelecionada.id } }) }] : []),
+              ] : []),
               {
                 icon: "share-social-outline",
                 label: "Compartilhar app do cliente",
