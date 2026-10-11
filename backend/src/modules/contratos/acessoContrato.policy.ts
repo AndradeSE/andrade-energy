@@ -1,7 +1,7 @@
 /** Autorização por UC: status administrativo sozinho não comprova assinatura. */
 export function contratoLiberaUnidade(contrato: any, hoje = new Date().toISOString().slice(0, 10)): boolean {
   if (!contrato?.unidade_consumidora_id) return false;
-  if (["CANCELADO", "VENCIDO", "SUBSTITUIDO"].includes(String(contrato.status).toUpperCase())) return false;
+  if (["CANCELADO", "ENCERRADO", "VENCIDO", "SUBSTITUIDO"].includes(String(contrato.status).toUpperCase())) return false;
   if (contrato.vigencia_fim && String(contrato.vigencia_fim).slice(0, 10) < hoje) return false;
   if (contrato.dados_documento?.aceite_cliente_exigido === true) {
     return String(contrato.status).toUpperCase() === "VIGENTE" && Boolean(contrato.aceite_cliente_em);
@@ -14,6 +14,13 @@ export function contratoLiberaUnidade(contrato: any, hoje = new Date().toISOStri
     && String(contrato.status).toUpperCase() === "VIGENTE"
     && contrato.dados_documento?.assinatura_externa_pendente !== true;
   return Boolean(contrato.aceite_cliente_em || validacaoExterna || assinaturaVigente);
+}
+
+/** Um contrato novo efetivamente assinado pode retomar o faturamento da mesma UC. */
+export function ucEncerradaParaFaturamento(contratos: any[], hoje?: string): boolean {
+  if (contratos.some(contrato => contratoLiberaUnidade(contrato, hoje))) return false;
+  return contratos.some(contrato => contrato.unidade_consumidora_id
+    && ["CANCELADO", "ENCERRADO"].includes(String(contrato.status).toUpperCase()));
 }
 
 /** Evita restaurar um contrato apenas por pertencer ao mesmo cliente. */

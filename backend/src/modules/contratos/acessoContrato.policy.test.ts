@@ -1,8 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { acessoPorUnidade, contratoCorrespondeAoNumeroUc, contratoLiberaUnidade } from "./acessoContrato.policy";
+import { acessoPorUnidade, contratoCorrespondeAoNumeroUc, contratoLiberaUnidade, ucEncerradaParaFaturamento } from "./acessoContrato.policy";
 
 const contrato = { id: "c1", cliente_id: "cliente", unidade_consumidora_id: "uc1", status: "ATIVO" };
+test("e-mail de UC encerrada não retoma faturamento por assinatura antiga ou novo rascunho", () => {
+  const encerrado = { ...contrato, status: "CANCELADO", aceite_cliente_em: "2026-09-07" };
+  assert.equal(ucEncerradaParaFaturamento([encerrado]), true);
+  assert.equal(ucEncerradaParaFaturamento([{ ...encerrado, status: "ENCERRADO" }]), true);
+  assert.equal(contratoLiberaUnidade({ ...encerrado, status: "ENCERRADO" }), false);
+  assert.equal(ucEncerradaParaFaturamento([encerrado, { ...contrato, status: "RASCUNHO" }]), true);
+  assert.equal(ucEncerradaParaFaturamento([encerrado, { ...contrato, status: "VIGENTE", aceite_cliente_em: "2026-10-11" }]), false);
+  assert.equal(ucEncerradaParaFaturamento([{ ...contrato, status: "VIGENTE", aceite_cliente_em: "2026-10-11", cancelamento_pendente: true }]), false);
+  assert.equal(ucEncerradaParaFaturamento([]), false);
+});
 test("rascunho e status VIGENTE sem assinatura não liberam", () => {
   assert.equal(contratoLiberaUnidade(contrato), false);
   assert.equal(contratoLiberaUnidade({ ...contrato, status: "VIGENTE" }), false);
