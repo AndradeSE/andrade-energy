@@ -1,3 +1,4 @@
+import { normalizarPlanoContrato } from "../contratos/planoContrato.policy";
 import { supabase } from '../../config/supabase';
 import { garantirRegistroDaEmpresa } from '../../utils/empresaScope';
 
@@ -18,6 +19,7 @@ export async function cadastrarUnidadeOperacional(usinaId: string, input: any, e
   const { data, error } = await supabase.from('unidades_consumidoras').insert({
     ...dados, numero, tipo: input.tipo, cliente_id: input.cliente_id || null,
     usina_id: usinaId, empresa_id: empresaId, status: 'PENDENTE_CONTRATO',
+    plano_contrato: normalizarPlanoContrato(input.plano_contrato),
     modalidade_faturamento: input.modalidade_faturamento, desconto_percentual: desconto,
   }).select('id,numero,tipo').single();
   if (error?.code === '23505') throw new Error('Esta UC já está cadastrada. Abra sua configuração para editá-la.');

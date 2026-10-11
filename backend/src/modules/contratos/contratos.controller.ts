@@ -269,6 +269,6 @@ export async function obterSolicitacaoCancelamentoController(req: Request, res: 
 }
 
 export async function concluirSolicitacaoCancelamentoController(req: Request, res: Response) {
-  try { return res.json(await ContratosService.concluirSolicitacaoCancelamentoService(req.params.id, empresaIdDaRequisicao(req), (req as any).usuario, req.body?.decisao, req.body?.observacao)); }
+  try { return res.json(await ContratosService.concluirSolicitacaoCancelamentoService(req.params.id, empresaIdDaRequisicao(req), (req as any).usuario, req.body?.decisao, req.body?.observacao, req.body?.desligamento)); }
   catch (e: any) { return res.status(400).json({ message: e.message }); }
 }

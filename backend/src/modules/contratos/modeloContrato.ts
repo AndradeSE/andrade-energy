@@ -1,3 +1,4 @@
+import { normalizarPlanoContrato } from "./planoContrato.policy";
 import PDFDocument from "pdfkit";
 import modelo from "./modeloContrato.json";
 
@@ -47,8 +48,9 @@ export function preencherModeloContrato(unidade: any, contrato: any) {
   const responsabilidade = somente
     ? "O LOCATÁRIO pagará diretamente a fatura da concessionária, separadamente da remuneração do LOCADOR."
     : "O valor integral da fatura da concessionária será incluído na cobrança unificada como reembolso ao LOCADOR, que ficará responsável pela sua quitação perante a concessionária.";
+  const semFidelidade = normalizarPlanoContrato(cfg.plano_contrato ?? d.plano_contrato) === "SEM_FIDELIDADE";
   const prazo = numero(d.prazo_anos ?? 10);
-  if (!Number.isFinite(prazo) || prazo <= 0) throw new Error("Prazo inválido para o contrato.");
+  if (!semFidelidade && (!Number.isFinite(prazo) || prazo <= 0)) throw new Error("Prazo inválido para o contrato.");
   const potencia = valor(d.potencia_kwp ?? u.potencia_kwp);
   const geracao = valor(d.geracao_estimada ?? u.producao_media_12_meses ?? u.geracao_media);
   const tokens: Record<string, string> = {
@@ -60,7 +62,7 @@ export function preencherModeloContrato(unidade: any, contrato: any) {
     OBJETO_TITULARIDADE: `A unidade consumidora, instalação ${distribuidora} nº ${valor(unidade.numero)}, localizada em ${endereco}, terá titularidade ${consumidorTitular ? "do LOCATÁRIO" : "do LOCADOR"}, conforme a configuração da usina. ${consumidorTitular ? "A titularidade do consumidor será mantida." : "A alteração da titularidade destina-se exclusivamente à viabilização da execução deste contrato e ao atendimento das exigências operacionais e regulatórias aplicáveis."}`,
     DECLARACAO_TITULARIDADE: consumidorTitular ? "a titularidade das UCs permanecerá com o consumidor, observadas as exigências da concessionária" : "a alteração da titularidade da unidade consumidora perante a concessionária constitui procedimento necessário para a execução deste contrato",
     TITULARIDADE: consumidorTitular ? `A titularidade das UCs será mantida em nome do LOCATÁRIO. O LOCATÁRIO fornecerá a documentação necessária aos procedimentos perante a ${distribuidora}, no prazo de até 10 (dez) dias úteis contados da solicitação do LOCADOR.` : `O LOCATÁRIO fornecerá toda a documentação necessária para a alteração da titularidade da unidade consumidora perante a ${distribuidora}, comprometendo-se a assinar os documentos exigidos pela concessionária no prazo de até 10 (dez) dias úteis, contados da solicitação do LOCADOR.`,
-    PRAZO: `O presente contrato vigorará pelo prazo de ${formatar(prazo)} ano(s), ${contrato.vigencia_inicio ? `com início em ${data(contrato.vigencia_inicio)} e término em ${data(contrato.vigencia_fim)}` : "contados da data de sua assinatura"}, encerrando-se automaticamente ao término desse período, salvo se as partes acordarem, por escrito, sua prorrogação.`,
+    PRAZO: semFidelidade ? `O presente contrato é celebrado SEM FIDELIDADE, por prazo indeterminado${contrato.vigencia_inicio ? `, com início em ${data(contrato.vigencia_inicio)}` : ", a partir de sua assinatura"}. Não há período mínimo de permanência nem multa por saída antecipada. A saída deverá ser comunicada por escrito com antecedência de 90 (noventa) dias para os procedimentos operacionais perante a distribuidora.` : `O presente contrato vigorará pelo prazo de ${formatar(prazo)} ano(s), ${contrato.vigencia_inicio ? `com início em ${data(contrato.vigencia_inicio)} e término em ${data(contrato.vigencia_fim)}` : "contados da data de sua assinatura"}, encerrando-se automaticamente ao término desse período, salvo se as partes acordarem, por escrito, sua prorrogação.`,
     ENERGIA: energia,
     APURACAO_ENERGIA: injecao ? "efetivamente injetada" : "efetivamente compensada",
     ENERGIA_MINUSCULA: injecao ? "energia elétrica injetada" : "energia elétrica compensada",
@@ -71,6 +73,12 @@ export function preencherModeloContrato(unidade: any, contrato: any) {
     PAGAMENTO_CONCESSIONARIA: responsabilidade,
     RESPONSABILIDADE: `${responsabilidade} A titularidade cadastral das UCs será ${consumidorTitular ? "do LOCATÁRIO" : "do LOCADOR"}, conforme a Cláusula Sétima.`,
   };
+  const textoDoPlano = (titulo: string, texto: string) => {
+    if (!semFidelidade) return texto;
+    if (titulo.includes("DA MULTA RESCISÓRIA")) return "Não será cobrada multa por rescisão imotivada ou saída antecipada no plano sem fidelidade. Permanecem devidos os valores vencidos, a energia efetivamente apurada conforme a modalidade de faturamento contratada e os encargos moratórios sobre débitos em atraso. O saldo remanescente de créditos não será integralmente cobrado pelo simples pedido de saída; eventual cobrança será feita na proporção de seu efetivo consumo, sem duplicidade com energia já faturada.";
+    if (titulo.includes("DA RESCISÃO")) return "O LOCATÁRIO poderá solicitar a saída a qualquer momento, mediante comunicação escrita com antecedência de 90 (noventa) dias, sem multa por fidelidade. Durante o aviso prévio serão observadas as condições contratadas e os procedimentos da distribuidora. A rescisão também poderá ocorrer por comum acordo, inadimplemento, descumprimento contratual ou inviabilidade regulatória. O encerramento não extingue valores efetivamente devidos.";
+    return texto;
+  };
   const substituir = (s: string) => s.replace(/\{\{([A-Z_]+)\}\}/g, (_, chave) => {
     if (!(chave in tokens)) throw new Error(`Campo de modelo desconhecido: ${chave}`);
     return tokens[chave];
@@ -80,7 +88,7 @@ export function preencherModeloContrato(unidade: any, contrato: any) {
     .replace(/ (?=(?:I{1,3} - |Parágrafo único\.|Valor devido =))/g, "\n\n")
     .replace(/ (?=(?:Usina Fotovoltaica|Unidade Geradora|Unidade Consumidora|Energia Injetada|Energia Compensada|Tarifa de Referência|Titularidade|Propriedade|O&M|Geração Projetada|Autoconsumo Remoto|Alteração Regulatória):)/g, "\n")
     .replace(/ (?=O LOCATÁRIO declara|Decorridos 15|Permanecendo a inadimplência|Persistindo o inadimplemento|E, por estarem)/g, "\n\n");
-  return { locador, locatario, assinaturaEmPapel, foro: tokens.FORO, clausulas: modelo.map(c => ({ title: substituir(c.title), text: paragrafos(substituir(assinaturaEmPapel ? c.text : c.text.replace(/E, por estarem justos e contratados,[\s\S]*$/, "E, por estarem justos e contratados, as Partes firmam o presente Contrato de Locação de Usina Fotovoltaica por meio eletrônico. Cada parte terá acesso à cópia do instrumento e aos respectivos registros de assinatura após a conclusão do procedimento."))) })) };
+  return { locador, locatario, assinaturaEmPapel, foro: tokens.FORO, clausulas: modelo.map(c => ({ title: substituir(c.title), text: paragrafos(substituir(assinaturaEmPapel ? textoDoPlano(c.title, c.text) : textoDoPlano(c.title, c.text).replace(/E, por estarem justos e contratados,[\s\S]*$/, "E, por estarem justos e contratados, as Partes firmam o presente Contrato de Locação de Usina Fotovoltaica por meio eletrônico. Cada parte terá acesso à cópia do instrumento e aos respectivos registros de assinatura após a conclusão do procedimento."))) })) };
 }
 
 /** Mantém capa, ordem das 26 cláusulas e página própria de assinaturas. */
