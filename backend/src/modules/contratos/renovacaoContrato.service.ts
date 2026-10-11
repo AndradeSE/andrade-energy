@@ -4,6 +4,35 @@ import { contratoLiberaUnidade } from "./acessoContrato.policy";
 
 const estadosAbertos = ["PENDENTE", "PROPOSTA_ENVIADA"];
 
+export async function informarNaoRenovacao(contratoId: string, usuario: any) {
+  const { data: contrato, error } = await supabase.from("contratos").select("*").eq("id", contratoId).maybeSingle();
+  if (error) throw error;
+  if (!contrato || !contratoLiberaUnidade(contrato) || !contrato.vigencia_fim) throw new Error("Contrato vigente com vencimento não encontrado.");
+  const { data: titular, error: erroTitular } = await supabase.from("empresa_usuarios").select("id")
+    .eq("usuario_id", usuario.id).eq("empresa_id", contrato.empresa_id).eq("cliente_id", contrato.cliente_id)
+    .eq("papel", "LEITURA").eq("ativo", true).maybeSingle();
+  if (erroTitular) throw erroTitular;
+  if (!titular) throw new Error("Somente o cliente deste contrato pode informar sua decisão.");
+  const { data: renovacoes, error: erroRenovacoes } = await supabase.from("solicitacoes_renovacao_contrato").select("id")
+    .eq("contrato_id", contratoId).in("status", estadosAbertos).limit(1);
+  if (erroRenovacoes) throw erroRenovacoes;
+  if (renovacoes?.length) throw new Error("Já existe um pedido de renovação. Solicite ao gerador a retirada da proposta antes de mudar sua decisão.");
+  const { error: erroSalvar } = await supabase.from("contratos").update({ dados_documento: {
+    ...contrato.dados_documento, nao_renovar_informado_em: new Date().toISOString(), nao_renovar_informado_por: usuario.id,
+  } }).eq("id", contratoId).eq("empresa_id", contrato.empresa_id).eq("status", contrato.status);
+  if (erroSalvar) throw erroSalvar;
+  const { data: membros, error: erroMembros } = await supabase.from("empresa_usuarios").select("usuario_id,papel,permissoes")
+    .eq("empresa_id", contrato.empresa_id).eq("ativo", true).in("papel", ["SUPERADMIN", "ADMIN_EMPRESA", "GESTOR", "COLABORADOR_GERADOR"]);
+  if (erroMembros) throw erroMembros;
+  await Promise.all((membros ?? []).filter(m => m.papel !== "COLABORADOR_GERADOR" || m.permissoes?.contratos !== false).map(m => criarNotificacaoApp({
+    usuario_id: m.usuario_id, empresa_id: contrato.empresa_id, cliente_id: contrato.cliente_id,
+    tipo: "CONTRATO_NAO_RENOVAR", titulo: "Cliente não deseja renovar",
+    detalhe: `Contrato ${contrato.numero}: providencie a retirada da UC do rateio/injeção para o vencimento em ${contrato.vigencia_fim}. Esta decisão não encerra antecipadamente o contrato.`,
+    rota: "/contratos", chave_dedupe: `nao-renovar:${contratoId}:${contrato.vigencia_fim}:${m.usuario_id}`,
+  })));
+  return { message: "Decisão registrada. O gerador foi avisado para providenciar a retirada da UC no vencimento." };
+}
+
 export async function solicitarRenovacaoContrato(contratoId: string, usuario: any) {
   const { data: contrato, error } = await supabase.from("contratos")
     .select("id,numero,empresa_id,cliente_id,unidade_consumidora_id,status,vigencia_fim,dados_documento,aceite_cliente_em,contrato_assinado_url,clientes(nome),unidades_consumidoras(numero,usina_id)")
@@ -12,6 +41,7 @@ export async function solicitarRenovacaoContrato(contratoId: string, usuario: an
   if (!contrato || !contratoLiberaUnidade(contrato)) {
     throw new Error("Somente um contrato vigente e assinado pode ser renovado.");
   }
+  if (contrato.dados_documento?.nao_renovar_informado_em) throw new Error("Você já informou que não deseja renovar. Entre em contato com o gerador para rever essa decisão.");
   const { data: titular, error: erroTitular } = await supabase.from("empresa_usuarios")
     .select("id").eq("usuario_id", usuario.id).eq("empresa_id", contrato.empresa_id)
     .eq("cliente_id", contrato.cliente_id).eq("papel", "LEITURA").eq("ativo", true).maybeSingle();
