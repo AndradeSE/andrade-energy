@@ -1,3 +1,4 @@
+import { prepararHistoricoFatura } from "./historicoFatura.policy";
 import PDFDocument from "pdfkit";
 import bwipjs from "bwip-js";
 import QRCode from "qrcode";
@@ -12,7 +13,7 @@ import { interpretarFatura } from "../../services/ocr/parser.service";
 import { identificarTipoGdDocumento, rotuloTipoGdDocumento } from "./tipoGdDocumento";
 
 const BUCKET = "faturas";
-export const VERSAO_LAYOUT_FATURA = "layout-20261009-v12";
+export const VERSAO_LAYOUT_FATURA = "layout-20261011-v13";
 export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20261009-v4";
 const VERDE = "#107C5C";
 const VERDE_ESCURO = "#07533D";
@@ -143,17 +144,19 @@ async function incluirDadosDaUCNaFatura(fatura: any) {
   // a evolução sem precisar abrir várias competências no aplicativo.
   let historico: any[] = [];
   let erroHistorico: unknown = null;
-  if (fatura.unidade_consumidora_id || fatura.cliente_id) {
+  if (fatura.unidade_consumidora_id || (fatura.cliente_id && fatura.numero_instalacao)) {
     let consultaHistorico = supabase
       .from("faturas")
-      .select("id,referencia,economia_real,economia")
-      .order("referencia", { ascending: false })
-      .limit(6);
+      .select("id,empresa_id,unidade_consumidora_id,numero_instalacao,status,referencia,energia_injetada,energia_compensada,valor_total_unificado,valor_total,valor_usina,valor_andrade,valor_cemig,fatura_somente_andrade,economia_real,economia")
+      .neq("status", "RASCUNHO").neq("status", "CANCELADA").neq("status", "CANCELADO")
+      .order("created_at", { ascending: false })
+      .limit(24);
     if (fatura.unidade_consumidora_id) {
       consultaHistorico = consultaHistorico.eq("unidade_consumidora_id", fatura.unidade_consumidora_id);
     } else {
-      consultaHistorico = consultaHistorico.eq("cliente_id", fatura.cliente_id);
+      consultaHistorico = consultaHistorico.eq("cliente_id", fatura.cliente_id).eq("numero_instalacao", fatura.numero_instalacao);
     }
+    if (fatura.empresa_id) consultaHistorico = consultaHistorico.eq("empresa_id", fatura.empresa_id);
     const resultadoHistorico = await consultaHistorico;
     historico = resultadoHistorico.data ?? [];
     erroHistorico = resultadoHistorico.error;
@@ -173,6 +176,7 @@ async function incluirDadosDaUCNaFatura(fatura: any) {
     clientes: cliente,
     unidades_consumidoras: unidade,
     historico_economia: historicoComAtual.slice(0, 6).reverse(),
+    historico_fatura: prepararHistoricoFatura(fatura, historico),
   };
 }
 
@@ -319,7 +323,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     const totalComposicao = composicaoTarifaria.reduce((soma, item) => soma + item.valor, 0);
     const rotuloCentroGrafico = documentoUnificado ? "FATURA UNIFICADA" : "FATURA ANDRADE";
     const valorCentroGrafico = documentoUnificado ? valorTotalDoMes : valorTotal;
-    const y = { cabecalho: 0, dados: 132, total: 272, aviso: 396, composicao: 454, inferior: 564, creditos: 708 };
+    const y = { cabecalho: 0, dados: 132, total: 244, aviso: 362, composicao: 424, inferior: 508, creditos: 657 };
     const verdeCabecalho = "#063C25";
     const desenharCartao = (x: number, top: number, largura: number, altura: number, fundo = "#FFFFFF") => {
       pdf.roundedRect(x, top, largura, altura, 7).fill(fundo);
@@ -459,7 +463,10 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
       const top = y.inferior + 28 + indice * 14;
       const proporcao = totalComposicao > 0 ? item.valor / totalComposicao * 100 : 0;
       pdf.roundedRect(166, top + 1, 7, 11, 2).fill(item.cor);
-      pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(4.8).text(item.rotulo, 179, top, { width: 91 });
+      pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(4.8);
+      const larguraRotulo = 62;
+      const fonteRotulo = Math.min(4.8, 4.8 * larguraRotulo / Math.max(larguraRotulo, pdf.widthOfString(item.rotulo)));
+      pdf.fontSize(fonteRotulo).text(item.rotulo, 179, top, { width: larguraRotulo, lineBreak: false });
       pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(5.2).text(`${item.complemento ? `${item.complemento} · ` : ""}${moeda(item.valor)}`, 179, top + 6.5, { width: 89 });
       pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(4.3).text(percentual(proporcao), 242, top + 1, { width: 29, align: "right" });
     });
@@ -483,33 +490,69 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.roundedRect(318, y.inferior + 128, 215, 11, 4).fill("#E3F0E8");
     pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.6).text("Após o vencimento, encargos poderão ser aplicados.", 327, y.inferior + 131);
 
-    const miniCards = [["SALDO ATUAL\nDE ENERGIA", energia(saldoCreditos)], ["ENERGIA\nINJETADA (MÊS)", energia(energiaInjetada)], ["ENERGIA\nCONSUMIDA (MÊS)", energia(energiaCompensada)], ["PRÓXIMA\nLEITURA", fatura.proxima_leitura ? dataBrasileira(fatura.proxima_leitura) : "Não identificada"]];
-    const espacamentoMiniCards = 8;
-    // Cada dupla acompanha exatamente os limites dos dois cards superiores.
+    const miniCards = [["ENERGIA\nCOMPENSADA", energia(energiaCompensada)], ["ENERGIA\nINJETADA (MÊS)", energia(energiaInjetada)], ["SALDO ATUAL\nDE ENERGIA", energia(saldoCreditos)], ["CONSUMO\nDA UC (MÊS)", energia(fatura.consumo_kwh ?? fatura.consumo)], ["PRÓXIMA\nLEITURA", fatura.proxima_leitura ? dataBrasileira(fatura.proxima_leitura) : "Não identificada"]];
+    const espacamentoMiniCards = 5;
+    const larguraEnergia = (238 - espacamentoMiniCards * 2) / 3;
     const posicoesMiniCards = [
-      { x: 48, largura: 115 },
-      { x: 48 + 115 + espacamentoMiniCards, largura: 115 },
+      { x: 48, largura: larguraEnergia },
+      { x: 48 + larguraEnergia + espacamentoMiniCards, largura: larguraEnergia },
+      { x: 48 + (larguraEnergia + espacamentoMiniCards) * 2, largura: larguraEnergia },
       { x: 305, largura: 116.5 },
-      { x: 305 + 116.5 + espacamentoMiniCards, largura: 116.5 },
+      { x: 429.5, largura: 116.5 },
     ];
     miniCards.forEach(([titulo, valor], indice) => {
       const { x, largura: larguraMiniCard } = posicoesMiniCards[indice];
-      desenharCartao(x, y.creditos, larguraMiniCard, 66, indice % 2 === 0 ? "#F2F8F4" : "#FBF8EE");
-      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text(titulo, x + 10, y.creditos + 10, {
-        width: larguraMiniCard - 24,
+      desenharCartao(x, y.creditos, larguraMiniCard, 60, indice % 2 === 0 ? "#F2F8F4" : "#FBF8EE");
+      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text(titulo, x + 8, y.creditos + 10, {
+        width: larguraMiniCard - 16,
         height: 24,
         lineGap: 1,
         align: "center",
       });
-      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8.5).text(valor, x + 7, y.creditos + 43, {
+      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8.5).text(valor, x + 7, y.creditos + 37, {
         width: larguraMiniCard - 14,
         height: 14,
         align: "center",
         lineBreak: false,
       });
     });
-    pdf.rect(48, 773, LARGURA, 14).fill("#EFF6F1");
-    pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.8).text("Você escolhe economia. O planeta agradece.    |    Atendimento Andrade Energy", 61, 777, { width: 470, align: "center" });
+    const historicoFatura = fatura.historico_fatura ?? [];
+    const top = 725;
+    for (const [x, largura, titulo] of [[48,238,"EXCEDENTE DO PERÍODO · kWh"],[305,241,"HISTÓRICO DE CONTAS · R$"]] as const) {
+      desenharCartao(x,top,largura,76,"#F7FBF8");
+      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(7).text(titulo,x+12,top+8,{width:largura-24});
+      const contas=x===305;
+      const max=Math.max(1, ...historicoFatura.flatMap((h: any) => contas ? [h.sem ?? 0, h.com ?? 0] : [h.excedente ?? 0]));
+      for (const linha of [0,0.5,1]) {
+        const yy=top+55-linha*29;
+        pdf.moveTo(x+12,yy).lineTo(x+largura-12,yy).strokeColor("#D5E1D9").lineWidth(0.4).stroke();
+      }
+      historicoFatura.forEach((h: any,i: number)=>{
+        const centro=x+37+i*(largura-40)/4;
+        const barras=contas ? [[h.sem,"#EF8C1B",centro-15],[h.com,"#75AC32",centro+2]] : [[h.excedente,"#1899AD",centro-8]];
+        barras.forEach(([v,cor,bx])=>{
+          if (v === null) { pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(5).text("—",Number(bx),top+48,{width:14,align:"center"}); return; }
+          const valor=Number(v), xx=Number(bx), altura=29*valor/max;
+          if (altura > 0) pdf.roundedRect(xx,top+55-altura,contas?14:18,altura,Math.min(2,altura/2)).fill(String(cor));
+          const rotulo = valor.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+          const larguraRotulo = contas ? 17 : 34;
+          const centroBarra = xx + (contas ? 7 : 9);
+          pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(5.2);
+          const fonteRotulo = Math.min(5.2, 5.2 * larguraRotulo / Math.max(larguraRotulo, pdf.widthOfString(rotulo)));
+          pdf.fontSize(fonteRotulo).text(rotulo,centroBarra-larguraRotulo/2,top+47-altura,{width:larguraRotulo,align:"center",lineBreak:false});
+        });
+        pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(5).text(h.mes,centro-18,top+59,{width:40,align:"center"});
+      });
+      if (!historicoFatura.length) pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6).text("Histórico indisponível",x+12,top+38,{width:largura-24,align:"center"});
+      if (contas) {
+        pdf.roundedRect(x+16,top+68,5,5,1).fill("#EF8C1B");
+        pdf.fillColor(TEXTO).font("Helvetica").fontSize(5.5).text("Sem Andrade",x+25,top+67,{width:80});
+        pdf.roundedRect(x+125,top+68,5,5,1).fill("#75AC32");
+        pdf.fillColor(TEXTO).text("Com Andrade",x+134,top+67,{width:80});
+      }
+    }
+    pdf.rect(48, 805, LARGURA, 14).fill("#EFF6F1");
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.8).text("Você escolhe economia. O planeta agradece.    |    Atendimento Andrade Energy", 61, 809, { width: 470, align: "center" });
 
     pdf.end();
   });
