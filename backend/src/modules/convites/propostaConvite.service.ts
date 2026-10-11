@@ -214,6 +214,7 @@ export async function obterPropostaParaConvite(clienteId: string, empresaId: str
     usina: usina?.nome ?? "Usina a definir",
     tipoGd,
     consumo,
+    planoContrato: unidade.plano_contrato ?? "COM_FIDELIDADE",
     descontoContratado,
     descontoReal,
     base,
@@ -262,7 +263,7 @@ export async function gerarPropostaPdf(d: any) {
 
     cabecalho("Visão executiva");
     pdf.fillColor(texto).font("Helvetica-Bold").fontSize(15).text(`Uma economia planejada para ${d.cliente}`, 42, 128, { width: 510, height: 40 });
-    pdf.fillColor("#61756D").font("Helvetica").fontSize(9.5).text(`Projeção construída a partir da fatura e do histórico disponível da UC, vinculada à ${d.usina}.`, 42, 170, { width: 510 });
+    pdf.fillColor("#61756D").font("Helvetica").fontSize(9.5).text(`Projeção construída a partir da fatura e do histórico disponível da UC, vinculada à ${d.usina}. ${d.planoContrato === "SEM_FIDELIDADE" ? "Plano sem fidelidade, prazo indeterminado e aviso prévio de 90 dias." : "Plano com fidelidade; prazo conforme contrato."}`, 42, 170, { width: 510 });
     const cards = [
       ["DESCONTO CONTRATADO", percentual(d.descontoContratado), "#EAF5EF", verde],
       ["DESCONTO REAL ESTIMADO", percentual(d.descontoReal), "#E8F0FF", "#2255A4"],

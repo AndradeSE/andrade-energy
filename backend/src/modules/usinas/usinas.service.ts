@@ -1,3 +1,4 @@
+import { normalizarPlanoContrato } from "../contratos/planoContrato.policy";
 import { cpfTitularPatch } from "./cpfTitularPatch";
 import {
   buscarDashboardUsina,
@@ -415,7 +416,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
       .single(),
     supabase
       .from("unidades_consumidoras")
-      .select("id,usina_id,cliente_id,endereco,cpf_titular,percentual_repasse_disponibilidade,fatura_somente_andrade,repassar_disponibilidade_gd1,repassar_disponibilidade_gd2,repassar_diferenca_fio_b_gd2,tipo_gd")
+      .select("id,usina_id,cliente_id,endereco,cpf_titular,percentual_repasse_disponibilidade,fatura_somente_andrade,plano_contrato,repassar_disponibilidade_gd1,repassar_disponibilidade_gd2,repassar_diferenca_fio_b_gd2,tipo_gd")
       .eq("numero", numero)
       .eq("empresa_id", empresaId)
       .maybeSingle(),
@@ -460,6 +461,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
     throw new Error("A configuração desta UC está protegida pelo contrato assinado. Inicie uma atualização contratual para alterar as condições.");
   }
 
+  const planoContrato = normalizarPlanoContrato(input.planoContrato ?? unidadeAnterior?.plano_contrato);
   const somenteAndrade = input.faturaSomenteAndrade === undefined
     ? Boolean(unidadeAnterior?.fatura_somente_andrade)
     : Boolean(input.faturaSomenteAndrade);
@@ -527,6 +529,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
       cpf_titular: cpfTitular || unidadeAnterior?.cpf_titular || null,
       distribuidora: distribuidoraInformada || cliente.distribuidora || "CEMIG",
       modalidade_faturamento: modalidade,
+      plano_contrato: planoContrato,
       desconto_percentual: desconto,
       consumo_medio_kwh: consumoMedio,
       percentual_rateio: percentual,
@@ -554,6 +557,8 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
   // Contratos já assinados permanecem imutáveis e recebem uma indicação de
   // revisão para que uma nova versão seja emitida e aceita pelo cliente.
   const configuracaoContrato = {
+    plano_contrato: planoContrato,
+    aviso_previo_dias: planoContrato === "SEM_FIDELIDADE" ? 90 : null,
     usina_id: usinaId,
     modalidade_faturamento: modalidade,
     desconto_percentual: desconto,

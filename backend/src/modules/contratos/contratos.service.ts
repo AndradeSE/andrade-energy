@@ -1,3 +1,5 @@
+import { validarConfirmacaoDesligamento, fimAvisoPrevio, hojeNoBrasil } from "./desligamentoContrato.policy";
+import { normalizarPlanoContrato } from "./planoContrato.policy";
 import {
     atualizarContrato,
     buscarContratoCliente,
@@ -140,14 +142,14 @@ export async function obterContratoDaUnidade(
 async function anexarCancelamentoAoContrato(contrato: any) {
   const ids = [contrato.id, contrato.revisao_anterior?.id].filter(Boolean);
   const { data, error } = await supabase.from("solicitacoes_cancelamento_contrato")
-    .select("id")
+    .select("id,aceito_em,solicitado_em")
     .eq("empresa_id", contrato.empresa_id)
     .eq("contrato_id", contrato.id)
     .in("status", ["PENDENTE", "PROCESSANDO"])
     .limit(1);
   if (error) throw error;
   const renovacoes = await listarRenovacoesAbertas(contrato.empresa_id, ids);
-  return anexarLinksDoContrato({ ...contrato, cancelamento_pendente: contratoAceitaSolicitacaoCancelamento(contrato.status) && Boolean(data?.length), renovacao_solicitada: renovacoes[0] ?? null });
+  return anexarLinksDoContrato({ ...contrato, cancelamento_solicitado: data?.[0] ?? null, cancelamento_pendente: contratoAceitaSolicitacaoCancelamento(contrato.status) && Boolean(data?.length), renovacao_solicitada: renovacoes[0] ?? null });
 }
 
 async function anexarLinksDoContrato(contrato: any) {
@@ -228,7 +230,7 @@ export async function salvarContratoDaUnidadeService(
 ) {
   const { data: unidadeEncontrada, error: erroUnidade } = await supabase
     .from("unidades_consumidoras")
-    .select("id, empresa_id, numero, cliente_id, usina_id, desconto_percentual, modalidade_faturamento, tipo_gd, percentual_rateio, percentual_repasse_disponibilidade, fatura_somente_andrade, repassar_disponibilidade_gd1, repassar_disponibilidade_gd2, repassar_diferenca_fio_b_gd2, usinas(titularidade_ucs_recebedoras)")
+    .select("id, empresa_id, numero, cliente_id, usina_id, desconto_percentual, plano_contrato, modalidade_faturamento, tipo_gd, percentual_rateio, percentual_repasse_disponibilidade, fatura_somente_andrade, repassar_disponibilidade_gd1, repassar_disponibilidade_gd2, repassar_diferenca_fio_b_gd2, usinas(titularidade_ucs_recebedoras)")
     .eq("id", unidadeId)
     .maybeSingle();
 
@@ -261,9 +263,11 @@ export async function salvarContratoDaUnidadeService(
 
   const vigenciaInicio = normalizarData(dados?.vigencia_inicio, "A data de início");
   const dadosDocumentoEntrada = dados?.dados_documento && typeof dados.dados_documento === "object" ? dados.dados_documento : {};
-  const prazoAnos = Math.max(1, Number.parseInt(String(dadosDocumentoEntrada.prazo_anos ?? "10"), 10) || 10);
-  let vigenciaFim = normalizarData(dados?.vigencia_fim, "A data de vencimento");
-  if (vigenciaInicio) {
+  const planoContrato = normalizarPlanoContrato(unidade.plano_contrato);
+  const semFidelidade = planoContrato === "SEM_FIDELIDADE";
+  const prazoAnos = semFidelidade ? null : Math.max(1, Number.parseInt(String(dadosDocumentoEntrada.prazo_anos ?? "10"), 10) || 10);
+  let vigenciaFim = semFidelidade ? null : normalizarData(dados?.vigencia_fim, "A data de vencimento");
+  if (vigenciaInicio && prazoAnos !== null) {
     const inicioData = new Date(`${vigenciaInicio}T12:00:00`);
     inicioData.setFullYear(inicioData.getFullYear() + prazoAnos);
     vigenciaFim = inicioData.toISOString().slice(0, 10);
@@ -281,6 +285,8 @@ export async function salvarContratoDaUnidadeService(
     normalizarNumero(dados?.desconto) || unidade.desconto_percentual || 0
   );
   const configuracaoUc = {
+    plano_contrato: planoContrato,
+    aviso_previo_dias: semFidelidade ? 90 : null,
     usina_id: unidade.usina_id,
     modalidade_faturamento: unidade.modalidade_faturamento,
     desconto_percentual: desconto,
@@ -313,7 +319,7 @@ export async function salvarContratoDaUnidadeService(
     economia_mensal_estimada: economiaMensal,
     economia_anual_estimada: economiaAnual,
     observacoes: normalizarNumero(dados?.observacoes) || null,
-    dados_documento: { ...dadosDocumentoEntrada, prazo_anos: prazoAnos, titularidade_ucs: configuracaoUc.titularidade_ucs, configuracao_uc: configuracaoUc },
+    dados_documento: { ...dadosDocumentoEntrada, plano_contrato: planoContrato, aviso_previo_dias: semFidelidade ? 90 : null, prazo_anos: prazoAnos, titularidade_ucs: configuracaoUc.titularidade_ucs, configuracao_uc: configuracaoUc },
     configuracao_uc_snapshot: configuracaoUc,
     revisao_configuracao_pendente: false,
     // Dados alterados exigem nova minuta. Não enviar nem assinar PDF anterior.
@@ -334,7 +340,7 @@ export async function prepararRevisaoDaUnidadeService(unidadeId: string) {
     nova_versao: true,
     numero: `${base}-R${Math.max(Number(anterior.versao ?? 1), sufixoAnterior) + 1}`,
     termo_adesao: anterior.termo_adesao,
-    desconto: anterior.desconto,
+    // A proposta revisada usa o desconto recém-salvo na UC.
     data_assinatura: anterior.data_assinatura,
     vigencia_inicio: anterior.vigencia_inicio,
     vigencia_fim: anterior.vigencia_fim,
@@ -759,7 +765,8 @@ export async function cancelarContratoService(id: string) {
 
   let faturaEncerramento: any = faturaExistente ?? null;
   const modalidade = String(unidade?.modalidade_faturamento ?? cliente.modalidade_faturamento ?? "").toUpperCase();
-  if (modalidade === "COMPENSACAO") {
+  const semFidelidadeNoEncerramento = (contrato.configuracao_uc_snapshot?.plano_contrato ?? contrato.dados_documento?.plano_contrato) === "SEM_FIDELIDADE";
+  if (modalidade === "COMPENSACAO" && !semFidelidadeNoEncerramento) {
     let ultimaQuery = supabase
       .from("faturas")
       .select("id, numero_instalacao, unidade_consumidora_id, usina_id, tarifa_cheia, desconto_percentual, distribuidora")
@@ -873,7 +880,7 @@ export async function solicitarCancelamentoContratoService(id: string, usuario: 
       usina_id: unidade?.usina_id,
       tipo: "SOLICITACAO_CANCELAMENTO_CONTRATO",
       titulo: "Cliente solicitou cancelamento",
-      detalhe: `${cliente?.nome ?? "O cliente"} solicitou o cancelamento do contrato ${identificacao}, ${uc}. Analise a solicitação antes de encerrar o vínculo.`,
+      detalhe: `${cliente?.nome ?? "O cliente"} solicitou o cancelamento do contrato ${identificacao}, ${uc}. Inicie a retirada desta UC do rateio/injeção na distribuidora. O contrato só será encerrado após a confirmação do desligamento.`,
       rota: `/contratos/${contrato.id}`,
       chave_dedupe: `cancelamento:${solicitacao.id}:${vinculo.usuario_id}`,
     });
@@ -903,21 +910,44 @@ export async function obterSolicitacaoCancelamentoService(id: string, empresaId:
   return { contrato, solicitacao, pode_analisar: contratoAceitaSolicitacaoCancelamento(contrato.status) && ["PENDENTE", "PROCESSANDO"].includes(String(solicitacao?.status ?? "")) };
 }
 
-export async function concluirSolicitacaoCancelamentoService(id: string, empresaId: string, usuario: any, decisao: string, observacao?: string) {
+export async function concluirSolicitacaoCancelamentoService(id: string, empresaId: string, usuario: any, decisao: string, observacao?: string, desligamento?: any) {
   const acao = String(decisao ?? "").toUpperCase();
-  if (!['CANCELAR', 'RECUSAR'].includes(acao)) throw new Error("Escolha cancelar o contrato ou recusar a solicitação.");
+  if (!['ACEITAR', 'CANCELAR', 'RECUSAR'].includes(acao)) throw new Error("Escolha cancelar o contrato ou recusar a solicitação.");
   const { data: contrato, error: erroContrato } = await supabase.from("contratos")
-    .select("status").eq("id", id).eq("empresa_id", empresaId).maybeSingle();
+    .select("status,dados_documento,configuracao_uc_snapshot").eq("id", id).eq("empresa_id", empresaId).maybeSingle();
   if (erroContrato || !contrato) throw erroContrato ?? new Error("Contrato não encontrado nesta empresa.");
   if (!contratoAceitaSolicitacaoCancelamento(contrato.status)) {
     throw new Error("Esta versão do contrato já foi substituída ou encerrada e não pode ser cancelada.");
   }
   const { data: solicitacao, error } = await supabase.from("solicitacoes_cancelamento_contrato")
-    .select("id,status,cliente_id,solicitado_por,processamento_iniciado_em").eq("contrato_id", id).eq("empresa_id", empresaId).in("status", ["PENDENTE", "PROCESSANDO"]).maybeSingle();
+    .select("id,status,cliente_id,solicitado_por,processamento_iniciado_em,aceito_em,solicitado_em").eq("contrato_id", id).eq("empresa_id", empresaId).in("status", ["PENDENTE", "PROCESSANDO"]).maybeSingle();
   if (error) throw error;
   if (!solicitacao) throw new Error("Não existe solicitação pendente para este contrato.");
   if (solicitacao.status === "PROCESSANDO" && !processamentoCancelamentoExpirou(solicitacao.processamento_iniciado_em)) {
     throw new Error("Esta solicitação já está sendo processada. Aguarde alguns instantes.");
+  }
+
+  if (acao === "ACEITAR") {
+    if (solicitacao.aceito_em) return { sucesso: true, status: "DESLIGAMENTO_PENDENTE" };
+    const { data: aceite, error: erroAceite } = await supabase.from("solicitacoes_cancelamento_contrato").update({
+      aceito_em: new Date().toISOString(), aceito_por: usuario?.id ?? null,
+      observacao: String(observacao ?? "").trim() || null,
+    }).eq("id", solicitacao.id).eq("empresa_id", empresaId).eq("status", "PENDENTE").is("aceito_em", null).select("id").maybeSingle();
+    if (erroAceite) throw erroAceite;
+    if (!aceite) throw new Error("A solicitação foi alterada. Atualize a tela antes de aceitar.");
+    if (solicitacao.solicitado_por) await criarNotificacaoApp({
+      usuario_id: solicitacao.solicitado_por, empresa_id: empresaId, cliente_id: solicitacao.cliente_id,
+      tipo: "CANCELAMENTO_DESLIGAMENTO_PENDENTE", titulo: "Cancelamento aceito; desligamento pendente",
+      detalhe: "O gerador aceitou seu pedido e deverá providenciar a retirada da UC do rateio/injeção na distribuidora. O contrato ainda não foi encerrado.",
+      rota: "/contrato", chave_dedupe: `cancelamento-aceito:${solicitacao.id}`,
+    }).catch((erro) => console.error("Falha ao notificar aceite do cancelamento", erro));
+    return { sucesso: true, status: "DESLIGAMENTO_PENDENTE" };
+  }
+  if (acao === "RECUSAR" && solicitacao.aceito_em) throw new Error("O pedido já foi aceito. Conclua o desligamento antes de encerrar o contrato.");
+  const confirmacao = acao === "CANCELAR" ? validarConfirmacaoDesligamento(solicitacao, desligamento) : null;
+  const semFidelidade = (contrato.configuracao_uc_snapshot?.plano_contrato ?? contrato.dados_documento?.plano_contrato) === "SEM_FIDELIDADE";
+  if (acao === "CANCELAR" && semFidelidade && hojeNoBrasil() < fimAvisoPrevio(solicitacao.solicitado_em)) {
+    throw new Error(`O aviso prévio de 90 dias termina em ${fimAvisoPrevio(solicitacao.solicitado_em)}. Providencie o desligamento e conclua após esse prazo.`);
   }
 
   const processamentoToken = crypto.randomUUID();
@@ -937,6 +967,7 @@ export async function concluirSolicitacaoCancelamentoService(id: string, empresa
     const novoStatus = acao === 'CANCELAR' ? 'APROVADA' : 'RECUSADA';
     const { data: concluida, error: erroAtualizacao } = await supabase.from("solicitacoes_cancelamento_contrato").update({
       status: novoStatus,
+      ...(confirmacao ? { ...confirmacao, desligamento_confirmado_em: new Date().toISOString(), desligamento_confirmado_por: usuario?.id ?? null } : {}),
       analisado_por: usuario?.id ?? null,
       analisado_em: new Date().toISOString(),
       observacao: String(observacao ?? "").trim() || null,
