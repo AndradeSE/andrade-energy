@@ -48,6 +48,7 @@ export function answerLocally(input: string, scope: AssistantScope): LocalReply 
   const text = normalizeAssistantQuery(input);
   if (input.length > 1000) return { kind: "unknown", text: "Use uma pergunta ou comando curto." };
   if (!scope.authenticated) return { kind: "blocked", text: "Entre na sua conta para usar o assistente." };
+  if (/\b(tutorial|tutoriais|videos)\b/.test(text)) return { kind: "help", text: "Os tutoriais estão desativados por tempo indeterminado. Posso explicar as funções do aplicativo por aqui." };
   const perguntaInformativa = /^(como|onde|o que|qual|quais|quando|por que|porque|me explique|explique)\b/.test(text);
   if (!perguntaInformativa && /\b(excluir|apagar|transferir|pagar|assinar|cancelar|enviar|faturar|gerar)\b/.test(text)) {
     return { kind: "blocked", text: "Não executo essa operação automaticamente. Abra a seção correspondente e revise a confirmação no aplicativo." };

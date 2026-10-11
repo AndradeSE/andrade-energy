@@ -229,7 +229,6 @@ export default function ClienteHome() {
                 ? router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidadeRecebimentoId } })
                 : router.push("/selecionar-unidade"),
             }] : []),
-            { id: "tutoriais", icon: "play-circle-outline", label: "Tutoriais", onPress: () => router.push("/tutoriais") },
             { id: "pesquisar", icon: "search-outline", label: "Pesquisar", onPress: () => router.push({ pathname: "/pesquisa", params: { perfil: "consumidor" } }) },
             { id: "sobre", icon: "information-circle-outline", label: "Sobre e atualizações", onPress: () => router.push("/sobre") },
             {

@@ -516,11 +516,6 @@ export default function ClienteHeader({
               }
             />
 
-            <MenuItem
-              icon="play-circle-outline"
-              label="Tutoriais"
-              onPress={() => navegar("/tutoriais")}
-            />
             {isPreviewEnvironment ? <MenuItem icon="chatbubble-ellipses-outline" label="Ajuda Andrade Energy" onPress={() => navegar("/assistente")} /> : null}
             <MenuItem icon="globe-outline" label="Site Andrade Energy" onPress={() => { setMenuAberto(false); void abrirSiteApp(); }} />
             <MenuItem icon="information-circle-outline" label="Sobre o app" onPress={() => navegar("/sobre")} />

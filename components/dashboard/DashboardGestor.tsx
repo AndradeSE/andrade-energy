@@ -74,7 +74,6 @@ const atalhos = [
   { icon: "business-outline", label: "Nova usina", rota: "/usinas/nova" },
   { icon: "layers-outline", label: "Trocar usina", rota: "/selecionar-unidade" },
   { icon: "person-outline", label: "Meu perfil", rota: "/perfil" },
-  { icon: "play-circle-outline", label: "Tutoriais", rota: "/tutoriais" },
   { icon: "information-circle-outline", label: "Sobre e atualizações", rota: "/sobre" },
   { icon: "search-outline", label: "Pesquisar", rota: "/pesquisa?perfil=usinas" },
 ] as const;

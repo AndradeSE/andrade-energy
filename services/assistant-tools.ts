@@ -45,7 +45,7 @@ function routeFor(intent: AssistantIntent, ctx: AssistantAccountContext, questio
     case "pagamento": return action("Revisar faturas e pagamento", "/(tabs)/faturas", undefined, review);
     case "anexos": return ctx.clientId ? action("Revisar anexos", "/clientes/faturas-anexadas", { clienteId: ctx.clientId }, review) : action("Escolher cliente", "/(tabs)/clientes");
     case "proposta": return ctx.unitId ? action("Revisar proposta", "/unidades/contrato", unit, review) : undefined;
-    case "tutoriais": return action("Abrir tutoriais", "/tutoriais");
+    case "tutoriais": return { text: "Os tutoriais estão desativados por tempo indeterminado. Posso explicar as funções do aplicativo por aqui." };
     case "sobre": return action("Ver versão e histórico", "/sobre");
   }
 }
