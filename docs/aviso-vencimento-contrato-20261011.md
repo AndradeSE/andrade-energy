@@ -1,0 +1,7 @@
+# Aviso de vencimento do contrato
+
+Implementação preparada, ainda não publicada. Rotina do backend verifica na inicialização e a cada hora contratos assinados ATIVO/VIGENTE que vencem entre hoje e 30 dias, usando calendário brasileiro. Sem fidelidade/prazo indeterminado não recebe aviso. Recupera avisos perdidos durante indisponibilidade. Chave única por contrato, vencimento e usuário impede repetição no sino.
+
+Gerador, gestores e colaboradores autorizados recebem aviso para conferir renovação e preparar retirada da UC para o vencimento. Consumidores ativos vinculados ao cliente recebem aviso com link da UC correta e escolha no contrato. Renovação usa o fluxo existente de solicitação ao gerador, proposta e novo aceite, conforme decisão do usuário. Não prorroga automaticamente prazo/desconto. Não renovar registra data e autor nos dados do contrato, avisa geradores e não encerra antecipadamente. Pedido de renovação aberto impede decisão conflitante; decisão de não renovar exige revisão com gerador para mudar.
+
+Mantidos isolamento por empresa/cliente, contrato original e condições assinadas. Sem migração adicional. Build backend, TypeScript app e dois testes de fronteiras de datas/contratos inelegíveis passaram. Teste de envio da rotina e escolha no aparelho pendente. Credencial FCM do Gerador Preview corrigida separadamente, com entrega neutra comprovada. Push de produção não validado.
