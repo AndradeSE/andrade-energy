@@ -45,12 +45,13 @@ function routeFor(intent: AssistantIntent, ctx: AssistantAccountContext, questio
     case "pagamento": return action("Revisar faturas e pagamento", "/(tabs)/faturas", undefined, review);
     case "anexos": return ctx.clientId ? action("Revisar anexos", "/clientes/faturas-anexadas", { clienteId: ctx.clientId }, review) : action("Escolher cliente", "/(tabs)/clientes");
     case "proposta": return ctx.unitId ? action("Revisar proposta", "/unidades/contrato", unit, review) : undefined;
-    case "tutoriais": return { text: "Os tutoriais estão desativados por tempo indeterminado. Posso explicar as funções do aplicativo por aqui." };
+    case "tutoriais": return undefined;
     case "sobre": return action("Ver versão e histórico", "/sobre");
   }
 }
 
 export async function executeAssistantTool(intent: AssistantIntent, ctx: AssistantAccountContext, question: string): Promise<AssistantToolReply> {
+  if (intent.module === "tutoriais") return { text: "Os tutoriais estão desativados por tempo indeterminado. Posso explicar as funções do aplicativo por aqui." };
   const generatorOnly = ["carteira", "equipe", "atividade", "operacao", "inversores", "assinatura", "termos", "comercial", "clientes", "usinas"];
   if (!ctx.generator && intent.module === "faturamento" && intent.review) return { text: "Emissão e alterações de faturamento exigem acesso de gerador autorizado. Posso consultar suas faturas." };
   if (!ctx.generator && generatorOnly.includes(intent.module)) return { text: "Essa função pertence ao gerador ou à administração e não está disponível no seu acesso. Posso consultar os dados, faturas e contrato das suas UCs." };
