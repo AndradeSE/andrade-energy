@@ -1,7 +1,7 @@
 import { supabase } from "../../config/supabase";
-import { contratoLiberaUnidade } from "./acessoContrato.policy";
+import { contratoLiberaUnidade, ucEncerradaParaFaturamento } from "./acessoContrato.policy";
 
-export async function ucPossuiContratoAssinado(unidadeId: string, empresaId?: string) {
+async function contratosDaUc(unidadeId: string, empresaId?: string) {
   let consulta = supabase
     .from("contratos")
     .select("id,unidade_consumidora_id,status,aceite_cliente_em,contrato_assinado_url,dados_documento,vigencia_fim")
@@ -9,11 +9,23 @@ export async function ucPossuiContratoAssinado(unidadeId: string, empresaId?: st
   if (empresaId) consulta = consulta.eq("empresa_id", empresaId);
   const { data, error } = await consulta;
   if (error) throw error;
-  return (data ?? []).some(contrato => contratoLiberaUnidade(contrato));
+  return data ?? [];
+}
+
+export async function ucPossuiContratoAssinado(unidadeId: string, empresaId?: string) {
+  return (await contratosDaUc(unidadeId, empresaId)).some(contrato => contratoLiberaUnidade(contrato));
+}
+
+export async function ucPossuiContratoEncerrado(unidadeId: string, empresaId: string) {
+  return ucEncerradaParaFaturamento(await contratosDaUc(unidadeId, empresaId));
 }
 
 export async function exigirContratoAssinadoDaUc(unidadeId: string, empresaId?: string) {
-  if (!(await ucPossuiContratoAssinado(unidadeId, empresaId))) {
+  const contratos = await contratosDaUc(unidadeId, empresaId);
+  if (ucEncerradaParaFaturamento(contratos)) {
+    throw new Error("O contrato desta UC está encerrado. Novas faturas e cobranças estão bloqueadas.");
+  }
+  if (!contratos.some(contrato => contratoLiberaUnidade(contrato))) {
     throw new Error("A UC aguarda a assinatura do contrato. O faturamento e a geração de valores permanecem bloqueados até a assinatura.");
   }
 }

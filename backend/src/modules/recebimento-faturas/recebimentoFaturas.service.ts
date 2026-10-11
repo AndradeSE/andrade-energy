@@ -9,6 +9,7 @@ import { extrairTextoPdfIsolado } from "../../services/ocr/ocrIsolado.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
 import { armazenarContaDeEnergiaDaUsina, armazenarDocumentosDaFatura } from "../faturas/documentosFatura.service";
 import { processarFatura } from "../faturas/processarFatura.service";
+import { ucPossuiContratoEncerrado } from "../contratos/contratoUc.service";
 import { confirmarFaturaRascunho, detalharFatura } from "../faturas/faturas.service";
 import { enfileirarNotificacoesDaFatura } from "../faturas/notificacoesFatura.service";
 import { registrarProducaoDaFaturaGeradora } from "../usinas/usinas.service";
@@ -790,6 +791,19 @@ async function processarRegistro(registro: any) {
           recebimento_email_status: "PRODUCAO_IMPORTADA",
           recebimento_email_erro: null,
         });
+        return;
+      }
+
+      // E-mails atrasados continuam chegando, mas não reativam uma UC encerrada.
+      // Não gerar fatura, cobrança, crédito, documentos ou notificações financeiras.
+      if (await ucPossuiContratoEncerrado(unidade.id, unidade.empresa_id)) {
+        const agora = new Date().toISOString();
+        const { error } = await supabase.from("recebimentos_faturas_email").update({
+          status: "IGNORADO", arquivo_nome: anexo.filename ?? "fatura.pdf", arquivo_hash: hash,
+          fatura_id: null, erro: "Contrato encerrado: faturamento automático desta UC bloqueado.",
+          processado_em: agora, updated_at: agora,
+        }).eq("id", assumido.id);
+        if (error) throw error;
         return;
       }
 
