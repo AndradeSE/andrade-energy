@@ -6,7 +6,9 @@ import { enviarEmailTransacional } from "../email/emailTransacional.service";
 
 const escaparHtml = (valor: string) => valor.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 
-async function enviarEmailAviso(chave: string, email: string | undefined, empresaId: string, detalhe: string) {
+export async function enviarEmailAviso(chave: string, email: string | undefined, empresaId: string, detalhe: string,
+  assunto = "Contrato próximo do vencimento — Andrade Energy",
+  orientacao = "Abra a área Contrato no aplicativo para conferir as condições e registrar sua decisão. A renovação exige uma nova proposta e um novo aceite.") {
   if (!email) return;
   const inicio = new Date().toISOString();
   const limite = new Date(Date.now() - 10 * 60_000).toISOString();
@@ -18,8 +20,8 @@ async function enviarEmailAviso(chave: string, email: string | undefined, empres
   if (error) throw error;
   if (!aviso) return;
   const enviado = await enviarEmailTransacional({ empresaId, destinatario: email,
-    assunto: "Contrato próximo do vencimento — Andrade Energy",
-    html: `<p>${escaparHtml(detalhe)}</p><p>Abra a área Contrato no aplicativo para conferir as condições e registrar sua decisão. A renovação exige uma nova proposta e um novo aceite.</p>`,
+    assunto,
+    html: `<p>${escaparHtml(detalhe)}</p><p>${escaparHtml(orientacao)}</p>`,
     idempotencyKey: chave });
   const { error: erroRegistro } = await supabase.from("notificacoes_app").update(enviado
     ? { email_enviado_em: new Date().toISOString(), email_envio_iniciado_em: null }
