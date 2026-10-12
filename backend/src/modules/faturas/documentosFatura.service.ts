@@ -1,4 +1,5 @@
 import { prepararHistoricoFatura } from "./historicoFatura.policy";
+import { demonstrativoCompensacao } from "./descontoCompensacao.policy";
 import PDFDocument from "pdfkit";
 import bwipjs from "bwip-js";
 import QRCode from "qrcode";
@@ -13,8 +14,8 @@ import { interpretarFatura } from "../../services/ocr/parser.service";
 import { identificarTipoGdDocumento, rotuloTipoGdDocumento } from "./tipoGdDocumento";
 
 const BUCKET = "faturas";
-export const VERSAO_LAYOUT_FATURA = "layout-20261011-v14";
-export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20261012-v5";
+export const VERSAO_LAYOUT_FATURA = "layout-20261012-v15";
+export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20261012-v6";
 const VERDE = "#107C5C";
 const VERDE_ESCURO = "#07533D";
 const VERDE_CLARO = "#E8F6F0";
@@ -181,7 +182,11 @@ async function incluirDadosDaUCNaFatura(fatura: any) {
 }
 
 async function preencherDadosTecnicosDaContaOriginal(fatura: any) {
+  const referenciaCompensada = numero(fatura.energia_compensada) * numero(fatura.tarifa_cheia);
+  const descontoLegado = String(fatura.modalidade_faturamento).toUpperCase() === "INJECAO"
+    && Math.abs(numero(fatura.valor_referencia_sem_andrade) - referenciaCompensada) > 0.02;
   if (
+    !descontoLegado &&
     fatura.leitura_anterior != null &&
     fatura.leitura_atual != null &&
     fatura.classificacao &&
@@ -197,6 +202,8 @@ async function preencherDadosTecnicosDaContaOriginal(fatura: any) {
     if (error || !data) return fatura;
     const buffer = Buffer.from(await data.arrayBuffer());
     const extraida = interpretarFatura(await extrairTextoDoBuffer(buffer));
+    const beneficio = descontoLegado && extraida.valorEnergiaConcessionaria != null
+      ? demonstrativoCompensacao(fatura, Number(extraida.valorEnergiaConcessionaria)) : null;
     const tecnicos = {
       leitura_anterior: fatura.leitura_anterior ?? extraida.leituraAnterior ?? null,
       leitura_atual: fatura.leitura_atual ?? extraida.leituraAtual ?? null,
@@ -209,10 +216,14 @@ async function preencherDadosTecnicosDaContaOriginal(fatura: any) {
       valor_impostos: numero(fatura.valor_impostos) || extraida.valorImpostos || 0,
       proxima_leitura: fatura.proxima_leitura ?? dataIso(extraida.proximaLeitura),
     };
-    if (fatura.id) await supabase.from("faturas").update(tecnicos).eq("id", fatura.id);
+    if (fatura.id) {
+      const { error } = await supabase.from("faturas").update({ ...tecnicos, ...beneficio }).eq("id", fatura.id);
+      if (error) throw error;
+    }
     return {
       ...fatura,
       ...tecnicos,
+      ...beneficio,
       tipo_gd_documento: extraida.tipoGd,
       proxima_leitura: tecnicos.proxima_leitura,
     };
@@ -222,14 +233,15 @@ async function preencherDadosTecnicosDaContaOriginal(fatura: any) {
 }
 
 function desenharLogoNoCabecalho(pdf: PDFKit.PDFDocument) {
-  const caminhoLogo = CAMINHOS_LOGO.find((caminho) => existsSync(caminho));
+  const caminhoLogo = CAMINHOS_LOGO_WEB.find((caminho) => existsSync(caminho))
+    ?? CAMINHOS_LOGO.find((caminho) => existsSync(caminho));
   if (caminhoLogo) {
     pdf.image(caminhoLogo, 48, 9, { fit: [188, 84] });
     return;
   }
-  pdf.fillColor("#071F4F").font("Helvetica-Bold").fontSize(19).text("ANDRADE", 48, 30);
+  pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(19).text("ANDRADE", 48, 30);
   pdf.fillColor("#D99E00").rect(48, 55, 108, 3).fill();
-  pdf.fillColor("#071F4F").font("Helvetica-Bold").fontSize(8).text("E N E R G Y", 166, 51);
+  pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(8).text("E N E R G Y", 166, 51);
 }
 
 /** Gera a fatura que o cliente recebe e pode baixar no aplicativo. */
@@ -392,7 +404,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(18).text(moeda(valorSemAndrade), 326, y.total + 33);
     pdf.fillColor("#F6CC32").font("Helvetica-Bold").fontSize(7).text(`Economia: ${moeda(economiaReal)}`, 326, y.total + 58);
     pdf.fillColor("#D8EEE6").font("Helvetica").fontSize(6.2).text(`Desconto contratado: ${percentual(descontoContratado)}`, 326, y.total + 69);
-    pdf.fillColor("#D8EEE6").font("Helvetica-Bold").fontSize(6.2).text(`Desconto após impostos: ${percentual(descontoReal)}`, 326, y.total + 79);
+    pdf.fillColor("#D8EEE6").font("Helvetica-Bold").fontSize(6.2).text(`Desconto real sobre compensação: ${percentual(descontoReal)}`, 326, y.total + 79);
 
     pdf.roundedRect(48, y.aviso, LARGURA, 40, 6).fill(faturaSomenteAndrade ? "#FFF0D8" : "#FFF7E7");
     pdf.roundedRect(48, y.aviso, LARGURA, 40, 6).strokeColor(faturaSomenteAndrade ? "#DC8A00" : "#F0C36C").lineWidth(faturaSomenteAndrade ? 1.1 : 0.7).stroke();
