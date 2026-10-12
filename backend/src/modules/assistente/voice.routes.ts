@@ -16,7 +16,7 @@ import { createLiveToken } from "./live-token";
 const PUBLIC_HELP_CONTEXT = {
   faturamento: "Na aba Faturamento, o gerador pode emitir manualmente, importar PDF e configurar o faturamento automático das UCs. A conta geradora é configurada separadamente. Cobranças exigem revisão antes de confirmar.",
   producao: "Na Home, o card Geração do mês oferece importação de produção por PDF e gerenciamento do recebimento automático da conta geradora. O PDF é associado pela UC. Isso não emite cobrança ao cliente.",
-  contrato: "Em Contrato, revise titularidade, partes, documentos, endereços, vigência e minuta antes da assinatura. O assistente não assina nem cancela contratos.",
+  contrato: "Em Contrato, revise titularidade, partes, documentos, endereços, vigência e minuta antes da assinatura. Planos sem fidelidade começam com desconto editável de 30% em GD2 e 20% em GD1 e aviso prévio de 90 dias. Contratos com prazo recebem avisos no sino, push e e-mail nos 30 dias finais. Renovação exige proposta e novo aceite. Se o cliente não renovar, prepare a retirada da UC no vencimento. No cancelamento, aceite o pedido e confirme a conclusão do desligamento com data e protocolo; aceitar o pedido sozinho não encerra o contrato. UCs com contrato encerrado não são refaturadas pelo recebimento automático. A Solar orienta, mas não assina nem cancela por você.",
   cadastro: "Na aba Clientes, cadastre o consumidor, endereço e contato, vincule UC e usina e revise os dados antes de enviar convite. Nunca compartilhe senhas.",
   perfil: "Em Perfil, o usuário pode revisar dados pessoais, endereço e segurança. O assistente não altera esses dados automaticamente.",
   notificacoes: "O sino abre Notificações. Confirme o status no detalhe antes de assumir que uma operação terminou.",
@@ -26,7 +26,7 @@ const PUBLIC_HELP_CONTEXT = {
 const PUBLIC_CONSUMER_HELP_CONTEXT = {
   faturamento: "No aplicativo Consumidor, Faturas mostra cobranças da UC selecionada, valores e formas de pagamento disponíveis. A configuração de faturamento automático deve respeitar a titularidade e as opções disponíveis na conta. O consumidor não emite cobranças para outros clientes.",
   producao: "O consumidor consulta informações da usina e da energia da UC selecionada. Cadastro da usina e importação de produção são recursos do Gerador.",
-  contrato: "Na aba Contrato, leia a minuta e as condições. Confira os dados e siga as opções de assinatura ou aceite disponíveis. O assistente não assina nem cancela por você.",
+  contrato: "Na aba Contrato, leia a minuta e as condições. Confira os dados e siga as opções de assinatura ou aceite disponíveis. Contratos com prazo avisam nos 30 dias finais por sino, push e e-mail. Você pode pedir renovação para conferir e aceitar uma nova proposta, ou informar que não deseja renovar; isso não encerra antecipadamente. Sem fidelidade, a saída tem aviso prévio de 90 dias. O gerador precisa concluir o desligamento da UC. A Solar não assina nem cancela por você.",
   cadastro: "O consumidor cria seu acesso pelo convite recebido e pode consultar suas UCs vinculadas. Cadastros e vínculos da carteira são feitos pelo gerador. Nunca compartilhe senha ou código de acesso.",
   perfil: PUBLIC_HELP_CONTEXT.perfil,
   notificacoes: PUBLIC_HELP_CONTEXT.notificacoes,
