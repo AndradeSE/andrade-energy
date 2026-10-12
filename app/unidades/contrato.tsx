@@ -1,8 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
+import * as IntentLauncher from "expo-intent-launcher";
+import * as Sharing from "expo-sharing";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import FormField from "../../components/cadastro/FormField";
 import EnderecoFields from "../../components/cadastro/EnderecoFields";
@@ -89,6 +92,7 @@ export default function ContratoDaUnidade() {
   const [locadorDocumento, setLocadorDocumento] = useState("");
   const [locadorEndereco, setLocadorEndereco] = useState("");
   const enderecoLocador = lerEnderecoLocador(locadorEndereco);
+  const [planoContrato, setPlanoContrato] = useState("COM_FIDELIDADE");
   const [prazoAnos, setPrazoAnos] = useState("10");
   const [foro, setForo] = useState("Itajubá/MG");
   const [gerando, setGerando] = useState(false);
@@ -141,6 +145,7 @@ export default function ContratoDaUnidade() {
             }
           }
           setUnidade(unidadeCarregada);
+          setPlanoContrato(unidadeCarregada?.plano_contrato ?? "COM_FIDELIDADE");
           // No primeiro contrato ainda não existe rascunho para preencher o
           // formulário. A fonte correta é a configuração recém-salva da UC.
           setDesconto(valorParaCampo(unidadeCarregada?.desconto_percentual ?? descontoPadrao ?? 0));
@@ -198,6 +203,7 @@ export default function ContratoDaUnidade() {
         setLocadorNome(contrato.dados_documento?.locador_nome ?? (resultadoDados.status === "fulfilled" ? resultadoDados.value?.locador?.nome : undefined) ?? "Andrade Energy");
         setLocadorDocumento(contrato.dados_documento?.locador_documento?.trim() || (resultadoDados.status === "fulfilled" ? resultadoDados.value?.locador?.documento : undefined) || "");
         setLocadorEndereco(contrato.dados_documento?.locador_endereco?.trim() || (resultadoDados.status === "fulfilled" ? resultadoDados.value?.locador?.endereco : undefined) || "");
+        setPlanoContrato(revisandoContratoAssinado ? unidadeCarregada?.plano_contrato ?? "COM_FIDELIDADE" : contrato.configuracao_uc_snapshot?.plano_contrato ?? contrato.dados_documento?.plano_contrato ?? "COM_FIDELIDADE");
         setPrazoAnos(String(contrato.dados_documento?.prazo_anos ?? "10"));
         setForo(contrato.dados_documento?.foro ?? "Itajubá/MG");
         setContratoGeradoUrl(revisandoContratoAssinado ? undefined : contrato.contrato_gerado_url ?? undefined);
@@ -210,9 +216,10 @@ export default function ContratoDaUnidade() {
   }, [clienteId, id, revisao, revisaoToken, renovacao]);
 
   useEffect(() => {
+    if (planoContrato === "SEM_FIDELIDADE") { setFim(""); return; }
     const vencimento = somarAnos(inicio, prazoAnos);
     if (vencimento) setFim(vencimento);
-  }, [inicio, prazoAnos]);
+  }, [inicio, prazoAnos, planoContrato]);
 
   function atualizarEconomiaMensal(valor: string) {
     const limpa = valor.replace(/[^\d,.]/g, "");
@@ -237,7 +244,9 @@ export default function ContratoDaUnidade() {
         locador_nome: locadorNome,
         locador_documento: locadorDocumento,
         locador_endereco: locadorEndereco,
-        prazo_anos: prazoAnos,
+        plano_contrato: planoContrato,
+        aviso_previo_dias: planoContrato === "SEM_FIDELIDADE" ? 90 : null,
+        prazo_anos: planoContrato === "SEM_FIDELIDADE" ? null : prazoAnos,
         foro,
         titularidade_ucs: titularidadeUcs,
       },
@@ -307,13 +316,7 @@ export default function ContratoDaUnidade() {
           : "Revise os dados e as cláusulas antes de colher as assinaturas.",
         [{
           text: "OK",
-          onPress: minutaUrl ? async () => {
-            try {
-              await Linking.openURL(minutaUrl);
-            } catch {
-              Alert.alert("Não foi possível abrir", "Use o botão Abrir minuta gerada para tentar novamente.");
-            }
-          } : undefined,
+          onPress: minutaUrl ? () => { void abrirDocumentoAtual("minuta"); } : undefined,
         }],
       );
     } catch (erro: any) {
@@ -331,7 +334,20 @@ export default function ContratoDaUnidade() {
       }
       const url = tipo === "assinado" ? contratoAtual?.contrato_assinado_url : contratoAtual?.contrato_gerado_url;
       if (!url) throw new Error("Documento não disponível. Gere a minuta novamente ou atualize a tela.");
-      await Linking.openURL(url);
+      if (Platform.OS === "android") {
+        const destino = `${FileSystem.cacheDirectory}contrato-${contratoAtual.id}-${tipo}-${Date.now()}.pdf`;
+        const arquivo = await FileSystem.downloadAsync(url, destino);
+        if (arquivo.status !== 200) throw new Error(`PDF indisponível (HTTP ${arquivo.status})`);
+        const contentUri = await FileSystem.getContentUriAsync(arquivo.uri);
+        try {
+          await IntentLauncher.startActivityAsync("android.intent.action.VIEW", { data: contentUri, flags: 1, type: "application/pdf" });
+        } catch {
+          if (!(await Sharing.isAvailableAsync())) throw new Error("Instale um leitor de PDF para abrir o contrato.");
+          await Sharing.shareAsync(arquivo.uri, { mimeType: "application/pdf", dialogTitle: "Abrir ou salvar contrato" });
+        }
+      } else {
+        await Linking.openURL(url);
+      }
     } catch (erro: any) {
       Alert.alert("Não foi possível abrir o documento", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
     }
@@ -530,7 +546,8 @@ export default function ContratoDaUnidade() {
           <Text style={styles.addressTitle}>Endereço do locador</Text>
           {locadorEndereco && erroEndereco(enderecoLocador) ? <Text style={styles.formHint}>O endereço cadastrado está incompleto. Confira os campos antes de gerar a minuta.</Text> : null}
           <EnderecoFields value={enderecoLocador} onChange={campos => setLocadorEndereco(serializarEndereco(campos))} />
-          <FormField label="Prazo do contrato (anos)" value={prazoAnos} onChangeText={(valor) => setPrazoAnos(valor.replace(/\D/g, ""))} keyboardType="number-pad" placeholder="10" />
+          <Text>Plano: {planoContrato === "SEM_FIDELIDADE" ? "Sem fidelidade · aviso prévio de 90 dias" : "Com fidelidade"}. Definido na configuração da UC.</Text>
+          {planoContrato !== "SEM_FIDELIDADE" ? <FormField label="Prazo do contrato (anos)" value={prazoAnos} onChangeText={(valor) => setPrazoAnos(valor.replace(/\D/g, ""))} keyboardType="number-pad" placeholder="10" /> : null}
           <FormField label="Foro" value={foro} onChangeText={setForo} placeholder="Cidade/UF" />
         </Card>
 
@@ -546,7 +563,7 @@ export default function ContratoDaUnidade() {
           <FormField label="Termo de adesão" value={termoAdesao} onChangeText={setTermoAdesao} placeholder="Ex.: Termo assinado digitalmente" />
           <FormField label="Desconto contratado (%)" value={desconto} onChangeText={(valor) => setDesconto(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" placeholder="0" />
           <FormField label="Início da vigência" value={inicio} onChangeText={setInicio} keyboardType="numbers-and-punctuation" placeholder="DD/MM/AAAA" />
-          <FormField label="Vencimento do contrato (automático)" value={fim} editable={false} placeholder="Calculado pelo prazo" />
+          <FormField label="Vencimento do contrato (automático)" value={planoContrato === "SEM_FIDELIDADE" ? "Prazo indeterminado" : fim} editable={false} placeholder="Calculado pelo prazo" />
           <FormField label="Economia mensal estimada pela proposta (R$)" value={economiaMensal} editable={false} placeholder="Calculada automaticamente" />
           <FormField label="Economia anual estimada pela proposta (R$)" value={economiaAnual} editable={false} placeholder="Calculada automaticamente" />
           <FormField label="Observações" value={observacoes} onChangeText={setObservacoes} placeholder="Informações adicionais para o contrato" multiline numberOfLines={3} textAlignVertical="top" />

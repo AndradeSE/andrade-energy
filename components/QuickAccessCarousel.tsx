@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView as NativeScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, type ImageSourcePropType, Modal, Pressable, ScrollView as NativeScrollView, StyleSheet, Text, View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 
 import { Colors, Radius, Spacing, Typography } from "../theme";
@@ -13,15 +13,17 @@ type Item = {
   onPress: () => void;
   badge?: boolean;
   value?: string;
+  image?: ImageSourcePropType;
 };
 
 type Props = {
   items: Item[];
   storageKey?: string;
   customizeSignal?: number;
+  pinnedIds?: string[];
 };
 
-export default function QuickAccessCarousel({ items, storageKey = "geral", customizeSignal = 0 }: Props) {
+export default function QuickAccessCarousel({ items, storageKey = "geral", customizeSignal = 0, pinnedIds = [] }: Props) {
   const [ultimoUsado, setUltimoUsado] = useState<string | null>(null);
   const [selecionados, setSelecionados] = useState<string[] | null>(null);
   const [personalizando, setPersonalizando] = useState(false);
@@ -54,7 +56,7 @@ export default function QuickAccessCarousel({ items, storageKey = "geral", custo
 
   const disponiveis = useMemo(() => items.map(itemId), [items]);
   const selecaoValida = selecionados?.map((valor) => items.find((item) => itemId(item) === valor || item.label === valor)).filter((item): item is Item => Boolean(item)).map(itemId);
-  const ativos = selecaoValida?.length ? [...new Set(selecaoValida)] : disponiveis;
+  const ativos = [...new Set([...(selecaoValida?.length ? selecaoValida : disponiveis), ...pinnedIds.filter(id => disponiveis.includes(id))])];
 
   const itensOrdenados = useMemo(() => {
     const visiveis = ativos.map((id) => items.find((item) => itemId(item) === id)).filter((item): item is Item => Boolean(item));
@@ -74,6 +76,7 @@ export default function QuickAccessCarousel({ items, storageKey = "geral", custo
   }
 
   function alternar(id: string) {
+    if (pinnedIds.includes(id)) return;
     if (ativos.includes(id) && ativos.length === 1) return;
     salvarSelecao(ativos.includes(id) ? ativos.filter((item) => item !== id) : [...ativos, id]);
   }
@@ -108,7 +111,7 @@ export default function QuickAccessCarousel({ items, storageKey = "geral", custo
       {itensOrdenados.map((item) => (
         <Pressable accessibilityLabel={item.label} key={itemId(item)} onPress={() => abrir(item)} style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
           {item.badge ? <View style={styles.badge}><Text style={styles.badgeText}>NOVO</Text></View> : null}
-          <View style={styles.icon}><Ionicons name={item.icon} size={27} color="#FFFFFF" /></View>
+          <View style={[styles.icon, item.image ? styles.imageIcon : undefined]}>{item.image ? <Image source={item.image} style={styles.shortcutImage} resizeMode="contain" /> : <Ionicons name={item.icon} size={27} color="#FFFFFF" />}</View>
           <Text numberOfLines={2} style={styles.label}>{item.label}</Text>
           {item.value ? <Text numberOfLines={1} style={styles.value}>{item.value}</Text> : null}
         </Pressable>
@@ -128,7 +131,7 @@ export default function QuickAccessCarousel({ items, storageKey = "geral", custo
               const id = itemId(item);
               const marcado = ativos.includes(id);
               return <View key={id} style={styles.option}>
-                <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: marcado }} onPress={() => alternar(id)} style={styles.optionMain}>
+                <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: marcado, disabled: pinnedIds.includes(id) }} onPress={() => alternar(id)} style={styles.optionMain}>
                   <Ionicons name={marcado ? "checkbox" : "square-outline"} size={23} color={Colors.primary} />
                   <Text style={styles.optionLabel}>{item.label}</Text>
                 </Pressable>
@@ -156,6 +159,8 @@ const styles = StyleSheet.create({
   badge: { position: "absolute", top: -2, right: 1, zIndex: 2, paddingHorizontal: 6, paddingVertical: 3, borderRadius: Radius.round, backgroundColor: "#E11D48" },
   badgeText: { color: "#FFFFFF", fontSize: 8, fontWeight: "900", letterSpacing: 0.5 },
   icon: { width: 62, height: 62, alignItems: "center", justifyContent: "center", borderRadius: 31, backgroundColor: Colors.primary, shadowColor: Colors.primaryDark, shadowOpacity: 0.16, shadowRadius: 7, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+  imageIcon: { backgroundColor: "transparent", elevation: 0, shadowOpacity: 0 },
+  shortcutImage: { width: 62, height: 62 },
   label: { marginTop: 8, color: Colors.text, fontSize: 11, lineHeight: 14, fontWeight: "700", textAlign: "center" },
   value: { marginTop: 2, color: Colors.primary, fontSize: 11, fontWeight: "800" },
   editIcon: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.primary },

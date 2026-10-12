@@ -50,7 +50,7 @@ export default function NextInvoiceCard({
     >
       <Card>
         <View style={styles.header}>
-          <View>
+          <View style={styles.heading}>
             <Text style={styles.eyebrow}>Última fatura</Text>
             <Text style={styles.competencia}>
               {competenciaExibida}
@@ -94,8 +94,10 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
+    gap: Spacing.sm,
   },
+  heading: { flex: 1, minWidth: 0 },
 
   eyebrow: {
     color: Colors.subtitle,

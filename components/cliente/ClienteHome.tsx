@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -28,6 +28,8 @@ import ClienteHeader from "./ClienteHeader";
 import EconomiaChart from "./EconomiaChart";
 import EnergyFlowCard from "./EnergyFlowCard";
 import QuickAccessCarousel from "../QuickAccessCarousel";
+import { floatingHidden, loadFloatingPreference, setFloatingHidden, subscribeFloatingHidden } from "../../services/assistant-floating-preference";
+import { isAssistantEnabled as isPreviewEnvironment } from "../../config/environment";
 import { buscarCliente, listarMinhasUnidades } from "../../services/clientes.service";
 import { obterRecebimentoFaturas } from "../../services/recebimento-faturas.service";
 
@@ -41,6 +43,8 @@ export default function ClienteHome() {
   const [unidadeRecebimentoId, setUnidadeRecebimentoId] = useState("");
   const [concessionariaDaUnidade, setConcessionariaDaUnidade] = useState("");
   const [personalizarAcesso, setPersonalizarAcesso] = useState(0);
+  const assistantHidden = useSyncExternalStore(subscribeFloatingHidden, floatingHidden);
+  useEffect(() => { if (user?.id) void loadFloatingPreference(String(user.id)); }, [user?.id]);
 
   useEffect(() => {
     const clienteId = String(user?.cliente_id ?? "");
@@ -194,13 +198,10 @@ export default function ClienteHome() {
         <QuickAccessCarousel
           storageKey="consumidor-home"
           customizeSignal={personalizarAcesso}
+          pinnedIds={isPreviewEnvironment && assistantHidden ? ["mostrar-assistente"] : []}
           items={[
-            {
-              id: "faturas",
-              icon: "receipt-outline",
-              label: `Faturas ${nomeEmpresa}`,
-              onPress: () => router.push("/faturas"),
-            },
+            ...(isPreviewEnvironment && assistantHidden ? [{ id: "mostrar-assistente", icon: "chatbubble-ellipses-outline" as const, image: require("../../assets/images/assistant-chat-3d-v2.png"), label: "Mostrar Ajuda", onPress: () => void setFloatingHidden(String(user?.id ?? ""), false) }] : []),
+            ...(isPreviewEnvironment ? [{ id: "solar", icon: "chatbubble-ellipses-outline" as const, label: "Solar", onPress: () => router.push("/assistente") }] : []),
             {
               id: "contas-de-luz",
               icon: "document-attach-outline",
@@ -228,24 +229,8 @@ export default function ClienteHome() {
                 ? router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidadeRecebimentoId } })
                 : router.push("/selecionar-unidade"),
             }] : []),
-            {
-              id: "economia",
-              icon: "trending-up-outline",
-              label: "Economia",
-              onPress: () => router.push("/(tabs)/economia"),
-            },
-            {
-              id: "contrato",
-              icon: "document-text-outline",
-              label: "Contrato",
-              onPress: () => router.push("/contrato"),
-            },
-            {
-              id: "perfil",
-              icon: "person-outline",
-              label: "Meu perfil",
-              onPress: () => router.navigate("/perfil"),
-            },
+            { id: "pesquisar", icon: "search-outline", label: "Pesquisar", onPress: () => router.push({ pathname: "/pesquisa", params: { perfil: "consumidor" } }) },
+            { id: "sobre", icon: "information-circle-outline", label: "Sobre e atualizações", onPress: () => router.push("/sobre") },
             {
               id: "trocar-unidade",
               icon: "layers-outline",

@@ -4,10 +4,15 @@ import { useEffect, useRef } from "react";
 import { Animated, Easing, Image, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import PortalAnimatedLogo from "../brand/PortalAnimatedLogo";
+import { setAssistantLoading } from "../../services/assistant-overlay-visibility";
 
 import { Colors, Radius, Spacing } from "../../theme";
 
 export default function Loading({ showRevision = false, animateBrand = true, onBrandReady }: { showRevision?: boolean; animateBrand?: boolean; onBrandReady?: () => void }) {
+  useEffect(() => {
+    setAssistantLoading(true);
+    return () => setAssistantLoading(false);
+  }, []);
   const version = Constants.expoConfig?.version ?? Updates.runtimeVersion ?? "1.0.0";
   const revision = Updates.updateId?.slice(-8) ?? "APK";
   const fluxo = useRef(new Animated.Value(0)).current;
@@ -55,7 +60,7 @@ export default function Loading({ showRevision = false, animateBrand = true, onB
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignSelf: "stretch", minHeight: 320, width: "100%", alignItems: "center", justifyContent: "center", padding: Spacing.xl, backgroundColor: Colors.background },
+  container: { flex: 1, alignSelf: "stretch", minHeight: 320, width: "100%", alignItems: "center", justifyContent: "center", padding: Spacing.xl, backgroundColor: "transparent" },
   glowTop: { position: "absolute", top: 16, right: 16, width: 140, height: 140, borderRadius: 70, backgroundColor: "rgba(16,185,129,0.15)" },
   glowBottom: { position: "absolute", bottom: 16, left: 16, width: 140, height: 140, borderRadius: 70, backgroundColor: "rgba(250,204,21,0.12)" },
   brandFrame: { paddingVertical: 8 },

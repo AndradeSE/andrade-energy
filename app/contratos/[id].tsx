@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { AppHeader, Badge, Button, Card, ElasticScrollView as ScrollView, Loading, Screen, Section } from "../../components/ui";
 import { concluirSolicitacaoCancelamento, obterSolicitacaoCancelamento } from "../../services/contratos.service";
@@ -12,6 +12,9 @@ export default function SolicitacaoCancelamentoContrato() {
   const [loading, setLoading] = useState(true);
   const [processando, setProcessando] = useState(false);
   const [observacao, setObservacao] = useState("");
+  const [confirmado, setConfirmado] = useState(false);
+  const [dataDesligamento, setDataDesligamento] = useState("");
+  const [protocolo, setProtocolo] = useState("");
 
   const carregar = useCallback(async () => {
     try { setDados(await obterSolicitacaoCancelamento(id)); }
@@ -20,14 +23,16 @@ export default function SolicitacaoCancelamentoContrato() {
   }, [id]);
   useEffect(() => { void carregar(); }, [carregar]);
 
-  function decidir(decisao: "CANCELAR" | "RECUSAR") {
+  function decidir(decisao: "ACEITAR" | "CANCELAR" | "RECUSAR") {
     const cancelar = decisao === "CANCELAR";
-    Alert.alert(cancelar ? "Cancelar contrato" : "Recusar solicitação", cancelar ? "O contrato será encerrado e poderá ser gerada uma fatura final de créditos. Deseja continuar?" : "O contrato permanecerá ativo. Deseja recusar esta solicitação?", [
+    const aceitar = decisao === "ACEITAR";
+    Alert.alert(aceitar ? "Aceitar e iniciar desligamento" : cancelar ? "Concluir cancelamento" : "Recusar solicitação", aceitar ? "Você deverá providenciar a retirada da UC do rateio/injeção na distribuidora. O contrato continuará ativo até a conclusão do processo." : cancelar ? "Você confirma que a distribuidora efetivou o desligamento desta UC? O contrato será encerrado com os registros informados." : "O contrato permanecerá ativo. Deseja recusar esta solicitação?", [
       { text: "Voltar", style: "cancel" },
-      { text: cancelar ? "Confirmar cancelamento" : "Recusar", style: cancelar ? "destructive" : "default", onPress: async () => {
+      { text: aceitar ? "Aceitar e iniciar" : cancelar ? "Concluir cancelamento" : "Recusar", style: cancelar ? "destructive" : "default", onPress: async () => {
         setProcessando(true);
         try {
-          await concluirSolicitacaoCancelamento(id, decisao, observacao);
+          await concluirSolicitacaoCancelamento(id, decisao, observacao, cancelar ? { confirmado, data: dataDesligamento.trim(), protocolo: protocolo.trim() } : undefined);
+          if (aceitar) { await carregar(); Alert.alert("Desligamento pendente", "Providencie a retirada da UC na distribuidora e registre a confirmação quando o processo estiver concluído."); return; }
           Alert.alert("Solicitação concluída", cancelar ? "O contrato foi cancelado." : "A solicitação foi recusada e o contrato permanece ativo.", [{ text: "OK", onPress: () => router.replace("/contratos" as any) }]);
         } catch (erro: any) { Alert.alert("Não foi possível concluir", erro?.response?.data?.message ?? erro?.message); }
         finally { setProcessando(false); }
@@ -54,10 +59,19 @@ export default function SolicitacaoCancelamentoContrato() {
         {solicitacao?.observacao ? <Info label="Observação da análise" value={solicitacao.observacao} /> : null}
       </Card></Section>
       {pendente ? <Section title="Decisão"><Card>
-        <Text style={styles.help}>Registre uma observação para manter o histórico da análise. Ao confirmar o cancelamento, o contrato será encerrado antes que o cliente possa ser excluído.</Text>
+        <Text style={styles.help}>Registre uma observação para manter o histórico da análise. Aceite o pedido para iniciar a retirada da UC do rateio/injeção na Cemig ou distribuidora responsável. Aceitar ainda não encerra o contrato. Depois, confirme o desligamento efetivo para concluir.</Text>
         <TextInput multiline value={observacao} onChangeText={setObservacao} placeholder="Observação da análise (opcional)" style={styles.input} />
-        <Button disabled={processando} title={processando ? "Processando..." : "Confirmar cancelamento"} onPress={() => decidir("CANCELAR")} style={styles.cancelButton} />
-        <Button disabled={processando} title="Recusar solicitação" onPress={() => decidir("RECUSAR")} />
+        {solicitacao?.aceito_em ? <>
+          <Info label="Etapa" value="Aceito · aguardando desligamento na distribuidora" />
+          <Text style={styles.help}>Confira a retirada desta UC do rateio/injeção e a efetivação pela distribuidora. No plano sem fidelidade, respeite o aviso prévio de 90 dias contado do pedido. Guarde a confirmação da distribuidora.</Text>
+          <TextInput accessibilityLabel="Data efetiva do desligamento" value={dataDesligamento} onChangeText={setDataDesligamento} placeholder="Data efetiva (AAAA-MM-DD)" style={styles.input} />
+          <TextInput accessibilityLabel="Protocolo da distribuidora" value={protocolo} onChangeText={setProtocolo} maxLength={120} placeholder="Protocolo ou referência da confirmação" style={styles.input} />
+          <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: confirmado }} onPress={() => setConfirmado(v => !v)} style={styles.info}><Text style={styles.value}>{confirmado ? "☑" : "☐"} Confirmo que a distribuidora efetivou a retirada desta UC do rateio/injeção.</Text></Pressable>
+          <Button disabled={processando || !confirmado || !dataDesligamento.trim() || protocolo.trim().length < 3} title={processando ? "Processando..." : "Confirmar desligamento e encerrar contrato"} onPress={() => decidir("CANCELAR")} style={styles.cancelButton} />
+        </> : <>
+          <Button disabled={processando} title="Aceitar pedido e iniciar desligamento" onPress={() => decidir("ACEITAR")} style={styles.cancelButton} />
+          <Button disabled={processando} title="Recusar solicitação" onPress={() => decidir("RECUSAR")} />
+        </>}
       </Card></Section> : <Card><Text style={styles.help}>{String(contrato.status ?? "").toUpperCase() === "SUBSTITUIDO" ? "Esta é uma versão anterior do contrato. O contrato vigente não tem cancelamento pendente." : "Esta solicitação já foi analisada. Nenhuma ação adicional é necessária."}</Text></Card>}
     </ScrollView>
   </Screen>;

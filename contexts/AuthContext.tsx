@@ -40,7 +40,8 @@ import {
  * porque config/api.ts utiliza obterSessao()
  * para montar o Authorization.
  *
- * SecureStore abaixo é usado somente para
+ * storage/session.ts protege a sessão nativa no SecureStore.
+ * SecureStore abaixo é usado para
  * unidade/usina selecionada.
  */
 

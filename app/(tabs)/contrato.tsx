@@ -16,8 +16,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useCallback, useRef, useState } from "react";
-import { router, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import {
   Badge,
@@ -39,17 +39,19 @@ import {
   registrarAceiteEletronico,
   solicitarCodigoAssinatura,
   solicitarRenovacaoContrato,
+  informarNaoRenovacao,
 } from "../../services/contratos.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { useQueryClient } from "@tanstack/react-query";
 import SignaturePad from "../../components/cliente/SignaturePad";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import ContratosClientes from "../contratos";
+import { listarMinhasUnidades } from "../../services/clientes.service";
 
 function formatarData(data?: string) {
   if (!data) return "Não informado";
 
-  const valor = new Date(data);
+  const valor = new Date(/^\d{4}-\d{2}-\d{2}$/.test(data) ? `${data}T12:00:00` : data);
   if (Number.isNaN(valor.getTime())) return data;
 
   return valor.toLocaleDateString("pt-BR");
@@ -64,9 +66,22 @@ export default function Contrato() {
 }
 
 function ContratoConsumidor() {
-  const { data, isLoading, error, refetch: recarregarContrato } = useContrato();
-  const { data: dashboard, refetch: recarregarDashboard } = useDashboard();
-  const { unidadeSelecionada } = useAuth();
+  const params = useLocalSearchParams<{ unidadeId?: string | string[] }>();
+  const unidadeDestinoId = Array.isArray(params.unidadeId) ? params.unidadeId[0] : params.unidadeId;
+  const { data, isLoading, error, refetch: recarregarContrato } = useContrato(unidadeDestinoId);
+  const { data: dashboardSelecionado, refetch: recarregarDashboard } = useDashboard();
+  const { unidadeSelecionada, selecionarUnidade } = useAuth();
+  useEffect(() => {
+    if (!unidadeDestinoId || unidadeDestinoId === unidadeSelecionada?.id) return;
+    let ativo = true;
+    void listarMinhasUnidades().then(unidades => {
+      const destino = unidades.find((uc: any) => uc.id === unidadeDestinoId);
+      if (ativo && destino) void selecionarUnidade(destino);
+    }).catch(() => undefined);
+    return () => { ativo = false; };
+  }, [unidadeDestinoId, unidadeSelecionada?.id, selecionarUnidade]);
+  const mesmoDestino = !unidadeDestinoId || unidadeDestinoId === unidadeSelecionada?.id;
+  const dashboard = mesmoDestino ? dashboardSelecionado : undefined;
   const queryClient = useQueryClient();
   const [atualizando, setAtualizando] = useState(false);
   const [registrandoAceite, setRegistrandoAceite] = useState(false);
@@ -82,6 +97,14 @@ function ContratoConsumidor() {
   const [renovacaoEnviadaId, setRenovacaoEnviadaId] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const assinaturaY = useRef(0);
+
+  useEffect(() => {
+    setModalAssinatura(false);
+    setCodigoAssinatura("");
+    setTracosAssinatura([]);
+    setConcordouRevisao(false);
+    setEmailCodigo("");
+  }, [data?.id]);
 
   useFocusEffect(useCallback(() => {
     void recarregarContrato();
@@ -123,7 +146,7 @@ function ContratoConsumidor() {
       new Date(`${data.vigencia_fim}T23:59:59`).getTime() < Date.now(),
     );
   const economiaMensal = Number(
-    dashboard?.economiaMes ?? data.economia_mensal_estimada ?? 0,
+    data.economia_mensal_estimada ?? dashboard?.economiaMes ?? 0,
   );
   const economiaAnual = Number(
     data.economia_anual_estimada ?? economiaMensal * 12,
@@ -158,10 +181,11 @@ function ContratoConsumidor() {
     scrollRef.current?.scrollTo({ y: Math.max(0, assinaturaY.current - 16), animated: true });
   }
   async function abrirProposta() {
-    if (!unidadeSelecionada?.id) return Alert.alert("Selecione a unidade", "Escolha a UC antes de abrir sua proposta.");
+    const unidadeId = unidadeDestinoId || unidadeSelecionada?.id;
+    if (!unidadeId) return Alert.alert("Selecione a unidade", "Escolha a UC antes de abrir sua proposta.");
     try {
       setAbrindoProposta(true);
-      const uri = await baixarPropostaDaUnidade(unidadeSelecionada.id);
+      const uri = await baixarPropostaDaUnidade(unidadeId);
       if (Platform.OS === "android") {
         const contentUri = await FileSystem.getContentUriAsync(uri);
         await IntentLauncher.startActivityAsync("android.intent.action.VIEW", { data: contentUri, flags: 1, type: "application/pdf" });
@@ -232,9 +256,8 @@ function ContratoConsumidor() {
         [
           {
             text: "Acessar minha unidade",
-            // A UC já está selecionada quando o consumidor entra neste fluxo.
-            // Substitui a rota para impedir o retorno ao bloqueio contratual.
-            onPress: () => router.replace("/"),
+            // Um push pode abrir uma UC diferente da seleção atual.
+            onPress: () => router.replace(mesmoDestino ? "/" : "/selecionar-unidade"),
           },
         ],
         { cancelable: false },
@@ -302,7 +325,7 @@ function ContratoConsumidor() {
   function solicitarCancelamento() {
     Alert.alert(
       "Solicitar cancelamento",
-      "O gerador e os colaboradores responsáveis serão avisados. O contrato continuará vigente até a análise da solicitação.",
+      "O gerador e os colaboradores responsáveis serão avisados. O gerador deverá iniciar a retirada da UC do rateio/injeção na distribuidora. O contrato continuará vigente até o desligamento confirmado, respeitando as condições de aviso prévio.",
       [
         { text: "Voltar", style: "cancel" },
         {
@@ -358,10 +381,10 @@ function ContratoConsumidor() {
     <Screen>
       <ClienteHeader
         cliente={dashboard?.cliente ?? "Cliente"}
-        uc={dashboard?.uc ?? unidadeSelecionada?.numero ?? ""}
+        uc={dashboard?.uc ?? (mesmoDestino ? unidadeSelecionada?.numero : undefined) ?? ""}
         distribuidora={
           dashboard?.distribuidora ??
-          unidadeSelecionada?.distribuidora ??
+          (mesmoDestino ? unidadeSelecionada?.distribuidora : undefined) ??
           "Concessionária"
         }
         fullBleed
@@ -428,6 +451,8 @@ function ContratoConsumidor() {
         <TouchableOpacity activeOpacity={0.84} disabled={abrindoProposta} onPress={() => void abrirProposta()} style={styles.proposalLink}><Ionicons name="document-attach-outline" size={21} color={Colors.primary} /><View style={{ flex: 1 }}><Text style={styles.proposalTitle}>Proposta comercial da UC</Text><Text style={styles.proposalSubtitle}>PDF com desconto e projeção de economia desta unidade.</Text></View><Ionicons name="download-outline" size={20} color={Colors.primary} /></TouchableOpacity>
 
         <Card>
+          <InfoRow icon="document-text-outline" label="Plano do contrato" value={(data.configuracao_uc_snapshot?.plano_contrato ?? data.dados_documento?.plano_contrato) === "SEM_FIDELIDADE" ? "Sem fidelidade · aviso prévio de 90 dias" : "Com fidelidade"} />
+          <Divider />
           <InfoRow
             icon="pricetag-outline"
             label="Desconto contratado"
@@ -505,7 +530,7 @@ function ContratoConsumidor() {
             <View style={[styles.periodItem, styles.periodItemEnd]}>
               <Text style={styles.periodLabel}>TÉRMINO</Text>
               <Text style={styles.periodValue}>
-                {formatarData(data.vigencia_fim)}
+                {(data.configuracao_uc_snapshot?.plano_contrato ?? data.dados_documento?.plano_contrato) === "SEM_FIDELIDADE" ? "Indeterminado" : formatarData(data.vigencia_fim)}
               </Text>
             </View>
           </View>
@@ -628,7 +653,24 @@ function ContratoConsumidor() {
         </View>
         </View>
 
-        {ativo && !revisaoPendente && !cancelamentoPendente ? <TouchableOpacity
+        {ativo && data.vigencia_fim && !revisaoPendente && !cancelamentoPendente && !renovacaoSolicitada ? <TouchableOpacity
+          style={styles.renewButton}
+          disabled={Boolean(data.dados_documento?.nao_renovar_informado_em)}
+          onPress={() => Alert.alert("Não renovar no vencimento", "O gerador será avisado para providenciar a retirada da UC no vencimento. O contrato atual permanece vigente até lá.", [
+            { text: "Voltar", style: "cancel" },
+            { text: "Não desejo renovar", onPress: async () => {
+              try {
+                const resultado = await informarNaoRenovacao(data.id);
+                await recarregarContrato();
+                Alert.alert("Decisão registrada", resultado.message);
+              } catch (erro: any) { Alert.alert("Não foi possível registrar", erro?.response?.data?.message ?? "Tente novamente."); }
+            } },
+          ])}
+        >
+          <Text style={styles.renewTitle}>{data.dados_documento?.nao_renovar_informado_em ? "Não renovação informada ao gerador" : "Não desejo renovar no vencimento"}</Text>
+        </TouchableOpacity> : null}
+
+        {ativo && !revisaoPendente && !cancelamentoPendente && !data.dados_documento?.nao_renovar_informado_em ? <TouchableOpacity
           activeOpacity={0.85}
           disabled={Boolean(renovacaoSolicitada)}
           onPress={solicitarRenovacao}
@@ -653,12 +695,12 @@ function ContratoConsumidor() {
           accessibilityLabel={cancelamentoPendente ? "Aguardando resposta do gerador sobre o cancelamento" : "Solicitar cancelamento do contrato"}
           activeOpacity={0.85}
           onPress={cancelamentoPendente
-            ? () => Alert.alert("Solicitação de cancelamento", "Seu pedido foi enviado ao gerador e está em análise. O contrato continua vigente até a conclusão da solicitação.")
+            ? () => Alert.alert("Solicitação de cancelamento", data.cancelamento_solicitado?.aceito_em ? "Seu pedido foi aceito. O gerador está providenciando o desligamento da UC na distribuidora. O contrato continua vigente até a confirmação do desligamento, respeitado o aviso prévio." : "Seu pedido foi enviado ao gerador e está em análise. O contrato continua vigente até a conclusão da solicitação.")
             : solicitarCancelamento}
           style={styles.cancelButton}
         >
           <Ionicons name="close-circle-outline" size={20} color={vencido ? Colors.danger : Colors.subtitle} />
-          <Text style={styles.cancelButtonText}>{cancelamentoPendente ? "Aguardando resposta do gerador" : "Cancelar contrato"}</Text>
+          <Text style={styles.cancelButtonText}>{cancelamentoPendente ? (data.cancelamento_solicitado?.aceito_em ? "Aguardando desligamento da UC" : "Aguardando resposta do gerador") : "Cancelar contrato"}</Text>
         </TouchableOpacity> : null}
 
         <View style={styles.securityNote}>

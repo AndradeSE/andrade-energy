@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   BackHandler,
   KeyboardAvoidingView,
   Platform,
@@ -41,6 +42,10 @@ import {
 import { AppHeader, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import ClienteHeader from "../../components/cliente/ClienteHeader";
 import { IS_GERADOR_APP } from "../../config/appVariant";
+import { isAssistantEnabled as isPreviewEnvironment } from "../../config/environment";
+import { automaticLocalWakeConsent, setAutomaticLocalWakeConsent } from "../../services/assistant-voice-consent";
+import { setWakeWordEnabled } from "../../services/assistant-wake-word";
+import { installVoiceModels, isVoiceInstalled } from "../../services/on-device-voice";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 import EnderecoFields from "../../components/cadastro/EnderecoFields";
 import { enderecoVazio, erroEndereco, lerEndereco, serializarEndereco } from "../../utils/cadastroCliente";
@@ -81,6 +86,9 @@ export default function Perfil() {
   const [atualizando, setAtualizando] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [salvandoDigital, setSalvandoDigital] = useState(false);
+  const [escutaAutomatica, setEscutaAutomatica] = useState(false);
+  const [preparandoEscuta, setPreparandoEscuta] = useState(false);
+  const [progressoEscuta, setProgressoEscuta] = useState("");
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [senhaAtual, setSenhaAtual] = useState("");
   const [novaSenha, setNovaSenha] = useState("");
@@ -115,6 +123,35 @@ export default function Perfil() {
   const chaveFoto = `foto-perfil:${user?.id ?? "usuario"}`;
 
   useEffect(() => { void AsyncStorage.getItem(chaveFoto).then((valor) => setFotoPerfil(valor ?? "")); }, [chaveFoto]);
+  useEffect(() => {
+    if (!isPreviewEnvironment || !user?.id) return;
+    let active = true;
+    void automaticLocalWakeConsent(String(user.id)).then(allowed => { if (active) setEscutaAutomatica(allowed); });
+    return () => { active = false; };
+  }, [user?.id]);
+  async function alterarEscutaAutomatica(allowed: boolean) {
+    if (!user?.id || preparandoEscuta) return;
+    if (!allowed) {
+      await setAutomaticLocalWakeConsent(String(user.id), false);
+      setEscutaAutomatica(false);
+      setWakeWordEnabled(false);
+      return;
+    }
+    Alert.alert("Ativar comando ‘Andrade’", "Com o app aberto, a escuta local aguarda a palavra ‘Andrade’. Antes do comando, o áudio fica no aparelho. O modelo ocupa cerca de 33 MB e a escuta pode consumir bateria. Você poderá desligá-la aqui no Perfil.", [
+      { text: "Agora não", style: "cancel" },
+      { text: "Autorizar", onPress: () => { void (async () => {
+        setPreparandoEscuta(true);
+        try {
+          if (!isVoiceInstalled()) await installVoiceModels((stage, progress) => setProgressoEscuta(progress == null ? stage : `${stage}: ${Math.round(progress * 100)}%`));
+          await setAutomaticLocalWakeConsent(String(user.id), true);
+          setEscutaAutomatica(true);
+          if (AppState.currentState === "active") setWakeWordEnabled(true, false, true);
+        } catch (error) {
+          Alert.alert("Não foi possível preparar a escuta", error instanceof Error ? error.message : "Tente novamente.");
+        } finally { setPreparandoEscuta(false); setProgressoEscuta(""); }
+      })(); } },
+    ]);
+  }
   useEffect(() => { void listarMeusPedidosDePrivacidade().then(setMeusPedidosPrivacidade).catch(() => undefined); }, [user?.id]);
   useEffect(() => {
     if (!IS_GERADOR_APP || !["ADMIN", "GESTOR"].includes(String(user?.perfil ?? ""))) return;
@@ -400,6 +437,14 @@ export default function Perfil() {
 
         <Text style={styles.sectionTitle}>SEGURANÇA</Text>
         <View style={styles.cardGroup}>
+          {isPreviewEnvironment ? <View style={[styles.preferenceRow, styles.standaloneRow]}>
+            <View style={styles.preferenceIcon}><Ionicons color={Colors.primary} name="mic-outline" size={23} /></View>
+            <View style={styles.preferenceCopy}>
+              <Text style={styles.preferenceTitle}>Comando de voz “Solar”</Text>
+              <Text style={styles.preferenceDescription}>{progressoEscuta || "Com o app aberto, diga “Solar” para começar a conversa. Desliga ao sair do app."}</Text>
+            </View>
+            {preparandoEscuta ? <ActivityIndicator color={Colors.primary} /> : <Switch accessibilityLabel={escutaAutomatica ? "Desligar comando de voz Andrade" : "Autorizar comando de voz Andrade"} value={escutaAutomatica} onValueChange={(value) => void alterarEscutaAutomatica(value)} thumbColor={Colors.surface} trackColor={{ false: "#CBD5E1", true: Colors.primary }} />}
+          </View> : null}
           <View style={[styles.preferenceRow, styles.standaloneRow]}>
             <View style={styles.preferenceIcon}><Ionicons color={Colors.primary} name="finger-print-outline" size={23} /></View>
             <View style={styles.preferenceCopy}>
@@ -440,14 +485,8 @@ export default function Perfil() {
             <View style={styles.preferenceCopy}><Text style={styles.preferenceTitle}>Privacidade e meus dados</Text><Text style={styles.preferenceDescription}>Solicite acesso, correção ou eliminação com protocolo.</Text></View>
             <Ionicons color={Colors.subtitle} name="chevron-forward" size={21} />
           </TouchableOpacity>
-          {meusPedidosPrivacidade.length > 0 ? <View style={[styles.panel, styles.standalonePanel]}>
-            <Text style={styles.preferenceTitle}>Meus pedidos de privacidade</Text>
-            {meusPedidosPrivacidade.map((pedido) => <Text key={pedido.id} style={styles.preferenceDescription}>{pedido.detalhes?.tipo ?? "Pedido"} · {pedido.detalhes?.status ?? "Recebido"} · {new Date(pedido.criado_em).toLocaleDateString("pt-BR")} · Protocolo {pedido.id}</Text>)}
-          </View> : null}
-          {pedidosPrivacidade.length > 0 ? <View style={[styles.panel, styles.standalonePanel]}>
-            <Text style={styles.preferenceTitle}>Pedidos de privacidade recebidos</Text>
-            {pedidosPrivacidade.map((pedido) => <Text key={pedido.id} style={styles.preferenceDescription}>{pedido.usuarios?.nome ?? "Titular"} · {pedido.detalhes?.tipo ?? "Pedido"} · {new Date(pedido.criado_em).toLocaleDateString("pt-BR")} · Protocolo {pedido.id}</Text>)}
-          </View> : null}
+          <PedidosPrivacidadeCard titulo="Meus pedidos de privacidade" pedidos={meusPedidosPrivacidade} />
+          <PedidosPrivacidadeCard titulo="Pedidos de privacidade recebidos" pedidos={pedidosPrivacidade} recebidos />
           <TouchableOpacity activeOpacity={0.82} onPress={sairDaConta} style={[styles.linkRow, styles.standaloneRow]}>
             <View style={[styles.preferenceIcon, styles.logoutIcon]}><Ionicons color={Colors.danger} name="log-out-outline" size={22} /></View>
             <View style={styles.preferenceCopy}><Text style={[styles.preferenceTitle, styles.dangerText]}>Sair da conta</Text><Text style={styles.preferenceDescription}>Encerra somente a sessão neste aparelho.</Text></View>
@@ -510,6 +549,28 @@ function Campo({ icon, label, value, editable = true, hint, last = false, ...inp
   );
 }
 
+type PedidoPrivacidade = Awaited<ReturnType<typeof listarPedidosDePrivacidade>>[number];
+
+function PedidosPrivacidadeCard({ titulo, pedidos, recebidos = false }: { titulo: string; pedidos: PedidoPrivacidade[]; recebidos?: boolean }) {
+  const [aberto, setAberto] = useState(false);
+  if (!pedidos.length) return null;
+  const nomes: Record<string, string> = { ACESSO: "Acesso aos dados", CORRECAO: "Correção de dados", ELIMINACAO: "Eliminação de dados", INFORMACAO: "Informações", CONFIRMACAO: "Confirmação de tratamento", ANONIMIZACAO_BLOQUEIO: "Anonimização ou bloqueio", PORTABILIDADE: "Portabilidade", OPOSICAO: "Oposição", COMPARTILHAMENTO: "Compartilhamento", REVOGACAO_CONSENTIMENTO: "Revogação do consentimento", RECEBIDO: "Recebido", EM_ANALISE: "Em análise", CONCLUIDO: "Concluído" };
+  const legivel = (valor: string | undefined, padrao: string) => valor ? nomes[valor.toUpperCase()] ?? textoLegivel(valor.replace(/_/g, " ")) : padrao;
+  return <View style={styles.privacyCard}>
+    <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: aberto }} accessibilityLabel={`${titulo}, ${pedidos.length} pedidos`} onPress={() => setAberto(!aberto)} activeOpacity={0.82} style={styles.privacyHeader}>
+      <View style={styles.preferenceIcon}><Ionicons color={Colors.primary} name={recebidos ? "file-tray-outline" : "shield-checkmark-outline"} size={22} /></View>
+      <View style={styles.preferenceCopy}><Text style={styles.preferenceTitle}>{titulo}</Text><Text style={styles.preferenceDescription}>{pedidos.length} {pedidos.length === 1 ? "pedido registrado" : "pedidos registrados"}</Text></View>
+      <Ionicons color={Colors.subtitle} name={aberto ? "chevron-up" : "chevron-down"} size={21} />
+    </TouchableOpacity>
+    {aberto ? <View style={styles.privacyList}>{pedidos.map((pedido) => <View key={pedido.id} style={styles.privacyRequest}>
+      {recebidos ? <Text style={styles.preferenceTitle}>{pedido.usuarios?.nome ?? "Titular"}</Text> : null}
+      <Text style={styles.privacyRequestTitle}>{legivel(pedido.detalhes?.tipo, "Pedido de privacidade")}</Text>
+      <Text style={styles.preferenceDescription}>{legivel(pedido.detalhes?.status, "Recebido")} · {new Date(pedido.criado_em).toLocaleDateString("pt-BR")}</Text>
+      <Text selectable style={styles.privacyProtocol}>Protocolo: {pedido.id}</Text>
+    </View>)}</View> : null}
+  </View>;
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   profileBackground: { backgroundColor: Colors.background },
@@ -532,6 +593,12 @@ const styles = StyleSheet.create({
   card: { overflow: "hidden", borderRadius: Radius.xl, backgroundColor: Colors.surface, ...Shadows.card },
   addressFields: { paddingHorizontal: Spacing.md },
   cardGroup: { gap: Spacing.sm },
+  privacyCard: { overflow: "hidden", borderWidth: 1, borderColor: "#D4E4DB", borderRadius: Radius.lg, backgroundColor: Colors.surface, ...Shadows.card },
+  privacyHeader: { minHeight: 84, flexDirection: "row", alignItems: "center", padding: Spacing.md },
+  privacyList: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.sm },
+  privacyRequest: { padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, backgroundColor: "#F8FAFC" },
+  privacyRequestTitle: { color: Colors.text, fontSize: Typography.small, fontWeight: "700", marginTop: 3 },
+  privacyProtocol: { marginTop: Spacing.sm, color: Colors.subtitle, fontSize: 11, lineHeight: 17, flexShrink: 1 },
   standaloneRow: { overflow: "hidden", borderTopWidth: 0, borderWidth: 1, borderColor: "#D4E4DB", borderRadius: Radius.lg, backgroundColor: Colors.surface, ...Shadows.card },
   standalonePanel: { marginTop: -Spacing.xs, borderTopWidth: 0, borderWidth: 1, borderColor: "#D4E4DB", borderRadius: Radius.lg, backgroundColor: Colors.surface, ...Shadows.card },
   field: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.sm },

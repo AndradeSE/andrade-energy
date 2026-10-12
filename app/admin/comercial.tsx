@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import QuickAccessCarousel from "../../components/QuickAccessCarousel";
+import { isAssistantEnabled } from "../../config/environment";
 import {
   AppHeader,
   ElasticScrollView as ScrollView,
@@ -246,16 +247,17 @@ export default function HomeComercial() {
           <QuickAccessCarousel
             storageKey={`comercial-home-${usuario?.id ?? "anonimo"}`}
             items={([
-              { icon: "business-outline", label: "Geradores", value: `${data?.geradores.filter((item) => item.perfil === "GESTOR").length ?? 0} cadastrados`, onPress: () => router.push({ pathname: "/geradores/gestao", params: { aba: "GERADORES" } } as any) },
-              { icon: "card-outline", label: "Assinaturas", value: `${data?.assinaturas.length ?? 0} cadastradas`, onPress: () => router.push({ pathname: "/geradores/gestao", params: { aba: "ASSINATURAS" } } as any) },
               { icon: "pulse-outline", label: "Clientes ativos", value: `${data?.resumo.ativas ?? 0} monitorados`, onPress: () => router.push("/geradores/monitoramento" as any) },
-              { icon: "cash-outline", label: "Pagamentos", value: `${financeiro?.cobrancasPendentes ?? 0} pendentes`, badge: Boolean(financeiro?.cobrancasVencidas), onPress: () => router.push({ pathname: "/geradores/gestao", params: { aba: "PAGAMENTOS" } } as any) },
               { icon: "layers-outline", label: "Empresas parceiras", value: "Identidade e operação", onPress: () => router.push("/admin/empresas" as any) },
               { icon: "person-add-outline", label: "Convidar gerador", onPress: () => router.push("/geradores/convidar") },
               { icon: "people-circle-outline", label: "Colaboradores", value: "Convites e permissões", onPress: () => router.push("/colaboradores?ambiente=comercial" as any) },
               { icon: "download-outline", label: "Compartilhar app Gerador", value: baixandoApp === "gerador" ? `Baixando ${progressoApp}%` : "WhatsApp, e-mail ou Bluetooth", onPress: () => void baixarApp("gerador") },
               { icon: "phone-portrait-outline", label: "Compartilhar app Consumidor", value: baixandoApp === "consumidor" ? `Baixando ${progressoApp}%` : "WhatsApp, e-mail ou Bluetooth", onPress: () => void baixarApp("consumidor") },
-            ].filter((item) => !colaboradorComercial || ["Geradores", "Clientes ativos"].includes(item.label))) as any}
+              { icon: "information-circle-outline", label: "Sobre e atualizações", onPress: () => router.push("/sobre") },
+              { icon: "search-outline", label: "Pesquisar", onPress: () => router.push({ pathname: "/pesquisa", params: { perfil: "comercial" } }) },
+              { icon: "person-outline", label: "Meu perfil", onPress: () => router.push("/admin/perfil") },
+              ...(isAssistantEnabled ? [{ icon: "chatbubble-ellipses-outline", label: "Solar", onPress: () => router.push("/assistente") }] : []),
+            ].filter((item) => !colaboradorComercial || ["Clientes ativos", "Tutoriais", "Sobre e atualizações", "Meu perfil", "Solar"].includes(item.label))) as any}
           />
         </Section>
         {!colaboradorComercial && !loading && data ? (

@@ -62,12 +62,17 @@ export default function Badge({
 const styles = StyleSheet.create({
   container: {
     alignSelf: "flex-start",
+    flexShrink: 0,
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: Spacing.md,
     paddingVertical: 8,
     borderRadius: Radius.round,
   },
 
   label: {
+    textAlign: "center",
+    includeFontPadding: false,
     fontSize: Typography.caption,
     fontWeight: "700",
   },

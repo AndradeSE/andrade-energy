@@ -84,14 +84,18 @@ export async function solicitarRenovacaoContrato(id: string) {
   const { data } = await api.post(`/contratos/${id}/solicitar-renovacao`);
   return data;
 }
+export async function informarNaoRenovacao(id: string) {
+  const { data } = await api.post(`/contratos/${id}/nao-renovar`);
+  return data as { message: string };
+}
 
 export async function obterSolicitacaoCancelamento(id: string) {
   const { data } = await api.get(`/contratos/${id}/cancelamento`);
   return data;
 }
 
-export async function concluirSolicitacaoCancelamento(id: string, decisao: "CANCELAR" | "RECUSAR", observacao = "") {
-  const { data } = await api.post(`/contratos/${id}/cancelamento/concluir`, { decisao, observacao });
+export async function concluirSolicitacaoCancelamento(id: string, decisao: "ACEITAR" | "CANCELAR" | "RECUSAR", observacao = "", desligamento?: { confirmado: boolean; data: string; protocolo: string }) {
+  const { data } = await api.post(`/contratos/${id}/cancelamento/concluir`, { decisao, observacao, desligamento });
   return data;
 }
 

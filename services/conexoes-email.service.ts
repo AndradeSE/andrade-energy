@@ -1,5 +1,6 @@
 import api from "../config/api";
 import { IS_GERADOR_APP } from "../config/appVariant";
+import { criarConclusorEmail, type ResultadoConclusaoEmail } from "../utils/conclusaoEmail";
 
 export type ProvedorEmail = "GMAIL" | "OUTLOOK";
 
@@ -17,16 +18,6 @@ export type ConexaoEmail = {
     erro: string | null;
   };
   conectadoEm: string | null;
-};
-
-type ResultadoConclusaoEmail = {
-  pronto?: boolean;
-  status?: string;
-  message?: string;
-  unidade?: {
-    id: string;
-    numero?: string;
-  };
 };
 
 export async function listarConexoesEmail(unidadeId: string) {
@@ -60,27 +51,7 @@ export async function concluirConexaoEmail(state: string) {
 // O retorno OAuth pode chegar tanto pelo resultado do WebBrowser quanto pelo
 // deep link do Expo Router. Mantemos a confirmação idempotente no app para não
 // enviar duas solicitações concorrentes para o mesmo `state`.
-const conclusoesEmAndamento = new Map<string, Promise<ResultadoConclusaoEmail>>();
-const estadosConcluidos = new Set<string>();
-
-export function concluirConexaoEmailUmaVez(state: string): Promise<ResultadoConclusaoEmail> {
-  if (estadosConcluidos.has(state)) return Promise.resolve<ResultadoConclusaoEmail>({ pronto: true });
-
-  const emAndamento = conclusoesEmAndamento.get(state);
-  if (emAndamento) return emAndamento;
-
-  const conclusao = concluirConexaoEmail(state)
-    .then((resultado) => {
-      estadosConcluidos.add(state);
-      return resultado;
-    })
-    .finally(() => {
-      conclusoesEmAndamento.delete(state);
-    });
-
-  conclusoesEmAndamento.set(state, conclusao);
-  return conclusao;
-}
+export const concluirConexaoEmailUmaVez = criarConclusorEmail(concluirConexaoEmail);
 
 export async function desconectarConexaoEmail(id: string) {
   await api.delete(`/conexoes-email/${id}`);

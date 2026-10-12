@@ -30,7 +30,7 @@ export async function listarUnidadesCliente(id: string) {
 }
 
 export async function listarUnidadesGestor(usinaId?: string) {
-  const { data } = await api.get("/clientes/unidades", { params: usinaId ? { usinaId } : {} });
+  const { data } = await api.get("/clientes/unidades", { timeout: 60000, params: usinaId ? { usinaId } : {} });
   return data;
 }
 

@@ -1,10 +1,12 @@
 const gerador =
   process.env.EXPO_PUBLIC_APP_VARIANT === "gerador";
 const preview = process.env.EXPO_PUBLIC_APP_ENV === "preview";
+// Production IA requires a new native APK; older production runtimes stay isolated.
+const assistantNative = preview || process.env.EXPO_PUBLIC_ENABLE_GEMINI_LIVE === "1";
 const variant = gerador ? "gerador" : "consumidor";
 const packageId = `com.andradese.energy.${variant}${preview ? ".preview" : ""}`;
 const scheme = `andradeenergy${variant}${preview ? "preview" : ""}`;
-const icon = `./assets/images/android-icon-${variant}-${preview ? "preview" : "safe"}.png`;
+const icon = preview ? `./assets/images/android-icon-${variant}-preview.png` : `./assets/images/android-brand-${variant}.png`;
 
 const consumerProjectId =
   "45f35f6f-4f6a-4452-b2e4-02932e778b2b";
@@ -48,14 +50,15 @@ module.exports = {
 
       package: packageId,
 
-      permissions: ["android.permission.REQUEST_INSTALL_PACKAGES", "android.permission.POST_NOTIFICATIONS"],
+      versionCode: preview ? 2 : gerador ? 5 : 8,
+      permissions: ["android.permission.REQUEST_INSTALL_PACKAGES", "android.permission.POST_NOTIFICATIONS", ...(assistantNative ? ["android.permission.RECORD_AUDIO"] : [])],
 
       predictiveBackGestureEnabled: false,
 
       softwareKeyboardLayoutMode: "resize",
 
       adaptiveIcon: {
-        backgroundColor: gerador ? "#FFFFFF" : "#020617",
+        backgroundColor: preview ? (gerador ? "#FFFFFF" : "#020617") : "#EEF5F1",
         foregroundImage: icon,
       },
     },
@@ -69,6 +72,7 @@ module.exports = {
       supportsTablet: true,
 
       bundleIdentifier: packageId,
+      ...(assistantNative ? { infoPlist: { NSMicrophoneUsageDescription: "A conversa de voz pode enviar áudio ao Gemini Live após sua autorização." } } : {}),
     },
 
     web: {
@@ -80,6 +84,8 @@ module.exports = {
 
     plugins: [
       "expo-router",
+      ...(assistantNative ? [["expo-audio", { microphonePermission: "A conversa de voz pode enviar áudio ao Gemini Live após sua autorização." }]] : []),
+      ...(assistantNative ? [["react-native-audio-api", { iosBackgroundMode: false, androidForegroundService: false, androidPermissions: [], disableFFmpeg: true }]] : []),
 
       [
         "expo-splash-screen",
@@ -116,10 +122,13 @@ module.exports = {
         "expo-build-properties",
         {
           android: {
-            usesCleartextTraffic: true,
+            usesCleartextTraffic: false,
+            ...(preview ? { buildArchs: ["arm64-v8a"] } : {}),
           },
         },
       ],
+      ...(assistantNative ? [["llama.rn", { enableEntitlements: true, entitlementsProfile: "production", forceCxx20: true, enableOpenCL: false }], "expo-speech-recognition"] : []),
+      "./plugins/with-variant-scheme",
     ],
 
     experiments: {
@@ -140,12 +149,13 @@ module.exports = {
       },
     },
 
-    runtimeVersion: preview ? "1.0.0-preview" : {
+    runtimeVersion: preview ? "1.0.4-preview-live-awake" : assistantNative ? "1.0.4-production-live-awake" : {
       policy: "appVersion",
     },
 
     updates: {
       url: `https://u.expo.dev/${easProjectId}`,
+      requestHeaders: { "expo-channel-name": `${preview ? "preview" : "production"}-${variant}` },
     },
   },
 };

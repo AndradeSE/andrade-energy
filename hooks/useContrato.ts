@@ -5,12 +5,14 @@ import { useAuth } from "../contexts/AuthContext";
 import { buscarContrato, buscarContratoDaUnidade } from "../services/contratos.service";
 import { listarMinhasUnidades } from "../services/clientes.service";
 
-export function useContrato() {
+export function useContrato(unidadeDestinoId?: string) {
 
   const { usuario, unidadeSelecionada } = useAuth();
 
   const clienteIdDireto = unidadeSelecionada?.cliente_id ?? usuario?.cliente_id;
-  const unidadeId = unidadeSelecionada?.id;
+  // Um contrato recebido pode pertencer a uma UC ainda não ativada.
+  // Nunca substitua esse destino pela UC ativa da sessão.
+  const unidadeId = unidadeDestinoId || unidadeSelecionada?.id;
 
   return useQuery({
 

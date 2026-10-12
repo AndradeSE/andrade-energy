@@ -93,6 +93,8 @@ export default function EditarAlocacaoUnidade() {
   const [usinas, setUsinas] = useState<any[]>([]); const [usinaId, setUsinaId] = useState("");
   const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO"); const [percentual, setPercentual] = useState("");
   const [percentualEditado, setPercentualEditado] = useState(false);
+  const [planoContrato, setPlanoContrato] = useState("COM_FIDELIDADE");
+  const [descontoPersonalizado, setDescontoPersonalizado] = useState(false);
   const [desconto, setDesconto] = useState("40"); const [consumoMedio, setConsumoMedio] = useState("0");
   const [cpfTitular, setCpfTitular] = useState("");
   const [formatoFatura, setFormatoFatura] = useState<FormatoFatura>("UNIFICADA");
@@ -172,6 +174,8 @@ export default function EditarAlocacaoUnidade() {
         setClienteIdResolvido(idCliente);
         setUsinaId(usinaPreferida);
         setModalidade(modalidadeFinal);
+        setPlanoContrato(uc?.plano_contrato ?? "COM_FIDELIDADE");
+        setDescontoPersonalizado(true);
         setDesconto(String(descontoImportado ?? uc?.desconto_percentual ?? c?.desconto_percentual ?? 40));
         setFormatoFatura(uc?.fatura_somente_andrade ? "SOMENTE_ANDRADE" : "UNIFICADA");
         setCpfTitular(formatarDocumentoParcialOuCompleto(String(uc?.cpf_titular ?? "")));
@@ -223,7 +227,7 @@ export default function EditarAlocacaoUnidade() {
     ]);
     if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return Alert.alert("Desconto inválido", "Informe um desconto entre 0% e 100%.");
     try { setSalvando(true);
-      await alocarUnidade(usinaId, { clienteId: clienteIdResolvido, numero: numeroDaUc, cpfTitular: cpfTitular.replace(/\D/g, "") || null, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd: tipoGdEfetivo, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: modalidade === "COMPENSACAO" && !percentualEditado, revisaoContrato: atualizacaoContratual });
+      await alocarUnidade(usinaId, { planoContrato, clienteId: clienteIdResolvido, numero: numeroDaUc, cpfTitular: cpfTitular.replace(/\D/g, "") || null, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd: tipoGdEfetivo, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: modalidade === "COMPENSACAO" && !percentualEditado, revisaoContrato: atualizacaoContratual });
       if (usinaId !== usinaDoAmbiente?.id && usinaSelecionada) await selecionarUsina(usinaSelecionada);
       // Esta tela pode ter sido aberta a partir de uma UC ou da criação por
       // fatura. O destino único evita ficar preso na tela anterior e exigir
@@ -241,6 +245,13 @@ export default function EditarAlocacaoUnidade() {
       else Alert.alert("Não foi possível alocar", mensagem);
     } finally { setSalvando(false); }
   }
+
+  const gdParaPlano = String(usinas.find(item => item.id === usinaId)?.tipo_gd ?? "").toUpperCase();
+  useEffect(() => {
+    if (planoContrato === "SEM_FIDELIDADE" && !descontoPersonalizado && ["GD1", "GD2"].includes(gdParaPlano)) {
+      setDesconto(gdParaPlano === "GD2" ? "30" : "20");
+    }
+  }, [planoContrato, descontoPersonalizado, gdParaPlano]);
 
   if (loading) return <Loading />;
 
@@ -346,10 +357,12 @@ export default function EditarAlocacaoUnidade() {
               Ainda não há produção média cadastrada para esta usina. Informe a geração média da usina ou ajuste o percentual manualmente.
             </Text>
           ) : null}
-          <FormField
+          <ChoiceField label="Plano do contrato" value={planoContrato} onChange={(valor) => { setPlanoContrato(valor); setDescontoPersonalizado(false); }} options={[{ label: "Com fidelidade", value: "COM_FIDELIDADE" }, { label: "Sem fidelidade", value: "SEM_FIDELIDADE" }]} />
+        {planoContrato === "SEM_FIDELIDADE" ? <Text>Prazo indeterminado, sem multa por saída antecipada e aviso prévio de 90 dias. Desconto inicial: GD II 30%; GD I 20%. Você pode editar o percentual abaixo.</Text> : null}
+        <FormField
             label="Desconto contratado (%)"
             value={desconto}
-            onChangeText={(valor) => setDesconto(valor.replace(/[^\d,.]/g, ""))}
+            onChangeText={(valor) => { setDescontoPersonalizado(true); setDesconto(valor.replace(/[^\d,.]/g, "")); }}
             keyboardType="decimal-pad"
           />
           <ChoiceField

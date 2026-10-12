@@ -266,36 +266,7 @@ export default function GestaoGeradores() {
           <Loading />
         ) : (
           <>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.tabs}
-            >
-              {(
-                [
-                  ["RESUMO", "Visão geral"],
-                  ["GERADORES", "Geradores"],
-                  ["ASSINATURAS", "Assinaturas"],
-                  ["PAGAMENTOS", "Financeiro"],
-                  ["PLANOS", "Planos"],
-                ] as const
-              ).map(([key, label]) => (
-                <TouchableOpacity
-                  key={key}
-                  onPress={() => setAba(key)}
-                  style={[styles.tab, aba === key && styles.tabActive]}
-                >
-                  <Text
-                    style={[
-                      styles.tabText,
-                      aba === key && styles.tabTextActive,
-                    ]}
-                  >
-                    {label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+
             {aba === "RESUMO" ? (
               <>
                 <View style={styles.metrics}>
@@ -1022,18 +993,6 @@ const styles = StyleSheet.create({
   drawerPreference: { minHeight: 54, flexDirection: "row", alignItems: "center", gap: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
   drawerPreferenceText: { flex: 1, color: Colors.text, fontSize: Typography.body, fontWeight: "600" },
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
-  tabs: { gap: 8, paddingBottom: Spacing.md },
-  tab: {
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.round,
-    backgroundColor: "#E8F1EC",
-  },
-  tabActive: { borderColor: Colors.primary, backgroundColor: Colors.primary },
-  tabText: { color: Colors.text, fontSize: 12, fontWeight: "800" },
-  tabTextActive: { color: "#FFF" },
   blocked: {
     flex: 1,
     alignItems: "center",

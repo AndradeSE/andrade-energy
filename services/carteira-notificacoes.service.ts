@@ -4,14 +4,8 @@ import { AppState, Platform } from "react-native";
 async function carregarNotificacoes() {
   if (Platform.OS === "web") return null;
   const Notifications = await import("expo-notifications");
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldPlaySound: AppState.currentState !== "active",
-      shouldSetBadge: AppState.currentState !== "active",
-      shouldShowBanner: AppState.currentState !== "active",
-      shouldShowList: AppState.currentState !== "active",
-    }),
-  });
+  // O handler global fica no layout. A carteira já evita agendar avisos
+  // locais em primeiro plano; não deve silenciar pushes de outros fluxos.
   return Notifications;
 }
 

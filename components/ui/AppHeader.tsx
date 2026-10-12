@@ -12,6 +12,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { listarFaturas } from "../../services/faturas.service";
 import { buscarDashboardUsina, consultarAlocacao } from "../../services/usinas.service";
 import { IS_GERADOR_APP } from "../../config/appVariant";
+import { isPreviewEnvironment } from "../../config/environment";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import PortalBrandLogo from "../brand/PortalBrandLogo";
 import { useEmpresa } from "../../contexts/EmpresaContext";
@@ -241,7 +242,7 @@ export default function AppHeader({
       </View> : null}
 
       <NotificationSideSheet visible={notificacoesAbertas} onClose={() => setNotificacoesAbertas(false)}>
-        <NotificationInbox items={notificacoes} readIds={leituras.ids} ready={leituras.ready} onMark={leituras.markMany} onClose={() => setNotificacoesAbertas(false)} onOpen={(aviso) => {
+        <NotificationInbox onClear={confirmarLimpeza} items={notificacoes} readIds={leituras.ids} ready={leituras.ready} onMark={leituras.markMany} onClose={() => setNotificacoesAbertas(false)} onOpen={(aviso) => {
           if (!leituras.ids.includes(String(aviso.id))) void marcarNotificacaoComoLida(String(aviso.id));
           setNotificacoesAbertas(false);
           if (aviso.rota) router.push(aviso.rota as any);
@@ -293,7 +294,7 @@ export default function AppHeader({
               <MenuLink icon="time-outline" label="Atividade da equipe" onPress={() => navegar("/colaboradores/atividade?ambiente=comercial")} />
             </> : <><MenuLink icon="card-outline" label="Meu plano" onPress={() => navegar("/assinatura")} /><MenuLink icon="people-outline" label="Clientes" onPress={() => navegar("/clientes")} /><MenuLink icon="flash-outline" label="Unidades consumidoras" onPress={() => navegar("/unidades")} /><MenuLink icon="document-text-outline" label="Contratos dos clientes" onPress={() => navegar("/contratos")} /><MenuLink icon="receipt-outline" label="Faturamento" onPress={() => navegar("/(tabs)/faturamento")} /><MenuLink icon="wallet-outline" label="Financeiro" onPress={() => navegar("/financeiro")} /><MenuLink icon="people-circle-outline" label="Colaboradores" onPress={() => navegar("/colaboradores?ambiente=gerador")} /><MenuLink icon="time-outline" label="Atividade da equipe" onPress={() => navegar("/colaboradores/atividade?ambiente=gerador")} />{usuario?.perfil === "ADMIN" ? <MenuLink icon="layers-outline" label="Empresas parceiras" onPress={() => navegar("/admin/empresas")} /> : null}</> : <><MenuLink icon="receipt-outline" label="Minhas faturas" onPress={() => navegar("/faturas")} /><MenuLink icon="document-text-outline" label="Meu contrato" onPress={() => navegar("/contrato")} /></>}
             <MenuLink icon="person-outline" label="Perfil" onPress={() => navegar("/perfil")} />
-            <MenuLink icon="play-circle-outline" label="Tutoriais" onPress={() => navegar(ambienteComercial ? "/tutoriais?ambiente=comercial" : "/tutoriais")} />
+            {isPreviewEnvironment ? <MenuLink icon="chatbubble-ellipses-outline" label="Ajuda Andrade Energy" onPress={() => navegar("/assistente")} /> : null}
             <MenuLink icon="globe-outline" label="Site Andrade Energy" onPress={() => { setMenuAberto(false); void abrirSiteApp(); }} />
             <MenuLink icon="information-circle-outline" label="Sobre o app" onPress={() => navegar("/sobre")} />
             <View style={styles.menuPreference}><Ionicons name="navigate-circle-outline" size={22} color={Colors.primary} /><View style={styles.menuPreferenceCopy}><Text style={styles.menuPreferenceTitle}>Avisos passo a passo</Text><Text style={styles.menuPreferenceHint}>{avisosPassoAPasso ? "Ativados" : "Desativados"}</Text></View><Switch accessibilityLabel="Ativar avisos passo a passo" value={avisosPassoAPasso} onValueChange={(valor) => { setAvisosPassoAPasso(valor); void definirAvisosPassoAPasso(valor); }} trackColor={{ false: Colors.border, true: Colors.primary }} /></View>

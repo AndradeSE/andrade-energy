@@ -1,4 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
+import { waitForNavigationWarmup } from "../utils/navigation-warmup";
 
 import { buscarDashboard } from "./dashboard.service";
 import { listarClientes, listarMinhasUnidades, listarUnidadesGestor } from "./clientes.service";
@@ -27,6 +28,16 @@ type Selection = { id?: string | null; numero?: string | null; cliente_id?: stri
 
 /** Carrega em paralelo os dados das abas principais enquanto o splash inicial está visível. */
 export async function preloadNavigationData(
+  queryClient: QueryClient,
+  generator: boolean,
+  user: Scope,
+  unit: Selection,
+  plant: { id?: string | null } | null,
+) {
+  await waitForNavigationWarmup(loadNavigationCache(queryClient, generator, user, unit, plant));
+}
+
+async function loadNavigationCache(
   queryClient: QueryClient,
   generator: boolean,
   user: Scope,

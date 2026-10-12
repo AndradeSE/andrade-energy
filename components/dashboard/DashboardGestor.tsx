@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { Redirect, router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import {
   Alert,
   Pressable,
@@ -15,6 +15,7 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { useDashboardGestor } from "../../hooks/useDashboardGestor";
 import { importarFaturaGeradora } from "../../services/usinas.service";
+import { listarUnidadesGestor } from "../../services/clientes.service";
 import { obterLinkAplicativo } from "../../services/app-download.service";
 import * as CarteiraService from "../../services/carteira.service";
 import {
@@ -32,6 +33,8 @@ import {
   Section,
 } from "../ui";
 import QuickAccessCarousel from "../QuickAccessCarousel";
+import { floatingHidden, loadFloatingPreference, setFloatingHidden, subscribeFloatingHidden } from "../../services/assistant-floating-preference";
+import { isAssistantEnabled as isPreviewEnvironment } from "../../config/environment";
 import TabDataPending from "../ui/TabDataPending";
 import AndradeBarChart from "../charts/AndradeBarChart";
 import RevenueChart from "./RevenueChart";
@@ -62,17 +65,17 @@ function rotuloCompetencia(valor: unknown) {
 
 const atalhos = [
   { icon: "card-outline", label: "Meu plano", rota: "/assinatura" },
-  { icon: "people-outline", label: "Clientes", rota: "/clientes" },
   { icon: "person-add-outline", label: "Novo cliente", rota: "/clientes/novo" },
   { icon: "flash-outline", label: "Unidades consumidoras", rota: "/unidades" },
   { icon: "flash-outline", label: "Nova UC", rota: "/unidades/nova" },
   { icon: "document-attach-outline", label: "Faturar via PDF", rota: "/faturamento/manual" },
-  { icon: "construct-outline", label: "Operação", rota: "/operacao" },
-  { icon: "receipt-outline", label: "Faturamento", rota: "/faturamento" },
-  { icon: "cash-outline", label: "Financeiro", rota: "/financeiro" },
-  { icon: "receipt-outline", label: "Faturas", rota: "/faturas" },
-  { icon: "document-text-outline", label: "Contratos", rota: "/contratos" },
-  { icon: "people-circle-outline", label: "Colaboradores", rota: "/colaboradores?ambiente=gerador" },
+  { icon: "receipt-outline", label: "Faturas emitidas", rota: "/faturas" },
+  { icon: "create-outline", label: "Faturamento manual", rota: "/faturamento/criar-manual" },
+  { icon: "business-outline", label: "Nova usina", rota: "/usinas/nova" },
+  { icon: "layers-outline", label: "Trocar usina", rota: "/selecionar-unidade" },
+  { icon: "person-outline", label: "Meu perfil", rota: "/perfil" },
+  { icon: "information-circle-outline", label: "Sobre e atualizações", rota: "/sobre" },
+  { icon: "search-outline", label: "Pesquisar", rota: "/pesquisa?perfil=usinas" },
 ] as const;
 
 export default function DashboardGestor() {
@@ -80,6 +83,8 @@ export default function DashboardGestor() {
     useAuth();
   const { data, isLoading, error, refetch } = useDashboardGestor();
   const colaborador = String(usuario?.papel_empresa ?? "").startsWith("COLABORADOR_");
+  const assistantHidden = useSyncExternalStore(subscribeFloatingHidden, floatingHidden);
+  useEffect(() => { if (usuario?.id) void loadFloatingPreference(String(usuario.id)); }, [usuario?.id]);
   const [carteira, setCarteira] = useState<CarteiraService.Carteira | null>(
     null,
   );
@@ -172,6 +177,27 @@ export default function DashboardGestor() {
     }
   }
 
+  async function abrirFaturamentoAutomatico() {
+    try {
+      const usinaId = String(usinaSelecionada?.id ?? usuario?.usina_id ?? "");
+      const unidades = (await listarUnidadesGestor(usinaId)).filter((item: any) => {
+        const usina = Array.isArray(item.usinas) ? item.usinas[0] : item.usinas;
+        return String(item.usina_id ?? usina?.id ?? "") === usinaId &&
+          String(item.tipo ?? "BENEFICIARIA").toUpperCase() !== "GERADORA" &&
+          String(usina?.titularidade_ucs_recebedoras ?? "GERADOR") === "GERADOR";
+      });
+      if (unidades.length === 1) {
+        router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidades[0].id, escopo: "usina" } });
+      } else {
+        Alert.alert("Faturamento automático", unidades.length ? "Escolha a UC na lista para configurar o recebimento de suas contas." : "Cadastre uma UC recebedora sob titularidade do gerador antes de configurar o recebimento.", [
+          { text: "Agora não", style: "cancel" }, { text: "Ver unidades", onPress: () => router.push("/unidades") },
+        ]);
+      }
+    } catch {
+      Alert.alert("Não foi possível consultar as unidades", "Confira sua conexão e tente novamente.");
+    }
+  }
+
   // Sem seleção, inclusive no primeiro cadastro, a Home não é o destino.
   // A lista permite escolher uma usina existente ou cadastrar a primeira.
   if (!usinaSelecionada?.id && !usuario?.usina_id) {
@@ -239,16 +265,10 @@ export default function DashboardGestor() {
         <Section title="Acesso rápido" framed={false}>
           <QuickAccessCarousel
             storageKey={`gestor-home-${usuario?.id ?? "anonimo"}`}
+            pinnedIds={isPreviewEnvironment && assistantHidden ? ["mostrar-assistente"] : []}
             items={[
-              {
-                icon: "wallet-outline",
-                label: "Valor financeiro disponível",
-                value: carteira
-                  ? formatarMoeda(carteira.saldoDisponivel)
-                  : "Carregando...",
-                badge: novoRecebimento,
-                onPress: () => void abrirCarteira(),
-              },
+              ...(isPreviewEnvironment && assistantHidden ? [{ id: "mostrar-assistente", icon: "chatbubble-ellipses-outline" as const, image: require("../../assets/images/assistant-chat-3d-v2.png"), label: "Mostrar Ajuda", onPress: () => void setFloatingHidden(String(usuario?.id ?? ""), false) }] : []),
+              ...(isPreviewEnvironment ? [{ id: "solar", icon: "chatbubble-ellipses-outline" as const, label: "Solar", onPress: () => router.push("/assistente") }] : []),
               ...atalhos.filter((atalho) => !colaborador || !["Colaboradores", "Novo cliente", "Nova usina", "Nova UC", "Financeiro"].includes(atalho.label)).map((atalho) => ({
                 icon: atalho.icon,
                 label: atalho.label,
@@ -259,6 +279,12 @@ export default function DashboardGestor() {
                 label: "Editar dados da usina",
                 onPress: () => router.push({ pathname: "/usinas/editar", params: { id: usinaSelecionada.id } }),
               }] : []),
+              ...(!colaborador ? [
+                { id: "importar-producao", icon: "document-attach-outline" as const, label: importando ? "Importando produção…" : "Importar produção PDF", onPress: () => { if (!importando) void atualizarGeracao(); } },
+                { id: "recebimento-producao", icon: "mail-unread-outline" as const, label: "Recebimento da usina", onPress: abrirRecebimentoProducao },
+                { id: "faturamento-automatico", icon: "mail-outline" as const, label: "Faturamento automático", onPress: () => void abrirFaturamentoAutomatico() },
+                ...(usinaSelecionada?.id ? [{ id: "inversores", icon: "hardware-chip-outline" as const, label: "Inversores", onPress: () => router.push({ pathname: "/usinas/inversores", params: { id: usinaSelecionada.id } }) }] : []),
+              ] : []),
               {
                 icon: "share-social-outline",
                 label: "Compartilhar app do cliente",
@@ -296,26 +322,15 @@ export default function DashboardGestor() {
             </Text>
           </View>
           <View style={styles.generationActions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Importar dados de produção via PDF"
-              disabled={importando}
-              onPress={atualizarGeracao}
-              style={[styles.generationAction, styles.generationActionPrimary, importando && styles.disabled]}
-            >
+            <Pressable accessibilityRole="button" accessibilityLabel="Importar dados de produção via PDF" disabled={importando} onPress={atualizarGeracao} style={[styles.generationAction, styles.generationActionPrimary, importando && styles.disabled]}>
               <Ionicons name="document-attach-outline" size={22} color="#0A513E" />
               <Text style={styles.generationActionTitle}>{importando ? "Lendo PDF..." : "Importar via PDF"}</Text>
               <Text style={styles.generationActionSubtitle}>Dados de produção</Text>
             </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={recebimentoProducaoAtivo ? "Gerenciar recebimento automático de dados da usina" : "Ativar recebimento automático de dados de produção"}
-              onPress={abrirRecebimentoProducao}
-              style={[styles.generationAction, styles.generationActionSecondary]}
-            >
+            <Pressable accessibilityRole="button" accessibilityLabel="Gerenciar recebimento de dados automático" onPress={abrirRecebimentoProducao} style={[styles.generationAction, styles.generationActionSecondary]}>
               <Ionicons name={recebimentoProducaoAtivo ? "checkmark-circle-outline" : "mail-unread-outline"} size={22} color="#FFFFFF" />
-              <Text style={[styles.generationActionTitle, styles.generationActionTitleSecondary]}>{recebimentoProducaoAtivo ? "Gerenciar automático" : "Receber automático"}</Text>
-              <Text style={[styles.generationActionSubtitle, styles.generationActionSubtitleSecondary]}>Dados da usina</Text>
+              <Text style={[styles.generationActionTitle, styles.generationActionTitleSecondary]}>Gerenciar recebimento</Text>
+              <Text style={[styles.generationActionSubtitle, styles.generationActionSubtitleSecondary]}>de dados automático</Text>
             </Pressable>
           </View>
         </View>
@@ -614,28 +629,10 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   generationCaption: { marginTop: 3, color: "#CDEBDE", fontSize: 12 },
-  generationAutoBadge: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    marginTop: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 5,
-    borderRadius: Radius.round,
-    backgroundColor: "rgba(255,255,255,.12)",
-  },
+  generationAutoBadge: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 5, marginTop: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: 5, borderRadius: Radius.round, backgroundColor: "rgba(255,255,255,.12)" },
   generationAutoText: { color: "#D1FAE5", fontSize: 11, fontWeight: "700" },
   generationActions: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.lg },
-  generationAction: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 96,
-    alignItems: "flex-start",
-    justifyContent: "center",
-    padding: Spacing.sm,
-    borderRadius: Radius.md,
-  },
+  generationAction: { flex: 1, minWidth: 0, minHeight: 96, alignItems: "flex-start", justifyContent: "center", padding: Spacing.sm, borderRadius: Radius.md },
   generationActionPrimary: { backgroundColor: "#E5F8ED" },
   generationActionSecondary: { borderWidth: 1, borderColor: "rgba(255,255,255,.45)", backgroundColor: "rgba(255,255,255,.10)" },
   generationActionTitle: { marginTop: 5, color: "#0A513E", fontSize: 12, fontWeight: "900" },

@@ -1,7 +1,7 @@
 import api from "../config/api";
 
 export async function listarUsinas() {
-  const { data } = await api.get("/usinas");
+  const { data } = await api.get("/usinas", { timeout: 60000 });
   return data;
 }
 
@@ -12,6 +12,10 @@ export async function buscarUsina(id: string) {
 
 export async function criarUsina(payload: any) {
   const { data } = await api.post("/usinas", payload);
+  return data;
+}
+export async function cadastrarUnidadeOperacional(id: string, payload: any) {
+  const { data } = await api.post(`/usinas/${id}/unidades`, payload);
   return data;
 }
 
@@ -31,7 +35,7 @@ export async function buscarDashboardUsina(
   id: string
 ) {
   const { data } =
-    await api.get(`/usinas/${id}/dashboard`);
+    await api.get(`/usinas/${id}/dashboard`, { timeout: 60000 });
 
   return data;
 }
@@ -58,7 +62,7 @@ export async function alocarUnidade(id: string, payload: any) {
 }
 
 export async function consultarAlocacao(id: string, unidadeId?: string): Promise<{ reservado: number; disponivel: number }> {
-  const { data } = await api.get(`/usinas/${id}/alocacao`, { params: unidadeId ? { unidadeId } : {} });
+  const { data } = await api.get(`/usinas/${id}/alocacao`, { timeout: 60000, params: unidadeId ? { unidadeId } : {} });
   return data;
 }
 

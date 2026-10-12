@@ -91,6 +91,18 @@ function parametroUnico(valor?: string | string[]) {
   return Array.isArray(valor) ? valor[0] : valor;
 }
 
+function OutlookMark() {
+  return <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" accessibilityRole="image" accessibilityLabel="Hotmail e Outlook">
+    <Path d="M9 3h12v15H9z" fill="#0078D4" />
+    <Path d="M9 5h6v5H9z" fill="#28A8EA" />
+    <Path d="M15 5h6v5h-6z" fill="#50D9FF" />
+    <Path d="M8 10h15v11H8z" fill="#1490DF" />
+    <Path d="m8 10 7.5 6L23 10v11H8z" fill="#0078D4" />
+    <Path d="M1 6h12v14H1z" fill="#0364B8" />
+    <Path d="M7 9c-2.2 0-3.5 1.5-3.5 4s1.3 4 3.5 4 3.5-1.5 3.5-4S9.2 9 7 9Zm0 1.6c1.1 0 1.7.9 1.7 2.4s-.6 2.4-1.7 2.4-1.7-.9-1.7-2.4.6-2.4 1.7-2.4Z" fill="white" />
+  </Svg>;
+}
+
 function GmailMark() {
   return <Svg width={24} height={20} viewBox="0 0 24 20" fill="none" accessibilityRole="image" accessibilityLabel="Gmail">
     <Path d="M2 18V5.5L12 12.5L22 5.5V18" stroke="#EA4335" strokeWidth={3.5} strokeLinejoin="round" />
@@ -313,6 +325,7 @@ export default function RecebimentoEmail() {
   const tituloStatus = titulosStatus[status] ?? "Em configuração";
   const temErro = status === "ERRO";
   const gmailConectado = conexoes.some((conexao) => conexao.provedor.toUpperCase() === "GMAIL" && conexaoAtiva(conexao));
+  const outlookConectado = conexoes.some((conexao) => conexao.provedor.toUpperCase() === "OUTLOOK" && conexao.automatico && !conexao.erro);
 
   return <Screen>
     {IS_GERADOR_APP ? <AppHeader variant="subpage" title="Recebimento automático" subtitle={recebimentoDeProducao ? "Produção da usina" : "Todas as UCs"} contextTitle="Configuração de e-mail" contextSubtitle={recebimentoDeProducao ? `UC ${unidadeExibida?.numero ?? unidadeId}` : "Válida para todas as UCs deste titular"} icon="mail-outline" /> : null}
@@ -343,30 +356,22 @@ export default function RecebimentoEmail() {
         <TouchableOpacity disabled={salvando} onPress={confirmarRegeneracao} style={styles.secondaryAction}><Ionicons name="refresh-outline" size={19} color={Colors.primary} /><Text style={styles.secondaryText}>Gerar novo endereço</Text></TouchableOpacity>
         <TouchableOpacity disabled={salvando} onPress={confirmarDesativacao} style={styles.dangerAction}><Ionicons name="close-circle-outline" size={19} color={Colors.danger} /><Text style={styles.dangerText}>Desativar recebimento</Text></TouchableOpacity>
         <Text style={styles.inlineSectionTitle}>COMO DESEJA CONFIGURAR?</Text>
-        <Text style={styles.setupHelp}>Tem Gmail? Use o botão Gmail. Se usa Outlook ou Hotmail, escolha Configurar manualmente e siga as instruções.</Text>
+        <Text style={styles.setupHelp}>Conecte o Gmail ou o Hotmail / Outlook para configurar o recebimento automático. Você também pode configurar o encaminhamento manualmente.</Text>
         <Text style={styles.setupNotice}>Importante: use a conta de e-mail que recebe as faturas da CEMIG.</Text>
         <View style={styles.choiceActions}>
-          <TouchableOpacity accessibilityLabel="Configurar com Gmail" activeOpacity={0.84} onPress={() => setModoConfiguracao("GMAIL")} style={[styles.providerButton, modoConfiguracao === "GMAIL" && styles.providerButtonSelected]}>
+          <TouchableOpacity accessibilityLabel="Conectar Gmail" activeOpacity={0.84} disabled={Boolean(conectandoProvedor) || gmailConectado} onPress={() => { setModoConfiguracao("GMAIL"); void conectarEmail("GMAIL"); }} style={[styles.providerButton, (Boolean(conectandoProvedor) || gmailConectado) && styles.providerButtonDisabled]}>
             <GmailMark />
-            <Text style={styles.providerButtonText}>Gmail</Text>
+            <Text style={[styles.providerButtonText, gmailConectado && styles.providerButtonTextDisabled]}>{conectandoProvedor === "GMAIL" ? "Conectando..." : gmailConectado ? "Gmail conectado" : "Conectar Gmail"}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityLabel="Conectar Hotmail ou Outlook" activeOpacity={0.84} disabled={Boolean(conectandoProvedor) || outlookConectado} onPress={() => conectarEmail("OUTLOOK")} style={[styles.providerButton, (Boolean(conectandoProvedor) || outlookConectado) && styles.providerButtonDisabled]}>
+            <OutlookMark />
+            <Text style={[styles.providerButtonText, outlookConectado && styles.providerButtonTextDisabled]}>{conectandoProvedor === "OUTLOOK" ? "Conectando..." : outlookConectado ? "Hotmail / Outlook automático ativo" : "Conectar Hotmail / Outlook"}</Text>
           </TouchableOpacity>
           <TouchableOpacity accessibilityLabel="Configurar manualmente" activeOpacity={0.84} onPress={() => setModoConfiguracao("MANUAL")} style={[styles.providerButton, modoConfiguracao === "MANUAL" && styles.providerButtonSelected]}>
             <Ionicons name="options-outline" size={20} color={Colors.primary} />
             <Text style={styles.providerButtonText}>Configurar manualmente</Text>
           </TouchableOpacity>
         </View>
-        {modoConfiguracao === "GMAIL" ? <View style={styles.providerActions}>
-          <TouchableOpacity
-            accessibilityLabel="Conectar Gmail"
-            activeOpacity={0.84}
-            disabled={Boolean(conectandoProvedor) || gmailConectado}
-            onPress={() => conectarEmail("GMAIL")}
-            style={[styles.providerButton, (Boolean(conectandoProvedor) || gmailConectado) && styles.providerButtonDisabled]}
-          >
-            <GmailMark />
-            <Text style={[styles.providerButtonText, gmailConectado && styles.providerButtonTextDisabled]}>{conectandoProvedor === "GMAIL" ? "Conectando..." : gmailConectado ? "Gmail conectado" : "Conectar Gmail"}</Text>
-          </TouchableOpacity>
-        </View> : null}
       </> : null}
 
       {!dados?.configurado ? <Card style={styles.pendingCard}><Ionicons name="time-outline" size={24} color={Colors.warning} /><View style={styles.pendingCopy}><Text style={styles.pendingTitle}>Configuração em preparação</Text><Text style={styles.pendingText}>O endereço de recebimento será liberado assim que a Andrade Energy concluir a configuração segura do domínio.</Text></View></Card> : <>

@@ -125,6 +125,20 @@ export default function Faturas() {
     } finally { setBaixando(undefined); }
   }
 
+  async function baixarDocumentoDaFatura(item: any, campo: "pdf_cemig_url" | "pdf_unificada_url", nome: string, chave: string) {
+    try {
+      setBaixando(chave);
+      // URLs assinadas expiram enquanto a lista permanece aberta ou em cache.
+      const atualizadas = await refetch({ throwOnError: true });
+      const atual = atualizadas.data?.find((fatura: any) => fatura.id === item.id);
+      const url = atual?.[campo];
+      if (!url) throw new Error("O documento não está disponível. Atualize a lista e tente novamente.");
+      await baixarDocumento(url, nome, chave);
+    } catch (erro: any) {
+      Alert.alert("Não foi possível baixar", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
+    } finally { setBaixando(undefined); }
+  }
+
   function confirmarExclusao(item: any) {
     Alert.alert(
       "Excluir fatura?",
@@ -213,7 +227,7 @@ export default function Faturas() {
               style={styles.invoiceCard}
             >
               <View style={styles.invoiceTop}>
-                <View><Text style={styles.value}>{moeda(valor)}</Text><Text style={styles.reference}>{formatarCompetenciaBrasileira(item.referencia)}</Text></View>
+                <View style={styles.invoiceHeading}><Text style={styles.value}>{moeda(valor)}</Text><Text style={styles.reference}>{formatarCompetenciaBrasileira(item.referencia)}</Text></View>
                 <View style={[styles.status, paga ? styles.statusPaid : vencida ? styles.statusOverdue : styles.statusOpen]}><Text style={styles.statusText}>{paga ? "Paga" : vencida ? "Vencida" : "Em aberto"}</Text></View>
               </View>
               {proprietario ? <View style={styles.customer}><Ionicons name="person-outline" size={15} color={Colors.primary} /><Text numberOfLines={1} style={styles.customerText}>{item.clientes?.nome || "Cliente não identificado"}</Text></View> : null}
@@ -223,13 +237,13 @@ export default function Faturas() {
                 <View style={styles.documentType}><Text style={styles.documentLabel}>FATURA ANDRADE ENERGY</Text><Text numberOfLines={1} style={styles.documentCode}>{item.numero_instalacao || item.id}</Text></View>
               </View>
               <View style={styles.downloads}>
-                <DownloadLink label="Concessionária" available={Boolean(item.pdf_cemig_url)} loading={baixando === `cemig-${item.id}`} onPress={() => baixarDocumento(item.pdf_cemig_url, `concessionaria-${referenciaArquivo}.pdf`, `cemig-${item.id}`)} />
+                <DownloadLink label="Concessionária" available={Boolean(item.pdf_cemig_url)} loading={baixando === `cemig-${item.id}`} onPress={() => baixarDocumentoDaFatura(item, "pdf_cemig_url", `concessionaria-${referenciaArquivo}.pdf`, `cemig-${item.id}`)} />
                 <DownloadLink
                   label={item.fatura_somente_andrade ? "Fatura Andrade" : "Fatura unificada"}
                   available={Boolean(item.pdf_unificada_url)}
                   loading={baixando === `andrade-${item.id}`}
-                  onPress={() => baixarDocumento(
-                    item.pdf_unificada_url,
+                  onPress={() => baixarDocumentoDaFatura(
+                    item, "pdf_unificada_url",
                     `${item.fatura_somente_andrade ? "fatura-andrade" : "fatura-unificada"}-${referenciaArquivo}.pdf`,
                     `andrade-${item.id}`,
                   )}
@@ -303,14 +317,15 @@ const styles = StyleSheet.create({
   filterLabelActive: { color: Colors.text, fontWeight: "900" },
   empty: { paddingTop: Spacing.xl },
   invoiceCard: { marginBottom: Spacing.md, padding: Spacing.md, borderWidth: 1, borderColor: "#C9DED1", borderRadius: Radius.lg, backgroundColor: "#F2F8F4", shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
-  invoiceTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  invoiceTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: Spacing.sm },
+  invoiceHeading: { flex: 1, minWidth: 0 },
   value: { color: Colors.text, fontSize: Typography.body, fontWeight: "900" },
   reference: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small },
-  status: { minWidth: 92, alignItems: "center", paddingHorizontal: Spacing.sm, paddingVertical: 8, borderRadius: Radius.round },
+  status: { minWidth: 92, flexShrink: 0, alignItems: "center", justifyContent: "center", paddingHorizontal: Spacing.sm, paddingVertical: 8, borderRadius: Radius.round },
   statusOpen: { backgroundColor: "#F59E0B" },
   statusPaid: { backgroundColor: Colors.success },
   statusOverdue: { backgroundColor: Colors.danger },
-  statusText: { color: Colors.surface, fontSize: Typography.small, fontWeight: "800" },
+  statusText: { color: Colors.surface, fontSize: Typography.small, fontWeight: "800", textAlign: "center", includeFontPadding: false },
   invoiceDivider: { height: 1, marginVertical: Spacing.md, backgroundColor: "rgba(100,116,139,0.20)" },
   customer: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: Spacing.sm }, customerText: { flex: 1, color: Colors.text, fontSize: Typography.small, fontWeight: "700" },
   invoiceBottom: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },

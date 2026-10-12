@@ -8,12 +8,11 @@ import RealDiscountInfo from "../../components/cadastro/RealDiscountInfo";
 import UsinaSelector from "../../components/cadastro/UsinaSelector";
 import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";
-import { alocarUnidade, consultarAlocacao, listarUsinas } from "../../services/usinas.service";
+import { alocarUnidade, cadastrarUnidadeOperacional, consultarAlocacao, listarUsinas } from "../../services/usinas.service";
 import { useAuth } from "../../contexts/AuthContext";
 import { calcularMediaConsumoFatura, listarFaturas } from "../../services/faturas.service";
 import { buscarCliente, listarClientes } from "../../services/clientes.service";
 import { avisosPassoAPassoAtivos } from "../../services/preferencias.service";
-import { supabase } from "../../supabase";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 type Tipo = "CONSUMIDORA" | "BENEFICIARIA" | "GERADORA";
@@ -52,6 +51,8 @@ export default function NovaUnidade() {
   const [numero, setNumero] = useState(""); const [titular, setTitular] = useState("");
   const [cpfTitular, setCpfTitular] = useState("");
   const [tipo, setTipo] = useState<Tipo>("BENEFICIARIA"); const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO");
+  const [planoContrato, setPlanoContrato] = useState("COM_FIDELIDADE");
+  const [descontoPersonalizado, setDescontoPersonalizado] = useState(false);
   const [desconto, setDesconto] = useState("40"); const [endereco, setEndereco] = useState("");
   const [consumoMedio, setConsumoMedio] = useState(consumoMedioImportado ?? "");
   const [formatoFatura, setFormatoFatura] = useState<FormatoFatura>("UNIFICADA");
@@ -70,6 +71,12 @@ export default function NovaUnidade() {
   const usinaSelecionada = usinas.find((item) => item.id === usinaId);
   const usinaGd2 = String(usinaSelecionada?.tipo_gd ?? "").toUpperCase() === "GD2";
   const tipoGdEfetivo = String(usinaSelecionada?.tipo_gd ?? "").toUpperCase();
+
+  useEffect(() => {
+    if (planoContrato === "SEM_FIDELIDADE" && !descontoPersonalizado && ["GD1", "GD2"].includes(tipoGdEfetivo)) {
+      setDesconto(tipoGdEfetivo === "GD2" ? "30" : "20");
+    }
+  }, [planoContrato, descontoPersonalizado, tipoGdEfetivo]);
 
   useEffect(() => {
     listarUsinas().then((u) => {
@@ -241,6 +248,7 @@ export default function NovaUnidade() {
           numero,
           modalidade: modalidadeFinal,
           percentual: modalidadeFinal === "INJECAO" ? percentualRateio : (percentualRateio || undefined),
+          planoContrato,
           desconto: descontoFinal,
           consumoMedio: consumoMedioFinal,
           endereco: endereco.trim() || clienteSelecionado?.endereco || null,
@@ -260,9 +268,11 @@ export default function NovaUnidade() {
           if (destino) await selecionarUsina(destino);
         }
       } else {
-        const { error } = await supabase.from("unidades_consumidoras").upsert({
+        if (!usinaFinal) throw new Error("Selecione uma usina antes de cadastrar esta unidade.");
+        await cadastrarUnidadeOperacional(usinaFinal, {
           numero, titular: titular.trim() || clienteSelecionado?.nome || null, tipo, cliente_id: clienteId || null, usina_id: usinaFinal,
           distribuidora: clienteSelecionado?.distribuidora || "CEMIG", endereco: endereco.trim() || clienteSelecionado?.endereco || null, modalidade_faturamento: modalidadeFinal,
+          plano_contrato: planoContrato,
           desconto_percentual: descontoFinal, cpf_titular: documentoTitular || clienteSelecionado?.cpf || null, status: "PENDENTE_CONTRATO",
           percentual_repasse_disponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0,
           repassar_disponibilidade_gd1: repasseDisponibilidadeGD1 === "REPASSAR",
@@ -270,8 +280,7 @@ export default function NovaUnidade() {
           repassar_diferenca_fio_b_gd2: repasseFioBGD2 === "REPASSAR",
           tipo_gd: ["GD1", "GD2", "MISTA"].includes(tipoGdEfetivo) ? tipoGdEfetivo : null,
           fatura_somente_andrade: formatoFatura === "SOMENTE_ANDRADE",
-        }, { onConflict: "numero" });
-        if (error) throw error;
+        });
       }
 
       if (origem === "fatura" && clienteId) {
@@ -314,7 +323,9 @@ export default function NovaUnidade() {
         <Text style={styles.beneficiariaHint}>{producaoParaAlocacao(usinaSelecionada) > 0 ? `Energia estimada para esta UC: aproximadamente ${(producaoParaAlocacao(usinaSelecionada) * numeroSeguro(percentualAlocado) / 100).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kWh/mês (${percentualAlocado || "0"}% da produção média da usina).` : "Informe a produção média da usina para estimar os kWh mensais desta porcentagem."}</Text>
         <Text style={styles.beneficiariaHint}>{saldoAlocacao === null ? "Consultando saldo da usina..." : `Disponível para alocação: ${saldoAlocacao.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`}</Text>
         <Text style={styles.beneficiariaHint}>{modalidade === "INJECAO" ? "Informe manualmente a parcela da produção da usina destinada a esta UC. Este valor é definido pelo gerador." : "A sugestão considera 115% do consumo médio sobre a produção média disponível da usina. Você pode editar."}</Text>
-        <FormField label="Desconto contratado (%)" value={desconto} onChangeText={(valor) => setDesconto(valor.replace(/[^\d,.]/g, ""))} keyboardType="decimal-pad" />
+        <ChoiceField label="Plano do contrato" value={planoContrato} onChange={(valor) => { setPlanoContrato(valor); setDescontoPersonalizado(false); }} options={[{ label: "Com fidelidade", value: "COM_FIDELIDADE" }, { label: "Sem fidelidade", value: "SEM_FIDELIDADE" }]} />
+        {planoContrato === "SEM_FIDELIDADE" ? <Text>Prazo indeterminado, sem multa por saída antecipada e aviso prévio de 90 dias. Desconto inicial: GD II 30%; GD I 20%. Você pode editar o percentual abaixo.</Text> : null}
+        <FormField label="Desconto contratado (%)" value={desconto} onChangeText={(valor) => { setDescontoPersonalizado(true); setDesconto(valor.replace(/[^\d,.]/g, "")); }} keyboardType="decimal-pad" />
       </> : <UsinaSelector usinas={usinas} value={usinaId} onChange={setUsinaId} label="Usina geradora" />}
       {!clienteIdVinculado ? <><Text style={styles.label}>Vincular ao cliente *</Text><Text style={styles.beneficiariaHint}>Mostrando clientes da usina {usinaSelecionada?.nome ?? "selecionada"}. Se o cliente estiver em outra usina, volte e troque de usina antes de continuar.</Text>{clientes.length ? <View style={styles.options}>{clientes.map((c) => <Pressable key={c.id} onPress={() => setClienteId(clienteId === c.id ? "" : c.id)} style={[styles.link, clienteId === c.id && styles.linkSelected]}><Text>{c.nome}</Text></Pressable>)}</View> : <Text style={styles.clientRequired}>Nenhum cliente vinculado a esta usina. Cadastre o cliente ou selecione a usina correta antes de adicionar a UC.</Text>}</> : null}
       <ChoiceField label="Formato da cobrança" value={formatoFatura} onChange={(valor) => setFormatoFatura(valor as FormatoFatura)} options={[{ label: "Fatura Unificada Andrade Energy", value: "UNIFICADA" }, { label: "Somente Andrade Energy", value: "SOMENTE_ANDRADE" }]} />

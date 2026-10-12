@@ -21,6 +21,7 @@ import {
 } from "react-native";
 
 import { useAuth } from "../../contexts/AuthContext";
+import { isPreviewEnvironment } from "../../config/environment";
 import { listarFaturas } from "../../services/faturas.service";
 import { listarNotificacoesApp } from "../../services/notificacoes.service";
 import { listarMinhasUnidades } from "../../services/clientes.service";
@@ -189,6 +190,7 @@ export default function ClienteHeader({
       | "/faturas"
       | "/contrato"
       | "/tutoriais"
+      | "/assistente"
       | "/sobre"
       | "/unidades/recebimento-email"
   ) {
@@ -409,7 +411,7 @@ export default function ClienteHeader({
       </LinearGradient>
 
       <NotificationSideSheet visible={notificacoesAbertas} onClose={() => setNotificacoesAbertas(false)}>
-        <NotificationInbox items={notificacoes} readIds={leituras.ids} ready={leituras.ready} onMark={leituras.markMany} onClose={() => setNotificacoesAbertas(false)} onOpen={(aviso) => {
+        <NotificationInbox onClear={confirmarLimpeza} items={notificacoes} readIds={leituras.ids} ready={leituras.ready} onMark={leituras.markMany} onClose={() => setNotificacoesAbertas(false)} onOpen={(aviso) => {
           if (!leituras.ids.includes(String(aviso.id))) void marcarComoLida(String(aviso.id));
           setNotificacoesAbertas(false);
           if (aviso.rota) router.push(aviso.rota as any);
@@ -514,11 +516,7 @@ export default function ClienteHeader({
               }
             />
 
-            <MenuItem
-              icon="play-circle-outline"
-              label="Tutoriais"
-              onPress={() => navegar("/tutoriais")}
-            />
+            {isPreviewEnvironment ? <MenuItem icon="chatbubble-ellipses-outline" label="Ajuda Andrade Energy" onPress={() => navegar("/assistente")} /> : null}
             <MenuItem icon="globe-outline" label="Site Andrade Energy" onPress={() => { setMenuAberto(false); void abrirSiteApp(); }} />
             <MenuItem icon="information-circle-outline" label="Sobre o app" onPress={() => navegar("/sobre")} />
 
