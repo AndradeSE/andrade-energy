@@ -14,7 +14,7 @@ import { identificarTipoGdDocumento, rotuloTipoGdDocumento } from "./tipoGdDocum
 
 const BUCKET = "faturas";
 export const VERSAO_LAYOUT_FATURA = "layout-20261011-v14";
-export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20261009-v4";
+export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20261012-v5";
 const VERDE = "#107C5C";
 const VERDE_ESCURO = "#07533D";
 const VERDE_CLARO = "#E8F6F0";
@@ -710,6 +710,48 @@ export async function gerarPdfRelatorioCalculo(fatura: any) {
     pdf.fillColor(TEXTO).font("Helvetica").fontSize(9).text(observacaoModalidade, 64, 594, { width: 466, lineGap: 4 });
     pdf.fillColor(TEXTO).font("Helvetica").fontSize(9).text(somenteAndrade ? "Esta UC usa documentos separados: este total representa a cobrança Andrade; a conta da concessionária continua sendo paga à parte." : "Esta UC usa fatura unificada: o total reúne a parcela da concessionária repassada ao cliente e a cobrança Andrade.", 64, 641, { width: 466, lineGap: 4 });
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7).text(`Documento gerado automaticamente em ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}. Valores monetários arredondados para centavos; prevalecem os registros do faturamento.`, 48, 744, { width: 498, align: "center", lineGap: 2 });
+
+    pdf.addPage({ size: "A4", margins: { top: 42, right: 48, bottom: 42, left: 48 } });
+    pdf.rect(0, 0, 595, 842).fill("#F3F7F5");
+    pdf.rect(0, 0, 595, 88).fill("#063C25");
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(17).text("O que você está pagando", 48, 31);
+    pdf.fillColor("#D8EEE6").font("Helvetica").fontSize(8).text(`Fatura ${fatura.referencia ?? ""} · UC ${fatura.numero_instalacao ?? unidade.numero ?? "-"}`, 48, 55);
+    const compensadaInformada = fatura.energia_compensada != null && Number.isFinite(Number(fatura.energia_compensada));
+    const compensada = Math.max(0, numero(fatura.energia_compensada));
+    // A decomposição explica a base já faturada; não refaz o faturamento nem
+    // cobra novamente o estoque de créditos de períodos anteriores.
+    const compensadaNaBase = modalidade === "INJECAO" ? Math.min(Math.max(0, energiaBase), compensada) : energiaBase;
+    const excedenteNaBase = modalidade === "INJECAO" ? Math.max(0, energiaBase - compensadaNaBase) : 0;
+    const centavos = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
+    const valorCompensada = centavos(compensadaNaBase * tarifaAndrade);
+    const valorExcedente = centavos(valorAndradeBruto) - valorCompensada;
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(9).text(modalidade === "INJECAO"
+      ? "Você paga pela energia injetada faturada no período: a parte utilizada na compensação e a parte excedente. Abaixo, essas parcelas são separadas antes das absorções."
+      : "Você paga pela energia compensada faturada no período. O excedente que ficou em crédito não é cobrado nesta fatura.", 48, 112, { width: 498, lineGap: 4 });
+    cartao(48, 175, 498, 122, "#E8F6F0");
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("1. PARCELA DA COMPENSAÇÃO", 62, 191);
+    linha("Energia compensada informada na conta", compensadaInformada ? energia(compensada) : "Não informada", 216);
+    linha("Compensação incluída na base desta cobrança", compensadaInformada ? energia(compensadaNaBase) : "Separação indisponível", 239);
+    linha("Valor antes das absorções", compensadaInformada ? `${energia(compensadaNaBase)} × ${tarifaKwh(tarifaAndrade)} = ${moeda(valorCompensada)}` : "Dados insuficientes para separar", 266, true);
+    cartao(48, 313, 498, 133, "#EDF7FA");
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("2. PARCELA DO EXCEDENTE DO PERÍODO", 62, 329);
+    linha("Excedente incluído na cobrança", modalidade === "INJECAO" && !compensadaInformada ? "Separação indisponível" : energia(excedenteNaBase), 354);
+    linha("Valor cobrado pelo excedente nesta fatura", modalidade === "INJECAO" && !compensadaInformada ? "Dados insuficientes para separar" : modalidade === "INJECAO" ? `${energia(excedenteNaBase)} × ${tarifaKwh(tarifaAndrade)} = ${moeda(valorExcedente)}` : moeda(0), 378, true);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(modalidade === "INJECAO"
+      ? "Excedente faturado = base de injeção faturada menos a compensação atendida por essa base. Não é o saldo total acumulado."
+      : "Sem cobrança de excedente nesta competência. O crédito permanece registrado; eventual acerto no encerramento segue o contrato e a configuração vigente.", 62, 408, { width: 466, lineGap: 2 });
+    cartao(48, 462, 498, 134, "#FFFFFF");
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("3. CONFERÊNCIA DA COBRANÇA ANDRADE", 62, 478);
+    linha("Total da energia antes das absorções", moeda(valorAndradeBruto), 503);
+    linha("Absorção de disponibilidade", `- ${moeda(disponibilidadeAbsorvida)}`, 526);
+    linha("Absorção de Fio B", `- ${moeda(fioBAbsorvido)}`, 549);
+    linha("Cobrança Andrade registrada nesta fatura", moeda(valorAndrade), 572, true);
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(8.5).text("As absorções são apresentadas no total, pois o faturamento não registra sua distribuição entre compensação e excedente. A parcela da concessionária está no fechamento das páginas anteriores.", 48, 614, { width: 498, lineGap: 3 });
+    const saldoDisponivel = fatura.saldo_atual != null && Number.isFinite(Number(fatura.saldo_atual));
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text(`Saldo total acumulado após o período: ${saldoDisponivel ? energia(fatura.saldo_atual) : "não informado"}`, 48, 675, { width: 498 });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(compensadaInformada && modalidade === "INJECAO" && compensada > energiaBase
+      ? "A compensação informada supera a injeção faturada. A diferença não é adicionada a esta cobrança; pode envolver créditos anteriores. O saldo acumulado não representa uma nova parcela a pagar."
+      : "O saldo acumulado é o estoque de créditos disponível, que pode incluir períodos anteriores. Ele não é somado novamente ao valor desta fatura. As parcelas monetárias são arredondadas para fechar o total da energia em centavos.", 48, 700, { width: 498, lineGap: 3 });
     pdf.end();
   });
 }
