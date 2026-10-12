@@ -13,7 +13,7 @@ import { interpretarFatura } from "../../services/ocr/parser.service";
 import { identificarTipoGdDocumento, rotuloTipoGdDocumento } from "./tipoGdDocumento";
 
 const BUCKET = "faturas";
-export const VERSAO_LAYOUT_FATURA = "layout-20261011-v13";
+export const VERSAO_LAYOUT_FATURA = "layout-20261011-v14";
 export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20261009-v4";
 const VERDE = "#107C5C";
 const VERDE_ESCURO = "#07533D";
@@ -545,10 +545,15 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
       });
       if (!historicoFatura.length) pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6).text("Histórico indisponível",x+12,top+38,{width:largura-24,align:"center"});
       if (contas) {
-        pdf.roundedRect(x+16,top+68,5,5,1).fill("#EF8C1B");
-        pdf.fillColor(TEXTO).font("Helvetica").fontSize(5.5).text("Sem Andrade",x+25,top+67,{width:80});
-        pdf.roundedRect(x+125,top+68,5,5,1).fill("#75AC32");
-        pdf.fillColor(TEXTO).text("Com Andrade",x+134,top+67,{width:80});
+        const centroLegenda = top + 70.5;
+        for (const [deslocamento, cor, legenda] of [[16, "#EF8C1B", "Sem Andrade"], [125, "#75AC32", "Com Andrade"]] as const) {
+          pdf.roundedRect(x + deslocamento, centroLegenda - 2.5, 5, 5, 1).fill(cor);
+          pdf.fillColor(TEXTO).font("Helvetica").fontSize(5.5).text(legenda, x + deslocamento + 9, centroLegenda, {
+            width: 80,
+            lineBreak: false,
+            baseline: "middle",
+          });
+        }
       }
     }
     pdf.rect(48, 805, LARGURA, 14).fill("#EFF6F1");
