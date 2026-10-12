@@ -114,6 +114,18 @@ export async function obterContratoDaUnidade(
       }
     }
   }
+  // Preserve o histórico da UC quando não existe contrato ativo ou minuta enviada.
+  // A consulta não deve cair no contrato legado de outra UC do mesmo cliente.
+  if (!contratoDaUnidade && !preferirRascunho) {
+    let historicoQuery = supabase.from("contratos").select("*")
+      .eq("unidade_consumidora_id", unidadeId)
+      .in("status", ["CANCELADO", "ENCERRADO", "VENCIDO"])
+      .order("updated_at", { ascending: false }).limit(1);
+    if (empresaId) historicoQuery = historicoQuery.eq("empresa_id", empresaId);
+    const { data: historico, error: erroHistorico } = await historicoQuery.maybeSingle();
+    if (erroHistorico) throw erroHistorico;
+    contratoDaUnidade = historico;
+  }
   if (contratoDaUnidade) {
     const anteriorId = preferirRevisaoEnviada ? contratoDaUnidade.dados_documento?.contrato_anterior_id : null;
     if (anteriorId) {
