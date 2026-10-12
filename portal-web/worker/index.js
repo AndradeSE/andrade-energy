@@ -1,3 +1,4 @@
+import { proxyApi } from "./api-proxy.js";
 const tagplusCallbackScript = `
 (() => {
   const params = new URLSearchParams(location.hash.slice(1));
@@ -48,6 +49,7 @@ function tagplusCallback(request) {
 export default {
   async fetch(request, env) {
     const requestUrl = new URL(request.url);
+    if (requestUrl.pathname.startsWith("/api/")) return proxyApi(request, env);
     if (requestUrl.pathname === "/oauth/tagplus/callback") return tagplusCallback(request);
     const downloads = {
       "/downloads/andrade-energy-gerador.apk": "https://github.com/AndradeSE/andrade-energy/releases/download/apps-2026-08-27/andrade-energy-gerador.apk",

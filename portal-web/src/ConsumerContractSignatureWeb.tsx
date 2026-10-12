@@ -1,3 +1,5 @@
+import { apiFetch as fetch } from "./apiClient";
+import { hasVerifiedSignature } from "./flowSafety";
 import { PointerEvent, useEffect, useRef, useState } from "react";
 
 type Props = {
@@ -12,13 +14,16 @@ type Point = { x: number; y: number };
 export default function ConsumerContractSignatureWeb({ apiUrl, token, contract, onSigned }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawingRef = useRef(false);
+  const inFlight = useRef(false);
+  const controllerRef = useRef<AbortController | null>(null);
   const currentStroke = useRef<Point[]>([]);
   const [strokes, setStrokes] = useState<Point[][]>([]);
+  const [reviewed, setReviewed] = useState(false);
   const [code, setCode] = useState("");
   const [maskedEmail, setMaskedEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const signed = Boolean(contract.aceite_cliente_em || contract.contrato_assinado_url);
+  const signed = hasVerifiedSignature(contract);
   const documentUrl = String(contract.contrato_assinado_url ?? contract.contrato_gerado_url ?? contract.arquivo_pdf ?? "");
 
   function redraw(nextStrokes = strokes) {
@@ -40,6 +45,7 @@ export default function ConsumerContractSignatureWeb({ apiUrl, token, contract, 
   }
 
   useEffect(() => redraw(), [strokes]);
+  useEffect(() => { setStrokes([]); setCode(""); setMaskedEmail(""); setMessage(""); setReviewed(false); drawingRef.current = false; currentStroke.current = []; inFlight.current = false; setBusy(false); return () => controllerRef.current?.abort(); }, [contract.id, contract.versao, documentUrl]);
 
   function pointFromEvent(event: PointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current;
@@ -52,6 +58,7 @@ export default function ConsumerContractSignatureWeb({ apiUrl, token, contract, 
   }
 
   function startDrawing(event: PointerEvent<HTMLCanvasElement>) {
+    if (busy) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     drawingRef.current = true;
     currentStroke.current = [pointFromEvent(event)];
@@ -71,44 +78,50 @@ export default function ConsumerContractSignatureWeb({ apiUrl, token, contract, 
   }
 
   async function requestCode() {
+    if (inFlight.current) return;
+    inFlight.current = true; const controller = new AbortController(); controllerRef.current = controller;
     setBusy(true);
     setMessage("");
     try {
       const response = await fetch(`${apiUrl}/contratos/${contract.id}/codigo-assinatura`, {
-        method: "POST",
+        method: "POST", signal: controller.signal,
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json().catch(() => ({}));
+      if (controller.signal.aborted) return;
       if (!response.ok) throw new Error(data.message ?? "Não foi possível enviar o código.");
       setMaskedEmail(String(data.emailMascarado ?? "seu e-mail"));
       setMessage("Código enviado. Ele é válido por 10 minutos.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Não foi possível enviar o código.");
+      if (!controller.signal.aborted) setMessage(error instanceof Error ? error.message : "Não foi possível enviar o código.");
     } finally {
-      setBusy(false);
+      if (!controller.signal.aborted) { inFlight.current = false; setBusy(false); }
     }
   }
 
   async function sign() {
+    if (inFlight.current || !reviewed) return;
     if (code.length !== 6) return setMessage("Informe os seis dígitos enviados ao seu e-mail.");
     if (!strokes.length || JSON.stringify(strokes).length < 80) return setMessage("Faça sua assinatura no campo indicado.");
+    inFlight.current = true; const controller = new AbortController(); controllerRef.current = controller;
     setBusy(true);
     setMessage("");
     try {
       const signature = strokes.map((stroke) => stroke.map((point) => `${point.x},${point.y}`).join("|"));
       const response = await fetch(`${apiUrl}/contratos/${contract.id}/aceite-eletronico`, {
-        method: "POST",
+        method: "POST", signal: controller.signal,
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ codigo: code, assinatura: signature }),
       });
       const data = await response.json().catch(() => ({}));
+      if (controller.signal.aborted) return;
       if (!response.ok) throw new Error(data.message ?? "Não foi possível assinar o contrato.");
       setMessage("Contrato assinado. Abrindo sua lista de unidades...");
       onSigned(data);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Não foi possível assinar o contrato.");
+      if (!controller.signal.aborted) setMessage(error instanceof Error ? error.message : "Não foi possível assinar o contrato.");
     } finally {
-      setBusy(false);
+      if (!controller.signal.aborted) { inFlight.current = false; setBusy(false); }
     }
   }
 
@@ -122,6 +135,7 @@ export default function ConsumerContractSignatureWeb({ apiUrl, token, contract, 
       {documentUrl ? <a className="tool-button" href={documentUrl} target="_blank" rel="noreferrer">Abrir contrato completo em PDF</a> : <strong>O gerador ainda não disponibilizou o PDF para assinatura.</strong>}
       {!signed && documentUrl ? (
         <>
+          <label><input type="checkbox" disabled={busy} checked={reviewed} onChange={e => setReviewed(e.target.checked)} />Li o PDF e concordo com o contrato desta UC.</label>
           <label className="signature-label" htmlFor="contract-signature">Assine no campo abaixo</label>
           <canvas
             id="contract-signature"
@@ -139,7 +153,7 @@ export default function ConsumerContractSignatureWeb({ apiUrl, token, contract, 
           </div>
           {maskedEmail ? <small>Código enviado para {maskedEmail}</small> : null}
           <label className="signature-code">Código de confirmação<input inputMode="numeric" maxLength={6} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" /></label>
-          <button className="primary-sign-button" type="button" disabled={busy || code.length !== 6 || !strokes.length} onClick={() => void sign()}>{busy ? "Processando..." : "Confirmar e assinar contrato"}</button>
+          <button className="primary-sign-button" type="button" disabled={busy || !reviewed || code.length !== 6 || !strokes.length} onClick={() => void sign()}>{busy ? "Processando..." : "Confirmar e assinar contrato"}</button>
         </>
       ) : null}
       {message ? <div className="invite-message">{message}</div> : null}
