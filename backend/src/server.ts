@@ -10,6 +10,7 @@ import authRoutes from "./modules/auth/auth.routes";
 import clientesRoutes from "./modules/clientes/clientes.routes";
 import contratosRoutes from "./modules/contratos/contratos.routes";
 import { avisarContratosProximosDoVencimento } from "./modules/contratos/vencimentoContrato.service";
+import { avisarFaturasProximasDoVencimento } from "./modules/faturas/lembreteVencimento.service";
 import creditosRoutes from "./modules/creditos/creditos.routes";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes";
 import faturasRoutes from "./modules/faturas/faturas.routes";
@@ -234,6 +235,9 @@ async function iniciarServidor() {
   const avisarVencimentos = () => void avisarContratosProximosDoVencimento().catch(erro => console.error("Falha ao avisar vencimentos:", erro.message));
   avisarVencimentos();
   setInterval(avisarVencimentos, 60 * 60_000);
+  const avisarFaturas = () => void avisarFaturasProximasDoVencimento().catch(erro => console.error("Falha ao avisar vencimento das faturas:", erro.message));
+  avisarFaturas();
+  setInterval(avisarFaturas, 60 * 60_000);
   processarConvitesAdesoes().catch(() => console.error("Falha ao processar convites de assinaturas."));
   processarContasDeEnergiaRecebidas().catch((erro) => console.error("Falha ao importar produção por e-mail:", erro.message));
   processarFilaDeRecebimentosFaturas().catch((erro) => console.error("Falha ao processar faturas recebidas por e-mail:", erro.message));
