@@ -84,6 +84,7 @@ export function extrairCadastroCemig(texto: string) {
     texto.match(/CLASSIFICA[CÇ][AÃ]O(?:\s+TARIF[AÁ]RIA)?\s*[:\-]?\s*([^\r\n]{2,48})/i)?.[1]
       ?? texto.match(/\b(B[1-4]\s+(?:RESIDENCIAL|COMERCIAL|RURAL|INDUSTRIAL)[^\r\n]{0,28})/i)?.[1]
       ?? texto.match(/\b((?:RESIDENCIAL|COMERCIAL|RURAL|INDUSTRIAL)(?:\s*(?:RESIDENCIAL|COMERCIAL|RURAL|INDUSTRIAL))?\s+(?:CONVENCIONAL\s+)?B[1-4])/i)?.[1]
+      ?? texto.replace(/[^\S\r\n]+/g, " ").match(/\b((?:RESIDENCIAL|COMERCIAL|RURAL|INDUSTRIAL)[^\r\n]{0,80}?\bCONVENCIONAL\s+B[1-4])\b/i)?.[1]
       ?? ""
   ).replace(/^(Residencial|Comercial|Rural|Industrial)\1/i, "$1 ").replace(/\s+/g, " ").trim();
 
