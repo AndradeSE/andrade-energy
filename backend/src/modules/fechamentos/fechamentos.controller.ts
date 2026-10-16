@@ -13,7 +13,10 @@ export async function listarFechamentosController(
   res: Response
 ) {
   try {
-    const data = await listarFechamentos(empresaIdDaRequisicao(req));
+    const empresaId = empresaIdDaRequisicao(req);
+    const usinaId = typeof req.query.usinaId === "string" ? req.query.usinaId : undefined;
+    if (usinaId) await garantirRegistroDaEmpresa("usinas", usinaId, empresaId);
+    const data = await listarFechamentos(empresaId, usinaId);
 
     res.json(data);
   } catch (err: any) {
@@ -30,9 +33,12 @@ export async function resumoOperacaoController(
   res: Response
 ) {
   try {
+    const usinaId = typeof req.query.usinaId === "string" ? req.query.usinaId : undefined;
+    if (usinaId) await garantirRegistroDaEmpresa("usinas", usinaId, empresaIdDaRequisicao(req));
     const data = await obterResumoOperacao(
       empresaIdDaRequisicao(req),
       typeof req.query.competencia === "string" ? req.query.competencia : undefined,
+      usinaId,
     );
 
     res.json(data);

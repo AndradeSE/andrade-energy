@@ -1,12 +1,16 @@
 import { supabase } from "../../config/supabase";
 import { chaveCompetencia as competenciaChave } from "../dashboard/competencia.policy";
 
-export async function obterResumoOperacao(empresaId: string, competenciaSolicitada?: string) {
-  const [fechamentosResult, faturasResult, usinasResult] = await Promise.all([
-    supabase.from("fechamentos").select("*").eq("empresa_id", empresaId).order("competencia", { ascending: false }),
-    supabase.from("faturas").select("*, cobrancas(status,pago_em)").eq("empresa_id", empresaId),
-    supabase.from("usinas").select("id,nome").eq("empresa_id", empresaId),
-  ]);
+export async function obterResumoOperacao(empresaId: string, competenciaSolicitada?: string, usinaId?: string) {
+  let consultaFechamentos = supabase.from("fechamentos").select("*").eq("empresa_id", empresaId).order("competencia", { ascending: false });
+  let consultaFaturas = supabase.from("faturas").select("*, cobrancas(status,pago_em)").eq("empresa_id", empresaId);
+  let consultaUsinas = supabase.from("usinas").select("id,nome").eq("empresa_id", empresaId);
+  if (usinaId) {
+    consultaFechamentos = consultaFechamentos.eq("usina_id", usinaId);
+    consultaFaturas = consultaFaturas.eq("usina_id", usinaId);
+    consultaUsinas = consultaUsinas.eq("id", usinaId);
+  }
+  const [fechamentosResult, faturasResult, usinasResult] = await Promise.all([consultaFechamentos, consultaFaturas, consultaUsinas]);
   if (fechamentosResult.error) throw fechamentosResult.error;
   if (faturasResult.error) throw faturasResult.error;
   if (usinasResult.error) throw usinasResult.error;
@@ -58,7 +62,7 @@ export async function obterResumoOperacao(empresaId: string, competenciaSolicita
   };
 }
 
-export async function listarFechamentos(empresaId: string) {
+export async function listarFechamentos(empresaId: string, usinaId?: string) {
 
   const { data, error } =
     await supabase
@@ -74,7 +78,7 @@ export async function listarFechamentos(empresaId: string) {
 
   if (error) throw error;
 
-  return data ?? [];
+  return usinaId ? (data ?? []).filter((item: any) => item.usina_id === usinaId) : data ?? [];
 }
 
 export async function buscarFechamento(
