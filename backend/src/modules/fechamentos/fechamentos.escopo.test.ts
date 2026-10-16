@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 process.env.SUPABASE_URL = "http://127.0.0.1:9";
 process.env.SUPABASE_SERVICE_KEY = "test-only-not-a-real-key";
 test("operação restringe energia, receita e meses à usina da empresa", async () => {
-  const { supabase } = await import("../../config/supabase");
-  const { obterResumoOperacao, listarFechamentos } = await import("./fechamentos.repository");
+  const { supabase } = await import("../../config/supabase.js");
+  const { obterResumoOperacao, listarFechamentos } = await import("./fechamentos.repository.js");
   const original = supabase.from;
   const datasets: Record<string, any[]> = {
     usinas: [{ id: "a", empresa_id: "empresa" }, { id: "b", empresa_id: "empresa" }],
@@ -24,7 +24,7 @@ test("operação restringe energia, receita e meses à usina da empresa", async 
     assert.equal(resumo.receitaPrevista, 70);
     assert.equal(resumo.totalUsinas, 1);
     assert.deepEqual(resumo.competencias, ["2026-10"]);
-    assert.deepEqual((await listarFechamentos("empresa", "a")).map(r => r.id), ["fa"]);
+    assert.deepEqual((await listarFechamentos("empresa", "a")).map((r: any) => r.id), ["fa"]);
     assert.equal((await obterResumoOperacao("outra", undefined, "a")).totalFaturas, 0);
   } finally { supabase.from = original; }
 });
