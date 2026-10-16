@@ -7,16 +7,16 @@ import {
 
 import { gerarRateio } from "../rateio/rateio.service";
 
-export async function listarFechamentos(empresaId: string) {
-  return await listarFechamentosRepository(empresaId);
+export async function listarFechamentos(empresaId: string, usinaId?: string) {
+  return await listarFechamentosRepository(empresaId, usinaId);
 }
 
 export async function buscarFechamento(id: string, empresaId: string) {
   return await buscarFechamentoRepository(id, empresaId);
 }
 
-export async function obterResumoOperacao(empresaId: string, competencia?: string) {
-  return await obterResumoOperacaoRepository(empresaId, competencia);
+export async function obterResumoOperacao(empresaId: string, competencia?: string, usinaId?: string) {
+  return await obterResumoOperacaoRepository(empresaId, competencia, usinaId);
 }
 
 export async function fecharUsina({
