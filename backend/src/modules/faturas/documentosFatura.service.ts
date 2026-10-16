@@ -14,8 +14,8 @@ import { interpretarFatura } from "../../services/ocr/parser.service";
 import { identificarTipoGdDocumento, rotuloTipoGdDocumento } from "./tipoGdDocumento";
 
 const BUCKET = "faturas";
-export const VERSAO_LAYOUT_FATURA = "layout-20261012-v15";
-export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20261012-v6";
+export const VERSAO_LAYOUT_FATURA = "layout-20261016-v16";
+export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20261016-v7";
 const VERDE = "#107C5C";
 const VERDE_ESCURO = "#07533D";
 const VERDE_CLARO = "#E8F6F0";
@@ -369,15 +369,15 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(11).text(dataBrasileira(fatura.vencimento), 490, 55, { width: 88, lineBreak: false });
 
     // Identificação do titular e da unidade.
-    desenharCartao(38, y.dados - 8, 230, 112, "#FBF7EC");
-    desenharCartao(288, y.dados - 8, 269, 112, "#F2F7F3");
+    desenharCartao(48, y.dados - 8, 220, 112, "#FBF7EC");
+    desenharCartao(288, y.dados - 8, 258, 112, "#F2F7F3");
     pdf.strokeColor(BORDA).lineWidth(0.7).moveTo(278, y.dados).lineTo(278, 255).stroke();
     pdf.circle(59, y.dados + 8, 7).fill(VERDE_ESCURO);
     pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(7).text("i", 57.4, y.dados + 4);
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(7).text("DADOS DO TITULAR", 72, y.dados + 3);
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10).text(textoCurto(titular, 39).toUpperCase(), 48, y.dados + 22, { width: 210 });
-    pdf.fillColor(TEXTO).font("Helvetica").fontSize(8).text(textoCurto(endereco, 62), 48, y.dados + 43, { width: 210, lineGap: 3 });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.3).text(documento ? `CPF ${documento}` : "CPF não informado", 48, y.dados + 78);
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10).text(textoCurto(titular, 39).toUpperCase(), 62, y.dados + 22, { width: 196 });
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(7.5).text(textoCurto(endereco, 62), 62, y.dados + 49, { width: 196, height: 24, lineGap: 2, ellipsis: true });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.3).text(documento ? `CPF ${documento}` : "CPF não informado", 62, y.dados + 78);
     pdf.circle(307, y.dados + 8, 7).fill(VERDE_ESCURO);
     pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(7).text("•", 305.5, y.dados + 4);
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(7).text("UNIDADE CONSUMIDORA (UC)", 320, y.dados + 3);
@@ -410,16 +410,16 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.roundedRect(48, y.aviso, LARGURA, 40, 6).strokeColor(faturaSomenteAndrade ? "#DC8A00" : "#F0C36C").lineWidth(faturaSomenteAndrade ? 1.1 : 0.7).stroke();
     const avisoCustos = faturaSomenteAndrade
       ? "ATENÇÃO: PAGUE TAMBÉM A FATURA DA CONCESSIONÁRIA. ESTA COBRANÇA É SOMENTE DA ANDRADE ENERGY."
-      : possuiGD2
+      : valorTotalAbsorvido > 0
+        ? "Conta Cemig mantida integral. Os custos absorvidos são abatidos somente da parcela Andrade."
+        : possuiGD2
         ? "GD II: custos obrigatórios da rede permanecem na conta da concessionária."
         : "Custos obrigatórios da rede permanecem na conta da concessionária.";
     pdf.fillColor(faturaSomenteAndrade ? "#9A4F00" : "#A36500").font("Helvetica-Bold").fontSize(faturaSomenteAndrade ? 7 : 6.1).text(avisoCustos, 64, y.aviso + 6, { width: 465, align: "center", lineGap: 1 });
     pdf.fillColor("#855B18").font("Helvetica").fontSize(5.6).text("Multas, iluminação pública, bandeiras e encargos extraordinários não são considerados para mensurar o desconto real.", 64, y.aviso + 24, { width: 465, align: "center", lineGap: 1 });
 
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8.5).text(documentoUnificado ? "COMO CHEGAMOS AO TOTAL UNIFICADO" : "COMO CHEGAMOS À COBRANÇA", 48, y.composicao - 14);
-    const rotuloCemig = valorTotalAbsorvido > 0
-      ? `CEMIG DO CLIENTE\n(${moeda(valorCemigOriginal)} - ${moeda(valorTotalAbsorvido)})`
-      : "CONTA DA\nCONCESSIONÁRIA";
+    const rotuloCemig = "VALOR DA FATURA\nCEMIG";
     const disponibilidadeAbsorvida = numero(fatura.valor_absorvido_disponibilidade);
     const fioBAbsorvido = numero(fatura.valor_absorvido_fio_b);
     const rotuloAbsorcao = disponibilidadeAbsorvida > 0 && fioBAbsorvido > 0
@@ -430,7 +430,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
           ? "DEVOLUÇÃO\nDO FIO B"
           : "SEM DEVOLUÇÕES\nNESTA COMPETÊNCIA";
     const cards = documentoUnificado
-      ? [["1", rotuloCemig, moeda(valorCemig)], ["2", `ENERGIA ANDRADE\n(${energia(energiaCobrada)})`, moeda(valorUsina)], ["3", "TOTAL UNIFICADO", moeda(valorTotal)]]
+      ? [["1", rotuloCemig, moeda(valorCemig)], ["2", valorTotalAbsorvido > 0 ? "VALOR DA ENERGIA ANDRADE\nAPÓS ABATIMENTOS" : `ENERGIA ANDRADE\n(${energia(energiaCobrada)})`, moeda(valorUsina)], ["3", "TOTAL UNIFICADO", moeda(valorTotal)]]
       : [
           ["1", `${energia(energiaCobrada)} ×\n${tarifaKwh(tarifaCheia)}`, moeda(valorEnergiaCheia)],
           ["2", `DESCONTO CONTRATADO\n- ${percentual(descontoContratado)}`, moeda(valorAndradeAntesAbsorcoes)],
@@ -440,12 +440,15 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     cards.forEach(([ordem, titulo, valor], indice) => {
       const quantidade = cards.length;
       const espaco = quantidade === 4 ? 7 : 18;
-      const larguraCard = quantidade === 4 ? (LARGURA - espaco * 3) / 4 : 151;
+      const larguraCard = (LARGURA - espaco * (quantidade - 1)) / quantidade;
       const x = 48 + indice * (larguraCard + espaco);
       desenharCartao(x, y.composicao, larguraCard, 78, indice === 1 ? "#F2F7F3" : "#FBFAF4");
       pdf.circle(x + 17, y.composicao + 17, 10).fill(VERDE_ESCURO);
       pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(8).text(ordem, x + 14.5, y.composicao + 13);
       pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(quantidade === 4 ? 5.1 : 6.4).text(titulo, x + 34, y.composicao + 10, { width: larguraCard - 42, height: 30, ellipsis: true });
+      if (documentoUnificado && indice === 1 && valorTotalAbsorvido > 0) {
+        pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(5.5).text(`${moeda(valorAndradeAntesAbsorcoes)} - ${moeda(valorTotalAbsorvido)}`, x + 8, y.composicao + 36, { width: larguraCard - 16, align: "center", lineBreak: false });
+      }
       pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(quantidade === 4 ? 9.3 : 12).text(valor, x + 10, y.composicao + 51, { width: larguraCard - 20, align: "center" });
       if (indice < quantidade - 1) {
         const centroOperador = x + larguraCard + espaco / 2;
@@ -682,17 +685,17 @@ export async function gerarPdfRelatorioCalculo(fatura: any) {
         : gd === "GD I"
           ? "Na GD I, não há diferença de Fio B; aplica-se a regra de disponibilidade configurada."
           : "Enquadramento GD não informado; valores e regras seguem os registros deste faturamento.";
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.5).text(explicacaoGd, 62, 641, { width: 466 });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.5).text(`Disponibilidade e Fio B absorvidos reduzem somente a parcela Andrade. A conta Cemig permanece integral. ${explicacaoGd}`, 62, 641, { width: 466 });
 
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("3. FECHAMENTO", 48, 686);
     cartao(48, 704, 498, somenteAndrade ? 100 : 78, "#FFFFFF");
-    linha("Conta da concessionária lida", moeda(valorCemigOriginal), 718);
-    linha(somenteAndrade ? "Cobrança Andrade emitida separadamente" : "Conta da concessionária após repasses/absorções", somenteAndrade ? moeda(valorAndrade) : moeda(valorCemigRepassado), 739);
+    linha("Valor da fatura Cemig", moeda(valorCemigOriginal), 718);
+    linha("Valor da energia Andrade após abatimentos", moeda(valorAndrade), 739);
     if (somenteAndrade) {
       linha("Total do mês nas duas faturas", `${moeda(valorCemigOriginal)} + ${moeda(valorAndrade)} = ${moeda(totalDoMes)}`, 760, true);
       linha("Pagamento", "Pague a fatura Andrade e a conta da concessionária", 781);
     } else {
-      linha("Concessionária + Andrade = total unificado", `${moeda(valorCemigRepassado)} + ${moeda(valorAndrade)} = ${moeda(totalUnificado)}`, 760, true);
+      linha("Cemig integral + Andrade líquida = total", `${moeda(valorCemigOriginal)} + ${moeda(valorAndrade)} = ${moeda(totalUnificado)}`, 760, true);
     }
 
     pdf.addPage({ size: "A4", margins: { top: 42, right: 48, bottom: 42, left: 48 } });
