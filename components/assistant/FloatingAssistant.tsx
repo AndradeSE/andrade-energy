@@ -10,6 +10,7 @@ import Assistente from "../../app/assistente";
 import { setWakeWordPaused } from "../../services/assistant-wake-word";
 import { floatingHidden, loadFloatingPreference, setFloatingHidden, subscribeFloatingHidden } from "../../services/assistant-floating-preference";
 import { useAuth } from "../../contexts/AuthContext";
+import { IS_GERADOR_APP } from "../../config/appVariant";
 
 const SIZE = 54;
 let savedPosition: { x: number; y: number } | undefined;
@@ -23,7 +24,9 @@ export default function FloatingAssistant() {
   const conversationOpen = Boolean(conversationRequest);
   const phase = useSyncExternalStore(subscribeFloatingConversation, floatingConversationPhase);
   const audioActive = conversationOpen && (phase === "listening" || phase === "speaking");
-  const { usuario } = useAuth();
+  const { usuario, usinaSelecionada, unidadeSelecionada } = useAuth();
+  const selectionScreen = pathname.startsWith("/selecionar-") || pathname.startsWith("/admin") || pathname.startsWith("/geradores");
+  const launcherAvailable = !selectionScreen && (IS_GERADOR_APP ? Boolean(usinaSelecionada?.id) : Boolean(unidadeSelecionada?.id));
   const userId = usuario?.id ? String(usuario.id) : "";
   const hidden = useSyncExternalStore(subscribeFloatingHidden, floatingHidden);
   useEffect(() => { if (userId) void loadFloatingPreference(userId); }, [userId]);
@@ -121,7 +124,7 @@ export default function FloatingAssistant() {
   if (loading || pathname === "/assistente") return null;
   return <>
   {conversationRequest ? <Assistente voiceOnly embeddedVoiceWake={conversationRequest} onClose={() => { setWakeWordPaused(true); closeFloatingConversation(); }} /> : null}
-  {!hidden ? <Animated.View {...pan.panHandlers} accessibilityRole="button" accessibilityLabel={conversationOpen ? "Conversa por voz aberta; segure para ocultar" : "Abrir Ajuda Andrade Energy; arraste ou segure para ocultar"} style={[styles.button, { opacity: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }), transform: [...animated.getTranslateTransform(), { translateX: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -120] }) }, { translateY: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -170] }) }, { scale: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.2] }) }] }]}>
+  {!hidden && launcherAvailable ? <Animated.View {...pan.panHandlers} accessibilityRole="button" accessibilityLabel={conversationOpen ? "Conversa por voz aberta; segure para ocultar" : "Abrir Ajuda Andrade Energy; arraste ou segure para ocultar"} style={[styles.button, { opacity: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }), transform: [...animated.getTranslateTransform(), { translateX: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -120] }) }, { translateY: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -170] }) }, { scale: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.2] }) }] }]}>
     <Animated.View pointerEvents="none" style={[styles.halo, { opacity: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.4] }), transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.08] }) }] }]} />
     <Animated.View pointerEvents="none" style={{ transform: [{ translateY: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, -2] }) }, { scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) }] }}>
       <Image source={require("../../assets/images/assistant-chat-3d-v2.png")} style={styles.chat} resizeMode="contain" />
