@@ -20,7 +20,7 @@ import { supabase } from "../../config/supabase";
 import { tentarCriarCobrancaAsaas } from "../asaas/asaas.service";
 import { asaasRequest } from "../asaas/asaas.client";
 import { cobrancaAsaasPodeSerExcluida } from "./exclusaoFatura.policy";
-import { exigirContratoAssinadoDaUc } from "../contratos/contratoUc.service";
+import { antecipacaoVencimentoDaUc, exigirContratoAssinadoDaUc } from "../contratos/contratoUc.service";
 import { empresaIdDaRequisicao } from "../../utils/empresaScope";
 
 function erroDeSenhaPdf(erro: unknown) {
@@ -176,6 +176,9 @@ export async function confirmarFaturaRascunho(id: string, empresaId?: string) {
   }
   if (!existente.unidade_consumidora_id) throw new Error("A fatura não está vinculada a uma UC.");
   await exigirContratoAssinadoDaUc(existente.unidade_consumidora_id, empresaId);
+  const hojeEmissao = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const diasAntecipacao = await antecipacaoVencimentoDaUc(existente.unidade_consumidora_id, existente.empresa_id, hojeEmissao, existente.created_at);
+  if (diasAntecipacao === 3 && String(existente.vencimento ?? "").slice(0, 10) < hojeEmissao) throw new Error("O vencimento antecipado do rascunho já passou. Revise a data com o cliente antes de confirmar.");
 
   const { data: fatura, error } = await supabase
     .from("faturas")

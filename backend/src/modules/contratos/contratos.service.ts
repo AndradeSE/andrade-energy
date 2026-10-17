@@ -1,3 +1,4 @@
+import { DIAS_ANTECIPACAO_NOVOS_CONTRATOS } from "./vencimentoFatura.policy";
 import { validarConfirmacaoDesligamento, fimAvisoPrevio, hojeNoBrasil } from "./desligamentoContrato.policy";
 import { normalizarPlanoContrato } from "./planoContrato.policy";
 import {
@@ -297,6 +298,7 @@ export async function salvarContratoDaUnidadeService(
     normalizarNumero(dados?.desconto) || unidade.desconto_percentual || 0
   );
   const configuracaoUc = {
+    vencimento_dias_antes_concessionaria: DIAS_ANTECIPACAO_NOVOS_CONTRATOS,
     plano_contrato: planoContrato,
     aviso_previo_dias: semFidelidade ? 90 : null,
     usina_id: unidade.usina_id,
@@ -331,7 +333,7 @@ export async function salvarContratoDaUnidadeService(
     economia_mensal_estimada: economiaMensal,
     economia_anual_estimada: economiaAnual,
     observacoes: normalizarNumero(dados?.observacoes) || null,
-    dados_documento: { ...dadosDocumentoEntrada, plano_contrato: planoContrato, aviso_previo_dias: semFidelidade ? 90 : null, prazo_anos: prazoAnos, titularidade_ucs: configuracaoUc.titularidade_ucs, configuracao_uc: configuracaoUc },
+    dados_documento: { ...dadosDocumentoEntrada, vencimento_dias_antes_concessionaria: DIAS_ANTECIPACAO_NOVOS_CONTRATOS, plano_contrato: planoContrato, aviso_previo_dias: semFidelidade ? 90 : null, prazo_anos: prazoAnos, titularidade_ucs: configuracaoUc.titularidade_ucs, configuracao_uc: configuracaoUc },
     configuracao_uc_snapshot: configuracaoUc,
     revisao_configuracao_pendente: false,
     // Dados alterados exigem nova minuta. Não enviar nem assinar PDF anterior.

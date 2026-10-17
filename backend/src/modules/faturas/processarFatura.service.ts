@@ -1,3 +1,4 @@
+import { vencimentoAndrade } from "../contratos/vencimentoFatura.policy";
 import { buscarClientePorUC } from "../clientes/clientes.repository";
 import { criarCobranca } from "../cobrancas/cobrancas.repository";
 import { tentarCriarCobrancaAsaas } from "../asaas/asaas.service";
@@ -16,7 +17,7 @@ import {
 import { FaturaExtraida } from "../../types/FaturaExtraida";
 import { supabase } from "../../config/supabase";
 import { calcularEnergiaInjetadaPelosSaldos } from "../billing/energiaInjetada";
-import { exigirContratoAssinadoDaUc } from "../contratos/contratoUc.service";
+import { antecipacaoVencimentoDaUc, exigirContratoAssinadoDaUc } from "../contratos/contratoUc.service";
 
 function converterDataBrasileiraParaIso(data: string): string {
   const correspondencia = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(data.trim());
@@ -41,7 +42,7 @@ export async function processarFatura(
   opcoes: OpcoesProcessamentoFatura = {},
 ) {
 
-  const vencimento = converterDataBrasileiraParaIso(dados.vencimento);
+  let vencimento = converterDataBrasileiraParaIso(dados.vencimento);
 
   const cliente = await buscarClientePorUC(dados.uc, opcoes.empresaId);
 
@@ -69,6 +70,15 @@ const faturaExistente = await buscarFatura(
   dados.uc,
   dados.referencia,
   cliente.empresa_id,
+);
+const hojeVencimento = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+// Valida antes de qualquer atualização ou reprocessamento. A data de origem
+// continua sendo usada para buscar o histórico de energia da concessionária.
+const vencimentoEmissao = faturaExistente?.vencimento ?? vencimentoAndrade(
+  vencimento,
+  await antecipacaoVencimentoDaUc(cliente.unidade_consumidora.id, cliente.empresa_id, hojeVencimento),
+  hojeVencimento,
+  opcoes.status === "RASCUNHO",
 );
 
 if (faturaExistente) {
@@ -285,6 +295,8 @@ if (!cliente.usina_id) {
           : valorCreditoEfetivo,
   });
 
+// Reimportações preservam a data já emitida; revisões sem aceite não antecipam cobrança.
+vencimento = vencimentoEmissao;
 const fatura = await inserirFatura({
 
   empresa_id: cliente.empresa_id,
