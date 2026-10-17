@@ -1,5 +1,14 @@
 import { supabase } from "../../config/supabase";
 import { chaveCompetencia as competenciaChave } from "../dashboard/competencia.policy";
+import { faturamentoDoFechamento } from "./faturamentoFechamento.policy";
+
+async function faturasDaOperacao(empresaId: string, usinaId?: string) {
+  let query = supabase.from("faturas").select("id,empresa_id,usina_id,referencia,status,numero_instalacao,energia_compensada,energia_injetada,economia_real,valor_total,valor_total_unificado,clientes(nome),unidades_consumidoras(numero),cobrancas(status,pago_em)").eq("empresa_id", empresaId);
+  if (usinaId) query = query.eq("usina_id", usinaId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
+}
 
 export async function obterResumoOperacao(empresaId: string, competenciaSolicitada?: string, usinaId?: string) {
   let consultaFechamentos = supabase.from("fechamentos").select("*").eq("empresa_id", empresaId).order("competencia", { ascending: false });
@@ -78,7 +87,10 @@ export async function listarFechamentos(empresaId: string, usinaId?: string) {
 
   if (error) throw error;
 
-  return usinaId ? (data ?? []).filter((item: any) => item.usina_id === usinaId) : data ?? [];
+  const fechamentos = usinaId ? (data ?? []).filter((item: any) => item.usina_id === usinaId) : data ?? [];
+  if (!fechamentos.length) return [];
+  const faturas = await faturasDaOperacao(empresaId, usinaId);
+  return fechamentos.map(item => ({ ...item, ...faturamentoDoFechamento(item, faturas) }));
 }
 
 export async function buscarFechamento(
@@ -103,7 +115,8 @@ export async function buscarFechamento(
 
   if (error) throw error;
 
-  return data;
+  const faturas = await faturasDaOperacao(empresaId, data.usina_id);
+  return { ...data, ...faturamentoDoFechamento(data, faturas) };
 
 }
 
