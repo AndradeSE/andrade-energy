@@ -316,7 +316,7 @@ export default function ContratoDaUnidade() {
           : "Revise os dados e as cláusulas antes de colher as assinaturas.",
         [{
           text: "OK",
-          onPress: minutaUrl ? () => { void abrirDocumentoAtual("minuta"); } : undefined,
+          onPress: minutaUrl ? () => { void abrirDocumentoAtual("minuta", contrato.id); } : undefined,
         }],
       );
     } catch (erro: any) {
@@ -326,10 +326,10 @@ export default function ContratoDaUnidade() {
     }
   }
 
-  async function abrirDocumentoAtual(tipo: "minuta" | "assinado") {
+  async function abrirDocumentoAtual(tipo: "minuta" | "assinado", versaoEsperada = contratoId) {
     try {
       const contratoAtual = await buscarContratoDaUnidade(id, true);
-      if (contratoId && contratoAtual?.id !== contratoId) {
+      if (versaoEsperada && contratoAtual?.id !== versaoEsperada) {
         throw new Error("A versão do contrato mudou. Reabra esta tela antes de consultar o documento.");
       }
       const url = tipo === "assinado" ? contratoAtual?.contrato_assinado_url : contratoAtual?.contrato_gerado_url;
