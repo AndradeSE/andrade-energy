@@ -14,8 +14,8 @@ import { interpretarFatura } from "../../services/ocr/parser.service";
 import { identificarTipoGdDocumento, rotuloTipoGdDocumento } from "./tipoGdDocumento";
 
 const BUCKET = "faturas";
-export const VERSAO_LAYOUT_FATURA = "layout-20261016-v16";
-export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20261016-v7";
+export const VERSAO_LAYOUT_FATURA = "layout-20261016-v17";
+export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20261016-v8";
 const VERDE = "#107C5C";
 const VERDE_ESCURO = "#07533D";
 const VERDE_CLARO = "#E8F6F0";
@@ -129,7 +129,7 @@ function temGD2(fatura: any) {
 
 async function incluirDadosDaUCNaFatura(fatura: any) {
   const [clienteResultado, unidadeResultado] = await Promise.all([
-    fatura.clientes?.nome ? Promise.resolve({ data: fatura.clientes, error: null }) : (fatura.cliente_id
+    fatura.clientes?.nome && fatura.clientes?.cpf != null ? Promise.resolve({ data: fatura.clientes, error: null }) : (fatura.cliente_id
       ? supabase.from("clientes").select("id,nome,cpf,endereco,email,whatsapp").eq("id", fatura.cliente_id).maybeSingle()
       : Promise.resolve({ data: null, error: null })),
     fatura.unidades_consumidoras?.id ? Promise.resolve({ data: fatura.unidades_consumidoras, error: null }) : (fatura.unidade_consumidora_id
@@ -299,8 +299,8 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     const unidade = fatura.unidades_consumidoras ?? {};
     // Mantemos na Andrade os mesmos dados que identificam a conta CEMIG:
     // titular, documento, UC, concessionária e endereço da unidade.
-    const titular = unidade.titular ?? cliente.nome ?? "Cliente não informado";
-    const documento = unidade.cpf_titular ?? cliente.cpf ?? null;
+    const titular = cliente.nome || "Cliente não informado";
+    const documento = String(cliente.cpf ?? "").trim() || null;
     const endereco = unidade.endereco ?? cliente.endereco ?? "Endereço não informado";
     const possuiGD2 = temGD2(fatura);
     const disponibilidadeComposicao = numero(fatura.custo_disponibilidade_repassado) || (!energiaCompensada ? numero(fatura.custo_disponibilidade) : 0);
@@ -374,7 +374,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     pdf.strokeColor(BORDA).lineWidth(0.7).moveTo(278, y.dados).lineTo(278, 255).stroke();
     pdf.circle(59, y.dados + 8, 7).fill(VERDE_ESCURO);
     pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(7).text("i", 57.4, y.dados + 4);
-    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(7).text("DADOS DO TITULAR", 72, y.dados + 3);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(7).text("DADOS DO CLIENTE", 72, y.dados + 3);
     pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10).text(textoCurto(titular, 39).toUpperCase(), 62, y.dados + 22, { width: 196 });
     pdf.fillColor(TEXTO).font("Helvetica").fontSize(7.5).text(textoCurto(endereco, 62), 62, y.dados + 49, { width: 196, height: 24, lineGap: 2, ellipsis: true });
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.3).text(documento ? `CPF ${documento}` : "CPF não informado", 62, y.dados + 78);
@@ -650,8 +650,8 @@ export async function gerarPdfRelatorioCalculo(fatura: any) {
 
     cartao(48, 128, 498, 72, "#FFFFFF");
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8).text("IDENTIFICAÇÃO", 62, 143);
-    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(11).text(cliente.nome ?? unidade.titular ?? "Cliente não informado", 62, 158, { width: 280 });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(`UC ${fatura.numero_instalacao ?? unidade.numero ?? "-"} · CPF ${unidade.cpf_titular ?? cliente.cpf ?? "não informado"}`, 62, 177);
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(11).text(cliente.nome || "Cliente não informado", 62, 158, { width: 280 });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(`UC ${fatura.numero_instalacao ?? unidade.numero ?? "-"} · CPF ${String(cliente.cpf ?? "").trim() || "não informado"}`, 62, 177);
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(`Vencimento ${dataBrasileira(fatura.vencimento)}`, 390, 158, { width: 138, align: "right" });
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(`Emissão ${dataBrasileira(fatura.data_emissao ?? fatura.created_at)}`, 390, 175, { width: 138, align: "right" });
 
