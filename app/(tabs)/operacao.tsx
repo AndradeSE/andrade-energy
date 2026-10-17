@@ -1,14 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useMemo, useRef, useState } from "react";
+
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { AppHeader, Badge, Button, Card, ElasticFlatList as FlatList, EmptyState, Metric, Screen, Section } from "../../components/ui";
 import TabDataPending from "../../components/ui/TabDataPending";
 import { listarFechamentos, obterResumoOperacao } from "../../services/fechamentos.service";
 import { useAuth } from "../../contexts/AuthContext";
-import { initialTabKey } from "../../services/navigation-preload.service";
+
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const energia = (valor: unknown) => `${Number(valor ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kWh`;
@@ -20,36 +20,41 @@ const competenciaNome = (valor: string) => {
 };
 
 export default function Operacao() {
-  const { user, usinaSelecionada } = useAuth();
-  const queryClient = useQueryClient();
-  const inicial = queryClient.getQueryData<[any, any[]]>(initialTabKey(String(user?.id ?? ""), usinaSelecionada?.id ?? user?.usina_id, "operacao"));
-  const [resumo, setResumo] = useState<any>(inicial?.[0]);
-  const [lista, setLista] = useState<any[]>(() => (inicial?.[1] ?? []).filter((item: any) => String(item.competencia ?? "").slice(0, 7) === inicial?.[0]?.competencia));
-  const [competencia, setCompetencia] = useState<string>(inicial?.[0]?.competencia);
-  const [loading, setLoading] = useState(!inicial);
+  const { usinaSelecionada } = useAuth();
+  const usinaId = usinaSelecionada?.id;
+  const sequencia = useRef(0);
+  const [resumo, setResumo] = useState<any>();
+  const [lista, setLista] = useState<any[]>([]);
+  const [competencia, setCompetencia] = useState<string>();
+  const [loading, setLoading] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
 
   const carregar = useCallback(async (alvo?: string) => {
+    const pedido = ++sequencia.current;
+    if (!usinaId) { setResumo(undefined); setLista([]); setLoading(false); return; }
     try {
-      const [r, l] = await Promise.all([obterResumoOperacao(alvo), listarFechamentos()]);
+      const [r, l] = await Promise.all([obterResumoOperacao(alvo, usinaId), listarFechamentos(usinaId)]);
+      if (pedido !== sequencia.current) return;
       setResumo(r);
       setCompetencia(r.competencia);
       setLista((l ?? []).filter((item: any) => String(item.competencia ?? "").slice(0, 7) === r.competencia));
     } catch (error: any) {
       Alert.alert("Não foi possível carregar a operação", error?.response?.data?.message ?? "Verifique a conexão com o servidor e tente novamente.");
-    } finally { setLoading(false); }
-  }, []);
-  useFocusEffect(useCallback(() => { void carregar(competencia); }, [carregar]));
+    } finally { if (pedido === sequencia.current) setLoading(false); }
+  }, [usinaId]);
+  useFocusEffect(useCallback(() => { setLoading(true); setResumo(undefined); setLista([]); void carregar(); return () => { sequencia.current++; }; }, [carregar]));
 
   async function selecionarCompetencia(valor: string) { setCompetencia(valor); setLoading(true); await carregar(valor); }
   async function atualizarPagina() { setAtualizando(true); try { await carregar(competencia); } finally { setAtualizando(false); } }
   const percentualRecebido = resumo?.receitaPrevista > 0 ? Math.min(100, (resumo.receitaRecebida / resumo.receitaPrevista) * 100) : 0;
   const historico = useMemo(() => lista, [lista]);
 
-  return <Screen><AppHeader title="Operação" subtitle="Fechamento mensal" contextTitle={competencia ? `Competência ${competenciaNome(competencia)}` : "Operação mensal"} contextSubtitle="Geração, rateio, faturamento e recebimentos" icon="analytics-outline" />
+  if (!usinaId) return <Screen><AppHeader showPlantSwitch={false} title="Operação" subtitle="Fechamento mensal" contextTitle="Selecione uma usina" contextSubtitle="Escolha uma usina para consultar a operação" /><Card><Text style={styles.title}>Selecione uma usina</Text><Button title="Selecionar usina" onPress={() => router.push("/selecionar-unidade")} /></Card></Screen>;
+  return <Screen><AppHeader showPlantSwitch={false} title="Operação" subtitle="Fechamento mensal" contextTitle={competencia ? `Competência ${competenciaNome(competencia)}` : "Operação mensal"} contextSubtitle="Geração, rateio, faturamento e recebimentos" icon="analytics-outline" />
     {loading ? <TabDataPending /> : <FlatList bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} data={historico} keyExtractor={(item) => item.id}
       ListHeaderComponent={<View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>{(resumo?.competencias ?? []).map((item: string) => <Pressable key={item} onPress={() => void selecionarCompetencia(item)} style={[styles.filter, competencia === item && styles.filterSelected]}><Text style={[styles.filterText, competencia === item && styles.filterTextSelected]}>{competenciaNome(item)}</Text></Pressable>)}</ScrollView>
+        <Card><Text style={styles.title}>{usinaSelecionada?.nome}</Text><Text style={styles.subtitle}>Geração, faturamento e recebimentos somente desta usina.</Text></Card>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>{[...(resumo?.competencias ?? [])].sort().map((item: string) => <Pressable key={item} onPress={() => void selecionarCompetencia(item)} style={[styles.filter, competencia === item && styles.filterSelected]}><Text style={[styles.filterText, competencia === item && styles.filterTextSelected]}>{competenciaNome(item)}</Text></Pressable>)}</ScrollView>
         <Card style={styles.summaryCard}>
         <View style={styles.heading}><Text style={styles.title}>Fechamento da competência</Text><Text style={styles.subtitle}>Dados consolidados automaticamente a partir da produção e das faturas.</Text></View>
         <View style={styles.grid}>
@@ -71,10 +76,10 @@ export default function Operacao() {
         </View></Card>
         {(resumo?.alertas ?? []).length ? <Card style={styles.warningCard}><View style={styles.warningTitle}><Ionicons name="warning-outline" size={21} color={Colors.warning} /><Text style={styles.warningHeading}>Pendências antes do fechamento</Text></View>{resumo.alertas.map((alerta: string) => <Text key={alerta} style={styles.warningText}>• {alerta}</Text>)}</Card> : <Card style={styles.readyCard}><View style={styles.warningTitle}><Ionicons name="checkmark-circle" size={22} color={Colors.success} /><Text style={styles.readyHeading}>Competência conferida</Text></View><Text style={styles.readyText}>Produção e faturamento estão disponíveis para o fechamento.</Text></Card>}
         <View style={styles.adjustmentButton}><Button title="Registrar ajuste excepcional" icon={<Ionicons name="create-outline" size={20} color={Colors.surface} />} onPress={() => router.push("/operacao/novo")} /></View>
-        <Card><Text style={styles.title}>Usinas nesta competência</Text><Text style={styles.subtitle}>Selecione uma usina para conferir o fechamento.</Text></Card>
+        <Card><Text style={styles.title}>Usinas nesta competência</Text><Text style={styles.subtitle}>Toque em um fechamento registrado para conferir os dados. Faturar clientes não cria um fechamento operacional.</Text></Card>
       </View>}
       renderItem={({ item }) => <Pressable onPress={() => router.push(`/operacao/${item.id}`)}><Card><View style={styles.row}><View style={styles.rowText}><Text numberOfLines={1} style={styles.name}>{item.usinas?.nome ?? "Usina"}</Text><Text style={styles.detail}>{energia(item.energia_gerada)} gerados · {energia(item.energia_alocada)} alocados</Text></View><Badge label={item.status ?? "FECHADO"} variant={item.status === "FECHADO" ? "success" : "warning"} /></View><View style={styles.cardBottom}><Text style={styles.cardMetric}>{moeda(item.receita_prevista)}</Text><Text style={styles.occupation}>{Number(item.ocupacao ?? 0).toFixed(1)}% ocupado</Text><Ionicons name="chevron-forward" size={18} color={Colors.subtitle} /></View></Card></Pressable>}
-      ListEmptyComponent={<EmptyState icon="analytics-outline" title="Nenhuma usina processada" subtitle="Importe a produção das usinas ou registre um ajuste excepcional." />}
+      ListEmptyComponent={<EmptyState icon="analytics-outline" title="Nenhuma usina processada" subtitle="Não há fechamento operacional registrado neste mês. Mesmo com clientes faturados, é necessário importar a produção da usina ou registrar um ajuste excepcional." />}
     />}
   </Screen>;
 }

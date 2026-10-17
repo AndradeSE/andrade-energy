@@ -1,12 +1,12 @@
 import api from "../config/api";
 
-export async function listarFechamentos() {
-  const { data } = await api.get("/fechamentos");
+export async function listarFechamentos(usinaId?: string) {
+  const { data } = await api.get("/fechamentos", { params: { usinaId } });
   return data;
 }
 
-export async function obterResumoOperacao(competencia?: string) {
-  const { data } = await api.get("/fechamentos/resumo", { params: competencia ? { competencia } : undefined });
+export async function obterResumoOperacao(competencia?: string, usinaId?: string) {
+  const { data } = await api.get("/fechamentos/resumo", { params: { competencia, usinaId } });
   return data;
 }
 

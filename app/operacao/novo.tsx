@@ -44,7 +44,7 @@ export default function NovoFechamento() {
 
   return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Novo fechamento" subtitle="Operação da usina" contextTitle="Novo fechamento" contextSubtitle="Registre a competência da usina" icon="analytics-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
     <Text style={styles.eyebrow}>AJUSTE EXCEPCIONAL</Text><Text style={styles.title}>Registrar fechamento manual</Text><Text style={styles.subtitle}>Use somente quando a produção não puder ser importada automaticamente. Os valores ficam registrados no histórico da competência.</Text>
-    {!usinaId ? <EmptyState icon="sunny-outline" title="Nenhuma usina selecionada" subtitle="Abra uma usina na lista para registrar o fechamento." /> : <>
+    {!usinaId ? <View><EmptyState icon="sunny-outline" title="Nenhuma usina selecionada" subtitle="Escolha uma usina antes de registrar o fechamento." /><Button title="Selecionar usina" onPress={() => router.push("/selecionar-unidade")} /></View> : <>
       <Text style={styles.label}>Usina deste fechamento: {usinaSelecionada?.nome ?? "Usina selecionada"}</Text>
       <Card>
         <FormField label="Competência" placeholder="MM/AAAA" value={competencia} onChangeText={setCompetencia} keyboardType="numeric" />

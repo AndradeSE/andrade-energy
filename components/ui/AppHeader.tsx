@@ -42,6 +42,7 @@ type Props = {
   icon?: keyof typeof Ionicons.glyphMap;
   variant?: "main" | "subpage";
   showPlantContext?: boolean;
+  showPlantSwitch?: boolean;
   environmentName?: string;
   onSearch?: () => void;
   collapsePlantContextOnMount?: boolean;
@@ -57,6 +58,7 @@ export default function AppHeader({
   icon = "grid-outline",
   variant = "main",
   showPlantContext = true,
+  showPlantSwitch = true,
   environmentName = "Gestão de usinas",
   onSearch,
   collapsePlantContextOnMount = false,
@@ -235,7 +237,7 @@ export default function AppHeader({
           <Ionicons name={environmentName === "Gestão comercial" ? "briefcase-outline" : "layers-outline"} size={17} color="#FFFFFF" />
           <Text numberOfLines={1} style={styles.contextSwitchText}>Trocar ambiente</Text>
         </TouchableOpacity> : null}
-        {IS_GERADOR_APP && usinaSelecionada && !ambienteComercial ? <TouchableOpacity accessibilityLabel="Trocar de usina" activeOpacity={0.82} onPress={() => router.push("/selecionar-unidade" as any)} style={[styles.environmentSwitch, styles.contextSwitchButton]}>
+        {showPlantSwitch && IS_GERADOR_APP && usinaSelecionada && !ambienteComercial ? <TouchableOpacity accessibilityLabel="Trocar de usina" activeOpacity={0.82} onPress={() => router.push("/selecionar-unidade" as any)} style={[styles.environmentSwitch, styles.contextSwitchButton]}>
           <Ionicons name="grid-outline" size={17} color="#FFFFFF" />
           <Text numberOfLines={1} style={styles.contextSwitchText}>Trocar usina</Text>
         </TouchableOpacity> : null}
