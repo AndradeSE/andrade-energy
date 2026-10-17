@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, Alert, Animated, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { File, Paths } from "expo-file-system";
 import * as FileSystemLegacy from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
-import { Redirect, useRouter, useLocalSearchParams } from "expo-router";
+import { Redirect, useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { setWakeWordPaused, subscribeWakeWord, wakeWordEnabled, wakeWordReady, wakeWordPaused } from "../services/assistant-wake-word";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -57,13 +57,13 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   const assistantMounted = useRef(true);
   const [accountVoiceAllowed, setAccountVoiceAllowed] = useState(false);
   const accountVoiceAllowedRef = useRef(false);
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let active = true;
     setAccountVoiceAllowed(false);
     accountVoiceAllowedRef.current = false;
     if (usuario?.id) void accountVoiceConsent(String(usuario.id)).then(allowed => { if (active) { accountVoiceAllowedRef.current = allowed; setAccountVoiceAllowed(allowed); } }).catch(() => {});
     return () => { active = false; };
-  }, [usuario?.id]);
+  }, [usuario?.id]));
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [topic, setTopic] = useState<LocalTopic>();
