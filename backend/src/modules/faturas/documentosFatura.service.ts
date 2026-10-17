@@ -14,8 +14,8 @@ import { interpretarFatura } from "../../services/ocr/parser.service";
 import { identificarTipoGdDocumento, rotuloTipoGdDocumento } from "./tipoGdDocumento";
 
 const BUCKET = "faturas";
-export const VERSAO_LAYOUT_FATURA = "layout-20261016-v17";
-export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20261016-v8";
+export const VERSAO_LAYOUT_FATURA = "layout-20261016-v18";
+export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20261016-v9";
 const VERDE = "#107C5C";
 const VERDE_ESCURO = "#07533D";
 const VERDE_CLARO = "#E8F6F0";
@@ -35,6 +35,13 @@ const CAMINHOS_LOGO_WEB = [
   resolve(process.cwd(), "assets/images/andrade-portal-logo-final.png"),
 ];
 
+function cpfFormatado(valor: unknown) {
+  const texto = String(valor ?? "").trim();
+  const digitos = texto.replace(/\D/g, "");
+  return digitos.length === 11
+    ? digitos.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4")
+    : texto || "não informado";
+}
 function moeda(valor: unknown) {
   return Number(valor ?? 0).toLocaleString("pt-BR", {
     style: "currency",
@@ -300,7 +307,7 @@ export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
     // Mantemos na Andrade os mesmos dados que identificam a conta CEMIG:
     // titular, documento, UC, concessionária e endereço da unidade.
     const titular = cliente.nome || "Cliente não informado";
-    const documento = String(cliente.cpf ?? "").trim() || null;
+    const documento = cpfFormatado(cliente.cpf);
     const endereco = unidade.endereco ?? cliente.endereco ?? "Endereço não informado";
     const possuiGD2 = temGD2(fatura);
     const disponibilidadeComposicao = numero(fatura.custo_disponibilidade_repassado) || (!energiaCompensada ? numero(fatura.custo_disponibilidade) : 0);
@@ -651,7 +658,7 @@ export async function gerarPdfRelatorioCalculo(fatura: any) {
     cartao(48, 128, 498, 72, "#FFFFFF");
     pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8).text("IDENTIFICAÇÃO", 62, 143);
     pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(11).text(cliente.nome || "Cliente não informado", 62, 158, { width: 280 });
-    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(`UC ${fatura.numero_instalacao ?? unidade.numero ?? "-"} · CPF ${String(cliente.cpf ?? "").trim() || "não informado"}`, 62, 177);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(`UC ${fatura.numero_instalacao ?? unidade.numero ?? "-"} · CPF ${cpfFormatado(cliente.cpf)}`, 62, 177);
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(`Vencimento ${dataBrasileira(fatura.vencimento)}`, 390, 158, { width: 138, align: "right" });
     pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(`Emissão ${dataBrasileira(fatura.data_emissao ?? fatura.created_at)}`, 390, 175, { width: 138, align: "right" });
 
