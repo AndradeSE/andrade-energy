@@ -17,6 +17,8 @@ Escopo: revisão de código dos controles de sessão, escopo de empresa/UC, acei
 - Bloqueio de emissão com antecipação já passada e revisão de rascunho criado antes do novo aceite.
 - Abertura de minuta recém-gerada usa o ID retornado pelo servidor, mantendo verificação de versão atual para impedir documento incorreto.
 - Atualização compatível de brace-expansion no lockfile.
+- Detectado armazenamento da sessão nativa no AsyncStorage: migrado para SecureStore em blocos pequenos, com gravação antes da exclusão do legado e serialização de migração/logout. Quatro testes adicionais passaram (migração, Unicode/tamanho, falha parcial e concorrência). A reabertura física de ambos os apps Preview preservou a autenticação.
+- Gerador passa a apresentar a escolha inicial de área/usina após carregar sessão e navegação, em vez de entrar diretamente na última usina. Conferido no S23: área administrativa → Gestão de Usinas → lista "Escolha uma usina". O ajuste de navegação foi corrigido e validado no Preview antes da promoção.
 
 ## Limites e pendências
 
