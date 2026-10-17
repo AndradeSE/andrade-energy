@@ -51,6 +51,7 @@ function routeFor(intent: AssistantIntent, ctx: AssistantAccountContext, questio
 }
 
 export async function executeAssistantTool(intent: AssistantIntent, ctx: AssistantAccountContext, question: string): Promise<AssistantToolReply> {
+  if (intent.module === "assistente-config") return { text: "As preferências ficam em Menu lateral → Configurações da Solar: início por voz, botão flutuante e permissões de áudio. Abra a tela para revisar e escolher; ainda não alterei nenhuma configuração.", actions: [{ label: "Configurações da Solar", route: "/configuracoes-assistente" }] };
   if (intent.module === "tutoriais") return { text: "Os tutoriais estão desativados por tempo indeterminado. Posso explicar as funções do aplicativo por aqui." };
   const generatorOnly = ["carteira", "equipe", "atividade", "operacao", "inversores", "assinatura", "termos", "comercial", "clientes", "usinas"];
   if (!ctx.generator && intent.module === "faturamento" && intent.review) return { text: "Emissão e alterações de faturamento exigem acesso de gerador autorizado. Posso consultar suas faturas." };

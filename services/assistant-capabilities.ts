@@ -1,14 +1,15 @@
 // Registro explícito: texto do usuário nunca escolhe URL, endpoint ou ID de outra conta.
-export type AssistantModule = "perfil" | "economia" | "carteira" | "equipe" | "atividade" | "operacao" | "inversores" | "recebimento" | "assinatura" | "termos" | "empresas" | "comercial" | "privacidade" | "contratos" | "conta-luz" | "calculo" | "anexos" | "proposta" | "pagamento" | "clientes" | "usinas" | "unidades" | "faturamento" | "tutoriais" | "sobre";
+export type AssistantModule = "assistente-config" | "perfil" | "economia" | "carteira" | "equipe" | "atividade" | "operacao" | "inversores" | "recebimento" | "assinatura" | "termos" | "empresas" | "comercial" | "privacidade" | "contratos" | "conta-luz" | "calculo" | "anexos" | "proposta" | "pagamento" | "clientes" | "usinas" | "unidades" | "faturamento" | "tutoriais" | "sobre";
 export type AssistantIntent = { module: AssistantModule; mode: "query" | "document" | "action"; review: boolean };
 export type AssistantAction = { label: string; route: string; params?: Record<string, string>; review?: boolean };
 export type AssistantDocument = { kind: "contrato" | "conta-luz" | "calculo" | "anexo" | "proposta"; id: string; label: string; clientId?: string };
 export type AssistantToolReply = { text: string; actions?: AssistantAction[]; documents?: AssistantDocument[] };
-export const ASSISTANT_MODULES: AssistantModule[] = ["perfil", "economia", "carteira", "equipe", "atividade", "operacao", "inversores", "recebimento", "assinatura", "termos", "empresas", "comercial", "privacidade", "contratos", "conta-luz", "calculo", "anexos", "proposta", "pagamento", "clientes", "usinas", "unidades", "faturamento", "tutoriais", "sobre"];
+export const ASSISTANT_MODULES: AssistantModule[] = ["assistente-config", "perfil", "economia", "carteira", "equipe", "atividade", "operacao", "inversores", "recebimento", "assinatura", "termos", "empresas", "comercial", "privacidade", "contratos", "conta-luz", "calculo", "anexos", "proposta", "pagamento", "clientes", "usinas", "unidades", "faturamento", "tutoriais", "sobre"];
 import { normalizeSolarRequest, hasSolarMutation, isSolarHelp } from "../shared/solar-language";
 export function normalizeCapabilityText(text: string) { return normalizeSolarRequest(text); }
 export function detectCapability(input: string): AssistantIntent | undefined {
   const text = normalizeCapabilityText(input);
+  if (/\b(solar|assistente)\b/.test(text) && /\b(configuracoes|configurar|voz|flutuante|ativar|desativar|ligar|desligar)\b/.test(text)) return { module: "assistente-config", mode: "action", review: false };
   if (isSolarHelp(text)) return undefined;
   const wantsDocument = /\b(pdf|arquivo|documento|baixar|baixa|baixe|download|mande|manda|envie|entregue|anexo)\b/.test(text);
   const review = hasSolarMutation(text) && !(wantsDocument && !hasSolarMutation(text.replace(/\b(enviar|envie)\b/g, "")));
