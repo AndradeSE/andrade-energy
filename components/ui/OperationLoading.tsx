@@ -1,14 +1,10 @@
 import { ActivityIndicator, Modal, StyleSheet, Text, View } from "react-native";
-import { useEffect } from "react";
+
 import { Colors } from "../../theme";
-import { setAssistantLoading } from "../../services/assistant-overlay-visibility";
+import { useAssistantLoading } from "../../hooks/useAssistantLoading";
 
 export default function OperationLoading({ visible, title }: { visible: boolean; title: string }) {
-  useEffect(() => {
-    if (!visible) return;
-    setAssistantLoading(true);
-    return () => setAssistantLoading(false);
-  }, [visible]);
+  useAssistantLoading(visible);
   return <Modal visible={visible} transparent animationType="fade" onRequestClose={() => undefined}>
     <View style={styles.backdrop} accessibilityViewIsModal>
       <View style={styles.card} accessibilityRole="progressbar" accessibilityLabel={title}>

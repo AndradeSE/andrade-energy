@@ -4,15 +4,12 @@ import { useEffect, useRef } from "react";
 import { Animated, Easing, Image, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import PortalAnimatedLogo from "../brand/PortalAnimatedLogo";
-import { setAssistantLoading } from "../../services/assistant-overlay-visibility";
+import { useAssistantLoading } from "../../hooks/useAssistantLoading";
 
 import { Colors, Radius, Spacing } from "../../theme";
 
 export default function Loading({ showRevision = false, animateBrand = true, onBrandReady }: { showRevision?: boolean; animateBrand?: boolean; onBrandReady?: () => void }) {
-  useEffect(() => {
-    setAssistantLoading(true);
-    return () => setAssistantLoading(false);
-  }, []);
+  useAssistantLoading();
   const version = Constants.expoConfig?.version ?? Updates.runtimeVersion ?? "1.0.0";
   const revision = Updates.updateId?.slice(-8) ?? "APK";
   const fluxo = useRef(new Animated.Value(0)).current;
