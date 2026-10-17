@@ -74,13 +74,13 @@ function RootNavigator() {
   const [startupComplete, setStartupComplete] = useState(false);
   const entradaGerador = useRef<string | null>(null);
   useEffect(() => {
-    if (!IS_GERADOR_APP || isLoading || !session?.user?.id || !isUnlocked) return;
+    if (!IS_GERADOR_APP || isLoading || !startupComplete || !session?.user?.id || !isUnlocked || readyUserId !== String(session.user.id)) return;
     const userId = String(session.user.id);
     if (entradaGerador.current === userId) return;
     entradaGerador.current = userId;
     const comercial = String(session.user.papel_empresa ?? "") === "COLABORADOR_COMERCIAL";
     router.replace((comercial ? "/admin/comercial" : session.user.perfil === "ADMIN" ? "/admin/escolher-area" : "/selecionar-unidade") as any);
-  }, [isLoading, isUnlocked, session?.user?.id]);
+  }, [isLoading, isUnlocked, readyUserId, startupComplete, session?.user?.id]);
   const initialSelectionRef = useRef({ unidadeSelecionada, usinaSelecionada });
   initialSelectionRef.current = { unidadeSelecionada, usinaSelecionada };
   useEffect(() => {
