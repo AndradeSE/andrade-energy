@@ -7,6 +7,7 @@ const address = "Logradouro: NÃO ENVIAR\nNúmero: 123\nCidade: Belo Horizonte\n
 test("resolve município localmente e rejeita localização desconhecida ou ambígua", () => {
   assert.equal(municipioDoEndereco(address)?.regiao, "Belo Horizonte/MG");
   assert.equal(municipioDoEndereco("Rua de teste, Belo Horizonte/MG")?.regiao, "Belo Horizonte/MG");
+  assert.equal(municipioDoEndereco("FAZENDA TESTE SN ZONA RURAL 35500-000 DIVINOPOLIS MG")?.regiao, "Divinópolis/MG");
   assert.equal(municipioDoEndereco("UC 1204584501840 CEP 30130-000"), undefined);
   assert.equal(municipioDoEndereco("Cidade: Não existe\nUF: MG"), undefined);
   assert.equal(municipioDoEndereco("Belo Horizonte/MG, São Paulo/SP"), undefined);

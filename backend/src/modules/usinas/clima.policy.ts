@@ -9,6 +9,18 @@ export function municipioDoEndereco(endereco: unknown) {
   const uf = endereco.match(/^UF:\s*([A-Z]{2})\b/im)?.[1]?.toUpperCase();
   const candidatos = cidade && uf ? [[cidade, uf]] : Array.from(endereco.matchAll(/([^,;\n\r]+?)\s*[-/]\s*([A-Z]{2})\b/gi), match => [match[1].trim(), match[2].toUpperCase()]);
   const identificados = candidatos.map(([nome, estado]) => cidades.get(`${estado}|${normalizar(nome)}`)).filter(Boolean);
+  if (!cidade && !identificados.length) {
+    // Contas antigas podem terminar em "NOME DO MUNICIPIO UF CEP", sem rótulos.
+    // Só aceita o nome completo de uma sede municipal e UF no fim do endereço.
+    const flat = ` ${normalizar(endereco).replace(/[^a-z0-9]+/g, " ").trim()} `;
+    for (const item of municipios) {
+      const token = ` ${normalizar(item.nome).replace(/[^a-z0-9]+/g, " ")} ${item.uf.toLowerCase()} `;
+      const position = flat.lastIndexOf(token);
+      if (position < 0) continue;
+      const suffix = flat.slice(position + token.length).replace(/\b(?:cep|brasil|br)\b|\d/g, "").trim();
+      if (!suffix) identificados.push(item);
+    }
+  }
   const unicos = [...new Map(identificados.map(item => [item!.id, item!])).values()];
   if (unicos.length !== 1) return undefined;
   const municipio = unicos[0];
