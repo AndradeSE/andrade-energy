@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { abrirSiteApp } from "../../utils/siteApp";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { useReadNotifications } from "../../hooks/useReadNotifications";
 import { useDismissedNotifications } from "../../hooks/useDismissedNotifications";
@@ -88,6 +88,12 @@ export default function ClienteHeader({
     useAuth();
 
   const usuarioId = usuario?.id ? String(usuario.id) : undefined;
+  const { solarNotificacoes } = useLocalSearchParams<{ solarNotificacoes?: string }>();
+  useFocusEffect(useCallback(() => {
+    if (solarNotificacoes !== "1" || !usuarioId) return;
+    setNotificacoesAbertas(true);
+    router.setParams({ solarNotificacoes: undefined });
+  }, [solarNotificacoes, usuarioId]));
   const fotoPerfil = useProfilePhoto(usuarioId);
   const leituras = useReadNotifications(usuarioId);
   const dispensadas = useDismissedNotifications(usuarioId);
