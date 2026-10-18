@@ -45,7 +45,7 @@ export default function PlantWeatherCover({ usinaId, source, children }: { usina
     try { time = new Date(climate.consultadoEm).toLocaleTimeString("pt-BR", { timeZone: climate.fuso || "UTC", hour: "2-digit", minute: "2-digit" }); } catch { time = ""; }
   }
   function details() {
-    Alert.alert("Clima na região da usina", `${climate?.regiao ?? "Região não identificada"}\nEstimativa meteorológica regional pelo CEP cadastrado, não medição no local.\n${climate?.referencia ? `Referência: ${new Date(climate.referencia).toLocaleString("pt-BR", { timeZone: climate.fuso || "UTC" })}` : climate?.motivo ?? "Confira o CEP no endereço da usina."}\nFonte: MET Norway · CC BY 4.0. Localização: BrasilAPI.`, [
+    Alert.alert("Clima na região da usina", `${climate?.regiao ?? "Região não identificada"}\nEstimativa meteorológica regional pelo município/UF cadastrado, não medição no local.\n${climate?.referencia ? `Referência: ${new Date(climate.referencia).toLocaleString("pt-BR", { timeZone: climate.fuso || "UTC" })}` : climate?.motivo ?? "Confira o município e a UF no endereço da usina."}\nFonte: MET Norway · CC BY 4.0. Base municipal: Municípios Brasileiros (kelvins, MIT).`, [
       { text: "Fechar", style: "cancel" },
       { text: "Fonte e licença", onPress: () => { void Linking.openURL("https://api.met.no/doc/License").catch(() => undefined); } },
     ]);
