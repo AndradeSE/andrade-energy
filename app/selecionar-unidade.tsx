@@ -30,6 +30,7 @@ import {
 
 import CadastroActions from "../components/cadastro/CadastroActions";
 import ImportarProducaoPdfButton from "../components/usinas/ImportarProducaoPdfButton";
+import PlantWeatherCover from "../components/usinas/PlantWeatherCover";
 import { textoLegivel } from "../utils/textoLegado";
 import {
   ElasticFlatList as FlatList,
@@ -625,13 +626,11 @@ export default function SelecionarUnidade() {
                 onPress={() => void escolherUsina(usina)}
                 style={({ pressed }) => [styles.plantCard, pressed && styles.plantPressed]}
               >
-                <ImageBackground source={usina.foto_card_local ? { uri: usina.foto_card_local } : require("../assets/images/login-solar-header.png")} imageStyle={styles.plantCoverImage} style={styles.plantCover}>
-                  <LinearGradient colors={["rgba(2,25,18,.12)", "rgba(2,25,18,.88)"]} style={styles.plantCoverShade}>
+                <PlantWeatherCover usinaId={usina.id} source={usina.foto_card_local ? { uri: usina.foto_card_local } : require("../assets/images/login-solar-header.png")}>
                     <View style={styles.plantCoverTop}><View style={styles.plantLiveBadge}><View style={[styles.plantLiveDot, inativa && styles.plantLiveDotInactive]} /><Text style={styles.plantLiveText}>{inativa ? "INATIVA" : "EM OPERAÇÃO"}</Text></View><TouchableOpacity accessibilityRole="button" accessibilityLabel={`Personalizar fundo da usina ${usina.nome}`} hitSlop={8} onPress={(event) => { event.stopPropagation(); void personalizarFundoUsina(usina); }} style={styles.unitPhotoButton}><Ionicons name="image-outline" size={18} color="#FFF" /></TouchableOpacity></View>
                     <View style={styles.plantGeneration}><Text style={styles.plantGenerationLabel}>GERAÇÃO NESTA COMPETÊNCIA</Text><Text style={styles.plantGenerationValue}>{energia(energiaCompetencia)}</Text></View>
                     <View style={styles.plantCoverMetrics}><View style={styles.plantCoverMetric}><Text style={styles.plantCoverMetricLabel}>MÉDIA MENSAL</Text><Text style={styles.plantCoverMetricValue}>{energia(producaoMedia)}</Text></View><View style={styles.plantCoverDivider} /><View style={styles.plantCoverMetric}><Text style={styles.plantCoverMetricLabel}>ACUMULADA</Text><Text style={styles.plantCoverMetricValue}>{energia(geracaoTotal)}</Text></View></View>
-                  </LinearGradient>
-                </ImageBackground>
+                </PlantWeatherCover>
                 <View style={styles.plantBody}>
                 <View style={styles.plantHeading}>
                   <View style={[styles.plantIcon, { backgroundColor: "#FFFFFF" }]}>
