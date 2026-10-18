@@ -1,5 +1,5 @@
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import CadastroActions from "../../components/cadastro/CadastroActions";
@@ -24,10 +24,11 @@ function acaoContratualDaUc(unidade: any) {
 
 export default function Unidades() {
   const { usinaSelecionada } = useAuth();
-  const params = useLocalSearchParams<{ clienteId?: string; cliente?: string }>();
+  const params = useLocalSearchParams<{ clienteId?: string; cliente?: string; solarBusca?: string }>();
   const clienteId = String(params.clienteId || "");
   const [unidades, setUnidades] = useState<any[]>([]);
   const [busca, setBusca] = useState("");
+  useEffect(() => { if (typeof params.solarBusca === "string") setBusca(params.solarBusca.slice(0, 120)); }, [params.solarBusca]);
   const [loading, setLoading] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [erro, setErro] = useState("");
@@ -49,7 +50,11 @@ export default function Unidades() {
     setAtualizando(true);
     try { await carregar(); } finally { setAtualizando(false); }
   }
-  const lista = useMemo(() => { const termo = busca.trim().toLocaleLowerCase("pt-BR"); return unidades.filter((item) => `${item.apelido} ${item.numero} ${item.titular} ${item.endereco} ${item.clientes?.nome} ${item.clientes?.cpf}`.toLocaleLowerCase("pt-BR").includes(termo)); }, [busca, unidades]);
+  const lista = useMemo(() => {
+    const normalizar = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
+    const termo = normalizar(busca.trim());
+    return unidades.filter((item) => normalizar(`${item.apelido} ${item.numero} ${item.titular} ${item.endereco} ${item.clientes?.nome} ${item.clientes?.cpf}`).includes(termo));
+  }, [busca, unidades]);
 
   function abrirContratoDaUnidade(item: any) {
     const acao = acaoContratualDaUc(item);

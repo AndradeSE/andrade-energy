@@ -37,6 +37,7 @@ import { setFloatingConversationPhase } from "../services/assistant-floating-con
 import { parseAutomationCommand, prepareAutomation, createAutomationExecutor, type AutomationDraft } from "../shared/solar-automation";
 import { nativeAutomationContext, nativeAutomationIO } from "../services/assistant-native-automation";
 import { solarSuggestions, normalizeSolarRequest } from "../shared/solar-language";
+import { resolveSafeNavigation } from "../services/assistant-safe-navigation";
 
 type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string; invoiceChoices?: Array<{ id: string; label: string }>; actions?: AssistantAction[]; documents?: AssistantDocument[]; private?: boolean; voiceAnswerId?: string; automation?: AutomationDraft };
 
@@ -332,6 +333,10 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     if (!question || busyRef.current) return;
     const interpretedQuestion = normalizeAssistantQuery(question);
     const automationCommand = parseAutomationCommand(question);
+    const safeNavigation = resolveSafeNavigation(question, {
+      generator: IS_GERADOR_APP, role: usuario?.perfil, companyRole: usuario?.papel_empresa,
+      plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id, permissions: usuario?.permissoes,
+    });
     pendingAutomationRef.current = undefined;
     setPendingAutomation(undefined);
     const wantsOverdue = asksOverdueInvoices(interpretedQuestion);
@@ -374,8 +379,10 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
           response = { from: "assistant", private: true, automation: draft, text: `Revisar alteração em ${draft.targetLabel}\nCampo: ${draft.command.field}\nAtual: ${String(draft.before[draft.command.field] ?? "Não informado")}\nNovo: ${draft.command.value}\nConfirme no botão abaixo para salvar. A revisão vale por 5 minutos.` };
           if (voiceOnly) Alert.alert("Revisar alteração", response.text, [{ text: "Cancelar", style: "cancel", onPress: () => setPendingAutomation(undefined) }, { text: "Confirmar e salvar", onPress: () => void confirmAutomation(draft) }]);
         } catch (error) { response = { from: "assistant", private: true, text: error instanceof Error ? error.message : "Não consegui preparar a alteração. Nenhum dado foi salvo." }; }
+      } else if (safeNavigation) {
+        response = { from: "assistant", private: true, text: safeNavigation.text };
       } else if (/o que (voce|a solar) (pode|consegue)|suas funcoes/.test(normalizeSolarRequest(question))) {
-        response = { from: "assistant", private: true, text: "Posso consultar os dados disponíveis na sua conta, abrir funções e documentos e preparar alterações de nome, e-mail ou telefone do perfil, contato de clientes autorizados, nome da usina selecionada e apelido de UC própria. Você revisa e confirma no chat. Faturamento, pagamentos, assinaturas e permissões continuam nas telas próprias." };
+        response = { from: "assistant", private: true, text: "Posso abrir diretamente as áreas permitidas, pesquisar clientes e UCs e filtrar faturas por abertas, vencidas ou pagas. Exemplos: abra os contratos, busque cliente Rodrigo, mostre faturas vencidas ou abra operação 09/2026. Também consulto dados e documentos e preparo alterações cadastrais para sua revisão. Cobranças, assinaturas, exclusões e permissões exigem confirmação nas telas próprias." };
       } else if (speechStatus) {
         response = { from: "assistant", text: speechStatus, private: true };
       } else if (capability) {
@@ -460,6 +467,11 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       setMessages(messagesRef.current);
       topicRef.current = nextTopic;
       setTopic(nextTopic);
+      if (safeNavigation?.action) {
+        onClose?.();
+        router.push({ pathname: safeNavigation.action.route, params: safeNavigation.action.params } as any);
+        return;
+      }
       if (voiceActive.current) {
         setVoiceStatus("Falando com você… depois volto a ouvir.");
         setSpeakingReply(true);
@@ -625,6 +637,17 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
             },
             onAccountQuery: async question => {
               const generation = contextGeneration.current;
+              const navigation = resolveSafeNavigation(question, {
+                generator: IS_GERADOR_APP, role: usuario?.perfil, companyRole: usuario?.papel_empresa,
+                plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id, permissions: usuario?.permissoes,
+              });
+              if (navigation) {
+                if (navigation.action) {
+                  onClose?.();
+                  router.push({ pathname: navigation.action.route, params: navigation.action.params } as any);
+                }
+                return navigation.text;
+              }
               const reply = await queryLiveAccount(question, {
                 generator: IS_GERADOR_APP, role: usuario?.perfil,
                 plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id,

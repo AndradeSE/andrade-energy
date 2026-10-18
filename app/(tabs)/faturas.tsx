@@ -4,7 +4,7 @@ import * as FileSystemLegacy from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, BackHandler, Linking, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { AppHeader, ElasticFlatList as FlatList, EmptyState, Screen } from "../../components/ui";
@@ -28,7 +28,7 @@ const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { s
 export default function Faturas() {
   const proprietario = IS_GERADOR_APP;
   const { user, unidadeSelecionada } = useAuth();
-  const { origem } = useLocalSearchParams<{ origem?: string }>();
+  const { origem, solarFiltro } = useLocalSearchParams<{ origem?: string; solarFiltro?: string }>();
   useFocusEffect(useCallback(() => {
     if (origem !== "faturamento") return undefined;
     const listener = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -39,6 +39,9 @@ export default function Faturas() {
   }, [origem]));
   const { data, isLoading, error, refetch } = useFaturas();
   const [filtro, setFiltro] = useState<Filtro>("todas");
+  useEffect(() => {
+    if (["todas", "abertas", "vencidas", "pagas"].includes(String(solarFiltro))) setFiltro(solarFiltro as Filtro);
+  }, [solarFiltro]);
   const [categoria, setCategoria] = useState<"andrade" | "cemig">("andrade");
   const [anexadas, setAnexadas] = useState<FaturaAnexadaCliente[]>([]);
   const [baixando, setBaixando] = useState<string>();

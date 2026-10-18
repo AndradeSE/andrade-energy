@@ -66,5 +66,5 @@ export function guideAppAnswer(normalizedQuestion: string, variant: "gerador" | 
 
 export function verifiedAppGuide(variant: "gerador" | "consumidor") {
   return GUIDE.filter(item => item.audience === "ambos" || item.audience === variant)
-    .map(item => item.answer).concat(QUICK_ACCESS[variant]).join("\n");
+    .map(item => item.answer).concat(QUICK_ACCESS[variant], "A Solar executa navegação segura por comandos explícitos: abrir áreas permitidas, pesquisar clientes e UCs, filtrar faturas abertas/vencidas/pagas e abrir Operação em uma competência como 09/2026. Na voz Live, encaminhe esses comandos para consultar_conta e respeite o resultado; não diga que abriu uma tela sem executá-lo. Exemplos: abra contratos, busque cliente Rodrigo, mostre faturas vencidas. Cadastros novos podem ser abertos para preenchimento, sem salvar. Alterações cadastrais suportadas exigem revisão e confirmação. Cobranças, pagamentos, assinaturas, cancelamentos, exclusões, permissões e conexões de e-mail não são executados automaticamente. Não escolha outra usina/UC nem invente sucesso ou permissões.").join("\n");
 }

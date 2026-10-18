@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -20,6 +20,8 @@ const competenciaNome = (valor: string) => {
 };
 
 export default function Operacao() {
+  const { solarCompetencia } = useLocalSearchParams<{ solarCompetencia?: string }>();
+  const competenciaSolicitada = typeof solarCompetencia === "string" && /^20\d{2}-(0[1-9]|1[0-2])$/.test(solarCompetencia) ? solarCompetencia : undefined;
   const { usinaSelecionada } = useAuth();
   const usinaId = usinaSelecionada?.id;
   const sequencia = useRef(0);
@@ -42,7 +44,7 @@ export default function Operacao() {
       Alert.alert("Não foi possível carregar a operação", error?.response?.data?.message ?? "Verifique a conexão com o servidor e tente novamente.");
     } finally { if (pedido === sequencia.current) setLoading(false); }
   }, [usinaId]);
-  useFocusEffect(useCallback(() => { setLoading(true); setResumo(undefined); setLista([]); void carregar(); return () => { sequencia.current++; }; }, [carregar]));
+  useFocusEffect(useCallback(() => { setLoading(true); setResumo(undefined); setLista([]); void carregar(competenciaSolicitada); return () => { sequencia.current++; }; }, [carregar, competenciaSolicitada]));
 
   async function selecionarCompetencia(valor: string) { setCompetencia(valor); setLoading(true); await carregar(valor); }
   async function atualizarPagina() { setAtualizando(true); try { await carregar(competencia); } finally { setAtualizando(false); } }

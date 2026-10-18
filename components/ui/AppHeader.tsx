@@ -3,7 +3,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { abrirSiteApp } from "../../utils/siteApp";
 import { LinearGradient } from "expo-linear-gradient";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Alert, Image, LayoutAnimation, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { useCallback, useEffect, useState } from "react";
 import { useReadNotifications } from "../../hooks/useReadNotifications";
@@ -75,6 +75,12 @@ export default function AppHeader({
   const [avisosPassoAPasso, setAvisosPassoAPasso] = useState(true);
   const [fotoAberta, setFotoAberta] = useState(false);
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
+  const { solarNotificacoes } = useLocalSearchParams<{ solarNotificacoes?: string }>();
+  useFocusEffect(useCallback(() => {
+    if (solarNotificacoes !== "1" || !usuario?.id) return;
+    setNotificacoesAbertas(true);
+    router.setParams({ solarNotificacoes: undefined });
+  }, [solarNotificacoes, usuario?.id, router]));
   const [avisosRecebidos, setNotificacoes] = useState<any[]>([]);
   const usuarioId = usuario?.id ? String(usuario.id) : undefined;
   const fotoPerfil = useProfilePhoto(usuarioId);

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Alert, Pressable, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
@@ -36,10 +36,12 @@ function statusCadastro(cliente: any) {
 }
 
 export default function Clientes() {
+  const { solarBusca } = useLocalSearchParams<{ solarBusca?: string }>();
   const { user, usinaSelecionada } = useAuth();
   const queryClient = useQueryClient();
   const inicial = queryClient.getQueryData<any[]>(initialTabKey(String(user?.id ?? ""), usinaSelecionada?.id ?? user?.usina_id, "clientes"));
   const [clientes, setClientes] = useState<any[]>(inicial ?? []); const [busca, setBusca] = useState(""); const [loading, setLoading] = useState(!inicial); const [atualizando, setAtualizando] = useState(false); const [erro, setErro] = useState<string | null>(null);
+  useEffect(() => { if (typeof solarBusca === "string") setBusca(solarBusca.slice(0, 120)); }, [solarBusca]);
   const carregar = useCallback(async () => {
     try {
       setErro(null);
@@ -73,7 +75,10 @@ export default function Clientes() {
   }, [queryClient, user?.id, user?.usina_id, usinaSelecionada?.id]);
   useFocusEffect(useCallback(() => { void carregar(); }, [carregar]));
   async function atualizarPagina() { setAtualizando(true); try { await carregar(); } finally { setAtualizando(false); } }
-  const lista = useMemo(() => clientes.filter((c) => `${c.nome} ${unidadeDoCliente(c)} ${c.telefone} ${c.email} ${documentoDoCliente(c)}`.toLowerCase().includes(busca.toLowerCase())), [busca, clientes]);
+  const lista = useMemo(() => {
+    const normalizar = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    return clientes.filter((c) => normalizar(`${c.nome} ${unidadeDoCliente(c)} ${c.telefone} ${c.email} ${documentoDoCliente(c)}`).includes(normalizar(busca)));
+  }, [busca, clientes]);
 
   function confirmarExclusao(item: any) {
     if (Array.isArray(item.contratos_status) && item.contratos_status.some((status: unknown) => !["CANCELADO", "ENCERRADO"].includes(String(status).toUpperCase()))) {
