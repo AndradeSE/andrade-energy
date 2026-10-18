@@ -23,7 +23,7 @@ import {
 } from "./contratos.controller";
 import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
 import { upload } from "../../config/multer";
-import { exigirRegistroDaEmpresa } from "../../utils/empresaScope";
+import { empresaIdDaRequisicao, exigirRegistroDaEmpresa } from "../../utils/empresaScope";
 import { enviarContratoEConvite } from "./envioContrato.service";
 import { listarAcessoContratos } from "./acessoContrato.service";
 import { solicitarRenovacaoContrato, informarNaoRenovacao } from "./renovacaoContrato.service";
@@ -31,6 +31,15 @@ import { solicitarRenovacaoContrato, informarNaoRenovacao } from "./renovacaoCon
 const router = Router();
 router.use(exigirAutenticacao);
 router.get("/", exigirGestor, listarContratosController);
+router.get("/:id/documento", exigirGestor, exigirRegistroDaEmpresa("contratos"), async (req, res) => {
+  try {
+    const documento = await ContratosService.obterDocumentoContrato(req.params.id, empresaIdDaRequisicao(req));
+    if (!documento) return res.status(404).json({ message: "Contrato não encontrado." });
+    return res.json(documento);
+  } catch {
+    return res.status(500).json({ message: "Não foi possível abrir o documento do contrato." });
+  }
+});
 // A empresa pode ter vários consumidores; pertencer à mesma empresa não
 // autoriza consultar o contrato ou a proposta de outro cliente.
 function exigirTitular(tabela: string, parametro: string) {

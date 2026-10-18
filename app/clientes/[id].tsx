@@ -49,7 +49,7 @@ const acaoContratualDaUc = (unidade: any) => {
   if (contrato?.dados_documento?.assinatura_externa_pendente === true) return { label: "Revisar documento", status: "Aguardando conferência", revisao: false, liberada: false };
   if (assinado) return { label: "Ver contrato", status: "Assinado", revisao: false, liberada: true };
   if (contrato?.revisao_configuracao_pendente) return { label: "Gerar nova versão", status: "Nova versão necessária", revisao: true, liberada: false };
-  if (unidade?.convite_resumo) return { label: "Reenviar convite", status: "Aguardando assinatura", revisao: false, liberada: false };
+  if (contrato?.dados_documento?.envio_email_concluido === true || unidade?.convite_resumo) return { label: "Reenviar convite", status: "Aguardando assinatura", revisao: false, liberada: false };
   if (contrato?.contrato_gerado_url) return { label: "Enviar convite", status: "Minuta pronta", revisao: false, liberada: false };
   return { label: "Gerar contrato e enviar convite", status: "Não enviado", revisao: false, liberada: false };
 };

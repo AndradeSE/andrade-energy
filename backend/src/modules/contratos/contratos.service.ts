@@ -55,6 +55,13 @@ export async function listarContratosDaEmpresa(empresaId: string, usinaId?: stri
   }));
 }
 
+export async function obterDocumentoContrato(id: string, empresaId: string) {
+  const { data, error } = await supabase.from("contratos").select("*")
+    .eq("id", id).eq("empresa_id", empresaId).maybeSingle();
+  if (error) throw error;
+  return data ? anexarLinksDoContrato(data) : null;
+}
+
 export async function criarContratoService(
   dados: any
 ) {
