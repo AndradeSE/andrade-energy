@@ -86,7 +86,7 @@ export default function UnidadeDocumentos() {
       setUnidade(dados);
       const [faturasResultado, contratoResultado, anexosResultado] = await Promise.allSettled([
         listarFaturas(undefined, dados.numero),
-        String(dados.id ?? "").startsWith("cliente-") ? Promise.resolve(null) : buscarContratoDaUnidade(dados.id),
+        String(dados.id ?? "").startsWith("cliente-") ? Promise.resolve(null) : buscarContratoDaUnidade(dados.id).then(async atual => atual ?? await buscarContratoDaUnidade(dados.id, true)),
         dados.cliente_id ? listarFaturasAnexadasCliente(String(dados.cliente_id)) : Promise.resolve([]),
       ]);
       setFaturas(faturasResultado.status === "fulfilled" ? (faturasResultado.value ?? []) : []);
@@ -165,7 +165,7 @@ export default function UnidadeDocumentos() {
   const contratoAssinado = !contratoCancelado && contrato?.dados_documento?.assinatura_externa_pendente !== true
     && !(contrato?.dados_documento?.aceite_cliente_exigido === true && !contrato?.aceite_cliente_em)
     && Boolean(contrato?.aceite_cliente_em || contrato?.contrato_assinado_url || String(contrato?.status ?? "").toUpperCase() === "VIGENTE");
-  const rotuloContrato = contrato?.revisao_configuracao_pendente ? "Continuar revisão" : contrato?.dados_documento?.aceite_cliente_exigido === true && !contrato?.aceite_cliente_em ? "Aguardando aceite" : contratoAssinado ? "Ver contrato" : contrato ? "Gerenciar contrato" : "Gerar contrato";
+  const rotuloContrato = contrato?.revisao_configuracao_pendente ? "Continuar revisão" : contrato?.dados_documento?.aceite_cliente_exigido === true && !contrato?.aceite_cliente_em ? "Aguardando aceite" : contratoAssinado || contratoCancelado ? "Ver contrato" : contrato?.dados_documento?.envio_email_concluido === true ? "Aguardando assinatura" : contrato?.contrato_gerado_url ? "Minuta pronta" : contrato ? "Continuar contrato" : "Gerar contrato";
   const documentoConferido = Boolean(contrato?.contrato_assinado_url && contrato?.dados_documento?.assinatura_externa_validada_em);
   const titularDaFatura = String(faturasCadastro[0]?.dadosFatura?.titular ?? faturasCadastro[0]?.dadosFatura?.cliente ?? "").trim();
 

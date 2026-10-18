@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { AppHeader, Badge, Card, ElasticFlatList as FlatList, EmptyState, Screen } from "../../components/ui";
 import { excluirContrato, listarContratosDaEmpresa } from "../../services/contratos.service";
+import { abrirDocumentoContrato } from "../../services/contrato-documento.service";
 import { useAuth } from "../../contexts/AuthContext";
 import { initialTabKey } from "../../services/navigation-preload.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
@@ -53,6 +54,15 @@ export default function ContratosClientes() {
   const [atualizando, setAtualizando] = useState(false);
   const [clienteAberto, setClienteAberto] = useState<string | null>(null);
   const [historicoAberto, setHistoricoAberto] = useState<string | null>(null);
+  const [abrindoDocumento, setAbrindoDocumento] = useState(false);
+
+  async function lerContrato(id: string) {
+    if (abrindoDocumento) return;
+    setAbrindoDocumento(true);
+    try { await abrirDocumentoContrato(id); }
+    catch (erro: any) { Alert.alert("Não foi possível abrir o contrato", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente."); }
+    finally { setAbrindoDocumento(false); }
+  }
 
   const carregar = useCallback(async () => {
     try {
@@ -111,11 +121,14 @@ export default function ContratosClientes() {
     return <View key={contrato.id} style={styles.contractRow}>
       <View style={styles.contractStatus}><Badge label={statusContrato(contrato)} variant={String(contrato.status).toUpperCase() === "VIGENTE" && !contrato.cancelamento_pendente ? "success" : "warning"} /></View>
       <View style={styles.row}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Ler contrato ${contrato.numero ?? "sem número"}`} disabled={abrindoDocumento} onPress={() => { void lerContrato(contrato.id); }} style={[styles.row, { flex: 1 }]}>
         <View style={styles.icon}><Ionicons name="document-text-outline" size={20} color={Colors.primary} /></View>
         <View style={styles.info}>
           <Text style={styles.contractNumber}>{contrato.numero ?? "Contrato sem número"}</Text>
           <Text style={styles.detail}>{contrato.unidades_consumidoras?.numero ? `UC ${contrato.unidades_consumidoras.numero}` : "UC não vinculada"}{contrato.versao ? ` · Versão ${contrato.versao}` : ""}</Text>
         </View>
+        <Ionicons name="open-outline" size={19} color={Colors.primary} />
+        </Pressable>
         {String(contrato.status).toUpperCase() === "RASCUNHO" && !contrato.aceite_cliente_em && !contrato.contrato_assinado_url && contrato.dados_documento?.envio_email_concluido !== true && <Pressable accessibilityRole="button" accessibilityLabel={`Excluir rascunho ${contrato.numero ?? "sem número"}`} onPress={() => confirmarExclusao(contrato)} style={styles.deleteButton}><Ionicons name="trash-outline" size={18} color={Colors.danger} /></Pressable>}
       </View>
       {(["ATIVO", "VIGENTE"].includes(String(contrato.status ?? "").toUpperCase()) && contrato.cancelamento_pendente) ? <Pressable accessibilityRole="button" accessibilityLabel={`Analisar cancelamento do contrato ${contrato.numero ?? ""}`} onPress={() => router.push(`/contratos/${contrato.id}` as any)} style={styles.cancelReviewButton}><Ionicons name="alert-circle-outline" size={18} color={Colors.danger} /><Text style={styles.cancelReviewText}>Analisar cancelamento</Text><Ionicons name="chevron-forward" size={17} color={Colors.danger} /></Pressable> : null}
