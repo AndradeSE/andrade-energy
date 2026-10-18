@@ -22,6 +22,9 @@ import { exigirUsinaDaSessaoOuGestor } from "../../utils/empresaScope";
 import { exigirCapacidadeDoPlano } from "../../middlewares/limitesPlano.middleware";
 import { empresaIdDaRequisicao } from "../../utils/empresaScope";
 import { cadastrarUnidadeOperacional } from "./unidadeOperacional.service";
+import { consultarClimaDoEndereco } from "./clima.service";
+import { supabase } from "../../config/supabase";
+import { rateLimit } from "express-rate-limit";
 
 const router = Router();
 
@@ -38,6 +41,16 @@ router.get("/", exigirGestor, listarUsinasController);
 router.post("/importar-producao-pdf", exigirGestor, upload.single("arquivo"), importarProducaoPelaUcController);
 
 router.get("/:id", exigirUsinaDaSessaoOuGestor(), buscarUsinaController);
+router.get("/:id/clima", exigirUsinaDaSessaoOuGestor(), rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false }), async (req, res) => {
+  try {
+    const { data, error } = await supabase.from("usinas").select("endereco")
+      .eq("id", req.params.id).eq("empresa_id", empresaIdDaRequisicao(req)).maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ message: "Usina não encontrada." });
+    res.setHeader("Cache-Control", "private, no-store");
+    return res.json(await consultarClimaDoEndereco(data.endereco));
+  } catch { return res.status(503).json({ disponivel: false, motivo: "Clima temporariamente indisponível." }); }
+});
 
 router.get("/:id/dashboard", exigirUsinaDaSessaoOuGestor(), dashboardUsinaController);
 router.get("/:id/alocacao", exigirGestor, consultarAlocacaoController);
