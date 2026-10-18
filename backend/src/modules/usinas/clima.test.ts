@@ -1,18 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cepDoEndereco, coordenadasBrasileiras, estadoDoClima, noiteNaLocalizacao, periodoAtual } from "./clima.policy";
+import { municipioDoEndereco, coordenadasBrasileiras, estadoDoClima, noiteNaLocalizacao, periodoAtual } from "./clima.policy";
 import { criarConsultaClima } from "./clima.service";
 
-test("localização exige CEP explícito e coordenadas válidas no Brasil", () => {
-  assert.equal(cepDoEndereco("Logradouro: Rua de teste\nCEP: 30130-000"), "30130000");
-  assert.equal(cepDoEndereco("Centro 30130-000"), "30130000");
-  assert.equal(cepDoEndereco("UC 1204584501840"), undefined);
+const address = "Logradouro: NÃO ENVIAR\nNúmero: 123\nCidade: Belo Horizonte\nUF: MG\nCEP: 30130-000";
+test("resolve município localmente e rejeita localização desconhecida ou ambígua", () => {
+  assert.equal(municipioDoEndereco(address)?.regiao, "Belo Horizonte/MG");
+  assert.equal(municipioDoEndereco("Rua de teste, Belo Horizonte/MG")?.regiao, "Belo Horizonte/MG");
+  assert.equal(municipioDoEndereco("UC 1204584501840 CEP 30130-000"), undefined);
+  assert.equal(municipioDoEndereco("Cidade: Não existe\nUF: MG"), undefined);
+  assert.equal(municipioDoEndereco("Belo Horizonte/MG, São Paulo/SP"), undefined);
   assert.equal(coordenadasBrasileiras(null, "-43"), undefined);
   assert.equal(coordenadasBrasileiras("", ""), undefined);
   assert.equal(coordenadasBrasileiras("59.9", "10.7"), undefined);
-  assert.deepEqual(coordenadasBrasileiras("-19.916712", "-43.934512"), { lat: -19.9167, lon: -43.9345 });
 });
-test("noite acompanha a posição solar da usina, não o fuso do celular", () => {
+test("noite acompanha posição solar e mantém chuva/nuvens durante a noite", () => {
   assert.equal(noiteNaLocalizacao(-19.9, -43.9, Date.parse("2026-10-17T15:00:00Z")), false);
   assert.equal(noiteNaLocalizacao(-19.9, -43.9, Date.parse("2026-10-18T02:00:00Z")), true);
   assert.deepEqual(estadoDoClima("clearsky_day", true), { tipo: "noite", descricao: "Noite" });
@@ -20,49 +22,44 @@ test("noite acompanha a posição solar da usina, não o fuso do celular", () =>
   assert.equal(estadoDoClima("cloudy", true)?.descricao, "Noite nublada");
   assert.equal(estadoDoClima("unknown", false), undefined);
 });
-test("nunca apresenta previsão distante como clima atual", () => {
+test("não usa previsão distante como clima atual", () => {
   const now = Date.parse("2026-10-17T15:20:00Z");
   assert.equal(periodoAtual([{ time: "2026-10-17T18:00:00Z" }], now), undefined);
   assert.equal(periodoAtual([{ time: "2026-10-17T15:00:00Z" }, { time: "2026-10-17T16:00:00Z" }], now)?.time, "2026-10-17T15:00:00Z");
 });
-const location = { city: "Belo Horizonte", state: "MG", timezoneName: "America/Sao_Paulo", location: { coordinates: { latitude: "-19.9167", longitude: "-43.9345" } } };
 const forecast = { properties: { timeseries: [{ time: "2026-10-17T15:00:00Z", data: { instant: { details: { air_temperature: 26.4 } }, next_1_hours: { summary: { symbol_code: "clearsky_day" } } } }] } };
-test("consulta só o CEP e coordenadas fixas; deduplica requisições e respeita cache", async () => {
+test("só transmite coordenadas municipais públicas e deduplica o cache", async () => {
   const calls: string[] = [];
   const provider = criarConsultaClima((async (url, options) => {
     calls.push(String(url));
     assert.match(String((options?.headers as Record<string, string>)["User-Agent"]), /AndradeEnergy/);
-    return new Response(JSON.stringify(calls.length === 1 ? location : forecast), { status: 200, headers: { expires: "Sat, 17 Oct 2026 16:00:00 GMT" } });
+    return new Response(JSON.stringify(forecast), { status: 200, headers: { expires: "Sat, 17 Oct 2026 16:00:00 GMT" } });
   }) as typeof fetch, () => Date.parse("2026-10-17T15:20:00Z"));
-  const [a, b] = await Promise.all([provider("CEP: 30130-000\nNome: NÃO ENVIAR"), provider("CEP: 30130-000")]);
+  const [a, b] = await Promise.all([provider(address), provider("Cidade: Belo Horizonte\nUF: MG\nCEP: 99999-999")]);
   assert.equal(a.disponivel, true);
   assert.equal(a.tipo, "sol");
   assert.equal(a.temperatura, 26);
   assert.equal(b.regiao, "Belo Horizonte/MG");
-  await provider("CEP: 30130-000");
-  assert.equal(calls.length, 2);
-  assert.equal(calls[0], "https://brasilapi.com.br/api/cep/v2/30130000");
-  assert.equal(calls[1], "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=-19.9167&lon=-43.9345");
+  await provider(address);
+  assert.equal(calls.length, 1);
+  const city = municipioDoEndereco(address)!;
+  assert.equal(calls[0], `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${city.lat}&lon=${city.lon}`);
+  assert.doesNotMatch(calls[0], /30130|99999|ENVIAR|120458|cep|address/i);
 });
-test("CEP ausente não consulta fornecedor nem inventa condição", async () => {
+test("cidade ausente não consulta fornecedor nem inventa condição", async () => {
   const provider = criarConsultaClima((async () => { throw Error("Não pode consultar"); }) as typeof fetch);
-  const data = await provider("Endereço sem CEP");
+  const data = await provider("Endereço sem cidade e UF\nCEP: 30130-000");
   assert.equal(data.disponivel, false);
   assert.equal(data.tipo, undefined);
 });
-test("coordenadas ausentes não viram zero nem clima de outra cidade", async () => {
-  let calls = 0;
-  const provider = criarConsultaClima((async () => {
-    calls++;
-    return new Response(JSON.stringify({ ...location, location: { coordinates: { latitude: null, longitude: null } } }), { status: 200 });
-  }) as typeof fetch);
-  assert.equal((await provider("CEP: 30130-000")).disponivel, false);
-  assert.equal(calls, 1);
+test("resposta sem temperatura ou condição não inventa clima", async () => {
+  const provider = criarConsultaClima((async () => new Response(JSON.stringify({ properties: { timeseries: [] } }), { status: 200 })) as typeof fetch);
+  assert.equal((await provider(address)).disponivel, false);
 });
-test("falha do fornecedor é indisponibilidade e evita novas consultas em sequência", async () => {
+test("falha evita consultas repetidas por cinco minutos", async () => {
   let calls = 0;
   const provider = criarConsultaClima((async () => { calls++; return new Response("", { status: 429 }); }) as typeof fetch);
-  assert.equal((await provider("CEP: 30130-000")).disponivel, false);
-  assert.equal((await provider("CEP: 30130-000")).disponivel, false);
+  assert.equal((await provider(address)).disponivel, false);
+  assert.equal((await provider(address)).disponivel, false);
   assert.equal(calls, 1);
 });

@@ -1,7 +1,20 @@
-export function cepDoEndereco(endereco: unknown): string | undefined {
+import municipios from "./municipios.data.json";
+const normalizar = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, " ");
+const cidades = new Map(municipios.map(item => [`${item.uf}|${normalizar(item.nome)}`, item]));
+
+// Resolução inteiramente local. Nenhum CEP, rua ou nome privado é enviado.
+export function municipioDoEndereco(endereco: unknown) {
   if (typeof endereco !== "string") return undefined;
-  const cep = endereco.match(/\bCEP\s*[:\-]?\s*(\d{5})-?(\d{3})\b/i) ?? endereco.match(/\b(\d{5})-(\d{3})\b/);
-  return cep ? `${cep[1]}${cep[2]}` : undefined;
+  const cidade = endereco.match(/^Cidade:\s*([^\n\r]+)/im)?.[1]?.trim();
+  const uf = endereco.match(/^UF:\s*([A-Z]{2})\b/im)?.[1]?.toUpperCase();
+  const candidatos = cidade && uf ? [[cidade, uf]] : Array.from(endereco.matchAll(/([^,;\n\r]+?)\s*[-/]\s*([A-Z]{2})\b/gi), match => [match[1].trim(), match[2].toUpperCase()]);
+  const identificados = candidatos.map(([nome, estado]) => cidades.get(`${estado}|${normalizar(nome)}`)).filter(Boolean);
+  const unicos = [...new Map(identificados.map(item => [item!.id, item!])).values()];
+  if (unicos.length !== 1) return undefined;
+  const municipio = unicos[0];
+  const point = coordenadasBrasileiras(municipio.lat, municipio.lon);
+  if (!point) return undefined;
+  return { ...point, id: String(municipio.id), regiao: `${municipio.nome}/${municipio.uf}`, fuso: municipio.fuso || "UTC" };
 }
 
 export function coordenadasBrasileiras(latitude: unknown, longitude: unknown) {
