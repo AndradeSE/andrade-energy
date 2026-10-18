@@ -52,18 +52,17 @@ export default function PlantWeatherCover({ usinaId, source, children }: { usina
   }
   return <ImageBackground source={source} imageStyle={styles.image} style={styles.cover}>
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <LinearGradient colors={night ? ["rgba(4,13,48,.72)", "rgba(3,18,40,.68)"] : rain ? ["rgba(55,74,90,.6)", "rgba(18,47,58,.48)"] : cloudy ? ["rgba(126,143,148,.4)", "rgba(31,70,65,.3)"] : ["rgba(255,205,78,.06)", "rgba(2,25,18,.12)"]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={night ? ["#07132E", "#123344"] : rain ? ["rgba(55,74,90,.6)", "rgba(18,47,58,.48)"] : cloudy ? ["rgba(126,143,148,.4)", "rgba(31,70,65,.3)"] : ["rgba(255,205,78,.06)", "rgba(2,25,18,.12)"]} style={StyleSheet.absoluteFill} />
       {fresh && rain ? [18, 45, 76].map((left, i) => <Animated.View key={left} style={[styles.drop, { left: `${left}%`, opacity: phase.interpolate({ inputRange: [0, .15, .8, 1], outputRange: [0, .55, .55, 0] }), transform: [{ translateY: phase.interpolate({ inputRange: [0, 1], outputRange: [-30 - i * 30, 210] }) }, { rotate: "14deg" }] }]} />) : null}
       {fresh && night && !rain ? [15, 52, 83].map((left, i) => <Animated.View key={left} style={[styles.star, { left: `${left}%`, top: 28 + i * 17, opacity: phase.interpolate({ inputRange: [0, .5, 1], outputRange: [.25, .85, .25] }) }]} />) : null}
     </View>
     <LinearGradient colors={["rgba(2,25,18,.08)", "rgba(2,25,18,.88)"]} style={styles.shade}>
-      {parts[0]}
       <Pressable accessibilityRole="button" accessibilityLabel={fresh ? `${climate?.descricao}, ${climate?.temperatura} graus em ${climate?.regiao}. Ver detalhes do clima.` : "Clima indisponível. Ver detalhes."} onPress={event => { event.stopPropagation(); details(); }} style={styles.weather}>
         <Animated.View style={{ transform: [{ rotate: fresh && !night && !cloudy && !rain ? phase.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }) : "0deg" }, { translateX: cloudy ? phase.interpolate({ inputRange: [0, .5, 1], outputRange: [-4, 4, -4] }) : 0 }] }}><Ionicons name={fresh ? icon : "cloud-outline"} size={24} color={fresh && !night && !cloudy && !rain ? "#FFD34F" : "#EAF7FF"} /></Animated.View>
         <View style={styles.copy}><Text style={styles.condition}>{fresh ? `${climate?.descricao} · ${climate?.temperatura}°C` : query.isPending && !query.error ? "Consultando clima…" : "Clima indisponível"}</Text><Text numberOfLines={1} style={styles.location}>{fresh ? `${climate?.regiao}${time ? ` · ${time}${climate?.fuso === "UTC" ? " UTC" : ""}` : ""}` : "Pelo endereço cadastrado da usina"}</Text></View>
         <Ionicons name="information-circle-outline" size={15} color="#D8EBE5" />
       </Pressable>
-      {parts.slice(1)}
+      {parts}
       {fresh ? <Text style={styles.source}>MET Norway · estimativa regional</Text> : null}
     </LinearGradient>
   </ImageBackground>;
