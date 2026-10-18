@@ -7,6 +7,13 @@ import { AccessibilityInfo, Alert, Animated, AppState, Easing, ImageBackground, 
 import { buscarClimaUsina, type ClimaUsina } from "../../services/usina-clima.service";
 import { useAuth } from "../../contexts/AuthContext";
 
+const weatherBackgrounds = {
+  sol: require("../../assets/images/weather/solar-sunny.png"),
+  nublado: require("../../assets/images/weather/solar-cloudy.png"),
+  chuva: require("../../assets/images/weather/solar-rainy.png"),
+  noite: require("../../assets/images/weather/solar-night.png"),
+};
+
 export default function PlantWeatherCover({ usinaId, source, children }: { usinaId: string; source: ImageSourcePropType; children: ReactNode }) {
   const focused = useIsFocused();
   const { usuario } = useAuth();
@@ -38,6 +45,7 @@ export default function PlantWeatherCover({ usinaId, source, children }: { usina
   const night = fresh && climate?.noite;
   const rain = fresh && climate?.tipo === "chuva";
   const cloudy = fresh && climate?.tipo === "nublado";
+  const background = fresh ? weatherBackgrounds[night ? "noite" : rain ? "chuva" : cloudy ? "nublado" : "sol"] : source;
   const icon = rain ? "rainy" : night ? "moon" : cloudy ? "cloud" : "sunny";
   const parts = Children.toArray(children);
   let time = "";
@@ -50,9 +58,9 @@ export default function PlantWeatherCover({ usinaId, source, children }: { usina
       { text: "Fonte e licença", onPress: () => { void Linking.openURL("https://api.met.no/doc/License").catch(() => undefined); } },
     ]);
   }
-  return <ImageBackground source={source} imageStyle={styles.image} style={styles.cover}>
+  return <ImageBackground source={background} imageStyle={styles.image} style={styles.cover}>
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <LinearGradient colors={night ? ["#07132E", "#123344"] : rain ? ["rgba(55,74,90,.6)", "rgba(18,47,58,.48)"] : cloudy ? ["rgba(126,143,148,.4)", "rgba(31,70,65,.3)"] : ["rgba(255,205,78,.06)", "rgba(2,25,18,.12)"]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={night ? ["rgba(4,13,48,.08)", "rgba(3,18,40,.14)"] : ["transparent", "rgba(2,25,18,.08)"]} style={StyleSheet.absoluteFill} />
       {fresh && rain ? [18, 45, 76].map((left, i) => <Animated.View key={left} style={[styles.drop, { left: `${left}%`, opacity: phase.interpolate({ inputRange: [0, .15, .8, 1], outputRange: [0, .55, .55, 0] }), transform: [{ translateY: phase.interpolate({ inputRange: [0, 1], outputRange: [-30 - i * 30, 210] }) }, { rotate: "14deg" }] }]} />) : null}
       {fresh && night && !rain ? [15, 52, 83].map((left, i) => <Animated.View key={left} style={[styles.star, { left: `${left}%`, top: 28 + i * 17, opacity: phase.interpolate({ inputRange: [0, .5, 1], outputRange: [.25, .85, .25] }) }]} />) : null}
     </View>
