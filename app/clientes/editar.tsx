@@ -54,7 +54,7 @@ export default function EditarCliente() {
     setSalvando(false);
   }
 
-  function excluir() { Alert.alert("Excluir cliente", "O cliente só poderá ser excluído quando todos os contratos estiverem cancelados ou encerrados. Deseja verificar?", [{ text: "Cancelar", style: "cancel" }, { text: "Excluir", style: "destructive", onPress: async () => { try { await excluirCliente(id); router.replace("/clientes"); } catch (erro: any) { const mensagem = erro?.response?.data?.message ?? erro?.message; Alert.alert("Não foi possível excluir", mensagem, erro?.response?.data?.code === "CLIENTE_COM_CONTRATO_ATIVO" ? [{ text: "Fechar" }, { text: "Ver contratos", onPress: () => router.push("/contratos" as any) }] : [{ text: "OK" }]); } } }]); }
+  function excluir() { Alert.alert("Excluir cliente", "Antes de excluir, cancele as minutas sem aceite na lista de Contratos. Contratos assinados precisam seguir o encerramento próprio. Deseja excluir este cadastro?", [{ text: "Cancelar", style: "cancel" }, { text: "Excluir", style: "destructive", onPress: async () => { try { await excluirCliente(id); router.replace("/clientes"); } catch (erro: any) { const mensagem = erro?.response?.data?.message ?? erro?.message; Alert.alert("Não foi possível excluir", mensagem, erro?.response?.data?.code === "CLIENTE_COM_CONTRATO_ATIVO" ? [{ text: "Fechar" }, { text: "Ver contratos", onPress: () => router.push("/contratos" as any) }] : [{ text: "OK" }]); } } }]); }
 
   if (loading) return <Loading />;
   if (erroCarregamento) return <Screen><Card><Text style={styles.title}>Cadastro indisponível</Text><Text style={styles.subtitle}>{erroCarregamento}</Text><Button title="Voltar" onPress={() => router.back()} /></Card></Screen>;

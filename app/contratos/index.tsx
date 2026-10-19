@@ -5,7 +5,7 @@ import { Alert, Pressable, RefreshControl, StyleSheet, Text, View } from "react-
 import { Ionicons } from "@expo/vector-icons";
 
 import { AppHeader, Badge, Card, ElasticFlatList as FlatList, EmptyState, Screen } from "../../components/ui";
-import { excluirContrato, listarContratosDaEmpresa } from "../../services/contratos.service";
+import { cancelarMinutaSemAceite, excluirContrato, listarContratosDaEmpresa } from "../../services/contratos.service";
 import { abrirDocumentoContrato } from "../../services/contrato-documento.service";
 import { useAuth } from "../../contexts/AuthContext";
 import { initialTabKey } from "../../services/navigation-preload.service";
@@ -14,6 +14,7 @@ import { Colors, Radius, Spacing, Typography } from "../../theme";
 function statusContrato(contrato: any) {
   const status = String(contrato.status ?? "").toUpperCase();
   const documento = contrato.dados_documento ?? {};
+  if (["CANCELADO", "ENCERRADO"].includes(status)) return status === "CANCELADO" ? "Cancelado" : "Encerrado";
   if (["ATIVO", "VIGENTE"].includes(status) && contrato.cancelamento_pendente) return "Cancelamento solicitado";
   if (contrato.renovacao_solicitada?.status === "PENDENTE") return "Renovação solicitada";
   if (documento.assinatura_externa_pendente === true) return "Aguardando conferência";
@@ -90,6 +91,16 @@ export default function ContratosClientes() {
     }
   }
 
+  function confirmarCancelamentoMinuta(contrato: any) {
+    Alert.alert("Cancelar minuta sem aceite?", "O documento enviado deixará de aceitar assinatura. Não haverá multa nem cobrança de encerramento. Depois, você poderá excluir o cliente se não houver outros contratos pendentes ou ativos.", [
+      { text: "Manter minuta", style: "cancel" },
+      { text: "Cancelar minuta", style: "destructive", onPress: async () => {
+        try { await cancelarMinutaSemAceite(contrato.id); await carregar(); }
+        catch (erro: any) { Alert.alert("Não foi possível cancelar", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente."); }
+      } },
+    ]);
+  }
+
   function confirmarExclusao(contrato: any) {
     Alert.alert("Excluir rascunho?", "Esta ação remove somente esta versão não enviada. Contratos assinados permanecem intactos.", [
       { text: "Manter", style: "cancel" },
@@ -131,6 +142,7 @@ export default function ContratosClientes() {
         </Pressable>
         {String(contrato.status).toUpperCase() === "RASCUNHO" && !contrato.aceite_cliente_em && !contrato.contrato_assinado_url && contrato.dados_documento?.envio_email_concluido !== true && <Pressable accessibilityRole="button" accessibilityLabel={`Excluir rascunho ${contrato.numero ?? "sem número"}`} onPress={() => confirmarExclusao(contrato)} style={styles.deleteButton}><Ionicons name="trash-outline" size={18} color={Colors.danger} /></Pressable>}
       </View>
+      {String(contrato.status).toUpperCase() === "RASCUNHO" && !contrato.aceite_cliente_em && !contrato.contrato_assinado_url && !contrato.assinado_em && !contrato.assinatura_cliente_hash && contrato.dados_documento?.assinatura_externa_pendente !== true && !String(user?.papel_empresa ?? "").startsWith("COLABORADOR_") ? <Pressable accessibilityRole="button" onPress={() => confirmarCancelamentoMinuta(contrato)} style={styles.cancelReviewButton}><Ionicons name="close-circle-outline" size={18} color={Colors.danger} /><Text style={styles.cancelReviewText}>Cancelar minuta sem aceite</Text></Pressable> : null}
       {(["ATIVO", "VIGENTE"].includes(String(contrato.status ?? "").toUpperCase()) && contrato.cancelamento_pendente) ? <Pressable accessibilityRole="button" accessibilityLabel={`Analisar cancelamento do contrato ${contrato.numero ?? ""}`} onPress={() => router.push(`/contratos/${contrato.id}` as any)} style={styles.cancelReviewButton}><Ionicons name="alert-circle-outline" size={18} color={Colors.danger} /><Text style={styles.cancelReviewText}>Analisar cancelamento</Text><Ionicons name="chevron-forward" size={17} color={Colors.danger} /></Pressable> : null}
       {contrato.renovacao_solicitada?.status === "PENDENTE" && contrato.unidade_consumidora_id ? <Pressable accessibilityRole="button" accessibilityLabel={`Preparar renovação do contrato ${contrato.numero ?? ""}`} onPress={() => router.push({ pathname: "/unidades/contrato", params: { id: contrato.unidade_consumidora_id, numero: contrato.unidades_consumidoras?.numero ?? "", clienteId: contrato.cliente_id, revisao: "1", renovacao: "1" } })} style={styles.renewReviewButton}><Ionicons name="refresh-outline" size={18} color={Colors.primary} /><Text style={styles.renewReviewText}>Preparar renovação</Text><Ionicons name="chevron-forward" size={17} color={Colors.primary} /></Pressable> : null}
     </View>;

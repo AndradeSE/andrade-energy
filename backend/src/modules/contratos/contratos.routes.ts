@@ -146,6 +146,13 @@ router.put(
   atualizarContratoController
 );
 
+router.post("/:id/cancelar-minuta", exigirGestor, exigirRegistroDaEmpresa("contratos"), async (req, res) => {
+  try {
+    const { cancelarMinutaSemAceite } = await import("./minutaCancelamento.service.js");
+    res.json(await cancelarMinutaSemAceite(req.params.id, (req as any).usuario));
+  } catch (error: any) { res.status(400).json({ message: error.message }); }
+});
+
 router.post("/:id/cancelar", exigirSolicitanteCancelamento, exigirRegistroDaEmpresa("contratos"), cancelarContratoController);
 router.post("/:id/solicitar-renovacao", async (req, res) => {
   try { res.json(await solicitarRenovacaoContrato(req.params.id, (req as any).usuario)); }

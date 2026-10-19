@@ -173,3 +173,8 @@ export async function importarContratoAssinadoPeloCliente(contratoId: string, ar
   });
   return data;
 }
+
+export async function cancelarMinutaSemAceite(id: string) {
+  const { data } = await api.post(`/contratos/${id}/cancelar-minuta`);
+  return data;
+}

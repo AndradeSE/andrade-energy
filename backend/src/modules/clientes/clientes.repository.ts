@@ -633,6 +633,9 @@ export async function excluirCliente(id: string, empresaId = EMPRESA_ANDRADE_ID)
     if (error && error.code !== "42P01") throw error;
   }
 
+  const { error: erroRevogacao } = await supabase.from("convites_clientes").update({ status: "CANCELADO" })
+    .eq("cliente_id", id).eq("empresa_id", empresaId).eq("status", "PENDENTE");
+  if (erroRevogacao) throw erroRevogacao;
   const { error: erroConvites } = await supabase.from("convites_clientes").update({ cliente_id: null }).eq("cliente_id", id);
   if (erroConvites) throw erroConvites;
 
