@@ -12,13 +12,16 @@ const escapar = (valor: unknown) => String(valor ?? "").replace(/[&<>"']/g, (c) 
 export const PERMISSOES_GERADOR = { usinas: true, clientes: true, unidades: true, contratos: true, faturas: true, operacao: true };
 export const PERMISSOES_COMERCIAL = { geradores: true, monitoramento: true, documentos: true };
 
+export function papeisDaEquipePermitidos(usuario: any): string[] {
+  const titular = ["ADMIN_EMPRESA", "GESTOR"].includes(String(usuario?.papel_empresa ?? ""));
+  if (!titular || !usuario?.empresa_id || !["ADMIN", "GESTOR"].includes(String(usuario?.perfil ?? ""))) return [];
+  const papeis = ["COLABORADOR_GERADOR"];
+  if (usuario.perfil === "ADMIN" && usuario.empresa_id === EMPRESA_ANDRADE_ID) papeis.push("COLABORADOR_COMERCIAL");
+  return papeis;
+}
+
 function papelPermitido(usuario: any, papel: string) {
-  const atual = String(usuario?.papel_empresa ?? "");
-  if (atual.startsWith("COLABORADOR_")) return false;
-  const empresaComercial = String(usuario?.empresa_id ?? "") === EMPRESA_ANDRADE_ID;
-  if (papel === "COLABORADOR_COMERCIAL") return usuario?.perfil === "ADMIN" && empresaComercial;
-  if (empresaComercial) return false;
-  return ["ADMIN", "GESTOR"].includes(String(usuario?.perfil ?? ""));
+  return papeisDaEquipePermitidos(usuario).includes(papel);
 }
 
 function permissoesSeguras(papel: string, entrada: any) {
@@ -37,9 +40,9 @@ async function enviarConvite(convite: any, token: string) {
 }
 
 export async function listarColaboradores(usuario: any) {
-  if (String(usuario?.papel_empresa ?? "").startsWith("COLABORADOR_")) throw new Error("A gestão da equipe é exclusiva do titular.");
+  if (!papeisDaEquipePermitidos(usuario).length) throw new Error("A gestão da equipe é exclusiva do titular.");
   const empresaId = String(usuario.empresa_id);
-  const papeisDaEmpresa = empresaId === EMPRESA_ANDRADE_ID ? ["COLABORADOR_COMERCIAL"] : ["COLABORADOR_GERADOR"];
+  const papeisDaEmpresa = papeisDaEquipePermitidos(usuario);
   const [{ data: vinculos, error }, { data: convites, error: conviteError }] = await Promise.all([
     supabase.from("empresa_usuarios").select("id,papel,permissoes,ativo,criado_em,atualizado_em,ultimo_acesso_em,usuarios!empresa_usuarios_usuario_id_fkey(id,nome,email,telefone)").eq("empresa_id", empresaId).in("papel", papeisDaEmpresa).order("criado_em", { ascending: false }),
     supabase.from("convites_colaboradores").select("id,nome,email,telefone,papel,permissoes,status,expira_em,criado_em").eq("empresa_id", empresaId).in("papel", papeisDaEmpresa).order("criado_em", { ascending: false }),
@@ -124,10 +127,10 @@ export async function atualizarColaborador(id: string, input: any, usuario: any)
 }
 
 export async function cancelarConviteColaborador(id: string, usuario: any) {
-  if (String(usuario?.papel_empresa ?? "").startsWith("COLABORADOR_")) throw new Error("A gestão da equipe é exclusiva do titular.");
-  const { data: existente, error: consultaError } = await supabase.from("convites_colaboradores").select("id,status").eq("id", id).eq("empresa_id", usuario.empresa_id).maybeSingle();
+  if (!papeisDaEquipePermitidos(usuario).length) throw new Error("A gestão da equipe é exclusiva do titular.");
+  const { data: existente, error: consultaError } = await supabase.from("convites_colaboradores").select("id,status,papel").eq("id", id).eq("empresa_id", usuario.empresa_id).maybeSingle();
   if (consultaError) throw consultaError;
-  if (!existente) throw new Error("Convite não encontrado.");
+  if (!existente || !papelPermitido(usuario, existente.papel)) throw new Error("Convite não encontrado.");
   if (existente.status === "CANCELADO") return { message: "Convite já estava cancelado." };
   if (existente.status !== "PENDENTE") throw new Error("Este convite não está mais pendente.");
   const { data, error } = await supabase.from("convites_colaboradores").update({ status: "CANCELADO", atualizado_em: new Date().toISOString() }).eq("id", id).eq("empresa_id", usuario.empresa_id).eq("status", "PENDENTE").select("id").maybeSingle();
