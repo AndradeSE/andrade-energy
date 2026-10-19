@@ -486,6 +486,7 @@ async function salvarPdfAssinadoPendente(contrato: any, unidadeId: string, arqui
       dados_documento: dadosDocumento,
     })
     .eq("id", contrato.id)
+    .eq("status", contrato.status)
     .is("aceite_cliente_em", null);
   atualizacao = substituindo
     ? atualizacao.eq("contrato_assinado_url", contrato.contrato_assinado_url)
