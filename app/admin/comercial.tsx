@@ -187,7 +187,7 @@ export default function HomeComercial() {
             /> : null}
             <DrawerLink
               icon="download-outline"
-              label="Compartilhar app do Gerador"
+              label="Compartilhar app Gerador · Android"
               onPress={() => {
                 setMenuAberto(false);
                 void baixarApp("gerador");
@@ -195,7 +195,7 @@ export default function HomeComercial() {
             />
             <DrawerLink
               icon="phone-portrait-outline"
-              label="Compartilhar app do Consumidor"
+              label="Compartilhar app Consumidor · Android"
               onPress={() => {
                 setMenuAberto(false);
                 void baixarApp("consumidor");
@@ -251,8 +251,8 @@ export default function HomeComercial() {
               { icon: "layers-outline", label: "Empresas parceiras", value: "Identidade e operação", onPress: () => router.push("/admin/empresas" as any) },
               { icon: "person-add-outline", label: "Convidar gerador", onPress: () => router.push("/geradores/convidar") },
               { icon: "people-circle-outline", label: "Colaboradores", value: "Convites e permissões", onPress: () => router.push("/colaboradores?ambiente=comercial" as any) },
-              { icon: "download-outline", label: "Compartilhar app Gerador", value: baixandoApp === "gerador" ? `Baixando ${progressoApp}%` : "WhatsApp, e-mail ou Bluetooth", onPress: () => void baixarApp("gerador") },
-              { icon: "phone-portrait-outline", label: "Compartilhar app Consumidor", value: baixandoApp === "consumidor" ? `Baixando ${progressoApp}%` : "WhatsApp, e-mail ou Bluetooth", onPress: () => void baixarApp("consumidor") },
+              { id: "Compartilhar app Gerador", icon: "download-outline", label: "Compartilhar app Gerador", value: baixandoApp === "gerador" ? `Baixando ${progressoApp}%` : "Para Android", onPress: () => void baixarApp("gerador") },
+              { id: "Compartilhar app Consumidor", icon: "phone-portrait-outline", label: "Compartilhar app Consumidor", value: baixandoApp === "consumidor" ? `Baixando ${progressoApp}%` : "Para Android", onPress: () => void baixarApp("consumidor") },
               { icon: "information-circle-outline", label: "Sobre e atualizações", onPress: () => router.push("/sobre") },
               { icon: "search-outline", label: "Pesquisar", onPress: () => router.push({ pathname: "/pesquisa", params: { perfil: "comercial" } }) },
               { icon: "person-outline", label: "Meu perfil", onPress: () => router.push("/admin/perfil") },

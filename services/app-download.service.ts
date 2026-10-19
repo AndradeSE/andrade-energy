@@ -51,7 +51,7 @@ export async function baixarAplicativo(
   if (!(await Sharing.isAvailableAsync()))
     throw new Error("O compartilhamento não está disponível neste aparelho.");
   await Sharing.shareAsync(arquivo.uri, {
-    dialogTitle: `Compartilhar app Andrade Energy ${tipo === "gerador" ? "Gerador" : "Consumidor"}`,
+    dialogTitle: `Compartilhar app Andrade Energy ${tipo === "gerador" ? "Gerador" : "Consumidor"} para Android`,
     mimeType: "application/vnd.android.package-archive",
     UTI: "public.apk",
   });

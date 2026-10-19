@@ -16,7 +16,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useDashboardGestor } from "../../hooks/useDashboardGestor";
 import { importarFaturaGeradora } from "../../services/usinas.service";
 import { listarUnidadesGestor } from "../../services/clientes.service";
-import { obterLinkAplicativo } from "../../services/app-download.service";
+import { obterLinkAplicativo, type AppDownload } from "../../services/app-download.service";
 import * as CarteiraService from "../../services/carteira.service";
 import {
   marcarCarteiraComoVista,
@@ -125,11 +125,11 @@ export default function DashboardGestor() {
   }
 
 
-  async function compartilharAppCliente() {
+  async function compartilharApp(tipo: AppDownload) {
     try {
       await Share.share({
-        message: `Baixe o aplicativo Andrade Energy Cliente pelo link: ${obterLinkAplicativo("consumidor")}`,
-        title: "Compartilhar app do cliente",
+        message: `Baixe o aplicativo Andrade Energy ${tipo === "gerador" ? "Gerador" : "Consumidor"} para Android: ${obterLinkAplicativo(tipo)}`,
+        title: `Andrade Energy ${tipo === "gerador" ? "Gerador" : "Consumidor"} para Android`,
       });
     } catch {
       Alert.alert("Não foi possível compartilhar", "Tente novamente em instantes.");
@@ -265,7 +265,7 @@ export default function DashboardGestor() {
         <Section title="Acesso rápido" framed={false}>
           <QuickAccessCarousel
             storageKey={`gestor-home-${usuario?.id ?? "anonimo"}`}
-            pinnedIds={isPreviewEnvironment && assistantHidden ? ["mostrar-assistente"] : []}
+            pinnedIds={["compartilhar-app-gerador", ...(isPreviewEnvironment && assistantHidden ? ["mostrar-assistente"] : [])]}
             items={[
               ...(isPreviewEnvironment && assistantHidden ? [{ id: "mostrar-assistente", icon: "chatbubble-ellipses-outline" as const, image: require("../../assets/images/assistant-chat-3d-v2.png"), label: "Mostrar Ajuda", onPress: () => void setFloatingHidden(String(usuario?.id ?? ""), false) }] : []),
               ...(isPreviewEnvironment ? [{ id: "solar", icon: "chatbubble-ellipses-outline" as const, label: "Solar", onPress: () => router.push("/assistente") }] : []),
@@ -286,9 +286,18 @@ export default function DashboardGestor() {
                 ...(usinaSelecionada?.id ? [{ id: "inversores", icon: "hardware-chip-outline" as const, label: "Inversores", onPress: () => router.push({ pathname: "/usinas/inversores", params: { id: usinaSelecionada.id } }) }] : []),
               ] : []),
               {
+                id: "compartilhar-app-gerador",
                 icon: "share-social-outline",
-                label: "Compartilhar app do cliente",
-                onPress: () => void compartilharAppCliente(),
+                label: "Compartilhar app Gerador",
+                value: "Para Android",
+                onPress: () => void compartilharApp("gerador"),
+              },
+              {
+                id: "Compartilhar app do cliente",
+                icon: "share-social-outline",
+                label: "Compartilhar app Consumidor",
+                value: "Para Android",
+                onPress: () => void compartilharApp("consumidor"),
               },
             ]}
           />
