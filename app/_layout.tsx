@@ -1,5 +1,5 @@
 import { router, Stack, useGlobalSearchParams, usePathname } from "expo-router";
-import { Alert, AppState, BackHandler, StyleSheet, ToastAndroid, View } from "react-native";
+import { Alert, AppState, BackHandler, Pressable, StyleSheet, Text, ToastAndroid, View } from "react-native";
 import { useEffect, useRef, useState } from "react";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -29,6 +29,8 @@ import { listarAcessoContratos } from "../services/contratos.service";
 import FloatingAssistant from "../components/assistant/FloatingAssistant";
 import AssistantWakeWord from "../components/assistant/AssistantWakeWord";
 import { isAssistantEnabled as isPreviewEnvironment } from "../config/environment";
+import api from "../config/api";
+import { collaboratorRedirect } from "../services/collaborator-navigation";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -69,8 +71,11 @@ function RootNavigator() {
     unidadeSelecionada,
     selecionarUnidade,
     usinaSelecionada,
+    atualizarUsuario,
   } = useAuth();
   const [readyUserId, setReadyUserId] = useState<string | null>(null);
+  const [sessionError, setSessionError] = useState(false);
+  const [sessionAttempt, setSessionAttempt] = useState(0);
   const [startupComplete, setStartupComplete] = useState(false);
   const entradaGerador = useRef<string | null>(null);
   useEffect(() => {
@@ -109,11 +114,24 @@ function RootNavigator() {
     const currentUser = session?.user;
     if (isLoading || !currentUser?.id || readyUserId === String(currentUser.id)) return;
     let active = true;
+    setSessionError(false);
     const selection = initialSelectionRef.current;
-    void preloadNavigationData(activeQueryClient, IS_GERADOR_APP, currentUser, selection.unidadeSelecionada, selection.usinaSelecionada)
-      .finally(() => { if (active) setReadyUserId(String(currentUser.id)); });
+    void api.get("/auth/session").then(async ({ data }) => {
+      const fresh = data?.usuario;
+      if (!fresh?.id || String(fresh.id) !== String(currentUser.id)) throw new Error("Sessão não confirmada.");
+      if (!active) return;
+      if (JSON.stringify([currentUser.empresa_id, currentUser.papel_empresa, currentUser.permissoes]) !== JSON.stringify([fresh.empresa_id, fresh.papel_empresa, fresh.permissoes])) activeQueryClient.clear();
+      await atualizarUsuario(fresh);
+      await preloadNavigationData(activeQueryClient, IS_GERADOR_APP, fresh, selection.unidadeSelecionada, selection.usinaSelecionada);
+      if (active) setReadyUserId(String(fresh.id));
+    }).catch(() => { if (active) setSessionError(true); });
     return () => { active = false; };
-  }, [activeQueryClient, isLoading, readyUserId, session?.user?.id]);
+  }, [activeQueryClient, isLoading, readyUserId, session?.user?.id, sessionAttempt, atualizarUsuario]);
+  useEffect(() => {
+    if (!IS_GERADOR_APP || readyUserId !== String(session?.user?.id) || !isUnlocked) return;
+    const destino = collaboratorRedirect(session?.user?.papel_empresa, pathname);
+    if (destino) router.replace(destino as any);
+  }, [readyUserId, isUnlocked, session?.user?.id, session?.user?.papel_empresa, pathname]);
   // A seleção da UC/usina pode ser restaurada depois do pré-carregamento
   // inicial. Atualize o cache desse contexto sem remontar a navegação.
   const preloadedScope = useRef<string | null>(null);
@@ -231,6 +249,7 @@ function RootNavigator() {
    * Enquanto recuperamos a sessão,
    * mantemos o Stack montado.
    */
+  if (sessionError && session?.user?.id) return <View style={{ flex: 1, justifyContent: "center", padding: 28, gap: 20 }}><Text style={{ fontSize: 18 }}>Não foi possível confirmar suas permissões. Confira a conexão e tente novamente.</Text><Pressable accessibilityRole="button" onPress={() => setSessionAttempt(value => value + 1)}><Text style={{ fontSize: 18, color: "#087A46" }}>Tentar novamente</Text></Pressable><Pressable accessibilityRole="button" onPress={() => void signOut()}><Text style={{ fontSize: 18 }}>Sair da conta</Text></Pressable></View>;
   if (!startupComplete || isLoading || (session?.user?.id && readyUserId !== String(session.user.id))) {
     return <Loading showRevision animateBrand={!startupComplete} onBrandReady={() => setStartupComplete(true)} />;
   }

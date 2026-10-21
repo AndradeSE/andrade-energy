@@ -5,6 +5,8 @@ import { Colors } from "../../theme";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
 import AppTabBarFrame, { appTabBarStyles as styles } from "./AppTabBarFrame";
+import { generatorTabAllowed } from "../../services/collaborator-navigation";
+import { orderHomeTab } from "../../utils/home-tab-order";
 
 export default function UnifiedExpoTabBar({
   state,
@@ -18,12 +20,12 @@ export default function UnifiedExpoTabBar({
     : new Set(["economia", "faturas", "index", "contrato", "perfil"]);
   const routes = state.routes.filter((route) => {
     const options = descriptors[route.key]?.options as any;
-    return abasVisiveis.has(route.name) && options?.href !== null && options?.tabBarItemStyle?.display !== "none" && (!colaborador || route.name !== "financeiro");
+    return abasVisiveis.has(route.name) && options?.href !== null && options?.tabBarItemStyle?.display !== "none" && (!IS_GERADOR_APP || generatorTabAllowed(route.name, user?.papel_empresa, user?.permissoes));
   });
 
   return (
     <AppTabBarFrame>
-        {routes.map((route) => {
+        {orderHomeTab(routes, route => route.name === "index").map((route) => {
           const routeIndex = state.routes.findIndex((item) => item.key === route.key);
           const focused = state.index === routeIndex;
           const options = descriptors[route.key].options;

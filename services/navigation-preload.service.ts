@@ -50,8 +50,9 @@ async function loadNavigationCache(
   if (generator) {
     if (user.empresa_id && (user.perfil === "ADMIN" || user.papel_empresa === "COLABORADOR_COMERCIAL")) {
       tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, undefined, "comercial"), queryFn: obterPainelComercial }));
-      tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, undefined, "comercial-financeiro"), queryFn: () => obterFinanceiroAssinaturas().catch(() => null) }));
+      if (user.papel_empresa !== "COLABORADOR_COMERCIAL") tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, undefined, "comercial-financeiro"), queryFn: () => obterFinanceiroAssinaturas().catch(() => null) }));
     }
+    if (user.papel_empresa === "COLABORADOR_COMERCIAL") { await Promise.allSettled(tasks); return; }
     const plantId = plant?.id ?? user.usina_id ?? undefined;
     tasks.push(queryClient.prefetchQuery({
       queryKey: ["dashboard-usina", plantId],

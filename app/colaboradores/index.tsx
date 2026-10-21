@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { Redirect, router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { AppHeader, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
@@ -13,6 +13,7 @@ const COMERCIAL = { geradores: "Geradores", monitoramento: "Monitoramento", docu
 
 export default function Colaboradores({ modoAbaGerador = false }: { modoAbaGerador?: boolean }) {
   const { user } = useAuth();
+  const convidado = String(user?.papel_empresa ?? "").startsWith("COLABORADOR_");
   const { ambiente } = useLocalSearchParams<{ ambiente?: string }>();
   const admin = user?.perfil === "ADMIN";
   const comercial = !modoAbaGerador && (ambiente === "comercial" || (admin && ambiente !== "gerador"));
@@ -23,11 +24,12 @@ export default function Colaboradores({ modoAbaGerador = false }: { modoAbaGerad
   const [dados, setDados] = useState<any>({ colaboradores: [], convites: [] });
   const [carregando, setCarregando] = useState(true); const [enviando, setEnviando] = useState(false);
   const carregar = useCallback(async () => { try { setDados(await listarColaboradores()); } catch (e: any) { Alert.alert("Colaboradores", e?.response?.data?.message ?? "Não foi possível carregar."); } finally { setCarregando(false); } }, []);
-  useEffect(() => { void carregar(); }, [carregar]);
+  useEffect(() => { if (!convidado) void carregar(); }, [carregar, convidado]);
   useEffect(() => { setPermissoes(Object.fromEntries(Object.keys(campos).map((chave) => [chave, true]))); }, [papel]);
   const lista = useMemo(() => [...(dados.colaboradores ?? []).map((item: any) => ({ ...item, pendente: false })), ...(dados.convites ?? []).map((item: any) => ({ ...item, pendente: true }))], [dados]);
 
   async function enviar() {
+    if (convidado) return;
     if (!nomePessoaValido(nome, sobrenome)) return Alert.alert("Nome completo obrigatório", "Informe nome e sobrenome válidos do colaborador.");
     try {
       setEnviando(true);
@@ -36,6 +38,8 @@ export default function Colaboradores({ modoAbaGerador = false }: { modoAbaGerad
       Alert.alert("Convite criado", resultado.emailEnviado ? "O convite foi enviado por e-mail." : `O e-mail não foi entregue. Compartilhe este código:\n\n${resultado.token ?? ""}`);
     } catch (e: any) { Alert.alert("Não foi possível convidar", e?.response?.data?.message ?? "Confira os dados."); } finally { setEnviando(false); }
   }
+
+  if (convidado) return <Redirect href={user?.papel_empresa === "COLABORADOR_COMERCIAL" ? "/admin/comercial" : "/"} />;
 
   return <Screen edges={["top", "left", "right"]}>
     <AppHeader variant={modoAbaGerador ? "main" : "subpage"} title="Colaboradores" subtitle="Equipe e permissões" contextTitle="Gestão de acessos" contextSubtitle="Convites e acessos operacionais" icon="people-outline" />

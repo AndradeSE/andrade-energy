@@ -8,6 +8,8 @@ import AppTabIcon from "./AppTabIcon";
 import { useAuth } from "../../contexts/AuthContext";
 import CommercialTabs, { CommercialTab } from "../commercial/CommercialTabs";
 import AppTabBarFrame, { appTabBarStyles as styles } from "./AppTabBarFrame";
+import { generatorTabAllowed } from "../../services/collaborator-navigation";
+import { orderHomeTab } from "../../utils/home-tab-order";
 
 type TabItem = {
   label: string;
@@ -52,6 +54,7 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
   if (hidden) return null;
 
   const commercialEnvironment = IS_GERADOR_APP && (
+    user?.papel_empresa === "COLABORADOR_COMERCIAL" ||
     firstSegment === "admin" ||
     firstSegment === "geradores" ||
     (firstSegment === "colaboradores" && (params.ambiente === "comercial" || user?.perfil === "ADMIN"))
@@ -68,7 +71,7 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
             ? "PLANOS"
             : "GERADORES";
     }
-    if (firstSegment === "geradores" && secondSegment === "monitoramento") active = "GERADORES";
+    if (firstSegment === "geradores" && secondSegment === "monitoramento") active = user?.papel_empresa === "COLABORADOR_COMERCIAL" ? "MONITORAMENTO" : "GERADORES";
     return <CommercialTabs active={active} />;
   }
 
@@ -76,11 +79,12 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
       ? generatorTabs
       : consumerTabs;
   const colaborador = String(user?.papel_empresa ?? "").startsWith("COLABORADOR_");
-  const tabs = colaborador ? baseTabs.filter((tab) => tab.label !== "Financeiro") : baseTabs;
+  const routeNames: Record<string, string> = { Clientes: "clientes", Colaboradores: "equipe", Operação: "operacao", Home: "index", Faturamento: "faturamento", Financeiro: "financeiro", Contrato: "contrato" };
+  const tabs = IS_GERADOR_APP ? baseTabs.filter(tab => generatorTabAllowed(routeNames[tab.label] ?? tab.label, user?.papel_empresa, user?.permissoes)) : baseTabs;
 
   return (
     <AppTabBarFrame>
-      {tabs.map((tab) => {
+      {orderHomeTab(tabs, tab => tab.label === "Home").map((tab) => {
         const featured = tab.label === "Home";
         return (
         <Pressable

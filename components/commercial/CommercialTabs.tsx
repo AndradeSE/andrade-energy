@@ -5,8 +5,9 @@ import { Colors } from "../../theme";
 import AppTabIcon from "../navigation/AppTabIcon";
 import { useAuth } from "../../contexts/AuthContext";
 import AppTabBarFrame, { appTabBarStyles as styles } from "../navigation/AppTabBarFrame";
+import { orderHomeTab } from "../../utils/home-tab-order";
 
-export type CommercialTab = "HOME" | "GERADORES" | "PAGAMENTOS" | "PLANOS" | "ASSINATURAS";
+export type CommercialTab = "HOME" | "GERADORES" | "PAGAMENTOS" | "PLANOS" | "ASSINATURAS" | "MONITORAMENTO";
 
 export default function CommercialTabs({ active }: { active?: CommercialTab }) {
   const { user } = useAuth();
@@ -40,6 +41,7 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
       label: "Home",
       onPress: () => router.replace("/admin/comercial" as any),
     },
+    ...(colaborador ? [{ key: "MONITORAMENTO", icon: "pulse-outline", label: "Monitoramento", onPress: () => router.replace("/geradores/monitoramento" as any) }] : []),
     {
       key: "PLANOS",
       icon: "pricetags-outline",
@@ -60,11 +62,11 @@ export default function CommercialTabs({ active }: { active?: CommercialTab }) {
           params: { aba: "ASSINATURAS" },
         } as any),
     },
-  ].filter((item) => !colaborador || ["GERADORES", "HOME"].includes(item.key)) as any[];
+  ].filter((item) => !colaborador || item.key === "HOME" || (item.key === "GERADORES" && user?.permissoes?.geradores !== false) || (item.key === "MONITORAMENTO" && user?.permissoes?.monitoramento !== false)) as any[];
 
   return (
     <AppTabBarFrame>
-      {items.map((item) => {
+      {orderHomeTab(items, item => item.key === "HOME").map((item) => {
         const selected = selectedTab === item.key;
         const featured = item.key === "HOME";
         return (

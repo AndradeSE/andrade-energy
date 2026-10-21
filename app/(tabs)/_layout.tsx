@@ -17,7 +17,8 @@ function TabIcon({ name, color, featured = false }: { name: keyof typeof Ionicon
 
 export default function TabLayout() {
   const { usuario, usinaSelecionada, isLoading } = useAuth();
-  const validarUsina = IS_GERADOR_APP && (usuario?.perfil === "ADMIN" || usuario?.perfil === "GESTOR");
+  const comercial = IS_GERADOR_APP && usuario?.papel_empresa === "COLABORADOR_COMERCIAL";
+  const validarUsina = IS_GERADOR_APP && !comercial && (usuario?.perfil === "ADMIN" || usuario?.perfil === "GESTOR");
   const usinaId = usinaSelecionada?.id ?? usuario?.usina_id;
   const usinas = useQuery<{ id: string }[]>({
     queryKey: ["usinas-validacao-entrada", usuario?.id, usuario?.empresa_id],
@@ -26,6 +27,7 @@ export default function TabLayout() {
     refetchOnMount: "always",
     retry: 1,
   });
+  if (comercial) return <Redirect href="/admin/comercial" />;
   if (validarUsina) {
     if (isLoading || (usinaId && (usinas.isPending || usinas.isFetching))) return <Screen><TabDataPending /></Screen>;
     if (!usinaId) return <Redirect href="/selecionar-unidade" />;

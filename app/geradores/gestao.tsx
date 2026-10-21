@@ -348,7 +348,7 @@ export default function GestaoGeradores() {
                       <Text style={[styles.muted, { marginTop: Spacing.sm }]}>
                         {administrador ? "Conta administrativa principal — permanece fixa na lista." : assinatura ? `${assinatura.plano?.nome ?? "Plano ativo"} · vence em ${date(assinatura.proximo_vencimento)}` : "Vincule um plano para liberar o acesso deste gerador."}
                       </Text>
-                      {!administrador && !assinatura ? <><View style={styles.trialNote}>
+                      {!colaboradorComercial && !administrador && !assinatura ? <><View style={styles.trialNote}>
                         <Ionicons
                           name="gift-outline"
                           size={16}
