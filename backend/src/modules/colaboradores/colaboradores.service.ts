@@ -4,6 +4,7 @@ import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import { gerarToken, hashToken } from "../../utils/token";
 import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
 import { nomePessoaValido } from "../clientes/validacaoCadastro";
+import { opcoesPromocaoAdministrador, validarPromocaoAdministrador } from "./promocaoAdministrador.policy";
 
 const emailValido = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const cpfLimpo = (cpf: unknown) => String(cpf ?? "").replace(/\D/g, "");
@@ -49,7 +50,23 @@ export async function listarColaboradores(usuario: any) {
   ]);
   if (error) throw error;
   if (conviteError) throw conviteError;
-  return { colaboradores: vinculos ?? [], convites: (convites ?? []).filter((item: any) => item.status === "PENDENTE") };
+  return { colaboradores: vinculos ?? [], convites: (convites ?? []).filter((item: any) => item.status === "PENDENTE"), promocoesPermitidas: opcoesPromocaoAdministrador(usuario) };
+}
+
+export async function promoverColaboradorAdministrador(id: string, input: any, usuario: any) {
+  if (input?.confirmacao !== "PROMOVER_ADMINISTRADOR") throw new Error("Confirme o novo acesso administrativo antes de continuar.");
+  const { data: alvo, error } = await supabase.from("empresa_usuarios").select("id,empresa_id,usuario_id,papel,ativo")
+    .eq("id", id).eq("empresa_id", usuario.empresa_id).maybeSingle();
+  if (error) throw error;
+  validarPromocaoAdministrador(usuario, alvo, input?.escopo);
+  const { data, error: erroPromocao } = await supabase.rpc("promover_colaborador_administrador", {
+    p_ator: usuario.id, p_empresa: usuario.empresa_id, p_vinculo: id, p_escopo: input.escopo,
+  });
+  if (erroPromocao) {
+    if (erroPromocao.code === "PGRST202") throw new Error("A promoção administrativa ainda não foi habilitada neste ambiente.");
+    throw erroPromocao;
+  }
+  return { ...data, message: "Acesso administrativo concedido. A pessoa precisa entrar novamente no aplicativo." };
 }
 
 export async function listarAuditoriaColaboradores(usuario: any) {
