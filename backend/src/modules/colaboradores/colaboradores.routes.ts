@@ -11,5 +11,6 @@ router.post("/convites", exigirAutenticacao, (req, res) => responder(res, servic
 router.post("/convites/:id/reenviar", exigirAutenticacao, (req, res) => responder(res, service.reenviarConviteColaborador(req.params.id, (req as any).usuario)));
 router.delete("/convites/:id", exigirAutenticacao, (req, res) => responder(res, service.cancelarConviteColaborador(req.params.id, (req as any).usuario)));
 router.patch("/:id", exigirAutenticacao, (req, res) => responder(res, service.atualizarColaborador(req.params.id, req.body, (req as any).usuario)));
+router.post("/:id/promover-administrador", exigirAutenticacao, (req, res) => responder(res, service.promoverColaboradorAdministrador(req.params.id, req.body, (req as any).usuario)));
 
 export default router;

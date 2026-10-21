@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { AppHeader, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
-import { atualizarColaborador, cancelarConviteColaborador, convidarColaborador, listarColaboradores, reenviarConviteColaborador } from "../../services/colaboradores.service";
+import { atualizarColaborador, cancelarConviteColaborador, convidarColaborador, listarColaboradores, reenviarConviteColaborador, promoverColaboradorAdministrador } from "../../services/colaboradores.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { juntarNomePessoa, nomePessoaValido } from "../../utils/nomePessoa";
 
@@ -58,19 +58,43 @@ export default function Colaboradores({ modoAbaGerador = false }: { modoAbaGerad
         <Text style={styles.auditLink}>Ver atividades dos colaboradores</Text>
         <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
       </TouchableOpacity>
-      {carregando ? <Loading /> : lista.length ? lista.map((item: any) => <Member key={`${item.pendente}-${item.id}`} item={item} onChange={carregar}/>) : <Card><Text style={styles.empty}>Nenhum colaborador ou convite cadastrado.</Text></Card>}
+      {carregando ? <Loading /> : lista.length ? lista.map((item: any) => <Member key={`${item.pendente}-${item.id}`} item={item} onChange={carregar} promocoes={dados.promocoesPermitidas ?? []}/>) : <Card><Text style={styles.empty}>Nenhum colaborador ou convite cadastrado.</Text></Card>}
     </ScrollView>
   </Screen>;
 }
 
-function Member({ item, onChange }: any) {
+function Member({ item, onChange, promocoes = [] }: any) {
   const usuario = Array.isArray(item.usuarios) ? item.usuarios[0] : item.usuarios;
   const nome = item.nome ?? usuario?.nome ?? "Colaborador"; const email = item.email ?? usuario?.email ?? "";
   const ativo = item.pendente ? item.status === "PENDENTE" : item.ativo;
   async function executar(acao: () => Promise<any>, sucesso: string) { try { const resposta = await acao(); await onChange(); Alert.alert(sucesso, resposta?.token ? `Compartilhe o código:\n\n${resposta.token}` : "Operação concluída."); } catch (e: any) { Alert.alert("Colaboradores", e?.response?.data?.message ?? "Não foi possível concluir."); } }
   const opcoes = item.papel === "COLABORADOR_COMERCIAL" ? COMERCIAL : GERADOR;
-  return <Card style={styles.member}><View style={styles.memberTop}><View style={styles.avatar}><Text style={styles.avatarText}>{nome.charAt(0).toUpperCase()}</Text></View><View style={styles.grow}><Text style={styles.memberName}>{nome}</Text><Text style={styles.memberEmail}>{email}</Text></View><Text style={[styles.badge, ativo && styles.badgeActive]}>{item.pendente ? item.status : ativo ? "ATIVO" : "BLOQUEADO"}</Text></View><Text style={styles.role}>{item.papel === "COLABORADOR_COMERCIAL" ? "Equipe comercial" : "Equipe do gerador"}</Text>{!item.pendente ? Object.entries(opcoes).map(([chave, label]) => <View style={styles.memberPermission} key={chave}><Text style={styles.memberPermissionText}>{label}</Text><Switch disabled={!ativo} value={item.permissoes?.[chave] !== false} onValueChange={(valor) => void executar(() => atualizarColaborador(item.id, { permissoes: { ...item.permissoes, [chave]: valor } }), "Permissões atualizadas")} trackColor={{ false: Colors.border, true: Colors.primary }}/></View>) : null}<View style={styles.actions}>{item.pendente ? <><TouchableOpacity onPress={() => void executar(() => reenviarConviteColaborador(item.id), "Convite reenviado")}><Text style={styles.action}>Reenviar</Text></TouchableOpacity><TouchableOpacity onPress={() => void executar(() => cancelarConviteColaborador(item.id), "Convite cancelado")}><Text style={styles.actionDanger}>Cancelar</Text></TouchableOpacity></> : <TouchableOpacity onPress={() => void executar(() => atualizarColaborador(item.id, { ativo: !ativo }), ativo ? "Acesso bloqueado" : "Acesso reativado")}><Text style={ativo ? styles.actionDanger : styles.action}>{ativo ? "Bloquear acesso" : "Reativar acesso"}</Text></TouchableOpacity>}</View></Card>;
+  return <Card style={styles.member}><View style={styles.memberTop}><View style={styles.avatar}><Text style={styles.avatarText}>{nome.charAt(0).toUpperCase()}</Text></View><View style={styles.grow}><Text style={styles.memberName}>{nome}</Text><Text style={styles.memberEmail}>{email}</Text></View><Text style={[styles.badge, ativo && styles.badgeActive]}>{item.pendente ? item.status : ativo ? "ATIVO" : "BLOQUEADO"}</Text></View><Text style={styles.role}>{item.papel === "COLABORADOR_COMERCIAL" ? "Equipe comercial" : "Equipe do gerador"}</Text>{!item.pendente ? Object.entries(opcoes).map(([chave, label]) => <View style={styles.memberPermission} key={chave}><Text style={styles.memberPermissionText}>{label}</Text><Switch disabled={!ativo} value={item.permissoes?.[chave] !== false} onValueChange={(valor) => void executar(() => atualizarColaborador(item.id, { permissoes: { ...item.permissoes, [chave]: valor } }), "Permissões atualizadas")} trackColor={{ false: Colors.border, true: Colors.primary }}/></View>) : null}<PromoverAdministrador item={item} nome={nome} opcoes={promocoes} onChange={onChange}/><View style={styles.actions}>{item.pendente ? <><TouchableOpacity onPress={() => void executar(() => reenviarConviteColaborador(item.id), "Convite reenviado")}><Text style={styles.action}>Reenviar</Text></TouchableOpacity><TouchableOpacity onPress={() => void executar(() => cancelarConviteColaborador(item.id), "Convite cancelado")}><Text style={styles.actionDanger}>Cancelar</Text></TouchableOpacity></> : <TouchableOpacity onPress={() => void executar(() => atualizarColaborador(item.id, { ativo: !ativo }), ativo ? "Acesso bloqueado" : "Acesso reativado")}><Text style={ativo ? styles.actionDanger : styles.action}>{ativo ? "Bloquear acesso" : "Reativar acesso"}</Text></TouchableOpacity>}</View></Card>;
 }
 
+function PromoverAdministrador({ item, nome, opcoes, onChange }: any) {
+  const [salvando, setSalvando] = useState(false);
+  if (item.pendente || !item.ativo || !opcoes.length) return null;
+  const confirmar = (escopo: string) => {
+    const comercial = escopo === "COMERCIAL";
+    Alert.alert(`Promover ${nome}?`, comercial
+      ? "Conceder administração do Comercial Andrade, com acesso administrativo a geradores, empresas, planos, assinaturas e financeiro. As sessões atuais serão encerradas e a pessoa precisará entrar novamente."
+      : "Conceder administração desta empresa e de suas usinas, incluindo equipe, contratos e financeiro. As sessões atuais serão encerradas e a pessoa precisará entrar novamente.", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Confirmar promoção", onPress: () => {
+        setSalvando(true);
+        void promoverColaboradorAdministrador(item.id, escopo).then(async () => {
+          await onChange();
+          Alert.alert("Acesso administrativo concedido", "A conta deixou de ser colaborador. A pessoa precisa entrar novamente para acessar as novas funções.");
+        }).catch((erro: any) => Alert.alert("Não foi possível promover", erro?.response?.data?.message ?? "Tente novamente."))
+          .finally(() => setSalvando(false));
+      } },
+    ]);
+  };
+  return <TouchableOpacity disabled={salvando} accessibilityRole="button" onPress={() => Alert.alert("Escolha o acesso administrativo", `Conta: ${nome}`, [
+    ...opcoes.map((escopo: string) => ({ text: escopo === "COMERCIAL" ? "ADM do Comercial Andrade" : "ADM da empresa/usinas", onPress: () => confirmar(escopo) })),
+    { text: "Cancelar", style: "cancel" },
+  ])} style={[styles.primary, salvando && styles.disabled]}><Text style={styles.primaryText}>{salvando ? "Promovendo…" : "Tornar administrador"}</Text></TouchableOpacity>;
+}
 function Field(props: any) { return <View style={styles.field}><Text style={styles.label}>{props.label}</Text><TextInput {...props} style={styles.input}/></View>; }
 const styles = StyleSheet.create({ content:{padding:Spacing.lg,paddingBottom:Spacing.xxl*3},back:{flexDirection:"row",alignItems:"center",gap:6,marginBottom:Spacing.md},backText:{color:Colors.primary,fontWeight:"800"},title:{marginTop:Spacing.sm,color:Colors.text,fontSize:Typography.title,fontWeight:"900"},teamTitle:{marginBottom:Spacing.sm},auditButton:{minHeight:48,flexDirection:"row",alignItems:"center",gap:8,marginBottom:Spacing.md,paddingHorizontal:Spacing.md,borderWidth:1,borderColor:"#C9DED1",borderRadius:Radius.md,backgroundColor:"#F4FAF6"},auditLink:{flex:1,color:Colors.primary,fontSize:12,fontWeight:"900"},subtitle:{marginTop:6,marginBottom:Spacing.md,color:Colors.subtitle,lineHeight:20},types:{flexDirection:"row",gap:8,marginBottom:Spacing.md},type:{flex:1,padding:12,borderWidth:1,borderColor:Colors.border,borderRadius:Radius.round,alignItems:"center"},typeActive:{borderColor:Colors.primary,backgroundColor:Colors.primaryLight},typeText:{color:Colors.subtitle,fontSize:12,fontWeight:"800"},typeTextActive:{color:Colors.primary},form:{marginBottom:Spacing.xl},field:{marginBottom:Spacing.sm},label:{marginBottom:5,color:Colors.text,fontSize:12,fontWeight:"800"},input:{minHeight:48,paddingHorizontal:12,borderWidth:1,borderColor:Colors.border,borderRadius:Radius.md,color:Colors.text,backgroundColor:Colors.surface},permissionTitle:{marginTop:Spacing.md,marginBottom:4,color:Colors.subtitle,fontSize:10,fontWeight:"900",letterSpacing:.8},permission:{minHeight:46,flexDirection:"row",alignItems:"center",justifyContent:"space-between",borderBottomWidth:1,borderBottomColor:Colors.border},permissionText:{color:Colors.text,fontWeight:"700"},primary:{minHeight:52,alignItems:"center",justifyContent:"center",marginTop:Spacing.md,borderRadius:Radius.md,backgroundColor:Colors.primary},primaryText:{color:"#FFF",fontWeight:"900"},disabled:{opacity:.6},empty:{color:Colors.subtitle,textAlign:"center"},member:{marginTop:0},memberTop:{flexDirection:"row",alignItems:"center",gap:10},avatar:{width:42,height:42,borderRadius:21,alignItems:"center",justifyContent:"center",backgroundColor:Colors.primaryLight},avatarText:{color:Colors.primary,fontWeight:"900"},grow:{flex:1},memberName:{color:Colors.text,fontWeight:"900"},memberEmail:{marginTop:2,color:Colors.subtitle,fontSize:12},badge:{paddingHorizontal:8,paddingVertical:4,borderRadius:999,backgroundColor:"#FEE2E2",color:"#991B1B",fontSize:9,fontWeight:"900"},badgeActive:{backgroundColor:"#DCFCE7",color:"#166534"},role:{marginTop:10,color:Colors.subtitle,fontSize:12,fontWeight:"700"},memberPermission:{minHeight:40,flexDirection:"row",alignItems:"center",justifyContent:"space-between",marginTop:4},memberPermissionText:{color:Colors.text,fontSize:12,fontWeight:"700"},actions:{flexDirection:"row",gap:20,marginTop:12,paddingTop:10,borderTopWidth:1,borderTopColor:Colors.border},action:{color:Colors.primary,fontWeight:"900"},actionDanger:{color:Colors.danger,fontWeight:"900"} });

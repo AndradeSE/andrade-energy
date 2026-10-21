@@ -6,3 +6,4 @@ export const convidarColaborador = async (payload: any) => (await api.post("/col
 export const reenviarConviteColaborador = async (id: string) => (await api.post(`/colaboradores/convites/${id}/reenviar`)).data;
 export const cancelarConviteColaborador = async (id: string) => (await api.delete(`/colaboradores/convites/${id}`)).data;
 export const atualizarColaborador = async (id: string, payload: any) => (await api.patch(`/colaboradores/${id}`, payload)).data;
+export const promoverColaboradorAdministrador = async (id: string, escopo: string) => (await api.post(`/colaboradores/${id}/promover-administrador`, { escopo, confirmacao: "PROMOVER_ADMINISTRADOR" })).data;
