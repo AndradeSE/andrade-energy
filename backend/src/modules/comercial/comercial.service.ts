@@ -97,13 +97,20 @@ export async function transferirAutomaticamenteAssinatura(payment:any) {
 
 export async function obterPainelComercial(usuario?: any) {
   if (String(usuario?.papel_empresa ?? "") === "COLABORADOR_COMERCIAL") {
-    const [{ data: geradores, error }, { data: documentos, error: documentosError }] = await Promise.all([
+    const [{ data: geradores, error }, { data: documentos, error: documentosError }, { data: assinaturas, error: assinaturasError }, { data: titulares, error: titularesError }] = await Promise.all([
       supabase.from("usuarios").select("id,nome,email,cpf,telefone,ativo,perfil,created_at").in("perfil", ["ADMIN", "GESTOR"]).eq("ativo", true).order("nome"),
-      supabase.from("documentos_comerciais").select("id,tipo,titulo,versao,ativo,publicado_em,criado_em").order("criado_em", { ascending: false }),
+      usuario?.permissoes?.documentos === false ? Promise.resolve({ data: [], error: null }) : supabase.from("documentos_comerciais").select("id,tipo,titulo,versao,ativo,publicado_em,criado_em").order("criado_em", { ascending: false }),
+      usuario?.permissoes?.monitoramento === false ? Promise.resolve({ data: [], error: null }) : supabase.from("assinaturas_geradores")
+        .select("id,gerador_id,status,ciclo,inicio_em,fim_teste_em,proximo_vencimento,plano:planos_geradores!assinaturas_geradores_plano_id_fkey(nome)").order("criado_em", { ascending: false }),
+      supabase.from("empresa_usuarios").select("usuario_id").in("papel", ["SUPERADMIN", "ADMIN_EMPRESA", "GESTOR"]).eq("ativo", true),
     ]);
     if (error) throw error;
     if (documentosError) throw documentosError;
-    return { resumo: { total: geradores?.length ?? 0, ativas: 0, inadimplentes: 0, receitaMensalPrevista: 0 }, financeiro: null, planos: [], assinaturas: [], cobrancas: [], documentos: documentos ?? [], geradores: geradores ?? [], acessoColaborador: true };
+    if (assinaturasError) throw assinaturasError;
+    if (titularesError) throw titularesError;
+    const idsTitulares = new Set((titulares ?? []).map(item => item.usuario_id));
+    const contasGeradoras = (geradores ?? []).filter(item => idsTitulares.has(item.id));
+    return { resumo: { total: contasGeradoras.length, ativas: (assinaturas ?? []).filter(item => item.status === "ATIVA").length, inadimplentes: 0, receitaMensalPrevista: 0 }, financeiro: null, planos: [], assinaturas: assinaturas ?? [], cobrancas: [], documentos: documentos ?? [], geradores: contasGeradoras, acessoColaborador: true };
   }
   const [
     { data: planos, error: erroPlanos },

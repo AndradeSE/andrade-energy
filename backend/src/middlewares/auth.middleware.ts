@@ -93,6 +93,7 @@ export async function exigirAutenticacao(req: Request, res: Response, next: Next
 export function exigirGestor(req: Request, res: Response, next: NextFunction) {
   const perfil = (req as any).usuario?.perfil;
   const papel = String((req as any).usuario?.papel_empresa ?? "").toUpperCase();
+  if (papel === "COLABORADOR_COMERCIAL") return res.status(403).json({ message: "Seu acesso pertence ao Comercial. Abra a gestão comercial para continuar." });
   if (perfil !== "ADMIN" && perfil !== "GESTOR" && papel !== "COLABORADOR_GERADOR") return res.status(403).json({ message: "Acesso exclusivo da operação geradora." });
   if (papel === "COLABORADOR_GERADOR") {
     const recurso = req.baseUrl.includes("/clientes")
