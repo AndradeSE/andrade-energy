@@ -13,7 +13,7 @@ export async function avisarFaturasProximasDoVencimento() {
     const limite = new Date(`${hoje}T12:00:00Z`);
     limite.setUTCDate(limite.getUTCDate() + 5);
     for (let inicio = 0; ; inicio += 200) {
-      const { data, error } = await supabase.from("faturas").select("id,empresa_id,cliente_id,numero_instalacao,referencia,vencimento,valor_total,status,cobrancas(status,pago_em)")
+      const { data, error } = await supabase.from("faturas").select("id,empresa_id,cliente_id,numero_instalacao,referencia,vencimento,valor_total,valor_total_unificado,status,cobrancas(status,pago_em)")
         .in("status", ["ABERTA", "VENCIDA"]).lte("vencimento", limite.toISOString().slice(0, 10))
         .order("id").range(inicio, inicio + 199);
       if (error) throw error;
@@ -28,7 +28,7 @@ export async function avisarFaturasProximasDoVencimento() {
         for (const acesso of acessos ?? []) {
           const chave = vencida ? `fatura-atraso:${fatura.id}:${fatura.vencimento}:${vencida.etapa}:${acesso.usuario_id}` : `fatura-vencimento:${fatura.id}:${fatura.vencimento}:${acesso.usuario_id}`;
           const dataBr = String(fatura.vencimento).slice(0, 10).split("-").reverse().join("/");
-          const valor = Number(fatura.valor_total);
+          const valor = Number(fatura.valor_total_unificado ?? fatura.valor_total);
           const valorTexto = Number.isFinite(valor) ? `, no valor de ${valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : "";
           const detalhe = vencida
             ? `Prezado(a) cliente, identificamos a fatura ${fatura.referencia ?? ""}${fatura.numero_instalacao ? ` da UC ${fatura.numero_instalacao}` : ""}${valorTexto}, com vencimento em ${dataBr}, em aberto há ${vencida.dias} dia(s) nos registros do sistema. Solicitamos a regularização pelos meios de pagamento disponíveis no aplicativo. Caso o pagamento já tenha sido efetuado, desconsidere este aviso. Se a baixa ainda não constar, entre em contato com o responsável pelo atendimento para conferência.`
