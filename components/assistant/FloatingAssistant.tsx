@@ -11,6 +11,7 @@ import { setWakeWordPaused } from "../../services/assistant-wake-word";
 import { floatingHidden, loadFloatingPreference, setFloatingHidden, subscribeFloatingHidden } from "../../services/assistant-floating-preference";
 import { useAuth } from "../../contexts/AuthContext";
 import { IS_GERADOR_APP } from "../../config/appVariant";
+import { assistantLauncherAvailable } from "../../services/assistant-launcher-visibility";
 
 const SIZE = 54;
 let savedPosition: { x: number; y: number } | undefined;
@@ -25,8 +26,7 @@ export default function FloatingAssistant() {
   const phase = useSyncExternalStore(subscribeFloatingConversation, floatingConversationPhase);
   const audioActive = conversationOpen && (phase === "listening" || phase === "speaking");
   const { usuario, usinaSelecionada, unidadeSelecionada } = useAuth();
-  const selectionScreen = pathname.startsWith("/selecionar-") || pathname.startsWith("/admin") || pathname.startsWith("/geradores");
-  const launcherAvailable = !selectionScreen && (IS_GERADOR_APP ? Boolean(usinaSelecionada?.id) : Boolean(unidadeSelecionada?.id));
+  const launcherAvailable = assistantLauncherAvailable(pathname, IS_GERADOR_APP, usinaSelecionada?.id, unidadeSelecionada?.id);
   const userId = usuario?.id ? String(usuario.id) : "";
   const hidden = useSyncExternalStore(subscribeFloatingHidden, floatingHidden);
   useEffect(() => { if (userId) void loadFloatingPreference(userId); }, [userId]);

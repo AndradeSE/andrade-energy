@@ -38,6 +38,9 @@ import { isAssistantEnabled as isPreviewEnvironment } from "../../config/environ
 import TabDataPending from "../ui/TabDataPending";
 import AndradeBarChart from "../charts/AndradeBarChart";
 import RevenueChart from "./RevenueChart";
+import { useQuery } from "@tanstack/react-query";
+import { listarFaturas } from "../../services/faturas.service";
+import { overdueInvoiceReply } from "../../services/local-assistant-invoices";
 
 function formatarEnergia(valor: number) {
   return `${Number(valor).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kWh`;
@@ -83,6 +86,16 @@ export default function DashboardGestor() {
     useAuth();
   const { data, isLoading, error, refetch } = useDashboardGestor();
   const colaborador = String(usuario?.papel_empresa ?? "").startsWith("COLABORADOR_");
+  const canReadOverdue = Boolean(usinaSelecionada?.id) && usuario?.permissoes?.faturas !== false;
+  const overdueQuery = useQuery({
+    queryKey: ["home-faturas-vencidas", usuario?.id, usinaSelecionada?.id],
+    enabled: canReadOverdue,
+    queryFn: () => listarFaturas(undefined, undefined, usinaSelecionada!.id),
+  });
+  useFocusEffect(useCallback(() => { if (usinaSelecionada?.id && usuario?.permissoes?.faturas !== false) void overdueQuery.refetch(); }, [usinaSelecionada?.id, usuario?.permissoes?.faturas, overdueQuery.refetch]));
+  const overdue = overdueInvoiceReply(canReadOverdue ? overdueQuery.data ?? [] : []).invoices;
+  const overdueClients = new Set(overdue.map(fatura => (fatura as any).cliente_id).filter(Boolean)).size;
+  const overdueTotal = overdue.reduce((total, fatura) => total + Number(fatura.valor_total_unificado ?? fatura.valor_total ?? 0), 0);
   const assistantHidden = useSyncExternalStore(subscribeFloatingHidden, floatingHidden);
   useEffect(() => { if (usuario?.id) void loadFloatingPreference(String(usuario.id)); }, [usuario?.id]);
   const [carteira, setCarteira] = useState<CarteiraService.Carteira | null>(
@@ -113,7 +126,7 @@ export default function DashboardGestor() {
   async function atualizarPagina() {
     setAtualizando(true);
     try {
-      await Promise.all([refetch(), carregarCarteira()]);
+      await Promise.all([refetch(), carregarCarteira(), ...(usinaSelecionada?.id && usuario?.permissoes?.faturas !== false ? [overdueQuery.refetch()] : [])]);
     } finally {
       setAtualizando(false);
     }
@@ -262,6 +275,11 @@ export default function DashboardGestor() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
+        {overdue.length > 0 ? <Pressable accessibilityRole="button" accessibilityLabel="Conferir faturas vencidas desta usina" onPress={() => router.push({ pathname: "/(tabs)/faturas", params: { solarFiltro: "vencidas" } })} style={{ padding: 16, borderRadius: 16, backgroundColor: "#FFF1F2", borderWidth: 1, borderColor: "#FDA4AF", gap: 6 }}>
+          <Text style={{ color: "#9F1239", fontSize: 17, fontWeight: "700" }}>{overdue.length} fatura(s) vencida(s) · {overdueClients} cliente(s)</Text>
+          <Text style={{ color: "#881337" }}>Valor das faturas: {formatarMoeda(overdueTotal)}</Text>
+          <Text style={{ color: "#881337" }}>Toque para conferir os pagamentos registrados e as cobranças desta usina.</Text>
+        </Pressable> : overdueQuery.isError ? <Text accessibilityRole="alert" style={{ color: "#9F1239" }}>Não foi possível conferir as faturas vencidas. Atualize a página para tentar novamente.</Text> : null}
         <Section title="Acesso rápido" framed={false}>
           <QuickAccessCarousel
             storageKey={`gestor-home-${usuario?.id ?? "anonimo"}`}

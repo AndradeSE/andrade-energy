@@ -16,13 +16,14 @@ import { useFaturas } from "../../hooks/useFaturas";
 import { FaturaAnexadaCliente, listarFaturasAnexadasCliente } from "../../services/clientes.service";
 import { excluirFatura, formatarCompetenciaBrasileira, formatarDataBrasileira, obterRelatorioCalculoFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
+import { overdueInvoiceReply } from "../../services/local-assistant-invoices";
 
 type Filtro = "todas" | "abertas" | "vencidas" | "pagas";
 
 const normalizarStatus = (status?: string) => String(status ?? "").trim().toUpperCase();
 const estaPaga = (status?: string) => ["PAGA", "PAGO", "QUITADA"].includes(normalizarStatus(status));
 const statusEfetivo = (item: any) => item.cobrancas?.[0]?.status ?? item.status;
-const estaVencida = (item: any) => !estaPaga(statusEfetivo(item)) && Boolean(item.vencimento) && new Date(`${item.vencimento}T23:59:59`) < new Date();
+const estaVencida = (item: any) => overdueInvoiceReply([item]).invoices.length > 0;
 const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function Faturas() {

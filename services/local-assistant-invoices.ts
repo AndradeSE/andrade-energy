@@ -6,10 +6,10 @@ export function asksOverdueInvoices(input: string) {
 }
 
 export function overdueInvoiceReply(invoices: InvoiceSnapshot[], today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date())) {
-  const settled = ["PAGO", "PAGA", "RECEBIDO", "RECEBIDA", "RECEIVED", "CONFIRMED"];
+  const settled = ["PAGO", "PAGA", "QUITADA", "RECEBIDO", "RECEBIDA", "RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH"];
   const overdue = invoices.filter(invoice => {
     const status = String(invoice.status ?? "").toUpperCase();
-    if ([...settled, "RASCUNHO", "CANCELADA", "EXCLUIDA", "CANCELADO"].includes(status) || invoice.pago_em || invoice.cobrancas?.some(c => c.pago_em || settled.includes(String(c.status ?? "").toUpperCase()))) return false;
+    if ([...settled, "RASCUNHO", "CANCELADA", "EXCLUIDA", "CANCELADO"].includes(status) || invoice.pago_em || invoice.cobrancas?.some(c => c.pago_em || [...settled, "CANCELADA", "CANCELADO", "DELETED", "REFUNDED"].includes(String(c.status ?? "").toUpperCase()))) return false;
     return ["VENCIDA", "ATRASADA", "OVERDUE"].includes(status) || (["ABERTA", "PENDENTE", "PENDING", "EMITIDA"].includes(status) && /^\d{4}-\d{2}-\d{2}/.test(invoice.vencimento ?? "") && invoice.vencimento!.slice(0, 10) < today);
   });
   return { invoices: overdue, text: overdue.length ? `Encontrei ${overdue.length} fatura(s) em atraso neste contexto.\n${overdue.slice(0, 12).map(f => `${f.referencia ?? "Fatura"} · vencimento ${f.vencimento?.slice(0, 10) ?? "não informado"} · ${Number.isFinite(Number(f.valor_total_unificado ?? f.valor_total)) ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(f.valor_total_unificado ?? f.valor_total)) : "valor não informado"}`).join("\n")}\nA consulta reflete os pagamentos registrados no aplicativo.` : "Não identifiquei faturas em atraso nos registros deste contexto. Pagamentos ainda não sincronizados podem alterar o resultado." };
