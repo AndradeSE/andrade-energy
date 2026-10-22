@@ -35,12 +35,12 @@ export function calcularAlocacaoProjetada(unidades: any[], energiaGerada: number
     const consumoMedio = Math.max(0, Number(unidade.consumo_medio_kwh ?? 0));
 
     // Injeção comercializa a parcela definida da produção da usina; com 100%,
-    // toda a média fica alocada. Somente compensação usa a demanda da UC com
-    // margem operacional de 15%.
+    // toda a média fica alocada. Compensação usa a demanda exata da UC,
+    // sem margem adicional.
     const reserva = String(unidade.modalidade_faturamento ?? "").toUpperCase() === "INJECAO"
       ? gerada * percentual / 100
       : consumoMedio > 0
-        ? consumoMedio * 1.15
+        ? consumoMedio
         : gerada * percentual / 100;
     return total + Math.min(gerada, reserva);
   }, 0);
@@ -498,8 +498,8 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
     ? percentualInformado
     : 0;
   let producaoMedia = 0;
-  if (modalidade === "INJECAO") {
-    // A parcela injetada é definida pelo gerador, nunca deduzida do consumo.
+  if (modalidade === "INJECAO" && !calcularAutomaticamente) {
+    // Preserva percentuais informados explicitamente pelo gerador.
     if (!Number.isFinite(percentualInformado) || percentualInformado <= 0 || percentualInformado > 100) {
       throw new Error("Informe o percentual de injeção entre 0,01% e 100%.");
     }
@@ -507,9 +507,8 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
   } else if (calcularAutomaticamente) {
     producaoMedia = await calcularProducaoMedia12Meses(usinaId);
     percentual = producaoMedia > 0 && consumoMedio > 0
-      // Mantém uma margem de 15% acima do consumo médio para a UC não
-      // ficar subalocada quando houver oscilação mensal de consumo.
-      ? Math.min(100, consumoMedio * 1.15 / producaoMedia * 100)
+      // Usa a demanda exata sobre a média de produção atualizada.
+      ? Math.min(100, consumoMedio / producaoMedia * 100)
       : 0;
   } else if (!Number.isFinite(percentualInformado) || percentualInformado <= 0 || percentualInformado > 100) {
     throw new Error("Informe um percentual entre 0,01% e 100%.");

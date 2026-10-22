@@ -306,7 +306,7 @@ export async function atualizarDadosFaturaAnexada(
 export async function listarUnidadesCliente(clienteId: string, empresaId = EMPRESA_ANDRADE_ID) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")
-    .select("id, cliente_id, usina_id, numero, apelido, titular, distribuidora, endereco, status, modalidade_faturamento, desconto_percentual, clientes(id,nome), usinas(id,nome,titularidade_ucs_recebedoras)")
+    .select("id, cliente_id, usina_id, numero, apelido, titular, distribuidora, endereco, status, modalidade_faturamento, desconto_percentual, consumo_medio_kwh, clientes(id,nome), usinas(id,nome,titularidade_ucs_recebedoras)")
     .eq("cliente_id", clienteId)
     .eq("empresa_id", empresaId)
     .order("numero");
@@ -319,7 +319,7 @@ export async function listarUnidadesCliente(clienteId: string, empresaId = EMPRE
 
   const { data: cliente, error: erroCliente } = await supabase
     .from("clientes")
-    .select("id, uc, nome, distribuidora, endereco, status, usina_id, modalidade_faturamento, desconto_percentual")
+    .select("id, uc, nome, distribuidora, endereco, status, usina_id, modalidade_faturamento, desconto_percentual, consumo_medio_kwh")
     .eq("id", clienteId)
     .eq("empresa_id", empresaId)
     .maybeSingle();
@@ -338,6 +338,7 @@ export async function listarUnidadesCliente(clienteId: string, empresaId = EMPRE
     status: cliente.status,
     modalidade_faturamento: cliente.modalidade_faturamento,
     desconto_percentual: cliente.desconto_percentual,
+    consumo_medio_kwh: cliente.consumo_medio_kwh,
     clientes: { id: cliente.id, nome: cliente.nome },
   }];
 }

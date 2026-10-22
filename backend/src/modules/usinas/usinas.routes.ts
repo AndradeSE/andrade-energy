@@ -25,6 +25,8 @@ import { cadastrarUnidadeOperacional } from "./unidadeOperacional.service";
 import { consultarClimaDoEndereco } from "./clima.service";
 import { supabase } from "../../config/supabase";
 import { rateLimit } from "express-rate-limit";
+import { prepararPlanilhaRateio, enviarPlanilhaAoGerador } from "./rateioMensal.service";
+import { permissaoComercial } from "../comercial/permissoesComerciais";
 
 const router = Router();
 
@@ -54,6 +56,21 @@ router.get("/:id/clima", exigirUsinaDaSessaoOuGestor(), rateLimit({ windowMs: 60
 
 router.get("/:id/dashboard", exigirUsinaDaSessaoOuGestor(), dashboardUsinaController);
 router.get("/:id/alocacao", exigirGestor, consultarAlocacaoController);
+router.post("/:id/rateio-mensal", exigirGestor, rateLimit({ windowMs: 60_000, limit: 5 }), async (req, res) => {
+  const usuario = (req as any).usuario;
+  const papel = String(usuario?.papel_empresa ?? "");
+  if ((papel === "COLABORADOR_GERADOR" && usuario?.permissoes?.operacao !== true)
+    || (papel === "COLABORADOR_COMERCIAL" && !permissaoComercial(usuario,"gerador_operacao"))) {
+    return res.status(403).json({message:"Seu acesso à operação não foi liberado pelo titular."});
+  }
+  try {
+    const empresaId = empresaIdDaRequisicao(req);
+    const plano = await prepararPlanilhaRateio(req.params.id,empresaId,String(req.body?.competencia ?? ""),String(req.body?.ucAncora ?? ""));
+    res.setHeader("Cache-Control","private, no-store");
+    const email = req.body?.enviarEmail === true ? await enviarPlanilhaAoGerador(req.params.id,empresaId,plano,usuario) : {enviado:false};
+    return res.json({...plano,emailEnviado:email.enviado});
+  } catch (error: any) { return res.status(400).json({message:error.message}); }
+});
 
 router.get("/:id/inversores", exigirAutenticacao, exigirGestor, listarIntegracoesInversoresController);
 router.post("/:id/inversores", exigirAutenticacao, exigirGestor, cadastrarIntegracaoInversorController);
