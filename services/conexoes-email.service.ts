@@ -43,7 +43,7 @@ export async function iniciarConexaoEmail(
 export async function concluirConexaoEmail(state: string) {
   const { data } = await api.post<ResultadoConclusaoEmail>("/conexoes-email/concluir", { state });
   if (data.pronto === false) {
-    throw new Error(data.message ?? "A autorização do e-mail não foi concluída.");
+    throw Object.assign(new Error(data.message ?? "A autorização do e-mail não foi concluída."), { unidadeId: data.unidade?.id });
   }
   return data;
 }

@@ -26,6 +26,7 @@ import {
   listarConexoesEmail,
   ProvedorEmail,
 } from "../../services/conexoes-email.service";
+import { emailConnectionFailure, emailConnectionFailureMessage } from "../../utils/emailConnectionFailure";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
 const titulosStatus: Record<string, string> = {
@@ -114,7 +115,7 @@ function GmailMark() {
 
 export default function RecebimentoEmail() {
   const { unidadeSelecionada } = useAuth();
-  const params = useLocalSearchParams<{ conexao?: string | string[]; unidadeId?: string | string[] }>();
+  const params = useLocalSearchParams<{ conexao?: string | string[]; conexaoErro?: string | string[]; unidadeId?: string | string[] }>();
   const [dados, setDados] = useState<StatusRecebimentoFaturas>();
   const [conexoes, setConexoes] = useState<ConexaoEmail[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -173,10 +174,10 @@ export default function RecebimentoEmail() {
         ? recebimentoDeProducao
           ? "A conexão foi concluída. As contas da usina poderão atualizar a produção automaticamente."
           : "A conexão foi concluída. As contas da concessionária poderão ser importadas automaticamente."
-        : "A autorização não foi concluída. Você pode tentar novamente quando quiser.",
+        : emailConnectionFailureMessage(Array.isArray(params.conexaoErro) ? params.conexaoErro[0] : params.conexaoErro),
     );
     router.replace(rotaAtual());
-  }, [params.conexao, recebimentoDeProducao, rotaAtual]);
+  }, [params.conexao, params.conexaoErro, recebimentoDeProducao, rotaAtual]);
 
   async function atualizarPagina() {
     setAtualizando(true);
@@ -269,7 +270,7 @@ export default function RecebimentoEmail() {
 
       const state = valorDaUrl(resultado.url, "state");
       const erro = valorDaUrl(resultado.url, "error");
-      if (!state || erro) {
+      if (!state) {
         router.replace(rotaAtual("erro"));
         return;
       }
@@ -359,6 +360,7 @@ export default function RecebimentoEmail() {
         <Text style={styles.setupHelp}>Conecte o Gmail ou o Hotmail / Outlook para configurar o recebimento automático. Você também pode configurar o encaminhamento manualmente.</Text>
         <Text style={styles.setupNotice}>Importante: use a conta de e-mail que recebe as faturas da CEMIG.</Text>
         <View style={styles.choiceActions}>
+          <Text style={styles.setupHelp}>Na autorização do Google, marque a permissão de ler os e-mails do Gmail. Ela é necessária para importar as contas automaticamente.</Text>
           <TouchableOpacity accessibilityLabel="Conectar Gmail" activeOpacity={0.84} disabled={Boolean(conectandoProvedor) || gmailConectado} onPress={() => { setModoConfiguracao("GMAIL"); void conectarEmail("GMAIL"); }} style={[styles.providerButton, (Boolean(conectandoProvedor) || gmailConectado) && styles.providerButtonDisabled]}>
             <GmailMark />
             <Text style={[styles.providerButtonText, gmailConectado && styles.providerButtonTextDisabled]}>{conectandoProvedor === "GMAIL" ? "Conectando..." : gmailConectado ? "Gmail conectado" : "Conectar Gmail"}</Text>

@@ -722,7 +722,7 @@ export async function concluirConexaoEmail(usuario: UsuarioAutenticado, stateRec
     return { status: "PENDENTE", pronto: false, message: "Conclua a autorização no navegador para continuar." };
   }
   if (estado.status === "ERRO" || estado.status === "EXPIRADO") {
-    return { status: estado.status, pronto: false, message: estado.erro ?? "Não foi possível conectar este e-mail." };
+    return { status: estado.status, pronto: false, message: estado.erro ?? "Não foi possível conectar este e-mail.", unidade: { id: estado.unidade_consumidora_id } };
   }
   if (!estado.conexao_email_id) {
     return { status: "ERRO", pronto: false, message: "A autorização foi concluída sem uma conexão válida." };

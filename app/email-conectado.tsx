@@ -6,6 +6,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { Screen } from "../components/ui";
 import { concluirConexaoEmailUmaVez } from "../services/conexoes-email.service";
 import { Colors, Spacing, Typography } from "../theme";
+import { emailConnectionFailure } from "../utils/emailConnectionFailure";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -29,7 +30,7 @@ export default function EmailConectado() {
     const erro = primeiroValor(params.error);
 
     async function concluir() {
-      if (erro || !state) {
+      if (!state) {
         router.replace({ pathname: "/unidades/recebimento-email", params: { conexao: "erro" } });
         return;
       }
@@ -40,8 +41,8 @@ export default function EmailConectado() {
           pathname: "/unidades/recebimento-email",
           params: { conexao: "sucesso", ...(resultado.unidade?.id ? { unidadeId: resultado.unidade.id } : {}) },
         });
-      } catch {
-        router.replace({ pathname: "/unidades/recebimento-email", params: { conexao: "erro" } });
+      } catch (error: any) {
+        router.replace({ pathname: "/unidades/recebimento-email", params: { conexao: "erro", conexaoErro: emailConnectionFailure(error), ...(error?.unidadeId ? { unidadeId: error.unidadeId } : {}) } });
       }
     }
 
