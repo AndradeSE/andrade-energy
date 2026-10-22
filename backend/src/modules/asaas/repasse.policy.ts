@@ -1,6 +1,10 @@
 import { AsaasHttpError } from "./asaas.client";
 
 export const pagamentoDisponivelParaRepasse = (status: unknown) => String(status ?? "").toUpperCase() === "RECEIVED";
+export function saldoDisponivelConfirmado(recebido: number, reservado: number, saldoProvedor: number | null) {
+  if (saldoProvedor === null || ![recebido,reservado,saldoProvedor].every(Number.isFinite)) return 0;
+  return Math.round(Math.max(0,Math.min(recebido-reservado,saldoProvedor))*100)/100;
+}
 
 // Timeout/5xx podem ocorrer após o provedor aceitar o Pix. Nunca liberar
 // automaticamente o valor para uma segunda transferência nesses casos.
