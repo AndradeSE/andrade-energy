@@ -1,4 +1,5 @@
 import { supabase } from "../../config/supabase";
+import {saldoAnteriorParaRateio} from "../usinas/saldoRateio.policy";
 
 export async function obterDashboardCliente(
   clienteId: string,
@@ -42,6 +43,10 @@ export async function obterDashboardCliente(
       .select(`
         id,
         referencia,
+        numero_instalacao,
+        cliente_id,
+        saldo_atual,
+        created_at,
         vencimento,
         valor_total,
         valor_total_unificado,
@@ -70,32 +75,30 @@ export async function obterDashboardCliente(
       .eq("cliente_id", clienteId)
       .eq("empresa_id", empresaId);
 
-  if (uc) faturasQuery = faturasQuery.eq("numero_instalacao", uc);
+  const numeroSelecionado=String(uc??unidade?.numero??cliente.uc??"");
+  if (numeroSelecionado) faturasQuery = faturasQuery.eq("numero_instalacao", numeroSelecionado);
   const { data: faturas, error: erroFaturas } = await faturasQuery;
 
   if (erroFaturas) throw erroFaturas;
 
-  // Último saldo de créditos
-  const { data: credito, error: erroCredito } =
-    await supabase
-      .from("creditos")
-      .select("saldo_atual")
-      .eq("cliente_id", clienteId)
-      .eq("empresa_id", empresaId)
-      .order("competencia", {
-        ascending: false,
-      })
-      .limit(1)
-      .maybeSingle();
-
-  if (erroCredito) throw erroCredito;
+  // O saldo acompanha a UC, inclusive no modelo de injeção; não se usa o
+  // último lançamento genérico do cliente, que pode pertencer à outra UC.
+  const anexos=await supabase.from("faturas_anexadas_clientes").select("dados_fatura,criado_em").eq("cliente_id",clienteId).eq("empresa_id",empresaId).order("criado_em",{ascending:false});
+  if(anexos.error)throw anexos.error;
+  const hoje=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit"}).formatToParts(new Date());
+  const competencia=`${hoje.find(p=>p.type==="year")!.value}-${hoje.find(p=>p.type==="month")!.value}`;
+  const saldo=saldoAnteriorParaRateio(numeroSelecionado,clienteId,competencia,[
+    ...(faturas??[]).filter(f=>!["CANCELADO","CANCELADA","RASCUNHO"].includes(String(f.status).toUpperCase())).map(f=>({numero:f.numero_instalacao,clienteId:f.cliente_id,referencia:f.referencia,saldo:f.saldo_atual,registradoEm:f.created_at,fonte:"FATURA" as const})),
+    ...(anexos.data??[]).map(a=>{const dados=a.dados_fatura as any;return {numero:dados?.uc??dados?.numero_instalacao,clienteId,referencia:dados?.referencia,saldo:dados?.saldoAtual,registradoEm:a.criado_em,fonte:"ANEXO" as const};}),
+  ]);
 
   return {
     ...cliente,
     uc: unidade?.numero ?? uc ?? cliente.uc,
     distribuidora: unidade?.distribuidora ?? cliente.distribuidora,
-    creditos:
-      Number(credito?.saldo_atual ?? 0),
+    creditos:saldo.saldo,
+    saldoAtual:saldo.semHistorico?null:saldo.saldo,
+    competenciaSaldo:saldo.referencia??null,
     faturas: faturas ?? [],
   };
 }
