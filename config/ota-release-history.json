@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261022-065959",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Fatura vencida: identifica valor original e orienta pagamento do mesmo boleto com encargos no banco"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-065752",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Fatura vencida: informa principal sem encargos; mantém o mesmo boleto e saldo líquido Asaas"
+    ]
+  },
+  {
     "numero": "OTA 20261022-065357",
     "data": "22/10/2026",
     "variant": "consumidor",
