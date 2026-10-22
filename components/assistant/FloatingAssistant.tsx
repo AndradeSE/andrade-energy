@@ -24,12 +24,17 @@ export default function FloatingAssistant() {
   const conversationRequest = useSyncExternalStore(subscribeFloatingConversation, floatingConversationRequest);
   const conversationOpen = Boolean(conversationRequest);
   const phase = useSyncExternalStore(subscribeFloatingConversation, floatingConversationPhase);
-  const audioActive = conversationOpen && (phase === "listening" || phase === "speaking");
+  const wakeAudioActive = conversationOpen && (phase === "listening" || phase === "speaking");
   const { usuario, usinaSelecionada, unidadeSelecionada } = useAuth();
   const launcherAvailable = assistantLauncherAvailable(pathname, IS_GERADOR_APP, usinaSelecionada?.id, unidadeSelecionada?.id);
   const userId = usuario?.id ? String(usuario.id) : "";
   const [textChatOpen, setTextChatOpen] = useState(false);
-  useEffect(() => { setTextChatOpen(false); }, [pathname, userId, usinaSelecionada?.id, unidadeSelecionada?.id]);
+  const [chatMounted,setChatMounted]=useState(false);
+  const [chatVoiceActive,setChatVoiceActive]=useState(false);
+  const closeTextChat=()=>{setTextChatOpen(false);setChatMounted(false);setChatVoiceActive(false);};
+  useEffect(() => { setTextChatOpen(false); }, [pathname]);
+  useEffect(() => { closeTextChat(); }, [userId, usinaSelecionada?.id, unidadeSelecionada?.id]);
+  const audioActive=wakeAudioActive||chatVoiceActive;
   const hidden = useSyncExternalStore(subscribeFloatingHidden, floatingHidden);
   useEffect(() => { if (userId) void loadFloatingPreference(userId); }, [userId]);
   const wave = useRef(new Animated.Value(0)).current;
@@ -117,17 +122,17 @@ export default function FloatingAssistant() {
       if (longPressed.current) return;
       if (Math.abs(gesture.dx) < 8 && Math.abs(gesture.dy) < 8) {
         if (conversationOpen) { setWakeWordPaused(true); closeFloatingConversation(); }
-        else setTextChatOpen(true);
+        else { setChatMounted(true); setTextChatOpen(true); }
       }
     },
     onPanResponderTerminate: () => { if (longPressTimer.current) clearTimeout(longPressTimer.current); longPressTimer.current = undefined; },
   }), [animated, conversationOpen, height, hideProgress, userId, width]);
 
-  if (loading || pathname === "/assistente") return null;
+  if ((loading && !chatMounted && !conversationRequest) || pathname === "/assistente") return null;
   return <>
-  {textChatOpen ? <Modal visible animationType="slide" onRequestClose={() => setTextChatOpen(false)}><Assistente onClose={() => setTextChatOpen(false)} /></Modal> : null}
-  {!textChatOpen && conversationRequest ? <Assistente voiceOnly embeddedVoiceWake={conversationRequest} onClose={() => { setWakeWordPaused(true); closeFloatingConversation(); }} /> : null}
-  {!hidden && launcherAvailable ? <Animated.View {...pan.panHandlers} accessibilityRole="button" accessibilityLabel={conversationOpen ? "Conversa por voz aberta; segure para ocultar" : "Abrir Ajuda Andrade Energy; arraste ou segure para ocultar"} style={[styles.button, { opacity: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }), transform: [...animated.getTranslateTransform(), { translateX: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -120] }) }, { translateY: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -170] }) }, { scale: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.2] }) }] }]}>
+  {chatMounted ? <Assistente floatingModal minimized={!textChatOpen} onMinimize={()=>setTextChatOpen(false)} onVoiceState={setChatVoiceActive} onClose={closeTextChat} /> : null}
+  {!chatMounted && conversationRequest ? <Assistente voiceOnly embeddedVoiceWake={conversationRequest} onClose={() => { setWakeWordPaused(true); closeFloatingConversation(); }} /> : null}
+  {!hidden && launcherAvailable ? <Animated.View {...pan.panHandlers} accessibilityRole="button" accessibilityLabel={conversationOpen ? "Conversa por voz aberta; toque para encerrar" : "Abrir Ajuda Andrade Energy; arraste ou segure para ocultar"} style={[styles.button, { opacity: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }), transform: [...animated.getTranslateTransform(), { translateX: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -120] }) }, { translateY: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -170] }) }, { scale: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.2] }) }] }]}>
     <Animated.View pointerEvents="none" style={[styles.halo, { opacity: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.4] }), transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.08] }) }] }]} />
     <Animated.View pointerEvents="none" style={{ transform: [{ translateY: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, -2] }) }, { scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) }] }}>
       <Image source={require("../../assets/images/assistant-chat-3d-v2.png")} style={styles.chat} resizeMode="contain" />

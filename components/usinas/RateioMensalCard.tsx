@@ -2,6 +2,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Platform, Text, View } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
+import { Ionicons } from "@expo/vector-icons";
+import { Pressable } from "../assistant/AssistantNativeControls";
 import * as Sharing from "expo-sharing";
 import { Button, Card } from "../ui";
 import FormField from "../cadastro/FormField";
@@ -9,6 +11,10 @@ import { gerarPlanilhaRateio,obterConfiguracaoRateio,salvarConfiguracaoRateio,bu
 import { Colors, Spacing } from "../../theme";
 
 export default function RateioMensalCard({usinaId,empresaId,competencia}: {usinaId:string;empresaId:string;competencia?:string}) {
+  const [formatoCemig,setFormatoCemig]=useState(false);
+  const [enviarEmail,setEnviarEmail]=useState(false);
+  const [ajustes,setAjustes]=useState(false);
+  const [detalhes,setDetalhes]=useState(false);
   const [ancora,setAncora]=useState("");
   const [numerosAtuaisConfirmados,setNumerosAtuaisConfirmados]=useState(false);
   const [ocupado,setOcupado]=useState(false);
@@ -54,13 +60,16 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
   }
   return <Card><View style={{gap:Spacing.sm}}>
     <Text style={{fontSize:18,fontWeight:"700",color:Colors.text}}>Planilha mensal de rateio</Text>
-    <Text style={{color:Colors.subtitle}}>(Consumo médio − saldo de créditos da UC) ÷ produção média real da usina × 100, sem adicional e com mínimo de zero. O restante fica na UC âncora. Recalcule a cada competência antes de solicitar a alteração à Cemig.</Text>
-    <FormField label="UC âncora (opcional)" value={ancora} onChangeText={v=>{setAncora(v.replace(/\D/g,"").slice(0,20));setNumerosAtuaisConfirmados(false);setResultado(undefined);}} keyboardType="number-pad" />
+    <Pressable accessibilityRole="button" accessibilityState={{expanded:detalhes}} onPress={()=>setDetalhes(v=>!v)} style={{minHeight:44,flexDirection:"row",alignItems:"center",gap:8}}><Ionicons name="information-circle-outline" size={20} color={Colors.primary}/><Text style={{color:Colors.primary}}>Como é calculado?</Text></Pressable>
+    {detalhes?<Text style={{color:Colors.subtitle}}>(Consumo médio − saldo de créditos da UC) ÷ produção média real da usina × 100, sem adicional e com mínimo de zero. O restante fica na UC âncora. Recalcule a cada competência antes de solicitar a alteração à Cemig.</Text>:null}
+    <Pressable accessibilityRole="button" accessibilityState={{expanded:ajustes}} onPress={()=>setAjustes(v=>!v)} style={{minHeight:48,flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}><Text style={{fontWeight:"700",color:Colors.text}}>Âncora e configuração</Text><Ionicons name={ajustes?"chevron-up":"chevron-down"} size={20} color={Colors.primary}/></Pressable>
+    {ajustes?<View style={{gap:Spacing.sm}}><FormField label="UC âncora (opcional)" value={ancora} onChangeText={v=>{setAncora(v.replace(/\D/g,"").slice(0,20));setNumerosAtuaisConfirmados(false);setResultado(undefined);}} keyboardType="number-pad" />
     <Text style={{color:Colors.subtitle}}>O documento da âncora segue a titularidade: gerador ou cliente, conforme o cadastro. Não é necessário digitar CPF/CNPJ aqui.</Text>
     <Text style={{color:Colors.subtitle}}>Sem número, o arquivo será um rascunho com “UC âncora — a definir”. Este campo não cadastra cliente nem gera cobrança. Salve a configuração abaixo para usar a âncora automaticamente em todos os aparelhos.</Text>
     <Text style={{color:Colors.subtitle}}>O CSV Cemig terá somente UC; CPF/CNPJ; Cota; Âncora, sem cabeçalho. Deve usar o número atual da UC, não o antigo número de instalação. O documento de cada beneficiária vem do titular da UC.</Text>
-    <Button title={numerosAtuaisConfirmados?"Números atuais de UC conferidos ✓":"Confirmar que conferi os números atuais de UC"} disabled={ocupado} onPress={()=>setNumerosAtuaisConfirmados(v=>!v)} />
+    <Opcao label="Conferi os números atuais das UCs" checked={numerosAtuaisConfirmados} disabled={ocupado} onPress={()=>setNumerosAtuaisConfirmados(v=>!v)} />
     <Button title="Salvar configuração do rateio automático" disabled={ocupado} onPress={()=>void salvarAuto()} />
+    </View>:null}
     <Text style={{color:Colors.subtitle}}>{erroConfig?"Não foi possível consultar a automação. Tente salvar a configuração novamente.":config?.habilitado?"Geração automática ativa: aguarda a produção da usina e todas as faturas das UCs ativas com contrato vigente. Ao gerar, avisa o gerador no app/push e envia a planilha por e-mail. Sem âncora ou dados conferidos, gera um rascunho.":"Consultando configuração automática…"}</Text>
     {config?.registros?.find(r=>r.competencia.slice(0,7)===competencia)?.status==="GERADO"?<Button title="Baixar rateio gerado automaticamente" disabled={ocupado} onPress={()=>void baixarAuto()} />:null}
     {config?.registros?.find(r=>r.competencia.slice(0,7)===competencia)?.status==="ERRO"?<Text style={{color:Colors.subtitle}}>Não foi possível concluir a geração automática. {config.registros.find(r=>r.competencia.slice(0,7)===competencia)?.erro}</Text>:null}
@@ -68,8 +77,14 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
     {resultado?.suspensas?.length?<Text style={{color:Colors.subtitle}}>{resultado.suspensas.length} UC(s) sem nova alocação porque o saldo cobre a previsão de consumo. Elas aparecem no rascunho para conferência e não entram como beneficiárias com cota zero no CSV Cemig. Seus contratos permanecem ativos.</Text>:null}
     {resultado?.saldosSemHistorico?<Text style={{color:Colors.subtitle}}>{resultado.saldosSemHistorico} UC(s) sem saldo registrado: considerado zero. Confira o saldo e sua competência no rascunho antes de solicitar o rateio.</Text>:null}
     {resultado?.pendencias?.length?<Text style={{color:Colors.subtitle}}>Para o CSV Cemig: {resultado.pendencias.join(" ")}</Text>:null}
-    <Button title={ocupado?"Preparando…":"Baixar CSV no padrão Cemig"} disabled={ocupado||!competencia} onPress={()=>void gerar(false,true)} />
-    <Button title="Baixar rascunho de conferência" disabled={ocupado||!competencia} onPress={()=>void gerar(false,false)} />
-    <Button title="Enviar ao e-mail do gerador" disabled={ocupado||!competencia} onPress={()=>Alert.alert("Enviar planilha",`Enviar a competência ${competencia} ao e-mail cadastrado do gerador? O CSV Cemig exige todos os dados. O rascunho serve somente para conferência.`,[{text:"Cancelar",style:"cancel"},{text:"Enviar rascunho",onPress:()=>void gerar(true,false)},{text:"Enviar CSV Cemig",onPress:()=>void gerar(true,true)}])} />
+    <View style={{borderTopWidth:1,borderColor:Colors.border,paddingTop:12,gap:8}}>
+      <Text style={{fontWeight:"700",color:Colors.text}}>Preparar planilha</Text>
+      <Opcao label="CSV no padrão Cemig" checked={formatoCemig} disabled={ocupado} onPress={()=>setFormatoCemig(v=>!v)} />
+      <Text style={{color:Colors.subtitle}}>{formatoCemig?"Exige âncora e números atuais conferidos.":"Rascunho para conferir dados, sem enviar à Cemig."}</Text>
+      <Opcao label="Enviar ao e-mail cadastrado do gerador" checked={enviarEmail} disabled={ocupado} onPress={()=>setEnviarEmail(v=>!v)} />
+      <Button title={ocupado?"Preparando…":enviarEmail?"Gerar e enviar":"Gerar e baixar"} disabled={ocupado||!competencia} onPress={()=>enviarEmail?Alert.alert("Enviar planilha","Enviar a competência "+competencia+" ao gerador cadastrado? Não será enviada à Cemig.",[{text:"Cancelar",style:"cancel"},{text:"Enviar",onPress:()=>void gerar(true,formatoCemig)}]):void gerar(false,formatoCemig)} />
+    </View>
   </View></Card>;
 }
+
+function Opcao({label,checked,disabled,onPress}:{label:string;checked:boolean;disabled:boolean;onPress:()=>void}){return <Pressable accessibilityRole="checkbox" accessibilityLabel={label} accessibilityState={{checked,disabled}} disabled={disabled} onPress={onPress} style={{minHeight:48,flexDirection:"row",alignItems:"center",gap:10,opacity:disabled?0.45:1}}><Ionicons name={checked?"checkbox":"square-outline"} size={24} color={checked?Colors.primary:Colors.subtitle}/><Text style={{flex:1,color:Colors.text,lineHeight:20}}>{label}</Text></Pressable>;}
