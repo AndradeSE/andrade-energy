@@ -391,7 +391,9 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       }
       let response: Message = { from: "assistant", text: reply.text, route: reply.route };
       const speechStatus = speechStatusReply(question, Boolean(spokenQuestion));
-      if (automationCommand) {
+      if (controlCommand) {
+        response = { from: "assistant", private: true, text: await operateCurrentControl(question) ?? "Não reconheci esse controle na tela atual." };
+      } else if (automationCommand) {
         const scope = accountContextKey;
         try {
           const draft = await prepareAutomation(automationCommand, nativeAutomationContext(usuario, IS_GERADOR_APP, usinaSelecionada?.id, scope), nativeAutomationIO(() => assistantMounted.current && automationScope.current === scope));
@@ -489,7 +491,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       setMessages(messagesRef.current);
       topicRef.current = nextTopic;
       setTopic(nextTopic);
-      if (safeNavigation?.action) {
+      if (!controlCommand && safeNavigation?.action) {
         onClose?.();
         router.push({ pathname: safeNavigation.action.route, params: safeNavigation.action.params } as any);
         return;
@@ -659,6 +661,9 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
             },
             onAccountQuery: async question => {
               const generation = contextGeneration.current;
+              if (parseControlCommand(question) || asksScreenControls(question)) {
+                return await operateCurrentControl(question) ?? "Não reconheci esse controle na tela atual.";
+              }
               const navigation = resolveSafeNavigation(question, {
                 generator: IS_GERADOR_APP, role: usuario?.perfil, companyRole: usuario?.papel_empresa,
                 plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id, permissions: usuario?.permissoes,
