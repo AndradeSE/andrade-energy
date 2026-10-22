@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261021-224659",
+    "data": "21/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Histórico de atualizações registrado automaticamente; menu padronizado; Mostrar Solar somente quando o flutuante está oculto."
+    ]
+  },
+  {
+    "numero": "OTA 20261021-224529",
+    "data": "21/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Subopções recolhidas com ambiente Gerador desligado; histórico atualizado automaticamente; Home mantém o ambiente Comercial; Solar no acesso rápido somente quando oculta."
+    ]
+  },
+  {
     "numero": "OTA 20261021-224201",
     "data": "21/10/2026",
     "variant": "consumidor",
