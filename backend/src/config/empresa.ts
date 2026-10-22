@@ -5,7 +5,7 @@ export function empresaIdDoUsuario(usuario: any) {
 }
 
 export function usuarioEhSuperAdministradorAndrade(usuario: any) {
-  return String(usuario?.perfil ?? "").toUpperCase() === "ADMIN"
+  return !String(usuario?.papel_empresa ?? "").startsWith("COLABORADOR_") && String(usuario?.perfil ?? "").toUpperCase() === "ADMIN"
     && String(usuario?.empresa_principal_id ?? usuario?.empresa_id ?? "") === EMPRESA_ANDRADE_ID;
 }
 

@@ -5,13 +5,14 @@ import { gerarToken, hashToken } from "../../utils/token";
 import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
 import { nomePessoaValido } from "../clientes/validacaoCadastro";
 import { opcoesPromocaoAdministrador, validarPromocaoAdministrador } from "./promocaoAdministrador.policy";
+import { PERMISSOES_COMERCIAL, normalizarPermissoesComerciais } from "../comercial/permissoesComerciais";
+export { PERMISSOES_COMERCIAL } from "../comercial/permissoesComerciais";
 
 const emailValido = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const cpfLimpo = (cpf: unknown) => String(cpf ?? "").replace(/\D/g, "");
 const escapar = (valor: unknown) => String(valor ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[c]!));
 
 export const PERMISSOES_GERADOR = { usinas: true, clientes: true, unidades: true, contratos: true, faturas: true, operacao: true };
-export const PERMISSOES_COMERCIAL = { geradores: true, monitoramento: true, documentos: true };
 
 export function papeisDaEquipePermitidos(usuario: any): string[] {
   const titular = ["ADMIN_EMPRESA", "GESTOR"].includes(String(usuario?.papel_empresa ?? ""));
@@ -26,6 +27,7 @@ function papelPermitido(usuario: any, papel: string) {
 }
 
 function permissoesSeguras(papel: string, entrada: any) {
+  if (papel === "COLABORADOR_COMERCIAL") return normalizarPermissoesComerciais(entrada);
   const permitidas = papel === "COLABORADOR_COMERCIAL" ? PERMISSOES_COMERCIAL : PERMISSOES_GERADOR;
   return Object.fromEntries(Object.keys(permitidas).map((chave) => [chave, entrada?.[chave] !== false]));
 }

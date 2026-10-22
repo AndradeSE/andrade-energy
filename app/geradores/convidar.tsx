@@ -1,3 +1,5 @@
+import api from "../../config/api";
+import { commercialPermission } from "../../config/commercialPermissions";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
@@ -26,14 +28,15 @@ export default function ConvidarGerador() {
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
-    void obterPainelComercial().then((painel) => setPlanos((painel.planos ?? []).filter((plano: any) => plano.ativo !== false))).catch(() => setPlanos([]));
+    void (user?.papel_empresa === "COLABORADOR_COMERCIAL" ? api.get("/comercial/recursos-equipe").then(r=>r.data) : obterPainelComercial()).then((painel) => setPlanos((painel.planos ?? []).filter((plano: any) => plano.ativo !== false))).catch(() => setPlanos([]));
   }, []);
 
-  if (user?.perfil !== "ADMIN") {
+  if (user?.perfil !== "ADMIN" && !(user?.papel_empresa === "COLABORADOR_COMERCIAL" && commercialPermission(user.permissoes,"geradores_convidar"))) {
     return <Screen><View style={styles.blocked}><Ionicons name="lock-closed-outline" size={38} color={Colors.danger} /><Text style={styles.title}>Acesso restrito</Text><Text style={styles.subtitle}>Somente a conta administradora pode convidar novos geradores.</Text><TouchableOpacity onPress={() => router.back()} style={styles.secondary}><Text style={styles.secondaryText}>Voltar</Text></TouchableOpacity></View></Screen>;
   }
 
   async function enviar() {
+    if (planoId && user?.papel_empresa === "COLABORADOR_COMERCIAL" && !commercialPermission(user.permissoes,"contratos_enviar")) return Alert.alert("Contratação não liberada", "O ADM deve ativar a permissão de enviar contratação para aceite. Você ainda pode enviar um convite sem plano.");
     if (!nomePessoaValido(nome, sobrenome) || !cpfValido(cpf) || !emailValido(email)) return Alert.alert("Confira os dados", "Informe nome e sobrenome, CPF e e-mail válidos.");
     const erroDoEndereco = erroEndereco(endereco);
     if (erroDoEndereco) return Alert.alert("Endereço do gerador", erroDoEndereco);
@@ -50,7 +53,7 @@ export default function ConvidarGerador() {
   return <Screen>
     <AppHeader variant="subpage" title="Convidar gerador" subtitle="Acesso administrativo" contextTitle="Nova conta geradora" contextSubtitle="Convite válido por 7 dias" icon="person-add-outline" />
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <View style={styles.notice}><Ionicons name="shield-checkmark-outline" size={23} color={Colors.primary} /><Text>Esta função está disponível exclusivamente para a conta administradora.</Text></View>
+      <View style={styles.notice}><Ionicons name="shield-checkmark-outline" size={23} color={Colors.primary} /><Text>Convite de gerador. A contratação utiliza os planos e termos aprovados pela administração.</Text></View>
       <View style={styles.card}>
         <Text style={styles.label}>Nome *</Text><TextInput autoCapitalize="words" onChangeText={setNome} placeholder="Nome do novo gerador" placeholderTextColor={Colors.subtitle} style={styles.input} value={nome} />
         <Text style={styles.label}>Sobrenome *</Text><TextInput autoCapitalize="words" onChangeText={setSobrenome} placeholder="Sobrenome do novo gerador" placeholderTextColor={Colors.subtitle} style={styles.input} value={sobrenome} />

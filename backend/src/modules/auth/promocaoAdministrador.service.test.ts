@@ -15,10 +15,10 @@ test("promoção usa ator e empresa autenticados e não executa RPC sem confirma
   mock.method(supabase, "rpc", (async (nome: string, params: any) => { chamadas.push({ nome, params }); return { data: { sucesso: true }, error: null }; }) as any);
   try {
     await assert.rejects(promoverColaboradorAdministrador("vinculo", { escopo: "EMPRESA" }, usuario));
-    await assert.rejects(promoverColaboradorAdministrador("vinculo", { escopo: "COMERCIAL", confirmacao: "PROMOVER_ADMINISTRADOR" }, { ...usuario, papel_empresa: "COLABORADOR_GERADOR" }));
+    await assert.rejects(promoverColaboradorAdministrador("vinculo", { escopo: "COMPLETO", confirmacao: "PROMOVER_ADMINISTRADOR" }, { ...usuario, papel_empresa: "COLABORADOR_GERADOR" }));
     assert.equal(chamadas.length, 0);
-    await promoverColaboradorAdministrador("vinculo", { escopo: "COMERCIAL", confirmacao: "PROMOVER_ADMINISTRADOR", p_ator: "outro", empresa_id: "outra" }, usuario);
-    assert.deepEqual(chamadas, [{ nome: "promover_colaborador_administrador", params: { p_ator: "ator", p_empresa: empresa, p_vinculo: "vinculo", p_escopo: "COMERCIAL" } }]);
+    await promoverColaboradorAdministrador("vinculo", { escopo: "COMPLETO", confirmacao: "PROMOVER_ADMINISTRADOR", p_ator: "outro", empresa_id: "outra" }, usuario);
+    assert.deepEqual(chamadas, [{ nome: "promover_colaborador_administrador", params: { p_ator: "ator", p_empresa: empresa, p_vinculo: "vinculo", p_escopo: "COMPLETO" } }]);
     assert.ok(filtros.some(([chave, valor]) => chave === "empresa_id" && valor === empresa));
   } finally { mock.restoreAll(); }
 });

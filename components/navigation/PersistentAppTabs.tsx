@@ -54,7 +54,7 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
   if (hidden) return null;
 
   const commercialEnvironment = IS_GERADOR_APP && (
-    user?.papel_empresa === "COLABORADOR_COMERCIAL" ||
+    (user?.papel_empresa === "COLABORADOR_COMERCIAL" && user?.permissoes?.ambientes_gerador !== true) ||
     firstSegment === "admin" ||
     firstSegment === "geradores" ||
     (firstSegment === "colaboradores" && (params.ambiente === "comercial" || user?.perfil === "ADMIN"))

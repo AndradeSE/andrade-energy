@@ -13,7 +13,8 @@ export default function EscolherAreaAdmin() {
   const { usuario, logout } = useAuth();
   const { empresa } = useEmpresa();
   const principal = empresa.cor_primaria || "#087A46";
-  if (usuario?.perfil !== "ADMIN") { router.replace("/selecionar-unidade"); return null; }
+  const colaborador = String(usuario?.papel_empresa ?? "").startsWith("COLABORADOR_");
+  if (usuario?.perfil !== "ADMIN" && !(colaborador && usuario?.permissoes?.ambientes_gerador === true)) { router.replace("/selecionar-unidade"); return null; }
   return <SafeAreaView style={styles.screen}>
     <StatusBar backgroundColor={principal} barStyle="light-content" />
     <LinearGradient colors={[principal, principal, "#082F26"]} style={[styles.hero, { marginTop: -insets.top, paddingTop: insets.top + Spacing.xl }]}>
@@ -24,7 +25,7 @@ export default function EscolherAreaAdmin() {
     <ScrollView contentContainerStyle={styles.content}>
       <Area icon="briefcase-outline" color="#075E45" title="Gestão Comercial" description="Planos, assinaturas, cobranças, contratos e contas geradoras." onPress={() => router.replace("/admin/comercial" as any)} />
       <Area icon="sunny-outline" color="#A66A00" title="Gestão de Usinas" description="Usinas, clientes, unidades, produção, faturas e operação." onPress={() => router.replace("/selecionar-unidade")} />
-      <Area icon="layers-outline" color={principal} title="Empresas Parceiras" description="Cadastre marcas e mantenha usuários, usinas, clientes e faturas separados por empresa." onPress={() => router.push("/admin/empresas" as any)} />
+      {!colaborador ? <Area icon="layers-outline" color={principal} title="Empresas Parceiras" description="Cadastre marcas e mantenha usuários, usinas, clientes e faturas separados por empresa." onPress={() => router.push("/admin/empresas" as any)} /> : null}
       <TouchableOpacity onPress={() => void logout()} style={styles.logout}><Ionicons name="log-out-outline" size={19} color={Colors.danger} /><Text style={styles.logoutText}>Sair da conta</Text></TouchableOpacity>
     </ScrollView>
   </SafeAreaView>;

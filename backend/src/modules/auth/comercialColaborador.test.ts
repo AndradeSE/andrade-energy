@@ -13,7 +13,7 @@ test("painel do colaborador fornece monitoramento sem carteira, cobranças ou va
     return q;
   }) as any);
   try {
-    const result = await obterPainelComercial({ papel_empresa: "COLABORADOR_COMERCIAL", permissoes: { geradores: true, monitoramento: true, documentos: false } });
+    const result = await obterPainelComercial({ empresa_id: "00000000-0000-4000-8000-000000000001", papel_empresa: "COLABORADOR_COMERCIAL", permissoes: { geradores: true, monitoramento: true, documentos: false } });
     assert.equal(result.financeiro, null);
     assert.deepEqual(result.cobrancas, []);
     assert.deepEqual(result.planos, []);

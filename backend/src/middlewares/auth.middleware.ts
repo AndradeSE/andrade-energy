@@ -4,6 +4,7 @@ import { supabase } from "../config/supabase";
 import { hashToken } from "../utils/token";
 import { empresaIdDoUsuario } from "../config/empresa";
 import { usuarioEhSuperAdministradorAndrade } from "../config/empresa";
+import { permissaoComercial, PERMISSOES_COMERCIAL, PermissaoComercial } from "../modules/comercial/permissoesComerciais";
 
 export async function exigirAutenticacao(req: Request, res: Response, next: NextFunction) {
   const token = req.headers.authorization?.replace(/^Bearer\s+/i, "").trim();
@@ -93,7 +94,7 @@ export async function exigirAutenticacao(req: Request, res: Response, next: Next
 export function exigirGestor(req: Request, res: Response, next: NextFunction) {
   const perfil = (req as any).usuario?.perfil;
   const papel = String((req as any).usuario?.papel_empresa ?? "").toUpperCase();
-  if (papel === "COLABORADOR_COMERCIAL") return res.status(403).json({ message: "Seu acesso pertence ao Comercial. Abra a gestão comercial para continuar." });
+  if (papel === "COLABORADOR_COMERCIAL" && !permissaoComercial((req as any).usuario, "ambientes_gerador")) return res.status(403).json({ message: "Seu acesso pertence ao Comercial. Abra a gestão comercial para continuar." });
   if (perfil !== "ADMIN" && perfil !== "GESTOR" && papel !== "COLABORADOR_GERADOR") return res.status(403).json({ message: "Acesso exclusivo da operação geradora." });
   if (papel === "COLABORADOR_GERADOR") {
     const recurso = req.baseUrl.includes("/clientes")
@@ -112,9 +113,13 @@ export function exigirGestor(req: Request, res: Response, next: NextFunction) {
 export function exigirOperacaoComercial(req: Request, res: Response, next: NextFunction) {
   const usuario = (req as any).usuario;
   const papel = String(usuario?.papel_empresa ?? "").toUpperCase();
-  if (usuarioEhSuperAdministradorAndrade(usuario)) return next();
-  if (papel === "COLABORADOR_COMERCIAL" && usuario?.permissoes?.geradores !== false) return next();
+  if (Object.keys(PERMISSOES_COMERCIAL).some(chave => permissaoComercial(usuario, chave as PermissaoComercial))) return next();
   return res.status(403).json({ message: "Acesso não liberado para a gestão comercial." });
+}
+
+export function exigirPermissaoComercial(chave: PermissaoComercial) {
+  return (req: Request, res: Response, next: NextFunction) => permissaoComercial((req as any).usuario, chave)
+    ? next() : res.status(403).json({ message: "Esta ação comercial não foi liberada pelo administrador." });
 }
 
 export function exigirTitularFinanceiro(req: Request, res: Response, next: NextFunction) {

@@ -129,9 +129,9 @@ function RootNavigator() {
   }, [activeQueryClient, isLoading, readyUserId, session?.user?.id, sessionAttempt, atualizarUsuario]);
   useEffect(() => {
     if (!IS_GERADOR_APP || readyUserId !== String(session?.user?.id) || !isUnlocked) return;
-    const destino = collaboratorRedirect(session?.user?.papel_empresa, pathname);
+    const destino = collaboratorRedirect(session?.user?.papel_empresa, pathname, session?.user?.permissoes);
     if (destino) router.replace(destino as any);
-  }, [readyUserId, isUnlocked, session?.user?.id, session?.user?.papel_empresa, pathname]);
+  }, [readyUserId, isUnlocked, session?.user?.id, session?.user?.papel_empresa, session?.user?.permissoes, pathname]);
   // A seleção da UC/usina pode ser restaurada depois do pré-carregamento
   // inicial. Atualize o cache desse contexto sem remontar a navegação.
   const preloadedScope = useRef<string | null>(null);

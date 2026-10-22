@@ -287,7 +287,7 @@ export default function DashboardGestor() {
             items={[
               ...(isPreviewEnvironment && assistantHidden ? [{ id: "mostrar-assistente", icon: "chatbubble-ellipses-outline" as const, image: require("../../assets/images/assistant-chat-3d-v2.png"), label: "Mostrar Ajuda", onPress: () => void setFloatingHidden(String(usuario?.id ?? ""), false) }] : []),
               ...(isPreviewEnvironment ? [{ id: "solar", icon: "chatbubble-ellipses-outline" as const, label: "Solar", onPress: () => router.push("/assistente") }] : []),
-              ...atalhos.filter((atalho) => !colaborador || !["Colaboradores", "Novo cliente", "Nova usina", "Nova UC", "Financeiro"].includes(atalho.label)).map((atalho) => ({
+              ...atalhos.filter((atalho) => !colaborador || !(usuario?.permissoes?.ambientes_gerador === true ? ["Colaboradores", "Financeiro"] : ["Colaboradores", "Novo cliente", "Nova usina", "Nova UC", "Financeiro"]).includes(atalho.label)).map((atalho) => ({
                 icon: atalho.icon,
                 label: atalho.label,
                 onPress: () => router.push(atalho.rota as any),
