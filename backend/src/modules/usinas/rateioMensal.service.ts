@@ -2,8 +2,9 @@ import { supabase } from "../../config/supabase";
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import { proporRateioMensal, csvRateioMensal, csvCemigRateio, pendenciasCsvCemig, documentoDaTitularidade } from "./rateioMensal.policy";
 import { saldoAnteriorParaRateio, type LeituraSaldoRateio } from "./saldoRateio.policy";
+import {contratoElegivelParaRateio} from "./rateioAutomatico.policy";
 
-export async function prepararPlanilhaRateio(usinaId: string, empresaId: string, competencia: string, ancora: string, documentoAncora = "", numerosAtuaisConfirmados = false, formatoCemig = false) {
+export async function prepararPlanilhaRateio(usinaId: string, empresaId: string, competencia: string, ancora: string, _documentoAncora = "", numerosAtuaisConfirmados = false, formatoCemig = false) {
   if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(competencia)) throw new Error("Selecione a competência do rateio.");
   const { data: usina, error } = await supabase.from("usinas").select("id,nome,numero_instalacao,geracao_media,titularidade_ucs_recebedoras")
     .eq("id",usinaId).eq("empresa_id",empresaId).maybeSingle();
@@ -16,19 +17,30 @@ export async function prepararPlanilhaRateio(usinaId: string, empresaId: string,
   const [producao, unidades, contratos, geradoraResult] = await Promise.all([
     supabase.from("fechamentos").select("energia_gerada").eq("empresa_id",empresaId).eq("usina_id",usinaId)
       .gte("competencia",inicio.toISOString().slice(0,10)).lt("competencia",fim.toISOString().slice(0,10)),
-    supabase.from("unidades_consumidoras").select("id,numero,cliente_id,apelido,consumo_medio_kwh,cpf_titular,clientes(cpf,empresa_id)")
+    supabase.from("unidades_consumidoras").select("id,numero,cliente_id,created_at,apelido,consumo_medio_kwh,cpf_titular,clientes(cpf,empresa_id)")
       .eq("empresa_id",empresaId).eq("usina_id",usinaId).eq("status","ATIVA").neq("tipo","GERADORA").order("numero"),
-    supabase.from("contratos").select("unidade_consumidora_id,aceite_cliente_em,contrato_assinado_url,status")
+    supabase.from("contratos").select("unidade_consumidora_id,aceite_cliente_em,contrato_assinado_url,status,dados_documento,vigencia_inicio")
       .eq("empresa_id",empresaId).in("status",["ATIVO","VIGENTE"]),
     supabase.from("unidades_consumidoras").select("cpf_titular").eq("empresa_id",empresaId).eq("usina_id",usinaId).eq("tipo","GERADORA").maybeSingle(),
   ]);
   for (const r of [producao,unidades,contratos,geradoraResult]) if (r.error) throw r.error;
+  let clienteAncora: any;
+  let documentoDaUcAncora: unknown;
+  if (ancora && ["CLIENTE","CONSUMIDOR"].includes(String(usina.titularidade_ucs_recebedoras).toUpperCase())) {
+    const consultaAncora = await supabase.from("unidades_consumidoras").select("cpf_titular,clientes(cpf,empresa_id)").eq("empresa_id",empresaId).eq("numero",ancora).maybeSingle();
+    if (consultaAncora.error) throw consultaAncora.error;
+    documentoDaUcAncora=consultaAncora.data?.cpf_titular;
+    const vinculo=consultaAncora.data?.clientes as any;
+    clienteAncora=Array.isArray(vinculo)?vinculo[0]:vinculo;
+  }
+  // O documento não é informado pelo solicitante: segue a titularidade da usina.
+  const documentoAncora=documentoDaTitularidade(usina.titularidade_ucs_recebedoras,geradoraResult.data?.cpf_titular,clienteAncora?.empresa_id===empresaId?clienteAncora?.cpf:null,documentoDaUcAncora);
   const valores = (producao.data ?? []).map(p=>Number(p.energia_gerada)).filter(n=>Number.isFinite(n)&&n>0);
   // Sem leituras reais não se usa a produção estimada do cadastro para enviar rateio.
   if (!valores.length) throw new Error("Importe uma produção real da usina nesta janela de 12 meses antes de gerar o rateio.");
   const media = valores.reduce((s,n)=>s+n,0)/valores.length;
-  const assinadas = new Set((contratos.data ?? []).filter(c=>c.aceite_cliente_em||c.contrato_assinado_url||c.status==="VIGENTE").map(c=>c.unidade_consumidora_id));
-  const elegiveis = (unidades.data ?? []).filter(u=>assinadas.has(u.id));
+  const assinadas = new Set((contratos.data ?? []).filter(c=>contratoElegivelParaRateio(c)&&(!c.vigencia_inicio||String(c.vigencia_inicio)<fim.toISOString().slice(0,10))).map(c=>c.unidade_consumidora_id));
+  const elegiveis = (unidades.data ?? []).filter(u=>assinadas.has(u.id)&&(!u.created_at||String(u.created_at)<fim.toISOString()));
   const clientesIds=[...new Set(elegiveis.map(u=>u.cliente_id).filter(Boolean))];
   const [faturas,anexos]=clientesIds.length ? await Promise.all([
     supabase.from("faturas").select("cliente_id,numero_instalacao,referencia,saldo_atual,created_at,status").eq("empresa_id",empresaId).in("cliente_id",clientesIds),
@@ -55,7 +67,7 @@ export async function prepararPlanilhaRateio(usinaId: string, empresaId: string,
     csv:formatoCemig ? csvCemigRateio(plano,geradora,documentoAncora,numerosAtuaisConfirmados) : csvRateioMensal({...plano,rascunho:true},competencia,geradora) };
 }
 
-export async function enviarPlanilhaAoGerador(usinaId: string, empresaId: string, plano: Awaited<ReturnType<typeof prepararPlanilhaRateio>>, usuario: any) {
+export async function destinatarioDoRateio(usinaId: string, empresaId: string) {
   // O recebedor vem de vínculo interno, nunca de e-mail arbitrário enviado no corpo.
   const {data:carteiras,error} = await supabase.from("gerador_carteiras").select("usuario_id")
     .eq("empresa_id",empresaId).eq("usina_id",usinaId).eq("status","ATIVA");
@@ -75,7 +87,13 @@ export async function enviarPlanilhaAoGerador(usinaId: string, empresaId: string
     .eq("id",destinatarioId).eq("empresa_id",empresaId).eq("ativo",true).maybeSingle();
   if (erroDestino) throw erroDestino;
   if (!destino?.email) throw new Error("O gerador não possui e-mail cadastrado.");
+  return {id:String(destinatarioId),email:destino.email};
+}
+
+export async function enviarPlanilhaAoGerador(usinaId: string, empresaId: string, plano: Awaited<ReturnType<typeof prepararPlanilhaRateio>>, usuario: any, idempotencyKey?:string) {
+  const destino=await destinatarioDoRateio(usinaId,empresaId);
   const enviado = await enviarEmailTransacional({empresaId,destinatario:destino.email,
+    idempotencyKey,
     assunto:`${plano.rascunho ? "Rascunho de rateio" : "Proposta de rateio"} — ${plano.competencia}`,
     html:`<p>Segue a planilha mensal de rateio para conferência.</p><p>${plano.rascunho ? "Este arquivo é rascunho de conferência. Revise os dados e gere o CSV no padrão Cemig pelo aplicativo antes de solicitar o rateio." : "A UC âncora recebe a parcela não destinada às beneficiárias. O CSV segue o guia Cemig: UC, CPF/CNPJ, Cota e Âncora, sem cabeçalho."}</p><p>Os percentuais usam a necessidade de energia: consumo médio menos o saldo registrado da própria UC, com mínimo de zero, dividida pela média real de produção, sem margem adicional. A energia indicada é uma previsão. O documento não comprova envio nem aplicação pela Cemig.</p>`,
     anexos:[{filename:plano.arquivo,content:Buffer.from(plano.csv,"utf8"),contentType:"text/csv; charset=utf-8"}],
