@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261021-232056",
+    "data": "21/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Faturas: pagamento confirmado prevalece sobre cobrança auxiliar pendente; identificação correta de faturas vencidas."
+    ]
+  },
+  {
+    "numero": "OTA 20261021-231915",
+    "data": "21/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Faturas: baixa confirmada e status de vencimento corrigidos. Equipe: remover acesso ADM de colaboradores promovidos. Proteção de recebimentos por titularidade."
+    ]
+  },
+  {
     "numero": "OTA 20261021-231513",
     "data": "21/10/2026",
     "variant": "gerador",

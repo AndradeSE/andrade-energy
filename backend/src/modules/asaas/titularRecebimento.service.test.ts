@@ -7,7 +7,7 @@ process.env.ASAAS_API_KEY = "test-key";
 process.env.ASAAS_API_URL = "https://asaas-test.invalid/v3";
 
 test("validação de recebimento só consulta, bloqueia terceiros e não aceita carteira de outra usina", async () => {
-  const { exigirRecebimentoDaUsina } = await import("./titularRecebimento.service");
+  const { exigirRecebimentoDaUsina } = await import("./titularRecebimento.service.js");
   const original = globalThis.fetch;
   const chamadas: string[] = [];
   let documentoConta = "12345678901";
