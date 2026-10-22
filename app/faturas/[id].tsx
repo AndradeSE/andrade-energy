@@ -111,7 +111,7 @@ export default function DetalheFatura() {
       const temBoleto = Boolean(atualizada?.linha_digitavel || atualizada?.pdf_boleto_url);
       const temPix = Boolean(atualizada?.codigo_pix);
       if (temBoleto && temPix) {
-        Alert.alert(refaturar ? "Fatura reemitida" : "Cobrança criada", refaturar ? `Novo vencimento: ${formatarDataBrasileira(atualizada?.vencimento)}.` : "O boleto e o PIX já estão disponíveis para o cliente.");
+        Alert.alert(refaturar ? "Dados de pagamento atualizados" : "Cobrança criada", refaturar ? `Vencimento original: ${formatarDataBrasileira(atualizada?.vencimento)}.` : "O boleto e o PIX já estão disponíveis para o cliente.");
       } else if (temBoleto) {
         Alert.alert(
           "Boleto criado; PIX pendente",
@@ -240,11 +240,11 @@ export default function DetalheFatura() {
 
   function solicitarRefaturamento() {
     Alert.alert(
-      "Refaturar para amanhã?",
-      "O vencimento da cobrança será alterado para amanhã e o boleto, o PIX e a fatura serão atualizados.",
+      "Atualizar dados de pagamento?",
+      "O boleto existente será consultado, mantendo o vencimento original. Encargos registrados no Asaas são calculados no pagamento.",
       [
         { text: "Cancelar", style: "cancel" },
-        { text: "Refaturar", onPress: () => void gerarCobranca(true) },
+        { text: "Atualizar", onPress: () => void gerarCobranca(true) },
       ],
     );
   }
@@ -390,7 +390,7 @@ export default function DetalheFatura() {
               style={[styles.regenerateButton, gerandoCobranca && styles.confirmButtonDisabled]}
             >
               <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
-              <Text style={styles.regenerateButtonText}>Refaturar para amanhã</Text>
+              <Text style={styles.regenerateButtonText}>Atualizar boleto existente</Text>
             </TouchableOpacity>
           ) : null}
           {IS_GERADOR_APP && fatura.cobranca_mensagem && !fatura.codigo_pix && !fatura.linha_digitavel ? (

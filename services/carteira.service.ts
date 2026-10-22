@@ -9,6 +9,11 @@ export type Carteira = {
   pixChaveMascarada?: string | null;
   pixTitularNome?: string | null;
   saldoDisponivel: number;
+  saldoDisponivelConfirmado?: boolean;
+  saldoAsaas?: number | null;
+  recebimentoBruto?: number;
+  tarifasRecebimento?: number | null;
+  recebimentoLiquido?: number | null;
   saldoPendente: number;
   totalRecebido: number;
   totalTransferido: number;

@@ -105,7 +105,9 @@ export async function resumoCarteira(usuario: any, usinaId?: string) {
   const { cobrancas, transferencias } = await movimentosDaCarteira(carteira);
   const recebidas = cobrancas.filter((item: any) => pagamentoDisponivelParaRepasse(item.status));
   const saidas = transferencias.filter((item: any) => !["FAILED","CANCELLED","REFUSED"].includes(String(item.status).toUpperCase()));
-  const recebido = dinheiro(recebidas.reduce((soma: number, item: any) => soma + Number(item.valor_liquido ?? item.valor), 0));
+  const recebido = dinheiro(recebidas.reduce((soma: number, item: any) => soma + (item.valor_liquido != null && Number.isFinite(Number(item.valor_liquido)) ? Math.max(0, Number(item.valor_liquido)) : 0), 0));
+  const recebimentoBruto = dinheiro(recebidas.reduce((soma: number, item: any) => soma + Number(item.valor), 0));
+  const tarifasConfirmadas = recebidas.every((item: any) => item.valor_liquido != null && Number.isFinite(Number(item.valor_liquido)));
   const transferido = dinheiro(saidas.reduce((soma: number, item: any) => soma + Number(item.valor), 0));
   const pendente = dinheiro(cobrancas.filter((item: any) => !recebidas.includes(item)).reduce((soma: number, item: any) => soma + Number(item.valor), 0));
   const titularValidado = await exigirTitularDaCarteira(carteira).then(() => true).catch(() => false);
@@ -126,6 +128,10 @@ export async function resumoCarteira(usuario: any, usinaId?: string) {
     pixTitularNome: carteira.pix_titular_nome ?? null,
     saldoDisponivel: saldoDisponivelConfirmado(recebido, transferido, saldoProvedor),
     saldoDisponivelConfirmado: saldoProvedor !== null,
+    saldoAsaas: saldoProvedor,
+    recebimentoBruto,
+    tarifasRecebimento: tarifasConfirmadas ? dinheiro(Math.max(0, recebimentoBruto - recebido)) : null,
+    recebimentoLiquido: tarifasConfirmadas ? recebido : null,
     saldoPendente: pendente,
     totalRecebido: recebido,
     totalTransferido: transferido,
