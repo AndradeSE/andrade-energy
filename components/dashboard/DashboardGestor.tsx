@@ -105,7 +105,7 @@ export default function DashboardGestor() {
   const [importando, setImportando] = useState(false);
   const [atualizando, setAtualizando] = useState(false);
   useFocusEffect(useCallback(() => { void refetch(); }, [refetch]));
-  async function carregarCarteira() {
+  const carregarCarteira = useCallback(async () => {
     try {
       const proxima = await CarteiraService.carregarCarteira(usinaSelecionada?.id ?? usuario?.usina_id ?? undefined);
       setCarteira(proxima);
@@ -120,10 +120,10 @@ export default function DashboardGestor() {
       setCarteira(null);
       /* O dashboard continua disponível se a carteira estiver temporariamente indisponível. */
     }
-  }
-  useEffect(() => {
+  }, [usuario?.id, usuario?.usina_id, usinaSelecionada?.id]);
+  useFocusEffect(useCallback(() => {
     void carregarCarteira();
-  }, [usuario?.id, usinaSelecionada?.id]);
+  }, [carregarCarteira]));
   async function atualizarPagina() {
     setAtualizando(true);
     try {

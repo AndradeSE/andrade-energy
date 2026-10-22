@@ -1,5 +1,6 @@
 import { normalizarPlanoContrato } from "../contratos/planoContrato.policy";
 import { cpfTitularPatch } from "./cpfTitularPatch";
+import { receitaAtualDaCompetencia } from "./receitaDashboard.policy";
 import {
   buscarDashboardUsina,
   buscarUsina,
@@ -846,6 +847,11 @@ export async function obterDashboardUsina(
   }
   const competenciaAtual = competenciaAtualDaUsina();
   const fechamento = dashboard.historico?.find((item: any) => String(item.competencia ?? "").startsWith(competenciaAtual)) ?? dashboard.ultimo ?? null;
+  const { data: faturasAtuais, error: erroFaturasAtuais } = await supabase.from("faturas")
+    .select("referencia,status,valor_total,valor_total_unificado,cobrancas(status,pago_em)")
+    .eq("empresa_id", empresaId).eq("usina_id", id);
+  if (erroFaturasAtuais) throw erroFaturasAtuais;
+  const receitaAtual = receitaAtualDaCompetencia(faturasAtuais ?? [], fechamento?.competencia ?? competenciaAtual, fechamento);
   const energiaAtual = Number(fechamento?.energia_gerada ?? 0);
   const energiaProjetada = energiaAtual > 0
     ? energiaAtual
@@ -865,8 +871,7 @@ export async function obterDashboardUsina(
       energiaTotal: Number(dashboard.energiaTotal ?? 0),
       energiaDisponivel: alocacaoAtual.energia_disponivel,
       ocupacao: alocacaoAtual.ocupacao,
-      receitaPrevista: 0,
-      receitaRealizada: 0,
+      ...receitaAtual,
       competencia: `${competenciaAtual.slice(5)}/${competenciaAtual.slice(0, 4)}`,
       status: "ABERTO",
     };
@@ -889,11 +894,7 @@ export async function obterDashboardUsina(
 
     ocupacao: alocacaoAtual.ocupacao,
 
-    receitaPrevista:
-      Number(fechamento.receita_prevista ?? 0),
-
-    receitaRealizada:
-      Number(fechamento.receita_realizada ?? 0),
+    ...receitaAtual,
 
     competencia:
       `${String(fechamento.competencia).slice(5, 7)}/${String(fechamento.competencia).slice(0, 4)}`,
