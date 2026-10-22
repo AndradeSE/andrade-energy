@@ -207,7 +207,8 @@ export default function NovaUnidade() {
     }
     const descontoNumero = numeroSeguro(desconto);
     const percentualRateio = numeroSeguro(percentualAlocado);
-    const documentoTitular = cpfTitular.replace(/\D/g, "");
+    const documentoImportado = cpfTitular.replace(/\D/g, "");
+    const documentoTitular = !cpfTitular.includes("*") && [11, 14].includes(documentoImportado.length) ? documentoImportado : undefined;
     const cadastroManualDoGerador = IS_GERADOR_APP && origem !== "fatura";
     const clienteSelecionado = clientes.find((item) => item.id === clienteId);
     const usinaFinal = usinaId || usinaDoAmbiente?.id || null;
@@ -223,9 +224,6 @@ export default function NovaUnidade() {
     if (tipo !== "GERADORA" && !clienteId) return avisar("Escolha o cliente", "É necessário cadastrar e selecionar um cliente antes de adicionar a UC.");
     if (tipo === "BENEFICIARIA" && !usinaFinal) return avisar("Escolha a usina", "Uma UC beneficiária precisa ser vinculada a uma usina antes de salvar.");
     if (tipo !== "BENEFICIARIA" && !usinaFinal) return avisar("Dados incompletos", "Vincule esta unidade a uma usina.");
-    if (documentoTitular && !cpfTitular.includes("*") && ![11, 14].includes(documentoTitular.length)) {
-      return avisar("Documento incompleto", "Complete o CPF/CNPJ informado ou deixe o campo vazio para adicionar posteriormente.");
-    }
     if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return avisar("Desconto inválido", "Informe um percentual entre 0 e 100.");
     if (tipo === "BENEFICIARIA" && modalidadeFinal === "INJECAO" && (!percentualAlocado.trim() || percentualRateio <= 0 || percentualRateio > 100)) {
       return avisar("Injeção inválida", "O gerador deve informar o percentual de injeção entre 0,01% e 100%.");
@@ -254,7 +252,7 @@ export default function NovaUnidade() {
           endereco: endereco.trim() || clienteSelecionado?.endereco || null,
           titular: titular.trim() || dadosFatura?.titular || dadosFatura?.cliente || clienteSelecionado?.nome || null,
           distribuidora: String(distribuidoraImportada || dadosFatura?.distribuidora || clienteSelecionado?.distribuidora || "CEMIG").trim(),
-          cpfTitular: documentoTitular || null,
+          ...(documentoTitular ? { cpfTitular: documentoTitular } : {}),
           percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0,
           repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR",
           repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR",
@@ -310,7 +308,6 @@ export default function NovaUnidade() {
     <Text style={styles.eyebrow}>{origem === "fatura" ? "DADOS LIDOS DA FATURA" : "CADASTRO MANUAL"}</Text><Text style={styles.title}>Nova unidade</Text>
     <Text style={styles.subtitle}>{clienteIdVinculado ? "Confirme o número. Os demais dados serão herdados do cliente." : cadastroRapido === "1" ? "Confirme o número e escolha o cliente. Os demais dados serão herdados automaticamente." : "Confira a leitura e escolha a quem esta unidade pertence."}</Text>
     <Card><FormField label="Número da UC / instalação" value={numero} onChangeText={(v) => setNumero(v.replace(/\D/g, ""))} keyboardType="numeric" />
-      <FormField label="CPF/CNPJ do titular na conta de luz (opcional)" value={cpfTitular} onChangeText={(valor) => setCpfTitular(formatarDocumento(valor))} keyboardType="numeric" />
       {!clienteIdVinculado && cadastroRapido !== "1" ? <><FormField label="Titular" value={titular} onChangeText={setTitular} /><FormField label="Endereço" value={endereco} onChangeText={setEndereco} /></> : null}
       {tipo !== "GERADORA" ? <>
         <Text style={styles.configurationTitle}>CONFIGURAÇÃO DA UC</Text>

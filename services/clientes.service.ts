@@ -35,7 +35,7 @@ export async function listarUnidadesGestor(usinaId?: string) {
 }
 
 export async function buscarUnidade(id: string) {
-  const { data } = await api.get(`/clientes/unidade/${id}`);
+  const { data } = await api.get(`/clientes/unidade/${id}`, { timeout: 15000 });
   return data;
 }
 

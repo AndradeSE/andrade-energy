@@ -1,4 +1,3 @@
-import { mascaraDocumento } from "../../utils/input-masks";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
@@ -96,7 +95,6 @@ export default function EditarAlocacaoUnidade() {
   const [planoContrato, setPlanoContrato] = useState("COM_FIDELIDADE");
   const [descontoPersonalizado, setDescontoPersonalizado] = useState(false);
   const [desconto, setDesconto] = useState("40"); const [consumoMedio, setConsumoMedio] = useState("0");
-  const [cpfTitular, setCpfTitular] = useState("");
   const [formatoFatura, setFormatoFatura] = useState<FormatoFatura>("UNIFICADA");
   const [repasseDisponibilidadeGD1, setRepasseDisponibilidadeGD1] = useState<RepasseGD2>("REPASSAR");
   const [repasseDisponibilidadeGD2, setRepasseDisponibilidadeGD2] = useState<RepasseGD2>("REPASSAR");
@@ -104,6 +102,8 @@ export default function EditarAlocacaoUnidade() {
   const [dadosFatura, setDadosFatura] = useState<Record<string, any> | null>(null);
   const [clienteIdResolvido, setClienteIdResolvido] = useState("");
   const [loading, setLoading] = useState(true); const [salvando, setSalvando] = useState(false);
+  const [erroCadastro, setErroCadastro] = useState("");
+  const [tentativaCadastro, setTentativaCadastro] = useState(0);
   const [saldoAlocacao, setSaldoAlocacao] = useState<number | null>(null);
   const [trocandoUsina, setTrocandoUsina] = useState(false);
 
@@ -116,11 +116,13 @@ export default function EditarAlocacaoUnidade() {
     let ativa = true;
 
     async function carregar() {
+      setLoading(true);
+      setErroCadastro("");
       try {
         // A UC é carregada pelo backend, que usa a chave de serviço e os
         // vínculos reais. Assim a tela não depende de policy RLS do cliente.
         const consultaUnidade = eUuid(unidadeIdRecebida)
-          ? buscarUnidade(unidadeIdRecebida).catch(() => null)
+          ? buscarUnidade(unidadeIdRecebida)
           : Promise.resolve(null);
         const [lista, unidade, faturas] = await Promise.all([
           listarUsinas(),
@@ -128,6 +130,7 @@ export default function EditarAlocacaoUnidade() {
           numeroDaUc ? buscarFaturasCliente(numeroDaUc).catch(() => []) : Promise.resolve([]),
         ]);
         const uc = unidade;
+        if (eUuid(unidadeIdRecebida) && !uc) throw new Error("Não foi possível recuperar o cadastro atual da UC. Tente novamente antes de editar.");
         const idCliente = eUuid(clienteIdRecebido)
           ? clienteIdRecebido
           : eUuid(String(uc?.cliente_id ?? ""))
@@ -178,7 +181,6 @@ export default function EditarAlocacaoUnidade() {
         setDescontoPersonalizado(true);
         setDesconto(String(descontoImportado ?? uc?.desconto_percentual ?? c?.desconto_percentual ?? 40));
         setFormatoFatura(uc?.fatura_somente_andrade ? "SOMENTE_ANDRADE" : "UNIFICADA");
-        setCpfTitular(formatarDocumentoParcialOuCompleto(String(uc?.cpf_titular ?? "")));
         setRepasseDisponibilidadeGD1((uc?.repassar_disponibilidade_gd1 ?? Number(uc?.percentual_repasse_disponibilidade ?? 100) > 0) ? "REPASSAR" : "ABSORVER");
         setRepasseDisponibilidadeGD2((uc?.repassar_disponibilidade_gd2 ?? Number(uc?.percentual_repasse_disponibilidade ?? 100) > 0) ? "REPASSAR" : "ABSORVER");
         setRepasseFioBGD2((uc?.repassar_diferenca_fio_b_gd2 ?? true) ? "REPASSAR" : "ABSORVER");
@@ -197,7 +199,7 @@ export default function EditarAlocacaoUnidade() {
         );
       } catch (erro: any) {
         if (!ativa) return;
-        Alert.alert("Não foi possível carregar as usinas", erro?.message ?? "Tente novamente.");
+        setErroCadastro("Não foi possível carregar os dados atuais da UC. Tente novamente; nenhuma configuração foi alterada.");
       } finally {
         if (ativa) setLoading(false);
       }
@@ -205,7 +207,7 @@ export default function EditarAlocacaoUnidade() {
 
     void carregar();
     return () => { ativa = false; };
-  }, [clienteIdRecebido, consumoMedioImportado, dadosFaturaParam, descontoImportado, modalidadeImportada, numeroDaUc, unidadeIdRecebida, usinaIdImportada]);
+  }, [clienteIdRecebido, consumoMedioImportado, dadosFaturaParam, descontoImportado, modalidadeImportada, numeroDaUc, unidadeIdRecebida, usinaIdImportada, tentativaCadastro]);
 
   useEffect(() => {
     let ativo = true;
@@ -227,7 +229,7 @@ export default function EditarAlocacaoUnidade() {
     ]);
     if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return Alert.alert("Desconto inválido", "Informe um desconto entre 0% e 100%.");
     try { setSalvando(true);
-      await alocarUnidade(usinaId, { planoContrato, clienteId: clienteIdResolvido, numero: numeroDaUc, cpfTitular: cpfTitular.replace(/\D/g, "") || null, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd: tipoGdEfetivo, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: !percentualEditado, revisaoContrato: atualizacaoContratual });
+      await alocarUnidade(usinaId, { planoContrato, clienteId: clienteIdResolvido, numero: numeroDaUc, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd: tipoGdEfetivo, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: !percentualEditado, revisaoContrato: atualizacaoContratual });
       if (usinaId !== usinaDoAmbiente?.id && usinaSelecionada) await selecionarUsina(usinaSelecionada);
       // Esta tela pode ter sido aberta a partir de uma UC ou da criação por
       // fatura. O destino único evita ficar preso na tela anterior e exigir
@@ -254,6 +256,7 @@ export default function EditarAlocacaoUnidade() {
   }, [planoContrato, descontoPersonalizado, gdParaPlano]);
 
   if (loading) return <Loading />;
+  if (erroCadastro) return <Screen><AppHeader title="Editar unidade" subtitle="Alocação e faturamento" contextTitle="Unidade consumidora" contextSubtitle="Cadastro indisponível" /><Card><Text>{erroCadastro}</Text><Button title="Tentar novamente" onPress={() => setTentativaCadastro(v => v + 1)} /></Card></Screen>;
 
   const usinaSelecionada = usinas.find((usina) => usina.id === usinaId);
   const usinaGd2 = String(usinaSelecionada?.tipo_gd ?? "").toUpperCase() === "GD2";
@@ -293,12 +296,6 @@ export default function EditarAlocacaoUnidade() {
         {atualizacaoContratual ? <Text style={styles.warning}>Atualização contratual iniciada. Revise as condições, salve e gere a nova minuta para assinatura.</Text> : null}
         <Card>
           <View style={styles.sectionHeading}><Text style={styles.sectionEyebrow}>USINA GERADORA</Text></View>
-          <FormField
-            label="CPF/CNPJ do titular na conta de luz"
-            value={cpfTitular}
-            onChangeText={(valor) => setCpfTitular(formatarDocumentoParcialOuCompleto(valor))}
-            keyboardType="numeric"
-          />
           <Text style={styles.hint}>Usina vinculada: {usinaSelecionada?.nome ?? "Não informada"}</Text>
           {trocandoUsina || !usinaId ? <UsinaSelector
             usinas={usinas}
@@ -435,7 +432,6 @@ function parseDadosFatura(valor?: string) {
   catch { return null; }
 }
 
-function formatarDocumentoParcialOuCompleto(valor: string) { return valor.includes("*") ? valor : mascaraDocumento(valor); }
 
 const styles = StyleSheet.create({
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
