@@ -9,6 +9,7 @@ import { criarNotificacaoApp } from "../notificacoes/push.service";
 import { exigirRecebimentoDaUsina } from "./titularRecebimento.service";
 import { falhaRepasse, pagamentoDisponivelParaRepasse } from "./repasse.policy";
 import { criptografarDado } from "../../utils/sensitiveData";
+import { configurarEncargosDoBoleto, encargosDoContratoDaUc } from "./encargosContrato.service";
 
 function digits(value: unknown) { return String(value ?? "").replace(/\D/g, ""); }
 function hojeNoBrasil() {
@@ -80,20 +81,13 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, o
   if (existing?.asaas_payment_id) {
     let payment = await asaasRequest<any>(`/payments/${existing.asaas_payment_id}`);
     const status = String(payment?.status ?? existing.status ?? "").toUpperCase();
-    const vencida = /^\d{4}-\d{2}-\d{2}$/.test(String(payment?.dueDate ?? "")) && String(payment.dueDate) < hojeNoBrasil();
-    const deveRefaturar = opcoes.refaturar === true || vencida;
-    let novoVencimento: string | undefined;
-
-    if (deveRefaturar) {
+    if (opcoes.refaturar === true) {
       if (!["PENDING", "OVERDUE"].includes(status)) {
         throw new Error("Somente cobranças pendentes ou vencidas podem ser refaturadas.");
       }
-      await exigirRecebimentoDaUsina(await buscarCarteiraDaFatura(faturaId), referenciaUc.usina_id);
-      novoVencimento = amanhaNoBrasil();
-      payment = await asaasRequest<any>(`/payments/${existing.asaas_payment_id}`, {
-        method: "PUT",
-        body: JSON.stringify({ dueDate: novoVencimento }),
-      });
+      // Atualizar a segunda via não renegocia a dívida. O mesmo título mantém
+      // o vencimento e os encargos registrados no provedor.
+      payment = await configurarEncargosDoBoleto(payment, referenciaUc.unidade_consumidora_id, empresaResolvida!);
     }
 
     const dados = await obterDadosPagamento(existing.asaas_payment_id);
@@ -104,7 +98,6 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, o
       codigo_pix: pixValidado.codigo,
       pix_expira_em: pixValidado.expiraEm,
       pdf_boleto_url: payment?.bankSlipUrl ?? existing.bank_slip_url ?? payment?.invoiceUrl ?? existing.invoice_url ?? null,
-      ...(novoVencimento ? { vencimento: novoVencimento } : {}),
     };
     const { data: faturaExistente, error: updateError } = await supabase.from("faturas").update(dadosPagamento).eq("id", faturaId).select().single();
     if (updateError) throw updateError;
@@ -118,6 +111,7 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, o
   if (error || !invoice) throw new Error("Fatura não encontrada.");
   const carteira = await buscarCarteiraDaFatura(faturaId);
   await exigirRecebimentoDaUsina(carteira, referenciaUc.usina_id);
+  const encargos = await encargosDoContratoDaUc(referenciaUc.unidade_consumidora_id, empresaResolvida!);
   const customerData = Array.isArray(invoice.clientes) ? invoice.clientes[0] : invoice.clientes;
   if (!customerData?.cpf) throw new Error("Informe o CPF/CNPJ do cliente antes de gerar a cobrança.");
   const customers = await asaasRequest<any>(`/customers?cpfCnpj=${digits(customerData.cpf)}`);
@@ -152,7 +146,7 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, o
   const pagamentosRemotos = await asaasRequest<any>(`/payments?externalReference=${encodeURIComponent(faturaId)}&limit=10`);
   let payment = (pagamentosRemotos?.data ?? []).find((item: any) => item?.deleted !== true);
   if (!payment?.id) {
-    payment = await asaasRequest<any>("/payments", { method:"POST", body:JSON.stringify({ customer:customer.id, billingType:process.env.ASAAS_BILLING_TYPE ?? "BOLETO", value, dueDate:vencimentoOperacional, description:`Andrade Energy · ${invoice.referencia ?? "fatura"}`, externalReference:faturaId, ...(split ? { split } : {}) }) });
+    payment = await asaasRequest<any>("/payments", { method:"POST", body:JSON.stringify({ customer:customer.id, billingType:process.env.ASAAS_BILLING_TYPE ?? "BOLETO", value, dueDate:vencimentoOperacional, description:`Andrade Energy · ${invoice.referencia ?? "fatura"}`, externalReference:faturaId, ...encargos, ...(split ? { split } : {}) }) });
   }
 
   // Grave o vínculo imediatamente. PIX e linha digitável são gerados de forma
@@ -331,9 +325,8 @@ export async function processarWebhookAsaas(body: any, token?: string) {
   }
   if(body.transfer?.id) {
     const { data: transferencia } = await supabase.from("asaas_transferencias").update({status:body.transfer.status,...(body.transfer.failReason ? {erro_codigo:"TRANSFER_FAILED",erro_detalhe_criptografado:criptografarDado(String(body.transfer.failReason).slice(0,2000))} : {}),atualizado_em:new Date().toISOString()}).eq("asaas_transfer_id",body.transfer.id).select().maybeSingle();
-    if (transferencia?.cobranca_id && String(body.transfer.status).toUpperCase() === "DONE") {
-      await supabase.from("asaas_cobrancas").update({ valor_liquido: body.transfer.value, atualizado_em: new Date().toISOString() }).eq("id", transferencia.cobranca_id);
-    }
+    // O valor de uma transferência não redefine o líquido da cobrança: pode
+    // representar apenas parte do saldo. A tarifa vem do pagamento no Asaas.
   }
   return {recebido:true};
 }
