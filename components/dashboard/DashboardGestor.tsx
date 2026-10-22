@@ -285,8 +285,7 @@ export default function DashboardGestor() {
             storageKey={`gestor-home-${usuario?.id ?? "anonimo"}`}
             pinnedIds={["compartilhar-app-gerador", ...(isPreviewEnvironment && assistantHidden ? ["mostrar-assistente"] : [])]}
             items={[
-              ...(isPreviewEnvironment && assistantHidden ? [{ id: "mostrar-assistente", icon: "chatbubble-ellipses-outline" as const, image: require("../../assets/images/assistant-chat-3d-v2.png"), label: "Mostrar Ajuda", onPress: () => void setFloatingHidden(String(usuario?.id ?? ""), false) }] : []),
-              ...(isPreviewEnvironment ? [{ id: "solar", icon: "chatbubble-ellipses-outline" as const, label: "Solar", onPress: () => router.push("/assistente") }] : []),
+              ...(isPreviewEnvironment && assistantHidden ? [{ id: "mostrar-assistente", icon: "chatbubble-ellipses-outline" as const, image: require("../../assets/images/assistant-chat-3d-v2.png"), label: "Mostrar Solar", onPress: () => void setFloatingHidden(String(usuario?.id ?? ""), false) }] : []),
               ...atalhos.filter((atalho) => !colaborador || !(usuario?.permissoes?.ambientes_gerador === true ? ["Colaboradores", "Financeiro"] : ["Colaboradores", "Novo cliente", "Nova usina", "Nova UC", "Financeiro"]).includes(atalho.label)).map((atalho) => ({
                 icon: atalho.icon,
                 label: atalho.label,

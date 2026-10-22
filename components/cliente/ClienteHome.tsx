@@ -200,8 +200,7 @@ export default function ClienteHome() {
           customizeSignal={personalizarAcesso}
           pinnedIds={isPreviewEnvironment && assistantHidden ? ["mostrar-assistente"] : []}
           items={[
-            ...(isPreviewEnvironment && assistantHidden ? [{ id: "mostrar-assistente", icon: "chatbubble-ellipses-outline" as const, image: require("../../assets/images/assistant-chat-3d-v2.png"), label: "Mostrar Ajuda", onPress: () => void setFloatingHidden(String(user?.id ?? ""), false) }] : []),
-            ...(isPreviewEnvironment ? [{ id: "solar", icon: "chatbubble-ellipses-outline" as const, label: "Solar", onPress: () => router.push("/assistente") }] : []),
+            ...(isPreviewEnvironment && assistantHidden ? [{ id: "mostrar-assistente", icon: "chatbubble-ellipses-outline" as const, image: require("../../assets/images/assistant-chat-3d-v2.png"), label: "Mostrar Solar", onPress: () => void setFloatingHidden(String(user?.id ?? ""), false) }] : []),
             {
               id: "contas-de-luz",
               icon: "document-attach-outline",

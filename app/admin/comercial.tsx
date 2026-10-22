@@ -1,6 +1,7 @@
+import { floatingHidden, loadFloatingPreference, setFloatingHidden, subscribeFloatingHidden } from "../../services/assistant-floating-preference";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
@@ -42,6 +43,8 @@ const moeda = (value: unknown) =>
   });
 export default function HomeComercial() {
   const { usuario, logout } = useAuth();
+  const assistantHidden = useSyncExternalStore(subscribeFloatingHidden, floatingHidden);
+  useEffect(() => { void loadFloatingPreference(String(usuario?.id ?? "")); }, [usuario?.id]);
   const queryClient = useQueryClient();
   const inicial = queryClient.getQueryData<PainelComercial>(initialTabKey(String(usuario?.id ?? ""), undefined, "comercial"));
   const [data, setData] = useState<PainelComercial | null>(inicial ?? null);
@@ -256,8 +259,8 @@ export default function HomeComercial() {
               { icon: "information-circle-outline", label: "Sobre e atualizações", onPress: () => router.push("/sobre") },
               { icon: "search-outline", label: "Pesquisar", onPress: () => router.push({ pathname: "/pesquisa", params: { perfil: "comercial" } }) },
               { icon: "person-outline", label: "Meu perfil", onPress: () => router.push("/admin/perfil") },
-              ...(isAssistantEnabled ? [{ icon: "chatbubble-ellipses-outline", label: "Solar", onPress: () => router.push("/assistente") }] : []),
-            ].filter((item) => !colaboradorComercial || ["Clientes ativos", "Tutoriais", "Sobre e atualizações", "Meu perfil", "Solar"].includes(item.label))) as any}
+              ...(isAssistantEnabled && assistantHidden ? [{ icon: "chatbubble-ellipses-outline", label: "Mostrar Solar", onPress: () => void setFloatingHidden(String(usuario?.id ?? ""), false) }] : []),
+            ].filter((item) => !colaboradorComercial || ["Clientes ativos", "Tutoriais", "Sobre e atualizações", "Meu perfil", "Mostrar Solar"].includes(item.label))) as any}
           />
         </Section>
         {!colaboradorComercial && !loading && data ? (
