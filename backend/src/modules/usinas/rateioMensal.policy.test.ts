@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { proporRateioMensal, csvRateioMensal, csvCemigRateio } from "./rateioMensal.policy";
+import { proporRateioMensal, csvRateioMensal, csvCemigRateio, documentoDaTitularidade } from "./rateioMensal.policy";
 
 test("demanda exata sem 15%, resto somente para âncora e soma 100%", () => {
   const p = proporRateioMensal(10000, [{ numero: "123456789", consumo_medio_kwh: 1000 }], "987654321");
@@ -42,4 +42,9 @@ test("não produz arquivo Cemig com âncora provisória nem cota zero de benefic
   const p=proporRateioMensal(1000,u,"987654321");
   assert.throws(()=>csvCemigRateio(p,"456789123","52998224725",true),/cota zero/);
   assert.match(csvCemigRateio(p,"987654321","52998224725",true),/0;X$/);
+});
+test("titularidade escolhe documento do gerador ou cliente, sem CPF de ADM nem documento parcial",()=>{
+  assert.equal(documentoDaTitularidade("GERADOR","52998224725","01234567890","98765432100"),"52998224725");
+  assert.equal(documentoDaTitularidade("CLIENTE","52998224725","01234567890","98765432100"),"01234567890");
+  assert.equal(documentoDaTitularidade("GERADOR","5299.***.***-**","01234567890",""),"");
 });

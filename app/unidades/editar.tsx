@@ -1,3 +1,4 @@
+import { mascaraDocumento } from "../../utils/input-masks";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
@@ -434,12 +435,7 @@ function parseDadosFatura(valor?: string) {
   catch { return null; }
 }
 
-function formatarDocumentoParcialOuCompleto(valor: string) {
-  const numeros = valor.replace(/\D/g, "").slice(0, 14);
-  if (numeros.length === 4) return `${numeros}.***.***-**`;
-  if (numeros.length <= 11) return numeros.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2");
-  return numeros.replace(/(\d{2})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1/$2").replace(/(\d{4})(\d{1,2})$/, "$1-$2");
-}
+function formatarDocumentoParcialOuCompleto(valor: string) { return valor.includes("*") ? valor : mascaraDocumento(valor); }
 
 const styles = StyleSheet.create({
   content: { padding: Spacing.lg, paddingBottom: Spacing.xxl },

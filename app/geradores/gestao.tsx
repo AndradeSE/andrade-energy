@@ -1,3 +1,4 @@
+import { mascaraMoeda, valorMoedaMascarada } from "../../utils/input-masks";
 import PixKeyTypeSelector, { PixKeyType } from "../../components/financeiro/PixKeyTypeSelector";
 import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
@@ -233,7 +234,7 @@ export default function GestaoGeradores() {
             <View style={styles.drawerHeader}><Text style={styles.drawerTitle}>{planoEditando?.id ? "Editar plano" : "Novo plano"}</Text><TouchableOpacity onPress={() => setPlanoEditando(null)}><Ionicons name="close" size={26} color={Colors.text}/></TouchableOpacity></View>
             <Text style={styles.inputLabel}>Nome</Text><TextInput style={styles.input} value={planoEditando?.nome ?? ""} onChangeText={(nome) => setPlanoEditando((current:any) => ({...current,nome}))}/>
             <Text style={styles.inputLabel}>Descrição</Text><TextInput style={styles.input} value={planoEditando?.descricao ?? ""} onChangeText={(descricao) => setPlanoEditando((current:any) => ({...current,descricao}))}/>
-            <View style={styles.editorRow}><View style={styles.grow}><Text style={styles.inputLabel}>Mensal (R$)</Text><TextInput keyboardType="decimal-pad" style={styles.input} value={String(planoEditando?.valorMensal ?? "")} onChangeText={(valorMensal) => setPlanoEditando((current:any) => ({...current,valorMensal}))}/></View><View style={styles.grow}><Text style={styles.inputLabel}>Anual (R$)</Text><TextInput keyboardType="decimal-pad" style={styles.input} value={String(planoEditando?.valorAnual ?? "")} onChangeText={(valorAnual) => setPlanoEditando((current:any) => ({...current,valorAnual}))}/></View></View>
+            <View style={styles.editorRow}><View style={styles.grow}><Text style={styles.inputLabel}>Mensal (R$)</Text><TextInput keyboardType="decimal-pad" style={styles.input} value={planoEditando?.valorMensal === "" || planoEditando?.valorMensal == null ? "" : mascaraMoeda(String(Math.round(Number(planoEditando.valorMensal) * 100)))} onChangeText={(texto) => setPlanoEditando((current:any) => ({...current,valorMensal: texto ? valorMoedaMascarada(texto) : ""}))}/></View><View style={styles.grow}><Text style={styles.inputLabel}>Anual (R$)</Text><TextInput keyboardType="decimal-pad" style={styles.input} value={planoEditando?.valorAnual === "" || planoEditando?.valorAnual == null ? "" : mascaraMoeda(String(Math.round(Number(planoEditando.valorAnual) * 100)))} onChangeText={(texto) => setPlanoEditando((current:any) => ({...current,valorAnual: texto ? valorMoedaMascarada(texto) : ""}))}/></View></View>
             <View style={styles.editorRow}><View style={styles.grow}><Text style={styles.inputLabel}>Limite de usinas</Text><TextInput keyboardType="number-pad" style={styles.input} value={String(planoEditando?.limiteUsinas ?? "")} onChangeText={(limiteUsinas) => setPlanoEditando((current:any) => ({...current,limiteUsinas}))}/></View><View style={styles.grow}><Text style={styles.inputLabel}>Limite de clientes</Text><TextInput keyboardType="number-pad" style={styles.input} value={String(planoEditando?.limiteClientes ?? "")} onChangeText={(limiteClientes) => setPlanoEditando((current:any) => ({...current,limiteClientes}))}/></View></View>
             <Text style={styles.inputLabel}>Recursos (um por linha)</Text><TextInput multiline style={[styles.input,styles.resourcesInput]} value={planoEditando?.recursosTexto ?? ""} onChangeText={(recursosTexto) => setPlanoEditando((current:any) => ({...current,recursosTexto}))}/>
             <View style={styles.switchRow}><Text style={styles.cardTitle}>Plano disponível</Text><Switch value={planoEditando?.ativo !== false} onValueChange={(ativo) => setPlanoEditando((current:any) => ({...current,ativo}))}/></View>
@@ -612,8 +613,8 @@ export default function GestaoGeradores() {
                           keyboardType="decimal-pad"
                           style={styles.input}
                           value={saque}
-                          onChangeText={setSaque}
-                          placeholder="Valor em reais"
+                          onChangeText={v => setSaque(mascaraMoeda(v))}
+                          placeholder="R$ 0,00"
                         />
                         <Button
                           title="Transferir valor"
@@ -816,7 +817,7 @@ export default function GestaoGeradores() {
 
   async function withdraw() {
     if (!financeiroAutorizado) return Alert.alert("Etapa pendente", "Confirme senha e código antes de continuar.");
-    const valor = Number(saque.replace(",", "."));
+    const valor = valorMoedaMascarada(saque);
     if (!carteira?.asaasConectado) return Alert.alert("Asaas comercial", "Conecte a conta exclusiva das assinaturas antes de transferir.");
     if (!(valor > 0)) return Alert.alert("Transferência", "Informe um valor válido.");
     Alert.alert("Confirmar transferência", `Transferir ${money(valor)} para ${carteira?.pixChaveMascarada ?? "a chave cadastrada"}?`, [{text:"Cancelar",style:"cancel"},{text:"Transferir",onPress:async()=>{try{await transferirFinanceiroAssinaturas(valor,senhaFinanceira,codigoAutenticador);setSaque("");setSenhaFinanceira("");setCodigoAutenticador("");setFinanceiroAutorizado(false);setCarteira(await obterFinanceiroAssinaturas());Alert.alert("Transferência solicitada","A operação foi enviada à conta Asaas das assinaturas.");}catch(error:any){Alert.alert("Transferência",error?.response?.data?.message??"Não foi possível transferir.");}}}]);

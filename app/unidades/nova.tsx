@@ -1,3 +1,4 @@
+import { mascaraDocumento } from "../../utils/input-masks";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
@@ -151,7 +152,7 @@ export default function NovaUnidade() {
     if (!clienteSelecionado) return;
     setTipo("BENEFICIARIA");
     if (!usinaId && !usinaDoAmbiente?.id && clienteSelecionado.usina_id) setUsinaId(String(clienteSelecionado.usina_id));
-    if (origem !== "fatura" && clienteSelecionado.cpf && !cpfTitular) setCpfTitular(formatarDocumento(clienteSelecionado.cpf));
+    if (origem !== "fatura" && clienteSelecionado.cpf && !cpfTitular && ["CLIENTE", "CONSUMIDOR"].includes(String(usinas.find(u => u.id === usinaId)?.titularidade_ucs_recebedoras ?? "GERADOR"))) setCpfTitular(formatarDocumento(clienteSelecionado.cpf));
     if (!numeroSeguro(consumoMedio) && numeroSeguro(clienteSelecionado.consumo_medio_kwh)) {
       setConsumoMedio(String(clienteSelecionado.consumo_medio_kwh));
     }
@@ -222,8 +223,8 @@ export default function NovaUnidade() {
     if (tipo !== "GERADORA" && !clienteId) return avisar("Escolha o cliente", "É necessário cadastrar e selecionar um cliente antes de adicionar a UC.");
     if (tipo === "BENEFICIARIA" && !usinaFinal) return avisar("Escolha a usina", "Uma UC beneficiária precisa ser vinculada a uma usina antes de salvar.");
     if (tipo !== "BENEFICIARIA" && !usinaFinal) return avisar("Dados incompletos", "Vincule esta unidade a uma usina.");
-    if (cadastroManualDoGerador && ![11, 14].includes(documentoTitular.length)) {
-      return avisar("CPF obrigatório", "Informe o CPF do titular da conta de luz antes de salvar a unidade.");
+    if (documentoTitular && !cpfTitular.includes("*") && ![11, 14].includes(documentoTitular.length)) {
+      return avisar("Documento incompleto", "Complete o CPF/CNPJ informado ou deixe o campo vazio para adicionar posteriormente.");
     }
     if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return avisar("Desconto inválido", "Informe um percentual entre 0 e 100.");
     if (tipo === "BENEFICIARIA" && modalidadeFinal === "INJECAO" && (!percentualAlocado.trim() || percentualRateio <= 0 || percentualRateio > 100)) {
@@ -309,7 +310,7 @@ export default function NovaUnidade() {
     <Text style={styles.eyebrow}>{origem === "fatura" ? "DADOS LIDOS DA FATURA" : "CADASTRO MANUAL"}</Text><Text style={styles.title}>Nova unidade</Text>
     <Text style={styles.subtitle}>{clienteIdVinculado ? "Confirme o número. Os demais dados serão herdados do cliente." : cadastroRapido === "1" ? "Confirme o número e escolha o cliente. Os demais dados serão herdados automaticamente." : "Confira a leitura e escolha a quem esta unidade pertence."}</Text>
     <Card><FormField label="Número da UC / instalação" value={numero} onChangeText={(v) => setNumero(v.replace(/\D/g, ""))} keyboardType="numeric" />
-      <FormField label={IS_GERADOR_APP && origem !== "fatura" ? "CPF/CNPJ do titular na conta de luz *" : "CPF/CNPJ do titular na conta de luz"} value={cpfTitular} onChangeText={(valor) => setCpfTitular(formatarDocumento(valor))} keyboardType="numeric" />
+      <FormField label="CPF/CNPJ do titular na conta de luz (opcional)" value={cpfTitular} onChangeText={(valor) => setCpfTitular(formatarDocumento(valor))} keyboardType="numeric" />
       {!clienteIdVinculado && cadastroRapido !== "1" ? <><FormField label="Titular" value={titular} onChangeText={setTitular} /><FormField label="Endereço" value={endereco} onChangeText={setEndereco} /></> : null}
       {tipo !== "GERADORA" ? <>
         <Text style={styles.configurationTitle}>CONFIGURAÇÃO DA UC</Text>
@@ -371,13 +372,10 @@ function parseDadosFatura(valor?: string) {
   catch { return null; }
 }
 
-function formatarDocumento(valor: string) {
-  const numeros = valor.replace(/\D/g, "").slice(0, 14);
-  if (numeros.length <= 11) return numeros.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2");
-  return numeros.replace(/(\d{2})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1/$2").replace(/(\d{4})(\d{1,2})$/, "$1-$2");
-}
+function formatarDocumento(valor: string) { return mascaraDocumento(valor); }
 
 function formatarDocumentoDaFatura(valor: string) {
+  if ([11, 14].includes(valor.replace(/\D/g, "").length)) return mascaraDocumento(valor);
   const primeirosQuatro = valor.replace(/\D/g, "").slice(0, 4);
   return primeirosQuatro ? `${primeirosQuatro}.***.***-**` : "";
 }

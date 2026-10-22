@@ -116,7 +116,7 @@ function RootNavigator() {
     let active = true;
     setSessionError(false);
     const selection = initialSelectionRef.current;
-    void api.get("/auth/session").then(async ({ data }) => {
+    void api.get("/auth/session", { timeout: 15000 }).then(async ({ data }) => {
       const fresh = data?.usuario;
       if (!fresh?.id || String(fresh.id) !== String(currentUser.id)) throw new Error("Sessão não confirmada.");
       if (!active) return;
@@ -252,7 +252,9 @@ function RootNavigator() {
    * mantemos o Stack montado.
    */
   if (sessionError && session?.user?.id) return <View style={{ flex: 1, justifyContent: "center", padding: 28, gap: 20 }}><Text style={{ fontSize: 18 }}>Não foi possível confirmar suas permissões. Confira a conexão e tente novamente.</Text><Pressable accessibilityRole="button" onPress={() => setSessionAttempt(value => value + 1)}><Text style={{ fontSize: 18, color: "#087A46" }}>Tentar novamente</Text></Pressable><Pressable accessibilityRole="button" onPress={() => void signOut()}><Text style={{ fontSize: 18 }}>Sair da conta</Text></Pressable></View>;
-  if (!startupComplete || isLoading || (session?.user?.id && readyUserId !== String(session.user.id)) || (selectionScope && readySelectionScope !== selectionScope)) {
+  // A tela de seleção já prepara os dados antes de navegar. Trocar a seleção
+  // não pode desmontar o Stack enquanto o próprio seletor aguarda esse preparo.
+  if (!startupComplete || isLoading || (session?.user?.id && readyUserId !== String(session.user.id))) {
     return <Loading showRevision animateBrand={!startupComplete} onBrandReady={() => setStartupComplete(true)} />;
   }
 

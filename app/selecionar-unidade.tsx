@@ -804,6 +804,7 @@ export default function SelecionarUnidade() {
                   </View>
                 </View>
 
+                {!gestor ? <Text style={styles.unitAddress}>Consumo médio mensal: {Number(unidade!.consumo_medio_kwh ?? 0) > 0 ? `${Number(unidade!.consumo_medio_kwh).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kWh` : "Não informado"}</Text> : null}
                 {!gestor &&
                 unidade!
                   .endereco ? (

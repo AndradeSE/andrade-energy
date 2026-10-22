@@ -33,7 +33,7 @@ test("planilha usa somente empresa/usina solicitadas, produção real e contrato
     }else if(tabela==="unidades_consumidoras"){
       assert.equal(url.searchParams.get("empresa_id"),"eq.empresa-a");
       assert.equal(url.searchParams.get("usina_id"),"eq.usina-a");
-      dados=[{id:"u1",numero:"123456789",consumo_medio_kwh:1000},{id:"minuta",numero:"123456780",consumo_medio_kwh:2000},{id:"cancelado",numero:"123456781",consumo_medio_kwh:3000}];
+      dados=url.searchParams.get("tipo")==="eq.GERADORA" ? {cpf_titular:"52998224725"} : [{id:"u1",numero:"123456789",consumo_medio_kwh:1000},{id:"minuta",numero:"123456780",consumo_medio_kwh:2000},{id:"cancelado",numero:"123456781",consumo_medio_kwh:3000}];
     }else if(tabela==="contratos"){
       assert.equal(url.searchParams.get("empresa_id"),"eq.empresa-a");
       assert.equal(url.searchParams.get("status"),"in.(ATIVO,VIGENTE)");
