@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261022-164919",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar diferencia saldo de creditos da UC e producao da usina; conversa limpa e tres pontos"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-164529",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Solar consulta saldo da UC sem confundir com producao; entrada pela lista de UCs"
+    ]
+  },
+  {
     "numero": "OTA 20261022-164243",
     "data": "22/10/2026",
     "variant": "gerador",
