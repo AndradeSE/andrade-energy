@@ -22,6 +22,7 @@ import { AppHeader, Card, Divider, ElasticScrollView as ScrollView, EmptyState, 
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { buscarFatura, confirmarFaturaRascunho, excluirFatura, formatarDataBrasileira, gerarCobrancaAsaas, obterRelatorioCalculoFatura, regenerarDocumentosFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
+import { invoiceDisplayStatus } from "../../services/invoice-display-status";
 
 const formatarMoeda = (valor: number) =>
   Number(valor || 0).toLocaleString("pt-BR", {
@@ -150,6 +151,7 @@ export default function DetalheFatura() {
   const valorUnificado = Number(
     fatura.valor_total_unificado ?? fatura.valor_total ?? 0
   );
+  const cobrancaVencida = invoiceDisplayStatus(fatura).vencida;
   const faturaSomenteAndrade = Boolean(fatura.fatura_somente_andrade);
   const tituloCobranca = faturaSomenteAndrade ? "Cobrança Andrade Energy" : "Total unificado";
   const descricaoCobranca = faturaSomenteAndrade ? "Energia solar Andrade Energy" : "CEMIG + energia solar Andrade Energy";
@@ -448,9 +450,10 @@ export default function DetalheFatura() {
         </View>
 
         <Card style={styles.summaryCard}>
-          <Text style={styles.summaryEyebrow}>VALOR TOTAL A PAGAR</Text>
+          <Text style={styles.summaryEyebrow}>{cobrancaVencida ? "VALOR ORIGINAL DA FATURA" : "VALOR TOTAL A PAGAR"}</Text>
           <Text style={styles.summaryValue}>{formatarMoeda(valorUnificado)}</Text>
           <Text style={styles.summaryCaption}>{descricaoCobranca}</Text>
+          {cobrancaVencida ? <Text style={styles.summaryCaption}>Use o mesmo boleto enquanto estiver disponível para pagamento. Os juros e a multa registrados no Asaas serão apresentados pelo banco antes da confirmação. O valor acima não inclui esses acréscimos.</Text> : null}
           <View style={styles.noBenefitHighlight}>
             <Text style={styles.noBenefitLabel}>SEM O BENEFÍCIO ANDRADE ENERGY</Text>
             <Text style={styles.noBenefitValue}>{formatarMoeda(valorSemAndrade)}</Text>

@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261022-065357",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Pagamento: manter boleto e vencimento original ao consultar cobrança vencida"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-065137",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Financeiro: saldo Asaas, bruto, tarifas e líquido; boleto vencido mantém vencimento original"
+    ]
+  },
+  {
     "numero": "OTA 20261022-063147",
     "data": "22/10/2026",
     "variant": "gerador",
