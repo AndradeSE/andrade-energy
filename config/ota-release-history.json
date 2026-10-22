@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261022-063147",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Financeiro: ADM usa a carteira vinculada à usina selecionada, com saldo disponível confirmado no Asaas. Ações financeiras usam a mesma carteira e mantêm autenticação e auditoria do ADM."
+    ]
+  },
+  {
+    "numero": "OTA 20261022-062804",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Financeiro: ADM usa a carteira real da usina selecionada; saldo disponível depende da liberação no Asaas e desconta transferências reservadas."
+    ]
+  },
+  {
     "numero": "OTA 20261021-232056",
     "data": "21/10/2026",
     "variant": "consumidor",
