@@ -480,7 +480,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       topicRef.current = nextTopic;
       setTopic(nextTopic);
       if (!controlCommand && safeNavigation?.action) {
-        onClose?.();
+        leaveConversation();
         router.push({ pathname: safeNavigation.action.route, params: safeNavigation.action.params } as any);
         return;
       }
@@ -647,7 +647,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
               });
               if (navigation) {
                 if (navigation.action) {
-                  onClose?.();
+                  leaveConversation();
                   router.push({ pathname: navigation.action.route, params: navigation.action.params } as any);
                 }
                 return navigation.text;
