@@ -2,6 +2,8 @@ import { EMPRESA_ANDRADE_ID, usuarioEhSuperAdministradorAndrade } from "../../co
 
 export const PERMISSOES_COMERCIAL = {
   ambientes_gerador: false,
+  gerador_usinas: false, gerador_clientes: false, gerador_unidades: false,
+  gerador_contratos: false, gerador_faturas: false, gerador_operacao: false,
   geradores: true, monitoramento: true, documentos: true,
   geradores_convidar: false, geradores_editar: false,
   planos_consultar: false, cobrancas_consultar: false, cobrancas_lembrar: false,
@@ -11,6 +13,7 @@ export type PermissaoComercial = keyof typeof PERMISSOES_COMERCIAL;
 export function permissaoComercial(usuario: any, chave: PermissaoComercial): boolean {
   if (String(usuario?.papel_empresa ?? "").startsWith("COLABORADOR_")) {
     if (usuario.papel_empresa !== "COLABORADOR_COMERCIAL" || usuario.empresa_id !== EMPRESA_ANDRADE_ID) return false;
+    if (chave.startsWith("gerador_") && !permissaoComercial(usuario,"ambientes_gerador")) return false;
     if (["geradores_convidar", "geradores_editar"].includes(chave) && !permissaoComercial(usuario, "geradores")) return false;
     if (chave === "documentos_enviar" && (!permissaoComercial(usuario, "documentos") || !permissaoComercial(usuario, "geradores"))) return false;
     if (chave === "contratos_enviar" && !permissaoComercial(usuario, "geradores_convidar")) return false;
