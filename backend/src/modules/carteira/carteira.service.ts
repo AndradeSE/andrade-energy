@@ -6,7 +6,7 @@ import { auditar } from "../../utils/audit";
 import { conferirSenha } from "../../utils/password";
 import { autenticadorAtivo, exigirCodigoFinanceiro, exigirAutorizacaoCadastroPix } from "../financeiro-seguranca/financeiroSeguranca.service";
 import { exigirTitularDaCarteira } from "../asaas/titularRecebimento.service";
-import { falhaRepasse, pagamentoDisponivelParaRepasse } from "../asaas/repasse.policy";
+import { falhaRepasse, pagamentoDisponivelParaRepasse, saldoDisponivelConfirmado } from "../asaas/repasse.policy";
 
 const dinheiro = (valor: unknown) => Math.round(Number(valor ?? 0) * 100) / 100;
 const mascarar = (chave: string) => chave.length <= 6 ? "***" : `${chave.slice(0, 2)}***${chave.slice(-4)}`;
@@ -81,6 +81,12 @@ export async function resumoCarteira(usuario: any) {
   const transferido = dinheiro(saidas.reduce((soma: number, item: any) => soma + Number(item.valor), 0));
   const pendente = dinheiro(cobrancas.filter((item: any) => !recebidas.includes(item)).reduce((soma: number, item: any) => soma + Number(item.valor), 0));
   const titularValidado = await exigirTitularDaCarteira(carteira).then(() => true).catch(() => false);
+  const saldoProvedor = titularValidado && !carteira.asaas_wallet_id
+    ? await asaasRequest<any>("/finance/balance").then(resposta => {
+      const valor = Number(resposta?.balance);
+      return Number.isFinite(valor) && valor >= 0 ? valor : null;
+    }).catch(() => null)
+    : null;
   return {
     id: carteira.id,
     status: carteira.status,
@@ -90,7 +96,8 @@ export async function resumoCarteira(usuario: any) {
     pixTipo: carteira.pix_tipo,
     pixChaveMascarada: chavePixDaCarteira(carteira) ? mascarar(chavePixDaCarteira(carteira)) : null,
     pixTitularNome: carteira.pix_titular_nome ?? null,
-    saldoDisponivel: dinheiro(Math.max(0, recebido - transferido)),
+    saldoDisponivel: saldoDisponivelConfirmado(recebido, transferido, saldoProvedor),
+    saldoDisponivelConfirmado: saldoProvedor !== null,
     saldoPendente: pendente,
     totalRecebido: recebido,
     totalTransferido: transferido,

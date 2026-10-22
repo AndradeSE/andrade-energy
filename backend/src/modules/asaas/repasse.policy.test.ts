@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { AsaasHttpError } from "./asaas.client";
-import { falhaRepasse, pagamentoDisponivelParaRepasse } from "./repasse.policy";
+import { falhaRepasse, pagamentoDisponivelParaRepasse, saldoDisponivelConfirmado } from "./repasse.policy";
+test("disponível exige saldo real, desconta reservas e não usa saldo de outras carteiras",()=>{
+  assert.equal(saldoDisponivelConfirmado(386.45,0,null),0);
+  assert.equal(saldoDisponivelConfirmado(386.45,0,0),0);
+  assert.equal(saldoDisponivelConfirmado(386.45,100,500),286.45);
+  assert.equal(saldoDisponivelConfirmado(386.45,0,200),200);
+  assert.equal(saldoDisponivelConfirmado(0,0,500),0);
+});
 
 test("só libera repasse após disponibilidade do saldo, não na confirmação", () => {
   assert.equal(pagamentoDisponivelParaRepasse("CONFIRMED"),false);
