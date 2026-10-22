@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261021-225631",
+    "data": "21/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Permissões organizadas por Ambiente Comercial e Ambiente Gerador, com subopções recolhíveis. ADM mantém acesso completo, inclusive financeiro."
+    ]
+  },
+  {
     "numero": "OTA 20261021-224927",
     "data": "21/10/2026",
     "variant": "gerador",
