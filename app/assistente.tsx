@@ -20,7 +20,7 @@ import { carregarFinanceiro } from "../services/financeiro.service";
 import { answerWithLocalModel, cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
 import { finishDictation, installVoiceModels, isVoiceInstalled, pauseContinuousListening, releaseVoiceRecognition, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
 import { speakConversationOnline, speakSafeOnlineOrLocal, speakAuthorizedAccountOnline, stopAssistantVoice } from "../services/assistant-voice";
-import { accountVoiceConsent, setAccountVoiceConsent, onlineAudioConsent, setOnlineAudioConsent, geminiLiveAudioConsent, setGeminiLiveAudioConsent } from "../services/assistant-voice-consent";
+import { accountVoiceConsent, onlineAudioConsent, setOnlineAudioConsent, geminiLiveAudioConsent, setGeminiLiveAudioConsent } from "../services/assistant-voice-consent";
 import { loadAssistantResponseMode, type AssistantResponseMode } from "../services/assistant-response-mode";
 import { answerAssistantConversation } from "../services/assistant-conversation-policy";
 import { localAssistantContext } from "../services/assistant-app-guide";
@@ -39,7 +39,7 @@ import { queryLiveAccount, redactLiveAccountText } from "../services/assistant-l
 import { setFloatingConversationPhase } from "../services/assistant-floating-conversation";
 import { parseAutomationCommand, prepareAutomation, createAutomationExecutor, type AutomationDraft } from "../shared/solar-automation";
 import { nativeAutomationContext, nativeAutomationIO } from "../services/assistant-native-automation";
-import { solarSuggestions, normalizeSolarRequest } from "../shared/solar-language";
+import { normalizeSolarRequest } from "../shared/solar-language";
 import { asksScreenControls, operateSolarControl, parseControlCommand, solarControlScope } from "../services/assistant-controls";
 import { resolveSafeNavigation } from "../services/assistant-safe-navigation";
 
@@ -60,13 +60,11 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   pendingAutomationRef.current = pendingAutomation;
   const automationExecutor = useRef(createAutomationExecutor());
   const assistantMounted = useRef(true);
-  const [accountVoiceAllowed, setAccountVoiceAllowed] = useState(false);
   const accountVoiceAllowedRef = useRef(false);
   useFocusEffect(useCallback(() => {
     let active = true;
-    setAccountVoiceAllowed(false);
     accountVoiceAllowedRef.current = false;
-    if (usuario?.id) void accountVoiceConsent(String(usuario.id)).then(allowed => { if (active) { accountVoiceAllowedRef.current = allowed; setAccountVoiceAllowed(allowed); } }).catch(() => {});
+    if (usuario?.id) void accountVoiceConsent(String(usuario.id)).then(allowed => { if (active) accountVoiceAllowedRef.current = allowed; }).catch(() => {});
     return () => { active = false; };
   }, [usuario?.id]));
   const [input, setInput] = useState("");
@@ -268,18 +266,6 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     const open = () => router.push({ pathname: action.route, params: action.params } as any);
     if (action.review) Alert.alert("Revisar no aplicativo", "Vou abrir a tela correspondente. Nenhuma alteração foi executada pela IA; confira os dados e confirme na própria tela.", [{ text: "Voltar", style: "cancel" }, { text: "Abrir revisão", onPress: open }]);
     else open();
-  }
-
-  function configureAccountVoice() {
-    if (!usuario?.id) return;
-    const userId = String(usuario.id);
-    Alert.alert("Voz natural nos dados da conta", "Ao autorizar, o texto das respostas com valores de faturas, produção e nomes será enviado ao Google Gemini e, se necessário, à Microsoft Azure somente para gerar a voz. Não enviaremos PDFs, senhas ou códigos de acesso. Você pode revogar nesta opção.", [
-      { text: "Voltar", style: "cancel" },
-      { text: accountVoiceAllowed ? "Revogar autorização" : "Autorizar voz natural", onPress: () => {
-        const allowed = !accountVoiceAllowed;
-        void setAccountVoiceConsent(userId, allowed).then(() => { accountVoiceAllowedRef.current = allowed; setAccountVoiceAllowed(allowed); }).catch(() => Alert.alert("Não foi possível salvar", "Tente novamente."));
-      } },
-    ]);
   }
 
   async function openToolDocument(doc: AssistantDocument) {
@@ -596,17 +582,6 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     return allowed;
   }
 
-  async function configureLiveAudio() {
-    if (!usuario?.id) return;
-    const id = String(usuario.id);
-    const allowed = await geminiLiveAudioConsent(id);
-    if (!allowed) { await authorizeLiveAudio(); return; }
-    Alert.alert("Conversa direta", "A autorização permite enviar áudio ao Gemini Live enquanto a conversa estiver aberta. Deseja revogá-la?", [
-      { text: "Manter", style: "cancel" },
-      { text: "Revogar", onPress: () => { void setGeminiLiveAudioConsent(id, false).then(() => { void liveSession.current?.stop(); liveSession.current = null; voiceActive.current = false; setListening(false); setSpeakingReply(false); }); } },
-    ]);
-  }
-
   async function toggleVoice(startFromCommand = false, preferLive = true) {
     if (dictationActive.current) return;
     if (voiceActive.current) {
@@ -869,13 +844,11 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
       <Pressable onPress={onClose ?? (() => router.back())} accessibilityRole="button" accessibilityLabel={onClose ? "Fechar conversa" : "Voltar"} style={styles.back}><Text style={styles.backText}>‹</Text></Pressable>
       <View style={styles.headerText}><Text style={styles.title}>Solar</Text><Text style={styles.subtitle}>Consultas e ações da sua conta</Text></View>
+      <Pressable onPress={() => { onClose?.(); router.push("/configuracoes-assistente"); }} accessibilityRole="button" accessibilityLabel="Configurações da Solar" style={styles.settingsButton}><Ionicons name="settings-outline" size={22} color="white" /></Pressable>
       <Pressable disabled={busy} onPress={() => { setPendingAutomation(undefined); messagesRef.current = []; topicRef.current = undefined; setMessages([]); setTopic(undefined); void releaseLocalModel(); }} accessibilityRole="button" accessibilityLabel="Limpar conversa"><Text style={styles.clear}>Limpar</Text></Pressable>
     </View>
     <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
-      {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Consulte dados da sua conta, peça documentos ou abra as funções do app para revisão. Para ditar, segure o microfone e solte; para conversar por voz, toque nas ondas.</Text><Text style={styles.limit}>Escolha respostas online ou no aparelho em Configurações da Solar. O modelo local é opcional; dados atuais precisam de internet. Consultas respeitam seu acesso. Alterações de contato e nomes podem ser confirmadas aqui; operações financeiras e contratos continuam nas telas próprias.</Text></View> : null}
-      {messages.length === 0 ? <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>{solarSuggestions(IS_GERADOR_APP).map(text => <Pressable key={text} disabled={busy} accessibilityRole="button" accessibilityLabel={text} onPress={() => void send(text)} style={styles.action}><Text style={styles.actionText}>{text}</Text></Pressable>)}</View> : null}
-      <Pressable accessibilityRole="button" accessibilityLabel="Configurar voz natural nos dados da conta" onPress={configureAccountVoice} style={styles.action}><Text style={styles.actionText}>Voz natural nos dados · {accountVoiceAllowed ? "autorizada" : "autorizar"}</Text></Pressable>
-      {isPreviewEnvironment && Platform.OS === "android" && supportsAssistantLive ? <Pressable accessibilityRole="button" accessibilityLabel="Configurar ou revogar conversa direta" onPress={() => void configureLiveAudio()} style={styles.action}><Text style={styles.actionText}>Conversa direta · configurar ou revogar</Text></Pressable> : null}
+      {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Escreva sua pergunta ou use o microfone.</Text></View> : null}
       {installStage ? <View style={styles.progressCard} accessibilityLiveRegion="polite"><Text style={styles.limit}>{installStage}</Text>{installProgress !== null ? <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(installProgress * 100)}%` }]} /></View> : null}{downloadingModel ? <Pressable accessibilityRole="button" accessibilityLabel="Cancelar download do modelo" onPress={() => void cancelModelDownload()} style={styles.cancelDownload}><Text style={styles.cancelDownloadText}>Cancelar download</Text></Pressable> : null}</View> : null}
       {messages.map((message, index) => <View key={index} style={[styles.bubble, message.from === "user" ? styles.userBubble : styles.assistantBubble]}>
         <Text style={styles.message}>{message.text}</Text>
@@ -907,6 +880,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.header, paddingHorizontal: 16, paddingBottom: 14, gap: 12 },
   back: { width: 32, alignItems: "center" }, backText: { color: "white", fontSize: 32 },
+  settingsButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   headerText: { flex: 1 }, title: { color: "white", fontSize: 18, fontWeight: "700" }, subtitle: { color: "#D8EBE1", fontSize: 12 }, clear: { color: "white", fontSize: 14 },
   scroll: { flex: 1 }, content: { padding: 18, gap: 12 }, intro: { backgroundColor: Colors.surface, padding: 18, borderRadius: 18 },
   introTitle: { color: Colors.text, fontSize: 19, fontWeight: "700" }, introBody: { color: Colors.text, marginTop: 8, lineHeight: 22 }, limit: { color: Colors.subtitle, marginTop: 12, lineHeight: 20 },
