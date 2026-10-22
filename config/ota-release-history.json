@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261022-165431",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Solar simplificada e comandos seguros; rateio mensal considerando saldo; melhorias de navegacao e cards"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-165133",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Entrada pela lista de UCs; saldo por unidade; Solar simplificada com tres pontos e comandos seguros"
+    ]
+  },
+  {
     "numero": "OTA 20261022-162651",
     "data": "22/10/2026",
     "variant": "consumidor",
