@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261022-134503",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Faturas: boleto vencido com vencimento original e encargos do contrato"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-100135",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Financeiro: saldo líquido, encargos do contrato e recebimentos atuais na Home"
+    ]
+  },
+  {
     "numero": "OTA 20261022-065959",
     "data": "22/10/2026",
     "variant": "consumidor",
