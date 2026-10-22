@@ -187,6 +187,7 @@ export async function tentarCriarCobrancaAsaas(faturaId: string, empresaId?: str
 
 async function transferirSaldo(cobranca: any) {
   if (!pagamentoDisponivelParaRepasse(cobranca.status)) return null;
+  if (cobranca.valor_liquido == null || !Number.isFinite(Number(cobranca.valor_liquido))) return null;
   const { data: carteira } = cobranca.gerador_carteira_id ? await supabase.from("gerador_carteiras").select("*").eq("id", cobranca.gerador_carteira_id).maybeSingle() : { data: null };
   // Repasses automáticos só podem usar uma carteira explicitamente autorizada.
   // A configuração legada por variável de ambiente não tem confirmação do titular.
@@ -295,7 +296,8 @@ export async function processarWebhookAsaas(body: any, token?: string) {
       if (assinaturaId && statusAssinatura) await supabase.from("assinaturas_geradores").update({ status: statusAssinatura, forma_pagamento: body.payment.billingType ?? undefined, atualizado_em: new Date().toISOString() }).eq("id", assinaturaId);
       if (pago) await transferirAutomaticamenteAssinatura(body.payment);
     } else {
-      const {data:c}=await supabase.from("asaas_cobrancas").update({status:body.payment.status,valor_liquido:body.payment.netValue??body.payment.value??null,atualizado_em:new Date().toISOString()}).eq("asaas_payment_id",body.payment.id).select().maybeSingle();
+      const bruto = Number(body.payment.value);
+      const {data:c}=await supabase.from("asaas_cobrancas").update({status:body.payment.status,...(Number.isFinite(bruto) && bruto > 0 ? {valor:bruto} : {}),valor_liquido:body.payment.netValue??null,atualizado_em:new Date().toISOString()}).eq("asaas_payment_id",body.payment.id).select().maybeSingle();
       if(c&&["PAYMENT_RECEIVED","PAYMENT_CONFIRMED"].includes(body.event)){
         await supabase.from("faturas").update({status:"PAGO"}).eq("id",c.fatura_id);
         if (body.event === "PAYMENT_RECEIVED") await transferirSaldo(c);
