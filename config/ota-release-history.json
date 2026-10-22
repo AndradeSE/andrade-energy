@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261021-231513",
+    "data": "21/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Faturas: baixa confirmada prevalece sobre cobrança auxiliar aberta; status de atraso identificado também na UC. Recebimentos e revogação de ADM em homologação."
+    ]
+  },
+  {
     "numero": "OTA 20261021-231357",
     "data": "21/10/2026",
     "variant": "gerador",
