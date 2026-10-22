@@ -2,7 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "../components/assistant/AssistantNativeControls";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import PortalBrandLogo from "../components/brand/PortalBrandLogo";

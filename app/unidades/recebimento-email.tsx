@@ -4,7 +4,8 @@ import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 import Svg, { Path } from "react-native-svg";
 
 import { AppHeader, Card, ElasticScrollView as ScrollView, EmptyState, Loading, Screen } from "../../components/ui";

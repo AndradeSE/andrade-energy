@@ -4,7 +4,8 @@ import * as FileSystemLegacy from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, Linking, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Linking, Platform, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "../components/assistant/AssistantNativeControls";
 
 import { ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../components/ui";
 import { useFaturas } from "../hooks/useFaturas";

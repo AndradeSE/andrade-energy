@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
+import { Pressable } from "../assistant/AssistantNativeControls";
 import { router, usePathname } from "expo-router";
 import { useAuth } from "../../contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";

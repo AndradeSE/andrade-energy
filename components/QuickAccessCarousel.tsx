@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useMemo, useState } from "react";
-import { Image, type ImageSourcePropType, Modal, Pressable, ScrollView as NativeScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, type ImageSourcePropType, Modal, ScrollView as NativeScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable } from "./assistant/AssistantNativeControls";
 import { ScrollView } from "react-native-gesture-handler";
 
 import { Colors, Radius, Spacing, Typography } from "../theme";

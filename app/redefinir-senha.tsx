@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, View } from "react-native";
+import { TextInput, TouchableOpacity } from "../components/assistant/AssistantNativeControls";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ElasticScrollView as ScrollView } from "../components/ui/ElasticScroll";

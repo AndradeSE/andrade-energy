@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { StyleSheet, Text, TextInput, TextInputProps, View } from "react-native";
+import { StyleSheet, Text, TextInputProps, View } from "react-native";
+import { TextInput } from "../assistant/AssistantNativeControls";
 
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { emailValido, normalizarEmail } from "../../utils/email";

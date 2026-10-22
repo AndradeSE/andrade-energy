@@ -2,7 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Linking, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Linking, Platform, StyleSheet, Text, View } from "react-native";
+import { TextInput, TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppHeader, ElasticScrollView as ScrollView } from "../../components/ui";

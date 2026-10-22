@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Modal, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable } from "../assistant/AssistantNativeControls";
 
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 

@@ -3,7 +3,8 @@ import * as DocumentPicker from "expo-document-picker";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Alert, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { TextInput, TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
 import { AppHeader, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import TabDataPending from "../../components/ui/TabDataPending";

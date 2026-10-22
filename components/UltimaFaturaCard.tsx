@@ -1,4 +1,5 @@
-import { Text, TouchableOpacity, View } from "react-native";
+import { Text, View } from "react-native";
+import { TouchableOpacity } from "./assistant/AssistantNativeControls";
 import { formatarDataBrasileira } from "../services/faturas.service";
 
 type Props = {

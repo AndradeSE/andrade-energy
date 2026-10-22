@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Modal, StyleSheet, Text, View } from "react-native";
+import { TextInput, TouchableOpacity } from "./assistant/AssistantNativeControls";
 import { Colors, Radius, Spacing, Typography } from "../theme";
 
 export default function PdfPasswordRetryModal({ visible, busy, onCancel, onConfirm }: { visible: boolean; busy?: boolean; onCancel: () => void; onConfirm: (password: string) => void }) {

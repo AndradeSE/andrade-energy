@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { PanResponder, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { PanResponder, StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "../assistant/AssistantNativeControls";
 import Svg, { Path } from "react-native-svg";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 

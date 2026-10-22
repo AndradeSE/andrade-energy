@@ -4,22 +4,9 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  BackHandler,
-  KeyboardAvoidingView,
-  Platform,
-  Image,
-  Modal,
-  RefreshControl,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, BackHandler, KeyboardAvoidingView, Platform, Image, Modal, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Switch } from "../../components/assistant/AssistantNativeControls";
+import { TextInput, TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
 import { useAuth } from "../../contexts/AuthContext";
 import {

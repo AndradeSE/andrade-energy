@@ -2,20 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
-import {
-  Alert,
-  RefreshControl,
-  Linking,
-  Platform,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Alert, RefreshControl, Linking, Platform, Modal, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, TextInput, TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 

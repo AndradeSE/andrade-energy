@@ -4,7 +4,8 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, ImageBackground, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, ImageBackground, StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
 import FormField from "../../components/cadastro/FormField";
 import EnderecoFields from "../../components/cadastro/EnderecoFields";

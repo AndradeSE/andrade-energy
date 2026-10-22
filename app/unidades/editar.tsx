@@ -59,11 +59,10 @@ function percentualPelaMedia(
   consumo: string,
   modalidade: Modalidade
 ) {
-  if (modalidade === "INJECAO") return "";
   const producao = producaoParaAlocacao(usina);
   const media = valorNumerico(consumo);
   return producao > 0 && media > 0
-    ? String(Math.min(100, media * 1.15 / producao * 100).toFixed(2)).replace(".", ",")
+    ? String(Math.min(100, media / producao * 100).toFixed(2)).replace(".", ",")
     : "";
 }
 
@@ -227,7 +226,7 @@ export default function EditarAlocacaoUnidade() {
     ]);
     if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return Alert.alert("Desconto inválido", "Informe um desconto entre 0% e 100%.");
     try { setSalvando(true);
-      await alocarUnidade(usinaId, { planoContrato, clienteId: clienteIdResolvido, numero: numeroDaUc, cpfTitular: cpfTitular.replace(/\D/g, "") || null, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd: tipoGdEfetivo, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: modalidade === "COMPENSACAO" && !percentualEditado, revisaoContrato: atualizacaoContratual });
+      await alocarUnidade(usinaId, { planoContrato, clienteId: clienteIdResolvido, numero: numeroDaUc, cpfTitular: cpfTitular.replace(/\D/g, "") || null, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd: tipoGdEfetivo, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: !percentualEditado, revisaoContrato: atualizacaoContratual });
       if (usinaId !== usinaDoAmbiente?.id && usinaSelecionada) await selecionarUsina(usinaSelecionada);
       // Esta tela pode ter sido aberta a partir de uma UC ou da criação por
       // fatura. O destino único evita ficar preso na tela anterior e exigir
@@ -306,7 +305,7 @@ export default function EditarAlocacaoUnidade() {
             onChange={(idDaUsina) => {
               const novaUsina = usinas.find((usina) => usina.id === idDaUsina);
               setUsinaId(idDaUsina);
-              if (modalidade === "COMPENSACAO") setPercentual(percentualPelaMedia(novaUsina, consumoMedio, modalidade));
+              if (!percentualEditado) setPercentual(percentualPelaMedia(novaUsina, consumoMedio, modalidade));
             }}
             label="Escolha a usina"
             detail={textoProducao}
@@ -317,7 +316,7 @@ export default function EditarAlocacaoUnidade() {
             value={modalidade}
             onChange={(novaModalidade) => {
               setModalidade(novaModalidade);
-              setPercentual(novaModalidade === "INJECAO" ? "" : percentualPelaMedia(usinaSelecionada, consumoMedio, novaModalidade));
+              setPercentual(percentualPelaMedia(usinaSelecionada, consumoMedio, novaModalidade));
             }}
             options={[
               { label: "Por injeção", value: "INJECAO" },
@@ -330,7 +329,7 @@ export default function EditarAlocacaoUnidade() {
             onChangeText={(valor) => {
               const limpa = valor.replace(/[^\d,.]/g, "");
               setConsumoMedio(limpa);
-              if (modalidade === "COMPENSACAO") setPercentual(percentualPelaMedia(usinaSelecionada, limpa, modalidade));
+              if (!percentualEditado) setPercentual(percentualPelaMedia(usinaSelecionada, limpa, modalidade));
             }}
             keyboardType="decimal-pad"
           />
@@ -344,7 +343,7 @@ export default function EditarAlocacaoUnidade() {
           <Text style={styles.hint}>{saldoAlocacao === null ? "Consultando saldo da usina..." : `Disponível para esta UC: ${saldoAlocacao.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`}</Text>
           <Text style={styles.hint}>
             {modalidade === "INJECAO"
-              ? "Informe manualmente a parcela da produção da usina destinada a esta UC. Este valor é definido pelo gerador."
+              ? "A sugestão usa o consumo médio dividido pela produção média da usina, sem margem adicional. Você pode editar."
               : "Para compensação, a sugestão é calculada pela média de consumo desta UC dividida pela produção média disponível da usina. Você pode editar."}
           </Text>
           {!clienteIdResolvido ? (

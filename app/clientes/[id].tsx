@@ -2,7 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Pressable, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Pressable, TextInput, TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
 import { AppHeader, Badge, Button, Card, ElasticScrollView as ScrollView, EmptyState, Loading, Screen, Section } from "../../components/ui";
 import PdfPasswordRetryModal from "../../components/PdfPasswordRetryModal";

@@ -3,7 +3,8 @@ import { useIsFocused } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { Children, type ReactNode, useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Alert, Animated, AppState, Easing, ImageBackground, type ImageSourcePropType, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { AccessibilityInfo, Alert, Animated, AppState, Easing, ImageBackground, type ImageSourcePropType, Linking, StyleSheet, Text, View } from "react-native";
+import { Pressable } from "../assistant/AssistantNativeControls";
 import { buscarClimaUsina, type ClimaUsina } from "../../services/usina-clima.service";
 import { useAuth } from "../../contexts/AuthContext";
 

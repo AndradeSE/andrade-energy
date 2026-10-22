@@ -3,19 +3,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import {
-  Alert,
-  Linking,
-  Modal,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Alert, Linking, Modal, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Switch } from "../../components/assistant/AssistantNativeControls";
+import { Pressable, TextInput, TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 import {
   AppHeader,
   Button,

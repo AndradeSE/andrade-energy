@@ -1,7 +1,8 @@
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Alert, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Pressable } from "../../components/assistant/AssistantNativeControls";
 import { Ionicons } from "@expo/vector-icons";
 
 import { AppHeader, Badge, Card, ElasticFlatList as FlatList, EmptyState, Screen } from "../../components/ui";

@@ -3,7 +3,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { Redirect, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { Alert, RefreshControl, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Switch, TextInput, TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
 import AndradeBarChart from "../../components/charts/AndradeBarChart";
 import { AppHeader, Button, Card, Divider, ElasticScrollView as ScrollView, Metric, Screen, Section } from "../../components/ui";

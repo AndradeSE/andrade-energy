@@ -2,7 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
+import { TextInput, TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
 import { AppHeader, Button, Card, Divider, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
 import { IS_GERADOR_APP } from "../../config/appVariant";

@@ -4,12 +4,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 
-import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable } from "../../components/assistant/AssistantNativeControls";
 
 import { AppHeader, Badge, Button, Card, ElasticFlatList as FlatList, EmptyState, Metric, Screen, Section } from "../../components/ui";
 import TabDataPending from "../../components/ui/TabDataPending";
 import { listarFechamentos, obterResumoOperacao } from "../../services/fechamentos.service";
 import { useAuth } from "../../contexts/AuthContext";
+import RateioMensalCard from "../../components/usinas/RateioMensalCard";
 
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
@@ -71,6 +73,7 @@ export default function Operacao() {
           <View style={styles.metric}><Metric compact title="Disponível" value={energia(resumo?.energiaDisponivel)} icon={<Ionicons name="battery-half-outline" size={20} color={Colors.primary} />} /></View>
           <View style={styles.metric}><Metric compact title="Ocupação" value={`${Number(resumo?.ocupacao ?? 0).toFixed(1)}%`} icon={<Ionicons name="pie-chart-outline" size={20} color={Colors.primary} />} /></View>
         </View></Card>
+        <RateioMensalCard usinaId={usinaId} empresaId={String(user?.empresa_id ?? "")} competencia={competencia} />
         <Section title="Resultado financeiro"><Card style={styles.financialCard}>
           <View style={styles.financialTop}><View><Text style={styles.cardLabel}>RECEITA PREVISTA</Text><Text style={styles.revenue}>{moeda(resumo?.receitaPrevista)}</Text></View><Badge label={`${Number(percentualRecebido).toFixed(0)}% recebido`} variant={percentualRecebido >= 99 ? "success" : "warning"} /></View>
           <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${percentualRecebido}%` }]} /></View>

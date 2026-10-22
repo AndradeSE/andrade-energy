@@ -1,5 +1,6 @@
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { Pressable, Text } from "react-native";
+import { Text } from "react-native";
+import { Pressable } from "../assistant/AssistantNativeControls";
 
 import { Colors } from "../../theme";
 import { IS_GERADOR_APP } from "../../config/appVariant";

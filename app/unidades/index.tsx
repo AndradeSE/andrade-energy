@@ -1,6 +1,7 @@
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Pressable, TextInput, TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
 import CadastroActions from "../../components/cadastro/CadastroActions";
 import { AppHeader, Card, ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../../components/ui";
@@ -98,6 +99,7 @@ export default function Unidades() {
           <View style={styles.row}><View style={styles.identification}><Text numberOfLines={1} style={styles.number}>{String(item.apelido ?? "").trim() || `UC ${item.numero}`}</Text>{item.apelido ? <Text style={styles.ucNumber}>UC {item.numero}</Text> : null}</View><Text style={styles.badge}>{item.tipo}</Text></View>
           <Text style={styles.client}>Cliente: {item.clientes?.nome ?? params.cliente ?? "Não identificado"}</Text>
           <Text style={styles.owner}>Titular da fatura: {item.titular_fatura ?? "Sem titular confirmado por fatura desta UC"}</Text>
+          <Text style={styles.detail}>Consumo médio mensal: {Number(item.consumo_medio_kwh ?? 0) > 0 ? `${Number(item.consumo_medio_kwh).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kWh` : "Não informado"}</Text>
           <Text style={styles.detail}>Usina: {item.usinas?.nome ?? item.usina_nome ?? (item.usina_id ? "Usina vinculada" : "Ainda não alocada")}</Text>
           <Text style={styles.detail}>{item.modalidade_faturamento === "INJECAO" ? "Faturamento por injeção" : "Faturamento por compensação"} · {item.desconto_percentual}%</Text>
           <View style={[styles.contractStatus, acaoContrato.liberada && styles.contractStatusSigned, acaoContrato.status === "Cancelado" && styles.contractStatusCanceled]}><Text style={[styles.contractStatusText, acaoContrato.liberada && styles.contractStatusTextSigned, acaoContrato.status === "Cancelado" && styles.contractStatusTextCanceled]}>{acaoContrato.status}</Text></View>

@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable } from "../assistant/AssistantNativeControls";
 import { Colors, Radius, Spacing } from "../../theme";
 
 type Notification = { id: string; titulo: string; detalhe?: string; rota?: string; criado_em?: string };

@@ -1,4 +1,5 @@
-import { Linking, Text, TouchableOpacity, View } from "react-native";
+import { Linking, Text, View } from "react-native";
+import { TouchableOpacity } from "./assistant/AssistantNativeControls";
 
 type Props = {
   cliente: string;

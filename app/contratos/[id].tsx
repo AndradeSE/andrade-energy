@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
+import { Pressable, TextInput } from "../../components/assistant/AssistantNativeControls";
 
 import { AppHeader, Badge, Button, Card, ElasticScrollView as ScrollView, Loading, Screen, Section } from "../../components/ui";
 import { concluirSolicitacaoCancelamento, obterSolicitacaoCancelamento } from "../../services/contratos.service";

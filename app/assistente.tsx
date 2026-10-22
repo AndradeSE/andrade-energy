@@ -17,10 +17,13 @@ import { buscarFatura, listarFaturas } from "../services/faturas.service";
 import { asksLatestInvoiceDocument, invoiceDocumentChoices, latestInvoiceAmountReply, asksOverdueInvoices, overdueInvoiceReply } from "../services/local-assistant-invoices";
 import { detectFinancialMetric, financialMetricReply } from "../services/assistant-financial";
 import { carregarFinanceiro } from "../services/financeiro.service";
-import { cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
+import { answerWithLocalModel, cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
 import { finishDictation, installVoiceModels, isVoiceInstalled, pauseContinuousListening, releaseVoiceRecognition, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
 import { speakConversationOnline, speakSafeOnlineOrLocal, speakAuthorizedAccountOnline, stopAssistantVoice } from "../services/assistant-voice";
 import { accountVoiceConsent, setAccountVoiceConsent, onlineAudioConsent, setOnlineAudioConsent, geminiLiveAudioConsent, setGeminiLiveAudioConsent } from "../services/assistant-voice-consent";
+import { loadAssistantResponseMode, type AssistantResponseMode } from "../services/assistant-response-mode";
+import { answerAssistantConversation } from "../services/assistant-conversation-policy";
+import { localAssistantContext } from "../services/assistant-app-guide";
 import { answerConversationOnline } from "../services/assistant-online";
 import { assistantConnectionError, speechStatusReply } from "../services/assistant-diagnostics";
 import { nativePortugueseSpeechAvailable, nativeSpeechAvailabilityError } from "../services/native-speech";
@@ -37,6 +40,7 @@ import { setFloatingConversationPhase } from "../services/assistant-floating-con
 import { parseAutomationCommand, prepareAutomation, createAutomationExecutor, type AutomationDraft } from "../shared/solar-automation";
 import { nativeAutomationContext, nativeAutomationIO } from "../services/assistant-native-automation";
 import { solarSuggestions, normalizeSolarRequest } from "../shared/solar-language";
+import { asksScreenControls, operateSolarControl, parseControlCommand, solarControlScope } from "../services/assistant-controls";
 import { resolveSafeNavigation } from "../services/assistant-safe-navigation";
 
 type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string; invoiceChoices?: Array<{ id: string; label: string }>; actions?: AssistantAction[]; documents?: AssistantDocument[]; private?: boolean; voiceAnswerId?: string; automation?: AutomationDraft };
@@ -69,6 +73,13 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   const [messages, setMessages] = useState<Message[]>([]);
   const [topic, setTopic] = useState<LocalTopic>();
   const [modelReady, setModelReady] = useState(isModelInstalled);
+  const [responseMode, setResponseMode] = useState<AssistantResponseMode>("online");
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    setResponseMode("online");
+    void loadAssistantResponseMode(String(usuario?.id ?? "")).then(mode => { if (active) setResponseMode(mode); }).catch(() => {});
+    return () => { active = false; };
+  }, [usuario?.id]));
   const [busy, setBusy] = useState(false);
   const [installStage, setInstallStage] = useState<string>();
   const [installProgress, setInstallProgress] = useState<number | null>(null);
@@ -328,9 +339,20 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     } finally { busyRef.current = false; if (assistantMounted.current) setBusy(false); }
   }
 
+  async function operateCurrentControl(question: string) {
+    const scope = accountContextKey;
+    return operateSolarControl(question, solarControlScope(usuario, usinaSelecionada?.id, unidadeSelecionada?.id), label => new Promise<boolean>(resolve => {
+      Alert.alert("Revisar comando da Solar", "Acionar o botão “" + label + "” na tela atual? As validações e confirmações do aplicativo continuam valendo.", [
+        { text: "Cancelar", style: "cancel", onPress: () => resolve(false) },
+        { text: "Acionar botão", onPress: () => resolve(true) },
+      ], { cancelable: true, onDismiss: () => resolve(false) });
+    }), () => assistantMounted.current && automationScope.current === scope);
+  }
+
   async function send(spokenQuestion?: string) {
     const question = (spokenQuestion ?? input).trim();
     if (!question || busyRef.current) return;
+    const controlCommand = parseControlCommand(question) || asksScreenControls(question);
     const interpretedQuestion = normalizeAssistantQuery(question);
     const automationCommand = parseAutomationCommand(question);
     const safeNavigation = resolveSafeNavigation(question, {
@@ -355,7 +377,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     }, topicRef.current);
     setInput("");
     setBusy(true);
-    const privateTurn = Boolean(automationCommand) || wantsOverdue || Boolean(capability) || wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion) || Boolean(detectFinancialMetric(interpretedQuestion)) || Boolean(detectProductionMetric(interpretedQuestion)) || Boolean(detectAccountQuery(interpretedQuestion));
+    const privateTurn = Boolean(controlCommand) || Boolean(automationCommand) || wantsOverdue || Boolean(capability) || wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion) || Boolean(detectFinancialMetric(interpretedQuestion)) || Boolean(detectProductionMetric(interpretedQuestion)) || Boolean(detectAccountQuery(interpretedQuestion));
     const userMessage: Message = { from: "user", text: question, private: privateTurn };
     const nextMessages = [...messagesRef.current, userMessage].slice(-39);
     messagesRef.current = nextMessages;
@@ -382,7 +404,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       } else if (safeNavigation) {
         response = { from: "assistant", private: true, text: safeNavigation.text };
       } else if (/o que (voce|a solar) (pode|consegue)|suas funcoes/.test(normalizeSolarRequest(question))) {
-        response = { from: "assistant", private: true, text: "Posso abrir diretamente as áreas permitidas, pesquisar clientes e UCs e filtrar faturas por abertas, vencidas ou pagas. Exemplos: abra os contratos, busque cliente Rodrigo, mostre faturas vencidas ou abra operação 09/2026. Também consulto dados e documentos e preparo alterações cadastrais para sua revisão. Cobranças, assinaturas, exclusões e permissões exigem confirmação nas telas próprias." };
+        response = { from: "assistant", private: true, text: "Posso abrir diretamente as áreas permitidas, pesquisar clientes e UCs e filtrar faturas por abertas, vencidas ou pagas. Exemplos: abra os contratos, busque cliente Rodrigo, mostre faturas vencidas ou abra operação 09/2026. Também preencho campos e aciono botões ativos da tela: diga “preencha o campo Nome com Maria Silva” ou “clique no botão Salvar”. Botões exigem sua confirmação; preencher não salva. Consulto dados e documentos e preparo alterações cadastrais para revisão. Cobranças, assinaturas, exclusões e permissões exigem confirmação nas telas próprias." };
       } else if (speechStatus) {
         response = { from: "assistant", text: speechStatus, private: true };
       } else if (capability) {
@@ -459,7 +481,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
           response = { from: "assistant", text: "Não consegui consultar esses registros agora com seu acesso. Tente novamente; não vou inventar dados nem contornar suas permissões." };
         }
       } else if (reply.kind === "help" || reply.kind === "unknown") {
-        response = { from: "assistant", ...await answerConversationOnline(question, nextMessages.slice(0, -1)) };
+        response = { from: "assistant", ...await answerAssistantConversation({ mode: responseMode, modelReady, question, history: nextMessages.slice(0, -1), help: reply.kind === "help" ? reply.text : undefined, context: localAssistantContext(IS_GERADOR_APP ? "gerador" : "consumidor") }, { online: answerConversationOnline, local: answerWithLocalModel }) };
       }
       if (generation !== contextGeneration.current) return;
       response.private = response.private || privateTurn;
@@ -845,7 +867,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       <Pressable disabled={busy} onPress={() => { setPendingAutomation(undefined); messagesRef.current = []; topicRef.current = undefined; setMessages([]); setTopic(undefined); void releaseLocalModel(); }} accessibilityRole="button" accessibilityLabel="Limpar conversa"><Text style={styles.clear}>Limpar</Text></Pressable>
     </View>
     <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
-      {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Consulte dados da sua conta, peça documentos ou abra as funções do app para revisão. Para ditar, segure o microfone e solte; para conversar por voz, toque nas ondas.</Text><Text style={styles.limit}>A conversa usa o Gemini online. Não é necessário baixar um modelo local. Consultas respeitam seu acesso. Alterações de contato e nomes podem ser confirmadas aqui; operações financeiras e contratos continuam nas telas próprias.</Text></View> : null}
+      {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Consulte dados da sua conta, peça documentos ou abra as funções do app para revisão. Para ditar, segure o microfone e solte; para conversar por voz, toque nas ondas.</Text><Text style={styles.limit}>Escolha respostas online ou no aparelho em Configurações da Solar. O modelo local é opcional; dados atuais precisam de internet. Consultas respeitam seu acesso. Alterações de contato e nomes podem ser confirmadas aqui; operações financeiras e contratos continuam nas telas próprias.</Text></View> : null}
       {messages.length === 0 ? <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>{solarSuggestions(IS_GERADOR_APP).map(text => <Pressable key={text} disabled={busy} accessibilityRole="button" accessibilityLabel={text} onPress={() => void send(text)} style={styles.action}><Text style={styles.actionText}>{text}</Text></Pressable>)}</View> : null}
       <Pressable accessibilityRole="button" accessibilityLabel="Configurar voz natural nos dados da conta" onPress={configureAccountVoice} style={styles.action}><Text style={styles.actionText}>Voz natural nos dados · {accountVoiceAllowed ? "autorizada" : "autorizar"}</Text></Pressable>
       {isPreviewEnvironment && Platform.OS === "android" && supportsAssistantLive ? <Pressable accessibilityRole="button" accessibilityLabel="Configurar ou revogar conversa direta" onPress={() => void configureLiveAudio()} style={styles.action}><Text style={styles.actionText}>Conversa direta · configurar ou revogar</Text></Pressable> : null}

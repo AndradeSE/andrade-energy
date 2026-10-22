@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, Text } from "react-native";
+import { Text } from "react-native";
+import { Pressable } from "../assistant/AssistantNativeControls";
 import { Colors } from "../../theme";
 import AppTabIcon from "../navigation/AppTabIcon";
 import { useAuth } from "../../contexts/AuthContext";

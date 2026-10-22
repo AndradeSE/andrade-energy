@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
+import { Switch } from "../../components/assistant/AssistantNativeControls";
+import { TextInput, TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 import { AppHeader, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
 import { atualizarColaborador, cancelarConviteColaborador, convidarColaborador, listarColaboradores, reenviarConviteColaborador, promoverColaboradorAdministrador, revogarAdministradorColaborador } from "../../services/colaboradores.service";

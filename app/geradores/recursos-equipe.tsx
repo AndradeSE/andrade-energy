@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Text, View } from "react-native";
+import { TextInput, TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 import { router } from "expo-router";
 import { AppHeader, Card, ElasticScrollView, Loading, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
