@@ -8,6 +8,7 @@ import { Redirect, useRouter, useLocalSearchParams, useFocusEffect } from "expo-
 import { setWakeWordPaused, subscribeWakeWord, wakeWordEnabled, wakeWordReady, wakeWordPaused } from "../services/assistant-wake-word";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import ThinkingDots from "../components/assistant/ThinkingDots";
 
 import { useAuth } from "../contexts/AuthContext";
 import { isAssistantEnabled as isPreviewEnvironment, supportsAssistantLive } from "../config/environment";
@@ -859,6 +860,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
         {message.automation && message.automation === pendingAutomation ? <><Pressable disabled={busy} accessibilityRole="button" accessibilityLabel="Confirmar e salvar alteração" onPress={() => void confirmAutomation(message.automation!)} style={styles.action}><Text style={styles.actionText}>Confirmar e salvar</Text></Pressable><Pressable disabled={busy} accessibilityRole="button" accessibilityLabel="Cancelar alteração" onPress={() => setPendingAutomation(undefined)} style={styles.action}><Text style={styles.actionText}>Cancelar alteração</Text></Pressable></> : null}
         {message.route ? <Pressable accessibilityRole="button" onPress={() => router.push(message.route!)} style={styles.action}><Text style={styles.actionText}>Abrir seção</Text></Pressable> : null}
       </View>)}
+      {busy ? <View style={[styles.bubble,styles.assistantBubble]}><ThinkingDots /></View> : null}
     </ScrollView>
     <View style={[styles.composer, { paddingBottom: keyboardVisible ? 10 : Math.max(insets.bottom, 12) }]}>
       {voiceStatus ? <View style={styles.voiceStatus}><Ionicons name={voiceInstalling ? "cloud-download-outline" : transcribing || listening ? "radio-outline" : "information-circle-outline"} size={17} color={Colors.primary} /><Text style={styles.voiceStatusText}>{voiceStatus}</Text></View> : null}
