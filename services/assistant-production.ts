@@ -2,6 +2,7 @@ export type ProductionMetric = "energiaGerada" | "energiaTotal" | "energiaDispon
 
 export function detectProductionMetric(question: string): ProductionMetric | undefined {
   const text = question.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (/\b(saldo|credito|creditos)\b/.test(text)) return undefined;
   if (/\b(ocupacao|ocupada)\b/.test(text)) return "ocupacao";
   if (/\b(energia|geracao|producao|kwh)\b/.test(text) && /\b(disponivel|sobrou|restante)\b/.test(text)) return "energiaDisponivel";
   if (/\b(energia|geracao|producao|produziu|gerou|kwh)\b/.test(text) && /\b(acumulada|acumulado|total historico)\b/.test(text)) return "energiaTotal";

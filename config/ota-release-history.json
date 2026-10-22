@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261022-164243",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar com conversa limpa, configuracoes na engrenagem e tres pontos enquanto pensa"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-163550",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Lista de UCs na entrada; acesso rapido limpo; Solar com tres pontos ao pensar"
+    ]
+  },
+  {
     "numero": "OTA 20261022-162651",
     "data": "22/10/2026",
     "variant": "consumidor",

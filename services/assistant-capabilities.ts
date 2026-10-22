@@ -30,6 +30,7 @@ export function detectCapability(input: string): AssistantIntent | undefined {
   else if (/\b(colaborador|colaboradores|equipe|convites)\b/.test(text)) module = "equipe";
   else if (/\b(inversor|inversores|monitoramento)\b/.test(text)) module = "inversores";
   else if (/\b(operacao|fechamento|fechamentos|rateio)\b/.test(text)) module = "operacao";
+  else if (/\b(saldo)\b/.test(text) && /\b(energia|credito|creditos|kwh|uc|acumulado)\b/.test(text)) module = "economia";
   else if (/\b(carteira|saldo disponivel|saldo pendente|transferencia|saque|chave pix)\b/.test(text)) module = "carteira";
   else if (/\b(pix|boleto|codigo de barras|linha digitavel|pagar)\b/.test(text)) module = "pagamento";
   else if (/\b(economia|desconto|creditos|consumo)\b/.test(text)) module = "economia";

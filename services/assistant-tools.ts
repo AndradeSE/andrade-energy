@@ -84,7 +84,7 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
       const unit = units.find(item => item.id === ctx.unitId);
       if (!unit?.cliente_id) return { text: "Selecione uma das suas UCs para consultar consumo e economia." };
       const d = await buscarDashboard(unit.cliente_id, unit.numero);
-      return { text: `UC ${scalar(unit.numero)}\nEconomia do mês: ${displayNumber(d.economiaMes, true)}\nEconomia acumulada: ${displayNumber(d.economiaAcumulada, true)}\nCréditos: ${displayNumber(d.creditos)} kWh\nEnergia injetada: ${displayNumber(d.ultimaFatura?.energiaInjetada)} kWh\nEnergia compensada: ${displayNumber(d.ultimaFatura?.energiaCompensada)} kWh\nCompetência: ${scalar(d.ultimaFatura?.competencia)}`, actions };
+      return { text: `UC ${scalar(unit.numero)}\nEconomia do mês: ${displayNumber(d.economiaMes, true)}\nEconomia acumulada: ${displayNumber(d.economiaAcumulada, true)}\nSaldo atual de energia: ${displayNumber(d.saldoAtual)} kWh\nReferência do saldo: ${scalar(d.competenciaSaldo)}\nEnergia injetada: ${displayNumber(d.ultimaFatura?.energiaInjetada)} kWh\nEnergia compensada: ${displayNumber(d.ultimaFatura?.energiaCompensada)} kWh\nCompetência: ${scalar(d.ultimaFatura?.competencia)}`, actions };
     }
     case "carteira": {
       const d = await carregarCarteira();
