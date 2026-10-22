@@ -110,7 +110,7 @@ export default function ClienteHome() {
 
   const quantidadeEmAberto = Number(data.faturasEmAberto ?? 0);
   const valorEmAberto = Number(data.valorEmAberto ?? 0);
-  const creditos = Number(data.creditos ?? 0);
+  const saldoAtual = data.saldoAtual == null ? null : Number(data.saldoAtual);
   const energiaCompensada = Number(data.ultimaFatura?.energiaCompensada ?? 0);
   // Backends anteriores não retornavam `consumo`. Até a atualização do
   // serviço, a energia compensada evita que o resumo apareça zerado.
@@ -254,14 +254,14 @@ export default function ClienteHome() {
           </View>
           <View style={styles.metricCard}>
             <View style={styles.metricIcon}>
-              <Ionicons name="home-outline" size={19} color={Colors.primary} />
+              <Ionicons name="battery-charging-outline" size={19} color={Colors.primary} />
             </View>
-            <Text style={styles.metricLabel}>Minha unidade</Text>
-            <Text numberOfLines={1} style={styles.metricValue}>
-              {String(data.uc ?? "—")}
+            <Text style={styles.metricLabel}>Saldo acumulado</Text>
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} style={styles.metricValue}>
+              {saldoAtual !== null && Number.isFinite(saldoAtual) ? `${saldoAtual.toLocaleString("pt-BR",{maximumFractionDigits:2})} kWh` : "Não informado"}
             </Text>
             <Text numberOfLines={1} style={styles.metricNote}>
-              {concessionariaVigente || "Concessionária"}
+              {data.competenciaSaldo ? `Referência: ${data.competenciaSaldo}` : "Aguardando leitura da UC"}
             </Text>
           </View>
           <TouchableOpacity
