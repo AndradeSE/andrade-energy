@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261022-150521",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Consumo médio no card da UC e inicialização sem bloquear a escolha de ambiente"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-150248",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Máscaras de moeda e CPF opcional; titularidade no rateio e preparo da navegação sem bloquear a seleção"
+    ]
+  },
+  {
     "numero": "OTA 20261022-144119",
     "data": "22/10/2026",
     "variant": "consumidor",
