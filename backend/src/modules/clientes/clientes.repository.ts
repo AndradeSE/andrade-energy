@@ -386,7 +386,7 @@ export async function listarUnidadesPorCpf(cpfInformado: string, empresaId = EMP
 
   const { data: clientes, error: erroClientes } = await supabase
     .from("clientes")
-    .select("id, cpf, uc, nome, distribuidora, endereco, status, usina_id")
+    .select("id, cpf, uc, nome, distribuidora, endereco, status, usina_id, consumo_medio_kwh")
     .like("cpf", `${prefixoCpf}%`)
     .eq("empresa_id", empresaId);
   // O CPF pode existir em empresas diferentes; somente a empresa ativa participa do vínculo.
@@ -398,7 +398,7 @@ export async function listarUnidadesPorCpf(cpfInformado: string, empresaId = EMP
   const clienteIds = clientes.map((cliente) => cliente.id);
   const { data: unidades, error: erroUnidades } = await supabase
     .from("unidades_consumidoras")
-    .select("id, cliente_id, usina_id, numero, apelido, titular, distribuidora, endereco, status, modalidade_faturamento, desconto_percentual, usinas(id,nome,titularidade_ucs_recebedoras)")
+    .select("id, cliente_id, usina_id, numero, apelido, titular, distribuidora, endereco, status, modalidade_faturamento, desconto_percentual, consumo_medio_kwh, usinas(id,nome,titularidade_ucs_recebedoras)")
     .in("cliente_id", clienteIds)
     .eq("empresa_id", empresaId)
     .order("numero");
@@ -413,6 +413,7 @@ export async function listarUnidadesPorCpf(cpfInformado: string, empresaId = EMP
       cliente_id: cliente.id,
       usina_id: cliente.usina_id,
       numero: String(cliente.uc),
+      consumo_medio_kwh: cliente.consumo_medio_kwh,
       titular: cliente.nome,
       distribuidora: cliente.distribuidora,
       endereco: cliente.endereco,

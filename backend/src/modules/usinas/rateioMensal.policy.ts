@@ -1,5 +1,11 @@
 export type DemandaRateio = { numero: string; nome?: string; consumo_medio_kwh: number; documento?: string };
 
+export function documentoDaTitularidade(titularidade: unknown, documentoGerador: unknown, documentoCliente: unknown, documentoDaUc: unknown) {
+  const principal = ["CLIENTE","CONSUMIDOR"].includes(String(titularidade ?? "GERADOR").toUpperCase()) ? documentoCliente : documentoGerador;
+  const completo=(v:unknown)=>{const d=String(v??"").replace(/\D/g,"");return [11,14].includes(d.length)&&!/^(\d)\1+$/.test(d)?d:"";};
+  return completo(principal) || completo(documentoDaUc);
+}
+
 /** Proposta operacional; nunca altera percentuais contratuais ou créditos da distribuidora. */
 export function proporRateioMensal(producaoMedia: number, unidades: DemandaRateio[], ancora = "") {
   if (!Number.isFinite(producaoMedia) || producaoMedia <= 0) throw new Error("Importe a produção da usina para calcular o rateio.");
