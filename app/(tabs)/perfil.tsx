@@ -486,7 +486,7 @@ function Campo({ icon, label, value, editable = true, hint, last = false, ...inp
         {icon ? <Ionicons color={Colors.subtitle} name={icon} size={17} /> : null}
         <Text style={styles.fieldLabel}>{label}</Text>
       </View>
-      <TextInput editable={editable} placeholderTextColor="#94A3B8" style={[styles.input, !editable && styles.inputDisabled]} value={value} {...inputProps} />
+      <TextInput accessibilityLabel={label} editable={editable} placeholderTextColor="#94A3B8" style={[styles.input, !editable && styles.inputDisabled]} value={value} {...inputProps} />
       {hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
     </View>
   );
