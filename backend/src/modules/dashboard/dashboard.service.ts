@@ -70,6 +70,8 @@ export async function dashboardCliente(
     distribuidora: dashboard.distribuidora,
 
     creditos: dashboard.creditos,
+    saldoAtual:dashboard.saldoAtual,
+    competenciaSaldo:dashboard.competenciaSaldo,
 
     consumo,
 

@@ -24,6 +24,7 @@ export async function prepararPlanilhaRateio(usinaId: string, empresaId: string,
     supabase.from("unidades_consumidoras").select("cpf_titular").eq("empresa_id",empresaId).eq("usina_id",usinaId).eq("tipo","GERADORA").maybeSingle(),
   ]);
   for (const r of [producao,unidades,contratos,geradoraResult]) if (r.error) throw r.error;
+  if([producao.data,unidades.data,contratos.data].some(rows=>(rows?.length??0)>=1000))throw new Error("A consulta atingiu o limite de registros. O rateio não será gerado com dados parciais.");
   let clienteAncora: any;
   let documentoDaUcAncora: unknown;
   if (ancora && ["CLIENTE","CONSUMIDOR"].includes(String(usina.titularidade_ucs_recebedoras).toUpperCase())) {
@@ -48,6 +49,7 @@ export async function prepararPlanilhaRateio(usinaId: string, empresaId: string,
   ]) : [{data:[],error:null},{data:[],error:null}];
   if(faturas.error)throw faturas.error;
   if(anexos.error)throw anexos.error;
+  if([faturas.data,anexos.data].some(rows=>(rows?.length??0)>=1000))throw new Error("O histórico atingiu o limite de consulta. O rateio não será gerado sem conferir todos os saldos.");
   const leituras:LeituraSaldoRateio[]=[
     ...(faturas.data??[]).filter(f=>!["CANCELADO","CANCELADA"].includes(String(f.status))).map(f=>({numero:f.numero_instalacao,clienteId:f.cliente_id,referencia:f.referencia,saldo:f.saldo_atual,registradoEm:f.created_at,fonte:"FATURA" as const})),
     ...(anexos.data??[]).map(a=>{const d=a.dados_fatura as any;return {numero:d?.uc,clienteId:a.cliente_id,referencia:d?.referencia,saldo:d?.saldoAtual,registradoEm:a.criado_em,fonte:"ANEXO" as const};}),
