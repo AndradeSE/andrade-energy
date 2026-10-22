@@ -5,6 +5,7 @@ import { criptografarDado, descriptografarDado } from "../../utils/sensitiveData
 import { auditar } from "../../utils/audit";
 import { conferirSenha } from "../../utils/password";
 import { autenticadorAtivo, exigirCodigoFinanceiro, exigirAutorizacaoCadastroPix } from "../financeiro-seguranca/financeiroSeguranca.service";
+import { exigirTitularDaCarteira } from "../asaas/titularRecebimento.service";
 
 const dinheiro = (valor: unknown) => Math.round(Number(valor ?? 0) * 100) / 100;
 const mascarar = (chave: string) => chave.length <= 6 ? "***" : `${chave.slice(0, 2)}***${chave.slice(-4)}`;
@@ -78,10 +79,11 @@ export async function resumoCarteira(usuario: any) {
   const recebido = dinheiro(recebidas.reduce((soma: number, item: any) => soma + Number(item.valor_liquido ?? item.valor), 0));
   const transferido = dinheiro(saidas.reduce((soma: number, item: any) => soma + Number(item.valor), 0));
   const pendente = dinheiro(cobrancas.filter((item: any) => !recebidas.includes(item)).reduce((soma: number, item: any) => soma + Number(item.valor), 0));
+  const titularValidado = await exigirTitularDaCarteira(carteira).then(() => true).catch(() => false);
   return {
     id: carteira.id,
     status: carteira.status,
-    asaasConectado: Boolean(carteira.asaas_wallet_id) || usuario.perfil === "ADMIN",
+    asaasConectado: titularValidado && !carteira.asaas_wallet_id,
     autenticadorAtivo: await autenticadorAtivo(usuario.id),
     transferenciaAutomatica: carteira.transferencia_automatica,
     pixTipo: carteira.pix_tipo,

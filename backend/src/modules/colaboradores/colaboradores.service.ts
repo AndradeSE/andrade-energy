@@ -52,7 +52,32 @@ export async function listarColaboradores(usuario: any) {
   ]);
   if (error) throw error;
   if (conviteError) throw conviteError;
-  return { colaboradores: vinculos ?? [], convites: (convites ?? []).filter((item: any) => item.status === "PENDENTE"), promocoesPermitidas: opcoesPromocaoAdministrador(usuario) };
+  let administradores: any[] = [];
+  if (opcoesPromocaoAdministrador(usuario).length) {
+    const { data: historico, error: erroHistorico } = await supabase.from("auditoria_seguranca").select("recurso_id")
+      .eq("empresa_id", empresaId).eq("acao", "COLABORADOR_PROMOVIDO_ADMIN");
+    if (erroHistorico) throw erroHistorico;
+    const ids = [...new Set((historico ?? []).map((item: any) => item.recurso_id))];
+    if (ids.length) {
+      const { data, error: erroAdmins } = await supabase.from("empresa_usuarios")
+        .select("id,papel,ativo,usuario_id,usuarios!empresa_usuarios_usuario_id_fkey(id,nome,email)")
+        .eq("empresa_id", empresaId).eq("papel", "ADMIN_EMPRESA").eq("ativo", true).eq("principal", false).in("id", ids);
+      if (erroAdmins) throw erroAdmins;
+      administradores = (data ?? []).map((item: any) => ({ ...item, podeRevogar: item.usuario_id !== usuario.id }));
+    }
+  }
+  return { colaboradores: vinculos ?? [], administradores, convites: (convites ?? []).filter((item: any) => item.status === "PENDENTE"), promocoesPermitidas: opcoesPromocaoAdministrador(usuario) };
+}
+
+export async function revogarAdministradorColaborador(id: string, input: any, usuario: any) {
+  if (!opcoesPromocaoAdministrador(usuario).length || input?.confirmacao !== "REVOGAR_ADMINISTRADOR") {
+    throw new Error("Confirme a remoção do acesso de administrador.");
+  }
+  const { data, error } = await supabase.rpc("revogar_administrador_colaborador", {
+    p_ator: usuario.id, p_empresa: usuario.empresa_id, p_vinculo: id,
+  });
+  if (error) throw error;
+  return data;
 }
 
 export async function promoverColaboradorAdministrador(id: string, input: any, usuario: any) {

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { AppHeader, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
-import { atualizarColaborador, cancelarConviteColaborador, convidarColaborador, listarColaboradores, reenviarConviteColaborador, promoverColaboradorAdministrador } from "../../services/colaboradores.service";
+import { atualizarColaborador, cancelarConviteColaborador, convidarColaborador, listarColaboradores, reenviarConviteColaborador, promoverColaboradorAdministrador, revogarAdministradorColaborador } from "../../services/colaboradores.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { juntarNomePessoa, nomePessoaValido } from "../../utils/nomePessoa";
 import { COMMERCIAL_PERMISSION_LABELS, commercialPermission } from "../../config/commercialPermissions";
@@ -60,6 +60,7 @@ export default function Colaboradores({ modoAbaGerador = false, modoConvite = fa
       <Text style={styles.subtitle}>Gerencie os acessos e acompanhe os convites enviados.</Text>
       <TouchableOpacity accessibilityRole="button" onPress={() => router.push({ pathname: "/colaboradores/convidar", params: { ambiente: comercial ? "comercial" : "gerador" } } as any)} style={styles.primary}><Text style={styles.primaryText}>+ Convidar colaborador</Text></TouchableOpacity>
       <Text style={[styles.title, styles.teamTitle]}>Equipe e convites</Text>
+      {(dados.administradores ?? []).map((item: any) => <AdministradorPromovido key={item.id} item={item} onChange={carregar}/>)}
       <TouchableOpacity
         onPress={() => router.push({ pathname: "/colaboradores/atividade", params: { ambiente: modoAbaGerador ? "gerador" : ambiente ?? (admin ? "comercial" : "gerador") } } as any)}
         style={styles.auditButton}
@@ -72,6 +73,23 @@ export default function Colaboradores({ modoAbaGerador = false, modoConvite = fa
       </>}
     </ScrollView>
   </Screen>;
+}
+
+function AdministradorPromovido({ item, onChange }: any) {
+  const [salvando, setSalvando] = useState(false);
+  const pessoa = Array.isArray(item.usuarios) ? item.usuarios[0] : item.usuarios;
+  const revogar = () => Alert.alert("Remover acesso de administrador?", `${pessoa?.nome ?? "Esta pessoa"} voltará a ser colaborador, sem permissões operacionais até você configurá-las. O acesso ao financeiro será removido e as sessões abertas serão encerradas.`, [
+    { text: "Cancelar", style: "cancel" },
+    { text: "Remover acesso ADM", style: "destructive", onPress: () => {
+      setSalvando(true);
+      void revogarAdministradorColaborador(item.id).then(async () => {
+        await onChange();
+        Alert.alert("Acesso ADM removido", "Configure agora as permissões de colaborador. A pessoa precisa entrar novamente.");
+      }).catch((erro: any) => Alert.alert("Não foi possível remover o acesso", erro?.response?.data?.message ?? "Tente novamente."))
+        .finally(() => setSalvando(false));
+    } },
+  ]);
+  return <Card style={styles.member}><Text style={styles.memberName}>{pessoa?.nome ?? "Administrador"}</Text><Text style={styles.memberEmail}>{pessoa?.email}</Text><Text style={styles.role}>Administrador · acesso completo, inclusive financeiro</Text>{item.podeRevogar ? <TouchableOpacity accessibilityRole="button" disabled={salvando} onPress={revogar} style={styles.auditButton}><Text style={styles.actionDanger}>{salvando ? "Removendo…" : "Remover acesso ADM"}</Text></TouchableOpacity> : null}</Card>;
 }
 
 function Member({ item, onChange, promocoes = [] }: any) {
