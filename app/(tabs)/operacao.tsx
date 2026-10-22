@@ -1,3 +1,5 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { initialTabKey } from "../../services/navigation-preload.service";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -22,13 +24,16 @@ const competenciaNome = (valor: string) => {
 export default function Operacao() {
   const { solarCompetencia } = useLocalSearchParams<{ solarCompetencia?: string }>();
   const competenciaSolicitada = typeof solarCompetencia === "string" && /^20\d{2}-(0[1-9]|1[0-2])$/.test(solarCompetencia) ? solarCompetencia : undefined;
-  const { usinaSelecionada } = useAuth();
+  const { user, usinaSelecionada } = useAuth();
+  const queryClient = useQueryClient();
+  const inicial = queryClient.getQueryData<[any, any[]]>(initialTabKey(String(user?.id ?? ""), usinaSelecionada?.id ?? user?.usina_id, "operacao"));
   const usinaId = usinaSelecionada?.id;
   const sequencia = useRef(0);
-  const [resumo, setResumo] = useState<any>();
-  const [lista, setLista] = useState<any[]>([]);
-  const [competencia, setCompetencia] = useState<string>();
-  const [loading, setLoading] = useState(true);
+  const [resumo, setResumo] = useState<any>(inicial?.[0]);
+  const [lista, setLista] = useState<any[]>((inicial?.[1] ?? []).filter(item => String(item.competencia ?? "").slice(0, 7) === inicial?.[0]?.competencia));
+  const [competencia, setCompetencia] = useState<string>(inicial?.[0]?.competencia);
+  const competenciaRef = useRef<string | undefined>(inicial?.[0]?.competencia);
+  const [loading, setLoading] = useState(!inicial);
   const [atualizando, setAtualizando] = useState(false);
 
   const carregar = useCallback(async (alvo?: string) => {
@@ -39,12 +44,13 @@ export default function Operacao() {
       if (pedido !== sequencia.current) return;
       setResumo(r);
       setCompetencia(r.competencia);
+      competenciaRef.current = r.competencia;
       setLista((l ?? []).filter((item: any) => String(item.competencia ?? "").slice(0, 7) === r.competencia));
     } catch (error: any) {
       Alert.alert("Não foi possível carregar a operação", error?.response?.data?.message ?? "Verifique a conexão com o servidor e tente novamente.");
     } finally { if (pedido === sequencia.current) setLoading(false); }
   }, [usinaId]);
-  useFocusEffect(useCallback(() => { setLoading(true); setResumo(undefined); setLista([]); void carregar(competenciaSolicitada); return () => { sequencia.current++; }; }, [carregar, competenciaSolicitada]));
+  useFocusEffect(useCallback(() => { void carregar(competenciaSolicitada ?? competenciaRef.current); return () => { sequencia.current++; }; }, [carregar, competenciaSolicitada]));
 
   async function selecionarCompetencia(valor: string) { setCompetencia(valor); setLoading(true); await carregar(valor); }
   async function atualizarPagina() { setAtualizando(true); try { await carregar(competencia); } finally { setAtualizando(false); } }

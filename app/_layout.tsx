@@ -134,17 +134,19 @@ function RootNavigator() {
   }, [readyUserId, isUnlocked, session?.user?.id, session?.user?.papel_empresa, session?.user?.permissoes, pathname]);
   // A seleção da UC/usina pode ser restaurada depois do pré-carregamento
   // inicial. Atualize o cache desse contexto sem remontar a navegação.
-  const preloadedScope = useRef<string | null>(null);
+  const [readySelectionScope, setReadySelectionScope] = useState<string | null>(null);
+  const selectedScopeId = IS_GERADOR_APP ? usinaSelecionada?.id : unidadeSelecionada?.id;
+  const selectionScope = session?.user?.id && selectedScopeId ? String(session.user.id) + ":" + String(session.user.empresa_id ?? "") + ":" + selectedScopeId : null;
   useEffect(() => {
     const currentUser = session?.user;
     if (isLoading || !currentUser?.id || readyUserId !== String(currentUser.id)) return;
-    const selectionId = IS_GERADOR_APP ? usinaSelecionada?.id : unidadeSelecionada?.id;
-    if (!selectionId) return;
-    const scope = `${currentUser.id}:${selectionId}`;
-    if (preloadedScope.current === scope) return;
-    preloadedScope.current = scope;
-    void preloadNavigationData(activeQueryClient, IS_GERADOR_APP, currentUser, unidadeSelecionada, usinaSelecionada);
-  }, [activeQueryClient, isLoading, readyUserId, session?.user?.id, unidadeSelecionada?.id, usinaSelecionada?.id]);
+    if (!selectionScope) { setReadySelectionScope(null); return; }
+    if (readySelectionScope === selectionScope) return;
+    let active = true;
+    void preloadNavigationData(activeQueryClient, IS_GERADOR_APP, currentUser, unidadeSelecionada, usinaSelecionada)
+      .finally(() => { if (active) setReadySelectionScope(selectionScope); });
+    return () => { active = false; };
+  }, [activeQueryClient, isLoading, readyUserId, session?.user?.id, selectionScope, readySelectionScope]);
   const alertaSessaoAberto = useRef(false);
 
   useEffect(() => {
@@ -250,7 +252,7 @@ function RootNavigator() {
    * mantemos o Stack montado.
    */
   if (sessionError && session?.user?.id) return <View style={{ flex: 1, justifyContent: "center", padding: 28, gap: 20 }}><Text style={{ fontSize: 18 }}>Não foi possível confirmar suas permissões. Confira a conexão e tente novamente.</Text><Pressable accessibilityRole="button" onPress={() => setSessionAttempt(value => value + 1)}><Text style={{ fontSize: 18, color: "#087A46" }}>Tentar novamente</Text></Pressable><Pressable accessibilityRole="button" onPress={() => void signOut()}><Text style={{ fontSize: 18 }}>Sair da conta</Text></Pressable></View>;
-  if (!startupComplete || isLoading || (session?.user?.id && readyUserId !== String(session.user.id))) {
+  if (!startupComplete || isLoading || (session?.user?.id && readyUserId !== String(session.user.id)) || (selectionScope && readySelectionScope !== selectionScope)) {
     return <Loading showRevision animateBrand={!startupComplete} onBrandReady={() => setStartupComplete(true)} />;
   }
 

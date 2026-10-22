@@ -24,14 +24,15 @@ export default function TabLayout() {
     queryKey: ["usinas-validacao-entrada", usuario?.id, usuario?.empresa_id],
     queryFn: listarUsinas,
     enabled: validarUsina && !isLoading && Boolean(usinaId),
-    refetchOnMount: "always",
+    staleTime: 60_000,
+    refetchOnMount: true,
     retry: 1,
   });
   if (comercial) return <Redirect href="/admin/comercial" />;
   if (validarUsina) {
-    if (isLoading || (usinaId && (usinas.isPending || usinas.isFetching))) return <Screen><TabDataPending /></Screen>;
+    if (isLoading || (usinaId && (usinas.isPending && !usinas.data))) return <Screen><TabDataPending /></Screen>;
     if (!usinaId) return <Redirect href="/selecionar-unidade" />;
-    if (usinas.isError) return <Screen><EmptyState title="Não foi possível verificar suas usinas" subtitle="Não foi possível consultar a conta. Isso não significa que suas usinas foram removidas." /><Button title="Tentar novamente" onPress={() => void usinas.refetch()} /></Screen>;
+    if (usinas.isError && !usinas.data) return <Screen><EmptyState title="Não foi possível verificar suas usinas" subtitle="Não foi possível consultar a conta. Isso não significa que suas usinas foram removidas." /><Button title="Tentar novamente" onPress={() => void usinas.refetch()} /></Screen>;
     if (!plantSelectionExists(usinas.data ?? [], usinaId)) return <Redirect href="/selecionar-unidade" />;
   }
   const tabStyle = {

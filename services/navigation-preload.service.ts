@@ -64,16 +64,16 @@ async function loadNavigationCache(
       },
     }));
     // A chave e o filtro precisam coincidir com useFaturas, inclusive por usina.
-    const invoicePlantId = plant?.id ?? undefined;
+    const invoicePlantId = plantId;
     tasks.push(queryClient.prefetchQuery({
       queryKey: ["faturas", invoicePlantId ?? "todas", undefined],
       queryFn: () => listarFaturas(undefined, undefined, invoicePlantId),
     }));
-    tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, plantId, "contratos"), queryFn: () => listarContratosDaEmpresa() }));
+    tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, plantId, "contratos"), queryFn: () => listarContratosDaEmpresa(plantId) }));
     tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, plantId, "clientes"), queryFn: () => listarClientes(plantId ?? undefined) }));
     tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, plantId, "usinas"), queryFn: () => listarUsinas() }));
     tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, plantId, "faturamento"), queryFn: () => listarUnidadesGestor() }));
-    tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, plantId, "operacao"), queryFn: () => Promise.all([obterResumoOperacao(), listarFechamentos()]) }));
+    tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, plantId, "operacao"), queryFn: () => Promise.all([obterResumoOperacao(undefined, plantId), listarFechamentos(plantId)]) }));
     tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, plantId, "financeiro"), queryFn: () => Promise.allSettled([carregarFinanceiro(plantId ?? undefined), carregarCarteira(plantId ?? undefined)]) }));
   } else {
     tasks.push(queryClient.prefetchQuery({ queryKey: ["initial-contract-access", userId], queryFn: listarAcessoContratos }));
