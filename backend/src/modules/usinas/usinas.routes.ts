@@ -24,7 +24,7 @@ import { empresaIdDaRequisicao } from "../../utils/empresaScope";
 import { cadastrarUnidadeOperacional } from "./unidadeOperacional.service";
 import { consultarClimaDoEndereco } from "./clima.service";
 import { supabase } from "../../config/supabase";
-import { rateLimit } from "express-rate-limit";
+import { apiRateLimit } from "../../config/distributedRateLimit";
 import { prepararPlanilhaRateio, enviarPlanilhaAoGerador } from "./rateioMensal.service";
 import { permissaoComercial } from "../comercial/permissoesComerciais";
 import {notificarRateioGerado,obterConfiguracaoRateio,salvarConfiguracaoRateio,buscarRateioAutomatico} from "./rateioAutomatico.service";
@@ -49,7 +49,7 @@ router.get("/", exigirGestor, listarUsinasController);
 router.post("/importar-producao-pdf", exigirGestor, upload.single("arquivo"), importarProducaoPelaUcController);
 
 router.get("/:id", exigirUsinaDaSessaoOuGestor(), buscarUsinaController);
-router.get("/:id/clima", exigirUsinaDaSessaoOuGestor(), rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false }), async (req, res) => {
+router.get("/:id/clima", exigirUsinaDaSessaoOuGestor(), apiRateLimit("usinas-routes-10", { windowMs: 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false }), async (req, res) => {
   try {
     const { data, error } = await supabase.from("usinas").select("endereco")
       .eq("id", req.params.id).eq("empresa_id", empresaIdDaRequisicao(req)).maybeSingle();
@@ -74,7 +74,7 @@ router.get("/:id/rateios-mensais/:competencia",exigirGestor,async(req,res)=>{
   if(!acessoOperacao((req as any).usuario))return res.status(403).json({message:"Acesso à operação não autorizado."});
   try{return res.json(await buscarRateioAutomatico(req.params.id,empresaIdDaRequisicao(req),req.params.competencia));}catch(error:any){return res.status(400).json({message:error.message});}
 });
-router.post("/:id/rateio-mensal", exigirGestor, rateLimit({ windowMs: 60_000, limit: 5 }), async (req, res) => {
+router.post("/:id/rateio-mensal", exigirGestor, apiRateLimit("usinas-routes-11", { windowMs: 60_000, limit: 5 }), async (req, res) => {
   const usuario = (req as any).usuario;
   const papel = String(usuario?.papel_empresa ?? "");
   if ((papel === "COLABORADOR_GERADOR" && usuario?.permissoes?.operacao !== true)

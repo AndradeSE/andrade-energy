@@ -1,16 +1,15 @@
 import { createServerlessHandler, normalizeNetlifyEvent } from "./config/serverlessAdapter";
+import { homologationConfigured, serverlessRequestAllowed } from "./config/serverlessPolicy";
 
 // Fail closed until the isolated homologation deployment is configured.
 let ready: Promise<ReturnType<typeof createServerlessHandler>> | undefined;
 export async function handler(event: object, context: object) {
   const method = (event as { httpMethod?: string }).httpMethod;
   // Initial remote validation cannot mutate records or trigger payments/queues.
-  if (method && !["GET", "HEAD", "OPTIONS"].includes(method)) {
+  if (!method || !serverlessRequestAllowed(method, (event as { path?: string }).path ?? "", process.env)) {
     return { statusCode: 503, body: JSON.stringify({ error: "Contingência em validação: operações de escrita indisponíveis." }) };
   }
-  if (process.env.API_RUNTIME !== "serverless" || process.env.BACKGROUND_JOBS_ENABLED !== "false" ||
-      process.env.NETLIFY_HOMOLOGATION_ENABLED !== "true" ||
-      !isHomologationDatabase(process.env.SUPABASE_URL)) {
+  if (!homologationConfigured(process.env)) {
     return { statusCode: 503, body: JSON.stringify({ error: "API de homologação não configurada." }) };
   }
   ready ??= (async () => {
@@ -25,15 +24,5 @@ export async function handler(event: object, context: object) {
   } catch {
     ready = undefined;
     return { statusCode: 503, body: JSON.stringify({ error: "API temporariamente indisponível." }) };
-  }
-}
-
-function isHomologationDatabase(value: string | undefined): boolean {
-  try {
-    const url = new URL(value ?? "");
-    return url.protocol === "https:" && url.hostname.split(".")[0] === "qqhcjieymypowunkixmk" &&
-      url.hostname.endsWith(".supabase.co");
-  } catch {
-    return false;
   }
 }

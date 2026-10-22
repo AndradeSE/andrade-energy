@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { rateLimit } from "express-rate-limit";
+import { apiRateLimit } from "../../config/distributedRateLimit";
 import { exigirAutenticacao } from "../../middlewares/auth.middleware";
 import { PUBLIC_VOICE_LINES } from "./voice-lines";
 import { conversationContents } from "./conversation-text";
@@ -44,7 +44,7 @@ let providerQuotaUntil = 0;
 const voiceAnswers = new VoiceAnswerStore();
 assistenteVoiceRouter.use(exigirAutenticacao);
 assistenteVoiceRouter.use("/transcrever", transcriptionRouter);
-assistenteVoiceRouter.use(rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: "draft-8", legacyHeaders: false }));
+assistenteVoiceRouter.use(apiRateLimit("voice-routes-7", { windowMs: 60_000, limit: 10, standardHeaders: "draft-8", legacyHeaders: false }));
 
 // Nunca envie a chave permanente ao aplicativo. Um token de sessão, limitado
 // ao Live e a uma única abertura, só é emitido com autenticação e consentimento.

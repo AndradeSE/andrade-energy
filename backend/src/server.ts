@@ -2,7 +2,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import helmet from "helmet";
-import { rateLimit } from "express-rate-limit";
+import { apiRateLimit } from "./config/distributedRateLimit";
 
 import { errorHandler } from "./middlewares/errorHandler";
 
@@ -38,6 +38,7 @@ import notificacoesRoutes from "./modules/notificacoes/notificacoes.routes";
 import privacidadeRoutes from "./modules/privacidade/privacidade.routes";
 import { auditar } from "./utils/audit";
 import { backgroundJobsEnabled } from "./config/backgroundJobs";
+import { trackRequestTask } from "./config/requestTasks";
 import { assistenteVoiceRouter } from "./modules/assistente/voice.routes";
 
 dotenv.config();
@@ -77,11 +78,11 @@ app.use(
 
 app.use(express.json({ limit: "1mb" }));
 
-const apiLimiter = rateLimit({ windowMs: 60_000, limit: 300, standardHeaders: "draft-8", legacyHeaders: false });
-const authLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 30, skip: consultaSessaoAutenticada, standardHeaders: "draft-8", legacyHeaders: false });
-const authSessionLimiter = rateLimit({ windowMs: 60_000, limit: 60, skip: req => !consultaSessaoAutenticada(req), standardHeaders: "draft-8", legacyHeaders: false });
-const convitesLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false });
-const financeiroLimiter = rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false });
+const apiLimiter = apiRateLimit("api", { windowMs: 60_000, limit: 300, standardHeaders: "draft-8", legacyHeaders: false });
+const authLimiter = apiRateLimit("auth-public", { windowMs: 15 * 60_000, limit: 30, skip: consultaSessaoAutenticada, standardHeaders: "draft-8", legacyHeaders: false });
+const authSessionLimiter = apiRateLimit("auth-session", { windowMs: 60_000, limit: 60, skip: req => !consultaSessaoAutenticada(req), standardHeaders: "draft-8", legacyHeaders: false });
+const convitesLimiter = apiRateLimit("invites", { windowMs: 15 * 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false });
+const financeiroLimiter = apiRateLimit("finance", { windowMs: 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false });
 
 // O Asaas envia JSON e autentica o webhook pelo cabeçalho
 // `asaas-access-token`. A rota é pública, mas o token é obrigatório.
@@ -122,14 +123,14 @@ app.use((req, res, next) => {
     if (!papel.startsWith("COLABORADOR_") || rota === "/api/colaboradores/auditoria") return;
     const partes = rota.replace(/^\/api\//, "").split("/").filter(Boolean);
     const recursoId = partes.find((parte) => /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(parte)) ?? null;
-    void auditar({
+    trackRequestTask(auditar({
       empresaId: String(usuario.empresa_id),
       usuarioId: String(usuario.id),
       acao: `COLABORADOR_${req.method}`,
       recurso: partes[0] ?? "api",
       recursoId,
       detalhes: { rota, status: res.statusCode, papel, duracao_ms: Date.now() - inicio },
-    });
+    }));
   });
   next();
 });
@@ -186,6 +187,10 @@ app.get("/health", (_, res) => {
   res.json({
     status: "online",
     commit: (process.env.RENDER_GIT_COMMIT ?? process.env.COMMIT_REF)?.slice(0, 7) ?? "local",
+    ...(process.env.API_RUNTIME === "serverless" ? {
+      contingency: { environment: "preview", readyForFailover: false, writes: false,
+        authenticationValidation: process.env.NETLIFY_AUTH_VALIDATION_ENABLED === "true", backgroundJobs: false },
+    } : {}),
   });
 });
 

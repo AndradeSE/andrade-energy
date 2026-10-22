@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { rateLimit } from "express-rate-limit";
+import { apiRateLimit } from "../../config/distributedRateLimit";
 import { configuracaoAdesaoPublica, criarAdesaoPublica, statusAdesaoPublica } from "./adesaoAssinatura.service";
 import { exigirAutenticacao, exigirOperacaoComercial, exigirPermissaoComercial, exigirSuperAdministradorAndrade } from "../../middlewares/auth.middleware";
 import { recursosDelegados, editarContatoGerador, enviarDocumentoAprovado, lembrarCobranca } from "./delegacaoComercial.service";
@@ -13,7 +13,7 @@ router.get("/adesao/configuracao", async (_req, res) => {
   try { res.setHeader("Cache-Control", "no-store"); return res.json(await configuracaoAdesaoPublica()); }
   catch { return res.status(503).json({ message: "Não foi possível consultar os planos agora." }); }
 });
-router.post("/adesao/checkout", rateLimit({ windowMs: 15*60_000, limit: 10, standardHeaders: "draft-8", legacyHeaders: false }), async (req,res) => {
+router.post("/adesao/checkout", apiRateLimit("comercial-routes-8", { windowMs: 15*60_000, limit: 10, standardHeaders: "draft-8", legacyHeaders: false }), async (req,res) => {
   try { return res.status(201).json(await criarAdesaoPublica(req.body, String(req.header("Idempotency-Key") ?? ""), { ip: req.ip, userAgent: req.get("user-agent"), origin: req.get("origin") })); }
   catch (e: any) { return res.status(400).json({ message: e?.message ?? "Não foi possível iniciar a contratação." }); }
 });
@@ -29,7 +29,7 @@ router.get("/painel", exigirOperacaoComercial, controller.painel);
 const delegada = (res: any, work: Promise<any>) => work.then(data => res.json(data)).catch(error => res.status(400).json({ message: error.message }));
 router.get("/recursos-equipe", exigirOperacaoComercial, (req,res) => delegada(res, recursosDelegados((req as any).usuario)));
 router.patch("/geradores/:id/contato", exigirPermissaoComercial("geradores_editar"), (req,res) => delegada(res, editarContatoGerador((req as any).usuario, req.params.id, req.body)));
-const limiteEnvio = rateLimit({ windowMs: 60_000, limit: 5, standardHeaders: "draft-8", legacyHeaders: false });
+const limiteEnvio = apiRateLimit("comercial-routes-9", { windowMs: 60_000, limit: 5, standardHeaders: "draft-8", legacyHeaders: false });
 router.post("/documentos/:id/enviar", exigirPermissaoComercial("documentos_enviar"), limiteEnvio, (req,res) => delegada(res, enviarDocumentoAprovado((req as any).usuario, req.params.id, String(req.body?.geradorId ?? ""))));
 router.post("/cobrancas/:id/lembrar", exigirPermissaoComercial("cobrancas_lembrar"), limiteEnvio, (req,res) => delegada(res, lembrarCobranca((req as any).usuario, req.params.id)));
 router.use(exigirSuperAdministradorAndrade);
