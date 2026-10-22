@@ -1,5 +1,131 @@
 [
   {
+    "numero": "OTA 20261022-162651",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Conversa da Solar limpa; configuracoes reunidas na engrenagem"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-162213",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Saldo acumulado da UC na Home e estatisticas; Solar opera campos e botoes"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-161651",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio automatico com aviso ao gerador, saldo da UC e receita alinhada"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-155533",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar executa controles antes de consultas e preserva formulario"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-155231",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Solar executa comandos de campos e botoes no formulario atual com confirmacao"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-154640",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar sobre o formulario e UC sem campo manual de CPF"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-154346",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Solar preserva formulario; economia sem quebra e barra protegida no Android"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-153820",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "UC sem campo manual de CPF e edicao protegida contra falha de carregamento"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-152134",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Barra Home respeita navegacao nativa Android"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-151950",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Barra Home acima dos botoes nativos do Android"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-150521",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Consumo médio no card da UC e inicialização sem bloquear a escolha de ambiente"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-150248",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Máscaras de moeda e CPF opcional; titularidade no rateio e preparo da navegação sem bloquear a seleção"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-144119",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Solar com controles seguros e opção de modelo local; dados preparados no início"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-143815",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio mensal no CSV Cemig; consumo médio da UC sem adicional e controles seguros da Solar"
+    ]
+  },
+  {
     "numero": "OTA 20261022-142727",
     "data": "22/10/2026",
     "variant": "consumidor",

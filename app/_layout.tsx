@@ -25,7 +25,7 @@ import { IS_GERADOR_APP } from "../config/appVariant";
 import { registrarPushAndroid } from "../services/notificacoes.service";
 import * as Notifications from "expo-notifications";
 import { preloadNavigationData } from "../services/navigation-preload.service";
-import { listarAcessoContratos } from "../services/contratos.service";
+
 import FloatingAssistant from "../components/assistant/FloatingAssistant";
 import AssistantWakeWord from "../components/assistant/AssistantWakeWord";
 import { isAssistantEnabled as isPreviewEnvironment } from "../config/environment";
@@ -93,23 +93,16 @@ function RootNavigator() {
     const timer = setTimeout(() => setStartupComplete(true), 8000);
     return () => clearTimeout(timer);
   }, []);
-  const selecionarUnidadeRef = useRef(selecionarUnidade);
-  selecionarUnidadeRef.current = selecionarUnidade;
+  const entradaConsumidor = useRef<string | null>(null);
   useEffect(() => {
-    if (IS_GERADOR_APP || isLoading || !session?.user?.id || unidadeSelecionada?.id || pathname.includes("selecionar-unidade")) return;
-    let active = true;
-    void activeQueryClient.fetchQuery({
-      queryKey: ["initial-contract-access", String(session.user.id)],
-      queryFn: listarAcessoContratos,
-      staleTime: 60_000,
-    }).then((unidades) => {
-      if (active && Array.isArray(unidades) && unidades.length === 1) {
-        void selecionarUnidadeRef.current(unidades[0]);
-      }
-    }).catch(() => undefined);
-    return () => { active = false; };
-  }, [activeQueryClient, isLoading, pathname, session?.user?.id, unidadeSelecionada?.id]);
-
+    if (!session?.user?.id) { entradaConsumidor.current = null; return; }
+    if (IS_GERADOR_APP || isLoading || !startupComplete || !isUnlocked || readyUserId !== String(session.user.id)) return;
+    const userId = String(session.user.id);
+    if (entradaConsumidor.current === userId) return;
+    entradaConsumidor.current = userId;
+    // A UC salva serve ao cache, mas não substitui a escolha a cada abertura.
+    void selecionarUnidade(null).then(() => router.replace("/selecionar-unidade"));
+  }, [isLoading, isUnlocked, readyUserId, startupComplete, session?.user?.id]);
   useEffect(() => {
     const currentUser = session?.user;
     if (isLoading || !currentUser?.id || readyUserId === String(currentUser.id)) return;
