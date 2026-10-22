@@ -9,3 +9,12 @@ test("produção consulta dados, sem confundir tutorial de importação", () => 
   assert.match(productionMetricReply({ energiaGerada: 16040, competencia: "09/2026" }, "energiaGerada"), /09\/2026/);
   assert.match(productionMetricReply({}, "energiaGerada"), /Não vou estimar/);
 });
+
+test("saldo de créditos da UC não é produção da usina", async () => {
+  const { detectCapability } = await import("./assistant-capabilities");
+  for (const question of ["Qual meu saldo de energia?", "Qual o saldo acumulado da UC?", "Qual saldo de créditos disponível?"]) {
+    assert.equal(detectProductionMetric(question), undefined);
+    assert.equal(detectCapability(question)?.module, "economia");
+  }
+  assert.equal(detectCapability("Qual meu saldo disponível?")?.module, "carteira");
+});
