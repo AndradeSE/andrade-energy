@@ -107,7 +107,7 @@ function Permissoes({ campos, valores, comercial, disabled = false, onChange }: 
   return <>{Object.entries(campos).map(([chave,label]) => {
     const filha = comercial && chave.startsWith("gerador_");
     const bloqueada = disabled || (filha && valores?.ambientes_gerador !== true);
-    return <View key={chave} style={[styles.permission, filha && {marginLeft:18,paddingLeft:12,borderLeftWidth:2,borderLeftColor:Colors.border}, bloqueada && {opacity:.5}]}><Text style={styles.permissionText}>{label}{chave === "ambientes_gerador" ? " — sem financeiro" : ""}</Text><Switch accessibilityLabel={label} disabled={bloqueada} value={comercial ? commercialPermission(valores,chave) : valores?.[chave] !== false} onValueChange={valor=>onChange(chave,valor)} trackColor={{false:Colors.border,true:Colors.primary}} /></View>;
+    return <View key={chave} style={[styles.permission, filha && {marginLeft:18,paddingLeft:12,borderLeftWidth:2,borderLeftColor:Colors.border}, bloqueada && {opacity:.5}]}><Text style={styles.permissionText}>{label}</Text><Switch accessibilityLabel={label} disabled={bloqueada} value={comercial ? commercialPermission(valores,chave) : valores?.[chave] !== false} onValueChange={valor=>onChange(chave,valor)} trackColor={{false:Colors.border,true:Colors.primary}} /></View>;
   })}</>;
 }
 function Field(props: any) { return <View style={styles.field}><Text style={styles.label}>{props.label}</Text><TextInput {...props} style={styles.input}/></View>; }
