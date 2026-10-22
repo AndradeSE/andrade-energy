@@ -34,6 +34,9 @@ try {
   if ($Audience -eq 'clients' -and $env:CONFIRM_CLIENT_OTA -ne 'SIM') {
     throw 'OTA para clientes bloqueada. Defina CONFIRM_CLIENT_OTA=SIM somente depois de homologar a versão interna.'
   }
+  if ($Audience -eq 'clients' -and (Test-Path -LiteralPath 'output/ota-preview-review-required.flag')) {
+    throw 'Publicação em produção aguardando conferência do Preview.'
+  }
   node.exe scripts/record-ota-release.cjs $Variant $Audience $Message
   if ($LASTEXITCODE -ne 0) { throw 'Não foi possível registrar o histórico desta publicação.' }
   npx.cmd eas-cli@22.2.0 update --channel $channel --environment $easEnvironment --platform android --message $Message

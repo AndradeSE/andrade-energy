@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261021-224201",
+    "data": "21/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Historico de atualizacoes atualizado automaticamente; menu padronizado e Solar no acesso rapido somente quando oculta."
+    ]
+  },
+  {
+    "numero": "OTA 20261021-224035",
+    "data": "21/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Subopcoes recolhidas quando ambiente Gerador esta desligado; historico atualizado automaticamente; Home preserva o ambiente Comercial; Solar no acesso rapido somente quando oculta."
+    ]
+  },
+  {
     "numero": "Melhorias de 21/10/2026",
     "data": "21/10/2026",
     "variant": "gerador",
