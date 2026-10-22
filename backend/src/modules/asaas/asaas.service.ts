@@ -7,6 +7,8 @@ import { buscarCarteiraDaFatura, chavePixDaCarteira } from "../carteira/carteira
 import { exigirContratoAssinadoDaUc } from "../contratos/contratoUc.service";
 import { criarNotificacaoApp } from "../notificacoes/push.service";
 import { exigirRecebimentoDaUsina } from "./titularRecebimento.service";
+import { falhaRepasse, pagamentoDisponivelParaRepasse } from "./repasse.policy";
+import { criptografarDado } from "../../utils/sensitiveData";
 
 function digits(value: unknown) { return String(value ?? "").replace(/\D/g, ""); }
 function hojeNoBrasil() {
@@ -190,6 +192,7 @@ export async function tentarCriarCobrancaAsaas(faturaId: string, empresaId?: str
 }
 
 async function transferirSaldo(cobranca: any) {
+  if (!pagamentoDisponivelParaRepasse(cobranca.status)) return null;
   const { data: carteira } = cobranca.gerador_carteira_id ? await supabase.from("gerador_carteiras").select("*").eq("id", cobranca.gerador_carteira_id).maybeSingle() : { data: null };
   // Repasses automáticos só podem usar uma carteira explicitamente autorizada.
   // A configuração legada por variável de ambiente não tem confirmação do titular.
@@ -197,16 +200,26 @@ async function transferirSaldo(cobranca: any) {
   if (!automatica || carteira?.asaas_wallet_id) return null;
   const key=chavePixDaCarteira(carteira); const keyType=carteira.pix_tipo;
   if(!key||!keyType) throw new Error("Destino Pix não configurado.");
-  const already=await supabase.from("asaas_transferencias").select("*").eq("cobranca_id",cobranca.id).maybeSingle(); if(already.data) return already.data;
+  const already=await supabase.from("asaas_transferencias").select("*").eq("cobranca_id",cobranca.id).maybeSingle();
+  if (already.error) throw already.error;
+  // Recusas antigas sem retorno do provedor exigem reconciliação. Não
+  // reenviar silenciosamente uma movimentação cujo resultado é desconhecido.
+  if(already.data) return already.data;
   const value=Math.max(0,Number(cobranca.valor_liquido??cobranca.valor)-Number(process.env.ASAAS_TRANSFER_RESERVE_VALUE??0)); if(!(value>0)) throw new Error("Valor líquido inválido.");
   const intencaoId=`intent:${crypto.randomUUID()}`;
   const { data: intencao, error: intentError }=await supabase.from("asaas_transferencias").insert({empresa_id:cobranca.empresa_id,cobranca_id:cobranca.id,gerador_carteira_id:carteira?.id??null,asaas_transfer_id:intencaoId,valor:value,status:"AUTHORIZING",destino_mascarado:`${keyType}:***${key.slice(-4)}`,modalidade:"AUTOMATICA"}).select().single();
   if(intentError) throw intentError;
+  let respostaRecebida = false;
   try {
     const transfer=await asaasRequest<any>("/transfers",{method:"POST",body:JSON.stringify({value,pixAddressKey:key,pixAddressKeyType:keyType,operationType:"PIX",description:`Repasse Andrade ${cobranca.fatura_id}`,externalReference:String(intencao.id)})});
-    return (await supabase.from("asaas_transferencias").update({asaas_transfer_id:transfer.id,status:transfer.status,atualizado_em:new Date().toISOString()}).eq("id",intencao.id).select().single()).data;
+    respostaRecebida = true;
+    if (!transfer?.id || !transfer?.status) throw new Error("Resposta de transferência incompleta.");
+    const {data,error}=await supabase.from("asaas_transferencias").update({asaas_transfer_id:transfer.id,status:transfer.status,atualizado_em:new Date().toISOString()}).eq("id",intencao.id).select().single();
+    if(error) throw error;
+    return data;
   } catch(error) {
-    await supabase.from("asaas_transferencias").update({status:"REFUSED",atualizado_em:new Date().toISOString()}).eq("id",intencao.id);
+    const falha = respostaRecebida ? {status:"UNKNOWN",erro_codigo:"PERSISTENCIA_PENDENTE"} : falhaRepasse(error);
+    await supabase.from("asaas_transferencias").update({...falha,erro_detalhe_criptografado:criptografarDado(String((error as any)?.message ?? "Falha sem detalhe").slice(0,2000)),atualizado_em:new Date().toISOString()}).eq("id",intencao.id);
     throw error;
   }
 }
@@ -291,7 +304,7 @@ export async function processarWebhookAsaas(body: any, token?: string) {
       const {data:c}=await supabase.from("asaas_cobrancas").update({status:body.payment.status,valor_liquido:body.payment.netValue??body.payment.value??null,atualizado_em:new Date().toISOString()}).eq("asaas_payment_id",body.payment.id).select().maybeSingle();
       if(c&&["PAYMENT_RECEIVED","PAYMENT_CONFIRMED"].includes(body.event)){
         await supabase.from("faturas").update({status:"PAGO"}).eq("id",c.fatura_id);
-        await transferirSaldo(c);
+        if (body.event === "PAYMENT_RECEIVED") await transferirSaldo(c);
         void (async () => {
           const { data: fatura, error: erroFatura } = await supabase.from("faturas").select("cliente_id,empresa_id,usina_id").eq("id", c.fatura_id).maybeSingle();
           if (erroFatura || !fatura) throw erroFatura ?? new Error("Fatura não encontrada");
@@ -317,7 +330,7 @@ export async function processarWebhookAsaas(body: any, token?: string) {
     }
   }
   if(body.transfer?.id) {
-    const { data: transferencia } = await supabase.from("asaas_transferencias").update({status:body.transfer.status,atualizado_em:new Date().toISOString()}).eq("asaas_transfer_id",body.transfer.id).select().maybeSingle();
+    const { data: transferencia } = await supabase.from("asaas_transferencias").update({status:body.transfer.status,...(body.transfer.failReason ? {erro_codigo:"TRANSFER_FAILED",erro_detalhe_criptografado:criptografarDado(String(body.transfer.failReason).slice(0,2000))} : {}),atualizado_em:new Date().toISOString()}).eq("asaas_transfer_id",body.transfer.id).select().maybeSingle();
     if (transferencia?.cobranca_id && String(body.transfer.status).toUpperCase() === "DONE") {
       await supabase.from("asaas_cobrancas").update({ valor_liquido: body.transfer.value, atualizado_em: new Date().toISOString() }).eq("id", transferencia.cobranca_id);
     }
