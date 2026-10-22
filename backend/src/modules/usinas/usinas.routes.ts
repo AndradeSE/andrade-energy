@@ -65,7 +65,7 @@ router.post("/:id/rateio-mensal", exigirGestor, rateLimit({ windowMs: 60_000, li
   }
   try {
     const empresaId = empresaIdDaRequisicao(req);
-    const plano = await prepararPlanilhaRateio(req.params.id,empresaId,String(req.body?.competencia ?? ""),String(req.body?.ucAncora ?? ""));
+    const plano = await prepararPlanilhaRateio(req.params.id,empresaId,String(req.body?.competencia ?? ""),String(req.body?.ucAncora ?? ""),String(req.body?.documentoAncora ?? ""),req.body?.numerosAtuaisConfirmados === true,req.body?.formatoCemig === true);
     res.setHeader("Cache-Control","private, no-store");
     const email = req.body?.enviarEmail === true ? await enviarPlanilhaAoGerador(req.params.id,empresaId,plano,usuario) : {enviado:false};
     return res.json({...plano,emailEnviado:email.enviado});

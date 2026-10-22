@@ -1,8 +1,8 @@
 import { supabase } from "../../config/supabase";
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
-import { proporRateioMensal, csvRateioMensal } from "./rateioMensal.policy";
+import { proporRateioMensal, csvRateioMensal, csvCemigRateio, pendenciasCsvCemig } from "./rateioMensal.policy";
 
-export async function prepararPlanilhaRateio(usinaId: string, empresaId: string, competencia: string, ancora: string) {
+export async function prepararPlanilhaRateio(usinaId: string, empresaId: string, competencia: string, ancora: string, documentoAncora = "", numerosAtuaisConfirmados = false, formatoCemig = false) {
   if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(competencia)) throw new Error("Selecione a competência do rateio.");
   const { data: usina, error } = await supabase.from("usinas").select("id,nome,numero_instalacao,geracao_media")
     .eq("id",usinaId).eq("empresa_id",empresaId).maybeSingle();
@@ -15,7 +15,7 @@ export async function prepararPlanilhaRateio(usinaId: string, empresaId: string,
   const [producao, unidades, contratos] = await Promise.all([
     supabase.from("fechamentos").select("energia_gerada").eq("empresa_id",empresaId).eq("usina_id",usinaId)
       .gte("competencia",inicio.toISOString().slice(0,10)).lt("competencia",fim.toISOString().slice(0,10)),
-    supabase.from("unidades_consumidoras").select("id,numero,apelido,consumo_medio_kwh")
+    supabase.from("unidades_consumidoras").select("id,numero,apelido,consumo_medio_kwh,cpf_titular")
       .eq("empresa_id",empresaId).eq("usina_id",usinaId).eq("status","ATIVA").neq("tipo","GERADORA").order("numero"),
     supabase.from("contratos").select("unidade_consumidora_id,aceite_cliente_em,contrato_assinado_url,status")
       .eq("empresa_id",empresaId).in("status",["ATIVO","VIGENTE"]),
@@ -27,10 +27,12 @@ export async function prepararPlanilhaRateio(usinaId: string, empresaId: string,
   const media = valores.reduce((s,n)=>s+n,0)/valores.length;
   const assinadas = new Set((contratos.data ?? []).filter(c=>c.aceite_cliente_em||c.contrato_assinado_url||c.status==="VIGENTE").map(c=>c.unidade_consumidora_id));
   const elegiveis = (unidades.data ?? []).filter(u=>assinadas.has(u.id));
-  const plano = proporRateioMensal(media,elegiveis.map(u=>({numero:String(u.numero),nome:u.apelido||`UC ${u.numero}`,consumo_medio_kwh:Number(u.consumo_medio_kwh)})),ancora);
-  return { ...plano, competencia, mesesNaMedia:valores.length, ucsExcluidas:(unidades.data ?? []).length-elegiveis.length,
-    arquivo:`rateio-${competencia}-${String(usina.numero_instalacao || usina.id).replace(/[^\w-]/g,"")}.csv`,
-    csv:csvRateioMensal(plano,competencia,String(usina.numero_instalacao ?? "Não informado")) };
+  const plano = proporRateioMensal(media,elegiveis.map(u=>({numero:String(u.numero),nome:u.apelido||`UC ${u.numero}`,documento:u.cpf_titular,consumo_medio_kwh:Number(u.consumo_medio_kwh)})),ancora);
+  const geradora=String(usina.numero_instalacao ?? "").replace(/\D/g,"");
+  const pendencias=pendenciasCsvCemig(plano,geradora,documentoAncora,numerosAtuaisConfirmados);
+  return { ...plano, rascunho:!formatoCemig, formatoCemig, pendencias, competencia, mesesNaMedia:valores.length, ucsExcluidas:(unidades.data ?? []).length-elegiveis.length,
+    arquivo:`${formatoCemig?"cemig-rateio":"rascunho-rateio"}-${competencia}-${String(usina.numero_instalacao || usina.id).replace(/[^\w-]/g,"")}.csv`,
+    csv:formatoCemig ? csvCemigRateio(plano,geradora,documentoAncora,numerosAtuaisConfirmados) : csvRateioMensal({...plano,rascunho:true},competencia,geradora) };
 }
 
 export async function enviarPlanilhaAoGerador(usinaId: string, empresaId: string, plano: Awaited<ReturnType<typeof prepararPlanilhaRateio>>, usuario: any) {
@@ -55,7 +57,7 @@ export async function enviarPlanilhaAoGerador(usinaId: string, empresaId: string
   if (!destino?.email) throw new Error("O gerador não possui e-mail cadastrado.");
   const enviado = await enviarEmailTransacional({empresaId,destinatario:destino.email,
     assunto:`${plano.rascunho ? "Rascunho de rateio" : "Proposta de rateio"} — ${plano.competencia}`,
-    html:`<p>Segue a planilha mensal de rateio para conferência.</p><p>${plano.rascunho ? "A UC âncora ainda não foi definida. Preencha o número antes de solicitar o rateio à Cemig." : "A UC âncora recebe somente a parcela não destinada às beneficiárias."}</p><p>Os percentuais usam o consumo médio, sem margem adicional, dividido pela média real de produção. A energia indicada é uma previsão. O documento não comprova envio nem aplicação pela Cemig.</p>`,
+    html:`<p>Segue a planilha mensal de rateio para conferência.</p><p>${plano.rascunho ? "Este arquivo é rascunho de conferência. Revise os dados e gere o CSV no padrão Cemig pelo aplicativo antes de solicitar o rateio." : "A UC âncora recebe a parcela não destinada às beneficiárias. O CSV segue o guia Cemig: UC, CPF/CNPJ, Cota e Âncora, sem cabeçalho."}</p><p>Os percentuais usam o consumo médio, sem margem adicional, dividido pela média real de produção. A energia indicada é uma previsão. O documento não comprova envio nem aplicação pela Cemig.</p>`,
     anexos:[{filename:plano.arquivo,content:Buffer.from(plano.csv,"utf8"),contentType:"text/csv; charset=utf-8"}],
   });
   return { enviado };
