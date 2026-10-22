@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261022-144119",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Solar com controles seguros e opção de modelo local; dados preparados no início"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-143815",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio mensal no CSV Cemig; consumo médio da UC sem adicional e controles seguros da Solar"
+    ]
+  },
+  {
     "numero": "OTA 20261022-142727",
     "data": "22/10/2026",
     "variant": "consumidor",
