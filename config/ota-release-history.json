@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261022-152134",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Barra Home respeita navegacao nativa Android"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-151950",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Barra Home acima dos botoes nativos do Android"
+    ]
+  },
+  {
     "numero": "OTA 20261022-150521",
     "data": "22/10/2026",
     "variant": "consumidor",
