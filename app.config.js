@@ -1,6 +1,7 @@
 const gerador =
   process.env.EXPO_PUBLIC_APP_VARIANT === "gerador";
 const preview = process.env.EXPO_PUBLIC_APP_ENV === "preview";
+const emulatorBuild = preview && process.env.ANDRADE_ANDROID_EMULATOR === "1";
 // Production IA requires a new native APK; older production runtimes stay isolated.
 const assistantNative = preview || process.env.EXPO_PUBLIC_ENABLE_GEMINI_LIVE === "1";
 const variant = gerador ? "gerador" : "consumidor";
@@ -123,7 +124,7 @@ module.exports = {
         {
           android: {
             usesCleartextTraffic: false,
-            ...(preview ? { buildArchs: ["arm64-v8a"] } : {}),
+            ...(preview ? { buildArchs: [emulatorBuild ? "x86_64" : "arm64-v8a"] } : {}),
           },
         },
       ],

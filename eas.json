@@ -4,6 +4,18 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "preview-emulador-gerador": {
+      "extends": "preview-gerador",
+      "environment": "preview",
+      "android": { "buildType": "apk" },
+      "env": { "ANDRADE_ANDROID_EMULATOR": "1" }
+    },
+    "preview-emulador-consumidor": {
+      "extends": "preview",
+      "environment": "preview",
+      "android": { "buildType": "apk" },
+      "env": { "ANDRADE_ANDROID_EMULATOR": "1" }
+    },
     "development": {
       "developmentClient": true,
       "distribution": "internal",
