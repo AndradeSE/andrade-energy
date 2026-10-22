@@ -36,7 +36,6 @@ export default function ClienteHome() {
   const [recebimentoAtivo, setRecebimentoAtivo] = useState(false);
   const [unidadeRecebimentoId, setUnidadeRecebimentoId] = useState("");
   const [concessionariaDaUnidade, setConcessionariaDaUnidade] = useState("");
-  const [personalizarAcesso, setPersonalizarAcesso] = useState(0);
   const assistantHidden = useSyncExternalStore(subscribeFloatingHidden, floatingHidden);
   useEffect(() => { if (user?.id) void loadFloatingPreference(String(user.id)); }, [user?.id]);
 
@@ -184,14 +183,10 @@ export default function ClienteHome() {
 
         <View style={styles.quickHeader}>
           <Text style={styles.quickTitle}>Acesso rápido</Text>
-          <TouchableOpacity accessibilityLabel="Personalizar acesso rápido" onPress={() => setPersonalizarAcesso((valor) => valor + 1)}>
-            <Text style={styles.quickHint}>Personalizar  ⚙</Text>
-          </TouchableOpacity>
         </View>
         {recebimentoObrigatorio && !recebimentoAtivo ? <TouchableOpacity activeOpacity={0.84} onPress={() => unidadeRecebimentoId ? router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidadeRecebimentoId } }) : router.push("/selecionar-unidade")} style={styles.requiredEmailCard}><View style={styles.requiredEmailIcon}><Ionicons name="alert-circle-outline" size={23} color="#9A5B00" /></View><View style={styles.requiredEmailCopy}><Text style={styles.requiredEmailTitle}>Ativação obrigatória</Text><Text style={styles.requiredEmailText}>Conecte seu e-mail para que as próximas faturas sejam recebidas e processadas automaticamente.</Text></View><Ionicons name="chevron-forward" size={20} color="#9A5B00" /></TouchableOpacity> : null}
         <QuickAccessCarousel
           storageKey="consumidor-home"
-          customizeSignal={personalizarAcesso}
           pinnedIds={isPreviewEnvironment && assistantHidden ? ["mostrar-assistente"] : []}
           items={[
             ...(isPreviewEnvironment && assistantHidden ? [{ id: "mostrar-assistente", icon: "chatbubble-ellipses-outline" as const, image: require("../../assets/images/assistant-chat-3d-v2.png"), label: "Mostrar Solar", onPress: () => void setFloatingHidden(String(user?.id ?? ""), false) }] : []),

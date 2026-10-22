@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261022-162651",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Conversa da Solar limpa; configuracoes reunidas na engrenagem"
+    ]
+  },
+  {
     "numero": "OTA 20261022-162213",
     "data": "22/10/2026",
     "variant": "consumidor",
