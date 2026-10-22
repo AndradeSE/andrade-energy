@@ -10,12 +10,14 @@ import { IS_GERADOR_APP } from "../../config/appVariant";
 import AppTabIcon from "../../components/navigation/AppTabIcon";
 import UnifiedExpoTabBar from "../../components/navigation/UnifiedExpoTabBar";
 import { APP_TAB_BAR_METRICS } from "../../components/navigation/AppTabBarFrame";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 function TabIcon({ name, color, featured = false }: { name: keyof typeof Ionicons.glyphMap; color: string; featured?: boolean }) {
   return <AppTabIcon name={name} color={color} featured={featured} />;
 }
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
   const { usuario, usinaSelecionada, isLoading } = useAuth();
   const comercial = IS_GERADOR_APP && usuario?.papel_empresa === "COLABORADOR_COMERCIAL" && usuario?.permissoes?.ambientes_gerador !== true;
   const validarUsina = IS_GERADOR_APP && !comercial && (usuario?.perfil === "ADMIN" || usuario?.perfil === "GESTOR");
@@ -36,9 +38,9 @@ export default function TabLayout() {
     if (!plantSelectionExists(usinas.data ?? [], usinaId)) return <Redirect href="/selecionar-unidade" />;
   }
   const tabStyle = {
-    height: APP_TAB_BAR_METRICS.height,
+    height: APP_TAB_BAR_METRICS.height + insets.bottom,
     paddingTop: APP_TAB_BAR_METRICS.paddingTop,
-    paddingBottom: APP_TAB_BAR_METRICS.paddingBottom,
+    paddingBottom: APP_TAB_BAR_METRICS.paddingBottom + insets.bottom,
     overflow: "visible",
     backgroundColor: "transparent",
     borderTopLeftRadius: APP_TAB_BAR_METRICS.radius,

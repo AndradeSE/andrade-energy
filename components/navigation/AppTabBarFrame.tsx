@@ -1,6 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import type { PropsWithChildren } from "react";
 import { StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Colors } from "../../theme";
 
@@ -13,8 +14,9 @@ export const APP_TAB_BAR_METRICS = {
 } as const;
 
 export default function AppTabBarFrame({ children }: PropsWithChildren) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.cornerFill}>
+    <View style={[styles.cornerFill, { paddingBottom: insets.bottom }]}>
       <View style={styles.bar}>
         <LinearGradient
           colors={["#FFFFFF", "#DCE3DF"]}
