@@ -79,8 +79,8 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
     {resultado?.pendencias?.length?<Text style={{color:Colors.subtitle}}>Para o CSV Cemig: {resultado.pendencias.join(" ")}</Text>:null}
     {resultado && !resultado.rascunho?<View style={{padding:12,borderRadius:12,backgroundColor:"#EFF7F2",gap:8}}>
       <Text style={{fontWeight:"700",color:Colors.text}}>Solicitação à Cemig</Text>
-      <Text style={{color:Colors.subtitle}}>CSV preparado. Abra o Cemig Atende, selecione a usina e anexe o arquivo. Login, CAPTCHA e confirmação são feitos no portal. A abertura do portal não confirma envio nem aplicação do rateio.</Text>
-      <Pressable accessibilityRole="link" onPress={()=>void Linking.openURL("https://atende.cemig.com.br/").catch(()=>Alert.alert("Não foi possível abrir","Acesse atende.cemig.com.br no navegador."))} style={{minHeight:44,flexDirection:"row",alignItems:"center",gap:8}}><Ionicons name="open-outline" size={20} color={Colors.primary}/><Text style={{color:Colors.primary,fontWeight:"700"}}>Continuar no Cemig Atende</Text></Pressable>
+      <Text style={{color:Colors.subtitle}}>CSV preparado. Abra Compensação de Geração Distribuída, selecione a geradora e a modalidade, escolha Inserir por anexo e anexe o CSV. Login, CAPTCHA e confirmação são feitos no portal. A abertura do portal não confirma envio nem aplicação do rateio.</Text>
+      <Pressable accessibilityRole="link" onPress={()=>void Linking.openURL("https://www.atendimento.cemig.com.br/portal/services/compensation-gd").catch(()=>Alert.alert("Não foi possível abrir","Acesse o Cemig Atende no navegador."))} style={{minHeight:44,flexDirection:"row",alignItems:"center",gap:8}}><Ionicons name="open-outline" size={20} color={Colors.primary}/><Text style={{color:Colors.primary,fontWeight:"700"}}>Continuar no Cemig Atende</Text></Pressable>
     </View>:null}
     <View style={{borderTopWidth:1,borderColor:Colors.border,paddingTop:12,gap:8}}>
       <Text style={{fontWeight:"700",color:Colors.text}}>Preparar planilha</Text>
