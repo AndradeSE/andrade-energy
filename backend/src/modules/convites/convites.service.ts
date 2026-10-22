@@ -4,6 +4,7 @@ import { gerarToken, hashToken } from "../../utils/token";
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import { empresaIdDoUsuario } from "../../config/empresa";
 import { nomePessoaValido, validarCadastroCliente } from "../clientes/validacaoCadastro";
+import { permissaoComercial } from "../comercial/permissoesComerciais";
 
 function cpfLimpo(valor: unknown) { return String(valor ?? "").replace(/\D/g, ""); }
 function telefoneWhatsapp(valor: unknown) {
@@ -186,7 +187,12 @@ export async function concluirConvite(convite: any, usuarioId: string) {
 }
 
 export async function criarConviteGerador(input: any, administrador: any) {
-  if (administrador?.perfil !== "ADMIN") throw new Error("Apenas a conta administradora pode convidar novos geradores.");
+  if (!permissaoComercial(administrador, "geradores_convidar")) throw new Error("Convites de geradores não liberados pelo administrador.");
+  if (administrador?.papel_empresa === "COLABORADOR_COMERCIAL") {
+    if (String(input?.perfil ?? "GESTOR").toUpperCase() !== "GESTOR" || (input?.empresaId && input.empresaId !== administrador.empresa_id)) throw new Error("Colaboradores não podem criar administradores ou alterar a empresa do convite.");
+    if (input?.planoId && !permissaoComercial(administrador, "contratos_enviar")) throw new Error("Envio de contratação não liberado pelo administrador.");
+    if (input?.planoId && input?.diasTeste !== undefined && Number(input.diasTeste) !== 45) throw new Error("O período comercial deve seguir o padrão aprovado de 45 dias.");
+  }
   const perfil = String(input?.perfil ?? "GESTOR").toUpperCase() === "ADMIN" ? "ADMIN" : "GESTOR";
   const empresaId = String(input?.empresaId ?? empresaIdDoUsuario(administrador));
   const cpf = cpfLimpo(input.cpf);

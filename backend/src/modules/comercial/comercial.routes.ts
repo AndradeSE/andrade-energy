@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
 import { configuracaoAdesaoPublica, criarAdesaoPublica, statusAdesaoPublica } from "./adesaoAssinatura.service";
-import { exigirAutenticacao, exigirOperacaoComercial, exigirSuperAdministradorAndrade } from "../../middlewares/auth.middleware";
+import { exigirAutenticacao, exigirOperacaoComercial, exigirPermissaoComercial, exigirSuperAdministradorAndrade } from "../../middlewares/auth.middleware";
+import { recursosDelegados, editarContatoGerador, enviarDocumentoAprovado, lembrarCobranca } from "./delegacaoComercial.service";
 import * as controller from "./comercial.controller";
 import { alterarTransferenciaAutomaticaAssinaturas } from "./comercial.service";
 import { autenticadorAtivo, confirmarAutenticador, confirmarSenhaFinanceira, iniciarAutenticador, validarCodigoFinanceiro } from "../financeiro-seguranca/financeiroSeguranca.service";
@@ -25,6 +26,12 @@ router.get("/minha-assinatura/termos", exigirAutenticacao, controller.termosMinh
 router.post("/minha-assinatura/checkout", exigirAutenticacao, controller.checkoutMinhaAssinatura);
 router.use(exigirAutenticacao);
 router.get("/painel", exigirOperacaoComercial, controller.painel);
+const delegada = (res: any, work: Promise<any>) => work.then(data => res.json(data)).catch(error => res.status(400).json({ message: error.message }));
+router.get("/recursos-equipe", exigirOperacaoComercial, (req,res) => delegada(res, recursosDelegados((req as any).usuario)));
+router.patch("/geradores/:id/contato", exigirPermissaoComercial("geradores_editar"), (req,res) => delegada(res, editarContatoGerador((req as any).usuario, req.params.id, req.body)));
+const limiteEnvio = rateLimit({ windowMs: 60_000, limit: 5, standardHeaders: "draft-8", legacyHeaders: false });
+router.post("/documentos/:id/enviar", exigirPermissaoComercial("documentos_enviar"), limiteEnvio, (req,res) => delegada(res, enviarDocumentoAprovado((req as any).usuario, req.params.id, String(req.body?.geradorId ?? ""))));
+router.post("/cobrancas/:id/lembrar", exigirPermissaoComercial("cobrancas_lembrar"), limiteEnvio, (req,res) => delegada(res, lembrarCobranca((req as any).usuario, req.params.id)));
 router.use(exigirSuperAdministradorAndrade);
 router.get("/financeiro/autenticador", async (req, res) => { try { return res.json({ ativo: await autenticadorAtivo((req as any).usuario.id) }); } catch (error: any) { return res.status(400).json({ message: error.message }); } });
 router.post("/financeiro/autenticador/confirmar-senha", async (req, res) => { try { return res.json(await confirmarSenhaFinanceira((req as any).usuario, String(req.body?.senhaAtual ?? ""))); } catch (error: any) { return res.status(400).json({ message: error.message }); } });

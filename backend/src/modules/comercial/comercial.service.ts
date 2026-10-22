@@ -1,3 +1,4 @@
+import { permissaoComercial } from "./permissoesComerciais";
 import { supabase } from "../../config/supabase";
 import { asaasComercialConfigurado, asaasComercialRequest } from "./asaasComercial.client";
 import { conferirSenha } from "../../utils/password";
@@ -109,7 +110,7 @@ export async function obterPainelComercial(usuario?: any) {
     if (assinaturasError) throw assinaturasError;
     if (titularesError) throw titularesError;
     const idsTitulares = new Set((titulares ?? []).map(item => item.usuario_id));
-    const contasGeradoras = (geradores ?? []).filter(item => idsTitulares.has(item.id));
+    const contasGeradoras = permissaoComercial(usuario, "geradores") ? (geradores ?? []).filter(item => idsTitulares.has(item.id)) : [];
     return { resumo: { total: contasGeradoras.length, ativas: (assinaturas ?? []).filter(item => item.status === "ATIVA").length, inadimplentes: 0, receitaMensalPrevista: 0 }, financeiro: null, planos: [], assinaturas: assinaturas ?? [], cobrancas: [], documentos: documentos ?? [], geradores: contasGeradoras, acessoColaborador: true };
   }
   const [
