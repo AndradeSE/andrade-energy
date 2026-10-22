@@ -165,7 +165,7 @@ export default function ClienteHome() {
         <View style={styles.overviewHero}>
           <View style={styles.overviewCopy}>
             <Text style={styles.overviewEyebrow}>ECONOMIA ACUMULADA</Text>
-            <Text style={styles.overviewValue}>{moeda(economiaAcumulada)}</Text>
+            <Text style={styles.overviewValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{moeda(economiaAcumulada)}</Text>
             <Text style={styles.overviewCaption}>
               Sua energia gerando valor desde o início do contrato
             </Text>
