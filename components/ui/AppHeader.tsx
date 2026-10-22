@@ -96,7 +96,7 @@ export default function AppHeader({
   const papelEmpresa = String(usuario?.papel_empresa ?? "");
   const colaborador = papelEmpresa.startsWith("COLABORADOR_");
   const proprietario = IS_GERADOR_APP && !colaborador;
-  const podeAlternarPerfil = IS_GERADOR_APP && (usuario?.perfil === "ADMIN" || (colaborador && usuario?.permissoes?.ambientes_gerador === true));
+  const podeAlternarPerfil = IS_GERADOR_APP && (colaborador ? usuario?.permissoes?.ambientes_gerador === true : usuario?.perfil === "ADMIN");
   const ambienteComercial = environmentName === "Gestão comercial" || (papelEmpresa === "COLABORADOR_COMERCIAL" && usuario?.permissoes?.ambientes_gerador !== true);
 
   useEffect(() => {
@@ -290,9 +290,9 @@ export default function AppHeader({
             <ScrollView showsVerticalScrollIndicator={false} style={styles.menuScroll} contentContainerStyle={[styles.menuScrollContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
             <MenuLink icon="home-outline" label="Início" onPress={() => navegar(papelEmpresa === "COLABORADOR_COMERCIAL" && ambienteComercial ? "/admin/comercial" : "/")} />
             {IS_GERADOR_APP && papelEmpresa === "COLABORADOR_COMERCIAL" && ambienteComercial ? <>{usuario?.permissoes?.geradores !== false ? <MenuLink icon="people-outline" label="Geradores" onPress={() => navegar("/geradores/gestao?aba=GERADORES")} /> : null}<MenuLink icon="construct-outline" label="Ferramentas comerciais" onPress={() => navegar("/geradores/recursos-equipe")} />{usuario?.permissoes?.monitoramento !== false ? <MenuLink icon="pulse-outline" label="Monitoramento" onPress={() => navegar("/geradores/monitoramento")} /> : null}<MenuLink icon="time-outline" label="Atividade da equipe" onPress={() => navegar("/colaboradores/atividade?ambiente=comercial")} /></> : IS_GERADOR_APP && colaborador ? <>
-              {usuario?.permissoes?.clientes !== false ? <MenuLink icon="people-outline" label="Clientes" onPress={() => navegar("/clientes")} /> : null}
+              {(papelEmpresa === "COLABORADOR_COMERCIAL" ? usuario?.permissoes?.gerador_clientes === true : usuario?.permissoes?.clientes !== false) ? <MenuLink icon="people-outline" label="Clientes" onPress={() => navegar("/clientes")} /> : null}
               {usuario?.permissoes?.unidades !== false ? <MenuLink icon="flash-outline" label="Unidades consumidoras" onPress={() => navegar("/unidades")} /> : null}
-              {usuario?.permissoes?.contratos !== false ? <MenuLink icon="document-text-outline" label="Contratos" onPress={() => navegar("/contratos")} /> : null}
+              {(papelEmpresa === "COLABORADOR_COMERCIAL" ? usuario?.permissoes?.gerador_contratos === true : usuario?.permissoes?.contratos !== false) ? <MenuLink icon="document-text-outline" label="Contratos" onPress={() => navegar("/contratos")} /> : null}
               {papelEmpresa === "COLABORADOR_COMERCIAL" ? <MenuLink icon="people-outline" label="Geradores" onPress={() => navegar("/geradores/gestao?aba=GERADORES")} /> : null}
               <MenuLink icon="time-outline" label="Atividade da equipe" onPress={() => navegar("/colaboradores/atividade")} />
             </> : proprietario ? ambienteComercial ? <>

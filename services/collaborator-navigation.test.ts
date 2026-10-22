@@ -6,6 +6,8 @@ test("acesso aos ambientes não libera financeiro nem gestão de equipe", () => 
   assert.equal(collaboratorRedirect("COLABORADOR_COMERCIAL", "/selecionar-unidade", permissoes), undefined);
   assert.equal(collaboratorRedirect("COLABORADOR_COMERCIAL", "/admin/escolher-area", permissoes), undefined);
   assert.equal(generatorTabAllowed("index", "COLABORADOR_COMERCIAL", permissoes), true);
+  assert.equal(generatorTabAllowed("clientes", "COLABORADOR_COMERCIAL", permissoes), false);
+  assert.equal(generatorTabAllowed("clientes", "COLABORADOR_COMERCIAL", {...permissoes, gerador_clientes:true}), true);
   for (const aba of ["equipe", "financeiro"]) assert.equal(generatorTabAllowed(aba, "COLABORADOR_COMERCIAL", permissoes), false);
   for (const rota of ["/financeiro", "/financeiro/extrato", "/colaboradores", "/admin/empresas"]) assert.equal(collaboratorRedirect("COLABORADOR_COMERCIAL", rota, permissoes), "/admin/comercial");
 });

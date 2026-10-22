@@ -4,6 +4,9 @@ import { permissaoComercial, normalizarPermissoesComerciais } from "./permissoes
 import { EMPRESA_ANDRADE_ID, usuarioEhSuperAdministradorAndrade } from "../../config/empresa";
 const convidado = { empresa_id: EMPRESA_ANDRADE_ID, papel_empresa: "COLABORADOR_COMERCIAL", perfil: "GESTOR", permissoes: {} };
 test("novos poderes são opt-in e herdam a consulta obrigatória", () => {
+  assert.equal(permissaoComercial({...convidado,permissoes:{gerador_clientes:true}},"gerador_clientes"),false);
+  assert.equal(permissaoComercial({...convidado,permissoes:{ambientes_gerador:true,gerador_clientes:true}},"gerador_clientes"),true);
+  assert.equal(permissaoComercial({...convidado,permissoes:{ambientes_gerador:true}},"gerador_clientes"),false);
   assert.equal(permissaoComercial(convidado,"ambientes_gerador"),false);
   assert.equal(permissaoComercial(convidado,"geradores_convidar"),false);
   assert.equal(permissaoComercial({...convidado,permissoes:{geradores_convidar:true}},"geradores_convidar"),true);

@@ -21,3 +21,16 @@ test("operação geradora mantém o controle de permissões do colaborador", asy
     assert.equal(continuou, permitido);
   }
 });
+test("subpermissões do Comercial exigem ativação individual e não liberam carteira", async () => {
+  const { exigirGestor, exigirTitularFinanceiro } = await import("../../middlewares/auth.middleware.js");
+  const usuario = { empresa_id:"00000000-0000-4000-8000-000000000001", perfil:"GESTOR", papel_empresa:"COLABORADOR_COMERCIAL", permissoes:{ambientes_gerador:true,gerador_clientes:true} };
+  const res:any = {status:()=>res,json:()=>res};
+  for (const [baseUrl, esperado] of [["/api/clientes",true],["/api/faturas",false],["/api/fechamentos",false]] as const) {
+    let passou=false;
+    exigirGestor({usuario,baseUrl,path:"/",method:"GET"} as any,res,()=>{passou=true;});
+    assert.equal(passou,esperado);
+  }
+  let financeiro=false;
+  exigirTitularFinanceiro({usuario} as any,res,()=>{financeiro=true;});
+  assert.equal(financeiro,false);
+});

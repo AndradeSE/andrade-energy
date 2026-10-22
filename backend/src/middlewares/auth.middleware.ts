@@ -96,6 +96,14 @@ export function exigirGestor(req: Request, res: Response, next: NextFunction) {
   const papel = String((req as any).usuario?.papel_empresa ?? "").toUpperCase();
   if (papel === "COLABORADOR_COMERCIAL" && !permissaoComercial((req as any).usuario, "ambientes_gerador")) return res.status(403).json({ message: "Seu acesso pertence ao Comercial. Abra a gestão comercial para continuar." });
   if (perfil !== "ADMIN" && perfil !== "GESTOR" && papel !== "COLABORADOR_GERADOR") return res.status(403).json({ message: "Acesso exclusivo da operação geradora." });
+  if (papel === "COLABORADOR_COMERCIAL") {
+    const recurso = req.baseUrl.includes("/clientes") ? (req.path.includes("unidade") ? "unidades" : "clientes")
+      : req.baseUrl.includes("/usinas") ? "usinas" : req.baseUrl.includes("/contratos") ? "contratos"
+      : /\/(faturas|asaas|recebimento-faturas|conexoes-email|oauth)/.test(req.baseUrl) ? "faturas" : /\/(operacao|fechamentos|creditos|rateio)/.test(req.baseUrl) ? "operacao" : null;
+    // A lista de usinas é necessária para escolher o contexto de qualquer subpermissão.
+    const selecao = recurso === "usinas" && req.method === "GET";
+    if (recurso && !selecao && !permissaoComercial((req as any).usuario, `gerador_${recurso}` as PermissaoComercial)) return res.status(403).json({ message: "Esta função do ambiente Gerador não foi liberada pelo ADM." });
+  }
   if (papel === "COLABORADOR_GERADOR") {
     const recurso = req.baseUrl.includes("/clientes")
       ? (req.path.includes("unidade") ? "unidades" : "clientes")

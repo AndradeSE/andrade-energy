@@ -16,5 +16,6 @@ export function generatorTabAllowed(name: string, role: unknown, permissions: Re
   if (role === "COLABORADOR_COMERCIAL" && permissions.ambientes_gerador !== true) return false;
   if (["equipe", "financeiro"].includes(name)) return false;
   const permission = ({ clientes: "clientes", operacao: "operacao", faturamento: "faturas", contrato: "contratos" } as Record<string, string>)[name];
+  if (role === "COLABORADOR_COMERCIAL" && permission) return permissions[`gerador_${permission}`] === true;
   return !permission || permissions[permission] !== false;
 }

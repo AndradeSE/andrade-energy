@@ -1,5 +1,11 @@
 export const COMMERCIAL_PERMISSION_LABELS = {
-  ambientes_gerador: "Trocar e gerenciar ambientes do gerador (sem financeiro)",
+  ambientes_gerador: "Trocar ambiente para Gerador",
+  gerador_usinas: "Usinas",
+  gerador_clientes: "Clientes",
+  gerador_unidades: "Unidades consumidoras",
+  gerador_contratos: "Contratos de energia",
+  gerador_faturas: "Faturamento",
+  gerador_operacao: "Operação",
   geradores: "Geradores — consultar",
   geradores_convidar: "Geradores — cadastrar e enviar convite",
   geradores_editar: "Geradores — editar nome e telefone",
@@ -15,6 +21,7 @@ export const COMMERCIAL_PERMISSION_LABELS = {
 };
 const LEGACY = new Set(["geradores", "monitoramento", "documentos"]);
 export function commercialPermission(permissions: Record<string, any> | undefined, key: string): boolean {
+  if (key.startsWith("gerador_") && permissions?.ambientes_gerador !== true) return false;
   if (["geradores_convidar", "geradores_editar"].includes(key) && !commercialPermission(permissions, "geradores")) return false;
   if (key === "documentos_enviar" && (!commercialPermission(permissions,"documentos") || !commercialPermission(permissions,"geradores"))) return false;
   if (key === "contratos_enviar" && !commercialPermission(permissions,"geradores_convidar")) return false;

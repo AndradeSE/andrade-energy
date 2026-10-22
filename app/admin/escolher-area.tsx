@@ -14,7 +14,7 @@ export default function EscolherAreaAdmin() {
   const { empresa } = useEmpresa();
   const principal = empresa.cor_primaria || "#087A46";
   const colaborador = String(usuario?.papel_empresa ?? "").startsWith("COLABORADOR_");
-  if (usuario?.perfil !== "ADMIN" && !(colaborador && usuario?.permissoes?.ambientes_gerador === true)) { router.replace("/selecionar-unidade"); return null; }
+  if ((colaborador ? usuario?.permissoes?.ambientes_gerador !== true : usuario?.perfil !== "ADMIN")) { router.replace("/selecionar-unidade"); return null; }
   return <SafeAreaView style={styles.screen}>
     <StatusBar backgroundColor={principal} barStyle="light-content" />
     <LinearGradient colors={[principal, principal, "#082F26"]} style={[styles.hero, { marginTop: -insets.top, paddingTop: insets.top + Spacing.xl }]}>

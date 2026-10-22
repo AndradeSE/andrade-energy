@@ -86,13 +86,13 @@ export default function DashboardGestor() {
     useAuth();
   const { data, isLoading, error, refetch } = useDashboardGestor();
   const colaborador = String(usuario?.papel_empresa ?? "").startsWith("COLABORADOR_");
-  const canReadOverdue = Boolean(usinaSelecionada?.id) && usuario?.permissoes?.faturas !== false;
+  const canReadOverdue = Boolean(usinaSelecionada?.id) && (usuario?.papel_empresa === "COLABORADOR_COMERCIAL" ? usuario.permissoes?.gerador_faturas === true : usuario?.permissoes?.faturas !== false);
   const overdueQuery = useQuery({
     queryKey: ["home-faturas-vencidas", usuario?.id, usinaSelecionada?.id],
     enabled: canReadOverdue,
     queryFn: () => listarFaturas(undefined, undefined, usinaSelecionada!.id),
   });
-  useFocusEffect(useCallback(() => { if (usinaSelecionada?.id && usuario?.permissoes?.faturas !== false) void overdueQuery.refetch(); }, [usinaSelecionada?.id, usuario?.permissoes?.faturas, overdueQuery.refetch]));
+  useFocusEffect(useCallback(() => { if (canReadOverdue) void overdueQuery.refetch(); }, [canReadOverdue, overdueQuery.refetch]));
   const overdue = overdueInvoiceReply(canReadOverdue ? overdueQuery.data ?? [] : []).invoices;
   const overdueClients = new Set(overdue.map(fatura => (fatura as any).cliente_id).filter(Boolean)).size;
   const overdueTotal = overdue.reduce((total, fatura) => total + Number(fatura.valor_total_unificado ?? fatura.valor_total ?? 0), 0);
@@ -286,7 +286,7 @@ export default function DashboardGestor() {
             pinnedIds={["compartilhar-app-gerador", ...(isPreviewEnvironment && assistantHidden ? ["mostrar-assistente"] : [])]}
             items={[
               ...(isPreviewEnvironment && assistantHidden ? [{ id: "mostrar-assistente", icon: "chatbubble-ellipses-outline" as const, image: require("../../assets/images/assistant-chat-3d-v2.png"), label: "Mostrar Solar", onPress: () => void setFloatingHidden(String(usuario?.id ?? ""), false) }] : []),
-              ...atalhos.filter((atalho) => !colaborador || !(usuario?.permissoes?.ambientes_gerador === true ? ["Colaboradores", "Financeiro"] : ["Colaboradores", "Novo cliente", "Nova usina", "Nova UC", "Financeiro"]).includes(atalho.label)).map((atalho) => ({
+              ...atalhos.filter((atalho) => (usuario?.papel_empresa !== "COLABORADOR_COMERCIAL" || !({"Novo cliente":"clientes", "Unidades consumidoras":"unidades", "Nova UC":"unidades", "Faturar via PDF":"faturas", "Faturas emitidas":"faturas", "Faturamento manual":"faturas", "Nova usina":"usinas"} as Record<string,string>)[atalho.label] || usuario.permissoes?.[`gerador_${({"Novo cliente":"clientes", "Unidades consumidoras":"unidades", "Nova UC":"unidades", "Faturar via PDF":"faturas", "Faturas emitidas":"faturas", "Faturamento manual":"faturas", "Nova usina":"usinas"} as Record<string,string>)[atalho.label]}`] === true) && (!colaborador || !(usuario?.permissoes?.ambientes_gerador === true ? ["Colaboradores", "Financeiro"] : ["Colaboradores", "Novo cliente", "Nova usina", "Nova UC", "Financeiro"]).includes(atalho.label))).map((atalho) => ({
                 icon: atalho.icon,
                 label: atalho.label,
                 onPress: () => router.push(atalho.rota as any),
