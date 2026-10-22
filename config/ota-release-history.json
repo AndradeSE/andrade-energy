@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261022-142727",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Detalhes financeiros pelo ícone i; carregamento inicial e retorno da autorização Gmail"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-141533",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Card financeiro com detalhes pelo ícone i; carregamento inicial; Gmail e comparação da produção média"
+    ]
+  },
+  {
     "numero": "OTA 20261022-134503",
     "data": "22/10/2026",
     "variant": "consumidor",
