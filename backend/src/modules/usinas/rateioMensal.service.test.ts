@@ -33,7 +33,13 @@ test("planilha usa somente empresa/usina solicitadas, produção real e contrato
     }else if(tabela==="unidades_consumidoras"){
       assert.equal(url.searchParams.get("empresa_id"),"eq.empresa-a");
       assert.equal(url.searchParams.get("usina_id"),"eq.usina-a");
-      dados=url.searchParams.get("tipo")==="eq.GERADORA" ? {cpf_titular:"52998224725"} : [{id:"u1",numero:"123456789",consumo_medio_kwh:1000},{id:"minuta",numero:"123456780",consumo_medio_kwh:2000},{id:"cancelado",numero:"123456781",consumo_medio_kwh:3000}];
+      dados=url.searchParams.get("tipo")==="eq.GERADORA" ? {cpf_titular:"52998224725"} : [{id:"u1",numero:"123456789",cliente_id:"c1",consumo_medio_kwh:1000},{id:"minuta",numero:"123456780",consumo_medio_kwh:2000},{id:"cancelado",numero:"123456781",consumo_medio_kwh:3000}];
+    }else if(tabela==="faturas"){
+      assert.equal(url.searchParams.get("empresa_id"),"eq.empresa-a");
+      assert.equal(url.searchParams.get("cliente_id"),"in.(c1)");
+      dados=[{numero_instalacao:"123456789",cliente_id:"c1",referencia:"SET/2026",saldo_atual:200,status:"PAGO"}];
+    }else if(tabela==="faturas_anexadas_clientes"){
+      assert.equal(url.searchParams.get("empresa_id"),"eq.empresa-a");dados=[];
     }else if(tabela==="contratos"){
       assert.equal(url.searchParams.get("empresa_id"),"eq.empresa-a");
       assert.equal(url.searchParams.get("status"),"in.(ATIVO,VIGENTE)");
@@ -50,7 +56,8 @@ test("planilha usa somente empresa/usina solicitadas, produção real e contrato
   };
   try{
     const p=await prepararPlanilhaRateio("usina-a","empresa-a","2026-10","");
-    assert.equal(p.producaoMedia,10000);assert.equal(p.linhas[0].percentual,10);assert.equal(p.ucsExcluidas,2);
+    assert.equal(p.producaoMedia,10000);assert.equal(p.linhas[0].percentual,8);assert.equal(p.ucsExcluidas,2);
+    assert.equal(p.linhas[0].saldo,200);assert.equal(p.linhas[0].saldoReferencia,"2026-09");
     assert.equal(enviados,0);assert.equal(patches,0);
     assert.deepEqual(await enviarPlanilhaAoGerador("usina-a","empresa-a",p,{id:"colaborador"}),{enviado:true});
     assert.equal(enviados,1);
