@@ -35,12 +35,12 @@ export function calcularAlocacaoProjetada(unidades: any[], energiaGerada: number
     const consumoMedio = Math.max(0, Number(unidade.consumo_medio_kwh ?? 0));
 
     // Injeção comercializa a parcela definida da produção da usina; com 100%,
-    // toda a média fica alocada. Somente compensação usa a demanda da UC com
-    // margem operacional de 15%.
+    // toda a média fica alocada. Compensação usa a demanda exata da UC,
+    // sem margem adicional.
     const reserva = String(unidade.modalidade_faturamento ?? "").toUpperCase() === "INJECAO"
       ? gerada * percentual / 100
       : consumoMedio > 0
-        ? consumoMedio * 1.15
+        ? consumoMedio
         : gerada * percentual / 100;
     return total + Math.min(gerada, reserva);
   }, 0);
@@ -119,6 +119,7 @@ async function persistirProducaoDaFatura(usina: any, competencia: string, energi
     : supabase.from("fechamentos").insert(payload);
   const { data: fechamento, error } = await consulta.select().single();
   if (error) throw error;
+  await calcularProducaoMedia12Meses(usinaId);
   await recalcularAlocacaoUsina(usinaId);
   const { data: fechamentoAtualizado } = await supabase.from("fechamentos").select("*").eq("id", fechamento.id).single();
   return fechamentoAtualizado ?? fechamento;
@@ -192,7 +193,8 @@ export async function listarUsinasService(empresaId?: string) {
           ...alocacaoProjetada,
           status: fechamentoExibido?.status ?? "ABERTO",
         },
-        producao_media_12_meses: Number(usina.geracao_media ?? 0) > 0 ? Number(usina.geracao_media) : producaoMedia12Meses,
+        geracao_media: producaoMedia12Meses,
+        producao_media_12_meses: producaoMedia12Meses,
         geracao_total: Number(dashboard.energiaTotal ?? 0),
         unidades_alocadas: unidades.count ?? 0,
         tarifa_scee_referencia: Number(tarifaGd2Recente?.tarifa_scee ?? 0),
@@ -270,8 +272,8 @@ export async function excluirIntegracaoInversor(usinaId: string, integracaoId: s
   return { sucesso: true };
 }
 
-async function calcularProducaoMedia12Meses(usinaId: string) {
-  const inicio = new Date();
+export async function calcularProducaoMedia12Meses(usinaId: string) {
+  const inicio = new Date(`${competenciaAtualDaUsina()}-01T00:00:00.000Z`);
   inicio.setUTCDate(1);
   inicio.setUTCHours(0, 0, 0, 0);
   inicio.setUTCMonth(inicio.getUTCMonth() - 11);
@@ -287,16 +289,21 @@ async function calcularProducaoMedia12Meses(usinaId: string) {
   const producoes = (fechamentos.data ?? [])
     .map((item) => Number(item.energia_gerada ?? 0))
     .filter((valor) => Number.isFinite(valor) && valor > 0);
-  if (producoes.length) {
-    return producoes.reduce((total, valor) => total + valor, 0) / producoes.length;
-  }
   const { data: usina, error: erroUsina } = await supabase
     .from("usinas")
-    .select("geracao_media")
+    .select("geracao_media,empresa_id")
     .eq("id", usinaId)
     .maybeSingle();
   if (erroUsina) throw erroUsina;
-  return Math.max(0, Number(usina?.geracao_media ?? 0));
+  const mediaCadastrada = Math.max(0, Number(usina?.geracao_media ?? 0));
+  if (!producoes.length) return mediaCadastrada;
+  const mediaReal = Math.round(producoes.reduce((total, valor) => total + valor, 0) / producoes.length * 100) / 100;
+  if (usina && Math.abs(mediaCadastrada - mediaReal) >= 0.01) {
+    const { error } = await supabase.from("usinas").update({ geracao_media: mediaReal })
+      .eq("id", usinaId).eq("empresa_id", usina.empresa_id);
+    if (error) throw error;
+  }
+  return mediaReal;
 }
 
 /**
@@ -491,8 +498,8 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
     ? percentualInformado
     : 0;
   let producaoMedia = 0;
-  if (modalidade === "INJECAO") {
-    // A parcela injetada é definida pelo gerador, nunca deduzida do consumo.
+  if (modalidade === "INJECAO" && !calcularAutomaticamente) {
+    // Preserva percentuais informados explicitamente pelo gerador.
     if (!Number.isFinite(percentualInformado) || percentualInformado <= 0 || percentualInformado > 100) {
       throw new Error("Informe o percentual de injeção entre 0,01% e 100%.");
     }
@@ -500,9 +507,8 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
   } else if (calcularAutomaticamente) {
     producaoMedia = await calcularProducaoMedia12Meses(usinaId);
     percentual = producaoMedia > 0 && consumoMedio > 0
-      // Mantém uma margem de 15% acima do consumo médio para a UC não
-      // ficar subalocada quando houver oscilação mensal de consumo.
-      ? Math.min(100, consumoMedio * 1.15 / producaoMedia * 100)
+      // Usa a demanda exata sobre a média de produção atualizada.
+      ? Math.min(100, consumoMedio / producaoMedia * 100)
       : 0;
   } else if (!Number.isFinite(percentualInformado) || percentualInformado <= 0 || percentualInformado > 100) {
     throw new Error("Informe um percentual entre 0,01% e 100%.");
@@ -647,7 +653,8 @@ export async function buscarUsinaService(
     .maybeSingle();
   if (error) throw error;
 
-  return { ...usina, cpf_titular: unidadeGeradora?.cpf_titular ?? null };
+  const mediaAtual = await calcularProducaoMedia12Meses(id);
+  return { ...usina, geracao_media: mediaAtual, cpf_titular: unidadeGeradora?.cpf_titular ?? null };
 }
 
 export async function criarUsinaService(
@@ -852,6 +859,8 @@ export async function obterDashboardUsina(
     .eq("empresa_id", empresaId).eq("usina_id", id);
   if (erroFaturasAtuais) throw erroFaturasAtuais;
   const receitaAtual = receitaAtualDaCompetencia(faturasAtuais ?? [], fechamento?.competencia ?? competenciaAtual, fechamento);
+  const mediaAtual = await calcularProducaoMedia12Meses(id);
+  usina.geracao_media = mediaAtual;
   const energiaAtual = Number(fechamento?.energia_gerada ?? 0);
   const energiaProjetada = energiaAtual > 0
     ? energiaAtual

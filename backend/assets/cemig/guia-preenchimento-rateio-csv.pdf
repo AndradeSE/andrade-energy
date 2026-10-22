@@ -1,0 +1,92 @@
+              Guia de Preenchimento do Arquivo CSV
+               Compensação de Geração Distribuída
+
+Caro cliente,
+
+Este guia tem como objetivo orientá-lo na elaboração do arquivo com a relação das unidades
+
+beneficiárias que serão cadastradas à sua unidade geradora.
+
+O arquivo deverá ser enviado no formato CSV e conter quatro colunas, na seguinte ordem:
+
+1. Número da Unidade Consumidora (UC)
+
+2. CPF ou CNPJ
+
+3. Cota
+
+4. Âncora
+
+Tomemos como exemplo a relação abaixo:
+
+UC                CPF/CNPJ              Cota                 Âncora
+1.000.000.018-00  111.111.111-11        20,05%               Sim
+2.000.000.018-00  222.222.222-22        30,05%
+3.000.000.018-00  33.333.333/3333-33    10%
+4.000.000.018-00  111.111.111-11        39,90%
+
+No arquivo CSV, as informações deverão ser apresentadas da seguinte forma:
+
+1.000.000.018-00;111.111.111-11;20,05;
+2.000.000.018-00;222.222.222-22;30,05;
+3.000.000.018-00;33.333.333/3333-33;10;
+4.000.000.018-00;111.111.111-11;39,90;X
+
+Regras de preenchimento
+
+     • O único formato aceito é CSV, utilizando ponto e vírgula (;) como separador.
+     • Todos os campos devem ser preenchidos.
+     • O arquivo não deve conter cabeçalho.
+     • A ordem das colunas não pode ser alterada.
+     • Não devem existir linhas vazias.
+     • Não devem ser utilizados caracteres especiais.
+     • O número da UC e o CPF/CNPJ podem ser informados sem pontos, barras ou traços.
+     • A cota deve ser informada em percentual, sem o símbolo "%".
+     • Somente a unidade geradora pode possuir cota igual a zero.
+     • Deve existir apenas uma unidade âncora.
+     • A soma das cotas não pode ultrapassar 100%.
+
+O descumprimento dessas regras poderá impedir o registro da solicitação.
+
+                                                                     Relacionamento Corporativo | CEMIG
+Pontos de atenção
+
+     • Ao manipular os dados no Excel, verifique se não houve supressão de zeros à esquerda em
+          CPFs ou CNPJs.
+
+     • Certifique-se também de que números extensos não sejam convertidos para notação
+          científica.
+
+     • Confira a existência de espaços em branco antes ou depois dos dados informados.
+
+Perguntas frequentes
+
+Qual é a função da unidade âncora?
+Receber os percentuais destinados a unidades que, eventualmente, apresentem impedimentos
+para cadastro.
+O que acontece se forem informadas duas unidades âncora?
+Será considerada apenas a primeira unidade indicada.
+O que acontece se a soma das cotas for inferior a 100%?
+O percentual remanescente será atribuído à unidade âncora. Caso não exista âncora, será atribuído
+à unidade geradora.
+A geradora precisa constar na lista?
+Não.
+Posso deixar o campo CPF/CNPJ em branco?
+Não.
+Posso utilizar o antigo número de instalação?
+Não. Deve ser utilizado apenas o novo número de unidade consumidora.
+É obrigatório informar os zeros à esquerda da UC?
+Não. Entretanto, caso sejam informados corretamente, não haverá rejeição.
+Em caso de anomalia após o atendimento da solicitação, a âncora receberá o percentual da
+unidade afetada?
+Não. Esse percentual permanecerá na unidade geradora.
+Posso atribuir uma cota diferente de zero à unidade geradora?
+Sim. Contudo, essa prática não é recomendada, pois resulta em acúmulo de créditos na unidade.
+Posso indicar a unidade geradora como âncora?
+Sim. Contudo, essa prática não é recomendada, pois pode resultar em acúmulo de créditos na
+unidade
+O que acontece se uma mesma unidade consumidora for informada mais de uma vez?
+As cotas informadas para a mesma unidade serão somadas.
+
+                                                                                                    Relacionamento Corporativo | CEMIG
+
