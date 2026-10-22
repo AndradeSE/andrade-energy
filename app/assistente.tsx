@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ActivityIndicator, Alert, Animated, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { File, Paths } from "expo-file-system";
 import * as FileSystemLegacy from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
@@ -46,7 +46,7 @@ import { resolveSafeNavigation } from "../services/assistant-safe-navigation";
 
 type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string; invoiceChoices?: Array<{ id: string; label: string }>; actions?: AssistantAction[]; documents?: AssistantDocument[]; private?: boolean; voiceAnswerId?: string; automation?: AutomationDraft };
 
-export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = false }: { embeddedVoiceWake?: string; onClose?: () => void; voiceOnly?: boolean } = {}) {
+export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = false, floatingModal = false, minimized = false, onMinimize, onVoiceState }: { embeddedVoiceWake?: string; onClose?: () => void; voiceOnly?: boolean; floatingModal?: boolean; minimized?: boolean; onMinimize?: () => void; onVoiceState?: (active:boolean) => void } = {}) {
   const router = useRouter();
   const params = useLocalSearchParams<{ voiceWake?: string }>();
   const voiceWake = embeddedVoiceWake ?? params.voiceWake;
@@ -232,6 +232,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     setBusy(state.active);
   }), []);
 
+  useEffect(() => { onVoiceState?.(voiceActive.current); }, [listening, speakingReply, voiceStatus, onVoiceState]);
   if (!isPreviewEnvironment || !authenticated) return <Redirect href="/" />;
 
   async function openInvoicePdf(id: string) {
@@ -839,11 +840,12 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     try { await installLocalModel(); } catch { /* O estado global exibe o erro. */ }
   }
 
+  function leaveConversation(){ if(voiceActive.current && onMinimize) onMinimize(); else if(onClose) onClose(); else router.back(); }
   if (voiceOnly) return null;
 
-  return <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+  const conversationView = <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : "height"}>
     <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-      <Pressable onPress={onClose ?? (() => router.back())} accessibilityRole="button" accessibilityLabel={onClose ? "Fechar conversa" : "Voltar"} style={styles.back}><Text style={styles.backText}>‹</Text></Pressable>
+      <Pressable onPress={leaveConversation} accessibilityRole="button" accessibilityLabel={onClose ? "Fechar conversa" : "Voltar"} style={styles.back}><Text style={styles.backText}>‹</Text></Pressable>
       <View style={styles.headerText}><Text style={styles.title}>Solar</Text><Text style={styles.subtitle}>Consultas e ações da sua conta</Text></View>
       <Pressable onPress={() => { onClose?.(); router.push("/configuracoes-assistente"); }} accessibilityRole="button" accessibilityLabel="Configurações da Solar" style={styles.settingsButton}><Ionicons name="settings-outline" size={22} color="white" /></Pressable>
       <Pressable disabled={busy} onPress={() => { setPendingAutomation(undefined); messagesRef.current = []; topicRef.current = undefined; setMessages([]); setTopic(undefined); void releaseLocalModel(); }} accessibilityRole="button" accessibilityLabel="Limpar conversa"><Text style={styles.clear}>Limpar</Text></Pressable>
@@ -876,6 +878,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       </View>
     </View>
   </KeyboardAvoidingView>;
+  return floatingModal ? <Modal visible={!minimized} animationType="slide" onRequestClose={leaveConversation}>{conversationView}</Modal> : conversationView;
 }
 
 const styles = StyleSheet.create({
