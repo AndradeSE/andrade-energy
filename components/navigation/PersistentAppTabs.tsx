@@ -10,6 +10,7 @@ import CommercialTabs, { CommercialTab } from "../commercial/CommercialTabs";
 import AppTabBarFrame, { appTabBarStyles as styles } from "./AppTabBarFrame";
 import { generatorTabAllowed } from "../../services/collaborator-navigation";
 import { orderHomeTab } from "../../utils/home-tab-order";
+import { useNavigationEnvironment } from "../../hooks/useNavigationEnvironment";
 
 type TabItem = {
   label: string;
@@ -37,6 +38,7 @@ const consumerTabs: TabItem[] = [
 
 export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
   const { user } = useAuth();
+  const navigationEnvironment = useNavigationEnvironment();
   const segments: readonly string[] = useSegments();
   const params = useGlobalSearchParams<{ ambiente?: string; aba?: string }>();
   const firstSegment = String(segments[0] ?? "");
@@ -55,9 +57,7 @@ export default function PersistentAppTabs({ loggedIn }: { loggedIn: boolean }) {
 
   const commercialEnvironment = IS_GERADOR_APP && (
     (user?.papel_empresa === "COLABORADOR_COMERCIAL" && user?.permissoes?.ambientes_gerador !== true) ||
-    firstSegment === "admin" ||
-    firstSegment === "geradores" ||
-    (firstSegment === "colaboradores" && (params.ambiente === "comercial" || user?.perfil === "ADMIN"))
+    navigationEnvironment === "comercial"
   );
   if (commercialEnvironment) {
     let active: CommercialTab | undefined;

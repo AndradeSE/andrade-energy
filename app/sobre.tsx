@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { AppHeader, Card, ElasticScrollView, Screen } from "../components/ui";
 import { APP_DISPLAY_NAME, IS_GERADOR_APP } from "../config/appVariant";
 import { Colors, Spacing } from "../theme";
+import releases from "../config/ota-release-history.json";
 const geradorPreview = IS_GERADOR_APP && (Constants.expoConfig?.extra?.appEnvironment === "preview" || Updates.channel?.startsWith("preview"));
 const previewApp = Constants.expoConfig?.extra?.appEnvironment === "preview" || Updates.channel?.startsWith("preview");
 const atualizacaoAnterior = {
@@ -235,7 +236,7 @@ const atualizacaoContratoAnterior = {
     ...(IS_GERADOR_APP ? ["Próximo passo abre Faturamento e só aparece quando não há recebimento automático nem fatura emitida.", "Preparação da proposta informa os dados faltantes ou a consulta que falhou, sem enviar convite incompleto."] : []),
   ],
 };
-const atualizacaoAtual = {
+const atualizacaoLegada = {
   numero: "1.0.0-r20261009.3", data: "09/10/2026",
   melhorias: [
     "Notificação de contrato abre a UC correspondente, mesmo quando outra unidade está selecionada.",
@@ -322,7 +323,9 @@ const historicoAnterior = IS_GERADOR_APP ? [
   ] },
 ];
 
-const historico = [atualizacaoContratoAnterior, atualizacaoAnteriorPublicada, ...historicoAnterior];
+const recentes = releases.filter(item => item.variant === (IS_GERADOR_APP ? "gerador" : "consumidor") && (item.audience === "all" || item.audience === (previewApp ? "internal" : "clients")));
+const atualizacaoAtual = recentes[0] ?? atualizacaoLegada;
+const historico = [...recentes.slice(1), atualizacaoLegada, atualizacaoContratoAnterior, atualizacaoAnteriorPublicada, ...historicoAnterior];
 
 export default function SobreApp() {
   const version = Constants.expoConfig?.version ?? "Não informada";

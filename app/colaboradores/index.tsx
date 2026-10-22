@@ -106,6 +106,7 @@ function PromoverAdministrador({ item, nome, opcoes, onChange }: any) {
 function Permissoes({ campos, valores, comercial, disabled = false, onChange }: { campos: Record<string,string>; valores: Record<string,boolean>; comercial: boolean; disabled?: boolean; onChange: (chave:string,valor:boolean)=>void }) {
   return <>{Object.entries(campos).map(([chave,label]) => {
     const filha = comercial && chave.startsWith("gerador_");
+    if (filha && valores?.ambientes_gerador !== true) return null;
     const bloqueada = disabled || (filha && valores?.ambientes_gerador !== true);
     return <View key={chave} style={[styles.permission, filha && {marginLeft:18,paddingLeft:12,borderLeftWidth:2,borderLeftColor:Colors.border}, bloqueada && {opacity:.5}]}><Text style={styles.permissionText}>{label}</Text><Switch accessibilityLabel={label} disabled={bloqueada} value={comercial ? commercialPermission(valores,chave) : valores?.[chave] !== false} onValueChange={valor=>onChange(chave,valor)} trackColor={{false:Colors.border,true:Colors.primary}} /></View>;
   })}</>;

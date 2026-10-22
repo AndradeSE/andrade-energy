@@ -1,0 +1,28 @@
+[
+  {
+    "numero": "Melhorias de 21/10/2026",
+    "data": "21/10/2026",
+    "variant": "gerador",
+    "audience": "all",
+    "melhorias": [
+      "Equipe com botão de convite e formulário em tela separada.",
+      "Permissões comerciais individuais e subopções da operação dentro de Trocar ambiente para Gerador.",
+      "Promoção única para acesso ADM completo, com confirmação e registro de auditoria.",
+      "Menu pela esquerda; Home centralizada ou na primeira posição quando necessário.",
+      "Monitoramento disponível aos colaboradores autorizados e gestão da equipe restrita ao titular e ADM.",
+      "Indicador de faturas vencidas e avisos formais por aplicativo e e-mail, com orientação para desconsiderar se já pago.",
+      "Mostrar Solar no acesso rápido aparece somente quando o flutuante está oculto."
+    ]
+  },
+  {
+    "numero": "Melhorias de 21/10/2026",
+    "data": "21/10/2026",
+    "variant": "consumidor",
+    "audience": "all",
+    "melhorias": [
+      "Menu lateral padronizado pela esquerda.",
+      "Mostrar Solar no acesso rápido aparece somente quando o flutuante está oculto.",
+      "Avisos formais de faturas vencidas no aplicativo e por e-mail, com orientação para desconsiderar se já pago."
+    ]
+  }
+]

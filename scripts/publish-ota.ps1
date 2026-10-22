@@ -22,6 +22,9 @@ foreach ($key in $values.Keys) {
   [Environment]::SetEnvironmentVariable($key, $values[$key], 'Process')
 }
 Push-Location (Split-Path $PSScriptRoot -Parent)
+$historyPath = Join-Path (Get-Location) 'config/ota-release-history.json'
+$historyBefore = [System.IO.File]::ReadAllText($historyPath)
+$published = $false
 try {
   # Always export again: never send a stale bundle from the other variant.
   # IPv4 preference is process-local; keep TLS validation and Windows networking unchanged.
@@ -31,9 +34,13 @@ try {
   if ($Audience -eq 'clients' -and $env:CONFIRM_CLIENT_OTA -ne 'SIM') {
     throw 'OTA para clientes bloqueada. Defina CONFIRM_CLIENT_OTA=SIM somente depois de homologar a versão interna.'
   }
+  node.exe scripts/record-ota-release.cjs $Variant $Audience $Message
+  if ($LASTEXITCODE -ne 0) { throw 'Não foi possível registrar o histórico desta publicação.' }
   npx.cmd eas-cli@22.2.0 update --channel $channel --environment $easEnvironment --platform android --message $Message
   if ($LASTEXITCODE -ne 0) { throw "OTA $Variant não confirmada pelo Expo (exit $LASTEXITCODE)." }
+  $published = $true
 } finally {
+  if (-not $published) { [System.IO.File]::WriteAllText($historyPath, $historyBefore, [System.Text.UTF8Encoding]::new($false)) }
   Pop-Location
   foreach ($key in $previous.Keys) {
     [Environment]::SetEnvironmentVariable($key, $previous[$key], 'Process')
