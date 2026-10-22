@@ -41,6 +41,8 @@ const dataBr = (valor: unknown) =>
 export default function MonitoramentoGeradores() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const colaboradorComercial = user?.papel_empresa === "COLABORADOR_COMERCIAL";
+  const podeMonitorar = colaboradorComercial ? user?.permissoes?.monitoramento !== false : user?.perfil === "ADMIN";
   const [painel, setPainel] = useState<PainelComercial | null>(null);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
@@ -63,8 +65,8 @@ export default function MonitoramentoGeradores() {
   }, []);
 
   useEffect(() => {
-    void carregar();
-  }, [carregar]);
+    if (podeMonitorar) void carregar();
+  }, [carregar, podeMonitorar]);
 
   const ativos = useMemo(
     () =>
@@ -91,7 +93,7 @@ export default function MonitoramentoGeradores() {
     [busca, painel?.assinaturas, painel?.geradores],
   );
 
-  if (user?.perfil !== "ADMIN")
+  if (!podeMonitorar)
     return (
       <Screen>
         <View style={styles.blocked}>
@@ -190,7 +192,7 @@ export default function MonitoramentoGeradores() {
                 router.replace("/admin/comercial" as any);
               }}
             />
-            <DrawerLink
+            {!colaboradorComercial ? <><DrawerLink
               icon="wallet-outline"
               label="Carteira"
               onPress={() => {
@@ -211,7 +213,7 @@ export default function MonitoramentoGeradores() {
                   params: { aba: "PAGAMENTOS" },
                 } as any);
               }}
-            />
+            /></> : null}
           </Pressable>
         </Pressable>
       </Modal>
@@ -259,6 +261,7 @@ export default function MonitoramentoGeradores() {
       </ScrollView>
       <DetalhesCliente
         assinatura={selecionada}
+        somenteLeitura={colaboradorComercial}
         onClose={() => setSelecionada(null)}
       />
     </Screen>
@@ -354,7 +357,7 @@ function ClienteCard({ assinatura, onPress }: any) {
   );
 }
 
-function DetalhesCliente({ assinatura, onClose }: any) {
+function DetalhesCliente({ assinatura, onClose, somenteLeitura = false }: any) {
   if (!assinatura) return null;
   const gerador = assinatura.gerador ?? {};
   return (
@@ -417,7 +420,7 @@ function DetalhesCliente({ assinatura, onClose }: any) {
               {dataBr(assinatura.inicio_em)}
             </Text>
           </View>
-          <TouchableOpacity
+          {!somenteLeitura ? <TouchableOpacity
             onPress={() => {
               onClose();
               router.push({
@@ -429,7 +432,7 @@ function DetalhesCliente({ assinatura, onClose }: any) {
           >
             <Text style={styles.detailButtonText}>Gerenciar assinatura</Text>
             <Ionicons name="arrow-forward" size={18} color="#FFF" />
-          </TouchableOpacity>
+          </TouchableOpacity> : null}
         </Pressable>
       </Pressable>
     </Modal>
