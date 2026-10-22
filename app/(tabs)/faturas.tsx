@@ -16,14 +16,12 @@ import { useFaturas } from "../../hooks/useFaturas";
 import { FaturaAnexadaCliente, listarFaturasAnexadasCliente } from "../../services/clientes.service";
 import { excluirFatura, formatarCompetenciaBrasileira, formatarDataBrasileira, obterRelatorioCalculoFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
-import { overdueInvoiceReply } from "../../services/local-assistant-invoices";
+import { invoiceDisplayStatus } from "../../services/invoice-display-status";
 
 type Filtro = "todas" | "abertas" | "vencidas" | "pagas";
 
-const normalizarStatus = (status?: string) => String(status ?? "").trim().toUpperCase();
-const estaPaga = (status?: string) => ["PAGA", "PAGO", "QUITADA"].includes(normalizarStatus(status));
-const statusEfetivo = (item: any) => item.cobrancas?.[0]?.status ?? item.status;
-const estaVencida = (item: any) => overdueInvoiceReply([item]).invoices.length > 0;
+const estaPaga = (item: any) => invoiceDisplayStatus(item).paga;
+const estaVencida = (item: any) => invoiceDisplayStatus(item).vencida;
 const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function Faturas() {
@@ -83,8 +81,8 @@ export default function Faturas() {
   }, [anexadas, faturas, unidadeSelecionada?.numero]);
 
   const lista = useMemo(() => faturas.filter((item: any) => {
-    if (filtro === "pagas") return estaPaga(statusEfetivo(item));
-    if (filtro === "abertas") return !estaPaga(statusEfetivo(item)) && !estaVencida(item);
+    if (filtro === "pagas") return estaPaga(item);
+    if (filtro === "abertas") return invoiceDisplayStatus(item).label === "Em aberto";
     if (filtro === "vencidas") return estaVencida(item);
     return true;
   }), [faturas, filtro]);
@@ -219,7 +217,8 @@ export default function Faturas() {
           />
         </View>}
         renderItem={({ item }) => {
-          const paga = estaPaga(statusEfetivo(item));
+          const exibicao = invoiceDisplayStatus(item);
+          const paga = exibicao.paga;
           const vencida = estaVencida(item);
           const valor = item.valor_total_unificado ?? item.valor_total;
           const referenciaArquivo = String(item.referencia ?? item.id).replace(/[^a-zA-Z0-9_-]/g, "-");
@@ -232,7 +231,7 @@ export default function Faturas() {
             >
               <View style={styles.invoiceTop}>
                 <View style={styles.invoiceHeading}><Text style={styles.value}>{moeda(valor)}</Text><Text style={styles.reference}>{formatarCompetenciaBrasileira(item.referencia)}</Text></View>
-                <View style={[styles.status, paga ? styles.statusPaid : vencida ? styles.statusOverdue : styles.statusOpen]}><Text style={styles.statusText}>{paga ? "Paga" : vencida ? "Vencida" : "Em aberto"}</Text></View>
+                <View style={[styles.status, paga ? styles.statusPaid : vencida ? styles.statusOverdue : styles.statusOpen]}><Text style={styles.statusText}>{exibicao.label}</Text></View>
               </View>
               {proprietario ? <View style={styles.customer}><Ionicons name="person-outline" size={15} color={Colors.primary} /><Text numberOfLines={1} style={styles.customerText}>{item.clientes?.nome || "Cliente não identificado"}</Text></View> : null}
               <View style={styles.invoiceDivider} />

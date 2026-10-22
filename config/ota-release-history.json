@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261021-231357",
+    "data": "21/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Faturas: pagamento confirmado prevalece sobre cobrança auxiliar aberta; vencidas identificadas também na UC. Recebimentos e revogação de ADM em homologação."
+    ]
+  },
+  {
+    "numero": "OTA 20261021-230924",
+    "data": "21/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Equipe: remover acesso ADM de colaboradores promovidos, com encerramento das sessões e reconfiguração das permissões. Recebimentos protegidos por titularidade."
+    ]
+  },
+  {
     "numero": "OTA 20261021-225631",
     "data": "21/10/2026",
     "variant": "gerador",

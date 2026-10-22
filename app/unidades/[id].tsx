@@ -13,10 +13,11 @@ import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
 import { obterRecebimentoFaturas } from "../../services/recebimento-faturas.service";
+import { invoiceDisplayStatus } from "../../services/invoice-display-status";
 import { mostrarProximoPassoFaturamento } from "../../utils/faturamentoNextStep";
 
 const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const paga = (status?: string) => ["PAGA", "PAGO", "QUITADA"].includes(String(status ?? "").toUpperCase());
+
 
 export default function UnidadeDocumentos() {
   const { usinaSelecionada, selecionarUsina } = useAuth();
@@ -279,7 +280,7 @@ export default function UnidadeDocumentos() {
       {!faturasCadastro.length && !faturas.length ? <EmptyState icon="document-outline" title="0 contas da concessionária" subtitle="A fatura usada no cadastro e as próximas contas desta UC aparecerão aqui." /> : null}
     </View></Section>
 
-    <Section title="Faturas Andrade Energy"><View>{faturas.length ? faturas.map((item) => <TouchableOpacity key={`fatura-${item.id}`} activeOpacity={0.84} onPress={() => router.push(`/faturas/${item.id}`)}><Card style={styles.documentCard}><View style={styles.invoiceTop}><View><Text style={styles.invoiceValue}>{moeda(item.valor_total_unificado ?? item.valor_total)}</Text><Text style={styles.itemDetail}>{item.referencia || "Competência não informada"}</Text></View><Badge label={paga(item.status) ? "Paga" : "Em aberto"} variant={paga(item.status) ? "success" : "warning"} /></View><View style={styles.invoiceBottom}><Text style={styles.invoiceDate}>{paga(item.status) ? "Pagamento confirmado" : `Vencimento ${formatarDataBrasileira(item.vencimento, "não informado")}`}</Text><Ionicons name="chevron-forward" size={19} color={Colors.primary} /></View></Card></TouchableOpacity>) : <EmptyState icon="receipt-outline" title="0 faturas" subtitle="As faturas Andrade Energy desta UC aparecerão aqui após o faturamento." />}</View></Section>
+    <Section title="Faturas Andrade Energy"><View>{faturas.length ? faturas.map((item) => <TouchableOpacity key={`fatura-${item.id}`} activeOpacity={0.84} onPress={() => router.push(`/faturas/${item.id}`)}><Card style={styles.documentCard}><View style={styles.invoiceTop}><View><Text style={styles.invoiceValue}>{moeda(item.valor_total_unificado ?? item.valor_total)}</Text><Text style={styles.itemDetail}>{item.referencia || "Competência não informada"}</Text></View><Badge label={invoiceDisplayStatus(item).label} variant={invoiceDisplayStatus(item).variant} /></View><View style={styles.invoiceBottom}><Text style={styles.invoiceDate}>{invoiceDisplayStatus(item).paga ? "Pagamento confirmado" : `Vencimento ${formatarDataBrasileira(item.vencimento, "não informado")}`}</Text><Ionicons name="chevron-forward" size={19} color={Colors.primary} /></View></Card></TouchableOpacity>) : <EmptyState icon="receipt-outline" title="0 faturas" subtitle="As faturas Andrade Energy desta UC aparecerão aqui após o faturamento." />}</View></Section>
   </ScrollView></Screen>;
 }
 
