@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Platform, Text, View } from "react-native";
+import { Alert, Linking, Platform, Text, View } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable } from "../assistant/AssistantNativeControls";
@@ -77,6 +77,11 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
     {resultado?.suspensas?.length?<Text style={{color:Colors.subtitle}}>{resultado.suspensas.length} UC(s) sem nova alocação porque o saldo cobre a previsão de consumo. Elas aparecem no rascunho para conferência e não entram como beneficiárias com cota zero no CSV Cemig. Seus contratos permanecem ativos.</Text>:null}
     {resultado?.saldosSemHistorico?<Text style={{color:Colors.subtitle}}>{resultado.saldosSemHistorico} UC(s) sem saldo registrado: considerado zero. Confira o saldo e sua competência no rascunho antes de solicitar o rateio.</Text>:null}
     {resultado?.pendencias?.length?<Text style={{color:Colors.subtitle}}>Para o CSV Cemig: {resultado.pendencias.join(" ")}</Text>:null}
+    {resultado && !resultado.rascunho?<View style={{padding:12,borderRadius:12,backgroundColor:"#EFF7F2",gap:8}}>
+      <Text style={{fontWeight:"700",color:Colors.text}}>Solicitação à Cemig</Text>
+      <Text style={{color:Colors.subtitle}}>CSV preparado. Abra o Cemig Atende, selecione a usina e anexe o arquivo. Login, CAPTCHA e confirmação são feitos no portal. A abertura do portal não confirma envio nem aplicação do rateio.</Text>
+      <Pressable accessibilityRole="link" onPress={()=>void Linking.openURL("https://atende.cemig.com.br/").catch(()=>Alert.alert("Não foi possível abrir","Acesse atende.cemig.com.br no navegador."))} style={{minHeight:44,flexDirection:"row",alignItems:"center",gap:8}}><Ionicons name="open-outline" size={20} color={Colors.primary}/><Text style={{color:Colors.primary,fontWeight:"700"}}>Continuar no Cemig Atende</Text></Pressable>
+    </View>:null}
     <View style={{borderTopWidth:1,borderColor:Colors.border,paddingTop:12,gap:8}}>
       <Text style={{fontWeight:"700",color:Colors.text}}>Preparar planilha</Text>
       <Opcao label="CSV no padrão Cemig" checked={formatoCemig} disabled={ocupado} onPress={()=>setFormatoCemig(v=>!v)} />
