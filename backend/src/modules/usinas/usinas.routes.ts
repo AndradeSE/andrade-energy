@@ -27,8 +27,14 @@ import { supabase } from "../../config/supabase";
 import { rateLimit } from "express-rate-limit";
 import { prepararPlanilhaRateio, enviarPlanilhaAoGerador } from "./rateioMensal.service";
 import { permissaoComercial } from "../comercial/permissoesComerciais";
+import {notificarRateioGerado,obterConfiguracaoRateio,salvarConfiguracaoRateio,buscarRateioAutomatico} from "./rateioAutomatico.service";
 
 const router = Router();
+
+function acessoOperacao(usuario:any) {
+  const papel=String(usuario?.papel_empresa??"");
+  return !((papel==="COLABORADOR_GERADOR"&&usuario?.permissoes?.operacao!==true)||(papel==="COLABORADOR_COMERCIAL"&&!permissaoComercial(usuario,"gerador_operacao")));
+}
 
 router.use(exigirAutenticacao);
 router.post("/:id/unidades", exigirGestor, async (req, res) => {
@@ -56,6 +62,18 @@ router.get("/:id/clima", exigirUsinaDaSessaoOuGestor(), rateLimit({ windowMs: 60
 
 router.get("/:id/dashboard", exigirUsinaDaSessaoOuGestor(), dashboardUsinaController);
 router.get("/:id/alocacao", exigirGestor, consultarAlocacaoController);
+router.get("/:id/rateio-configuracao",exigirGestor,async(req,res)=>{
+  if(!acessoOperacao((req as any).usuario))return res.status(403).json({message:"Acesso à operação não autorizado."});
+  try{return res.json(await obterConfiguracaoRateio(req.params.id,empresaIdDaRequisicao(req)));}catch{return res.status(503).json({message:"Configuração do rateio automático indisponível. Tente novamente."});}
+});
+router.put("/:id/rateio-configuracao",exigirGestor,async(req,res)=>{
+  if(!acessoOperacao((req as any).usuario))return res.status(403).json({message:"Acesso à operação não autorizado."});
+  try{return res.json(await salvarConfiguracaoRateio(req.params.id,empresaIdDaRequisicao(req),req.body));}catch(error:any){return res.status(400).json({message:error.message});}
+});
+router.get("/:id/rateios-mensais/:competencia",exigirGestor,async(req,res)=>{
+  if(!acessoOperacao((req as any).usuario))return res.status(403).json({message:"Acesso à operação não autorizado."});
+  try{return res.json(await buscarRateioAutomatico(req.params.id,empresaIdDaRequisicao(req),req.params.competencia));}catch(error:any){return res.status(400).json({message:error.message});}
+});
 router.post("/:id/rateio-mensal", exigirGestor, rateLimit({ windowMs: 60_000, limit: 5 }), async (req, res) => {
   const usuario = (req as any).usuario;
   const papel = String(usuario?.papel_empresa ?? "");
@@ -66,6 +84,7 @@ router.post("/:id/rateio-mensal", exigirGestor, rateLimit({ windowMs: 60_000, li
   try {
     const empresaId = empresaIdDaRequisicao(req);
     const plano = await prepararPlanilhaRateio(req.params.id,empresaId,String(req.body?.competencia ?? ""),String(req.body?.ucAncora ?? ""),String(req.body?.documentoAncora ?? ""),req.body?.numerosAtuaisConfirmados === true,req.body?.formatoCemig === true);
+    await notificarRateioGerado(req.params.id,empresaId,plano).catch(()=>console.error("Não foi possível notificar o rateio manual."));
     res.setHeader("Cache-Control","private, no-store");
     const email = req.body?.enviarEmail === true ? await enviarPlanilhaAoGerador(req.params.id,empresaId,plano,usuario) : {enviado:false};
     return res.json({...plano,emailEnviado:email.enviado});
