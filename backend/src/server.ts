@@ -7,6 +7,7 @@ import { rateLimit } from "express-rate-limit";
 import { errorHandler } from "./middlewares/errorHandler";
 
 import authRoutes from "./modules/auth/auth.routes";
+import { consultaSessaoAutenticada } from "./modules/auth/authRateLimit.policy";
 import clientesRoutes from "./modules/clientes/clientes.routes";
 import contratosRoutes from "./modules/contratos/contratos.routes";
 import { avisarContratosProximosDoVencimento } from "./modules/contratos/vencimentoContrato.service";
@@ -76,7 +77,8 @@ app.use(
 app.use(express.json({ limit: "1mb" }));
 
 const apiLimiter = rateLimit({ windowMs: 60_000, limit: 300, standardHeaders: "draft-8", legacyHeaders: false });
-const authLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 30, standardHeaders: "draft-8", legacyHeaders: false });
+const authLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 30, skip: consultaSessaoAutenticada, standardHeaders: "draft-8", legacyHeaders: false });
+const authSessionLimiter = rateLimit({ windowMs: 60_000, limit: 60, skip: req => !consultaSessaoAutenticada(req), standardHeaders: "draft-8", legacyHeaders: false });
 const convitesLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false });
 const financeiroLimiter = rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false });
 
@@ -88,6 +90,7 @@ app.use("/api/webhooks/mercado-pago", mercadoPagoWebhookRouter);
 // Os limitadores precisam ser registrados antes das rotas protegidas.
 app.use("/api", apiLimiter);
 app.use("/api/auth", authLimiter);
+app.use("/api/auth", authSessionLimiter);
 app.use("/api/convites", convitesLimiter);
 app.use("/api/asaas", financeiroLimiter);
 app.use("/api/carteira", financeiroLimiter);
