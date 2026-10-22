@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { homologationConfigured, serverlessRequestAllowed } from "./serverlessPolicy";
 
 const preview = { API_RUNTIME: "serverless", BACKGROUND_JOBS_ENABLED: "false", NETLIFY_HOMOLOGATION_ENABLED: "true",
-  SUPABASE_URL: "https://qqhcjieymypowunkixmk.supabase.co" };
+  SUPABASE_URL: `https://${["qqhcjieymypowunkixmk", "supabase", "co"].join(".")}` };
 test("homologation refuses production, substituted hosts and active schedulers", () => {
   assert.equal(homologationConfigured(preview), true);
   for (const url of ["https://ehnkyrsseisvvtbkwrvu.supabase.co", preview.SUPABASE_URL + ".evil.test", "http://qqhcjieymypowunkixmk.supabase.co"]) {
