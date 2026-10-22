@@ -1,5 +1,41 @@
 [
   {
+    "numero": "OTA 20261022-191124",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Conferencia final: rateio simplificado e Solar continua voz nas abas"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-190812",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Solar mantém voz ao minimizar e encerra por silêncio; ajustes para conferência"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-183222",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Solar continua conversa por voz minimizada ao navegar e encerra por silencio"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-182840",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio com checkboxes e acao unica; Solar minimiza mantendo conversa por voz"
+    ]
+  },
+  {
     "numero": "OTA 20261022-164919",
     "data": "22/10/2026",
     "variant": "gerador",
