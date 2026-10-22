@@ -107,7 +107,7 @@ export default function DashboardGestor() {
   useFocusEffect(useCallback(() => { void refetch(); }, [refetch]));
   async function carregarCarteira() {
     try {
-      const proxima = await CarteiraService.carregarCarteira();
+      const proxima = await CarteiraService.carregarCarteira(usinaSelecionada?.id ?? usuario?.usina_id ?? undefined);
       setCarteira(proxima);
       if (usuario?.id)
         setNovoRecebimento(
@@ -117,12 +117,13 @@ export default function DashboardGestor() {
           ),
         );
     } catch {
+      setCarteira(null);
       /* O dashboard continua disponível se a carteira estiver temporariamente indisponível. */
     }
   }
   useEffect(() => {
     void carregarCarteira();
-  }, [usuario?.id]);
+  }, [usuario?.id, usinaSelecionada?.id]);
   async function atualizarPagina() {
     setAtualizando(true);
     try {

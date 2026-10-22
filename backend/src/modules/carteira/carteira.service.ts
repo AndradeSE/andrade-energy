@@ -7,6 +7,7 @@ import { conferirSenha } from "../../utils/password";
 import { autenticadorAtivo, exigirCodigoFinanceiro, exigirAutorizacaoCadastroPix } from "../financeiro-seguranca/financeiroSeguranca.service";
 import { exigirTitularDaCarteira } from "../asaas/titularRecebimento.service";
 import { falhaRepasse, pagamentoDisponivelParaRepasse, saldoDisponivelConfirmado } from "../asaas/repasse.policy";
+import { podeOperarCarteiraDaUsina } from "./carteiraEscopo.policy";
 
 const dinheiro = (valor: unknown) => Math.round(Number(valor ?? 0) * 100) / 100;
 const mascarar = (chave: string) => chave.length <= 6 ? "***" : `${chave.slice(0, 2)}***${chave.slice(-4)}`;
@@ -53,6 +54,33 @@ export async function obterOuCriarCarteira(usuario: any) {
   return data;
 }
 
+async function carteiraOperacional(usuario: any, usinaId?: string) {
+  if (!usinaId) return obterOuCriarCarteira(usuario);
+  const empresaId = empresaIdDoUsuario(usuario);
+  const {data: usina,error: erroUsina} = await supabase.from("usinas").select("id").eq("id",usinaId).eq("empresa_id",empresaId).maybeSingle();
+  if (erroUsina) throw erroUsina;
+  if (!usina) throw new Error("Usina não encontrada nesta empresa.");
+  let {data: carteira,error} = await supabase.from("gerador_carteiras").select("*").eq("usina_id",usinaId).eq("empresa_id",empresaId).eq("status","ATIVA").maybeSingle();
+  if(error) throw error;
+  if (!carteira) {
+    // Legado: a cobrança já identifica a carteira real, embora usina_id da
+    // carteira esteja vazio. Recupera somente um vínculo financeiro inequívoco.
+    const {data: cobrancas,error: erroCobrancas} = await supabase.from("asaas_cobrancas")
+      .select("gerador_carteira_id,faturas!inner(usina_id)").eq("empresa_id",empresaId).eq("faturas.usina_id",usinaId);
+    if(erroCobrancas) throw erroCobrancas;
+    const ids = [...new Set((cobrancas ?? []).map((item:any)=>item.gerador_carteira_id).filter(Boolean))];
+    if(ids.length === 1) {
+      const resultado = await supabase.from("gerador_carteiras").select("*").eq("id",ids[0]).eq("empresa_id",empresaId).eq("status","ATIVA").maybeSingle();
+      if(resultado.error) throw resultado.error;
+      if(resultado.data && !resultado.data.usina_id) carteira = {...resultado.data,usina_id:usinaId};
+    }
+  }
+  if (!carteira || !podeOperarCarteiraDaUsina(usuario,carteira,empresaId,usinaId)) {
+    throw new Error("Carteira de recebimento desta usina não configurada ou acesso não autorizado.");
+  }
+  return carteira;
+}
+
 export async function buscarCarteiraDaFatura(faturaId: string) {
   const { data: fatura, error } = await supabase.from("faturas").select("usina_id,empresa_id").eq("id", faturaId).single();
   if (error || !fatura) return null;
@@ -72,8 +100,8 @@ async function movimentosDaCarteira(carteira: any) {
   return { cobrancas: cobrancas ?? [], transferencias: transferencias ?? [] };
 }
 
-export async function resumoCarteira(usuario: any) {
-  const carteira = await obterOuCriarCarteira(usuario);
+export async function resumoCarteira(usuario: any, usinaId?: string) {
+  const carteira = await carteiraOperacional(usuario, usinaId);
   const { cobrancas, transferencias } = await movimentosDaCarteira(carteira);
   const recebidas = cobrancas.filter((item: any) => pagamentoDisponivelParaRepasse(item.status));
   const saidas = transferencias.filter((item: any) => !["FAILED","CANCELLED","REFUSED"].includes(String(item.status).toUpperCase()));
@@ -108,7 +136,7 @@ export async function resumoCarteira(usuario: any) {
 
 export async function atualizarCarteira(usuario: any, input: any) {
   if (!(await conferirSenha(String(input.senhaAtual ?? ""), String(usuario.senha ?? "")))) throw new Error("Confirme sua senha para alterar os dados financeiros.");
-  const carteira = await obterOuCriarCarteira(usuario);
+  const carteira = await carteiraOperacional(usuario, input?.usinaId);
   const pixTipo = String(input.pixTipo ?? carteira.pix_tipo ?? "").toUpperCase();
   const pixChave = String(input.pixChave ?? chavePixDaCarteira(carteira)).trim();
   if (pixTipo && !["CPF","CNPJ","EMAIL","PHONE","EVP"].includes(pixTipo)) throw new Error("Tipo de chave Pix inválido.");
@@ -128,29 +156,29 @@ export async function atualizarCarteira(usuario: any, input: any) {
   }).eq("id", carteira.id);
   if (error) throw error;
   await auditar({ empresaId: empresaIdDoUsuario(usuario), usuarioId: usuario.id, acao: "CARTEIRA_ATUALIZADA", recurso: "gerador_carteiras", recursoId: carteira.id, detalhes: { pixTipo: pixTipo || null, transferenciaAutomatica: Boolean(input.transferenciaAutomatica) } });
-  return resumoCarteira(usuario);
+  return resumoCarteira(usuario, input?.usinaId);
 }
 
-export async function alterarTransferenciaAutomatica(usuario: any, ativa: boolean) {
+export async function alterarTransferenciaAutomatica(usuario: any, ativa: boolean, usinaId?: string) {
   if (typeof ativa !== "boolean") throw new Error("Informe se a transferência automática deve ficar ligada ou desligada.");
-  const carteira = await obterOuCriarCarteira(usuario);
+  const carteira = await carteiraOperacional(usuario, usinaId);
   if (ativa && (!carteira.pix_tipo || !chavePixDaCarteira(carteira) || !carteira.pix_titular_nome)) {
     throw new Error("Valide e salve uma chave Pix antes de ligar a transferência automática.");
   }
   const { error } = await supabase.from("gerador_carteiras").update({ transferencia_automatica: ativa, atualizado_em: new Date().toISOString() }).eq("id", carteira.id);
   if (error) throw error;
   await auditar({ empresaId: empresaIdDoUsuario(usuario), usuarioId: usuario.id, acao: "CARTEIRA_AUTOMACAO_ALTERADA", recurso: "gerador_carteiras", recursoId: carteira.id, detalhes: { transferenciaAutomatica: ativa } });
-  return resumoCarteira(usuario);
+  return resumoCarteira(usuario, usinaId);
 }
 
 export async function transferirCarteira(usuario: any, input: any, idempotencyKey = "") {
   if (String(input.confirmacao ?? "") !== "TRANSFERIR") throw new Error("Confirme a transferência para continuar.");
   if (!(await conferirSenha(String(input.senhaAtual ?? ""), String(usuario.senha ?? "")))) throw new Error("Senha atual incorreta.");
   await exigirCodigoFinanceiro(usuario.id, String(input.codigoAutenticador ?? ""));
-  const carteira = await obterOuCriarCarteira(usuario);
+  const carteira = await carteiraOperacional(usuario, input?.usinaId);
   const pix = chavePixDaCarteira(carteira);
   if (!pix || !carteira.pix_tipo) throw new Error("Cadastre sua chave Pix antes de transferir.");
-  const resumo = await resumoCarteira(usuario);
+  const resumo = await resumoCarteira(usuario, input?.usinaId);
   const valor = dinheiro(input.valor);
   if (!(valor > 0) || valor > resumo.saldoDisponivel) throw new Error("Valor indisponível para transferência.");
   const chaveIdempotencia = idempotencyKey.trim().slice(0, 200) || null;
