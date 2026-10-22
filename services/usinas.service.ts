@@ -5,6 +5,11 @@ export async function gerarPlanilhaRateio(id: string, competencia: string, ucAnc
   return data as {arquivo:string; csv:string; rascunho:boolean; formatoCemig:boolean; pendencias:string[]; saldosSemHistorico:number; suspensas:Array<{uc:string;consumoMedio:number;saldo:number}>; emailEnviado:boolean; mesesNaMedia:number; producaoMedia:number; ucsExcluidas:number; linhas:Array<{uc:string;percentual:number;energiaPrevista:number;ancora:boolean}>};
 }
 
+export type ConfiguracaoRateio={uc_ancora:string;numeros_confirmados:boolean;habilitado:boolean;registros:Array<{competencia:string;status:string;email_status:string;erro?:string}>};
+export async function obterConfiguracaoRateio(id:string){return (await api.get(`/usinas/${id}/rateio-configuracao`,{timeout:15000})).data as ConfiguracaoRateio;}
+export async function salvarConfiguracaoRateio(id:string,ucAncora:string,numerosAtuaisConfirmados:boolean){return (await api.put(`/usinas/${id}/rateio-configuracao`,{ucAncora,numerosAtuaisConfirmados})).data as ConfiguracaoRateio;}
+export async function buscarRateioAutomatico(id:string,competencia:string){return (await api.get(`/usinas/${id}/rateios-mensais/${competencia}`,{timeout:15000})).data as Awaited<ReturnType<typeof gerarPlanilhaRateio>>;}
+
 export async function listarUsinas() {
   const { data } = await api.get("/usinas", { timeout: 60000 });
   return data;
