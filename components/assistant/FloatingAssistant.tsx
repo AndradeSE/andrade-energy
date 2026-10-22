@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
-import { Alert, Animated, Image, PanResponder, StyleSheet, View, useWindowDimensions } from "react-native";
-import { router, usePathname } from "expo-router";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Alert, Animated, Image, Modal, PanResponder, StyleSheet, View, useWindowDimensions } from "react-native";
+import { usePathname } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { APP_TAB_BAR_METRICS } from "../navigation/AppTabBarFrame";
 import { isAssistantLoading, subscribeAssistantLoading } from "../../services/assistant-overlay-visibility";
@@ -28,6 +28,8 @@ export default function FloatingAssistant() {
   const { usuario, usinaSelecionada, unidadeSelecionada } = useAuth();
   const launcherAvailable = assistantLauncherAvailable(pathname, IS_GERADOR_APP, usinaSelecionada?.id, unidadeSelecionada?.id);
   const userId = usuario?.id ? String(usuario.id) : "";
+  const [textChatOpen, setTextChatOpen] = useState(false);
+  useEffect(() => { setTextChatOpen(false); }, [pathname, userId, usinaSelecionada?.id, unidadeSelecionada?.id]);
   const hidden = useSyncExternalStore(subscribeFloatingHidden, floatingHidden);
   useEffect(() => { if (userId) void loadFloatingPreference(userId); }, [userId]);
   const wave = useRef(new Animated.Value(0)).current;
@@ -115,7 +117,7 @@ export default function FloatingAssistant() {
       if (longPressed.current) return;
       if (Math.abs(gesture.dx) < 8 && Math.abs(gesture.dy) < 8) {
         if (conversationOpen) { setWakeWordPaused(true); closeFloatingConversation(); }
-        else router.push("/assistente");
+        else setTextChatOpen(true);
       }
     },
     onPanResponderTerminate: () => { if (longPressTimer.current) clearTimeout(longPressTimer.current); longPressTimer.current = undefined; },
@@ -123,7 +125,8 @@ export default function FloatingAssistant() {
 
   if (loading || pathname === "/assistente") return null;
   return <>
-  {conversationRequest ? <Assistente voiceOnly embeddedVoiceWake={conversationRequest} onClose={() => { setWakeWordPaused(true); closeFloatingConversation(); }} /> : null}
+  {textChatOpen ? <Modal visible animationType="slide" onRequestClose={() => setTextChatOpen(false)}><Assistente onClose={() => setTextChatOpen(false)} /></Modal> : null}
+  {!textChatOpen && conversationRequest ? <Assistente voiceOnly embeddedVoiceWake={conversationRequest} onClose={() => { setWakeWordPaused(true); closeFloatingConversation(); }} /> : null}
   {!hidden && launcherAvailable ? <Animated.View {...pan.panHandlers} accessibilityRole="button" accessibilityLabel={conversationOpen ? "Conversa por voz aberta; segure para ocultar" : "Abrir Ajuda Andrade Energy; arraste ou segure para ocultar"} style={[styles.button, { opacity: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }), transform: [...animated.getTranslateTransform(), { translateX: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -120] }) }, { translateY: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -170] }) }, { scale: hideProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.2] }) }] }]}>
     <Animated.View pointerEvents="none" style={[styles.halo, { opacity: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.4] }), transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.08] }) }] }]} />
     <Animated.View pointerEvents="none" style={{ transform: [{ translateY: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, -2] }) }, { scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) }] }}>
