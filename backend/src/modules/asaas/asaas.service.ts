@@ -6,6 +6,7 @@ import { regenerarDocumentosGeradosDaFatura } from "../faturas/documentosFatura.
 import { buscarCarteiraDaFatura, chavePixDaCarteira } from "../carteira/carteira.service";
 import { exigirContratoAssinadoDaUc } from "../contratos/contratoUc.service";
 import { criarNotificacaoApp } from "../notificacoes/push.service";
+import { exigirRecebimentoDaUsina } from "./titularRecebimento.service";
 
 function digits(value: unknown) { return String(value ?? "").replace(/\D/g, ""); }
 function hojeNoBrasil() {
@@ -70,7 +71,7 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, o
     if (erroReferencia || !referencia) throw new Error("Fatura não encontrada.");
     empresaResolvida = referencia.empresa_id;
   }
-  const { data: referenciaUc, error: erroUc } = await supabase.from("faturas").select("unidade_consumidora_id").eq("id", faturaId).eq("empresa_id", empresaResolvida).single();
+  const { data: referenciaUc, error: erroUc } = await supabase.from("faturas").select("unidade_consumidora_id,usina_id").eq("id", faturaId).eq("empresa_id", empresaResolvida).single();
   if (erroUc || !referenciaUc?.unidade_consumidora_id) throw new Error("Fatura sem UC válida.");
   await exigirContratoAssinadoDaUc(referenciaUc.unidade_consumidora_id, empresaResolvida);
   const { data: existing } = await supabase.from("asaas_cobrancas").select("*").eq("fatura_id", faturaId).eq("empresa_id", empresaResolvida).maybeSingle();
@@ -85,6 +86,7 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, o
       if (!["PENDING", "OVERDUE"].includes(status)) {
         throw new Error("Somente cobranças pendentes ou vencidas podem ser refaturadas.");
       }
+      await exigirRecebimentoDaUsina(await buscarCarteiraDaFatura(faturaId), referenciaUc.usina_id);
       novoVencimento = amanhaNoBrasil();
       payment = await asaasRequest<any>(`/payments/${existing.asaas_payment_id}`, {
         method: "PUT",
@@ -112,6 +114,8 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, o
   }
   const { data: invoice, error } = await supabase.from("faturas").select("*, clientes(*)").eq("id", faturaId).eq("empresa_id", empresaResolvida).single();
   if (error || !invoice) throw new Error("Fatura não encontrada.");
+  const carteira = await buscarCarteiraDaFatura(faturaId);
+  await exigirRecebimentoDaUsina(carteira, referenciaUc.usina_id);
   const customerData = Array.isArray(invoice.clientes) ? invoice.clientes[0] : invoice.clientes;
   if (!customerData?.cpf) throw new Error("Informe o CPF/CNPJ do cliente antes de gerar a cobrança.");
   const customers = await asaasRequest<any>(`/customers?cpfCnpj=${digits(customerData.cpf)}`);
@@ -139,7 +143,6 @@ export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, o
   }
   const value = Number(invoice.valor_total_unificado ?? invoice.valor_total ?? 0);
   if (!(value > 0)) throw new Error("A fatura não possui valor válido para cobrança.");
-  const carteira = await buscarCarteiraDaFatura(faturaId);
   const split = carteira?.asaas_wallet_id ? [{ walletId: carteira.asaas_wallet_id, percentualValue: 100, externalReference: faturaId }] : undefined;
   const vencimentoOperacional = opcoes.refaturar === true ? amanhaNoBrasil() : dueDate(invoice.vencimento);
   // Recupera uma cobrança que o Asaas tenha criado antes de uma falha nas
