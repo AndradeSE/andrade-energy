@@ -2,7 +2,7 @@ import api from "../config/api";
 
 export async function gerarPlanilhaRateio(id: string, competencia: string, ucAncora: string, enviarEmail = false, opcoes: {documentoAncora?:string;numerosAtuaisConfirmados?:boolean;formatoCemig?:boolean} = {}) {
   const {data} = await api.post(`/usinas/${id}/rateio-mensal`,{competencia,ucAncora,enviarEmail,...opcoes},{timeout:60000});
-  return data as {arquivo:string; csv:string; rascunho:boolean; formatoCemig:boolean; pendencias:string[]; emailEnviado:boolean; mesesNaMedia:number; producaoMedia:number; ucsExcluidas:number; linhas:Array<{uc:string;percentual:number;energiaPrevista:number;ancora:boolean}>};
+  return data as {arquivo:string; csv:string; rascunho:boolean; formatoCemig:boolean; pendencias:string[]; saldosSemHistorico:number; suspensas:Array<{uc:string;consumoMedio:number;saldo:number}>; emailEnviado:boolean; mesesNaMedia:number; producaoMedia:number; ucsExcluidas:number; linhas:Array<{uc:string;percentual:number;energiaPrevista:number;ancora:boolean}>};
 }
 
 export async function listarUsinas() {

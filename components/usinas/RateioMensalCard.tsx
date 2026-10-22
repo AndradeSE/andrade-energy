@@ -7,6 +7,7 @@ import { Button, Card } from "../ui";
 import FormField from "../cadastro/FormField";
 import { gerarPlanilhaRateio } from "../../services/usinas.service";
 import { Colors, Spacing } from "../../theme";
+import { mascaraDocumento } from "../../utils/input-masks";
 
 export default function RateioMensalCard({usinaId,empresaId,competencia}: {usinaId:string;empresaId:string;competencia?:string}) {
   const [ancora,setAncora]=useState("");
@@ -44,13 +45,15 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
   }
   return <Card><View style={{gap:Spacing.sm}}>
     <Text style={{fontSize:18,fontWeight:"700",color:Colors.text}}>Planilha mensal de rateio</Text>
-    <Text style={{color:Colors.subtitle}}>Consumo médio ÷ produção média real da usina × 100, sem adicional. O restante fica na UC âncora. Recalcule a cada competência antes de solicitar a alteração à Cemig.</Text>
+    <Text style={{color:Colors.subtitle}}>(Consumo médio − saldo de créditos da UC) ÷ produção média real da usina × 100, sem adicional e com mínimo de zero. O restante fica na UC âncora. Recalcule a cada competência antes de solicitar a alteração à Cemig.</Text>
     <FormField label="UC âncora (opcional)" value={ancora} onChangeText={v=>{setAncora(v.replace(/\D/g,"").slice(0,20));setResultado(undefined);}} keyboardType="number-pad" />
-    <FormField label="CPF/CNPJ do titular da UC âncora" value={documentoAncora} onChangeText={v=>{setDocumentoAncora(v.replace(/\D/g,"").slice(0,14));setResultado(undefined);}} keyboardType="number-pad" />
+    <FormField label="CPF/CNPJ do titular da UC âncora" value={documentoAncora} onChangeText={v=>{setDocumentoAncora(mascaraDocumento(v));setResultado(undefined);}} keyboardType="number-pad" />
     <Text style={{color:Colors.subtitle}}>Sem número, o arquivo será um rascunho com “UC âncora — a definir”. Este campo não cadastra cliente nem gera cobrança. A escolha fica salva neste aparelho e pode ser trocada.</Text>
     <Text style={{color:Colors.subtitle}}>O CSV Cemig terá somente UC; CPF/CNPJ; Cota; Âncora, sem cabeçalho. Deve usar o número atual da UC, não o antigo número de instalação. O documento de cada beneficiária vem do titular da UC.</Text>
     <Button title={numerosAtuaisConfirmados?"Números atuais de UC conferidos ✓":"Confirmar que conferi os números atuais de UC"} disabled={ocupado} onPress={()=>setNumerosAtuaisConfirmados(v=>!v)} />
     {resultado?<Text style={{color:Colors.subtitle}}>Base: {resultado.producaoMedia.toLocaleString("pt-BR",{maximumFractionDigits:2})} kWh/mês ({resultado.mesesNaMedia} meses registrados). {resultado.ucsExcluidas?`${resultado.ucsExcluidas} UC(s) sem contrato vigente assinado não incluída(s).`:""}</Text>:null}
+    {resultado?.suspensas?.length?<Text style={{color:Colors.subtitle}}>{resultado.suspensas.length} UC(s) sem nova alocação porque o saldo cobre a previsão de consumo. Elas aparecem no rascunho para conferência e não entram como beneficiárias com cota zero no CSV Cemig. Seus contratos permanecem ativos.</Text>:null}
+    {resultado?.saldosSemHistorico?<Text style={{color:Colors.subtitle}}>{resultado.saldosSemHistorico} UC(s) sem saldo registrado: considerado zero. Confira o saldo e sua competência no rascunho antes de solicitar o rateio.</Text>:null}
     {resultado?.pendencias?.length?<Text style={{color:Colors.subtitle}}>Para o CSV Cemig: {resultado.pendencias.join(" ")}</Text>:null}
     <Button title={ocupado?"Preparando…":"Baixar CSV no padrão Cemig"} disabled={ocupado||!competencia} onPress={()=>void gerar(false,true)} />
     <Button title="Baixar rascunho de conferência" disabled={ocupado||!competencia} onPress={()=>void gerar(false,false)} />
