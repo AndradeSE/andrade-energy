@@ -1,10 +1,10 @@
 import { supabase } from "../../config/supabase";
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
-import { proporRateioMensal, csvRateioMensal, csvCemigRateio, pendenciasCsvCemig } from "./rateioMensal.policy";
+import { proporRateioMensal, csvRateioMensal, csvCemigRateio, pendenciasCsvCemig, documentoDaTitularidade } from "./rateioMensal.policy";
 
 export async function prepararPlanilhaRateio(usinaId: string, empresaId: string, competencia: string, ancora: string, documentoAncora = "", numerosAtuaisConfirmados = false, formatoCemig = false) {
   if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(competencia)) throw new Error("Selecione a competência do rateio.");
-  const { data: usina, error } = await supabase.from("usinas").select("id,nome,numero_instalacao,geracao_media")
+  const { data: usina, error } = await supabase.from("usinas").select("id,nome,numero_instalacao,geracao_media,titularidade_ucs_recebedoras")
     .eq("id",usinaId).eq("empresa_id",empresaId).maybeSingle();
   if (error) throw error;
   if (!usina) throw new Error("Usina não encontrada nesta empresa.");
@@ -12,22 +12,27 @@ export async function prepararPlanilhaRateio(usinaId: string, empresaId: string,
   inicio.setUTCMonth(inicio.getUTCMonth()-11);
   const fim = new Date(`${competencia}-01T00:00:00Z`);
   fim.setUTCMonth(fim.getUTCMonth()+1);
-  const [producao, unidades, contratos] = await Promise.all([
+  const [producao, unidades, contratos, geradoraResult] = await Promise.all([
     supabase.from("fechamentos").select("energia_gerada").eq("empresa_id",empresaId).eq("usina_id",usinaId)
       .gte("competencia",inicio.toISOString().slice(0,10)).lt("competencia",fim.toISOString().slice(0,10)),
-    supabase.from("unidades_consumidoras").select("id,numero,apelido,consumo_medio_kwh,cpf_titular")
+    supabase.from("unidades_consumidoras").select("id,numero,apelido,consumo_medio_kwh,cpf_titular,clientes(cpf,empresa_id)")
       .eq("empresa_id",empresaId).eq("usina_id",usinaId).eq("status","ATIVA").neq("tipo","GERADORA").order("numero"),
     supabase.from("contratos").select("unidade_consumidora_id,aceite_cliente_em,contrato_assinado_url,status")
       .eq("empresa_id",empresaId).in("status",["ATIVO","VIGENTE"]),
+    supabase.from("unidades_consumidoras").select("cpf_titular").eq("empresa_id",empresaId).eq("usina_id",usinaId).eq("tipo","GERADORA").maybeSingle(),
   ]);
-  for (const r of [producao,unidades,contratos]) if (r.error) throw r.error;
+  for (const r of [producao,unidades,contratos,geradoraResult]) if (r.error) throw r.error;
   const valores = (producao.data ?? []).map(p=>Number(p.energia_gerada)).filter(n=>Number.isFinite(n)&&n>0);
   // Sem leituras reais não se usa a produção estimada do cadastro para enviar rateio.
   if (!valores.length) throw new Error("Importe uma produção real da usina nesta janela de 12 meses antes de gerar o rateio.");
   const media = valores.reduce((s,n)=>s+n,0)/valores.length;
   const assinadas = new Set((contratos.data ?? []).filter(c=>c.aceite_cliente_em||c.contrato_assinado_url||c.status==="VIGENTE").map(c=>c.unidade_consumidora_id));
   const elegiveis = (unidades.data ?? []).filter(u=>assinadas.has(u.id));
-  const plano = proporRateioMensal(media,elegiveis.map(u=>({numero:String(u.numero),nome:u.apelido||`UC ${u.numero}`,documento:u.cpf_titular,consumo_medio_kwh:Number(u.consumo_medio_kwh)})),ancora);
+  const plano = proporRateioMensal(media,elegiveis.map(u=>{
+    const cliente=Array.isArray(u.clientes)?u.clientes[0]:u.clientes as any;
+    return {numero:String(u.numero),nome:u.apelido||`UC ${u.numero}`,
+      documento:documentoDaTitularidade(usina.titularidade_ucs_recebedoras,geradoraResult.data?.cpf_titular,cliente?.empresa_id===empresaId?cliente?.cpf:null,u.cpf_titular),consumo_medio_kwh:Number(u.consumo_medio_kwh)};
+  }),ancora);
   const geradora=String(usina.numero_instalacao ?? "").replace(/\D/g,"");
   const pendencias=pendenciasCsvCemig(plano,geradora,documentoAncora,numerosAtuaisConfirmados);
   return { ...plano, rascunho:!formatoCemig, formatoCemig, pendencias, competencia, mesesNaMedia:valores.length, ucsExcluidas:(unidades.data ?? []).length-elegiveis.length,
