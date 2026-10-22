@@ -7,21 +7,8 @@ import { router, useFocusEffect } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 
-import {
-  Alert,
-  Image,
-  ImageBackground,
-  Linking,
-  Modal,
-  Pressable,
-  RefreshControl,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Alert, Image, ImageBackground, Linking, Modal, RefreshControl, StatusBar, StyleSheet, Text, View } from "react-native";
+import { Pressable, TextInput, TouchableOpacity } from "../components/assistant/AssistantNativeControls";
 
 import {
   SafeAreaView,

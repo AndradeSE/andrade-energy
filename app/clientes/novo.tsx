@@ -1,7 +1,8 @@
 import * as DocumentPicker from "expo-document-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 import { Ionicons } from "@expo/vector-icons";
 
 import FormField from "../../components/cadastro/FormField";

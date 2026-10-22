@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { RefreshControl, StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 import { useEffect, useState } from "react";
 
 import Badge from "../../components/ui/Badge";

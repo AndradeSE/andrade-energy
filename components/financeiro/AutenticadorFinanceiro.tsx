@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
+import { TextInput, TouchableOpacity } from "../assistant/AssistantNativeControls";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import api from "../../config/api";

@@ -7,18 +7,8 @@ import { useReadNotifications } from "../../hooks/useReadNotifications";
 import { useDismissedNotifications } from "../../hooks/useDismissedNotifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import {
-  Alert,
-  LayoutAnimation,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  Image,
-  ScrollView,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Alert, LayoutAnimation, Modal, StyleSheet, Text, Image, ScrollView, View } from "react-native";
+import { Pressable, TouchableOpacity } from "../assistant/AssistantNativeControls";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { isPreviewEnvironment } from "../../config/environment";

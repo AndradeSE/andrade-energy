@@ -1,10 +1,6 @@
 import { ReactNode } from "react";
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { Pressable } from "./assistant/AssistantNativeControls";
 
 type Props = {
   icon: ReactNode;

@@ -1,11 +1,5 @@
-import {
-    Alert,
-    ActivityIndicator,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { Alert, ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "../components/assistant/AssistantNativeControls";
 
 import {
     useEffect,

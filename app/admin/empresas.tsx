@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, RefreshControl, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Switch } from "../../components/assistant/AssistantNativeControls";
+import { TextInput, TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
 import { AppHeader, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";

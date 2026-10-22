@@ -5,7 +5,8 @@ import * as DocumentPicker from "expo-document-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { Alert, ImageBackground, Pressable, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, ImageBackground, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Pressable, TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
 import CadastroActions from "../../components/cadastro/CadastroActions";
 import PdfPasswordRetryModal from "../../components/PdfPasswordRetryModal";

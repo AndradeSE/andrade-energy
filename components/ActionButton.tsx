@@ -1,4 +1,5 @@
-import { Text, TouchableOpacity } from "react-native";
+import { Text } from "react-native";
+import { TouchableOpacity } from "./assistant/AssistantNativeControls";
 
 type Props = {
   title: string;

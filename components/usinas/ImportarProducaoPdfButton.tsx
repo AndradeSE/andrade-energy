@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { useState } from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity } from "react-native";
+import { Alert, StyleSheet, Text } from "react-native";
+import { TouchableOpacity } from "../assistant/AssistantNativeControls";
 
 import PdfPasswordRetryModal from "../PdfPasswordRetryModal";
 import { useAuth } from "../../contexts/AuthContext";

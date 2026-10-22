@@ -2,15 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { Redirect, router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import {
-  Alert,
-  Pressable,
-  RefreshControl,
-  Share,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Alert, RefreshControl, Share, StyleSheet, Text, View } from "react-native";
+import { Pressable } from "../assistant/AssistantNativeControls";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { useDashboardGestor } from "../../hooks/useDashboardGestor";

@@ -1,10 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "../assistant/AssistantNativeControls";
 
 import {
   Colors,

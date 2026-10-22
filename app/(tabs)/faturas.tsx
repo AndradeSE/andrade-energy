@@ -5,7 +5,8 @@ import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, BackHandler, Linking, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, BackHandler, Linking, Platform, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
 import { AppHeader, ElasticFlatList as FlatList, EmptyState, Screen } from "../../components/ui";
 import ClienteHeader from "../../components/cliente/ClienteHeader";

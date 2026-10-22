@@ -3,7 +3,8 @@ import { commercialPermission } from "../../config/commercialPermissions";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
+import { TextInput, TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { criarConviteGerador } from "../../services/convites.service";

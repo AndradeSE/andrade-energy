@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
 import { listarAuditoriaColaboradores } from "../../services/colaboradores.service";
 import { AppHeader, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";

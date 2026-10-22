@@ -1,11 +1,7 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
-import {
-  Alert,
-  ImageBackground,
-  Text,
-  TouchableOpacity
-} from "react-native";
+import { Alert, ImageBackground, Text } from "react-native";
+import { TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ElasticScrollView as ScrollView } from "../../components/ui";
 import InfoCard from "../../components/InfoCard";

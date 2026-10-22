@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
 import { ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { obterPainelComercial, PainelComercial, removerGerador } from "../../services/comercial.service";

@@ -1,16 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import {
-  Alert,
-  Linking,
-  Modal,
-  RefreshControl,
-  ScrollView as NativeScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Alert, Linking, Modal, RefreshControl, ScrollView as NativeScrollView, StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
 import {
   AppHeader,

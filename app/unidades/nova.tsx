@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
+import { Pressable } from "../../components/assistant/AssistantNativeControls";
 
 import ChoiceField from "../../components/cadastro/ChoiceField";
 import FormField from "../../components/cadastro/FormField";
@@ -35,11 +36,10 @@ function producaoParaAlocacao(usina: any) {
 }
 
 function percentualPelaMedia(usina: any, consumo: unknown, modalidade: Modalidade) {
-  if (modalidade === "INJECAO") return "";
   const producao = producaoParaAlocacao(usina);
   const media = numeroSeguro(consumo);
   return producao > 0 && media > 0
-    ? String(Math.min(100, media * 1.15 / producao * 100).toFixed(2)).replace(".", ",")
+    ? String(Math.min(100, media / producao * 100).toFixed(2)).replace(".", ",")
     : "";
 }
 
@@ -158,7 +158,6 @@ export default function NovaUnidade() {
   }, [clienteId, clientes, consumoMedio, cpfTitular, origem, usinaId]);
 
   useEffect(() => {
-    if (modalidade === "INJECAO") return;
     const usinaSelecionada = usinas.find((item) => item.id === usinaId);
     const sugestao = percentualPelaMedia(usinaSelecionada, consumoMedio, modalidade);
     if (!percentualEditado) setPercentualAlocado(sugestao);
@@ -261,7 +260,7 @@ export default function NovaUnidade() {
           repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR",
           tipoGd: tipoGdEfetivo,
           faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE",
-          calcularAutomaticamente: modalidadeFinal === "COMPENSACAO" && !percentualEditado,
+          calcularAutomaticamente: !percentualEditado,
         });
         if (usinaFinal !== usinaDoAmbiente?.id) {
           const destino = usinas.find((item) => item.id === usinaFinal);
@@ -315,14 +314,14 @@ export default function NovaUnidade() {
       {tipo !== "GERADORA" ? <>
         <Text style={styles.configurationTitle}>CONFIGURAÇÃO DA UC</Text>
         <Text style={styles.beneficiariaHint}>Defina as condições desta unidade antes de salvar. Elas não são copiadas do cadastro do cliente.</Text>
-        <ChoiceField label="Faturamento" value={modalidade} onChange={(valor) => { const nova = valor as Modalidade; setModalidade(nova); setPercentualAlocado(nova === "INJECAO" ? "" : percentualPelaMedia(usinaSelecionada, consumoMedio, nova)); }} options={[{ label: "Injeção", value: "INJECAO" }, { label: "Compensação", value: "COMPENSACAO" }]} />
+        <ChoiceField label="Faturamento" value={modalidade} onChange={(valor) => { const nova = valor as Modalidade; setModalidade(nova); setPercentualAlocado(percentualPelaMedia(usinaSelecionada, consumoMedio, nova)); }} options={[{ label: "Injeção", value: "INJECAO" }, { label: "Compensação", value: "COMPENSACAO" }]} />
         <Text style={styles.beneficiariaHint}>Usina deste ambiente: {usinaSelecionada?.nome ?? "Selecione uma usina"}</Text>
-        {trocandoUsina || !usinaId ? <UsinaSelector usinas={usinas} value={usinaId} onChange={(valor) => { setUsinaId(valor); setTrocandoUsina(false); if (modalidade === "COMPENSACAO") setPercentualAlocado(percentualPelaMedia(usinas.find((item) => item.id === valor), consumoMedio, modalidade)); }} label="Trocar usina" /> : null}
-        <FormField label="Consumo médio mensal (kWh)" value={consumoMedio} onChangeText={(valor) => { const limpo = valor.replace(/[^\d,.]/g, ""); setConsumoMedio(limpo); if (modalidade === "COMPENSACAO") setPercentualAlocado(percentualPelaMedia(usinaSelecionada, limpo, modalidade)); }} keyboardType="decimal-pad" />
+        {trocandoUsina || !usinaId ? <UsinaSelector usinas={usinas} value={usinaId} onChange={(valor) => { setUsinaId(valor); setTrocandoUsina(false); if (!percentualEditado) setPercentualAlocado(percentualPelaMedia(usinas.find((item) => item.id === valor), consumoMedio, modalidade)); }} label="Trocar usina" /> : null}
+        <FormField label="Consumo médio mensal (kWh)" value={consumoMedio} onChangeText={(valor) => { const limpo = valor.replace(/[^\d,.]/g, ""); setConsumoMedio(limpo); if (!percentualEditado) setPercentualAlocado(percentualPelaMedia(usinaSelecionada, limpo, modalidade)); }} keyboardType="decimal-pad" />
         <FormField label={modalidade === "INJECAO" ? "Percentual de injeção (%) *" : "Percentual alocado (%)"} value={percentualAlocado} onChangeText={(valor) => { setPercentualEditado(true); setPercentualAlocado(valor.replace(/[^\d,.]/g, "")); }} keyboardType="decimal-pad" />
         <Text style={styles.beneficiariaHint}>{producaoParaAlocacao(usinaSelecionada) > 0 ? `Energia estimada para esta UC: aproximadamente ${(producaoParaAlocacao(usinaSelecionada) * numeroSeguro(percentualAlocado) / 100).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kWh/mês (${percentualAlocado || "0"}% da produção média da usina).` : "Informe a produção média da usina para estimar os kWh mensais desta porcentagem."}</Text>
         <Text style={styles.beneficiariaHint}>{saldoAlocacao === null ? "Consultando saldo da usina..." : `Disponível para alocação: ${saldoAlocacao.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`}</Text>
-        <Text style={styles.beneficiariaHint}>{modalidade === "INJECAO" ? "Informe manualmente a parcela da produção da usina destinada a esta UC. Este valor é definido pelo gerador." : "A sugestão considera 115% do consumo médio sobre a produção média disponível da usina. Você pode editar."}</Text>
+        <Text style={styles.beneficiariaHint}>A sugestão usa o consumo médio dividido pela produção média da usina, sem margem adicional. Você pode editar.</Text>
         <ChoiceField label="Plano do contrato" value={planoContrato} onChange={(valor) => { setPlanoContrato(valor); setDescontoPersonalizado(false); }} options={[{ label: "Com fidelidade", value: "COM_FIDELIDADE" }, { label: "Sem fidelidade", value: "SEM_FIDELIDADE" }]} />
         {planoContrato === "SEM_FIDELIDADE" ? <Text>Prazo indeterminado, sem multa por saída antecipada e aviso prévio de 90 dias. Desconto inicial: GD II 30%; GD I 20%. Você pode editar o percentual abaixo.</Text> : null}
         <FormField label="Desconto contratado (%)" value={desconto} onChangeText={(valor) => { setDescontoPersonalizado(true); setDesconto(valor.replace(/[^\d,.]/g, "")); }} keyboardType="decimal-pad" />

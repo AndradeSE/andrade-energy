@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useGlobalSearchParams, useSegments } from "expo-router";
-import { Pressable, Text } from "react-native";
+import { Text } from "react-native";
+import { Pressable } from "../assistant/AssistantNativeControls";
 
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { Colors } from "../../theme";

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { detectPixKeyType } from "../../utils/detectPixKeyType";
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Modal, StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "../assistant/AssistantNativeControls";
 import { Colors } from "../../theme";
 
 export type PixKeyType = "CPF" | "CNPJ" | "EMAIL" | "PHONE" | "EVP";

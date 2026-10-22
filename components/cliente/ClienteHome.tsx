@@ -1,11 +1,5 @@
-import {
-  RefreshControl,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { RefreshControl, StatusBar, StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "../assistant/AssistantNativeControls";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";

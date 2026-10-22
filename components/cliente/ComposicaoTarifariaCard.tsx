@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "../assistant/AssistantNativeControls";
 import Svg, { Circle, G } from "react-native-svg";
 
 import { Colors, Radius, Spacing, Typography } from "../../theme";

@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { TextInput, TouchableOpacity } from "../components/assistant/AssistantNativeControls";
 
 import { AppHeader, ElasticScrollView as ScrollView, Screen } from "../components/ui";
 import { Colors, Radius, Spacing, Typography } from "../theme";

@@ -3,17 +3,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  Alert,
-  Modal,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Switch,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Alert, Modal, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Switch } from "../../components/assistant/AssistantNativeControls";
+import { Pressable, TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 import QuickAccessCarousel from "../../components/QuickAccessCarousel";
 import { isAssistantEnabled } from "../../config/environment";
 import {

@@ -5,7 +5,8 @@ import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Linking, Platform, StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
 import FormField from "../../components/cadastro/FormField";
 import EnderecoFields from "../../components/cadastro/EnderecoFields";
