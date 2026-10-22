@@ -1,6 +1,12 @@
 const SANDBOX_URL = "https://api-sandbox.asaas.com/v3";
 const PRODUCTION_URL = "https://api.asaas.com/v3";
 
+export class AsaasHttpError extends Error {
+  constructor(public status: number, public providerCode: string, public providerDescription: string) {
+    super(`Asaas HTTP ${status}${providerCode ? ` (${providerCode})` : ""}: ${providerDescription}`);
+  }
+}
+
 function resolveAsaasBaseUrl(apiKey: string) {
   // As chaves atuais do Asaas identificam o ambiente no próprio prefixo.
   // Isso evita combinar uma chave de produção com a URL de homologação.
@@ -18,10 +24,9 @@ export async function asaasRequest<T>(path: string, init: RequestInit = {}) {
   if (!response.ok) {
     const providerError = (data as any)?.errors?.[0];
     const description = providerError?.description ?? (data as any)?.message ?? `Asaas respondeu ${response.status}.`;
-    const code = providerError?.code ? ` (${providerError.code})` : "";
     // A mensagem não contém token nem dados sensíveis. Ela é importante para
     // diferenciar uma falha de cadastro de uma indisponibilidade do provedor.
-    throw new Error(`Asaas HTTP ${response.status}${code}: ${description}`);
+    throw new AsaasHttpError(response.status, String(providerError?.code ?? ""), String(description));
   }
   return data as T;
 }

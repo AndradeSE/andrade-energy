@@ -6,6 +6,7 @@ import { auditar } from "../../utils/audit";
 import { conferirSenha } from "../../utils/password";
 import { autenticadorAtivo, exigirCodigoFinanceiro, exigirAutorizacaoCadastroPix } from "../financeiro-seguranca/financeiroSeguranca.service";
 import { exigirTitularDaCarteira } from "../asaas/titularRecebimento.service";
+import { falhaRepasse, pagamentoDisponivelParaRepasse } from "../asaas/repasse.policy";
 
 const dinheiro = (valor: unknown) => Math.round(Number(valor ?? 0) * 100) / 100;
 const mascarar = (chave: string) => chave.length <= 6 ? "***" : `${chave.slice(0, 2)}***${chave.slice(-4)}`;
@@ -74,7 +75,7 @@ async function movimentosDaCarteira(carteira: any) {
 export async function resumoCarteira(usuario: any) {
   const carteira = await obterOuCriarCarteira(usuario);
   const { cobrancas, transferencias } = await movimentosDaCarteira(carteira);
-  const recebidas = cobrancas.filter((item: any) => ["RECEIVED","CONFIRMED","PAYMENT_RECEIVED","PAYMENT_CONFIRMED"].includes(String(item.status).toUpperCase()));
+  const recebidas = cobrancas.filter((item: any) => pagamentoDisponivelParaRepasse(item.status));
   const saidas = transferencias.filter((item: any) => !["FAILED","CANCELLED","REFUSED"].includes(String(item.status).toUpperCase()));
   const recebido = dinheiro(recebidas.reduce((soma: number, item: any) => soma + Number(item.valor_liquido ?? item.valor), 0));
   const transferido = dinheiro(saidas.reduce((soma: number, item: any) => soma + Number(item.valor), 0));
@@ -163,6 +164,7 @@ export async function transferirCarteira(usuario: any, input: any, idempotencyKe
     idempotency_key: chaveIdempotencia,
   }).select().single();
   if (intentError) throw intentError;
+  let respostaTransferenciaRecebida = false;
   try {
     const transfer = await asaasRequest<any>("/transfers", { method: "POST", body: JSON.stringify({
       value: valor,
@@ -172,12 +174,15 @@ export async function transferirCarteira(usuario: any, input: any, idempotencyKe
       description: `Saque carteira Andrade ${carteira.id}`,
       externalReference: String(intencao.id),
     }) });
+    respostaTransferenciaRecebida = true;
+    if (!transfer?.id || !transfer?.status) throw new Error("Resposta de transferência incompleta.");
     const { data, error } = await supabase.from("asaas_transferencias").update({ asaas_transfer_id: transfer.id, status: transfer.status, atualizado_em: new Date().toISOString() }).eq("id", intencao.id).select().single();
     if (error) throw error;
     await auditar({ empresaId: empresaIdDoUsuario(usuario), usuarioId: usuario.id, acao: "TRANSFERENCIA_SOLICITADA", recurso: "asaas_transferencias", recursoId: data.id, detalhes: { valor, destino: `${carteira.pix_tipo}:${mascarar(pix)}` } });
     return data;
   } catch (error) {
-    await supabase.from("asaas_transferencias").update({ status: "REFUSED", atualizado_em: new Date().toISOString() }).eq("id", intencao.id);
+    const falha = respostaTransferenciaRecebida ? {status:"UNKNOWN",erro_codigo:"PERSISTENCIA_PENDENTE"} : falhaRepasse(error);
+    await supabase.from("asaas_transferencias").update({ ...falha, erro_detalhe_criptografado: criptografarDado(String((error as any)?.message ?? "Falha sem detalhe").slice(0,2000)), atualizado_em: new Date().toISOString() }).eq("id", intencao.id);
     throw error;
   }
 }
