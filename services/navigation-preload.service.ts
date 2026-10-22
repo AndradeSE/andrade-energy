@@ -54,6 +54,8 @@ async function loadNavigationCache(
     }
     if (user.papel_empresa === "COLABORADOR_COMERCIAL") { await Promise.allSettled(tasks); return; }
     const plantId = plant?.id ?? user.usina_id ?? undefined;
+    if (!plantId) { await Promise.allSettled(tasks); return; }
+    tasks.push(queryClient.prefetchQuery({ queryKey: ["usinas-validacao-entrada", user.id, user.empresa_id], queryFn: listarUsinas }));
     tasks.push(queryClient.prefetchQuery({
       queryKey: ["dashboard-usina", plantId],
       queryFn: async () => {

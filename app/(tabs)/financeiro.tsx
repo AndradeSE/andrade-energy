@@ -31,7 +31,6 @@ export default function Financeiro() {
   const [financeiroAutorizado, setFinanceiroAutorizado] = useState(false);
   const [autorizacaoPix, setAutorizacaoPix] = useState("");
   const carregar = useCallback(async () => {
-    setCarteira(null);
     setFinanceiroAutorizado(false);
     if (!usinaSelecionada?.id && !user?.usina_id) {
       setLoading(false);

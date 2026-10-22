@@ -365,6 +365,8 @@ export default function DashboardGestor() {
         {historicoGeracao.length ? (
           <AndradeBarChart
             title="Desempenho da geração"
+            referenceValue={Number(data.usina?.geracao_media ?? 0)}
+            referenceLabel="Produção média mensal"
             subtitle="Produção real processada por competência"
             data={historicoGeracao}
             color={Colors.primary}
