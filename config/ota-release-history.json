@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261022-203814",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar continua conversa minimizada nas abas e encerra por silêncio"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-203520",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Rateio com checkboxes e ação principal; Solar continua voz minimizada ao navegar"
+    ]
+  },
+  {
     "numero": "OTA 20261022-165431",
     "data": "22/10/2026",
     "variant": "gerador",
