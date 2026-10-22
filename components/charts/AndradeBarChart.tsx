@@ -14,6 +14,8 @@ interface Props {
   height?: number;
   totalLabel?: string;
   formatTotal?: (value: number) => string;
+  referenceValue?: number;
+  referenceLabel?: string;
 }
 
 export default function AndradeBarChart({
@@ -24,6 +26,8 @@ export default function AndradeBarChart({
   height = 220,
   totalLabel = "Total",
   formatTotal = (value) => `R$ ${value.toFixed(2).replace(".", ",")}`,
+  referenceValue,
+  referenceLabel = "Produção média",
 }: Props) {
   const total = data.reduce((acc, item) => acc + item.value, 0);
   // Mesma leitura cromática usada no portal web: cada competência recebe
@@ -70,6 +74,11 @@ export default function AndradeBarChart({
           frontColor: palette[index % palette.length],
         }))}
         height={height}
+        showReferenceLine1={Number.isFinite(referenceValue) && Number(referenceValue) > 0}
+        referenceLine1Position={referenceValue}
+        referenceLine1Config={{ color: "#2563EB", thickness: 2, type: "dashed", dashWidth: 6, dashGap: 4 }}
+        referenceLinesOverChartContent
+        maxValue={Number(referenceValue) > 0 ? Math.max(Number(referenceValue), ...data.map(item => item.value), 1) * 1.15 : undefined}
         barWidth={28}
         spacing={22}
         roundedTop
@@ -89,6 +98,7 @@ export default function AndradeBarChart({
           fontSize: 12,
         }}
       />
+      {Number(referenceValue) > 0 ? <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12 }}><View style={{ width: 24, borderTopWidth: 2, borderTopColor: "#2563EB", borderStyle: "dashed" }} /><Text style={{ color: "#334155", flex: 1 }}>{referenceLabel}: {formatTotal(Number(referenceValue))}</Text></View> : null}
 
       <View
         style={{
