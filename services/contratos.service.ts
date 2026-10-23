@@ -1,4 +1,5 @@
 import api from "../config/api";
+import {sendPdf} from './pdf-transport';
 import * as FileSystem from "expo-file-system/legacy";
 export async function validarAssinaturaExterna(id: string) {
   const { data } = await api.post(`/contratos/${id}/validar-assinatura-externa`, { confirmado: true });
@@ -134,16 +135,7 @@ export async function gerarContratoDaUnidade(unidadeId: string, payload: any) {
 }
 
 export async function importarContratoAssinadoDaUnidade(unidadeId: string, arquivo: { uri: string; name: string; mimeType?: string | null }) {
-  const form = new FormData();
-  form.append("arquivo", {
-    uri: arquivo.uri,
-    name: arquivo.name,
-    type: arquivo.mimeType || "application/pdf",
-  } as any);
-  const { data } = await api.post(`/contratos/unidade/${unidadeId}/contrato-assinado`, form, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-  return data;
+  return sendPdf(arquivo.uri,`/contratos/unidade/${unidadeId}/contrato-assinado`,arquivo.name);
 }
 
 export async function solicitarCodigoAssinatura(contratoId: string) {
@@ -162,16 +154,7 @@ export async function registrarAceiteEletronico(contratoId: string, payload: { c
 }
 
 export async function importarContratoAssinadoPeloCliente(contratoId: string, arquivo: { uri: string; name: string; mimeType?: string | null }) {
-  const form = new FormData();
-  form.append("arquivo", {
-    uri: arquivo.uri,
-    name: arquivo.name,
-    type: arquivo.mimeType || "application/pdf",
-  } as any);
-  const { data } = await api.post(`/contratos/${contratoId}/contrato-assinado-cliente`, form, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-  return data;
+  return sendPdf(arquivo.uri,`/contratos/${contratoId}/contrato-assinado-cliente`,arquivo.name);
 }
 
 export async function cancelarMinutaSemAceite(id: string) {

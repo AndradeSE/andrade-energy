@@ -6,6 +6,10 @@ test("PDF upload refuses substituted destinations, tickets and oversized files b
   const path = `/storage/v1/object/upload/sign/contingency-uploads/${id}/${id}/${id}.pdf?token=test`;
   const ticket = { uploadId: id, uploadUrl: `https://qqhcjieymypowunkixmk.supabase.co${path}` };
   assert.equal(validatePreviewPdfUpload(ticket, 7 * 1024 * 1024), ticket);
+  const production={...ticket,uploadUrl:ticket.uploadUrl.replace('qqhcjieymypowunkixmk','ehnkyrsseisvvtbkwrvu')};
+  assert.equal(validatePreviewPdfUpload(production,7*1024*1024,'production'),production);
+  assert.throws(()=>validatePreviewPdfUpload(ticket,10,'production'));
+  assert.throws(()=>validatePreviewPdfUpload(production,10,'preview'));
   for (const uploadUrl of [ticket.uploadUrl.replace("supabase.co", "supabase.co.evil.test"), ticket.uploadUrl.replace("https:", "http:"),
     ticket.uploadUrl.replace("contingency-uploads", "private"), ticket.uploadUrl.replace("?token=test", ""), ticket.uploadUrl.replace(".co/", ".co:8443/")]) {
     assert.throws(() => validatePreviewPdfUpload({ ...ticket, uploadUrl }, 10));

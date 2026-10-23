@@ -1,4 +1,5 @@
 import api from "../config/api";
+import {sendPdf} from './pdf-transport';
 
 export async function listarClientes(usinaId?: string) {
   const { data } = await api.get("/clientes", { params: usinaId ? { usinaId } : {} });
@@ -91,16 +92,9 @@ export async function listarFaturasAnexadasCliente(id: string) {
 }
 
 export async function anexarFaturaCliente(id: string, arquivo: { uri: string; name: string; mimeType?: string | null }, senhaPdf?: string, usinaId?: string) {
-  const form = new FormData();
-  form.append("arquivo", {
-    uri: arquivo.uri,
-    name: arquivo.name || "fatura-cemig.pdf",
-    type: arquivo.mimeType || "application/pdf",
-  } as any);
-  if (senhaPdf?.trim()) form.append("senhaPdf", senhaPdf.trim());
-  if (usinaId) form.append("usinaId", usinaId);
-  const { data } = await api.post(`/clientes/${id}/faturas-anexadas`, form, { timeout: 120_000 });
-  return data as FaturaAnexadaCliente;
+  return await sendPdf(arquivo.uri,`/clientes/${id}/faturas-anexadas`,arquivo.name||'fatura-cemig.pdf',{
+    ...(senhaPdf?.trim()?{senhaPdf:senhaPdf.trim()}:{}),...(usinaId?{usinaId}:{})
+  }) as FaturaAnexadaCliente;
 }
 
 export async function excluirFaturaAnexadaCliente(clienteId: string, anexoId: string) {

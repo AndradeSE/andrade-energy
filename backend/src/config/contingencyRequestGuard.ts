@@ -7,8 +7,9 @@ export const contingencyRequestGuard: RequestHandler = async(req,res,next)=>{
   if(process.env.CONTINGENCY_ROUTING_ENABLED!=="true") return next();
   if(!req.path.startsWith("/api/") || /^\/api\/contingencia(\/|$)/.test(req.path) ||
     /^\/api\/auth\/(login|logout|session)\/?$/.test(req.path)) return next();
-  const sideEffect=!['GET','HEAD','OPTIONS'].includes(req.method) || /^\/api\/(oauth|conexoes-email)(\/|$)/.test(req.path);
-  if(!sideEffect) return next();
+  if(req.method==='OPTIONS') return next();
+  // Some nominal reads refresh provider state or repair stored documents.
+  // Route all API work through the owner rather than assume GET is read-only.
   const executor=process.env.API_RUNTIME==='serverless'?'NETLIFY':'RENDER';
   const id=randomUUID();
   const namespace='/'+req.path.split('/')[2];

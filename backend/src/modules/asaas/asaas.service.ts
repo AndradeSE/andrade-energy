@@ -228,7 +228,28 @@ export async function processarWebhookAsaas(body: any, token?: string) {
   const { processarAdesaoAsaas } = await import("../comercial/adesaoAssinatura.service.js");
   const adesao = await processarAdesaoAsaas(body);
   if (adesao) return adesao;
-  const inserted=await supabase.from("asaas_eventos").insert({evento_id:body.id,tipo:body.event,payload:body}).select().single(); if(inserted.error?.code==="23505") return {duplicado:true}; if(inserted.error) throw inserted.error;
+  const controlled=process.env.CONTINGENCY_ROUTING_ENABLED==='true';
+  const inserted=await supabase.from("asaas_eventos").insert({evento_id:body.id,tipo:body.event,payload:body,
+    ...(controlled?{processamento_estado:'PROCESSANDO',processamento_atualizado_em:new Date().toISOString()}:{}),
+  }).select().single();
+  if(inserted.error?.code==='23505') {
+    if(controlled) {
+      const previous=await supabase.from('asaas_eventos').select('processamento_estado').eq('evento_id',body.id).single();
+      if(previous.error) throw previous.error;
+      if(previous.data.processamento_estado && previous.data.processamento_estado!=='CONCLUIDO') {
+        throw new Error('Evento financeiro aguardando conferência. Nenhum repasse foi repetido.');
+      }
+    }
+    return {duplicado:true};
+  }
+  if(inserted.error) throw inserted.error;
+  const finish=async()=>{
+    if(!controlled)return;
+    const saved=await supabase.from('asaas_eventos').update({processamento_estado:'CONCLUIDO',processamento_atualizado_em:new Date().toISOString()})
+      .eq('evento_id',body.id).eq('processamento_estado','PROCESSANDO').select('evento_id').maybeSingle();
+    if(saved.error || !saved.data)throw new Error('Evento financeiro exige conferência.');
+  };
+  try {
   if (body.checkout?.id) {
     const checkoutId = String(body.checkout.id);
     const customerId = body.checkout.customer ? String(body.checkout.customer) : null;
@@ -276,7 +297,7 @@ export async function processarWebhookAsaas(body: any, token?: string) {
         ? await supabase.from("assinaturas_geradores").select("id").eq("id", assinaturaExterna).maybeSingle()
         : await supabase.from("assinaturas_geradores").select("id").eq("asaas_subscription_id", assinaturaAsaas).maybeSingle();
       const assinaturaId = assinaturaLocal?.id ?? assinaturaExterna;
-      if (!assinaturaId) return { recebido: true, assinaturaNaoAssociada: true };
+      if (!assinaturaId) {await finish();return { recebido: true, assinaturaNaoAssociada: true };}
       const vencimento = String(body.payment.dueDate ?? new Date().toISOString()).slice(0, 10);
       const competencia = vencimento.slice(0, 7);
       const statusCobranca = pago ? "PAGA" : vencida ? "VENCIDA" : cancelada ? "CANCELADA" : "PENDENTE";
@@ -330,7 +351,13 @@ export async function processarWebhookAsaas(body: any, token?: string) {
     // O valor de uma transferência não redefine o líquido da cobrança: pode
     // representar apenas parte do saldo. A tarifa vem do pagamento no Asaas.
   }
+  await finish();
   return {recebido:true};
+  } catch(error) {
+    if(controlled) await supabase.from('asaas_eventos').update({processamento_estado:'REVISAO',processamento_atualizado_em:new Date().toISOString()})
+      .eq('evento_id',body.id).eq('processamento_estado','PROCESSANDO');
+    throw error;
+  }
 }
 
 export async function validarSaqueAsaas(body: any, token?: string) {

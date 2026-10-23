@@ -1,4 +1,5 @@
 import api from "../config/api";
+import {sendPdf} from './pdf-transport';
 
 export async function gerarPlanilhaRateio(id: string, competencia: string, ucAncora: string, enviarEmail = false, opcoes: {documentoAncora?:string;numerosAtuaisConfirmados?:boolean;formatoCemig?:boolean} = {}) {
   const {data} = await api.post(`/usinas/${id}/rateio-mensal`,{competencia,ucAncora,enviarEmail,...opcoes},{timeout:60000});
@@ -51,19 +52,11 @@ export async function buscarDashboardUsina(
 }
 
 export async function importarFaturaGeradora(id: string, uri: string, nome = "fatura-geradora.pdf", senhaPdf?: string) {
-  const formData = new FormData();
-  formData.append("arquivo", { uri, name: nome, type: "application/pdf" } as any);
-  if (senhaPdf?.trim()) formData.append("senhaPdf", senhaPdf.trim());
-  const { data } = await api.post(`/usinas/${id}/importar-fatura`, formData, { timeout: 60_000 });
-  return data;
+  return sendPdf(uri,`/usinas/${id}/importar-fatura`,nome,senhaPdf?.trim()?{senhaPdf:senhaPdf.trim()}:{});
 }
 
 export async function importarProducaoPelaUc(uri: string, nome = "fatura-geradora.pdf", senhaPdf?: string) {
-  const formData = new FormData();
-  formData.append("arquivo", { uri, name: nome, type: "application/pdf" } as any);
-  if (senhaPdf?.trim()) formData.append("senhaPdf", senhaPdf.trim());
-  const { data } = await api.post("/usinas/importar-producao-pdf", formData, { timeout: 60_000 });
-  return data;
+  return sendPdf(uri,'/usinas/importar-producao-pdf',nome,senhaPdf?.trim()?{senhaPdf:senhaPdf.trim()}:{});
 }
 
 export async function alocarUnidade(id: string, payload: any) {
