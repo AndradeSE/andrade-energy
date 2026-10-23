@@ -3,7 +3,7 @@ import { trackRequestTask } from "./requestTasks";
 
 /** A caller can disconnect while the database is reserving its request. */
 export async function continueReservedRequest(
-  response: Pick<Response, "destroyed" | "writableEnded" | "once">,
+  response: Pick<Response, "destroyed" | "writableEnded" | "once" | "end">,
   release: () => Promise<void>,
   dispatch: () => void,
 ) {
@@ -12,7 +12,21 @@ export async function continueReservedRequest(
     await release();
     return;
   }
-  response.once("finish", () => trackRequestTask(release()));
+  let releaseStarted = false;
+  const releaseOnce = () => {
+    if (releaseStarted) return;
+    releaseStarted = true;
+    trackRequestTask(release());
+  };
+  const end = response.end;
+  response.end = function (this: typeof response, ...args: any[]) {
+    // A response sent after the caller disconnected does not emit finish.
+    // The route has nevertheless reached its response boundary, so it is safe
+    // to release now; closing the socket alone is deliberately insufficient.
+    releaseOnce();
+    return (end as Function).apply(this, args);
+  } as typeof response.end;
+  response.once("finish", releaseOnce);
   // Do not release on close after dispatch: work may still be running even
   // though the caller disconnected. Such requests require reconciliation.
   dispatch();

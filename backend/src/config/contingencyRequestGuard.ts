@@ -12,7 +12,7 @@ export const contingencyRequestGuard: RequestHandler = async(req,res,next)=>{
   // Route all API work through the owner rather than assume GET is read-only.
   const executor=process.env.API_RUNTIME==='serverless'?'NETLIFY':'RENDER';
   const id=randomUUID();
-  const namespace='/'+req.path.split('/')[2];
+  const namespace=`${req.method} ${req.path}`.slice(0,120);
   try {
     const claim=await supabase.rpc('iniciar_requisicao_contingencia',{p_id:id,p_executor:executor,p_namespace:namespace,p_commit:process.env.COMMIT_REF??null});
     if(claim.error || claim.data!==true) return res.status(503).json({code:'EXECUTOR_INATIVO',message:'Servidor em troca controlada. Atualize a tela antes de tentar novamente.'});
