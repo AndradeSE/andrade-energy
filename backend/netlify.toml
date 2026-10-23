@@ -1,7 +1,7 @@
 # Homologation only. Production fallback is not enabled.
 [build]
   base = "backend"
-  command = "npm run build"
+  command = "npm ci --include=dev && npm run build"
   publish = "netlify/public"
   functions = "netlify/functions"
 

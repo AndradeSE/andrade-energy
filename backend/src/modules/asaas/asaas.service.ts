@@ -301,7 +301,7 @@ export async function processarWebhookAsaas(body: any, token?: string) {
       if(c&&["PAYMENT_RECEIVED","PAYMENT_CONFIRMED"].includes(body.event)){
         await supabase.from("faturas").update({status:"PAGO"}).eq("id",c.fatura_id);
         if (body.event === "PAYMENT_RECEIVED") await transferirSaldo(c);
-        void (async () => {
+        await (async () => {
           const { data: fatura, error: erroFatura } = await supabase.from("faturas").select("cliente_id,empresa_id,usina_id").eq("id", c.fatura_id).maybeSingle();
           if (erroFatura || !fatura) throw erroFatura ?? new Error("Fatura não encontrada");
           const { data: acessos, error: erroAcessos } = await supabase.from("empresa_usuarios")

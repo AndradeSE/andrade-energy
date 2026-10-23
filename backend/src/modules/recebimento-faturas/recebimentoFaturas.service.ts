@@ -439,7 +439,10 @@ async function registrarEventoRecebido(evento: EventoResend, eventoId?: string) 
 export async function receberWebhookResend(evento: EventoResend, eventoId?: string) {
   if (evento.type !== "email.received") return { aceito: true, processar: false };
   const registro = await registrarEventoRecebido(evento, eventoId);
-  if (registro?.status === "PENDENTE") void processarFilaDeRecebimentosFaturas();
+  // Scheduled durable work consumes the persisted receipt. Lambda must not start
+  // an untracked billing job after returning a successful webhook response.
+  if (registro?.status === "PENDENTE" && process.env.API_RUNTIME !== "serverless" &&
+    process.env.DURABLE_SCHEDULER_ENABLED !== "true") void processarFilaDeRecebimentosFaturas();
   return { aceito: true, processar: registro?.status === "PENDENTE" };
 }
 
