@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261022-212903",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "ADM: cotas de serviços no menu lateral, saldo verificado e alertas de consumo"
+    ]
+  },
+  {
     "numero": "OTA 20261022-203814",
     "data": "22/10/2026",
     "variant": "consumidor",
