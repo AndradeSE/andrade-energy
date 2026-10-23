@@ -46,7 +46,8 @@ export default function ServiceQuotasScreen() {
         {data?.servicos.map(item => {
           const reading = item.leitura;
           const pct = reading?.percentual;
-          const stale = reading?.desatualizada || (item.automatico && item.consulta?.status !== "OK");
+          const partialReadingFresh = item.consulta?.status === "SEM_DADOS_COMPLETOS" && reading && Date.parse(reading.verificado_em) >= Date.parse(item.consulta.consultado_em) - 60_000;
+          const stale = reading?.desatualizada || (item.automatico && item.consulta?.status !== "OK" && !partialReadingFresh);
           return <Card key={`${item.servico}:${item.metrica}`}>
             <Text style={styles.title}>{item.rotulo}</Text>
             {item.observacao ? <Text style={styles.note}>{item.observacao}</Text> : null}
@@ -57,7 +58,7 @@ export default function ServiceQuotasScreen() {
               <Text style={styles.text}>{item.servico === "BREVO" ? "Plano gratuito · limite diário de envios" : `${reading.origem === "API_OFICIAL" ? item.servico === "AZURE" ? "Renovação mensal prevista" : "Renovação informada" : "Leitura válida até"}: ${date(reading.renova_em)}`}</Text>
               <Text style={styles.note}>{reading.origem === "API_OFICIAL" ? "API oficial" : "Leitura confirmada do painel"} · {date(reading.verificado_em)}</Text>
               {stale ? <Text style={styles.warning}>Consulta desatualizada ou indisponível. Este saldo pode ter mudado.</Text> : null}
-            </> : <Text style={styles.text}>{item.automatico ? item.consulta?.status === "SEM_PERMISSAO" ? "A chave configurada não permite consultar o uso." : item.consulta?.status === "PLANO_NAO_SUPORTADO" ? "O plano retornado não permite confirmar a cota gratuita. Confira o saldo no painel." : "Sem leitura disponível. A consulta automática precisa estar conectada." : "Leitura manual: confira o painel do provedor e informe abaixo os valores para acompanhar o saldo aqui."}</Text>}
+            </> : <Text style={styles.text}>{item.automatico ? item.consulta?.status === "SEM_PERMISSAO" ? "A chave configurada não permite consultar o uso." : item.consulta?.status === "PLANO_NAO_SUPORTADO" ? "O plano retornado não permite confirmar a cota gratuita. Confira o saldo no painel." : item.consulta?.status === "SEM_DADOS_COMPLETOS" ? "O Azure ainda não retornou medições para este item no mês. A ausência de dados não significa consumo zero." : "Sem leitura disponível. A consulta automática precisa estar conectada." : "Leitura manual: confira o painel do provedor e informe abaixo os valores para acompanhar o saldo aqui."}</Text>}
             <Text style={styles.link} accessibilityRole="link" onPress={() => void Linking.openURL(panels[item.servico]).catch(() => setError("Não foi possível abrir o painel."))}>Abrir painel do provedor</Text>
           </Card>;
         })}

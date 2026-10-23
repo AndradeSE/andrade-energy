@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261023-164239",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Cotas automaticas Azure Speech para ADM e recuperacao segura do autenticador"
+    ]
+  },
+  {
     "numero": "OTA 20261023-162232",
     "data": "23/10/2026",
     "variant": "gerador",
