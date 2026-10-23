@@ -1,4 +1,4 @@
-# Contingência da API — revalidação de 22/10/2026, ainda não ativada
+# Contingência da API — revalidação de 23/10/2026, ainda não ativada
 
 O projeto `andrade-energy-fallback-probe` foi atualizado pela branch
 `codex/netlify-probe`, sem alterar a main, os apps ou o backend de produção.
@@ -30,12 +30,15 @@ explicitamente `readyForFailover: false`; HTTP 200 não significa reserva pronta
 
 ## Pendências para ativar
 
-1. Uploads maiores que o payload das Functions precisam de Storage autorizado e
-   transporte pelo cliente; o limite atual do app continua 10 MB.
+1. O transporte privado de PDFs já passou no teste remoto de 7 MB: preparação,
+   Storage privado, análise e bloqueios de outro usuário e de reutilização do
+   ticket. O cliente nativo Preview foi adaptado; falta conferir esse envio pelo
+   app atualizado antes de habilitar a contingência. Produção mantém multipart.
 2. Processadores de faturamento/e-mail/avisos e webhooks financeiros ainda
    precisam de execução durável e teste de interrupção/recuperação. O worker de
    push não substitui esses processadores.
-3. Definir a fonte inequívoca de esgotamento de cota. HTTP 503 também representa
+3. Confirmar o aviso de esgotamento de cota no painel antes de autorizar a troca.
+   A escolha foi preservar essa confirmação explícita: HTTP 503 também representa
    despertar, manutenção ou suspensão. A API pública do Render expõe
    `suspended` e `suspenders` (`billing`, `user`, `admin`, entre outros), mas não
    um motivo específico de cota no esquema consultado. Não ativar por 503 ou
@@ -48,6 +51,35 @@ POST/PATCH/DELETE nem uploads automaticamente após timeout. Compartilhar
 somente segredos do ambiente correspondente por canal privado do provedor.
 Não misturar bancos de homologação e produção e não usar keep-alive para
 contornar limites de serviços gratuitos.
+
+## Cotas de serviços (Preview)
+
+- Menu exclusivo de ADM, com bloqueio também na API e nas RPCs do banco.
+- Resend consulta `/usage` usando a chave existente de recebimento quando não há
+  chave dedicada ou de envio. Leitura real validada no banco e no emulador.
+- Brevo consulta `/v3/account` com `BREVO_API_KEY`; somente o plano gratuito
+  `free`/`sendLimit` recebe o limite documentado de 300 envios por dia. Créditos
+  retornados são restantes, não utilizados. Plano pago ou resposta divergente
+  ficam sem saldo confirmado. A inclusão do Brevo ainda exige deploy e leitura
+  real no Preview; não foi publicada em produção.
+- Render, Netlify e Supabase têm registro manual de leitura conferida no painel,
+  com validade e auditoria atômica. Não há coleta automática conectada para esses
+  três provedores. Créditos do plano e de bônus da Netlify são separados.
+- Formulário testado no emulador: leitura real da Netlify de 150,1/300 registrada
+  e card exibindo 149,9 restantes, identificado como painel confirmado.
+- Avisos no app e fila de push em 80/90/100%; testes de auditoria, privilégios e
+  notificações feitos com rollback. Não foi enviado aviso fictício de cota aos
+  usuários. Push revalida o acesso ADM e usa somente dispositivos Gerador.
+- Compilação app/backend aprovadas. Regressão geral: 137 testes; bateria de
+  contingência/cotas: 17 antes da inclusão do Brevo; três testes de formulário,
+  permissão e destino de PDF. Cinco testes de política de cotas passaram após a
+  inclusão do Brevo.
+- Migrações até `20261023011500` aplicadas somente na homologação. Os novos
+  monitores, tela de cotas e estruturas de contingência não foram promovidos para
+  produção. Main permanece sem esses commits.
+
+Nenhum pagamento, plano pago, saldo financeiro ou configuração de faturamento
+foi alterado para implementar o monitoramento.
 
 ## Referências consultadas
 
