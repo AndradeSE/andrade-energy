@@ -1,5 +1,32 @@
 [
   {
+    "numero": "OTA 20261023-112928",
+    "data": "23/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Produção: roteamento controlado do servidor reserva"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-112508",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Produção: servidor reserva com troca confirmada pela administração"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-083341",
+    "data": "23/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Preview: roteamento controlado do servidor reserva"
+    ]
+  },
+  {
     "numero": "OTA 20261023-080359",
     "data": "23/10/2026",
     "variant": "gerador",
