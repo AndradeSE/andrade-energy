@@ -5,20 +5,21 @@ import { Readable } from "node:stream";
 import type { Request } from "express";
 import { supabase } from "../../config/supabase";
 import { uploadDirectory } from "../../config/uploadDirectory";
-import { MAX_PDF_BYTES, UPLOAD_BUCKET, validatePdfBytes, validatePdfMetadata } from "./uploadPolicy";
+import { MAX_PDF_BYTES, UPLOAD_BUCKET, validatePdfBytes, validatePdfMetadata, PdfUploadPreparationError } from "./uploadPolicy";
 
 export async function preparePdfUpload(req: Request) {
   const user = (req as any).usuario;
   const metadata = validatePdfMetadata(req.body ?? {});
+  if (!user?.id || !user?.empresa_id) throw new PdfUploadPreparationError("UPLOAD_SCOPE_INVALID");
   const id = randomUUID();
   const key = `${user.empresa_id}/${user.id}/${id}.pdf`;
   const { data, error } = await supabase.storage.from(UPLOAD_BUCKET).createSignedUploadUrl(key, { upsert: false });
-  if (error || !data) throw new Error("Não foi possível autorizar o envio do PDF.");
+  if (error || !data) throw new PdfUploadPreparationError("UPLOAD_STORAGE_UNAVAILABLE");
   const inserted = await supabase.from("uploads_contingencia").insert({
     id, empresa_id: user.empresa_id, usuario_id: user.id, caminho: key,
     nome: metadata.nome, tamanho: metadata.tamanho,
   });
-  if (inserted.error) throw new Error("Não foi possível registrar o envio do PDF.");
+  if (inserted.error) throw new PdfUploadPreparationError("UPLOAD_TICKET_UNAVAILABLE");
   return { uploadId: id, uploadUrl: data.signedUrl, expiresIn: 900, maxBytes: MAX_PDF_BYTES };
 }
 
