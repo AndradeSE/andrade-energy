@@ -552,12 +552,12 @@ export default function GestaoGeradores() {
                       <Text style={styles.walletLabel}>
                         VALOR DISPONÍVEL PARA TRANSFERÊNCIA
                       </Text>
-                      <Text style={styles.walletValue}>
+                      <Text style={styles.walletValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.65}>
                         {money(carteira?.saldoDisponivel)}
                       </Text>
                     </View>
                     <View style={styles.paymentSummarySide}>
-                      <Text style={styles.paymentSummarySideValue}>
+                      <Text style={styles.paymentSummarySideValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
                         {money(carteira?.saldoPendente)}
                       </Text>
                       <Text style={styles.walletPending}>pendentes</Text>
@@ -876,7 +876,7 @@ const styles = StyleSheet.create({
   editHint: { marginTop: Spacing.sm, color: Colors.primary, fontSize: 11, fontWeight: "800" },
   sectionLead: { marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 },
   walletCard: { backgroundColor: "#083F31" },
-  walletCardStandalone: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.lg, padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: "#083F31", ...Shadows.card },
+  walletCardStandalone: { alignItems: "stretch", gap: Spacing.md, marginBottom: Spacing.lg, padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: "#083F31", ...Shadows.card },
   financeCards: { gap: Spacing.xl },
   financeCard: { marginBottom: 0 },
   financeInput: { marginTop: Spacing.md },
@@ -1161,7 +1161,7 @@ const styles = StyleSheet.create({
     fontSize: 27,
     fontWeight: "900",
   },
-  paymentSummarySide: { alignItems: "flex-end" },
+  paymentSummarySide: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: Spacing.sm },
   paymentSummarySideValue: {
     color: "#F6CC32",
     fontSize: 17,
