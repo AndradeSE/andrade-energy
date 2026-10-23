@@ -1,4 +1,5 @@
 exports.handler = async () => {
+  if (process.env.CONTINGENCY_ROUTING_ENABLED === "true") return {statusCode:200};
   process.env.API_RUNTIME = "serverless";
   process.env.BACKGROUND_JOBS_ENABLED = "false";
   process.env.NETLIFY_HOMOLOGATION_ENABLED = "true";
