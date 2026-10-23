@@ -1,17 +1,8 @@
 import { supabase } from "../../config/supabase";
-import { QUOTA_CATALOG, quotaBand, resendReadings, resendUsageKey, manualQuotaReading, brevoReading, type QuotaReading } from "./cotas.policy";
+import { QUOTA_CATALOG, quotaBand, resendReadings, resendUsageKey, brevoReading, type QuotaReading } from "./cotas.policy";
 
 export function quotaEnvironment() {
   return /qqhcjieymypowunkixmk/.test(process.env.SUPABASE_URL ?? "") ? "preview" : "production";
-}
-export async function registerManualQuota(input: unknown, userId: string) {
-  const reading = manualQuotaReading(input);
-  const { error } = await supabase.rpc("registrar_cota_manual_adm", {
-    p_usuario_id: userId, p_ambiente: quotaEnvironment(), p_servico: reading.servico,
-    p_metrica: reading.metrica, p_valida_ate: reading.renovaEm, p_rotulo: reading.rotulo,
-    p_usado: reading.usado, p_limite: reading.limite,
-  });
-  if (error) throw new Error("Não foi possível salvar a leitura confirmada.");
 }
 async function saveReading(reading: QuotaReading) {
   const { error } = await supabase.rpc("registrar_cota_servico", {
