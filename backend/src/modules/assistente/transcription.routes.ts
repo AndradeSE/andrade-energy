@@ -2,13 +2,13 @@ import { Router } from "express";
 import { apiRateLimit } from "../../config/distributedRateLimit";
 import multer from "multer";
 import { transcribeAudio } from "./transcription";
+import { assistantAvailable } from "./availability";
 
 // Mounted after authentication. Never persist audio or log its transcript.
 export const transcriptionRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2_000_000, files: 1, fields: 2 } });
 transcriptionRouter.use((req, res, next) => {
-  const preview = process.env.APP_ENV === "preview" || /^https:\/\/qqhcjieymypowunkixmk\.supabase\.co\/?$/.test(process.env.SUPABASE_URL ?? "");
-  if (!preview) return res.status(404).json({ message: "Indisponível." });
+  if (!assistantAvailable()) return res.status(404).json({ message: "Indisponível." });
   res.setHeader("Cache-Control", "no-store");
   next();
 });

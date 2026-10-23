@@ -15,7 +15,7 @@ import { mercadoPagoComercialRequest } from "./mercadoPagoComercial.client";
 
 const sha = (v: string) => createHash("sha256").update(v).digest("hex");
 export const adesaoIdDaReferencia = (v: unknown) => /^adesao:([0-9a-f-]{36})$/i.exec(String(v ?? ""))?.[1] ?? null;
-const site = () => String(process.env.PORTAL_WEB_URL ?? "https://andradeenergy.com.br").replace(/\/$/, "");
+const site = () => String(process.env.PORTAL_WEB_URL ?? "https://www.andradeenergy.com.br").replace(/\/$/, "");
 const portalRetorno = (origin?: string) => {
   const preview = process.env.APP_ENV === "preview" ||
     /^https:\/\/qqhcjieymypowunkixmk\.supabase\.co\/?$/.test(process.env.SUPABASE_URL ?? "");

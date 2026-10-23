@@ -12,6 +12,7 @@ import { groqFallback } from "./groq-fallback";
 import { azureVoice } from "./azure-voice";
 import { transcriptionRouter } from "./transcription.routes";
 import { createLiveToken } from "./live-token";
+import { assistantAvailable } from "./availability";
 
 const PUBLIC_HELP_CONTEXT = {
   faturamento: "Na aba Faturamento, o gerador pode emitir manualmente, importar PDF e configurar o faturamento automático das UCs. A conta geradora é configurada separadamente. Cobranças exigem revisão antes de confirmar.",
@@ -24,7 +25,7 @@ const PUBLIC_HELP_CONTEXT = {
   tutoriais: "Em Tutoriais, escolha um vídeo do processo. Assistir não executa cadastros, cobranças nem contratos.",
 } as const;
 const PUBLIC_CONSUMER_HELP_CONTEXT = {
-  faturamento: "No aplicativo Consumidor, Faturas mostra cobranças da UC selecionada, valores e formas de pagamento disponíveis. A configuração de faturamento automático deve respeitar a titularidade e as opções disponíveis na conta. O consumidor não emite cobranças para outros clientes.",
+  faturamento: "No aplicativo Consumidor, Faturas mostra cobranças da UC selecionada, valores e formas de pagamento disponíveis. A configuração de faturamento automático deve respeitar a titularidade e as opções disponíveis na conta. O consumidor não emite cobranças para outros clientes. Faturas em aberto recebem um lembrete nos cinco dias finais até o vencimento por sino, push e e-mail; após o vencimento, os avisos de cobrança chegam pelo app e por e-mail nas etapas de 1, 7, 15 e 30 dias e depois a cada 30 dias. Caso já tenha pago, desconsidere o aviso e confira a baixa. Cobranças pagas ou canceladas são excluídas.",
   producao: "O consumidor consulta informações da usina e da energia da UC selecionada. Cadastro da usina e importação de produção são recursos do Gerador.",
   contrato: "Na aba Contrato, leia a minuta e as condições. Confira os dados e siga as opções de assinatura ou aceite disponíveis. Contratos com prazo avisam nos 30 dias finais por sino, push e e-mail. Você pode pedir renovação para conferir e aceitar uma nova proposta, ou informar que não deseja renovar; isso não encerra antecipadamente. Sem fidelidade, a saída tem aviso prévio de 90 dias. O gerador precisa concluir o desligamento da UC. A Solar não assina nem cancela por você.",
   cadastro: "O consumidor cria seu acesso pelo convite recebido e pode consultar suas UCs vinculadas. Cadastros e vínculos da carteira são feitos pelo gerador. Nunca compartilhe senha ou código de acesso.",
@@ -46,11 +47,9 @@ assistenteVoiceRouter.use("/transcrever", transcriptionRouter);
 assistenteVoiceRouter.use(apiRateLimit("voice-routes-7", { windowMs: 60_000, limit: 10, standardHeaders: "draft-8", legacyHeaders: false }));
 
 // Nunca envie a chave permanente ao aplicativo. Um token de sessão, limitado
-// ao Live e a uma única abertura, só é emitido na homologação autenticada.
+// ao Live e a uma única abertura, só é emitido com autenticação e consentimento.
 assistenteVoiceRouter.post("/live-token", async (req, res) => {
-  const isPreview = process.env.APP_ENV === "preview" ||
-    /^https:\/\/qqhcjieymypowunkixmk\.supabase\.co\/?$/.test(process.env.SUPABASE_URL ?? "");
-  if (!isPreview) return res.status(404).json({ message: "Indisponível." });
+  if (!assistantAvailable()) return res.status(404).json({ message: "Indisponível." });
   if (req.body?.liveAudioConsent !== true) return res.status(400).json({ message: "Autorize a conversa direta antes de iniciar." });
   const key = (process.env.GEMINI_LIVE_API_KEY || process.env.GEMINI_ASSISTANT_API_KEY || process.env.GEMINI_TTS_API_KEY)?.trim();
   if (!key) {
@@ -73,9 +72,7 @@ assistenteVoiceRouter.post("/live-token", async (req, res) => {
 });
 
 assistenteVoiceRouter.post("/responder", async (req, res) => {
-  const isPreview = process.env.APP_ENV === "preview" ||
-    /^https:\/\/qqhcjieymypowunkixmk\.supabase\.co\/?$/.test(process.env.SUPABASE_URL ?? "");
-  if (!isPreview) return res.status(404).json({ message: "Indisponível." });
+  if (!assistantAvailable()) return res.status(404).json({ message: "Indisponível." });
   const { topic, variant, question, history } = req.body ?? {};
   const conversation = typeof question === "string" && question.trim().length > 0 && question.length <= 1200;
   if ((variant !== "gerador" && variant !== "consumidor") || (!conversation && (typeof topic !== "string" || !Object.prototype.hasOwnProperty.call(PUBLIC_HELP_CONTEXT, topic)))) {
@@ -134,9 +131,7 @@ assistenteVoiceRouter.post("/responder", async (req, res) => {
 });
 
 assistenteVoiceRouter.post("/voz", async (req, res) => {
-  const isPreview = process.env.APP_ENV === "preview" ||
-    /^https:\/\/qqhcjieymypowunkixmk\.supabase\.co\/?$/.test(process.env.SUPABASE_URL ?? "");
-  if (!isPreview) return res.status(404).json({ message: "Indisponível." });
+  if (!assistantAvailable()) return res.status(404).json({ message: "Indisponível." });
 
   const lineId = req.body?.lineId;
   const answerId = req.body?.answerId;
