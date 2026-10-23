@@ -11,5 +11,5 @@ export function serverlessRequestAllowed(method: string, path: string, env: Node
   if (/^\/api\/(oauth|conexoes-email)(\/|$)/i.test(path)) return false;
   if (["GET", "HEAD", "OPTIONS"].includes(method)) return true;
   return env.NETLIFY_AUTH_VALIDATION_ENABLED === "true" &&
-    ["/api/auth/login", "/api/auth/logout", "/api/uploads/preparar", "/api/faturas/analisar", "/api/cotas-servicos/atualizar"].includes(path);
+    ["/api/auth/login", "/api/auth/logout", "/api/uploads/preparar", "/api/faturas/analisar", "/api/cotas-servicos/atualizar", "/api/cotas-servicos/leitura-confirmada"].includes(path);
 }
