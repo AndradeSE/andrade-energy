@@ -1,5 +1,32 @@
 [
   {
+    "numero": "OTA 20261023-182857",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Ajuste final de saldo comercial para instalacoes anteriores, conferido no Preview"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-182706",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Saldo do Financeiro Comercial inteiro em telas estreitas, conferido no Preview"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-182201",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Saldo do Financeiro Comercial inteiro em telas estreitas e com fonte grande"
+    ]
+  },
+  {
     "numero": "OTA 20261023-181721",
     "data": "23/10/2026",
     "variant": "gerador",
