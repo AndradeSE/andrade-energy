@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { rotasRecuperacaoAutenticador } from "../financeiro-seguranca/recuperacaoAutenticador.routes";
 import { exigirAutenticacao, exigirGestor, exigirTitularFinanceiro } from "../../middlewares/auth.middleware";
 import { alterarTransferenciaAutomatica, atualizarCarteira, consultarTitularChavePix, resumoCarteira, transferirCarteira } from "./carteira.service";
 import { autenticadorAtivo, confirmarAutenticador, confirmarSenhaFinanceira, iniciarAutenticador, validarCodigoFinanceiro } from "../financeiro-seguranca/financeiroSeguranca.service";
@@ -7,6 +8,7 @@ import { empresaIdDaRequisicao } from "../../utils/empresaScope";
 
 const router = Router();
 router.use(exigirAutenticacao, exigirGestor, exigirTitularFinanceiro);
+router.use("/autenticador/recuperacao", rotasRecuperacaoAutenticador());
 router.get("/resumo-faturas", async (req, res) => {
   const usinaId = typeof req.query.usinaId === "string" ? req.query.usinaId.trim() : "";
   if (!usinaId) return res.status(400).json({ message: "Selecione uma usina para ver o financeiro." });

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { rotasRecuperacaoAutenticador } from "../financeiro-seguranca/recuperacaoAutenticador.routes";
 import { apiRateLimit } from "../../config/distributedRateLimit";
 import { configuracaoAdesaoPublica, criarAdesaoPublica, statusAdesaoPublica } from "./adesaoAssinatura.service";
 import { exigirAutenticacao, exigirOperacaoComercial, exigirPermissaoComercial, exigirSuperAdministradorAndrade } from "../../middlewares/auth.middleware";
@@ -33,6 +34,7 @@ const limiteEnvio = apiRateLimit("comercial-routes-9", { windowMs: 60_000, limit
 router.post("/documentos/:id/enviar", exigirPermissaoComercial("documentos_enviar"), limiteEnvio, (req,res) => delegada(res, enviarDocumentoAprovado((req as any).usuario, req.params.id, String(req.body?.geradorId ?? ""))));
 router.post("/cobrancas/:id/lembrar", exigirPermissaoComercial("cobrancas_lembrar"), limiteEnvio, (req,res) => delegada(res, lembrarCobranca((req as any).usuario, req.params.id)));
 router.use(exigirSuperAdministradorAndrade);
+router.use("/financeiro/autenticador/recuperacao", rotasRecuperacaoAutenticador());
 router.get("/financeiro/autenticador", async (req, res) => { try { return res.json({ ativo: await autenticadorAtivo((req as any).usuario.id) }); } catch (error: any) { return res.status(400).json({ message: error.message }); } });
 router.post("/financeiro/autenticador/confirmar-senha", async (req, res) => { try { return res.json(await confirmarSenhaFinanceira((req as any).usuario, String(req.body?.senhaAtual ?? ""))); } catch (error: any) { return res.status(400).json({ message: error.message }); } });
 router.post("/financeiro/autenticador/validar-codigo", async (req, res) => { try { return res.json(await validarCodigoFinanceiro((req as any).usuario, String(req.body?.senhaAtual ?? ""), String(req.body?.codigo ?? ""), "comercial")); } catch (error: any) { return res.status(400).json({ message: error.message }); } });
