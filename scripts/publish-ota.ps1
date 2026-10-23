@@ -14,6 +14,7 @@ $values = @{
   EXPO_PUBLIC_APP_ENV = $(if ($Audience -eq 'clients') { 'production' } else { 'preview' })
   EXPO_PUBLIC_APP_VARIANT = $Variant
   EXPO_PUBLIC_API_URL = $apiUrl
+  EXPO_PUBLIC_CONTINGENCY_ENABLED = '1'
   CI = '1'
   NODE_OPTIONS = (($env:NODE_OPTIONS + ' --dns-result-order=ipv4first').Trim())
 }
