@@ -11,10 +11,10 @@ router.use(exigirAutenticacao, (req, res, next) => {
   next();
 });
 router.get("/", async (req, res) => {
-  try { res.json(await listServiceQuotas(req.query.catalogo === "2")); } catch { res.status(503).json({ message: "Não foi possível consultar as cotas agora." }); }
+  try { res.json(await listServiceQuotas(["2", "3"].includes(String(req.query.catalogo)), req.query.catalogo === "3")); } catch { res.status(503).json({ message: "Não foi possível consultar as cotas agora." }); }
 });
 router.post("/atualizar", apiRateLimit("quota-refresh", { windowMs: 60_000, limit: 1 }), async (req, res) => {
-  try { await monitorServiceQuotas(); res.json(await listServiceQuotas(req.query.catalogo === "2")); }
+  try { await monitorServiceQuotas(); res.json(await listServiceQuotas(["2", "3"].includes(String(req.query.catalogo)), req.query.catalogo === "3")); }
   catch { res.status(503).json({ message: "Não foi possível atualizar as cotas agora." }); }
 });
 export default router;
