@@ -1,5 +1,41 @@
 [
   {
+    "numero": "OTA 20261023-172458",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Resend unificado, cotas Azure e autenticador seguro com contingencia preservada"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-171633",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Resend unificado e configuracao de contingencia preservada"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-171412",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Resend unificado com cotas diaria e mensal; cotas Azure e recuperacao segura do autenticador"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-170959",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Resend com cotas diaria e mensal em um unico card"
+    ]
+  },
+  {
     "numero": "OTA 20261023-170600",
     "data": "23/10/2026",
     "variant": "gerador",

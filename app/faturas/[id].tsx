@@ -264,7 +264,7 @@ export default function DetalheFatura() {
       return;
     }
     await Clipboard.setStringAsync(codigo);
-    Alert.alert("Código PIX copiado", "Cole o código no aplicativo do seu banco para pagar.");
+    Alert.alert("Código PIX copiado", IS_GERADOR_APP ? "Compartilhe o código com o cliente para pagamento." : "Cole o código no aplicativo do seu banco para pagar.");
   }
 
   async function abrirBoleto() {
@@ -441,7 +441,7 @@ export default function DetalheFatura() {
         </View>
 
         <Card style={styles.summaryCard}>
-          <Text style={styles.summaryEyebrow}>{cobrancaVencida ? "VALOR ORIGINAL DA FATURA" : "VALOR TOTAL A PAGAR"}</Text>
+          <Text style={styles.summaryEyebrow}>{cobrancaVencida ? "VALOR ORIGINAL DA FATURA" : IS_GERADOR_APP ? "VALOR DA COBRANÇA AO CLIENTE" : "VALOR TOTAL A PAGAR"}</Text>
           <Text style={styles.summaryValue}>{formatarMoeda(valorUnificado)}</Text>
           <Text style={styles.summaryCaption}>{descricaoCobranca}</Text>
           {cobrancaVencida ? <Text style={styles.summaryCaption}>Use o mesmo boleto enquanto estiver disponível para pagamento. Os juros e a multa registrados no Asaas serão apresentados pelo banco antes da confirmação. O valor acima não inclui esses acréscimos.</Text> : null}
@@ -454,8 +454,8 @@ export default function DetalheFatura() {
             <ComparisonRow label="Nesta cobrança Andrade" value={formatarMoeda(valorUnificado)} emphasis />
             <ComparisonRow label="Conta da concessionária (separada)" value={formatarMoeda(valorCemigOriginal)} />
           </> : null}
-          <ComparisonRow label={faturaSomenteAndrade ? "Total do mês nas duas faturas" : "Você paga neste mês"} value={formatarMoeda(valorTotalDoMes)} emphasis />
-          <ComparisonRow label="Sua economia real" value={formatarMoeda(economiaReal)} success />
+          <ComparisonRow label={IS_GERADOR_APP ? faturaSomenteAndrade ? "Total do cliente nas duas faturas" : "Total cobrado do cliente neste mês" : faturaSomenteAndrade ? "Total do mês nas duas faturas" : "Você paga neste mês"} value={formatarMoeda(valorTotalDoMes)} emphasis />
+          <ComparisonRow label={IS_GERADOR_APP ? "Economia real do cliente" : "Sua economia real"} value={formatarMoeda(economiaReal)} success />
           <View style={styles.discountPills}>
             <View style={styles.discountPill}><Text style={styles.discountPillLabel}>Desconto contratado</Text><Text style={styles.discountPillValue}>{descontoContratado.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</Text></View>
             <View style={styles.discountPill}><Text style={styles.discountPillLabel}>Desconto final real</Text><Text style={styles.discountPillValue}>{descontoReal.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</Text></View>

@@ -17,6 +17,7 @@ export type Carteira = {
   saldoPendente: number;
   totalRecebido: number;
   totalTransferido: number;
+  cobrancas?: Array<Record<string, any>>;
   transferencias: Array<Record<string, any>>;
 };
 

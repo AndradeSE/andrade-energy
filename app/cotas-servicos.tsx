@@ -71,7 +71,7 @@ export default function ServiceQuotasScreen() {
           })}
           <Text style={styles.link} accessibilityRole="link" onPress={() => void Linking.openURL(panels[group[0].servico]).catch(() => setError("Não foi possível abrir o painel."))}>Abrir painel do provedor</Text>
         </Card>)}
-        <Text style={styles.note}>Os avisos não contratam planos, não compram créditos e não ativam a contingência. A troca de servidor exige confirmação específica da cota do Render.</Text>
+        <Text style={styles.note}>Os avisos não contratam planos nem compram créditos. Confira a política de troca e o estado do servidor reserva no controle abaixo.</Text>
         {contingencyRoutingEnabled?<ContingencyControl/>:null}
       </>}
     </ElasticScrollView></Screen>;
