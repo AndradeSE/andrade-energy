@@ -1,5 +1,5 @@
 import { supabase } from "../../config/supabase";
-import { QUOTA_CATALOG, quotaBand, resendReadings, resendUsageKey, manualQuotaReading, type QuotaReading } from "./cotas.policy";
+import { QUOTA_CATALOG, quotaBand, resendReadings, resendUsageKey, manualQuotaReading, brevoReading, type QuotaReading } from "./cotas.policy";
 
 export function quotaEnvironment() {
   return /qqhcjieymypowunkixmk/.test(process.env.SUPABASE_URL ?? "") ? "preview" : "production";
@@ -21,7 +21,7 @@ async function saveReading(reading: QuotaReading) {
   });
   if (error) throw new Error("Não foi possível registrar a leitura de cota.");
 }
-export async function monitorServiceQuotas() {
+async function monitorResendQuota() {
   const env = quotaEnvironment();
   const key = resendUsageKey(process.env);
   if (!key) {
@@ -45,14 +45,38 @@ export async function monitorServiceQuotas() {
   const { error } = await supabase.from("cotas_consultas").upsert({ ambiente: env, servico: "RESEND", status, consultado_em: new Date().toISOString() });
   if (error) throw new Error("Não foi possível registrar o estado do monitor de cotas.");
 }
-export async function listServiceQuotas() {
+async function monitorBrevoQuota() {
+  const env = quotaEnvironment();
+  const key = String(process.env.BREVO_API_KEY ?? "").trim();
+  if (!key) {
+    const result = await supabase.from("cotas_consultas").upsert({ ambiente: env, servico: "BREVO", status: "SEM_CHAVE", consultado_em: new Date().toISOString() }, { onConflict: "ambiente,servico", ignoreDuplicates: true });
+    if (result.error) throw new Error("Não foi possível registrar o estado do monitor de cotas.");
+    return;
+  }
+  let status = "CONSULTA_INDISPONIVEL";
+  try {
+    const response = await fetch("https://api.brevo.com/v3/account", { headers: { "api-key": key }, signal: AbortSignal.timeout(8000) });
+    if (response.ok) {
+      let reading: QuotaReading | undefined;
+      try { reading = brevoReading(await response.json()); } catch { status = "PLANO_NAO_SUPORTADO"; }
+      if (reading) { await saveReading(reading); status = "OK"; }
+    } else status = [401, 403].includes(response.status) ? "SEM_PERMISSAO" : "PROVEDOR_INDISPONIVEL";
+  } catch { status = "CONSULTA_INDISPONIVEL"; }
+  const { error } = await supabase.from("cotas_consultas").upsert({ ambiente: env, servico: "BREVO", status, consultado_em: new Date().toISOString() });
+  if (error) throw new Error("Não foi possível registrar o estado do monitor de cotas.");
+}
+export async function monitorServiceQuotas() {
+  const results = await Promise.allSettled([monitorResendQuota(), monitorBrevoQuota()]);
+  if (results.some(result => result.status === "rejected")) throw new Error("Uma das consultas de cotas não pôde ser registrada.");
+}
+export async function listServiceQuotas(includeBrevo = false) {
   const env = quotaEnvironment();
   const [readings, checks] = await Promise.all([
     supabase.from("cotas_servicos").select("*").eq("ambiente", env).gt("renova_em", new Date().toISOString()).order("verificado_em", { ascending: false }).limit(100),
     supabase.from("cotas_consultas").select("servico,status,consultado_em").eq("ambiente", env),
   ]);
   if (readings.error || checks.error) throw new Error("Não foi possível consultar as cotas.");
-  return { ambiente: env, alertas: [80, 90, 100], servicos: QUOTA_CATALOG.map(item => {
+  return { ambiente: env, alertas: [80, 90, 100], servicos: QUOTA_CATALOG.filter(item => includeBrevo || item.servico !== "BREVO").map(item => {
     const reading = readings.data?.find(row => row.servico === item.servico && row.metrica === item.metrica);
     const check = checks.data?.find(row => row.servico === item.servico);
     return { ...item, leitura: reading ? { ...reading, restante: reading.limite === null ? null : Math.max(Number(reading.limite)-Number(reading.usado), 0),

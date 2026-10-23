@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { quotaBand, resendReadings, resendUsageKey, manualQuotaReading } from "./cotas.policy";
+import { quotaBand, resendReadings, resendUsageKey, manualQuotaReading, brevoReading } from "./cotas.policy";
+test("Brevo free credits are remaining daily sends; SMS and paid plans never become a fake free quota", () => {
+  const now = Date.parse("2026-10-22T12:00:00Z");
+  const reading = brevoReading({ plan: [{ type: "sms", creditsType: "sendLimit", credits: 15 }, { type: "free", creditsType: "sendLimit", credits: 250 }] }, now);
+  assert.equal(reading.usado, 50); assert.equal(reading.limite, 300);
+  assert.equal(reading.renovaEm, "2026-10-23T00:00:00.000Z");
+  for (const credits of [-1, 301, "250", null]) assert.throws(() => brevoReading({ plan: [{ type: "free", creditsType: "sendLimit", credits }] }, now));
+  assert.throws(() => brevoReading({ plan: [{ type: "subscription", creditsType: "sendLimit", credits: 10000 }] }, now));
+});
 test("manual readings cannot impersonate an API collector or silently accept invalid or expired values", () => {
   const now = Date.parse("2026-10-22T12:00:00Z");
   const input = { servico: "NETLIFY", metrica: "creditos", usado: 120.1, limite: 300, validaAte: "2026-10-31T23:59:59-03:00", confirmado: true };

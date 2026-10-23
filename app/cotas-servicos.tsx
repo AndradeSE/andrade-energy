@@ -11,7 +11,7 @@ import { QuotaManualForm } from "../components/QuotaManualForm";
 
 const number = (value: number) => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 const date = (value: string) => new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
-const panels: Record<string, string> = { RENDER: "https://dashboard.render.com/", RESEND: "https://resend.com/overview", NETLIFY: "https://app.netlify.com/", SUPABASE: "https://supabase.com/dashboard" };
+const panels: Record<string, string> = { RENDER: "https://dashboard.render.com/", RESEND: "https://resend.com/overview", BREVO: "https://app.brevo.com/", NETLIFY: "https://app.netlify.com/", SUPABASE: "https://supabase.com/dashboard" };
 export default function ServiceQuotasScreen() {
   const { usuario } = useAuth();
   const allowed = IS_GERADOR_APP && canViewServiceQuotas(usuario);
@@ -52,10 +52,10 @@ export default function ServiceQuotasScreen() {
               <Text style={styles.balance}>{reading.limite === null ? "Sem limite definido no plano" : `${number(reading.restante ?? 0)} ${item.unidade} restantes`}</Text>
               <Text style={styles.text}>Utilizado: {number(reading.usado)}{reading.limite === null ? "" : ` de ${number(reading.limite)}`} {item.unidade}</Text>
               {pct !== null && pct !== undefined ? <><View style={styles.track}><View style={[styles.fill, { width: `${Math.min(Math.max(pct, 0), 100)}%`, backgroundColor: pct >= 90 ? "#B54228" : Colors.primary }]}/></View><Text style={styles.text}>{number(pct)}% utilizado</Text></> : null}
-              <Text style={styles.text}>{reading.origem === "API_OFICIAL" ? "Renovação informada" : "Leitura válida até"}: {date(reading.renova_em)}</Text>
+              <Text style={styles.text}>{item.servico === "BREVO" ? "Plano gratuito · limite diário de envios" : `${reading.origem === "API_OFICIAL" ? "Renovação informada" : "Leitura válida até"}: ${date(reading.renova_em)}`}</Text>
               <Text style={styles.note}>{reading.origem === "API_OFICIAL" ? "API oficial" : "Leitura confirmada do painel"} · {date(reading.verificado_em)}</Text>
               {stale ? <Text style={styles.warning}>Consulta desatualizada ou indisponível. Este saldo pode ter mudado.</Text> : null}
-            </> : <Text style={styles.text}>{item.automatico ? item.consulta?.status === "SEM_PERMISSAO" ? "A chave configurada não permite consultar o uso." : "Sem leitura disponível. A consulta automática precisa estar conectada." : "Leitura manual: confira o painel do provedor e informe abaixo os valores para acompanhar o saldo aqui."}</Text>}
+            </> : <Text style={styles.text}>{item.automatico ? item.consulta?.status === "SEM_PERMISSAO" ? "A chave configurada não permite consultar o uso." : item.consulta?.status === "PLANO_NAO_SUPORTADO" ? "O plano retornado não permite confirmar a cota gratuita. Confira o saldo no painel." : "Sem leitura disponível. A consulta automática precisa estar conectada." : "Leitura manual: confira o painel do provedor e informe abaixo os valores para acompanhar o saldo aqui."}</Text>}
             <Text style={styles.link} accessibilityRole="link" onPress={() => void Linking.openURL(panels[item.servico]).catch(() => setError("Não foi possível abrir o painel."))}>Abrir painel do provedor</Text>
             <QuotaManualForm item={item} onSaved={setData}/>
           </Card>;
