@@ -1,4 +1,5 @@
 import { supabase } from "../../config/supabase";
+import { AZURE_QUOTA_CATALOG, azureQuotaConfig, fetchAzureQuotaReadings } from "./azureQuotas";
 import { QUOTA_CATALOG, quotaBand, resendReadings, resendUsageKey, brevoReading, type QuotaReading } from "./cotas.policy";
 
 export function quotaEnvironment() {
@@ -57,17 +58,31 @@ async function monitorBrevoQuota() {
   if (error) throw new Error("Não foi possível registrar o estado do monitor de cotas.");
 }
 export async function monitorServiceQuotas() {
-  const results = await Promise.allSettled([monitorResendQuota(), monitorBrevoQuota()]);
+  const results = await Promise.allSettled([monitorResendQuota(), monitorBrevoQuota(), monitorAzureQuota()]);
   if (results.some(result => result.status === "rejected")) throw new Error("Uma das consultas de cotas não pôde ser registrada.");
 }
-export async function listServiceQuotas(includeBrevo = false) {
+async function monitorAzureQuota() {
+  if (!azureQuotaConfig(process.env)) return;
+  let status = "CONSULTA_INDISPONIVEL";
+  try {
+    const readings = await fetchAzureQuotaReadings(process.env);
+    for (const reading of readings) await saveReading(reading);
+    status = readings.length === AZURE_QUOTA_CATALOG.length ? "OK" : "SEM_DADOS_COMPLETOS";
+  } catch (error: any) {
+    if (["SEM_CHAVE", "SEM_PERMISSAO", "PLANO_NAO_SUPORTADO", "PROVEDOR_INDISPONIVEL"].includes(error?.message)) status = error.message;
+  }
+  const result = await supabase.from("cotas_consultas").upsert({ ambiente: quotaEnvironment(), servico: "AZURE", status, consultado_em: new Date().toISOString() });
+  if (result.error) throw new Error("Não foi possível registrar a consulta de cotas do Azure.");
+}
+export async function listServiceQuotas(includeBrevo = false, includeAzure = false) {
   const env = quotaEnvironment();
   const [readings, checks] = await Promise.all([
     supabase.from("cotas_servicos").select("*").eq("ambiente", env).gt("renova_em", new Date().toISOString()).order("verificado_em", { ascending: false }).limit(100),
     supabase.from("cotas_consultas").select("servico,status,consultado_em").eq("ambiente", env),
   ]);
   if (readings.error || checks.error) throw new Error("Não foi possível consultar as cotas.");
-  return { ambiente: env, alertas: [80, 90, 100], servicos: QUOTA_CATALOG.filter(item => includeBrevo || item.servico !== "BREVO").map(item => {
+  const catalog = [...QUOTA_CATALOG.filter(item => includeBrevo || item.servico !== "BREVO"), ...(includeAzure && azureQuotaConfig(process.env) ? AZURE_QUOTA_CATALOG : [])];
+  return { ambiente: env, alertas: [80, 90, 100], servicos: catalog.map(item => {
     const reading = readings.data?.find(row => row.servico === item.servico && row.metrica === item.metrica);
     const check = checks.data?.find(row => row.servico === item.servico);
     return { ...item, leitura: reading ? { ...reading, restante: reading.limite === null ? null : Math.max(Number(reading.limite)-Number(reading.usado), 0),
