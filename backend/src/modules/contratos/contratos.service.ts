@@ -676,7 +676,7 @@ export async function registrarAceiteEletronicoService(contratoId: string, usuar
     console.error("Falha ao concluir solicitação de renovação após o aceite", erroRenovacao));
   // O aceite libera a UC imediatamente; avise quem administra o contrato sem
   // deixar uma falha de push reverter a assinatura já confirmada.
-  void (async () => {
+  await (async () => {
     const { data: vinculos, error: erroVinculos } = await supabase.from("empresa_usuarios")
       .select("usuario_id,papel,permissoes")
       .eq("empresa_id", contrato.empresa_id).eq("ativo", true)
