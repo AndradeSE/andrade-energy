@@ -35,6 +35,7 @@ import {
 } from "../../services/comercial.service";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 import AutenticadorFinanceiro from "../../components/financeiro/AutenticadorFinanceiro";
+import HistoricoTransacoes from "../../components/financeiro/HistoricoTransacoes";
 import { initialTabKey } from "../../services/navigation-preload.service";
 import { textoLegivel } from "../../utils/textoLegado";
 
@@ -626,6 +627,7 @@ export default function GestaoGeradores() {
                   ) : null}
                 </Section>
                 <View style={styles.billingSectionGap}>
+                <HistoricoTransacoes transferencias={carteira?.transferencias}/>
                 <Section title="Faturamento das assinaturas" framed={false}>
                 {(data?.cobrancas ?? []).map((charge) => {
                   const status = String(charge.status ?? "PENDENTE");
