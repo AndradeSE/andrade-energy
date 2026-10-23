@@ -7,14 +7,27 @@ const router=Router();
 router.use(exigirAutenticacao,exigirSuperAdministradorAndrade,(_req,res,next)=>{res.setHeader('Cache-Control','no-store');next();});
 router.get('/',async(_req,res)=>{
   try {
-    const [control,jobs,requests]=await Promise.all([
+    const [control,jobs,requests,automation]=await Promise.all([
       supabase.from('contingencia_controle').select('*').eq('id',true).single(),
       supabase.from('contingencia_trabalhos').select('nome,estado,executor,lease_ate,atualizado_em').order('nome'),
       supabase.from('contingencia_requisicoes').select('id,executor,namespace,iniciado_em').order('iniciado_em').limit(100),
+      supabase.from('contingencia_automacao').select('ativa,ultimo_estado,ultima_consulta,ultimo_resultado').eq('id',true).single(),
     ]);
-    if(control.error || jobs.error || requests.error) throw new Error('unavailable');
-    return res.json({control:control.data,jobs:jobs.data,requests:requests.data});
+    if(control.error || jobs.error || requests.error || automation.error) throw new Error('unavailable');
+    return res.json({control:control.data,jobs:jobs.data,requests:requests.data,automation:{...automation.data,configurada:Boolean(process.env.RENDER_MONITOR_API_KEY)}});
   } catch {return res.status(503).json({message:'Não foi possível conferir o backend reserva.'});}
+});
+router.post('/automacao',apiRateLimit('contingency-automation',{windowMs:60_000,limit:3}),async(req,res)=>{
+  const active=req.body?.ativa;
+  if(typeof active!=='boolean' || req.body?.confirmacao!==(active?'AUTOMATIZAR_BILLING':'DESATIVAR_AUTOMACAO')) {
+    return res.status(400).json({message:'Confirme a política de suspensão por cobrança.'});
+  }
+  if(active&&!process.env.RENDER_MONITOR_API_KEY) return res.status(409).json({message:'A consulta do Render ainda não está conectada no servidor reserva.'});
+  const preview=/qqhcjieymypowunkixmk\.supabase\.co\/?$/.test(process.env.SUPABASE_URL??'');
+  const result=await supabase.rpc('configurar_contingencia_automatica',{p_usuario:(req as any).usuario.id,p_ativa:active,
+    p_servico:preview?'srv-das0mmfpn0mc73ec00hg':'srv-da0iso5bedkc73asecig'});
+  if(result.error) return res.status(409).json({message:'Não foi possível alterar a automação. Consulte novamente antes de tentar.'});
+  return res.json({ativa:active});
 });
 router.post('/trocar',apiRateLimit('contingency-switch',{windowMs:60_000,limit:3}),async(req,res)=>{
   const target=req.body?.executor;
