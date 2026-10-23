@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261023-061926",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Cotas ADM: incluir saldo diario Brevo e preservar leituras verificadas"
+    ]
+  },
+  {
     "numero": "OTA 20261022-215104",
     "data": "22/10/2026",
     "variant": "gerador",
