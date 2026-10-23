@@ -24,6 +24,9 @@
 [functions."preview-quota-worker"]
   schedule = "17 * * * *"
 
+[functions."jobs-dispatch"]
+  schedule = "* * * * *"
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/api/:splat"
@@ -31,4 +34,8 @@
 [[redirects]]
   from = "/health"
   to = "/.netlify/functions/api/health"
+  status = 200
+[[redirects]]
+  from = "/contingency/runtime"
+  to = "/.netlify/functions/api/contingency/runtime"
   status = 200

@@ -289,8 +289,11 @@ export async function processarFilaDeNotificacoes() {
   if (error) throw error;
 
   for (const item of itens ?? []) {
+    const claim = await supabase.from("notificacoes_fatura").update({ status: "PROCESSANDO", updated_at: new Date().toISOString() })
+      .eq("id", item.id).eq("status", "PENDENTE").select("id").maybeSingle();
+    if (claim.error) throw claim.error;
+    if (!claim.data) continue;
     try {
-      await supabase.from("notificacoes_fatura").update({ status: "PROCESSANDO", updated_at: new Date().toISOString() }).eq("id", item.id).eq("status", "PENDENTE");
       const enviada = item.canal === "EMAIL" ? await enviarEmail(item) : await enviarWhatsapp(item);
       if (enviada) {
         await supabase.from("notificacoes_fatura").update({ status: "ENVIADA", enviada_em: new Date().toISOString(), erro: null, updated_at: new Date().toISOString() }).eq("id", item.id);
