@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { quotaBand, resendReadings, resendUsageKey, manualQuotaReading, brevoReading } from "./cotas.policy";
+import { quotaBand, resendReadings, resendUsageKey, brevoReading, QUOTA_CATALOG } from "./cotas.policy";
 test("Brevo free credits are remaining daily sends; SMS and paid plans never become a fake free quota", () => {
   const now = Date.parse("2026-10-22T12:00:00Z");
   const reading = brevoReading({ plan: [{ type: "sms", creditsType: "sendLimit", credits: 15 }, { type: "free", creditsType: "sendLimit", credits: 250 }] }, now);
@@ -9,13 +9,9 @@ test("Brevo free credits are remaining daily sends; SMS and paid plans never bec
   for (const credits of [-1, 301, "250", null]) assert.throws(() => brevoReading({ plan: [{ type: "free", creditsType: "sendLimit", credits }] }, now));
   assert.throws(() => brevoReading({ plan: [{ type: "subscription", creditsType: "sendLimit", credits: 10000 }] }, now));
 });
-test("manual readings cannot impersonate an API collector or silently accept invalid or expired values", () => {
-  const now = Date.parse("2026-10-22T12:00:00Z");
-  const input = { servico: "NETLIFY", metrica: "creditos", usado: 120.1, limite: 300, validaAte: "2026-10-31T23:59:59-03:00", confirmado: true };
-  assert.equal(manualQuotaReading(input, now).origem, "PAINEL_CONFIRMADO");
-  for (const change of [{ confirmado: false }, { usado: -1 }, { usado: "120" }, { limite: 0 }, { validaAte: "2020-01-01" }, { validaAte: "2090-01-01" }, { servico: "RESEND", metrica: "emails_mes" }]) {
-    assert.throws(() => manualQuotaReading({ ...input, ...change }, now));
-  }
+test("catalogue shows only connected automatic quota integrations", () => {
+  assert.ok(QUOTA_CATALOG.every(item => item.automatico));
+  assert.deepEqual([...new Set(QUOTA_CATALOG.map(item => item.servico))].sort(), ["BREVO", "RESEND"]);
 });
 test("usage monitor reuses the configured inbound key without exposing it or overriding a dedicated key", () => {
   assert.equal(resendUsageKey({ RESEND_INBOUND_API_KEY: " inbound-test " }), "inbound-test");

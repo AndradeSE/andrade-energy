@@ -52,7 +52,12 @@ somente segredos do ambiente correspondente por canal privado do provedor.
 Não misturar bancos de homologação e produção e não usar keep-alive para
 contornar limites de serviços gratuitos.
 
-## Cotas de serviços (Preview)
+## Cotas de serviços — somente automáticas
+
+Decisão do proprietário em 23/10: mostrar somente provedores com integração
+automática. O catálogo mantém Brevo e Resend. Render, Netlify e Supabase foram
+retirados; formulário e endpoint manuais removidos e RPC manual revogada para
+service_role. Leituras e auditorias anteriores são preservadas como histórico.
 
 - Menu exclusivo de ADM, com bloqueio também na API e nas RPCs do banco.
 - Resend consulta `/usage` usando a chave existente de recebimento quando não há
@@ -60,13 +65,11 @@ contornar limites de serviços gratuitos.
 - Brevo consulta `/v3/account` com `BREVO_API_KEY`; somente o plano gratuito
   `free`/`sendLimit` recebe o limite documentado de 300 envios por dia. Créditos
   retornados são restantes, não utilizados. Plano pago ou resposta divergente
-  ficam sem saldo confirmado. A inclusão do Brevo ainda exige deploy e leitura
-  real no Preview; não foi publicada em produção.
-- Render, Netlify e Supabase têm registro manual de leitura conferida no painel,
-  com validade e auditoria atômica. Não há coleta automática conectada para esses
-  três provedores. Créditos do plano e de bônus da Netlify são separados.
-- Formulário testado no emulador: leitura real da Netlify de 150,1/300 registrada
-  e card exibindo 149,9 restantes, identificado como painel confirmado.
+  ficam sem saldo confirmado. Consulta real validada no Preview em `dcdf4d34` e
+  card conferido no emulador: 300 envios restantes, 0 de 300 utilizados.
+- Não há coleta automática conectada para Render, Netlify e Supabase; seus cards
+  não devem ser oferecidos como monitoramento automático. O teste anterior de
+  registro manual da Netlify permanece apenas no histórico.
 - Avisos no app e fila de push em 80/90/100%; testes de auditoria, privilégios e
   notificações feitos com rollback. Não foi enviado aviso fictício de cota aos
   usuários. Push revalida o acesso ADM e usa somente dispositivos Gerador.
@@ -74,9 +77,11 @@ contornar limites de serviços gratuitos.
   contingência/cotas: 17 antes da inclusão do Brevo; três testes de formulário,
   permissão e destino de PDF. Cinco testes de política de cotas passaram após a
   inclusão do Brevo.
-- Migrações até `20261023011500` aplicadas somente na homologação. Os novos
-  monitores, tela de cotas e estruturas de contingência não foram promovidos para
-  produção. Main permanece sem esses commits.
+- Base das cotas promovida para main em `2387d3ba`; backend produção confirmado
+  nessa versão e OTA Gerador produção `1d1eca07-7e7b-4be9-b3c4-2c70a47b6826`.
+  Migrações até `20261023011500` aplicadas nos dois bancos. Restrição a somente
+  automáticas é uma atualização posterior; verificar o deploy correspondente
+  antes de afirmar que os cards manuais desapareceram em produção.
 
 Nenhum pagamento, plano pago, saldo financeiro ou configuração de faturamento
 foi alterado para implementar o monitoramento.

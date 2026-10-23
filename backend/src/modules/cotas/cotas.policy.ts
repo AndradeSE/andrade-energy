@@ -7,10 +7,6 @@ export const QUOTA_CATALOG = [
   { servico: "RESEND", metrica: "emails_dia", rotulo: "Resend · e-mails por dia", unidade: "e-mails", automatico: true },
   { servico: "RESEND", metrica: "emails_mes", rotulo: "Resend · e-mails por mês", unidade: "e-mails", automatico: true },
   { servico: "BREVO", metrica: "emails_dia", rotulo: "Brevo · envios por dia", unidade: "e-mails", automatico: true },
-  { servico: "RENDER", metrica: "horas_gratuitas", rotulo: "Render · horas gratuitas", unidade: "horas", automatico: false },
-  { servico: "NETLIFY", metrica: "creditos", rotulo: "Netlify · créditos do plano", unidade: "créditos", automatico: false },
-  { servico: "NETLIFY", metrica: "creditos_bonus", rotulo: "Netlify · créditos de bônus", unidade: "créditos", automatico: false },
-  { servico: "SUPABASE", metrica: "armazenamento", rotulo: "Supabase · armazenamento", unidade: "MB", automatico: false },
 ] as const;
 /** Account credits are REMAINING, not sent. Only the documented free plan has a known 300/day limit. */
 export function brevoReading(payload: any, now = Date.now()): QuotaReading {
@@ -21,14 +17,6 @@ export function brevoReading(payload: any, now = Date.now()): QuotaReading {
   const nextDay = new Date(now); nextDay.setUTCHours(24, 0, 0, 0);
   return { servico: "BREVO", metrica: "emails_dia", rotulo: "Brevo · envios por dia", usado: 300 - plans[0].credits, limite: 300,
     renovaEm: nextDay.toISOString(), origem: "API_OFICIAL" };
-}
-export function manualQuotaReading(input: any, now = Date.now()): QuotaReading {
-  const item = QUOTA_CATALOG.find(row => row.servico === input?.servico && row.metrica === input?.metrica && !row.automatico);
-  const expires = Date.parse(input?.validaAte);
-  if (!item || input?.confirmado !== true || typeof input?.usado !== "number" || !Number.isFinite(input.usado) || input.usado < 0 || input.usado >= 1e12 ||
-    typeof input?.limite !== "number" || !Number.isFinite(input.limite) || input.limite <= 0 || input.limite >= 1e12 ||
-    !Number.isFinite(expires) || expires <= now || expires - now > 370 * 86400_000) throw new Error("Confira os valores, a validade e a confirmação da leitura no painel.");
-  return { servico: item.servico, metrica: item.metrica, rotulo: item.rotulo, usado: input.usado, limite: input.limite, renovaEm: new Date(expires).toISOString(), origem: "PAINEL_CONFIRMADO" };
 }
 export function quotaBand(used: number, limit: number | null): 0 | 80 | 90 | 100 {
   if (!Number.isFinite(used) || used < 0 || limit === null || !Number.isFinite(limit) || limit <= 0) return 0;

@@ -7,7 +7,6 @@ import { IS_GERADOR_APP } from "../config/appVariant";
 import { canViewServiceQuotas } from "../utils/service-quota-access";
 import { listServiceQuotas, refreshServiceQuotas, type ServiceQuotas } from "../services/cotas-servicos.service";
 import { Colors, Spacing } from "../theme";
-import { QuotaManualForm } from "../components/QuotaManualForm";
 
 const number = (value: number) => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 const date = (value: string) => new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
@@ -57,7 +56,6 @@ export default function ServiceQuotasScreen() {
               {stale ? <Text style={styles.warning}>Consulta desatualizada ou indisponível. Este saldo pode ter mudado.</Text> : null}
             </> : <Text style={styles.text}>{item.automatico ? item.consulta?.status === "SEM_PERMISSAO" ? "A chave configurada não permite consultar o uso." : item.consulta?.status === "PLANO_NAO_SUPORTADO" ? "O plano retornado não permite confirmar a cota gratuita. Confira o saldo no painel." : "Sem leitura disponível. A consulta automática precisa estar conectada." : "Leitura manual: confira o painel do provedor e informe abaixo os valores para acompanhar o saldo aqui."}</Text>}
             <Text style={styles.link} accessibilityRole="link" onPress={() => void Linking.openURL(panels[item.servico]).catch(() => setError("Não foi possível abrir o painel."))}>Abrir painel do provedor</Text>
-            <QuotaManualForm item={item} onSaved={setData}/>
           </Card>;
         })}
         <Text style={styles.note}>Os avisos não contratam planos, não compram créditos e não ativam a contingência. A troca de servidor exige confirmação específica da cota do Render.</Text>
