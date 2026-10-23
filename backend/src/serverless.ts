@@ -1,7 +1,7 @@
 import { createServerlessHandler, normalizeNetlifyEvent } from "./config/serverlessAdapter";
 import { homologationConfigured, serverlessRequestAllowed } from "./config/serverlessPolicy";
 import { contingencyEnvironment } from "./config/contingencyRuntime";
-import {isProviderIngress,forwardProviderIngress} from './config/contingencyIngress';
+import {isProviderIngress,forwardProviderIngress,isOAuthIngress,forwardOAuthIngress} from './config/contingencyIngress';
 
 // Fail closed until the isolated homologation deployment is configured.
 let ready: Promise<ReturnType<typeof createServerlessHandler>> | undefined;
@@ -12,12 +12,13 @@ export async function handler(event: object, context: object) {
   if (fullEnvironment && process.env.CONTINGENCY_ROUTING_ENABLED!=="true") {
     return {statusCode:503,body:JSON.stringify({error:"Controle de execução não configurado."})};
   }
-  if(fullEnvironment && isProviderIngress(method,path)) {
+  if(fullEnvironment && (isProviderIngress(method,path) || isOAuthIngress(method,path))) {
     try {
       const {supabase}=await import('./config/supabase.js');
       const state=await supabase.from('contingencia_controle').select('executor').eq('id',true).single();
       if(state.error)throw state.error;
-      if(state.data.executor==='RENDER')return await forwardProviderIngress(event,fullEnvironment);
+      if(state.data.executor==='RENDER')return isOAuthIngress(method,path)
+        ? await forwardOAuthIngress(event,fullEnvironment) : await forwardProviderIngress(event,fullEnvironment);
     } catch {return {statusCode:503,body:JSON.stringify({error:'Provedor: processamento não confirmado. Tente novamente pelo mecanismo de reenvio.'})};}
   }
   if(fullEnvironment && method==="GET" && ["/health","/contingency/runtime"].includes(path)) {
