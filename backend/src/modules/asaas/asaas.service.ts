@@ -261,7 +261,7 @@ export async function processarWebhookAsaas(body: any, token?: string) {
         ...(encerrado ? { asaas_checkout_id: null } : {}),
         atualizado_em: new Date().toISOString(),
       })
-      .eq("asaas_checkout_id", checkoutId);
+      .eq("asaas_checkout_id", checkoutId).throwOnError();
   }
   if (body.subscription?.id) {
     const subscription = body.subscription;
@@ -271,7 +271,7 @@ export async function processarWebhookAsaas(body: any, token?: string) {
     if (referenceId) query = query.eq("id", referenceId);
     else if (subscription.customer) query = query.eq("asaas_customer_id", String(subscription.customer));
     else query = query.eq("asaas_subscription_id", String(subscription.id));
-    const { data: local } = await query.order("criado_em", { ascending: false }).limit(1).maybeSingle();
+    const { data: local } = await query.order("criado_em", { ascending: false }).limit(1).maybeSingle().throwOnError();
     if (local?.id) {
       const inativa = ["SUBSCRIPTION_INACTIVATED", "SUBSCRIPTION_DELETED"].includes(String(body.event));
       await supabase.from("assinaturas_geradores").update({
@@ -281,7 +281,7 @@ export async function processarWebhookAsaas(body: any, token?: string) {
         ...(subscription.nextDueDate ? { proximo_vencimento: String(subscription.nextDueDate).slice(0, 10) } : {}),
         ...(inativa ? { status: "SUSPENSA" } : {}),
         atualizado_em: new Date().toISOString(),
-      }).eq("id", local.id);
+      }).eq("id", local.id).throwOnError();
     }
   }
   if(body.payment?.id){
@@ -294,8 +294,8 @@ export async function processarWebhookAsaas(body: any, token?: string) {
       const cancelada = ["PAYMENT_DELETED", "PAYMENT_REFUNDED", "PAYMENT_REFUND_IN_PROGRESS"].includes(body.event);
       const assinaturaExterna = referenciaComercial ? String(body.payment.externalReference).split(":")[1] || null : null;
       const { data: assinaturaLocal } = assinaturaExterna
-        ? await supabase.from("assinaturas_geradores").select("id").eq("id", assinaturaExterna).maybeSingle()
-        : await supabase.from("assinaturas_geradores").select("id").eq("asaas_subscription_id", assinaturaAsaas).maybeSingle();
+        ? await supabase.from("assinaturas_geradores").select("id").eq("id", assinaturaExterna).maybeSingle().throwOnError()
+        : await supabase.from("assinaturas_geradores").select("id").eq("asaas_subscription_id", assinaturaAsaas).maybeSingle().throwOnError();
       const assinaturaId = assinaturaLocal?.id ?? assinaturaExterna;
       if (!assinaturaId) {await finish();return { recebido: true, assinaturaNaoAssociada: true };}
       const vencimento = String(body.payment.dueDate ?? new Date().toISOString()).slice(0, 10);
@@ -312,15 +312,15 @@ export async function processarWebhookAsaas(body: any, token?: string) {
         bank_slip_url: body.payment.bankSlipUrl ?? body.payment.invoiceUrl ?? null,
         pago_em: pago ? new Date().toISOString() : null,
         atualizado_em: new Date().toISOString(),
-      }, { onConflict: "assinatura_id,competencia" }).select().maybeSingle();
+      }, { onConflict: "assinatura_id,competencia" }).select().maybeSingle().throwOnError();
       const statusAssinatura = statusAssinaturaPorEvento(String(body.event));
-      if (assinaturaId && statusAssinatura) await supabase.from("assinaturas_geradores").update({ status: statusAssinatura, forma_pagamento: body.payment.billingType ?? undefined, atualizado_em: new Date().toISOString() }).eq("id", assinaturaId);
+      if (assinaturaId && statusAssinatura) await supabase.from("assinaturas_geradores").update({ status: statusAssinatura, forma_pagamento: body.payment.billingType ?? undefined, atualizado_em: new Date().toISOString() }).eq("id", assinaturaId).throwOnError();
       if (pago) await transferirAutomaticamenteAssinatura(body.payment);
     } else {
       const bruto = Number(body.payment.value);
-      const {data:c}=await supabase.from("asaas_cobrancas").update({status:body.payment.status,...(Number.isFinite(bruto) && bruto > 0 ? {valor:bruto} : {}),valor_liquido:body.payment.netValue??null,atualizado_em:new Date().toISOString()}).eq("asaas_payment_id",body.payment.id).select().maybeSingle();
+      const {data:c}=await supabase.from("asaas_cobrancas").update({status:body.payment.status,...(Number.isFinite(bruto) && bruto > 0 ? {valor:bruto} : {}),valor_liquido:body.payment.netValue??null,atualizado_em:new Date().toISOString()}).eq("asaas_payment_id",body.payment.id).select().maybeSingle().throwOnError();
       if(c&&["PAYMENT_RECEIVED","PAYMENT_CONFIRMED"].includes(body.event)){
-        await supabase.from("faturas").update({status:"PAGO"}).eq("id",c.fatura_id);
+        await supabase.from("faturas").update({status:"PAGO"}).eq("id",c.fatura_id).throwOnError();
         if (body.event === "PAYMENT_RECEIVED") await transferirSaldo(c);
         await (async () => {
           const { data: fatura, error: erroFatura } = await supabase.from("faturas").select("cliente_id,empresa_id,usina_id").eq("id", c.fatura_id).maybeSingle();
@@ -347,7 +347,7 @@ export async function processarWebhookAsaas(body: any, token?: string) {
     }
   }
   if(body.transfer?.id) {
-    const { data: transferencia } = await supabase.from("asaas_transferencias").update({status:body.transfer.status,...(body.transfer.failReason ? {erro_codigo:"TRANSFER_FAILED",erro_detalhe_criptografado:criptografarDado(String(body.transfer.failReason).slice(0,2000))} : {}),atualizado_em:new Date().toISOString()}).eq("asaas_transfer_id",body.transfer.id).select().maybeSingle();
+    const { data: transferencia } = await supabase.from("asaas_transferencias").update({status:body.transfer.status,...(body.transfer.failReason ? {erro_codigo:"TRANSFER_FAILED",erro_detalhe_criptografado:criptografarDado(String(body.transfer.failReason).slice(0,2000))} : {}),atualizado_em:new Date().toISOString()}).eq("asaas_transfer_id",body.transfer.id).select().maybeSingle().throwOnError();
     // O valor de uma transferência não redefine o líquido da cobrança: pode
     // representar apenas parte do saldo. A tarifa vem do pagamento no Asaas.
   }

@@ -7,6 +7,8 @@ import { IS_GERADOR_APP } from "../config/appVariant";
 import { canViewServiceQuotas } from "../utils/service-quota-access";
 import { listServiceQuotas, refreshServiceQuotas, type ServiceQuotas } from "../services/cotas-servicos.service";
 import { Colors, Spacing } from "../theme";
+import ContingencyControl from '../components/ContingencyControl';
+import {contingencyRoutingEnabled} from '../config/api';
 
 const number = (value: number) => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 const date = (value: string) => new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
@@ -59,6 +61,7 @@ export default function ServiceQuotasScreen() {
           </Card>;
         })}
         <Text style={styles.note}>Os avisos não contratam planos, não compram créditos e não ativam a contingência. A troca de servidor exige confirmação específica da cota do Render.</Text>
+        {contingencyRoutingEnabled?<ContingencyControl/>:null}
       </>}
     </ElasticScrollView></Screen>;
 }
