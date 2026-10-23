@@ -1,5 +1,6 @@
 import { supabase } from "../../config/supabase";
 import { deliverQueuedPush } from "./pushQueue";
+import { EMPRESA_ANDRADE_ID } from "../../config/empresa";
 
 export type NovaNotificacaoApp = {
   usuario_id: string;
@@ -18,11 +19,23 @@ function tokenExpoValido(token: string) {
 }
 
 export async function enviarPushDaNotificacao(notificacao: NovaNotificacaoApp & { id?: string }) {
-  const { data: dispositivos, error } = await supabase.from("dispositivos_push")
+  if (notificacao.tipo === "COTA_SERVICO") {
+    if (notificacao.empresa_id !== EMPRESA_ANDRADE_ID) return;
+    const { data: membership, error: membershipError } = await supabase.from("empresa_usuarios")
+      .select("usuarios!empresa_usuarios_usuario_id_fkey(perfil,ativo,empresa_id)")
+      .eq("empresa_id", EMPRESA_ANDRADE_ID).eq("usuario_id", notificacao.usuario_id).eq("ativo", true)
+      .in("papel", ["SUPERADMIN", "ADMIN_EMPRESA"]).maybeSingle();
+    if (membershipError) throw new Error("Não foi possível verificar o destinatário ADM.");
+    const user: any = Array.isArray(membership?.usuarios) ? membership.usuarios[0] : membership?.usuarios;
+    if (!user?.ativo || user.perfil !== "ADMIN" || user.empresa_id !== EMPRESA_ANDRADE_ID) return;
+  }
+  let query = supabase.from("dispositivos_push")
     .select("token")
     .eq("usuario_id", notificacao.usuario_id)
     .eq("empresa_id", notificacao.empresa_id)
     .eq("ativo", true);
+  if (notificacao.tipo === "COTA_SERVICO") query = query.eq("app_variante", "gerador");
+  const { data: dispositivos, error } = await query;
   if (error) throw error;
 
   const tokens = [...new Set((dispositivos ?? []).map((item: any) => String(item.token)).filter(tokenExpoValido))];

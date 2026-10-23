@@ -40,6 +40,10 @@ import { auditar } from "./utils/audit";
 import { backgroundJobsEnabled } from "./config/backgroundJobs";
 import { trackRequestTask } from "./config/requestTasks";
 import { assistenteVoiceRouter } from "./modules/assistente/voice.routes";
+import uploadsRoutes from "./modules/uploads/uploads.routes";
+import cotasRoutes from "./modules/cotas/cotas.routes";
+import { monitorServiceQuotas } from "./modules/cotas/cotas.service";
+import { processarPushPendente } from "./modules/notificacoes/push.service";
 
 dotenv.config();
 
@@ -142,6 +146,8 @@ app.use((req, res, next) => {
 */
 
 app.use("/api/auth", authRoutes);
+app.use("/api/uploads", uploadsRoutes);
+app.use("/api/cotas-servicos", cotasRoutes);
 app.use("/api/convites", convitesRoutes);
 app.use("/api/usuarios", usuariosRoutes);
 app.use("/api/colaboradores", colaboradoresRoutes);
@@ -189,6 +195,7 @@ app.get("/health", (_, res) => {
     commit: (process.env.RENDER_GIT_COMMIT ?? process.env.COMMIT_REF)?.slice(0, 7) ?? "local",
     ...(process.env.API_RUNTIME === "serverless" ? {
       contingency: { environment: "preview", readyForFailover: false, writes: false,
+        activationPolicy: "confirmed_render_quota_only",
         authenticationValidation: process.env.NETLIFY_AUTH_VALIDATION_ENABLED === "true", backgroundJobs: false },
     } : {}),
   });
@@ -240,6 +247,22 @@ async function iniciarServidor() {
     console.log("Instância HTTP reserva: agendadores desativados.");
     return;
   }
+  const conferirCotas = () => void monitorServiceQuotas().catch(() => console.error("Falha ao verificar cotas de serviços."));
+  conferirCotas();
+  setInterval(conferirCotas, 60 * 60_000);
+  let enviandoPushDuravel = false;
+  const conferirPushDuravel = async () => {
+    if (enviandoPushDuravel) return;
+    enviandoPushDuravel = true;
+    try {
+      for (let i = 0; i < 10; i++) {
+        if (!(await processarPushPendente()).processed) break;
+      }
+    } catch { console.error("Falha ao conferir fila persistente de push."); }
+    finally { enviandoPushDuravel = false; }
+  };
+  void conferirPushDuravel();
+  setInterval(() => void conferirPushDuravel(), 60_000);
   processarFilaDeNotificacoes().catch((erro) => console.error("Falha ao processar notificações:", erro.message));
   const avisarVencimentos = () => void avisarContratosProximosDoVencimento().catch(erro => console.error("Falha ao avisar vencimentos:", erro.message));
   avisarVencimentos();

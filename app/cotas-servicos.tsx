@@ -1,0 +1,74 @@
+import { useCallback, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { ActivityIndicator, Linking, StyleSheet, Text, View } from "react-native";
+import { AppHeader, Button, Card, ElasticScrollView, Screen } from "../components/ui";
+import { useAuth } from "../contexts/AuthContext";
+import { IS_GERADOR_APP } from "../config/appVariant";
+import { canViewServiceQuotas } from "../utils/service-quota-access";
+import { listServiceQuotas, refreshServiceQuotas, type ServiceQuotas } from "../services/cotas-servicos.service";
+import { Colors, Spacing } from "../theme";
+
+const number = (value: number) => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+const date = (value: string) => new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+const panels: Record<string, string> = { RENDER: "https://dashboard.render.com/", RESEND: "https://resend.com/overview", NETLIFY: "https://app.netlify.com/", SUPABASE: "https://supabase.com/dashboard" };
+export default function ServiceQuotasScreen() {
+  const { usuario } = useAuth();
+  const allowed = IS_GERADOR_APP && canViewServiceQuotas(usuario);
+  const [data, setData] = useState<ServiceQuotas | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    if (!allowed) { setData(null); return; }
+    setBusy(true); setError("");
+    void listServiceQuotas().then(result => { if (active) setData(result); })
+      .catch(() => { if (active) setError("Não foi possível carregar as cotas. Tente atualizar."); })
+      .finally(() => { if (active) setBusy(false); });
+    return () => { active = false; };
+  }, [allowed, usuario?.id]));
+  async function refresh() {
+    if (busy || !allowed) return;
+    setBusy(true); setError("");
+    try { setData(await refreshServiceQuotas()); }
+    catch { setError("Não foi possível atualizar agora. Aguarde um minuto e tente novamente."); }
+    finally { setBusy(false); }
+  }
+  return <Screen><AppHeader title="Cotas de serviços" subtitle="Infraestrutura da plataforma" contextTitle="Administração" contextSubtitle="Uso e limites dos serviços" icon="speedometer-outline" showPlantContext={false} showPlantSwitch={false}/>
+    <ElasticScrollView contentContainerStyle={styles.content}>
+      {!allowed ? <Card><Text style={styles.title}>Acesso exclusivo de ADM</Text><Text style={styles.text}>Estas informações pertencem à administração da plataforma.</Text></Card> : <>
+        <Text style={styles.text}>Avisos no sino e por push em 80%, 90% e 100%, sem repetir a mesma faixa no período. Somente ADM recebe estes avisos no Gerador.</Text>
+        {data?.ambiente === "preview" ? <Text style={styles.note}>Homologação · dados e avisos deste ambiente</Text> : null}
+        {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+        {busy ? <ActivityIndicator color={Colors.primary} accessibilityLabel="Consultando cotas"/> : null}
+        <Button title={busy ? "Consultando…" : "Atualizar consultas automáticas"} disabled={busy} onPress={() => void refresh()}/>
+        {data?.servicos.map(item => {
+          const reading = item.leitura;
+          const pct = reading?.percentual;
+          const stale = reading?.desatualizada || (item.automatico && item.consulta?.status !== "OK");
+          return <Card key={`${item.servico}:${item.metrica}`}>
+            <Text style={styles.title}>{item.rotulo}</Text>
+            {reading ? <>
+              <Text style={styles.balance}>{reading.limite === null ? "Sem limite definido no plano" : `${number(reading.restante ?? 0)} ${item.unidade} restantes`}</Text>
+              <Text style={styles.text}>Utilizado: {number(reading.usado)}{reading.limite === null ? "" : ` de ${number(reading.limite)}`} {item.unidade}</Text>
+              {pct !== null && pct !== undefined ? <><View style={styles.track}><View style={[styles.fill, { width: `${Math.min(Math.max(pct, 0), 100)}%`, backgroundColor: pct >= 90 ? "#B54228" : Colors.primary }]}/></View><Text style={styles.text}>{number(pct)}% utilizado</Text></> : null}
+              <Text style={styles.text}>Renovação informada: {date(reading.renova_em)}</Text>
+              <Text style={styles.note}>{reading.origem === "API_OFICIAL" ? "API oficial" : "Leitura confirmada do painel"} · {date(reading.verificado_em)}</Text>
+              {stale ? <Text style={styles.warning}>Consulta desatualizada ou indisponível. Este saldo pode ter mudado.</Text> : null}
+            </> : <Text style={styles.text}>{item.automatico ? item.consulta?.status === "SEM_PERMISSAO" ? "A chave configurada não permite consultar o uso." : "Sem leitura disponível. A consulta automática precisa estar conectada." : "Consulta automática indisponível. Confira o saldo no painel do provedor."}</Text>}
+            <Text style={styles.link} accessibilityRole="link" onPress={() => void Linking.openURL(panels[item.servico]).catch(() => setError("Não foi possível abrir o painel."))}>Abrir painel do provedor</Text>
+          </Card>;
+        })}
+        <Text style={styles.note}>Os avisos não contratam planos, não compram créditos e não ativam a contingência. A troca de servidor exige confirmação específica da cota do Render.</Text>
+      </>}
+    </ElasticScrollView></Screen>;
+}
+const styles = StyleSheet.create({
+  content: { padding: Spacing.lg, paddingBottom: 40, gap: Spacing.md },
+  title: { fontSize: 18, fontWeight: "700", color: Colors.text, marginBottom: 8, flexShrink: 1 },
+  text: { color: Colors.text, fontSize: 14, lineHeight: 21, marginBottom: 5 },
+  balance: { color: Colors.primary, fontSize: 22, fontWeight: "700", marginBottom: 8, flexShrink: 1 },
+  note: { color: "#64716A", fontSize: 12, lineHeight: 18 },
+  error: { color: "#A52B21", fontSize: 14 }, warning: { color: "#985418", fontSize: 13, lineHeight: 19 },
+  track: { height: 8, width: "100%", backgroundColor: "#E4EBE7", borderRadius: 4, overflow: "hidden", marginVertical: 8 },
+  fill: { height: 8, borderRadius: 4 }, link: { color: Colors.primary, fontWeight: "700", paddingVertical: 14, minHeight: 44 },
+});

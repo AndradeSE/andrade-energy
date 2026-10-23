@@ -7,5 +7,7 @@ exports.handler = async () => {
   if (!homologationConfigured(process.env)) throw new Error("Worker de homologação não configurado.");
   const { processarPushPendente } = require("../../dist/modules/notificacoes/push.service.js");
   await processarPushPendente();
+  const { cleanupExpiredUploads } = require("../../dist/modules/uploads/uploads.service.js");
+  await cleanupExpiredUploads();
   return { statusCode: 200, body: JSON.stringify({ processed: true }) };
 };

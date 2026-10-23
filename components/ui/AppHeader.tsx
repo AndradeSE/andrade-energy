@@ -29,6 +29,7 @@ import NotificationSideSheet from "./NotificationSideSheet";
 import NotificationInbox from "./NotificationInbox";
 import { textoLegivel } from "../../utils/textoLegado";
 import { useNavigationEnvironment } from "../../hooks/useNavigationEnvironment";
+import { canViewServiceQuotas } from "../../utils/service-quota-access";
 
 function escurecerCor(hex: string, fator = 0.62) {
   const limpa = hex.replace("#", "");
@@ -308,6 +309,7 @@ export default function AppHeader({
               <MenuLink icon="time-outline" label="Atividade da equipe" onPress={() => navegar("/colaboradores/atividade?ambiente=comercial")} />
             </> : <><MenuLink icon="card-outline" label="Meu plano" onPress={() => navegar("/assinatura")} /><MenuLink icon="people-outline" label="Clientes" onPress={() => navegar("/clientes")} /><MenuLink icon="flash-outline" label="Unidades consumidoras" onPress={() => navegar("/unidades")} /><MenuLink icon="document-text-outline" label="Contratos dos clientes" onPress={() => navegar("/contratos")} /><MenuLink icon="receipt-outline" label="Faturamento" onPress={() => navegar("/(tabs)/faturamento")} /><MenuLink icon="wallet-outline" label="Financeiro" onPress={() => navegar("/financeiro")} /><MenuLink icon="people-circle-outline" label="Colaboradores" onPress={() => navegar("/colaboradores?ambiente=gerador")} /><MenuLink icon="time-outline" label="Atividade da equipe" onPress={() => navegar("/colaboradores/atividade?ambiente=gerador")} />{usuario?.perfil === "ADMIN" ? <MenuLink icon="layers-outline" label="Empresas parceiras" onPress={() => navegar("/admin/empresas")} /> : null}</> : <><MenuLink icon="receipt-outline" label="Minhas faturas" onPress={() => navegar("/faturas")} /><MenuLink icon="document-text-outline" label="Meu contrato" onPress={() => navegar("/contrato")} /></>}
             <MenuLink icon="person-outline" label="Perfil" onPress={() => navegar("/perfil")} />
+            {IS_GERADOR_APP && canViewServiceQuotas(usuario) ? <MenuLink icon="speedometer-outline" label="Cotas de serviços" onPress={() => navegar("/cotas-servicos")} /> : null}
             {isAssistantEnabled ? <><MenuLink icon="chatbubble-ellipses-outline" label="Abrir assistente Solar" onPress={() => navegar("/assistente")} /><MenuLink icon="settings-outline" label="Configurações da Solar" onPress={() => navegar("/configuracoes-assistente")} /></> : null}
             <MenuLink icon="globe-outline" label="Site Andrade Energy" onPress={() => { setMenuAberto(false); void abrirSiteApp(); }} />
             <MenuLink icon="information-circle-outline" label="Sobre o app" onPress={() => navegar("/sobre")} />

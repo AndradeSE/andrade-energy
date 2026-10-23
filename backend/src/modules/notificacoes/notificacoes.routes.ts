@@ -2,6 +2,7 @@ import { Router } from "express";
 import { exigirAutenticacao } from "../../middlewares/auth.middleware";
 import { supabase } from "../../config/supabase";
 import { empresaIdDoUsuario } from "../../config/empresa";
+import { usuarioEhSuperAdministradorAndrade } from "../../config/empresa";
 
 const router = Router();
 router.post("/push-token", exigirAutenticacao, async (req, res) => {
@@ -28,10 +29,12 @@ router.post("/push-token", exigirAutenticacao, async (req, res) => {
 router.get("/", exigirAutenticacao, async (req, res) => {
   try {
     const usuario = (req as any).usuario;
-    const { data, error } = await supabase.from("notificacoes_app")
+    let query = supabase.from("notificacoes_app")
       .select("id,tipo,titulo,detalhe,rota,criado_em,chave_dedupe")
       .eq("usuario_id", usuario.id).eq("empresa_id", empresaIdDoUsuario(usuario))
       .order("criado_em", { ascending: false }).limit(30);
+    if (!usuarioEhSuperAdministradorAndrade(usuario)) query = query.neq("tipo", "COTA_SERVICO");
+    const { data, error } = await query;
     if (error) throw error;
     // Avisos anteriores enviavam apenas /contrato. Recupere a UC do
     // contrato registrado na deduplicação, nunca da seleção do aparelho.

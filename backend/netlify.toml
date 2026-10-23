@@ -21,6 +21,9 @@
 [functions."preview-push-worker"]
   schedule = "* * * * *"
 
+[functions."preview-quota-worker"]
+  schedule = "17 * * * *"
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/api/:splat"
