@@ -1,6 +1,6 @@
 import {primaryApiOrigin,type ContingencyEnvironment} from './contingencyRuntime';
 
-const paths=new Set(['/api/webhooks/asaas','/api/webhooks/asaas/saques','/api/webhooks/resend','/api/webhooks/mercado-pago']);
+const paths=new Set(['/api/webhooks/asaas','/api/webhooks/asaas/saques','/api/webhooks/resend/inbound','/api/webhooks/mercado-pago']);
 export function isProviderIngress(method:unknown,path:string) {
   return method==='POST' && paths.has(path.replace(/\/$/,''));
 }

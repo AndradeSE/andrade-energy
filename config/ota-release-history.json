@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261023-080359",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Preview: contingência controlada e transporte de PDFs"
+    ]
+  },
+  {
     "numero": "OTA 20261023-063617",
     "data": "23/10/2026",
     "variant": "gerador",
