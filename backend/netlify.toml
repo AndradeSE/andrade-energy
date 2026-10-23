@@ -18,6 +18,9 @@
   external_node_modules = ["argon2", "pdfkit", "pdf-parse"]
   included_files = ["dist/**", "assets/**"]
 
+[functions."preview-push-worker"]
+  schedule = "* * * * *"
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/api/:splat"

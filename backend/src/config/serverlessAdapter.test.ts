@@ -2,6 +2,21 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
 import { createServerlessHandler, normalizeNetlifyEvent } from "./serverlessAdapter";
+import { trackRequestTask } from "./requestTasks";
+
+test("Express finish audit completes before the Lambda response is returned", async () => {
+  const app = express();
+  let audited = false;
+  app.get("/audit", (_req, res) => {
+    res.on("finish", () => trackRequestTask(new Promise<void>(resolve => {
+      setImmediate(() => { audited = true; resolve(); });
+    })));
+    res.json({ saved: true });
+  });
+  const response = await createServerlessHandler(app)(event("/audit"), {});
+  assert.equal(response.statusCode, 200);
+  assert.equal(audited, true);
+});
 
 test("Netlify address is normalized without trusting a forged forwarding chain", async () => {
   const app = express();
