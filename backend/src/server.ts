@@ -44,6 +44,10 @@ import uploadsRoutes from "./modules/uploads/uploads.routes";
 import cotasRoutes from "./modules/cotas/cotas.routes";
 import { monitorServiceQuotas } from "./modules/cotas/cotas.service";
 import { processarPushPendente } from "./modules/notificacoes/push.service";
+import { executeScheduledJob, scheduledJobs } from "./config/scheduledJobs";
+import type { ScheduledJob } from "./config/durableScheduledJob";
+import { contingencyRequestGuard } from "./config/contingencyRequestGuard";
+import contingencyRoutes from "./config/contingency.routes";
 
 dotenv.config();
 
@@ -71,6 +75,8 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Authorization", "Content-Type", "Idempotency-Key", "asaas-access-token", "x-request-id", "x-signature", "svix-id", "svix-signature", "svix-timestamp"],
 }));
+
+app.use(contingencyRequestGuard);
 
 // O Resend assina o corpo original. Esta rota precisa permanecer antes do
 // express.json(), caso contrário a verificação da assinatura falha.
@@ -148,6 +154,7 @@ app.use((req, res, next) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/uploads", uploadsRoutes);
 app.use("/api/cotas-servicos", cotasRoutes);
+app.use("/api/contingencia", contingencyRoutes);
 app.use("/api/convites", convitesRoutes);
 app.use("/api/usuarios", usuariosRoutes);
 app.use("/api/colaboradores", colaboradoresRoutes);
@@ -245,6 +252,16 @@ async function iniciarServidor() {
   console.log(`Servidor iniciado na porta ${PORT}`);
   if (!executarAgendadores) {
     console.log("Instância HTTP reserva: agendadores desativados.");
+    return;
+  }
+  if (process.env.DURABLE_SCHEDULER_ENABLED === "true") {
+    const tick = () => {
+      for (const name of Object.keys(scheduledJobs) as ScheduledJob[]) {
+        void executeScheduledJob(name, "RENDER").catch(() => console.error("Tarefa agendada exige conferência", { tarefa: name }));
+      }
+    };
+    tick();
+    setInterval(tick, 60_000);
     return;
   }
   const conferirCotas = () => void monitorServiceQuotas().catch(() => console.error("Falha ao verificar cotas de serviços."));

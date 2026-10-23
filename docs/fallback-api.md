@@ -79,9 +79,25 @@ service_role. Leituras e auditorias anteriores são preservadas como histórico.
   inclusão do Brevo.
 - Base das cotas promovida para main em `2387d3ba`; backend produção confirmado
   nessa versão e OTA Gerador produção `1d1eca07-7e7b-4be9-b3c4-2c70a47b6826`.
-  Migrações até `20261023011500` aplicadas nos dois bancos. Restrição a somente
-  automáticas é uma atualização posterior; verificar o deploy correspondente
-  antes de afirmar que os cards manuais desapareceram em produção.
+  Migrações até `20261023014000` aplicadas nos dois bancos. Restrição a somente
+  automáticas confirmada no Preview `ef81bad` e em produção `71e2558`. Brevo e
+  Resend retornaram `OK` na consulta de produção após a publicação.
+
+## Preparação adicional de 23/10 — ainda em validação
+
+- Controle único de executor no banco e reservas das tarefas por dono. Importação
+  interrompida fica em `REVISAO`, sem repetição automática de efeitos incertos.
+- Troca auditada exclusiva de ADM, mediante confirmação específica da cota Render,
+  versão validada e ausência de operações ou tarefas pendentes de conferência.
+- Requisições de alteração reservadas antes dos efeitos; executor inativo e versão
+  do reserva divergente são bloqueados. O controle não é acionado por timeout.
+- Funções de segundo plano preparadas para filas longas e despacho com segredo.
+- Resolução do destino nos apps preparada, desativada até validação e publicação.
+- Teste de troca, disputa, interrupção e privilégios passou no banco Preview com
+  rollback. Migração `20261023110000` aplicada somente no Preview; 137 testes de
+  regressão e testes específicos aprovados. Agendador novo ainda desativado.
+- O projeto de produção da Netlify ainda não foi criado. Credenciais, uploads pelo
+  app, webhooks, retorno ao principal e teste remoto completo continuam pendentes.
 
 Nenhum pagamento, plano pago, saldo financeiro ou configuração de faturamento
 foi alterado para implementar o monitoramento.
