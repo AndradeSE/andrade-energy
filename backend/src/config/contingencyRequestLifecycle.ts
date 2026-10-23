@@ -1,9 +1,9 @@
-import type { Response } from "express";
+import type { ServerResponse } from "node:http";
 import { trackRequestTask } from "./requestTasks";
 
 /** A caller can disconnect while the database is reserving its request. */
 export async function continueReservedRequest(
-  response: Pick<Response, "destroyed" | "writableEnded" | "once" | "end">,
+  response: Pick<ServerResponse, "destroyed" | "writableEnded" | "once" | "end">,
   release: () => Promise<void>,
   dispatch: () => void,
 ) {
