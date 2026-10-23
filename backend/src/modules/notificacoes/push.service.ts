@@ -1,4 +1,5 @@
 import { supabase } from "../../config/supabase";
+import { deliverQueuedPush } from "./pushQueue";
 
 export type NovaNotificacaoApp = {
   usuario_id: string;
@@ -60,11 +61,15 @@ export async function enviarPushDaNotificacao(notificacao: NovaNotificacaoApp & 
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(mensagens),
+    signal: AbortSignal.timeout(10_000),
   });
   if (!resposta.ok) throw new Error(`Expo Push respondeu HTTP ${resposta.status}`);
 
   const corpo: any = await resposta.json();
   const tickets = Array.isArray(corpo?.data) ? corpo.data : [corpo?.data];
+  if (tickets.length !== mensagens.length || tickets.some((ticket: any) => !ticket || !["ok", "error"].includes(ticket.status))) {
+    throw new Error("Resposta de push inválida.");
+  }
   for (const ticket of tickets) {
     if (ticket?.status === "error") {
       console.error("Expo recusou push", { motivo: ticket?.details?.error ?? "desconhecido" });
@@ -76,9 +81,20 @@ export async function enviarPushDaNotificacao(notificacao: NovaNotificacaoApp & 
   if (invalidos.length) {
     await supabase.from("dispositivos_push").update({ ativo: false, atualizado_em: new Date().toISOString() }).in("token", invalidos);
   }
+  if (tickets.some((ticket: any) => ticket.status === "error" && ticket.details?.error !== "DeviceNotRegistered")) {
+    throw new Error("Provedor recusou a entrega do push.");
+  }
 }
 
 export async function criarNotificacaoApp(notificacao: NovaNotificacaoApp) {
+  if (process.env.API_RUNTIME === "serverless" || process.env.API_DURABLE_PUSH === "true") {
+    const { data: id, error } = await supabase.rpc("criar_notificacao_com_push", { p_notificacao: notificacao });
+    if (error) throw error;
+    if (!id) return null;
+    // The notification and outbox entry commit together; provider failure is retryable.
+    await deliverQueuedPush(supabase, enviarPushDaNotificacao, id).catch(() => console.warn("Push permanece pendente na fila."));
+    return { id: String(id) };
+  }
   // A unicidade de chave_dedupe é um índice parcial no PostgreSQL. O
   // PostgREST não consegue usá-lo como alvo simples de ON CONFLICT; por isso
   // a notificação deve ser inserida normalmente e a corrida tratada por 23505.
@@ -98,4 +114,8 @@ export async function criarNotificacaoApp(notificacao: NovaNotificacaoApp) {
     console.error("Falha ao enviar push Expo", { tipo: erro?.name ?? "Error" }),
   );
   return data;
+}
+
+export async function processarPushPendente() {
+  return deliverQueuedPush(supabase, enviarPushDaNotificacao);
 }
