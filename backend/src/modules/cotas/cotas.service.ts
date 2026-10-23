@@ -1,5 +1,5 @@
 import { supabase } from "../../config/supabase";
-import { QUOTA_CATALOG, quotaBand, resendReadings, type QuotaReading } from "./cotas.policy";
+import { QUOTA_CATALOG, quotaBand, resendReadings, resendUsageKey, type QuotaReading } from "./cotas.policy";
 
 export function quotaEnvironment() {
   return /qqhcjieymypowunkixmk/.test(process.env.SUPABASE_URL ?? "") ? "preview" : "production";
@@ -14,7 +14,14 @@ async function saveReading(reading: QuotaReading) {
 }
 export async function monitorServiceQuotas() {
   const env = quotaEnvironment();
-  const key = process.env.RESEND_USAGE_API_KEY || process.env.RESEND_API_KEY;
+  const key = resendUsageKey(process.env);
+  if (!key) {
+    // Another collector may have the provider key. Do not replace its successful
+    // reading with the configuration state of a standby instance.
+    const result = await supabase.from("cotas_consultas").upsert({ ambiente: env, servico: "RESEND", status: "SEM_CHAVE", consultado_em: new Date().toISOString() }, { onConflict: "ambiente,servico", ignoreDuplicates: true });
+    if (result.error) throw new Error("Não foi possível registrar o estado do monitor de cotas.");
+    return;
+  }
   let status = "SEM_CHAVE";
   if (key) {
     try {

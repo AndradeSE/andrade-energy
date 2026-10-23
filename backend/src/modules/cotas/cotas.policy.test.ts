@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { quotaBand, resendReadings } from "./cotas.policy";
+import { quotaBand, resendReadings, resendUsageKey } from "./cotas.policy";
+test("usage monitor reuses the configured inbound key without exposing it or overriding a dedicated key", () => {
+  assert.equal(resendUsageKey({ RESEND_INBOUND_API_KEY: " inbound-test " }), "inbound-test");
+  assert.equal(resendUsageKey({ RESEND_USAGE_API_KEY: "usage-test", RESEND_INBOUND_API_KEY: "inbound-test" }), "usage-test");
+  assert.equal(resendUsageKey({ RESEND_USAGE_API_KEY: " ", RESEND_API_KEY: "send-test" }), "send-test");
+  assert.equal(resendUsageKey({}), "");
+});
 test("only confirmed usage triggers the appropriate quota band; uncapped and unknown are not zero balances", () => {
   assert.equal(quotaBand(79,100),0); assert.equal(quotaBand(80,100),80);
   assert.equal(quotaBand(90,100),90); assert.equal(quotaBand(120,100),100);
