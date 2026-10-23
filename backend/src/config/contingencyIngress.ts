@@ -4,6 +4,23 @@ const paths=new Set(['/api/webhooks/asaas','/api/webhooks/asaas/saques','/api/we
 export function isProviderIngress(method:unknown,path:string) {
   return method==='POST' && paths.has(path.replace(/\/$/,''));
 }
+export function isOAuthIngress(method: unknown, path: string) {
+  return method === 'GET' && /^\/api\/oauth\/email\/callback(?:\/(?:gmail|outlook))?\/?$/.test(path);
+}
+/** The code is passed only to the fixed primary; never follow its redirect server-side. */
+export async function forwardOAuthIngress(event: any, environment: ContingencyEnvironment, request: typeof fetch = fetch) {
+  if (!isOAuthIngress(event.httpMethod, event.path)) throw new Error('Callback inválido.');
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(event.queryStringParameters ?? {})) if (typeof value === 'string') query.set(key, value);
+  const response = await request(`${primaryApiOrigin(environment)}${event.path}?${query}`, {
+    method: 'GET', redirect: 'manual', signal: AbortSignal.timeout(40_000),
+  });
+  const headers: Record<string, string> = { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer',
+    'Content-Type': response.headers.get('content-type') ?? 'text/plain' };
+  const location = response.headers.get('location');
+  if (location) headers.Location = location;
+  return { statusCode: response.status, headers, body: await response.text() };
+}
 /** Forward the original signed bytes once; the primary validates provider identity. */
 export async function forwardProviderIngress(event:any,environment:ContingencyEnvironment,request:typeof fetch=fetch) {
   if(!isProviderIngress(event.httpMethod,event.path))throw new Error('Rota de provedor inválida.');
