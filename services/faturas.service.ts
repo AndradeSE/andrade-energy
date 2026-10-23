@@ -1,4 +1,7 @@
 import api from "../config/api";
+import { Platform } from "react-native";
+import { isPreviewEnvironment } from "../config/environment";
+import { validatePreviewPdfUpload } from "./pdf-upload-policy";
 
 export type Fatura = {
   id: string;
@@ -68,6 +71,26 @@ export function calcularMediaConsumoFatura(dados: any) {
 }
 
 async function enviarPdf(uri: string, endpoint: string, nome = "fatura.pdf", senhaPdf?: string) {
+  // Preview validates the direct transport before a production rollout. Never
+  // replay the final import automatically when a response is lost.
+  if (isPreviewEnvironment && Platform.OS !== "web") {
+    const { File } = await import("expo-file-system");
+    const { fetch: nativeFetch } = await import("expo/fetch");
+    const file = new File(uri);
+    const tamanho = file.size;
+    if (!file.exists || !Number.isInteger(tamanho) || tamanho <= 0 || tamanho > 10 * 1024 * 1024) {
+      throw new Error("Envie um PDF de até 10 MB.");
+    }
+    const { data: prepared } = await api.post("/uploads/preparar", { nome, tamanho }, { timeout: 20_000 });
+    const ticket = validatePreviewPdfUpload(prepared, tamanho);
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), 60_000);
+    try {
+      const response = await nativeFetch(ticket.uploadUrl, { method: "PUT", headers: { "Content-Type": "application/pdf", "x-upsert": "false" }, body: file, signal: abort.signal });
+      if (!response.ok) throw new Error("Não foi possível enviar o PDF. Tente um novo envio.");
+    } finally { clearTimeout(timer); }
+    return (await api.post(endpoint, { uploadedFileId: ticket.uploadId, ...(senhaPdf?.trim() ? { senhaPdf: senhaPdf.trim() } : {}) }, { timeout: 60_000 })).data;
+  }
   const formData = new FormData();
   formData.append("arquivo", {
     uri,

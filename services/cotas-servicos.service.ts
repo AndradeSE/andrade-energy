@@ -12,3 +12,6 @@ export async function listServiceQuotas() {
 export async function refreshServiceQuotas() {
   return (await api.post<ServiceQuotas>("/cotas-servicos/atualizar", {}, { timeout: 25_000 })).data;
 }
+export async function registerQuotaReading(input: { servico: string; metrica: string; usado: number; limite: number; validaAte: string; confirmado: boolean }) {
+  return (await api.post<ServiceQuotas>("/cotas-servicos/leitura-confirmada", input, { timeout: 20_000 })).data;
+}
