@@ -1,5 +1,32 @@
 [
   {
+    "numero": "OTA 20261023-181721",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Historico financeiro, cotas automaticas, recuperacao segura e contingencia para instalacoes anteriores"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-181401",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Historico financeiro, fatura com texto para o gerador e contingencia automatica conferidos no Preview"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-175440",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Historico financeiro operacional e comercial, texto da fatura por perfil e contingencia automatica"
+    ]
+  },
+  {
     "numero": "OTA 20261023-174333",
     "data": "23/10/2026",
     "variant": "gerador",
