@@ -1,4 +1,8 @@
 export type QuotaReading = { servico: string; metrica: string; rotulo: string; usado: number; limite: number | null; renovaEm: string; origem: "API_OFICIAL" | "PAINEL_CONFIRMADO" };
+export function resendUsageKey(env: NodeJS.ProcessEnv) {
+  return [env.RESEND_USAGE_API_KEY, env.RESEND_API_KEY, env.RESEND_INBOUND_API_KEY]
+    .map(value => String(value ?? "").trim()).find(Boolean) ?? "";
+}
 export const QUOTA_CATALOG = [
   { servico: "RESEND", metrica: "emails_dia", rotulo: "Resend · e-mails por dia", unidade: "e-mails", automatico: true },
   { servico: "RESEND", metrica: "emails_mes", rotulo: "Resend · e-mails por mês", unidade: "e-mails", automatico: true },
