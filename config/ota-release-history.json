@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261023-170600",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Cotas automaticas Azure para ADM e recuperacao segura do autenticador financeiro"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-165918",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Cotas automaticas Azure e recuperacao segura do autenticador financeiro"
+    ]
+  },
+  {
     "numero": "OTA 20261023-164239",
     "data": "23/10/2026",
     "variant": "gerador",
