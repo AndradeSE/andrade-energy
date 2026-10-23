@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261023-162232",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Recuperacao segura do autenticador financeiro por senha e email"
+    ]
+  },
+  {
     "numero": "OTA 20261023-112928",
     "data": "23/10/2026",
     "variant": "consumidor",
