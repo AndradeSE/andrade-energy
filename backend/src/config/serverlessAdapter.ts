@@ -1,6 +1,7 @@
 import serverless from "serverless-http";
 import type { Application } from "express";
 import { isIP } from "node:net";
+import { withRequestTasks } from "./requestTasks";
 
 export function normalizeNetlifyEvent(event: any) {
   const headers = { ...event.headers };
@@ -20,7 +21,7 @@ export function normalizeNetlifyEvent(event: any) {
 // Injection keeps transport tests isolated from Supabase and private settings.
 export function createServerlessHandler(app: Application) {
   const handler = serverless(app, { binary: ["application/pdf", "application/octet-stream", "image/*"] });
-  return async (event: object, context: object) => await handler(event, context) as {
+  return async (event: object, context: object) => await withRequestTasks(() => handler(event, context)) as {
     statusCode: number;
     body: string;
     isBase64Encoded: boolean;

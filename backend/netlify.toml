@@ -10,11 +10,19 @@
   API_RUNTIME = "serverless"
   BACKGROUND_JOBS_ENABLED = "false"
   NETLIFY_HOMOLOGATION_ENABLED = "true"
+  NETLIFY_AUTH_VALIDATION_ENABLED = "true"
   EMAIL_DESTINATARIOS_PERMITIDOS = ""
 
 [functions]
   node_bundler = "esbuild"
   external_node_modules = ["argon2", "pdfkit", "pdf-parse"]
+  included_files = ["dist/**", "assets/**"]
+
+[functions."preview-push-worker"]
+  schedule = "* * * * *"
+
+[functions."preview-quota-worker"]
+  schedule = "17 * * * *"
 
 [[redirects]]
   from = "/api/*"

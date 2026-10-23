@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { trackRequestTask } from "../config/requestTasks";
 
 import { supabase } from "../config/supabase";
 import { hashToken } from "../utils/token";
@@ -86,7 +87,7 @@ export async function exigirAutenticacao(req: Request, res: Response, next: Next
   (req as any).empresaId = empresaAtivaId;
   (req as any).sessaoId = data!.id;
   if (String(papelEmpresa ?? "").startsWith("COLABORADOR_")) {
-    void supabase.from("empresa_usuarios").update({ ultimo_acesso_em: new Date().toISOString(), atualizado_em: new Date().toISOString() }).eq("usuario_id", usuario.id).eq("empresa_id", empresaAtivaId);
+    trackRequestTask(supabase.from("empresa_usuarios").update({ ultimo_acesso_em: new Date().toISOString(), atualizado_em: new Date().toISOString() }).eq("usuario_id", usuario.id).eq("empresa_id", empresaAtivaId));
   }
   return next();
 }

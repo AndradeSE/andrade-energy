@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { rateLimit } from "express-rate-limit";
+import { apiRateLimit } from "../../config/distributedRateLimit";
 import multer from "multer";
 import { transcribeAudio } from "./transcription";
 
@@ -12,7 +12,7 @@ transcriptionRouter.use((req, res, next) => {
   res.setHeader("Cache-Control", "no-store");
   next();
 });
-transcriptionRouter.use(rateLimit({ windowMs: 60_000, limit: 12, standardHeaders: "draft-8", legacyHeaders: false }));
+transcriptionRouter.use(apiRateLimit("transcription-routes-6", { windowMs: 60_000, limit: 12, standardHeaders: "draft-8", legacyHeaders: false }));
 transcriptionRouter.post("/", (req, res, next) => {
   upload.single("audio")(req, res, error => {
     if (error) return res.status(400).json({ message: "Áudio inválido ou maior que o permitido." });

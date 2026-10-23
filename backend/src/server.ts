@@ -2,7 +2,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import helmet from "helmet";
-import { rateLimit } from "express-rate-limit";
+import { apiRateLimit } from "./config/distributedRateLimit";
 
 import { errorHandler } from "./middlewares/errorHandler";
 
@@ -38,7 +38,12 @@ import notificacoesRoutes from "./modules/notificacoes/notificacoes.routes";
 import privacidadeRoutes from "./modules/privacidade/privacidade.routes";
 import { auditar } from "./utils/audit";
 import { backgroundJobsEnabled } from "./config/backgroundJobs";
+import { trackRequestTask } from "./config/requestTasks";
 import { assistenteVoiceRouter } from "./modules/assistente/voice.routes";
+import uploadsRoutes from "./modules/uploads/uploads.routes";
+import cotasRoutes from "./modules/cotas/cotas.routes";
+import { monitorServiceQuotas } from "./modules/cotas/cotas.service";
+import { processarPushPendente } from "./modules/notificacoes/push.service";
 
 dotenv.config();
 
@@ -77,11 +82,11 @@ app.use(
 
 app.use(express.json({ limit: "1mb" }));
 
-const apiLimiter = rateLimit({ windowMs: 60_000, limit: 300, standardHeaders: "draft-8", legacyHeaders: false });
-const authLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 30, skip: consultaSessaoAutenticada, standardHeaders: "draft-8", legacyHeaders: false });
-const authSessionLimiter = rateLimit({ windowMs: 60_000, limit: 60, skip: req => !consultaSessaoAutenticada(req), standardHeaders: "draft-8", legacyHeaders: false });
-const convitesLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false });
-const financeiroLimiter = rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false });
+const apiLimiter = apiRateLimit("api", { windowMs: 60_000, limit: 300, standardHeaders: "draft-8", legacyHeaders: false });
+const authLimiter = apiRateLimit("auth-public", { windowMs: 15 * 60_000, limit: 30, skip: consultaSessaoAutenticada, standardHeaders: "draft-8", legacyHeaders: false });
+const authSessionLimiter = apiRateLimit("auth-session", { windowMs: 60_000, limit: 60, skip: req => !consultaSessaoAutenticada(req), standardHeaders: "draft-8", legacyHeaders: false });
+const convitesLimiter = apiRateLimit("invites", { windowMs: 15 * 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false });
+const financeiroLimiter = apiRateLimit("finance", { windowMs: 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false });
 
 // O Asaas envia JSON e autentica o webhook pelo cabeçalho
 // `asaas-access-token`. A rota é pública, mas o token é obrigatório.
@@ -122,14 +127,14 @@ app.use((req, res, next) => {
     if (!papel.startsWith("COLABORADOR_") || rota === "/api/colaboradores/auditoria") return;
     const partes = rota.replace(/^\/api\//, "").split("/").filter(Boolean);
     const recursoId = partes.find((parte) => /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(parte)) ?? null;
-    void auditar({
+    trackRequestTask(auditar({
       empresaId: String(usuario.empresa_id),
       usuarioId: String(usuario.id),
       acao: `COLABORADOR_${req.method}`,
       recurso: partes[0] ?? "api",
       recursoId,
       detalhes: { rota, status: res.statusCode, papel, duracao_ms: Date.now() - inicio },
-    });
+    }));
   });
   next();
 });
@@ -141,6 +146,8 @@ app.use((req, res, next) => {
 */
 
 app.use("/api/auth", authRoutes);
+app.use("/api/uploads", uploadsRoutes);
+app.use("/api/cotas-servicos", cotasRoutes);
 app.use("/api/convites", convitesRoutes);
 app.use("/api/usuarios", usuariosRoutes);
 app.use("/api/colaboradores", colaboradoresRoutes);
@@ -186,6 +193,11 @@ app.get("/health", (_, res) => {
   res.json({
     status: "online",
     commit: (process.env.RENDER_GIT_COMMIT ?? process.env.COMMIT_REF)?.slice(0, 7) ?? "local",
+    ...(process.env.API_RUNTIME === "serverless" ? {
+      contingency: { environment: "preview", readyForFailover: false, writes: false,
+        activationPolicy: "confirmed_render_quota_only",
+        authenticationValidation: process.env.NETLIFY_AUTH_VALIDATION_ENABLED === "true", backgroundJobs: false },
+    } : {}),
   });
 });
 
@@ -235,6 +247,22 @@ async function iniciarServidor() {
     console.log("Instância HTTP reserva: agendadores desativados.");
     return;
   }
+  const conferirCotas = () => void monitorServiceQuotas().catch(() => console.error("Falha ao verificar cotas de serviços."));
+  conferirCotas();
+  setInterval(conferirCotas, 60 * 60_000);
+  let enviandoPushDuravel = false;
+  const conferirPushDuravel = async () => {
+    if (enviandoPushDuravel) return;
+    enviandoPushDuravel = true;
+    try {
+      for (let i = 0; i < 10; i++) {
+        if (!(await processarPushPendente()).processed) break;
+      }
+    } catch { console.error("Falha ao conferir fila persistente de push."); }
+    finally { enviandoPushDuravel = false; }
+  };
+  void conferirPushDuravel();
+  setInterval(() => void conferirPushDuravel(), 60_000);
   processarFilaDeNotificacoes().catch((erro) => console.error("Falha ao processar notificações:", erro.message));
   const avisarVencimentos = () => void avisarContratosProximosDoVencimento().catch(erro => console.error("Falha ao avisar vencimentos:", erro.message));
   avisarVencimentos();
