@@ -1,4 +1,8 @@
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
+export function pdfUploadMetadata(nome: string, tamanho: number) {
+  if (!Number.isSafeInteger(tamanho) || tamanho <= 0 || tamanho > MAX_PDF_BYTES) throw new Error("Envie um PDF de até 10 MB.");
+  return { nome, tamanho, tipo: "application/pdf" as const };
+}
 export function validatePreviewPdfUpload(ticket: { uploadId: string; uploadUrl: string }, size: number, environment: "preview" | "production" = "preview") {
   if (!Number.isInteger(size) || size <= 0 || size > MAX_PDF_BYTES) throw new Error("Envie um PDF de até 10 MB.");
   const url = new URL(ticket.uploadUrl);

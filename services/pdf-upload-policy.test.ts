@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { validatePreviewPdfUpload } from "./pdf-upload-policy";
+import { pdfUploadMetadata, validatePreviewPdfUpload } from "./pdf-upload-policy";
+import { validatePdfMetadata } from "../backend/src/modules/uploads/uploadPolicy";
+
+test("native upload preparation satisfies the backend contract for a 7 MB PDF", () => {
+  const metadata = pdfUploadMetadata("Teste_contingencia_7MB.pdf", 7 * 1024 * 1024);
+  assert.deepEqual(validatePdfMetadata(metadata), { nome: metadata.nome, tamanho: metadata.tamanho });
+  assert.throws(() => validatePdfMetadata({ nome: metadata.nome, tamanho: metadata.tamanho }));
+});
 test("PDF upload refuses substituted destinations, tickets and oversized files before sending bytes", () => {
   const id = "11111111-1111-4111-8111-111111111111";
   const path = `/storage/v1/object/upload/sign/contingency-uploads/${id}/${id}/${id}.pdf?token=test`;
