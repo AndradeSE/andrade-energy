@@ -49,6 +49,7 @@ export async function iniciarAutenticador(usuario: any, senhaAtual: string) {
   const segredo = base32(randomBytes(20));
   const { error } = await supabase.from("financeiro_autenticadores").upsert({
     usuario_id: usuario.id,
+    email_recuperacao: usuario.email,
     segredo_criptografado: criptografarDado(segredo),
     confirmado: false,
     expira_em: new Date(Date.now() + 10 * 60_000).toISOString(),
@@ -96,7 +97,7 @@ async function conferirCodigo(usuarioId: string, codigo: string, confirmacao: bo
     throw new Error("Código inválido ou já utilizado.");
   }
   if (somenteValidar) return passo;
-  const { data, error } = await supabase.from("financeiro_autenticadores").update({ confirmado: true, expira_em: null, ultimo_passo: passo, tentativas: 0, bloqueado_ate: null, atualizado_em: new Date().toISOString() }).eq("usuario_id", usuarioId).eq("ultimo_passo", atual.ultimo_passo).eq("tentativas", atual.tentativas).select("usuario_id").maybeSingle();
+  const { data, error } = await supabase.from("financeiro_autenticadores").update({ confirmado: true, expira_em: null, ultimo_passo: passo, tentativas: 0, bloqueado_ate: null, atualizado_em: new Date().toISOString() }).eq("usuario_id", usuarioId).eq("confirmado", atual.confirmado).eq("segredo_criptografado", atual.segredo_criptografado).eq("atualizado_em", atual.atualizado_em).eq("ultimo_passo", atual.ultimo_passo).eq("tentativas", atual.tentativas).select("usuario_id").maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("Código já utilizado. Aguarde o próximo código e tente novamente.");
 }
