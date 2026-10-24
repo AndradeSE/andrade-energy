@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261023-221106",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Saldo da ancora inclui creditos Cemig de outras usinas sem duplicacao"
+    ]
+  },
+  {
     "numero": "OTA 20261023-214742",
     "data": "23/10/2026",
     "variant": "gerador",
