@@ -1,11 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {capmonsterDisponivel,conferirPaginaCaptcha,obterRespostaCapmonster,lerDesafioCemig,DesafioCemigIndisponivel} from './cemigCloud.capmonster';
+import {capmonsterDisponivel,conferirPaginaCaptcha,obterRespostaCapmonster,lerDesafioCemig,localizarDesafioCemig,DesafioCemigIndisponivel} from './cemigCloud.capmonster';
 import type {Page} from 'playwright-core';
 import {CEMIG_PREVIEW_DB} from './cemigCloud.policy';
 const env={SUPABASE_URL:CEMIG_PREVIEW_DB,CEMIG_CLOUD_ENABLED:'true',CEMIG_CLOUD_EXECUTOR:'RENDER',CAPMONSTER_PREVIEW_ENABLED:'true',CAPMONSTER_API_KEY:'fake-test-key'};
 const desafio={websiteURL:'https://atende.cemig.com.br/Login?private=query#fragment',websiteKey:'test-public-sitekey-123456',userAgent:'test-agent'};
 const esperar=async()=>{};
+test('localiza CAPTCHA em nova aba do login sem avaliar outras origens',async()=>{
+ const inicio={url:()=> 'https://www.atendimento.cemig.com.br/portal/home'} as Page;
+ const externo={url:()=> 'https://example.com/',evaluate:()=>assert.fail('Não avaliar domínio externo')} as unknown as Page;
+ const login={url:()=> 'https://atende.cemig.com.br/Login',evaluate:async()=>({key:'test-public-sitekey-123456',userAgent:'test',s:undefined})} as unknown as Page;
+ assert.equal((await localizarDesafioCemig([inicio,login,externo])).page,login);
+ await assert.rejects(localizarDesafioCemig([inicio,externo]),DesafioCemigIndisponivel);
+});
 test('desafio ausente permite corrigir a tela sem enviar tarefa nem expor DOM',async()=>{
  const page={url:()=> 'https://atende.cemig.com.br/Login',evaluate:async()=>({key:'',userAgent:'test',s:undefined})} as unknown as Page;
  await assert.rejects(lerDesafioCemig(page),e=>e instanceof DesafioCemigIndisponivel&&e.message.includes('Nenhuma tarefa'));

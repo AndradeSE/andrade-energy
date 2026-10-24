@@ -6,7 +6,7 @@ import {criarBrowserbaseSimulacao,encerrarBrowserbase,liveBrowserbase} from './c
 import {bloquearProtocoloNaSimulacao,validarAnexoCemig,FalhaEtapaCemig} from './cemigCloud.portal';
 import {chromium,type Browser} from 'playwright-core';
 import {cemigRenderHabilitado} from './cemigCloud.dispatcher';
-import {capmonsterDisponivel,lerDesafioCemig,obterRespostaCapmonster,aplicarRespostaCaptcha,DesafioCemigIndisponivel,FalhaCapmonster} from './cemigCloud.capmonster';
+import {capmonsterDisponivel,localizarDesafioCemig,obterRespostaCapmonster,aplicarRespostaCaptcha,DesafioCemigIndisponivel,FalhaCapmonster} from './cemigCloud.capmonster';
 
 const ativos=['FILA','FILA_RENDER','INICIANDO','AGUARDANDO_LOGIN','VALIDANDO'];
 const worker='https://andrade-energy-fallback-probe.netlify.app/.netlify/functions/cemig-background';
@@ -70,7 +70,7 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
   const session=await criarBrowserbaseSimulacao();sessionId=session.id;
   browser=await chromium.connectOverCDP(session.connectUrl,{timeout:30000});
   const context=browser.contexts()[0];if(!context)throw new Error('Contexto não disponível');
-  const page=context.pages()[0]??await context.newPage();
+  let page=context.pages()[0]??await context.newPage();
   await bloquearProtocoloNaSimulacao(page);
   await page.goto(CEMIG_PORTAL,{waitUntil:'domcontentloaded',timeout:45000});
   const live=await liveBrowserbase(session.id,page.url());
@@ -86,7 +86,10 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
     if(c.data){
      let etapaCaptcha:'DESAFIO'|'API'|'APLICACAO'='DESAFIO';
      try{
-      const desafio=await lerDesafioCemig(page);
+      const encontrado=await localizarDesafioCemig(context.pages());
+      const desafio=encontrado.desafio;
+      page=encontrado.page;
+      await bloquearProtocoloNaSimulacao(page);
       etapaCaptcha='API';
       const ativo=async()=>{
        if(Date.now()>prazo-15000)return false;

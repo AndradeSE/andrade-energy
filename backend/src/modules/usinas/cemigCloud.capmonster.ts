@@ -32,6 +32,19 @@ export async function lerDesafioCemig(page:Page):Promise<Desafio> {
   } catch { throw new DesafioCemigIndisponivel(); }
 }
 
+/** Manual login may open another tab. Inspect only allowed login pages, never fields. */
+export async function localizarDesafioCemig(pages:Page[]) {
+  for(const page of [...pages].reverse()){
+    try {
+      const desafio=await lerDesafioCemig(page);
+      return {page,desafio};
+    } catch(error) {
+      if(!(error instanceof DesafioCemigIndisponivel))throw error;
+    }
+  }
+  throw new DesafioCemigIndisponivel();
+}
+
 export class FalhaCapmonster extends Error {
   constructor(etapa:'SALDO'|'CRIACAO'|'RESULTADO'){
     const textos={SALDO:'Falha ao consultar o saldo. Nenhuma tarefa foi criada.',CRIACAO:'Falha ao criar a tarefa. O resultado da solicitação exige conferência; não repetir automaticamente.',RESULTADO:'Falha ao consultar o resultado da tarefa. Ela não será recriada automaticamente.'};
