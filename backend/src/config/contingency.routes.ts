@@ -2,8 +2,8 @@ import {Router} from "express";
 import {exigirAutenticacao,exigirSuperAdministradorAndrade} from "../middlewares/auth.middleware";
 import {supabase} from "./supabase";
 import {apiRateLimit} from "./distributedRateLimit";
-import {contingencyExecutor} from './contingencyExecutor';
-import {renderReserveReady,RENDER_RESERVE_PREVIEW_ORIGIN} from './renderReserveReadiness';
+import {contingencyExecutor,renderReserveEnvironment} from './contingencyExecutor';
+import {renderReserveReady,RENDER_RESERVE_PREVIEW_ORIGIN,RENDER_RESERVE_PRODUCTION_ORIGIN} from './renderReserveReadiness';
 
 const router=Router();
 // Public routing metadata only: no users, secrets, jobs, or financial data.
@@ -14,7 +14,7 @@ router.get('/estado',async(_req,res)=>{
     const {data,error}=await supabase.from('contingencia_controle')
       .select('executor,revisao,render_reserva_commit_validado,render_reserva_validado_em').eq('id',true).single();
     if(error || !data) throw new Error('unavailable');
-    return res.json({environment:'preview',executor:data.executor,revision:data.revisao,
+    return res.json({environment:renderReserveEnvironment(process.env),executor:data.executor,revision:data.revisao,
       contingency:{readyForFailover:renderReserveReady(process.env,data)}});
   } catch { return res.status(503).json({message:'Não foi possível conferir o servidor ativo.'}); }
 });
@@ -58,14 +58,14 @@ router.post('/trocar',apiRateLimit('contingency-switch',{windowMs:60_000,limit:3
   const target=req.body?.executor;
   const confirmation=req.body?.confirmacao;
   const preview=/qqhcjieymypowunkixmk\.supabase\.co\/?$/.test(process.env.SUPABASE_URL??'');
-  if(!['RENDER','NETLIFY',...(preview?['RENDER_RESERVA']:[])].includes(target) || !Number.isSafeInteger(req.body?.revisao) ||
+  if(!['RENDER','NETLIFY',...((preview || process.env.RENDER_RESERVE_PRODUCTION_ENABLED==='true')?['RENDER_RESERVA']:[])].includes(target) || !Number.isSafeInteger(req.body?.revisao) ||
     confirmation!==(target!=='RENDER'?'COTA_RENDER_ESGOTADA':'RENDER_RECUPERADO')) {
     return res.status(400).json({message:'Confirme explicitamente o motivo da troca e a revisão atual.'});
   }
   try {
     // Check the standby's deployed release, not merely an old readiness record.
     if(target!=='RENDER') {
-      const origin=target==='RENDER_RESERVA'?RENDER_RESERVE_PREVIEW_ORIGIN:
+      const origin=target==='RENDER_RESERVA'?(preview?RENDER_RESERVE_PREVIEW_ORIGIN:RENDER_RESERVE_PRODUCTION_ORIGIN):
         preview?'https://andrade-energy-fallback-probe.netlify.app':'https://andrade-energy-api-reserva.netlify.app';
       const health=await fetch(`${origin}/health`,{signal:AbortSignal.timeout(8000),redirect:'error'});
       const body=health.ok?await health.json() as any:null;

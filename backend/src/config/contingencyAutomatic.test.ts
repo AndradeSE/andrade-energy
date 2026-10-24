@@ -41,3 +41,18 @@ test('a disabled switch can still diagnose the reserve key without activating an
   assert.equal(await observeRenderForContingency(reserve,store,(async()=>new Response(JSON.stringify({...service,suspended:'not_suspended',suspenders:[]}))) as typeof fetch),'DESATIVADA');
   assert.equal(lastRenderReserveObservation()?.state,'ATIVO');
 });
+
+test('production reserve monitors only the production primary',async()=>{
+  const productionService={...service,id:'srv-da0iso5bedkc73asecig',
+    serviceDetails:{...service.serviceDetails,url:'https://andrade-energy-api-vda.onrender.com'}};
+  const reserve={...env,API_RUNTIME:undefined,CONTINGENCY_EXECUTOR:'RENDER_RESERVA',CONTINGENCY_ROUTING_ENABLED:'true',
+    CONTINGENCY_ENVIRONMENT:'production',RENDER_RESERVE_PRODUCTION_ENABLED:'true',SUPABASE_URL:'https://ehnkyrsseisvvtbkwrvu.supabase.co'};
+  let calls=0;
+  const store={from:()=>({select(){return this;},eq(){return this;},single:async()=>({data:{ativa:true,render_service_id:productionService.id},error:null})}),
+    rpc:async(name:string,args:any)=>{calls++;assert.equal(name,'observar_render_reserva_contingencia');assert.equal(args.p_servico,productionService.id);assert.equal(args.p_estado,'BILLING');return {data:'CONFIRMANDO_BILLING',error:null};}};
+  await observeRenderForContingency(reserve,store,(async(url)=>{
+    assert.equal(url,`https://api.render.com/v1/services/${productionService.id}`);
+    return new Response(JSON.stringify(productionService));
+  }) as typeof fetch);
+  assert.equal(calls,1);
+});

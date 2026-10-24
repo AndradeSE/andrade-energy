@@ -6,17 +6,19 @@ import {createRenderReserveIngress} from './renderReserveIngress';
 const env={CONTINGENCY_EXECUTOR:'RENDER_RESERVA',CONTINGENCY_ENVIRONMENT:'preview',
   SUPABASE_URL:'https://qqhcjieymypowunkixmk.supabase.co',CONTINGENCY_ROUTING_ENABLED:'true',BACKGROUND_JOBS_ENABLED:'false'};
 
-test('callback relay preserves signed bytes and bypasses no ordinary app route',async()=>{
+for (const environment of ['preview','production'] as const) test(`${environment} callback relay preserves signed bytes and bypasses no ordinary app route`,async()=>{
+ const runtimeEnv=environment==='preview'?env:{...env,CONTINGENCY_ENVIRONMENT:'production',
+   RENDER_RESERVE_PRODUCTION_ENABLED:'true',SUPABASE_URL:'https://ehnkyrsseisvvtbkwrvu.supabase.co'};
  let owner='RENDER',forwarded=0,local=0,reads=0,dbError=false;
  const bytes='{ "type": "email.received", "value": "á" }';
  const store={from:()=>({select(){return this;},eq(){return this;},single:async()=>{reads++;return {data:{executor:owner},error:dbError};}})};
  const request=(async(url:any,input:any)=>{
-   forwarded++;const target=new URL(url);assert.equal(target.origin,'https://andrade-energy-api-homologacao.onrender.com');
+   forwarded++;const target=new URL(url);assert.equal(target.origin,environment==='preview'?'https://andrade-energy-api-homologacao.onrender.com':'https://andrade-energy-api-vda.onrender.com');
    if(target.pathname.includes('/oauth/')) return new Response(null,{status:302,headers:{location:'andradegerador://oauth?status=invalid'}});
    assert.deepEqual(input.body,Buffer.from(bytes));assert.equal(input.headers['svix-signature'],'fixture');
    return new Response('{"ok":true}',{status:202});
  }) as typeof fetch;
- const app=express();app.use(createRenderReserveIngress(store,env,request));app.use(express.json());
+ const app=express();app.use(createRenderReserveIngress(store,runtimeEnv,request));app.use(express.json());
  app.use((req,res)=>{local++;res.json({body:req.body??null});});
  const server=createServer(app);await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
  const address=server.address() as any;const base=`http://127.0.0.1:${address.port}`;

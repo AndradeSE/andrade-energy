@@ -27,3 +27,13 @@ test('ownership compares the actual Render deployment commit', () => {
   assert.equal(contingencyCommit({ COMMIT_REF: 'netlify' }), 'netlify');
   assert.equal(contingencyCommit({}), null);
 });
+
+test('production reserve requires explicit authorization and its exact database', () => {
+  const production = { ...pilot, CONTINGENCY_ENVIRONMENT: 'production',
+    SUPABASE_URL: 'https://ehnkyrsseisvvtbkwrvu.supabase.co',
+    RENDER_RESERVE_PRODUCTION_ENABLED: 'true' };
+  assert.equal(contingencyExecutor(production), 'RENDER_RESERVA');
+  assert.throws(() => contingencyExecutor({ ...production, RENDER_RESERVE_PRODUCTION_ENABLED: undefined }));
+  assert.throws(() => contingencyExecutor({ ...production, SUPABASE_URL: pilot.SUPABASE_URL }));
+  assert.throws(() => contingencyExecutor({ ...production, CONTINGENCY_ENVIRONMENT: 'preview' }));
+});

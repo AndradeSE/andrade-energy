@@ -1,3 +1,4 @@
+import {renderReserveEnvironment} from './config/contingencyExecutor';
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
@@ -216,7 +217,7 @@ app.get("/health", async (_, res) => {
     status: "online",
     commit: (process.env.RENDER_GIT_COMMIT ?? process.env.COMMIT_REF)?.slice(0, 7) ?? "local",
     ...(executorIdentity === 'RENDER_RESERVA' ? {
-      environment: 'preview',
+      environment: renderReserveEnvironment(process.env),
       contingency: { executor: executorIdentity, readyForFailover: reserveReady, writes: reserveReady,
         monitor:lastRenderReserveObservation(),
         backgroundJobs: process.env.BACKGROUND_JOBS_ENABLED==='true' && process.env.DURABLE_SCHEDULER_ENABLED==='true' },

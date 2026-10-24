@@ -1,5 +1,5 @@
 import express, {type RequestHandler} from 'express';
-import {contingencyExecutor} from './contingencyExecutor';
+import {contingencyExecutor,renderReserveEnvironment} from './contingencyExecutor';
 import {isProviderIngress,isOAuthIngress,forwardProviderIngress,forwardOAuthIngress} from './contingencyIngress';
 
 /** Only provider callbacks may relay. Ordinary app requests always use ownership fencing. */
@@ -14,8 +14,8 @@ export function createRenderReserveIngress(store:any,env:NodeJS.ProcessEnv=proce
     if(data.executor!=='RENDER') return res.status(503).json({message:'Callback aguardando conferência do servidor ativo.'});
     const event={httpMethod:req.method,path:req.path,headers:req.headers,queryStringParameters:req.query};
     const reply=async(body?:Buffer)=>{
-      const result=isOAuthIngress(req.method,req.path)?await forwardOAuthIngress(event,'preview',request):
-        await forwardProviderIngress({...event,body:body?.toString('base64')??'',isBase64Encoded:true},'preview',request);
+      const result=isOAuthIngress(req.method,req.path)?await forwardOAuthIngress(event,renderReserveEnvironment(env),request):
+        await forwardProviderIngress({...event,body:body?.toString('base64')??'',isBase64Encoded:true},renderReserveEnvironment(env),request);
       res.status(result.statusCode).set(result.headers).send(result.body);
     };
     if(isOAuthIngress(req.method,req.path)) {await reply();return;}
