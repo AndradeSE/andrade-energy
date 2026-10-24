@@ -1,13 +1,31 @@
 import type {Page} from "playwright-core";
 import {CEMIG_PORTAL,conferirCsvSimulacao} from "./cemigCloud.policy";
 
+const etapas = {
+  LOGIN: 'confirmar o login',
+  SERVICO: 'abrir o serviço de compensação',
+  USINA: 'selecionar a UC geradora',
+  MODALIDADE: 'confirmar a modalidade',
+  ANEXO: 'anexar o CSV',
+  REVISAO: 'conferir a revisão do anexo',
+} as const;
+export class FalhaEtapaCemig extends Error {
+  constructor(public readonly etapa: keyof typeof etapas) {
+    super(`Não foi possível ${etapas[etapa]}. Nenhum protocolo foi solicitado.`);
+  }
+}
+
 /** Somente simulação: esta função nunca aceita declaração nem solicita cadastro. */
 export async function validarAnexoCemig(page:Page,uc:string,csv:string,arquivo:string) {
   conferirCsvSimulacao(csv,uc);
+  let etapa: keyof typeof etapas = 'LOGIN';
+  try {
   const url=new URL(page.url());
   if(url.origin!==new URL(CEMIG_PORTAL).origin)throw new Error("Faça o login manual no Cemig Atende.");
+  etapa='SERVICO';
   await page.goto(CEMIG_PORTAL,{waitUntil:"domcontentloaded",timeout:45000});
   await page.getByRole("button",{name:"Realizar cadastro",exact:true}).click({timeout:15000});
+  etapa='USINA';
   const opcoes=page.getByRole("button").filter({hasText:/Nº da unidade consumidora:/});
   await opcoes.first().waitFor({state:'visible',timeout:15000});
   let escolhida=false;
@@ -18,18 +36,25 @@ export async function validarAnexoCemig(page:Page,uc:string,csv:string,arquivo:s
   }
   if(!escolhida)throw new Error("A UC geradora não foi localizada nesta sessão Cemig.");
   await page.getByRole("button",{name:"Avançar",exact:true}).click();
+  etapa='MODALIDADE';
   await page.getByRole("combobox",{name:/Selecione o tipo de modalidade/}).waitFor({timeout:15000});
   if(!/Autoconsumo remoto/.test(await page.getByRole("combobox",{name:/Selecione o tipo de modalidade/}).innerText()))throw new Error("Modalidade diferente da simulação autorizada.");
   await page.getByRole("button",{name:"Avançar",exact:true}).click();
+  etapa='ANEXO';
   await page.getByRole("tab",{name:"Inserir por anexo",exact:true}).click();
   await page.locator('input[type="file"]').setInputFiles({name:arquivo,mimeType:"text/csv",buffer:Buffer.from(csv,"utf8")});
   await page.getByText(arquivo,{exact:true}).waitFor({timeout:15000});
+  etapa='REVISAO';
   await page.getByRole("button",{name:"Avançar",exact:true}).click();
   await page.getByRole("heading",{name:"Revise e confirme as informações para realizar cadastro",exact:true}).waitFor({timeout:20000});
   const geradora=await page.locator("#document").inputValue();
   if(geradora.replace(/\D/g,"")!==uc)throw new Error("A UC mudou durante a revisão.");
   await page.getByText(arquivo,{exact:true}).waitFor();
   return {estado:"REVISAO_SEM_PROTOCOLO" as const,protocolo:null};
+  } catch {
+    // Never persist the raw Playwright error: it can include page/customer data.
+    throw new FalhaEtapaCemig(etapa);
+  }
 }
 
 export async function bloquearProtocoloNaSimulacao(page:Page){
