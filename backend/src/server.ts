@@ -48,6 +48,7 @@ import { executeScheduledJob, scheduledJobs } from "./config/scheduledJobs";
 import type { ScheduledJob } from "./config/durableScheduledJob";
 import { contingencyRequestGuard } from "./config/contingencyRequestGuard";
 import { contingencyExecutor } from './config/contingencyExecutor';
+import { createRenderReserveIngress } from './config/renderReserveIngress';
 import { renderReserveReady } from './config/renderReserveReadiness';
 import { observeRenderForContingency,lastRenderReserveObservation } from './config/contingencyAutomatic';
 import contingencyRoutes from "./config/contingency.routes";
@@ -81,6 +82,7 @@ app.use(cors({
   allowedHeaders: ["Authorization", "Content-Type", "Idempotency-Key", "asaas-access-token", "x-request-id", "x-signature", "svix-id", "svix-signature", "svix-timestamp"],
 }));
 
+app.use(createRenderReserveIngress(supabase));
 app.use(contingencyRequestGuard);
 
 // O Resend assina o corpo original. Esta rota precisa permanecer antes do
