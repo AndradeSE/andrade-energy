@@ -1,7 +1,7 @@
 import {supabase} from '../../config/supabase';
 import {criptografarDado,descriptografarDado} from '../../utils/sensitiveData';
 import {prepararPlanilhaRateio} from './rateioMensal.service';
-import {CEMIG_PORTAL,exigirCemigSimulacao,conferirCsvSimulacao} from './cemigCloud.policy';
+import {CEMIG_PORTAL,exigirCemigSimulacao,exigirPortalNuvemValidado,conferirCsvSimulacao} from './cemigCloud.policy';
 import {criarBrowserbaseSimulacao,encerrarBrowserbase,liveBrowserbase} from './cemigCloud.browserbase';
 import {bloquearProtocoloNaSimulacao,validarAnexoCemig} from './cemigCloud.portal';
 import {chromium,type Browser} from 'playwright-core';
@@ -14,6 +14,7 @@ async function atualizar(id:string,patch:object){const r=await supabase.from('ce
 
 export async function iniciarCemigSimulacao(usinaId:string,empresaId:string,usuarioId:string,body:any){
  exigirCemigSimulacao(process.env);
+ exigirPortalNuvemValidado(process.env);
  if(body?.autorizaNavegadorNuvem!==true||body?.numerosAtuaisConfirmados!==true)throw new Error('Confirme os números e o uso do navegador em nuvem para esta simulação.');
  const u=await supabase.from('usinas').select('numero_instalacao').eq('id',usinaId).eq('empresa_id',empresaId).maybeSingle();
  if(u.error||!u.data)throw new Error('Usina não encontrada.');
