@@ -12,7 +12,17 @@ export function conferirPaginaCaptcha(valor:string) {
     throw new Error('Página fora da Cemig autorizada.');
   return u.origin+u.pathname;
 }
-type Desafio={websiteURL:string;websiteKey:string;userAgent:string;s?:string};
+type TipoCaptcha='RecaptchaV2Task'|'RecaptchaV2EnterpriseTask';
+type Desafio={websiteURL:string;websiteKey:string;userAgent:string;s?:string;tipo?:TipoCaptcha};
+export function identificarTipoRecaptcha(src:string):TipoCaptcha|null {
+  try {
+    const u=new URL(src);
+    if(u.protocol!=='https:'||!['www.google.com','www.recaptcha.net'].includes(u.hostname))return null;
+    if(u.pathname==='/recaptcha/enterprise/anchor')return 'RecaptchaV2EnterpriseTask';
+    if(u.pathname==='/recaptcha/api2/anchor')return 'RecaptchaV2Task';
+    return null;
+  }catch{return null;}
+}
 export class DesafioCemigIndisponivel extends Error {
   constructor(){super('Abra o login em nuvem e escolha entrar com senha até o CAPTCHA aparecer. Nenhuma tarefa foi enviada ao CapMonster.');}
 }
@@ -22,13 +32,15 @@ export async function lerDesafioCemig(page:Page):Promise<Desafio> {
   const dados=await page.evaluate(()=>{
     const frames=Array.from(document.querySelectorAll<HTMLIFrameElement>('iframe[src]'));
     const urls=frames.map(f=>{try{return new URL(f.src);}catch{return null;}});
-    const frame=urls.find(u=>u&&['www.google.com','www.recaptcha.net'].includes(u.hostname)&&u.pathname.includes('/recaptcha/enterprise/anchor'));
+    const frame=urls.find(u=>u&&u.protocol==='https:'&&['www.google.com','www.recaptcha.net'].includes(u.hostname)&&['/recaptcha/enterprise/anchor','/recaptcha/api2/anchor'].includes(u.pathname));
     const widget=document.querySelector<HTMLElement>('[data-sitekey]');
-    return {key:frame?.searchParams.get('k')??'',s:widget?.dataset.s,userAgent:navigator.userAgent};
+    return {key:frame?.searchParams.get('k')??'',src:frame?.toString()??'',s:widget?.dataset.s,userAgent:navigator.userAgent};
   });
   if(!/^[a-zA-Z0-9_-]{20,200}$/.test(dados.key)||dados.userAgent.length>1000||(dados.s?.length??0)>4000)
     throw new Error('Desafio Enterprise não identificado. Nenhum crédito utilizado.');
-  return {websiteURL,websiteKey:dados.key,userAgent:dados.userAgent,...(dados.s?{s:dados.s}:{})};
+  const tipo=identificarTipoRecaptcha(dados.src);
+  if(!tipo)throw new Error('Tipo não reconhecido');
+  return {websiteURL,websiteKey:dados.key,userAgent:dados.userAgent,tipo,...(dados.s?{s:dados.s}:{})};
   } catch { throw new DesafioCemigIndisponivel(); }
 }
 
@@ -73,7 +85,9 @@ export async function obterRespostaCapmonster(desafio:Desafio,opcoes:{env:NodeJS
   if(typeof balance!=='number'||!Number.isFinite(balance)||balance<=0||balance>0.100001)
     throw new Error('Saldo de teste não confirmado. Nenhuma tarefa criada.');
   if(!await opcoes.ativo())throw new Error('Simulação encerrada.');
-  const created=await api('createTask',{task:{type:'RecaptchaV2EnterpriseTask',websiteURL:url,websiteKey:desafio.websiteKey,userAgent:desafio.userAgent,...(desafio.s?{enterprisePayload:{s:desafio.s}}:{})}});
+  const tipo=desafio.tipo??'RecaptchaV2EnterpriseTask';
+  if(!['RecaptchaV2Task','RecaptchaV2EnterpriseTask'].includes(tipo))throw new Error('Tipo não suportado.');
+  const created=await api('createTask',{task:{type:tipo,websiteURL:url,websiteKey:desafio.websiteKey,userAgent:desafio.userAgent,...(desafio.s?(tipo==='RecaptchaV2EnterpriseTask'?{enterprisePayload:{s:desafio.s}}:{recaptchaDataSValue:desafio.s}):{})}});
   if(!Number.isSafeInteger(created.taskId)||created.taskId<=0)throw new Error('Identificador de tarefa inválido; não repetir automaticamente.');
   for(let i=0;i<24;i++){
     await esperar(5000);

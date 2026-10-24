@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {capmonsterDisponivel,conferirPaginaCaptcha,obterRespostaCapmonster,lerDesafioCemig,localizarDesafioCemig,DesafioCemigIndisponivel} from './cemigCloud.capmonster';
+import {capmonsterDisponivel,conferirPaginaCaptcha,obterRespostaCapmonster,lerDesafioCemig,localizarDesafioCemig,DesafioCemigIndisponivel,identificarTipoRecaptcha} from './cemigCloud.capmonster';
 import type {Page} from 'playwright-core';
 import {CEMIG_PREVIEW_DB} from './cemigCloud.policy';
 const env={SUPABASE_URL:CEMIG_PREVIEW_DB,CEMIG_CLOUD_ENABLED:'true',CEMIG_CLOUD_EXECUTOR:'RENDER',CAPMONSTER_PREVIEW_ENABLED:'true',CAPMONSTER_API_KEY:'fake-test-key'};
@@ -9,9 +9,24 @@ const esperar=async()=>{};
 test('localiza CAPTCHA em nova aba do login sem avaliar outras origens',async()=>{
  const inicio={url:()=> 'https://www.atendimento.cemig.com.br/portal/home'} as Page;
  const externo={url:()=> 'https://example.com/',evaluate:()=>assert.fail('Não avaliar domínio externo')} as unknown as Page;
- const login={url:()=> 'https://atende.cemig.com.br/Login',evaluate:async()=>({key:'test-public-sitekey-123456',userAgent:'test',s:undefined})} as unknown as Page;
+ const login={url:()=> 'https://atende.cemig.com.br/Login',evaluate:async()=>({key:'test-public-sitekey-123456',src:'https://www.google.com/recaptcha/enterprise/anchor?k=test',userAgent:'test',s:undefined})} as unknown as Page;
  assert.equal((await localizarDesafioCemig([inicio,login,externo])).page,login);
  await assert.rejects(localizarDesafioCemig([inicio,externo]),DesafioCemigIndisponivel);
+});
+test('distingue v2 comum de Enterprise e rejeita domínios falsos e outros desafios',()=>{
+ assert.equal(identificarTipoRecaptcha('https://www.google.com/recaptcha/api2/anchor?k=test'),'RecaptchaV2Task');
+ assert.equal(identificarTipoRecaptcha('https://www.recaptcha.net/recaptcha/enterprise/anchor?k=test'),'RecaptchaV2EnterpriseTask');
+ for(const src of ['https://www.google.com.evil.test/recaptcha/api2/anchor','http://www.google.com/recaptcha/api2/anchor','https://challenges.cloudflare.com/turnstile','https://www.google.com/recaptcha/api2/bframe'])assert.equal(identificarTipoRecaptcha(src),null);
+});
+test('v2 comum usa task e parâmetro técnico corretos sem payload Enterprise',async()=>{
+ let task:any;let calls=0;
+ const fetcher=(async(_url:any,options:any)=>{
+  if(++calls===1)return Response.json({errorId:0,balance:0.1});
+  if(calls===2){task=JSON.parse(options.body).task;return Response.json({errorId:0,taskId:123});}
+  return Response.json({errorId:0,status:'ready',solution:{gRecaptchaResponse:'fake-response-token-for-unit-test'}});
+ }) as typeof fetch;
+ await obterRespostaCapmonster({...desafio,tipo:'RecaptchaV2Task',s:'test-technical-value'},{env,ativo:async()=>true,esperar,fetcher});
+ assert.equal(task.type,'RecaptchaV2Task');assert.equal(task.recaptchaDataSValue,'test-technical-value');assert.equal(task.enterprisePayload,undefined);
 });
 test('desafio ausente permite corrigir a tela sem enviar tarefa nem expor DOM',async()=>{
  const page={url:()=> 'https://atende.cemig.com.br/Login',evaluate:async()=>({key:'',userAgent:'test',s:undefined})} as unknown as Page;
