@@ -48,6 +48,10 @@ export default function CemigCloudSimulation({usinaId,competencia,ucAncora,numer
   try{const url=new URL(session.liveUrl);if(url.protocol!=='https:'||!(url.hostname==='browserbase.com'||url.hostname.endsWith('.browserbase.com')))throw new Error();await Linking.openURL(url.toString());}
   catch{setError('Não foi possível abrir o navegador da simulação.');}
  }
+ async function verificacaoRepetindo(){
+  await action('cancelar');
+  setError('Verificação do portal não concluída. Pare de repetir os CAPTCHAs nesta sessão. Baixe o CSV na seção abaixo e acesse a Cemig pelo navegador local. O envio automático ainda não está validado.');
+ }
  if(!allowed)return null;
  return <View style={{gap:10,borderTopWidth:1,borderTopColor:Colors.border,paddingTop:16}}>
   <Text style={{color:Colors.text,fontWeight:'700'}}>Cemig · simulação em nuvem</Text>
@@ -57,7 +61,10 @@ export default function CemigCloudSimulation({usinaId,competencia,ucAncora,numer
   {!session||!ativos.includes(session.estado)?<Button title="Simular anexo na Cemig" disabled={busy||!competencia||!numerosConfirmados} onPress={()=>Alert.alert('Navegador em nuvem','O Browserbase processará sua sessão de login da Cemig e o CSV com UCs, CPFs/CNPJs e percentuais. Não salvamos sua senha. Autoriza esta simulação, sem protocolar?', [{text:'Cancelar',style:'cancel'},{text:'Autorizar simulação',onPress:()=>void start()}])}/>:null}
   {session?.liveUrl?<Button title="Abrir login da Cemig em nuvem" onPress={()=>void open()}/>:null}
   {session?.estado==='AGUARDANDO_LOGIN'?<Button title="Já entrei · validar anexo" disabled={busy} onPress={()=>void action('continuar')}/>:null}
+  {session?.estado==='AGUARDANDO_LOGIN'?<Button title="CAPTCHA repetindo · encerrar sessão" disabled={busy} onPress={()=>void verificacaoRepetindo()}/>:null}
   {session&&ativos.includes(session.estado)?<Button title="Cancelar simulação" disabled={busy} onPress={()=>void action('cancelar')}/>:null}
+  <Button title="Abrir Cemig no navegador local" onPress={()=>void Linking.openURL('https://www.atendimento.cemig.com.br/portal/home').catch(()=>setError('Não foi possível abrir o portal.'))}/>
+  <Text style={{color:Colors.subtitle}}>No acesso local, baixe o CSV pelas opções desta tela e anexe no portal. A sessão local não é compartilhada com a nuvem. Nesta simulação, pare na revisão sem solicitar cadastro.</Text>
   {!numerosConfirmados?<Text style={{color:Colors.subtitle}}>Confira os números atuais das UCs em Âncora e configuração para habilitar.</Text>:null}
  </View>;
 }
