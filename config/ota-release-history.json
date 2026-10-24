@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261023-221856",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Saldo da ancora com creditos totais Cemig para instalacoes anteriores, homologado"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-221617",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Saldo acumulado da UC ancora com creditos recebidos de outras usinas, homologado"
+    ]
+  },
+  {
     "numero": "OTA 20261023-221106",
     "data": "23/10/2026",
     "variant": "gerador",
