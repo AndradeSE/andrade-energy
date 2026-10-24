@@ -14,7 +14,7 @@
 
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["argon2", "pdfkit", "pdf-parse"]
+  external_node_modules = ["argon2", "pdfkit", "pdf-parse", "playwright-core"]
   included_files = ["dist/**", "assets/**"]
 
 [functions."preview-push-worker"]

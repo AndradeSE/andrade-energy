@@ -17,7 +17,8 @@ import {
   excluirIntegracaoInversorController,
   listarIntegracoesInversoresController,
 } from "./usinas.controller";
-import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
+import { exigirAutenticacao, exigirGestor, exigirSuperAdministradorAndrade } from "../../middlewares/auth.middleware";
+import { iniciarCemigSimulacao, consultarCemigSimulacao } from './cemigCloud.service';
 import { exigirUsinaDaSessaoOuGestor } from "../../utils/empresaScope";
 import { exigirCapacidadeDoPlano } from "../../middlewares/limitesPlano.middleware";
 import { empresaIdDaRequisicao } from "../../utils/empresaScope";
@@ -38,6 +39,22 @@ function acessoOperacao(usuario:any) {
 }
 
 router.use(exigirAutenticacao);
+router.post('/:id/cemig-simulacoes',exigirGestor,exigirSuperAdministradorAndrade,apiRateLimit('cemig-cloud-start',{windowMs:60_000,limit:2}),async(req,res)=>{
+ res.setHeader('Cache-Control','private, no-store');
+ try{return res.status(202).json(await iniciarCemigSimulacao(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.body));}
+ catch(e:any){return res.status(400).json({message:e.message});}
+});
+router.get('/:id/cemig-simulacoes/:simulacao',exigirGestor,exigirSuperAdministradorAndrade,async(req,res)=>{
+ res.setHeader('Cache-Control','private, no-store');
+ try{return res.json(await consultarCemigSimulacao(req.params.simulacao,req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id));}
+ catch{return res.status(404).json({message:'Simulação indisponível para este acesso.'});}
+});
+router.post('/:id/cemig-simulacoes/:simulacao/:acao',exigirGestor,exigirSuperAdministradorAndrade,async(req,res)=>{
+ res.setHeader('Cache-Control','private, no-store');
+ if(!['continuar','cancelar'].includes(req.params.acao))return res.sendStatus(404);
+ try{return res.json(await consultarCemigSimulacao(req.params.simulacao,req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.params.acao as 'continuar'|'cancelar'));}
+ catch{return res.status(400).json({message:'Não foi possível atualizar esta simulação.'});}
+});
 router.post("/:id/unidades", exigirGestor, async (req, res) => {
   if (String((req as any).usuario?.papel_empresa ?? "").startsWith("COLABORADOR_") && (req as any).usuario?.permissoes?.unidades === false) {
     return res.status(403).json({ message: "Seu acesso às unidades não foi liberado pelo titular." });
