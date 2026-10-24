@@ -6,7 +6,7 @@ import {criarBrowserbaseSimulacao,encerrarBrowserbase,liveBrowserbase} from './c
 import {bloquearProtocoloNaSimulacao,validarAnexoCemig,FalhaEtapaCemig} from './cemigCloud.portal';
 import {chromium,type Browser} from 'playwright-core';
 import {cemigRenderHabilitado} from './cemigCloud.dispatcher';
-import {capmonsterDisponivel,lerDesafioCemig,obterRespostaCapmonster,aplicarRespostaCaptcha} from './cemigCloud.capmonster';
+import {capmonsterDisponivel,lerDesafioCemig,obterRespostaCapmonster,aplicarRespostaCaptcha,DesafioCemigIndisponivel,FalhaCapmonster} from './cemigCloud.capmonster';
 
 const ativos=['FILA','FILA_RENDER','INICIANDO','AGUARDANDO_LOGIN','VALIDANDO'];
 const worker='https://andrade-energy-fallback-probe.netlify.app/.netlify/functions/cemig-background';
@@ -84,8 +84,10 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
     const c=await supabase.from('cemig_simulacoes').update({captcha_estado:'RESOLVENDO'}).eq('id',id).eq('captcha_estado','FILA').eq('estado','AGUARDANDO_LOGIN').select('id').maybeSingle();
     if(c.error)throw new Error('Não foi possível reservar teste CAPTCHA');
     if(c.data){
+     let etapaCaptcha:'DESAFIO'|'API'|'APLICACAO'='DESAFIO';
      try{
       const desafio=await lerDesafioCemig(page);
+      etapaCaptcha='API';
       const ativo=async()=>{
        if(Date.now()>prazo-15000)return false;
        const s=await supabase.from('cemig_simulacoes').select('estado').eq('id',id).maybeSingle();
@@ -93,10 +95,15 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
       };
       const token=await obterRespostaCapmonster(desafio,{env:process.env,ativo});
       if(!await ativo())throw new Error('Sessão encerrada');
+      etapaCaptcha='APLICACAO';
       await aplicarRespostaCaptcha(page,token);
       await supabase.from('cemig_simulacoes').update({captcha_estado:'RESPOSTA_APLICADA'}).eq('id',id).eq('estado','AGUARDANDO_LOGIN');
-     }catch{
-      await supabase.from('cemig_simulacoes').update({captcha_estado:'ERRO',captcha_erro:'O teste não concluiu a verificação. Não haverá outra tarefa automática nesta sessão.'}).eq('id',id).eq('estado','AGUARDANDO_LOGIN');
+     }catch(error){
+      const semTarefa=error instanceof DesafioCemigIndisponivel;
+      const mensagem=semTarefa||error instanceof FalhaCapmonster?error.message:etapaCaptcha==='APLICACAO'?
+       'A API retornou uma resposta, mas não foi possível aplicá-la ao login. A tarefa não será repetida.':
+       'A consulta do teste não foi concluída. Não haverá outra tarefa automática nesta sessão.';
+      await supabase.from('cemig_simulacoes').update({captcha_estado:semTarefa?'NAO_SOLICITADO':'ERRO',captcha_erro:mensagem}).eq('id',id).eq('estado','AGUARDANDO_LOGIN');
      }
     }
     continue;

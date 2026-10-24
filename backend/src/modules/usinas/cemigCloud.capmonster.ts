@@ -13,7 +13,11 @@ export function conferirPaginaCaptcha(valor:string) {
   return u.origin+u.pathname;
 }
 type Desafio={websiteURL:string;websiteKey:string;userAgent:string;s?:string};
+export class DesafioCemigIndisponivel extends Error {
+  constructor(){super('Abra o login em nuvem e escolha entrar com senha até o CAPTCHA aparecer. Nenhuma tarefa foi enviada ao CapMonster.');}
+}
 export async function lerDesafioCemig(page:Page):Promise<Desafio> {
+  try {
   const websiteURL=conferirPaginaCaptcha(page.url());
   const dados=await page.evaluate(()=>{
     const frames=Array.from(document.querySelectorAll<HTMLIFrameElement>('iframe[src]'));
@@ -25,6 +29,14 @@ export async function lerDesafioCemig(page:Page):Promise<Desafio> {
   if(!/^[a-zA-Z0-9_-]{20,200}$/.test(dados.key)||dados.userAgent.length>1000||(dados.s?.length??0)>4000)
     throw new Error('Desafio Enterprise não identificado. Nenhum crédito utilizado.');
   return {websiteURL,websiteKey:dados.key,userAgent:dados.userAgent,...(dados.s?{s:dados.s}:{})};
+  } catch { throw new DesafioCemigIndisponivel(); }
+}
+
+export class FalhaCapmonster extends Error {
+  constructor(etapa:'SALDO'|'CRIACAO'|'RESULTADO'){
+    const textos={SALDO:'Falha ao consultar o saldo. Nenhuma tarefa foi criada.',CRIACAO:'Falha ao criar a tarefa. O resultado da solicitação exige conferência; não repetir automaticamente.',RESULTADO:'Falha ao consultar o resultado da tarefa. Ela não será recriada automaticamente.'};
+    super(textos[etapa]);
+  }
 }
 
 /** Fixed API, no purchase endpoint, one createTask call and no retries on ambiguity. */
@@ -41,7 +53,7 @@ export async function obterRespostaCapmonster(desafio:Desafio,opcoes:{env:NodeJS
       const data=await r.json();
       if(data.errorId!==0)throw new Error();
       return data;
-    } catch { throw new Error('O CapMonster não concluiu a consulta. A tarefa não será recriada automaticamente.'); }
+    } catch { throw new FalhaCapmonster(metodo==='getBalance'?'SALDO':metodo==='createTask'?'CRIACAO':'RESULTADO'); }
   }
   const {balance}=await api('getBalance');
   // This isolated pilot is restricted to the requested $0.10 bonus, not purchased balances.

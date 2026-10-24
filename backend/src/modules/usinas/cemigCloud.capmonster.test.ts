@@ -1,10 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {capmonsterDisponivel,conferirPaginaCaptcha,obterRespostaCapmonster} from './cemigCloud.capmonster';
+import {capmonsterDisponivel,conferirPaginaCaptcha,obterRespostaCapmonster,lerDesafioCemig,DesafioCemigIndisponivel} from './cemigCloud.capmonster';
+import type {Page} from 'playwright-core';
 import {CEMIG_PREVIEW_DB} from './cemigCloud.policy';
 const env={SUPABASE_URL:CEMIG_PREVIEW_DB,CEMIG_CLOUD_ENABLED:'true',CEMIG_CLOUD_EXECUTOR:'RENDER',CAPMONSTER_PREVIEW_ENABLED:'true',CAPMONSTER_API_KEY:'fake-test-key'};
 const desafio={websiteURL:'https://atende.cemig.com.br/Login?private=query#fragment',websiteKey:'test-public-sitekey-123456',userAgent:'test-agent'};
 const esperar=async()=>{};
+test('desafio ausente permite corrigir a tela sem enviar tarefa nem expor DOM',async()=>{
+ const page={url:()=> 'https://atende.cemig.com.br/Login',evaluate:async()=>({key:'',userAgent:'test',s:undefined})} as unknown as Page;
+ await assert.rejects(lerDesafioCemig(page),e=>e instanceof DesafioCemigIndisponivel&&e.message.includes('Nenhuma tarefa'));
+});
 test('CapMonster só habilita Preview e chave presente; URL remove query e fragmento',()=>{
  assert.equal(capmonsterDisponivel(env),true);
  for(const patch of [{SUPABASE_URL:'https://production.supabase.co'},{CAPMONSTER_PREVIEW_ENABLED:'false'},{CAPMONSTER_API_KEY:''},{CEMIG_CLOUD_EXECUTOR:'NETLIFY'}])assert.equal(capmonsterDisponivel({...env,...patch}),false);
