@@ -1,5 +1,5 @@
 export const CONTINGENCY_ENDPOINTS = {
-  preview: { primary: "https://andrade-energy-api-homologacao.onrender.com/api", standby: "https://andrade-energy-fallback-probe.netlify.app/api" },
+  preview: { primary: "https://andrade-energy-api-homologacao.onrender.com/api", standby: "https://andrade-energy-api-reserva-preview.onrender.com/api", netlify: "https://andrade-energy-fallback-probe.netlify.app/api" },
   production: { primary: "https://andrade-energy-api-vda.onrender.com/api", standby: "https://andrade-energy-api-reserva.netlify.app/api" },
 } as const;
 type Environment=keyof typeof CONTINGENCY_ENDPOINTS;
@@ -11,7 +11,10 @@ export function resolveContingencyTarget(environment:Environment, value:unknown)
     throw new Error("Configuração de contingência inválida.");
   }
   if(body.executor==="RENDER") return endpoints.primary;
-  if(body.executor==="NETLIFY" && body.contingency?.readyForFailover===true) return endpoints.standby;
+  if(body.executor==="NETLIFY" && body.contingency?.readyForFailover===true)
+    return environment==='preview'?CONTINGENCY_ENDPOINTS.preview.netlify:endpoints.standby;
+  if(body.executor==="RENDER_RESERVA" && environment==='preview' && body.contingency?.readyForFailover===true)
+    return CONTINGENCY_ENDPOINTS.preview.standby;
   throw new Error("Reserva em conferência.");
 }
 

@@ -29,9 +29,10 @@ const contingencyEnvironment=isPreviewEnvironment?"preview":"production";
 const resolveApiTarget=createContingencyResolver(contingencyEnvironment,async()=>{
   const endpoint=CONTINGENCY_ENDPOINTS[contingencyEnvironment].standby.replace(/\/api$/,"");
   const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),2500);
+  // Free Render may cold-start. This is a routing lookup before any business request.
+  const timer=setTimeout(()=>controller.abort(),isPreviewEnvironment?70_000:2500);
   try {
-    const response=await fetch(`${endpoint}/contingency/runtime`,{signal:controller.signal,cache:"no-store"});
+    const response=await fetch(`${endpoint}${isPreviewEnvironment?'/api/contingencia/estado':'/contingency/runtime'}`,{signal:controller.signal,cache:"no-store"});
     if(!response.ok)throw new Error("Controle indisponível.");
     return await response.json();
   } finally {clearTimeout(timer);}
