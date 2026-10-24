@@ -48,6 +48,7 @@ import { executeScheduledJob, scheduledJobs } from "./config/scheduledJobs";
 import type { ScheduledJob } from "./config/durableScheduledJob";
 import { contingencyRequestGuard } from "./config/contingencyRequestGuard";
 import contingencyRoutes from "./config/contingency.routes";
+import {iniciarDespachanteCemigRender} from './modules/usinas/cemigCloud.dispatcher';
 
 dotenv.config();
 
@@ -254,6 +255,7 @@ async function iniciarServidor() {
     console.log("Instância HTTP reserva: agendadores desativados.");
     return;
   }
+  void iniciarDespachanteCemigRender().catch(()=>console.error('Não foi possível iniciar simulação Cemig Preview.'));
   if (process.env.DURABLE_SCHEDULER_ENABLED === "true") {
     const tick = () => {
       for (const name of Object.keys(scheduledJobs) as ScheduledJob[]) {

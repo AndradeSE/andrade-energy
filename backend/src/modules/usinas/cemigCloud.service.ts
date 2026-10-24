@@ -23,8 +23,7 @@ export async function iniciarCemigSimulacao(usinaId:string,empresaId:string,usua
  const r=await supabase.rpc('reservar_cemig_simulacao',{p_empresa:empresaId,p_usina:usinaId,p_usuario:usuarioId,p_competencia:plano.competencia,p_uc:uc,p_arquivo:plano.arquivo,p_csv:criptografarDado(plano.csv)});
  if(r.error||typeof r.data!=='string')throw new Error('Não foi possível reservar a simulação. Confira se há outra ativa ou se o limite mensal foi atingido.');
  const id=r.data;
- // A Netlify lê esta fila a cada minuto. Nenhuma credencial do navegador
- // ou segredo do worker precisa ser copiado para o Render.
+ // O executor configurado lê a fila; a reserva atômica impede processamento duplo.
  return {id,estado:'FILA',protocolo:null};
 }
 
