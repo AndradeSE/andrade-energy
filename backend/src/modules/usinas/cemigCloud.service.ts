@@ -6,6 +6,7 @@ import {criarBrowserbaseSimulacao,encerrarBrowserbase,liveBrowserbase} from './c
 import {bloquearProtocoloNaSimulacao,validarAnexoCemig,FalhaEtapaCemig} from './cemigCloud.portal';
 import {chromium,type Browser} from 'playwright-core';
 import {cemigRenderHabilitado} from './cemigCloud.dispatcher';
+import {capmonsterDisponivel,lerDesafioCemig,obterRespostaCapmonster,aplicarRespostaCaptcha} from './cemigCloud.capmonster';
 
 const ativos=['FILA','FILA_RENDER','INICIANDO','AGUARDANDO_LOGIN','VALIDANDO'];
 const worker='https://andrade-energy-fallback-probe.netlify.app/.netlify/functions/cemig-background';
@@ -29,9 +30,9 @@ export async function iniciarCemigSimulacao(usinaId:string,empresaId:string,usua
  return {id,estado:'FILA',protocolo:null};
 }
 
-export async function consultarCemigSimulacao(id:string,usinaId:string,empresaId:string,usuarioId:string,acao?:'continuar'|'cancelar'){
+export async function consultarCemigSimulacao(id:string,usinaId:string,empresaId:string,usuarioId:string,acao?:'continuar'|'cancelar'|'captcha',autorizaCapmonster=false){
  exigirCemigSimulacao(process.env);
- const r=await supabase.from('cemig_simulacoes').select('id,estado,erro,expira_em,live_cifrado').eq('id',id).eq('usina_id',usinaId).eq('empresa_id',empresaId).eq('usuario_id',usuarioId).maybeSingle();
+ const r=await supabase.from('cemig_simulacoes').select('id,estado,erro,expira_em,live_cifrado,captcha_estado,captcha_erro').eq('id',id).eq('usina_id',usinaId).eq('empresa_id',empresaId).eq('usuario_id',usuarioId).maybeSingle();
  if(r.error||!r.data)throw new Error('Simulação não encontrada para este acesso.');
  const row=r.data;
  if(Date.parse(row.expira_em)<=Date.now()&&ativos.includes(row.estado)){
@@ -41,11 +42,20 @@ export async function consultarCemigSimulacao(id:string,usinaId:string,empresaId
  if(acao==='continuar'&&row.estado==='AGUARDANDO_LOGIN'){
   const t=await supabase.from('cemig_simulacoes').update({continuar:true}).eq('id',id).eq('estado','AGUARDANDO_LOGIN');if(t.error)throw new Error('Não foi possível continuar.');
  }
+ if(acao==='captcha'){
+  if(!autorizaCapmonster||!capmonsterDisponivel(process.env)||row.estado!=='AGUARDANDO_LOGIN'||Date.parse(row.expira_em)-Date.now()<180000)
+    throw new Error('Confirme o teste com crédito e use uma sessão com pelo menos três minutos restantes.');
+  const solicitado=await supabase.from('cemig_simulacoes').update({captcha_estado:'FILA',captcha_erro:null})
+    .eq('id',id).eq('estado','AGUARDANDO_LOGIN').eq('captcha_estado','NAO_SOLICITADO').select('id').maybeSingle();
+  if(solicitado.error||!solicitado.data)throw new Error('Esta sessão já utilizou a tentativa de CAPTCHA.');
+  row.captcha_estado='FILA';
+ }
  if(acao==='cancelar'&&ativos.includes(row.estado)){
   await supabase.from('cemig_simulacoes').update({estado:'CANCELADO',csv_cifrado:null,live_cifrado:null}).eq('id',id).in('estado',ativos);
   row.estado='CANCELADO';row.live_cifrado=null;
  }
- return {id:row.id,estado:row.estado==='FILA_RENDER'?'FILA':row.estado,erro:row.erro,expiraEm:row.expira_em,liveUrl:row.live_cifrado&&Date.parse(row.expira_em)>Date.now()?decifrar(row.live_cifrado):null,protocolo:null};
+ return {id:row.id,estado:row.estado==='FILA_RENDER'?'FILA':row.estado,erro:row.erro,expiraEm:row.expira_em,liveUrl:row.live_cifrado&&Date.parse(row.expira_em)>Date.now()?decifrar(row.live_cifrado):null,protocolo:null,
+  capmonsterDisponivel:capmonsterDisponivel(process.env),captchaEstado:row.captcha_estado,captchaErro:row.captcha_erro};
 }
 
 /** Background worker: a conditional claim makes Netlify retries harmless. */
@@ -67,9 +77,30 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
   const pronto=await supabase.from('cemig_simulacoes').update({estado:'AGUARDANDO_LOGIN',sessao_id:session.id,live_cifrado:criptografarDado(live)}).eq('id',id).eq('estado','INICIANDO').select('id').maybeSingle();
   if(pronto.error||!pronto.data)return;
   while(Date.now()<prazo){
-   const r=await supabase.from('cemig_simulacoes').select('estado,continuar').eq('id',id).single();
+   const r=await supabase.from('cemig_simulacoes').select('estado,continuar,captcha_estado').eq('id',id).single();
    if(r.error)throw new Error('Consulta indisponível');
    if(!ativos.includes(r.data.estado))return;
+   if(r.data.captcha_estado==='FILA'&&r.data.estado==='AGUARDANDO_LOGIN'){
+    const c=await supabase.from('cemig_simulacoes').update({captcha_estado:'RESOLVENDO'}).eq('id',id).eq('captcha_estado','FILA').eq('estado','AGUARDANDO_LOGIN').select('id').maybeSingle();
+    if(c.error)throw new Error('Não foi possível reservar teste CAPTCHA');
+    if(c.data){
+     try{
+      const desafio=await lerDesafioCemig(page);
+      const ativo=async()=>{
+       if(Date.now()>prazo-15000)return false;
+       const s=await supabase.from('cemig_simulacoes').select('estado').eq('id',id).maybeSingle();
+       return !s.error&&s.data?.estado==='AGUARDANDO_LOGIN';
+      };
+      const token=await obterRespostaCapmonster(desafio,{env:process.env,ativo});
+      if(!await ativo())throw new Error('Sessão encerrada');
+      await aplicarRespostaCaptcha(page,token);
+      await supabase.from('cemig_simulacoes').update({captcha_estado:'RESPOSTA_APLICADA'}).eq('id',id).eq('estado','AGUARDANDO_LOGIN');
+     }catch{
+      await supabase.from('cemig_simulacoes').update({captcha_estado:'ERRO',captcha_erro:'O teste não concluiu a verificação. Não haverá outra tarefa automática nesta sessão.'}).eq('id',id).eq('estado','AGUARDANDO_LOGIN');
+     }
+    }
+    continue;
+   }
    if(r.data.continuar){
     const v=await supabase.from('cemig_simulacoes').update({estado:'VALIDANDO'}).eq('id',id).eq('estado','AGUARDANDO_LOGIN').select('id').maybeSingle();
     if(v.error||!v.data)return;

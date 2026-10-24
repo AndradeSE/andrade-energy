@@ -51,8 +51,8 @@ router.get('/:id/cemig-simulacoes/:simulacao',exigirGestor,exigirSuperAdministra
 });
 router.post('/:id/cemig-simulacoes/:simulacao/:acao',exigirGestor,exigirSuperAdministradorAndrade,async(req,res)=>{
  res.setHeader('Cache-Control','private, no-store');
- if(!['continuar','cancelar'].includes(req.params.acao))return res.sendStatus(404);
- try{return res.json(await consultarCemigSimulacao(req.params.simulacao,req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.params.acao as 'continuar'|'cancelar'));}
+ if(!['continuar','cancelar','captcha'].includes(req.params.acao))return res.sendStatus(404);
+ try{return res.json(await consultarCemigSimulacao(req.params.simulacao,req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.params.acao as 'continuar'|'cancelar'|'captcha',req.body?.autorizaCapmonster===true));}
  catch{return res.status(400).json({message:'Não foi possível atualizar esta simulação.'});}
 });
 router.post("/:id/unidades", exigirGestor, async (req, res) => {
