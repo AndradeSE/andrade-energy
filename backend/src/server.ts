@@ -48,6 +48,8 @@ import { executeScheduledJob, scheduledJobs } from "./config/scheduledJobs";
 import type { ScheduledJob } from "./config/durableScheduledJob";
 import { contingencyRequestGuard } from "./config/contingencyRequestGuard";
 import { contingencyExecutor } from './config/contingencyExecutor';
+import { renderReserveReady } from './config/renderReserveReadiness';
+import { observeRenderForContingency } from './config/contingencyAutomatic';
 import contingencyRoutes from "./config/contingency.routes";
 
 dotenv.config();
@@ -198,13 +200,23 @@ app.use("/api/oauth", oauthEmailRouter);
 |--------------------------------------------------------------------------
 */
 
-app.get("/health", (_, res) => {
+app.get("/health", async (_, res) => {
+  let reserveReady=false;
+  if(executorIdentity==='RENDER_RESERVA') {
+    try {
+      const {data,error}=await supabase.from('contingencia_controle')
+        .select('render_reserva_commit_validado,render_reserva_validado_em').eq('id',true).single();
+      reserveReady=!error && renderReserveReady(process.env,data);
+    } catch { return res.status(503).json({status:'unavailable'}); }
+  }
+  res.setHeader('Cache-Control','no-store');
   res.json({
     status: "online",
     commit: (process.env.RENDER_GIT_COMMIT ?? process.env.COMMIT_REF)?.slice(0, 7) ?? "local",
     ...(executorIdentity === 'RENDER_RESERVA' ? {
       environment: 'preview',
-      contingency: { executor: executorIdentity, readyForFailover: false, writes: false, backgroundJobs: false },
+      contingency: { executor: executorIdentity, readyForFailover: reserveReady, writes: reserveReady,
+        backgroundJobs: process.env.BACKGROUND_JOBS_ENABLED==='true' && process.env.DURABLE_SCHEDULER_ENABLED==='true' },
     } : {}),
     ...(process.env.API_RUNTIME === "serverless" ? {
       contingency: { environment: "preview", readyForFailover: false, writes: false,
@@ -256,6 +268,18 @@ async function iniciarServidor() {
   await validarSchemaAntesDeIniciar();
   app.listen(PORT, () => {
   console.log(`Servidor iniciado na porta ${PORT}`);
+  if(executorIdentity==='RENDER_RESERVA') {
+    let observing=false;
+    const observe=async()=>{
+      if(observing) return;
+      observing=true;
+      try { await observeRenderForContingency(process.env,supabase); }
+      catch { console.error('Não foi possível confirmar o estado do Render principal.'); }
+      finally { observing=false; }
+    };
+    void observe();
+    setInterval(()=>void observe(),60_000).unref();
+  }
   if (!executarAgendadores) {
     console.log("Instância HTTP reserva: agendadores desativados.");
     return;
@@ -263,7 +287,7 @@ async function iniciarServidor() {
   if (process.env.DURABLE_SCHEDULER_ENABLED === "true") {
     const tick = () => {
       for (const name of Object.keys(scheduledJobs) as ScheduledJob[]) {
-        void executeScheduledJob(name, "RENDER").catch(() => console.error("Tarefa agendada exige conferência", { tarefa: name }));
+        void executeScheduledJob(name, executorIdentity).catch(() => console.error("Tarefa agendada exige conferência", { tarefa: name }));
       }
     };
     tick();

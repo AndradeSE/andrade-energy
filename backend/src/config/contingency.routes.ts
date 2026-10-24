@@ -2,9 +2,34 @@ import {Router} from "express";
 import {exigirAutenticacao,exigirSuperAdministradorAndrade} from "../middlewares/auth.middleware";
 import {supabase} from "./supabase";
 import {apiRateLimit} from "./distributedRateLimit";
+import {contingencyExecutor} from './contingencyExecutor';
+import {renderReserveReady,RENDER_RESERVE_PREVIEW_ORIGIN} from './renderReserveReadiness';
 
 const router=Router();
+// Public routing metadata only: no users, secrets, jobs, or financial data.
+router.get('/estado',async(_req,res)=>{
+  res.setHeader('Cache-Control','no-store');
+  try {
+    if(contingencyExecutor(process.env)!=='RENDER_RESERVA') return res.status(404).json({message:'Indisponível.'});
+    const {data,error}=await supabase.from('contingencia_controle')
+      .select('executor,revisao,render_reserva_commit_validado,render_reserva_validado_em').eq('id',true).single();
+    if(error || !data) throw new Error('unavailable');
+    return res.json({environment:'preview',executor:data.executor,revision:data.revisao,
+      contingency:{readyForFailover:renderReserveReady(process.env,data)}});
+  } catch { return res.status(503).json({message:'Não foi possível conferir o servidor ativo.'}); }
+});
 router.use(exigirAutenticacao,exigirSuperAdministradorAndrade,(_req,res,next)=>{res.setHeader('Cache-Control','no-store');next();});
+router.post('/preparar-render',apiRateLimit('contingency-destination',{windowMs:60_000,limit:3}),async(req,res)=>{
+  if(contingencyExecutor(process.env)!=='RENDER_RESERVA' || req.body?.confirmacao!=='PREPARAR_RESERVA_RENDER' || !Number.isSafeInteger(req.body?.revisao))
+    return res.status(400).json({message:'Confirme a preparação do destino no Preview.'});
+  try {
+    const {data,error}=await supabase.from('contingencia_controle').select('*').eq('id',true).single();
+    if(error || !renderReserveReady(process.env,data)) return res.status(409).json({message:'Versão do reserva ainda não validada.'});
+    const result=await supabase.rpc('configurar_destino_reserva_render',{p_usuario:(req as any).usuario.id,p_revisao:req.body.revisao});
+    if(result.error) return res.status(409).json({message:'Estado alterado. Atualize a conferência.'});
+    return res.json({destino:'RENDER_RESERVA'});
+  } catch { return res.status(503).json({message:'Não foi possível preparar o destino.'}); }
+});
 router.get('/',async(_req,res)=>{
   try {
     const [control,jobs,requests,automation]=await Promise.all([
@@ -32,18 +57,20 @@ router.post('/automacao',apiRateLimit('contingency-automation',{windowMs:60_000,
 router.post('/trocar',apiRateLimit('contingency-switch',{windowMs:60_000,limit:3}),async(req,res)=>{
   const target=req.body?.executor;
   const confirmation=req.body?.confirmacao;
-  if(!['RENDER','NETLIFY'].includes(target) || !Number.isSafeInteger(req.body?.revisao) ||
-    confirmation!==(target==='NETLIFY'?'COTA_RENDER_ESGOTADA':'RENDER_RECUPERADO')) {
+  const preview=/qqhcjieymypowunkixmk\.supabase\.co\/?$/.test(process.env.SUPABASE_URL??'');
+  if(!['RENDER','NETLIFY',...(preview?['RENDER_RESERVA']:[])].includes(target) || !Number.isSafeInteger(req.body?.revisao) ||
+    confirmation!==(target!=='RENDER'?'COTA_RENDER_ESGOTADA':'RENDER_RECUPERADO')) {
     return res.status(400).json({message:'Confirme explicitamente o motivo da troca e a revisão atual.'});
   }
   try {
     // Check the standby's deployed release, not merely an old readiness record.
-    if(target==='NETLIFY') {
-      const preview=/qqhcjieymypowunkixmk\.supabase\.co\/?$/.test(process.env.SUPABASE_URL??'');
-      const origin=preview?'https://andrade-energy-fallback-probe.netlify.app':'https://andrade-energy-api-reserva.netlify.app';
+    if(target!=='RENDER') {
+      const origin=target==='RENDER_RESERVA'?RENDER_RESERVE_PREVIEW_ORIGIN:
+        preview?'https://andrade-energy-fallback-probe.netlify.app':'https://andrade-energy-api-reserva.netlify.app';
       const health=await fetch(`${origin}/health`,{signal:AbortSignal.timeout(8000),redirect:'error'});
       const body=health.ok?await health.json() as any:null;
-      if(!body || body.environment!==(preview?'preview':'production') || body.contingency?.readyForFailover!==true || body.contingency?.backgroundJobs!==true) {
+      if(!body || body.environment!==(preview?'preview':'production') || body.contingency?.readyForFailover!==true || body.contingency?.backgroundJobs!==true ||
+        (target==='RENDER_RESERVA' && body.contingency?.executor!=='RENDER_RESERVA')) {
         return res.status(409).json({message:'O reserva ainda não passou pela conferência da versão publicada e dos agendadores.'});
       }
     }

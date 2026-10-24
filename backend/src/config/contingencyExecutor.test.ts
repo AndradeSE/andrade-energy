@@ -11,6 +11,7 @@ test('existing primary and serverless retain separate identities', () => {
   assert.equal(contingencyExecutor({}), 'RENDER');
   assert.equal(contingencyExecutor({ API_RUNTIME: 'serverless' }), 'NETLIFY');
   assert.equal(contingencyExecutor(pilot), 'RENDER_RESERVA');
+  assert.equal(contingencyExecutor({ ...pilot, BACKGROUND_JOBS_ENABLED: 'true', DURABLE_SCHEDULER_ENABLED: 'true' }), 'RENDER_RESERVA');
 });
 test('reserve refuses production, unfenced writes, timers, and cloud simulation', () => {
   for (const change of [

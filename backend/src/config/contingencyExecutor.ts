@@ -8,9 +8,11 @@ export function contingencyExecutor(env: NodeJS.ProcessEnv): ContingencyExecutor
   // This pilot cannot be enabled against production by copying its environment.
   if (env.API_RUNTIME === 'serverless' || env.CONTINGENCY_ENVIRONMENT !== 'preview' ||
       String(env.SUPABASE_URL ?? '').replace(/\/$/, '') !== 'https://qqhcjieymypowunkixmk.supabase.co' ||
-      env.CONTINGENCY_ROUTING_ENABLED !== 'true' || env.BACKGROUND_JOBS_ENABLED !== 'false' ||
+      env.CONTINGENCY_ROUTING_ENABLED !== 'true' ||
+      !(env.BACKGROUND_JOBS_ENABLED === 'false' ||
+        (env.BACKGROUND_JOBS_ENABLED === 'true' && env.DURABLE_SCHEDULER_ENABLED === 'true')) ||
       env.CEMIG_CLOUD_ENABLED === 'true') {
-    throw new Error('Reserva Render exige Preview, controle de execução e filas desativadas.');
+    throw new Error('Reserva Render exige Preview, controle de execução e filas desativadas ou duráveis.');
   }
   return 'RENDER_RESERVA';
 }

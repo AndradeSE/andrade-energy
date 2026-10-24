@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { runScheduledJob, type ScheduledJob } from "./durableScheduledJob";
+import type { ContingencyExecutor } from './contingencyExecutor';
 
 export const scheduledJobs: Record<ScheduledJob, { interval: number; run: () => Promise<unknown> }> = {
   PUSH: { interval: 60, run: async () => {
@@ -16,7 +17,7 @@ export const scheduledJobs: Record<ScheduledJob, { interval: number; run: () => 
   NOTIFICACOES_FATURA: { interval: 60, run: async () => (await import("../modules/faturas/notificacoesFatura.service.js")).processarFilaDeNotificacoes() },
 };
 
-export async function executeScheduledJob(name: ScheduledJob, executor: "RENDER" | "NETLIFY") {
+export async function executeScheduledJob(name: ScheduledJob, executor: ContingencyExecutor) {
   const job=scheduledJobs[name];
   if (!job) throw new Error("Tarefa desconhecida.");
   return runScheduledJob(supabase,name,executor,job.interval,job.run);
