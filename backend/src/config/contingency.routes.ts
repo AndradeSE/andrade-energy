@@ -21,7 +21,7 @@ router.get('/estado',async(_req,res)=>{
 router.use(exigirAutenticacao,exigirSuperAdministradorAndrade,(_req,res,next)=>{res.setHeader('Cache-Control','no-store');next();});
 router.post('/preparar-render',apiRateLimit('contingency-destination',{windowMs:60_000,limit:3}),async(req,res)=>{
   if(contingencyExecutor(process.env)!=='RENDER_RESERVA' || req.body?.confirmacao!=='PREPARAR_RESERVA_RENDER' || !Number.isSafeInteger(req.body?.revisao))
-    return res.status(400).json({message:'Confirme a preparação do destino no Preview.'});
+    return res.status(400).json({message:'Confirme a preparação do servidor reserva.'});
   try {
     const {data,error}=await supabase.from('contingencia_controle').select('*').eq('id',true).single();
     if(error || !renderReserveReady(process.env,data)) return res.status(409).json({message:'Versão do reserva ainda não validada.'});

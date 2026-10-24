@@ -14,7 +14,6 @@ async function controlRequest(method:'GET'|'POST',path='',data?:unknown) {
 export async function readContingency():Promise<ContingencyState>{return controlRequest('GET');}
 export async function setContingencyAutomation(ativa:boolean) {return controlRequest('POST','/automacao',{ativa,confirmacao:ativa?'AUTOMATIZAR_BILLING':'DESATIVAR_AUTOMACAO'});}
 export async function prepareRenderReserve(state:ContingencyState) {
-  if(!isPreviewEnvironment) throw new Error('Preparação disponível somente no Preview.');
   return controlRequest('POST','/preparar-render',{revisao:state.control.revisao,confirmacao:'PREPARAR_RESERVA_RENDER'});
 }
 export async function switchContingency(state:ContingencyState) {

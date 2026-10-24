@@ -2,7 +2,6 @@ import {useState} from 'react';
 import {Alert,Text,View} from 'react-native';
 import {Button,Card} from './ui';
 import {readContingency,switchContingency,setContingencyAutomation,prepareRenderReserve,type ContingencyState} from '../services/contingency.service';
-import {isPreviewEnvironment} from '../config/environment';
 import {Colors} from '../theme';
 
 export default function ContingencyControl(){
@@ -32,12 +31,12 @@ export default function ContingencyControl(){
     <Text style={{color:Colors.text}}>A automação pode assumir por suspensão de cobrança confirmada pelo Render. A administração pode conferir o estado e controlar a troca manual.</Text>
     <Button title={busy?'Conferindo…':'Consultar contingência'} disabled={busy} onPress={()=>void run()}/>
     {state?<><Text style={{color:Colors.text}}>Servidor ativo: {state.control.executor==='RENDER'?'Render principal':state.control.executor==='RENDER_RESERVA'?'Render reserva':'Netlify'}</Text>
-      {isPreviewEnvironment?<><Text style={{color:Colors.text}}>Reserva selecionado: {state.control.reserva_preferida==='RENDER_RESERVA'?'Render reserva':'Netlify'}</Text>
+      {<><Text style={{color:Colors.text}}>Reserva selecionado: {state.control.reserva_preferida==='RENDER_RESERVA'?'Render reserva':'Netlify'}</Text>
         {state.control.reserva_preferida!=='RENDER_RESERVA'?<Button title="Selecionar Render reserva" disabled={busy||!state.control.render_reserva_commit_validado} onPress={()=>Alert.alert('Preparar Render reserva?','A seleção altera o destino das próximas trocas; o servidor principal continuará ativo.',[{text:'Cancelar',style:'cancel'},{text:'Selecionar',onPress:()=>{
           setBusy(true);setError('');void prepareRenderReserve(state).then(()=>readContingency()).then(setState)
             .catch(()=>setError('O reserva ainda precisa ser validado. Consulte novamente.')).finally(()=>setBusy(false));
         }}])}/>:null}
-      </>:null}
+      </>}
       {state.automation?<><Text style={{color:Colors.text}}>Troca automática: {state.automation.ativa?'ativada':'desativada'}</Text>
         <Text style={{color:Colors.text}}>Retorno ao Render: confirmação manual do ADM.</Text>
         {state.automation.ultima_consulta?<Text style={{color:Colors.text}}>Última consulta: {new Date(state.automation.ultima_consulta).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}</Text>:null}

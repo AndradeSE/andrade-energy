@@ -34,7 +34,7 @@ export async function observeRenderForContingency(env: NodeJS.ProcessEnv, store:
     } catch { /* Unavailability is not evidence of billing suspension. */ }
   }
   // Diagnostics do not enable switching. Even with automation off, verify this key's
-  // access to the exact Preview primary before considering activation.
+  // access to the exact primary for this environment before considering activation.
   if(renderReserve) reserveObservation={state,checkedAt:new Date().toISOString()};
   const result = await store.rpc(renderReserve?'observar_render_reserva_contingencia':'observar_render_contingencia', {
     p_servico: services[environment], p_estado: state, p_commit: contingencyCommit(env),

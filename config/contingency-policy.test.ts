@@ -20,10 +20,13 @@ test("parallel calls share one control lookup and outages do not trigger a switc
   assert.equal(calls,2);
 });
 
-test("Render reserve is Preview-only and requires a validated release",()=>{
+test("Render reserve requires its own environment and a validated release",()=>{
  const value={environment:"preview",revision:3,executor:"RENDER_RESERVA",contingency:{readyForFailover:true}};
  assert.equal(resolveContingencyTarget("preview",value),CONTINGENCY_ENDPOINTS.preview.standby);
- assert.throws(()=>resolveContingencyTarget("production",{...value,environment:"production"}));
+ assert.equal(resolveContingencyTarget("production",{...value,environment:"production"}),CONTINGENCY_ENDPOINTS.production.standby);
+ assert.throws(()=>resolveContingencyTarget("production",value));
+ assert.throws(()=>resolveContingencyTarget("preview",{...value,environment:"production"}));
+ assert.equal(resolveContingencyTarget("production",{...value,environment:"production",executor:"NETLIFY"}),CONTINGENCY_ENDPOINTS.production.netlify);
  assert.throws(()=>resolveContingencyTarget("preview",{...value,contingency:{readyForFailover:false}}));
 });
 
