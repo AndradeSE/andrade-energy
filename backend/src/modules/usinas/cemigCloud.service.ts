@@ -5,8 +5,9 @@ import {CEMIG_PORTAL,exigirCemigSimulacao,conferirCsvSimulacao} from './cemigClo
 import {criarBrowserbaseSimulacao,encerrarBrowserbase,liveBrowserbase} from './cemigCloud.browserbase';
 import {bloquearProtocoloNaSimulacao,validarAnexoCemig,FalhaEtapaCemig} from './cemigCloud.portal';
 import {chromium,type Browser} from 'playwright-core';
+import {cemigRenderHabilitado} from './cemigCloud.dispatcher';
 
-const ativos=['FILA','INICIANDO','AGUARDANDO_LOGIN','VALIDANDO'];
+const ativos=['FILA','FILA_RENDER','INICIANDO','AGUARDANDO_LOGIN','VALIDANDO'];
 const worker='https://andrade-energy-fallback-probe.netlify.app/.netlify/functions/cemig-background';
 function segredo(){const s=process.env.CONTINGENCY_WORKER_SECRET;if(!s||s.length<32)throw new Error('Worker de simulação não configurado.');return s;}
 function decifrar(valor:string){if(!valor?.startsWith('v1.'))throw new Error('Dados de sessão inválidos.');return descriptografarDado(valor);}
@@ -20,7 +21,8 @@ export async function iniciarCemigSimulacao(usinaId:string,empresaId:string,usua
  const uc=String(u.data.numero_instalacao??'').replace(/\D/g,'');
  const plano=await prepararPlanilhaRateio(usinaId,empresaId,String(body.competencia??''),String(body.ucAncora||uc),'',true,true);
  conferirCsvSimulacao(plano.csv,uc);
- const r=await supabase.rpc('reservar_cemig_simulacao',{p_empresa:empresaId,p_usina:usinaId,p_usuario:usuarioId,p_competencia:plano.competencia,p_uc:uc,p_arquivo:plano.arquivo,p_csv:criptografarDado(plano.csv)});
+ const reserva=cemigRenderHabilitado(process.env)?'reservar_cemig_simulacao_render':'reservar_cemig_simulacao';
+ const r=await supabase.rpc(reserva,{p_empresa:empresaId,p_usina:usinaId,p_usuario:usuarioId,p_competencia:plano.competencia,p_uc:uc,p_arquivo:plano.arquivo,p_csv:criptografarDado(plano.csv)});
  if(r.error||typeof r.data!=='string')throw new Error('Não foi possível reservar a simulação. Confira se há outra ativa ou se o limite mensal foi atingido.');
  const id=r.data;
  // O executor configurado lê a fila; a reserva atômica impede processamento duplo.
@@ -43,13 +45,13 @@ export async function consultarCemigSimulacao(id:string,usinaId:string,empresaId
   await supabase.from('cemig_simulacoes').update({estado:'CANCELADO',csv_cifrado:null,live_cifrado:null}).eq('id',id).in('estado',ativos);
   row.estado='CANCELADO';row.live_cifrado=null;
  }
- return {id:row.id,estado:row.estado,erro:row.erro,expiraEm:row.expira_em,liveUrl:row.live_cifrado&&Date.parse(row.expira_em)>Date.now()?decifrar(row.live_cifrado):null,protocolo:null};
+ return {id:row.id,estado:row.estado==='FILA_RENDER'?'FILA':row.estado,erro:row.erro,expiraEm:row.expira_em,liveUrl:row.live_cifrado&&Date.parse(row.expira_em)>Date.now()?decifrar(row.live_cifrado):null,protocolo:null};
 }
 
 /** Background worker: a conditional claim makes Netlify retries harmless. */
-export async function executarCemigSimulacao(id:string){
+export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'='FILA'){
  exigirCemigSimulacao(process.env);
- const claim=await supabase.from('cemig_simulacoes').update({estado:'INICIANDO'}).eq('id',id).eq('estado','FILA').gt('expira_em',new Date().toISOString()).select('*').maybeSingle();
+ const claim=await supabase.from('cemig_simulacoes').update({estado:'INICIANDO'}).eq('id',id).eq('estado',fila).gt('expira_em',new Date().toISOString()).select('*').maybeSingle();
  if(claim.error)throw new Error('Fila indisponível.');if(!claim.data)return;
  const job=claim.data;let sessionId:string|undefined;let browser:Browser|undefined;
  const prazo=Math.min(Date.parse(job.expira_em)-15000,Date.now()+570000);

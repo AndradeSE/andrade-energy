@@ -27,14 +27,15 @@ export async function iniciarDespachanteCemigRender() {
   const {executarCemigSimulacao}=await import('./cemigCloud.service.js');
   const tick=criarDespachanteCemig({
     buscar:async()=>{
-      const r=await supabase.from('cemig_simulacoes').select('id').eq('estado','FILA')
+      const r=await supabase.from('cemig_simulacoes').select('id').eq('estado','FILA_RENDER')
         .gt('expira_em',new Date().toISOString()).order('criado_em').limit(1).maybeSingle();
       if(r.error)throw new Error('Fila indisponível');
       return r.data?.id??null;
     },
-    executar:executarCemigSimulacao,
+    executar:(id)=>executarCemigSimulacao(id,'FILA_RENDER'),
     falhou:()=>console.error('Falha no despachante Cemig Preview; nenhuma repetição de protocolo.'),
   });
   void tick();
+  console.log('Despachante Cemig Preview ativo no Render; somente anexo sem protocolo.');
   setInterval(()=>void tick(),15_000).unref();
 }
