@@ -5,6 +5,7 @@ import {useAuth} from '../../contexts/AuthContext';
 import {canViewServiceQuotas} from '../../utils/service-quota-access';
 import {isPreviewEnvironment} from '../../config/environment';
 import api from '../../config/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {Colors} from '../../theme';
 
 type Session={id:string;estado:string;erro?:string|null;liveUrl?:string|null};
@@ -14,17 +15,27 @@ export default function CemigCloudSimulation({usinaId,competencia,ucAncora,numer
  const {usuario}=useAuth();const allowed=isPreviewEnvironment&&canViewServiceQuotas(usuario);
  const [session,setSession]=useState<Session>();const [busy,setBusy]=useState(false);const [error,setError]=useState('');
  const base=`/usinas/${usinaId}/cemig-simulacoes`;
- useEffect(()=>{setSession(undefined);setError('');},[usinaId,competencia]);
+ const storageKey=`cemig-simulacao:${usuario?.id}:${usinaId}:${competencia}`;
+ useEffect(()=>{
+  let active=true;setSession(undefined);setError('');
+  if(allowed)void AsyncStorage.getItem(storageKey).then(async id=>{
+   if(!id||!active)return;
+   const r=await api.get<Session>(`${base}/${id}`,{timeout:12000});
+   if(active)setSession(r.data);
+  }).catch(()=>{});
+  return()=>{active=false;};
+ },[allowed,base,storageKey]);
  useEffect(()=>{
   if(!allowed||!session||!ativos.includes(session.estado))return;
   let active=true;
-  const timer=setInterval(()=>{void api.get<Session>(`${base}/${session.id}`,{timeout:12000}).then(r=>{if(active){setSession(r.data);setError('');}}).catch(()=>{if(active)setError('Consulta temporariamente indisponível. A sessão encerra automaticamente.');});},4000);
+  let pending=false;
+  const timer=setInterval(()=>{if(pending)return;pending=true;void api.get<Session>(`${base}/${session.id}`,{timeout:12000}).then(r=>{if(active){setSession(r.data);setError('');}}).catch(()=>{if(active)setError('Consulta temporariamente indisponível. A sessão encerra automaticamente.');}).finally(()=>{pending=false;});},4000);
   return()=>{active=false;clearInterval(timer);};
  },[allowed,base,session?.id,session?.estado]);
  async function start(){
   if(busy||!competencia||!numerosConfirmados)return;
   setBusy(true);setError('');
-  try{setSession((await api.post<Session>(base,{competencia,ucAncora,numerosAtuaisConfirmados:true,autorizaNavegadorNuvem:true},{timeout:60000})).data);}
+  try{const result=(await api.post<Session>(base,{competencia,ucAncora,numerosAtuaisConfirmados:true,autorizaNavegadorNuvem:true},{timeout:60000})).data;await AsyncStorage.setItem(storageKey,result.id);setSession(result);}
   catch(e:any){setError(e?.response?.data?.message??'Não foi possível iniciar. Tente novamente.');}finally{setBusy(false);}
  }
  async function action(acao:'continuar'|'cancelar'){

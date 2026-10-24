@@ -1,6 +1,7 @@
 exports.handler=async()=>{
  const {exigirCemigSimulacao}=require('../../dist/modules/usinas/cemigCloud.policy.js');
  try{exigirCemigSimulacao(process.env);}catch{return {statusCode:200};}
+ await require('../../dist/modules/cotas/browserbaseQuota.js').coletarCotaBrowserbase();
  const secret=process.env.CONTINGENCY_WORKER_SECRET;
  if(!secret||secret.length<32)throw new Error('Worker de simulação não configurado.');
  const {supabase}=require('../../dist/config/supabase.js');

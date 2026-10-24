@@ -62,7 +62,7 @@ export async function executarCemigSimulacao(id:string){
   const page=context.pages()[0]??await context.newPage();
   await bloquearProtocoloNaSimulacao(page);
   await page.goto(CEMIG_PORTAL,{waitUntil:'domcontentloaded',timeout:45000});
-  const live=await liveBrowserbase(session.id);
+  const live=await liveBrowserbase(session.id,page.url());
   const pronto=await supabase.from('cemig_simulacoes').update({estado:'AGUARDANDO_LOGIN',sessao_id:session.id,live_cifrado:criptografarDado(live)}).eq('id',id).eq('estado','INICIANDO').select('id').maybeSingle();
   if(pronto.error||!pronto.data)return;
   while(Date.now()<prazo){

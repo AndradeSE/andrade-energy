@@ -17,8 +17,11 @@ export async function criarBrowserbaseSimulacao() {
   if(connect.protocol!=="wss:"||!(connect.hostname==="browserbase.com"||connect.hostname.endsWith(".browserbase.com")))throw new Error("Conexão de navegador inválida.");
   return {id:s.id,connectUrl:s.connectUrl};
 }
-export async function liveBrowserbase(id:string) {
-  return urlLivePermitida((await api(`sessions/${id}/debug?expiresIn=600`)).debuggerFullscreenUrl);
+export async function liveBrowserbase(id:string,pageUrl?:string) {
+  const result=await api(`sessions/${id}/debug?expiresIn=600`);
+  // The session-level view may point at an empty tab after portal navigation.
+  const pagina=Array.isArray(result.pages)?result.pages.find((p:any)=>p.url===pageUrl):undefined;
+  return urlLivePermitida(pagina?.debuggerFullscreenUrl??result.debuggerFullscreenUrl);
 }
 export async function consultarMinutosBrowserbase(){
  const projectId=process.env.BROWSERBASE_PROJECT_ID;
