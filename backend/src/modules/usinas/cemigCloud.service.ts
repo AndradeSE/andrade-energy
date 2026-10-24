@@ -13,7 +13,7 @@ function decifrar(valor:string){if(!valor?.startsWith('v1.'))throw new Error('Da
 async function atualizar(id:string,patch:object){const r=await supabase.from('cemig_simulacoes').update(patch).eq('id',id);if(r.error)throw new Error('Não foi possível atualizar a simulação.');}
 
 export async function iniciarCemigSimulacao(usinaId:string,empresaId:string,usuarioId:string,body:any){
- exigirCemigSimulacao(process.env);segredo();
+ exigirCemigSimulacao(process.env);
  if(body?.autorizaNavegadorNuvem!==true||body?.numerosAtuaisConfirmados!==true)throw new Error('Confirme os números e o uso do navegador em nuvem para esta simulação.');
  const u=await supabase.from('usinas').select('numero_instalacao').eq('id',usinaId).eq('empresa_id',empresaId).maybeSingle();
  if(u.error||!u.data)throw new Error('Usina não encontrada.');
@@ -23,10 +23,8 @@ export async function iniciarCemigSimulacao(usinaId:string,empresaId:string,usua
  const r=await supabase.rpc('reservar_cemig_simulacao',{p_empresa:empresaId,p_usina:usinaId,p_usuario:usuarioId,p_competencia:plano.competencia,p_uc:uc,p_arquivo:plano.arquivo,p_csv:criptografarDado(plano.csv)});
  if(r.error||typeof r.data!=='string')throw new Error('Não foi possível reservar a simulação. Confira se há outra ativa ou se o limite mensal foi atingido.');
  const id=r.data;
- try{
-  const resposta=await fetch(worker,{method:'POST',redirect:'error',signal:AbortSignal.timeout(12000),headers:{'Content-Type':'application/json','x-cemig-worker':segredo()},body:JSON.stringify({id})});
-  if(resposta.status!==202)throw new Error('Worker indisponível');
- }catch{await atualizar(id,{estado:'ERRO',erro:'Não foi possível iniciar o navegador. Nenhum protocolo foi enviado.',csv_cifrado:null});throw new Error('Não foi possível iniciar a simulação em nuvem.');}
+ // A Netlify lê esta fila a cada minuto. Nenhuma credencial do navegador
+ // ou segredo do worker precisa ser copiado para o Render.
  return {id,estado:'FILA',protocolo:null};
 }
 

@@ -26,6 +26,9 @@
 [functions."jobs-dispatch"]
   schedule = "* * * * *"
 
+[functions."cemig-dispatch"]
+  schedule = "* * * * *"
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/api/:splat"
