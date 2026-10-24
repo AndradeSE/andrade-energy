@@ -49,7 +49,7 @@ import type { ScheduledJob } from "./config/durableScheduledJob";
 import { contingencyRequestGuard } from "./config/contingencyRequestGuard";
 import { contingencyExecutor } from './config/contingencyExecutor';
 import { renderReserveReady } from './config/renderReserveReadiness';
-import { observeRenderForContingency } from './config/contingencyAutomatic';
+import { observeRenderForContingency,lastRenderReserveObservation } from './config/contingencyAutomatic';
 import contingencyRoutes from "./config/contingency.routes";
 
 dotenv.config();
@@ -216,6 +216,7 @@ app.get("/health", async (_, res) => {
     ...(executorIdentity === 'RENDER_RESERVA' ? {
       environment: 'preview',
       contingency: { executor: executorIdentity, readyForFailover: reserveReady, writes: reserveReady,
+        monitor:lastRenderReserveObservation(),
         backgroundJobs: process.env.BACKGROUND_JOBS_ENABLED==='true' && process.env.DURABLE_SCHEDULER_ENABLED==='true' },
     } : {}),
     ...(process.env.API_RUNTIME === "serverless" ? {
