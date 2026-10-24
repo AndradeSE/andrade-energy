@@ -17,6 +17,8 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
   const [enviarEmail,setEnviarEmail]=useState(false);
   const [ajustes,setAjustes]=useState(false);
   const [detalhes,setDetalhes]=useState(false);
+  const [arquivoAberto,setArquivoAberto]=useState(false);
+  const [envioAberto,setEnvioAberto]=useState(false);
   const [ancora,setAncora]=useState("");
   const [numerosAtuaisConfirmados,setNumerosAtuaisConfirmados]=useState(false);
   const [ocupado,setOcupado]=useState(false);
@@ -72,8 +74,8 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
     finally{setOcupado(false);}
   }
   return <Card><View style={{gap:Spacing.sm}}>
-    <Text style={{fontSize:18,fontWeight:"700",color:Colors.text}}>Planilha mensal de rateio</Text>
-    <CemigCloudSimulation usinaId={usinaId} competencia={competencia} ucAncora={ancora} numerosConfirmados={numerosAtuaisConfirmados}/>
+    <Text style={{fontSize:18,fontWeight:"700",color:Colors.text}}>Rateio mensal</Text>
+    <Text style={{color:Colors.subtitle}}>Confira a âncora, prepare o arquivo e acompanhe o envio.</Text>
     <View style={{backgroundColor:"#EFF7F2",borderRadius:12,padding:16,gap:6}} accessibilityLabel="Saldo acumulado da UC âncora">
       <Text style={{fontWeight:"700",color:Colors.text}}>Saldo acumulado da UC âncora</Text>
       <Text style={{fontSize:24,fontWeight:"700",color:Colors.primary,flexShrink:1}}>{consultandoSaldo?"Consultando…":erroSaldo?"Consulta indisponível":saldoAncora?.saldoKwh!=null?`${saldoAncora.saldoKwh.toLocaleString("pt-BR",{maximumFractionDigits:2})} kWh`:"Saldo não informado"}</Text>
@@ -99,19 +101,23 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
     {resultado?.suspensas?.length?<Text style={{color:Colors.subtitle}}>{resultado.suspensas.length} UC(s) sem nova alocação porque o saldo cobre a previsão de consumo. Elas aparecem no rascunho para conferência e não entram como beneficiárias com cota zero no CSV Cemig. Seus contratos permanecem ativos.</Text>:null}
     {resultado?.saldosSemHistorico?<Text style={{color:Colors.subtitle}}>{resultado.saldosSemHistorico} UC(s) sem saldo registrado: considerado zero. Confira o saldo e sua competência no rascunho antes de solicitar o rateio.</Text>:null}
     {resultado?.pendencias?.length?<Text style={{color:Colors.subtitle}}>Para o CSV Cemig: {resultado.pendencias.join(" ")}</Text>:null}
-    {resultado && !resultado.rascunho?<View style={{padding:12,borderRadius:12,backgroundColor:"#EFF7F2",gap:8}}>
-      <Text style={{fontWeight:"700",color:Colors.text}}>Solicitação à Cemig</Text>
-      <Text style={{color:Colors.subtitle}}>CSV preparado. Abra Compensação de Geração Distribuída, selecione a geradora e a modalidade, escolha Inserir por anexo e anexe o CSV. Login, CAPTCHA e confirmação são feitos no portal. A abertura do portal não confirma envio nem aplicação do rateio.</Text>
-      <Pressable accessibilityRole="link" onPress={()=>void Linking.openURL("https://www.atendimento.cemig.com.br/portal/services/compensation-gd").catch(()=>Alert.alert("Não foi possível abrir","Acesse o Cemig Atende no navegador."))} style={{minHeight:44,flexDirection:"row",alignItems:"center",gap:8}}><Ionicons name="open-outline" size={20} color={Colors.primary}/><Text style={{color:Colors.primary,fontWeight:"700"}}>Continuar no Cemig Atende</Text></Pressable>
-    </View>:null}
-    <View style={{borderTopWidth:1,borderColor:Colors.border,paddingTop:12,gap:8}}>
-      <Text style={{fontWeight:"700",color:Colors.text}}>Preparar planilha</Text>
+    {resultado && !resultado.rascunho?<Text style={{color:Colors.primary,fontWeight:"700"}}>CSV pronto · prossiga em Enviar à Cemig</Text>:null}
+    <SecaoRateio titulo="Preparar arquivo" resumo="Rascunho ou CSV Cemig · download e e-mail" aberto={arquivoAberto} onPress={()=>setArquivoAberto(v=>!v)}/>
+    {arquivoAberto?<View style={{borderTopWidth:1,borderColor:Colors.border,paddingTop:12,gap:8}}>
       <Opcao label="CSV no padrão Cemig" checked={formatoCemig} disabled={ocupado} onPress={()=>setFormatoCemig(v=>!v)} />
       <Text style={{color:Colors.subtitle}}>{formatoCemig?"Exige âncora e números atuais conferidos.":"Rascunho para conferir dados, sem enviar à Cemig."}</Text>
       <Opcao label="Enviar ao e-mail cadastrado do gerador" checked={enviarEmail} disabled={ocupado} onPress={()=>setEnviarEmail(v=>!v)} />
       <Button title={ocupado?"Preparando…":enviarEmail?"Gerar e enviar":"Gerar e baixar"} disabled={ocupado||!competencia} onPress={()=>enviarEmail?Alert.alert("Enviar planilha","Enviar a competência "+competencia+" ao gerador cadastrado? Não será enviada à Cemig.",[{text:"Cancelar",style:"cancel"},{text:"Enviar",onPress:()=>void gerar(true,formatoCemig)}]):void gerar(false,formatoCemig)} />
+    </View>:null}
+    <SecaoRateio titulo="Enviar à Cemig" resumo="Portal e teste de envio em nuvem" aberto={envioAberto} onPress={()=>setEnvioAberto(v=>!v)}/>
+    <View style={{display:envioAberto?"flex":"none",gap:Spacing.sm}}>
+      <Text style={{color:Colors.subtitle}}>Baixe o CSV em Preparar arquivo e anexe em Compensação de Geração Distribuída. O arquivo gerado não comprova envio ou aprovação pela Cemig.</Text>
+      <Pressable accessibilityRole="link" onPress={()=>void Linking.openURL("https://www.atendimento.cemig.com.br/portal/services/compensation-gd").catch(()=>Alert.alert("Não foi possível abrir","Acesse o Cemig Atende no navegador."))} style={{minHeight:44,justifyContent:"center"}}><Text style={{color:Colors.primary,fontWeight:"700"}}>Abrir Cemig Atende</Text></Pressable>
+      <CemigCloudSimulation usinaId={usinaId} competencia={competencia} ucAncora={ancora} numerosConfirmados={numerosAtuaisConfirmados}/>
     </View>
   </View></Card>;
 }
+
+function SecaoRateio({titulo,resumo,aberto,onPress}:{titulo:string;resumo:string;aberto:boolean;onPress:()=>void}){return <Pressable accessibilityRole="button" accessibilityState={{expanded:aberto}} onPress={onPress} style={{minHeight:64,borderTopWidth:1,borderTopColor:Colors.border,paddingVertical:12,flexDirection:"row",alignItems:"center",gap:10}}><View style={{flex:1,gap:4}}><Text style={{fontWeight:"700",color:Colors.text}}>{titulo}</Text><Text style={{color:Colors.subtitle,lineHeight:20}}>{resumo}</Text></View><Ionicons name={aberto?"chevron-up":"chevron-down"} size={20} color={Colors.primary}/></Pressable>;}
 
 function Opcao({label,checked,disabled,onPress}:{label:string;checked:boolean;disabled:boolean;onPress:()=>void}){return <Pressable accessibilityRole="checkbox" accessibilityLabel={label} accessibilityState={{checked,disabled}} disabled={disabled} onPress={onPress} style={{minHeight:48,flexDirection:"row",alignItems:"center",gap:10,opacity:disabled?0.45:1}}><Ionicons name={checked?"checkbox":"square-outline"} size={24} color={checked?Colors.primary:Colors.subtitle}/><Text style={{flex:1,color:Colors.text,lineHeight:20}}>{label}</Text></Pressable>;}
