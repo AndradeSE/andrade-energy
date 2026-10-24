@@ -1,5 +1,6 @@
 import { normalizarPlanoContrato } from "../contratos/planoContrato.policy";
 import { cpfTitularPatch } from "./cpfTitularPatch";
+import { saldoCreditoInformado } from "./saldoAncora.policy";
 import { receitaAtualDaCompetencia } from "./receitaDashboard.policy";
 import {
   buscarDashboardUsina,
@@ -91,7 +92,7 @@ export async function registrarProducaoDaFaturaGeradora(usinaId: string, dados: 
   if (energiaGerada <= 0) throw new Error("A diferença entre as medições não apresenta produção no período.");
 
   const competencia = competenciaData(String(dados.referencia ?? ""));
-  const fechamentoAtualizado = await persistirProducaoDaFatura(usina, competencia, energiaGerada);
+  const fechamentoAtualizado = await persistirProducaoDaFatura(usina, competencia, energiaGerada, saldoCreditoInformado(dados.saldoAtual, dados.saldoAtualInformado));
   return {
     sucesso: true,
     origem: "CONTA_ENERGIA",
@@ -100,7 +101,7 @@ export async function registrarProducaoDaFaturaGeradora(usinaId: string, dados: 
   };
 }
 
-async function persistirProducaoDaFatura(usina: any, competencia: string, energiaGerada: number) {
+async function persistirProducaoDaFatura(usina: any, competencia: string, energiaGerada: number, saldoCreditos: number | null = null) {
   const usinaId = String(usina.id);
   const { data: atual, error: buscaError } = await supabase.from("fechamentos").select("*").eq("usina_id", usinaId).eq("competencia", competencia).maybeSingle();
   if (buscaError) throw buscaError;
@@ -108,6 +109,7 @@ async function persistirProducaoDaFatura(usina: any, competencia: string, energi
   const energiaAlocada = Number(atual?.energia_alocada ?? 0);
   const payload = {
     usina_id: usinaId, empresa_id: usina.empresa_id, competencia, energia_gerada: energiaGerada,
+    ...(saldoCreditos !== null ? {saldo_creditos_kwh:saldoCreditos} : {}),
     energia_alocada: energiaAlocada, energia_disponivel: energiaGerada - energiaAlocada,
     ocupacao: energiaGerada ? (energiaAlocada / energiaGerada) * 100 : 0,
     receita_prevista: Number(atual?.receita_prevista ?? 0), receita_realizada: Number(atual?.receita_realizada ?? 0),

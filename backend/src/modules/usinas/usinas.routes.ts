@@ -24,6 +24,7 @@ import { empresaIdDaRequisicao } from "../../utils/empresaScope";
 import { cadastrarUnidadeOperacional } from "./unidadeOperacional.service";
 import { consultarClimaDoEndereco } from "./clima.service";
 import { supabase } from "../../config/supabase";
+import { obterSaldoAncora } from "./saldoAncora.service";
 import { apiRateLimit } from "../../config/distributedRateLimit";
 import { prepararPlanilhaRateio, enviarPlanilhaAoGerador } from "./rateioMensal.service";
 import { permissaoComercial } from "../comercial/permissoesComerciais";
@@ -65,6 +66,12 @@ router.get("/:id/alocacao", exigirGestor, consultarAlocacaoController);
 router.get("/:id/rateio-configuracao",exigirGestor,async(req,res)=>{
   if(!acessoOperacao((req as any).usuario))return res.status(403).json({message:"Acesso à operação não autorizado."});
   try{return res.json(await obterConfiguracaoRateio(req.params.id,empresaIdDaRequisicao(req)));}catch{return res.status(503).json({message:"Configuração do rateio automático indisponível. Tente novamente."});}
+});
+router.get("/:id/saldo-ancora",exigirGestor,async(req,res)=>{
+  if(!acessoOperacao((req as any).usuario))return res.status(403).json({message:"Acesso à operação não autorizado."});
+  res.setHeader("Cache-Control","private, no-store");
+  try{return res.json(await obterSaldoAncora(req.params.id,empresaIdDaRequisicao(req),String(req.query.uc??""),String(req.query.competencia??"")));}
+  catch{return res.status(503).json({message:"Não foi possível consultar o saldo da âncora."});}
 });
 router.put("/:id/rateio-configuracao",exigirGestor,async(req,res)=>{
   if(!acessoOperacao((req as any).usuario))return res.status(403).json({message:"Acesso à operação não autorizado."});

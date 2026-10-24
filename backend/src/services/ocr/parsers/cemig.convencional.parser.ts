@@ -132,6 +132,7 @@ export function parseCemigConvencional(
 
   saldoAnterior: 0,
   saldoAtual: 0,
+  saldoAtualInformado: false,
 
   economia: 0,
 
