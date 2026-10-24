@@ -2,11 +2,6 @@ export const CEMIG_PORTAL = "https://www.atendimento.cemig.com.br/portal/service
 export const CEMIG_SESSION_SECONDS = 600;
 export const CEMIG_PREVIEW_DB = "https://qqhcjieymypowunkixmk.supabase.co";
 
-export function exigirPortalNuvemValidado(env:NodeJS.ProcessEnv){
-  if(env.CEMIG_CLOUD_PORTAL_VALIDATED!=="true")
-    throw new Error("A Cemig ainda não abriu corretamente no navegador em nuvem. Novas simulações estão suspensas para preservar sua cota. Você pode baixar o CSV e anexá-lo manualmente no portal; nenhum protocolo foi enviado.");
-}
-
 export function exigirCemigSimulacao(env:NodeJS.ProcessEnv) {
   if(env.CEMIG_CLOUD_ENABLED!=="true" || String(env.SUPABASE_URL).replace(/\/$/,"")!==CEMIG_PREVIEW_DB)
     throw new Error("A integração Cemig em nuvem está disponível somente para simulação no Preview.");

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {exigirCemigSimulacao,exigirPortalNuvemValidado,CEMIG_PREVIEW_DB,conferirCsvSimulacao,conferirMinutosGratuitos,urlLivePermitida} from './cemigCloud.policy';
+import {exigirCemigSimulacao,CEMIG_PREVIEW_DB,conferirCsvSimulacao,conferirMinutosGratuitos,urlLivePermitida} from './cemigCloud.policy';
 import {leituraBrowserbase} from '../cotas/browserbaseQuota';
 
 test('nuvem bloqueia produção mesmo com flag ligada e bloqueia Preview desligado',()=>{
@@ -10,10 +10,6 @@ test('nuvem bloqueia produção mesmo com flag ligada e bloqueia Preview desliga
 test('sessão só inicia com dez minutos de margem confirmada',()=>{
  for(const n of [0,30,40])assert.doesNotThrow(()=>conferirMinutosGratuitos(n));
  for(const n of [40.1,60,-1,null,undefined,'0',NaN,Infinity])assert.throws(()=>conferirMinutosGratuitos(n));
-});
-test('portal não validado bloqueia novas tentativas antes de reservar cota',()=>{
- for(const valor of [undefined,'','false','1'])assert.throws(()=>exigirPortalNuvemValidado({CEMIG_CLOUD_PORTAL_VALIDATED:valor}),/suspensas/);
- assert.doesNotThrow(()=>exigirPortalNuvemValidado({CEMIG_CLOUD_PORTAL_VALIDATED:'true'}));
 });
 test('CSV inválido nunca chega ao portal: total, duplicatas, documento e âncora',()=>{
  const csv='1111111111111;00000000000;30;\n2222222222222;00000000000;70;X';
