@@ -1,7 +1,8 @@
 import {useState} from 'react';
 import {Alert,Text,View} from 'react-native';
 import {Button,Card} from './ui';
-import {readContingency,switchContingency,setContingencyAutomation,type ContingencyState} from '../services/contingency.service';
+import {readContingency,switchContingency,setContingencyAutomation,prepareRenderReserve,type ContingencyState} from '../services/contingency.service';
+import {isPreviewEnvironment} from '../config/environment';
 import {Colors} from '../theme';
 
 export default function ContingencyControl(){
@@ -17,7 +18,7 @@ export default function ContingencyControl(){
   const pending=Boolean(state?.requests.length||state?.jobs.some(job=>['EXECUTANDO','REVISAO'].includes(job.estado)));
   function changeAutomation(){if(!state?.automation)return;const active=!state.automation.ativa;
     Alert.alert(active?'Ativar troca automática?':'Desativar troca automática?',active?
-      'A Netlify assumirá após o Render confirmar suspensão por cobrança em consultas consecutivas, desde que não existam operações pendentes. Lentidão ou falhas isoladas não acionam a troca. O retorno ao Render permanece manual.':
+      'O servidor reserva selecionado assumirá após o Render confirmar suspensão por cobrança em consultas consecutivas, desde que não existam operações pendentes. Lentidão ou falhas isoladas não acionam a troca. O retorno ao Render permanece manual.':
       'A entrada no reserva voltará a depender de confirmação manual do ADM.',[{text:'Cancelar',style:'cancel'},{text:'Confirmar',onPress:()=>{
         setBusy(true);setError('');void setContingencyAutomation(active).then(()=>readContingency()).then(setState)
           .catch(()=>setError('Não foi possível confirmar a configuração. Consulte novamente.')).finally(()=>setBusy(false));
@@ -30,7 +31,13 @@ export default function ContingencyControl(){
     <Text style={{fontSize:18,fontWeight:'700',color:Colors.text}}>Servidor reserva</Text>
     <Text style={{color:Colors.text}}>A automação pode assumir por suspensão de cobrança confirmada pelo Render. A administração pode conferir o estado e controlar a troca manual.</Text>
     <Button title={busy?'Conferindo…':'Consultar contingência'} disabled={busy} onPress={()=>void run()}/>
-    {state?<><Text style={{color:Colors.text}}>Servidor ativo: {state.control.executor==='RENDER'?'Render':'Netlify'}</Text>
+    {state?<><Text style={{color:Colors.text}}>Servidor ativo: {state.control.executor==='RENDER'?'Render principal':state.control.executor==='RENDER_RESERVA'?'Render reserva':'Netlify'}</Text>
+      {isPreviewEnvironment?<><Text style={{color:Colors.text}}>Reserva selecionado: {state.control.reserva_preferida==='RENDER_RESERVA'?'Render reserva':'Netlify'}</Text>
+        {state.control.reserva_preferida!=='RENDER_RESERVA'?<Button title="Selecionar Render reserva" disabled={busy||!state.control.render_reserva_commit_validado} onPress={()=>Alert.alert('Preparar Render reserva?','A seleção altera o destino das próximas trocas; o servidor principal continuará ativo.',[{text:'Cancelar',style:'cancel'},{text:'Selecionar',onPress:()=>{
+          setBusy(true);setError('');void prepareRenderReserve(state).then(()=>readContingency()).then(setState)
+            .catch(()=>setError('O reserva ainda precisa ser validado. Consulte novamente.')).finally(()=>setBusy(false));
+        }}])}/>:null}
+      </>:null}
       {state.automation?<><Text style={{color:Colors.text}}>Troca automática: {state.automation.ativa?'ativada':'desativada'}</Text>
         <Text style={{color:Colors.text}}>Retorno ao Render: confirmação manual do ADM.</Text>
         {state.automation.ultima_consulta?<Text style={{color:Colors.text}}>Última consulta: {new Date(state.automation.ultima_consulta).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}</Text>:null}
@@ -39,7 +46,7 @@ export default function ContingencyControl(){
         <Button title={state.automation.ativa?'Desativar troca automática':'Ativar troca automática'} disabled={busy||(!state.automation.ativa&&!state.automation.configurada)} onPress={changeAutomation}/>
       </>:null}
       {pending?<Text style={{color:'#985418'}}>Há operações em execução ou pendentes de revisão. A troca permanece bloqueada.</Text>:null}
-      <Button title={state.control.executor==='RENDER'?'Ativar reserva…':'Retornar ao Render…'} disabled={busy||pending||!state.control.commit_validado} onPress={confirm}/></>:null}
+      <Button title={state.control.executor==='RENDER'?'Ativar reserva…':'Retornar ao Render…'} disabled={busy||pending||(state.control.executor==='RENDER'&&!(state.control.reserva_preferida==='RENDER_RESERVA'?state.control.render_reserva_commit_validado:state.control.commit_validado))} onPress={confirm}/></>:null}
     {error?<Text accessibilityRole="alert" style={{color:'#A52B21'}}>{error}</Text>:null}
   </View></Card>;
 }
