@@ -23,3 +23,13 @@ test('an unavailable provider, invalid key or missing response is never a suspen
   }) as typeof fetch);
   assert.equal(states.at(-1), 'BILLING');
 });
+
+test('Render reserve observes the original Preview service through its own private RPC', async () => {
+  const reserve={...env,API_RUNTIME:undefined,CONTINGENCY_EXECUTOR:'RENDER_RESERVA',
+    CONTINGENCY_ROUTING_ENABLED:'true',RENDER_GIT_COMMIT:'a'.repeat(40)};
+  let calls=0;
+  const store={from:()=>({select(){return this;},eq(){return this;},single:async()=>({data:{ativa:true,render_service_id:service.id},error:null})}),
+    rpc:async(name:string,args:any)=>{calls++;assert.equal(name,'observar_render_reserva_contingencia');assert.equal(args.p_commit,reserve.RENDER_GIT_COMMIT);assert.equal(args.p_estado,'BILLING');return {data:'CONFIRMANDO_BILLING',error:null};}};
+  await observeRenderForContingency(reserve,store,(async()=>new Response(JSON.stringify(service))) as typeof fetch);
+  assert.equal(calls,1);
+});
