@@ -7,7 +7,8 @@ export function capmonsterDisponivel(env:NodeJS.ProcessEnv) {
 }
 export function conferirPaginaCaptcha(valor:string) {
   const u=new URL(valor);
-  if(!['https://atende.cemig.com.br','https://www.atendimento.cemig.com.br'].includes(u.origin)||u.username||u.password)
+  if(!['https://atende.cemig.com.br','https://www.atendimento.cemig.com.br'].includes(u.origin)||u.username||u.password||
+    !/^\/(?:login|portal\/login|auth\/login)\/?$/i.test(u.pathname))
     throw new Error('Página fora da Cemig autorizada.');
   return u.origin+u.pathname;
 }

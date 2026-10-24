@@ -9,7 +9,7 @@ test('CapMonster só habilita Preview e chave presente; URL remove query e fragm
  assert.equal(capmonsterDisponivel(env),true);
  for(const patch of [{SUPABASE_URL:'https://production.supabase.co'},{CAPMONSTER_PREVIEW_ENABLED:'false'},{CAPMONSTER_API_KEY:''},{CEMIG_CLOUD_EXECUTOR:'NETLIFY'}])assert.equal(capmonsterDisponivel({...env,...patch}),false);
  assert.equal(conferirPaginaCaptcha(desafio.websiteURL),'https://atende.cemig.com.br/Login');
- for(const url of ['https://atende.cemig.com.br.evil.test/Login','http://atende.cemig.com.br/Login','https://user:secret@atende.cemig.com.br/Login'])assert.throws(()=>conferirPaginaCaptcha(url));
+ for(const url of ['https://atende.cemig.com.br.evil.test/Login','http://atende.cemig.com.br/Login','https://user:secret@atende.cemig.com.br/Login','https://www.atendimento.cemig.com.br/portal/services/compensation-gd'])assert.throws(()=>conferirPaginaCaptcha(url));
 });
 test('saldo inválido ou comprado não cria tarefa',async()=>{
  for(const balance of [0,-1,0.2,'0.1',null]){
