@@ -1,6 +1,7 @@
 import { supabase } from "../../config/supabase";
 import { AZURE_QUOTA_CATALOG, azureQuotaConfig, fetchAzureQuotaReadings } from "./azureQuotas";
 import { QUOTA_CATALOG, quotaBand, resendReadings, resendUsageKey, brevoReading, type QuotaReading } from "./cotas.policy";
+import {cotaBrowserbase} from './browserbaseQuota';
 
 export function quotaEnvironment() {
   return /qqhcjieymypowunkixmk/.test(process.env.SUPABASE_URL ?? "") ? "preview" : "production";
@@ -82,7 +83,7 @@ export async function listServiceQuotas(includeBrevo = false, includeAzure = fal
   ]);
   if (readings.error || checks.error) throw new Error("Não foi possível consultar as cotas.");
   const catalog = [...QUOTA_CATALOG.filter(item => includeBrevo || item.servico !== "BREVO"), ...(includeAzure && azureQuotaConfig(process.env) ? AZURE_QUOTA_CATALOG : [])];
-  return { ambiente: env, alertas: [80, 90, 100], servicos: catalog.map(item => {
+  const servicos = catalog.map(item => {
     const reading = readings.data?.find(row => row.servico === item.servico && row.metrica === item.metrica);
     const check = checks.data?.find(row => row.servico === item.servico);
     return { ...item, leitura: reading ? { ...reading, restante: reading.limite === null ? null : Math.max(Number(reading.limite)-Number(reading.usado), 0),
@@ -90,5 +91,7 @@ export async function listServiceQuotas(includeBrevo = false, includeAzure = fal
       faixa: quotaBand(Number(reading.usado), reading.limite === null ? null : Number(reading.limite)),
       desatualizada: Date.now()-Date.parse(reading.verificado_em)>6*3600_000 } : null,
       consulta: check ?? null };
-  }) };
+  });
+  const browserbase = includeAzure ? await cotaBrowserbase() : [];
+  return {ambiente:env,alertas:[80,90,100],servicos:[...servicos,...browserbase]};
 }

@@ -10,6 +10,7 @@ import FormField from "../cadastro/FormField";
 import { gerarPlanilhaRateio,obterConfiguracaoRateio,salvarConfiguracaoRateio,buscarRateioAutomatico,type ConfiguracaoRateio } from "../../services/usinas.service";
 import { Colors, Spacing } from "../../theme";
 import {obterSaldoAncora,type SaldoAncora} from "../../services/usinas.service";
+import CemigCloudSimulation from './CemigCloudSimulation';
 
 export default function RateioMensalCard({usinaId,empresaId,competencia}: {usinaId:string;empresaId:string;competencia?:string}) {
   const [formatoCemig,setFormatoCemig]=useState(false);
@@ -72,6 +73,7 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
   }
   return <Card><View style={{gap:Spacing.sm}}>
     <Text style={{fontSize:18,fontWeight:"700",color:Colors.text}}>Planilha mensal de rateio</Text>
+    <CemigCloudSimulation usinaId={usinaId} competencia={competencia} ucAncora={ancora} numerosConfirmados={numerosAtuaisConfirmados}/>
     <View style={{backgroundColor:"#EFF7F2",borderRadius:12,padding:16,gap:6}} accessibilityLabel="Saldo acumulado da UC âncora">
       <Text style={{fontWeight:"700",color:Colors.text}}>Saldo acumulado da UC âncora</Text>
       <Text style={{fontSize:24,fontWeight:"700",color:Colors.primary,flexShrink:1}}>{consultandoSaldo?"Consultando…":erroSaldo?"Consulta indisponível":saldoAncora?.saldoKwh!=null?`${saldoAncora.saldoKwh.toLocaleString("pt-BR",{maximumFractionDigits:2})} kWh`:"Saldo não informado"}</Text>
