@@ -9,6 +9,7 @@ import { Button, Card } from "../ui";
 import FormField from "../cadastro/FormField";
 import { gerarPlanilhaRateio,obterConfiguracaoRateio,salvarConfiguracaoRateio,buscarRateioAutomatico,type ConfiguracaoRateio } from "../../services/usinas.service";
 import { Colors, Spacing } from "../../theme";
+import {obterSaldoAncora,type SaldoAncora} from "../../services/usinas.service";
 
 export default function RateioMensalCard({usinaId,empresaId,competencia}: {usinaId:string;empresaId:string;competencia?:string}) {
   const [formatoCemig,setFormatoCemig]=useState(false);
@@ -21,11 +22,22 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
   const [resultado,setResultado]=useState<Awaited<ReturnType<typeof gerarPlanilhaRateio>>>();
   const [config,setConfig]=useState<ConfiguracaoRateio>();
   const [erroConfig,setErroConfig]=useState(false);
+  const [saldoAncora,setSaldoAncora]=useState<SaldoAncora>();
+  const [erroSaldo,setErroSaldo]=useState(false);
+  const [consultandoSaldo,setConsultandoSaldo]=useState(false);
+  const [revisaoSaldo,setRevisaoSaldo]=useState(0);
   const chave=`rateio:ancora:${empresaId}:${usinaId}`;
   const escopo=useRef("");
   escopo.current=`${chave}:${competencia}`;
   useEffect(()=>{let ativo=true;setAncora("");setNumerosAtuaisConfirmados(false);setResultado(undefined);setConfig(undefined);setErroConfig(false);void obterConfiguracaoRateio(usinaId).then(async c=>{const local=await AsyncStorage.getItem(chave);if(ativo){setConfig(c);setAncora(c.uc_ancora||local||"");setNumerosAtuaisConfirmados(c.numeros_confirmados);}}).catch(()=>{if(ativo)setErroConfig(true);});return()=>{ativo=false;};},[chave,usinaId]);
   useEffect(()=>{setResultado(undefined);setNumerosAtuaisConfirmados(false);},[competencia]);
+  useEffect(()=>{
+    let ativo=true;setSaldoAncora(undefined);setErroSaldo(false);
+    if(!competencia||!config)return;
+    setConsultandoSaldo(true);
+    const timer=setTimeout(()=>void obterSaldoAncora(usinaId,ancora,competencia).then(s=>{if(ativo)setSaldoAncora(s);}).catch(()=>{if(ativo)setErroSaldo(true);}).finally(()=>{if(ativo)setConsultandoSaldo(false);}),350);
+    return()=>{ativo=false;clearTimeout(timer);};
+  },[usinaId,empresaId,ancora,competencia,config,revisaoSaldo]);
   async function salvarAuto(){
     const pedido=escopo.current;setOcupado(true);
     try{const c=await salvarConfiguracaoRateio(usinaId,ancora,numerosAtuaisConfirmados);if(pedido===escopo.current){setConfig(c);setErroConfig(false);Alert.alert("Rateio automático configurado","A âncora salva vale para esta usina em todos os aparelhos. O sistema aguardará a produção e todas as faturas das UCs vigentes.");}}
@@ -60,6 +72,14 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
   }
   return <Card><View style={{gap:Spacing.sm}}>
     <Text style={{fontSize:18,fontWeight:"700",color:Colors.text}}>Planilha mensal de rateio</Text>
+    <View style={{backgroundColor:"#EFF7F2",borderRadius:12,padding:16,gap:6}} accessibilityLabel="Saldo acumulado da UC âncora">
+      <Text style={{fontWeight:"700",color:Colors.text}}>Saldo acumulado da UC âncora</Text>
+      <Text style={{fontSize:24,fontWeight:"700",color:Colors.primary,flexShrink:1}}>{consultandoSaldo?"Consultando…":erroSaldo?"Consulta indisponível":saldoAncora?.saldoKwh!=null?`${saldoAncora.saldoKwh.toLocaleString("pt-BR",{maximumFractionDigits:2})} kWh`:"Saldo não informado"}</Text>
+      {saldoAncora?<Text style={{color:Colors.subtitle}}>UC {saldoAncora.uc}{!ancora?" · geradora (âncora sugerida)":""}{saldoAncora.referencia?` · referência ${saldoAncora.referencia.slice(5,7)}/${saldoAncora.referencia.slice(0,4)}`:""}</Text>:null}
+      <Text style={{color:Colors.subtitle}}>Créditos registrados na fatura da UC. A energia prevista no rateio ainda não compõe este saldo.</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel="Atualizar saldo da UC âncora" disabled={consultandoSaldo} onPress={()=>setRevisaoSaldo(v=>v+1)} style={{minHeight:44,justifyContent:"center"}}><Text style={{color:Colors.primary,fontWeight:"700"}}>Atualizar saldo</Text></Pressable>
+      {!consultandoSaldo&&!erroSaldo&&saldoAncora?.saldoKwh==null?<Text style={{color:Colors.subtitle}}>Importe uma fatura que informe o saldo de créditos para atualizar este indicador.</Text>:null}
+    </View>
     <Pressable accessibilityRole="button" accessibilityState={{expanded:detalhes}} onPress={()=>setDetalhes(v=>!v)} style={{minHeight:44,flexDirection:"row",alignItems:"center",gap:8}}><Ionicons name="information-circle-outline" size={20} color={Colors.primary}/><Text style={{color:Colors.primary}}>Como é calculado?</Text></Pressable>
     {detalhes?<Text style={{color:Colors.subtitle}}>(Consumo médio − saldo de créditos da UC) ÷ produção média real da usina × 100, sem adicional e com mínimo de zero. O restante fica na UC âncora. Recalcule a cada competência antes de solicitar a alteração à Cemig.</Text>:null}
     <Pressable accessibilityRole="button" accessibilityState={{expanded:ajustes}} onPress={()=>setAjustes(v=>!v)} style={{minHeight:48,flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}><Text style={{fontWeight:"700",color:Colors.text}}>Âncora e configuração</Text><Ionicons name={ajustes?"chevron-up":"chevron-down"} size={20} color={Colors.primary}/></Pressable>

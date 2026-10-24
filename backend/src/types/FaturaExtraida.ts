@@ -66,6 +66,7 @@ export interface FaturaExtraida {
   saldoAnterior: number;
 
   saldoAtual: number;
+  saldoAtualInformado?: boolean;
 
   valorTotal: number;
 

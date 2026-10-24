@@ -276,6 +276,7 @@ export function parseCemigGD(
     tipoGd: gd1 && gd2 ? "MISTA" : gd2 ? "GD2" : gd1 ? "GD1" : undefined,
 
     saldoAtual,
+    saldoAtualInformado: /SALDO ATUAL DE GERAÇÃO:\s*[\d.,]+/i.test(texto),
 
     economia,
 
