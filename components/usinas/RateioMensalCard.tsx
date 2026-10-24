@@ -76,7 +76,7 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
       <Text style={{fontWeight:"700",color:Colors.text}}>Saldo acumulado da UC âncora</Text>
       <Text style={{fontSize:24,fontWeight:"700",color:Colors.primary,flexShrink:1}}>{consultandoSaldo?"Consultando…":erroSaldo?"Consulta indisponível":saldoAncora?.saldoKwh!=null?`${saldoAncora.saldoKwh.toLocaleString("pt-BR",{maximumFractionDigits:2})} kWh`:"Saldo não informado"}</Text>
       {saldoAncora?<Text style={{color:Colors.subtitle}}>UC {saldoAncora.uc}{!ancora?" · geradora (âncora sugerida)":""}{saldoAncora.referencia?` · referência ${saldoAncora.referencia.slice(5,7)}/${saldoAncora.referencia.slice(0,4)}`:""}</Text>:null}
-      <Text style={{color:Colors.subtitle}}>Créditos registrados na fatura da UC. A energia prevista no rateio ainda não compõe este saldo.</Text>
+      <Text style={{color:Colors.subtitle}}>Saldo total informado pela Cemig para esta UC, incluindo créditos recebidos de outras usinas, como GD1. A injeção recebida não é somada novamente, e o rateio previsto ainda não compõe este saldo.</Text>
       <Pressable accessibilityRole="button" accessibilityLabel="Atualizar saldo da UC âncora" disabled={consultandoSaldo} onPress={()=>setRevisaoSaldo(v=>v+1)} style={{minHeight:44,justifyContent:"center"}}><Text style={{color:Colors.primary,fontWeight:"700"}}>Atualizar saldo</Text></Pressable>
       {!consultandoSaldo&&!erroSaldo&&saldoAncora?.saldoKwh==null?<Text style={{color:Colors.subtitle}}>Importe uma fatura que informe o saldo de créditos para atualizar este indicador.</Text>:null}
     </View>
