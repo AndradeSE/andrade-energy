@@ -3,7 +3,7 @@ import {criptografarDado,descriptografarDado} from '../../utils/sensitiveData';
 import {prepararPlanilhaRateio} from './rateioMensal.service';
 import {CEMIG_PORTAL,exigirCemigSimulacao,conferirCsvSimulacao} from './cemigCloud.policy';
 import {criarBrowserbaseSimulacao,encerrarBrowserbase,liveBrowserbase} from './cemigCloud.browserbase';
-import {bloquearProtocoloNaSimulacao,validarAnexoCemig} from './cemigCloud.portal';
+import {bloquearProtocoloNaSimulacao,validarAnexoCemig,FalhaEtapaCemig} from './cemigCloud.portal';
 import {chromium,type Browser} from 'playwright-core';
 
 const ativos=['FILA','INICIANDO','AGUARDANDO_LOGIN','VALIDANDO'];
@@ -79,9 +79,10 @@ export async function executarCemigSimulacao(id:string){
    await new Promise(resolve=>setTimeout(resolve,2000));
   }
   await supabase.from('cemig_simulacoes').update({estado:'EXPIRADO',csv_cifrado:null,live_cifrado:null}).eq('id',id).in('estado',ativos);
- }catch{
+ }catch(error){
   // Provider/Playwright errors may contain credentials, DOM or customer data.
-  await supabase.from('cemig_simulacoes').update({estado:'ERRO',erro:'A simulação não chegou à revisão. Nenhum protocolo foi solicitado. Confira o login e a cota.',csv_cifrado:null,live_cifrado:null}).eq('id',id).in('estado',ativos);
+  const mensagem=error instanceof FalhaEtapaCemig ? error.message : 'A simulação não chegou à revisão. Nenhum protocolo foi solicitado. Confira o login e a cota.';
+  await supabase.from('cemig_simulacoes').update({estado:'ERRO',erro:mensagem,csv_cifrado:null,live_cifrado:null}).eq('id',id).in('estado',ativos);
  }finally{
   if(sessionId)await encerrarBrowserbase(sessionId).catch(()=>{});
   if(browser)await browser.close().catch(()=>{});
