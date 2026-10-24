@@ -47,9 +47,11 @@ import { processarPushPendente } from "./modules/notificacoes/push.service";
 import { executeScheduledJob, scheduledJobs } from "./config/scheduledJobs";
 import type { ScheduledJob } from "./config/durableScheduledJob";
 import { contingencyRequestGuard } from "./config/contingencyRequestGuard";
+import { contingencyExecutor } from './config/contingencyExecutor';
 import contingencyRoutes from "./config/contingency.routes";
 
 dotenv.config();
+const executorIdentity = contingencyExecutor(process.env);
 
 export const app = express();
 app.set("trust proxy", 1);
@@ -200,6 +202,10 @@ app.get("/health", (_, res) => {
   res.json({
     status: "online",
     commit: (process.env.RENDER_GIT_COMMIT ?? process.env.COMMIT_REF)?.slice(0, 7) ?? "local",
+    ...(executorIdentity === 'RENDER_RESERVA' ? {
+      environment: 'preview',
+      contingency: { executor: executorIdentity, readyForFailover: false, writes: false, backgroundJobs: false },
+    } : {}),
     ...(process.env.API_RUNTIME === "serverless" ? {
       contingency: { environment: "preview", readyForFailover: false, writes: false,
         activationPolicy: "confirmed_render_quota_only",
