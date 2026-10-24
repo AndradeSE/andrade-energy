@@ -23,8 +23,8 @@ export function criarDespachanteCemig(deps:{buscar:()=>Promise<string|null>;exec
 
 export async function iniciarDespachanteCemigRender() {
   if(!cemigRenderHabilitado(process.env))return;
-  const {supabase}=await import('../../config/supabase');
-  const {executarCemigSimulacao}=await import('./cemigCloud.service');
+  const {supabase}=await import('../../config/supabase.js');
+  const {executarCemigSimulacao}=await import('./cemigCloud.service.js');
   const tick=criarDespachanteCemig({
     buscar:async()=>{
       const r=await supabase.from('cemig_simulacoes').select('id').eq('estado','FILA')
