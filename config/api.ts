@@ -40,6 +40,7 @@ const resolveApiTarget=createContingencyResolver(contingencyEnvironment,async()=
 
 const api = axios.create({
   baseURL: apiBaseURL,
+  timeout: 20_000,
 });
 
 api.interceptors.request.use(async (config) => {
@@ -54,6 +55,9 @@ api.interceptors.response.use(
   (error) => {
     const mensagem = String(error?.response?.data?.message ?? "");
     const codigo = String(error?.response?.data?.code ?? "");
+    // The old owner explicitly rejected this request. Refresh routing for the
+    // next user action; never replay an operation whose result may be uncertain.
+    if (codigo === "EXECUTOR_INATIVO") resolveApiTarget.invalidate();
     if (error?.response?.status === 401 && codigo === "CONTA_EXCLUIDA") {
       avisarContaExcluida();
     } else if (error?.response?.status === 401 && /sessão inválida|sessao invalida|expirada|desativada/i.test(mensagem)) {

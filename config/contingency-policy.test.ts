@@ -26,3 +26,14 @@ test("Render reserve is Preview-only and requires a validated release",()=>{
  assert.throws(()=>resolveContingencyTarget("production",{...value,environment:"production"}));
  assert.throws(()=>resolveContingencyTarget("preview",{...value,contingency:{readyForFailover:false}}));
 });
+
+test("explicit inactive-owner response invalidates routing without replaying work",async()=>{
+ let owner='RENDER';let reads=0;
+ const resolver=createContingencyResolver('preview',async()=>{reads++;return {environment:'preview',revision:reads,executor:owner,contingency:{readyForFailover:true}};},()=>100);
+ assert.equal(await resolver(),CONTINGENCY_ENDPOINTS.preview.primary);
+ owner='RENDER_RESERVA';
+ assert.equal(await resolver(),CONTINGENCY_ENDPOINTS.preview.primary);
+ resolver.invalidate();
+ assert.equal(await resolver(),CONTINGENCY_ENDPOINTS.preview.standby);
+ assert.equal(reads,2);
+});

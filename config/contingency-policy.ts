@@ -23,7 +23,7 @@ export function createContingencyResolver(environment:Environment, read:()=>Prom
   let cached: string=CONTINGENCY_ENDPOINTS[environment].primary;
   let validUntil=0;
   let pending:Promise<string>|undefined;
-  return async()=>{
+  const resolve=async()=>{
     if(now()<validUntil) return cached;
     if(!pending) pending=(async()=>{
       try {
@@ -38,4 +38,5 @@ export function createContingencyResolver(environment:Environment, read:()=>Prom
     })();
     return pending;
   };
+  return Object.assign(resolve,{invalidate:()=>{validUntil=0;}});
 }
