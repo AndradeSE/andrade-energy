@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { classifyRenderService, observeRenderForContingency } from './contingencyAutomatic';
+import { classifyRenderService, observeRenderForContingency,lastRenderReserveObservation } from './contingencyAutomatic';
 const env = { API_RUNTIME: 'serverless', BACKGROUND_JOBS_ENABLED: 'false', CONTINGENCY_ENVIRONMENT: 'preview', NETLIFY_FULL_VALIDATION_ENABLED: 'true', NETLIFY_DURABLE_JOBS_ENABLED: 'true', SUPABASE_URL: 'https://qqhcjieymypowunkixmk.supabase.co', RENDER_MONITOR_API_KEY: 'fixture', COMMIT_REF: 'validated-fixture' };
 const service = { id: 'srv-das0mmfpn0mc73ec00hg', type: 'web_service', serviceDetails: { url: 'https://andrade-energy-api-homologacao.onrender.com', plan: 'free' }, suspended: 'suspended', suspenders: ['billing'] };
 test('automatic contingency requires the exact free service and billing-only suspension', () => {
@@ -32,4 +32,12 @@ test('Render reserve observes the original Preview service through its own priva
     rpc:async(name:string,args:any)=>{calls++;assert.equal(name,'observar_render_reserva_contingencia');assert.equal(args.p_commit,reserve.RENDER_GIT_COMMIT);assert.equal(args.p_estado,'BILLING');return {data:'CONFIRMANDO_BILLING',error:null};}};
   await observeRenderForContingency(reserve,store,(async()=>new Response(JSON.stringify(service))) as typeof fetch);
   assert.equal(calls,1);
+});
+
+test('a disabled switch can still diagnose the reserve key without activating anything',async()=>{
+  const reserve={...env,API_RUNTIME:undefined,CONTINGENCY_EXECUTOR:'RENDER_RESERVA',CONTINGENCY_ROUTING_ENABLED:'true'};
+  const store={from:()=>({select(){return this;},eq(){return this;},single:async()=>({data:{ativa:false,render_service_id:null},error:null})}),
+    rpc:async(name:string)=>{assert.equal(name,'observar_render_reserva_contingencia');return {data:'DESATIVADA',error:null};}};
+  assert.equal(await observeRenderForContingency(reserve,store,(async()=>new Response(JSON.stringify({...service,suspended:'not_suspended',suspenders:[]}))) as typeof fetch),'DESATIVADA');
+  assert.equal(lastRenderReserveObservation()?.state,'ATIVO');
 });

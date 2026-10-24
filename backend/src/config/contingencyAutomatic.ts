@@ -3,6 +3,8 @@ import { contingencyCommit, contingencyExecutor } from './contingencyExecutor';
 
 type RenderState = 'ATIVO' | 'BILLING' | 'OUTRA_SUSPENSAO' | 'INDETERMINADO';
 const services = { preview: 'srv-das0mmfpn0mc73ec00hg', production: 'srv-da0iso5bedkc73asecig' } as const;
+let reserveObservation: {state:RenderState;checkedAt:string}|null=null;
+export function lastRenderReserveObservation() { return reserveObservation; }
 export function classifyRenderService(body: any, environment: 'preview' | 'production'): RenderState {
   if (body?.id !== services[environment] || body?.type !== 'web_service' ||
       body?.serviceDetails?.url !== primaryApiOrigin(environment) || body?.serviceDetails?.plan !== 'free' ||
@@ -19,8 +21,8 @@ export async function observeRenderForContingency(env: NodeJS.ProcessEnv, store:
   if (!environment || (!renderReserve && env.NETLIFY_DURABLE_JOBS_ENABLED !== 'true')) return;
   const { data: configuration, error } = await store.from('contingencia_automacao').select('ativa,render_service_id').eq('id', true).single();
   if (error) throw new Error('Não foi possível consultar a automação do reserva.');
-  if (!configuration?.ativa) return;
-  if (configuration.render_service_id !== services[environment]) throw new Error('Serviço de monitoramento não corresponde ao ambiente.');
+  if (!configuration?.ativa && !renderReserve) return;
+  if (configuration?.ativa && configuration.render_service_id !== services[environment]) throw new Error('Serviço de monitoramento não corresponde ao ambiente.');
   let state: RenderState = 'INDETERMINADO';
   const key = String(env.RENDER_MONITOR_API_KEY ?? '').trim();
   if (key) {
@@ -31,6 +33,9 @@ export async function observeRenderForContingency(env: NodeJS.ProcessEnv, store:
       if (response.ok) state = classifyRenderService(await response.json(), environment);
     } catch { /* Unavailability is not evidence of billing suspension. */ }
   }
+  // Diagnostics do not enable switching. Even with automation off, verify this key's
+  // access to the exact Preview primary before considering activation.
+  if(renderReserve) reserveObservation={state,checkedAt:new Date().toISOString()};
   const result = await store.rpc(renderReserve?'observar_render_reserva_contingencia':'observar_render_contingencia', {
     p_servico: services[environment], p_estado: state, p_commit: contingencyCommit(env),
   });
