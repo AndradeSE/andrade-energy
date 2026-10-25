@@ -1,5 +1,41 @@
 [
   {
+    "numero": "OTA 20261024-235446",
+    "data": "24/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Servidor reserva Render com controle exclusivo de execução e proteção contra repetição de operações"
+    ]
+  },
+  {
+    "numero": "OTA 20261024-235235",
+    "data": "24/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Servidor reserva Render com controle exclusivo de execução e proteção contra repetição de operações"
+    ]
+  },
+  {
+    "numero": "OTA 20261024-235006",
+    "data": "24/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Servidor reserva Render com controle exclusivo de execução e proteção contra repetição de operações"
+    ]
+  },
+  {
+    "numero": "OTA 20261024-234804",
+    "data": "24/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Servidor reserva Render com controle exclusivo de execução e proteção contra repetição de operações"
+    ]
+  },
+  {
     "numero": "OTA 20261023-221856",
     "data": "23/10/2026",
     "variant": "gerador",
