@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type {Page} from 'playwright-core';
-import {FalhaEtapaCemig,AcaoManualCemig,validarAnexoCemig,paginaPortalCemig,fecharAvisoCookiesCemig} from './cemigCloud.portal';
+import {FalhaEtapaCemig,AcaoManualCemig,validarAnexoCemig,paginaPortalCemig,fecharAvisoCookiesCemig,textoModalidadeSelecionada,confirmarModalidadeCemig} from './cemigCloud.portal';
 import {CEMIG_PORTAL} from './cemigCloud.policy';
 
 const uc='999999999999';
@@ -92,5 +92,19 @@ test('rejeita aviso de cookies visível somente no domínio oficial',async()=>{
  assert.equal(cliques,1);
  await fecharAvisoCookiesCemig({url:()=> 'https://example.com',getByRole:()=>assert.fail('domínio não autorizado')} as unknown as Page);
  await fecharAvisoCookiesCemig({url:()=>CEMIG_PORTAL,getByRole:()=>semCookies} as unknown as Page);
+});
+
+test('modalidade lê input e somente a opção selecionada do select',()=>{
+ assert.equal(textoModalidadeSelecionada({tagName:'INPUT',value:'Autoconsumo remoto',textContent:''} as unknown as Element),'Autoconsumo remoto');
+ assert.equal(textoModalidadeSelecionada({tagName:'SELECT',selectedOptions:[{textContent:'Geração compartilhada'}],textContent:'Autoconsumo remoto Geração compartilhada'} as unknown as Element),'Geração compartilhada');
+});
+
+test('modalidade divergente ou ausente interrompe com diagnóstico sem dados privados',async()=>{
+ for(const ausente of [false,true]){
+  const page={getByRole:()=>({waitFor:async()=>{if(ausente)throw new Error('PRIVATE DOM');},evaluate:async()=> 'Geração compartilhada'})} as unknown as Page;
+  await assert.rejects(confirmarModalidadeCemig(page),(e:unknown)=>e instanceof FalhaEtapaCemig&&e.etapa==='MODALIDADE'&&!e.message.includes('PRIVATE'));
+ }
+ const page={getByRole:()=>({waitFor:async()=>{},evaluate:async()=> '  AUTOCONSUMO   REMOTO  '})} as unknown as Page;
+ await confirmarModalidadeCemig(page);
 });
 

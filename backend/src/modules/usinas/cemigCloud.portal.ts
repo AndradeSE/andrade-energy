@@ -20,8 +20,10 @@ const etapas = {
   REVISAO: 'conferir a revisão do anexo',
 } as const;
 export class FalhaEtapaCemig extends Error {
-  constructor(public readonly etapa: keyof typeof etapas) {
-    super(`Não foi possível ${etapas[etapa]}. Nenhum protocolo foi solicitado.`);
+  constructor(public readonly etapa: keyof typeof etapas, detalhe?:'CAMPO_MODALIDADE'|'MODALIDADE_DIVERGENTE') {
+    super(detalhe==='CAMPO_MODALIDADE'?'O campo de modalidade não foi localizado no portal. Nenhum arquivo foi enviado e nenhum protocolo foi solicitado.':
+      detalhe==='MODALIDADE_DIVERGENTE'?'A modalidade selecionada não foi confirmada como Autoconsumo remoto. Nenhum arquivo foi enviado e nenhum protocolo foi solicitado.':
+      `Não foi possível ${etapas[etapa]}. Nenhum protocolo foi solicitado.`);
   }
 }
 
@@ -45,6 +47,21 @@ export async function fecharAvisoCookiesCemig(page:Page) {
   if(new URL(page.url()).origin!==new URL(CEMIG_PORTAL).origin)return;
   const rejeitar=page.getByRole('button',{name:/^(Reject All|Rejeitar todos|Rejeitar tudo)$/i}).first();
   if(await rejeitar.isVisible())await rejeitar.click({timeout:5000});
+}
+
+/** Read the current selection, never all available options in a native select. */
+export function textoModalidadeSelecionada(element:Element):string {
+  if(element.tagName==='SELECT')return Array.from((element as HTMLSelectElement).selectedOptions).map(o=>o.textContent??'').join(' ');
+  if(element.tagName==='INPUT')return (element as HTMLInputElement).value;
+  return element.textContent??'';
+}
+
+export async function confirmarModalidadeCemig(page:Page) {
+  const campo=page.getByRole('combobox',{name:/Selecione o tipo de modalidade/});
+  try {await campo.waitFor({state:'visible',timeout:15000});}
+  catch {throw new FalhaEtapaCemig('MODALIDADE','CAMPO_MODALIDADE');}
+  const selecionada=(await campo.evaluate(textoModalidadeSelecionada)).replace(/\s+/g,' ').trim();
+  if(!/^Autoconsumo remoto$/i.test(selecionada))throw new FalhaEtapaCemig('MODALIDADE','MODALIDADE_DIVERGENTE');
 }
 
 /** Somente simulação: esta função nunca aceita declaração nem solicita cadastro. */
@@ -79,8 +96,7 @@ export async function validarAnexoCemig(page:Page,uc:string,csv:string,arquivo:s
   if(!escolhida)throw new Error("A UC geradora não foi localizada nesta sessão Cemig.");
   await page.getByRole("button",{name:"Avançar",exact:true}).click();
   etapa='MODALIDADE';
-  await page.getByRole("combobox",{name:/Selecione o tipo de modalidade/}).waitFor({timeout:15000});
-  if(!/Autoconsumo remoto/.test(await page.getByRole("combobox",{name:/Selecione o tipo de modalidade/}).innerText()))throw new Error("Modalidade diferente da simulação autorizada.");
+  await confirmarModalidadeCemig(page);
   await page.getByRole("button",{name:"Avançar",exact:true}).click();
   etapa='ANEXO';
   await page.getByRole("tab",{name:"Inserir por anexo",exact:true}).click();
@@ -94,7 +110,7 @@ export async function validarAnexoCemig(page:Page,uc:string,csv:string,arquivo:s
   await page.getByText(arquivo,{exact:true}).waitFor();
   return {estado:"REVISAO_SEM_PROTOCOLO" as const,protocolo:null};
   } catch(error) {
-    if(error instanceof AcaoManualCemig)throw error;
+    if(error instanceof AcaoManualCemig||error instanceof FalhaEtapaCemig)throw error;
     try {await conferirAcaoManual(page);}catch(check){if(check instanceof AcaoManualCemig)throw check;}
     // A navigation/landing-page failure precedes any upload. Keep authentication
     // alive for a deliberate manual continuation; never retry the login/CAPTCHA.
