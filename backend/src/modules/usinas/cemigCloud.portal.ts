@@ -16,8 +16,9 @@ export class FalhaEtapaCemig extends Error {
 }
 
 export class AcaoManualCemig extends Error {
-  constructor(public readonly tipo:'LOGIN'|'VERIFICACAO') {
+  constructor(public readonly tipo:'LOGIN'|'VERIFICACAO'|'SERVICO') {
     super(tipo==='LOGIN'?'Conclua o login na mesma sessão em nuvem e depois toque em continuar. Nenhum protocolo foi solicitado.':
+      tipo==='SERVICO'?'O login foi preservado. Abra Compensação de Geração Distribuída na mesma sessão, até a seleção da UC geradora, e depois toque em continuar. Nenhum arquivo foi enviado nesta etapa e nenhum protocolo foi solicitado.':
       'A Cemig pediu uma verificação de segurança. Conclua-a manualmente na mesma sessão em nuvem e depois toque em continuar. Nenhuma tarefa CAPTCHA foi enviada.');
   }
 }
@@ -43,7 +44,11 @@ export async function validarAnexoCemig(page:Page,uc:string,csv:string,arquivo:s
     await page.goto(CEMIG_PORTAL,{waitUntil:"domcontentloaded",timeout:45000});
     await conferirAcaoManual(page);
   }
-  await page.getByRole("button",{name:"Realizar cadastro",exact:true}).click({timeout:15000});
+  // The user may already have opened the service in the preserved session.
+  // Do not click the landing-page action again when UC selection is visible.
+  const selecao=page.getByRole("button").filter({hasText:/Nº da unidade consumidora:/});
+  if(!await selecao.first().isVisible())
+    await page.getByRole("button",{name:"Realizar cadastro",exact:true}).click({timeout:15000});
   etapa='USINA';
   const opcoes=page.getByRole("button").filter({hasText:/Nº da unidade consumidora:/});
   await opcoes.first().waitFor({state:'visible',timeout:15000});
@@ -73,6 +78,10 @@ export async function validarAnexoCemig(page:Page,uc:string,csv:string,arquivo:s
   } catch(error) {
     if(error instanceof AcaoManualCemig)throw error;
     try {await conferirAcaoManual(page);}catch(check){if(check instanceof AcaoManualCemig)throw check;}
+    // A navigation/landing-page failure precedes any upload. Keep authentication
+    // alive for a deliberate manual continuation; never retry the login/CAPTCHA.
+    if(etapa==='SERVICO'&&new URL(page.url()).origin===new URL(CEMIG_PORTAL).origin)
+      throw new AcaoManualCemig('SERVICO');
     // Never persist the raw Playwright error: it can include page/customer data.
     throw new FalhaEtapaCemig(etapa);
   }
