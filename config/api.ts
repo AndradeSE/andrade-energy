@@ -2,7 +2,7 @@ import axios from "axios";
 import { obterSessao } from "../storage/session";
 import { avisarContaExcluida, avisarSessaoSubstituida } from "../services/session-events";
 import { environmentApiUrl, isPreviewEnvironment } from "./environment";
-import {CONTINGENCY_ENDPOINTS,createContingencyResolver} from "./contingency-policy";
+import {createContingencyResolver,readContingencyControl} from "./contingency-policy";
 
 const API_PRODUCAO = "https://andrade-energy-api-vda.onrender.com/api";
 
@@ -26,17 +26,7 @@ function normalizarApiUrl(valor?: string) {
 export const apiBaseURL = normalizarApiUrl(environmentApiUrl);
 export const contingencyRoutingEnabled=process.env.EXPO_PUBLIC_CONTINGENCY_ENABLED==="1";
 const contingencyEnvironment=isPreviewEnvironment?"preview":"production";
-const resolveApiTarget=createContingencyResolver(contingencyEnvironment,async()=>{
-  const endpoint=CONTINGENCY_ENDPOINTS[contingencyEnvironment].standby.replace(/\/api$/,"");
-  const controller=new AbortController();
-  // Free Render may cold-start. This is a routing lookup before any business request.
-  const timer=setTimeout(()=>controller.abort(),70_000);
-  try {
-    const response=await fetch(`${endpoint}/api/contingencia/estado`,{signal:controller.signal,cache:"no-store"});
-    if(!response.ok)throw new Error("Controle indisponível.");
-    return await response.json();
-  } finally {clearTimeout(timer);}
-});
+const resolveApiTarget=createContingencyResolver(contingencyEnvironment,()=>readContingencyControl(contingencyEnvironment));
 
 const api = axios.create({
   baseURL: apiBaseURL,

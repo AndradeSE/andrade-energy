@@ -13,7 +13,9 @@ for (const environment of ['preview','production'] as const) test(`${environment
  const bytes='{ "type": "email.received", "value": "á" }';
  const store={from:()=>({select(){return this;},eq(){return this;},single:async()=>{reads++;return {data:{executor:owner},error:dbError};}})};
  const request=(async(url:any,input:any)=>{
-   forwarded++;const target=new URL(url);assert.equal(target.origin,environment==='preview'?'https://andrade-energy-api-homologacao.onrender.com':'https://andrade-energy-api-vda.onrender.com');
+   forwarded++;const target=new URL(url);assert.equal(target.origin,owner==='NETLIFY'
+     ? (environment==='preview'?'https://andrade-energy-fallback-probe.netlify.app':'https://andrade-energy-api-reserva.netlify.app')
+     : (environment==='preview'?'https://andrade-energy-api-homologacao.onrender.com':'https://andrade-energy-api-vda.onrender.com'));
    if(target.pathname.includes('/oauth/')) return new Response(null,{status:302,headers:{location:'andradegerador://oauth?status=invalid'}});
    assert.deepEqual(input.body,Buffer.from(bytes));assert.equal(input.headers['svix-signature'],'fixture');
    return new Response('{"ok":true}',{status:202});
@@ -27,10 +29,12 @@ for (const environment of ['preview','production'] as const) test(`${environment
    assert.equal((await post()).status,202);assert.equal(forwarded,1);assert.equal(local,0);
    owner='RENDER_RESERVA';const active=await post();assert.equal(active.status,200);assert.deepEqual((await active.json() as any).body,JSON.parse(bytes));
    assert.equal(forwarded,1);assert.equal(local,1);
-   owner='NETLIFY';assert.equal((await post()).status,503);assert.equal(forwarded,1);assert.equal(local,1);
+   owner='NETLIFY';assert.equal((await post()).status,202);assert.equal(forwarded,2);assert.equal(local,1);
+   assert.equal((await fetch(base+'/api/webhooks/resend/inbound',{method:'POST',headers:{'x-contingency-relay':'1'},body:bytes})).status,503);
+   assert.equal(forwarded,2);
    const before=reads;assert.equal((await fetch(base+'/api/clientes')).status,200);assert.equal(reads,before);
-   owner='RENDER';dbError=true;assert.equal((await post()).status,503);assert.equal(forwarded,1);
+   owner='RENDER';dbError=true;assert.equal((await post()).status,503);assert.equal(forwarded,2);
    dbError=false;const oauth=await fetch(base+'/api/oauth/email/callback/gmail?state=invalid',{redirect:'manual'});
-   assert.equal(oauth.status,302);assert.equal(oauth.headers.get('location'),'andradegerador://oauth?status=invalid');assert.equal(forwarded,2);
+   assert.equal(oauth.status,302);assert.equal(oauth.headers.get('location'),'andradegerador://oauth?status=invalid');assert.equal(forwarded,3);
  } finally {await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}
 });

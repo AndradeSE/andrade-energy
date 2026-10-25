@@ -4,6 +4,7 @@ import {supabase} from "./supabase";
 import {apiRateLimit} from "./distributedRateLimit";
 import {contingencyExecutor,renderReserveEnvironment} from './contingencyExecutor';
 import {renderReserveReady,RENDER_RESERVE_PREVIEW_ORIGIN,RENDER_RESERVE_PRODUCTION_ORIGIN} from './renderReserveReadiness';
+import {contingencyEnvironment,executorApiOrigin} from './contingencyRuntime';
 
 const router=Router();
 // Public routing metadata only: no users, secrets, jobs, or financial data.
@@ -12,13 +13,32 @@ router.get('/estado',async(_req,res)=>{
   try {
     if(contingencyExecutor(process.env)!=='RENDER_RESERVA') return res.status(404).json({message:'Indisponível.'});
     const {data,error}=await supabase.from('contingencia_controle')
-      .select('executor,revisao,render_reserva_commit_validado,render_reserva_validado_em').eq('id',true).single();
+      .select('executor,revisao,commit_validado,validado_em,render_reserva_commit_validado,render_reserva_validado_em').eq('id',true).single();
     if(error || !data) throw new Error('unavailable');
     return res.json({environment:renderReserveEnvironment(process.env),executor:data.executor,revision:data.revisao,
-      contingency:{readyForFailover:renderReserveReady(process.env,data)}});
+      contingency:{readyForFailover:data.executor==='RENDER' || (data.executor==='NETLIFY'
+        ? Boolean(data.commit_validado && data.validado_em) : data.executor==='RENDER_RESERVA' && renderReserveReady(process.env,data))}});
   } catch { return res.status(503).json({message:'Não foi possível conferir o servidor ativo.'}); }
 });
 router.use(exigirAutenticacao,exigirSuperAdministradorAndrade,(_req,res,next)=>{res.setHeader('Cache-Control','no-store');next();});
+router.post('/cascata',apiRateLimit('contingency-cascade',{windowMs:60_000,limit:3}),async(req,res)=>{
+  const active=req.body?.ativa;
+  if(typeof active!=='boolean' || !Number.isSafeInteger(req.body?.revisao) || req.body?.confirmacao!==(active?'ATIVAR_CASCATA_BILLING':'DESATIVAR_CASCATA'))
+    return res.status(400).json({message:'Confirme a configuração da cascata.'});
+  try {
+    if(active){
+      const environment=contingencyExecutor(process.env)==='RENDER_RESERVA'?renderReserveEnvironment(process.env):contingencyEnvironment(process.env);
+      if(!environment)throw new Error('Ambiente inválido.');
+      const response=await fetch(`${executorApiOrigin(environment,'NETLIFY')}/health`,{redirect:'error',signal:AbortSignal.timeout(8000)});
+      const health=response.ok?await response.json() as any:null;
+      if(health?.environment!==environment || health?.contingency?.readyForFailover!==true || health?.contingency?.cascadeConfigured!==true)
+        return res.status(409).json({message:'A Netlify precisa estar publicada, validada e conectada às duas contas Render antes de ativar a cascata.'});
+    }
+    const result=await supabase.rpc('configurar_contingencia_cascata',{p_usuario:(req as any).usuario.id,p_ativa:active,p_revisao:req.body.revisao});
+    if(result.error)throw result.error;
+    return res.json({ativa:active});
+  }catch{return res.status(409).json({message:'Não foi possível confirmar a cascata. Consulte novamente antes de tentar.'});}
+});
 router.post('/preparar-render',apiRateLimit('contingency-destination',{windowMs:60_000,limit:3}),async(req,res)=>{
   if(contingencyExecutor(process.env)!=='RENDER_RESERVA' || req.body?.confirmacao!=='PREPARAR_RESERVA_RENDER' || !Number.isSafeInteger(req.body?.revisao))
     return res.status(400).json({message:'Confirme a preparação do servidor reserva.'});
@@ -36,7 +56,7 @@ router.get('/',async(_req,res)=>{
       supabase.from('contingencia_controle').select('*').eq('id',true).single(),
       supabase.from('contingencia_trabalhos').select('nome,estado,executor,lease_ate,atualizado_em').order('nome'),
       supabase.from('contingencia_requisicoes').select('id,executor,namespace,iniciado_em').order('iniciado_em').limit(100),
-      supabase.from('contingencia_automacao').select('ativa,ultimo_estado,ultima_consulta,ultimo_resultado').eq('id',true).single(),
+        supabase.from('contingencia_automacao').select('ativa,cascata_ativa,ultimo_estado,ultima_consulta,ultimo_resultado').eq('id',true).single(),
     ]);
     if(control.error || jobs.error || requests.error || automation.error) throw new Error('unavailable');
     return res.json({control:control.data,jobs:jobs.data,requests:requests.data,automation:{...automation.data,configurada:Boolean(process.env.RENDER_MONITOR_API_KEY)}});

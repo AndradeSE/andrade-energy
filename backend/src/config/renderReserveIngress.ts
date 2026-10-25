@@ -11,11 +11,11 @@ export function createRenderReserveIngress(store:any,env:NodeJS.ProcessEnv=proce
     const {data,error}=await store.from('contingencia_controle').select('executor').eq('id',true).single();
     if(error||!data) throw new Error('control unavailable');
     if(data.executor==='RENDER_RESERVA') return next();
-    if(data.executor!=='RENDER') return res.status(503).json({message:'Callback aguardando conferência do servidor ativo.'});
+    if(!['RENDER','NETLIFY'].includes(data.executor)) return res.status(503).json({message:'Callback aguardando conferência do servidor ativo.'});
     const event={httpMethod:req.method,path:req.path,headers:req.headers,queryStringParameters:req.query};
     const reply=async(body?:Buffer)=>{
-      const result=isOAuthIngress(req.method,req.path)?await forwardOAuthIngress(event,renderReserveEnvironment(env),request):
-        await forwardProviderIngress({...event,body:body?.toString('base64')??'',isBase64Encoded:true},renderReserveEnvironment(env),request);
+      const result=isOAuthIngress(req.method,req.path)?await forwardOAuthIngress(event,renderReserveEnvironment(env),request,data.executor):
+        await forwardProviderIngress({...event,body:body?.toString('base64')??'',isBase64Encoded:true},renderReserveEnvironment(env),request,data.executor);
       res.status(result.statusCode).set(result.headers).send(result.body);
     };
     if(isOAuthIngress(req.method,req.path)) {await reply();return;}

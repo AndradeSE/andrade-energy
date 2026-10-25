@@ -14,3 +14,12 @@ export function contingencyEnvironment(env: NodeJS.ProcessEnv): ContingencyEnvir
 export function primaryApiOrigin(environment: ContingencyEnvironment) {
   return environment==="production" ? "https://andrade-energy-api-vda.onrender.com" : "https://andrade-energy-api-homologacao.onrender.com";
 }
+
+export function executorApiOrigin(environment: ContingencyEnvironment, executor: string) {
+  if (executor === 'RENDER') return primaryApiOrigin(environment);
+  if (executor === 'RENDER_RESERVA') return environment === 'production'
+    ? 'https://andrade-energy-api-reserva-producao.onrender.com' : 'https://andrade-energy-api-reserva-preview.onrender.com';
+  if (executor === 'NETLIFY') return environment === 'production'
+    ? 'https://andrade-energy-api-reserva.netlify.app' : 'https://andrade-energy-fallback-probe.netlify.app';
+  throw new Error('Executor inválido.');
+}

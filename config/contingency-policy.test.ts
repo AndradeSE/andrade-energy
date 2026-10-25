@@ -1,12 +1,23 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
-import {CONTINGENCY_ENDPOINTS,createContingencyResolver,resolveContingencyTarget} from "./contingency-policy";
+import {CONTINGENCY_ENDPOINTS,createContingencyResolver,resolveContingencyTarget,readContingencyControlSource} from "./contingency-policy";
 test("server never selects an arbitrary host or crosses environments",()=>{
   const valid={environment:"preview",revision:1,executor:"NETLIFY",contingency:{readyForFailover:true}};
   assert.equal(resolveContingencyTarget("preview",valid),CONTINGENCY_ENDPOINTS.preview.netlify);
   assert.throws(()=>resolveContingencyTarget("production",valid));
   assert.throws(()=>resolveContingencyTarget("preview",{...valid,contingency:{readyForFailover:false}}));
   assert.throws(()=>resolveContingencyTarget("preview",{...valid,executor:"https://evil.test"}));
+});
+
+test('control remains reachable through Netlify when the Render reserve is suspended',async()=>{
+ const calls:string[]=[];
+ const result=await readContingencyControlSource('production',(async(url:any,input:any)=>{
+   calls.push(url);assert.equal(input.method??'GET','GET');assert.equal(input.redirect,'error');
+   if(url.includes('onrender.com'))throw new Error('unavailable');
+   return new Response(JSON.stringify({environment:'production',executor:'NETLIFY',revision:5,contingency:{readyForFailover:true}}));
+ }) as typeof fetch);
+ assert.equal(result.baseURL,CONTINGENCY_ENDPOINTS.production.netlify);assert.equal(result.body.executor,'NETLIFY');assert.equal(calls.length,2);
+ await assert.rejects(readContingencyControlSource('production',(async()=>new Response(JSON.stringify({environment:'preview',executor:'NETLIFY',revision:5,contingency:{readyForFailover:true}}))) as typeof fetch));
 });
 test("parallel calls share one control lookup and outages do not trigger a switch",async()=>{
   let calls=0;let clock=0;let fail=false;

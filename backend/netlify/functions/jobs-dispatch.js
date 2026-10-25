@@ -8,6 +8,8 @@ exports.handler = async () => {
   process.env.COMMIT_REF = require("../../dist/release.json").commit;
   await require("../../dist/config/contingencyAutomatic.js").observeRenderForContingency(process.env, supabase)
     .catch(() => console.error("Não foi possível conferir a automação do reserva."));
+  await require("../../dist/config/contingencyCascade.js").observeCascadeForContingency(process.env, supabase)
+    .catch(() => console.error("Não foi possível conferir a cascata de servidores."));
   const state=await supabase.from("contingencia_controle").select("executor").eq("id",true).single();
   if(state.error) throw new Error("Controle de execução indisponível.");
   if(state.data.executor!=="NETLIFY") return {statusCode:200};

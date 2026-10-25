@@ -4,6 +4,32 @@ export const CONTINGENCY_ENDPOINTS = {
 } as const;
 type Environment=keyof typeof CONTINGENCY_ENDPOINTS;
 
+/** Only metadata GETs may try another control server; never a business request. */
+export async function readContingencyControlSource(environment:Environment,request:typeof fetch=fetch) {
+  const endpoints=CONTINGENCY_ENDPOINTS[environment];
+  const reads=[
+    {url:`${endpoints.netlify.replace(/\/api$/, '')}/api/contingencia/estado`,timeout:12_000},
+    {url:`${endpoints.standby.replace(/\/api$/, '')}/api/contingencia/estado`,timeout:70_000},
+  ].map(async({url,timeout})=>{
+    const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),timeout);
+    try {
+      const response=await request(url,{signal:controller.signal,cache:'no-store',redirect:'error'});
+      if(!response.ok)throw new Error('Controle indisponível.');
+      const body=await response.json();
+      resolveContingencyTarget(environment,body);
+      return {body,baseURL:url.replace(/\/contingencia\/estado$/, '')};
+    }finally{clearTimeout(timer);}
+  });
+  // Both sources read the same transactional owner. Accept the first valid answer.
+  return new Promise<{body:any;baseURL:string}>((resolve,reject)=>{
+    let failures=0;
+    for(const read of reads)read.then(resolve,()=>{if(++failures===reads.length)reject(new Error('Controles indisponíveis.'));});
+  });
+}
+export async function readContingencyControl(environment:Environment,request:typeof fetch=fetch) {
+  return (await readContingencyControlSource(environment,request)).body;
+}
+
 export function resolveContingencyTarget(environment:Environment, value:unknown) {
   const body=value as {environment?:unknown;executor?:unknown;revision?:unknown;contingency?:{readyForFailover?:unknown}}|null;
   const endpoints=CONTINGENCY_ENDPOINTS[environment];

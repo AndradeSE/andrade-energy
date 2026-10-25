@@ -35,7 +35,7 @@ test('OAuth codes reach only the fixed primary once and app redirects are not fe
     assert.equal(target.origin,'https://andrade-energy-api-vda.onrender.com');
     assert.equal(target.searchParams.get('code'),'test-code');
     assert.equal(input.redirect,'manual');
-    assert.equal(input.headers,undefined);
+    assert.equal(input.headers['x-contingency-relay'],'1');
     return new Response(null,{status:302,headers:{location:'andradegerador://oauth?status=ok'}});
   }) as typeof fetch);
   assert.equal(calls,1); assert.equal(result.statusCode,302);

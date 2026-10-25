@@ -1,7 +1,7 @@
 import {useState} from 'react';
 import {Alert,Text,View} from 'react-native';
 import {Button,Card} from './ui';
-import {readContingency,switchContingency,setContingencyAutomation,prepareRenderReserve,type ContingencyState} from '../services/contingency.service';
+import {readContingency,switchContingency,setContingencyAutomation,setContingencyCascade,prepareRenderReserve,type ContingencyState} from '../services/contingency.service';
 import {Colors} from '../theme';
 
 export default function ContingencyControl(){
@@ -15,6 +15,13 @@ export default function ContingencyControl(){
     finally{setBusy(false);}
   }
   const pending=Boolean(state?.requests.length||state?.jobs.some(job=>['EXECUTANDO','REVISAO'].includes(job.estado)));
+  function changeCascade(){if(!state||busy)return;const active=!state.automation?.cascata_ativa;
+    Alert.alert(active?'Ativar cascata de servidores?':'Desativar cascata?',active?
+      'A ordem será Render principal → Render reserva → Netlify. A Netlify só assumirá após suspensão por cobrança confirmada do servidor ativo, sem operações pendentes. O retorno ao principal permanece manual.':
+      'A passagem automática do Render reserva para a Netlify será desativada.',[{text:'Cancelar',style:'cancel'},{text:'Confirmar',onPress:()=>{
+        setBusy(true);setError('');void setContingencyCascade(state,active).then(()=>readContingency()).then(setState)
+          .catch((e:any)=>setError(e?.response?.data?.message??'Não foi possível confirmar a cascata. Consulte novamente.')).finally(()=>setBusy(false));
+      }}]);}
   function changeAutomation(){if(!state?.automation)return;const active=!state.automation.ativa;
     Alert.alert(active?'Ativar troca automática?':'Desativar troca automática?',active?
       'O servidor reserva selecionado assumirá após o Render confirmar suspensão por cobrança em consultas consecutivas, desde que não existam operações pendentes. Lentidão ou falhas isoladas não acionam a troca. O retorno ao Render permanece manual.':
@@ -43,6 +50,8 @@ export default function ContingencyControl(){
         {state.automation.ativa&&(!state.automation.ultima_consulta||Date.now()-Date.parse(state.automation.ultima_consulta)>5*60_000||state.automation.ultimo_estado==='INDETERMINADO')?<Text style={{color:'#985418'}}>A consulta automática ainda não foi confirmada ou está indisponível. Confira a conexão antes de contar com a troca automática.</Text>:null}
         {!state.automation.configurada?<Text style={{color:'#985418'}}>A consulta do Render ainda não está conectada no reserva.</Text>:null}
         <Button title={state.automation.ativa?'Desativar troca automática':'Ativar troca automática'} disabled={busy||(!state.automation.ativa&&!state.automation.configurada)} onPress={changeAutomation}/>
+        {state.control.reserva_preferida==='RENDER_RESERVA'?<><Text style={{color:Colors.text}}>Cascata até a Netlify: {state.automation.cascata_ativa?'ativada':'desativada'}</Text>
+          <Button title={state.automation.cascata_ativa?'Desativar cascata':'Ativar cascata até a Netlify'} disabled={busy||(!state.automation.cascata_ativa&&!state.automation.ativa)} onPress={changeCascade}/></>:null}
       </>:null}
       {pending?<Text style={{color:'#985418'}}>Há operações em execução ou pendentes de revisão. A troca permanece bloqueada.</Text>:null}
       <Button title={state.control.executor==='RENDER'?'Ativar reserva…':'Retornar ao Render…'} disabled={busy||pending||(state.control.executor==='RENDER'&&!(state.control.reserva_preferida==='RENDER_RESERVA'?state.control.render_reserva_commit_validado:state.control.commit_validado))} onPress={confirm}/></>:null}
