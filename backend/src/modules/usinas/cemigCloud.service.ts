@@ -7,6 +7,7 @@ import {bloquearProtocoloNaSimulacao,validarAnexoCemig,FalhaEtapaCemig,AcaoManua
 import {chromium,type Browser} from 'playwright-core';
 import {cemigRenderHabilitado} from './cemigCloud.dispatcher';
 import {capmonsterDisponivel,localizarDesafioCemig,obterRespostaCapmonster,aplicarRespostaCaptcha,DesafioCemigIndisponivel,FalhaCapmonster} from './cemigCloud.capmonster';
+import {motivoBloqueioCaptcha,RecusaTesteCaptcha} from './cemigCloud.captchaPolicy';
 
 const ativos=['FILA','FILA_RENDER','INICIANDO','AGUARDANDO_LOGIN','VALIDANDO'];
 const worker='https://andrade-energy-fallback-probe.netlify.app/.netlify/functions/cemig-background';
@@ -43,8 +44,9 @@ export async function consultarCemigSimulacao(id:string,usinaId:string,empresaId
   const t=await supabase.from('cemig_simulacoes').update({continuar:true}).eq('id',id).eq('estado','AGUARDANDO_LOGIN');if(t.error)throw new Error('Não foi possível continuar.');
  }
  if(acao==='captcha'){
-  if(!autorizaCapmonster||!capmonsterDisponivel(process.env)||row.estado!=='AGUARDANDO_LOGIN'||Date.parse(row.expira_em)-Date.now()<180000)
-    throw new Error('Confirme o teste com crédito e use uma sessão com pelo menos três minutos restantes.');
+  if(!autorizaCapmonster)throw new RecusaTesteCaptcha('Confirme o uso do bônus antes do teste. Nenhuma tarefa foi criada.');
+  const bloqueio=motivoBloqueioCaptcha({disponivel:capmonsterDisponivel(process.env),estado:row.estado,captchaEstado:row.captcha_estado,expiraEm:row.expira_em});
+  if(bloqueio)throw new RecusaTesteCaptcha(bloqueio);
   const solicitado=await supabase.from('cemig_simulacoes').update({captcha_estado:'FILA',captcha_erro:null})
     .eq('id',id).eq('estado','AGUARDANDO_LOGIN').eq('captcha_estado','NAO_SOLICITADO').select('id').maybeSingle();
   if(solicitado.error||!solicitado.data)throw new Error('Esta sessão já utilizou a tentativa de CAPTCHA.');
@@ -55,7 +57,8 @@ export async function consultarCemigSimulacao(id:string,usinaId:string,empresaId
   row.estado='CANCELADO';row.live_cifrado=null;
  }
  return {id:row.id,estado:row.estado==='FILA_RENDER'?'FILA':row.estado,erro:row.erro,expiraEm:row.expira_em,liveUrl:row.live_cifrado&&Date.parse(row.expira_em)>Date.now()?decifrar(row.live_cifrado):null,protocolo:null,
-  capmonsterDisponivel:capmonsterDisponivel(process.env),captchaEstado:row.captcha_estado,captchaErro:row.captcha_erro};
+  capmonsterDisponivel:capmonsterDisponivel(process.env),captchaEstado:row.captcha_estado,captchaErro:row.captcha_erro,
+  captchaBloqueio:motivoBloqueioCaptcha({disponivel:capmonsterDisponivel(process.env),estado:row.estado,captchaEstado:row.captcha_estado,expiraEm:row.expira_em})};
 }
 
 /** Background worker: a conditional claim makes Netlify retries harmless. */

@@ -19,6 +19,7 @@ import {
 } from "./usinas.controller";
 import { exigirAutenticacao, exigirGestor, exigirSuperAdministradorAndrade } from "../../middlewares/auth.middleware";
 import { iniciarCemigSimulacao, consultarCemigSimulacao } from './cemigCloud.service';
+import {RecusaTesteCaptcha} from './cemigCloud.captchaPolicy';
 import { exigirUsinaDaSessaoOuGestor } from "../../utils/empresaScope";
 import { exigirCapacidadeDoPlano } from "../../middlewares/limitesPlano.middleware";
 import { empresaIdDaRequisicao } from "../../utils/empresaScope";
@@ -53,7 +54,7 @@ router.post('/:id/cemig-simulacoes/:simulacao/:acao',exigirGestor,exigirSuperAdm
  res.setHeader('Cache-Control','private, no-store');
  if(!['continuar','cancelar','captcha'].includes(req.params.acao))return res.sendStatus(404);
  try{return res.json(await consultarCemigSimulacao(req.params.simulacao,req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.params.acao as 'continuar'|'cancelar'|'captcha',req.body?.autorizaCapmonster===true));}
- catch{return res.status(400).json({message:'Não foi possível atualizar esta simulação.'});}
+ catch(e){return res.status(400).json({message:e instanceof RecusaTesteCaptcha?e.message:'Não foi possível atualizar esta simulação.'});}
 });
 router.post("/:id/unidades", exigirGestor, async (req, res) => {
   if (String((req as any).usuario?.papel_empresa ?? "").startsWith("COLABORADOR_") && (req as any).usuario?.permissoes?.unidades === false) {
