@@ -128,7 +128,10 @@ router.post("/:id/rateio-mensal", exigirGestor, apiRateLimit("usinas-routes-11",
     const plano = await prepararPlanilhaRateio(req.params.id,empresaId,String(req.body?.competencia ?? ""),String(req.body?.ucAncora ?? ""),String(req.body?.documentoAncora ?? ""),req.body?.numerosAtuaisConfirmados === true,req.body?.formatoCemig === true);
     await notificarRateioGerado(req.params.id,empresaId,plano).catch(()=>console.error("Não foi possível notificar o rateio manual."));
     res.setHeader("Cache-Control","private, no-store");
-    const email = req.body?.enviarEmail === true ? await enviarPlanilhaAoGerador(req.params.id,empresaId,plano,usuario) : {enviado:false};
+    // A planilha pronta continua disponível mesmo se o destinatário ou provedor falhar.
+    const email = req.body?.enviarEmail === true
+      ? await enviarPlanilhaAoGerador(req.params.id,empresaId,plano,usuario).catch(()=>({enviado:false}))
+      : {enviado:false};
     return res.json({...plano,emailEnviado:email.enviado});
   } catch (error: any) { return res.status(400).json({message:error.message}); }
 });
