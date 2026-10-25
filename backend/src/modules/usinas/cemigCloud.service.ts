@@ -8,6 +8,8 @@ import {chromium,type Browser} from 'playwright-core';
 import {cemigRenderHabilitado} from './cemigCloud.dispatcher';
 import {capmonsterDisponivel,localizarDesafioCemig,obterRespostaCapmonster,aplicarRespostaCaptcha,DesafioCemigIndisponivel,FalhaCapmonster} from './cemigCloud.capmonster';
 import {motivoBloqueioCaptcha,RecusaTesteCaptcha} from './cemigCloud.captchaPolicy';
+import {lerAcessoCemig} from './cemigCredential.service';
+import {enviarLoginCemig} from './cemigLogin';
 
 const ativos=['FILA','FILA_RENDER','INICIANDO','AGUARDANDO_LOGIN','VALIDANDO'];
 const worker='https://andrade-energy-fallback-probe.netlify.app/.netlify/functions/cemig-background';
@@ -32,9 +34,9 @@ export async function iniciarCemigSimulacao(usinaId:string,empresaId:string,usua
  return {id,estado:'FILA',protocolo:null};
 }
 
-export async function consultarCemigSimulacao(id:string,usinaId:string,empresaId:string,usuarioId:string,acao?:'continuar'|'cancelar'|'captcha',autorizaCapmonster=false){
+export async function consultarCemigSimulacao(id:string,usinaId:string,empresaId:string,usuarioId:string,acao?:'continuar'|'cancelar'|'captcha'|'login',autorizaCapmonster=false,autorizaLogin=false){
  exigirCemigSimulacao(process.env);
- const r=await supabase.from('cemig_simulacoes').select('id,estado,erro,expira_em,live_cifrado,captcha_estado,captcha_erro,navegador_provedor').eq('id',id).eq('usina_id',usinaId).eq('empresa_id',empresaId).eq('usuario_id',usuarioId).maybeSingle();
+ const r=await supabase.from('cemig_simulacoes').select('id,estado,erro,expira_em,live_cifrado,captcha_estado,captcha_erro,navegador_provedor,login_estado,login_erro').eq('id',id).eq('usina_id',usinaId).eq('empresa_id',empresaId).eq('usuario_id',usuarioId).maybeSingle();
  if(r.error||!r.data)throw new Error('Simulação não encontrada para este acesso.');
  const row=r.data;
  if(Date.parse(row.expira_em)<=Date.now()&&ativos.includes(row.estado)){
@@ -43,6 +45,13 @@ export async function consultarCemigSimulacao(id:string,usinaId:string,empresaId
  }
  if(acao==='continuar'&&row.estado==='AGUARDANDO_LOGIN'){
   const t=await supabase.from('cemig_simulacoes').update({continuar:true}).eq('id',id).eq('estado','AGUARDANDO_LOGIN');if(t.error)throw new Error('Não foi possível continuar.');
+ }
+ if(acao==='login'){
+  if(!autorizaLogin||row.estado!=='AGUARDANDO_LOGIN'||row.captcha_estado!=='RESPOSTA_APLICADA'||
+   Date.parse(row.expira_em)-Date.now()<30000)throw new Error('Login indisponível nesta sessão.');
+  const t=await supabase.from('cemig_simulacoes').update({login_estado:'FILA',login_erro:null}).eq('id',id)
+   .eq('estado','AGUARDANDO_LOGIN').eq('login_estado','NAO_SOLICITADO').select('id').maybeSingle();
+  if(t.error||!t.data)throw new Error('Login já solicitado.');row.login_estado='FILA';
  }
  if(acao==='captcha'){
   if(!autorizaCapmonster)throw new RecusaTesteCaptcha('Confirme o uso do bônus antes do teste. Nenhuma tarefa foi criada.');
@@ -59,6 +68,7 @@ export async function consultarCemigSimulacao(id:string,usinaId:string,empresaId
  }
  return {id:row.id,estado:row.estado==='FILA_RENDER'?'FILA':row.estado,erro:row.erro,expiraEm:row.expira_em,provedor:row.navegador_provedor,liveUrl:row.live_cifrado&&Date.parse(row.expira_em)>Date.now()?decifrar(row.live_cifrado):null,protocolo:null,
   capmonsterDisponivel:capmonsterDisponivel(process.env),captchaEstado:row.captcha_estado,captchaErro:row.captcha_erro,
+  loginEstado:row.login_estado,loginErro:row.login_erro,
   captchaBloqueio:motivoBloqueioCaptcha({disponivel:capmonsterDisponivel(process.env),estado:row.estado,captchaEstado:row.captcha_estado,expiraEm:row.expira_em})};
 }
 
@@ -81,9 +91,32 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
   const pronto=await supabase.from('cemig_simulacoes').update({estado:'AGUARDANDO_LOGIN',sessao_id:session.id,navegador_provedor:session.provedor,expira_em:new Date(prazo).toISOString(),live_cifrado:criptografarDado(live)}).eq('id',id).eq('estado','INICIANDO').select('id').maybeSingle();
   if(pronto.error||!pronto.data)return;
   while(Date.now()<prazo){
-   const r=await supabase.from('cemig_simulacoes').select('estado,continuar,captcha_estado').eq('id',id).single();
+   const r=await supabase.from('cemig_simulacoes').select('estado,continuar,captcha_estado,login_estado').eq('id',id).single();
    if(r.error)throw new Error('Consulta indisponível');
    if(!ativos.includes(r.data.estado))return;
+   if(r.data.login_estado==='FILA'&&r.data.estado==='AGUARDANDO_LOGIN'){
+    const claimed=await supabase.from('cemig_simulacoes').update({login_estado:'ENVIANDO'}).eq('id',id)
+     .eq('estado','AGUARDANDO_LOGIN').eq('login_estado','FILA').select('id').maybeSingle();
+    if(claimed.error)throw new Error('Não foi possível reservar o login.');
+    if(claimed.data){
+     try{
+      const acesso=await lerAcessoCemig(job.empresa_id,job.usuario_id);
+      try{
+       const loginPage=context.pages().find(p=>{try{const u=new URL(p.url());return u.origin==='https://atende.cemig.com.br'&&/^\/login\/?$/i.test(u.pathname);}catch{return false;}});
+       if(!loginPage)throw new Error();page=loginPage;
+       await enviarLoginCemig(page,acesso,async()=>{
+        if(Date.now()>=prazo-15000)return false;
+        const s=await supabase.from('cemig_simulacoes').select('estado,login_estado').eq('id',id).maybeSingle();
+        return !s.error&&s.data?.estado==='AGUARDANDO_LOGIN'&&s.data?.login_estado==='ENVIANDO';
+       });
+      }finally{acesso.login='';acesso.senha='';}
+      await supabase.from('cemig_simulacoes').update({login_estado:'ENVIADO',continuar:true}).eq('id',id).eq('estado','AGUARDANDO_LOGIN');
+     }catch{
+      await supabase.from('cemig_simulacoes').update({login_estado:'ERRO',login_erro:'Não foi possível confirmar o login. Confira o portal e o acesso salvo. Não haverá repetição automática.'}).eq('id',id).eq('estado','AGUARDANDO_LOGIN');
+     }
+    }
+    continue;
+   }
    if(r.data.captcha_estado==='FILA'&&r.data.estado==='AGUARDANDO_LOGIN'){
     const c=await supabase.from('cemig_simulacoes').update({captcha_estado:'RESOLVENDO'}).eq('id',id).eq('captcha_estado','FILA').eq('estado','AGUARDANDO_LOGIN').select('id').maybeSingle();
     if(c.error)throw new Error('Não foi possível reservar teste CAPTCHA');

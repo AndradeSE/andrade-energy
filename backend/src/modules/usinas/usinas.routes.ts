@@ -20,6 +20,7 @@ import {
 import { exigirAutenticacao, exigirGestor, exigirSuperAdministradorAndrade } from "../../middlewares/auth.middleware";
 import { iniciarCemigSimulacao, consultarCemigSimulacao } from './cemigCloud.service';
 import {RecusaTesteCaptcha} from './cemigCloud.captchaPolicy';
+import {statusAcessoCemig,salvarAcessoCemig,excluirAcessoCemig} from './cemigCredential.service';
 import { exigirUsinaDaSessaoOuGestor } from "../../utils/empresaScope";
 import { exigirCapacidadeDoPlano } from "../../middlewares/limitesPlano.middleware";
 import { empresaIdDaRequisicao } from "../../utils/empresaScope";
@@ -40,6 +41,22 @@ function acessoOperacao(usuario:any) {
 }
 
 router.use(exigirAutenticacao);
+router.get('/:id/cemig-acesso',exigirGestor,exigirSuperAdministradorAndrade,async(req,res)=>{
+ res.setHeader('Cache-Control','private, no-store');
+ try{return res.json(await statusAcessoCemig(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id));}
+ catch{return res.status(400).json({message:'Não foi possível consultar o cofre da Cemig.'});}
+});
+router.put('/:id/cemig-acesso',exigirGestor,exigirSuperAdministradorAndrade,apiRateLimit('cemig-vault-save',{windowMs:900000,limit:5}),async(req,res)=>{
+ res.setHeader('Cache-Control','private, no-store');
+ try{return res.json(await salvarAcessoCemig(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.body));}
+ catch{return res.status(400).json({message:'Não foi possível salvar o acesso da Cemig.'});}
+ finally{if(req.body){delete req.body.login;delete req.body.senha;}}
+});
+router.delete('/:id/cemig-acesso',exigirGestor,exigirSuperAdministradorAndrade,async(req,res)=>{
+ res.setHeader('Cache-Control','private, no-store');
+ try{return res.json(await excluirAcessoCemig(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id));}
+ catch{return res.status(400).json({message:'Não foi possível remover o acesso da Cemig.'});}
+});
 router.post('/:id/cemig-simulacoes',exigirGestor,exigirSuperAdministradorAndrade,apiRateLimit('cemig-cloud-start',{windowMs:60_000,limit:2}),async(req,res)=>{
  res.setHeader('Cache-Control','private, no-store');
  try{return res.status(202).json(await iniciarCemigSimulacao(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.body));}
@@ -52,8 +69,8 @@ router.get('/:id/cemig-simulacoes/:simulacao',exigirGestor,exigirSuperAdministra
 });
 router.post('/:id/cemig-simulacoes/:simulacao/:acao',exigirGestor,exigirSuperAdministradorAndrade,async(req,res)=>{
  res.setHeader('Cache-Control','private, no-store');
- if(!['continuar','cancelar','captcha'].includes(req.params.acao))return res.sendStatus(404);
- try{return res.json(await consultarCemigSimulacao(req.params.simulacao,req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.params.acao as 'continuar'|'cancelar'|'captcha',req.body?.autorizaCapmonster===true));}
+ if(!['continuar','cancelar','captcha','login'].includes(req.params.acao))return res.sendStatus(404);
+ try{return res.json(await consultarCemigSimulacao(req.params.simulacao,req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.params.acao as 'continuar'|'cancelar'|'captcha'|'login',req.body?.autorizaCapmonster===true,req.body?.autorizaLoginCemig===true));}
  catch(e){return res.status(400).json({message:e instanceof RecusaTesteCaptcha?e.message:'Não foi possível atualizar esta simulação.'});}
 });
 router.post("/:id/unidades", exigirGestor, async (req, res) => {
