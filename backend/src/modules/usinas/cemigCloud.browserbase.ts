@@ -19,9 +19,20 @@ export async function criarBrowserbaseSimulacao() {
 }
 export async function liveBrowserbase(id:string,pageUrl?:string) {
   const result=await api(`sessions/${id}/debug?expiresIn=600`);
-  // The session-level view may point at an empty tab after portal navigation.
-  const pagina=Array.isArray(result.pages)?result.pages.find((p:any)=>p.url===pageUrl):undefined;
-  return urlLivePermitida(pagina?.debuggerFullscreenUrl??result.debuggerFullscreenUrl);
+  return selecionarLiveCemig(result,pageUrl);
+}
+export function selecionarLiveCemig(result:{pages?:unknown},pageUrl?:string) {
+  const permitida=(value:unknown)=>{
+    try {const u=new URL(String(value));return !u.username&&!u.password&&
+      ['https://www.atendimento.cemig.com.br','https://atende.cemig.com.br'].includes(u.origin);}
+    catch{return false;}
+  };
+  const paginas=Array.isArray(result.pages)?result.pages.filter((p:any)=>p&&permitida(p.url)):[];
+  const exata=paginas.find((p:any)=>p.url===pageUrl);
+  // A redirect/new login tab must not silently fall back to a blank session tab.
+  const pagina=exata??(paginas.length===1?paginas[0]:undefined);
+  if(!pagina)throw new Error('Não foi possível identificar a aba da Cemig. Nenhum protocolo foi solicitado.');
+  return urlLivePermitida(pagina.debuggerFullscreenUrl);
 }
 export async function consultarMinutosBrowserbase(){
  const projectId=process.env.BROWSERBASE_PROJECT_ID;
