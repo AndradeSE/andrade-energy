@@ -1,6 +1,7 @@
 export const CEMIG_PORTAL = "https://www.atendimento.cemig.com.br/portal/services/compensation-gd";
 export const CEMIG_SESSION_SECONDS = 600;
 export const CEMIG_PREVIEW_DB = "https://qqhcjieymypowunkixmk.supabase.co";
+export class CotaBrowserbaseInsuficiente extends Error {}
 
 export function exigirCemigSimulacao(env:NodeJS.ProcessEnv) {
   if(env.CEMIG_CLOUD_ENABLED!=="true" || String(env.SUPABASE_URL).replace(/\/$/,"")!==CEMIG_PREVIEW_DB)
@@ -9,8 +10,9 @@ export function exigirCemigSimulacao(env:NodeJS.ProcessEnv) {
 export function conferirMinutosGratuitos(valor:unknown) {
   // Reserve the full manual-login window plus release margin before creating a session.
   const maximoUsado=60-Math.ceil((CEMIG_SESSION_SECONDS+30)/60);
-  if(typeof valor!=="number"||!Number.isFinite(valor)||valor<0||valor>maximoUsado)
+  if(typeof valor!=="number"||!Number.isFinite(valor)||valor<0)
     throw new Error("Cota gratuita insuficiente ou não confirmada. Nenhum plano será contratado.");
+  if(valor>maximoUsado)throw new CotaBrowserbaseInsuficiente('Cota Browserbase insuficiente para uma sessão completa.');
 }
 export function conferirCsvSimulacao(csv:string,ucGeradora:string) {
   if(!/^\d{6,20}$/.test(ucGeradora)||!csv||Buffer.byteLength(csv)>100_000)throw new Error("CSV inválido.");
