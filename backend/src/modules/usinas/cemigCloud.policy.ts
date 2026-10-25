@@ -1,5 +1,5 @@
 export const CEMIG_PORTAL = "https://www.atendimento.cemig.com.br/portal/services/compensation-gd";
-export const CEMIG_SESSION_SECONDS = 210;
+export const CEMIG_SESSION_SECONDS = 600;
 export const CEMIG_PREVIEW_DB = "https://qqhcjieymypowunkixmk.supabase.co";
 
 export function exigirCemigSimulacao(env:NodeJS.ProcessEnv) {
@@ -7,7 +7,7 @@ export function exigirCemigSimulacao(env:NodeJS.ProcessEnv) {
     throw new Error("A integração Cemig em nuvem está disponível somente para simulação no Preview.");
 }
 export function conferirMinutosGratuitos(valor:unknown) {
-  // Último teste curto: 3m30s + 30s de margem, arredondados para cima na cota.
+  // Reserve the full manual-login window plus release margin before creating a session.
   const maximoUsado=60-Math.ceil((CEMIG_SESSION_SECONDS+30)/60);
   if(typeof valor!=="number"||!Number.isFinite(valor)||valor<0||valor>maximoUsado)
     throw new Error("Cota gratuita insuficiente ou não confirmada. Nenhum plano será contratado.");
