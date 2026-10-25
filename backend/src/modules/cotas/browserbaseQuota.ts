@@ -10,16 +10,17 @@ export function leituraBrowserbase(usado:unknown,agora=Date.now()){
   consulta:{status:'OK',consultado_em:new Date(agora).toISOString()},
   leitura:{usado,limite:60,restante:Math.max(60-usado,0),percentual:usado/60*100,origem:'API_OFICIAL',renova_em:null,verificado_em:new Date(agora).toISOString(),desatualizada:false}};
 }
+export async function consultarCotaAtual(consultar:()=>Promise<number>){
+ try{return [leituraBrowserbase(await consultar())];}
+ catch{return [{servico:'BROWSERBASE',metrica:'navegador_minutos',rotulo:'Browserbase · navegador em nuvem',unidade:'minutos',automatico:true,
+  observacao:'Não foi possível consultar o projeto configurado neste servidor. A falha não significa saldo zero.',
+  consulta:{status:'CONSULTA_INDISPONIVEL',consultado_em:new Date().toISOString()},leitura:null}];}
+}
 export async function cotaBrowserbase(){
- const r=await supabase.from('browserbase_cota_coletada').select('usado,status,consultado_em').eq('ambiente',ambiente()).maybeSingle();
- if(r.error||!r.data)return [];
- if(r.data.usado!=null){
-  const item=leituraBrowserbase(Number(r.data.usado),Date.parse(r.data.consultado_em));
-  item.consulta.status=r.data.status;
-  item.leitura.desatualizada=Date.now()-Date.parse(r.data.consultado_em)>15*60000||r.data.status!=='OK';
-  return [item];
- }
- return [{servico:'BROWSERBASE',metrica:'navegador_minutos',rotulo:'Browserbase · navegador em nuvem',unidade:'minutos',automatico:true,observacao:'Uso do projeto da automação Cemig. Falha de consulta não significa saldo zero.',consulta:{status:r.data.status,consultado_em:r.data.consultado_em},leitura:null}];
+ if(!process.env.BROWSERBASE_API_KEY||!process.env.BROWSERBASE_PROJECT_ID||process.env.BROWSERBASE_FREE_PLAN_CONFIRMED!=='true')return [];
+ // The shared legacy collector may still use another project's credentials.
+ // Query this server's configured project; never substitute another project's cache.
+ return consultarCotaAtual(consultarMinutosBrowserbase);
 }
 export async function coletarCotaBrowserbase(){
  if(!process.env.BROWSERBASE_API_KEY||process.env.BROWSERBASE_FREE_PLAN_CONFIRMED!=='true'||!process.env.BROWSERBASE_PROJECT_ID)return;
