@@ -40,6 +40,13 @@ async function conferirAcaoManual(page:Page) {
   if(await challenge.isVisible())throw new AcaoManualCemig('VERIFICACAO');
 }
 
+/** The portal's cookie overlay intercepts the service action until dismissed. */
+export async function fecharAvisoCookiesCemig(page:Page) {
+  if(new URL(page.url()).origin!==new URL(CEMIG_PORTAL).origin)return;
+  const rejeitar=page.getByRole('button',{name:/^(Reject All|Rejeitar todos|Rejeitar tudo)$/i}).first();
+  if(await rejeitar.isVisible())await rejeitar.click({timeout:5000});
+}
+
 /** Somente simulação: esta função nunca aceita declaração nem solicita cadastro. */
 export async function validarAnexoCemig(page:Page,uc:string,csv:string,arquivo:string) {
   conferirCsvSimulacao(csv,uc);
@@ -54,6 +61,7 @@ export async function validarAnexoCemig(page:Page,uc:string,csv:string,arquivo:s
     await page.goto(CEMIG_PORTAL,{waitUntil:"domcontentloaded",timeout:45000});
     await conferirAcaoManual(page);
   }
+  await fecharAvisoCookiesCemig(page);
   // The user may already have opened the service in the preserved session.
   // Do not click the landing-page action again when UC selection is visible.
   const selecao=page.getByRole("button").filter({hasText:/Nº da unidade consumidora:/});

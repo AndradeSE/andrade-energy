@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type {Page} from 'playwright-core';
-import {FalhaEtapaCemig,AcaoManualCemig,validarAnexoCemig,paginaPortalCemig} from './cemigCloud.portal';
+import {FalhaEtapaCemig,AcaoManualCemig,validarAnexoCemig,paginaPortalCemig,fecharAvisoCookiesCemig} from './cemigCloud.portal';
 import {CEMIG_PORTAL} from './cemigCloud.policy';
 
 const uc='999999999999';
 const csv=`${uc};00000000000;100;X`;
+const semCookies={first:()=>({isVisible:async()=>false})};
 
 test('a URL fora do portal falha no login sem navegar ou enviar arquivo', async()=>{
   const page={url:()=> 'https://example.com/'} as unknown as Page;
@@ -29,7 +30,8 @@ test('distingue seleção da usina após abrir o serviço', async()=>{
     url:()=>CEMIG_PORTAL,
     getByText:()=>({first:()=>({isVisible:async()=>false})}),
     goto:async()=>{},
-    getByRole:(_role:string,options?:{name?:string})=>{
+    getByRole:(_role:string,options?:{name?:string|RegExp})=>{
+      if(options?.name instanceof RegExp)return semCookies;
       if(options?.name==='Realizar cadastro') return {click:async()=>{}};
       return {filter:()=>({first:()=>({isVisible:async()=>false,waitFor:async()=>{throw new Error('PRIVATE DOM');}})})};
     },
@@ -41,7 +43,7 @@ test('distingue seleção da usina após abrir o serviço', async()=>{
 test('não recarrega serviço já aberto nem reinicia verificação de segurança',async()=>{
  let navegacoes=0;
  const page={url:()=>CEMIG_PORTAL,getByText:()=>({first:()=>({isVisible:async()=>false})}),
-  goto:async()=>{navegacoes++;},getByRole:()=>({filter:()=>({first:()=>({isVisible:async()=>false})}),click:async()=>{throw new Error('parada do teste');}})} as unknown as Page;
+  goto:async()=>{navegacoes++;},getByRole:(_role:string,options?:{name?:string|RegExp})=>options?.name instanceof RegExp?semCookies:({filter:()=>({first:()=>({isVisible:async()=>false})}),click:async()=>{throw new Error('parada do teste');}})} as unknown as Page;
  await assert.rejects(validarAnexoCemig(page,uc,csv,'teste.csv'),(e:unknown)=>e instanceof AcaoManualCemig&&e.tipo==='SERVICO');
  assert.equal(navegacoes,0);
 });
@@ -58,7 +60,8 @@ test('retoma na seleção de UC sem repetir Realizar cadastro',async()=>{
  let cliques=0,uploads=0;
  const opcoes={first:()=>({isVisible:async()=>true,waitFor:async()=>{}}),count:async()=>0};
  const page={url:()=>CEMIG_PORTAL,getByText:()=>({first:()=>({isVisible:async()=>false})}),
-  getByRole:(_role:string,options?:{name?:string})=>{
+  getByRole:(_role:string,options?:{name?:string|RegExp})=>{
+   if(options?.name instanceof RegExp)return semCookies;
    if(options?.name==='Realizar cadastro')return {click:async()=>{cliques++;}};
    return {filter:()=>opcoes};
   },locator:()=>{uploads++;throw new Error('Não deve anexar sem UC selecionada');}
@@ -78,4 +81,16 @@ test('retoma na seleção de UC sem repetir Realizar cadastro',async()=>{
  assert.equal(paginaPortalCemig([login,servico,home],login),servico);
  assert.equal(paginaPortalCemig([login,fake],login),login);
  });
+
+test('rejeita aviso de cookies visível somente no domínio oficial',async()=>{
+ let cliques=0;
+ const page={url:()=>CEMIG_PORTAL,getByRole:(_role:string,options:{name:RegExp})=>{
+  assert.ok(options.name.test('Reject All'));
+  return {first:()=>({isVisible:async()=>true,click:async()=>{cliques++;}})};
+ }} as unknown as Page;
+ await fecharAvisoCookiesCemig(page);
+ assert.equal(cliques,1);
+ await fecharAvisoCookiesCemig({url:()=> 'https://example.com',getByRole:()=>assert.fail('domínio não autorizado')} as unknown as Page);
+ await fecharAvisoCookiesCemig({url:()=>CEMIG_PORTAL,getByRole:()=>semCookies} as unknown as Page);
+});
 
