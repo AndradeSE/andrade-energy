@@ -24,10 +24,17 @@ export function identificarTipoRecaptcha(src:string):TipoCaptcha|null {
   }catch{return null;}
 }
 export class DesafioCemigIndisponivel extends Error {
-  constructor(){super('Abra o login em nuvem e escolha entrar com senha até o CAPTCHA aparecer. Nenhuma tarefa foi enviada ao CapMonster.');}
+  constructor(public readonly tipo:'LOGIN'|'CLOUDFLARE'='LOGIN'){super(tipo==='CLOUDFLARE'
+    ?'A tela atual é a verificação Cloudflare antes do login, não o reCAPTCHA de Entrar com senha. Conclua essa verificação na mesma sessão; este teste não envia Cloudflare ao CapMonster. Nenhuma tarefa foi criada e nenhum crédito foi usado.'
+    :'Abra o login em nuvem e escolha entrar com senha até o CAPTCHA aparecer. Nenhuma tarefa foi enviada ao CapMonster.');}
 }
 export async function lerDesafioCemig(page:Page):Promise<Desafio> {
   try {
+  const origem=new URL(page.url());
+  if(['https://atende.cemig.com.br','https://www.atendimento.cemig.com.br'].includes(origem.origin)&&!origem.username&&!origem.password){
+    const verificacao=page.getByText?.(/Performing security verification|Verify you are human|Verifique se você é humano/i).first();
+    if(verificacao&&await verificacao.isVisible())throw new DesafioCemigIndisponivel('CLOUDFLARE');
+  }
   const websiteURL=conferirPaginaCaptcha(page.url());
   const dados=await page.evaluate(()=>{
     const frames=Array.from(document.querySelectorAll<HTMLIFrameElement>('iframe[src]'));
@@ -41,20 +48,22 @@ export async function lerDesafioCemig(page:Page):Promise<Desafio> {
   const tipo=identificarTipoRecaptcha(dados.src);
   if(!tipo)throw new Error('Tipo não reconhecido');
   return {websiteURL,websiteKey:dados.key,userAgent:dados.userAgent,tipo,...(dados.s?{s:dados.s}:{})};
-  } catch { throw new DesafioCemigIndisponivel(); }
+  } catch(error) { if(error instanceof DesafioCemigIndisponivel)throw error;throw new DesafioCemigIndisponivel(); }
 }
 
 /** Manual login may open another tab. Inspect only allowed login pages, never fields. */
 export async function localizarDesafioCemig(pages:Page[]) {
+  let verificacao:DesafioCemigIndisponivel|undefined;
   for(const page of [...pages].reverse()){
     try {
       const desafio=await lerDesafioCemig(page);
       return {page,desafio};
     } catch(error) {
       if(!(error instanceof DesafioCemigIndisponivel))throw error;
+      if(error.tipo==='CLOUDFLARE')verificacao=error;
     }
   }
-  throw new DesafioCemigIndisponivel();
+  throw verificacao??new DesafioCemigIndisponivel();
 }
 
 export class FalhaCapmonster extends Error {

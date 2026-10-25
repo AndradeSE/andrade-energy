@@ -6,6 +6,11 @@ import {CEMIG_PREVIEW_DB} from './cemigCloud.policy';
 const env={SUPABASE_URL:CEMIG_PREVIEW_DB,CEMIG_CLOUD_ENABLED:'true',CEMIG_CLOUD_EXECUTOR:'RENDER',CAPMONSTER_PREVIEW_ENABLED:'true',CAPMONSTER_API_KEY:'fake-test-key'};
 const desafio={websiteURL:'https://atende.cemig.com.br/Login?private=query#fragment',websiteKey:'test-public-sitekey-123456',userAgent:'test-agent'};
 const esperar=async()=>{};
+test('Cloudflare antes do login retorna diagnóstico sem ler campos ou enviar tarefa',async()=>{
+ const page={url:()=> 'https://www.atendimento.cemig.com.br/portal/services/compensation-gd',
+ getByText:()=>({first:()=>({isVisible:async()=>true})}),evaluate:()=>assert.fail('não ler dados do desafio nesta etapa')} as unknown as Page;
+ await assert.rejects(localizarDesafioCemig([page]),(e:unknown)=>e instanceof DesafioCemigIndisponivel&&e.tipo==='CLOUDFLARE'&&e.message.includes('Nenhuma tarefa'));
+});
 test('localiza CAPTCHA em nova aba do login sem avaliar outras origens',async()=>{
  const inicio={url:()=> 'https://www.atendimento.cemig.com.br/portal/home'} as Page;
  const externo={url:()=> 'https://example.com/',evaluate:()=>assert.fail('Não avaliar domínio externo')} as unknown as Page;
