@@ -67,7 +67,7 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
  const claim=await supabase.from('cemig_simulacoes').update({estado:'INICIANDO'}).eq('id',id).eq('estado',fila).gt('expira_em',new Date().toISOString()).select('*').maybeSingle();
  if(claim.error)throw new Error('Fila indisponível.');if(!claim.data)return;
  const job=claim.data;let sessionId:string|undefined;let browser:Browser|undefined;
- const prazo=Math.min(Date.parse(job.expira_em)-15000,Date.now()+CEMIG_SESSION_SECONDS*1000-30000);
+ const prazo=Math.min(Date.parse(job.expira_em)-15000,Date.now()+CEMIG_SESSION_SECONDS*1000-5000);
  try{
   const csv=decifrar(job.csv_cifrado);conferirCsvSimulacao(csv,job.uc_geradora);
   const session=await criarBrowserbaseSimulacao();sessionId=session.id;
