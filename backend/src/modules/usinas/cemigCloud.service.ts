@@ -3,7 +3,7 @@ import {criptografarDado,descriptografarDado} from '../../utils/sensitiveData';
 import {prepararPlanilhaRateio} from './rateioMensal.service';
 import {CEMIG_PORTAL,exigirCemigSimulacao,conferirCsvSimulacao} from './cemigCloud.policy';
 import {criarBrowserbaseSimulacao,encerrarBrowserbase,liveBrowserbase} from './cemigCloud.browserbase';
-import {bloquearProtocoloNaSimulacao,validarAnexoCemig,FalhaEtapaCemig} from './cemigCloud.portal';
+import {bloquearProtocoloNaSimulacao,validarAnexoCemig,FalhaEtapaCemig,AcaoManualCemig} from './cemigCloud.portal';
 import {chromium,type Browser} from 'playwright-core';
 import {cemigRenderHabilitado} from './cemigCloud.dispatcher';
 import {capmonsterDisponivel,localizarDesafioCemig,obterRespostaCapmonster,aplicarRespostaCaptcha,DesafioCemigIndisponivel,FalhaCapmonster} from './cemigCloud.capmonster';
@@ -112,9 +112,18 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
     continue;
    }
    if(r.data.continuar){
-    const v=await supabase.from('cemig_simulacoes').update({estado:'VALIDANDO'}).eq('id',id).eq('estado','AGUARDANDO_LOGIN').select('id').maybeSingle();
+    const v=await supabase.from('cemig_simulacoes').update({estado:'VALIDANDO',continuar:false,erro:null}).eq('id',id).eq('estado','AGUARDANDO_LOGIN').select('id').maybeSingle();
     if(v.error||!v.data)return;
-    await validarAnexoCemig(page,job.uc_geradora,csv,job.arquivo);
+    try {
+      await validarAnexoCemig(page,job.uc_geradora,csv,job.arquivo);
+    } catch(error) {
+      if(!(error instanceof AcaoManualCemig))throw error;
+      const live=await liveBrowserbase(sessionId!,page.url());
+      const waiting=await supabase.from('cemig_simulacoes').update({estado:'AGUARDANDO_LOGIN',continuar:false,
+        erro:error.message,live_cifrado:criptografarDado(live)}).eq('id',id).eq('estado','VALIDANDO');
+      if(waiting.error)throw new Error('Não foi possível preservar a sessão.');
+      continue;
+    }
     await supabase.from('cemig_simulacoes').update({estado:'REVISAO_SEM_PROTOCOLO',csv_cifrado:null,live_cifrado:null}).eq('id',id).eq('estado','VALIDANDO');
     return;
    }

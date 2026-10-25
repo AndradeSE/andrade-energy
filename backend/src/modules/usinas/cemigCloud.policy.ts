@@ -7,7 +7,9 @@ export function exigirCemigSimulacao(env:NodeJS.ProcessEnv) {
     throw new Error("A integração Cemig em nuvem está disponível somente para simulação no Preview.");
 }
 export function conferirMinutosGratuitos(valor:unknown) {
-  if(typeof valor!=="number"||!Number.isFinite(valor)||valor<0||valor>40)
+  // Uma sessão de até dez minutos e mais um minuto de margem, sem ultrapassar 60.
+  const maximoUsado=60-Math.ceil(CEMIG_SESSION_SECONDS/60)-1;
+  if(typeof valor!=="number"||!Number.isFinite(valor)||valor<0||valor>maximoUsado)
     throw new Error("Cota gratuita insuficiente ou não confirmada. Nenhum plano será contratado.");
 }
 export function conferirCsvSimulacao(csv:string,ucGeradora:string) {

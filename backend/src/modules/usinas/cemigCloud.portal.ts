@@ -15,15 +15,34 @@ export class FalhaEtapaCemig extends Error {
   }
 }
 
+export class AcaoManualCemig extends Error {
+  constructor(public readonly tipo:'LOGIN'|'VERIFICACAO') {
+    super(tipo==='LOGIN'?'Conclua o login na mesma sessão em nuvem e depois toque em continuar. Nenhum protocolo foi solicitado.':
+      'A Cemig pediu uma verificação de segurança. Conclua-a manualmente na mesma sessão em nuvem e depois toque em continuar. Nenhuma tarefa CAPTCHA foi enviada.');
+  }
+}
+async function conferirAcaoManual(page:Page) {
+  const url=new URL(page.url());
+  if(!['https://www.atendimento.cemig.com.br','https://atende.cemig.com.br'].includes(url.origin))return;
+  if(/\/(?:login|auth)(?:\/|$)/i.test(url.pathname))throw new AcaoManualCemig('LOGIN');
+  const challenge=page.getByText(/Verify you are human|Performing security verification|Verifique se você é humano|Verificação de segurança/i).first();
+  if(await challenge.isVisible())throw new AcaoManualCemig('VERIFICACAO');
+}
+
 /** Somente simulação: esta função nunca aceita declaração nem solicita cadastro. */
 export async function validarAnexoCemig(page:Page,uc:string,csv:string,arquivo:string) {
   conferirCsvSimulacao(csv,uc);
   let etapa: keyof typeof etapas = 'LOGIN';
   try {
   const url=new URL(page.url());
+  if(url.origin==='https://atende.cemig.com.br' && /\/login(?:\/|$)/i.test(url.pathname))throw new AcaoManualCemig('LOGIN');
   if(url.origin!==new URL(CEMIG_PORTAL).origin)throw new Error("Faça o login manual no Cemig Atende.");
+  await conferirAcaoManual(page);
   etapa='SERVICO';
-  await page.goto(CEMIG_PORTAL,{waitUntil:"domcontentloaded",timeout:45000});
+  if(url.pathname.replace(/\/$/,'')!==new URL(CEMIG_PORTAL).pathname) {
+    await page.goto(CEMIG_PORTAL,{waitUntil:"domcontentloaded",timeout:45000});
+    await conferirAcaoManual(page);
+  }
   await page.getByRole("button",{name:"Realizar cadastro",exact:true}).click({timeout:15000});
   etapa='USINA';
   const opcoes=page.getByRole("button").filter({hasText:/Nº da unidade consumidora:/});
@@ -51,7 +70,9 @@ export async function validarAnexoCemig(page:Page,uc:string,csv:string,arquivo:s
   if(geradora.replace(/\D/g,"")!==uc)throw new Error("A UC mudou durante a revisão.");
   await page.getByText(arquivo,{exact:true}).waitFor();
   return {estado:"REVISAO_SEM_PROTOCOLO" as const,protocolo:null};
-  } catch {
+  } catch(error) {
+    if(error instanceof AcaoManualCemig)throw error;
+    try {await conferirAcaoManual(page);}catch(check){if(check instanceof AcaoManualCemig)throw check;}
     // Never persist the raw Playwright error: it can include page/customer data.
     throw new FalhaEtapaCemig(etapa);
   }
