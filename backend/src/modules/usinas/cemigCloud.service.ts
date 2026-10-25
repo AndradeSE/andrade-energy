@@ -1,7 +1,7 @@
 import {supabase} from '../../config/supabase';
 import {criptografarDado,descriptografarDado} from '../../utils/sensitiveData';
 import {prepararPlanilhaRateio} from './rateioMensal.service';
-import {CEMIG_PORTAL,exigirCemigSimulacao,conferirCsvSimulacao} from './cemigCloud.policy';
+import {CEMIG_PORTAL,CEMIG_SESSION_SECONDS,exigirCemigSimulacao,conferirCsvSimulacao} from './cemigCloud.policy';
 import {criarBrowserbaseSimulacao,encerrarBrowserbase,liveBrowserbase} from './cemigCloud.browserbase';
 import {bloquearProtocoloNaSimulacao,validarAnexoCemig,FalhaEtapaCemig,AcaoManualCemig} from './cemigCloud.portal';
 import {chromium,type Browser} from 'playwright-core';
@@ -64,7 +64,7 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
  const claim=await supabase.from('cemig_simulacoes').update({estado:'INICIANDO'}).eq('id',id).eq('estado',fila).gt('expira_em',new Date().toISOString()).select('*').maybeSingle();
  if(claim.error)throw new Error('Fila indisponível.');if(!claim.data)return;
  const job=claim.data;let sessionId:string|undefined;let browser:Browser|undefined;
- const prazo=Math.min(Date.parse(job.expira_em)-15000,Date.now()+570000);
+ const prazo=Math.min(Date.parse(job.expira_em)-15000,Date.now()+CEMIG_SESSION_SECONDS*1000-30000);
  try{
   const csv=decifrar(job.csv_cifrado);conferirCsvSimulacao(csv,job.uc_geradora);
   const session=await criarBrowserbaseSimulacao();sessionId=session.id;
@@ -74,7 +74,7 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
   await bloquearProtocoloNaSimulacao(page);
   await page.goto(CEMIG_PORTAL,{waitUntil:'domcontentloaded',timeout:45000});
   const live=await liveBrowserbase(session.id,page.url());
-  const pronto=await supabase.from('cemig_simulacoes').update({estado:'AGUARDANDO_LOGIN',sessao_id:session.id,live_cifrado:criptografarDado(live)}).eq('id',id).eq('estado','INICIANDO').select('id').maybeSingle();
+  const pronto=await supabase.from('cemig_simulacoes').update({estado:'AGUARDANDO_LOGIN',sessao_id:session.id,expira_em:new Date(prazo).toISOString(),live_cifrado:criptografarDado(live)}).eq('id',id).eq('estado','INICIANDO').select('id').maybeSingle();
   if(pronto.error||!pronto.data)return;
   while(Date.now()<prazo){
    const r=await supabase.from('cemig_simulacoes').select('estado,continuar,captcha_estado').eq('id',id).single();
