@@ -3,13 +3,13 @@ import {criptografarDado,descriptografarDado} from '../../utils/sensitiveData';
 import {prepararPlanilhaRateio} from './rateioMensal.service';
 import {CEMIG_PORTAL,CEMIG_SESSION_SECONDS,exigirCemigSimulacao,conferirCsvSimulacao} from './cemigCloud.policy';
 import {abrirNavegadorCemig} from './cemigCloud.browser';
-import {bloquearProtocoloNaSimulacao,validarAnexoCemig,FalhaEtapaCemig,AcaoManualCemig} from './cemigCloud.portal';
+import {bloquearProtocoloNaSimulacao,validarAnexoCemig,FalhaEtapaCemig,AcaoManualCemig,paginaPortalCemig} from './cemigCloud.portal';
 import {chromium,type Browser} from 'playwright-core';
 import {cemigRenderHabilitado} from './cemigCloud.dispatcher';
 import {capmonsterDisponivel,localizarDesafioCemig,obterRespostaCapmonster,aplicarRespostaCaptcha,DesafioCemigIndisponivel,FalhaCapmonster} from './cemigCloud.capmonster';
 import {motivoBloqueioCaptcha,RecusaTesteCaptcha} from './cemigCloud.captchaPolicy';
 import {lerAcessoCemig} from './cemigCredential.service';
-import {enviarLoginCemig} from './cemigLogin';
+import {enviarLoginCemig,VerificacaoCemigExpirada} from './cemigLogin';
 
 const ativos=['FILA','FILA_RENDER','INICIANDO','AGUARDANDO_LOGIN','VALIDANDO'];
 const worker='https://andrade-energy-fallback-probe.netlify.app/.netlify/functions/cemig-background';
@@ -111,8 +111,8 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
        });
       }finally{acesso.login='';acesso.senha='';}
       await supabase.from('cemig_simulacoes').update({login_estado:'ENVIADO',continuar:true}).eq('id',id).eq('estado','AGUARDANDO_LOGIN');
-     }catch{
-      await supabase.from('cemig_simulacoes').update({login_estado:'ERRO',login_erro:'Não foi possível confirmar o login. Confira o portal e o acesso salvo. Não haverá repetição automática.'}).eq('id',id).eq('estado','AGUARDANDO_LOGIN');
+     }catch(error){
+      await supabase.from('cemig_simulacoes').update({login_estado:'ERRO',login_erro:error instanceof VerificacaoCemigExpirada?error.message:'Não foi possível confirmar o login. Confira o portal e o acesso salvo. Não haverá repetição automática.'}).eq('id',id).eq('estado','AGUARDANDO_LOGIN');
      }
     }
     continue;
@@ -152,6 +152,8 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
     const v=await supabase.from('cemig_simulacoes').update({estado:'VALIDANDO',continuar:false,erro:null}).eq('id',id).eq('estado','AGUARDANDO_LOGIN').select('id').maybeSingle();
     if(v.error||!v.data)return;
     try {
+      page=paginaPortalCemig(context.pages(),page);
+      await bloquearProtocoloNaSimulacao(page);
       await validarAnexoCemig(page,job.uc_geradora,csv,job.arquivo);
     } catch(error) {
       if(!(error instanceof AcaoManualCemig))throw error;

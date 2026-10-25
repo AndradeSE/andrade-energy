@@ -1,6 +1,16 @@
 import type {Page} from "playwright-core";
 import {CEMIG_PORTAL,conferirCsvSimulacao} from "./cemigCloud.policy";
 
+/** Login can open a second tab. Never continue against the stale login tab. */
+export function paginaPortalCemig(pages:Page[],atual:Page):Page {
+  const candidatas=pages.filter(p=>{
+    try { const u=new URL(p.url());return u.origin===new URL(CEMIG_PORTAL).origin&&u.pathname.startsWith('/portal/'); }
+    catch{return false;}
+  });
+  return candidatas.find(p=>new URL(p.url()).pathname===new URL(CEMIG_PORTAL).pathname)
+    ??candidatas.at(-1)??atual;
+}
+
 const etapas = {
   LOGIN: 'confirmar o login',
   SERVICO: 'abrir o serviço de compensação',

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type {Page} from 'playwright-core';
-import {FalhaEtapaCemig,AcaoManualCemig,validarAnexoCemig} from './cemigCloud.portal';
+import {FalhaEtapaCemig,AcaoManualCemig,validarAnexoCemig,paginaPortalCemig} from './cemigCloud.portal';
 import {CEMIG_PORTAL} from './cemigCloud.policy';
 
 const uc='999999999999';
@@ -66,4 +66,16 @@ test('retoma na seleção de UC sem repetir Realizar cadastro',async()=>{
  await assert.rejects(validarAnexoCemig(page,uc,csv,'teste.csv'),(e:unknown)=>e instanceof FalhaEtapaCemig&&e.etapa==='USINA');
  assert.equal(cliques,0);assert.equal(uploads,0);
 });
+
+
+ test('seleciona portal autenticado em outra aba sem usar dominios semelhantes',()=>{
+ const tab=(url:string)=>({url:()=>url} as Page);
+ const login=tab('https://atende.cemig.com.br/Login');
+ const home=tab('https://www.atendimento.cemig.com.br/portal/home');
+ const fake=tab('https://www.atendimento.cemig.com.br.evil.test/portal/home');
+ assert.equal(paginaPortalCemig([login,home,fake],login),home);
+ const servico=tab(CEMIG_PORTAL);
+ assert.equal(paginaPortalCemig([login,servico,home],login),servico);
+ assert.equal(paginaPortalCemig([login,fake],login),login);
+ });
 

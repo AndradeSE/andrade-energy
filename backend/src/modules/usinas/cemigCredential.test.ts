@@ -39,3 +39,10 @@ test('envia somente uma entrada autorizada e não confunde envio com autenticaç
  const stopped=fakePage('https://atende.cemig.com.br/Login');
  await assert.rejects(enviarLoginCemig(stopped.page,{login:'test',senha:'secret'},async()=>false));assert.equal(stopped.writes.length,0);
 });
+
+test('verificação expirada interrompe antes de preencher credenciais',async()=>{
+ const {page,writes}=fakePage('https://atende.cemig.com.br/Login');
+ page.getByText=((pattern:RegExp)=>({first:()=>({isVisible:async()=>pattern.test('A verificação expirou. Faça novamente.')})})) as any;
+ await assert.rejects(enviarLoginCemig(page,{login:'test',senha:'secret'},async()=>true),/expirou/);
+ assert.deepEqual(writes,[]);
+});
