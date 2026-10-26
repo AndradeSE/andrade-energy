@@ -1,9 +1,9 @@
 import {supabase} from '../../config/supabase';
 import {criptografarDado,descriptografarDado} from '../../utils/sensitiveData';
 import {prepararPlanilhaRateio} from './rateioMensal.service';
-import {CEMIG_PORTAL,CEMIG_SESSION_SECONDS,exigirCemigSimulacao,conferirCsvSimulacao} from './cemigCloud.policy';
+import {CEMIG_SESSION_SECONDS,exigirCemigSimulacao,conferirCsvSimulacao} from './cemigCloud.policy';
 import {abrirNavegadorCemig} from './cemigCloud.browser';
-import {bloquearProtocoloNaSimulacao,validarAnexoCemig,FalhaEtapaCemig,AcaoManualCemig,paginaPortalCemig,verificacaoHumanaCemig} from './cemigCloud.portal';
+import {bloquearProtocoloNaSimulacao,validarAnexoCemig,FalhaEtapaCemig,AcaoManualCemig,paginaPortalCemig} from './cemigCloud.portal';
 import {restaurarSessaoSalvaCemig,salvarSessaoCemig} from './cemigSessionState.service';
 import {criarNotificacaoApp} from '../notificacoes/push.service';
 import {chromium,type Browser} from 'playwright-core';
@@ -12,6 +12,7 @@ import {capmonsterDisponivel,localizarDesafioCemig,obterRespostaCapmonster,aplic
 import {motivoBloqueioCaptcha,RecusaTesteCaptcha} from './cemigCloud.captchaPolicy';
 import {lerAcessoCemig} from './cemigCredential.service';
 import {enviarLoginCemig,VerificacaoCemigExpirada} from './cemigLogin';
+import {abrirPortalCemig} from './cemigPortal.open';
 
 const ativos=['FILA','FILA_RENDER','INICIANDO','AGUARDANDO_LOGIN','VALIDANDO'];
 const worker='https://andrade-energy-fallback-probe.netlify.app/.netlify/functions/cemig-background';
@@ -97,13 +98,13 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
   const restaurada=await restaurarSessaoSalvaCemig(context,job.empresa_id,job.usuario_id);
   let page=context.pages()[0]??await context.newPage();
   await bloquearProtocoloNaSimulacao(page);
-  await page.goto(CEMIG_PORTAL,{waitUntil:'domcontentloaded',timeout:45000});
+  const abertura=await abrirPortalCemig(page);
   const live=await session.live(page.url());
   const pronto=await supabase.from('cemig_simulacoes').update({estado:'AGUARDANDO_LOGIN',sessao_id:session.id,navegador_provedor:session.provedor,expira_em:new Date(prazo).toISOString(),live_cifrado:criptografarDado(live)}).eq('id',id).eq('estado','INICIANDO').select('id').maybeSingle();
   if(pronto.error||!pronto.data)return;
-  if(await verificacaoHumanaCemig(page)){
+  if(abertura==='VERIFICACAO'){
    await atualizar(id,{erro:new AcaoManualCemig('VERIFICACAO').message});await avisar('VERIFICACAO');
-  }else if(restaurada&&page.url().startsWith(new URL(CEMIG_PORTAL).origin+'/portal/')){
+  }else if(restaurada&&abertura==='PORTAL'){
    await atualizar(id,{continuar:true});
   }
   while(Date.now()<prazo){
