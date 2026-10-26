@@ -1,4 +1,4 @@
-import {consultarMinutosBrowserbase} from '../usinas/cemigCloud.browserbase';
+import {consultarMinutosBrowserbase,FalhaConsultaBrowserbase} from '../usinas/cemigCloud.browserbase';
 import {supabase} from '../../config/supabase';
 const ambiente=()=>/qqhcjieymypowunkixmk/.test(process.env.SUPABASE_URL??'')?'preview':'production';
 
@@ -12,8 +12,8 @@ export function leituraBrowserbase(usado:unknown,agora=Date.now()){
 }
 export async function consultarCotaAtual(consultar:()=>Promise<number>){
  try{return [leituraBrowserbase(await consultar())];}
- catch{return [{servico:'BROWSERBASE',metrica:'navegador_minutos',rotulo:'Browserbase · navegador em nuvem',unidade:'minutos',automatico:true,
-  observacao:'Não foi possível consultar o projeto configurado neste servidor. A falha não significa saldo zero.',
+ catch(error){return [{servico:'BROWSERBASE',metrica:'navegador_minutos',rotulo:'Browserbase · navegador em nuvem',unidade:'minutos',automatico:true,
+  observacao:error instanceof FalhaConsultaBrowserbase?`${error.message} A falha não significa saldo zero.`:'Não foi possível consultar o projeto configurado neste servidor. A falha não significa saldo zero.',
   consulta:{status:'CONSULTA_INDISPONIVEL',consultado_em:new Date().toISOString()},leitura:null}];}
 }
 export async function cotaBrowserbase(){
