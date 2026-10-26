@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type {Page} from 'playwright-core';
-import {abrirPortalCemig,loginCemigRenderizado} from './cemigPortal.open';
+import {abrirPortalCemig,loginCemigRenderizado,podeRecuperarLoginCemig} from './cemigPortal.open';
 import {CEMIG_PORTAL,CEMIG_LOGIN} from './cemigCloud.policy';
 
 test('reconhece controles reais sem metadados CSS; rejeita modais simultâneos',()=>{
@@ -63,6 +63,41 @@ test('preserva página incompleta e visualizador sem recarga nem descarte',async
  const a=pagina('about:blank',{loginRenderizado:false});
  a.page.reload=(async()=>assert.fail('não recarregar a sessão')) as any;
  assert.equal(await abrirPortalCemig(a.page),'CARREGANDO');assert.equal(a.navegacoes(),1);
+});
+
+test('recupera uma vez o documento sem estilos antes de preparar o usuário',async()=>{
+ const a=pagina(CEMIG_LOGIN);let pronto=false,reloads=0;
+ a.page.evaluate=(async(fn:unknown)=>fn===loginCemigRenderizado?pronto:true) as any;
+ a.page.reload=(async(options:any)=>{reloads++;assert.equal(options.waitUntil,'load');pronto=true;}) as any;
+ assert.equal(await abrirPortalCemig(a.page),'LOGIN');
+ assert.equal(reloads,1);assert.equal(a.navegacoes(),0);
+});
+
+test('falha persistente de formatação preserva sessão sem ciclo de recargas',async()=>{
+ const a=pagina(CEMIG_LOGIN);let reloads=0;
+ a.page.evaluate=(async(fn:unknown)=>fn!==loginCemigRenderizado) as any;
+ a.page.reload=(async()=>{reloads++;}) as any;
+ assert.equal(await abrirPortalCemig(a.page),'LOGIN_INCOMPLETO');assert.equal(reloads,1);
+});
+
+test('recarga que encontra verificação humana pausa sem nova tentativa',async()=>{
+ const options={humano:false};const a=pagina(CEMIG_LOGIN,options);let reloads=0;
+ a.page.evaluate=(async(fn:unknown)=>fn!==loginCemigRenderizado) as any;
+ a.page.reload=(async()=>{reloads++;options.humano=true;}) as any;
+ assert.equal(await abrirPortalCemig(a.page),'VERIFICACAO');assert.equal(reloads,1);
+});
+
+test('recuperação exige múltiplos modais e todos os campos sensíveis vazios',()=>{
+ const originais=['document','getComputedStyle'].map(key=>[key,Object.getOwnPropertyDescriptor(globalThis,key)] as const);
+ const modal={getClientRects:()=>[{}]};let modais=[modal,modal];
+ const campos=Array.from({length:5},()=>({value:''}));
+ try{
+  Object.defineProperty(globalThis,'document',{configurable:true,value:{querySelectorAll:(selector:string)=>selector==='.modal'?modais:campos}});
+  Object.defineProperty(globalThis,'getComputedStyle',{configurable:true,value:()=>({display:'block',visibility:'visible'})});
+  assert.equal(podeRecuperarLoginCemig(),true);
+  for(const campo of campos){campo.value='em andamento';assert.equal(podeRecuperarLoginCemig(),false);campo.value='';}
+  modais=[modal];assert.equal(podeRecuperarLoginCemig(),false);
+ }finally{for(const [key,descriptor] of originais){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else Reflect.deleteProperty(globalThis,key);}}
 });
 test('sessão restaurada também inicia no endereço de login correto',async()=>{
  const a=pagina('about:blank');assert.equal(await abrirPortalCemig(a.page,true),'LOGIN');assert.equal(a.page.url(),CEMIG_LOGIN);

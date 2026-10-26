@@ -113,6 +113,8 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
   etapaInicial='VALIDACAO';
   if(abertura==='VERIFICACAO'){
    await atualizar(id,{erro:new AcaoManualCemig('VERIFICACAO').message});await avisar('VERIFICACAO');
+  }else if(abertura==='LOGIN_INCOMPLETO'){
+   await atualizar(id,{erro:'O login da Cemig continua sem a formatação correta após uma única recarga automática. A sessão foi preservada; nenhum usuário, senha ou CAPTCHA foi enviado. Não inicie outra simulação.'});
   }else if(abertura==='CARREGANDO'){
    await atualizar(id,{erro:'A sessão foi preservada, mas os controles do login ainda não foram confirmados. Confira a mesma sessão; nenhum acesso ou CAPTCHA foi enviado.'});
   }else if(restaurada&&abertura==='PORTAL'){

@@ -2,7 +2,7 @@ import type {Page} from 'playwright-core';
 import {CEMIG_PORTAL,CEMIG_LOGIN} from './cemigCloud.policy';
 import {verificacaoHumanaCemig} from './cemigCloud.portal';
 
-export type AberturaPortalCemig='PORTAL'|'LOGIN'|'VERIFICACAO'|'CARREGANDO';
+export type AberturaPortalCemig='PORTAL'|'LOGIN'|'VERIFICACAO'|'CARREGANDO'|'LOGIN_INCOMPLETO';
 export class FalhaAberturaPortalCemig extends Error {
  constructor(public readonly codigo:'RENDERIZACAO'|'TEMPO'|'REDE'|'DESTINO'|'CONTROLE'){
   const motivo={RENDERIZACAO:'Os estilos ou formulários do login continuaram incompletos após uma recarga.',TEMPO:'O carregamento do portal excedeu o tempo disponível.',REDE:'A conexão com o portal falhou durante o carregamento.',DESTINO:'O portal redirecionou para um endereço não autorizado.',CONTROLE:'Falhou a leitura do estado da página pelo navegador.'};
@@ -20,6 +20,18 @@ export function loginCemigRenderizado(){
   return visivel(senha.querySelector('#acessoModalSenhaValor'))&&visivel(senha.querySelector('#senhaModal'))&&
    visivel(senha.querySelector('#btnConfirmarLoginComSenha'));
  return modais.length===0&&visivel(document.querySelector('#acesso'))&&visivel(document.querySelector('#btnEntrarComSenha'));
+}
+
+/** Recover only the malformed, untouched initial document seen in the portal.
+ * Never reload a page containing an identifier, password or challenge response.
+ */
+export function podeRecuperarLoginCemig(){
+ const modais=Array.from(document.querySelectorAll('.modal')).filter(el=>
+  el.getClientRects().length>0&&getComputedStyle(el).display!=='none'&&getComputedStyle(el).visibility!=='hidden');
+ if(modais.length<2)return false;
+ const campos=document.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>(
+  '#acesso,#acessoModalSenhaValor,#senhaModal,[name="g-recaptcha-response"],[name="cf-turnstile-response"]');
+ return Array.from(campos).every(el=>!el.value.trim());
 }
 
 async function estadoPortalCemig(page:Page):Promise<AberturaPortalCemig>{
@@ -54,11 +66,19 @@ async function abrirPortalCemigInterno(page:Page,restaurada=false):Promise<Abert
  if(/^\/login\/?$/i.test(new URL(page.url()).pathname)){
   try{await page.waitForFunction(loginCemigRenderizado,undefined,{timeout:15000,polling:250});}
   catch(error){if(!(error instanceof Error)||error.name!=='TimeoutError')throw error;}
-  const estado=await estadoPortalCemig(page);
-  if(estado==='CARREGANDO'){
-   // Preserve the actual page and viewer for diagnosis/recovery. A readiness
-   // mismatch must not discard a valid session or reload an ongoing login.
-   return 'CARREGANDO';
+  let estado=await estadoPortalCemig(page);
+  if(estado==='CARREGANDO'&&await page.evaluate(podeRecuperarLoginCemig)){
+   // A single ordinary reload can recover failed CSS/JS downloads. This runs
+   // before the worker publishes the viewer or prepares any saved identifier.
+   try{await page.reload({waitUntil:'load',timeout:15000});}
+   catch(error){if(!(error instanceof Error)||error.name!=='TimeoutError')throw error;}
+   estado=await estadoPortalCemig(page);
+   if(estado==='CARREGANDO'){
+    try{await page.waitForFunction(loginCemigRenderizado,undefined,{timeout:5000,polling:250});}
+    catch(error){if(!(error instanceof Error)||error.name!=='TimeoutError')throw error;}
+    estado=await estadoPortalCemig(page);
+   }
+   if(estado==='CARREGANDO'&&await page.evaluate(podeRecuperarLoginCemig))return 'LOGIN_INCOMPLETO';
   }
   return estado;
  }
