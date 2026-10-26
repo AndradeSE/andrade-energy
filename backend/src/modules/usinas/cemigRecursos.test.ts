@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import {EventEmitter} from 'node:events';
 import type {Page} from 'playwright-core';
 import {recursoPublicoCemig,resultadoRecursoCemig,falhaRedeRecursoCemig,acompanharRecursosCemig,recursosCemigRecusados} from './cemigRecursos';
-import {FalhaAberturaPortalCemig} from './cemigPortal.open';
+import {FalhaEntradaCemig} from './cemigCloud.failure';
 
 test('recusa de arquivos impede login incompleto com mensagem explícita',()=>{
  assert.equal(recursosCemigRecusados('JS_APLICACAO: HTTP_403 / ERR_ABORTED'),true);
  assert.equal(recursosCemigRecusados('CSS_PRINCIPAL: HTTP_401'),true);
  assert.equal(recursosCemigRecusados('CSS_PRINCIPAL: HTTP_200/OK; JS_APLICACAO: SEM_RESPOSTA / ERR_ABORTED'),false);
- const error=new FalhaAberturaPortalCemig('RECURSOS_RECUSADOS');
+ const error=new FalhaEntradaCemig('RECURSOS_RECUSADOS');
  assert.match(error.message,/Cemig recusou/);assert.match(error.message,/401\/403/);
 });
 

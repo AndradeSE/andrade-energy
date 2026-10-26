@@ -1,7 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type {Page} from 'playwright-core';
-import {enviarLoginCemig,FalhaLoginCemig,VerificacaoCemigExpirada,mesmoUsuarioCemig,conferirUsuarioModalCemig,prepararUsuarioCemig} from './cemigLogin';
+import {enviarLoginCemig,FalhaLoginCemig,VerificacaoCemigExpirada,mesmoUsuarioCemig,conferirUsuarioModalCemig,prepararUsuarioCemig,loginCemigRenderizado} from './cemigLogin';
+
+test('não preenche o login quando vários modais aparecem sobrepostos',()=>{
+ const originais=['document','getComputedStyle'].map(key=>[key,Object.getOwnPropertyDescriptor(globalThis,key)] as const);
+ const campo={getClientRects:()=>[{}]};const senha={getClientRects:()=>[{}],querySelector:()=>campo};
+ let modais:any[]=[];
+ try{
+  Object.defineProperty(globalThis,'document',{configurable:true,value:{querySelectorAll:()=>modais,
+   querySelector:(selector:string)=>selector==='#modalLoginComSenha'?senha:campo}});
+  Object.defineProperty(globalThis,'getComputedStyle',{configurable:true,value:()=>({display:'block',visibility:'visible'})});
+  assert.equal(loginCemigRenderizado(),true);
+  modais=[senha];assert.equal(loginCemigRenderizado(),true);
+  modais=[senha,campo];assert.equal(loginCemigRenderizado(),false);
+ }finally{for(const [key,descriptor] of originais){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else Reflect.deleteProperty(globalThis,key);}}
+});
 
 test('prepara usuário na tela inicial e abre modal sem preencher senha nem resolver CAPTCHA',async()=>{
  let modalAberto=false,usuario='';const eventos:string[]=[];

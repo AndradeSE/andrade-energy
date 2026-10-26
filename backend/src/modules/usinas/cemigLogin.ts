@@ -1,6 +1,18 @@
 import type {Page} from 'playwright-core';
 import {conferirPaginaCaptcha} from './cemigCloud.capmonster';
 import {validarAcessoCemig} from './cemigCredential.crypto';
+
+/** Safety guard for the original login flow: never fill overlapping forms. */
+export function loginCemigRenderizado(){
+ const visivel=(elemento:Element|null)=>!!elemento&&elemento.getClientRects().length>0&&
+  getComputedStyle(elemento).display!=='none'&&getComputedStyle(elemento).visibility!=='hidden';
+ const modais=Array.from(document.querySelectorAll('.modal')).filter(visivel);
+ const senha=document.querySelector('#modalLoginComSenha');
+ if(modais.length===1&&modais[0]===senha)
+  return visivel(senha.querySelector('#acessoModalSenhaValor'))&&visivel(senha.querySelector('#senhaModal'))&&
+   visivel(senha.querySelector('#btnConfirmarLoginComSenha'));
+ return modais.length===0&&visivel(document.querySelector('#acesso'))&&visivel(document.querySelector('#btnEntrarComSenha'));
+}
 export class VerificacaoCemigExpirada extends Error {
  constructor(){super('A verificação da Cemig expirou ou foi removida. O envio do formulário foi interrompido; nenhuma tentativa CAPTCHA será repetida automaticamente.');}
 }

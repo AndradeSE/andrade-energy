@@ -1,9 +1,9 @@
 import {supabase} from '../../config/supabase';
 import {criptografarDado,descriptografarDado} from '../../utils/sensitiveData';
 import {prepararPlanilhaRateio} from './rateioMensal.service';
-import {CEMIG_SESSION_SECONDS,exigirCemigSimulacao,conferirCsvSimulacao} from './cemigCloud.policy';
+import {CEMIG_PORTAL,CEMIG_SESSION_SECONDS,exigirCemigSimulacao,conferirCsvSimulacao} from './cemigCloud.policy';
 import {abrirNavegadorCemig} from './cemigCloud.browser';
-import {bloquearProtocoloNaSimulacao,validarAnexoCemig,FalhaEtapaCemig,AcaoManualCemig,paginaPortalCemig} from './cemigCloud.portal';
+import {bloquearProtocoloNaSimulacao,validarAnexoCemig,FalhaEtapaCemig,AcaoManualCemig,paginaPortalCemig,verificacaoHumanaCemig} from './cemigCloud.portal';
 import {restaurarSessaoSalvaCemig,salvarSessaoCemig} from './cemigSessionState.service';
 import {criarNotificacaoApp} from '../notificacoes/push.service';
 import {chromium,type Browser} from 'playwright-core';
@@ -11,9 +11,8 @@ import {cemigRenderHabilitado} from './cemigCloud.dispatcher';
 import {capmonsterDisponivel,localizarDesafioCemig,obterRespostaCapmonster,aplicarRespostaCaptcha,DesafioCemigIndisponivel,FalhaCapmonster} from './cemigCloud.capmonster';
 import {motivoBloqueioCaptcha,RecusaTesteCaptcha} from './cemigCloud.captchaPolicy';
 import {lerAcessoCemig} from './cemigCredential.service';
-import {enviarLoginCemig,VerificacaoCemigExpirada,FalhaLoginCemig,conferirUsuarioModalCemig,prepararUsuarioCemig} from './cemigLogin';
-import {abrirPortalCemig,FalhaAberturaPortalCemig,loginCemigRenderizado} from './cemigPortal.open';
-import {mensagemFalhaCemig,type EtapaInicialCemig} from './cemigCloud.failure';
+import {enviarLoginCemig,VerificacaoCemigExpirada,FalhaLoginCemig,conferirUsuarioModalCemig,prepararUsuarioCemig,loginCemigRenderizado} from './cemigLogin';
+import {mensagemFalhaCemig,FalhaEntradaCemig,type EtapaInicialCemig} from './cemigCloud.failure';
 import {acompanharRecursosCemig,recursosCemigRecusados} from './cemigRecursos';
 
 const ativos=['FILA','FILA_RENDER','INICIANDO','AGUARDANDO_LOGIN','VALIDANDO'];
@@ -106,27 +105,28 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
   await bloquearProtocoloNaSimulacao(page);
   etapaInicial='PORTAL';
   const recursosLogin=acompanharRecursosCemig(page);
-  let abertura:Awaited<ReturnType<typeof abrirPortalCemig>>;
   let diagnosticoRecursos:string;
   try{
-   abertura=await abrirPortalCemig(page,restaurada);
+   // Original workflow: enter through the official service and follow its login
+   // redirect in the same context. No supplemental E2E opener or reload loop.
+   await page.goto(CEMIG_PORTAL,{waitUntil:'domcontentloaded',timeout:45000});
    diagnosticoRecursos=await recursosLogin.resumo();
   }finally{recursosLogin.parar();}
-  if(abertura==='LOGIN_INCOMPLETO'&&recursosCemigRecusados(diagnosticoRecursos))
-   throw new FalhaAberturaPortalCemig('RECURSOS_RECUSADOS');
+  const entradaAtual=new URL(page.url());
+  if(![new URL(CEMIG_PORTAL).origin,'https://atende.cemig.com.br'].includes(entradaAtual.origin))throw new FalhaEntradaCemig('DESTINO');
+  const verificacao=await verificacaoHumanaCemig(page);
+  const loginAtual=entradaAtual.origin==='https://atende.cemig.com.br'&&/^\/login\/?$/i.test(entradaAtual.pathname);
+  if(!verificacao&&loginAtual&&recursosCemigRecusados(diagnosticoRecursos)&&!await page.evaluate(loginCemigRenderizado))
+   throw new FalhaEntradaCemig('RECURSOS_RECUSADOS');
   let usuarioPreparado=false;
   etapaInicial='VISUALIZADOR';
   const live=await session.live(page.url());
   const pronto=await supabase.from('cemig_simulacoes').update({estado:'AGUARDANDO_LOGIN',sessao_id:session.id,navegador_provedor:session.provedor,expira_em:new Date(prazo).toISOString(),live_cifrado:criptografarDado(live)}).eq('id',id).eq('estado','INICIANDO').select('id').maybeSingle();
   if(pronto.error||!pronto.data)return;
   etapaInicial='VALIDACAO';
-  if(abertura==='VERIFICACAO'){
+  if(verificacao){
    await atualizar(id,{erro:new AcaoManualCemig('VERIFICACAO').message});await avisar('VERIFICACAO');
-  }else if(abertura==='LOGIN_INCOMPLETO'){
-   await atualizar(id,{erro:`O login da Cemig continua sem a formatação correta após uma única recarga automática. Recursos públicos: ${diagnosticoRecursos}. A sessão foi preservada; nenhum usuário, senha ou CAPTCHA foi enviado. Não inicie outra simulação.`});
-  }else if(abertura==='CARREGANDO'){
-   await atualizar(id,{erro:'A sessão foi preservada, mas os controles do login ainda não foram confirmados. Confira a mesma sessão; nenhum acesso ou CAPTCHA foi enviado.'});
-  }else if(restaurada&&abertura==='PORTAL'){
+  }else if(restaurada&&entradaAtual.origin===new URL(CEMIG_PORTAL).origin&&entradaAtual.pathname.startsWith('/portal/')){
    await atualizar(id,{continuar:true});
   }
   while(Date.now()<prazo){
@@ -238,7 +238,7 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
   await supabase.from('cemig_simulacoes').update({estado:'EXPIRADO',csv_cifrado:null,live_cifrado:null}).eq('id',id).in('estado',ativos);
  }catch(error){
   // Provider/Playwright errors may contain credentials, DOM or customer data.
-  const mensagem=error instanceof FalhaEtapaCemig||error instanceof FalhaAberturaPortalCemig ? error.message : mensagemFalhaCemig(etapaInicial);
+  const mensagem=error instanceof FalhaEtapaCemig||error instanceof FalhaEntradaCemig ? error.message : mensagemFalhaCemig(etapaInicial);
   await supabase.from('cemig_simulacoes').update({estado:'ERRO',erro:mensagem,csv_cifrado:null,live_cifrado:null}).eq('id',id).in('estado',ativos);
  }finally{
   if(navegador)await navegador.liberar().catch(()=>{});
