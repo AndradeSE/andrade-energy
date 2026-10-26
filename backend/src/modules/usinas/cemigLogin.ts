@@ -33,11 +33,15 @@ export async function enviarLoginCemig(page:Page,acesso:{login:string;senha:stri
   };
   await conferirToken();
   etapa='FORMULARIO';
-  // The landing page and password dialog both contain "Usuário". Hidden
-  // controls must not make an otherwise valid password dialog ambiguous.
-  const login=page.getByLabel('Usuário',{exact:true}).filter({visible:true});
-  const senha=page.locator('input[type="password"]:visible');
-  const entrar=page.getByRole('button',{name:'Entrar',exact:true}).filter({visible:true});
+  // Scope to the password form rather than the entire landing page, which
+  // also renders a separate user/code form (sometimes both are visible).
+  const formularios=page.locator('form').filter({has:page.locator('input[type="password"]:visible')});
+  const quantidade=await formularios.count();
+  if(quantidade>1)throw new Error();
+  const escopo=quantidade===1?formularios:page;
+  const login=escopo.getByLabel('Usuário',{exact:true}).filter({visible:true});
+  const senha=escopo.locator('input[type="password"]:visible');
+  const entrar=escopo.getByRole('button',{name:'Entrar',exact:true}).filter({visible:true});
   if(await login.count()!==1||await senha.count()!==1||await entrar.count()!==1)throw new Error();
   // Preserve fields already supplied in this session: redundant input events can
   // invalidate form state. Values are compared locally and never logged.

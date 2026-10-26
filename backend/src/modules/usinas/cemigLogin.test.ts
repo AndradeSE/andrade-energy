@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import type {Page} from 'playwright-core';
 import {enviarLoginCemig,FalhaLoginCemig,VerificacaoCemigExpirada} from './cemigLogin';
 
-function formulario(opcoes:{visiveis?:number;falha?:'usuario'|'senha'|'envio';token?:string;expirou?:boolean;url?:string}={}){
+function formulario(opcoes:{visiveis?:number;formularios?:number;falha?:'usuario'|'senha'|'envio';token?:string;expirou?:boolean;url?:string}={}){
  const eventos:string[]=[];
  const campo=(nome:string)=>({
   count:async()=>nome==='usuario'?2:1,
@@ -17,7 +17,7 @@ function formulario(opcoes:{visiveis?:number;falha?:'usuario'|'senha'|'envio';to
   url:()=>opcoes.url??'https://atende.cemig.com.br/Login',frames:()=>[],
   getByText:(pattern:RegExp)=>({first:()=>({isVisible:async()=>!!opcoes.expirou&&pattern.test('Verificação expirou')})}),
   getByLabel:()=>campo('usuario'),getByRole:()=>campo('botao'),
-  locator:(selector:string)=>campo(selector.startsWith('textarea')?'token':'senha'),
+  locator:(selector:string):any=>selector==='form'?{filter:()=>({count:async()=>opcoes.formularios??0,getByLabel:()=>({...campo('usuario'),filter:()=>({...campo('usuario'),count:async()=>1})}),locator:()=>campo('senha'),getByRole:()=>({...campo('botao'),filter:()=>({...campo('botao'),count:async()=>1})})})}:campo(selector.startsWith('textarea')?'token':'senha'),
  } as unknown as Page;
  return {page,eventos};
 }
@@ -31,6 +31,11 @@ test('não escolhe arbitrariamente quando há dois formulários visíveis',async
  const f=formulario({visiveis:2});
  await assert.rejects(enviarLoginCemig(f.page,acesso,async()=>true),/único formulário/);
  assert.deepEqual(f.eventos,[]);
+});
+test('usa somente o formulário de senha mesmo com usuário duplicado na landing page',async()=>{
+ const f=formulario({visiveis:2,formularios:1});
+ await enviarLoginCemig(f.page,acesso,async()=>true);
+ assert.deepEqual(f.eventos,['usuario','senha','envio']);
 });
 test('não envia formulário com verificação expirada ou resposta ausente',async()=>{
  for(const opcoes of [{expirou:true},{token:''}]){
