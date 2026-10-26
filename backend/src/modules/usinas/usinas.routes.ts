@@ -20,6 +20,7 @@ import {
 import { exigirAutenticacao, exigirGestor, exigirSuperAdministradorAndrade } from "../../middlewares/auth.middleware";
 import { iniciarCemigSimulacao, consultarCemigSimulacao } from './cemigCloud.service';
 import {RecusaTesteCaptcha} from './cemigCloud.captchaPolicy';
+import {cadastroAncoras,FalhaCadastroAncora} from './ucsAncoras.service';
 import {statusAcessoCemig,salvarAcessoCemig,excluirAcessoCemig} from './cemigCredential.service';
 import { exigirUsinaDaSessaoOuGestor } from "../../utils/empresaScope";
 import { exigirCapacidadeDoPlano } from "../../middlewares/limitesPlano.middleware";
@@ -41,6 +42,19 @@ function acessoOperacao(usuario:any) {
 }
 
 router.use(exigirAutenticacao);
+for(const metodo of ['get','post','put','delete'] as const){
+ const rota=metodo==='put'||metodo==='delete'?'/:id/ucs-ancoras/:ancoraId':'/:id/ucs-ancoras';
+ router[metodo](rota,exigirGestor,async(req,res)=>{
+  if(!acessoOperacao((req as any).usuario))return res.status(403).json({message:'Acesso à operação não autorizado.'});
+  res.setHeader('Cache-Control','private, no-store');
+  try{
+   const empresa=empresaIdDaRequisicao(req);
+   if(metodo==='get')return res.json(await cadastroAncoras.listar(req.params.id,empresa));
+   if(metodo==='delete')return res.json(await cadastroAncoras.excluir(req.params.id,empresa,req.params.ancoraId));
+   return res.status(metodo==='post'?201:200).json(await cadastroAncoras.salvar(req.params.id,empresa,req.body,metodo==='put'?req.params.ancoraId:undefined));
+  }catch(error){return res.status(error instanceof FalhaCadastroAncora?400:503).json({message:error instanceof FalhaCadastroAncora?error.message:'Não foi possível acessar a lista de UCs âncora. Tente novamente.'});}
+ });
+}
 router.get('/:id/cemig-acesso',exigirGestor,exigirSuperAdministradorAndrade,async(req,res)=>{
  res.setHeader('Cache-Control','private, no-store');
  try{return res.json(await statusAcessoCemig(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id));}
