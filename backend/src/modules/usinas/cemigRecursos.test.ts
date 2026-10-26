@@ -1,9 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {EventEmitter} from 'node:events';
-import type {Page} from 'playwright-core';
+import {errors,type Page} from 'playwright-core';
+import {concluirCarregamentoCemig} from './cemigRecursos';
 import {recursoPublicoCemig,resultadoRecursoCemig,falhaRedeRecursoCemig,acompanharRecursosCemig,recursosCemigRecusados} from './cemigRecursos';
 import {FalhaEntradaCemig} from './cemigCloud.failure';
+
+test('captura recurso que responde depois do HTML e antes de load',async()=>{
+ const page=Object.assign(new EventEmitter(),{waitForLoadState:async()=>{
+  page.emit('response',{url:()=> 'https://atende.cemig.com.br/bundles/application',status:()=>403,headerValue:async()=> 'text/html'});
+ }});
+ const coletor=acompanharRecursosCemig(page as unknown as Page);
+ assert.doesNotMatch(await coletor.resumo(),/HTTP_403/);
+ await concluirCarregamentoCemig(page as unknown as Page);
+ assert.match(await coletor.resumo(),/JS_APLICACAO: HTTP_403/);
+ coletor.parar();
+});
+
+test('espera limitada tolera recurso pendente mas não esconde navegador encerrado',async()=>{
+ await concluirCarregamentoCemig({waitForLoadState:async(estado,opcoes)=>{
+  assert.equal(estado,'load');assert.equal(opcoes?.timeout,8000);
+  throw new errors.TimeoutError('recurso pendente');
+ }});
+ const fechado=new Error('navegador encerrado');
+ await assert.rejects(concluirCarregamentoCemig({waitForLoadState:async()=>{throw fechado;}}),error=>error===fechado);
+});
 
 test('recusa de arquivos impede login incompleto com mensagem explícita',()=>{
  assert.equal(recursosCemigRecusados('JS_APLICACAO: HTTP_403 / ERR_ABORTED'),true);

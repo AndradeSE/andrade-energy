@@ -1,4 +1,10 @@
-import type {Page,Request,Response} from 'playwright-core';
+import {errors,type Page,type Request,type Response} from 'playwright-core';
+
+/** Keep response listeners alive through load, with a bounded wait for stalled assets. */
+export async function concluirCarregamentoCemig(page:Pick<Page,'waitForLoadState'>){
+ try{await page.waitForLoadState('load',{timeout:8000});}
+ catch(error){if(!(error instanceof errors.TimeoutError))throw error;}
+}
 
 const recursos={
  '/Content/css':'CSS_PRINCIPAL',

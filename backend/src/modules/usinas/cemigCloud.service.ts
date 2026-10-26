@@ -13,7 +13,7 @@ import {motivoBloqueioCaptcha,RecusaTesteCaptcha} from './cemigCloud.captchaPoli
 import {lerAcessoCemig} from './cemigCredential.service';
 import {enviarLoginCemig,VerificacaoCemigExpirada,FalhaLoginCemig,conferirUsuarioModalCemig,prepararUsuarioCemig,loginCemigRenderizado} from './cemigLogin';
 import {mensagemFalhaCemig,FalhaEntradaCemig,type EtapaInicialCemig} from './cemigCloud.failure';
-import {acompanharRecursosCemig,recursosCemigRecusados} from './cemigRecursos';
+import {acompanharRecursosCemig,recursosCemigRecusados,concluirCarregamentoCemig} from './cemigRecursos';
 
 const ativos=['FILA','FILA_RENDER','INICIANDO','AGUARDANDO_LOGIN','VALIDANDO'];
 const worker='https://andrade-energy-fallback-probe.netlify.app/.netlify/functions/cemig-background';
@@ -111,6 +111,7 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
    // Start at the current login. The service URL is only used after authentication.
    // Removing the supplemental opener must not restore the old entry domain.
    await page.goto(CEMIG_LOGIN,{waitUntil:'domcontentloaded',timeout:45000});
+   await concluirCarregamentoCemig(page);
    diagnosticoRecursos=await recursosLogin.resumo();
   }finally{recursosLogin.parar();}
   const entradaAtual=new URL(page.url());
