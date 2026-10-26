@@ -4,6 +4,12 @@ import {validarAcessoCemig} from './cemigCredential.crypto';
 export class VerificacaoCemigExpirada extends Error {
  constructor(){super('A verificação da Cemig expirou ou foi removida. O envio do formulário foi interrompido; nenhuma tentativa CAPTCHA será repetida automaticamente.');}
 }
+export class FalhaLoginCemig extends Error {
+ constructor(etapa:'SESSAO'|'FORMULARIO'|'USUARIO'|'SENHA'|'ENVIO'){
+  const mensagens={SESSAO:'A sessão de login da Cemig não está disponível.',FORMULARIO:'Não foi identificado um único formulário de senha visível na Cemig.',USUARIO:'Não foi possível preencher o usuário no formulário da Cemig.',SENHA:'Não foi possível preencher a senha no formulário da Cemig.',ENVIO:'Não foi possível enviar o formulário de login da Cemig.'};
+  super(`${mensagens[etapa]} Nenhuma tentativa será repetida automaticamente.`);
+ }
+}
 export async function verificarExpiracaoCemig(page:Page){
  const pattern=/(?:verifica[çc][aã]o|verification).*(?:expir|expired)|(?:expir|expired).*(?:verifica|verification)/i;
  const alvos=[page,...page.frames().filter(frame=>{
@@ -15,6 +21,7 @@ export async function verificarExpiracaoCemig(page:Page){
 export async function enviarLoginCemig(page:Page,acesso:{login:string;senha:string},ativo:()=>Promise<boolean>){
  const dados=validarAcessoCemig(acesso.login,acesso.senha);
  const conferir=async()=>{conferirPaginaCaptcha(page.url());if(!await ativo())throw new Error();};
+ let etapa:'SESSAO'|'FORMULARIO'|'USUARIO'|'SENHA'|'ENVIO'='SESSAO';
  try{
   await conferir();
   const verificacao=page.getByText(/Performing security verification|Verify you are human|Verifique se você é humano/i).first();
@@ -25,17 +32,20 @@ export async function enviarLoginCemig(page:Page,acesso:{login:string;senha:stri
    if(resposta.length<20)throw new VerificacaoCemigExpirada();
   };
   await conferirToken();
-  const login=page.getByLabel('Usuário',{exact:true});
+  etapa='FORMULARIO';
+  // The landing page and password dialog both contain "Usuário". Hidden
+  // controls must not make an otherwise valid password dialog ambiguous.
+  const login=page.getByLabel('Usuário',{exact:true}).filter({visible:true});
   const senha=page.locator('input[type="password"]:visible');
-  const entrar=page.getByRole('button',{name:'Entrar',exact:true});
+  const entrar=page.getByRole('button',{name:'Entrar',exact:true}).filter({visible:true});
   if(await login.count()!==1||await senha.count()!==1||await entrar.count()!==1)throw new Error();
   // Preserve fields already supplied in this session: redundant input events can
   // invalidate form state. Values are compared locally and never logged.
-  await conferir();
+  etapa='USUARIO';await conferir();
   if(await login.inputValue({timeout:3000})!==dados.login)await login.fill(dados.login,{timeout:3000});
-  await conferir();await conferirToken();
+  etapa='SENHA';await conferir();await conferirToken();
   if(await senha.inputValue({timeout:3000})!==dados.senha)await senha.fill(dados.senha,{timeout:3000});
-  await conferir();await conferirToken();await entrar.click({timeout:5000});
+  etapa='ENVIO';await conferir();await conferirToken();await entrar.click({timeout:5000});
   // A submitted form is not proof of authentication. The existing CSV validator checks login.
- }catch(error){if(error instanceof VerificacaoCemigExpirada)throw error;throw new Error('Login não confirmado. Confira a verificação de segurança e o acesso salvo; nenhuma nova tentativa será feita automaticamente.');}
+ }catch(error){if(error instanceof VerificacaoCemigExpirada)throw error;throw new FalhaLoginCemig(etapa);}
 }

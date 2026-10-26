@@ -11,7 +11,7 @@ import {cemigRenderHabilitado} from './cemigCloud.dispatcher';
 import {capmonsterDisponivel,localizarDesafioCemig,obterRespostaCapmonster,aplicarRespostaCaptcha,DesafioCemigIndisponivel,FalhaCapmonster} from './cemigCloud.capmonster';
 import {motivoBloqueioCaptcha,RecusaTesteCaptcha} from './cemigCloud.captchaPolicy';
 import {lerAcessoCemig} from './cemigCredential.service';
-import {enviarLoginCemig,VerificacaoCemigExpirada} from './cemigLogin';
+import {enviarLoginCemig,VerificacaoCemigExpirada,FalhaLoginCemig} from './cemigLogin';
 import {abrirPortalCemig} from './cemigPortal.open';
 import {mensagemFalhaCemig,type EtapaInicialCemig} from './cemigCloud.failure';
 
@@ -137,7 +137,7 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
       }finally{acesso.login='';acesso.senha='';}
       await supabase.from('cemig_simulacoes').update({login_estado:'ENVIADO',continuar:true}).eq('id',id).eq('estado','AGUARDANDO_LOGIN');
      }catch(error){
-      await supabase.from('cemig_simulacoes').update({login_estado:'ERRO',login_erro:error instanceof VerificacaoCemigExpirada?error.message:'Não foi possível confirmar o login. Confira o portal e o acesso salvo. Não haverá repetição automática.'}).eq('id',id).eq('estado','AGUARDANDO_LOGIN');
+      await supabase.from('cemig_simulacoes').update({login_estado:'ERRO',login_erro:error instanceof VerificacaoCemigExpirada||error instanceof FalhaLoginCemig?error.message:'Não foi possível confirmar o login. Confira o portal e o acesso salvo. Não haverá repetição automática.'}).eq('id',id).eq('estado','AGUARDANDO_LOGIN');
      }
     }
     continue;
