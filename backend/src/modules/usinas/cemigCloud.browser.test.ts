@@ -48,7 +48,7 @@ test('Steel cria uma sessão limitada sem proxy, solver ou perfil e libera no en
  }) as typeof fetch;
  const s=await criarSteelPreview({env,fetcher});
  assert.equal(calls[0].url,'https://api.steel.dev/v1/sessions');
- assert.equal(calls[0].body.timeout,570000);assert.equal(calls[0].body.solveCaptcha,false);
+ assert.equal(calls[0].body.timeout,510000);assert.equal(calls[0].body.solveCaptcha,false);
  assert.equal(calls[0].body.useProxy,false);assert.equal(calls[0].body.persistProfile,false);
  assert.equal(new URL(s.connectUrl).hostname,'connect.steel.dev');
  assert.equal(new URL(s.connectUrl).searchParams.get('sessionId'),s.id);
@@ -62,4 +62,5 @@ test('criação incerta tenta liberação do mesmo ID, sem nova tarefa nem vazam
  assert.equal(urls.length,2);assert.equal(urls.filter(u=>u==='https://api.steel.dev/v1/sessions').length,1);
  assert.match(urls[1],/^https:\/\/api\.steel\.dev\/v1\/sessions\/[\da-f-]+\/release$/);
 });
+
 

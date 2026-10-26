@@ -7,9 +7,9 @@ test('nuvem bloqueia produção mesmo com flag ligada e bloqueia Preview desliga
  assert.doesNotThrow(()=>exigirCemigSimulacao({SUPABASE_URL:CEMIG_PREVIEW_DB,CEMIG_CLOUD_ENABLED:'true'}));
  for(const env of [{SUPABASE_URL:'https://production.supabase.co',CEMIG_CLOUD_ENABLED:'true'},{SUPABASE_URL:CEMIG_PREVIEW_DB},{SUPABASE_URL:CEMIG_PREVIEW_DB+'.evil.test',CEMIG_CLOUD_ENABLED:'true'}])assert.throws(()=>exigirCemigSimulacao(env));
 });
-test('teste cabe em dez minutos disponíveis incluindo margem de encerramento',()=>{
- for(const n of [0,30,40,41,48,49,50])assert.doesNotThrow(()=>conferirMinutosGratuitos(n));
- for(const n of [50.01,56,57,60,-1,null,undefined,'0',NaN,Infinity])assert.throws(()=>conferirMinutosGratuitos(n));
+test('teste cabe em nove minutos disponíveis incluindo margem de encerramento',()=>{
+ for(const n of [0,30,40,41,48,49,50,51])assert.doesNotThrow(()=>conferirMinutosGratuitos(n));
+ for(const n of [51.01,56,57,60,-1,null,undefined,'0',NaN,Infinity])assert.throws(()=>conferirMinutosGratuitos(n));
 });
 test('CSV inválido nunca chega ao portal: total, duplicatas, documento e âncora',()=>{
  const csv='1111111111111;00000000000;30;\n2222222222222;00000000000;70;X';
@@ -26,3 +26,4 @@ test('indicador usa minutos reais e nunca inventa zero ou renovação',()=>{
  assert.equal(leituraBrowserbase(0).leitura.renova_em,null);
  for(const value of [null,undefined,'0',-1,NaN,Infinity])assert.throws(()=>leituraBrowserbase(value));
 });
+

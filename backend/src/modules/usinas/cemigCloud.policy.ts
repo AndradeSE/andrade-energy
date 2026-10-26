@@ -1,7 +1,7 @@
 export const CEMIG_PORTAL = "https://www.atendimento.cemig.com.br/portal/services/compensation-gd";
 export const CEMIG_LOGIN = "https://atende.cemig.com.br/Login";
-// Preview test: nine and a half minutes plus thirty seconds reserved for release.
-export const CEMIG_SESSION_SECONDS = 570;
+// Preview test: eight and a half minutes plus thirty seconds reserved for release.
+export const CEMIG_SESSION_SECONDS = 510;
 export const CEMIG_PREVIEW_DB = "https://qqhcjieymypowunkixmk.supabase.co";
 export class CotaBrowserbaseInsuficiente extends Error {}
 
@@ -28,3 +28,4 @@ export function urlLivePermitida(valor:unknown) {
   if(u.protocol!=="https:"||u.username||u.password||!(u.hostname==="browserbase.com"||u.hostname.endsWith(".browserbase.com")))throw new Error("URL de sessão inválida.");
   return u.toString();
 }
+
