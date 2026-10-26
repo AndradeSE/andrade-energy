@@ -67,9 +67,28 @@ export async function localizarDesafioCemig(pages:Page[]) {
 }
 
 export class FalhaCapmonster extends Error {
-  constructor(etapa:'SALDO'|'CRIACAO'|'RESULTADO'){
+  constructor(etapa:'SALDO'|'CRIACAO'|'RESULTADO',codigo?:string,public readonly temporaria=false){
     const textos={SALDO:'Falha ao consultar o saldo. Nenhuma tarefa foi criada.',CRIACAO:'Falha ao criar a tarefa. O resultado da solicitação exige conferência; não repetir automaticamente.',RESULTADO:'Falha ao consultar o resultado da tarefa. Ela não será recriada automaticamente.'};
-    super(textos[etapa]);
+    // Only static, documented codes are exposed. Never forward provider bodies,
+    // descriptions, request URLs, keys or challenge data to the app.
+    const motivos:Record<string,string>={
+      ERROR_CAPTCHA_UNSOLVABLE:'O provedor não conseguiu resolver o desafio.',
+      ERROR_RECAPTCHA_TIMEOUT:'O tempo de resolução no provedor terminou.',
+      ERROR_TOKEN_EXPIRED:'O desafio enviado ao provedor expirou.',
+      ERROR_RECAPTCHA_INVALID_SITEKEY:'O provedor rejeitou a identificação pública do desafio.',
+      ERROR_RECAPTCHA_INVALID_DOMAIN:'O provedor rejeitou o domínio do desafio.',
+      ERROR_KEY_DOES_NOT_EXIST:'O provedor rejeitou a chave configurada.',
+      ERROR_ZERO_BALANCE:'O provedor informou saldo insuficiente.',
+      ERROR_NO_SUCH_CAPCHA_ID:'O resultado da tarefa não está disponível no provedor.',
+      WRONG_CAPTCHA_ID:'O resultado da tarefa não está disponível no provedor.',
+      ERROR_IP_NOT_ALLOWED:'O provedor não autorizou a origem da consulta.',
+      ERROR_IP_BANNED:'O provedor bloqueou temporariamente a origem da consulta.',
+      ERROR_IP_BLOCKED:'O provedor bloqueou a origem da consulta.',
+      ERROR_TOO_MUCH_REQUESTS:'O provedor limitou a frequência das consultas.',
+      ERROR_DOMAIN_NOT_ALLOWED:'O provedor não permite esse domínio.',
+      ERROR_TASK_NOT_SUPPORTED:'O provedor não aceita esse tipo de tarefa.',
+    };
+    super([textos[etapa],codigo&&Object.hasOwn(motivos,codigo)?motivos[codigo]:''].filter(Boolean).join(' '));
   }
 }
 
@@ -83,11 +102,18 @@ export async function obterRespostaCapmonster(desafio:Desafio,opcoes:{env:NodeJS
   async function api(metodo:'getBalance'|'createTask'|'getTaskResult',body:object={}) {
     try {
       const r=await fetcher(`https://api.capmonster.cloud/${metodo}`,{method:'POST',redirect:'error',signal:AbortSignal.timeout(12000),headers:{'Content-Type':'application/json'},body:JSON.stringify({clientKey:opcoes.env.CAPMONSTER_API_KEY,...body})});
-      if(!r.ok)throw new Error();
+      const etapa=metodo==='getBalance'?'SALDO':metodo==='createTask'?'CRIACAO':'RESULTADO';
+      if(!r.ok)throw new FalhaCapmonster(etapa,undefined,metodo==='getTaskResult'&&(r.status===429||r.status>=500&&r.status<=599));
       const data=await r.json();
-      if(data.errorId!==0)throw new Error();
+      if(data.errorId!==0){
+        if(metodo==='getTaskResult'&&data.errorCode==='CAPTCHA_NOT_READY')return {status:'processing'};
+        throw new FalhaCapmonster(etapa,typeof data.errorCode==='string'?data.errorCode:undefined,metodo==='getTaskResult'&&data.errorCode==='ERROR_TOO_MUCH_REQUESTS');
+      }
       return data;
-    } catch { throw new FalhaCapmonster(metodo==='getBalance'?'SALDO':metodo==='createTask'?'CRIACAO':'RESULTADO'); }
+    } catch(error) {
+      if(error instanceof FalhaCapmonster)throw error;
+      throw new FalhaCapmonster(metodo==='getBalance'?'SALDO':metodo==='createTask'?'CRIACAO':'RESULTADO',undefined,metodo==='getTaskResult');
+    }
   }
   const {balance}=await api('getBalance');
   // This isolated pilot is restricted to the requested $0.10 bonus, not purchased balances.
@@ -98,10 +124,18 @@ export async function obterRespostaCapmonster(desafio:Desafio,opcoes:{env:NodeJS
   if(!['RecaptchaV2Task','RecaptchaV2EnterpriseTask'].includes(tipo))throw new Error('Tipo não suportado.');
   const created=await api('createTask',{task:{type:tipo,websiteURL:url,websiteKey:desafio.websiteKey,userAgent:desafio.userAgent,...(desafio.s?(tipo==='RecaptchaV2EnterpriseTask'?{enterprisePayload:{s:desafio.s}}:{recaptchaDataSValue:desafio.s}):{})}});
   if(!Number.isSafeInteger(created.taskId)||created.taskId<=0)throw new Error('Identificador de tarefa inválido; não repetir automaticamente.');
+  let falhasConsecutivas=0;
   for(let i=0;i<24;i++){
-    await esperar(5000);
+    await esperar(falhasConsecutivas?5000*2**falhasConsecutivas:5000);
     if(!await opcoes.ativo())throw new Error('Simulação encerrada; a tarefa não será repetida.');
-    const result=await api('getTaskResult',{taskId:created.taskId});
+    let result;
+    try { result=await api('getTaskResult',{taskId:created.taskId});falhasConsecutivas=0; }
+    catch(error){
+      // Retrying a read of the same task cannot create another paid task.
+      // Creation remains strictly once; permanent provider errors stop here.
+      if(error instanceof FalhaCapmonster&&error.temporaria&&++falhasConsecutivas<3&&i<23)continue;
+      throw error;
+    }
     if(result.status==='processing')continue;
     const token=result.solution?.gRecaptchaResponse;
     if(result.status!=='ready'||typeof token!=='string'||token.length<20||token.length>20000)throw new Error('Resposta de teste inválida.');
