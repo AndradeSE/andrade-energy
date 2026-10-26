@@ -8,6 +8,7 @@ function pagina(url:string,opcoes:{humano?:boolean;pronto?:boolean;redireciona?:
  let atual=url,navegacoes=0;
  const page={url:()=>atual,goto:async(destino:string)=>{navegacoes++;atual=opcoes.redireciona??destino;},
   evaluate:async()=>opcoes.loginRenderizado!==false,
+  reload:async()=>{},
   waitForFunction:async()=>{const erro=new Error('teste sem espera real');erro.name='TimeoutError';throw erro;},
   getByText:()=>({first:()=>({isVisible:async()=>!!opcoes.humano})}),
   getByRole:()=>({isVisible:async()=>!!opcoes.pronto,filter:()=>({first:()=>({isVisible:async()=>false})})}),
@@ -30,6 +31,18 @@ test('aguarda a renderização do login sem recarregar a sessão',async()=>{
  const opcoes={loginRenderizado:false};const a=pagina('about:blank',opcoes);
  a.page.waitForFunction=(async()=>{opcoes.loginRenderizado=true;}) as any;
  assert.equal(await abrirPortalCemig(a.page),'LOGIN');assert.equal(a.navegacoes(),1);
+});
+
+test('recupera estilos em uma única recarga antes de preencher qualquer acesso',async()=>{
+ const opcoes={loginRenderizado:false};const a=pagina('about:blank',opcoes);let recargas=0;
+ a.page.reload=(async()=>{recargas++;opcoes.loginRenderizado=true;}) as any;
+ assert.equal(await abrirPortalCemig(a.page),'LOGIN');assert.equal(recargas,1);assert.equal(a.navegacoes(),1);
+});
+
+test('não repete recargas quando o documento permanece incompleto',async()=>{
+ const a=pagina('about:blank',{loginRenderizado:false});let recargas=0;
+ a.page.reload=(async()=>{recargas++;}) as any;
+ await assert.rejects(abrirPortalCemig(a.page),/após uma recarga/);assert.equal(recargas,1);
 });
 test('sessão restaurada também inicia no endereço de login correto',async()=>{
  const a=pagina('about:blank');assert.equal(await abrirPortalCemig(a.page,true),'LOGIN');assert.equal(a.page.url(),CEMIG_LOGIN);

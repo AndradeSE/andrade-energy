@@ -49,7 +49,14 @@ export async function abrirPortalCemig(page:Page,restaurada=false):Promise<Abert
   try{await page.waitForFunction(loginCemigRenderizado,undefined,{timeout:15000,polling:250});}
   catch(error){if(!(error instanceof Error)||error.name!=='TimeoutError')throw error;}
   const estado=await estadoPortalCemig(page);
-  if(estado==='CARREGANDO')throw new Error('A página de login da Cemig não terminou de carregar os estilos e formulários. Nenhum dado de acesso foi preenchido.');
+  if(estado==='CARREGANDO'){
+   // Recover one incomplete ordinary document load before any credentials or
+   // challenge interaction. Never reload a human-verification page or retry login.
+   await page.reload({waitUntil:'load',timeout:30000});
+   const recuperado=await estadoPortalCemig(page);
+   if(recuperado!=='CARREGANDO')return recuperado;
+   throw new Error('A página de login da Cemig não terminou de carregar os estilos e formulários após uma recarga. Nenhum dado de acesso foi preenchido.');
+  }
   return estado;
  }
  // Wait for ordinary application readiness, never for a generic body element.
