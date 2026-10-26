@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {cifrarAcessoCemig,abrirAcessoCemig,validarAcessoCemig} from './cemigCredential.crypto';
-import {enviarLoginCemig} from './cemigLogin';
+import {enviarLoginCemig,verificarExpiracaoCemig} from './cemigLogin';
 import type {Page} from 'playwright-core';
 const env={FINANCIAL_DATA_ENCRYPTION_KEY:'test-only-encryption-key'};
 test('cofre usa cifra autenticada vinculada a empresa e usuário, com IV aleatório',()=>{
@@ -20,7 +20,7 @@ test('validação preserva espaços da senha e rejeita limites inválidos',()=>{
 function fakePage(url:string,token='x'.repeat(30),challenge=false){
  const writes:string[]=[];
  const input=(name:string)=>({count:async()=>1,fill:async(value:string)=>{writes.push(name);},click:async()=>{writes.push('submit');}});
- const page={url:()=>url,getByText:()=>({first:()=>({isVisible:async()=>challenge})}),
+ const page={url:()=>url,frames:()=>[],getByText:()=>({first:()=>({isVisible:async()=>challenge})}),
   locator:(selector:string)=>selector.startsWith('textarea')?{first:()=>({inputValue:async()=>token})}:input('password'),
   getByLabel:()=>input('login'),getByRole:()=>input('submit')} as unknown as Page;
  return {page,writes};
@@ -43,6 +43,17 @@ test('envia somente uma entrada autorizada e não confunde envio com autenticaç
 test('verificação expirada interrompe antes de preencher credenciais',async()=>{
  const {page,writes}=fakePage('https://atende.cemig.com.br/Login');
  page.getByText=((pattern:RegExp)=>({first:()=>({isVisible:async()=>pattern.test('A verificação expirou. Faça novamente.')})})) as any;
+ await assert.rejects(enviarLoginCemig(page,{login:'test',senha:'secret'},async()=>true),/expirou/);
+ assert.deepEqual(writes,[]);
+});
+
+test('expiração dentro do quadro oficial é identificada sem consultar outros sites',async()=>{
+ const {page,writes}=fakePage('https://atende.cemig.com.br/Login');
+ page.frames=(()=>[
+  {url:()=> 'https://evil.test/recaptcha/',getByText:()=>assert.fail('não consultar quadro externo')},
+  {url:()=> 'https://www.google.com/recaptcha/api2/anchor',getByText:(pattern:RegExp)=>({first:()=>({isVisible:async()=>pattern.test('Verification challenge expired. Check the checkbox again.')})})},
+ ]) as any;
+ await assert.rejects(verificarExpiracaoCemig(page),/expirou/);
  await assert.rejects(enviarLoginCemig(page,{login:'test',senha:'secret'},async()=>true),/expirou/);
  assert.deepEqual(writes,[]);
 });

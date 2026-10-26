@@ -4,6 +4,14 @@ import {validarAcessoCemig} from './cemigCredential.crypto';
 export class VerificacaoCemigExpirada extends Error {
  constructor(){super('A verificação da Cemig expirou ou foi removida. O envio do formulário foi interrompido; nenhuma tentativa CAPTCHA será repetida automaticamente.');}
 }
+export async function verificarExpiracaoCemig(page:Page){
+ const pattern=/(?:verifica[çc][aã]o|verification).*(?:expir|expired)|(?:expir|expired).*(?:verifica|verification)/i;
+ const alvos=[page,...page.frames().filter(frame=>{
+  try{const u=new URL(frame.url());return ['https://www.google.com','https://www.recaptcha.net'].includes(u.origin)&&u.pathname.startsWith('/recaptcha/');}
+  catch{return false;}
+ })];
+ for(const alvo of alvos)if(await alvo.getByText(pattern).first().isVisible())throw new VerificacaoCemigExpirada();
+}
 export async function enviarLoginCemig(page:Page,acesso:{login:string;senha:string},ativo:()=>Promise<boolean>){
  const dados=validarAcessoCemig(acesso.login,acesso.senha);
  const conferir=async()=>{conferirPaginaCaptcha(page.url());if(!await ativo())throw new Error();};
@@ -12,8 +20,7 @@ export async function enviarLoginCemig(page:Page,acesso:{login:string;senha:stri
   const verificacao=page.getByText(/Performing security verification|Verify you are human|Verifique se você é humano/i).first();
   if(await verificacao.isVisible())throw new Error();
   const conferirToken=async()=>{
-   const expirou=page.getByText(/(?:verifica[çc][aã]o|verification).*(?:expir|expired)|(?:expir|expired).*(?:verifica|verification)/i).first();
-   if(await expirou.isVisible())throw new VerificacaoCemigExpirada();
+   await verificarExpiracaoCemig(page);
    const resposta=await page.locator('textarea[name="g-recaptcha-response"]').first().inputValue({timeout:3000});
    if(resposta.length<20)throw new VerificacaoCemigExpirada();
   };
