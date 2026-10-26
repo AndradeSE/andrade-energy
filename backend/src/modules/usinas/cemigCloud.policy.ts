@@ -1,6 +1,7 @@
 export const CEMIG_PORTAL = "https://www.atendimento.cemig.com.br/portal/services/compensation-gd";
 export const CEMIG_LOGIN = "https://atende.cemig.com.br/Login";
-export const CEMIG_SESSION_SECONDS = 600;
+// Preview test: nine and a half minutes plus thirty seconds reserved for release.
+export const CEMIG_SESSION_SECONDS = 570;
 export const CEMIG_PREVIEW_DB = "https://qqhcjieymypowunkixmk.supabase.co";
 export class CotaBrowserbaseInsuficiente extends Error {}
 
