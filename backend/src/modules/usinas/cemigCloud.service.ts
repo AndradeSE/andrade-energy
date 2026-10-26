@@ -12,7 +12,7 @@ import {capmonsterDisponivel,localizarDesafioCemig,obterRespostaCapmonster,aplic
 import {motivoBloqueioCaptcha,RecusaTesteCaptcha} from './cemigCloud.captchaPolicy';
 import {lerAcessoCemig} from './cemigCredential.service';
 import {enviarLoginCemig,VerificacaoCemigExpirada,FalhaLoginCemig,conferirUsuarioModalCemig,prepararUsuarioCemig} from './cemigLogin';
-import {abrirPortalCemig,FalhaAberturaPortalCemig} from './cemigPortal.open';
+import {abrirPortalCemig,FalhaAberturaPortalCemig,loginCemigRenderizado} from './cemigPortal.open';
 import {mensagemFalhaCemig,type EtapaInicialCemig} from './cemigCloud.failure';
 
 const ativos=['FILA','FILA_RENDER','INICIANDO','AGUARDANDO_LOGIN','VALIDANDO'];
@@ -113,6 +113,8 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
   etapaInicial='VALIDACAO';
   if(abertura==='VERIFICACAO'){
    await atualizar(id,{erro:new AcaoManualCemig('VERIFICACAO').message});await avisar('VERIFICACAO');
+  }else if(abertura==='CARREGANDO'){
+   await atualizar(id,{erro:'A sessão foi preservada, mas os controles do login ainda não foram confirmados. Confira a mesma sessão; nenhum acesso ou CAPTCHA foi enviado.'});
   }else if(restaurada&&abertura==='PORTAL'){
    await atualizar(id,{continuar:true});
   }
@@ -122,7 +124,7 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
    if(!ativos.includes(r.data.estado))return;
    if(!usuarioPreparado&&r.data.estado==='AGUARDANDO_LOGIN'&&r.data.captcha_estado==='NAO_SOLICITADO'){
     const loginPage=context.pages().find(p=>{try{const u=new URL(p.url());return u.origin==='https://atende.cemig.com.br'&&/^\/login\/?$/i.test(u.pathname);}catch{return false;}});
-    if(loginPage&&await loginPage.getByRole('textbox',{name:'Usuário',exact:true}).filter({visible:true}).count()===1){
+    if(loginPage&&await loginPage.evaluate(loginCemigRenderizado)&&await loginPage.getByRole('textbox',{name:'Usuário',exact:true}).filter({visible:true}).count()===1){
      usuarioPreparado=true;
      try{
       const acesso=await lerAcessoCemig(job.empresa_id,job.usuario_id);
@@ -130,7 +132,7 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
        if(Date.now()>=prazo-15000)return false;
        const s=await supabase.from('cemig_simulacoes').select('estado').eq('id',id).maybeSingle();
        return !s.error&&s.data?.estado==='AGUARDANDO_LOGIN';
-      });}finally{acesso.login='';acesso.senha='';}
+      });await atualizar(id,{erro:null});}finally{acesso.login='';acesso.senha='';}
      }catch{await atualizar(id,{erro:'Não foi possível preparar o usuário salvo no login da Cemig. Confira o acesso no app antes de autorizar o CAPTCHA. Nenhuma tarefa foi criada.'});}
     }
    }

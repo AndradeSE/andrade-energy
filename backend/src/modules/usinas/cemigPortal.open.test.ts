@@ -41,7 +41,7 @@ test('sessão nova começa no login indicado pelo titular, não no serviço de c
 
 test('não considera a URL de login pronta quando os estilos e modais não carregaram',async()=>{
  const a=pagina('about:blank',{loginRenderizado:false});
- await assert.rejects(abrirPortalCemig(a.page),/\[RENDERIZACAO\]/);
+ assert.equal(await abrirPortalCemig(a.page),'CARREGANDO');
  assert.equal(a.navegacoes(),1);
 });
 
@@ -59,16 +59,10 @@ test('aguarda a renderização do login sem recarregar a sessão',async()=>{
  assert.equal(await abrirPortalCemig(a.page),'LOGIN');assert.equal(a.navegacoes(),1);
 });
 
-test('recupera estilos em uma única recarga antes de preencher qualquer acesso',async()=>{
- const opcoes={loginRenderizado:false};const a=pagina('about:blank',opcoes);let recargas=0;
- a.page.reload=(async()=>{recargas++;opcoes.loginRenderizado=true;}) as any;
- assert.equal(await abrirPortalCemig(a.page),'LOGIN');assert.equal(recargas,1);assert.equal(a.navegacoes(),1);
-});
-
-test('não repete recargas quando o documento permanece incompleto',async()=>{
- const a=pagina('about:blank',{loginRenderizado:false});let recargas=0;
- a.page.reload=(async()=>{recargas++;}) as any;
- await assert.rejects(abrirPortalCemig(a.page),/após uma recarga/);assert.equal(recargas,1);
+test('preserva página incompleta e visualizador sem recarga nem descarte',async()=>{
+ const a=pagina('about:blank',{loginRenderizado:false});
+ a.page.reload=(async()=>assert.fail('não recarregar a sessão')) as any;
+ assert.equal(await abrirPortalCemig(a.page),'CARREGANDO');assert.equal(a.navegacoes(),1);
 });
 test('sessão restaurada também inicia no endereço de login correto',async()=>{
  const a=pagina('about:blank');assert.equal(await abrirPortalCemig(a.page,true),'LOGIN');assert.equal(a.page.url(),CEMIG_LOGIN);
@@ -102,6 +96,7 @@ test('preserva página oficial após timeout sem repetir navegação',async()=>{
  b.page.goto=(async()=>{const e=new Error('private URL');e.name='TimeoutError';throw e;}) as any;
  await assert.rejects(abrirPortalCemig(b.page,true));
 });
+
 
 
 

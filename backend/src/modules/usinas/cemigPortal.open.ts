@@ -56,12 +56,9 @@ async function abrirPortalCemigInterno(page:Page,restaurada=false):Promise<Abert
   catch(error){if(!(error instanceof Error)||error.name!=='TimeoutError')throw error;}
   const estado=await estadoPortalCemig(page);
   if(estado==='CARREGANDO'){
-   // Recover one incomplete ordinary document load before any credentials or
-   // challenge interaction. Never reload a human-verification page or retry login.
-   await page.reload({waitUntil:'load',timeout:30000});
-   const recuperado=await estadoPortalCemig(page);
-   if(recuperado!=='CARREGANDO')return recuperado;
-   throw new FalhaAberturaPortalCemig('RENDERIZACAO');
+   // Preserve the actual page and viewer for diagnosis/recovery. A readiness
+   // mismatch must not discard a valid session or reload an ongoing login.
+   return 'CARREGANDO';
   }
   return estado;
  }
