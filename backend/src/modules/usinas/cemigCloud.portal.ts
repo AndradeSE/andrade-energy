@@ -34,12 +34,16 @@ export class AcaoManualCemig extends Error {
       'A Cemig pediu uma verificação de segurança. Conclua-a manualmente na mesma sessão em nuvem e depois toque em continuar. Nenhuma tarefa CAPTCHA foi enviada.');
   }
 }
+export async function verificacaoHumanaCemig(page:Page){
+ const url=new URL(page.url());
+ if(!['https://www.atendimento.cemig.com.br','https://atende.cemig.com.br'].includes(url.origin))return false;
+ return page.getByText(/Verify you are human|Performing security verification|Verifique se você é humano|Verificação de segurança/i).first().isVisible();
+}
 async function conferirAcaoManual(page:Page) {
   const url=new URL(page.url());
   if(!['https://www.atendimento.cemig.com.br','https://atende.cemig.com.br'].includes(url.origin))return;
+  if(await verificacaoHumanaCemig(page))throw new AcaoManualCemig('VERIFICACAO');
   if(/\/(?:login|auth)(?:\/|$)/i.test(url.pathname))throw new AcaoManualCemig('LOGIN');
-  const challenge=page.getByText(/Verify you are human|Performing security verification|Verifique se você é humano|Verificação de segurança/i).first();
-  if(await challenge.isVisible())throw new AcaoManualCemig('VERIFICACAO');
 }
 
 /** The portal's cookie overlay intercepts the service action until dismissed. */
@@ -65,7 +69,7 @@ export async function confirmarModalidadeCemig(page:Page) {
 }
 
 /** Somente simulação: esta função nunca aceita declaração nem solicita cadastro. */
-export async function validarAnexoCemig(page:Page,uc:string,csv:string,arquivo:string) {
+export async function validarAnexoCemig(page:Page,uc:string,csv:string,arquivo:string,aoConfirmarAcesso?:()=>Promise<void>) {
   conferirCsvSimulacao(csv,uc);
   let etapa: keyof typeof etapas = 'LOGIN';
   try {
@@ -94,6 +98,7 @@ export async function validarAnexoCemig(page:Page,uc:string,csv:string,arquivo:s
     if(numero===uc){await opcoes.nth(i).click();escolhida=true;break;}
   }
   if(!escolhida)throw new Error("A UC geradora não foi localizada nesta sessão Cemig.");
+  await aoConfirmarAcesso?.();
   await page.getByRole("button",{name:"Avançar",exact:true}).click();
   etapa='MODALIDADE';
   await confirmarModalidadeCemig(page);

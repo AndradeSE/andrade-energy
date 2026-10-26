@@ -3,7 +3,9 @@ import {criptografarDado,descriptografarDado} from '../../utils/sensitiveData';
 import {prepararPlanilhaRateio} from './rateioMensal.service';
 import {CEMIG_PORTAL,CEMIG_SESSION_SECONDS,exigirCemigSimulacao,conferirCsvSimulacao} from './cemigCloud.policy';
 import {abrirNavegadorCemig} from './cemigCloud.browser';
-import {bloquearProtocoloNaSimulacao,validarAnexoCemig,FalhaEtapaCemig,AcaoManualCemig,paginaPortalCemig} from './cemigCloud.portal';
+import {bloquearProtocoloNaSimulacao,validarAnexoCemig,FalhaEtapaCemig,AcaoManualCemig,paginaPortalCemig,verificacaoHumanaCemig} from './cemigCloud.portal';
+import {restaurarSessaoSalvaCemig,salvarSessaoCemig} from './cemigSessionState.service';
+import {criarNotificacaoApp} from '../notificacoes/push.service';
 import {chromium,type Browser} from 'playwright-core';
 import {cemigRenderHabilitado} from './cemigCloud.dispatcher';
 import {capmonsterDisponivel,localizarDesafioCemig,obterRespostaCapmonster,aplicarRespostaCaptcha,DesafioCemigIndisponivel,FalhaCapmonster} from './cemigCloud.capmonster';
@@ -79,17 +81,31 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
  if(claim.error)throw new Error('Fila indisponível.');if(!claim.data)return;
  const job=claim.data;let navegador:Awaited<ReturnType<typeof abrirNavegadorCemig>>|undefined;let browser:Browser|undefined;
  const prazo=Math.min(Date.parse(job.expira_em)-15000,Date.now()+CEMIG_SESSION_SECONDS*1000-5000);
+ const avisos=new Set<string>();let sessaoSalva=false;
+ const avisar=async(tipo:string)=>{
+  if(avisos.has(tipo))return;avisos.add(tipo);
+  await criarNotificacaoApp({empresa_id:job.empresa_id,usuario_id:job.usuario_id,usina_id:job.usina_id,
+   tipo:'RATEIO_CEMIG',titulo:'Rateio pausado: verificação no portal',
+   detalhe:'A Cemig solicitou uma verificação humana. Retome a mesma sessão pelo Rateio antes de expirar. Não foi iniciado outro login nem solicitado protocolo.',
+   rota:`/operacao/rateio?competencia=${job.competencia}`,chave_dedupe:`cemig-pausa:${id}:${tipo}`}).catch(()=>console.warn('Aviso da simulação não confirmado.'));
+ };
  try{
   const csv=decifrar(job.csv_cifrado);conferirCsvSimulacao(csv,job.uc_geradora);
   const session=await abrirNavegadorCemig(job.steel_autorizado===true);navegador=session;
   browser=await chromium.connectOverCDP(session.connectUrl,{timeout:30000});
   const context=browser.contexts()[0];if(!context)throw new Error('Contexto não disponível');
+  const restaurada=await restaurarSessaoSalvaCemig(context,job.empresa_id,job.usuario_id);
   let page=context.pages()[0]??await context.newPage();
   await bloquearProtocoloNaSimulacao(page);
   await page.goto(CEMIG_PORTAL,{waitUntil:'domcontentloaded',timeout:45000});
   const live=await session.live(page.url());
   const pronto=await supabase.from('cemig_simulacoes').update({estado:'AGUARDANDO_LOGIN',sessao_id:session.id,navegador_provedor:session.provedor,expira_em:new Date(prazo).toISOString(),live_cifrado:criptografarDado(live)}).eq('id',id).eq('estado','INICIANDO').select('id').maybeSingle();
   if(pronto.error||!pronto.data)return;
+  if(await verificacaoHumanaCemig(page)){
+   await atualizar(id,{erro:new AcaoManualCemig('VERIFICACAO').message});await avisar('VERIFICACAO');
+  }else if(restaurada&&page.url().startsWith(new URL(CEMIG_PORTAL).origin+'/portal/')){
+   await atualizar(id,{continuar:true});
+  }
   while(Date.now()<prazo){
    const r=await supabase.from('cemig_simulacoes').select('estado,continuar,captcha_estado,login_estado').eq('id',id).single();
    if(r.error)throw new Error('Consulta indisponível');
@@ -154,13 +170,18 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
     try {
       page=paginaPortalCemig(context.pages(),page);
       await bloquearProtocoloNaSimulacao(page);
-      await validarAnexoCemig(page,job.uc_geradora,csv,job.arquivo);
+      await validarAnexoCemig(page,job.uc_geradora,csv,job.arquivo,async()=>{
+       if(sessaoSalva)return;
+       await salvarSessaoCemig(context,job.empresa_id,job.usuario_id).then(()=>{sessaoSalva=true;})
+        .catch(()=>console.warn('Preservação do acesso da simulação não confirmada.'));
+      });
     } catch(error) {
       if(!(error instanceof AcaoManualCemig))throw error;
       const live=await session.live(page.url());
       const waiting=await supabase.from('cemig_simulacoes').update({estado:'AGUARDANDO_LOGIN',continuar:false,
         erro:error.message,live_cifrado:criptografarDado(live)}).eq('id',id).eq('estado','VALIDANDO');
       if(waiting.error)throw new Error('Não foi possível preservar a sessão.');
+      if(error.tipo==='VERIFICACAO')await avisar(error.tipo);
       continue;
     }
     await supabase.from('cemig_simulacoes').update({estado:'REVISAO_SEM_PROTOCOLO',csv_cifrado:null,live_cifrado:null}).eq('id',id).eq('estado','VALIDANDO');
