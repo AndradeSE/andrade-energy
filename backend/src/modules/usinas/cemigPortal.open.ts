@@ -8,7 +8,9 @@ export type AberturaPortalCemig='PORTAL'|'LOGIN'|'VERIFICACAO'|'CARREGANDO';
 export function loginCemigRenderizado(){
  const estilos=Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel~="stylesheet"]'))
   .filter(link=>!link.disabled&&(!link.media||window.matchMedia(link.media).matches));
- if(!estilos.length||estilos.some(link=>!link.sheet))return false;
+ // Optional font/cookie styles can fail while the actual login is usable.
+ // Require loaded styling and the correct modal layout, not every asset.
+ if(!estilos.some(link=>!!link.sheet))return false;
  const modais=Array.from(document.querySelectorAll<HTMLElement>('.modal'));
  if(modais.some(modal=>!modal.classList.contains('show')&&!modal.classList.contains('in')&&
   getComputedStyle(modal).display!=='none'&&modal.getClientRects().length>0))return false;

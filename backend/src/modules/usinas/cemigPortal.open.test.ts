@@ -1,8 +1,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type {Page} from 'playwright-core';
-import {abrirPortalCemig} from './cemigPortal.open';
+import {abrirPortalCemig,loginCemigRenderizado} from './cemigPortal.open';
 import {CEMIG_PORTAL,CEMIG_LOGIN} from './cemigCloud.policy';
+
+test('estilo opcional pendente não bloqueia login renderizado; modais expostos bloqueiam',()=>{
+ const originais=['document','window','getComputedStyle'].map(key=>[key,Object.getOwnPropertyDescriptor(globalThis,key)] as const);
+ let estilos:any[]=[{sheet:{},disabled:false,media:''},{sheet:null,disabled:false,media:''}];
+ let display='none';
+ const modal={classList:{contains:()=>false},getClientRects:()=>[{}]};
+ try{
+  Object.defineProperty(globalThis,'document',{configurable:true,value:{
+   querySelectorAll:(selector:string)=>selector==='.modal'?[modal]:estilos,
+   querySelector:()=>({getClientRects:()=>[{}]}),
+  }});
+  Object.defineProperty(globalThis,'window',{configurable:true,value:{matchMedia:()=>({matches:true})}});
+  Object.defineProperty(globalThis,'getComputedStyle',{configurable:true,value:()=>({display})});
+  assert.equal(loginCemigRenderizado(),true);
+  display='block';assert.equal(loginCemigRenderizado(),false);
+  display='none';estilos=[{sheet:null,disabled:false,media:''}];assert.equal(loginCemigRenderizado(),false);
+ }finally{for(const [key,descriptor] of originais){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else Reflect.deleteProperty(globalThis,key);}}
+});
 
 function pagina(url:string,opcoes:{humano?:boolean;pronto?:boolean;redireciona?:string;loginRenderizado?:boolean}={}){
  let atual=url,navegacoes=0;
