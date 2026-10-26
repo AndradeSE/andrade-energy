@@ -19,7 +19,7 @@ async function estadoPortalCemig(page:Page):Promise<AberturaPortalCemig>{
 /** Ordinary Playwright navigation only. Never clicks or solves security challenges. */
 export async function abrirPortalCemig(page:Page,restaurada=false):Promise<AberturaPortalCemig>{
  const destino=new URL(CEMIG_PORTAL);
- const entrada=restaurada?CEMIG_PORTAL:CEMIG_LOGIN;
+ const entrada=CEMIG_LOGIN;
  if(page.url()!==entrada){
   try{await page.goto(entrada,{waitUntil:'domcontentloaded',timeout:45000});}
   catch(error){

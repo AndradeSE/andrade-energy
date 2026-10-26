@@ -18,16 +18,14 @@ test('sessão nova começa no login indicado pelo titular, não no serviço de c
  assert.equal(await abrirPortalCemig(a.page),'LOGIN');
  assert.equal(a.page.url(),CEMIG_LOGIN);assert.equal(a.navegacoes(),1);
 });
-test('abre serviço com navegador existente sem recarregar serviço já aberto',async()=>{
- const a=pagina('about:blank',{pronto:true});assert.equal(await abrirPortalCemig(a.page,true),'PORTAL');assert.equal(a.navegacoes(),1);
- const b=pagina(CEMIG_PORTAL,{pronto:true});assert.equal(await abrirPortalCemig(b.page,true),'PORTAL');assert.equal(b.navegacoes(),0);
+test('sessão restaurada também inicia no endereço de login correto',async()=>{
+ const a=pagina('about:blank');assert.equal(await abrirPortalCemig(a.page,true),'LOGIN');assert.equal(a.page.url(),CEMIG_LOGIN);
+ const b=pagina(CEMIG_LOGIN);assert.equal(await abrirPortalCemig(b.page,true),'LOGIN');assert.equal(b.navegacoes(),0);
 });
-test('aguarda prontidão na mesma página e não abre um segundo navegador',async()=>{
- const opcoes={pronto:false};const a=pagina(CEMIG_PORTAL,opcoes);let esperas=0;
- a.page.waitForFunction=(async(_fn:unknown,_arg:unknown,options:any)=>{
-  assert.equal(options.timeout,15000);esperas++;opcoes.pronto=true;
- }) as any;
- assert.equal(await abrirPortalCemig(a.page,true),'PORTAL');assert.equal(esperas,1);assert.equal(a.navegacoes(),0);
+test('aguarda prontidão depois de redirecionamento oficial, sem segundo navegador',async()=>{
+ const opcoes={pronto:false,redireciona:CEMIG_PORTAL};const a=pagina('about:blank',opcoes);let esperas=0;
+ a.page.waitForFunction=(async(_fn:unknown,_arg:unknown,options:any)=>{assert.equal(options.timeout,15000);esperas++;opcoes.pronto=true;}) as any;
+ assert.equal(await abrirPortalCemig(a.page,true),'PORTAL');assert.equal(esperas,1);assert.equal(a.navegacoes(),1);
 });
 test('verificação humana pausa imediatamente sem aguardar nem clicar',async()=>{
  const a=pagina(CEMIG_PORTAL,{humano:true});
@@ -35,7 +33,7 @@ test('verificação humana pausa imediatamente sem aguardar nem clicar',async()=
  assert.equal(await abrirPortalCemig(a.page,true),'VERIFICACAO');
 });
 test('não confunde carregamento com autenticação e pausa verificações',async()=>{
- assert.equal(await abrirPortalCemig(pagina(CEMIG_PORTAL).page,true),'CARREGANDO');
+ assert.equal(await abrirPortalCemig(pagina(CEMIG_PORTAL,{redireciona:CEMIG_PORTAL}).page,true),'CARREGANDO');
  assert.equal(await abrirPortalCemig(pagina(CEMIG_PORTAL,{humano:true}).page,true),'VERIFICACAO');
  assert.equal(await abrirPortalCemig(pagina('about:blank',{redireciona:'https://atende.cemig.com.br/Login'}).page),'LOGIN');
 });
@@ -52,4 +50,5 @@ test('preserva página oficial após timeout sem repetir navegação',async()=>{
  b.page.goto=(async()=>{const e=new Error('private URL');e.name='TimeoutError';throw e;}) as any;
  await assert.rejects(abrirPortalCemig(b.page,true));
 });
+
 
