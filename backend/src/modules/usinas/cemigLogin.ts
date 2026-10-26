@@ -5,9 +5,11 @@ export class VerificacaoCemigExpirada extends Error {
  constructor(){super('A verificação da Cemig expirou ou foi removida. O envio do formulário foi interrompido; nenhuma tentativa CAPTCHA será repetida automaticamente.');}
 }
 export class FalhaLoginCemig extends Error {
- constructor(etapa:'SESSAO'|'FORMULARIO'|'USUARIO'|'SENHA'|'ENVIO'){
+ constructor(etapa:'SESSAO'|'FORMULARIO'|'USUARIO'|'SENHA'|'ENVIO',contagens?:{formularios:number;usuarios:number;senhas:number;botoes:number}){
   const mensagens={SESSAO:'A sessão de login da Cemig não está disponível.',FORMULARIO:'Não foi identificado um único formulário de senha visível na Cemig.',USUARIO:'Não foi possível preencher o usuário no formulário da Cemig.',SENHA:'Não foi possível preencher a senha no formulário da Cemig.',ENVIO:'Não foi possível enviar o formulário de login da Cemig.'};
-  super(`${mensagens[etapa]} Nenhuma tentativa será repetida automaticamente.`);
+  const numero=(n:number)=>Number.isSafeInteger(n)&&n>=0?Math.min(n,99):0;
+  const diagnostico=contagens?` Controles encontrados: formulários ${numero(contagens.formularios)}, usuário ${numero(contagens.usuarios)}, senha ${numero(contagens.senhas)}, entrar ${numero(contagens.botoes)}.`:'';
+  super(`${mensagens[etapa]}${diagnostico} Nenhuma tentativa será repetida automaticamente.`);
  }
 }
 export async function verificarExpiracaoCemig(page:Page){
@@ -37,12 +39,12 @@ export async function enviarLoginCemig(page:Page,acesso:{login:string;senha:stri
   // also renders a separate user/code form (sometimes both are visible).
   const formularios=page.locator('form').filter({has:page.locator('input[type="password"]:visible')});
   const quantidade=await formularios.count();
-  if(quantidade>1)throw new Error();
   const escopo=quantidade===1?formularios:page;
   const login=escopo.getByLabel('Usuário',{exact:true}).filter({visible:true});
   const senha=escopo.locator('input[type="password"]:visible');
   const entrar=escopo.getByRole('button',{name:'Entrar',exact:true}).filter({visible:true});
-  if(await login.count()!==1||await senha.count()!==1||await entrar.count()!==1)throw new Error();
+  const [usuarios,senhas,botoes]=await Promise.all([login.count(),senha.count(),entrar.count()]);
+  if(quantidade>1||usuarios!==1||senhas!==1||botoes!==1)throw new FalhaLoginCemig('FORMULARIO',{formularios:quantidade,usuarios,senhas,botoes});
   // Preserve fields already supplied in this session: redundant input events can
   // invalidate form state. Values are compared locally and never logged.
   etapa='USUARIO';await conferir();
@@ -51,5 +53,5 @@ export async function enviarLoginCemig(page:Page,acesso:{login:string;senha:stri
   if(await senha.inputValue({timeout:3000})!==dados.senha)await senha.fill(dados.senha,{timeout:3000});
   etapa='ENVIO';await conferir();await conferirToken();await entrar.click({timeout:5000});
   // A submitted form is not proof of authentication. The existing CSV validator checks login.
- }catch(error){if(error instanceof VerificacaoCemigExpirada)throw error;throw new FalhaLoginCemig(etapa);}
+ }catch(error){if(error instanceof VerificacaoCemigExpirada||error instanceof FalhaLoginCemig)throw error;throw new FalhaLoginCemig(etapa);}
 }

@@ -29,7 +29,7 @@ test('ignora o usuário oculto da tela inicial e envia uma única vez',async()=>
 });
 test('não escolhe arbitrariamente quando há dois formulários visíveis',async()=>{
  const f=formulario({visiveis:2});
- await assert.rejects(enviarLoginCemig(f.page,acesso,async()=>true),/único formulário/);
+ await assert.rejects(enviarLoginCemig(f.page,acesso,async()=>true),/formulários 0, usuário 2, senha 1, entrar 2/);
  assert.deepEqual(f.eventos,[]);
 });
 test('usa somente o formulário de senha mesmo com usuário duplicado na landing page',async()=>{
