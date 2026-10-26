@@ -1,7 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type {Page} from 'playwright-core';
-import {enviarLoginCemig,FalhaLoginCemig,VerificacaoCemigExpirada} from './cemigLogin';
+import {enviarLoginCemig,FalhaLoginCemig,VerificacaoCemigExpirada,mesmoUsuarioCemig,conferirUsuarioModalCemig} from './cemigLogin';
+
+test('confere identidade antes do CAPTCHA sem confundir CPF com e-mail',async()=>{
+ assert.equal(mesmoUsuarioCemig('123.456.789-01','12345678901'),true);
+ assert.equal(mesmoUsuarioCemig(' Teste@Exemplo.invalid ','teste@exemplo.invalid'),true);
+ assert.equal(mesmoUsuarioCemig('12345678901','outra@exemplo.invalid'),false);
+ for(const valor of ['teste@exemplo.invalid','outra@exemplo.invalid']){
+  const page={url:()=> 'https://atende.cemig.com.br/Login',locator:()=>({count:async()=>1,inputValue:async()=>valor})} as unknown as Page;
+  if(valor==='teste@exemplo.invalid')await conferirUsuarioModalCemig(page,valor);
+  else await assert.rejects(conferirUsuarioModalCemig(page,'teste@exemplo.invalid'),FalhaLoginCemig);
+ }
+});
 
 function formulario(opcoes:{visiveis?:number;formularios?:number;falha?:'usuario'|'senha'|'envio';token?:string;expirou?:boolean;url?:string}={}){
  const eventos:string[]=[];

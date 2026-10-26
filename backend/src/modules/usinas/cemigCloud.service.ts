@@ -11,7 +11,7 @@ import {cemigRenderHabilitado} from './cemigCloud.dispatcher';
 import {capmonsterDisponivel,localizarDesafioCemig,obterRespostaCapmonster,aplicarRespostaCaptcha,DesafioCemigIndisponivel,FalhaCapmonster} from './cemigCloud.capmonster';
 import {motivoBloqueioCaptcha,RecusaTesteCaptcha} from './cemigCloud.captchaPolicy';
 import {lerAcessoCemig} from './cemigCredential.service';
-import {enviarLoginCemig,VerificacaoCemigExpirada,FalhaLoginCemig} from './cemigLogin';
+import {enviarLoginCemig,VerificacaoCemigExpirada,FalhaLoginCemig,conferirUsuarioModalCemig} from './cemigLogin';
 import {abrirPortalCemig} from './cemigPortal.open';
 import {mensagemFalhaCemig,type EtapaInicialCemig} from './cemigCloud.failure';
 
@@ -151,6 +151,11 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
       const encontrado=await localizarDesafioCemig(context.pages());
       const desafio=encontrado.desafio;
       page=encontrado.page;
+      if(r.data.login_apos_captcha===true){
+       const acesso=await lerAcessoCemig(job.empresa_id,job.usuario_id);
+       try{await conferirUsuarioModalCemig(page,acesso.login);}
+       finally{acesso.login='';acesso.senha='';}
+      }
       await supabase.from('cemig_simulacoes').update({erro:null}).eq('id',id).eq('estado','AGUARDANDO_LOGIN');
       await bloquearProtocoloNaSimulacao(page);
       etapaCaptcha='API';
@@ -169,7 +174,7 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
        .eq('id',id).eq('estado','AGUARDANDO_LOGIN').eq('login_estado','NAO_SOLICITADO').eq('login_apos_captcha',true);
      }catch(error){
       const semTarefa=error instanceof DesafioCemigIndisponivel;
-      const mensagem=semTarefa||error instanceof FalhaCapmonster?error.message:etapaCaptcha==='APLICACAO'?
+      const mensagem=error instanceof FalhaLoginCemig?'O usuário do login aberto não corresponde ao acesso salvo. Reabra o login com o mesmo identificador cadastrado no app. Nenhuma tarefa CAPTCHA foi criada.':semTarefa||error instanceof FalhaCapmonster?error.message:etapaCaptcha==='APLICACAO'?
        'A API retornou uma resposta, mas não foi possível aplicá-la ao login. A tarefa não será repetida.':
        'A consulta do teste não foi concluída. Não haverá outra tarefa automática nesta sessão.';
       await supabase.from('cemig_simulacoes').update({captcha_estado:semTarefa?'NAO_SOLICITADO':'ERRO',captcha_erro:mensagem}).eq('id',id).eq('estado','AGUARDANDO_LOGIN');

@@ -12,6 +12,19 @@ export class FalhaLoginCemig extends Error {
   super(`${mensagens[etapa]}${diagnostico} Nenhuma tentativa será repetida automaticamente.`);
  }
 }
+export function mesmoUsuarioCemig(atual:string,salvo:string){
+ const a=atual.trim(),b=salvo.trim();
+ if(a===b)return true;
+ if(a.includes('@')&&b.includes('@'))return a.toLocaleLowerCase('en-US')===b.toLocaleLowerCase('en-US');
+ return /^\d[\d.\/-]+$/.test(a)&&/^\d[\d.\/-]+$/.test(b)&&a.replace(/\D/g,'')===b.replace(/\D/g,'');
+}
+/** Validate the inherited, disabled user before paying for a CAPTCHA task. */
+export async function conferirUsuarioModalCemig(page:Page,loginSalvo:string){
+ conferirPaginaCaptcha(page.url());
+ const usuario=page.locator('#modalLoginComSenha:visible #acessoModalSenhaValor:visible');
+ if(await usuario.count()!==1||!mesmoUsuarioCemig(await usuario.inputValue({timeout:3000}),loginSalvo))
+  throw new FalhaLoginCemig('USUARIO');
+}
 export async function verificarExpiracaoCemig(page:Page){
  const pattern=/(?:verifica[çc][aã]o|verification).*(?:expir|expired)|(?:expir|expired).*(?:verifica|verification)/i;
  const alvos=[page,...page.frames().filter(frame=>{
@@ -51,7 +64,7 @@ export async function enviarLoginCemig(page:Page,acesso:{login:string;senha:stri
   // invalidate form state. Values are compared locally and never logged.
   etapa='USUARIO';await conferir();
   const usuarioAtual=await login.inputValue({timeout:3000});
-  const mesmoUsuario=usuarioAtual===dados.login||(/^\d[\d.\/-]+$/.test(usuarioAtual)&&/^\d[\d.\/-]+$/.test(dados.login)&&usuarioAtual.replace(/\D/g,'')===dados.login.replace(/\D/g,''));
+  const mesmoUsuario=mesmoUsuarioCemig(usuarioAtual,dados.login);
   if(!mesmoUsuario){
    // The official modal's user is disabled and is inherited from the initial
    // login screen. Never enable it or silently submit another user's access.
