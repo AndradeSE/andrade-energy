@@ -49,7 +49,7 @@ async function conferirAcaoManual(page:Page) {
 /** The portal's cookie overlay intercepts the service action until dismissed. */
 export async function fecharAvisoCookiesCemig(page:Page) {
   if(new URL(page.url()).origin!==new URL(CEMIG_PORTAL).origin)return;
-  const rejeitar=page.getByRole('button',{name:/^(Reject All|Rejeitar todos|Rejeitar tudo)$/i}).first();
+  const rejeitar=page.getByRole('button',{name:/^(Reject All|Rejeitar todos|Rejeitar tudo|Rejeitar cookies)$/i}).first();
   if(await rejeitar.isVisible())await rejeitar.click({timeout:5000});
 }
 

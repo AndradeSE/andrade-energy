@@ -86,6 +86,8 @@ test('rejeita aviso de cookies visível somente no domínio oficial',async()=>{
  let cliques=0;
  const page={url:()=>CEMIG_PORTAL,getByRole:(_role:string,options:{name:RegExp})=>{
   assert.ok(options.name.test('Reject All'));
+  assert.ok(options.name.test('Rejeitar cookies'));
+  assert.ok(!options.name.test('Aceitar cookies'));
   return {first:()=>({isVisible:async()=>true,click:async()=>{cliques++;}})};
  }} as unknown as Page;
  await fecharAvisoCookiesCemig(page);
