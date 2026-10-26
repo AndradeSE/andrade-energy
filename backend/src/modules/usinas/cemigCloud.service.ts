@@ -14,7 +14,7 @@ import {lerAcessoCemig} from './cemigCredential.service';
 import {enviarLoginCemig,VerificacaoCemigExpirada,FalhaLoginCemig,conferirUsuarioModalCemig,prepararUsuarioCemig} from './cemigLogin';
 import {abrirPortalCemig,FalhaAberturaPortalCemig,loginCemigRenderizado} from './cemigPortal.open';
 import {mensagemFalhaCemig,type EtapaInicialCemig} from './cemigCloud.failure';
-import {acompanharRecursosCemig} from './cemigRecursos';
+import {acompanharRecursosCemig,recursosCemigRecusados} from './cemigRecursos';
 
 const ativos=['FILA','FILA_RENDER','INICIANDO','AGUARDANDO_LOGIN','VALIDANDO'];
 const worker='https://andrade-energy-fallback-probe.netlify.app/.netlify/functions/cemig-background';
@@ -112,6 +112,8 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
    abertura=await abrirPortalCemig(page,restaurada);
    diagnosticoRecursos=await recursosLogin.resumo();
   }finally{recursosLogin.parar();}
+  if(abertura==='LOGIN_INCOMPLETO'&&recursosCemigRecusados(diagnosticoRecursos))
+   throw new FalhaAberturaPortalCemig('RECURSOS_RECUSADOS');
   let usuarioPreparado=false;
   etapaInicial='VISUALIZADOR';
   const live=await session.live(page.url());

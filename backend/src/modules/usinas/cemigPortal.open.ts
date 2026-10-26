@@ -4,8 +4,8 @@ import {verificacaoHumanaCemig} from './cemigCloud.portal';
 
 export type AberturaPortalCemig='PORTAL'|'LOGIN'|'VERIFICACAO'|'CARREGANDO'|'LOGIN_INCOMPLETO';
 export class FalhaAberturaPortalCemig extends Error {
- constructor(public readonly codigo:'RENDERIZACAO'|'TEMPO'|'REDE'|'DESTINO'|'CONTROLE'){
-  const motivo={RENDERIZACAO:'Os estilos ou formulários do login continuaram incompletos após uma recarga.',TEMPO:'O carregamento do portal excedeu o tempo disponível.',REDE:'A conexão com o portal falhou durante o carregamento.',DESTINO:'O portal redirecionou para um endereço não autorizado.',CONTROLE:'Falhou a leitura do estado da página pelo navegador.'};
+ constructor(public readonly codigo:'RENDERIZACAO'|'TEMPO'|'REDE'|'DESTINO'|'CONTROLE'|'RECURSOS_RECUSADOS'){
+  const motivo={RENDERIZACAO:'Os estilos ou formulários do login continuaram incompletos após uma recarga.',TEMPO:'O carregamento do portal excedeu o tempo disponível.',REDE:'A conexão com o portal falhou durante o carregamento.',DESTINO:'O portal redirecionou para um endereço não autorizado.',CONTROLE:'Falhou a leitura do estado da página pelo navegador.',RECURSOS_RECUSADOS:'A Cemig recusou os arquivos necessários ao login neste navegador em nuvem (HTTP 401/403). A página incompleta não será usada e a sessão será encerrada para preservar a cota.'};
   super(`Abertura Cemig [${codigo}]: ${motivo[codigo]} Nenhum protocolo foi solicitado. Nenhuma nova tentativa será iniciada automaticamente.`);
  }
 }

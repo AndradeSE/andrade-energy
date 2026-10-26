@@ -9,6 +9,10 @@ const recursos={
 } as const;
 type Recurso=typeof recursos[keyof typeof recursos];
 
+export function recursosCemigRecusados(resumo:string){
+ return /\bHTTP_(401|403)\b/.test(resumo);
+}
+
 /** Only fixed public asset names leave this collector. Never URLs or query data. */
 export function recursoPublicoCemig(url:string):Recurso|null{
  try{
