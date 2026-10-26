@@ -4,24 +4,24 @@ import type {Page} from 'playwright-core';
 import {abrirPortalCemig,loginCemigRenderizado} from './cemigPortal.open';
 import {CEMIG_PORTAL,CEMIG_LOGIN} from './cemigCloud.policy';
 
-test('estilo opcional pendente não bloqueia login renderizado; modais expostos bloqueiam',()=>{
- const originais=['document','window','getComputedStyle'].map(key=>[key,Object.getOwnPropertyDescriptor(globalThis,key)] as const);
- let estilos:any[]=[{sheet:{},disabled:false,media:''},{sheet:null,disabled:false,media:''}];
- let display='none';
- const modal={classList:{contains:()=>false},getClientRects:()=>[{}]};
+test('reconhece controles reais sem metadados CSS; rejeita modais simultâneos',()=>{
+ const originais=['document','getComputedStyle'].map(key=>[key,Object.getOwnPropertyDescriptor(globalThis,key)] as const);
+ const campo={getClientRects:()=>[{}]};
+ const senha={getClientRects:()=>[{}],querySelector:()=>campo};
+ const outro={getClientRects:()=>[{}]};
+ let modais:any[]=[];let botao=true;
  try{
   Object.defineProperty(globalThis,'document',{configurable:true,value:{
-   querySelectorAll:(selector:string)=>selector==='.modal'?[modal]:estilos,
-   querySelector:()=>({getClientRects:()=>[{}]}),
+   querySelectorAll:()=>modais,
+   querySelector:(selector:string)=>selector==='#modalLoginComSenha'?senha:selector==='#btnEntrarComSenha'&&!botao?null:campo,
   }});
-  Object.defineProperty(globalThis,'window',{configurable:true,value:{matchMedia:()=>({matches:true})}});
-  Object.defineProperty(globalThis,'getComputedStyle',{configurable:true,value:()=>({display})});
+  Object.defineProperty(globalThis,'getComputedStyle',{configurable:true,value:()=>({display:'block',visibility:'visible'})});
   assert.equal(loginCemigRenderizado(),true);
-  display='block';assert.equal(loginCemigRenderizado(),false);
-  display='none';estilos=[{sheet:null,disabled:false,media:''}];assert.equal(loginCemigRenderizado(),false);
+  botao=false;assert.equal(loginCemigRenderizado(),false);
+  modais=[senha];assert.equal(loginCemigRenderizado(),true);
+  modais=[senha,outro];assert.equal(loginCemigRenderizado(),false);
  }finally{for(const [key,descriptor] of originais){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else Reflect.deleteProperty(globalThis,key);}}
 });
-
 function pagina(url:string,opcoes:{humano?:boolean;pronto?:boolean;redireciona?:string;loginRenderizado?:boolean}={}){
  let atual=url,navegacoes=0;
  const page={url:()=>atual,goto:async(destino:string)=>{navegacoes++;atual=opcoes.redireciona??destino;},
@@ -102,5 +102,6 @@ test('preserva página oficial após timeout sem repetir navegação',async()=>{
  b.page.goto=(async()=>{const e=new Error('private URL');e.name='TimeoutError';throw e;}) as any;
  await assert.rejects(abrirPortalCemig(b.page,true));
 });
+
 
 

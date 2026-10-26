@@ -10,18 +10,16 @@ export class FalhaAberturaPortalCemig extends Error {
  }
 }
 
-/** A login URL alone is not readiness: failed CSS exposes every hidden modal. */
+/** Read usable login controls, never infer readiness from stylesheet metadata. */
 export function loginCemigRenderizado(){
- const estilos=Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel~="stylesheet"]'))
-  .filter(link=>!link.disabled&&(!link.media||window.matchMedia(link.media).matches));
- // Optional font/cookie styles can fail while the actual login is usable.
- // Require loaded styling and the correct modal layout, not every asset.
- if(!estilos.some(link=>!!link.sheet))return false;
- const modais=Array.from(document.querySelectorAll<HTMLElement>('.modal'));
- if(modais.some(modal=>!modal.classList.contains('show')&&!modal.classList.contains('in')&&
-  getComputedStyle(modal).display!=='none'&&modal.getClientRects().length>0))return false;
- const usuario=document.querySelector<HTMLInputElement>('#acesso');
- return !!usuario&&usuario.getClientRects().length>0;
+ const visivel=(elemento:Element|null)=>!!elemento&&elemento.getClientRects().length>0&&
+  getComputedStyle(elemento).display!=='none'&&getComputedStyle(elemento).visibility!=='hidden';
+ const modais=Array.from(document.querySelectorAll('.modal')).filter(visivel);
+ const senha=document.querySelector('#modalLoginComSenha');
+ if(modais.length===1&&modais[0]===senha)
+  return visivel(senha.querySelector('#acessoModalSenhaValor'))&&visivel(senha.querySelector('#senhaModal'))&&
+   visivel(senha.querySelector('#btnConfirmarLoginComSenha'));
+ return modais.length===0&&visivel(document.querySelector('#acesso'))&&visivel(document.querySelector('#btnEntrarComSenha'));
 }
 
 async function estadoPortalCemig(page:Page):Promise<AberturaPortalCemig>{
