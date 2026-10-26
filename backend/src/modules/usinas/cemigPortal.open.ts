@@ -1,5 +1,5 @@
 import type {Page} from 'playwright-core';
-import {CEMIG_PORTAL} from './cemigCloud.policy';
+import {CEMIG_PORTAL,CEMIG_LOGIN} from './cemigCloud.policy';
 import {verificacaoHumanaCemig} from './cemigCloud.portal';
 
 export type AberturaPortalCemig='PORTAL'|'LOGIN'|'VERIFICACAO'|'CARREGANDO';
@@ -17,10 +17,11 @@ async function estadoPortalCemig(page:Page):Promise<AberturaPortalCemig>{
 }
 
 /** Ordinary Playwright navigation only. Never clicks or solves security challenges. */
-export async function abrirPortalCemig(page:Page):Promise<AberturaPortalCemig>{
+export async function abrirPortalCemig(page:Page,restaurada=false):Promise<AberturaPortalCemig>{
  const destino=new URL(CEMIG_PORTAL);
- if(page.url()!==CEMIG_PORTAL){
-  try{await page.goto(CEMIG_PORTAL,{waitUntil:'domcontentloaded',timeout:45000});}
+ const entrada=restaurada?CEMIG_PORTAL:CEMIG_LOGIN;
+ if(page.url()!==entrada){
+  try{await page.goto(entrada,{waitUntil:'domcontentloaded',timeout:45000});}
   catch(error){
    // A slow document can already display the official security/login page.
    // Preserve that page instead of discarding the session on a load timeout.

@@ -104,7 +104,7 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
   let page=context.pages()[0]??await context.newPage();
   await bloquearProtocoloNaSimulacao(page);
   etapaInicial='PORTAL';
-  const abertura=await abrirPortalCemig(page);
+  const abertura=await abrirPortalCemig(page,restaurada);
   etapaInicial='VISUALIZADOR';
   const live=await session.live(page.url());
   const pronto=await supabase.from('cemig_simulacoes').update({estado:'AGUARDANDO_LOGIN',sessao_id:session.id,navegador_provedor:session.provedor,expira_em:new Date(prazo).toISOString(),live_cifrado:criptografarDado(live)}).eq('id',id).eq('estado','INICIANDO').select('id').maybeSingle();
