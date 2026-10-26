@@ -3,6 +3,12 @@ import {CEMIG_PORTAL,CEMIG_LOGIN} from './cemigCloud.policy';
 import {verificacaoHumanaCemig} from './cemigCloud.portal';
 
 export type AberturaPortalCemig='PORTAL'|'LOGIN'|'VERIFICACAO'|'CARREGANDO';
+export class FalhaAberturaPortalCemig extends Error {
+ constructor(public readonly codigo:'RENDERIZACAO'|'TEMPO'|'REDE'|'DESTINO'|'CONTROLE'){
+  const motivo={RENDERIZACAO:'Os estilos ou formulários do login continuaram incompletos após uma recarga.',TEMPO:'O carregamento do portal excedeu o tempo disponível.',REDE:'A conexão com o portal falhou durante o carregamento.',DESTINO:'O portal redirecionou para um endereço não autorizado.',CONTROLE:'Falhou a leitura do estado da página pelo navegador.'};
+  super(`Abertura Cemig [${codigo}]: ${motivo[codigo]} Nenhum protocolo foi solicitado. Nenhuma nova tentativa será iniciada automaticamente.`);
+ }
+}
 
 /** A login URL alone is not readiness: failed CSS exposes every hidden modal. */
 export function loginCemigRenderizado(){
@@ -21,7 +27,7 @@ export function loginCemigRenderizado(){
 async function estadoPortalCemig(page:Page):Promise<AberturaPortalCemig>{
  const atual=new URL(page.url());
  if(![new URL(CEMIG_PORTAL).origin,'https://atende.cemig.com.br'].includes(atual.origin))
-  throw new Error('O portal redirecionou para um endereço não autorizado.');
+  throw new FalhaAberturaPortalCemig('DESTINO');
  if(await verificacaoHumanaCemig(page))return 'VERIFICACAO';
  if(/\/(?:login|auth)(?:\/|$)/i.test(atual.pathname))
   return await page.evaluate(loginCemigRenderizado)?'LOGIN':'CARREGANDO';
@@ -32,7 +38,7 @@ async function estadoPortalCemig(page:Page):Promise<AberturaPortalCemig>{
 }
 
 /** Ordinary Playwright navigation only. Never clicks or solves security challenges. */
-export async function abrirPortalCemig(page:Page,restaurada=false):Promise<AberturaPortalCemig>{
+async function abrirPortalCemigInterno(page:Page,restaurada=false):Promise<AberturaPortalCemig>{
  const destino=new URL(CEMIG_PORTAL);
  const entrada=CEMIG_LOGIN;
  if(page.url()!==entrada){
@@ -57,7 +63,7 @@ export async function abrirPortalCemig(page:Page,restaurada=false):Promise<Abert
    await page.reload({waitUntil:'load',timeout:30000});
    const recuperado=await estadoPortalCemig(page);
    if(recuperado!=='CARREGANDO')return recuperado;
-   throw new Error('A página de login da Cemig não terminou de carregar os estilos e formulários após uma recarga. Nenhum dado de acesso foi preenchido.');
+   throw new FalhaAberturaPortalCemig('RENDERIZACAO');
   }
   return estado;
  }
@@ -76,4 +82,15 @@ export async function abrirPortalCemig(page:Page,restaurada=false):Promise<Abert
   },undefined,{timeout:15000,polling:250});
  }catch(error){if(!(error instanceof Error)||error.name!=='TimeoutError')throw error;}
  return estadoPortalCemig(page);
+}
+
+export async function abrirPortalCemig(page:Page,restaurada=false):Promise<AberturaPortalCemig>{
+ try{return await abrirPortalCemigInterno(page,restaurada);}
+ catch(error){
+  if(error instanceof FalhaAberturaPortalCemig)throw error;
+  // Classify locally, but never persist Playwright's raw message or private URL.
+  const codigo=error instanceof Error&&error.name==='TimeoutError'?'TEMPO':
+   error instanceof Error&&/net::ERR_|ECONN|ENOTFOUND|connection closed/i.test(error.message)?'REDE':'CONTROLE';
+  throw new FalhaAberturaPortalCemig(codigo);
+ }
 }

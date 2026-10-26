@@ -41,8 +41,16 @@ test('sessão nova começa no login indicado pelo titular, não no serviço de c
 
 test('não considera a URL de login pronta quando os estilos e modais não carregaram',async()=>{
  const a=pagina('about:blank',{loginRenderizado:false});
- await assert.rejects(abrirPortalCemig(a.page),/não terminou de carregar os estilos/);
+ await assert.rejects(abrirPortalCemig(a.page),/\[RENDERIZACAO\]/);
  assert.equal(a.navegacoes(),1);
+});
+
+test('classifica falha de rede sem expor mensagem, dados ou endereço privado',async()=>{
+ const a=pagina('about:blank');
+ a.page.goto=(async()=>{throw new Error('net::ERR_CONNECTION_RESET https://private.invalid/?token=segredo');}) as any;
+ await assert.rejects(abrirPortalCemig(a.page),(error:Error)=>{
+  assert.match(error.message,/\[REDE\]/);assert.doesNotMatch(error.message,/private|token|segredo/);return true;
+ });
 });
 
 test('aguarda a renderização do login sem recarregar a sessão',async()=>{

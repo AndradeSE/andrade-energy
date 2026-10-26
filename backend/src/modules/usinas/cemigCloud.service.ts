@@ -12,7 +12,7 @@ import {capmonsterDisponivel,localizarDesafioCemig,obterRespostaCapmonster,aplic
 import {motivoBloqueioCaptcha,RecusaTesteCaptcha} from './cemigCloud.captchaPolicy';
 import {lerAcessoCemig} from './cemigCredential.service';
 import {enviarLoginCemig,VerificacaoCemigExpirada,FalhaLoginCemig,conferirUsuarioModalCemig,prepararUsuarioCemig} from './cemigLogin';
-import {abrirPortalCemig} from './cemigPortal.open';
+import {abrirPortalCemig,FalhaAberturaPortalCemig} from './cemigPortal.open';
 import {mensagemFalhaCemig,type EtapaInicialCemig} from './cemigCloud.failure';
 
 const ativos=['FILA','FILA_RENDER','INICIANDO','AGUARDANDO_LOGIN','VALIDANDO'];
@@ -225,7 +225,7 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
   await supabase.from('cemig_simulacoes').update({estado:'EXPIRADO',csv_cifrado:null,live_cifrado:null}).eq('id',id).in('estado',ativos);
  }catch(error){
   // Provider/Playwright errors may contain credentials, DOM or customer data.
-  const mensagem=error instanceof FalhaEtapaCemig ? error.message : mensagemFalhaCemig(etapaInicial);
+  const mensagem=error instanceof FalhaEtapaCemig||error instanceof FalhaAberturaPortalCemig ? error.message : mensagemFalhaCemig(etapaInicial);
   await supabase.from('cemig_simulacoes').update({estado:'ERRO',erro:mensagem,csv_cifrado:null,live_cifrado:null}).eq('id',id).in('estado',ativos);
  }finally{
   if(navegador)await navegador.liberar().catch(()=>{});
