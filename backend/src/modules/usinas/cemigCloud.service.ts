@@ -14,6 +14,7 @@ import {lerAcessoCemig} from './cemigCredential.service';
 import {enviarLoginCemig,VerificacaoCemigExpirada,FalhaLoginCemig,conferirUsuarioModalCemig,prepararUsuarioCemig} from './cemigLogin';
 import {abrirPortalCemig,FalhaAberturaPortalCemig,loginCemigRenderizado} from './cemigPortal.open';
 import {mensagemFalhaCemig,type EtapaInicialCemig} from './cemigCloud.failure';
+import {acompanharRecursosCemig} from './cemigRecursos';
 
 const ativos=['FILA','FILA_RENDER','INICIANDO','AGUARDANDO_LOGIN','VALIDANDO'];
 const worker='https://andrade-energy-fallback-probe.netlify.app/.netlify/functions/cemig-background';
@@ -104,7 +105,13 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
   let page=context.pages()[0]??await context.newPage();
   await bloquearProtocoloNaSimulacao(page);
   etapaInicial='PORTAL';
-  const abertura=await abrirPortalCemig(page,restaurada);
+  const recursosLogin=acompanharRecursosCemig(page);
+  let abertura:Awaited<ReturnType<typeof abrirPortalCemig>>;
+  let diagnosticoRecursos:string;
+  try{
+   abertura=await abrirPortalCemig(page,restaurada);
+   diagnosticoRecursos=await recursosLogin.resumo();
+  }finally{recursosLogin.parar();}
   let usuarioPreparado=false;
   etapaInicial='VISUALIZADOR';
   const live=await session.live(page.url());
@@ -114,7 +121,7 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
   if(abertura==='VERIFICACAO'){
    await atualizar(id,{erro:new AcaoManualCemig('VERIFICACAO').message});await avisar('VERIFICACAO');
   }else if(abertura==='LOGIN_INCOMPLETO'){
-   await atualizar(id,{erro:'O login da Cemig continua sem a formatação correta após uma única recarga automática. A sessão foi preservada; nenhum usuário, senha ou CAPTCHA foi enviado. Não inicie outra simulação.'});
+   await atualizar(id,{erro:`O login da Cemig continua sem a formatação correta após uma única recarga automática. Recursos públicos: ${diagnosticoRecursos}. A sessão foi preservada; nenhum usuário, senha ou CAPTCHA foi enviado. Não inicie outra simulação.`});
   }else if(abertura==='CARREGANDO'){
    await atualizar(id,{erro:'A sessão foi preservada, mas os controles do login ainda não foram confirmados. Confira a mesma sessão; nenhum acesso ou CAPTCHA foi enviado.'});
   }else if(restaurada&&abertura==='PORTAL'){
