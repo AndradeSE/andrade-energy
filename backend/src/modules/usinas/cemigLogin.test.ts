@@ -11,7 +11,10 @@ test('prepara usuário na tela inicial e abre modal sem preencher senha nem reso
    if(s==='#frmLogin #acesso:visible')return {waitFor:async()=>{},count:async()=>1,inputValue:async()=>usuario,fill:async(v:string)=>{usuario=v;eventos.push('usuario');}};
    if(s==='#modalLoginComSenha:visible #acessoModalSenhaValor:visible')return {count:async()=>1,inputValue:async()=>usuario};
    assert.fail(`Seletor não autorizado: ${s}`);
-  },getByRole:(_role:string,{name}:{name:string})=>{assert.equal(name,'Entrar com senha');return {filter:()=>({count:async()=>1,click:async()=>{modalAberto=true;eventos.push('abrir-modal');}})};},
+  },getByRole:(role:string,{name}:{name:string})=>{
+   if(role==='textbox'){assert.equal(name,'Usuário');return {filter:()=>({waitFor:async()=>{},count:async()=>1,inputValue:async()=>usuario,fill:async(v:string)=>{usuario=v;eventos.push('usuario');}})};}
+   assert.equal(name,'Entrar com senha');return {filter:()=>({count:async()=>1,click:async()=>{modalAberto=true;eventos.push('abrir-modal');}})};
+  },
  } as unknown as Page;
  await prepararUsuarioCemig(page,'teste@exemplo.invalid',async()=>true);
  assert.deepEqual(eventos,['usuario','abrir-modal']);

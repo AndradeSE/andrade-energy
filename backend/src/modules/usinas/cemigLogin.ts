@@ -32,7 +32,7 @@ export async function prepararUsuarioCemig(page:Page,loginSalvo:string,ativo:()=
  await conferir();
  const modal=page.locator('#modalLoginComSenha:visible');
  if(await modal.count()===1){await conferirUsuarioModalCemig(page,login);return;}
- const campo=page.locator('#frmLogin #acesso:visible');
+ const campo=page.getByRole('textbox',{name:'Usuário',exact:true}).filter({visible:true});
  await campo.waitFor({state:'visible',timeout:10000});
  if(await campo.count()!==1)throw new FalhaLoginCemig('FORMULARIO');
  await conferir();

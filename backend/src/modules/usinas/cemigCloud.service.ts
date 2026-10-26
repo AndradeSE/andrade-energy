@@ -122,7 +122,7 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
    if(!ativos.includes(r.data.estado))return;
    if(!usuarioPreparado&&r.data.estado==='AGUARDANDO_LOGIN'&&r.data.captcha_estado==='NAO_SOLICITADO'){
     const loginPage=context.pages().find(p=>{try{const u=new URL(p.url());return u.origin==='https://atende.cemig.com.br'&&/^\/login\/?$/i.test(u.pathname);}catch{return false;}});
-    if(loginPage&&await loginPage.locator('#frmLogin #acesso:visible').isVisible()){
+    if(loginPage&&await loginPage.getByRole('textbox',{name:'Usuário',exact:true}).filter({visible:true}).count()===1){
      usuarioPreparado=true;
      try{
       const acesso=await lerAcessoCemig(job.empresa_id,job.usuario_id);
