@@ -1,7 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type {Page} from 'playwright-core';
-import {enviarLoginCemig,FalhaLoginCemig,VerificacaoCemigExpirada,mesmoUsuarioCemig,conferirUsuarioModalCemig} from './cemigLogin';
+import {enviarLoginCemig,FalhaLoginCemig,VerificacaoCemigExpirada,mesmoUsuarioCemig,conferirUsuarioModalCemig,prepararUsuarioCemig} from './cemigLogin';
+
+test('prepara usuário na tela inicial e abre modal sem preencher senha nem resolver CAPTCHA',async()=>{
+ let modalAberto=false,usuario='';const eventos:string[]=[];
+ const page={url:()=> 'https://atende.cemig.com.br/Login',
+  locator:(s:string)=>{
+   if(s==='#modalLoginComSenha:visible')return {count:async()=>modalAberto?1:0,waitFor:async()=>assert.ok(modalAberto)};
+   if(s==='#frmLogin #acesso:visible')return {waitFor:async()=>{},count:async()=>1,inputValue:async()=>usuario,fill:async(v:string)=>{usuario=v;eventos.push('usuario');}};
+   if(s==='#modalLoginComSenha:visible #acessoModalSenhaValor:visible')return {count:async()=>1,inputValue:async()=>usuario};
+   assert.fail(`Seletor não autorizado: ${s}`);
+  },getByRole:(_role:string,{name}:{name:string})=>{assert.equal(name,'Entrar com senha');return {filter:()=>({count:async()=>1,click:async()=>{modalAberto=true;eventos.push('abrir-modal');}})};},
+ } as unknown as Page;
+ await prepararUsuarioCemig(page,'teste@exemplo.invalid',async()=>true);
+ assert.deepEqual(eventos,['usuario','abrir-modal']);
+ await prepararUsuarioCemig(page,'teste@exemplo.invalid',async()=>true);
+ assert.deepEqual(eventos,['usuario','abrir-modal']);
+ await assert.rejects(prepararUsuarioCemig(page,'outra@exemplo.invalid',async()=>true),FalhaLoginCemig);
+});
 
 test('confere identidade antes do CAPTCHA sem confundir CPF com e-mail',async()=>{
  assert.equal(mesmoUsuarioCemig('123.456.789-01','12345678901'),true);

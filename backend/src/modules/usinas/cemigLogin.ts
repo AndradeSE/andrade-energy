@@ -25,6 +25,25 @@ export async function conferirUsuarioModalCemig(page:Page,loginSalvo:string){
  if(await usuario.count()!==1||!mesmoUsuarioCemig(await usuario.inputValue({timeout:3000}),loginSalvo))
   throw new FalhaLoginCemig('USUARIO');
 }
+/** Prepare only the account identifier; never submit credentials or solve a challenge. */
+export async function prepararUsuarioCemig(page:Page,loginSalvo:string,ativo:()=>Promise<boolean>){
+ const login=validarAcessoCemig(loginSalvo,'apenas-validacao').login;
+ const conferir=async()=>{conferirPaginaCaptcha(page.url());if(!await ativo())throw new FalhaLoginCemig('SESSAO');};
+ await conferir();
+ const modal=page.locator('#modalLoginComSenha:visible');
+ if(await modal.count()===1){await conferirUsuarioModalCemig(page,login);return;}
+ const campo=page.locator('#frmLogin #acesso:visible');
+ await campo.waitFor({state:'visible',timeout:10000});
+ if(await campo.count()!==1)throw new FalhaLoginCemig('FORMULARIO');
+ await conferir();
+ if(!mesmoUsuarioCemig(await campo.inputValue({timeout:3000}),login))await campo.fill(login,{timeout:3000});
+ await conferir();
+ const abrir=page.getByRole('button',{name:'Entrar com senha',exact:true}).filter({visible:true});
+ if(await abrir.count()!==1)throw new FalhaLoginCemig('FORMULARIO');
+ await abrir.click({timeout:5000});
+ await modal.waitFor({state:'visible',timeout:10000});
+ await conferir();await conferirUsuarioModalCemig(page,login);
+}
 export async function verificarExpiracaoCemig(page:Page){
  const pattern=/(?:verifica[çc][aã]o|verification).*(?:expir|expired)|(?:expir|expired).*(?:verifica|verification)/i;
  const alvos=[page,...page.frames().filter(frame=>{
