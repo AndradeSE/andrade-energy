@@ -17,9 +17,9 @@ test('validação preserva espaços da senha e rejeita limites inválidos',()=>{
  assert.equal(validarAcessoCemig(' user ',' secret ').senha,' secret ');
  for(const [login,senha] of [[null,'secret'],['','secret'],['user',''],['user','x'.repeat(513)],['u\nser','secret']])assert.throws(()=>validarAcessoCemig(login,senha));
 });
-function fakePage(url:string,token='x'.repeat(30),challenge=false){
+function fakePage(url:string,token='x'.repeat(30),challenge=false,preenchido=false){
  const writes:string[]=[];
- const input=(name:string)=>({count:async()=>1,fill:async(value:string)=>{writes.push(name);},click:async()=>{writes.push('submit');}});
+ const input=(name:string)=>({count:async()=>1,inputValue:async()=>preenchido?(name==='login'?'test':'secret'):'',fill:async(value:string)=>{writes.push(name);},click:async()=>{writes.push('submit');}});
  const page={url:()=>url,frames:()=>[],getByText:()=>({first:()=>({isVisible:async()=>challenge})}),
   locator:(selector:string)=>selector.startsWith('textarea')?{first:()=>({inputValue:async()=>token})}:input('password'),
   getByLabel:()=>input('login'),getByRole:()=>input('submit')} as unknown as Page;
@@ -38,6 +38,12 @@ test('envia somente uma entrada autorizada e não confunde envio com autenticaç
  assert.deepEqual(writes,['login','password','submit']);
  const stopped=fakePage('https://atende.cemig.com.br/Login');
  await assert.rejects(enviarLoginCemig(stopped.page,{login:'test',senha:'secret'},async()=>false));assert.equal(stopped.writes.length,0);
+});
+
+test('preserva credenciais já preenchidas sem disparar novos eventos de edição',async()=>{
+ const {page,writes}=fakePage('https://atende.cemig.com.br/Login','x'.repeat(30),false,true);
+ await enviarLoginCemig(page,{login:'test',senha:'secret'},async()=>true);
+ assert.deepEqual(writes,['submit']);
 });
 
 test('verificação expirada interrompe antes de preencher credenciais',async()=>{

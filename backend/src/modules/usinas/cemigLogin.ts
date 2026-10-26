@@ -29,8 +29,12 @@ export async function enviarLoginCemig(page:Page,acesso:{login:string;senha:stri
   const senha=page.locator('input[type="password"]:visible');
   const entrar=page.getByRole('button',{name:'Entrar',exact:true});
   if(await login.count()!==1||await senha.count()!==1||await entrar.count()!==1)throw new Error();
-  await conferir();await login.fill(dados.login,{timeout:3000});
-  await conferir();await conferirToken();await senha.fill(dados.senha,{timeout:3000});
+  // Preserve fields already supplied in this session: redundant input events can
+  // invalidate form state. Values are compared locally and never logged.
+  await conferir();
+  if(await login.inputValue({timeout:3000})!==dados.login)await login.fill(dados.login,{timeout:3000});
+  await conferir();await conferirToken();
+  if(await senha.inputValue({timeout:3000})!==dados.senha)await senha.fill(dados.senha,{timeout:3000});
   await conferir();await conferirToken();await entrar.click({timeout:5000});
   // A submitted form is not proof of authentication. The existing CSV validator checks login.
  }catch(error){if(error instanceof VerificacaoCemigExpirada)throw error;throw new Error('Login não confirmado. Confira a verificação de segurança e o acesso salvo; nenhuma nova tentativa será feita automaticamente.');}
