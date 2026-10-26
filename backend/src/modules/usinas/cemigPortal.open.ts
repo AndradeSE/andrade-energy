@@ -4,12 +4,25 @@ import {verificacaoHumanaCemig} from './cemigCloud.portal';
 
 export type AberturaPortalCemig='PORTAL'|'LOGIN'|'VERIFICACAO'|'CARREGANDO';
 
+/** A login URL alone is not readiness: failed CSS exposes every hidden modal. */
+export function loginCemigRenderizado(){
+ const estilos=Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel~="stylesheet"]'))
+  .filter(link=>!link.disabled&&(!link.media||window.matchMedia(link.media).matches));
+ if(!estilos.length||estilos.some(link=>!link.sheet))return false;
+ const modais=Array.from(document.querySelectorAll<HTMLElement>('.modal'));
+ if(modais.some(modal=>!modal.classList.contains('show')&&!modal.classList.contains('in')&&
+  getComputedStyle(modal).display!=='none'&&modal.getClientRects().length>0))return false;
+ const usuario=document.querySelector<HTMLInputElement>('#acesso');
+ return !!usuario&&usuario.getClientRects().length>0;
+}
+
 async function estadoPortalCemig(page:Page):Promise<AberturaPortalCemig>{
  const atual=new URL(page.url());
  if(![new URL(CEMIG_PORTAL).origin,'https://atende.cemig.com.br'].includes(atual.origin))
   throw new Error('O portal redirecionou para um endereço não autorizado.');
  if(await verificacaoHumanaCemig(page))return 'VERIFICACAO';
- if(/\/(?:login|auth)(?:\/|$)/i.test(atual.pathname))return 'LOGIN';
+ if(/\/(?:login|auth)(?:\/|$)/i.test(atual.pathname))
+  return await page.evaluate(loginCemigRenderizado)?'LOGIN':'CARREGANDO';
  const cadastro=page.getByRole('button',{name:'Realizar cadastro',exact:true});
  const unidades=page.getByRole('button').filter({hasText:/Nº da unidade consumidora:/}).first();
  if(await cadastro.isVisible()||await unidades.isVisible())return 'PORTAL';
@@ -32,6 +45,13 @@ export async function abrirPortalCemig(page:Page,restaurada=false):Promise<Abert
  }
  const inicial=await estadoPortalCemig(page);
  if(inicial!=='CARREGANDO')return inicial;
+ if(/^\/login\/?$/i.test(new URL(page.url()).pathname)){
+  try{await page.waitForFunction(loginCemigRenderizado,undefined,{timeout:15000,polling:250});}
+  catch(error){if(!(error instanceof Error)||error.name!=='TimeoutError')throw error;}
+  const estado=await estadoPortalCemig(page);
+  if(estado==='CARREGANDO')throw new Error('A página de login da Cemig não terminou de carregar os estilos e formulários. Nenhum dado de acesso foi preenchido.');
+  return estado;
+ }
  // Wait for ordinary application readiness, never for a generic body element.
  // This reads visible state only; it does not interact with security challenges.
  try{
