@@ -13,6 +13,7 @@ import {motivoBloqueioCaptcha,RecusaTesteCaptcha} from './cemigCloud.captchaPoli
 import {lerAcessoCemig} from './cemigCredential.service';
 import {enviarLoginCemig,VerificacaoCemigExpirada} from './cemigLogin';
 import {abrirPortalCemig} from './cemigPortal.open';
+import {mensagemFalhaCemig,type EtapaInicialCemig} from './cemigCloud.failure';
 
 const ativos=['FILA','FILA_RENDER','INICIANDO','AGUARDANDO_LOGIN','VALIDANDO'];
 const worker='https://andrade-energy-fallback-probe.netlify.app/.netlify/functions/cemig-background';
@@ -90,18 +91,25 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
    detalhe:'A Cemig solicitou uma verificação humana. Retome a mesma sessão pelo Rateio antes de expirar. Não foi iniciado outro login nem solicitado protocolo.',
    rota:`/operacao/rateio?competencia=${job.competencia}`,chave_dedupe:`cemig-pausa:${id}:${tipo}`}).catch(()=>console.warn('Aviso da simulação não confirmado.'));
  };
+ let etapaInicial:EtapaInicialCemig='ARQUIVO';
  try{
   const csv=decifrar(job.csv_cifrado);conferirCsvSimulacao(csv,job.uc_geradora);
+  etapaInicial='PROVEDOR';
   const session=await abrirNavegadorCemig(job.steel_autorizado===true);navegador=session;
+  etapaInicial='CONEXAO';
   browser=await chromium.connectOverCDP(session.connectUrl,{timeout:30000});
+  etapaInicial='SESSAO';
   const context=browser.contexts()[0];if(!context)throw new Error('Contexto não disponível');
   const restaurada=await restaurarSessaoSalvaCemig(context,job.empresa_id,job.usuario_id);
   let page=context.pages()[0]??await context.newPage();
   await bloquearProtocoloNaSimulacao(page);
+  etapaInicial='PORTAL';
   const abertura=await abrirPortalCemig(page);
+  etapaInicial='VISUALIZADOR';
   const live=await session.live(page.url());
   const pronto=await supabase.from('cemig_simulacoes').update({estado:'AGUARDANDO_LOGIN',sessao_id:session.id,navegador_provedor:session.provedor,expira_em:new Date(prazo).toISOString(),live_cifrado:criptografarDado(live)}).eq('id',id).eq('estado','INICIANDO').select('id').maybeSingle();
   if(pronto.error||!pronto.data)return;
+  etapaInicial='VALIDACAO';
   if(abertura==='VERIFICACAO'){
    await atualizar(id,{erro:new AcaoManualCemig('VERIFICACAO').message});await avisar('VERIFICACAO');
   }else if(restaurada&&abertura==='PORTAL'){
@@ -197,7 +205,7 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
   await supabase.from('cemig_simulacoes').update({estado:'EXPIRADO',csv_cifrado:null,live_cifrado:null}).eq('id',id).in('estado',ativos);
  }catch(error){
   // Provider/Playwright errors may contain credentials, DOM or customer data.
-  const mensagem=error instanceof FalhaEtapaCemig ? error.message : 'A simulação não chegou à revisão. Nenhum protocolo foi solicitado. Confira o login e a cota.';
+  const mensagem=error instanceof FalhaEtapaCemig ? error.message : mensagemFalhaCemig(etapaInicial);
   await supabase.from('cemig_simulacoes').update({estado:'ERRO',erro:mensagem,csv_cifrado:null,live_cifrado:null}).eq('id',id).in('estado',ativos);
  }finally{
   if(navegador)await navegador.liberar().catch(()=>{});

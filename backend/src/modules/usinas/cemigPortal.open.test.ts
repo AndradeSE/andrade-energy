@@ -25,3 +25,12 @@ test('rejeita redirecionamento externo antes de consultar formulário',async()=>
  const a=pagina('about:blank',{redireciona:'https://atende.cemig.com.br.evil.test/Login'});
  await assert.rejects(abrirPortalCemig(a.page),/não autorizado/);
 });
+test('preserva página oficial após timeout sem repetir navegação',async()=>{
+ const a=pagina(CEMIG_PORTAL,{humano:true});let navegacoes=0;
+ a.page.url=()=>navegacoes?'https://atende.cemig.com.br/Login':'about:blank';
+ a.page.goto=(async()=>{navegacoes++;const e=new Error('private URL');e.name='TimeoutError';throw e;}) as any;
+ assert.equal(await abrirPortalCemig(a.page),'VERIFICACAO');assert.equal(navegacoes,1);
+ const b=pagina('about:blank');
+ b.page.goto=(async()=>{const e=new Error('private URL');e.name='TimeoutError';throw e;}) as any;
+ await assert.rejects(abrirPortalCemig(b.page));
+});

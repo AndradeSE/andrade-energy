@@ -7,8 +7,16 @@ export type AberturaPortalCemig='PORTAL'|'LOGIN'|'VERIFICACAO'|'CARREGANDO';
 /** Ordinary Playwright navigation only. Never clicks or solves security challenges. */
 export async function abrirPortalCemig(page:Page):Promise<AberturaPortalCemig>{
  const destino=new URL(CEMIG_PORTAL);
- if(page.url()!==CEMIG_PORTAL)
-  await page.goto(CEMIG_PORTAL,{waitUntil:'domcontentloaded',timeout:45000});
+ if(page.url()!==CEMIG_PORTAL){
+  try{await page.goto(CEMIG_PORTAL,{waitUntil:'domcontentloaded',timeout:45000});}
+  catch(error){
+   // A slow document can already display the official security/login page.
+   // Preserve that page instead of discarding the session on a load timeout.
+   const origem=new URL(page.url()).origin;
+   if(!(error instanceof Error)||error.name!=='TimeoutError'||
+    ![destino.origin,'https://atende.cemig.com.br'].includes(origem))throw error;
+  }
+ }
  const atual=new URL(page.url());
  if(![destino.origin,'https://atende.cemig.com.br'].includes(atual.origin))
   throw new Error('O portal redirecionou para um endereço não autorizado.');
