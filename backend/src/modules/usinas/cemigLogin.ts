@@ -37,18 +37,27 @@ export async function enviarLoginCemig(page:Page,acesso:{login:string;senha:stri
   etapa='FORMULARIO';
   // Scope to the password form rather than the entire landing page, which
   // also renders a separate user/code form (sometimes both are visible).
+  const modal=page.locator('#modalLoginComSenha:visible');
+  const modalOficial=await modal.count()===1;
   const formularios=page.locator('form').filter({has:page.locator('input[type="password"]:visible')});
   const quantidade=await formularios.count();
-  const escopo=quantidade===1?formularios:page;
-  const login=escopo.getByLabel('Usuário',{exact:true}).filter({visible:true});
-  const senha=escopo.locator('input[type="password"]:visible');
-  const entrar=escopo.getByRole('button',{name:'Entrar',exact:true}).filter({visible:true});
+  const escopo=modalOficial?modal:quantidade===1?formularios:page;
+  const login=modalOficial?modal.locator('#acessoModalSenhaValor:visible'):escopo.getByLabel('Usuário',{exact:true}).filter({visible:true});
+  const senha=escopo.locator(modalOficial?'#senhaModal:visible':'input[type="password"]:visible');
+  const entrar=modalOficial?modal.locator('#btnConfirmarLoginComSenha:visible'):escopo.getByRole('button',{name:'Entrar',exact:true}).filter({visible:true});
   const [usuarios,senhas,botoes]=await Promise.all([login.count(),senha.count(),entrar.count()]);
-  if(quantidade>1||usuarios!==1||senhas!==1||botoes!==1)throw new FalhaLoginCemig('FORMULARIO',{formularios:quantidade,usuarios,senhas,botoes});
+  if((!modalOficial&&quantidade>1)||usuarios!==1||senhas!==1||botoes!==1)throw new FalhaLoginCemig('FORMULARIO',{formularios:quantidade,usuarios,senhas,botoes});
   // Preserve fields already supplied in this session: redundant input events can
   // invalidate form state. Values are compared locally and never logged.
   etapa='USUARIO';await conferir();
-  if(await login.inputValue({timeout:3000})!==dados.login)await login.fill(dados.login,{timeout:3000});
+  const usuarioAtual=await login.inputValue({timeout:3000});
+  const mesmoUsuario=usuarioAtual===dados.login||(/^\d[\d.\/-]+$/.test(usuarioAtual)&&/^\d[\d.\/-]+$/.test(dados.login)&&usuarioAtual.replace(/\D/g,'')===dados.login.replace(/\D/g,''));
+  if(!mesmoUsuario){
+   // The official modal's user is disabled and is inherited from the initial
+   // login screen. Never enable it or silently submit another user's access.
+   if(modalOficial)throw new FalhaLoginCemig('USUARIO');
+   await login.fill(dados.login,{timeout:3000});
+  }
   etapa='SENHA';await conferir();await conferirToken();
   if(await senha.inputValue({timeout:3000})!==dados.senha)await senha.fill(dados.senha,{timeout:3000});
   etapa='ENVIO';await conferir();await conferirToken();await entrar.click({timeout:5000});

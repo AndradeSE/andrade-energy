@@ -17,11 +17,27 @@ function formulario(opcoes:{visiveis?:number;formularios?:number;falha?:'usuario
   url:()=>opcoes.url??'https://atende.cemig.com.br/Login',frames:()=>[],
   getByText:(pattern:RegExp)=>({first:()=>({isVisible:async()=>!!opcoes.expirou&&pattern.test('Verificação expirou')})}),
   getByLabel:()=>campo('usuario'),getByRole:()=>campo('botao'),
-  locator:(selector:string):any=>selector==='form'?{filter:()=>({count:async()=>opcoes.formularios??0,getByLabel:()=>({...campo('usuario'),filter:()=>({...campo('usuario'),count:async()=>1})}),locator:()=>campo('senha'),getByRole:()=>({...campo('botao'),filter:()=>({...campo('botao'),count:async()=>1})})})}:campo(selector.startsWith('textarea')?'token':'senha'),
+  locator:(selector:string):any=>selector==='#modalLoginComSenha:visible'?{count:async()=>0}:selector==='form'?{filter:()=>({count:async()=>opcoes.formularios??0,getByLabel:()=>({...campo('usuario'),filter:()=>({...campo('usuario'),count:async()=>1})}),locator:()=>campo('senha'),getByRole:()=>({...campo('botao'),filter:()=>({...campo('botao'),count:async()=>1})})})}:campo(selector.startsWith('textarea')?'token':'senha'),
  } as unknown as Page;
  return {page,eventos};
 }
 const acesso={login:'teste@exemplo.invalid',senha:'somente-teste'};
+
+test('modal oficial usa usuário desabilitado sem rótulo e não tenta preenchê-lo',async()=>{
+ for(const usuarioCorreto of [true,false]){
+  const f=formulario();const locatorOriginal=f.page.locator.bind(f.page);
+  f.page.locator=((selector:string)=>selector==='#modalLoginComSenha:visible'?{
+   count:async()=>1,locator:(s:string)=>({
+    count:async()=>1,
+    inputValue:async()=>s.includes('acessoModal')?(usuarioCorreto?acesso.login:'outra-conta'):'',
+    fill:async()=>{assert.ok(s.includes('senhaModal'),'não alterar usuário desabilitado');f.eventos.push('senha');},
+    click:async()=>{assert.ok(s.includes('btnConfirmar'));f.eventos.push('envio');},
+   }),
+  }:locatorOriginal(selector)) as any;
+  if(usuarioCorreto){await enviarLoginCemig(f.page,acesso,async()=>true);assert.deepEqual(f.eventos,['senha','envio']);}
+  else {await assert.rejects(enviarLoginCemig(f.page,acesso,async()=>true),/preencher o usuário/);assert.deepEqual(f.eventos,[]);}
+ }
+});
 
 test('ignora o usuário oculto da tela inicial e envia uma única vez',async()=>{
  const f=formulario();await enviarLoginCemig(f.page,acesso,async()=>true);
