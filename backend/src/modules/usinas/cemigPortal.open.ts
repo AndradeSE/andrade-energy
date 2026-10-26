@@ -4,6 +4,18 @@ import {verificacaoHumanaCemig} from './cemigCloud.portal';
 
 export type AberturaPortalCemig='PORTAL'|'LOGIN'|'VERIFICACAO'|'CARREGANDO';
 
+async function estadoPortalCemig(page:Page):Promise<AberturaPortalCemig>{
+ const atual=new URL(page.url());
+ if(![new URL(CEMIG_PORTAL).origin,'https://atende.cemig.com.br'].includes(atual.origin))
+  throw new Error('O portal redirecionou para um endereço não autorizado.');
+ if(await verificacaoHumanaCemig(page))return 'VERIFICACAO';
+ if(/\/(?:login|auth)(?:\/|$)/i.test(atual.pathname))return 'LOGIN';
+ const cadastro=page.getByRole('button',{name:'Realizar cadastro',exact:true});
+ const unidades=page.getByRole('button').filter({hasText:/Nº da unidade consumidora:/}).first();
+ if(await cadastro.isVisible()||await unidades.isVisible())return 'PORTAL';
+ return 'CARREGANDO';
+}
+
 /** Ordinary Playwright navigation only. Never clicks or solves security challenges. */
 export async function abrirPortalCemig(page:Page):Promise<AberturaPortalCemig>{
  const destino=new URL(CEMIG_PORTAL);
@@ -17,14 +29,21 @@ export async function abrirPortalCemig(page:Page):Promise<AberturaPortalCemig>{
     ![destino.origin,'https://atende.cemig.com.br'].includes(origem))throw error;
   }
  }
- const atual=new URL(page.url());
- if(![destino.origin,'https://atende.cemig.com.br'].includes(atual.origin))
-  throw new Error('O portal redirecionou para um endereço não autorizado.');
- if(await verificacaoHumanaCemig(page))return 'VERIFICACAO';
- if(/\/(?:login|auth)(?:\/|$)/i.test(atual.pathname))return 'LOGIN';
- // A /portal/ URL with a loading indicator is not evidence of authentication.
- const cadastro=page.getByRole('button',{name:'Realizar cadastro',exact:true});
- const unidades=page.getByRole('button').filter({hasText:/Nº da unidade consumidora:/}).first();
- if(await cadastro.isVisible()||await unidades.isVisible())return 'PORTAL';
- return 'CARREGANDO';
+ const inicial=await estadoPortalCemig(page);
+ if(inicial!=='CARREGANDO')return inicial;
+ // Wait for ordinary application readiness, never for a generic body element.
+ // This reads visible state only; it does not interact with security challenges.
+ try{
+  await page.waitForFunction(()=>{
+   const permitida=['https://www.atendimento.cemig.com.br','https://atende.cemig.com.br'].includes(location.origin);
+   if(!permitida)return true; // Revalidated and rejected outside the page scope.
+   if(/\/(?:login|auth)(?:\/|$)/i.test(location.pathname))return true;
+   const visivel=(el:Element)=>el.getClientRects().length>0;
+   const verificacao=/Verify you are human|Performing security verification|Verifique se você é humano|Verificação de segurança/i;
+   if(verificacao.test(document.body?.innerText??''))return true;
+   return Array.from(document.querySelectorAll('button,[role="button"]')).some(el=>
+    visivel(el)&&(/^(Realizar cadastro)$/i.test(el.textContent?.trim()??'')||/Nº da unidade consumidora:/i.test(el.textContent??'')));
+  },undefined,{timeout:15000,polling:250});
+ }catch(error){if(!(error instanceof Error)||error.name!=='TimeoutError')throw error;}
+ return estadoPortalCemig(page);
 }
