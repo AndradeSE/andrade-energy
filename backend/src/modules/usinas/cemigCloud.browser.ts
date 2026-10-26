@@ -8,7 +8,14 @@ type Dependencias={criarPrincipal:()=>Promise<{id:string;connectUrl:string}>;lib
 export async function abrirNavegadorCemig(autorizaSteel:boolean,deps:Dependencias={
  criarPrincipal:criarBrowserbaseSimulacao,liberarPrincipal:encerrarBrowserbase,livePrincipal:liveBrowserbase,
  criarReserva:criarSteelPreview,reservaHabilitada:()=>steelPreviewHabilitado(process.env),
-}) {
+},preferencia:'BROWSERBASE'|'STEEL'='BROWSERBASE') {
+ // An explicit Preview diagnostic run can select the already configured provider.
+ // Never retry another browser after a session has been created.
+ if(preferencia==='STEEL'){
+  if(!autorizaSteel||!deps.reservaHabilitada())throw new Error('Steel exige autorização e crédito de teste confirmado no Preview.');
+  const reserva=await deps.criarReserva();
+  return {...reserva,provedor:'STEEL' as const,live:async(_pageUrl:string)=>reserva.liveUrl};
+ }
  let principal:{id:string;connectUrl:string};
  try{principal=await deps.criarPrincipal();}
  catch(error){

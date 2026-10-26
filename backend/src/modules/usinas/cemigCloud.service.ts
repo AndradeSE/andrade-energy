@@ -95,7 +95,8 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
  try{
   const csv=decifrar(job.csv_cifrado);conferirCsvSimulacao(csv,job.uc_geradora);
   etapaInicial='PROVEDOR';
-  const session=await abrirNavegadorCemig(job.steel_autorizado===true);navegador=session;
+  const session=await abrirNavegadorCemig(job.steel_autorizado===true,undefined,
+   process.env.CEMIG_PREVIEW_BROWSER==='STEEL'?'STEEL':'BROWSERBASE');navegador=session;
   etapaInicial='CONEXAO';
   browser=await chromium.connectOverCDP(session.connectUrl,{timeout:30000});
   etapaInicial='SESSAO';

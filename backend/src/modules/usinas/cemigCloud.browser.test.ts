@@ -31,6 +31,15 @@ test('principal disponível não abre reserva; falha posterior nunca recria sess
 
 const env={SUPABASE_URL:CEMIG_PREVIEW_DB,CEMIG_CLOUD_ENABLED:'true',CEMIG_STEEL_FALLBACK_ENABLED:'true',
  STEEL_TRIAL_ONLY_CONFIRMED:'true',STEEL_API_KEY:'test-not-a-real-key'};
+
+test('diagnóstico Steel explícito não cria Browserbase e não repete sessão se falhar',async()=>{
+ let principal=0,reserva=0;
+ const deps={criarPrincipal:async()=>{principal++;throw new Error();},liberarPrincipal:async()=>{},livePrincipal:async()=>'',
+  criarReserva:async()=>{reserva++;throw new Error('falha');},reservaHabilitada:()=>true};
+ await assert.rejects(abrirNavegadorCemig(false,deps,'STEEL'));assert.equal(reserva,0);
+ await assert.rejects(abrirNavegadorCemig(true,{...deps,reservaHabilitada:()=>false},'STEEL'));assert.equal(reserva,0);
+ await assert.rejects(abrirNavegadorCemig(true,deps,'STEEL'));assert.equal(reserva,1);assert.equal(principal,0);
+});
 test('Steel exige Preview e confirmação de crédito sem cartão; URL não expõe chave',()=>{
  assert.equal(steelPreviewHabilitado(env),true);
  for(const patch of [{SUPABASE_URL:'https://production.supabase.co'},{STEEL_TRIAL_ONLY_CONFIRMED:'false'},
