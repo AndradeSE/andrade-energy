@@ -59,7 +59,7 @@ export async function consultarCemigSimulacao(id:string,usinaId:string,empresaId
   if(!autorizaCapmonster)throw new RecusaTesteCaptcha('Confirme o uso do bônus antes do teste. Nenhuma tarefa foi criada.');
   const bloqueio=motivoBloqueioCaptcha({disponivel:capmonsterDisponivel(process.env),estado:row.estado,captchaEstado:row.captcha_estado,expiraEm:row.expira_em});
   if(bloqueio)throw new RecusaTesteCaptcha(bloqueio);
-  const solicitado=await supabase.from('cemig_simulacoes').update({captcha_estado:'FILA',captcha_erro:null})
+  const solicitado=await supabase.from('cemig_simulacoes').update({captcha_estado:'FILA',captcha_erro:null,login_apos_captcha:autorizaLogin===true})
     .eq('id',id).eq('estado','AGUARDANDO_LOGIN').eq('captcha_estado','NAO_SOLICITADO').select('id').maybeSingle();
   if(solicitado.error||!solicitado.data)throw new Error('Esta sessão já utilizou a tentativa de CAPTCHA.');
   row.captcha_estado='FILA';
@@ -107,7 +107,7 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
    await atualizar(id,{continuar:true});
   }
   while(Date.now()<prazo){
-   const r=await supabase.from('cemig_simulacoes').select('estado,continuar,captcha_estado,login_estado').eq('id',id).single();
+   const r=await supabase.from('cemig_simulacoes').select('estado,continuar,captcha_estado,login_estado,login_apos_captcha').eq('id',id).single();
    if(r.error)throw new Error('Consulta indisponível');
    if(!ativos.includes(r.data.estado))return;
    if(r.data.login_estado==='FILA'&&r.data.estado==='AGUARDANDO_LOGIN'){
@@ -142,6 +142,7 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
       const encontrado=await localizarDesafioCemig(context.pages());
       const desafio=encontrado.desafio;
       page=encontrado.page;
+      await supabase.from('cemig_simulacoes').update({erro:null}).eq('id',id).eq('estado','AGUARDANDO_LOGIN');
       await bloquearProtocoloNaSimulacao(page);
       etapaCaptcha='API';
       const ativo=async()=>{
@@ -154,6 +155,9 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
       etapaCaptcha='APLICACAO';
       await aplicarRespostaCaptcha(page,token);
       await supabase.from('cemig_simulacoes').update({captcha_estado:'RESPOSTA_APLICADA'}).eq('id',id).eq('estado','AGUARDANDO_LOGIN');
+      // Only explicit consent from this request can enqueue a single saved login.
+      if(r.data.login_apos_captcha===true)await supabase.from('cemig_simulacoes').update({login_estado:'FILA',login_erro:null})
+       .eq('id',id).eq('estado','AGUARDANDO_LOGIN').eq('login_estado','NAO_SOLICITADO').eq('login_apos_captcha',true);
      }catch(error){
       const semTarefa=error instanceof DesafioCemigIndisponivel;
       const mensagem=semTarefa||error instanceof FalhaCapmonster?error.message:etapaCaptcha==='APLICACAO'?
