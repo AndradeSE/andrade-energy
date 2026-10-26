@@ -1,7 +1,7 @@
 import {supabase} from '../../config/supabase';
 import {criptografarDado,descriptografarDado} from '../../utils/sensitiveData';
 import {prepararPlanilhaRateio} from './rateioMensal.service';
-import {CEMIG_PORTAL,CEMIG_SESSION_SECONDS,exigirCemigSimulacao,conferirCsvSimulacao} from './cemigCloud.policy';
+import {CEMIG_LOGIN,CEMIG_PORTAL,CEMIG_SESSION_SECONDS,exigirCemigSimulacao,conferirCsvSimulacao} from './cemigCloud.policy';
 import {abrirNavegadorCemig} from './cemigCloud.browser';
 import {bloquearProtocoloNaSimulacao,validarAnexoCemig,FalhaEtapaCemig,AcaoManualCemig,paginaPortalCemig,verificacaoHumanaCemig} from './cemigCloud.portal';
 import {restaurarSessaoSalvaCemig,salvarSessaoCemig} from './cemigSessionState.service';
@@ -107,9 +107,9 @@ export async function executarCemigSimulacao(id:string,fila:'FILA'|'FILA_RENDER'
   const recursosLogin=acompanharRecursosCemig(page);
   let diagnosticoRecursos:string;
   try{
-   // Original workflow: enter through the official service and follow its login
-   // redirect in the same context. No supplemental E2E opener or reload loop.
-   await page.goto(CEMIG_PORTAL,{waitUntil:'domcontentloaded',timeout:45000});
+   // Start at the current login. The service URL is only used after authentication.
+   // Removing the supplemental opener must not restore the old entry domain.
+   await page.goto(CEMIG_LOGIN,{waitUntil:'domcontentloaded',timeout:45000});
    diagnosticoRecursos=await recursosLogin.resumo();
   }finally{recursosLogin.parar();}
   const entradaAtual=new URL(page.url());
