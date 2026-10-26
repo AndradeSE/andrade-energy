@@ -24,7 +24,7 @@ test('registra apenas status de recursos e remove ouvintes, sem URL ou dados da 
  page.emit('response',{url:()=> 'https://atende.cemig.com.br/Login?token=segredo',status:()=>200,headerValue:async()=> 'text/html'});
  page.emit('requestfailed',{url:()=> 'https://atende.cemig.com.br/bundles/bootstrap',failure:()=>({errorText:'net::ERR_CERT_DATE_INVALID segredo'})});
  const resumo=await coletor.resumo();
- assert.match(resumo,/CSS_PRINCIPAL: HTTP_403/);assert.match(resumo,/JS_BOOTSTRAP: ERR_CERT_DATE_INVALID/);
+ assert.match(resumo,/CSS_PRINCIPAL: HTTP_403/);assert.match(resumo,/JS_BOOTSTRAP: SEM_RESPOSTA \/ ERR_CERT_DATE_INVALID/);
  assert.doesNotMatch(resumo,/segredo|https|Login|token/);
  coletor.parar();assert.equal(page.listenerCount('response'),0);assert.equal(page.listenerCount('requestfailed'),0);
 });
@@ -34,5 +34,11 @@ test('resposta antiga não sobrescreve o resultado da recarga mais recente',asyn
  page.emit('response',{url:()=> 'https://atende.cemig.com.br/Content/css',status:()=>403,headerValue:()=>new Promise<string>(resolve=>{liberar=resolve;})});
  page.emit('response',{url:()=> 'https://atende.cemig.com.br/Content/css',status:()=>200,headerValue:async()=> 'text/css'});
  liberar('text/html');
- assert.match(await coletor.resumo(),/CSS_PRINCIPAL: OK/);coletor.parar();
+ assert.match(await coletor.resumo(),/CSS_PRINCIPAL: HTTP_200\/OK/);coletor.parar();
+});
+test('interrupção preserva a resposta HTTP em vez de esconder uma recusa',async()=>{
+ const page=new EventEmitter();const coletor=acompanharRecursosCemig(page as unknown as Page);
+ page.emit('response',{url:()=> 'https://atende.cemig.com.br/Content/css',status:()=>403,headerValue:async()=> 'text/html'});
+ page.emit('requestfailed',{url:()=> 'https://atende.cemig.com.br/Content/css',failure:()=>({errorText:'net::ERR_ABORTED'})});
+ assert.match(await coletor.resumo(),/CSS_PRINCIPAL: HTTP_403 \/ ERR_ABORTED/);coletor.parar();
 });

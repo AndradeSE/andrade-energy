@@ -37,27 +37,32 @@ export function falhaRedeRecursoCemig(message:string){
 }
 export function acompanharRecursosCemig(page:Page){
  const resultados=new Map<Recurso,string>();const pending=new Set<Promise<void>>();
+ const falhas=new Map<Recurso,string>();
  const versoes=new Map<Recurso,number>();
  const response=(r:Response)=>{
   const tipo=recursoPublicoCemig(r.url());if(!tipo)return;
   const versao=(versoes.get(tipo)??0)+1;versoes.set(tipo,versao);
+  falhas.delete(tipo);
+  const status=r.status();
+  const http=Number.isInteger(status)&&status>=100&&status<=599?`HTTP_${status}`:'HTTP_INVALIDO';
+  resultados.set(tipo,http);
   const task=(async()=>{
    try{
-    const resultado=resultadoRecursoCemig(tipo,r.status(),await r.headerValue('content-type'));
-    if(resultado&&versoes.get(tipo)===versao)resultados.set(tipo,resultado);
-   }catch{if(versoes.get(tipo)===versao)resultados.set(tipo,'LEITURA_INDISPONIVEL');}
+    const resultado=resultadoRecursoCemig(tipo,status,await r.headerValue('content-type'));
+    if(resultado&&versoes.get(tipo)===versao)resultados.set(tipo,resultado.startsWith('HTTP_')?resultado:`${http}/${resultado}`);
+   }catch{if(versoes.get(tipo)===versao)resultados.set(tipo,`${http}/LEITURA_INDISPONIVEL`);}
   })();
   pending.add(task);void task.finally(()=>pending.delete(task));
  };
  const failed=(r:Request)=>{
   const tipo=recursoPublicoCemig(r.url());
-  if(tipo){versoes.set(tipo,(versoes.get(tipo)??0)+1);resultados.set(tipo,falhaRedeRecursoCemig(r.failure()?.errorText??''));}
+  if(tipo)falhas.set(tipo,falhaRedeRecursoCemig(r.failure()?.errorText??''));
  };
  page.on('response',response);page.on('requestfailed',failed);
  return {
   resumo:async()=>{
    await Promise.allSettled([...pending]);
-   return Object.values(recursos).map(tipo=>`${tipo}: ${resultados.get(tipo)??'SEM_RESPOSTA'}`).join('; ');
+   return Object.values(recursos).map(tipo=>`${tipo}: ${resultados.get(tipo)??'SEM_RESPOSTA'}${falhas.has(tipo)?` / ${falhas.get(tipo)}`:''}`).join('; ');
   },
   parar:()=>{page.off('response',response);page.off('requestfailed',failed);},
  };
