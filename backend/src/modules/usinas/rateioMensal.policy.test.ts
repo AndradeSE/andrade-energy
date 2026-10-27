@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { proporRateioMensal, csvRateioMensal, csvCemigRateio, documentoDaTitularidade } from "./rateioMensal.policy";
+import { proporRateioMensal, csvRateioMensal, csvCemigRateio, documentoDaTitularidade, pendenciasCsvCemig } from "./rateioMensal.policy";
 
 test("demanda exata sem 15%, resto somente para âncora e soma 100%", () => {
   const p = proporRateioMensal(10000, [{ numero: "123456789", consumo_medio_kwh: 1000 }], "987654321");
@@ -34,7 +34,7 @@ test("CSV Cemig usa somente as quatro colunas do guia, sem cabeçalho/BOM/% e pr
   for(const linha of csv.split("\r\n"))assert.equal(linha.split(";").length,4);
   assert.doesNotMatch(csv,/[\uFEFF%"\n]{2}/);
   assert.throws(()=>csvCemigRateio(p,"456789123","",true),/CPF\/CNPJ/);
-  assert.throws(()=>csvCemigRateio(p,"456789123","52998224725",false),/números atuais/);
+  assert.doesNotThrow(()=>csvCemigRateio(p,"456789123","52998224725",false));
 });
 test("não produz arquivo Cemig com âncora provisória nem cota zero de beneficiária",()=>{
   const u=[{numero:"123456789",documento:"52998224725",consumo_medio_kwh:1000}];
@@ -47,4 +47,11 @@ test("titularidade escolhe documento do gerador ou cliente, sem CPF de ADM nem d
   assert.equal(documentoDaTitularidade("GERADOR","52998224725","01234567890","98765432100"),"52998224725");
   assert.equal(documentoDaTitularidade("CLIENTE","52998224725","01234567890","98765432100"),"01234567890");
   assert.equal(documentoDaTitularidade("GERADOR","5299.***.***-**","01234567890",""),"");
+});
+
+
+test('conferência estrutural dispensa aceite manual e bloqueia geradora inválida',()=>{
+ const plano=proporRateioMensal(1000,[{numero:'123456789',consumo_medio_kwh:100,documento:'12345678901'}],'987654321');
+ assert.deepEqual(pendenciasCsvCemig(plano,'111222333','12345678901',false),[]);
+ assert.ok(pendenciasCsvCemig(plano,'invalida','12345678901',false).some(p=>p.includes('geradora')));
 });
