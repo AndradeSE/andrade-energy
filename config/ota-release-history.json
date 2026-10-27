@@ -1,5 +1,15 @@
 [
   {
+    "numero": "APK 20261027-browser-preview",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Protótipo de navegador Cemig integrado com notificação, retomada da mesma sessão e limite de 10 minutos. Login manual; sem anexo ou protocolo automático.",
+      "Voz da Solar preservada no novo runtime e orientação sobre os limites do protótipo."
+    ]
+  },
+  {
     "numero": "OTA 20261027-110438",
     "data": "27/10/2026",
     "variant": "gerador",
