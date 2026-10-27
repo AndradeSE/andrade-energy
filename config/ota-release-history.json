@@ -1,5 +1,32 @@
 [
   {
+    "numero": "OTA 20261027-084205",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Simulação de rateio isolada e saldo automático CapMonster no ADM"
+    ]
+  },
+  {
+    "numero": "OTA 20261027-083922",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Simulação de rateio e saldo CapMonster para versões anteriores"
+    ]
+  },
+  {
+    "numero": "OTA 20261027-083626",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Área de simulação de rateio sem envio e saldo automático CapMonster"
+    ]
+  },
+  {
     "numero": "OTA 20261027-081600",
     "data": "27/10/2026",
     "variant": "consumidor",
