@@ -34,7 +34,6 @@ export default function RateioOperacao({simulationOnly=false}:{simulationOnly?:b
           {[...new Set([...(resumo.data?.competencias??[]),...(competencia?[competencia]:[])])].sort().map((item:string)=><Pressable key={item} accessibilityRole="button" accessibilityState={{selected:item===competencia}} onPress={()=>setMes(item)} style={{padding:12,borderRadius:24,backgroundColor:item===competencia?Colors.primary:Colors.surface}}><Text style={{color:item===competencia?'#fff':Colors.text}}>{item.slice(5,7)}/{item.slice(0,4)}</Text></Pressable>)}
         </ScrollView>
         {resumo.isError?<Card><Text>Não foi possível consultar as competências.</Text><Button title="Tentar novamente" onPress={()=>void resumo.refetch()}/></Card>:competencia?simulationOnly?<RateioSimulation key={`${id}:${competencia}`} usinaId={id} competencia={competencia}/>:<RateioMensalCard key={id} usinaId={id} empresaId={String(user?.empresa_id??'')} competencia={competencia}/>:<View><Text>Consultando competência…</Text></View>}
-        {!simulationOnly&&competencia?<Pressable accessibilityRole="button" onPress={()=>router.push({pathname:'/operacao/simulacao-rateio' as any,params:{usinaId:id,competencia}})} style={{paddingVertical:20}}><Text style={{color:Colors.primary,fontWeight:'700'}}>Testes e simulações (opcional)</Text><Text style={{color:Colors.subtitle,marginTop:6}}>Conferência separada. Não é necessário para o rateio do mês.</Text></Pressable>:null}
       </>}
     </ScrollView>
   </Screen>;
