@@ -1,5 +1,41 @@
 [
   {
+    "numero": "OTA 20261027-081600",
+    "data": "27/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Atualização de produção: compatibilidade com versões anteriores"
+    ]
+  },
+  {
+    "numero": "OTA 20261027-081350",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Rateio mensal e âncoras: compatibilidade com versões anteriores"
+    ]
+  },
+  {
+    "numero": "OTA 20261027-081050",
+    "data": "27/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Atualização de produção: navegação e compatibilidade dos avisos mensais"
+    ]
+  },
+  {
+    "numero": "OTA 20261027-080822",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Rateio mensal: tela dedicada, UCs âncora e avisos de conferência"
+    ]
+  },
+  {
     "numero": "OTA 20261023-221856",
     "data": "23/10/2026",
     "variant": "gerador",
