@@ -14,11 +14,24 @@ test('seleciona modalidade no fluxo local e confirma valor, sem prosseguir se a 
   let value='Selecione';let escolhas=0;
   const campo={waitFor:async()=>{},evaluate:async(fn:any)=>String(fn).includes("tagName")&&!String(fn).includes('selectedOptions')?true:value,
    selectOption:async(op:any)=>{assert.equal(op.label,'Autoconsumo remoto');escolhas++;if(persiste)value=op.label;}};
-  const p={getByRole:()=>campo} as unknown as Page;
+  const p={getByRole:()=>campo,getByText:()=>({isVisible:async()=>false})} as unknown as Page;
   if(persiste)await confirmarModalidadeCemig(p,true);
   else await assert.rejects(confirmarModalidadeCemig(p,true),FalhaEtapaCemig);
   assert.equal(escolhas,1);
  }
+});
+test('reconhece a modalidade já visível no painel específico sem alterar a seleção',async()=>{
+ let alteracoes=0;
+ const p={getByRole:()=>({waitFor:async()=>{},evaluate:async()=> '01',click:async()=>{alteracoes++;}}),
+  getByText:(texto:string,opcoes:any)=>{
+   assert.equal(texto,'O que é a modalidade de Autoconsumo remoto?');assert.equal(opcoes.exact,true);
+   return {isVisible:async()=>true};
+  }} as unknown as Page;
+ await confirmarModalidadeCemig(p,true);assert.equal(alteracoes,0);
+});
+test('texto de opção com caractere invisível não causa divergência',async()=>{
+ const p={getByRole:()=>({waitFor:async()=>{},evaluate:async()=> 'Autoconsumo remoto\u200b'})} as unknown as Page;
+ await confirmarModalidadeCemig(p);
 });
 
 test('CSV local exige formato Cemig, soma exata e UC antes de abrir navegador',()=>{

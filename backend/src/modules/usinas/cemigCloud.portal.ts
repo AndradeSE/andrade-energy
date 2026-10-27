@@ -64,7 +64,12 @@ export async function confirmarModalidadeCemig(page:Page,selecionar=false) {
   const campo=page.getByRole('combobox',{name:/Selecione o tipo de modalidade/});
   try {await campo.waitFor({state:'visible',timeout:15000});}
   catch {throw new FalhaEtapaCemig('MODALIDADE','CAMPO_MODALIDADE');}
-  let selecionada=(await campo.evaluate(textoModalidadeSelecionada)).replace(/\s+/g,' ').trim();
+  const normalizar=(texto:string)=>texto.replace(/[\u200b-\u200d\ufeff]/g,'').replace(/\s+/g,' ').trim();
+  let selecionada=normalizar(await campo.evaluate(textoModalidadeSelecionada));
+  // The portal's custom combobox can expose a code rather than its rendered
+  // selection. Its visible explanatory panel identifies the active modality.
+  const painelRemoto=()=>page.getByText('O que é a modalidade de Autoconsumo remoto?',{exact:true}).isVisible();
+  if(selecionar&&!/^Autoconsumo remoto$/i.test(selecionada)&&await painelRemoto())return;
   if(selecionar&&!/^Autoconsumo remoto$/i.test(selecionada)){
     try {
       const nativo=await campo.evaluate(element=>element.tagName==='SELECT');
@@ -73,7 +78,8 @@ export async function confirmarModalidadeCemig(page:Page,selecionar=false) {
         await campo.click();
         await page.getByRole('option',{name:'Autoconsumo remoto',exact:true}).click({timeout:5000});
       }
-      selecionada=(await campo.evaluate(textoModalidadeSelecionada)).replace(/\s+/g,' ').trim();
+      selecionada=normalizar(await campo.evaluate(textoModalidadeSelecionada));
+      if(!/^Autoconsumo remoto$/i.test(selecionada)&&await painelRemoto())return;
     }catch{throw new FalhaEtapaCemig('MODALIDADE','MODALIDADE_DIVERGENTE');}
   }
   if(!/^Autoconsumo remoto$/i.test(selecionada))throw new FalhaEtapaCemig('MODALIDADE','MODALIDADE_DIVERGENTE');
