@@ -1,3 +1,4 @@
+import {releaseCommit} from "./config/release";
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
@@ -199,7 +200,7 @@ app.use("/api/oauth", oauthEmailRouter);
 app.get("/health", (_, res) => {
   res.json({
     status: "online",
-    commit: (process.env.RENDER_GIT_COMMIT ?? process.env.COMMIT_REF)?.slice(0, 7) ?? "local",
+    commit: releaseCommit(),
     ...(process.env.API_RUNTIME === "serverless" ? {
       contingency: { environment: "preview", readyForFailover: false, writes: false,
         activationPolicy: "confirmed_render_quota_only",
