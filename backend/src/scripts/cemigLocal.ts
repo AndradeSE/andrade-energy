@@ -7,6 +7,8 @@ import {CEMIG_LOGIN} from '../modules/usinas/cemigCloud.policy';
 import {bloquearProtocoloNaSimulacao} from '../modules/usinas/cemigCloud.portal';
 import {criarFluxoLocal,prepararRateioLocal,requisicaoLocalPermitida} from '../modules/usinas/cemigLocal';
 import {prepararLoginLocal} from '../modules/usinas/cemigLocal.login';
+import {FalhaLoginCemig} from '../modules/usinas/cemigLogin';
+import {FalhaCapmonster} from '../modules/usinas/cemigCloud.capmonster';
 
 async function main(){
  const args=process.argv.slice(2);
@@ -71,8 +73,9 @@ async function main(){
       loginMensagem=resultado==='LOGIN_ENVIADO'?'Login enviado. Aguardando a confirmação do portal para continuar o rateio.':
        'Acesso preenchido. Resolva o CAPTCHA e clique em Entrar na Cemig. O rateio continuará após o login.';
      }finally{dadosLogin.login='';dadosLogin.senha='';dadosLogin.capmonster='';}
-    }catch{
-     loginMensagem='Não foi possível concluir o login automático. Confira a aba da Cemig e conclua manualmente na mesma sessão. Nenhuma tarefa será repetida automaticamente.';
+    }catch(error){
+     const detalhe=error instanceof FalhaLoginCemig||error instanceof FalhaCapmonster?error.message:'Não foi possível concluir o login automático.';
+     loginMensagem=`${detalhe} Confira a aba da Cemig e conclua manualmente na mesma sessão. Nenhuma tarefa será repetida automaticamente.`;
     }finally{body='';loginEmCurso=false;}
    })();
    res.end('{}');return;
@@ -105,7 +108,9 @@ async function main(){
  },1500);
  const fechar=()=>{clearInterval(timer);server.close();void browser.close();};
  browser.on('disconnected',()=>{clearInterval(timer);server.close();});process.once('SIGINT',fechar);process.once('SIGTERM',fechar);
- const dashboard=await context.newPage();await dashboard.goto(origin);
+ if(!args.includes('--painel-externo')){
+  const dashboard=await context.newPage();await dashboard.goto(origin);
+ }
  console.log(`Painel local: ${origin}. Feche o Chrome de teste para encerrar. Nenhum protocolo será solicitado.`);
  try{await portal.goto(CEMIG_LOGIN,{waitUntil:'domcontentloaded',timeout:45000});await portal.bringToFront();}
  catch{console.log('A abertura demorou. Confira a aba da Cemig; o painel continua disponível.');}
