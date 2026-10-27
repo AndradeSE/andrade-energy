@@ -5,6 +5,7 @@ import android.content.*
 import android.graphics.Color
 import android.os.*
 import android.view.ViewGroup
+import android.view.View
 import android.view.WindowInsets
 import android.widget.*
 
@@ -33,6 +34,10 @@ class CemigBrowserActivity : Activity() {
         listening=true
         window.statusBarColor=Color.rgb(0,105,70)
         window.navigationBarColor=Color.WHITE
+        if(Build.VERSION.SDK_INT>=26) {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility=window.decorView.systemUiVisibility or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+        }
         content=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setBackgroundColor(Color.WHITE) }
         if(Build.VERSION.SDK_INT>=30) {
             window.setDecorFitsSystemWindows(false)
