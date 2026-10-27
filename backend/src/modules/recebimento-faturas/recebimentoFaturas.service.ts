@@ -705,7 +705,7 @@ async function processarRegistro(registro: any) {
         .eq("empresa_id", unidadeConfiguracao.empresa_id)
         .eq("status", "ATIVA")
         .eq("recebimento_email_ativo", true)
-        .eq("tipo", "BENEFICIARIA");
+        .in("tipo", ["BENEFICIARIA", "GERADORA"]);
       // Uma única configuração atende todo o escopo da titularidade. Para o
       // gerador, o PDF pode pertencer a qualquer UC sob gestão da empresa. No
       // consumidor, o escopo permanece restrito às UCs do próprio cliente.

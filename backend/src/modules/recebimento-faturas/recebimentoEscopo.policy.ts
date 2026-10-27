@@ -8,6 +8,7 @@ export function unidadesNoEscopoRecebimento(origem: any, unidades: any[]) {
   if (origem.tipo === "GERADORA") return [origem];
   const escopo = titularidade(origem);
   return unidades.filter(unidade => unidade.empresa_id === origem.empresa_id
+    && (unidade.tipo !== 'GERADORA' || (escopo === 'GERADOR' && !!origem.usina_id && unidade.usina_id === origem.usina_id))
     && titularidade(unidade) === escopo
     && (escopo !== "CLIENTE" || unidade.cliente_id === origem.cliente_id));
 }

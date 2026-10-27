@@ -1,4 +1,5 @@
 import { normalizarPlanoContrato } from "../contratos/planoContrato.policy";
+import {notificarProducaoImportada} from './producaoNotificacao';
 import { cpfTitularPatch } from "./cpfTitularPatch";
 import { saldoCreditoInformado } from "./saldoAncora.policy";
 import { receitaAtualDaCompetencia } from "./receitaDashboard.policy";
@@ -93,6 +94,7 @@ export async function registrarProducaoDaFaturaGeradora(usinaId: string, dados: 
 
   const competencia = competenciaData(String(dados.referencia ?? ""));
   const fechamentoAtualizado = await persistirProducaoDaFatura(usina, competencia, energiaGerada, saldoCreditoInformado(dados.saldoAtual, dados.saldoAtualInformado));
+  await notificarProducaoImportada(String(usina.id),String(usina.empresa_id),String(usina.nome),competencia,energiaGerada).catch(()=>console.error('Aviso de produção não confirmado; produção registrada.'));
   return {
     sucesso: true,
     origem: "CONTA_ENERGIA",
