@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 import Badge from "../../components/ui/Badge";
 import Card from "../../components/ui/Card";
+import Button from "../../components/ui/Button";
 import Divider from "../../components/ui/Divider";
 import EmptyState from "../../components/ui/EmptyState";
 import Screen from "../../components/ui/Screen";
@@ -121,6 +122,7 @@ export default function Economia() {
           </View>
         </View>
 
+        <Button title="Simular minha economia" onPress={()=>router.push('/simulacao-economia' as any)}/>
         <View style={styles.hero}>
           <View style={styles.heroGlow} />
           <Badge label="Desde o início do contrato" variant="success" />

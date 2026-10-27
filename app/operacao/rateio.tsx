@@ -5,15 +5,17 @@ import { ScrollView, Text, View } from 'react-native';
 import { AppHeader, Button, Card, Screen } from '../../components/ui';
 import { Pressable } from '../../components/assistant/AssistantNativeControls';
 import RateioMensalCard from '../../components/usinas/RateioMensalCard';
-import RateioSimulation from '../../components/usinas/RateioSimulation';
 import CemigNativeBrowserPreview from '../../components/usinas/CemigNativeBrowserPreview';
 import { useAuth } from '../../contexts/AuthContext';
 import { obterResumoOperacao } from '../../services/fechamentos.service';
 import { buscarUsina } from '../../services/usinas.service';
 import { Colors } from '../../theme';
+import {isPreviewEnvironment} from '../../config/environment';
+import {canViewServiceQuotas} from '../../utils/service-quota-access';
 
 export default function RateioOperacao({simulationOnly=false}:{simulationOnly?:boolean}={}) {
   const { user, usinaSelecionada } = useAuth();
+  const testesTecnicos=isPreviewEnvironment&&canViewServiceQuotas(user);
   const params = useLocalSearchParams<{competencia?:string;usinaId?:string}>();
   const [mes,setMes] = useState<string|undefined>(typeof params.competencia==='string'&&/^20\d{2}-(0[1-9]|1[0-2])$/.test(params.competencia)?params.competencia:undefined);
   const papel=String(user?.papel_empresa??'');
@@ -28,15 +30,15 @@ export default function RateioOperacao({simulationOnly=false}:{simulationOnly?:b
   const nome=alvo?usinaAviso.data?.nome:usinaSelecionada?.nome;
   const resumo=useQuery({queryKey:['rateio-competencias',user?.empresa_id,id,mes],enabled:!!id&&permitido&&acessoConfirmado,queryFn:()=>obterResumoOperacao(mes,id!)});
   const competencia=mes??resumo.data?.competencia;
-  return <Screen><AppHeader variant="subpage" showPlantSwitch={false} title={simulationOnly?"Simulação":"Rateio"} subtitle="Operação da usina" contextTitle={simulationOnly?"Teste sem envio à Cemig":"Planilha mensal de rateio"} contextSubtitle={nome??(alvo?'Usina do aviso':'Selecione uma usina')} icon="git-merge-outline"/>
+  return <Screen><AppHeader variant="subpage" showPlantSwitch={false} title={simulationOnly?"Teste técnico da Cemig":"Rateio"} subtitle="Operação da usina" contextTitle={simulationOnly?"Teste sem envio à Cemig":"Planilha mensal de rateio"} contextSubtitle={nome??(alvo?'Usina do aviso':'Selecione uma usina')} icon="git-merge-outline"/>
     <ScrollView contentContainerStyle={{padding:20,gap:16,paddingBottom:40}} keyboardShouldPersistTaps="handled">
       {!permitido?<Card><Text>Seu acesso à operação não foi liberado pelo titular.</Text></Card>:!id?<Card><Text>Escolha uma usina para consultar o rateio.</Text><Button title="Selecionar usina" onPress={()=>router.push('/selecionar-unidade')}/></Card>:!acessoConfirmado?<Card><Text>{usinaAviso.isError?'Não foi possível acessar a usina deste aviso.':'Conferindo a usina deste aviso…'}</Text>{usinaAviso.isError?<Button title="Tentar novamente" onPress={()=>void usinaAviso.refetch()}/>:null}</Card>:<>
-        {simulationOnly&&competencia?<CemigNativeBrowserPreview usinaId={id} competencia={competencia}/>:null}
+        {simulationOnly&&testesTecnicos&&competencia?<CemigNativeBrowserPreview usinaId={id} competencia={competencia}/>:null}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:8}}>
           {[...new Set([...(resumo.data?.competencias??[]),...(competencia?[competencia]:[])])].sort().map((item:string)=><Pressable key={item} accessibilityRole="button" accessibilityState={{selected:item===competencia}} onPress={()=>setMes(item)} style={{padding:12,borderRadius:24,backgroundColor:item===competencia?Colors.primary:Colors.surface}}><Text style={{color:item===competencia?'#fff':Colors.text}}>{item.slice(5,7)}/{item.slice(0,4)}</Text></Pressable>)}
         </ScrollView>
-        {resumo.isError?<Card><Text>Não foi possível consultar as competências.</Text><Button title="Tentar novamente" onPress={()=>void resumo.refetch()}/></Card>:competencia?simulationOnly?<RateioSimulation key={`${id}:${competencia}`} usinaId={id} competencia={competencia}/>:<RateioMensalCard key={id} usinaId={id} empresaId={String(user?.empresa_id??'')} competencia={competencia}/>:<View><Text>Consultando competência…</Text></View>}
-        {!simulationOnly&&competencia?<Pressable accessibilityRole="button" onPress={()=>router.push({pathname:'/operacao/simulacao-rateio' as any,params:{usinaId:id,competencia}})} style={{paddingVertical:20}}><Text style={{color:Colors.primary,fontWeight:'700'}}>Testes e simulações (opcional)</Text><Text style={{color:Colors.subtitle,marginTop:6}}>Conferência separada. Não é necessário para o rateio do mês.</Text></Pressable>:null}
+        {resumo.isError?<Card><Text>Não foi possível consultar as competências.</Text><Button title="Tentar novamente" onPress={()=>void resumo.refetch()}/></Card>:competencia?simulationOnly?<Card><Text>Teste técnico restrito ao ADM de homologação. Não é uma simulação de economia do cliente.</Text></Card>:<RateioMensalCard key={id} usinaId={id} empresaId={String(user?.empresa_id??'')} competencia={competencia}/>:<View><Text>Consultando competência…</Text></View>}
+        {!simulationOnly&&testesTecnicos&&competencia?<Pressable accessibilityRole="button" onPress={()=>router.push({pathname:'/operacao/simulacao-rateio' as any,params:{usinaId:id,competencia}})} style={{paddingVertical:20}}><Text style={{color:Colors.primary,fontWeight:'700'}}>Teste técnico da Cemig · ADM</Text><Text style={{color:Colors.subtitle,marginTop:6}}>Homologação do navegador e anexo. Não faz parte do fluxo mensal.</Text></Pressable>:null}
       </>}
     </ScrollView>
   </Screen>;
