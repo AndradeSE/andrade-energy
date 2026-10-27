@@ -27,3 +27,11 @@ test("conta da geradora só alimenta produção da própria UC", () => {
   const origem = { ...unidade("geradora", "titular"), tipo: "GERADORA" };
   assert.deepEqual(unidadesNoEscopoRecebimento(origem, [unidade("cliente", "cliente")]), [origem]);
 });
+
+test('leitura do gerador também encaminha produção somente da própria usina e empresa',()=>{
+ const origem={...unidade('beneficiaria','titular'),usina_id:'usina1'};
+ const geradora={...unidade('geradora','titular'),tipo:'GERADORA',usina_id:'usina1'};
+ assert.deepEqual(unidadesNoEscopoRecebimento(origem,[geradora,{...geradora,id:'outra',usina_id:'usina2'},{...geradora,empresa_id:'e2'}]),[geradora]);
+ const consumidor={...origem,usinas:{titularidade_ucs_recebedoras:'CLIENTE'}};
+ assert.deepEqual(unidadesNoEscopoRecebimento(consumidor,[{...geradora,cliente_id:'titular',usinas:{titularidade_ucs_recebedoras:'CLIENTE'}}]),[]);
+});

@@ -1,3 +1,4 @@
+import { avisarFaturamentoAutomatico } from "../faturas/avisosAutomaticos.service";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -705,7 +706,7 @@ async function processarRegistro(registro: any) {
         .eq("empresa_id", unidadeConfiguracao.empresa_id)
         .eq("status", "ATIVA")
         .eq("recebimento_email_ativo", true)
-        .eq("tipo", "BENEFICIARIA");
+        .in("tipo", ["BENEFICIARIA", "GERADORA"]);
       // Uma única configuração atende todo o escopo da titularidade. Para o
       // gerador, o PDF pode pertencer a qualquer UC sob gestão da empresa. No
       // consumidor, o escopo permanece restrito às UCs do próprio cliente.
@@ -871,6 +872,7 @@ async function processarRegistro(registro: any) {
       erro: mensagem,
       updated_at: agora.toISOString(),
     }).eq("id", assumido.id);
+    if (definitivo && assumido.empresa_id) await avisarFaturamentoAutomatico({empresaId:assumido.empresa_id,unidadeId:assumido.unidade_consumidora_id,evento:'ERRO_IMPORTACAO',chave:String(assumido.id),detalhe:'Um e-mail de fatura não pôde ser processado após as tentativas automáticas. Confira o recebimento automático e os dados da unidade antes de reprocessar.'}).catch(()=>console.error('Aviso de falha de importação pendente.'));
     if (assumido.unidade_consumidora_id && definitivo) {
       await atualizarUnidadeRecebimento(assumido.unidade_consumidora_id, {
         recebimento_email_status: "ERRO",

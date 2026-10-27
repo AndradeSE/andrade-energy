@@ -16,13 +16,13 @@ async function todas(query:()=>any) {
   throw new Error("Volume de dados excede o limite de conferência automática.");
 }
 
-export async function notificarRateioGerado(usinaId:string,empresaId:string,plano:Awaited<ReturnType<typeof prepararPlanilhaRateio>>) {
+export async function notificarRateioGerado(usinaId:string,empresaId:string,plano:Awaited<ReturnType<typeof prepararPlanilhaRateio>>,fechamentoCompleto=false) {
   const destino=await destinatarioDoRateio(usinaId,empresaId);
   const hash=createHash("sha256").update(plano.csv).digest("hex").slice(0,24);
   await criarNotificacaoApp({usuario_id:destino.id,empresa_id:empresaId,usina_id:usinaId,tipo:"RATEIO_GERADO",
-    titulo:`${plano.rascunho?"Rascunho de rateio":"Rateio"} gerado · ${plano.competencia}`,
-    detalhe:plano.rascunho?`A planilha foi preparada para conferência. Pendências: ${plano.pendencias.join(" ") || "Revise os dados antes de solicitar à Cemig."}`:"O CSV no padrão Cemig está pronto para conferência. A geração não significa envio ou aprovação pela distribuidora.",
-    rota:"/(tabs)/operacao",chave_dedupe:`rateio:${empresaId}:${usinaId}:${plano.competencia}:${hash}`});
+    titulo:`${fechamentoCompleto?'Rateio do mês pronto para conferência':plano.rascunho?'Rascunho de rateio gerado':'Rateio gerado'} · ${plano.competencia}`,
+    detalhe:`${fechamentoCompleto?'A produção da usina e as faturas das UCs vigentes foram processadas. ':''}Toque para abrir o rateio deste mês. ${plano.rascunho?`Confira as pendências: ${plano.pendencias.join(" ") || "revise os dados antes de solicitar à Cemig."}`:"O CSV no padrão Cemig está disponível. Nenhum rateio foi protocolado na distribuidora."}`,
+    rota:`/operacao/rateio?competencia=${encodeURIComponent(plano.competencia)}&usinaId=${encodeURIComponent(usinaId)}`,chave_dedupe:`rateio:${empresaId}:${usinaId}:${plano.competencia}:${hash}`});
 }
 
 export async function obterConfiguracaoRateio(usinaId:string,empresaId:string) {
@@ -58,7 +58,7 @@ export async function buscarRateioAutomatico(usinaId:string,empresaId:string,com
 
 async function entregarGerado(registro:any) {
   const plano=registro.resultado as Awaited<ReturnType<typeof prepararPlanilhaRateio>>;
-  await notificarRateioGerado(registro.usina_id,registro.empresa_id,plano);
+  await notificarRateioGerado(registro.usina_id,registro.empresa_id,plano,true);
   // Reserva persistente antes de enviar: uma interrupção não dispara outro e-mail às cegas.
   const reserva=await supabase.from("rateios_mensais_automaticos").update({email_status:"ENVIANDO"}).eq("id",registro.id).eq("email_status","PENDENTE").select("id");
   if(reserva.error)throw reserva.error;
