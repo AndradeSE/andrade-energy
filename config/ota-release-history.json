@@ -1,5 +1,32 @@
 [
   {
+    "numero": "OTA 20261027-191429",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Corrige validação de sessão no reserva e consulta dos controles do fallback."
+    ]
+  },
+  {
+    "numero": "OTA 20261027-191252",
+    "data": "27/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Corrige validação de sessão no reserva e consulta dos controles do fallback."
+    ]
+  },
+  {
+    "numero": "OTA 20261027-190834",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Corrige validação de sessão no reserva e consulta dos controles do fallback."
+    ]
+  },
+  {
     "numero": "OTA 20261027-152532",
     "data": "27/10/2026",
     "variant": "gerador",
