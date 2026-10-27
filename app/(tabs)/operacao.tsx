@@ -11,7 +11,6 @@ import { AppHeader, Badge, Button, Card, ElasticFlatList as FlatList, EmptyState
 import TabDataPending from "../../components/ui/TabDataPending";
 import { listarFechamentos, obterResumoOperacao } from "../../services/fechamentos.service";
 import { useAuth } from "../../contexts/AuthContext";
-import RateioMensalCard from "../../components/usinas/RateioMensalCard";
 
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 
@@ -73,7 +72,7 @@ export default function Operacao() {
           <View style={styles.metric}><Metric compact title="Disponível" value={energia(resumo?.energiaDisponivel)} icon={<Ionicons name="battery-half-outline" size={20} color={Colors.primary} />} /></View>
           <View style={styles.metric}><Metric compact title="Ocupação" value={`${Number(resumo?.ocupacao ?? 0).toFixed(1)}%`} icon={<Ionicons name="pie-chart-outline" size={20} color={Colors.primary} />} /></View>
         </View></Card>
-        <RateioMensalCard usinaId={usinaId} empresaId={String(user?.empresa_id ?? "")} competencia={competencia} />
+        <Card><Text style={styles.title}>Rateio mensal</Text><Text style={styles.subtitle}>Planilha, saldo da âncora e integração Cemig em uma tela própria.</Text><Button title="Abrir rateio" onPress={()=>router.push({pathname:'/operacao/rateio' as any,params:{competencia}})} /></Card>
         <Section title="Resultado financeiro"><Card style={styles.financialCard}>
           <View style={styles.financialTop}><View style={styles.revenueCopy}><Text style={styles.cardLabel}>RECEITA PREVISTA</Text><Text style={styles.revenue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{moeda(resumo?.receitaPrevista)}</Text></View><Badge label={`${Number(percentualRecebido).toFixed(0)}% recebido`} variant={percentualRecebido >= 99 ? "success" : "warning"} /></View>
           <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${percentualRecebido}%` }]} /></View>

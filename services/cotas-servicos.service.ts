@@ -3,7 +3,7 @@ export type QuotaService = {
   servico: string; metrica: string; rotulo: string; unidade: string; automatico: boolean; observacao?: string;
   consulta: { status: string; consultado_em: string } | null;
   leitura: { usado: number; limite: number | null; restante: number | null; percentual: number | null;
-    origem: string; renova_em: string; verificado_em: string; desatualizada: boolean } | null;
+    origem: string; renova_em: string | null; verificado_em: string; desatualizada: boolean } | null;
 };
 export type ServiceQuotas = { ambiente: string; alertas: number[]; servicos: QuotaService[] };
 export async function listServiceQuotas() {

@@ -2,6 +2,10 @@ import api from "../config/api";
 import {sendPdf} from './pdf-transport';
 
 export type SaldoAncora={uc:string;saldoKwh:number|null;referencia:string|null};
+export type UcAncoraCadastrada={id:string;numero:string;apelido:string};
+export async function listarUcsAncoras(id:string){return (await api.get(`/usinas/${id}/ucs-ancoras`,{timeout:15000})).data as UcAncoraCadastrada[];}
+export async function salvarUcAncora(id:string,dados:{numero:string;apelido:string},ancoraId?:string){return (await (ancoraId?api.put(`/usinas/${id}/ucs-ancoras/${ancoraId}`,dados):api.post(`/usinas/${id}/ucs-ancoras`,dados))).data as UcAncoraCadastrada;}
+export async function excluirUcAncora(id:string,ancoraId:string){await api.delete(`/usinas/${id}/ucs-ancoras/${ancoraId}`);}
 export async function obterSaldoAncora(id:string,uc:string,competencia:string){return (await api.get(`/usinas/${id}/saldo-ancora`,{params:{uc,competencia},timeout:15000})).data as SaldoAncora;}
 
 export async function gerarPlanilhaRateio(id: string, competencia: string, ucAncora: string, enviarEmail = false, opcoes: {documentoAncora?:string;numerosAtuaisConfirmados?:boolean;formatoCemig?:boolean} = {}) {

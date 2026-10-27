@@ -534,6 +534,7 @@ function RootNavigator() {
             headerShown: false,
           }}
         />
+        <Stack.Screen name="operacao/rateio" options={{headerShown:false}} />
 
         {/* =========================== */}
         {/* CONTRATOS                   */}

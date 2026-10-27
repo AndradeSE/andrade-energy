@@ -22,7 +22,9 @@ test("última fatura gera um arquivo persistente, um e-mail e um push; repetir a
       email++;return Response.json({id:"email-a"});
     }
     if(url.hostname==="exp.host"){
-      assert.equal(body[0].to,"ExponentPushToken[TESTE]");assert.match(body[0].title,/Rascunho de rateio/);push++;return Response.json({data:[{status:"ok",id:"ticket-a"}]});
+      assert.equal(body[0].to,"ExponentPushToken[TESTE]");assert.match(body[0].title,/Rateio do mês pronto para conferência/);
+      assert.equal(body[0].data.url,`/operacao/rateio?competencia=${mes}&usinaId=usina-a`);
+      push++;return Response.json({data:[{status:"ok",id:"ticket-a"}]});
     }
     const table=url.pathname.split("/").pop();let result:any=[];
     if(table==="reivindicar_rateio_mensal"){

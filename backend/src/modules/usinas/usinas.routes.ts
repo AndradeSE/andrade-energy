@@ -29,6 +29,7 @@ import { apiRateLimit } from "../../config/distributedRateLimit";
 import { prepararPlanilhaRateio, enviarPlanilhaAoGerador } from "./rateioMensal.service";
 import { permissaoComercial } from "../comercial/permissoesComerciais";
 import {notificarRateioGerado,obterConfiguracaoRateio,salvarConfiguracaoRateio,buscarRateioAutomatico} from "./rateioAutomatico.service";
+import {cadastroAncoras,FalhaCadastroAncora} from './ucsAncoras.service';
 
 const router = Router();
 
@@ -38,6 +39,19 @@ function acessoOperacao(usuario:any) {
 }
 
 router.use(exigirAutenticacao);
+for(const metodo of ['get','post','put','delete'] as const){
+ const rota=metodo==='put'||metodo==='delete'?'/:id/ucs-ancoras/:ancoraId':'/:id/ucs-ancoras';
+ router[metodo](rota,exigirGestor,async(req,res)=>{
+  if(!acessoOperacao((req as any).usuario))return res.status(403).json({message:'Acesso à operação não autorizado.'});
+  res.setHeader('Cache-Control','private, no-store');
+  try{
+   const empresa=empresaIdDaRequisicao(req);
+   if(metodo==='get')return res.json(await cadastroAncoras.listar(req.params.id,empresa));
+   if(metodo==='delete')return res.json(await cadastroAncoras.excluir(req.params.id,empresa,req.params.ancoraId));
+   return res.status(metodo==='post'?201:200).json(await cadastroAncoras.salvar(req.params.id,empresa,req.body,metodo==='put'?req.params.ancoraId:undefined));
+  }catch(error){return res.status(error instanceof FalhaCadastroAncora?400:503).json({message:error instanceof FalhaCadastroAncora?error.message:'Não foi possível acessar a lista de UCs âncora. Tente novamente.'});}
+ });
+}
 router.post("/:id/unidades", exigirGestor, async (req, res) => {
   if (String((req as any).usuario?.papel_empresa ?? "").startsWith("COLABORADOR_") && (req as any).usuario?.permissoes?.unidades === false) {
     return res.status(403).json({ message: "Seu acesso às unidades não foi liberado pelo titular." });
@@ -93,7 +107,7 @@ router.post("/:id/rateio-mensal", exigirGestor, apiRateLimit("usinas-routes-11",
     const plano = await prepararPlanilhaRateio(req.params.id,empresaId,String(req.body?.competencia ?? ""),String(req.body?.ucAncora ?? ""),String(req.body?.documentoAncora ?? ""),req.body?.numerosAtuaisConfirmados === true,req.body?.formatoCemig === true);
     await notificarRateioGerado(req.params.id,empresaId,plano).catch(()=>console.error("Não foi possível notificar o rateio manual."));
     res.setHeader("Cache-Control","private, no-store");
-    const email = req.body?.enviarEmail === true ? await enviarPlanilhaAoGerador(req.params.id,empresaId,plano,usuario) : {enviado:false};
+    const email = req.body?.enviarEmail === true ? await enviarPlanilhaAoGerador(req.params.id,empresaId,plano,usuario).catch(()=>({enviado:false})) : {enviado:false};
     return res.json({...plano,emailEnviado:email.enviado});
   } catch (error: any) { return res.status(400).json({message:error.message}); }
 });
