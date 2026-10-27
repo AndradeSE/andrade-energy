@@ -8,7 +8,7 @@ type Environment=keyof typeof CONTINGENCY_ENDPOINTS;
 export async function readContingencyControlSource(environment:Environment,request:typeof fetch=fetch) {
   const endpoints=CONTINGENCY_ENDPOINTS[environment];
   const reads=[
-    {url:`${endpoints.netlify.replace(/\/api$/, '')}/api/contingencia/estado`,timeout:12_000},
+    {url:`${endpoints.netlify.replace(/\/api$/, '')}/contingency/runtime`,timeout:12_000},
     {url:`${endpoints.standby.replace(/\/api$/, '')}/api/contingencia/estado`,timeout:70_000},
   ].map(async({url,timeout})=>{
     const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),timeout);
@@ -17,7 +17,7 @@ export async function readContingencyControlSource(environment:Environment,reque
       if(!response.ok)throw new Error('Controle indisponível.');
       const body=await response.json();
       resolveContingencyTarget(environment,body);
-      return {body,baseURL:url.replace(/\/contingencia\/estado$/, '')};
+      return {body,baseURL:url.includes('/contingency/runtime') ? endpoints.netlify : endpoints.standby};
     }finally{clearTimeout(timer);}
   });
   // Both sources read the same transactional owner. Accept the first valid answer.

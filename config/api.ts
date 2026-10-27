@@ -24,7 +24,8 @@ function normalizarApiUrl(valor?: string) {
 }
 
 export const apiBaseURL = normalizarApiUrl(environmentApiUrl);
-export const contingencyRoutingEnabled=process.env.EXPO_PUBLIC_CONTINGENCY_ENABLED==="1";
+// Routing is part of the app, not an optional publication environment flag.
+export const contingencyRoutingEnabled=true;
 const contingencyEnvironment=isPreviewEnvironment?"preview":"production";
 const resolveApiTarget=createContingencyResolver(contingencyEnvironment,()=>readContingencyControl(contingencyEnvironment));
 
