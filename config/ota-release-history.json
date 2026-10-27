@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261027-154437",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Compatibilidade: restaura conexão com Render reserva nos apps Gerador antigos, sem repetir operações."
+    ]
+  },
+  {
     "numero": "OTA 20261027-153020",
     "data": "27/10/2026",
     "variant": "consumidor",
