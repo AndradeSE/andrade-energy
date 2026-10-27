@@ -1,6 +1,7 @@
+import RateioSendOptions from "./RateioSendOptions";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Linking, Text, View } from "react-native";
+import { Alert, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable } from "../assistant/AssistantNativeControls";
 import { Button, Card } from "../ui";
@@ -16,7 +17,6 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
   const [detalhes,setDetalhes]=useState(false);
   const [revisaoAberta,setRevisaoAberta]=useState(false);
   const [arquivoAberto,setArquivoAberto]=useState(false);
-  const [envioAberto,setEnvioAberto]=useState(false);
   const [ancora,setAncora]=useState("");
   // A conferência é estrutural no servidor; não registramos aceite humano fictício.
   const numerosAtuaisConfirmados=false;
@@ -104,14 +104,7 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
       <Button title={ocupado?"Preparando…":resultado?"Abrir planilha":"Gerar e abrir planilha"} disabled={ocupado||!competencia} onPress={()=>resultado?setVisualizando(true):void gerar()} />
       {resultado?<Button title="Atualizar planilha" disabled={ocupado} onPress={()=>Alert.alert("Atualizar planilha","Recalcular esta competência e enviar a nova cópia ao gerador?",[{text:"Cancelar",style:"cancel"},{text:"Atualizar",onPress:()=>void gerar()}])}/>:null}
     </View>:null}
-    <SecaoRateio titulo="2. Envio à Cemig" resumo="Escolha entre envio manual e automático" aberto={envioAberto} onPress={()=>setEnvioAberto(v=>!v)}/>
-    <View style={{display:envioAberto?"flex":"none",gap:Spacing.sm}}>
-      <Text style={{color:Colors.text,fontWeight:"700",fontSize:17}}>Envio manual</Text>
-      <Text style={{color:Colors.subtitle}}>No celular, abra a Cemig, entre na sua conta e anexe o CSV em Compensação de Geração Distribuída. Este botão somente abre o portal: não envia o arquivo sozinho. A geração da planilha não comprova protocolo nem aprovação.</Text>
-      <Pressable accessibilityRole="link" onPress={()=>void Linking.openURL("https://atende.cemig.com.br/Login").catch(()=>Alert.alert("Não foi possível abrir","Acesse o Cemig Atende no navegador."))} style={{minHeight:44,justifyContent:"center"}}><Text style={{color:Colors.primary,fontWeight:"700"}}>Abrir Cemig Atende</Text></Pressable>
-      <View style={{borderTopWidth:1,borderColor:Colors.border,paddingTop:16,marginTop:12,gap:10}}><Text style={{color:Colors.text,fontWeight:'700',fontSize:17}}>Autorizar e enviar</Text><Text style={{color:Colors.subtitle,lineHeight:22}}>Você revisa o arquivo e autoriza o robô a enviar. A ligação com o protocolo definitivo ainda está em validação; a simulação para antes de solicitar o cadastro.</Text><Button title="Envio autorizado · em validação" disabled onPress={()=>{}}/></View>
-      <View style={{borderTopWidth:1,borderColor:Colors.border,paddingTop:16,marginTop:12,gap:10}}><Text style={{color:Colors.text,fontWeight:'700',fontSize:17}}>Envio automático</Text><Text style={{color:Colors.subtitle,lineHeight:22}}>Em testes. O robô em nuvem ainda não está disponível para envio definitivo. A geração automática da planilha não envia nem protocola o rateio na Cemig.</Text><Button title="Automático · em testes" disabled onPress={()=>{}}/></View>
-    </View>
+    <View style={{borderTopWidth:1,borderColor:Colors.border,paddingTop:18,marginTop:8}}><RateioSendOptions usinaId={usinaId} competencia={competencia} disabled={ocupado}/></View>
   </View></Card></>;
 }
 
