@@ -7,14 +7,33 @@ import android.net.Uri
 import android.os.*
 import android.view.ViewGroup
 import android.webkit.*
+import androidx.core.content.FileProvider
+import java.io.File
+import java.security.MessageDigest
 
-/** Preview browser session. No submission automation, credential bridge or CAPTCHA bypass. */
+/** Preview browser session with a single scoped CSV. No definitive submission or credential bridge. */
 class CemigBrowserService : Service() {
     inner class LocalBinder : Binder() { fun session() = this@CemigBrowserService }
     private val binder = LocalBinder()
     private val handler = Handler(Looper.getMainLooper())
     private val browserContext by lazy { MutableContextWrapper(this) }
     private val expire = Runnable { closeSession() }
+    private var prepared:File?=null
+    private var artifactHash:String?=null
+    private var artifactLabel=""
+    fun prepare(csv:String,competencia:String,usina:String) {
+        require(csv.toByteArray(Charsets.UTF_8).size in 1..100000 && competencia.matches(Regex("20\\d{2}-(0[1-9]|1[0-2])"))) { "Arquivo inválido." }
+        require(usina.matches(Regex("[a-zA-Z0-9_-]{1,128}"))) { "Usina inválida." }
+        val rows=csv.trim().lines().filter { it.isNotBlank() }
+        require(rows.isNotEmpty()&&rows.all { it.split(';').size==4 }) { "CSV fora do padrão." }
+        val hash=MessageDigest.getInstance("SHA-256").digest((usina+competencia+csv).toByteArray()).joinToString(""){"%02x".format(it)}
+        require(artifactHash==null||artifactHash==hash) { "Encerre a sessão anterior antes de trocar o rateio." }
+        if(artifactHash==null){
+            val folder=File(cacheDir,"cemig-preview").apply { mkdirs() }
+            prepared=File(folder,"rateio-$competencia.csv").apply { writeText(csv,Charsets.UTF_8) }
+            artifactHash=hash;artifactLabel="Competência $competencia · ${rows.size} linha(s)"
+        }
+    }
     lateinit var browser: WebView
         private set
     companion object {
@@ -56,6 +75,20 @@ class CemigBrowserService : Service() {
             loadWithOverviewMode = true
         }
         browser.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view:WebView,url:String) {
+                if(!allowed(url))return
+                view.evaluateJavascript("""(function(){
+                    if(window.__andradePreviewGuard)return;window.__andradePreviewGuard=true;
+                    document.addEventListener('click',function(e){
+                        var b=e.target.closest&&e.target.closest('button,input[type=submit]');
+                        if(b&&/solicitar cadastro/i.test(b.innerText||b.value||'')){e.preventDefault();e.stopImmediatePropagation();alert('Simulação: protocolo definitivo bloqueado.');}
+                    },true);
+                    document.addEventListener('submit',function(e){
+                        var buttons=Array.from(e.target.querySelectorAll('button,input[type=submit]'));
+                        if(buttons.some(function(b){return /solicitar cadastro/i.test(b.innerText||b.value||'');})){e.preventDefault();e.stopImmediatePropagation();}
+                    },true);
+                })();true;""",null)
+            }
             override fun shouldOverrideUrlLoading(view:WebView,request:WebResourceRequest):Boolean = request.isForMainFrame && !allowed(request.url.toString())
             @Suppress("DEPRECATION")
             override fun shouldOverrideUrlLoading(view:WebView,url:String):Boolean = !allowed(url)
@@ -63,6 +96,22 @@ class CemigBrowserService : Service() {
             override fun onRenderProcessGone(view:WebView,detail:RenderProcessGoneDetail):Boolean { closeSession(); return true }
         }
         browser.webChromeClient = object : WebChromeClient() {
+            override fun onShowFileChooser(view:WebView,callback:ValueCallback<Array<Uri>>,params:FileChooserParams):Boolean {
+                val activity=browserContext.baseContext as? Activity
+                val file=prepared
+                val uri=Uri.parse(view.url?:"")
+                if(activity==null||file==null||!file.isFile||!allowed(uri.toString())||!uri.path.orEmpty().contains("compensation-gd")){
+                    callback.onReceiveValue(null);return true
+                }
+                AlertDialog.Builder(activity).setTitle("Anexar CSV da simulação?")
+                    .setMessage("$artifactLabel\n${file.name}\nO arquivo será enviado ao portal Cemig para revisão. Não conclua Solicitar cadastro neste teste.")
+                    .setNegativeButton("Cancelar"){_,_->callback.onReceiveValue(null)}
+                    .setOnCancelListener { callback.onReceiveValue(null) }
+                    .setPositiveButton("Anexar para revisão"){_,_->
+                        callback.onReceiveValue(arrayOf(FileProvider.getUriForFile(this@CemigBrowserService,"$packageName.cemig.preview.files",file)))
+                    }.show()
+                return true
+            }
             override fun onPermissionRequest(request:PermissionRequest) { request.deny() }
             override fun onGeolocationPermissionsShowPrompt(origin:String,callback:GeolocationPermissions.Callback) { callback.invoke(origin,false,false) }
         }
@@ -94,6 +143,7 @@ class CemigBrowserService : Service() {
     override fun onTaskRemoved(rootIntent:Intent?) { closeSession() }
     override fun onDestroy() {
         handler.removeCallbacks(expire)
+        prepared?.delete();prepared=null;artifactHash=null
         if(::browser.isInitialized) {
             (browser.parent as? ViewGroup)?.removeView(browser)
             browser.stopLoading()

@@ -21,6 +21,12 @@ class CemigBrowserActivity : Activity() {
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name:ComponentName,binder:IBinder) {
             session=(binder as CemigBrowserService.LocalBinder).session()
+            try {
+                val csv=intent.getStringExtra("rateioCsv")
+                if(csv!=null)session?.prepare(csv,intent.getStringExtra("rateioCompetencia")?:"",intent.getStringExtra("rateioUsina")?:"")
+            } catch(error:IllegalArgumentException){
+                Toast.makeText(this@CemigBrowserActivity,error.message?:"CSV inválido",Toast.LENGTH_LONG).show();finish();return
+            }
             session?.attach(this@CemigBrowserActivity)?.let { web ->
                 content.addView(web,LinearLayout.LayoutParams(-1,0,1f))
             }
@@ -70,6 +76,14 @@ class CemigBrowserActivity : Activity() {
     }
     @Deprecated("Android compatibility")
     override fun onBackPressed() { session?.browser?.let { if(it.canGoBack())it.goBack() else finish() } ?: finish() }
+    override fun onNewIntent(newIntent:Intent) {
+        super.onNewIntent(newIntent)
+        val csv=newIntent.getStringExtra("rateioCsv")?:return
+        try {
+            session?.prepare(csv,newIntent.getStringExtra("rateioCompetencia")?:"",newIntent.getStringExtra("rateioUsina")?:"")
+            setIntent(newIntent)
+        }catch(error:IllegalArgumentException){Toast.makeText(this,error.message,Toast.LENGTH_LONG).show()}
+    }
     override fun onDestroy() {
         session?.detach(this)
         if(bound)unbindService(connection)

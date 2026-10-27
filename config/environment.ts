@@ -16,6 +16,7 @@ export const isAssistantEnabled = isPreviewEnvironment ||
 // Native audio support belongs to the installed runtime, not OTA export flags.
 export const supportsAssistantLive = Updates.runtimeVersion === "1.0.4-preview-live-awake" ||
   Updates.runtimeVersion === "1.0.5-preview-cemig-browser" ||
+  Updates.runtimeVersion === "1.0.6-preview-cemig-csv" ||
   Updates.runtimeVersion === "1.0.4-production-live-awake" ||
   (!Updates.runtimeVersion && process.env.EXPO_PUBLIC_ENABLE_GEMINI_LIVE === "1");
 export const environmentApiUrl = isPreviewEnvironment
