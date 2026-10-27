@@ -1,4 +1,5 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { buscarUsina } from "../../services/usinas.service";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { initialTabKey } from "../../services/navigation-preload.service";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -23,12 +24,18 @@ const competenciaNome = (valor: string) => {
 };
 
 export default function Operacao() {
-  const { solarCompetencia } = useLocalSearchParams<{ solarCompetencia?: string }>();
+  const { solarCompetencia, usinaId: usinaAvisoId } = useLocalSearchParams<{ solarCompetencia?: string; usinaId?: string }>();
   const competenciaSolicitada = typeof solarCompetencia === "string" && /^20\d{2}-(0[1-9]|1[0-2])$/.test(solarCompetencia) ? solarCompetencia : undefined;
   const { user, usinaSelecionada } = useAuth();
   const queryClient = useQueryClient();
-  const inicial = queryClient.getQueryData<[any, any[]]>(initialTabKey(String(user?.id ?? ""), usinaSelecionada?.id ?? user?.usina_id, "operacao"));
-  const usinaId = usinaSelecionada?.id;
+  const alvo = typeof usinaAvisoId === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(usinaAvisoId) ? usinaAvisoId : undefined;
+  const usinaId = alvo ?? usinaSelecionada?.id;
+  const papel = String(user?.papel_empresa ?? '');
+  const permitido = papel === 'COLABORADOR_COMERCIAL' ? user?.permissoes?.gerador_operacao === true : papel === 'COLABORADOR_GERADOR' ? user?.permissoes?.operacao === true : true;
+  const usinaAviso = useQuery({queryKey:['operacao-usina-aviso',user?.id,user?.empresa_id,alvo],enabled:!!alvo&&permitido,queryFn:()=>buscarUsina(alvo!)});
+  const acessoConfirmado = permitido && (!alvo || usinaAviso.data?.id === alvo);
+  const nomeUsina = alvo ? usinaAviso.data?.nome : usinaSelecionada?.nome;
+  const inicial = queryClient.getQueryData<[any, any[]]>(initialTabKey(String(user?.id ?? ""), usinaId, "operacao"));
   const sequencia = useRef(0);
   const [resumo, setResumo] = useState<any>(inicial?.[0]);
   const [lista, setLista] = useState<any[]>((inicial?.[1] ?? []).filter(item => String(item.competencia ?? "").slice(0, 7) === inicial?.[0]?.competencia));
@@ -39,7 +46,7 @@ export default function Operacao() {
 
   const carregar = useCallback(async (alvo?: string) => {
     const pedido = ++sequencia.current;
-    if (!usinaId) { setResumo(undefined); setLista([]); setLoading(false); return; }
+    if (!usinaId || !acessoConfirmado) { setResumo(undefined); setLista([]); setLoading(false); return; }
     try {
       const [r, l] = await Promise.all([obterResumoOperacao(alvo, usinaId), listarFechamentos(usinaId)]);
       if (pedido !== sequencia.current) return;
@@ -50,7 +57,7 @@ export default function Operacao() {
     } catch (error: any) {
       Alert.alert("Não foi possível carregar a operação", error?.response?.data?.message ?? "Verifique a conexão com o servidor e tente novamente.");
     } finally { if (pedido === sequencia.current) setLoading(false); }
-  }, [usinaId]);
+  }, [usinaId, acessoConfirmado]);
   useFocusEffect(useCallback(() => { void carregar(competenciaSolicitada ?? competenciaRef.current); return () => { sequencia.current++; }; }, [carregar, competenciaSolicitada]));
 
   async function selecionarCompetencia(valor: string) { setCompetencia(valor); setLoading(true); await carregar(valor); }
@@ -58,11 +65,12 @@ export default function Operacao() {
   const percentualRecebido = resumo?.receitaPrevista > 0 ? Math.min(100, (resumo.receitaRecebida / resumo.receitaPrevista) * 100) : 0;
   const historico = useMemo(() => lista, [lista]);
 
+  if (!acessoConfirmado) return <Screen><AppHeader title="Operação" subtitle="Fechamento mensal" contextTitle="Usina do aviso" contextSubtitle="Conferência de acesso" showPlantSwitch={false}/><Card><Text>{!permitido?'Seu acesso à operação não foi liberado.':usinaAviso.isError?'Não foi possível acessar a usina deste aviso.':'Conferindo a usina deste aviso…'}</Text>{usinaAviso.isError?<Button title="Tentar novamente" onPress={()=>void usinaAviso.refetch()}/>:null}</Card></Screen>;
   if (!usinaId) return <Screen><AppHeader showPlantSwitch={false} title="Operação" subtitle="Fechamento mensal" contextTitle="Selecione uma usina" contextSubtitle="Escolha uma usina para consultar a operação" /><Card><Text style={styles.title}>Selecione uma usina</Text><Button title="Selecionar usina" onPress={() => router.push("/selecionar-unidade")} /></Card></Screen>;
   return <Screen><AppHeader showPlantSwitch={false} title="Operação" subtitle="Fechamento mensal" contextTitle={competencia ? `Competência ${competenciaNome(competencia)}` : "Operação mensal"} contextSubtitle="Geração, compensação e recebimentos" icon="analytics-outline" />
     {loading ? <TabDataPending /> : <FlatList bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} data={historico} keyExtractor={(item) => item.id}
       ListHeaderComponent={<View>
-        <Card><Text style={styles.title}>{usinaSelecionada?.nome}</Text><Text style={styles.subtitle}>Geração, faturamento e recebimentos somente desta usina.</Text></Card>
+        <Card><Text style={styles.title}>{nomeUsina}</Text><Text style={styles.subtitle}>Geração, faturamento e recebimentos somente desta usina.</Text></Card>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>{[...(resumo?.competencias ?? [])].sort().map((item: string) => <Pressable key={item} onPress={() => void selecionarCompetencia(item)} style={[styles.filter, competencia === item && styles.filterSelected]}><Text style={[styles.filterText, competencia === item && styles.filterTextSelected]}>{competenciaNome(item)}</Text></Pressable>)}</ScrollView>
         <Card style={styles.summaryCard}>
         <View style={styles.heading}><Text style={styles.title}>Fechamento da competência</Text><Text style={styles.subtitle}>Dados consolidados automaticamente a partir da produção e das faturas.</Text></View>
@@ -72,7 +80,7 @@ export default function Operacao() {
           <View style={styles.metric}><Metric compact title="Disponível" value={energia(resumo?.energiaDisponivel)} icon={<Ionicons name="battery-half-outline" size={20} color={Colors.primary} />} /></View>
           <View style={styles.metric}><Metric compact title="Ocupação" value={`${Number(resumo?.ocupacao ?? 0).toFixed(1)}%`} icon={<Ionicons name="pie-chart-outline" size={20} color={Colors.primary} />} /></View>
         </View></Card>
-        <Card><Text style={styles.title}>Rateio mensal</Text><Text style={styles.subtitle}>Planilha, saldo da âncora e integração Cemig em uma tela própria.</Text><Button title="Abrir rateio" onPress={()=>router.push({pathname:'/operacao/rateio' as any,params:{competencia}})} /></Card>
+        <Card><Text style={styles.title}>Rateio mensal</Text><Text style={styles.subtitle}>Planilha, saldo da âncora e integração Cemig em uma tela própria.</Text><Button title="Abrir rateio" onPress={()=>router.push({pathname:'/operacao/rateio' as any,params:{competencia,usinaId}})} /></Card>
         <Section title="Resultado financeiro"><Card style={styles.financialCard}>
           <View style={styles.financialTop}><View style={styles.revenueCopy}><Text style={styles.cardLabel}>RECEITA PREVISTA</Text><Text style={styles.revenue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{moeda(resumo?.receitaPrevista)}</Text></View><Badge label={`${Number(percentualRecebido).toFixed(0)}% recebido`} variant={percentualRecebido >= 99 ? "success" : "warning"} /></View>
           <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${percentualRecebido}%` }]} /></View>

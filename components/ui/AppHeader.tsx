@@ -1,3 +1,4 @@
+import { notificationRoute } from "../../services/notification-route";
 
 
 import { Ionicons } from "@expo/vector-icons";
@@ -141,7 +142,7 @@ export default function AppHeader({
           const notificacaoComercial = rota.startsWith("/admin/comercial") || rota.startsWith("/geradores/") || rota.startsWith("/assinatura");
           return ambienteComercial === notificacaoComercial;
         })
-        .map((item) => ({ id: `app-${item.id}`, severidade: "media", titulo: item.titulo, detalhe: item.detalhe ?? "", rota: item.rota ?? "/" }));
+        .map((item) => ({ id: `app-${item.id}`, severidade: "media", titulo: item.titulo, detalhe: item.detalhe ?? "", rota: notificationRoute(item.rota,item.tipo) ?? "/" }));
       setNotificacoes([...avisosPersistidos, ...avisos]);
       void notificarAvisosNoAndroid(usuarioId, avisos.map((aviso: any) => ({
         id: aviso.id,
