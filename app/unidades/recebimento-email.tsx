@@ -1,10 +1,11 @@
+import {emailConnectionState,gmailConnectionLabel} from "../../utils/emailConnectionState";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Alert, AppState, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 import Svg, { Path } from "react-native-svg";
 
@@ -63,10 +64,6 @@ const STATUS_CONEXAO_ATIVA = [
 
 function tituloProvedor(provedor: string) {
   return provedor.toUpperCase() === "OUTLOOK" ? "Outlook" : "Gmail";
-}
-
-function conexaoAtiva(conexao: ConexaoEmail) {
-  return STATUS_CONEXAO_ATIVA.includes(conexao.status.toUpperCase());
 }
 
 function tituloStatusConexao(status: string) {
@@ -144,7 +141,9 @@ export default function RecebimentoEmail() {
     };
   }, [unidadeIdParam]);
 
-  const carregar = useCallback(async () => {
+  const sequenciaCarga=useRef(0);
+  const carregar = useCallback(async (silencioso=false) => {
+    const pedido=++sequenciaCarga.current;
     if (!unidadeId) {
       setCarregando(false);
       return;
@@ -154,16 +153,22 @@ export default function RecebimentoEmail() {
         obterRecebimentoFaturas(unidadeId),
         CONEXAO_DIRETA_DISPONIVEL ? listarConexoesEmail(unidadeId) : Promise.resolve([]),
       ]);
+      if(pedido!==sequenciaCarga.current)return;
       setDados(recebimento);
       setConexoes(conexoesDaUnidade);
     } catch (erro: any) {
-      Alert.alert("Não foi possível carregar", erro?.response?.data?.message ?? "Confira sua conexão e tente novamente.");
+      if(!silencioso&&pedido===sequenciaCarga.current)Alert.alert("Não foi possível carregar", erro?.response?.data?.message ?? "Confira sua conexão e tente novamente.");
     } finally {
-      setCarregando(false);
+      if(pedido===sequenciaCarga.current)setCarregando(false);
     }
   }, [unidadeId]);
 
-  useFocusEffect(useCallback(() => { void carregar(); }, [carregar]));
+  useFocusEffect(useCallback(() => {
+    void carregar();
+    const timer=setInterval(()=>{if(AppState.currentState==='active')void carregar(true);},15000);
+    const listener=AppState.addEventListener('change',state=>{if(state==='active')void carregar(true);});
+    return()=>{clearInterval(timer);listener.remove();sequenciaCarga.current++;};
+  }, [carregar]));
 
   useEffect(() => {
     const resultado = Array.isArray(params.conexao) ? params.conexao[0] : params.conexao;
@@ -326,8 +331,10 @@ export default function RecebimentoEmail() {
   const status = dados?.status ?? "NAO_CONFIGURADO";
   const tituloStatus = titulosStatus[status] ?? "Em configuração";
   const temErro = status === "ERRO";
-  const gmailConexao = conexoes.find(conexao => conexao.provedor.toUpperCase() === "GMAIL" && conexaoAtiva(conexao));
-  const gmailConectado = Boolean(gmailConexao?.automatico && !gmailConexao?.erro);
+  const gmailConexao = conexoes.find(conexao => conexao.provedor.toUpperCase() === "GMAIL" && conexao.status!=="REVOGADA");
+  const gmailEstado=emailConnectionState(gmailConexao);
+  const gmailConectado = gmailEstado==='CONECTADO';
+  const gmailValidando=gmailEstado==='VALIDANDO';
   const outlookConectado = conexoes.some((conexao) => conexao.provedor.toUpperCase() === "OUTLOOK" && conexao.automatico && !conexao.erro);
 
   return <Screen>
@@ -361,13 +368,14 @@ export default function RecebimentoEmail() {
         <Text style={styles.inlineSectionTitle}>COMO DESEJA CONFIGURAR?</Text>
         <Text style={styles.setupHelp}>Conecte o Gmail ou o Hotmail / Outlook para configurar o recebimento automático. Você também pode configurar o encaminhamento manualmente.</Text>
         <Text style={styles.setupNotice}>Importante: use a conta de e-mail que recebe as faturas da CEMIG.</Text>
-        {gmailConexao&&!gmailConectado?<Card><Text accessibilityRole="alert" style={styles.errorText}>{gmailConexao.erro??gmailConexao.mensagem??'A leitura automática ainda não foi confirmada. Reconecte o Gmail e autorize a leitura dos e-mails.'}</Text></Card>:null}
+        {gmailConexao&&gmailEstado==='REAUTORIZAR'?<Card><Text accessibilityRole="alert" style={styles.errorText}>{gmailConexao.erro??gmailConexao.mensagem??'A leitura automática ainda não foi confirmada. Reconecte o Gmail e autorize a leitura dos e-mails.'}</Text></Card>:null}
         <View style={styles.choiceActions}>
           <Text style={styles.setupHelp}>Para concluir a configuração, autorize a leitura dos e-mails no Google. Apenas conectar a conta não ativa a importação: a permissão e a primeira consulta precisam ser confirmadas.</Text>
-          <TouchableOpacity accessibilityLabel="Conectar Gmail" activeOpacity={0.84} disabled={Boolean(conectandoProvedor) || gmailConectado} onPress={() => { setModoConfiguracao("GMAIL"); void conectarEmail("GMAIL"); }} style={[styles.providerButton, (Boolean(conectandoProvedor) || gmailConectado) && styles.providerButtonDisabled]}>
+          <TouchableOpacity accessibilityLabel={gmailConnectionLabel(gmailConexao)} activeOpacity={0.84} disabled={Boolean(conectandoProvedor) || gmailConectado || gmailValidando} onPress={() => { setModoConfiguracao("GMAIL"); void conectarEmail("GMAIL"); }} style={[styles.providerButton, (Boolean(conectandoProvedor) || gmailConectado || gmailValidando) && styles.providerButtonDisabled]}>
             <GmailMark />
-            <Text style={[styles.providerButtonText, gmailConectado && styles.providerButtonTextDisabled]}>{conectandoProvedor === "GMAIL" ? "Conectando..." : gmailConectado ? "Leitura do Gmail ativa" : gmailConexao ? "Reconectar Gmail e autorizar leitura" : "Conectar Gmail"}</Text>
+            <Text style={[styles.providerButtonText, gmailConectado && styles.providerButtonTextDisabled]}>{conectandoProvedor === "GMAIL" ? "Conectando..." : gmailConnectionLabel(gmailConexao)}</Text>
           </TouchableOpacity>
+          {gmailValidando?<Text style={styles.setupHelp}>Autorização recebida. Aguardando a consulta do servidor; esta tela atualiza automaticamente.</Text>:null}
           <TouchableOpacity accessibilityLabel="Conectar Hotmail ou Outlook" activeOpacity={0.84} disabled={Boolean(conectandoProvedor) || outlookConectado} onPress={() => conectarEmail("OUTLOOK")} style={[styles.providerButton, (Boolean(conectandoProvedor) || outlookConectado) && styles.providerButtonDisabled]}>
             <OutlookMark />
             <Text style={[styles.providerButtonText, outlookConectado && styles.providerButtonTextDisabled]}>{conectandoProvedor === "OUTLOOK" ? "Conectando..." : outlookConectado ? "Hotmail / Outlook automático ativo" : "Conectar Hotmail / Outlook"}</Text>
