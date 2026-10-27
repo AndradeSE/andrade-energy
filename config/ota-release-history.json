@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261027-151321",
+    "data": "27/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Restaura conexão ao Render reserva confirmado após cota esgotada do principal, sem repetir cobranças nem operações."
+    ]
+  },
+  {
     "numero": "OTA 20261027-150951",
     "data": "27/10/2026",
     "variant": "gerador",
