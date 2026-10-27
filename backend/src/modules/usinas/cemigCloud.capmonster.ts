@@ -95,6 +95,16 @@ export class FalhaCapmonster extends Error {
 /** Fixed API, no purchase endpoint, one createTask call and no retries on ambiguity. */
 export async function obterRespostaCapmonster(desafio:Desafio,opcoes:{env:NodeJS.ProcessEnv;ativo:()=>Promise<boolean>;fetcher?:typeof fetch;esperar?:(ms:number)=>Promise<void>}) {
   if(!capmonsterDisponivel(opcoes.env))throw new Error('CapMonster indisponível neste ambiente.');
+  return resolverRespostaCapmonster(desafio,opcoes);
+}
+
+/** Local Preview uses a key supplied directly to the loopback panel, not cloud credentials. */
+export async function obterRespostaCapmonsterLocal(desafio:Desafio,chave:string,ativo:()=>Promise<boolean>){
+  if(!chave.trim()||chave.length>256)throw new Error('CapMonster não configurado.');
+  return resolverRespostaCapmonster(desafio,{env:{CAPMONSTER_API_KEY:chave},ativo});
+}
+
+async function resolverRespostaCapmonster(desafio:Desafio,opcoes:{env:NodeJS.ProcessEnv;ativo:()=>Promise<boolean>;fetcher?:typeof fetch;esperar?:(ms:number)=>Promise<void>}) {
   const url=conferirPaginaCaptcha(desafio.websiteURL);
   if(!/^[a-zA-Z0-9_-]{20,200}$/.test(desafio.websiteKey))throw new Error('Desafio inválido.');
   const fetcher=opcoes.fetcher??fetch;
