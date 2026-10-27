@@ -1,5 +1,6 @@
 import api from "../config/api";
 export type QuotaService = {
+  saldoDisponivel?: number | null;
   servico: string; metrica: string; rotulo: string; unidade: string; automatico: boolean; observacao?: string;
   consulta: { status: string; consultado_em: string } | null;
   leitura: { usado: number; limite: number | null; restante: number | null; percentual: number | null;

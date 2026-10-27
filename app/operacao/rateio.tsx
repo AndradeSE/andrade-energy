@@ -5,6 +5,7 @@ import { ScrollView, Text, View } from 'react-native';
 import { AppHeader, Button, Card, Screen } from '../../components/ui';
 import { Pressable } from '../../components/assistant/AssistantNativeControls';
 import RateioMensalCard from '../../components/usinas/RateioMensalCard';
+import RateioSimulation from '../../components/usinas/RateioSimulation';
 import { useAuth } from '../../contexts/AuthContext';
 import { obterResumoOperacao } from '../../services/fechamentos.service';
 import { buscarUsina } from '../../services/usinas.service';
@@ -12,6 +13,7 @@ import { Colors } from '../../theme';
 
 export default function RateioOperacao() {
   const { user, usinaSelecionada } = useAuth();
+  const [simulation,setSimulation]=useState(false);
   const params = useLocalSearchParams<{competencia?:string;usinaId?:string}>();
   const [mes,setMes] = useState<string|undefined>(typeof params.competencia==='string'&&/^20\d{2}-(0[1-9]|1[0-2])$/.test(params.competencia)?params.competencia:undefined);
   const papel=String(user?.papel_empresa??'');
@@ -32,7 +34,8 @@ export default function RateioOperacao() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:8}}>
           {[...new Set([...(resumo.data?.competencias??[]),...(competencia?[competencia]:[])])].sort().map((item:string)=><Pressable key={item} accessibilityRole="button" accessibilityState={{selected:item===competencia}} onPress={()=>setMes(item)} style={{padding:12,borderRadius:24,backgroundColor:item===competencia?Colors.primary:Colors.surface}}><Text style={{color:item===competencia?'#fff':Colors.text}}>{item.slice(5,7)}/{item.slice(0,4)}</Text></Pressable>)}
         </ScrollView>
-        {resumo.isError?<Card><Text>Não foi possível consultar as competências.</Text><Button title="Tentar novamente" onPress={()=>void resumo.refetch()}/></Card>:competencia?<RateioMensalCard key={id} usinaId={id} empresaId={String(user?.empresa_id??'')} competencia={competencia}/>:<View><Text>Consultando competência…</Text></View>}
+        <Button title={simulation?'Voltar ao rateio mensal':'Área de simulação'} onPress={()=>setSimulation(value=>!value)}/>
+        {resumo.isError?<Card><Text>Não foi possível consultar as competências.</Text><Button title="Tentar novamente" onPress={()=>void resumo.refetch()}/></Card>:competencia?simulation?<RateioSimulation key={`${id}:${competencia}`} usinaId={id} competencia={competencia}/>:<RateioMensalCard key={id} usinaId={id} empresaId={String(user?.empresa_id??'')} competencia={competencia}/>:<View><Text>Consultando competência…</Text></View>}
       </>}
     </ScrollView>
   </Screen>;

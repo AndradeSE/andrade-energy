@@ -59,6 +59,7 @@ export default function ServiceQuotasScreen() {
           return <View key={item.metrica} style={index > 0 ? styles.quotaDivider : undefined}>
             {item.servico === "RESEND" ? <Text style={styles.period}>{item.metrica === "emails_dia" ? "Cota diária" : "Cota mensal"}</Text> : null}
             {item.observacao ? <Text style={styles.note}>{item.observacao}</Text> : null}
+            {item.servico==='CAPMONSTER' && item.saldoDisponivel!=null ? <Text style={styles.balance}>US$ {item.saldoDisponivel.toLocaleString('pt-BR',{minimumFractionDigits:4,maximumFractionDigits:4})} disponíveis</Text> : null}
             {reading ? <>
               <Text style={styles.balance}>{reading.limite === null ? "Sem limite definido no plano" : `${item.servico === "AZURE" ? "Estimativa: " : ""}${number(reading.restante ?? 0)} ${item.unidade} restantes`}</Text>
               <Text style={styles.text}>Utilizado: {number(reading.usado)}{reading.limite === null ? "" : ` de ${number(reading.limite)}`} {item.unidade}</Text>
@@ -66,10 +67,10 @@ export default function ServiceQuotasScreen() {
               <Text style={styles.text}>{item.servico === "BREVO" ? "Plano gratuito · limite diário de envios" : reading.renova_em ? `${reading.origem === "API_OFICIAL" ? item.servico === "AZURE" ? "Renovação mensal prevista" : "Renovação informada" : "Leitura válida até"}: ${date(reading.renova_em)}` : "Renovação: consulte o período no painel do provedor."}</Text>
               <Text style={styles.note}>{reading.origem === "API_OFICIAL" ? "API oficial" : "Leitura confirmada do painel"} · {date(reading.verificado_em)}</Text>
               {stale ? <Text style={styles.warning}>Consulta desatualizada ou indisponível. Este saldo pode ter mudado.</Text> : null}
-            </> : <Text style={styles.text}>{item.automatico ? item.consulta?.status === "SEM_PERMISSAO" ? "A chave configurada não permite consultar o uso." : item.consulta?.status === "PLANO_NAO_SUPORTADO" ? "O plano retornado não permite confirmar a cota gratuita. Confira o saldo no painel." : item.consulta?.status === "SEM_DADOS_COMPLETOS" ? "O Azure ainda não retornou medições para este item no mês. A ausência de dados não significa consumo zero." : "Sem leitura disponível. A consulta automática precisa estar conectada." : "Leitura manual: confira o painel do provedor e informe abaixo os valores para acompanhar o saldo aqui."}</Text>}
+            </> : item.servico==='CAPMONSTER' && item.saldoDisponivel!=null ? <Text style={styles.note}>API oficial · {date(item.consulta!.consultado_em)}</Text> : <Text style={styles.text}>{item.automatico ? item.consulta?.status === "SEM_PERMISSAO" ? "A chave configurada não permite consultar o uso." : item.consulta?.status === "PLANO_NAO_SUPORTADO" ? "O plano retornado não permite confirmar a cota gratuita. Confira o saldo no painel." : item.consulta?.status === "SEM_DADOS_COMPLETOS" ? "O Azure ainda não retornou medições para este item no mês. A ausência de dados não significa consumo zero." : "Sem leitura disponível. A consulta automática precisa estar conectada." : "Leitura manual: confira o painel do provedor e informe abaixo os valores para acompanhar o saldo aqui."}</Text>}
           </View>;
           })}
-          <Text style={styles.link} accessibilityRole="link" onPress={() => void Linking.openURL(panels[group[0].servico]).catch(() => setError("Não foi possível abrir o painel."))}>Abrir painel do provedor</Text>
+          <Text style={styles.link} accessibilityRole="link" onPress={() => void Linking.openURL(group[0].servico==='CAPMONSTER'?'https://dash.capmonster.cloud/':panels[group[0].servico]).catch(() => setError("Não foi possível abrir o painel."))}>Abrir painel do provedor</Text>
         </Card>)}
         <Text style={styles.note}>Os avisos não contratam planos nem compram créditos. Confira a política de troca e o estado do servidor reserva no controle abaixo.</Text>
         {contingencyRoutingEnabled?<ContingencyControl/>:null}
