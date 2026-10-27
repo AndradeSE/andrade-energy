@@ -2,6 +2,7 @@ const gerador =
   process.env.EXPO_PUBLIC_APP_VARIANT === "gerador";
 const preview = process.env.EXPO_PUBLIC_APP_ENV === "preview";
 const emulatorBuild = preview && process.env.ANDRADE_ANDROID_EMULATOR === "1";
+const nativeCemigBrowser = preview && gerador && process.env.ANDRADE_NATIVE_CEMIG_BROWSER === "1";
 // Production IA requires a new native APK; older production runtimes stay isolated.
 const assistantNative = preview || process.env.EXPO_PUBLIC_ENABLE_GEMINI_LIVE === "1";
 const variant = gerador ? "gerador" : "consumidor";
@@ -130,6 +131,7 @@ module.exports = {
       ],
       ...(assistantNative ? [["llama.rn", { enableEntitlements: true, entitlementsProfile: "production", forceCxx20: true, enableOpenCL: false }], "expo-speech-recognition"] : []),
       "./plugins/with-variant-scheme",
+      ...(nativeCemigBrowser ? ["./plugins/with-cemig-browser"] : []),
     ],
 
     experiments: {
@@ -138,6 +140,7 @@ module.exports = {
     },
 
     extra: {
+      nativeCemigBrowser,
       appEnvironment: preview ? "preview" : "production",
       appVariant: gerador
         ? "gerador"
@@ -150,7 +153,7 @@ module.exports = {
       },
     },
 
-    runtimeVersion: preview ? "1.0.4-preview-live-awake" : assistantNative ? "1.0.4-production-live-awake" : {
+    runtimeVersion: nativeCemigBrowser ? "1.0.5-preview-cemig-browser" : preview ? "1.0.4-preview-live-awake" : assistantNative ? "1.0.4-production-live-awake" : {
       policy: "appVersion",
     },
 
