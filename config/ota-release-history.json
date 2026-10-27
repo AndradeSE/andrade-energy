@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261027-152532",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Restaura acesso do Preview com navegador integrado ao Render reserva confirmado."
+    ]
+  },
+  {
     "numero": "APK 20261027-browser-preview",
     "data": "27/10/2026",
     "variant": "gerador",
