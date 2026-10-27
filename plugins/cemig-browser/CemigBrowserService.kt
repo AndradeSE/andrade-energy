@@ -13,6 +13,7 @@ class CemigBrowserService : Service() {
     inner class LocalBinder : Binder() { fun session() = this@CemigBrowserService }
     private val binder = LocalBinder()
     private val handler = Handler(Looper.getMainLooper())
+    private val browserContext by lazy { MutableContextWrapper(this) }
     private val expire = Runnable { closeSession() }
     lateinit var browser: WebView
         private set
@@ -38,7 +39,7 @@ class CemigBrowserService : Service() {
             .setContentIntent(open).setOngoing(true)
             .addAction(Notification.Action.Builder(null,"Encerrar",stop).build()).build()
         startForeground(NOTICE,notification)
-        browser = WebView(android.view.ContextThemeWrapper(this,android.R.style.Theme_Material_Light_NoActionBar))
+        browser = WebView(browserContext)
         browser.setBackgroundColor(Color.WHITE)
         browser.settings.apply {
             javaScriptEnabled = true
@@ -71,6 +72,17 @@ class CemigBrowserService : Service() {
         handler.postDelayed(expire,10*60*1000L)
     }
     override fun onBind(intent:Intent):IBinder = binder
+    fun attach(activity:Activity):WebView {
+        (browser.parent as? ViewGroup)?.removeView(browser)
+        browserContext.baseContext=activity
+        return browser
+    }
+    fun detach(activity:Activity) {
+        if(browserContext.baseContext===activity) {
+            (browser.parent as? ViewGroup)?.removeView(browser)
+            browserContext.baseContext=this
+        }
+    }
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int {
         if(intent?.action==STOP)closeSession()
         return START_NOT_STICKY

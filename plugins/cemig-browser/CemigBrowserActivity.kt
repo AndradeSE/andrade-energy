@@ -20,8 +20,7 @@ class CemigBrowserActivity : Activity() {
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name:ComponentName,binder:IBinder) {
             session=(binder as CemigBrowserService.LocalBinder).session()
-            session?.browser?.let { web ->
-                (web.parent as? ViewGroup)?.removeView(web)
+            session?.attach(this@CemigBrowserActivity)?.let { web ->
                 content.addView(web,LinearLayout.LayoutParams(-1,0,1f))
             }
         }
@@ -67,7 +66,7 @@ class CemigBrowserActivity : Activity() {
     @Deprecated("Android compatibility")
     override fun onBackPressed() { session?.browser?.let { if(it.canGoBack())it.goBack() else finish() } ?: finish() }
     override fun onDestroy() {
-        session?.browser?.let { (it.parent as? ViewGroup)?.removeView(it) }
+        session?.detach(this)
         if(bound)unbindService(connection)
         if(listening)unregisterReceiver(closeReceiver)
         super.onDestroy()
