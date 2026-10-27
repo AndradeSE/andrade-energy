@@ -19,3 +19,14 @@ Restaurados resolvedor dos trÃªs destinos fixos, leitura de metadados por GET, i
 A cascata entre os dois reservas continua adiada atÃ© liberar Netlify. Este incidente nÃ£o a ativou. Render Free pode dormir; o controle admite tempo de despertar, sem prometer troca instantÃ¢nea. NÃ£o retornar ao principal automaticamente quando recuperar cota. NÃ£o aprovar novos commits do reserva sem comparar e validar o artefato publicado.
 
 PublicaÃ§Ãµes e IDs finais registrados no checkpoint externo e no histÃ³rico OTA.
+
+
+## Conferência final de 27/10
+
+O titular confirmou que o Gerador Preview voltou após instalar o APK atualizado. As quatro URLs estáveis de APK foram substituídas com verificação de tamanho/SHA-256, preservando backups; os quatro downloads responderam HTTP 200. OTAs de correção da sessão foram publicadas para Gerador e Consumidor Preview e para Gerador Preview com navegador nativo.
+
+A web de produção foi publicada e aponta temporariamente ao Render reserva. A web Preview ainda responde 503 porque o conector Sites não encontra o projeto existente. Não criar outro site nem considerar o Preview web resolvido.
+
+A sincronização de módulos no reserva de produção já foi implantada no commit ebd57bdf e aprovada após conferência. Uma atualização posterior de qs está preparada e validada, mas ainda não implantada. O navegador está desativado nesta sessão e não há conector Render disponível.
+
+O navegador Cemig integrado continua experimental, somente no Gerador Preview. O envio definitivo automático e sua confirmação de protocolo não estão validados. A cascata Netlify permanece aguardando 1º/11/2026 às 9h, conforme agendamento; não ativá-la antes.
