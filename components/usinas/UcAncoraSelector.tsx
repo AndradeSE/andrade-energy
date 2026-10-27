@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {Alert,KeyboardAvoidingView,Modal,Platform,ScrollView,StyleSheet,Text,View} from 'react-native';
+import {Alert,Keyboard,KeyboardAvoidingView,Modal,Platform,ScrollView,StyleSheet,Text,View} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Ionicons} from '@expo/vector-icons';
 import {Pressable} from '../assistant/AssistantNativeControls';
@@ -48,13 +48,13 @@ export default function UcAncoraSelector({usinaId,empresaId,value,onChange,disab
   {erro?<Pressable accessibilityRole="button" onPress={()=>setRevisao(v=>v+1)} style={styles.acao}><Text style={{color:Colors.danger}}>Lista indisponível. Tocar para tentar novamente.</Text></Pressable>:null}
   <Text style={styles.texto}>Cadastre número e apelido. Para aplicar a escolha a esta usina, salve a configuração do rateio abaixo.</Text>
   <Modal visible={aberto&&!disabled} transparent animationType="slide" onRequestClose={fechar}>
-   <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':undefined} style={styles.fundo}>
+   <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':'height'} style={styles.fundo}>
     <View accessibilityViewIsModal style={[styles.painel,{paddingBottom:Math.max(insets.bottom,16),marginTop:insets.top+24}]}>
      <View style={styles.linha}><Text style={[styles.titulo,{fontSize:20,flex:1}]}>{formulario?(edicao?'Editar UC âncora':'Adicionar UC âncora'):'UCs âncora'}</Text><Pressable accessibilityRole="button" accessibilityLabel="Fechar lista de âncoras" disabled={salvando} onPress={fechar} style={styles.icone}><Ionicons name="close" size={26} color={Colors.text}/></Pressable></View>
-     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{gap:12,paddingBottom:12}}>
+     <ScrollView style={{flexShrink:1}} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets={Platform.OS==='ios'} contentContainerStyle={{gap:16,paddingBottom:24}}>
       {formulario?<>
-       <FormField label="Número da UC" required value={numero} onChangeText={v=>setNumero(v.replace(/\D/g,'').slice(0,20))} keyboardType="number-pad" editable={!salvando} maxLength={20}/>
-       <FormField label="Apelido (opcional)" value={apelido} onChangeText={setApelido} maxLength={80} editable={!salvando} placeholder="Ex.: Reserva Brazópolis"/>
+       <FormField label="Número da UC" required value={numero} onChangeText={v=>setNumero(v.replace(/\D/g,'').slice(0,20))} keyboardType="number-pad" editable={!salvando} maxLength={20} returnKeyType="done" onSubmitEditing={()=>Keyboard.dismiss()}/>
+       <FormField label="Apelido (opcional)" value={apelido} onChangeText={setApelido} maxLength={80} editable={!salvando} placeholder="Ex.: Reserva Brazópolis" returnKeyType="done" onSubmitEditing={()=>Keyboard.dismiss()}/>
        <Button title={salvando?'Salvando…':'Salvar e selecionar'} disabled={salvando||disabled} onPress={()=>void salvar()}/>
        <Pressable accessibilityRole="button" disabled={salvando} onPress={()=>setFormulario(false)} style={styles.acao}><Text style={{color:Colors.primary}}>Voltar à lista</Text></Pressable>
       </>:<>

@@ -8,16 +8,9 @@ import UcAncoraSelector from './UcAncoraSelector';
 import { gerarPlanilhaRateio,obterConfiguracaoRateio,salvarConfiguracaoRateio,buscarRateioAutomatico,type ConfiguracaoRateio } from "../../services/usinas.service";
 import { Colors, Spacing } from "../../theme";
 import {obterSaldoAncora,type SaldoAncora} from "../../services/usinas.service";
-import CemigCloudSimulation from './CemigCloudSimulation';
 import RateioFileViewer from './RateioFileViewer';
-import CemigCredentialVault from './CemigCredentialVault';
-import {useAuth} from '../../contexts/AuthContext';
-import {canViewServiceQuotas} from '../../utils/service-quota-access';
-import {isPreviewEnvironment} from '../../config/environment';
 
 export default function RateioMensalCard({usinaId,empresaId,competencia}: {usinaId:string;empresaId:string;competencia?:string}) {
-  const {usuario}=useAuth();
-  const [vaultConfigured,setVaultConfigured]=useState(false);
   const [visualizando,setVisualizando]=useState(false);
   const [ajustes,setAjustes]=useState(false);
   const [detalhes,setDetalhes]=useState(false);
@@ -68,6 +61,7 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
   }
   return <><RateioFileViewer arquivo={visualizando?resultado:undefined} onClose={()=>setVisualizando(false)}/><Card><View style={{gap:Spacing.sm}}>
     <Text style={{fontSize:18,fontWeight:"700",color:Colors.text}}>Rateio mensal</Text>
+    <View style={{backgroundColor:'#EFF7F2',padding:16,borderRadius:12,gap:10}}><Text style={{fontWeight:'700',color:Colors.text}}>O que acontece automaticamente?</Text><Text style={{color:Colors.text,lineHeight:22}}>Com a configuração salva, o sistema aguarda a produção da usina e todas as faturas das UCs vigentes. Depois calcula a planilha e envia o arquivo por e-mail e um aviso ao gerador.</Text><Text style={{color:Colors.subtitle,lineHeight:22}}>O envio à Cemig é uma etapa separada. A automação completa em nuvem ainda está em teste e não protocola o rateio.</Text></View>
     <Text style={{color:Colors.subtitle}}>Planilha da competência {competencia?.replace(/^(\d{4})-(\d{2})$/, "$2/$1") ?? "selecionada"}. Configuração salva para os próximos meses.</Text>
     <View style={{backgroundColor:"#EFF7F2",borderRadius:12,padding:16,gap:6}} accessibilityLabel="Saldo acumulado da UC âncora">
       <Text style={{fontWeight:"700",color:Colors.text}}>Saldo acumulado da UC âncora</Text>
@@ -84,9 +78,8 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
     <Text style={{color:Colors.subtitle}}>Use o número atual da UC. Sem âncora, gera rascunho. Titulares, documentos e e-mail vêm dos cadastros existentes.</Text>
     <Opcao label="Conferi os números atuais das UCs" checked={numerosAtuaisConfirmados} disabled={ocupado} onPress={()=>setNumerosAtuaisConfirmados(v=>!v)} />
     <Button title="Salvar configuração do rateio automático" disabled={ocupado} onPress={()=>void salvarAuto()} />
-    {isPreviewEnvironment&&canViewServiceQuotas(usuario)?<CemigCredentialVault usinaId={usinaId} onConfigured={setVaultConfigured}/>:null}
     </View>
-    <Text style={{color:Colors.subtitle}}>{erroConfig?"Não foi possível consultar a automação. Tente salvar a configuração novamente.":config?.habilitado?"Automático: aguarda produção + faturas de todas as UCs vigentes. Ao gerar, envia e-mail e aviso ao gerador.":"Consultando configuração automática…"}</Text>
+    <Text style={{color:Colors.subtitle}}>{erroConfig?"Não foi possível consultar a automação. Tente salvar a configuração novamente.":config?.habilitado?"Automático: aguarda produção + faturas de todas as UCs vigentes. Ao gerar, envia e-mail e aviso ao gerador.":config?"Geração automática não habilitada. Confira e salve as configurações do rateio.":"Consultando configuração automática…"}</Text>
     {config?.registros?.find(r=>r.competencia.slice(0,7)===competencia)?.status==="GERADO"?<Button title="Abrir planilha gerada automaticamente" disabled={ocupado} onPress={()=>void baixarAuto()} />:null}
     {config?.registros?.find(r=>r.competencia.slice(0,7)===competencia)?.status==="ERRO"?<Text style={{color:Colors.subtitle}}>Não foi possível concluir a geração automática. {config.registros.find(r=>r.competencia.slice(0,7)===competencia)?.erro}</Text>:null}
     {resultado?<><Text style={{color:Colors.primary,fontWeight:"700"}}>{resultado.rascunho?"Rascunho para conferência":"CSV no padrão Cemig"}</Text><SecaoRateio titulo="Conferência dos dados" resumo={`${resultado.pendencias?.length??0} pendência(s) · base ${resultado.producaoMedia.toLocaleString("pt-BR",{maximumFractionDigits:2})} kWh/mês`} aberto={revisaoAberta} onPress={()=>setRevisaoAberta(v=>!v)}/></>:null}
@@ -97,17 +90,16 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
     {resultado?.pendencias?.length?<Text style={{color:Colors.subtitle}}>Para o CSV Cemig: {resultado.pendencias.join(" ")}</Text>:null}
     </View>:null}
     {resultado && !resultado.rascunho?<Text style={{color:Colors.primary,fontWeight:"700"}}>CSV pronto · prossiga em Enviar à Cemig</Text>:null}
-    <SecaoRateio titulo="Preparar arquivo" resumo="Leitura no app · cópia enviada ao gerador" aberto={arquivoAberto} onPress={()=>setArquivoAberto(v=>!v)}/>
+    <SecaoRateio titulo="1. Planilha do mês" resumo="Geração automática · conferência e arquivo" aberto={arquivoAberto} onPress={()=>setArquivoAberto(v=>!v)}/>
     {arquivoAberto?<View style={{borderTopWidth:1,borderColor:Colors.border,paddingTop:12,gap:8}}>
       <Text style={{color:Colors.subtitle}}>O arquivo usa o padrão Cemig quando a âncora e os números das UCs estão conferidos; caso contrário, gera um rascunho. Ao gerar, uma cópia é enviada ao e-mail cadastrado do gerador.</Text>
       <Button title={ocupado?"Preparando…":resultado?"Abrir planilha":"Gerar e abrir planilha"} disabled={ocupado||!competencia} onPress={()=>resultado?setVisualizando(true):void gerar()} />
       {resultado?<Button title="Atualizar planilha" disabled={ocupado} onPress={()=>Alert.alert("Atualizar planilha","Recalcular esta competência e enviar a nova cópia ao gerador?",[{text:"Cancelar",style:"cancel"},{text:"Atualizar",onPress:()=>void gerar()}])}/>:null}
     </View>:null}
-    <SecaoRateio titulo="Enviar à Cemig" resumo="Portal e teste de envio em nuvem" aberto={envioAberto} onPress={()=>setEnvioAberto(v=>!v)}/>
+    <SecaoRateio titulo="2. Enviar pelo navegador" resumo="Etapa manual no celular · login e anexo do CSV" aberto={envioAberto} onPress={()=>setEnvioAberto(v=>!v)}/>
     <View style={{display:envioAberto?"flex":"none",gap:Spacing.sm}}>
-      <Text style={{color:Colors.subtitle}}>Salve o CSV em Preparar arquivo e anexe em Compensação de Geração Distribuída. O arquivo gerado não comprova envio ou aprovação pela Cemig.</Text>
+      <Text style={{color:Colors.subtitle}}>No celular, abra a Cemig, entre na sua conta e anexe o CSV em Compensação de Geração Distribuída. Este botão somente abre o portal: não envia o arquivo sozinho. A geração da planilha não comprova protocolo nem aprovação.</Text>
       <Pressable accessibilityRole="link" onPress={()=>void Linking.openURL("https://atende.cemig.com.br/Login").catch(()=>Alert.alert("Não foi possível abrir","Acesse o Cemig Atende no navegador."))} style={{minHeight:44,justifyContent:"center"}}><Text style={{color:Colors.primary,fontWeight:"700"}}>Abrir Cemig Atende</Text></Pressable>
-      <CemigCloudSimulation usinaId={usinaId} competencia={competencia} ucAncora={ancora} numerosConfirmados={numerosAtuaisConfirmados} vaultConfigured={vaultConfigured}/>
     </View>
   </View></Card></>;
 }

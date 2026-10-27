@@ -1,5 +1,50 @@
 [
   {
+    "numero": "OTA 20261027-091946",
+    "data": "27/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar atualizada: envio e entrega de faturas (compatibilidade)"
+    ]
+  },
+  {
+    "numero": "OTA 20261027-091746",
+    "data": "27/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar atualizada: envio, entrega confirmada e leitura da fatura"
+    ]
+  },
+  {
+    "numero": "OTA 20261027-091555",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Produção abre Operação da usina; Solar distingue envio, entrega e leitura (compatibilidade)"
+    ]
+  },
+  {
+    "numero": "OTA 20261027-091413",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Produção abre Operação da usina; Solar distingue envio, entrega e leitura"
+    ]
+  },
+  {
+    "numero": "OTA 20261027-091148",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Corrige push de produção para Operação e atualiza Solar sobre entrega de faturas"
+    ]
+  },
+  {
     "numero": "OTA 20261027-084205",
     "data": "27/10/2026",
     "variant": "gerador",
