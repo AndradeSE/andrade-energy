@@ -6,6 +6,8 @@ import {
 import { VERSAO_RELATORIO_CALCULO } from "./documentosFatura.service";
 import { criarNotificacaoApp } from "../notificacoes/push.service";
 import { emailDestinatarioPermitido } from "../email/destinatariosPermitidos";
+import {avisarFaturamentoAutomatico} from './avisosAutomaticos.service';
+import {conferirEntregasEmail} from './entregaEmail.service';
 
 type Canal = "EMAIL" | "WHATSAPP";
 
@@ -162,7 +164,7 @@ async function enviarEmail(item: any) {
   const html = `<h2>Sua ${tituloDocumento} está pronta</h2><p>${rotuloValor}: <strong>${moeda(fatura.valor_total_unificado)}</strong></p><p>Vencimento: <strong>${fatura.vencimento}</strong></p><p>Economia real: <strong>${moeda(fatura.economia_real)}</strong> (${Number(fatura.desconto_real_percentual ?? 0).toFixed(2)}%)</p>${avisoSeparado}<p>${descricaoAnexos}</p>`;
 
   if (await microsoftEmailConfigurado()) {
-    return enviarEmailMicrosoft({ destinatario: item.destinatario, assunto, html, anexos });
+    return await enviarEmailMicrosoft({ destinatario: item.destinatario, assunto, html, anexos }) ? {provedor:'MICROSOFT',id:null} : false;
   }
   const brevoApiKey = process.env.BREVO_API_KEY;
   const brevoRemetente = process.env.BREVO_REMETENTE_EMAIL;
@@ -188,7 +190,8 @@ async function enviarEmail(item: any) {
       }),
     });
     if (!respostaBrevo.ok) throw new Error(`Falha no envio pela Brevo (${respostaBrevo.status}).`);
-    return true;
+    const body=await respostaBrevo.json().catch(()=>null);
+    return {provedor:'BREVO',id:typeof body?.messageId==='string'?body.messageId:null};
   }
   if (!apiKey || !remetente) return false;
   const resposta = await fetch("https://api.resend.com/emails", {
@@ -208,7 +211,8 @@ async function enviarEmail(item: any) {
     }),
   });
   if (!resposta.ok) throw new Error(`Falha no provedor de e-mail (${resposta.status}).`);
-  return true;
+  const body=await resposta.json().catch(()=>null);
+  return {provedor:'RESEND',id:typeof body?.id==='string'?body.id:null};
 }
 
 async function enviarWhatsapp(item: any) {
@@ -266,9 +270,11 @@ async function atualizarFalha(item: any, erro: unknown) {
     proxima_tentativa_em: new Date(Date.now() + minutos * 60_000).toISOString(),
     updated_at: new Date().toISOString(),
   }).eq("id", item.id);
+  if(tentativas>=LIMITE_TENTATIVAS)await avisarFaturamentoAutomatico({empresaId:item.faturas.empresa_id,usinaId:item.faturas.usina_id,clienteId:item.cliente_id,faturaId:item.fatura_id,evento:'ERRO_ENVIO',chave:String(item.id),detalhe:`Não foi possível enviar a fatura ${item.faturas.referencia??''} por ${item.canal}. As tentativas automáticas foram encerradas. Confira o cadastro e o canal de envio.`}).catch(()=>console.error('Aviso de falha de envio pendente.'));
 }
 
 export async function processarFilaDeNotificacoes() {
+  await conferirEntregasEmail().catch(()=>console.error('Consulta de entrega de faturas indisponível.'));
   const configurados: Canal[] = [];
   if (
     (await microsoftEmailConfigurado()) ||
@@ -276,6 +282,9 @@ export async function processarFilaDeNotificacoes() {
     (process.env.RESEND_API_KEY && process.env.EMAIL_REMETENTE)
   ) configurados.push("EMAIL");
   if (process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_TEMPLATE_NAME && process.env.WHATSAPP_GRAPH_VERSION) configurados.push("WHATSAPP");
+  const pendentes=await supabase.from('notificacoes_fatura').select('*,faturas(*)').eq('status','PENDENTE').order('created_at').limit(50);
+  if(pendentes.error)throw pendentes.error;
+  for(const item of pendentes.data??[])if(!configurados.includes(item.canal)&&item.faturas?.empresa_id)await avisarFaturamentoAutomatico({empresaId:item.faturas.empresa_id,usinaId:item.faturas.usina_id,clienteId:item.cliente_id,faturaId:item.fatura_id,evento:'ENVIO_PENDENTE',chave:String(item.id),detalhe:`O envio por ${item.canal} está pendente porque o canal não está configurado. Confira as configurações; isso não confirma entrega ao cliente.`}).catch(()=>console.error('Aviso de canal pendente.'));
   if (!configurados.length) return;
 
   const { data: itens, error } = await supabase
@@ -293,13 +302,21 @@ export async function processarFilaDeNotificacoes() {
       .eq("id", item.id).eq("status", "PENDENTE").select("id").maybeSingle();
     if (claim.error) throw claim.error;
     if (!claim.data) continue;
+    let aceita=false;
     try {
       const enviada = item.canal === "EMAIL" ? await enviarEmail(item) : await enviarWhatsapp(item);
       if (enviada) {
-        await supabase.from("notificacoes_fatura").update({ status: "ENVIADA", enviada_em: new Date().toISOString(), erro: null, updated_at: new Date().toISOString() }).eq("id", item.id);
+        aceita=true;
+        const envio=item.canal==='EMAIL'&&typeof enviada==='object'?{provedor_envio:enviada.provedor,provedor_mensagem_id:enviada.id}:{};
+        const salvo=await supabase.from("notificacoes_fatura").update({ status: "ENVIADA", ...envio, enviada_em: new Date().toISOString(), erro: null, updated_at: new Date().toISOString() }).eq("id", item.id);
+        if(salvo.error)throw salvo.error;
+        await avisarFaturamentoAutomatico({empresaId:item.faturas.empresa_id,usinaId:item.faturas.usina_id,clienteId:item.cliente_id,faturaId:item.fatura_id,evento:'FATURA_ENVIADA',chave:String(item.id),detalhe:`Fatura ${item.faturas.referencia??''} enviada por ${item.canal}. O provedor aceitou o envio; isso ainda não confirma entrega nem leitura pelo cliente.`}).catch(()=>console.error('Aviso de envio pendente.'));
+      } else {
+        throw new Error('O canal de envio não confirmou a aceitação da fatura.');
       }
     } catch (erro) {
-      await atualizarFalha(item, erro);
+      if(!aceita)await atualizarFalha(item, erro);
+      else await supabase.from('notificacoes_fatura').update({status:'ERRO',erro:'O provedor aceitou o envio, mas a confirmação não pôde ser registrada. Confira antes de reenviar.',updated_at:new Date().toISOString()}).eq('id',item.id);
     }
   }
 }

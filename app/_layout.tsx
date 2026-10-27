@@ -1,3 +1,4 @@
+import { notificationRoute } from "../services/notification-route";
 import { router, Stack, useGlobalSearchParams, usePathname } from "expo-router";
 import { Alert, AppState, BackHandler, StyleSheet, ToastAndroid, View } from "react-native";
 import { useEffect, useRef, useState } from "react";
@@ -126,7 +127,7 @@ function RootNavigator() {
     });
     const abrirNotificacao = (evento: Notifications.NotificationResponse) => {
       if (!ativo) return;
-      const url = evento.notification.request.content.data?.url;
+      const url = notificationRoute(evento.notification.request.content.data?.url, evento.notification.request.content.data?.tipo);
       if (typeof url === "string" && url.startsWith("/") && !url.startsWith("//")) {
         router.push(url as any);
         void Notifications.clearLastNotificationResponseAsync().catch(() => undefined);
