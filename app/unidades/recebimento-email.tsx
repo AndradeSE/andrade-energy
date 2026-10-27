@@ -173,8 +173,8 @@ export default function RecebimentoEmail() {
       resultado === "sucesso" ? "E-mail conectado" : "Não foi possível conectar",
       resultado === "sucesso"
         ? recebimentoDeProducao
-          ? "A conexão foi concluída. As contas da usina poderão atualizar a produção automaticamente."
-          : "A conexão foi concluída. As contas da concessionária poderão ser importadas automaticamente."
+          ? "A autorização foi recebida. Confira abaixo se a leitura foi validada; até aparecer Importação automática ativa, a configuração ainda precisa de conferência."
+          : "A autorização foi recebida. Confira abaixo a validação da leitura antes de considerar a importação automática ativa."
         : emailConnectionFailureMessage(Array.isArray(params.conexaoErro) ? params.conexaoErro[0] : params.conexaoErro),
     );
     router.replace(rotaAtual());
@@ -326,7 +326,8 @@ export default function RecebimentoEmail() {
   const status = dados?.status ?? "NAO_CONFIGURADO";
   const tituloStatus = titulosStatus[status] ?? "Em configuração";
   const temErro = status === "ERRO";
-  const gmailConectado = conexoes.some((conexao) => conexao.provedor.toUpperCase() === "GMAIL" && conexaoAtiva(conexao));
+  const gmailConexao = conexoes.find(conexao => conexao.provedor.toUpperCase() === "GMAIL" && conexaoAtiva(conexao));
+  const gmailConectado = Boolean(gmailConexao?.automatico && !gmailConexao?.erro);
   const outlookConectado = conexoes.some((conexao) => conexao.provedor.toUpperCase() === "OUTLOOK" && conexao.automatico && !conexao.erro);
 
   return <Screen>
@@ -360,11 +361,12 @@ export default function RecebimentoEmail() {
         <Text style={styles.inlineSectionTitle}>COMO DESEJA CONFIGURAR?</Text>
         <Text style={styles.setupHelp}>Conecte o Gmail ou o Hotmail / Outlook para configurar o recebimento automático. Você também pode configurar o encaminhamento manualmente.</Text>
         <Text style={styles.setupNotice}>Importante: use a conta de e-mail que recebe as faturas da CEMIG.</Text>
+        {gmailConexao&&!gmailConectado?<Card><Text accessibilityRole="alert" style={styles.errorText}>{gmailConexao.erro??gmailConexao.mensagem??'A leitura automática ainda não foi confirmada. Reconecte o Gmail e autorize a leitura dos e-mails.'}</Text></Card>:null}
         <View style={styles.choiceActions}>
-          <Text style={styles.setupHelp}>Na autorização do Google, marque a permissão de ler os e-mails do Gmail. Ela é necessária para importar as contas automaticamente.</Text>
+          <Text style={styles.setupHelp}>Para concluir a configuração, autorize a leitura dos e-mails no Google. Apenas conectar a conta não ativa a importação: a permissão e a primeira consulta precisam ser confirmadas.</Text>
           <TouchableOpacity accessibilityLabel="Conectar Gmail" activeOpacity={0.84} disabled={Boolean(conectandoProvedor) || gmailConectado} onPress={() => { setModoConfiguracao("GMAIL"); void conectarEmail("GMAIL"); }} style={[styles.providerButton, (Boolean(conectandoProvedor) || gmailConectado) && styles.providerButtonDisabled]}>
             <GmailMark />
-            <Text style={[styles.providerButtonText, gmailConectado && styles.providerButtonTextDisabled]}>{conectandoProvedor === "GMAIL" ? "Conectando..." : gmailConectado ? "Gmail conectado" : "Conectar Gmail"}</Text>
+            <Text style={[styles.providerButtonText, gmailConectado && styles.providerButtonTextDisabled]}>{conectandoProvedor === "GMAIL" ? "Conectando..." : gmailConectado ? "Leitura do Gmail ativa" : gmailConexao ? "Reconectar Gmail e autorizar leitura" : "Conectar Gmail"}</Text>
           </TouchableOpacity>
           <TouchableOpacity accessibilityLabel="Conectar Hotmail ou Outlook" activeOpacity={0.84} disabled={Boolean(conectandoProvedor) || outlookConectado} onPress={() => conectarEmail("OUTLOOK")} style={[styles.providerButton, (Boolean(conectandoProvedor) || outlookConectado) && styles.providerButtonDisabled]}>
             <OutlookMark />
