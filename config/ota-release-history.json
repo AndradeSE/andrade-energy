@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261027-152039",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Corrige conexão do Gerador Preview com Render reserva após esgotamento de cota do principal."
+    ]
+  },
+  {
     "numero": "OTA 20261027-151321",
     "data": "27/10/2026",
     "variant": "consumidor",
