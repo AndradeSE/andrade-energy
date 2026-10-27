@@ -110,7 +110,7 @@ function RootNavigator() {
     let active = true;
     setSessionError(false);
     const selection = initialSelectionRef.current;
-    void api.get("/auth/session", { timeout: 15000 }).then(async ({ data }) => {
+    void api.get("/auth/session", { timeout: 70000 }).then(async ({ data }) => {
       const fresh = data?.usuario;
       if (!fresh?.id || String(fresh.id) !== String(currentUser.id)) throw new Error("Sessão não confirmada.");
       if (!active) return;

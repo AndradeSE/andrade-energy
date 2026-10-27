@@ -14,6 +14,7 @@ test('control remains reachable through Netlify when the Render reserve is suspe
  const result=await readContingencyControlSource('production',(async(url:any,input:any)=>{
    calls.push(url);assert.equal(input.method??'GET','GET');assert.equal(input.redirect,'error');
    if(url.includes('onrender.com'))throw new Error('unavailable');
+   assert.equal(url,'https://andrade-energy-api-reserva.netlify.app/contingency/runtime');
    return new Response(JSON.stringify({environment:'production',executor:'NETLIFY',revision:5,contingency:{readyForFailover:true}}));
  }) as typeof fetch);
  assert.equal(result.baseURL,CONTINGENCY_ENDPOINTS.production.netlify);assert.equal(result.body.executor,'NETLIFY');assert.equal(calls.length,2);
@@ -51,3 +52,9 @@ test("explicit inactive-owner response invalidates routing without replaying wor
  assert.equal(await resolver(),CONTINGENCY_ENDPOINTS.preview.standby);
  assert.equal(reads,2);
 });
+
+ test("an unapproved old Netlify release cannot hide the confirmed Render reserve",async()=>{
+ const result=await readContingencyControlSource('preview',(async(url:any)=>new Response(JSON.stringify({environment:'preview',executor:'RENDER_RESERVA',revision:21,contingency:{readyForFailover:url.includes('onrender.com')}}))) as typeof fetch);
+ assert.equal(result.baseURL,CONTINGENCY_ENDPOINTS.preview.standby);
+ assert.equal(resolveContingencyTarget('preview',result.body),CONTINGENCY_ENDPOINTS.preview.standby);
+ });
