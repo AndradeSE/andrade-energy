@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {ScrollView,Text,TextInput,View} from 'react-native';
+import {Keyboard,ScrollView,Text,TextInput,View} from 'react-native';
 import {AppHeader,Button,Card,Metric,Screen} from '../components/ui';
 import {Colors} from '../theme';
 import {simularEconomia} from '../utils/simulacao-economia';
@@ -9,8 +9,8 @@ function numero(s:string){return Number(s.replace(/\./g,'').replace(',','.'));}
 export default function SimulacaoEconomia(){
  const [conta,setConta]=useState(''),[base,setBase]=useState(''),[desconto,setDesconto]=useState('');
  const [resultado,setResultado]=useState<ReturnType<typeof simularEconomia>>(),[erro,setErro]=useState('');
- const change=(set:(v:string)=>void)=>(v:string)=>{set(v.replace(/[^\d,]/g,''));setResultado(undefined);setErro('');};
- function calcular(){try{if(!conta||!base||!desconto)throw new Error('Preencha a conta, a parcela de energia e o desconto da proposta.');setResultado(simularEconomia(numero(conta),numero(base),numero(desconto)));setErro('');}catch(e:any){setErro(e.message);setResultado(undefined);}}
+ const change=(set:(v:string)=>void)=>(v:string)=>{set(v.replace(/\./g,',').replace(/[^\d,]/g,''));setResultado(undefined);setErro('');};
+ function calcular(){Keyboard.dismiss();try{if(!conta||!base||!desconto)throw new Error('Preencha a conta, a parcela de energia e o desconto da proposta.');setResultado(simularEconomia(numero(conta),numero(base),numero(desconto)));setErro('');}catch(e:any){setErro(e.message);setResultado(undefined);}}
  const field=(label:string,value:string,set:(v:string)=>void)=><View style={{gap:8}}><Text style={{color:Colors.text,fontWeight:'600'}}>{label}</Text><TextInput accessibilityLabel={label} value={value} onChangeText={change(set)} keyboardType="decimal-pad" maxLength={14} style={{borderWidth:1,borderColor:Colors.border,borderRadius:12,padding:14,fontSize:18,color:Colors.text,backgroundColor:Colors.surface}}/></View>;
  return <Screen><AppHeader variant="subpage" showPlantSwitch={false} title="Simular economia" subtitle="Estimativa para o cliente" contextTitle="Comparação de valores" contextSubtitle="Sem criar contrato ou cobrança"/><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{padding:20,gap:20,paddingBottom:40}}>
   <Card><View style={{gap:18}}><Text style={{color:Colors.subtitle,lineHeight:22}}>Compare sua conta atual com uma estimativa usando o desconto da proposta Andrade. Esta simulação não cria contrato nem cobrança.</Text>
