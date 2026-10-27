@@ -46,11 +46,6 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
     catch(e:any){Alert.alert('Âncora não alterada',e?.response?.data?.message??'Não foi possível salvar a escolha. Tente novamente.');}
     finally{setOcupado(false);}
   }
-  async function salvarAuto(){
-    const pedido=escopo.current;setOcupado(true);
-    try{const c=await salvarConfiguracaoRateio(usinaId,ancora,numerosAtuaisConfirmados);if(pedido===escopo.current){setConfig(c);setErroConfig(false);Alert.alert("Configuração da planilha salva","A âncora padrão fica salva para esta usina. A planilha será gerada após a produção e todas as faturas das UCs vigentes. Isso não ativa envio automático à Cemig.");}}
-    catch(e:any){Alert.alert("Não foi possível salvar",e?.response?.data?.message??"Tente novamente.");}finally{setOcupado(false);}
-  }
   async function baixarAuto(){if(!competencia||ocupado)return;const pedido=escopo.current;setOcupado(true);try{const plano=await buscarRateioAutomatico(usinaId,competencia);if(pedido!==escopo.current)return;setResultado(plano);setVisualizando(true);}catch(e:any){Alert.alert("Rateio automático",e?.response?.data?.message??e.message??"Tente novamente.");}finally{setOcupado(false);}}
   async function gerar() {
     if(!competencia||ocupado)return;
@@ -80,14 +75,13 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
     </View>
     <Pressable accessibilityRole="button" accessibilityState={{expanded:detalhes}} onPress={()=>setDetalhes(v=>!v)} style={{minHeight:44,flexDirection:"row",alignItems:"center",gap:8}}><Ionicons name="information-circle-outline" size={20} color={Colors.primary}/><Text style={{color:Colors.primary}}>Como é calculado?</Text></Pressable>
     {detalhes?<Text style={{color:Colors.subtitle}}>(Consumo médio − saldo de créditos da UC) ÷ produção média real da usina × 100, sem adicional e com mínimo de zero. O restante fica na UC âncora. Recalcule a cada competência antes de solicitar a alteração à Cemig.</Text>:null}
-    <Pressable accessibilityRole="button" accessibilityState={{expanded:ajustes}} onPress={()=>setAjustes(v=>!v)} style={{minHeight:48,flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}><Text style={{fontWeight:"700",color:Colors.text}}>Configuração da planilha</Text><Ionicons name={ajustes?"chevron-up":"chevron-down"} size={20} color={Colors.primary}/></Pressable>
+    <Pressable accessibilityRole="button" accessibilityState={{expanded:ajustes}} onPress={()=>setAjustes(v=>!v)} style={{minHeight:48,flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}><Text style={{fontWeight:"700",color:Colors.text}}>UC âncora padrão</Text><Ionicons name={ajustes?"chevron-up":"chevron-down"} size={20} color={Colors.primary}/></Pressable>
     <View style={{display:ajustes?"flex":"none",gap:Spacing.sm}}><UcAncoraSelector usinaId={usinaId} empresaId={empresaId} value={ancora} disabled={ocupado} onChange={v=>void escolherAncora(v)} />
     <Text style={{color:Colors.subtitle}}>Use o número atual da UC. Sem âncora, gera rascunho. Titulares, documentos e e-mail vêm dos cadastros existentes.</Text>
     <Text style={{color:Colors.subtitle}}>O app verifica formato, duplicidade, titulares e percentuais. A aceitação dos números cadastrados depende da validação da Cemig.</Text>
-    <Text style={{color:Colors.subtitle,lineHeight:22}}>Esta configuração controla somente a geração da planilha e a âncora padrão. Não autoriza nem ativa envio à Cemig.</Text>
-    <Button title="Salvar configuração da planilha" disabled={ocupado} onPress={()=>void salvarAuto()} />
+    <Text style={{color:Colors.subtitle,lineHeight:22}}>Escolha a UC âncora e confirme. Ela fica como padrão desta usina para os próximos meses; essa escolha não envia o rateio.</Text>
     </View>
-    <Text style={{color:Colors.subtitle}}>{erroConfig?"Não foi possível consultar a automação. Tente salvar a configuração novamente.":config?.habilitado?"Automático: aguarda produção + faturas de todas as UCs vigentes. Ao gerar, envia e-mail e aviso ao gerador.":config?"Geração automática não habilitada. Confira e salve as configurações do rateio.":"Consultando configuração automática…"}</Text>
+    <Text style={{color:Colors.subtitle}}>{erroConfig?"Não foi possível consultar a automação. Tente consultar a configuração novamente.":config?.habilitado?"Automático: aguarda produção + faturas de todas as UCs vigentes. Ao gerar, envia e-mail e aviso ao gerador.":config?"Geração automática não habilitada. Confira a configuração com a gestão.":"Consultando configuração automática…"}</Text>
     {config?.registros?.find(r=>r.competencia.slice(0,7)===competencia)?.status==="GERADO"?<Button title="Abrir planilha gerada automaticamente" disabled={ocupado} onPress={()=>void baixarAuto()} />:null}
     {config?.registros?.find(r=>r.competencia.slice(0,7)===competencia)?.status==="ERRO"?<Text style={{color:Colors.subtitle}}>Não foi possível concluir a geração automática. {config.registros.find(r=>r.competencia.slice(0,7)===competencia)?.erro}</Text>:null}
     {resultado?<><Text style={{color:Colors.primary,fontWeight:"700"}}>{resultado.rascunho?"Rascunho para conferência":"CSV no padrão Cemig"}</Text><SecaoRateio titulo="Conferência dos dados" resumo={`${resultado.pendencias?.length??0} pendência(s) · base ${resultado.producaoMedia.toLocaleString("pt-BR",{maximumFractionDigits:2})} kWh/mês`} aberto={revisaoAberta} onPress={()=>setRevisaoAberta(v=>!v)}/></>:null}

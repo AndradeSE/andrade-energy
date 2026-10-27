@@ -11,6 +11,7 @@ import {listarUcsAncoras,salvarUcAncora,excluirUcAncora,type UcAncoraCadastrada}
 export default function UcAncoraSelector({usinaId,empresaId,value,onChange,disabled}:{usinaId:string;empresaId:string;value:string;onChange:(uc:string)=>void;disabled:boolean}){
  const [itens,setItens]=useState<UcAncoraCadastrada[]>([]),[aberto,setAberto]=useState(false),[carregando,setCarregando]=useState(true),[erro,setErro]=useState(false),[salvando,setSalvando]=useState(false);
  const [formulario,setFormulario]=useState(false),[edicao,setEdicao]=useState<UcAncoraCadastrada>(),[numero,setNumero]=useState(''),[apelido,setApelido]=useState('');
+ const [escolha,setEscolha]=useState(value);
  const [revisao,setRevisao]=useState(0);const insets=useSafeAreaInsets();
  const escopo=`${empresaId}:${usinaId}`,atual=useRef(escopo);atual.current=escopo;
  useEffect(()=>{let ativo=true;setItens([]);setErro(false);setCarregando(true);setAberto(false);setFormulario(false);setSalvando(false);
@@ -41,7 +42,7 @@ export default function UcAncoraSelector({usinaId,empresaId,value,onChange,disab
  }
  return <View style={{gap:8}}>
   <Text style={styles.titulo}>UC âncora</Text>
-  <Pressable accessibilityRole="button" accessibilityLabel={`Selecionar UC âncora. ${selecionada?.apelido||value||'Nenhuma selecionada'}`} disabled={disabled||carregando} onPress={()=>setAberto(true)} style={[styles.seletor,{opacity:disabled?0.5:1}]}>
+  <Pressable accessibilityRole="button" accessibilityLabel={`Selecionar UC âncora. ${selecionada?.apelido||value||'Nenhuma selecionada'}`} disabled={disabled||carregando} onPress={()=>{setEscolha(value);setAberto(true);}} style={[styles.seletor,{opacity:disabled?0.5:1}]}>
    <View style={{flex:1,gap:4}}><Text style={styles.titulo}>{carregando?'Carregando âncoras…':selecionada?.apelido|| (value?'UC âncora selecionada':'Selecionar ou adicionar âncora')}</Text>
     {value?<Text style={styles.texto}>UC {value}{!selecionada&&!carregando?' · fora da lista':''}</Text>:null}</View><Ionicons name="chevron-down" color={Colors.primary} size={22}/>
   </Pressable>
@@ -55,7 +56,7 @@ export default function UcAncoraSelector({usinaId,empresaId,value,onChange,disab
       {formulario?<>
        <FormField label="Número da UC" required value={numero} onChangeText={v=>setNumero(v.replace(/\D/g,'').slice(0,20))} keyboardType="number-pad" editable={!salvando} maxLength={20} returnKeyType="done" onSubmitEditing={()=>Keyboard.dismiss()}/>
        <FormField label="Apelido (opcional)" value={apelido} onChangeText={setApelido} maxLength={80} editable={!salvando} placeholder="Ex.: Reserva Brazópolis" returnKeyType="done" onSubmitEditing={()=>Keyboard.dismiss()}/>
-       <Button title={salvando?'Salvando…':'Salvar e selecionar'} disabled={salvando||disabled} onPress={()=>void salvar()}/>
+       <Button title={salvando?'Salvando…':'Salvar e confirmar âncora'} disabled={salvando||disabled} onPress={()=>void salvar()}/>
        <Pressable accessibilityRole="button" disabled={salvando} onPress={()=>setFormulario(false)} style={styles.acao}><Text style={{color:Colors.primary}}>Voltar à lista</Text></Pressable>
       </>:<>
        <Text style={styles.texto}>Âncoras da empresa, disponíveis para selecionar nas suas usinas.</Text>
@@ -63,15 +64,17 @@ export default function UcAncoraSelector({usinaId,empresaId,value,onChange,disab
        {erro?<Text style={{color:Colors.danger}}>Não foi possível consultar a lista. Feche e tente novamente.</Text>:null}
        {!erro&&!itens.length?<Text style={styles.texto}>Nenhuma UC cadastrada. Adicione a primeira âncora.</Text>:null}
        {itens.map(item=><View key={item.id} style={styles.item}>
-        <Pressable accessibilityRole="radio" accessibilityState={{checked:item.numero===value,disabled:salvando}} accessibilityLabel={`${item.apelido||'UC âncora'}, UC ${item.numero}`} disabled={salvando} onPress={()=>{onChange(item.numero);fechar();}} style={[styles.linha,{minHeight:54}]}>
-         <Ionicons name={item.numero===value?'radio-button-on':'radio-button-off'} size={23} color={Colors.primary}/><View style={{flex:1,gap:4}}><Text style={styles.titulo}>{item.apelido||'UC sem apelido'}</Text><Text style={styles.texto}>UC {item.numero}</Text></View>
+        <Pressable accessibilityRole="radio" accessibilityState={{checked:item.numero===escolha,disabled:salvando}} accessibilityLabel={`${item.apelido||'UC âncora'}, UC ${item.numero}`} disabled={salvando} onPress={()=>setEscolha(item.numero)} style={[styles.linha,{minHeight:54}]}>
+         <Ionicons name={item.numero===escolha?'radio-button-on':'radio-button-off'} size={23} color={Colors.primary}/><View style={{flex:1,gap:4}}><Text style={styles.titulo}>{item.apelido||'UC sem apelido'}</Text><Text style={styles.texto}>UC {item.numero}</Text></View>
         </Pressable>
         <View style={{flexDirection:'row',justifyContent:'flex-end',gap:12}}>
          <Pressable accessibilityRole="button" accessibilityLabel={`Editar ${item.apelido||item.numero}`} disabled={salvando} onPress={()=>editar(item)} style={styles.acao}><Ionicons name="pencil-outline" size={18} color={Colors.primary}/><Text style={{color:Colors.primary}}>Editar</Text></Pressable>
          <Pressable accessibilityRole="button" accessibilityLabel={`Excluir ${item.apelido||item.numero}`} disabled={salvando} onPress={()=>remover(item)} style={styles.acao}><Ionicons name="trash-outline" size={18} color={Colors.danger}/><Text style={{color:Colors.danger}}>Excluir</Text></Pressable>
         </View>
        </View>)}
-       <Pressable accessibilityRole="button" disabled={salvando} onPress={()=>{onChange('');fechar();}} style={styles.acao}><Text style={{color:Colors.primary}}>Continuar sem âncora definida</Text></Pressable>
+       <Pressable accessibilityRole="button" disabled={salvando} onPress={()=>setEscolha('')} style={styles.acao}><Text style={{color:Colors.primary}}>{escolha===''?'✓ Sem âncora definida (rascunho)':'Usar sem âncora definida (rascunho)'}</Text></Pressable>
+       <Button title="Confirmar âncora" disabled={salvando||disabled||erro} onPress={()=>{onChange(escolha);fechar();}}/>
+       <Pressable accessibilityRole="button" onPress={fechar} disabled={salvando} style={styles.acao}><Text style={{color:Colors.primary}}>Cancelar</Text></Pressable>
       </>}
      </ScrollView>
     </View>
