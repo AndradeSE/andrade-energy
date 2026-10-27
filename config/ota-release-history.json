@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261027-100053",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio: âncora padrão, conferência automática e modos claros; Gmail atualiza conexão"
+    ]
+  },
+  {
     "numero": "OTA 20261027-093254",
     "data": "27/10/2026",
     "variant": "gerador",
