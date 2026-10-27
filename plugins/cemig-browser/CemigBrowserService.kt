@@ -55,7 +55,7 @@ class CemigBrowserService : Service() {
             loadWithOverviewMode = true
         }
         browser.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view:WebView,request:WebResourceRequest):Boolean = !allowed(request.url.toString())
+            override fun shouldOverrideUrlLoading(view:WebView,request:WebResourceRequest):Boolean = request.isForMainFrame && !allowed(request.url.toString())
             @Suppress("DEPRECATION")
             override fun shouldOverrideUrlLoading(view:WebView,url:String):Boolean = !allowed(url)
             override fun onReceivedSslError(view:WebView,handler:SslErrorHandler,error:android.net.http.SslError) { handler.cancel() }
