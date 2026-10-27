@@ -87,7 +87,7 @@ export async function enfileirarFaturasGmail(deps: DependenciasGmail = {
         }).eq("id", conexao.id);
         if (erroAtualizar) throw erroAtualizar;
         if (['GMAIL_LEITURA_NAO_AUTORIZADA','OAUTH_REAUTORIZACAO','GMAIL_API_DESATIVADA'].includes(codigo))
-          await deps.avisar?.({empresaId:conexao.empresa_id,evento:'ERRO_IMPORTACAO',chave:`gmail:${conexao.id}:${new Date().toISOString().slice(0,10)}`,detalhe:'O faturamento automático encontrou uma conexão Gmail sem leitura autorizada ou indisponível. Confira a conexão de e-mail e autorize novamente quando solicitado. Nenhuma credencial deve ser informada à Solar.'}).catch(()=>console.error('Aviso da conexão Gmail pendente.'));
+          await deps.avisar?.({empresaId:conexao.empresa_id,unidadeId:conexao.unidade_consumidora_id,evento:'ERRO_IMPORTACAO',chave:`gmail:${conexao.id}:${new Date().toISOString().slice(0,10)}`,detalhe:'O faturamento automático encontrou uma conexão Gmail sem leitura autorizada ou indisponível. Confira a conexão de e-mail e autorize novamente quando solicitado. Nenhuma credencial deve ser informada à Solar.'}).catch(()=>console.error('Aviso da conexão Gmail pendente.'));
       }
     }
   } finally { executando = false; }
