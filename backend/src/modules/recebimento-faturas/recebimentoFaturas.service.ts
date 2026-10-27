@@ -872,7 +872,7 @@ async function processarRegistro(registro: any) {
       erro: mensagem,
       updated_at: agora.toISOString(),
     }).eq("id", assumido.id);
-    if (definitivo && assumido.empresa_id) await avisarFaturamentoAutomatico({empresaId:assumido.empresa_id,evento:'ERRO_IMPORTACAO',chave:String(assumido.id),detalhe:'Um e-mail de fatura não pôde ser processado após as tentativas automáticas. Confira o recebimento automático e os dados da unidade antes de reprocessar.'}).catch(()=>console.error('Aviso de falha de importação pendente.'));
+    if (definitivo && assumido.empresa_id) await avisarFaturamentoAutomatico({empresaId:assumido.empresa_id,unidadeId:assumido.unidade_consumidora_id,evento:'ERRO_IMPORTACAO',chave:String(assumido.id),detalhe:'Um e-mail de fatura não pôde ser processado após as tentativas automáticas. Confira o recebimento automático e os dados da unidade antes de reprocessar.'}).catch(()=>console.error('Aviso de falha de importação pendente.'));
     if (assumido.unidade_consumidora_id && definitivo) {
       await atualizarUnidadeRecebimento(assumido.unidade_consumidora_id, {
         recebimento_email_status: "ERRO",
