@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261027-142914",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Simulador de economia: corrige entrada decimal, revela resultados ao calcular e mantém atalho sempre visível"
+    ]
+  },
+  {
     "numero": "OTA 20261027-142653",
     "data": "27/10/2026",
     "variant": "consumidor",
