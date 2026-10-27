@@ -46,7 +46,7 @@ export default function UcAncoraSelector({usinaId,empresaId,value,onChange,disab
     {value?<Text style={styles.texto}>UC {value}{!selecionada&&!carregando?' · fora da lista':''}</Text>:null}</View><Ionicons name="chevron-down" color={Colors.primary} size={22}/>
   </Pressable>
   {erro?<Pressable accessibilityRole="button" onPress={()=>setRevisao(v=>v+1)} style={styles.acao}><Text style={{color:Colors.danger}}>Lista indisponível. Tocar para tentar novamente.</Text></Pressable>:null}
-  <Text style={styles.texto}>Cadastre número e apelido. Para aplicar a escolha a esta usina, salve a configuração do rateio abaixo.</Text>
+  <Text style={styles.texto}>Cadastre número e apelido. A última escolha salva será o padrão desta usina nos próximos meses.</Text>
   <Modal visible={aberto&&!disabled} transparent animationType="slide" onRequestClose={fechar}>
    <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':'height'} style={styles.fundo}>
     <View accessibilityViewIsModal style={[styles.painel,{paddingBottom:Math.max(insets.bottom,16),marginTop:insets.top+24}]}>

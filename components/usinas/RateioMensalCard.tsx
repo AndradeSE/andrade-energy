@@ -18,7 +18,8 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
   const [arquivoAberto,setArquivoAberto]=useState(false);
   const [envioAberto,setEnvioAberto]=useState(false);
   const [ancora,setAncora]=useState("");
-  const [numerosAtuaisConfirmados,setNumerosAtuaisConfirmados]=useState(false);
+  // A conferência é estrutural no servidor; não registramos aceite humano fictício.
+  const numerosAtuaisConfirmados=false;
   const [ocupado,setOcupado]=useState(false);
   const [resultado,setResultado]=useState<Awaited<ReturnType<typeof gerarPlanilhaRateio>>>();
   const [config,setConfig]=useState<ConfiguracaoRateio>();
@@ -30,7 +31,7 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
   const chave=`rateio:ancora:${empresaId}:${usinaId}`;
   const escopo=useRef("");
   escopo.current=`${chave}:${competencia}`;
-  useEffect(()=>{let ativo=true;setAncora("");setNumerosAtuaisConfirmados(false);setResultado(undefined);setConfig(undefined);setErroConfig(false);void obterConfiguracaoRateio(usinaId).then(async c=>{const local=await AsyncStorage.getItem(chave);if(ativo){setConfig(c);setAncora(c.uc_ancora||local||"");setNumerosAtuaisConfirmados(c.numeros_confirmados);}}).catch(()=>{if(ativo)setErroConfig(true);});return()=>{ativo=false;};},[chave,usinaId]);
+  useEffect(()=>{let ativo=true;setAncora("");setResultado(undefined);setConfig(undefined);setErroConfig(false);void obterConfiguracaoRateio(usinaId).then(async c=>{const local=await AsyncStorage.getItem(chave);if(ativo){setConfig(c);setAncora(c.uc_ancora??local??"");}}).catch(()=>{if(ativo)setErroConfig(true);});return()=>{ativo=false;};},[chave,usinaId]);
   useEffect(()=>{setResultado(undefined);setVisualizando(false);},[competencia]);
   useEffect(()=>{
     let ativo=true;setSaldoAncora(undefined);setErroSaldo(false);
@@ -39,6 +40,12 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
     const timer=setTimeout(()=>void obterSaldoAncora(usinaId,ancora,competencia).then(s=>{if(ativo)setSaldoAncora(s);}).catch(()=>{if(ativo)setErroSaldo(true);}).finally(()=>{if(ativo)setConsultandoSaldo(false);}),350);
     return()=>{ativo=false;clearTimeout(timer);};
   },[usinaId,empresaId,ancora,competencia,config,revisaoSaldo]);
+  async function escolherAncora(valor:string){
+    if(ocupado)return;const pedido=escopo.current;setOcupado(true);
+    try{const c=await salvarConfiguracaoRateio(usinaId,valor,false);if(pedido!==escopo.current)return;setAncora(c.uc_ancora);setConfig(c);setResultado(undefined);await AsyncStorage.setItem(chave,c.uc_ancora);}
+    catch(e:any){Alert.alert('Âncora não alterada',e?.response?.data?.message??'Não foi possível salvar a escolha. Tente novamente.');}
+    finally{setOcupado(false);}
+  }
   async function salvarAuto(){
     const pedido=escopo.current;setOcupado(true);
     try{const c=await salvarConfiguracaoRateio(usinaId,ancora,numerosAtuaisConfirmados);if(pedido===escopo.current){setConfig(c);setErroConfig(false);Alert.alert("Rateio automático configurado","A âncora salva vale para esta usina em todos os aparelhos. O sistema aguardará a produção e todas as faturas das UCs vigentes.");}}
@@ -50,7 +57,7 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
     const pedido=escopo.current;
     setOcupado(true);
     try {
-      const plano=await gerarPlanilhaRateio(usinaId,competencia,ancora,true,{numerosAtuaisConfirmados,formatoCemig:!!ancora&&numerosAtuaisConfirmados});
+      const plano=await gerarPlanilhaRateio(usinaId,competencia,ancora,true,{numerosAtuaisConfirmados,formatoCemig:!!ancora});
       if(pedido!==escopo.current)return;
       setResultado(plano);
       await AsyncStorage.setItem(chave,ancora);
@@ -74,9 +81,9 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
     <Pressable accessibilityRole="button" accessibilityState={{expanded:detalhes}} onPress={()=>setDetalhes(v=>!v)} style={{minHeight:44,flexDirection:"row",alignItems:"center",gap:8}}><Ionicons name="information-circle-outline" size={20} color={Colors.primary}/><Text style={{color:Colors.primary}}>Como é calculado?</Text></Pressable>
     {detalhes?<Text style={{color:Colors.subtitle}}>(Consumo médio − saldo de créditos da UC) ÷ produção média real da usina × 100, sem adicional e com mínimo de zero. O restante fica na UC âncora. Recalcule a cada competência antes de solicitar a alteração à Cemig.</Text>:null}
     <Pressable accessibilityRole="button" accessibilityState={{expanded:ajustes}} onPress={()=>setAjustes(v=>!v)} style={{minHeight:48,flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}><Text style={{fontWeight:"700",color:Colors.text}}>Configurações do rateio</Text><Ionicons name={ajustes?"chevron-up":"chevron-down"} size={20} color={Colors.primary}/></Pressable>
-    <View style={{display:ajustes?"flex":"none",gap:Spacing.sm}}><UcAncoraSelector usinaId={usinaId} empresaId={empresaId} value={ancora} disabled={ocupado} onChange={v=>{setAncora(v);setNumerosAtuaisConfirmados(false);setResultado(undefined);}} />
+    <View style={{display:ajustes?"flex":"none",gap:Spacing.sm}}><UcAncoraSelector usinaId={usinaId} empresaId={empresaId} value={ancora} disabled={ocupado} onChange={v=>void escolherAncora(v)} />
     <Text style={{color:Colors.subtitle}}>Use o número atual da UC. Sem âncora, gera rascunho. Titulares, documentos e e-mail vêm dos cadastros existentes.</Text>
-    <Opcao label="Conferi os números atuais das UCs" checked={numerosAtuaisConfirmados} disabled={ocupado} onPress={()=>setNumerosAtuaisConfirmados(v=>!v)} />
+    <Text style={{color:Colors.subtitle}}>O app verifica formato, duplicidade, titulares e percentuais. A aceitação dos números cadastrados depende da validação da Cemig.</Text>
     <Button title="Salvar configuração do rateio automático" disabled={ocupado} onPress={()=>void salvarAuto()} />
     </View>
     <Text style={{color:Colors.subtitle}}>{erroConfig?"Não foi possível consultar a automação. Tente salvar a configuração novamente.":config?.habilitado?"Automático: aguarda produção + faturas de todas as UCs vigentes. Ao gerar, envia e-mail e aviso ao gerador.":config?"Geração automática não habilitada. Confira e salve as configurações do rateio.":"Consultando configuração automática…"}</Text>
@@ -96,14 +103,15 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
       <Button title={ocupado?"Preparando…":resultado?"Abrir planilha":"Gerar e abrir planilha"} disabled={ocupado||!competencia} onPress={()=>resultado?setVisualizando(true):void gerar()} />
       {resultado?<Button title="Atualizar planilha" disabled={ocupado} onPress={()=>Alert.alert("Atualizar planilha","Recalcular esta competência e enviar a nova cópia ao gerador?",[{text:"Cancelar",style:"cancel"},{text:"Atualizar",onPress:()=>void gerar()}])}/>:null}
     </View>:null}
-    <SecaoRateio titulo="2. Enviar pelo navegador" resumo="Etapa manual no celular · login e anexo do CSV" aberto={envioAberto} onPress={()=>setEnvioAberto(v=>!v)}/>
+    <SecaoRateio titulo="2. Envio à Cemig" resumo="Escolha entre envio manual e automático" aberto={envioAberto} onPress={()=>setEnvioAberto(v=>!v)}/>
     <View style={{display:envioAberto?"flex":"none",gap:Spacing.sm}}>
+      <Text style={{color:Colors.text,fontWeight:"700",fontSize:17}}>Envio manual</Text>
       <Text style={{color:Colors.subtitle}}>No celular, abra a Cemig, entre na sua conta e anexe o CSV em Compensação de Geração Distribuída. Este botão somente abre o portal: não envia o arquivo sozinho. A geração da planilha não comprova protocolo nem aprovação.</Text>
       <Pressable accessibilityRole="link" onPress={()=>void Linking.openURL("https://atende.cemig.com.br/Login").catch(()=>Alert.alert("Não foi possível abrir","Acesse o Cemig Atende no navegador."))} style={{minHeight:44,justifyContent:"center"}}><Text style={{color:Colors.primary,fontWeight:"700"}}>Abrir Cemig Atende</Text></Pressable>
+      <View style={{borderTopWidth:1,borderColor:Colors.border,paddingTop:16,marginTop:12,gap:10}}><Text style={{color:Colors.text,fontWeight:'700',fontSize:17}}>Autorizar e enviar</Text><Text style={{color:Colors.subtitle,lineHeight:22}}>Você revisa o arquivo e autoriza o robô a enviar. A ligação com o protocolo definitivo ainda está em validação; a simulação para antes de solicitar o cadastro.</Text><Button title="Envio autorizado · em validação" disabled onPress={()=>{}}/></View>
+      <View style={{borderTopWidth:1,borderColor:Colors.border,paddingTop:16,marginTop:12,gap:10}}><Text style={{color:Colors.text,fontWeight:'700',fontSize:17}}>Envio automático</Text><Text style={{color:Colors.subtitle,lineHeight:22}}>Em testes. O robô em nuvem ainda não está disponível para envio definitivo. A geração automática da planilha não envia nem protocola o rateio na Cemig.</Text><Button title="Automático · em testes" disabled onPress={()=>{}}/></View>
     </View>
   </View></Card></>;
 }
 
 function SecaoRateio({titulo,resumo,aberto,onPress}:{titulo:string;resumo:string;aberto:boolean;onPress:()=>void}){return <Pressable accessibilityRole="button" accessibilityState={{expanded:aberto}} onPress={onPress} style={{minHeight:64,borderTopWidth:1,borderTopColor:Colors.border,paddingVertical:12,flexDirection:"row",alignItems:"center",gap:10}}><View style={{flex:1,gap:4}}><Text style={{fontWeight:"700",color:Colors.text}}>{titulo}</Text><Text style={{color:Colors.subtitle,lineHeight:20}}>{resumo}</Text></View><Ionicons name={aberto?"chevron-up":"chevron-down"} size={20} color={Colors.primary}/></Pressable>;}
-
-function Opcao({label,checked,disabled,onPress}:{label:string;checked:boolean;disabled:boolean;onPress:()=>void}){return <Pressable accessibilityRole="checkbox" accessibilityLabel={label} accessibilityState={{checked,disabled}} disabled={disabled} onPress={onPress} style={{minHeight:48,flexDirection:"row",alignItems:"center",gap:10,opacity:disabled?0.45:1}}><Ionicons name={checked?"checkbox":"square-outline"} size={24} color={checked?Colors.primary:Colors.subtitle}/><Text style={{flex:1,color:Colors.text,lineHeight:20}}>{label}</Text></Pressable>;}
