@@ -5,6 +5,7 @@ import android.content.*
 import android.graphics.Color
 import android.os.*
 import android.view.ViewGroup
+import android.view.WindowInsets
 import android.widget.*
 
 class CemigBrowserActivity : Activity() {
@@ -34,6 +35,14 @@ class CemigBrowserActivity : Activity() {
         window.statusBarColor=Color.rgb(0,105,70)
         window.navigationBarColor=Color.WHITE
         content=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setBackgroundColor(Color.WHITE) }
+        if(Build.VERSION.SDK_INT>=30) {
+            window.setDecorFitsSystemWindows(false)
+            content.setOnApplyWindowInsetsListener { view,insets ->
+                val safe=insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout() or WindowInsets.Type.ime())
+                view.setPadding(safe.left,safe.top,safe.right,safe.bottom)
+                insets
+            }
+        }
         val title=TextView(this).apply {
             text="Cemig · teste no aparelho\nSessão de até 10 min. Sem envio automático ou protocolo."
             setPadding(dp(16),dp(12),dp(16),dp(12));setTextColor(Color.rgb(0,80,55))
