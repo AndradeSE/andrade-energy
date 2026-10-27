@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.widget.*
 
 class CemigBrowserActivity : Activity() {
+    private fun dp(value:Int)=(value*resources.displayMetrics.density).toInt()
     private var session:CemigBrowserService? = null
     private var bound = false
     private var listening = false
@@ -35,12 +36,12 @@ class CemigBrowserActivity : Activity() {
         content=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setBackgroundColor(Color.WHITE) }
         val title=TextView(this).apply {
             text="Cemig · teste no aparelho\nSessão de até 10 min. Sem envio automático ou protocolo."
-            setPadding(16,12,16,12);setTextColor(Color.rgb(0,80,55))
+            setPadding(dp(16),dp(12),dp(16),dp(12));setTextColor(Color.rgb(0,80,55))
         }
         content.addView(title)
         val bar=LinearLayout(this)
         fun button(label:String,action:()->Unit) {
-            bar.addView(Button(this).apply { text=label;setOnClickListener { action() } },LinearLayout.LayoutParams(0,56,1f))
+            bar.addView(Button(this).apply { text=label;setOnClickListener { action() } },LinearLayout.LayoutParams(0,dp(56),1f))
         }
         button("Voltar") { session?.browser?.let { if(it.canGoBack())it.goBack() else finish() } }
         button("Recarregar") { session?.browser?.reload() }
