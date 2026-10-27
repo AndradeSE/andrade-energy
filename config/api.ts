@@ -2,7 +2,7 @@ import axios from "axios";
 import { obterSessao } from "../storage/session";
 import { avisarContaExcluida, avisarSessaoSubstituida } from "../services/session-events";
 import { environmentApiUrl, isPreviewEnvironment } from "./environment";
-import {CONTINGENCY_ENDPOINTS,createContingencyResolver} from "./contingency-policy";
+import {createContingencyResolver,readContingencyControl} from "./contingency-policy";
 
 const API_PRODUCAO = "https://andrade-energy-api-vda.onrender.com/api";
 
@@ -26,19 +26,11 @@ function normalizarApiUrl(valor?: string) {
 export const apiBaseURL = normalizarApiUrl(environmentApiUrl);
 export const contingencyRoutingEnabled=process.env.EXPO_PUBLIC_CONTINGENCY_ENABLED==="1";
 const contingencyEnvironment=isPreviewEnvironment?"preview":"production";
-const resolveApiTarget=createContingencyResolver(contingencyEnvironment,async()=>{
-  const endpoint=CONTINGENCY_ENDPOINTS[contingencyEnvironment].standby.replace(/\/api$/,"");
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),2500);
-  try {
-    const response=await fetch(`${endpoint}/contingency/runtime`,{signal:controller.signal,cache:"no-store"});
-    if(!response.ok)throw new Error("Controle indisponível.");
-    return await response.json();
-  } finally {clearTimeout(timer);}
-});
+const resolveApiTarget=createContingencyResolver(contingencyEnvironment,()=>readContingencyControl(contingencyEnvironment));
 
 const api = axios.create({
   baseURL: apiBaseURL,
+  timeout: 20_000,
 });
 
 api.interceptors.request.use(async (config) => {
@@ -53,6 +45,9 @@ api.interceptors.response.use(
   (error) => {
     const mensagem = String(error?.response?.data?.message ?? "");
     const codigo = String(error?.response?.data?.code ?? "");
+    // The old owner explicitly rejected this request. Refresh routing for the
+    // next user action; never replay an operation whose result may be uncertain.
+    if (codigo === "EXECUTOR_INATIVO") resolveApiTarget.invalidate();
     if (error?.response?.status === 401 && codigo === "CONTA_EXCLUIDA") {
       avisarContaExcluida();
     } else if (error?.response?.status === 401 && /sessão inválida|sessao invalida|expirada|desativada/i.test(mensagem)) {
