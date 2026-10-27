@@ -36,9 +36,11 @@ export function proporRateioMensal(producaoMedia: number, unidades: DemandaRatei
     energiaPrevista: Math.round(producaoMedia * l.percentual) / 100 })) };
 }
 
-export function pendenciasCsvCemig(plano: ReturnType<typeof proporRateioMensal>, geradora: string, documentoAncora: string, numerosAtuaisConfirmados: boolean) {
+export function pendenciasCsvCemig(plano: ReturnType<typeof proporRateioMensal>, geradora: string, documentoAncora: string, _numerosAtuaisConfirmados: boolean) {
   const pendencias: string[] = [];
-  if (!numerosAtuaisConfirmados) pendencias.push("Confirme os números atuais de UC da Cemig; o antigo número de instalação não é aceito.");
+  if (!/^\d{6,20}$/.test(geradora)) pendencias.push("Confira o número da UC geradora no cadastro.");
+  const numeros=plano.linhas.filter(l=>!l.ancora).map(l=>l.uc);
+  if(numeros.some(uc=>!/^\d{6,20}$/.test(uc))||new Set(numeros).size!==numeros.length)pendencias.push("Corrija UCs inválidas ou duplicadas no cadastro.");
   if (plano.rascunho) pendencias.push("Defina o número da UC âncora.");
   for (const linha of plano.linhas) {
     const documento=linha.ancora ? documentoAncora.replace(/\D/g,"") : linha.documento;
