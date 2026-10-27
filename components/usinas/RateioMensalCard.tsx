@@ -62,7 +62,7 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
     finally{setOcupado(false);}
   }
   return <><RateioFileViewer arquivo={visualizando?resultado:undefined} onClose={()=>setVisualizando(false)}/>    <View style={{gap:8}} accessibilityLabel="Saldo acumulado da UC âncora">
-      <Metric title="Saldo acumulado da âncora" value={consultandoSaldo?"Consultando…":erroSaldo?"Consulta indisponível":saldoAncora?.saldoKwh!=null?`${saldoAncora.saldoKwh.toLocaleString("pt-BR",{maximumFractionDigits:2})} kWh`:"Saldo não informado"} icon={<Ionicons name="battery-charging-outline" size={24} color={Colors.primary}/>} subtitle="Créditos informados na última fatura · kWh"/>
+      <Metric title="Saldo acumulado da âncora" value={consultandoSaldo?"Consultando…":erroSaldo?"Consulta indisponível":saldoAncora?.saldoKwh!=null?`${saldoAncora.saldoKwh.toLocaleString("pt-BR",{maximumFractionDigits:2})} kWh`:"Saldo não informado"} icon={<Ionicons name="layers-outline" size={24} color={Colors.primary}/>} subtitle="Créditos informados na última fatura · kWh"/>
 
       {saldoAncora?<Text style={{color:Colors.subtitle}}>UC {saldoAncora.uc}{!ancora?" · geradora (âncora sugerida)":""}{saldoAncora.referencia?` · referência ${saldoAncora.referencia.slice(5,7)}/${saldoAncora.referencia.slice(0,4)}`:""}</Text>:null}
       {detalhes?<Text style={{color:Colors.subtitle}}>Saldo total informado pela Cemig, incluindo créditos de outras usinas, como GD1. A injeção recebida não é somada novamente; o rateio previsto ainda não compõe este saldo.</Text>:null}
