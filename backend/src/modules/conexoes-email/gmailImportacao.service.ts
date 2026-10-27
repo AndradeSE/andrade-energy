@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { avisarFaturamentoAutomatico } from '../faturas/avisosAutomaticos.service';
 import { supabase } from "../../config/supabase";
 import { obterTokenLeituraGmail } from "./conexoesEmail.service";
 import { anexosPdfGmail, consultarGmail, listarMensagensFaturaGmail, ParteGmail } from "./gmailLeitura.client";
@@ -10,10 +11,11 @@ type DependenciasGmail = {
   obterToken: typeof obterTokenLeituraGmail;
   listar: typeof listarMensagensFaturaGmail;
   consultar: typeof consultarGmail;
+  avisar?: typeof avisarFaturamentoAutomatico;
 };
 
 export async function enfileirarFaturasGmail(deps: DependenciasGmail = {
-  db: supabase, obterToken: obterTokenLeituraGmail, listar: listarMensagensFaturaGmail, consultar: consultarGmail,
+  db: supabase, obterToken: obterTokenLeituraGmail, listar: listarMensagensFaturaGmail, consultar: consultarGmail, avisar: avisarFaturamentoAutomatico,
 }) {
   if (executando) return;
   executando = true;
@@ -67,6 +69,7 @@ export async function enfileirarFaturasGmail(deps: DependenciasGmail = {
           .eq("empresa_id", conexao.empresa_id).eq("email_conectado", conexao.email_conectado)
           .eq("provedor", "GMAIL").eq("status", "LEITURA_AUTORIZADA");
         if (erroAtualizar) throw erroAtualizar;
+
       } catch (erro: any) {
         const codigo = String(erro?.codigoGmail ?? erro?.code ?? "INDEFINIDO");
         console.warn("Falha na leitura Gmail", { etapa, codigo: /^[A-Z0-9_]{1,60}$/.test(codigo) ? codigo : "INDEFINIDO" });
@@ -83,6 +86,8 @@ export async function enfileirarFaturasGmail(deps: DependenciasGmail = {
           updated_at: new Date().toISOString(),
         }).eq("id", conexao.id);
         if (erroAtualizar) throw erroAtualizar;
+        if (['GMAIL_LEITURA_NAO_AUTORIZADA','OAUTH_REAUTORIZACAO','GMAIL_API_DESATIVADA'].includes(codigo))
+          await deps.avisar?.({empresaId:conexao.empresa_id,evento:'ERRO_IMPORTACAO',chave:`gmail:${conexao.id}:${new Date().toISOString().slice(0,10)}`,detalhe:'O faturamento automático encontrou uma conexão Gmail sem leitura autorizada ou indisponível. Confira a conexão de e-mail e autorize novamente quando solicitado. Nenhuma credencial deve ser informada à Solar.'}).catch(()=>console.error('Aviso da conexão Gmail pendente.'));
       }
     }
   } finally { executando = false; }

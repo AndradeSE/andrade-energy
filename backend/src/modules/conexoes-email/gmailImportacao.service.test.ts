@@ -87,3 +87,14 @@ test("falha OAuth não marca automação ativa nem expõe segredos", async () =>
   assert.ok(c.atualizacoes.every(a => a.regra_status === "ERRO"));
   assert.doesNotMatch(JSON.stringify(c.atualizacoes), /token privado/);
 });
+
+test('permissão Gmail ausente avisa somente a empresa da conexão sem expor o erro',async()=>{
+ const c=cenario({duasEmpresas:true});const avisos:any[]=[];
+ c.deps.obterToken=async()=>{throw Object.assign(new Error('token privado'),{codigoGmail:'GMAIL_LEITURA_NAO_AUTORIZADA'});};
+ c.deps.avisar=async(aviso:any)=>{avisos.push(aviso);};
+ await enfileirarFaturasGmail(c.deps);
+ assert.deepEqual(avisos.map(a=>a.empresaId),['e1','e2']);
+ assert.ok(avisos.every(a=>a.evento==='ERRO_IMPORTACAO'));
+ assert.doesNotMatch(JSON.stringify(avisos),/token privado|caixa@example/);
+ assert.equal(c.registros.size,0);
+});
