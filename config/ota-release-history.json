@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261027-104350",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio simplificado: escolher e confirmar âncora; três envios com explicação e aceite"
+    ]
+  },
+  {
+    "numero": "OTA 20261027-104128",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio: três botões de envio com explicações e confirmação; salvar configuração só da planilha"
+    ]
+  },
+  {
     "numero": "OTA 20261027-100053",
     "data": "27/10/2026",
     "variant": "gerador",
