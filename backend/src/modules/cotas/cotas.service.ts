@@ -1,3 +1,4 @@
+import {capmonsterQuota} from './capmonsterQuota';
 import { supabase } from "../../config/supabase";
 import { AZURE_QUOTA_CATALOG, azureQuotaConfig, fetchAzureQuotaReadings } from "./azureQuotas";
 import { QUOTA_CATALOG, quotaBand, resendReadings, resendUsageKey, brevoReading, type QuotaReading } from "./cotas.policy";
@@ -93,5 +94,5 @@ export async function listServiceQuotas(includeBrevo = false, includeAzure = fal
       consulta: check ?? null };
   });
   const browserbase = includeAzure ? await cotaBrowserbase() : [];
-  return {ambiente:env,alertas:[80,90,100],servicos:[...servicos,...browserbase]};
+  return {ambiente:env,alertas:[80,90,100],servicos:[...servicos,...browserbase,await capmonsterQuota()]};
 }
