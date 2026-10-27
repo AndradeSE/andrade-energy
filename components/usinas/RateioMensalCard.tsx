@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Alert, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable } from "../assistant/AssistantNativeControls";
-import { Button, Card } from "../ui";
+import { Button, Card, Metric } from "../ui";
 import UcAncoraSelector from './UcAncoraSelector';
 import { gerarPlanilhaRateio,obterConfiguracaoRateio,salvarConfiguracaoRateio,buscarRateioAutomatico,type ConfiguracaoRateio } from "../../services/usinas.service";
 import { Colors, Spacing } from "../../theme";
@@ -61,18 +61,18 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
     }catch(e:any){if(pedido===escopo.current)Alert.alert("Não foi possível gerar o rateio",e?.response?.data?.message??e.message??"Tente novamente.");}
     finally{setOcupado(false);}
   }
-  return <><RateioFileViewer arquivo={visualizando?resultado:undefined} onClose={()=>setVisualizando(false)}/><Card><View style={{gap:Spacing.sm}}>
-    <Text style={{fontSize:18,fontWeight:"700",color:Colors.text}}>Rateio mensal</Text>
-    <View style={{backgroundColor:'#EFF7F2',padding:16,borderRadius:12,gap:10}}><Text style={{fontWeight:'700',color:Colors.text}}>O que acontece automaticamente?</Text><Text style={{color:Colors.text,lineHeight:22}}>Com a configuração salva, o sistema aguarda a produção da usina e todas as faturas das UCs vigentes. Depois calcula a planilha e envia o arquivo por e-mail e um aviso ao gerador.</Text><Text style={{color:Colors.subtitle,lineHeight:22}}>O envio à Cemig é uma etapa separada. A automação completa em nuvem ainda está em teste e não protocola o rateio.</Text></View>
-    <Text style={{color:Colors.subtitle}}>Planilha da competência {competencia?.replace(/^(\d{4})-(\d{2})$/, "$2/$1") ?? "selecionada"}. Configuração salva para os próximos meses.</Text>
-    <View style={{backgroundColor:"#EFF7F2",borderRadius:12,padding:16,gap:6}} accessibilityLabel="Saldo acumulado da UC âncora">
-      <Text style={{fontWeight:"700",color:Colors.text}}>Saldo acumulado da UC âncora</Text>
-      <Text style={{fontSize:24,fontWeight:"700",color:Colors.primary,flexShrink:1}}>{consultandoSaldo?"Consultando…":erroSaldo?"Consulta indisponível":saldoAncora?.saldoKwh!=null?`${saldoAncora.saldoKwh.toLocaleString("pt-BR",{maximumFractionDigits:2})} kWh`:"Saldo não informado"}</Text>
+  return <><RateioFileViewer arquivo={visualizando?resultado:undefined} onClose={()=>setVisualizando(false)}/>    <View style={{gap:8}} accessibilityLabel="Saldo acumulado da UC âncora">
+      <Metric title="Saldo acumulado da âncora" value={consultandoSaldo?"Consultando…":erroSaldo?"Consulta indisponível":saldoAncora?.saldoKwh!=null?`${saldoAncora.saldoKwh.toLocaleString("pt-BR",{maximumFractionDigits:2})} kWh`:"Saldo não informado"} icon={<Ionicons name="battery-charging-outline" size={24} color={Colors.primary}/>} subtitle="Créditos informados na última fatura · kWh"/>
+
       {saldoAncora?<Text style={{color:Colors.subtitle}}>UC {saldoAncora.uc}{!ancora?" · geradora (âncora sugerida)":""}{saldoAncora.referencia?` · referência ${saldoAncora.referencia.slice(5,7)}/${saldoAncora.referencia.slice(0,4)}`:""}</Text>:null}
       {detalhes?<Text style={{color:Colors.subtitle}}>Saldo total informado pela Cemig, incluindo créditos de outras usinas, como GD1. A injeção recebida não é somada novamente; o rateio previsto ainda não compõe este saldo.</Text>:null}
       <Pressable accessibilityRole="button" accessibilityLabel="Atualizar saldo da UC âncora" disabled={consultandoSaldo} onPress={()=>setRevisaoSaldo(v=>v+1)} style={{minHeight:44,justifyContent:"center"}}><Text style={{color:Colors.primary,fontWeight:"700"}}>Atualizar saldo</Text></Pressable>
       {!consultandoSaldo&&!erroSaldo&&saldoAncora?.saldoKwh==null?<Text style={{color:Colors.subtitle}}>Importe uma fatura que informe o saldo de créditos para atualizar este indicador.</Text>:null}
     </View>
+<Card><View style={{gap:Spacing.sm}}>
+    <Text style={{fontSize:18,fontWeight:"700",color:Colors.text}}>Rateio mensal</Text>
+    <View style={{backgroundColor:'#EFF7F2',padding:16,borderRadius:12,gap:10}}><Text style={{fontWeight:'700',color:Colors.text}}>O que acontece automaticamente?</Text><Text style={{color:Colors.text,lineHeight:22}}>Com a configuração salva, o sistema aguarda a produção da usina e todas as faturas das UCs vigentes. Depois calcula a planilha e envia o arquivo por e-mail e um aviso ao gerador.</Text><Text style={{color:Colors.subtitle,lineHeight:22}}>O envio à Cemig é uma etapa separada. A automação completa em nuvem ainda está em teste e não protocola o rateio.</Text></View>
+    <Text style={{color:Colors.subtitle}}>Planilha da competência {competencia?.replace(/^(\d{4})-(\d{2})$/, "$2/$1") ?? "selecionada"}. Configuração salva para os próximos meses.</Text>
     <Pressable accessibilityRole="button" accessibilityState={{expanded:detalhes}} onPress={()=>setDetalhes(v=>!v)} style={{minHeight:44,flexDirection:"row",alignItems:"center",gap:8}}><Ionicons name="information-circle-outline" size={20} color={Colors.primary}/><Text style={{color:Colors.primary}}>Como é calculado?</Text></Pressable>
     {detalhes?<Text style={{color:Colors.subtitle}}>(Consumo médio − saldo de créditos da UC) ÷ produção média real da usina × 100, sem adicional e com mínimo de zero. O restante fica na UC âncora. Recalcule a cada competência antes de solicitar a alteração à Cemig.</Text>:null}
     <Pressable accessibilityRole="button" accessibilityState={{expanded:ajustes}} onPress={()=>setAjustes(v=>!v)} style={{minHeight:48,flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}><Text style={{fontWeight:"700",color:Colors.text}}>UC âncora padrão</Text><Ionicons name={ajustes?"chevron-up":"chevron-down"} size={20} color={Colors.primary}/></Pressable>
