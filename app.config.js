@@ -131,7 +131,7 @@ module.exports = {
       ],
       ...(assistantNative ? [["llama.rn", { enableEntitlements: true, entitlementsProfile: "production", forceCxx20: true, enableOpenCL: false }], "expo-speech-recognition"] : []),
       "./plugins/with-variant-scheme",
-      ...(nativeCemigBrowser ? ["./plugins/with-cemig-browser"] : []),
+      "./plugins/with-cemig-browser",
     ],
 
     experiments: {
