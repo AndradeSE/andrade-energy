@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261027-121244",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Gerador legado: saldo da âncora em card, escolha confirmada, modos de envio com estado real e atualização Gmail"
+    ]
+  },
+  {
+    "numero": "OTA 20261027-120749",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Rateio: saldo da âncora em card, seleção confirmada e opções de envio com estado real; atualização do Gmail ao retornar"
+    ]
+  },
+  {
     "numero": "OTA 20261027-110438",
     "data": "27/10/2026",
     "variant": "gerador",
