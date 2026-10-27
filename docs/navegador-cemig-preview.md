@@ -2,7 +2,7 @@
 
 Ativação de compilação: `ANDRADE_NATIVE_CEMIG_BROWSER=1`, `EXPO_PUBLIC_APP_ENV=preview` e variante `gerador`. A configuração de produção ignora essa flag. Runtime isolado: `1.0.5-preview-cemig-browser`.
 
-O teste aparece em Operação → Rateio apenas nesse novo APK, Android 8 ou superior. A Activity usa WebView do próprio Android e compartilha a sessão com um serviço em primeiro plano, com notificação e prazo de 10 minutos. Sair da tela mantém a sessão durante esse prazo; Encerrar ou remover o app dos recentes encerra o serviço. Não há reinício automático no boot ou após encerramento pelo sistema.
+O teste aparece em Operação → Rateio → Testes e simulações apenas nesse novo APK, Android 8 ou superior. A Activity usa WebView do próprio Android e compartilha a sessão com um serviço em primeiro plano, com notificação e prazo de 10 minutos. Sair da tela mantém a sessão durante esse prazo; Encerrar ou remover o app dos recentes encerra o serviço. Não há reinício automático no boot ou após encerramento pelo sistema.
 
 O protótipo abre somente HTTPS em domínios Cemig. Não altera User-Agent, não desativa verificação TLS, não lê arquivos locais, não expõe interface JavaScript nativa e não transmite credenciais ao backend. Recursos CSS/JS mantêm o carregamento normal do navegador. Geolocalização, câmera e microfone são recusados. Login e desafios de segurança são manuais nesta etapa.
 
