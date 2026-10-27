@@ -3,7 +3,7 @@ import test from 'node:test';
 process.env.SUPABASE_URL='https://simulation-test.invalid';
 process.env.SUPABASE_SERVICE_KEY='test';
 test('simulação calcula rascunho com consultas somente de leitura e mantém escopo da empresa',async()=>{
- const {prepararPlanilhaRateio}=await import('./rateioMensal.service');
+ const {prepararPlanilhaRateio}=await import('./rateioMensal.service.js');
  const original=globalThis.fetch;let reads=0;
  globalThis.fetch=async(input,init)=>{
   const url=new URL(String(input));assert.equal(init?.method??'GET','GET');assert.equal(url.hostname,'simulation-test.invalid');assert.equal(url.searchParams.get('empresa_id'),'eq.empresa-a');reads++;
