@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261027-093254",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Gmail: reconectar leitura e indicar configuração pendente (compatibilidade)"
+    ]
+  },
+  {
+    "numero": "OTA 20261027-093109",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Gmail: reconectar e autorizar leitura sem desconectar; configuração pendente explícita"
+    ]
+  },
+  {
     "numero": "OTA 20261027-092404",
     "data": "27/10/2026",
     "variant": "gerador",
