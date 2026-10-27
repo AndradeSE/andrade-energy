@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261027-141204",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Simulação de economia do cliente: comparação mensal e anual, sem cobrança; remove simulação de rateio do fluxo comum"
+    ]
+  },
+  {
     "numero": "OTA 20261027-140336",
     "data": "27/10/2026",
     "variant": "gerador",

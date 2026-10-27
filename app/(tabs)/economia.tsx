@@ -90,6 +90,7 @@ export default function Economia() {
             title="Não foi possível carregar sua economia"
             subtitle="Verifique sua conexão e tente novamente em alguns instantes."
           />
+          <Button title="Simular minha economia" onPress={()=>router.push('/simulacao-economia' as any)}/>
         </View>
       </Screen>
     );
