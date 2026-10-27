@@ -60,16 +60,27 @@ export function textoModalidadeSelecionada(element:Element):string {
   return element.textContent??'';
 }
 
-export async function confirmarModalidadeCemig(page:Page) {
+export async function confirmarModalidadeCemig(page:Page,selecionar=false) {
   const campo=page.getByRole('combobox',{name:/Selecione o tipo de modalidade/});
   try {await campo.waitFor({state:'visible',timeout:15000});}
   catch {throw new FalhaEtapaCemig('MODALIDADE','CAMPO_MODALIDADE');}
-  const selecionada=(await campo.evaluate(textoModalidadeSelecionada)).replace(/\s+/g,' ').trim();
+  let selecionada=(await campo.evaluate(textoModalidadeSelecionada)).replace(/\s+/g,' ').trim();
+  if(selecionar&&!/^Autoconsumo remoto$/i.test(selecionada)){
+    try {
+      const nativo=await campo.evaluate(element=>element.tagName==='SELECT');
+      if(nativo)await campo.selectOption({label:'Autoconsumo remoto'});
+      else {
+        await campo.click();
+        await page.getByRole('option',{name:'Autoconsumo remoto',exact:true}).click({timeout:5000});
+      }
+      selecionada=(await campo.evaluate(textoModalidadeSelecionada)).replace(/\s+/g,' ').trim();
+    }catch{throw new FalhaEtapaCemig('MODALIDADE','MODALIDADE_DIVERGENTE');}
+  }
   if(!/^Autoconsumo remoto$/i.test(selecionada))throw new FalhaEtapaCemig('MODALIDADE','MODALIDADE_DIVERGENTE');
 }
 
 /** Somente simulação: esta função nunca aceita declaração nem solicita cadastro. */
-export async function validarAnexoCemig(page:Page,uc:string,csv:string,arquivo:string,aoConfirmarAcesso?:()=>Promise<void>) {
+export async function validarAnexoCemig(page:Page,uc:string,csv:string,arquivo:string,aoConfirmarAcesso?:()=>Promise<void>,opcoesFluxo?:{selecionarModalidade?:boolean}) {
   conferirCsvSimulacao(csv,uc);
   let etapa: keyof typeof etapas = 'LOGIN';
   try {
@@ -101,7 +112,7 @@ export async function validarAnexoCemig(page:Page,uc:string,csv:string,arquivo:s
   await aoConfirmarAcesso?.();
   await page.getByRole("button",{name:"Avançar",exact:true}).click();
   etapa='MODALIDADE';
-  await confirmarModalidadeCemig(page);
+  await confirmarModalidadeCemig(page,opcoesFluxo?.selecionarModalidade);
   await page.getByRole("button",{name:"Avançar",exact:true}).click();
   etapa='ANEXO';
   await page.getByRole("tab",{name:"Inserir por anexo",exact:true}).click();
