@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261027-153020",
+    "data": "27/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Restaura conexão do Consumidor Preview ao Render reserva confirmado após esgotamento da cota."
+    ]
+  },
+  {
     "numero": "OTA 20261027-152039",
     "data": "27/10/2026",
     "variant": "gerador",
