@@ -40,6 +40,7 @@ async function main(){
  const portal=await context.newPage();
  await bloquearProtocoloNaSimulacao(portal);
  const fluxo=criarFluxoLocal(dados);
+ const mensagemInicial=fluxo.status().mensagem;
  const token=randomBytes(32).toString('hex');
  const nonce=randomBytes(24).toString('base64');
  let origin='';
@@ -58,7 +59,9 @@ async function main(){
   res.setHeader('Content-Type','application/json; charset=utf-8');
   if(req.url==='/status'){
    const status=fluxo.status();
-   res.end(JSON.stringify({...status,loginEmCurso,mensagem:status.estado==='AGUARDANDO_LOGIN'&&loginMensagem?loginMensagem:status.mensagem}));return;
+   // A submitted login is not authenticated. Preserve the validator's later
+   // instruction instead of masking it with the earlier "login enviado" text.
+   res.end(JSON.stringify({...status,loginEmCurso,mensagem:status.estado==='AGUARDANDO_LOGIN'&&status.mensagem===mensagemInicial&&loginMensagem?loginMensagem:status.mensagem}));return;
   }
   if(req.url==='/preparar-login'){
    if(loginEmCurso||fluxo.status().estado!=='AGUARDANDO_LOGIN'){res.writeHead(409).end('{}');return;}
