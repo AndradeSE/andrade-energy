@@ -270,7 +270,7 @@ async function atualizarFalha(item: any, erro: unknown) {
     proxima_tentativa_em: new Date(Date.now() + minutos * 60_000).toISOString(),
     updated_at: new Date().toISOString(),
   }).eq("id", item.id);
-  if(tentativas>=LIMITE_TENTATIVAS)await avisarFaturamentoAutomatico({empresaId:item.faturas.empresa_id,usinaId:item.faturas.usina_id,clienteId:item.cliente_id,faturaId:item.fatura_id,evento:'ERRO_ENVIO',chave:String(item.id),detalhe:`Não foi possível enviar a fatura ${item.faturas.referencia??''} por ${item.canal}. As tentativas automáticas foram encerradas. Confira o cadastro e o canal de envio.`}).catch(()=>console.error('Aviso de falha de envio pendente.'));
+  if(item.canal==='EMAIL'&&tentativas>=LIMITE_TENTATIVAS)await avisarFaturamentoAutomatico({empresaId:item.faturas.empresa_id,usinaId:item.faturas.usina_id,clienteId:item.cliente_id,faturaId:item.fatura_id,evento:'ERRO_ENVIO',chave:String(item.id),detalhe:`Não foi possível enviar a fatura ${item.faturas.referencia??''} por ${item.canal}. As tentativas automáticas foram encerradas. Confira o cadastro e o canal de envio.`}).catch(()=>console.error('Aviso de falha de envio pendente.'));
 }
 
 export async function processarFilaDeNotificacoes() {
@@ -284,7 +284,7 @@ export async function processarFilaDeNotificacoes() {
   if (process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_TEMPLATE_NAME && process.env.WHATSAPP_GRAPH_VERSION) configurados.push("WHATSAPP");
   const pendentes=await supabase.from('notificacoes_fatura').select('*,faturas(*)').eq('status','PENDENTE').order('created_at').limit(50);
   if(pendentes.error)throw pendentes.error;
-  for(const item of pendentes.data??[])if(!configurados.includes(item.canal)&&item.faturas?.empresa_id)await avisarFaturamentoAutomatico({empresaId:item.faturas.empresa_id,usinaId:item.faturas.usina_id,clienteId:item.cliente_id,faturaId:item.fatura_id,evento:'ENVIO_PENDENTE',chave:String(item.id),detalhe:`O envio por ${item.canal} está pendente porque o canal não está configurado. Confira as configurações; isso não confirma entrega ao cliente.`}).catch(()=>console.error('Aviso de canal pendente.'));
+  for(const item of pendentes.data??[])if(item.canal==='EMAIL'&&!configurados.includes(item.canal)&&item.faturas?.empresa_id)await avisarFaturamentoAutomatico({empresaId:item.faturas.empresa_id,usinaId:item.faturas.usina_id,clienteId:item.cliente_id,faturaId:item.fatura_id,evento:'ENVIO_PENDENTE',chave:String(item.id),detalhe:`O envio por ${item.canal} está pendente porque o canal não está configurado. Confira as configurações; isso não confirma entrega ao cliente.`}).catch(()=>console.error('Aviso de canal pendente.'));
   if (!configurados.length) return;
 
   const { data: itens, error } = await supabase
@@ -310,7 +310,7 @@ export async function processarFilaDeNotificacoes() {
         const envio=item.canal==='EMAIL'&&typeof enviada==='object'?{provedor_envio:enviada.provedor,provedor_mensagem_id:enviada.id}:{};
         const salvo=await supabase.from("notificacoes_fatura").update({ status: "ENVIADA", ...envio, enviada_em: new Date().toISOString(), erro: null, updated_at: new Date().toISOString() }).eq("id", item.id);
         if(salvo.error)throw salvo.error;
-        await avisarFaturamentoAutomatico({empresaId:item.faturas.empresa_id,usinaId:item.faturas.usina_id,clienteId:item.cliente_id,faturaId:item.fatura_id,evento:'FATURA_ENVIADA',chave:String(item.id),detalhe:`Fatura ${item.faturas.referencia??''} enviada por ${item.canal}. O provedor aceitou o envio; isso ainda não confirma entrega nem leitura pelo cliente.`}).catch(()=>console.error('Aviso de envio pendente.'));
+        if(item.canal==='EMAIL')await avisarFaturamentoAutomatico({empresaId:item.faturas.empresa_id,usinaId:item.faturas.usina_id,clienteId:item.cliente_id,faturaId:item.fatura_id,evento:'FATURA_ENVIADA',chave:String(item.id),detalhe:`Fatura ${item.faturas.referencia??''} enviada por ${item.canal}. O provedor aceitou o envio; isso ainda não confirma entrega nem leitura pelo cliente.`}).catch(()=>console.error('Aviso de envio pendente.'));
       } else {
         throw new Error('O canal de envio não confirmou a aceitação da fatura.');
       }

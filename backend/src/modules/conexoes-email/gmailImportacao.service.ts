@@ -66,7 +66,7 @@ export async function enfileirarFaturasGmail(deps: DependenciasGmail = {
         caixasConsultadas.add(caixa);
         const { error: erroAtualizar } = await deps.db.from("conexoes_email")
           .update({ regra_status: "ATIVA", regra_erro: null, ultima_validacao_em: new Date().toISOString(), updated_at: new Date().toISOString() })
-          .eq("empresa_id", conexao.empresa_id).eq("email_conectado", conexao.email_conectado)
+          .eq("id", conexao.id).eq("empresa_id", conexao.empresa_id)
           .eq("provedor", "GMAIL").eq("status", "LEITURA_AUTORIZADA");
         if (erroAtualizar) throw erroAtualizar;
 
