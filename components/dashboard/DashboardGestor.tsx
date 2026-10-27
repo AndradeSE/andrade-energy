@@ -277,7 +277,7 @@ export default function DashboardGestor() {
         <Section title="Acesso rápido" framed={false}>
           <QuickAccessCarousel
             storageKey={`gestor-home-${usuario?.id ?? "anonimo"}`}
-            pinnedIds={["rateio-mensal", "compartilhar-app-gerador", ...(isPreviewEnvironment && assistantHidden ? ["mostrar-assistente"] : [])]}
+            pinnedIds={["simular-economia", "rateio-mensal", "compartilhar-app-gerador", ...(isPreviewEnvironment && assistantHidden ? ["mostrar-assistente"] : [])]}
             items={[
               {id:'simular-economia',icon:'calculator-outline' as const,label:'Simular economia',onPress:()=>router.push('/simulacao-economia' as any)},
               ...(usinaSelecionada?.id && (usuario?.papel_empresa==='COLABORADOR_COMERCIAL'?usuario?.permissoes?.gerador_operacao===true:usuario?.papel_empresa==='COLABORADOR_GERADOR'?usuario?.permissoes?.operacao===true:true) ? [{id:'rateio-mensal',icon:'git-merge-outline' as const,label:'Rateio',onPress:()=>router.push('/operacao/rateio' as any)}] : []),
