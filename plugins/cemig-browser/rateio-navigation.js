@@ -23,6 +23,11 @@
   }
   if (controls.some(function(el){return /^Solicitar cadastro$/i.test(text(el));})) return result('REVISAO','Revise a UC geradora e o CSV. Protocolo bloqueado no Preview.');
   if (!config.iniciado) return result('PRONTO','Toque em Continuar rateio para avançar até a revisão.');
+  var ucButtons=controls.filter(function(el){var match=text(el).match(/Nº da unidade consumidora:\s*([\d.\-]+)/i);return match&&match[1].replace(/\D/g,'')===config.geradora;});
+  if(ucButtons.length===1){
+    if(window.__andradeSelectedUc!==config.geradora){ucButtons[0].click();window.__andradeSelectedUc=config.geradora;return result('UC','UC geradora selecionada pelo cadastro.');}
+    if(clickUnique('Avançar'))return result('MODALIDADE','UC confirmada. Abrindo modalidade.');
+  }
   if (clickUnique('Realizar cadastro')) return result('CADASTRO','Abrindo seleção da UC geradora.');
   var selects=Array.from(document.querySelectorAll('select')).filter(visible);
   var ucSelect=selects.filter(function(s){return Array.from(s.options).some(function(o){return String(o.textContent).replace(/\D/g,'')===config.geradora;});});
@@ -35,8 +40,13 @@
   if (/selecione o tipo de modalidade/i.test(body)) {
     var mode=selects.filter(function(s){return Array.from(s.options).some(function(o){return text(o)==='Autoconsumo remoto';});});
     if(mode.length===1){var option=Array.from(mode[0].options).find(function(o){return text(o)==='Autoconsumo remoto';});if(mode[0].value!==option.value){mode[0].value=option.value;mode[0].dispatchEvent(new Event('change',{bubbles:true}));return result('MODALIDADE','Autoconsumo remoto selecionado.');}if(clickUnique('Avançar'))return result('ALOCACAO','Abrindo alocação de créditos.');}
+    var combos=Array.from(document.querySelectorAll('[role=combobox]')).filter(visible);
+    if(combos.length===1&&/^Autoconsumo remoto$/.test(text(combos[0]))&&clickUnique('Avançar'))return result('ALOCACAO','Modalidade confirmada. Abrindo alocação.');
     return result('PAUSADO','Confira a modalidade no portal e continue na mesma sessão.');
   }
+  var tabs=Array.from(document.querySelectorAll('[role=tab]')).filter(visible).filter(function(el){return text(el)==='Inserir por anexo';});
+  if(tabs.length===1&&tabs[0].getAttribute('aria-selected')!=='true'){tabs[0].click();return result('ANEXO','Abrindo envio por anexo.');}
+  if(config.anexado&&body.includes(config.arquivo)&&clickUnique('Avançar'))return result('REVISAO','Abrindo revisão do CSV anexado. Nenhum protocolo será enviado.');
   var files=Array.from(document.querySelectorAll('input[type=file]')).filter(function(el){return !el.disabled;});
   if(files.length===1)return result('ANEXO','Selecione o campo de anexo: será oferecido somente o CSV preparado.');
   return result('PAUSADO','Confira esta etapa do portal e toque em Continuar rateio. Nenhum protocolo foi enviado.');

@@ -23,6 +23,7 @@ class CemigBrowserService : Service() {
     private var prepared:File?=null
     private var artifactHash:String?=null
     private var artifactLabel=""
+    private var attachmentConfirmed=false
     private var geradora=""
     private var navigationStarted=false
     private var evaluating=false
@@ -34,11 +35,11 @@ class CemigBrowserService : Service() {
     private fun inspectNavigation(){
         if(!::browser.isInitialized||evaluating||!allowed(browser.url?:""))return
         evaluating=true
-        val config=JSONObject().put("geradora",geradora).put("iniciado",navigationStarted)
+        val config=JSONObject().put("geradora",geradora).put("iniciado",navigationStarted).put("anexado",attachmentConfirmed).put("arquivo",prepared?.name?:"")
         val script=assets.open("cemig-rateio-navigation.js").bufferedReader().use{it.readText()}.replace("__ANDRADE_CONFIG__",config.toString())
         browser.evaluateJavascript(script){raw->
             evaluating=false
-            try{val json=JSONObject(JSONTokener(raw).nextValue() as String);progress=json.optString("message","Confira a etapa no portal.")+if(json.optString("state")=="PAUSADO") "\nP�gina: "+Uri.parse(browser.url?:"").let{it.scheme+"://"+it.host+it.path} else ""}
+            try{val json=JSONObject(JSONTokener(raw).nextValue() as String);progress=json.optString("message","Confira a etapa no portal.")+if(json.optString("state")=="PAUSADO") "\nPágina: "+Uri.parse(browser.url?:"").let{it.scheme+"://"+it.host+it.path} else ""}
             catch(_:Exception){progress="Aguardando carregamento do portal. Nenhum protocolo foi enviado."}
         }
     }
@@ -129,6 +130,7 @@ class CemigBrowserService : Service() {
                     .setNegativeButton("Cancelar"){_,_->callback.onReceiveValue(null)}
                     .setOnCancelListener { callback.onReceiveValue(null) }
                     .setPositiveButton("Anexar para revisão"){_,_->
+                        attachmentConfirmed=true
                         callback.onReceiveValue(arrayOf(FileProvider.getUriForFile(this@CemigBrowserService,"$packageName.cemig.preview.files",file)))
                     }.show()
                 return true
