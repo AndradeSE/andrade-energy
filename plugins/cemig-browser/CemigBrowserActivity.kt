@@ -74,6 +74,17 @@ class CemigBrowserActivity : Activity() {
         progressText=TextView(this).apply{setPadding(dp(12),dp(6),dp(12),dp(6));setTextColor(Color.rgb(0,80,55));textSize=12f}
         options.addView(progressText)
         options.addView(Button(this).apply{text="Continuar até a revisão";setOnClickListener{session?.continueNavigation();options.visibility=View.GONE}})
+        options.addView(Button(this).apply{
+            text="Resolver verificação nesta sessão"
+            setOnClickListener{
+                android.app.AlertDialog.Builder(this@CemigBrowserActivity)
+                    .setTitle("Uma verificação automática")
+                    .setMessage("Usar uma única tentativa com o bônus CapMonster existente? Apenas a URL e os dados técnicos do reCAPTCHA serão enviados. Sem compra, recarga ou protocolo.")
+                    .setNegativeButton("Cancelar",null)
+                    .setPositiveButton("Autorizar tentativa"){_,_->session?.allowSolver();options.visibility=View.GONE}
+                    .show()
+            }
+        })
         uiHandler.post(refreshProgress)
         val bar=LinearLayout(this)
         fun button(label:String,action:()->Unit) {
