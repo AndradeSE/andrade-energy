@@ -8,3 +8,11 @@ test('autorização sem leitura confirmada não exige nova autorização nem pro
  assert.equal(emailConnectionState({status:'LEITURA_AUTORIZADA',automatico:true,erro:'Sem permissão'}),'REAUTORIZAR');
  assert.equal(emailConnectionState(), 'DESCONECTADO');
 });
+test('falha temporária de servidor não manda reautorizar o Gmail',()=>{
+ for(const erro of ['Servidor em troca controlada. Atualize a tela antes de tentar novamente.','HTTP 503','Tempo de conexão esgotado']){
+  assert.equal(emailConnectionState({status:'ERRO',automatico:true,erro}),'VALIDANDO');
+  assert.doesNotMatch(gmailConnectionLabel({status:'ERRO',erro}),/Reconectar/);
+ }
+ assert.equal(emailConnectionState({status:'ERRO',erro:'invalid_grant'}),'REAUTORIZAR');
+ assert.equal(emailConnectionState({status:'ERRO',erro:'GMAIL_LEITURA_NAO_AUTORIZADA'}),'REAUTORIZAR');
+});
