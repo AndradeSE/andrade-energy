@@ -88,11 +88,12 @@ class CemigBrowserService : Service() {
               if(challenge.optBoolean("manual")){loginNotice="Desafio não identificado: "+challenge.optString("motivo")+" · quadros no formulário: "+challenge.optInt("iframes",0);return@evaluateJavascript}
             solverRequested=true;solverBusy=true;progress="Resolvendo a verificação na mesma sessão…"
             Thread{
-                val answer=try{CemigNativeAccess.solve(nativeBase,nativeToken,nativeUsina,packageName.endsWith(".preview"),captchaNonce,challenge){!closed}}catch(_:Exception){null}
+                var failure=""
+                val answer=try{CemigNativeAccess.solve(nativeBase,nativeToken,nativeUsina,packageName.endsWith(".preview"),captchaNonce,challenge){!closed}}catch(error:Exception){val code=error.message.orEmpty();if(code.matches(Regex("HTTP_[0-9]{3}|SEM_CONFIGURACAO|SALDO_TESTE_NAO_CONFIRMADO|MODO_MANUAL")))failure=" ($code)";null}
                 handler.post{
                     if(closed)return@post
                     solverBusy=false
-                    if(answer==null){loginNotice="Verificação automática indisponível. Continue manualmente na mesma sessão; nenhuma tarefa será repetida.";progress=loginNotice!!;return@post}
+                    if(answer==null){loginNotice="Verificação automática indisponível$failure. Continue manualmente na mesma sessão; nenhuma tarefa será repetida.";progress=loginNotice!!;return@post}
                     val access=savedAccess?:return@post
                     // Public callback only, followed immediately by the validated login scopes.
                     val apply="""(function(token){if(location.origin+location.pathname!==${JSONObject.quote(challenge.getString("websiteURL"))})return;document.querySelectorAll('textarea[name="g-recaptcha-response"]').forEach(function(f){f.value=token;f.dispatchEvent(new Event('input',{bubbles:true}));f.dispatchEvent(new Event('change',{bubbles:true}));});var w=document.querySelector('[data-callback]'),n=w&&w.dataset.callback;if(n&&/^[a-zA-Z_$][\w$]*$/.test(n)&&typeof window[n]==='function')window[n](token);})(${JSONObject.quote(answer)});"""

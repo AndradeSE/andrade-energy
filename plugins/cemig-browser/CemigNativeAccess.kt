@@ -25,13 +25,13 @@ object CemigNativeAccess {
    c.instanceFollowRedirects=false;c.requestMethod=if(body==null)"GET" else "POST";c.connectTimeout=15000;c.readTimeout=15000
    c.setRequestProperty("Authorization","Bearer $token");c.setRequestProperty("Content-Type","application/json")
    if(body!=null){c.doOutput=true;c.outputStream.use{it.write(body.toString().toByteArray(Charsets.UTF_8))}}
-   require(c.responseCode==200);val bytes=c.inputStream.use{it.readBytes()};require(bytes.size<40000);JSONObject(String(bytes,Charsets.UTF_8))
+   val status=c.responseCode;check(status==200){"HTTP_$status"};val bytes=c.inputStream.use{it.readBytes()};require(bytes.size<40000);JSONObject(String(bytes,Charsets.UTF_8))
   }finally{c.disconnect()}
  }
  fun solve(base:String,token:String,usina:String,preview:Boolean,nonce:String,challenge:JSONObject,active:()->Boolean):String? {
   if(!active())return null
   val created=request(base,token,usina,preview,"/captcha",JSONObject().put("nonce",nonce).put("autorizaCaptcha",true).put("desafio",challenge))
-  if(created.optBoolean("manual"))return null
+  if(created.optBoolean("manual")){val reason=created.optString("motivo");throw IllegalStateException(if(reason in setOf("SEM_CONFIGURACAO","SALDO_TESTE_NAO_CONFIRMADO"))reason else "MODO_MANUAL")}
   val id=created.getString("id");require(id.matches(Regex("[a-fA-F0-9-]{36}")))
   repeat(30){
    Thread.sleep(4000);if(!active())return null

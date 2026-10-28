@@ -19,3 +19,11 @@ test('não escreve em outro domínio, porta, titular, Cloudflare ou desafio expi
  assert.equal(f.run(undefined,'Verify you are human'),'VERIFICACAO');assert.equal(f.run(undefined,'Verificação expirou'),'VERIFICACAO_EXPIRADA');
  f.user._value='other-user';assert.equal(f.run(),'FORMULARIO');assert.deepEqual(f.writes,[]);
 });
+test('abertura aguarda a página e limita novas tentativas antes do modal',()=>{
+ const window={},clicks=[];let now=10000;
+ class Input{constructor(){this.value='test-user';}getClientRects(){return [{}];}dispatchEvent(){}}
+ const user=new Input(),open={getClientRects:()=>[{}],click:()=>clicks.push(now)};
+ const context={location:new URL('https://atende.cemig.com.br/Login'),document:{body:{innerText:''},querySelector:s=>({'#acesso':user,'#btnEntrarComSenha':open}[s])},window,Date:{now:()=>now},getComputedStyle:()=>({visibility:'visible'})};
+ const run=()=>vm.runInNewContext(script.replace('__ANDRADE_ACCESS__',JSON.stringify({login:'test-user',senha:'test-password'})),context);
+ run();run();assert.equal(clicks.length,1);now+=2000;run();now+=2000;run();now+=2000;assert.equal(run(),'FORMULARIO');assert.equal(clicks.length,3);
+});

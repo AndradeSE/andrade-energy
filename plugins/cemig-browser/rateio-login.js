@@ -11,7 +11,9 @@
   var user=document.querySelector('#acesso'),open=document.querySelector('#btnEntrarComSenha');
   if(!visible(user)||!visible(open)||user.disabled||open.disabled)return 'FORMULARIO';
   if(!same(user.value,access.login))fill(user,access.login);
-  if(!window.__andradeNativeOpenLogin){window.__andradeNativeOpenLogin=true;open.click();}
+  var now=Date.now(),attempts=window.__andradeNativeOpenLoginAttempts||0,last=window.__andradeNativeOpenLoginAt||0;
+  if(attempts<3&&now-last>=2000){window.__andradeNativeOpenLoginAttempts=attempts+1;window.__andradeNativeOpenLoginAt=now;open.click();}
+  if(attempts>=3)return 'FORMULARIO';
   return 'ABRINDO_SENHA';
  }
  var user=modal.querySelector('#acessoModalSenhaValor'),password=modal.querySelector('#senhaModal'),submit=modal.querySelector('#btnConfirmarLoginComSenha');
