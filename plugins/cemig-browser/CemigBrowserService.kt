@@ -82,6 +82,8 @@ class CemigBrowserService : Service() {
         startForeground(NOTICE,notification)
         browser = WebView(browserContext)
         browser.setBackgroundColor(Color.WHITE)
+        // Fit tall portal dialogs in the available mobile viewport; no challenge interaction.
+        browser.setInitialScale(80)
         browser.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true

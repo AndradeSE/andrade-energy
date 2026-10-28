@@ -78,6 +78,10 @@ class CemigBrowserActivity : Activity() {
         button("Voltar") { session?.browser?.let { if(it.canGoBack())it.goBack() else finish() } }
         button("Recarregar") { session?.browser?.reload() }
         button("Encerrar") { stopService(Intent(this,CemigBrowserService::class.java));finish() }
+        val zoom=LinearLayout(this)
+        zoom.addView(Button(this).apply{text="Reduzir página";textSize=12f;setOnClickListener{session?.browser?.zoomOut();options.visibility=View.GONE}},LinearLayout.LayoutParams(0,dp(48),1f))
+        zoom.addView(Button(this).apply{text="Ampliar página";textSize=12f;setOnClickListener{session?.browser?.zoomIn();options.visibility=View.GONE}},LinearLayout.LayoutParams(0,dp(48),1f))
+        options.addView(zoom)
         options.addView(bar)
         content.addView(options)
         setContentView(content)
