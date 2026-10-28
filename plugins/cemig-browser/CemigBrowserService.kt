@@ -67,7 +67,7 @@ class CemigBrowserService : Service() {
                 if(json.optString("state")=="LOGIN"&&savedAccess!=null){
                     val loginScript=assets.open("cemig-rateio-login.js").bufferedReader().use{it.readText()}.replace("__ANDRADE_ACCESS__",savedAccess.toString())
                     browser.evaluateJavascript(loginScript){state->if(state=="\"LOGIN_ENVIADO\"")savedAccess=null else if(state=="\"CAPTCHA\""&&solverAllowed&&!solverRequested)solveCaptcha()}
-                }else if(json.optString("state")!="LOGIN"&&json.optString("state")!="VERIFICACAO")savedAccess=null
+                }else if(json.optString("state") in setOf("PRONTO","NAVEGANDO","UC","CADASTRO","MODALIDADE","ALOCACAO","ANEXO","REVISAO"))savedAccess=null
             }
             catch(_:Exception){progress="Aguardando carregamento do portal. Nenhum protocolo foi enviado."}
         }
