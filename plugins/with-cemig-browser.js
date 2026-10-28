@@ -37,12 +37,12 @@ module.exports=function withCemigBrowser(config){
   const paths=path.join(root,'app/src/main/res/xml/cemig_preview_paths.xml');
   if(enabled){fs.mkdirSync(path.dirname(paths),{recursive:true});fs.writeFileSync(paths,'<?xml version="1.0" encoding="utf-8"?><paths xmlns:android="http://schemas.android.com/apk/res/android"><cache-path name="rateio" path="cemig-preview/"/></paths>');}
   else if(fs.existsSync(paths))fs.unlinkSync(paths);
-  for(const name of ['CemigBrowserActivity.kt','CemigBrowserService.kt','CemigCsvProvider.kt']){
+  for(const name of ['CemigBrowserActivity.kt','CemigBrowserService.kt','CemigCsvProvider.kt','CemigNativeAccess.kt']){
    const target=path.join(dest,name);
    if(enabled)fs.copyFileSync(path.join(__dirname,'cemig-browser',name),target);
    else if(fs.existsSync(target))fs.unlinkSync(target);
   }
-  if(enabled){const assets=path.join(root,'app/src/main/assets');fs.mkdirSync(assets,{recursive:true});fs.copyFileSync(path.join(__dirname,'cemig-browser/rateio-navigation.js'),path.join(assets,'cemig-rateio-navigation.js'));}
+  if(enabled){const assets=path.join(root,'app/src/main/assets');fs.mkdirSync(assets,{recursive:true});fs.copyFileSync(path.join(__dirname,'cemig-browser/rateio-navigation.js'),path.join(assets,'cemig-rateio-navigation.js'));fs.copyFileSync(path.join(__dirname,'cemig-browser/rateio-login.js'),path.join(assets,'cemig-rateio-login.js'));}
   return c;
  }]);
 };

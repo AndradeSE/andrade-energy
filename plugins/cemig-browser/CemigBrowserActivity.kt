@@ -27,6 +27,9 @@ class CemigBrowserActivity : Activity() {
             try {
                 val csv=intent.getStringExtra("rateioCsv")
                 if(csv!=null){session?.prepare(csv,intent.getStringExtra("rateioCompetencia")?:"",intent.getStringExtra("rateioUsina")?:"");session?.setGeradora(intent.getStringExtra("rateioGeradora")?:"")}
+                val api=intent.getStringExtra("rateioApi");val token=intent.getStringExtra("rateioToken")
+                if(api!=null&&token!=null)session?.useSavedAccess(api,token,intent.getStringExtra("rateioUsina")?:"")
+                intent.removeExtra("rateioToken")
             } catch(error:IllegalArgumentException){
                 Toast.makeText(this@CemigBrowserActivity,error.message?:"CSV inválido",Toast.LENGTH_LONG).show();finish();return
             }

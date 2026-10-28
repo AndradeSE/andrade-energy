@@ -30,6 +30,16 @@ class CemigBrowserService : Service() {
     // Do not require a second, hidden menu action after the login completes.
     private var navigationStarted=false
     private var evaluating=false
+    private var savedAccess:JSONObject?=null
+    private var accessRequested=false
+    fun useSavedAccess(base:String,token:String,usina:String){
+        if(accessRequested)return
+        accessRequested=true
+        Thread{
+            try{val access=CemigNativeAccess.load(base,token,usina,packageName.endsWith(".preview"));handler.post{savedAccess=access}}
+            catch(_:Exception){handler.post{progress="Acesso salvo indisponível. Confira o cadastro da Cemig no aplicativo."}}
+        }.start()
+    }
     var progress="Entre na Cemig para continuar o rateio."
         private set
     private val navigationTick=object:Runnable { override fun run(){inspectNavigation();handler.postDelayed(this,1500)} }
@@ -42,7 +52,12 @@ class CemigBrowserService : Service() {
         val script=assets.open("cemig-rateio-navigation.js").bufferedReader().use{it.readText()}.replace("__ANDRADE_CONFIG__",config.toString())
         browser.evaluateJavascript(script){raw->
             evaluating=false
-            try{val json=JSONObject(JSONTokener(raw).nextValue() as String);progress=json.optString("message","Confira a etapa no portal.")+if(json.optString("state")=="PAUSADO") "\nPágina: "+Uri.parse(browser.url?:"").let{it.scheme+"://"+it.host+it.path} else ""}
+            try{val json=JSONObject(JSONTokener(raw).nextValue() as String);progress=json.optString("message","Confira a etapa no portal.")+if(json.optString("state")=="PAUSADO") "\nPágina: "+Uri.parse(browser.url?:"").let{it.scheme+"://"+it.host+it.path} else ""
+                if(json.optString("state")=="LOGIN"&&savedAccess!=null){
+                    val loginScript=assets.open("cemig-rateio-login.js").bufferedReader().use{it.readText()}.replace("__ANDRADE_ACCESS__",savedAccess.toString())
+                    browser.evaluateJavascript(loginScript){state->if(state=="\"LOGIN_ENVIADO\"")savedAccess=null}
+                }else if(json.optString("state")!="LOGIN"&&json.optString("state")!="VERIFICACAO")savedAccess=null
+            }
             catch(_:Exception){progress="Aguardando carregamento do portal. Nenhum protocolo foi enviado."}
         }
     }
@@ -217,6 +232,7 @@ class CemigBrowserService : Service() {
     }
     override fun onTaskRemoved(rootIntent:Intent?) { closeSession() }
     override fun onDestroy() {
+        savedAccess=null
         handler.removeCallbacks(expire)
         handler.removeCallbacks(navigationTick)
         prepared?.delete();prepared=null;artifactHash=null

@@ -52,7 +52,7 @@ module.exports = {
 
       package: packageId,
 
-      versionCode: preview ? 2 : gerador ? (nativeCemigBrowser ? 6 : 5) : 8,
+      versionCode: preview ? 2 : gerador ? (nativeCemigBrowser ? 7 : 5) : 8,
       permissions: ["android.permission.REQUEST_INSTALL_PACKAGES", "android.permission.POST_NOTIFICATIONS", ...(assistantNative ? ["android.permission.RECORD_AUDIO"] : [])],
 
       predictiveBackGestureEnabled: false,
@@ -153,7 +153,7 @@ module.exports = {
       },
     },
 
-    runtimeVersion: nativeCemigBrowser ? (preview ? "1.0.7-preview-cemig-flow" : "1.0.7-production-cemig-flow") : preview ? "1.0.4-preview-live-awake" : assistantNative ? "1.0.4-production-live-awake" : {
+    runtimeVersion: nativeCemigBrowser ? (preview ? "1.0.8-preview-cemig-vault" : "1.0.8-production-cemig-vault") : preview ? "1.0.4-preview-live-awake" : assistantNative ? "1.0.4-production-live-awake" : {
       policy: "appVersion",
     },
 

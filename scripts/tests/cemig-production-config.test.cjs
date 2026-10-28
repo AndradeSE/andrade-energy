@@ -10,10 +10,10 @@ test('new production native runtime is isolated from preview and old APKs',()=>{
   const file=path.join(root,'app.config.js');delete require.cache[require.resolve(file)];
   const {expo}=require(file);
   assert.equal(expo.android.package,'com.andradese.energy.gerador');
-  assert.equal(expo.runtimeVersion,'1.0.7-production-cemig-flow');
+  assert.equal(expo.runtimeVersion,'1.0.8-production-cemig-vault');
   assert.equal(expo.extra.nativeCemigBrowser,true);
   assert.equal(expo.updates.requestHeaders['expo-channel-name'],'production-gerador');
-  assert.equal(expo.android.versionCode,6);
+  assert.equal(expo.android.versionCode,7);
  }finally{process.env=saved;}
 });
 test('production entry never imports diagnostic files or changes CSV rows',()=>{

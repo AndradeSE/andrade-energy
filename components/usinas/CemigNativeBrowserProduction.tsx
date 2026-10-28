@@ -6,6 +6,7 @@ import {Button,Card} from '../ui';
 import {isPreviewEnvironment} from '../../config/environment';
 import {Colors} from '../../theme';
 import api from '../../config/api';
+import {obterSessao} from '../../storage/session';
 
 export default function CemigNativeBrowserProduction({usinaId,competencia}:{usinaId:string;competencia:string}){
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
@@ -13,7 +14,8 @@ export default function CemigNativeBrowserProduction({usinaId,competencia}:{usin
  async function open(){
   if(busy)return;setBusy(true);setError('');
   try{
-   const config=(await api.get(`/usinas/${encodeURIComponent(usinaId)}/rateio-configuracao`,{timeout:15000})).data;
+   const configResponse=await api.get(`/usinas/${encodeURIComponent(usinaId)}/rateio-configuracao`,{timeout:15000});
+   const config=configResponse.data;
    if(!config.uc_ancora)throw new Error('Selecione e confirme a UC âncora antes de preparar o envio.');
    const plano=(await api.post(`/usinas/${encodeURIComponent(usinaId)}/rateio-simulacao`,{
     competencia,ucAncora:config.uc_ancora,formatoCemig:true,numerosAtuaisConfirmados:config.numeros_confirmados===true,
@@ -28,9 +30,11 @@ export default function CemigNativeBrowserProduction({usinaId,competencia}:{usin
     [{text:'Cancelar',style:'cancel',onPress:()=>resolve(false)},{text:'Autorizar navegação e anexo',onPress:()=>resolve(true)}],
     {cancelable:true,onDismiss:()=>resolve(false)}));
    if(!confirmed)return;
+   const session=await obterSessao();
+   if(!session?.token)throw new Error('Entre novamente no Gerador antes de iniciar o envio.');
    await IntentLauncher.startActivityAsync('android.intent.action.VIEW',{
     packageName:'com.andradese.energy.gerador',className:'br.com.andradeenergy.cemig.CemigBrowserActivity',
-    extra:{rateioCsv:plano.csv,rateioCompetencia:competencia,rateioUsina:usinaId,rateioGeradora:geradora},
+    extra:{rateioCsv:plano.csv,rateioCompetencia:competencia,rateioUsina:usinaId,rateioGeradora:geradora,rateioApi:String(configResponse.config.baseURL??'').replace(/\/$/,''),rateioToken:session.token},
    });
   }catch(e:any){setError(e?.response?.data?.message??e?.message??'Não foi possível preparar o envio.');}
   finally{setBusy(false);}
