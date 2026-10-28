@@ -3,9 +3,9 @@ const assert=require('node:assert/strict');
 const vm=require('node:vm');
 const fs=require('node:fs');
 const script=fs.readFileSync(require('node:path').join(__dirname,'../../plugins/cemig-browser/rateio-navigation.js'),'utf8');
-function run({url='https://www.atendimento.cemig.com.br/portal/services/compensation-gd',body='',controls=[],selects=[],files=[],tabs=[],combos=[],radios=[],password=false,config={geradora:'1121361801894',iniciado:true}}={}){
+function run({url='https://www.atendimento.cemig.com.br/portal/services/compensation-gd',body='',controls=[],selects=[],files=[],tabs=[],combos=[],radios=[],password=false,window={},config={geradora:'1121361801894',iniciado:true}}={}){
  let assigned;
- const context={Event:class{constructor(type){this.type=type;}},location:{href:url,pathname:new URL(url).pathname,assign:url=>{assigned=url;}},window:{},getComputedStyle:()=>({visibility:'visible'}),document:{body:{textContent:body},querySelector:()=>password?{}:null,querySelectorAll:selector=>selector.startsWith('button')?controls:selector==='input[type=radio],[role=radio]'?radios:selector==='select'?selects:selector==='input[type=file]'?files:selector==='[role=tab]'?tabs:selector==='[role=combobox]'?combos:[]}};
+ const context={Event:class{constructor(type){this.type=type;}},location:{href:url,pathname:new URL(url).pathname,assign:url=>{assigned=url;}},window,getComputedStyle:()=>({visibility:'visible'}),document:{body:{textContent:body},querySelector:()=>password?{}:null,querySelectorAll:selector=>selector.startsWith('button')?controls:selector==='input[type=radio],[role=radio]'?radios:selector==='select'?selects:selector==='input[type=file]'?files:selector==='[role=tab]'?tabs:selector==='[role=combobox]'?combos:[]}};
  const result=JSON.parse(vm.runInNewContext(script.replace('__ANDRADE_CONFIG__',JSON.stringify(config)),context));
  return {...result,assigned};
 }
@@ -27,6 +27,14 @@ test('modalidade já selecionada avança sem substituir valor',()=>{
  assert.equal(run({body:'Selecione o tipo de modalidade',selects:[select],controls:[button('Avançar',()=>clicks++)]}).state,'ALOCACAO');assert.equal(clicks,1);
 });
 test('campo de arquivo pausa para conferência do anexo',()=>{assert.equal(run({files:[{disabled:false}]}).state,'ANEXO');});
+test('anexo autorizado usa somente campo único e não repete enquanto aguarda',()=>{
+ let clicks=0;const window={};const files=[{disabled:false,click:()=>clicks++}];
+ const config={geradora:'1121361801894',iniciado:true,anexoAutomatico:true,arquivo:'rateio-2026-10.csv'};
+ assert.equal(run({window,files,config}).state,'ANEXO');run({window,files,config});assert.equal(clicks,1);
+ run({files:[...files,...files],config});assert.equal(clicks,1);
+ run({files,config:{...config,iniciado:false}});assert.equal(clicks,1);
+ run({files,body:'Template inválido',config});assert.equal(clicks,1);
+});
 test('não navega sem início explícito nem UC válida',()=>{
  assert.equal(run({url:'https://www.atendimento.cemig.com.br/portal/home',config:{geradora:'1121361801894',iniciado:false}}).assigned,undefined);
  assert.equal(run({config:{geradora:'x',iniciado:true}}).state,'PAUSADO');

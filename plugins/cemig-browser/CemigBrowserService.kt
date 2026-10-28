@@ -26,6 +26,8 @@ class CemigBrowserService : Service() {
     private var attachmentConfirmed=false
     private var permittedAttachmentUri:Uri?=null
     private var geradora=""
+    // Preparing a production artifact is the user's explicit start action.
+    // Do not require a second, hidden menu action after the login completes.
     private var navigationStarted=false
     private var evaluating=false
     var progress="Entre na Cemig para continuar o rateio."
@@ -36,7 +38,7 @@ class CemigBrowserService : Service() {
     private fun inspectNavigation(){
         if(!::browser.isInitialized||evaluating||!allowed(browser.url?:""))return
         evaluating=true
-        val config=JSONObject().put("geradora",geradora).put("iniciado",navigationStarted).put("anexado",attachmentConfirmed).put("arquivo",prepared?.name?:"")
+        val config=JSONObject().put("geradora",geradora).put("iniciado",navigationStarted).put("anexado",attachmentConfirmed).put("arquivo",prepared?.name?:"").put("anexoAutomatico",!packageName.endsWith(".preview"))
         val script=assets.open("cemig-rateio-navigation.js").bufferedReader().use{it.readText()}.replace("__ANDRADE_CONFIG__",config.toString())
         browser.evaluateJavascript(script){raw->
             evaluating=false
@@ -47,6 +49,7 @@ class CemigBrowserService : Service() {
     fun prepare(csv:String,competencia:String,usina:String) {
         require(csv.toByteArray(Charsets.UTF_8).size in 1..100000 && competencia.matches(Regex("20\\d{2}-(0[1-9]|1[0-2])"))) { "Arquivo inválido." }
         require(usina.matches(Regex("[a-zA-Z0-9_-]{1,128}"))) { "Usina inválida." }
+        if(!packageName.endsWith(".preview"))navigationStarted=true
         val rows=csv.trim().lines().filter { it.isNotBlank() }
         require(rows.isNotEmpty()&&rows.all { it.split(';').size==4 }) { "CSV fora do padrão." }
         val hash=MessageDigest.getInstance("SHA-256").digest((usina+competencia+csv).toByteArray()).joinToString(""){"%02x".format(it)}
@@ -162,18 +165,24 @@ class CemigBrowserService : Service() {
                 if(activity==null||file==null||!file.isFile||!allowed(uri.toString())||!uri.path.orEmpty().contains("compensation-gd")){
                     callback.onReceiveValue(null);return true
                 }
+                fun attachPreparedFile(){
+                    val attachmentUri=FileProvider.getUriForFile(this@CemigBrowserService,"$packageName.cemig.preview.files",file)
+                    permittedAttachmentUri=attachmentUri
+                    view.settings.allowContentAccess=true
+                    attachmentConfirmed=true
+                    callback.onReceiveValue(arrayOf(attachmentUri))
+                }
+                // Production starts with an in-app review of this exact CSV.
+                // Never open storage or substitute a different file here.
+                if(!packageName.endsWith(".preview")){
+                    attachPreparedFile();return true
+                }
                 AlertDialog.Builder(activity).setTitle(if(packageName.endsWith(".preview")) "Anexar CSV da simulação?" else "Anexar CSV do rateio real?")
                     .setMessage("$artifactLabel\n${file.name}\n"+if(packageName.endsWith(".preview")) "O arquivo será enviado ao portal Cemig para revisão. Não conclua Solicitar cadastro neste teste." else "Confira a usina, competência, UCs e percentuais antes de concluir a solicitação. Anexar não confirma protocolo.")
                     .setNegativeButton("Cancelar"){_,_->callback.onReceiveValue(null)}
                     .setOnCancelListener { callback.onReceiveValue(null) }
                     .setPositiveButton("Anexar para revisão"){_,_->
-                        val attachmentUri=FileProvider.getUriForFile(this@CemigBrowserService,"$packageName.cemig.preview.files",file)
-                        permittedAttachmentUri=attachmentUri
-                        // FileReader needs content:// access to this confirmed, app-scoped CSV.
-                        // Other content URIs are rejected above; file:// access remains disabled.
-                        view.settings.allowContentAccess=true
-                        attachmentConfirmed=true
-                        callback.onReceiveValue(arrayOf(attachmentUri))
+                        attachPreparedFile()
                     }.show()
                 return true
             }

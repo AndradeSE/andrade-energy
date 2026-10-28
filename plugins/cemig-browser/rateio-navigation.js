@@ -70,6 +70,17 @@
   if(tabs.length===1&&tabs[0].getAttribute('aria-selected')!=='true'){tabs[0].click();return result('ANEXO','Abrindo envio por anexo.');}
   if(config.anexado&&body.includes(config.arquivo)&&clickUnique('Avançar'))return result('REVISAO','Abrindo revisão do CSV anexado. Nenhum protocolo será enviado.');
   var files=Array.from(document.querySelectorAll('input[type=file]')).filter(function(el){return !el.disabled;});
-  if(files.length===1)return result('ANEXO','Selecione o campo de anexo: será oferecido somente o CSV preparado.');
+  if(files.length===1){
+    if(config.anexoAutomatico&&config.arquivo&&!config.anexado){
+      var attachmentKey=config.geradora+'|'+config.arquivo;
+      if(window.__andradeAttachmentRequested!==attachmentKey){
+        window.__andradeAttachmentRequested=attachmentKey;
+        files[0].click();
+        return result('ANEXO','Anexando o arquivo conferido no aplicativo.');
+      }
+      return result('ANEXO','Aguardando o portal validar o anexo.');
+    }
+    return result('ANEXO','Selecione o campo de anexo: será oferecido somente o CSV preparado.');
+  }
   return result('PAUSADO','Confira esta etapa do portal e toque em Continuar rateio. Nenhum protocolo foi enviado.');
 })(__ANDRADE_CONFIG__);

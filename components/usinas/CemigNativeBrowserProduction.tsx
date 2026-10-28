@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {Platform,Text,View} from 'react-native';
+import {Alert,Platform,Text,View} from 'react-native';
 import Constants from 'expo-constants';
 import * as IntentLauncher from 'expo-intent-launcher';
 import {Button,Card} from '../ui';
@@ -21,6 +21,13 @@ export default function CemigNativeBrowserProduction({usinaId,competencia}:{usin
    if(plano.rascunho||!plano.formatoCemig||!plano.csv||plano.pendencias?.length)throw new Error(plano.pendencias?.join('\n')||'O arquivo ainda tem pendências. Confira os dados da competência.');
    const geradora=String(plano.arquivo??'').match(/-(\d{6,20})\.csv$/)?.[1];
    if(!geradora)throw new Error('O arquivo não identifica a UC geradora. Nenhum envio foi iniciado.');
+   const rows=String(plano.csv).trim().split(/\r?\n/).map(row=>row.split(';'));
+   if(!rows.length||rows.some(row=>row.length!==4))throw new Error('O arquivo está fora do padrão Cemig.');
+   const confirmed=await new Promise<boolean>(resolve=>Alert.alert('Conferir e preparar o rateio',
+    `Competência: ${competencia}\nGeradora: ${geradora}\n\n${rows.map(row=>`${row[0]} — ${row[2]}%`).join('\n')}\n\nO aplicativo navegará e anexará este arquivo na Cemig após o login. A confirmação definitiva não é feita por esta autorização.`,
+    [{text:'Cancelar',style:'cancel',onPress:()=>resolve(false)},{text:'Autorizar navegação e anexo',onPress:()=>resolve(true)}],
+    {cancelable:true,onDismiss:()=>resolve(false)}));
+   if(!confirmed)return;
    await IntentLauncher.startActivityAsync('android.intent.action.VIEW',{
     packageName:'com.andradese.energy.gerador',className:'br.com.andradeenergy.cemig.CemigBrowserActivity',
     extra:{rateioCsv:plano.csv,rateioCompetencia:competencia,rateioUsina:usinaId,rateioGeradora:geradora},
@@ -29,7 +36,7 @@ export default function CemigNativeBrowserProduction({usinaId,competencia}:{usin
   finally{setBusy(false);}
  }
  return <Card><Text style={{fontSize:20,fontWeight:'700',color:Colors.text}}>Enviar pelo navegador integrado</Text>
-  <Text style={{color:Colors.subtitle,lineHeight:22,marginVertical:12}}>Usa as UCs e a âncora cadastradas nesta usina para a competência selecionada. Entre na Cemig e toque em Continuar rateio. O robô prepara o anexo e para na revisão. Confira os dados antes de concluir a solicitação no portal. Abrir ou anexar o arquivo não confirma protocolo.</Text>
+  <Text style={{color:Colors.subtitle,lineHeight:22,marginVertical:12}}>Confira as UCs e os percentuais no aplicativo e autorize a preparação. Após o login, o navegador integrado avança e anexa o arquivo automaticamente, parando na revisão. Abrir ou anexar o arquivo não confirma protocolo.</Text>
   <View style={{gap:14}}><Button style={{height:undefined,minHeight:56,paddingVertical:14}} title={busy?'Preparando arquivo real…':'Preparar arquivo real e abrir Cemig'} disabled={busy} onPress={()=>void open()}/></View>
   {error?<Text accessibilityRole="alert" style={{color:Colors.text,marginTop:12}}>{error}</Text>:null}
  </Card>;
