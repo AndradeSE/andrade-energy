@@ -49,8 +49,8 @@ test('anexo so avanca confirmado e visivel',()=>{let clicks=0;const config={gera
 
 test('radio móvel seleciona somente UC exata e avança só quando marcada',()=>{
  let clicks=0,advances=0;
- const card={innerText:'Nº da unidade consumidora: 10.384.179.018-64',parentElement:null};
- const radio={...button('',()=>clicks++),checked:false,parentElement:card,getAttribute:()=>null};
+ const card={innerText:'Nº da unidade consumidora: 10.384.179.018-64',parentElement:null,getClientRects:()=>[{}]};
+ const radio={...button('',()=>clicks++),checked:false,parentElement:card,getAttribute:()=>null,getClientRects:()=>[]};
  const config={geradora:'1038417901864',iniciado:true};
  assert.equal(run({config,radios:[radio]}).state,'UC'); assert.equal(clicks,1);
  radio.checked=true;

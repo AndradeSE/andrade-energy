@@ -24,6 +24,7 @@ class CemigBrowserService : Service() {
     private var artifactHash:String?=null
     private var artifactLabel=""
     private var attachmentConfirmed=false
+    private var permittedAttachmentUri:Uri?=null
     private var geradora=""
     private var navigationStarted=false
     private var evaluating=false
@@ -116,6 +117,12 @@ class CemigBrowserService : Service() {
                     },true);
                 })();true;""",null)
             }
+            override fun shouldInterceptRequest(view:WebView,request:WebResourceRequest):WebResourceResponse? {
+                if(request.url.scheme == "content" && request.url != permittedAttachmentUri) {
+                    return WebResourceResponse("text/plain","UTF-8",403,"Forbidden",emptyMap(),java.io.ByteArrayInputStream(ByteArray(0)))
+                }
+                return super.shouldInterceptRequest(view,request)
+            }
             override fun shouldOverrideUrlLoading(view:WebView,request:WebResourceRequest):Boolean = request.isForMainFrame && !allowed(request.url.toString())
             @Suppress("DEPRECATION")
             override fun shouldOverrideUrlLoading(view:WebView,url:String):Boolean = !allowed(url)
@@ -135,8 +142,13 @@ class CemigBrowserService : Service() {
                     .setNegativeButton("Cancelar"){_,_->callback.onReceiveValue(null)}
                     .setOnCancelListener { callback.onReceiveValue(null) }
                     .setPositiveButton("Anexar para revisão"){_,_->
+                        val attachmentUri=FileProvider.getUriForFile(this@CemigBrowserService,"$packageName.cemig.preview.files",file)
+                        permittedAttachmentUri=attachmentUri
+                        // FileReader needs content:// access to this confirmed, app-scoped CSV.
+                        // Other content URIs are rejected above; file:// access remains disabled.
+                        view.settings.allowContentAccess=true
                         attachmentConfirmed=true
-                        callback.onReceiveValue(arrayOf(FileProvider.getUriForFile(this@CemigBrowserService,"$packageName.cemig.preview.files",file)))
+                        callback.onReceiveValue(arrayOf(attachmentUri))
                     }.show()
                 return true
             }

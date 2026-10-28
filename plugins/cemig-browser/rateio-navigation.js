@@ -25,14 +25,14 @@
   if (controls.some(function(el){return /^Solicitar cadastro$/i.test(text(el));})) return result('REVISAO','Revise a UC geradora e o CSV. Protocolo bloqueado no Preview.');
   if (!config.iniciado) return result('PRONTO','Toque em Continuar rateio para avançar até a revisão.');
   // The mobile portal renders UC choices as radio labels, not buttons.
-  var radios=Array.from(document.querySelectorAll('input[type=radio],[role=radio]')).filter(visible);
+  var radios=Array.from(document.querySelectorAll('input[type=radio],[role=radio]'));
   var exactRadios=radios.filter(function(radio){
     if(radio.disabled||radio.getAttribute('aria-disabled')==='true')return false;
     var node=radio;
     for(var depth=0;node&&depth<5;depth++,node=node.parentElement){
       var matches=Array.from(text(node).matchAll(/N[º°] da unidade consumidora:\s*([\d.\-]+)/gi));
       if(matches.length>1)return false;
-      if(matches.length===1)return matches[0][1].replace(/\D/g,'')===config.geradora;
+      if(matches.length===1)return visible(node)&&matches[0][1].replace(/\D/g,'')===config.geradora;
     }
     return false;
   });
