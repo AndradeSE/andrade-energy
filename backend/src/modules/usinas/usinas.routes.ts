@@ -98,6 +98,16 @@ router.get("/:id/rateios-mensais/:competencia",exigirGestor,async(req,res)=>{
   if(!acessoOperacao((req as any).usuario))return res.status(403).json({message:"Acesso à operação não autorizado."});
   try{return res.json(await buscarRateioAutomatico(req.params.id,empresaIdDaRequisicao(req),req.params.competencia));}catch(error:any){return res.status(400).json({message:error.message});}
 });
+router.post("/:id/rateio-simulacao", exigirGestor, apiRateLimit("rateio-simulacao", { windowMs: 60_000, limit: 5 }), async (req, res) => {
+  if (!acessoOperacao((req as any).usuario)) return res.status(403).json({ message: "Acesso à operação não autorizado." });
+  res.setHeader("Cache-Control", "private, no-store");
+  try {
+    // Preview preparation does not create a monthly job, send email or notify users.
+    const plano = await prepararPlanilhaRateio(req.params.id, empresaIdDaRequisicao(req), String(req.body?.competencia ?? ""), String(req.body?.ucAncora ?? ""), "", req.body?.numerosAtuaisConfirmados === true, req.body?.formatoCemig === true);
+    return res.json({ ...plano, simulacao: true, emailEnviado: false, protocolado: false });
+  } catch (error: any) { return res.status(400).json({ message: error.message }); }
+});
+
 router.post("/:id/rateio-mensal", exigirGestor, apiRateLimit("usinas-routes-11", { windowMs: 60_000, limit: 5 }), async (req, res) => {
   const usuario = (req as any).usuario;
   const papel = String(usuario?.papel_empresa ?? "");
