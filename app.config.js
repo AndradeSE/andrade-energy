@@ -153,7 +153,7 @@ module.exports = {
       },
     },
 
-    runtimeVersion: nativeCemigBrowser ? "1.0.6-preview-cemig-csv" : preview ? "1.0.4-preview-live-awake" : assistantNative ? "1.0.4-production-live-awake" : {
+    runtimeVersion: nativeCemigBrowser ? "1.0.7-preview-cemig-flow" : preview ? "1.0.4-preview-live-awake" : assistantNative ? "1.0.4-production-live-awake" : {
       policy: "appVersion",
     },
 

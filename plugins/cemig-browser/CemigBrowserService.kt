@@ -10,6 +10,8 @@ import android.webkit.*
 import androidx.core.content.FileProvider
 import java.io.File
 import java.security.MessageDigest
+import org.json.JSONObject
+import org.json.JSONTokener
 
 /** Preview browser session with a single scoped CSV. No definitive submission or credential bridge. */
 class CemigBrowserService : Service() {
@@ -21,6 +23,25 @@ class CemigBrowserService : Service() {
     private var prepared:File?=null
     private var artifactHash:String?=null
     private var artifactLabel=""
+    private var geradora=""
+    private var navigationStarted=false
+    private var evaluating=false
+    var progress="Entre na Cemig para continuar o rateio."
+        private set
+    private val navigationTick=object:Runnable { override fun run(){inspectNavigation();handler.postDelayed(this,1500)} }
+    fun setGeradora(value:String){require(value.matches(Regex("\\d{6,20}"))){"UC geradora inválida."};require(geradora.isEmpty()||geradora==value){"A UC da sessão não pode ser trocada."};geradora=value}
+    fun continueNavigation(){navigationStarted=true;browser.evaluateJavascript("window.__andradeLastStep=null;",null);inspectNavigation()}
+    private fun inspectNavigation(){
+        if(!::browser.isInitialized||evaluating||!allowed(browser.url?:""))return
+        evaluating=true
+        val config=JSONObject().put("geradora",geradora).put("iniciado",navigationStarted)
+        val script=assets.open("cemig-rateio-navigation.js").bufferedReader().use{it.readText()}.replace("__ANDRADE_CONFIG__",config.toString())
+        browser.evaluateJavascript(script){raw->
+            evaluating=false
+            try{val json=JSONObject(JSONTokener(raw).nextValue() as String);progress=json.optString("message","Confira a etapa no portal.")}
+            catch(_:Exception){progress="Aguardando carregamento do portal. Nenhum protocolo foi enviado."}
+        }
+    }
     fun prepare(csv:String,competencia:String,usina:String) {
         require(csv.toByteArray(Charsets.UTF_8).size in 1..100000 && competencia.matches(Regex("20\\d{2}-(0[1-9]|1[0-2])"))) { "Arquivo inválido." }
         require(usina.matches(Regex("[a-zA-Z0-9_-]{1,128}"))) { "Usina inválida." }
@@ -119,6 +140,7 @@ class CemigBrowserService : Service() {
         // so legitimate styles and scripts are not replaced or routed through a proxy.
         browser.loadUrl("https://atende.cemig.com.br/Login")
         handler.postDelayed(expire,10*60*1000L)
+        handler.post(navigationTick)
     }
     override fun onBind(intent:Intent):IBinder = binder
     fun attach(activity:Activity):WebView {
@@ -143,6 +165,7 @@ class CemigBrowserService : Service() {
     override fun onTaskRemoved(rootIntent:Intent?) { closeSession() }
     override fun onDestroy() {
         handler.removeCallbacks(expire)
+        handler.removeCallbacks(navigationTick)
         prepared?.delete();prepared=null;artifactHash=null
         if(::browser.isInitialized) {
             (browser.parent as? ViewGroup)?.removeView(browser)

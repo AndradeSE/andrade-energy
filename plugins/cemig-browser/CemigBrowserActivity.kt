@@ -18,12 +18,15 @@ class CemigBrowserActivity : Activity() {
         override fun onReceive(context:Context,intent:Intent){ finish() }
     }
     private lateinit var content:LinearLayout
+    private lateinit var progressText:TextView
+    private val uiHandler=Handler(Looper.getMainLooper())
+    private val refreshProgress=object:Runnable{override fun run(){if(::progressText.isInitialized)progressText.text=session?.progress?:"Preparando sessão…";uiHandler.postDelayed(this,1000)}}
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name:ComponentName,binder:IBinder) {
             session=(binder as CemigBrowserService.LocalBinder).session()
             try {
                 val csv=intent.getStringExtra("rateioCsv")
-                if(csv!=null)session?.prepare(csv,intent.getStringExtra("rateioCompetencia")?:"",intent.getStringExtra("rateioUsina")?:"")
+                if(csv!=null){session?.prepare(csv,intent.getStringExtra("rateioCompetencia")?:"",intent.getStringExtra("rateioUsina")?:"");session?.setGeradora(intent.getStringExtra("rateioGeradora")?:"")}
             } catch(error:IllegalArgumentException){
                 Toast.makeText(this@CemigBrowserActivity,error.message?:"CSV inválido",Toast.LENGTH_LONG).show();finish();return
             }
@@ -54,10 +57,14 @@ class CemigBrowserActivity : Activity() {
             }
         }
         val title=TextView(this).apply {
-            text="Cemig · teste no aparelho\nSessão de até 10 min. Sem envio automático ou protocolo."
+            text="Cemig · rateio no aparelho\nPreview: continuação até a revisão, sem protocolo."
             setPadding(dp(16),dp(12),dp(16),dp(12));setTextColor(Color.rgb(0,80,55))
         }
         content.addView(title)
+        progressText=TextView(this).apply{setPadding(dp(16),dp(4),dp(16),dp(8));setTextColor(Color.rgb(0,80,55))}
+        content.addView(progressText)
+        content.addView(Button(this).apply{text="Continuar rateio até a revisão";setOnClickListener{session?.continueNavigation()}})
+        uiHandler.post(refreshProgress)
         val bar=LinearLayout(this)
         fun button(label:String,action:()->Unit) {
             bar.addView(Button(this).apply { text=label;setOnClickListener { action() } },LinearLayout.LayoutParams(0,dp(56),1f))
@@ -81,10 +88,12 @@ class CemigBrowserActivity : Activity() {
         val csv=newIntent.getStringExtra("rateioCsv")?:return
         try {
             session?.prepare(csv,newIntent.getStringExtra("rateioCompetencia")?:"",newIntent.getStringExtra("rateioUsina")?:"")
+            session?.setGeradora(newIntent.getStringExtra("rateioGeradora")?:"")
             setIntent(newIntent)
         }catch(error:IllegalArgumentException){Toast.makeText(this,error.message,Toast.LENGTH_LONG).show()}
     }
     override fun onDestroy() {
+        uiHandler.removeCallbacks(refreshProgress)
         session?.detach(this)
         if(bound)unbindService(connection)
         if(listening)unregisterReceiver(closeReceiver)
