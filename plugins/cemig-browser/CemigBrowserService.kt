@@ -66,7 +66,15 @@ class CemigBrowserService : Service() {
                 if(json.optString("state")=="LOGIN")progress=if(solverBusy)"Resolvendo a verificação na mesma sessão…" else loginNotice?:progress
                 if(json.optString("state")=="LOGIN"&&savedAccess!=null){
                     val loginScript=assets.open("cemig-rateio-login.js").bufferedReader().use{it.readText()}.replace("__ANDRADE_ACCESS__",savedAccess.toString())
-                    browser.evaluateJavascript(loginScript){state->if(state=="\"LOGIN_ENVIADO\"")savedAccess=null else if(state=="\"CAPTCHA\""&&solverAllowed&&!solverRequested)solveCaptcha()}
+                    browser.evaluateJavascript(loginScript){state->
+                        when(state){
+                            "\"LOGIN_ENVIADO\""->{savedAccess=null;progress="Login enviado. Aguardando confirmação do portal."}
+                            "\"ABRINDO_SENHA\""->progress="Usuário conferido. Abrindo formulário de senha."
+                            "\"FORMULARIO\""->progress="Acesso recuperado. Aguardando formulário oficial de login ficar disponível."
+                            "\"CAPTCHA\""->{progress="Acesso preenchido. Aguardando a verificação nesta sessão.";if(solverAllowed&&!solverRequested)solveCaptcha()}
+                            "\"VERIFICACAO_EXPIRADA\""->progress="A verificação expirou; nenhuma tentativa será repetida automaticamente."
+                        }
+                    }
                 }else if(json.optString("state") in setOf("PRONTO","NAVEGANDO","UC","CADASTRO","MODALIDADE","ALOCACAO","ANEXO","REVISAO"))savedAccess=null
             }
             catch(_:Exception){progress="Aguardando carregamento do portal. Nenhum protocolo foi enviado."}

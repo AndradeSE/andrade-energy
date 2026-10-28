@@ -29,3 +29,11 @@ test('preview final-submission guard remains package-bound, robot still stops at
  const nav=fs.readFileSync(path.join(root,'plugins/cemig-browser/rateio-navigation.js'),'utf8');
  assert.doesNotMatch(nav,/clickUnique\('Solicitar cadastro'\)/);
 });
+test('acesso efêmero não é descartado em estado de carregamento ou pausa',()=>{
+ const s=fs.readFileSync(path.join(root,'plugins/cemig-browser/CemigBrowserService.kt'),'utf8');
+ assert.doesNotMatch(s,/else if\(json\.optString\("state"\)!=/);
+ assert.match(s,/else if\(json\.optString\("state"\) in setOf\("PRONTO"/);
+ assert.match(s,/closed=true;savedAccess=null;nativeToken=""/);
+ const activity=fs.readFileSync(path.join(root,'plugins/cemig-browser/CemigBrowserActivity.kt'),'utf8');
+ assert.match(activity,/intent.removeExtra\("rateioToken"\)/);
+});
