@@ -12,7 +12,9 @@ export async function capApi(method:'getBalance'|'createTask'|'getTaskResult',da
  if(!key)throw new Error('CapMonster não configurado.');
  const r=await fetcher(`https://api.capmonster.cloud/${method}`,{method:'POST',redirect:'error',signal:AbortSignal.timeout(12000),headers:{'Content-Type':'application/json'},body:JSON.stringify({clientKey:key,...data})});
  if(!r.ok)throw new Error('Falha no provedor de verificação.');
- const body=await r.json();if(body.errorId!==0)throw new Error('O provedor recusou a verificação.');return body;
+ const body=await r.json();
+ if(method==='getTaskResult'&&body.errorCode==='CAPTCHA_NOT_READY')return {status:'processing'};
+ if(body.errorId!==0)throw new Error('O provedor recusou a verificação.');return body;
 }
 const defaults={db:supabase,provider:capApi,env:process.env};
 async function scope(usina:string,empresa:string,deps=defaults){
@@ -29,7 +31,7 @@ export async function iniciarCaptchaNativo(usina:string,empresa:string,usuario:s
  if(existente.error)throw new Error('Controle da verificação indisponível.');
  if(existente.data)return {id:existente.data.id,estado:existente.data.estado};
  const balance=await deps.provider('getBalance');
- if(typeof balance.balance!=='number'||balance.balance<=0||balance.balance>0.100001)return {manual:true,motivo:'SALDO_TESTE_NAO_CONFIRMADO'};
+ if(typeof balance.balance!=='number'||!Number.isFinite(balance.balance)||balance.balance<=0||balance.balance>0.100001)return {manual:true,motivo:'SALDO_TESTE_NAO_CONFIRMADO'};
  const row=await deps.db.from('cemig_native_captchas').insert({chave:fingerprint,empresa_id:empresa,usuario_id:usuario,usina_id:usina,estado:'CRIANDO',expira_em:new Date(Date.now()+180000).toISOString()}).select('id').single();
  if(row.error||!row.data)throw new Error('Verificação já iniciada ou indisponível; não repetir.');
  try{
