@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {Platform,Text} from 'react-native';
+import {Platform,Text,View} from 'react-native';
 import Constants from 'expo-constants';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as DocumentPicker from 'expo-document-picker';
@@ -46,11 +46,13 @@ export default function CemigNativeBrowserPreview({usinaId,competencia}:{usinaId
  }
  return <Card><Text style={{fontSize:20,fontWeight:'700',color:Colors.text}}>Navegador integrado · Preview</Text>
   <Text style={{color:Colors.subtitle,lineHeight:22,marginVertical:12}}>Prepara o CSV e abre a Cemig no aplicativo. Após entrar, toque em Continuar rateio para avançar na mesma sessão. Se o portal mudar ou os dados não forem inequívocos, o fluxo pausa e explica a etapa. O anexo exige sua conferência. Login e verificações são manuais nesta versão; o Preview bloqueia o protocolo.</Text>
-  <Button title={busy?'Preparando…':'Preparar CSV e abrir navegador'} disabled={busy||!competencia} onPress={()=>void open()}/>
-  {competencia==='2026-10'?<Button title="Abrir cópia de teste sem UC fictícia" disabled={busy} onPress={()=>void open(true)}/>:null}
+  <View style={{gap:14,marginTop:4}}>
+  <Button style={{height:undefined,minHeight:56,paddingVertical:14}} title={busy?'Preparando…':'Preparar CSV e abrir navegador'} disabled={busy||!competencia} onPress={()=>void open()}/>
+  {competencia==='2026-10'?<Button style={{height:undefined,minHeight:56,paddingVertical:14}} title="Abrir cópia de teste sem UC fictícia" disabled={busy} onPress={()=>void open(true)}/>:null}
   <Text style={{color:Colors.subtitle,lineHeight:20,marginTop:8}}>A cópia técnica retira somente a UC 99999101128 e transfere sua cota à âncora 3006605532. Não altera os cadastros nem a planilha original; protocolo bloqueado.</Text>
-  <Button title="Testar arquivo CSV já validado" disabled={busy} onPress={()=>void openReference()}/>
+  <Button style={{height:undefined,minHeight:56,paddingVertical:14}} title="Testar arquivo CSV já validado" disabled={busy} onPress={()=>void openReference()}/>
   <Text style={{color:Colors.subtitle}}>Somente diagnóstico: usa a UC geradora indicada no arquivo, sem alterar a configuração desta usina.</Text>
+  </View>
   {error?<Text accessibilityRole="alert" style={{color:Colors.text,marginTop:12}}>{error}</Text>:null}
  </Card>;
 }
