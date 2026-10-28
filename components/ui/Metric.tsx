@@ -15,6 +15,7 @@ type Props = {
   subtitle?: string;
   icon?: ReactNode;
   compact?: boolean;
+  variant?: "default" | "primary";
 };
 
 export default function Metric({
@@ -23,25 +24,26 @@ export default function Metric({
   subtitle,
   icon,
   compact = false,
+  variant = "default",
 }: Props) {
   return (
-    <View style={[styles.container, compact && styles.compact]}>
+    <View style={[styles.container, compact && styles.compact, variant === "primary" && styles.primary]}>
       {icon && (
         <View style={styles.icon}>
           {icon}
         </View>
       )}
 
-      <Text style={[styles.title, compact && styles.compactTitle]}>
+      <Text style={[styles.title, compact && styles.compactTitle, variant === "primary" && styles.primaryLabel]}>
         {title}
       </Text>
 
-      <Text style={[styles.value, compact && styles.compactValue]}>
+      <Text style={[styles.value, compact && styles.compactValue, variant === "primary" && styles.primaryValue]}>
         {value}
       </Text>
 
       {subtitle ? (
-        <Text style={styles.subtitle}>
+        <Text style={[styles.subtitle, variant === "primary" && styles.primaryLabel]}>
           {subtitle}
         </Text>
       ) : null}
@@ -56,6 +58,10 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     ...Shadows.card,
   },
+
+  primary: { backgroundColor: Colors.primary },
+  primaryLabel: { color: "#E1F4E9" },
+  primaryValue: { color: "#FFFFFF" },
 
   compact: {
     minHeight: 128,
