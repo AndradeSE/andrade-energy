@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261027-222447",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Gmail: corrigir estado temporario no Preview com navegador integrado"
+    ]
+  },
+  {
     "numero": "OTA 20261027-191429",
     "data": "27/10/2026",
     "variant": "gerador",
