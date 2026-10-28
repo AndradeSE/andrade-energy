@@ -14,7 +14,7 @@ export async function capApi(method:'getBalance'|'createTask'|'getTaskResult',da
  if(!r.ok)throw new Error('Falha no provedor de verificação.');
  const body=await r.json();
  if(method==='getTaskResult'&&body.errorCode==='CAPTCHA_NOT_READY')return {status:'processing'};
- if(body.errorId!==0)throw new Error('O provedor recusou a verificação.');return body;
+ if(body.errorId!==0){const code=/^[A-Z0-9_]{1,80}$/.test(body.errorCode)?body.errorCode:'RECUSADO';throw new Error('CAPMONSTER_'+code);}return body;
 }
 const defaults={db:supabase,provider:capApi,env:process.env};
 async function scope(usina:string,empresa:string,deps=defaults){
@@ -25,13 +25,13 @@ export async function iniciarCaptchaNativo(usina:string,empresa:string,usuario:s
  await scope(usina,empresa,deps);
  if(body?.autorizaCaptcha!==true||! /^[a-zA-Z0-9_-]{16,128}$/.test(String(body.nonce??'')))throw new Error('Autorize a verificação desta sessão.');
  const desafio=conferirDesafioNativo(body.desafio);
- if(!deps.env.CAPMONSTER_API_KEY)return {manual:true,motivo:'SEM_CONFIGURACAO'};
+ if(!deps.env.CAPMONSTER_API_KEY){console.warn('CEMIG_NATIVE_CAPTCHA SEM_CONFIGURACAO');return {manual:true,motivo:'SEM_CONFIGURACAO'};}
  const fingerprint=createHash('sha256').update(JSON.stringify([empresa,usuario,usina,body.nonce])).digest('hex');
  const existente=await deps.db.from('cemig_native_captchas').select('id,estado').eq('chave',fingerprint).maybeSingle();
  if(existente.error)throw new Error('Controle da verificação indisponível.');
  if(existente.data)return {id:existente.data.id,estado:existente.data.estado};
  const balance=await deps.provider('getBalance');
- if(typeof balance.balance!=='number'||!Number.isFinite(balance.balance)||balance.balance<=0||balance.balance>0.100001)return {manual:true,motivo:'SALDO_TESTE_NAO_CONFIRMADO'};
+ if(typeof balance.balance!=='number'||!Number.isFinite(balance.balance)||balance.balance<=0||balance.balance>0.100001){console.warn('CEMIG_NATIVE_CAPTCHA SALDO_TESTE_NAO_CONFIRMADO');return {manual:true,motivo:'SALDO_TESTE_NAO_CONFIRMADO'};}
  const row=await deps.db.from('cemig_native_captchas').insert({chave:fingerprint,empresa_id:empresa,usuario_id:usuario,usina_id:usina,estado:'CRIANDO',expira_em:new Date(Date.now()+180000).toISOString()}).select('id').single();
  if(row.error||!row.data)throw new Error('Verificação já iniciada ou indisponível; não repetir.');
  try{

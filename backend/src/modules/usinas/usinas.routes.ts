@@ -45,7 +45,7 @@ router.use(exigirAutenticacao);
 router.post('/:id/cemig-acesso/nativo/captcha',exigirGestor,exigirSuperAdministradorAndrade,apiRateLimit('cemig-native-captcha',{windowMs:60000,limit:2}),async(req,res)=>{
  res.setHeader('Cache-Control','private, no-store');
  try{return res.json(await iniciarCaptchaNativo(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.body));}
- catch{return res.status(400).json({message:'A verificação automática não pôde continuar. Nenhuma tarefa será repetida automaticamente.'});}
+ catch(error){const message=error instanceof Error?error.message:'';const known=['Piloto nativo indisponível neste ambiente.','Acesso indisponível.','Autorize a verificação desta sessão.','Desafio fora do login oficial.','Desafio inválido.','Controle da verificação indisponível.','CapMonster não configurado.','Falha no provedor de verificação.'];const code=/^CAPMONSTER_[A-Z0-9_]{1,80}$/.test(message)?message:'ETAPA_'+known.indexOf(message);console.warn('CEMIG_NATIVE_CAPTCHA',code);return res.status(400).json({message:'A verificação automática não pôde continuar. Nenhuma tarefa será repetida automaticamente.'});}
 });
 router.get('/:id/cemig-acesso/nativo/captcha/:captcha',exigirGestor,exigirSuperAdministradorAndrade,async(req,res)=>{
  res.setHeader('Cache-Control','private, no-store');
