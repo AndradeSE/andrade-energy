@@ -134,11 +134,11 @@ class CemigBrowserService : Service() {
                     });
                     document.addEventListener('click',function(e){
                         var b=e.target.closest&&e.target.closest('button,input[type=submit]');
-                        if(b&&/solicitar cadastro/i.test(b.innerText||b.value||'')){e.preventDefault();e.stopImmediatePropagation();alert('Simulação: protocolo definitivo bloqueado.');}
+                        if(${packageName.endsWith(".preview")}&&b&&/solicitar cadastro/i.test(b.innerText||b.value||'')){e.preventDefault();e.stopImmediatePropagation();alert('Simulação: protocolo definitivo bloqueado.');}
                     },true);
                     document.addEventListener('submit',function(e){
                         var buttons=Array.from(e.target.querySelectorAll('button,input[type=submit]'));
-                        if(buttons.some(function(b){return /solicitar cadastro/i.test(b.innerText||b.value||'');})){e.preventDefault();e.stopImmediatePropagation();}
+                        if(${packageName.endsWith(".preview")}&&buttons.some(function(b){return /solicitar cadastro/i.test(b.innerText||b.value||'');})){e.preventDefault();e.stopImmediatePropagation();}
                     },true);
                 })();true;""",null)
             }
@@ -162,8 +162,8 @@ class CemigBrowserService : Service() {
                 if(activity==null||file==null||!file.isFile||!allowed(uri.toString())||!uri.path.orEmpty().contains("compensation-gd")){
                     callback.onReceiveValue(null);return true
                 }
-                AlertDialog.Builder(activity).setTitle("Anexar CSV da simulação?")
-                    .setMessage("$artifactLabel\n${file.name}\nO arquivo será enviado ao portal Cemig para revisão. Não conclua Solicitar cadastro neste teste.")
+                AlertDialog.Builder(activity).setTitle(if(packageName.endsWith(".preview")) "Anexar CSV da simulação?" else "Anexar CSV do rateio real?")
+                    .setMessage("$artifactLabel\n${file.name}\n"+if(packageName.endsWith(".preview")) "O arquivo será enviado ao portal Cemig para revisão. Não conclua Solicitar cadastro neste teste." else "Confira a usina, competência, UCs e percentuais antes de concluir a solicitação. Anexar não confirma protocolo.")
                     .setNegativeButton("Cancelar"){_,_->callback.onReceiveValue(null)}
                     .setOnCancelListener { callback.onReceiveValue(null) }
                     .setPositiveButton("Anexar para revisão"){_,_->

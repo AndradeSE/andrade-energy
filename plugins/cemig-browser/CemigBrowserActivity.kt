@@ -61,7 +61,7 @@ class CemigBrowserActivity : Activity() {
             }
         }
         val toolbar=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; setBackgroundColor(Color.rgb(0,105,70));setPadding(dp(8),0,dp(8),0) }
-        val title=TextView(this).apply { text="Cemig · Preview";setTextColor(Color.WHITE);textSize=14f;setPadding(dp(8),0,dp(8),0);gravity=android.view.Gravity.CENTER_VERTICAL }
+        val title=TextView(this).apply { text=if(packageName.endsWith(".preview")) "Cemig · Preview" else "Cemig · Rateio";setTextColor(Color.WHITE);textSize=14f;setPadding(dp(8),0,dp(8),0);gravity=android.view.Gravity.CENTER_VERTICAL }
         toolbar.addView(title,LinearLayout.LayoutParams(0,dp(48),1f))
         val options=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL;visibility=View.GONE }
         val menu=Button(this).apply { text="Opções";textSize=12f;setOnClickListener{options.visibility=if(options.visibility==View.VISIBLE)View.GONE else View.VISIBLE} }

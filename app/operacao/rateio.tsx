@@ -7,6 +7,7 @@ import { Pressable } from '../../components/assistant/AssistantNativeControls';
 import TabDataPending from '../../components/ui/TabDataPending';
 import RateioMensalCard from '../../components/usinas/RateioMensalCard';
 import CemigNativeBrowserPreview from '../../components/usinas/CemigNativeBrowserPreview';
+import CemigNativeBrowserProduction from '../../components/usinas/CemigNativeBrowserProduction';
 import { useAuth } from '../../contexts/AuthContext';
 import { obterResumoOperacao } from '../../services/fechamentos.service';
 import { buscarUsina } from '../../services/usinas.service';
@@ -35,6 +36,7 @@ export default function RateioOperacao({simulationOnly=false}:{simulationOnly?:b
     <ScrollView contentContainerStyle={{padding:20,gap:16,paddingBottom:40}} keyboardShouldPersistTaps="handled">
       {!permitido?<Card><Text>Seu acesso à operação não foi liberado pelo titular.</Text></Card>:!id?<Card><Text>Escolha uma usina para consultar o rateio.</Text><Button title="Selecionar usina" onPress={()=>router.push('/selecionar-unidade')}/></Card>:!acessoConfirmado?usinaAviso.isError?<Card><Text>Não foi possível acessar a usina deste aviso.</Text><Button title="Tentar novamente" onPress={()=>void usinaAviso.refetch()}/></Card>:<TabDataPending />:<>
         {simulationOnly&&testesTecnicos&&competencia?<CemigNativeBrowserPreview usinaId={id} competencia={competencia}/>:null}
+        {!simulationOnly&&competencia?<CemigNativeBrowserProduction key={`${id}-${competencia}`} usinaId={id} competencia={competencia}/>:null}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:8}}>
           {[...new Set([...(resumo.data?.competencias??[]),...(competencia?[competencia]:[])])].sort().map((item:string)=><Pressable key={item} accessibilityRole="button" accessibilityState={{selected:item===competencia}} onPress={()=>setMes(item)} style={{padding:12,borderRadius:24,backgroundColor:item===competencia?Colors.primary:Colors.surface}}><Text style={{color:item===competencia?'#fff':Colors.text}}>{item.slice(5,7)}/{item.slice(0,4)}</Text></Pressable>)}
         </ScrollView>
