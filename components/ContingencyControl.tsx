@@ -17,7 +17,7 @@ export default function ContingencyControl(){
   const pending=Boolean(state?.requests.length||state?.jobs.some(job=>['EXECUTANDO','REVISAO'].includes(job.estado)));
   function changeAutomation(){if(!state?.automation)return;const active=!state.automation.ativa;
     Alert.alert(active?'Ativar troca automática?':'Desativar troca automática?',active?
-      'A Netlify assumirá após o Render confirmar suspensão por cobrança em consultas consecutivas, desde que não existam operações pendentes. Lentidão ou falhas isoladas não acionam a troca. O retorno ao Render permanece manual.':
+      `${state.control.reserva_preferida==='RENDER_RESERVA'?'O Render reserva':'A Netlify'} assumirá após o Render principal confirmar suspensão por cobrança em consultas consecutivas, desde que não existam operações pendentes. Lentidão ou falhas isoladas não acionam a troca. O retorno ao Render principal permanece manual.`:
       'A entrada no reserva voltará a depender de confirmação manual do ADM.',[{text:'Cancelar',style:'cancel'},{text:'Confirmar',onPress:()=>{
         setBusy(true);setError('');void setContingencyAutomation(active).then(()=>readContingency()).then(setState)
           .catch(()=>setError('Não foi possível confirmar a configuração. Consulte novamente.')).finally(()=>setBusy(false));
@@ -30,7 +30,7 @@ export default function ContingencyControl(){
     <Text style={{fontSize:18,fontWeight:'700',color:Colors.text}}>Servidor reserva</Text>
     <Text style={{color:Colors.text}}>A automação pode assumir por suspensão de cobrança confirmada pelo Render. A administração pode conferir o estado e controlar a troca manual.</Text>
     <Button title={busy?'Conferindo…':'Consultar contingência'} disabled={busy} onPress={()=>void run()}/>
-    {state?<><Text style={{color:Colors.text}}>Servidor ativo: {state.control.executor==='RENDER'?'Render':'Netlify'}</Text>
+    {state?<><Text style={{color:Colors.text}}>Servidor ativo: {state.control.executor==='RENDER'?'Render principal':state.control.executor==='RENDER_RESERVA'?'Render reserva':'Netlify'}</Text>
       {state.automation?<><Text style={{color:Colors.text}}>Troca automática: {state.automation.ativa?'ativada':'desativada'}</Text>
         <Text style={{color:Colors.text}}>Retorno ao Render: confirmação manual do ADM.</Text>
         {state.automation.ultima_consulta?<Text style={{color:Colors.text}}>Última consulta: {new Date(state.automation.ultima_consulta).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}</Text>:null}
