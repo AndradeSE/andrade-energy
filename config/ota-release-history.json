@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261028-094215",
+    "data": "28/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Corrige identificacao do Render reserva na tela de cotas"
+    ]
+  },
+  {
     "numero": "OTA 20261027-221640",
     "data": "27/10/2026",
     "variant": "gerador",
