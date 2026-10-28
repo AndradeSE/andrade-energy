@@ -2,6 +2,8 @@ import {useState} from 'react';
 import {Platform,Text} from 'react-native';
 import Constants from 'expo-constants';
 import * as IntentLauncher from 'expo-intent-launcher';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import {Button,Card} from '../ui';
 import {isPreviewEnvironment} from '../../config/environment';
 import {Colors} from '../../theme';
@@ -26,11 +28,29 @@ export default function CemigNativeBrowserPreview({usinaId,competencia}:{usinaId
    extra:{rateioCsv:csv,rateioCompetencia:competencia,rateioUsina:usinaId,rateioGeradora:String(plano.arquivo??'').match(/-(\d{6,20})\.csv$/)?.[1]??''},
   });}catch(e:any){setError(e?.response?.data?.message??e?.message??'Não foi possível preparar o CSV ou abrir o navegador.');}finally{setBusy(false);}
  }
+ async function openReference(){
+  if(busy)return;setBusy(true);setError('');
+  try{
+   const picked=await DocumentPicker.getDocumentAsync({type:['text/csv','text/comma-separated-values','application/octet-stream'],copyToCacheDirectory:true,multiple:false});
+   if(picked.canceled)return;
+   const file=picked.assets[0];
+   const match=file.name.match(/^cemig-simulacao-sem-uc-ficticia-(20\d{2}-(?:0[1-9]|1[0-2]))-(\d{6,20})\.csv$/);
+   if(!match||match[1]!==competencia||file.size===undefined||file.size>100000)throw new Error('Selecione o CSV de referência desta competência, com UC geradora identificada no nome.');
+   const csv=await FileSystem.readAsStringAsync(file.uri,{encoding:FileSystem.EncodingType.UTF8});
+   if(!csv||csv.split(/\r?\n/).some(row=>row.split(';').length!==4))throw new Error('Arquivo de referência fora do padrão.');
+   await IntentLauncher.startActivityAsync('android.intent.action.VIEW',{
+    packageName:'com.andradese.energy.gerador.preview',className:'br.com.andradeenergy.cemig.CemigBrowserActivity',
+    extra:{rateioCsv:csv,rateioCompetencia:match[1],rateioUsina:usinaId,rateioGeradora:match[2]},
+   });
+  }catch(e:any){setError(e?.message??'Não foi possível abrir o CSV de referência.');}finally{setBusy(false);}
+ }
  return <Card><Text style={{fontSize:20,fontWeight:'700',color:Colors.text}}>Navegador integrado · Preview</Text>
   <Text style={{color:Colors.subtitle,lineHeight:22,marginVertical:12}}>Prepara o CSV e abre a Cemig no aplicativo. Após entrar, toque em Continuar rateio para avançar na mesma sessão. Se o portal mudar ou os dados não forem inequívocos, o fluxo pausa e explica a etapa. O anexo exige sua conferência. Login e verificações são manuais nesta versão; o Preview bloqueia o protocolo.</Text>
   <Button title={busy?'Preparando…':'Preparar CSV e abrir navegador'} disabled={busy||!competencia} onPress={()=>void open()}/>
   {competencia==='2026-10'?<Button title="Abrir cópia de teste sem UC fictícia" disabled={busy} onPress={()=>void open(true)}/>:null}
   <Text style={{color:Colors.subtitle,lineHeight:20,marginTop:8}}>A cópia técnica retira somente a UC 99999101128 e transfere sua cota à âncora 3006605532. Não altera os cadastros nem a planilha original; protocolo bloqueado.</Text>
+  <Button title="Testar arquivo CSV já validado" disabled={busy} onPress={()=>void openReference()}/>
+  <Text style={{color:Colors.subtitle}}>Somente diagnóstico: usa a UC geradora indicada no arquivo, sem alterar a configuração desta usina.</Text>
   {error?<Text accessibilityRole="alert" style={{color:Colors.text,marginTop:12}}>{error}</Text>:null}
  </Card>;
 }
