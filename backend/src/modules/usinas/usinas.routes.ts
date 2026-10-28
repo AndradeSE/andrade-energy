@@ -21,6 +21,7 @@ import { exigirAutenticacao, exigirGestor, exigirSuperAdministradorAndrade } fro
 import { iniciarCemigSimulacao, consultarCemigSimulacao } from './cemigCloud.service';
 import {lerAcessoCemigNativo} from './cemigCredential.service';
 import {envelopeAcessoNativo} from './cemigNative.envelope';
+import {iniciarCaptchaNativo,consultarCaptchaNativo} from './cemigNative.captcha';
 import { exigirUsinaDaSessaoOuGestor } from "../../utils/empresaScope";
 import { exigirCapacidadeDoPlano } from "../../middlewares/limitesPlano.middleware";
 import { empresaIdDaRequisicao } from "../../utils/empresaScope";
@@ -41,6 +42,16 @@ function acessoOperacao(usuario:any) {
 }
 
 router.use(exigirAutenticacao);
+router.post('/:id/cemig-acesso/nativo/captcha',exigirGestor,exigirSuperAdministradorAndrade,apiRateLimit('cemig-native-captcha',{windowMs:60000,limit:2}),async(req,res)=>{
+ res.setHeader('Cache-Control','private, no-store');
+ try{return res.json(await iniciarCaptchaNativo(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.body));}
+ catch{return res.status(400).json({message:'A verificação automática não pôde continuar. Nenhuma tarefa será repetida automaticamente.'});}
+});
+router.get('/:id/cemig-acesso/nativo/captcha/:captcha',exigirGestor,exigirSuperAdministradorAndrade,async(req,res)=>{
+ res.setHeader('Cache-Control','private, no-store');
+ try{return res.json(await consultarCaptchaNativo(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.params.captcha));}
+ catch{return res.status(400).json({message:'Verificação indisponível ou encerrada. Continue na mesma sessão.'});}
+});
 router.post('/:id/cemig-acesso/nativo',exigirGestor,exigirSuperAdministradorAndrade,apiRateLimit('cemig-native-vault',{windowMs:60000,limit:3}),async(req,res)=>{
  res.setHeader('Cache-Control','private, no-store');
  try{
