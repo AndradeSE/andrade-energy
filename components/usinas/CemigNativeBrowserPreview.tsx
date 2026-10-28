@@ -23,7 +23,7 @@ export default function CemigNativeBrowserPreview({usinaId,competencia}:{usinaId
    const config=configResponse.data;
    const plano=(await api.post(`/usinas/${usinaId}/rateio-simulacao`,{competencia,ucAncora:config.uc_ancora??'',formatoCemig:true},{timeout:30000})).data;
    if(plano.rascunho||!plano.formatoCemig||!plano.csv||plano.pendencias?.length)throw new Error('O CSV ainda tem pendências. Confira a âncora e os dados do rateio.');
-   const csv=copiaTeste?copiaCsvDiagnostico(plano.csv,'99999101128','3006605532').csv:plano.csv;
+   const csv=copiaTeste?copiaCsvDiagnostico(plano.csv,'99999101128','3006605532','607081301889').csv:plano.csv;
    if(copiaTeste&&(competencia!=='2026-10'||config.uc_ancora!=='3006605532'))throw new Error('Esta cópia técnica foi autorizada somente para OUT/2026 e a âncora 3006605532.');
    const session=await obterSessao();
    const solver=await new Promise<boolean|null>(resolve=>Alert.alert('Acesso da Cemig nesta sessão',
@@ -56,7 +56,7 @@ export default function CemigNativeBrowserPreview({usinaId,competencia}:{usinaId
   <View style={{gap:14,marginTop:4}}>
   <Button style={{height:undefined,minHeight:56,paddingVertical:14}} title={busy?'Preparando…':'Preparar CSV e abrir navegador'} disabled={busy||!competencia} onPress={()=>void open()}/>
   {competencia==='2026-10'?<Button style={{height:undefined,minHeight:56,paddingVertical:14}} title="Abrir cópia de teste sem UC fictícia" disabled={busy} onPress={()=>void open(true)}/>:null}
-  <Text style={{color:Colors.subtitle,lineHeight:20,marginTop:8}}>A cópia técnica retira somente a UC 99999101128 e transfere sua cota à âncora 3006605532. Não altera os cadastros nem a planilha original; protocolo bloqueado.</Text>
+  <Text style={{color:Colors.subtitle,lineHeight:20,marginTop:8}}>A cópia técnica retira a UC fictícia e transfere sua cota à âncora, usando o número atual 607081301889 informado pelo titular. Não altera os cadastros nem a planilha original; protocolo bloqueado.</Text>
   <Button style={{height:undefined,minHeight:56,paddingVertical:14}} title="Testar arquivo CSV já validado" disabled={busy} onPress={()=>void openReference()}/>
   <Text style={{color:Colors.subtitle}}>Somente diagnóstico: usa a UC geradora indicada no arquivo, sem alterar a configuração desta usina.</Text>
   </View>

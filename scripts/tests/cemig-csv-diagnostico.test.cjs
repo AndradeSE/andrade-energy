@@ -13,3 +13,9 @@ test('bloqueia UC ausente, âncora divergente, duplicatas e totais diferentes',(
 test('transferência que chega a 100 preserva representação válida',()=>{
  assert.equal(copiaCsvDiagnostico('99999101128;52998224725;1;\r\n3006605532;52998224725;99;X','99999101128','3006605532').csv,'3006605532;52998224725;100;X');
 });
+test('número atual muda somente a âncora da cópia e bloqueia duplicata',()=>{
+ const copy=copiaCsvDiagnostico(csv,'99999101128','3006605532','607081301889');
+ assert.match(copy.csv,/607081301889;52998224725;95,2432;X$/);
+ assert.ok(csv.includes('3006605532;'));assert.ok(!copy.csv.includes('3006605532;'));
+ assert.throws(()=>copiaCsvDiagnostico(csv,'99999101128','3006605532','1204584501840'));
+});
