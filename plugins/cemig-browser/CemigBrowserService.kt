@@ -71,7 +71,7 @@ class CemigBrowserService : Service() {
                             "\"LOGIN_ENVIADO\""->{savedAccess=null;progress="Login enviado. Aguardando confirmação do portal."}
                             "\"ABRINDO_SENHA\""->progress="Usuário conferido. Abrindo formulário de senha."
                             "\"FORMULARIO\""->progress="Acesso recuperado. Aguardando formulário oficial de login ficar disponível."
-                            "\"CAPTCHA\""->{progress="Acesso preenchido. Aguardando a verificação nesta sessão.";if(solverAllowed&&!solverRequested)solveCaptcha()}
+                            "\"CAPTCHA\""->{progress=loginNotice?:if(solverBusy)"Resolvendo a verificação na mesma sessão…" else "Acesso preenchido. Aguardando a verificação nesta sessão.";if(solverAllowed&&!solverRequested)solveCaptcha()}
                             "\"VERIFICACAO_EXPIRADA\""->progress="A verificação expirou; nenhuma tentativa será repetida automaticamente."
                         }
                     }
@@ -85,6 +85,7 @@ class CemigBrowserService : Service() {
         val detector=assets.open("cemig-rateio-captcha.js").bufferedReader().use{it.readText()}
         browser.evaluateJavascript(detector){raw->
             val challenge=try{JSONObject(JSONTokener(raw).nextValue() as String)}catch(_:Exception){return@evaluateJavascript}
+              if(challenge.optBoolean("manual")){loginNotice="Desafio não identificado: "+challenge.optString("motivo")+" · quadros no formulário: "+challenge.optInt("iframes",0);return@evaluateJavascript}
             solverRequested=true;solverBusy=true;progress="Resolvendo a verificação na mesma sessão…"
             Thread{
                 val answer=try{CemigNativeAccess.solve(nativeBase,nativeToken,nativeUsina,packageName.endsWith(".preview"),captchaNonce,challenge){!closed}}catch(_:Exception){null}
