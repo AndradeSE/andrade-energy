@@ -56,23 +56,26 @@ class CemigBrowserActivity : Activity() {
                 insets
             }
         }
-        val title=TextView(this).apply {
-            text="Cemig · rateio no aparelho\nPreview: continuação até a revisão, sem protocolo."
-            setPadding(dp(16),dp(12),dp(16),dp(12));setTextColor(Color.rgb(0,80,55))
-        }
-        content.addView(title)
-        progressText=TextView(this).apply{setPadding(dp(16),dp(4),dp(16),dp(8));setTextColor(Color.rgb(0,80,55))}
-        content.addView(progressText)
-        content.addView(Button(this).apply{text="Continuar rateio até a revisão";setOnClickListener{session?.continueNavigation()}})
+        val toolbar=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; setBackgroundColor(Color.rgb(0,105,70));setPadding(dp(8),0,dp(8),0) }
+        val title=TextView(this).apply { text="Cemig · Preview";setTextColor(Color.WHITE);textSize=14f;setPadding(dp(8),0,dp(8),0);gravity=android.view.Gravity.CENTER_VERTICAL }
+        toolbar.addView(title,LinearLayout.LayoutParams(0,dp(48),1f))
+        val options=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL;visibility=View.GONE }
+        val menu=Button(this).apply { text="Opções";textSize=12f;setOnClickListener{options.visibility=if(options.visibility==View.VISIBLE)View.GONE else View.VISIBLE} }
+        toolbar.addView(menu,LinearLayout.LayoutParams(dp(96),dp(48)))
+        content.addView(toolbar)
+        progressText=TextView(this).apply{setPadding(dp(12),dp(6),dp(12),dp(6));setTextColor(Color.rgb(0,80,55));textSize=12f}
+        options.addView(progressText)
+        options.addView(Button(this).apply{text="Continuar até a revisão";setOnClickListener{session?.continueNavigation();options.visibility=View.GONE}})
         uiHandler.post(refreshProgress)
         val bar=LinearLayout(this)
         fun button(label:String,action:()->Unit) {
-            bar.addView(Button(this).apply { text=label;setOnClickListener { action() } },LinearLayout.LayoutParams(0,dp(56),1f))
+            bar.addView(Button(this).apply { text=label;textSize=12f;setOnClickListener { action();options.visibility=View.GONE } },LinearLayout.LayoutParams(0,dp(48),1f))
         }
         button("Voltar") { session?.browser?.let { if(it.canGoBack())it.goBack() else finish() } }
         button("Recarregar") { session?.browser?.reload() }
         button("Encerrar") { stopService(Intent(this,CemigBrowserService::class.java));finish() }
-        content.addView(bar)
+        options.addView(bar)
+        content.addView(options)
         setContentView(content)
         try {
             startForegroundService(Intent(this,CemigBrowserService::class.java))
