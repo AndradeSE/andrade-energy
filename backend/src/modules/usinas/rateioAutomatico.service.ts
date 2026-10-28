@@ -22,7 +22,7 @@ export async function notificarRateioGerado(usinaId:string,empresaId:string,plan
   await criarNotificacaoApp({usuario_id:destino.id,empresa_id:empresaId,usina_id:usinaId,tipo:"RATEIO_GERADO",
     titulo:`${plano.rascunho?"Rascunho de rateio":"Rateio"} gerado · ${plano.competencia}`,
     detalhe:plano.rascunho?`A planilha foi preparada para conferência. Pendências: ${plano.pendencias.join(" ") || "Revise os dados antes de solicitar à Cemig."}`:"O CSV no padrão Cemig está pronto para conferência. A geração não significa envio ou aprovação pela distribuidora.",
-    rota:"/(tabs)/operacao",chave_dedupe:`rateio:${empresaId}:${usinaId}:${plano.competencia}:${hash}`});
+    rota:`/operacao/rateio?competencia=${encodeURIComponent(plano.competencia)}&usinaId=${encodeURIComponent(usinaId)}`,chave_dedupe:`rateio:${empresaId}:${usinaId}:${plano.competencia}:${hash}`});
 }
 
 export async function obterConfiguracaoRateio(usinaId:string,empresaId:string) {

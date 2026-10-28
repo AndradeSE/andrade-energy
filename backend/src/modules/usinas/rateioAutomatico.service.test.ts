@@ -45,7 +45,7 @@ test("última fatura gera um arquivo persistente, um e-mail e um push; repetir a
     else if(table==="usuarios")result={email:"gerador@example.com"};
     else if(table==="empresas")result={nome:"Empresa Teste"};
     else if(table==="notificacoes_app"){
-      if(method==="POST"){avisos.set(body.chave_dedupe,{id:"aviso-a"});result={id:"aviso-a"};}
+      if(method==="POST"){assert.equal(body.rota,`/operacao/rateio?competencia=${mes}&usinaId=usina-a`);avisos.set(body.chave_dedupe,{id:"aviso-a"});result={id:"aviso-a"};}
       else result=avisos.get(String(url.searchParams.get("chave_dedupe")).replace(/^eq\./,""))??null;
     }else if(table==="dispositivos_push")result=[{token:"ExponentPushToken[TESTE]"}];
     else throw new Error(`Consulta inesperada: ${table}`);
