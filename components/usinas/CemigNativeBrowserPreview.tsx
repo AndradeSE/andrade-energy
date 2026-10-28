@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {Platform,Text,View} from 'react-native';
+import {Alert,Platform,Text,View} from 'react-native';
 import Constants from 'expo-constants';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as DocumentPicker from 'expo-document-picker';
@@ -26,9 +26,13 @@ export default function CemigNativeBrowserPreview({usinaId,competencia}:{usinaId
    const csv=copiaTeste?copiaCsvDiagnostico(plano.csv,'99999101128','3006605532').csv:plano.csv;
    if(copiaTeste&&(competencia!=='2026-10'||config.uc_ancora!=='3006605532'))throw new Error('Esta cópia técnica foi autorizada somente para OUT/2026 e a âncora 3006605532.');
    const session=await obterSessao();
+   const solver=await new Promise<boolean|null>(resolve=>Alert.alert('Acesso da Cemig nesta sessão',
+    'O navegador integrado pode usar o acesso já cadastrado no cofre. Se autorizar o CapMonster, enviará somente os dados técnicos do reCAPTCHA e usará apenas o bônus de teste disponível, sem recarga. O Preview bloqueia o protocolo definitivo.',
+    [{text:'Cancelar',style:'cancel',onPress:()=>resolve(null)},{text:'Somente acesso salvo',onPress:()=>resolve(false)},{text:'Acesso e uma verificação automática',onPress:()=>resolve(true)}],{cancelable:true,onDismiss:()=>resolve(null)}));
+   if(solver===null)return;
    await IntentLauncher.startActivityAsync('android.intent.action.VIEW',{
    packageName:'com.andradese.energy.gerador.preview',className:'br.com.andradeenergy.cemig.CemigBrowserActivity',
-   extra:{rateioCsv:csv,rateioCompetencia:competencia,rateioUsina:usinaId,rateioGeradora:String(plano.arquivo??'').match(/-(\d{6,20})\.csv$/)?.[1]??'',...(session?.token?{rateioApi:String(configResponse.config.baseURL??'').replace(/\/$/,''),rateioToken:session.token}:{})},
+   extra:{rateioCsv:csv,rateioCompetencia:competencia,rateioUsina:usinaId,rateioGeradora:String(plano.arquivo??'').match(/-(\d{6,20})\.csv$/)?.[1]??'',rateioSolver:solver,...(session?.token?{rateioApi:String(configResponse.config.baseURL??'').replace(/\/$/,''),rateioToken:session.token}:{})},
   });}catch(e:any){setError(e?.response?.data?.message??e?.message??'Não foi possível preparar o CSV ou abrir o navegador.');}finally{setBusy(false);}
  }
  async function openReference(){

@@ -32,12 +32,22 @@ class CemigBrowserService : Service() {
     private var evaluating=false
     private var savedAccess:JSONObject?=null
     private var accessRequested=false
+    private var nativeBase=""
+    private var nativeToken=""
+    private var nativeUsina=""
+    private var solverAllowed=false
+    private var solverRequested=false
+    private var solverBusy=false
+    private var loginNotice:String?=null
+    @Volatile private var closed=false
+    private val captchaNonce=java.util.UUID.randomUUID().toString()
+    fun allowSolver(){solverAllowed=true}
     fun useSavedAccess(base:String,token:String,usina:String){
         if(accessRequested)return
-        accessRequested=true
+        accessRequested=true;nativeBase=base;nativeToken=token;nativeUsina=usina
         Thread{
-            try{val access=CemigNativeAccess.load(base,token,usina,packageName.endsWith(".preview"));handler.post{savedAccess=access}}
-            catch(_:Exception){handler.post{progress="Acesso salvo indisponível. Confira o cadastro da Cemig no aplicativo."}}
+            try{val access=CemigNativeAccess.load(base,token,usina,packageName.endsWith(".preview"));handler.post{if(!closed){savedAccess=access;navigationStarted=true}}}
+            catch(_:Exception){handler.post{loginNotice="Acesso salvo indisponível. Confira o cadastro da Cemig no aplicativo.";progress=loginNotice!!}}
         }.start()
     }
     var progress="Entre na Cemig para continuar o rateio."
@@ -53,12 +63,34 @@ class CemigBrowserService : Service() {
         browser.evaluateJavascript(script){raw->
             evaluating=false
             try{val json=JSONObject(JSONTokener(raw).nextValue() as String);progress=json.optString("message","Confira a etapa no portal.")+if(json.optString("state")=="PAUSADO") "\nPágina: "+Uri.parse(browser.url?:"").let{it.scheme+"://"+it.host+it.path} else ""
+                if(json.optString("state")=="LOGIN")progress=if(solverBusy)"Resolvendo a verificação na mesma sessão…" else loginNotice?:progress
                 if(json.optString("state")=="LOGIN"&&savedAccess!=null){
                     val loginScript=assets.open("cemig-rateio-login.js").bufferedReader().use{it.readText()}.replace("__ANDRADE_ACCESS__",savedAccess.toString())
-                    browser.evaluateJavascript(loginScript){state->if(state=="\"LOGIN_ENVIADO\"")savedAccess=null}
+                    browser.evaluateJavascript(loginScript){state->if(state=="\"LOGIN_ENVIADO\"")savedAccess=null else if(state=="\"CAPTCHA\""&&solverAllowed&&!solverRequested)solveCaptcha()}
                 }else if(json.optString("state")!="LOGIN"&&json.optString("state")!="VERIFICACAO")savedAccess=null
             }
             catch(_:Exception){progress="Aguardando carregamento do portal. Nenhum protocolo foi enviado."}
+        }
+    }
+    private fun solveCaptcha(){
+        if(closed||solverRequested||nativeToken.isEmpty())return
+        val detector=assets.open("cemig-rateio-captcha.js").bufferedReader().use{it.readText()}
+        browser.evaluateJavascript(detector){raw->
+            val challenge=try{JSONObject(JSONTokener(raw).nextValue() as String)}catch(_:Exception){return@evaluateJavascript}
+            solverRequested=true;solverBusy=true;progress="Resolvendo a verificação na mesma sessão…"
+            Thread{
+                val answer=try{CemigNativeAccess.solve(nativeBase,nativeToken,nativeUsina,packageName.endsWith(".preview"),captchaNonce,challenge){!closed}}catch(_:Exception){null}
+                handler.post{
+                    if(closed)return@post
+                    solverBusy=false
+                    if(answer==null){loginNotice="Verificação automática indisponível. Continue manualmente na mesma sessão; nenhuma tarefa será repetida.";progress=loginNotice!!;return@post}
+                    val access=savedAccess?:return@post
+                    // Public callback only, followed immediately by the validated login scopes.
+                    val apply="""(function(token){if(location.origin+location.pathname!==${JSONObject.quote(challenge.getString("websiteURL"))})return;document.querySelectorAll('textarea[name="g-recaptcha-response"]').forEach(function(f){f.value=token;f.dispatchEvent(new Event('input',{bubbles:true}));f.dispatchEvent(new Event('change',{bubbles:true}));});var w=document.querySelector('[data-callback]'),n=w&&w.dataset.callback;if(n&&/^[a-zA-Z_$][\w$]*$/.test(n)&&typeof window[n]==='function')window[n](token);})(${JSONObject.quote(answer)});"""
+                    val login=assets.open("cemig-rateio-login.js").bufferedReader().use{it.readText()}.replace("__ANDRADE_ACCESS__",access.toString())
+                    browser.evaluateJavascript(apply+login){state->if(state=="\"LOGIN_ENVIADO\"")savedAccess=null}
+                }
+            }.start()
         }
     }
     fun prepare(csv:String,competencia:String,usina:String) {
@@ -232,7 +264,7 @@ class CemigBrowserService : Service() {
     }
     override fun onTaskRemoved(rootIntent:Intent?) { closeSession() }
     override fun onDestroy() {
-        savedAccess=null
+        closed=true;savedAccess=null;nativeToken=""
         handler.removeCallbacks(expire)
         handler.removeCallbacks(navigationTick)
         prepared?.delete();prepared=null;artifactHash=null

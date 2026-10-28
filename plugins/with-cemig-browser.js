@@ -42,7 +42,7 @@ module.exports=function withCemigBrowser(config){
    if(enabled)fs.copyFileSync(path.join(__dirname,'cemig-browser',name),target);
    else if(fs.existsSync(target))fs.unlinkSync(target);
   }
-  if(enabled){const assets=path.join(root,'app/src/main/assets');fs.mkdirSync(assets,{recursive:true});fs.copyFileSync(path.join(__dirname,'cemig-browser/rateio-navigation.js'),path.join(assets,'cemig-rateio-navigation.js'));fs.copyFileSync(path.join(__dirname,'cemig-browser/rateio-login.js'),path.join(assets,'cemig-rateio-login.js'));}
+  if(enabled){const assets=path.join(root,'app/src/main/assets');fs.mkdirSync(assets,{recursive:true});for(const file of ['navigation','login','captcha'])fs.copyFileSync(path.join(__dirname,`cemig-browser/rateio-${file}.js`),path.join(assets,`cemig-rateio-${file}.js`));}
   return c;
  }]);
 };

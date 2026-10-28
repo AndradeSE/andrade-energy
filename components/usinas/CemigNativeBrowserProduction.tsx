@@ -26,7 +26,7 @@ export default function CemigNativeBrowserProduction({usinaId,competencia}:{usin
    const rows=String(plano.csv).trim().split(/\r?\n/).map(row=>row.split(';'));
    if(!rows.length||rows.some(row=>row.length!==4))throw new Error('O arquivo está fora do padrão Cemig.');
    const confirmed=await new Promise<boolean>(resolve=>Alert.alert('Conferir e preparar o rateio',
-    `Competência: ${competencia}\nGeradora: ${geradora}\n\n${rows.map(row=>`${row[0]} — ${row[2]}%`).join('\n')}\n\nO aplicativo navegará e anexará este arquivo na Cemig após o login. A confirmação definitiva não é feita por esta autorização.`,
+    `Competência: ${competencia}\nGeradora: ${geradora}\n\n${rows.map(row=>`${row[0]} — ${row[2]}%`).join('\n')}\n\nO aplicativo usará o acesso salvo, tentará uma verificação CapMonster com o bônus existente se disponível e anexará este arquivo na Cemig. Não há compra nem recarga. A confirmação definitiva não é feita por esta autorização.`,
     [{text:'Cancelar',style:'cancel',onPress:()=>resolve(false)},{text:'Autorizar navegação e anexo',onPress:()=>resolve(true)}],
     {cancelable:true,onDismiss:()=>resolve(false)}));
    if(!confirmed)return;
@@ -34,7 +34,7 @@ export default function CemigNativeBrowserProduction({usinaId,competencia}:{usin
    if(!session?.token)throw new Error('Entre novamente no Gerador antes de iniciar o envio.');
    await IntentLauncher.startActivityAsync('android.intent.action.VIEW',{
     packageName:'com.andradese.energy.gerador',className:'br.com.andradeenergy.cemig.CemigBrowserActivity',
-    extra:{rateioCsv:plano.csv,rateioCompetencia:competencia,rateioUsina:usinaId,rateioGeradora:geradora,rateioApi:String(configResponse.config.baseURL??'').replace(/\/$/,''),rateioToken:session.token},
+    extra:{rateioCsv:plano.csv,rateioCompetencia:competencia,rateioUsina:usinaId,rateioGeradora:geradora,rateioApi:String(configResponse.config.baseURL??'').replace(/\/$/,''),rateioToken:session.token,rateioSolver:true},
    });
   }catch(e:any){setError(e?.response?.data?.message??e?.message??'Não foi possível preparar o envio.');}
   finally{setBusy(false);}
