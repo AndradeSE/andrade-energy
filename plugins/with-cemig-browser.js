@@ -20,7 +20,7 @@ function configureManifest(m,enabled,permissions=[]){
   }
   app.activity.push({$:{'android:name':activity,'android:exported':'false','android:launchMode':'singleTask','android:windowSoftInputMode':'adjustResize','android:theme':'@android:style/Theme.Material.Light.NoActionBar','android:configChanges':'orientation|screenSize|keyboardHidden'}});
   app.service.push({$:{'android:name':service,'android:exported':'false','android:foregroundServiceType':'dataSync','android:stopWithTask':'true'}});
-  app.provider.push({$:{'android:name':'androidx.core.content.FileProvider','android:authorities':'${applicationId}.cemig.preview.files','android:exported':'false','android:grantUriPermissions':'true'},'meta-data':[{$:{'android:name':'android.support.FILE_PROVIDER_PATHS','android:resource':'@xml/cemig_preview_paths'}}]});
+  app.provider.push({$:{'android:name':'br.com.andradeenergy.cemig.CemigCsvProvider','android:authorities':'${applicationId}.cemig.preview.files','android:exported':'false','android:grantUriPermissions':'true'},'meta-data':[{$:{'android:name':'android.support.FILE_PROVIDER_PATHS','android:resource':'@xml/cemig_preview_paths'}}]});
   return m;
 }
 module.exports=function withCemigBrowser(config){
@@ -37,7 +37,7 @@ module.exports=function withCemigBrowser(config){
   const paths=path.join(root,'app/src/main/res/xml/cemig_preview_paths.xml');
   if(enabled){fs.mkdirSync(path.dirname(paths),{recursive:true});fs.writeFileSync(paths,'<?xml version="1.0" encoding="utf-8"?><paths xmlns:android="http://schemas.android.com/apk/res/android"><cache-path name="rateio" path="cemig-preview/"/></paths>');}
   else if(fs.existsSync(paths))fs.unlinkSync(paths);
-  for(const name of ['CemigBrowserActivity.kt','CemigBrowserService.kt']){
+  for(const name of ['CemigBrowserActivity.kt','CemigBrowserService.kt','CemigCsvProvider.kt']){
    const target=path.join(dest,name);
    if(enabled)fs.copyFileSync(path.join(__dirname,'cemig-browser',name),target);
    else if(fs.existsSync(target))fs.unlinkSync(target);
