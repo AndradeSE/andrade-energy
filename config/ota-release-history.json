@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261027-221640",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Gmail: distinguir falha temporaria de falta de autorizacao"
+    ]
+  },
+  {
+    "numero": "OTA 20261027-221300",
+    "data": "27/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Gmail: falha temporaria nao solicita nova autorizacao"
+    ]
+  },
+  {
     "numero": "OTA 20261027-154551",
     "data": "27/10/2026",
     "variant": "consumidor",
