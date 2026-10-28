@@ -19,3 +19,8 @@ test('sem chave usa modo manual e desafio externo ou sem autorização não cria
  assert.throws(()=>m.conferirDesafioNativo({...body.desafio,websiteURL:'https://evil.test/Login'}));
  await assert.rejects(m.iniciarCaptchaNativo('plant','company','user',{...body,autorizaCaptcha:false},deps(null).options));
 });
+test('saldo acima do bônus exige autorização explícita e cria somente uma tarefa',async()=>{
+ const m=await mod,a=deps(null);a.options.provider=async(method:string)=>{a.calls.push(method);return method==='getBalance'?{balance:5.0899}:{taskId:10};};
+ assert.equal((await m.iniciarCaptchaNativo('plant','company','user',body,a.options) as any).manual,true);assert.deepEqual(a.calls,['getBalance']);
+ a.calls.length=0;assert.deepEqual(await m.iniciarCaptchaNativo('plant','company','user',{...body,autorizaSaldoExistente:true},a.options),{id:'task',estado:'PROCESSANDO'});assert.equal(a.calls.filter(x=>x==='createTask').length,1);
+});
