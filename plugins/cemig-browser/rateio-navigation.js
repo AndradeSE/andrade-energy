@@ -3,7 +3,7 @@
   function text(el) { return String(el.innerText || el.textContent || el.value || '').replace(/\s+/g, ' ').trim(); }
   function visible(el) { return !!el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden'; }
   function result(state, message) { return JSON.stringify({state:state,message:message}); }
-  if (!/^https:\/\/(atende|atendimento|www\.atendimento)\.cemig\.com\.br(?:\/|$)/.test(location.href)) return result('PAUSADO','Domínio fora do fluxo autorizado.');
+  if (!/^https:\/\/(?:www\.)?(?:atende|atendimento)\.cemig\.com\.br(?::443)?(?:\/|$)/i.test(location.href)) return result('PAUSADO','Domínio fora do fluxo autorizado.');
   var body=text(document.body);
   if (/verify you are human|verifique se voce e humano|performing security verification/i.test(body)) return result('VERIFICACAO','Conclua a verificação de segurança nesta mesma sessão.');
   if (/\/Login\/?$/i.test(location.pathname) || document.querySelector('input[type=password]')) return result('LOGIN','Entre na Cemig. A continuação ocorrerá nesta mesma sessão.');

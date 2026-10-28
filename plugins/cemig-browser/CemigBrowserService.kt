@@ -38,7 +38,7 @@ class CemigBrowserService : Service() {
         val script=assets.open("cemig-rateio-navigation.js").bufferedReader().use{it.readText()}.replace("__ANDRADE_CONFIG__",config.toString())
         browser.evaluateJavascript(script){raw->
             evaluating=false
-            try{val json=JSONObject(JSONTokener(raw).nextValue() as String);progress=json.optString("message","Confira a etapa no portal.")}
+            try{val json=JSONObject(JSONTokener(raw).nextValue() as String);progress=json.optString("message","Confira a etapa no portal.")+if(json.optString("state")=="PAUSADO") "\nPágina: "+Uri.parse(browser.url?:"").let{it.scheme+"://"+it.host+it.path} else ""}
             catch(_:Exception){progress="Aguardando carregamento do portal. Nenhum protocolo foi enviado."}
         }
     }

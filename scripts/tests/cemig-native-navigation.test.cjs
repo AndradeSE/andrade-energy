@@ -40,3 +40,5 @@ test('clica apenas botÃ£o Ãºnico de cadastro, nunca protocolo',()=>{
  assert.equal(clicks,1);
  run({controls:[button('Realizar cadastro',()=>clicks++),button('Realizar cadastro',()=>clicks++)]});assert.equal(clicks,1);
 });
+
+test('login aceita www e porta HTTPS padrão, sem ampliar domínio',()=>{assert.equal(run({url:'https://www.atende.cemig.com.br:443/Login'}).state,'LOGIN');assert.equal(run({url:'https://atende.cemig.com.br:444/Login'}).state,'PAUSADO');});
