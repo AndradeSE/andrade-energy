@@ -1,4 +1,5 @@
 import * as Updates from "expo-updates";
+import * as Application from "expo-application";
 
 export const PREVIEW_API_URL = "https://andrade-energy-api-homologacao.onrender.com/api";
 export const PRODUCTION_API_URL = "https://andrade-energy-api-vda.onrender.com/api";
@@ -6,7 +7,7 @@ export const PRODUCTION_API_URL = "https://andrade-energy-api-vda.onrender.com/a
 // The native build channel is stable across OTA updates. Never let an OTA
 // variable or a missing .env silently send a Preview APK to production.
 const channel = Updates.channel ?? "";
-export const isPreviewEnvironment = channel.startsWith("preview-") ||
+export const isPreviewEnvironment = (Application.applicationId?.endsWith(".preview") ?? false) || channel.startsWith("preview-") ||
   (!channel && /andrade-energy-api-homologacao\.onrender\.com/i.test(process.env.EXPO_PUBLIC_API_URL ?? ""));
 
 export const environmentKeySuffix = isPreviewEnvironment ? "_preview" : "";
