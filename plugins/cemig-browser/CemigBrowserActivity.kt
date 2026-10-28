@@ -38,6 +38,7 @@ class CemigBrowserActivity : Activity() {
     }
     override fun onCreate(state:Bundle?) {
         super.onCreate(state)
+        window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         if(Build.VERSION.SDK_INT>=33)registerReceiver(closeReceiver,IntentFilter(CemigBrowserService.STOP),Context.RECEIVER_NOT_EXPORTED)
         else @Suppress("DEPRECATION") registerReceiver(closeReceiver,IntentFilter(CemigBrowserService.STOP))
         listening=true
@@ -53,6 +54,9 @@ class CemigBrowserActivity : Activity() {
             content.setOnApplyWindowInsetsListener { view,insets ->
                 val safe=insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout() or WindowInsets.Type.ime())
                 view.setPadding(safe.left,safe.top,safe.right,safe.bottom)
+                if(insets.isVisible(WindowInsets.Type.ime())) {
+                    session?.browser?.postDelayed({session?.browser?.evaluateJavascript("document.activeElement&&document.activeElement.scrollIntoView({block:'center',behavior:'smooth'});",null)},250)
+                }
                 insets
             }
         }

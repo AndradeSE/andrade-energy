@@ -101,6 +101,9 @@ class CemigBrowserService : Service() {
                 if(!allowed(url))return
                 view.evaluateJavascript("""(function(){
                     if(window.__andradePreviewGuard)return;window.__andradePreviewGuard=true;
+                    document.addEventListener('focusin',function(e){
+                        if(e.target&&/^(INPUT|TEXTAREA)$/.test(e.target.tagName))setTimeout(function(){e.target.scrollIntoView({block:'center',behavior:'smooth'});},300);
+                    });
                     document.addEventListener('click',function(e){
                         var b=e.target.closest&&e.target.closest('button,input[type=submit]');
                         if(b&&/solicitar cadastro/i.test(b.innerText||b.value||'')){e.preventDefault();e.stopImmediatePropagation();alert('Simulação: protocolo definitivo bloqueado.');}
