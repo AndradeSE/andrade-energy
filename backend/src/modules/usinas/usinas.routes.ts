@@ -19,6 +19,8 @@ import {
 } from "./usinas.controller";
 import { exigirAutenticacao, exigirGestor, exigirSuperAdministradorAndrade } from "../../middlewares/auth.middleware";
 import { iniciarCemigSimulacao, consultarCemigSimulacao } from './cemigCloud.service';
+import {lerAcessoCemigNativo} from './cemigCredential.service';
+import {envelopeAcessoNativo} from './cemigNative.envelope';
 import { exigirUsinaDaSessaoOuGestor } from "../../utils/empresaScope";
 import { exigirCapacidadeDoPlano } from "../../middlewares/limitesPlano.middleware";
 import { empresaIdDaRequisicao } from "../../utils/empresaScope";
@@ -39,6 +41,14 @@ function acessoOperacao(usuario:any) {
 }
 
 router.use(exigirAutenticacao);
+router.post('/:id/cemig-acesso/nativo',exigirGestor,exigirSuperAdministradorAndrade,apiRateLimit('cemig-native-vault',{windowMs:60000,limit:3}),async(req,res)=>{
+ res.setHeader('Cache-Control','private, no-store');
+ try{
+  if(req.body?.autorizaLoginNativo!==true)throw new Error();
+  const empresa=empresaIdDaRequisicao(req),usuario=(req as any).usuario.id;
+  return res.json(envelopeAcessoNativo(await lerAcessoCemigNativo(req.params.id,empresa,usuario),{publicKey:req.body.publicKey,nonce:req.body.nonce,usina:req.params.id}));
+ }catch{return res.status(400).json({message:'Não foi possível usar o acesso salvo nesta sessão nativa. Confira o cadastro no aplicativo.'});}
+});
 router.post('/:id/cemig-simulacoes',exigirGestor,exigirSuperAdministradorAndrade,apiRateLimit('cemig-cloud-start',{windowMs:60_000,limit:2}),async(req,res)=>{
  res.setHeader('Cache-Control','private, no-store');
  try{return res.status(202).json(await iniciarCemigSimulacao(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.body));}
