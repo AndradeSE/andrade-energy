@@ -27,7 +27,7 @@ export default function CemigNativeBrowserPreview({usinaId,competencia}:{usinaId
    if(copiaTeste&&(competencia!=='2026-10'||config.uc_ancora!=='3006605532'))throw new Error('Esta cópia técnica foi autorizada somente para OUT/2026 e a âncora 3006605532.');
    const session=await obterSessao();
    const solver=await new Promise<boolean|null>(resolve=>Alert.alert('Acesso da Cemig nesta sessão',
-    'O navegador integrado pode usar o acesso já cadastrado no cofre. Se autorizar o CapMonster, enviará somente os dados técnicos do reCAPTCHA e usará apenas o bônus de teste disponível, sem recarga. O Preview bloqueia o protocolo definitivo.',
+    'O navegador integrado pode usar o acesso já cadastrado no cofre. Se autorizar o CapMonster, enviará somente os dados técnicos do reCAPTCHA e usará o saldo já disponível para uma única tentativa, sem compra de créditos nem recarga. O Preview bloqueia o protocolo definitivo.',
     [{text:'Cancelar',style:'cancel',onPress:()=>resolve(null)},{text:'Somente acesso salvo',onPress:()=>resolve(false)},{text:'Acesso e uma verificação automática',onPress:()=>resolve(true)}],{cancelable:true,onDismiss:()=>resolve(null)}));
    if(solver===null)return;
    await IntentLauncher.startActivityAsync('android.intent.action.VIEW',{
@@ -52,7 +52,7 @@ export default function CemigNativeBrowserPreview({usinaId,competencia}:{usinaId
   }catch(e:any){setError(e?.message??'Não foi possível abrir o CSV de referência.');}finally{setBusy(false);}
  }
  return <Card><Text style={{fontSize:20,fontWeight:'700',color:Colors.text}}>Navegador integrado · Preview</Text>
-  <Text style={{color:Colors.subtitle,lineHeight:22,marginVertical:12}}>Prepara o CSV e abre a Cemig no aplicativo. Após entrar, toque em Continuar rateio para avançar na mesma sessão. Se o portal mudar ou os dados não forem inequívocos, o fluxo pausa e explica a etapa. O anexo exige sua conferência. Login e verificações são manuais nesta versão; o Preview bloqueia o protocolo.</Text>
+  <Text style={{color:Colors.subtitle,lineHeight:22,marginVertical:12}}>Prepara o CSV e abre a Cemig no aplicativo usando o acesso salvo. Você pode autorizar uma verificação pelo CapMonster com o saldo disponível ou resolver manualmente. Após o login, o robô continua até a revisão do arquivo. Se o portal mudar ou os dados não forem inequívocos, o fluxo pausa e explica a etapa. O anexo exige sua conferência; o Preview bloqueia o protocolo definitivo.</Text>
   <View style={{gap:14,marginTop:4}}>
   <Button style={{height:undefined,minHeight:56,paddingVertical:14}} title={busy?'Preparando…':'Preparar CSV e abrir navegador'} disabled={busy||!competencia} onPress={()=>void open()}/>
   {competencia==='2026-10'?<Button style={{height:undefined,minHeight:56,paddingVertical:14}} title="Abrir cópia de teste sem UC fictícia" disabled={busy} onPress={()=>void open(true)}/>:null}

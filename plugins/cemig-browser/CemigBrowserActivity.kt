@@ -79,7 +79,7 @@ class CemigBrowserActivity : Activity() {
             setOnClickListener{
                 android.app.AlertDialog.Builder(this@CemigBrowserActivity)
                     .setTitle("Uma verificação automática")
-                    .setMessage("Usar uma única tentativa com o bônus CapMonster existente? Apenas a URL e os dados técnicos do reCAPTCHA serão enviados. Sem compra, recarga ou protocolo.")
+                    .setMessage("Usar o saldo já disponível no CapMonster para uma única tentativa? Apenas a URL e os dados técnicos do reCAPTCHA serão enviados. Sem compra de créditos, recarga ou protocolo.")
                     .setNegativeButton("Cancelar",null)
                     .setPositiveButton("Autorizar tentativa"){_,_->session?.allowSolver();options.visibility=View.GONE}
                     .show()

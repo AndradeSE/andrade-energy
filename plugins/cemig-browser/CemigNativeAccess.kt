@@ -30,7 +30,7 @@ object CemigNativeAccess {
  }
  fun solve(base:String,token:String,usina:String,preview:Boolean,nonce:String,challenge:JSONObject,active:()->Boolean):String? {
   if(!active())return null
-  val created=request(base,token,usina,preview,"/captcha",JSONObject().put("nonce",nonce).put("autorizaCaptcha",true).put("desafio",challenge))
+  val created=request(base,token,usina,preview,"/captcha",JSONObject().put("nonce",nonce).put("autorizaCaptcha",true).put("autorizaSaldoExistente",true).put("desafio",challenge))
   if(created.optBoolean("manual")){val reason=created.optString("motivo");throw IllegalStateException(if(reason in setOf("SEM_CONFIGURACAO","SALDO_TESTE_NAO_CONFIRMADO"))reason else "MODO_MANUAL")}
   val id=created.getString("id");require(id.matches(Regex("[a-fA-F0-9-]{36}")))
   repeat(30){
