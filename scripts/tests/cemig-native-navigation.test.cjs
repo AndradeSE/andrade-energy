@@ -3,9 +3,9 @@ const assert=require('node:assert/strict');
 const vm=require('node:vm');
 const fs=require('node:fs');
 const script=fs.readFileSync(require('node:path').join(__dirname,'../../plugins/cemig-browser/rateio-navigation.js'),'utf8');
-function run({url='https://www.atendimento.cemig.com.br/portal/services/compensation-gd',body='',controls=[],selects=[],files=[],tabs=[],combos=[],password=false,config={geradora:'1121361801894',iniciado:true}}={}){
+function run({url='https://www.atendimento.cemig.com.br/portal/services/compensation-gd',body='',controls=[],selects=[],files=[],tabs=[],combos=[],radios=[],password=false,config={geradora:'1121361801894',iniciado:true}}={}){
  let assigned;
- const context={Event:class{constructor(type){this.type=type;}},location:{href:url,pathname:new URL(url).pathname,assign:url=>{assigned=url;}},window:{},getComputedStyle:()=>({visibility:'visible'}),document:{body:{textContent:body},querySelector:()=>password?{}:null,querySelectorAll:selector=>selector.startsWith('button')?controls:selector==='select'?selects:selector==='input[type=file]'?files:selector==='[role=tab]'?tabs:selector==='[role=combobox]'?combos:[]}};
+ const context={Event:class{constructor(type){this.type=type;}},location:{href:url,pathname:new URL(url).pathname,assign:url=>{assigned=url;}},window:{},getComputedStyle:()=>({visibility:'visible'}),document:{body:{textContent:body},querySelector:()=>password?{}:null,querySelectorAll:selector=>selector.startsWith('button')?controls:selector==='input[type=radio],[role=radio]'?radios:selector==='select'?selects:selector==='input[type=file]'?files:selector==='[role=tab]'?tabs:selector==='[role=combobox]'?combos:[]}};
  const result=JSON.parse(vm.runInNewContext(script.replace('__ANDRADE_CONFIG__',JSON.stringify(config)),context));
  return {...result,assigned};
 }
@@ -46,3 +46,22 @@ test('login aceita www e porta HTTPS padr�o, sem ampliar dom�nio',()=>{asser
 test('cartao exige UC exata',()=>{let clicks=0;assert.equal(run({controls:[button('Nº da unidade consumidora: 11.213.618.018-94',()=>clicks++)]}).state,'UC');assert.equal(clicks,1);assert.equal(run({controls:[button('Nº da unidade consumidora: 1038417901864',()=>clicks++)]}).state,'PAUSADO');assert.equal(clicks,1);});
 test('modalidade customizada e aba de anexo',()=>{let clicks=0;assert.equal(run({body:'Selecione o tipo de modalidade',combos:[button('Autoconsumo remoto',()=>{})],controls:[button('Avançar',()=>clicks++)]}).state,'ALOCACAO');assert.equal(clicks,1);assert.equal(run({tabs:[{...button('Inserir por anexo',()=>clicks++),getAttribute:()=> 'false'}]}).state,'ANEXO');assert.equal(clicks,2);});
 test('anexo so avanca confirmado e visivel',()=>{let clicks=0;const config={geradora:'1121361801894',iniciado:true,anexado:true,arquivo:'rateio-2026-10.csv'};assert.equal(run({config,body:'rateio-2026-10.csv',controls:[button('Avançar',()=>clicks++)]}).state,'REVISAO');assert.equal(clicks,1);run({config,body:'Outro arquivo',controls:[button('Avançar',()=>clicks++)]});assert.equal(clicks,1);});
+
+test('radio móvel seleciona somente UC exata e avança só quando marcada',()=>{
+ let clicks=0,advances=0;
+ const card={innerText:'Nº da unidade consumidora: 10.384.179.018-64',parentElement:null};
+ const radio={...button('',()=>clicks++),checked:false,parentElement:card,getAttribute:()=>null};
+ const config={geradora:'1038417901864',iniciado:true};
+ assert.equal(run({config,radios:[radio]}).state,'UC'); assert.equal(clicks,1);
+ radio.checked=true;
+ assert.equal(run({config,radios:[radio],controls:[button('Avançar',()=>advances++)]}).state,'MODALIDADE');assert.equal(advances,1);
+ assert.equal(run({radios:[radio],controls:[button('Avançar',()=>advances++)]}).state,'PAUSADO');assert.equal(advances,1);
+ card.innerText+=' Nº da unidade consumidora: 11.213.618.018-94';
+ assert.equal(run({config,radios:[radio]}).state,'PAUSADO');
+});
+
+test('arquivo recusado nunca avança mesmo com nome visível',()=>{
+ let clicks=0;
+ assert.equal(run({body:'Atenção! Template inválido rateio-2026-10.csv',config:{geradora:'1121361801894',iniciado:true,anexado:true,arquivo:'rateio-2026-10.csv'},controls:[button('Avançar',()=>clicks++)]}).state,'ARQUIVO_RECUSADO');
+ assert.equal(clicks,0);
+});

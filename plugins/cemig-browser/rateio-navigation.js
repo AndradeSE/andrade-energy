@@ -13,6 +13,7 @@
     location.assign('https://www.atendimento.cemig.com.br/portal/services/compensation-gd');
     return result('NAVEGANDO','Abrindo compensação de geração distribuída.');
   }
+  if (/template inv[aá]lido|arquivo inv[aá]lido|arquivo rejeitado/i.test(body)) return result('ARQUIVO_RECUSADO','A Cemig recusou o CSV. Confira o modelo e os dados antes de anexar novamente; nenhum protocolo foi enviado.');
   var controls=Array.from(document.querySelectorAll('button,input[type=submit],a')).filter(visible);
   function clickUnique(label) {
     var found=controls.filter(function(el){return text(el).toLowerCase()===label.toLowerCase() && !el.disabled;});
@@ -23,6 +24,23 @@
   }
   if (controls.some(function(el){return /^Solicitar cadastro$/i.test(text(el));})) return result('REVISAO','Revise a UC geradora e o CSV. Protocolo bloqueado no Preview.');
   if (!config.iniciado) return result('PRONTO','Toque em Continuar rateio para avançar até a revisão.');
+  // The mobile portal renders UC choices as radio labels, not buttons.
+  var radios=Array.from(document.querySelectorAll('input[type=radio],[role=radio]')).filter(visible);
+  var exactRadios=radios.filter(function(radio){
+    if(radio.disabled||radio.getAttribute('aria-disabled')==='true')return false;
+    var node=radio;
+    for(var depth=0;node&&depth<5;depth++,node=node.parentElement){
+      var matches=Array.from(text(node).matchAll(/N[º°] da unidade consumidora:\s*([\d.\-]+)/gi));
+      if(matches.length>1)return false;
+      if(matches.length===1)return matches[0][1].replace(/\D/g,'')===config.geradora;
+    }
+    return false;
+  });
+  if(exactRadios.length===1){
+    var radio=exactRadios[0];
+    if(!radio.checked&&radio.getAttribute('aria-checked')!=='true'){radio.click();return result('UC','UC geradora selecionada pelo cadastro.');}
+    if(clickUnique('Avançar'))return result('MODALIDADE','UC confirmada. Abrindo modalidade.');
+  }
   var ucButtons=controls.filter(function(el){var match=text(el).match(/Nº da unidade consumidora:\s*([\d.\-]+)/i);return match&&match[1].replace(/\D/g,'')===config.geradora;});
   if(ucButtons.length===1){
     if(window.__andradeSelectedUc!==config.geradora){ucButtons[0].click();window.__andradeSelectedUc=config.geradora;return result('UC','UC geradora selecionada pelo cadastro.');}
