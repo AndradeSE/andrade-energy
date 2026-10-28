@@ -108,6 +108,15 @@ class CemigBrowserService : Service() {
                         var input=e.target;
                         if(!input||input.type!=='file'||!input.files||input.files.length!==1)return;
                         var f=input.files[0];
+                        // Android 11 WebView derives a legacy MIME from the extension,
+                        // ignoring ContentProvider.getType. Normalize the same file bytes
+                        // before the portal's change handler validates the standard MIME.
+                        if(/\.csv$/i.test(f.name)&&f.type==='text/comma-separated-values'&&typeof DataTransfer==='function'){
+                            var transfer=new DataTransfer();
+                            transfer.items.add(new File([f],f.name,{type:'text/csv',lastModified:f.lastModified}));
+                            input.files=transfer.files;
+                            f=input.files[0];
+                        }
                         var state={bytes:f.size,mime:f.type||'não informado',readable:false};
                         window.__andradeFileDiagnostic=state;
                         var reader=new FileReader();
