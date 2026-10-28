@@ -13,7 +13,11 @@
     location.assign('https://www.atendimento.cemig.com.br/portal/services/compensation-gd');
     return result('NAVEGANDO','Abrindo compensação de geração distribuída.');
   }
-  if (/template inv[aá]lido|arquivo inv[aá]lido|arquivo rejeitado/i.test(body)) return result('ARQUIVO_RECUSADO','A Cemig recusou o CSV. Confira o modelo e os dados antes de anexar novamente; nenhum protocolo foi enviado.');
+  if (/template inv[aá]lido|arquivo inv[aá]lido|arquivo rejeitado/i.test(body)) {
+    var d=window.__andradeFileDiagnostic;
+    var info=d?' Diagnóstico: '+d.bytes+' bytes; '+d.mime+'; leitura '+(d.readable?'OK':'pendente/falhou')+(d.readable?'; '+d.lines+' linhas; 4 colunas '+(d.columnsOk?'OK':'inválidas'):'')+'.':'';
+    return result('ARQUIVO_RECUSADO','A Cemig recusou o CSV.'+info+' Nenhum protocolo foi enviado.');
+  }
   var controls=Array.from(document.querySelectorAll('button,input[type=submit],a')).filter(visible);
   function clickUnique(label) {
     var found=controls.filter(function(el){return text(el).toLowerCase()===label.toLowerCase() && !el.disabled;});

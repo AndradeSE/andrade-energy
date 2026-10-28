@@ -104,6 +104,22 @@ class CemigBrowserService : Service() {
                 if(!allowed(url))return
                 view.evaluateJavascript("""(function(){
                     if(window.__andradePreviewGuard)return;window.__andradePreviewGuard=true;
+                    document.addEventListener('change',function(e){
+                        var input=e.target;
+                        if(!input||input.type!=='file'||!input.files||input.files.length!==1)return;
+                        var f=input.files[0];
+                        var state={bytes:f.size,mime:f.type||'não informado',readable:false};
+                        window.__andradeFileDiagnostic=state;
+                        var reader=new FileReader();
+                        reader.onload=function(){
+                            var content=String(reader.result||'');
+                            var rows=content.split(/\r?\n/);
+                            state.readable=true;state.lines=rows.length;
+                            state.columnsOk=rows.every(function(row){return row.split(';').length===4;});
+                        };
+                        reader.onerror=function(){state.error='Falha na leitura do arquivo pelo navegador';};
+                        reader.readAsText(f,'UTF-8');
+                    },true);
                     document.addEventListener('focusin',function(e){
                         if(e.target&&/^(INPUT|TEXTAREA)$/.test(e.target.tagName))setTimeout(function(){e.target.scrollIntoView({block:'center',behavior:'smooth'});},300);
                     });
