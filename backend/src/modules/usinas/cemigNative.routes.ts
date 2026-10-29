@@ -6,7 +6,29 @@ import {statusCofreNativo,salvarCofreNativo,removerCofreNativo,lerCofreNativo} f
 import {envelopeAcessoNativo} from './cemigNative.envelope';
 import {iniciarCaptchaNativo,consultarCaptchaNativo} from './cemigNative.captcha';
 import {podeUsarCofreNativo} from './cemigNative.policy';
+import {configurarFilaNativa,listarFilaNativa,reivindicarEnvioNativo,atualizarEnvioNativo} from './rateioEnvioNativo.service';
 const router=Router();
+router.use('/:id/cemig-fila',exigirGestor,(req,res,next)=>{
+ res.setHeader('Cache-Control','private, no-store');
+ if(!podeUsarCofreNativo((req as any).usuario))return res.status(403).json({message:'A automação é exclusiva do titular ou ADM.'});
+ next();
+});
+router.put('/:id/cemig-fila',async(req,res)=>{
+ try{return res.json(await configurarFilaNativa(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.body));}
+ catch{return res.status(400).json({message:'Não foi possível alterar o envio automático.'});}
+});
+router.get('/:id/cemig-fila',async(req,res)=>{
+ try{return res.json(await listarFilaNativa(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id));}
+ catch{return res.status(503).json({message:'Automação indisponível neste servidor.'});}
+});
+router.post('/:id/cemig-fila/:job/iniciar',apiRateLimit('cemig-native-queue',{windowMs:60000,limit:3}),async(req,res)=>{
+ try{return res.json(await reivindicarEnvioNativo(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.params.job));}
+ catch{return res.status(409).json({message:'Envio reservado ou encerrado. Não repetir.'});}
+});
+router.post('/:id/cemig-fila/:job/estado',async(req,res)=>{
+ try{return res.json(await atualizarEnvioNativo(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.params.job,req.body));}
+ catch{return res.status(409).json({message:'Estado não confirmado. Confira antes de repetir.'});}
+});
 router.use('/:id/cemig-acesso',exigirGestor,(req,res,next)=>{
  res.setHeader('Cache-Control','private, no-store');
  if(!podeUsarCofreNativo((req as any).usuario))return res.status(403).json({message:'O acesso da Cemig é exclusivo do titular ou ADM.'});
