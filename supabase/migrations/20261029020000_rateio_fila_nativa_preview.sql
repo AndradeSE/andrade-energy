@@ -15,6 +15,7 @@ create table if not exists public.rateio_envios_nativos (
  criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now(),
  unique (empresa_id,usina_id,competencia)
 );
+alter table public.rateio_envios_nativos add column if not exists artefato_teste jsonb;
 alter table public.rateio_envio_nativo_config enable row level security;
 alter table public.rateio_envios_nativos enable row level security;
 revoke all on public.rateio_envio_nativo_config,public.rateio_envios_nativos from anon,authenticated;

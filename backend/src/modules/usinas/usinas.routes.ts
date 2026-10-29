@@ -22,7 +22,7 @@ import { iniciarCemigSimulacao, consultarCemigSimulacao } from './cemigCloud.ser
 import {lerAcessoCemigNativo} from './cemigCredential.service';
 import {envelopeAcessoNativo} from './cemigNative.envelope';
 import {iniciarCaptchaNativo,consultarCaptchaNativo} from './cemigNative.captcha';
-import {configurarFilaNativa,listarFilaNativa,reivindicarEnvioNativo,atualizarEnvioNativo} from './rateioEnvioNativo.service';
+import {configurarFilaNativa,listarFilaNativa,reivindicarEnvioNativo,atualizarEnvioNativo,prepararTesteFila} from './rateioEnvioNativo.service';
 import { exigirUsinaDaSessaoOuGestor } from "../../utils/empresaScope";
 import { exigirCapacidadeDoPlano } from "../../middlewares/limitesPlano.middleware";
 import { empresaIdDaRequisicao } from "../../utils/empresaScope";
@@ -43,6 +43,11 @@ function acessoOperacao(usuario:any) {
 }
 
 router.use(exigirAutenticacao);
+router.post('/:id/cemig-fila/diagnostico',exigirGestor,exigirSuperAdministradorAndrade,async(req,res)=>{
+ res.setHeader('Cache-Control','private, no-store');
+ try{return res.json(await prepararTesteFila(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.body));}
+ catch{return res.status(400).json({message:'A cópia técnica não corresponde aos dados autorizados.'});}
+});
 router.put('/:id/cemig-fila',exigirGestor,exigirSuperAdministradorAndrade,async(req,res)=>{
  res.setHeader('Cache-Control','private, no-store');
  try{return res.json(await configurarFilaNativa(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.body));}

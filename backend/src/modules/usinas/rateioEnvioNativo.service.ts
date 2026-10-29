@@ -1,5 +1,7 @@
 import {supabase} from '../../config/supabase';
-import {conferirArtefatoEnvio,conferirTransicaoEnvio,EstadoEnvioNativo} from './rateioEnvioNativo.policy';
+import {conferirArtefatoEnvio,conferirTransicaoEnvio,EstadoEnvioNativo,copiaDiagnosticaAutorizada} from './rateioEnvioNativo.policy';
+import {prepararPlanilhaRateio} from './rateioMensal.service';
+import {randomUUID} from 'node:crypto';
 const preview=()=>String(process.env.SUPABASE_URL).replace(/\/$/,'')==='https://qqhcjieymypowunkixmk.supabase.co';
 async function scope(usina:string,empresa:string){
  if(!preview())throw new Error('Fila nativa em validação somente no Preview.');
@@ -42,9 +44,22 @@ export async function reivindicarEnvioNativo(usina:string,empresa:string,usuario
  const claim=await supabase.rpc('reivindicar_envio_nativo',{p_empresa:empresa,p_usuario:usuario,p_id:id});
  if(claim.error||!claim.data?.[0])throw new Error('Envio já reservado ou encerrado. Não repetir.');
  const row=claim.data[0];
+ if(row.artefato_teste&&preview()){
+  if(conferirArtefatoEnvio(row.artefato_teste).hash!==row.csv_hash)throw new Error('Cópia de teste divergente.');
+  return {id:row.id,leaseId:row.lease_id,hash:row.csv_hash,plano:row.artefato_teste,simulacao:true};
+ }
  const r=await supabase.from('rateios_mensais_automaticos').select('resultado').eq('id',row.registro_rateio_id).eq('empresa_id',empresa).eq('usina_id',usina).single();
  if(r.error||conferirArtefatoEnvio(r.data?.resultado).hash!==row.csv_hash)throw new Error('A planilha mudou. Confira o rateio antes de enviar.');
  return {id:row.id,leaseId:row.lease_id,hash:row.csv_hash,plano:r.data.resultado,simulacao:true};
+}
+export async function prepararTesteFila(usina:string,empresa:string,usuario:string,body:any){
+ await scope(usina,empresa);
+ if(body?.autorizaCopiaDiagnostica!==true)throw new Error('Confirme a cópia técnica.');
+ const original=await prepararPlanilhaRateio(usina,empresa,'2026-10','3006605532','',false,true);
+ const copy=copiaDiagnosticaAutorizada(original),artifact=conferirArtefatoEnvio(copy);
+ const r=await supabase.from('rateio_envios_nativos').upsert({empresa_id:empresa,usina_id:usina,usuario_id:usuario,competencia:'2026-10-01',registro_rateio_id:randomUUID(),csv_hash:artifact.hash,artefato_teste:copy},{onConflict:'empresa_id,usina_id,competencia',ignoreDuplicates:true});
+ if(r.error)throw r.error;
+ return {preparado:true,simulacao:true,geradora:artifact.geradora,hash:artifact.hash};
 }
 export async function atualizarEnvioNativo(usina:string,empresa:string,usuario:string,id:string,body:any){
  await scope(usina,empresa);

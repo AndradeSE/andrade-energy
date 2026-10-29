@@ -23,3 +23,16 @@ export function estadoAposInterrupcao(estado:EstadoEnvioNativo):EstadoEnvioNativ
  if(estado==='ENVIANDO')return 'INCERTO';
  return estado==='EXECUTANDO'?'AGUARDANDO_USUARIO':estado;
 }
+export function copiaDiagnosticaAutorizada(plano:any){
+ const original=conferirArtefatoEnvio(plano);
+ if(plano.competencia!=='2026-10'||original.geradora!=='1121361801894')throw new Error('Fora da cópia técnica autorizada.');
+ const rows=plano.csv.trim().split(/\r?\n/).map((l:string)=>l.split(';'));
+ const remove=rows.filter((r:string[])=>r[0]==='99999101128'&&r[3]==='');
+ const anchor=rows.filter((r:string[])=>r[0]==='3006605532'&&r[3]==='X');
+ if(remove.length!==1||anchor.length!==1||rows.some((r:string[])=>r[0]==='607081301889'))throw new Error('Cópia divergente da autorizada.');
+ const units=(n:string)=>Math.round(Number(n.replace(',','.'))*10000);
+ const total=units(anchor[0][2])+units(remove[0][2]);
+ const quota=String(total/10000).replace('.',',');
+ const csv=rows.filter((r:string[])=>r!==remove[0]).map((r:string[])=>r===anchor[0]?['607081301889',r[1],quota,r[3]]:r).map((r:string[])=>r.join(';')).join('\r\n');
+ const copy={...plano,csv};conferirArtefatoEnvio(copy);return copy;
+}
