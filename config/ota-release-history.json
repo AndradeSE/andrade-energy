@@ -1,5 +1,41 @@
 [
   {
+    "numero": "OTA 20261029-184633",
+    "data": "29/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Removida calculadora do Consumidor; economia real preservada"
+    ]
+  },
+  {
+    "numero": "OTA 20261029-184434",
+    "data": "29/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "CPF e mostrar senha Cemig; calculadora de proposta mais clara"
+    ]
+  },
+  {
+    "numero": "OTA 20261029-184153",
+    "data": "29/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Retirada da calculadora do Consumidor; economia real das faturas preservada"
+    ]
+  },
+  {
+    "numero": "OTA 20261029-183814",
+    "data": "29/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Acesso Cemig com CPF formatado e mostrar senha; calculadora mais clara no Gerador"
+    ]
+  },
+  {
     "numero": "OTA 20261029-161324",
     "data": "29/10/2026",
     "variant": "gerador",
