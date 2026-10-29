@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 process.env.SUPABASE_URL='https://rateio-uc-test.invalid';process.env.SUPABASE_SERVICE_KEY='test';
 test('controle por UC é isolado por empresa, preserva suspensão financeira e exige contrato vigente',async()=>{
- const {obterRateioUc,salvarRateioUc}=await import('./rateioUc.service');
+ const {obterRateioUc,salvarRateioUc}=await import('./rateioUc.service.js');
  const original=globalThis.fetch;let ativo=true,suspenso=true,contrato=true,escritas=0;
  globalThis.fetch=async(input,init)=>{
   const url=new URL(String(input));const tabela=url.pathname.split('/').pop();
