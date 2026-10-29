@@ -405,6 +405,7 @@ export default function DashboardGestor() {
         <RevenueChart
           previsto={data.receitaPrevista}
           recebido={data.receitaRealizada}
+          competencia={data.competencia}
         />
 
         {!colaborador ? (

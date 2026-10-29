@@ -14,10 +14,15 @@ const secureSession = createSecureSession({
   removeItem: SecureStore.deleteItemAsync,
 }, AsyncStorage, CHAVE, `andrade.session${environmentKeySuffix}`);
 
+function pacoteAutomacao(){
+ const id=Application.applicationId;
+ if(id!=='com.andradese.energy.gerador'&&id!=='com.andradese.energy.gerador.preview')throw new Error('Instalação do navegador integrado não reconhecida.');
+ return id;
+}
 async function encerrarAutomacaoNativa(){
   if(Platform.OS!=='android'||Constants.expoConfig?.extra?.nativeCemigAutomation!==true)return;
   const result=await IntentLauncher.startActivityAsync('android.intent.action.VIEW',{
-    packageName:Application.applicationId ?? undefined,className:'br.com.andradeenergy.cemig.CemigBrowserActivity',extra:{rateioAutomationClearAll:true},
+    packageName:pacoteAutomacao(),className:'br.com.andradeenergy.cemig.CemigBrowserActivity',extra:{rateioAutomationClearAll:true},
   });
   if(result.resultCode!==-1)throw new Error('Não foi possível encerrar as tarefas de rateio. Tente sair novamente.');
 }
@@ -27,7 +32,7 @@ export async function salvarSessao(usuario: any) {
     const anterior=await secureSession.get();
     if(anterior?.id&&anterior.id!==usuario?.id)await encerrarAutomacaoNativa();
     else if(anterior?.id===usuario?.id&&anterior?.token!==usuario?.token&&Platform.OS==='android'&&Constants.expoConfig?.extra?.nativeCemigAutomation===true){
-      await IntentLauncher.startActivityAsync('android.intent.action.VIEW',{packageName:Application.applicationId ?? undefined,className:'br.com.andradeenergy.cemig.CemigBrowserActivity',extra:{rateioAutomationRefreshToken:usuario.token}});
+      await IntentLauncher.startActivityAsync('android.intent.action.VIEW',{packageName:pacoteAutomacao(),className:'br.com.andradeenergy.cemig.CemigBrowserActivity',extra:{rateioAutomationRefreshToken:usuario.token}});
     }
     return secureSession.save(usuario);
   }

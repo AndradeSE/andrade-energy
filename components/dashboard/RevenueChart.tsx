@@ -3,13 +3,13 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { Radius, Shadows, Spacing, Typography } from "../../theme";
 
-type Props = { previsto: number; recebido: number };
+type Props = { previsto: number; recebido: number; competencia?:string };
 
 function formatarMoeda(valor: number) {
   return Number(valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-export default function RevenueChart({ previsto, recebido }: Props) {
+export default function RevenueChart({ previsto, recebido, competencia }: Props) {
   const previstoSeguro = Math.max(0, Number(previsto) || 0);
   const recebidoSeguro = Math.max(0, Number(recebido) || 0);
   const percentual = previstoSeguro > 0 ? Math.min(100, recebidoSeguro / previstoSeguro * 100) : 0;
@@ -19,7 +19,7 @@ export default function RevenueChart({ previsto, recebido }: Props) {
     <View style={styles.card}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.eyebrow}>RECEITA DA COMPETÊNCIA</Text>
+          <Text style={styles.eyebrow}>RECEITA DA COMPETÊNCIA{competencia ? ` · ${competencia}` : ""}</Text>
           <Text style={styles.title}>Evolução dos recebimentos</Text>
         </View>
         <View style={styles.icon}><Ionicons name="stats-chart" size={21} color="#F6CC32" /></View>
