@@ -50,6 +50,12 @@ test('continuação aguarda o retorno normal do login e só navega da home carre
   const pending=run({url});assert.equal(pending.state,'AGUARDANDO_LOGIN');assert.equal(pending.assigned,undefined);
  }
 });
+test('home móvel autenticada usa o cartão da unidade atual sem depender do menu desktop',()=>{
+ const body='Boa tarde, Titular Você está na unidade consumidora Nº: 12.227.902.018-27 Trocar';
+ assert.equal(run({url:'https://www.atendimento.cemig.com.br/portal/home',body}).assigned,'https://www.atendimento.cemig.com.br/portal/services/compensation-gd');
+ assert.equal(run({url:'https://www.atendimento.cemig.com.br/portal/home',body:'Você está na unidade consumidora'}).state,'AGUARDANDO_LOGIN');
+ assert.equal(run({url:'https://atende.cemig.com.br/',body}).assigned,undefined);
+});
 test('clica apenas botão único de cadastro, nunca protocolo',()=>{
  let clicks=0;
  assert.equal(run({controls:[button('Realizar cadastro',()=>clicks++)]}).state,'CADASTRO');
