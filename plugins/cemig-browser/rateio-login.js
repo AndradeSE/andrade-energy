@@ -1,7 +1,8 @@
 // Adapted from the validated cemigLogin.ts modal scopes. No CAPTCHA solving here.
 (function(access){
  function visible(el){return !!el&&el.getClientRects().length>0&&getComputedStyle(el).visibility!=='hidden';}
- if(location.protocol!=='https:'||(location.port&&location.port!=='443')||!['atende.cemig.com.br','www.atende.cemig.com.br'].includes(location.hostname)||!/^\/Login\/?$/i.test(location.pathname))return 'FORA_LOGIN';
+ if(location.protocol!=='https:'||(location.port&&location.port!=='443')||!['atende.cemig.com.br','www.atende.cemig.com.br'].includes(location.hostname)||!/^\/(?:Login\/?)?$/i.test(location.pathname))return 'FORA_LOGIN';
+ if(!document.body)return 'FORMULARIO';
  if(/Verify you are human|Performing security verification/i.test(document.body.innerText))return 'VERIFICACAO';
  if(/(?:verifica[çc][aã]o|verification).*(?:expir|expired)/i.test(document.body.innerText))return 'VERIFICACAO_EXPIRADA';
  function same(a,b){return a===b||(a.includes('@')&&b.includes('@')&&a.toLowerCase()===b.toLowerCase())||(/^\d[\d.\/-]+$/.test(a)&&/^\d[\d.\/-]+$/.test(b)&&a.replace(/\D/g,'')===b.replace(/\D/g,''));}

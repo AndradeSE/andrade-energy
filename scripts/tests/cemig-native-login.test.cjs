@@ -14,6 +14,11 @@ test('preenche senha no modal do mesmo titular e envia imediatamente com token v
  const f=fixture();assert.equal(f.run(),'CAPTCHA');assert.deepEqual(f.writes,['test-password']);
  f.token._value='x'.repeat(30);assert.equal(f.run(),'LOGIN_ENVIADO');assert.equal(f.run(),'AGUARDANDO_LOGIN');assert.deepEqual(f.writes,['test-password','submit']);
 });
+test('aceita o redirecionamento real para a raiz mantendo o modal do mesmo titular',()=>{
+ const f=fixture();assert.equal(f.run('https://atende.cemig.com.br/?LoginSemSenha=True'),'CAPTCHA');
+ assert.deepEqual(f.writes,['test-password']);
+ const blocked=fixture();assert.equal(blocked.run('https://atende.cemig.com.br/qualquer-outra-pagina'),'FORA_LOGIN');assert.deepEqual(blocked.writes,[]);
+});
 test('não escreve em outro domínio, porta, titular, Cloudflare ou desafio expirado',()=>{
  const f=fixture();assert.equal(f.run('https://evil.test/Login'),'FORA_LOGIN');assert.equal(f.run('https://atende.cemig.com.br:444/Login'),'FORA_LOGIN');
  assert.equal(f.run(undefined,'Verify you are human'),'VERIFICACAO');assert.equal(f.run(undefined,'Verificação expirou'),'VERIFICACAO_EXPIRADA');
