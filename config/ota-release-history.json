@@ -1,5 +1,86 @@
 [
   {
+    "numero": "OTA 20261029-161324",
+    "data": "29/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio por UC, inadimplência, avisos, navegador em segundo plano, Calculadora de economia e Solar com sequências de navegação"
+    ]
+  },
+  {
+    "numero": "OTA 20261029-160648",
+    "data": "29/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Calculadora de economia e Solar com sequências de navegação e orientação atualizada"
+    ]
+  },
+  {
+    "numero": "OTA 20261029-152037",
+    "data": "29/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Calculadora de economia e Solar com sequências de navegação e orientação atualizada"
+    ]
+  },
+  {
+    "numero": "OTA 20261029-150823",
+    "data": "29/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Calculadora de economia e Solar com sequências de navegação e orientação atualizada"
+    ]
+  },
+  {
+    "numero": "OTA 20261029-145707",
+    "data": "29/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Rateio por UC, inadimplência, avisos, navegador em segundo plano, Calculadora de economia e Solar com sequências de navegação"
+    ]
+  },
+  {
+    "numero": "OTA 20261029-144630",
+    "data": "29/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Rateio por UC, inadimplência, avisos, navegador em segundo plano, Calculadora de economia e Solar com sequências de navegação"
+    ]
+  },
+  {
+    "numero": "OTA 20261029-143005",
+    "data": "29/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio por UC, inadimplência, avisos, navegador em segundo plano, Calculadora de economia e Solar com sequências de navegação"
+    ]
+  },
+  {
+    "numero": "OTA 20261028-202643",
+    "data": "28/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Preview: número atual da âncora somente na cópia técnica autorizada"
+    ]
+  },
+  {
+    "numero": "OTA 20261028-093352",
+    "data": "28/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Identificacao correta do Render reserva nas cotas"
+    ]
+  },
+  {
     "numero": "OTA 20261028-065552",
     "data": "28/10/2026",
     "variant": "gerador",
