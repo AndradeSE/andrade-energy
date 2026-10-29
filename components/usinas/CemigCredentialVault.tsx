@@ -37,7 +37,7 @@ export default function CemigCredentialVault({usinaId,onConfigured}:{usinaId:str
    <TextInput accessibilityLabel="Usuário da Cemig" value={login} onChangeText={setLogin} maxLength={254} autoCapitalize="none" autoCorrect={false} autoComplete="off" style={field}/>
    <Text style={{color:Colors.text}}>Senha da Cemig</Text>
    <TextInput accessibilityLabel="Senha da Cemig" value={senha} onChangeText={setSenha} secureTextEntry maxLength={512} autoCapitalize="none" autoCorrect={false} autoComplete="off" style={field}/>
-   <Button title="Salvar no cofre" disabled={busy||!login.trim()||!senha} onPress={()=>Alert.alert('Salvar acesso da Cemig','O acesso ficará criptografado no backend de Preview e poderá preencher o login no domínio oficial da Cemig pela sessão em nuvem que você autorizar. Não será enviado à Solar ou ao CapMonster. Deseja salvar?',[
+   <Button title="Salvar no cofre" disabled={busy||!login.trim()||!senha} onPress={()=>Alert.alert('Salvar acesso da Cemig','O acesso ficará criptografado no servidor deste ambiente e poderá preencher o login no domínio oficial da Cemig pela sessão que você autorizar. Não será enviado à Solar ou ao CapMonster. Deseja salvar?',[
     {text:'Cancelar',style:'cancel'},{text:'Salvar acesso',onPress:()=>void save()},
    ])}/>
    <Button title="Cancelar edição" disabled={busy} onPress={()=>{setLogin('');setSenha('');setEditing(false);}}/>

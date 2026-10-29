@@ -7,9 +7,11 @@ import {isPreviewEnvironment} from '../../config/environment';
 import {Colors} from '../../theme';
 import api from '../../config/api';
 import {obterSessao} from '../../storage/session';
+import CemigCredentialVault from './CemigCredentialVault';
 
 export default function CemigNativeBrowserProduction({usinaId,competencia}:{usinaId:string;competencia:string}){
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
+ const [vaultConfigured,setVaultConfigured]=useState(false);
  if(isPreviewEnvironment||Platform.OS!=='android'||Number(Platform.Version)<26||Constants.expoConfig?.extra?.nativeCemigBrowser!==true)return null;
  async function open(){
   if(busy)return;setBusy(true);setError('');
@@ -26,7 +28,7 @@ export default function CemigNativeBrowserProduction({usinaId,competencia}:{usin
    const rows=String(plano.csv).trim().split(/\r?\n/).map(row=>row.split(';'));
    if(!rows.length||rows.some(row=>row.length!==4))throw new Error('O arquivo está fora do padrão Cemig.');
    const confirmed=await new Promise<boolean>(resolve=>Alert.alert('Conferir e preparar o rateio',
-    `Competência: ${competencia}\nGeradora: ${geradora}\n\n${rows.map(row=>`${row[0]} — ${row[2]}%`).join('\n')}\n\nO aplicativo usará o acesso salvo, tentará uma verificação CapMonster com o bônus existente se disponível e anexará este arquivo na Cemig. Não há compra nem recarga. A confirmação definitiva não é feita por esta autorização.`,
+    `Competência: ${competencia}\nGeradora: ${geradora}\n\n${rows.map(row=>`${row[0]} — ${row[2]}%`).join('\n')}\n\nO aplicativo usará o acesso salvo e anexará este arquivo na Cemig. Se houver reCAPTCHA, autoriza uma resolução com desconto no saldo já disponível do CapMonster? O provedor recebe somente URL e dados técnicos do desafio. Não há compra nem recarga. A confirmação definitiva não é feita por esta autorização.`,
     [{text:'Cancelar',style:'cancel',onPress:()=>resolve(false)},{text:'Autorizar navegação e anexo',onPress:()=>resolve(true)}],
     {cancelable:true,onDismiss:()=>resolve(false)}));
    if(!confirmed)return;
@@ -41,7 +43,7 @@ export default function CemigNativeBrowserProduction({usinaId,competencia}:{usin
  }
  return <Card><Text style={{fontSize:20,fontWeight:'700',color:Colors.text}}>Enviar pelo navegador integrado</Text>
   <Text style={{color:Colors.subtitle,lineHeight:22,marginVertical:12}}>Confira as UCs e os percentuais no aplicativo e autorize a preparação. Após o login, o navegador integrado avança e anexa o arquivo automaticamente, parando na revisão. Abrir ou anexar o arquivo não confirma protocolo.</Text>
-  <View style={{gap:14}}><Button style={{height:undefined,minHeight:56,paddingVertical:14}} title={busy?'Preparando arquivo real…':'Preparar arquivo real e abrir Cemig'} disabled={busy} onPress={()=>void open()}/></View>
+  <View style={{gap:14}}><CemigCredentialVault usinaId={usinaId} onConfigured={setVaultConfigured}/><Button style={{height:undefined,minHeight:56,paddingVertical:14}} title={busy?'Preparando arquivo real…':'Preparar arquivo real e abrir Cemig'} disabled={busy||!vaultConfigured} onPress={()=>void open()}/></View>
   {error?<Text accessibilityRole="alert" style={{color:Colors.text,marginTop:12}}>{error}</Text>:null}
  </Card>;
 }
