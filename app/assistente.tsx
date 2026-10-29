@@ -4,7 +4,7 @@ import { File, Paths } from "expo-file-system";
 import * as FileSystemLegacy from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
 import * as Sharing from "expo-sharing";
-import { Redirect, useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
+import { Redirect, useRouter, useLocalSearchParams, useFocusEffect, usePathname } from "expo-router";
 import { setWakeWordPaused, subscribeWakeWord, wakeWordEnabled, wakeWordReady, wakeWordPaused } from "../services/assistant-wake-word";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -43,11 +43,14 @@ import { nativeAutomationContext, nativeAutomationIO } from "../services/assista
 import { normalizeSolarRequest } from "../shared/solar-language";
 import { asksScreenControls, operateSolarControl, parseControlCommand, solarControlScope } from "../services/assistant-controls";
 import { resolveSafeNavigation } from "../services/assistant-safe-navigation";
+import {parseSolarSequence,executeSolarSequence} from '../services/assistant-sequence';
 
 type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string; invoiceChoices?: Array<{ id: string; label: string }>; actions?: AssistantAction[]; documents?: AssistantDocument[]; private?: boolean; voiceAnswerId?: string; automation?: AutomationDraft };
 
 export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = false, floatingModal = false, minimized = false, onMinimize, onVoiceState }: { embeddedVoiceWake?: string; onClose?: () => void; voiceOnly?: boolean; floatingModal?: boolean; minimized?: boolean; onMinimize?: () => void; onVoiceState?: (active:boolean) => void } = {}) {
   const router = useRouter();
+  const sequencePath=usePathname();
+  const sequencePathRef=useRef(sequencePath);sequencePathRef.current=sequencePath;
   const params = useLocalSearchParams<{ voiceWake?: string }>();
   const voiceWake = embeddedVoiceWake ?? params.voiceWake;
   const wakeEnabled = useSyncExternalStore(subscribeWakeWord, wakeWordEnabled);
@@ -162,6 +165,8 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     stopAssistantVoice();
   }, [accountContextKey]);
   const wave = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
+  const voiceMeter=useRef(new Animated.Value(0)).current;
+  useEffect(()=>{if(!listening&&!speakingReply){voiceMeter.stopAnimation();voiceMeter.setValue(0);}},[listening,speakingReply,voiceMeter]);
   useEffect(() => () => {
     liveGeneration.current += 1;
     const hadAssistantSession = voiceActive.current || dictationActive.current;
@@ -337,10 +342,17 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     }), () => assistantMounted.current && automationScope.current === scope);
   }
 
+  async function operateSequence(question:string){
+    const scope=accountContextKey;
+    const routeKey=(route:string)=>route.replace('/(tabs)','').replace(/\/$/,'')||'/';
+    return executeSolarSequence(question,{context:{generator:IS_GERADOR_APP,role:usuario?.perfil,companyRole:usuario?.papel_empresa,plantId:usinaSelecionada?.id,unitId:unidadeSelecionada?.id,permissions:usuario?.permissoes},scope:solarControlScope(usuario,usinaSelecionada?.id,unidadeSelecionada?.id),current:()=>assistantMounted.current&&automationScope.current===scope,navigate:(route,params)=>{leaveConversation();router.push({pathname:route,params} as any);},routeReady:route=>routeKey(sequencePathRef.current)===routeKey(route),control:operateCurrentControl});
+  }
+
   async function send(spokenQuestion?: string) {
     const question = (spokenQuestion ?? input).trim();
     if (!question || busyRef.current) return;
-    const controlCommand = parseControlCommand(question) || asksScreenControls(question);
+    const sequenceCommand=parseSolarSequence(question);
+    const controlCommand = sequenceCommand || parseControlCommand(question) || asksScreenControls(question);
     const interpretedQuestion = normalizeAssistantQuery(question);
     const automationCommand = parseAutomationCommand(question);
     const safeNavigation = resolveSafeNavigation(question, {
@@ -379,7 +391,9 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       }
       let response: Message = { from: "assistant", text: reply.text, route: reply.route };
       const speechStatus = speechStatusReply(question, Boolean(spokenQuestion));
-      if (controlCommand) {
+      if (sequenceCommand) {
+        response={from:'assistant',private:true,text:await operateSequence(question)??'Não reconheci a sequência.'};
+      } else if (controlCommand) {
         response = { from: "assistant", private: true, text: await operateCurrentControl(question) ?? "Não reconheci esse controle na tela atual." };
       } else if (automationCommand) {
         const scope = accountContextKey;
@@ -626,6 +640,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
           const { startGeminiLive } = await import("../services/assistant-gemini-live");
           await stopNativePortugueseSpeech(conversationOwner.current);
           const session = await startGeminiLive(firstName, {
+            onLevel:level=>{if(liveGeneration.current!==liveAttempt)return;Animated.timing(voiceMeter,{toValue:level,duration:70,useNativeDriver:true}).start();},
             onReady: () => playActivationBeep(true),
             onLatestInvoice: async () => {
               const generation = contextGeneration.current;
@@ -638,6 +653,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
             },
             onAccountQuery: async question => {
               const generation = contextGeneration.current;
+              if(parseSolarSequence(question))return await operateSequence(question)??'Não reconheci a sequência.';
               if (parseControlCommand(question) || asksScreenControls(question)) {
                 return await operateCurrentControl(question) ?? "Não reconheci esse controle na tela atual.";
               }
@@ -873,7 +889,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
           ? <Pressable onPress={() => void send()} disabled={busy} accessibilityRole="button" accessibilityLabel="Enviar pergunta" style={[styles.pillSend, busy && styles.disabled]}><Ionicons name="arrow-up" size={22} color="white" /></Pressable>
           : <Pressable onPressIn={() => { Keyboard.dismiss(); void beginDictation(); }} onPressOut={() => { void endDictation(); }} disabled={listening || (busy && !dictationStarting.current && !transcribing)} accessibilityRole="button" accessibilityLabel="Segure para falar e solte para enviar" style={[styles.pillAction, transcribing && styles.voiceActive, listening && styles.disabled]}><Ionicons name="mic-outline" size={22} color={transcribing ? "white" : Colors.text} /></Pressable>}
         <Pressable onPress={() => { Keyboard.dismiss(); void toggleVoice(); }} disabled={transcribing || (busy && !listening)} accessibilityRole="button" accessibilityLabel={listening ? "Encerrar conversa por voz" : "Iniciar conversa por voz"} style={[styles.pillAction, transcribing && styles.disabled]}>
-          {voiceInstalling ? <ActivityIndicator size="small" color={Colors.primary} /> : <View style={styles.waveform}>{[7, 16, 10, 5].map((height, index) => <Animated.View key={index} style={[styles.waveBar, { height, backgroundColor: Colors.text, transform: [{ scaleY: wave[index].interpolate({ inputRange: [0, 1], outputRange: [1, 1.8] }) }] }]} />)}</View>}
+          {voiceInstalling ? <ActivityIndicator size="small" color={Colors.primary} /> : <View style={styles.waveform}>{[7, 16, 10, 5].map((height, index) => <Animated.View key={index} style={[styles.waveBar, { height, backgroundColor:listening||speakingReply?Colors.primary:Colors.text, transform: [{ scaleY: Animated.add(wave[index].interpolate({ inputRange: [0, 1], outputRange: [1, 1.3] }),voiceMeter.interpolate({inputRange:[0,1],outputRange:[0,1.4-index*.15]})) }] }]} />)}</View>}
         </Pressable>
       </View>
     </View>

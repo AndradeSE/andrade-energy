@@ -21,6 +21,7 @@ export function resolveSafeNavigation(question: string, ctx: SafeNavigationConte
   const open = (label: string, route: string, params?: Record<string, string>): SafeNavigation => ({ text: `Abrindo ${label}.`, action: { label, route, params, review: false } });
   const selected = () => ctx.generator ? Boolean(ctx.plantId) : Boolean(ctx.unitId);
   const contextMissing = { text: ctx.generator ? "Selecione a usina antes de abrir essa função." : "Selecione sua UC antes de abrir essa função." };
+  if(/\b(calculadora|calculo|simulacao)\b.*\beconomia\b/.test(text))return open('Calculadora de economia','/simulacao-economia');
   const search = text.match(/^(?:busque|buscar|procure|procurar|pesquise|pesquisar|mostre|mostrar|abra|abrir)\s+(?:o |a |os |as )?(?:clientes?|consumidor(?:es)?|ucs?|unidades?(?: consumidoras?)?)\s+(.+)$/)?.[1];
   const params = search && !/^(?:do |da |de |no |na |em )/.test(search) ? { solarBusca: search.slice(0, 120) } : undefined;
   if (/\b(tutoriais?|videos?)\b/.test(text)) return { text: "Os tutoriais continuam desativados por tempo indeterminado." };

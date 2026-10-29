@@ -17,12 +17,13 @@ import { obterRecebimentoFaturas } from "../../services/recebimento-faturas.serv
 import { invoiceDisplayStatus } from "../../services/invoice-display-status";
 import { mostrarProximoPassoFaturamento } from "../../utils/faturamentoNextStep";
 import { currentUnitEnergyBalance } from "../../utils/uc-energy-balance";
+import RateioUcControl from '../../components/usinas/RateioUcControl';
 
 const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 
 export default function UnidadeDocumentos() {
-  const { usinaSelecionada, selecionarUsina } = useAuth();
+  const { usinaSelecionada, selecionarUsina, usuario } = useAuth();
   const { id, numero, clienteId, cliente, usinaId, usinaNome, titular, distribuidora } = useLocalSearchParams<{ id: string; numero?: string; clienteId?: string; cliente?: string; usinaId?: string; usinaNome?: string; titular?: string; distribuidora?: string }>();
   const [unidade, setUnidade] = useState<any>();
   const [faturas, setFaturas] = useState<any[]>([]);
@@ -209,6 +210,7 @@ export default function UnidadeDocumentos() {
       <View style={styles.heroDivider} />
       <UnitMeta icon="business-outline" label="Concessionária" value={unidade.distribuidora ?? "Não informada"} />
       <UnitMeta icon="sunny-outline" label="Usina vinculada" value={nomeUsinaVinculada} last />
+      {IS_GERADOR_APP&&!String(unidade.id).startsWith('cliente-')?<RateioUcControl id={unidade.id} podeEditar={!String(usuario?.papel_empresa??'').startsWith('COLABORADOR_')} />:null}
     </Card>
 
       <View style={styles.actions}>

@@ -6,8 +6,10 @@ import { IS_GERADOR_APP } from "../config/appVariant";
 import { fromByteArray, toByteArray } from "base64-js";
 import { AudioPcmStreamAdapter } from "whisper.rn/realtime-transcription/adapters/AudioPcmStreamAdapter";
 import api from "../config/api";
+import {voiceLevel} from './assistant-voice-level';
 
 type Listener = {
+  onLevel?: (level:number)=>void;
   onState: (state: "connecting" | "listening" | "speaking") => void;
   onFailure: (message: string) => void;
   onAccountQuery: (question: string) => Promise<string>;
@@ -66,6 +68,7 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
   if (!token || !model || !/^[a-z0-9][a-z0-9.-]{5,90}$/.test(model)) throw new Error("Sessão de voz indisponível.");
 
   let closed = false;
+  const levelTimers=new Set<ReturnType<typeof setTimeout>>();
   let listening = false;
   let speaking = false;
   let resumeScheduled = false;
@@ -92,6 +95,8 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
   const stop = async () => {
     if (closed) return;
     closed = true;
+    listener.onLevel?.(0);
+    for(const timer of levelTimers)clearTimeout(timer);levelTimers.clear();
     clearTimeout(endTurnTimer);
     clearTimeout(setupTimer);
     clearInterval(idleTimer);
@@ -140,6 +145,10 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
   microphone.onData(packet => {
     if (closed || !listening || socket.readyState !== WebSocket.OPEN) return;
     const pcm = packet.data;
+    const amplitude=new Float32Array(Math.floor(pcm.byteLength/2));
+    const amplitudeView=new DataView(pcm.buffer,pcm.byteOffset,pcm.byteLength);
+    for(let i=0;i<amplitude.length;i++)amplitude[i]=amplitudeView.getInt16(i*2,true)/32768;
+    listener.onLevel?.(voiceLevel(amplitude));
     let sum = 0;
     const view = new DataView(pcm.buffer, pcm.byteOffset, pcm.byteLength);
     for (let index = 0; index + 1 < pcm.length; index += 16) sum += Math.abs(view.getInt16(index, true));
@@ -239,6 +248,13 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
         source.connect(context.destination);
         nextAudioAt = nextAudioAt > context.currentTime ? nextAudioAt : context.currentTime + 0.06;
         source.start(nextAudioAt);
+        // Acompanha a resposta no instante em que cada trecho é reproduzido.
+        const frame=Math.max(1,Math.round(context.sampleRate*.06));
+        for(let offset=0;offset<samples.length;offset+=frame){
+          const level=voiceLevel(samples.subarray(offset,offset+frame));
+          const timer=setTimeout(()=>{levelTimers.delete(timer);if(!closed)listener.onLevel?.(level);},Math.max(0,(nextAudioAt-context.currentTime+offset/context.sampleRate)*1000));
+          levelTimers.add(timer);
+        }
         nextAudioAt += buffer.duration;
       }).catch(() => fail("Não consegui reproduzir a resposta por voz."));
     }

@@ -14,3 +14,11 @@ test('automação experimental não é habilitada por variável em produção ou
   const {expo}=require(file);assert.equal(expo.extra.nativeCemigAutomation,enabled);if(enabled)assert.equal(expo.runtimeVersion,'1.0.9-preview-cemig-worker');
  }}finally{process.env=saved;delete require.cache[file];}
 });
+test('produção exige flag própria e runtime novo; consumidor nunca recebe automação',()=>{
+ const saved={...process.env};const file=require.resolve('../../app.config');
+ try{
+  Object.assign(process.env,{EXPO_PUBLIC_APP_VARIANT:'gerador',EXPO_PUBLIC_APP_ENV:'production',ANDRADE_NATIVE_CEMIG_BROWSER:'1',ANDRADE_CEMIG_AUTOMATION_PRODUCTION:'1'});delete require.cache[file];
+  let config=require(file).expo;assert.equal(config.extra.nativeCemigAutomation,true);assert.equal(config.runtimeVersion,'1.0.9-production-cemig-worker');assert.equal(config.android.versionCode,8);
+  process.env.EXPO_PUBLIC_APP_VARIANT='consumidor';delete require.cache[file];config=require(file).expo;assert.equal(config.extra.nativeCemigAutomation,false);
+ }finally{process.env=saved;delete require.cache[file];}
+});

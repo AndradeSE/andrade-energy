@@ -469,6 +469,7 @@ export default function ClienteDetalhe() {
                               </Text>
                             </View>
                             <Text numberOfLines={1} style={styles.unitDetail}>Usina: {unidade.usinas?.nome ?? unidade.usina_nome ?? (unidade.usina_id ? "Usina vinculada" : "Ainda não alocada")}</Text>
+                            <Text style={styles.unitDetail}>{unidade.rateio_ativo===undefined?'Rateio: consultar na UC':unidade.rateio_contrato_vigente===false?'Rateio desativado · sem contrato vigente':unidade.rateio_ativo===false?'Rateio desativado':unidade.rateio_suspenso_inadimplencia?'Rateio desativado · inadimplência':'Rateio ativado'}</Text>
                           </View>
                           <Ionicons name="chevron-forward" size={18} color={Colors.subtitle} />
                         </View>

@@ -51,7 +51,7 @@ class CemigBrowserActivity : Activity() {
         }
         if(intent.hasExtra("rateioAutomationEnabled")){
             try{
-                require(packageName.endsWith(".preview")){"Automação em validação somente no Preview."}
+                require(packageName in setOf("com.andradese.energy.gerador.preview","com.andradese.energy.gerador")){"Aplicativo incompatível."}
                 val enabled=intent.getBooleanExtra("rateioAutomationEnabled",false)
                 CemigAutomationStore.configure(this,intent.getStringExtra("rateioUsina")?:"",intent.getStringExtra("rateioApi")?:"",intent.getStringExtra("rateioToken")?:"",enabled,intent.getBooleanExtra("rateioAutomationSolver",false))
                 intent.removeExtra("rateioToken");setResult(RESULT_OK,Intent().putExtra("enabled",enabled))

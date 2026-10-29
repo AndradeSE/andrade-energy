@@ -21,6 +21,8 @@ const listText = (rows: any[], label: string, getLabel: (row: any) => string) =>
 const scalar = (value: unknown, fallback = "não informado") => typeof value === "string" || typeof value === "number" ? String(value) : fallback;
 
 function routeFor(intent: AssistantIntent, ctx: AssistantAccountContext, question: string): AssistantAction | undefined {
+  if(/\b(calculadora|calcular|simular|simulacao)\b.*\beconomia\b/.test(normalizeCapabilityText(question)))return action('Calculadora de economia','/simulacao-economia');
+  if(ctx.generator&&/\brateio\b/.test(normalizeCapabilityText(question)))return action('Abrir rateio','/operacao/rateio',undefined,intent.review);
   const { module, review } = intent;
   const creating = /\b(criar|cadastrar|novo|nova|adicionar)\b/.test(normalizeCapabilityText(question));
   const unit = ctx.unitId ? { id: ctx.unitId } : undefined;

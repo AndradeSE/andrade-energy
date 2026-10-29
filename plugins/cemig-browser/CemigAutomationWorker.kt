@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.net.ssl.HttpsURLConnection
 
-/** Preview-only unattended run. The definitive protocol is blocked by both server and worker. */
+/** Preview stops at review. Production requires an explicit server-side submission grant. */
 class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(context,params){
  private val main=Handler(Looper.getMainLooper())
  private val finished=AtomicBoolean(false)
@@ -37,13 +37,18 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
  private var processing=false
  private var lastState=""
  private var loginWaitSince=0L
+ private val preview get()=applicationContext.packageName.endsWith(".preview")
+ private var submissionReserved=false
+ private var submissionClicked=false
+ private var submissionWaitSince=0L
+ private var confirmedProtocol:String?=null
  private var endState="AGUARDANDO_USUARIO"
  private var endMessage="Abra o app para conferir a sessão do rateio."
  private val tick=object:Runnable {override fun run(){inspect();if(!finished.get())main.postDelayed(this,1500)}}
  private fun api(suffix:String,body:JSONObject?=null):JSONObject{
   val cfg=config?:error("Configuração ausente")
   val base=cfg.getString("base")
-  CemigNativeAccess.validateBase(base,true)
+  CemigNativeAccess.validateBase(base,preview)
   require(suffix.matches(Regex("(?:/[a-fA-F0-9-]{36}/(?:iniciar|estado))?")))
   val c=URL("$base/usinas/${cfg.getString("usina")}/cemig-fila$suffix").openConnection() as HttpsURLConnection
   return try{
@@ -60,12 +65,12 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
   val launch=applicationContext.packageManager.getLaunchIntentForPackage(applicationContext.packageName)?:Intent()
   val open=PendingIntent.getActivity(applicationContext,7892,launch,PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
   val n=Notification.Builder(applicationContext,"cemig-automation").setSmallIcon(android.R.drawable.ic_menu_view)
-   .setContentTitle("Rateio Cemig · Preview").setContentText(text).setStyle(Notification.BigTextStyle().bigText(text)).setContentIntent(open).setOngoing(ongoing).setAutoCancel(!ongoing).build()
+   .setContentTitle(if(preview)"Rateio Cemig · Preview" else "Rateio Cemig").setContentText(text).setStyle(Notification.BigTextStyle().bigText(text)).setContentIntent(open).setOngoing(ongoing).setAutoCancel(!ongoing).build()
   if(!ongoing)manager.notify(7892,n)
   return n
  }
  override fun doWork():Result{
-  if(!applicationContext.packageName.endsWith(".preview"))return Result.failure()
+  if(applicationContext.packageName !in setOf("com.andradese.energy.gerador.preview","com.andradese.energy.gerador"))return Result.failure()
   try{
    val usina=inputData.getString("usina")?:return Result.failure()
    config=CemigAutomationStore.read(applicationContext,usina)?:return Result.success()
@@ -74,10 +79,11 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
    val items=list.getJSONArray("itens")
    val pending=(0 until items.length()).map{items.getJSONObject(it)}.firstOrNull{it.optString("estado")=="PENDENTE"}?:return Result.success()
    job=api("/${pending.getString("id")}/iniciar",JSONObject())
-   val notification=notify("Conferindo o rateio em segundo plano. Protocolo definitivo bloqueado.",true)
+   if(!preview&&(job!!.optBoolean("simulacao",true)||!job!!.optBoolean("permiteProtocolo")))return Result.failure()
+   val notification=notify(if(preview)"Conferindo o rateio em segundo plano. Protocolo definitivo bloqueado." else "Conferindo o rateio autorizado em segundo plano.",true)
    val info=if(Build.VERSION.SDK_INT>=29)ForegroundInfo(7891,notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) else ForegroundInfo(7891,notification)
    setForegroundAsync(info).get()
-   savedAccess=CemigNativeAccess.load(config!!.getString("base"),config!!.getString("token"),usina,true)
+   savedAccess=CemigNativeAccess.load(config!!.getString("base"),config!!.getString("token"),usina,preview)
    val plano=job!!.getJSONObject("plano")
    val folder=File(applicationContext.cacheDir,"cemig-preview").apply{mkdirs()}
    csvFile=File(folder,"background-${job!!.getString("id")}.csv").apply{writeText(plano.getString("csv"),Charsets.UTF_8)}
@@ -85,11 +91,12 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
    done.await(8,TimeUnit.MINUTES)
    finished.set(true)
    if(isStopped)return Result.success()
-   api("/${job!!.getString("id")}/estado",JSONObject().put("leaseId",job!!.getString("leaseId")).put("hash",job!!.getString("hash")).put("estado",endState))
+   if(submissionReserved&&endState !in setOf("PROTOCOLADO","INCERTO"))endState="INCERTO"
+   saveState(endState,confirmedProtocol)
    notify(endMessage)
    return Result.success()
   }catch(error:Exception){
-   if(job!=null&&config!=null&&!isStopped){try{api("/${job!!.getString("id")}/estado",JSONObject().put("leaseId",job!!.getString("leaseId")).put("hash",job!!.getString("hash")).put("estado","AGUARDANDO_USUARIO"))}catch(_:Exception){}}
+   if(job!=null&&config!=null&&!isStopped){try{saveState(if(submissionReserved)"INCERTO" else "AGUARDANDO_USUARIO")}catch(_:Exception){}}
    if(error.message=="HTTP_401")inputData.getString("usina")?.let{CemigAutomationStore.configure(applicationContext,it,"","",false)}
    notify("O rateio não foi confirmado. Confira a automação no app; nenhum protocolo será repetido automaticamente.")
    return Result.success()
@@ -99,6 +106,40 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
   }
  }
  private fun stop(state:String,message:String){if(finished.compareAndSet(false,true)){endState=state;endMessage=message;done.countDown()}}
+ private fun saveState(state:String,protocol:String?=null){
+  val body=JSONObject().put("leaseId",job!!.getString("leaseId")).put("hash",job!!.getString("hash")).put("estado",state)
+  if(protocol!=null)body.put("protocolo",protocol)
+  if(state=="FALHA"&&endMessage=="A Cemig recusou o arquivo. Confira os dados do rateio.")body.put("motivo","ARQUIVO_RECUSADO")
+  api("/${job!!.getString("id")}/estado",body)
+ }
+ private fun reserveSubmission(view:WebView){
+  if(preview||job?.optBoolean("simulacao",true)!=false||job?.optBoolean("permiteProtocolo")!=true){stop("REVISAO","O teste automático chegou à revisão do CSV. Nenhum protocolo foi enviado.");return}
+  processing=true
+  Thread{try{
+   saveState("REVISAO")
+   // Persist before any portal click. A lost response is never permission to retry.
+   submissionReserved=true
+   saveState("ENVIANDO")
+   main.post{processing=false;submissionWaitSince=android.os.SystemClock.elapsedRealtime();inspectSubmission(view)}
+  }catch(_:Exception){main.post{stop("INCERTO","Não foi possível confirmar a reserva do envio. Confira no app antes de repetir.")}}}.start()
+ }
+ private fun inspectSubmission(view:WebView){
+  if(processing||finished.get())return
+  if(android.os.SystemClock.elapsedRealtime()-submissionWaitSince>60000){stop("INCERTO","A Cemig não confirmou o protocolo. Confira no portal; o envio não será repetido.");return}
+  processing=true
+  val cfg=JSONObject().put("preview",preview).put("enviar",!submissionClicked).put("arquivo",csvFile!!.name)
+  val script=applicationContext.assets.open("cemig-rateio-submit.js").bufferedReader().use{it.readText()}.replace("__ANDRADE_SUBMIT__",cfg.toString())
+  view.evaluateJavascript(script){raw->
+   processing=false
+   try{val value=JSONObject(JSONTokener(raw).nextValue() as String)
+    when(value.getString("state")){
+     "ENVIANDO"->{submissionClicked=true}
+     "PROTOCOLADO"->{val protocol=value.getString("protocolo");if(!protocol.matches(Regex("\\d{6,30}")))throw IllegalStateException();confirmedProtocol=protocol;stop("PROTOCOLADO","Rateio enviado. Protocolo $protocol.")}
+     "BLOQUEADO","INCERTO"->stop("INCERTO","A etapa final mudou ou não foi confirmada. Confira no portal; nenhum envio será repetido.")
+    }
+   }catch(_:Exception){stop("INCERTO","Não foi possível confirmar o retorno da Cemig. Confira no portal antes de repetir.")}
+  }
+ }
  private fun openBrowser(){
   if(finished.get())return
   try{
@@ -118,7 +159,7 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
      override fun onReceivedSslError(v:WebView,h:SslErrorHandler,e:android.net.http.SslError){h.cancel();stop("AGUARDANDO_USUARIO","A conexão segura da Cemig não foi confirmada. Confira no app.")}
      override fun onRenderProcessGone(v:WebView,d:RenderProcessGoneDetail):Boolean{stop("AGUARDANDO_USUARIO","O navegador foi interrompido. Confira o rateio no app.");return true}
      override fun onPageFinished(v:WebView,url:String){if(!CemigBrowserService.allowed(url))return
-      v.evaluateJavascript("""(function(){document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('button,input[type=submit]');if(b&&/solicitar cadastro/i.test(b.innerText||b.value||'')){e.preventDefault();e.stopImmediatePropagation();}},true);document.addEventListener('submit',function(e){if(Array.from(e.target.querySelectorAll('button,input[type=submit]')).some(function(b){return /solicitar cadastro/i.test(b.innerText||b.value||'');})){e.preventDefault();e.stopImmediatePropagation();}},true);document.addEventListener('change',function(e){var i=e.target;if(!i||i.type!=='file'||!i.files||i.files.length!==1)return;var f=i.files[0];if(/\.csv$/i.test(f.name)&&f.type==='text/comma-separated-values'&&typeof DataTransfer==='function'){var t=new DataTransfer();t.items.add(new File([f],f.name,{type:'text/csv',lastModified:f.lastModified}));i.files=t.files;}},true);})();""",null)
+      if(preview)v.evaluateJavascript("""(function(){document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('button,input[type=submit]');if(b&&/solicitar cadastro/i.test(b.innerText||b.value||'')){e.preventDefault();e.stopImmediatePropagation();}},true);document.addEventListener('submit',function(e){if(Array.from(e.target.querySelectorAll('button,input[type=submit]')).some(function(b){return /solicitar cadastro/i.test(b.innerText||b.value||'');})){e.preventDefault();e.stopImmediatePropagation();}},true);})();""",null)
      }
      override fun shouldInterceptRequest(v:WebView,r:WebResourceRequest):WebResourceResponse?{
       if(r.url.scheme=="content"&&r.url!=attachment)return WebResourceResponse("text/plain","UTF-8",403,"Forbidden",emptyMap(),java.io.ByteArrayInputStream(ByteArray(0)))
@@ -142,6 +183,7 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
  private fun inspect(){
   val view=web?:return
   if(finished.get()||processing||!CemigBrowserService.allowed(view.url?:""))return
+  if(submissionReserved){inspectSubmission(view);return}
   processing=true
   val plano=job!!.getJSONObject("plano")
   val geradora=Regex("-(\\d{6,20})\\.csv$").find(plano.getString("arquivo"))?.groupValues?.get(1)?:return stop("FALHA","CSV sem UC geradora.")
@@ -166,7 +208,7 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
      if(android.os.SystemClock.elapsedRealtime()-loginWaitSince>=60000L){stop("AGUARDANDO_USUARIO","A Cemig não confirmou o retorno do login em um minuto. Nenhum protocolo foi enviado; confira a sessão no app.");return@evaluateJavascript}
     }else loginWaitSince=0L
     when(state){
-     "REVISAO"->stop("REVISAO","O teste automático chegou à revisão do CSV. Nenhum protocolo foi enviado.")
+     "REVISAO"->reserveSubmission(view)
      "VERIFICACAO"->stop("AGUARDANDO_USUARIO","A Cemig pediu verificação de segurança. Confira o rateio no app.")
      "ARQUIVO_RECUSADO"->stop("FALHA","A Cemig recusou o arquivo. Confira os dados do rateio.")
      "LOGIN"->login(view)
@@ -200,7 +242,7 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
       val authorization=c.optString("solverAuthorization")
       require(authorization.matches(Regex("[a-fA-F0-9-]{36}"))){"AUTORIZACAO_AUSENTE"}
       val nonce=job!!.getString("id")+"_"+authorization
-      val answer=CemigNativeAccess.solve(c.getString("base"),c.getString("token"),c.getString("usina"),true,nonce,challenge){!finished.get()}?:error("Sem resposta")
+      val answer=CemigNativeAccess.solve(c.getString("base"),c.getString("token"),c.getString("usina"),preview,nonce,challenge){!finished.get()}?:error("Sem resposta")
       main.post{val current=Uri.parse(view.url?:"");val expected=Uri.parse(challenge.getString("websiteURL"));if(!finished.get()&&current.scheme==expected.scheme&&current.host==expected.host&&current.port==expected.port&&current.path==expected.path){
        val apply="document.querySelectorAll('textarea[name=\"g-recaptcha-response\"]').forEach(function(f){f.value=${JSONObject.quote(answer)};f.dispatchEvent(new Event('input',{bubbles:true}));f.dispatchEvent(new Event('change',{bubbles:true}));});var w=document.querySelector('[data-callback]'),n=w&&w.dataset.callback;if(n&&/^[a-zA-Z_$][\\w$]*$/.test(n)&&typeof window[n]==='function')window[n]("+JSONObject.quote(answer)+");"
        view.evaluateJavascript(apply+script){if(it=="\"LOGIN_ENVIADO\"")savedAccess=null}
