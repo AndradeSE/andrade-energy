@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const script=fs.readFileSync(require('node:path').join(__dirname,'../../plugins/cemig-browser/rateio-navigation.js'),'utf8');
 function run({url='https://www.atendimento.cemig.com.br/portal/services/compensation-gd',body='',controls=[],selects=[],files=[],tabs=[],combos=[],radios=[],password=false,window={},config={geradora:'1121361801894',iniciado:true}}={}){
  let assigned;
- const context={Event:class{constructor(type){this.type=type;}},location:{href:url,pathname:new URL(url).pathname,assign:url=>{assigned=url;}},window,getComputedStyle:()=>({visibility:'visible'}),document:{body:{textContent:body},querySelector:()=>password?{}:null,querySelectorAll:selector=>selector.startsWith('button')?controls:selector==='input[type=radio],[role=radio]'?radios:selector==='select'?selects:selector==='input[type=file]'?files:selector==='[role=tab]'?tabs:selector==='[role=combobox]'?combos:[]}};
+ const context={Event:class{constructor(type){this.type=type;}},location:{href:url,origin:new URL(url).origin,pathname:new URL(url).pathname,assign:url=>{assigned=url;}},window,getComputedStyle:()=>({visibility:'visible'}),document:{body:{textContent:body},querySelector:()=>password?{}:null,querySelectorAll:selector=>selector.startsWith('button')?controls:selector==='input[type=radio],[role=radio]'?radios:selector==='select'?selects:selector==='input[type=file]'?files:selector==='[role=tab]'?tabs:selector==='[role=combobox]'?combos:[]}};
  const result=JSON.parse(vm.runInNewContext(script.replace('__ANDRADE_CONFIG__',JSON.stringify(config)),context));
  return {...result,assigned};
 }
@@ -45,6 +45,7 @@ test('não navega sem início explícito nem UC válida',()=>{
 });
 test('continuação aguarda o retorno normal do login e só navega da home carregada',()=>{
  assert.equal(run({url:'https://www.atendimento.cemig.com.br/portal/home',body:'Minhas unidades consumidoras'}).assigned,'https://www.atendimento.cemig.com.br/portal/services/compensation-gd');
+ assert.equal(run({url:'https://atendimento.cemig.com.br/portal/home',body:'Minhas unidades consumidoras'}).assigned,'https://atendimento.cemig.com.br/portal/services/compensation-gd');
  for(const url of ['https://atende.cemig.com.br/','https://www.atendimento.cemig.com.br/portal/home?code=returning']){
   const pending=run({url});assert.equal(pending.state,'AGUARDANDO_LOGIN');assert.equal(pending.assigned,undefined);
  }
