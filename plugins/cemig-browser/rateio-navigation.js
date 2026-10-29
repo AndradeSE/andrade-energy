@@ -11,6 +11,7 @@
   if (!config.geradora || !/^\d{6,20}$/.test(config.geradora)) return result('PAUSADO','Confira a UC geradora no cadastro da usina.');
   if (!location.pathname.includes('compensation-gd')) {
     if (!config.iniciado) return result('PRONTO','Login confirmado. Toque em Continuar rateio para abrir o serviço.');
+    if (!/^https:\/\/(?:www\.)?atendimento\.cemig\.com\.br(?::443)?\/portal\/home(?:[/?#]|$)/i.test(location.href) || !/minhas unidades consumidoras/i.test(body)) return result('AGUARDANDO_LOGIN','Aguardando o retorno normal do login da Cemig antes de abrir o serviço.');
     location.assign('https://www.atendimento.cemig.com.br/portal/services/compensation-gd');
     return result('NAVEGANDO','Abrindo compensação de geração distribuída.');
   }

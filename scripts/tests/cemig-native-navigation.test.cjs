@@ -43,7 +43,12 @@ test('não navega sem início explícito nem UC válida',()=>{
  assert.equal(run({url:'https://www.atendimento.cemig.com.br/portal/home',config:{geradora:'1121361801894',iniciado:false}}).assigned,undefined);
  assert.equal(run({config:{geradora:'x',iniciado:true}}).state,'PAUSADO');
 });
-test('continuação abre somente o serviço oficial',()=>{assert.equal(run({url:'https://www.atendimento.cemig.com.br/portal/home'}).assigned,'https://www.atendimento.cemig.com.br/portal/services/compensation-gd');});
+test('continuação aguarda o retorno normal do login e só navega da home carregada',()=>{
+ assert.equal(run({url:'https://www.atendimento.cemig.com.br/portal/home',body:'Minhas unidades consumidoras'}).assigned,'https://www.atendimento.cemig.com.br/portal/services/compensation-gd');
+ for(const url of ['https://atende.cemig.com.br/','https://www.atendimento.cemig.com.br/portal/home?code=returning']){
+  const pending=run({url});assert.equal(pending.state,'AGUARDANDO_LOGIN');assert.equal(pending.assigned,undefined);
+ }
+});
 test('clica apenas botão único de cadastro, nunca protocolo',()=>{
  let clicks=0;
  assert.equal(run({controls:[button('Realizar cadastro',()=>clicks++)]}).state,'CADASTRO');
