@@ -146,6 +146,9 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
   val plano=job!!.getJSONObject("plano")
   val geradora=Regex("-(\\d{6,20})\\.csv$").find(plano.getString("arquivo"))?.groupValues?.get(1)?:return stop("FALHA","CSV sem UC geradora.")
   val cfg=JSONObject().put("geradora",geradora).put("iniciado",true).put("anexado",attached).put("arquivo",csvFile!!.name).put("anexoAutomatico",true)
+  // The queue already validates this exact CSV and hash. Supply only its in-memory contents;
+  // no file picker, filesystem permission or unrelated device file is exposed to the page.
+  cfg.put("conteudoCsv",plano.getString("csv"))
   val script=applicationContext.assets.open("cemig-rateio-navigation.js").bufferedReader().use{it.readText()}.replace("__ANDRADE_CONFIG__",cfg.toString())
   // The cookie choice is non-binding and never interacts with a security challenge.
   view.evaluateJavascript("(function(){var b=Array.from(document.querySelectorAll('button')).filter(function(x){return x.getClientRects().length&&/^Reject All$/i.test(x.textContent.trim());});if(b.length===1)b[0].click();})();"+script){raw->

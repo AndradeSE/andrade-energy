@@ -78,6 +78,14 @@
       var attachmentKey=config.geradora+'|'+config.arquivo;
       if(window.__andradeAttachmentRequested!==attachmentKey){
         window.__andradeAttachmentRequested=attachmentKey;
+        if(typeof config.conteudoCsv==='string'&&config.conteudoCsv.length>0&&config.conteudoCsv.length<=180000&&typeof File==='function'&&typeof DataTransfer==='function'){
+          var prepared=new File([config.conteudoCsv],config.arquivo,{type:'text/csv'});
+          var transfer=new DataTransfer();transfer.items.add(prepared);
+          files[0].files=transfer.files;
+          files[0].dispatchEvent(new Event('input',{bubbles:true}));
+          files[0].dispatchEvent(new Event('change',{bubbles:true}));
+          return result('ANEXO','CSV preparado entregue ao portal para validação.');
+        }
         files[0].click();
         return result('ANEXO','Anexando o arquivo conferido no aplicativo.');
       }
