@@ -18,13 +18,18 @@ export default function CemigAutomationPreview({usinaId}:{usinaId:string}){
  if(!available)return null;
  async function configure(enabled:boolean,solver=false){
   if(busy)return;setBusy(true);setError('');
+  let serverConfigured=false;
   try{
    const session=await obterSessao();if(!session?.token)throw Error('Entre novamente no Preview.');
    const response=await api.put(url,{habilitado:enabled,autorizaEnvioAutomatico:enabled},{timeout:15000});
+   serverConfigured=enabled;
    const result=await IntentLauncher.startActivityAsync('android.intent.action.VIEW',{packageName:'com.andradese.energy.gerador.preview',className:'br.com.andradeenergy.cemig.CemigBrowserActivity',extra:{rateioAutomationEnabled:enabled,rateioAutomationSolver:solver,rateioUsina:usinaId,rateioApi:String(response.config.baseURL??'').replace(/\/$/,''),rateioToken:session.token}});
    if(result.resultCode!==-1){await api.put(url,{habilitado:false});throw Error('O agendamento não foi confirmado no aparelho.');}
    setData((await api.get<Queue>(url)).data);
-  }catch(e:any){setError(e?.message??'Não foi possível configurar o teste.');}finally{setBusy(false);}
+  }catch(e:any){
+   if(serverConfigured){try{await api.put(url,{habilitado:false},{timeout:15000});setData({habilitado:false,itens:[]});}catch{setError('O aparelho não confirmou o agendamento e não foi possível desativar a fila. Confira a conexão e desative o teste.');return;}}
+   setError(e?.message??'Não foi possível configurar o teste.');
+  }finally{setBusy(false);}
  }
  function enable(solver:boolean){Alert.alert('Teste automático em segundo plano',`O Android consultará a fila periodicamente, com conexão disponível, inclusive após um reinício normal. Usa somente a planilha gerada após produção e todas as faturas. O acesso salvo será usado apenas na Cemig e o CSV será anexado para revisão. ${solver?'Autoriza uma verificação CapMonster por envio com desconto no saldo existente? O provedor recebe apenas URL e dados técnicos do desafio.':'Se aparecer CAPTCHA, o teste pausará sem consumir créditos.'} Sem compra ou recarga. O Preview bloqueia o protocolo definitivo. Ao sair da conta, a tarefa é cancelada.`,[{text:'Cancelar',style:'cancel'},{text:'Ativar teste',onPress:()=>void configure(true,solver)}]);}
  function prepare(){Alert.alert('Cópia técnica já conferida','Preparar na fila a cópia autorizada de OUT/2026, geradora 1121361801894, sem a UC fictícia 99999101128 e com a âncora atual 607081301889? Preserva os cadastros e o rateio original. O teste anexará somente para revisão, sem protocolo.',[{text:'Cancelar',style:'cancel'},{text:'Preparar cópia',onPress:()=>{setBusy(true);setError('');void api.post(`${url}/diagnostico`,{autorizaCopiaDiagnostica:true},{timeout:30000}).then(()=>setPrepared(true)).catch(()=>setError('Não foi possível preparar a cópia técnica autorizada.')).finally(()=>setBusy(false));}}]);}
