@@ -22,6 +22,7 @@ import { iniciarCemigSimulacao, consultarCemigSimulacao } from './cemigCloud.ser
 import {lerAcessoCemigNativo} from './cemigCredential.service';
 import {envelopeAcessoNativo} from './cemigNative.envelope';
 import {iniciarCaptchaNativo,consultarCaptchaNativo} from './cemigNative.captcha';
+import {configurarFilaNativa,listarFilaNativa,reivindicarEnvioNativo,atualizarEnvioNativo} from './rateioEnvioNativo.service';
 import { exigirUsinaDaSessaoOuGestor } from "../../utils/empresaScope";
 import { exigirCapacidadeDoPlano } from "../../middlewares/limitesPlano.middleware";
 import { empresaIdDaRequisicao } from "../../utils/empresaScope";
@@ -42,6 +43,26 @@ function acessoOperacao(usuario:any) {
 }
 
 router.use(exigirAutenticacao);
+router.put('/:id/cemig-fila',exigirGestor,exigirSuperAdministradorAndrade,async(req,res)=>{
+ res.setHeader('Cache-Control','private, no-store');
+ try{return res.json(await configurarFilaNativa(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.body));}
+ catch{return res.status(400).json({message:'Não foi possível alterar a fila de teste.'});}
+});
+router.get('/:id/cemig-fila',exigirGestor,exigirSuperAdministradorAndrade,async(req,res)=>{
+ res.setHeader('Cache-Control','private, no-store');
+ try{return res.json(await listarFilaNativa(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id));}
+ catch{return res.status(503).json({message:'Fila de teste indisponível.'});}
+});
+router.post('/:id/cemig-fila/:job/iniciar',exigirGestor,exigirSuperAdministradorAndrade,apiRateLimit('cemig-native-queue',{windowMs:60000,limit:3}),async(req,res)=>{
+ res.setHeader('Cache-Control','private, no-store');
+ try{return res.json(await reivindicarEnvioNativo(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.params.job));}
+ catch{return res.status(409).json({message:'Envio reservado ou indisponível. Não repetir.'});}
+});
+router.post('/:id/cemig-fila/:job/estado',exigirGestor,exigirSuperAdministradorAndrade,async(req,res)=>{
+ res.setHeader('Cache-Control','private, no-store');
+ try{return res.json(await atualizarEnvioNativo(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.params.job,req.body));}
+ catch{return res.status(409).json({message:'Estado não confirmado. Não repetir envio.'});}
+});
 router.post('/:id/cemig-acesso/nativo/captcha',exigirGestor,exigirSuperAdministradorAndrade,apiRateLimit('cemig-native-captcha',{windowMs:60000,limit:2}),async(req,res)=>{
  res.setHeader('Cache-Control','private, no-store');
  try{return res.json(await iniciarCaptchaNativo(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.body));}
