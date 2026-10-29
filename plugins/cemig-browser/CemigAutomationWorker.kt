@@ -36,6 +36,7 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
  private var detectorAttempts=0
  private var processing=false
  private var lastState=""
+ private var loginWaitSince=0L
  private var endState="AGUARDANDO_USUARIO"
  private var endMessage="Abra o app para conferir a sessão do rateio."
  private val tick=object:Runnable {override fun run(){inspect();if(!finished.get())main.postDelayed(this,1500)}}
@@ -109,7 +110,11 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
     settings.useWideViewPort=true;settings.loadWithOverviewMode=true
     settings.mixedContentMode=WebSettings.MIXED_CONTENT_NEVER_ALLOW;settings.javaScriptCanOpenWindowsAutomatically=false
     webViewClient=object:WebViewClient(){
-     override fun shouldOverrideUrlLoading(view:WebView,r:WebResourceRequest)=r.isForMainFrame&&!CemigBrowserService.allowed(r.url.toString())
+     override fun shouldOverrideUrlLoading(view:WebView,r:WebResourceRequest):Boolean{
+      val blocked=r.isForMainFrame&&!CemigBrowserService.allowed(r.url.toString())
+      if(blocked)stop("AGUARDANDO_USUARIO","O retorno do login saiu dos destinos autorizados. Confira a sessão no app.")
+      return blocked
+     }
      override fun onReceivedSslError(v:WebView,h:SslErrorHandler,e:android.net.http.SslError){h.cancel();stop("AGUARDANDO_USUARIO","A conexão segura da Cemig não foi confirmada. Confira no app.")}
      override fun onRenderProcessGone(v:WebView,d:RenderProcessGoneDetail):Boolean{stop("AGUARDANDO_USUARIO","O navegador foi interrompido. Confira o rateio no app.");return true}
      override fun onPageFinished(v:WebView,url:String){if(!CemigBrowserService.allowed(url))return
@@ -147,7 +152,16 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
    processing=false
    if(finished.get())return@evaluateJavascript
    try{val state=JSONObject(JSONTokener(raw).nextValue() as String).getString("state")
-    if(state!=lastState&&state.matches(Regex("[A-Z_]{1,40}"))){android.util.Log.i("CemigAutomation","Preview state=$state");lastState=state}
+    if(state!=lastState&&state.matches(Regex("[A-Z_]{1,40}"))){
+     // Never log the URL itself: redirects can contain authorization codes or identifiers.
+     val uri=Uri.parse(view.url?:"")
+     val page=when {uri.path.orEmpty().contains("compensation-gd")->"SERVICO";uri.path=="/portal/home"->"HOME";uri.path.equals("/Login",true)->"LOGIN";uri.path=="/"->"RAIZ";else->"OUTRA"}
+     android.util.Log.i("CemigAutomation","Preview state=$state page=$page");lastState=state
+    }
+    if(state=="AGUARDANDO_LOGIN"){
+     if(loginWaitSince==0L)loginWaitSince=SystemClock.elapsedRealtime()
+     if(SystemClock.elapsedRealtime()-loginWaitSince>=60000L){stop("AGUARDANDO_USUARIO","A Cemig não confirmou o retorno do login em um minuto. Nenhum protocolo foi enviado; confira a sessão no app.");return@evaluateJavascript}
+    }else loginWaitSince=0L
     when(state){
      "REVISAO"->stop("REVISAO","O teste automático chegou à revisão do CSV. Nenhum protocolo foi enviado.")
      "VERIFICACAO"->stop("AGUARDANDO_USUARIO","A Cemig pediu verificação de segurança. Confira o rateio no app.")
