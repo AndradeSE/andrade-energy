@@ -1,5 +1,5 @@
 (function(){
- if(location.protocol!=='https:'||(location.port&&location.port!=='443')||!['atende.cemig.com.br','www.atende.cemig.com.br'].includes(location.hostname)||!/^\/Login\/?$/i.test(location.pathname))return null;
+ if(location.protocol!=='https:'||(location.port&&location.port!=='443')||!['atende.cemig.com.br','www.atende.cemig.com.br'].includes(location.hostname)||!/^\/(?:Login\/?)?$/i.test(location.pathname)||!document.body)return null;
  if(/Verify you are human|Performing security verification|verification.*expired|verifica[çc][aã]o.*expir/i.test(document.body.innerText))return null;
  var modal=document.querySelector('#modalLoginComSenha');if(!modal||!modal.getClientRects().length)return null;
  function official(f){try{var u=new URL(f.src);return u.protocol==='https:'&&['www.google.com','www.recaptcha.net'].includes(u.hostname)&&['/recaptcha/enterprise/anchor','/recaptcha/api2/anchor'].includes(u.pathname);}catch(e){return false;}}
