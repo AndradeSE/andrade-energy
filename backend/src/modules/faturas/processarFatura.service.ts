@@ -18,6 +18,7 @@ import { FaturaExtraida } from "../../types/FaturaExtraida";
 import { supabase } from "../../config/supabase";
 import { calcularEnergiaInjetadaPelosSaldos } from "../billing/energiaInjetada";
 import { antecipacaoVencimentoDaUc, exigirContratoAssinadoDaUc } from "../contratos/contratoUc.service";
+import {conferirFaturamentoDaUc} from './inadimplenciaUc.service';
 
 function converterDataBrasileiraParaIso(data: string): string {
   const correspondencia = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(data.trim());
@@ -66,6 +67,7 @@ export async function processarFatura(
 
 }
 await exigirContratoAssinadoDaUc(cliente.unidade_consumidora.id, cliente.empresa_id);
+await conferirFaturamentoDaUc(cliente.empresa_id,{id:cliente.unidade_consumidora.id,numero:dados.uc,cliente_id:cliente.id});
 const faturaExistente = await buscarFatura(
   dados.uc,
   dados.referencia,

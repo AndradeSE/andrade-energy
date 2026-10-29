@@ -38,6 +38,8 @@ test("planilha usa somente empresa/usina solicitadas, produção real e contrato
       assert.equal(url.searchParams.get("empresa_id"),"eq.empresa-a");
       assert.equal(url.searchParams.get("cliente_id"),"in.(c1)");
       dados=[{numero_instalacao:"123456789",cliente_id:"c1",referencia:"SET/2026",saldo_atual:200,status:"PAGO"}];
+    }else if(tabela==="uc_bloqueios_inadimplencia"){
+      assert.equal(url.searchParams.get("empresa_id"),"eq.empresa-a");dados=null;
     }else if(tabela==="faturas_anexadas_clientes"){
       assert.equal(url.searchParams.get("empresa_id"),"eq.empresa-a");dados=[];
     }else if(tabela==="contratos"){

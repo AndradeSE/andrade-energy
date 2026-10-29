@@ -2,6 +2,9 @@ import {supabase} from '../../config/supabase';
 import {conferirArtefatoEnvio,conferirTransicaoEnvio,conferirAutorizacaoEnvio,EstadoEnvioNativo} from './rateioEnvioNativo.policy';
 import {prepararPlanilhaRateio} from './rateioMensal.service';
 import {randomUUID} from 'node:crypto';
+import {criarNotificacaoApp} from '../notificacoes/push.service';
+import {conferirFaturamentoDaUc} from '../faturas/inadimplenciaUc.service';
+import {contratoElegivelParaRateio} from './rateioAutomatico.policy';
 const preview=()=>String(process.env.SUPABASE_URL).replace(/\/$/,'')==='https://qqhcjieymypowunkixmk.supabase.co';
 async function scope(usina:string,empresa:string){
  if(!preview()&&process.env.CEMIG_NATIVE_BACKGROUND_ENABLED!=='true')throw new Error('Fila nativa ainda não habilitada neste ambiente.');
@@ -59,6 +62,7 @@ export async function reivindicarEnvioNativo(usina:string,empresa:string,usuario
  const claim=await supabase.rpc('reivindicar_envio_nativo',{p_empresa:empresa,p_usuario:usuario,p_id:id});
  if(claim.error||!claim.data?.[0])throw new Error('Envio já reservado ou encerrado. Não repetir.');
  const row=claim.data[0];
+ await avisarEnvio(usina,empresa,usuario,row.id,row.competencia,'EXECUTANDO');
  if(row.artefato_teste&&!preview())throw new Error('Cópia de teste bloqueada em produção.');
  if(row.artefato_teste&&preview()){
   if(conferirArtefatoEnvio(row.artefato_teste).hash!==row.csv_hash)throw new Error('Cópia de teste divergente.');
@@ -66,6 +70,7 @@ export async function reivindicarEnvioNativo(usina:string,empresa:string,usuario
  }
  const r=await supabase.from('rateios_mensais_automaticos').select('resultado').eq('id',row.registro_rateio_id).eq('empresa_id',empresa).eq('usina_id',usina).single();
  if(r.error||conferirArtefatoEnvio(r.data?.resultado).hash!==row.csv_hash)throw new Error('A planilha mudou. Confira o rateio antes de enviar.');
+ await conferirUcsAntesDoEnvio(empresa,r.data.resultado);
  return {id:row.id,leaseId:row.lease_id,hash:row.csv_hash,plano:r.data.resultado,simulacao:preview(),permiteProtocolo:!preview()};
 }
 export async function atualizarEnvioNativo(usina:string,empresa:string,usuario:string,id:string,body:any){
@@ -78,8 +83,43 @@ export async function atualizarEnvioNativo(usina:string,empresa:string,usuario:s
   const enabled=await supabase.from('rateio_envio_nativo_config').select('*').eq('empresa_id',empresa).eq('usina_id',usina).eq('usuario_id',usuario).maybeSingle();
   if(enabled.error)throw enabled.error;
   conferirAutorizacaoEnvio(enabled.data,before.data);
+  const job=await supabase.from('rateio_envios_nativos').select('registro_rateio_id,artefato_teste').eq('id',id).eq('empresa_id',empresa).eq('usina_id',usina).single();
+  if(job.error)throw job.error;
+  if(!preview()||!job.data.artefato_teste){
+   const plano=await supabase.from('rateios_mensais_automaticos').select('resultado').eq('id',job.data.registro_rateio_id).eq('empresa_id',empresa).eq('usina_id',usina).single();
+   if(plano.error||conferirArtefatoEnvio(plano.data?.resultado).hash!==before.data.csv_hash)throw new Error('Arquivo alterado antes do envio.');
+   await conferirUcsAntesDoEnvio(empresa,plano.data.resultado);
+  }
  }
  const saved=await supabase.from('rateio_envios_nativos').update({estado:body.estado,protocolo:body.estado==='PROTOCOLADO'?body.protocolo:null,atualizado_em:new Date().toISOString()}).eq('id',id).eq('lease_id',body.leaseId).eq('estado',before.data.estado).select('id,estado,protocolo');
  if(saved.error||saved.data?.length!==1)throw new Error('O envio mudou de estado. Não repetir.');
+ if(before.data.estado!==body.estado)await avisarEnvio(usina,empresa,usuario,id,before.data.competencia,body.estado,body.protocolo,body.motivo==='ARQUIVO_RECUSADO');
  return saved.data[0];
+}
+
+async function conferirUcsAntesDoEnvio(empresa:string,plano:any){
+ const numeros=String(plano.csv).split(/\r?\n/).filter(Boolean).map(l=>l.split(';')[0].replace(/\D/g,''));
+ const ucs=await supabase.from('unidades_consumidoras').select('id,numero,cliente_id,rateio_ativo,status').eq('empresa_id',empresa).in('numero',numeros).neq('tipo','GERADORA');
+ if(ucs.error)throw ucs.error;
+ if((ucs.data?.length??0)>=1000)throw new Error('Não foi possível conferir todas as UCs antes do envio.');
+ for(const uc of ucs.data??[]){
+  if(uc.rateio_ativo===false||uc.status!=='ATIVA')throw new Error('Uma UC saiu do rateio. Gere e confira uma nova planilha antes de enviar.');
+  const contratos=await supabase.from('contratos').select('status,aceite_cliente_em,contrato_assinado_url,dados_documento').eq('empresa_id',empresa).eq('unidade_consumidora_id',uc.id).in('status',['ATIVO','VIGENTE']);
+  if(contratos.error)throw contratos.error;
+  if(!(contratos.data??[]).some(contratoElegivelParaRateio))throw new Error('Uma UC não possui contrato vigente. Gere uma nova planilha.');
+  if(uc.cliente_id)await conferirFaturamentoDaUc(empresa,uc);
+ }
+}
+
+async function avisarEnvio(usina:string,empresa:string,usuario:string,id:string,competencia:string,estado:string,protocolo?:string,recusado=false){
+ const mensagens:Record<string,[string,string]>={
+  EXECUTANDO:['Rateio em andamento','O envio começou. Acompanhe o andamento no aplicativo.'],
+  PROTOCOLADO:['Rateio finalizado com sucesso',`A Cemig confirmou o protocolo ${protocolo??''}.`],
+  FALHA:recusado?['Rateio não aceito pela Cemig','A Cemig recusou o arquivo. Confira os dados antes de tentar novamente.']:['Rateio não concluído','Confira o motivo na tela do rateio antes de tentar novamente.'],
+  INCERTO:['Confirmação do rateio pendente','Confira o protocolo na Cemig antes de repetir o envio.'],
+  AGUARDANDO_USUARIO:['Rateio precisa de atenção','A Cemig solicitou uma verificação. Abra o rateio para continuar.'],
+ };
+ const mensagem=mensagens[estado];if(!mensagem)return;
+ try{await criarNotificacaoApp({usuario_id:usuario,empresa_id:empresa,usina_id:usina,tipo:`RATEIO_${estado}`,titulo:preview()?`Teste: ${mensagem[0]}`:mensagem[0],detalhe:`Competência ${String(competencia).slice(0,7)}. ${mensagem[1]}`,rota:`/operacao/rateio?competencia=${String(competencia).slice(0,7)}&usinaId=${usina}`,chave_dedupe:`envio-nativo:${id}:${estado}`});}
+ catch{console.error('Falha ao registrar aviso do envio nativo',{id,estado});}
 }

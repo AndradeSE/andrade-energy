@@ -70,12 +70,15 @@ async function entregarGerado(registro:any) {
 
 async function processarUsina(config:any) {
   const empresa=config.empresa_id,usina=config.usina_id;
-  const [producoes,faturas,unidades,contratos]=await Promise.all([
+  const [producoes,faturas,unidades,contratos,anexos]=await Promise.all([
     todas(()=>supabase.from("fechamentos").select("competencia,energia_gerada").eq("empresa_id",empresa).eq("usina_id",usina).gte("competencia",config.competencia_inicio).order("competencia")),
     todas(()=>supabase.from("faturas").select("id,numero_instalacao,cliente_id,referencia,status").eq("empresa_id",empresa).eq("usina_id",usina).order("id")),
     todas(()=>supabase.from("unidades_consumidoras").select("id,numero,cliente_id,created_at").eq("empresa_id",empresa).eq("usina_id",usina).eq("status","ATIVA").neq("tipo","GERADORA").order("id")),
     todas(()=>supabase.from("contratos").select("id,unidade_consumidora_id,aceite_cliente_em,contrato_assinado_url,status,dados_documento,vigencia_inicio").eq("empresa_id",empresa).in("status",["ATIVO","VIGENTE"]).order("id")),
+    todas(()=>supabase.from('faturas_anexadas_clientes').select('id,cliente_id,dados_fatura').eq('empresa_id',empresa).order('id')),
   ]);
+  // PDFs recebidos durante a suspensão comprovam o fechamento sem gerar cobrança.
+  const recebidas=[...faturas,...anexos.map(a=>({cliente_id:a.cliente_id,numero_instalacao:(a.dados_fatura as any)?.uc,referencia:(a.dados_fatura as any)?.referencia,status:'PROCESSADO'}))];
   const hoje=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit"}).formatToParts(new Date());
   const competenciaAtual=`${hoje.find(p=>p.type==="year")!.value}-${hoje.find(p=>p.type==="month")!.value}`;
   for(const competencia of [...new Set(producoes.map(p=>chaveCompetencia(p.competencia)))]) {
@@ -84,7 +87,7 @@ async function processarUsina(config:any) {
     const limite=inicioSeguinte.toISOString();
     const assinadas=new Set(contratos.filter(c=>contratoElegivelParaRateio(c)&&(!c.vigencia_inicio||String(c.vigencia_inicio)<limite.slice(0,10))).map(c=>c.unidade_consumidora_id));
     const esperadas=unidades.filter(u=>u.cliente_id&&assinadas.has(u.id)&&(!u.created_at||String(u.created_at)<limite)) as UcEsperada[];
-    if(!competenciaRateioCompleta(competencia,esperadas,faturas,producoes))continue;
+    if(!competenciaRateioCompleta(competencia,esperadas,recebidas,producoes))continue;
     const claim=await supabase.rpc("reivindicar_rateio_mensal",{p_empresa:empresa,p_usina:usina,p_competencia:`${competencia}-01`,p_ucs:esperadas});
     if(claim.error)throw claim.error;
     const registro=claim.data?.[0];

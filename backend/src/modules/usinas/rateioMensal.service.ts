@@ -3,6 +3,7 @@ import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import { proporRateioMensal, csvRateioMensal, csvCemigRateio, pendenciasCsvCemig, documentoDaTitularidade } from "./rateioMensal.policy";
 import { saldoAnteriorParaRateio, type LeituraSaldoRateio } from "./saldoRateio.policy";
 import {contratoElegivelParaRateio} from "./rateioAutomatico.policy";
+import {atualizarBloqueioUc} from '../faturas/inadimplenciaUc.service';
 
 export async function prepararPlanilhaRateio(usinaId: string, empresaId: string, competencia: string, ancora: string, _documentoAncora = "", numerosAtuaisConfirmados = false, formatoCemig = false) {
   if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(competencia)) throw new Error("Selecione a competência do rateio.");
@@ -17,7 +18,7 @@ export async function prepararPlanilhaRateio(usinaId: string, empresaId: string,
   const [producao, unidades, contratos, geradoraResult] = await Promise.all([
     supabase.from("fechamentos").select("energia_gerada").eq("empresa_id",empresaId).eq("usina_id",usinaId)
       .gte("competencia",inicio.toISOString().slice(0,10)).lt("competencia",fim.toISOString().slice(0,10)),
-    supabase.from("unidades_consumidoras").select("id,numero,cliente_id,created_at,apelido,consumo_medio_kwh,cpf_titular,clientes(cpf,empresa_id)")
+    supabase.from("unidades_consumidoras").select("id,numero,cliente_id,created_at,apelido,consumo_medio_kwh,cpf_titular,rateio_ativo,clientes(cpf,empresa_id)")
       .eq("empresa_id",empresaId).eq("usina_id",usinaId).eq("status","ATIVA").neq("tipo","GERADORA").order("numero"),
     supabase.from("contratos").select("unidade_consumidora_id,aceite_cliente_em,contrato_assinado_url,status,dados_documento,vigencia_inicio")
       .eq("empresa_id",empresaId).in("status",["ATIVO","VIGENTE"]),
@@ -44,7 +45,7 @@ export async function prepararPlanilhaRateio(usinaId: string, empresaId: string,
   const elegiveis = (unidades.data ?? []).filter(u=>assinadas.has(u.id)&&(!u.created_at||String(u.created_at)<fim.toISOString()));
   const clientesIds=[...new Set(elegiveis.map(u=>u.cliente_id).filter(Boolean))];
   const [faturas,anexos]=clientesIds.length ? await Promise.all([
-    supabase.from("faturas").select("cliente_id,numero_instalacao,referencia,saldo_atual,created_at,status").eq("empresa_id",empresaId).in("cliente_id",clientesIds),
+    supabase.from("faturas").select("id,cliente_id,unidade_consumidora_id,numero_instalacao,referencia,saldo_atual,created_at,status,vencimento,cobrancas(status,pago_em)").eq("empresa_id",empresaId).in("cliente_id",clientesIds),
     supabase.from("faturas_anexadas_clientes").select("cliente_id,dados_fatura,criado_em").eq("empresa_id",empresaId).in("cliente_id",clientesIds),
   ]) : [{data:[],error:null},{data:[],error:null}];
   if(faturas.error)throw faturas.error;
@@ -54,8 +55,15 @@ export async function prepararPlanilhaRateio(usinaId: string, empresaId: string,
     ...(faturas.data??[]).filter(f=>!["CANCELADO","CANCELADA"].includes(String(f.status))).map(f=>({numero:f.numero_instalacao,clienteId:f.cliente_id,referencia:f.referencia,saldo:f.saldo_atual,registradoEm:f.created_at,fonte:"FATURA" as const})),
     ...(anexos.data??[]).map(a=>{const d=a.dados_fatura as any;return {numero:d?.uc,clienteId:a.cliente_id,referencia:d?.referencia,saldo:d?.saldoAtual,registradoEm:a.criado_em,fonte:"ANEXO" as const};}),
   ];
+  const suspensas=new Set<string>();
+  for(const uc of elegiveis){
+    const bloqueio=await atualizarBloqueioUc(empresaId,uc,faturas.data??[]);
+    if(bloqueio.suspenso)suspensas.add(uc.id);
+  }
   let saldosSemHistorico=0;
-  const plano = proporRateioMensal(media,elegiveis.map(u=>{
+  const ancoraCadastrada=elegiveis.find(u=>String(u.numero).replace(/\D/g,'')===String(ancora).replace(/\D/g,''));
+  if(ancoraCadastrada&&(ancoraCadastrada.rateio_ativo===false||suspensas.has(ancoraCadastrada.id)))throw new Error('A UC âncora está com o rateio desativado ou suspenso. Selecione uma âncora disponível.');
+  const plano = proporRateioMensal(media,elegiveis.filter(u=>u.rateio_ativo!==false&&!suspensas.has(u.id)).map(u=>{
     const cliente=Array.isArray(u.clientes)?u.clientes[0]:u.clientes as any;
     const saldo=saldoAnteriorParaRateio(String(u.numero),String(u.cliente_id),competencia,leituras);
     if(saldo.semHistorico)saldosSemHistorico++;

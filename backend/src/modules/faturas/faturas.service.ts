@@ -22,6 +22,7 @@ import { asaasRequest } from "../asaas/asaas.client";
 import { cobrancaAsaasPodeSerExcluida } from "./exclusaoFatura.policy";
 import { antecipacaoVencimentoDaUc, exigirContratoAssinadoDaUc } from "../contratos/contratoUc.service";
 import { empresaIdDaRequisicao } from "../../utils/empresaScope";
+import {conferirFaturamentoDaUc} from './inadimplenciaUc.service';
 
 function erroDeSenhaPdf(erro: unknown) {
   return /pdf.*(protegido|senha)|senha.*pdf/i.test(String((erro as any)?.message ?? ""));
@@ -176,6 +177,7 @@ export async function confirmarFaturaRascunho(id: string, empresaId?: string) {
   }
   if (!existente.unidade_consumidora_id) throw new Error("A fatura não está vinculada a uma UC.");
   await exigirContratoAssinadoDaUc(existente.unidade_consumidora_id, empresaId);
+  await conferirFaturamentoDaUc(existente.empresa_id,{id:existente.unidade_consumidora_id,numero:existente.numero_instalacao,cliente_id:existente.cliente_id});
   const hojeEmissao = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
   const diasAntecipacao = await antecipacaoVencimentoDaUc(existente.unidade_consumidora_id, existente.empresa_id, hojeEmissao, existente.created_at);
   if (diasAntecipacao === 3 && String(existente.vencimento ?? "").slice(0, 10) < hojeEmissao) throw new Error("O vencimento antecipado do rascunho já passou. Revise a data com o cliente antes de confirmar.");

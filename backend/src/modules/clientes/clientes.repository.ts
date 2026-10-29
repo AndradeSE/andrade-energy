@@ -6,6 +6,7 @@ import { restaurarContratoAssinadoDaMesmaUc } from "../contratos/contratos.repos
 import { configuracaoVigenteParaFaturamento } from "../contratos/contratoFaturamento.policy";
 import { extrairTextoDoBuffer } from "../../services/ocr/ocr.service";
 import { extrairCadastroCemig } from "../../services/ocr/parsers/cemig.cadastro.parser";
+import {contratoElegivelParaRateio} from '../usinas/rateioAutomatico.policy';
 
 const somenteDigitos = (valor: unknown) => String(valor ?? "").replace(/\D/g, "");
 
@@ -57,6 +58,10 @@ async function incluirTitularDaFatura(unidades: any[], empresaId: string) {
 async function incluirEstadoContratoEConvite(unidades: any[], empresaId: string) {
   const ids = unidades.map((unidade) => String(unidade?.id ?? "")).filter((id) => id && !id.startsWith("cliente-"));
   if (!ids.length) return unidades;
+  const controle=await supabase.from('unidades_consumidoras').select('id,rateio_ativo').eq('empresa_id',empresaId).in('id',ids);
+  const suspensoes=await supabase.from('uc_bloqueios_inadimplencia').select('unidade_consumidora_id,suspenso').eq('empresa_id',empresaId).in('unidade_consumidora_id',ids);
+  if(controle.error||suspensoes.error)throw controle.error??suspensoes.error;
+  unidades=unidades.map(u=>({...u,rateio_ativo:controle.data?.find(c=>c.id===u.id)?.rateio_ativo!==false,rateio_suspenso_inadimplencia:suspensoes.data?.some(b=>b.unidade_consumidora_id===u.id&&b.suspenso)===true}));
 
   const [{ data: contratos, error: erroContratos }, { data: convites, error: erroConvites }] = await Promise.all([
     supabase
@@ -95,6 +100,7 @@ async function incluirEstadoContratoEConvite(unidades: any[], empresaId: string)
 
   return unidades.map((unidade) => ({
     ...unidade,
+    rateio_contrato_vigente:(contratos??[]).some(c=>c.unidade_consumidora_id===unidade.id&&contratoElegivelParaRateio(c)),
     contrato_resumo: contratoPorUc.get(String(unidade.id)) ?? null,
     convite_resumo: convitePorUc.get(String(unidade.id)) ?? null,
   }));
