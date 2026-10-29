@@ -3,10 +3,10 @@ const assert=require('node:assert/strict');
 const vm=require('node:vm');
 const fs=require('node:fs');
 const script=fs.readFileSync(require('node:path').join(__dirname,'../../plugins/cemig-browser/rateio-navigation.js'),'utf8');
-function run({url='https://www.atendimento.cemig.com.br/portal/services/compensation-gd',body='',controls=[],selects=[],files=[],tabs=[],combos=[],radios=[],password=false,window={},config={geradora:'1121361801894',iniciado:true}}={}){
+function run({url='https://www.atendimento.cemig.com.br/portal/services/compensation-gd',body='',controls=[],selects=[],files=[],tabs=[],combos=[],radios=[],password=false,window={},fileApi={},config={geradora:'1121361801894',iniciado:true}}={}){
  let assigned;
  const context={Event:class{constructor(type){this.type=type;}},location:{href:url,origin:new URL(url).origin,pathname:new URL(url).pathname,assign:url=>{assigned=url;}},window,getComputedStyle:()=>({visibility:'visible'}),document:{body:{textContent:body},querySelector:()=>password?{}:null,querySelectorAll:selector=>selector.startsWith('button')?controls:selector==='input[type=radio],[role=radio]'?radios:selector==='select'?selects:selector==='input[type=file]'?files:selector==='[role=tab]'?tabs:selector==='[role=combobox]'?combos:[]}};
- const result=JSON.parse(vm.runInNewContext(script.replace('__ANDRADE_CONFIG__',JSON.stringify(config)),context));
+ const result=JSON.parse(vm.runInNewContext(script.replace('__ANDRADE_CONFIG__',JSON.stringify(config)),{...context,...fileApi}));
  return {...result,assigned};
 }
 const button=(label,click)=>({innerText:label,getClientRects:()=>[{}],click,disabled:false});
@@ -38,6 +38,14 @@ test('anexo autorizado usa somente campo único e não repete enquanto aguarda',
  run({files:[...files,...files],config});assert.equal(clicks,1);
  run({files,config:{...config,iniciado:false}});assert.equal(clicks,1);
  run({files,body:'Template inválido',config});assert.equal(clicks,1);
+});
+test('entrega somente os bytes do CSV preparado e emite mudança sem abrir seletor',()=>{
+ const events=[];let clicks=0;const input={disabled:false,click:()=>clicks++,dispatchEvent:e=>events.push(e.type)};
+ const fileApi={File:class{constructor(parts,name,options){this.parts=parts;this.name=name;this.type=options.type;}},DataTransfer:class{constructor(){this.files=[];this.items={add:file=>this.files.push(file)};}}};
+ const config={geradora:'1121361801894',iniciado:true,anexoAutomatico:true,arquivo:'conferido.csv',conteudoCsv:'123;456;100;X'};
+ const window={};run({files:[input],window,config,fileApi});run({files:[input],window,config,fileApi});
+ assert.equal(clicks,0);assert.deepEqual(events,['input','change']);
+ assert.equal(input.files.length,1);assert.equal(input.files[0].name,'conferido.csv');assert.equal(input.files[0].type,'text/csv');assert.equal(input.files[0].parts[0],config.conteudoCsv);
 });
 test('não navega sem início explícito nem UC válida',()=>{
  assert.equal(run({url:'https://www.atendimento.cemig.com.br/portal/home',config:{geradora:'1121361801894',iniciado:false}}).assigned,undefined);
