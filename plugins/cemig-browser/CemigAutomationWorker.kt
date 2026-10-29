@@ -159,8 +159,8 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
      android.util.Log.i("CemigAutomation","Preview state=$state page=$page");lastState=state
     }
     if(state=="AGUARDANDO_LOGIN"){
-     if(loginWaitSince==0L)loginWaitSince=SystemClock.elapsedRealtime()
-     if(SystemClock.elapsedRealtime()-loginWaitSince>=60000L){stop("AGUARDANDO_USUARIO","A Cemig não confirmou o retorno do login em um minuto. Nenhum protocolo foi enviado; confira a sessão no app.");return@evaluateJavascript}
+     if(loginWaitSince==0L)loginWaitSince=android.os.SystemClock.elapsedRealtime()
+     if(android.os.SystemClock.elapsedRealtime()-loginWaitSince>=60000L){stop("AGUARDANDO_USUARIO","A Cemig não confirmou o retorno do login em um minuto. Nenhum protocolo foi enviado; confira a sessão no app.");return@evaluateJavascript}
     }else loginWaitSince=0L
     when(state){
      "REVISAO"->stop("REVISAO","O teste automático chegou à revisão do CSV. Nenhum protocolo foi enviado.")
