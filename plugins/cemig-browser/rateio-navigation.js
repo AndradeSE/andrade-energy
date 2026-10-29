@@ -4,9 +4,10 @@
   function visible(el) { return !!el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden'; }
   function result(state, message) { return JSON.stringify({state:state,message:message}); }
   if (!/^https:\/\/(?:www\.)?(?:atende|atendimento)\.cemig\.com\.br(?::443)?(?:\/|$)/i.test(location.href)) return result('PAUSADO','Domínio fora do fluxo autorizado.');
+  if (!document.body) return result('CARREGANDO','Aguardando a página da Cemig.');
   var body=text(document.body);
   if (/verify you are human|verifique se voce e humano|performing security verification/i.test(body)) return result('VERIFICACAO','Conclua a verificação de segurança nesta mesma sessão.');
-  if (/\/Login\/?$/i.test(location.pathname) || document.querySelector('input[type=password]')) return result('LOGIN','Entre na Cemig. A continuação ocorrerá nesta mesma sessão.');
+  if (/\/Login\/?$/i.test(location.pathname) || document.querySelector('input[type=password]') || /entrar com senha/i.test(body)) return result('LOGIN','Entre na Cemig. A continuação ocorrerá nesta mesma sessão.');
   if (!config.geradora || !/^\d{6,20}$/.test(config.geradora)) return result('PAUSADO','Confira a UC geradora no cadastro da usina.');
   if (!location.pathname.includes('compensation-gd')) {
     if (!config.iniciado) return result('PRONTO','Login confirmado. Toque em Continuar rateio para abrir o serviço.');

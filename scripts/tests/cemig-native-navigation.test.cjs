@@ -15,6 +15,10 @@ test('login e verificação ficam pendentes sem cliques ou bypass',()=>{
  assert.equal(run({url:'https://atende.cemig.com.br/Login'}).state,'LOGIN');
  assert.equal(run({body:'Verify you are human'}).state,'VERIFICACAO');
 });
+test('redirecionamento da raiz com acesso por senha continua no fluxo de login',()=>{
+ const value=run({url:'https://atende.cemig.com.br/?LoginSemSenha=True',body:'Usuário Entrar com senha Entrar com código de acesso'});
+ assert.equal(value.state,'LOGIN');assert.equal(value.assigned,undefined);
+});
 test('seleciona somente a UC exata, sem escolher outra unidade da conta',()=>{
  const select={value:'',options:[{value:'wrong',textContent:'1038417901864'},{value:'right',textContent:'11.213.618.018-94'}],getClientRects:()=>[{}],dispatchEvent:()=>{}};
  assert.equal(run({selects:[select]}).state,'UC');assert.equal(select.value,'right');

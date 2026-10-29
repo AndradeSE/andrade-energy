@@ -33,6 +33,7 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
  private var attached=false
  private var solverRequested=false
  private var processing=false
+ private var lastState=""
  private var endState="AGUARDANDO_USUARIO"
  private var endMessage="Abra o app para conferir a sessão do rateio."
  private val tick=object:Runnable {override fun run(){inspect();if(!finished.get())main.postDelayed(this,1500)}}
@@ -143,6 +144,7 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
    processing=false
    if(finished.get())return@evaluateJavascript
    try{val state=JSONObject(JSONTokener(raw).nextValue() as String).getString("state")
+    if(state!=lastState&&state.matches(Regex("[A-Z_]{1,40}"))){android.util.Log.i("CemigAutomation","Preview state=$state");lastState=state}
     when(state){
      "REVISAO"->stop("REVISAO","O teste automático chegou à revisão do CSV. Nenhum protocolo foi enviado.")
      "VERIFICACAO"->stop("AGUARDANDO_USUARIO","A Cemig pediu verificação de segurança. Confira o rateio no app.")
