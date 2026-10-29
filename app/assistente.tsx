@@ -345,7 +345,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   async function operateSequence(question:string){
     const scope=accountContextKey;
     const routeKey=(route:string)=>route.replace('/(tabs)','').replace(/\/$/,'')||'/';
-    return executeSolarSequence(question,{context:{generator:IS_GERADOR_APP,role:usuario?.perfil,companyRole:usuario?.papel_empresa,plantId:usinaSelecionada?.id,unitId:unidadeSelecionada?.id,permissions:usuario?.permissoes},scope:solarControlScope(usuario,usinaSelecionada?.id,unidadeSelecionada?.id),current:()=>assistantMounted.current&&automationScope.current===scope,navigate:(route,params)=>{leaveConversation();router.push({pathname:route,params} as any);},routeReady:route=>routeKey(sequencePathRef.current)===routeKey(route),control:operateCurrentControl});
+    return executeSolarSequence(question,{context:{generator:IS_GERADOR_APP,role:usuario?.perfil,companyRole:usuario?.papel_empresa,plantId:usinaSelecionada?.id,unitId:unidadeSelecionada?.id,permissions:usuario?.permissoes},scope:solarControlScope(usuario,usinaSelecionada?.id,unidadeSelecionada?.id),current:()=>assistantMounted.current&&automationScope.current===scope,navigate:(route,params)=>{onMinimize?.();router.push({pathname:route,params} as any);},routeReady:route=>routeKey(sequencePathRef.current)===routeKey(route),control:operateCurrentControl});
   }
 
   async function send(spokenQuestion?: string) {
