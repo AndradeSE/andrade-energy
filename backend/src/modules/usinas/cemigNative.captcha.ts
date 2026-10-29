@@ -3,7 +3,7 @@ import {supabase} from '../../config/supabase';
 
 export function conferirDesafioNativo(body:any){
  const u=new URL(String(body?.websiteURL??''));
- if(u.protocol!=='https:'||u.username||u.password||u.port||!['atende.cemig.com.br','www.atende.cemig.com.br'].includes(u.hostname)||!/^\/Login\/?$/i.test(u.pathname)||u.search||u.hash)throw new Error('Desafio fora do login oficial.');
+ if(u.protocol!=='https:'||u.username||u.password||u.port||!['atende.cemig.com.br','www.atende.cemig.com.br'].includes(u.hostname)||!/^\/(?:Login\/?)?$/i.test(u.pathname)||u.search||u.hash)throw new Error('Desafio fora do login oficial.');
  if(!/^[a-zA-Z0-9_-]{20,200}$/.test(body.websiteKey)||typeof body.userAgent!=='string'||body.userAgent.length>1000||!['RecaptchaV2Task','RecaptchaV2EnterpriseTask'].includes(body.tipo)||(body.s!==undefined&&(typeof body.s!=='string'||body.s.length>4000)))throw new Error('Desafio inválido.');
  return {websiteURL:u.toString(),websiteKey:body.websiteKey,userAgent:body.userAgent,tipo:body.tipo,...(body.s?{s:body.s}:{})};
 }

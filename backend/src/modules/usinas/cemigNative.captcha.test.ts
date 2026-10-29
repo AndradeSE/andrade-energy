@@ -3,6 +3,11 @@ import assert from 'node:assert/strict';
 process.env.SUPABASE_URL??='https://test.supabase.co';process.env.SUPABASE_SERVICE_KEY??='test-only-service-key';
 const mod=import('./cemigNative.captcha.js');
 const body={autorizaCaptcha:true,nonce:'native_session_123456',desafio:{websiteURL:'https://atende.cemig.com.br/Login',websiteKey:'public_test_site_key_123456',userAgent:'test',tipo:'RecaptchaV2Task'}};
+test('aceita a raiz oficial redirecionada sem enviar parâmetros nem outros caminhos',async()=>{
+ const m=await mod;
+ assert.equal(m.conferirDesafioNativo({...body.desafio,websiteURL:'https://atende.cemig.com.br/'}).websiteURL,'https://atende.cemig.com.br/');
+ for(const websiteURL of ['https://atende.cemig.com.br/?private=value','https://atende.cemig.com.br/outra-pagina','https://atende.cemig.com.br.evil.test/'])assert.throws(()=>m.conferirDesafioNativo({...body.desafio,websiteURL}));
+});
 function deps(existing:any,fail=false){
  const calls:string[]=[];
  const db={from:(table:string)=>{let op='read';const q:any={select:()=>q,eq:()=>q,insert:()=>{op='insert';return q;},update:()=>{op='update';calls.push('update');return q;},maybeSingle:async()=>({data:table==='usinas'?{id:'plant'}:existing,error:null}),single:async()=>({data:{id:'task'},error:null}),then:(resolve:any)=>resolve({error:null})};return q;}};
