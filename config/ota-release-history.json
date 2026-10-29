@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261029-185840",
+    "data": "29/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Correção de exibição da Solar no Gerador de produção 1.0.9"
+    ]
+  },
+  {
     "numero": "OTA 20261029-184633",
     "data": "29/10/2026",
     "variant": "consumidor",
