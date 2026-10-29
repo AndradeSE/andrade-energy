@@ -11,17 +11,30 @@ try{
  foreach($variant in @('gerador','consumidor')){foreach($environment in @('preview','production')){
   if(($VariantFilter -and $variant -ne $VariantFilter) -or ($EnvironmentFilter -and $environment -ne $EnvironmentFilter)){continue}
   $tag="$variant-$environment";$apk=Join-Path $root "andrade-energy-$tag.apk"
+  $keyPath="$credentialRoot/credentials/android/$variant.jks"
+  $expectedCertificate=$certificates[$variant]
   $credential=(Get-Content -LiteralPath "$credentialRoot/credentials/$variant.json" -Raw | ConvertFrom-Json).android.keystore
+  if($environment -eq 'production'){
+   $directory="$credentialRoot/credentials/production-$variant"
+   $md=Get-Content (Get-ChildItem $directory -Filter '*credentials.md' | Select-Object -First 1).FullName -Raw
+   $credential=[pscustomobject]@{
+    keystorePassword=([regex]::Match($md,'Android upload keystore password:\s*`?([^`\r\n]+)')).Groups[1].Value.Trim()
+    keyAlias=([regex]::Match($md,'Android key alias:\s*`?([^`\r\n]+)')).Groups[1].Value.Trim()
+    keyPassword=([regex]::Match($md,'Android key password:\s*`?([^`\r\n]+)')).Groups[1].Value.Trim()
+   }
+   $keyPath=(Get-ChildItem $directory -Filter '*.jks' | Select-Object -First 1).FullName
+   $expectedCertificate=if($variant -eq 'gerador'){'ec3ae37939b37df83f728535a37109915ef94379e026d57a13d8bfdf6c855c70'}else{'1afe65377b78579fbdfed1842a724721c591b6be4f30ce0f2774867aa2222ce1'}
+  }
   $env:ANDRADE_TASK_STORE_PASS=$credential.keystorePassword;$env:ANDRADE_TASK_KEY_PASS=$credential.keyPassword
   $aligned=Join-Path $root "aligned-$tag.apk";$signed=Join-Path $root "signed-$tag.apk"
   & "$tools/zipalign.exe" -P 16 -f 4 $apk $aligned
   if($LASTEXITCODE -ne 0){throw "Alinhamento falhou: $tag"}
-  & "$tools/apksigner.bat" sign --ks "$credentialRoot/credentials/android/$variant.jks" --ks-key-alias $credential.keyAlias --ks-pass env:ANDRADE_TASK_STORE_PASS --key-pass env:ANDRADE_TASK_KEY_PASS --out $signed $aligned
+  & "$tools/apksigner.bat" sign --ks $keyPath --ks-key-alias $credential.keyAlias --ks-pass env:ANDRADE_TASK_STORE_PASS --key-pass env:ANDRADE_TASK_KEY_PASS --out $signed $aligned
   if($LASTEXITCODE -ne 0){throw "Assinatura falhou: $tag"}
   $certOut=(& "$tools/apksigner.bat" verify --print-certs $signed) -join "`n"
   if($LASTEXITCODE -ne 0){throw "Assinatura inválida: $tag"}
   $cert=[regex]::Match($certOut,'certificate SHA-256 digest: ([a-f0-9]+)').Groups[1].Value
-  if($cert -ne $certificates[$variant]){throw "Certificado incompatível com o aplicativo atual: $tag"}
+  if($cert -ne $expectedCertificate){throw "Certificado incompatível com o aplicativo atual: $tag"}
   $badging=(& "$tools/aapt.exe" dump badging $signed) -join "`n"
   $package=[regex]::Match($badging,"package: name='([^']+)'").Groups[1].Value
   $expected="com.andradese.energy.$variant"+$(if($environment -eq 'preview'){'.preview'}else{''})
