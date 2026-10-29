@@ -37,16 +37,18 @@ object CemigAutomationStore {
   for(name in prefs.all.keys.toList())if(name.startsWith("cemig-rateio-")){
    val usina=name.removePrefix("cemig-rateio-")
    val previous=read(context,usina)?:continue
-   configure(context,usina,previous.getString("base"),token,true,previous.optBoolean("solver"))
+   configure(context,usina,previous.getString("base"),token,true,previous.optBoolean("solver"),previous.optString("solverAuthorization"))
   }
  }
- fun configure(context:Context,usina:String,base:String,token:String,enabled:Boolean,solver:Boolean=false){
+ fun configure(context:Context,usina:String,base:String,token:String,enabled:Boolean,solver:Boolean=false,solverAuthorization:String?=null){
   val name=id(usina);val prefs=context.getSharedPreferences("cemig_automation",Context.MODE_PRIVATE)
   if(!enabled){WorkManager.getInstance(context).cancelUniqueWork(name);prefs.edit().remove(name).commit();return}
   CemigNativeAccess.validateBase(base,context.packageName.endsWith(".preview"))
   require(token.isNotBlank()&&!token.contains('\n')&&!token.contains('\r'))
   val cipher=Cipher.getInstance("AES/GCM/NoPadding").apply{init(Cipher.ENCRYPT_MODE,key());updateAAD(name.toByteArray())}
-  val value=JSONObject().put("base",base).put("token",token).put("usina",usina).put("solver",solver).toString()
+  // Only explicit enrollment creates an authorization. Token refresh and worker retries preserve it.
+  val authorization=solverAuthorization?:java.util.UUID.randomUUID().toString()
+  val value=JSONObject().put("base",base).put("token",token).put("usina",usina).put("solver",solver).put("solverAuthorization",authorization).toString()
   val payload=Base64.encodeToString(cipher.iv,Base64.NO_WRAP)+"."+Base64.encodeToString(cipher.doFinal(value.toByteArray()),Base64.NO_WRAP)
   check(prefs.edit().putString(name,payload).commit())
   val work=PeriodicWorkRequestBuilder<CemigAutomationWorker>(15,TimeUnit.MINUTES)

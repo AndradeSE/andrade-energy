@@ -180,7 +180,10 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
      solverRequested=true
      Thread{try{
       val c=config?:return@Thread
-      val answer=CemigNativeAccess.solve(c.getString("base"),c.getString("token"),c.getString("usina"),true,job!!.getString("id"),challenge){!finished.get()}?:error("Sem resposta")
+      val authorization=c.optString("solverAuthorization")
+      require(authorization.matches(Regex("[a-fA-F0-9-]{36}"))){"AUTORIZACAO_AUSENTE"}
+      val nonce=job!!.getString("id")+"_"+authorization
+      val answer=CemigNativeAccess.solve(c.getString("base"),c.getString("token"),c.getString("usina"),true,nonce,challenge){!finished.get()}?:error("Sem resposta")
       main.post{val current=Uri.parse(view.url?:"");val expected=Uri.parse(challenge.getString("websiteURL"));if(!finished.get()&&current.scheme==expected.scheme&&current.host==expected.host&&current.port==expected.port&&current.path==expected.path){
        val apply="document.querySelectorAll('textarea[name=\"g-recaptcha-response\"]').forEach(function(f){f.value=${JSONObject.quote(answer)};f.dispatchEvent(new Event('input',{bubbles:true}));f.dispatchEvent(new Event('change',{bubbles:true}));});var w=document.querySelector('[data-callback]'),n=w&&w.dataset.callback;if(n&&/^[a-zA-Z_$][\\w$]*$/.test(n)&&typeof window[n]==='function')window[n]("+JSONObject.quote(answer)+");"
        view.evaluateJavascript(apply+script){if(it=="\"LOGIN_ENVIADO\"")savedAccess=null}
