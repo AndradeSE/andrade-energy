@@ -15,6 +15,7 @@ export const environmentKeySuffix = isPreviewEnvironment ? "_preview" : "";
 export const isAssistantEnabled = isPreviewEnvironment ||
   Updates.runtimeVersion === "1.0.4-production-live-awake" ||
   Updates.runtimeVersion === "1.0.7-production-cemig-flow" ||
+  Updates.runtimeVersion === "1.0.9-production-cemig-worker" ||
   Updates.runtimeVersion === "1.0.8-production-cemig-vault";
 // Native audio support belongs to the installed runtime, not OTA export flags.
 export const supportsAssistantLive = Updates.runtimeVersion === "1.0.4-preview-live-awake" ||
@@ -24,6 +25,7 @@ export const supportsAssistantLive = Updates.runtimeVersion === "1.0.4-preview-l
   Updates.runtimeVersion === "1.0.7-production-cemig-flow" ||
   Updates.runtimeVersion === "1.0.8-preview-cemig-vault" ||
   Updates.runtimeVersion === "1.0.9-preview-cemig-worker" ||
+  Updates.runtimeVersion === "1.0.9-production-cemig-worker" ||
   Updates.runtimeVersion === "1.0.8-production-cemig-vault" ||
   Updates.runtimeVersion === "1.0.4-production-live-awake" ||
   (!Updates.runtimeVersion && process.env.EXPO_PUBLIC_ENABLE_GEMINI_LIVE === "1");
