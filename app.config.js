@@ -3,6 +3,7 @@ const gerador =
 const preview = process.env.EXPO_PUBLIC_APP_ENV === "preview";
 const emulatorBuild = preview && process.env.ANDRADE_ANDROID_EMULATOR === "1";
 const nativeCemigBrowser = gerador && process.env.ANDRADE_NATIVE_CEMIG_BROWSER === "1";
+const nativeCemigAutomation = nativeCemigBrowser && preview && process.env.ANDRADE_CEMIG_AUTOMATION_PREVIEW === "1";
 // Production IA requires a new native APK; older production runtimes stay isolated.
 const assistantNative = preview || process.env.EXPO_PUBLIC_ENABLE_GEMINI_LIVE === "1";
 const variant = gerador ? "gerador" : "consumidor";
@@ -141,6 +142,7 @@ module.exports = {
 
     extra: {
       nativeCemigBrowser,
+      nativeCemigAutomation,
       appEnvironment: preview ? "preview" : "production",
       appVariant: gerador
         ? "gerador"
@@ -153,7 +155,7 @@ module.exports = {
       },
     },
 
-    runtimeVersion: nativeCemigBrowser ? (preview ? "1.0.8-preview-cemig-vault" : "1.0.8-production-cemig-vault") : preview ? "1.0.4-preview-live-awake" : assistantNative ? "1.0.4-production-live-awake" : {
+    runtimeVersion: nativeCemigAutomation ? "1.0.9-preview-cemig-worker" : nativeCemigBrowser ? (preview ? "1.0.8-preview-cemig-vault" : "1.0.8-production-cemig-vault") : preview ? "1.0.4-preview-live-awake" : assistantNative ? "1.0.4-production-live-awake" : {
       policy: "appVersion",
     },
 

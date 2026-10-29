@@ -3,6 +3,8 @@ import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { createSecureSession } from "./secure-session";
 import { environmentKeySuffix } from "../config/environment";
+import Constants from 'expo-constants';
+import * as IntentLauncher from 'expo-intent-launcher';
 
 const CHAVE = `@andrade_energy_usuario${environmentKeySuffix}`;
 const secureSession = createSecureSession({
@@ -11,8 +13,23 @@ const secureSession = createSecureSession({
   removeItem: SecureStore.deleteItemAsync,
 }, AsyncStorage, CHAVE, `andrade.session${environmentKeySuffix}`);
 
+async function encerrarAutomacaoNativa(){
+  if(Platform.OS!=='android'||Constants.expoConfig?.extra?.nativeCemigAutomation!==true)return;
+  const result=await IntentLauncher.startActivityAsync('android.intent.action.VIEW',{
+    packageName:'com.andradese.energy.gerador.preview',className:'br.com.andradeenergy.cemig.CemigBrowserActivity',extra:{rateioAutomationClearAll:true},
+  });
+  if(result.resultCode!==-1)throw new Error('Não foi possível encerrar as tarefas de rateio. Tente sair novamente.');
+}
+
 export async function salvarSessao(usuario: any) {
-  if (Platform.OS !== "web") return secureSession.save(usuario);
+  if (Platform.OS !== "web") {
+    const anterior=await secureSession.get();
+    if(anterior?.id&&anterior.id!==usuario?.id)await encerrarAutomacaoNativa();
+    else if(anterior?.id===usuario?.id&&anterior?.token!==usuario?.token&&Platform.OS==='android'&&Constants.expoConfig?.extra?.nativeCemigAutomation===true){
+      await IntentLauncher.startActivityAsync('android.intent.action.VIEW',{packageName:'com.andradese.energy.gerador.preview',className:'br.com.andradeenergy.cemig.CemigBrowserActivity',extra:{rateioAutomationRefreshToken:usuario.token}});
+    }
+    return secureSession.save(usuario);
+  }
   await AsyncStorage.setItem(
     CHAVE,
     JSON.stringify(usuario)
@@ -31,6 +48,7 @@ export async function obterSessao() {
 }
 
 export async function removerSessao() {
+  await encerrarAutomacaoNativa();
   if (Platform.OS !== "web") return secureSession.remove();
   await AsyncStorage.removeItem(CHAVE);
 }

@@ -14,6 +14,11 @@ import javax.crypto.spec.SecretKeySpec
 
 /** One in-memory device key; no passwords, API tokens or envelopes are persisted. */
 object CemigNativeAccess {
+ fun validateBase(base:String,preview:Boolean) {
+  val u=URL(base)
+  val hosts=if(preview)setOf("andrade-energy-api-homologacao.onrender.com","andrade-energy-api-reserva-preview.onrender.com","andrade-energy-fallback-probe.netlify.app") else setOf("andrade-energy-api-vda.onrender.com","andrade-energy-api-reserva-producao.onrender.com","andrade-energy-api-reserva.netlify.app")
+  require(u.protocol=="https"&&u.host in hosts&&u.port in setOf(-1,443)&&u.userInfo==null&&u.path=="/api"&&u.query==null&&u.ref==null)
+ }
  private fun request(base:String,token:String,usina:String,preview:Boolean,suffix:String,body:JSONObject?=null):JSONObject {
   val u=URL(base)
   val hosts=if(preview)setOf("andrade-energy-api-homologacao.onrender.com","andrade-energy-api-reserva-preview.onrender.com","andrade-energy-fallback-probe.netlify.app") else setOf("andrade-energy-api-vda.onrender.com","andrade-energy-api-reserva-producao.onrender.com","andrade-energy-api-reserva.netlify.app")

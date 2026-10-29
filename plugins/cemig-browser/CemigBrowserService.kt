@@ -13,13 +13,13 @@ import java.security.MessageDigest
 import org.json.JSONObject
 import org.json.JSONTokener
 
-/** Preview browser session with a single scoped CSV. No definitive submission or credential bridge. */
+/** A bounded, user-started session. Final submission is never inferred from an upload. */
 class CemigBrowserService : Service() {
     inner class LocalBinder : Binder() { fun session() = this@CemigBrowserService }
     private val binder = LocalBinder()
     private val handler = Handler(Looper.getMainLooper())
     private val browserContext by lazy { MutableContextWrapper(this) }
-    private val expire = Runnable { closeSession() }
+    private val expire = Runnable { notifyAttention("A sessão atingiu o limite de dez minutos. Abra o app para conferir o rateio; nenhum novo envio será iniciado automaticamente.",false);closeSession() }
     private var prepared:File?=null
     private var artifactHash:String?=null
     private var artifactLabel=""
@@ -39,6 +39,7 @@ class CemigBrowserService : Service() {
     private var solverRequested=false
     private var solverBusy=false
     private var loginNotice:String?=null
+    private var lastAttentionNotice=""
     @Volatile private var closed=false
     private val captchaNonce=java.util.UUID.randomUUID().toString()
     fun allowSolver(){solverAllowed=true}
@@ -78,7 +79,21 @@ class CemigBrowserService : Service() {
                 }else if(json.optString("state") in setOf("PRONTO","NAVEGANDO","UC","CADASTRO","MODALIDADE","ALOCACAO","ANEXO","REVISAO"))savedAccess=null
             }
             catch(_:Exception){progress="Aguardando carregamento do portal. Nenhum protocolo foi enviado."}
+            if(browserContext.baseContext !is Activity &&
+                (progress.contains("verificação de segurança")||progress.contains("Continue manualmente")||progress.contains("revisão")||progress.contains("recusou")))notifyAttention(progress)
         }
+    }
+    private fun notifyAttention(message:String,sessionActive:Boolean=true) {
+        if(message==lastAttentionNotice)return
+        lastAttentionNotice=message
+        val destination=if(sessionActive)Intent(this,CemigBrowserActivity::class.java) else packageManager.getLaunchIntentForPackage(packageName)?:return
+        val open=PendingIntent.getActivity(this,if(sessionActive)2 else 3,destination,PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val notification=Notification.Builder(this,CHANNEL)
+            .setSmallIcon(android.R.drawable.ic_menu_view)
+            .setContentTitle("Rateio Cemig · confira a sessão")
+            .setContentText(message).setStyle(Notification.BigTextStyle().bigText(message))
+            .setContentIntent(open).setAutoCancel(true).build()
+        getSystemService(NotificationManager::class.java).notify(NOTICE+1,notification)
     }
     private fun solveCaptcha(){
         if(closed||solverRequested||nativeToken.isEmpty())return
@@ -137,7 +152,7 @@ class CemigBrowserService : Service() {
         val stop = PendingIntent.getService(this,1,Intent(this,CemigBrowserService::class.java).setAction(STOP),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val notification = Notification.Builder(this,CHANNEL)
             .setSmallIcon(android.R.drawable.ic_menu_view).setContentTitle("Cemig · navegador Preview")
-            .setContentText("Sessão limitada a 10 minutos. Toque para voltar; nenhum envio automático ativo.")
+            .setContentText("Sessão em andamento por até 10 minutos. Toque para acompanhar ou encerrar.")
             .setContentIntent(open).setOngoing(true)
             .addAction(Notification.Action.Builder(null,"Encerrar",stop).build()).build()
         startForeground(NOTICE,notification)
@@ -219,7 +234,7 @@ class CemigBrowserService : Service() {
                 val activity=browserContext.baseContext as? Activity
                 val file=prepared
                 val uri=Uri.parse(view.url?:"")
-                if(activity==null||file==null||!file.isFile||!allowed(uri.toString())||!uri.path.orEmpty().contains("compensation-gd")){
+                if(file==null||!file.isFile||!allowed(uri.toString())||!uri.path.orEmpty().contains("compensation-gd")){
                     callback.onReceiveValue(null);return true
                 }
                 fun attachPreparedFile(){
@@ -234,6 +249,9 @@ class CemigBrowserService : Service() {
                 if(!packageName.endsWith(".preview")){
                     attachPreparedFile();return true
                 }
+                // Preview upload still needs the user's visible review. Preserve the session
+                // while detached instead of attempting an Activity-only dialog in background.
+                if(activity==null){progress="Volte à sessão para conferir o anexo de teste.";callback.onReceiveValue(null);return true}
                 AlertDialog.Builder(activity).setTitle(if(packageName.endsWith(".preview")) "Anexar CSV da simulação?" else "Anexar CSV do rateio real?")
                     .setMessage("$artifactLabel\n${file.name}\n"+if(packageName.endsWith(".preview")) "O arquivo será enviado ao portal Cemig para revisão. Não conclua Solicitar cadastro neste teste." else "Confira a usina, competência, UCs e percentuais antes de concluir a solicitação. Anexar não confirma protocolo.")
                     .setNegativeButton("Cancelar"){_,_->callback.onReceiveValue(null)}
@@ -272,7 +290,10 @@ class CemigBrowserService : Service() {
         sendBroadcast(Intent(STOP).setPackage(packageName))
         stopSelf()
     }
-    override fun onTaskRemoved(rootIntent:Intent?) { closeSession() }
+    // Removing the Activity from recents must not silently cancel an already started
+    // foreground session. Explicit stop, process death and the bounded timeout still apply.
+    override fun onTaskRemoved(rootIntent:Intent?) { super.onTaskRemoved(rootIntent) }
+    override fun onTimeout(startId:Int,fgsType:Int) { closeSession() }
     override fun onDestroy() {
         closed=true;savedAccess=null;nativeToken=""
         handler.removeCallbacks(expire)

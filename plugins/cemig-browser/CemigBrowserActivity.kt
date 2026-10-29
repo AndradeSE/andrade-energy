@@ -42,6 +42,22 @@ class CemigBrowserActivity : Activity() {
     }
     override fun onCreate(state:Bundle?) {
         super.onCreate(state)
+        if(intent.getBooleanExtra("rateioAutomationClearAll",false)){
+            CemigAutomationStore.clearAll(this);setResult(RESULT_OK);finish();return
+        }
+        if(intent.hasExtra("rateioAutomationRefreshToken")){
+            try{CemigAutomationStore.refreshToken(this,intent.getStringExtra("rateioAutomationRefreshToken")?:"");intent.removeExtra("rateioAutomationRefreshToken");setResult(RESULT_OK)}catch(_:Exception){setResult(RESULT_CANCELED)}
+            finish();return
+        }
+        if(intent.hasExtra("rateioAutomationEnabled")){
+            try{
+                require(packageName.endsWith(".preview")){"Automação em validação somente no Preview."}
+                val enabled=intent.getBooleanExtra("rateioAutomationEnabled",false)
+                CemigAutomationStore.configure(this,intent.getStringExtra("rateioUsina")?:"",intent.getStringExtra("rateioApi")?:"",intent.getStringExtra("rateioToken")?:"",enabled,intent.getBooleanExtra("rateioAutomationSolver",false))
+                intent.removeExtra("rateioToken");setResult(RESULT_OK,Intent().putExtra("enabled",enabled))
+            }catch(_:Exception){setResult(RESULT_CANCELED)}
+            finish();return
+        }
         window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         if(Build.VERSION.SDK_INT>=33)registerReceiver(closeReceiver,IntentFilter(CemigBrowserService.STOP),Context.RECEIVER_NOT_EXPORTED)
         else @Suppress("DEPRECATION") registerReceiver(closeReceiver,IntentFilter(CemigBrowserService.STOP))
