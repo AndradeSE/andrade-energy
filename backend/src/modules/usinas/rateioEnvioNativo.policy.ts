@@ -1,5 +1,11 @@
 import {createHash} from 'node:crypto';
 export type EstadoEnvioNativo='PENDENTE'|'EXECUTANDO'|'AGUARDANDO_USUARIO'|'REVISAO'|'ENVIANDO'|'PROTOCOLADO'|'INCERTO'|'FALHA'|'CANCELADO';
+export function conferirAutorizacaoEnvio(config:any,job:any){
+ if(config?.habilitado!==true)throw new Error('Autorização revogada.');
+ if(config.modo==='AUTORIZADO'){
+  if(config.competencia_autorizada!==job.competencia||config.hash_autorizado!==job.csv_hash)throw new Error('Arquivo fora da autorização.');
+ }else if(config.modo!=='AUTOMATICO')throw new Error('Modo não autorizado.');
+}
 export function conferirArtefatoEnvio(plano:any){
  if(plano?.rascunho||plano?.formatoCemig!==true||!/^20\d{2}-(0[1-9]|1[0-2])$/.test(plano?.competencia)||plano?.pendencias?.length||typeof plano?.csv!=='string'||Buffer.byteLength(plano.csv)>100000)throw new Error('Planilha não está pronta para envio.');
  const geradora=String(plano.arquivo??'').match(/-(\d{6,20})\.csv$/)?.[1];

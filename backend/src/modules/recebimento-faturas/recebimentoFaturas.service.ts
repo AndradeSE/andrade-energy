@@ -1,5 +1,7 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
+import {conferirFaturamentoDaUc,FaturamentoUcSuspenso} from '../faturas/inadimplenciaUc.service';
+import {criarFaturaAnexadaCliente} from '../clientes/clientes.repository';
 import os from "node:os";
 import path from "node:path";
 
@@ -821,6 +823,23 @@ async function processarRegistro(registro: any) {
         return;
       }
       etapa("FATURAR_AUTOMATICAMENTE");
+      try {
+        await conferirFaturamentoDaUc(unidade.empresa_id,{id:unidade.id,numero:dados.uc,cliente_id:unidade.cliente_id});
+      }catch(error){
+        if(!(error instanceof FaturamentoUcSuspenso))throw error;
+        // Continua recebendo dados energéticos sem emitir uma nova cobrança.
+        const arquivo=`${unidade.empresa_id}/recebimentos-suspensos/${assumido.id}.pdf`;
+        const upload=await supabase.storage.from('faturas').upload(arquivo,await readFile(caminho),{contentType:'application/pdf',upsert:true});
+        if(upload.error)throw upload.error;
+        const anterior=await supabase.from('faturas_anexadas_clientes').select('id').eq('empresa_id',unidade.empresa_id).eq('caminho_pdf',arquivo).limit(1);
+        if(anterior.error)throw anterior.error;
+        if(!anterior.data?.length)await criarFaturaAnexadaCliente({clienteId:unidade.cliente_id,empresaId:unidade.empresa_id,caminhoPdf:arquivo,arquivoNome:anexo.filename??'fatura-cemig.pdf',dadosFatura:dados as any});
+        const agora=new Date().toISOString();
+        const saved=await supabase.from('recebimentos_faturas_email').update({status:'PROCESSADO',arquivo_nome:anexo.filename??'fatura-cemig.pdf',arquivo_hash:hash,caminho_pdf:arquivo,fatura_id:null,erro:null,payload:adicionarMetadadosDeProcessamento(assumido.payload,{tipo:'FATURAMENTO_SUSPENSO',competencia:dados.referencia}),processado_em:agora,updated_at:agora}).eq('id',assumido.id);
+        if(saved.error)throw saved.error;
+        await atualizarUnidadeRecebimento(unidade.id,{recebimento_email_ultimo_em:agora,recebimento_email_status:'PROCESSADO',recebimento_email_erro:null});
+        return;
+      }
       const resultado = await processarFatura(dados, {
         status: "ABERTA",
         criarCobranca: true,

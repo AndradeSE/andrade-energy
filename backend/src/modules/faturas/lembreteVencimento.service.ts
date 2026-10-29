@@ -1,4 +1,5 @@
 import { supabase } from "../../config/supabase";
+import {atualizarInadimplenciaAutomaticamente} from './inadimplenciaUc.service';
 import { hojeNoBrasil } from "../contratos/desligamentoContrato.policy";
 import { enviarEmailAviso } from "../contratos/vencimentoContrato.service";
 import { criarNotificacaoApp } from "../notificacoes/push.service";
@@ -6,6 +7,7 @@ import { avisoCobrancaVencida, diasParaLembreteFatura } from "./lembreteVencimen
 
 let executando = false;
 export async function avisarFaturasProximasDoVencimento() {
+  await atualizarInadimplenciaAutomaticamente();
   if (executando) return;
   executando = true;
   try {

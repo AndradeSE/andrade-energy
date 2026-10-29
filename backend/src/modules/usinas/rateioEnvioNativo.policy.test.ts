@@ -1,7 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {conferirArtefatoEnvio,conferirTransicaoEnvio,estadoAposInterrupcao,copiaDiagnosticaAutorizada} from './rateioEnvioNativo.policy';
+import {conferirArtefatoEnvio,conferirTransicaoEnvio,conferirAutorizacaoEnvio,estadoAposInterrupcao,copiaDiagnosticaAutorizada} from './rateioEnvioNativo.policy';
 const plano={rascunho:false,formatoCemig:true,competencia:'2026-10',pendencias:[],arquivo:'cemig-2026-10-1121361801894.csv',csv:'607081301889;11111111111;100;X'};
+test('envio autorizado limita competência e hash; revogação bloqueia qualquer modo',()=>{
+ const job={competencia:'2026-10-01',csv_hash:'a'.repeat(64)};
+ const config={habilitado:true,modo:'AUTORIZADO',competencia_autorizada:job.competencia,hash_autorizado:job.csv_hash};
+ assert.doesNotThrow(()=>conferirAutorizacaoEnvio(config,job));
+ for(const change of [{habilitado:false},{competencia_autorizada:'2026-11-01'},{hash_autorizado:'b'.repeat(64)},{modo:'OUTRO'}])assert.throws(()=>conferirAutorizacaoEnvio({...config,...change},job));
+ assert.doesNotThrow(()=>conferirAutorizacaoEnvio({habilitado:true,modo:'AUTOMATICO'},job));
+});
 test('só enfileira CSV íntegro de competência e geradora identificadas',()=>{
  assert.equal(conferirArtefatoEnvio(plano).geradora,'1121361801894');
  for(const alteracao of [{rascunho:true},{pendencias:['fatura faltante']},{arquivo:'arquivo.csv'},{csv:'607081301889;11111111111;99;X'},{csv:plano.csv+'\r\n'+plano.csv}])assert.throws(()=>conferirArtefatoEnvio({...plano,...alteracao}));
