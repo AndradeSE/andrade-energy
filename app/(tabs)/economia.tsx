@@ -90,7 +90,6 @@ export default function Economia() {
             title="Não foi possível carregar sua economia"
             subtitle="Verifique sua conexão e tente novamente em alguns instantes."
           />
-          <Button title="Calculadora de economia" onPress={()=>router.push('/simulacao-economia' as any)}/>
         </View>
       </Screen>
     );
@@ -123,7 +122,6 @@ export default function Economia() {
           </View>
         </View>
 
-        <Button title="Calculadora de economia" onPress={()=>router.push('/simulacao-economia' as any)}/>
         <View style={styles.hero}>
           <View style={styles.heroGlow} />
           <Badge label="Desde o início do contrato" variant="success" />

@@ -16,11 +16,11 @@ export default function SimulacaoEconomia(){
  function calcular(){Keyboard.dismiss();try{if(!conta||!base||!desconto)throw new Error('Preencha a conta, a parcela de energia e o desconto da proposta.');setResultado(simularEconomia(valorMoedaMascarada(conta),valorMoedaMascarada(base),numero(desconto)));setErro('');}catch(e:any){setErro(e.message);setResultado(undefined);}}
  const field=(label:string,value:string,set:(v:string)=>void,moeda=true)=><View style={{gap:8}}><Text style={{color:Colors.text,fontWeight:'600'}}>{label}</Text><TextInput accessibilityLabel={label} value={value} onChangeText={change(set,moeda)} keyboardType="decimal-pad" maxLength={moeda?22:6} style={{borderWidth:1,borderColor:Colors.border,borderRadius:12,padding:14,fontSize:18,color:Colors.text,backgroundColor:Colors.surface}}/></View>;
  return <Screen><AppHeader variant="subpage" showPlantSwitch={false} title="Calculadora de economia" subtitle="Estimativa para o cliente" contextTitle="Comparação de valores" contextSubtitle="Sem criar contrato ou cobrança"/><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{padding:20,gap:20,paddingBottom:40}}>
-  <Card><View style={{gap:18}}><Text style={{color:Colors.subtitle,lineHeight:22}}>Compare sua conta atual com uma estimativa usando o desconto da proposta Andrade. O cálculo é uma estimativa e não cria contrato nem cobrança.</Text>
+  <Card><View style={{gap:18}}><Text style={{color:Colors.subtitle,lineHeight:22}}>Monte uma estimativa para apresentar ao cliente, usando a conta atual e o desconto oferecido. O cálculo é uma estimativa e não cria contrato nem cobrança.</Text>
    {field('Valor atual da conta (R$)',conta,setConta)}
-   {field('Parcela de energia elegível ao desconto (R$)',base,setBase)}
+   {field('Valor da energia que receberá desconto (R$)',base,setBase)}
    <Text style={{color:Colors.subtitle,lineHeight:21}}>Use o valor da energia que será compensada. Iluminação pública, tributos e custos não abrangidos pelo desconto ficam fora dessa parcela, conforme a proposta. Não inclua saldo excedente acumulado.</Text>
-   {field('Desconto da proposta (%)',desconto,setDesconto,false)}
+   {field('Desconto oferecido ao cliente (%)',desconto,setDesconto,false)}
    <Button title="Calcular economia" onPress={calcular}/>{erro?<Text accessibilityRole="alert" style={{color:Colors.text}}>{erro}</Text>:null}
   </View></Card>
   {resultado?<><Metric title="Economia estimada por mês" value={money(resultado.economiaMensal)}/><Card><View style={{gap:14}}>
