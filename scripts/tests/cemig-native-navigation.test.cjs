@@ -46,6 +46,11 @@ test('entrega somente os bytes do CSV preparado e emite mudança sem abrir selet
  const window={};run({files:[input],window,config,fileApi});run({files:[input],window,config,fileApi});
  assert.equal(clicks,0);assert.deepEqual(events,['input','change']);
  assert.equal(input.files.length,1);assert.equal(input.files[0].name,'conferido.csv');assert.equal(input.files[0].type,'text/csv');assert.equal(input.files[0].parts[0],config.conteudoCsv);
+ let advances=0;
+ assert.equal(run({window,config,body:'Aguardando validação',controls:[button('Avançar',()=>advances++)]}).state,'PAUSADO');
+ assert.equal(advances,0);
+ assert.equal(run({window,config,body:'conferido.csv',controls:[button('Avançar',()=>advances++)]}).state,'REVISAO');
+ assert.equal(advances,1);
 });
 test('não navega sem início explícito nem UC válida',()=>{
  assert.equal(run({url:'https://www.atendimento.cemig.com.br/portal/home',config:{geradora:'1121361801894',iniciado:false}}).assigned,undefined);

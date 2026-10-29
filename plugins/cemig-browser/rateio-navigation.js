@@ -71,7 +71,7 @@
   }
   var tabs=Array.from(document.querySelectorAll('[role=tab]')).filter(visible).filter(function(el){return text(el)==='Inserir por anexo';});
   if(tabs.length===1&&tabs[0].getAttribute('aria-selected')!=='true'){tabs[0].click();return result('ANEXO','Abrindo envio por anexo.');}
-  if(config.anexado&&body.includes(config.arquivo)&&clickUnique('Avançar'))return result('REVISAO','Abrindo revisão do CSV anexado. Nenhum protocolo será enviado.');
+  if((config.anexado||window.__andradeAttachmentDelivered===config.geradora+'|'+config.arquivo)&&body.includes(config.arquivo)&&clickUnique('Avançar'))return result('REVISAO','Abrindo revisão do CSV anexado. Nenhum protocolo será enviado.');
   var files=Array.from(document.querySelectorAll('input[type=file]')).filter(function(el){return !el.disabled;});
   if(files.length===1){
     if(config.anexoAutomatico&&config.arquivo&&!config.anexado){
@@ -84,6 +84,7 @@
           files[0].files=transfer.files;
           files[0].dispatchEvent(new Event('input',{bubbles:true}));
           files[0].dispatchEvent(new Event('change',{bubbles:true}));
+          window.__andradeAttachmentDelivered=attachmentKey;
           return result('ANEXO','CSV preparado entregue ao portal para validação.');
         }
         files[0].click();
