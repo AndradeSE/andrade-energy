@@ -61,6 +61,10 @@ export async function prepararTesteFila(usina:string,empresa:string,usuario:stri
  if(r.error)throw r.error;
  const saved=await supabase.from('rateio_envios_nativos').select('usuario_id,csv_hash,artefato_teste,estado').eq('empresa_id',empresa).eq('usina_id',usina).eq('competencia','2026-10-01').single();
  if(saved.error||saved.data.usuario_id!==usuario||saved.data.csv_hash!==artifact.hash||!saved.data.artefato_teste)throw new Error('Já existe outro envio nesta competência. Nenhum arquivo foi substituído.');
+ if(['AGUARDANDO_USUARIO','FALHA'].includes(saved.data.estado)){
+  const retry=await supabase.from('rateio_envios_nativos').update({estado:'PENDENTE',lease_id:null,lease_ate:null,atualizado_em:new Date().toISOString()}).eq('empresa_id',empresa).eq('usina_id',usina).eq('usuario_id',usuario).eq('competencia','2026-10-01').eq('csv_hash',artifact.hash).eq('estado',saved.data.estado).select('id');
+  if(retry.error||retry.data?.length!==1)throw new Error('O teste mudou de estado. Atualize a conferência.');
+ }
  return {preparado:true,simulacao:true,geradora:artifact.geradora,hash:artifact.hash};
 }
 export async function atualizarEnvioNativo(usina:string,empresa:string,usuario:string,id:string,body:any){
