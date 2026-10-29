@@ -86,6 +86,7 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
    notify(endMessage)
    return Result.success()
   }catch(error:Exception){
+   if(job!=null&&config!=null&&!isStopped){try{api("/${job!!.getString("id")}/estado",JSONObject().put("leaseId",job!!.getString("leaseId")).put("hash",job!!.getString("hash")).put("estado","AGUARDANDO_USUARIO"))}catch(_:Exception){}}
    if(error.message=="HTTP_401")inputData.getString("usina")?.let{CemigAutomationStore.configure(applicationContext,it,"","",false)}
    notify("O rateio não foi confirmado. Confira a automação no app; nenhum protocolo será repetido automaticamente.")
    return Result.success()
