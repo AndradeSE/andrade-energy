@@ -30,6 +30,7 @@ import { prepararPlanilhaRateio, enviarPlanilhaAoGerador } from "./rateioMensal.
 import { permissaoComercial } from "../comercial/permissoesComerciais";
 import {notificarRateioGerado,obterConfiguracaoRateio,salvarConfiguracaoRateio,buscarRateioAutomatico} from "./rateioAutomatico.service";
 import {cadastroAncoras,FalhaCadastroAncora} from './ucsAncoras.service';
+import cemigNativeRouter from './cemigNative.routes';
 
 const router = Router();
 
@@ -39,6 +40,7 @@ function acessoOperacao(usuario:any) {
 }
 
 router.use(exigirAutenticacao);
+router.use(cemigNativeRouter);
 for(const metodo of ['get','post','put','delete'] as const){
  const rota=metodo==='put'||metodo==='delete'?'/:id/ucs-ancoras/:ancoraId':'/:id/ucs-ancoras';
  router[metodo](rota,exigirGestor,async(req,res)=>{
