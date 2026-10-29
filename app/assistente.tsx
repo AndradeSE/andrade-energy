@@ -867,10 +867,10 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     try { await installLocalModel(); } catch { /* O estado global exibe o erro. */ }
   }
 
-  function leaveConversation(){ if(voiceActive.current && onMinimize) onMinimize(); else if(onClose) onClose(); else router.back(); }
+  function leaveConversation(){ if(keyboardVisible){ Keyboard.dismiss(); return; } if(voiceActive.current && onMinimize) onMinimize(); else if(onClose) onClose(); else router.back(); }
   if (voiceOnly) return null;
 
-  const conversationView = <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+  const conversationView = <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
     <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
       <Pressable onPress={leaveConversation} accessibilityRole="button" accessibilityLabel={onClose ? "Fechar conversa" : "Voltar"} style={styles.back}><Text style={styles.backText}>‹</Text></Pressable>
       <View style={styles.headerText}><Text style={styles.title}>Solar</Text><Text style={styles.subtitle}>Consultas e ações da sua conta</Text></View>
