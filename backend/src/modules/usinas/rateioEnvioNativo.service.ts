@@ -59,6 +59,8 @@ export async function prepararTesteFila(usina:string,empresa:string,usuario:stri
  const copy=copiaDiagnosticaAutorizada(original),artifact=conferirArtefatoEnvio(copy);
  const r=await supabase.from('rateio_envios_nativos').upsert({empresa_id:empresa,usina_id:usina,usuario_id:usuario,competencia:'2026-10-01',registro_rateio_id:randomUUID(),csv_hash:artifact.hash,artefato_teste:copy},{onConflict:'empresa_id,usina_id,competencia',ignoreDuplicates:true});
  if(r.error)throw r.error;
+ const saved=await supabase.from('rateio_envios_nativos').select('usuario_id,csv_hash,artefato_teste,estado').eq('empresa_id',empresa).eq('usina_id',usina).eq('competencia','2026-10-01').single();
+ if(saved.error||saved.data.usuario_id!==usuario||saved.data.csv_hash!==artifact.hash||!saved.data.artefato_teste)throw new Error('Já existe outro envio nesta competência. Nenhum arquivo foi substituído.');
  return {preparado:true,simulacao:true,geradora:artifact.geradora,hash:artifact.hash};
 }
 export async function atualizarEnvioNativo(usina:string,empresa:string,usuario:string,id:string,body:any){
