@@ -32,6 +32,8 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
  private var savedAccess:JSONObject?=null
  private var attached=false
  private var solverRequested=false
+ private var detectorPending=false
+ private var detectorAttempts=0
  private var processing=false
  private var lastState=""
  private var endState="AGUARDANDO_USUARIO"
@@ -160,13 +162,22 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
   val script=applicationContext.assets.open("cemig-rateio-login.js").bufferedReader().use{it.readText()}.replace("__ANDRADE_ACCESS__",access.toString())
   view.evaluateJavascript(script){raw->
    if(raw=="\"LOGIN_ENVIADO\"")savedAccess=null
-   if(raw=="\"CAPTCHA\""&&!solverRequested){
+   if(raw=="\"CAPTCHA\""&&!solverRequested&&!detectorPending){
     if(config?.optBoolean("solver")!=true){stop("AGUARDANDO_USUARIO","O teste pediu CAPTCHA. Nenhum crédito foi usado; confira no app.");return@evaluateJavascript}
-    solverRequested=true
+    detectorPending=true
+    detectorAttempts++
     val detector=applicationContext.assets.open("cemig-rateio-captcha.js").bufferedReader().use{it.readText()}
     view.evaluateJavascript(detector){value->
-     val challenge=try{JSONObject(JSONTokener(value).nextValue() as String)}catch(_:Exception){return@evaluateJavascript}
-     if(challenge.optBoolean("manual")){stop("AGUARDANDO_USUARIO","A verificação requer sua atenção no app.");return@evaluateJavascript}
+     detectorPending=false
+     if(finished.get())return@evaluateJavascript
+     val challenge=try{JSONObject(JSONTokener(value).nextValue() as String)}catch(_:Exception){null}
+     val reason=challenge?.optString("motivo")?:"DESAFIO_AINDA_NAO_DISPONIVEL"
+     if(challenge==null||challenge.optBoolean("manual")){
+      if(reason in listOf("IFRAME_NAO_IDENTIFICADO","DESAFIO_AINDA_NAO_DISPONIVEL")&&detectorAttempts<10)return@evaluateJavascript
+      android.util.Log.i("CemigAutomation","Preview detector="+reason.takeIf{it.matches(Regex("[A-Z_]{1,60}"))}.orEmpty())
+      stop("AGUARDANDO_USUARIO","O desafio não foi identificado com segurança. Nenhum crédito foi usado; confira no app.");return@evaluateJavascript
+     }
+     solverRequested=true
      Thread{try{
       val c=config?:return@Thread
       val answer=CemigNativeAccess.solve(c.getString("base"),c.getString("token"),c.getString("usina"),true,job!!.getString("id"),challenge){!finished.get()}?:error("Sem resposta")
