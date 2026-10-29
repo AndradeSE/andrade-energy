@@ -1,7 +1,8 @@
 param(
   [Parameter(Mandatory=$true)][ValidateSet('gerador','consumidor')][string]$Variant,
   [Parameter(Mandatory=$true)][string]$ApkPath,
-  [Parameter(Mandatory=$true)][string]$ExpectedSha256
+  [Parameter(Mandatory=$true)][string]$ExpectedSha256,
+  [ValidateSet('production','preview')][string]$Environment='production'
 )
 $ErrorActionPreference = 'Stop'
 $apk = Get-Item -LiteralPath $ApkPath
@@ -18,7 +19,7 @@ $headers = @{ Authorization = 'Bearer ' + $fields['password']; 'User-Agent'='And
 try {
   $api = 'https://api.github.com/repos/AndradeSE/andrade-energy'
   $release = Invoke-RestMethod "$api/releases/tags/apps-2026-08-27" -Headers $headers
-  $name = "andrade-energy-$Variant.apk"
+  $name = if($Environment -eq 'preview'){"andrade-energy-$Variant-preview.apk"}else{"andrade-energy-$Variant.apk"}
   $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
   $pending = "pending-$stamp-$name"
   $uploadUrl = ($release.upload_url -replace '\{.*$', '') + '?name=' + $pending

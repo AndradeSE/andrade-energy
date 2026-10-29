@@ -1,3 +1,4 @@
+param([ValidateSet('gerador','consumidor')][string]$VariantFilter,[ValidateSet('preview','production')][string]$EnvironmentFilter)
 $ErrorActionPreference='Stop'
 Set-Location 'C:/ae-browser-preview'
 $env:JAVA_HOME='C:/Users/vini_/andrade-energy/.local-android/jdk'
@@ -9,9 +10,10 @@ $env:ANDRADE_NATIVE_CEMIG_BROWSER='1';$env:ANDRADE_CEMIG_AUTOMATION_PREVIEW='1';
 $env:ANDRADE_ANDROID_EMULATOR='0'
 $target='C:/Users/vini_/andrade-energy/output/apps/release-20261029'
 New-Item -ItemType Directory -Path $target -Force | Out-Null
-$matrix=@(@('gerador','preview'),@('gerador','production'),@('consumidor','preview'),@('consumidor','production'))
+$matrix=@(@('gerador','production'),@('consumidor','preview'),@('consumidor','production'),@('gerador','preview'))
 foreach($item in $matrix){
  $variant=$item[0];$environment=$item[1];$tag="$variant-$environment"
+ if(($VariantFilter -and $variant -ne $VariantFilter) -or ($EnvironmentFilter -and $environment -ne $EnvironmentFilter)){continue}
  if((Get-PSDrive C).Free -lt 2GB){throw 'Espaço insuficiente para continuar sem comprometer a build.'}
  $env:EXPO_PUBLIC_APP_VARIANT=$variant;$env:EXPO_PUBLIC_APP_ENV=$environment
  $env:EXPO_PUBLIC_API_URL=if($environment -eq 'preview'){'https://andrade-energy-api-homologacao.onrender.com/api'}else{'https://andrade-energy-api-vda.onrender.com/api'}
@@ -22,6 +24,16 @@ foreach($item in $matrix){
  Write-Output "PREBUILD $tag"
  & npx.cmd expo prebuild --platform android --no-install *> "$target/prebuild-$tag.log"
  if($LASTEXITCODE -ne 0){throw "Prebuild falhou: $tag"}
+ # O cache do React Native usa os mesmos lockfiles para todos os pacotes.
+ # Regerar por variante evita referências BuildConfig do aplicativo anterior.
+ $linking=(& npx.cmd expo-modules-autolinking react-native-config --platform android --json 2> "$target/autolinking-$tag.log") -join "`n"
+ if($LASTEXITCODE -ne 0){throw "Autolinking falhou: $tag"}
+ $linkingConfig=$linking | ConvertFrom-Json
+ $expectedPackage="com.andradese.energy.$variant"+$(if($environment -eq 'preview'){'.preview'}else{''})
+ if($linkingConfig.project.android.packageName -ne $expectedPackage){throw "Pacote gerado divergente: $tag"}
+ $linkingPath=Join-Path (Get-Location) 'android/build/generated/autolinking/autolinking.json'
+ New-Item -ItemType Directory -Path (Split-Path $linkingPath) -Force | Out-Null
+ [IO.File]::WriteAllText($linkingPath,$linking,[Text.UTF8Encoding]::new($false))
  Write-Output "BUILD $tag"
  & ./android/gradlew.bat -p android :app:assembleRelease '-PreactNativeArchitectures=arm64-v8a' -I ../scripts/android-variant-inputs.gradle '-Dorg.gradle.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=512m' --max-workers=1 --no-parallel --no-daemon *> "$target/build-$tag.log"
  if($LASTEXITCODE -ne 0){throw "Build falhou: $tag"}
