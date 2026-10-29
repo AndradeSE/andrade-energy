@@ -241,29 +241,31 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   if (!isPreviewEnvironment || !authenticated) return <Redirect href="/" />;
 
   async function openInvoicePdf(id: string) {
-    if (openingInvoiceId) return;
+    if (openingInvoiceId) return false;
     setOpeningInvoiceId(id);
     try {
       const invoice = await buscarFatura(id);
       const url = String(invoice?.pdf_unificada_url ?? "").trim();
       if (!/^https:\/\//i.test(url)) {
         Alert.alert("PDF indisponível", "A fatura foi encontrada, mas o PDF unificado ainda não está disponível para baixar.");
-        return;
+        return false;
       }
-      if (Platform.OS === "web") { await Linking.openURL(url); return; }
+      if (Platform.OS === "web") { await Linking.openURL(url); return true; }
       const file = await File.downloadFileAsync(url, new File(Paths.document, `fatura-andrade-${id.replace(/[^a-zA-Z0-9-]/g, "")}.pdf`), { idempotent: true });
       if (!file.exists || !file.size || file.size < 512) throw new Error("Arquivo vazio");
       if (Platform.OS === "android") {
         try {
           const contentUri = await FileSystemLegacy.getContentUriAsync(file.uri);
           await IntentLauncher.startActivityAsync("android.intent.action.VIEW", { data: contentUri, flags: 1, type: "application/pdf" });
-          return;
+          return true;
         } catch { /* Usa o compartilhamento quando não há visualizador de PDF. */ }
       }
       if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { dialogTitle: "Abrir ou salvar fatura", mimeType: "application/pdf", UTI: "com.adobe.pdf" });
-      else Alert.alert("PDF salvo", "A fatura foi salva no aplicativo.");
+      else { Alert.alert("PDF salvo", "A fatura foi salva no aplicativo, mas não há visualizador disponível."); return false; }
+      return false;
     } catch {
       Alert.alert("Não consegui abrir o PDF", "O link pode ter expirado ou a conexão falhou. Tente novamente; não gere outra cobrança.");
+      return false;
     } finally {
       setOpeningInvoiceId(undefined);
     }
@@ -276,17 +278,17 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   }
 
   async function openToolDocument(doc: AssistantDocument) {
-    if (openingInvoiceId) return;
+    if (openingInvoiceId) return false;
     const key = `${doc.kind}:${doc.id}`;
     const generation = contextGeneration.current;
     setOpeningInvoiceId(key);
     try {
       const resolved = await resolveAssistantDocument(doc);
-      if (generation !== contextGeneration.current) return;
+      if (generation !== contextGeneration.current) return false;
       let uri = resolved.file;
       if (!uri) {
         if (!resolved.url || !/^https:\/\//i.test(resolved.url)) throw new Error("Documento indisponível");
-        if (Platform.OS === "web") { await Linking.openURL(resolved.url); return; }
+        if (Platform.OS === "web") { await Linking.openURL(resolved.url); return true; }
         const file = await File.downloadFileAsync(resolved.url, new File(Paths.cache, `documento-${doc.kind}-${doc.id.replace(/[^a-zA-Z0-9-]/g, "")}.pdf`), { idempotent: true });
         if (!file.exists || !file.size || file.size < 512) throw new Error("Arquivo vazio");
         uri = file.uri;
@@ -296,13 +298,15 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
         try {
           const contentUri = await FileSystemLegacy.getContentUriAsync(uri);
           await IntentLauncher.startActivityAsync("android.intent.action.VIEW", { data: contentUri, flags: 1, type: "application/pdf" });
-          return;
+          return true;
         } catch { /* Sem leitor instalado: oferecer salvar/compartilhar. */ }
       }
       if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { dialogTitle: "Abrir ou salvar documento", mimeType: "application/pdf", UTI: "com.adobe.pdf" });
-      else Alert.alert("Documento salvo", "O documento foi salvo no aplicativo.");
+      else Alert.alert("Documento salvo", "O documento foi salvo, mas não há visualizador disponível.");
+      return false;
     } catch {
       Alert.alert("Documento indisponível", "O PDF pode não ter sido gerado ou seu acesso pode ter mudado. Confira o contexto e tente novamente; não vou criar um arquivo inexistente.");
+      return false;
     } finally { setOpeningInvoiceId(undefined); }
   }
 
@@ -488,6 +492,13 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
         response = { from: "assistant", ...await answerAssistantConversation({ mode: responseMode, modelReady, question, history: nextMessages.slice(0, -1), help: reply.kind === "help" ? reply.text : undefined, context: localAssistantContext(IS_GERADOR_APP ? "gerador" : "consumidor") }, { online: answerConversationOnline, local: answerWithLocalModel }) };
       }
       if (generation !== contextGeneration.current) return;
+      if(/\b(abrir|abra|visualizar|visualize|mostrar|mostre)\b/i.test(question)){
+        const doc=response.documents?.length===1?response.documents[0]:undefined;
+        if(doc||response.invoiceId){
+          const opened=doc?await openToolDocument(doc):await openInvoicePdf(response.invoiceId!);
+          response.text=opened?'Solicitei a abertura no visualizador. Use Voltar para retornar a esta conversa; ela permanece preservada.':'Não consegui confirmar a abertura do visualizador. O documento continua disponível abaixo para tentar novamente.';
+        }
+      }
       response.private = response.private || privateTurn;
       messagesRef.current = [...messagesRef.current, response].slice(-40);
       setMessages(messagesRef.current);
@@ -675,8 +686,8 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
               });
               if (generation !== contextGeneration.current) return "A conta selecionada mudou. Repita sua consulta.";
               if (voiceOnly) {
-                if (reply.invoiceId) { void openInvoicePdf(reply.invoiceId); return "Encontrei o PDF e solicitei sua abertura no aplicativo."; }
-                if (reply.documents?.length === 1) { void openToolDocument(reply.documents[0]); return "Encontrei o documento e solicitei sua abertura no aplicativo."; }
+                if (reply.invoiceId) { const opened=await openInvoicePdf(reply.invoiceId); return opened?"O Android recebeu o pedido para abrir o PDF no visualizador. Use Voltar para retornar à conversa, que foi preservada.":"Não confirmei a abertura de um visualizador. Confira o aviso na tela ou toque no documento da conversa."; }
+                if (reply.documents?.length === 1) { const opened=await openToolDocument(reply.documents[0]); return opened?"O visualizador recebeu o documento. Use Voltar para retornar ao chat preservado.":"Não confirmei a abertura do visualizador. Confira o aviso na tela."; }
                 if (reply.invoiceChoices?.length || reply.documents?.length) return "Encontrei mais de um documento. Pergunte por uma referência específica ou pela última fatura.";
               }
               if (!voiceOnly) {
