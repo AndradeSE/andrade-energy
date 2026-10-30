@@ -1,10 +1,5 @@
 export const FONTE_TARIFAS_CEMIG='https://www.cemig.com.br/valores-e-tarifas/tarifas-vigentes/';
-export function tarifaComTributos(tarifa:number,icms:number,pis:number,cofins:number){
- const aliquotas=[icms,pis,cofins];
- if(!Number.isFinite(tarifa)||tarifa<=0||aliquotas.some(v=>!Number.isFinite(v)||v<0||v>=100)||icms+pis+cofins>=100)throw new Error('Confira a tarifa e as alíquotas de ICMS, PIS e Cofins.');
- // PIS/Cofins não incluem ICMS em sua base (orientação Cemig).
- return tarifa/((1-icms/100)*(1-(pis+cofins)/100));
-}
+export { tarifaComTributos } from "./impostos-tarifa";
 export async function consultarTarifaCemig(classe:string,bandeira:number):Promise<number>{
  if(!['B1','B2','B3'].includes(classe)||![0,1,2,3].includes(bandeira))throw new Error('Selecione a classe e a bandeira.');
  const response=await api.get('/usinas/tarifas-cemig',{timeout:20000});
@@ -23,3 +18,10 @@ export async function consultarTarifaCemig(classe:string,bandeira:number):Promis
  throw new Error('Tabela oficial não reconhecida. Informe a tarifa manualmente.');
 }
 import api from '../config/api';
+export type TributosConsultados = {solicitado:string; vigente:boolean; tributos:{referencia:string;pis:number;cofins:number;icmsPadrao:number|null;fonte:string}|null};
+export async function consultarTributosCemig(referencia:string):Promise<TributosConsultados>{
+ const {data}=await api.get('/usinas/tributos-cemig',{params:{referencia},timeout:35000});
+ const t=data?.tributos;
+ if(t&&(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(t.referencia)||![t.pis,t.cofins].every(v=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<20)))throw new Error('A fonte não retornou impostos válidos.');
+ return data;
+}
