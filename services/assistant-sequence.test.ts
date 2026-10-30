@@ -22,3 +22,12 @@ test('para com controle ausente, cancelamento ou mudança de conta; não repete 
  try{assert.match((await executeSolarSequence('abra clientes depois clique no botão Salvar',io))!,/cancelada/);assert.equal(calls,3);
  assert.match((await executeSolarSequence('abra clientes depois clique no botão Salvar',{...io,current:()=>false}))!,/ambiente mudou/);assert.equal(calls,3);}finally{off();}
 });
+
+test('comparações e perguntas com separadores continuam sendo conversa, sem ações',async()=>{
+ const {parseSolarSequence}=await import('./assistant-sequence');
+ for(const question of ['Compare rapidez; explique riscos e uma recomendação em etapas.','Explique abrir clientes depois preencher o cadastro.','O que acontece primeiro; e depois?']) {
+  assert.equal(parseSolarSequence(question),undefined);
+  assert.equal(await executeSolarSequence(question,{context,scope:'conta',current:()=>true,navigate:()=>{throw Error('Não navegar');},routeReady:()=>true,control:async()=>{throw Error('Não acionar');}}),undefined);
+ }
+ assert.equal(parseSolarSequence('abra clientes depois abra economia')?.length,2);
+});

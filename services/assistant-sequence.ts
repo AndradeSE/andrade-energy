@@ -3,7 +3,10 @@ import {resolveSafeNavigation,type SafeNavigationContext} from './assistant-safe
 const norm=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
 export function parseSolarSequence(text:string){
  const steps=text.trim().split(/\s*;\s*|\s+(?:e depois|depois|em seguida)\s+/i).filter(Boolean);
- return steps.length>1?steps:undefined;
+ // Separadores em explicações e comparações não autorizam navegação.
+ const first=norm(steps[0]??'').replace(/^(?:por favor[, ]*|(?:quero que|pode|voce pode) (?:voce )?)/,'');
+ const imperative=/^(?:abra|abrir|acesse|acessar|va para|ir para|busque|buscar|preencha|preencher|clique|clicar|toque|tocar|selecione|selecionar)\b/.test(first);
+ return steps.length>1&&imperative?steps:undefined;
 }
 export async function executeSolarSequence(text:string,io:{context:SafeNavigationContext;scope:string;current:()=>boolean;navigate:(route:string,params?:Record<string,string>)=>void;routeReady:(route:string)=>boolean;control:(step:string)=>Promise<string|undefined>;pause?:(ms:number)=>Promise<void>}){
  const steps=parseSolarSequence(text);
