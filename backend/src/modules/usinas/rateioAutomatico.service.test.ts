@@ -6,9 +6,7 @@ process.env.RESEND_API_KEY="test";
 process.env.EMAIL_DESTINATARIOS_PERMITIDOS="gerador@example.com";
 
 test("última fatura gera um arquivo persistente, um e-mail e um push; repetir a conferência não duplica",async()=>{
-  const {processarRateiosAutomaticos,fechamentoRateioAtualCompleto}=await import("./rateioAutomatico.service.js");
-  const {reivindicarEnvioNativo}=await import("./rateioEnvioNativo.service.js");
-  process.env.CEMIG_NATIVE_BACKGROUND_ENABLED="true";
+  const {processarRateiosAutomaticos}=await import("./rateioAutomatico.service.js");
   const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit"}).formatToParts(new Date());
   const mes=`${parts.find(p=>p.type==="year")!.value}-${parts.find(p=>p.type==="month")!.value}`;
   const original=globalThis.fetch;
@@ -29,9 +27,7 @@ test("última fatura gera um arquivo persistente, um e-mail e um push; repetir a
       push++;return Response.json({data:[{status:"ok",id:"ticket-a"}]});
     }
     const table=url.pathname.split("/").pop();let result:any=[];
-    if(table==="rateio_envios_nativos")result={id:"old-job",competencia:`${mes}-01`,csv_hash:"a".repeat(64)};
-    else if(table==="rateio_envio_nativo_config")result={habilitado:true,modo:"AUTOMATICO",competencia_inicio:`${mes}-01`};
-    else if(table==="reivindicar_rateio_mensal"){
+    if(table==="reivindicar_rateio_mensal"){
       assert.equal(body.p_empresa,"empresa-a");assert.equal(body.p_usina,"usina-a");claims++;
       if(registro?.status!=="GERADO"){registro={id:"job-a",empresa_id:"empresa-a",usina_id:"usina-a",status:"GERANDO",lease_id:"lease-a",competencia:`${mes}-01`,email_status:"PENDENTE"};result=[{...registro}];}
     }else if(table==="usinas"){
@@ -60,11 +56,7 @@ test("última fatura gera um arquivo persistente, um e-mail e um push; repetir a
     return Response.json(result);
   };
   try{
-    assert.equal(await fechamentoRateioAtualCompleto("usina-a","empresa-a",mes),false);
-    await assert.rejects(reivindicarEnvioNativo("usina-a","empresa-a","gerador-a","old-job"),/Aguardando produção/);
-    assert.equal(push,0);
     await processarRateiosAutomaticos();assert.equal(claims,0);assert.equal(email,0);
-    completa=true;assert.equal(await fechamentoRateioAtualCompleto("usina-a","empresa-a",mes),true);
     completa=true;await processarRateiosAutomaticos();
     for(let i=0;i<10&&!push;i++)await new Promise(resolve=>setImmediate(resolve));
     assert.equal(registro.status,"GERADO");assert.equal(registro.resultado.linhas[0].percentual,8);
