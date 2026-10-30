@@ -1,3 +1,4 @@
+import {fechamentoRateioAtualCompleto} from './rateioAutomatico.service';
 import {supabase} from '../../config/supabase';
 import {conferirArtefatoEnvio,conferirTransicaoEnvio,conferirAutorizacaoEnvio,EstadoEnvioNativo} from './rateioEnvioNativo.policy';
 import {prepararPlanilhaRateio} from './rateioMensal.service';
@@ -43,6 +44,7 @@ export async function listarFilaNativa(usina:string,empresa:string,usuario:strin
  const ready=await readyQuery.order('competencia').limit(12);
  if(ready.error)throw ready.error;
  for(const r of ready.data??[]){
+  if(!await fechamentoRateioAtualCompleto(usina,empresa,String(r.competencia).slice(0,7)))continue;
   let artefato;try{artefato=conferirArtefatoEnvio(r.resultado);}catch{continue;}
   if(c.data.modo==='AUTORIZADO'&&artefato.hash!==c.data.hash_autorizado)continue;
   const add=await supabase.from('rateio_envios_nativos').upsert({empresa_id:empresa,usina_id:usina,usuario_id:usuario,competencia:r.competencia,registro_rateio_id:r.id,csv_hash:artefato.hash},{onConflict:'empresa_id,usina_id,competencia',ignoreDuplicates:true});
@@ -54,11 +56,12 @@ export async function listarFilaNativa(usina:string,empresa:string,usuario:strin
 }
 export async function reivindicarEnvioNativo(usina:string,empresa:string,usuario:string,id:string){
  await scope(usina,empresa);
- const job=await supabase.from('rateio_envios_nativos').select('id,competencia,csv_hash').eq('id',id).eq('empresa_id',empresa).eq('usuario_id',usuario).eq('usina_id',usina).maybeSingle();
+ const job=await supabase.from('rateio_envios_nativos').select('id,competencia,csv_hash,artefato_teste').eq('id',id).eq('empresa_id',empresa).eq('usuario_id',usuario).eq('usina_id',usina).maybeSingle();
  if(job.error||!job.data)throw new Error('Envio indisponível.');
  const authorization=await supabase.from('rateio_envio_nativo_config').select('*').eq('empresa_id',empresa).eq('usuario_id',usuario).eq('usina_id',usina).maybeSingle();
  if(authorization.error)throw authorization.error;
  conferirAutorizacaoEnvio(authorization.data,job.data);
+ if(!(preview()&&job.data.artefato_teste)&&!await fechamentoRateioAtualCompleto(usina,empresa,String(job.data.competencia).slice(0,7)))throw new Error('Aguardando produção da usina e todas as faturas das UCs vigentes desta competência. Nenhum envio iniciado.');
  const claim=await supabase.rpc('reivindicar_envio_nativo',{p_empresa:empresa,p_usuario:usuario,p_id:id});
  if(claim.error||!claim.data?.[0])throw new Error('Envio já reservado ou encerrado. Não repetir.');
  const row=claim.data[0];
@@ -80,6 +83,7 @@ export async function atualizarEnvioNativo(usina:string,empresa:string,usuario:s
  if(before.error||before.data.csv_hash!==body.hash)throw new Error('Sessão encerrada ou arquivo divergente.');
  conferirTransicaoEnvio(before.data.estado as EstadoEnvioNativo,body.estado,preview(),body.protocolo);
  if(body.estado==='ENVIANDO'){
+  if(!await fechamentoRateioAtualCompleto(usina,empresa,String(before.data.competencia).slice(0,7)))throw new Error('Competência incompleta. Protocolo bloqueado.');
   const enabled=await supabase.from('rateio_envio_nativo_config').select('*').eq('empresa_id',empresa).eq('usina_id',usina).eq('usuario_id',usuario).maybeSingle();
   if(enabled.error)throw enabled.error;
   conferirAutorizacaoEnvio(enabled.data,before.data);
