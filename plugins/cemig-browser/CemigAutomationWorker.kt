@@ -98,7 +98,9 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
   }catch(error:Exception){
    if(job!=null&&config!=null&&!isStopped){try{saveState(if(submissionReserved)"INCERTO" else "AGUARDANDO_USUARIO")}catch(_:Exception){}}
    if(error.message=="HTTP_401")inputData.getString("usina")?.let{CemigAutomationStore.configure(applicationContext,it,"","",false)}
-   notify("O rateio não foi confirmado. Confira a automação no app; nenhum protocolo será repetido automaticamente.")
+   // Consultar a fila não é iniciar um rateio. Falhas antes do claim não
+   // podem produzir um aviso de falha de envio sem existir tarefa reservada.
+   if(job!=null)notify("O rateio não foi confirmado. Confira a automação no app; nenhum protocolo será repetido automaticamente.")
    return Result.success()
   }finally{
    finished.set(true);savedAccess=null;config=null
