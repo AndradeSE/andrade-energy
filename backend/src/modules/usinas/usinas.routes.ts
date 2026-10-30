@@ -43,6 +43,15 @@ function acessoOperacao(usuario:any) {
 }
 
 router.use(exigirAutenticacao);
+router.get('/tarifas-cemig',async(_req,res)=>{
+ try{
+  const resposta=await fetch('https://www.cemig.com.br/valores-e-tarifas/tarifas-vigentes/',{signal:AbortSignal.timeout(15000)});
+  if(!resposta.ok)throw new Error('Fonte indisponível');
+  const html=await resposta.text();
+  res.setHeader('Cache-Control','private, max-age=300');
+  return res.json({html,fonte:'https://www.cemig.com.br/valores-e-tarifas/tarifas-vigentes/',consultadoEm:new Date().toISOString()});
+ }catch{return res.status(502).json({message:'A Cemig não respondeu à consulta de tarifas. Tente novamente ou informe manualmente.'});}
+});
 router.post('/:id/cemig-fila/diagnostico',exigirGestor,exigirSuperAdministradorAndrade,async(req,res)=>{
  res.setHeader('Cache-Control','private, no-store');
  try{return res.json(await prepararTesteFila(req.params.id,empresaIdDaRequisicao(req),(req as any).usuario.id,req.body));}
