@@ -7,9 +7,9 @@ test("saldo abate somente a necessidade: 1000 de consumo menos 400 resulta em 6%
   assert.equal(p.linhas[0].necessidade,600);assert.equal(p.linhas[0].percentual,6);assert.equal(p.linhas[1].percentual,94);
 });
 test("saldo suficiente retira a beneficiária do CSV sem cancelar contrato, deixando sobra na âncora",()=>{
-  const p=proporRateioMensal(10000,[{numero:"123456789",documento:"52998224725",consumo_medio_kwh:1000,saldo_atual_kwh:1400}],"987654321");
+  const p=proporRateioMensal(10000,[{numero:"123456789",documento:"52998224725",consumo_medio_kwh:1000,saldo_atual_kwh:1400}],"607081301889");
   assert.equal(p.suspensas.length,1);assert.equal(p.linhas.length,1);assert.equal(p.linhas[0].percentual,100);
-  assert.equal(csvCemigRateio(p,"456789123","52998224725",true),"987654321;52998224725;100;X");
+  assert.equal(csvCemigRateio(p,"1121361801894","52998224725",true),"607081301889;52998224725;100;X");
 });
 test("saldo nunca migra entre as duas UCs do cliente e não usa faturas futuras ou ausentes",()=>{
   const leituras:any[]=[
