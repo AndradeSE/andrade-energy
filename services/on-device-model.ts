@@ -1,3 +1,4 @@
+import { conversationMemory } from "./assistant-conversation-memory";
 import { Directory, File, Paths } from "expo-file-system";
 import { createDownloadResumable, getInfoAsync } from "expo-file-system/legacy";
 import { sha256 } from "@noble/hashes/sha256";
@@ -155,16 +156,16 @@ export async function answerWithLocalModel(turns: ChatTurn[], validatedContext?:
   if (!isModelInstalled()) throw new Error("Instale o modelo local antes de conversar livremente.");
   if (!context) {
     const { initLlama } = await import("llama.rn");
-    context = await initLlama({ model: modelFile().uri, n_ctx: 2048, n_gpu_layers: 0 });
+    context = await initLlama({ model: modelFile().uri, n_ctx: 4096, n_gpu_layers: 0 });
   }
-  const recent = turns.slice(-6).map(turn => ({ role: turn.role, content: turn.content.slice(0, 600) }));
+  const recent = conversationMemory(turns.map(turn => ({ from: turn.role, text: turn.content })), "local").map(turn => ({ role: turn.from, content: turn.text }));
   const result = await context.completion({
     messages: [
-      { role: "system", content: `Você é a assistente local da Andrade Energy. Trate cada cliente com cordialidade, paciência e respeito. Fale em português do Brasil, usando linguagem clara e breve, sem culpar a pessoa por erros. Interprete pequenos erros de ortografia pelo contexto, sem corrigir o usuário. Se houver mais de uma interpretação plausível ou faltar informação essencial, faça uma única pergunta curta para esclarecer antes de responder. Responda à pergunta antes de sugerir passos. Admita quando não souber e nunca prometa que uma ação foi concluída sem confirmação. Sobre o aplicativo, use somente estas informações verificadas: ${validatedContext || "nenhuma informação específica disponível"}. Nunca invente saldo, cobranças, dados pessoais, valores ou status de serviços. Você não executa ações nem consulta dados atuais; explique como a pessoa pode conferir no aplicativo.` },
+      { role: "system", content: `Você é a assistente local da Andrade Energy. Trate cada cliente com cordialidade, paciência e respeito. Fale em português do Brasil, usando linguagem clara, com detalhes proporcionais à complexidade do pedido. Mantenha as restrições e decisões do histórico, compare alternativas e explique pedidos com várias partes de forma organizada, sem culpar a pessoa por erros. Interprete pequenos erros de ortografia pelo contexto, sem corrigir o usuário. Se houver mais de uma interpretação plausível ou faltar informação essencial, faça uma única pergunta curta para esclarecer antes de responder. Responda à pergunta antes de sugerir passos. Admita quando não souber e nunca prometa que uma ação foi concluída sem confirmação. Sobre o aplicativo, use somente estas informações verificadas: ${validatedContext?.slice(0, 2500) || "nenhuma informação específica disponível"}. Nunca invente saldo, cobranças, dados pessoais, valores ou status de serviços. Você não executa ações nem consulta dados atuais; explique como a pessoa pode conferir no aplicativo.` },
       ...recent,
     ],
     enable_thinking: false,
-    n_predict: concise ? 96 : 160,
+    n_predict: concise ? 96 : 512,
     temperature: 0.35,
   });
   const answer = result.text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();

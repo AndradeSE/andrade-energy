@@ -1,3 +1,4 @@
+import { conversationMemory } from "./assistant-conversation-memory";
 import api from "../config/api";
 import { isAssistantEnabled as isPreviewEnvironment } from "../config/environment";
 import { IS_GERADOR_APP } from "../config/appVariant";
@@ -33,16 +34,16 @@ export function redactConversationText(text: string): string {
   return text.replace(/https?:\/\/\S+/gi, "[link privado]")
     .replace(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi, "[email]")
     .replace(/R\$\s*[\d.,]+/gi, "[valor privado]")
-    .replace(/\d[\d .()/+-]{6,}\d/g, "[identificador privado]").slice(0, 1200);
+    .replace(/\d[\d .()/+-]{6,}\d/g, "[identificador privado]").slice(0, 4000);
 }
 
 export async function answerConversationOnline(question: string, history: Array<{ from: "user" | "assistant"; text: string; private?: boolean }>): Promise<{ text: string; voiceAnswerId?: string }> {
   if (!isPreviewEnvironment) throw new Error("Conversa online disponível apenas no Preview.");
   const response = await api.post<{ answer?: string; voiceAnswerId?: string }>("/assistente/responder", {
     question: redactConversationText(question),
-    history: history.filter(message => !message.private).slice(-8).map(message => ({ role: message.from === "assistant" ? "model" : "user", text: redactConversationText(message.text) })),
+    history: conversationMemory(history, "online").map(message => ({ role: message.from === "assistant" ? "model" : "user", text: redactConversationText(message.text) })),
     variant: IS_GERADOR_APP ? "gerador" : "consumidor",
-  }, { timeout: 12000 });
+  }, { timeout: 40000 });
   if (!response.data.answer) throw new Error("Gemini sem resposta.");
   return { text: response.data.answer, voiceAnswerId: response.data.voiceAnswerId };
 }
