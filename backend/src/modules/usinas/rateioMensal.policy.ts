@@ -38,9 +38,9 @@ export function proporRateioMensal(producaoMedia: number, unidades: DemandaRatei
 
 export function pendenciasCsvCemig(plano: ReturnType<typeof proporRateioMensal>, geradora: string, documentoAncora: string, _numerosAtuaisConfirmados: boolean) {
   const pendencias: string[] = [];
-  if (!/^\d{6,20}$/.test(geradora)) pendencias.push("Confira o número da UC geradora no cadastro.");
-  const numeros=plano.linhas.filter(l=>!l.ancora).map(l=>l.uc);
-  if(numeros.some(uc=>!/^\d{6,20}$/.test(uc))||new Set(numeros).size!==numeros.length)pendencias.push("Corrija UCs inválidas ou duplicadas no cadastro.");
+  if (!/^\d{12,13}$/.test(geradora)) pendencias.push("Informe o número atual da UC geradora, conforme o portal Cemig; o número antigo de instalação não é aceito.");
+  const numeros=plano.linhas.filter(l=>/^\d+$/.test(l.uc)).map(l=>l.uc);
+  if(numeros.some(uc=>!/^\d{12,13}$/.test(uc))||new Set(numeros).size!==numeros.length)pendencias.push("Informe os números atuais das UCs, inclusive a âncora, sem números antigos de instalação nem duplicatas.");
   if (plano.rascunho) pendencias.push("Defina o número da UC âncora.");
   for (const linha of plano.linhas) {
     const documento=linha.ancora ? documentoAncora.replace(/\D/g,"") : linha.documento;
