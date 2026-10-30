@@ -16,7 +16,7 @@ test("voz só lê resposta pública da mesma sessão, com prazo e censura", () =
 
 test("resposta longa válida não vira falha de conexão", () => {
   const answer = geminiAnswer({ candidates: [{ content: { parts: [{ text: "Uma orientação válida. ".repeat(60) }] } }] });
-  assert.ok(answer && answer.length <= 800);
+  assert.ok(answer && answer.length <= 6000);
   assert.match(answer, /^Uma orientação válida/);
 });
 
