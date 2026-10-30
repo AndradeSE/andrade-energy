@@ -68,6 +68,25 @@ async function entregarGerado(registro:any) {
   if(final.error)throw final.error;
 }
 
+export async function fechamentoRateioAtualCompleto(usina:string,empresa:string,competencia:string) {
+  if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(competencia))return false;
+  const [producoes,faturas,unidades,contratos,anexos]=await Promise.all([
+    todas(()=>supabase.from("fechamentos").select("competencia,energia_gerada").eq("empresa_id",empresa).eq("usina_id",usina).gte("competencia",`${competencia}-01`).order("competencia")),
+    todas(()=>supabase.from("faturas").select("id,numero_instalacao,cliente_id,referencia,status").eq("empresa_id",empresa).eq("usina_id",usina).order("id")),
+    todas(()=>supabase.from("unidades_consumidoras").select("id,numero,cliente_id,created_at").eq("empresa_id",empresa).eq("usina_id",usina).eq("status","ATIVA").neq("tipo","GERADORA").order("id")),
+    todas(()=>supabase.from("contratos").select("id,unidade_consumidora_id,aceite_cliente_em,contrato_assinado_url,status,dados_documento,vigencia_inicio").eq("empresa_id",empresa).in("status",["ATIVO","VIGENTE"]).order("id")),
+    todas(()=>supabase.from('faturas_anexadas_clientes').select('id,cliente_id,dados_fatura').eq('empresa_id',empresa).order('id')),
+  ]);
+  // PDFs recebidos durante a suspensão comprovam o fechamento sem gerar cobrança.
+  const recebidas=[...faturas,...anexos.map(a=>({cliente_id:a.cliente_id,numero_instalacao:(a.dados_fatura as any)?.uc,referencia:(a.dados_fatura as any)?.referencia,status:'PROCESSADO'}))];
+
+  const seguinte=new Date(competencia+'-01T00:00:00Z');seguinte.setUTCMonth(seguinte.getUTCMonth()+1);
+  const limite=seguinte.toISOString();
+  const assinadas=new Set(contratos.filter(c=>contratoElegivelParaRateio(c)&&(!c.vigencia_inicio||String(c.vigencia_inicio)<limite.slice(0,10))).map(c=>c.unidade_consumidora_id));
+  const esperadas=unidades.filter(u=>u.cliente_id&&assinadas.has(u.id)&&(!u.created_at||String(u.created_at)<limite)) as UcEsperada[];
+  return competenciaRateioCompleta(competencia,esperadas,recebidas,producoes);
+}
+
 async function processarUsina(config:any) {
   const empresa=config.empresa_id,usina=config.usina_id;
   const [producoes,faturas,unidades,contratos,anexos]=await Promise.all([
