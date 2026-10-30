@@ -1,3 +1,4 @@
+import {mascaraUcCemig} from '../../utils/input-masks';
 import { mascaraDocumento } from "../../utils/input-masks";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
@@ -307,7 +308,7 @@ export default function NovaUnidade() {
   return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Nova unidade" subtitle="Cadastro da carteira" contextTitle="Nova unidade" contextSubtitle={origem === "fatura" ? "Dados lidos da conta de energia" : "Cadastro manual"} icon="flash-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
     <Text style={styles.eyebrow}>{origem === "fatura" ? "DADOS LIDOS DA FATURA" : "CADASTRO MANUAL"}</Text><Text style={styles.title}>Nova unidade</Text>
     <Text style={styles.subtitle}>{clienteIdVinculado ? "Confirme o número. Os demais dados serão herdados do cliente." : cadastroRapido === "1" ? "Confirme o número e escolha o cliente. Os demais dados serão herdados automaticamente." : "Confira a leitura e escolha a quem esta unidade pertence."}</Text>
-    <Card><FormField label="Número da UC / instalação" value={numero} onChangeText={(v) => setNumero(v.replace(/\D/g, ""))} keyboardType="numeric" />
+    <Card><FormField label="Número atual da UC" value={mascaraUcCemig(numero)} onChangeText={(v) => setNumero(v.replace(/\D/g, "").slice(0,13))} placeholder="6.070.813.018-89" maxLength={18} keyboardType="numeric" />
       {!clienteIdVinculado && cadastroRapido !== "1" ? <><FormField label="Titular" value={titular} onChangeText={setTitular} /><FormField label="Endereço" value={endereco} onChangeText={setEndereco} /></> : null}
       {tipo !== "GERADORA" ? <>
         <Text style={styles.configurationTitle}>CONFIGURAÇÃO DA UC</Text>

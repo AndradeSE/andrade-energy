@@ -1,3 +1,4 @@
+import {mascaraUcCemig} from '../../utils/input-masks';
 import {useEffect,useRef,useState} from 'react';
 import {Alert,Keyboard,KeyboardAvoidingView,Modal,Platform,ScrollView,StyleSheet,Text,View} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -44,7 +45,7 @@ export default function UcAncoraSelector({usinaId,empresaId,value,onChange,disab
   <Text style={styles.titulo}>UC âncora</Text>
   <Pressable accessibilityRole="button" accessibilityLabel={`Selecionar UC âncora. ${selecionada?.apelido||value||'Nenhuma selecionada'}`} disabled={disabled||carregando} onPress={()=>{setEscolha(value);setAberto(true);}} style={[styles.seletor,{opacity:disabled?0.5:1}]}>
    <View style={{flex:1,gap:4}}><Text style={styles.titulo}>{carregando?'Carregando âncoras…':selecionada?.apelido|| (value?'UC âncora selecionada':'Selecionar ou adicionar âncora')}</Text>
-    {value?<Text style={styles.texto}>UC {value}{!selecionada&&!carregando?' · fora da lista':''}</Text>:null}</View><Ionicons name="chevron-down" color={Colors.primary} size={22}/>
+    {value?<Text style={styles.texto}>UC {mascaraUcCemig(value)}{!selecionada&&!carregando?' · fora da lista':''}</Text>:null}</View><Ionicons name="chevron-down" color={Colors.primary} size={22}/>
   </Pressable>
   {erro?<Pressable accessibilityRole="button" onPress={()=>setRevisao(v=>v+1)} style={styles.acao}><Text style={{color:Colors.danger}}>Lista indisponível. Tocar para tentar novamente.</Text></Pressable>:null}
   <Text style={styles.texto}>Cadastre número e apelido. A última escolha salva será o padrão desta usina nos próximos meses.</Text>
@@ -54,7 +55,7 @@ export default function UcAncoraSelector({usinaId,empresaId,value,onChange,disab
      <View style={styles.linha}><Text style={[styles.titulo,{fontSize:20,flex:1}]}>{formulario?(edicao?'Editar UC âncora':'Adicionar UC âncora'):'UCs âncora'}</Text><Pressable accessibilityRole="button" accessibilityLabel="Fechar lista de âncoras" disabled={salvando} onPress={fechar} style={styles.icone}><Ionicons name="close" size={26} color={Colors.text}/></Pressable></View>
      <ScrollView style={{flexShrink:1}} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets={Platform.OS==='ios'} contentContainerStyle={{gap:16,paddingBottom:24}}>
       {formulario?<>
-       <FormField label="Número da UC" required value={numero} onChangeText={v=>setNumero(v.replace(/\D/g,'').slice(0,20))} keyboardType="number-pad" editable={!salvando} maxLength={20} returnKeyType="done" onSubmitEditing={()=>Keyboard.dismiss()}/>
+       <FormField label="Número da UC" required value={mascaraUcCemig(numero)} onChangeText={v=>setNumero(v.replace(/\D/g,'').slice(0,13))} keyboardType="number-pad" editable={!salvando} maxLength={18} placeholder="6.070.813.018-89" returnKeyType="done" onSubmitEditing={()=>Keyboard.dismiss()}/>
        <FormField label="Apelido (opcional)" value={apelido} onChangeText={setApelido} maxLength={80} editable={!salvando} placeholder="Ex.: Reserva Brazópolis" returnKeyType="done" onSubmitEditing={()=>Keyboard.dismiss()}/>
        <Button title={salvando?'Salvando…':'Salvar e confirmar âncora'} disabled={salvando||disabled} onPress={()=>void salvar()}/>
        <Pressable accessibilityRole="button" disabled={salvando} onPress={()=>setFormulario(false)} style={styles.acao}><Text style={{color:Colors.primary}}>Voltar à lista</Text></Pressable>
@@ -65,7 +66,7 @@ export default function UcAncoraSelector({usinaId,empresaId,value,onChange,disab
        {!erro&&!itens.length?<Text style={styles.texto}>Nenhuma UC cadastrada. Adicione a primeira âncora.</Text>:null}
        {itens.map(item=><View key={item.id} style={styles.item}>
         <Pressable accessibilityRole="radio" accessibilityState={{checked:item.numero===escolha,disabled:salvando}} accessibilityLabel={`${item.apelido||'UC âncora'}, UC ${item.numero}`} disabled={salvando} onPress={()=>setEscolha(item.numero)} style={[styles.linha,{minHeight:54}]}>
-         <Ionicons name={item.numero===escolha?'radio-button-on':'radio-button-off'} size={23} color={Colors.primary}/><View style={{flex:1,gap:4}}><Text style={styles.titulo}>{item.apelido||'UC sem apelido'}</Text><Text style={styles.texto}>UC {item.numero}</Text></View>
+         <Ionicons name={item.numero===escolha?'radio-button-on':'radio-button-off'} size={23} color={Colors.primary}/><View style={{flex:1,gap:4}}><Text style={styles.titulo}>{item.apelido||'UC sem apelido'}</Text><Text style={styles.texto}>UC {mascaraUcCemig(item.numero)}</Text></View>
         </Pressable>
         <View style={{flexDirection:'row',justifyContent:'flex-end',gap:12}}>
          <Pressable accessibilityRole="button" accessibilityLabel={`Editar ${item.apelido||item.numero}`} disabled={salvando} onPress={()=>editar(item)} style={styles.acao}><Ionicons name="pencil-outline" size={18} color={Colors.primary}/><Text style={{color:Colors.primary}}>Editar</Text></Pressable>

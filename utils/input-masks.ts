@@ -13,3 +13,10 @@ export function valorMoedaMascarada(valor: string) {
   const digitos=valor.replace(/\D/g,"");
   return digitos.length<=14 ? Number(digitos||0)/100 : NaN;
 }
+
+/** Identificador atual Cemig: grupos a partir da direita, sem alterar dígitos. */
+export function mascaraUcCemig(valor: string) {
+  const d=valor.replace(/\D/g,"").slice(0,13);
+  if(d.length<12)return d;
+  return d.replace(/^(\d{1,2})(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3.$4-$5");
+}
