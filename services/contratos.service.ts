@@ -1,0 +1,163 @@
+import api from "../config/api";
+import {sendPdf} from './pdf-transport';
+import * as FileSystem from "expo-file-system/legacy";
+export async function validarAssinaturaExterna(id: string) {
+  const { data } = await api.post(`/contratos/${id}/validar-assinatura-externa`, { confirmado: true });
+  return data;
+}
+export async function enviarContratoEConvite(unidadeId: string) {
+  const { data } = await api.post(`/contratos/unidade/${unidadeId}/enviar`);
+  return data;
+}
+
+export async function listarAcessoContratos() {
+  const { data } = await api.get("/contratos/acesso/minhas-unidades");
+  return Array.isArray(data) ? data : [];
+}
+
+export async function listarContratosDaEmpresa(usinaId?: string) {
+  const { data } = await api.get("/contratos", { params: usinaId ? { usinaId } : {} });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function buscarContrato(
+  clienteId: string
+) {
+  const { data } = await api.get(
+    `/contratos/${clienteId}`
+  );
+
+  return data;
+}
+
+export async function criarContrato(
+  payload: any
+) {
+  const { data } = await api.post(
+    "/contratos",
+    payload
+  );
+
+  return data;
+}
+
+export async function atualizarContrato(
+  id: string,
+  payload: any
+) {
+  const { data } = await api.put(
+    `/contratos/${id}`,
+    payload
+  );
+
+  return data;
+}
+
+export async function excluirContrato(
+  id: string
+) {
+  const { data } = await api.delete(
+    `/contratos/${id}`
+  );
+
+  return data;
+}
+
+export async function cancelarContrato(id: string) {
+  const { data } = await api.post(`/contratos/${id}/cancelar`);
+  return data;
+}
+
+export async function buscarContratoDaUnidade(
+  unidadeId: string,
+  preferirRascunho = false,
+  preferirRevisaoEnviada = false,
+) {
+  const { data } = await api.get(
+    `/contratos/unidade/${unidadeId}`,
+    { params: preferirRascunho ? { revisao: "1" } : preferirRevisaoEnviada ? { revisaoEnviada: "1" } : undefined },
+  );
+
+  return data;
+}
+
+export async function solicitarRenovacaoContrato(id: string) {
+  const { data } = await api.post(`/contratos/${id}/solicitar-renovacao`);
+  return data;
+}
+export async function informarNaoRenovacao(id: string) {
+  const { data } = await api.post(`/contratos/${id}/nao-renovar`);
+  return data as { message: string };
+}
+
+export async function obterSolicitacaoCancelamento(id: string) {
+  const { data } = await api.get(`/contratos/${id}/cancelamento`);
+  return data;
+}
+
+export async function concluirSolicitacaoCancelamento(id: string, decisao: "ACEITAR" | "CANCELAR" | "RECUSAR", observacao = "", desligamento?: { confirmado: boolean; data: string; protocolo: string }) {
+  const { data } = await api.post(`/contratos/${id}/cancelamento/concluir`, { decisao, observacao, desligamento });
+  return data;
+}
+
+export async function baixarPropostaDaUnidade(unidadeId: string) {
+  const { data } = await api.get(`/contratos/unidade/${unidadeId}/proposta`);
+  const destino = `${FileSystem.cacheDirectory}${data.filename || `proposta-${unidadeId}.pdf`}`;
+  await FileSystem.writeAsStringAsync(destino, data.base64, { encoding: FileSystem.EncodingType.Base64 });
+  return destino;
+}
+
+export async function buscarDadosIniciaisContrato(unidadeId: string) {
+  const { data } = await api.get(`/contratos/unidade/${unidadeId}/dados-iniciais`);
+  return data;
+}
+
+export async function buscarResumoPropostaDaUnidade(unidadeId: string) {
+  const { data } = await api.get(`/contratos/unidade/${unidadeId}/proposta`);
+  return data?.resumo ?? null;
+}
+
+export async function salvarContratoDaUnidade(
+  unidadeId: string,
+  payload: any
+) {
+  const { data } = await api.put(
+    `/contratos/unidade/${unidadeId}`,
+    payload
+  );
+
+  return data;
+}
+
+export async function gerarContratoDaUnidade(unidadeId: string, payload: any) {
+  const { data } = await api.post(`/contratos/unidade/${unidadeId}/gerar-documento`, payload);
+  return data;
+}
+
+export async function importarContratoAssinadoDaUnidade(unidadeId: string, arquivo: { uri: string; name: string; mimeType?: string | null }) {
+  return sendPdf(arquivo.uri,`/contratos/unidade/${unidadeId}/contrato-assinado`,arquivo.name);
+}
+
+export async function solicitarCodigoAssinatura(contratoId: string) {
+  const { data } = await api.post(`/contratos/${contratoId}/codigo-assinatura`);
+  return data;
+}
+
+export async function prepararRevisaoDaUnidade(unidadeId: string) {
+  const { data } = await api.post(`/contratos/unidade/${unidadeId}/preparar-revisao`);
+  return data;
+}
+
+export async function registrarAceiteEletronico(contratoId: string, payload: { codigo: string; assinatura: string[]; aceiteRevisao?: boolean }) {
+  const { data } = await api.post(`/contratos/${contratoId}/aceite-eletronico`, payload);
+  return data;
+}
+
+export async function importarContratoAssinadoPeloCliente(contratoId: string, arquivo: { uri: string; name: string; mimeType?: string | null }) {
+  return sendPdf(arquivo.uri,`/contratos/${contratoId}/contrato-assinado-cliente`,arquivo.name);
+}
+
+export async function cancelarMinutaSemAceite(id: string) {
+  const { data } = await api.post(`/contratos/${id}/cancelar-minuta`);
+  return data;
+}

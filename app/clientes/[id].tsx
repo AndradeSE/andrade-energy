@@ -1,354 +1,921 @@
-import {
-  router,
-  useLocalSearchParams,
-} from 'expo-router';
-import { useEffect, useState } from 'react';
-import {
-  ImageBackground,
-  Linking,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
-import AndradeBarChart from "../../components/charts/AndradeBarChart";
-import {
-  buscarCliente
-} from '../../services/clientes.service';
+import { Ionicons } from "@expo/vector-icons";
+import * as DocumentPicker from "expo-document-picker";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useState } from "react";
+import { ActivityIndicator, Alert, Linking, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Pressable, TextInput, TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
-import {
-  buscarFaturasCliente
-} from '../../services/faturas.service';
+import { AppHeader, Badge, Button, Card, ElasticScrollView as ScrollView, EmptyState, Loading, Screen, Section } from "../../components/ui";
+import PdfPasswordRetryModal from "../../components/PdfPasswordRetryModal";
+import { IS_GERADOR_APP } from "../../config/appVariant";
+import { useAuth } from "../../contexts/AuthContext";
+import { anexarFaturaCliente, buscarCliente, listarUnidadesCliente } from "../../services/clientes.service";
+import { buscarFaturasCliente, calcularMediaConsumoFatura } from "../../services/faturas.service";
+import { reenviarConviteDaUnidade } from "../../services/convites.service";
+import { Colors, Radius, Spacing, Typography } from "../../theme";
 
- import { Cliente } from '../../types/Cliente';
-
- import { Fatura } from '../../types/Fatura';
-
-
+const moeda = (v: unknown) =>
+  Number(v ?? 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+const documento = (valor: unknown) => {
+  const numeros = String(valor ?? "").replace(/\D/g, "");
+  if (numeros.length === 11) return numeros.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  if (numeros.length === 14) return numeros.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+  return String(valor ?? "");
+};
+const tipoGdDaFatura = (dados: any) => (Number(dados?.energiaCompensadaGD1 ?? 0) > 0 && Number(dados?.energiaCompensadaGD2 ?? 0) > 0 ? "MISTA" : Number(dados?.energiaCompensadaGD2 ?? 0) > 0 ? "GD2" : Number(dados?.energiaCompensadaGD1 ?? 0) > 0 ? "GD1" : "");
+const competenciaCurta = (valor: unknown) => {
+  const texto = String(valor ?? "");
+  const correspondencia = /^(\d{4})-(\d{2})/.exec(texto);
+  return correspondencia ? `${correspondencia[2]}/${correspondencia[1].slice(2)}` : texto.slice(0, 7) || "—";
+};
+const statusDaSolicitacao = (status: unknown) => {
+  const valor = String(status ?? "ATIVO").toUpperCase();
+  if (valor === "AGUARDANDO_VERIFICACAO_EMAIL") return { label: "Aguardando e-mail", variant: "warning" as const };
+  if (valor === "AGUARDANDO_CONFIRMACAO_GERADOR") return { label: "Pronto para confirmação", variant: "warning" as const };
+  if (valor === "REJEITADO" || valor === "INATIVO")
+    return {
+      label: valor === "REJEITADO" ? "Recusado" : "Inativo",
+      variant: "danger" as const,
+    };
+  return { label: "Ativo", variant: "success" as const };
+};
+const acaoContratualDaUc = (unidade: any) => {
+  const contrato = unidade?.contrato_resumo;
+  if (String(contrato?.status ?? "").toUpperCase() === "CANCELADO") return { label: "Ver contrato", status: "Cancelado", revisao: false, liberada: false };
+  const assinado = contrato?.dados_documento?.assinatura_externa_pendente !== true
+    && Boolean(contrato?.aceite_cliente_em || contrato?.contrato_assinado_url || String(contrato?.status ?? "").toUpperCase() === "VIGENTE");
+  if (contrato?.dados_documento?.assinatura_externa_pendente === true) return { label: "Revisar documento", status: "Aguardando conferência", revisao: false, liberada: false };
+  if (assinado) return { label: "Ver contrato", status: "Assinado", revisao: false, liberada: true };
+  if (contrato?.revisao_configuracao_pendente) return { label: "Gerar nova versão", status: "Nova versão necessária", revisao: true, liberada: false };
+  if (contrato?.dados_documento?.envio_email_concluido === true || unidade?.convite_resumo) return { label: "Reenviar convite", status: "Aguardando assinatura", revisao: false, liberada: false };
+  if (contrato?.contrato_gerado_url) return { label: "Enviar convite", status: "Minuta pronta", revisao: false, liberada: false };
+  return { label: "Gerar contrato e enviar convite", status: "Não enviado", revisao: false, liberada: false };
+};
 
 export default function ClienteDetalhe() {
-  const { id } = useLocalSearchParams();
-
-  const [cliente, setCliente] =
-  useState<Cliente | null>(null);
-
-  const [faturas, setFaturas] =
-  useState<Fatura[]>([]);
-
-
-  useEffect(() => {
-    carregar();
-  }, []);
-
-  async function carregar() {
-
-   
-    const data =
-  await buscarCliente(
-    String(id)
+  const { id, area } = useLocalSearchParams<{
+    id: string;
+    area?: "unidades" | "faturas";
+  }>();
+  const [cliente, setCliente] = useState<any>();
+  const [faturas, setFaturas] = useState<any[]>([]);
+  const [unidades, setUnidades] = useState<any[]>([]);
+  const [buscaUnidades, setBuscaUnidades] = useState("");
+  const [mostrarInfo, setMostrarInfo] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [atualizando, setAtualizando] = useState(false);
+  const [importandoUc, setImportandoUc] = useState(false);
+  const [pdfPendente, setPdfPendente] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+  const [pedindoSenhaPdf, setPedindoSenhaPdf] = useState(false);
+  const { suspenderBloqueioTemporariamente, usinaSelecionada } = useAuth();
+  const carregar = useCallback(async () => {
+    try {
+      const [c, u] = await Promise.all([buscarCliente(id), listarUnidadesCliente(id)]);
+      const unidadesCliente = (u ?? []).filter((unidade: any) => !IS_GERADOR_APP || !usinaSelecionada?.id || unidade.usina_id === usinaSelecionada.id);
+      setCliente(c);
+      setUnidades(unidadesCliente);
+      const numeros = Array.from(new Set([...(usinaSelecionada?.id ? [] : [c.uc]), ...unidadesCliente.map((item: any) => item.numero)].filter(Boolean)));
+      const listas = await Promise.all(numeros.map((numero) => buscarFaturasCliente(String(numero))));
+      const unicas = Array.from(new Map(listas.flat().map((fatura: any) => [fatura.id, fatura])).values());
+      setFaturas(unicas.filter((fatura: any) => !IS_GERADOR_APP || !usinaSelecionada?.id || fatura.usina_id === usinaSelecionada.id));
+    } catch (erro: any) {
+      Alert.alert("Não foi possível atualizar", erro?.response?.data?.message ?? "Confira sua conexão e tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  }, [id, usinaSelecionada?.id]);
+  useFocusEffect(
+    useCallback(() => {
+      carregar();
+    }, [carregar]),
   );
-
-    setCliente(data);
-    console.log('CLIENTE', data);
-  
-
-  const listaFaturas =
-  await buscarFaturasCliente(
-    data.uc
-  );
-
-setFaturas(listaFaturas);
-
-const faturasCliente = (listaFaturas || []).filter(
-  (f) =>
-    String(f.numero_instalacao).replace(/\D/g, "") ===
-    String(data.uc).replace(/\D/g, "")
-);
-
-setFaturas(faturasCliente);
-
-}
-const economiaTotal = faturas.reduce(
-  (acc, item) =>
-    acc + Number(item.economia || 0),
-  0
-);
-
-const labels = faturas
-  .slice()
-  .reverse()
-  .map((f) => f.referencia);
-
-const economias = faturas
-  .slice()
-  .reverse()
-  .map((f) => Number(f.economia || 0));
-
-   const chartData = labels.map((label, index) => ({
-  label,
-  value: economias[index],
-}));
-
-  if (!cliente) {
-
-   
+  async function atualizarPagina() {
+    setAtualizando(true);
+    try {
+      await carregar();
+    } finally {
+      setAtualizando(false);
+    }
+  }
+  if (loading) return <Loading />;
+  if (!cliente)
     return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: '#020617',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        <Text style={{ color: 'white' }}>
-          Carregando...
-        </Text>
-      </View>
+      <Screen>
+        <View style={styles.state}>
+          <EmptyState icon="person-outline" title="Cliente não encontrado" subtitle="Não foi possível carregar este cadastro." />
+        </View>
+      </Screen>
     );
+  const economia = faturas.reduce((t, f) => t + Number(f.economia_real ?? f.economia ?? 0), 0);
+  const termoUnidade = buscaUnidades.trim().toLocaleLowerCase("pt-BR");
+  const unidadesFiltradas = unidades.filter((unidade) => `${unidade.apelido} ${unidade.numero} ${unidade.titular} ${unidade.endereco} ${unidade.distribuidora}`.toLocaleLowerCase("pt-BR").includes(termoUnidade));
+  const statusCadastro = statusDaSolicitacao(cliente.cadastro_status ?? cliente.status);
+  // O gerador precisa continuar vendo e configurando as UCs enquanto o
+  // consumidor ainda não concluiu a criação da conta.
+  const cadastroPendente = false;
+  const consumoHistorico = faturas
+    .map((fatura) => ({
+      referencia: competenciaCurta(fatura.referencia),
+      consumo: Math.max(0, Number(fatura.consumo_kwh ?? fatura.consumo ?? 0)),
+    }))
+    .filter((item) => item.consumo > 0)
+    .slice(0, 6)
+    .reverse();
+  const maiorConsumo = Math.max(1, ...consumoHistorico.map((item) => item.consumo));
+  const mostrarVisaoGeral = !area;
+  const concessionariaCliente = String(unidades.find((unidade) => String(unidade?.distribuidora ?? "").trim())?.distribuidora ?? cliente.distribuidora ?? "").trim();
+  const usinasAlocadas = Array.from(new Set(unidades.map((unidade) => String(unidade?.usinas?.nome ?? unidade?.usina_nome ?? "").trim()).filter(Boolean))).join(", ");
+
+  function whatsapp() {
+    const numero = String(cliente.whatsapp ?? cliente.telefone ?? "").replace(/\D/g, "");
+    if (!numero) return Alert.alert("WhatsApp não informado", "Adicione um telefone no cadastro do cliente.");
+    Linking.openURL(`https://wa.me/${numero.startsWith("55") ? numero : `55${numero}`}?text=${encodeURIComponent(`Olá ${cliente.nome}, estou entrando em contato sobre sua energia.`)}`);
   }
 
+  function abrirContratoDaUnidade(unidade: any) {
+    const acao = acaoContratualDaUc(unidade);
+    router.push({
+      pathname: "/unidades/contrato",
+      params: {
+        id: unidade.id,
+        numero: unidade.numero,
+        clienteId: unidade.cliente_id ?? id,
+        cliente: cliente.nome,
+        revisao: acao.revisao ? "1" : undefined,
+      },
+    });
+  }
+
+  async function abrirOuReenviarConvite(unidade: any) {
+    const acao = acaoContratualDaUc(unidade);
+    const conviteJaPodeSerEnviado = acao.label === "Enviar convite" || acao.label === "Reenviar convite";
+    if (!conviteJaPodeSerEnviado) return abrirContratoDaUnidade(unidade);
+    try {
+      const resultado = await reenviarConviteDaUnidade(String(unidade.id));
+      Alert.alert(resultado.emailEnviado ? "Convite reenviado" : "Envio não concluído", resultado.emailEnviado
+        ? "Enviamos um novo convite, a proposta e a minuta já existente. Não foi gerado outro contrato."
+        : "O convite foi renovado, mas o e-mail não pôde ser entregue. Confira o endereço e tente novamente.");
+      await carregar();
+    } catch (erro: any) {
+      Alert.alert("Não foi possível reenviar", erro?.response?.data?.message ?? "Tente novamente.");
+    }
+  }
+
+  async function adicionarUnidadeViaFatura(pdfReenvio?: DocumentPicker.DocumentPickerAsset, senhaPdf = "") {
+    const retomarBloqueio = suspenderBloqueioTemporariamente();
+    let faturaLida = false;
+    let pdfSelecionado = pdfReenvio ?? null;
+    try {
+      const arquivo = pdfReenvio ? null : await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
+      if (arquivo?.canceled) return;
+
+      setImportandoUc(true);
+      const pdf = pdfReenvio ?? arquivo!.assets[0];
+      pdfSelecionado = pdf;
+      // O arquivo local também passa a integrar o perfil. Assim a mesma base
+      // tarifária usada na criação continua disponível ao reabrir a UC.
+      const anexo = await anexarFaturaCliente(id, {
+        uri: pdf.uri,
+        name: pdf.name,
+        mimeType: pdf.mimeType,
+      }, senhaPdf, IS_GERADOR_APP ? usinaSelecionada?.id : undefined);
+      const dados = anexo?.dadosFatura ?? {};
+      faturaLida = true;
+      const numero = String(dados.uc ?? dados.numero_instalacao ?? dados.numeroInstalacao ?? "").replace(/\D/g, "");
+      if (!numero) throw new Error("Não foi possível identificar o número da unidade consumidora.");
+      const consumoMedio = calcularMediaConsumoFatura(dados);
+      const tipoGd = tipoGdDaFatura(dados);
+      const dadosFatura = JSON.stringify({
+        valorTotal: dados.valorTotal,
+        consumo: dados.consumo,
+        energiaInjetada: dados.energiaInjetada,
+        energiaCompensada: dados.energiaCompensada,
+        energiaCompensadaGD1: dados.energiaCompensadaGD1,
+        energiaCompensadaGD2: dados.energiaCompensadaGD2,
+        tarifaCheia: dados.tarifaCheia,
+        tarifaScee: dados.tarifaScee,
+        tarifaGD2: dados.tarifaGD2 ?? dados.tarifaGD,
+        custoDisponibilidade: dados.custoDisponibilidade,
+        custoDisponibilidadeGD1: dados.custoDisponibilidadeGD1,
+        custoDisponibilidadeGD2: dados.custoDisponibilidadeGD2,
+        franquiaDisponibilidadeKwh: dados.franquiaDisponibilidadeKwh,
+        tarifaDisponibilidadeSemImpostos: dados.tarifaDisponibilidadeSemImpostos,
+        tipoLigacao: dados.tipoLigacao,
+        valorIluminacaoPublica: dados.valorIluminacaoPublica,
+        valorBandeira: dados.valorBandeira,
+        encargosAdicionais: dados.encargosAdicionais,
+        valorEnergiaConcessionaria: dados.valorEnergiaConcessionaria,
+      });
+      router.push({
+        pathname: "/unidades/nova",
+        params: {
+          origem: "fatura",
+          numero,
+          clienteId: id,
+          cliente: String(dados.cliente ?? cliente.nome ?? ""),
+          uc: numero,
+          cpf: String(dados.cpfParcial ?? dados.cpf_parcial ?? dados.cpf ?? "")
+            .replace(/\D/g, "")
+            .slice(0, 4),
+          endereco: String(dados.endereco ?? ""),
+          distribuidora: String(dados.distribuidora ?? cliente.distribuidora ?? "CEMIG"),
+          energiaCompensada: String(dados.energiaCompensada ?? 0),
+          consumoMedio: consumoMedio > 0 ? String(consumoMedio) : "",
+          tipoGd,
+          dadosFatura,
+        },
+      });
+    } catch (erro: any) {
+      if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED") {
+        setPdfPendente(pdfSelecionado);
+        setPedindoSenhaPdf(true);
+        return;
+      }
+      Alert.alert(faturaLida ? "Não foi possível cadastrar a UC" : "Não foi possível ler a fatura", erro?.response?.data?.message ?? erro?.message ?? (faturaLida ? "Confira a usina e tente novamente." : "Confirme se o arquivo é uma conta de energia em PDF."));
+    } finally {
+      setImportandoUc(false);
+      retomarBloqueio();
+    }
+  }
+
+  function escolherOrigemDaFatura() {
+    Alert.alert("Adicionar UC via PDF", "Escolha uma conta já vinculada ao CPF do cliente ou selecione um novo PDF neste aparelho.", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Contas do perfil",
+        onPress: () =>
+          router.push({
+            pathname: "/clientes/faturas-anexadas" as never,
+            params: {
+              clienteId: id,
+              cliente: cliente.nome,
+              selecionarUc: "1",
+            },
+          }),
+      },
+      {
+        text: "PDF deste aparelho",
+        onPress: () => void adicionarUnidadeViaFatura(),
+      },
+    ]);
+  }
 
   return (
-  <ImageBackground
-source={require('../../assets/images/background.png')}    style={{ flex: 1 }}
-  >
-    <ScrollView
-      style={{
-        flex: 1,
-      }}
-      contentContainerStyle={{
-        padding: 20,
-      }}
-    >
-
-      <Text
-        style={{
-          color: '#facc15',
-          fontSize: 28,
-          fontWeight: 'bold',
-          marginBottom: 20,
-        }}
-      >
-        {cliente.nome}
-      
-      </Text>
-      <View
-  style={{
-    backgroundColor: '#0f172a',
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 15,
-  }}
->
-  <Text
-    style={{
-      color: 'white',
-      marginBottom: 10,
-    }}
-  >
-    ⚡ UC: {cliente.uc}
-  </Text>
-
-  <Text
-    style={{
-      color: 'white',
-      marginBottom: 10,
-    }}
-  >
-    🏢 {cliente.distribuidora}
-  </Text>
-
-  <Text
-    style={{
-      color: 'white',
-    }}
-  >
-    📞 {cliente.telefone}
-  </Text>
-</View>
-
-<TouchableOpacity
- onPress={() => {
-  const telefone =
-    cliente.telefone?.replace(/\D/g, '');
-
-  const mensagem = encodeURIComponent(
-    `Olá ${cliente.nome}, estou entrando em contato sobre sua economia de energia.`
-  );
-
-  Linking.openURL(
-    `https://wa.me/55${telefone}?text=${mensagem}`
-  );
-}}
-  style={{
-    backgroundColor: '#22c55e',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 15,
-  }}
->
-  <Text
-    style={{
-      color: 'white',
-      textAlign: 'center',
-      fontWeight: 'bold',
-    }}
-  >
-    CHAMAR NO WHATSAPP
-  </Text>
-</TouchableOpacity>
-
-       <View
-  style={{
-    backgroundColor: 'rgba(253,230,138,0.85)',
-    padding: 20,
-    borderRadius: 12,
-    marginTop: 15,
-  }}
->
-  <TouchableOpacity
-  onPress={() =>
-    router.push(`/clientes/${cliente.id}`)}
-  
-  style={{
-    backgroundColor: 'rgba(255,255,255,0.80)',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 10,
-  }}
->
-  <Text
-    style={{
-      textAlign: 'center',
-      fontWeight: 'bold',
-      color:'black',
-    }}
-  >
-    📄 ENVIAR FATURA
-  </Text>
-</TouchableOpacity>
-
- {faturas.length > 1 && (
-  <View
-    style={{
-      alignItems: 'center',
-      marginTop: 20,
-      marginBottom: 20,
-    }}
-  >
-   <AndradeBarChart
-  data={chartData}
-  height={250}
-/>
-  </View>
-)}
-
-
-  <Text
-    style={{
-      fontWeight: 'bold',
-      fontSize: 16,
-    }}
-  >
-    Economia acumulada
-  </Text>
-
-  <Text
-    style={{
-      fontSize: 28,
-      fontWeight: 'bold',
-      marginTop: 8,
-    }}
-  >
-    R$ {economiaTotal
-      .toFixed(2)
-      .replace('.', ',')}
-  </Text>
-
-  <Text
-    style={{
-      marginTop: 8,
-    }}
-  >
-    📄 {faturas.length} faturas
-  </Text>
-</View>
-
-<Text
-  style={{
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginTop: 20,
-    marginBottom: 10,
-  }}
->
-   
-  Histórico de Faturas
-</Text>
-
-
-
-{faturas.map((fatura) => (
-  <View
-    key={fatura.id}
-    style={{
-      backgroundColor: '#0f172a',
-      padding: 15,
-      borderRadius: 12,
-      marginBottom: 10,
-    }}
-  >
-    <Text
-      style={{
-        color: '#facc15',
-        fontWeight: 'bold',
-        fontSize: 16,
-      }}
-    >
-      📄 {fatura.referencia}
-    </Text>
-
-    <Text style={{ color: 'white' }}>
-      Economia: R$ {Number(fatura.economia)
-        .toFixed(2)
-        .replace('.', ',')}
-    </Text>
-
-    <Text style={{ color: 'white' }}>
-      Valor: R$ {Number(fatura.valor_total)
-        .toFixed(2)
-        .replace('.', ',')}
-    </Text>
-
-    <TouchableOpacity
-      onPress={() =>
-        Linking.openURL(
-          fatura.arquivo_url
-        )
-      }
-      style={{
-        backgroundColor: '#2563eb',
-        padding: 10,
-        borderRadius: 8,
-        marginTop: 10,
-      }}
-    >
-      <Text
-        style={{
-          color: 'white',
-          textAlign: 'center',
-          fontWeight: 'bold',
-        }}
-      >
-        VER PDF
-        
-      </Text>
-    </TouchableOpacity>
-  </View>
-))}
-        </ScrollView>
-  </ImageBackground>
+    <Screen>
+      {IS_GERADOR_APP ? <AppHeader variant="subpage" title={area === "unidades" ? "Unidades consumidoras" : area === "faturas" ? "Faturas" : "Clientes"} subtitle={area === "unidades" ? "Lista de UCs" : area === "faturas" ? cliente.nome : "Gestão da carteira"} contextTitle={area === "unidades" ? `${unidades.length} UC${unidades.length === 1 ? "" : "s"}` : area === "faturas" ? `${faturas.length} fatura${faturas.length === 1 ? "" : "s"}` : (cliente.nome ?? "Cliente")} contextSubtitle={area === "unidades" ? "Toque em uma unidade para abrir" : area === "faturas" ? "Histórico do cliente" : `${unidades.length} unidade${unidades.length === 1 ? "" : "s"} consumidora${unidades.length === 1 ? "" : "s"}`} icon={area === "unidades" ? "flash-outline" : area === "faturas" ? "receipt-outline" : "people-outline"} /> : null}
+      <ScrollView refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content}>
+        {!area ? (
+          <View style={styles.customerHeader}>
+            <View style={styles.heading}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{cliente.nome?.charAt(0)?.toUpperCase()}</Text>
+              </View>
+              <View style={styles.headingText}>
+                <Text style={styles.eyebrow}>CLIENTE</Text>
+                <Text style={styles.title}>{cliente.nome}</Text>
+                <Text style={styles.subtitle}>{cliente.cpf ? documento(cliente.cpf) : "CPF/CNPJ não informado"}</Text>
+              </View>
+              <Badge label={statusCadastro.label} variant={statusCadastro.variant} />
+            </View>
+            {mostrarInfo ? (
+              <View style={styles.headerInfo}>
+                <Info icon="sunny-outline" label="Usina alocada" value={usinasAlocadas || "Não informada"} />
+                <Info icon="layers-outline" label="Unidades" value={String(unidades.length)} />
+                <Info icon="call-outline" label="Telefone" value={cliente.telefone || "Não informado"} />
+                <Info icon="business-outline" label="Concessionária" value={concessionariaCliente || "Não informada"} />
+                <Info wide icon="mail-outline" label="E-mail" value={cliente.email || "Não informado"} />
+                <Info wide icon="location-outline" label="Endereço" value={cliente.endereco || "Não informado"} />
+              </View>
+            ) : null}
+            <TouchableOpacity accessibilityLabel={mostrarInfo ? "Recolher informações do cliente" : "Ver todas as informações do cliente"} onPress={() => setMostrarInfo((valor) => !valor)} style={styles.expandButton}>
+              <Text style={styles.expandLabel}>{mostrarInfo ? "Ocultar informações" : "Ver informações"}</Text>
+              <Ionicons name={mostrarInfo ? "chevron-up" : "chevron-down"} size={17} color={Colors.primary} />
+            </TouchableOpacity>
+          </View>
+        ) : null}
+        {!area && !cadastroPendente ? (
+          <View style={styles.actions}>
+            <Button title="Editar" icon={<Ionicons name="create-outline" size={19} color={Colors.surface} />} style={styles.action} onPress={() => router.push({ pathname: "/clientes/editar", params: { id } })} />
+            <Button title="WhatsApp" icon={<Ionicons name="logo-whatsapp" size={19} color={Colors.surface} />} style={[styles.action, styles.whatsapp]} onPress={whatsapp} />
+          </View>
+        ) : null}
+        {area === "unidades" ? (
+          <TouchableOpacity onPress={() => router.replace({ pathname: "/clientes/[id]", params: { id } })} style={styles.backToOverview}>
+            <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+            <Text style={styles.backToOverviewText}>Voltar ao resumo do cliente</Text>
+          </TouchableOpacity>
+        ) : null}
+        {mostrarVisaoGeral ? (
+          <>
+            <View style={styles.customerTools}>
+              <Text style={styles.customerToolsTitle}>Gestão do cliente</Text>
+              <View style={styles.quickGrid}>
+                <QuickAccess
+                  icon="flash-outline"
+                  label="Unidades"
+                  detail={`${unidades.length} cadastrada${unidades.length === 1 ? "" : "s"}`}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/unidades",
+                      params: {
+                        clienteId: String(cliente.id || id),
+                        cliente: cliente.nome,
+                      },
+                    })
+                  }
+                />
+                <QuickAccess
+                  icon="document-text-outline"
+                  label="Faturas"
+                  detail={`${faturas.length} processada${faturas.length === 1 ? "" : "s"}`}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/clientes/[id]",
+                      params: { id, area: "faturas" },
+                    })
+                  }
+                />
+                {IS_GERADOR_APP ? (
+                  <QuickAccess
+                    icon="folder-open-outline"
+                    label="Contas anexadas"
+                    detail="Visualizar e adicionar UCs"
+                    onPress={() =>
+                      router.push({
+                        pathname: "/clientes/faturas-anexadas" as never,
+                        params: {
+                          clienteId: id,
+                          cliente: cliente.nome,
+                          selecionarUc: "1",
+                        },
+                      })
+                    }
+                  />
+                ) : null}
+              </View>
+            </View>
+            <Section title="Economia total">
+              <Card>
+                <Text style={styles.summaryLabel}>Economia de todas as unidades</Text>
+                <Text style={styles.summaryValue}>{moeda(economia)}</Text>
+                <Text style={styles.summaryDetail}>
+                  {faturas.length} fatura{faturas.length === 1 ? "" : "s"} processada{faturas.length === 1 ? "" : "s"} em {unidades.length} unidade{unidades.length === 1 ? "" : "s"}
+                </Text>
+              </Card>
+            </Section>
+            <Section title="Histórico de consumo">
+              <Card>
+                {consumoHistorico.length ? (
+                  <View style={styles.consumptionChart}>
+                    {consumoHistorico.map((item, indice) => (
+                      <View key={`${item.referencia}-${indice}`} style={styles.consumptionColumn}>
+                        <Text style={styles.consumptionValue}>{Math.round(item.consumo)}</Text>
+                        <View style={styles.consumptionTrack}>
+                          <View
+                            style={[
+                              styles.consumptionBar,
+                              {
+                                height: `${Math.max(12, (item.consumo / maiorConsumo) * 100)}%`,
+                              },
+                            ]}
+                          />
+                        </View>
+                        <Text style={styles.consumptionLabel}>{item.referencia}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.summaryDetail}>O gráfico aparecerá após a primeira fatura processada.</Text>
+                )}
+              </Card>
+            </Section>
+          </>
+        ) : null}
+        {area === "unidades" ? (
+          <Section title="Unidades consumidoras">
+            <View>
+              {!cadastroPendente ? (
+                <>
+                  <View style={styles.unitActions}>
+                    <View style={styles.search}>
+                      <Ionicons name="search-outline" size={20} color={Colors.subtitle} />
+                      <TextInput value={buscaUnidades} onChangeText={setBuscaUnidades} placeholder="Buscar por nome da unidade, UC, titular ou endereço" placeholderTextColor={Colors.subtitle} style={styles.searchInput} />
+                    </View>
+                    <TouchableOpacity
+                      accessibilityLabel="Adicionar unidade manualmente"
+                      onPress={() =>
+                        router.push({
+                          pathname: "/unidades/nova",
+                          params: { clienteId: id },
+                        })
+                      }
+                      style={styles.addUnit}
+                    >
+                      <Ionicons name="add" size={22} color={Colors.surface} />
+                    </TouchableOpacity>
+                    <TouchableOpacity accessibilityLabel="Adicionar unidade via fatura" disabled={importandoUc} onPress={escolherOrigemDaFatura} style={[styles.addUnit, styles.addUnitInvoice]}>
+                      {importandoUc ? <ActivityIndicator color={Colors.surface} /> : <Ionicons name="document-attach-outline" size={21} color={Colors.surface} />}
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.unitActionHint}>No botão de PDF, escolha uma conta vinculada ao perfil ou um arquivo deste aparelho.</Text>
+                </>
+              ) : (
+                <Text style={styles.unitActionHint}>A UC será ativada junto com a confirmação do cadastro.</Text>
+              )}
+              {unidadesFiltradas.length ? (
+                unidadesFiltradas.map((unidade) => {
+                  const inativa = unidade.status !== "ATIVA";
+                  const statusUnidade = unidade.status === "PENDENTE_CONTRATO" ? "AGUARDANDO CONTRATO" : (unidade.status ?? "INATIVA");
+                  const acaoContrato = acaoContratualDaUc(unidade);
+                  return (
+                    <TouchableOpacity
+                      key={unidade.id}
+                      activeOpacity={0.78}
+                      accessibilityLabel={`Abrir documentos da UC ${unidade.numero}`}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/unidades/[id]",
+                          params: {
+                            id: unidade.id,
+                            numero: unidade.numero,
+                            clienteId: unidade.cliente_id ?? id,
+                            cliente: cliente.nome,
+                            usinaId: unidade.usina_id ?? "",
+                            usinaNome: unidade.usinas?.nome ?? "",
+                            titular: unidade.titular ?? "",
+                            distribuidora: unidade.distribuidora ?? "",
+                          },
+                        })
+                      }
+                    >
+                      <Card style={styles.unitCard}>
+                        <View style={styles.unitRow}>
+                          <View style={styles.unitIcon}>
+                            <Ionicons name="flash-outline" size={19} color={Colors.primary} />
+                          </View>
+                          <View style={styles.unitInfo}>
+                            <Text style={styles.unitLabel}>{unidade.apelido ? "NOME DA UNIDADE" : "UNIDADE CONSUMIDORA"}</Text>
+                            <Text style={styles.unitNumber}>{String(unidade.apelido ?? "").trim() || `UC ${unidade.numero}`}</Text>
+                            {unidade.apelido ? <Text style={styles.unitOfficialNumber}>UC {unidade.numero}</Text> : null}
+                            <View style={styles.unitMeta}>
+                              <View style={[styles.statusDot, inativa && styles.statusDotInactive]} />
+                              <Text style={[styles.statusText, inativa && styles.statusTextInactive]}>{statusUnidade}</Text>
+                              <Text style={styles.unitSeparator}>•</Text>
+                              <Text numberOfLines={1} style={styles.unitDetail}>
+                                Titular da fatura: {unidade.titular_fatura || "Não identificado na fatura anexada"}
+                              </Text>
+                            </View>
+                            <Text numberOfLines={1} style={styles.unitDetail}>Usina: {unidade.usinas?.nome ?? unidade.usina_nome ?? (unidade.usina_id ? "Usina vinculada" : "Ainda não alocada")}</Text>
+                          </View>
+                          <Ionicons name="chevron-forward" size={18} color={Colors.subtitle} />
+                        </View>
+                        {IS_GERADOR_APP ? (
+                          <>
+                            <View style={[styles.contractStatus, acaoContrato.liberada && styles.contractStatusSigned, acaoContrato.status === "Cancelado" && styles.contractStatusCanceled]}>
+                              <Text style={[styles.contractStatusText, acaoContrato.liberada && styles.contractStatusTextSigned, acaoContrato.status === "Cancelado" && styles.contractStatusTextCanceled]}>{acaoContrato.status}</Text>
+                            </View>
+                            <TouchableOpacity
+                              accessibilityLabel={`Abrir contrato e convite da UC ${unidade.numero}`}
+                              onPress={(evento) => {
+                                evento.stopPropagation();
+                                void abrirOuReenviarConvite(unidade);
+                              }}
+                              style={[styles.unitInvite, acaoContrato.status === "Não enviado" && styles.unitInvitePrimary]}
+                            >
+                              <Ionicons name="mail-unread-outline" size={19} color={acaoContrato.status === "Não enviado" ? Colors.surface : Colors.primary} />
+                              <Text style={[styles.unitInviteText, acaoContrato.status === "Não enviado" && styles.unitInviteTextPrimary]}>{acaoContrato.label}</Text>
+                            </TouchableOpacity>
+                            <Text style={styles.unitAccessHint}>
+                              {acaoContrato.status === "Cancelado"
+                                ? "Contrato encerrado. Esta UC não está liberada para faturamento."
+                                : acaoContrato.liberada
+                                ? "Contrato assinado. Esta UC já está disponível ao cliente."
+                                : "O gerador pode editar a configuração. A UC ficará disponível ao cliente após a assinatura do contrato."}
+                            </Text>
+                          </>
+                        ) : null}
+                      </Card>
+                    </TouchableOpacity>
+                  );
+                })
+              ) : (
+                <EmptyState icon="flash-outline" title={buscaUnidades ? "Nenhuma unidade encontrada" : "Nenhuma unidade vinculada"} subtitle={buscaUnidades ? "Altere os termos da busca." : cadastroPendente ? "A unidade será criada a partir da fatura quando o cadastro for confirmado." : "Adicione a primeira unidade consumidora deste cliente."} />
+              )}
+            </View>
+          </Section>
+        ) : null}
+        {area === "faturas" ? (
+          <Section title="Histórico de faturas">
+            {faturas.length ? (
+              faturas.map((f) => (
+                <Pressable key={f.id} onPress={() => f.id && router.push(`/faturas/${f.id}`)}>
+                  <Card>
+                    <View style={styles.invoice}>
+                      <View style={styles.invoiceIcon}>
+                        <Ionicons name="receipt-outline" size={21} color={Colors.primary} />
+                      </View>
+                      <View style={styles.invoiceInfo}>
+                        <Text style={styles.invoiceTitle}>{f.referencia}</Text>
+                        <Text style={styles.invoiceDetail}>Economia {moeda(f.economia_real ?? f.economia)}</Text>
+                      </View>
+                      <Text style={styles.invoiceValue}>{moeda(f.valor_total_unificado ?? f.valor_total)}</Text>
+                      <Ionicons name="chevron-forward" size={18} color={Colors.subtitle} />
+                    </View>
+                  </Card>
+                </Pressable>
+              ))
+            ) : (
+              <EmptyState icon="receipt-outline" title="Nenhuma fatura processada" subtitle="As faturas deste cliente aparecerão aqui." />
+            )}
+          </Section>
+        ) : null}
+      </ScrollView>
+      <PdfPasswordRetryModal visible={pedindoSenhaPdf} busy={importandoUc} onCancel={() => { setPedindoSenhaPdf(false); setPdfPendente(null); }} onConfirm={(password) => { const pdf = pdfPendente; setPedindoSenhaPdf(false); if (pdf) void adicionarUnidadeViaFatura(pdf, password); }} />
+    </Screen>
   );
 }
+
+function Info({ icon, label, value, wide = false }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string; wide?: boolean }) {
+  return (
+    <View style={[styles.info, wide && styles.infoWide]}>
+      <View style={styles.infoIcon}>
+        <Ionicons name={icon} size={16} color={Colors.primary} />
+      </View>
+      <View style={styles.infoText}>
+        <Text style={styles.infoLabel}>{label}</Text>
+        <Text numberOfLines={1} style={styles.infoValue}>
+          {value}
+        </Text>
+      </View>
+    </View>
+  );
+}
+function QuickAccess({ icon, label, detail, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; detail: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity activeOpacity={0.82} onPress={onPress} style={styles.quickAccess}>
+      <View style={styles.quickIcon}>
+        <Ionicons name={icon} size={20} color={Colors.surface} />
+      </View>
+      <View style={styles.quickCopy}><Text numberOfLines={1} style={styles.quickLabel}>{label}</Text><Text numberOfLines={1} style={styles.quickDetail}>{detail}</Text></View>
+      <Ionicons name="chevron-forward" size={17} color={Colors.primary} />
+    </TouchableOpacity>
+  );
+}
+const styles = StyleSheet.create({
+  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
+  state: { flex: 1, justifyContent: "center", padding: Spacing.lg },
+  customerHeader: {
+    marginBottom: Spacing.sm,
+    padding: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "#C9DED1",
+    borderRadius: Radius.lg,
+    backgroundColor: "#EAF4ED",
+  },
+  heading: { flexDirection: "row", alignItems: "center" },
+  avatar: {
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: Radius.round,
+    backgroundColor: Colors.primaryLight,
+  },
+  avatarText: {
+    color: Colors.primaryDark,
+    fontSize: Typography.section,
+    fontWeight: "800",
+  },
+  headingText: { flex: 1, marginHorizontal: Spacing.sm },
+  eyebrow: {
+    color: Colors.primary,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+  title: {
+    marginTop: 2,
+    color: Colors.text,
+    fontSize: Typography.body,
+    fontWeight: "800",
+  },
+  subtitle: {
+    marginTop: 2,
+    color: Colors.subtitle,
+    fontSize: Typography.small,
+  },
+  headerInfo: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: Spacing.xs,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(57,128,74,0.16)",
+  },
+  info: {
+    width: "50%",
+    minHeight: 38,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingRight: Spacing.xs,
+  },
+  infoWide: { width: "100%" },
+  infoIcon: { width: 25, alignItems: "center" },
+  infoText: { flex: 1, marginLeft: 3 },
+  infoLabel: { color: Colors.subtitle, fontSize: 10 },
+  infoValue: {
+    marginTop: 1,
+    color: Colors.text,
+    fontSize: Typography.small,
+    fontWeight: "600",
+  },
+  expandButton: {
+    minHeight: 27,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
+    marginTop: 2,
+  },
+  expandLabel: { color: Colors.primary, fontSize: 10, fontWeight: "700" },
+  actions: { flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.lg },
+  action: { flex: 1 },
+  whatsapp: { backgroundColor: Colors.success },
+  unitInvite: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, marginTop: Spacing.sm, paddingHorizontal: Spacing.md, borderTopWidth: 1, borderTopColor: Colors.border, borderRadius: Radius.md },
+  unitInvitePrimary: { minHeight: 46, borderTopWidth: 0, backgroundColor: Colors.primary },
+  unitInviteText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" },
+  unitInviteTextPrimary: { color: Colors.surface, fontSize: Typography.small },
+  unitAccessHint: { marginTop: 2, color: Colors.subtitle, fontSize: 10, lineHeight: 14, textAlign: "center" },
+  contractStatus: { alignSelf: "flex-start", marginTop: Spacing.sm, paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.round, backgroundColor: "#FEF3C7" },
+  contractStatusSigned: { backgroundColor: "#DCFCE7" },
+  contractStatusCanceled: { backgroundColor: "#FEE2E2" },
+  contractStatusText: { color: "#92400E", fontSize: 10, fontWeight: "800" },
+  contractStatusTextSigned: { color: "#166534" },
+  contractStatusTextCanceled: { color: "#991B1B" },
+  backToOverview: {
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.primaryLight,
+  },
+  backToOverviewText: {
+    color: Colors.primaryDark,
+    fontSize: Typography.small,
+    fontWeight: "800",
+  },
+  customerTools: { marginTop: Spacing.lg, marginBottom: Spacing.md },
+  customerToolsTitle: { marginBottom: Spacing.sm, color: Colors.text, fontSize: Typography.body, fontWeight: "900" },
+  quickGrid: { gap: Spacing.xs },
+  quickAccess: {
+    minHeight: 66,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.md,
+    backgroundColor: "#EAF4ED",
+  },
+  quickIcon: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 22,
+    backgroundColor: Colors.primary,
+  },
+  quickCopy: { flex: 1, minWidth: 0, marginHorizontal: Spacing.sm },
+  quickLabel: {
+    color: Colors.text,
+    fontSize: Typography.caption,
+    fontWeight: "900",
+  },
+  quickDetail: { marginTop: 3, color: Colors.subtitle, fontSize: 11 },
+  reviewCard: { padding: Spacing.md },
+  reviewHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: Spacing.sm,
+  },
+  reviewTitle: {
+    color: Colors.text,
+    fontSize: Typography.body,
+    fontWeight: "900",
+  },
+  reviewSubtitle: {
+    maxWidth: 210,
+    marginTop: 4,
+    color: Colors.subtitle,
+    fontSize: Typography.small,
+    lineHeight: 18,
+  },
+  reviewData: {
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  invoiceProof: {
+    minHeight: 46,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.primaryLight,
+  },
+  invoiceProofText: {
+    flex: 1,
+    color: Colors.primary,
+    fontSize: Typography.small,
+    fontWeight: "800",
+  },
+  approveButton: {
+    minHeight: 54,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.md,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.primary,
+  },
+  approveText: {
+    color: Colors.surface,
+    fontSize: Typography.small,
+    fontWeight: "900",
+  },
+  disabled: { opacity: 0.7 },
+  unitActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  search: {
+    minHeight: 52,
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.lg,
+    backgroundColor: Colors.surface,
+  },
+  searchInput: { flex: 1, marginLeft: Spacing.xs, color: Colors.text },
+  addUnit: {
+    width: 52,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: Radius.lg,
+    backgroundColor: Colors.primary,
+  },
+  addUnitInvoice: { backgroundColor: Colors.secondary },
+  unitActionHint: {
+    marginBottom: Spacing.md,
+    color: Colors.subtitle,
+    fontSize: 11,
+  },
+  unitCard: {
+    overflow: "hidden",
+    marginBottom: Spacing.sm,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderLeftWidth: 4,
+    borderColor: "#C9DED1",
+    borderLeftColor: Colors.primary,
+    borderRadius: Radius.lg,
+    backgroundColor: Colors.surface,
+    shadowColor: Colors.primaryDark,
+    shadowOpacity: 0.07,
+    shadowRadius: 9,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  unitRow: { minHeight: 68, flexDirection: "row", alignItems: "center" },
+  unitIcon: {
+    width: 42,
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: Radius.md,
+    backgroundColor: Colors.primaryLight,
+  },
+  unitInfo: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: Spacing.md,
+    marginRight: Spacing.sm,
+  },
+  unitLabel: {
+    color: Colors.primary,
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+  },
+  unitNumber: {
+    marginTop: 2,
+    color: Colors.primaryDark,
+    fontSize: Typography.body,
+    fontWeight: "900",
+  },
+  unitOfficialNumber: {
+    marginTop: 2,
+    color: Colors.subtitle,
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  unitMeta: {
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    paddingTop: 7,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(191,209,199,0.55)",
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    marginRight: 5,
+    borderRadius: 3,
+    backgroundColor: Colors.success,
+  },
+  statusDotInactive: { backgroundColor: Colors.danger },
+  statusText: { color: Colors.success, fontSize: 10, fontWeight: "800" },
+  statusTextInactive: { color: Colors.danger },
+  unitSeparator: { marginHorizontal: 7, color: Colors.border, fontSize: 10 },
+  unitDetail: { flex: 1, color: Colors.subtitle, fontSize: Typography.small },
+  summaryLabel: { color: Colors.subtitle },
+  summaryValue: {
+    marginTop: Spacing.xs,
+    color: Colors.primaryDark,
+    fontSize: 30,
+    fontWeight: "800",
+  },
+  summaryDetail: { marginTop: Spacing.xs, color: Colors.subtitle },
+  consumptionChart: {
+    height: 148,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: 6,
+    paddingTop: Spacing.sm,
+  },
+  consumptionColumn: {
+    flex: 1,
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "flex-end",
+  },
+  consumptionValue: {
+    marginBottom: 4,
+    color: Colors.primaryDark,
+    fontSize: 9,
+    fontWeight: "800",
+  },
+  consumptionTrack: {
+    width: "70%",
+    height: 88,
+    justifyContent: "flex-end",
+    overflow: "hidden",
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.primaryLight,
+  },
+  consumptionBar: {
+    width: "100%",
+    minHeight: 8,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.primary,
+  },
+  consumptionLabel: { marginTop: 5, color: Colors.subtitle, fontSize: 9 },
+  invoice: { flexDirection: "row", alignItems: "center" },
+  invoiceIcon: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: Radius.md,
+    backgroundColor: Colors.primaryLight,
+  },
+  invoiceInfo: { flex: 1, marginHorizontal: Spacing.sm },
+  invoiceTitle: { color: Colors.text, fontWeight: "700" },
+  invoiceDetail: {
+    marginTop: 4,
+    color: Colors.subtitle,
+    fontSize: Typography.small,
+  },
+  invoiceValue: {
+    marginRight: Spacing.sm,
+    color: Colors.text,
+    fontWeight: "700",
+  },
+});

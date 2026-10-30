@@ -1,817 +1,118 @@
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import {
-  Alert,
-  FlatList,
-  ImageBackground,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Pressable, TextInput, TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
-import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system/legacy';
-import { supabase } from '../../supabase';
+import { AppHeader, Badge, Card, ElasticFlatList as FlatList, EmptyState, Screen } from "../../components/ui";
+import TabDataPending from "../../components/ui/TabDataPending";
+import CadastroActions from "../../components/cadastro/CadastroActions";
+import { excluirCliente, listarClientes, listarUnidadesGestor } from "../../services/clientes.service";
+import { useAuth } from "../../contexts/AuthContext";
+import { initialTabKey } from "../../services/navigation-preload.service";
+import { Colors, Radius, Spacing, Typography } from "../../theme";
 
-import { extrairDadosCemig } from '../../services/extrairCemig';
-import { lerFaturaOCR } from '../../services/ocr';
+function formatarDocumento(valor?: string) {
+  const numeros = String(valor ?? "").replace(/\D/g, "");
+  if (numeros.length === 11) return numeros.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  if (numeros.length === 14) return numeros.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+  return valor ?? "";
+}
+
+function documentoDoCliente(cliente: any) {
+  return cliente?.cpf ?? cliente?.cpf_cnpj ?? "";
+}
+
+function unidadeDoCliente(cliente: any) {
+  return cliente?.uc ?? cliente?.numero_instalacao ?? "";
+}
+
+function statusCadastro(cliente: any) {
+  const status = String(cliente?.cadastro_status ?? cliente?.status ?? "ATIVO").toUpperCase();
+  if (status === "AGUARDANDO_VERIFICACAO_EMAIL") return { label: "Aguardando e-mail", variant: "warning" as const };
+  if (status === "AGUARDANDO_CONFIRMACAO_GERADOR") return { label: "Aguardando confirmação", variant: "warning" as const };
+  if (status === "INATIVO" || status === "REJEITADO") return { label: status === "REJEITADO" ? "Recusado" : "Inativo", variant: "danger" as const };
+  return { label: "Ativo", variant: "success" as const };
+}
 
 export default function Clientes() {
-  const [cpf, setCpf] =
-  useState('');
-const [endereco, setEndereco] =
-  useState('');
-  const [nome, setNome] = useState('');
-  const [uc, setUc] = useState('');
-  const [editando, setEditando] =
-  useState<any>(null);
-  const [distribuidora, setDistribuidora] = useState('');
-  const [telefone, setTelefone] = useState('');
-  const [busca, setBusca] = useState('');
-  const [clientes, setClientes] = useState<any[]>([]);
-  const [faturas, setFaturas] = useState<any[]>([]);
-  const [usinas, setUsinas] =
-  useState<any[]>([]);
-  const [usinaId, setUsinaId] =
-  useState('');
-  
-
-  async function carregarClientes() {
-    const { data: listaUsinas } =
-  await supabase
-    .from('usinas')
-    .select('*')
-    .order('nome');
-
-setUsinas(listaUsinas || []);
-
-
-   const { data, error } = await supabase
-  .from('clientes')
-  .select(`
-    *,
-    usinas (
-      nome
-    )
-  `)
-  .order('nome');
-
-    if (error) {
-      Alert.alert('Erro', error.message);
-      return;
-    }
-    
-
-    setClientes(data || []);
-  const { data: listaFaturas } =
-  await supabase
-    .from('faturas')
-    .select('*');
-
-setFaturas(listaFaturas || []);
-  }
-  function editarCliente(cliente: any) {
-    setUsinaId(
-  cliente.usina_id || ''
-);
-  setEditando(cliente);
-
-  setNome(cliente.nome);
-  setUc(cliente.uc);
-  setDistribuidora(
-    cliente.distribuidora
-  );
-  setTelefone(
-    cliente.telefone
-  );
-  setCpf(cliente.cpf || '');
-setEndereco(cliente.endereco || '');
-}
-  
-
-  async function salvarCliente() {
-    if (!nome || !uc) {
-      Alert.alert('Atenção', 'Preencha Nome e UC');
-      return;
-    }
-
-    let error;
-
-if (editando) {
-  const resultado =
-    await supabase
-      .from('clientes')
-      .update({
-        nome,
-        uc: uc.replace(/\D/g, ''),
-        distribuidora,
-        telefone,
-        cpf,
-        endereco,
-        usina_id: usinaId,
-      })
-      .eq('id', editando.id);
-
-  error = resultado.error;
-} else {
-  const resultado =
-    await supabase
-      .from('clientes')
-      .insert([
-       {
-  nome,
-   uc: uc.replace(/\D/g, ''),
-  distribuidora,
-  telefone,
-  cpf,
-  endereco,
-  usina_id: usinaId,
-}
+  const { solarBusca } = useLocalSearchParams<{ solarBusca?: string }>();
+  const { user, usinaSelecionada } = useAuth();
+  const queryClient = useQueryClient();
+  const inicial = queryClient.getQueryData<any[]>(initialTabKey(String(user?.id ?? ""), usinaSelecionada?.id ?? user?.usina_id, "clientes"));
+  const [clientes, setClientes] = useState<any[]>(inicial ?? []); const [busca, setBusca] = useState(""); const [loading, setLoading] = useState(!inicial); const [atualizando, setAtualizando] = useState(false); const [erro, setErro] = useState<string | null>(null);
+  useEffect(() => { if (typeof solarBusca === "string") setBusca(solarBusca.slice(0, 120)); }, [solarBusca]);
+  const carregar = useCallback(async () => {
+    try {
+      setErro(null);
+      const [dados, unidades] = await Promise.all([
+        listarClientes(usinaSelecionada?.id),
+        queryClient.fetchQuery({
+          queryKey: initialTabKey(String(user?.id ?? ""), usinaSelecionada?.id ?? user?.usina_id, "faturamento"),
+          queryFn: () => listarUnidadesGestor(),
+          staleTime: 60_000,
+        }).catch(() => null),
       ]);
-
-  error = resultado.error;
-}
-if (error) {
-  Alert.alert(
-    'Erro',
-    error.message
-  );
-  return;
-}
-
-    Alert.alert('Sucesso', 'Cliente cadastrado');
-
-    setNome('');
-    setUc('');
-    setDistribuidora('');
-    setTelefone('');
-    setCpf('');
-    setEndereco('');
-    setEditando(null);
-    setUsinaId('');
-
-    carregarClientes();
-  }
-async function excluirCliente(id: string) {
-  console.log('CLICOU', id);
-  Alert.alert(
-    'Excluir Cliente',
-    'Deseja realmente excluir este cliente?',
-    [
-      {
-        text: 'Cancelar',
-        style: 'cancel',
-      },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-       onPress: async () => {
-  // Excluir cobranças
-  const { error: cobrancasError } =
-    await supabase
-      .from('cobrancas')
-      .delete()
-      .eq('cliente_id', id);
-
-  if (cobrancasError) {
-    Alert.alert(
-      'Erro',
-      cobrancasError.message
-    );
-    return;
-  }
-
-  // Excluir faturas
-  const { error: faturasError } =
-    await supabase
-      .from('faturas')
-      .delete()
-      .eq('cliente_id', id);
-
-  if (faturasError) {
-    Alert.alert(
-      'Erro',
-      faturasError.message
-    );
-    return;
-  }
-
-  // Excluir cliente
-  const { error: clienteError } =
-    await supabase
-      .from('clientes')
-      .delete()
-      .eq('id', id);
-
-  if (clienteError) {
-    Alert.alert(
-      'Erro',
-      clienteError.message
-    );
-    return;
-  }
-
-  Alert.alert(
-    'Sucesso',
-    'Cliente excluído com sucesso'
-  );
-
-  carregarClientes();
-}
-      },
-    ]
-  );
-}
-async function importarViaFatura() {
-
-  try {
-
-    const resultado =
-      await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf',
-      });
-
-    if (resultado.canceled) return;
-
-    const arquivo =
-      resultado.assets[0];
-
-    const base64 =
-      await FileSystem.readAsStringAsync(
-        arquivo.uri,
-        {
-          encoding: 'base64' as any,
+      const totalPorCliente = new Map<string, number>();
+      if (Array.isArray(unidades)) {
+        for (const unidade of unidades) {
+          const clienteId = String(unidade?.cliente_id ?? "");
+          if (clienteId) totalPorCliente.set(clienteId, (totalPorCliente.get(clienteId) ?? 0) + 1);
         }
-      );
-
-    const bytes = Uint8Array.from(
-      atob(base64),
-      c => c.charCodeAt(0)
-    );
-
-    const nomeArquivo =
-      Date.now() + '-' + arquivo.name;
-
-    const { error: uploadError } =
-      await supabase.storage
-        .from('faturas')
-        .upload(
-          nomeArquivo,
-          bytes,
-          {
-            contentType: 'application/pdf',
-          }
-        );
-
-    if (uploadError) {
-
-      Alert.alert(
-        'Erro Upload',
-        uploadError.message
-      );
-
-      return;
-
-    }
-
-    const { data: urlData } =
-      supabase.storage
-        .from('faturas')
-        .getPublicUrl(
-          nomeArquivo
-        );
-
-    const arquivoUrl =
-      urlData.publicUrl;
-
-    const resultadoOCR =
-      await lerFaturaOCR(
-        arquivoUrl
-      );
-
-    const textoOCR =
-      resultadoOCR
-        .ParsedResults?.[0]
-        ?.ParsedText || '';
-
-    const dados =
-      extrairDadosCemig(
-        textoOCR
-      );
-
-    if (
-
-      !dados.numero_instalacao ||
-
-      !dados.referencia ||
-
-      !dados.valor_total
-
-    ) {
-
-      Alert.alert(
-        'Fatura inválida',
-        'Não foi possível identificar os dados da fatura.'
-      );
-
-      return;
-
-    }
-
-    const ucLimpa =
-      String(
-        dados.numero_instalacao
-      ).replace(/\D/g, '');
-
-    const { data: clienteExistente } =
-      await supabase
-        .from('clientes')
-        .select('*')
-        .eq('uc', ucLimpa)
-        .maybeSingle();
-
-    let clienteIdFinal =
-      clienteExistente?.id;
-
-    if (!clienteExistente) {
-
-      const {
-
-        data: novoCliente,
-
-        error: clienteError,
-
-      } =
-        await supabase
-          .from('clientes')
-          .insert({
-
-            nome:
-              dados.nome_cliente,
-
-            uc: ucLimpa,
-
-            distribuidora:
-              'CEMIG',
-
-            telefone: '',
-
-            cpf:
-              dados.cpf,
-
-            endereco:
-              dados.endereco,
-
-            cidade:
-              dados.cidade,
-
-            estado:
-              dados.estado,
-
-          })
-
-          .select()
-
-          .single();
-
-      if (clienteError) {
-
-        Alert.alert(
-          'Erro Cliente',
-          clienteError.message
-        );
-
-        return;
-
       }
-
-      clienteIdFinal =
-        novoCliente.id;
-
+      setClientes(Array.isArray(dados) ? dados.map((cliente) => ({
+        ...cliente,
+        total_ucs: Array.isArray(unidades)
+          ? totalPorCliente.get(String(cliente.id)) ?? 0
+          : cliente.total_ucs ?? null,
+      })) : []);
+    } catch (erro: any) {
+      setClientes([]);
+      setErro(erro?.response?.data?.message ?? "Não foi possível carregar a carteira agora.");
+    } finally {
+      setLoading(false);
     }
+  }, [queryClient, user?.id, user?.usina_id, usinaSelecionada?.id]);
+  useFocusEffect(useCallback(() => { void carregar(); }, [carregar]));
+  async function atualizarPagina() { setAtualizando(true); try { await carregar(); } finally { setAtualizando(false); } }
+  const lista = useMemo(() => {
+    const normalizar = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    return clientes.filter((c) => normalizar(`${c.nome} ${unidadeDoCliente(c)} ${c.telefone} ${c.email} ${documentoDoCliente(c)}`).includes(normalizar(busca)));
+  }, [busca, clientes]);
 
-  Alert.alert(
-    'Sucesso',
-    'Cliente importado com sucesso.'
-  );
-  const valorTotal =
-  dados.valor_total
-    ? parseFloat(
-        dados.valor_total
-          .replace(',', '.')
-          .trim()
-      )
-    : 0;
-
-const economia =
-  Number(
-    (valorTotal * 0.4).toFixed(2)
-  );
-
-const vencimentoFormatado =
-  dados.vencimento
-    ? dados.vencimento
-        .split('/')
-        .reverse()
-        .join('-')
-    : null;
-    const { data: faturaExistente } =
-  await supabase
-    .from('faturas')
-    .select('id')
-    .eq('numero_instalacao', ucLimpa)
-    .eq('referencia', dados.referencia)
-    .maybeSingle();
-
-if (faturaExistente) {
-
-  Alert.alert(
-    'Fatura já importada',
-    `A competência ${dados.referencia} já está cadastrada para este cliente.`
-  );
-
-  await carregarClientes();
-
-  return;
-
-}
-
-const {
-  data: faturaCriada,
-  error: faturaError,
-} = await supabase
-  .from('faturas')
-  .insert({
-
-    cliente_id:
-      clienteIdFinal,
-
-    arquivo_url:
-      arquivoUrl,
-
-    referencia:
-      dados.referencia,
-
-    valor_total:
-      valorTotal,
-
-    economia,
-
-    numero_instalacao:
-      ucLimpa,
-
-    nome_cliente:
-      dados.nome_cliente,
-
-    vencimento:
-      vencimentoFormatado,
-
-    consumo_kwh:
-      Number(
-        dados.consumo_kwh || 0
-      ),
-
-  })
-  .select()
-  .single();
-
-if (
-  faturaError ||
-  !faturaCriada
-) {
-
-  Alert.alert(
-    'Erro',
-    faturaError?.message ||
-      'Erro ao criar fatura'
-  );
-
-  return;
-
-}
-
-const percentual =
-  clienteExistente
-    ?.percentual_desconto || 40;
-
-const valorCobrado =
-  Number(
-    (
-      valorTotal *
-      (1 - percentual / 100)
-    ).toFixed(2)
-  );
-
-const {
-  error: cobrancaError,
-} = await supabase
-  .from('cobrancas')
-  .insert({
-
-    cliente_id:
-      clienteIdFinal,
-
-    fatura_id:
-      faturaCriada.id,
-
-    referencia:
-      dados.referencia,
-
-    valor_original:
-      valorTotal,
-
-    percentual_desconto:
-      percentual,
-
-    valor_cobrado:
-      valorCobrado,
-
-    vencimento:
-      vencimentoFormatado,
-
-    status:
-      'PENDENTE',
-
-  });
-
-if (cobrancaError) {
-
-  Alert.alert(
-    'Erro Cobrança',
-    cobrancaError.message
-  );
-
-  return;
-
-}
-
-Alert.alert(
-  'Sucesso',
-  'Cliente importado com sucesso.'
-);
-
-await carregarClientes();
-
-} catch (erro: any) {
-
-  Alert.alert(
-    'Erro',
-    JSON.stringify(erro)
-  );
-
-}
-
-  carregarClientes();
-
-}
-  useEffect(() => {
-    carregarClientes();
-  }, []);
-  
-function economiaCliente(uc: string) {
-  const faturasCliente =
-    faturas.filter(
-      (f) =>
-        f.numero_instalacao
-          ?.replace(/\D/g, '') ===
-        uc?.replace(/\D/g, '')
-    );
-
-  console.log('UC:', uc);
-  console.log(
-    'FATURAS ENCONTRADAS:',
-    faturasCliente
-  );
-
-  return faturasCliente.reduce(
-    (acc, item) =>
-      acc + Number(item.economia || 0),
-    0
-  );
-}
-  return (
-  <ImageBackground    
-source={require('../../assets/images/background.png')}    resizeMode="cover"
-    style={{ flex: 1 }}
-  >
-    <KeyboardAvoidingView
-    style={{ flex: 1 }}
-    behavior={
-      Platform.OS === 'ios'
-        ? 'padding'
-        : 'height'
+  function confirmarExclusao(item: any) {
+    if (Array.isArray(item.contratos_status) && item.contratos_status.some((status: unknown) => !["CANCELADO", "ENCERRADO"].includes(String(status).toUpperCase()))) {
+      Alert.alert("Cliente com contrato", "Cancele ou encerre os contratos deste cliente antes de excluí-lo.");
+      return;
     }
-  >
-    <ScrollView
-     style={{
-  flex: 1,
-}}
-      contentContainerStyle={{
-  paddingHorizontal: 20,
-  paddingTop: 55,
-  paddingBottom: 20,
-}}
-      keyboardShouldPersistTaps="handled"
-    >
-   
-
-      <TextInput
-  placeholder="🔍 Buscar cliente"
-  value={busca}
-  onChangeText={setBusca}
-  style={{
- backgroundColor: 'rgba(255,255,255,0.85)',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 15,
-  }}
-/>
-<View
-  style={{
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 15,
-  }}
->
-  <TouchableOpacity
-    onPress={() =>
-      router.push('/clientes/novo')
-    }
-    style={{
-      flex: 1,
-      backgroundColor: '#16a34a',
-      padding: 14,
-      borderRadius: 10,
-    }}
-  >
-    <Text
-      style={{
-        color: 'white',
-        textAlign: 'center',
-        fontWeight: 'bold',
-      }}
-    >
-      ➕ NOVO CLIENTE
-    </Text>
-  </TouchableOpacity>
-
-  <TouchableOpacity
-  onPress={importarViaFatura}
-  style={{
-    flex: 1,
-    backgroundColor: '#2563eb',
-    padding: 14,
-    borderRadius: 10,
-  }}
->
-  <Text
-    style={{
-      color: 'white',
-      textAlign: 'center',
-      fontWeight: 'bold',
-    }}
-  >
-    ➕ VIA FATURA
-  </Text>
-</TouchableOpacity>
-</View>
-
-      <FlatList
-        scrollEnabled={false}
-    data={
-  clientes.filter((cliente) =>
-    cliente.nome
-      ?.toLowerCase()
-      .includes(
-        busca.toLowerCase()
-      )
-  )
-}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View
-  style={{
-    backgroundColor: 'rgba(15,23,42,0.75)',
-borderWidth: 1,
-borderColor: 'rgba(250,204,21,0.2)',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 10,
-  }}
->
-  
-   <TouchableOpacity
-  onPress={() => router.push(`/clientes/${item.id}`)}
-
->
-    <Text
-      style={{
-        color: '#facc15',
-        fontWeight: 'bold',
-        fontSize: 18,
-      }}
-    >
-      {item.nome}
-    </Text>
-
-  </TouchableOpacity>
-
-    <Text style={{ color: '#cbd5e1', marginTop: 6 }}>
-  ⚡ UC: {item.uc}
-</Text>
-
-<Text style={{ color: '#60a5fa' }}>
-  ☀️ {item.usinas?.nome || 'Sem usina'}
-</Text>
-
-<Text style={{ color: '#94a3b8' }}>
-  📞 {item.telefone || '-'}
-</Text>
-
-<Text style={{ color: '#94a3b8' }}>
-  🪪 CPF: {item.cpf || '-'}
-</Text>
-
-<Text style={{ color: '#94a3b8' }}>
-  📍 {item.endereco || '-'}
-</Text>
-
-    <Text
-      style={{
-        color: '#22c55e',
-        marginTop: 10,
-        fontWeight: 'bold',
-      }}
-    >
-      Economia acumulada
-    </Text>
-    
-
-    <Text
-      style={{
-        color: 'white',
-        fontSize: 18,
-        fontWeight: 'bold',
-      }}
-    >
-      R$ {economiaCliente(item.uc)
-        .toFixed(2)
-        .replace('.', ',')}
-    </Text>
-
-    <Text
-      style={{
-        color: '#94a3b8',
-        marginTop: 8,
-      }}
-    >
-      📄 Faturas: {
-        faturas.filter(
-          (f) =>
-            f.numero_instalacao
-              ?.replace(/\D/g, '') ===
-            item.uc?.replace(/\D/g, '')
-        ).length
-      }
-    </Text>
-
-    <TouchableOpacity
-  onPress={() =>
-    router.push({
-      pathname: '/clientes/editar',
-      params: {
-        id: item.id,
-      },
-    })
+    Alert.alert("Excluir cliente", `Deseja excluir ${item.nome}? Esta ação não pode ser desfeita.`, [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Excluir", style: "destructive", onPress: async () => {
+        try {
+          await excluirCliente(item.id);
+          setClientes((atuais) => atuais.filter((cliente) => cliente.id !== item.id));
+        } catch (erro: any) {
+          Alert.alert("Não foi possível excluir", erro?.response?.data?.message ?? erro?.message);
+        }
+      } },
+    ]);
   }
-  style={{
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 12,
-    marginBottom: 8,
-  }}
->
-  <Text
-    style={{
-      color: '#2563eb',
-      textAlign: 'center',
-      fontWeight: 'bold',
-    }}
-  >
-    EDITAR CLIENTE
-  </Text>
-</TouchableOpacity>
 
-         </View>
-)}
-      />
-    </ScrollView>
-      </KeyboardAvoidingView>
-  </ImageBackground>
-);
+  return <Screen>
+    <AppHeader title="Clientes" subtitle="Gestão da carteira" contextTitle={`${clientes.length} clientes cadastrados`} contextSubtitle="Cadastre primeiro; depois envie o convite" icon="people-outline" />
+    {loading ? <TabDataPending /> : <FlatList bounces alwaysBounceVertical overScrollMode="always" refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />} contentContainerStyle={styles.content} data={lista} keyExtractor={(item, index) => item?.id ? String(item.id) : `cliente-${index}`} showsVerticalScrollIndicator={false}
+      ListHeaderComponent={<View><View style={styles.heading}><Text style={styles.title}>Sua carteira</Text><Text style={styles.subtitle}>Consulte clientes, contatos e unidades vinculadas.</Text></View><View style={styles.search}><Ionicons name="search-outline" size={20} color={Colors.subtitle} /><TextInput value={busca} onChangeText={setBusca} placeholder="Buscar por nome, CPF, UC ou telefone" placeholderTextColor={Colors.subtitle} style={styles.input} /></View><CadastroActions tipo="CLIENTE" /><Text style={styles.inviteHint}>O gerador cadastra o cliente e a UC pela fatura. Depois, o convite é enviado pelo próprio card do cliente.</Text></View>}
+      renderItem={({ item }) => { const status = statusCadastro(item); const totalUcs = Number(item.total_ucs ?? 0); const totalContratos = Number(item.total_contratos ?? 0); return <Pressable onPress={() => router.push(`/clientes/${item.id}`)}><Card style={styles.clientCard}><View style={styles.row}><View style={styles.avatar}><Text style={styles.avatarText}>{item.nome?.charAt(0)?.toUpperCase() ?? "C"}</Text></View><View style={styles.info}><Text numberOfLines={2} style={styles.name}>{item.nome}</Text><View style={styles.documentInfo}><Ionicons name="person-outline" size={14} color={Colors.primary} /><Text style={styles.detail}>{documentoDoCliente(item) ? `CPF/CNPJ ${formatarDocumento(documentoDoCliente(item))}` : "CPF não informado"}</Text></View></View><TouchableOpacity accessibilityLabel={`Excluir cliente ${item.nome}`} onPress={(event) => { event.stopPropagation(); confirmarExclusao(item); }} style={styles.delete}><Ionicons name="trash-outline" size={18} color={Colors.danger} /></TouchableOpacity></View><View style={styles.meta}><View style={styles.metaItem}><Ionicons name="flash-outline" size={14} color={Colors.primary} /><Text style={styles.metaText}>{totalUcs} UC{totalUcs === 1 ? "" : "s"} vinculada{totalUcs === 1 ? "" : "s"}</Text></View><View style={styles.metaItem}><Ionicons name="business-outline" size={14} color={Colors.primary} /><Text style={styles.metaText}>{item.distribuidora ?? "Concessionária não informada"}</Text></View><View style={styles.metaItem}><Ionicons name="document-text-outline" size={14} color={Colors.primary} /><Text style={styles.metaText}>{totalContratos ? `${totalContratos} contrato${totalContratos === 1 ? "" : "s"}` : "Nenhum contrato cadastrado"}</Text></View><View style={styles.metaItem}><Ionicons name="call-outline" size={14} color={Colors.primary} /><Text style={styles.metaText}>{item.telefone || "Contato não informado"}</Text></View></View><View style={styles.footer}><Badge label={status.label} variant={status.variant} /><View style={styles.openLink}><Text style={styles.openText}>Ver cliente</Text><Ionicons name="chevron-forward" size={16} color={Colors.primary} /></View></View></Card></Pressable>; }}
+      ListEmptyComponent={<View><EmptyState icon={erro ? "alert-circle-outline" : "people-outline"} title={erro ? "Não foi possível carregar os clientes" : "Nenhum cliente encontrado"} subtitle={erro ?? (busca ? "Altere a busca e tente novamente." : "Envie um convite. O cliente será adicionado depois que criar a conta.")} />{erro ? <TouchableOpacity onPress={atualizarPagina} style={styles.retry}><Ionicons name="refresh-outline" size={18} color={Colors.primary} /><Text style={styles.retryText}>Tentar novamente</Text></TouchableOpacity> : null}</View>}
+    />}
+  </Screen>;
 }
+
+const styles = StyleSheet.create({
+  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl * 3 }, heading: { marginBottom: Spacing.md }, title: { color: Colors.text, fontSize: Typography.section, fontWeight: "800" }, subtitle: { marginTop: Spacing.xs, color: Colors.subtitle, lineHeight: 20 },
+  search: { minHeight: 54, flexDirection: "row", alignItems: "center", marginBottom: Spacing.md, paddingHorizontal: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.lg, backgroundColor: Colors.surface }, input: { flex: 1, marginLeft: Spacing.sm, color: Colors.text },
+  clientCard: { padding: Spacing.md, marginBottom: Spacing.sm, borderRadius: Radius.lg }, row: { flexDirection: "row", alignItems: "flex-start" }, avatar: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: Radius.round, backgroundColor: Colors.primaryLight }, avatarText: { color: Colors.primaryDark, fontSize: Typography.body, fontWeight: "800" }, info: { flex: 1, minWidth: 0, marginHorizontal: Spacing.sm }, name: { color: Colors.text, fontSize: Typography.body, lineHeight: 20, fontWeight: "700" }, documentInfo: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 3 }, detail: { flexShrink: 1, color: Colors.subtitle, fontSize: Typography.small },
+  meta: { gap: 4, marginTop: Spacing.sm, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border }, metaItem: { minHeight: 20, flexDirection: "row", alignItems: "center", gap: Spacing.xs }, metaText: { flex: 1, color: Colors.subtitle, fontSize: Typography.small }, footer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: Spacing.sm }, openLink: { flexDirection: "row", alignItems: "center", gap: 3 }, openText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" },
+  invite: { minHeight: 54, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, borderRadius: Radius.lg, backgroundColor: Colors.primary }, inviteText: { color: "#FFF", fontWeight: "800" }, inviteHint: { marginTop: Spacing.sm, marginBottom: Spacing.lg, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18, textAlign: "center" }, delete: { width: 34, height: 34, alignItems: "center", justifyContent: "center", marginLeft: Spacing.xs, borderRadius: Radius.round, backgroundColor: "#FEE2E2" }, retry: { minHeight: 46, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.md, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md }, retryText: { color: Colors.primary, fontWeight: "800" },
+});

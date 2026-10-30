@@ -1,0 +1,658 @@
+[
+  {
+    "numero": "OTA 20261024-235446",
+    "data": "24/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Servidor reserva Render com controle exclusivo de execução e proteção contra repetição de operações"
+    ]
+  },
+  {
+    "numero": "OTA 20261024-235235",
+    "data": "24/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Servidor reserva Render com controle exclusivo de execução e proteção contra repetição de operações"
+    ]
+  },
+  {
+    "numero": "OTA 20261024-235006",
+    "data": "24/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Servidor reserva Render com controle exclusivo de execução e proteção contra repetição de operações"
+    ]
+  },
+  {
+    "numero": "OTA 20261024-234804",
+    "data": "24/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Servidor reserva Render com controle exclusivo de execução e proteção contra repetição de operações"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-221856",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Saldo da ancora com creditos totais Cemig para instalacoes anteriores, homologado"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-221617",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Saldo acumulado da UC ancora com creditos recebidos de outras usinas, homologado"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-221106",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Saldo da ancora inclui creditos Cemig de outras usinas sem duplicacao"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-214742",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Saldo acumulado da UC ancora com referencia da fatura"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-182857",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Ajuste final de saldo comercial para instalacoes anteriores, conferido no Preview"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-182706",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Saldo do Financeiro Comercial inteiro em telas estreitas, conferido no Preview"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-182201",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Saldo do Financeiro Comercial inteiro em telas estreitas e com fonte grande"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-181721",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Historico financeiro, cotas automaticas, recuperacao segura e contingencia para instalacoes anteriores"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-181401",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Historico financeiro, fatura com texto para o gerador e contingencia automatica conferidos no Preview"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-175440",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Historico financeiro operacional e comercial, texto da fatura por perfil e contingencia automatica"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-174333",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Fatura com texto para gerador, historico de transacoes e controle da contingencia automatica"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-172458",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Resend unificado, cotas Azure e autenticador seguro com contingencia preservada"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-171633",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Resend unificado e configuracao de contingencia preservada"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-171412",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Resend unificado com cotas diaria e mensal; cotas Azure e recuperacao segura do autenticador"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-170959",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Resend com cotas diaria e mensal em um unico card"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-170600",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Cotas automaticas Azure para ADM e recuperacao segura do autenticador financeiro"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-165918",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Cotas automaticas Azure e recuperacao segura do autenticador financeiro"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-164239",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Cotas automaticas Azure Speech para ADM e recuperacao segura do autenticador"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-162232",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Recuperacao segura do autenticador financeiro por senha e email"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-112928",
+    "data": "23/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Produção: roteamento controlado do servidor reserva"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-112508",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Produção: servidor reserva com troca confirmada pela administração"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-083341",
+    "data": "23/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Preview: roteamento controlado do servidor reserva"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-080359",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Preview: contingência controlada e transporte de PDFs"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-063617",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "ADM: cotas Brevo e Resend com alertas e leituras conferidas dos provedores"
+    ]
+  },
+  {
+    "numero": "OTA 20261023-061926",
+    "data": "23/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Cotas ADM: incluir saldo diario Brevo e preservar leituras verificadas"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-215104",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Cotas ADM: consumo real Resend, leituras confirmadas e PDF privado no Preview"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-212903",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "ADM: cotas de serviços no menu lateral, saldo verificado e alertas de consumo"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-203814",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar continua conversa minimizada nas abas e encerra por silêncio"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-203520",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Rateio com checkboxes e ação principal; Solar continua voz minimizada ao navegar"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-165431",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Solar simplificada e comandos seguros; rateio mensal considerando saldo; melhorias de navegacao e cards"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-165133",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Entrada pela lista de UCs; saldo por unidade; Solar simplificada com tres pontos e comandos seguros"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-162651",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Conversa da Solar limpa; configuracoes reunidas na engrenagem"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-162213",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Saldo acumulado da UC na Home e estatisticas; Solar opera campos e botoes"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-161651",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio automatico com aviso ao gerador, saldo da UC e receita alinhada"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-155533",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar executa controles antes de consultas e preserva formulario"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-155231",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Solar executa comandos de campos e botoes no formulario atual com confirmacao"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-154640",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar sobre o formulario e UC sem campo manual de CPF"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-154346",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Solar preserva formulario; economia sem quebra e barra protegida no Android"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-153820",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "UC sem campo manual de CPF e edicao protegida contra falha de carregamento"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-152134",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Barra Home respeita navegacao nativa Android"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-151950",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Barra Home acima dos botoes nativos do Android"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-150521",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Consumo médio no card da UC e inicialização sem bloquear a escolha de ambiente"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-150248",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Máscaras de moeda e CPF opcional; titularidade no rateio e preparo da navegação sem bloquear a seleção"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-144119",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Solar com controles seguros e opção de modelo local; dados preparados no início"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-143815",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio mensal no CSV Cemig; consumo médio da UC sem adicional e controles seguros da Solar"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-142727",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Detalhes financeiros pelo ícone i; carregamento inicial e retorno da autorização Gmail"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-141533",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Card financeiro com detalhes pelo ícone i; carregamento inicial; Gmail e comparação da produção média"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-134503",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Faturas: boleto vencido com vencimento original e encargos do contrato"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-100135",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Financeiro: saldo líquido, encargos do contrato e recebimentos atuais na Home"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-065959",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Fatura vencida: identifica valor original e orienta pagamento do mesmo boleto com encargos no banco"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-065752",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Fatura vencida: informa principal sem encargos; mantém o mesmo boleto e saldo líquido Asaas"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-065357",
+    "data": "22/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Pagamento: manter boleto e vencimento original ao consultar cobrança vencida"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-065137",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Financeiro: saldo Asaas, bruto, tarifas e líquido; boleto vencido mantém vencimento original"
+    ]
+  },
+  {
+    "numero": "OTA 20261022-063147",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Financeiro: ADM usa a carteira vinculada à usina selecionada, com saldo disponível confirmado no Asaas. Ações financeiras usam a mesma carteira e mantêm autenticação e auditoria do ADM."
+    ]
+  },
+  {
+    "numero": "OTA 20261022-062804",
+    "data": "22/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Financeiro: ADM usa a carteira real da usina selecionada; saldo disponível depende da liberação no Asaas e desconta transferências reservadas."
+    ]
+  },
+  {
+    "numero": "OTA 20261021-232056",
+    "data": "21/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Faturas: pagamento confirmado prevalece sobre cobrança auxiliar pendente; identificação correta de faturas vencidas."
+    ]
+  },
+  {
+    "numero": "OTA 20261021-231915",
+    "data": "21/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Faturas: baixa confirmada e status de vencimento corrigidos. Equipe: remover acesso ADM de colaboradores promovidos. Proteção de recebimentos por titularidade."
+    ]
+  },
+  {
+    "numero": "OTA 20261021-231513",
+    "data": "21/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Faturas: baixa confirmada prevalece sobre cobrança auxiliar aberta; status de atraso identificado também na UC. Recebimentos e revogação de ADM em homologação."
+    ]
+  },
+  {
+    "numero": "OTA 20261021-231357",
+    "data": "21/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Faturas: pagamento confirmado prevalece sobre cobrança auxiliar aberta; vencidas identificadas também na UC. Recebimentos e revogação de ADM em homologação."
+    ]
+  },
+  {
+    "numero": "OTA 20261021-230924",
+    "data": "21/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Equipe: remover acesso ADM de colaboradores promovidos, com encerramento das sessões e reconfiguração das permissões. Recebimentos protegidos por titularidade."
+    ]
+  },
+  {
+    "numero": "OTA 20261021-225631",
+    "data": "21/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Permissões organizadas por Ambiente Comercial e Ambiente Gerador, com subopções recolhíveis. ADM mantém acesso completo, inclusive financeiro."
+    ]
+  },
+  {
+    "numero": "OTA 20261021-224927",
+    "data": "21/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Permissões organizadas em Ambiente Comercial e Ambiente Gerador, com subopções recolhíveis; ADM mantém acesso completo."
+    ]
+  },
+  {
+    "numero": "OTA 20261021-224659",
+    "data": "21/10/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Histórico de atualizações registrado automaticamente; menu padronizado; Mostrar Solar somente quando o flutuante está oculto."
+    ]
+  },
+  {
+    "numero": "OTA 20261021-224529",
+    "data": "21/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Subopções recolhidas com ambiente Gerador desligado; histórico atualizado automaticamente; Home mantém o ambiente Comercial; Solar no acesso rápido somente quando oculta."
+    ]
+  },
+  {
+    "numero": "OTA 20261021-224201",
+    "data": "21/10/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Historico de atualizacoes atualizado automaticamente; menu padronizado e Solar no acesso rapido somente quando oculta."
+    ]
+  },
+  {
+    "numero": "OTA 20261021-224035",
+    "data": "21/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Subopcoes recolhidas quando ambiente Gerador esta desligado; historico atualizado automaticamente; Home preserva o ambiente Comercial; Solar no acesso rapido somente quando oculta."
+    ]
+  },
+  {
+    "numero": "Melhorias de 21/10/2026",
+    "data": "21/10/2026",
+    "variant": "gerador",
+    "audience": "all",
+    "melhorias": [
+      "Equipe com botão de convite e formulário em tela separada.",
+      "Permissões comerciais individuais e subopções da operação dentro de Trocar ambiente para Gerador.",
+      "Promoção única para acesso ADM completo, com confirmação e registro de auditoria.",
+      "Menu pela esquerda; Home centralizada ou na primeira posição quando necessário.",
+      "Monitoramento disponível aos colaboradores autorizados e gestão da equipe restrita ao titular e ADM.",
+      "Indicador de faturas vencidas e avisos formais por aplicativo e e-mail, com orientação para desconsiderar se já pago.",
+      "Mostrar Solar no acesso rápido aparece somente quando o flutuante está oculto."
+    ]
+  },
+  {
+    "numero": "Melhorias de 21/10/2026",
+    "data": "21/10/2026",
+    "variant": "consumidor",
+    "audience": "all",
+    "melhorias": [
+      "Menu lateral padronizado pela esquerda.",
+      "Mostrar Solar no acesso rápido aparece somente quando o flutuante está oculto.",
+      "Avisos formais de faturas vencidas no aplicativo e por e-mail, com orientação para desconsiderar se já pago."
+    ]
+  }
+]

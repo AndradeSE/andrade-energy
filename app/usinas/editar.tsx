@@ -1,342 +1,184 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
+import { Alert, ImageBackground, StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
-import {
-  Alert,
-  ImageBackground,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import FormField from "../../components/cadastro/FormField";
+import EnderecoFields from "../../components/cadastro/EnderecoFields";
+import ChoiceField from "../../components/cadastro/ChoiceField";
+import { enderecoVazio, erroEndereco, lerEndereco, serializarEndereco } from "../../utils/cadastroCliente";
+import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
+import { IS_GERADOR_APP } from "../../config/appVariant";
+import { useAuth } from "../../contexts/AuthContext";
+import { buscarUsina as buscarUsinaRemota, editarUsina as editarUsinaRemota, excluirUsina as excluirUsinaRemota, listarUsinas, migrarUnidadesDaUsina } from "../../services/usinas.service";
+import { Colors, Radius, Spacing, Typography } from "../../theme";
 
-import { supabase } from '../../supabase';
+const formatarMoeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const moedaDigitada = (valor: string) => formatarMoeda(Number(valor.replace(/\D/g, "")) / 100);
+const numeroDaMoeda = (valor: string) => Number(valor.replace(/[^\d,]/g, "").replace(",", ".")) || 0;
 
 export default function EditarUsina() {
-
-  const { id } = useLocalSearchParams();
-
-  const usinaId = Array.isArray(id)
-    ? id[0]
-    : id;
-
-  const [nome, setNome] = useState('');
-  const [pontoInstalacao, setPontoInstalacao] =
-    useState('');
-
-  const [potencia, setPotencia] =
-    useState('');
-
-  const [geracaoMedia, setGeracaoMedia] =
-    useState('');
-
-  const [investimento, setInvestimento] =
-    useState('');
-
-  const [salvando, setSalvando] =
-    useState(false);
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { usuario, usinaSelecionada, selecionarUsina, atualizarUsuario } = useAuth();
+  const [nome, setNome] = useState("");
+  const [numeroInstalacao, setNumeroInstalacao] = useState("");
+  const [potencia, setPotencia] = useState("");
+  const [geracaoMedia, setGeracaoMedia] = useState("");
+  const [mediaEditada, setMediaEditada] = useState(false);
+  const [investimento, setInvestimento] = useState("");
+  const [titular, setTitular] = useState("");
+  const [cpfTitular, setCpfTitular] = useState("");
+  const [endereco, setEndereco] = useState({ ...enderecoVazio });
+  const [tipoGd, setTipoGd] = useState<"GD1" | "GD2">("GD1");
+  const [titularidadeUcs, setTitularidadeUcs] = useState<"GERADOR" | "CLIENTE">("GERADOR");
+  const [loading, setLoading] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
+  const [outrasUsinas, setOutrasUsinas] = useState<any[]>([]);
+  const [destinoUsinaId, setDestinoUsinaId] = useState("");
+  const [migrando, setMigrando] = useState(false);
+  const [fotoCard, setFotoCard] = useState("");
+  const chaveFotoCard = `foto-card-usina:${id}`;
 
   useEffect(() => {
-    carregar();
-  }, []);
+    async function carregar() {
+      let data: any;
+      try {
+        data = await buscarUsinaRemota(id);
+      } catch {
+        Alert.alert("Usina não encontrada", "Não foi possível carregar os dados da usina.");
+        router.back();
+        return;
+      }
+      setNome(data.nome ?? "");
+      setNumeroInstalacao(String(data.numero_instalacao ?? data.ponto_instalacao ?? "").replace(/\D/g, ""));
+      setPotencia(String(data.potencia_kwp ?? ""));
+      const destinos = await listarUsinas();
+      const resumo = destinos.find((item: any) => item.id === id);
+      setGeracaoMedia(String(Number(data.geracao_media ?? 0) > 0 ? data.geracao_media : resumo?.producao_media_12_meses ?? ""));
+      setInvestimento(formatarMoeda(data.investimento ?? 0));
+      setTitular(data.titular_nome ?? "");
+      setEndereco(lerEndereco(data.endereco ?? ""));
+      setTipoGd(data.tipo_gd === "GD2" ? "GD2" : "GD1");
+      setTitularidadeUcs(data.titularidade_ucs_recebedoras === "CLIENTE" ? "CLIENTE" : "GERADOR");
+      setCpfTitular(String(data.cpf_titular ?? "").replace(/\D/g, ""));
+      setFotoCard((await AsyncStorage.getItem(chaveFotoCard)) ?? "");
+      const outras = destinos.filter((item: any) => item.id !== id);
+      setOutrasUsinas(outras);
+      setDestinoUsinaId(outras[0]?.id ?? "");
+    }
+    carregar().finally(() => setLoading(false));
+  }, [id]);
 
-  async function carregar() {
+  async function alterarFotoCard() {
+    const resultado = await DocumentPicker.getDocumentAsync({ type: "image/*", copyToCacheDirectory: true, multiple: false });
+    if (resultado.canceled || !resultado.assets?.[0]?.uri) return;
+    try {
+      const extensao = resultado.assets[0].name?.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "") || "jpg";
+      const destino = `${FileSystem.documentDirectory}card-usina-${id}.${extensao}`;
+      await FileSystem.copyAsync({ from: resultado.assets[0].uri, to: destino });
+      await AsyncStorage.setItem(chaveFotoCard, destino);
+      setFotoCard(destino);
+    } catch { Alert.alert("Não foi possível alterar o fundo", "Escolha outra imagem e tente novamente."); }
+  }
 
-    const { data, error } =
-      await supabase
-        .from('usinas')
-        .select('*')
-        .eq('id', usinaId)
-        .single();
-
-    console.log(
-      'USINA CARREGADA:',
-      data
-    );
-
-    console.log(
-      'ERRO:',
-      error
-    );
-
-    if (!data) return;
-
-    setNome(
-      data.nome || ''
-    );
-
-    setPontoInstalacao(
-      data.ponto_instalacao || ''
-    );
-
-    setPotencia(
-      String(
-        data.potencia_kwp || ''
-      )
-    );
-
-    setGeracaoMedia(
-      String(
-        data.geracao_media || ''
-      )
-    );
-
-    setInvestimento(
-      String(
-        data.investimento || ''
-      )
-    );
+  async function removerFotoCard() {
+    await AsyncStorage.removeItem(chaveFotoCard);
+    setFotoCard("");
   }
 
   async function salvar() {
-
+    if (!nome.trim() || !numeroInstalacao) return Alert.alert("Dados incompletos", "Informe o nome e o número da instalação.");
+    const erroDoEndereco = erroEndereco(endereco);
+    if (erroDoEndereco) return Alert.alert("Endereço da usina", erroDoEndereco);
     setSalvando(true);
-
-    const payload = {
-      nome,
-      ponto_instalacao:
-        pontoInstalacao,
-      potencia_kwp:
-        Number(potencia),
-      geracao_media:
-        Number(geracaoMedia),
-      investimento:
-        Number(investimento),
-    };
-
-    console.log(
-      'UPDATE:',
-      payload
-    );
-
-    const { error } =
-      await supabase
-        .from('usinas')
-        .update(payload)
-        .eq('id', usinaId);
-
-    setSalvando(false);
-
-    if (error) {
-
-      Alert.alert(
-        'Erro',
-        error.message
-      );
-
-      return;
+    try {
+      await editarUsinaRemota(id, {
+        nome: nome.trim(), numero_instalacao: numeroInstalacao,
+        potencia_kwp: Number(potencia.replace(",", ".")) || 0,
+        ...(mediaEditada ? { geracao_media: Number(geracaoMedia.replace(",", ".")) || 0 } : {}),
+        investimento: numeroDaMoeda(investimento), tipo_gd: tipoGd,
+        titularidade_ucs_recebedoras: titularidadeUcs,
+        titular_nome: titular.trim() || null, cpf_titular: cpfTitular.replace(/\D/g, "") || null,
+        endereco: serializarEndereco(endereco),
+      });
+      router.back();
+    } catch (erro: any) {
+      Alert.alert("Não foi possível salvar", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
+    } finally {
+      setSalvando(false);
     }
-
-    Alert.alert(
-      'Sucesso',
-      'Usina atualizada.'
-    );
-
-    router.back();
   }
 
   function confirmarExclusao() {
-
-    Alert.alert(
-      'Excluir usina',
-      'Deseja realmente excluir esta usina?',
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: excluirUsina,
-        },
-      ]
-    );
+    Alert.alert("Excluir usina", "A usina e seus vínculos serão removidos. Esta ação não pode ser desfeita.", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Excluir usina", style: "destructive", onPress: excluir },
+    ]);
   }
 
-  async function excluirUsina() {
-
-    const { error } =
-      await supabase
-        .from('usinas')
-        .delete()
-        .eq('id', usinaId);
-
-    if (error) {
-
-      Alert.alert(
-        'Erro',
-        error.message
-      );
-
-      return;
+  async function excluir() {
+    setExcluindo(true);
+    let error: any;
+    try {
+      await excluirUsinaRemota(id);
+    } catch (erro) {
+      error = erro;
     }
-
-    Alert.alert(
-      'Sucesso',
-      'Usina excluída.'
-    );
-
-    router.replace('/usinas');
+    setExcluindo(false);
+    if (error) return Alert.alert("Não foi possível excluir", error?.response?.data?.message ?? error.message);
+    if (usuario?.usina_id === id) await atualizarUsuario({ usina_id: null });
+    if (usinaSelecionada?.id === id) selecionarUsina(null);
+    router.replace("/selecionar-unidade");
   }
 
-  return (
+  async function migrarUcs() {
+    if (!destinoUsinaId) return Alert.alert("Outra usina necessária", "Cadastre outra usina antes de migrar as UCs e excluir esta.");
+    setMigrando(true);
+    try {
+      const resultado = await migrarUnidadesDaUsina(id, destinoUsinaId);
+      Alert.alert("UCs migradas", `${resultado.migradas ?? 0} UC(s) foram transferidas para ${resultado.destino?.nome ?? "a usina escolhida"}. Agora esta usina pode ser excluída.`);
+    } catch (erro: any) {
+      Alert.alert("Não foi possível migrar", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
+    } finally { setMigrando(false); }
+  }
 
-     <ImageBackground
-source={require('../../assets/images/background.png')}        style={{ flex: 1 }}
-      >
-        <SafeAreaView
-          style={{
-            flex: 1,
-          }}
-          >
-      
-   <View
-  style={{
-    width: '88%',          // diminui a largura
-    alignSelf: 'center',   // centraliza o card
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: 18,
-    padding: 20,
-    marginTop: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    elevation: 6,
-  }}
->
-         <Text
-        style={{
-          fontSize: 24,
-          fontWeight: 'bold',
-          marginBottom: 20,
-        }}
-      >
-        Editar Usina
-      </Text>
-
-      <Text>
-        Nome da usina
-      </Text>
-
-      <TextInput
-        value={nome}
-        onChangeText={setNome}
-         style={styles.input}
-        
-      />
-
-      <Text>
-        Ponto de instalação
-      </Text>
-
-      <TextInput
-        value={pontoInstalacao}
-        onChangeText={(texto) =>
-          setPontoInstalacao(
-            texto.replace(/\D/g, '')
-          )
-        }
-        keyboardType="numeric"
-         style={styles.input}
-        
-      />
-
-      <Text>
-        Potência (kWp)
-      </Text>
-
-      <TextInput
-        value={potencia}
-        onChangeText={setPotencia}
-        keyboardType="numeric"
-        style={styles.input}
-        
-      />
-
-      <Text>
-        Geração média (kWh/mês)
-      </Text>
-
-      <TextInput
-        value={geracaoMedia}
-        onChangeText={setGeracaoMedia}
-        keyboardType="numeric"
-        style={styles.input}
-        
-      />
-
-      <Text>
-        Investimento
-      </Text>
-
-      <TextInput
-        value={investimento}
-        onChangeText={setInvestimento}
-        keyboardType="numeric"
-         style={styles.input}
-        
-      />
-
-      <TouchableOpacity
-        onPress={salvar}
-        style={{
-          backgroundColor: '#2563eb',
-          padding: 15,
-          borderRadius: 10,
-        }}
-      >
-        <Text
-          style={{
-            color: 'white',
-            textAlign: 'center',
-            fontWeight: 'bold',
-          }}
-        >
-          {salvando
-            ? 'SALVANDO...'
-            : 'SALVAR'}
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        onPress={confirmarExclusao}
-        style={{
-          backgroundColor: '#dc2626',
-          padding: 15,
-          borderRadius: 10,
-          marginTop: 10,
-        }}
-      >
-        <Text
-          style={{
-            color: 'white',
-            textAlign: 'center',
-            fontWeight: 'bold',
-          }}
-        >
-          EXCLUIR USINA
-        </Text>
-      </TouchableOpacity>
-
-    </View>
-    </SafeAreaView>
-  </ImageBackground>
-  );
+  if (loading) return <Loading />;
+  return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Editar usina" subtitle="Dados da geração" contextTitle={nome || "Editar usina"} contextSubtitle={`UC ${numeroInstalacao || "não informada"}`} icon="sunny-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
+    <Text style={styles.eyebrow}>CADASTRO DA USINA</Text><Text style={styles.title}>Editar usina</Text><Text style={styles.subtitle}>Atualize os dados técnicos e cadastrais da unidade geradora.</Text>
+    <Card>
+      <Text style={styles.fieldLabel}>Fundo do card da usina</Text>
+      <ImageBackground source={fotoCard ? { uri: fotoCard } : require("../../assets/images/usina-loading.jpeg")} imageStyle={styles.previewImage} style={styles.preview}>
+        <View style={styles.previewOverlay}><Ionicons name="sunny" size={25} color="#FACC15" /><Text style={styles.previewText}>{nome || "Sua usina"}</Text></View>
+      </ImageBackground>
+      <View style={styles.photoActions}>
+        <TouchableOpacity onPress={() => void alterarFotoCard()} style={styles.photoButton}><Ionicons name="image-outline" size={18} color={Colors.primary} /><Text style={styles.photoButtonText}>{fotoCard ? "Trocar imagem" : "Escolher imagem"}</Text></TouchableOpacity>
+        {fotoCard ? <TouchableOpacity onPress={() => void removerFotoCard()} style={styles.removePhoto}><Ionicons name="close-circle-outline" size={18} color={Colors.danger} /><Text style={styles.removePhotoText}>Remover</Text></TouchableOpacity> : null}
+      </View>
+      <FormField label="Nome da usina" value={nome} onChangeText={setNome} />
+      <FormField label="Número da instalação / UC" value={numeroInstalacao} onChangeText={(valor) => setNumeroInstalacao(valor.replace(/\D/g, ""))} keyboardType="numeric" />
+      <FormField label="Potência (kWp)" value={potencia} onChangeText={setPotencia} keyboardType="decimal-pad" />
+      <FormField label="Geração média (kWh/mês)" value={geracaoMedia} onChangeText={(valor) => { setGeracaoMedia(valor); setMediaEditada(true); }} keyboardType="decimal-pad" />
+      <Text style={styles.dangerSubtitle}>Calculada pelas faturas dos últimos 12 meses quando disponível. Edite para definir um valor manual.</Text>
+      <ChoiceField label="Modalidade GD da usina" value={tipoGd} onChange={setTipoGd} options={[{ label: "GD I", value: "GD1" }, { label: "GD II", value: "GD2" }]} />
+      <ChoiceField label="Titularidade das UCs" value={titularidadeUcs} onChange={(valor) => setTitularidadeUcs(valor as "GERADOR" | "CLIENTE")} options={[{ label: "Gerador", value: "GERADOR" }, { label: "Clientes", value: "CLIENTE" }]} />
+      <FormField label="Investimento" value={investimento} onChangeText={(valor) => setInvestimento(moedaDigitada(valor))} keyboardType="numeric" />
+      <FormField label="Titular" value={titular} onChangeText={setTitular} />
+      <FormField label="CPF/CNPJ do titular da conta (para e-mail)" value={cpfTitular} onChangeText={(valor) => setCpfTitular(valor.replace(/\D/g, "").slice(0, 14))} keyboardType="numeric" />
+      <Text style={styles.fieldLabel}>Endereço da usina</Text>
+      <EnderecoFields value={endereco} onChange={setEndereco} />
+      <Button disabled={salvando || excluindo} title={salvando ? "Salvando..." : "Salvar alterações"} onPress={salvar} />
+    </Card>
+    <View style={styles.dangerZone}><View style={styles.dangerHeading}><Ionicons name="swap-horizontal-outline" size={21} color={Colors.danger} /><View style={styles.dangerText}><Text style={styles.dangerTitle}>Migrar UCs antes de excluir</Text><Text style={styles.dangerSubtitle}>Se houver UCs alocadas, escolha outra usina e migre todos os vínculos primeiro.</Text></View></View>{outrasUsinas.length ? <ChoiceField label="Usina de destino" value={destinoUsinaId} onChange={setDestinoUsinaId} options={outrasUsinas.map((item) => ({ label: item.nome, value: item.id }))} /> : <Text style={styles.dangerSubtitle}>Nenhuma outra usina disponível para receber as UCs.</Text>}<Button disabled={migrando || !destinoUsinaId} title={migrando ? "Migrando UCs..." : "Migrar UCs para outra usina"} onPress={migrarUcs} /><Button disabled={salvando || excluindo || migrando} title={excluindo ? "Excluindo..." : "Excluir usina"} onPress={confirmarExclusao} style={styles.deleteButton} /></View>
+  </ScrollView></Screen>;
 }
-const styles = {
-  input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 5,
-    marginBottom: 18,
-  },
-};
+
+const styles = StyleSheet.create({
+  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl }, eyebrow: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800", letterSpacing: 1.2 }, title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "800" }, subtitle: { marginTop: Spacing.sm, marginBottom: Spacing.lg, color: Colors.subtitle, lineHeight: 21 },
+  fieldLabel: { marginBottom: 7, color: Colors.text, fontSize: Typography.small, fontWeight: "800" }, preview: { height: 128, overflow: "hidden", justifyContent: "flex-end", marginBottom: Spacing.sm, borderRadius: Radius.lg }, previewImage: { borderRadius: Radius.lg }, previewOverlay: { flexDirection: "row", alignItems: "center", gap: 8, padding: Spacing.md, backgroundColor: "rgba(2,24,17,.48)" }, previewText: { flex: 1, color: "#FFF", fontSize: Typography.body, fontWeight: "900" }, photoActions: { flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.lg }, photoButton: { minHeight: 42, flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md }, photoButtonText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" }, removePhoto: { minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingHorizontal: Spacing.sm }, removePhotoText: { color: Colors.danger, fontSize: Typography.small, fontWeight: "800" },
+  dangerZone: { marginTop: Spacing.lg, padding: Spacing.lg, borderWidth: 1, borderColor: "#FECACA", borderRadius: Radius.xl, backgroundColor: "#FFF7F7" }, dangerHeading: { flexDirection: "row", alignItems: "center", marginBottom: Spacing.md }, dangerText: { flex: 1, marginLeft: Spacing.sm }, dangerTitle: { color: Colors.danger, fontSize: Typography.body, fontWeight: "800" }, dangerSubtitle: { marginTop: 2, color: Colors.subtitle, fontSize: Typography.small }, deleteButton: { marginTop: Spacing.md, backgroundColor: Colors.danger },
+});

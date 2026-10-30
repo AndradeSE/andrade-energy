@@ -1,0 +1,106 @@
+[
+  {
+    "title": "CLÁUSULA PRIMEIRA - DAS PARTES",
+    "text": "{{PARTES}}"
+  },
+  {
+    "title": "CLÁUSULA SEGUNDA - DAS DEFINIÇÕES",
+    "text": "Usina Fotovoltaica: Conjunto de equipamentos destinados à geração de energia elétrica por fonte solar. Unidade Geradora: Unidade consumidora onde a usina está instalada. Unidade Consumidora: instalação cadastrada perante a {{CONCESSIONARIA}} destinada ao consumo de energia elétrica, identificada por número próprio, na qual ocorrerá a compensação da energia elétrica injetada pela usina fotovoltaica. {{ENERGIA}}: Quantidade de energia elétrica, medida em quilowatt -hora (kWh), {{APURACAO_ENERGIA}} pela usina fotovoltaica na rede da distribuidora, conforme medição da concessionária, utilizada como base para o cálculo da remuneração prevista neste contrato. Tarifa de Referência: Tarifa integral vigente utilizada para cálculo da remuneração. Titularidade: Registro cadastral perante a {{CONCESSIONARIA}}, sem transferência de propriedade. Propriedade: Direito exclusivo do LOCADOR sobre a usina. O&M: Operação e manutenção da usina. Geração Projetada: Usina de {{POTENCIA}} com geração estimada de {{GERACAO}}. Autoconsumo Remoto: Modalidade prevista na Lei nº 14.300/2022. Alteração Regulatória: Mudanças legais ou normativas aplicáveis."
+  },
+  {
+    "title": "CLÁUSULA TERCEIRA - DO OBJETO",
+    "text": "3.1 O presente contrato tem por objeto a locação da usina fotovoltaica de propriedade do LOCADOR para atendimento da unidade consumidora do LOCATÁRIO na modalidade de Autoconsumo Remoto.\n3.2 {{OBJETO_TITULARIDADE}}"
+  },
+  {
+    "title": "CLÁUSULA QUARTA - DA FUNDAMENTAÇÃO LEGAL",
+    "text": "O contrato é regido pela Lei nº 14.300/2022, Código Civil, Resoluções Normativas ANEEL nº 1.000/2021 e nº 1.059/2023, PRODIST, normas da {{CONCESSIONARIA}} e demais normas aplicáveis."
+  },
+  {
+    "title": "CLÁUSULA QUINTA - DAS DECLARAÇÕES DAS PARTES",
+    "text": "O LOCADOR declara ser proprietário da usina de {{POTENCIA}}, instalada em imóvel próprio e com parecer de acesso emitido pela {{CONCESSIONARIA}}. O LOCATÁRIO declara conhecer o funcionamento do Sistema de Compensação de Energia Elétrica, possuir consumo compatível com a geração projetada e estar ciente de que {{DECLARACAO_TITULARIDADE}}."
+  },
+  {
+    "title": "CLÁUSULA SEXTA - DAS CARACTERÍSTICAS TÉCNICAS",
+    "text": "Potência instalada: {{POTENCIA}}. Geração Média estimada: {{GERACAO}}. Modalidade: Autoconsumo Remoto. Distribuidora: {{CONCESSIONARIA}}."
+  },
+  {
+    "title": "CLÁUSULA SÉTIMA - DA ALTERAÇÃO DA TITULARIDADE",
+    "text": "{{TITULARIDADE}}"
+  },
+  {
+    "title": "CLÁUSULA OITAVA - DO PRAZO",
+    "text": "{{PRAZO}}"
+  },
+  {
+    "title": "CLÁUSULA NONA - DA REMUNERAÇÃO",
+    "text": "9.1. Pela locação da usina fotovoltaica, o LOCATÁRIO pagará mensalmente ao LOCADOR valor correspondente à quantidade de {{ENERGIA}} , apurada pela distribuidora de energia elétrica, multiplicada pela tarifa integral vigente da {{CONCESSIONARIA}} aplicável à unidade consumidora, com desconto de {{DESCONTO}}%. 9.2. O valor da remuneração será calculado conforme a seguinte fórmula: {{FORMULA}} 9.3. Para fins deste contrato, considera-se Tarifa Integral {{CONCESSIONARIA}} o valor da tarifa de energia elétrica vigente na data do faturamento, conforme a modalidade tarifária aplicável à unidade consumidora do LOCATÁRIO. 9.4. Havendo alteração da tarifa praticada pela {{CONCESSIONARIA}}, o valor da remuneração será automaticamente atualizado, sem necessidade de celebração de termo aditivo. 9.5. {{COMPOSICAO}}\n9.6. {{PAGAMENTO_CONCESSIONARIA}}"
+  },
+  {
+    "title": "CLÁUSULA DÉCIMA - DA APURAÇÃO E FATURAMENTO",
+    "text": "Até o quinto dia útil após o recebimento da fatura da distribuidora, o LOCADOR encaminhará documento de cobrança contendo a memória de cálculo da remuneração."
+  },
+  {
+    "title": "CLÁUSULA DÉCIMA PRIMEIRA - DO PAGAMENTO",
+    "text": "O pagamento da remuneração deverá ser realizado mensalmente pelo LOCATÁRIO na mesma data de vencimento da fatura de energia elétrica emitida pela {{CONCESSIONARIA}}, observando -se as condições previstas na Cláusula Décima Sétima em caso de atraso."
+  },
+  {
+    "title": "CLÁUSULA DÉCIMA SEGUNDA - DA FATURA DA {{CONCESSIONARIA}}",
+    "text": "{{RESPONSABILIDADE}}"
+  },
+  {
+    "title": "CLÁUSULA DÉCIMA TERCEIRA - DAS OBRIGAÇÕES DO LOCADOR",
+    "text": "Compete ao LOCADOR operar a usina, realizar toda a operação e manutenção (O&M), monitoramento, limpezas, inspeções, manutenções preventivas e corretivas e substituição de equipamentos quando necessário."
+  },
+  {
+    "title": "CLÁUSULA DÉCIMA QUARTA - DAS OBRIGAÇÕES DO LOCATÁRIO",
+    "text": "Compete ao LOCATÁRIO efetuar os pagamentos nas datas pactuadas, manter consumo compatível com a geração contratada e colaborar com todos os procedimentos perante a {{CONCESSIONARIA}}."
+  },
+  {
+    "title": "CLÁUSULA DÉCIMA QUINTA - DA GERAÇÃO DA USINA",
+    "text": "15.1. O LOCADOR declara que a usina possui potência instalada de {{POTENCIA}} e geração média estimada de {{GERACAO}}. 15.2. Não serão considerados para fins de eventual apuração da geração da usina os períodos afetados por força maior, indisponibilidade da rede elétrica, desligamentos programados, alterações regulatórias, eventos climáticos extraordinários, sombreamento superveniente ou fatos alheios ao controle do LOCADOR."
+  },
+  {
+    "title": "CLÁUSULA DÉCIMA SEXTA - DA OPERAÇÃO E MANUTENÇÃO (O&M)",
+    "text": "Compete exclusivamente ao LOCADOR realizar limpeza, monitoramento, inspeções, manutenção preventiva e corretiva, substituição de equipamentos e demais atividades necessárias ao adequado funcionamento da usina."
+  },
+  {
+    "title": "CLÁUSULA DÉCIMA SÉTIMA - DA INADIMPLÊNCIA",
+    "text": "O atraso no pagamento da remuneração acarretará multa moratória de 2% (dois por cento) sobre o valor devido, juros de mora de 1% (um por cento) ao mês, calculados pro rata die, e atualização monetária pelo IPCA ou outro índice oficial que venha a substituí-lo. Decorridos 15 (quinze) dias de atraso, o LOCADOR notificará o LOCATÁRIO para regularização do débito. Permanecendo a inadimplência por período superior a 30 (trinta) dias, poderá o LOCADOR solicitar à {{CONCESSIONARIA}} o encerramento do contrato de fornecimento da unidade consumidora objeto deste contrato, observadas as normas da concessionária. Persistindo o inadimplemento por período superior a 45 (quarenta e cinco) dias, poderá o LOCADOR rescindir o presente contrato, independentemente de notificação judicial, sem prejuízo da cobrança dos valores devidos."
+  },
+  {
+    "title": "CLÁUSULA DÉCIMA OITAVA - DA RESCISÃO",
+    "text": "O contrato poderá ser rescindido por comum acordo, término do prazo, inadimplemento, descumprimento contratual, inviabilidade regulatória ou redução significativa de consumo."
+  },
+  {
+    "title": "CLÁUSULA DÉCIMA NONA - DA MULTA RESCISÓRIA",
+    "text": "Na hipótese de rescisão imotivada pelo LOCATÁRIO antes do término da vigência, será devida multa equivalente à média das últimas 12 (doze) mensalidades pagas. Parágrafo único. Na ausência de 12 (doze) mensalidades pagas, a média será apurada considerando-se todas as mensalidades efetivamente pagas até a data da rescisão."
+  },
+  {
+    "title": "CLÁUSULA VIGÉSIMA - DAS ALTERAÇÕES REGULATÓRIAS",
+    "text": "Alterações na Lei nº 14.300/2022, nas normas da ANEEL, no PRODIST ou nas regras da {{CONCESSIONARIA}} que afetem o equilíbrio econômico-financeiro ensejarão renegociação entre as partes. Persistindo o desequilíbrio, qualquer parte poderá rescindir o contrato."
+  },
+  {
+    "title": "CLÁUSULA VIGÉSIMA PRIMEIRA - DA RESPONSABILIDADE CIVIL",
+    "text": "Cada parte responderá exclusivamente pelos prejuízos decorrentes de seus próprios atos ou omissões. O LOCADOR não responderá por falhas da distribuidora, alterações tarifárias ou mudanças regulatórias."
+  },
+  {
+    "title": "CLÁUSULA VIGÉSIMA SEGUNDA - DA CESSÃO E TRANSFERÊNCIA",
+    "text": "É vedada a cessão ou transferência deste contrato, total ou parcial, por qualquer das partes, sem a prévia e expressa anuência da outra. Também dependerão de autorização prévia e expressa do LOCADOR: I - a inclusão de novas unidades consumidoras vinculadas à usina; II - a cessão dos créditos de energia; III - qualquer alteração da titularidade da unidade consumidora que possa afetar a execução deste contrato."
+  },
+  {
+    "title": "CLÁUSULA VIGÉSIMA TERCEIRA - DA CONFIDENCIALIDADE",
+    "text": "As informações técnicas, comerciais e financeiras compartilhadas entre as partes serão consideradas confidenciais e não poderão ser divulgadas sem autorização, permanecendo essa obrigação por 5 (cinco) anos após o encerramento do contrato."
+  },
+  {
+    "title": "CLÁUSULA VIGÉSIMA QUARTA - DA PROTEÇÃO DE DADOS",
+    "text": "As partes autorizam o compartilhamento dos dados estritamente necessários com a {{CONCESSIONARIA}}, empresas de assinatura eletrônica, instituições financeiras e prestadores de serviços envolvidos na execução deste contrato, sempre em conformidade com a Lei nº 13.709/2018."
+  },
+  {
+    "title": "CLÁUSULA VIGÉSIMA QUINTA - DO CASO FORTUITO E FORÇA MAIOR",
+    "text": "Nenhuma das partes responderá pelo inadimplemento decorrente de caso fortuito ou força maior, assim definidos pelo Código Civil, desde que comunique a outra parte tão logo tenha ciência do evento e adote medidas razoáveis para minimizar seus efeitos."
+  },
+  {
+    "title": "CLÁUSULA VIGÉSIMA SEXTA - DO FORO",
+    "text": "Fica eleito o foro da Comarca de {{FORO}} para dirimir quaisquer controvérsias oriundas deste contrato, com renúncia expressa de qualquer outro, por mais privilegiado que seja. E, por estarem justos e contratados, as Partes assinam o presente Contrato de Locação de Usina Fotovoltaica em 02 (duas) vias de igual teor e forma, juntamente com as testemunhas abaixo, para que produza todos os seus efeitos legais."
+  }
+]

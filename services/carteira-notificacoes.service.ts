@@ -1,0 +1,110 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AppState, Platform } from "react-native";
+
+async function carregarNotificacoes() {
+  if (Platform.OS === "web") return null;
+  const Notifications = await import("expo-notifications");
+  // O handler global fica no layout. A carteira já evita agendar avisos
+  // locais em primeiro plano; não deve silenciar pushes de outros fluxos.
+  return Notifications;
+}
+
+type AvisoAndroid = {
+  usuarioId: string;
+  id: string;
+  titulo: string;
+  detalhe: string;
+  rota?: string;
+  urgente?: boolean;
+};
+
+const chaveDoAviso = (usuarioId: string, id: string) => `notificacao:android:${usuarioId}:${id}`;
+
+/**
+ * Espelha no Android os avisos importantes que já aparecem no sino do app.
+ * A chave persistida evita repetir o mesmo alerta a cada atualização da tela.
+ */
+export async function notificarAvisoNoAndroid(aviso: AvisoAndroid) {
+  if (Platform.OS !== "android" || !aviso.usuarioId || !aviso.id) return false;
+  const chaveAviso = chaveDoAviso(aviso.usuarioId, aviso.id);
+  if (await AsyncStorage.getItem(chaveAviso)) return false;
+  if (AppState.currentState === "active") {
+    await AsyncStorage.setItem(chaveAviso, new Date().toISOString());
+    return false;
+  }
+
+  try {
+    const Notifications = await carregarNotificacoes();
+    if (!Notifications) return false;
+    await Notifications.setNotificationChannelAsync("avisos-importantes", {
+      name: "Avisos importantes",
+      importance: aviso.urgente ? Notifications.AndroidImportance.HIGH : Notifications.AndroidImportance.DEFAULT,
+    });
+    const permissaoAtual = await Notifications.getPermissionsAsync();
+    const permissao = permissaoAtual.status === "granted"
+      ? permissaoAtual
+      : await Notifications.requestPermissionsAsync();
+    if (permissao.status !== "granted") return false;
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: aviso.titulo,
+        body: aviso.detalhe,
+        data: aviso.rota ? { url: aviso.rota } : undefined,
+        sound: "default",
+      },
+      trigger: null,
+    });
+    await AsyncStorage.setItem(chaveAviso, new Date().toISOString());
+    return true;
+  } catch {
+    // Um alerta local nunca pode bloquear o carregamento das telas.
+    return false;
+  }
+}
+
+export async function notificarAvisosNoAndroid(usuarioId: string | undefined, avisos: Array<Omit<AvisoAndroid, "usuarioId">>) {
+  if (!usuarioId) return;
+  await Promise.all(avisos.map((aviso) => notificarAvisoNoAndroid({ ...aviso, usuarioId })));
+}
+
+const chave = (usuarioId: string) => `carteira:recebido:${usuarioId}`;
+
+export async function verificarNovoRecebimento(usuarioId: string, totalRecebido: number) {
+  const anteriorTexto = await AsyncStorage.getItem(chave(usuarioId));
+  await AsyncStorage.setItem(chave(usuarioId), String(totalRecebido));
+  if (anteriorTexto === null) return false;
+  const anterior = Number(anteriorTexto);
+  if (!(totalRecebido > anterior)) return false;
+  if (AppState.currentState === "active") return true;
+
+  const Notifications = await carregarNotificacoes();
+  if (Notifications) {
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("carteira", {
+        name: "Recebimentos da carteira",
+        importance: Notifications.AndroidImportance.HIGH,
+      });
+    }
+    const permissaoAtual = await Notifications.getPermissionsAsync();
+    const permissao = permissaoAtual.status === "granted" ? permissaoAtual : await Notifications.requestPermissionsAsync();
+    if (permissao.status === "granted") {
+      const valor = totalRecebido - anterior;
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Novo valor recebido",
+          body: `${valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} entrou na sua carteira Andrade Energy.`,
+          data: { url: "/financeiro" },
+        },
+        trigger: null,
+      });
+      await Notifications.setBadgeCountAsync(1);
+    }
+  }
+  return true;
+}
+
+export async function marcarCarteiraComoVista() {
+  const Notifications = await carregarNotificacoes();
+  if (Notifications) await Notifications.setBadgeCountAsync(0);
+}

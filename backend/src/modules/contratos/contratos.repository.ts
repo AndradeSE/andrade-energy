@@ -1,0 +1,266 @@
+import { supabase } from "../../config/supabase";
+import { contratoCorrespondeAoNumeroUc } from "./acessoContrato.policy";
+
+export async function restaurarContratoAssinadoDaMesmaUc(
+  clienteId: string,
+  unidadeId: string,
+  numeroUc: string,
+  empresaId: string,
+) {
+  const { data: orfaos, error } = await supabase
+    .from("contratos")
+    .select("id,numero,status,aceite_cliente_em,contrato_assinado_url,dados_documento,created_at")
+    .eq("cliente_id", clienteId)
+    .eq("empresa_id", empresaId)
+    .is("unidade_consumidora_id", null)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  const correspondentes = (orfaos ?? []).filter((contrato) =>
+    contratoCorrespondeAoNumeroUc(contrato, numeroUc)
+  );
+  const assinado = correspondentes.find((contrato) =>
+    Boolean(contrato.aceite_cliente_em || contrato.contrato_assinado_url)
+    && String(contrato.status).toUpperCase() === "VIGENTE"
+  );
+  if (!assinado) return null;
+
+  const { data: restaurado, error: erroRestauracao } = await supabase
+    .from("contratos")
+    .update({ unidade_consumidora_id: unidadeId })
+    .eq("id", assinado.id)
+    .is("unidade_consumidora_id", null)
+    .select("id")
+    .single();
+  if (erroRestauracao) throw erroRestauracao;
+
+  const rascunhos = correspondentes
+    .filter((contrato) => contrato.id !== assinado.id && !contrato.aceite_cliente_em && !contrato.contrato_assinado_url)
+    .map((contrato) => contrato.id);
+  if (rascunhos.length) {
+    const { error: erroRascunhos } = await supabase
+      .from("contratos")
+      .update({ status: "CANCELADO" })
+      .in("id", rascunhos);
+    if (erroRascunhos) throw erroRascunhos;
+  }
+  return restaurado;
+}
+
+export async function buscarContratoCliente(
+  clienteId: string,
+  somenteLegado = false,
+  empresaId?: string,
+) {
+  let query = supabase
+    .from("contratos")
+    .select("*")
+    .eq("cliente_id", clienteId)
+    .order("updated_at", { ascending: false });
+
+  if (empresaId) query = query.eq("empresa_id", empresaId);
+
+  if (somenteLegado) query = query.is("unidade_consumidora_id", null);
+
+  const { data, error } = await query;
+
+  if (error) throw error;
+
+  const contratos = data ?? [];
+  return contratos.find((contrato) =>
+    String(contrato.status ?? "").toUpperCase() === "VIGENTE"
+    && Boolean(contrato.aceite_cliente_em || contrato.contrato_assinado_url)
+  ) ?? contratos.find((contrato) => ["ATIVO", "VIGENTE"].includes(String(contrato.status ?? "").toUpperCase()))
+    ?? contratos[0]
+    ?? null;
+}
+
+export async function buscarContratoAtualUnidade(
+  unidadeId: string,
+  empresaId?: string,
+) {
+  let query = supabase
+    .from("contratos")
+    .select("*")
+    .eq("unidade_consumidora_id", unidadeId)
+    .in("status", ["ATIVO", "VIGENTE"])
+    .order("updated_at", { ascending: false })
+    .limit(1);
+  if (empresaId) query = query.eq("empresa_id", empresaId);
+  const { data, error } = await query.maybeSingle();
+
+  if (error) throw error;
+
+  return data;
+}
+
+export async function buscarRascunhoAtualUnidade(unidadeId: string, empresaId?: string) {
+  let query = supabase
+    .from("contratos")
+    .select("*")
+    .eq("unidade_consumidora_id", unidadeId)
+    .eq("status", "RASCUNHO")
+    .order("updated_at", { ascending: false })
+    .limit(1);
+  if (empresaId) query = query.eq("empresa_id", empresaId);
+  const { data, error } = await query.maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function buscarContratoMaisRecenteUnidade(
+  unidadeId: string,
+  empresaId?: string,
+) {
+  const atual = await buscarContratoAtualUnidade(unidadeId, empresaId);
+  if (atual) return atual;
+
+  let query = supabase
+    .from("contratos")
+    .select("*")
+    .eq("unidade_consumidora_id", unidadeId)
+    .order("vigencia_fim", { ascending: false, nullsFirst: false })
+    .order("updated_at", { ascending: false })
+    .limit(1);
+  if (empresaId) query = query.eq("empresa_id", empresaId);
+  const { data, error } = await query.maybeSingle();
+
+  if (error) throw error;
+
+  return data;
+}
+
+export async function salvarContratoUnidade(
+  unidadeId: string,
+  contrato: any
+) {
+  const rascunho = await buscarRascunhoAtualUnidade(unidadeId);
+  if (rascunho?.id) {
+    if (rascunho.contrato_assinado_url) {
+      if (contrato.nova_versao !== true) {
+        throw new Error("Esta revisão já tem um PDF assinado. Confira e valide o documento ou inicie uma nova versão.");
+      }
+      const { nova_versao: _novaVersao, ...novaVersao } = contrato;
+      const anteriorId = rascunho.dados_documento?.contrato_anterior_id ?? rascunho.id;
+      const { error: erroSubstituicao } = await supabase.from("contratos")
+        .update({ status: "SUBSTITUIDO", revisao_configuracao_pendente: false })
+        .eq("id", rascunho.id).eq("status", "RASCUNHO");
+      if (erroSubstituicao) throw erroSubstituicao;
+      try {
+        return await criarContrato({
+          ...novaVersao,
+          status: "RASCUNHO",
+          versao: Number(rascunho.versao ?? 1) + 1,
+          dados_documento: { ...(novaVersao.dados_documento ?? {}), contrato_anterior_id: anteriorId },
+        });
+      } catch (erro) {
+        await supabase.from("contratos").update({ status: "RASCUNHO" }).eq("id", rascunho.id);
+        throw erro;
+      }
+    }
+    const { nova_versao: _novaVersao, ...dadosRascunho } = contrato;
+    const anteriorId = rascunho.dados_documento?.contrato_anterior_id;
+    return await atualizarContrato(rascunho.id, {
+      ...dadosRascunho,
+      dados_documento: { ...(dadosRascunho.dados_documento ?? {}), ...(anteriorId ? { contrato_anterior_id: anteriorId } : {}) },
+      status: "RASCUNHO",
+    });
+  }
+  const existente = await buscarContratoAtualUnidade(unidadeId);
+  const { nova_versao: _novaVersao, ...dadosContrato } = contrato;
+
+  if (existente?.id) {
+    const hoje = new Date().toISOString().slice(0, 10);
+    const vigenciaExpirada = Boolean(
+      existente.vigencia_fim && String(existente.vigencia_fim).slice(0, 10) < hoje
+    );
+    const novoAtivo = ["ATIVO", "VIGENTE"].includes(String(dadosContrato.status ?? "").toUpperCase());
+
+    // Um documento já aceito nunca é sobrescrito. A edição cria a próxima
+    // versão e mantém a anterior integralmente no histórico da UC.
+    if (existente.aceite_cliente_em || existente.contrato_assinado_url) {
+      return await criarContrato({
+        ...dadosContrato,
+        // A versão assinada continua vigente enquanto a revisão é preparada.
+        // RASCUNHO fica fora do índice de vigência única da UC.
+        status: "RASCUNHO",
+        versao: Number(existente.versao ?? 1) + 1,
+        revisao_configuracao_pendente: false,
+        dados_documento: { ...(dadosContrato.dados_documento ?? {}), contrato_anterior_id: existente.id },
+      });
+    }
+
+    // Renovação: preserva o contrato que venceu e libera a vigência nova.
+    if (vigenciaExpirada && novoAtivo) {
+      await atualizarContrato(existente.id, { status: "VENCIDO" });
+      return await criarContrato(dadosContrato);
+    }
+
+    return await atualizarContrato(existente.id, dadosContrato);
+  }
+
+  return await criarContrato(dadosContrato);
+}
+
+export async function criarContrato(
+  contrato: any
+) {
+  const { data, error } = await supabase
+    .from("contratos")
+    .insert(contrato)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data;
+}
+
+export async function atualizarContrato(
+  id: string,
+  contrato: any
+) {
+  const { data, error } = await supabase
+    .from("contratos")
+    .update(contrato)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data;
+}
+
+export async function excluirContrato(
+  id: string
+) {
+  const { error } = await supabase
+    .from("contratos")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
+export async function suspenderVigenciasAnteriores(unidadeId: string, contratoId: string) {
+  const { data: anteriores, error } = await supabase.from("contratos")
+    .select("id,status")
+    .eq("unidade_consumidora_id", unidadeId)
+    .neq("id", contratoId)
+    .in("status", ["ATIVO", "VIGENTE"]);
+  if (error) throw error;
+  if (!anteriores?.length) return [];
+  const { error: erroSuspensao } = await supabase.from("contratos")
+    .update({ status: "SUBSTITUIDO", revisao_configuracao_pendente: false })
+    .in("id", anteriores.map((item) => item.id));
+  if (erroSuspensao) throw erroSuspensao;
+  return anteriores;
+}
+
+export async function restaurarVigencias(contratos: Array<{ id: string; status: string }>) {
+  for (const contrato of contratos) {
+    const { error } = await supabase.from("contratos").update({ status: contrato.status }).eq("id", contrato.id);
+    if (error) throw error;
+  }
+}

@@ -1,0 +1,918 @@
+import { normalizarPlanoContrato } from "../contratos/planoContrato.policy";
+import {notificarProducaoImportada} from './producaoNotificacao';
+import { cpfTitularPatch } from "./cpfTitularPatch";
+import { saldoCreditoInformado } from "./saldoAncora.policy";
+import { receitaAtualDaCompetencia } from "./receitaDashboard.policy";
+import {
+  buscarDashboardUsina,
+  buscarUsina,
+  criarUsina,
+  editarUsina,
+  excluirUsina,
+  listarUsinas,
+} from "./usinas.repository";
+import { supabase } from "../../config/supabase";
+import { extrairTextoPDF } from "../../services/ocr/ocr.service";
+import { interpretarFatura } from "../../services/ocr/parser.service";
+import type { FaturaExtraida } from "../../types/FaturaExtraida";
+import { montarHistoricoTarifasGd2 } from "./tarifasReferencia";
+
+const meses: Record<string, string> = { JAN: "01", FEV: "02", MAR: "03", ABR: "04", MAI: "05", JUN: "06", JUL: "07", AGO: "08", SET: "09", OUT: "10", NOV: "11", DEZ: "12" };
+
+function competenciaAtualDaUsina() {
+  const partes = new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit" }).formatToParts(new Date());
+  return `${partes.find((parte) => parte.type === "year")?.value}-${partes.find((parte) => parte.type === "month")?.value}`;
+}
+
+function competenciaData(referencia: string) {
+  const [mes, ano] = referencia.toUpperCase().split("/");
+  if (!meses[mes] || !ano) throw new Error("Competência não identificada na fatura.");
+  return `${ano}-${meses[mes]}-01`;
+}
+
+export function calcularAlocacaoProjetada(unidades: any[], energiaGerada: number) {
+  const gerada = Math.max(0, Number(energiaGerada ?? 0));
+  const solicitada = (unidades ?? []).reduce((total, unidade) => {
+    const percentual = Math.max(0, Math.min(100, Number(unidade.percentual_rateio ?? 0)));
+    const consumoMedio = Math.max(0, Number(unidade.consumo_medio_kwh ?? 0));
+
+    // Injeção comercializa a parcela definida da produção da usina; com 100%,
+    // toda a média fica alocada. Compensação usa a demanda exata da UC,
+    // sem margem adicional.
+    const reserva = String(unidade.modalidade_faturamento ?? "").toUpperCase() === "INJECAO"
+      ? gerada * percentual / 100
+      : consumoMedio > 0
+        ? consumoMedio
+        : gerada * percentual / 100;
+    return total + Math.min(gerada, reserva);
+  }, 0);
+  const energiaAlocada = Math.min(gerada, solicitada);
+  return {
+    energia_alocada: energiaAlocada,
+    energia_disponivel: Math.max(0, gerada - energiaAlocada),
+    ocupacao: gerada > 0 ? energiaAlocada / gerada * 100 : 0,
+  };
+}
+
+async function obterAlocacaoProjetadaDaUsina(usinaId: string, energiaGerada: number, empresaId?: string) {
+  let query = supabase.from("unidades_consumidoras")
+    .select("percentual_rateio,modalidade_faturamento,consumo_medio_kwh")
+    .eq("usina_id", usinaId)
+    .eq("status", "ATIVA")
+    .neq("tipo", "GERADORA");
+  if (empresaId) query = query.eq("empresa_id", empresaId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return calcularAlocacaoProjetada(data ?? [], energiaGerada);
+}
+
+/**
+ * Registra a produção de uma usina a partir dos dados já lidos da conta de
+ * energia. Esta função é compartilhada pela importação manual e pelo
+ * recebimento automático por e-mail, garantindo que ambos usem a mesma
+ * validação das leituras, fator de multiplicação e competência.
+ */
+export async function registrarProducaoDaFaturaGeradora(usinaId: string, dados: FaturaExtraida, empresaId?: string) {
+  const usina = await buscarUsina(usinaId, empresaId);
+  const numeroFatura = String(dados.uc ?? "").replace(/\D/g, "");
+  const numeroUsina = String(usina.numero_instalacao ?? "").replace(/\D/g, "");
+  if (!numeroFatura) throw new Error("Não foi possível identificar a UC na conta de energia.");
+  if (!numeroUsina) throw new Error("Cadastre o número da instalação da usina antes de importar a produção.");
+  if (numeroUsina && numeroFatura !== numeroUsina) throw new Error("A instalação da fatura não pertence a esta usina.");
+
+  const medicoes = Array.isArray(dados.medicoes) ? dados.medicoes : [];
+  const medicoesDeInjecao = medicoes.filter((item) => item.tipo === "INJECAO");
+  const leituraAtual = Number(dados.leituraAtual);
+  const leituraAnterior = Number(dados.leituraAnterior);
+  const fatorMultiplicacao = Number(dados.fatorMultiplicacao ?? 1);
+  const energiaGerada = medicoesDeInjecao.length
+    ? medicoesDeInjecao.reduce((total, item) => total + Math.max(0, Number(item.energiaKwh ?? 0)), 0)
+    : Number.isFinite(leituraAtual) && Number.isFinite(leituraAnterior) && fatorMultiplicacao > 0 && leituraAtual >= leituraAnterior
+      ? (leituraAtual - leituraAnterior) * fatorMultiplicacao
+      : 0;
+  if (energiaGerada <= 0) throw new Error("A diferença entre as medições não apresenta produção no período.");
+
+  const competencia = competenciaData(String(dados.referencia ?? ""));
+  const fechamentoAtualizado = await persistirProducaoDaFatura(usina, competencia, energiaGerada, saldoCreditoInformado(dados.saldoAtual, dados.saldoAtualInformado));
+  await notificarProducaoImportada(String(usina.id),String(usina.empresa_id),String(usina.nome),competencia,energiaGerada).catch(()=>console.error('Aviso de produção não confirmado; produção registrada.'));
+  return {
+    sucesso: true,
+    origem: "CONTA_ENERGIA",
+    dados: { ...dados, leituraAtual, leituraAnterior, fatorMultiplicacao, medicoes, energiaGerada },
+    fechamento: fechamentoAtualizado,
+  };
+}
+
+async function persistirProducaoDaFatura(usina: any, competencia: string, energiaGerada: number, saldoCreditos: number | null = null) {
+  const usinaId = String(usina.id);
+  const { data: atual, error: buscaError } = await supabase.from("fechamentos").select("*").eq("usina_id", usinaId).eq("competencia", competencia).maybeSingle();
+  if (buscaError) throw buscaError;
+
+  const energiaAlocada = Number(atual?.energia_alocada ?? 0);
+  const payload = {
+    usina_id: usinaId, empresa_id: usina.empresa_id, competencia, energia_gerada: energiaGerada,
+    ...(saldoCreditos !== null ? {saldo_creditos_kwh:saldoCreditos} : {}),
+    energia_alocada: energiaAlocada, energia_disponivel: energiaGerada - energiaAlocada,
+    ocupacao: energiaGerada ? (energiaAlocada / energiaGerada) * 100 : 0,
+    receita_prevista: Number(atual?.receita_prevista ?? 0), receita_realizada: Number(atual?.receita_realizada ?? 0),
+    status: atual?.status ?? "ABERTO",
+  };
+
+  const consulta = atual
+    ? supabase.from("fechamentos").update(payload).eq("id", atual.id)
+    : supabase.from("fechamentos").insert(payload);
+  const { data: fechamento, error } = await consulta.select().single();
+  if (error) throw error;
+  await calcularProducaoMedia12Meses(usinaId);
+  await recalcularAlocacaoUsina(usinaId);
+  const { data: fechamentoAtualizado } = await supabase.from("fechamentos").select("*").eq("id", fechamento.id).single();
+  return fechamentoAtualizado ?? fechamento;
+}
+
+export async function importarFaturaGeradora(usinaId: string, caminhoArquivo: string, senhaPdf?: string, empresaId?: string) {
+  const dados = interpretarFatura(await extrairTextoPDF(caminhoArquivo, String(senhaPdf ?? "").trim() || undefined));
+  return registrarProducaoDaFaturaGeradora(usinaId, dados, empresaId);
+}
+
+export async function importarProducaoPelaUc(caminhoArquivo: string, empresaId: string, senhaPdf?: string) {
+  const dados = interpretarFatura(await extrairTextoPDF(caminhoArquivo, String(senhaPdf ?? "").trim() || undefined));
+  const numeroFatura = String(dados.uc ?? "").replace(/\D/g, "");
+  if (!numeroFatura) throw new Error("Não foi possível identificar a UC na conta de energia.");
+  const usinas = await listarUsinas(empresaId);
+  const correspondentes = usinas.filter((usina: any) => String(usina.numero_instalacao ?? "").replace(/\D/g, "") === numeroFatura);
+  if (correspondentes.length !== 1) {
+    throw new Error(correspondentes.length ? "Há mais de uma usina com esta UC. Revise o cadastro antes de importar." : "Nenhuma usina desta empresa corresponde à UC do PDF.");
+  }
+  const resultado = await registrarProducaoDaFaturaGeradora(correspondentes[0].id, dados, empresaId);
+  return { ...resultado, usina: { id: correspondentes[0].id, nome: correspondentes[0].nome } };
+}
+
+export async function listarUsinasService(empresaId?: string) {
+  const usinas = await listarUsinas(empresaId);
+  return Promise.all(usinas.map(async (usina: any) => {
+    try {
+      const [dashboard, producaoMedia12Meses, unidades] = await Promise.all([
+        buscarDashboardUsina(usina.id, empresaId),
+        calcularProducaoMedia12Meses(usina.id),
+        supabase.from("unidades_consumidoras").select("id,numero,cliente_id,percentual_rateio,modalidade_faturamento,consumo_medio_kwh", { count: "exact" }).eq("usina_id", usina.id).eq("status", "ATIVA").neq("tipo", "GERADORA"),
+      ]);
+      if (unidades.error) throw unidades.error;
+      const competenciaAtual = competenciaAtualDaUsina();
+      const fechamentoDaCompetencia = dashboard.historico?.find((item: any) => String(item.competencia ?? "").startsWith(competenciaAtual));
+      const fechamentoExibido = fechamentoDaCompetencia ?? dashboard.ultimo;
+      const energiaDaCompetencia = Number(fechamentoExibido?.energia_gerada ?? 0);
+      const energiaProjetada = energiaDaCompetencia > 0
+        ? energiaDaCompetencia
+        : Math.max(0, Number(producaoMedia12Meses || usina.geracao_media || 0));
+      const alocacaoProjetada = calcularAlocacaoProjetada(unidades.data ?? [], energiaProjetada);
+      // Tarifas enriquecem o card, mas não podem impedir a autonomia de ser exibida.
+      let historicoTarifasGd2: ReturnType<typeof montarHistoricoTarifasGd2> = [];
+      try {
+        const tarifasGd2 = await supabase.from("faturas")
+          .select("*")
+          .eq("usina_id", usina.id)
+          .gt("tarifa_cheia", 0)
+          .gt("tarifa_gd", 0)
+          .order("referencia", { ascending: false })
+          .limit(24);
+        if (tarifasGd2.error) throw tarifasGd2.error;
+        const clientesIds = [...new Set((unidades.data ?? []).map((item: any) => item.cliente_id).filter(Boolean))];
+        const anexos = clientesIds.length
+          ? await supabase.from("faturas_anexadas_clientes").select("dados_fatura").in("cliente_id", clientesIds).eq("empresa_id", usina.empresa_id)
+          : { data: [], error: null };
+        if (anexos.error) throw anexos.error;
+        const numeros = new Set((unidades.data ?? []).map((item: any) => String(item.numero ?? "").replace(/\D/g, "")));
+        const originais = (anexos.data ?? []).map((item: any) => item.dados_fatura)
+          .filter((item: any) => item && numeros.has(String(item.uc ?? item.numero_instalacao ?? "").replace(/\D/g, "")));
+        historicoTarifasGd2 = montarHistoricoTarifasGd2([...originais, ...(tarifasGd2.data ?? [])]);
+      } catch (tarifaError: any) {
+        console.warn(`[usinas] Tarifas indisponíveis para ${usina.id}:`, tarifaError?.message ?? tarifaError);
+      }
+      const tarifaGd2Recente = historicoTarifasGd2[0];
+      return {
+        ...usina,
+        fechamento_atual: {
+          ...(fechamentoExibido ?? {}),
+          energia_gerada: energiaDaCompetencia,
+          ...alocacaoProjetada,
+          status: fechamentoExibido?.status ?? "ABERTO",
+        },
+        geracao_media: producaoMedia12Meses,
+        producao_media_12_meses: producaoMedia12Meses,
+        geracao_total: Number(dashboard.energiaTotal ?? 0),
+        unidades_alocadas: unidades.count ?? 0,
+        tarifa_scee_referencia: Number(tarifaGd2Recente?.tarifa_scee ?? 0),
+        tarifa_gd2_referencia: Number(tarifaGd2Recente?.tarifa_gd2 ?? 0),
+        referencia_tarifa_gd2: tarifaGd2Recente?.referencia ?? null,
+        historico_tarifas_gd2: historicoTarifasGd2,
+      };
+    } catch (error: any) {
+      console.error(`[usinas] Falha ao complementar a usina ${usina.id}:`, error?.message ?? error);
+      return {
+        ...usina,
+        fechamento_atual: null,
+        producao_media_12_meses: Math.max(0, Number(usina.geracao_media ?? 0)),
+        geracao_total: 0,
+        unidades_alocadas: 0,
+        tarifa_scee_referencia: 0,
+        tarifa_gd2_referencia: 0,
+        referencia_tarifa_gd2: null,
+        historico_tarifas_gd2: [],
+      };
+    }
+  }));
+}
+
+export async function listarIntegracoesInversores(usinaId: string, empresaId: string) {
+  const { data, error } = await supabase
+    .from("integracoes_inversores")
+    .select("id,usina_id,provedor,numero_serie,modelo,potencia_nominal_kw,firmware,status,ultima_sincronizacao_em,ultimo_erro,criado_em,atualizado_em")
+    .eq("usina_id", usinaId)
+    .eq("empresa_id", empresaId)
+    .order("criado_em", { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function cadastrarIntegracaoInversor(usinaId: string, entrada: any, empresaId: string) {
+  const numeroSerie = String(entrada?.numero_serie ?? "").trim().toUpperCase();
+  if (!numeroSerie) throw new Error("Informe o número de série do inversor ou datalogger.");
+  const provedores = ["PHB_SOLARPORTAL_PLUS", "HUAWEI_FUSIONSOLAR", "FRONIUS_SOLARWEB", "INTELBRAS", "GROWATT"];
+  const provedor = String(entrada?.provedor ?? "PHB_SOLARPORTAL_PLUS").trim().toUpperCase();
+  if (!provedores.includes(provedor)) throw new Error("Fabricante ou plataforma de monitoramento inválida.");
+  const potencia = Number(entrada?.potencia_nominal_kw);
+  const payload = {
+    empresa_id: empresaId,
+    usina_id: usinaId,
+    provedor,
+    numero_serie: numeroSerie,
+    modelo: String(entrada?.modelo ?? "").trim() || null,
+    potencia_nominal_kw: Number.isFinite(potencia) && potencia >= 0 ? potencia : null,
+    firmware: String(entrada?.firmware ?? "").trim() || null,
+    status: "AGUARDANDO_AUTORIZACAO",
+    atualizado_em: new Date().toISOString(),
+  };
+  const { data, error } = await supabase
+    .from("integracoes_inversores")
+    .insert(payload)
+    .select()
+    .single();
+  if (error?.code === "23505") throw new Error("Este inversor já está vinculado a uma usina.");
+  if (error) throw error;
+  return data;
+}
+
+export async function excluirIntegracaoInversor(usinaId: string, integracaoId: string, empresaId: string) {
+  const { data, error } = await supabase
+    .from("integracoes_inversores")
+    .delete()
+    .eq("id", integracaoId)
+    .eq("usina_id", usinaId)
+    .eq("empresa_id", empresaId)
+    .select("id")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Integração não encontrada nesta usina.");
+  return { sucesso: true };
+}
+
+export async function calcularProducaoMedia12Meses(usinaId: string) {
+  const inicio = new Date(`${competenciaAtualDaUsina()}-01T00:00:00.000Z`);
+  inicio.setUTCDate(1);
+  inicio.setUTCHours(0, 0, 0, 0);
+  inicio.setUTCMonth(inicio.getUTCMonth() - 11);
+  const fechamentos = await supabase
+    .from("fechamentos")
+    .select("energia_gerada")
+    .eq("usina_id", usinaId)
+    .gte("competencia", inicio.toISOString().slice(0, 10))
+    .order("competencia", { ascending: false })
+    .limit(12);
+  if (fechamentos.error) throw fechamentos.error;
+
+  const producoes = (fechamentos.data ?? [])
+    .map((item) => Number(item.energia_gerada ?? 0))
+    .filter((valor) => Number.isFinite(valor) && valor > 0);
+  const { data: usina, error: erroUsina } = await supabase
+    .from("usinas")
+    .select("geracao_media,empresa_id")
+    .eq("id", usinaId)
+    .maybeSingle();
+  if (erroUsina) throw erroUsina;
+  const mediaCadastrada = Math.max(0, Number(usina?.geracao_media ?? 0));
+  if (!producoes.length) return mediaCadastrada;
+  const mediaReal = Math.round(producoes.reduce((total, valor) => total + valor, 0) / producoes.length * 100) / 100;
+  if (usina && Math.abs(mediaCadastrada - mediaReal) >= 0.01) {
+    const { error } = await supabase.from("usinas").update({ geracao_media: mediaReal })
+      .eq("id", usinaId).eq("empresa_id", usina.empresa_id);
+    if (error) throw error;
+  }
+  return mediaReal;
+}
+
+/**
+ * Recalcula a energia alocada, disponível e a ocupação vigente da usina.
+ * Deve ser chamado sempre que uma UC for incluída, editada, movida ou
+ * removida.
+ */
+export async function recalcularAlocacaoUsina(usinaId: string, empresaId?: string) {
+  const empresa = empresaId ? String(empresaId) : null;
+  let unidadesQuery = supabase
+    .from("unidades_consumidoras")
+    .select("percentual_rateio,modalidade_faturamento,consumo_medio_kwh")
+    .eq("usina_id", usinaId)
+    .eq("status", "ATIVA")
+    .neq("tipo", "GERADORA");
+  let fechamentosQuery = supabase
+    .from("fechamentos")
+    .select("id,energia_gerada,status,competencia")
+    .eq("usina_id", usinaId)
+    .order("competencia", { ascending: false });
+  if (empresa) {
+    unidadesQuery = unidadesQuery.eq("empresa_id", empresa);
+    fechamentosQuery = fechamentosQuery.eq("empresa_id", empresa);
+  }
+  const [{ data: unidades, error: erroUnidades }, { data: fechamentos, error: erroFechamentos }] = await Promise.all([
+    unidadesQuery,
+    fechamentosQuery,
+  ]);
+  if (erroUnidades) throw erroUnidades;
+  if (erroFechamentos) throw erroFechamentos;
+
+  // A competência aberta é a projeção que muda conforme entram ou saem UCs.
+  // Quando ainda não existe uma competência aberta, o último fechamento é o
+  // dado exibido no card da usina; atualizá-lo evita que a autonomia mostrada
+  // fique presa à alocação de um cliente/UC que já foi removido. Fechamentos
+  // históricos anteriores continuam imutáveis.
+  const competenciasAAtualizar = (fechamentos ?? []).filter((fechamento) => fechamento.status === "ABERTO");
+  const alvos = competenciasAAtualizar.length ? competenciasAAtualizar : (fechamentos ?? []).slice(0, 1);
+
+  for (const fechamento of alvos) {
+    const gerada = Number(fechamento.energia_gerada ?? 0);
+    const alocacao = calcularAlocacaoProjetada(unidades ?? [], gerada);
+    const { error } = await supabase.from("fechamentos").update({
+      ...alocacao,
+    }).eq("id", fechamento.id);
+    if (error) throw error;
+  }
+}
+
+export async function sincronizarParticipacaoClienteUsina(
+  usinaId: string,
+  clienteId: string
+) {
+  const { error: erroLimpeza } = await supabase
+    .from("participacoes_usina")
+    .delete()
+    .eq("cliente_id", clienteId)
+    .eq("usina_id", usinaId);
+  if (erroLimpeza && erroLimpeza.code !== "42P01") throw erroLimpeza;
+
+  const { data: unidades, error: erroUnidades } = await supabase
+    .from("unidades_consumidoras")
+    .select("percentual_rateio")
+    .eq("cliente_id", clienteId)
+    .eq("usina_id", usinaId)
+    .eq("status", "ATIVA");
+  if (erroUnidades) throw erroUnidades;
+
+  const percentual = Math.min(
+    100,
+    (unidades ?? []).reduce(
+      (total, unidade) => total + Number(unidade.percentual_rateio ?? 0),
+      0
+    )
+  );
+  if (percentual <= 0) return;
+
+  const { error: erroParticipacao } = await supabase
+    .from("participacoes_usina")
+    .insert({ usina_id: usinaId, cliente_id: clienteId, percentual, ativo: true });
+  if (erroParticipacao && erroParticipacao.code !== "42P01") throw erroParticipacao;
+}
+
+export async function consultarAlocacaoDaUsina(usinaId: string, empresaId: string, unidadeId?: string) {
+  const { data, error } = await supabase.from("unidades_consumidoras")
+    .select("id,percentual_rateio")
+    .eq("usina_id", usinaId)
+    .eq("empresa_id", empresaId)
+    .or("tipo.is.null,tipo.neq.GERADORA");
+  if (error) throw error;
+  const reservado = (data ?? []).reduce(
+    (total, unidade) => total + (unidade.id === unidadeId ? 0 : Number(unidade.percentual_rateio ?? 0)), 0,
+  );
+  return { reservado, disponivel: Math.max(0, 100 - reservado) };
+}
+
+export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaId: string) {
+  const clienteId = String(input.clienteId ?? "");
+  const numero = String(input.numero ?? "").replace(/\D/g, "");
+  const modalidade = String(input.modalidade ?? "COMPENSACAO").toUpperCase();
+  const percentualInformado = Number(input.percentual);
+  const calcularAutomaticamente = Boolean(input.calcularAutomaticamente);
+  const desconto = Number(input.desconto);
+  const consumoMedio = Math.max(0, Number(input.consumoMedio ?? 0));
+  const cpfTitular = String(input.cpfTitular ?? "").replace(/\D/g, "").slice(0, 14);
+  const titularInformado = String(input.titular ?? "").trim();
+  const distribuidoraInformada = String(input.distribuidora ?? "").trim();
+  if (!clienteId || !numero) throw new Error("Cliente e UC são obrigatórios.");
+  if (!['INJECAO', 'COMPENSACAO'].includes(modalidade)) throw new Error("Modalidade inválida.");
+  if (!Number.isFinite(desconto) || desconto < 0 || desconto > 100) throw new Error("Informe um desconto entre 0% e 100%.");
+
+  const [{ data: cliente, error: erroBusca }, { data: unidadeAnterior, error: erroUnidadeAnterior }, { data: usina, error: erroUsina }] = await Promise.all([
+    supabase
+      .from("clientes")
+      .select("nome,endereco,distribuidora,usina_id,uc")
+      .eq("id", clienteId)
+      .eq("empresa_id", empresaId)
+      .single(),
+    supabase
+      .from("unidades_consumidoras")
+      .select("id,usina_id,cliente_id,endereco,cpf_titular,percentual_repasse_disponibilidade,fatura_somente_andrade,plano_contrato,repassar_disponibilidade_gd1,repassar_disponibilidade_gd2,repassar_diferenca_fio_b_gd2,tipo_gd")
+      .eq("numero", numero)
+      .eq("empresa_id", empresaId)
+      .maybeSingle(),
+    supabase
+      .from("usinas")
+      .select("tipo_gd")
+      .eq("id", usinaId)
+      .eq("empresa_id", empresaId)
+      .single(),
+  ]);
+  if (erroBusca) throw erroBusca;
+  if (erroUnidadeAnterior) throw erroUnidadeAnterior;
+  if (erroUsina) throw erroUsina;
+  if (unidadeAnterior?.cliente_id && unidadeAnterior.cliente_id !== clienteId) {
+    throw new Error("Esta UC já está vinculada a outro cliente.");
+  }
+
+  const unidadeAnteriorId = unidadeAnterior?.id;
+  const { data: contratosProtegidos, error: erroContratoProtegido } = unidadeAnteriorId
+    ? await supabase.from("contratos").select("id,status,aceite_cliente_em,contrato_assinado_url,dados_documento").eq("unidade_consumidora_id", unidadeAnteriorId).in("status", ["ATIVO", "VIGENTE"]).order("updated_at", { ascending: false })
+    : { data: [], error: null };
+  if (erroContratoProtegido) throw erroContratoProtegido;
+  const contratoProtegido = (contratosProtegidos ?? []).find((item) =>
+    item.aceite_cliente_em || item.contrato_assinado_url || String(item.status ?? "").toUpperCase() === "VIGENTE"
+  );
+  const possuiContratoAssinado = Boolean(
+    contratoProtegido?.aceite_cliente_em
+    || contratoProtegido?.contrato_assinado_url
+    || String(contratoProtegido?.status ?? "").toUpperCase() === "VIGENTE"
+  );
+  const existePdfPendente = (contratosProtegidos ?? []).some((contrato) =>
+    contrato.dados_documento?.assinatura_externa_pendente === true
+  );
+  if (possuiContratoAssinado && input.somenteApelido) {
+    const { error: erroApelido } = await supabase.from("unidades_consumidoras")
+      .update({ apelido: String(input.apelido ?? "").trim().slice(0, 40) || null })
+      .eq("id", unidadeAnteriorId).eq("empresa_id", empresaId);
+    if (erroApelido) throw erroApelido;
+    return { sucesso: true, unidadeId: unidadeAnteriorId, numero, apenasApelido: true };
+  }
+  if (possuiContratoAssinado && !input.revisaoContrato) {
+    throw new Error("A configuração desta UC está protegida pelo contrato assinado. Inicie uma atualização contratual para alterar as condições.");
+  }
+
+  const planoContrato = normalizarPlanoContrato(input.planoContrato ?? unidadeAnterior?.plano_contrato);
+  const somenteAndrade = input.faturaSomenteAndrade === undefined
+    ? Boolean(unidadeAnterior?.fatura_somente_andrade)
+    : Boolean(input.faturaSomenteAndrade);
+  const repasseInformado = input.percentualRepasseDisponibilidade;
+  const percentualRepasseDisponibilidade = Number(repasseInformado ?? unidadeAnterior?.percentual_repasse_disponibilidade ?? 100);
+  if (!Number.isFinite(percentualRepasseDisponibilidade) || percentualRepasseDisponibilidade < 0 || percentualRepasseDisponibilidade > 100) {
+    throw new Error("Informe um percentual de repasse da disponibilidade entre 0% e 100%.");
+  }
+  const repassarCustoDisponibilidadeGD2 = input.repassarCustoDisponibilidadeGD2 === undefined
+    ? (unidadeAnterior?.repassar_disponibilidade_gd2 ?? percentualRepasseDisponibilidade > 0)
+    : Boolean(input.repassarCustoDisponibilidadeGD2);
+  const repassarCustoDisponibilidadeGD1 = input.repassarCustoDisponibilidadeGD1 === undefined
+    ? (unidadeAnterior?.repassar_disponibilidade_gd1 ?? percentualRepasseDisponibilidade > 0)
+    : Boolean(input.repassarCustoDisponibilidadeGD1);
+  const repassarDiferencaFioBGD2 = input.repassarDiferencaFioBGD2 === undefined
+    ? (unidadeAnterior?.repassar_diferenca_fio_b_gd2 ?? true)
+    : Boolean(input.repassarDiferencaFioBGD2);
+  // A modalidade regulatória pertence à usina. A fatura da UC e o payload do
+  // app nunca podem trocar GD I por GD II (ou o inverso).
+  const tipoGdDaUsina = String(usina?.tipo_gd ?? "").toUpperCase();
+  const tipoGd = ["GD1", "GD2"].includes(tipoGdDaUsina)
+    ? tipoGdDaUsina
+    : null;
+
+  let percentual = Number.isFinite(percentualInformado) && percentualInformado > 0
+    ? percentualInformado
+    : 0;
+  let producaoMedia = 0;
+  if (modalidade === "INJECAO" && !calcularAutomaticamente) {
+    // Preserva percentuais informados explicitamente pelo gerador.
+    if (!Number.isFinite(percentualInformado) || percentualInformado <= 0 || percentualInformado > 100) {
+      throw new Error("Informe o percentual de injeção entre 0,01% e 100%.");
+    }
+    percentual = percentualInformado;
+  } else if (calcularAutomaticamente) {
+    producaoMedia = await calcularProducaoMedia12Meses(usinaId);
+    percentual = producaoMedia > 0 && consumoMedio > 0
+      // Usa a demanda exata sobre a média de produção atualizada.
+      ? Math.min(100, consumoMedio / producaoMedia * 100)
+      : 0;
+  } else if (!Number.isFinite(percentualInformado) || percentualInformado <= 0 || percentualInformado > 100) {
+    throw new Error("Informe um percentual entre 0,01% e 100%.");
+  }
+
+  // A reserva pertence à usina, inclusive para UCs ainda pendentes de contrato.
+  // Ao editar uma UC, substituímos sua parcela antiga em vez de somá-la duas vezes.
+  const capacidade = await consultarAlocacaoDaUsina(usinaId, empresaId, unidadeAnteriorId);
+  if (percentual > capacidade.disponivel + 0.000001) {
+    throw new Error(`Usina cheia. Restam ${capacidade.disponivel.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% para esta UC. Deseja trocar de usina?`);
+  }
+
+  const enderecoDaFatura = String(input.endereco ?? "").trim();
+  const enderecoDaUc = enderecoDaFatura || unidadeAnterior?.endereco || cliente.endereco || null;
+  const usinaAnterior = unidadeAnterior?.usina_id ?? null;
+  const dadosUnidade = {
+      empresa_id: empresaId,
+      cliente_id: clienteId,
+      usina_id: usinaId,
+      numero,
+      tipo: "BENEFICIARIA",
+      ...(input.apelido !== undefined ? { apelido: String(input.apelido ?? "").trim().slice(0, 40) || null } : {}),
+      titular: titularInformado || cliente.nome,
+      endereco: enderecoDaUc,
+      cpf_titular: cpfTitular || unidadeAnterior?.cpf_titular || null,
+      distribuidora: distribuidoraInformada || cliente.distribuidora || "CEMIG",
+      modalidade_faturamento: modalidade,
+      plano_contrato: planoContrato,
+      desconto_percentual: desconto,
+      consumo_medio_kwh: consumoMedio,
+      percentual_rateio: percentual,
+      percentual_repasse_disponibilidade: percentualRepasseDisponibilidade,
+      repassar_disponibilidade_gd1: repassarCustoDisponibilidadeGD1,
+      repassar_disponibilidade_gd2: repassarCustoDisponibilidadeGD2,
+      repassar_diferenca_fio_b_gd2: repassarDiferencaFioBGD2,
+      tipo_gd: tipoGd,
+      fatura_somente_andrade: somenteAndrade,
+      status: existePdfPendente || !possuiContratoAssinado
+        ? "PENDENTE_CONTRATO" : "ATIVA",
+    };
+  // A unicidade global do número não autoriza atualizar a UC de outra empresa.
+  const consultaUnidade = unidadeAnterior?.id
+    ? supabase.from("unidades_consumidoras").update(dadosUnidade).eq("id", unidadeAnterior.id).eq("empresa_id", empresaId)
+    : supabase.from("unidades_consumidoras").insert(dadosUnidade);
+  const { data: unidade, error: erroUc } = await consultaUnidade.select("id").single();
+  if (erroUc) throw erroUc;
+
+  if (usinaAnterior && usinaAnterior !== usinaId) {
+    await migrarRegistrosDaUnidade(unidade.id, usinaId, empresaId);
+  }
+
+  // A configuração comercial pertence à UC e acompanha a minuta do contrato.
+  // Contratos já assinados permanecem imutáveis e recebem uma indicação de
+  // revisão para que uma nova versão seja emitida e aceita pelo cliente.
+  const configuracaoContrato = {
+    plano_contrato: planoContrato,
+    aviso_previo_dias: planoContrato === "SEM_FIDELIDADE" ? 90 : null,
+    usina_id: usinaId,
+    modalidade_faturamento: modalidade,
+    desconto_percentual: desconto,
+    tipo_gd: tipoGd,
+    percentual_rateio: percentual,
+    percentual_repasse_disponibilidade: percentualRepasseDisponibilidade,
+    fatura_somente_andrade: somenteAndrade,
+    repassar_disponibilidade_gd1: repassarCustoDisponibilidadeGD1,
+    repassar_disponibilidade_gd2: repassarCustoDisponibilidadeGD2,
+    repassar_diferenca_fio_b_gd2: repassarDiferencaFioBGD2,
+  };
+  const { data: contratoDaUc } = await supabase
+    .from("contratos")
+    .select("id,aceite_cliente_em,contrato_assinado_url,dados_documento")
+    .eq("unidade_consumidora_id", unidade.id)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (contratoDaUc?.id) {
+    const assinado = Boolean(contratoDaUc.aceite_cliente_em || contratoDaUc.contrato_assinado_url);
+    // O snapshot de um contrato assinado é imutável. A configuração nova já
+    // foi gravada na UC e será copiada ao criar o rascunho da próxima versão.
+    const atualizacaoContrato: Record<string, unknown> = assinado
+      ? { revisao_configuracao_pendente: true }
+      : { configuracao_uc_snapshot: configuracaoContrato, revisao_configuracao_pendente: false };
+    if (!assinado) {
+      atualizacaoContrato.usina_id = usinaId;
+      atualizacaoContrato.desconto = desconto;
+      atualizacaoContrato.dados_documento = { ...(contratoDaUc.dados_documento ?? {}), configuracao_uc: configuracaoContrato };
+    }
+    const { error: erroContrato } = await supabase.from("contratos").update(atualizacaoContrato).eq("id", contratoDaUc.id);
+    if (erroContrato) throw erroContrato;
+  }
+
+  const ucPrincipal = String(cliente.uc ?? "").replace(/\D/g, "") === numero;
+  const atualizacaoCliente: Record<string, unknown> = {
+    usina_id: cliente.usina_id ?? usinaId,
+  };
+  if (ucPrincipal) {
+    atualizacaoCliente.modalidade_faturamento = modalidade;
+    atualizacaoCliente.percentual_rateio = percentual;
+    atualizacaoCliente.desconto_percentual = desconto;
+    atualizacaoCliente.consumo_medio_kwh = consumoMedio;
+  }
+  const { error: erroCliente } = await supabase
+    .from("clientes")
+    .update(atualizacaoCliente)
+    .eq("id", clienteId)
+    .eq("empresa_id", empresaId);
+  if (erroCliente) throw erroCliente;
+
+  if (usinaAnterior && usinaAnterior !== usinaId) {
+    await sincronizarParticipacaoClienteUsina(usinaAnterior, clienteId);
+    await recalcularAlocacaoUsina(usinaAnterior);
+  }
+  await sincronizarParticipacaoClienteUsina(usinaId, clienteId);
+  await recalcularAlocacaoUsina(usinaId);
+  return {
+    sucesso: true,
+    usinaId,
+    clienteId,
+    unidadeId: unidade.id,
+    numero,
+    percentual,
+    producaoMedia12Meses: producaoMedia || await calcularProducaoMedia12Meses(usinaId),
+  };
+}
+
+export async function buscarUsinaService(
+  id: string,
+  empresaId?: string,
+) {
+  const usina = await buscarUsina(id, empresaId);
+
+  if (!usina) {
+    throw new Error("Usina não encontrada.");
+  }
+
+  const { data: unidadeGeradora, error } = await supabase
+    .from("unidades_consumidoras")
+    .select("cpf_titular")
+    .eq("empresa_id", empresaId)
+    .eq("usina_id", id)
+    .eq("tipo", "GERADORA")
+    .maybeSingle();
+  if (error) throw error;
+
+  const mediaAtual = await calcularProducaoMedia12Meses(id);
+  return { ...usina, geracao_media: mediaAtual, cpf_titular: unidadeGeradora?.cpf_titular ?? null };
+}
+
+export async function criarUsinaService(
+  dados: any,
+  empresaId?: string,
+) {
+  const {
+    cpf_titular: cpfTitularSnake,
+    cpfTitular: cpfTitularCamel,
+    producao_inicial_kwh: producaoInicial,
+    referencia_fatura_inicial: referenciaInicial,
+    ...dadosUsina
+  } = dados ?? {};
+  const possuiProducaoInicial = producaoInicial !== undefined || referenciaInicial !== undefined;
+  const energiaInicial = Number(producaoInicial);
+  const competenciaInicial = possuiProducaoInicial ? competenciaData(String(referenciaInicial ?? "")) : null;
+  if (possuiProducaoInicial && !(Number.isFinite(energiaInicial) && energiaInicial > 0)) {
+    throw new Error("Produção inicial da fatura inválida.");
+  }
+  const usina = await criarUsina(dadosUsina, empresaId);
+  const numero = String(usina?.numero_instalacao ?? "").replace(/\D/g, "");
+  if (!numero) return usina;
+
+  const { error } = await supabase.from("unidades_consumidoras").insert({
+    empresa_id: empresaId, usina_id: usina.id, numero, tipo: "GERADORA",
+    titular: usina.titular_nome ?? usina.nome ?? "Usina",
+    cpf_titular: String(cpfTitularSnake ?? cpfTitularCamel ?? "").replace(/\D/g, "") || null,
+    distribuidora: usina.distribuidora ?? "CEMIG", endereco: usina.endereco ?? null,
+    modalidade_faturamento: "INJECAO", status: "ATIVA",
+  });
+  if (error) {
+    await supabase.from("usinas").delete().eq("id", usina.id);
+    throw error;
+  }
+  if (competenciaInicial) {
+    try {
+      await persistirProducaoDaFatura(usina, competenciaInicial, energiaInicial);
+    } catch (erro) {
+      await supabase.from("fechamentos").delete().eq("usina_id", usina.id).eq("competencia", competenciaInicial);
+      await supabase.from("unidades_consumidoras").delete().eq("usina_id", usina.id).eq("tipo", "GERADORA");
+      await supabase.from("usinas").delete().eq("id", usina.id);
+      throw erro;
+    }
+  }
+  return usina;
+}
+
+export async function atualizarUsinaService(
+  id: string,
+  dados: any,
+  empresaId?: string,
+) {
+  const usina = await editarUsina(id, dados, empresaId);
+  const numero = String(usina?.numero_instalacao ?? dados?.numero_instalacao ?? "").replace(/\D/g, "");
+  if (!numero) return usina;
+
+  const payloadUnidade = {
+    empresa_id: empresaId,
+    usina_id: id,
+    numero,
+    tipo: "GERADORA",
+    titular: usina?.titular_nome ?? usina?.nome ?? "Usina",
+    ...cpfTitularPatch(dados),
+    distribuidora: usina?.distribuidora ?? "CEMIG",
+    endereco: usina?.endereco ?? null,
+    modalidade_faturamento: "INJECAO",
+    status: "ATIVA",
+    tipo_gd: usina?.tipo_gd === "GD2" ? "GD2" : "GD1",
+  };
+  const { data: unidadeExistente, error: buscaError } = await supabase
+    .from("unidades_consumidoras")
+    .select("id")
+    .eq("empresa_id", empresaId)
+    .eq("usina_id", id)
+    .eq("tipo", "GERADORA")
+    .maybeSingle();
+  if (buscaError) throw buscaError;
+  const resultado = unidadeExistente?.id
+    ? await supabase.from("unidades_consumidoras").update(payloadUnidade).eq("id", unidadeExistente.id).eq("empresa_id", empresaId)
+    : await supabase.from("unidades_consumidoras").insert(payloadUnidade);
+  if (resultado.error) throw resultado.error;
+
+  if (usina?.tipo_gd === "GD2") {
+    const { error: herancaError } = await supabase
+      .from("unidades_consumidoras")
+      .update({ tipo_gd: "GD2" })
+      .eq("empresa_id", empresaId)
+      .eq("usina_id", id)
+      .eq("tipo", "BENEFICIARIA");
+    if (herancaError) throw herancaError;
+  }
+  return usina;
+}
+
+export async function excluirUsinaService(
+  id: string,
+  empresaId?: string,
+) {
+  const { data: unidades, error } = await supabase.from("unidades_consumidoras")
+    .select("id,numero")
+    .eq("empresa_id", empresaId)
+    .eq("usina_id", id)
+    .eq("tipo", "BENEFICIARIA");
+  if (error) throw error;
+  if (unidades?.length) {
+    const bloqueio: any = new Error(`Esta usina possui ${unidades.length} UC(s) alocada(s). Migre todas para outra usina antes de excluir.`);
+    bloqueio.code = "USINA_COM_UCS_ALOCADAS";
+    bloqueio.unidades = unidades;
+    throw bloqueio;
+  }
+  await excluirUsina(id, empresaId);
+
+  return {
+    sucesso: true,
+  };
+}
+
+async function migrarRegistrosDaUnidade(unidadeId: string, destinoUsinaId: string, empresaId: string) {
+  // O cliente pode ter UCs em usinas distintas; movemos somente os registros
+  // desta UC. Cobranças permanecem ligadas à fatura por sua chave estrangeira.
+  const { data: unidade, error: erroUnidade } = await supabase.from("unidades_consumidoras")
+    .select("cliente_id,numero").eq("id", unidadeId).eq("empresa_id", empresaId).single();
+  if (erroUnidade) throw erroUnidade;
+  const { error: erroContratos } = await supabase.from("contratos")
+    .update({ usina_id: destinoUsinaId }).eq("empresa_id", empresaId).eq("unidade_consumidora_id", unidadeId);
+  if (erroContratos) throw erroContratos;
+  const { error: erroFaturas } = await supabase.from("faturas")
+    .update({ usina_id: destinoUsinaId }).eq("empresa_id", empresaId).eq("unidade_consumidora_id", unidadeId);
+  if (erroFaturas) throw erroFaturas;
+  // Faturas antigas podem não ter FK para a UC; número e cliente identificam
+  // a qual unidade pertencem sem levar faturas de outra UC do mesmo cliente.
+  if (unidade.cliente_id && unidade.numero) {
+    const { error: erroLegadas } = await supabase.from("faturas")
+      .update({ usina_id: destinoUsinaId }).eq("empresa_id", empresaId)
+      .eq("cliente_id", unidade.cliente_id).eq("numero_instalacao", unidade.numero)
+      .is("unidade_consumidora_id", null);
+    if (erroLegadas) throw erroLegadas;
+  }
+}
+
+export async function migrarUnidadesDaUsinaService(id: string, destinoUsinaId: string, empresaId: string) {
+  if (!destinoUsinaId || destinoUsinaId === id) throw new Error("Escolha outra usina como destino.");
+  const { data: destino, error: erroDestino } = await supabase.from("usinas").select("id,nome")
+    .eq("id", destinoUsinaId).eq("empresa_id", empresaId).maybeSingle();
+  if (erroDestino || !destino) throw erroDestino ?? new Error("Usina de destino não encontrada nesta empresa.");
+  const { data: unidades, error: erroUnidades } = await supabase.from("unidades_consumidoras")
+    .select("id,cliente_id,numero").eq("empresa_id", empresaId).eq("usina_id", id).eq("tipo", "BENEFICIARIA");
+  if (erroUnidades) throw erroUnidades;
+  const ids = (unidades ?? []).map((item: any) => item.id);
+  if (!ids.length) return { sucesso: true, migradas: 0, destino };
+
+  for (const unidade of unidades ?? []) {
+    const { error } = await supabase.from("unidades_consumidoras").update({ usina_id: destinoUsinaId })
+      .eq("empresa_id", empresaId).eq("id", unidade.id);
+    if (error) throw error;
+    await migrarRegistrosDaUnidade(unidade.id, destinoUsinaId, empresaId);
+  }
+  const clientes = [...new Set((unidades ?? []).map((item: any) => item.cliente_id).filter(Boolean))];
+  await Promise.all(clientes.flatMap((clienteId) => [
+    sincronizarParticipacaoClienteUsina(id, String(clienteId)),
+    sincronizarParticipacaoClienteUsina(destinoUsinaId, String(clienteId)),
+  ]));
+  await Promise.all([recalcularAlocacaoUsina(id, empresaId), recalcularAlocacaoUsina(destinoUsinaId, empresaId)]);
+  return { sucesso: true, migradas: ids.length, destino };
+}
+
+export async function obterDashboardUsina(
+  id: string,
+  empresaId?: string,
+) {
+  // Garante que salvar/mover/excluir uma UC seja refletido mesmo quando o app
+  // consulta novamente a mesma usina sem trocar o contexto selecionado.
+  await recalcularAlocacaoUsina(id, empresaId);
+  const [dashboard, usina, clientes, buscaUnidadeGeradora] = await Promise.all([
+    buscarDashboardUsina(id, empresaId),
+    buscarUsina(id, empresaId),
+    supabase.from("clientes").select("id", { count: "exact", head: true }).eq("usina_id", id).eq("empresa_id", empresaId),
+    supabase
+      .from("unidades_consumidoras")
+      .select("id, numero, tipo, recebimento_email_ativo, recebimento_email_status")
+      .eq("usina_id", id)
+      .eq("empresa_id", empresaId)
+      .eq("tipo", "GERADORA")
+      .maybeSingle(),
+  ]);
+  if (buscaUnidadeGeradora.error) throw buscaUnidadeGeradora.error;
+  let unidadeGeradora = buscaUnidadeGeradora.data ?? null;
+  const numeroInstalacao = String(usina?.numero_instalacao ?? "").replace(/\D/g, "");
+  if (!unidadeGeradora && numeroInstalacao) {
+    const { data, error } = await supabase.from("unidades_consumidoras").insert({
+      empresa_id: empresaId, usina_id: id, numero: numeroInstalacao, tipo: "GERADORA",
+      titular: usina?.titular_nome ?? usina?.nome ?? "Usina", distribuidora: usina?.distribuidora ?? "CEMIG",
+      endereco: usina?.endereco ?? null, modalidade_faturamento: "INJECAO", status: "ATIVA",
+    }).select("id, numero, tipo, recebimento_email_ativo, recebimento_email_status").single();
+    if (error) throw error;
+    unidadeGeradora = data;
+  }
+  const competenciaAtual = competenciaAtualDaUsina();
+  const fechamento = dashboard.historico?.find((item: any) => String(item.competencia ?? "").startsWith(competenciaAtual)) ?? dashboard.ultimo ?? null;
+  const { data: faturasAtuais, error: erroFaturasAtuais } = await supabase.from("faturas")
+    .select("referencia,status,valor_total,valor_total_unificado,cobrancas(status,pago_em)")
+    .eq("empresa_id", empresaId).eq("usina_id", id);
+  if (erroFaturasAtuais) throw erroFaturasAtuais;
+  const receitaAtual = receitaAtualDaCompetencia(faturasAtuais ?? [], fechamento?.competencia ?? competenciaAtual, fechamento);
+  const mediaAtual = await calcularProducaoMedia12Meses(id);
+  usina.geracao_media = mediaAtual;
+  const energiaAtual = Number(fechamento?.energia_gerada ?? 0);
+  const energiaProjetada = energiaAtual > 0
+    ? energiaAtual
+    : Math.max(0, Number(usina.geracao_media ?? 0)) || await calcularProducaoMedia12Meses(id);
+  const alocacaoAtual = await obterAlocacaoProjetadaDaUsina(id, energiaProjetada, empresaId);
+
+  if (!fechamento) {
+      return {
+        usina,
+        unidadeGeradora,
+        historico: (dashboard.historico ?? []).map((item: any) => ({
+          competencia: item.competencia,
+          energiaGerada: Number(item.energia_gerada ?? 0),
+        })),
+      clientes: clientes.count ?? 0,
+      energiaGerada: 0,
+      energiaTotal: Number(dashboard.energiaTotal ?? 0),
+      energiaDisponivel: alocacaoAtual.energia_disponivel,
+      ocupacao: alocacaoAtual.ocupacao,
+      ...receitaAtual,
+      competencia: `${competenciaAtual.slice(5)}/${competenciaAtual.slice(0, 4)}`,
+      status: "ABERTO",
+    };
+  }
+
+    return {
+      usina,
+      unidadeGeradora,
+      historico: (dashboard.historico ?? []).map((item: any) => ({
+        competencia: item.competencia,
+        energiaGerada: Number(item.energia_gerada ?? 0),
+      })),
+    clientes: clientes.count ?? 0,
+    energiaGerada: energiaAtual,
+
+    energiaTotal:
+      Number(dashboard.energiaTotal ?? 0),
+
+    energiaDisponivel: alocacaoAtual.energia_disponivel,
+
+    ocupacao: alocacaoAtual.ocupacao,
+
+    ...receitaAtual,
+
+    competencia:
+      `${String(fechamento.competencia).slice(5, 7)}/${String(fechamento.competencia).slice(0, 4)}`,
+
+    status:
+      fechamento.status,
+  };
+}

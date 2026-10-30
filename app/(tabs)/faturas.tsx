@@ -1,271 +1,345 @@
-import { useEffect, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { File, Paths } from "expo-file-system";
+import * as FileSystemLegacy from "expo-file-system/legacy";
+import * as IntentLauncher from "expo-intent-launcher";
+import * as Sharing from "expo-sharing";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, BackHandler, Linking, Platform, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
-import {
-  Alert,
-  FlatList,
-  ImageBackground,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
-import AndradeBarChart from "../../components/charts/AndradeBarChart";
-import { supabase } from '../../supabase';
+import { AppHeader, ElasticFlatList as FlatList, EmptyState, Screen } from "../../components/ui";
+import ClienteHeader from "../../components/cliente/ClienteHeader";
+import TabDataPending from "../../components/ui/TabDataPending";
+import { IS_GERADOR_APP } from "../../config/appVariant";
+import { useAuth } from "../../contexts/AuthContext";
+import { useFaturas } from "../../hooks/useFaturas";
+import { FaturaAnexadaCliente, listarFaturasAnexadasCliente } from "../../services/clientes.service";
+import { excluirFatura, formatarCompetenciaBrasileira, formatarDataBrasileira, obterRelatorioCalculoFatura } from "../../services/faturas.service";
+import { Colors, Radius, Spacing, Typography } from "../../theme";
+import { invoiceDisplayStatus } from "../../services/invoice-display-status";
+
+type Filtro = "todas" | "abertas" | "vencidas" | "pagas";
+
+const estaPaga = (item: any) => invoiceDisplayStatus(item).paga;
+const estaVencida = (item: any) => invoiceDisplayStatus(item).vencida;
+const moeda = (valor: unknown) => Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function Faturas() {
-  const [faturas, setFaturas] =
-    useState<any[]>([]);
-    const [economiaTotal, setEconomiaTotal] =
-  useState(0);
+  const proprietario = IS_GERADOR_APP;
+  const { user, unidadeSelecionada } = useAuth();
+  const { origem, solarFiltro } = useLocalSearchParams<{ origem?: string; solarFiltro?: string }>();
+  useFocusEffect(useCallback(() => {
+    if (origem !== "faturamento") return undefined;
+    const listener = BackHandler.addEventListener("hardwareBackPress", () => {
+      router.replace("/(tabs)/faturamento" as any);
+      return true;
+    });
+    return () => listener.remove();
+  }, [origem]));
+  const { data, isLoading, error, refetch } = useFaturas();
+  const [filtro, setFiltro] = useState<Filtro>("todas");
+  useEffect(() => {
+    if (["todas", "abertas", "vencidas", "pagas"].includes(String(solarFiltro))) setFiltro(solarFiltro as Filtro);
+  }, [solarFiltro]);
+  const [categoria, setCategoria] = useState<"andrade" | "cemig">("andrade");
+  const [anexadas, setAnexadas] = useState<FaturaAnexadaCliente[]>([]);
+  const [baixando, setBaixando] = useState<string>();
+  const [excluindo, setExcluindo] = useState<string>();
+  const [atualizando, setAtualizando] = useState(false);
+  const faturas = useMemo(() => data ?? [], [data]);
 
-  async function carregar() {
-    const { data } =
-  await supabase
-    .from('faturas')
-    .select('*');
+  useFocusEffect(useCallback(() => {
+    if (proprietario || !user?.cliente_id) return;
+    let ativo = true;
+    listarFaturasAnexadasCliente(String(user.cliente_id))
+      .then((itens) => { if (ativo) setAnexadas(itens); })
+      .catch(() => { if (ativo) setAnexadas([]); });
+    return () => { ativo = false; };
+  }, [proprietario, user?.cliente_id]));
 
-const lista = data || [];
+  const faturasCemig = useMemo(() => {
+    const urls = new Set<string>();
+    const itens = [
+      ...faturas.filter((item: any) => item.pdf_cemig_url).map((item: any) => ({
+        id: `fatura-${item.id}`,
+        url: String(item.pdf_cemig_url),
+        titulo: `Conta CEMIG · ${formatarCompetenciaBrasileira(item.referencia)}`,
+        detalhe: `UC ${item.numero_instalacao || unidadeSelecionada?.numero || "não informada"}`,
+      })),
+      ...anexadas.map((item) => ({
+        id: `anexo-${item.id}`,
+        url: item.url,
+        titulo: item.nome || "Conta CEMIG anexada",
+        detalhe: `UC ${item.dadosFatura?.uc ?? item.dadosFatura?.numero_instalacao ?? "não informada"}`,
+      })),
+    ];
+    return itens.filter((item) => {
+      if (!item.url || urls.has(item.url)) return false;
+      urls.add(item.url);
+      return true;
+    });
+  }, [anexadas, faturas, unidadeSelecionada?.numero]);
 
-setFaturas(lista);
+  const lista = useMemo(() => faturas.filter((item: any) => {
+    if (filtro === "pagas") return estaPaga(item);
+    if (filtro === "abertas") return invoiceDisplayStatus(item).label === "Em aberto";
+    if (filtro === "vencidas") return estaVencida(item);
+    return true;
+  }), [faturas, filtro]);
 
-setEconomiaTotal(
-  lista.reduce(
-    (acc, item) =>
-      acc + Number(item.economia || 0),
-    0
-  )
-);
-}
-
-async function excluirFatura(id: string) {
-  Alert.alert(
-    'Excluir Fatura',
-    'Deseja realmente excluir esta fatura?',
-    [
-      {
-        text: 'Cancelar',
-        style: 'cancel',
-      },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: async () => {
-          const { error } =
-            await supabase
-              .from('faturas')
-              .delete()
-              .eq('id', id);
-
-          if (error) {
-            Alert.alert(
-              'Erro',
-              error.message
-            );
-            return;
-          }
-
-          carregar();
-
-          Alert.alert(
-            'Sucesso',
-            'Fatura excluída'
-          );
-        },
-      },
-    ]
-  );
-}
-
-useEffect(() => {
-  carregar();
-}, []);
-const labels =
-  faturas
-    .slice()
-    .reverse()
-    .map((f) =>
-      f.referencia?.split('/')[0]
-    );
-
-const economias =
-  faturas
-    .slice()
-    .reverse()
-    .map(
-      (f) => Number(f.economia)
-    );
-
-    const chartData = labels.map((label, index) => ({
-  label,
-  value: economias[index],
-}));
-return (
-  <ImageBackground
-source={require('../../assets/images/background.png')}  style={{
-    flex: 1,
-    paddingTop: 70,
-  }}
->
- <ScrollView
-  contentContainerStyle={{
-    padding: 16,
-  }}
->
-    <View
-      style={{
-       backgroundColor: 'rgba(250,204,21,0.65)',
-        padding: 20,
-        borderRadius: 12,
-        marginBottom: 20,
-      }}
-    >
-      <Text
-        style={{
-          fontSize: 16,
-          fontWeight: 'bold',
-        }}
-      >
-        Economia acumulada
-      </Text>
-
-      <Text
-        style={{
-          fontSize: 32,
-          fontWeight: 'bold',
-        }}
-      >
-        R$ {economiaTotal.toFixed(2).replace('.', ',')}
-      </Text>
-
-     {faturas.length > 1 && (
-  <View
-    style={{
-      alignItems: 'center',
-      marginVertical: 15,
-    }}
-  >
-  <AndradeBarChart
-  data={chartData}
-  height={250}
-/>
-  </View>
-)}
-
-<Text
-  style={{
-    marginTop: 8,
-    fontSize: 16,
-  }}
->
-  Última referência: {faturas[0]?.referencia || '-'}
-</Text>
-    </View>
-
-    <FlatList
-    scrollEnabled={false}
-        data={faturas}
-        keyExtractor={(item) =>
-          String(item.id)
-        }
-        renderItem={({ item }) => (
-          <View
-            style={{
-              backgroundColor: 'rgba(255,255,255,0.80)',
-              padding: 16,
-              borderRadius: 12,
-              marginBottom: 12,
-            }}
-          >
-            <Text
-              style={{
-                color: 'black',
-                fontSize: 18,
-                fontWeight: 'bold',
-              }}
-            >
-            📄 {item.referencia}
-            </Text>
-
-            <Text
-              style={{
-                color: 'black',
-              }}
-            >
-              Valor:
-              R$ {Number(item.valor_total)
-  .toFixed(2)
-  .replace('.', ',')}
-            </Text>
-            <Text
-  style={{
-    color: '#22c55e',
-    fontWeight: 'bold',
-  }}
->
-  Economia:
-  R$ {Number(item.economia)
-  .toFixed(2)
-  .replace('.', ',')}
-</Text>
-
-<Text
-  style={{
-    color: 'black',
-  }}
->
-  Cliente:
-  {' '}
-  {item.nome_cliente}
-</Text>
-
-<Text
-  style={{
-    color: 'black',
-  }}
->
-  Vencimento:{' '}
-  {item.vencimento
-    ? item.vencimento
-        .split('-')
-        .reverse()
-        .join('/')
-    : '-'}
-</Text>
-
-            <Text
-  style={{
-    color: 'black',
-  }}
->
-  Instalação: {item.numero_instalacao}
-</Text>
-
-<TouchableOpacity
-  onPress={() =>
-    excluirFatura(item.id)
+  async function atualizarPagina() {
+    setAtualizando(true);
+    try {
+      await refetch();
+    } finally {
+      setAtualizando(false);
+    }
   }
-  style={{
-    backgroundColor: '#dc2626',
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 12,
-  }}
->
-  <Text
-    style={{
-      color: 'black',
-      textAlign: 'center',
-      fontWeight: 'bold',
-    }}
-  >
-    EXCLUIR FATURA
-  </Text>
-</TouchableOpacity>
+
+  async function baixarDocumento(url: string | undefined, nome: string, chave: string) {
+    if (!url) return;
+    try {
+      setBaixando(chave);
+      if (Platform.OS === "web") return await Linking.openURL(url);
+      const arquivo = await File.downloadFileAsync(url, new File(Paths.document, nome), { idempotent: true });
+      if (Platform.OS === "android") {
+        try {
+          const contentUri = await FileSystemLegacy.getContentUriAsync(arquivo.uri);
+          await IntentLauncher.startActivityAsync("android.intent.action.VIEW", { data: contentUri, flags: 1, type: "application/pdf" });
+          return;
+        } catch { /* Abre pelo compartilhamento se não houver visualizador padrão. */ }
+      }
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(arquivo.uri, { dialogTitle: "Abrir ou salvar fatura", mimeType: "application/pdf", UTI: "com.adobe.pdf" });
+      else Alert.alert("Download concluído", "A fatura foi salva no aplicativo.");
+    } catch {
+      Alert.alert("Não foi possível baixar", "Confira sua conexão e tente novamente.");
+    } finally { setBaixando(undefined); }
+  }
+
+  async function baixarRelatorio(item: any, referenciaArquivo: string) {
+    const chave = `relatorio-${item.id}`;
+    try {
+      setBaixando(chave);
+      const url = await obterRelatorioCalculoFatura(item.id);
+      await baixarDocumento(url, `relatorio-calculo-${referenciaArquivo}.pdf`, chave);
+    } catch (erro: any) {
+      Alert.alert("Não foi possível gerar o relatório", erro?.response?.data?.message ?? "Confira sua conexão e tente novamente.");
+    } finally { setBaixando(undefined); }
+  }
+
+  async function baixarDocumentoDaFatura(item: any, campo: "pdf_cemig_url" | "pdf_unificada_url", nome: string, chave: string) {
+    try {
+      setBaixando(chave);
+      // URLs assinadas expiram enquanto a lista permanece aberta ou em cache.
+      const atualizadas = await refetch({ throwOnError: true });
+      const atual = atualizadas.data?.find((fatura: any) => fatura.id === item.id);
+      const url = atual?.[campo];
+      if (!url) throw new Error("O documento não está disponível. Atualize a lista e tente novamente.");
+      await baixarDocumento(url, nome, chave);
+    } catch (erro: any) {
+      Alert.alert("Não foi possível baixar", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
+    } finally { setBaixando(undefined); }
+  }
+
+  function confirmarExclusao(item: any) {
+    Alert.alert(
+      "Excluir fatura?",
+      `A fatura ${formatarCompetenciaBrasileira(item.referencia)} será excluída. Se houver cobrança pendente, ela será cancelada no Asaas primeiro. Cobranças pagas não podem ser apagadas.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setExcluindo(String(item.id));
+              await excluirFatura(String(item.id));
+              await refetch();
+            } catch (erro: any) {
+              Alert.alert("Não foi possível excluir", erro?.response?.data?.message ?? "Tente novamente.");
+            } finally {
+              setExcluindo(undefined);
+            }
+          },
+        },
+      ],
+    );
+  }
+
+  if (isLoading) return <Screen>{proprietario ? <AppHeader title="Faturas" subtitle="Todos os clientes" contextTitle="Faturas da carteira" contextSubtitle="Abertas, vencidas e pagas" icon="receipt-outline" /> : <ClienteHeader cliente={user?.nome ?? "Cliente"} uc={unidadeSelecionada?.numero ?? ""} distribuidora={unidadeSelecionada?.distribuidora ?? "CEMIG"} fullBleed />}<TabDataPending /></Screen>;
+
+  return (
+    <Screen>
+      {proprietario ? <AppHeader title="Faturas" subtitle="Todos os clientes" contextTitle={`${faturas.length} faturas cadastradas`} contextSubtitle="Abertas, vencidas e pagas" icon="receipt-outline" /> : <ClienteHeader cliente={user?.nome ?? "Cliente"} uc={unidadeSelecionada?.numero ?? ""} distribuidora={unidadeSelecionada?.distribuidora ?? "CEMIG"} fullBleed />}
+      <FlatList
+        bounces
+        alwaysBounceVertical
+        overScrollMode="always"
+        refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}
+        contentContainerStyle={styles.content}
+        data={proprietario || categoria === "andrade" ? lista : []}
+        keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={<>
+          <View style={styles.heading}>
+            {!proprietario ? <TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}>
+              <Ionicons name="chevron-back" size={23} color={Colors.text} />
+            </TouchableOpacity> : null}
+            <View><Text style={styles.title}>{proprietario ? "Todas as faturas" : "Faturas"}</Text>{proprietario ? <Text style={styles.subtitle}>Acompanhe as cobranças de toda a carteira.</Text> : null}</View>
           </View>
-        )}
+
+          {!proprietario ? <View style={styles.categoryTabs}>
+            <TouchableOpacity accessibilityRole="tab" accessibilityState={{ selected: categoria === "andrade" }} onPress={() => setCategoria("andrade")} style={[styles.categoryButton, categoria === "andrade" && styles.categoryButtonActive]}><Text style={[styles.categoryText, categoria === "andrade" && styles.categoryTextActive]}>Andrade Energy</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="tab" accessibilityState={{ selected: categoria === "cemig" }} onPress={() => setCategoria("cemig")} style={[styles.categoryButton, categoria === "cemig" && styles.categoryButtonActive]}><Text style={[styles.categoryText, categoria === "cemig" && styles.categoryTextActive]}>CEMIG</Text></TouchableOpacity>
+          </View> : null}
+          {categoria === "cemig" && !proprietario ? <View>
+            <Text style={styles.categoryHint}>Contas originais da concessionária. Cobranças e pagamentos Andrade Energy ficam na outra categoria.</Text>
+            {faturasCemig.map((item) => <TouchableOpacity key={item.id} accessibilityLabel={`Abrir ${item.titulo}`} onPress={() => void Linking.openURL(item.url)} style={styles.cemigCard}>
+              <Ionicons name="document-text-outline" size={25} color={Colors.primary} />
+              <View style={styles.cemigCopy}><Text style={styles.cemigTitle}>{item.titulo}</Text><Text style={styles.cemigDetail}>{item.detalhe}</Text></View>
+              <Ionicons name="open-outline" size={19} color={Colors.primary} />
+            </TouchableOpacity>)}
+            {!faturasCemig.length ? <EmptyState icon="document-outline" title="Nenhuma conta CEMIG" subtitle="As contas recebidas ou anexadas aparecerão aqui." /> : null}
+            <TouchableOpacity onPress={() => router.push({ pathname: "/clientes/faturas-anexadas" as never, params: { clienteId: String(user?.cliente_id ?? "") } })} style={styles.anexarConta}><Ionicons name="add-circle-outline" size={19} color={Colors.primary} /><Text style={styles.anexarContaText}>Ver ou anexar conta CEMIG</Text></TouchableOpacity>
+          </View> : null}
+          {categoria === "andrade" || proprietario ? <View style={styles.filterTabs}>
+            <FilterButton active={filtro === "todas"} label="Todas" onPress={() => setFiltro("todas")} />
+            <FilterButton active={filtro === "abertas"} label="Abertas" onPress={() => setFiltro("abertas")} />
+            <FilterButton active={filtro === "vencidas"} label="Vencidas" onPress={() => setFiltro("vencidas")} />
+            <FilterButton active={filtro === "pagas"} label="Pagas" onPress={() => setFiltro("pagas")} />
+          </View> : null}
+        </>}
+        ListEmptyComponent={categoria === "cemig" && !proprietario ? null : <View style={styles.empty}>
+          <EmptyState
+            icon={error ? "alert-circle-outline" : "receipt-outline"}
+            title={error ? "Não foi possível carregar as faturas" : `0 faturas ${filtro === "todas" ? "" : filtro}`.trim()}
+            subtitle={error ? "Confira sua conexão e tente novamente." : "Nenhuma fatura Andrade Energy encontrada neste filtro."}
+          />
+        </View>}
+        renderItem={({ item }) => {
+          const exibicao = invoiceDisplayStatus(item);
+          const paga = exibicao.paga;
+          const vencida = estaVencida(item);
+          const valor = item.valor_total_unificado ?? item.valor_total;
+          const referenciaArquivo = String(item.referencia ?? item.id).replace(/[^a-zA-Z0-9_-]/g, "-");
+          return (
+            <TouchableOpacity
+              accessibilityLabel={`Abrir fatura ${item.referencia}`}
+              activeOpacity={0.84}
+              onPress={() => router.push(`/faturas/${item.id}`)}
+              style={styles.invoiceCard}
+            >
+              <View style={styles.invoiceTop}>
+                <View style={styles.invoiceHeading}><Text style={styles.value}>{moeda(valor)}</Text><Text style={styles.reference}>{formatarCompetenciaBrasileira(item.referencia)}</Text></View>
+                <View style={[styles.status, paga ? styles.statusPaid : vencida ? styles.statusOverdue : styles.statusOpen]}><Text style={styles.statusText}>{exibicao.label}</Text></View>
+              </View>
+              {proprietario ? <View style={styles.customer}><Ionicons name="person-outline" size={15} color={Colors.primary} /><Text numberOfLines={1} style={styles.customerText}>{item.clientes?.nome || "Cliente não identificado"}</Text></View> : null}
+              <View style={styles.invoiceDivider} />
+              <View style={styles.invoiceBottom}>
+                <View><Text style={styles.metaLabel}>{paga ? "PAGAMENTO" : "VENCIMENTO"}</Text><Text style={styles.metaValue}>{paga ? formatarDataBrasileira(item.cobrancas?.[0]?.pago_em || item.data_pagamento, "Confirmado") : formatarDataBrasileira(item.vencimento)}</Text></View>
+                <View style={styles.documentType}><Text style={styles.documentLabel}>FATURA ANDRADE ENERGY</Text><Text numberOfLines={1} style={styles.documentCode}>{item.numero_instalacao || item.id}</Text></View>
+              </View>
+              <View style={styles.downloads}>
+                <DownloadLink label="Concessionária" available={Boolean(item.pdf_cemig_url)} loading={baixando === `cemig-${item.id}`} onPress={() => baixarDocumentoDaFatura(item, "pdf_cemig_url", `concessionaria-${referenciaArquivo}.pdf`, `cemig-${item.id}`)} />
+                <DownloadLink
+                  label={item.fatura_somente_andrade ? "Fatura Andrade" : "Fatura unificada"}
+                  available={Boolean(item.pdf_unificada_url)}
+                  loading={baixando === `andrade-${item.id}`}
+                  onPress={() => baixarDocumentoDaFatura(
+                    item, "pdf_unificada_url",
+                    `${item.fatura_somente_andrade ? "fatura-andrade" : "fatura-unificada"}-${referenciaArquivo}.pdf`,
+                    `andrade-${item.id}`,
+                  )}
+                />
+              </View>
+              <TouchableOpacity
+                accessibilityLabel={`Baixar memória de cálculo da fatura ${item.referencia || ""}`}
+                disabled={baixando === `relatorio-${item.id}`}
+                onPress={(event) => { event.stopPropagation(); void baixarRelatorio(item, referenciaArquivo); }}
+                style={styles.reportDownload}
+              >
+                <Ionicons name={baixando === `relatorio-${item.id}` ? "hourglass-outline" : "document-text-outline"} size={18} color={Colors.primary} />
+                <Text style={styles.reportDownloadText}>{baixando === `relatorio-${item.id}` ? "Preparando relatório..." : "Baixar memória de cálculo e desconto"}</Text>
+                <Ionicons name="download-outline" size={17} color={Colors.primary} />
+              </TouchableOpacity>
+              {proprietario ? <TouchableOpacity
+                accessibilityLabel={`Excluir fatura ${item.referencia || ""}`}
+                disabled={excluindo === String(item.id)}
+                onPress={(event) => { event.stopPropagation(); confirmarExclusao(item); }}
+                style={styles.deleteInvoice}
+              >
+                {excluindo === String(item.id)
+                  ? <ActivityIndicator size="small" color={Colors.danger} />
+                  : <Ionicons name="trash-outline" size={17} color={Colors.danger} />}
+                <Text style={styles.deleteInvoiceText}>{excluindo === String(item.id) ? "Excluindo..." : "Excluir fatura"}</Text>
+              </TouchableOpacity> : null}
+            </TouchableOpacity>
+          );
+        }}
       />
-      </ScrollView>
-</ImageBackground>
+    </Screen>
   );
 }
 
+function FilterButton({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
+  return <TouchableOpacity onPress={onPress} style={[styles.filterButton, active && styles.filterButtonActive]}><Text style={[styles.filterLabel, active && styles.filterLabelActive]}>{label}</Text></TouchableOpacity>;
+}
+
+function DownloadLink({ available, label, loading, onPress }: { available: boolean; label: string; loading: boolean; onPress: () => void }) {
+  return <TouchableOpacity disabled={!available || loading} onPress={(event) => { event.stopPropagation(); onPress(); }} style={[styles.download, !available && styles.downloadUnavailable]}><Ionicons name={loading ? "hourglass-outline" : available ? "download-outline" : "time-outline"} size={17} color={available ? Colors.primary : Colors.subtitle} /><Text style={[styles.downloadText, !available && styles.downloadTextUnavailable]}>{loading ? "Baixando..." : label}</Text></TouchableOpacity>;
+}
+
+const styles = StyleSheet.create({
+  content: { flexGrow: 1, padding: Spacing.lg, paddingBottom: Spacing.xxl * 2 },
+  heading: { flexDirection: "row", alignItems: "center", marginBottom: Spacing.lg, paddingBottom: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  back: { width: 38, height: 38, alignItems: "center", justifyContent: "center", marginRight: Spacing.xs },
+  title: { color: Colors.text, fontSize: Typography.card, fontWeight: "800" },
+  subtitle: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small },
+  autoReceiveCard: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.lg, padding: Spacing.md, backgroundColor: "#E6F4EA" },
+  autoReceiveIcon: { width: 46, height: 46, alignItems: "center", justifyContent: "center", borderRadius: Radius.round, backgroundColor: Colors.surface },
+  autoReceiveCopy: { flex: 1, minWidth: 190 },
+  autoReceiveTitle: { color: Colors.text, fontSize: Typography.caption, fontWeight: "900" },
+  autoReceiveText: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 17 },
+  autoReceiveButton: { width: "100%", height: 46, borderRadius: Radius.md },
+  filterTabs: { flexDirection: "row", marginBottom: Spacing.lg, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  categoryTabs: { flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.lg },
+  categoryButton: { flex: 1, minHeight: 46, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, backgroundColor: Colors.surface },
+  categoryButtonActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
+  categoryText: { color: Colors.subtitle, fontSize: Typography.small, fontWeight: "800" },
+  categoryTextActive: { color: Colors.primaryDark },
+  categoryHint: { marginBottom: Spacing.md, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 },
+  cemigCard: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, minHeight: 76, marginBottom: Spacing.sm, padding: Spacing.md, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
+  cemigCopy: { flex: 1 },
+  cemigTitle: { color: Colors.text, fontSize: Typography.caption, fontWeight: "800" },
+  cemigDetail: { marginTop: 4, color: Colors.subtitle, fontSize: Typography.small },
+  anexarConta: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, minHeight: 45, marginTop: Spacing.md, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md },
+  anexarContaText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" },
+  filterButton: { flex: 1, minHeight: 48, alignItems: "center", justifyContent: "center", borderBottomWidth: 3, borderBottomColor: "transparent" },
+  filterButtonActive: { borderBottomColor: "#8F938D" },
+  filterLabel: { color: Colors.subtitle, fontSize: Typography.small, fontWeight: "700" },
+  filterLabelActive: { color: Colors.text, fontWeight: "900" },
+  empty: { paddingTop: Spacing.xl },
+  invoiceCard: { marginBottom: Spacing.md, padding: Spacing.md, borderWidth: 1, borderColor: "#C9DED1", borderRadius: Radius.lg, backgroundColor: "#F2F8F4", shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  invoiceTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: Spacing.sm },
+  invoiceHeading: { flex: 1, minWidth: 0 },
+  value: { color: Colors.text, fontSize: Typography.body, fontWeight: "900" },
+  reference: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small },
+  status: { minWidth: 92, flexShrink: 0, alignItems: "center", justifyContent: "center", paddingHorizontal: Spacing.sm, paddingVertical: 8, borderRadius: Radius.round },
+  statusOpen: { backgroundColor: "#F59E0B" },
+  statusPaid: { backgroundColor: Colors.success },
+  statusOverdue: { backgroundColor: Colors.danger },
+  statusText: { color: Colors.surface, fontSize: Typography.small, fontWeight: "800", textAlign: "center", includeFontPadding: false },
+  invoiceDivider: { height: 1, marginVertical: Spacing.md, backgroundColor: "rgba(100,116,139,0.20)" },
+  customer: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: Spacing.sm }, customerText: { flex: 1, color: Colors.text, fontSize: Typography.small, fontWeight: "700" },
+  invoiceBottom: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
+  metaLabel: { color: Colors.subtitle, fontSize: 9, fontWeight: "800", letterSpacing: 0.5 },
+  metaValue: { marginTop: 4, color: Colors.text, fontSize: Typography.small, fontWeight: "700" },
+  documentType: { maxWidth: "48%", alignItems: "flex-end" },
+  documentLabel: { color: Colors.text, fontSize: 9, fontWeight: "900" },
+  documentCode: { marginTop: 4, color: Colors.subtitle, fontSize: 9 },
+  downloads: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.md }, download: { flex: 1, minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md }, downloadUnavailable: { borderColor: Colors.border, opacity: 0.58 }, downloadText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" }, downloadTextUnavailable: { color: Colors.subtitle },
+  reportDownload: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, marginTop: Spacing.sm, borderRadius: Radius.md, backgroundColor: "#E1F1E6", borderWidth: 1, borderColor: "#B4D7BD" }, reportDownloadText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "900" },
+  deleteInvoice: { minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: Spacing.sm, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: "rgba(100,116,139,0.20)" },
+  deleteInvoiceText: { color: Colors.danger, fontSize: Typography.small, fontWeight: "800" },
+});

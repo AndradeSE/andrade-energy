@@ -1,0 +1,91 @@
+services:
+  - type: web
+    name: andrade-energy-api-vda
+    runtime: node
+    plan: free
+    rootDir: backend
+    # As migrações são aplicadas previamente pelo pipeline de banco. O checkout
+    # do Render não contém o vínculo local do Supabase necessário ao db push.
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: 22.18.0
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_ACCESS_TOKEN
+        sync: false
+      - key: ASAAS_API_URL
+        value: https://api.asaas.com/v3
+      - key: ASAAS_API_KEY
+        sync: false
+      - key: ASAAS_WEBHOOK_TOKEN
+        sync: false
+      - key: ASAAS_COMERCIAL_API_URL
+        value: https://api.asaas.com/v3
+      - key: ASAAS_COMERCIAL_API_KEY
+        sync: false
+      - key: ASAAS_COMERCIAL_WEBHOOK_TOKEN
+        sync: false
+      - key: MERCADO_PAGO_ACCESS_TOKEN
+        sync: false
+      - key: MERCADO_PAGO_WEBHOOK_SECRET
+        sync: false
+      - key: COMERCIAL_PAYMENT_PROVIDER
+        value: MERCADO_PAGO
+      - key: ASAAS_BILLING_TYPE
+        value: BOLETO
+      - key: ASAAS_AUTO_TRANSFER_ENABLED
+        value: "false"
+      - key: ASAAS_TRANSFER_PIX_KEY
+        sync: false
+      - key: ASAAS_TRANSFER_PIX_KEY_TYPE
+        sync: false
+      - key: ASAAS_TRANSFER_RESERVE_VALUE
+        value: "0"
+      - key: MICROSOFT_CLIENT_ID
+        sync: false
+      - key: MICROSOFT_TOKEN_CACHE_BASE64
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_REMETENTE_EMAIL
+        sync: false
+      - key: BREVO_REMETENTE_NOME
+        value: Andrade Energy
+      - key: RESEND_INBOUND_API_KEY
+        sync: false
+      - key: RESEND_WEBHOOK_SECRET
+        sync: false
+      - key: INBOUND_EMAIL_DOMAIN
+        sync: false
+      - key: INBOUND_EMAIL_MAX_BYTES
+        value: 10485760
+      - key: OAUTH_TOKEN_ENCRYPTION_KEY
+        sync: false
+      - key: OAUTH_PUBLIC_BASE_URL
+        sync: false
+      - key: OAUTH_APP_CALLBACK_CONSUMIDOR
+        value: andradeenergyconsumidor://email-conectado
+      - key: OAUTH_APP_CALLBACK_GERADOR
+        value: andradeenergygerador://email-conectado
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: MICROSOFT_OAUTH_CLIENT_ID
+        sync: false
+      - key: MICROSOFT_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_TEMPLATE_NAME
+        value: fatura_disponivel
+      - key: WHATSAPP_GRAPH_VERSION
+        sync: false

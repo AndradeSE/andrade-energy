@@ -1,6 +1,5 @@
-import { ReactNode } from 'react';
-import { Text, View } from 'react-native';
-
+import { ReactNode } from "react";
+import { Text, View } from "react-native";
 
 type Props = {
   titulo: string;
@@ -16,7 +15,7 @@ export default function DashboardSection({
   return (
     <View
       style={{
-        backgroundColor: 'rgba(255,255,255,0.95)',
+        backgroundColor: "#FFFFFF",
         borderRadius: 18,
         padding: 20,
         marginTop: 20,
@@ -25,9 +24,9 @@ export default function DashboardSection({
       <Text
         style={{
           fontSize: 20,
-          fontWeight: 'bold',
-          color: '#0f172a',
-          marginBottom: 15,
+          fontWeight: "700",
+          color: "#0F172A",
+          marginBottom: 16,
         }}
       >
         {icone} {titulo}
@@ -37,4 +36,3 @@ export default function DashboardSection({
     </View>
   );
 }
-

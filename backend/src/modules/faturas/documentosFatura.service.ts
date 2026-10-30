@@ -1,0 +1,901 @@
+import { prepararHistoricoFatura } from "./historicoFatura.policy";
+import { demonstrativoCompensacao } from "./descontoCompensacao.policy";
+import PDFDocument from "pdfkit";
+import bwipjs from "bwip-js";
+import QRCode from "qrcode";
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { supabase } from "../../config/supabase";
+import { caminhoDocumentoPrivado } from "../../utils/documentoPrivado";
+import { extrairTextoDoBuffer } from "../../services/ocr/ocr.service";
+import { prepararPdfParaDownload } from "../../services/ocr/pdfDownload.service";
+import { interpretarFatura } from "../../services/ocr/parser.service";
+import { identificarTipoGdDocumento, rotuloTipoGdDocumento } from "./tipoGdDocumento";
+
+const BUCKET = "faturas";
+export const VERSAO_LAYOUT_FATURA = "layout-20261016-v18";
+export const VERSAO_RELATORIO_CALCULO = "relatorio-calculo-20261016-v9";
+const VERDE = "#107C5C";
+const VERDE_ESCURO = "#07533D";
+const VERDE_CLARO = "#E8F6F0";
+const TEXTO = "#17312A";
+const TEXTO_SECUNDARIO = "#5C6B65";
+const BORDA = "#D8E7E0";
+const LARGURA = 498;
+const CAMINHOS_LOGO = [
+  resolve(process.cwd(), "../assets/images/andrade-fatura-logo.png"),
+  resolve(process.cwd(), "assets/images/andrade-fatura-logo.png"),
+  resolve(process.cwd(), "../assets/images/andrade-logo-horizontal.png"),
+  resolve(process.cwd(), "assets/images/andrade-logo-horizontal.png"),
+];
+const CAMINHOS_LOGO_WEB = [
+  resolve(process.cwd(), "assets/andrade-portal-logo-final.png"),
+  resolve(process.cwd(), "../assets/images/andrade-portal-logo-final.png"),
+  resolve(process.cwd(), "assets/images/andrade-portal-logo-final.png"),
+];
+
+function cpfFormatado(valor: unknown) {
+  const texto = String(valor ?? "").trim();
+  const digitos = texto.replace(/\D/g, "");
+  return digitos.length === 11
+    ? digitos.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4")
+    : texto || "não informado";
+}
+function moeda(valor: unknown) {
+  return Number(valor ?? 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+function numero(valor: unknown) {
+  const convertido = Number(valor ?? 0);
+  return Number.isFinite(convertido) ? convertido : 0;
+}
+
+function percentual(valor: unknown) {
+  return `${numero(valor).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`;
+}
+
+function energia(valor: unknown) {
+  return `${numero(valor).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kWh`;
+}
+
+function tarifaKwh(valor: unknown) {
+  return `${numero(valor).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  })}/kWh`;
+}
+
+function dataBrasileira(valor: unknown) {
+  const texto = String(valor ?? "").trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/.exec(texto);
+  return iso ? `${iso[3]}/${iso[2]}/${iso[1]}` : texto || "Não informado";
+}
+
+function textoCurto(valor: unknown, maximo = 56) {
+  const texto = String(valor ?? "").trim();
+  return texto.length > maximo ? `${texto.slice(0, Math.max(0, maximo - 1)).trim()}…` : texto;
+}
+
+function codigoDeBarrasDaLinhaDigitavel(valor: unknown) {
+  const linha = String(valor ?? "").replace(/\D/g, "");
+  if (linha.length === 44) return linha;
+  if (linha.length === 47) {
+    return `${linha.slice(0, 4)}${linha.slice(32, 33)}${linha.slice(33, 47)}${linha.slice(4, 9)}${linha.slice(10, 20)}${linha.slice(21, 31)}`;
+  }
+  if (linha.length === 48) {
+    return `${linha.slice(0, 11)}${linha.slice(12, 23)}${linha.slice(24, 35)}${linha.slice(36, 47)}`;
+  }
+  return null;
+}
+
+function formatarLinhaDigitavel(valor: unknown) {
+  return String(valor ?? "").replace(/\s+/g, "").trim();
+}
+
+function desenharLinha(pdf: PDFKit.PDFDocument, y: number) {
+  pdf.strokeColor(BORDA).lineWidth(1).moveTo(48, y).lineTo(48 + LARGURA, y).stroke();
+}
+
+function desenharLinhaDeValor(pdf: PDFKit.PDFDocument, y: number, rotulo: string, valor: string, destaque = false) {
+  pdf.fillColor(destaque ? TEXTO : TEXTO_SECUNDARIO).font("Helvetica").fontSize(10).text(rotulo, 64, y, { width: 290 });
+  pdf.fillColor(destaque ? VERDE_ESCURO : TEXTO).font(destaque ? "Helvetica-Bold" : "Helvetica").fontSize(destaque ? 12 : 10).text(valor, 365, y - (destaque ? 1 : 0), { width: 160, align: "right" });
+}
+
+function dataIso(valor: unknown) {
+  const texto = String(valor ?? "").trim();
+  const brasileira = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(texto);
+  return brasileira ? `${brasileira[3]}-${brasileira[2]}-${brasileira[1]}` : texto || null;
+}
+
+function pontoPolar(cx: number, cy: number, raio: number, angulo: number) {
+  const radianos = ((angulo - 90) * Math.PI) / 180;
+  return { x: cx + raio * Math.cos(radianos), y: cy + raio * Math.sin(radianos) };
+}
+
+function caminhoRosca(cx: number, cy: number, raioExterno: number, raioInterno: number, inicio: number, fim: number) {
+  const externoInicio = pontoPolar(cx, cy, raioExterno, fim);
+  const externoFim = pontoPolar(cx, cy, raioExterno, inicio);
+  const internoInicio = pontoPolar(cx, cy, raioInterno, inicio);
+  const internoFim = pontoPolar(cx, cy, raioInterno, fim);
+  const arcoGrande = fim - inicio <= 180 ? 0 : 1;
+  return `M ${externoInicio.x} ${externoInicio.y} A ${raioExterno} ${raioExterno} 0 ${arcoGrande} 0 ${externoFim.x} ${externoFim.y} L ${internoInicio.x} ${internoInicio.y} A ${raioInterno} ${raioInterno} 0 ${arcoGrande} 1 ${internoFim.x} ${internoFim.y} Z`;
+}
+
+function temGD2(fatura: any) {
+  return String(fatura.modalidade_faturamento ?? "").toUpperCase() === "COMPENSACAO" && (
+    numero(fatura.custo_disponibilidade) > 0 ||
+    (numero(fatura.tarifa_gd) > 0 && numero(fatura.tarifa_gd) < numero(fatura.tarifa_cheia))
+  );
+}
+
+async function incluirDadosDaUCNaFatura(fatura: any) {
+  const [clienteResultado, unidadeResultado] = await Promise.all([
+    fatura.clientes?.nome && fatura.clientes?.cpf != null ? Promise.resolve({ data: fatura.clientes, error: null }) : (fatura.cliente_id
+      ? supabase.from("clientes").select("id,nome,cpf,endereco,email,whatsapp").eq("id", fatura.cliente_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null })),
+    fatura.unidades_consumidoras?.id ? Promise.resolve({ data: fatura.unidades_consumidoras, error: null }) : (fatura.unidade_consumidora_id
+      ? supabase.from("unidades_consumidoras").select("id,numero,titular,cpf_titular,endereco,distribuidora,tipo_gd,usinas(tipo_gd)").eq("id", fatura.unidade_consumidora_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null })),
+  ]);
+  if (clienteResultado.error) throw clienteResultado.error;
+  if (unidadeResultado.error) throw unidadeResultado.error;
+  const cliente = clienteResultado.data ?? fatura.clientes ?? null;
+  const unidade = unidadeResultado.data ?? fatura.unidades_consumidoras ?? null;
+
+  // A fatura leva um resumo curto de economia para o cliente conseguir ver
+  // a evolução sem precisar abrir várias competências no aplicativo.
+  let historico: any[] = [];
+  let erroHistorico: unknown = null;
+  if (fatura.unidade_consumidora_id || (fatura.cliente_id && fatura.numero_instalacao)) {
+    let consultaHistorico = supabase
+      .from("faturas")
+      .select("id,empresa_id,unidade_consumidora_id,numero_instalacao,status,referencia,energia_injetada,energia_compensada,valor_total_unificado,valor_total,valor_usina,valor_andrade,valor_cemig,fatura_somente_andrade,economia_real,economia")
+      .neq("status", "RASCUNHO").neq("status", "CANCELADA").neq("status", "CANCELADO")
+      .order("created_at", { ascending: false })
+      .limit(24);
+    if (fatura.unidade_consumidora_id) {
+      consultaHistorico = consultaHistorico.eq("unidade_consumidora_id", fatura.unidade_consumidora_id);
+    } else {
+      consultaHistorico = consultaHistorico.eq("cliente_id", fatura.cliente_id).eq("numero_instalacao", fatura.numero_instalacao);
+    }
+    if (fatura.empresa_id) consultaHistorico = consultaHistorico.eq("empresa_id", fatura.empresa_id);
+    const resultadoHistorico = await consultaHistorico;
+    historico = resultadoHistorico.data ?? [];
+    erroHistorico = resultadoHistorico.error;
+  }
+  // O histórico é complementar: uma falha nele não impede a emissão do PDF.
+  const historicoComAtual = erroHistorico ? [] : historico;
+  if (!historicoComAtual.some((item: any) => item.id === fatura.id)) {
+    historicoComAtual.unshift({
+      id: fatura.id,
+      referencia: fatura.referencia,
+      economia_real: fatura.economia_real ?? fatura.economia,
+    });
+  }
+
+  return {
+    ...fatura,
+    clientes: cliente,
+    unidades_consumidoras: unidade,
+    historico_economia: historicoComAtual.slice(0, 6).reverse(),
+    historico_fatura: prepararHistoricoFatura(fatura, historico),
+  };
+}
+
+async function preencherDadosTecnicosDaContaOriginal(fatura: any) {
+  const referenciaCompensada = numero(fatura.energia_compensada) * numero(fatura.tarifa_cheia);
+  const descontoLegado = String(fatura.modalidade_faturamento).toUpperCase() === "INJECAO"
+    && Math.abs(numero(fatura.valor_referencia_sem_andrade) - referenciaCompensada) > 0.02;
+  if (
+    !descontoLegado &&
+    fatura.leitura_anterior != null &&
+    fatura.leitura_atual != null &&
+    fatura.classificacao &&
+    fatura.tensao &&
+    fatura.proxima_leitura
+  ) return fatura;
+  const origem = String(fatura.pdf_cemig_url ?? "").trim();
+  if (!origem) return fatura;
+
+  try {
+    const caminho = caminhoDocumentoPrivado(origem, BUCKET, String(process.env.SUPABASE_URL ?? ""));
+    const { data, error } = await supabase.storage.from(BUCKET).download(caminho);
+    if (error || !data) return fatura;
+    const buffer = Buffer.from(await data.arrayBuffer());
+    const extraida = interpretarFatura(await extrairTextoDoBuffer(buffer));
+    const beneficio = descontoLegado && extraida.valorEnergiaConcessionaria != null
+      ? demonstrativoCompensacao(fatura, Number(extraida.valorEnergiaConcessionaria)) : null;
+    const tecnicos = {
+      leitura_anterior: fatura.leitura_anterior ?? extraida.leituraAnterior ?? null,
+      leitura_atual: fatura.leitura_atual ?? extraida.leituraAtual ?? null,
+      fator_multiplicacao: fatura.fator_multiplicacao ?? extraida.fatorMultiplicacao ?? 1,
+      tensao: fatura.tensao || extraida.tensao || null,
+      classificacao: fatura.classificacao || extraida.classificacao || null,
+      tipo_ligacao: fatura.tipo_ligacao || extraida.tipoLigacao || null,
+      valor_iluminacao_publica: numero(fatura.valor_iluminacao_publica) || extraida.valorIluminacaoPublica || 0,
+      valor_bandeira: numero(fatura.valor_bandeira) || extraida.valorBandeira || 0,
+      valor_impostos: numero(fatura.valor_impostos) || extraida.valorImpostos || 0,
+      proxima_leitura: fatura.proxima_leitura ?? dataIso(extraida.proximaLeitura),
+    };
+    if (fatura.id) {
+      const { error } = await supabase.from("faturas").update({ ...tecnicos, ...beneficio }).eq("id", fatura.id);
+      if (error) throw error;
+    }
+    return {
+      ...fatura,
+      ...tecnicos,
+      ...beneficio,
+      tipo_gd_documento: extraida.tipoGd,
+      proxima_leitura: tecnicos.proxima_leitura,
+    };
+  } catch {
+    return fatura;
+  }
+}
+
+function desenharLogoNoCabecalho(pdf: PDFKit.PDFDocument) {
+  const caminhoLogo = CAMINHOS_LOGO_WEB.find((caminho) => existsSync(caminho))
+    ?? CAMINHOS_LOGO.find((caminho) => existsSync(caminho));
+  if (caminhoLogo) {
+    pdf.image(caminhoLogo, 48, 9, { fit: [188, 84] });
+    return;
+  }
+  pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(19).text("ANDRADE", 48, 30);
+  pdf.fillColor("#D99E00").rect(48, 55, 108, 3).fill();
+  pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(8).text("E N E R G Y", 166, 51);
+}
+
+/** Gera a fatura que o cliente recebe e pode baixar no aplicativo. */
+export async function gerarPdfFatura(fatura: any, tipo: "USINA" | "UNIFICADA") {
+  fatura = await incluirDadosDaUCNaFatura(await preencherDadosTecnicosDaContaOriginal(fatura));
+  const codigoPix = String(fatura.codigo_pix ?? "").trim();
+  const linhaDigitavel = formatarLinhaDigitavel(fatura.linha_digitavel);
+  const codigoBarras = String(fatura.codigo_barras ?? "").replace(/\D/g, "") || codigoDeBarrasDaLinhaDigitavel(linhaDigitavel);
+  const [imagemQrCode, imagemCodigoBarras] = await Promise.all([
+    codigoPix
+      ? QRCode.toBuffer(codigoPix, { type: "png", width: 240, margin: 1, errorCorrectionLevel: "M" }).catch(() => null)
+      : Promise.resolve(null),
+    codigoBarras
+      ? bwipjs.toBuffer({ bcid: "interleaved2of5", text: codigoBarras, scale: 3, height: 12, includetext: false, padding: 0 }).catch(() => null)
+      : Promise.resolve(null),
+  ]);
+  return new Promise<Buffer>((resolve, reject) => {
+    const pdf = new PDFDocument({
+      size: "A4",
+      margins: { top: 48, right: 48, bottom: 24, left: 48 },
+      info: { Title: `Fatura Andrade Energy - ${fatura.referencia ?? "energia"}` },
+    });
+    const partes: Buffer[] = [];
+    pdf.on("data", (parte) => partes.push(parte));
+    pdf.on("end", () => resolve(Buffer.concat(partes)));
+    pdf.on("error", reject);
+
+    const valorCemigOriginal = numero(fatura.valor_cemig);
+    const valorCemig = numero(fatura.valor_cemig_repassado ?? fatura.valor_cemig);
+    const valorTotalAbsorvido = numero(fatura.valor_total_absorvido);
+    const valorUsina = numero(fatura.valor_usina ?? fatura.valor_andrade);
+    const faturaSomenteAndrade = Boolean(fatura.fatura_somente_andrade);
+    const documentoUnificado = tipo === "UNIFICADA" && !faturaSomenteAndrade;
+    const valorTotal = documentoUnificado ? numero(fatura.valor_total_unificado ?? fatura.valor_total) : valorUsina;
+    const economiaReal = numero(fatura.economia_real ?? fatura.economia);
+    const valorTotalDoMes = documentoUnificado ? valorTotal : valorCemigOriginal + valorUsina;
+    // O valor de referência energética é usado internamente para calcular o
+    // desconto real, sem cobranças extraordinárias. Já o comparativo exibido
+    // como "com impostos" precisa reconstruir a conta final do consumidor:
+    // total unificado + economia obtida. Não reutilize aqui a base energética
+    // antiga, pois ela omite os componentes tributados da conta final.
+    const valorSemAndrade = Math.max(0, valorTotalDoMes + economiaReal);
+    const descontoContratado = numero(fatura.desconto_contratado_percentual ?? fatura.desconto_percentual);
+    const descontoReal = numero(fatura.desconto_real_percentual);
+    const consumoKwh = numero(fatura.consumo_kwh ?? fatura.consumo);
+    const energiaInjetada = numero(fatura.energia_injetada);
+    const energiaCompensada = numero(fatura.energia_compensada);
+    const saldoCreditos = numero(fatura.saldo_atual);
+    const energiaCobrada = numero(fatura.base_calculo_kwh ?? fatura.energia_compensada ?? fatura.consumo_kwh ?? fatura.consumo);
+    const tarifaCheia = numero(fatura.tarifa_cheia) || (energiaCobrada > 0 ? numero(fatura.valor_energia_cheia) / energiaCobrada : 0);
+    const tarifaAndrade = numero(fatura.tarifa_andrade) || (energiaCobrada > 0 ? valorUsina / energiaCobrada : 0);
+    const valorEnergiaCheia = numero(fatura.valor_energia_cheia) || energiaCobrada * tarifaCheia;
+    const valorAndradeAntesAbsorcoes = Math.max(0, valorEnergiaCheia * (1 - descontoContratado / 100));
+    const cliente = fatura.clientes ?? {};
+    const unidade = fatura.unidades_consumidoras ?? {};
+    // Mantemos na Andrade os mesmos dados que identificam a conta CEMIG:
+    // titular, documento, UC, concessionária e endereço da unidade.
+    const titular = cliente.nome || "Cliente não informado";
+    const documento = cpfFormatado(cliente.cpf);
+    const endereco = unidade.endereco ?? cliente.endereco ?? "Endereço não informado";
+    const possuiGD2 = temGD2(fatura);
+    const disponibilidadeComposicao = numero(fatura.custo_disponibilidade_repassado) || (!energiaCompensada ? numero(fatura.custo_disponibilidade) : 0);
+    const fioBComposicao = numero(fatura.diferenca_fio_b_repassada);
+    const iluminacaoPublica = numero(fatura.valor_iluminacao_publica);
+    const bandeiraComposicao = numero(fatura.valor_bandeira);
+    const valorCemigComposicao = Math.max(0, valorCemig);
+    const custosIdentificados = disponibilidadeComposicao + fioBComposicao + iluminacaoPublica + bandeiraComposicao;
+    const impostosLidos = numero(fatura.valor_impostos);
+    const impostos = impostosLidos > valorCemigComposicao * 0.55
+      ? 0
+      : Math.min(impostosLidos, Math.max(0, valorCemigComposicao - custosIdentificados));
+    const energiaEEncargos = Math.max(0, valorCemigComposicao - custosIdentificados - impostos);
+    // A fatura separada cobra exclusivamente a Andrade. Componentes que
+    // permanecem na concessionária não podem aparecer no gráfico dessa
+    // cobrança, ainda que tenham sido usados no cálculo comparativo.
+    const composicaoTarifaria = (documentoUnificado
+      ? [
+          { rotulo: "Energia da usina", valor: valorUsina, cor: VERDE, complemento: energia(energiaCobrada) },
+          { rotulo: "Energia e encargos", valor: energiaEEncargos, cor: "#0EA5B7", complemento: null },
+          { rotulo: "Disponibilidade", valor: disponibilidadeComposicao, cor: "#F59E0B", complemento: null },
+          { rotulo: "Fio B", valor: fioBComposicao, cor: "#376BC7", complemento: null },
+          { rotulo: "Iluminação pública", valor: iluminacaoPublica, cor: "#8B5CF6", complemento: null },
+          { rotulo: "Bandeira tarifária", valor: bandeiraComposicao, cor: "#E65A17", complemento: null },
+          { rotulo: "Impostos", valor: impostos, cor: "#D94B22", complemento: null },
+        ]
+      : [
+          { rotulo: "Cobrado pela Andrade", valor: valorTotal, cor: VERDE, complemento: energia(energiaCobrada) },
+          { rotulo: "Devolução do custo de disponibilidade", valor: numero(fatura.valor_absorvido_disponibilidade), cor: "#F59E0B", complemento: null },
+          { rotulo: "Devolução do Fio B", valor: numero(fatura.valor_absorvido_fio_b), cor: "#376BC7", complemento: null },
+        ]).filter((item) => item.valor > 0);
+    const totalComposicao = composicaoTarifaria.reduce((soma, item) => soma + item.valor, 0);
+    const rotuloCentroGrafico = documentoUnificado ? "FATURA UNIFICADA" : "FATURA ANDRADE";
+    const valorCentroGrafico = documentoUnificado ? valorTotalDoMes : valorTotal;
+    const y = { cabecalho: 0, dados: 132, total: 244, aviso: 362, composicao: 424, inferior: 508, creditos: 657 };
+    const verdeCabecalho = "#063C25";
+    const desenharCartao = (x: number, top: number, largura: number, altura: number, fundo = "#FFFFFF") => {
+      pdf.roundedRect(x, top, largura, altura, 7).fill(fundo);
+      pdf.roundedRect(x, top, largura, altura, 7).strokeColor(BORDA).lineWidth(0.7).stroke();
+    };
+
+    // Cabeçalho compacto do modelo aprovado.
+    pdf.rect(0, 0, 595, 842).fill("#E9F1ED");
+    pdf.rect(0, 0, 595, 116).fill(verdeCabecalho);
+    // Usa a mesma arte clara do cabeçalho web, preservando sua proporção.
+    const caminhoLogoFatura = CAMINHOS_LOGO_WEB.find((caminho) => existsSync(caminho))
+      ?? CAMINHOS_LOGO.find((caminho) => caminho.includes("andrade-fatura-logo") && existsSync(caminho));
+    if (caminhoLogoFatura) {
+      pdf.image(caminhoLogoFatura, 30, 23, { fit: [255, 70] });
+    } else {
+      pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(23).text("ANDRADE", 54, 36);
+      pdf.fillColor("#EAF6EF").font("Helvetica-Bold").fontSize(7.2).text("E N E R G Y", 86, 70);
+    }
+    const desenharCalendario = (x: number, top: number) => {
+      pdf.roundedRect(x, top, 16, 15, 2).strokeColor("#FFC400").lineWidth(1.5).stroke();
+      pdf.moveTo(x, top + 5).lineTo(x + 16, top + 5).stroke();
+      pdf.moveTo(x + 4, top - 2).lineTo(x + 4, top + 3).stroke();
+      pdf.moveTo(x + 12, top - 2).lineTo(x + 12, top + 3).stroke();
+    };
+    desenharCalendario(342, 45);
+    desenharCalendario(467, 45);
+    pdf.fillColor("#D8F0E3").font("Helvetica-Bold").fontSize(7).text("REFERÊNCIA", 365, 43);
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(11).text(fatura.referencia ?? "Não informada", 365, 55);
+    pdf.strokeColor("#6BA18A").lineWidth(0.6).moveTo(449, 44).lineTo(449, 67).stroke();
+    pdf.fillColor("#D8F0E3").font("Helvetica-Bold").fontSize(7).text("VENCIMENTO", 490, 43, { width: 88, lineBreak: false });
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(11).text(dataBrasileira(fatura.vencimento), 490, 55, { width: 88, lineBreak: false });
+
+    // Identificação do titular e da unidade.
+    desenharCartao(48, y.dados - 8, 220, 112, "#FBF7EC");
+    desenharCartao(288, y.dados - 8, 258, 112, "#F2F7F3");
+    pdf.strokeColor(BORDA).lineWidth(0.7).moveTo(278, y.dados).lineTo(278, 255).stroke();
+    pdf.circle(59, y.dados + 8, 7).fill(VERDE_ESCURO);
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(7).text("i", 57.4, y.dados + 4);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(7).text("DADOS DO CLIENTE", 72, y.dados + 3);
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(10).text(textoCurto(titular, 39).toUpperCase(), 62, y.dados + 22, { width: 196 });
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(7.5).text(textoCurto(endereco, 62), 62, y.dados + 49, { width: 196, height: 24, lineGap: 2, ellipsis: true });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.3).text(documento ? `CPF ${documento}` : "CPF não informado", 62, y.dados + 78);
+    pdf.circle(307, y.dados + 8, 7).fill(VERDE_ESCURO);
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(7).text("•", 305.5, y.dados + 4);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(7).text("UNIDADE CONSUMIDORA (UC)", 320, y.dados + 3);
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(7.6).text(`UC: ${fatura.numero_instalacao ?? unidade.numero ?? "Não informada"}`, 298, y.dados + 22);
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(7.4).text(`Classificação: ${fatura.classificacao ?? unidade.classificacao ?? "Não informada"}`, 298, y.dados + 36);
+    const tensao = fatura.tensao ?? unidade.tensao;
+    const tipoLigacao = String(fatura.tipo_ligacao ?? "").toLowerCase();
+    const ligacao = tipoLigacao ? `${tipoLigacao.charAt(0).toUpperCase()}${tipoLigacao.slice(1)}` : "Não informada";
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(7.4).text(tensao ? `Tensão: ${tensao}` : `Ligação: ${ligacao}`, 298, y.dados + 49);
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(7.4).text(`Leitura atual: ${fatura.leitura_atual ?? "Não informada"}`, 298, y.dados + 62);
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(7.4).text(`Leitura anterior: ${fatura.leitura_anterior ?? "Não informada"}`, 298, y.dados + 75);
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(7.4).text(`Consumo faturado: ${energia(consumoKwh)}`, 298, y.dados + 89);
+
+    // Painel principal: total domina, comparação fica secundária.
+    desenharCartao(48, y.total, LARGURA, 112, VERDE_ESCURO);
+    pdf.strokeColor("#4D8A76").moveTo(297, y.total + 20).lineTo(297, y.total + 95).stroke();
+    pdf.fillColor("#F6CC32").font("Helvetica-Bold").fontSize(8.5).text("TOTAL A PAGAR", 67, y.total + 17);
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(29).text(moeda(valorTotal), 67, y.total + 31);
+    pdf.fillColor("#D8EEE6").font("Helvetica").fontSize(6.8).text(documentoUnificado ? "Fatura Unificada Andrade Energy." : "Valor referente à Andrade Energy.", 67, y.total + 66);
+    pdf.fillColor("#F6CC32").font("Helvetica-Bold").fontSize(6.1).text(`kWh cheio: ${tarifaKwh(tarifaCheia)}`, 67, y.total + 82);
+    pdf.fillColor("#D8EEE6").font("Helvetica-Bold").fontSize(6.1).text(`kWh Andrade: ${tarifaKwh(tarifaAndrade)}`, 172, y.total + 82);
+    pdf.fillOpacity(0.09).roundedRect(310, y.total + 12, 221, 88, 7).fill("#FFFFFF").fillOpacity(1);
+    pdf.fillColor("#D8EEE6").font("Helvetica-Bold").fontSize(8).text("SEM ANDRADE ENERGY · COM IMPOSTOS", 326, y.total + 19);
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(18).text(moeda(valorSemAndrade), 326, y.total + 33);
+    pdf.fillColor("#F6CC32").font("Helvetica-Bold").fontSize(7).text(`Economia: ${moeda(economiaReal)}`, 326, y.total + 58);
+    pdf.fillColor("#D8EEE6").font("Helvetica").fontSize(6.2).text(`Desconto contratado: ${percentual(descontoContratado)}`, 326, y.total + 69);
+    pdf.fillColor("#D8EEE6").font("Helvetica-Bold").fontSize(6.2).text(`Desconto real sobre compensação: ${percentual(descontoReal)}`, 326, y.total + 79);
+
+    pdf.roundedRect(48, y.aviso, LARGURA, 40, 6).fill(faturaSomenteAndrade ? "#FFF0D8" : "#FFF7E7");
+    pdf.roundedRect(48, y.aviso, LARGURA, 40, 6).strokeColor(faturaSomenteAndrade ? "#DC8A00" : "#F0C36C").lineWidth(faturaSomenteAndrade ? 1.1 : 0.7).stroke();
+    const avisoCustos = faturaSomenteAndrade
+      ? "ATENÇÃO: PAGUE TAMBÉM A FATURA DA CONCESSIONÁRIA. ESTA COBRANÇA É SOMENTE DA ANDRADE ENERGY."
+      : valorTotalAbsorvido > 0
+        ? "Conta Cemig mantida integral. Os custos absorvidos são abatidos somente da parcela Andrade."
+        : possuiGD2
+        ? "GD II: custos obrigatórios da rede permanecem na conta da concessionária."
+        : "Custos obrigatórios da rede permanecem na conta da concessionária.";
+    pdf.fillColor(faturaSomenteAndrade ? "#9A4F00" : "#A36500").font("Helvetica-Bold").fontSize(faturaSomenteAndrade ? 7 : 6.1).text(avisoCustos, 64, y.aviso + 6, { width: 465, align: "center", lineGap: 1 });
+    pdf.fillColor("#855B18").font("Helvetica").fontSize(5.6).text("Multas, iluminação pública, bandeiras e encargos extraordinários não são considerados para mensurar o desconto real.", 64, y.aviso + 24, { width: 465, align: "center", lineGap: 1 });
+
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8.5).text(documentoUnificado ? "COMO CHEGAMOS AO TOTAL UNIFICADO" : "COMO CHEGAMOS À COBRANÇA", 48, y.composicao - 14);
+    const rotuloCemig = "VALOR DA FATURA\nCEMIG";
+    const disponibilidadeAbsorvida = numero(fatura.valor_absorvido_disponibilidade);
+    const fioBAbsorvido = numero(fatura.valor_absorvido_fio_b);
+    const rotuloAbsorcao = disponibilidadeAbsorvida > 0 && fioBAbsorvido > 0
+      ? "DEVOLUÇÃO DO CUSTO DE\nDISPONIBILIDADE + FIO B"
+      : disponibilidadeAbsorvida > 0
+        ? "DEVOLUÇÃO DO CUSTO\nDE DISPONIBILIDADE"
+        : fioBAbsorvido > 0
+          ? "DEVOLUÇÃO\nDO FIO B"
+          : "SEM DEVOLUÇÕES\nNESTA COMPETÊNCIA";
+    const cards = documentoUnificado
+      ? [["1", rotuloCemig, moeda(valorCemig)], ["2", valorTotalAbsorvido > 0 ? "VALOR DA ENERGIA ANDRADE\nAPÓS ABATIMENTOS" : `ENERGIA ANDRADE\n(${energia(energiaCobrada)})`, moeda(valorUsina)], ["3", "TOTAL UNIFICADO", moeda(valorTotal)]]
+      : [
+          ["1", `${energia(energiaCobrada)} ×\n${tarifaKwh(tarifaCheia)}`, moeda(valorEnergiaCheia)],
+          ["2", `DESCONTO CONTRATADO\n- ${percentual(descontoContratado)}`, moeda(valorAndradeAntesAbsorcoes)],
+          ["3", rotuloAbsorcao, `- ${moeda(valorTotalAbsorvido)}`],
+          ["4", "TOTAL ANDRADE ENERGY", moeda(valorTotal)],
+        ];
+    cards.forEach(([ordem, titulo, valor], indice) => {
+      const quantidade = cards.length;
+      const espaco = quantidade === 4 ? 7 : 18;
+      const larguraCard = (LARGURA - espaco * (quantidade - 1)) / quantidade;
+      const x = 48 + indice * (larguraCard + espaco);
+      desenharCartao(x, y.composicao, larguraCard, 78, indice === 1 ? "#F2F7F3" : "#FBFAF4");
+      pdf.circle(x + 17, y.composicao + 17, 10).fill(VERDE_ESCURO);
+      pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(8).text(ordem, x + 14.5, y.composicao + 13);
+      pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(quantidade === 4 ? 5.1 : 6.4).text(titulo, x + 34, y.composicao + 10, { width: larguraCard - 42, height: 30, ellipsis: true });
+      if (documentoUnificado && indice === 1 && valorTotalAbsorvido > 0) {
+        pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(5.5).text(`${moeda(valorAndradeAntesAbsorcoes)} - ${moeda(valorTotalAbsorvido)}`, x + 8, y.composicao + 36, { width: larguraCard - 16, align: "center", lineBreak: false });
+      }
+      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(quantidade === 4 ? 9.3 : 12).text(valor, x + 10, y.composicao + 51, { width: larguraCard - 20, align: "center" });
+      if (indice < quantidade - 1) {
+        const centroOperador = x + larguraCard + espaco / 2;
+        pdf.circle(centroOperador, y.composicao + 39, quantidade === 4 ? 5.5 : 10).fill("#D6EEE3");
+        const operador = documentoUnificado ? (indice === 0 ? "+" : "=") : "›";
+        pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(quantidade === 4 ? 8 : 13).text(operador, centroOperador - (quantidade === 4 ? 1.8 : 4), y.composicao + (quantidade === 4 ? 33.5 : 31));
+      }
+    });
+
+    // Composição da cobrança e área de pagamento lado a lado.
+    desenharCartao(48, y.inferior, 238, 143, "#F7F1DF");
+    desenharCartao(305, y.inferior, 241, 143, "#F2F7F3");
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8).text("COMPOSIÇÃO DA FATURA", 61, y.inferior + 12);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8).text("PAGAMENTO", 318, y.inferior + 12);
+    if (totalComposicao > 0) {
+      let angulo = 0;
+      composicaoTarifaria.forEach((item) => {
+        const abertura = (item.valor / totalComposicao) * 360;
+        const separacao = abertura > 5 ? 1.5 : 0;
+        pdf.path(caminhoRosca(111, y.inferior + 81, 45, 28, angulo + separacao, angulo + abertura - separacao)).fill(item.cor);
+        angulo += abertura;
+      });
+    }
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(4.5).text(rotuloCentroGrafico, 72, y.inferior + 72, { width: 78, align: "center" });
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(7.5).text(moeda(valorCentroGrafico), 69, y.inferior + 82, { width: 84, align: "center" });
+    composicaoTarifaria.forEach((item, indice) => {
+      const top = y.inferior + 28 + indice * 14;
+      const proporcao = totalComposicao > 0 ? item.valor / totalComposicao * 100 : 0;
+      pdf.roundedRect(166, top + 1, 7, 11, 2).fill(item.cor);
+      pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(4.8);
+      const larguraRotulo = 62;
+      const fonteRotulo = Math.min(4.8, 4.8 * larguraRotulo / Math.max(larguraRotulo, pdf.widthOfString(item.rotulo)));
+      pdf.fontSize(fonteRotulo).text(item.rotulo, 179, top, { width: larguraRotulo, lineBreak: false });
+      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(5.2).text(`${item.complemento ? `${item.complemento} · ` : ""}${moeda(item.valor)}`, 179, top + 6.5, { width: 89 });
+      pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(4.3).text(percentual(proporcao), 242, top + 1, { width: 29, align: "right" });
+    });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(4.5).text("Tributos podem estar embutidos nas tarifas; percentuais consideram os itens detalhados.", 61, y.inferior + 130, { width: 210, align: "center" });
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text("PAGUE COM PIX", 322, y.inferior + 28);
+    pdf.roundedRect(322, y.inferior + 40, 70, 70, 3).fill("#FFFFFF");
+    if (imagemQrCode) {
+      pdf.image(imagemQrCode, 325, y.inferior + 43, { fit: [64, 64], align: "center", valign: "center" });
+    } else {
+      pdf.roundedRect(322, y.inferior + 40, 70, 70, 3).strokeColor("#9DB5AA").dash(2, { space: 2 }).stroke().undash();
+      pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(6.4).text("PIX disponível\napós a emissão", 330, y.inferior + 65, { width: 54, align: "center" });
+    }
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text("BOLETO", 405, y.inferior + 28);
+    if (imagemCodigoBarras) {
+      pdf.image(imagemCodigoBarras, 405, y.inferior + 44, { fit: [126, 43], align: "center", valign: "center" });
+      pdf.fillColor(TEXTO).font("Helvetica").fontSize(4.8).text(linhaDigitavel, 402, y.inferior + 92, { width: 132, align: "center" });
+    } else {
+      pdf.roundedRect(405, y.inferior + 44, 126, 48, 3).fill("#F6F8F7");
+      pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(6.2).text("Código de barras disponível\napós a emissão", 414, y.inferior + 59, { width: 108, align: "center" });
+    }
+    pdf.roundedRect(318, y.inferior + 128, 215, 11, 4).fill("#E3F0E8");
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.6).text("Após o vencimento, encargos poderão ser aplicados.", 327, y.inferior + 131);
+
+    const miniCards = [["ENERGIA\nCOMPENSADA", energia(energiaCompensada)], ["ENERGIA\nINJETADA (MÊS)", energia(energiaInjetada)], ["SALDO ATUAL\nDE ENERGIA", energia(saldoCreditos)], ["CONSUMO\nDA UC (MÊS)", energia(fatura.consumo_kwh ?? fatura.consumo)], ["PRÓXIMA\nLEITURA", fatura.proxima_leitura ? dataBrasileira(fatura.proxima_leitura) : "Não identificada"]];
+    const espacamentoMiniCards = 5;
+    const larguraEnergia = (238 - espacamentoMiniCards * 2) / 3;
+    const posicoesMiniCards = [
+      { x: 48, largura: larguraEnergia },
+      { x: 48 + larguraEnergia + espacamentoMiniCards, largura: larguraEnergia },
+      { x: 48 + (larguraEnergia + espacamentoMiniCards) * 2, largura: larguraEnergia },
+      { x: 305, largura: 116.5 },
+      { x: 429.5, largura: 116.5 },
+    ];
+    miniCards.forEach(([titulo, valor], indice) => {
+      const { x, largura: larguraMiniCard } = posicoesMiniCards[indice];
+      desenharCartao(x, y.creditos, larguraMiniCard, 60, indice % 2 === 0 ? "#F2F8F4" : "#FBF8EE");
+      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(6.2).text(titulo, x + 8, y.creditos + 10, {
+        width: larguraMiniCard - 16,
+        height: 24,
+        lineGap: 1,
+        align: "center",
+      });
+      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8.5).text(valor, x + 7, y.creditos + 37, {
+        width: larguraMiniCard - 14,
+        height: 14,
+        align: "center",
+        lineBreak: false,
+      });
+    });
+    const historicoFatura = fatura.historico_fatura ?? [];
+    const top = 725;
+    for (const [x, largura, titulo] of [[48,238,"EXCEDENTE DO PERÍODO · kWh"],[305,241,"HISTÓRICO DE CONTAS · R$"]] as const) {
+      desenharCartao(x,top,largura,76,"#F7FBF8");
+      pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(7).text(titulo,x+12,top+8,{width:largura-24});
+      const contas=x===305;
+      const max=Math.max(1, ...historicoFatura.flatMap((h: any) => contas ? [h.sem ?? 0, h.com ?? 0] : [h.excedente ?? 0]));
+      for (const linha of [0,0.5,1]) {
+        const yy=top+55-linha*29;
+        pdf.moveTo(x+12,yy).lineTo(x+largura-12,yy).strokeColor("#D5E1D9").lineWidth(0.4).stroke();
+      }
+      historicoFatura.forEach((h: any,i: number)=>{
+        const centro=x+37+i*(largura-40)/4;
+        const barras=contas ? [[h.sem,"#EF8C1B",centro-15],[h.com,"#75AC32",centro+2]] : [[h.excedente,"#1899AD",centro-8]];
+        barras.forEach(([v,cor,bx])=>{
+          if (v === null) { pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(5).text("—",Number(bx),top+48,{width:14,align:"center"}); return; }
+          const valor=Number(v), xx=Number(bx), altura=29*valor/max;
+          if (altura > 0) pdf.roundedRect(xx,top+55-altura,contas?14:18,altura,Math.min(2,altura/2)).fill(String(cor));
+          const rotulo = valor.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+          const larguraRotulo = contas ? 17 : 34;
+          const centroBarra = xx + (contas ? 7 : 9);
+          pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(5.2);
+          const fonteRotulo = Math.min(5.2, 5.2 * larguraRotulo / Math.max(larguraRotulo, pdf.widthOfString(rotulo)));
+          pdf.fontSize(fonteRotulo).text(rotulo,centroBarra-larguraRotulo/2,top+47-altura,{width:larguraRotulo,align:"center",lineBreak:false});
+        });
+        pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(5).text(h.mes,centro-18,top+59,{width:40,align:"center"});
+      });
+      if (!historicoFatura.length) pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6).text("Histórico indisponível",x+12,top+38,{width:largura-24,align:"center"});
+      if (contas) {
+        const centroLegenda = top + 70.5;
+        for (const [deslocamento, cor, legenda] of [[16, "#EF8C1B", "Sem Andrade"], [125, "#75AC32", "Com Andrade"]] as const) {
+          pdf.roundedRect(x + deslocamento, centroLegenda - 2.5, 5, 5, 1).fill(cor);
+          pdf.fillColor(TEXTO).font("Helvetica").fontSize(5.5).text(legenda, x + deslocamento + 9, centroLegenda, {
+            width: 80,
+            lineBreak: false,
+            baseline: "middle",
+          });
+        }
+      }
+    }
+    pdf.rect(48, 805, LARGURA, 14).fill("#EFF6F1");
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica").fontSize(5.8).text("Você escolhe economia. O planeta agradece.    |    Atendimento Andrade Energy", 61, 809, { width: 470, align: "center" });
+
+    pdf.end();
+  });
+}
+
+/**
+ * Memória de cálculo entregue junto da fatura. O documento usa somente os
+ * valores efetivamente persistidos no faturamento, para que cliente e gestor
+ * consigam reproduzir o total sem depender de estimativas da interface.
+ */
+export async function gerarPdfRelatorioCalculo(fatura: any) {
+  fatura = await incluirDadosDaUCNaFatura(await preencherDadosTecnicosDaContaOriginal(fatura));
+  return new Promise<Buffer>((resolve, reject) => {
+    const pdf = new PDFDocument({
+      size: "A4",
+      margins: { top: 42, right: 48, bottom: 42, left: 48 },
+      info: { Title: `Memória de cálculo - ${fatura.referencia ?? "fatura"}` },
+    });
+    const partes: Buffer[] = [];
+    pdf.on("data", (parte) => partes.push(parte));
+    pdf.on("end", () => resolve(Buffer.concat(partes)));
+    pdf.on("error", reject);
+
+    const cliente = fatura.clientes ?? {};
+    const unidade = fatura.unidades_consumidoras ?? {};
+    const modalidade = String(fatura.modalidade_faturamento ?? "COMPENSACAO").toUpperCase();
+    const gd = rotuloTipoGdDocumento(identificarTipoGdDocumento(fatura));
+    const somenteAndrade = Boolean(fatura.fatura_somente_andrade);
+    const energiaBase = numero(fatura.base_calculo_kwh ?? (modalidade === "INJECAO" ? fatura.energia_injetada : fatura.energia_compensada));
+    const tarifaCheia = numero(fatura.tarifa_cheia);
+    const tarifaAndrade = numero(fatura.tarifa_andrade) || tarifaCheia * (1 - numero(fatura.desconto_contratado_percentual ?? fatura.desconto_percentual) / 100);
+    const valorEnergiaCheia = numero(fatura.valor_energia_cheia) || energiaBase * tarifaCheia;
+    const valorAndradeBruto = energiaBase * tarifaAndrade;
+    const disponibilidade = numero(fatura.custo_disponibilidade);
+    const disponibilidadeRepassada = numero(fatura.custo_disponibilidade_repassado);
+    const disponibilidadeAbsorvida = numero(fatura.valor_absorvido_disponibilidade);
+    const fioB = numero(fatura.diferenca_fio_b);
+    const fioBRepassado = numero(fatura.diferenca_fio_b_repassada);
+    const fioBAbsorvido = numero(fatura.valor_absorvido_fio_b);
+    const valorAndrade = numero(fatura.valor_usina ?? fatura.valor_andrade);
+    const valorCemigOriginal = numero(fatura.valor_cemig);
+    const valorCemigRepassado = numero(fatura.valor_cemig_repassado ?? fatura.valor_cemig);
+    const totalUnificado = numero(fatura.valor_total_unificado ?? fatura.valor_total);
+    const economia = numero(fatura.economia_real ?? fatura.economia);
+    const totalDoMes = somenteAndrade ? valorCemigOriginal + valorAndrade : totalUnificado;
+    // Na fatura unificada, a referência exibida deve conter todos os tributos
+    // efetivamente considerados no fechamento: total pago + economia obtida.
+    // O campo legado valor_referencia_sem_andrade guarda apenas a energia em
+    // algumas faturas antigas e, por isso, não serve para este demonstrativo.
+    const referenciaSemAndrade = totalDoMes + economia;
+    const descontoReal = numero(fatura.desconto_real_percentual);
+    const descontoContratado = numero(fatura.desconto_contratado_percentual ?? fatura.desconto_percentual);
+    const referenciaDoDesconto = String(fatura.modalidade_faturamento).toUpperCase() === "INJECAO"
+      ? numero(fatura.energia_compensada) * numero(fatura.tarifa_cheia)
+      : referenciaSemAndrade;
+    const impostos = numero(fatura.valor_impostos);
+
+    const cartao = (x: number, y: number, largura: number, altura: number, fundo = "#FFFFFF") => {
+      pdf.roundedRect(x, y, largura, altura, 7).fill(fundo);
+      pdf.roundedRect(x, y, largura, altura, 7).strokeColor(BORDA).lineWidth(0.7).stroke();
+    };
+    const linha = (rotulo: string, valor: string, y: number, destaque = false) => {
+      const tamanhoRotulo = rotulo.length > 48 ? 7.2 : rotulo.length > 38 ? 8 : 9;
+      const tamanhoValor = valor.length > 58 ? 6.2 : valor.length > 42 ? 7 : valor.length > 28 ? 8 : destaque ? 10 : 9;
+      pdf.fillColor(destaque ? VERDE_ESCURO : TEXTO_SECUNDARIO).font(destaque ? "Helvetica-Bold" : "Helvetica").fontSize(tamanhoRotulo).text(rotulo, 62, y, { width: 286, height: 14, ellipsis: true });
+      pdf.fillColor(destaque ? VERDE_ESCURO : TEXTO).font(destaque ? "Helvetica-Bold" : "Helvetica").fontSize(tamanhoValor).text(valor, 350, y, { width: 178, height: 14, align: "right", ellipsis: true });
+    };
+
+    pdf.rect(0, 0, 595, 842).fill("#F3F7F5");
+    pdf.rect(0, 0, 595, 112).fill("#063C25");
+    desenharLogoNoCabecalho(pdf);
+    pdf.fillColor("#F6CC32").font("Helvetica-Bold").fontSize(8).text("MEMÓRIA DE CÁLCULO", 335, 34, { width: 205, align: "right" });
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(18).text(`Faturamento ${fatura.referencia ?? ""}`, 300, 50, { width: 240, align: "right" });
+    pdf.fillColor("#D8EEE6").font("Helvetica").fontSize(8).text(`${gd} · ${modalidade === "INJECAO" ? "Injeção" : "Compensação"} · ${somenteAndrade ? "Somente Andrade" : "Fatura unificada"}`, 270, 78, { width: 270, align: "right" });
+
+    cartao(48, 128, 498, 72, "#FFFFFF");
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(8).text("IDENTIFICAÇÃO", 62, 143);
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(11).text(cliente.nome || "Cliente não informado", 62, 158, { width: 280 });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(`UC ${fatura.numero_instalacao ?? unidade.numero ?? "-"} · CPF ${cpfFormatado(cliente.cpf)}`, 62, 177);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(`Vencimento ${dataBrasileira(fatura.vencimento)}`, 390, 158, { width: 138, align: "right" });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(`Emissão ${dataBrasileira(fatura.data_emissao ?? fatura.created_at)}`, 390, 175, { width: 138, align: "right" });
+
+    cartao(48, 216, 498, 112, "#E8F6F0");
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(9).text("RESULTADO DO FATURAMENTO", 62, 232);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(25).text(moeda(totalUnificado), 62, 250);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(somenteAndrade ? "Cobrança Andrade Energy; a concessionária permanece separada." : "Total da fatura unificada Andrade Energy.", 62, 281, { width: 235, height: 22, ellipsis: true });
+    pdf.strokeColor("#A9CFC0").moveTo(318, 234).lineTo(318, 310).stroke();
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica-Bold").fontSize(7).text("SEM ANDRADE ENERGY", 340, 238);
+    pdf.fillColor(TEXTO).font("Helvetica-Bold").fontSize(16).text(moeda(referenciaSemAndrade), 340, 252);
+    pdf.fillColor(VERDE).font("Helvetica-Bold").fontSize(9).text(`Economia ${moeda(economia)}`, 340, 278);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7.5).text(`Contratado ${percentual(descontoContratado)} · Real ${percentual(descontoReal)}`, 340, 296, { width: 188, height: 12, ellipsis: true });
+
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("1. BASE DE ENERGIA", 48, 352);
+    cartao(48, 370, 498, 116, "#FFFFFF");
+    linha(modalidade === "INJECAO" ? "Energia injetada faturada" : "Energia compensada faturada", energia(energiaBase), 389, true);
+    linha("Tarifa cheia da concessionária (tributos incluídos)", tarifaKwh(tarifaCheia), 412);
+    linha("Valor equivalente da energia sem o benefício", `${energia(energiaBase)} × ${tarifaKwh(tarifaCheia)} = ${moeda(valorEnergiaCheia)}`, 435);
+    linha("Tarifa Andrade após desconto contratado", tarifaKwh(tarifaAndrade), 458);
+
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("2. REGRAS DA CONFIGURAÇÃO", 48, 510);
+    cartao(48, 528, 498, 134, "#FFF9E9");
+    linha("Energia Andrade antes das absorções", moeda(valorAndradeBruto), 546);
+    linha(`Disponibilidade (${disponibilidadeAbsorvida > 0 ? "absorvida" : "repassada"})`, `${moeda(disponibilidade)} · repasse ${moeda(disponibilidadeRepassada)} · absorção ${moeda(disponibilidadeAbsorvida)}`, 569);
+    linha(`Fio B (${fioBAbsorvido > 0 ? "absorvido" : "repassado"})`, `${moeda(fioB)} · repasse ${moeda(fioBRepassado)} · absorção ${moeda(fioBAbsorvido)}`, 592);
+    linha("Fatura Andrade após as regras", moeda(valorAndrade), 615, true);
+    const explicacaoGd = modalidade === "INJECAO"
+      ? "Modelo de injeção: valores, repasses e absorções seguem os registros deste faturamento."
+      : gd === "GD II" || gd === "GD I + GD II"
+        ? "A diferença tarifária do Fio B registrada neste faturamento é apresentada separadamente."
+        : gd === "GD I"
+          ? "Na GD I, não há diferença de Fio B; aplica-se a regra de disponibilidade configurada."
+          : "Enquadramento GD não informado; valores e regras seguem os registros deste faturamento.";
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(6.5).text(`Disponibilidade e Fio B absorvidos reduzem somente a parcela Andrade. A conta Cemig permanece integral. ${explicacaoGd}`, 62, 641, { width: 466 });
+
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("3. FECHAMENTO", 48, 686);
+    cartao(48, 704, 498, somenteAndrade ? 100 : 78, "#FFFFFF");
+    linha("Valor da fatura Cemig", moeda(valorCemigOriginal), 718);
+    linha("Valor da energia Andrade após abatimentos", moeda(valorAndrade), 739);
+    if (somenteAndrade) {
+      linha("Total do mês nas duas faturas", `${moeda(valorCemigOriginal)} + ${moeda(valorAndrade)} = ${moeda(totalDoMes)}`, 760, true);
+      linha("Pagamento", "Pague a fatura Andrade e a conta da concessionária", 781);
+    } else {
+      linha("Cemig integral + Andrade líquida = total", `${moeda(valorCemigOriginal)} + ${moeda(valorAndrade)} = ${moeda(totalUnificado)}`, 760, true);
+    }
+
+    pdf.addPage({ size: "A4", margins: { top: 42, right: 48, bottom: 42, left: 48 } });
+    pdf.rect(0, 0, 595, 842).fill("#F3F7F5");
+    pdf.rect(0, 0, 595, 88).fill("#063C25");
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(17).text("Detalhamento e critérios", 48, 31);
+    pdf.fillColor("#D8EEE6").font("Helvetica").fontSize(8).text(`Fatura ${fatura.referencia ?? ""} · UC ${fatura.numero_instalacao ?? unidade.numero ?? "-"}`, 48, 55);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(11).text("Como o desconto real é medido", 48, 116);
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(9.5).text("O desconto real compara apenas os componentes convencionais da energia no cenário sem usina com o custo equivalente após o benefício Andrade Energy. Multas, juros, iluminação pública, bandeiras e encargos extraordinários não aumentam nem reduzem artificialmente essa porcentagem.", 48, 139, { width: 498, lineGap: 4 });
+    cartao(48, 210, 498, 104, "#E8F6F0");
+    linha("Referência da energia compensada", moeda(referenciaDoDesconto), 230);
+    linha("Custo comparável com Andrade", moeda(Math.max(0, referenciaDoDesconto - economia)), 254);
+    linha("Economia considerada", moeda(economia), 278);
+    linha("Fórmula", referenciaDoDesconto > 0 ? `(${moeda(referenciaDoDesconto)} - ${moeda(Math.max(0, referenciaDoDesconto - economia))}) / ${moeda(referenciaDoDesconto)} = ${percentual(descontoReal)}` : "Sem energia compensada: desconto real 0%", 296, true);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(11).text("Informações complementares da conta", 48, 350);
+    cartao(48, 372, 498, 142, "#FFFFFF");
+    linha("Impostos informados/embutidos", moeda(impostos), 391);
+    linha("Iluminação pública (fora da medição do desconto)", moeda(fatura.valor_iluminacao_publica), 416);
+    linha("Bandeira tarifária (fora da medição do desconto)", moeda(fatura.valor_bandeira), 441);
+    linha("Saldo atual de energia", energia(fatura.saldo_atual), 466);
+    linha("Próxima leitura", fatura.proxima_leitura ? dataBrasileira(fatura.proxima_leitura) : "Não informada", 491);
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(11).text("Observações da modalidade", 48, 552);
+    cartao(48, 574, 498, 116, "#FFF9E9");
+    const observacaoModalidade = modalidade === "INJECAO"
+      ? "Na modalidade por injeção, toda a energia enviada pela usina e destinada à UC compõe a base faturada do período."
+      : "Na modalidade por compensação, somente a energia compensada no período é faturada. O saldo acumulado permanece registrado e só é cobrado no encerramento do contrato, conforme a configuração vigente.";
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(9).text(observacaoModalidade, 64, 594, { width: 466, lineGap: 4 });
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(9).text(somenteAndrade ? "Esta UC usa documentos separados: este total representa a cobrança Andrade; a conta da concessionária continua sendo paga à parte." : "Esta UC usa fatura unificada: o total reúne a parcela da concessionária repassada ao cliente e a cobrança Andrade.", 64, 641, { width: 466, lineGap: 4 });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(7).text(`Documento gerado automaticamente em ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}. Valores monetários arredondados para centavos; prevalecem os registros do faturamento.`, 48, 744, { width: 498, align: "center", lineGap: 2 });
+
+    pdf.addPage({ size: "A4", margins: { top: 42, right: 48, bottom: 42, left: 48 } });
+    pdf.rect(0, 0, 595, 842).fill("#F3F7F5");
+    pdf.rect(0, 0, 595, 88).fill("#063C25");
+    pdf.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(17).text("O que você está pagando", 48, 31);
+    pdf.fillColor("#D8EEE6").font("Helvetica").fontSize(8).text(`Fatura ${fatura.referencia ?? ""} · UC ${fatura.numero_instalacao ?? unidade.numero ?? "-"}`, 48, 55);
+    const compensadaInformada = fatura.energia_compensada != null && Number.isFinite(Number(fatura.energia_compensada));
+    const compensada = Math.max(0, numero(fatura.energia_compensada));
+    // A decomposição explica a base já faturada; não refaz o faturamento nem
+    // cobra novamente o estoque de créditos de períodos anteriores.
+    const compensadaNaBase = modalidade === "INJECAO" ? Math.min(Math.max(0, energiaBase), compensada) : energiaBase;
+    const excedenteNaBase = modalidade === "INJECAO" ? Math.max(0, energiaBase - compensadaNaBase) : 0;
+    const centavos = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
+    const valorCompensada = centavos(compensadaNaBase * tarifaAndrade);
+    const valorExcedente = centavos(valorAndradeBruto) - valorCompensada;
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(9).text(modalidade === "INJECAO"
+      ? "Você paga pela energia injetada faturada no período: a parte utilizada na compensação e a parte excedente. Abaixo, essas parcelas são separadas antes das absorções."
+      : "Você paga pela energia compensada faturada no período. O excedente que ficou em crédito não é cobrado nesta fatura.", 48, 112, { width: 498, lineGap: 4 });
+    cartao(48, 175, 498, 122, "#E8F6F0");
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("1. PARCELA DA COMPENSAÇÃO", 62, 191);
+    linha("Energia compensada informada na conta", compensadaInformada ? energia(compensada) : "Não informada", 216);
+    linha("Compensação incluída na base desta cobrança", compensadaInformada ? energia(compensadaNaBase) : "Separação indisponível", 239);
+    linha("Valor antes das absorções", compensadaInformada ? `${energia(compensadaNaBase)} × ${tarifaKwh(tarifaAndrade)} = ${moeda(valorCompensada)}` : "Dados insuficientes para separar", 266, true);
+    cartao(48, 313, 498, 133, "#EDF7FA");
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("2. PARCELA DO EXCEDENTE DO PERÍODO", 62, 329);
+    linha("Excedente incluído na cobrança", modalidade === "INJECAO" && !compensadaInformada ? "Separação indisponível" : energia(excedenteNaBase), 354);
+    linha("Valor cobrado pelo excedente nesta fatura", modalidade === "INJECAO" && !compensadaInformada ? "Dados insuficientes para separar" : modalidade === "INJECAO" ? `${energia(excedenteNaBase)} × ${tarifaKwh(tarifaAndrade)} = ${moeda(valorExcedente)}` : moeda(0), 378, true);
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(modalidade === "INJECAO"
+      ? "Excedente faturado = base de injeção faturada menos a compensação atendida por essa base. Não é o saldo total acumulado."
+      : "Sem cobrança de excedente nesta competência. O crédito permanece registrado; eventual acerto no encerramento segue o contrato e a configuração vigente.", 62, 408, { width: 466, lineGap: 2 });
+    cartao(48, 462, 498, 134, "#FFFFFF");
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text("3. CONFERÊNCIA DA COBRANÇA ANDRADE", 62, 478);
+    linha("Total da energia antes das absorções", moeda(valorAndradeBruto), 503);
+    linha("Absorção de disponibilidade", `- ${moeda(disponibilidadeAbsorvida)}`, 526);
+    linha("Absorção de Fio B", `- ${moeda(fioBAbsorvido)}`, 549);
+    linha("Cobrança Andrade registrada nesta fatura", moeda(valorAndrade), 572, true);
+    pdf.fillColor(TEXTO).font("Helvetica").fontSize(8.5).text("As absorções são apresentadas no total, pois o faturamento não registra sua distribuição entre compensação e excedente. A parcela da concessionária está no fechamento das páginas anteriores.", 48, 614, { width: 498, lineGap: 3 });
+    const saldoDisponivel = fatura.saldo_atual != null && Number.isFinite(Number(fatura.saldo_atual));
+    pdf.fillColor(VERDE_ESCURO).font("Helvetica-Bold").fontSize(10).text(`Saldo total acumulado após o período: ${saldoDisponivel ? energia(fatura.saldo_atual) : "não informado"}`, 48, 675, { width: 498 });
+    pdf.fillColor(TEXTO_SECUNDARIO).font("Helvetica").fontSize(8).text(compensadaInformada && modalidade === "INJECAO" && compensada > energiaBase
+      ? "A compensação informada supera a injeção faturada. A diferença não é adicionada a esta cobrança; pode envolver créditos anteriores. O saldo acumulado não representa uma nova parcela a pagar."
+      : "O saldo acumulado é o estoque de créditos disponível, que pode incluir períodos anteriores. Ele não é somado novamente ao valor desta fatura. As parcelas monetárias são arredondadas para fechar o total da energia em centavos.", 48, 700, { width: 498, lineGap: 3 });
+    pdf.end();
+  });
+}
+
+async function enviarPdf(caminho: string, conteudo: Buffer) {
+  const { error } = await supabase.storage.from(BUCKET).upload(caminho, conteudo, {
+    contentType: "application/pdf",
+    cacheControl: "0",
+    upsert: true,
+  });
+  if (error) throw error;
+  return caminho;
+}
+
+/** Recupera contas antigas usando apenas o titular/cliente desta UC e empresa. */
+export async function prepararDownloadDaConcessionaria(fatura: any) {
+  if (!fatura.pdf_cemig_url || !fatura.empresa_id || String(fatura.pdf_cemig_url).includes("download-sem-senha")) return fatura;
+  const caminho = caminhoDocumentoPrivado(String(fatura.pdf_cemig_url), BUCKET, String(process.env.SUPABASE_URL ?? ""));
+  const [{ data: unidade, error: erroUc }, { data: cliente, error: erroCliente }] = await Promise.all([
+    fatura.unidade_consumidora_id ? supabase.from("unidades_consumidoras").select("cpf_titular").eq("id", fatura.unidade_consumidora_id).eq("empresa_id", fatura.empresa_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    supabase.from("clientes").select("cpf").eq("id", fatura.cliente_id).eq("empresa_id", fatura.empresa_id).maybeSingle(),
+  ]);
+  if (erroUc || erroCliente) throw erroUc || erroCliente;
+  const senhas = [unidade?.cpf_titular, cliente?.cpf].map(valor => String(valor ?? "").replace(/\D/g, "").slice(0, 4)).filter(valor => valor.length === 4);
+  const { data, error } = await supabase.storage.from(BUCKET).download(caminho);
+  if (error || !data) throw error ?? new Error("Conta original não encontrada.");
+  const original = Buffer.from(await data.arrayBuffer());
+  const copia = await prepararPdfParaDownload(original, senhas);
+  if (copia === original) return fatura;
+  const destino = `${fatura.cliente_id}/${fatura.id}/cemig-download-sem-senha.pdf`;
+  await enviarPdf(destino, copia);
+  const { error: erroAtualizar } = await supabase.from("faturas").update({ pdf_cemig_url: destino }).eq("id", fatura.id).eq("empresa_id", fatura.empresa_id).eq("pdf_cemig_url", fatura.pdf_cemig_url);
+  if (erroAtualizar) throw erroAtualizar;
+  return { ...fatura, pdf_cemig_url: destino };
+}
+
+/** Guarda a conta original que serviu de base para a produção da usina. */
+export async function armazenarContaDeEnergiaDaUsina(usinaId: string, fechamentoId: string, arquivoCemig: string) {
+  const original = await readFile(arquivoCemig);
+  return enviarPdf(`usinas/${usinaId}/${fechamentoId}/conta-concessionaria.pdf`, original);
+}
+
+export async function armazenarDocumentosDaFatura(fatura: any, arquivoCemig: string, senhaPdf?: string) {
+  const pasta = `${fatura.cliente_id}/${fatura.id}`;
+  const original = await readFile(arquivoCemig);
+  const copiaDownload = await prepararPdfParaDownload(original, senhaPdf ? [senhaPdf] : []);
+  const [pdfUsina, pdfUnificada, pdfRelatorio] = await Promise.all([
+    gerarPdfFatura(fatura, "USINA"),
+    gerarPdfFatura(fatura, "UNIFICADA"),
+    gerarPdfRelatorioCalculo(fatura),
+  ]);
+  const [cemig, usina, unificada, relatorio] = await Promise.all([
+    enviarPdf(`${pasta}/cemig-original.pdf`, original),
+    enviarPdf(`${pasta}/fatura-usina.pdf`, pdfUsina),
+    enviarPdf(`${pasta}/${fatura.fatura_somente_andrade ? "fatura-andrade" : "fatura-unificada"}.pdf`, pdfUnificada),
+    enviarPdf(`${pasta}/${VERSAO_RELATORIO_CALCULO}.pdf`, pdfRelatorio),
+  ]);
+  const cemigDownload = copiaDownload === original ? cemig : await enviarPdf(`${pasta}/cemig-download-sem-senha.pdf`, copiaDownload);
+  const { error } = await supabase.from("faturas").update({
+    pdf_cemig_url: cemigDownload,
+    pdf_usina_url: usina,
+    pdf_unificada_url: unificada,
+  }).eq("id", fatura.id);
+  if (error) throw error;
+  return { cemig: cemigDownload, usina, unificada, relatorio };
+}
+
+/** Regera somente os demonstrativos Andrade sem alterar a conta CEMIG original. */
+export async function regenerarDocumentosGeradosDaFatura(fatura: any) {
+  fatura = await preencherDadosTecnicosDaContaOriginal(fatura);
+  const pasta = `${fatura.cliente_id}/${fatura.id}`;
+  // Um caminho novo evita que o CDN ou o leitor do aparelho reutilize uma
+  // versão anterior depois que valores da fatura forem recalculados.
+  const versao = Date.now();
+  const [pdfUsina, pdfUnificada, pdfRelatorio] = await Promise.all([
+    gerarPdfFatura(fatura, "USINA"),
+    gerarPdfFatura(fatura, "UNIFICADA"),
+    gerarPdfRelatorioCalculo(fatura),
+  ]);
+  const [usina, unificada] = await Promise.all([
+    enviarPdf(`${pasta}/fatura-usina-${VERSAO_LAYOUT_FATURA}-${versao}.pdf`, pdfUsina),
+    enviarPdf(`${pasta}/${fatura.fatura_somente_andrade ? "fatura-andrade" : "fatura-unificada"}-${VERSAO_LAYOUT_FATURA}-${versao}.pdf`, pdfUnificada),
+  ]);
+  await enviarPdf(`${pasta}/${VERSAO_RELATORIO_CALCULO}.pdf`, pdfRelatorio);
+  const { error } = await supabase
+    .from("faturas")
+    .update({ pdf_usina_url: usina, pdf_unificada_url: unificada })
+    .eq("id", fatura.id);
+  if (error) throw error;
+  return { ...fatura, pdf_usina_url: usina, pdf_unificada_url: unificada };
+}
+
+export async function obterRelatorioCalculoDaFatura(fatura: any) {
+  const pasta = `${fatura.cliente_id}/${fatura.id}`;
+  const caminho = `${pasta}/${VERSAO_RELATORIO_CALCULO}.pdf`;
+  const pdf = await gerarPdfRelatorioCalculo(fatura);
+  await enviarPdf(caminho, pdf);
+  return criarLinkTemporario(caminho);
+}
+
+async function criarLinkTemporario(caminho?: string | null) {
+  if (!caminho) return null;
+  if (/^https?:\/\//i.test(caminho)) return caminho;
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(caminho, 300);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+export async function incluirLinksTemporarios(fatura: any) {
+  const [cemig, usina, unificada, boleto] = await Promise.all([
+    criarLinkTemporario(fatura.pdf_cemig_url),
+    criarLinkTemporario(fatura.pdf_usina_url),
+    criarLinkTemporario(fatura.pdf_unificada_url),
+    criarLinkTemporario(fatura.pdf_boleto_url),
+  ]);
+  return {
+    ...fatura,
+    pdf_cemig_url: cemig,
+    pdf_usina_url: usina,
+    pdf_unificada_url: unificada,
+    pdf_boleto_url: boleto,
+  };
+}

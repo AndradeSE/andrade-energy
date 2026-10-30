@@ -1,396 +1,73 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
+import { Alert, StyleSheet, Text, View } from "react-native";
 
-import {
-  Alert,
-  ImageBackground,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { supabase } from '../../supabase';
-
-import { Usina } from '../../types/Usina';
+import FormField from "../../components/cadastro/FormField";
+import EnderecoFields from "../../components/cadastro/EnderecoFields";
+import { cpfValido, formatarCpf, enderecoVazio, lerEndereco, erroEndereco, serializarEndereco } from "../../utils/cadastroCliente";
+import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
+import { IS_GERADOR_APP } from "../../config/appVariant";
+import { buscarCliente, editarCliente, excluirCliente } from "../../services/clientes.service";
+import { Colors, Radius, Spacing, Typography } from "../../theme";
+import { emailValido, normalizarEmail } from "../../utils/email";
+import { juntarNomePessoa, nomePessoaValido, separarNomePessoa } from "../../utils/nomePessoa";
 
 export default function EditarCliente() {
-
-  const { id } = useLocalSearchParams();
-
-  const clienteId = Array.isArray(id)
-    ? id[0]
-    : id;
-
-  const [nome, setNome] = useState('');
-  const [uc, setUc] = useState('');
-  const [telefone, setTelefone] = useState('');
-  const [cpf, setCpf] = useState('');
-  const [endereco, setEndereco] = useState('');
-  const [usinaId, setUsinaId] = useState('');
-
-  const [usinas,setUsinas]=
-useState<Usina[]>([]);
-  const [mostrarUsinas, setMostrarUsinas] =
-    useState(false);
-
-  const [salvando, setSalvando] =
-    useState(false);
-    
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const [nome, setNome] = useState(""); const [telefone, setTelefone] = useState("");
+  const [sobrenome, setSobrenome] = useState("");
+  const nomeCompleto = juntarNomePessoa(nome, sobrenome);
+  const [email, setEmail] = useState(""); const [cpf, setCpf] = useState(""); const [endereco, setEndereco] = useState({ ...enderecoVazio });
+  const [loading, setLoading] = useState(true); const [salvando, setSalvando] = useState(false);
+  const [erroCarregamento, setErroCarregamento] = useState("");
 
   useEffect(() => {
+    let ativo = true;
+    setLoading(true);
+    setErroCarregamento("");
+    if (!id) { setErroCarregamento("Cliente não encontrado."); setLoading(false); return; }
+    buscarCliente(id).then((d) => {
+      if (!ativo) return;
+      const partes = separarNomePessoa(d.nome ?? "");
+      setNome(partes.nome); setSobrenome(partes.sobrenome); setTelefone(d.telefone ?? d.whatsapp ?? "");
+      setEmail(d.email ?? ""); const documento = String(d.cpf ?? d.cpf_cnpj ?? ""); setCpf(documento.replace(/\D/g, "").length > 11 ? documento : formatarCpf(documento)); setEndereco(lerEndereco(d.endereco ?? ""));
+    }).catch((erro: any) => {
+      if (ativo) setErroCarregamento(erro?.response?.data?.message ?? "Não foi possível carregar o cadastro. Volte e tente novamente.");
+    }).finally(() => { if (ativo) setLoading(false); });
+    return () => { ativo = false; };
+  }, [id]);
 
-  carregarCliente();
-  carregarUsinas();
-
-}, []);
-  
-
-
-async function carregarCliente() {
-
-  const { data } =
-    await supabase
-      .from('clientes')
-      .select('*')
-      .eq('id', clienteId)
-      .single();
-
-  if (!data) return;
-
-  setNome(data.nome || '');
-  setUc(data.uc || '');
-  setTelefone(data.telefone || '');
-  setCpf(data.cpf || '');
-  setEndereco(data.endereco || '');
-  setUsinaId(data.usina_id || '');
-
-}
-async function carregarUsinas() {
-
-  const { data } =
-    await supabase
-      .from('usinas')
-      .select('*')
-      .order('nome');
-
-  setUsinas(data || []);
-
-}
-
-async function salvar() {
-
-  setSalvando(true);
-
-  const { error } =
-    await supabase
-      .from('clientes')
-      .update({
-
-        nome,
-
-        uc: uc.replace(/\D/g,''),
-
-        telefone,
-
-        cpf,
-
-        endereco,
-
-        usina_id: usinaId,
-
-      })
-
-      .eq('id', clienteId);
-
-  setSalvando(false);
-
-  if(error){
-
-    Alert.alert(
-      'Erro',
-      error.message
-    );
-
-    return;
-
+  async function salvar() {
+    if (loading || erroCarregamento || !id) return Alert.alert("Cadastro indisponível", "Os dados do cliente não foram carregados. Volte e tente novamente.");
+    if (!nomePessoaValido(nome, sobrenome)) return Alert.alert("Nome completo obrigatório", "Informe nome e sobrenome válidos do cliente.");
+    if (!cpfValido(cpf)) return Alert.alert("CPF inválido", "Confira os 11 números e os dígitos verificadores do CPF.");
+    if (erroEndereco(endereco)) return Alert.alert("Endereço obrigatório", erroEndereco(endereco));
+    if (!emailValido(email)) return Alert.alert("E-mail obrigatório", "Informe um endereço de e-mail válido para enviar o contrato e o convite.");
+    setSalvando(true);
+    try {
+      await editarCliente(id, { nome: nomeCompleto, telefone, whatsapp: telefone.replace(/\D/g, ""), email: normalizarEmail(email), cpf: cpf.replace(/\D/g, ""), endereco: serializarEndereco(endereco) });
+      router.back();
+    } catch (erro: any) {
+      setSalvando(false);
+      return Alert.alert("Não foi possível salvar", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
+    }
+    setSalvando(false);
   }
 
-  router.back();
+  function excluir() { Alert.alert("Excluir cliente", "Antes de excluir, cancele as minutas sem aceite na lista de Contratos. Contratos assinados precisam seguir o encerramento próprio. Deseja excluir este cadastro?", [{ text: "Cancelar", style: "cancel" }, { text: "Excluir", style: "destructive", onPress: async () => { try { await excluirCliente(id); router.replace("/clientes"); } catch (erro: any) { const mensagem = erro?.response?.data?.message ?? erro?.message; Alert.alert("Não foi possível excluir", mensagem, erro?.response?.data?.code === "CLIENTE_COM_CONTRATO_ATIVO" ? [{ text: "Fechar" }, { text: "Ver contratos", onPress: () => router.push("/contratos" as any) }] : [{ text: "OK" }]); } } }]); }
 
-}
-async function excluirCliente() {
-
-  Alert.alert(
-
-    'Excluir',
-
-    'Deseja realmente excluir este cliente?',
-
-    [
-
-      {
-        text:'Cancelar',
-        style:'cancel',
-      },
-
-      {
-
-        text:'Excluir',
-
-        style:'destructive',
-
-        onPress: async()=>{
-
-          await supabase
-            .from('cobrancas')
-            .delete()
-            .eq('cliente_id',clienteId);
-
-          await supabase
-            .from('faturas')
-            .delete()
-            .eq('cliente_id',clienteId);
-
-          const { error } =
-            await supabase
-              .from('clientes')
-              .delete()
-              .eq('id',clienteId);
-
-          if(error){
-
-            Alert.alert(
-              'Erro',
-              error.message
-            );
-
-            return;
-
-          }
-
-          router.replace('/clientes');
-
-        }
-
-      }
-
-    ]
-
-  );}
-return (
-
-<ImageBackground
-  source={require('../../assets/images/background.png')}
-  resizeMode="cover"
-  style={{ flex: 1 }}
->
-
-<SafeAreaView style={{ flex: 1 }}>
-
-<ScrollView
-contentContainerStyle={{
-padding:20,
-paddingTop:60,
-}}
->
-
-<View
-style={{
-backgroundColor:'rgba(255,255,255,0.95)',
-padding:20,
-borderRadius:18,
-}}
->
-
-<Text
-style={{
-fontSize:24,
-fontWeight:'bold',
-marginBottom:20,
-}}
->
-
-Editar Cliente
-
-</Text>
-
-<Text>Nome</Text>
-
-<TextInput
-value={nome}
-onChangeText={setNome}
-style={styles.input}
-/>
-
-<Text>UC</Text>
-
-<TextInput
-value={uc}
-onChangeText={(t)=>setUc(t.replace(/\D/g,''))}
-keyboardType="numeric"
-style={styles.input}
-/>
-
-<Text>Telefone</Text>
-
-<TextInput
-value={telefone}
-onChangeText={setTelefone}
-style={styles.input}
-/>
-
-<Text>CPF</Text>
-
-<TextInput
-value={cpf}
-onChangeText={setCpf}
-style={styles.input}
-/>
-
-<Text>Endereço</Text>
-
-<TextInput
-value={endereco}
-onChangeText={setEndereco}
-style={styles.input}
-/>
-
-<Text>Usina</Text>
-
-<Pressable
-onPress={()=>
-setMostrarUsinas(!mostrarUsinas)
-}
-style={styles.input}
->
-
-<Text>
-
-{
-usinas.find(
-u=>u.id===usinaId
-)?.nome ||
-
-'Selecione uma usina'
-
+  if (loading) return <Loading />;
+  if (erroCarregamento) return <Screen><Card><Text style={styles.title}>Cadastro indisponível</Text><Text style={styles.subtitle}>{erroCarregamento}</Text><Button title="Voltar" onPress={() => router.back()} /></Card></Screen>;
+  return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Editar cliente" subtitle="Dados cadastrais" contextTitle="Editar cliente" contextSubtitle={nomeCompleto || "Dados cadastrais do consumidor"} icon="create-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled"><Text style={styles.eyebrow}>CADASTRO DO CLIENTE</Text><Text style={styles.title}>Editar cliente</Text><Text style={styles.subtitle}>Confira nome completo, CPF e endereço. O contrato utiliza o endereço deste cadastro.</Text>
+    <Card><FormField label="Nome" required value={nome} onChangeText={setNome} autoCapitalize="words" /><FormField label="Sobrenome" required value={sobrenome} onChangeText={setSobrenome} autoCapitalize="words" /><FormField label="Telefone / WhatsApp (opcional)" value={telefone} onChangeText={setTelefone} keyboardType="phone-pad" /><FormField label="E-mail" required value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
+      <FormField label="CPF" required value={cpf} onChangeText={v => setCpf(formatarCpf(v))} keyboardType="number-pad" maxLength={14} />
+    </Card>
+    <Card><Text style={styles.sectionTitle}>Endereço do cliente</Text><Text style={styles.sectionHint}>Informe o CEP para preencher rua, bairro, cidade e estado. Confira e complete o número.</Text><EnderecoFields value={endereco} onChange={setEndereco} /></Card>
+    <Card><Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar alterações"} onPress={salvar} /></Card>
+    <View style={styles.dangerZone}><Text style={styles.dangerTitle}>Excluir cliente</Text><Text style={styles.dangerSubtitle}>Remova permanentemente o cliente e seus vínculos.</Text><Button title="Excluir cliente" onPress={excluir} style={styles.delete} /></View></ScrollView></Screen>;
 }
 
-</Text>
-
-</Pressable>
-
-{mostrarUsinas && (
-
-<View
-style={{
-borderWidth:1,
-borderColor:'#d1d5db',
-borderRadius:10,
-backgroundColor:'white',
-marginBottom:20,
-}}
->
-
-{usinas.map(usina=>(
-
-<TouchableOpacity
-key={usina.id}
-onPress={()=>{
-setUsinaId(usina.id);
-setMostrarUsinas(false);
-}}
-style={{
-padding:15,
-borderBottomWidth:1,
-borderBottomColor:'#e5e7eb',
-}}
->
-
-<Text>
-
-{usina.nome}
-
-</Text>
-
-</TouchableOpacity>
-
-))}
-
-</View>
-
-)}
-
-<TouchableOpacity
-onPress={salvar}
-style={{
-backgroundColor:'#2563eb',
-padding:15,
-borderRadius:10,
-marginTop:20,
-}}
->
-
-<Text
-style={{
-color:'white',
-fontWeight:'bold',
-textAlign:'center',
-}}
->
-
-{salvando ? 'SALVANDO...' : 'SALVAR'}
-
-</Text>
-
-</TouchableOpacity>
-
-<TouchableOpacity
-onPress={excluirCliente}
-style={{
-backgroundColor:'#dc2626',
-padding:15,
-borderRadius:10,
-marginTop:12,
-}}
->
-
-<Text
-style={{
-color:'white',
-fontWeight:'bold',
-textAlign:'center',
-}}
->
-
-EXCLUIR CLIENTE
-
-</Text>
-
-</TouchableOpacity>
-
-</View>
-
-</ScrollView>
-
-</SafeAreaView>
-
-</ImageBackground>
-
-);
-}
-const styles = {
-  input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 5,
-    marginBottom: 18,
-  },
-};
+const styles = StyleSheet.create({
+  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl, gap: Spacing.md }, eyebrow: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800", letterSpacing: 1.2 }, title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "800" }, subtitle: { marginTop: Spacing.sm, marginBottom: Spacing.lg, color: Colors.subtitle, lineHeight: 21 }, sectionTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "800", marginBottom: Spacing.xs }, sectionHint: { color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18, marginBottom: Spacing.md },
+  dangerZone: { marginTop: Spacing.lg, padding: Spacing.lg, borderWidth: 1, borderColor: "#FECACA", borderRadius: Radius.xl, backgroundColor: "#FFF7F7" }, dangerTitle: { color: Colors.danger, fontSize: Typography.body, fontWeight: "800" }, dangerSubtitle: { marginTop: 3, marginBottom: Spacing.md, color: Colors.subtitle, fontSize: Typography.small }, delete: { backgroundColor: Colors.danger },
+});

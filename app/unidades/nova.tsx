@@ -1,0 +1,387 @@
+import { mascaraDocumento } from "../../utils/input-masks";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
+import { Alert, StyleSheet, Text, View } from "react-native";
+import { Pressable } from "../../components/assistant/AssistantNativeControls";
+
+import ChoiceField from "../../components/cadastro/ChoiceField";
+import FormField from "../../components/cadastro/FormField";
+import RealDiscountInfo from "../../components/cadastro/RealDiscountInfo";
+import UsinaSelector from "../../components/cadastro/UsinaSelector";
+import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
+import { IS_GERADOR_APP } from "../../config/appVariant";
+import { alocarUnidade, cadastrarUnidadeOperacional, consultarAlocacao, listarUsinas } from "../../services/usinas.service";
+import { useAuth } from "../../contexts/AuthContext";
+import { calcularMediaConsumoFatura, listarFaturas } from "../../services/faturas.service";
+import { buscarCliente, listarClientes } from "../../services/clientes.service";
+import { avisosPassoAPassoAtivos } from "../../services/preferencias.service";
+import { Colors, Radius, Spacing, Typography } from "../../theme";
+
+type Tipo = "CONSUMIDORA" | "BENEFICIARIA" | "GERADORA";
+type Modalidade = "INJECAO" | "COMPENSACAO";
+type FormatoFatura = "UNIFICADA" | "SOMENTE_ANDRADE";
+type RepasseGD2 = "REPASSAR" | "ABSORVER";
+
+function numeroSeguro(valor: unknown) {
+  const texto = String(valor ?? "").trim();
+  const normalizado = texto.includes(",") ? texto.replace(/\./g, "").replace(",", ".") : texto;
+  const numero = Number(normalizado);
+  return Number.isFinite(numero) ? numero : 0;
+}
+
+function producaoParaAlocacao(usina: any) {
+  const producaoEmDozeMeses = numeroSeguro(usina?.producao_media_12_meses);
+  return producaoEmDozeMeses > 0
+    ? producaoEmDozeMeses
+    : Math.max(0, numeroSeguro(usina?.geracao_media));
+}
+
+function percentualPelaMedia(usina: any, consumo: unknown, modalidade: Modalidade) {
+  const producao = producaoParaAlocacao(usina);
+  const media = numeroSeguro(consumo);
+  return producao > 0 && media > 0
+    ? String(Math.min(100, media / producao * 100).toFixed(2)).replace(".", ",")
+    : "";
+}
+
+export default function NovaUnidade() {
+  const { usinaSelecionada: usinaDoAmbiente, selecionarUsina } = useAuth();
+  const { origem, classificacao, cliente, clienteId: clienteIdVinculado, uc, cpf: cpfImportado, energiaCompensada, endereco: enderecoImportado, distribuidora: distribuidoraImportada, cadastroRapido, consumoMedio: consumoMedioImportado, dadosFatura: dadosFaturaParam } = useLocalSearchParams<{ origem?: string; classificacao?: string; cliente?: string; clienteId?: string; uc?: string; cpf?: string; energiaCompensada?: string; endereco?: string; distribuidora?: string; cadastroRapido?: string; consumoMedio?: string; dadosFatura?: string }>();
+  const [dadosFatura, setDadosFatura] = useState<Record<string, any> | null>(() => parseDadosFatura(dadosFaturaParam));
+  const [mensagemSalvar, setMensagemSalvar] = useState("");
+  const [numero, setNumero] = useState(""); const [titular, setTitular] = useState("");
+  const [cpfTitular, setCpfTitular] = useState("");
+  const [tipo, setTipo] = useState<Tipo>("BENEFICIARIA"); const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO");
+  const [planoContrato, setPlanoContrato] = useState("COM_FIDELIDADE");
+  const [descontoPersonalizado, setDescontoPersonalizado] = useState(false);
+  const [desconto, setDesconto] = useState("40"); const [endereco, setEndereco] = useState("");
+  const [consumoMedio, setConsumoMedio] = useState(consumoMedioImportado ?? "");
+  const [formatoFatura, setFormatoFatura] = useState<FormatoFatura>("UNIFICADA");
+  const [repasseDisponibilidadeGD1, setRepasseDisponibilidadeGD1] = useState<RepasseGD2>("REPASSAR");
+  const [repasseDisponibilidadeGD2, setRepasseDisponibilidadeGD2] = useState<RepasseGD2>("REPASSAR");
+  const [repasseFioBGD2, setRepasseFioBGD2] = useState<RepasseGD2>("REPASSAR");
+  const [clientes, setClientes] = useState<any[]>([]); const [usinas, setUsinas] = useState<any[]>([]);
+  const [clienteEscolhido, setClienteId] = useState("");
+  // O contexto do perfil é a fonte do vínculo, não uma seleção editável.
+  // Também funciona quando o Router entrega os parâmetros após a montagem.
+  const clienteId = String(clienteIdVinculado || clienteEscolhido || "");
+  const [usinaId, setUsinaId] = useState(""); const [percentualAlocado, setPercentualAlocado] = useState(""); const [salvando, setSalvando] = useState(false);
+  const [percentualEditado, setPercentualEditado] = useState(false);
+  const [saldoAlocacao, setSaldoAlocacao] = useState<number | null>(null);
+  const [trocandoUsina, setTrocandoUsina] = useState(false);
+  const usinaSelecionada = usinas.find((item) => item.id === usinaId);
+  const usinaGd2 = String(usinaSelecionada?.tipo_gd ?? "").toUpperCase() === "GD2";
+  const tipoGdEfetivo = String(usinaSelecionada?.tipo_gd ?? "").toUpperCase();
+
+  useEffect(() => {
+    if (planoContrato === "SEM_FIDELIDADE" && !descontoPersonalizado && ["GD1", "GD2"].includes(tipoGdEfetivo)) {
+      setDesconto(tipoGdEfetivo === "GD2" ? "30" : "20");
+    }
+  }, [planoContrato, descontoPersonalizado, tipoGdEfetivo]);
+
+  useEffect(() => {
+    listarUsinas().then((u) => {
+      const listaUsinas = Array.isArray(u) ? u : [];
+      setUsinas(listaUsinas);
+      if (usinaDoAmbiente?.id && listaUsinas.some((item) => item.id === usinaDoAmbiente.id)) {
+        setUsinaId(String(usinaDoAmbiente.id));
+      }
+      // No primeiro cadastro o cliente ainda pode não possuir usina_id. Se o
+      // gerador só administra uma usina, vinculá-la automaticamente evita que
+      // o botão Salvar pareça não responder por falta de uma escolha óbvia.
+      if (!usinaDoAmbiente?.id && listaUsinas.length === 1) {
+        setUsinaId((atual) => atual || String(listaUsinas[0].id));
+      }
+    }).catch((erro: any) => {
+      Alert.alert("Não foi possível carregar os dados", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
+    });
+    if (clienteIdVinculado) setClienteId(clienteIdVinculado);
+    if (origem !== "fatura") return;
+    const nomeExtraido = (cliente ?? "").trim();
+    const rotuloDaFatura = /d[eé]bito\s+autom[aá]tico|valor\s+a\s+pagar|vencimento/i.test(nomeExtraido);
+    const titularExtraido = rotuloDaFatura ? "" : nomeExtraido;
+    setNumero((uc ?? "").replace(/\D/g, ""));
+    if (cpfImportado) setCpfTitular(formatarDocumentoDaFatura(cpfImportado));
+    if (titularExtraido) setTitular(titularExtraido);
+    if (enderecoImportado) setEndereco(enderecoImportado);
+    if (classificacao === "POSSIVEL_GERADORA") { setTipo("GERADORA"); setModalidade("INJECAO"); }
+    // Uma conta trazida a partir do perfil de um cliente sempre precisa ser
+    // configurada como UC beneficiária antes do primeiro salvamento, mesmo
+    // quando a fatura ainda não possui linhas GD. Assim o gestor vê usina,
+    // modalidade, alocação e desconto já nesta primeira tela.
+    else if (clienteIdVinculado || cadastroRapido === "1") setTipo("BENEFICIARIA");
+    else if (!Number(energiaCompensada)) setTipo("CONSUMIDORA");
+  }, [cadastroRapido, classificacao, cliente, clienteIdVinculado, cpfImportado, enderecoImportado, energiaCompensada, origem, uc, usinaDoAmbiente?.id]);
+
+  useEffect(() => {
+    const usinaDaLista = usinaId || usinaDoAmbiente?.id;
+    if (!usinaDaLista) { setClientes([]); return; }
+    let ativo = true;
+    setClientes([]);
+    void listarClientes(usinaDaLista).then(async (resultado) => {
+      const listaClientes = Array.isArray(resultado) ? resultado : [];
+      if (clienteIdVinculado && !listaClientes.some((item: any) => item.id === clienteIdVinculado)) {
+        const vinculado = await buscarCliente(clienteIdVinculado).catch(() => null);
+        if (vinculado) listaClientes.unshift(vinculado);
+      }
+      if (!ativo) return;
+      setClientes(listaClientes);
+      if (!clienteIdVinculado) setClienteId((atual) => listaClientes.some((item: any) => item.id === atual) ? atual : "");
+    }).catch((erro: any) => {
+      if (ativo) Alert.alert("Não foi possível carregar os clientes", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
+    });
+    return () => { ativo = false; };
+  }, [clienteIdVinculado, usinaDoAmbiente?.id, usinaId]);
+
+  useEffect(() => {
+    let ativo = true;
+    setSaldoAlocacao(null);
+    if (usinaId) consultarAlocacao(usinaId).then((saldo) => {
+      if (ativo) setSaldoAlocacao(saldo.disponivel);
+    }).catch(() => { if (ativo) setSaldoAlocacao(null); });
+    return () => { ativo = false; };
+  }, [usinaId]);
+
+  useEffect(() => {
+    const mediaExtraida = calcularMediaConsumoFatura(dadosFatura);
+    if (mediaExtraida > 0 && !numeroSeguro(consumoMedio)) setConsumoMedio(String(mediaExtraida));
+  }, [consumoMedio, dadosFatura]);
+
+  useEffect(() => {
+    const clienteSelecionado = clientes.find((item) => item.id === clienteId);
+    if (!clienteSelecionado) return;
+    setTipo("BENEFICIARIA");
+    if (!usinaId && !usinaDoAmbiente?.id && clienteSelecionado.usina_id) setUsinaId(String(clienteSelecionado.usina_id));
+    if (origem !== "fatura" && clienteSelecionado.cpf && !cpfTitular && ["CLIENTE", "CONSUMIDOR"].includes(String(usinas.find(u => u.id === usinaId)?.titularidade_ucs_recebedoras ?? "GERADOR"))) setCpfTitular(formatarDocumento(clienteSelecionado.cpf));
+    if (!numeroSeguro(consumoMedio) && numeroSeguro(clienteSelecionado.consumo_medio_kwh)) {
+      setConsumoMedio(String(clienteSelecionado.consumo_medio_kwh));
+    }
+  }, [clienteId, clientes, consumoMedio, cpfTitular, origem, usinaId]);
+
+  useEffect(() => {
+    const usinaSelecionada = usinas.find((item) => item.id === usinaId);
+    const sugestao = percentualPelaMedia(usinaSelecionada, consumoMedio, modalidade);
+    if (!percentualEditado) setPercentualAlocado(sugestao);
+  }, [consumoMedio, modalidade, usinaId, usinas, percentualEditado]);
+
+  useEffect(() => {
+    let ativa = true;
+    const numeroLimpo = numero.replace(/\D/g, "");
+    const dadosImportados = parseDadosFatura(dadosFaturaParam);
+    // A conta escolhida no perfil é a fonte desta inclusão. Não permita que
+    // uma competência antiga já processada sobrescreva os dados recém-lidos.
+    if (origem === "fatura" && dadosImportados && Object.keys(dadosImportados).length) {
+      setDadosFatura(dadosImportados);
+      return () => { ativa = false; };
+    }
+    if (!numeroLimpo && !clienteId) {
+      if (!dadosFaturaParam) setDadosFatura(null);
+      return () => { ativa = false; };
+    }
+
+    async function carregarBaseReal() {
+      try {
+        const faturasDaUc = numeroLimpo ? await listarFaturas(undefined, numeroLimpo) : [];
+        const faturasDoCliente = !faturasDaUc.length && clienteId
+          ? await listarFaturas(clienteId)
+          : [];
+        // Quando o usuário escolheu uma conta anexada, ela é a fonte desta
+        // tela. Uma fatura já processada da UC/cliente não pode substituir o
+        // PDF explicitamente selecionado.
+        if (ativa) setDadosFatura(parseDadosFatura(dadosFaturaParam) ?? faturasDaUc[0] ?? faturasDoCliente[0] ?? null);
+      } catch {
+        if (ativa && !dadosFaturaParam) setDadosFatura(null);
+      }
+    }
+
+    void carregarBaseReal();
+    return () => { ativa = false; };
+  }, [clienteId, dadosFaturaParam, numero, origem]);
+
+  async function salvar() {
+    if (salvando) return;
+    setMensagemSalvar("Conferindo os dados da unidade...");
+    function avisar(titulo: string, mensagem: string) {
+      setMensagemSalvar(mensagem);
+      Alert.alert(titulo, mensagem);
+    }
+    const descontoNumero = numeroSeguro(desconto);
+    const percentualRateio = numeroSeguro(percentualAlocado);
+    const documentoImportado = cpfTitular.replace(/\D/g, "");
+    const documentoTitular = !cpfTitular.includes("*") && [11, 14].includes(documentoImportado.length) ? documentoImportado : undefined;
+    const cadastroManualDoGerador = IS_GERADOR_APP && origem !== "fatura";
+    const clienteSelecionado = clientes.find((item) => item.id === clienteId);
+    const usinaFinal = usinaId || usinaDoAmbiente?.id || null;
+    // Modalidade e desconto pertencem à UC/contrato. Dados antigos no cliente
+    // são apenas um fallback visual, nunca devem sobrescrever o que foi
+    // configurado nesta fatura antes do primeiro salvamento.
+    const modalidadeFinal = modalidade;
+    const descontoFinal = descontoNumero;
+    const mediaInformada = numeroSeguro(consumoMedio);
+    const consumoMedioFinal = Math.max(0, mediaInformada > 0 ? mediaInformada : numeroSeguro(clienteSelecionado?.consumo_medio_kwh));
+
+    if (!numero) return avisar("Dados incompletos", "Informe o número da unidade consumidora.");
+    if (tipo !== "GERADORA" && !clienteId) return avisar("Escolha o cliente", "É necessário cadastrar e selecionar um cliente antes de adicionar a UC.");
+    if (tipo === "BENEFICIARIA" && !usinaFinal) return avisar("Escolha a usina", "Uma UC beneficiária precisa ser vinculada a uma usina antes de salvar.");
+    if (tipo !== "BENEFICIARIA" && !usinaFinal) return avisar("Dados incompletos", "Vincule esta unidade a uma usina.");
+    if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return avisar("Desconto inválido", "Informe um percentual entre 0 e 100.");
+    if (tipo === "BENEFICIARIA" && modalidadeFinal === "INJECAO" && (!percentualAlocado.trim() || percentualRateio <= 0 || percentualRateio > 100)) {
+      return avisar("Injeção inválida", "O gerador deve informar o percentual de injeção entre 0,01% e 100%.");
+    }
+    if (tipo === "BENEFICIARIA" && modalidadeFinal !== "INJECAO" && percentualAlocado && (percentualRateio <= 0 || percentualRateio > 100)) {
+      return avisar("Alocação inválida", "Informe um percentual entre 0,01% e 100% para esta UC.");
+    }
+    if (tipo === "BENEFICIARIA" && saldoAlocacao !== null && percentualRateio > saldoAlocacao + 0.000001) {
+      return Alert.alert("Usina cheia", `Restam ${saldoAlocacao.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% para alocação nesta usina. Deseja trocar de usina?`, [
+        { text: "Manter usina", style: "cancel" },
+        { text: "Trocar usina", onPress: () => setTrocandoUsina(true) },
+      ]);
+    }
+    setSalvando(true);
+    setMensagemSalvar("Salvando a unidade no servidor...");
+    try {
+      if (tipo === "BENEFICIARIA") {
+        await alocarUnidade(String(usinaFinal), {
+          clienteId,
+          numero,
+          modalidade: modalidadeFinal,
+          percentual: modalidadeFinal === "INJECAO" ? percentualRateio : (percentualRateio || undefined),
+          planoContrato,
+          desconto: descontoFinal,
+          consumoMedio: consumoMedioFinal,
+          endereco: endereco.trim() || clienteSelecionado?.endereco || null,
+          titular: titular.trim() || dadosFatura?.titular || dadosFatura?.cliente || clienteSelecionado?.nome || null,
+          distribuidora: String(distribuidoraImportada || dadosFatura?.distribuidora || clienteSelecionado?.distribuidora || "CEMIG").trim(),
+          ...(documentoTitular ? { cpfTitular: documentoTitular } : {}),
+          percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0,
+          repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR",
+          repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR",
+          repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR",
+          tipoGd: tipoGdEfetivo,
+          faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE",
+          calcularAutomaticamente: !percentualEditado,
+        });
+        if (usinaFinal !== usinaDoAmbiente?.id) {
+          const destino = usinas.find((item) => item.id === usinaFinal);
+          if (destino) await selecionarUsina(destino);
+        }
+      } else {
+        if (!usinaFinal) throw new Error("Selecione uma usina antes de cadastrar esta unidade.");
+        await cadastrarUnidadeOperacional(usinaFinal, {
+          numero, titular: titular.trim() || clienteSelecionado?.nome || null, tipo, cliente_id: clienteId || null, usina_id: usinaFinal,
+          distribuidora: clienteSelecionado?.distribuidora || "CEMIG", endereco: endereco.trim() || clienteSelecionado?.endereco || null, modalidade_faturamento: modalidadeFinal,
+          plano_contrato: planoContrato,
+          desconto_percentual: descontoFinal, cpf_titular: documentoTitular || clienteSelecionado?.cpf || null, status: "PENDENTE_CONTRATO",
+          percentual_repasse_disponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0,
+          repassar_disponibilidade_gd1: repasseDisponibilidadeGD1 === "REPASSAR",
+          repassar_disponibilidade_gd2: repasseDisponibilidadeGD2 === "REPASSAR",
+          repassar_diferenca_fio_b_gd2: repasseFioBGD2 === "REPASSAR",
+          tipo_gd: ["GD1", "GD2", "MISTA"].includes(tipoGdEfetivo) ? tipoGdEfetivo : null,
+          fatura_somente_andrade: formatoFatura === "SOMENTE_ANDRADE",
+        });
+      }
+
+      if (origem === "fatura" && clienteId) {
+        setMensagemSalvar("Unidade salva com sucesso.");
+        const destino = { pathname: "/clientes/[id]", params: { id: clienteId, area: "unidades" } } as any;
+        if (await avisosPassoAPassoAtivos()) Alert.alert("UC configurada", "Próximos passos: abra esta UC, gere a minuta, revise o contrato e envie o convite. Depois, aguarde o cliente criar a conta e assinar; somente então ele ficará ativo e a UC será liberada.", [
+          { text: "Ir para UCs e configurar contrato", onPress: () => router.dismissTo(destino) },
+        ]);
+        else router.dismissTo(destino);
+      } else {
+        router.back();
+      }
+    } catch (erro: any) {
+      const mensagem = erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.";
+      if (/usina cheia|restam .*%/i.test(mensagem)) {
+        Alert.alert("Usina cheia", mensagem, [
+          { text: "Manter usina", style: "cancel" },
+          { text: "Trocar usina", onPress: () => setTrocandoUsina(true) },
+        ]);
+      } else avisar("Não foi possível salvar", mensagem);
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Nova unidade" subtitle="Cadastro da carteira" contextTitle="Nova unidade" contextSubtitle={origem === "fatura" ? "Dados lidos da conta de energia" : "Cadastro manual"} icon="flash-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
+    <Text style={styles.eyebrow}>{origem === "fatura" ? "DADOS LIDOS DA FATURA" : "CADASTRO MANUAL"}</Text><Text style={styles.title}>Nova unidade</Text>
+    <Text style={styles.subtitle}>{clienteIdVinculado ? "Confirme o número. Os demais dados serão herdados do cliente." : cadastroRapido === "1" ? "Confirme o número e escolha o cliente. Os demais dados serão herdados automaticamente." : "Confira a leitura e escolha a quem esta unidade pertence."}</Text>
+    <Card><FormField label="Número da UC / instalação" value={numero} onChangeText={(v) => setNumero(v.replace(/\D/g, ""))} keyboardType="numeric" />
+      {!clienteIdVinculado && cadastroRapido !== "1" ? <><FormField label="Titular" value={titular} onChangeText={setTitular} /><FormField label="Endereço" value={endereco} onChangeText={setEndereco} /></> : null}
+      {tipo !== "GERADORA" ? <>
+        <Text style={styles.configurationTitle}>CONFIGURAÇÃO DA UC</Text>
+        <Text style={styles.beneficiariaHint}>Defina as condições desta unidade antes de salvar. Elas não são copiadas do cadastro do cliente.</Text>
+        <ChoiceField label="Faturamento" value={modalidade} onChange={(valor) => { const nova = valor as Modalidade; setModalidade(nova); setPercentualAlocado(percentualPelaMedia(usinaSelecionada, consumoMedio, nova)); }} options={[{ label: "Injeção", value: "INJECAO" }, { label: "Compensação", value: "COMPENSACAO" }]} />
+        <Text style={styles.beneficiariaHint}>Usina deste ambiente: {usinaSelecionada?.nome ?? "Selecione uma usina"}</Text>
+        {trocandoUsina || !usinaId ? <UsinaSelector usinas={usinas} value={usinaId} onChange={(valor) => { setUsinaId(valor); setTrocandoUsina(false); if (!percentualEditado) setPercentualAlocado(percentualPelaMedia(usinas.find((item) => item.id === valor), consumoMedio, modalidade)); }} label="Trocar usina" /> : null}
+        <FormField label="Consumo médio mensal (kWh)" value={consumoMedio} onChangeText={(valor) => { const limpo = valor.replace(/[^\d,.]/g, ""); setConsumoMedio(limpo); if (!percentualEditado) setPercentualAlocado(percentualPelaMedia(usinaSelecionada, limpo, modalidade)); }} keyboardType="decimal-pad" />
+        <FormField label={modalidade === "INJECAO" ? "Percentual de injeção (%) *" : "Percentual alocado (%)"} value={percentualAlocado} onChangeText={(valor) => { setPercentualEditado(true); setPercentualAlocado(valor.replace(/[^\d,.]/g, "")); }} keyboardType="decimal-pad" />
+        <Text style={styles.beneficiariaHint}>{producaoParaAlocacao(usinaSelecionada) > 0 ? `Energia estimada para esta UC: aproximadamente ${(producaoParaAlocacao(usinaSelecionada) * numeroSeguro(percentualAlocado) / 100).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kWh/mês (${percentualAlocado || "0"}% da produção média da usina).` : "Informe a produção média da usina para estimar os kWh mensais desta porcentagem."}</Text>
+        <Text style={styles.beneficiariaHint}>{saldoAlocacao === null ? "Consultando saldo da usina..." : `Disponível para alocação: ${saldoAlocacao.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`}</Text>
+        <Text style={styles.beneficiariaHint}>A sugestão usa o consumo médio dividido pela produção média da usina, sem margem adicional. Você pode editar.</Text>
+        <ChoiceField label="Plano do contrato" value={planoContrato} onChange={(valor) => { setPlanoContrato(valor); setDescontoPersonalizado(false); }} options={[{ label: "Com fidelidade", value: "COM_FIDELIDADE" }, { label: "Sem fidelidade", value: "SEM_FIDELIDADE" }]} />
+        {planoContrato === "SEM_FIDELIDADE" ? <Text>Prazo indeterminado, sem multa por saída antecipada e aviso prévio de 90 dias. Desconto inicial: GD II 30%; GD I 20%. Você pode editar o percentual abaixo.</Text> : null}
+        <FormField label="Desconto contratado (%)" value={desconto} onChangeText={(valor) => { setDescontoPersonalizado(true); setDesconto(valor.replace(/[^\d,.]/g, "")); }} keyboardType="decimal-pad" />
+      </> : <UsinaSelector usinas={usinas} value={usinaId} onChange={setUsinaId} label="Usina geradora" />}
+      {!clienteIdVinculado ? <><Text style={styles.label}>Vincular ao cliente *</Text><Text style={styles.beneficiariaHint}>Mostrando clientes da usina {usinaSelecionada?.nome ?? "selecionada"}. Se o cliente estiver em outra usina, volte e troque de usina antes de continuar.</Text>{clientes.length ? <View style={styles.options}>{clientes.map((c) => <Pressable key={c.id} onPress={() => setClienteId(clienteId === c.id ? "" : c.id)} style={[styles.link, clienteId === c.id && styles.linkSelected]}><Text>{c.nome}</Text></Pressable>)}</View> : <Text style={styles.clientRequired}>Nenhum cliente vinculado a esta usina. Cadastre o cliente ou selecione a usina correta antes de adicionar a UC.</Text>}</> : null}
+      <ChoiceField label="Formato da cobrança" value={formatoFatura} onChange={(valor) => setFormatoFatura(valor as FormatoFatura)} options={[{ label: "Fatura Unificada Andrade Energy", value: "UNIFICADA" }, { label: "Somente Andrade Energy", value: "SOMENTE_ANDRADE" }]} />
+      <>
+        <Text style={styles.beneficiariaHint}>{tipoGdEfetivo ? `Modalidade identificada: ${tipoGdEfetivo === "GD2" ? "GD II" : tipoGdEfetivo === "MISTA" ? "GD I + GD II" : "GD I"}${usinaGd2 ? ", definida automaticamente pela usina selecionada" : ""}.` : "Modalidade GD ainda não identificada. As configurações podem ser preparadas; a projeção ficará em 0% até chegar uma leitura GD."}</Text>
+        {!tipoGdEfetivo || tipoGdEfetivo === "GD1" || tipoGdEfetivo === "MISTA" ? <ChoiceField label="GD I: custo de disponibilidade recalculado" value={repasseDisponibilidadeGD1} onChange={(valor) => setRepasseDisponibilidadeGD1(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} /> : null}
+        {!tipoGdEfetivo || tipoGdEfetivo === "GD2" || tipoGdEfetivo === "MISTA" ? <>
+          <ChoiceField label="GD II: custo de disponibilidade recalculado" value={repasseDisponibilidadeGD2} onChange={(valor) => setRepasseDisponibilidadeGD2(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} />
+          <ChoiceField label="GD II: diferença do Fio B" value={repasseFioBGD2} onChange={(valor) => setRepasseFioBGD2(valor as RepasseGD2)} options={[{ label: "Repassar ao cliente", value: "REPASSAR" }, { label: "Absorver pela Andrade", value: "ABSORVER" }]} />
+        </> : null}
+        <Text style={styles.beneficiariaHint}>{formatoFatura === "SOMENTE_ANDRADE" ? "Mesmo com documentos separados, a projeção considera também o valor que continuará sendo pago à concessionária." : "Os demais encargos continuam na fatura da concessionária."}</Text>
+        <RealDiscountInfo
+          descontoPercentual={desconto}
+          tipoGd={tipoGdEfetivo}
+          modalidadeFaturamento={modalidade}
+          consumoProjetado={consumoMedio}
+          energiaInjetadaProjetada={modalidade === "INJECAO"
+            ? producaoParaAlocacao(usinaSelecionada) * numeroSeguro(percentualAlocado) / 100
+            : 0}
+          faturaSomenteAndrade={formatoFatura === "SOMENTE_ANDRADE"}
+          dadosFatura={dadosFatura}
+          projetarConsumoIntegral={origem === "fatura"}
+          tarifaSceeReferencia={numeroSeguro(usinaSelecionada?.tarifa_scee_referencia)}
+          tarifaGd2Referencia={numeroSeguro(usinaSelecionada?.tarifa_gd2_referencia)}
+          historicoTarifasGd2={Array.isArray(usinaSelecionada?.historico_tarifas_gd2) ? usinaSelecionada.historico_tarifas_gd2 : []}
+          disponibilidadeGd1={repasseDisponibilidadeGD1}
+          disponibilidadeGd2={repasseDisponibilidadeGD2}
+          fioBGd2={repasseFioBGD2}
+        />
+      </>
+      {!clienteId && tipo !== "GERADORA" ? <Text style={styles.saveWarning}>Selecione o cliente acima para concluir o cadastro.</Text> : null}
+      <Button disabled={salvando} title={salvando ? "Salvando UC..." : "Salvar unidade"} onPress={salvar} />
+      {mensagemSalvar ? <Text accessibilityLiveRegion="polite" style={styles.saveWarning}>{mensagemSalvar}</Text> : null}
+    </Card>
+  </ScrollView></Screen>;
+}
+
+function parseDadosFatura(valor?: string) {
+  try {
+    if (!valor) return null;
+    const lido = JSON.parse(valor);
+    return lido?.dadosFatura ?? lido?.dados_fatura ?? lido?.dadosExtraidos ?? lido?.dados_extraidos ?? lido?.dados ?? lido;
+  }
+  catch { return null; }
+}
+
+function formatarDocumento(valor: string) { return mascaraDocumento(valor); }
+
+function formatarDocumentoDaFatura(valor: string) {
+  if ([11, 14].includes(valor.replace(/\D/g, "").length)) return mascaraDocumento(valor);
+  const primeirosQuatro = valor.replace(/\D/g, "").slice(0, 4);
+  return primeirosQuatro ? `${primeirosQuatro}.***.***-**` : "";
+}
+
+const styles = StyleSheet.create({
+  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl }, eyebrow: { color: Colors.primary, fontSize: Typography.small, fontWeight: "700", letterSpacing: 1.2 },
+  title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "700" }, subtitle: { marginTop: Spacing.sm, marginBottom: Spacing.lg, color: Colors.subtitle, lineHeight: 21 },
+  label: { marginBottom: Spacing.xs, color: Colors.text, fontSize: Typography.caption, fontWeight: "700" }, configurationTitle: { marginTop: Spacing.sm, marginBottom: Spacing.xs, color: Colors.primary, fontSize: Typography.small, fontWeight: "900", letterSpacing: 1 }, beneficiariaHint: { marginTop: -Spacing.sm, marginBottom: Spacing.md, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 }, options: { gap: Spacing.xs, marginBottom: Spacing.md },
+  clientRequired: { marginBottom: Spacing.md, padding: Spacing.md, borderRadius: Radius.md, color: "#92400E", backgroundColor: "#FEF3C7", fontSize: Typography.small, lineHeight: 18 },
+  saveWarning: { marginBottom: Spacing.sm, color: "#92400E", fontSize: Typography.small, fontWeight: "700", textAlign: "center" },
+  link: { padding: Spacing.sm, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, backgroundColor: Colors.surface }, linkSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
+});

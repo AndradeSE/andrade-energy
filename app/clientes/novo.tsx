@@ -1,279 +1,153 @@
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import {
-  ImageBackground,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
-} from 'react-native';
-
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { supabase } from '../../supabase';
-
-export default function NovoCliente() {
-
-  const [nome, setNome] = useState('');
-  const [uc, setUc] = useState('');
-  const [telefone, setTelefone] = useState('');
-  const [cpf, setCpf] = useState('');
-  const [endereco, setEndereco] = useState('');
-  const [usinaId, setUsinaId] = useState('');
-  const [mostrarUsinas, setMostrarUsinas] =
-  useState(false);
-
-  const [usinas, setUsinas] =
-    useState<any[]>([]);
-
-  useEffect(() => {
-    carregarUsinas();
-  }, []);
-
-  async function carregarUsinas() {
-
-    const { data } =
-      await supabase
-        .from('usinas')
-        .select('*')
-        .order('nome');
-
-    setUsinas(data || []);
-
-  }
-
-  async function salvar() {
-
-    const { error } =
-      await supabase
-        .from('clientes')
-        .insert({
-
-          nome,
-
-          uc: uc.replace(/\D/g, ''),
-
-          telefone,
-
-          cpf,
-
-          endereco,
-
-          distribuidora: 'CEMIG',
-
-          usina_id: usinaId || null,
-
-        });
-
-    if (error) {
-
-      alert(error.message);
-
-      return;
-
-    }
-
-    router.back();
-
-  }
-
-  return (
-
-<ImageBackground
-source={require('../../assets/images/background.png')}style={{
-flex:1
-}}
->
-
-<SafeAreaView
-style={{
-flex:1
-}}
->
-
-<ScrollView
-contentContainerStyle={{
-padding:20,
-paddingTop:60,
-}}
->
-
-<View
-style={{
-backgroundColor:'rgba(255,255,255,0.95)',
-padding:20,
-borderRadius:18,
-}}
->
-
-<Text
-style={{
-fontSize:24,
-fontWeight:'bold',
-marginBottom:20,
-}}
->
-
-Novo Cliente
-
-</Text>
-
-<Text>Nome</Text>
-
-<TextInput
-value={nome}
-onChangeText={setNome}
-style={styles.input}
-/>
-
-<Text>UC</Text>
-
-<TextInput
-value={uc}
-onChangeText={(t)=>setUc(t.replace(/\D/g,''))}
-keyboardType="numeric"
-style={styles.input}
-/>
-
-<Text>Telefone</Text>
-
-<TextInput
-value={telefone}
-onChangeText={setTelefone}
-keyboardType="phone-pad"
-style={styles.input}
-/>
-
-<Text>CPF</Text>
-
-<TextInput
-value={cpf}
-onChangeText={setCpf}
-style={styles.input}
-/>
-
-<Text>Endereço</Text>
-
-<TextInput
-value={endereco}
-onChangeText={setEndereco}
-style={styles.input}
-/>
-<Text>Usina</Text>
-
-<Pressable
-  onPress={() =>
-    setMostrarUsinas(!mostrarUsinas)
-  }
-  style={styles.input}
->
-  <Text>
-    {
-      usinas.find(
-        u => u.id === usinaId
-      )?.nome ||
-      'Selecione uma usina'
-    }
-  </Text>
-</Pressable>
-
-{mostrarUsinas && (
-
-<View
-style={{
-borderWidth:1,
-borderColor:'#d1d5db',
-borderRadius:10,
-backgroundColor:'white',
-marginBottom:18,
-}}
->
-
-{usinas.map(usina=>(
-
-<TouchableOpacity
-key={usina.id}
-onPress={()=>{
-setUsinaId(usina.id);
-setMostrarUsinas(false);
-}}
-style={{
-padding:14,
-borderBottomWidth:1,
-borderBottomColor:'#f1f5f9',
-}}
->
-
-<Text>
-
-{usina.nome}
-
-</Text>
-
-</TouchableOpacity>
-
-))}
-
-</View>
-
-)}
-
-
-<TouchableOpacity
-onPress={salvar}
-style={{
-backgroundColor:'#16a34a',
-padding:15,
-borderRadius:10,
-marginTop:20,
-}}
->
-
-<Text
-style={{
-color:'white',
-fontWeight:'bold',
-textAlign:'center',
-}}
->
-
-SALVAR CLIENTE
-
-</Text>
-
-</TouchableOpacity>
-
-</View>
-
-</ScrollView>
-
-</SafeAreaView>
-
-</ImageBackground>
-
-);
-
+import * as DocumentPicker from "expo-document-picker";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
+import { Alert, StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
+import { Ionicons } from "@expo/vector-icons";
+
+import FormField from "../../components/cadastro/FormField";
+import EnderecoFields from "../../components/cadastro/EnderecoFields";
+import { cpfValido, formatarCpf, enderecoVazio, lerEndereco, erroEndereco, serializarEndereco } from "../../utils/cadastroCliente";
+import PdfPasswordRetryModal from "../../components/PdfPasswordRetryModal";
+import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
+import { IS_GERADOR_APP } from "../../config/appVariant";
+import { Colors, Spacing, Typography } from "../../theme";
+import { emailOpcionalValido, normalizarEmail } from "../../utils/email";
+import { anexarFaturaCliente, criarCliente } from "../../services/clientes.service";
+import { useAuth } from "../../contexts/AuthContext";
+import { calcularMediaConsumoFatura } from "../../services/faturas.service";
+import { juntarNomePessoa, nomePessoaValido, separarNomePessoa } from "../../utils/nomePessoa";
+
+function tipoGdDaFatura(dados: Record<string, any>) {
+  const informado = String(dados.tipoGd ?? dados.tipo_gd ?? "").toUpperCase();
+  if (["GD1", "GD2", "MISTA"].includes(informado)) return informado;
+  const gd1 = Number(dados.energiaCompensadaGD1 ?? dados.energia_compensada_gd1 ?? 0) > 0;
+  const gd2 = Number(dados.energiaCompensadaGD2 ?? dados.energia_compensada_gd2 ?? 0) > 0;
+  return gd1 && gd2 ? "MISTA" : gd2 ? "GD2" : gd1 ? "GD1" : "";
 }
 
-const styles={
+export default function NovoCliente() {
+  const { usinaSelecionada } = useAuth();
+  const { origem, cliente, nome: nomeImportado, cpf: cpfImportado, endereco: enderecoImportado, arquivoUri, arquivoNome } = useLocalSearchParams<{ origem?: string; cliente?: string; nome?: string; cpf?: string; endereco?: string; arquivoUri?: string; arquivoNome?: string }>();
+  const [nome, setNome] = useState("");
+  const [sobrenome, setSobrenome] = useState("");
+  const nomeCompleto = juntarNomePessoa(nome, sobrenome);
+  const [cpf, setCpf] = useState("");
+  const [email, setEmail] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [endereco, setEndereco] = useState({ ...enderecoVazio });
+  const [salvando, setSalvando] = useState(false);
+  const [pdf, setPdf] = useState<DocumentPicker.DocumentPickerAsset | null>(arquivoUri ? { uri: arquivoUri, name: arquivoNome || "fatura-cemig.pdf", mimeType: "application/pdf" } as DocumentPicker.DocumentPickerAsset : null);
+  const [clienteCriadoId, setClienteCriadoId] = useState("");
+  const [pedindoSenhaPdf, setPedindoSenhaPdf] = useState(false);
 
-input:{
+  useEffect(() => {
+    if (origem !== "fatura") return;
+    const nomeExtraido = (cliente ?? nomeImportado ?? "").trim();
+    const invalido = /d[eé]bito\s+autom[aá]tico|valor\s+a\s+pagar|vencimento/i.test(nomeExtraido);
+    const partes = separarNomePessoa(invalido ? "" : nomeExtraido);
+    setNome(partes.nome);
+    setSobrenome(partes.sobrenome);
+    setCpf(formatarCpf(String(cpfImportado ?? "")));
+    setEndereco(lerEndereco(enderecoImportado ?? ""));
+  }, [cliente, cpfImportado, enderecoImportado, nomeImportado, origem]);
 
-borderWidth:1,
+  async function salvar(senhaPdf = "") {
+    if (!pdf?.uri) return Alert.alert("Fatura obrigatória", "O gerador deve anexar a fatura CEMIG para cadastrar o cliente e criar a UC.");
+    if (!nomePessoaValido(nome, sobrenome)) return Alert.alert("Nome completo obrigatório", "Informe nome e sobrenome válidos do consumidor.");
+    if (!normalizarEmail(email) || !emailOpcionalValido(email)) return Alert.alert("E-mail obrigatório", "Informe um endereço de e-mail válido para enviar o convite depois.");
+    const cpfLimpo = cpf.replace(/\D/g, "");
+    if (!cpfValido(cpf)) return Alert.alert("CPF inválido", "Confira os 11 números e os dígitos verificadores do CPF.");
+    if (erroEndereco(endereco)) return Alert.alert("Endereço obrigatório", erroEndereco(endereco));
+    setSalvando(true);
 
-borderColor:'#d1d5db',
+    const dados = {
+      nome: nomeCompleto, cpf: cpfLimpo || null, email: normalizarEmail(email) || null,
+      telefone: telefone.trim() || null, whatsapp: telefone.replace(/\D/g, "") || null,
+      endereco: serializarEndereco(endereco), status: "INATIVO",
+    };
 
-backgroundColor:'#fff',
+    try {
+      const clienteId = clienteCriadoId || String((await criarCliente(dados)).id);
+      if (!clienteCriadoId) setClienteCriadoId(clienteId);
+      const faturaAnexada = await anexarFaturaCliente(String(clienteId), { uri: pdf.uri, name: pdf.name || "fatura-cemig.pdf", mimeType: pdf.mimeType || "application/pdf" }, senhaPdf);
+      const dadosFatura = faturaAnexada.dadosFatura ?? {};
+      const numeroUc = String(faturaAnexada.unidade?.numero ?? dadosFatura.uc ?? dadosFatura.numero_instalacao ?? "").replace(/\D/g, "");
+      const consumoMedio = calcularMediaConsumoFatura(dadosFatura);
+      setSalvando(false);
+      const unidadeExistente = faturaAnexada.unidade;
+      if (unidadeExistente?.ja_existia && unidadeExistente.usina_id && unidadeExistente.usina_id !== usinaSelecionada?.id) {
+        Alert.alert("UC já cadastrada", "Esta UC pertence ao mesmo cliente em outra usina. Para transferi-la, use a edição da UC; contrato e faturas acompanham a migração.", [
+          { text: "Abrir UC", onPress: () => router.replace({ pathname: "/unidades/[id]", params: { id: String(unidadeExistente.id) } }) },
+        ]);
+        return;
+      }
+      Alert.alert(
+        "Cliente e UC cadastrados",
+        "Agora configure a UC. Depois, o fluxo continua com contrato, proposta e convite.",
+        [{
+          text: "Configurar UC",
+          onPress: () => router.replace({
+            pathname: "/unidades/nova",
+            params: {
+              origem: "fatura",
+              origemFaturaPerfil: "1",
+              clienteId,
+              cliente: String(dadosFatura.titular ?? dadosFatura.cliente ?? nomeCompleto),
+              uc: numeroUc,
+              cpf: String(dadosFatura.cpfParcial ?? dadosFatura.cpf_parcial ?? cpfLimpo).replace(/\D/g, "").slice(0, 4),
+              endereco: String(dadosFatura.endereco ?? ""),
+              distribuidora: String(dadosFatura.distribuidora ?? "CEMIG"),
+              energiaCompensada: String(dadosFatura.energiaCompensada ?? dadosFatura.energia_compensada ?? 0),
+              consumoMedio: consumoMedio > 0 ? String(consumoMedio) : "",
+              tipoGd: tipoGdDaFatura(dadosFatura),
+              dadosFatura: JSON.stringify(dadosFatura),
+            },
+          }),
+        }],
+      );
+    } catch (erro: any) {
+      setSalvando(false);
+      if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED") {
+        setPedindoSenhaPdf(true);
+        return;
+      }
+      Alert.alert("Não foi possível cadastrar", erro?.response?.data?.message ?? "Confira os dados e a fatura e tente novamente.");
+    }
+  }
 
-padding:12,
+  async function escolherFatura() {
+    const resultado = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
+    if (!resultado.canceled) setPdf(resultado.assets[0]);
+  }
 
-borderRadius:10,
+  return <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Novo consumidor" subtitle="Cadastro da carteira" contextTitle="Novo consumidor" contextSubtitle={origem === "fatura" ? "Dados lidos da conta de energia" : "Cadastro manual"} icon="person-add-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
+    <Text style={styles.eyebrow}>{origem === "fatura" ? "DADOS LIDOS DA FATURA" : "CADASTRO MANUAL"}</Text>
+    <Text style={styles.title}>Novo consumidor</Text>
+    <Text style={styles.subtitle}>{origem === "fatura" ? "Confira os mesmos dados do cadastro manual. A fatura já selecionada será usada para criar a UC." : "Cadastre os dados do cliente e anexe obrigatoriamente a fatura que criará a primeira UC."}</Text>
+    <Card>
+      <FormField label="Nome" required value={nome} onChangeText={setNome} autoCapitalize="words" />
+      <FormField label="Sobrenome" required value={sobrenome} onChangeText={setSobrenome} autoCapitalize="words" />
+      <FormField label="CPF" required value={cpf} onChangeText={(valor) => setCpf(formatarCpf(valor))} keyboardType="number-pad" maxLength={14} />
+      <FormField label="E-mail" required value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
+      <FormField label="Telefone / WhatsApp (opcional)" value={telefone} onChangeText={setTelefone} keyboardType="phone-pad" />
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={pdf ? `Fatura selecionada: ${pdf.name}` : "Anexar fatura CEMIG, obrigatório"} activeOpacity={0.82} onPress={escolherFatura} style={[styles.pdfButton, pdf && styles.pdfButtonSelected]}>
+        <Ionicons name={pdf ? "document-text" : "document-attach-outline"} size={22} color={Colors.primary} />
+        <View style={styles.pdfCopy}><Text numberOfLines={1} style={styles.pdfTitle}>{pdf?.name ?? "Anexar fatura CEMIG"}<Text style={styles.required}> *</Text></Text><Text style={styles.pdfHint}>{origem === "fatura" ? "Fatura usada neste cadastro" : "Necessária para cadastrar a UC"}</Text></View>
+      </TouchableOpacity>
+      {pdf ? <TouchableOpacity accessibilityRole="button" onPress={() => { setPdf(null); setPedindoSenhaPdf(false); }} style={styles.removePdf}><Text style={styles.removePdfText}>Remover fatura</Text></TouchableOpacity> : null}
+    </Card>
+    <Card>
+      <Text style={styles.sectionTitle}>Endereço do cliente</Text>
+      <Text style={styles.sectionHint}>Informe o CEP para preencher rua, bairro, cidade e estado. Confira e complete o número.</Text>
+      <EnderecoFields value={endereco} onChange={setEndereco} />
+    </Card>
+    <Card>
+      <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar consumidor"} onPress={() => void salvar()} />
+    </Card>
+  </ScrollView><PdfPasswordRetryModal visible={pedindoSenhaPdf} busy={salvando} onCancel={() => setPedindoSenhaPdf(false)} onConfirm={(password) => { setPedindoSenhaPdf(false); void salvar(password); }} /></Screen>;
+}
 
-marginTop:5,
-
-marginBottom:18,
-
-},
-
-};
+const styles = StyleSheet.create({
+  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl, gap: Spacing.md }, eyebrow: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800", letterSpacing: 1.2 }, title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "800" }, subtitle: { marginTop: Spacing.sm, marginBottom: Spacing.lg, color: Colors.subtitle, lineHeight: 21 }, sectionTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "800", marginBottom: Spacing.xs }, sectionHint: { color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18, marginBottom: Spacing.md }, pdfButton: { minHeight: 68, flexDirection: "row", alignItems: "center", marginBottom: Spacing.xs, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, backgroundColor: Colors.surface }, pdfButtonSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight }, pdfCopy: { flex: 1, marginLeft: Spacing.sm }, pdfTitle: { color: Colors.text, fontWeight: "800" }, required: { color: Colors.danger, fontWeight: "800" }, pdfHint: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small }, removePdf: { alignSelf: "flex-start", marginBottom: Spacing.md, paddingVertical: Spacing.xs }, removePdfText: { color: Colors.danger, fontWeight: "700", textDecorationLine: "underline" },
+});

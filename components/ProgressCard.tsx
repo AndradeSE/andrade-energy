@@ -1,29 +1,60 @@
-import { Text, View } from 'react-native';
+import { Text, View } from "react-native";
 
 type Props = {
-  title: string;
-  value: number;
+  titulo: string;
+  percentual: number;
 };
 
-export default function ProgressCard({ title, value }: Props) {
+export default function ProgressCard({
+  titulo,
+  percentual,
+}: Props) {
   return (
     <View
-      className="bg-white rounded-2xl p-4 mb-3"
-      style={{ elevation: 2 }}
+      style={{
+        backgroundColor: "#FFF",
+        borderRadius: 18,
+        padding: 18,
+        marginTop: 18,
+      }}
     >
-      <Text className="text-gray-700 font-semibold mb-2">
-        {title}
+      <Text
+        style={{
+          fontSize: 16,
+          fontWeight: "700",
+          color: "#111827",
+          marginBottom: 14,
+        }}
+      >
+        {titulo}
       </Text>
 
-      <View className="h-3 bg-gray-200 rounded-full overflow-hidden">
+      <View
+        style={{
+          height: 12,
+          backgroundColor: "#E2E8F0",
+          borderRadius: 8,
+          overflow: "hidden",
+        }}
+      >
         <View
-          className="bg-green-500 h-3 rounded-full"
-          style={{ width: `${Math.min(value, 100)}%` }}
+          style={{
+            width: `${Math.min(percentual, 100)}%`,
+            height: "100%",
+            backgroundColor: "#16A34A",
+          }}
         />
       </View>
 
-      <Text className="mt-2 text-right font-bold">
-        {value.toFixed(1)}%
+      <Text
+        style={{
+          marginTop: 10,
+          color: "#16A34A",
+          fontWeight: "700",
+          fontSize: 16,
+        }}
+      >
+        {percentual.toFixed(1)}%
       </Text>
     </View>
   );

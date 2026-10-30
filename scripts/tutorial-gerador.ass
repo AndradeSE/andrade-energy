@@ -1,0 +1,55 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 720
+PlayResY: 1280
+WrapStyle: 2
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Step,Arial,22,&H0034D7F4,&H0034D7F4,&H000B352A,&H000B352A,-1,0,0,0,100,100,2,0,1,0,0,8,40,40,0,1
+Style: Title,Arial,48,&H00FFFFFF,&H00FFFFFF,&H000B352A,&H000B352A,-1,0,0,0,100,100,0,0,1,2,0,8,54,54,0,1
+Style: Body,Arial,31,&H00FFFFFF,&H00FFFFFF,&H000B352A,&HCC123F32,0,0,0,0,100,100,0,0,3,2,0,8,66,66,0,1
+Style: Hint,Arial,23,&H00DDEBE5,&H00DDEBE5,&H000B352A,&H000B352A,0,0,0,0,100,100,0,0,1,1,0,2,55,55,80,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:06.00,Step,,0,0,330,,TUTORIAL DO APP GERADOR
+Dialogue: 0,0:00:00.00,0:00:06.00,Title,,0,0,390,,Do cadastro ao faturamento
+Dialogue: 0,0:00:00.00,0:00:06.00,Body,,0,0,520,,Veja o fluxo completo para operar\nusinas, clientes e cobranças.
+Dialogue: 0,0:00:00.00,0:00:06.00,Hint,,0,0,0,,Duração: aproximadamente 1 minuto
+Dialogue: 0,0:00:06.00,0:00:14.00,Step,,0,0,320,,PASSO 1 DE 9
+Dialogue: 0,0:00:06.00,0:00:14.00,Title,,0,0,380,,Entre e escolha o ambiente
+Dialogue: 0,0:00:06.00,0:00:14.00,Body,,0,0,505,,Após o login, escolha:\N• Gestão de Usinas para a operação\N• Gestão Comercial para assinaturas
+Dialogue: 0,0:00:06.00,0:00:14.00,Hint,,0,0,0,,Use “Alternar ambiente” para trocar depois.
+Dialogue: 0,0:00:14.00,0:00:22.00,Step,,0,0,320,,PASSO 2 DE 9
+Dialogue: 0,0:00:14.00,0:00:22.00,Title,,0,0,380,,Cadastre a usina
+Dialogue: 0,0:00:14.00,0:00:22.00,Body,,0,0,505,,Abra Usinas → Adicionar nova usina.\NEscolha cadastro manual ou via conta\Nde energia em PDF.
+Dialogue: 0,0:00:14.00,0:00:22.00,Hint,,0,0,0,,Confira UC, titular e geração antes de salvar.
+Dialogue: 0,0:00:22.00,0:00:30.00,Step,,0,0,320,,PASSO 3 DE 9
+Dialogue: 0,0:00:22.00,0:00:30.00,Title,,0,0,380,,Importe a produção
+Dialogue: 0,0:00:22.00,0:00:30.00,Body,,0,0,505,,Dentro da usina, importe a fatura da UC.\NO sistema calcula a produção pelas\Nleituras e pelo fator de multiplicação.
+Dialogue: 0,0:00:22.00,0:00:30.00,Hint,,0,0,0,,Também é possível receber a conta por e-mail.
+Dialogue: 0,0:00:30.00,0:00:38.00,Step,,0,0,320,,PASSO 4 DE 9
+Dialogue: 0,0:00:30.00,0:00:38.00,Title,,0,0,380,,Cadastre cliente e UC
+Dialogue: 0,0:00:30.00,0:00:38.00,Body,,0,0,505,,Abra Clientes → Adicionar consumidor.\NDepois inclua a unidade manualmente\Nou importe a conta da concessionária.
+Dialogue: 0,0:00:30.00,0:00:38.00,Hint,,0,0,0,,O CPF é obrigatório para vincular o consumidor.
+Dialogue: 0,0:00:38.00,0:00:46.00,Step,,0,0,320,,PASSO 5 DE 9
+Dialogue: 0,0:00:38.00,0:00:46.00,Title,,0,0,380,,Aloque a unidade
+Dialogue: 0,0:00:38.00,0:00:46.00,Body,,0,0,505,,Abra a UC → Editar e alocar.\NSelecione a usina e confira o percentual\Ncalculado pelo consumo médio.
+Dialogue: 0,0:00:38.00,0:00:46.00,Hint,,0,0,0,,Compensação sugere 15% acima da média.
+Dialogue: 0,0:00:46.00,0:00:54.00,Step,,0,0,320,,PASSO 6 DE 9
+Dialogue: 0,0:00:46.00,0:00:54.00,Title,,0,0,380,,Configure o contrato
+Dialogue: 0,0:00:46.00,0:00:54.00,Body,,0,0,505,,Na UC, abra Contrato da UC.\NRevise datas, desconto, modalidade GD\Ne regras de repasse da fatura unificada.
+Dialogue: 0,0:00:46.00,0:00:54.00,Hint,,0,0,0,,Cada UC pode ter seu próprio contrato.
+Dialogue: 0,0:00:54.00,0:01:02.00,Step,,0,0,320,,PASSO 7 DE 9
+Dialogue: 0,0:00:54.00,0:01:02.00,Title,,0,0,380,,Faça o faturamento
+Dialogue: 0,0:00:54.00,0:01:02.00,Body,,0,0,505,,Use Faturar via conta de energia.\NRevise GD1/GD2, energia compensada,\Nsaldo, desconto e total unificado.
+Dialogue: 0,0:00:54.00,0:01:02.00,Hint,,0,0,0,,Confirme a fatura somente após revisar os valores.
+Dialogue: 0,0:01:02.00,0:01:10.00,Step,,0,0,320,,PASSO 8 DE 9
+Dialogue: 0,0:01:02.00,0:01:10.00,Title,,0,0,380,,Gere cobrança e documentos
+Dialogue: 0,0:01:02.00,0:01:10.00,Body,,0,0,505,,Abra a fatura e gere boleto e PIX.\NO PDF Andrade Energy é atualizado\Ne liberado automaticamente ao cliente.
+Dialogue: 0,0:01:02.00,0:01:10.00,Hint,,0,0,0,,Faturas abertas, pagas e vencidas ficam no menu Faturas.
+Dialogue: 0,0:01:10.00,0:01:18.00,Step,,0,0,320,,PASSO 9 DE 9
+Dialogue: 0,0:01:10.00,0:01:18.00,Title,,0,0,380,,Acompanhe a operação
+Dialogue: 0,0:01:10.00,0:01:18.00,Body,,0,0,505,,Use notificações, pesquisa e indicadores.\NNa Gestão Comercial, acompanhe planos,\Nassinaturas, pagamentos e geradores.
+Dialogue: 0,0:01:10.00,0:01:18.00,Hint,,0,0,0,,Andrade Energy • Gestão completa de energia

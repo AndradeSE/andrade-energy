@@ -1,0 +1,511 @@
+
+
+import { Ionicons } from "@expo/vector-icons";
+import { abrirSiteApp } from "../../utils/siteApp";
+import { LinearGradient } from "expo-linear-gradient";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { Alert, Image, LayoutAnimation, Modal, ScrollView, StatusBar, StyleSheet, Text, View } from "react-native";
+import { Switch } from "../assistant/AssistantNativeControls";
+import { Pressable, TouchableOpacity } from "../assistant/AssistantNativeControls";
+import { useCallback, useEffect, useState } from "react";
+import { useReadNotifications } from "../../hooks/useReadNotifications";
+import { useDismissedNotifications } from "../../hooks/useDismissedNotifications";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { useAuth } from "../../contexts/AuthContext";
+import { listarFaturas } from "../../services/faturas.service";
+import { buscarDashboardUsina, consultarAlocacao } from "../../services/usinas.service";
+import { IS_GERADOR_APP } from "../../config/appVariant";
+import { isAssistantEnabled, isPreviewEnvironment } from "../../config/environment";
+import { Colors, Radius, Spacing, Typography } from "../../theme";
+import PortalBrandLogo from "../brand/PortalBrandLogo";
+import { useEmpresa } from "../../contexts/EmpresaContext";
+import { notificarAvisosNoAndroid } from "../../services/carteira-notificacoes.service";
+import { useHeaderDetailsVisibility } from "../../hooks/useHeaderDetailsVisibility";
+import { useProfilePhoto } from "../../hooks/useProfilePhoto";
+import { listarNotificacoesApp } from "../../services/notificacoes.service";
+import { avisosPassoAPassoAtivos, definirAvisosPassoAPasso } from "../../services/preferencias.service";
+import NotificationSideSheet from "./NotificationSideSheet";
+import NotificationInbox from "./NotificationInbox";
+import { textoLegivel } from "../../utils/textoLegado";
+import { useNavigationEnvironment } from "../../hooks/useNavigationEnvironment";
+import { canViewServiceQuotas } from "../../utils/service-quota-access";
+
+function escurecerCor(hex: string, fator = 0.62) {
+  const limpa = hex.replace("#", "");
+  if (!/^[0-9a-f]{6}$/i.test(limpa)) return "#082F26";
+  const canais = [0, 2, 4].map((inicio) => Math.round(parseInt(limpa.slice(inicio, inicio + 2), 16) * fator));
+  return `#${canais.map((canal) => canal.toString(16).padStart(2, "0")).join("")}`;
+}
+
+type Props = {
+  title: string;
+  subtitle: string;
+  contextTitle: string;
+  contextSubtitle: string;
+  contextBadge?: string;
+  contextBadgeTone?: "success" | "danger" | "neutral";
+  icon?: keyof typeof Ionicons.glyphMap;
+  variant?: "main" | "subpage";
+  showPlantContext?: boolean;
+  showPlantSwitch?: boolean;
+  environmentName?: string;
+  onSearch?: () => void;
+  collapsePlantContextOnMount?: boolean;
+};
+
+export default function AppHeader({
+  title,
+  subtitle,
+  contextTitle,
+  contextSubtitle,
+  contextBadge,
+  contextBadgeTone = "neutral",
+  icon = "grid-outline",
+  variant = "main",
+  showPlantContext = true,
+  showPlantSwitch = true,
+  environmentName = "Gestão de usinas",
+  onSearch,
+  collapsePlantContextOnMount = false,
+}: Props) {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { logout, usuario, usinaSelecionada } = useAuth();
+  const navigationEnvironment = useNavigationEnvironment();
+  const { empresa } = useEmpresa();
+  const corPrincipal = empresa.cor_primaria || Colors.primary;
+  const corEscura = escurecerCor(corPrincipal);
+  const [menuAberto, setMenuAberto] = useState(false);
+  const [avisosPassoAPasso, setAvisosPassoAPasso] = useState(true);
+  const [fotoAberta, setFotoAberta] = useState(false);
+  const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
+  const { solarNotificacoes } = useLocalSearchParams<{ solarNotificacoes?: string }>();
+  useFocusEffect(useCallback(() => {
+    if (solarNotificacoes !== "1" || !usuario?.id) return;
+    setNotificacoesAbertas(true);
+    router.setParams({ solarNotificacoes: undefined });
+  }, [solarNotificacoes, usuario?.id, router]));
+  const [avisosRecebidos, setNotificacoes] = useState<any[]>([]);
+  const usuarioId = usuario?.id ? String(usuario.id) : undefined;
+  const fotoPerfil = useProfilePhoto(usuarioId);
+  const leituras = useReadNotifications(usuarioId);
+  const dispensadas = useDismissedNotifications(usuarioId);
+  const notificacoes = avisosRecebidos.filter((aviso) => !dispensadas.ids.includes(String(aviso.id))).map((aviso) => ({
+    ...aviso,
+    lida: leituras.ready && leituras.ids.includes(String(aviso.id)),
+  }));
+  const notificacoesNaoLidas = notificacoes.filter((aviso) => !aviso.lida);
+  const [autonomia, setAutonomia] = useState<{ percentual: number; disponivel: number } | null>(null);
+  const { isExpanded: contextoUsinaExpandido, setExpanded: setContextoUsinaExpandido } = useHeaderDetailsVisibility();
+  const papelEmpresa = String(usuario?.papel_empresa ?? "");
+  const colaborador = papelEmpresa.startsWith("COLABORADOR_");
+  const proprietario = IS_GERADOR_APP && !colaborador;
+  const podeAlternarPerfil = IS_GERADOR_APP && (colaborador ? usuario?.permissoes?.ambientes_gerador === true : usuario?.perfil === "ADMIN");
+  const ambienteComercial = environmentName === "Gestão comercial" || navigationEnvironment === "comercial" || (papelEmpresa === "COLABORADOR_COMERCIAL" && usuario?.permissoes?.ambientes_gerador !== true);
+
+  useEffect(() => {
+    if (collapsePlantContextOnMount) setContextoUsinaExpandido(false);
+  }, [collapsePlantContextOnMount, setContextoUsinaExpandido]);
+
+  useEffect(() => { void avisosPassoAPassoAtivos().then(setAvisosPassoAPasso); }, []);
+
+  function alternarContextoUsina() {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setContextoUsinaExpandido(!contextoUsinaExpandido);
+  }
+
+  useEffect(() => {
+    let ativo = true;
+    setNotificacoes([]);
+    if (!usuarioId) return;
+    Promise.all([ambienteComercial ? Promise.resolve([]) : listarFaturas(), listarNotificacoesApp().catch(() => [])]).then(([faturas, notificacoesApp]) => {
+      if (!ativo) return;
+      const hoje = new Date();
+      const avisos = (faturas ?? []).flatMap((fatura: any) => {
+        const status = String(fatura.cobrancas?.[0]?.status ?? fatura.status ?? "").toUpperCase();
+        if (["RASCUNHO", "CADASTRO", "ANEXADA"].includes(status)) return [];
+        if (["PAGA", "PAGO", "QUITADA"].includes(status)) return [];
+        const vencimento = fatura.vencimento ? new Date(`${fatura.vencimento}T23:59:59`) : null;
+        if (!vencimento) return [];
+        const dias = Math.ceil((vencimento.getTime() - hoje.getTime()) / 86400000);
+        // O ID é sempre o da fatura, tanto no cabeçalho do gestor quanto no
+        // do consumidor. Assim a mesma leitura não reaparece em outra tela.
+        if (dias < 0) return [{ id: String(fatura.id), severidade: "alta", titulo: "Fatura vencida", detalhe: `${fatura.clientes?.nome ?? "Cliente"} · ${fatura.referencia ?? "Competência não informada"}`, rota: proprietario ? "/faturas" : `/faturas/${fatura.id}` }];
+        if (dias <= 5) return [{ id: String(fatura.id), severidade: "media", titulo: "Fatura próxima do vencimento", detalhe: `${fatura.clientes?.nome ?? "Cliente"} · vence em ${dias} dia${dias === 1 ? "" : "s"}`, rota: `/faturas/${fatura.id}` }];
+        return [];
+      }).sort((a: any, b: any) => (a.severidade === "alta" ? -1 : 1) - (b.severidade === "alta" ? -1 : 1));
+      const avisosPersistidos = notificacoesApp
+        .filter((item) => {
+          const rota = String(item.rota ?? "");
+          const notificacaoComercial = rota.startsWith("/admin/comercial") || rota.startsWith("/geradores/") || rota.startsWith("/assinatura");
+          return ambienteComercial === notificacaoComercial;
+        })
+        .map((item) => ({ id: `app-${item.id}`, severidade: "media", titulo: item.titulo, detalhe: item.detalhe ?? "", rota: item.rota ?? "/" }));
+      setNotificacoes([...avisosPersistidos, ...avisos]);
+      void notificarAvisosNoAndroid(usuarioId, avisos.map((aviso: any) => ({
+        id: aviso.id,
+        titulo: aviso.titulo,
+        detalhe: aviso.detalhe,
+        rota: aviso.rota,
+        urgente: aviso.severidade === "alta",
+      })));
+    }).catch(() => { if (ativo) setNotificacoes([]); });
+    return () => { ativo = false; };
+  }, [usuarioId, proprietario, ambienteComercial, usinaSelecionada?.id]);
+
+  async function marcarNotificacaoComoLida(id: string) {
+    try { await leituras.mark(id); }
+    catch { Alert.alert("Leitura não salva", "Não foi possível salvar a leitura desta notificação. Tente novamente."); }
+  }
+
+  function confirmarLimpeza() {
+    Alert.alert("Limpar notificações", "Ocultar as notificações desta lista neste aparelho? Novos avisos continuarão chegando.", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Limpar lista", style: "destructive", onPress: () => void dispensadas.dismissAll(notificacoes.map((aviso) => String(aviso.id))).catch(() => Alert.alert("Não foi possível limpar", "Tente novamente.")) },
+    ]);
+  }
+
+  useFocusEffect(useCallback(() => {
+    if (!proprietario || !usinaSelecionada?.id) { setAutonomia(null); return; }
+    let ativo = true;
+    Promise.all([buscarDashboardUsina(usinaSelecionada.id), consultarAlocacao(usinaSelecionada.id)]).then(([dados, capacidade]) => {
+      if (!ativo) return;
+      const disponivel = Number(dados?.energiaDisponivel ?? 0);
+      setAutonomia({ percentual: Math.max(0, Math.min(100, Number(capacidade.disponivel))), disponivel });
+    }).catch(() => { if (ativo) setAutonomia(null); });
+    return () => { ativo = false; };
+  }, [proprietario, usinaSelecionada?.id]));
+
+  function navegar(rota: string) {
+    setMenuAberto(false);
+    router.push(rota as any);
+  }
+
+  function confirmarSaida() {
+    Alert.alert("Sair", "Deseja realmente sair da sua conta?", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Sair", style: "destructive", onPress: logout },
+    ]);
+  }
+
+  if (variant === "subpage") {
+    return (
+      <LinearGradient colors={[corEscura, corPrincipal]} end={{ x: 1, y: 0.8 }} start={{ x: 0, y: 0 }} style={[styles.subpageHeader, { marginTop: -insets.top, paddingTop: insets.top + 8 }]}>
+        <StatusBar backgroundColor={corEscura} barStyle="light-content" />
+        <TouchableOpacity accessibilityLabel="Voltar" activeOpacity={0.75} onPress={() => router.back()} style={styles.subpageBack}>
+          <Ionicons name="chevron-back" size={24} color="#FFF" />
+        </TouchableOpacity>
+        <View style={[styles.subpageIcon, { backgroundColor: "rgba(255,255,255,.14)" }]}>
+          <Ionicons name={icon} size={20} color={empresa.cor_secundaria || "#F7D75C"} />
+        </View>
+        <View style={styles.subpageCopy}>
+          <Text numberOfLines={1} style={styles.subpageTitle}>{title}</Text>
+          <Text numberOfLines={1} style={styles.subpageSubtitle}>{subtitle}</Text>
+        </View>
+      </LinearGradient>
+    );
+  }
+
+  return (
+    <LinearGradient colors={[corEscura, corPrincipal, corPrincipal]} end={{ x: 1, y: 0.85 }} start={{ x: 0, y: 0 }} style={[styles.container, proprietario && styles.ownerContainer, { marginTop: -insets.top, paddingTop: insets.top + Spacing.md }]}>
+      <StatusBar backgroundColor={corEscura} barStyle="light-content" />
+      <View style={styles.top}>
+        <TouchableOpacity
+          accessibilityLabel="Abrir menu"
+          activeOpacity={0.8}
+          onPress={() => setMenuAberto(true)}
+          style={[styles.action, proprietario && styles.ownerMenuAction]}
+        >
+          <Ionicons name="menu-outline" size={30} color={Colors.surface} />
+        </TouchableOpacity>
+
+        <View style={styles.profileButton}>
+          <TouchableOpacity accessibilityLabel={fotoPerfil ? "Ampliar foto do perfil" : "Abrir perfil"} activeOpacity={0.8} onPress={() => fotoPerfil ? setFotoAberta(true) : router.push("/perfil")}>
+            <View style={[styles.avatar, { backgroundColor: corPrincipal }]}>{fotoPerfil ? <Image source={{ uri: fotoPerfil }} style={styles.profilePhoto} /> : <Ionicons name={icon} size={21} color={Colors.surface} />}</View>
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityLabel="Abrir perfil" activeOpacity={0.8} onPress={() => router.push("/perfil")} style={styles.titleContent}>
+            <Text numberOfLines={1} style={styles.sectionLabel}>{title} · {subtitle}</Text>
+            <View style={styles.contextTitleRow}>
+              <Text numberOfLines={1} style={styles.title}>{textoLegivel(contextTitle)}</Text>
+              {contextBadge ? <View style={[styles.contextBadge, contextBadgeTone === "success" && styles.contextBadgeSuccess, contextBadgeTone === "danger" && styles.contextBadgeDanger]}>
+                <Text numberOfLines={1} style={[styles.contextBadgeText, contextBadgeTone === "success" && styles.contextBadgeTextSuccess, contextBadgeTone === "danger" && styles.contextBadgeTextDanger]}>{contextBadge}</Text>
+              </View> : null}
+            </View>
+            <Text numberOfLines={1} style={styles.subtitle}>{contextSubtitle}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {onSearch ? <TouchableOpacity accessibilityLabel="Pesquisar" hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }} activeOpacity={0.8} onPress={onSearch} style={[styles.action, !proprietario && styles.consumerSearchAction]}>
+          <Ionicons name="search-outline" size={24} color={Colors.surface} />
+        </TouchableOpacity> : null}
+        <TouchableOpacity accessibilityLabel={notificacoesNaoLidas.length ? `${notificacoesNaoLidas.length} notificações não lidas` : "Notificações"} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} activeOpacity={0.8} onPress={() => setNotificacoesAbertas(true)} style={styles.action}>
+          <Ionicons name={notificacoesNaoLidas.length ? "notifications" : "notifications-outline"} size={24} color={Colors.surface} />
+          {notificacoesNaoLidas.length ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{notificacoesNaoLidas.length > 9 ? "9+" : notificacoesNaoLidas.length}</Text></View> : null}
+        </TouchableOpacity>
+      </View>
+
+      {proprietario ? <View style={styles.contextSwitches}>
+        {podeAlternarPerfil ? <TouchableOpacity accessibilityLabel="Trocar ambiente de gestão" activeOpacity={0.82} onPress={() => router.replace("/admin/escolher-area" as any)} style={[styles.environmentSwitch, styles.contextSwitchButton]}>
+          <Ionicons name={environmentName === "Gestão comercial" ? "briefcase-outline" : "layers-outline"} size={17} color="#FFFFFF" />
+          <Text numberOfLines={1} style={styles.contextSwitchText}>Trocar ambiente</Text>
+        </TouchableOpacity> : null}
+        {showPlantSwitch && IS_GERADOR_APP && usinaSelecionada && !ambienteComercial ? <TouchableOpacity accessibilityLabel="Trocar de usina" activeOpacity={0.82} onPress={() => router.push("/selecionar-unidade" as any)} style={[styles.environmentSwitch, styles.contextSwitchButton]}>
+          <Ionicons name="grid-outline" size={17} color="#FFFFFF" />
+          <Text numberOfLines={1} style={styles.contextSwitchText}>Trocar usina</Text>
+        </TouchableOpacity> : null}
+      </View> : null}
+
+      <NotificationSideSheet visible={notificacoesAbertas} onClose={() => setNotificacoesAbertas(false)}>
+        <NotificationInbox onClear={confirmarLimpeza} items={notificacoes} readIds={leituras.ids} ready={leituras.ready} onMark={leituras.markMany} onClose={() => setNotificacoesAbertas(false)} onOpen={(aviso) => {
+          if (!leituras.ids.includes(String(aviso.id))) void marcarNotificacaoComoLida(String(aviso.id));
+          setNotificacoesAbertas(false);
+          if (aviso.rota) router.push(aviso.rota as any);
+        }} />
+      </NotificationSideSheet>
+
+      <Modal animationType="fade" transparent visible={fotoAberta && Boolean(fotoPerfil)} onRequestClose={() => setFotoAberta(false)}>
+        <Pressable accessibilityLabel="Fechar foto ampliada" onPress={() => setFotoAberta(false)} style={styles.photoBackdrop}>
+          <View style={styles.photoPreviewCard}>
+            <Image resizeMode="contain" source={{ uri: fotoPerfil }} style={styles.photoPreview} />
+            <View style={styles.photoClose}><Ionicons name="close" size={24} color="#FFFFFF" /></View>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {showPlantContext && proprietario && usinaSelecionada ? contextoUsinaExpandido ? <View style={styles.plantBar}>
+        <View style={styles.plantLogo}>
+          {empresa.identidade_personalizada && empresa.logo_url
+            ? <Image resizeMode="contain" source={{ uri: empresa.logo_url }} style={styles.companyLogo} />
+            : <PortalBrandLogo height={30} width={90} />}
+        </View>
+        <View style={styles.plantText}>
+          <View style={styles.plantTitleRow}>
+            <Text numberOfLines={1} style={styles.plantName}>{usinaSelecionada.nome}</Text>
+          </View>
+          <Text numberOfLines={1} style={styles.plantAutonomy}>{autonomia ? `Capacidade livre ${autonomia.percentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% · ${autonomia.disponivel.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kWh não distribuídos` : "Consultando capacidade..."}</Text>
+        </View>
+        <TouchableOpacity accessibilityLabel="Ocultar detalhes da usina" onPress={alternarContextoUsina} style={styles.plantToggle}><Text style={styles.plantToggleText}>Ocultar</Text><Ionicons name="chevron-up" size={15} color="#F6CC32" /></TouchableOpacity>
+      </View> : <TouchableOpacity accessibilityLabel="Abrir detalhes da usina" activeOpacity={0.8} onPress={alternarContextoUsina} style={styles.plantDetailsToggle}><Text style={styles.plantToggleText}>Detalhes</Text><Ionicons name="chevron-down" size={15} color="#F6CC32" /></TouchableOpacity> : null}
+
+      <Modal animationType="slide" transparent visible={menuAberto} onRequestClose={() => setMenuAberto(false)}>
+        <Pressable style={[styles.backdrop, proprietario && styles.ownerMenuBackdrop]} onPress={() => setMenuAberto(false)}>
+          <Pressable style={styles.menu} onPress={(evento) => evento.stopPropagation()}>
+            <View style={styles.menuHeader}><Text style={styles.menuTitle}>Menu</Text><TouchableOpacity onPress={() => setMenuAberto(false)}><Ionicons name="close" size={26} color={Colors.text} /></TouchableOpacity></View>
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.menuScroll} contentContainerStyle={[styles.menuScrollContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <MenuLink icon="home-outline" label="Início" onPress={() => navegar(ambienteComercial ? "/admin/comercial" : "/")} />
+            {IS_GERADOR_APP && papelEmpresa === "COLABORADOR_COMERCIAL" && ambienteComercial ? <>{usuario?.permissoes?.geradores !== false ? <MenuLink icon="people-outline" label="Geradores" onPress={() => navegar("/geradores/gestao?aba=GERADORES")} /> : null}<MenuLink icon="construct-outline" label="Ferramentas comerciais" onPress={() => navegar("/geradores/recursos-equipe")} />{usuario?.permissoes?.monitoramento !== false ? <MenuLink icon="pulse-outline" label="Monitoramento" onPress={() => navegar("/geradores/monitoramento")} /> : null}<MenuLink icon="time-outline" label="Atividade da equipe" onPress={() => navegar("/colaboradores/atividade?ambiente=comercial")} /></> : IS_GERADOR_APP && colaborador ? <>
+              {(papelEmpresa === "COLABORADOR_COMERCIAL" ? usuario?.permissoes?.gerador_clientes === true : usuario?.permissoes?.clientes !== false) ? <MenuLink icon="people-outline" label="Clientes" onPress={() => navegar("/clientes")} /> : null}
+              {usuario?.permissoes?.unidades !== false ? <MenuLink icon="flash-outline" label="Unidades consumidoras" onPress={() => navegar("/unidades")} /> : null}
+              {(papelEmpresa === "COLABORADOR_COMERCIAL" ? usuario?.permissoes?.gerador_contratos === true : usuario?.permissoes?.contratos !== false) ? <MenuLink icon="document-text-outline" label="Contratos" onPress={() => navegar("/contratos")} /> : null}
+              {papelEmpresa === "COLABORADOR_COMERCIAL" ? <MenuLink icon="people-outline" label="Geradores" onPress={() => navegar("/geradores/gestao?aba=GERADORES")} /> : null}
+              <MenuLink icon="time-outline" label="Atividade da equipe" onPress={() => navegar("/colaboradores/atividade")} />
+            </> : proprietario ? ambienteComercial ? <>
+              <MenuLink icon="people-outline" label="Geradores" onPress={() => navegar("/geradores/gestao?aba=GERADORES")} />
+              <MenuLink icon="card-outline" label="Assinaturas" onPress={() => navegar("/geradores/gestao?aba=ASSINATURAS")} />
+              <MenuLink icon="cash-outline" label="Pagamentos" onPress={() => navegar("/geradores/gestao?aba=PAGAMENTOS")} />
+              <MenuLink icon="business-outline" label="Empresas parceiras" onPress={() => navegar("/admin/empresas")} />
+              <MenuLink icon="people-circle-outline" label="Colaboradores" onPress={() => navegar("/colaboradores?ambiente=comercial")} />
+              <MenuLink icon="time-outline" label="Atividade da equipe" onPress={() => navegar("/colaboradores/atividade?ambiente=comercial")} />
+            </> : <><MenuLink icon="card-outline" label="Meu plano" onPress={() => navegar("/assinatura")} /><MenuLink icon="people-outline" label="Clientes" onPress={() => navegar("/clientes")} /><MenuLink icon="flash-outline" label="Unidades consumidoras" onPress={() => navegar("/unidades")} /><MenuLink icon="document-text-outline" label="Contratos dos clientes" onPress={() => navegar("/contratos")} /><MenuLink icon="receipt-outline" label="Faturamento" onPress={() => navegar("/(tabs)/faturamento")} /><MenuLink icon="wallet-outline" label="Financeiro" onPress={() => navegar("/financeiro")} /><MenuLink icon="people-circle-outline" label="Colaboradores" onPress={() => navegar("/colaboradores?ambiente=gerador")} /><MenuLink icon="time-outline" label="Atividade da equipe" onPress={() => navegar("/colaboradores/atividade?ambiente=gerador")} />{usuario?.perfil === "ADMIN" ? <MenuLink icon="layers-outline" label="Empresas parceiras" onPress={() => navegar("/admin/empresas")} /> : null}</> : <><MenuLink icon="receipt-outline" label="Minhas faturas" onPress={() => navegar("/faturas")} /><MenuLink icon="document-text-outline" label="Meu contrato" onPress={() => navegar("/contrato")} /></>}
+            <MenuLink icon="person-outline" label="Perfil" onPress={() => navegar("/perfil")} />
+            {IS_GERADOR_APP && canViewServiceQuotas(usuario) ? <MenuLink icon="speedometer-outline" label="Cotas de serviços" onPress={() => navegar("/cotas-servicos")} /> : null}
+            {isAssistantEnabled ? <><MenuLink icon="chatbubble-ellipses-outline" label="Abrir assistente Solar" onPress={() => navegar("/assistente")} /><MenuLink icon="settings-outline" label="Configurações da Solar" onPress={() => navegar("/configuracoes-assistente")} /></> : null}
+            <MenuLink icon="globe-outline" label="Site Andrade Energy" onPress={() => { setMenuAberto(false); void abrirSiteApp(); }} />
+            <MenuLink icon="information-circle-outline" label="Sobre o app" onPress={() => navegar("/sobre")} />
+            <View style={styles.menuPreference}><Ionicons name="navigate-circle-outline" size={22} color={Colors.primary} /><View style={styles.menuPreferenceCopy}><Text style={styles.menuPreferenceTitle}>Avisos passo a passo</Text><Text style={styles.menuPreferenceHint}>{avisosPassoAPasso ? "Ativados" : "Desativados"}</Text></View><Switch accessibilityLabel="Ativar avisos passo a passo" value={avisosPassoAPasso} onValueChange={(valor) => { setAvisosPassoAPasso(valor); void definirAvisosPassoAPasso(valor); }} trackColor={{ false: Colors.border, true: Colors.primary }} /></View>
+            <View style={styles.menuDivider} /><MenuLink icon="log-out-outline" label="Sair da conta" danger onPress={confirmarSaida} />
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </LinearGradient>
+  );
+}
+
+function MenuLink({ icon, label, onPress, danger = false }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void; danger?: boolean }) {
+  return <TouchableOpacity onPress={onPress} style={styles.menuLink}><Ionicons name={icon} size={22} color={danger ? Colors.danger : Colors.primary} /><Text style={[styles.menuLabel, danger && styles.menuDanger]}>{label}</Text><Ionicons name="chevron-forward" size={18} color={Colors.subtitle} /></TouchableOpacity>;
+}
+
+const styles = StyleSheet.create({
+  subpageHeader: {
+    minHeight: 68,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingBottom: 8,
+  },
+  subpageBack: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.xs,
+    borderRadius: Radius.round,
+    backgroundColor: "rgba(255,255,255,.12)",
+  },
+  subpageIcon: {
+    width: 38,
+    height: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.sm,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.primaryLight,
+  },
+  subpageCopy: { flex: 1, minWidth: 0 },
+  subpageTitle: { color: "#FFF", fontSize: Typography.body, fontWeight: "800" },
+  subpageSubtitle: { marginTop: 2, color: "rgba(255,255,255,.78)", fontSize: Typography.small },
+  container: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
+  },
+  ownerContainer: {
+    paddingLeft: Spacing.sm,
+    paddingRight: Spacing.md,
+  },
+
+  top: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  environmentSwitch: {
+    minHeight: 38,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.24)",
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  environmentCurrent: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
+  environmentLabel: { color: "#D8F0E3", fontSize: 11, fontWeight: "700" },
+  environmentAction: { marginRight: 3, color: "#F6CC32", fontSize: 10, fontWeight: "900" },
+
+  profileButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.round,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: Colors.primary,
+    overflow: "hidden",
+  },
+  profilePhoto: { width: "100%", height: "100%" },
+
+  titleContent: {
+    flex: 1,
+    marginLeft: Spacing.sm,
+  },
+
+  sectionLabel: {
+    color: "rgba(255,255,255,0.76)",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+
+  contextTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    minWidth: 0,
+  },
+
+  title: {
+    flexShrink: 1,
+    color: Colors.surface,
+    fontSize: Typography.body,
+    fontWeight: "700",
+  },
+
+  subtitle: {
+    marginTop: 1,
+    color: "rgba(255,255,255,0.82)",
+    fontSize: Typography.small,
+  },
+
+  action: {
+    width: 42,
+    height: 42,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  ownerMenuAction: {
+    width: 36,
+    marginLeft: -4,
+    marginRight: 2,
+  },
+  consumerSearchAction: {
+    marginRight: 14,
+  },
+  notificationBadge: { position: "absolute", top: 2, right: 0, minWidth: 17, height: 17, alignItems: "center", justifyContent: "center", paddingHorizontal: 3, borderRadius: Radius.round, backgroundColor: "#DC2626" },
+  notificationBadgeText: { color: Colors.surface, fontSize: 10, fontWeight: "800" },
+  plantBar: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", marginTop: Spacing.md, padding: Spacing.xs, borderRadius: Radius.md, backgroundColor: "rgba(255,255,255,0.12)" },
+  plantLogo: { width: 94, height: 36, alignItems: "center", justifyContent: "center", marginRight: Spacing.xs },
+  companyLogo: { width: 90, height: 30 },
+  plantText: { flex: 1 },
+  plantTitleRow: { flexDirection: "row", alignItems: "center", minWidth: 0 },
+  plantName: { flex: 1, color: Colors.surface, fontSize: Typography.small, fontWeight: "800" },
+  plantSwitchButton: { minHeight: 28, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, marginLeft: Spacing.xs, paddingHorizontal: 9, borderRadius: Radius.round, backgroundColor: "rgba(255,255,255,0.16)" },
+  plantSwitchText: { color: Colors.surface, fontSize: 9, fontWeight: "800" },
+  plantAutonomy: { marginTop: 1, color: "rgba(255,255,255,0.78)", fontSize: 11 },
+  plantToggle: { width: "100%", minHeight: 24, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 2, marginTop: 5 },
+  plantToggleText: { color: "#F6CC32", fontSize: 10, fontWeight: "900" },
+  plantDetailsToggle: { minHeight: 22, flexDirection: "row", alignSelf: "center", alignItems: "center", gap: 2, marginTop: 3, paddingHorizontal: Spacing.sm },
+  contextSwitches: { flexDirection: "row", alignItems: "stretch", gap: Spacing.xs },
+  contextSwitchButton: { flex: 1, minWidth: 0 },
+  contextSwitchText: { color: "#FFFFFF", fontSize: 11, fontWeight: "900" },
+  photoBackdrop: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.lg, backgroundColor: "rgba(3,15,12,0.92)" },
+  photoPreviewCard: { position: "relative", width: "100%", maxWidth: 520, aspectRatio: 1, overflow: "hidden", borderRadius: Radius.xl, backgroundColor: "#071A15" },
+  photoPreview: { width: "100%", height: "100%" },
+  photoClose: { position: "absolute", top: 12, right: 12, width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: "rgba(0,0,0,0.5)" },
+  backdrop: { flex: 1, alignItems: "flex-start", backgroundColor: "rgba(15,23,42,0.45)" },
+  ownerMenuBackdrop: { alignItems: "flex-start" },
+  menu: { width: "84%", height: "100%", paddingHorizontal: Spacing.lg, paddingTop: 58, backgroundColor: Colors.surface },
+  menuScroll: { flex: 1 },
+  menuScrollContent: { flexGrow: 1 },
+  notificationPanel: { flex: 1, width: "100%", paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, backgroundColor: Colors.surface },
+  notificationItem: { minHeight: 66, flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: Colors.border },
+  notificationItemRead: { opacity: 0.68, backgroundColor: "#F7FAF8" },
+  notificationDot: { width: 10, height: 10, marginRight: Spacing.sm, borderRadius: Radius.round, backgroundColor: Colors.secondary },
+  notificationDotHigh: { backgroundColor: Colors.danger },
+  notificationDotRead: { backgroundColor: Colors.border },
+  notificationCopy: { flex: 1 },
+  notificationTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: Spacing.sm },
+  notificationTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "800" },
+  notificationTitleRead: { fontWeight: "600" },
+  notificationDetail: { marginTop: 3, color: Colors.subtitle, fontSize: Typography.small },
+  notificationDetailRead: { color: Colors.subtitle },
+  notificationStatus: { color: Colors.primary, fontSize: 10, fontWeight: "900" },
+  notificationStatusRead: { color: Colors.subtitle },
+  emptyNotifications: { alignItems: "center", paddingVertical: Spacing.xl },
+  emptyNotificationsTitle: { marginTop: Spacing.sm, color: Colors.text, fontSize: Typography.body, fontWeight: "800" },
+  emptyNotificationsText: { marginTop: 4, color: Colors.subtitle, textAlign: "center" },
+  menuHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.lg },
+  notificationHeaderActions: { flexDirection: "row", alignItems: "center", gap: Spacing.md },
+  clearNotifications: { color: Colors.subtitle, fontSize: 12, textDecorationLine: "underline" },
+  menuTitle: { color: Colors.text, fontSize: Typography.title, fontWeight: "800" },
+  menuLink: { minHeight: 54, flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: Colors.border },
+  menuLabel: { flex: 1, marginLeft: Spacing.md, color: Colors.text, fontSize: Typography.body, fontWeight: "600" },
+  menuDanger: { color: Colors.danger }, menuDivider: { height: Spacing.md },
+  menuPreference: { minHeight: 62, flexDirection: "row", alignItems: "center", gap: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  menuPreferenceCopy: { flex: 1 }, menuPreferenceTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: "600" },
+  menuPreferenceHint: { marginTop: 2, color: Colors.subtitle, fontSize: 11 },
+
+  contextBadge: { marginLeft: Spacing.sm, paddingHorizontal: 8, paddingVertical: 3, borderRadius: Radius.round, backgroundColor: "rgba(255,255,255,0.16)" },
+  contextBadgeSuccess: { backgroundColor: "rgba(22,163,74,0.28)" },
+  contextBadgeDanger: { backgroundColor: "rgba(220,38,38,0.30)" },
+  contextBadgeText: { color: Colors.surface, fontSize: 10, fontWeight: "800" },
+  contextBadgeTextSuccess: { color: "#DCFCE7" },
+  contextBadgeTextDanger: { color: "#FEE2E2" },
+});

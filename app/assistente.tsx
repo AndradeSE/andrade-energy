@@ -1,0 +1,909 @@
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { ActivityIndicator, Alert, Animated, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { File, Paths } from "expo-file-system";
+import * as FileSystemLegacy from "expo-file-system/legacy";
+import * as IntentLauncher from "expo-intent-launcher";
+import * as Sharing from "expo-sharing";
+import { Redirect, useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
+import { setWakeWordPaused, subscribeWakeWord, wakeWordEnabled, wakeWordReady, wakeWordPaused } from "../services/assistant-wake-word";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import ThinkingDots from "../components/assistant/ThinkingDots";
+
+import { useAuth } from "../contexts/AuthContext";
+import { isAssistantEnabled as isPreviewEnvironment, supportsAssistantLive } from "../config/environment";
+import { IS_GERADOR_APP } from "../config/appVariant";
+import { answerInConversation, asksLatestInvoiceAmount, LocalReply, LocalTopic, normalizeAssistantQuery } from "../services/local-assistant";
+import { buscarFatura, listarFaturas } from "../services/faturas.service";
+import { asksLatestInvoiceDocument, invoiceDocumentChoices, latestInvoiceAmountReply, asksOverdueInvoices, overdueInvoiceReply } from "../services/local-assistant-invoices";
+import { detectFinancialMetric, financialMetricReply } from "../services/assistant-financial";
+import { carregarFinanceiro } from "../services/financeiro.service";
+import { answerWithLocalModel, cancelModelDownload, installLocalModel, isModelInstalled, releaseLocalModel, subscribeModelInstall } from "../services/on-device-model";
+import { finishDictation, installVoiceModels, isVoiceInstalled, pauseContinuousListening, releaseVoiceRecognition, startContinuousListening, stopContinuousListening } from "../services/on-device-voice";
+import { speakConversationOnline, speakSafeOnlineOrLocal, speakAuthorizedAccountOnline, stopAssistantVoice } from "../services/assistant-voice";
+import { accountVoiceConsent, onlineAudioConsent, setOnlineAudioConsent, geminiLiveAudioConsent, setGeminiLiveAudioConsent } from "../services/assistant-voice-consent";
+import { loadAssistantResponseMode, type AssistantResponseMode } from "../services/assistant-response-mode";
+import { answerAssistantConversation } from "../services/assistant-conversation-policy";
+import { localAssistantContext } from "../services/assistant-app-guide";
+import { answerConversationOnline } from "../services/assistant-online";
+import { assistantConnectionError, speechStatusReply } from "../services/assistant-diagnostics";
+import { nativePortugueseSpeechAvailable, nativeSpeechAvailabilityError } from "../services/native-speech";
+import { finishAssistantSpeech as finishNativePortugueseSpeech, startAssistantSpeech as startNativePortugueseSpeech, stopAssistantSpeech as stopNativePortugueseSpeech } from "../services/assistant-speech-session";
+import { Colors } from "../theme";
+import { playActivationBeep } from "../services/assistant-beep";
+import { buscarDashboardUsina } from "../services/usinas.service";
+import { detectProductionMetric, productionMetricReply } from "../services/assistant-production";
+import { detectAccountQuery, consultAccount } from "../services/assistant-account";
+import { detectCapability, type AssistantAction, type AssistantDocument } from "../services/assistant-capabilities";
+import { executeAssistantTool, resolveAssistantDocument } from "../services/assistant-tools";
+import { queryLiveAccount, redactLiveAccountText } from "../services/assistant-live-account";
+import { setFloatingConversationPhase } from "../services/assistant-floating-conversation";
+import { parseAutomationCommand, prepareAutomation, createAutomationExecutor, type AutomationDraft } from "../shared/solar-automation";
+import { nativeAutomationContext, nativeAutomationIO } from "../services/assistant-native-automation";
+import { normalizeSolarRequest } from "../shared/solar-language";
+import { asksScreenControls, operateSolarControl, parseControlCommand, solarControlScope } from "../services/assistant-controls";
+import { resolveSafeNavigation } from "../services/assistant-safe-navigation";
+
+type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string; invoiceChoices?: Array<{ id: string; label: string }>; actions?: AssistantAction[]; documents?: AssistantDocument[]; private?: boolean; voiceAnswerId?: string; automation?: AutomationDraft };
+
+export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = false, floatingModal = false, minimized = false, onMinimize, onVoiceState }: { embeddedVoiceWake?: string; onClose?: () => void; voiceOnly?: boolean; floatingModal?: boolean; minimized?: boolean; onMinimize?: () => void; onVoiceState?: (active:boolean) => void } = {}) {
+  const router = useRouter();
+  const params = useLocalSearchParams<{ voiceWake?: string }>();
+  const voiceWake = embeddedVoiceWake ?? params.voiceWake;
+  const wakeEnabled = useSyncExternalStore(subscribeWakeWord, wakeWordEnabled);
+  const wakeReady = useSyncExternalStore(subscribeWakeWord, wakeWordReady);
+  const wakePaused = useSyncExternalStore(subscribeWakeWord, wakeWordPaused);
+  const handledWake = useRef<string | undefined>(undefined);
+  const insets = useSafeAreaInsets();
+  const { authenticated, usuario, usinaSelecionada, unidadeSelecionada, atualizarUsuario, selecionarUsina, selecionarUnidade } = useAuth();
+  const [pendingAutomation, setPendingAutomation] = useState<AutomationDraft>();
+  const pendingAutomationRef = useRef<AutomationDraft | undefined>(undefined);
+  pendingAutomationRef.current = pendingAutomation;
+  const automationExecutor = useRef(createAutomationExecutor());
+  const assistantMounted = useRef(true);
+  const accountVoiceAllowedRef = useRef(false);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    accountVoiceAllowedRef.current = false;
+    if (usuario?.id) void accountVoiceConsent(String(usuario.id)).then(allowed => { if (active) accountVoiceAllowedRef.current = allowed; }).catch(() => {});
+    return () => { active = false; };
+  }, [usuario?.id]));
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [topic, setTopic] = useState<LocalTopic>();
+  const [modelReady, setModelReady] = useState(isModelInstalled);
+  const [responseMode, setResponseMode] = useState<AssistantResponseMode>("online");
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    setResponseMode("online");
+    void loadAssistantResponseMode(String(usuario?.id ?? "")).then(mode => { if (active) setResponseMode(mode); }).catch(() => {});
+    return () => { active = false; };
+  }, [usuario?.id]));
+  const [busy, setBusy] = useState(false);
+  const [installStage, setInstallStage] = useState<string>();
+  const [installProgress, setInstallProgress] = useState<number | null>(null);
+  const [downloadingModel, setDownloadingModel] = useState(false);
+  const [voiceReady, setVoiceReady] = useState(isVoiceInstalled);
+  const [listening, setListening] = useState(false);
+  const [voiceCaptureReady, setVoiceCaptureReady] = useState(false);
+  const [hearingSpeech, setHearingSpeech] = useState(false);
+  const [speakingReply, setSpeakingReply] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState<string>();
+  const [voiceNotice, setVoiceNotice] = useState<string>();
+  const [voiceInstalling, setVoiceInstalling] = useState(false);
+  useEffect(() => {
+    if (voiceOnly) setFloatingConversationPhase(speakingReply ? "speaking" : listening ? "listening" : "connecting");
+  }, [voiceOnly, speakingReply, listening]);
+  useEffect(() => {
+    setWakeWordPaused(listening || speakingReply || transcribing || busy || voiceInstalling);
+  }, [listening, speakingReply, transcribing, busy, voiceInstalling]);
+  const [openingInvoiceId, setOpeningInvoiceId] = useState<string>();
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const voiceActive = useRef(false);
+  const liveSession = useRef<{ stop: () => Promise<void> } | null>(null);
+  const liveStarting = useRef(false);
+  const liveGeneration = useRef(0);
+  const conversationOwner = useRef(`conversation-${Date.now()}-${Math.random()}`);
+  const dictationActive = useRef(false);
+  const usingNativeSpeech = useRef(false);
+  const micHeld = useRef(false);
+  const dictationStarting = useRef(false);
+  const dictatedText = useRef("");
+  const conversationAwake = isPreviewEnvironment && voiceActive.current;
+  useEffect(() => {
+    if (!conversationAwake) return;
+    let disposed = false;
+    const tag = conversationOwner.current;
+    // Escopo da conversa: nunca mantém a tela ligada apenas pela frase-chave.
+    const awake = import("expo-keep-awake");
+    void awake.then(async module => {
+      if (disposed) return;
+      await module.activateKeepAwakeAsync(tag);
+      if (disposed) await module.deactivateKeepAwake(tag);
+    }).catch(() => {
+      if (!disposed) setVoiceNotice("Para manter a tela ligada durante a conversa, instale o novo APK Preview.");
+    });
+    return () => {
+      disposed = true;
+      void awake.then(module => module.deactivateKeepAwake(tag)).catch(() => undefined);
+    };
+  }, [conversationAwake]);
+  const lastInvoiceRequest = useRef(false);
+  const busyRef = useRef(false);
+  const messagesRef = useRef<Message[]>([]);
+  const topicRef = useRef<LocalTopic | undefined>(undefined);
+  const scrollRef = useRef<ScrollView>(null);
+  const accountContextKey = JSON.stringify([usuario?.id, usuario?.empresa_id, usuario?.perfil, usuario?.papel_empresa, usuario?.permissoes, usinaSelecionada?.id, unidadeSelecionada?.id]);
+  const automationScope = useRef(accountContextKey);
+  automationScope.current = accountContextKey;
+  useEffect(() => { assistantMounted.current = true; return () => { assistantMounted.current = false; }; }, []);
+  useEffect(() => {
+    if (!pendingAutomation) return;
+    const timeout = setTimeout(() => setPendingAutomation(current => current === pendingAutomation ? undefined : current), Math.max(0, pendingAutomation.preparedAt + 300_000 - Date.now()));
+    return () => clearTimeout(timeout);
+  }, [pendingAutomation]);
+  const contextGeneration = useRef(0);
+  useEffect(() => {
+    contextGeneration.current += 1;
+    liveGeneration.current += 1;
+    if (liveSession.current) {
+      void liveSession.current.stop();
+      liveSession.current = null;
+      voiceActive.current = false;
+      setListening(false);
+      setSpeakingReply(false);
+    }
+    messagesRef.current = [];
+    setMessages([]);
+    setPendingAutomation(undefined);
+    topicRef.current = undefined;
+    lastInvoiceRequest.current = false;
+    stopAssistantVoice();
+  }, [accountContextKey]);
+  const wave = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
+  useEffect(() => () => {
+    liveGeneration.current += 1;
+    const hadAssistantSession = voiceActive.current || dictationActive.current;
+    voiceActive.current = false;
+    const liveStop = liveSession.current?.stop();
+    liveSession.current = null;
+    dictationActive.current = false;
+    stopAssistantVoice();
+    // Não encerre a captura da frase-chave ao simplesmente sair da Ajuda.
+    // Retome a frase-chave somente depois de ambos os capturadores liberarem
+    // o microfone. Retomar antes permite que o stop antigo encerre a nova escuta.
+    if (hadAssistantSession || liveStop) {
+      void Promise.allSettled([
+        liveStop ?? Promise.resolve(),
+        stopNativePortugueseSpeech(conversationOwner.current),
+      ]).then(() => setWakeWordPaused(false));
+    } else setWakeWordPaused(false);
+    // A escuta de "Solar" pertence ao app, não à tela Ajuda.
+    if (!wakeWordEnabled()) void releaseVoiceRecognition();
+    void releaseLocalModel();
+  }, []);
+  useEffect(() => {
+    if (!listening || !voiceCaptureReady || busy || hearingSpeech || speakingReply || transcribing) return;
+    const timer = setTimeout(() => {
+      voiceActive.current = false;
+      setListening(false);
+      setHearingSpeech(false);
+      setVoiceCaptureReady(false);
+      setVoiceStatus("Conversa encerrada após 5 segundos sem fala. Diga “Solar” ou toque nas ondas para voltar.");
+      void stopNativePortugueseSpeech(conversationOwner.current).finally(() => onClose?.());
+    }, 5_000);
+    return () => clearTimeout(timer);
+  }, [listening, voiceCaptureReady, busy, hearingSpeech, speakingReply, transcribing]);
+  useEffect(() => {
+    const commandListening = wakeEnabled && wakeReady && !wakePaused;
+    if (!commandListening && (!listening || (!hearingSpeech && !speakingReply))) {
+      wave.forEach(value => value.setValue(0));
+      return;
+    }
+    const animations = wave.map((value, index) => Animated.loop(Animated.sequence([
+      Animated.timing(value, { toValue: 1, duration: 170 + index * 45, useNativeDriver: true }),
+      Animated.timing(value, { toValue: 0, duration: 220 + index * 35, useNativeDriver: true }),
+    ])));
+    animations.forEach(animation => animation.start());
+    return () => animations.forEach(animation => animation.stop());
+  }, [listening, hearingSpeech, speakingReply, wave, wakeEnabled, wakeReady, wakePaused]);
+  useEffect(() => {
+    const show = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+  useEffect(() => subscribeModelInstall(state => {
+    setDownloadingModel(state.phase === "conectando" || state.phase === "baixando");
+    setInstallProgress(state.progress);
+    if (state.phase === "pronto") {
+      setModelReady(true);
+      setInstallStage(undefined);
+    } else if (state.phase === "erro") {
+      setInstallStage(state.message ?? "Não foi possível instalar o modelo.");
+    } else if (state.phase === "conectando") {
+      setInstallStage("Conectando ao servidor do modelo…");
+    } else if (state.phase === "baixando") {
+      const baixados = state.downloadedBytes ? ` · ${(state.downloadedBytes / 1_000_000).toFixed(1)} MB` : "";
+      setInstallStage(`Baixando modelo: ${Math.round((state.progress ?? 0) * 100)}%${baixados}`);
+    } else if (state.phase === "verificando") {
+      setInstallStage("Verificando a integridade do modelo no aparelho…");
+    }
+    setBusy(state.active);
+  }), []);
+
+  useEffect(() => { onVoiceState?.(voiceActive.current); }, [listening, speakingReply, voiceStatus, onVoiceState]);
+  if (!isPreviewEnvironment || !authenticated) return <Redirect href="/" />;
+
+  async function openInvoicePdf(id: string) {
+    if (openingInvoiceId) return;
+    setOpeningInvoiceId(id);
+    try {
+      const invoice = await buscarFatura(id);
+      const url = String(invoice?.pdf_unificada_url ?? "").trim();
+      if (!/^https:\/\//i.test(url)) {
+        Alert.alert("PDF indisponível", "A fatura foi encontrada, mas o PDF unificado ainda não está disponível para baixar.");
+        return;
+      }
+      if (Platform.OS === "web") { await Linking.openURL(url); return; }
+      const file = await File.downloadFileAsync(url, new File(Paths.document, `fatura-andrade-${id.replace(/[^a-zA-Z0-9-]/g, "")}.pdf`), { idempotent: true });
+      if (!file.exists || !file.size || file.size < 512) throw new Error("Arquivo vazio");
+      if (Platform.OS === "android") {
+        try {
+          const contentUri = await FileSystemLegacy.getContentUriAsync(file.uri);
+          await IntentLauncher.startActivityAsync("android.intent.action.VIEW", { data: contentUri, flags: 1, type: "application/pdf" });
+          return;
+        } catch { /* Usa o compartilhamento quando não há visualizador de PDF. */ }
+      }
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { dialogTitle: "Abrir ou salvar fatura", mimeType: "application/pdf", UTI: "com.adobe.pdf" });
+      else Alert.alert("PDF salvo", "A fatura foi salva no aplicativo.");
+    } catch {
+      Alert.alert("Não consegui abrir o PDF", "O link pode ter expirado ou a conexão falhou. Tente novamente; não gere outra cobrança.");
+    } finally {
+      setOpeningInvoiceId(undefined);
+    }
+  }
+
+  function openAssistantAction(action: AssistantAction) {
+    const open = () => router.push({ pathname: action.route, params: action.params } as any);
+    if (action.review) Alert.alert("Revisar no aplicativo", "Vou abrir a tela correspondente. Nenhuma alteração foi executada pela IA; confira os dados e confirme na própria tela.", [{ text: "Voltar", style: "cancel" }, { text: "Abrir revisão", onPress: open }]);
+    else open();
+  }
+
+  async function openToolDocument(doc: AssistantDocument) {
+    if (openingInvoiceId) return;
+    const key = `${doc.kind}:${doc.id}`;
+    const generation = contextGeneration.current;
+    setOpeningInvoiceId(key);
+    try {
+      const resolved = await resolveAssistantDocument(doc);
+      if (generation !== contextGeneration.current) return;
+      let uri = resolved.file;
+      if (!uri) {
+        if (!resolved.url || !/^https:\/\//i.test(resolved.url)) throw new Error("Documento indisponível");
+        if (Platform.OS === "web") { await Linking.openURL(resolved.url); return; }
+        const file = await File.downloadFileAsync(resolved.url, new File(Paths.cache, `documento-${doc.kind}-${doc.id.replace(/[^a-zA-Z0-9-]/g, "")}.pdf`), { idempotent: true });
+        if (!file.exists || !file.size || file.size < 512) throw new Error("Arquivo vazio");
+        uri = file.uri;
+      }
+      if (generation !== contextGeneration.current) return;
+      if (Platform.OS === "android") {
+        try {
+          const contentUri = await FileSystemLegacy.getContentUriAsync(uri);
+          await IntentLauncher.startActivityAsync("android.intent.action.VIEW", { data: contentUri, flags: 1, type: "application/pdf" });
+          return;
+        } catch { /* Sem leitor instalado: oferecer salvar/compartilhar. */ }
+      }
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { dialogTitle: "Abrir ou salvar documento", mimeType: "application/pdf", UTI: "com.adobe.pdf" });
+      else Alert.alert("Documento salvo", "O documento foi salvo no aplicativo.");
+    } catch {
+      Alert.alert("Documento indisponível", "O PDF pode não ter sido gerado ou seu acesso pode ter mudado. Confira o contexto e tente novamente; não vou criar um arquivo inexistente.");
+    } finally { setOpeningInvoiceId(undefined); }
+  }
+
+  async function confirmAutomation(draft: AutomationDraft) {
+    if (busyRef.current) return;
+    if (draft !== pendingAutomationRef.current) { Alert.alert("Revisão encerrada", "Prepare a alteração novamente antes de confirmar."); return; }
+    pendingAutomationRef.current = undefined;
+    busyRef.current = true; setBusy(true); setPendingAutomation(undefined);
+    const current = () => assistantMounted.current && automationScope.current === draft.scope;
+    try {
+      const result = await automationExecutor.current(draft, nativeAutomationContext(usuario, IS_GERADOR_APP, usinaSelecionada?.id, accountContextKey), nativeAutomationIO(current));
+      if (!current()) return;
+      messagesRef.current = [...messagesRef.current, { from: "assistant" as const, private: true, text: `Alteração salva em ${draft.targetLabel}: ${draft.command.field} = ${draft.command.value}.` }].slice(-40);
+      setMessages(messagesRef.current);
+      // Sync only the changed field; do not copy response permissions into AuthContext.
+      const patch = { [draft.command.field]: result[draft.command.field] };
+      try {
+        if (draft.command.entity === "profile") await atualizarUsuario(patch);
+        if (draft.command.entity === "plant" && usinaSelecionada?.id === draft.targetId) await selecionarUsina({ ...usinaSelecionada, nome: String(result.nome) });
+        if (draft.command.entity === "unit" && unidadeSelecionada?.id === draft.targetId) await selecionarUnidade({ ...unidadeSelecionada, apelido: String(result.apelido) });
+      } catch { Alert.alert("Alteração salva", "Os dados foram salvos no servidor. Reabra a tela para atualizar a exibição."); }
+    } catch (error) {
+      if (current()) {
+        messagesRef.current = [...messagesRef.current, { from: "assistant" as const, private: true, text: error instanceof Error ? error.message : "Não foi possível confirmar. Consulte o cadastro antes de repetir." }].slice(-40);
+        setMessages(messagesRef.current);
+      }
+    } finally { busyRef.current = false; if (assistantMounted.current) setBusy(false); }
+  }
+
+  async function operateCurrentControl(question: string) {
+    const scope = accountContextKey;
+    return operateSolarControl(question, solarControlScope(usuario, usinaSelecionada?.id, unidadeSelecionada?.id), label => new Promise<boolean>(resolve => {
+      Alert.alert("Revisar comando da Solar", "Acionar o botão “" + label + "” na tela atual? As validações e confirmações do aplicativo continuam valendo.", [
+        { text: "Cancelar", style: "cancel", onPress: () => resolve(false) },
+        { text: "Acionar botão", onPress: () => resolve(true) },
+      ], { cancelable: true, onDismiss: () => resolve(false) });
+    }), () => assistantMounted.current && automationScope.current === scope);
+  }
+
+  async function send(spokenQuestion?: string) {
+    const question = (spokenQuestion ?? input).trim();
+    if (!question || busyRef.current) return;
+    const controlCommand = parseControlCommand(question) || asksScreenControls(question);
+    const interpretedQuestion = normalizeAssistantQuery(question);
+    const automationCommand = parseAutomationCommand(question);
+    const safeNavigation = resolveSafeNavigation(question, {
+      generator: IS_GERADOR_APP, role: usuario?.perfil, companyRole: usuario?.papel_empresa,
+      plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id, permissions: usuario?.permissoes,
+    });
+    pendingAutomationRef.current = undefined;
+    setPendingAutomation(undefined);
+    const wantsOverdue = asksOverdueInvoices(interpretedQuestion);
+    const generation = contextGeneration.current;
+    const wantsInvoiceDocument = asksLatestInvoiceDocument(interpretedQuestion, lastInvoiceRequest.current);
+    const detectedCapability = detectCapability(interpretedQuestion);
+    // PDF de fatura tem precedência sobre abrir a usina/aba, mas não sobre
+    // documentos específicos (CEMIG, cálculo, contratos) nem alterações.
+    const invoiceOverridesNavigation = wantsInvoiceDocument && !detectedCapability?.review && ["usinas", "faturamento", "pagamento"].includes(detectedCapability?.module ?? "");
+    const capability = wantsOverdue || (IS_GERADOR_APP && detectFinancialMetric(interpretedQuestion)) || asksLatestInvoiceAmount(interpretedQuestion) || invoiceOverridesNavigation ? undefined : detectedCapability;
+    lastInvoiceRequest.current = wantsInvoiceDocument || /\b(ultima|mais recente)\b.*\b(fatura|cobranca)\b|\b(fatura|cobranca)\b.*\b(ultima|mais recente)\b/i.test(interpretedQuestion);
+    busyRef.current = true;
+    const { reply, topic: nextTopic } = answerInConversation(question, {
+      authenticated: true,
+      variant: IS_GERADOR_APP ? "gerador" : "consumidor",
+    }, topicRef.current);
+    setInput("");
+    setBusy(true);
+    const privateTurn = Boolean(controlCommand) || Boolean(automationCommand) || wantsOverdue || Boolean(capability) || wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion) || Boolean(detectFinancialMetric(interpretedQuestion)) || Boolean(detectProductionMetric(interpretedQuestion)) || Boolean(detectAccountQuery(interpretedQuestion));
+    const userMessage: Message = { from: "user", text: question, private: privateTurn };
+    const nextMessages = [...messagesRef.current, userMessage].slice(-39);
+    messagesRef.current = nextMessages;
+    setMessages(nextMessages);
+    try {
+      if (voiceActive.current) {
+        setVoiceStatus("Processando sua pergunta…");
+        setHearingSpeech(false);
+        if (usingNativeSpeech.current) await stopNativePortugueseSpeech(conversationOwner.current);
+        else await pauseContinuousListening();
+      }
+      let response: Message = { from: "assistant", text: reply.text, route: reply.route };
+      const speechStatus = speechStatusReply(question, Boolean(spokenQuestion));
+      if (controlCommand) {
+        response = { from: "assistant", private: true, text: await operateCurrentControl(question) ?? "Não reconheci esse controle na tela atual." };
+      } else if (automationCommand) {
+        const scope = accountContextKey;
+        try {
+          const draft = await prepareAutomation(automationCommand, nativeAutomationContext(usuario, IS_GERADOR_APP, usinaSelecionada?.id, scope), nativeAutomationIO(() => assistantMounted.current && automationScope.current === scope));
+          if (generation !== contextGeneration.current) return;
+          setPendingAutomation(draft);
+          pendingAutomationRef.current = draft;
+          response = { from: "assistant", private: true, automation: draft, text: `Revisar alteração em ${draft.targetLabel}\nCampo: ${draft.command.field}\nAtual: ${String(draft.before[draft.command.field] ?? "Não informado")}\nNovo: ${draft.command.value}\nConfirme no botão abaixo para salvar. A revisão vale por 5 minutos.` };
+          if (voiceOnly) Alert.alert("Revisar alteração", response.text, [{ text: "Cancelar", style: "cancel", onPress: () => setPendingAutomation(undefined) }, { text: "Confirmar e salvar", onPress: () => void confirmAutomation(draft) }]);
+        } catch (error) { response = { from: "assistant", private: true, text: error instanceof Error ? error.message : "Não consegui preparar a alteração. Nenhum dado foi salvo." }; }
+      } else if (safeNavigation) {
+        response = { from: "assistant", private: true, text: safeNavigation.text };
+      } else if (/o que (voce|a solar) (pode|consegue)|suas funcoes/.test(normalizeSolarRequest(question))) {
+        response = { from: "assistant", private: true, text: "Posso abrir diretamente as áreas permitidas, pesquisar clientes e UCs e filtrar faturas por abertas, vencidas ou pagas. Exemplos: abra os contratos, busque cliente Rodrigo, mostre faturas vencidas ou abra operação 09/2026. Também preencho campos e aciono botões ativos da tela: diga “preencha o campo Nome com Maria Silva” ou “clique no botão Salvar”. Botões exigem sua confirmação; preencher não salva. Consulto dados e documentos e preparo alterações cadastrais para revisão. Cobranças, assinaturas, exclusões e permissões exigem confirmação nas telas próprias." };
+      } else if (speechStatus) {
+        response = { from: "assistant", text: speechStatus, private: true };
+      } else if (capability) {
+        try {
+          response = { from: "assistant", ...await executeAssistantTool(capability, {
+            generator: IS_GERADOR_APP, role: usuario?.perfil,
+            plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id,
+            unitNumber: unidadeSelecionada?.numero, clientId: unidadeSelecionada?.cliente_id ?? usuario?.cliente_id,
+          }, interpretedQuestion) };
+        } catch {
+          response = { from: "assistant", text: "Não consegui consultar essa função agora com seu acesso. Não alterei dados nem estimei valores. Confira o contexto da conta e tente novamente." };
+        }
+      } else if (wantsOverdue || wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion)) {
+        try {
+          const invoices = usuario?.perfil === "LEITURA"
+            ? unidadeSelecionada?.numero
+              ? await listarFaturas(undefined, unidadeSelecionada.numero)
+              : (unidadeSelecionada?.cliente_id ?? usuario?.cliente_id)
+                ? await listarFaturas(unidadeSelecionada?.cliente_id ?? usuario?.cliente_id)
+                : []
+            : usinaSelecionada?.id
+              ? await listarFaturas(undefined, undefined, usinaSelecionada.id)
+              : [];
+          if (usuario?.perfil !== "LEITURA" && !usinaSelecionada?.id) {
+            response = { from: "assistant", text: "Não consigo escolher uma fatura sem uma usina selecionada. Selecione a usina da carteira para eu consultar o documento correto." };
+          } else if (wantsOverdue) {
+            const result = overdueInvoiceReply(invoices);
+            response = { from: "assistant", text: result.text, invoiceChoices: result.invoices.filter(f => f.pdf_unificada_url).slice(0, 12).map(f => ({ id: f.id, label: `PDF · ${f.referencia ?? "Fatura em atraso"}` })) };
+          } else if (wantsInvoiceDocument) {
+            const candidates = invoiceDocumentChoices(question, invoices);
+            const invoice = candidates[0];
+            const available = candidates.filter(item => item.pdf_unificada_url);
+            if (candidates.length > 1) {
+              response = available.length ? { from: "assistant", text: "Encontrei estas faturas no seu acesso. Toque no documento que deseja abrir ou salvar.", invoiceChoices: available.map(item => ({ id: item.id, label: `PDF · ${item.referencia ?? "Fatura emitida"}` })) } : { from: "assistant", text: "Encontrei as faturas, mas seus PDFs ainda não estão disponíveis. Não posso entregar um documento que ainda não foi gerado." };
+            } else {
+            response = !invoice
+              ? { from: "assistant", text: "Não encontrei uma fatura emitida que corresponda ao seu pedido nesta conta ou usina. Por isso não há PDF para eu anexar aqui." }
+              : invoice.pdf_unificada_url
+                ? { from: "assistant", text: `Encontrei a última fatura${invoice.referencia ? ` (${invoice.referencia})` : ""}. Toque abaixo para abrir ou salvar o PDF.`, invoiceId: invoice.id }
+                : { from: "assistant", text: "Encontrei a última fatura, mas o PDF unificado ainda não está disponível no servidor. Não posso criar um arquivo que ainda não foi gerado; confira o detalhe da fatura mais tarde." };
+            }
+          } else {
+            response = { from: "assistant", text: latestInvoiceAmountReply(invoices) };
+          }
+        } catch {
+          response = { from: "assistant", text: "Não consegui consultar as faturas agora. Verifique a conexão e tente novamente; não vou estimar um valor." };
+        }
+      } else if (detectProductionMetric(interpretedQuestion)) {
+        const selectedPlantId = IS_GERADOR_APP ? usinaSelecionada?.id : unidadeSelecionada?.usina_id;
+        if (!selectedPlantId) {
+          response = { from: "assistant", text: "Selecione uma usina ou UC vinculada para eu consultar os dados de produção corretos." };
+        } else {
+          try {
+            response = { from: "assistant", text: productionMetricReply(await buscarDashboardUsina(selectedPlantId), detectProductionMetric(interpretedQuestion)!) };
+          } catch {
+            response = { from: "assistant", text: "Não consegui consultar a produção desta usina com seu acesso. Não vou inventar valores; tente novamente ou confira a usina selecionada." };
+          }
+        }
+      } else if (IS_GERADOR_APP && detectFinancialMetric(interpretedQuestion)) {
+        const metric = detectFinancialMetric(interpretedQuestion)!;
+        if (!usinaSelecionada?.id) {
+          response = { from: "assistant", text: "Selecione uma usina para consultar os valores do resumo financeiro." };
+        } else {
+          try {
+            response = { from: "assistant", text: financialMetricReply(await carregarFinanceiro(usinaSelecionada.id), metric) };
+          } catch {
+            response = { from: "assistant", text: "Não consegui consultar o resumo financeiro agora. Verifique a conexão e tente novamente; não vou estimar valores." };
+          }
+        }
+      } else if (detectAccountQuery(interpretedQuestion)) {
+        try {
+          response = { from: "assistant", text: await consultAccount(detectAccountQuery(interpretedQuestion)!, IS_GERADOR_APP, usinaSelecionada?.id) };
+        } catch {
+          response = { from: "assistant", text: "Não consegui consultar esses registros agora com seu acesso. Tente novamente; não vou inventar dados nem contornar suas permissões." };
+        }
+      } else if (reply.kind === "help" || reply.kind === "unknown") {
+        response = { from: "assistant", ...await answerAssistantConversation({ mode: responseMode, modelReady, question, history: nextMessages.slice(0, -1), help: reply.kind === "help" ? reply.text : undefined, context: localAssistantContext(IS_GERADOR_APP ? "gerador" : "consumidor") }, { online: answerConversationOnline, local: answerWithLocalModel }) };
+      }
+      if (generation !== contextGeneration.current) return;
+      response.private = response.private || privateTurn;
+      messagesRef.current = [...messagesRef.current, response].slice(-40);
+      setMessages(messagesRef.current);
+      topicRef.current = nextTopic;
+      setTopic(nextTopic);
+      if (!controlCommand && safeNavigation?.action) {
+        leaveConversation();
+        router.push({ pathname: safeNavigation.action.route, params: safeNavigation.action.params } as any);
+        return;
+      }
+      if (voiceActive.current) {
+        setVoiceStatus("Falando com você… depois volto a ouvir.");
+        setSpeakingReply(true);
+        const finishReply = () => { setSpeakingReply(false); if (voiceActive.current) void resumeVoice(); };
+        if (response.voiceAnswerId && !response.private) {
+          setVoiceStatus("Preparando a voz natural…");
+          void speakConversationOnline(response.voiceAnswerId, response.text, finishReply, reason => { setVoiceStatus(reason); setVoiceNotice(reason); });
+        } else if (accountVoiceAllowedRef.current) {
+          setVoiceStatus("Preparando a voz natural da consulta…");
+          void speakAuthorizedAccountOnline(response.text, finishReply, reason => { setVoiceStatus(reason); setVoiceNotice(reason); });
+        } else {
+          setVoiceStatus("Resposta no chat. Autorize Voz natural nos dados para ouvir esta consulta; não usei a voz do aparelho.");
+          setVoiceNotice("Autorize Voz natural nos dados para ouvir consultas da conta. A voz do aparelho não será usada automaticamente.");
+          finishReply();
+        }
+      }
+    } catch (error) {
+      if (generation !== contextGeneration.current) return;
+      const fallback: Message = { from: "assistant", private: true, text: assistantConnectionError(error) };
+      messagesRef.current = [...messagesRef.current, fallback].slice(-40);
+      setMessages(messagesRef.current);
+      if (voiceActive.current) {
+        setVoiceStatus("Não consegui processar esta resposta. Vou ouvir sua próxima pergunta.");
+        setSpeakingReply(true);
+        const finishFallback = () => { setSpeakingReply(false); if (voiceActive.current) void resumeVoice(); };
+        setVoiceStatus("Resposta no chat. Não troquei para a voz do aparelho.");
+        finishFallback();
+      }
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }
+
+  async function resumeVoice() {
+    try {
+      setVoiceCaptureReady(false);
+      setVoiceStatus("Iniciando o microfone…");
+      usingNativeSpeech.current = await startNativePortugueseSpeech(text => { void send(text); }, error => {
+        voiceActive.current = false;
+        setListening(false);
+        setVoiceCaptureReady(false);
+        setVoiceStatus(error);
+        if (voiceOnly) onClose?.();
+      }, setHearingSpeech, () => {
+        if (voiceActive.current && !busyRef.current) void resumeVoice();
+      }, { owner: conversationOwner.current, onReady: () => { setVoiceCaptureReady(true); setVoiceStatus("Ouvindo sua pergunta…"); }, shouldContinue: () => voiceActive.current, audioConsent: true });
+      if (usingNativeSpeech.current) return;
+      if (isPreviewEnvironment) {
+        if (voiceActive.current) {
+          voiceActive.current = false;
+          setListening(false);
+          setVoiceStatus("Não consegui iniciar a escuta. Toque no ícone para tentar novamente.");
+          if (voiceOnly) onClose?.();
+        }
+        return;
+      }
+      await startContinuousListening(text => { void send(text); }, error => {
+        voiceActive.current = false;
+        setListening(false);
+        setVoiceStatus(error);
+        void stopContinuousListening();
+      }, true, setHearingSpeech);
+    } catch (error) {
+      voiceActive.current = false;
+      setListening(false);
+      setVoiceCaptureReady(false);
+      setVoiceStatus(error instanceof Error ? error.message : "O microfone não iniciou.");
+      if (voiceOnly) onClose?.();
+    }
+  }
+
+  async function authorizeAudio() {
+    if (!usuario?.id) return false;
+    const id = String(usuario.id);
+    if (await onlineAudioConsent(id)) return true;
+    const allowed = await new Promise<boolean>(resolve => Alert.alert(
+      "Transcrição online no Preview",
+      "Ao usar o microfone ou a conversa, trechos de até 30 segundos da sua voz serão enviados à Groq (api.groq.com) para transcrição em português. Não enviamos PDFs nem histórico da conta junto do áudio. O arquivo temporário é apagado após o processamento. O comando opcional “Solar” também pode usar transcrição online com autorização separada. Autoriza?",
+      [{ text: "Agora não", style: "cancel", onPress: () => resolve(false) }, { text: "Autorizar", onPress: () => resolve(true) }],
+      { cancelable: true, onDismiss: () => resolve(false) },
+    ));
+    await setOnlineAudioConsent(id, allowed);
+    return allowed;
+  }
+
+  async function authorizeLiveAudio() {
+    if (!usuario?.id) return false;
+    const id = String(usuario.id);
+    if (await geminiLiveAudioConsent(id)) return true;
+    const allowed = await new Promise<boolean>(resolve => Alert.alert(
+      "Conversa direta no Preview",
+      "Com sua autorização, sua voz, seu primeiro nome e os dados necessários para responder às suas consultas (como valores de faturas e produção) serão enviados ao Google Gemini Live enquanto a conversa estiver aberta. Não enviamos PDFs nem credenciais. Não exibiremos a transcrição na Home. A sessão fecha após cinco segundos sem fala; o uso pode consumir a franquia do serviço. Autoriza?",
+      [{ text: "Agora não", style: "cancel", onPress: () => resolve(false) }, { text: "Autorizar", onPress: () => resolve(true) }],
+      { cancelable: true, onDismiss: () => resolve(false) },
+    ));
+    await setGeminiLiveAudioConsent(id, allowed);
+    return allowed;
+  }
+
+  async function toggleVoice(startFromCommand = false, preferLive = true) {
+    if (dictationActive.current) return;
+    if (voiceActive.current) {
+      liveGeneration.current += 1;
+      voiceActive.current = false;
+      liveStarting.current = false;
+      const currentLive = liveSession.current;
+      liveSession.current = null;
+      if (currentLive) await currentLive.stop();
+      setListening(false);
+      setVoiceCaptureReady(false);
+      setHearingSpeech(false);
+      setSpeakingReply(false);
+      stopAssistantVoice();
+      if (usingNativeSpeech.current) await stopNativePortugueseSpeech(conversationOwner.current);
+      else await stopContinuousListening();
+      setVoiceStatus(undefined);
+      return;
+    }
+    if (preferLive && supportsAssistantLive && isPreviewEnvironment && Platform.OS === "android") {
+      console.info("[AssistantLive] requested");
+      if (liveStarting.current) return;
+      const allowed = await authorizeLiveAudio();
+      console.info("[AssistantLive] consent", allowed);
+      if (!allowed) {
+        setVoiceNotice("A conversa direta precisa da sua autorização. Nenhuma gravação foi iniciada.");
+        if (voiceOnly) onClose?.();
+        return;
+      }
+      if (allowed) {
+        const liveAttempt = ++liveGeneration.current;
+        liveStarting.current = true;
+        voiceActive.current = true;
+        setWakeWordPaused(true);
+        setVoiceStatus("Conectando a conversa…");
+        const firstName = String(usuario?.nome ?? "").trim().split(/\s+/)[0]?.replace(/[^\p{L}-]/gu, "").slice(0, 28) ?? "";
+        try {
+          // Só carregue o módulo nativo nos novos APKs Preview. Os APKs
+          // existentes de produção não contêm react-native-audio-api.
+          const { startGeminiLive } = await import("../services/assistant-gemini-live");
+          await stopNativePortugueseSpeech(conversationOwner.current);
+          const session = await startGeminiLive(firstName, {
+            onReady: () => playActivationBeep(true),
+            onLatestInvoice: async () => {
+              const generation = contextGeneration.current;
+              const reply = await queryLiveAccount("Qual o valor da última fatura gerada?", {
+                generator: IS_GERADOR_APP, role: usuario?.perfil,
+                plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id,
+                unitNumber: unidadeSelecionada?.numero, clientId: unidadeSelecionada?.cliente_id ?? usuario?.cliente_id,
+              });
+              return generation === contextGeneration.current ? redactLiveAccountText(reply.text) : "O contexto da conta mudou. Consulte novamente.";
+            },
+            onAccountQuery: async question => {
+              const generation = contextGeneration.current;
+              if (parseControlCommand(question) || asksScreenControls(question)) {
+                return await operateCurrentControl(question) ?? "Não reconheci esse controle na tela atual.";
+              }
+              const navigation = resolveSafeNavigation(question, {
+                generator: IS_GERADOR_APP, role: usuario?.perfil, companyRole: usuario?.papel_empresa,
+                plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id, permissions: usuario?.permissoes,
+              });
+              if (navigation) {
+                if (navigation.action) {
+                  leaveConversation();
+                  router.push({ pathname: navigation.action.route, params: navigation.action.params } as any);
+                }
+                return navigation.text;
+              }
+              const reply = await queryLiveAccount(question, {
+                generator: IS_GERADOR_APP, role: usuario?.perfil,
+                plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id,
+                unitNumber: unidadeSelecionada?.numero, clientId: unidadeSelecionada?.cliente_id ?? usuario?.cliente_id,
+              });
+              if (generation !== contextGeneration.current) return "A conta selecionada mudou. Repita sua consulta.";
+              if (voiceOnly) {
+                if (reply.invoiceId) { void openInvoicePdf(reply.invoiceId); return "Encontrei o PDF e solicitei sua abertura no aplicativo."; }
+                if (reply.documents?.length === 1) { void openToolDocument(reply.documents[0]); return "Encontrei o documento e solicitei sua abertura no aplicativo."; }
+                if (reply.invoiceChoices?.length || reply.documents?.length) return "Encontrei mais de um documento. Pergunte por uma referência específica ou pela última fatura.";
+              }
+              if (!voiceOnly) {
+                messagesRef.current = [...messagesRef.current, { from: "user" as const, text: question, private: true }, { from: "assistant" as const, ...reply, private: true }].slice(-39);
+                setMessages(messagesRef.current);
+              }
+              return redactLiveAccountText(reply.text);
+            },
+            onState: state => {
+              if (liveGeneration.current !== liveAttempt) return;
+              setListening(state === "listening");
+              setSpeakingReply(state === "speaking");
+              setVoiceStatus(state === "connecting" ? "Conectando a conversa…" : undefined);
+            },
+            onFailure: message => {
+              if (liveGeneration.current !== liveAttempt) return;
+              liveStarting.current = false;
+              liveSession.current = null;
+              voiceActive.current = false;
+              setListening(false);
+              setSpeakingReply(false);
+              setVoiceStatus(message);
+              if (message.startsWith("Conversa encerrada") || message.startsWith("Sessão encerrada")) onClose?.();
+              else {
+                setVoiceNotice(`${message} A conversa direta foi encerrada; não troquei silenciosamente para transcrição.`);
+                setWakeWordPaused(false);
+                if (voiceOnly) Alert.alert("Conversa indisponível", message);
+                if (voiceOnly) onClose?.();
+              }
+            },
+          });
+          if (!voiceActive.current || liveGeneration.current !== liveAttempt) { await session.stop(); return; }
+          liveSession.current = session;
+          liveStarting.current = false;
+          return;
+        } catch (error) {
+          console.info("[AssistantLive] start-failed", (error as any)?.response?.status ?? "native-or-network");
+          if (liveGeneration.current !== liveAttempt) return;
+          liveStarting.current = false;
+          voiceActive.current = false;
+          setVoiceStatus(error instanceof Error ? error.message : "Conversa direta indisponível.");
+          setVoiceNotice("Não consegui abrir a conversa direta. Tente novamente; não ativei a transcrição como substituta.");
+          setWakeWordPaused(false);
+          if (voiceOnly) Alert.alert("Conversa indisponível", "Não consegui abrir a conversa direta. Confira a conexão e tente novamente.");
+          if (voiceOnly) onClose?.();
+          return;
+        }
+      }
+    }
+    if (!(await authorizeAudio())) return;
+    setWakeWordPaused(true);
+    // A nova sessão de conversa libera o microfone anterior ao iniciar.
+    if (!isPreviewEnvironment && !voiceReady && !(await nativePortugueseSpeechAvailable())) {
+      setBusy(true);
+      setVoiceInstalling(true);
+      try { await installVoiceModels((stage, progress) => setVoiceStatus(progress == null ? stage : `${stage}: ${Math.round(progress * 100)}%`)); setVoiceReady(true); }
+      catch (error) { setVoiceStatus(error instanceof Error ? error.message : "Não foi possível instalar a voz."); return; }
+      finally { setBusy(false); setVoiceInstalling(false); setWakeWordPaused(false); }
+    }
+    voiceActive.current = true;
+    setListening(true);
+    setVoiceCaptureReady(false);
+    setVoiceStatus("Falando com você…");
+    setSpeakingReply(true);
+    if (!startFromCommand) await playActivationBeep();
+    if (!voiceActive.current) return;
+    if (startFromCommand) {
+      const firstName = String(usuario?.nome ?? "").trim().split(/\s+/)[0]?.replace(/[^\p{L}-]/gu, "").slice(0, 28);
+      const greeting = firstName ? `E aí, ${firstName}, como posso ajudá-lo?` : "E aí, como posso ajudá-lo?";
+      const finishGreeting = () => {
+        setSpeakingReply(false);
+        if (voiceActive.current) void resumeVoice();
+      };
+      setVoiceStatus("Respondendo e abrindo a conversa…");
+      const personalizedVoiceAllowed = Boolean(firstName && usuario?.id && await accountVoiceConsent(String(usuario.id)));
+      if (personalizedVoiceAllowed) {
+        void speakAuthorizedAccountOnline(greeting, finishGreeting, reason => { setVoiceStatus(reason); setVoiceNotice(reason); });
+      } else {
+        // Sem autorização para enviar o nome, use a frase pública fixa.
+        void speakSafeOnlineOrLocal("welcome", greeting, finishGreeting, reason => { setVoiceStatus(reason); setVoiceNotice(reason); });
+      }
+      return;
+    }
+    // A frase online é fixa para não enviar o nome do cliente ao provedor de voz.
+    const greeting = "Olá! Como posso ajudar?";
+    const finishGreeting = () => {
+      setSpeakingReply(false);
+      if (voiceActive.current) void resumeVoice();
+    };
+    void speakSafeOnlineOrLocal("welcome", greeting, finishGreeting, reason => { setVoiceStatus(reason); setVoiceNotice(reason); });
+  }
+
+  useEffect(() => {
+    if (!voiceWake || handledWake.current === voiceWake) return;
+    handledWake.current = voiceWake;
+    if (!voiceActive.current && !busyRef.current) void toggleVoice(true);
+  }, [voiceWake]);
+
+  async function endDictation() {
+    micHeld.current = false;
+    if (dictationStarting.current || !dictationActive.current) return;
+    dictationActive.current = false;
+    setBusy(true);
+    setTranscribing(false);
+    setVoiceStatus("Transcrevendo sua fala…");
+    try {
+      const finalTranscription = usingNativeSpeech.current ? await finishNativePortugueseSpeech() : await finishDictation();
+      const spoken = (finalTranscription || dictatedText.current).trim();
+      dictatedText.current = "";
+      if (spoken) {
+        setVoiceStatus("Enviando sua pergunta…");
+        await send(spoken);
+        setVoiceStatus(undefined);
+      } else {
+        setVoiceStatus("Não consegui reconhecer sua fala. Segure o microfone e tente novamente.");
+      }
+    } catch (error) {
+      setVoiceStatus(error instanceof Error ? error.message : "Não consegui transcrever a fala.");
+      if (usingNativeSpeech.current) await stopNativePortugueseSpeech();
+      else await stopContinuousListening();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function beginDictation() {
+    if (voiceActive.current || busy) return;
+    micHeld.current = true;
+    if (!(await authorizeAudio())) { micHeld.current = false; return; }
+    if (!micHeld.current) { setVoiceStatus("Transcrição autorizada. Segure o microfone novamente para falar."); return; }
+    dictatedText.current = "";
+    dictationStarting.current = true;
+    setBusy(true);
+    setVoiceInstalling(true);
+    try {
+      setWakeWordPaused(true);
+      await stopNativePortugueseSpeech(conversationOwner.current);
+      if (!isPreviewEnvironment && !voiceReady && !(await nativePortugueseSpeechAvailable())) {
+        await installVoiceModels((stage, progress) => setVoiceStatus(progress == null ? stage : `${stage}: ${Math.round(progress * 100)}%`));
+        setVoiceReady(true);
+      }
+      dictationActive.current = true;
+      setTranscribing(true);
+      setVoiceStatus("Iniciando o microfone… mantenha pressionado.");
+      usingNativeSpeech.current = await startNativePortugueseSpeech(
+        text => { dictatedText.current = text; setInput(text); setVoiceStatus("Fala capturada. Solte para enviar."); },
+        error => { dictationActive.current = false; setTranscribing(false); setVoiceStatus(error); },
+        undefined, undefined,
+        { audioConsent: true, onReady: () => setVoiceStatus("Microfone aberto. Solte para enviar."), onPartial: text => { dictatedText.current = text; setInput(text); } },
+      );
+      if (isPreviewEnvironment) return;
+      if (!usingNativeSpeech.current) await startContinuousListening(
+        text => { dictatedText.current = `${dictatedText.current} ${text}`.trim(); setInput(dictatedText.current); setVoiceStatus("Fala capturada. Solte para enviar."); },
+        error => {
+          dictationActive.current = false;
+          setTranscribing(false);
+          setVoiceStatus(error);
+          void stopContinuousListening();
+        },
+      );
+    } catch (error) {
+      dictationActive.current = false;
+      setTranscribing(false);
+      setVoiceStatus(error instanceof Error ? error.message : "Não foi possível iniciar a transcrição.");
+      if (usingNativeSpeech.current) await stopNativePortugueseSpeech(conversationOwner.current);
+      else await stopContinuousListening();
+    } finally {
+      dictationStarting.current = false;
+      setBusy(false);
+      setVoiceInstalling(false);
+      if (!micHeld.current && dictationActive.current) void endDictation();
+    }
+  }
+
+  async function install() {
+    if (busy) return;
+    try { await installLocalModel(); } catch { /* O estado global exibe o erro. */ }
+  }
+
+  function leaveConversation(){ if(voiceActive.current && onMinimize) onMinimize(); else if(onClose) onClose(); else router.back(); }
+  if (voiceOnly) return null;
+
+  const conversationView = <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+    <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+      <Pressable onPress={leaveConversation} accessibilityRole="button" accessibilityLabel={onClose ? "Fechar conversa" : "Voltar"} style={styles.back}><Text style={styles.backText}>‹</Text></Pressable>
+      <View style={styles.headerText}><Text style={styles.title}>Solar</Text><Text style={styles.subtitle}>Consultas e ações da sua conta</Text></View>
+      <Pressable onPress={() => { onClose?.(); router.push("/configuracoes-assistente"); }} accessibilityRole="button" accessibilityLabel="Configurações da Solar" style={styles.settingsButton}><Ionicons name="settings-outline" size={22} color="white" /></Pressable>
+      <Pressable disabled={busy} onPress={() => { setPendingAutomation(undefined); messagesRef.current = []; topicRef.current = undefined; setMessages([]); setTopic(undefined); void releaseLocalModel(); }} accessibilityRole="button" accessibilityLabel="Limpar conversa"><Text style={styles.clear}>Limpar</Text></Pressable>
+    </View>
+    <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
+      {messages.length === 0 ? <View style={styles.intro}><Text style={styles.introTitle}>Como posso ajudar?</Text><Text style={styles.introBody}>Escreva sua pergunta ou use o microfone.</Text></View> : null}
+      {installStage ? <View style={styles.progressCard} accessibilityLiveRegion="polite"><Text style={styles.limit}>{installStage}</Text>{installProgress !== null ? <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(installProgress * 100)}%` }]} /></View> : null}{downloadingModel ? <Pressable accessibilityRole="button" accessibilityLabel="Cancelar download do modelo" onPress={() => void cancelModelDownload()} style={styles.cancelDownload}><Text style={styles.cancelDownloadText}>Cancelar download</Text></Pressable> : null}</View> : null}
+      {messages.map((message, index) => <View key={index} style={[styles.bubble, message.from === "user" ? styles.userBubble : styles.assistantBubble]}>
+        <Text style={styles.message}>{message.text}</Text>
+        {message.invoiceId ? <Pressable accessibilityRole="button" accessibilityLabel="Abrir PDF da última fatura" disabled={Boolean(openingInvoiceId)} onPress={() => void openInvoicePdf(message.invoiceId!)} style={styles.action}><Text style={styles.actionText}>{openingInvoiceId === message.invoiceId ? "Abrindo PDF…" : "Abrir PDF da fatura"}</Text></Pressable> : null}
+        {message.invoiceChoices?.map(document => <Pressable key={document.id} accessibilityRole="button" accessibilityLabel={`Abrir ${document.label}`} disabled={Boolean(openingInvoiceId)} onPress={() => void openInvoicePdf(document.id)} style={styles.action}><Text style={styles.actionText}>{openingInvoiceId === document.id ? "Abrindo PDF…" : document.label}</Text></Pressable>)}
+        {message.documents?.map(document => <Pressable key={`${document.kind}:${document.id}`} accessibilityRole="button" accessibilityLabel={`Abrir ${document.label}`} disabled={Boolean(openingInvoiceId)} onPress={() => void openToolDocument(document)} style={styles.action}><Text style={styles.actionText}>{openingInvoiceId === `${document.kind}:${document.id}` ? "Abrindo documento…" : document.label}</Text></Pressable>)}
+        {message.actions?.map((action, index) => <Pressable key={`${action.route}:${index}`} accessibilityRole="button" accessibilityLabel={action.label} onPress={() => openAssistantAction(action)} style={styles.action}><Text style={styles.actionText}>{action.label}</Text></Pressable>)}
+        {message.automation && message.automation === pendingAutomation ? <><Pressable disabled={busy} accessibilityRole="button" accessibilityLabel="Confirmar e salvar alteração" onPress={() => void confirmAutomation(message.automation!)} style={styles.action}><Text style={styles.actionText}>Confirmar e salvar</Text></Pressable><Pressable disabled={busy} accessibilityRole="button" accessibilityLabel="Cancelar alteração" onPress={() => setPendingAutomation(undefined)} style={styles.action}><Text style={styles.actionText}>Cancelar alteração</Text></Pressable></> : null}
+        {message.route ? <Pressable accessibilityRole="button" onPress={() => router.push(message.route!)} style={styles.action}><Text style={styles.actionText}>Abrir seção</Text></Pressable> : null}
+      </View>)}
+      {busy ? <View style={[styles.bubble,styles.assistantBubble]}><ThinkingDots /></View> : null}
+    </ScrollView>
+    <View style={[styles.composer, { paddingBottom: keyboardVisible ? 10 : Math.max(insets.bottom, 12) }]}>
+      {voiceStatus ? <View style={styles.voiceStatus}><Ionicons name={voiceInstalling ? "cloud-download-outline" : transcribing || listening ? "radio-outline" : "information-circle-outline"} size={17} color={Colors.primary} /><Text style={styles.voiceStatusText}>{voiceStatus}</Text></View> : null}
+      {voiceNotice ? <Pressable accessibilityRole="button" accessibilityLabel="Dispensar aviso de voz" onPress={() => setVoiceNotice(undefined)} style={styles.voiceStatus}><Ionicons name="information-circle-outline" size={17} color={Colors.primary} /><Text style={styles.voiceStatusText}>{voiceNotice}</Text></Pressable> : null}
+      <View style={styles.inputPill}>
+        <TextInput value={input} onChangeText={text => { setPendingAutomation(undefined); setInput(text); }} editable={!busy} placeholder="Escreva sua pergunta" placeholderTextColor={Colors.subtitle} multiline maxLength={1000} accessibilityLabel="Sua pergunta" style={styles.input} />
+        {input.trim() && !transcribing && !dictationStarting.current
+          ? <Pressable onPress={() => void send()} disabled={busy} accessibilityRole="button" accessibilityLabel="Enviar pergunta" style={[styles.pillSend, busy && styles.disabled]}><Ionicons name="arrow-up" size={22} color="white" /></Pressable>
+          : <Pressable onPressIn={() => { Keyboard.dismiss(); void beginDictation(); }} onPressOut={() => { void endDictation(); }} disabled={listening || (busy && !dictationStarting.current && !transcribing)} accessibilityRole="button" accessibilityLabel="Segure para falar e solte para enviar" style={[styles.pillAction, transcribing && styles.voiceActive, listening && styles.disabled]}><Ionicons name="mic-outline" size={22} color={transcribing ? "white" : Colors.text} /></Pressable>}
+        <Pressable onPress={() => { Keyboard.dismiss(); void toggleVoice(); }} disabled={transcribing || (busy && !listening)} accessibilityRole="button" accessibilityLabel={listening ? "Encerrar conversa por voz" : "Iniciar conversa por voz"} style={[styles.pillAction, transcribing && styles.disabled]}>
+          {voiceInstalling ? <ActivityIndicator size="small" color={Colors.primary} /> : <View style={styles.waveform}>{[7, 16, 10, 5].map((height, index) => <Animated.View key={index} style={[styles.waveBar, { height, backgroundColor: Colors.text, transform: [{ scaleY: wave[index].interpolate({ inputRange: [0, 1], outputRange: [1, 1.8] }) }] }]} />)}</View>}
+        </Pressable>
+      </View>
+    </View>
+  </KeyboardAvoidingView>;
+  return floatingModal ? <Modal visible={!minimized} animationType="slide" onRequestClose={leaveConversation}>{conversationView}</Modal> : conversationView;
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: Colors.background },
+  header: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.header, paddingHorizontal: 16, paddingBottom: 14, gap: 12 },
+  back: { width: 32, alignItems: "center" }, backText: { color: "white", fontSize: 32 },
+  settingsButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  headerText: { flex: 1 }, title: { color: "white", fontSize: 18, fontWeight: "700" }, subtitle: { color: "#D8EBE1", fontSize: 12 }, clear: { color: "white", fontSize: 14 },
+  scroll: { flex: 1 }, content: { padding: 18, gap: 12 }, intro: { backgroundColor: Colors.surface, padding: 18, borderRadius: 18 },
+  introTitle: { color: Colors.text, fontSize: 19, fontWeight: "700" }, introBody: { color: Colors.text, marginTop: 8, lineHeight: 22 }, limit: { color: Colors.subtitle, marginTop: 12, lineHeight: 20 },
+  bubble: { maxWidth: "88%", padding: 14, borderRadius: 18 }, userBubble: { alignSelf: "flex-end", backgroundColor: Colors.primaryLight }, assistantBubble: { alignSelf: "flex-start", backgroundColor: Colors.surface }, message: { color: Colors.text, fontSize: 16, lineHeight: 22 },
+  action: { marginTop: 10, alignSelf: "flex-start", backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12 }, actionText: { color: "white", fontWeight: "700" },
+  progressCard: { backgroundColor: Colors.surface, paddingHorizontal: 18, paddingBottom: 16, borderRadius: 18 },
+  progressTrack: { height: 9, marginTop: 10, borderRadius: 8, overflow: "hidden", backgroundColor: Colors.primaryLight },
+  progressFill: { height: "100%", backgroundColor: Colors.primary },
+  cancelDownload: { alignSelf: "flex-start", marginTop: 12, paddingVertical: 6 },
+  cancelDownloadText: { color: Colors.primary, fontWeight: "700" },
+  composer: { gap: 8, backgroundColor: Colors.background, paddingHorizontal: 12, paddingTop: 10 },
+  voiceStatus: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 9, paddingVertical: 5 },
+  voiceStatusText: { flex: 1, color: Colors.subtitle, fontSize: 12, lineHeight: 17 },
+  inputPill: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: 2, paddingHorizontal: 7, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border, borderRadius: 30, backgroundColor: Colors.surface, elevation: 3 },
+  input: { flex: 1, maxHeight: 120, minHeight: 44, paddingHorizontal: 12, paddingVertical: 9, color: Colors.text, fontSize: 15 },
+  pillAction: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 22 },
+  waveform: { width: 23, height: 22, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 2 },
+  waveBar: { width: 2, borderRadius: 2, backgroundColor: Colors.text },
+  pillSend: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 22, backgroundColor: Colors.primary },
+  voiceActive: { backgroundColor: "#A33131" }, disabled: { opacity: 0.45 },
+});

@@ -1,0 +1,229 @@
+import { supabase } from "../../config/supabase";
+import { asaasRequest } from "../asaas/asaas.client";
+import { empresaIdDoUsuario } from "../../config/empresa";
+import { criptografarDado, descriptografarDado } from "../../utils/sensitiveData";
+import { auditar } from "../../utils/audit";
+import { conferirSenha } from "../../utils/password";
+import { autenticadorAtivo, exigirCodigoFinanceiro, exigirAutorizacaoCadastroPix } from "../financeiro-seguranca/financeiroSeguranca.service";
+import { exigirTitularDaCarteira } from "../asaas/titularRecebimento.service";
+import { falhaRepasse, pagamentoDisponivelParaRepasse, saldoDisponivelConfirmado } from "../asaas/repasse.policy";
+import { podeOperarCarteiraDaUsina } from "./carteiraEscopo.policy";
+
+const dinheiro = (valor: unknown) => Math.round(Number(valor ?? 0) * 100) / 100;
+const mascarar = (chave: string) => chave.length <= 6 ? "***" : `${chave.slice(0, 2)}***${chave.slice(-4)}`;
+export const chavePixDaCarteira = (carteira: any) => carteira.pix_chave_criptografada ? descriptografarDado(carteira.pix_chave_criptografada) : String(carteira.pix_chave ?? "");
+
+export async function consultarTitularChavePix(tipo: string, chave: string) {
+  const pixTipo = String(tipo ?? "").toUpperCase();
+  const pixChave = String(chave ?? "").trim();
+  if (!pixChave || !["CPF", "CNPJ", "EMAIL", "PHONE", "EVP"].includes(pixTipo)) throw new Error("Informe uma chave Pix válida.");
+  const titular = await asaasRequest<any>(`/pix/addressKeys/external?type=${encodeURIComponent(pixTipo)}&key=${encodeURIComponent(pixChave)}`);
+  const nome = String(
+    titular?.name ??
+    titular?.nome ??
+    titular?.holderName ??
+    titular?.ownerName ??
+    titular?.account?.name ??
+    titular?.account?.holderName ??
+    titular?.account?.ownerName ??
+    titular?.account?.holder?.name ??
+    titular?.holder?.name ??
+    titular?.owner?.name ??
+    "",
+  ).trim();
+  if (!nome) throw new Error("O Asaas localizou a chave, mas não retornou o nome do titular. Não foi possível validá-la com segurança.");
+  return {
+    nome,
+    cpfCnpj: String(titular?.cpfCnpj ?? titular?.cpf_cnpj ?? titular?.holder?.cpfCnpj ?? titular?.account?.cpfCnpj ?? ""),
+    banco: String(titular?.bank?.name ?? titular?.bankName ?? titular?.account?.bank?.name ?? ""),
+  };
+}
+
+export async function obterOuCriarCarteira(usuario: any) {
+  const empresaId = empresaIdDoUsuario(usuario);
+  const { data: existente, error } = await supabase.from("gerador_carteiras").select("*").eq("usuario_id", usuario.id).eq("empresa_id", empresaId).maybeSingle();
+  if (error) throw error;
+  if (existente) return existente;
+  const { data, error: insertError } = await supabase.from("gerador_carteiras").insert({
+    usuario_id: usuario.id,
+    usina_id: usuario.usina_id ?? null,
+    empresa_id: empresaId,
+    status: "ATIVA",
+  }).select().single();
+  if (insertError) throw insertError;
+  return data;
+}
+
+async function carteiraOperacional(usuario: any, usinaId?: string) {
+  if (!usinaId) return obterOuCriarCarteira(usuario);
+  const empresaId = empresaIdDoUsuario(usuario);
+  const {data: usina,error: erroUsina} = await supabase.from("usinas").select("id").eq("id",usinaId).eq("empresa_id",empresaId).maybeSingle();
+  if (erroUsina) throw erroUsina;
+  if (!usina) throw new Error("Usina não encontrada nesta empresa.");
+  let {data: carteira,error} = await supabase.from("gerador_carteiras").select("*").eq("usina_id",usinaId).eq("empresa_id",empresaId).eq("status","ATIVA").maybeSingle();
+  if(error) throw error;
+  if (!carteira) {
+    // Legado: a cobrança já identifica a carteira real, embora usina_id da
+    // carteira esteja vazio. Recupera somente um vínculo financeiro inequívoco.
+    const {data: cobrancas,error: erroCobrancas} = await supabase.from("asaas_cobrancas")
+      .select("gerador_carteira_id,faturas!inner(usina_id)").eq("empresa_id",empresaId).eq("faturas.usina_id",usinaId);
+    if(erroCobrancas) throw erroCobrancas;
+    const ids = [...new Set((cobrancas ?? []).map((item:any)=>item.gerador_carteira_id).filter(Boolean))];
+    if(ids.length === 1) {
+      const resultado = await supabase.from("gerador_carteiras").select("*").eq("id",ids[0]).eq("empresa_id",empresaId).eq("status","ATIVA").maybeSingle();
+      if(resultado.error) throw resultado.error;
+      if(resultado.data && !resultado.data.usina_id) carteira = {...resultado.data,usina_id:usinaId};
+    }
+  }
+  if (!carteira || !podeOperarCarteiraDaUsina(usuario,carteira,empresaId,usinaId)) {
+    throw new Error("Carteira de recebimento desta usina não configurada ou acesso não autorizado.");
+  }
+  return carteira;
+}
+
+export async function buscarCarteiraDaFatura(faturaId: string) {
+  const { data: fatura, error } = await supabase.from("faturas").select("usina_id,empresa_id").eq("id", faturaId).single();
+  if (error || !fatura) return null;
+  if (fatura.usina_id) {
+    const { data } = await supabase.from("gerador_carteiras").select("*").eq("usina_id", fatura.usina_id).eq("empresa_id", fatura.empresa_id).eq("status", "ATIVA").maybeSingle();
+    if (data) return data;
+  }
+  const { data: admin } = await supabase.from("usuarios").select("*").eq("empresa_id", fatura.empresa_id).in("perfil", ["ADMIN", "GESTOR"]).eq("ativo", true).limit(1).maybeSingle();
+  return admin ? obterOuCriarCarteira(admin) : null;
+}
+
+async function movimentosDaCarteira(carteira: any) {
+  const { data: cobrancas, error } = await supabase.from("asaas_cobrancas").select("id,fatura_id,status,valor,valor_liquido,criado_em,atualizado_em,faturas(referencia,vencimento)").eq("gerador_carteira_id", carteira.id).order("criado_em", { ascending: false });
+  if (error) throw error;
+  const { data: transferencias, error: transferError } = await supabase.from("asaas_transferencias").select("id,valor,status,destino_mascarado,modalidade,criado_em,atualizado_em").eq("gerador_carteira_id", carteira.id).order("criado_em", { ascending: false });
+  if (transferError) throw transferError;
+  return { cobrancas: cobrancas ?? [], transferencias: transferencias ?? [] };
+}
+
+export async function resumoCarteira(usuario: any, usinaId?: string) {
+  const carteira = await carteiraOperacional(usuario, usinaId);
+  const { cobrancas, transferencias } = await movimentosDaCarteira(carteira);
+  const recebidas = cobrancas.filter((item: any) => pagamentoDisponivelParaRepasse(item.status));
+  const saidas = transferencias.filter((item: any) => !["FAILED","CANCELLED","REFUSED"].includes(String(item.status).toUpperCase()));
+  const recebido = dinheiro(recebidas.reduce((soma: number, item: any) => soma + (item.valor_liquido != null && Number.isFinite(Number(item.valor_liquido)) ? Math.max(0, Number(item.valor_liquido)) : 0), 0));
+  const recebimentoBruto = dinheiro(recebidas.reduce((soma: number, item: any) => soma + Number(item.valor), 0));
+  const tarifasConfirmadas = recebidas.every((item: any) => item.valor_liquido != null && Number.isFinite(Number(item.valor_liquido)));
+  const transferido = dinheiro(saidas.reduce((soma: number, item: any) => soma + Number(item.valor), 0));
+  const pendente = dinheiro(cobrancas.filter((item: any) => !recebidas.includes(item)).reduce((soma: number, item: any) => soma + Number(item.valor), 0));
+  const titularValidado = await exigirTitularDaCarteira(carteira).then(() => true).catch(() => false);
+  const saldoProvedor = titularValidado && !carteira.asaas_wallet_id
+    ? await asaasRequest<any>("/finance/balance").then(resposta => {
+      const valor = Number(resposta?.balance);
+      return Number.isFinite(valor) && valor >= 0 ? valor : null;
+    }).catch(() => null)
+    : null;
+  return {
+    id: carteira.id,
+    status: carteira.status,
+    asaasConectado: titularValidado && !carteira.asaas_wallet_id,
+    autenticadorAtivo: await autenticadorAtivo(usuario.id),
+    transferenciaAutomatica: carteira.transferencia_automatica,
+    pixTipo: carteira.pix_tipo,
+    pixChaveMascarada: chavePixDaCarteira(carteira) ? mascarar(chavePixDaCarteira(carteira)) : null,
+    pixTitularNome: carteira.pix_titular_nome ?? null,
+    saldoDisponivel: saldoDisponivelConfirmado(recebido, transferido, saldoProvedor),
+    saldoDisponivelConfirmado: saldoProvedor !== null,
+    saldoAsaas: saldoProvedor,
+    recebimentoBruto,
+    tarifasRecebimento: tarifasConfirmadas ? dinheiro(Math.max(0, recebimentoBruto - recebido)) : null,
+    recebimentoLiquido: tarifasConfirmadas ? recebido : null,
+    saldoPendente: pendente,
+    totalRecebido: recebido,
+    totalTransferido: transferido,
+    cobrancas,
+    transferencias,
+  };
+}
+
+export async function atualizarCarteira(usuario: any, input: any) {
+  if (!(await conferirSenha(String(input.senhaAtual ?? ""), String(usuario.senha ?? "")))) throw new Error("Confirme sua senha para alterar os dados financeiros.");
+  const carteira = await carteiraOperacional(usuario, input?.usinaId);
+  const pixTipo = String(input.pixTipo ?? carteira.pix_tipo ?? "").toUpperCase();
+  const pixChave = String(input.pixChave ?? chavePixDaCarteira(carteira)).trim();
+  if (pixTipo && !["CPF","CNPJ","EMAIL","PHONE","EVP"].includes(pixTipo)) throw new Error("Tipo de chave Pix inválido.");
+  // O nome informado pelo aplicativo não é uma prova: consulte o titular no Asaas novamente.
+  const pixTitularNome = input.pixChave
+    ? (await consultarTitularChavePix(pixTipo, pixChave)).nome.slice(0, 200)
+    : String(carteira.pix_titular_nome ?? "").trim();
+  if (input.transferenciaAutomatica === true && (!pixTipo || !pixChave)) throw new Error("Cadastre uma chave Pix antes de ativar a transferência automática.");
+  await exigirAutorizacaoCadastroPix(usuario, String(input.autorizacaoPix ?? ""), String(input.codigoAutenticador ?? ""), "carteira");
+  const { error } = await supabase.from("gerador_carteiras").update({
+    pix_tipo: pixTipo || null,
+    pix_chave: null,
+    pix_chave_criptografada: pixChave ? criptografarDado(pixChave) : null,
+    pix_titular_nome: pixChave ? pixTitularNome : null,
+    transferencia_automatica: Boolean(input.transferenciaAutomatica),
+    atualizado_em: new Date().toISOString(),
+  }).eq("id", carteira.id);
+  if (error) throw error;
+  await auditar({ empresaId: empresaIdDoUsuario(usuario), usuarioId: usuario.id, acao: "CARTEIRA_ATUALIZADA", recurso: "gerador_carteiras", recursoId: carteira.id, detalhes: { pixTipo: pixTipo || null, transferenciaAutomatica: Boolean(input.transferenciaAutomatica) } });
+  return resumoCarteira(usuario, input?.usinaId);
+}
+
+export async function alterarTransferenciaAutomatica(usuario: any, ativa: boolean, usinaId?: string) {
+  if (typeof ativa !== "boolean") throw new Error("Informe se a transferência automática deve ficar ligada ou desligada.");
+  const carteira = await carteiraOperacional(usuario, usinaId);
+  if (ativa && (!carteira.pix_tipo || !chavePixDaCarteira(carteira) || !carteira.pix_titular_nome)) {
+    throw new Error("Valide e salve uma chave Pix antes de ligar a transferência automática.");
+  }
+  const { error } = await supabase.from("gerador_carteiras").update({ transferencia_automatica: ativa, atualizado_em: new Date().toISOString() }).eq("id", carteira.id);
+  if (error) throw error;
+  await auditar({ empresaId: empresaIdDoUsuario(usuario), usuarioId: usuario.id, acao: "CARTEIRA_AUTOMACAO_ALTERADA", recurso: "gerador_carteiras", recursoId: carteira.id, detalhes: { transferenciaAutomatica: ativa } });
+  return resumoCarteira(usuario, usinaId);
+}
+
+export async function transferirCarteira(usuario: any, input: any, idempotencyKey = "") {
+  if (String(input.confirmacao ?? "") !== "TRANSFERIR") throw new Error("Confirme a transferência para continuar.");
+  if (!(await conferirSenha(String(input.senhaAtual ?? ""), String(usuario.senha ?? "")))) throw new Error("Senha atual incorreta.");
+  await exigirCodigoFinanceiro(usuario.id, String(input.codigoAutenticador ?? ""));
+  const carteira = await carteiraOperacional(usuario, input?.usinaId);
+  const pix = chavePixDaCarteira(carteira);
+  if (!pix || !carteira.pix_tipo) throw new Error("Cadastre sua chave Pix antes de transferir.");
+  const resumo = await resumoCarteira(usuario, input?.usinaId);
+  const valor = dinheiro(input.valor);
+  if (!(valor > 0) || valor > resumo.saldoDisponivel) throw new Error("Valor indisponível para transferência.");
+  const chaveIdempotencia = idempotencyKey.trim().slice(0, 200) || null;
+  if (chaveIdempotencia) {
+    const { data: existente, error } = await supabase.from("asaas_transferencias").select("*").eq("empresa_id", empresaIdDoUsuario(usuario)).eq("idempotency_key", chaveIdempotencia).maybeSingle();
+    if (error) throw error;
+    if (existente) return existente;
+  }
+  const { data: intencao, error: intentError } = await supabase.from("asaas_transferencias").insert({
+    empresa_id: empresaIdDoUsuario(usuario),
+    gerador_carteira_id: carteira.id,
+    solicitada_por: usuario.id,
+    asaas_transfer_id: `intent:${crypto.randomUUID()}`,
+    valor,
+    status: "AUTHORIZING",
+    destino_mascarado: `${carteira.pix_tipo}:${mascarar(pix)}`,
+    modalidade: "MANUAL",
+    idempotency_key: chaveIdempotencia,
+  }).select().single();
+  if (intentError) throw intentError;
+  let respostaTransferenciaRecebida = false;
+  try {
+    const transfer = await asaasRequest<any>("/transfers", { method: "POST", body: JSON.stringify({
+      value: valor,
+      pixAddressKey: pix,
+      pixAddressKeyType: carteira.pix_tipo,
+      operationType: "PIX",
+      description: `Saque carteira Andrade ${carteira.id}`,
+      externalReference: String(intencao.id),
+    }) });
+    respostaTransferenciaRecebida = true;
+    if (!transfer?.id || !transfer?.status) throw new Error("Resposta de transferência incompleta.");
+    const { data, error } = await supabase.from("asaas_transferencias").update({ asaas_transfer_id: transfer.id, status: transfer.status, atualizado_em: new Date().toISOString() }).eq("id", intencao.id).select().single();
+    if (error) throw error;
+    await auditar({ empresaId: empresaIdDoUsuario(usuario), usuarioId: usuario.id, acao: "TRANSFERENCIA_SOLICITADA", recurso: "asaas_transferencias", recursoId: data.id, detalhes: { valor, destino: `${carteira.pix_tipo}:${mascarar(pix)}` } });
+    return data;
+  } catch (error) {
+    const falha = respostaTransferenciaRecebida ? {status:"UNKNOWN",erro_codigo:"PERSISTENCIA_PENDENTE"} : falhaRepasse(error);
+    await supabase.from("asaas_transferencias").update({ ...falha, erro_detalhe_criptografado: criptografarDado(String((error as any)?.message ?? "Falha sem detalhe").slice(0,2000)), atualizado_em: new Date().toISOString() }).eq("id", intencao.id);
+    throw error;
+  }
+}

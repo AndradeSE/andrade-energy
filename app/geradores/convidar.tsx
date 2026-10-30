@@ -1,0 +1,83 @@
+import api from "../../config/api";
+import { commercialPermission } from "../../config/commercialPermissions";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
+import { TextInput, TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
+
+import { useAuth } from "../../contexts/AuthContext";
+import { criarConviteGerador } from "../../services/convites.service";
+import { obterPainelComercial } from "../../services/comercial.service";
+import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
+import { AppHeader, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
+import { emailValido, normalizarEmail } from "../../utils/email";
+import EnderecoFields from "../../components/cadastro/EnderecoFields";
+import { cpfValido, enderecoVazio, erroEndereco, formatarCpf, serializarEndereco } from "../../utils/cadastroCliente";
+import { juntarNomePessoa, nomePessoaValido } from "../../utils/nomePessoa";
+
+export default function ConvidarGerador() {
+  const { user } = useAuth();
+  const [nome, setNome] = useState("");
+  const [sobrenome, setSobrenome] = useState("");
+  const [cpf, setCpf] = useState("");
+  const [email, setEmail] = useState("");
+  const [endereco, setEndereco] = useState({ ...enderecoVazio });
+  const [planos, setPlanos] = useState<any[]>([]);
+  const [planoId, setPlanoId] = useState("");
+  const [ciclo, setCiclo] = useState<"MENSAL" | "ANUAL">("MENSAL");
+  const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    void (user?.papel_empresa === "COLABORADOR_COMERCIAL" ? api.get("/comercial/recursos-equipe").then(r=>r.data) : obterPainelComercial()).then((painel) => setPlanos((painel.planos ?? []).filter((plano: any) => plano.ativo !== false))).catch(() => setPlanos([]));
+  }, []);
+
+  if (user?.perfil !== "ADMIN" && !(user?.papel_empresa === "COLABORADOR_COMERCIAL" && commercialPermission(user.permissoes,"geradores_convidar"))) {
+    return <Screen><View style={styles.blocked}><Ionicons name="lock-closed-outline" size={38} color={Colors.danger} /><Text style={styles.title}>Acesso restrito</Text><Text style={styles.subtitle}>Somente a conta administradora pode convidar novos geradores.</Text><TouchableOpacity onPress={() => router.back()} style={styles.secondary}><Text style={styles.secondaryText}>Voltar</Text></TouchableOpacity></View></Screen>;
+  }
+
+  async function enviar() {
+    if (planoId && user?.papel_empresa === "COLABORADOR_COMERCIAL" && !commercialPermission(user.permissoes,"contratos_enviar")) return Alert.alert("Contratação não liberada", "O ADM deve ativar a permissão de enviar contratação para aceite. Você ainda pode enviar um convite sem plano.");
+    if (!nomePessoaValido(nome, sobrenome) || !cpfValido(cpf) || !emailValido(email)) return Alert.alert("Confira os dados", "Informe nome e sobrenome, CPF e e-mail válidos.");
+    const erroDoEndereco = erroEndereco(endereco);
+    if (erroDoEndereco) return Alert.alert("Endereço do gerador", erroDoEndereco);
+    try {
+      setEnviando(true);
+      const resultado = await criarConviteGerador({ nome: juntarNomePessoa(nome, sobrenome), cpf: cpf.replace(/\D/g, ""), email: normalizarEmail(email), endereco: serializarEndereco(endereco), planoId: planoId || undefined, ciclo, diasTeste: planoId ? 45 : 0 });
+      Alert.alert("Convite criado", resultado.emailEnviado ? "O convite foi enviado por e-mail." : `O e-mail não pôde ser enviado. Código: ${resultado.token}`,
+        [{ text: "OK", onPress: () => router.back() }]);
+    } catch (erro: any) {
+      Alert.alert("Não foi possível criar o convite", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
+    } finally { setEnviando(false); }
+  }
+
+  return <Screen>
+    <AppHeader variant="subpage" title="Convidar gerador" subtitle="Acesso administrativo" contextTitle="Nova conta geradora" contextSubtitle="Convite válido por 7 dias" icon="person-add-outline" />
+    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <View style={styles.notice}><Ionicons name="shield-checkmark-outline" size={23} color={Colors.primary} /><Text>Convite de gerador. A contratação utiliza os planos e termos aprovados pela administração.</Text></View>
+      <View style={styles.card}>
+        <Text style={styles.label}>Nome *</Text><TextInput autoCapitalize="words" onChangeText={setNome} placeholder="Nome do novo gerador" placeholderTextColor={Colors.subtitle} style={styles.input} value={nome} />
+        <Text style={styles.label}>Sobrenome *</Text><TextInput autoCapitalize="words" onChangeText={setSobrenome} placeholder="Sobrenome do novo gerador" placeholderTextColor={Colors.subtitle} style={styles.input} value={sobrenome} />
+        <Text style={styles.label}>CPF</Text><TextInput keyboardType="numeric" maxLength={14} onChangeText={(value) => setCpf(formatarCpf(value))} placeholder="000.000.000-00" placeholderTextColor={Colors.subtitle} style={styles.input} value={cpf} />
+        <Text style={styles.label}>E-mail</Text><TextInput autoCapitalize="none" autoCorrect={false} keyboardType="email-address" onChangeText={(valor) => setEmail(normalizarEmail(valor))} placeholder="gerador@email.com" placeholderTextColor={Colors.subtitle} style={styles.input} value={email} />
+        <Text style={styles.label}>Endereço do gerador</Text>
+        <EnderecoFields value={endereco} onChange={setEndereco} />
+        <Text style={styles.label}>Plano ao aceitar o convite</Text>
+        <View style={styles.options}>
+          <TouchableOpacity onPress={() => setPlanoId("")} style={[styles.option, !planoId && styles.optionActive]}><Text style={[styles.optionText, !planoId && styles.optionTextActive]}>Sem plano</Text></TouchableOpacity>
+          {planos.map((plano) => <TouchableOpacity key={plano.id} onPress={() => setPlanoId(plano.id)} style={[styles.option, planoId === plano.id && styles.optionActive]}><Text style={[styles.optionText, planoId === plano.id && styles.optionTextActive]}>{plano.nome}</Text></TouchableOpacity>)}
+        </View>
+        {planoId ? <><Text style={styles.label}>Ciclo</Text><View style={styles.options}>{(["MENSAL", "ANUAL"] as const).map((item) => <TouchableOpacity key={item} onPress={() => setCiclo(item)} style={[styles.option, ciclo === item && styles.optionActive]}><Text style={[styles.optionText, ciclo === item && styles.optionTextActive]}>{item === "MENSAL" ? "Mensal" : "Anual"}</Text></TouchableOpacity>)}</View><Text style={styles.planHint}>A assinatura será criada com 45 dias de teste quando o gerador concluir o cadastro.</Text></> : null}
+        <TouchableOpacity disabled={enviando} onPress={enviar} style={[styles.button, enviando && { opacity: .65 }]}>{enviando ? <ActivityIndicator color={Colors.surface} /> : <><Ionicons name="send-outline" size={20} color={Colors.surface} /><Text style={styles.buttonText}>Enviar convite</Text></>}</TouchableOpacity>
+      </View>
+    </ScrollView>
+  </Screen>;
+}
+
+const styles = StyleSheet.create({
+  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl }, blocked: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.xl }, title: { marginTop: Spacing.md, color: Colors.text, fontSize: Typography.section, fontWeight: "900" }, subtitle: { marginTop: Spacing.xs, color: Colors.subtitle, textAlign: "center" },
+  notice: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.md, padding: Spacing.md, borderRadius: Radius.lg, backgroundColor: "#E9F7EF" },
+  card: { padding: Spacing.lg, borderRadius: Radius.xl, backgroundColor: Colors.surface, ...Shadows.card }, label: { marginTop: Spacing.sm, marginBottom: 7, color: Colors.text, fontSize: Typography.small, fontWeight: "800" }, input: { minHeight: 54, paddingHorizontal: Spacing.md, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, color: Colors.text, backgroundColor: Colors.surface },
+  button: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, marginTop: Spacing.xl, borderRadius: Radius.md, backgroundColor: Colors.primary }, buttonText: { color: Colors.surface, fontWeight: "900" }, secondary: { marginTop: Spacing.lg, padding: Spacing.md }, secondaryText: { color: Colors.primary, fontWeight: "800" },
+  options: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.xs }, option: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.round, backgroundColor: Colors.surface }, optionActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight }, optionText: { color: Colors.subtitle, fontSize: Typography.small, fontWeight: "700" }, optionTextActive: { color: Colors.primaryDark }, planHint: { marginTop: Spacing.sm, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 18 },
+});

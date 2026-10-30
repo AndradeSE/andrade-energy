@@ -1,0 +1,61 @@
+import { useEffect, useRef, useState } from "react";
+import { Text, View } from "react-native";
+import { Pressable } from "../assistant/AssistantNativeControls";
+import { router, usePathname } from "expo-router";
+import { useAuth } from "../../contexts/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
+import api from "../../config/api";
+import Loading from "../ui/Loading";
+
+/** Consulta o servidor em cada navegação; não usa o cache local como autorização. */
+export default function ContractAccessGate() {
+  const queryClient = useQueryClient();
+  const { usuario, unidadeSelecionada, selecionarUnidade, signOut } = useAuth();
+  const path = usePathname();
+  const [bloqueado, setBloqueado] = useState(false);
+  const [erro, setErro] = useState(false);
+  const [tentativa, setTentativa] = useState(0);
+  const escopoVerificado = useRef<string | null>(null);
+  useEffect(() => {
+    let ativo = true;
+    if (usuario?.perfil !== "LEITURA") escopoVerificado.current = null;
+    if (usuario?.perfil !== "LEITURA" || /^(?:\/\(tabs\))?\/(?:login|criar-conta|contrato|perfil|biometric|selecionar-unidade)(?:\/|$)/.test(path)) {
+      setBloqueado(false); return;
+    }
+    const escopoAtual = `${usuario.id}:${unidadeSelecionada?.id ?? "sem-unidade"}`;
+    const primeiraVerificacao = escopoVerificado.current !== escopoAtual;
+    const acessoInicial = queryClient.getQueryData<any[]>(["initial-contract-access", String(usuario.id)]);
+    const acessoPrevalidado = acessoInicial?.some((uc: any) =>
+      uc.id === unidadeSelecionada?.id && uc.liberado,
+    ) ?? false;
+    // A consulta continua em toda navegação, mas uma UC já verificada não
+    // precisa esconder a aba inteira enquanto a validação ocorre ao fundo.
+    setBloqueado(primeiraVerificacao && !acessoPrevalidado);
+    if (primeiraVerificacao) setErro(false);
+    api.get("/contratos/acesso/minhas-unidades").then(async ({ data }) => {
+      if (!ativo) return;
+      if (!Array.isArray(data) || !data.length) {
+        setBloqueado(true); setErro(true); return;
+      }
+      const atual = data.find((uc: any) => uc.id === unidadeSelecionada?.id);
+      const liberadas = data.filter((uc: any) => uc.liberado);
+      const pendente = atual && !atual.liberado ? atual : !liberadas.length ? data[0] : null;
+      if (pendente?.contratoId) {
+        await selecionarUnidade(pendente);
+        if (ativo) router.replace("/(tabs)/contrato");
+      } else if (pendente) {
+        // Sem contrato vinculado não existe documento que o consumidor possa
+        // assinar. Volte à seleção em vez de prendê-lo numa aba sem saída.
+        if (ativo) router.replace("/selecionar-unidade");
+      } else if (ativo) {
+        escopoVerificado.current = escopoAtual;
+        setBloqueado(false);
+      }
+    }).catch(() => { if (ativo && primeiraVerificacao) setErro(true); });
+    return () => { ativo = false; };
+  }, [usuario?.id, usuario?.perfil, unidadeSelecionada?.id, path, tentativa, queryClient]);
+  if (!bloqueado) return null;
+  return <View style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0, zIndex: 10000, backgroundColor: "#EFF6F2", justifyContent: "center", alignItems: "center", padding: 28 }}>
+    {erro ? <><Text>Não foi possível verificar seus contratos.</Text><Pressable onPress={() => setTentativa(v => v + 1)}><Text style={{ padding: 20 }}>Tentar novamente</Text></Pressable><Pressable onPress={() => void signOut()}><Text>Sair da conta</Text></Pressable></> : <Loading />}
+  </View>;
+}

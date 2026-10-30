@@ -1,0 +1,322 @@
+import { supabase } from "../../config/supabase";
+import {
+  enviarEmailMicrosoft,
+  microsoftEmailConfigurado,
+} from "../email/microsoftEmail.service";
+import { VERSAO_RELATORIO_CALCULO } from "./documentosFatura.service";
+import { criarNotificacaoApp } from "../notificacoes/push.service";
+import { emailDestinatarioPermitido } from "../email/destinatariosPermitidos";
+import {avisarFaturamentoAutomatico} from './avisosAutomaticos.service';
+import {conferirEntregasEmail} from './entregaEmail.service';
+
+type Canal = "EMAIL" | "WHATSAPP";
+
+const LIMITE_TENTATIVAS = 5;
+
+function moeda(valor: unknown) {
+  return Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function normalizarWhatsapp(valor: string) {
+  const numeros = valor.replace(/\D/g, "");
+  if (!numeros) return "";
+  return numeros.startsWith("55") ? `+${numeros}` : `+55${numeros}`;
+}
+
+export async function enfileirarNotificacoesDaFatura(fatura: any) {
+  if (!fatura?.id) return [];
+  // A emissão Asaas atualiza o banco, não necessariamente o objeto do chamador.
+  const atual = await supabase.from("faturas").select("*").eq("id", fatura.id).single();
+  if (atual.error) throw atual.error;
+  fatura = atual.data;
+  // Não anunciar ao cliente uma cobrança positiva ainda sem os dois códigos.
+  if (Number(fatura?.valor_total_unificado ?? fatura?.valor_total ?? 0) > 0 && (!fatura?.codigo_pix || !fatura?.linha_digitavel)) return [];
+  await notificarClienteDaFaturaDisponivel(fatura).catch((erro) => {
+    console.error("Falha ao notificar fatura no app", { tipo: erro?.name ?? "Error" });
+  });
+  await notificarGeradorDoClienteFaturado(fatura).catch((erro) => {
+    console.error("Falha ao notificar gerador", { tipo: erro?.name ?? "Error" });
+  });
+  const { data: cliente, error } = await supabase
+    .from("clientes")
+    .select("email, whatsapp")
+    .eq("id", fatura.cliente_id)
+    .single();
+
+  if (error) throw error;
+
+  const destinos: Array<{ canal: Canal; destinatario: string }> = [];
+  if (cliente.email?.trim()) {
+    destinos.push({ canal: "EMAIL", destinatario: cliente.email.trim().toLowerCase() });
+  }
+  if (cliente.whatsapp?.trim()) {
+    const whatsapp = normalizarWhatsapp(cliente.whatsapp);
+    if (whatsapp) destinos.push({ canal: "WHATSAPP", destinatario: whatsapp });
+  }
+
+  if (!destinos.length) return [];
+
+  const registros = destinos.map(({ canal, destinatario }) => ({
+    fatura_id: fatura.id,
+    cliente_id: fatura.cliente_id,
+    canal,
+    destinatario,
+    status: "PENDENTE",
+    tentativas: 0,
+    proxima_tentativa_em: new Date().toISOString(),
+    erro: null,
+  }));
+
+  const { data, error: insertError } = await supabase
+    .from("notificacoes_fatura")
+    .upsert(registros, { onConflict: "fatura_id,canal", ignoreDuplicates: true })
+    .select("id, canal, status");
+
+  if (insertError) throw insertError;
+  return data ?? [];
+}
+
+export async function notificarClienteDaFaturaDisponivel(fatura: any) {
+  if (!fatura?.id || !fatura?.cliente_id || !fatura?.empresa_id || String(fatura.status).toUpperCase() !== "ABERTA") return;
+  const { data: acessos, error } = await supabase.from("empresa_usuarios")
+    .select("usuario_id")
+    .eq("empresa_id", fatura.empresa_id)
+    .eq("cliente_id", fatura.cliente_id)
+    .eq("papel", "LEITURA")
+    .eq("ativo", true);
+  if (error) throw error;
+  const usuarios = [...new Set((acessos ?? []).map((acesso: any) => String(acesso.usuario_id)).filter(Boolean))];
+  await Promise.all(usuarios.map((usuario_id) => criarNotificacaoApp({
+    usuario_id,
+    empresa_id: fatura.empresa_id,
+    cliente_id: fatura.cliente_id,
+    usina_id: fatura.usina_id,
+    tipo: "FATURA_DISPONIVEL",
+    titulo: "Nova fatura disponível",
+    detalhe: fatura.referencia ? `Fatura ${fatura.referencia} disponível para consulta.` : "Sua fatura está disponível para consulta.",
+    rota: `/faturas/${fatura.id}`,
+    chave_dedupe: `fatura-disponivel:${fatura.id}:${usuario_id}`,
+  })));
+}
+
+export async function notificarGeradorDoClienteFaturado(fatura: any) {
+  if (!fatura?.id || !fatura?.cliente_id || !fatura?.empresa_id || String(fatura.status).toUpperCase() !== "ABERTA") return;
+  const [acessos, cliente, usina] = await Promise.all([
+    supabase.from("empresa_usuarios").select("usuario_id,papel,permissoes")
+      .eq("empresa_id", fatura.empresa_id).eq("ativo", true)
+      .in("papel", ["ADMIN_EMPRESA", "GESTOR", "COLABORADOR_GERADOR"]),
+    supabase.from("clientes").select("nome").eq("id", fatura.cliente_id).eq("empresa_id", fatura.empresa_id).maybeSingle(),
+    fatura.usina_id
+      ? supabase.from("usinas").select("nome").eq("id", fatura.usina_id).eq("empresa_id", fatura.empresa_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  for (const resultado of [acessos, cliente, usina]) if (resultado.error) throw resultado.error;
+  const usuarios = [...new Set((acessos.data ?? []).filter((acesso: any) =>
+    acesso.papel !== "COLABORADOR_GERADOR" || acesso.permissoes?.faturamento !== false,
+  ).map((acesso: any) => String(acesso.usuario_id)).filter(Boolean))];
+  await Promise.all(usuarios.map((usuario_id) => criarNotificacaoApp({
+    usuario_id, empresa_id: fatura.empresa_id, cliente_id: fatura.cliente_id, usina_id: fatura.usina_id,
+    tipo: "CLIENTE_FATURADO", titulo: "Cliente faturado",
+    detalhe: `${cliente.data?.nome ?? "Cliente"}${usina.data?.nome ? ` · ${usina.data.nome}` : ""}${fatura.referencia ? ` · ${fatura.referencia}` : ""}. Fatura disponível para consulta.`,
+    rota: `/faturas/${fatura.id}`, chave_dedupe: `cliente-faturado:${fatura.id}:${usuario_id}`,
+  })));
+}
+
+async function baixarAnexo(caminho: string, filename: string) {
+  const { data, error } = await supabase.storage.from("faturas").download(caminho);
+  if (error) throw error;
+  return {
+    filename,
+    content: Buffer.from(await data.arrayBuffer()).toString("base64"),
+  };
+}
+
+async function enviarEmail(item: any) {
+  if (!emailDestinatarioPermitido(item.destinatario)) {
+    throw new Error("Envio de e-mail bloqueado pela lista de destinatários permitidos.");
+  }
+  const apiKey = process.env.RESEND_API_KEY;
+  const remetente = process.env.EMAIL_REMETENTE;
+  const fatura = item.faturas;
+  const somenteAndrade = Boolean(fatura.fatura_somente_andrade);
+  const nomeDocumento = somenteAndrade ? "fatura-andrade.pdf" : "fatura-unificada.pdf";
+  const tituloDocumento = somenteAndrade ? "Fatura Andrade Energy" : "Fatura Unificada Andrade Energy";
+  const rotuloValor = somenteAndrade ? "Valor da cobrança Andrade" : "Total unificado";
+  // O demonstrativo e a fatura unificada repetem a mesma cobrança para o
+  // cliente. Enviamos somente o documento de pagamento, a conta original e a
+  // memória de cálculo; o demonstrativo continua acessível no aplicativo.
+  const documentosDaCobranca = [
+    [fatura.pdf_cemig_url, "fatura-concessionaria.pdf"],
+    [fatura.pdf_unificada_url, nomeDocumento],
+  ];
+  const anexosFatura = await Promise.all(
+    documentosDaCobranca.map(([caminho, nome]) => baixarAnexo(caminho, nome)),
+  );
+  const caminhoRelatorio = `${fatura.cliente_id}/${fatura.id}/${VERSAO_RELATORIO_CALCULO}.pdf`;
+  const relatorio = await baixarAnexo(
+    caminhoRelatorio,
+    `memoria-de-calculo-${String(fatura.referencia ?? "fatura").replace(/[^a-zA-Z0-9_-]/g, "-")}.pdf`,
+  ).catch(() => null);
+  const anexos = relatorio ? [...anexosFatura, relatorio] : anexosFatura;
+  const assunto = `Sua fatura Andrade Energy — ${fatura.referencia}`;
+  const avisoSeparado = somenteAndrade ? "<p><strong>Atenção:</strong> a conta da concessionária permanece separada e também deve ser paga.</p>" : "";
+  const descricaoAnexos = `A conta da concessionária e a ${tituloDocumento} estão anexadas${relatorio ? ", junto com a memória de cálculo" : ""}.`;
+  const html = `<h2>Sua ${tituloDocumento} está pronta</h2><p>${rotuloValor}: <strong>${moeda(fatura.valor_total_unificado)}</strong></p><p>Vencimento: <strong>${fatura.vencimento}</strong></p><p>Economia real: <strong>${moeda(fatura.economia_real)}</strong> (${Number(fatura.desconto_real_percentual ?? 0).toFixed(2)}%)</p>${avisoSeparado}<p>${descricaoAnexos}</p>`;
+
+  if (await microsoftEmailConfigurado()) {
+    return await enviarEmailMicrosoft({ destinatario: item.destinatario, assunto, html, anexos }) ? {provedor:'MICROSOFT',id:null} : false;
+  }
+  const brevoApiKey = process.env.BREVO_API_KEY;
+  const brevoRemetente = process.env.BREVO_REMETENTE_EMAIL;
+  if (brevoApiKey && brevoRemetente) {
+    const respostaBrevo = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "api-key": brevoApiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        sender: {
+          name: process.env.BREVO_REMETENTE_NOME ?? "Andrade Energy",
+          email: brevoRemetente,
+        },
+        to: [{ email: item.destinatario }],
+        replyTo: { email: brevoRemetente, name: "Andrade Energy" },
+        subject: assunto,
+        htmlContent: html,
+        attachment: anexos.map((anexo) => ({ name: anexo.filename, content: anexo.content })),
+        headers: { "Idempotency-Key": `fatura-${item.fatura_id}-email` },
+        tags: ["fatura", "transacional"],
+      }),
+    });
+    if (!respostaBrevo.ok) throw new Error(`Falha no envio pela Brevo (${respostaBrevo.status}).`);
+    const body=await respostaBrevo.json().catch(()=>null);
+    return {provedor:'BREVO',id:typeof body?.messageId==='string'?body.messageId:null};
+  }
+  if (!apiKey || !remetente) return false;
+  const resposta = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "Idempotency-Key": `fatura-${item.fatura_id}-email`,
+      "User-Agent": "Andrade-Energy/1.0",
+    },
+    body: JSON.stringify({
+      from: remetente,
+      to: [item.destinatario],
+      subject: assunto,
+      html,
+      attachments: anexos,
+    }),
+  });
+  if (!resposta.ok) throw new Error(`Falha no provedor de e-mail (${resposta.status}).`);
+  const body=await resposta.json().catch(()=>null);
+  return {provedor:'RESEND',id:typeof body?.id==='string'?body.id:null};
+}
+
+async function enviarWhatsapp(item: any) {
+  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const template = process.env.WHATSAPP_TEMPLATE_NAME;
+  const graphVersion = process.env.WHATSAPP_GRAPH_VERSION;
+  if (!token || !phoneId || !template || !graphVersion) return false;
+
+  const fatura = item.faturas;
+  const { data, error } = await supabase.storage
+    .from("faturas")
+    .createSignedUrl(fatura.pdf_unificada_url, 3600);
+  if (error) throw error;
+
+  const resposta = await fetch(`https://graph.facebook.com/${graphVersion}/${phoneId}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to: item.destinatario.replace(/\D/g, ""),
+      type: "template",
+      template: {
+        name: template,
+        language: { code: "pt_BR" },
+        components: [
+          {
+            type: "header",
+            parameters: [{ type: "document", document: { link: data.signedUrl, filename: `fatura-${fatura.referencia}.pdf` } }],
+          },
+          {
+            type: "body",
+            parameters: [
+              { type: "text", text: String(fatura.referencia) },
+              { type: "text", text: moeda(fatura.valor_total_unificado) },
+              { type: "text", text: String(fatura.vencimento) },
+              { type: "text", text: `${Number(fatura.desconto_real_percentual ?? 0).toFixed(2)}%` },
+            ],
+          },
+        ],
+      },
+    }),
+  });
+  if (!resposta.ok) throw new Error(`Falha no provedor de WhatsApp (${resposta.status}).`);
+  return true;
+}
+
+async function atualizarFalha(item: any, erro: unknown) {
+  const tentativas = Number(item.tentativas) + 1;
+  const minutos = Math.min(60, 2 ** tentativas);
+  await supabase.from("notificacoes_fatura").update({
+    status: tentativas >= LIMITE_TENTATIVAS ? "ERRO" : "PENDENTE",
+    tentativas,
+    erro: erro instanceof Error ? erro.message.slice(0, 500) : "Falha desconhecida.",
+    proxima_tentativa_em: new Date(Date.now() + minutos * 60_000).toISOString(),
+    updated_at: new Date().toISOString(),
+  }).eq("id", item.id);
+  if(item.canal==='EMAIL'&&tentativas>=LIMITE_TENTATIVAS)await avisarFaturamentoAutomatico({empresaId:item.faturas.empresa_id,usinaId:item.faturas.usina_id,clienteId:item.cliente_id,faturaId:item.fatura_id,evento:'ERRO_ENVIO',chave:String(item.id),detalhe:`Não foi possível enviar a fatura ${item.faturas.referencia??''} por ${item.canal}. As tentativas automáticas foram encerradas. Confira o cadastro e o canal de envio.`}).catch(()=>console.error('Aviso de falha de envio pendente.'));
+}
+
+export async function processarFilaDeNotificacoes() {
+  await conferirEntregasEmail().catch(()=>console.error('Consulta de entrega de faturas indisponível.'));
+  const configurados: Canal[] = [];
+  if (
+    (await microsoftEmailConfigurado()) ||
+    (process.env.BREVO_API_KEY && process.env.BREVO_REMETENTE_EMAIL) ||
+    (process.env.RESEND_API_KEY && process.env.EMAIL_REMETENTE)
+  ) configurados.push("EMAIL");
+  if (process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_TEMPLATE_NAME && process.env.WHATSAPP_GRAPH_VERSION) configurados.push("WHATSAPP");
+  const pendentes=await supabase.from('notificacoes_fatura').select('*,faturas(*)').eq('status','PENDENTE').order('created_at').limit(50);
+  if(pendentes.error)throw pendentes.error;
+  for(const item of pendentes.data??[])if(item.canal==='EMAIL'&&!configurados.includes(item.canal)&&item.faturas?.empresa_id)await avisarFaturamentoAutomatico({empresaId:item.faturas.empresa_id,usinaId:item.faturas.usina_id,clienteId:item.cliente_id,faturaId:item.fatura_id,evento:'ENVIO_PENDENTE',chave:String(item.id),detalhe:`O envio por ${item.canal} está pendente porque o canal não está configurado. Confira as configurações; isso não confirma entrega ao cliente.`}).catch(()=>console.error('Aviso de canal pendente.'));
+  if (!configurados.length) return;
+
+  const { data: itens, error } = await supabase
+    .from("notificacoes_fatura")
+    .select("*, faturas(*)")
+    .eq("status", "PENDENTE")
+    .in("canal", configurados)
+    .lte("proxima_tentativa_em", new Date().toISOString())
+    .order("created_at")
+    .limit(10);
+  if (error) throw error;
+
+  for (const item of itens ?? []) {
+    const claim = await supabase.from("notificacoes_fatura").update({ status: "PROCESSANDO", updated_at: new Date().toISOString() })
+      .eq("id", item.id).eq("status", "PENDENTE").select("id").maybeSingle();
+    if (claim.error) throw claim.error;
+    if (!claim.data) continue;
+    let aceita=false;
+    try {
+      const enviada = item.canal === "EMAIL" ? await enviarEmail(item) : await enviarWhatsapp(item);
+      if (enviada) {
+        aceita=true;
+        const envio=item.canal==='EMAIL'&&typeof enviada==='object'?{provedor_envio:enviada.provedor,provedor_mensagem_id:enviada.id}:{};
+        const salvo=await supabase.from("notificacoes_fatura").update({ status: "ENVIADA", ...envio, enviada_em: new Date().toISOString(), erro: null, updated_at: new Date().toISOString() }).eq("id", item.id);
+        if(salvo.error)throw salvo.error;
+        if(item.canal==='EMAIL')await avisarFaturamentoAutomatico({empresaId:item.faturas.empresa_id,usinaId:item.faturas.usina_id,clienteId:item.cliente_id,faturaId:item.fatura_id,evento:'FATURA_ENVIADA',chave:String(item.id),detalhe:`Fatura ${item.faturas.referencia??''} enviada por ${item.canal}. O provedor aceitou o envio; isso ainda não confirma entrega nem leitura pelo cliente.`}).catch(()=>console.error('Aviso de envio pendente.'));
+      } else {
+        throw new Error('O canal de envio não confirmou a aceitação da fatura.');
+      }
+    } catch (erro) {
+      if(!aceita)await atualizarFalha(item, erro);
+      else await supabase.from('notificacoes_fatura').update({status:'ERRO',erro:'O provedor aceitou o envio, mas a confirmação não pôde ser registrada. Confira antes de reenviar.',updated_at:new Date().toISOString()}).eq('id',item.id);
+    }
+  }
+}

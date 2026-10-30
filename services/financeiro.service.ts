@@ -1,37 +1,17 @@
-import { supabase } from "../supabase";
+import api from "../config/api";
 
-export async function carregarFinanceiro() {
-  const { data, error } = await supabase
-    .from("faturas")
-    .select("*");
+export type ResumoFinanceiro = {
+  receitaPrevista: number;
+  receitaRecebida: number;
+  valorEmAberto: number;
+  inadimplentes: number;
+  ticketMedio: number;
+  percentualRecebido: number;
+  totalFaturas: number;
+  historicoMensal: { competencia: string; valor: number }[];
+};
 
-  if (error) throw error;
-
-  const faturas = data ?? [];
-
-  const receitaPrevista = faturas.reduce(
-    (acc, f) => acc + Number(f.valor_total || 0),
-    0
-  );
-
-  const receitaRecebida = faturas
-    .filter(f => f.status === "PAGO")
-    .reduce(
-      (acc, f) => acc + Number(f.valor_total || 0),
-      0
-    );
-
-  const valorEmAberto = receitaPrevista - receitaRecebida;
-
-  const inadimplentes = faturas.filter(
-    f => f.status !== "PAGO"
-  ).length;
-
-  return {
-    receitaPrevista,
-    receitaRecebida,
-    valorEmAberto,
-    inadimplentes,
-    totalFaturas: faturas.length,
-  };
+export async function carregarFinanceiro(usinaId?: string): Promise<ResumoFinanceiro> {
+  const { data } = await api.get<ResumoFinanceiro>("/carteira/resumo-faturas", { params: { usinaId } });
+  return data;
 }

@@ -1,7 +1,9 @@
-import { Pressable, Text } from 'react-native';
+import { ReactNode } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { Pressable } from "./assistant/AssistantNativeControls";
 
 type Props = {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   onPress: () => void;
 };
@@ -14,14 +16,38 @@ export default function QuickActionCard({
   return (
     <Pressable
       onPress={onPress}
-      className="bg-white rounded-2xl p-4 items-center flex-1 mx-1"
-      style={{ elevation: 2 }}
+      style={styles.card}
     >
-      {icon}
+      <View style={styles.icon}>{icon}</View>
 
-      <Text className="mt-2 text-center font-semibold">
+      <Text style={styles.title}>
         {title}
       </Text>
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  card: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  icon: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#E1F4E8",
+  },
+
+  title: {
+    marginTop: 10,
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111827",
+  },
+});

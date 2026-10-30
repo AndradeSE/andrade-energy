@@ -1,0 +1,20 @@
+import { Request, Response } from "express";
+import * as service from "./comercial.service";
+
+const respond = (res: Response, work: Promise<any>, status = 200) => work.then((data) => res.status(status).json(data)).catch((error) => res.status(400).json({ message: error?.message ?? "Operação comercial não concluída." }));
+export const painel = (req: Request, res: Response) => respond(res, service.obterPainelComercial((req as any).usuario));
+export const planosPublicos = (_: Request, res: Response) => respond(res, service.listarPlanosPublicos());
+export const criarPlano = (req: Request, res: Response) => respond(res, service.salvarPlano(undefined, req.body), 201);
+export const atualizarPlano = (req: Request, res: Response) => respond(res, service.salvarPlano(req.params.id, req.body));
+export const financeiro = (req: Request, res: Response) => respond(res, service.obterFinanceiroAssinaturas((req as any).usuario));
+export const validarPixFinanceiro = (req: Request, res: Response) => respond(res, service.validarChavePixComercial(req.body));
+export const configurarFinanceiro = (req: Request, res: Response) => respond(res, service.atualizarFinanceiroAssinaturas((req as any).usuario, req.body));
+export const transferirFinanceiro = (req: Request, res: Response) => respond(res, service.transferirFinanceiroAssinaturas((req as any).usuario, req.body, String(req.header("Idempotency-Key")??"")), 201);
+export const contratar = (req: Request, res: Response) => respond(res, service.contratarPlano(req.body, (req as any).usuario.id), 201);
+export const status = (req: Request, res: Response) => respond(res, service.alterarStatusAssinatura(req.params.id, req.body?.status));
+export const arquivar = (req: Request, res: Response) => respond(res, service.arquivarAssinatura(req.params.id, req.body?.arquivada !== false));
+export const cobrar = (req: Request, res: Response) => respond(res, service.gerarCobrancaAssinatura(req.params.id), 201);
+export const cobrancas = (req: Request, res: Response) => respond(res, service.listarCobrancasAssinatura(req.params.id));
+export const minhaAssinatura = (req: Request, res: Response) => respond(res, service.obterMinhaAssinatura((req as any).usuario.id));
+export const termosMinhaAssinatura = (_req: Request, res: Response) => respond(res, service.obterTermosAssinatura());
+export const checkoutMinhaAssinatura = (req: Request, res: Response) => respond(res, service.criarCheckoutRecorrente((req as any).usuario, req.body, { ip: req.ip, userAgent: req.get("user-agent") ?? "" }), 201);

@@ -1,0 +1,8 @@
+# Isolated probe: no backend credentials, jobs, or production routes.
+[build]
+  publish = "public"
+  functions = "functions"
+[build.environment]
+  NODE_VERSION = "22"
+[functions]
+  node_bundler = "esbuild"

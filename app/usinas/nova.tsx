@@ -1,175 +1,133 @@
-import { router } from 'expo-router';
-import { useState } from 'react';
-import {
-  ImageBackground,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
+import { Alert, StyleSheet, Text } from "react-native";
 
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { supabase } from '../../supabase';
+import FormField from "../../components/cadastro/FormField";
+import EnderecoFields from "../../components/cadastro/EnderecoFields";
+import ChoiceField from "../../components/cadastro/ChoiceField";
+import { enderecoVazio, erroEndereco, lerEnderecoFatura, serializarEndereco } from "../../utils/cadastroCliente";
+import { AppHeader, Button, Card, ElasticScrollView as ScrollView, Screen } from "../../components/ui";
+import { IS_GERADOR_APP } from "../../config/appVariant";
+import { useAuth } from "../../contexts/AuthContext";
+import { criarUsina as criarUsinaRemota, listarUsinas } from "../../services/usinas.service";
+import { Colors, Spacing, Typography } from "../../theme";
 
 export default function NovaUsina() {
-  const [nome, setNome] = useState('');
-  const [pontoInstalacao, setPontoInstalacao] =
-    useState('');
-  const [potencia, setPotencia] =
-    useState('');
-  const [geracaoMedia, setGeracaoMedia] =
-    useState('');
-  const [investimento, setInvestimento] =
-    useState('');
+  const { usuario, selecionarUsina } = useAuth();
+  const { origem, cliente, uc, cpf: cpfImportado, endereco: enderecoImportado, tipoGd: tipoGdImportado, geracaoMedia: geracaoMediaImportada, geracaoInicial, referenciaInicial } = useLocalSearchParams<{ origem?: string; cliente?: string; uc?: string; cpf?: string; endereco?: string; tipoGd?: string; geracaoMedia?: string; geracaoInicial?: string; referenciaInicial?: string }>();
+  const [nome, setNome] = useState("");
+  const [numeroInstalacao, setNumeroInstalacao] = useState("");
+  const [potencia, setPotencia] = useState("");
+  const [geracaoMedia, setGeracaoMedia] = useState(geracaoMediaImportada ?? "");
+  const [mediaEditada, setMediaEditada] = useState(false);
+  const [titular, setTitular] = useState("");
+  const [cpfTitular, setCpfTitular] = useState("");
+  const [endereco, setEndereco] = useState({ ...enderecoVazio });
+  const tipoGdLido = String(tipoGdImportado).toUpperCase();
+  const [tipoGd, setTipoGd] = useState<"" | "GD1" | "GD2">(tipoGdLido === "GD2" ? "GD2" : tipoGdLido === "GD1" ? "GD1" : "");
+  const [titularidadeUcs, setTitularidadeUcs] = useState<"GERADOR" | "CLIENTE">("GERADOR");
+  const [salvando, setSalvando] = useState(false);
 
-  async function salvar() {
-    const { error } = await supabase
-      .from('usinas')
-      .insert({
-        nome,
-        ponto_instalacao:
-          pontoInstalacao,
-        potencia_kwp:
-          Number(potencia),
-        geracao_media:
-          Number(geracaoMedia),
-        investimento:
-          Number(investimento),
-      });
-
-    if (error) {
-      console.log(
-        'ERRO AO CRIAR USINA:',
-        error
-      );
-      return;
-    }
-
-    router.back();
+  async function abrirNaLista(usina: {
+    id: string;
+    nome: string;
+    numero_instalacao?: string | null;
+    distribuidora?: string | null;
+    endereco?: string | null;
+    status?: string | null;
+  }) {
+    // A API cria a usina na empresa autenticada. O acesso do gestor é
+    // por empresa; não depende de atualizar usuarios via cliente Supabase.
+    await selecionarUsina(usina);
+    router.replace("/(tabs)/usinas");
+    return true;
   }
 
- return (
-  <ImageBackground
-source={require('../../assets/images/background.png')}    style={{ flex: 1 }}
-  >
-    <SafeAreaView
-      style={{
-        flex: 1,
-      }}
-    >
-      <ScrollView
-        contentContainerStyle={{
-          padding: 20,
-        }}
-      >
-         <View
-        style={{
-          backgroundColor: 'rgba(255,255,255,0.95)',
-          borderRadius: 18,
-          padding: 20,
-          shadowColor: '#000',
-          shadowOpacity: 0.15,
-          shadowRadius: 10,
-          shadowOffset: {
-            width: 0,
-            height: 4,
-          },
-          elevation: 6,
-        }}
-      >
+  useEffect(() => {
+    if (origem !== "fatura") return;
+    const nomeExtraido = (cliente ?? "").trim();
+    const rotuloDaFatura = /d[eé]bito\s+autom[aá]tico|valor\s+a\s+pagar|vencimento/i.test(nomeExtraido);
+    const titularExtraido = rotuloDaFatura || !nomeExtraido ? usuario?.nome?.trim() ?? "" : nomeExtraido;
+    setNome(titularExtraido ? `Usina ${titularExtraido}` : "");
+    setTitular(titularExtraido);
+    setCpfTitular(cpfImportado ?? "");
+    setNumeroInstalacao((uc ?? "").replace(/\D/g, ""));
+    setEndereco(lerEnderecoFatura(enderecoImportado ?? ""));
+    setGeracaoMedia(geracaoMediaImportada ?? "");
+    setMediaEditada(false);
+    const tipoLido = String(tipoGdImportado).toUpperCase();
+    setTipoGd(tipoLido === "GD2" ? "GD2" : tipoLido === "GD1" ? "GD1" : "");
+  }, [cliente, cpfImportado, enderecoImportado, geracaoMediaImportada, origem, tipoGdImportado, uc, usuario?.nome]);
 
-      <Text
-        style={{
-          fontSize: 24,
-          fontWeight: 'bold',
-          marginBottom: 20,
-        }}
-      >
-        Nova Usina
-      </Text>
+  async function salvar() {
+    if (!nome.trim() || !numeroInstalacao || !potencia) {
+      Alert.alert("Dados incompletos", "Informe nome, instalação e potência da usina.");
+      return;
+    }
+    if (!tipoGd) return Alert.alert("Modalidade GD necessária", "A fatura não identificou GD I ou GD II. Escolha a modalidade manualmente para continuar.");
+    const erroDoEndereco = erroEndereco(endereco);
+    if (erroDoEndereco) return Alert.alert("Endereço da usina", erroDoEndereco);
+    setSalvando(true);
+    try {
+      const usina = await criarUsinaRemota({
+        nome: nome.trim(), numero_instalacao: numeroInstalacao, potencia_kwp: Number(potencia.replace(",", ".")),
+        geracao_media: mediaEditada ? Number(geracaoMedia.replace(",", ".")) || 0 : 0,
+        ...(origem === "fatura" && Number(geracaoInicial) > 0 ? { producao_inicial_kwh: Number(geracaoInicial), referencia_fatura_inicial: referenciaInicial } : {}),
+        titular_nome: titular.trim() || null, cpf_titular: cpfTitular.replace(/\D/g, "") || null,
+        endereco: serializarEndereco(endereco), distribuidora: "CEMIG", modalidade: "INJECAO",
+        tipo_gd: tipoGd, titularidade_ucs_recebedoras: titularidadeUcs, status: "ATIVA",
+      });
+      await abrirNaLista(usina);
+    } catch (erro: any) {
+      const mensagem = String(erro?.response?.data?.message ?? erro?.message ?? "");
+      if (/23505|usinas_numero_instalacao_key|duplicate key/i.test(mensagem)) {
+      const existentes = await listarUsinas().catch(() => []);
+      const existente = existentes.find((item: any) =>
+        String(item.numero_instalacao).replace(/\D/g, "") === numeroInstalacao,
+      );
 
-      <Text>Nome</Text>
-      <TextInput
-        value={nome}
-        onChangeText={setNome}
-        style={styles.input}
-        
-      />
+      if (!existente) {
+        Alert.alert("Usina já cadastrada", "Esta instalação já existe, mas não foi possível carregá-la.");
+      } else {
+        Alert.alert("Usina já cadastrada", "A instalação já existe e foi localizada na sua lista.");
+        await abrirNaLista(existente);
+      }
+      } else Alert.alert("Não foi possível salvar", mensagem || "Tente novamente.");
+    }
+    setSalvando(false);
+  }
 
-      <Text>Ponto de Instalação</Text>
-      <TextInput
-        value={pontoInstalacao}
-        onChangeText={(texto) =>
-          setPontoInstalacao(
-            texto.replace(/\D/g, '')
-          )
-        }
-        keyboardType="numeric"
-        style={styles.input}
-      />
-
-      <Text>Potência (kWp)</Text>
-      <TextInput
-        value={potencia}
-        onChangeText={setPotencia}
-        keyboardType="numeric"
-        style={styles.input}
-      />
-
-      <Text>Geração Média (kWh/mês)</Text>
-      <TextInput
-        value={geracaoMedia}
-        onChangeText={setGeracaoMedia}
-        keyboardType="numeric"
-        style={styles.input}
-      />
-
-      <Text>Investimento</Text>
-      <TextInput
-        value={investimento}
-        onChangeText={setInvestimento}
-        keyboardType="numeric"
-        style={styles.input}
-      />
-
-      <TouchableOpacity
-        onPress={salvar}
-        style={{
-          backgroundColor: '#16a34a',
-          padding: 15,
-          borderRadius: 10,
-          marginTop: 20,
-        }}
-      >
-        <Text
-          style={{
-            color: 'white',
-            textAlign: 'center',
-            fontWeight: 'bold',
-          }}
-        >
-          SALVAR USINA
-          
-        </Text>
-      </TouchableOpacity>
-            </View>
-            
-    </ScrollView>
-      </SafeAreaView>
-  </ImageBackground>
-);
+  return (
+    <Screen>{IS_GERADOR_APP ? <AppHeader variant="subpage" title="Nova usina" subtitle="Cadastro de geração" contextTitle="Nova usina" contextSubtitle={origem === "fatura" ? "Dados lidos da conta de energia" : "Cadastro manual"} icon="sunny-outline" /> : null}<ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
+      <Text style={styles.eyebrow}>{origem === "fatura" ? "DADOS LIDOS DA FATURA" : "CADASTRO MANUAL"}</Text>
+      <Text style={styles.title}>Nova usina</Text>
+      <Text style={styles.subtitle}>Confira os dados antes de salvar. O nome sugerido pela fatura pode ser alterado livremente.</Text>
+      <Card>
+        <FormField label="Nome da usina (editável)" value={nome} onChangeText={setNome} placeholder="Ex.: Usina Solar Alfenas" />
+        <FormField label="Número da instalação / UC" value={numeroInstalacao} onChangeText={(v) => setNumeroInstalacao(v.replace(/\D/g, ""))} keyboardType="numeric" />
+        <FormField label="Potência (kWp)" value={potencia} onChangeText={setPotencia} keyboardType="decimal-pad" />
+        <FormField label="Geração média mensal (kWh)" value={geracaoMedia} onChangeText={(valor) => { setGeracaoMedia(valor); setMediaEditada(true); }} keyboardType="decimal-pad" placeholder="Calculada após importar faturas" />
+        <Text style={styles.gdHint}>A média será calculada com as faturas da usina; edite este campo para usar uma referência manual.</Text>
+        {origem === "fatura" && !tipoGd ? <Text style={styles.gdHint}>A modalidade não foi identificada nesta fatura. Escolha GD I ou GD II.</Text> : null}
+        <ChoiceField label="Modalidade GD da usina" value={tipoGd} onChange={setTipoGd} options={[{ label: "GD I", value: "GD1" }, { label: "GD II", value: "GD2" }]} />
+        <ChoiceField label="Titularidade das UCs" value={titularidadeUcs} onChange={(valor) => setTitularidadeUcs(valor as "GERADOR" | "CLIENTE")} options={[{ label: "Gerador", value: "GERADOR" }, { label: "Clientes", value: "CLIENTE" }]} />
+        <Text style={styles.gdHint}>{titularidadeUcs === "GERADOR" ? "O gerador configura o envio automático das faturas na área Financeiro." : "Cada cliente deverá ativar o envio automático da própria fatura no aplicativo Consumidor."}</Text>
+        <FormField label="Titular" value={titular} onChangeText={setTitular} />
+        <FormField label="CPF/CNPJ do titular da conta (para e-mail)" value={cpfTitular} onChangeText={(valor) => setCpfTitular(valor.replace(/\D/g, "").slice(0, 14))} keyboardType="numeric" />
+        <Text style={styles.addressTitle}>ENDEREÇO DA USINA</Text>
+        <Text style={styles.gdHint}>Confira os dados lidos da fatura e complete ou corrija os campos abaixo.</Text>
+        <EnderecoFields value={endereco} onChange={setEndereco} />
+        <Button disabled={salvando} title={salvando ? "Salvando..." : "Salvar usina"} onPress={salvar} />
+      </Card>
+    </ScrollView></Screen>
+  );
 }
 
-const styles = {
-  input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 5,
-    marginBottom: 18,
-  },
-};
+const styles = StyleSheet.create({
+  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
+  eyebrow: { color: Colors.primary, fontSize: Typography.small, fontWeight: "700", letterSpacing: 1.2 },
+  title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "700" },
+  subtitle: { marginTop: Spacing.sm, marginBottom: Spacing.lg, color: Colors.subtitle, lineHeight: 21 },
+  gdHint: { marginBottom: Spacing.sm, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 },
+  addressTitle: { marginTop: Spacing.md, marginBottom: Spacing.sm, color: Colors.text, fontSize: Typography.small, fontWeight: "800" },
+});

@@ -13,6 +13,7 @@ expo-env.d.ts
 .kotlin/
 *.orig.*
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key
@@ -29,11 +30,17 @@ yarn-error.*
 # macOS
 .DS_Store
 *.pem
+# Firebase service-account private keys (public mobile config is not covered)
+/firebase/*service-account*.json
+/firebase/andrade-energy-push-*.json
 
 # local env files
 .env*.local
 .env
 .env.*
+!.env.example
+!**/.env.example
+.microsoft-token-cache.json
 
 # typescript
 *.tsbuildinfo
@@ -43,3 +50,26 @@ app-example
 # generated native folders
 /ios
 /android
+.local-android/
+.codex-eas-*/
+/b/
+/builds-local/
+backend/uploads/
+supabase/.temp/
+*.rar
+*.zip
+*.7z
+
+# Local build and deployment artifacts
+/dist-apk/
+/output/apps/*.apk
+/portal-web-deploy*.tar.gz
+
+# Temporary verification, media and OTA artifacts (also keep Metro from scanning them)
+/.codex-*/
+/tmp/
+/output/
+/outputs/
+/.tmp-tutorial-export-*/
+/dist-gerador/
+/portal-web/.openai/*.tar.gz

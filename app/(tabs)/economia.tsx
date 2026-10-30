@@ -1,0 +1,406 @@
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { RefreshControl, StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
+import { useEffect, useState } from "react";
+
+import Badge from "../../components/ui/Badge";
+import Card from "../../components/ui/Card";
+import Divider from "../../components/ui/Divider";
+import EmptyState from "../../components/ui/EmptyState";
+import Screen from "../../components/ui/Screen";
+import { ElasticScrollView as ScrollView } from "../../components/ui/ElasticScroll";
+import EconomiaChart from "../../components/cliente/EconomiaChart";
+import ClienteHeader from "../../components/cliente/ClienteHeader";
+import TabDataPending from "../../components/ui/TabDataPending";
+import ComposicaoTarifariaCard from "../../components/cliente/ComposicaoTarifariaCard";
+import { useDashboard } from "../../hooks/useDashboard";
+import { useAuth } from "../../contexts/AuthContext";
+import { listarMinhasUnidades } from "../../services/clientes.service";
+import { Colors, Radius, Spacing, Typography } from "../../theme";
+
+type HistoricoItem = {
+  competencia?: string;
+  economia?: number;
+};
+
+const formatarMoeda = (valor: number) =>
+  Number(valor || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+
+const formatarEnergia = (valor: number) =>
+  `${Number(valor || 0).toLocaleString("pt-BR")} kWh`;
+
+const formatarCompetencia = (competencia?: string) => {
+  if (!competencia) return "Última competência";
+
+  const [ano, mes] = competencia.split("-");
+  if (!ano || !mes) return competencia;
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    month: "short",
+    year: "numeric",
+  }).format(new Date(Number(ano), Number(mes) - 1, 1));
+};
+
+export default function Economia() {
+  const { data, isLoading, error, refetch } = useDashboard();
+  const { unidadeSelecionada } = useAuth();
+  const [atualizando, setAtualizando] = useState(false);
+  const [concessionariaDaUnidade, setConcessionariaDaUnidade] = useState("");
+
+  useEffect(() => {
+    let ativo = true;
+    listarMinhasUnidades()
+      .then((unidades) => {
+        if (!ativo || !Array.isArray(unidades)) return;
+        const selecionada = unidades.find((item: any) =>
+          item.id === unidadeSelecionada?.id ||
+          String(item.numero ?? "") === String(unidadeSelecionada?.numero ?? "")
+        );
+        const comConcessionaria = unidades.find((item: any) => String(item?.distribuidora ?? "").trim());
+        setConcessionariaDaUnidade(String(
+          selecionada?.distribuidora || unidadeSelecionada?.distribuidora || comConcessionaria?.distribuidora || ""
+        ).trim());
+      })
+      .catch(() => { if (ativo) setConcessionariaDaUnidade(""); });
+    return () => { ativo = false; };
+  }, [unidadeSelecionada?.id, unidadeSelecionada?.numero, unidadeSelecionada?.distribuidora]);
+
+  async function atualizarPagina() {
+    setAtualizando(true);
+    try {
+      await refetch();
+    } finally {
+      setAtualizando(false);
+    }
+  }
+
+  if (isLoading) return <Screen><ClienteHeader cliente="Cliente" uc={unidadeSelecionada?.numero ?? ""} distribuidora={concessionariaDaUnidade || unidadeSelecionada?.distribuidora || "CEMIG"} fullBleed /><TabDataPending /></Screen>;
+
+  if (error || !data) {
+    return (
+      <Screen>
+        <View style={styles.stateContainer}>
+          <EmptyState
+            icon="cloud-offline-outline"
+            title="Não foi possível carregar sua economia"
+            subtitle="Verifique sua conexão e tente novamente em alguns instantes."
+          />
+        </View>
+      </Screen>
+    );
+  }
+
+  const historico: HistoricoItem[] = Array.isArray(data.historico)
+    ? data.historico
+    : [];
+  const concessionariaVigente = concessionariaDaUnidade || String(data.distribuidora || "").trim();
+
+  return (
+    <Screen>
+      <ClienteHeader cliente={data.cliente} uc={data.uc} distribuidora={data.distribuidora} fullBleed />
+      <ScrollView
+        bounces
+        alwaysBounceVertical
+        overScrollMode="always"
+        refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+      >
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.eyebrow}>SUA ENERGIA</Text>
+            <Text style={styles.title}>Economia</Text>
+          </View>
+
+          <View style={styles.headerIcon}>
+            <Ionicons name="leaf-outline" size={24} color={Colors.primary} />
+          </View>
+        </View>
+
+        <View style={styles.hero}>
+          <View style={styles.heroGlow} />
+          <Badge label="Desde o início do contrato" variant="success" />
+          <Text style={styles.heroLabel}>Você já economizou</Text>
+          <Text style={styles.heroValue}>
+            {formatarMoeda(data.economiaAcumulada)}
+          </Text>
+          <View style={styles.heroFooter}>
+            <View style={styles.heroIcon}>
+              <Ionicons name="trending-up" size={18} color={Colors.primary} />
+            </View>
+            <Text style={styles.heroFooterText}>
+              {formatarMoeda(data.economiaMes)} nesta competência
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.documentActions}>
+          <TouchableOpacity
+            accessibilityLabel="Abrir faturas Andrade Energy"
+            activeOpacity={0.84}
+            onPress={() => router.push({ pathname: "/faturas", params: { categoria: "unificada" } })}
+            style={styles.documentButton}
+          >
+            <View style={styles.documentIcon}><Ionicons name="documents-outline" size={24} color={Colors.primary} /></View>
+            <Text style={styles.documentTitle}>Faturas</Text>
+            <Text style={styles.documentSubtitle}>Andrade Energy</Text>
+            <Ionicons name="chevron-forward" size={19} color={Colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityLabel="Abrir contas de luz da concessionária"
+            activeOpacity={0.84}
+            onPress={() => router.push("/contas-de-luz")}
+            style={styles.documentButton}
+          >
+            <View style={styles.documentIcon}><Ionicons name="flash-outline" size={24} color={Colors.primary} /></View>
+            <Text style={styles.documentTitle}>Conta de luz</Text>
+            <Text style={styles.documentSubtitle}>{concessionariaVigente || "Concessionária"}</Text>
+            <Ionicons name="chevron-forward" size={19} color={Colors.primary} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>Balanço energético</Text>
+            <Text style={styles.sectionSubtitle}>
+              {formatarCompetencia(data.ultimaFatura?.competencia)}
+            </Text>
+          </View>
+          <Ionicons name="flash-outline" size={22} color={Colors.primary} />
+        </View>
+
+        <Card>
+          <View style={styles.energyRow}>
+            <View style={[styles.metricIcon, styles.solarIcon]}>
+              <Ionicons name="sunny-outline" size={22} color="#D97706" />
+            </View>
+            <View style={styles.metricContent}>
+              <Text style={styles.metricLabel}>Energia injetada</Text>
+              <Text style={styles.metricHint}>Produzida e enviada à rede</Text>
+            </View>
+            <Text style={styles.metricValue}>
+              {formatarEnergia(data.ultimaFatura?.energiaInjetada)}
+            </Text>
+          </View>
+
+          <Divider />
+
+          <View style={styles.energyRow}>
+            <View style={[styles.metricIcon, styles.compensatedIcon]}>
+              <Ionicons name="repeat-outline" size={22} color={Colors.primary} />
+            </View>
+            <View style={styles.metricContent}>
+              <Text style={styles.metricLabel}>Energia compensada</Text>
+              <Text style={styles.metricHint}>Abatida na sua fatura</Text>
+            </View>
+            <Text style={styles.metricValue}>
+              {formatarEnergia(data.ultimaFatura?.energiaCompensada)}
+            </Text>
+          </View>
+
+          <Divider />
+
+          <View style={styles.energyRow}>
+            <View style={[styles.metricIcon, styles.creditIcon]}>
+              <Ionicons name="battery-half-outline" size={22} color={Colors.info} />
+            </View>
+            <View style={styles.metricContent}>
+              <Text style={styles.metricLabel}>Saldo de energia</Text>
+              <Text style={styles.metricHint}>Disponível para compensação</Text>
+            </View>
+            <Text style={styles.metricValue}>{formatarEnergia(data.creditos)}</Text>
+          </View>
+        </Card>
+
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>Entenda sua fatura</Text>
+            <Text style={styles.sectionSubtitle}>Valores que formam a cobrança</Text>
+          </View>
+          <Ionicons name="pie-chart-outline" size={22} color={Colors.primary} />
+        </View>
+
+        <ComposicaoTarifariaCard itens={data.ultimaFatura?.composicaoTarifaria} />
+
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>Evolução mensal</Text>
+            <Text style={styles.sectionSubtitle}>Últimos lançamentos</Text>
+          </View>
+        </View>
+
+        <EconomiaChart historico={historico} mostrarTitulo={false} />
+      </ScrollView>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  content: {
+    padding: Spacing.lg,
+    paddingBottom: Spacing.xxl * 3,
+  },
+  stateContainer: {
+    flex: 1,
+    justifyContent: "center",
+    padding: Spacing.lg,
+  },
+  header: {
+    padding: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.xl,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.lg,
+  },
+  eyebrow: {
+    color: Colors.primary,
+    fontSize: Typography.small,
+    fontWeight: "800",
+    letterSpacing: 1.4,
+  },
+  title: {
+    marginTop: 4,
+    color: Colors.text,
+    fontSize: Typography.title,
+    fontWeight: "800",
+  },
+  headerIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: Radius.round,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.primaryLight,
+  },
+  hero: {
+    position: "relative",
+    overflow: "hidden",
+    marginBottom: Spacing.xl,
+    padding: Spacing.lg,
+    borderRadius: Radius.xl,
+    backgroundColor: Colors.primaryDark,
+  },
+  heroBackground: {
+    borderRadius: Radius.xl,
+  },
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(4, 42, 31, 0.34)",
+  },
+  heroGlow: {
+    position: "absolute",
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+    right: -70,
+    top: -80,
+    backgroundColor: "rgba(15, 143, 91, 0.28)",
+  },
+  heroLabel: {
+    marginTop: Spacing.lg,
+    color: "#CBD5E1",
+    fontSize: Typography.caption,
+  },
+  heroValue: {
+    marginTop: Spacing.xs,
+    color: Colors.surface,
+    fontSize: 40,
+    fontWeight: "800",
+    letterSpacing: -1.2,
+  },
+  heroFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: Spacing.lg,
+  },
+  heroIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: Radius.round,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.primaryLight,
+  },
+  heroFooterText: {
+    marginLeft: Spacing.sm,
+    color: "#E2E8F0",
+    fontSize: Typography.caption,
+    fontWeight: "600",
+  },
+  documentActions: { flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.xl },
+  documentButton: { minHeight: 122, flex: 1, alignItems: "flex-start", justifyContent: "center", padding: Spacing.md, borderWidth: 1, borderColor: "#C9DED1", borderRadius: Radius.xl, backgroundColor: Colors.surface },
+  documentIcon: { width: 42, height: 42, alignItems: "center", justifyContent: "center", marginBottom: Spacing.sm, borderRadius: Radius.md, backgroundColor: Colors.surface },
+  documentTitle: { color: Colors.text, fontSize: Typography.caption, fontWeight: "900" },
+  documentSubtitle: { marginTop: 2, marginBottom: Spacing.xs, color: Colors.subtitle, fontSize: Typography.small },
+  sectionHeader: {
+    padding: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
+  sectionTitle: {
+    color: Colors.text,
+    fontSize: Typography.card,
+    fontWeight: "700",
+  },
+  sectionSubtitle: {
+    marginTop: 3,
+    color: Colors.subtitle,
+    fontSize: Typography.caption,
+  },
+  energyRow: {
+    minHeight: 68,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  metricIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  solarIcon: {
+    backgroundColor: "#FFF7E6",
+  },
+  compensatedIcon: {
+    backgroundColor: Colors.primaryLight,
+  },
+  creditIcon: {
+    backgroundColor: "#EFF6FF",
+  },
+  metricContent: {
+    flex: 1,
+    marginHorizontal: Spacing.sm,
+  },
+  metricLabel: {
+    color: Colors.text,
+    fontSize: Typography.caption,
+    fontWeight: "700",
+  },
+  metricHint: {
+    marginTop: 3,
+    color: Colors.subtitle,
+    fontSize: Typography.small,
+  },
+  metricValue: {
+    maxWidth: 100,
+    color: Colors.text,
+    fontSize: Typography.caption,
+    fontWeight: "800",
+    textAlign: "right",
+  },
+});

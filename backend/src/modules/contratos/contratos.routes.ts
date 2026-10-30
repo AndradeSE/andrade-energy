@@ -1,0 +1,173 @@
+import { Router, Request, Response, NextFunction } from "express";
+import { supabase } from "../../config/supabase";
+import * as ContratosService from "./contratos.service";
+
+import {
+    atualizarContratoController,
+    buscarContratoController,
+    criarContratoController,
+    excluirContratoController,
+    cancelarContratoController,
+    salvarContratoDaUnidadeController,
+    buscarContratoDaUnidadeController,
+    gerarContratoDaUnidadeController,
+    importarContratoAssinadoDaUnidadeController,
+    registrarAceiteEletronicoController,
+    solicitarCodigoAssinaturaController,
+    importarContratoAssinadoPeloClienteController,
+    propostaDaUnidadeController,
+    dadosIniciaisContratoController,
+    listarContratosController,
+    obterSolicitacaoCancelamentoController,
+    concluirSolicitacaoCancelamentoController,
+} from "./contratos.controller";
+import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
+import { upload } from "../../config/multer";
+import { empresaIdDaRequisicao, exigirRegistroDaEmpresa } from "../../utils/empresaScope";
+import { enviarContratoEConvite } from "./envioContrato.service";
+import { listarAcessoContratos } from "./acessoContrato.service";
+import { solicitarRenovacaoContrato, informarNaoRenovacao } from "./renovacaoContrato.service";
+
+const router = Router();
+router.use(exigirAutenticacao);
+router.get("/", exigirGestor, listarContratosController);
+router.get("/:id/documento", exigirGestor, exigirRegistroDaEmpresa("contratos"), async (req, res) => {
+  try {
+    const documento = await ContratosService.obterDocumentoContrato(req.params.id, empresaIdDaRequisicao(req));
+    if (!documento) return res.status(404).json({ message: "Contrato não encontrado." });
+    return res.json(documento);
+  } catch {
+    return res.status(500).json({ message: "Não foi possível abrir o documento do contrato." });
+  }
+});
+// A empresa pode ter vários consumidores; pertencer à mesma empresa não
+// autoriza consultar o contrato ou a proposta de outro cliente.
+function exigirTitular(tabela: string, parametro: string) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const usuario = (req as any).usuario;
+    if (usuario?.perfil !== "LEITURA") return next();
+    try {
+      const { data, error } = await supabase.from(tabela).select("id")
+        .eq("id", req.params[parametro]).eq(tabela === "clientes" ? "id" : "cliente_id", usuario.cliente_id)
+        .eq("empresa_id", usuario.empresa_id).maybeSingle();
+      if (error || !data) return res.status(404).json({ message: "Documento não encontrado para sua conta." });
+      return next();
+    } catch { return res.status(503).json({ message: "Não foi possível verificar o titular do documento." }); }
+  };
+}
+function exigirSolicitanteCancelamento(req: Request, res: Response, next: NextFunction) {
+  const usuario = (req as any).usuario;
+  const perfil = String(usuario?.perfil ?? "").toUpperCase();
+  const papel = String(usuario?.papel_empresa ?? "").toUpperCase();
+  if (papel.startsWith("COLABORADOR_")) {
+    return res.status(403).json({ message: "Colaboradores não podem solicitar cancelamento em nome do cliente." });
+  }
+  if (["ADMIN", "GESTOR"].includes(perfil)) return next();
+  if (perfil !== "LEITURA") return res.status(403).json({ message: "Acesso não autorizado para solicitar cancelamento." });
+  return exigirTitular("contratos", "id")(req, res, next);
+}
+router.post("/:id/validar-assinatura-externa", exigirGestor, exigirRegistroDaEmpresa("contratos"), async (req, res) => {
+  try {
+    const { validarAssinaturaExterna } = await import("./validacaoAssinatura.service.js");
+    res.json(await validarAssinaturaExterna(req.params.id, (req as any).usuario, req.body?.confirmado === true));
+  } catch (erro: any) { res.status(400).json({ message: erro.message }); }
+});
+router.get("/acesso/minhas-unidades", async (req, res) => {
+  try { res.json(await listarAcessoContratos((req as any).usuario)); }
+  catch (erro: any) { res.status(500).json({ message: erro.message }); }
+});
+router.get("/:id/cancelamento", exigirGestor, exigirRegistroDaEmpresa("contratos"), obterSolicitacaoCancelamentoController);
+router.post("/:id/cancelamento/concluir", exigirGestor, exigirRegistroDaEmpresa("contratos"), concluirSolicitacaoCancelamentoController);
+router.post("/unidade/:unidadeId/enviar", exigirGestor, exigirRegistroDaEmpresa("unidades_consumidoras", "unidadeId"), async (req, res) => {
+  try { res.json(await enviarContratoEConvite(req.params.unidadeId, (req as any).usuario)); }
+  catch (erro: any) { res.status(400).json({ message: erro.message }); }
+});
+
+router.get(
+  "/unidade/:unidadeId",
+  exigirTitular("unidades_consumidoras", "unidadeId"),
+  exigirRegistroDaEmpresa("unidades_consumidoras", "unidadeId"),
+  buscarContratoDaUnidadeController
+);
+router.get("/unidade/:unidadeId/proposta", exigirTitular("unidades_consumidoras", "unidadeId"), exigirRegistroDaEmpresa("unidades_consumidoras", "unidadeId"), propostaDaUnidadeController);
+router.get("/unidade/:unidadeId/dados-iniciais", exigirGestor, exigirRegistroDaEmpresa("unidades_consumidoras", "unidadeId"), dadosIniciaisContratoController);
+
+router.get(
+  "/:clienteId",
+  exigirTitular("clientes", "clienteId"),
+  exigirRegistroDaEmpresa("clientes", "clienteId"),
+  buscarContratoController
+);
+
+router.post(
+  "/",
+  exigirGestor,
+  criarContratoController
+);
+
+router.put(
+  "/unidade/:unidadeId",
+  exigirGestor,
+  exigirRegistroDaEmpresa("unidades_consumidoras", "unidadeId"),
+  salvarContratoDaUnidadeController
+);
+
+router.post("/unidade/:unidadeId/preparar-revisao", exigirGestor, exigirRegistroDaEmpresa("unidades_consumidoras", "unidadeId"), async (req, res) => {
+  try { res.json(await ContratosService.prepararRevisaoDaUnidadeService(req.params.unidadeId)); }
+  catch (erro: any) { res.status(400).json({ message: erro.message }); }
+});
+
+router.post(
+  "/unidade/:unidadeId/gerar-documento",
+  exigirGestor,
+  exigirRegistroDaEmpresa("unidades_consumidoras", "unidadeId"),
+  gerarContratoDaUnidadeController
+);
+
+router.post(
+  "/unidade/:unidadeId/contrato-assinado",
+  exigirGestor,
+  exigirRegistroDaEmpresa("unidades_consumidoras", "unidadeId"),
+  upload.single("arquivo"),
+  importarContratoAssinadoDaUnidadeController
+);
+
+// O consumidor pode participar de mais de uma empresa. Estas ações validam o
+// titular pelo cliente_id do vínculo ativo dentro do próprio serviço; exigir o
+// empresa_id principal do usuário aqui rejeitaria contratos de outro gerador.
+router.post("/:id/codigo-assinatura", solicitarCodigoAssinaturaController);
+router.post("/:id/aceite-eletronico", registrarAceiteEletronicoController);
+router.post("/:id/contrato-assinado-cliente", upload.single("arquivo"), importarContratoAssinadoPeloClienteController);
+
+router.put(
+  "/:id",
+  exigirGestor,
+  exigirRegistroDaEmpresa("contratos"),
+  atualizarContratoController
+);
+
+router.post("/:id/cancelar-minuta", exigirGestor, exigirRegistroDaEmpresa("contratos"), async (req, res) => {
+  try {
+    const { cancelarMinutaSemAceite } = await import("./minutaCancelamento.service.js");
+    res.json(await cancelarMinutaSemAceite(req.params.id, (req as any).usuario));
+  } catch (error: any) { res.status(400).json({ message: error.message }); }
+});
+
+router.post("/:id/cancelar", exigirSolicitanteCancelamento, exigirRegistroDaEmpresa("contratos"), cancelarContratoController);
+router.post("/:id/solicitar-renovacao", async (req, res) => {
+  try { res.json(await solicitarRenovacaoContrato(req.params.id, (req as any).usuario)); }
+  catch (erro: any) { res.status(400).json({ message: erro.message }); }
+});
+router.post("/:id/nao-renovar", async (req, res) => {
+  try { res.json(await informarNaoRenovacao(req.params.id, (req as any).usuario)); }
+  catch (erro: any) { res.status(400).json({ message: erro.message }); }
+});
+
+router.delete(
+  "/:id",
+  exigirGestor,
+  exigirRegistroDaEmpresa("contratos"),
+  excluirContratoController
+);
+
+export default router;

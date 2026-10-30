@@ -1,105 +1,112 @@
-import { useState } from 'react';
-import { supabase } from '../supabase';
-import { Cliente } from '../types/Cliente';
+import api from "../config/api";
+import {sendPdf} from './pdf-transport';
 
-const [clientes,setClientes]=
-useState<Cliente[]>([]);
-
-
-
-
-export async function listarClientes() {
-
-  const { data, error } =
-    await supabase
-      .from('clientes')
-      .select(`
-        *,
-        usinas (
-          nome
-        )
-      `)
-      .order('nome');
-
-  if (error) throw error;
-
-  return data || [];
-
+export async function listarClientes(usinaId?: string) {
+  const { data } = await api.get("/clientes", { params: usinaId ? { usinaId } : {} });
+  return data;
 }
-
 
 export async function buscarCliente(id: string) {
-
-  const { data, error } =
-    await supabase
-      .from('clientes')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-  if (error) throw error;
-
+  const { data } = await api.get(`/clientes/${id}`);
   return data;
-
 }
 
-export async function criarCliente(
-  cliente: Partial<Cliente>
-) {
-
-  const { data, error } =
-    await supabase
-      .from('clientes')
-      .insert(cliente)
-      .select()
-      .single();
-
-  if (error) throw error;
-
+export async function criarCliente(payload: any) {
+  const { data } = await api.post("/clientes", payload);
   return data;
-
 }
 
-export async function editarCliente(
-
-id:string,
-
-cliente:Partial<Cliente>
-
-) {
-
-  const { data, error } =
-    await supabase
-      .from('clientes')
-      .update(cliente)
-      .eq('id', id)
-      .select()
-      .single();
-
-  if (error) throw error;
-
+export async function editarCliente(id: string, payload: any) {
+  const { data } = await api.put(`/clientes/${id}`, payload);
   return data;
-
 }
 
 export async function excluirCliente(id: string) {
+  await api.delete(`/clientes/${id}`);
+}
 
-  await supabase
-    .from('cobrancas')
-    .delete()
-    .eq('cliente_id', id);
+export async function listarUnidadesCliente(id: string) {
+  const { data } = await api.get(`/clientes/${id}/unidades`);
+  return data;
+}
 
-  await supabase
-    .from('faturas')
-    .delete()
-    .eq('cliente_id', id);
+export async function listarUnidadesGestor(usinaId?: string) {
+  const { data } = await api.get("/clientes/unidades", { timeout: 60000, params: usinaId ? { usinaId } : {} });
+  return data;
+}
 
-  const { error } =
-    await supabase
-      .from('clientes')
-      .delete()
-      .eq('id', id);
+export async function buscarUnidade(id: string) {
+  const { data } = await api.get(`/clientes/unidade/${id}`, { timeout: 15000 });
+  return data;
+}
 
-  if (error) throw error;
+export async function cadastrarUnidadeCliente(id: string, numero: string, cpfTitular?: string) {
+  const { data } = await api.post(`/clientes/${id}/unidades`, { numero, cpfTitular });
+  return data;
+}
 
+export async function excluirUnidadeCliente(unidadeId: string) {
+  await api.delete(`/clientes/unidade/${unidadeId}`);
+}
+
+export type SolicitacaoCadastroCliente = {
+  id: string;
+  status: "AGUARDANDO_VERIFICACAO_EMAIL" | "AGUARDANDO_CONFIRMACAO_GERADOR" | "ATIVO" | "REJEITADO" | string;
+  dadosFatura: {
+    titular?: string;
+    endereco?: string;
+    uc?: string;
+    cpfParcial?: string;
+    classificacao?: string;
+    tensao?: string;
+    distribuidora?: string;
+  };
+  emailVerificadoEm?: string | null;
+  confirmadoEm?: string | null;
+  criadoEm?: string;
+  faturaUrl?: string | null;
+};
+
+export async function obterSolicitacaoCadastroCliente(id: string) {
+  const { data } = await api.get(`/clientes/${id}/solicitacao-cadastro`);
+  return data as SolicitacaoCadastroCliente;
+}
+
+export async function confirmarCadastroCliente(id: string) {
+  const { data } = await api.post(`/clientes/${id}/confirmar-cadastro`);
+  return data;
+}
+
+export type FaturaAnexadaCliente = {
+  id: string;
+  nome: string;
+  dadosFatura: Record<string, any>;
+  criadoEm: string;
+  url: string;
+  unidade?: { id: string; numero: string; usina_id?: string | null; ja_existia?: boolean };
+};
+
+export async function listarFaturasAnexadasCliente(id: string) {
+  const { data } = await api.get(`/clientes/${id}/faturas-anexadas`);
+  return data as FaturaAnexadaCliente[];
+}
+
+export async function anexarFaturaCliente(id: string, arquivo: { uri: string; name: string; mimeType?: string | null }, senhaPdf?: string, usinaId?: string) {
+  return await sendPdf(arquivo.uri,`/clientes/${id}/faturas-anexadas`,arquivo.name||'fatura-cemig.pdf',{
+    ...(senhaPdf?.trim()?{senhaPdf:senhaPdf.trim()}:{}),...(usinaId?{usinaId}:{})
+  }) as FaturaAnexadaCliente;
+}
+
+export async function excluirFaturaAnexadaCliente(clienteId: string, anexoId: string) {
+  await api.delete(`/clientes/${clienteId}/faturas-anexadas/${anexoId}`);
+}
+
+export async function listarMinhasUnidades() {
+  const { data } = await api.get("/clientes/minhas-unidades");
+  return data;
+}
+
+export async function nomearMinhaUnidade(unidadeId: string, apelido: string) {
+  const { data } = await api.patch(`/clientes/minhas-unidades/${unidadeId}/apelido`, { apelido });
+  return data;
 }

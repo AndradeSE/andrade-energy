@@ -1,251 +1,56 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import {
-  ImageBackground,
-  ScrollView,
-  Text, TouchableOpacity, View
-} from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
+import { useState } from "react";
+import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
 
-import { supabase } from '../../supabase';
+import { AppHeader, Badge, Button, Card, Divider, ElasticScrollView as ScrollView, EmptyState, Loading, Metric, Screen, Section } from "../../components/ui";
+import { INVERTER_INTEGRATIONS_ENABLED, IS_GERADOR_APP } from "../../config/appVariant";
+import { useDashboardUsina } from "../../hooks/useDashboardUsina";
+import { Colors, Spacing, Typography } from "../../theme";
 
-export default function DetalheUsina() {
+const energia = (v: unknown) => `${Number(v ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kWh`;
+const moeda = (v: unknown) => Number(v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-  const { id } = useLocalSearchParams();
+export default function DashboardUsina() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { data, isLoading, error, refetch } = useDashboardUsina(id);
+  const [atualizando, setAtualizando] = useState(false);
 
-const usinaId = Array.isArray(id)
-  ? id[0]
-  : id;
-
-const [usina, setUsina] =
-  useState<any>(null);
-
-const [clientes, setClientes] =
-  useState<any[]>([]);
-
-const [ocupacao, setOcupacao] =
-  useState(0);
-
-  const [faturas, setFaturas] =
-  useState<any[]>([]);
-
-  useEffect(() => {
-  carregar();
-}, []);
-
-async function carregar() {
-
-  const { data: usinaData } =
-    await supabase
-      .from('usinas')
-      .select('*')
-      .eq('id', usinaId)
-      .single();
-
-  setUsina(usinaData);
-
-  const { data: clientesData } =
-    await supabase
-      .from('clientes')
-      .select('*')
-      .eq('usina_id', usinaId);
-
-  setClientes(clientesData || []);
-
-  const { data: listaFaturas } =
-  await supabase
-    .from('faturas')
-    .select('*');
-
-setFaturas(listaFaturas || []);
-
-  let consumoTotal = 0;
-
-  clientesData?.forEach(cliente => {
-
-    const ultima =
-      faturas
-        ?.filter(
-          f =>
-            f.numero_instalacao ===
-            cliente.uc
-        )
-        .sort(
-          (a, b) =>
-            b.id.localeCompare(a.id)
-        )[0];
-
-    consumoTotal += Number(
-      ultima?.consumo_kwh || 0
-    );
-
-  });
-
-  if (
-    usinaData?.geracao_media > 0
-  ) {
-
-    setOcupacao(
-      (
-        consumoTotal /
-        usinaData.geracao_media
-      ) * 100
-    );
+  async function atualizarPagina() {
+    setAtualizando(true);
+    try {
+      await refetch();
+    } finally {
+      setAtualizando(false);
     }
-}
-
-
-    return (
-
-<ImageBackground
-  source={require('../../assets/images/background.png')}
-  resizeMode="cover"
-  style={{
-    flex:1
-  }}
->
-
-<ScrollView
-  contentContainerStyle={{
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 30,
-  }}
->
- <Text
-  style={{
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0f172a',
-    marginBottom: 20,
-    textAlign: 'center',
-  }}
->
-  Clientes vinculados
-</Text>
-
-{clientes.length===0 && (
-
-<View
-style={{
-backgroundColor:'black',
-padding:20,
-borderRadius:12
-}}
->
-
-<Text>
-
-Nenhum cliente vinculado.
-
-</Text>
-
-</View>
-
-)}
-
-{clientes.map(cliente => {
-
-  const ultimaFatura =
-    faturas?.find(
-      f => f.numero_instalacao === cliente.uc
-    );
-
-  const ocupacao =
-    usina?.geracao_media
-      ? (
-          (Number(
-            ultimaFatura?.consumo_kwh || 0
-          ) /
-            usina.geracao_media) *
-          100
-        ).toFixed(2)
-      : '0.00';
-
-  return (
-
-<TouchableOpacity
-  key={cliente.id}
-  onPress={() =>
-    router.push({
-      pathname: '/clientes/[id]',
-      params: {
-        id: cliente.id,
-      },
-    })
   }
-  style={{
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    padding: 20,
-    borderRadius: 18,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    elevation: 5,
-  }}
->
 
-<Text
-style={{
-fontWeight:'bold',
-fontSize:18
-}}
->
+  if (isLoading) return <Loading />;
+  if (error || !data) return <Screen><View style={styles.state}><EmptyState icon="sunny-outline" title="Usina não encontrada" subtitle="Não foi possível carregar os dados desta usina." /></View></Screen>;
+  const abrirRecebimentoDeProducao = async () => {
+    let unidadeGeradoraId = data.unidadeGeradora?.id;
+    if (!unidadeGeradoraId) {
+      const atualizado = await refetch();
+      unidadeGeradoraId = atualizado.data?.unidadeGeradora?.id;
+    }
+    if (!unidadeGeradoraId) {
+      Alert.alert("Unidade geradora não localizada", "Edite a usina e confirme o número da instalação para criar o endereço de recebimento.");
+      return;
+    }
+    router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidadeGeradoraId, finalidade: "PRODUCAO_USINA" } });
+  };
 
-{cliente.nome}
-
-</Text>
-
-
-<Text>
-
-⚡ UC:
-
-{cliente.uc}
-
-</Text>
-
-<Text>
-📍 {cliente.endereco}
-</Text>
-
-<Text>
-{cliente.cidade} - {cliente.estado}
-</Text>
-
-<Text
-  style={{
-    color: '#16a34a',
-    fontWeight: '600',
-    marginTop: 4,
-  }}
->
-  🏷️ Desconto: {cliente.percentual_desconto || 40}%
-</Text>
-
-<Text
-  style={{
-    color: '#2563eb',
-    fontWeight: '600',
-    marginTop: 4,
-  }}
->
-  📈 Ocupação: {ocupacao}%
-</Text>
-
-</TouchableOpacity>
-
-);
-})}
-
-</ScrollView>
-
-</ImageBackground>
-
-  );
-
+  return <Screen>
+    {IS_GERADOR_APP ? <AppHeader variant="subpage" title="Usina" subtitle="Gestão de geração" contextTitle={data.usina?.nome ?? "Usina"} contextSubtitle={`UC ${data.usina?.numero_instalacao ?? "não informada"} · Competência ${data.competencia}`} icon="sunny-outline" /> : null}
+    <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}><View style={styles.heading}><View><Text style={styles.eyebrow}>DETALHES DA USINA</Text><Text style={styles.title}>{data.usina?.nome ?? "Usina"}</Text><Text style={styles.subtitle}>Competência {data.competencia}</Text></View><Badge label={data.status ?? "ATIVA"} variant="success" /></View>
+    <Card><Info icon="key-outline" label="Instalação" value={data.usina?.numero_instalacao ?? "Não informada"} /><Divider /><Info icon="flash-outline" label="Potência" value={`${Number(data.usina?.potencia_kwp ?? 0).toLocaleString("pt-BR")} kWp`} /><Divider /><Info icon="location-outline" label="Local" value={data.usina?.endereco ?? "Não informado"} /></Card>
+    <Section title="Energia"><View style={styles.grid}><View style={styles.metric}><Metric compact title="Geração do mês" value={energia(data.energiaGerada)} icon={<Ionicons name="sunny-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Geração total" value={energia(data.energiaTotal)} icon={<Ionicons name="analytics-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Disponível" value={energia(data.energiaDisponivel)} icon={<Ionicons name="battery-half-outline" size={20} color={Colors.primary} />} /></View><View style={styles.metric}><Metric compact title="Ocupação" value={`${Number(data.ocupacao ?? 0).toFixed(1)}%`} icon={<Ionicons name="pie-chart-outline" size={20} color={Colors.primary} />} /></View></View></Section>
+    <Section title="Financeiro"><Card><Info icon="wallet-outline" label="Receita prevista" value={moeda(data.receitaPrevista)} /><Divider /><Info icon="checkmark-circle-outline" label="Receita realizada" value={moeda(data.receitaRealizada)} /></Card></Section>
+    {IS_GERADOR_APP ? <Button title="Receber produção por e-mail" icon={<Ionicons name="mail-unread-outline" size={20} color={Colors.surface} />} onPress={abrirRecebimentoDeProducao} style={styles.emailButton} /> : null}
+    {IS_GERADOR_APP && INVERTER_INTEGRATIONS_ENABLED ? <Button title="Inversores e monitoramento" icon={<Ionicons name="hardware-chip-outline" size={20} color={Colors.surface} />} onPress={() => router.push({ pathname: "/usinas/inversores" as any, params: { id, nome: data.usina?.nome ?? "Usina" } })} style={styles.emailButton} /> : null}
+    <Button title="Editar dados da usina" icon={<Ionicons name="create-outline" size={20} color={Colors.surface} />} onPress={() => router.push({ pathname: "/usinas/editar", params: { id } })} />
+  </ScrollView></Screen>;
 }
+
+function Info({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) { return <View style={styles.info}><View style={styles.infoIcon}><Ionicons name={icon} size={20} color={Colors.primary} /></View><View style={styles.infoText}><Text style={styles.infoLabel}>{label}</Text><Text style={styles.infoValue}>{value}</Text></View></View>; }
+const styles = StyleSheet.create({ content: { padding: Spacing.lg, paddingBottom: Spacing.xxl }, state: { flex: 1, justifyContent: "center", padding: Spacing.lg }, heading: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: Spacing.lg }, eyebrow: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800", letterSpacing: 1.2 }, title: { marginTop: Spacing.xs, color: Colors.text, fontSize: Typography.title, fontWeight: "800" }, subtitle: { marginTop: Spacing.xs, color: Colors.subtitle }, grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }, metric: { width: "48%", marginBottom: Spacing.sm }, info: { minHeight: 58, flexDirection: "row", alignItems: "center" }, infoIcon: { width: 42, alignItems: "center" }, infoText: { flex: 1, marginLeft: Spacing.sm }, infoLabel: { color: Colors.subtitle, fontSize: Typography.small }, infoValue: { marginTop: 3, color: Colors.text, fontWeight: "700" }, emailButton: { marginBottom: Spacing.sm } });

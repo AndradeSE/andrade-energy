@@ -1,0 +1,40 @@
+# Separate projects and explicit runtime gates isolate Preview and production.
+[build]
+  base = "backend"
+  command = "npm ci --include=dev && npm run build"
+  publish = "netlify/public"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "22"
+  API_RUNTIME = "serverless"
+  BACKGROUND_JOBS_ENABLED = "false"
+  NETLIFY_HOMOLOGATION_ENABLED = "true"
+  NETLIFY_AUTH_VALIDATION_ENABLED = "true"
+
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["argon2", "pdfkit", "pdf-parse"]
+  included_files = ["dist/**", "assets/**"]
+
+[functions."preview-push-worker"]
+  schedule = "* * * * *"
+
+[functions."preview-quota-worker"]
+  schedule = "17 * * * *"
+
+[functions."jobs-dispatch"]
+  schedule = "* * * * *"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/api/:splat"
+  status = 200
+[[redirects]]
+  from = "/health"
+  to = "/.netlify/functions/api/health"
+  status = 200
+[[redirects]]
+  from = "/contingency/runtime"
+  to = "/.netlify/functions/api/contingency/runtime"
+  status = 200

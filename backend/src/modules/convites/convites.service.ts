@@ -1,0 +1,263 @@
+import { supabase } from "../../config/supabase";
+import { linksDoConvite } from "./conviteLinks";
+import { gerarToken, hashToken } from "../../utils/token";
+import { enviarEmailTransacional } from "../email/emailTransacional.service";
+import { empresaIdDoUsuario } from "../../config/empresa";
+import { nomePessoaValido, validarCadastroCliente } from "../clientes/validacaoCadastro";
+import { permissaoComercial } from "../comercial/permissoesComerciais";
+
+function cpfLimpo(valor: unknown) { return String(valor ?? "").replace(/\D/g, ""); }
+function telefoneWhatsapp(valor: unknown) {
+  const numeros = String(valor ?? "").replace(/\D/g, "");
+  if (!numeros) return null;
+  if (numeros.length < 10 || numeros.length > 13) return "";
+  return numeros.startsWith("55") ? numeros : `55${numeros}`;
+}
+function escaparHtml(valor: string) {
+  return valor.replace(/[&<>"']/g, (caractere) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[caractere] ?? caractere));
+}
+
+async function enviarConviteWhatsapp(input: { telefone: string; nome: string; token: string }) {
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const template = process.env.WHATSAPP_CONVITE_TEMPLATE_NAME;
+  const graphVersion = process.env.WHATSAPP_GRAPH_VERSION ?? "v22.0";
+  if (!accessToken || !phoneId || !template) return false;
+
+  const resposta = await fetch(`https://graph.facebook.com/${graphVersion}/${phoneId}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to: input.telefone,
+      type: "template",
+      template: {
+        name: template,
+        language: { code: "pt_BR" },
+        components: [{
+          type: "body",
+          parameters: [
+            { type: "text", text: input.nome },
+            { type: "text", text: input.token },
+          ],
+        }],
+      },
+    }),
+  });
+  if (!resposta.ok) {
+    console.error(`Falha no envio do convite pelo WhatsApp: HTTP ${resposta.status}`);
+    return false;
+  }
+  return true;
+}
+
+export async function criarConvite(input: any, gestor: any, documentos?: { minuta?: { filename: string; content: Buffer }; proposta?: { filename: string; content: Buffer }; assinado?: { filename: string; content: Buffer } }) {
+  if (!documentos?.assinado?.content?.length && (!documentos?.minuta?.content?.length || !documentos?.proposta?.content?.length)) {
+    throw new Error("Configure a UC, gere e revise seu contrato. Envie o convite pela área Contrato da unidade, junto com a proposta.");
+  }
+  const empresaId = empresaIdDoUsuario(gestor);
+  const cpf = cpfLimpo(input.cpf);
+  const email = String(input.email ?? "").trim().toLowerCase();
+  const nome = String(input.nome ?? "").trim();
+  const whatsapp = telefoneWhatsapp(input.whatsapp);
+  const unidadeConsumidoraId = String(input.unidade_consumidora_id ?? "").trim();
+  if (!unidadeConsumidoraId) throw new Error("O convite precisa estar vinculado ao contrato de uma UC.");
+  if (!nomePessoaValido(nome)) throw new Error("Informe nome e sobrenome do consumidor.");
+  if (cpf.length !== 11) throw new Error("Informe um CPF válido.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Informe um e-mail válido.");
+  if (whatsapp === "") throw new Error("Informe um WhatsApp válido com DDD ou deixe o campo em branco.");
+
+  const { data: clienteExistente } = await supabase.from("clientes").select("id").eq("empresa_id", empresaId).eq("cpf", cpf).limit(1).maybeSingle();
+  const { data: contaEmail } = await supabase
+    .from("usuarios")
+    .select("id,cliente_id,perfil")
+    .eq("email", email)
+    .eq("empresa_id", empresaId)
+    .eq("perfil", "LEITURA")
+    .limit(1)
+    .maybeSingle();
+  // Uma conta é global e pode receber acesso de mais de um gerador. Não
+  // removemos nem rejeitamos a conta existente: o aceite do convite valida a
+  // senha atual e cria apenas o vínculo com esta empresa/UC.
+
+  const { data: contaConsumidorCpf } = await supabase
+    .from("usuarios")
+    .select("id")
+    .eq("cpf", cpf)
+    .eq("empresa_id", empresaId)
+    .eq("perfil", "LEITURA")
+    .limit(1)
+    .maybeSingle();
+  if (contaConsumidorCpf && contaEmail && contaConsumidorCpf.id !== contaEmail.id) {
+    throw new Error("O CPF e o e-mail informados pertencem a contas diferentes. Revise o cadastro do cliente.");
+  }
+
+  const token = gerarToken();
+  const { error } = await supabase.from("convites_clientes").insert({
+    gestor_id: gestor.id,
+    empresa_id: empresaId,
+    usina_id: gestor.usina_id ?? input.usina_id ?? null,
+    unidade_consumidora_id: unidadeConsumidoraId,
+    cliente_id: clienteExistente?.id ?? null,
+    nome, cpf, email, telefone: whatsapp,
+    token_hash: hashToken(token),
+    expira_em: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+  });
+  if (error) throw error;
+
+  // O botão principal abre diretamente o aplicativo instalado. O portal fica
+  // como alternativa explícita para quem ainda não possui o app.
+  const { web: linkWeb, app: linkApp, download: linkDownload, portal: linkSite } = linksDoConvite("consumidor", token);
+  let emailEnviado = false;
+  let minutaAnexada = false;
+  let propostaAnexada = false;
+  try {
+    const minuta = documentos.minuta;
+    const proposta = documentos.proposta;
+    const assinado = documentos.assinado;
+    minutaAnexada = Boolean(minuta);
+    propostaAnexada = Boolean(proposta);
+    emailEnviado = await enviarEmailTransacional({
+      empresaId,
+      destinatario: email,
+      assunto: "Convite para Andrade Energy Consumidor",
+      html: `<div style="max-width:560px;margin:auto;padding:28px;font-family:Arial,sans-serif;color:#252925;line-height:1.6;background:#f7f8f7;border-radius:14px"><h2 style="margin-top:0;color:#39804a">Você recebeu um convite</h2><p>Olá, <strong>${escaparHtml(nome)}</strong>.</p><p>Seu gerador convidou você para acompanhar unidades, economia e faturas no Andrade Energy Consumidor.</p>${assinado ? "<p>O contrato assinado foi conferido pelo gerador e segue anexado. Use este convite para acessar sua unidade.</p>" : ""}${proposta ? "<p>Anexamos sua proposta comercial personalizada, com o desconto contratado e a projeção de economia.</p>" : ""}${minuta ? "<p>A minuta do contrato da sua unidade também segue anexada para leitura. Ela não substitui o contrato assinado.</p>" : ""}<p style="margin:26px 0"><a href="${linkApp}" style="display:inline-block;padding:14px 22px;background:#39804a;color:#fff;font-weight:700;text-decoration:none;border-radius:8px">Abrir convite no aplicativo</a></p><p style="margin:18px 0 26px"><a href="${escaparHtml(linkDownload)}" style="display:inline-block;padding:13px 20px;background:#fff;color:#1f6e3a;font-weight:700;text-decoration:none;border:2px solid #39804a;border-radius:8px">Baixar app do cliente (Android)</a></p><p style="font-size:14px;color:#4e574e">Se você já tem conta no app Consumidor, use a senha atual dela. Se usa este e-mail apenas no Gerador ou Comercial, crie uma senha para o Consumidor. Depois de instalar o app, volte a este e-mail e abra o convite. Você também pode <a href="${escaparHtml(linkWeb)}" style="color:#1f6e3a;font-weight:700">acessar o convite pelo navegador</a>.</p><p><a href="${escaparHtml(linkSite)}">Acessar o site Andrade Energy</a></p><p style="margin-bottom:8px;font-size:13px;color:#6b706b">Se precisar, copie a chave do convite:</p><div style="padding:16px 12px;border:2px dashed #39804a;border-radius:10px;background:#fff;color:#1f512e;font-family:monospace;font-size:20px;font-weight:700;letter-spacing:1px;text-align:center;word-break:break-all">${token}</div><p style="margin-top:18px;font-size:13px;color:#6b706b">Este convite é válido por 7 dias.</p></div>`,
+      anexos: [proposta, minuta, assinado].filter(Boolean) as Array<{ filename: string; content: Buffer }>,
+    });
+  } catch {
+    emailEnviado = false;
+  }
+  const whatsappEnviado = whatsapp
+    ? await enviarConviteWhatsapp({ telefone: whatsapp, nome, token }).catch(() => false)
+    : false;
+  return { message: "Convite criado.", emailEnviado, whatsappEnviado, minutaAnexada, propostaAnexada, token, whatsapp };
+}
+
+export async function consultarConvite(token: string) {
+  if (token.startsWith("gerador_") || token.startsWith("admin_")) {
+    throw new Error("Convite de consumidor inválido ou expirado.");
+  }
+  const { data, error } = await supabase.from("convites_clientes")
+    .select("id,nome,cpf,email,telefone,endereco,status,expira_em,empresa_id,unidade_consumidora_id")
+    .eq("token_hash", hashToken(token)).maybeSingle();
+  if (error || !data) throw new Error("Convite inválido ou expirado.");
+  if (data.status === "ACEITO") throw new Error("Este convite já foi utilizado. Sua conta já foi criada; entre no aplicativo com seu e-mail e senha ou use Esqueci minha senha.");
+  if (data.status !== "PENDENTE" || new Date(data.expira_em) <= new Date()) throw new Error("Convite inválido ou expirado. Solicite um novo convite ao gerador.");
+  const { data: conta } = await supabase
+    .from("usuarios")
+    .select("id")
+    .ilike("email", String(data.email ?? "").trim())
+    .eq("perfil", "LEITURA")
+    .limit(1)
+    .maybeSingle();
+  return { nome: data.nome, cpf: data.cpf, email: data.email, telefone: data.telefone, endereco: data.endereco, empresa_id: data.empresa_id, contaExistente: Boolean(conta) };
+}
+
+export async function aceitarConvite(token: string) {
+  const convite = await consultarConvite(token);
+  const { data } = await supabase.from("convites_clientes").select("id,gestor_id,cliente_id,usina_id,empresa_id,unidade_consumidora_id").eq("token_hash", hashToken(token)).single();
+  return { ...convite, id: data!.id, gestor_id: data!.gestor_id, cliente_id: data!.cliente_id, usina_id: data!.usina_id, empresa_id: data!.empresa_id, unidade_consumidora_id: data!.unidade_consumidora_id };
+}
+
+export async function concluirConvite(convite: any, usuarioId: string) {
+  let clienteId = convite.cliente_id ?? null;
+  if (!clienteId) {
+    const { data: cliente, error: clienteError } = await supabase.from("clientes").insert({
+      nome: convite.nome,
+      cpf: convite.cpf,
+      email: convite.email,
+      usina_id: convite.usina_id ?? null,
+      status: "ATIVO",
+      empresa_id: convite.empresa_id,
+    }).select("id").single();
+    if (clienteError) throw clienteError;
+    clienteId = cliente.id;
+  }
+
+  const { error: usuarioError } = await supabase.from("usuarios").update({ cliente_id: clienteId, empresa_id: convite.empresa_id }).eq("id", usuarioId);
+  if (usuarioError) throw usuarioError;
+
+  const { error: conviteError } = await supabase.from("convites_clientes").update({
+    cliente_id: clienteId,
+    status: "ACEITO",
+    aceito_em: new Date().toISOString(),
+  }).eq("id", convite.id).eq("status", "PENDENTE");
+  if (conviteError) throw conviteError;
+  return clienteId;
+}
+
+export async function criarConviteGerador(input: any, administrador: any) {
+  if (!permissaoComercial(administrador, "geradores_convidar")) throw new Error("Convites de geradores não liberados pelo administrador.");
+  if (administrador?.papel_empresa === "COLABORADOR_COMERCIAL") {
+    if (String(input?.perfil ?? "GESTOR").toUpperCase() !== "GESTOR" || (input?.empresaId && input.empresaId !== administrador.empresa_id)) throw new Error("Colaboradores não podem criar administradores ou alterar a empresa do convite.");
+    if (input?.planoId && !permissaoComercial(administrador, "contratos_enviar")) throw new Error("Envio de contratação não liberado pelo administrador.");
+    if (input?.planoId && input?.diasTeste !== undefined && Number(input.diasTeste) !== 45) throw new Error("O período comercial deve seguir o padrão aprovado de 45 dias.");
+  }
+  const perfil = String(input?.perfil ?? "GESTOR").toUpperCase() === "ADMIN" ? "ADMIN" : "GESTOR";
+  const empresaId = String(input?.empresaId ?? empresaIdDoUsuario(administrador));
+  const cpf = cpfLimpo(input.cpf);
+  const email = String(input.email ?? "").trim().toLowerCase();
+  const nome = String(input.nome ?? "").trim();
+  const endereco = String(input.endereco ?? "").trim();
+  const planoId = String(input.planoId ?? "").trim() || null;
+  const ciclo = String(input.ciclo ?? "MENSAL").toUpperCase();
+  const erroCadastro = validarCadastroCliente({ nome, cpf, email, endereco });
+  if (erroCadastro) throw new Error(erroCadastro);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Informe um e-mail válido.");
+  if (planoId && !["MENSAL", "ANUAL"].includes(ciclo)) throw new Error("Ciclo de assinatura inválido.");
+  if (planoId) {
+    const { data: plano } = await supabase.from("planos_geradores").select("id").eq("id", planoId).eq("ativo", true).maybeSingle();
+    if (!plano) throw new Error("Plano não encontrado ou inativo.");
+  }
+
+  const [{ data: contaEmail }, { data: contaCpf }] = await Promise.all([
+    supabase.from("usuarios").select("id").eq("empresa_id", empresaId).eq("perfil", perfil).eq("email", email).limit(1).maybeSingle(),
+    supabase.from("usuarios").select("id").eq("empresa_id", empresaId).eq("perfil", perfil).eq("cpf", cpf).limit(1).maybeSingle(),
+  ]);
+  if (contaEmail || contaCpf) throw new Error("Este e-mail ou CPF já possui uma conta geradora.");
+
+  const token = `${perfil === "ADMIN" ? "admin" : "gerador"}_${gerarToken()}`;
+  const { error } = await supabase.from("convites_clientes").insert({
+    gestor_id: administrador.id, empresa_id: empresaId, nome, cpf, email, endereco,
+    plano_id: planoId, ciclo_assinatura: planoId ? ciclo : null,
+    dias_teste: planoId ? Math.max(0, Number(input.diasTeste ?? 45) || 0) : 0,
+    token_hash: hashToken(token),
+    expira_em: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+  });
+  if (error) throw error;
+
+  const { app: link, web: linkWeb, download: linkDownload, portal: linkSite } = linksDoConvite("gerador", token);
+  let emailEnviado = false;
+  try {
+    emailEnviado = await enviarEmailTransacional({
+      empresaId,
+      destinatario: email,
+      assunto: `Convite para Andrade Energy — ${perfil === "ADMIN" ? "Administrador" : "Gerador"}`,
+      html: `<div style="max-width:560px;margin:auto;padding:28px;font-family:Arial,sans-serif;color:#252925;line-height:1.6;background:#f7f8f7;border-radius:14px"><h2 style="margin-top:0;color:#39804a">Convite para conta ${perfil === "ADMIN" ? "administrativa" : "geradora"}</h2><p>Olá, <strong>${escaparHtml(nome)}</strong>.</p><p>Você foi convidado pela administração da Andrade Energy para criar uma conta de ${perfil === "ADMIN" ? "administrador" : "gerador"}.</p><p style="margin:26px 0"><a href="${link}" style="display:inline-block;padding:14px 22px;background:#39804a;color:#fff;font-weight:700;text-decoration:none;border-radius:8px">Aceitar convite e criar conta</a></p><p><a href="${escaparHtml(linkDownload)}">Baixar app Gerador (Android)</a></p><p><a href="${escaparHtml(linkWeb)}">Aceitar convite pelo navegador</a></p><p><a href="${escaparHtml(linkSite)}">Acessar o site Andrade Energy</a></p><p style="font-size:13px;color:#6b706b">Se o botão não abrir o aplicativo, use este código:</p><div style="padding:16px 12px;border:2px dashed #39804a;border-radius:10px;background:#fff;color:#1f512e;font-family:monospace;font-size:20px;font-weight:700;text-align:center;word-break:break-all">${token}</div><p style="font-size:13px;color:#6b706b">Válido por 7 dias.</p></div>`,
+    });
+  } catch { emailEnviado = false; }
+  return { message: "Convite de gerador criado.", emailEnviado, token: emailEnviado ? undefined : token };
+}
+
+export async function consultarConviteGerador(token: string) {
+  if (token.startsWith("colaborador_")) {
+    const { consultarConviteColaborador } = await import("../colaboradores/colaboradores.service.js");
+    const convite = await consultarConviteColaborador(token);
+    return { nome: convite.nome, cpf: convite.cpf, email: convite.email, empresa_id: convite.empresa_id, papel_destino: convite.papel, colaborador: true };
+  }
+  if (!token.startsWith("gerador_") && !token.startsWith("admin_")) throw new Error("Convite de acesso inválido ou expirado.");
+  const { data, error } = await supabase.from("convites_clientes").select("id,gestor_id,nome,cpf,email,endereco,status,expira_em,empresa_id,plano_id,ciclo_assinatura,dias_teste").eq("token_hash", hashToken(token)).maybeSingle();
+  if (error || !data || data.status !== "PENDENTE" || new Date(data.expira_em) <= new Date()) throw new Error("Convite de gerador inválido ou expirado.");
+  return { nome: data.nome, cpf: data.cpf, email: data.email, endereco: data.endereco, empresa_id: data.empresa_id, gestor_id: data.gestor_id, plano_id: data.plano_id, ciclo_assinatura: data.ciclo_assinatura, dias_teste: data.dias_teste };
+}
+
+export async function aceitarConviteGerador(token: string) {
+  const convite = await consultarConviteGerador(token);
+  const { data } = await supabase.from("convites_clientes").select("id").eq("token_hash", hashToken(token)).single();
+  return { ...convite, id: data!.id };
+}
+
+export async function concluirConviteGerador(convite: any, usuarioId: string) {
+  const { error } = await supabase.from("convites_clientes").update({ status: "ACEITO", aceito_em: new Date().toISOString() }).eq("id", convite.id).eq("status", "PENDENTE");
+  if (error) throw error;
+}

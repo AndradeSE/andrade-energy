@@ -1,0 +1,399 @@
+import { supabase } from "../../config/supabase";
+import { transferirAutomaticamenteAssinatura } from "../comercial/comercial.service";
+import { statusAssinaturaPorEvento } from "./assinaturaStatus";
+import { asaasRequest } from "./asaas.client";
+import { regenerarDocumentosGeradosDaFatura } from "../faturas/documentosFatura.service";
+import { buscarCarteiraDaFatura, chavePixDaCarteira } from "../carteira/carteira.service";
+import { exigirContratoAssinadoDaUc } from "../contratos/contratoUc.service";
+import { criarNotificacaoApp } from "../notificacoes/push.service";
+import { exigirRecebimentoDaUsina } from "./titularRecebimento.service";
+import { falhaRepasse, pagamentoDisponivelParaRepasse } from "./repasse.policy";
+import { criptografarDado } from "../../utils/sensitiveData";
+import { configurarEncargosDoBoleto, encargosDoContratoDaUc } from "./encargosContrato.service";
+
+function digits(value: unknown) { return String(value ?? "").replace(/\D/g, ""); }
+function hojeNoBrasil() {
+  const partes = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const valor = (tipo: Intl.DateTimeFormatPartTypes) => partes.find((parte) => parte.type === tipo)?.value ?? "";
+  return `${valor("year")}-${valor("month")}-${valor("day")}`;
+}
+
+function amanhaNoBrasil() {
+  const [ano, mes, dia] = hojeNoBrasil().split("-").map(Number);
+  return new Date(Date.UTC(ano, mes - 1, dia + 1)).toISOString().slice(0, 10);
+}
+
+function dueDate(value: unknown) {
+  const text = String(value ?? "").slice(0, 10);
+  const hoje = hojeNoBrasil();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text) && text >= hoje) return text;
+
+  // O Asaas não registra um boleto novo com vencimento no passado. A data
+  // recebe um vencimento operacional válido no dia seguinte.
+  return amanhaNoBrasil();
+}
+
+async function esperar(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+
+async function obterDadosPagamento(paymentId: string) {
+  let pix: any = null;
+  let boleto: any = null;
+  // A geração do boleto/PIX no Asaas é assíncrona. Em produção ela pode
+  // demorar alguns segundos depois da criação do pagamento.
+  for (let tentativa = 0; tentativa < 8; tentativa += 1) {
+    [pix, boleto] = await Promise.all([
+      pix?.payload ? Promise.resolve(pix) : asaasRequest<any>(`/payments/${paymentId}/pixQrCode`).catch(() => null),
+      boleto?.identificationField ? Promise.resolve(boleto) : asaasRequest<any>(`/payments/${paymentId}/identificationField`).catch(() => null),
+    ]);
+    if (pix?.payload && boleto?.identificationField) break;
+    if (tentativa < 7) await esperar(Math.min(2_000, 500 * (tentativa + 1)));
+  }
+  return { pix, boleto };
+}
+
+export function dadosPixDaCobranca(pix: any) {
+  const expiraEm = pix?.expirationDate ? new Date(pix.expirationDate) : null;
+  return {
+    // A validade é definida e validada pelo Asaas. Nunca descarte um payload
+    // pagável apenas por ele ter menos de 60 dias (por exemplo, quando a conta
+    // ainda não possui chave Pix própria cadastrada).
+    codigo: pix?.payload ? String(pix.payload) : null,
+    expiraEm: expiraEm && !Number.isNaN(expiraEm.getTime()) ? expiraEm.toISOString() : null,
+  };
+}
+
+export async function criarCobrancaAsaas(faturaId: string, empresaId?: string, opcoes: { refaturar?: boolean } = {}) {
+  let empresaResolvida = empresaId;
+  if (!empresaResolvida) {
+    const { data: referencia, error: erroReferencia } = await supabase.from("faturas").select("empresa_id").eq("id", faturaId).maybeSingle();
+    if (erroReferencia || !referencia) throw new Error("Fatura não encontrada.");
+    empresaResolvida = referencia.empresa_id;
+  }
+  const { data: referenciaUc, error: erroUc } = await supabase.from("faturas").select("unidade_consumidora_id,usina_id").eq("id", faturaId).eq("empresa_id", empresaResolvida).single();
+  if (erroUc || !referenciaUc?.unidade_consumidora_id) throw new Error("Fatura sem UC válida.");
+  await exigirContratoAssinadoDaUc(referenciaUc.unidade_consumidora_id, empresaResolvida);
+  const { data: existing } = await supabase.from("asaas_cobrancas").select("*").eq("fatura_id", faturaId).eq("empresa_id", empresaResolvida).maybeSingle();
+  if (existing?.asaas_payment_id) {
+    let payment = await asaasRequest<any>(`/payments/${existing.asaas_payment_id}`);
+    const status = String(payment?.status ?? existing.status ?? "").toUpperCase();
+    if (opcoes.refaturar === true) {
+      if (!["PENDING", "OVERDUE"].includes(status)) {
+        throw new Error("Somente cobranças pendentes ou vencidas podem ser refaturadas.");
+      }
+      // Atualizar a segunda via não renegocia a dívida. O mesmo título mantém
+      // o vencimento e os encargos registrados no provedor.
+      payment = await configurarEncargosDoBoleto(payment, referenciaUc.unidade_consumidora_id, empresaResolvida!);
+    }
+
+    const dados = await obterDadosPagamento(existing.asaas_payment_id);
+    const { pix, boleto } = dados;
+    const pixValidado = dadosPixDaCobranca(pix);
+    const dadosPagamento = {
+      linha_digitavel: boleto?.identificationField ?? existing.linha_digitavel ?? null,
+      codigo_pix: pixValidado.codigo,
+      pix_expira_em: pixValidado.expiraEm,
+      pdf_boleto_url: payment?.bankSlipUrl ?? existing.bank_slip_url ?? payment?.invoiceUrl ?? existing.invoice_url ?? null,
+    };
+    const { data: faturaExistente, error: updateError } = await supabase.from("faturas").update(dadosPagamento).eq("id", faturaId).select().single();
+    if (updateError) throw updateError;
+    await regenerarDocumentosGeradosDaFatura({ ...faturaExistente, codigo_barras: boleto?.barCode ?? null });
+    const { data: cobrancaAtualizada, error: chargeUpdateError } = await supabase.from("asaas_cobrancas").update({ linha_digitavel:dadosPagamento.linha_digitavel, codigo_pix:dadosPagamento.codigo_pix, pix_expira_em:dadosPagamento.pix_expira_em, bank_slip_url:dadosPagamento.pdf_boleto_url, invoice_url:payment?.invoiceUrl ?? existing.invoice_url ?? null, atualizado_em:new Date().toISOString() }).eq("id", existing.id).select().single();
+    if (chargeUpdateError) throw chargeUpdateError;
+    await supabase.from("faturas").update({ cobranca_erro: null, cobranca_erro_em: null }).eq("id", faturaId);
+    return cobrancaAtualizada;
+  }
+  const { data: invoice, error } = await supabase.from("faturas").select("*, clientes(*)").eq("id", faturaId).eq("empresa_id", empresaResolvida).single();
+  if (error || !invoice) throw new Error("Fatura não encontrada.");
+  const carteira = await buscarCarteiraDaFatura(faturaId);
+  await exigirRecebimentoDaUsina(carteira, referenciaUc.usina_id);
+  const encargos = await encargosDoContratoDaUc(referenciaUc.unidade_consumidora_id, empresaResolvida!);
+  const customerData = Array.isArray(invoice.clientes) ? invoice.clientes[0] : invoice.clientes;
+  if (!customerData?.cpf) throw new Error("Informe o CPF/CNPJ do cliente antes de gerar a cobrança.");
+  const customers = await asaasRequest<any>(`/customers?cpfCnpj=${digits(customerData.cpf)}`);
+  const cadastroAsaas = {
+    name: String(customerData.nome ?? "").trim(),
+    cpfCnpj: digits(customerData.cpf),
+    email: customerData.email || undefined,
+    mobilePhone: digits(customerData.whatsapp || customerData.telefone) || undefined,
+    externalReference: customerData.id,
+    // A Andrade envia suas próprias notificações. Evita que o Asaas envie
+    // e-mails paralelos (especialmente com a identidade fictícia do Sandbox).
+    notificationDisabled: true,
+  };
+  let customer = customers.data?.[0];
+  if (customer?.id) {
+    // O sandbox pode conservar um nome usado anteriormente para o mesmo CPF.
+    // Sincronizamos os dados atuais antes da cobrança para que boleto e e-mail
+    // nunca tratem o consumidor como "João da Silva" ou outro cadastro antigo.
+    customer = await asaasRequest<any>(`/customers/${customer.id}`, {
+      method: "PUT",
+      body: JSON.stringify(cadastroAsaas),
+    });
+  } else {
+    customer = await asaasRequest<any>("/customers", { method: "POST", body: JSON.stringify(cadastroAsaas) });
+  }
+  const value = Number(invoice.valor_total_unificado ?? invoice.valor_total ?? 0);
+  if (!(value > 0)) throw new Error("A fatura não possui valor válido para cobrança.");
+  const split = carteira?.asaas_wallet_id ? [{ walletId: carteira.asaas_wallet_id, percentualValue: 100, externalReference: faturaId }] : undefined;
+  const vencimentoOperacional = opcoes.refaturar === true ? amanhaNoBrasil() : dueDate(invoice.vencimento);
+  // Recupera uma cobrança que o Asaas tenha criado antes de uma falha nas
+  // consultas auxiliares. Isso evita boletos duplicados após timeout.
+  const pagamentosRemotos = await asaasRequest<any>(`/payments?externalReference=${encodeURIComponent(faturaId)}&limit=10`);
+  let payment = (pagamentosRemotos?.data ?? []).find((item: any) => item?.deleted !== true);
+  if (!payment?.id) {
+    payment = await asaasRequest<any>("/payments", { method:"POST", body:JSON.stringify({ customer:customer.id, billingType:process.env.ASAAS_BILLING_TYPE ?? "BOLETO", value, dueDate:vencimentoOperacional, description:`Andrade Energy · ${invoice.referencia ?? "fatura"}`, externalReference:faturaId, ...encargos, ...(split ? { split } : {}) }) });
+  }
+
+  // Grave o vínculo imediatamente. PIX e linha digitável são gerados de forma
+  // assíncrona e uma falha nessa etapa não pode deixar o pagamento órfão.
+  const registroInicial = { empresa_id:empresaResolvida, fatura_id:faturaId, gerador_carteira_id:carteira?.id??null, asaas_customer_id:payment.customer??customer.id, asaas_payment_id:payment.id, status:payment.status, valor:value, valor_liquido:payment.netValue??null, invoice_url:payment.invoiceUrl??null, bank_slip_url:payment.bankSlipUrl??payment.invoiceUrl??null, atualizado_em:new Date().toISOString() };
+  const { data: cobrancaInicial, error: erroRegistroInicial } = await supabase.from("asaas_cobrancas").upsert(registroInicial,{onConflict:"fatura_id"}).select().single();
+  if (erroRegistroInicial) throw erroRegistroInicial;
+  const { pix, boleto } = await obterDadosPagamento(payment.id);
+  const pixValidado = dadosPixDaCobranca(pix);
+  const record = { empresa_id:empresaResolvida, fatura_id:faturaId, gerador_carteira_id:carteira?.id??null, asaas_customer_id:customer.id, asaas_payment_id:payment.id, status:payment.status, valor:value, valor_liquido:payment.netValue??null, invoice_url:payment.invoiceUrl??null, bank_slip_url:payment.bankSlipUrl??payment.invoiceUrl??null, linha_digitavel:boleto?.identificationField??payment.identificationField??null, codigo_pix:pixValidado.codigo, pix_expira_em:pixValidado.expiraEm, atualizado_em:new Date().toISOString() };
+  const { data, error: saveError } = await supabase.from("asaas_cobrancas").update(record).eq("id",cobrancaInicial.id).select().single(); if(saveError) throw saveError;
+  const { data: faturaAtualizada, error: updateError } = await supabase.from("faturas").update({ linha_digitavel:record.linha_digitavel, codigo_pix:record.codigo_pix, pix_expira_em:record.pix_expira_em, pdf_boleto_url:record.bank_slip_url, vencimento:vencimentoOperacional, cobranca_erro:null, cobranca_erro_em:null }).eq("id",faturaId).select().single();
+  if (updateError) throw updateError;
+  await regenerarDocumentosGeradosDaFatura({ ...faturaAtualizada, codigo_barras: boleto?.barCode ?? null });
+  return data;
+}
+
+/**
+ * A emissão automática nunca deve impedir o registro da fatura, mas também
+ * não pode esconder o motivo da falha. Mantemos o erro apenas no log seguro
+ * do servidor (sem tokens, CPF ou e-mail) e deixamos a emissão manual mostrar
+ * a mensagem exata ao gestor.
+ */
+export async function tentarCriarCobrancaAsaas(faturaId: string, empresaId?: string) {
+  try {
+    return await criarCobrancaAsaas(faturaId, empresaId);
+  } catch (error: any) {
+    const motivo = String(error?.message ?? "Erro desconhecido").slice(0, 1000);
+    await supabase.from("faturas").update({ cobranca_erro: motivo, cobranca_erro_em: new Date().toISOString() }).eq("id", faturaId);
+    console.error("[asaas] emissão automática não concluída", {
+      faturaId,
+      empresaId: empresaId ?? null,
+      motivo,
+    });
+    return null;
+  }
+}
+
+async function transferirSaldo(cobranca: any) {
+  if (!pagamentoDisponivelParaRepasse(cobranca.status)) return null;
+  if (cobranca.valor_liquido == null || !Number.isFinite(Number(cobranca.valor_liquido))) return null;
+  const { data: carteira } = cobranca.gerador_carteira_id ? await supabase.from("gerador_carteiras").select("*").eq("id", cobranca.gerador_carteira_id).maybeSingle() : { data: null };
+  // Repasses automáticos só podem usar uma carteira explicitamente autorizada.
+  // A configuração legada por variável de ambiente não tem confirmação do titular.
+  const automatica = carteira?.transferencia_automatica === true;
+  if (!automatica || carteira?.asaas_wallet_id) return null;
+  const key=chavePixDaCarteira(carteira); const keyType=carteira.pix_tipo;
+  if(!key||!keyType) throw new Error("Destino Pix não configurado.");
+  const already=await supabase.from("asaas_transferencias").select("*").eq("cobranca_id",cobranca.id).maybeSingle();
+  if (already.error) throw already.error;
+  // Recusas antigas sem retorno do provedor exigem reconciliação. Não
+  // reenviar silenciosamente uma movimentação cujo resultado é desconhecido.
+  if(already.data) return already.data;
+  const value=Math.max(0,Number(cobranca.valor_liquido??cobranca.valor)-Number(process.env.ASAAS_TRANSFER_RESERVE_VALUE??0)); if(!(value>0)) throw new Error("Valor líquido inválido.");
+  const intencaoId=`intent:${crypto.randomUUID()}`;
+  const { data: intencao, error: intentError }=await supabase.from("asaas_transferencias").insert({empresa_id:cobranca.empresa_id,cobranca_id:cobranca.id,gerador_carteira_id:carteira?.id??null,asaas_transfer_id:intencaoId,valor:value,status:"AUTHORIZING",destino_mascarado:`${keyType}:***${key.slice(-4)}`,modalidade:"AUTOMATICA"}).select().single();
+  if(intentError) throw intentError;
+  let respostaRecebida = false;
+  try {
+    const transfer=await asaasRequest<any>("/transfers",{method:"POST",body:JSON.stringify({value,pixAddressKey:key,pixAddressKeyType:keyType,operationType:"PIX",description:`Repasse Andrade ${cobranca.fatura_id}`,externalReference:String(intencao.id)})});
+    respostaRecebida = true;
+    if (!transfer?.id || !transfer?.status) throw new Error("Resposta de transferência incompleta.");
+    const {data,error}=await supabase.from("asaas_transferencias").update({asaas_transfer_id:transfer.id,status:transfer.status,atualizado_em:new Date().toISOString()}).eq("id",intencao.id).select().single();
+    if(error) throw error;
+    return data;
+  } catch(error) {
+    const falha = respostaRecebida ? {status:"UNKNOWN",erro_codigo:"PERSISTENCIA_PENDENTE"} : falhaRepasse(error);
+    await supabase.from("asaas_transferencias").update({...falha,erro_detalhe_criptografado:criptografarDado(String((error as any)?.message ?? "Falha sem detalhe").slice(0,2000)),atualizado_em:new Date().toISOString()}).eq("id",intencao.id);
+    throw error;
+  }
+}
+
+export async function processarWebhookAsaas(body: any, token?: string) {
+  const tokens = [process.env.ASAAS_WEBHOOK_TOKEN, process.env.ASAAS_COMERCIAL_WEBHOOK_TOKEN].filter(Boolean);
+  if (!token || !tokens.includes(token)) throw new Error("Webhook Asaas não autorizado.");
+  if (!body?.id || !body?.event) throw new Error("Evento Asaas inválido.");
+  // A adesão pública mantém sua própria confirmação durável e aceita retentativas.
+  // A consulta financeira sempre usa a conta comercial das assinaturas.
+  const { processarAdesaoAsaas } = await import("../comercial/adesaoAssinatura.service.js");
+  const adesao = await processarAdesaoAsaas(body);
+  if (adesao) return adesao;
+  const controlled=process.env.CONTINGENCY_ROUTING_ENABLED==='true';
+  const inserted=await supabase.from("asaas_eventos").insert({evento_id:body.id,tipo:body.event,payload:body,
+    ...(controlled?{processamento_estado:'PROCESSANDO',processamento_atualizado_em:new Date().toISOString()}:{}),
+  }).select().single();
+  if(inserted.error?.code==='23505') {
+    if(controlled) {
+      const previous=await supabase.from('asaas_eventos').select('processamento_estado').eq('evento_id',body.id).single();
+      if(previous.error) throw previous.error;
+      if(previous.data.processamento_estado && previous.data.processamento_estado!=='CONCLUIDO') {
+        throw new Error('Evento financeiro aguardando conferência. Nenhum repasse foi repetido.');
+      }
+    }
+    return {duplicado:true};
+  }
+  if(inserted.error) throw inserted.error;
+  const finish=async()=>{
+    if(!controlled)return;
+    const saved=await supabase.from('asaas_eventos').update({processamento_estado:'CONCLUIDO',processamento_atualizado_em:new Date().toISOString()})
+      .eq('evento_id',body.id).eq('processamento_estado','PROCESSANDO').select('evento_id').maybeSingle();
+    if(saved.error || !saved.data)throw new Error('Evento financeiro exige conferência.');
+  };
+  try {
+  if (body.checkout?.id) {
+    const checkoutId = String(body.checkout.id);
+    const customerId = body.checkout.customer ? String(body.checkout.customer) : null;
+    const encerrado = ["CHECKOUT_CANCELED", "CHECKOUT_EXPIRED"].includes(String(body.event));
+    await supabase
+      .from("assinaturas_geradores")
+      .update({
+        ...(customerId ? { asaas_customer_id: customerId } : {}),
+        ...(encerrado ? { asaas_checkout_id: null } : {}),
+        atualizado_em: new Date().toISOString(),
+      })
+      .eq("asaas_checkout_id", checkoutId).throwOnError();
+  }
+  if (body.subscription?.id) {
+    const subscription = body.subscription;
+    const reference = String(subscription.externalReference ?? "");
+    const referenceId = reference.startsWith("assinatura:") ? reference.split(":")[1] : null;
+    let query = supabase.from("assinaturas_geradores").select("id");
+    if (referenceId) query = query.eq("id", referenceId);
+    else if (subscription.customer) query = query.eq("asaas_customer_id", String(subscription.customer));
+    else query = query.eq("asaas_subscription_id", String(subscription.id));
+    const { data: local } = await query.order("criado_em", { ascending: false }).limit(1).maybeSingle().throwOnError();
+    if (local?.id) {
+      const inativa = ["SUBSCRIPTION_INACTIVATED", "SUBSCRIPTION_DELETED"].includes(String(body.event));
+      await supabase.from("assinaturas_geradores").update({
+        asaas_subscription_id: String(subscription.id),
+        ...(subscription.customer ? { asaas_customer_id: String(subscription.customer) } : {}),
+        ...(subscription.billingType ? { forma_pagamento: String(subscription.billingType) } : {}),
+        ...(subscription.nextDueDate ? { proximo_vencimento: String(subscription.nextDueDate).slice(0, 10) } : {}),
+        ...(inativa ? { status: "SUSPENSA" } : {}),
+        atualizado_em: new Date().toISOString(),
+      }).eq("id", local.id).throwOnError();
+    }
+  }
+  if(body.payment?.id){
+    const referenciaComercial = String(body.payment.externalReference ?? "").startsWith("assinatura:");
+    const assinaturaAsaas = body.payment.subscription ? String(body.payment.subscription) : null;
+    const comercial = referenciaComercial || Boolean(assinaturaAsaas);
+    if (comercial) {
+      const pago = ["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"].includes(body.event);
+      const vencida = ["PAYMENT_OVERDUE"].includes(body.event);
+      const cancelada = ["PAYMENT_DELETED", "PAYMENT_REFUNDED", "PAYMENT_REFUND_IN_PROGRESS"].includes(body.event);
+      const assinaturaExterna = referenciaComercial ? String(body.payment.externalReference).split(":")[1] || null : null;
+      const { data: assinaturaLocal } = assinaturaExterna
+        ? await supabase.from("assinaturas_geradores").select("id").eq("id", assinaturaExterna).maybeSingle().throwOnError()
+        : await supabase.from("assinaturas_geradores").select("id").eq("asaas_subscription_id", assinaturaAsaas).maybeSingle().throwOnError();
+      const assinaturaId = assinaturaLocal?.id ?? assinaturaExterna;
+      if (!assinaturaId) {await finish();return { recebido: true, assinaturaNaoAssociada: true };}
+      const vencimento = String(body.payment.dueDate ?? new Date().toISOString()).slice(0, 10);
+      const competencia = vencimento.slice(0, 7);
+      const statusCobranca = pago ? "PAGA" : vencida ? "VENCIDA" : cancelada ? "CANCELADA" : "PENDENTE";
+      const { data: cobranca } = await supabase.from("cobrancas_assinaturas_geradores").upsert({
+        assinatura_id: assinaturaId,
+        competencia,
+        vencimento,
+        valor: Number(body.payment.value ?? 0),
+        status: statusCobranca,
+        asaas_payment_id: String(body.payment.id),
+        invoice_url: body.payment.invoiceUrl ?? null,
+        bank_slip_url: body.payment.bankSlipUrl ?? body.payment.invoiceUrl ?? null,
+        pago_em: pago ? new Date().toISOString() : null,
+        atualizado_em: new Date().toISOString(),
+      }, { onConflict: "assinatura_id,competencia" }).select().maybeSingle().throwOnError();
+      const statusAssinatura = statusAssinaturaPorEvento(String(body.event));
+      if (assinaturaId && statusAssinatura) await supabase.from("assinaturas_geradores").update({ status: statusAssinatura, forma_pagamento: body.payment.billingType ?? undefined, atualizado_em: new Date().toISOString() }).eq("id", assinaturaId).throwOnError();
+      if (pago) await transferirAutomaticamenteAssinatura(body.payment);
+    } else {
+      const bruto = Number(body.payment.value);
+      const {data:c}=await supabase.from("asaas_cobrancas").update({status:body.payment.status,...(Number.isFinite(bruto) && bruto > 0 ? {valor:bruto} : {}),valor_liquido:body.payment.netValue??null,atualizado_em:new Date().toISOString()}).eq("asaas_payment_id",body.payment.id).select().maybeSingle().throwOnError();
+      if(c&&["PAYMENT_RECEIVED","PAYMENT_CONFIRMED"].includes(body.event)){
+        await supabase.from("faturas").update({status:"PAGO"}).eq("id",c.fatura_id).throwOnError();
+        if (body.event === "PAYMENT_RECEIVED") await transferirSaldo(c);
+        await (async () => {
+          const { data: fatura, error: erroFatura } = await supabase.from("faturas").select("cliente_id,empresa_id,usina_id").eq("id", c.fatura_id).maybeSingle();
+          if (erroFatura || !fatura) throw erroFatura ?? new Error("Fatura não encontrada");
+          const { data: acessos, error: erroAcessos } = await supabase.from("empresa_usuarios")
+            .select("usuario_id,papel,cliente_id,permissoes").eq("empresa_id", fatura.empresa_id).eq("ativo", true)
+            .in("papel", ["LEITURA", "SUPERADMIN", "ADMIN_EMPRESA", "GESTOR", "COLABORADOR_GERADOR"]);
+          if (erroAcessos) throw erroAcessos;
+          await Promise.all((acessos ?? []).filter((acesso: any) =>
+            acesso.papel === "LEITURA" ? acesso.cliente_id === fatura.cliente_id : acesso.papel !== "COLABORADOR_GERADOR" || acesso.permissoes?.faturas !== false,
+          ).map((acesso: any) => criarNotificacaoApp({
+            usuario_id: acesso.usuario_id,
+            empresa_id: fatura.empresa_id,
+            cliente_id: fatura.cliente_id,
+            usina_id: fatura.usina_id,
+            tipo: "FATURA_PAGA",
+            titulo: "Pagamento confirmado",
+            detalhe: "Uma fatura foi paga. Consulte os detalhes no aplicativo.",
+            rota: `/faturas/${c.fatura_id}`,
+            chave_dedupe: `fatura-paga:${c.fatura_id}:${acesso.usuario_id}`,
+          })));
+        })().catch((erroNotificacao) => console.error("Falha ao notificar pagamento", erroNotificacao));
+      }
+    }
+  }
+  if(body.transfer?.id) {
+    const { data: transferencia } = await supabase.from("asaas_transferencias").update({status:body.transfer.status,...(body.transfer.failReason ? {erro_codigo:"TRANSFER_FAILED",erro_detalhe_criptografado:criptografarDado(String(body.transfer.failReason).slice(0,2000))} : {}),atualizado_em:new Date().toISOString()}).eq("asaas_transfer_id",body.transfer.id).select().maybeSingle().throwOnError();
+    // O valor de uma transferência não redefine o líquido da cobrança: pode
+    // representar apenas parte do saldo. A tarifa vem do pagamento no Asaas.
+  }
+  await finish();
+  return {recebido:true};
+  } catch(error) {
+    if(controlled) await supabase.from('asaas_eventos').update({processamento_estado:'REVISAO',processamento_atualizado_em:new Date().toISOString()})
+      .eq('evento_id',body.id).eq('processamento_estado','PROCESSANDO');
+    throw error;
+  }
+}
+
+export async function validarSaqueAsaas(body: any, token?: string) {
+  if (!process.env.ASAAS_WITHDRAWAL_WEBHOOK_TOKEN || token !== process.env.ASAAS_WITHDRAWAL_WEBHOOK_TOKEN) {
+    throw new Error("Webhook de validação de saque não autorizado.");
+  }
+
+  const transfer = body?.type === "TRANSFER" ? body.transfer : null;
+  if (!transfer?.id) {
+    return { status: "REFUSED", refuseReason: "Somente transferências registradas pelo portal são autorizadas." };
+  }
+
+  const { data: registrada, error } = await supabase
+    .from("asaas_transferencias")
+    .select("*")
+    .eq("asaas_transfer_id", transfer.id)
+    .maybeSingle();
+  if (error) throw error;
+
+  const { data: intencao } = registrada ? { data: null } : await supabase.from("asaas_transferencias").select("*").eq("status", "AUTHORIZING").eq("valor", transfer.value).gte("criado_em", new Date(Date.now() - 5 * 60_000).toISOString()).order("criado_em", { ascending: false }).limit(1).maybeSingle();
+  const registroValido = registrada ?? intencao;
+  const { data: carteira } = registroValido?.gerador_carteira_id ? await supabase.from("gerador_carteiras").select("pix_chave,pix_chave_criptografada").eq("id", registroValido.gerador_carteira_id).maybeSingle() : { data: null };
+  const chaveEsperada = String(carteira ? chavePixDaCarteira(carteira) : process.env.ASAAS_TRANSFER_PIX_KEY ?? "").trim().toLowerCase();
+  const chaveRecebida = String(transfer.bankAccount?.pixAddressKey ?? "").trim().toLowerCase();
+  const valorCorresponde = registroValido && Math.abs(Number(registroValido.valor) - Number(transfer.value)) < 0.01;
+  const destinoCorresponde = chaveEsperada && chaveRecebida === chaveEsperada;
+  const pix = transfer.operationType === "PIX";
+  const aprovada = Boolean(registroValido && valorCorresponde && destinoCorresponde && pix);
+
+  await supabase.from("asaas_eventos").upsert({
+    evento_id: `WITHDRAWAL:${transfer.id}`,
+    tipo: aprovada ? "WITHDRAWAL_APPROVED" : "WITHDRAWAL_REFUSED",
+    payload: body,
+  }, { onConflict: "evento_id" });
+
+  return aprovada
+    ? { status: "APPROVED" }
+    : { status: "REFUSED", refuseReason: "Transferência não reconhecida ou dados divergentes." };
+}
