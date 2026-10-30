@@ -17,9 +17,9 @@ export async function groqFallback(system: string, question: string, history: Tu
         messages: [{ role: "system", content: system },
           ...history.map(turn => ({ role: turn.role === "model" ? "assistant" : "user", content: redactConversationText(turn.text) })),
           { role: "user", content: redactConversationText(question) }],
-        temperature: 0.2, max_completion_tokens: 400,
+        temperature: 0.2, max_completion_tokens: 2048,
       }),
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(10000),
     });
     if (!response.ok) {
       console.warn("Groq fallback unavailable, provider status:", response.status);

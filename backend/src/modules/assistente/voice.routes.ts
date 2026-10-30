@@ -1,3 +1,4 @@
+import { MAX_QUESTION_CHARS, validConversationHistory, conversationInstruction } from "./conversation-policy";
 import { Router } from "express";
 import { apiRateLimit } from "../../config/distributedRateLimit";
 import { exigirAutenticacao } from "../../middlewares/auth.middleware";
@@ -74,18 +75,18 @@ assistenteVoiceRouter.post("/live-token", async (req, res) => {
 assistenteVoiceRouter.post("/responder", async (req, res) => {
   if (!assistantAvailable()) return res.status(404).json({ message: "Indisponível." });
   const { topic, variant, question, history } = req.body ?? {};
-  const conversation = typeof question === "string" && question.trim().length > 0 && question.length <= 1200;
+  const conversation = typeof question === "string" && question.trim().length > 0 && question.length <= MAX_QUESTION_CHARS;
   if ((variant !== "gerador" && variant !== "consumidor") || (!conversation && (typeof topic !== "string" || !Object.prototype.hasOwnProperty.call(PUBLIC_HELP_CONTEXT, topic)))) {
     return res.status(400).json({ message: "Assunto inválido." });
   }
-  if (conversation && history !== undefined && (!Array.isArray(history) || history.length > 8 || history.some((turn: any) => !turn || !["user", "model"].includes(turn.role) || typeof turn.text !== "string" || turn.text.length > 1200))) {
+  if (conversation && !validConversationHistory(history)) {
     return res.status(400).json({ message: "Histórico inválido." });
   }
   const key = (process.env.GEMINI_ASSISTANT_API_KEY || process.env.GEMINI_TTS_API_KEY)?.trim();
   const contexts = variant === "consumidor" ? PUBLIC_CONSUMER_HELP_CONTEXT : PUBLIC_HELP_CONTEXT;
   const context = conversation ? Object.values(contexts).join("\n") : contexts[topic as keyof typeof PUBLIC_HELP_CONTEXT];
   const fallback = async () => {
-    const answer = await groqFallback(`Você é o assistente cordial do Andrade Energy ${variant}. Responda em português brasileiro, até 90 palavras. Não invente dados, valores, status ou ações. Não execute operações. Não tem acesso à conta. Se houver ambiguidade, pergunte. Recursos verificados: ${context}`, conversation ? question : `Explique este recurso: ${context}`, conversation ? history ?? [] : []);
+    const answer = await groqFallback(conversationInstruction(variant, context), conversation ? question : `Explique este recurso: ${context}`, conversation ? history ?? [] : []);
     if (!answer) return false;
     res.setHeader("Cache-Control", "no-store");
     console.info("Groq fallback answered");
@@ -100,10 +101,10 @@ assistenteVoiceRouter.post("/responder", async (req, res) => {
       headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({
         contents: conversation ? conversationContents(question, history ?? []) : [{ role: "user", parts: [{ text: `Explique de modo breve e cordial este recurso do aplicativo Andrade Energy ${variant}: ${context}` }] }],
-        systemInstruction: { parts: [{ text: `Você é o assistente cordial do Andrade Energy ${variant}. Converse em português brasileiro, respondendo à pergunta atual no contexto do histórico, sem repetir orientações já dadas. Entenda erros de escrita; se houver ambiguidade, pergunte. Até 90 palavras. Não invente valores, status, botões ou ações executadas. Não tem acesso aos dados privados da conta; consultas são feitas separadamente pelo aplicativo. Não peça senhas nem documentos. Use estes recursos verificados como referência, e explique quando não souber: ${context}` }] },
-        generationConfig: { temperature: 0.2, maxOutputTokens: 1024, thinkingConfig: { thinkingLevel: "minimal" } },
+        systemInstruction: { parts: [{ text: conversationInstruction(variant, context) }] },
+        generationConfig: { temperature: 0.2, maxOutputTokens: 4096, thinkingConfig: { thinkingLevel: "minimal" } },
       }),
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(15000),
     });
     if (!response.ok) {
       console.warn("Gemini conversation unavailable, provider status:", response.status);
