@@ -33,6 +33,7 @@ import {cadastroAncoras,FalhaCadastroAncora} from './ucsAncoras.service';
 import cemigNativeRouter from './cemigNative.routes';
 
 const router = Router();
+import { consultarTributosCemig } from './tributosCemig.service';
 
 function acessoOperacao(usuario:any) {
   const papel=String(usuario?.papel_empresa??"");
@@ -40,6 +41,12 @@ function acessoOperacao(usuario:any) {
 }
 
 router.use(exigirAutenticacao);
+router.get('/tributos-cemig',async(req,res)=>{
+ const referencia=String(req.query.referencia??new Date().toLocaleDateString('sv-SE',{timeZone:'America/Sao_Paulo'}).slice(0,7));
+ if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(referencia))return res.status(400).json({message:'Competência inválida.'});
+ try{return res.json(await consultarTributosCemig(referencia));}
+ catch{return res.status(502).json({message:'Não foi possível obter os impostos da Cemig. Nenhuma alíquota foi presumida.'});}
+});
 router.get('/tarifas-cemig',async(_req,res)=>{
  try{
   const resposta=await fetch('https://www.cemig.com.br/valores-e-tarifas/tarifas-vigentes/',{signal:AbortSignal.timeout(15000)});
