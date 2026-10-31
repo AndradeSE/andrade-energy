@@ -1,3 +1,4 @@
+import { origemEmailPermitida } from "./recebimentoOrigem.policy";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
 import {conferirFaturamentoDaUc,FaturamentoUcSuspenso} from '../faturas/inadimplenciaUc.service';
@@ -356,13 +357,13 @@ async function registrarEventoRecebido(evento: EventoResend, eventoId?: string) 
   if (alvo?.token) {
     const { data, error } = await supabase
       .from("unidades_consumidoras")
-      .select("id, empresa_id, recebimento_email_ativo, status")
+      .select("id, empresa_id, tipo, recebimento_email_ativo, status")
       // Endereços de e-mail são tratados sem distinção de maiúsculas pelo
       // provedor; o token original é base64url e pode conter maiúsculas.
       .ilike("recebimento_email_token", alvo.token)
       .maybeSingle();
     if (error) throw error;
-    if (data?.recebimento_email_ativo && data.status === "ATIVA") unidade = data;
+    if (data?.recebimento_email_ativo && origemEmailPermitida(data)) unidade = data;
     console.info("[recebimento-faturas] destino analisado", {
       enderecoReconhecido: Boolean(alvo),
       unidadeEncontrada: Boolean(data),
@@ -607,7 +608,7 @@ async function processarRegistro(registro: any) {
     const unidadeOrigemId = gmail?.unidadeOrigemId ?? assumido.unidade_consumidora_id;
     const { data: unidadeAtual, error: erroUnidadeAtual } = await supabase
       .from("unidades_consumidoras")
-      .select("id, status, recebimento_email_ativo, recebimento_email_token")
+      .select("id, tipo, status, recebimento_email_ativo, recebimento_email_token")
       .eq("id", unidadeOrigemId)
       .eq("empresa_id", assumido.empresa_id)
       .maybeSingle();
@@ -617,7 +618,7 @@ async function processarRegistro(registro: any) {
     const destinatarioAtual = String(assumido.destinatario ?? "").trim().toLowerCase();
     const recebimentoValido = Boolean(
       unidadeAtual &&
-      unidadeAtual.status === "ATIVA" &&
+      origemEmailPermitida(unidadeAtual) &&
       unidadeAtual.recebimento_email_ativo &&
       (gmail || (enderecoAtual && destinatarioAtual === enderecoAtual.toLowerCase())),
     );

@@ -1,3 +1,4 @@
+import { origemEmailPermitida } from "../recebimento-faturas/recebimentoOrigem.policy";
 import { exigirPermissaoLeituraGmail } from "./gmailPermissoes.policy";
 import { emailOAuthState, emailWebReturn } from "./web-return";
 import { erroRegraAutomaticaOutlook } from "./outlookRegra.policy";
@@ -212,7 +213,7 @@ function usuarioPodeAcessarUnidade(unidade: any, usuario: UsuarioAutenticado) {
 async function buscarUnidadeAutorizada(unidadeId: string, usuario: UsuarioAutenticado) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")
-    .select("id, numero, cliente_id, usina_id, status, recebimento_email_token, recebimento_email_ativo, clientes(id, cpf), usinas(id, titularidade_ucs_recebedoras)")
+    .select("id, numero, tipo, cliente_id, usina_id, status, recebimento_email_token, recebimento_email_ativo, clientes(id, cpf), usinas(id, titularidade_ucs_recebedoras)")
     .eq("id", unidadeId)
     .eq("empresa_id", empresaIdDoUsuario(usuario))
     .maybeSingle();
@@ -228,7 +229,7 @@ async function buscarUnidadeAutorizada(unidadeId: string, usuario: UsuarioAutent
 async function buscarUnidadeInterna(unidadeId: string, empresaId: string) {
   const { data, error } = await supabase
     .from("unidades_consumidoras")
-    .select("id, numero, cliente_id, status, recebimento_email_token, recebimento_email_ativo, clientes(id, cpf)")
+    .select("id, numero, tipo, cliente_id, status, recebimento_email_token, recebimento_email_ativo, clientes(id, cpf)")
     .eq("id", unidadeId)
     .eq("empresa_id", empresaId)
     .maybeSingle();
@@ -335,7 +336,7 @@ export async function iniciarConexaoEmail(
 ) {
   if (!usuario.id) throw new Error("Sessão inválida.");
   const unidade = await buscarUnidadeAutorizada(unidadeId, usuario);
-  if (unidade.status !== "ATIVA") throw new Error("A unidade consumidora precisa estar ativa para conectar um e-mail.");
+  if (!origemEmailPermitida(unidade)) throw new Error("Esta unidade está inativa. As conexões das demais UCs continuam preservadas.");
 
   const provedor = normalizarProvedor(entrada.provedor);
   const app = normalizarApp(entrada.app);
@@ -658,7 +659,7 @@ export async function processarCallbackOAuth(input: {
       estado.callback_url,
     );
     const unidade = await buscarUnidadeInterna(estado.unidade_consumidora_id, estado.empresa_id);
-    if (unidade.status !== "ATIVA") throw new Error("A unidade consumidora não está ativa.");
+    if (!origemEmailPermitida(unidade)) throw new Error("Esta unidade está inativa. As conexões das demais UCs continuam preservadas.");
 
     if (provedor === "GMAIL") exigirPermissaoLeituraGmail(tokens.scope);
     const email = await obterEmailDaConta(provedor, tokens.access_token!);
