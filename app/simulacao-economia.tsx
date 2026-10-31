@@ -7,7 +7,6 @@ import {Colors} from '../theme';
 import {consultarTarifaCemig,consultarTributosCemig} from '../utils/tarifa-cemig';
 import {aplicarImpostosNaTarifa} from '../utils/impostos-tarifa';
 import {simularFaturas,calcularDisponibilidade} from '../utils/calculadora-fatura';
-import municipios from '../data/municipios-mg.json';
 
 const money=(n:number)=>n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const numero=(s:string)=>Number(s.replace(/\./g,'').replace(',','.'));
@@ -20,7 +19,6 @@ export default function SimulacaoEconomia(){
  const [resumoTributos,setResumoTributos]=useState('');
  const [fonte,setFonte]=useState(''),[tributosInfo,setTributosInfo]=useState(''),[erro,setErro]=useState(''),[avisoImpostos,setAvisoImpostos]=useState('');
  const [consultando,setConsultando]=useState(false),[reconsulta,setReconsulta]=useState(0); const sequencia=useRef(0);
- const [cidade,setCidade]=useState(''),[pesquisa,setPesquisa]=useState(''),[escolherCidade,setEscolherCidade]=useState(false),[iluminacao,setIluminacao]=useState('');
  const [modalidade,setModalidade]=useState('COMPENSACAO'),[gd,setGd]=useState('GD1'),[ligacao,setLigacao]=useState('30');
  const [plano,setPlano]=useState('COM_FIDELIDADE'),[desconto,setDesconto]=useState('');
  const [repasseDisponibilidade,setRepasseDisponibilidade]=useState('REPASSAR'),[repasseFioB,setRepasseFioB]=useState('REPASSAR');
@@ -43,21 +41,19 @@ export default function SimulacaoEconomia(){
  },[classe,bandeira,referencia,reconsulta]);
  // A máscara ao sair do campo não altera seu valor e não deve apagar a
  // simulação calculada pelo mesmo clique que encerra a edição.
- const valoresSimulacao=[consumo,tarifa,cheia,icms,pis,cofins,iluminacao,desconto,fioB].map(v=>v.trim()?numero(v):null).join('|');
- useEffect(()=>{setResultado(undefined);},[valoresSimulacao,classe,bandeira,referencia,cidade,modalidade,gd,ligacao,plano,repasseDisponibilidade,repasseFioB]);
+ const valoresSimulacao=[consumo,tarifa,cheia,icms,pis,cofins,desconto,fioB].map(v=>v.trim()?numero(v):null).join('|');
+ useEffect(()=>{setResultado(undefined);},[valoresSimulacao,classe,bandeira,referencia,modalidade,gd,ligacao,plano,repasseDisponibilidade,repasseFioB]);
  function aplicar(){Keyboard.dismiss();try{setCheia(decimal(aplicarImpostosNaTarifa(tarifa,icms,pis,cofins)));setAvisoImpostos('Impostos aplicados à tarifa cheia abaixo.');}catch(e:any){setCheia('');setAvisoImpostos(e.message);}}
  const disponibilidadeSugerida=cheia&&tarifa?Math.max(0,Number(ligacao)*(gd==='GD1'?numero(tarifa):numero(cheia)-numero(tarifa))):0;
  function calcular(){Keyboard.dismiss();try{
   if(!consumo||!cheia||!desconto)throw new Error('Informe consumo e desconto. Se a tarifa automática estiver indisponível, preencha-a nas opções avançadas.');
   const disponibilidade=calcularDisponibilidade(Number(ligacao),gd as 'GD1'|'GD2',numero(tarifa),numero(cheia));
-  setResultado(simularFaturas({consumo:numero(consumo),compensacao:numero(consumo),injecao:numero(consumo),tarifa:numero(cheia),desconto:numero(desconto),modalidade:modalidade as 'INJECAO'|'COMPENSACAO',tipoGd:gd as 'GD1'|'GD2',disponibilidade,fioB:fioB.trim()?numero(fioB):gd==='GD2'?numero(consumo)*numero(cheia)*0.13:0,iluminacao:iluminacao.trim()?numero(iluminacao):null,repassarDisponibilidade:repasseDisponibilidade==='REPASSAR',repassarFioB:repasseFioB==='REPASSAR'}));setErro('');
+  setResultado(simularFaturas({consumo:numero(consumo),compensacao:numero(consumo),injecao:numero(consumo),tarifa:numero(cheia),desconto:numero(desconto),modalidade:modalidade as 'INJECAO'|'COMPENSACAO',tipoGd:gd as 'GD1'|'GD2',disponibilidade,fioB:fioB.trim()?numero(fioB):gd==='GD2'?numero(consumo)*numero(cheia)*0.13:0,iluminacao:null,repassarDisponibilidade:repasseDisponibilidade==='REPASSAR',repassarFioB:repasseFioB==='REPASSAR'}));setErro('');
  }catch(e:any){setResultado(undefined);setErro(e.message);}}
  const campo=(label:string,value:string,set:(v:string)=>void,unidade='kWh',casas=3,imposto=false)=><View style={{gap:8}}><Text style={{color:Colors.text,fontWeight:'600'}}>{label}</Text><View style={{flexDirection:'row',alignItems:'center',borderWidth:1,borderColor:Colors.border,borderRadius:12,backgroundColor:Colors.surface,paddingRight:12}}><TextInput accessibilityLabel={label} value={value} onChangeText={v=>{const p=v.replace(/\./g,',').replace(/[^\d,]/g,'').split(',');set(p[0].slice(0,9)+(p.length>1?','+p.slice(1).join('').slice(0,casas):''));setErro('');if(imposto){setCheia('');setAvisoImpostos('');}}} onBlur={()=>{if(value)set(numero(value).toLocaleString('pt-BR',{useGrouping:false,minimumFractionDigits:unidade==='R$'?2:0,maximumFractionDigits:casas}));}} placeholder="Informe o valor" placeholderTextColor={Colors.subtitle} keyboardType="decimal-pad" maxLength={19} style={{flex:1,minWidth:0,padding:14,fontSize:18,color:Colors.text}}/><Text style={{color:Colors.subtitle}}>{unidade}</Text></View></View>;
  const escolha=(label:string,value:string,set:(v:string)=>void,options:[string,string][])=><ChoiceField label={label} value={value} onChange={set} options={options.map(([value,label])=>({value,label}))}/>;
  const titulo=(s:string)=><Text style={{fontSize:20,fontWeight:'700',color:Colors.text}}>{s}</Text>;
  const nota=(s:string)=><Text style={{color:Colors.subtitle,lineHeight:22}}>{s}</Text>;
- const termo=pesquisa.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
- const cidades=municipios.filter(c=>c.nome.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(termo)).slice(0,12);
  return <Screen><AppHeader variant="subpage" showPlantSwitch={false} title="Calculadora de economia" subtitle="Uma ideia da economia do cliente" contextTitle="Estimativa rápida" contextSubtitle="Compensação de 100% do consumo"/><ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{padding:20,gap:20,paddingBottom:40}}>
  <Card><View style={{gap:16}}>{titulo("Estime a economia")}
  {campo('Consumo mensal',consumo,setConsumo)}
@@ -68,7 +64,7 @@ export default function SimulacaoEconomia(){
  {nota('Consideramos 100% do consumo compensado. Disponibilidade calculada automaticamente pela ligação.')}
  {nota(consultando?'Consultando Cemig…':cheia?'Tarifa cheia: R$ '+cheia+'/kWh. '+resumoTributos:'Tarifa indisponível: informe nas opções avançadas.')}
  {gd==='GD2'&&!fioB?nota('Fio B estimado pela referência provisória do cadastro: 13% da energia. Ajuste opcional disponível abaixo.'):null}
- {!iluminacao.trim()?nota('Iluminação desconhecida: os totais serão parciais, sem essa contribuição.'):null}
+ {nota('Esta simulação não considera a taxa de iluminação pública.')}
  <Button title="Calcular economia" disabled={consultando} onPress={calcular}/>{erro?<Text accessibilityRole="alert" style={{color:Colors.text,fontWeight:"600"}}>{erro}</Text>:null}
  <Button title={avancado?"Ocultar opções avançadas":"Opções avançadas (opcionais)"} onPress={()=>setAvancado(!avancado)}/>
  </View></Card>
@@ -92,24 +88,15 @@ export default function SimulacaoEconomia(){
  {nota('Cálculo automático pela ligação: monofásica 30 kWh, bifásica 50 kWh ou trifásica 100 kWh. O app aplica as tarifas da modalidade GD selecionada e a opção de repasse ou absorção.')}
  {gd==='GD2'?<>{campo('Fio B do mês (opcional: substituir estimativa)',fioB,setFioB,'R$',2)}{nota('Deixe em branco para a estimativa provisória do cadastro, ou informe o valor da fatura para maior precisão.')}</>:null}
  </View></Card>
- <Card><View style={{gap:16}}>{titulo('Iluminação pública (opcional)')} <Button title={cidade?`Município: ${cidade} — alterar`:'Selecionar município de Minas Gerais'} onPress={()=>setEscolherCidade(!escolherCidade)}/>
- {escolherCidade?<View style={{gap:10}}><TextInput accessibilityLabel="Buscar município" placeholder="Digite o nome da cidade" value={pesquisa} onChangeText={setPesquisa} style={{padding:14,borderWidth:1,borderColor:Colors.border,borderRadius:12,color:Colors.text}}/>{cidades.map(c=><Button key={c.id} title={c.nome} onPress={()=>{setCidade(c.nome);setIluminacao('');setEscolherCidade(false);}}/>)}{nota('Lista oficial do IBGE. Digite para localizar entre os 853 municípios.')}</View>:null}
-
- {nota(cidade?`${cidade}/MG: a contribuição depende da legislação municipal. Sem tabela validada, informe o valor da fatura, use 0 quando não houver cobrança ou deixe em branco se não souber.`:'Selecione o município no perfil da UC.')}
- {campo('Iluminação pública da competência',iluminacao,setIluminacao,'R$',2)}
- {nota('A iluminação não recebe desconto Andrade. Zero indica ausência de cobrança, inclusive em áreas rurais quando aplicável. Campo em branco gera uma comparação parcial, sem iluminação; não significa isenção.')}
- <Button title="Simular fatura Cemig e Andrade" disabled={consultando} onPress={calcular}/>{erro?<Text accessibilityRole="alert" style={{color:Colors.text,fontWeight:'600'}}>{erro}</Text>:null}
- </View></Card>
-
  </>:null}
- {resultado?<Card><View style={{gap:16}}>{titulo(resultado.iluminacaoInformada?'Comparação mensal estimada':'Comparação parcial — iluminação não informada')}
- {!resultado.iluminacaoInformada?nota('Os valores abaixo não incluem iluminação pública. Informe a contribuição municipal quando souber para completar a estimativa das faturas.'):null}
+ {resultado?<Card><View style={{gap:16}}>{titulo('Comparação mensal estimada')}
+ {nota('Esta simulação não considera a taxa de iluminação pública. Os totais exibidos não incluem essa cobrança municipal.')}
  <Metric title="Cemig sem Andrade" value={money(resultado.cemigSemAndrade)}/>
  <Text style={{color:Colors.subtitle}}>Cemig após compensação: {money(resultado.cemigComAndrade)} + Andrade: {money(resultado.andrade)}.</Text>
  <Metric title={'Total estimado: Cemig + Andrade'} value={money(resultado.totalComAndrade)}/>
  <Metric title={resultado.economia>=0?'Economia estimada no mês':'Diferença a mais neste cenário'} value={money(Math.abs(resultado.economia))}/>
- {nota(`${resultado.iluminacaoInformada?`Iluminação incluída em cada cenário: ${money(resultado.iluminacao)}.`:'Iluminação não informada e não incluída nos totais.'} Abatimento de custos absorvidos pela Andrade: ${money(resultado.abatimento)}. ${'O total reúne as duas parcelas.'}`)}
- {nota(`Estimativa para 12 meses iguais: ${money(resultado.economiaAnual)} de economia. A fatura real depende do consumo, dos créditos, dos tributos e da contribuição municipal. Esta tela não emite cobrança.`)}
+ {nota(`Abatimento de custos absorvidos pela Andrade: ${money(resultado.abatimento)}. ${'O total reúne as duas parcelas.'}`)}
+ {nota(`Estimativa para 12 meses iguais: ${money(resultado.economiaAnual)} de economia. A fatura real depende do consumo, dos créditos, e dos tributos. A taxa de iluminação pública está excluída. Esta tela não emite cobrança.`)}
  </View></Card>:null}
 
  </ScrollView></Screen>;
