@@ -1,4 +1,4 @@
-import { origemEmailPermitida } from "./recebimentoOrigem.policy";
+import { origemEmailPermitida, pdfDeOutraUcNaGeradora } from "./recebimentoOrigem.policy";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
 import {conferirFaturamentoDaUc,FaturamentoUcSuspenso} from '../faturas/inadimplenciaUc.service';
@@ -733,6 +733,7 @@ async function processarRegistro(registro: any) {
       let unidade: any = null;
       let dados: ReturnType<typeof interpretarFatura> | null = null;
       let senhaDoPdf: string | undefined;
+      let pdfDeOutraUc = false;
       const tentativas = new Map<string, any>();
       tentativas.set("", null);
       for (const candidata of candidatas) {
@@ -744,6 +745,7 @@ async function processarRegistro(registro: any) {
           etapa("LER_PDF");
           const texto = await extrairTextoPdfIsolado(caminho, senha || undefined);
           const interpretados = complementarCabecalhoCemig(texto, interpretarFatura(texto));
+          if (pdfDeOutraUcNaGeradora(unidadeConfiguracao, interpretados.uc)) pdfDeOutraUc = true;
           const encontrada = candidatas.find((candidata) => normalizarNumero(candidata.numero) === normalizarNumero(interpretados.uc));
           if (encontrada) {
             unidade = encontrada;
@@ -754,6 +756,11 @@ async function processarRegistro(registro: any) {
         } catch {
           // A senha pode pertencer a outra UC do mesmo escopo; tentamos a próxima.
         }
+      }
+      if (!unidade && pdfDeOutraUc) {
+        const ignorado=await supabase.from('recebimentos_faturas_email').update({status:'IGNORADO',arquivo_nome:anexo.filename??'fatura.pdf',erro:'PDF de outra UC: não altera a produção da usina.',processado_em:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',assumido.id);
+        if(ignorado.error)throw ignorado.error;
+        return;
       }
       if (!unidade || !dados) throw new Error("A UC do PDF não pertence às UCs abrangidas por esta configuração.");
 

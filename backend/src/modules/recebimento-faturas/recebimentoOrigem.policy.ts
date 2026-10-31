@@ -6,3 +6,10 @@ export function origemEmailPermitida(unidade: { status?: string; tipo?: string }
   return unidade?.status === "ATIVA"
     || (unidade?.status === "PENDENTE_CONTRATO" && unidade.tipo === "BENEFICIARIA");
 }
+
+
+export function pdfDeOutraUcNaGeradora(origem: { tipo?: string; numero?: string }, numeroPdf: unknown) {
+  const numeros=(v:unknown)=>String(v??'').replace(/\D/g,'');
+  const numero=numeros(numeroPdf), esperado=numeros(origem.numero);
+  return origem.tipo==='GERADORA' && numero.length>=6 && esperado.length>=6 && numero!==esperado;
+}

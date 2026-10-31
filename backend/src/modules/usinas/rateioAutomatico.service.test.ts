@@ -35,11 +35,11 @@ test("última fatura gera um arquivo persistente, um e-mail e um push; repetir a
     }else if(table==="usinas"){
       result=url.searchParams.get("id")?{id:"usina-a",nome:"Usina Teste",numero_instalacao:"888888",titularidade_ucs_recebedoras:"GERADOR"}:[{id:"usina-a",empresa_id:"empresa-a"}];
     }else if(table==="rateio_configuracoes")result=method==="GET"?[{usina_id:"usina-a",empresa_id:"empresa-a",uc_ancora:"",habilitado:true,competencia_inicio:`${mes}-01`,numeros_confirmados:false,ucs_confirmadas:[]}]:[];
-    else if(table==="fechamentos")result=[{competencia:`${mes}-01`,energia_gerada:10000}];
+    else if(table==="fechamentos")result=[{competencia:`${mes}-01`,energia_gerada:10000,energia_gerada_fatura:10000,fatura_usina_validada_em:"2026-10-01T00:00:00Z"}];
     else if(table==="faturas")result=completa?[{id:"f-a",numero_instalacao:"111111",cliente_id:"c-a",referencia:mes,status:"ABERTA",saldo_atual:200}]:[];
     else if(table==="unidades_consumidoras")result=url.searchParams.get("tipo")==="eq.GERADORA"?{cpf_titular:"52998224725"}:[{id:"uc-a",numero:"111111",cliente_id:"c-a",consumo_medio_kwh:1000,created_at:`${mes}-01T00:00:00Z`}];
     else if(table==="contratos")result=[{id:"contrato-a",unidade_consumidora_id:"uc-a",status:"VIGENTE"}];
-    else if(table==="faturas_anexadas_clientes")result=[];
+    else if(table==="faturas_anexadas_clientes"||table==="recebimentos_faturas_email")result=[];
     else if(table==="uc_bloqueios_inadimplencia")result=null;
     else if(table==="rateios_mensais_automaticos"){
       if(method==="PATCH"){
