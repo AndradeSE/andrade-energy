@@ -33,7 +33,7 @@ export function detectCapability(input: string): AssistantIntent | undefined {
   else if (/\b(saldo)\b/.test(text) && /\b(energia|credito|creditos|kwh|uc|acumulado)\b/.test(text)) module = "economia";
   else if (/\b(carteira|saldo disponivel|saldo pendente|transferencia|saque|chave pix)\b/.test(text)) module = "carteira";
   else if (/\b(pix|boleto|codigo de barras|linha digitavel|pagar)\b/.test(text)) module = "pagamento";
-  else if (/\b(economia|desconto|creditos|consumo)\b/.test(text)) module = "economia";
+  else if (/\b(economia|desconto|credito|creditos|consumo)\b/.test(text)) module = "economia";
   else if (/\b(perfil|meus dados|meu endereco|meu email|meu telefone|senha|foto de perfil)\b/.test(text)) module = "perfil";
   else if (/\b(tutorial|tutoriais|videos)\b/.test(text)) module = "tutoriais";
   else if (/\b(versao|atualizacao|sobre o app)\b/.test(text)) module = "sobre";

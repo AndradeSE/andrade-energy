@@ -5,7 +5,7 @@ import { buscarDashboard } from "./dashboard.service";
 import { carregarCarteira } from "./carteira.service";
 import { listarColaboradores, listarAuditoriaColaboradores } from "./colaboradores.service";
 import { listarFechamentos } from "./fechamentos.service";
-import { buscarDashboardUsina, listarInversoresDaUsina } from "./usinas.service";
+import { buscarDashboardUsina, obterSaldoAncora, listarInversoresDaUsina } from "./usinas.service";
 import { listarMinhasEmpresas } from "./empresas.service";
 import { obterMinhaAssinatura, obterTermosAssinatura, obterPainelComercial } from "./comercial.service";
 import { obterRecebimentoFaturas } from "./recebimento-faturas.service";
@@ -81,6 +81,13 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
       return { text: `Seu cadastro atual:\nNome: ${scalar(profile.nome)}\nE-mail: ${scalar(profile.email)}\nTelefone: ${scalar(profile.telefone)}\nEndereço: ${scalar(profile.endereco)}\nNão consulte nem envie senhas ou códigos no chat.`, actions };
     }
     case "economia": {
+      if (ctx.generator && /\b(saldo|credito|creditos)\b/.test(normalizeCapabilityText(question)) && (!ctx.unitId || /\busina\b/.test(normalizeCapabilityText(question)))) {
+        if (!ctx.plantId) return { text: "Qual usina você quer consultar? Nenhuma está selecionada." };
+        const mes = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit" }).formatToParts(new Date());
+        const competencia = mes.find(p => p.type === "year")!.value + "-" + mes.find(p => p.type === "month")!.value;
+        const saldo = await obterSaldoAncora(ctx.plantId, "", competencia);
+        return { text: saldo.saldoKwh == null ? "Ainda não há saldo de créditos informado na fatura da usina selecionada." : "A usina selecionada tem " + displayNumber(saldo.saldoKwh) + " kWh de créditos acumulados. Referência: " + scalar(saldo.referencia) + ". Esse é o último saldo registrado na fatura." };
+      }
       if (ctx.generator) return { text: "A economia individual pertence à UC do consumidor. Selecione o consumidor no aplicativo para conferir seu histórico.", actions: [action("Consultar clientes", "/(tabs)/clientes")] };
       const units = onlyArray(await listarMinhasUnidades());
       const unit = units.find(item => item.id === ctx.unitId);
