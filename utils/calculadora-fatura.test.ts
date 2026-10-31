@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {simularFaturas, ConfiguracaoSimulacao} from './calculadora-fatura';
+import {calcularFaturaUnificada} from '../backend/src/modules/billing/billing.engine';
 const base: ConfiguracaoSimulacao = {consumo:500, compensacao:500, injecao:550, tarifa:1, desconto:20, modalidade:'COMPENSACAO', tipoGd:'GD1', disponibilidade:30, fioB:50, iluminacao:25, repassarDisponibilidade:true, repassarFioB:true};
 test('compara as duas faturas e mantém iluminação sem desconto',()=>{
   const r=simularFaturas(base);
@@ -22,4 +23,16 @@ test('não cria fatura negativa e preserva eventual economia negativa',()=>{
 });
 test('valida consumo, compensação, tarifa, percentuais e valores não finitos',()=>{
   for(const patch of [{consumo:0},{compensacao:501},{desconto:101},{iluminacao:NaN},{fioB:-1}])assert.throws(()=>simularFaturas({...base,...patch}));
+});
+test('mantém os valores Andrade e unificado consistentes com o motor de faturamento',()=>{
+  for(const modalidade of ['INJECAO','COMPENSACAO'] as const)
+  for(const tipoGd of ['GD1','GD2'] as const)
+  for(const repassarDisponibilidade of [true,false])
+  for(const repassarFioB of [true,false]){
+    const c={...base,modalidade,tipoGd,repassarDisponibilidade,repassarFioB,compensacao:350,tarifa:1.16546936};
+    const previa=simularFaturas(c);
+    const real=calcularFaturaUnificada({modalidade,energiaInjetada:c.injecao,energiaCompensada:c.compensacao,tarifaCheia:c.tarifa,descontoPercentual:c.desconto,valorCemig:previa.cemigComAndrade,custoDisponibilidadeRepassavel:c.disponibilidade,diferencaFioBRepassavel:tipoGd==='GD2'?c.fioB:0,repassarCustoDisponibilidade:repassarDisponibilidade,repassarDiferencaFioBGD2:repassarFioB});
+    assert.equal(previa.andrade,real.valorUsina);
+    assert.ok(Math.abs(previa.totalComAndrade-real.valorTotalUnificado)<=.01);
+  }
 });
