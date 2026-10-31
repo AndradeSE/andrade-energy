@@ -1,3 +1,4 @@
+import { unidadesParaRecebimento } from "../../utils/unidadesRecebimento";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { router, useFocusEffect } from "expo-router";
@@ -21,10 +22,7 @@ export default function Faturamento() {
   const unidadesIniciais = queryClient.getQueryData<any[]>(initialTabKey(String(user?.id ?? ""), usinaSelecionada?.id ?? user?.usina_id, "faturamento"));
   const [carregando, setCarregando] = useState(!unidadesIniciais);
   const [atualizando, setAtualizando] = useState(false);
-  const [unidadesRecebimento, setUnidadesRecebimento] = useState<any[]>(() => (unidadesIniciais ?? []).filter((item: any) => {
-    const usina = Array.isArray(item.usinas) ? item.usinas[0] : item.usinas;
-    return String(item.tipo ?? "BENEFICIARIA").toUpperCase() !== "GERADORA" && String(usina?.titularidade_ucs_recebedoras ?? "GERADOR") === "GERADOR";
-  }));
+  const [unidadesRecebimento, setUnidadesRecebimento] = useState<any[]>(() => unidadesParaRecebimento(unidadesIniciais ?? [], usinaSelecionada?.id ?? user?.usina_id));
   const [faturandoPdf, setFaturandoPdf] = useState(false);
   const [pdfPendente, setPdfPendente] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [senhaPdf, setSenhaPdf] = useState("");
@@ -32,18 +30,14 @@ export default function Faturamento() {
 
   const carregar = useCallback(async () => {
     try {
-      const unidades = await listarUnidadesGestor();
-      setUnidadesRecebimento((unidades ?? []).filter((item: any) => {
-        const usina = Array.isArray(item.usinas) ? item.usinas[0] : item.usinas;
-        return String(item.tipo ?? "BENEFICIARIA").toUpperCase() !== "GERADORA"
-          && String(usina?.titularidade_ucs_recebedoras ?? "GERADOR") === "GERADOR";
-      }));
+      const unidades = await listarUnidadesGestor(usinaSelecionada?.id ?? user?.usina_id);
+      setUnidadesRecebimento(unidadesParaRecebimento(unidades ?? [], usinaSelecionada?.id ?? user?.usina_id));
     } catch (erro: any) {
       Alert.alert("Faturamento indisponível", erro?.response?.data?.message ?? "Não foi possível carregar as unidades.");
     } finally {
       setCarregando(false);
     }
-  }, []);
+  }, [usinaSelecionada?.id, user?.usina_id]);
   useFocusEffect(useCallback(() => { void carregar(); }, [carregar]));
 
   async function atualizarPagina() {
@@ -115,7 +109,7 @@ export default function Faturamento() {
           <Action icon="create-outline" title="Faturamento manual" description="Preencher os dados da cobrança" onPress={() => router.push("/faturamento/criar-manual" as any)} />
           <Action icon="mail-unread-outline" title="Faturamento automático" description="Configurar o recebimento por e-mail" onPress={() => {
             const unidade = unidadesRecebimento[0];
-            if (!unidade?.id) return Alert.alert("Faturamento automático", "Cadastre e vincule uma UC recebedora a uma usina antes de configurar o e-mail.");
+            if (!unidade?.id) return Alert.alert("Faturamento automático", "Esta usina ainda não tem UC recebedora ativa. A configuração das demais usinas continua preservada.");
             router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidade.id, escopo: "usina" } });
           }} />
           <Action icon="receipt-outline" title="Faturas emitidas" description="Ver cobranças abertas, vencidas e pagas" onPress={() => router.push({ pathname: "/(tabs)/faturas", params: { origem: "faturamento" } })} />

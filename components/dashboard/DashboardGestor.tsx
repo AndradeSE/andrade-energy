@@ -1,3 +1,4 @@
+import { unidadesParaRecebimento } from "../../utils/unidadesRecebimento";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { Redirect, router, useFocusEffect } from "expo-router";
@@ -187,12 +188,7 @@ export default function DashboardGestor() {
   async function abrirFaturamentoAutomatico() {
     try {
       const usinaId = String(usinaSelecionada?.id ?? usuario?.usina_id ?? "");
-      const unidades = (await listarUnidadesGestor(usinaId)).filter((item: any) => {
-        const usina = Array.isArray(item.usinas) ? item.usinas[0] : item.usinas;
-        return String(item.usina_id ?? usina?.id ?? "") === usinaId &&
-          String(item.tipo ?? "BENEFICIARIA").toUpperCase() !== "GERADORA" &&
-          String(usina?.titularidade_ucs_recebedoras ?? "GERADOR") === "GERADOR";
-      });
+      const unidades = unidadesParaRecebimento(await listarUnidadesGestor(usinaId), usinaId);
       if (unidades.length === 1) {
         router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidades[0].id, escopo: "usina" } });
       } else {
