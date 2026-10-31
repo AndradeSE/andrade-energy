@@ -40,7 +40,10 @@ export default function SimulacaoEconomia(){
   }).finally(()=>{if(id===sequencia.current)setConsultando(false);});
   return()=>{sequencia.current++;};
  },[classe,bandeira,referencia,reconsulta]);
- useEffect(()=>{setResultado(undefined);},[consumo,compensacao,injecao,classe,bandeira,referencia,tarifa,cheia,icms,pis,cofins,cidade,iluminacao,modalidade,gd,ligacao,plano,desconto,formato,repasseDisponibilidade,repasseFioB,disponibilidade,fioB]);
+ // A máscara ao sair do campo não altera seu valor e não deve apagar a
+ // simulação calculada pelo mesmo clique que encerra a edição.
+ const valoresSimulacao=[consumo,compensacao,injecao,tarifa,cheia,icms,pis,cofins,iluminacao,desconto,disponibilidade,fioB].map(v=>v.trim()?numero(v):null).join('|');
+ useEffect(()=>{setResultado(undefined);},[valoresSimulacao,classe,bandeira,referencia,cidade,modalidade,gd,ligacao,plano,formato,repasseDisponibilidade,repasseFioB]);
  function aplicar(){Keyboard.dismiss();try{setCheia(decimal(aplicarImpostosNaTarifa(tarifa,icms,pis,cofins)));setAvisoImpostos('Impostos aplicados à tarifa cheia abaixo.');}catch(e:any){setCheia('');setAvisoImpostos(e.message);}}
  const disponibilidadeSugerida=cheia&&tarifa?Math.max(0,Number(ligacao)*(gd==='GD1'?numero(tarifa):numero(cheia)-numero(tarifa))):0;
  function calcular(){Keyboard.dismiss();try{
