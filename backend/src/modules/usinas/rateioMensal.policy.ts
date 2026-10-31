@@ -13,7 +13,7 @@ export function proporRateioMensal(producaoMedia: number, unidades: DemandaRatei
   if (numeroAncora && !/^\d{6,20}$/.test(numeroAncora)) throw new Error("Informe somente os dígitos da UC âncora.");
   const numeros = new Set<string>();
   const suspensas: Array<{uc:string;consumoMedio:number;saldo:number;saldoReferencia?:string}> = [];
-  const linhas = unidades.flatMap(uc => {
+  let linhas = unidades.flatMap(uc => {
     if (!/^\d{6,20}$/.test(uc.numero) || numeros.has(uc.numero)) throw new Error("O rateio contém UC inválida ou duplicada.");
     numeros.add(uc.numero);
     const consumo = Number(uc.consumo_medio_kwh);
@@ -28,11 +28,26 @@ export function proporRateioMensal(producaoMedia: number, unidades: DemandaRatei
   });
   if (numeroAncora && numeros.has(numeroAncora)) throw new Error("A UC âncora já está na lista de beneficiárias; escolha outra UC.");
   const consumoTotal = unidades.reduce((s, uc) => s + Math.max(0,Number(uc.consumo_medio_kwh)-Number(uc.saldo_atual_kwh??0)), 0);
-  if (consumoTotal > producaoMedia + 0.000001) throw new Error("O consumo das UCs supera a produção média. Revise as alocações antes de gerar o rateio.");
+  const prioridadeAplicada=consumoTotal>producaoMedia+0.000001;
+  const semAlocacao:Array<{uc:string;consumoMedio:number;saldo:number;necessidade:number}>=[];
+  let energiaNaoAtendida=0;
+  if(prioridadeAplicada){
+    // Menor unidade do CSV (0,0001%) preservada para a âncora obrigatória.
+    let disponivel=999999;
+    linhas.sort((a,b)=>b.consumoMedio-a.consumoMedio||a.uc.localeCompare(b.uc));
+    linhas=linhas.filter(l=>{
+      const solicitado=Math.round(l.percentual*10000);
+      const destinado=Math.min(solicitado,disponivel);
+      l.percentual=destinado/10000;disponivel-=destinado;
+      energiaNaoAtendida+=Math.max(0,l.necessidade-producaoMedia*destinado/1000000);
+      if(!destinado)semAlocacao.push({uc:l.uc,consumoMedio:l.consumoMedio,saldo:l.saldo,necessidade:l.necessidade});
+      return destinado>0;
+    });
+  }
   const usado = linhas.reduce((s, l) => s + Math.round(l.percentual * 10_000), 0);
   linhas.push({ uc: numeroAncora || "UC âncora — a definir", nome: "UC âncora", documento:"", consumoMedio: 0, saldo:0, saldoReferencia:undefined, necessidade:0,
     percentual: (1_000_000 - usado) / 10_000, ancora: true });
-  return { producaoMedia, rascunho: !numeroAncora, suspensas, linhas: linhas.map(l => ({ ...l,
+  return { producaoMedia, prioridadeAplicada, energiaNaoAtendida, semAlocacao, rascunho: !numeroAncora, suspensas, linhas: linhas.map(l => ({ ...l,
     energiaPrevista: Math.round(producaoMedia * l.percentual) / 100 })) };
 }
 
@@ -71,6 +86,7 @@ export function csvRateioMensal(plano: ReturnType<typeof proporRateioMensal>, co
     ["UC beneficiária", "Identificação", "Consumo médio (kWh)", "Saldo registrado (kWh)", "Competência do saldo", "Necessidade (kWh)", "Rateio (%)", "Energia prevista (kWh)"],
     ...plano.linhas.map(l => [l.uc, l.nome, l.consumoMedio.toFixed(2).replace(".", ","),l.saldo.toFixed(2).replace(".",","),l.saldoReferencia||"Sem histórico; considerado zero",l.necessidade.toFixed(2).replace(".",","), l.percentual.toFixed(4).replace(".", ","), l.energiaPrevista.toFixed(2).replace(".", ",")]),
     ...plano.suspensas.map(l=>[l.uc,"Sem nova alocação: saldo cobre consumo",l.consumoMedio.toFixed(2).replace(".",","),l.saldo.toFixed(2).replace(".",","),l.saldoReferencia||"","0","0","0"]),
+    ...plano.semAlocacao.map(l=>[l.uc,"Sem alocação: produção insuficiente",l.consumoMedio.toFixed(2).replace(".",","),l.saldo.toFixed(2).replace(".",","),"",l.necessidade.toFixed(2).replace(".",","),"0","0"]),
     ["TOTAL", "", "", "", "", "", "100,0000", plano.producaoMedia.toFixed(2).replace(".", ",")],
   ];
   return "\uFEFF" + linhas.map(l => l.map(celula).join(";")).join("\r\n");

@@ -111,6 +111,7 @@ async function persistirProducaoDaFatura(usina: any, competencia: string, energi
   const energiaAlocada = Number(atual?.energia_alocada ?? 0);
   const payload = {
     usina_id: usinaId, empresa_id: usina.empresa_id, competencia, energia_gerada: energiaGerada,
+    energia_gerada_fatura: energiaGerada, fatura_usina_validada_em: new Date().toISOString(),
     ...(saldoCreditos !== null ? {saldo_creditos_kwh:saldoCreditos} : {}),
     energia_alocada: energiaAlocada, energia_disponivel: energiaGerada - energiaAlocada,
     ocupacao: energiaGerada ? (energiaAlocada / energiaGerada) * 100 : 0,

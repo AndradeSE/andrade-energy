@@ -18,9 +18,9 @@ test("âncora opcional permanece só na planilha e identifica rascunho", () => {
   assert.match(csvRateioMensal(p,"2026-10","456789123012"), /RASCUNHO/);
   assert.match(csvRateioMensal(p,"2026-10","456789123012"), /'=HYPERLINK/);
 });
-test("bloqueia excesso, média ausente, UC repetida e âncora duplicada", () => {
+test("bloqueia média ausente, UC repetida e âncora duplicada", () => {
   const u = [{numero:"123456789012",consumo_medio_kwh:1000}];
-  assert.throws(()=>proporRateioMensal(500,u), /supera/);
+
   assert.throws(()=>proporRateioMensal(0,u), /produção/);
   assert.throws(()=>proporRateioMensal(3000,[...u,...u]), /duplicada/);
   assert.throws(()=>proporRateioMensal(3000,u,"123456789012"), /já está/);
@@ -62,4 +62,24 @@ test('CSV bloqueia instalação antiga inclusive na âncora',()=>{
  const novo=proporRateioMensal(10000,[{numero:'1222790201827',documento:'52998224725',consumo_medio_kwh:1000}],'607081301889');
  assert.match(csvCemigRateio(novo,'1121361801894','52998224725',true),/607081301889;/);
  assert.throws(()=>csvCemigRateio(novo,'3006605532','52998224725',true),/geradora/);
+});
+
+
+test('produção insuficiente prioriza maior consumo e limita a soma a 100%, sem cota zero no CSV',()=>{
+ const unidades=[{numero:'111111111111',consumo_medio_kwh:1000,documento:'52998224725'},{numero:'222222222222',consumo_medio_kwh:3000,documento:'52998224725'},{numero:'333333333333',consumo_medio_kwh:2000,documento:'52998224725'}];
+ const p=proporRateioMensal(4000,unidades,'999999999999');
+ assert.equal(p.prioridadeAplicada,true);
+ assert.equal(p.linhas[0].uc,'222222222222');assert.equal(p.linhas[0].energiaPrevista,3000);
+ assert.equal(p.linhas[1].uc,'333333333333');assert.ok(p.linhas[1].energiaPrevista<=1000);
+ assert.equal(p.semAlocacao[0].uc,'111111111111');
+ assert.equal(p.linhas.reduce((a,l)=>a+Math.round(l.percentual*10000),0),1000000);
+ assert.ok(p.linhas.every(l=>l.percentual>0));
+ assert.doesNotThrow(()=>csvCemigRateio(p,'888888888888','52998224725',true));
+ assert.deepEqual(unidades.map(u=>u.consumo_medio_kwh),[1000,3000,2000]);
+});
+
+test('prioridade por consumo desconta saldo da própria UC sem favorecer acúmulo',()=>{
+ const p=proporRateioMensal(2000,[{numero:'111111111111',consumo_medio_kwh:5000,saldo_atual_kwh:4500},{numero:'222222222222',consumo_medio_kwh:2000}], '999999999999');
+ assert.equal(p.linhas[0].uc,'111111111111');assert.equal(p.linhas[0].energiaPrevista,500);
+ assert.ok(p.linhas[1].energiaPrevista<=1500);assert.ok(p.energiaNaoAtendida>=500);
 });
