@@ -103,6 +103,15 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   }, [listening, speakingReply, transcribing, busy, voiceInstalling]);
   const [openingInvoiceId, setOpeningInvoiceId] = useState<string>();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const keyboardRoot = useRef<View>(null);
+  const keyboardTop = useRef<number | null>(null);
+  const [keyboardOverlap, setKeyboardOverlap] = useState(0);
+  const updateKeyboardOverlap = useCallback(() => {
+    if (Platform.OS !== "android") return;
+    keyboardRoot.current?.measureInWindow((_x, y, _width, height) => {
+      setKeyboardOverlap(keyboardTop.current === null ? 0 : Math.max(0, y + height - keyboardTop.current));
+    });
+  }, []);
   const voiceActive = useRef(false);
   const liveSession = useRef<{ stop: () => Promise<void> } | null>(null);
   const liveStarting = useRef(false);
@@ -214,8 +223,8 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     return () => animations.forEach(animation => animation.stop());
   }, [listening, hearingSpeech, speakingReply, wave, wakeEnabled, wakeReady, wakePaused]);
   useEffect(() => {
-    const show = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
-    const hide = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));
+    const show = Keyboard.addListener("keyboardDidShow", event => { keyboardTop.current = event.endCoordinates.screenY; setKeyboardVisible(true); updateKeyboardOverlap(); });
+    const hide = Keyboard.addListener("keyboardDidHide", () => { keyboardTop.current = null; setKeyboardVisible(false); setKeyboardOverlap(0); });
     return () => { show.remove(); hide.remove(); };
   }, []);
   useEffect(() => subscribeModelInstall(state => {
@@ -870,7 +879,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   function leaveConversation(){ if(keyboardVisible){ Keyboard.dismiss(); return; } if(voiceActive.current && onMinimize) onMinimize(); else if(onClose) onClose(); else router.back(); }
   if (voiceOnly) return null;
 
-  const conversationView = <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+  const conversationView = <View ref={keyboardRoot} style={styles.root} onLayout={updateKeyboardOverlap}><KeyboardAvoidingView style={[styles.root, Platform.OS === "android" && { marginBottom: keyboardOverlap }]} behavior={Platform.OS === "ios" ? "padding" : undefined}>
     <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
       <Pressable onPress={leaveConversation} accessibilityRole="button" accessibilityLabel={onClose ? "Fechar conversa" : "Voltar"} style={styles.back}><Text style={styles.backText}>‹</Text></Pressable>
       <View style={styles.headerText}><Text style={styles.title}>Solar</Text><Text style={styles.subtitle}>Consultas e ações da sua conta</Text></View>
@@ -904,7 +913,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
         </Pressable>
       </View>
     </View>
-  </KeyboardAvoidingView>;
+  </KeyboardAvoidingView></View>;
   return floatingModal ? <Modal visible={!minimized} animationType="slide" onRequestClose={leaveConversation}>{conversationView}</Modal> : conversationView;
 }
 
