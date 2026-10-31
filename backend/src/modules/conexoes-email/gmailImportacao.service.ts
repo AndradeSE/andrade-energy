@@ -1,3 +1,4 @@
+import { origemEmailPermitida } from "../recebimento-faturas/recebimentoOrigem.policy";
 import { createHash } from "node:crypto";
 import { avisarFaturamentoAutomatico } from '../faturas/avisosAutomaticos.service';
 import { supabase } from "../../config/supabase";
@@ -32,7 +33,7 @@ export async function enfileirarFaturasGmail(deps: DependenciasGmail = {
           .select("id,cliente_id,tipo,status,recebimento_email_ativo,usinas(titularidade_ucs_recebedoras)")
           .eq("id", conexao.unidade_consumidora_id).eq("empresa_id", conexao.empresa_id).maybeSingle();
         if (erroUc) throw erroUc;
-        if (!unidade || unidade.status !== "ATIVA" || !unidade.recebimento_email_ativo) continue;
+        if (!origemEmailPermitida(unidade) || !unidade?.recebimento_email_ativo) continue;
         const usina: any = Array.isArray(unidade.usinas) ? unidade.usinas[0] : unidade.usinas;
         const escopo = unidade.tipo === "GERADORA" ? unidade.id
           : usina?.titularidade_ucs_recebedoras === "CLIENTE" ? unidade.cliente_id : "GERADOR";

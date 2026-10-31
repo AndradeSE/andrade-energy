@@ -5,7 +5,7 @@ process.env.SUPABASE_URL = "https://gmail-tests.example.com";
 process.env.SUPABASE_SERVICE_KEY = "gmail-test-placeholder";
 const { enfileirarFaturasGmail } = require("./gmailImportacao.service") as typeof import("./gmailImportacao.service");
 
-function cenario({ ativo = true, falha = false, duasEmpresas = false } = {}) {
+function cenario({ ativo = true, falha = false, duasEmpresas = false, status = "ATIVA", primeiraPendente = false } = {}) {
   const conexoes = [
     { id: "c1", empresa_id: "e1", email_conectado: "caixa@example.com", unidade_consumidora_id: "uc1" },
     { id: "c2", empresa_id: duasEmpresas ? "e2" : "e1", email_conectado: "caixa@example.com", unidade_consumidora_id: "uc2" },
@@ -33,7 +33,7 @@ function cenario({ ativo = true, falha = false, duasEmpresas = false } = {}) {
             if (!registros.has(payload.provedor_email_id)) registros.set(payload.provedor_email_id, payload);
           } else if (operacao === "update") atualizacoes.push(payload);
           return { error: null, data: operacao !== "select" ? null : tabela === "conexoes_email" ? conexoes : {
-            id: filtros.id, tipo: "BENEFICIARIA", status: "ATIVA", recebimento_email_ativo: ativo,
+            id: filtros.id, tipo: "BENEFICIARIA", status: primeiraPendente && filtros.id === "uc1" ? "PENDENTE_CONTRATO" : status, recebimento_email_ativo: ativo,
             usinas: { titularidade_ucs_recebedoras: "GERADOR" },
           } };
         }).then(resolve, reject);
@@ -97,4 +97,21 @@ test('permissão Gmail ausente avisa somente a empresa da conexão sem expor o e
  assert.ok(avisos.every(a=>a.evento==='ERRO_IMPORTACAO'));
  assert.doesNotMatch(JSON.stringify(avisos),/token privado|caixa@example/);
  assert.equal(c.registros.size,0);
+});
+
+test("referência pendente não interrompe a caixa compartilhada nem perde o PDF", async () => {
+  const c = cenario({ primeiraPendente: true });
+  await enfileirarFaturasGmail(c.deps);
+  assert.equal(c.consultas(), 1);
+  assert.equal(c.registros.size, 1);
+  assert.equal([...c.registros.values()][0].status, "PENDENTE");
+  assert.ok(c.atualizacoes.every(a => a.regra_status === "ATIVA"));
+});
+
+test("origem cancelada não consulta Gmail nem cria recebimento", async () => {
+  const c = cenario({ status: "CANCELADA" });
+  await enfileirarFaturasGmail(c.deps);
+  assert.equal(c.consultas(), 0);
+  assert.equal(c.registros.size, 0);
+  assert.equal(c.atualizacoes.length, 0);
 });
