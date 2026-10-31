@@ -1,8 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {simularFaturas, ConfiguracaoSimulacao} from './calculadora-fatura';
+import {simularFaturas, calcularDisponibilidade, ConfiguracaoSimulacao} from './calculadora-fatura';
 import {calcularFaturaUnificada} from '../backend/src/modules/billing/billing.engine';
 const base: ConfiguracaoSimulacao = {consumo:500, compensacao:500, injecao:550, tarifa:1, desconto:20, modalidade:'COMPENSACAO', tipoGd:'GD1', disponibilidade:30, fioB:50, iluminacao:25, repassarDisponibilidade:true, repassarFioB:true};
+test('calcula disponibilidade automaticamente para as três ligações e modalidades GD',()=>{
+ for(const franquia of [30,50,100]){
+  assert.equal(calcularDisponibilidade(franquia,'GD1',.9,1.2),franquia*.9);
+  assert.ok(Math.abs(calcularDisponibilidade(franquia,'GD2',.9,1.2)-franquia*.3)<1e-10);
+ }
+ assert.equal(calcularDisponibilidade(30,'GD2',1,1),0);
+ assert.throws(()=>calcularDisponibilidade(40,'GD1',1,1));
+ assert.throws(()=>calcularDisponibilidade(30,'GD2',1,.9));
+});
 test('compara as duas faturas e mantém iluminação sem desconto',()=>{
   const r=simularFaturas(base);
   assert.equal(r.cemigSemAndrade,525); assert.equal(r.cemigComAndrade,55);
@@ -23,6 +32,13 @@ test('não cria fatura negativa e preserva eventual economia negativa',()=>{
 });
 test('valida consumo, compensação, tarifa, percentuais e valores não finitos',()=>{
   for(const patch of [{consumo:0},{compensacao:501},{desconto:101},{iluminacao:NaN},{fioB:-1}])assert.throws(()=>simularFaturas({...base,...patch}));
+});
+test('zero de iluminação é válido; valor desconhecido gera comparação parcial',()=>{
+  const zero=simularFaturas({...base,iluminacao:0});
+  const parcial=simularFaturas({...base,iluminacao:null});
+  assert.equal(zero.iluminacaoInformada,true); assert.equal(parcial.iluminacaoInformada,false);
+  assert.equal(zero.totalComAndrade,430);assert.equal(parcial.totalComAndrade,430);
+  assert.equal(parcial.economia,zero.economia);
 });
 test('mantém os valores Andrade e unificado consistentes com o motor de faturamento',()=>{
   for(const modalidade of ['INJECAO','COMPENSACAO'] as const)
