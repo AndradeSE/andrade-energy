@@ -3,7 +3,7 @@ import {readContingencyControlSource} from '../config/contingency-policy';
 import {isPreviewEnvironment} from '../config/environment';
 import {obterSessao} from '../storage/session';
 
-export type ContingencyState={control:{executor:'RENDER'|'NETLIFY'|'RENDER_RESERVA';reserva_preferida?:'NETLIFY'|'RENDER_RESERVA';revisao:number;commit_validado:string|null};jobs:{nome:string;estado:string}[];requests:unknown[];automation?:{ativa:boolean;configurada:boolean;ultimo_estado:string|null;ultima_consulta:string|null;ultimo_resultado:string|null}};
+export type ContingencyState={control:{executor:'RENDER'|'NETLIFY'|'RENDER_RESERVA';reserva_preferida?:'NETLIFY'|'RENDER_RESERVA';revisao:number;commit_validado:string|null};jobs:{nome:string;estado:string}[];requests:unknown[];automation?:{ativa:boolean;configurada:boolean;ultimo_estado:string|null;ultima_consulta:string|null;ultimo_resultado:string|null;retorno_automatico?:boolean;retorno_resultado?:string|null;retorno_consulta?:string|null}};
 // The control must remain reachable when the primary has exhausted its quota.
 async function controlRequest(method:'GET'|'POST',path='',data?:unknown) {
   const session=await obterSessao();

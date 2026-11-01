@@ -38,6 +38,7 @@ import { detectCapability, type AssistantAction, type AssistantDocument } from "
 import { executeAssistantTool, resolveAssistantDocument } from "../services/assistant-tools";
 import { queryLiveAccount, redactLiveAccountText } from "../services/assistant-live-account";
 import { setFloatingConversationPhase } from "../services/assistant-floating-conversation";
+import {needsAssistantGreeting,markAssistantGreetingDelivered} from '../services/assistant-greeting-session';
 import { parseAutomationCommand, prepareAutomation, createAutomationExecutor, type AutomationDraft } from "../shared/solar-automation";
 import { nativeAutomationContext, nativeAutomationIO } from "../services/assistant-native-automation";
 import { normalizeSolarRequest } from "../shared/solar-language";
@@ -660,6 +661,8 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
           const { startGeminiLive } = await import("../services/assistant-gemini-live");
           await stopNativePortugueseSpeech(conversationOwner.current);
           const session = await startGeminiLive(firstName, {
+            greet: needsAssistantGreeting(String(usuario?.id ?? 'anonymous')),
+            onGreetingDelivered: () => markAssistantGreetingDelivered(String(usuario?.id ?? 'anonymous')),
             onLevel:level=>{if(liveGeneration.current!==liveAttempt)return;Animated.timing(voiceMeter,{toValue:level,duration:70,useNativeDriver:true}).start();},
             onReady: () => playActivationBeep(true),
             onLatestInvoice: async () => {
@@ -763,10 +766,16 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     setSpeakingReply(true);
     if (!startFromCommand) await playActivationBeep();
     if (!voiceActive.current) return;
+    if (!needsAssistantGreeting(String(usuario?.id ?? 'anonymous'))) {
+      setSpeakingReply(false);
+      await resumeVoice();
+      return;
+    }
     if (startFromCommand) {
       const firstName = String(usuario?.nome ?? "").trim().split(/\s+/)[0]?.replace(/[^\p{L}-]/gu, "").slice(0, 28);
       const greeting = firstName ? `E aí, ${firstName}, como posso ajudá-lo?` : "E aí, como posso ajudá-lo?";
       const finishGreeting = () => {
+        markAssistantGreetingDelivered(String(usuario?.id ?? 'anonymous'));
         setSpeakingReply(false);
         if (voiceActive.current) void resumeVoice();
       };
@@ -783,6 +792,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     // A frase online é fixa para não enviar o nome do cliente ao provedor de voz.
     const greeting = "Olá! Como posso ajudar?";
     const finishGreeting = () => {
+      markAssistantGreetingDelivered(String(usuario?.id ?? 'anonymous'));
       setSpeakingReply(false);
       if (voiceActive.current) void resumeVoice();
     };

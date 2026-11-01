@@ -9,6 +9,8 @@ import api from "../config/api";
 import {voiceLevel} from './assistant-voice-level';
 
 type Listener = {
+  greet?: boolean;
+  onGreetingDelivered?: () => void;
   onLevel?: (level:number)=>void;
   onState: (state: "connecting" | "listening" | "speaking") => void;
   onFailure: (message: string) => void;
@@ -71,6 +73,7 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
   const levelTimers=new Set<ReturnType<typeof setTimeout>>();
   let listening = false;
   let speaking = false;
+  let awaitingGreeting = listener.greet !== false;
   let resumeScheduled = false;
   let nextAudioAt = 0;
   let playbackChain = Promise.resolve();
@@ -83,6 +86,7 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
   let toolBusy = false;
   const context = new AudioContext();
   const microphone = new AudioPcmStreamAdapter();
+  const microphoneReady = microphone.initialize({ sampleRate: 16000, channels: 1, bitsPerSample: 16, audioSource: 1, bufferSize: 1280 });
   const socket = new WebSocket(`${LIVE_ENDPOINT}?access_token=${encodeURIComponent(token)}`);
   socket.binaryType = "arraybuffer";
   listener.onState("connecting");
@@ -118,6 +122,7 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
     speaking = false;
     microphoneOperation = microphoneOperation.then(async () => {
       if (closed) return;
+      await microphoneReady;
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, shouldPlayInBackground: false });
       if (closed) return;
       if (!microphone.isRecording()) await microphone.start();
@@ -191,6 +196,10 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
     if (message.setupComplete) {
       console.info("[AssistantLive] setup-ready");
       clearTimeout(setupTimer);
+      if (!awaitingGreeting) {
+        void activationBeep.then(() => startMic()).catch(() => fail("Não consegui abrir o microfone."));
+        return;
+      }
       setupTimer = setTimeout(() => fail("O Gemini Live não iniciou a resposta de voz."), 12_000);
       const greeting = firstName ? `E aí, ${firstName}, como posso ajudá-lo?` : "E aí, como posso ajudá-lo?";
       void (async () => {
@@ -220,6 +229,7 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
     if (content?.modelTurn?.parts) for (const part of content.modelTurn.parts) {
       const audio = part?.inlineData;
       if (typeof audio?.data !== "string" || !String(audio?.mimeType ?? "").startsWith("audio/pcm")) continue;
+      if (awaitingGreeting) { awaitingGreeting=false; listener.onGreetingDelivered?.(); }
       clearTimeout(setupTimer);
       if (!speaking) {
         resumeScheduled = false;
@@ -271,7 +281,7 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
     }
   };
   try {
-    await microphone.initialize({ sampleRate: 16000, channels: 1, bitsPerSample: 16, audioSource: 1, bufferSize: 1280 });
+    await microphoneReady;
   } catch (error) {
     await stop();
     throw error;

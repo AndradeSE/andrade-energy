@@ -17,7 +17,7 @@ export default function ContingencyControl(){
   const pending=Boolean(state?.requests.length||state?.jobs.some(job=>['EXECUTANDO','REVISAO'].includes(job.estado)));
   function changeAutomation(){if(!state?.automation)return;const active=!state.automation.ativa;
     Alert.alert(active?'Ativar troca automática?':'Desativar troca automática?',active?
-      `${state.control.reserva_preferida==='RENDER_RESERVA'?'O Render reserva':'A Netlify'} assumirá após o Render principal confirmar suspensão por cobrança em consultas consecutivas, desde que não existam operações pendentes. Lentidão ou falhas isoladas não acionam a troca. O retorno ao Render principal permanece manual.`:
+      `${state.control.reserva_preferida==='RENDER_RESERVA'?'O Render reserva':'A Netlify'} assumirá após o Render principal confirmar suspensão por cobrança em consultas consecutivas, desde que não existam operações pendentes. Lentidão ou falhas isoladas não acionam a troca. ${state.automation.retorno_automatico?'O principal é o preferencial e reassumirá após três verificações saudáveis, com versão aprovada e sem operações pendentes.':'O retorno ao principal aguarda habilitação da política automática.'}`:
       'A entrada no reserva voltará a depender de confirmação manual do ADM.',[{text:'Cancelar',style:'cancel'},{text:'Confirmar',onPress:()=>{
         setBusy(true);setError('');void setContingencyAutomation(active).then(()=>readContingency()).then(setState)
           .catch(()=>setError('Não foi possível confirmar a configuração. Consulte novamente.')).finally(()=>setBusy(false));
@@ -32,7 +32,7 @@ export default function ContingencyControl(){
     <Button title={busy?'Conferindo…':'Consultar contingência'} disabled={busy} onPress={()=>void run()}/>
     {state?<><Text style={{color:Colors.text}}>Servidor ativo: {state.control.executor==='RENDER'?'Render principal':state.control.executor==='RENDER_RESERVA'?'Render reserva':'Netlify'}</Text>
       {state.automation?<><Text style={{color:Colors.text}}>Troca automática: {state.automation.ativa?'ativada':'desativada'}</Text>
-        <Text style={{color:Colors.text}}>Retorno ao Render: confirmação manual do ADM.</Text>
+        <Text style={{color:Colors.text}}>{state.automation.retorno_automatico?'Preferencial: Render principal. Retorno automático após recuperação validada e conclusão das operações pendentes.':'Retorno automático ao principal ainda não habilitado.'}</Text>
         {state.automation.ultima_consulta?<Text style={{color:Colors.text}}>Última consulta: {new Date(state.automation.ultima_consulta).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}</Text>:null}
         {state.automation.ativa&&(!state.automation.ultima_consulta||Date.now()-Date.parse(state.automation.ultima_consulta)>5*60_000||state.automation.ultimo_estado==='INDETERMINADO')?<Text style={{color:'#985418'}}>A consulta automática ainda não foi confirmada ou está indisponível. Confira a conexão antes de contar com a troca automática.</Text>:null}
         {!state.automation.configurada?<Text style={{color:'#985418'}}>A consulta do Render ainda não está conectada no reserva.</Text>:null}
