@@ -38,3 +38,9 @@ test('disabled return and reserve instances never start self-return monitoring',
   await observePrimaryReturn({...env,CONTINGENCY_EXECUTOR:'RENDER_RESERVA'},store);
   assert.equal(calls,0);
 });
+
+test('active primary does not self-ping and consume free compute unnecessarily',async()=>{
+  const store={from:(table:string)=>({select(){return this;},eq(){return this;},single:async()=>({data:table==='contingencia_automacao'?{ativa:true,retorno_automatico:true}:{executor:'RENDER'}})}),
+    rpc:async()=>assert.fail('no repeated return')};
+  assert.equal(await observePrimaryReturn(env,store,(async()=>assert.fail('no keepalive')) as typeof fetch),'PRINCIPAL_ATIVO');
+});

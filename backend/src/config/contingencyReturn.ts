@@ -24,6 +24,10 @@ export async function observePrimaryReturn(env: NodeJS.ProcessEnv, store: any, r
   const { data, error } = await store.from('contingencia_automacao')
     .select('ativa,retorno_automatico').eq('id', true).single();
   if (error || !data?.ativa || !data?.retorno_automatico) return;
+  const control = await store.from('contingencia_controle').select('executor').eq('id', true).single();
+  if (control.error) return;
+  // Once ownership has returned, avoid self-pinging the free service forever.
+  if (control.data?.executor === 'RENDER') return 'PRINCIPAL_ATIVO';
   let healthy = false;
   try {
     const response = await request(`${primaryApiOrigin(environment)}/health`, {
