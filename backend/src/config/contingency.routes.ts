@@ -36,7 +36,7 @@ router.get('/',async(_req,res)=>{
       supabase.from('contingencia_controle').select('*').eq('id',true).single(),
       supabase.from('contingencia_trabalhos').select('nome,estado,executor,lease_ate,atualizado_em').order('nome'),
       supabase.from('contingencia_requisicoes').select('id,executor,namespace,iniciado_em').order('iniciado_em').limit(100),
-      supabase.from('contingencia_automacao').select('ativa,ultimo_estado,ultima_consulta,ultimo_resultado').eq('id',true).single(),
+      supabase.from('contingencia_automacao').select('ativa,ultimo_estado,ultima_consulta,ultimo_resultado,retorno_automatico,retorno_resultado,retorno_consulta').eq('id',true).single(),
     ]);
     if(control.error || jobs.error || requests.error || automation.error) throw new Error('unavailable');
     return res.json({control:control.data,jobs:jobs.data,requests:requests.data,automation:{...automation.data,configurada:Boolean(process.env.RENDER_MONITOR_API_KEY)}});
