@@ -52,6 +52,7 @@ import { contingencyExecutor } from './config/contingencyExecutor';
 import { createRenderReserveIngress } from './config/renderReserveIngress';
 import { renderReserveReady } from './config/renderReserveReadiness';
 import { observeRenderForContingency,lastRenderReserveObservation } from './config/contingencyAutomatic';
+import { observePrimaryReturn, primaryEnvironment, primaryReadyForReturn } from './config/contingencyReturn';
 import contingencyRoutes from "./config/contingency.routes";
 
 dotenv.config();
@@ -205,6 +206,15 @@ app.use("/api/oauth", oauthEmailRouter);
 
 app.get("/health", async (_, res) => {
   let reserveReady=false;
+  let primaryReady=false;
+  const primaryEnv=primaryEnvironment(process.env);
+  if(primaryEnv) {
+    try {
+      const {data,error}=await supabase.from('contingencia_controle')
+        .select('render_reserva_commit_validado,render_reserva_validado_em').eq('id',true).single();
+      primaryReady=!error && primaryReadyForReturn(process.env,data);
+    } catch { primaryReady=false; }
+  }
   if(executorIdentity==='RENDER_RESERVA') {
     try {
       const {data,error}=await supabase.from('contingencia_controle')
@@ -216,6 +226,8 @@ app.get("/health", async (_, res) => {
   res.json({
     status: "online",
     commit: (process.env.RENDER_GIT_COMMIT ?? process.env.COMMIT_REF)?.slice(0, 7) ?? "local",
+    ...(primaryEnv ? {environment:primaryEnv,releaseCommit:process.env.RENDER_GIT_COMMIT,
+      contingency:{executor:'RENDER',readyForReturn:primaryReady}} : {}),
     ...(executorIdentity === 'RENDER_RESERVA' ? {
       environment: renderReserveEnvironment(process.env),
       contingency: { executor: executorIdentity, readyForFailover: reserveReady, writes: reserveReady,
@@ -272,6 +284,18 @@ async function iniciarServidor() {
   await validarSchemaAntesDeIniciar();
   app.listen(PORT, () => {
   console.log(`Servidor iniciado na porta ${PORT}`);
+  if(primaryEnvironment(process.env)) {
+    let returning=false;
+    const checkReturn=async()=>{
+      if(returning) return;
+      returning=true;
+      try { await observePrimaryReturn(process.env,supabase); }
+      catch { console.error('Retorno automático ao principal exige conferência.'); }
+      finally { returning=false; }
+    };
+    void checkReturn();
+    setInterval(()=>void checkReturn(),60_000).unref();
+  }
   if(executorIdentity==='RENDER_RESERVA') {
     let observing=false;
     const observe=async()=>{
