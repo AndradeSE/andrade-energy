@@ -49,7 +49,7 @@ function cenario({ ativo = true, falha = false, duasEmpresas = false, status = "
       parts: [{ partId: "1", filename: "conta.pdf", body: { attachmentId: "a1" } }],
     } }),
   };
-  return { deps, registros, atualizacoes, consultas: () => consultas };
+  return { deps, conexoes, registros, atualizacoes, consultas: () => consultas };
 }
 
 test("uma caixa atende duas UCs do gerador e repetição não duplica o recebimento", async () => {
@@ -104,4 +104,15 @@ test("origem cancelada não consulta Gmail nem cria recebimento", async () => {
   assert.equal(c.consultas(), 0);
   assert.equal(c.registros.size, 0);
   assert.equal(c.atualizacoes.length, 0);
+});
+
+test('autorização válida da caixa é usada antes de vínculo antigo expirado por UC',async()=>{
+  const c=cenario();
+  Object.assign(c.conexoes[0],{regra_status:'ERRO',regra_erro:'Autorização expirada',conectado_em:'2026-10-01'});
+  Object.assign(c.conexoes[1],{regra_status:'ATIVA',regra_erro:null,conectado_em:'2026-10-31'});
+  const chamadas:string[]=[];let avisos=0;
+  c.deps.obterToken=async(id:string)=>{chamadas.push(id);if(id==='c1')throw Object.assign(new Error(),{codigoGmail:'OAUTH_REAUTORIZACAO'});return 'fixture';};
+  c.deps.avisar=async()=>{avisos++;};
+  await enfileirarFaturasGmail(c.deps);
+  assert.deepEqual(chamadas,['c2']);assert.equal(avisos,0);assert.equal(c.consultas(),1);assert.equal(c.registros.size,1);
 });
