@@ -1,4 +1,5 @@
 import { origemEmailPermitida } from "../recebimento-faturas/recebimentoOrigem.policy";
+import {priorizarConexoesGmail} from './gmailConexao.policy';
 import { createHash } from "node:crypto";
 import { avisarFaturamentoAutomatico } from '../faturas/avisosAutomaticos.service';
 import { supabase } from "../../config/supabase";
@@ -22,11 +23,11 @@ export async function enfileirarFaturasGmail(deps: DependenciasGmail = {
   executando = true;
   try {
     const { data: conexoes, error } = await deps.db.from("conexoes_email")
-      .select("id,empresa_id,email_conectado,unidade_consumidora_id,conectado_em")
+      .select("id,empresa_id,email_conectado,unidade_consumidora_id,conectado_em,regra_status,regra_erro")
       .eq("provedor", "GMAIL").eq("status", "LEITURA_AUTORIZADA");
     if (error) throw error;
     const caixasConsultadas = new Set<string>();
-    for (const conexao of conexoes ?? []) {
+    for (const conexao of priorizarConexoesGmail(conexoes ?? [])) {
       let etapa = "CONFIGURACAO_UC";
       try {
         const { data: unidade, error: erroUc } = await deps.db.from("unidades_consumidoras")

@@ -2,6 +2,7 @@ import { origemEmailPermitida } from "../recebimento-faturas/recebimentoOrigem.p
 import { exigirPermissaoLeituraGmail } from "./gmailPermissoes.policy";
 import { emailOAuthState, emailWebReturn } from "./web-return";
 import { erroRegraAutomaticaOutlook } from "./outlookRegra.policy";
+import {priorizarConexoesGmail,mesmaCaixaGmailAutorizada} from './gmailConexao.policy';
 import { appScheme } from "../../utils/appScheme";
 import {
   createCipheriv,
@@ -291,15 +292,30 @@ export async function obterConexoesEmail(unidadeId: string, usuario: UsuarioAute
   const unidade = await buscarUnidadeAutorizada(unidadeId, usuario);
   const { data, error } = await supabase
     .from("conexoes_email")
-    .select("id, provedor, email_conectado, status, regra_status, regra_erro, conectado_em, updated_at")
+    .select("id, usuario_id, empresa_id, unidade_consumidora_id, provedor, email_conectado, status, regra_status, regra_erro, conectado_em, updated_at")
     .eq("unidade_consumidora_id", unidade.id)
     .order("updated_at", { ascending: false });
   if (error) throw error;
 
+  // A reading grant belongs to the mailbox. Reuse the current grant for the
+  // same owner/company and permitted beneficiary scope, not an expired UC link.
+  const conexoes = await Promise.all((data ?? []).map(async conexao => {
+    if(conexao.provedor!=='GMAIL' || conexao.status!=='LEITURA_AUTORIZADA' || (conexao.regra_status==='ATIVA'&&!conexao.regra_erro))return conexao;
+    const candidates=await supabase.from('conexoes_email')
+      .select('id,usuario_id,empresa_id,unidade_consumidora_id,provedor,email_conectado,status,regra_status,regra_erro,conectado_em,updated_at,unidades_consumidoras(id,tipo,cliente_id,usina_id,empresa_id,usinas(titularidade_ucs_recebedoras))')
+      .eq('empresa_id',empresaIdDoUsuario(usuario)).eq('usuario_id',conexao.usuario_id)
+      .eq('provedor','GMAIL').eq('status','LEITURA_AUTORIZADA').eq('regra_status','ATIVA');
+    if(candidates.error)throw candidates.error;
+    const current=priorizarConexoesGmail(candidates.data??[]).find(candidate=>{
+      const candidateUnit=Array.isArray(candidate.unidades_consumidoras)?candidate.unidades_consumidoras[0]:candidate.unidades_consumidoras;
+      return mesmaCaixaGmailAutorizada(conexao,unidade,candidate,candidateUnit)&&usuarioPodeAcessarUnidade(candidateUnit,usuario);
+    });
+    return current??conexao;
+  }));
   return {
     unidade: { id: unidade.id, numero: unidade.numero },
     recebimento: statusRecebimento(unidade),
-    conexoes: (data ?? []).map((conexao) => serializarConexao(conexao, unidade)),
+    conexoes: conexoes.map((conexao) => serializarConexao(conexao, unidade)),
   };
 }
 
