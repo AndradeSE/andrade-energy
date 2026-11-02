@@ -1,5 +1,5 @@
 import { supabase } from "../../config/supabase";
-import { AZURE_QUOTA_CATALOG, azureQuotaConfig, fetchAzureQuotaReadings } from "./azureQuotas";
+import { AZURE_QUOTA_CATALOG, azureQuotaConfig, azureQuotaEnabled, fetchAzureQuotaReadings } from "./azureQuotas";
 import { QUOTA_CATALOG, quotaBand, resendReadings, resendUsageKey, brevoReading, type QuotaReading } from "./cotas.policy";
 import {cotaBrowserbase} from './browserbaseQuota';
 
@@ -63,7 +63,13 @@ export async function monitorServiceQuotas() {
   if (results.some(result => result.status === "rejected")) throw new Error("Uma das consultas de cotas não pôde ser registrada.");
 }
 async function monitorAzureQuota() {
-  if (!azureQuotaConfig(process.env)) return;
+  const env = quotaEnvironment();
+  if (!azureQuotaEnabled(process.env)) return;
+  if (!azureQuotaConfig(process.env)) {
+    const result = await supabase.from("cotas_consultas").upsert({ ambiente: env, servico: "AZURE", status: "SEM_CONFIGURACAO", consultado_em: new Date().toISOString() });
+    if (result.error) throw new Error("Não foi possível registrar o estado do monitor de cotas do Azure.");
+    return;
+  }
   let status = "CONSULTA_INDISPONIVEL";
   try {
     const readings = await fetchAzureQuotaReadings(process.env);
@@ -72,7 +78,7 @@ async function monitorAzureQuota() {
   } catch (error: any) {
     if (["SEM_CHAVE", "SEM_PERMISSAO", "PLANO_NAO_SUPORTADO", "PROVEDOR_INDISPONIVEL"].includes(error?.message)) status = error.message;
   }
-  const result = await supabase.from("cotas_consultas").upsert({ ambiente: quotaEnvironment(), servico: "AZURE", status, consultado_em: new Date().toISOString() });
+  const result = await supabase.from("cotas_consultas").upsert({ ambiente: env, servico: "AZURE", status, consultado_em: new Date().toISOString() });
   if (result.error) throw new Error("Não foi possível registrar a consulta de cotas do Azure.");
 }
 export async function listServiceQuotas(includeBrevo = false, includeAzure = false) {
@@ -82,15 +88,18 @@ export async function listServiceQuotas(includeBrevo = false, includeAzure = fal
     supabase.from("cotas_consultas").select("servico,status,consultado_em").eq("ambiente", env),
   ]);
   if (readings.error || checks.error) throw new Error("Não foi possível consultar as cotas.");
-  const catalog = [...QUOTA_CATALOG.filter(item => includeBrevo || item.servico !== "BREVO"), ...(includeAzure && azureQuotaConfig(process.env) ? AZURE_QUOTA_CATALOG : [])];
+  const catalog = [...QUOTA_CATALOG.filter(item => includeBrevo || item.servico !== "BREVO"), ...(includeAzure && azureQuotaEnabled(process.env) ? AZURE_QUOTA_CATALOG : [])];
   const servicos = catalog.map(item => {
     const reading = readings.data?.find(row => row.servico === item.servico && row.metrica === item.metrica);
-    const check = checks.data?.find(row => row.servico === item.servico);
+    const check = checks.data?.find(row => row.servico === item.servico)
+      ?? (item.servico === "AZURE" && !azureQuotaConfig(process.env)
+        ? { servico: "AZURE", status: "SEM_CONFIGURACAO", consultado_em: new Date().toISOString() }
+        : null);
     return { ...item, leitura: reading ? { ...reading, restante: reading.limite === null ? null : Math.max(Number(reading.limite)-Number(reading.usado), 0),
       percentual: reading.limite === null ? null : Number(reading.usado)/Number(reading.limite)*100,
       faixa: quotaBand(Number(reading.usado), reading.limite === null ? null : Number(reading.limite)),
       desatualizada: Date.now()-Date.parse(reading.verificado_em)>6*3600_000 } : null,
-      consulta: check ?? null };
+      consulta: check };
   });
   const browserbase = includeAzure ? await cotaBrowserbase() : [];
   return {ambiente:env,alertas:[80,90,100],servicos:[...servicos,...browserbase]};
