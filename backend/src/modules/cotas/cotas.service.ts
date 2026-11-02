@@ -88,7 +88,10 @@ export async function listServiceQuotas(includeBrevo = false, includeAzure = fal
     supabase.from("cotas_consultas").select("servico,status,consultado_em").eq("ambiente", env),
   ]);
   if (readings.error || checks.error) throw new Error("Não foi possível consultar as cotas.");
-  const catalog = [...QUOTA_CATALOG.filter(item => includeBrevo || item.servico !== "BREVO"), ...(includeAzure && azureQuotaEnabled(process.env) ? AZURE_QUOTA_CATALOG : [])];
+  // The ADM catalogue always exposes Azure when requested. An unavailable
+  // reader is reported as configuration state rather than silently hiding a
+  // service the platform uses for conversations.
+  const catalog = [...QUOTA_CATALOG.filter(item => includeBrevo || item.servico !== "BREVO"), ...(includeAzure ? AZURE_QUOTA_CATALOG : [])];
   const servicos = catalog.map(item => {
     const reading = readings.data?.find(row => row.servico === item.servico && row.metrica === item.metrica);
     const check = checks.data?.find(row => row.servico === item.servico)
