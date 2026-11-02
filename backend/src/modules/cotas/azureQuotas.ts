@@ -11,10 +11,16 @@ const CLIENT = "766d0d04-da20-44e3-b949-bea45bd2fcda";
 export function azureQuotaConfig(env: NodeJS.ProcessEnv) {
   const resource = String(env.AZURE_QUOTA_RESOURCE_ID ?? "");
   const tenant = String(env.AZURE_QUOTA_TENANT_ID ?? "");
+  const client = String(env.AZURE_QUOTA_CLIENT_ID ?? env.MICROSOFT_OAUTH_CLIENT_ID ?? "");
+  const secret = String(env.AZURE_QUOTA_CLIENT_SECRET ?? env.MICROSOFT_OAUTH_CLIENT_SECRET ?? "");
   if (!/^\/subscriptions\/[a-f0-9-]{36}\/resourceGroups\/[a-z0-9_.()-]+\/providers\/Microsoft\.CognitiveServices\/accounts\/[a-z0-9-]+$/i.test(resource)
     || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(tenant)
-    || env.MICROSOFT_OAUTH_CLIENT_ID !== CLIENT || !env.MICROSOFT_OAUTH_CLIENT_SECRET) return null;
-  return { resource, tenant, client: CLIENT, secret: env.MICROSOFT_OAUTH_CLIENT_SECRET };
+    || client !== CLIENT || !secret) return null;
+  return { resource, tenant, client, secret };
+}
+
+export function azureQuotaEnabled(env: NodeJS.ProcessEnv) {
+  return Boolean(String(env.AZURE_SPEECH_KEY ?? "").trim() || String(env.AZURE_QUOTA_RESOURCE_ID ?? "").trim());
 }
 /** No observations is unavailable, never an invented zero balance. */
 export function azureQuotaReadings(payload: any, sku: string, now = Date.now()): QuotaReading[] {
