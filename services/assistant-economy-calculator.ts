@@ -11,7 +11,7 @@ const percent = (value: number) => value.toLocaleString("pt-BR", { maximumFracti
 
 function numberFrom(value?: string) {
   if (!value) return undefined;
-  const normalized = value.trim().replace(/\s/g, "").replace(/^r\$/i, "");
+  const normalized = value.trim().replace(/\s/g, "").replace(/^r\$/i, "").replace(/\.(?=\d{3}(?:\.|,|$))/g, "");
   const lastComma = normalized.lastIndexOf(",");
   const lastDot = normalized.lastIndexOf(".");
   const decimalIndex = Math.max(lastComma, lastDot);
@@ -54,7 +54,11 @@ export async function calculateEconomyConversation(question: string, previous: s
   const text = `${history} ${question}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const matches = [...text.matchAll(/([\d.,]+)\s*kwh\b/g)];
   const consumo = numberFrom(matches.at(-1)?.[1]);
-  if (!consumo) return answerEconomyCalculation(question) ?? { complete: false, text: "Qual é o consumo mensal em kWh e o desconto oferecido? Busco a tarifa e os impostos automaticamente." };
+  if (!consumo) {
+    const amounts = values(question);
+    if (amounts.conta && amounts.energia !== undefined && amounts.desconto !== undefined) return answerEconomyCalculation(question);
+    return { complete: false, text: "Qual é o consumo mensal em kWh e o desconto oferecido? Busco a tarifa e os impostos automaticamente." };
+  }
   const discounts = [...text.matchAll(/(?:desconto\s*(?:de|:|=)?\s*)?([\d.,]+)\s*%/g)];
   const desconto = numberFrom(discounts.at(-1)?.[1]) ?? values(text).desconto;
   if (desconto === undefined) return {complete:false,text:"Qual é o desconto oferecido em percentual? A tarifa e os impostos serão consultados automaticamente."};
