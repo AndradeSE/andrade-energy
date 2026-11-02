@@ -9,6 +9,7 @@ import { setWakeWordPaused, subscribeWakeWord, wakeWordEnabled, wakeWordReady, w
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import ThinkingDots from "../components/assistant/ThinkingDots";
+import { answerEconomyCalculation } from "../services/assistant-economy-calculator";
 
 import { useAuth } from "../contexts/AuthContext";
 import { isAssistantEnabled as isPreviewEnvironment, supportsAssistantLive } from "../config/environment";
@@ -378,7 +379,8 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     const wantsOverdue = asksOverdueInvoices(interpretedQuestion);
     const generation = contextGeneration.current;
     const wantsInvoiceDocument = asksLatestInvoiceDocument(interpretedQuestion, lastInvoiceRequest.current);
-    const detectedCapability = detectCapability(interpretedQuestion);
+    const economyCalculation = IS_GERADOR_APP ? answerEconomyCalculation(interpretedQuestion) : undefined;
+    const detectedCapability = economyCalculation ? undefined : detectCapability(interpretedQuestion);
     // PDF de fatura tem precedência sobre abrir a usina/aba, mas não sobre
     // documentos específicos (CEMIG, cálculo, contratos) nem alterações.
     const invoiceOverridesNavigation = wantsInvoiceDocument && !detectedCapability?.review && ["usinas", "faturamento", "pagamento"].includes(detectedCapability?.module ?? "");
@@ -391,7 +393,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     }, topicRef.current);
     setInput("");
     setBusy(true);
-    const privateTurn = Boolean(controlCommand) || Boolean(automationCommand) || wantsOverdue || Boolean(capability) || wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion) || Boolean(detectFinancialMetric(interpretedQuestion)) || Boolean(detectProductionMetric(interpretedQuestion)) || Boolean(detectAccountQuery(interpretedQuestion));
+    const privateTurn = Boolean(economyCalculation) || Boolean(controlCommand) || Boolean(automationCommand) || wantsOverdue || Boolean(capability) || wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion) || Boolean(detectFinancialMetric(interpretedQuestion)) || Boolean(detectProductionMetric(interpretedQuestion)) || Boolean(detectAccountQuery(interpretedQuestion));
     const userMessage: Message = { from: "user", text: question, private: privateTurn };
     const nextMessages = [...messagesRef.current, userMessage].slice(-39);
     messagesRef.current = nextMessages;
@@ -425,6 +427,8 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
         response = { from: "assistant", private: true, text: "Posso abrir diretamente as áreas permitidas, pesquisar clientes e UCs e filtrar faturas por abertas, vencidas ou pagas. Exemplos: abra os contratos, busque cliente Rodrigo, mostre faturas vencidas ou abra operação 09/2026. Também preencho campos e aciono botões ativos da tela: diga “preencha o campo Nome com Maria Silva” ou “clique no botão Salvar”. Botões exigem sua confirmação; preencher não salva. Consulto dados e documentos e preparo alterações cadastrais para revisão. Cobranças, assinaturas, exclusões e permissões exigem confirmação nas telas próprias." };
       } else if (speechStatus) {
         response = { from: "assistant", text: speechStatus, private: true };
+      } else if (economyCalculation) {
+        response = { from: "assistant", private: true, text: economyCalculation.text };
       } else if (capability) {
         try {
           response = { from: "assistant", ...await executeAssistantTool(capability, {
