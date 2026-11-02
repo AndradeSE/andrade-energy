@@ -9,7 +9,7 @@ import { setWakeWordPaused, subscribeWakeWord, wakeWordEnabled, wakeWordReady, w
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import ThinkingDots from "../components/assistant/ThinkingDots";
-import { answerEconomyCalculation } from "../services/assistant-economy-calculator";
+import { asksEconomyCalculation, calculateEconomyConversation } from "../services/assistant-economy-calculator";
 
 import { useAuth } from "../contexts/AuthContext";
 import { isAssistantEnabled as isPreviewEnvironment, supportsAssistantLive } from "../config/environment";
@@ -379,7 +379,8 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     const wantsOverdue = asksOverdueInvoices(interpretedQuestion);
     const generation = contextGeneration.current;
     const wantsInvoiceDocument = asksLatestInvoiceDocument(interpretedQuestion, lastInvoiceRequest.current);
-    const economyCalculation = IS_GERADOR_APP ? answerEconomyCalculation(interpretedQuestion) : undefined;
+    const economyHistory = messagesRef.current.filter(m => m.from === "user").slice(-6).map(m => m.text);
+    const economyCalculation = IS_GERADOR_APP && (asksEconomyCalculation(interpretedQuestion) || (asksEconomyCalculation(economyHistory.join(" ")) && /kwh|desconto|%|bifasic|trifasic|monofasic|residencial|rural|comerc/i.test(interpretedQuestion)));
     const detectedCapability = economyCalculation ? undefined : detectCapability(interpretedQuestion);
     // PDF de fatura tem precedência sobre abrir a usina/aba, mas não sobre
     // documentos específicos (CEMIG, cálculo, contratos) nem alterações.
@@ -428,7 +429,8 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       } else if (speechStatus) {
         response = { from: "assistant", text: speechStatus, private: true };
       } else if (economyCalculation) {
-        response = { from: "assistant", private: true, text: economyCalculation.text };
+        const calculation = await calculateEconomyConversation(interpretedQuestion, economyHistory);
+        response = { from: "assistant", private: true, text: calculation?.text ?? "Informe consumo em kWh e desconto para eu calcular aqui." };
       } else if (capability) {
         try {
           response = { from: "assistant", ...await executeAssistantTool(capability, {
