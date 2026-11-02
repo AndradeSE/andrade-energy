@@ -10,11 +10,16 @@ import { carregarFinanceiro } from "./financeiro.service";
 import { detectAccountQuery, consultAccount } from "./assistant-account";
 import type { AssistantToolReply } from "./assistant-capabilities";
 import { buscarUnidade, buscarCliente } from "./clientes.service";
+import { calculateEconomyConversation } from "./assistant-economy-calculator";
 
 export type LiveAccountReply = AssistantToolReply & { invoiceId?: string; invoiceChoices?: Array<{ id: string; label: string }> };
 
 // Contexto vem da sessão do app. O modelo não fornece IDs, URLs ou endpoints.
 export async function queryLiveAccount(question: string, ctx: AssistantAccountContext): Promise<LiveAccountReply> {
+  if (ctx.generator) {
+    const calculation = await calculateEconomyConversation(question);
+    if (calculation) return { text: calculation.text };
+  }
   const text = normalizeAssistantQuery(question);
   if (/\b(titular|nome do cliente|nome da cliente)\b/.test(text) && !/^(como|onde)\b/.test(text)) {
     if (!ctx.unitId) return { text: "Qual UC você quer consultar? Selecione a unidade para eu informar o titular e o cliente corretos." };
