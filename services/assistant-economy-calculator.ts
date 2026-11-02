@@ -67,7 +67,14 @@ export async function calculateEconomyConversation(question: string, previous: s
   const gd = /gd\s*(?:2|ii)\b/.test(text) ? "GD2" : "GD1";
   const referencia = new Date().toLocaleDateString("sv-SE", {timeZone:"America/Sao_Paulo"}).slice(0,7);
   try {
-    const [base, impostos] = await Promise.all([consultarTarifaCemig(classe,0),consultarTributosCemig(referencia)]);
+    const [priceResult, taxResult] = await Promise.allSettled([consultarTarifaCemig(classe,0),consultarTributosCemig(referencia)]);
+    if (priceResult.status === "rejected" || taxResult.status === "rejected") {
+      for (const [name, result] of [["tarifa", priceResult], ["tributos", taxResult]] as const) {
+        if (result.status === "rejected") console.warn("[SolarCalculator]", name, result.reason?.response?.status ?? "sem-status", result.reason?.code ?? "sem-codigo", result.reason?.message ?? "consulta falhou");
+      }
+      throw new Error("Consulta oficial indisponível");
+    }
+    const base = priceResult.value, impostos = taxResult.value;
     const t = impostos.tributos;
     if (!t || t.icmsPadrao === null) throw new Error("tributos indisponíveis");
     const tarifa = tarifaComTributos(base,t.icmsPadrao,t.pis,t.cofins);
