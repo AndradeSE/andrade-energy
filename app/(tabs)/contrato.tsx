@@ -383,17 +383,18 @@ function ContratoConsumidor() {
         bounces
         alwaysBounceVertical
         overScrollMode="always"
-        refreshControl={
+        refreshControl={Platform.OS !== "android" ?
           <RefreshControl
             refreshing={atualizando}
             onRefresh={atualizarPagina}
             tintColor={Colors.primary}
             colors={[Colors.primary]}
-          />
+          /> : undefined
         }
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        {Platform.OS === "android" ? <Pressable accessibilityRole="button" disabled={atualizando} onPress={atualizarPagina} style={{ alignSelf: "flex-end", padding: 12 }}><Text style={{ color: Colors.primary }}>{atualizando ? "Atualizando…" : "Atualizar"}</Text></Pressable> : null}
         <View style={styles.heading}>
           <Text style={styles.eyebrow}>DOCUMENTOS</Text>
           <Text style={styles.title}>Meu contrato</Text>
