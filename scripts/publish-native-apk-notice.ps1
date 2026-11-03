@@ -19,7 +19,7 @@ try{
  $asset=$release.assets|Where-Object name -eq $assetName
  $hash=(Get-FileHash $ApkPath -Algorithm SHA256).Hash.ToLowerInvariant()
  if(-not $asset -or $asset.digest -ne "sha256:$hash"){throw 'APK estável não corresponde ao arquivo; aviso não publicado.'}
- @{applicationId=$id;build=$build;url=$asset.browser_download_url}|ConvertTo-Json|Set-Content -LiteralPath $temporary -Encoding UTF8
+ @{applicationId=$id;build=$build;url=$asset.browser_download_url;bytes=(Get-Item $ApkPath).Length;md5=(Get-FileHash $ApkPath -Algorithm MD5).Hash.ToLowerInvariant()}|ConvertTo-Json|Set-Content -LiteralPath $temporary -Encoding UTF8
  $name="$id.json";$stamp=Get-Date -Format yyyyMMddHHmmss
  $upload=($release.upload_url -replace '\{.*$','')+"?name=pending-$stamp-$name"
  $new=Invoke-RestMethod $upload -Method Post -Headers $headers -ContentType application/json -InFile $temporary

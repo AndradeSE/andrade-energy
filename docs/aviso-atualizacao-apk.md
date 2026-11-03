@@ -2,7 +2,7 @@
 
 O app consulta, depois da entrada/biometria, o manifesto público do próprio pacote Android. Só avisa quando `Application.nativeBuildVersion` (versionCode instalado) é menor que `build`. OTA, runtime e revisão não entram nessa comparação. Offline ou consulta inválida não bloqueiam o uso.
 
-O aviso oferece **Atualizar aplicativo** e **Depois**. O primeiro abre o APK estável correspondente ao pacote; o Android confirma a instalação. O aviso reaparece em nova abertura enquanto a build não for instalada e deixa de aparecer após a instalação. Não modifica a política de bloqueio nem desinstala o app.
+O aviso oferece **Atualizar aplicativo** e **Depois**. O primeiro baixa o APK no cache privado, mostra o progresso, confere tamanho e MD5 contra o manifesto e abre diretamente o instalador Android por content URI com permissão de leitura temporária. Não usa navegador, lista de downloads nem compartilhamento. O Android valida a assinatura e exige a confirmação da instalação; se necessário, pede autorização da fonte. O download pode ser cancelado. O aviso reaparece em nova abertura enquanto a build não for instalada e deixa de aparecer após a instalação. Não modifica a política de bloqueio nem desinstala o app.
 
 `scripts/publish-apk-release.ps1` chama `publish-native-apk-notice.ps1` após publicar o APK. O script lê pacote e versionCode diretamente do APK com aapt, confirma o SHA256 do asset estável e só então publica `<applicationId>.json` no release `apps-2026-08-27`. Falha na validação preserva o aviso anterior. Os manifestos nunca contêm credenciais.
 
@@ -10,7 +10,7 @@ As quatro combinações Gerador/Consumidor e Preview/produção têm manifestos 
 
 O verificador chega aos APKs instalados por OTA compatível. Aparelhos que não recebem nenhum runtime mantido precisarão instalar uma build nova uma primeira vez.
 
-Validação: TypeScript e quatro testes (28 verificações de comparação, isolamento, entradas inválidas e URL) aprovados. Consulta HTTP dos quatro manifestos públicos confirmada.
+Validação: TypeScript, quatro testes de comparação/isolamento (36 verificações) e cinco testes do fluxo de download/intent (arquivo válido, cache, corrupção, HTTP e cancelamento). Consulta HTTP dos quatro manifestos públicos confirmada. Os links www de ambos os apps retornaram APKs do GitHub, sem HTML ou Murajoias. O relato de Murajoias não foi reproduzido no computador; não atribuir uma causa sem evidência do link/tela no aparelho.
 
 ## Publicações confirmadas em 03/11/2026
 
