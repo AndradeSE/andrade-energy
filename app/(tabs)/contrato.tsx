@@ -125,6 +125,7 @@ function ContratoConsumidor() {
 
   const status = normalizarStatus(data.status);
   const ativo = ["ATIVO", "VIGENTE"].includes(status);
+  const semFidelidade = (data.configuracao_uc_snapshot?.plano_contrato ?? data.dados_documento?.plano_contrato) === "SEM_FIDELIDADE";
   const cancelamentoPendente = data.cancelamento_pendente === true || cancelamentoEnviadoId === data.id;
   const renovacaoSolicitada = data.renovacao_solicitada || renovacaoEnviadaId === data.id;
   const vencido =
@@ -641,7 +642,7 @@ function ContratoConsumidor() {
         </View>
         </View>
 
-        {ativo && data.vigencia_fim && !revisaoPendente && !cancelamentoPendente && !renovacaoSolicitada ? <TouchableOpacity
+        {ativo && !semFidelidade && data.vigencia_fim && !revisaoPendente && !cancelamentoPendente && !renovacaoSolicitada ? <TouchableOpacity
           style={styles.renewButton}
           disabled={Boolean(data.dados_documento?.nao_renovar_informado_em)}
           onPress={() => Alert.alert("Não renovar no vencimento", "O gerador será avisado para providenciar a retirada da UC no vencimento. O contrato atual permanece vigente até lá.", [
@@ -658,7 +659,7 @@ function ContratoConsumidor() {
           <Text style={styles.renewTitle}>{data.dados_documento?.nao_renovar_informado_em ? "Não renovação informada ao gerador" : "Não desejo renovar no vencimento"}</Text>
         </TouchableOpacity> : null}
 
-        {ativo && !revisaoPendente && !cancelamentoPendente && !data.dados_documento?.nao_renovar_informado_em ? <TouchableOpacity
+        {ativo && !semFidelidade && Boolean(data.vigencia_fim) && !revisaoPendente && !cancelamentoPendente && !data.dados_documento?.nao_renovar_informado_em ? <TouchableOpacity
           activeOpacity={0.85}
           disabled={Boolean(renovacaoSolicitada)}
           onPress={solicitarRenovacao}

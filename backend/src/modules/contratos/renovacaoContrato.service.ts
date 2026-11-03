@@ -8,6 +8,7 @@ export async function informarNaoRenovacao(contratoId: string, usuario: any) {
   const { data: contrato, error } = await supabase.from("contratos").select("*").eq("id", contratoId).maybeSingle();
   if (error) throw error;
   if (!contrato || !contratoLiberaUnidade(contrato) || !contrato.vigencia_fim) throw new Error("Contrato vigente com vencimento não encontrado.");
+  if ((contrato.configuracao_uc_snapshot?.plano_contrato ?? contrato.dados_documento?.plano_contrato) === "SEM_FIDELIDADE") throw new Error("Contrato sem fidelidade tem prazo indeterminado e não exige renovação.");
   const { data: titular, error: erroTitular } = await supabase.from("empresa_usuarios").select("id")
     .eq("usuario_id", usuario.id).eq("empresa_id", contrato.empresa_id).eq("cliente_id", contrato.cliente_id)
     .eq("papel", "LEITURA").eq("ativo", true).maybeSingle();
@@ -35,12 +36,13 @@ export async function informarNaoRenovacao(contratoId: string, usuario: any) {
 
 export async function solicitarRenovacaoContrato(contratoId: string, usuario: any) {
   const { data: contrato, error } = await supabase.from("contratos")
-    .select("id,numero,empresa_id,cliente_id,unidade_consumidora_id,status,vigencia_fim,dados_documento,aceite_cliente_em,contrato_assinado_url,clientes(nome),unidades_consumidoras(numero,usina_id)")
+    .select("id,numero,empresa_id,cliente_id,unidade_consumidora_id,status,vigencia_fim,dados_documento,configuracao_uc_snapshot,aceite_cliente_em,contrato_assinado_url,clientes(nome),unidades_consumidoras(numero,usina_id)")
     .eq("id", contratoId).maybeSingle();
   if (error) throw error;
   if (!contrato || !contratoLiberaUnidade(contrato)) {
     throw new Error("Somente um contrato vigente e assinado pode ser renovado.");
   }
+  if (!contrato.vigencia_fim || (contrato.configuracao_uc_snapshot?.plano_contrato ?? contrato.dados_documento?.plano_contrato) === "SEM_FIDELIDADE") throw new Error("Contrato sem fidelidade tem prazo indeterminado e não exige renovação.");
   if (contrato.dados_documento?.nao_renovar_informado_em) throw new Error("Você já informou que não deseja renovar. Entre em contato com o gerador para rever essa decisão.");
   const { data: titular, error: erroTitular } = await supabase.from("empresa_usuarios")
     .select("id").eq("usuario_id", usuario.id).eq("empresa_id", contrato.empresa_id)
