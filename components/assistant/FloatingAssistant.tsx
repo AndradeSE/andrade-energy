@@ -128,7 +128,9 @@ export default function FloatingAssistant() {
     onPanResponderTerminate: () => { if (longPressTimer.current) clearTimeout(longPressTimer.current); longPressTimer.current = undefined; },
   }), [animated, conversationOpen, height, hideProgress, userId, width]);
 
-  if ((loading && !chatMounted && !conversationRequest) || pathname === "/assistente") return null;
+  // Carregamentos de abas preservadas não devem remover o atalho global.
+  // A inicialização e os modais de operação já cobrem a interface quando preciso.
+  if (pathname === "/assistente") return null;
   return <>
   {chatMounted ? <Assistente floatingModal minimized={!textChatOpen} onMinimize={()=>setTextChatOpen(false)} onVoiceState={setChatVoiceActive} onClose={closeTextChat} /> : null}
   {!chatMounted && conversationRequest ? <Assistente voiceOnly embeddedVoiceWake={conversationRequest} onClose={() => { setWakeWordPaused(true); closeFloatingConversation(); }} /> : null}
