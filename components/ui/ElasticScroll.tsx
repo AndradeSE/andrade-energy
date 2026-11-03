@@ -10,6 +10,7 @@ import {
  * Android, inclusive quando o conteúdo é menor que a tela.
  */
 export function ElasticScrollView({
+  removeClippedSubviews = false,
   bounces = true,
   alwaysBounceVertical = true,
   overScrollMode = "always",
@@ -18,6 +19,7 @@ export function ElasticScrollView({
   return (
     <NativeScrollView
       {...props}
+      removeClippedSubviews={removeClippedSubviews}
       bounces={bounces}
       alwaysBounceVertical={alwaysBounceVertical}
       overScrollMode={overScrollMode}
@@ -26,6 +28,7 @@ export function ElasticScrollView({
 }
 
 export function ElasticFlatList<ItemT>({
+  removeClippedSubviews = false,
   bounces = true,
   alwaysBounceVertical = true,
   overScrollMode = "always",
@@ -34,6 +37,7 @@ export function ElasticFlatList<ItemT>({
   return (
     <NativeFlatList
       {...props}
+      removeClippedSubviews={removeClippedSubviews}
       bounces={bounces}
       alwaysBounceVertical={alwaysBounceVertical}
       overScrollMode={overScrollMode}
