@@ -11,3 +11,10 @@ As quatro combinações Gerador/Consumidor e Preview/produção têm manifestos 
 O verificador chega aos APKs instalados por OTA compatível. Aparelhos que não recebem nenhum runtime mantido precisarão instalar uma build nova uma primeira vez.
 
 Validação: TypeScript e quatro testes (28 verificações de comparação, isolamento, entradas inválidas e URL) aprovados. Consulta HTTP dos quatro manifestos públicos confirmada.
+
+## Publicações confirmadas em 03/11/2026
+
+- Preview Gerador runtime 1.0.11: `a8447c47-45f6-40e4-9561-1ec813810e73`.
+- Produção Gerador runtimes 1.0.4 / 1.0.10 / 1.0.9 / 1.0.11: `c6826e15-967f-48a5-bfc2-b7b778cc05c0`, `291d4e3c-ddb6-4849-8a44-0946bbd59156`, `8d505a33-66f3-4edc-928e-0a8ab1255e22`, `cc988604-ec1a-4e0c-a31d-f6d568018486`.
+- Produção Consumidor runtimes 1.0.4 / 1.0.10 / 1.0.11: `8635e4af-40e4-46a9-9b24-df8662a7af49`, `9349b9d3-4f93-4590-8cb5-a71f9a6ae439`, `dba1cf02-64a2-4d73-a466-5ba7a20d2ddf`.
+- Nenhuma nova build necessária para distribuir o verificador. Instalações precisam carregar a OTA compatível; a confirmação da instalação do próximo APK continua sendo feita pelo titular no Android.
