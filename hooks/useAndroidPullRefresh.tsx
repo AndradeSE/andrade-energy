@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Gesture } from "react-native-gesture-handler";
-import { ActivityIndicator, Platform, Text, View, type ScrollViewProps } from "react-native";
+import { ActivityIndicator, Platform, View, type ScrollViewProps } from "react-native";
 
 /** Observa o gesto sem capturar o responder ou montar SwipeRefreshLayout. */
 export function useAndroidPullRefresh(onRefresh?: (() => void) | null, refreshing?: boolean | null, props: ScrollViewProps = {}) {
@@ -29,6 +29,6 @@ export function useAndroidPullRefresh(onRefresh?: (() => void) | null, refreshin
     scrollEventThrottle: 16,
     onScroll: event => { top.current = event.nativeEvent.contentOffset.y; props.onScroll?.(event); },
   } : {};
-  const indicator = enabled && (refreshing || pull > 12) ? <View accessibilityLiveRegion="polite" style={{ alignItems: "center", padding: 10 }}>{refreshing ? <ActivityIndicator color="#087A46" /> : <Text style={{ color: "#087A46" }}>{pull >= 80 ? "Solte para atualizar" : "Puxe para atualizar"}</Text>}</View> : null;
+  const indicator = enabled && (refreshing || pull > 12) ? <View accessibilityLabel={refreshing ? "Atualizando" : "Puxar para atualizar"} accessibilityRole="progressbar" style={{ alignItems: "center", justifyContent: "center", height: refreshing ? 52 : Math.min(52, pull * 0.65) }}><View style={{ backgroundColor: "#FFFFFF", width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", elevation: 3 }}><ActivityIndicator color="#087A46" size="small" /></View></View> : null;
   return { handlers, indicator, gesture };
 }

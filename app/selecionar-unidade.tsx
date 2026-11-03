@@ -332,7 +332,7 @@ export default function SelecionarUnidade() {
    */
 
   if (loading) {
-    return <Loading />;
+    return <Loading showRevision animateBrand={false} />;
   }
 
   /*
