@@ -9,6 +9,7 @@ import { setWakeWordPaused, subscribeWakeWord, wakeWordEnabled, wakeWordReady, w
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import ThinkingDots from "../components/assistant/ThinkingDots";
+import { loadChatHistory, saveChatHistory } from "../services/assistant-chat-history";
 import { asksEconomyCalculation, calculateEconomyConversation } from "../services/assistant-economy-calculator";
 
 import { useAuth } from "../contexts/AuthContext";
@@ -158,6 +159,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     return () => clearTimeout(timeout);
   }, [pendingAutomation]);
   const contextGeneration = useRef(0);
+  const [historyScope, setHistoryScope] = useState<string>();
   useEffect(() => {
     contextGeneration.current += 1;
     liveGeneration.current += 1;
@@ -170,11 +172,22 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     }
     messagesRef.current = [];
     setMessages([]);
+    setHistoryScope(undefined);
+    let historyActive = true;
+    if (usuario?.id) void loadChatHistory(accountContextKey).then(history => {
+      if (!historyActive) return;
+      if (!messagesRef.current.length) { messagesRef.current = history; setMessages(history); }
+      setHistoryScope(accountContextKey);
+    });
     setPendingAutomation(undefined);
     topicRef.current = undefined;
     lastInvoiceRequest.current = false;
     stopAssistantVoice();
+    return () => { historyActive = false; };
   }, [accountContextKey]);
+  useEffect(() => {
+    if (usuario?.id && historyScope === accountContextKey) saveChatHistory(accountContextKey, messages);
+  }, [messages, historyScope, accountContextKey, usuario?.id]);
   const wave = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
   const voiceMeter=useRef(new Animated.Value(0)).current;
   useEffect(()=>{if(!listening&&!speakingReply){voiceMeter.stopAnimation();voiceMeter.setValue(0);}},[listening,speakingReply,voiceMeter]);
@@ -667,6 +680,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
           const { startGeminiLive } = await import("../services/assistant-gemini-live");
           await stopNativePortugueseSpeech(conversationOwner.current);
           const session = await startGeminiLive(firstName, {
+            conversationContext: JSON.stringify(messagesRef.current.filter(m => !m.private).slice(-8).map(m => ({from:m.from,text:m.text.slice(0,500)}))),
             greet: needsAssistantGreeting(String(usuario?.id ?? 'anonymous')),
             onGreetingDelivered: () => markAssistantGreetingDelivered(String(usuario?.id ?? 'anonymous')),
             onLevel:level=>{if(liveGeneration.current!==liveAttempt)return;Animated.timing(voiceMeter,{toValue:level,duration:70,useNativeDriver:true}).start();},
