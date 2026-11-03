@@ -18,3 +18,11 @@ Validação: TypeScript, quatro testes de comparação/isolamento (36 verificaç
 - Produção Gerador runtimes 1.0.4 / 1.0.10 / 1.0.9 / 1.0.11: `c6826e15-967f-48a5-bfc2-b7b778cc05c0`, `291d4e3c-ddb6-4849-8a44-0946bbd59156`, `8d505a33-66f3-4edc-928e-0a8ab1255e22`, `cc988604-ec1a-4e0c-a31d-f6d568018486`.
 - Produção Consumidor runtimes 1.0.4 / 1.0.10 / 1.0.11: `8635e4af-40e4-46a9-9b24-df8662a7af49`, `9349b9d3-4f93-4590-8cb5-a71f9a6ae439`, `dba1cf02-64a2-4d73-a466-5ba7a20d2ddf`.
 - Nenhuma nova build necessária para distribuir o verificador. Instalações precisam carregar a OTA compatível; a confirmação da instalação do próximo APK continua sendo feita pelo titular no Android.
+
+## Instalador direto no Preview — 03/11/2026
+
+O relato do S10 revelou a omissão de publicação nos runtimes anteriores de Preview. O relato seguinte pediu eliminar navegador/lista de downloads. O código `4b5899ab` baixa e valida internamente o APK e abre o instalador. As nove verificações automatizadas de release/instalação e TypeScript passaram; os quatro manifestos públicos foram consultados e contêm bytes/MD5 válidos. Não declarar teste físico do instalador no S10: ele não estava conectado.
+
+- Gerador Preview 1.0.4 / 1.0.10 / 1.0.9 / 1.0.11: `a6701cb8-b39b-4bf0-a419-deff2405390f`, `2f8385fe-3294-4f06-a937-c37a28c616ee`, `efc538bc-97cd-4dee-9065-309a2fcbf4e9`, `9b660131-407f-46b1-a0de-959ff4cf2624`.
+- Consumidor Preview 1.0.4 / 1.0.10 / 1.0.11: `c269c7f9-9ca7-4e30-8bcf-8f419ff87d0a`, `f9eb84c1-b2a3-4c37-b8f2-19d530a413f7`, `ba897e0a-293d-4aba-991a-521890bb71c3`.
+- Produção ainda tem o aviso anterior com abertura do link no navegador. O instalador direto foi enviado primeiro aos Previews para conferência, conforme preferência do usuário. Falta confirmar o fluxo no aparelho e distribuir essa revisão em produção. Não confundir com as publicações anteriores do aviso em produção.
