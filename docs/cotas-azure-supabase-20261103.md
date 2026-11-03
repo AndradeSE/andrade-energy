@@ -29,3 +29,11 @@ Portados apenas os arquivos de cotas para as branches atuais dos backends, prese
 - Endpoint principal sem sessão devolve 401, conforme esperado.
 
 Durante a conferência o usuário relatou push de leitura da usina/Gmail desconectado. Logs do principal: OAUTH_REAUTORIZACAO na etapa AUTORIZACAO às 09:42 e 09:43 (São Paulo). Conexão 88a8f6ec... / UC geradora 1121361801894 voltou a LEITURA_AUTORIZADA/ATIVA às 09:48. **Usuário confirmou que foi ele quem reconectou**: não atribuir a volta a recuperação automática. A causa específica da invalidação Google não foi comprovada. O projeto padrão aberto no Cloud não foi validado como o cliente OAuth do backend, portanto não afirmar que modo Testando é a causa nem alterar esse projeto. Credenciais novas preservadas.
+
+## OTAs concluídas
+
+Gerador Preview, runtimes 1.0.4 / 1.0.10 / 1.0.9 / 1.0.11: `fbfbe666-da8a-4df9-957d-601c7323d8f0`, `03a7ab36-5df4-4311-8d8c-40ceffe1f6ed`, `58d3ce77-ed31-4667-93a4-ac1757527b6e`, `f1605253-363f-4d59-9930-c6a60e65b047`.
+
+Gerador produção, mesmos runtimes: `98b539eb-bb90-407f-ab7c-5c8ef1f54bff`, `be44160f-2d56-41d8-ac41-80de0eecb74a`, `1bb53b14-f503-4174-a1d7-c17e89da9950`, `3ed3baec-8cd8-4e26-a8d9-4bb29dbffcdc`. Todos confirmados no Expo; não houve nova compilação APK. Arquivo de evidência local: `C:/Users/vini_/andrade-energy/tmp/cotas-supabase-producao-20261103.png`.
+
+Health final produção: principal readyForReturn=true; Render reserva readyForFailover=true; Netlify readyForFailover=true. Todos commit efe7e7e, executor RENDER/revisão 4 preservados. Endpoint de cotas principal sem sessão confirmou 401. A web antiga na sessão de teste ainda recebeu EXECUTOR_INATIVO (possível destino fixo no bundle); não foi modificada nem declarada validada. Nenhum teste físico da nova OTA de cotas foi realizado nesta etapa por falta de aparelho conectado. O consumo Supabase é somente banco; Storage, tráfego e limite contratado não foram confirmados.
