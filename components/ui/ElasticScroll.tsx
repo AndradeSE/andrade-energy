@@ -1,18 +1,12 @@
 import { isValidElement } from "react";
+import { useAndroidPullRefresh } from "../../hooks/useAndroidPullRefresh";
 import {
   Platform,
-  Pressable,
-  Text,
   FlatList as NativeFlatList,
   type FlatListProps,
   ScrollView as NativeScrollView,
   type ScrollViewProps,
 } from "react-native";
-
-function RefreshAction({ onRefresh, refreshing }: { onRefresh?: (() => void) | null; refreshing?: boolean | null }) {
-  if (!onRefresh) return null;
-  return <Pressable accessibilityRole="button" accessibilityLabel="Atualizar dados" disabled={refreshing} onPress={onRefresh} style={{ alignSelf: "flex-end", padding: 12 }}><Text style={{ color: "#087A46" }}>{refreshing ? "Atualizando…" : "Atualizar"}</Text></Pressable>;
-}
 
 /**
  * Android usa atualização explícita: SwipeRefreshLayout junto ao native stack
@@ -29,16 +23,18 @@ export function ElasticScrollView({
   ...props
 }: ScrollViewProps) {
   const refresh = isValidElement<{ onRefresh?: () => void; refreshing?: boolean }>(refreshControl) ? refreshControl.props : undefined;
+  const pull = useAndroidPullRefresh(refresh?.onRefresh, refresh?.refreshing, props);
   return (
     <NativeScrollView
       {...props}
+      {...pull.handlers}
       refreshControl={Platform.OS === "android" ? undefined : refreshControl}
       removeClippedSubviews={removeClippedSubviews}
       bounces={bounces}
       alwaysBounceVertical={alwaysBounceVertical}
       overScrollMode={overScrollMode}
     >
-      {Platform.OS === "android" ? <RefreshAction {...refresh} /> : null}
+      {pull.indicator}
       {children}
     </NativeScrollView>
   );
@@ -57,13 +53,15 @@ export function ElasticFlatList<ItemT>({
 }: FlatListProps<ItemT>) {
   const refresh = isValidElement<{ onRefresh?: () => void; refreshing?: boolean }>(refreshControl) ? refreshControl.props : { onRefresh, refreshing };
   const Header = ListHeaderComponent;
+  const pull = useAndroidPullRefresh(refresh?.onRefresh, refresh?.refreshing, props);
   return (
     <NativeFlatList
       {...props}
+      {...pull.handlers}
       refreshControl={Platform.OS === "android" ? undefined : refreshControl}
       onRefresh={Platform.OS === "android" ? undefined : onRefresh}
       refreshing={Platform.OS === "android" ? undefined : refreshing}
-      ListHeaderComponent={Platform.OS === "android" && refresh?.onRefresh ? <><RefreshAction {...refresh} />{isValidElement(Header) ? Header : Header ? <Header /> : null}</> : Header}
+      ListHeaderComponent={Platform.OS === "android" && refresh?.onRefresh ? <>{pull.indicator}{isValidElement(Header) ? Header : Header ? <Header /> : null}</> : Header}
       removeClippedSubviews={removeClippedSubviews}
       bounces={bounces}
       alwaysBounceVertical={alwaysBounceVertical}

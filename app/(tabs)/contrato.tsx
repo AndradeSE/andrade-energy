@@ -16,6 +16,7 @@ import {
   Screen,
 } from "../../components/ui";
 import { useContrato } from "../../hooks/useContrato";
+import { useAndroidPullRefresh } from "../../hooks/useAndroidPullRefresh";
 import { useDashboard } from "../../hooks/useDashboard";
 import { useAuth } from "../../contexts/AuthContext";
 import ClienteHeader from "../../components/cliente/ClienteHeader";
@@ -72,6 +73,7 @@ function ContratoConsumidor() {
   const dashboard = mesmoDestino ? dashboardSelecionado : undefined;
   const queryClient = useQueryClient();
   const [atualizando, setAtualizando] = useState(false);
+  const pullRefresh = useAndroidPullRefresh(atualizarPagina, atualizando);
   const [registrandoAceite, setRegistrandoAceite] = useState(false);
   const [enviandoAssinado, setEnviandoAssinado] = useState(false);
   const [modalAssinatura, setModalAssinatura] = useState(false);
@@ -379,6 +381,7 @@ function ContratoConsumidor() {
         fullBleed
       />
       <ScrollView
+        {...pullRefresh.handlers}
         ref={scrollRef}
         bounces
         alwaysBounceVertical
@@ -394,7 +397,7 @@ function ContratoConsumidor() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {Platform.OS === "android" ? <Pressable accessibilityRole="button" disabled={atualizando} onPress={atualizarPagina} style={{ alignSelf: "flex-end", padding: 12 }}><Text style={{ color: Colors.primary }}>{atualizando ? "Atualizando…" : "Atualizar"}</Text></Pressable> : null}
+        {pullRefresh.indicator}
         <View style={styles.heading}>
           <Text style={styles.eyebrow}>DOCUMENTOS</Text>
           <Text style={styles.title}>Meu contrato</Text>

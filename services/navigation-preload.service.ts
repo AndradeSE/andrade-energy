@@ -33,8 +33,9 @@ export async function preloadNavigationData(
   user: Scope,
   unit: Selection,
   plant: { id?: string | null } | null,
+  budgetMs = 8000,
 ) {
-  await waitForNavigationWarmup(loadNavigationCache(queryClient, generator, user, unit, plant));
+  await waitForNavigationWarmup(loadNavigationCache(queryClient, generator, user, unit, plant), budgetMs);
 }
 
 async function loadNavigationCache(

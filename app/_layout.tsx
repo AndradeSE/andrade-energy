@@ -116,7 +116,7 @@ function RootNavigator() {
       if (!active) return;
       if (JSON.stringify([currentUser.empresa_id, currentUser.papel_empresa, currentUser.permissoes]) !== JSON.stringify([fresh.empresa_id, fresh.papel_empresa, fresh.permissoes])) activeQueryClient.clear();
       await atualizarUsuario(fresh);
-      await preloadNavigationData(activeQueryClient, IS_GERADOR_APP, fresh, selection.unidadeSelecionada, selection.usinaSelecionada);
+      await preloadNavigationData(activeQueryClient, IS_GERADOR_APP, fresh, selection.unidadeSelecionada, selection.usinaSelecionada, 30000);
       if (active) setReadyUserId(String(fresh.id));
     }).catch(() => { if (active) setSessionError(true); });
     return () => { active = false; };
@@ -249,7 +249,7 @@ function RootNavigator() {
   // A tela de seleção já prepara os dados antes de navegar. Trocar a seleção
   // não pode desmontar o Stack enquanto o próprio seletor aguarda esse preparo.
   if (!startupComplete || isLoading || (session?.user?.id && readyUserId !== String(session.user.id))) {
-    return <Loading showRevision animateBrand={!startupComplete} onBrandReady={() => setStartupComplete(true)} />;
+    return <Loading showRevision animateBrand onBrandReady={() => setStartupComplete(true)} />;
   }
 
   const loggedIn = Boolean(session);
