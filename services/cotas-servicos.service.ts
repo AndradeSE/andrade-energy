@@ -8,7 +8,7 @@ export type QuotaService = {
 };
 export type ServiceQuotas = { ambiente: string; alertas: number[]; servicos: QuotaService[] };
 export async function listServiceQuotas() {
-  return (await api.get<ServiceQuotas>("/cotas-servicos", { timeout: 20_000, params: { catalogo: 3 } })).data;
+  return (await api.get<ServiceQuotas>("/cotas-servicos", { timeout: 35_000, params: { catalogo: 3 } })).data;
 }
 export async function refreshServiceQuotas() {
   return (await api.post<ServiceQuotas>("/cotas-servicos/atualizar", {}, { timeout: 35_000, params: { catalogo: 3 } })).data;
