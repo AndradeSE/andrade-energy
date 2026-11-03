@@ -18,6 +18,7 @@ import {
 import { useContrato } from "../../hooks/useContrato";
 import { useAndroidPullRefresh } from "../../hooks/useAndroidPullRefresh";
 import { GestureDetector } from "react-native-gesture-handler";
+import { nativeRefreshSafe } from "../../config/native-refresh";
 import { useDashboard } from "../../hooks/useDashboard";
 import { useAuth } from "../../contexts/AuthContext";
 import ClienteHeader from "../../components/cliente/ClienteHeader";
@@ -387,7 +388,7 @@ function ContratoConsumidor() {
         bounces
         alwaysBounceVertical
         overScrollMode="always"
-        refreshControl={Platform.OS !== "android" ?
+        refreshControl={nativeRefreshSafe ?
           <RefreshControl
             refreshing={atualizando}
             onRefresh={atualizarPagina}

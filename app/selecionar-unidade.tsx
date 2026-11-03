@@ -5,7 +5,8 @@ import * as FileSystem from "expo-file-system/legacy";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { loadSelectionList, selectionListKey } from "../services/selection-list";
 
 import { Alert, Image, ImageBackground, Linking, Modal, RefreshControl, StatusBar, StyleSheet, Text, View } from "react-native";
 import { Pressable, TextInput, TouchableOpacity } from "../components/assistant/AssistantNativeControls";
@@ -32,17 +33,7 @@ import {
 } from "../contexts/AuthContext";
 import { useEmpresa } from "../contexts/EmpresaContext";
 
-import {
-  listarUnidadesGestor,
-  listarMinhasUnidades,
-  nomearMinhaUnidade,
-} from "../services/clientes.service";
-
-import {
-  consultarAlocacao,
-  listarUsinas,
-} from "../services/usinas.service";
-import { listarAcessoContratos } from "../services/contratos.service";
+import { nomearMinhaUnidade } from "../services/clientes.service";
 
 import {
   Colors,
@@ -68,6 +59,8 @@ export default function SelecionarUnidade() {
   // A experiência é definida pelo aplicativo aberto, não pelo perfil da conta.
   // Assim, um proprietário pode consultar as próprias UCs no app Consumidor.
   const gestor = IS_GERADOR_APP;
+  const listKey = selectionListKey(gestor, usuario?.id, usuario?.empresa_id);
+  const cachedItems = queryClient.getQueryData<any[]>(listKey);
 
   const [itens, setItens] =
     useState<
@@ -75,10 +68,12 @@ export default function SelecionarUnidade() {
         | UnidadeConsumidora
         | UsinaSelecionada
       )[]
-    >([]);
+    >(cachedItems ?? []);
 
   const [loading, setLoading] =
-    useState(true);
+    useState(!cachedItems);
+  const itemsRef = useRef(itens);
+  itemsRef.current = itens;
 
   const [erro, setErro] =
     useState(false);
@@ -109,46 +104,12 @@ export default function SelecionarUnidade() {
 
   const carregar =
     useCallback(async (mostrarLoading = true) => {
-      if (mostrarLoading) setLoading(true);
+      if (mostrarLoading && !itemsRef.current.length) setLoading(true);
       setErro(false);
 
       try {
-        if (gestor) {
-          const usinas = await listarUsinas();
-          const [fotos, capacidades, unidades] = await Promise.all([
-            AsyncStorage.multiGet(usinas.map((usina: any) => `foto-card-usina:${usina.id}`)),
-            Promise.all(usinas.map((usina: any) => consultarAlocacao(usina.id).then((capacidade) => capacidade.disponivel).catch(() => null))),
-            listarUnidadesGestor().catch(() => []),
-          ]);
-          const fotoPorChave = new Map(fotos);
-          const clientesPorUsina = new Map<string, Set<string>>();
-          for (const unidade of Array.isArray(unidades) ? unidades : []) {
-            const usinaId = String(unidade.usina_id ?? unidade.usinas?.id ?? "");
-            const clienteId = String(unidade.cliente_id ?? unidade.clientes?.id ?? "");
-            if (!usinaId || !clienteId) continue;
-            if (!clientesPorUsina.has(usinaId)) clientesPorUsina.set(usinaId, new Set());
-            clientesPorUsina.get(usinaId)!.add(clienteId);
-          }
-          setItens(usinas.map((usina: any, index: number) => ({ ...usina, quantidade_clientes: clientesPorUsina.get(String(usina.id))?.size ?? 0, capacidade_livre: capacidades[index], foto_card_local: fotoPorChave.get(`foto-card-usina:${usina.id}`) || "" })));
-          return;
-        }
-
-        if (!usuario?.cpf) {
-          console.log(
-            "Usuário sem CPF para localizar unidades."
-          );
-          setErro(true);
-          return;
-        }
-
-        const [unidades, acessos] = await Promise.all([
-          listarMinhasUnidades(),
-          listarAcessoContratos().catch(() => []),
-        ]);
-        const acessoPorId = new Map(acessos.map((item: any) => [String(item.id), item]));
-        const fotos = await AsyncStorage.multiGet(unidades.map((unidade: any) => `foto-card-uc:${unidade.id}`));
-        const fotoPorChave = new Map(fotos);
-        setItens(unidades.map((unidade: any) => ({ ...unidade, ...(acessoPorId.get(String(unidade.id)) ?? {}), foto_card_local: fotoPorChave.get(`foto-card-uc:${unidade.id}`) || "" })));
+        const items = await queryClient.fetchQuery({ queryKey: selectionListKey(gestor, usuario?.id, usuario?.empresa_id), queryFn: () => loadSelectionList(gestor), staleTime: mostrarLoading ? 60000 : 0 });
+        setItens(items);
       } catch (error) {
         console.log(
           gestor
@@ -164,6 +125,9 @@ export default function SelecionarUnidade() {
       gestor,
       usuario?.cpf,
       empresa.id,
+      usuario?.id,
+      usuario?.empresa_id,
+      queryClient,
     ]);
 
   /*

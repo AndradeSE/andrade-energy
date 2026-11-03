@@ -78,6 +78,18 @@ function RootNavigator() {
   const [sessionError, setSessionError] = useState(false);
   const [sessionAttempt, setSessionAttempt] = useState(0);
   const [startupComplete, setStartupComplete] = useState(false);
+  const [entryDestination, setEntryDestination] = useState<string | null>(null);
+  const [entryScreenReady, setEntryScreenReady] = useState(false);
+  useEffect(() => {
+    if (!session?.user?.id) {
+      setEntryDestination(null); setEntryScreenReady(false);
+      entradaGerador.current = null;
+      entradaConsumidor.current = null;
+    }
+  }, [session?.user?.id]);
+  useEffect(() => {
+    if (entryDestination && pathname === entryDestination) setEntryScreenReady(true);
+  }, [entryDestination, pathname]);
   const entradaGerador = useRef<string | null>(null);
   useEffect(() => {
     if (!IS_GERADOR_APP || isLoading || !startupComplete || !session?.user?.id || !isUnlocked || readyUserId !== String(session.user.id)) return;
@@ -85,7 +97,9 @@ function RootNavigator() {
     if (entradaGerador.current === userId) return;
     entradaGerador.current = userId;
     const comercial = String(session.user.papel_empresa ?? "") === "COLABORADOR_COMERCIAL";
-    router.replace((comercial ? "/admin/comercial" : session.user.perfil === "ADMIN" ? "/admin/escolher-area" : "/selecionar-unidade") as any);
+    const destination = comercial ? "/admin/comercial" : session.user.perfil === "ADMIN" ? "/admin/escolher-area" : "/selecionar-unidade";
+    setEntryDestination(destination);
+    router.replace(destination as any);
   }, [isLoading, isUnlocked, readyUserId, startupComplete, session?.user?.id]);
   const initialSelectionRef = useRef({ unidadeSelecionada, usinaSelecionada });
   initialSelectionRef.current = { unidadeSelecionada, usinaSelecionada };
@@ -101,8 +115,9 @@ function RootNavigator() {
     const userId = String(session.user.id);
     if (entradaConsumidor.current === userId) return;
     entradaConsumidor.current = userId;
+    setEntryDestination("/selecionar-unidade");
     // A UC salva serve ao cache, mas não substitui a escolha a cada abertura.
-    void selecionarUnidade(null).then(() => router.replace("/selecionar-unidade"));
+    if (!unidadeSelecionada && pathname !== "/selecionar-unidade") router.replace("/selecionar-unidade");
   }, [isLoading, isUnlocked, readyUserId, startupComplete, session?.user?.id]);
   useEffect(() => {
     const currentUser = session?.user;
@@ -116,6 +131,7 @@ function RootNavigator() {
       if (!active) return;
       if (JSON.stringify([currentUser.empresa_id, currentUser.papel_empresa, currentUser.permissoes]) !== JSON.stringify([fresh.empresa_id, fresh.papel_empresa, fresh.permissoes])) activeQueryClient.clear();
       await atualizarUsuario(fresh);
+      if (!IS_GERADOR_APP) await selecionarUnidade(null);
       await preloadNavigationData(activeQueryClient, IS_GERADOR_APP, fresh, selection.unidadeSelecionada, selection.usinaSelecionada, 30000);
       if (active) setReadyUserId(String(fresh.id));
     }).catch(() => { if (active) setSessionError(true); });
@@ -560,6 +576,7 @@ function RootNavigator() {
     <PersistentAppTabs loggedIn={loggedIn && !precisaDigital} />
     {isPreviewEnvironment && loggedIn && !precisaDigital ? <AssistantWakeWord /> : null}
     {isPreviewEnvironment && loggedIn && !precisaDigital ? <FloatingAssistant /> : null}
+    {loggedIn && !entryScreenReady ? <View style={styles.entryOverlay}><Loading showRevision animateBrand={false} /></View> : null}
     {precisaDigital ? <View style={styles.lockOverlay}><BiometricLock onUnlocked={concluirAutenticacaoBiometrica} /></View> : null}
     </>
   );
@@ -596,5 +613,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     zIndex: 100,
   },
+  entryOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 99, backgroundColor: "#DFE8E3" },
 
 });

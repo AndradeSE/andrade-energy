@@ -1,4 +1,5 @@
 import { conversationMemory } from "./assistant-conversation-memory";
+import Constants from "expo-constants";
 import { Directory, File, Paths } from "expo-file-system";
 import { createDownloadResumable, getInfoAsync } from "expo-file-system/legacy";
 import { sha256 } from "@noble/hashes/sha256";
@@ -42,6 +43,7 @@ function modelFile() { return new File(MODEL_DIR, MODEL_NAME); }
 function markerFile() { return new File(MODEL_DIR, `${MODEL_NAME}.sha256`); }
 
 export function isModelInstalled() {
+  if (Constants.expoConfig?.extra?.localModelDisabled || process.env.EXPO_PUBLIC_DISABLE_LOCAL_MODEL === "1") return false;
   const model = modelFile();
   const marker = markerFile();
   return model.exists && model.size >= MIN_MODEL_BYTES && marker.exists && marker.textSync().trim() === MODEL_SHA256;
@@ -141,6 +143,7 @@ async function performInstallLocalModel() {
 }
 
 export function installLocalModel(): Promise<void> {
+  if (Constants.expoConfig?.extra?.localModelDisabled || process.env.EXPO_PUBLIC_DISABLE_LOCAL_MODEL === "1") return Promise.reject(new Error("Esta versão universal utiliza a Solar online."));
   if (activeInstall) return activeInstall;
   activeInstall = performInstallLocalModel()
     .then(() => { reportInstall("pronto", 1, MODEL_BYTES); })

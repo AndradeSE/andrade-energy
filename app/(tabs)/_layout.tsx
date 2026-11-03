@@ -18,7 +18,7 @@ function TabIcon({ name, color, featured = false }: { name: keyof typeof Ionicon
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
-  const { usuario, usinaSelecionada, isLoading } = useAuth();
+  const { usuario, usinaSelecionada, unidadeSelecionada, isLoading } = useAuth();
   const comercial = IS_GERADOR_APP && usuario?.papel_empresa === "COLABORADOR_COMERCIAL" && usuario?.permissoes?.ambientes_gerador !== true;
   const validarUsina = IS_GERADOR_APP && !comercial && (usuario?.perfil === "ADMIN" || usuario?.perfil === "GESTOR");
   const usinaId = usinaSelecionada?.id ?? usuario?.usina_id;
@@ -86,6 +86,7 @@ export default function TabLayout() {
   // ===================================================
 
   if (!IS_GERADOR_APP) {
+    if (!unidadeSelecionada?.id) return <Redirect href="/selecionar-unidade" />;
     return (
       <Tabs
         backBehavior="initialRoute"

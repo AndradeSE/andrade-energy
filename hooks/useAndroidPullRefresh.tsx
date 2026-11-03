@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Gesture } from "react-native-gesture-handler";
+import { nativeRefreshSafe } from "../config/native-refresh";
 import { ActivityIndicator, Platform, View, type ScrollViewProps } from "react-native";
 
 /** Observa o gesto sem capturar o responder ou montar SwipeRefreshLayout. */
@@ -9,7 +10,7 @@ export function useAndroidPullRefresh(onRefresh?: (() => void) | null, refreshin
   const distance = useRef(0);
   const last = useRef(0);
   const [pull, setPull] = useState(0);
-  const enabled = Platform.OS === "android" && Boolean(onRefresh);
+  const enabled = Platform.OS === "android" && !nativeRefreshSafe && Boolean(onRefresh);
   const callback = useRef(onRefresh);
   const busy = useRef(refreshing);
   callback.current = onRefresh;

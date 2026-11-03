@@ -1,5 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { waitForNavigationWarmup } from "../utils/navigation-warmup";
+import { loadSelectionList, selectionListKey } from "./selection-list";
 
 import { buscarDashboard } from "./dashboard.service";
 import { listarClientes, listarMinhasUnidades, listarUnidadesGestor } from "./clientes.service";
@@ -48,6 +49,7 @@ async function loadNavigationCache(
   if (!user.id) return;
   const tasks: Promise<unknown>[] = [];
   const userId = String(user.id);
+  tasks.push(queryClient.prefetchQuery({ queryKey: selectionListKey(generator, user.id, user.empresa_id), queryFn: () => loadSelectionList(generator), staleTime: 60000 }));
   if (generator) {
     if (user.empresa_id && (user.perfil === "ADMIN" || user.papel_empresa === "COLABORADOR_COMERCIAL")) {
       tasks.push(queryClient.prefetchQuery({ queryKey: initialTabKey(userId, undefined, "comercial"), queryFn: obterPainelComercial }));

@@ -13,12 +13,18 @@ export const isPreviewEnvironment = (Application.applicationId?.endsWith(".previ
 export const environmentKeySuffix = isPreviewEnvironment ? "_preview" : "";
 // Never enable native IA through an OTA variable on an older production APK.
 export const isAssistantEnabled = isPreviewEnvironment ||
+  Updates.runtimeVersion === "1.0.11-production-refresh-fixed" ||
+  Updates.runtimeVersion === "1.0.10-production-arm32" ||
   Updates.runtimeVersion === "1.0.4-production-live-awake" ||
   Updates.runtimeVersion === "1.0.7-production-cemig-flow" ||
   Updates.runtimeVersion === "1.0.9-production-cemig-worker" ||
   Updates.runtimeVersion === "1.0.8-production-cemig-vault";
 // Native audio support belongs to the installed runtime, not OTA export flags.
 export const supportsAssistantLive = Updates.runtimeVersion === "1.0.4-preview-live-awake" ||
+  Updates.runtimeVersion === "1.0.11-production-refresh-fixed" ||
+  Updates.runtimeVersion === "1.0.11-preview-refresh-fixed" ||
+  Updates.runtimeVersion === "1.0.10-production-arm32" ||
+  Updates.runtimeVersion === "1.0.10-preview-arm32" ||
   Updates.runtimeVersion === "1.0.5-preview-cemig-browser" ||
   Updates.runtimeVersion === "1.0.6-preview-cemig-csv" ||
   Updates.runtimeVersion === "1.0.7-preview-cemig-flow" ||
