@@ -1,5 +1,6 @@
 import { isValidElement } from "react";
 import { useAndroidPullRefresh } from "../../hooks/useAndroidPullRefresh";
+import { GestureDetector } from "react-native-gesture-handler";
 import {
   Platform,
   FlatList as NativeFlatList,
@@ -25,7 +26,7 @@ export function ElasticScrollView({
   const refresh = isValidElement<{ onRefresh?: () => void; refreshing?: boolean }>(refreshControl) ? refreshControl.props : undefined;
   const pull = useAndroidPullRefresh(refresh?.onRefresh, refresh?.refreshing, props);
   return (
-    <NativeScrollView
+    <GestureDetector gesture={pull.gesture}><NativeScrollView
       {...props}
       {...pull.handlers}
       refreshControl={Platform.OS === "android" ? undefined : refreshControl}
@@ -36,7 +37,7 @@ export function ElasticScrollView({
     >
       {pull.indicator}
       {children}
-    </NativeScrollView>
+    </NativeScrollView></GestureDetector>
   );
 }
 
@@ -55,7 +56,7 @@ export function ElasticFlatList<ItemT>({
   const Header = ListHeaderComponent;
   const pull = useAndroidPullRefresh(refresh?.onRefresh, refresh?.refreshing, props);
   return (
-    <NativeFlatList
+    <GestureDetector gesture={pull.gesture}><NativeFlatList
       {...props}
       {...pull.handlers}
       refreshControl={Platform.OS === "android" ? undefined : refreshControl}
@@ -66,6 +67,6 @@ export function ElasticFlatList<ItemT>({
       bounces={bounces}
       alwaysBounceVertical={alwaysBounceVertical}
       overScrollMode={overScrollMode}
-    />
+    /></GestureDetector>
   );
 }

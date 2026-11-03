@@ -17,6 +17,7 @@ import {
 } from "../../components/ui";
 import { useContrato } from "../../hooks/useContrato";
 import { useAndroidPullRefresh } from "../../hooks/useAndroidPullRefresh";
+import { GestureDetector } from "react-native-gesture-handler";
 import { useDashboard } from "../../hooks/useDashboard";
 import { useAuth } from "../../contexts/AuthContext";
 import ClienteHeader from "../../components/cliente/ClienteHeader";
@@ -380,7 +381,7 @@ function ContratoConsumidor() {
         }
         fullBleed
       />
-      <ScrollView
+      <GestureDetector gesture={pullRefresh.gesture}><ScrollView
         {...pullRefresh.handlers}
         ref={scrollRef}
         bounces
@@ -706,7 +707,7 @@ function ContratoConsumidor() {
             Documento vinculado à sua unidade consumidora.
           </Text>
         </View>
-      </ScrollView>
+      </ScrollView></GestureDetector>
       <Modal animationType="slide" transparent visible={modalAssinatura} onRequestClose={() => !registrandoAceite && setModalAssinatura(false)}>
         <Pressable style={styles.signatureBackdrop} onPress={() => !registrandoAceite && setModalAssinatura(false)}>
           <Pressable style={styles.signatureSheet} onPress={(event) => event.stopPropagation()}>
