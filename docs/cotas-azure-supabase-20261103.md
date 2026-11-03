@@ -10,6 +10,8 @@ Correção preparada:
 - Migração necessária: `20261103100000_cotas_tamanho_banco.sql`, primeiro Preview.
 - Não publicar apenas a tela e declarar resolvido. Aplicar migração, deploy Preview, conferir leitura/credenciais Azure e só depois promover aos servidores produção/reserva e OTA.
 
-Testes específicos Azure/política: oito aprovados. Compilação completa local backend bloqueada pelo ambiente de dependências (express-rate-limit, serverless-http, pdfkit etc. ausentes e tipos Express incompatíveis em módulos existentes); não foi declarada aprovada. Sem deploy ou migração aplicados nesta etapa.
+Testes específicos Azure/política: oito aprovados. Compilação completa backend inicialmente bloqueada pelas dependências da raiz. Corrigida a resolução local com junction para o node_modules existente de `andrade-energy/backend`, TypeScript completo aprovado, sem instalar dependências novas. Sem deploy ou migração aplicados nesta etapa.
+
+Consulta real ao projeto de produção `ehnkyrsseisvvtbkwrvu`, em 03/11: Azure status `SEM_DADOS_COMPLETOS`, consultado em `2026-11-03T11:18:38.065Z`. Única leitura salva: 3987 caracteres de outubro, vencida em `2026-11-01T00:00:00Z`; não deve ser apresentada como novembro. Não há evidência para afirmar zero de consumo nem falha de autenticação. A RPC de tamanho do banco retorna PGRST202 (migração ainda não aplicada). Ferramentas de navegador e Computer Use falharam ao iniciar com `failed to write kernel assets`; não há conector Render/Supabase nesta sessão. Publicação online pendente por falta de canal de controle, não por testes reprovados.
 
 Referências: https://supabase.com/docs/guides/platform/database-size e https://learn.microsoft.com/en-us/azure/azure-monitor/reference/supported-metrics/microsoft-cognitiveservices-accounts-metrics
