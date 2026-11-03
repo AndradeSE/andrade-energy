@@ -58,8 +58,33 @@ async function monitorBrevoQuota() {
   const { error } = await supabase.from("cotas_consultas").upsert({ ambiente: env, servico: "BREVO", status, consultado_em: new Date().toISOString() });
   if (error) throw new Error("Não foi possível registrar o estado do monitor de cotas.");
 }
+const SUPABASE_QUOTA = { servico: "SUPABASE", metrica: "banco_bytes", rotulo: "Supabase · banco de dados", unidade: "bytes", automatico: true,
+  observacao: "Tamanho atual do banco, consultado no PostgreSQL. Não inclui arquivos do Storage nem tráfego. O limite só é exibido quando confirmado na configuração do plano." };
+async function monitorSupabaseQuota() {
+  let status = "CONSULTA_INDISPONIVEL";
+  try {
+    const result = await supabase.rpc("consultar_tamanho_banco_cotas");
+    const used = Number(result.data);
+    if (result.error || result.data === null || !Number.isSafeInteger(used) || used < 0) throw new Error("SEM_LEITURA");
+    const configured = Number(process.env.SUPABASE_DATABASE_LIMIT_BYTES);
+    const limit = Number.isSafeInteger(configured) && configured > 0 ? configured : null;
+    await saveReading({ servico: "SUPABASE", metrica: "banco_bytes", rotulo: SUPABASE_QUOTA.rotulo, usado: used, limite: limit,
+      renovaEm: new Date(Date.now() + 24 * 3600_000).toISOString(), origem: "API_OFICIAL" });
+    status = "OK";
+  } catch { /* Never substitute an unavailable database reading with zero. */ }
+  const result = await supabase.from("cotas_consultas").upsert({ ambiente: quotaEnvironment(), servico: "SUPABASE", status, consultado_em: new Date().toISOString() });
+  if (result.error) throw new Error("Não foi possível registrar a consulta Supabase.");
+}
+
+let refreshInFlight: Promise<void> | null = null;
+let refreshedAt = 0;
+export async function refreshServiceQuotasIfStale() {
+  if (Date.now() - refreshedAt < 5 * 60_000) return;
+  if (!refreshInFlight) refreshInFlight = monitorServiceQuotas().then(() => { refreshedAt = Date.now(); }).finally(() => { refreshInFlight = null; });
+  await refreshInFlight;
+}
 export async function monitorServiceQuotas() {
-  const results = await Promise.allSettled([monitorResendQuota(), monitorBrevoQuota(), monitorAzureQuota()]);
+  const results = await Promise.allSettled([monitorResendQuota(), monitorBrevoQuota(), monitorAzureQuota(), monitorSupabaseQuota()]);
   if (results.some(result => result.status === "rejected")) throw new Error("Uma das consultas de cotas não pôde ser registrada.");
 }
 async function monitorAzureQuota() {
@@ -91,7 +116,7 @@ export async function listServiceQuotas(includeBrevo = false, includeAzure = fal
   // The ADM catalogue always exposes Azure when requested. An unavailable
   // reader is reported as configuration state rather than silently hiding a
   // service the platform uses for conversations.
-  const catalog = [...QUOTA_CATALOG.filter(item => includeBrevo || item.servico !== "BREVO"), ...(includeAzure ? AZURE_QUOTA_CATALOG : [])];
+  const catalog = [...QUOTA_CATALOG.filter(item => includeBrevo || item.servico !== "BREVO"), ...(includeAzure ? [...AZURE_QUOTA_CATALOG, SUPABASE_QUOTA] : [])];
   const servicos = catalog.map(item => {
     const reading = readings.data?.find(row => row.servico === item.servico && row.metrica === item.metrica);
     const check = checks.data?.find(row => row.servico === item.servico)
