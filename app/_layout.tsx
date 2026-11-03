@@ -28,6 +28,7 @@ import * as Notifications from "expo-notifications";
 import { preloadNavigationData } from "../services/navigation-preload.service";
 
 import FloatingAssistant from "../components/assistant/FloatingAssistant";
+import NativeApkUpdateNotice from "../components/NativeApkUpdateNotice";
 import AssistantWakeWord from "../components/assistant/AssistantWakeWord";
 import { isAssistantEnabled as isPreviewEnvironment } from "../config/environment";
 import api from "../config/api";
@@ -574,6 +575,7 @@ function RootNavigator() {
     </Stack>
     </View>
     <PersistentAppTabs loggedIn={loggedIn && !precisaDigital} />
+    {loggedIn && !precisaDigital && entryScreenReady ? <NativeApkUpdateNotice /> : null}
     {isPreviewEnvironment && loggedIn && !precisaDigital ? <AssistantWakeWord /> : null}
     {isPreviewEnvironment && loggedIn && !precisaDigital ? <FloatingAssistant /> : null}
     {loggedIn && !entryScreenReady ? <View style={styles.entryOverlay}><Loading showRevision animateBrand={false} /></View> : null}

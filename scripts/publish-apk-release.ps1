@@ -40,6 +40,7 @@ try {
     throw
   }
   $published | Select-Object name,size,digest,browser_download_url,updated_at | ConvertTo-Json
+  & "$PSScriptRoot/publish-native-apk-notice.ps1" -ApkPath $apk.FullName
 } finally {
   $headers.Clear()
   $fields.Clear()
