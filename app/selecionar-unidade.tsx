@@ -7,7 +7,7 @@ import { router, useFocusEffect } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 
-import { Alert, Image, ImageBackground, Linking, Modal, RefreshControl, StatusBar, StyleSheet, Text, View } from "react-native";
+import { Alert, Image, ImageBackground, Linking, Modal, StatusBar, StyleSheet, Text, View } from "react-native";
 import { Pressable, TextInput, TouchableOpacity } from "../components/assistant/AssistantNativeControls";
 
 import {
@@ -432,22 +432,6 @@ export default function SelecionarUnidade() {
             item.id
           )
         }
-        refreshControl={
-          <RefreshControl
-            colors={[
-              Colors.primary,
-            ]}
-            onRefresh={
-              atualizarPagina
-            }
-            refreshing={
-              atualizando
-            }
-            tintColor={
-              Colors.primary
-            }
-          />
-        }
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <>
@@ -467,6 +451,9 @@ export default function SelecionarUnidade() {
                   ? "Escolha uma usina"
                   : "Escolha sua unidade consumidora"}
               </Text>
+              <TouchableOpacity accessibilityRole="button" disabled={atualizando} onPress={atualizarPagina} style={{ paddingVertical: 12 }}>
+                <Text style={{ color: Colors.primary }}>{atualizando ? "Atualizando…" : "Atualizar lista"}</Text>
+              </TouchableOpacity>
             </View>
 
             {/* BUSCA */}
