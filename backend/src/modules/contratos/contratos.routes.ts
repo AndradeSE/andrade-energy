@@ -1,3 +1,4 @@
+import pdfParse from "pdf-parse";
 import { Router, Request, Response, NextFunction } from "express";
 import { supabase } from "../../config/supabase";
 import * as ContratosService from "./contratos.service";
@@ -31,6 +32,37 @@ import { solicitarRenovacaoContrato, informarNaoRenovacao } from "./renovacaoCon
 const router = Router();
 router.use(exigirAutenticacao);
 router.get("/", exigirGestor, listarContratosController);
+router.post("/:id/documento/trechos", exigirGestor, exigirRegistroDaEmpresa("contratos"), async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const pergunta = typeof req.body?.pergunta === "string" ? req.body?.pergunta.trim() : "";
+  if (!pergunta || pergunta.length > 500) return res.status(400).json({ message: "Informe uma pergunta de até 500 caracteres." });
+  try {
+    const { data, error } = await supabase.from("contratos")
+      .select("contrato_assinado_url,contrato_gerado_url,arquivo_pdf")
+      .eq("id", req.params.id).eq("empresa_id", empresaIdDaRequisicao(req)).maybeSingle();
+    if (error) throw error;
+    const caminho = data?.contrato_assinado_url ?? data?.contrato_gerado_url ?? data?.arquivo_pdf;
+    if (!caminho) return res.status(404).json({ message: "PDF do contrato indisponível." });
+    const bucket = supabase.storage.from("contratos");
+    const { data: info, error: infoError } = await bucket.info(caminho);
+    if (infoError || typeof info?.size !== "number" || !Number.isFinite(info.size) || info.size > 5 * 1024 * 1024) {
+      return res.status(422).json({ message: "Não foi possível ler este PDF dentro do limite de 5 MB." });
+    }
+    const { data: arquivo, error: downloadError } = await bucket.download(caminho);
+    if (downloadError || !arquivo || arquivo.size > 5 * 1024 * 1024) throw new Error("PDF indisponível");
+    const pdf = await pdfParse(Buffer.from(await arquivo.arrayBuffer()), { max: 30 });
+    const normalizar = (valor: string) => valor.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const termos = [...new Set(normalizar(pergunta).match(/[a-z]{4,}/g) ?? [])]
+      .filter(termo => !["contrato", "cliente", "qual", "sobre", "esta", "escrito", "informe", "mostre"].includes(termo));
+    const trechos = pdf.text.split(/\n+/).map(linha => linha.trim()).filter(Boolean)
+      .map(linha => ({ linha, pontos: termos.filter(termo => normalizar(linha).includes(termo)).length }))
+      .filter(item => item.pontos > 0).sort((a, b) => b.pontos - a.pontos)
+      .slice(0, 4).map(item => item.linha.slice(0, 600));
+    return res.json({ trechos, temTexto: Boolean(pdf.text.trim()) });
+  } catch {
+    return res.status(422).json({ message: "Não foi possível extrair texto do PDF do contrato." });
+  }
+});
 router.get("/:id/documento", exigirGestor, exigirRegistroDaEmpresa("contratos"), async (req, res) => {
   try {
     const documento = await ContratosService.obterDocumentoContrato(req.params.id, empresaIdDaRequisicao(req));
