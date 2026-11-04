@@ -18,6 +18,8 @@ async function scope(usina:string,empresa:string){
 export async function configurarFilaNativa(usina:string,empresa:string,usuario:string,body:any){
  await scope(usina,empresa);
  if(typeof body?.habilitado!=='boolean'||body.habilitado&&body.autorizaEnvioAutomatico!==true)throw new Error('Confirme o modo de envio.');
+ const anterior=await supabase.from('rateio_envio_nativo_config').select('habilitado,modo').eq('empresa_id',empresa).eq('usina_id',usina).eq('usuario_id',usuario).maybeSingle();
+ if(anterior.error)throw anterior.error;
  const modo=body?.modo??'AUTOMATICO';
  if(!['AUTOMATICO','AUTORIZADO'].includes(modo))throw new Error('Modo inválido.');
  let competenciaAutorizada:string|null=null,hashAutorizado:string|null=null;
@@ -30,6 +32,10 @@ export async function configurarFilaNativa(usina:string,empresa:string,usuario:s
  const competenciaInicio=new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()).slice(0,7)+'-01';
  const r=await supabase.from('rateio_envio_nativo_config').upsert({empresa_id:empresa,usina_id:usina,usuario_id:usuario,habilitado:body.habilitado,competencia_inicio:competenciaInicio,modo,competencia_autorizada:competenciaAutorizada,hash_autorizado:hashAutorizado,atualizado_em:new Date().toISOString()});
  if(r.error)throw new Error('Não foi possível salvar a automação.');
+ if(anterior.data?.habilitado===true&&body.habilitado===false&&anterior.data.modo==='AUTOMATICO'){
+  try{await criarNotificacaoApp({usuario_id:usuario,empresa_id:empresa,usina_id:usina,tipo:'RATEIO_AUTOMATICO_DESATIVADO',titulo:'Envio automático do rateio desativado',detalhe:'O envio à Cemig desta usina foi desativado. A geração da planilha permanece independente. Toque para revisar e reativar o envio.',rota:`/operacao/rateio?usinaId=${encodeURIComponent(usina)}`,chave_dedupe:`rateio-auto-desativado:${usina}:${usuario}:${Date.now()}`});}
+  catch{console.error('Falha ao registrar aviso de desativação do rateio',{usina});}
+ }
  return {habilitado:body.habilitado,competenciaInicio,simulacao:preview()};
 }
 export async function listarFilaNativa(usina:string,empresa:string,usuario:string){
