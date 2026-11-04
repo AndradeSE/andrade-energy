@@ -81,6 +81,21 @@ function RootNavigator() {
   const [startupComplete, setStartupComplete] = useState(false);
   const [entryDestination, setEntryDestination] = useState<string | null>(null);
   const [entryScreenReady, setEntryScreenReady] = useState(false);
+  const [biometricExitReady, setBiometricExitReady] = useState(false);
+  useEffect(() => {
+    if (!isUnlocked) {
+      setBiometricExitReady(false);
+      return;
+    }
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => setBiometricExitReady(true));
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+    };
+  }, [isUnlocked]);
   useEffect(() => {
     if (!session?.user?.id) {
       setEntryDestination(null); setEntryScreenReady(false);
@@ -89,7 +104,15 @@ function RootNavigator() {
     }
   }, [session?.user?.id]);
   useEffect(() => {
-    if (entryDestination && pathname === entryDestination) setEntryScreenReady(true);
+    if (!entryDestination || pathname !== entryDestination) return;
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => setEntryScreenReady(true));
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+    };
   }, [entryDestination, pathname]);
   const entradaGerador = useRef<string | null>(null);
   useEffect(() => {
@@ -118,7 +141,7 @@ function RootNavigator() {
     entradaConsumidor.current = userId;
     setEntryDestination("/selecionar-unidade");
     // A UC salva serve ao cache, mas não substitui a escolha a cada abertura.
-    if (!unidadeSelecionada && pathname !== "/selecionar-unidade") router.replace("/selecionar-unidade");
+    if (pathname !== "/selecionar-unidade") router.replace("/selecionar-unidade");
   }, [isLoading, isUnlocked, readyUserId, startupComplete, session?.user?.id]);
   useEffect(() => {
     const currentUser = session?.user;
@@ -139,10 +162,10 @@ function RootNavigator() {
     return () => { active = false; };
   }, [activeQueryClient, isLoading, readyUserId, session?.user?.id, sessionAttempt, atualizarUsuario]);
   useEffect(() => {
-    if (!IS_GERADOR_APP || readyUserId !== String(session?.user?.id) || !isUnlocked) return;
+    if (!IS_GERADOR_APP || !entryScreenReady || readyUserId !== String(session?.user?.id) || !isUnlocked) return;
     const destino = collaboratorRedirect(session?.user?.papel_empresa, pathname, session?.user?.permissoes);
     if (destino) router.replace(destino as any);
-  }, [readyUserId, isUnlocked, session?.user?.id, session?.user?.papel_empresa, session?.user?.permissoes, pathname]);
+  }, [entryScreenReady, readyUserId, isUnlocked, session?.user?.id, session?.user?.papel_empresa, session?.user?.permissoes, pathname]);
   // A seleção da UC/usina pode ser restaurada depois do pré-carregamento
   // inicial. Atualize o cache desse contexto sem remontar a navegação.
   const [readySelectionScope, setReadySelectionScope] = useState<string | null>(null);
@@ -265,10 +288,7 @@ function RootNavigator() {
   if (sessionError && session?.user?.id) return <View style={{ flex: 1, justifyContent: "center", padding: 28, gap: 20 }}><Text style={{ fontSize: 18 }}>Não foi possível confirmar suas permissões. Confira a conexão e tente novamente.</Text><Pressable accessibilityRole="button" onPress={() => setSessionAttempt(value => value + 1)}><Text style={{ fontSize: 18, color: "#087A46" }}>Tentar novamente</Text></Pressable><Pressable accessibilityRole="button" onPress={() => void signOut()}><Text style={{ fontSize: 18 }}>Sair da conta</Text></Pressable></View>;
   // A tela de seleção já prepara os dados antes de navegar. Trocar a seleção
   // não pode desmontar o Stack enquanto o próprio seletor aguarda esse preparo.
-  if (!startupComplete || isLoading || (session?.user?.id && readyUserId !== String(session.user.id))) {
-    return <Loading showRevision animateBrand onBrandReady={() => setStartupComplete(true)} />;
-  }
-
+  const preparandoEntrada = !startupComplete || isLoading || Boolean(session?.user?.id && readyUserId !== String(session.user.id));
   const loggedIn = Boolean(session);
 
   /*
@@ -286,7 +306,7 @@ function RootNavigator() {
   function concluirAutenticacaoBiometrica() {
     if (!primeiraAutenticacaoBiometrica.current) return;
     primeiraAutenticacaoBiometrica.current = false;
-    if (session?.user?.perfil === "ADMIN") {
+    if (!IS_GERADOR_APP && session?.user?.perfil === "ADMIN") {
       router.replace("/admin/escolher-area" as any);
     }
   }
@@ -574,12 +594,12 @@ function RootNavigator() {
       </Stack.Protected>
     </Stack>
     </View>
-    <PersistentAppTabs loggedIn={loggedIn && !precisaDigital} />
-    {loggedIn && !precisaDigital && entryScreenReady ? <NativeApkUpdateNotice /> : null}
-    {isPreviewEnvironment && loggedIn && !precisaDigital ? <AssistantWakeWord /> : null}
-    {isPreviewEnvironment && loggedIn && !precisaDigital ? <FloatingAssistant /> : null}
-    {loggedIn && !entryScreenReady ? <View style={styles.entryOverlay}><Loading showRevision animateBrand={false} /></View> : null}
-    {precisaDigital ? <View style={styles.lockOverlay}><BiometricLock onUnlocked={concluirAutenticacaoBiometrica} /></View> : null}
+    <PersistentAppTabs loggedIn={loggedIn && !precisaDigital && !preparandoEntrada} />
+    {loggedIn && !precisaDigital && !preparandoEntrada && entryScreenReady ? <NativeApkUpdateNotice /> : null}
+    {isPreviewEnvironment && loggedIn && !precisaDigital && !preparandoEntrada && entryScreenReady ? <AssistantWakeWord /> : null}
+    {isPreviewEnvironment && loggedIn && !precisaDigital && !preparandoEntrada && entryScreenReady ? <FloatingAssistant /> : null}
+    {preparandoEntrada || (loggedIn && !entryScreenReady) ? <View style={styles.entryOverlay}><Loading showRevision animateBrand={!startupComplete} onBrandReady={() => setStartupComplete(true)} /></View> : null}
+    {!preparandoEntrada && loggedIn && digitalEnabled && (precisaDigital || !entryScreenReady || !biometricExitReady) ? <View style={styles.lockOverlay}><BiometricLock onUnlocked={concluirAutenticacaoBiometrica} /></View> : null}
     </>
   );
 }

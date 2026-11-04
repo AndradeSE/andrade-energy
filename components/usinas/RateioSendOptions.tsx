@@ -6,7 +6,6 @@ import {sha256} from '@noble/hashes/sha256';
 import {bytesToHex,utf8ToBytes} from '@noble/hashes/utils';
 import api from '../../config/api';
 import {obterSessao} from '../../storage/session';
-import {isPreviewEnvironment} from '../../config/environment';
 import {buscarRateioAutomatico} from '../../services/usinas.service';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Button} from '../ui';
@@ -22,7 +21,7 @@ const options:Record<Mode,{title:string;description:string;accept:string}>={
 export default function RateioSendOptions({usinaId,competencia,disabled=false}:{usinaId:string;competencia?:string;disabled?:boolean}){
  const [mode,setMode]=useState<Mode>(),[opening,setOpening]=useState(false);
  const [queue,setQueue]=useState<{habilitado:boolean;modo?:string;itens?:{id:string;competencia:string;estado:string;protocolo?:string}[]}>();
- const nativeAvailable=!isPreviewEnvironment&&Platform.OS==='android'&&Constants.expoConfig?.extra?.nativeCemigAutomation===true;
+ const nativeAvailable=Boolean(Constants.expoConfig?.android?.package)&&Platform.OS==='android'&&Constants.expoConfig?.extra?.nativeCemigAutomation===true;
  const queueUrl=`/usinas/${encodeURIComponent(usinaId)}/cemig-fila`;
  const insets=useSafeAreaInsets();
  useEffect(()=>{setMode(undefined);},[usinaId,competencia]);
@@ -33,9 +32,17 @@ export default function RateioSendOptions({usinaId,competencia,disabled=false}:{
   const session=await obterSessao();if(!session?.token)throw Error('Entre novamente no Gerador.');
   const response=await api.put(queueUrl,{habilitado:enabled,autorizaEnvioAutomatico:enabled,modo:mode==='AUTORIZADO'?'AUTORIZADO':'AUTOMATICO',...(authorizedHash?{competencia,hash:authorizedHash}:{})},{timeout:15000});
   try{
-   const result=await IntentLauncher.startActivityAsync('android.intent.action.VIEW',{packageName:'com.andradese.energy.gerador',className:'br.com.andradeenergy.cemig.CemigBrowserActivity',extra:{rateioAutomationEnabled:enabled,rateioAutomationSolver:enabled,rateioUsina:usinaId,rateioApi:String(response.config.baseURL??'').replace(/\/$/,''),rateioToken:session.token}});
+   const result=await IntentLauncher.startActivityAsync('android.intent.action.VIEW',{packageName:Constants.expoConfig?.android?.package,className:'br.com.andradeenergy.cemig.CemigBrowserActivity',extra:{rateioAutomationEnabled:enabled,rateioAutomationSolver:enabled,rateioUsina:usinaId,rateioApi:String(response.config.baseURL??'').replace(/\/$/,''),rateioToken:session.token}});
    if(result.resultCode!==-1)throw Error('O agendamento não foi confirmado no aparelho.');
-  }catch(e){if(enabled)await api.put(queueUrl,{habilitado:false},{timeout:15000});throw e;}
+  }catch(e){
+   if(!enabled || mode==='AUTORIZADO'){
+    if(enabled)await api.put(queueUrl,{habilitado:false},{timeout:15000});
+    throw e;
+   }
+   setQueue({habilitado:true,modo:'AUTOMATICO'});
+   Alert.alert('Envio automático salvo','A configuração foi salva. O Android não confirmou o agendamento neste aparelho. Toque em ativar novamente para tentar agendar.');
+   return;
+  }
   setQueue((await api.get(queueUrl,{timeout:15000})).data);
  }
  function close(){if(!opening)setMode(undefined);}
@@ -65,8 +72,8 @@ export default function RateioSendOptions({usinaId,competencia,disabled=false}:{
   finally{setOpening(false);}
  }
  return <View style={{gap:12}}><Text style={styles.title}>Envio à Cemig</Text><Text style={styles.text}>Escolha uma opção para ler como funciona antes de confirmar.</Text>
-  {(Object.keys(options) as Mode[]).map(value=><Button key={value} title={options[value].title} disabled={disabled} onPress={()=>setMode(value)}/>)}
-  {nativeAvailable&&queue?<><Text style={styles.text}>{queue.habilitado?`Envio ${queue.modo==='AUTORIZADO'?'autorizado desta competência':'automático'} habilitado neste cadastro.`:'Envio automático desativado.'}</Text>{queue.habilitado?<Button title="Desativar envio automático" disabled={opening} onPress={()=>{setOpening(true);void configure(false).catch(e=>Alert.alert('Não foi possível desativar',e?.message??'Confira a conexão.')).finally(()=>setOpening(false));}}/>:null}{queue.itens?.map(item=><Text key={item.id} style={styles.text}>{item.competencia.slice(0,7)} · {item.estado}{item.protocolo?` · protocolo ${item.protocolo}`:''}</Text>)}</>:null}
+  {(Object.keys(options) as Mode[]).filter(value=>value!=='AUTOMATICO'||!queue?.habilitado||queue.modo!=='AUTOMATICO').map(value=><Button key={value} title={options[value].title} disabled={disabled} onPress={()=>setMode(value)}/>)}
+  {nativeAvailable&&queue?<><Text style={styles.text}>{queue.habilitado?`Envio ${queue.modo==='AUTORIZADO'?'autorizado desta competência':'automático'} habilitado neste cadastro.`:'Envio automático desativado.'}</Text>{queue.habilitado?<Button title={queue.modo==='AUTORIZADO'?'Cancelar envio autorizado':'Desativar envio automático'} disabled={opening} onPress={()=>{setOpening(true);void configure(false).catch(e=>Alert.alert('Não foi possível desativar',e?.message??'Confira a conexão.')).finally(()=>setOpening(false));}}/>:null}{queue.itens?.map(item=><Text key={item.id} style={styles.text}>{item.competencia.slice(0,7)} · {item.estado}{item.protocolo?` · protocolo ${item.protocolo}`:''}</Text>)}</>:null}
   <Modal visible={!!mode} transparent animationType="slide" onRequestClose={close}>
    <View style={styles.overlay}><View accessibilityViewIsModal style={[styles.sheet,{paddingBottom:Math.max(20,insets.bottom),marginTop:insets.top+24}]}>
     <ScrollView style={{flexShrink:1}} contentContainerStyle={{gap:18,paddingBottom:8}}>

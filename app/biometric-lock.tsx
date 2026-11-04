@@ -34,6 +34,7 @@ export default function BiometricLock({ onUnlocked }: { onUnlocked?: () => void 
     setAuthenticating,
   ] =
     useState(false);
+  const [unlocked, setUnlocked] = useState(false);
 
   /*
    * Evita abrir dois prompts
@@ -71,6 +72,7 @@ export default function BiometricLock({ onUnlocked }: { onUnlocked?: () => void 
           "Confirme que há uma digital ou rosto cadastrado no aparelho. Você também pode entrar com a senha."
         );
       } else {
+        setUnlocked(true);
         onUnlocked?.();
       }
     } catch (error) {
@@ -184,14 +186,12 @@ export default function BiometricLock({ onUnlocked }: { onUnlocked?: () => void 
           activeOpacity={
             0.85
           }
-          disabled={
-            authenticating
-          }
+          disabled={authenticating || unlocked}
           onPress={
             handleDigital
           }
         >
-          {authenticating ? (
+          {authenticating || unlocked ? (
             <ActivityIndicator
               color="#FFFFFF"
             />
@@ -208,9 +208,7 @@ export default function BiometricLock({ onUnlocked }: { onUnlocked?: () => void 
               styles.primaryButtonText
             }
           >
-            {authenticating
-              ? "Verificando..."
-              : "Entrar com biometria"}
+            {unlocked ? "Abrindo..." : authenticating ? "Verificando..." : "Entrar com biometria"}
           </Text>
         </TouchableOpacity>
 
