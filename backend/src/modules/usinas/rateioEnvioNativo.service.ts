@@ -7,8 +7,11 @@ import {criarNotificacaoApp} from '../notificacoes/push.service';
 import {conferirFaturamentoDaUc} from '../faturas/inadimplenciaUc.service';
 import {contratoElegivelParaRateio} from './rateioAutomatico.policy';
 const preview=()=>String(process.env.SUPABASE_URL).replace(/\/$/,'')==='https://qqhcjieymypowunkixmk.supabase.co';
+const execucaoHabilitada=()=>preview()||process.env.CEMIG_NATIVE_BACKGROUND_ENABLED==='true';
+function exigirExecucaoHabilitada(){
+ if(!execucaoHabilitada())throw new Error('Fila nativa ainda não habilitada neste ambiente.');
+}
 async function scope(usina:string,empresa:string){
- if(!preview()&&process.env.CEMIG_NATIVE_BACKGROUND_ENABLED!=='true')throw new Error('Fila nativa ainda não habilitada neste ambiente.');
  const r=await supabase.from('usinas').select('id').eq('empresa_id',empresa).eq('id',usina).maybeSingle();
  if(r.error||!r.data)throw new Error('Acesso indisponível.');
 }
@@ -34,6 +37,7 @@ export async function listarFilaNativa(usina:string,empresa:string,usuario:strin
  const c=await supabase.from('rateio_envio_nativo_config').select('*').eq('empresa_id',empresa).eq('usina_id',usina).eq('usuario_id',usuario).maybeSingle();
  if(c.error)throw c.error;
  if(!c.data?.habilitado)return {habilitado:false,itens:[]};
+ if(!execucaoHabilitada())return {habilitado:true,modo:c.data.modo,itens:[]};
  const now=new Date().toISOString();
  const uncertain=await supabase.from('rateio_envios_nativos').update({estado:'INCERTO',atualizado_em:now}).eq('empresa_id',empresa).eq('usuario_id',usuario).eq('usina_id',usina).eq('estado','ENVIANDO').lt('lease_ate',now);
  if(uncertain.error)throw uncertain.error;
@@ -55,6 +59,7 @@ export async function listarFilaNativa(usina:string,empresa:string,usuario:strin
  return {habilitado:true,modo:c.data.modo,itens:jobs.data??[]};
 }
 export async function reivindicarEnvioNativo(usina:string,empresa:string,usuario:string,id:string){
+ exigirExecucaoHabilitada();
  await scope(usina,empresa);
  const job=await supabase.from('rateio_envios_nativos').select('id,competencia,csv_hash,artefato_teste').eq('id',id).eq('empresa_id',empresa).eq('usuario_id',usuario).eq('usina_id',usina).maybeSingle();
  if(job.error||!job.data)throw new Error('Envio indisponível.');
@@ -77,6 +82,7 @@ export async function reivindicarEnvioNativo(usina:string,empresa:string,usuario
  return {id:row.id,leaseId:row.lease_id,hash:row.csv_hash,plano:r.data.resultado,simulacao:preview(),permiteProtocolo:!preview()};
 }
 export async function atualizarEnvioNativo(usina:string,empresa:string,usuario:string,id:string,body:any){
+ exigirExecucaoHabilitada();
  await scope(usina,empresa);
  if(!/^[a-f0-9-]{36}$/i.test(body?.leaseId??''))throw new Error('Sessão inválida.');
  const before=await supabase.from('rateio_envios_nativos').select('estado,csv_hash,competencia').eq('id',id).eq('empresa_id',empresa).eq('usina_id',usina).eq('usuario_id',usuario).eq('lease_id',body.leaseId).gt('lease_ate',new Date().toISOString()).single();
