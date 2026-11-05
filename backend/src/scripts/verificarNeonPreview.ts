@@ -2,6 +2,7 @@ import { Client } from "pg";
 
 async function main() {
   const raw = process.env.NEON_DATABASE_URL;
+  if (!raw && process.argv.includes("--if-configured")) return;
   if (!raw) throw new Error("NEON_DATABASE_URL ausente");
   const url = new URL(raw);
   if (url.protocol !== "postgresql:" ||
@@ -27,7 +28,7 @@ async function main() {
       "select current_database() as banco, count(*)::int as tabelas, count(*) filter (where relrowsecurity)::int as rls from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r'",
     );
     if (!estado.tabelas || estado.tabelas !== estado.rls) throw new Error("Estrutura do reserva incompleta");
-    console.log(JSON.stringify(estado));
+    console.log("Conexão Neon Preview verificada", JSON.stringify(estado));
   } finally {
     await client.end();
   }
