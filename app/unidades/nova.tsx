@@ -316,7 +316,11 @@ export default function NovaUnidade() {
     <Text style={styles.eyebrow}>{origem === "fatura" ? "DADOS LIDOS DA FATURA" : "CADASTRO MANUAL"}</Text><Text style={styles.title}>Nova unidade</Text>
     <Text style={styles.subtitle}>{clienteIdVinculado ? "Confirme o número. Os demais dados serão herdados do cliente." : cadastroRapido === "1" ? "Confirme o número e escolha o cliente. Os demais dados serão herdados automaticamente." : "Confira a leitura e escolha a quem esta unidade pertence."}</Text>
     <Card><FormField label="Número atual da UC" value={mascaraUcCemig(numero)} onChangeText={(v) => setNumero(v.replace(/\D/g, "").slice(0,13))} placeholder="6.070.813.018-89" maxLength={18} keyboardType="numeric" />
-      {IS_GERADOR_APP && tipo !== "GERADORA" ? <>
+      {!clienteIdVinculado && cadastroRapido !== "1" ? <><FormField label="Titular" value={titular} onChangeText={setTitular} /><FormField label="Endereço" value={endereco} onChangeText={setEndereco} /></> : null}
+      {tipo !== "GERADORA" ? <>
+        <Text style={styles.configurationTitle}>CONFIGURAÇÃO DA UC</Text>
+        <Text style={styles.beneficiariaHint}>Defina as condições desta unidade antes de salvar. Elas não são copiadas do cadastro do cliente.</Text>
+      {IS_GERADOR_APP ? <>
         <ChoiceField label="Localização da UC" value={zona} onChange={(valor) => {
           setZona(valor);
           if (valor !== "RURAL") setAutoleituraAtiva(false);
@@ -325,10 +329,6 @@ export default function NovaUnidade() {
           onChange={(valor) => setAutoleituraAtiva(valor === "ATIVA")}
           options={[{ label: "Ativada", value: "ATIVA" }, { label: "Desativada", value: "INATIVA" }]} /> : null}
       </> : null}
-      {!clienteIdVinculado && cadastroRapido !== "1" ? <><FormField label="Titular" value={titular} onChangeText={setTitular} /><FormField label="Endereço" value={endereco} onChangeText={setEndereco} /></> : null}
-      {tipo !== "GERADORA" ? <>
-        <Text style={styles.configurationTitle}>CONFIGURAÇÃO DA UC</Text>
-        <Text style={styles.beneficiariaHint}>Defina as condições desta unidade antes de salvar. Elas não são copiadas do cadastro do cliente.</Text>
         <ChoiceField label="Faturamento" value={modalidade} onChange={(valor) => { const nova = valor as Modalidade; setModalidade(nova); setPercentualAlocado(percentualPelaMedia(usinaSelecionada, consumoMedio, nova)); }} options={[{ label: "Injeção", value: "INJECAO" }, { label: "Compensação", value: "COMPENSACAO" }]} />
         <Text style={styles.beneficiariaHint}>Usina deste ambiente: {usinaSelecionada?.nome ?? "Selecione uma usina"}</Text>
         {trocandoUsina || !usinaId ? <UsinaSelector usinas={usinas} value={usinaId} onChange={(valor) => { setUsinaId(valor); setTrocandoUsina(false); if (!percentualEditado) setPercentualAlocado(percentualPelaMedia(usinas.find((item) => item.id === valor), consumoMedio, modalidade)); }} label="Trocar usina" /> : null}

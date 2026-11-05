@@ -3,12 +3,12 @@ import { useEffect, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 
 import ChoiceField from "../../components/cadastro/ChoiceField";
-import Constants from "expo-constants";
-import * as IntentLauncher from "expo-intent-launcher";
-import { isPreviewEnvironment } from "../../config/environment";
-import apiAutoleitura from "../../config/api";
-import { obterSessao } from "../../storage/session";
-import { configurarAutoleitura, listarAutoleituras } from "../../services/clientes.service";
+
+
+
+
+
+import { configurarAutoleitura } from "../../services/clientes.service";
 import FormField from "../../components/cadastro/FormField";
 import RealDiscountInfo from "../../components/cadastro/RealDiscountInfo";
 import UsinaSelector from "../../components/cadastro/UsinaSelector";
@@ -251,7 +251,7 @@ export default function EditarAlocacaoUnidade() {
     ]);
     if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return Alert.alert("Desconto inválido", "Informe um desconto entre 0% e 100%.");
     try { setSalvando(true);
-      await alocarUnidade(usinaId, { planoContrato, clienteId: clienteIdResolvido, numero: numeroDaUc, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd: tipoGdEfetivo, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: !percentualEditado, revisaoContrato: atualizacaoContratual });
+      await alocarUnidade(usinaId, { ...(zona ? { zona_localizacao: zona, autoleitura_rural_ativa: zona === "RURAL" && autoleituraAtiva } : {}), planoContrato, clienteId: clienteIdResolvido, numero: numeroDaUc, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd: tipoGdEfetivo, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: !percentualEditado, revisaoContrato: atualizacaoContratual });
       if (usinaId !== usinaDoAmbiente?.id && usinaSelecionada) await selecionarUsina(usinaSelecionada);
       // Esta tela pode ter sido aberta a partir de uma UC ou da criação por
       // fatura. O destino único evita ficar preso na tela anterior e exigir
@@ -315,59 +315,7 @@ export default function EditarAlocacaoUnidade() {
         <Text style={styles.subtitle}>
           {somenteAutoleitura === "1" ? "Configure a autoleitura do medidor desta UC." : "Defina a usina, a média de consumo e o percentual desta UC."}
         </Text>
-        {IS_GERADOR_APP && eUuid(unidadeIdRecebida) ? (
-          <Card>
-            <Button title="Consultar leituras recebidas" onPress={async () => {
-              try {
-                const leituras = await listarAutoleituras(unidadeIdRecebida);
-                const pendente = leituras.find((item) => item.estado === "RECEBIDA");
-                const podeTestar = Constants.expoConfig?.extra?.nativeCemigAutoleitura === true && pendente;
-                Alert.alert("Leituras recebidas", leituras.length
-                  ? leituras.map((item) => {
-                    const estado = {
-                      RECEBIDA: "Aguardando envio à Cemig",
-                      EM_ENVIO: "Envio em andamento",
-                      ENVIADA: "Enviada à Cemig",
-                      RECUSADA: "Recusada pela Cemig",
-                      EM_REVISAO: "Aguardando conferência",
-                    }[item.estado];
-                    const protocolo = item.protocolo_cemig ? `Protocolo ${item.protocolo_cemig}` : null;
-                    const estimativa = item.estimativa_cemig == null ? null
-                      : `Estimativa ${item.estimativa_cemig.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`;
-                    return [item.data_programada.split("-").reverse().join("/"), `${item.leitura_kwh} kWh`, estado, protocolo, estimativa].filter(Boolean).join(" · ");
-                  }).join("\n")
-                  : "Nenhuma leitura registrada para esta unidade.",
-                  podeTestar ? [{ text: "Fechar", style: "cancel" }, { text: isPreviewEnvironment ? "Conferir no navegador" : "Enviar à Cemig", onPress: async () => {
-                    try {
-                      const sessao = await obterSessao();
-                      if (!sessao?.token || !usinaId) throw new Error("Confirme a sessão e a usina desta UC.");
-                      const fila = await apiAutoleitura.get<{ itens: {
-                        id: string; unidade_id: string; leitura_kwh: number; data_programada: string;
-                        unidades_consumidoras: { numero: string };
-                      }[] }>(`/clientes/autoleitura/fila/${encodeURIComponent(usinaId)}`);
-                      const tarefa = fila.data.itens.find((item) => item.id === pendente.id && item.unidade_id === unidadeIdRecebida);
-                      if (!tarefa) throw new Error("A leitura não está mais disponível na fila desta usina.");
-                      const dataLocal = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
-                      const dataProgramada = new Date(`${tarefa.data_programada}T12:00:00Z`);
-                      const referencia = `${dataProgramada.toLocaleDateString("pt-BR", { month: "long", timeZone: "UTC" })}/${dataProgramada.getUTCFullYear()}`;
-                      await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
-                        packageName: isPreviewEnvironment ? "com.andradese.energy.gerador.preview" : "com.andradese.energy.gerador",
-                        className: "br.com.andradeenergy.cemig.CemigBrowserActivity",
-                        extra: {
-                          autoleituraPreview: JSON.stringify({ unidadeId: tarefa.unidade_id, leituraId: tarefa.id, uc: tarefa.unidades_consumidoras.numero.replace(/\D/g, ""), leitura: String(tarefa.leitura_kwh), dataLocal, referencia }),
-                          rateioApi: String(fila.config.baseURL ?? "").replace(/\/$/, ""),
-                          rateioToken: sessao.token,
-                          rateioUsina: usinaId,
-                        },
-                      });
-                    } catch (erro) {
-                      Alert.alert("Não foi possível abrir a Cemig", (erro as Error).message);
-                    }
-                  } }] : undefined);
-              } catch {
-                Alert.alert("Não foi possível consultar as leituras");
-              }
-            }} />
+        {somenteAutoleitura === "1" ? <>
             <ChoiceField label="Localização da UC" value={zona} onChange={(valor) => {
               setZona(valor);
               if (valor !== "RURAL") setAutoleituraAtiva(false);
@@ -389,8 +337,7 @@ export default function EditarAlocacaoUnidade() {
                 setSalvandoAutoleitura(false);
               }
             }} />
-          </Card>
-        ) : null}
+        </> : null}
         {somenteAutoleitura !== "1" ? <>
         {atualizacaoContratual ? <Text style={styles.warning}>Atualização contratual iniciada. Revise as condições, salve e gere a nova minuta para assinatura.</Text> : null}
         <Card>
@@ -408,6 +355,15 @@ export default function EditarAlocacaoUnidade() {
             detail={textoProducao}
           /> : null}
 
+            <ChoiceField label="Localização da UC" value={zona} onChange={(valor) => {
+              setZona(valor);
+              if (valor !== "RURAL") setAutoleituraAtiva(false);
+            }} options={[{ label: "Rural", value: "RURAL" }, { label: "Urbana", value: "URBANA" }]} disabled={salvandoAutoleitura} />
+            {zona === "RURAL" ? (
+              <ChoiceField label="Autoleitura do medidor" value={autoleituraAtiva ? "ATIVA" : "INATIVA"}
+                onChange={(valor) => setAutoleituraAtiva(valor === "ATIVA")}
+                options={[{ label: "Ativada", value: "ATIVA" }, { label: "Desativada", value: "INATIVA" }]} disabled={salvandoAutoleitura} />
+            ) : null}
           <ChoiceField
             label="Modalidade"
             value={modalidade}
