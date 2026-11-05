@@ -292,6 +292,22 @@ export async function executarAutoleituraController(req: Request, res: Response)
   return res.json({ estado });
 }
 
+export async function listarMinhasAutoleiturasController(req: Request, res: Response) {
+  const clienteId = (req as any).usuario?.cliente_id;
+  if (!clienteId) return res.status(403).json({ message: "Conta sem vínculo de consumidor." });
+  if (!idAutoleituraValido(req.params.unidadeId)) return res.status(400).json({ message: "Unidade inválida." });
+
+  const { data, error } = await supabase.from("autoleituras_medidor")
+    .select("id,data_programada,leitura_kwh,recebida_em,estado,protocolo_cemig,estimativa_cemig,unidades_consumidoras!inner(empresa_id,cliente_id)")
+    .eq("unidade_id", req.params.unidadeId)
+    .eq("unidades_consumidoras.empresa_id", empresaIdDaRequisicao(req))
+    .eq("unidades_consumidoras.cliente_id", clienteId)
+    .order("data_programada", { ascending: false })
+    .limit(12);
+  if (error) return res.status(500).json({ message: "Não foi possível consultar as leituras." });
+  return res.json((data ?? []).map(({ unidades_consumidoras, ...leitura }) => leitura));
+}
+
 export async function listarAutoleiturasController(req: Request, res: Response) {
   const { data, error } = await supabase.from("autoleituras_medidor")
     .select("id,data_programada,leitura_kwh,recebida_em,estado,protocolo_cemig,estimativa_cemig")

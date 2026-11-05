@@ -7,6 +7,7 @@ import {
   buscarUnidadeController,
   configurarAutoleituraController,
   listarAutoleiturasController,
+  listarMinhasAutoleiturasController,
   executarAutoleituraController,
   listarFilaAutoleituraController,
   registrarAutoleituraController,
@@ -38,6 +39,7 @@ router.use(exigirAutenticacao);
 router.get("/", exigirGestor, listarClientesController);
 
 router.post("/minhas-unidades/:unidadeId/autoleitura", registrarAutoleituraController);
+router.get("/minhas-unidades/:unidadeId/autoleitura", listarMinhasAutoleiturasController);
 router.get("/minhas-unidades", exigirAutenticacao, listarMinhasUnidadesController);
 router.patch("/minhas-unidades/:unidadeId/apelido", exigirAutenticacao, nomearMinhaUnidadeController);
 router.get("/autoleitura/fila/:id", exigirGestor, exigirUsinaDaSessaoOuGestor(), listarFilaAutoleituraController);
