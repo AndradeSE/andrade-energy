@@ -388,13 +388,20 @@ class CemigBrowserService : Service() {
                     document.addEventListener('focusin',function(e){
                         if(e.target&&/^(INPUT|TEXTAREA)$/.test(e.target.tagName))setTimeout(function(){e.target.scrollIntoView({block:'center',behavior:'smooth'});},300);
                     });
+                    function isReadingService(){
+                        return /^(www\.)?atendimento\.cemig\.com\.br$/.test(location.hostname)
+                            && location.pathname.replace(/\/$/,'') === '/portal/services/inform-reading';
+                    }
                     document.addEventListener('click',function(e){
                         var b=e.target.closest&&e.target.closest('button,input[type=submit]');
+                        if(${packageName.endsWith(".preview")}&&isReadingService()&&b&&/^(avan[çc]ar|confirmar leitura)$/i.test((b.innerText||b.value||'').trim())){
+                            e.preventDefault();e.stopImmediatePropagation();alert('Simulação: protocolo de leitura bloqueado.');
+                        }
                         if(${packageName.endsWith(".preview")}&&b&&/solicitar cadastro/i.test(b.innerText||b.value||'')){e.preventDefault();e.stopImmediatePropagation();alert('Simulação: protocolo definitivo bloqueado.');}
                     },true);
                     document.addEventListener('submit',function(e){
                         var buttons=Array.from(e.target.querySelectorAll('button,input[type=submit]'));
-                        if(${packageName.endsWith(".preview")}&&buttons.some(function(b){return /solicitar cadastro/i.test(b.innerText||b.value||'');})){e.preventDefault();e.stopImmediatePropagation();}
+                        if(${packageName.endsWith(".preview")}&&(isReadingService()||buttons.some(function(b){return /solicitar cadastro/i.test(b.innerText||b.value||'');}))){e.preventDefault();e.stopImmediatePropagation();}
                     },true);
                 })();true;""",null)
             }
