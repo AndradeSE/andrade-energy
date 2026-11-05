@@ -34,7 +34,12 @@ async function main() {
   }
 }
 
-main().catch(() => {
-  console.error("Verificação do Neon falhou. Confira o segredo, TLS e o banco de Preview.");
+main().catch((error: unknown) => {
+  const code = (error as { code?: unknown })?.code;
+  const knownCodes = ["28P01", "28000", "3D000", "ENOTFOUND", "ECONNREFUSED", "ETIMEDOUT", "SELF_SIGNED_CERT_IN_CHAIN", "UNABLE_TO_VERIFY_LEAF_SIGNATURE", "ERR_TLS_CERT_ALTNAME_INVALID"];
+  const reason = typeof code === "string" && knownCodes.includes(code) ? code
+    : error instanceof Error && ["Destino Neon Preview inválido", "Estrutura do reserva incompleta", "NEON_DATABASE_URL ausente"].includes(error.message)
+      ? error.message : "conexão ou consulta falhou";
+  console.error("Verificação do Neon falhou:", reason);
   process.exitCode = 1;
 });
