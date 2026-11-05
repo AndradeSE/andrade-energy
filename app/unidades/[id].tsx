@@ -235,8 +235,12 @@ export default function UnidadeDocumentos() {
           },
         });
         if (contratoAssinado) {
-          Alert.alert("UC com contrato ativo", "Esta UC já possui um contrato ativo. Deseja apenas consultar as condições atuais ou revisar a configuração e gerar uma atualização do contrato?", [
+          Alert.alert("UC com contrato ativo", "A localização e a autoleitura podem ser alteradas sem mexer no contrato. Para revisar as condições contratadas, escolha a atualização do contrato.", [
             { text: "Cancelar", style: "cancel" },
+            { text: "Editar localização e autoleitura", onPress: () => router.push({
+              pathname: "/unidades/editar",
+              params: { id: unidade.id, numero: unidade.numero, usinaId: unidade.usina_id ?? "", somenteAutoleitura: "1" },
+            }) },
             { text: "Atualizar configuração e contrato", onPress: abrirEdicao },
           ]);
           return;
