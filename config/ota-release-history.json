@@ -1,5 +1,1346 @@
 [
   {
+    "numero": "OTA 20261104-171211",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: consultar energia disponivel para venda [1.0.11-production-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-170402",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: consultar energia disponivel para venda"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-165912",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: fechar PDF por comando de voz"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-165726",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: preservar numero da UC e localizar contrato pelo cadastro"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-165102",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: informar causa da falha ao consultar PDF"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-164702",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: localizar contrato pelo numero da UC"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-164050",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: consultar o PDF de contrato aberto"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-163201",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: impedir auto-interrupcao pelo alto-falante"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-162841",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: filtrar ruido durante a fala"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-161717",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: habilitar voz natural no Gerador Preview 1.0.12"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-134545",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: preservar sessao no leitor e interromper fala [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-133558",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: manter conversa ativa e contexto do contrato [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-121926",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: abrir contrato diretamente no visualizador [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-121428",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: abrir contrato como PDF [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-121125",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: abrir contrato pelo final da UC [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-115058",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: abrir PDF vigente e indicar quando escolher contrato [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-114825",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: lista de contratos e contexto do cliente [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-114523",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: abrir PDF do contrato em destaque [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-114004",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: consultar trechos de contratos PDF [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-113033",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: consultar dados de contato do cliente [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-112429",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: consultar email do cliente pelo nome [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-111538",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: pedidos naturais de contrato e navegacao [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-111014",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: reconhecer pedidos naturais de navegacao [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-110527",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: abrir PDF do contrato do cliente [1.0.11-production-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-105650",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: abrir PDF do contrato do cliente [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-104810",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: abrir contratos por cliente [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-104632",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: Perfil e Operacao sem exigir competencia [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-103511",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: rotas de Rateio Clientes e Colaboradores [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-103331",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: abrir diretamente a tela de rateio [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-101336",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: abrir operacao, rateio, clientes e contratos [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-095111",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: orientar pelo novo fluxo de rateio [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-093552",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Rateio e cotas [1.0.11-production-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-093517",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Rateio reorganizado e Browserbase removido das cotas [1.0.4-production-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-092715",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Cotas: ocultar Browserbase [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-092525",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Cotas: ocultar Browserbase [1.0.9-preview-cemig-worker]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-092348",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Cotas: ocultar Browserbase [1.0.10-preview-arm32]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-092156",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Cotas: ocultar Browserbase [1.0.4-preview-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-090659",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio: explicacao junto ao envio automatico [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-090528",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio: explicacao junto ao envio automatico [1.0.9-preview-cemig-worker]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-090348",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio: explicacao junto ao envio automatico [1.0.10-preview-arm32]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-090221",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio: explicacao junto ao envio automatico [1.0.4-preview-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-085131",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio: saldo em destaque e envio em uma secao [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-084953",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio: saldo em destaque e envio em uma secao [1.0.9-preview-cemig-worker]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-084803",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio: saldo em destaque e envio em uma secao [1.0.10-preview-arm32]"
+    ]
+  },
+  {
+    "numero": "OTA 20261104-084538",
+    "data": "04/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio: saldo em destaque e envio em uma secao [1.0.4-preview-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-221420",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Preserva ativacao do rateio automatico e ajusta carregamento [1.0.11-production-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-220201",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Preserva ativacao do rateio automatico [1.0.11-production-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-215304",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Preserva ativacao do rateio automatico [1.0.9-production-cemig-worker]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-214918",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Preserva ativacao do rateio automatico [1.0.10-production-arm32]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-214519",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Preserva ativacao do rateio automatico [1.0.4-production-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-214003",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Preserva ativacao do rateio automatico quando Android nao agenda [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-213558",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Preserva ativacao do rateio automatico quando Android nao agenda [1.0.9-preview-cemig-worker]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-213202",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Preserva ativacao do rateio automatico quando Android nao agenda [1.0.10-preview-arm32]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-212641",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Preserva ativacao do rateio automatico quando Android nao agenda [1.0.4-preview-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-101628",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Cotas automaticas Supabase e estado atual Azure [1.0.11-production-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-101138",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Cotas automaticas Supabase e estado atual Azure [1.0.9-production-cemig-worker]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-100755",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Cotas automaticas Supabase e estado atual Azure [1.0.10-production-arm32]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-100233",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Cotas automaticas Supabase e estado atual Azure [1.0.4-production-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-095609",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Cotas automaticas: leitura Supabase e estado atual Azure [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-095522",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Cotas automaticas Supabase e estado de medicao Azure [1.0.4-production-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-095259",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Cotas automaticas: leitura Supabase e estado atual Azure [1.0.9-preview-cemig-worker]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-094918",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Cotas automaticas: leitura Supabase e estado atual Azure [1.0.10-preview-arm32]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-094430",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Cotas automaticas: leitura Supabase e estado atual Azure [1.0.4-preview-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-075353",
+    "data": "03/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Atualizacao APK no app com instalador Android direto [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-075139",
+    "data": "03/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Atualizacao APK no app com instalador Android direto [1.0.10-preview-arm32]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-074917",
+    "data": "03/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Atualizacao APK no app com instalador Android direto [1.0.4-preview-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-074700",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Atualizacao APK no app com instalador Android direto [1.0.11-preview-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-074444",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Atualizacao APK no app com instalador Android direto [1.0.9-preview-cemig-worker]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-074223",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Atualizacao APK no app com instalador Android direto [1.0.10-preview-arm32]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-073955",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Atualizacao APK no app com instalador Android direto [1.0.4-preview-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-073136",
+    "data": "03/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Aviso de nova build APK tambem nos Previews anteriores [voice]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-072906",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Aviso de nova build APK tambem nos Previews anteriores [cemig]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-072626",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Aviso de nova build APK tambem nos Previews anteriores [universal]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-072339",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Aviso de nova build APK tambem nos Previews anteriores [voice]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-070123",
+    "data": "03/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Aviso de nova build APK; OTA continua automatica [1.0.11-production-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-065904",
+    "data": "03/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Aviso de nova build APK; OTA continua automatica [1.0.10-production-arm32]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-065619",
+    "data": "03/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Aviso de nova build APK; OTA continua automatica [1.0.4-production-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-065326",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Aviso de nova build APK; OTA continua automatica [1.0.11-production-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-065020",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Aviso de nova build APK; OTA continua automatica [1.0.9-production-cemig-worker]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-064715",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Aviso de nova build APK; OTA continua automatica [1.0.10-production-arm32]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-064440",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Aviso de nova build APK; OTA continua automatica [1.0.4-production-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261103-064034",
+    "data": "03/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Aviso de nova build APK com atualizacao pelo link correto"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-235619",
+    "data": "02/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Calculadora de economia e Solar com sequÃªncias de navegaÃ§Ã£o e orientaÃ§Ã£o atualizada"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-234959",
+    "data": "02/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Consumidor estável: puxar com indicador circular, Solar visível e logo até lista pronta [1.0.4-production-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-234614",
+    "data": "02/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Restaura indicador circular ao puxar e mantém imagem com logo até lista pronta"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-234357",
+    "data": "02/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Consumidor: corrige crash, restaura puxar para atualizar, Solar e logo durante carga inicial [1.0.4-production-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-233939",
+    "data": "02/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Restaura gesto puxar para atualizar simultâneo à rolagem; mantém logo e Solar"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-233229",
+    "data": "02/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Restaura puxar para atualizar com segurança, Solar visível e carregamento inicial na logo"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-232751",
+    "data": "02/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Mantém Solar visível após carregamento das abas; recuperação Android"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-232514",
+    "data": "02/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Mantém botão Solar visível após carregamento das abas"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-232433",
+    "data": "02/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Corrige fechamento do Consumidor Android; validado no S23 em todas as abas [1.0.10-production-arm32]"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-232205",
+    "data": "02/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Corrige fechamento do Consumidor Android; validado no S23 em todas as abas [1.0.4-production-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-231808",
+    "data": "02/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Recuperação de abertura Android: atualização explícita sem SwipeRefreshLayout [1.0.10-preview-arm32]"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-231441",
+    "data": "02/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Recuperação de abertura Android: atualização explícita sem SwipeRefreshLayout [1.0.4-preview-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-231251",
+    "data": "02/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Corrige fechamento Android nas transições com atualização de listas [1.0.4-preview-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-231008",
+    "data": "02/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Recupera abertura Android removendo RefreshControl da seleção de unidades [1.0.4-production-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-230634",
+    "data": "02/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Contratos sem fidelidade sem renovação antecipada; mitigação de crash Android [1.0.10-production-arm32]"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-225959",
+    "data": "02/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Contratos sem fidelidade sem renovação antecipada; mitigação de crash Android [1.0.4-production-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-225431",
+    "data": "02/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Corrige recorte de listas associado ao crash de abertura no Android"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-224523",
+    "data": "02/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Contrato sem fidelidade: remover antecipação de renovação"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-224147",
+    "data": "02/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Contratos sem fidelidade sem antecipação de renovação"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-223629",
+    "data": "02/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio por UC, inadimplÃªncia, avisos, navegador em segundo plano, Calculadora de economia e Solar com sequÃªncias de navegaÃ§Ã£o"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-222907",
+    "data": "02/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Calculadora de economia e Solar com sequÃªncias de navegaÃ§Ã£o e orientaÃ§Ã£o atualizada"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-220234",
+    "data": "02/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Calculadora de economia e Solar com sequÃªncias de navegaÃ§Ã£o e orientaÃ§Ã£o atualizada"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-220139",
+    "data": "02/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Calculadora de economia e Solar com sequÃªncias de navegaÃ§Ã£o e orientaÃ§Ã£o atualizada"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-172035",
+    "data": "02/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Solar calcula fatura completa por kWh com tarifa e impostos automáticos - compatível APK anterior"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-171603",
+    "data": "02/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Solar calcula fatura completa por kWh com tarifa e impostos automáticos"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-170058",
+    "data": "02/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar diagnóstico de consulta oficial de tarifa e tributos"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-162543",
+    "data": "02/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar calcula por kWh com tributos automáticos e entradas simplificadas"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-161743",
+    "data": "02/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar busca tarifa e impostos e calcula fatura por kWh na conversa"
+    ]
+  },
+  {
+    "numero": "OTA 20261102-160824",
+    "data": "02/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Solar calcula economia na conversa preservando navegador nativo"
+    ]
+  },
+  {
+    "numero": "OTA 20261101-004733",
+    "data": "01/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar sem saudacao repetida e retorno automatico ao Render principal"
+    ]
+  },
+  {
+    "numero": "OTA 20261101-004439",
+    "data": "01/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Solar sem saudacao repetida e retorno automatico ao Render principal"
+    ]
+  },
+  {
+    "numero": "OTA 20261101-004033",
+    "data": "01/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Solar sem saudacao repetida e preferencia pelo Render principal"
+    ]
+  },
+  {
+    "numero": "OTA 20261101-003715",
+    "data": "01/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar sem saudacao repetida e preferencia pelo Render principal"
+    ]
+  },
+  {
+    "numero": "OTA 20261101-001916",
+    "data": "01/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Atualizacao consolidada: Solar, interface e compatibilidade com servidores sincronizados"
+    ]
+  },
+  {
+    "numero": "OTA 20261101-001548",
+    "data": "01/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Atualizacao consolidada: Solar, interface e compatibilidade com servidores sincronizados"
+    ]
+  },
+  {
+    "numero": "OTA 20261101-001217",
+    "data": "01/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Atualizacao consolidada: Solar, interface e compatibilidade com servidores sincronizados"
+    ]
+  },
+  {
+    "numero": "OTA 20261101-000828",
+    "data": "01/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Atualizacao consolidada: calculadora simplificada, Solar e compatibilidade com servidores sincronizados"
+    ]
+  },
+  {
+    "numero": "OTA 20261031-201538",
+    "data": "31/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: teclado validado no S23 com campo e envio visiveis"
+    ]
+  },
+  {
+    "numero": "OTA 20261031-191059",
+    "data": "31/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: medir area real acima do teclado Android"
+    ]
+  },
+  {
+    "numero": "OTA 20261031-185830",
+    "data": "31/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Calculadora sem iluminacao publica e Solar - APK navegador integrado"
+    ]
+  },
+  {
+    "numero": "OTA 20261031-185602",
+    "data": "31/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Calculadora e Solar revisadas - APK navegador integrado"
+    ]
+  },
+  {
+    "numero": "OTA 20261031-185232",
+    "data": "31/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Calculadora simplificada sem iluminacao publica e consultas diretas da Solar"
+    ]
+  },
+  {
+    "numero": "OTA 20261031-183459",
+    "data": "31/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Calculadora sem municipio e sem taxa de iluminacao publica"
+    ]
+  },
+  {
+    "numero": "OTA 20261031-183203",
+    "data": "31/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar consulta saldo de creditos da usina sem pedir navegacao"
+    ]
+  },
+  {
+    "numero": "OTA 20261031-182714",
+    "data": "31/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Corrigir campo da Solar encoberto pelo teclado Android"
+    ]
+  },
+  {
+    "numero": "OTA 20261031-131643",
+    "data": "31/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Gmail preservado: faturamento pela UC ativa da usina"
+    ]
+  },
+  {
+    "numero": "OTA 20261031-131032",
+    "data": "31/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Gmail preservado: referencia ativa da usina para faturamento automatico"
+    ]
+  },
+  {
+    "numero": "OTA 20261031-083239",
+    "data": "31/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Calculadora simplificada: compensacao 100%, disponibilidade automatica e iluminacao opcional"
+    ]
+  },
+  {
+    "numero": "OTA 20261031-081751",
+    "data": "31/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Calculadora simplificada: compensacao 100%, disponibilidade automatica e iluminacao opcional"
+    ]
+  },
+  {
+    "numero": "OTA 20261031-080957",
+    "data": "31/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Calculadora: corrigir primeiro clique e orientar Solar sobre comparacao de faturas"
+    ]
+  },
+  {
+    "numero": "OTA 20261030-201534",
+    "data": "30/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Calculadora: comparacao Cemig e Andrade, impostos oficiais e municipios"
+    ]
+  },
+  {
+    "numero": "OTA 20261030-192822",
+    "data": "30/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: conversas complexas, mais contexto e distincao entre conversa e comandos"
+    ]
+  },
+  {
+    "numero": "OTA 20261030-152012",
+    "data": "30/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: conversas complexas sem confundir comparacoes com comandos"
+    ]
+  },
+  {
+    "numero": "OTA 20261030-151429",
+    "data": "30/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: mais contexto e respostas para conversas complexas"
+    ]
+  },
+  {
+    "numero": "OTA 20261030-144758",
+    "data": "30/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Calculadora: tarifa oficial pelo backend, campos com máscaras e cálculo de impostos"
+    ]
+  },
+  {
+    "numero": "OTA 20261030-143137",
+    "data": "30/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Corrigir consulta de tarifa Cemig no Android pelo backend"
+    ]
+  },
+  {
+    "numero": "OTA 20261030-142042",
+    "data": "30/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Corrigir Network request failed consultando tarifa pelo backend"
+    ]
+  },
+  {
+    "numero": "OTA 20261030-122811",
+    "data": "30/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Calculadora: consulta ao selecionar classe e cálculo correto de ICMS PIS Cofins"
+    ]
+  },
+  {
+    "numero": "OTA 20261030-083140",
+    "data": "30/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Máscaras de consumo tarifa e percentuais na calculadora"
+    ]
+  },
+  {
+    "numero": "OTA 20261030-082933",
+    "data": "30/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Corrigir exibição da tarifa consultada e preencher tarifa cheia ao informar tributos"
+    ]
+  },
+  {
+    "numero": "OTA 20261030-082110",
+    "data": "30/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Calculadora kWh com tarifa oficial e aplicação de ICMS PIS Cofins por dentro"
+    ]
+  },
+  {
+    "numero": "OTA 20261030-081034",
+    "data": "30/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Calculadora por kWh, classe e bandeira com consulta Cemig e tarifa manual"
+    ]
+  },
+  {
+    "numero": "OTA 20261030-073501",
+    "data": "30/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Rateio por UC, inadimplência, avisos, navegador em segundo plano, Calculadora de economia e Solar com sequências de navegação"
+    ]
+  },
+  {
+    "numero": "OTA 20261029-221642",
+    "data": "29/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Rateio por UC, inadimplência, avisos, navegador em segundo plano, Calculadora de economia e Solar com sequências de navegação"
+    ]
+  },
+  {
+    "numero": "OTA 20261029-210344",
+    "data": "29/10/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: abertura de PDF no visualizador, conversa preservada e ajuste do teclado"
+    ]
+  },
+  {
+    "numero": "OTA 20261029-201500",
+    "data": "29/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: teclado sem sobreposição e Voltar recolhe o teclado antes de fechar o chat"
+    ]
+  },
+  {
+    "numero": "OTA 20261029-192203",
+    "data": "29/10/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Preview de segurança de sessão e abertura real de documentos pela Solar"
+    ]
+  },
+  {
     "numero": "OTA 20261029-185840",
     "data": "29/10/2026",
     "variant": "gerador",

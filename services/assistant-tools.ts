@@ -1,3 +1,5 @@
+import { contractUnitDigits, matchesContractUnit } from "./assistant-contract-unit";
+import api from "../config/api";
 import type { AssistantAction, AssistantDocument, AssistantIntent, AssistantToolReply } from "./assistant-capabilities";
 import { displayNumber, onlyArray, normalizeCapabilityText } from "./assistant-capabilities";
 import { me, listarMeusPedidosDePrivacidade } from "./auth.service";
@@ -11,7 +13,7 @@ import { obterMinhaAssinatura, obterTermosAssinatura, obterPainelComercial } fro
 import { obterRecebimentoFaturas } from "./recebimento-faturas.service";
 import { listarConexoesEmail } from "./conexoes-email.service";
 import { listarFaturas, buscarFatura, obterRelatorioCalculoFatura } from "./faturas.service";
-import { listarClientes, listarFaturasAnexadasCliente, listarUnidadesGestor, listarMinhasUnidades } from "./clientes.service";
+import { buscarCliente, listarClientes, listarFaturasAnexadasCliente, listarUnidadesGestor, listarMinhasUnidades } from "./clientes.service";
 import { buscarContratoDaUnidade, listarContratosDaEmpresa, baixarPropostaDaUnidade } from "./contratos.service";
 import { invoiceDocumentChoices } from "./local-assistant-invoices";
 
@@ -22,7 +24,7 @@ const scalar = (value: unknown, fallback = "não informado") => typeof value ===
 
 function routeFor(intent: AssistantIntent, ctx: AssistantAccountContext, question: string): AssistantAction | undefined {
   if(/\b(calculadora|calcular|simular|simulacao)\b.*\beconomia\b/.test(normalizeCapabilityText(question)))return action('Calculadora de economia','/simulacao-economia');
-  if(ctx.generator&&/\brateio\b/.test(normalizeCapabilityText(question)))return action('Abrir rateio','/operacao/rateio',undefined,intent.review);
+  if(ctx.generator&&/\brateio\b/.test(normalizeCapabilityText(question)))return action('Abrir rateio','/operacao/rateio',/\b(automatico|enviar|envio)\b/.test(normalizeCapabilityText(question)) ? { secao: 'envio' } : undefined,intent.review);
   const { module, review } = intent;
   const creating = /\b(criar|cadastrar|novo|nova|adicionar)\b/.test(normalizeCapabilityText(question));
   const unit = ctx.unitId ? { id: ctx.unitId } : undefined;
@@ -59,7 +61,47 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
   if (!ctx.generator && intent.module === "faturamento" && intent.review) return { text: "Emissão e alterações de faturamento exigem acesso de gerador autorizado. Posso consultar suas faturas." };
   if (!ctx.generator && generatorOnly.includes(intent.module)) return { text: "Essa função pertence ao gerador ou à administração e não está disponível no seu acesso. Posso consultar os dados, faturas e contrato das suas UCs." };
   if (intent.module === "comercial" && ctx.role !== "ADMIN") return { text: "Esta consulta administrativa exige acesso de administrador. Não vou ampliar suas permissões." };
+  const pedido = normalizeCapabilityText(question);
+  const ucPdf = contractUnitDigits(pedido);
+  const alvoPdf = pedido.match(/\bcontrato\s+(?:do|da|de)\s+(?:cliente\s+)?(.+?)[.!?]*$/)?.[1]?.trim();
+  if (intent.module === "contratos" && !intent.review && ctx.generator && (alvoPdf || ucPdf) &&
+      /\b(qual|quanto|quando|clausula|texto|escrito|diz|consta)\b/.test(pedido)) {
+    if (!ctx.plantId) return { text: "Selecione a usina para consultar o contrato." };
+    const contratos = onlyArray(await listarContratosDaEmpresa(ctx.plantId));
+    const encontrados = contratos.filter(contrato => {
+      const nome = normalizeCapabilityText(scalar(contrato.clientes?.nome, ""));
+      return ucPdf ? matchesContractUnit(contrato, ucPdf) : Boolean(alvoPdf && nome.includes(alvoPdf));
+    });
+    if (encontrados.length !== 1) {
+      return { text: encontrados.length ? "Encontrei mais de um contrato. Abra a lista para identificar o documento." : "Não encontrei contrato para esse cliente na usina selecionada.", actions: [action("Contratos do cliente", "/contratos", ucPdf ? { solarUcFinal: ucPdf } : { solarCliente: alvoPdf ?? "" })] };
+    }
+    const id = String(encontrados[0].id);
+    const pergunta = pedido.slice(0, 500);
+    const { data } = await api.post<{ trechos: string[]; temTexto: boolean }>(
+      `/contratos/${encodeURIComponent(id)}/documento/trechos`, { pergunta },
+    );
+    return { text: data.trechos.length ? "Trechos encontrados no PDF:\n" + data.trechos.join("\n\n")
+      : data.temTexto ? "Não encontrei um trecho que corresponda à pergunta." : "Este PDF não tem texto selecionável.", actions: [action("Ver contrato", "/contratos/[id]", { id })] };
+  }
   if (intent.mode === "action") {
+    if (intent.module === "clientes" && ctx.generator && ctx.plantId &&
+        !/\b(criar|cadastrar|novo|nova|adicionar)\b/.test(normalizeCapabilityText(question))) {
+      const pedido = normalizeCapabilityText(question);
+      const clientes = onlyArray(await listarClientes(ctx.plantId));
+      const encontrados = clientes.filter(cliente => {
+        const nome = normalizeCapabilityText(scalar(cliente.nome, ""));
+        return nome.length > 0 && pedido.includes(nome);
+      });
+      const escolhas = encontrados.length ? encontrados : clientes;
+      return {
+        text: encontrados.length === 1 ? "Abra a ficha do cliente encontrado." : "Escolha a ficha do cliente da usina selecionada.",
+        actions: [
+          ...escolhas.slice(0, 12).map(cliente => action(scalar(cliente.nome, "Cliente"), "/clientes/[id]", { id: String(cliente.id) })),
+          action("Ver todos os clientes", "/(tabs)/clientes"),
+        ],
+      };
+    }
+
     if (intent.module === "recebimento" && ctx.generator && /\b(usina|producao|geradora)\b/.test(normalizeCapabilityText(question))) {
       if (!ctx.plantId) return { text: "Selecione a usina para gerenciar o recebimento da conta geradora." };
       ctx = { ...ctx, unitId: (await buscarDashboardUsina(ctx.plantId)).unidadeGeradora?.id };
@@ -70,6 +112,30 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
   const target = routeFor(intent, ctx, question);
   const actions = target ? [target] : [];
   switch (intent.module) {
+    case "clientes": {
+      if (!ctx.plantId) return { text: "Selecione a usina para consultar o cadastro do cliente." };
+      const pedido = normalizeCapabilityText(question);
+      const clientes = onlyArray(await listarClientes(ctx.plantId));
+      const nomePedido = pedido.match(/\b(?:cliente|consumidor(?:a)?)\s+(.+?)[.!?]*$/)?.[1]?.trim();
+      const encontrados = clientes.filter(cliente => {
+        const nome = normalizeCapabilityText(scalar(cliente.nome, ""));
+        return nome && (pedido.includes(nome) || (nomePedido && nome.includes(nomePedido)));
+      });
+      if (encontrados.length !== 1) {
+        return { text: encontrados.length ? "Encontrei mais de um cliente. Informe o nome completo." : "Qual é o nome do cliente cadastrado nesta usina?", actions };
+      }
+      const cliente = await buscarCliente(String(encontrados[0].id));
+      const campos = [
+        { label: "E-mail", value: cliente?.email, match: /\be-?mail\b/ },
+        { label: "Telefone", value: cliente?.telefone, match: /\b(telefone|celular)\b/ },
+        { label: "WhatsApp", value: cliente?.whatsapp, match: /\bwhatsapp\b/ },
+        { label: "Endereço", value: cliente?.endereco, match: /\bendereco\b/ },
+      ];
+      const solicitados = campos.filter(campo => campo.match.test(pedido));
+      const linhas = (solicitados.length ? solicitados : campos)
+        .map(({ label, value }) => `${label}: ${String(value ?? "").trim() || "não informado"}`);
+      return { text: [cliente?.nome ?? encontrados[0].nome, ...linhas].join("\n"), actions };
+    }
     case "faturamento": {
       if (ctx.generator && !ctx.plantId) return { text: "Selecione a usina para consultar as faturas." };
       if (!ctx.generator && !ctx.unitNumber) return { text: "Selecione sua UC para consultar as faturas." };

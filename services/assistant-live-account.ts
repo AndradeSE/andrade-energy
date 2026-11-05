@@ -16,7 +16,7 @@ export type LiveAccountReply = AssistantToolReply & { invoiceId?: string; invoic
 
 // Contexto vem da sessão do app. O modelo não fornece IDs, URLs ou endpoints.
 export async function queryLiveAccount(question: string, ctx: AssistantAccountContext): Promise<LiveAccountReply> {
-  if (ctx.generator) {
+  if (ctx.generator && !/\bcontrato\b/i.test(question)) {
     const calculation = await calculateEconomyConversation(question);
     if (calculation) return { text: calculation.text };
   }
@@ -30,7 +30,8 @@ export async function queryLiveAccount(question: string, ctx: AssistantAccountCo
     const name = typeof client?.nome === "string" ? client.nome.trim() : "";
     return { text: [holder ? `Titular da UC ${unit.numero ?? "selecionada"}: ${holder}.` : "Não há nome do titular preenchido nesta UC.", name ? `Cliente cadastrado: ${name}.` : "Não há nome de cliente disponível neste registro."].join(" ") };
   }
-  const capability = detectCapability(text);
+  const production = detectProductionMetric(text);
+  const capability = production === "energiaDisponivel" ? undefined : detectCapability(text);
   const document = asksLatestInvoiceDocument(text);
   const overdue = asksOverdueInvoices(text);
   const financial = detectFinancialMetric(text);
@@ -52,7 +53,7 @@ export async function queryLiveAccount(question: string, ctx: AssistantAccountCo
     }
     return { text: latestInvoiceAmountReply(invoices) };
   }
-  const production = detectProductionMetric(text);
+
   if (production) return ctx.plantId ? { text: productionMetricReply(await buscarDashboardUsina(ctx.plantId), production) } : { text: "Selecione a usina para consultar sua produção." };
   if (financial && ctx.generator) return ctx.plantId ? { text: financialMetricReply(await carregarFinanceiro(ctx.plantId), financial) } : { text: "Selecione a usina para consultar o financeiro." };
   const account = detectAccountQuery(text);

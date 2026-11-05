@@ -28,11 +28,17 @@
       "android": { "buildType": "apk" },
       "env": { "EXPO_PUBLIC_APP_ENV": "production", "EXPO_PUBLIC_APP_VARIANT": "gerador", "ANDRADE_ANDROID_UNIVERSAL": "1", "EXPO_PUBLIC_DISABLE_LOCAL_MODEL": "1", "EXPO_PUBLIC_ENABLE_GEMINI_LIVE": "1", "ANDRADE_NATIVE_CEMIG_BROWSER": "1", "ANDRADE_CEMIG_AUTOMATION_PRODUCTION": "1", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
     },
+    "preview-pdf-gerador": {
+      "extends": "preview-gerador",
+      "environment": "preview",
+      "android": { "buildType": "apk" },
+      "env": { "ANDRADE_NATIVE_REFRESH_FIXED": "1", "ANDRADE_NATIVE_CEMIG_BROWSER": "1", "ANDRADE_CEMIG_AUTOMATION_PREVIEW": "1" }
+    },
     "preview-emulador-gerador": {
       "extends": "preview-gerador",
       "environment": "preview",
       "android": { "buildType": "apk" },
-      "env": { "ANDRADE_ANDROID_EMULATOR": "1" }
+      "env": { "ANDRADE_ANDROID_EMULATOR": "1", "ANDRADE_NATIVE_REFRESH_FIXED": "1", "ANDRADE_NATIVE_CEMIG_BROWSER": "1", "ANDRADE_CEMIG_AUTOMATION_PREVIEW": "1" }
     },
     "preview-emulador-consumidor": {
       "extends": "preview",

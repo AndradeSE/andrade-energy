@@ -12,7 +12,7 @@ import {contingencyRoutingEnabled} from '../config/api';
 
 const number = (value: number) => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 const date = (value: string) => new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
-const panels: Record<string, string> = { BROWSERBASE: "https://www.browserbase.com/overview", AZURE: "https://portal.azure.com/", RENDER: "https://dashboard.render.com/", RESEND: "https://resend.com/overview", BREVO: "https://app.brevo.com/", NETLIFY: "https://app.netlify.com/", SUPABASE: "https://supabase.com/dashboard" };
+const panels: Record<string, string> = { AZURE: "https://portal.azure.com/", RENDER: "https://dashboard.render.com/", RESEND: "https://resend.com/overview", BREVO: "https://app.brevo.com/", NETLIFY: "https://app.netlify.com/", SUPABASE: "https://supabase.com/dashboard" };
 export default function ServiceQuotasScreen() {
   const { usuario } = useAuth();
   const allowed = IS_GERADOR_APP && canViewServiceQuotas(usuario);
@@ -37,6 +37,7 @@ export default function ServiceQuotasScreen() {
   }
   const quotaGroups: ServiceQuotas["servicos"][] = [];
   for (const item of data?.servicos ?? []) {
+    if (item.servico === "BROWSERBASE") continue;
     const resendGroup = item.servico === "RESEND" ? quotaGroups.find(group => group[0].servico === "RESEND") : undefined;
     if (resendGroup) resendGroup.push(item);
     else quotaGroups.push([item]);

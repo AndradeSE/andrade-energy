@@ -1,5 +1,7 @@
-import { router, useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { matchesContractUnit } from "../../services/assistant-contract-unit";
+import { normalizeCapabilityText } from "../../services/assistant-capabilities";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { Pressable } from "../../components/assistant/AssistantNativeControls";
@@ -116,7 +118,11 @@ export default function ContratosClientes() {
     ]);
   }
 
-  const porCliente = contratos.reduce((mapa, contrato) => {
+  const { solarCliente, solarUcFinal, solarAbrirPdf } = useLocalSearchParams<{ solarCliente?: string; solarUcFinal?: string; solarAbrirPdf?: string }>();
+  const finalUc = typeof solarUcFinal === "string" && /^\d{1,32}$/.test(solarUcFinal) ? solarUcFinal : "";
+  const daUc = finalUc ? contratos.filter(c => matchesContractUnit(c, finalUc)) : contratos;
+  const ucsEncontradas = new Set(daUc.map(c => String(c.unidade_consumidora_id ?? c.unidades_consumidoras?.numero ?? c.id)));
+  const porCliente = daUc.reduce((mapa, contrato) => {
     const chave = String(contrato.cliente_id ?? contrato.clientes?.nome ?? contrato.id);
     const grupo = mapa.get(chave) ?? {
       id: chave,
@@ -127,13 +133,31 @@ export default function ContratosClientes() {
     mapa.set(chave, grupo);
     return mapa;
   }, new Map<string, { id: string; nome: string; contratos: any[] }>());
-  const grupos = Array.from(porCliente.values() as Iterable<{ id: string; nome: string; contratos: any[] }>).map((grupo) => ({ ...grupo, ...separarDestaques(grupo.contratos) }));
 
+  const buscaCliente = typeof solarCliente === "string" ? normalizeCapabilityText(solarCliente).trim() : "";
+  const todosGrupos = Array.from(porCliente.values() as Iterable<{ id: string; nome: string; contratos: any[] }>).map((grupo) => ({ ...grupo, ...separarDestaques(grupo.contratos) }));
+
+  const encontrados = buscaCliente ? todosGrupos.filter(grupo => normalizeCapabilityText(grupo.nome).includes(buscaCliente)) : todosGrupos;
+  const filtroSemResultado = Boolean(buscaCliente && !encontrados.length && todosGrupos.length);
+  const grupos = filtroSemResultado ? todosGrupos : encontrados;
+  const aberto = clienteAberto === null && (buscaCliente || finalUc) && grupos.length === 1 ? grupos[0].id : clienteAberto;
+  const candidatosPdf = solarAbrirPdf === "1" && (buscaCliente || (finalUc && ucsEncontradas.size === 1)) && !filtroSemResultado && grupos.length === 1
+    ? grupos[0].contratos
+    : [];
+  const vigentesPdf = candidatosPdf.filter(c => ["VIGENTE", "ATIVO"].includes(String(c.status).toUpperCase()));
+  const escolhidoPdf = vigentesPdf.length === 1 ? vigentesPdf[0] : candidatosPdf.length === 1 ? candidatosPdf[0] : undefined;
+  const idSolicitado = escolhidoPdf ? String(escolhidoPdf.id) : undefined;
+  const abertoPelaSolar = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!idSolicitado || carregando || atualizando || abertoPelaSolar.current === idSolicitado) return;
+    abertoPelaSolar.current = idSolicitado;
+    void lerContrato(idSolicitado);
+  }, [idSolicitado, carregando, atualizando]);
   function linhaContrato(contrato: any) {
     return <View key={contrato.id} style={styles.contractRow}>
       <View style={styles.contractStatus}><Badge label={statusContrato(contrato)} variant={String(contrato.status).toUpperCase() === "VIGENTE" && !contrato.cancelamento_pendente ? "success" : "warning"} /></View>
       <View style={styles.row}>
-        <Pressable accessibilityRole="button" accessibilityLabel={`Ler contrato ${contrato.numero ?? "sem número"}`} disabled={abrindoDocumento} onPress={() => { void lerContrato(contrato.id); }} style={[styles.row, { flex: 1 }]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Abrir PDF do contrato ${contrato.numero ?? "sem número"}`} disabled={abrindoDocumento} onPress={() => { void lerContrato(contrato.id); }} style={[styles.row, { flex: 1 }]}>
         <View style={styles.icon}><Ionicons name="document-text-outline" size={20} color={Colors.primary} /></View>
         <View style={styles.info}>
           <Text style={styles.contractNumber}>{contrato.numero ?? "Contrato sem número"}</Text>
@@ -151,9 +175,9 @@ export default function ContratosClientes() {
 
   return <Screen><AppHeader title="Contratos" subtitle="Documentos da carteira" contextTitle={`${contratos.length} contratos vinculados`} contextSubtitle={`${grupos.length} clientes com contratos`} icon="document-text-outline" /><FlatList contentContainerStyle={styles.content} data={grupos} keyExtractor={(item) => item.id}
     refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}
-    ListHeaderComponent={<Card style={styles.heading}><Text style={styles.title}>Contratos por cliente</Text><Text style={styles.subtitle}>Em destaque: contrato vigente e documentos que aguardam ação. As demais versões ficam no histórico.</Text></Card>}
-    renderItem={({ item }) => <Card style={styles.groupCard}><Pressable accessibilityRole="button" accessibilityLabel={`${item.nome}, ${item.destaques.length} contratos em destaque`} accessibilityState={{ expanded: clienteAberto === item.id }} onPress={() => setClienteAberto((atual) => atual === item.id ? null : item.id)} style={styles.groupHeader}><Ionicons name="person-outline" size={20} color={Colors.primary} /><View style={styles.groupTitle}><Text style={styles.client}>{item.nome}</Text><Text style={styles.detail}>{item.destaques.length} em destaque{item.historico.length ? ` · ${item.historico.length} no histórico` : ""}</Text></View><Ionicons name={clienteAberto === item.id ? "chevron-up" : "chevron-down"} size={20} color={Colors.primary} /></Pressable>{clienteAberto === item.id && <>{item.destaques.map(linhaContrato)}{item.historico.length > 0 && <><Pressable accessibilityRole="button" accessibilityState={{ expanded: historicoAberto === item.id }} onPress={() => setHistoricoAberto((atual) => atual === item.id ? null : item.id)} style={styles.historyButton}><Text style={styles.historyText}>{historicoAberto === item.id ? "Ocultar histórico" : `Ver histórico (${item.historico.length})`}</Text><Ionicons name={historicoAberto === item.id ? "chevron-up" : "chevron-down"} size={18} color={Colors.primary} /></Pressable>{historicoAberto === item.id && item.historico.map(linhaContrato)}</>}</>}</Card>}
-    ListEmptyComponent={!carregando ? <EmptyState icon="document-text-outline" title="Nenhum contrato vinculado" subtitle="Os contratos cadastrados para os clientes aparecerão aqui." /> : null}
+    ListHeaderComponent={<Card style={styles.heading}><Text style={styles.title}>Contratos por cliente</Text><Text style={styles.subtitle}>Em destaque: contrato vigente e documentos que aguardam ação. As demais versões ficam no histórico.</Text>{buscaCliente && !filtroSemResultado && !idSolicitado && !carregando && grupos.length > 0 ? <Text style={styles.subtitle}>{candidatosPdf.length ? "Há mais de um PDF. Escolha o contrato abaixo." : grupos.length > 1 ? "Escolha o cliente abaixo." : "Este cliente ainda não tem PDF disponível."}</Text> : null}{finalUc && ucsEncontradas.size > 1 ? <Text style={styles.subtitle}>Mais de uma UC termina assim. Informe mais dígitos ou escolha na lista.</Text> : null}{filtroSemResultado ? <Text style={styles.subtitle}>Não encontrei o nome solicitado. Escolha o cliente na lista abaixo.</Text> : null}</Card>}
+    renderItem={({ item }) => <Card style={styles.groupCard}><Pressable accessibilityRole="button" accessibilityLabel={`${item.nome}, ${item.destaques.length} contratos em destaque`} accessibilityState={{ expanded: aberto === item.id }} onPress={() => setClienteAberto(aberto === item.id ? "" : item.id)} style={styles.groupHeader}><Ionicons name="person-outline" size={20} color={Colors.primary} /><View style={styles.groupTitle}><Text style={styles.client}>{item.nome}</Text><Text style={styles.detail}>{item.destaques.length} em destaque{item.historico.length ? ` · ${item.historico.length} no histórico` : ""}</Text></View><Ionicons name={aberto === item.id ? "chevron-up" : "chevron-down"} size={20} color={Colors.primary} /></Pressable>{aberto === item.id && <>{item.destaques.map(linhaContrato)}{item.historico.length > 0 && <><Pressable accessibilityRole="button" accessibilityState={{ expanded: historicoAberto === item.id }} onPress={() => setHistoricoAberto((atual) => atual === item.id ? null : item.id)} style={styles.historyButton}><Text style={styles.historyText}>{historicoAberto === item.id ? "Ocultar histórico" : `Ver histórico (${item.historico.length})`}</Text><Ionicons name={historicoAberto === item.id ? "chevron-up" : "chevron-down"} size={18} color={Colors.primary} /></Pressable>{historicoAberto === item.id && item.historico.map(linhaContrato)}</>}</>}</Card>}
+    ListEmptyComponent={!carregando ? <EmptyState icon="document-text-outline" title={finalUc ? "Nenhum contrato para esse final de UC" : "Nenhum contrato vinculado"} subtitle="Os contratos cadastrados para os clientes aparecerão aqui." /> : null}
   /></Screen>;
 }
 

@@ -1,3 +1,5 @@
+import { detectProductionMetric } from "./assistant-production";
+import { contractUnitDigits } from "./assistant-contract-unit";
 import type { AssistantAction } from "./assistant-capabilities";
 import { hasSolarMutation, isSolarHelp, normalizeSolarRequest } from "../shared/solar-language";
 
@@ -10,9 +12,10 @@ export type SafeNavigation = { action?: AssistantAction; text: string };
 // Somente comandos explícitos de navegação. Não aceita URL, ID, endpoint ou escrita.
 export function resolveSafeNavigation(question: string, ctx: SafeNavigationContext): SafeNavigation | undefined {
   const text = normalizeSolarRequest(question);
-  if (isSolarHelp(text) || hasSolarMutation(text)) return undefined;
-  if (!/^(?:abra|abrir|acesse|acessar|va para|ir para|volte|voltar|mostre|mostrar|busque|buscar|procure|procurar|pesquise|pesquisar|filtre|filtrar)\b/.test(text)) return undefined;
-  if (/\b(valor|quanto|saldo|total|ultima|ultimo|pdf|arquivo|documento|memoria de calculo)\b/.test(text)) return undefined;
+  if (isSolarHelp(text) || hasSolarMutation(text) || detectProductionMetric(text) === "energiaDisponivel") return undefined;
+  if (!/^(?:abra|abrir|acesse|acessar|abre|me leve para|vai para|va para|entre|entrar|ir para|volte|voltar|mostre|mostra|mostrar|busque|buscar|procure|procurar|pesquise|pesquisar|filtre|filtrar)\b/.test(text)) return undefined;
+  if (/\b(clausula|consta|escrito|diz|e-?mail|telefone|celular|whatsapp|endereco|contato|valor|quanto|saldo|total|ultima|ultimo|arquivo|documento|memoria de calculo)\b/.test(text)) return undefined;
+  if (/\bpdf\b/.test(text) && !/\bcontratos?\b/.test(text)) return undefined;
   if (/https?:|www\.|[<>\x00-\x1f]/.test(text) || text.length > 240) return { text: "Informe o nome da função do aplicativo, sem links externos." };
   const collaborator = String(ctx.companyRole ?? "").startsWith("COLABORADOR_");
   const manager = ctx.generator && ["ADMIN", "GESTOR"].includes(String(ctx.role));
@@ -22,7 +25,7 @@ export function resolveSafeNavigation(question: string, ctx: SafeNavigationConte
   const selected = () => ctx.generator ? Boolean(ctx.plantId) : Boolean(ctx.unitId);
   const contextMissing = { text: ctx.generator ? "Selecione a usina antes de abrir essa função." : "Selecione sua UC antes de abrir essa função." };
   if(/\b(calculadora|calculo|simulacao)\b.*\beconomia\b/.test(text))return open('Calculadora de economia','/simulacao-economia');
-  const search = text.match(/^(?:busque|buscar|procure|procurar|pesquise|pesquisar|mostre|mostrar|abra|abrir)\s+(?:o |a |os |as )?(?:clientes?|consumidor(?:es)?|ucs?|unidades?(?: consumidoras?)?)\s+(.+)$/)?.[1];
+  const search = text.match(/^(?:busque|buscar|procure|procurar|pesquise|pesquisar|mostre|mostra|mostrar|abra|abrir)\s+(?:o |a |os |as )?(?:clientes?|consumidor(?:es)?|ucs?|unidades?(?: consumidoras?)?)\s+(.+)$/)?.[1];
   const params = search && !/^(?:do |da |de |no |na |em )/.test(search) ? { solarBusca: search.slice(0, 120) } : undefined;
   if (/\b(tutoriais?|videos?)\b/.test(text)) return { text: "Os tutoriais continuam desativados por tempo indeterminado." };
   if (/\b(inicio|home|tela inicial)\b/.test(text)) return selected() ? open("Início", "/(tabs)") : contextMissing;
@@ -37,17 +40,24 @@ export function resolveSafeNavigation(question: string, ctx: SafeNavigationConte
   if (/\b(usinas|lista de usinas)\b/.test(text)) return available("usinas") ? open("Usinas", "/selecionar-unidade") : denied;
   if (/\b(ucs?|unidades?(?: consumidoras?)?)\b/.test(text) && !/\b(contratos?|faturas?|recebimento|automatico)\b/.test(text)) return ctx.generator ? available("unidades") ? open("Unidades consumidoras", "/unidades", params) : denied : open("Suas unidades", "/selecionar-unidade");
   if (/\b(clientes?|consumidor(?:es)?)\b/.test(text) && !/\b(contratos?|faturas?)\b/.test(text)) return available("clientes") ? open("Clientes", "/(tabs)/clientes", params) : denied;
-  if (/\b(contratos?|minutas?)\b/.test(text)) return ctx.generator ? available("contratos") ? open("Contratos dos clientes", "/contratos") : denied : selected() ? open("Contrato", "/(tabs)/contrato") : contextMissing;
-  if (/\b(colaboradores|equipe|atividade|auditoria)\b/.test(text)) return available() && !collaborator ? open("Equipe", /\b(atividade|auditoria)\b/.test(text) ? "/colaboradores/atividade" : "/colaboradores") : denied;
+  const abrirPdf = /\bcontrato\b/.test(text) || /\bpdf\b/.test(text);
+  const contractUnit = contractUnitDigits(text);
+  const contractClient = text.match(/\bcontratos?\s+(?:do|da|de)\s+(?:(?:cliente|consumidor|consumidora)\s+)?(.+)$/)?.[1]?.replace(/[.!?]+$/, "").trim();
+  if (/\b(contratos?|minutas?)\b/.test(text)) return ctx.generator ? available("contratos") ? open((contractUnit || contractClient) ? "a busca pelo PDF do contrato" : "Contratos dos clientes", "/contratos", contractUnit ? { solarUcFinal: contractUnit, ...(abrirPdf ? { solarAbrirPdf: "1" } : {}) } : contractClient ? { solarCliente: contractClient.slice(0,120), ...(abrirPdf ? { solarAbrirPdf: "1" } : {}) } : undefined) : denied : selected() ? open("Contrato", "/(tabs)/contrato") : contextMissing;
+  if (/\b(colaboradores|equipe|atividade|auditoria)\b/.test(text)) return available() && !collaborator ? open("Equipe", /\b(atividade|auditoria)\b/.test(text) ? "/colaboradores/atividade" : "/(tabs)/equipe") : denied;
   if (/\b(meu plano|minha assinatura)\b/.test(text)) return available() && !collaborator ? open("Meu plano", "/assinatura") : denied;
-  if (/\b(recebimento|automatico|automatica|gmail|outlook|hotmail)\b/.test(text)) return ctx.generator && available("faturamento") ? open("Unidades para revisar o recebimento automático", "/unidades") : { text: "O recebimento automático deve ser revisado na UC correspondente. Não alterei a conexão de e-mail." };
-  if (!selected()) return contextMissing;
-  if (/\b(operacao|fechamentos?|rateios?)\b/.test(text)) {
+  if (!/\brateios?\b/.test(text) && /\b(recebimento|automatico|automatica|gmail|outlook|hotmail)\b/.test(text)) return ctx.generator && available("faturamento") ? open("Unidades para revisar o recebimento automático", "/unidades") : { text: "O recebimento automático deve ser revisado na UC correspondente. Não alterei a conexão de e-mail." };
+  if (/\b(operacao|operacoes|fechamentos?|rateios?)\b/.test(text)) {
     if (!available("operacao")) return denied;
     const date = text.match(/\b(20\d{2})-(0[1-9]|1[0-2])\b/) ?? text.match(/\b(0?[1-9]|1[0-2])\/(20\d{2})\b/);
     const period = date ? date[1].length === 4 ? `${date[1]}-${date[2]}` : `${date[2]}-${date[1].padStart(2, "0")}` : undefined;
+    if (/\brateios?\b/.test(text)) {
+      const params = { ...(period ? { competencia: period } : {}), ...(/\b(automatico|envio)\b/.test(text) ? { secao: "envio" } : {}) };
+      return open("Rateio", "/operacao/rateio", Object.keys(params).length ? params : undefined);
+    }
     return open("Operação", "/(tabs)/operacao", period ? { solarCompetencia: period } : undefined);
   }
+  if (!selected()) return contextMissing;
   if (/\b(producao|geracao)\b/.test(text)) return available() ? open("Produção da usina", "/(tabs)") : denied;
   if (/\b(inversores?|monitoramento)\b/.test(text)) return available() ? open("Inversores", "/usinas/inversores", { id: ctx.plantId! }) : denied;
   if (/\b(financeiro|carteira)\b/.test(text)) return available("financeiro") && !collaborator ? open("Financeiro", "/(tabs)/financeiro") : denied;

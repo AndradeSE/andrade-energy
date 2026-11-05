@@ -42,3 +42,26 @@ test("não abre links externos nem recursos desativados", () => {
   assert.equal(resolveSafeNavigation("abra https://example.com", generator)?.action, undefined);
   assert.equal(resolveSafeNavigation("abra tutoriais", generator)?.action, undefined);
 });
+test("abre Rateio, Clientes e Colaboradores diretamente", () => {
+  assert.equal(resolveSafeNavigation("abra a tela de rateio", generator)?.action?.route, "/operacao/rateio");
+  assert.equal(resolveSafeNavigation("abre a aba de clientes", generator)?.action?.route, "/(tabs)/clientes");
+  assert.equal(resolveSafeNavigation("abre colaboradores", generator)?.action?.route, "/(tabs)/equipe");
+});
+test("abre Perfil e Operação sem exigir seleção ou mês no comando", () => {
+  const context = { ...generator, plantId: undefined };
+  assert.equal(resolveSafeNavigation("entre no meu perfil", context)?.action?.route, "/(tabs)/perfil");
+  assert.equal(resolveSafeNavigation("abre operações", context)?.action?.route, "/(tabs)/operacao");
+});
+test("aceita pedidos de navegação em linguagem natural", () => {
+  assert.equal(resolveSafeNavigation("Você consegue me mostrar o perfil?", generator)?.action?.route, "/(tabs)/perfil");
+  assert.equal(resolveSafeNavigation("Me leva até o rateio", generator)?.action?.route, "/operacao/rateio");
+  assert.equal(resolveSafeNavigation("Quero que você abra Clientes", generator)?.action?.route, "/(tabs)/clientes");
+});
+test("pedido natural de contrato preserva o nome sem pontuação final", () => {
+  const pedido = resolveSafeNavigation("Você consegue me mostrar o contrato da cliente Amanda?", generator);
+  assert.equal(pedido?.action?.route, "/contratos");
+  assert.deepEqual(pedido?.action?.params, { solarCliente: "amanda", solarAbrirPdf: "1" });
+});
+test("encaminha o final da UC para a busca do contrato", () => {
+  assert.deepEqual(resolveSafeNavigation("abra o contrato da UC final 1234", generator)?.action?.params, { solarUcFinal: "1234", solarAbrirPdf: "1" });
+});

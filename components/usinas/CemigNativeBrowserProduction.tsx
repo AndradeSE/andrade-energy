@@ -41,7 +41,7 @@ export default function CemigNativeBrowserProduction({usinaId,competencia}:{usin
   }catch(e:any){setError(e?.response?.data?.message??e?.message??'Não foi possível preparar o envio.');}
   finally{setBusy(false);}
  }
- return <Card><Text style={{fontSize:20,fontWeight:'700',color:Colors.text}}>Enviar pelo navegador integrado</Text>
+ return <Card><Text style={{fontSize:20,fontWeight:'700',color:Colors.text}}>Conferir anexo no navegador integrado</Text>
   <Text style={{color:Colors.subtitle,lineHeight:22,marginVertical:12}}>Confira as UCs e os percentuais no aplicativo e autorize a preparação. Após o login, o navegador integrado avança e anexa o arquivo automaticamente, parando na revisão. Abrir ou anexar o arquivo não confirma protocolo.</Text>
   <View style={{gap:14}}><CemigCredentialVault usinaId={usinaId} onConfigured={setVaultConfigured}/><Button style={{height:undefined,minHeight:56,paddingVertical:14}} title={busy?'Preparando arquivo real…':'Preparar arquivo real e abrir Cemig'} disabled={busy||!vaultConfigured} onPress={()=>void open()}/></View>
   {error?<Text accessibilityRole="alert" style={{color:Colors.text,marginTop:12}}>{error}</Text>:null}

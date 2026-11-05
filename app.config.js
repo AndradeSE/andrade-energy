@@ -56,7 +56,7 @@ module.exports = {
 
       package: packageId,
 
-      versionCode: nativeRefreshFixed ? (preview ? 3 : 10) : preview ? 2 : universalBuild ? 9 : gerador ? (nativeCemigAutomation ? 8 : nativeCemigBrowser ? 7 : 5) : 8,
+      versionCode: gerador ? (preview ? 4 : 12) : nativeRefreshFixed ? (preview ? 3 : 10) : preview ? 2 : universalBuild ? 9 : gerador ? (nativeCemigAutomation ? 8 : nativeCemigBrowser ? 7 : 5) : 8,
       permissions: ["android.permission.REQUEST_INSTALL_PACKAGES", "android.permission.POST_NOTIFICATIONS", ...(assistantNative ? ["android.permission.RECORD_AUDIO"] : [])],
 
       predictiveBackGestureEnabled: false,
@@ -161,7 +161,7 @@ module.exports = {
       },
     },
 
-    runtimeVersion: nativeRefreshFixed ? `1.0.11-${preview ? "preview" : "production"}-refresh-fixed` : compatibility32 ? (preview ? "1.0.10-preview-arm32" : "1.0.10-production-arm32") : nativeCemigAutomation ? (preview ? "1.0.9-preview-cemig-worker" : "1.0.9-production-cemig-worker") : nativeCemigBrowser ? (preview ? "1.0.8-preview-cemig-vault" : "1.0.8-production-cemig-vault") : preview ? "1.0.4-preview-live-awake" : assistantNative ? "1.0.4-production-live-awake" : {
+    runtimeVersion: gerador && !preview && nativeCemigBrowser ? "1.0.13-production-autoleitura" : gerador && process.env.ANDRADE_OTA_LEGACY_GENERATOR !== "1" ? `1.0.12-${preview ? "preview" : "production"}-pdf-voice` : nativeRefreshFixed ? `1.0.11-${preview ? "preview" : "production"}-refresh-fixed` : compatibility32 ? (preview ? "1.0.10-preview-arm32" : "1.0.10-production-arm32") : nativeCemigAutomation ? (preview ? "1.0.9-preview-cemig-worker" : "1.0.9-production-cemig-worker") : nativeCemigBrowser ? (preview ? "1.0.8-preview-cemig-vault" : "1.0.8-production-cemig-vault") : preview ? "1.0.4-preview-live-awake" : assistantNative ? "1.0.4-production-live-awake" : {
       policy: "appVersion",
     },
 

@@ -1,3 +1,10 @@
+import { listarUnidadesGestor as listarUcsParaContratoSolar } from "../services/clientes.service";
+import { matchesContractUnit } from "../services/assistant-contract-unit";
+import contratoApi from "../config/api";
+import * as PdfRuntime from "expo-updates";
+import { abrirDocumentoContrato, obterUrlContrato } from "../services/contrato-documento.service";
+import { listarContratosDaEmpresa as listarContratosParaSolar } from "../services/contratos.service";
+import { normalizeCapabilityText as normalizeCapabilityTextSolar } from "../services/assistant-capabilities";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, Alert, Animated, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { File, Paths } from "expo-file-system";
@@ -159,6 +166,9 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     return () => clearTimeout(timeout);
   }, [pendingAutomation]);
   const contextGeneration = useRef(0);
+  const contratoEmLeitura = useRef<string | undefined>(undefined);
+  const [pdfContrato, setPdfContrato] = useState<{ uri: string }>();
+  const ultimoContrato = useRef<{ nome: string; geracao: number } | undefined>(undefined);
   const [historyScope, setHistoryScope] = useState<string>();
   useEffect(() => {
     contextGeneration.current += 1;
@@ -170,6 +180,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       setListening(false);
       setSpeakingReply(false);
     }
+    fecharPdfContrato();
     messagesRef.current = [];
     setMessages([]);
     setHistoryScope(undefined);
@@ -381,7 +392,15 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     if (!question || busyRef.current) return;
     const sequenceCommand=parseSolarSequence(question);
     const controlCommand = sequenceCommand || parseControlCommand(question) || asksScreenControls(question);
-    const interpretedQuestion = normalizeAssistantQuery(question);
+    const perguntaNormalizada = perguntaComContextoDoContrato(question);
+    const consultaAnterior = messagesRef.current.filter(m => m.from === "user").at(-1);
+    const clienteAnterior = consultaAnterior?.private
+      ? normalizeAssistantQuery(consultaAnterior.text).match(/\b(?:cliente|consumidor(?:a)?)\s+(.+?)[.!?]*$/)?.[1]
+      : undefined;
+    const contatoSemNome = /^(?:e\s+)?(?:o\s+)?(?:e-?mail|telefone|celular|whatsapp|endereco)[?!.]*$/.test(perguntaNormalizada);
+    const interpretedQuestion = contatoSemNome && clienteAnterior
+      ? `${perguntaNormalizada.replace(/[?!.]+$/, "")} do cliente ${clienteAnterior}`
+      : perguntaNormalizada;
     const automationCommand = parseAutomationCommand(question);
     const safeNavigation = resolveSafeNavigation(question, {
       generator: IS_GERADOR_APP, role: usuario?.perfil, companyRole: usuario?.papel_empresa,
@@ -393,12 +412,12 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     const generation = contextGeneration.current;
     const wantsInvoiceDocument = asksLatestInvoiceDocument(interpretedQuestion, lastInvoiceRequest.current);
     const economyHistory = messagesRef.current.filter(m => m.from === "user").slice(-6).map(m => m.text);
-    const economyCalculation = IS_GERADOR_APP && (asksEconomyCalculation(interpretedQuestion) || (asksEconomyCalculation(economyHistory.join(" ")) && /kwh|desconto|%|bifasic|trifasic|monofasic|residencial|rural|comerc/i.test(interpretedQuestion)));
+    const economyCalculation = IS_GERADOR_APP && !/\bcontrato\b/.test(interpretedQuestion) && (asksEconomyCalculation(interpretedQuestion) || (asksEconomyCalculation(economyHistory.join(" ")) && /kwh|desconto|%|bifasic|trifasic|monofasic|residencial|rural|comerc/i.test(interpretedQuestion)));
     const detectedCapability = economyCalculation ? undefined : detectCapability(interpretedQuestion);
     // PDF de fatura tem precedência sobre abrir a usina/aba, mas não sobre
     // documentos específicos (CEMIG, cálculo, contratos) nem alterações.
     const invoiceOverridesNavigation = wantsInvoiceDocument && !detectedCapability?.review && ["usinas", "faturamento", "pagamento"].includes(detectedCapability?.module ?? "");
-    const capability = wantsOverdue || (IS_GERADOR_APP && detectFinancialMetric(interpretedQuestion)) || asksLatestInvoiceAmount(interpretedQuestion) || invoiceOverridesNavigation ? undefined : detectedCapability;
+    const capability = detectProductionMetric(interpretedQuestion) === "energiaDisponivel" || wantsOverdue || (IS_GERADOR_APP && detectFinancialMetric(interpretedQuestion)) || asksLatestInvoiceAmount(interpretedQuestion) || invoiceOverridesNavigation ? undefined : detectedCapability;
     lastInvoiceRequest.current = wantsInvoiceDocument || /\b(ultima|mais recente)\b.*\b(fatura|cobranca)\b|\b(fatura|cobranca)\b.*\b(ultima|mais recente)\b/i.test(interpretedQuestion);
     busyRef.current = true;
     const { reply, topic: nextTopic } = answerInConversation(question, {
@@ -407,8 +426,9 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     }, topicRef.current);
     setInput("");
     setBusy(true);
-    const privateTurn = Boolean(economyCalculation) || Boolean(controlCommand) || Boolean(automationCommand) || wantsOverdue || Boolean(capability) || wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion) || Boolean(detectFinancialMetric(interpretedQuestion)) || Boolean(detectProductionMetric(interpretedQuestion)) || Boolean(detectAccountQuery(interpretedQuestion));
-    const userMessage: Message = { from: "user", text: question, private: privateTurn };
+    const consultarPdf = perguntaSobrePdfAberto(question);
+    const privateTurn = consultarPdf || Boolean(economyCalculation) || Boolean(controlCommand) || Boolean(automationCommand) || wantsOverdue || Boolean(capability) || wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion) || Boolean(detectFinancialMetric(interpretedQuestion)) || Boolean(detectProductionMetric(interpretedQuestion)) || Boolean(detectAccountQuery(interpretedQuestion));
+    const userMessage: Message = { from: "user", text: contatoSemNome && clienteAnterior ? interpretedQuestion : question, private: privateTurn };
     const nextMessages = [...messagesRef.current, userMessage].slice(-39);
     messagesRef.current = nextMessages;
     setMessages(nextMessages);
@@ -421,7 +441,14 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       }
       let response: Message = { from: "assistant", text: reply.text, route: reply.route };
       const speechStatus = speechStatusReply(question, Boolean(spokenQuestion));
-      if (sequenceCommand) {
+      if (pedidoFecharPdf(question)) {
+        if (safeNavigation) safeNavigation.action = undefined;
+        fecharPdfContrato();
+        response = { from: "assistant", private: true, text: "Fechei o PDF." };
+      } else if (consultarPdf) {
+        if (safeNavigation) safeNavigation.action = undefined;
+        response = { from: "assistant", private: true, text: await consultarContratoAberto(question) };
+      } else if (sequenceCommand) {
         response={from:'assistant',private:true,text:await operateSequence(question)??'Não reconheci a sequência.'};
       } else if (controlCommand) {
         response = { from: "assistant", private: true, text: await operateCurrentControl(question) ?? "Não reconheci esse controle na tela atual." };
@@ -436,7 +463,9 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
           if (voiceOnly) Alert.alert("Revisar alteração", response.text, [{ text: "Cancelar", style: "cancel", onPress: () => setPendingAutomation(undefined) }, { text: "Confirmar e salvar", onPress: () => void confirmAutomation(draft) }]);
         } catch (error) { response = { from: "assistant", private: true, text: error instanceof Error ? error.message : "Não consegui preparar a alteração. Nenhum dado foi salvo." }; }
       } else if (safeNavigation) {
-        response = { from: "assistant", private: true, text: safeNavigation.text };
+        const pdf = await abrirPdfSolicitado(safeNavigation.action?.params);
+        if (pdf) safeNavigation.action = undefined;
+        response = { from: "assistant", private: true, text: pdf ?? safeNavigation.text };
       } else if (/o que (voce|a solar) (pode|consegue)|suas funcoes/.test(normalizeSolarRequest(question))) {
         response = { from: "assistant", private: true, text: "Posso abrir diretamente as áreas permitidas, pesquisar clientes e UCs e filtrar faturas por abertas, vencidas ou pagas. Exemplos: abra os contratos, busque cliente Rodrigo, mostre faturas vencidas ou abra operação 09/2026. Também preencho campos e aciono botões ativos da tela: diga “preencha o campo Nome com Maria Silva” ou “clique no botão Salvar”. Botões exigem sua confirmação; preencher não salva. Consulto dados e documentos e preparo alterações cadastrais para revisão. Cobranças, assinaturas, exclusões e permissões exigem confirmação nas telas próprias." };
       } else if (speechStatus) {
@@ -700,18 +729,22 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
               if (parseControlCommand(question) || asksScreenControls(question)) {
                 return await operateCurrentControl(question) ?? "Não reconheci esse controle na tela atual.";
               }
+              if (pedidoFecharPdf(question)) { fecharPdfContrato(); return "Fechei o PDF."; }
+              if (perguntaSobrePdfAberto(question)) return await consultarContratoAberto(question);
               const navigation = resolveSafeNavigation(question, {
                 generator: IS_GERADOR_APP, role: usuario?.perfil, companyRole: usuario?.papel_empresa,
                 plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id, permissions: usuario?.permissoes,
               });
               if (navigation) {
+                const pdf = await abrirPdfSolicitado(navigation.action?.params);
+                if (pdf) return pdf;
                 if (navigation.action) {
                   leaveConversation();
                   router.push({ pathname: navigation.action.route, params: navigation.action.params } as any);
                 }
                 return navigation.text;
               }
-              const reply = await queryLiveAccount(question, {
+              const reply = await queryLiveAccount(perguntaComContextoDoContrato(question), {
                 generator: IS_GERADOR_APP, role: usuario?.perfil,
                 plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id,
                 unitNumber: unidadeSelecionada?.numero, clientId: unidadeSelecionada?.cliente_id ?? usuario?.cliente_id,
@@ -906,8 +939,103 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     try { await installLocalModel(); } catch { /* O estado global exibe o erro. */ }
   }
 
+  function pedidoFecharPdf(question: string) {
+    return Boolean(contratoEmLeitura.current) && /\b(feche|fecha|fechar)\b.*\b(pdf|contrato|documento|leitor)\b/.test(normalizeAssistantQuery(question));
+  }
+  function fecharPdfContrato() {
+    contratoEmLeitura.current = undefined;
+    setPdfContrato(undefined);
+  }
+
+  function perguntaSobrePdfAberto(question: string) {
+    const texto = normalizeAssistantQuery(question);
+    return Boolean(contratoEmLeitura.current) &&
+      !/\b(simular|calcular|abrir|abra|abre|feche|fechar)\b/.test(texto) &&
+      /\b(pdf|contrato|documento|clausula|desconto|porcentagem|percentual|prazo|vigencia|multa|rescisao|reajuste)\b/.test(texto);
+  }
+
+  async function consultarContratoAberto(question: string) {
+    const id = contratoEmLeitura.current;
+    if (!id) return "Abra o PDF do contrato para consultar seu conteúdo.";
+    try {
+      const { data } = await contratoApi.post<{ trechos: string[]; temTexto: boolean }>(
+      `/contratos/${encodeURIComponent(id)}/documento/trechos`, { pergunta: question.slice(0, 500) },
+    );
+    if (contratoEmLeitura.current !== id) return "O documento aberto mudou durante a consulta.";
+    return data.trechos.length ? data.trechos.join("\n\n")
+      : data.temTexto ? "Não encontrei esse trecho no PDF aberto." : "O PDF aberto não tem texto selecionável.";
+    } catch (erro) {
+      if (contratoEmLeitura.current !== id) return "O documento aberto mudou durante a consulta.";
+      const resposta = (erro as { response?: { status?: number; data?: { message?: string } } }).response;
+      switch (resposta?.status) {
+        case 401: return "A sessão expirou. Entre novamente para consultar o PDF.";
+        case 403: return "A conta não tem permissão para consultar o texto deste contrato.";
+        case 404: return "A leitura não encontrou este PDF no servidor.";
+        case 422: return resposta.data?.message || "O servidor não conseguiu extrair o texto do PDF.";
+        case 503: return "O servidor de leitura está temporariamente indisponível.";
+        default: return "A consulta ao PDF falhou. Confira a conexão e tente novamente.";
+      }
+    }
+  }
+  function perguntaComContextoDoContrato(question: string) {
+    const texto = normalizeAssistantQuery(question);
+    const anterior = ultimoContrato.current;
+    if (anterior?.geracao === contextGeneration.current &&
+        /\b(desconto|porcentagem|percentual|clausula|prazo)\b/.test(texto) &&
+        !/\bcontrato\s+(?:do|da|de)\b/.test(texto) &&
+        !/\b(simular|calcular|economia)\b/.test(texto)) {
+      return `qual informação consta sobre ${texto} no contrato do cliente ${anterior.nome}`;
+    }
+    return texto;
+  }
+  async function abrirPdfSolicitado(params?: Record<string, string>) {
+    if (params?.solarAbrirPdf !== "1" || !usinaSelecionada?.id) return undefined;
+    const usinaId = usinaSelecionada.id;
+    const geracaoInicial = contextGeneration.current;
+    const contratos = await listarContratosParaSolar(usinaId);
+    const nome = params.solarCliente ? normalizeCapabilityTextSolar(params.solarCliente) : "";
+    const final = params.solarUcFinal;
+    let encontrados = contratos.filter(c => {
+      return final ? matchesContractUnit(c, final)
+        : nome && normalizeCapabilityTextSolar(String(c.clientes?.nome ?? "")).includes(nome);
+    });
+    if (final && !encontrados.length) {
+      const ucs: { id: string; numero?: string }[] = await listarUcsParaContratoSolar(usinaId);
+      const ids = new Set(ucs.filter(u => String(u.numero ?? "").replace(/\D/g, "").endsWith(final)).map(u => String(u.id)));
+      encontrados = contratos.filter(c => ids.has(String(c.unidade_consumidora_id)));
+    }
+    if (geracaoInicial !== contextGeneration.current) return "A usina mudou durante a consulta.";
+    const unidades = new Set(encontrados.map(c => String(c.unidade_consumidora_id ?? c.id)));
+    const vigentes = encontrados.filter(c => ["ATIVO", "VIGENTE"].includes(String(c.status).toUpperCase()));
+    const escolhido = unidades.size === 1 ? (vigentes.length === 1 ? vigentes[0] : encontrados.length === 1 ? encontrados[0] : undefined) : undefined;
+    if (!escolhido) return undefined;
+    const nomeCliente = String(escolhido.clientes?.nome ?? "").trim();
+    if (nomeCliente) ultimoContrato.current = { nome: nomeCliente, geracao: contextGeneration.current };
+    const geracao = contextGeneration.current;
+    if (!PdfRuntime.runtimeVersion?.endsWith("-pdf-voice")) {
+      await abrirDocumentoContrato(String(escolhido.id));
+      return "O contrato foi encaminhado ao leitor do aparelho.";
+    }
+    const uri = await obterUrlContrato(String(escolhido.id));
+    if (geracao !== contextGeneration.current || !assistantMounted.current) return "A conta mudou antes da abertura do contrato.";
+    contratoEmLeitura.current = String(escolhido.id);
+    setPdfContrato({ uri });
+    return "O contrato foi encaminhado ao leitor interno.";
+  }
   function leaveConversation(){ if(keyboardVisible){ Keyboard.dismiss(); return; } if(voiceActive.current && onMinimize) onMinimize(); else if(onClose) onClose(); else router.back(); }
-  if (voiceOnly) return null;
+  const Pdf = pdfContrato ? (require("react-native-pdf") as typeof import("react-native-pdf")).default : null;
+  const leitorContrato = pdfContrato && Pdf ? (
+    <Modal animationType="slide" onRequestClose={fecharPdfContrato}>
+      <View style={{ flex: 1, paddingTop: insets.top, paddingBottom: insets.bottom, backgroundColor: Colors.background }}>
+        <Pressable accessibilityRole="button" onPress={fecharPdfContrato} style={{ padding: 16 }}>
+          <Text style={{ color: Colors.text }}>Fechar PDF</Text>
+        </Pressable>
+        <Pdf source={pdfContrato} trustAllCerts={false} style={{ flex: 1, width: "100%" }}
+          onError={() => Alert.alert("Não foi possível abrir o PDF", "Feche o leitor e peça para abrir o contrato novamente.")} />
+      </View>
+    </Modal>
+  ) : null;
+  if (voiceOnly) return leitorContrato;
 
   const conversationView = <View ref={keyboardRoot} style={styles.root} onLayout={updateKeyboardOverlap}><KeyboardAvoidingView style={[styles.root, Platform.OS === "android" && { marginBottom: keyboardOverlap }]} behavior={Platform.OS === "ios" ? "padding" : undefined}>
     <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
@@ -938,13 +1066,13 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
         {input.trim() && !transcribing && !dictationStarting.current
           ? <Pressable onPress={() => void send()} disabled={busy} accessibilityRole="button" accessibilityLabel="Enviar pergunta" style={[styles.pillSend, busy && styles.disabled]}><Ionicons name="arrow-up" size={22} color="white" /></Pressable>
           : <Pressable onPressIn={() => { Keyboard.dismiss(); void beginDictation(); }} onPressOut={() => { void endDictation(); }} disabled={listening || (busy && !dictationStarting.current && !transcribing)} accessibilityRole="button" accessibilityLabel="Segure para falar e solte para enviar" style={[styles.pillAction, transcribing && styles.voiceActive, listening && styles.disabled]}><Ionicons name="mic-outline" size={22} color={transcribing ? "white" : Colors.text} /></Pressable>}
-        <Pressable onPress={() => { Keyboard.dismiss(); void toggleVoice(); }} disabled={transcribing || (busy && !listening)} accessibilityRole="button" accessibilityLabel={listening ? "Encerrar conversa por voz" : "Iniciar conversa por voz"} style={[styles.pillAction, transcribing && styles.disabled]}>
+        <Pressable onPress={() => { Keyboard.dismiss(); const iniciando = !voiceActive.current; void toggleVoice(); if (iniciando) onMinimize?.(); }} disabled={transcribing || (busy && !listening)} accessibilityRole="button" accessibilityLabel={listening ? "Encerrar conversa por voz" : "Iniciar conversa por voz"} style={[styles.pillAction, transcribing && styles.disabled]}>
           {voiceInstalling ? <ActivityIndicator size="small" color={Colors.primary} /> : <View style={styles.waveform}>{[7, 16, 10, 5].map((height, index) => <Animated.View key={index} style={[styles.waveBar, { height, backgroundColor:listening||speakingReply?Colors.primary:Colors.text, transform: [{ scaleY: Animated.add(wave[index].interpolate({ inputRange: [0, 1], outputRange: [1, 1.3] }),voiceMeter.interpolate({inputRange:[0,1],outputRange:[0,1.4-index*.15]})) }] }]} />)}</View>}
         </Pressable>
       </View>
     </View>
   </KeyboardAvoidingView></View>;
-  return floatingModal ? <Modal visible={!minimized} animationType="slide" onRequestClose={leaveConversation}>{conversationView}</Modal> : conversationView;
+  return <>{floatingModal ? <Modal visible={!minimized && !pdfContrato} animationType="slide" onRequestClose={leaveConversation}>{conversationView}</Modal> : conversationView}{leitorContrato}</>;
 }
 
 const styles = StyleSheet.create({

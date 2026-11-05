@@ -1,4 +1,6 @@
 import axios from "axios";
+import * as Updates from "expo-updates";
+import * as Application from "expo-application";
 import { obterSessao } from "../storage/session";
 import { avisarContaExcluida, avisarSessaoSubstituida } from "../services/session-events";
 import { environmentApiUrl, isPreviewEnvironment } from "./environment";
@@ -35,6 +37,12 @@ const api = axios.create({
 });
 
 api.interceptors.request.use(async (config) => {
+  config.headers["X-App-Id"] = Application.applicationId ?? "unknown";
+  config.headers["X-App-Version"] = Application.nativeApplicationVersion ?? "unknown";
+  config.headers["X-App-Build"] = Application.nativeBuildVersion ?? "unknown";
+  config.headers["X-App-Runtime"] = Updates.runtimeVersion ?? "unknown";
+  config.headers["X-App-Channel"] = Updates.channel ?? "unknown";
+  config.headers["X-App-Update"] = Updates.updateId ?? "embedded";
   if(contingencyRoutingEnabled) config.baseURL=await resolveApiTarget();
   const sessao = await obterSessao();
   if (sessao?.token) config.headers.Authorization = `Bearer ${sessao.token}`;

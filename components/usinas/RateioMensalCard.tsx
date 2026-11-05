@@ -1,3 +1,4 @@
+import CemigNativeBrowserProduction from './CemigNativeBrowserProduction';
 import RateioSendOptions from "./RateioSendOptions";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useRef, useState } from "react";
@@ -12,7 +13,7 @@ import {obterSaldoAncora,type SaldoAncora} from "../../services/usinas.service";
 import OperationLoading from "../ui/OperationLoading";
 import RateioFileViewer from './RateioFileViewer';
 
-export default function RateioMensalCard({usinaId,empresaId,competencia}: {usinaId:string;empresaId:string;competencia?:string}) {
+export default function RateioMensalCard({usinaId,empresaId,competencia,abrirEnvio=false}: {usinaId:string;empresaId:string;competencia?:string;abrirEnvio?:boolean}) {
   const [visualizando,setVisualizando]=useState(false);
   const [ajustes,setAjustes]=useState(false);
   const [detalhes,setDetalhes]=useState(false);
@@ -62,6 +63,7 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
     }catch(e:any){if(pedido===escopo.current)Alert.alert("Não foi possível gerar o rateio",e?.response?.data?.message??e.message??"Tente novamente.");}
     finally{setOcupado(false);}
   }
+  const [envioAberto, setEnvioAberto] = useState(abrirEnvio);
   return <><OperationLoading visible={ocupado} title="Preparando rateio…"/><RateioFileViewer arquivo={visualizando?resultado:undefined} onClose={()=>setVisualizando(false)}/>    <View style={{gap:8}} accessibilityLabel="Saldo acumulado da UC âncora">
       <Metric variant="primary" title="Saldo acumulado da âncora" value={consultandoSaldo?"Consultando…":erroSaldo?"Consulta indisponível":saldoAncora?.saldoKwh!=null?`${saldoAncora.saldoKwh.toLocaleString("pt-BR",{maximumFractionDigits:2})} kWh`:"Saldo não informado"} icon={<Ionicons name="layers-outline" size={24} color="#FFFFFF"/>} subtitle="Créditos informados na última fatura · kWh"/>
 
@@ -72,7 +74,6 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
     </View>
 <Card><View style={{gap:Spacing.sm}}>
     <Text style={{fontSize:18,fontWeight:"700",color:Colors.text}}>Rateio mensal</Text>
-    <View style={{backgroundColor:'#EFF7F2',padding:16,borderRadius:12,gap:10}}><Text style={{fontWeight:'700',color:Colors.text}}>O que acontece automaticamente?</Text><Text style={{color:Colors.text,lineHeight:22}}>Com a configuração salva, o sistema aguarda a produção da usina e todas as faturas das UCs vigentes. Depois calcula a planilha e envia o arquivo por e-mail e um aviso ao gerador.</Text><Text style={{color:Colors.subtitle,lineHeight:22}}>O envio à Cemig é uma etapa separada. A automação completa em nuvem ainda está em teste e não protocola o rateio.</Text></View>
     <Text style={{color:Colors.subtitle}}>Planilha da competência {competencia?.replace(/^(\d{4})-(\d{2})$/, "$2/$1") ?? "selecionada"}. Configuração salva para os próximos meses.</Text>
     <Pressable accessibilityRole="button" accessibilityState={{expanded:detalhes}} onPress={()=>setDetalhes(v=>!v)} style={{minHeight:44,flexDirection:"row",alignItems:"center",gap:8}}><Ionicons name="information-circle-outline" size={20} color={Colors.primary}/><Text style={{color:Colors.primary}}>Como é calculado?</Text></Pressable>
     {detalhes?<Text style={{color:Colors.subtitle}}>(Consumo médio − saldo de créditos da UC) ÷ produção média real da usina × 100, sem adicional e com mínimo de zero. O restante fica na UC âncora. Recalcule a cada competência antes de solicitar a alteração à Cemig.</Text>:null}
@@ -99,7 +100,7 @@ export default function RateioMensalCard({usinaId,empresaId,competencia}: {usina
       <Button title={ocupado?"Preparando…":resultado?"Abrir planilha":"Gerar e abrir planilha"} disabled={ocupado||!competencia} onPress={()=>resultado?setVisualizando(true):void gerar()} />
       {resultado?<Button title="Atualizar planilha" disabled={ocupado} onPress={()=>Alert.alert("Atualizar planilha","Recalcular esta competência e enviar a nova cópia ao gerador?",[{text:"Cancelar",style:"cancel"},{text:"Atualizar",onPress:()=>void gerar()}])}/>:null}
     </View>:null}
-    <View style={{borderTopWidth:1,borderColor:Colors.border,paddingTop:18,marginTop:8}}><RateioSendOptions usinaId={usinaId} competencia={competencia} disabled={ocupado}/></View>
+    <View style={{borderTopWidth:1,borderColor:Colors.border,paddingTop:18,marginTop:8}}><SecaoRateio titulo="2. Enviar à Cemig" resumo="Manual, autorizado ou automático" aberto={envioAberto} onPress={()=>setEnvioAberto(v=>!v)}/>{envioAberto?<View style={{gap:16}}><RateioSendOptions usinaId={usinaId} competencia={competencia} disabled={ocupado}/>{competencia?<CemigNativeBrowserProduction key={competencia} usinaId={usinaId} competencia={competencia}/>:null}</View>:null}</View>
   </View></Card></>;
 }
 
