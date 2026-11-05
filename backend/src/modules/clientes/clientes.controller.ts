@@ -1,4 +1,7 @@
+import { hojeNoBrasil } from "../contratos/desligamentoContrato.policy";
 import { Request, Response } from "express";
+import { supabase } from "../../config/supabase";
+import { configuracaoAutoleitura } from "./autoleituraConfig";
 import { validarCadastroCliente } from "./validacaoCadastro";
 
 import {
@@ -191,6 +194,133 @@ export async function listarTodasUnidadesController(req: Request, res: Response)
   } catch (e: any) {
     return res.status(500).json({ message: e.message });
   }
+}
+
+export async function registrarAutoleituraController(req: Request, res: Response) {
+  const usuario = (req as any).usuario;
+  if (!usuario?.cliente_id) return res.status(403).json({ message: "Conta sem vínculo de consumidor." });
+  const leitura = req.body?.leitura;
+  if (typeof leitura !== "string" || !/^\d{1,9}$/.test(leitura)) {
+    return res.status(400).json({ message: "Informe a leitura inteira do medidor em kWh." });
+  }
+  const fotoBase64 = req.body?.fotoBase64;
+  if (fotoBase64 !== undefined) {
+    if (typeof fotoBase64 !== "string" || fotoBase64.length > 933_336) {
+      return res.status(400).json({ message: "A foto deve ter até 700 KB." });
+    }
+    const bytes = Buffer.from(fotoBase64, "base64");
+    const jpeg = bytes.subarray(0, 3).equals(Buffer.from("ffd8ff", "hex"));
+    const png = bytes.subarray(0, 8).equals(Buffer.from("89504e470d0a1a0a", "hex"));
+    if (bytes.length > 700_000 || bytes.toString("base64") !== fotoBase64 || (!jpeg && !png)) {
+      return res.status(400).json({ message: "Envie uma foto JPEG ou PNG válida de até 700 KB." });
+    }
+  }
+  const { data, error } = await supabase.rpc("registrar_autoleitura_medidor", {
+    p_empresa: empresaIdDaRequisicao(req),
+    p_cliente: usuario.cliente_id,
+    p_unidade: req.params.unidadeId,
+    p_leitura: Number(leitura),
+    p_foto_base64: fotoBase64 ?? null,
+  });
+  if (error?.code === "P0001") return res.status(409).json({ message: error.message });
+  if (error) return res.status(500).json({ message: "Não foi possível registrar a leitura." });
+  return res.json({ id: data, status: "RECEBIDA" });
+}
+
+const idAutoleituraValido = (id: string) => /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(id);
+
+export async function listarFilaAutoleituraController(req: Request, res: Response) {
+  if (process.env.CEMIG_AUTOLEITURA_EXECUTOR_ENABLED !== "true") {
+    return res.status(503).json({ message: "Executor de autoleitura desabilitado." });
+  }
+  const hoje = hojeNoBrasil();
+  const limite = new Date(hoje + "T12:00:00Z");
+  limite.setUTCDate(limite.getUTCDate() + 5);
+  const { data, error } = await supabase.from("autoleituras_medidor")
+    .select("id,unidade_id,leitura_kwh,data_programada,unidades_consumidoras!inner(numero)")
+    .eq("estado", "RECEBIDA")
+    .eq("unidades_consumidoras.empresa_id", empresaIdDaRequisicao(req))
+    .eq("unidades_consumidoras.usina_id", req.params.id)
+    .eq("unidades_consumidoras.status", "ATIVA")
+    .eq("unidades_consumidoras.zona_localizacao", "RURAL")
+    .eq("unidades_consumidoras.autoleitura_rural_ativa", true)
+    .neq("unidades_consumidoras.tipo", "GERADORA")
+    .gte("data_programada", hoje)
+    .lte("data_programada", limite.toISOString().slice(0, 10))
+    .order("data_programada").order("id").limit(25);
+  if (error) return res.status(500).json({ message: "Não foi possível consultar a fila de autoleitura." });
+  return res.json({ itens: data ?? [] });
+}
+
+export async function executarAutoleituraController(req: Request, res: Response) {
+  if (process.env.CEMIG_AUTOLEITURA_EXECUTOR_ENABLED !== "true") {
+    return res.status(503).json({ message: "Executor de autoleitura desabilitado." });
+  }
+  const { unidadeId, leituraId } = req.params;
+  if (!idAutoleituraValido(leituraId)) return res.status(400).json({ message: "Leitura inválida." });
+  const { data: registro, error: erroRegistro } = await supabase.from("autoleituras_medidor")
+    .select("id").eq("id", leituraId).eq("unidade_id", unidadeId).maybeSingle();
+  if (erroRegistro) return res.status(500).json({ message: "Não foi possível consultar a leitura." });
+  if (!registro) return res.status(404).json({ message: "Leitura não encontrada nesta UC." });
+
+  const empresa = empresaIdDaRequisicao(req);
+  if (req.path.endsWith("/reservar")) {
+    const valor = req.body?.leitura;
+    if (!Number.isInteger(valor) || valor < 0 || valor > 999999999) {
+      return res.status(400).json({ message: "Informe o valor conferido." });
+    }
+    const { data, error } = await supabase.rpc("reservar_envio_autoleitura", {
+      p_empresa: empresa, p_leitura: leituraId, p_valor_conferido: valor,
+    });
+    if (error) return res.status(500).json({ message: "Não foi possível reservar a leitura." });
+    if (!data?.length) return res.status(409).json({ message: "A leitura mudou ou não está disponível para envio." });
+    return res.json(data[0]);
+  }
+
+  const { estado, protocolo = null, estimativa = null } = req.body ?? {};
+  if (!["ENVIADA", "RECUSADA", "EM_REVISAO"].includes(estado)
+    || (estado === "ENVIADA" ? typeof protocolo !== "string" || !/^\d{6,30}$/.test(protocolo)
+      : protocolo !== null || estimativa !== null)
+    || (estimativa !== null && (typeof estimativa !== "number" || !Number.isFinite(estimativa) || estimativa < 0 || estimativa >= 1e10))) {
+    return res.status(400).json({ message: "Retorno da Cemig inválido." });
+  }
+  const { data, error } = await supabase.rpc("registrar_retorno_autoleitura", {
+    p_empresa: empresa, p_leitura: leituraId, p_estado: estado, p_protocolo: protocolo, p_estimativa: estimativa,
+  });
+  if (error) return res.status(500).json({ message: "Não foi possível registrar o retorno." });
+  if (!data) return res.status(409).json({ message: "A leitura não está em envio." });
+  return res.json({ estado });
+}
+
+export async function listarAutoleiturasController(req: Request, res: Response) {
+  const { data, error } = await supabase.from("autoleituras_medidor")
+    .select("id,data_programada,leitura_kwh,recebida_em,estado,protocolo_cemig,estimativa_cemig")
+    .eq("unidade_id", req.params.unidadeId)
+    .order("data_programada", { ascending: false })
+    .limit(12);
+  if (error) return res.status(500).json({ message: "Não foi possível consultar as leituras." });
+  return res.json(data ?? []);
+}
+
+export async function configurarAutoleituraController(req: Request, res: Response) {
+  const empresaId = empresaIdDaRequisicao(req);
+  let configuracao;
+  try {
+    configuracao = configuracaoAutoleitura(req.body ?? {});
+    if (!configuracao.zona_localizacao) throw new Error("Informe a zona da UC.");
+  } catch (erro) {
+    return res.status(400).json({ message: (erro as Error).message });
+  }
+  const { data, error } = await supabase.from("unidades_consumidoras")
+    .update(configuracao)
+    .eq("empresa_id", empresaId)
+    .eq("id", req.params.unidadeId)
+    .neq("tipo", "GERADORA")
+    .select("zona_localizacao,autoleitura_rural_ativa")
+    .maybeSingle();
+  if (error) return res.status(500).json({ message: "Não foi possível salvar a configuração de autoleitura." });
+  if (!data) return res.status(404).json({ message: "Unidade consumidora não encontrada." });
+  return res.json(data);
 }
 
 export async function buscarUnidadeController(req: Request, res: Response) {

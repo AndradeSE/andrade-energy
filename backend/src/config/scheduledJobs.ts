@@ -2,6 +2,11 @@ import { supabase } from "./supabase";
 import { runScheduledJob, type ScheduledJob } from "./durableScheduledJob";
 import type { ContingencyExecutor } from './contingencyExecutor';
 
+export async function enfileirarLembretesAutoleitura() {
+  const { error } = await supabase.rpc("enfileirar_lembretes_autoleitura");
+  if (error) throw error;
+}
+
 export const scheduledJobs: Record<ScheduledJob, { interval: number; run: () => Promise<unknown> }> = {
   PUSH: { interval: 60, run: async () => {
     const { processarPushPendente } = await import("../modules/notificacoes/push.service.js");
@@ -9,7 +14,11 @@ export const scheduledJobs: Record<ScheduledJob, { interval: number; run: () => 
   } },
   COTAS: { interval: 3600, run: async () => (await import("../modules/cotas/cotas.service.js")).monitorServiceQuotas() },
   AVISOS_CONTRATOS: { interval: 3600, run: async () => (await import("../modules/contratos/vencimentoContrato.service.js")).avisarContratosProximosDoVencimento() },
-  AVISOS_FATURAS: { interval: 3600, run: async () => (await import("../modules/faturas/lembreteVencimento.service.js")).avisarFaturasProximasDoVencimento() },
+  AVISOS_FATURAS: { interval: 3600, run: async () => {
+    const { avisarFaturasProximasDoVencimento } = await import("../modules/faturas/lembreteVencimento.service.js");
+    const resultados = await Promise.allSettled([avisarFaturasProximasDoVencimento(), enfileirarLembretesAutoleitura()]);
+    for (const resultado of resultados) if (resultado.status === "rejected") throw resultado.reason;
+  } },
   RATEIOS: { interval: 60, run: async () => (await import("../modules/usinas/rateioAutomatico.service.js")).processarRateiosAutomaticos() },
   CONVITES: { interval: 60, run: async () => (await import("../modules/comercial/adesaoAssinatura.service.js")).processarConvitesAdesoes() },
   PRODUCAO_EMAIL: { interval: 300, run: async () => (await import("../modules/email/email.service.js")).processarContasDeEnergiaRecebidas() },
