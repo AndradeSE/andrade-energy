@@ -60,6 +60,20 @@ class CemigBrowserActivity : Activity() {
             }catch(_:Exception){setResult(RESULT_CANCELED)}
             finish();return
         }
+        if(intent.hasExtra("autoleituraAutomationEnabled")){
+            try {
+                require(packageName in setOf("com.andradese.energy.gerador.preview","com.andradese.energy.gerador"))
+                require(Build.VERSION.SDK_INT >= 26)
+                val enabled=intent.getBooleanExtra("autoleituraAutomationEnabled",false)
+                CemigAutomationStore.configure(this,intent.getStringExtra("rateioUsina").orEmpty(),
+                    intent.getStringExtra("rateioApi").orEmpty(),intent.getStringExtra("rateioToken").orEmpty(),
+                    enabled,reading=true)
+                setResult(RESULT_OK)
+            } catch(_:Exception){setResult(RESULT_CANCELED)}
+            finally{intent.removeExtra("rateioToken")}
+            finish()
+            return
+        }
         window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         if(Build.VERSION.SDK_INT>=33)registerReceiver(closeReceiver,IntentFilter(CemigBrowserService.STOP),Context.RECEIVER_NOT_EXPORTED)
         else @Suppress("DEPRECATION") registerReceiver(closeReceiver,IntentFilter(CemigBrowserService.STOP))

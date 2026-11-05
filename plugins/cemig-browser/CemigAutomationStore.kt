@@ -23,25 +23,26 @@ object CemigAutomationStore {
    init(KeyGenParameterSpec.Builder(ALIAS,KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT).setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).build())
   }.generateKey()
  }
- private fun id(usina:String):String {
+ private fun id(usina:String,reading:Boolean=false):String {
   require(usina.matches(Regex("[a-zA-Z0-9_-]{1,128}")))
-  return "cemig-rateio-$usina"
+  return if(reading)"cemig-autoleitura-$usina" else "cemig-rateio-$usina"
  }
  fun clearAll(context:Context){
   val prefs=context.getSharedPreferences("cemig_automation",Context.MODE_PRIVATE)
-  for(name in prefs.all.keys)if(name.startsWith("cemig-rateio-"))WorkManager.getInstance(context).cancelUniqueWork(name)
+  for(name in prefs.all.keys)if(name.startsWith("cemig-rateio-")||name.startsWith("cemig-autoleitura-"))WorkManager.getInstance(context).cancelUniqueWork(name)
   check(prefs.edit().clear().commit())
  }
  fun refreshToken(context:Context,token:String){
   val prefs=context.getSharedPreferences("cemig_automation",Context.MODE_PRIVATE)
-  for(name in prefs.all.keys.toList())if(name.startsWith("cemig-rateio-")){
-   val usina=name.removePrefix("cemig-rateio-")
-   val previous=read(context,usina)?:continue
-   configure(context,usina,previous.getString("base"),token,true,previous.optBoolean("solver"),previous.optString("solverAuthorization"))
+  for(name in prefs.all.keys.toList())if(name.startsWith("cemig-rateio-")||name.startsWith("cemig-autoleitura-")){
+   val reading=name.startsWith("cemig-autoleitura-")
+   val usina=name.removePrefix(if(reading)"cemig-autoleitura-" else "cemig-rateio-")
+   val previous=read(context,usina,reading)?:continue
+   configure(context,usina,previous.getString("base"),token,true,previous.optBoolean("solver"),previous.optString("solverAuthorization"),reading)
   }
  }
- fun configure(context:Context,usina:String,base:String,token:String,enabled:Boolean,solver:Boolean=false,solverAuthorization:String?=null){
-  val name=id(usina);val prefs=context.getSharedPreferences("cemig_automation",Context.MODE_PRIVATE)
+ fun configure(context:Context,usina:String,base:String,token:String,enabled:Boolean,solver:Boolean=false,solverAuthorization:String?=null,reading:Boolean=false){
+  val name=id(usina,reading);val prefs=context.getSharedPreferences("cemig_automation",Context.MODE_PRIVATE)
   if(!enabled){WorkManager.getInstance(context).cancelUniqueWork(name);prefs.edit().remove(name).commit();return}
   CemigNativeAccess.validateBase(base,context.packageName.endsWith(".preview"))
   require(token.isNotBlank()&&!token.contains('\n')&&!token.contains('\r'))
@@ -52,11 +53,11 @@ object CemigAutomationStore {
   val payload=Base64.encodeToString(cipher.iv,Base64.NO_WRAP)+"."+Base64.encodeToString(cipher.doFinal(value.toByteArray()),Base64.NO_WRAP)
   check(prefs.edit().putString(name,payload).commit())
   val work=PeriodicWorkRequestBuilder<CemigAutomationWorker>(15,TimeUnit.MINUTES)
-   .setInputData(workDataOf("usina" to usina)).setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()).build()
+   .setInputData(workDataOf("usina" to usina,"autoleitura" to reading)).setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()).build()
   WorkManager.getInstance(context).enqueueUniquePeriodicWork(name,ExistingPeriodicWorkPolicy.UPDATE,work)
  }
- fun read(context:Context,usina:String):JSONObject? {
-  val name=id(usina);val raw=context.getSharedPreferences("cemig_automation",Context.MODE_PRIVATE).getString(name,null)?:return null
+ fun read(context:Context,usina:String,reading:Boolean=false):JSONObject? {
+  val name=id(usina,reading);val raw=context.getSharedPreferences("cemig_automation",Context.MODE_PRIVATE).getString(name,null)?:return null
   val parts=raw.split('.');require(parts.size==2)
   val cipher=Cipher.getInstance("AES/GCM/NoPadding").apply{init(Cipher.DECRYPT_MODE,key(),GCMParameterSpec(128,Base64.decode(parts[0],Base64.DEFAULT)));updateAAD(name.toByteArray())}
   return JSONObject(String(cipher.doFinal(Base64.decode(parts[1],Base64.DEFAULT)),Charsets.UTF_8))

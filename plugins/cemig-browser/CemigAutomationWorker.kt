@@ -42,6 +42,11 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
  private var submissionClicked=false
  private var submissionWaitSince=0L
  private var confirmedProtocol:String?=null
+ private var reading:JSONObject?=null
+ private var readingConfig:JSONObject?=null
+ private var readingReturn:JSONObject?=null
+ private var readingStep="preencher"
+ private val readingMode get()=inputData.getBoolean("autoleitura",false)
  private var endState="AGUARDANDO_USUARIO"
  private var endMessage="Abra o app para conferir a sessão do rateio."
  private val tick=object:Runnable {override fun run(){inspect();if(!finished.get())main.postDelayed(this,1500)}}
@@ -50,7 +55,11 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
   val base=cfg.getString("base")
   CemigNativeAccess.validateBase(base,preview)
   require(suffix.matches(Regex("(?:/[a-fA-F0-9-]{36}/(?:iniciar|estado))?")))
-  val c=URL("$base/usinas/${cfg.getString("usina")}/cemig-fila$suffix").openConnection() as HttpsURLConnection
+  return request("$base/usinas/${cfg.getString("usina")}/cemig-fila$suffix",body)
+ }
+ private fun request(url:String,body:JSONObject?=null):JSONObject{
+  val cfg=config?:error("Configuração ausente")
+  val c=URL(url).openConnection() as HttpsURLConnection
   return try{
    c.instanceFollowRedirects=false;c.connectTimeout=15000;c.readTimeout=15000;c.requestMethod=if(body==null)"GET" else "POST"
    c.setRequestProperty("Authorization","Bearer ${cfg.getString("token")}");c.setRequestProperty("Content-Type","application/json")
@@ -61,19 +70,23 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
  }
  private fun notify(text:String,ongoing:Boolean=false):Notification{
   val manager=applicationContext.getSystemService(NotificationManager::class.java)
-  manager.createNotificationChannel(NotificationChannel("cemig-automation","Rateio automático",NotificationManager.IMPORTANCE_DEFAULT))
+  val channel=if(readingMode)"cemig-autoleitura" else "cemig-automation"
+  val label=if(readingMode)"Leitura Cemig" else "Rateio Cemig"
+  val notificationId=if(readingMode)7894 else 7892
+  manager.createNotificationChannel(NotificationChannel(channel,label,NotificationManager.IMPORTANCE_DEFAULT))
   val launch=applicationContext.packageManager.getLaunchIntentForPackage(applicationContext.packageName)?:Intent()
-  val open=PendingIntent.getActivity(applicationContext,7892,launch,PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-  val n=Notification.Builder(applicationContext,"cemig-automation").setSmallIcon(android.R.drawable.ic_menu_view)
-   .setContentTitle(if(preview)"Rateio Cemig · Preview" else "Rateio Cemig").setContentText(text).setStyle(Notification.BigTextStyle().bigText(text)).setContentIntent(open).setOngoing(ongoing).setAutoCancel(!ongoing).build()
-  if(!ongoing)manager.notify(7892,n)
+  val open=PendingIntent.getActivity(applicationContext,notificationId,launch,PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+  val n=Notification.Builder(applicationContext,channel).setSmallIcon(android.R.drawable.ic_menu_view)
+   .setContentTitle(if(preview)"$label · Preview" else label).setContentText(text).setStyle(Notification.BigTextStyle().bigText(text)).setContentIntent(open).setOngoing(ongoing).setAutoCancel(!ongoing).build()
+  if(!ongoing)manager.notify(notificationId,n)
   return n
  }
  override fun doWork():Result{
   if(applicationContext.packageName !in setOf("com.andradese.energy.gerador.preview","com.andradese.energy.gerador"))return Result.failure()
   try{
    val usina=inputData.getString("usina")?:return Result.failure()
-   config=CemigAutomationStore.read(applicationContext,usina)?:return Result.success()
+   config=CemigAutomationStore.read(applicationContext,usina,readingMode)?:return Result.success()
+   if(readingMode)return processReading(usina)
    val list=api("")
    if(!list.optBoolean("habilitado"))return Result.success()
    val items=list.getJSONArray("itens")
@@ -97,7 +110,8 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
    return Result.success()
   }catch(error:Exception){
    if(job!=null&&config!=null&&!isStopped){try{saveState(if(submissionReserved)"INCERTO" else "AGUARDANDO_USUARIO")}catch(_:Exception){}}
-   if(error.message=="HTTP_401")inputData.getString("usina")?.let{CemigAutomationStore.configure(applicationContext,it,"","",false)}
+   if(error.message=="HTTP_401")inputData.getString("usina")?.let{CemigAutomationStore.configure(applicationContext,it,"","",false,reading=readingMode)}
+   if(reading!=null)notify("Confira a leitura no app. Um envio reservado não será repetido.")
    // Consultar a fila não é iniciar um rateio. Falhas antes do claim não
    // podem produzir um aviso de falha de envio sem existir tarefa reservada.
    if(job!=null)notify("O rateio não foi confirmado. Confira a automação no app; nenhum protocolo será repetido automaticamente.")
@@ -105,6 +119,98 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
   }finally{
    finished.set(true);savedAccess=null;config=null
    main.post{main.removeCallbacks(tick);web?.stopLoading();web?.destroy();web=null;csvFile?.delete()}
+  }
+ }
+ private fun processReading(usina:String):Result {
+  if(Build.VERSION.SDK_INT<26)return Result.failure()
+  val cfg=config!!
+  val base=cfg.getString("base")
+  CemigNativeAccess.validateBase(base,preview)
+  require(usina.matches(Regex("[a-zA-Z0-9_-]{1,128}")))
+  val items=request("$base/clientes/autoleitura/fila/$usina").getJSONArray("itens")
+  if(items.length()==0)return Result.success()
+  val item=items.getJSONObject(0)
+  val uc=item.getJSONObject("unidades_consumidoras").getString("numero").filter{it in '0'..'9'}
+  val date=java.time.LocalDate.parse(item.getString("data_programada"))
+  val locale=java.util.Locale.forLanguageTag("pt-BR")
+  val today=java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo"))
+  readingConfig=JSONObject().put("uc",uc).put("leitura",item.getInt("leitura_kwh").toString())
+   .put("dataLocal",today.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/uuuu")))
+   .put("referencia",date.format(java.time.format.DateTimeFormatter.ofPattern("MMMM/uuuu",locale)))
+   .put("somenteConferencia",preview).put("abrirRevisao",!preview)
+  reading=item
+  val notice=notify("Conferindo a leitura rural da Cemig.",true)
+  val info=if(Build.VERSION.SDK_INT>=29)ForegroundInfo(7893,notice,ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) else ForegroundInfo(7893,notice)
+  setForegroundAsync(info).get()
+  savedAccess=CemigNativeAccess.load(base,cfg.getString("token"),usina,preview)
+  endMessage="A leitura aguarda conferência no aplicativo."
+  main.post{openBrowser()}
+  done.await(3,TimeUnit.MINUTES)
+  finished.set(true)
+  if(submissionReserved){
+   val result=readingReturn?:JSONObject().put("estado","EM_REVISAO")
+   readingRequest("retorno",result)
+  }
+  if(!isStopped)notify(endMessage)
+  return Result.success()
+ }
+ private fun readingRequest(action:String,body:JSONObject):JSONObject {
+  val item=reading!!
+  val unit=item.getString("unidade_id")
+  val id=item.getString("id")
+  val uuid=Regex("[a-fA-F0-9-]{36}")
+  require(uuid.matches(unit)&&uuid.matches(id)&&action in setOf("reservar","retorno"))
+  return request("${config!!.getString("base")}/clientes/unidade/$unit/autoleitura/$id/$action",body)
+ }
+ private fun inspectReading(view:WebView){
+  val url=Uri.parse(view.url?:return)
+  if(url.path.equals("/Login",true)||url.host=="atende.cemig.com.br"){
+   login(view)
+   return
+  }
+  if(url.path?.startsWith("/portal/home")==true && url.host in setOf("www.atendimento.cemig.com.br","atendimento.cemig.com.br")){
+   view.loadUrl("https://${url.host}/portal/services/inform-reading")
+   return
+  }
+  if(url.path!="/portal/services/inform-reading")return
+  val cfg=readingConfig?:return
+  if(readingStep=="retorno"&&android.os.SystemClock.elapsedRealtime()-submissionWaitSince>45000){
+   stop("EM_REVISAO","A Cemig não confirmou o protocolo. Confira no aplicativo.")
+   return
+  }
+  val script=applicationContext.assets.open("cemig-autoleitura-$readingStep.js")
+   .bufferedReader().use{it.readText()}
+   .replace("__ANDRADE_CONFIG__",cfg.put("envioReservado",submissionReserved).toString())
+  processing=true
+  view.evaluateJavascript(script){raw->
+   processing=false
+   if(finished.get())return@evaluateJavascript
+   when(raw?.trim('"')){
+    "UC_NAO_CONFIRMADA"->stop("AGUARDANDO_USUARIO","Selecione a UC da leitura na Cemig pelo aplicativo.")
+    "LEITURA_PREENCHIDA"->stop("REVISAO","Leitura preenchida no Preview para conferência.")
+    "AGUARDANDO_CONFIRMACAO"->readingStep="confirmar"
+    "DADOS_ALTERADOS"->stop("EM_REVISAO","Os dados da Cemig mudaram. Confira a leitura no aplicativo.")
+    "AGUARDANDO_RESERVA"->{
+     if(preview)return@evaluateJavascript
+     processing=true
+     Thread{
+      val reserved=runCatching{readingRequest("reservar",JSONObject().put("leitura",cfg.getInt("leitura")))}.isSuccess
+      main.post{
+       submissionReserved=reserved
+       processing=false
+       if(!reserved)stop("EM_REVISAO","A leitura não está mais disponível para envio.")
+      }
+     }.start()
+    }
+    "AGUARDANDO_RETORNO"->{readingStep="retorno";submissionWaitSince=android.os.SystemClock.elapsedRealtime()}
+    else->if(readingStep=="retorno"){
+     val result=runCatching{JSONObject(raw.orEmpty())}.getOrNull()
+     if(result?.optString("estado")=="ENVIADA"){
+      readingReturn=result
+      stop("ENVIADA","Leitura enviada. Protocolo ${result.getString("protocolo")}.")
+     }
+    }
+   }
   }
  }
  private fun stop(state:String,message:String){if(finished.compareAndSet(false,true)){endState=state;endMessage=message;done.countDown()}}
@@ -185,6 +291,7 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
  private fun inspect(){
   val view=web?:return
   if(finished.get()||processing||!CemigBrowserService.allowed(view.url?:""))return
+  if(readingMode){inspectReading(view);return}
   if(submissionReserved){inspectSubmission(view);return}
   processing=true
   val plano=job!!.getJSONObject("plano")
@@ -243,7 +350,7 @@ class CemigAutomationWorker(context:Context,params:WorkerParameters):Worker(cont
       val c=config?:return@Thread
       val authorization=c.optString("solverAuthorization")
       require(authorization.matches(Regex("[a-fA-F0-9-]{36}"))){"AUTORIZACAO_AUSENTE"}
-      val nonce=job!!.getString("id")+"_"+authorization
+      val nonce=(reading ?: job!!).getString("id")+"_"+authorization
       val answer=CemigNativeAccess.solve(c.getString("base"),c.getString("token"),c.getString("usina"),preview,nonce,challenge){!finished.get()}?:error("Sem resposta")
       main.post{val current=Uri.parse(view.url?:"");val expected=Uri.parse(challenge.getString("websiteURL"));if(!finished.get()&&current.scheme==expected.scheme&&current.host==expected.host&&current.port==expected.port&&current.path==expected.path){
        val apply="document.querySelectorAll('textarea[name=\"g-recaptcha-response\"]').forEach(function(f){f.value=${JSONObject.quote(answer)};f.dispatchEvent(new Event('input',{bubbles:true}));f.dispatchEvent(new Event('change',{bubbles:true}));});var w=document.querySelector('[data-callback]'),n=w&&w.dataset.callback;if(n&&/^[a-zA-Z_$][\\w$]*$/.test(n)&&typeof window[n]==='function')window[n]("+JSONObject.quote(answer)+");"

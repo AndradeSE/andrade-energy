@@ -26,6 +26,28 @@ export default function LeiturasDaUc() {
   }
   useEffect(() => { void carregar(); }, [id]);
   const pendente = leituras.find(item => item.estado === "RECEBIDA");
+  async function configurarSegundoPlano(ativar: boolean) {
+    try {
+      const sessao = await obterSessao();
+      const unidade = await buscarUnidade(id);
+      if (!sessao?.token || !unidade?.usina_id) throw new Error("Confirme a sessão e a usina desta UC.");
+      const fila = ativar ? await api.get(`/clientes/autoleitura/fila/${encodeURIComponent(unidade.usina_id)}`) : null;
+      const result = await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
+        packageName: isPreviewEnvironment ? "com.andradese.energy.gerador.preview" : "com.andradese.energy.gerador",
+        className: "br.com.andradeenergy.cemig.CemigBrowserActivity",
+        extra: {
+          autoleituraAutomationEnabled: ativar,
+          rateioApi: String(fila?.config.baseURL ?? "").replace(/\/$/, ""),
+          rateioToken: sessao.token,
+          rateioUsina: unidade.usina_id,
+        },
+      });
+      if (result.resultCode !== IntentLauncher.ResultCode.Success) throw new Error("O Android não aceitou a configuração.");
+      Alert.alert(ativar ? "Segundo plano ativado nesta usina" : "Segundo plano desativado nesta usina");
+    } catch (e: any) {
+      Alert.alert("Configuração indisponível", e?.response?.data?.message ?? e.message);
+    }
+  }
   async function enviarAutomaticamente() {
     if (!pendente || enviando) return;
     setEnviando(true);
@@ -59,6 +81,15 @@ export default function LeiturasDaUc() {
         <Button title="Envio manual" onPress={() => Alert.alert("Envio manual", "O portal da Cemig será aberto. Selecione esta UC, informe a leitura e guarde o protocolo. O app não marcará um envio manual como protocolado sem confirmação.", [{ text: "Cancelar", style: "cancel" }, { text: "Abrir Cemig", onPress: () => { void Linking.openURL("https://atende.cemig.com.br/Login").catch(() => Alert.alert("Não foi possível abrir a Cemig")); } }])} />
         <Button title={enviando ? "Preparando..." : "Envio automático"} disabled={!pendente || enviando || Constants.expoConfig?.extra?.nativeCemigAutoleitura !== true} onPress={() => Alert.alert("Envio automático", isPreviewEnvironment ? "O navegador integrado usará o acesso salvo e preencherá a leitura para conferência. No Preview, o envio definitivo permanece bloqueado." : "O navegador integrado usará o acesso salvo para enviar esta leitura e registrar o protocolo. Se a Cemig exigir verificação, a sessão aguardará sua ação.", [{ text: "Cancelar", style: "cancel" }, { text: "Continuar", onPress: () => { void enviarAutomaticamente(); } }])} />
       </View>
+      {Constants.expoConfig?.extra?.nativeCemigAutoleitura === true ? <>
+        <Text style={styles.title}>Segundo plano</Text>
+        <Text>O dispositivo verifica a fila desta usina periodicamente. Se a Cemig pedir verificação ou outra UC, continue pelo aplicativo.</Text>
+        <Button title="Configurar segundo plano" onPress={() => Alert.alert("Autoleitura desta usina", isPreviewEnvironment ? "O Preview prepara a leitura para conferência." : "O Android consultará a fila desta usina e enviará leituras elegíveis quando conseguir confirmar os dados no portal.", [
+          { text: "Cancelar", style: "cancel" },
+          { text: "Desativar", onPress: () => { void configurarSegundoPlano(false); } },
+          { text: "Ativar", onPress: () => { void configurarSegundoPlano(true); } },
+        ])} />
+      </> : null}
       <Text style={styles.title}>Histórico de envio</Text>
       {carregando ? <Text>Consultando leituras...</Text> : erro ? <><Text>Não foi possível consultar o histórico.</Text><Button title="Tentar novamente" onPress={carregar} /></> : !leituras.length ? <Text>Nenhuma leitura recebida para esta UC.</Text> : leituras.map(item => <Card key={item.id}>
         <Text style={styles.title}>{item.leitura_kwh} kWh</Text>
