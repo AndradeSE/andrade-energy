@@ -22,6 +22,7 @@ import PlantWeatherCover from "../components/usinas/PlantWeatherCover";
 import { textoLegivel } from "../utils/textoLegado";
 import {
   ElasticFlatList as FlatList,
+  Button,
   EmptyState,
   Loading,
 } from "../components/ui";
@@ -418,6 +419,15 @@ export default function SelecionarUnidade() {
               </Text>
             </View>
 
+            {!gestor && usuario?.cliente_id ? (
+              <View style={styles.requestAction}>
+                <Button
+                  title="Solicitar cadastro de nova UC"
+                  onPress={() => router.push({ pathname: "/clientes/faturas-anexadas", params: { clienteId: String(usuario.cliente_id) } })}
+                />
+              </View>
+            ) : null}
+
             {/* BUSCA */}
 
             <View
@@ -770,14 +780,6 @@ export default function SelecionarUnidade() {
                 ) : null}
 
                 <View style={styles.unitActionsRow}>
-                  {unidade?.autoleitura_rural_ativa && unidade.status === "ATIVA" ? (
-                    <TouchableOpacity onPress={(event) => {
-                      event.stopPropagation();
-                      router.push({ pathname: "/autoleitura", params: { id: unidade.id, numero: unidade.numero } });
-                    }} style={styles.renameButton}>
-                      <Text style={styles.renameText}>Informar leitura do medidor</Text>
-                    </TouchableOpacity>
-                  ) : null}
                   <TouchableOpacity accessibilityLabel={`Nomear UC ${unidade!.numero}`} hitSlop={8} onPress={(event) => { event.stopPropagation(); setUnidadeNomeando(unidade!); setApelido(String(unidade!.apelido ?? "")); }} style={styles.renameButton}><Ionicons name="pencil-outline" size={17} color={Colors.primary} /><Text style={styles.renameText}>{unidade!.apelido ? "Alterar nome" : "Dar um nome"}</Text></TouchableOpacity>
                   <View style={styles.openHint}>
                     <Text style={styles.openText}>Acessar</Text>
@@ -1312,6 +1314,10 @@ const styles =
         "800",
       textAlign:
         "center",
+    },
+
+    requestAction: {
+      marginBottom: Spacing.lg,
     },
 
     actions: {

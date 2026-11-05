@@ -52,7 +52,10 @@ export default function NovaUnidade() {
   const [mensagemSalvar, setMensagemSalvar] = useState("");
   const [numero, setNumero] = useState(""); const [titular, setTitular] = useState("");
   const [cpfTitular, setCpfTitular] = useState("");
-  const [zona, setZona] = useState<"" | "RURAL" | "URBANA">("");
+  const [zona, setZona] = useState<"" | "RURAL" | "URBANA">(() => {
+    const valor = parseDadosFatura(dadosFaturaParam)?.zona_localizacao;
+    return valor === "RURAL" || valor === "URBANA" ? valor : "";
+  });
   const [autoleituraAtiva, setAutoleituraAtiva] = useState(false);
   const [tipo, setTipo] = useState<Tipo>("BENEFICIARIA"); const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO");
   const [planoContrato, setPlanoContrato] = useState("COM_FIDELIDADE");

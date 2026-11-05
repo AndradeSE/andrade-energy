@@ -8,7 +8,7 @@ import api from "../../config/api";
 import Loading from "../ui/Loading";
 
 /** Consulta o servidor em cada navegação; não usa o cache local como autorização. */
-export default function ContractAccessGate() {
+export default function ContractAccessGate({ mostrarCarregamento }: { mostrarCarregamento: boolean }) {
   const queryClient = useQueryClient();
   const { usuario, unidadeSelecionada, selecionarUnidade, signOut } = useAuth();
   const path = usePathname();
@@ -19,7 +19,7 @@ export default function ContractAccessGate() {
   useEffect(() => {
     let ativo = true;
     if (usuario?.perfil !== "LEITURA") escopoVerificado.current = null;
-    if (usuario?.perfil !== "LEITURA" || /^(?:\/\(tabs\))?\/(?:login|criar-conta|contrato|perfil|biometric|selecionar-unidade)(?:\/|$)/.test(path)) {
+    if (usuario?.perfil !== "LEITURA" || path === "/clientes/faturas-anexadas" || /^(?:\/\(tabs\))?\/(?:login|criar-conta|contrato|perfil|biometric|selecionar-unidade)(?:\/|$)/.test(path)) {
       setBloqueado(false); return;
     }
     const escopoAtual = `${usuario.id}:${unidadeSelecionada?.id ?? "sem-unidade"}`;
@@ -54,7 +54,7 @@ export default function ContractAccessGate() {
     }).catch(() => { if (ativo && primeiraVerificacao) setErro(true); });
     return () => { ativo = false; };
   }, [usuario?.id, usuario?.perfil, unidadeSelecionada?.id, path, tentativa, queryClient]);
-  if (!bloqueado) return null;
+  if (!bloqueado || !mostrarCarregamento) return null;
   return <View style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0, zIndex: 10000, backgroundColor: "#EFF6F2", justifyContent: "center", alignItems: "center", padding: 28 }}>
     {erro ? <><Text>Não foi possível verificar seus contratos.</Text><Pressable onPress={() => setTentativa(v => v + 1)}><Text style={{ padding: 20 }}>Tentar novamente</Text></Pressable><Pressable onPress={() => void signOut()}><Text>Sair da conta</Text></Pressable></> : <Loading />}
   </View>;

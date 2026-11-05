@@ -14,7 +14,6 @@ import TabDataPending from "../../components/ui/TabDataPending";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
 import { useFaturas } from "../../hooks/useFaturas";
-import { FaturaAnexadaCliente, listarFaturasAnexadasCliente } from "../../services/clientes.service";
 import { excluirFatura, formatarCompetenciaBrasileira, formatarDataBrasileira, obterRelatorioCalculoFatura } from "../../services/faturas.service";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { invoiceDisplayStatus } from "../../services/invoice-display-status";
@@ -43,43 +42,30 @@ export default function Faturas() {
     if (["todas", "abertas", "vencidas", "pagas"].includes(String(solarFiltro))) setFiltro(solarFiltro as Filtro);
   }, [solarFiltro]);
   const [categoria, setCategoria] = useState<"andrade" | "cemig">("andrade");
-  const [anexadas, setAnexadas] = useState<FaturaAnexadaCliente[]>([]);
   const [baixando, setBaixando] = useState<string>();
   const [excluindo, setExcluindo] = useState<string>();
   const [atualizando, setAtualizando] = useState(false);
   const faturas = useMemo(() => data ?? [], [data]);
 
-  useFocusEffect(useCallback(() => {
-    if (proprietario || !user?.cliente_id) return;
-    let ativo = true;
-    listarFaturasAnexadasCliente(String(user.cliente_id))
-      .then((itens) => { if (ativo) setAnexadas(itens); })
-      .catch(() => { if (ativo) setAnexadas([]); });
-    return () => { ativo = false; };
-  }, [proprietario, user?.cliente_id]));
-
   const faturasCemig = useMemo(() => {
+    if (!unidadeSelecionada?.id) return [];
+    const numeros = new Set([unidadeSelecionada.numero, unidadeSelecionada.numero_instalacao]
+      .map(valor => String(valor ?? "").replace(/\D/g, "")).filter(Boolean));
     const urls = new Set<string>();
-    const itens = [
-      ...faturas.filter((item: any) => item.pdf_cemig_url).map((item: any) => ({
-        id: `fatura-${item.id}`,
-        url: String(item.pdf_cemig_url),
-        titulo: `Conta CEMIG · ${formatarCompetenciaBrasileira(item.referencia)}`,
-        detalhe: `UC ${item.numero_instalacao || unidadeSelecionada?.numero || "não informada"}`,
-      })),
-      ...anexadas.map((item) => ({
-        id: `anexo-${item.id}`,
-        url: item.url,
-        titulo: item.nome || "Conta CEMIG anexada",
-        detalhe: `UC ${item.dadosFatura?.uc ?? item.dadosFatura?.numero_instalacao ?? "não informada"}`,
-      })),
-    ];
-    return itens.filter((item) => {
-      if (!item.url || urls.has(item.url)) return false;
-      urls.add(item.url);
-      return true;
-    });
-  }, [anexadas, faturas, unidadeSelecionada?.numero]);
+    return faturas.filter((item: any) => {
+      if (!item.pdf_cemig_url || urls.has(item.pdf_cemig_url)) return false;
+      const mesmaUnidade = item.unidade_consumidora_id
+        ? String(item.unidade_consumidora_id) === String(unidadeSelecionada.id)
+        : numeros.has(String(item.numero_instalacao ?? "").replace(/\D/g, ""));
+      if (mesmaUnidade) urls.add(item.pdf_cemig_url);
+      return mesmaUnidade;
+    }).map((item: any) => ({
+      id: `fatura-${item.id}`,
+      url: String(item.pdf_cemig_url),
+      titulo: `Conta CEMIG · ${formatarCompetenciaBrasileira(item.referencia)}`,
+      detalhe: `UC ${unidadeSelecionada.numero}`,
+    }));
+  }, [faturas, unidadeSelecionada]);
 
   const lista = useMemo(() => faturas.filter((item: any) => {
     if (filtro === "pagas") return estaPaga(item);
@@ -200,8 +186,7 @@ export default function Faturas() {
               <View style={styles.cemigCopy}><Text style={styles.cemigTitle}>{item.titulo}</Text><Text style={styles.cemigDetail}>{item.detalhe}</Text></View>
               <Ionicons name="open-outline" size={19} color={Colors.primary} />
             </TouchableOpacity>)}
-            {!faturasCemig.length ? <EmptyState icon="document-outline" title="Nenhuma conta CEMIG" subtitle="As contas recebidas ou anexadas aparecerão aqui." /> : null}
-            <TouchableOpacity onPress={() => router.push({ pathname: "/clientes/faturas-anexadas" as never, params: { clienteId: String(user?.cliente_id ?? "") } })} style={styles.anexarConta}><Ionicons name="add-circle-outline" size={19} color={Colors.primary} /><Text style={styles.anexarContaText}>Ver ou anexar conta CEMIG</Text></TouchableOpacity>
+            {!faturasCemig.length ? <EmptyState icon="document-outline" title="Nenhuma conta CEMIG" subtitle="As contas Cemig desta unidade aparecerão aqui." /> : null}
           </View> : null}
           {categoria === "andrade" || proprietario ? <View style={styles.filterTabs}>
             <FilterButton active={filtro === "todas"} label="Todas" onPress={() => setFiltro("todas")} />
@@ -313,8 +298,6 @@ const styles = StyleSheet.create({
   cemigCopy: { flex: 1 },
   cemigTitle: { color: Colors.text, fontSize: Typography.caption, fontWeight: "800" },
   cemigDetail: { marginTop: 4, color: Colors.subtitle, fontSize: Typography.small },
-  anexarConta: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.xs, minHeight: 45, marginTop: Spacing.md, borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.md },
-  anexarContaText: { color: Colors.primary, fontSize: Typography.small, fontWeight: "800" },
   filterButton: { flex: 1, minHeight: 48, alignItems: "center", justifyContent: "center", borderBottomWidth: 3, borderBottomColor: "transparent" },
   filterButtonActive: { borderBottomColor: "#8F938D" },
   filterLabel: { color: Colors.subtitle, fontSize: Typography.small, fontWeight: "700" },

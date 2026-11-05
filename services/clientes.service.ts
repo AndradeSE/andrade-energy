@@ -51,6 +51,13 @@ export async function listarAutoleituras(id: string) {
   return data;
 }
 
+export async function listarMinhasAutoleituras(id: string) {
+  const { data } = await api.get<{ id: string; data_programada: string; leitura_kwh: number; recebida_em: string; estado: "RECEBIDA" | "EM_ENVIO" | "ENVIADA" | "RECUSADA" | "EM_REVISAO"; protocolo_cemig: string | null; estimativa_cemig: number | null }[]>(
+    `/clientes/minhas-unidades/${id}/autoleitura`,
+  );
+  return data;
+}
+
 export async function configurarAutoleitura(id: string, zona: "RURAL" | "URBANA", ativa: boolean) {
   await api.patch(`/clientes/unidade/${id}/autoleitura`, {
     zona_localizacao: zona,
@@ -109,9 +116,9 @@ export async function listarFaturasAnexadasCliente(id: string) {
   return data as FaturaAnexadaCliente[];
 }
 
-export async function anexarFaturaCliente(id: string, arquivo: { uri: string; name: string; mimeType?: string | null }, senhaPdf?: string, usinaId?: string) {
-  return await sendPdf(arquivo.uri,`/clientes/${id}/faturas-anexadas`,arquivo.name||'fatura-cemig.pdf',{
-    ...(senhaPdf?.trim()?{senhaPdf:senhaPdf.trim()}:{}),...(usinaId?{usinaId}:{})
+export async function anexarFaturaCliente(id: string, arquivo: { uri: string; name: string; mimeType?: string | null }, senhaPdf?: string, usinaId?: string, zonaSolicitada?: "RURAL" | "URBANA") {
+  return await sendPdf(arquivo.uri,`/clientes/${id}/${zonaSolicitada ? "solicitacao-nova-uc" : "faturas-anexadas"}`,arquivo.name||'fatura-cemig.pdf',{
+    ...(senhaPdf?.trim()?{senhaPdf:senhaPdf.trim()}:{}),...(usinaId?{usinaId}:{}),...(zonaSolicitada?{zonaSolicitada}:{})
   }) as FaturaAnexadaCliente;
 }
 

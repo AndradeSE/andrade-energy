@@ -1,5 +1,86 @@
 [
   {
+    "numero": "OTA 20261105-161836",
+    "data": "05/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Consumidor completo: solicitação de UC, senha e exclusão de PDF, espaçamento e abertura preservada"
+    ]
+  },
+  {
+    "numero": "OTA 20261105-161732",
+    "data": "05/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Consumidor completo: solicitação de UC, senha e exclusão de PDF, espaçamento e abertura preservada"
+    ]
+  },
+  {
+    "numero": "OTA 20261105-161616",
+    "data": "05/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Consumidor completo: solicitação de UC, senha e exclusão de PDF, espaçamento e abertura preservada"
+    ]
+  },
+  {
+    "numero": "OTA 20261105-161413",
+    "data": "05/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Consumidor completo: solicitação de UC, senha e exclusão de PDF, espaçamento e abertura preservada"
+    ]
+  },
+  {
+    "numero": "OTA 20261105-161302",
+    "data": "05/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Consumidor completo: solicitação de UC, senha e exclusão de PDF, espaçamento e abertura preservada"
+    ]
+  },
+  {
+    "numero": "OTA 20261105-161135",
+    "data": "05/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Consumidor completo: solicitação de UC, senha e exclusão de PDF, espaçamento e abertura preservada"
+    ]
+  },
+  {
+    "numero": "OTA 20261105-160942",
+    "data": "05/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Consumidor completo: solicitaÃ§Ã£o de UC, senha e exclusÃ£o de PDF, espaÃ§amento e abertura preservada"
+    ]
+  },
+  {
+    "numero": "OTA 20261105-002950",
+    "data": "05/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Autoleitura rural no cartão da unidade consumidora"
+    ]
+  },
+  {
+    "numero": "OTA 20261105-002718",
+    "data": "05/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Autoleitura rural no cartão da unidade consumidora"
+    ]
+  },
+  {
     "numero": "OTA 20261029-185840",
     "data": "29/10/2026",
     "variant": "gerador",

@@ -5,7 +5,9 @@ import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Linking, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
-import { AppHeader, Card, ElasticScrollView as ScrollView, EmptyState, Screen } from "../../components/ui";
+import FormField from "../../components/cadastro/FormField";
+import ChoiceField from "../../components/cadastro/ChoiceField";
+import { AppHeader, Button, Card, ElasticScrollView as ScrollView, EmptyState, Screen } from "../../components/ui";
 import PdfPasswordRetryModal from "../../components/PdfPasswordRetryModal";
 import { IS_GERADOR_APP } from "../../config/appVariant";
 import { useAuth } from "../../contexts/AuthContext";
@@ -32,20 +34,22 @@ export default function FaturasAnexadas() {
   const { user, usinaSelecionada, suspenderBloqueioTemporariamente } = useAuth();
   const clienteId = String(params.clienteId ?? user?.cliente_id ?? "");
   const selecionarUc = IS_GERADOR_APP && params.selecionarUc === "1";
+  const [zona, setZona] = useState<"" | "RURAL" | "URBANA">("");
   const [faturas, setFaturas] = useState<FaturaAnexadaCliente[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [excluindoId, setExcluindoId] = useState("");
+  const [senhaInformada, setSenhaInformada] = useState("");
   const [pdfPendente, setPdfPendente] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [pedindoSenhaPdf, setPedindoSenhaPdf] = useState(false);
 
-  const titulo = selecionarUc ? "Escolher fatura para UC" : "Contas vinculadas ao CPF";
+  const titulo = selecionarUc ? "Escolher fatura para UC" : IS_GERADOR_APP ? "Contas vinculadas ao CPF" : "Solicitar cadastro de nova UC";
   const subtitulo = selecionarUc
     ? "Escolha uma conta já anexada para preencher a unidade consumidora."
     : IS_GERADOR_APP
       ? "Contas da concessionária enviadas pelo consumidor ficam disponíveis para consulta e cadastro de UC."
-      : "Anexe somente contas da concessionária de pontos de instalação vinculados ao seu CPF. Não são faturas Andrade Energy.";
+      : "Anexe a conta da concessionária da nova unidade em seu nome. O gerador vai usar o PDF para analisar o cadastro.";
 
   const carregar = useCallback(async () => {
     if (!clienteId) {
@@ -59,7 +63,7 @@ export default function FaturasAnexadas() {
       ]);
       const numeros = new Set(unidades.filter((unidade: any) => unidade.usina_id === usinaSelecionada?.id).map((unidade: any) => String(unidade.numero ?? "").replace(/\D/g, "")));
       setFaturas(IS_GERADOR_APP && usinaSelecionada?.id && !selecionarUc
-        ? anexos.filter((anexo) => numeros.has(String(anexo.dadosFatura?.uc ?? anexo.dadosFatura?.numero_instalacao ?? "").replace(/\D/g, "")))
+        ? anexos.filter((anexo) => anexo.dadosFatura?.solicitacao_nova_uc === true || numeros.has(String(anexo.dadosFatura?.uc ?? anexo.dadosFatura?.numero_instalacao ?? "").replace(/\D/g, "")))
         : anexos);
     } catch (erro: any) {
       Alert.alert("Não foi possível carregar", erro?.response?.data?.message ?? "Tente atualizar novamente.");
@@ -76,7 +80,7 @@ export default function FaturasAnexadas() {
   }
 
   async function selecionarArquivo(pdfReenvio?: DocumentPicker.DocumentPickerAsset, senhaPdf = "") {
-    if (!clienteId || enviando) return;
+    if (!clienteId || enviando || (!IS_GERADOR_APP && (!zona || !pdfReenvio))) return;
     const retomarBloqueio = suspenderBloqueioTemporariamente();
     try {
       const resultado = pdfReenvio ? null : await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
@@ -84,9 +88,11 @@ export default function FaturasAnexadas() {
       setEnviando(true);
       const pdf = pdfReenvio ?? resultado!.assets[0];
       setPdfPendente(pdf);
-      await anexarFaturaCliente(clienteId, pdf, senhaPdf, IS_GERADOR_APP ? usinaSelecionada?.id : undefined);
+      await anexarFaturaCliente(clienteId, pdf, senhaPdf, IS_GERADOR_APP ? usinaSelecionada?.id : undefined, zona || undefined);
       await carregar();
-      Alert.alert("Conta anexada", "A conta da concessionária foi salva no seu perfil e poderá ser usada pelo gerador para cadastrar a UC vinculada ao seu CPF.");
+      setPdfPendente(null);
+      setSenhaInformada("");
+      Alert.alert(IS_GERADOR_APP ? "Conta anexada" : "Solicitação enviada", IS_GERADOR_APP ? "A conta foi salva no perfil do cliente." : "O gerador será avisado e vai conferir a fatura. A unidade aparecerá na sua lista após a conclusão do cadastro.");
     } catch (erro: any) {
       if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED") { setPedindoSenhaPdf(true); return; }
       Alert.alert("Não foi possível anexar", erro?.response?.data?.message ?? "Confira o PDF da CEMIG e tente novamente.");
@@ -153,9 +159,33 @@ export default function FaturasAnexadas() {
     {IS_GERADOR_APP ? <AppHeader variant="subpage" title={titulo} subtitle={params.cliente ? `Cliente: ${params.cliente}` : "Documentos do cliente"} contextTitle={`${quantidade} fatura${quantidade === 1 ? "" : "s"} anexada${quantidade === 1 ? "" : "s"}`} contextSubtitle={selecionarUc ? "Selecione para cadastrar a UC" : "Contas particulares da concessionária"} icon="document-text-outline" /> : null}
     <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}>
       {!IS_GERADOR_APP ? <View style={styles.heading}><TouchableOpacity accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={23} color={Colors.text} /></TouchableOpacity><View style={styles.headingCopy}><Text style={styles.title}>{titulo}</Text><Text style={styles.subtitle}>{subtitulo}</Text></View></View> : <Text style={styles.description}>{subtitulo}</Text>}
-      {!selecionarUc ? <TouchableOpacity disabled={!clienteId || enviando} onPress={() => void selecionarArquivo()} style={[styles.upload, (!clienteId || enviando) && styles.disabled]}>
+      {!IS_GERADOR_APP ? <Card style={{ gap: Spacing.md, marginBottom: Spacing.lg }}>
+        <Text style={styles.description}>Anexe a fatura da nova UC em seu nome e informe a localização. Ao enviar, o gerador recebe um aviso e confere os dados. Depois de concluir o cadastro, ele libera a unidade na sua lista.</Text>
+        <ChoiceField label="Localização da nova UC" value={zona} onChange={setZona} options={[{ label: "Rural", value: "RURAL" }, { label: "Urbana", value: "URBANA" }]} disabled={enviando} />
+        <Button title={pdfPendente ? "Trocar PDF da fatura" : "Anexar PDF da fatura"} disabled={enviando} onPress={async () => {
+          const retomar = suspenderBloqueioTemporariamente();
+          try {
+            const resultado = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true });
+            if (!resultado.canceled && resultado.assets[0]) {
+              setPdfPendente(resultado.assets[0]);
+              setSenhaInformada("");
+            }
+          } catch { Alert.alert("Não foi possível abrir o PDF"); }
+          finally { retomar(); }
+        }} />
+        {pdfPendente ? <>
+          <Text>{pdfPendente.name}</Text>
+          <Button title="Remover PDF" disabled={enviando} onPress={() => { setPdfPendente(null); setSenhaInformada(""); }} />
+        </> : null}
+        <View>
+          <FormField label="Senha do PDF" placeholder="Opcional" value={senhaInformada} onChangeText={setSenhaInformada} secureTextEntry autoCapitalize="none" autoCorrect={false} editable={!enviando} />
+          <Text style={styles.passwordHint}>Se o PDF não tiver senha, deixe em branco.</Text>
+        </View>
+        <Button title={enviando ? "Enviando…" : "Enviar solicitação"} disabled={!clienteId || !zona || !pdfPendente || enviando} onPress={() => { if (pdfPendente) void selecionarArquivo(pdfPendente, senhaInformada); }} />
+      </Card> : null}
+      {IS_GERADOR_APP && !selecionarUc ? <TouchableOpacity disabled={!clienteId || enviando} onPress={() => void selecionarArquivo()} style={[styles.upload, (!clienteId || enviando) && styles.disabled]}>
         <View style={styles.uploadIcon}>{enviando ? <ActivityIndicator color={Colors.primary} /> : <Ionicons name="cloud-upload-outline" size={24} color={Colors.primary} />}</View>
-        <View style={styles.uploadCopy}><Text style={styles.uploadTitle}>{enviando ? "Anexando conta..." : "Anexar conta vinculada ao CPF"}</Text><Text style={styles.uploadHint}>PDF da concessionária de uma UC do seu CPF; ficará disponível também para o gerador.</Text></View>
+        <View style={styles.uploadCopy}><Text style={styles.uploadTitle}>{enviando ? "Anexando conta..." : IS_GERADOR_APP ? "Anexar conta vinculada ao CPF" : "Anexar fatura da nova UC"}</Text><Text style={styles.uploadHint}>PDF da concessionária de uma UC do seu CPF; ficará disponível também para o gerador.</Text></View>
         <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
       </TouchableOpacity> : null}
       {carregando ? <View style={styles.loading}><ActivityIndicator color={Colors.primary} /></View> : faturas.length ? faturas.map((fatura) => {
@@ -168,11 +198,11 @@ export default function FaturasAnexadas() {
             <Ionicons name="open-outline" size={18} color={Colors.primary} />
           </TouchableOpacity>
           {IS_GERADOR_APP ? <TouchableOpacity disabled={!uc} onPress={() => usarNaUc(fatura)} style={[styles.useButton, !uc && styles.disabled]}><Ionicons name="add-circle-outline" size={19} color={Colors.surface} /><Text style={styles.useButtonText}>{uc ? "Adicionar UC por esta fatura" : "UC não identificada nesta fatura"}</Text></TouchableOpacity> : null}
-          {IS_GERADOR_APP ? <TouchableOpacity disabled={excluindoId === fatura.id} onPress={() => confirmarExclusao(fatura)} style={[styles.deleteButton, excluindoId === fatura.id && styles.disabled]}>{excluindoId === fatura.id ? <ActivityIndicator size="small" color={Colors.danger} /> : <Ionicons name="trash-outline" size={18} color={Colors.danger} />}<Text style={styles.deleteButtonText}>{excluindoId === fatura.id ? "Excluindo..." : "Excluir fatura do perfil"}</Text></TouchableOpacity> : null}
+          <TouchableOpacity accessibilityRole="button" disabled={!!excluindoId} onPress={() => confirmarExclusao(fatura)} style={[styles.deleteButton, excluindoId === fatura.id && styles.disabled]}>{excluindoId === fatura.id ? <ActivityIndicator size="small" color={Colors.danger} /> : <Ionicons name="trash-outline" size={18} color={Colors.danger} />}<Text style={styles.deleteButtonText}>{excluindoId === fatura.id ? "Excluindo..." : "Excluir PDF enviado"}</Text></TouchableOpacity>
         </Card>;
       }) : <EmptyState icon="document-outline" title="Nenhuma conta anexada" subtitle={selecionarUc ? "O cliente ainda não enviou uma conta de energia." : "Anexe uma conta da concessionária de uma unidade vinculada ao seu CPF."} />}
     </ScrollView>
-    <PdfPasswordRetryModal visible={pedindoSenhaPdf} busy={enviando} onCancel={() => { setPedindoSenhaPdf(false); setPdfPendente(null); }} onConfirm={(password) => { const pdf = pdfPendente; setPedindoSenhaPdf(false); if (pdf) void selecionarArquivo(pdf, password); }} />
+    <PdfPasswordRetryModal visible={pedindoSenhaPdf} busy={enviando} onCancel={() => { setPedindoSenhaPdf(false); if (IS_GERADOR_APP) setPdfPendente(null); }} onConfirm={(password) => { const pdf = pdfPendente; setPedindoSenhaPdf(false); if (pdf) void selecionarArquivo(pdf, password); }} />
   </Screen>;
 }
 
@@ -184,6 +214,7 @@ const styles = StyleSheet.create({
   title: { color: Colors.text, fontSize: Typography.section, fontWeight: "900" },
   subtitle: { marginTop: 4, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 },
   description: { marginBottom: Spacing.lg, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 20 },
+  passwordHint: { marginTop: -Spacing.xs, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 20 },
   upload: { minHeight: 80, flexDirection: "row", alignItems: "center", marginBottom: Spacing.lg, padding: Spacing.md, borderRadius: Radius.lg, backgroundColor: Colors.primaryLight },
   uploadIcon: { width: 46, height: 46, alignItems: "center", justifyContent: "center", borderRadius: Radius.round, backgroundColor: Colors.surface },
   uploadCopy: { flex: 1, marginHorizontal: Spacing.sm },
