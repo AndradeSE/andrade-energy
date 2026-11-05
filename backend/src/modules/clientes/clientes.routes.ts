@@ -66,7 +66,7 @@ router.post("/:id/confirmar-cadastro", exigirAutenticacao, exigirGestor, confirm
 router.get("/:id/faturas-anexadas", exigirClienteDaSessaoOuGestor("id"), listarFaturasAnexadasClienteController);
 router.post("/:id/faturas-anexadas", exigirClienteDaSessaoOuGestor("id"), upload.single("arquivo"), anexarFaturaClienteController);
 router.post("/:id/solicitacao-nova-uc", exigirClienteDaSessaoOuGestor("id"), upload.single("arquivo"), anexarFaturaClienteController);
-router.delete("/:id/faturas-anexadas/:anexoId", exigirAutenticacao, exigirGestor, excluirFaturaAnexadaClienteController);
+router.delete("/:id/faturas-anexadas/:anexoId", exigirAutenticacao, exigirClienteDaSessaoOuGestor("id"), excluirFaturaAnexadaClienteController);
 
 router.get("/:id", exigirClienteDaSessaoOuGestor("id"), buscarClienteController);
 
