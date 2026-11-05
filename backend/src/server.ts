@@ -38,6 +38,7 @@ import notificacoesRoutes from "./modules/notificacoes/notificacoes.routes";
 import privacidadeRoutes from "./modules/privacidade/privacidade.routes";
 import { auditar } from "./utils/audit";
 import { backgroundJobsEnabled } from "./config/backgroundJobs";
+import { startNeonPreviewSnapshots } from "./config/neonSnapshotRuntime";
 import { trackRequestTask } from "./config/requestTasks";
 import { assistenteVoiceRouter } from "./modules/assistente/voice.routes";
 import uploadsRoutes from "./modules/uploads/uploads.routes";
@@ -284,6 +285,7 @@ async function iniciarServidor() {
   await validarSchemaAntesDeIniciar();
   app.listen(PORT, () => {
   console.log(`Servidor iniciado na porta ${PORT}`);
+  startNeonPreviewSnapshots(process.env);
   if(primaryEnvironment(process.env)) {
     let returning=false;
     const checkReturn=async()=>{

@@ -1,5 +1,8 @@
 #Requires -Version 7.0
-param([Parameter(Mandatory)][string]$Archive)
+param(
+    [Parameter(Mandatory)][string]$Archive,
+    [switch]$RequireData
+)
 
 $ErrorActionPreference = 'Stop'
 $dump = Get-Item -LiteralPath $Archive
@@ -14,6 +17,21 @@ if ($env:PGHOST -notmatch '^ep-misty-star-beg2irkr(?:-pooler)?\.[a-z0-9.-]+\.neo
 $sql = & pg_restore --no-owner --no-privileges --schema=public --file=- $dump.FullName
 if ($LASTEXITCODE -ne 0 -or !$sql) { throw 'Não foi possível preparar o backup.' }
 $sql = ($sql -join "`n")
+$dataChecks = [Collections.Generic.List[string]]::new()
+$totalRows = 0
+foreach ($block in [regex]::Matches($sql, '(?ms)^COPY (public\.[a-z_][a-z0-9_]*) \([^\r\n]+\) FROM stdin;\r?\n(.*?)^\\\.$')) {
+    $table = $block.Groups[1].Value
+    $body = $block.Groups[2].Value.TrimEnd("`r", "`n")
+    $rows = if ($body.Length -eq 0) { 0 } else { ($body -split '\r?\n').Count }
+    $totalRows += $rows
+    $dataChecks.Add("IF (SELECT count(*) FROM $table) <> $rows THEN RAISE EXCEPTION 'Contagem divergente em $table'; END IF;")
+}
+if ($RequireData -and $totalRows -eq 0) {
+    throw 'O backup precisa conter registros para validar a recuperação dos dados.'
+}
+$verifyData = if ($dataChecks.Count) {
+    'DO $counts$ BEGIN ' + ($dataChecks -join "`n") + ' END $counts$;'
+} else { '' }
 $sql = $sql -creplace '(?m)^(    ADD CONSTRAINT usuarios_auth_user_id_fkey FOREIGN KEY \(auth_user_id\) REFERENCES )auth\.users\(id\)', '${1}reserve_auth.users(id)'
 $guard = @'
 SELECT pg_advisory_xact_lock(7071189);
@@ -50,5 +68,5 @@ END
 $verify$;
 SELECT count(*) AS tabelas_restauradas FROM pg_tables WHERE schemaname = 'public';
 '@
-($guard + "`n" + $sql + "`n" + $finish) | & psql -X -w --single-transaction --set=ON_ERROR_STOP=1 --file=- 2>$null
+($guard + "`n" + $sql + "`n" + $finish + "`n" + $verifyData) | & psql -X -w --single-transaction --set=ON_ERROR_STOP=1 --file=- 2>$null
 if ($LASTEXITCODE -ne 0) { throw 'Restauração revertida. Confira a conexão e a compatibilidade do backup.' }
