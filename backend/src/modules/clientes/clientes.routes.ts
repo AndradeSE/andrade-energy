@@ -5,6 +5,11 @@ import {
   buscarClienteController,
   confirmarCadastroClienteController,
   buscarUnidadeController,
+  configurarAutoleituraController,
+  listarAutoleiturasController,
+  executarAutoleituraController,
+  listarFilaAutoleituraController,
+  registrarAutoleituraController,
   criarClienteController,
   excluirClienteController,
   listarClientesController,
@@ -21,7 +26,7 @@ import {
 } from "./clientes.controller";
 import { exigirAutenticacao, exigirGestor } from "../../middlewares/auth.middleware";
 import { upload } from "../../config/multer";
-import { exigirClienteDaSessaoOuGestor, exigirUnidadeDaSessaoOuGestor } from "../../utils/empresaScope";
+import { exigirUsinaDaSessaoOuGestor, exigirClienteDaSessaoOuGestor, exigirUnidadeDaSessaoOuGestor } from "../../utils/empresaScope";
 import { exigirCapacidadeDoPlano } from "../../middlewares/limitesPlano.middleware";
 import {empresaIdDaRequisicao} from '../../utils/empresaScope';
 import {obterRateioUc,salvarRateioUc} from '../usinas/rateioUc.service';
@@ -32,8 +37,10 @@ router.use(exigirAutenticacao);
 
 router.get("/", exigirGestor, listarClientesController);
 
+router.post("/minhas-unidades/:unidadeId/autoleitura", registrarAutoleituraController);
 router.get("/minhas-unidades", exigirAutenticacao, listarMinhasUnidadesController);
 router.patch("/minhas-unidades/:unidadeId/apelido", exigirAutenticacao, nomearMinhaUnidadeController);
+router.get("/autoleitura/fila/:id", exigirGestor, exigirUsinaDaSessaoOuGestor(), listarFilaAutoleituraController);
 router.get("/unidades", exigirAutenticacao, exigirGestor, listarTodasUnidadesController);
 router.get('/unidade/:unidadeId/rateio',exigirGestor,exigirUnidadeDaSessaoOuGestor(),async(req,res)=>{
  res.setHeader('Cache-Control','private, no-store');
@@ -43,6 +50,9 @@ router.put('/unidade/:unidadeId/rateio',exigirGestor,exigirUnidadeDaSessaoOuGest
  if(String((req as any).usuario?.papel_empresa??'').startsWith('COLABORADOR_'))return res.status(403).json({message:'Somente o titular ou ADM pode alterar o rateio da UC.'});
  try{return res.json(await salvarRateioUc(empresaIdDaRequisicao(req),req.params.unidadeId,req.body?.ativo));}catch{return res.status(400).json({message:'Não foi possível alterar o rateio da UC.'});}
 });
+router.post(["/unidade/:unidadeId/autoleitura/:leituraId/reservar", "/unidade/:unidadeId/autoleitura/:leituraId/retorno"], exigirGestor, exigirUnidadeDaSessaoOuGestor(), executarAutoleituraController);
+router.get("/unidade/:unidadeId/autoleitura", exigirGestor, exigirUnidadeDaSessaoOuGestor(), listarAutoleiturasController);
+router.patch("/unidade/:unidadeId/autoleitura", exigirGestor, configurarAutoleituraController);
 router.get("/unidade/:unidadeId", exigirUnidadeDaSessaoOuGestor(), buscarUnidadeController);
 
 router.get("/:id/unidades", exigirClienteDaSessaoOuGestor("id"), listarUnidadesClienteController);

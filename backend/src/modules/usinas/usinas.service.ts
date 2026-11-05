@@ -1,4 +1,5 @@
 import { normalizarPlanoContrato } from "../contratos/planoContrato.policy";
+import { configuracaoAutoleitura } from "../clientes/autoleituraConfig";
 import { cpfTitularPatch } from "./cpfTitularPatch";
 import { saldoCreditoInformado } from "./saldoAncora.policy";
 import { receitaAtualDaCompetencia } from "./receitaDashboard.policy";
@@ -528,6 +529,7 @@ export async function alocarUnidadeNaUsina(usinaId: string, input: any, empresaI
   const enderecoDaUc = enderecoDaFatura || unidadeAnterior?.endereco || cliente.endereco || null;
   const usinaAnterior = unidadeAnterior?.usina_id ?? null;
   const dadosUnidade = {
+      ...configuracaoAutoleitura(input),
       empresa_id: empresaId,
       cliente_id: clienteId,
       usina_id: usinaId,

@@ -44,7 +44,7 @@ import uploadsRoutes from "./modules/uploads/uploads.routes";
 import cotasRoutes from "./modules/cotas/cotas.routes";
 import { monitorServiceQuotas } from "./modules/cotas/cotas.service";
 import { processarPushPendente } from "./modules/notificacoes/push.service";
-import { executeScheduledJob, scheduledJobs } from "./config/scheduledJobs";
+import { enfileirarLembretesAutoleitura, executeScheduledJob, scheduledJobs } from "./config/scheduledJobs";
 import type { ScheduledJob } from "./config/durableScheduledJob";
 import { contingencyRequestGuard } from "./config/contingencyRequestGuard";
 import { contingencyExecutor } from './config/contingencyExecutor';
@@ -345,6 +345,9 @@ async function iniciarServidor() {
   setInterval(avisarVencimentos, 60 * 60_000);
   const avisarFaturas = () => void avisarFaturasProximasDoVencimento().catch(erro => console.error("Falha ao avisar vencimento das faturas:", erro.message));
   avisarFaturas();
+  const avisarAutoleituras = () => void enfileirarLembretesAutoleitura().catch(() => console.error("Falha ao enfileirar lembretes de autoleitura."));
+  avisarAutoleituras();
+  setInterval(avisarAutoleituras, 60 * 60_000);
   setInterval(avisarFaturas, 60 * 60_000);
   const conferirRateios=()=>void processarRateiosAutomaticos().catch(error=>console.error("Falha ao conferir rateios automáticos",{tipo:error?.code??error?.name??"Error"}));
   conferirRateios();

@@ -1,3 +1,4 @@
+import { configuracaoAutoleitura } from "../clientes/autoleituraConfig";
 import { normalizarPlanoContrato } from "../contratos/planoContrato.policy";
 import { supabase } from '../../config/supabase';
 import { garantirRegistroDaEmpresa } from '../../utils/empresaScope';
@@ -17,7 +18,7 @@ export async function cadastrarUnidadeOperacional(usinaId: string, input: any, e
     if (input[campo] !== undefined) dados[campo] = input[campo];
   }
   const { data, error } = await supabase.from('unidades_consumidoras').insert({
-    ...dados, numero, tipo: input.tipo, cliente_id: input.cliente_id || null,
+    ...dados, ...configuracaoAutoleitura(input), numero, tipo: input.tipo, cliente_id: input.cliente_id || null,
     usina_id: usinaId, empresa_id: empresaId, status: 'PENDENTE_CONTRATO',
     plano_contrato: normalizarPlanoContrato(input.plano_contrato),
     modalidade_faturamento: input.modalidade_faturamento, desconto_percentual: desconto,
