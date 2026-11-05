@@ -36,6 +36,18 @@ REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC;
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;
 ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+DO $verify$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public')
+       OR EXISTS (
+           SELECT FROM pg_class
+           WHERE relnamespace = 'public'::regnamespace
+             AND relkind IN ('r', 'p') AND NOT relrowsecurity
+       ) THEN
+        RAISE EXCEPTION 'Estrutura pública vazia ou com tabelas sem RLS';
+    END IF;
+END
+$verify$;
 SELECT count(*) AS tabelas_restauradas FROM pg_tables WHERE schemaname = 'public';
 '@
 ($guard + "`n" + $sql + "`n" + $finish) | & psql -X -w --single-transaction --set=ON_ERROR_STOP=1 --file=- 2>$null
