@@ -40,6 +40,24 @@ export async function buscarUnidade(id: string) {
   return data;
 }
 
+export async function registrarAutoleitura(id: string, leitura: string, fotoBase64?: string) {
+  await api.post(`/clientes/minhas-unidades/${id}/autoleitura`, { leitura, fotoBase64 });
+}
+
+export async function listarAutoleituras(id: string) {
+  const { data } = await api.get<{ id: string; data_programada: string; leitura_kwh: number; recebida_em: string; estado: "RECEBIDA" | "EM_ENVIO" | "ENVIADA" | "RECUSADA" | "EM_REVISAO"; protocolo_cemig: string | null; estimativa_cemig: number | null }[]>(
+    `/clientes/unidade/${id}/autoleitura`,
+  );
+  return data;
+}
+
+export async function configurarAutoleitura(id: string, zona: "RURAL" | "URBANA", ativa: boolean) {
+  await api.patch(`/clientes/unidade/${id}/autoleitura`, {
+    zona_localizacao: zona,
+    autoleitura_rural_ativa: ativa,
+  });
+}
+
 export async function cadastrarUnidadeCliente(id: string, numero: string, cpfTitular?: string) {
   const { data } = await api.post(`/clientes/${id}/unidades`, { numero, cpfTitular });
   return data;

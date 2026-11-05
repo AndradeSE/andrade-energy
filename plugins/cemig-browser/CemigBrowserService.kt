@@ -26,6 +26,163 @@ class CemigBrowserService : Service() {
     private var attachmentConfirmed=false
     private var permittedAttachmentUri:Uri?=null
     private var geradora=""
+    private var autoleituraPreview: JSONObject? = null
+    private var autoleituraPreenchida = false
+
+    fun prepareAutoleituraPreview(raw: String) {
+        require(prepared == null && geradora.isEmpty()) {
+            "Encerre a sessão de rateio antes de abrir a autoleitura."
+        }
+        val leitura = try { JSONObject(raw) } catch (_: Exception) {
+            throw IllegalArgumentException("Dados de autoleitura inválidos.")
+        }
+        require(leitura.optString("uc").matches(Regex("[0-9]{6,20}")) &&
+            leitura.optString("leitura").matches(Regex("[0-9]{1,9}"))) {
+            "Dados de autoleitura inválidos."
+        }
+        val preview = packageName.endsWith(".preview")
+        if (!preview) {
+            val id = Regex("[a-fA-F0-9-]{36}")
+            require(id.matches(leitura.optString("unidadeId")) && id.matches(leitura.optString("leituraId")))
+        }
+        leitura.put("somenteConferencia", preview)
+        require(autoleituraPreview == null || autoleituraPreview.toString() == leitura.toString()) {
+            "Encerre a sessão antes de trocar a leitura."
+        }
+        autoleituraPreview = leitura
+    }
+
+    private var etapaEnvio = "PREPARAR"
+    private var comprovanteAte = 0L
+
+    private fun autoleituraApi(leitura: JSONObject, acao: String, dados: JSONObject, concluido: (Boolean) -> Unit) {
+        val base = nativeBase
+        val token = nativeToken
+        val unidade = leitura.getString("unidadeId")
+        val id = leitura.getString("leituraId")
+        evaluating = true
+        Thread {
+            val ok = runCatching {
+                CemigNativeAccess.validateBase(base, false)
+                require(token.isNotBlank())
+                val url = java.net.URL("$base/clientes/unidade/$unidade/autoleitura/$id/$acao")
+                val conexao = url.openConnection() as javax.net.ssl.HttpsURLConnection
+                try {
+                    conexao.instanceFollowRedirects = false
+                    conexao.connectTimeout = 15000
+                    conexao.readTimeout = 15000
+                    conexao.requestMethod = "POST"
+                    conexao.setRequestProperty("Authorization", "Bearer $token")
+                    conexao.setRequestProperty("Content-Type", "application/json")
+                    conexao.doOutput = true
+                    conexao.outputStream.use { it.write(dados.toString().toByteArray(Charsets.UTF_8)) }
+                    conexao.responseCode == 200
+                } finally {
+                    conexao.disconnect()
+                }
+            }.getOrDefault(false)
+            handler.post {
+                evaluating = false
+                if (!closed) concluido(ok)
+            }
+        }.start()
+    }
+
+    private fun inspecionarEnvioAutoleitura(leitura: JSONObject) {
+        if (etapaEnvio == "ENCERRADO") return
+        val asset = when (etapaEnvio) {
+            "PREPARAR" -> "preencher"
+            "REVISAR", "CONFIRMAR" -> "confirmar"
+            else -> "retorno"
+        }
+        val config = JSONObject(leitura.toString())
+            .put("abrirRevisao", true)
+            .put("envioReservado", etapaEnvio == "CONFIRMAR")
+        val script = assets.open("cemig-autoleitura-$asset.js").bufferedReader().use { it.readText() }
+            .replace("__ANDRADE_CONFIG__", config.toString())
+        evaluating = true
+        browser.evaluateJavascript(script) { raw ->
+            evaluating = false
+            if (closed) return@evaluateJavascript
+            when (etapaEnvio) {
+                "PREPARAR" -> {
+                    if (raw?.trim('"') == "AGUARDANDO_CONFIRMACAO") etapaEnvio = "REVISAR"
+                    progress = "Confira se a UC selecionada e o período correspondem à leitura."
+                }
+                "REVISAR" -> if (raw?.trim('"') == "AGUARDANDO_RESERVA") {
+                    autoleituraApi(leitura, "reservar", JSONObject().put("leitura", leitura.getInt("leitura"))) { ok ->
+                        etapaEnvio = if (ok) "CONFIRMAR" else "ENCERRADO"
+                        progress = if (ok) "Envio reservado." else "Confira o estado da leitura antes de tentar novamente."
+                    }
+                }
+                "CONFIRMAR" -> if (raw?.trim('"') == "AGUARDANDO_RETORNO") {
+                    etapaEnvio = "RETORNO"
+                    comprovanteAte = SystemClock.elapsedRealtime() + 45000L
+                    progress = "Aguardando comprovante da Cemig."
+                }
+                "RETORNO" -> {
+                    val retorno = runCatching { JSONObject(raw.orEmpty()) }.getOrNull()
+                    if (retorno?.optString("estado") != "ENVIADA" &&
+                        SystemClock.elapsedRealtime() >= comprovanteAte) {
+                        etapaEnvio = "ENCERRADO"
+                        autoleituraApi(leitura, "retorno", JSONObject().put("estado", "EM_REVISAO")) { ok ->
+                            progress = if (ok) "A Cemig não apresentou comprovante. Envio encaminhado para revisão."
+                                else "Retorno indisponível. Confira a leitura no portal antes de tentar novamente."
+                        }
+                        return@evaluateJavascript
+                    }
+                    if (retorno?.optString("estado") == "ENVIADA") {
+                        etapaEnvio = "ENCERRADO"
+                        autoleituraApi(leitura, "retorno", retorno) { ok ->
+                            val protocolo = retorno.optString("protocolo")
+                            progress = if (ok) "Protocolo registrado: $protocolo"
+                                else "Cemig confirmou o protocolo $protocolo. Confira o registro no aplicativo."
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun inspectAutoleituraPreview(leitura: JSONObject) {
+        if (!leitura.optBoolean("somenteConferencia")) {
+            inspecionarEnvioAutoleitura(leitura)
+            return
+        }
+        if (autoleituraPreenchida) return
+        val script = assets.open("cemig-autoleitura-preencher.js").bufferedReader().use { it.readText() }
+            .replace("__ANDRADE_CONFIG__", leitura.toString())
+        evaluating = true
+        val retorno = assets.open("cemig-autoleitura-retorno.js").bufferedReader().use { it.readText() }
+            .replace("__ANDRADE_CONFIG__", leitura.toString())
+        val conferir = "(function(){const recibo = " + retorno.trim().removeSuffix(";") +
+            ";return recibo.estado === 'AGUARDANDO' ? { etapa: " +
+            script.trim().removeSuffix(";") + " } : recibo;})();"
+        browser.evaluateJavascript(conferir) { raw ->
+            evaluating = false
+            val resultado = runCatching { JSONObject(raw.orEmpty()) }.getOrNull()
+            when (resultado?.optString("estado")) {
+                "ENVIADA" -> {
+                    autoleituraPreenchida = true
+                    progress = "Já existe um comprovante para esta UC e competência. Confira se ele corresponde à leitura da fila. Protocolo: " + resultado.optString("protocolo")
+                    return@evaluateJavascript
+                }
+                "EM_REVISAO" -> {
+                    progress = "Confira o comprovante da Cemig antes de continuar."
+                    return@evaluateJavascript
+                }
+            }
+            val state = resultado?.optString("etapa")
+            autoleituraPreenchida = state == "LEITURA_PREENCHIDA"
+            progress = when (state) {
+                "LEITURA_PREENCHIDA" -> "Leitura preenchida para conferência. A automação não avançou."
+                "FORA_DO_SERVICO" -> "Entre na Cemig e abra Informar leitura atual."
+                "UC_NAO_CONFIRMADA" -> "Confira se a unidade selecionada na Cemig corresponde à leitura."
+                "FORMULARIO_NAO_CONFIRMADO" -> "Aguardando o formulário de leitura atual."
+                else -> "A leitura não foi preenchida. Confira o período, o mês e o valor no portal."
+            }
+        }
+    }
     // Preparing a production artifact is the user's explicit start action.
     // Do not require a second, hidden menu action after the login completes.
     private var navigationStarted=false
@@ -54,10 +211,33 @@ class CemigBrowserService : Service() {
     var progress="Entre na Cemig para continuar o rateio."
         private set
     private val navigationTick=object:Runnable { override fun run(){inspectNavigation();handler.postDelayed(this,1500)} }
-    fun setGeradora(value:String){require(value.matches(Regex("\\d{6,20}"))){"UC geradora inválida."};require(geradora.isEmpty()||geradora==value){"A UC da sessão não pode ser trocada."};geradora=value}
+    fun setGeradora(value:String){require(autoleituraPreview == null){"Encerre a sessão de autoleitura antes de abrir o rateio."};require(value.matches(Regex("\\d{6,20}"))){"UC geradora inválida."};require(geradora.isEmpty()||geradora==value){"A UC da sessão não pode ser trocada."};geradora=value}
     fun continueNavigation(){navigationStarted=true;browser.evaluateJavascript("window.__andradeLastStep=null;",null);inspectNavigation()}
     private fun inspectNavigation(){
         if(!::browser.isInitialized||evaluating||!allowed(browser.url?:""))return
+        autoleituraPreview?.let {
+            val page = Uri.parse(browser.url ?: "")
+            if (page.path == "/portal/services/inform-reading") {
+                inspectAutoleituraPreview(it)
+                return
+            }
+            if (page.host in setOf("www.atendimento.cemig.com.br", "atendimento.cemig.com.br")
+                && page.path == "/portal/home") {
+                evaluating = true
+                browser.evaluateJavascript(
+                    "(function(){return /minhas unidades consumidoras/i.test(document.body?.innerText || '');})();"
+                ) { authenticated ->
+                    evaluating = false
+                    if (authenticated == "true" && !closed) {
+                        savedAccess = null
+                        browser.loadUrl("https://www.atendimento.cemig.com.br/portal/services/inform-reading")
+                    }
+                }
+                return
+            }
+            // Continue through the shared login and CAPTCHA states. Without a
+            // generating UC, the rateio script stops before entering its service.
+        }
         evaluating=true
         val config=JSONObject().put("geradora",geradora).put("iniciado",navigationStarted).put("anexado",attachmentConfirmed).put("arquivo",prepared?.name?:"").put("anexoAutomatico",!packageName.endsWith(".preview"))
         val script=assets.open("cemig-rateio-navigation.js").bufferedReader().use{it.readText()}.replace("__ANDRADE_CONFIG__",config.toString())
@@ -119,6 +299,7 @@ class CemigBrowserService : Service() {
         }
     }
     fun prepare(csv:String,competencia:String,usina:String) {
+        require(autoleituraPreview == null) { "Encerre a sessão de autoleitura antes de abrir o rateio." }
         require(csv.toByteArray(Charsets.UTF_8).size in 1..100000 && competencia.matches(Regex("20\\d{2}-(0[1-9]|1[0-2])"))) { "Arquivo inválido." }
         require(usina.matches(Regex("[a-zA-Z0-9_-]{1,128}"))) { "Usina inválida." }
         if(!packageName.endsWith(".preview"))navigationStarted=true

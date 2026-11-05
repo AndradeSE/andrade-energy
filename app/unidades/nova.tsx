@@ -52,6 +52,8 @@ export default function NovaUnidade() {
   const [mensagemSalvar, setMensagemSalvar] = useState("");
   const [numero, setNumero] = useState(""); const [titular, setTitular] = useState("");
   const [cpfTitular, setCpfTitular] = useState("");
+  const [zona, setZona] = useState<"" | "RURAL" | "URBANA">("");
+  const [autoleituraAtiva, setAutoleituraAtiva] = useState(false);
   const [tipo, setTipo] = useState<Tipo>("BENEFICIARIA"); const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO");
   const [planoContrato, setPlanoContrato] = useState("COM_FIDELIDADE");
   const [descontoPersonalizado, setDescontoPersonalizado] = useState(false);
@@ -239,10 +241,14 @@ export default function NovaUnidade() {
       ]);
     }
     setSalvando(true);
+    const autoleitura = zona && tipo !== "GERADORA"
+      ? { zona_localizacao: zona, autoleitura_rural_ativa: zona === "RURAL" && autoleituraAtiva }
+      : {};
     setMensagemSalvar("Salvando a unidade no servidor...");
     try {
       if (tipo === "BENEFICIARIA") {
         await alocarUnidade(String(usinaFinal), {
+          ...autoleitura,
           clienteId,
           numero,
           modalidade: modalidadeFinal,
@@ -269,6 +275,7 @@ export default function NovaUnidade() {
       } else {
         if (!usinaFinal) throw new Error("Selecione uma usina antes de cadastrar esta unidade.");
         await cadastrarUnidadeOperacional(usinaFinal, {
+          ...autoleitura,
           numero, titular: titular.trim() || clienteSelecionado?.nome || null, tipo, cliente_id: clienteId || null, usina_id: usinaFinal,
           distribuidora: clienteSelecionado?.distribuidora || "CEMIG", endereco: endereco.trim() || clienteSelecionado?.endereco || null, modalidade_faturamento: modalidadeFinal,
           plano_contrato: planoContrato,
@@ -309,6 +316,15 @@ export default function NovaUnidade() {
     <Text style={styles.eyebrow}>{origem === "fatura" ? "DADOS LIDOS DA FATURA" : "CADASTRO MANUAL"}</Text><Text style={styles.title}>Nova unidade</Text>
     <Text style={styles.subtitle}>{clienteIdVinculado ? "Confirme o número. Os demais dados serão herdados do cliente." : cadastroRapido === "1" ? "Confirme o número e escolha o cliente. Os demais dados serão herdados automaticamente." : "Confira a leitura e escolha a quem esta unidade pertence."}</Text>
     <Card><FormField label="Número atual da UC" value={mascaraUcCemig(numero)} onChangeText={(v) => setNumero(v.replace(/\D/g, "").slice(0,13))} placeholder="6.070.813.018-89" maxLength={18} keyboardType="numeric" />
+      {IS_GERADOR_APP && tipo !== "GERADORA" ? <>
+        <ChoiceField label="Localização da UC" value={zona} onChange={(valor) => {
+          setZona(valor);
+          if (valor !== "RURAL") setAutoleituraAtiva(false);
+        }} options={[{ label: "Rural", value: "RURAL" }, { label: "Urbana", value: "URBANA" }]} />
+        {zona === "RURAL" ? <ChoiceField label="Autoleitura do medidor" value={autoleituraAtiva ? "ATIVA" : "INATIVA"}
+          onChange={(valor) => setAutoleituraAtiva(valor === "ATIVA")}
+          options={[{ label: "Ativada", value: "ATIVA" }, { label: "Desativada", value: "INATIVA" }]} /> : null}
+      </> : null}
       {!clienteIdVinculado && cadastroRapido !== "1" ? <><FormField label="Titular" value={titular} onChangeText={setTitular} /><FormField label="Endereço" value={endereco} onChangeText={setEndereco} /></> : null}
       {tipo !== "GERADORA" ? <>
         <Text style={styles.configurationTitle}>CONFIGURAÇÃO DA UC</Text>

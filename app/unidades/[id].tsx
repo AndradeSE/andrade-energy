@@ -285,6 +285,16 @@ export default function UnidadeDocumentos() {
       {!faturasCadastro.length && !faturas.length ? <EmptyState icon="document-outline" title="0 contas da concessionária" subtitle="A fatura usada no cadastro e as próximas contas desta UC aparecerão aqui." /> : null}
     </View></Section>
 
+    {IS_GERADOR_APP && unidade.tipo !== "GERADORA" && /^[0-9a-f-]{36}$/i.test(String(unidade.id)) ? (
+      <Section title="Autoleitura do medidor">
+        <TouchableOpacity accessibilityRole="button" onPress={() => router.push({
+          pathname: "/unidades/editar",
+          params: { id: String(unidade.id), numero: String(unidade.numero ?? ""), clienteId: String(unidade.cliente_id ?? ""), usinaId: String(unidade.usina_id ?? ""), somenteAutoleitura: "1" },
+        })}>
+          <Text style={{ color: Colors.primary, fontWeight: "700", paddingVertical: Spacing.md }}>Configurar autoleitura e consultar registros</Text>
+        </TouchableOpacity>
+      </Section>
+    ) : null}
     <Section title="Faturas Andrade Energy"><View>{faturas.length ? faturas.map((item) => <TouchableOpacity key={`fatura-${item.id}`} activeOpacity={0.84} onPress={() => router.push(`/faturas/${item.id}`)}><Card style={styles.documentCard}><View style={styles.invoiceTop}><View><Text style={styles.invoiceValue}>{moeda(item.valor_total_unificado ?? item.valor_total)}</Text><Text style={styles.itemDetail}>{item.referencia || "Competência não informada"}</Text></View><Badge label={invoiceDisplayStatus(item).label} variant={invoiceDisplayStatus(item).variant} /></View><View style={styles.invoiceBottom}><Text style={styles.invoiceDate}>{invoiceDisplayStatus(item).paga ? "Pagamento confirmado" : `Vencimento ${formatarDataBrasileira(item.vencimento, "não informado")}`}</Text><Ionicons name="chevron-forward" size={19} color={Colors.primary} /></View></Card></TouchableOpacity>) : <EmptyState icon="receipt-outline" title="0 faturas" subtitle="As faturas Andrade Energy desta UC aparecerão aqui após o faturamento." />}</View></Section>
   </ScrollView></Screen>;
 }

@@ -147,6 +147,7 @@ module.exports = {
     extra: {
       localModelDisabled: compatibility32,
       nativeCemigBrowser,
+      nativeCemigAutoleitura: nativeCemigBrowser,
       nativeCemigAutomation,
       appEnvironment: preview ? "preview" : "production",
       appVariant: gerador

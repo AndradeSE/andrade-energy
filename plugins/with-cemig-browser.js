@@ -50,7 +50,7 @@ module.exports=function withCemigBrowser(config){
    if(enabled)fs.copyFileSync(path.join(__dirname,'cemig-browser',name),target);
    else if(fs.existsSync(target))fs.unlinkSync(target);
   }
-  if(enabled){const assets=path.join(root,'app/src/main/assets');fs.mkdirSync(assets,{recursive:true});for(const file of ['navigation','login','captcha','submit'])fs.copyFileSync(path.join(__dirname,`cemig-browser/rateio-${file}.js`),path.join(assets,`cemig-rateio-${file}.js`));}
+  if(enabled){const assets=path.join(root,'app/src/main/assets');fs.mkdirSync(assets,{recursive:true});for(const file of ['navigation','login','captcha','submit'])fs.copyFileSync(path.join(__dirname,`cemig-browser/rateio-${file}.js`),path.join(assets,`cemig-rateio-${file}.js`));fs.copyFileSync(path.join(__dirname,'cemig-browser/autoleitura-preencher.js'),path.join(assets,'cemig-autoleitura-preencher.js'));fs.copyFileSync(path.join(__dirname,'cemig-browser/autoleitura-retorno.js'),path.join(assets,'cemig-autoleitura-retorno.js'));fs.copyFileSync(path.join(__dirname,'cemig-browser/autoleitura-confirmar.js'),path.join(assets,'cemig-autoleitura-confirmar.js'));}
   return c;
  }]);
 };

@@ -25,6 +25,8 @@ class CemigBrowserActivity : Activity() {
         override fun onServiceConnected(name:ComponentName,binder:IBinder) {
             session=(binder as CemigBrowserService.LocalBinder).session()
             try {
+                intent.getStringExtra("autoleituraPreview")?.let { session?.prepareAutoleituraPreview(it) }
+                intent.removeExtra("autoleituraPreview")
                 val csv=intent.getStringExtra("rateioCsv")
                 if(csv!=null){session?.prepare(csv,intent.getStringExtra("rateioCompetencia")?:"",intent.getStringExtra("rateioUsina")?:"");session?.setGeradora(intent.getStringExtra("rateioGeradora")?:"")}
                 val api=intent.getStringExtra("rateioApi");val token=intent.getStringExtra("rateioToken")
