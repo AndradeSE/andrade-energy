@@ -224,6 +224,7 @@ export async function anexarFaturaAoCliente(
   arquivo?: { path: string; originalname?: string; mimetype?: string },
   senhaPdf?: string,
   usinaId?: string,
+  zonaSolicitada?: unknown,
 ) {
   if (!arquivo?.path) throw new Error("Selecione uma fatura em PDF.");
   if (arquivo.mimetype && arquivo.mimetype !== "application/pdf") throw new Error("Envie a conta de energia no formato PDF.");
@@ -234,6 +235,12 @@ export async function anexarFaturaAoCliente(
   let caminhoPdf: string | null = null;
   let anexoId: string | null = null;
   try {
+    if (zonaSolicitada !== undefined && zonaSolicitada !== "RURAL" && zonaSolicitada !== "URBANA") {
+      throw new Error("Informe se a nova UC fica em zona rural ou urbana.");
+    }
+    if (zonaSolicitada && String(usuario?.cliente_id ?? "") !== clienteId) {
+      throw new Error("A solicitação deve ser enviada pela conta do cliente.");
+    }
     const cliente = await buscarCliente(clienteId, empresaId);
     const senhaInformada = String(senhaPdf ?? "").trim();
     const texto = await extrairTextoPDF(arquivo.path, senhaInformada || cpfLimpo(cliente?.cpf).slice(0, 4) || undefined);
@@ -241,6 +248,16 @@ export async function anexarFaturaAoCliente(
     const dadosFatura = dadosDaFaturaAnexada(interpretarFatura(texto) as Record<string, any>);
     if (!dadosFatura.uc) throw new Error("Não foi possível identificar a unidade consumidora na fatura.");
     caminhoPdf = await guardarFaturaAnexada(clienteId, arquivo.path);
+    if (zonaSolicitada) {
+      const { data: pdf, error } = await supabase.storage.from("faturas").createSignedUrl(caminhoPdf, 5 * 60);
+      if (error) throw error;
+      const pedido = await criarFaturaAnexadaCliente({
+        clienteId, empresaId, usuarioId: usuario?.id ?? null, caminhoPdf,
+        arquivoNome: arquivo.originalname || "fatura-cemig.pdf",
+        dadosFatura: { ...dadosFatura, zona_localizacao: zonaSolicitada, solicitacao_nova_uc: true },
+      });
+      return { id: pedido.id, nome: pedido.arquivo_nome, dadosFatura: pedido.dados_fatura, criadoEm: pedido.criado_em, url: pdf.signedUrl };
+    }
     const anexo = await criarFaturaAnexadaCliente({ clienteId, empresaId, usuarioId: usuario?.id ?? null, caminhoPdf, arquivoNome: arquivo.originalname || "fatura-cemig.pdf", dadosFatura });
     anexoId = String(anexo.id);
     const unidade = await cadastrarUnidadeCliente(clienteId, dadosFatura.uc, dadosFatura.cpfParcial, empresaId, usinaId);

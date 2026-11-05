@@ -94,6 +94,7 @@ export async function anexarFaturaClienteController(req: Request, res: Response)
       req.file,
       String(req.body?.senhaPdf ?? req.body?.senha_pdf ?? ""),
       (req as any).usuario?.perfil === "LEITURA" ? undefined : String(req.body?.usinaId ?? "") || undefined,
+      req.path.endsWith("/solicitacao-nova-uc") ? (req.body?.zonaSolicitada ?? null) : undefined,
     ));
   } catch (e: any) {
     const erroDeSenha = /pdf.*(protegido|senha)|senha.*pdf|não desbloqueou/i.test(String(e.message ?? ""));
