@@ -1,3 +1,4 @@
+import { criarNotificacaoApp } from "../notificacoes/push.service";
 import {
   atualizarCliente,
   atualizarApelidoDaMinhaUnidade,
@@ -256,6 +257,23 @@ export async function anexarFaturaAoCliente(
         arquivoNome: arquivo.originalname || "fatura-cemig.pdf",
         dadosFatura: { ...dadosFatura, zona_localizacao: zonaSolicitada, solicitacao_nova_uc: true },
       });
+      try {
+        const { data: gestores, error: erroGestores } = await supabase.from("empresa_usuarios")
+          .select("usuario_id").eq("empresa_id", empresaId).eq("ativo", true)
+          .in("papel", ["SUPERADMIN", "ADMIN_EMPRESA", "GESTOR"]);
+        if (erroGestores) throw erroGestores;
+        await Promise.all((gestores ?? []).map(({ usuario_id }) => criarNotificacaoApp({
+          usuario_id,
+          empresa_id: empresaId,
+          tipo: "SOLICITACAO_NOVA_UC",
+          titulo: "Solicitação de cadastro de nova UC",
+          detalhe: "Uma conta da Cemig foi anexada para análise.",
+          rota: "/clientes/faturas-anexadas?clienteId=" + encodeURIComponent(clienteId) + "&selecionarUc=1",
+          chave_dedupe: "solicitacao-nova-uc:" + pedido.id + ":" + usuario_id,
+        })));
+      } catch {
+        console.warn("Falha ao notificar gestores sobre solicitação de nova UC.");
+      }
       return { id: pedido.id, nome: pedido.arquivo_nome, dadosFatura: pedido.dados_fatura, criadoEm: pedido.criado_em, url: pdf.signedUrl };
     }
     const anexo = await criarFaturaAnexadaCliente({ clienteId, empresaId, usuarioId: usuario?.id ?? null, caminhoPdf, arquivoNome: arquivo.originalname || "fatura-cemig.pdf", dadosFatura });
