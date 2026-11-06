@@ -52,3 +52,13 @@ O backup descrito em `backup-supabase.md` é uma rotina de recuperação separad
 - A cópia de arquivos depende de NEON_STORAGE_SNAPSHOT_ENABLED=true e das credenciais privadas. Cada conteúdo recebe chave por SHA-256, é relido do destino e conferido. O manifesto só é publicado junto com a transação do banco. Blobs recém-criados numa execução revertida ficam inacessíveis pelo manifesto e não são apagados automaticamente.
 - storage_ready=false significa que aquela captura ainda não foi validada com os documentos.
 - Continuam pendentes a conexão administrativa/API do app ao Neon, a adaptação das URLs privadas dos arquivos e o controle de troca e retorno que impeça dois bancos de receber gravações. Conferir essas etapas antes de apontar os apps ao Neon.
+
+## Conferência em 6 de novembro de 2026
+
+- GET /health da homologação confirmou online, Preview, release 94f518c72fee8394c76b3ca36971ac9d3aa19801.
+- O build exige o teste da API privada: contagens de clientes/usinas/UCs/contratos/faturas, relacionamento, RPC de tamanho e recusa de acesso anônimo.
+- Também exige baixar um documento do manifesto por URL assinada, conferir SHA-256/tamanho e recusar a mesma URL sem assinatura. A publicação online confirma a conclusão desses passos obrigatórios.
+- A cópia privada anterior foi conferida com storage_ready=true, 122 documentos e 72 tabelas. O executor continua RENDER; o app continua usando Supabase.
+- Escolha de segurança para a próxima etapa: recuperação inicialmente somente de leitura; não habilitar gravações a partir de uma cópia com atraso sem reconciliação e exclusão de executor. A autorização genérica para escolher o melhor comportamento não torna seguro repetir efeitos financeiros.
+- Push de troca e indicação de banco ativo nas cotas precisam acompanhar uma transição efetiva e persistida. Não emitir push a cada snapshot nem anunciar Neon ativo enquanto o app não o utiliza.
+- Pendências: adaptador do app para recuperação, proteção das rotas GET com efeitos colaterais, sessão/revogação e isolamento, status autenticado nas cotas, evento durável de troca, ensaio de indisponibilidade/retorno e eventual preparação separada de produção.
