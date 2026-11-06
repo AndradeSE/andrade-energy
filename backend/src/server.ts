@@ -391,7 +391,7 @@ async function iniciarServidor() {
 }
 
 // Functions import the Express app but must never open a port or run timers.
-if (process.env.API_RUNTIME !== "serverless") {
+if (require.main === module && process.env.API_RUNTIME !== "serverless") {
   iniciarServidor().catch((erro: any) => {
     console.error("Servidor não iniciado:", erro?.message ?? erro);
     process.exit(1);
