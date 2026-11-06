@@ -18,6 +18,8 @@ test("o sincronizador rejeita origem e destino fora do Preview", () => {
 test("o fingerprint independe da ordem das chaves JSON", () => {
   const catalog = { tables: [], routines: [] };
   assert.equal(snapshotFingerprint(catalog), snapshotFingerprint({ routines: [], tables: [] }));
+  assert.equal(snapshotFingerprint({ tables: [], routines: ["a()", "a_b()"] }),
+    snapshotFingerprint({ tables: [], routines: ["a_b()", "a()"] }));
 });
 
 test("restauração transacional preserva vínculos, triggers, sequências e o snapshot anterior", {

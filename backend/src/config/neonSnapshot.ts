@@ -61,7 +61,18 @@ function canonical(value: unknown): string {
 }
 
 export function snapshotFingerprint(catalog: ReserveSnapshot["catalog"]) {
-  return createHash("sha256").update(canonical(catalog)).digest("hex");
+  // Database collations may order signatures differently, especially '(' vs '_'.
+  // Only column order is significant; routines, constraints and triggers are sets.
+  const byName = <T extends { name: string }>(items: T[]) => [...items].sort((a, b) =>
+    a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+  const normalized = {
+    ...catalog,
+    tables: byName(catalog.tables).map(table => ({ ...table,
+      constraints: byName(table.constraints), triggers: byName(table.triggers),
+    })),
+    routines: [...catalog.routines].sort(),
+  };
+  return createHash("sha256").update(canonical(normalized)).digest("hex");
 }
 
 export function validateReserveSnapshot(snapshot: ReserveSnapshot, now = Date.now()) {
