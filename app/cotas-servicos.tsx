@@ -12,7 +12,7 @@ import {contingencyRoutingEnabled} from '../config/api';
 
 const number = (value: number) => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 const date = (value: string) => new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
-const panels: Record<string, string> = { BROWSERBASE: "https://www.browserbase.com/overview", AZURE: "https://portal.azure.com/", RENDER: "https://dashboard.render.com/", RESEND: "https://resend.com/overview", BREVO: "https://app.brevo.com/", NETLIFY: "https://app.netlify.com/", SUPABASE: "https://supabase.com/dashboard" };
+const panels: Record<string, string> = { AZURE: "https://portal.azure.com/", RENDER: "https://dashboard.render.com/", RESEND: "https://resend.com/overview", BREVO: "https://app.brevo.com/", NETLIFY: "https://app.netlify.com/", SUPABASE: "https://supabase.com/dashboard" };
 export default function ServiceQuotasScreen() {
   const { usuario } = useAuth();
   const allowed = IS_GERADOR_APP && canViewServiceQuotas(usuario);
@@ -31,12 +31,13 @@ export default function ServiceQuotasScreen() {
   async function refresh() {
     if (busy || !allowed) return;
     setBusy(true); setError("");
-    try { setData(await refreshServiceQuotas()); }
+    try { setData(await (data?.reservaDados?.modo === 'SOMENTE_LEITURA' ? listServiceQuotas() : refreshServiceQuotas())); }
     catch { setError("Não foi possível atualizar agora. Aguarde um minuto e tente novamente."); }
     finally { setBusy(false); }
   }
   const quotaGroups: ServiceQuotas["servicos"][] = [];
   for (const item of data?.servicos ?? []) {
+    if (item.servico === "BROWSERBASE") continue;
     const resendGroup = item.servico === "RESEND" ? quotaGroups.find(group => group[0].servico === "RESEND") : undefined;
     if (resendGroup) resendGroup.push(item);
     else quotaGroups.push([item]);
@@ -49,6 +50,19 @@ export default function ServiceQuotasScreen() {
         {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
         {busy ? <ActivityIndicator color={Colors.primary} accessibilityLabel="Consultando cotas"/> : null}
         <Button title={busy ? "Consultando…" : "Atualizar consultas automáticas"} disabled={busy} onPress={() => void refresh()}/>
+        {data?.reservaDados ? <Card>
+          <Text style={styles.title}>Banco de dados e reserva</Text>
+          <Text style={styles.balance}>{data.reservaDados.banco === 'NEON' ? 'Neon · somente consulta' : 'Supabase · principal ativo'}</Text>
+          <Text style={styles.text}>{!data.reservaDados.reservaConfigurada ? 'Reserva de dados não configurada neste ambiente.'
+            : data.reservaDados.consultaIndisponivel ? 'Não foi possível conferir a cópia do Neon agora.'
+            : data.reservaDados.prontaParaConsulta ? 'Cópia Neon pronta para recuperação de consultas.'
+            : 'A cópia Neon precisa ser atualizada antes de atender consultas.'}</Text>
+          {data.reservaDados.ultimaCopia ? <Text style={styles.note}>Última cópia: {date(data.reservaDados.ultimaCopia)}</Text> : null}
+          {data.reservaDados.reservaConfigurada ? <>
+            <Text style={styles.note}>PDFs privados: {data.reservaDados.documentosProntos ? 'cópia conferida' : 'conferência pendente'}</Text>
+            <Text style={styles.note}>A recuperação é somente para consulta. Não executa alterações, cobranças nem protocolos. A troca automática ainda não está habilitada.</Text>
+          </> : null}
+        </Card> : null}
         {quotaGroups.map(group => <Card key={`${group[0].servico}:${group[0].metrica}`}>
           <Text style={styles.title}>{group[0].servico === "RESEND" ? "Resend · e-mails" : group[0].rotulo}</Text>
           {group.map((item, index) => {
