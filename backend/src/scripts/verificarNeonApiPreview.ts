@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { startNeonPrivateApi } from "../config/neonPrivateApi";
 import { verifyNeonPrivateDocument } from "../config/neonDocumentProbe";
+import { verifyNeonRecovery } from '../config/neonRecoveryProbe';
 
 async function main() {
   if (process.env.NEON_API_ENABLED !== "true") return;
@@ -22,6 +23,9 @@ async function main() {
       console.log("PDF privado do Neon validado", await verifyNeonPrivateDocument(process.env));
     }
   } finally { api.stop(); }
+  if (process.env.NEON_STORAGE_SNAPSHOT_ENABLED === 'true') {
+    console.log('Recuperação autenticada Neon validada', await verifyNeonRecovery(process.env));
+  }
 }
 
 main().catch(() => { console.error("Conferência da API privada Neon Preview falhou."); process.exitCode = 1; });

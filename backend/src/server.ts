@@ -55,6 +55,9 @@ import { observeRenderForContingency,lastRenderReserveObservation } from './conf
 import { observePrimaryReturn, primaryEnvironment, primaryReadyForReturn } from './config/contingencyReturn';
 import contingencyRoutes from "./config/contingency.routes";
 import {iniciarDespachanteCemigRender} from './modules/usinas/cemigCloud.dispatcher';
+import { initializeNeonRecovery, neonRecoveryGuard } from './config/neonRecoveryRuntime';
+import { recoveryActive, recoveryStatus } from './config/neonRecoveryState';
+import { exigirAutenticacao } from './middlewares/auth.middleware';
 
 dotenv.config();
 const executorIdentity = contingencyExecutor(process.env);
@@ -84,8 +87,14 @@ app.use(cors({
   allowedHeaders: ["Authorization", "Content-Type", "Idempotency-Key", "asaas-access-token", "x-request-id", "x-signature", "svix-id", "svix-signature", "svix-timestamp"],
 }));
 
-app.use(createRenderReserveIngress(supabase));
-app.use(contingencyRequestGuard);
+app.use(neonRecoveryGuard);
+const renderIngress = createRenderReserveIngress(supabase);
+app.use((req, res, next) => recoveryActive() ? next() : renderIngress(req, res, next));
+app.use((req, res, next) => recoveryActive() ? next() : contingencyRequestGuard(req, res, next));
+app.get('/api/reserva-dados/status', apiRateLimit('data-reserve-status', { windowMs: 60_000, limit: 60 }), exigirAutenticacao, (_req,res) => {
+  res.setHeader('Cache-Control','private, no-store');
+  res.json(recoveryStatus());
+});
 
 // O Resend assina o corpo original. Esta rota precisa permanecer antes do
 // express.json(), caso contrário a verificação da assinatura falha.
@@ -206,6 +215,7 @@ app.use("/api/oauth", oauthEmailRouter);
 */
 
 app.get("/health", async (_, res) => {
+  if (recoveryActive()) return res.setHeader('Cache-Control','no-store').json({ status: 'read-only', environment: 'preview', database: 'NEON' });
   let reserveReady=false;
   let primaryReady=false;
   const primaryEnv=primaryEnvironment(process.env);
@@ -281,10 +291,15 @@ export async function validarSchemaAntesDeIniciar() {
 }
 
 async function iniciarServidor() {
+  await initializeNeonRecovery(process.env);
   const executarAgendadores = backgroundJobsEnabled();
   await validarSchemaAntesDeIniciar();
   app.listen(PORT, () => {
   console.log(`Servidor iniciado na porta ${PORT}`);
+  if (recoveryActive()) {
+    console.log('Neon Preview em recuperação somente de leitura; tarefas e monitoramento desativados.');
+    return;
+  }
   startNeonPreviewSnapshots(process.env);
   if(primaryEnvironment(process.env)) {
     let returning=false;

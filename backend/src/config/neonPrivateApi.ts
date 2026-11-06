@@ -30,6 +30,7 @@ export async function startNeonPrivateApi(env: NodeJS.ProcessEnv) {
     PATH: process.env.PATH, SystemRoot: process.env.SystemRoot, TEMP: process.env.TEMP,
     PGRST_DB_URI: url.href, PGRST_DB_SCHEMAS: "public", PGRST_DB_CONFIG: "false",
     PGRST_DB_POOL: "2", PGRST_DB_CHANNEL_ENABLED: "false", PGRST_JWT_SECRET: secret,
+    PGRST_DB_TX_END: "rollback",
     PGRST_SERVER_HOST: "127.0.0.1", PGRST_SERVER_PORT: String(port), PGRST_LOG_LEVEL: "crit",
   } });
   let failure = false;
@@ -66,6 +67,7 @@ export async function startNeonPrivateApi(env: NodeJS.ProcessEnv) {
         const source = new URL(request.url);
         if (source.origin !== origin || !source.pathname.startsWith("/rest/v1/")) throw new Error("Destino REST inesperado");
         const readonlyRpc = source.pathname === "/rest/v1/rpc/consultar_tamanho_banco_cotas";
+        if (source.pathname.startsWith('/rest/v1/rpc/') && !readonlyRpc) throw new Error('RPC não permitida na recuperação');
         if (!["GET", "HEAD"].includes(request.method) && !(request.method === "POST" && readonlyRpc)) {
           throw new Error("Escritas no reserva ainda estão bloqueadas");
         }
