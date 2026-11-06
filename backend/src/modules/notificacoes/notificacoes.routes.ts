@@ -3,6 +3,8 @@ import { exigirAutenticacao } from "../../middlewares/auth.middleware";
 import { supabase } from "../../config/supabase";
 import { empresaIdDoUsuario } from "../../config/empresa";
 import { usuarioEhSuperAdministradorAndrade } from "../../config/empresa";
+import { recoveryActive } from '../../config/neonRecoveryState';
+import { listPrivateRecoveryNotices } from '../../config/neonRecoveryEvents';
 
 const router = Router();
 router.post("/push-token", exigirAutenticacao, async (req, res) => {
@@ -51,12 +53,14 @@ router.get("/", exigirAutenticacao, async (req, res) => {
         if (contrato.unidade_consumidora_id) destinos.set(contrato.id, contrato.unidade_consumidora_id);
       }
     }
-    res.json((data ?? []).map(({ chave_dedupe, ...item }) => {
+    const notices = recoveryActive() && usuarioEhSuperAdministradorAndrade(usuario)
+      ? await listPrivateRecoveryNotices(process.env,usuario.id,empresaIdDoUsuario(usuario)) : [];
+    res.json([...notices,...(data ?? []).filter(item=>!notices.some(notice=>notice.id===item.id)).map(({ chave_dedupe, ...item }) => {
       const contratoId = /^contrato-enviado:([0-9a-f-]{36}):/i.exec(chave_dedupe ?? "")?.[1];
       const unidadeId = contratoId ? destinos.get(contratoId) : undefined;
       return unidadeId && item.rota === "/contrato"
         ? { ...item, rota: `/contrato?unidadeId=${encodeURIComponent(unidadeId)}` } : item;
-    }));
+    })].sort((a,b)=>new Date(b.criado_em).getTime()-new Date(a.criado_em).getTime()).slice(0,30));
   } catch { res.status(500).json({ message: "Não foi possível carregar as notificações." }); }
 });
 export default router;

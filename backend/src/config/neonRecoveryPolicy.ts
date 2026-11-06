@@ -3,6 +3,8 @@ const id = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const reads = [
   /^\/api\/auth\/session\/?$/,
   /^\/api\/reserva-dados\/status\/?$/,
+  /^\/api\/cotas-servicos\/?$/,
+  /^\/api\/notificacoes\/?$/,
   /^\/api\/clientes\/?$/,
   /^\/api\/clientes\/(unidades|minhas-unidades)\/?$/,
   new RegExp(`^/api/clientes/${id}(/unidades)?/?$`, "i"),

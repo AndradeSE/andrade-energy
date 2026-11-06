@@ -11,10 +11,11 @@ if (!process.env.SUPABASE_SERVICE_KEY) {
   throw new Error("SUPABASE_SERVICE_KEY não encontrada");
 }
 
-export let supabase = createClient(
+export const sourceSupabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
+export let supabase = sourceSupabase;
 
 // Called only after the Preview recovery runtime validates its private snapshot.
 export function installRecoveryClient(client: typeof supabase) {

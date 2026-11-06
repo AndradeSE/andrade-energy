@@ -57,6 +57,7 @@ import contingencyRoutes from "./config/contingency.routes";
 import {iniciarDespachanteCemigRender} from './modules/usinas/cemigCloud.dispatcher';
 import { initializeNeonRecovery, neonRecoveryGuard } from './config/neonRecoveryRuntime';
 import { recoveryActive, recoveryStatus } from './config/neonRecoveryState';
+import { publishRecoveryTransition } from './config/neonRecoveryEvents';
 import { exigirAutenticacao } from './middlewares/auth.middleware';
 
 dotenv.config();
@@ -294,6 +295,9 @@ async function iniciarServidor() {
   await initializeNeonRecovery(process.env);
   const executarAgendadores = backgroundJobsEnabled();
   await validarSchemaAntesDeIniciar();
+  if (!recoveryActive() && process.env.NEON_API_ENABLED === 'true') {
+    await publishRecoveryTransition(process.env,'SUPABASE').catch(()=>console.warn('Histórico de recuperação aguarda sincronização.'));
+  }
   app.listen(PORT, () => {
   console.log(`Servidor iniciado na porta ${PORT}`);
   if (recoveryActive()) {

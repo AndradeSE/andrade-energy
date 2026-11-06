@@ -3,6 +3,7 @@ import { exigirAutenticacao } from "../../middlewares/auth.middleware";
 import { usuarioEhSuperAdministradorAndrade } from "../../config/empresa";
 import { listServiceQuotas, monitorServiceQuotas, refreshServiceQuotasIfStale } from "./cotas.service";
 import { apiRateLimit } from "../../config/distributedRateLimit";
+import { recoveryActive } from '../../config/neonRecoveryState';
 
 const router = Router();
 router.use(exigirAutenticacao, (req, res, next) => {
@@ -12,7 +13,7 @@ router.use(exigirAutenticacao, (req, res, next) => {
 });
 router.get("/", async (req, res) => {
   try {
-    await refreshServiceQuotasIfStale().catch(() => {});
+    if (!recoveryActive()) await refreshServiceQuotasIfStale().catch(() => {});
     res.json(await listServiceQuotas(["2", "3"].includes(String(req.query.catalogo)), req.query.catalogo === "3"));
   } catch { res.status(503).json({ message: "Não foi possível consultar as cotas agora." }); }
 });

@@ -9,6 +9,7 @@ import { recoveryStorage } from "./neonRecoveryStorage";
 import { recoveryReadAllowed, validateRecoverySnapshot } from "./neonRecoveryPolicy";
 import { recoveryActive, setRecoveryState } from "./neonRecoveryState";
 import { installRecoveryClient } from "./supabase";
+import { prepareRecoveryEvents, publishRecoveryTransition } from './neonRecoveryEvents';
 
 let refresh: (() => Promise<void>) | null = null;
 export const neonRecoveryGuard: RequestHandler = async (req, res, next) => {
@@ -23,7 +24,7 @@ export const neonRecoveryGuard: RequestHandler = async (req, res, next) => {
 };
 
 /** Opt-in Preview-only recovery. No automatic promotion of an asynchronous copy to writer. */
-export async function initializeNeonRecovery(env: NodeJS.ProcessEnv) {
+export async function initializeNeonRecovery(env: NodeJS.ProcessEnv, options = { notify: true }) {
   if (env.NEON_RECOVERY_READ_ONLY !== "true") return null;
   if (env.API_RUNTIME === "serverless" || env.API_DISTRIBUTED_RATE_LIMIT === "true" || env.NEON_API_ENABLED !== "true") {
     throw new Error("Recuperação exige Render com API privada e limitador local");
@@ -58,5 +59,9 @@ export async function initializeNeonRecovery(env: NodeJS.ProcessEnv) {
   } });
   const restore = installRecoveryClient(client);
   refresh = async () => { await state(); };
+  if (options.notify) {
+    await prepareRecoveryEvents(env);
+    await publishRecoveryTransition(env,'NEON').catch(()=>console.warn('Aviso de recuperação exige conferência.'));
+  }
   return { stop() { restore(); api.stop(); storage.destroy(); refresh = null; setRecoveryState(null); } };
 }

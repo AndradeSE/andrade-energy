@@ -2,6 +2,7 @@ import { supabase } from "../../config/supabase";
 import { AZURE_QUOTA_CATALOG, azureQuotaConfig, azureQuotaEnabled, fetchAzureQuotaReadings } from "./azureQuotas";
 import { QUOTA_CATALOG, quotaBand, resendReadings, resendUsageKey, brevoReading, type QuotaReading } from "./cotas.policy";
 import {cotaBrowserbase} from './browserbaseQuota';
+import { neonRecoveryReadiness } from '../../config/neonRecoveryReadiness';
 
 export function quotaEnvironment() {
   return /qqhcjieymypowunkixmk/.test(process.env.SUPABASE_URL ?? "") ? "preview" : "production";
@@ -130,5 +131,5 @@ export async function listServiceQuotas(includeBrevo = false, includeAzure = fal
       consulta: check };
   });
   const browserbase = includeAzure ? await cotaBrowserbase() : [];
-  return {ambiente:env,alertas:[80,90,100],servicos:[...servicos,...browserbase]};
+  return {ambiente:env,alertas:[80,90,100],servicos:[...servicos,...browserbase],reservaDados:await neonRecoveryReadiness(process.env)};
 }
