@@ -36,6 +36,7 @@ test("restauração transacional preserva vínculos, triggers, sequências e o s
         IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname=r) THEN EXECUTE format('CREATE ROLE %I',r); END IF;
       END LOOP; END$$;
       CREATE SCHEMA reserve_auth; CREATE TABLE reserve_auth.users(id uuid PRIMARY KEY);
+      CREATE SCHEMA storage; CREATE TABLE storage.objects(id uuid,bucket_id text,name text,version text,metadata jsonb);
       CREATE TABLE public.usuarios(id int PRIMARY KEY,auth_user_id uuid REFERENCES reserve_auth.users(id));
       CREATE TABLE public.parent(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, child_id int);
       CREATE TABLE public.child(id int PRIMARY KEY,parent_id bigint REFERENCES public.parent(id));
@@ -88,6 +89,14 @@ test("restauração transacional preserva vínculos, triggers, sequências e o s
       await assert.rejects(restoreReserveSnapshot(client, async () => { loaded = true; return fresh(); }));
       assert.equal(loaded, false);
       await client.query("UPDATE reserve_control.snapshot_state SET mode='standby'");
+    });
+    await t.test("falha na cópia dos arquivos mantém o snapshot anterior", async () => {
+      const state = (await client.query("SELECT * FROM reserve_control.snapshot_state")).rows[0];
+      await assert.rejects(restoreReserveSnapshot(client, async () => fresh(), async () => {
+        throw new Error("Arquivo do reserva não confere");
+      }));
+      assert.deepEqual((await client.query("SELECT * FROM reserve_control.snapshot_state")).rows[0], state);
+      assert.equal((await client.query("SELECT count(*)::int AS n FROM public.events")).rows[0].n, 1);
     });
     await t.test("schema divergente e snapshot vencido são recusados", async () => {
       const invalid = fresh();

@@ -64,7 +64,11 @@ BEGIN
             'name',sequence_info.relname,'next_value',next_sequence_value::text));
     END LOOP;
     RETURN jsonb_build_object('source','qqhcjieymypowunkixmk',
-        'captured_at',statement_timestamp(),'catalog',catalog,'tables',table_data,'sequences',sequence_data);
+        'captured_at',statement_timestamp(),'catalog',catalog,'tables',table_data,'sequences',sequence_data,
+        'objects',(SELECT coalesce(jsonb_agg(jsonb_build_object(
+            'bucket',o.bucket_id,'path',o.name,'id',o.id,'version',to_jsonb(o)->>'version',
+            'size',(o.metadata->>'size')::bigint,'content_type',o.metadata->>'mimetype'
+        ) ORDER BY o.bucket_id,o.name),'[]'::jsonb) FROM storage.objects o));
 END;
 $snapshot$;
 REVOKE ALL ON FUNCTION public.exportar_snapshot_reserva_preview() FROM PUBLIC,anon,authenticated;

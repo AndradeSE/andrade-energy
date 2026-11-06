@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { Client } from "pg";
+import type { MirroredObject, SourceObject } from "./neonStorageSnapshot";
 
 export const previewSupabaseUrl = "https://qqhcjieymypowunkixmk.supabase.co";
 
@@ -45,6 +46,7 @@ export type ReserveSnapshot = {
   // Keep each JSON record as text so JS never rounds bigint or numeric values.
   tables: { name: string; rows: string[] }[];
   sequences: { name: string; next_value: string }[];
+  objects: SourceObject[];
 };
 
 function identifier(value: string) {
@@ -101,14 +103,15 @@ export function validateReserveSnapshot(snapshot: ReserveSnapshot, now = Date.no
 }
 
 /** The caller owns the connection. Every change, including constraints, commits together. */
-export async function restoreReserveSnapshot(client: Client, load: () => Promise<ReserveSnapshot>) {
+export async function restoreReserveSnapshot(client: Client, load: () => Promise<ReserveSnapshot>,
+  prepareFiles?: (snapshot: ReserveSnapshot, previous: MirroredObject[]) => Promise<MirroredObject[]>) {
   await client.query("BEGIN");
   try {
     await client.query("SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='60s'; SET LOCAL search_path=pg_catalog");
     const { rows: [lock] } = await client.query("SELECT pg_try_advisory_xact_lock(7071190) AS acquired");
     if (!lock.acquired) { await client.query("ROLLBACK"); return { skipped: true }; }
     const { rows: [state] } = await client.query(
-      "SELECT mode,captured_at FROM reserve_control.snapshot_state WHERE id=1 FOR UPDATE",
+      "SELECT mode,captured_at,storage_manifest FROM reserve_control.snapshot_state WHERE id=1 FOR UPDATE",
     );
     if (state?.mode !== "standby") throw new Error("Reserva não está em modo standby");
     const snapshot = await load();
@@ -128,6 +131,7 @@ export async function restoreReserveSnapshot(client: Client, load: () => Promise
     await client.query("REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC,anonymous,authenticated");
     const { rows: [{ catalog: restoredCatalog }] } = await client.query(snapshotCatalogSql);
     if (snapshotFingerprint(restoredCatalog) !== fingerprint) throw new Error("Rotinas do reserva divergentes");
+    const documents = prepareFiles ? await prepareFiles(snapshot, state.storage_manifest ?? []) : null;
     for (const table of snapshot.catalog.tables) {
       const name = `public.${identifier(table.name)}`;
       for (const trigger of table.triggers) {
@@ -169,10 +173,13 @@ export async function restoreReserveSnapshot(client: Client, load: () => Promise
       await client.query(`ALTER SEQUENCE public.${identifier(sequence.name)} RESTART WITH ${sequence.next_value}`);
     }
     await client.query(`UPDATE reserve_control.snapshot_state SET captured_at=$1,
-      completed_at=clock_timestamp(),fingerprint=$2,table_count=$3,row_count=$4 WHERE id=1`,
-    [snapshot.captured_at, fingerprint, tables.length, rowCount]);
+      completed_at=clock_timestamp(),fingerprint=$2,table_count=$3,row_count=$4,
+      storage_ready=$5,storage_manifest=$6::jsonb WHERE id=1`,
+    [snapshot.captured_at, fingerprint, tables.length, rowCount, documents !== null,
+      JSON.stringify(documents ?? state.storage_manifest)]);
     await client.query("COMMIT");
-    return { skipped: false, tables: tables.length, rows: rowCount, capturedAt: snapshot.captured_at };
+    return { skipped: false, tables: tables.length, rows: rowCount, capturedAt: snapshot.captured_at,
+      storageReady: documents !== null, documents: documents?.length ?? 0 };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

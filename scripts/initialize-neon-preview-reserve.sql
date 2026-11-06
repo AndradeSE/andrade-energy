@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS reserve_control.snapshot_state (
     row_count bigint
 );
 ALTER TABLE reserve_control.snapshot_state ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reserve_control.snapshot_state ADD COLUMN IF NOT EXISTS storage_ready boolean NOT NULL DEFAULT false;
+ALTER TABLE reserve_control.snapshot_state ADD COLUMN IF NOT EXISTS storage_manifest jsonb;
 REVOKE ALL ON reserve_control.snapshot_state FROM PUBLIC, anonymous, authenticated;
 INSERT INTO reserve_control.snapshot_state (id,mode) VALUES (1,'standby') ON CONFLICT DO NOTHING;
 COMMIT;

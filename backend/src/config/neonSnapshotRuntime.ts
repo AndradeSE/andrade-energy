@@ -1,12 +1,16 @@
 import { Client } from "pg";
 import { previewSupabaseUrl, restoreReserveSnapshot, type ReserveSnapshot } from "./neonSnapshot";
+import { mirrorNeonDocuments } from "./neonStorageRuntime";
 
 export function snapshotFailureReason(error: unknown) {
   const message = error instanceof Error ? error.message : "";
   const safe = ["Origem diferente do Preview", "Destino diferente do banco isolado Neon Preview",
     "Chave do Preview ausente", "Exportação do snapshot recusada", "Reserva não está em modo standby",
     "Snapshot anterior ao já publicado", "Estrutura do reserva desatualizada", "Rotinas do reserva divergentes",
-    "Contagem restaurada divergente", "Snapshot vencido", "Snapshot depende do Supabase Auth"];
+    "Contagem restaurada divergente", "Snapshot vencido", "Snapshot depende do Supabase Auth",
+    "Armazenamento Neon Preview não configurado", "Manifesto de arquivos inválido",
+    "Arquivo de origem indisponível", "Arquivo mudou após o snapshot", "Arquivo mudou durante a cópia",
+    "Arquivo do reserva não confere", "Arquivo do reserva indisponível"];
   if (safe.includes(message)) return message;
   const code = (error as { code?: string })?.code;
   if (code && ["28P01", "42501", "23503", "23505", "42P01", "57014", "55P03", "ENOTFOUND", "ETIMEDOUT"].includes(code)) return code;
@@ -44,7 +48,9 @@ export async function synchronizeNeonPreview(env: NodeJS.ProcessEnv) {
   const client = new Client(neonPreviewConnection(env));
   try {
     await client.connect();
-    return await restoreReserveSnapshot(client, () => loadSnapshot(env));
+    return await restoreReserveSnapshot(client, () => loadSnapshot(env),
+      env.NEON_STORAGE_SNAPSHOT_ENABLED === "true"
+        ? (snapshot, previous) => mirrorNeonDocuments(env, snapshot.objects, previous) : undefined);
   } finally {
     await client.end();
   }
