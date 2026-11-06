@@ -64,6 +64,16 @@ export async function verifyNeonRecovery(env: NodeJS.ProcessEnv) {
     assert.equal((await request('/api/clientes','POST')).status,503);
     assert.equal((await request('/api/faturas/gerar')).status,503);
     assert.equal(effects,0);
+    const {rows:[snapshot]}=await pg.query('SELECT storage_manifest FROM reserve_control.snapshot_state WHERE id=1');
+    const document=snapshot.storage_manifest.find((item:any)=>item.bucket==='contratos');
+    assert.ok(document);
+    const file=await supabase.storage.from('contratos').download(document.path);
+    assert.equal(file.error,null);assert.equal(file.data!.size,document.size);
+    const signed=await supabase.storage.from('contratos').createSignedUrl(document.path,300);
+    assert.equal(signed.error,null);
+    const downloaded=await fetch(signed.data!.signedUrl,{redirect:'error',signal:AbortSignal.timeout(15_000)});
+    assert.equal(downloaded.status,200);
+    assert.equal((await downloaded.arrayBuffer()).byteLength,document.size);
     const {rows:[before]}=await pg.query('SELECT expira_em FROM public.sessoes_usuarios WHERE id=$1',[sessionId]);
     assert.equal((await request('/api/auth/session')).status,200);
     const {rows:[after]}=await pg.query('SELECT expira_em FROM public.sessoes_usuarios WHERE id=$1',[sessionId]);
@@ -71,7 +81,7 @@ export async function verifyNeonRecovery(env: NodeJS.ProcessEnv) {
     await pg.query('UPDATE public.sessoes_usuarios SET revogada_em=now() WHERE id=$1',[sessionId]);
     assert.equal((await request('/api/auth/session')).status,401);
     assert.equal(recoveryStatus().banco,'NEON');
-    return {authenticated:true,tenantScoped:true,mutationsBlocked:true,revocationChecked:true,slidingSessionDisabled:true,transitionDeduplicated:true};
+    return {authenticated:true,tenantScoped:true,mutationsBlocked:true,revocationChecked:true,slidingSessionDisabled:true,transitionDeduplicated:true,privateFilesAdapted:true};
   } finally {
     if(server) await new Promise<void>((resolve,reject)=>server!.close(error=>error?reject(error):resolve()));
     recovery?.stop();
