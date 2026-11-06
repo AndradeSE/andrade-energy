@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { startNeonPrivateApi } from "../config/neonPrivateApi";
+import { verifyNeonPrivateDocument } from "../config/neonDocumentProbe";
 
 async function main() {
   if (process.env.NEON_API_ENABLED !== "true") return;
@@ -17,6 +18,9 @@ async function main() {
     const anonymous = await fetch(`${api.origin}/clientes?select=id&limit=1`, { signal: AbortSignal.timeout(8000) });
     if (anonymous.ok) throw new Error("API privada aceitou consulta sem autenticação");
     console.log("Relacionamentos, RPC e rejeição de acesso sem autenticação validados no Neon Preview.");
+    if (process.env.NEON_STORAGE_SNAPSHOT_ENABLED === "true") {
+      console.log("PDF privado do Neon validado", await verifyNeonPrivateDocument(process.env));
+    }
   } finally { api.stop(); }
 }
 
