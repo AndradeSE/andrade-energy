@@ -14,8 +14,8 @@
 
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["argon2", "pdfkit", "pdf-parse", "tesseract.js", "tesseract.js-core", "@tesseract.js-data/por"]
-  included_files = ["dist/**", "assets/**", "node_modules/@tesseract.js-data/por/**", "node_modules/tesseract.js/**", "node_modules/tesseract.js-core/**"]
+  external_node_modules = ["argon2", "pdfkit", "pdf-parse", "@hyzyla/pdfium", "pngjs", "tesseract.js", "tesseract.js-core", "@tesseract.js-data/por"]
+  included_files = ["node_modules/@hyzyla/pdfium/dist/**", "dist/**", "assets/**", "node_modules/@tesseract.js-data/por/**", "node_modules/tesseract.js/**", "node_modules/tesseract.js-core/**"]
 
 [functions."preview-push-worker"]
   schedule = "* * * * *"
@@ -38,3 +38,4 @@
   from = "/contingency/runtime"
   to = "/.netlify/functions/api/contingency/runtime"
   status = 200
+
