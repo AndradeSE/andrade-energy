@@ -25,7 +25,11 @@ export function extrairEncargosCemig(texto: string) {
   const icms = valorFiscal("ICMS");
   const pasep = valorFiscal("PASEP");
   const cofins = valorFiscal("COFINS");
+  const valorDoacoes = linhas
+    .filter((linha) => /^\s*Doa[cç][aã]o\b/i.test(linha))
+    .reduce((total, linha) => total + ultimoValorDaLinha(linha), 0);
   return {
+    valorDoacoes,
     valorIluminacaoPublica: iluminacaoCompacta ? paraNumero(iluminacaoCompacta) : ultimoValorDaLinha(linhaIluminacao),
     valorBandeira: ultimoValorDaLinha(linhaBandeira),
     valorImpostos: icms + pasep + cofins,

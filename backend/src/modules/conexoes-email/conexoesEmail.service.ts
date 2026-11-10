@@ -2,7 +2,7 @@ import { origemEmailPermitida } from "../recebimento-faturas/recebimentoOrigem.p
 import { exigirPermissaoLeituraGmail } from "./gmailPermissoes.policy";
 import { emailOAuthState, emailWebReturn } from "./web-return";
 import { erroRegraAutomaticaOutlook } from "./outlookRegra.policy";
-import {priorizarConexoesGmail,mesmaCaixaGmailAutorizada} from './gmailConexao.policy';
+import {priorizarConexoesGmail,mesmaCaixaGmailAutorizada,podeCompartilharCredencialGmailEmpresa} from './gmailConexao.policy';
 import { appScheme } from "../../utils/appScheme";
 import {
   createCipheriv,
@@ -419,6 +419,7 @@ async function trocarCodigoPorTokens(
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: corpo,
+    signal: AbortSignal.timeout(30_000),
   });
   if (!resposta.ok) throw new Error(await textoErroResposta(resposta, "Não foi possível concluir a autorização do e-mail"));
 
@@ -442,6 +443,7 @@ async function trocarRefreshPorAccessToken(configuracao: ConfiguracaoOAuth, refr
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: corpo,
+    signal: AbortSignal.timeout(30_000),
   });
   if (!resposta.ok) {
     const detalhe = await resposta.json().catch(() => null) as any;
@@ -458,15 +460,39 @@ async function trocarRefreshPorAccessToken(configuracao: ConfiguracaoOAuth, refr
 /** Tokens permanecem no servidor e nunca são serializados para o aplicativo. */
 export async function obterTokenLeituraGmail(conexaoId: string, empresaId: string) {
   const { data, error } = await supabase.from("conexoes_email")
-    .select("refresh_token_criptografado,status,provedor,escopos")
+    .select("id,usuario_id,email_conectado,conectado_em,refresh_token_criptografado,status,provedor,escopos")
     .eq("id", conexaoId).eq("empresa_id", empresaId).maybeSingle();
   if (error) throw error;
   if (!data || data.provedor !== "GMAIL" || data.status !== "LEITURA_AUTORIZADA") {
     throw new Error("A conexão Gmail não está autorizada. Conecte a conta novamente.");
   }
-  exigirPermissaoLeituraGmail(data.escopos);
-  const tokens = await trocarRefreshPorAccessToken(configuracaoOAuth("GMAIL"), descriptografarSegredoOAuth(data.refresh_token_criptografado));
-  return tokens.access_token!;
+  let credencial = data;
+  // Sharing is only a credential resolution. The original UC/plant scope is
+  // retained by the importer; a consumer never borrows a generator's grant.
+  const [{ data: titular, error: erroTitular }, { data: vinculo, error: erroVinculo }] = await Promise.all([
+    supabase.from('usuarios').select('perfil,ativo').eq('id',data.usuario_id).maybeSingle(),
+    supabase.from('empresa_usuarios').select('papel').eq('usuario_id',data.usuario_id).eq('empresa_id',empresaId).eq('ativo',true).maybeSingle(),
+  ]);
+  if (erroTitular || erroVinculo) throw new Error('Não foi possível conferir o titular da conexão Gmail.');
+  if (podeCompartilharCredencialGmailEmpresa(titular?.perfil ?? '',titular?.ativo === true,vinculo?.papel ?? '')) {
+    const recentes = await supabase.from('conexoes_email')
+      .select('id,usuario_id,email_conectado,conectado_em,refresh_token_criptografado,status,provedor,escopos')
+      .eq('empresa_id',empresaId).eq('usuario_id',data.usuario_id).eq('email_conectado',data.email_conectado)
+      .eq('provedor','GMAIL').eq('status','LEITURA_AUTORIZADA').in('regra_status',['ATIVA','NAO_APLICAVEL'])
+      .gte('conectado_em',data.conectado_em).order('conectado_em',{ascending:false}).limit(1);
+    if(recentes.error) throw new Error('Não foi possível consultar a autorização atual do Gmail.');
+    credencial = recentes.data?.[0] ?? data;
+  }
+  exigirPermissaoLeituraGmail(credencial.escopos);
+  try {
+    const tokens = await trocarRefreshPorAccessToken(configuracaoOAuth("GMAIL"), descriptografarSegredoOAuth(credencial.refresh_token_criptografado));
+    return tokens.access_token!;
+  } catch (erro:any) {
+    if(erro?.codigoGmail === 'OAUTH_REAUTORIZACAO') await supabase.from('conexoes_email')
+      .update({regra_status:'ERRO',regra_erro:'A autorização do Gmail expirou ou foi revogada. Reconecte esta conta para retomar a leitura.',updated_at:new Date().toISOString()})
+      .eq('id',credencial.id).eq('empresa_id',empresaId).eq('usuario_id',data.usuario_id).eq('conectado_em',credencial.conectado_em);
+    throw erro;
+  }
 }
 
 async function obterEmailDaConta(provedor: ProvedorEmail, accessToken: string) {

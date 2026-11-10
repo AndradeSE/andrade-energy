@@ -15,3 +15,10 @@ test("PDF bytes must match declared length and file signature", () => {
   assert.throws(() => validatePdfBytes(pdf, pdf.length + 1));
   assert.throws(() => validatePdfBytes(Buffer.from("executable"), 10));
 });
+
+test("faturas aceitam JPG e PNG com nome correspondente ao formato", () => {
+  assert.equal(validatePdfMetadata({ nome: "foto.jpg", tamanho: 100, tipo: "image/jpeg" }).nome, "foto.jpg");
+  assert.equal(validatePdfMetadata({ nome: "captura.png", tamanho: 100, tipo: "image/png" }).nome, "captura.png");
+  assert.throws(() => validatePdfMetadata({ nome: "executavel.exe", tamanho: 100, tipo: "image/png" }));
+  assert.throws(() => validatePdfMetadata({ nome: "foto.svg", tamanho: 100, tipo: "image/svg+xml" }));
+});

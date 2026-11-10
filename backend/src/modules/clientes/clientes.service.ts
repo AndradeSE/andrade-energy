@@ -1,3 +1,4 @@
+import { criarNotificacaoApp } from "../notificacoes/push.service";
 import {
   atualizarCliente,
   atualizarApelidoDaMinhaUnidade,
@@ -22,6 +23,7 @@ import { supabase } from "../../config/supabase";
 import { recalcularAlocacaoUsina, sincronizarParticipacaoClienteUsina } from "../usinas/usinas.service";
 import { extrairTextoDoBuffer, extrairTextoPDF } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
+import { chaveFaturaAnexada, faturasAnexadasUnicas } from "./faturaAnexadaDuplicada";
 import { gerarToken } from "../../utils/token";
 import { readFile, unlink } from "node:fs/promises";
 
@@ -209,7 +211,7 @@ export async function listarFaturasAnexadasDoCliente(clienteId: string, usuario:
     listarFaturasAnexadasClienteNoBanco(clienteId, empresaId),
     buscarCliente(clienteId, empresaId),
   ]);
-  return Promise.all(anexos.map(async (anexo: any) => {
+  return Promise.all(faturasAnexadasUnicas(anexos).map(async (anexo: any) => {
     const dadosFatura = await completarDadosDaFaturaAnexada(anexo, cliente?.cpf);
     const { data, error } = await supabase.storage.from("faturas").createSignedUrl(String(anexo.caminho_pdf), 5 * 60);
     if (error) throw error;
@@ -224,6 +226,7 @@ export async function anexarFaturaAoCliente(
   arquivo?: { path: string; originalname?: string; mimetype?: string },
   senhaPdf?: string,
   usinaId?: string,
+  zonaSolicitada?: unknown,
 ) {
   if (!arquivo?.path) throw new Error("Selecione uma fatura em PDF.");
   if (arquivo.mimetype && arquivo.mimetype !== "application/pdf") throw new Error("Envie a conta de energia no formato PDF.");
@@ -234,13 +237,55 @@ export async function anexarFaturaAoCliente(
   let caminhoPdf: string | null = null;
   let anexoId: string | null = null;
   try {
+    if (zonaSolicitada !== undefined && zonaSolicitada !== "RURAL" && zonaSolicitada !== "URBANA") {
+      throw new Error("Informe se a nova UC fica em zona rural ou urbana.");
+    }
+    if (zonaSolicitada && String(usuario?.cliente_id ?? "") !== clienteId) {
+      throw new Error("A solicitação deve ser enviada pela conta do cliente.");
+    }
     const cliente = await buscarCliente(clienteId, empresaId);
     const senhaInformada = String(senhaPdf ?? "").trim();
     const texto = await extrairTextoPDF(arquivo.path, senhaInformada || cpfLimpo(cliente?.cpf).slice(0, 4) || undefined);
     if (!/\bCEMIG\b/i.test(texto)) throw new Error("Envie uma fatura emitida pela CEMIG.");
     const dadosFatura = dadosDaFaturaAnexada(interpretarFatura(texto) as Record<string, any>);
     if (!dadosFatura.uc) throw new Error("Não foi possível identificar a unidade consumidora na fatura.");
+    const chave = chaveFaturaAnexada(dadosFatura);
+    const anteriores = await listarFaturasAnexadasClienteNoBanco(clienteId, empresaId);
+    const existente = chave ? anteriores.find((item:any) => chaveFaturaAnexada(item.dados_fatura) === chave
+      && (!zonaSolicitada || (item.dados_fatura?.solicitacao_nova_uc === true && item.dados_fatura?.zona_localizacao === zonaSolicitada))) : undefined;
+    if (existente) {
+      const { data, error } = await supabase.storage.from('faturas').createSignedUrl(String(existente.caminho_pdf), 300);
+      if(error) throw error;
+      return { id: existente.id, nome: existente.arquivo_nome, dadosFatura: existente.dados_fatura, criadoEm: existente.criado_em, url: data.signedUrl, jaExistente: true };
+    }
     caminhoPdf = await guardarFaturaAnexada(clienteId, arquivo.path);
+    if (zonaSolicitada) {
+      const { data: pdf, error } = await supabase.storage.from("faturas").createSignedUrl(caminhoPdf, 5 * 60);
+      if (error) throw error;
+      const pedido = await criarFaturaAnexadaCliente({
+        clienteId, empresaId, usuarioId: usuario?.id ?? null, caminhoPdf,
+        arquivoNome: arquivo.originalname || "fatura-cemig.pdf",
+        dadosFatura: { ...dadosFatura, zona_localizacao: zonaSolicitada, solicitacao_nova_uc: true },
+      });
+      try {
+        const { data: gestores, error: erroGestores } = await supabase.from("empresa_usuarios")
+          .select("usuario_id").eq("empresa_id", empresaId).eq("ativo", true)
+          .in("papel", ["SUPERADMIN", "ADMIN_EMPRESA", "GESTOR"]);
+        if (erroGestores) throw erroGestores;
+        await Promise.all((gestores ?? []).map(({ usuario_id }) => criarNotificacaoApp({
+          usuario_id,
+          empresa_id: empresaId,
+          tipo: "SOLICITACAO_NOVA_UC",
+          titulo: "Solicitação de cadastro de nova UC",
+          detalhe: "Uma conta da Cemig foi anexada para análise.",
+          rota: "/clientes/faturas-anexadas?clienteId=" + encodeURIComponent(clienteId) + "&selecionarUc=1",
+          chave_dedupe: "solicitacao-nova-uc:" + pedido.id + ":" + usuario_id,
+        })));
+      } catch {
+        console.warn("Falha ao notificar gestores sobre solicitação de nova UC.");
+      }
+      return { id: pedido.id, nome: pedido.arquivo_nome, dadosFatura: pedido.dados_fatura, criadoEm: pedido.criado_em, url: pdf.signedUrl };
+    }
     const anexo = await criarFaturaAnexadaCliente({ clienteId, empresaId, usuarioId: usuario?.id ?? null, caminhoPdf, arquivoNome: arquivo.originalname || "fatura-cemig.pdf", dadosFatura });
     anexoId = String(anexo.id);
     const unidade = await cadastrarUnidadeCliente(clienteId, dadosFatura.uc, dadosFatura.cpfParcial, empresaId, usinaId);
@@ -269,6 +314,16 @@ export async function anexarFaturaAoCliente(
 }
 
 export async function excluirFaturaAnexadaDoCliente(clienteId: string, anexoId: string, empresaId: string) {
+  const anteriores = await listarFaturasAnexadasClienteNoBanco(clienteId, empresaId);
+  const alvo = anteriores.find((item:any) => String(item.id) === anexoId);
+  const chave = alvo ? chaveFaturaAnexada(alvo.dados_fatura) : null;
+  // Deletion is still explicit. Remove identical hidden copies in this same
+  // client/company so an old duplicate cannot reappear after confirmation.
+  for (const copia of anteriores.filter((item:any) => String(item.id) !== anexoId && chave && chaveFaturaAnexada(item.dados_fatura) === chave)) {
+    const removida = await excluirFaturaAnexadaClienteNoBanco(copia.id, clienteId, empresaId);
+    if(removida?.caminho_pdf && removida.caminho_pdf !== alvo?.caminho_pdf)
+      await supabase.storage.from('faturas').remove([String(removida.caminho_pdf)]);
+  }
   const anexo = await excluirFaturaAnexadaClienteNoBanco(anexoId, clienteId, empresaId);
   if (anexo?.caminho_pdf) {
     const { error } = await supabase.storage.from("faturas").remove([String(anexo.caminho_pdf)]);

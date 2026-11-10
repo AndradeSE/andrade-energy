@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { ImagemFaturaError } from "../services/ocr/imagemFatura";
 
 export function errorHandler(
   error: any,
@@ -6,6 +7,7 @@ export function errorHandler(
   res: Response,
   next: NextFunction
 ) {
+  if (error instanceof ImagemFaturaError) return res.status(400).json({ message: error.message });
 
   // Não incluir payloads, URLs ou mensagens de provedores nos logs públicos.
   console.error("Falha interna da API", { metodo: req.method, rota: req.path.split("/").filter(Boolean).slice(0, 2).join("/"), tipo: error?.name ?? "Error" });

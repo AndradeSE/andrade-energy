@@ -16,7 +16,7 @@ router.post("/preparar", exigirAutenticacao,
         return res.status(scope ? 403 : 503).json({ code: error.code,
           message: scope ? "Selecione a empresa da sua conta antes de enviar o PDF." : "O armazenamento temporário do PDF está indisponível. Tente novamente após a conferência do serviço." });
       }
-      return res.status(400).json({ code: "UPLOAD_METADATA_INVALID", message: "Não foi possível preparar o PDF. Confira o formato e o limite de 10 MB." });
+      return res.status(400).json({ code: "UPLOAD_METADATA_INVALID", message: "Envie uma fatura PDF, JPG ou PNG de até 10 MB." });
     }
   });
 export default router;

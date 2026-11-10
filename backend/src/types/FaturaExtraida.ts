@@ -74,6 +74,9 @@ export interface FaturaExtraida {
 
   tarifaCheia: number;
 
+  /** O benefício social fica na conta original; a referência usa a faixa convencional. */
+  descontoSocial?: boolean;
+
   tarifaGD: number;
 
   tarifaGD1?: number;
@@ -118,6 +121,8 @@ export interface FaturaExtraida {
 
   /** Soma de ICMS, PASEP e COFINS destacados no resumo fiscal. */
   valorImpostos?: number;
+
+  valorDoacoes?: number;
 
   bandeira: string;
 
