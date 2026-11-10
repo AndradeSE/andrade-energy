@@ -14,6 +14,12 @@ export function snapshotFailureReason(error: unknown) {
   if (safe.includes(message)) return message;
   const code = (error as { code?: string })?.code;
   if (code && ["28P01", "42501", "23503", "23505", "42P01", "57014", "55P03", "ENOTFOUND", "ETIMEDOUT"].includes(code)) return code;
+  const names = ["AccessDenied", "InvalidAccessKeyId", "SignatureDoesNotMatch", "SlowDown", "InternalError", "NoSuchBucket", "TimeoutError", "AbortError", "RequestTimeout", "ThrottlingException"];
+  const name = (error as {name?: string})?.name;
+  if (name && names.includes(name)) return name;
+  const status = (error as {$metadata?: {httpStatusCode?: number}})?.$metadata?.httpStatusCode;
+  if (Number.isInteger(status)) return "armazenamento HTTP " + status;
+  if (code && /^[0-9A-Z]{5}$/.test(code)) return "PostgreSQL " + code;
   return "conexão ou consulta não concluída";
 }
 
