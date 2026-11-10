@@ -11,7 +11,13 @@ if (!process.env.SUPABASE_SERVICE_KEY) {
   throw new Error("SUPABASE_SERVICE_KEY não encontrada");
 }
 
-export const supabase = createClient(
+export const sourceSupabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
+export let supabase = sourceSupabase;
+export function installRecoveryClient(client: typeof supabase) {
+  const previous = supabase;
+  supabase = client;
+  return () => { supabase = previous; };
+}

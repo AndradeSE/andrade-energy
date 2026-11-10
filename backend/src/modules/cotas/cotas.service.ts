@@ -1,3 +1,4 @@
+import { neonRecoveryReadiness } from "../../config/neonRecoveryReadiness";
 import { supabase } from "../../config/supabase";
 import {capmonsterQuota} from './capmonsterQuota';
 import { AZURE_QUOTA_CATALOG, azureQuotaConfig, azureQuotaEnabled, fetchAzureQuotaReadings } from "./azureQuotas";
@@ -127,5 +128,5 @@ export async function listServiceQuotas(includeBrevo = false, includeAzure = fal
       faixa: quotaBand(Number(reading.usado), reading.limite === null ? null : Number(reading.limite)),
       desatualizada: Date.now()-Date.parse(reading.verificado_em)>6*3600_000 } : null,
       consulta: check };
-  }),capmonster] };
+  }),capmonster], reservaDados: await neonRecoveryReadiness(process.env) };
 }

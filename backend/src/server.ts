@@ -1,5 +1,10 @@
 import {renderReserveEnvironment} from './config/contingencyExecutor';
 import cors from "cors";
+import { startNeonProductionSnapshots } from "./config/neonSnapshotRuntime";
+import { initializeNeonRecovery, neonRecoveryGuard } from "./config/neonRecoveryRuntime";
+import { recoveryActive, recoveryStatus } from "./config/neonRecoveryState";
+import { prepareRecoveryEvents, publishRecoveryTransition } from "./config/neonRecoveryEvents";
+import { exigirAutenticacao } from "./middlewares/auth.middleware";
 import dotenv from "dotenv";
 import express from "express";
 import helmet from "helmet";
@@ -83,8 +88,14 @@ app.use(cors({
   allowedHeaders: ["Authorization", "Content-Type", "Idempotency-Key", "asaas-access-token", "x-request-id", "x-signature", "svix-id", "svix-signature", "svix-timestamp"],
 }));
 
-app.use(createRenderReserveIngress(supabase));
-app.use(contingencyRequestGuard);
+app.use(neonRecoveryGuard);
+const renderIngress = createRenderReserveIngress(supabase);
+app.use((req, res, next) => recoveryActive() ? next() : renderIngress(req, res, next));
+app.use((req, res, next) => recoveryActive() ? next() : contingencyRequestGuard(req, res, next));
+app.get("/api/reserva-dados/status", apiRateLimit("data-reserve-status", { windowMs: 60_000, limit: 60 }), exigirAutenticacao, (_req, res) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  res.json(recoveryStatus());
+});
 
 // O Resend assina o corpo original. Esta rota precisa permanecer antes do
 // express.json(), caso contrário a verificação da assinatura falha.
@@ -205,6 +216,7 @@ app.use("/api/oauth", oauthEmailRouter);
 */
 
 app.get("/health", async (_, res) => {
+  if (recoveryActive()) return res.setHeader("Cache-Control", "no-store").json({ status: "read-only", environment: "production", database: "NEON" });
   let reserveReady=false;
   let primaryReady=false;
   const primaryEnv=primaryEnvironment(process.env);
@@ -280,10 +292,20 @@ export async function validarSchemaAntesDeIniciar() {
 }
 
 async function iniciarServidor() {
+  await initializeNeonRecovery(process.env);
   const executarAgendadores = backgroundJobsEnabled();
   await validarSchemaAntesDeIniciar();
   app.listen(PORT, () => {
   console.log(`Servidor iniciado na porta ${PORT}`);
+  if (process.env.NEON_API_ENABLED === "true") {
+    void prepareRecoveryEvents(process.env).then(() => publishRecoveryTransition(process.env, recoveryActive() ? "NEON" : "SUPABASE"))
+      .catch(() => console.warn("Histórico de recuperação aguarda sincronização."));
+  }
+  if (recoveryActive()) {
+    console.log("Banco reserva em consulta: tarefas, ingressos e operações automáticas desativados.");
+    return;
+  }
+  startNeonProductionSnapshots(process.env);
   if(primaryEnvironment(process.env)) {
     let returning=false;
     const checkReturn=async()=>{
@@ -368,7 +390,7 @@ async function iniciarServidor() {
 }
 
 // Functions import the Express app but must never open a port or run timers.
-if (process.env.API_RUNTIME !== "serverless") {
+if (require.main === module && process.env.API_RUNTIME !== "serverless") {
   iniciarServidor().catch((erro: any) => {
     console.error("Servidor não iniciado:", erro?.message ?? erro);
     process.exit(1);

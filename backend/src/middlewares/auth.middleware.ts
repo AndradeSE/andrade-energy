@@ -1,3 +1,4 @@
+import { recoveryActive } from "../config/neonRecoveryState";
 import { NextFunction, Request, Response } from "express";
 import { trackRequestTask } from "../config/requestTasks";
 
@@ -45,6 +46,7 @@ export async function exigirAutenticacao(req: Request, res: Response, next: Next
   // ativa por mais 30 dias. Uma sessão revogada por login em outro aparelho
   // continua inválida e nunca chega a este ponto.
   const novaExpiracao = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  if (!recoveryActive()) {
   const { error: renovacaoError } = await supabase
     .from("sessoes_usuarios")
     .update({ expira_em: novaExpiracao })
@@ -54,6 +56,7 @@ export async function exigirAutenticacao(req: Request, res: Response, next: Next
     console.error("Não foi possível renovar a sessão ativa:", renovacaoError.message);
   }
 
+  }
   let empresaAtivaId = String(data?.empresa_ativa_id ?? usuario.empresa_id ?? "");
   const { data: vinculo } = await supabase
     .from("empresa_usuarios")
@@ -79,14 +82,14 @@ export async function exigirAutenticacao(req: Request, res: Response, next: Next
     papelEmpresa = principal.papel;
     permissoesEmpresa = principal.permissoes ?? {};
     clienteEmpresaId = principal.cliente_id ?? null;
-    await supabase.from("sessoes_usuarios").update({ empresa_ativa_id: empresaAtivaId }).eq("id", data!.id);
+    if (!recoveryActive()) await supabase.from("sessoes_usuarios").update({ empresa_ativa_id: empresaAtivaId }).eq("id", data!.id);
   }
 
   const usuarioDaSessao = { ...usuario, empresa_principal_id: usuario.empresa_id, empresa_id: empresaAtivaId, cliente_id: clienteEmpresaId ?? usuario.cliente_id, papel_empresa: papelEmpresa, permissoes: permissoesEmpresa };
   (req as any).usuario = usuarioDaSessao;
   (req as any).empresaId = empresaAtivaId;
   (req as any).sessaoId = data!.id;
-  if (String(papelEmpresa ?? "").startsWith("COLABORADOR_")) {
+  if (!recoveryActive() && String(papelEmpresa ?? "").startsWith("COLABORADOR_")) {
     trackRequestTask(supabase.from("empresa_usuarios").update({ ultimo_acesso_em: new Date().toISOString(), atualizado_em: new Date().toISOString() }).eq("usuario_id", usuario.id).eq("empresa_id", empresaAtivaId));
   }
   return next();
