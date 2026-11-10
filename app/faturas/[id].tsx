@@ -353,10 +353,10 @@ export default function DetalheFatura() {
               style={styles.regenerateButton}
             >
               <Ionicons name={regenerandoPdf ? "hourglass-outline" : "refresh-outline"} size={18} color={Colors.primary} />
-              <Text style={styles.regenerateButtonText}>{regenerandoPdf ? "Atualizando PDF..." : "Gerar PDF atualizado"}</Text>
+              <Text style={styles.regenerateButtonText}>{regenerandoPdf ? "Atualizando PDF..." : "Atualizar somente o PDF"}</Text>
             </TouchableOpacity>
           ) : null}
-          {IS_GERADOR_APP && String(fatura.status ?? "").toUpperCase() !== "RASCUNHO" ? (
+          {IS_GERADOR_APP && String(fatura.status ?? "").toUpperCase() !== "RASCUNHO" && !(fatura.pdf_boleto_url || fatura.codigo_pix || fatura.linha_digitavel) ? (
             <TouchableOpacity
               accessibilityRole="button"
               activeOpacity={0.84}
@@ -383,7 +383,7 @@ export default function DetalheFatura() {
               style={[styles.regenerateButton, gerandoCobranca && styles.confirmButtonDisabled]}
             >
               <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
-              <Text style={styles.regenerateButtonText}>Atualizar boleto existente</Text>
+              <Text style={styles.regenerateButtonText}>Alterar vencimento do boleto</Text>
             </TouchableOpacity>
           ) : null}
           {IS_GERADOR_APP && fatura.cobranca_mensagem && !fatura.codigo_pix && !fatura.linha_digitavel ? (
