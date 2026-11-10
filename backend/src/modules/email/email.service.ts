@@ -4,12 +4,14 @@ import path from "node:path";
 
 import { extrairTextoPDF } from "../../services/ocr/ocr.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
+import { anexoImagemFatura } from '../../services/ocr/anexoFaturaPolicy';
+import { normalizarFaturaEmPdf } from '../../services/ocr/imagemFatura';
 import { importarFaturaGeradora } from "../usinas/usinas.service";
 import { listarUsinas } from "../usinas/usinas.repository";
 import { microsoftEmailConfigurado, obterTokenMicrosoft } from "./microsoftEmail.service";
 
 type Mensagem = { id: string; subject?: string };
-type AnexoGraph = { name?: string; contentType?: string; contentBytes?: string; "@odata.type"?: string };
+type AnexoGraph = { name?: string; contentType?: string; contentBytes?: string; isInline?: boolean; "@odata.type"?: string };
 
 async function graph<T>(token: string, rota: string, init?: RequestInit): Promise<T> {
   const resposta = await fetch(`https://graph.microsoft.com/v1.0${rota}`, {
@@ -34,12 +36,12 @@ export async function processarContasDeEnergiaRecebidas() {
     let producaoImportada = false;
     for (const anexo of anexos.value ?? []) {
       const pdf = anexo["@odata.type"] === "#microsoft.graph.fileAttachment"
-        && (anexo.contentType === "application/pdf" || anexo.name?.toLowerCase().endsWith(".pdf"));
+        && (anexo.contentType === "application/pdf" || anexo.name?.toLowerCase().endsWith(".pdf") || anexoImagemFatura({filename:anexo.name,content_type:anexo.contentType,content_disposition:anexo.isInline?'inline':'attachment'}));
       if (!pdf || !anexo.contentBytes) continue;
       const pasta = await mkdtemp(path.join(os.tmpdir(), "andrade-producao-"));
       const arquivo = path.join(pasta, "conta.pdf");
       try {
-        await writeFile(arquivo, Buffer.from(anexo.contentBytes, "base64"));
+        await writeFile(arquivo, await normalizarFaturaEmPdf(Buffer.from(anexo.contentBytes, "base64")));
         const dados = interpretarFatura(await extrairTextoPDF(arquivo));
         const uc = String(dados.uc ?? "").replace(/\D/g, "");
         const usina = usinas.find((item: any) => String(item.numero_instalacao ?? "").replace(/\D/g, "") === uc);

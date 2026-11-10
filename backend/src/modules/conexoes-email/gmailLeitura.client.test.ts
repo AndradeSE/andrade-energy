@@ -10,6 +10,12 @@ test("encontra PDFs em MIME aninhado e ignora imagens e partes sem conteúdo", (
   ] }), [pdf]);
 });
 
+test('reconhece foto anexada sem interpretar imagens inline do e-mail como contas',()=>{
+ const foto={filename:'fatura.png',mimeType:'image/png',body:{attachmentId:'photo'}};
+ const logo={filename:'logo.png',mimeType:'image/png',headers:[{name:'Content-Disposition',value:'inline'}],body:{attachmentId:'logo'}};
+ assert.deepEqual(anexosPdfGmail({parts:[logo,foto]}),[foto]);
+});
+
 test("busca remetente oficial com anexos, inclusive mensagens lidas, e percorre páginas", async t => {
   const chamadas: URL[] = [];
   t.mock.method(globalThis, "fetch", async (url: string) => {

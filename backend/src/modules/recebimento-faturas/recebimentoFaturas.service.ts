@@ -11,6 +11,8 @@ import { supabase } from "../../config/supabase";
 import { EMPRESA_ANDRADE_ID, empresaIdDoUsuario } from "../../config/empresa";
 import { extrairTextoPdfIsolado } from "../../services/ocr/ocrIsolado.service";
 import { interpretarFatura } from "../../services/ocr/parser.service";
+import { escolherAnexoFatura } from '../../services/ocr/anexoFaturaPolicy';
+import { normalizarFaturaEmPdf, tipoImagemFatura } from '../../services/ocr/imagemFatura';
 import { armazenarContaDeEnergiaDaUsina, armazenarDocumentosDaFatura } from "../faturas/documentosFatura.service";
 import { processarFatura } from "../faturas/processarFatura.service";
 import { ucPossuiContratoEncerrado } from "../contratos/contratoUc.service";
@@ -50,6 +52,8 @@ type AnexoResend = {
   id?: string;
   filename?: string;
   content_type?: string;
+  content_disposition?: string;
+  content_id?: string;
   size?: number;
   download_url?: string;
 };
@@ -556,10 +560,7 @@ export async function obterConfirmacaoEncaminhamentoGmail(unidadeId: string, usu
 }
 
 function escolherPdf(anexos: AnexoResend[]) {
-  return anexos.find((anexo) => {
-    const nome = String(anexo.filename ?? "").toLowerCase();
-    return anexo.content_type === "application/pdf" || nome.endsWith(".pdf");
-  });
+  return escolherAnexoFatura(anexos);
 }
 
 async function baixarPdf(anexo: AnexoResend) {
@@ -569,7 +570,7 @@ async function baixarPdf(anexo: AnexoResend) {
   if (!resposta.ok) throw new Error(`Não foi possível baixar o PDF recebido (${resposta.status}).`);
   const arquivo = Buffer.from(await resposta.arrayBuffer());
   if (arquivo.length > limiteArquivo()) throw new Error("O PDF recebido excede o limite de 10 MB.");
-  if (arquivo.subarray(0, 1024).indexOf(Buffer.from("%PDF")) < 0) throw new Error("O anexo não é um PDF válido.");
+  if (arquivo.subarray(0, 1024).indexOf(Buffer.from("%PDF")) < 0 && !tipoImagemFatura(arquivo)) throw new Error("O anexo não é um PDF, JPG ou PNG válido.");
   return arquivo;
 }
 
@@ -690,7 +691,7 @@ async function processarRegistro(registro: any) {
     const pasta = await mkdtemp(path.join(os.tmpdir(), "andrade-fatura-email-"));
     const caminho = path.join(pasta, "conta.pdf");
     try {
-      await writeFile(caminho, arquivo);
+      await writeFile(caminho, await normalizarFaturaEmPdf(arquivo));
       etapa("CONSULTAR_CONFIGURACAO_UC");
       const { data: unidadeConfiguracao, error: erroUnidade } = await supabase
         .from("unidades_consumidoras")

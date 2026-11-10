@@ -1,7 +1,10 @@
+import { anexoImagemFatura } from '../../services/ocr/anexoFaturaPolicy';
+import { tipoImagemFatura } from '../../services/ocr/imagemFatura';
 export type ParteGmail = {
   partId?: string;
   filename?: string;
   mimeType?: string;
+  headers?: Array<{name:string;value:string}>;
   body?: { attachmentId?: string; data?: string; size?: number };
   parts?: ParteGmail[];
 };
@@ -9,8 +12,11 @@ export type ParteGmail = {
 export function anexosPdfGmail(parte?: ParteGmail): ParteGmail[] {
   if (!parte) return [];
   const pdf = parte.mimeType === "application/pdf" || /\.pdf$/i.test(parte.filename ?? "");
+  const imagem = anexoImagemFatura({filename:parte.filename,content_type:parte.mimeType,
+    content_disposition:parte.headers?.find(h=>h.name.toLowerCase()==='content-disposition')?.value,
+    content_id:parte.headers?.find(h=>h.name.toLowerCase()==='content-id')?.value});
   return [
-    ...(pdf && (parte.body?.attachmentId || parte.body?.data) ? [parte] : []),
+    ...((pdf || imagem) && (parte.body?.attachmentId || parte.body?.data) ? [parte] : []),
     ...(parte.parts ?? []).flatMap(anexosPdfGmail),
   ];
 }
@@ -58,7 +64,7 @@ export async function baixarAnexoGmail(token: string, mensagemId: string, anexoI
     : parte.body;
   if (!corpo?.data) throw new Error("O Gmail não retornou o conteúdo do PDF.");
   const arquivo = Buffer.from(corpo.data, "base64url");
-  if (arquivo.length > limite || arquivo.subarray(0, 1024).indexOf(Buffer.from("%PDF")) < 0) {
+  if (arquivo.length > limite || (arquivo.subarray(0, 1024).indexOf(Buffer.from("%PDF")) < 0 && !tipoImagemFatura(arquivo))) {
     throw new Error("O anexo não é um PDF válido ou excede o limite de 10 MB.");
   }
   return arquivo;

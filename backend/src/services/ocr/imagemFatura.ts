@@ -8,6 +8,12 @@ export function tipoImagemFatura(buffer: Buffer) {
   return null;
 }
 
+export async function normalizarFaturaEmPdf(buffer: Buffer) {
+  if (buffer.length > 10 * 1024 * 1024) throw new ImagemFaturaError('A fatura excede o limite de 10 MB.');
+  if (buffer.subarray(0,1024).includes(Buffer.from('%PDF-'))) return buffer;
+  return converterImagemFatura(buffer);
+}
+
 export class ImagemFaturaError extends Error {}
 
 let emProcessamento = false;
