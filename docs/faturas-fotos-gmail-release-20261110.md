@@ -21,7 +21,7 @@ Os canais antigos do Consumidor foram mantidos. Não publicar o Gerador a partir
 - Testes gerais: 186 Preview / 173 produção, além dos testes específicos de upload, credencial, deduplicação e máscara.
 - Análise autenticada no Preview do PDF fornecido, PNG por ticket privado de uso único e JPG multipart: 214 kWh, tarifa convencional 1,17455946, total 360,80, doação 130,00. Nenhuma fatura/cobrança foi criada pelo teste.
 - OCR executado também com Node 22.18.0, igual ao Render. wasm-feature-detect fixado em 1.8.0 para evitar sintaxe incompatível introduzida em 1.10.0.
-- Limites: PDF/JPG/PNG até 10 MB; OCR de imagem até 20 MP e 45 segundos, uma execução por processo.
+- Limites: PDF/JPG/PNG até 10 MB; OCR de imagem até 20 MP e 55 segundos, uma execução por processo.
 - Quando a fatura social não traz a tarifa convencional, não inferir a tarifa a partir do valor com desconto social.
 
 ## Incidente real de faturamento
@@ -39,3 +39,8 @@ As notificações reais já estavam persistidas no banco. Os cabeçalhos agora r
 Contas anexadas usam a animação padrão de transição. Repetições da mesma UC/competência/vencimento/valor/consumo são reutilizadas; contas corrigidas e de competências diferentes continuam separadas. Cópias antigas idênticas não são apagadas automaticamente: a exclusão só ocorre após a ação explícita do usuário.
 
 A máscara de telefone fica no controle comum dos campos phone-pad; os dígitos são preservados para envio ao backend.
+
+## Conferência final dos servidores
+
+Render principal, Render reserva e Netlify responderam HTTP 200 na revisão 0aef0abe179af159a51433b8749732f60d12b1a7. Aprovação de contingência sincronizada sem alternar o executor RENDER. OCR usa o modelo português inteiro 4.0.0_best_int para reduzir o tempo no plano gratuito. PDF, PNG e JPEG da amostra passaram na análise de produção sem criar cobrança. Não houve novo ERRO_IMPORTACAO após 14:33 UTC na conferência final.
+
