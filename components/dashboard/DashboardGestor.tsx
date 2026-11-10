@@ -1,3 +1,4 @@
+import { canViewServiceQuotas } from "../../utils/service-quota-access";
 import { unidadesParaRecebimento } from "../../utils/unidadesRecebimento";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
@@ -64,7 +65,7 @@ const atalhos = [
   { icon: "card-outline", label: "Meu plano", rota: "/assinatura" },
   { icon: "person-add-outline", label: "Novo cliente", rota: "/clientes/novo" },
   { icon: "flash-outline", label: "Unidades consumidoras", rota: "/unidades" },
-  { icon: "flash-outline", label: "Nova UC", rota: "/unidades/nova" },
+  { icon: "flash-outline", label: "Nova unidade consumidora", rota: "/unidades/nova" },
   { icon: "document-attach-outline", label: "Faturar via PDF", rota: "/faturamento/manual" },
   { icon: "receipt-outline", label: "Faturas emitidas", rota: "/faturas" },
   { icon: "create-outline", label: "Faturamento manual", rota: "/faturamento/criar-manual" },
@@ -154,7 +155,7 @@ export default function DashboardGestor() {
     const retomarBloqueio = suspenderBloqueioTemporariamente();
     try {
       const arquivo = await DocumentPicker.getDocumentAsync({
-        type: "application/pdf",
+        type: ["application/pdf", "image/jpeg", "image/png"],
         copyToCacheDirectory: true,
         multiple: false,
       });
@@ -273,12 +274,13 @@ export default function DashboardGestor() {
         <Section title="Acesso rápido" framed={false}>
           <QuickAccessCarousel
             storageKey={`gestor-home-${usuario?.id ?? "anonimo"}`}
-            pinnedIds={["simular-economia", "rateio-mensal", "compartilhar-app-gerador", ...(isPreviewEnvironment && assistantHidden ? ["mostrar-assistente"] : [])]}
+            pinnedIds={["simular-economia", "rateio-mensal", "compartilhar-app-gerador", ...(canViewServiceQuotas(usuario) ? ["cotas-servicos"] : []), ...(isPreviewEnvironment && assistantHidden ? ["mostrar-assistente"] : [])]}
             items={[
               {id:'simular-economia',icon:'calculator-outline' as const,label:'Calculadora de economia',onPress:()=>router.push('/simulacao-economia' as any)},
               ...(usinaSelecionada?.id && (usuario?.papel_empresa==='COLABORADOR_COMERCIAL'?usuario?.permissoes?.gerador_operacao===true:usuario?.papel_empresa==='COLABORADOR_GERADOR'?usuario?.permissoes?.operacao===true:true) ? [{id:'rateio-mensal',icon:'git-merge-outline' as const,label:'Rateio',onPress:()=>router.push('/operacao/rateio' as any)}] : []),
               ...(isPreviewEnvironment && assistantHidden ? [{ id: "mostrar-assistente", icon: "chatbubble-ellipses-outline" as const, image: require("../../assets/images/assistant-chat-3d-v2.png"), label: "Mostrar Solar", onPress: () => void setFloatingHidden(String(usuario?.id ?? ""), false) }] : []),
-              ...atalhos.filter((atalho) => (usuario?.papel_empresa !== "COLABORADOR_COMERCIAL" || !({"Novo cliente":"clientes", "Unidades consumidoras":"unidades", "Nova UC":"unidades", "Faturar via PDF":"faturas", "Faturas emitidas":"faturas", "Faturamento manual":"faturas", "Nova usina":"usinas"} as Record<string,string>)[atalho.label] || usuario.permissoes?.[`gerador_${({"Novo cliente":"clientes", "Unidades consumidoras":"unidades", "Nova UC":"unidades", "Faturar via PDF":"faturas", "Faturas emitidas":"faturas", "Faturamento manual":"faturas", "Nova usina":"usinas"} as Record<string,string>)[atalho.label]}`] === true) && (!colaborador || !(usuario?.permissoes?.ambientes_gerador === true ? ["Colaboradores", "Financeiro"] : ["Colaboradores", "Novo cliente", "Nova usina", "Nova UC", "Financeiro"]).includes(atalho.label))).map((atalho) => ({
+              ...(canViewServiceQuotas(usuario) ? [{ id: "cotas-servicos", icon: "speedometer-outline" as const, label: "Cotas de serviços", onPress: () => router.push("/cotas-servicos") }] : []),
+              ...atalhos.filter((atalho) => (usuario?.papel_empresa !== "COLABORADOR_COMERCIAL" || !({"Novo cliente":"clientes", "Unidades consumidoras":"unidades", "Nova unidade consumidora":"unidades", "Faturar via PDF":"faturas", "Faturas emitidas":"faturas", "Faturamento manual":"faturas", "Nova usina":"usinas"} as Record<string,string>)[atalho.label] || usuario.permissoes?.[`gerador_${({"Novo cliente":"clientes", "Unidades consumidoras":"unidades", "Nova unidade consumidora":"unidades", "Faturar via PDF":"faturas", "Faturas emitidas":"faturas", "Faturamento manual":"faturas", "Nova usina":"usinas"} as Record<string,string>)[atalho.label]}`] === true) && (!colaborador || !(usuario?.permissoes?.ambientes_gerador === true ? ["Colaboradores", "Financeiro"] : ["Colaboradores", "Novo cliente", "Nova usina", "Nova unidade consumidora", "Financeiro"]).includes(atalho.label))).map((atalho) => ({
                 icon: atalho.icon,
                 label: atalho.label,
                 onPress: () => router.push(atalho.rota as any),

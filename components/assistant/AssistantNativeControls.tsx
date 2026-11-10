@@ -3,6 +3,7 @@ import { NavigationContext } from "@react-navigation/native";
 import { Pressable as NativePressable, TouchableOpacity as NativeTouchableOpacity, TextInput as NativeTextInput, Switch as NativeSwitch, type SwitchProps, type PressableProps, type TouchableOpacityProps, type TextInputProps, type GestureResponderEvent } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import { registerSolarControl, solarControlScope } from "../../services/assistant-controls";
+import { digitosTelefoneBrasil, mascaraTelefoneBrasil } from "../../utils/phone-mask";
 
 function textOf(node: React.ReactNode): string {
   if (typeof node === "string" || typeof node === "number") return String(node);
@@ -38,7 +39,8 @@ export const TouchableOpacity = forwardRef<React.ElementRef<typeof NativeTouchab
 export type TextInput = NativeTextInput;
 export const TextInput = forwardRef<NativeTextInput, TextInputProps>((props, ref) => {
   useControl(props.accessibilityLabel ?? props.placeholder ?? "", "field", props.editable !== false && Boolean(props.onChangeText), value => { props.onChangeText?.(value ?? ""); }, props.secureTextEntry === true || /password|oneTimeCode/i.test(String(props.textContentType)), props.maxLength);
-  return <NativeTextInput {...props} ref={ref} />;
+  const phone = props.keyboardType === 'phone-pad';
+  return <NativeTextInput {...props} ref={ref} value={phone && props.value !== undefined ? mascaraTelefoneBrasil(props.value) : props.value} maxLength={phone ? 16 : props.maxLength} onChangeText={value => props.onChangeText?.(phone ? digitosTelefoneBrasil(value) : value)} />;
 });
 export const Switch = forwardRef<React.ElementRef<typeof NativeSwitch>, SwitchProps>((props, ref) => {
   useControl(props.accessibilityLabel ?? "", "button", !props.disabled && Boolean(props.onValueChange), () => { props.onValueChange?.(!props.value); });

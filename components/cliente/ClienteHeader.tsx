@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useNotificationRefresh } from "../../hooks/useNotificationRefresh";
 import { abrirSiteApp } from "../../utils/siteApp";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -59,6 +60,7 @@ export default function ClienteHeader({
   ] =
     useState(false);
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
+  const notificationRevision = useNotificationRefresh(notificacoesAbertas);
   const [fotoAberta, setFotoAberta] = useState(false);
   const [avisosFaturas, setAvisosFaturas] = useState<any[]>([]);
   const [avisosApp, setAvisosApp] = useState<any[]>([]);
@@ -157,7 +159,7 @@ export default function ClienteHeader({
       if (ativo) setAvisosApp(itens);
     }).catch(() => undefined);
     return () => { ativo = false; };
-  }, [notificacoesAbertas, usuarioId]);
+  }, [notificacoesAbertas, usuarioId, notificationRevision]);
 
   async function marcarComoLida(id: string) {
     try { await leituras.mark(id); }

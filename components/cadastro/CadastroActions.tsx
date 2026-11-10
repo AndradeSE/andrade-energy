@@ -39,7 +39,7 @@ export default function CadastroActions({ tipo, clienteId }: { tipo: TipoCadastr
     const retomarBloqueio = suspenderBloqueioTemporariamente();
     try {
       const arquivo = pdfReenvio ? null : await DocumentPicker.getDocumentAsync({
-        type: "application/pdf",
+        type: ["application/pdf", "image/jpeg", "image/png"],
         copyToCacheDirectory: true,
         multiple: false,
       });
