@@ -73,7 +73,7 @@ export async function analisarFaturaController(req: Request, res: Response) {
 
 export async function detalharFaturaController(req: Request, res: Response) {
   try {
-    return res.json(await detalharFatura(req.params.id, empresaIdDaRequisicao(req)));
+    return res.json(await detalharFatura(req.params.id, empresaIdDaRequisicao(req), (req as any).usuario?.perfil === "LEITURA"));
   } catch (err: any) {
     const naoEncontrada = err.message === "Fatura não encontrada.";
     return res.status(naoEncontrada ? 404 : 500).json({ message: err.message });
@@ -90,6 +90,7 @@ export async function listarFaturasController(
 
     const data = await listarFaturas({
       clienteId: usuario?.perfil === "LEITURA" ? usuario.cliente_id : clienteId as string | undefined,
+      consumidor: usuario?.perfil === "LEITURA",
       uc: uc as string | undefined,
       empresaId: empresaIdDaRequisicao(req),
       usinaId: usuario?.perfil === "LEITURA" ? undefined : typeof usinaId === "string" ? usinaId : undefined,
