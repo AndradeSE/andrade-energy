@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { writeFile, unlink } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
+import { converterImagemFatura, tipoImagemFatura } from "../../services/ocr/imagemFatura";
 import type { Request } from "express";
 import { supabase } from "../../config/supabase";
 import { uploadDirectory } from "../../config/uploadDirectory";
@@ -38,13 +39,17 @@ export async function consumePdfUpload(req: Request, field: string) {
   if (ticket.caminho !== expectedPath) throw new Error("Caminho do arquivo inválido.");
   const { data: blob, error: downloadError } = await supabase.storage.from(UPLOAD_BUCKET).download(expectedPath);
   if (downloadError || !blob || blob.size > MAX_PDF_BYTES) throw new Error("PDF indisponível. Envie o arquivo novamente.");
-  const buffer = Buffer.from(await blob.arrayBuffer());
-  validatePdfBytes(buffer, ticket.tamanho);
+  let buffer: Buffer = Buffer.from(await blob.arrayBuffer());
+  if (/\.(?:png|jpe?g)$/i.test(ticket.nome)) {
+    const tipoEsperado = /\.png$/i.test(ticket.nome) ? "image/png" : "image/jpeg";
+    if (buffer.length !== ticket.tamanho || tipoImagemFatura(buffer) !== tipoEsperado) throw new Error("A foto recebida não corresponde ao arquivo autorizado.");
+    buffer = await converterImagemFatura(buffer);
+  } else validatePdfBytes(buffer, ticket.tamanho);
   const destination = uploadDirectory();
   const filename = `${randomUUID()}.pdf`;
   const filePath = path.join(destination, filename);
   await writeFile(filePath, buffer, { flag: "wx" });
-  return { fieldname: field, originalname: ticket.nome, encoding: "7bit", mimetype: "application/pdf",
+  return { fieldname: field, originalname: ticket.nome.replace(/\.(?:png|jpe?g)$/i, ".pdf"), encoding: "7bit", mimetype: "application/pdf",
     size: buffer.length, destination, filename, path: filePath, buffer, stream: Readable.from(buffer) } satisfies Express.Multer.File;
 }
 

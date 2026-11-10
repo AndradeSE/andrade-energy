@@ -6,11 +6,13 @@ export class PdfUploadPreparationError extends Error {
   }
 }
 export function validatePdfMetadata(input: { nome?: unknown; tamanho?: unknown; tipo?: unknown }) {
-  if (!Number.isSafeInteger(input.tamanho) || Number(input.tamanho) < 1 || Number(input.tamanho) > MAX_PDF_BYTES || input.tipo !== "application/pdf") {
-    throw new Error("Envie um PDF de até 10 MB.");
+  const extensoes: Record<string, RegExp> = { "application/pdf": /\.pdf$/i, "image/jpeg": /\.jpe?g$/i, "image/png": /\.png$/i };
+  const formato = extensoes[String(input.tipo)];
+  if (!Number.isSafeInteger(input.tamanho) || Number(input.tamanho) < 1 || Number(input.tamanho) > MAX_PDF_BYTES || !formato) {
+    throw new Error("Envie um PDF, JPG ou PNG de até 10 MB.");
   }
   const nome = String(input.nome ?? "arquivo.pdf").replace(/\\/g, "/").split("/").pop()!.slice(0, 120);
-  if (!nome.toLowerCase().endsWith(".pdf")) throw new Error("Envie um arquivo PDF.");
+  if (!formato.test(nome)) throw new Error("O nome do arquivo deve corresponder ao formato PDF, JPG ou PNG.");
   return { nome, tamanho: Number(input.tamanho) };
 }
 export function validatePdfBytes(buffer: Buffer, expected: number) {

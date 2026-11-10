@@ -21,14 +21,28 @@ function extrairDisponibilidadeConvencional(texto: string) {
 }
 
 function extrairLinhaEnergiaEletrica(texto: string) {
+  const faixas = [...texto.matchAll(/Energia\s+(at[eé]|acima\s+de)\s+120\s*kWh\s+([\d.]+(?:,\d+)?)\s+([\d.,]+)\s+([\d.,]+)[^\n]*/gi)];
+  if (faixas.length) {
+    const convencional = faixas.find((faixa) => /acima/i.test(faixa[1]));
+    const numero = (valor: string) => Number(valor.replace(/\./g, "").replace(",", "."));
+    return {
+      quantidade: faixas.reduce((total, faixa) => total + numero(faixa[2]), 0),
+      tarifaCheia: convencional ? numero(convencional[3]) : 0,
+      tarifaSemImpostos: convencional ? ultimoValorDaLinha(convencional[0]) : 0,
+      valorEnergia: faixas.reduce((total, faixa) => total + numero(faixa[4]), 0),
+      descontoSocial: true,
+    };
+  }
   const linha = texto.split(/\r?\n/).find((item) => /Energia\s+Elétrica\s*kWh/i.test(item));
-  if (!linha) return { quantidade: 0, tarifaCheia: 0, tarifaSemImpostos: 0 };
+  if (!linha) return { quantidade: 0, tarifaCheia: 0, tarifaSemImpostos: 0, valorEnergia: 0, descontoSocial: false };
   const valores = [...linha.matchAll(/[\d.]+(?:,\d+)?/g)]
     .map((item) => Number(item[0].replace(/\./g, "").replace(",", ".")));
   return {
     quantidade: valores[0] ?? 0,
     tarifaCheia: valores[1] ?? 0,
     tarifaSemImpostos: valores.at(-1) ?? 0,
+    valorEnergia: valores[2] ?? 0,
+    descontoSocial: false,
   };
 }
 
@@ -66,7 +80,7 @@ export function parseCemigConvencional(
   // Referência + vencimento + valor
   const dadosConta =
     texto.match(
-      /([A-Z]{3}\/20\d{2})\s*(\d{2}\/\d{2}\/20\d{2})\s*([\d.]+,\d{2})/
+      /([A-Z]{3}\/20\d{2})\s*(\d{2}\/\d{2}\/20\d{2})\s*(?:Valor\s+a\s+pagar\s*\(R\$\)\s*)?([\d.]+,\d{2})/i
     );
 
   const referencia =
@@ -97,7 +111,7 @@ export function parseCemigConvencional(
   const encargosDetalhados = extrairEncargosCemig(texto);
 
   // Consumo do histórico
-  let consumo = 0;
+  let consumo = linhaEnergia.quantidade;
 
   if (referencia) {
 
@@ -109,7 +123,7 @@ export function parseCemigConvencional(
         texto.match(
           new RegExp(`${chave}\\s+(\\d+)`)
         )?.[1] ?? 0
-      );
+      ) || linhaEnergia.quantidade;
 
   }
 
@@ -121,6 +135,9 @@ export function parseCemigConvencional(
   vencimento,
   proximaLeitura: extrairProximaLeitura(texto, referencia),
   valorTotal,
+  descontoSocial: linhaEnergia.descontoSocial,
+  valorEnergiaConcessionaria: linhaEnergia.valorEnergia,
+  encargosAdicionais: Math.max(0, valorTotal - linhaEnergia.valorEnergia),
   consumo,
 
   energiaInjetada: 0,
