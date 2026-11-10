@@ -13,15 +13,19 @@ export function detectCapability(input: string): AssistantIntent | undefined {
   if (isSolarHelp(text)) return undefined;
   const wantsDocument = /\b(pdf|arquivo|documento|baixar|baixa|baixe|download|mande|manda|envie|entregue|anexo)\b/.test(text);
   const review = hasSolarMutation(text) && !(wantsDocument && !hasSolarMutation(text.replace(/\b(enviar|envie)\b/g, "")));
-  const mode = review ? "action" : wantsDocument ? "document" : /^(abrir|abra|ir para|acesse|acessar)\b/.test(text) ? "action" : "query";
+  if (!review && !wantsDocument && /\b(e-?mail|telefone|celular|whatsapp|endereco|cadastro|dados|contato)\b/.test(text) && /\b(clientes?|consumidor(?:a)?)\b/.test(text)) {
+    return { module: "clientes", mode: "query", review: false };
+  }
+  const mode = review ? "action" : wantsDocument ? "document" : /\b(abrir|abra|abre|ir para|acesse|acessar|mostre|me leve)\b/.test(text) ? "action" : "query";
   let module: AssistantModule | undefined;
   if (/\b(termos|politica de privacidade|politica de cancelamento)\b/.test(text)) module = "termos";
   else if (/\b(privacidade|lgpd|dados pessoais|portabilidade)\b/.test(text)) module = "privacidade";
   else if (/\b(relatorio de calculo|memoria de calculo|calculo da fatura)\b/.test(text)) module = "calculo";
   else if (/\b(faturas anexadas|anexos|anexo do cliente)\b/.test(text)) module = "anexos";
-  else if (/\b(conta de luz|conta da cemig|pdf da cemig|conta da concessionaria)\b/.test(text) || (wantsDocument && /\b(fatura|conta)\b/.test(text) && /\b(original|usada|importada)\b/.test(text))) module = "conta-luz";
+  else if (/\b(conta de luz|conta da cemig|fatura da cemig|fatura cemig|dados da fatura cemig|pdf da cemig|conta da concessionaria|fatura da concessionaria)\b/.test(text) || (wantsDocument && /\b(fatura|conta)\b/.test(text) && /\b(original|usada|importada)\b/.test(text))) module = "conta-luz";
   else if (/\b(proposta)\b/.test(text)) module = "proposta";
   else if (/\b(contrato|contratos|minuta|cancelamento|renovacao)\b/.test(text)) module = "contratos";
+  else if (/\brateio\b/.test(text)) module = "operacao";
   else if (/\b(automatico|automatica|gmail|outlook|encaminhamento|recebimento)\b/.test(text)) module = "recebimento";
   else if (/\b(meu plano|minha assinatura|plano atual|limite do plano)\b/.test(text)) module = "assinatura";
   else if (/\b(comercial|planos|assinaturas|geradores)\b/.test(text)) module = "comercial";
