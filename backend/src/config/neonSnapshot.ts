@@ -124,7 +124,7 @@ export async function restoreReserveSnapshot(client: Client, load: () => Promise
   prepareFiles?: (snapshot: ReserveSnapshot, previous: MirroredObject[]) => Promise<MirroredObject[]>) {
   await client.query("BEGIN");
   try {
-    await client.query("SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='60s'; SET LOCAL search_path=pg_catalog");
+    await client.query("SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='60s'; SET LOCAL idle_in_transaction_session_timeout='10min'; SET LOCAL search_path=pg_catalog");
     const { rows: [lock] } = await client.query("SELECT pg_try_advisory_xact_lock(7071190) AS acquired");
     if (!lock.acquired) { await client.query("ROLLBACK"); return { skipped: true }; }
     const { rows: [state] } = await client.query(
@@ -149,6 +149,7 @@ export async function restoreReserveSnapshot(client: Client, load: () => Promise
     const { rows: [{ catalog: restoredCatalog }] } = await client.query(snapshotCatalogSql);
     if (snapshotFingerprint(restoredCatalog) !== fingerprint) throw new Error("Rotinas do reserva divergentes");
     const documents = prepareFiles ? await prepareFiles(snapshot, state.storage_manifest ?? []) : null;
+    validateReserveSnapshot(snapshot); // Network copying must not publish an already stale snapshot.
     const authReferences = referenciasAuthInativas(snapshot.tables, snapshot.captured_at);
     if (authReferences.length) {
       await client.query("CREATE SCHEMA IF NOT EXISTS reserve_auth; CREATE TABLE IF NOT EXISTS reserve_auth.users(id uuid PRIMARY KEY); ALTER TABLE reserve_auth.users ENABLE ROW LEVEL SECURITY; REVOKE ALL ON SCHEMA reserve_auth FROM PUBLIC,anonymous,authenticated; REVOKE ALL ON reserve_auth.users FROM PUBLIC,anonymous,authenticated");
