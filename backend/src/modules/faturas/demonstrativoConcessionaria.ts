@@ -1,6 +1,10 @@
 import PDFDocument from "pdfkit";
 import { createHash } from "node:crypto";
 
+export function deveGerarDemonstrativoConcessionaria(fatura: any, consumidor: boolean) {
+  return consumidor && fatura.fatura_somente_andrade !== true && Boolean(fatura.pdf_cemig_url);
+}
+
 /** Whitelist only: never copy payment payloads or pages from the original bill. */
 export function dadosDemonstrativoConcessionaria(fatura: any) {
   const texto = (valor: unknown) => String(valor ?? "").replace(/[\r\n\t]+/g, " ").slice(0, 160);

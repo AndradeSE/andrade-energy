@@ -1,7 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import pdfParse from "pdf-parse";
-import { dadosDemonstrativoConcessionaria, chaveDemonstrativoConcessionaria, gerarDemonstrativoConcessionaria } from "./demonstrativoConcessionaria";
+import { dadosDemonstrativoConcessionaria, chaveDemonstrativoConcessionaria, gerarDemonstrativoConcessionaria, deveGerarDemonstrativoConcessionaria } from "./demonstrativoConcessionaria";
+
+test("gerador e fatura separada preservam original; unificada inclusive antiga nula usa demonstrativo", () => {
+  const fatura = { pdf_cemig_url: "privado.pdf", fatura_somente_andrade: false };
+  assert.equal(deveGerarDemonstrativoConcessionaria(fatura, false), false);
+  assert.equal(deveGerarDemonstrativoConcessionaria(fatura, true), true);
+  assert.equal(deveGerarDemonstrativoConcessionaria({ ...fatura, fatura_somente_andrade: null }, true), true);
+  assert.equal(deveGerarDemonstrativoConcessionaria({ ...fatura, fatura_somente_andrade: true }, true), false);
+  assert.equal(deveGerarDemonstrativoConcessionaria({ ...fatura, pdf_cemig_url: null }, true), false);
+});
 
 test("demonstrativo não incorpora pagamentos nem páginas originais", async () => {
   const fatura = { numero_instalacao: "1131082701880", referencia: "OUT/2026", vencimento: "2026-11-05", consumo_kwh: 214, energia_compensada: 170, valor_cemig: 360.8,
