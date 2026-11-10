@@ -11,7 +11,7 @@ export function chaveDemonstrativoConcessionaria(fatura: any) {
 }
 
 /** PDFium C API, pinned wrapper 3.0.0. Geometry is in original PDF points. */
-function inicioPagamento(page: any, altura: number): number | null {
+function inicioPagamento(page: any, altura: number, numeroUc?: unknown): number | null {
   const api = page.module;
   if (!api?._FPDFText_GetCharBox || !api?._FPDFText_GetUnicode) throw new Error("Geometria do PDF indisponível.");
   const textPage = api._FPDFText_LoadPage(page.pageIdx);
@@ -31,13 +31,25 @@ function inicioPagamento(page: any, altura: number): number | null {
       for (const letra of texto) caracteres.push({ texto: letra, topo: y });
     }
     const texto = caracteres.map(c => c.texto).join("");
-    const marcadores = /codigo\s+de\s+debito\s+automatico|pix\s*(?:pague\s*aqui|copia\s*e\s*cola)|pague\s*(?:aqui|com\s*pix)|linha\s+digitavel|codigo\s+de\s+barras/g;
+    const marcadores = /codigo\s*de\s*debito\s*automatico|pix\s*(?:pague\s*aqui|copia\s*e\s*cola)|pague\s*(?:aqui|com\s*pix)|linha\s*digitavel|codigo\s*de\s*barras/g;
     let inicio: number | null = null;
     for (const match of texto.matchAll(marcadores)) {
       const valores = caracteres.slice(match.index, match.index + match[0].length).map(c => c.topo).filter((y): y is number => y !== null);
       if (!valores.length) continue;
       const y = Math.min(...valores);
       if (y >= altura * 0.65 && y < altura * 0.98) inicio = Math.min(inicio ?? y, y);
+    }
+    // Some CEMIG templates draw the footer headings as an image. Its repeated
+    // UC is selectable text and locates the upper edge of that same payment slip.
+    const uc = String(numeroUc ?? "").replace(/\D/g, "");
+    if (inicio !== null && /^\d{12,13}$/.test(uc)) {
+      const padrao = new RegExp(uc.split("").join("[.\\s-]*"), "g");
+      for (const match of texto.matchAll(padrao)) {
+        const valores = caracteres.slice(match.index, match.index + match[0].length).map(c => c.topo).filter((y): y is number => y !== null);
+        if (!valores.length) continue;
+        const y = Math.min(...valores);
+        if (y >= altura * 0.8) inicio = Math.min(inicio, y - 18);
+      }
     }
     if (inicio === null && /\bpix\b|(?:\d[.\s-]*){44}/.test(texto)) throw new Error("Área de pagamento não localizada com segurança.");
     return inicio === null ? null : Math.max(0, inicio - 8);
@@ -48,14 +60,14 @@ function inicioPagamento(page: any, altura: number): number | null {
  * The source document is never overwritten or embedded as a hidden attachment. */
 let fila: Promise<unknown> = Promise.resolve();
 let pendentes = 0;
-export async function gerarDemonstrativoConcessionaria(_fatura: any, original: Buffer): Promise<Buffer> {
+export async function gerarDemonstrativoConcessionaria(fatura: any, original: Buffer): Promise<Buffer> {
   if (pendentes >= 8) throw new Error("Visualização protegida em preparação. Tente novamente.");
   pendentes++;
-  const trabalho = fila.then(() => gerarCopiaOriginal(original));
+  const trabalho = fila.then(() => gerarCopiaOriginal(original, fatura.numero_instalacao));
   fila = trabalho.catch(() => undefined);
   try { return await trabalho; } finally { pendentes--; }
 }
-async function gerarCopiaOriginal(original: Buffer): Promise<Buffer> {
+async function gerarCopiaOriginal(original: Buffer, numeroUc?: unknown): Promise<Buffer> {
   if (!original || original.length > 10 * 1024 * 1024) throw new Error("Fatura original indisponível.");
   const library = await PDFiumLibrary.init();
   let documento: Awaited<ReturnType<typeof library.loadDocument>> | undefined;
@@ -70,7 +82,7 @@ async function gerarCopiaOriginal(original: Buffer): Promise<Buffer> {
         if (largura < 200 || altura < 200 || largura > 1500 || altura > 2000) throw new Error("Dimensões da fatura não suportadas.");
         pixels += Math.floor(largura * 2) * Math.floor(altura * 2);
         if (pixels > 20_000_000) throw new Error("Fatura muito grande para visualização protegida.");
-        const inicio = inicioPagamento(pagina, altura);
+        const inicio = inicioPagamento(pagina, altura, numeroUc);
         const raster = await pagina.render({ scale: 2, render: async options => options.data });
         const rgba = Buffer.from(raster.data);
         if (inicio !== null) {

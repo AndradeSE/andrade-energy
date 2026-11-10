@@ -892,7 +892,7 @@ export async function incluirLinksTemporarios(fatura: any, consumidor = false) {
     // Never publish the original payment slip to a unified-bill consumer.
     caminhoCemig = null;
     if (fatura.empresa_id && fatura.id) {
-      const caminho = `${fatura.empresa_id}/${fatura.id}/cemig-original-sem-pagamento-v2-${chaveDemonstrativoConcessionaria(fatura)}.pdf`;
+      const caminho = `${fatura.empresa_id}/${fatura.id}/cemig-original-sem-pagamento-v3-${chaveDemonstrativoConcessionaria(fatura)}.pdf`;
       try {
         const existente = await supabase.storage.from(BUCKET).createSignedUrl(caminho, 300);
         if (!existente.error && existente.data?.signedUrl) caminhoCemig = existente.data.signedUrl;
