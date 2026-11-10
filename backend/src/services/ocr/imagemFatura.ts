@@ -1,6 +1,7 @@
 import { imageSize } from "image-size";
 import { createWorker, PSM } from "tesseract.js";
 import PDFDocument from "pdfkit";
+import path from 'node:path';
 
 export function tipoImagemFatura(buffer: Buffer) {
   if (buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return "image/png";
@@ -31,7 +32,7 @@ export async function converterImagemFatura(buffer: Buffer): Promise<Buffer> {
   try {
     const processamento = (async () => {
       const idioma = require("@tesseract.js-data/por");
-      worker = await createWorker("por", 1, { langPath: idioma.langPath, gzip: true, cacheMethod: "none" });
+      worker = await createWorker("por", 1, { langPath: path.join(idioma.langPath, '..', '4.0.0_best_int'), gzip: true, cacheMethod: "none" });
       if (expirou) {
         await worker.terminate();
         throw new ImagemFaturaError("Leitura da foto interrompida.");
@@ -57,8 +58,8 @@ export async function converterImagemFatura(buffer: Buffer): Promise<Buffer> {
     const limite = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
         expirou = true;
-        reject(new ImagemFaturaError("A leitura da foto excedeu 45 segundos. Envie uma imagem menor ou o PDF original."));
-      }, 45_000);
+        reject(new ImagemFaturaError("A leitura da foto excedeu 55 segundos. Envie uma imagem menor ou o PDF original."));
+      }, 55_000);
     });
     return await Promise.race([processamento, limite]);
   } finally {
