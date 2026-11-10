@@ -1,3 +1,5 @@
+import { Client } from "pg";
+import { neonProductionConnection } from "../config/neonSnapshotRuntime";
 import "dotenv/config";
 import { startNeonPrivateApi } from "../config/neonPrivateApi";
 import { verifyNeonPrivateDocument } from "../config/neonDocumentProbe";
@@ -5,6 +7,11 @@ import { verifyNeonRecovery } from '../config/neonRecoveryProbe';
 
 async function main() {
   if (process.env.NEON_API_ENABLED !== "true") return;
+  const gate = new Client({ ...neonProductionConnection(process.env), statement_timeout: 120_000 });
+  await gate.connect();
+  try {
+  // Do not load a schema while the running collector is replacing replica tables.
+  await gate.query("SELECT pg_advisory_lock(7071190)");
   const api = await startNeonPrivateApi(process.env);
   try {
     for (const table of ["clientes", "usinas", "unidades_consumidoras", "contratos", "faturas"]) {
@@ -25,6 +32,10 @@ async function main() {
   } finally { api.stop(); }
   if (process.env.NEON_STORAGE_SNAPSHOT_ENABLED === 'true') {
     console.log('Recuperação autenticada Neon validada', await verifyNeonRecovery(process.env));
+  }
+  } finally {
+    await gate.query("SELECT pg_advisory_unlock(7071190)").catch(() => {});
+    await gate.end();
   }
 }
 
