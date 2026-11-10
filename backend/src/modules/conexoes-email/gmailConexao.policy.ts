@@ -1,7 +1,11 @@
 export function priorizarConexoesGmail<T extends {regra_status?:string;regra_erro?:unknown;conectado_em?:string}>(rows:T[]):T[] {
   const priority=(c:T)=>c.regra_status==='ATIVA'&&!c.regra_erro?1:0;
-  return [...rows].sort((a,b)=>priority(b)-priority(a)||
-    (Date.parse(b.conectado_em??'')||0)-(Date.parse(a.conectado_em??'')||0));
+  // A new consent supersedes a previously healthy grant that may have expired.
+  return [...rows].sort((a,b)=>(Date.parse(b.conectado_em??'')||0)-(Date.parse(a.conectado_em??'')||0)||priority(b)-priority(a));
+}
+
+export function podeCompartilharCredencialGmailEmpresa(perfil:string,ativo:boolean,papel:string) {
+  return ativo === true && ['ADMIN','GESTOR'].includes(perfil) && ['SUPERADMIN','ADMIN_EMPRESA','GESTOR'].includes(papel);
 }
 
 function scope(unit:any):string|null {
