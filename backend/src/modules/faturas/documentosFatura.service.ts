@@ -1,4 +1,5 @@
 import { prepararHistoricoFatura } from "./historicoFatura.policy";
+import { chaveDemonstrativoConcessionaria, gerarDemonstrativoConcessionaria } from "./demonstrativoConcessionaria";
 import { demonstrativoCompensacao } from "./descontoCompensacao.policy";
 import PDFDocument from "pdfkit";
 import bwipjs from "bwip-js";
@@ -884,15 +885,35 @@ async function criarLinkTemporario(caminho?: string | null) {
   return data.signedUrl;
 }
 
-export async function incluirLinksTemporarios(fatura: any) {
+export async function incluirLinksTemporarios(fatura: any, consumidor = false) {
+  const demonstrativo = consumidor && fatura.fatura_somente_andrade === false && Boolean(fatura.pdf_cemig_url);
+  let caminhoCemig = fatura.pdf_cemig_url;
+  if (demonstrativo) {
+    // Never publish the original payment slip to a unified-bill consumer.
+    caminhoCemig = null;
+    if (fatura.empresa_id && fatura.id) {
+      const caminho = `${fatura.empresa_id}/${fatura.id}/demonstrativo-concessionaria-v1-${chaveDemonstrativoConcessionaria(fatura)}.pdf`;
+      try {
+        const existente = await supabase.storage.from(BUCKET).createSignedUrl(caminho, 300);
+        if (!existente.error && existente.data?.signedUrl) caminhoCemig = existente.data.signedUrl;
+        else {
+          await enviarPdf(caminho, await gerarDemonstrativoConcessionaria(fatura));
+          caminhoCemig = caminho;
+        }
+      } catch {
+        console.warn("Demonstrativo da concessionária indisponível; original preservado e não exposto ao consumidor.");
+      }
+    }
+  }
   const [cemig, usina, unificada, boleto] = await Promise.all([
-    criarLinkTemporario(fatura.pdf_cemig_url),
+    criarLinkTemporario(caminhoCemig),
     criarLinkTemporario(fatura.pdf_usina_url),
     criarLinkTemporario(fatura.pdf_unificada_url),
     criarLinkTemporario(fatura.pdf_boleto_url),
   ]);
   return {
     ...fatura,
+    pdf_cemig_demonstrativo: demonstrativo,
     pdf_cemig_url: cemig,
     pdf_usina_url: usina,
     pdf_unificada_url: unificada,

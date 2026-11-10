@@ -63,12 +63,12 @@ async function extrairTextoDaFatura(req: Request) {
   throw new Error("Este PDF é protegido e não corresponde aos CPFs já cadastrados. Informe os 4 primeiros números do CPF do titular da UC.");
 }
 
-export async function listarFaturas(filtro?: { clienteId?: string; uc?: string; empresaId?: string; usinaId?: string }) {
+export async function listarFaturas(filtro?: { clienteId?: string; uc?: string; empresaId?: string; usinaId?: string; consumidor?: boolean }) {
   const faturas = await listarFaturasRepository(filtro);
-  return Promise.all(faturas.map((fatura) => incluirLinksTemporarios(fatura)));
+  return Promise.all(faturas.map((fatura) => incluirLinksTemporarios(fatura, filtro?.consumidor)));
 }
 
-export async function detalharFatura(id: string, empresaId?: string) {
+export async function detalharFatura(id: string, empresaId?: string, consumidor = false) {
   let fatura = await buscarFaturaPorId(id, empresaId);
   if (!fatura) throw new Error("Fatura não encontrada.");
   try {
@@ -107,7 +107,7 @@ export async function detalharFatura(id: string, empresaId?: string) {
       : valorCobranca <= 0
         ? "Não há valor Andrade a cobrar nesta competência porque nenhuma energia foi compensada."
         : "A cobrança ainda não foi emitida. Abra novamente em alguns instantes ou procure o gestor.",
-  });
+  }, consumidor);
 }
 
 export async function excluirFatura(id: string, empresaId?: string) {
