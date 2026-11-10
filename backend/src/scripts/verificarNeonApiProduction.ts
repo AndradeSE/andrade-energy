@@ -39,4 +39,4 @@ async function main() {
   }
 }
 
-main().catch(() => { console.error("Conferência da API privada Neon Production falhou."); process.exitCode = 1; });
+main().catch(() => { console.error("Conferência da API privada Neon Production falhou."); process.exit(1); });

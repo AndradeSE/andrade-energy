@@ -38,7 +38,11 @@ export async function startNeonPrivateApi(env: NodeJS.ProcessEnv) {
   child.once("exit", () => { failure = true; });
   const stopAtExit = () => { child.kill(); };
   process.once("exit", stopAtExit);
-  const stop = () => { process.removeListener("exit", stopAtExit); child.kill(); };
+  const stop = () => {
+    process.removeListener("exit", stopAtExit); child.kill();
+    const force = setTimeout(() => { if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL"); }, 1000);
+    force.unref();
+  };
   const origin = `http://127.0.0.1:${port}`;
   const token = () => {
     const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
