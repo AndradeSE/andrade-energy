@@ -65,7 +65,7 @@ export default function RealDiscountInfo({
   const modalidadeAindaNaoIdentificada = !["GD1", "GD2", "MISTA"].includes(modalidade);
   const contaSemLeituraGd = Boolean(dadosFatura) && !possuiLeituraGd(dadosFatura);
   const consumoIntegral = projetarConsumoIntegral
-    ? obterConsumoProjetado(dadosFatura) || Math.max(0, numeroBrasileiro(consumoProjetado))
+    ? obterConsumoProjetado(dadosFatura, consumoProjetado)
     : 0;
   const projecaoPelaFaturaDoPerfil = contaSemLeituraGd && consumoIntegral > 0;
   // Sem uma leitura GD não há como conhecer a parcela compensada, o Fio B ou
@@ -209,7 +209,9 @@ function possuiLeituraGd(dados: Record<string, any> | null | undefined) {
   ) > 0;
 }
 
-function obterConsumoProjetado(dados: Record<string, any> | null | undefined) {
+function obterConsumoProjetado(dados: Record<string, any> | null | undefined, consumoConfigurado?: string | number | null) {
+  const consumo = numeroBrasileiro(consumoConfigurado);
+  if (consumo > 0) return consumo;
   return Math.max(0, n(
     dados,
     "consumo_kwh",
