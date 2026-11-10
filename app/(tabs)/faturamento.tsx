@@ -51,7 +51,7 @@ export default function Faturamento() {
     try {
       let pdf = pdfPendente;
       if (!pdf) {
-        const arquivo = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
+        const arquivo = await DocumentPicker.getDocumentAsync({ type: ["application/pdf", "image/jpeg", "image/png"], copyToCacheDirectory: true, multiple: false });
         if (arquivo.canceled) return;
         pdf = arquivo.assets[0];
         setPdfPendente(pdf);

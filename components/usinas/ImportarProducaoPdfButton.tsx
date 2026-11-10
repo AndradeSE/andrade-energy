@@ -44,7 +44,7 @@ export default function ImportarProducaoPdfButton({ onSuccess }: {
     if (importando) return;
     const retomarBloqueio = suspenderBloqueioTemporariamente();
     try {
-      const arquivo = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
+      const arquivo = await DocumentPicker.getDocumentAsync({ type: ["application/pdf", "image/jpeg", "image/png"], copyToCacheDirectory: true, multiple: false });
       if (!arquivo.canceled && arquivo.assets?.[0]) await enviar(arquivo.assets[0]);
     } catch (erro: any) {
       Alert.alert("Não foi possível abrir o PDF", erro?.message ?? "Tente novamente.");

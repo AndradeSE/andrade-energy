@@ -65,7 +65,7 @@ export default function Usinas() {
     const retomarBloqueio = suspenderBloqueioTemporariamente();
     let pdfSelecionado = pdfReenvio ?? null;
     try {
-      const arquivo = pdfReenvio ? null : await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
+      const arquivo = pdfReenvio ? null : await DocumentPicker.getDocumentAsync({ type: ["application/pdf", "image/jpeg", "image/png"], copyToCacheDirectory: true, multiple: false });
       if (arquivo?.canceled) return;
 
       setImportandoId(item.id);

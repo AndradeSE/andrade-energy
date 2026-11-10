@@ -272,6 +272,7 @@ function calcularPrevia({ dados, desconto, modalidadeFaturamento, tipoGd, dispon
       ? energiaInjetada || energiaInjetadaProjetada
       : energiaCompensada;
   if (tarifaCheia <= 0) {
+    if (dados.descontoSocial === true) return null;
     const energiaCheia = n(dados, "valor_energia_cheia", "valorEnergiaCheia");
     const iluminacao = n(dados, "valor_iluminacao_publica", "valorIluminacaoPublica");
     const bandeira = n(dados, "valor_bandeira", "valorBandeira");

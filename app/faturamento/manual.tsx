@@ -29,7 +29,7 @@ export default function FaturamentoManual() {
       const tentandoNovamente = solicitarSenhaPdf && arquivo && senhaPdf.length === 4;
       let item = tentandoNovamente ? arquivo : null;
       if (!item) {
-        const resultado = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
+        const resultado = await DocumentPicker.getDocumentAsync({ type: ["application/pdf", "image/jpeg", "image/png"], copyToCacheDirectory: true, multiple: false });
         if (resultado.canceled) return;
         item = resultado.assets[0];
         setSenhaPdf("");

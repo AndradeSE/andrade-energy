@@ -169,7 +169,7 @@ export default function ClienteDetalhe() {
     let faturaLida = false;
     let pdfSelecionado = pdfReenvio ?? null;
     try {
-      const arquivo = pdfReenvio ? null : await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
+      const arquivo = pdfReenvio ? null : await DocumentPicker.getDocumentAsync({ type: ["application/pdf", "image/jpeg", "image/png"], copyToCacheDirectory: true, multiple: false });
       if (arquivo?.canceled) return;
 
       setImportandoUc(true);

@@ -154,7 +154,7 @@ export default function DashboardGestor() {
     const retomarBloqueio = suspenderBloqueioTemporariamente();
     try {
       const arquivo = await DocumentPicker.getDocumentAsync({
-        type: "application/pdf",
+        type: ["application/pdf", "image/jpeg", "image/png"],
         copyToCacheDirectory: true,
         multiple: false,
       });

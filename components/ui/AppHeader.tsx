@@ -1,3 +1,4 @@
+import { useNotificationRefresh } from "../../hooks/useNotificationRefresh";
 import { notificationRoute } from "../../services/notification-route";
 
 
@@ -81,6 +82,8 @@ export default function AppHeader({
   const [avisosPassoAPasso, setAvisosPassoAPasso] = useState(true);
   const [fotoAberta, setFotoAberta] = useState(false);
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
+  const notificationRevision = useNotificationRefresh(notificacoesAbertas);
+
   const { solarNotificacoes } = useLocalSearchParams<{ solarNotificacoes?: string }>();
   useFocusEffect(useCallback(() => {
     if (solarNotificacoes !== "1" || !usuario?.id) return;
@@ -89,6 +92,7 @@ export default function AppHeader({
   }, [solarNotificacoes, usuario?.id, router]));
   const [avisosRecebidos, setNotificacoes] = useState<any[]>([]);
   const usuarioId = usuario?.id ? String(usuario.id) : undefined;
+  useEffect(() => { setNotificacoes([]); }, [usuarioId]);
   const fotoPerfil = useProfilePhoto(usuarioId);
   const leituras = useReadNotifications(usuarioId);
   const dispensadas = useDismissedNotifications(usuarioId);
@@ -118,9 +122,8 @@ export default function AppHeader({
 
   useEffect(() => {
     let ativo = true;
-    setNotificacoes([]);
-    if (!usuarioId) return;
-    Promise.all([ambienteComercial ? Promise.resolve([]) : listarFaturas(), listarNotificacoesApp().catch(() => [])]).then(([faturas, notificacoesApp]) => {
+    if (!usuarioId) { setNotificacoes([]); return; }
+    Promise.all([ambienteComercial ? Promise.resolve([]) : listarFaturas().catch(() => []), listarNotificacoesApp()]).then(([faturas, notificacoesApp]) => {
       if (!ativo) return;
       const hoje = new Date();
       const avisos = (faturas ?? []).flatMap((fatura: any) => {
@@ -151,9 +154,9 @@ export default function AppHeader({
         rota: aviso.rota,
         urgente: aviso.severidade === "alta",
       })));
-    }).catch(() => { if (ativo) setNotificacoes([]); });
+    }).catch(() => undefined);
     return () => { ativo = false; };
-  }, [usuarioId, proprietario, ambienteComercial, usinaSelecionada?.id]);
+  }, [usuarioId, proprietario, ambienteComercial, usinaSelecionada?.id, notificationRevision]);
 
   async function marcarNotificacaoComoLida(id: string) {
     try { await leituras.mark(id); }
