@@ -395,9 +395,10 @@ export default function DetalheFatura() {
               </View>
             </View>
           ) : null}
+          {!IS_GERADOR_APP && !faturaSomenteAndrade ? <View style={styles.chargeWarning}><Text style={styles.chargeWarningText}>Conta CEMIG demonstrativa, sem meios de pagamento. Você optou pela fatura unificada; pague somente a fatura Andrade Energy correspondente.</Text></View> : null}
           <DownloadButton
             available={Boolean(fatura.pdf_cemig_url)}
-            label="Conta original da CEMIG"
+            label={!IS_GERADOR_APP && !faturaSomenteAndrade ? "Demonstrativo da CEMIG (não pagar)" : "Conta original da CEMIG"}
             loading={documentoBaixando === `cemig-${referenciaArquivo}.pdf`}
             onPress={() => baixarDocumento(fatura.pdf_cemig_url, `cemig-${referenciaArquivo}.pdf`)}
           />

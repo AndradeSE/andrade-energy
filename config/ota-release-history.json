@@ -1,5 +1,50 @@
 [
   {
+    "numero": "OTA 20261110-121502",
+    "data": "10/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Leitura com prazo visivel e demonstrativo CEMIG unificado sem pagamento"
+    ]
+  },
+  {
+    "numero": "OTA 20261105-181438",
+    "data": "05/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Consumidor completo: solicitação de UC, senha e exclusão de PDF, espaçamento e abertura preservada"
+    ]
+  },
+  {
+    "numero": "OTA 20261105-181326",
+    "data": "05/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Consumidor completo: solicitação de UC, senha e exclusão de PDF, espaçamento e abertura preservada"
+    ]
+  },
+  {
+    "numero": "OTA 20261105-181209",
+    "data": "05/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Consumidor completo: solicitação de UC, senha e exclusão de PDF, espaçamento e abertura preservada"
+    ]
+  },
+  {
+    "numero": "OTA 20261105-181031",
+    "data": "05/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Consumidor completo: solicitação de UC, senha e exclusão de PDF, espaçamento e abertura preservada"
+    ]
+  },
+  {
     "numero": "OTA 20261105-161836",
     "data": "05/11/2026",
     "variant": "consumidor",

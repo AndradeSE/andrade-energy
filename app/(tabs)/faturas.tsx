@@ -64,6 +64,7 @@ export default function Faturas() {
       url: String(item.pdf_cemig_url),
       titulo: `Conta CEMIG · ${formatarCompetenciaBrasileira(item.referencia)}`,
       detalhe: `UC ${unidadeSelecionada.numero}`,
+      fatura: item,
     }));
   }, [faturas, unidadeSelecionada]);
 
@@ -180,11 +181,11 @@ export default function Faturas() {
             <TouchableOpacity accessibilityRole="tab" accessibilityState={{ selected: categoria === "cemig" }} onPress={() => setCategoria("cemig")} style={[styles.categoryButton, categoria === "cemig" && styles.categoryButtonActive]}><Text style={[styles.categoryText, categoria === "cemig" && styles.categoryTextActive]}>CEMIG</Text></TouchableOpacity>
           </View> : null}
           {categoria === "cemig" && !proprietario ? <View>
-            <Text style={styles.categoryHint}>Contas originais da concessionária. Cobranças e pagamentos Andrade Energy ficam na outra categoria.</Text>
-            {faturasCemig.map((item) => <TouchableOpacity key={item.id} accessibilityLabel={`Abrir ${item.titulo}`} onPress={() => void Linking.openURL(item.url)} style={styles.cemigCard}>
+            <Text style={styles.categoryHint}>{faturasCemig.some(item => item.fatura.fatura_somente_andrade !== true) ? "Fatura unificada: o documento CEMIG é apenas demonstrativo, sem meios de pagamento. Não pague à concessionária separadamente; utilize a fatura Andrade Energy." : "Contas da concessionária desta UC. Pagamentos Andrade Energy ficam na outra categoria."}</Text>
+            {faturasCemig.map((item) => <TouchableOpacity key={item.id} disabled={Boolean(baixando)} accessibilityLabel={`Abrir ${item.titulo}`} onPress={() => void baixarDocumentoDaFatura(item.fatura, "pdf_cemig_url", `conta-cemig-${item.fatura.id}.pdf`, item.id)} style={styles.cemigCard}>
               <Ionicons name="document-text-outline" size={25} color={Colors.primary} />
               <View style={styles.cemigCopy}><Text style={styles.cemigTitle}>{item.titulo}</Text><Text style={styles.cemigDetail}>{item.detalhe}</Text></View>
-              <Ionicons name="open-outline" size={19} color={Colors.primary} />
+              <Ionicons name={baixando === item.id ? "hourglass-outline" : "open-outline"} size={19} color={Colors.primary} />
             </TouchableOpacity>)}
             {!faturasCemig.length ? <EmptyState icon="document-outline" title="Nenhuma conta CEMIG" subtitle="As contas Cemig desta unidade aparecerão aqui." /> : null}
           </View> : null}

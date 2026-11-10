@@ -6,6 +6,8 @@ import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useDashboard } from "../../hooks/useDashboard";
+import { useFaturas } from "../../hooks/useFaturas";
+import { janelaLeitura, proximaLeituraDaUnidade } from "../../utils/janela-leitura";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 
 import EmptyState from "../ui/EmptyState";
@@ -31,6 +33,8 @@ export default function ClienteHome() {
   const { logout, user, unidadeSelecionada } = useAuth();
   const { empresa } = useEmpresa();
   const { data, isLoading, error, refetch } = useDashboard();
+  const { data: faturasLeitura } = useFaturas();
+  const janela = janelaLeitura(proximaLeituraDaUnidade(faturasLeitura, unidadeSelecionada?.id, unidadeSelecionada?.numero));
   const [atualizando, setAtualizando] = useState(false);
   const [recebimentoObrigatorio, setRecebimentoObrigatorio] = useState(false);
   const [recebimentoAtivo, setRecebimentoAtivo] = useState(false);
@@ -197,11 +201,12 @@ export default function ClienteHome() {
           <Text style={styles.quickTitle}>Acesso rápido</Text>
         </View>
         {unidadeSelecionada && unidadeComAutoleitura === unidadeSelecionada.id ? (
-          <Button
+          <View style={{ marginBottom: Spacing.md }}><Button
             title="Informar leitura do medidor"
             onPress={() => router.push({ pathname: "/autoleitura", params: { id: unidadeSelecionada.id, numero: unidadeSelecionada.numero } })}
-            style={{ alignSelf: "stretch", marginBottom: Spacing.md }}
+            style={{ alignSelf: "stretch", marginBottom: Spacing.sm }}
           />
+          <Text style={{ color: Colors.subtitle, lineHeight: 20 }}>{janela.texto}</Text></View>
         ) : null}
         {recebimentoObrigatorio && !recebimentoAtivo ? <TouchableOpacity activeOpacity={0.84} onPress={() => unidadeRecebimentoId ? router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidadeRecebimentoId } }) : router.push("/selecionar-unidade")} style={styles.requiredEmailCard}><View style={styles.requiredEmailIcon}><Ionicons name="alert-circle-outline" size={23} color="#9A5B00" /></View><View style={styles.requiredEmailCopy}><Text style={styles.requiredEmailTitle}>Ativação obrigatória</Text><Text style={styles.requiredEmailText}>Conecte seu e-mail para que as próximas faturas sejam recebidas e processadas automaticamente.</Text></View><Ionicons name="chevron-forward" size={20} color="#9A5B00" /></TouchableOpacity> : null}
         <QuickAccessCarousel
