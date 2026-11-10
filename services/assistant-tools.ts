@@ -1,3 +1,4 @@
+import { resumoContaConcessionaria } from "./assistant-invoice-summary";
 import { contractUnitDigits, matchesContractUnit } from "./assistant-contract-unit";
 import api from "../config/api";
 import type { AssistantAction, AssistantDocument, AssistantIntent, AssistantToolReply } from "./assistant-capabilities";
@@ -246,6 +247,12 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
       const rows = await listarFaturas(ctx.generator ? undefined : ctx.clientId, ctx.generator ? undefined : ctx.unitNumber, ctx.generator ? ctx.plantId : undefined);
       const chosen = invoiceDocumentChoices(question, rows);
       if (intent.module === "pagamento") return { text: chosen.length ? "Escolha a fatura para consultar Pix, boleto e beneficiário. Não realizei pagamento." : "Não encontrei fatura emitida para esse pedido.", actions: chosen.map(f => action(`Pagamento · ${scalar(f.referencia)}`, `/faturas/${f.id}`)) };
+      if (intent.module === "conta-luz" && intent.mode === "query") {
+        const selecionadas = ctx.unitId || ctx.unitNumber ? chosen.filter((f: any) => ctx.unitId && f.unidade_consumidora_id ? f.unidade_consumidora_id === ctx.unitId : String(f.numero_instalacao ?? "").replace(/\D/g, "") === String(ctx.unitNumber ?? "").replace(/\D/g, "")) : chosen;
+        const recentes = new Map<string, any>();
+        for (const f of selecionadas as any[]) { const uc = String(f.unidade_consumidora_id ?? f.numero_instalacao ?? f.id); if (!recentes.has(uc)) recentes.set(uc, f); }
+        return { text: recentes.size ? [...recentes.values()].slice(0, 4).map(resumoContaConcessionaria).join("\n\n") : "Não encontrei dados de fatura da concessionária para a UC e o período deste pedido.", actions };
+      }
       const docs = intent.module === "conta-luz" ? chosen.filter(f => f.pdf_cemig_url) : chosen;
       return { text: docs.length ? "Toque no documento para abrir ou salvar." : "Não encontrei esse documento disponível para o período pedido.", documents: docs.map(f => ({ kind: intent.module === "conta-luz" ? "conta-luz" : "calculo", id: f.id, label: `${intent.module === "conta-luz" ? "Conta de luz" : "Cálculo"} · ${scalar(f.referencia)}` })) };
     }
