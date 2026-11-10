@@ -49,15 +49,33 @@ export async function mirrorNeonDocuments(env: NodeJS.ProcessEnv, objects: Sourc
         }
       },
       put: async (key, data, sha256, contentType) => {
-        await storage.send(new PutObjectCommand({ Bucket: reserveDocumentsBucket, Key: key,
-          Body: data, ContentType: contentType, Metadata: { sha256 } }),
-        { abortSignal: AbortSignal.timeout(30_000) });
+        try {
+          await storage.send(new PutObjectCommand({ Bucket: reserveDocumentsBucket, Key: key,
+            Body: data, ContentType: contentType, Metadata: { sha256 } }),
+          { abortSignal: AbortSignal.timeout(30_000) });
+        } catch (error) {
+          const status = (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
+          if (status) throw new Error('NEON_STORAGE_PUT_HTTP_' + status);
+          throw error;
+        }
       },
       get: async key => {
-        const result = await storage.send(new GetObjectCommand({ Bucket: reserveDocumentsBucket, Key: key }),
-          { abortSignal: AbortSignal.timeout(30_000) });
-        if (!result.Body || (result.ContentLength ?? Infinity) > 32 * 1024 * 1024) throw new Error("Arquivo do reserva indisponível");
-        return await result.Body.transformToByteArray();
+        for (let attempt = 0; ; attempt++) {
+          try {
+            const result = await storage.send(new GetObjectCommand({ Bucket: reserveDocumentsBucket, Key: key }),
+              { abortSignal: AbortSignal.timeout(30_000) });
+            if (!result.Body || (result.ContentLength ?? Infinity) > 32 * 1024 * 1024) throw new Error("Arquivo do reserva indisponível");
+            return await result.Body.transformToByteArray();
+          } catch (error) {
+            const status = (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
+            if (attempt < 3 && (status === 404 || (status != null && status >= 500))) {
+              await new Promise(resolve => setTimeout(resolve, [250, 1000, 3000][attempt]));
+              continue;
+            }
+            if (status) throw new Error('NEON_STORAGE_GET_HTTP_' + status);
+            throw error;
+          }
+        }
       },
     });
   } finally { storage.destroy(); }

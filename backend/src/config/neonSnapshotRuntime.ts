@@ -11,7 +11,7 @@ export function snapshotFailureReason(error: unknown) {
     "Armazenamento Neon Production não configurado", "Manifesto de arquivos inválido",
     "Arquivo de origem indisponível", "Arquivo mudou após o snapshot", "Arquivo mudou durante a cópia",
     "Arquivo do reserva não confere", "Arquivo do reserva indisponível"];
-  if (safe.includes(message)) return message;
+  if (safe.includes(message) || /^NEON_STORAGE_(PUT|GET)_HTTP_[0-9]{3}$/.test(message)) return message;
   const code = (error as { code?: string })?.code;
   if (code && ["28P01", "42501", "23503", "23505", "42P01", "57014", "55P03", "ENOTFOUND", "ETIMEDOUT"].includes(code)) return code;
   const names = ["AccessDenied", "InvalidAccessKeyId", "SignatureDoesNotMatch", "SlowDown", "InternalError", "NoSuchBucket", "TimeoutError", "AbortError", "RequestTimeout", "ThrottlingException"];
