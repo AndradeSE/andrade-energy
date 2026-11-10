@@ -17,7 +17,7 @@ const digest = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest(
 
 export async function mirrorSnapshotObjects(objects: SourceObject[], previous: MirroredObject[],
   source: SnapshotObjectSource, store: SnapshotObjectStore) {
-  const manifest: MirroredObject[] = [];
+  const manifest: MirroredObject[] = new Array(objects.length);
   const paths = new Set<string>();
   for (const object of objects) {
     const path = JSON.stringify([object.bucket, object.path]);
@@ -26,12 +26,13 @@ export async function mirrorSnapshotObjects(objects: SourceObject[], previous: M
       throw new Error("Manifesto de arquivos inválido");
     }
     paths.add(path);
+  }
+  async function copy(object: SourceObject): Promise<MirroredObject> {
     const cached = previous.find(entry => entry.bucket === object.bucket && entry.path === object.path &&
       entry.id === object.id && entry.version === object.version && entry.size === object.size);
     if (cached && /^[a-f0-9]{64}$/.test(cached.sha256) && cached.key === `sha256/${cached.sha256}` &&
         await store.exists(cached.key, object.size, cached.sha256)) {
-      manifest.push({ ...object, key: cached.key, sha256: cached.sha256 });
-      continue;
+      return { ...object, key: cached.key, sha256: cached.sha256 };
     }
     const matches = (info: { id: string; version: string; size: number }) =>
       info.id === object.id && info.version === object.version && info.size === object.size;
@@ -45,7 +46,19 @@ export async function mirrorSnapshotObjects(objects: SourceObject[], previous: M
     await store.put(key, bytes, sha256, object.content_type || "application/octet-stream");
     const restored = await store.get(key);
     if (restored.length !== object.size || digest(restored) !== sha256) throw new Error("Arquivo do reserva não confere");
-    manifest.push({ ...object, key, sha256 });
+    return { ...object, key, sha256 };
   }
+  // Bound network and buffer pressure; never publish while another worker is pending.
+  let next = 0;
+  let failure: unknown;
+  async function worker() {
+    while (failure === undefined && next < objects.length) {
+      const index = next++;
+      try { manifest[index] = await copy(objects[index]); }
+      catch (error) { failure ??= error; }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(3, objects.length) }, () => worker()));
+  if (failure !== undefined) throw failure;
   return manifest;
 }

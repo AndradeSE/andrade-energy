@@ -57,3 +57,19 @@ test("credenciais só podem ser usadas no endpoint do Neon Production", () => {
   assert.throws(() => neonStorageConnection({ ...env, NEON_STORAGE_ENDPOINT: "https://invalid.example" }));
   assert.throws(() => neonStorageConnection({ ...env, NEON_STORAGE_ENDPOINT: `${env.NEON_STORAGE_ENDPOINT}?secret=test` }));
 });
+
+test("cópia limita concorrência e preserva a ordem do manifesto", async () => {
+  const f = fixture();
+  let active = 0, peak = 0;
+  f.source.download = async () => {
+    peak = Math.max(peak, ++active);
+    await new Promise(resolve => setTimeout(resolve, 5));
+    active--;
+    return Buffer.from("%PDF");
+  };
+  const inputs = Array.from({length: 9}, (_, index) => ({...object, path: `fatura-${index}.pdf`}));
+  const result = await mirrorSnapshotObjects(inputs, [], f.source, f.store);
+  assert.equal(peak, 3);
+  assert.equal(active, 0);
+  assert.deepEqual(result.map(item => item.path), inputs.map(item => item.path));
+});
