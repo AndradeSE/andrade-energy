@@ -1,5 +1,5 @@
 import { prepararHistoricoFatura } from "./historicoFatura.policy";
-import { chaveDemonstrativoConcessionaria, gerarDemonstrativoConcessionaria } from "./demonstrativoConcessionaria";
+import { chaveDemonstrativoConcessionaria, gerarDemonstrativoConcessionaria, deveGerarDemonstrativoConcessionaria } from "./demonstrativoConcessionaria";
 import { demonstrativoCompensacao } from "./descontoCompensacao.policy";
 import PDFDocument from "pdfkit";
 import bwipjs from "bwip-js";
@@ -886,7 +886,7 @@ async function criarLinkTemporario(caminho?: string | null) {
 }
 
 export async function incluirLinksTemporarios(fatura: any, consumidor = false) {
-  const demonstrativo = consumidor && fatura.fatura_somente_andrade === false && Boolean(fatura.pdf_cemig_url);
+  const demonstrativo = deveGerarDemonstrativoConcessionaria(fatura, consumidor);
   let caminhoCemig = fatura.pdf_cemig_url;
   if (demonstrativo) {
     // Never publish the original payment slip to a unified-bill consumer.
