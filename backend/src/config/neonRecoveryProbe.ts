@@ -67,6 +67,11 @@ export async function verifyNeonRecovery(env: NodeJS.ProcessEnv) {
     assert.ok(clientsBody.every(row=>row.empresa_id===user.empresa_id));
     const {rows:[count]}=await pg.query('SELECT count(*) AS n FROM public.clientes WHERE empresa_id=$1',[user.empresa_id]);
     assert.equal(clientsBody.length,Number(count.n));
+    const noticesResponse = await request('/api/notificacoes');
+    assert.equal(noticesResponse.status, 200);
+    const notices = await noticesResponse.json() as any[];
+    assert.ok(notices.some(item => item.tipo === 'BANCO_RESERVA_ATIVADO'));
+    assert.ok(notices.some(item => item.tipo === 'BANCO_PRINCIPAL_RESTAURADO'));
     assert.equal((await request('/api/clientes','POST')).status,503);
     assert.equal((await request('/api/faturas/gerar')).status,503);
     const {rows:[snapshot]}=await pg.query('SELECT storage_manifest FROM reserve_control.snapshot_state WHERE id=1');

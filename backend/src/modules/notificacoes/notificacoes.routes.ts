@@ -1,3 +1,5 @@
+import { recoveryActive } from "../../config/neonRecoveryState";
+import { listPrivateRecoveryNotices } from "../../config/neonRecoveryEvents";
 import { Router } from "express";
 import { exigirAutenticacao } from "../../middlewares/auth.middleware";
 import { supabase } from "../../config/supabase";
@@ -51,12 +53,16 @@ router.get("/", exigirAutenticacao, async (req, res) => {
         if (contrato.unidade_consumidora_id) destinos.set(contrato.id, contrato.unidade_consumidora_id);
       }
     }
-    res.json((data ?? []).map(({ chave_dedupe, ...item }) => {
+    const normalizadas = (data ?? []).map(({ chave_dedupe, ...item }) => {
       const contratoId = /^contrato-enviado:([0-9a-f-]{36}):/i.exec(chave_dedupe ?? "")?.[1];
       const unidadeId = contratoId ? destinos.get(contratoId) : undefined;
       return unidadeId && item.rota === "/contrato"
         ? { ...item, rota: `/contrato?unidadeId=${encodeURIComponent(unidadeId)}` } : item;
-    }));
+    });
+    const recovery = recoveryActive() && usuarioEhSuperAdministradorAndrade(usuario)
+      ? await listPrivateRecoveryNotices(process.env, usuario.id, empresaIdDoUsuario(usuario)) : [];
+    const items = new Map([...normalizadas, ...recovery].map(item => [item.id, item]));
+    res.json([...items.values()].sort((a, b) => Date.parse(b.criado_em) - Date.parse(a.criado_em)).slice(0, 30));
   } catch { res.status(500).json({ message: "Não foi possível carregar as notificações." }); }
 });
 export default router;
