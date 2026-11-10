@@ -42,7 +42,7 @@ function cenario({ ativo = true, falha = false, duasEmpresas = false, status = "
     return consulta;
   } };
   const deps: any = {
-    db, obterToken: async () => { if (falha) throw new Error("token privado"); return "token"; },
+    db, obterToken: async () => { if (falha) throw Object.assign(new Error("token privado"),{codigoGmail:'OAUTH_REAUTORIZACAO'}); return "token"; },
     listar: async () => { consultas++; return [{ id: "m1" }]; },
     consultar: async () => ({ payload: {
       headers: [{ name: "From", value: "CEMIG <fatura@cemig.com.br>" }, { name: "Subject", value: "CEMIG FATURA ONLINE" }],
@@ -115,4 +115,16 @@ test('autorização válida da caixa é usada antes de vínculo antigo expirado 
   c.deps.avisar=async()=>{avisos++;};
   await enfileirarFaturasGmail(c.deps);
   assert.deepEqual(chamadas,['c2']);assert.equal(avisos,0);assert.equal(c.consultas(),1);assert.equal(c.registros.size,1);
+});
+
+test('timeout na autorização atual não desconecta nem tenta vínculos expirados da mesma caixa',async()=>{
+  const c=cenario();
+  Object.assign(c.conexoes[0],{regra_status:'ATIVA',regra_erro:null,conectado_em:'2026-11-10'});
+  Object.assign(c.conexoes[1],{regra_status:'ERRO',regra_erro:'Autorização antiga expirada',conectado_em:'2026-11-03'});
+  const chamadas:string[]=[];let avisos=0;
+  c.deps.obterToken=async(id:string)=>{chamadas.push(id);throw new DOMException('timeout','TimeoutError');};
+  c.deps.avisar=async()=>{avisos++;};
+  await enfileirarFaturasGmail(c.deps);
+  assert.deepEqual(chamadas,['c1']);assert.equal(avisos,0);
+  assert.equal(c.atualizacoes.length,1);assert.equal(c.atualizacoes[0].regra_status,'ATIVA');assert.equal(c.atualizacoes[0].regra_erro,null);
 });

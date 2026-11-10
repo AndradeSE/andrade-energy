@@ -15,7 +15,7 @@ test('renovar Gmail do titular atende o vínculo antigo da usina sem copiar toke
   const current={...original,id:'new',conectado_em:'2026-11-10',refresh_token_criptografado:criptografarSegredoOAuth('new-fixture')};
   const db=t.mock.method(supabase,'from',(table:string)=>{
    const record={table,filters:[] as any[],many:false,write:false};queries.push(record);
-   const q:any={select(){return q;},eq(k:string,v:any){record.filters.push([k,v]);return q;},in(){return q;},gte(){return q;},order(){record.many=true;return q;},limit(){return q;},maybeSingle(){return q;},update(){record.write=true;return q;},then(resolve:any,reject:any){return Promise.resolve({error:null,data:table==='usuarios'?{perfil,ativo:true}:table==='empresa_usuarios'?{papel:perfil==='ADMIN'?'ADMIN_EMPRESA':'CLIENTE'}:record.many?[current]:original}).then(resolve,reject);}};return q;
+   const q:any={select(){return q;},eq(k:string,v:any){record.filters.push([k,v]);return q;},in(k:string){assert.notEqual(k,'regra_status','falha temporária não exclui o consentimento atual');return q;},gte(){return q;},order(){record.many=true;return q;},limit(){return q;},maybeSingle(){return q;},update(){record.write=true;return q;},then(resolve:any,reject:any){return Promise.resolve({error:null,data:table==='usuarios'?{perfil,ativo:true}:table==='empresa_usuarios'?{papel:perfil==='ADMIN'?'ADMIN_EMPRESA':'CLIENTE'}:record.many?[current]:original}).then(resolve,reject);}};return q;
   });
   const network=t.mock.method(globalThis,'fetch',async(_url:any,init:any)=>{
    assert.ok(init.signal); refreshes.push(init.body.get('refresh_token'));return Response.json({access_token:'access-fixture'});
