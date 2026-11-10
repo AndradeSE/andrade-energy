@@ -40,6 +40,9 @@ export async function enfileirarFaturasGmail(deps: DependenciasGmail = {
           : usina?.titularidade_ucs_recebedoras === "CLIENTE" ? unidade.cliente_id : "GERADOR";
         const caixa = `${conexao.empresa_id}:${conexao.email_conectado}:${escopo}`;
         if (caixasConsultadas.has(caixa)) continue;
+        // Retry this same current grant on the next tick, never fall through
+        // to old expired UC links when the network temporarily fails.
+        caixasConsultadas.add(caixa);
         etapa = "AUTORIZACAO";
         const token = await deps.obterToken(conexao.id, conexao.empresa_id);
         // Recupera contas recentes que chegaram antes da correção, sem ler toda a caixa.
@@ -77,14 +80,15 @@ export async function enfileirarFaturasGmail(deps: DependenciasGmail = {
         console.warn("Falha na leitura Gmail", { etapa, codigo: /^[A-Z0-9_]{1,60}$/.test(codigo) ? codigo : "INDEFINIDO" });
         // Sem tokens ou conteúdo do e-mail nos logs.
         const { error: erroAtualizar } = await deps.db.from("conexoes_email").update({
-          regra_status: "ERRO",
+          regra_status: ['GMAIL_LEITURA_NAO_AUTORIZADA','OAUTH_REAUTORIZACAO','GMAIL_API_DESATIVADA'].includes(codigo)
+            ? 'ERRO' : conexao.regra_status ?? 'NAO_APLICAVEL',
           regra_erro: codigo === "GMAIL_LEITURA_NAO_AUTORIZADA"
             ? "O Gmail foi conectado sem permissão para ler as faturas. Conecte a conta novamente e autorize a leitura dos e-mails."
             : codigo === "OAUTH_REAUTORIZACAO"
             ? "A autorização do Gmail expirou ou foi revogada. Conecte a conta novamente para retomar a importação."
             : codigo === "GMAIL_API_DESATIVADA"
               ? "A API Gmail precisa ser ativada na integração Google da Andrade Energy."
-              : "A consulta automática ao Gmail falhou. Confira a conexão e, se necessário, conecte a conta novamente.",
+              : conexao.regra_erro ?? null,
           updated_at: new Date().toISOString(),
         }).eq("id", conexao.id);
         if (erroAtualizar) throw erroAtualizar;

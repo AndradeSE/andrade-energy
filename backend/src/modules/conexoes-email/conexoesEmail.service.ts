@@ -478,7 +478,7 @@ export async function obterTokenLeituraGmail(conexaoId: string, empresaId: strin
     const recentes = await supabase.from('conexoes_email')
       .select('id,usuario_id,email_conectado,conectado_em,refresh_token_criptografado,status,provedor,escopos')
       .eq('empresa_id',empresaId).eq('usuario_id',data.usuario_id).eq('email_conectado',data.email_conectado)
-      .eq('provedor','GMAIL').eq('status','LEITURA_AUTORIZADA').in('regra_status',['ATIVA','NAO_APLICAVEL'])
+      .eq('provedor','GMAIL').eq('status','LEITURA_AUTORIZADA')
       .gte('conectado_em',data.conectado_em).order('conectado_em',{ascending:false}).limit(1);
     if(recentes.error) throw new Error('Não foi possível consultar a autorização atual do Gmail.');
     credencial = recentes.data?.[0] ?? data;
