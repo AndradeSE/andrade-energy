@@ -1,4 +1,6 @@
+import { Loading } from "../../components/ui";
 import { Ionicons } from "@expo/vector-icons";
+import Svg, { Path } from "react-native-svg";
 import * as DocumentPicker from "expo-document-picker";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
@@ -35,6 +37,7 @@ export default function FaturasAnexadas() {
   const clienteId = String(params.clienteId ?? user?.cliente_id ?? "");
   const selecionarUc = IS_GERADOR_APP && params.selecionarUc === "1";
   const [zona, setZona] = useState<"" | "RURAL" | "URBANA">("");
+  const [mostrarSenhaPdf, setMostrarSenhaPdf] = useState(false);
   const [faturas, setFaturas] = useState<FaturaAnexadaCliente[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
@@ -83,7 +86,7 @@ export default function FaturasAnexadas() {
     if (!clienteId || enviando || (!IS_GERADOR_APP && (!zona || !pdfReenvio))) return;
     const retomarBloqueio = suspenderBloqueioTemporariamente();
     try {
-      const resultado = pdfReenvio ? null : await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
+      const resultado = pdfReenvio ? null : await DocumentPicker.getDocumentAsync({ type: ["application/pdf", "image/jpeg", "image/png"], copyToCacheDirectory: true, multiple: false });
       if (resultado?.canceled || (!pdfReenvio && !resultado?.assets?.[0])) return;
       setEnviando(true);
       const pdf = pdfReenvio ?? resultado!.assets[0];
@@ -155,6 +158,8 @@ export default function FaturasAnexadas() {
 
   const quantidade = useMemo(() => faturas.length, [faturas.length]);
 
+  if (carregando) return <Screen><Loading /></Screen>;
+
   return <Screen>
     {IS_GERADOR_APP ? <AppHeader variant="subpage" title={titulo} subtitle={params.cliente ? `Cliente: ${params.cliente}` : "Documentos do cliente"} contextTitle={`${quantidade} fatura${quantidade === 1 ? "" : "s"} anexada${quantidade === 1 ? "" : "s"}`} contextSubtitle={selecionarUc ? "Selecione para cadastrar a UC" : "Contas particulares da concessionária"} icon="document-text-outline" /> : null}
     <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizarPagina} tintColor={Colors.primary} colors={[Colors.primary]} />}>
@@ -162,13 +167,14 @@ export default function FaturasAnexadas() {
       {!IS_GERADOR_APP ? <Card style={{ gap: Spacing.md, marginBottom: Spacing.lg }}>
         <Text style={styles.description}>Anexe a fatura da nova UC em seu nome e informe a localização. Ao enviar, o gerador recebe um aviso e confere os dados. Depois de concluir o cadastro, ele libera a unidade na sua lista.</Text>
         <ChoiceField label="Localização da nova UC" value={zona} onChange={setZona} options={[{ label: "Rural", value: "RURAL" }, { label: "Urbana", value: "URBANA" }]} disabled={enviando} />
-        <Button title={pdfPendente ? "Trocar PDF da fatura" : "Anexar PDF da fatura"} disabled={enviando} onPress={async () => {
+        <Button title={pdfPendente ? "Trocar arquivo da fatura" : "Anexar PDF ou foto da fatura"} disabled={enviando} onPress={async () => {
           const retomar = suspenderBloqueioTemporariamente();
           try {
-            const resultado = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true });
+            const resultado = await DocumentPicker.getDocumentAsync({ type: ["application/pdf", "image/jpeg", "image/png"], copyToCacheDirectory: true });
             if (!resultado.canceled && resultado.assets[0]) {
               setPdfPendente(resultado.assets[0]);
               setSenhaInformada("");
+              setMostrarSenhaPdf(false);
             }
           } catch { Alert.alert("Não foi possível abrir o PDF"); }
           finally { retomar(); }
@@ -178,14 +184,36 @@ export default function FaturasAnexadas() {
           <Button title="Remover PDF" disabled={enviando} onPress={() => { setPdfPendente(null); setSenhaInformada(""); }} />
         </> : null}
         <View>
-          <FormField label="Senha do PDF" placeholder="Opcional" value={senhaInformada} onChangeText={setSenhaInformada} secureTextEntry autoCapitalize="none" autoCorrect={false} editable={!enviando} />
+          <View>
+            <FormField label="Senha do PDF" placeholder="Opcional" value={senhaInformada} onChangeText={setSenhaInformada} secureTextEntry={!mostrarSenhaPdf} autoCapitalize="none" autoCorrect={false} editable={!enviando} style={styles.passwordInput} />
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={mostrarSenhaPdf ? "Ocultar senha do PDF" : "Mostrar senha do PDF"}
+              onPress={() => setMostrarSenhaPdf((visivel) => !visivel)}
+              style={styles.passwordToggle}
+            >
+              {mostrarSenhaPdf ? (
+                <Ionicons name="eye-outline" size={22} color={Colors.subtitle} />
+              ) : (
+                <Svg width={22} height={22} viewBox="0 0 24 24">
+                  <Path
+                    d="M3 9c2.5 3 5.5 4.5 9 4.5s6.5-1.5 9-4.5M6 12l-2 3m6-1.7-1 3.7m5-3.7 1 3.7m3-5 2 3"
+                    fill="none"
+                    stroke={Colors.subtitle}
+                    strokeWidth={1.8}
+                    strokeLinecap="round"
+                  />
+                </Svg>
+              )}
+            </TouchableOpacity>
+          </View>
           <Text style={styles.passwordHint}>Se o PDF não tiver senha, deixe em branco.</Text>
         </View>
         <Button title={enviando ? "Enviando…" : "Enviar solicitação"} disabled={!clienteId || !zona || !pdfPendente || enviando} onPress={() => { if (pdfPendente) void selecionarArquivo(pdfPendente, senhaInformada); }} />
       </Card> : null}
       {IS_GERADOR_APP && !selecionarUc ? <TouchableOpacity disabled={!clienteId || enviando} onPress={() => void selecionarArquivo()} style={[styles.upload, (!clienteId || enviando) && styles.disabled]}>
         <View style={styles.uploadIcon}>{enviando ? <ActivityIndicator color={Colors.primary} /> : <Ionicons name="cloud-upload-outline" size={24} color={Colors.primary} />}</View>
-        <View style={styles.uploadCopy}><Text style={styles.uploadTitle}>{enviando ? "Anexando conta..." : IS_GERADOR_APP ? "Anexar conta vinculada ao CPF" : "Anexar fatura da nova UC"}</Text><Text style={styles.uploadHint}>PDF da concessionária de uma UC do seu CPF; ficará disponível também para o gerador.</Text></View>
+        <View style={styles.uploadCopy}><Text style={styles.uploadTitle}>{enviando ? "Anexando conta..." : IS_GERADOR_APP ? "Anexar conta vinculada ao CPF" : "Anexar fatura da nova UC"}</Text><Text style={styles.uploadHint}>PDF ou foto da concessionária de uma UC do seu CPF; ficará disponível também para o gerador.</Text></View>
         <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
       </TouchableOpacity> : null}
       {carregando ? <View style={styles.loading}><ActivityIndicator color={Colors.primary} /></View> : faturas.length ? faturas.map((fatura) => {
@@ -215,6 +243,8 @@ const styles = StyleSheet.create({
   subtitle: { marginTop: 4, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 19 },
   description: { marginBottom: Spacing.lg, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 20 },
   passwordHint: { marginTop: -Spacing.xs, color: Colors.subtitle, fontSize: Typography.small, lineHeight: 20 },
+  passwordInput: { paddingRight: 52 },
+  passwordToggle: { position: "absolute", right: 4, bottom: Spacing.md, width: 48, height: 50, alignItems: "center", justifyContent: "center" },
   upload: { minHeight: 80, flexDirection: "row", alignItems: "center", marginBottom: Spacing.lg, padding: Spacing.md, borderRadius: Radius.lg, backgroundColor: Colors.primaryLight },
   uploadIcon: { width: 46, height: 46, alignItems: "center", justifyContent: "center", borderRadius: Radius.round, backgroundColor: Colors.surface },
   uploadCopy: { flex: 1, marginHorizontal: Spacing.sm },
