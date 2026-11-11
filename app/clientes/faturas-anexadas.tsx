@@ -90,7 +90,7 @@ export default function FaturasAnexadas() {
       Alert.alert("Conta anexada", "A conta da concessionária foi salva no seu perfil e poderá ser usada pelo gerador para cadastrar a UC vinculada ao seu CPF.");
     } catch (erro: any) {
       if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED") { setPedindoSenhaPdf(true); return; }
-      Alert.alert("Não foi possível anexar", erro?.response?.data?.message ?? "Confira o PDF da CEMIG e tente novamente.");
+      Alert.alert("Não foi possível anexar", erro?.response?.data?.message ?? "Confira o PDF ou foto da CEMIG e tente novamente.");
     } finally {
       setEnviando(false);
       retomarBloqueio();
