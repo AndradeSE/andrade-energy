@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
 import { AppHeader, Card, Divider, ElasticScrollView as ScrollView, EmptyState, Loading, Screen } from "../../components/ui";
@@ -233,7 +233,7 @@ export default function DetalheFatura() {
     const url = String(fatura?.pdf_boleto_url ?? "").trim();
     if (!url) return Alert.alert("Boleto em preparação", "O Asaas ainda não liberou o boleto.");
     try {
-      router.push({ pathname: "/documento-fatura", params: { uri: url, faturaId: String(id), tipo: "boleto" } });
+      await Linking.openURL(url);
     } catch {
       Alert.alert("Não foi possível abrir o boleto", "Confira sua conexão e tente novamente.");
     }
