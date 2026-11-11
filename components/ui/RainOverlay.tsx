@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, AppState, Easing, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, Animated, AppState, Easing, Platform, StyleSheet, View } from "react-native";
 
 const drops = Array.from({ length: 28 }, (_, index) => ({
   left: (index * 37 + 9) % 100,
@@ -24,7 +24,7 @@ export default function RainOverlay({ running }: { running: boolean }) {
   const animate = running && active && !reduced;
   useEffect(() => {
     if (!animate || !height) { phase.stopAnimation(); phase.setValue(0); return; }
-    const loop = Animated.loop(Animated.timing(phase, { toValue: 1, duration: 760, easing: Easing.linear, useNativeDriver: true }));
+    const loop = Animated.loop(Animated.timing(phase, { toValue: 1, duration: 760, easing: Easing.linear, useNativeDriver: Platform.OS !== "web" }));
     loop.start();
     return () => { loop.stop(); phase.setValue(0); };
   }, [animate, height, phase]);
