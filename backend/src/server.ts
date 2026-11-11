@@ -411,6 +411,7 @@ async function iniciarServidor() {
     if (!recoveryActive()) throw error;
   }
   if (checkDatabase) {
+    console.log("Monitor automático do banco reserva ativo; recuperação somente para consulta.");
     setInterval(() => void checkDatabase().catch(() => {
       console.warn("Monitor do banco reserva: conferência não concluída.");
     }), 30_000).unref();

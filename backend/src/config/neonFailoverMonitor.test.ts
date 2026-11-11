@@ -46,9 +46,11 @@ test("does not overlap probes and resets the count after a failed probe", async 
   await tick();
   assert.equal(activations, 1);
 });
-test("automatic recovery is opt-in and excludes serverless, distributed writes and manual recovery", () => {
+test("configured Neon enables recovery unless explicitly disabled; excludes incompatible runtimes", () => {
   const enabled = { NEON_RECOVERY_AUTO: "true", NEON_API_ENABLED: "true" };
   assert.equal(automaticRecoveryEnabled(enabled), true);
+  assert.equal(automaticRecoveryEnabled({ NEON_API_ENABLED: "true" }), true);
+  assert.equal(automaticRecoveryEnabled({}), false);
   for (const override of [{ NEON_RECOVERY_AUTO: "false" }, { NEON_API_ENABLED: "false" },
     { API_RUNTIME: "serverless" }, { API_DISTRIBUTED_RATE_LIMIT: "true" }, { NEON_RECOVERY_READ_ONLY: "true" }]) {
     assert.equal(automaticRecoveryEnabled({ ...enabled, ...override }), false);

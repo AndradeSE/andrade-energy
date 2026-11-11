@@ -1,5 +1,5 @@
 export function automaticRecoveryEnabled(env: NodeJS.ProcessEnv) {
-  return env.NEON_RECOVERY_AUTO === "true"
+  return env.NEON_RECOVERY_AUTO !== "false"
     && env.NEON_API_ENABLED === "true"
     && env.API_RUNTIME !== "serverless"
     && env.API_DISTRIBUTED_RATE_LIMIT !== "true"
