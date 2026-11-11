@@ -1,3 +1,4 @@
+import InvoiceDocumentViewer from "../components/faturas/InvoiceDocumentViewer";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, Alert, Animated, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { File, Paths } from "expo-file-system";
@@ -301,6 +302,8 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     else open();
   }
 
+  const [faturaEmLeitura, setFaturaEmLeitura] = useState<{ id: string; uri: string }>();
+
   async function openToolDocument(doc: AssistantDocument) {
     if (openingInvoiceId) return false;
     const key = `${doc.kind}:${doc.id}`;
@@ -309,7 +312,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     try {
       const resolved = await resolveAssistantDocument(doc);
       if (doc.kind === "conta-luz" && resolved.url) {
-        router.push({ pathname: "/documento-fatura", params: { uri: resolved.url, faturaId: doc.id, tipo: "cemig" } });
+        setFaturaEmLeitura({ id: doc.id, uri: resolved.url });
         return true;
       }
       if (generation !== contextGeneration.current) return false;
@@ -911,7 +914,8 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   }
 
   function leaveConversation(){ if(keyboardVisible){ Keyboard.dismiss(); return; } if(voiceActive.current && onMinimize) onMinimize(); else if(onClose) onClose(); else router.back(); }
-  if (voiceOnly) return null;
+  const leitorFatura = faturaEmLeitura ? <Modal animationType="slide" onRequestClose={() => setFaturaEmLeitura(undefined)}><InvoiceDocumentViewer uri={faturaEmLeitura.uri} faturaId={faturaEmLeitura.id} tipo="cemig" onClose={() => setFaturaEmLeitura(undefined)} /></Modal> : null;
+  if (voiceOnly) return leitorFatura;
 
   const conversationView = <View ref={keyboardRoot} style={styles.root} onLayout={updateKeyboardOverlap}><KeyboardAvoidingView style={[styles.root, Platform.OS === "android" && { marginBottom: keyboardOverlap }]} behavior={Platform.OS === "ios" ? "padding" : undefined}>
     <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
@@ -948,7 +952,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       </View>
     </View>
   </KeyboardAvoidingView></View>;
-  return floatingModal ? <Modal visible={!minimized} animationType="slide" onRequestClose={leaveConversation}>{conversationView}</Modal> : conversationView;
+  return <>{floatingModal ? <Modal visible={!minimized && !faturaEmLeitura} animationType="slide" onRequestClose={leaveConversation}>{conversationView}</Modal> : conversationView}{leitorFatura}</>;
 }
 
 const styles = StyleSheet.create({
