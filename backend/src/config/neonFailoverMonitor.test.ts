@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createNeonFailoverMonitor } from "./neonFailoverMonitor";
+import { automaticRecoveryEnabled, createNeonFailoverMonitor } from "./neonFailoverMonitor";
 
 test("requires consecutive confirmed outages and recoveries and retries an unavailable snapshot", async () => {
   const probes = [false, null, false, false, false, false, true, false, true, true];
@@ -45,4 +45,12 @@ test("does not overlap probes and resets the count after a failed probe", async 
   assert.equal(activations, 0);
   await tick();
   assert.equal(activations, 1);
+});
+test("automatic recovery is opt-in and excludes serverless, distributed writes and manual recovery", () => {
+  const enabled = { NEON_RECOVERY_AUTO: "true", NEON_API_ENABLED: "true" };
+  assert.equal(automaticRecoveryEnabled(enabled), true);
+  for (const override of [{ NEON_RECOVERY_AUTO: "false" }, { NEON_API_ENABLED: "false" },
+    { API_RUNTIME: "serverless" }, { API_DISTRIBUTED_RATE_LIMIT: "true" }, { NEON_RECOVERY_READ_ONLY: "true" }]) {
+    assert.equal(automaticRecoveryEnabled({ ...enabled, ...override }), false);
+  }
 });

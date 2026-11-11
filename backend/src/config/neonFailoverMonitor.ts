@@ -1,3 +1,10 @@
+export function automaticRecoveryEnabled(env: NodeJS.ProcessEnv) {
+  return env.NEON_RECOVERY_AUTO === "true"
+    && env.NEON_API_ENABLED === "true"
+    && env.API_RUNTIME !== "serverless"
+    && env.API_DISTRIBUTED_RATE_LIMIT !== "true"
+    && env.NEON_RECOVERY_READ_ONLY !== "true";
+}
 type Recovery = { stop(): void };
 
 export function createNeonFailoverMonitor(options: {

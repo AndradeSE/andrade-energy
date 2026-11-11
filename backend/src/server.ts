@@ -1,4 +1,4 @@
-import { createNeonFailoverMonitor } from "./config/neonFailoverMonitor";
+import { automaticRecoveryEnabled, createNeonFailoverMonitor } from "./config/neonFailoverMonitor";
 import { sourceSupabase } from "./config/supabase";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -385,11 +385,7 @@ async function iniciarServidor() {
     }, 60_000);
   }
 
-  const automaticRecovery = process.env.NEON_RECOVERY_AUTO === "true"
-    && process.env.NEON_API_ENABLED === "true"
-    && process.env.API_RUNTIME !== "serverless"
-    && process.env.API_DISTRIBUTED_RATE_LIMIT !== "true"
-    && process.env.NEON_RECOVERY_READ_ONLY !== "true";
+  const automaticRecovery = automaticRecoveryEnabled(process.env);
   const checkDatabase = automaticRecovery ? createNeonFailoverMonitor({
     async probePrimary() {
       const result = await sourceSupabase.from("usuarios").select("id").limit(1)

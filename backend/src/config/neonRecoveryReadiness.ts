@@ -1,3 +1,4 @@
+import { automaticRecoveryEnabled } from "./neonFailoverMonitor";
 import { Client } from 'pg';
 import { neonPreviewConnection } from './neonSnapshotRuntime';
 import { recoveryStatus } from './neonRecoveryState';
@@ -16,10 +17,10 @@ export async function neonRecoveryReadiness(env: NodeJS.ProcessEnv) {
     const databaseBytes=Number(usage?.rows[0]?.bytes);
     let ready=false;
     try { validateRecoverySnapshot(state);ready=true; } catch { /* An old backup is not an available fallback. */ }
-    return {...active,reservaConfigurada:true,trocaAutomatica:false,prontaParaConsulta:ready,
+    return {...active,reservaConfigurada:true,trocaAutomatica:automaticRecoveryEnabled(env),prontaParaConsulta:ready,
       bancoBytes:Number.isSafeInteger(databaseBytes) && databaseBytes >= 0 ? databaseBytes : null,
       ultimaCopia:state?.captured_at ?? null,documentosProntos:state?.storage_ready===true,
       destino:'NEON',limitacao:'Somente consulta; gravações e operações automáticas bloqueadas na recuperação.'};
-  } catch { return {...active,reservaConfigurada:true,trocaAutomatica:false,prontaParaConsulta:false,consultaIndisponivel:true}; }
+  } catch { return {...active,reservaConfigurada:true,trocaAutomatica:automaticRecoveryEnabled(env),prontaParaConsulta:false,consultaIndisponivel:true}; }
   finally { if(client) await client.end().catch(()=>{}); }
 }
