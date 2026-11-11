@@ -101,17 +101,9 @@ export default function Faturas() {
     if (!url) return;
     try {
       setBaixando(chave);
-      if (Platform.OS === "web") return await Linking.openURL(url);
-      const arquivo = await File.downloadFileAsync(url, new File(Paths.document, nome), { idempotent: true });
-      if (Platform.OS === "android") {
-        try {
-          const contentUri = await FileSystemLegacy.getContentUriAsync(arquivo.uri);
-          await IntentLauncher.startActivityAsync("android.intent.action.VIEW", { data: contentUri, flags: 1, type: "application/pdf" });
-          return;
-        } catch { /* Abre pelo compartilhamento se não houver visualizador padrão. */ }
-      }
-      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(arquivo.uri, { dialogTitle: "Abrir ou salvar fatura", mimeType: "application/pdf", UTI: "com.adobe.pdf" });
-      else Alert.alert("Download concluído", "A fatura foi salva no aplicativo.");
+      router.push({ pathname: "/documento-fatura", params: { uri: url } });
+      return;
+
     } catch {
       Alert.alert("Não foi possível baixar", "Confira sua conexão e tente novamente.");
     } finally { setBaixando(undefined); }

@@ -10,3 +10,11 @@ test("Solar informa dados registrados da fatura sem inventar ausentes nem expor 
   assert.match(texto, /referência não informada/);
   assert.doesNotMatch(texto, /segredo|Outro titular/);
 });
+
+import { detectCapability } from "./assistant-capabilities";
+test("dados CEMIG do cliente seguem para fatura e abrir solicita documento", () => {
+  assert.equal(detectCapability("me informe os dados da fatura da Cemig do cliente Guilherme")?.module, "conta-luz");
+  assert.equal(detectCapability("me informe os dados da fatura da Cemig do cliente Guilherme")?.mode, "query");
+  assert.equal(detectCapability("abra a fatura da Cemig do cliente Guilherme")?.mode, "document");
+  assert.equal(detectCapability("qual o email do cliente Guilherme")?.module, "clientes");
+});

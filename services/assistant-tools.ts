@@ -245,10 +245,22 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
       if (ctx.generator && !ctx.plantId) return { text: "Selecione uma usina para consultar as faturas corretas." };
       if (!ctx.generator && !ctx.unitNumber && !ctx.clientId) return { text: "Selecione sua UC para consultar a fatura." };
       const rows = await listarFaturas(ctx.generator ? undefined : ctx.clientId, ctx.generator ? undefined : ctx.unitNumber, ctx.generator ? ctx.plantId : undefined);
-      const chosen = invoiceDocumentChoices(question, rows);
+      const pedido = normalizeCapabilityText(question);
+      const clientesCitados = ctx.generator ? onlyArray(await listarClientes(ctx.plantId!)).filter(cliente => {
+        const nome = normalizeCapabilityText(scalar(cliente.nome, ""));
+        const partesDoNome = nome.split(" ").filter(parte => parte.length >= 3);
+        return nome && (pedido.includes(nome) || partesDoNome.some(parte => ["cliente ", "da ", "do "].some(prefixo => (pedido + " ").includes(prefixo + parte + " "))));
+      }) : [];
+      if (clientesCitados.length > 1) return { text: "Encontrei mais de um cliente com esse nome. Informe o nome completo.", actions };
+      if (/\bcliente\s+\S+/.test(pedido) && !clientesCitados.length) return { text: "Não encontrei esse cliente na usina selecionada. Informe o nome cadastrado.", actions };
+      const clienteId = clientesCitados[0]?.id ?? ctx.clientId;
+      const faturasCliente = clienteId ? rows.filter((f: any) => f.cliente_id === clienteId) : rows;
+      const ucPedida = /\b(?:uc|unidade(?: consumidora)?)\s+(?:final\s+)?([\d. -]{4,})/.exec(pedido)?.[1]?.replace(/\D/g, "");
+      const faturasDaUc = ucPedida ? faturasCliente.filter((f: any) => String(f.numero_instalacao ?? "").replace(/\D/g, "").endsWith(ucPedida)) : faturasCliente;
+      const chosen = invoiceDocumentChoices(question, faturasDaUc);
       if (intent.module === "pagamento") return { text: chosen.length ? "Escolha a fatura para consultar Pix, boleto e beneficiário. Não realizei pagamento." : "Não encontrei fatura emitida para esse pedido.", actions: chosen.map(f => action(`Pagamento · ${scalar(f.referencia)}`, `/faturas/${f.id}`)) };
       if (intent.module === "conta-luz" && intent.mode === "query") {
-        const selecionadas = ctx.unitId || ctx.unitNumber ? chosen.filter((f: any) => ctx.unitId && f.unidade_consumidora_id ? f.unidade_consumidora_id === ctx.unitId : String(f.numero_instalacao ?? "").replace(/\D/g, "") === String(ctx.unitNumber ?? "").replace(/\D/g, "")) : chosen;
+        const selecionadas = !ucPedida && !clientesCitados.length && (ctx.unitId || ctx.unitNumber) ? chosen.filter((f: any) => ctx.unitId && f.unidade_consumidora_id ? f.unidade_consumidora_id === ctx.unitId : String(f.numero_instalacao ?? "").replace(/\D/g, "") === String(ctx.unitNumber ?? "").replace(/\D/g, "")) : chosen;
         const recentes = new Map<string, any>();
         for (const f of selecionadas as any[]) { const uc = String(f.unidade_consumidora_id ?? f.numero_instalacao ?? f.id); if (!recentes.has(uc)) recentes.set(uc, f); }
         return { text: recentes.size ? [...recentes.values()].slice(0, 4).map(resumoContaConcessionaria).join("\n\n") : "Não encontrei dados de fatura da concessionária para a UC e o período deste pedido.", actions };

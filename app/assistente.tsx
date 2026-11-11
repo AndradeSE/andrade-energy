@@ -329,6 +329,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
         uri = file.uri;
       }
       if (generation !== contextGeneration.current) return;
+      if (doc.kind === "conta-luz" && PdfRuntime.runtimeVersion && /pdf-voice|production-autoleitura/.test(PdfRuntime.runtimeVersion)) { contratoEmLeitura.current = undefined; setPdfContrato({ uri }); return true; }
       if (Platform.OS === "android") {
         try {
           const contentUri = await FileSystemLegacy.getContentUriAsync(uri);
@@ -417,7 +418,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     // PDF de fatura tem precedência sobre abrir a usina/aba, mas não sobre
     // documentos específicos (CEMIG, cálculo, contratos) nem alterações.
     const invoiceOverridesNavigation = wantsInvoiceDocument && !detectedCapability?.review && ["usinas", "faturamento", "pagamento"].includes(detectedCapability?.module ?? "");
-    const capability = detectProductionMetric(interpretedQuestion) === "energiaDisponivel" || wantsOverdue || (IS_GERADOR_APP && detectFinancialMetric(interpretedQuestion)) || asksLatestInvoiceAmount(interpretedQuestion) || invoiceOverridesNavigation ? undefined : detectedCapability;
+    const capability = detectProductionMetric(interpretedQuestion) === "energiaDisponivel" || wantsOverdue || (IS_GERADOR_APP && detectFinancialMetric(interpretedQuestion)) || (detectedCapability?.module !== "conta-luz" && asksLatestInvoiceAmount(interpretedQuestion)) || invoiceOverridesNavigation ? undefined : detectedCapability;
     lastInvoiceRequest.current = wantsInvoiceDocument || /\b(ultima|mais recente)\b.*\b(fatura|cobranca)\b|\b(fatura|cobranca)\b.*\b(ultima|mais recente)\b/i.test(interpretedQuestion);
     busyRef.current = true;
     const { reply, topic: nextTopic } = answerInConversation(question, {
