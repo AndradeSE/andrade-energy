@@ -31,6 +31,7 @@ export async function queryLiveAccount(question: string, ctx: AssistantAccountCo
     return { text: [holder ? `Titular da UC ${unit.numero ?? "selecionada"}: ${holder}.` : "Não há nome do titular preenchido nesta UC.", name ? `Cliente cadastrado: ${name}.` : "Não há nome de cliente disponível neste registro."].join(" ") };
   }
   const capability = detectCapability(text);
+  if (capability?.module === "conta-luz") return executeAssistantTool(capability, ctx, text);
   const document = asksLatestInvoiceDocument(text);
   const overdue = asksOverdueInvoices(text);
   const financial = detectFinancialMetric(text);
