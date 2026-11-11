@@ -1,3 +1,5 @@
+import { Ionicons } from "@expo/vector-icons";
+import { TouchableOpacity } from "../components/assistant/AssistantNativeControls";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { ActivityIndicator, Linking, StyleSheet, Text, View } from "react-native";
@@ -12,12 +14,27 @@ import {contingencyRoutingEnabled} from '../config/api';
 
 const number = (value: number) => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 const date = (value: string) => new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
-const panels: Record<string, string> = { AZURE: "https://portal.azure.com/", RENDER: "https://dashboard.render.com/", RESEND: "https://resend.com/overview", BREVO: "https://app.brevo.com/", NETLIFY: "https://app.netlify.com/", SUPABASE: "https://supabase.com/dashboard" };
+const panels: Record<string, string> = { NEON: "https://console.neon.tech/", AZURE: "https://portal.azure.com/", RENDER: "https://dashboard.render.com/", RESEND: "https://resend.com/overview", BREVO: "https://app.brevo.com/", NETLIFY: "https://app.netlify.com/", SUPABASE: "https://supabase.com/dashboard" };
+const categories = [
+  { id: "bancos", label: "Bancos de dados", icon: "layers-outline" },
+  { id: "servidores", label: "Servidores", icon: "server-outline" },
+  { id: "voz", label: "Voz", icon: "volume-high-outline" },
+  { id: "email", label: "E-mail", icon: "mail-outline" },
+  { id: "automacao", label: "Automação", icon: "shield-checkmark-outline" },
+  { id: "outros", label: "Outros serviços", icon: "grid-outline" },
+] as const;
+type Category = typeof categories[number]["id"];
+const serviceCategory: Record<string, Category> = {
+  SUPABASE: "bancos", NEON: "bancos", RENDER: "servidores", NETLIFY: "servidores",
+  AZURE: "voz", RESEND: "email", BREVO: "email", CAPMONSTER: "automacao",
+};
+const categoryOf = (service: string): Category => serviceCategory[service] ?? "outros";
 export default function ServiceQuotasScreen() {
   const { usuario } = useAuth();
   const allowed = IS_GERADOR_APP && canViewServiceQuotas(usuario);
   const [data, setData] = useState<ServiceQuotas | null>(null);
   const [busy, setBusy] = useState(false);
+  const [category, setCategory] = useState<Category>("bancos");
   const [error, setError] = useState("");
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -42,6 +59,8 @@ export default function ServiceQuotasScreen() {
     if (resendGroup) resendGroup.push(item);
     else quotaGroups.push([item]);
   }
+  const visibleGroups = quotaGroups.filter(group => categoryOf(group[0].servico) === category);
+  const visibleCategories = categories.filter(item => item.id !== "outros" || quotaGroups.some(group => categoryOf(group[0].servico) === "outros"));
   return <Screen><AppHeader title="Cotas de serviços" subtitle="Infraestrutura da plataforma" contextTitle="Administração" contextSubtitle="Uso e limites dos serviços" icon="speedometer-outline" showPlantContext={false} showPlantSwitch={false}/>
     <ElasticScrollView contentContainerStyle={styles.content}>
       {!allowed ? <Card><Text style={styles.title}>Acesso exclusivo de ADM</Text><Text style={styles.text}>Estas informações pertencem à administração da plataforma.</Text></Card> : <>
@@ -50,7 +69,20 @@ export default function ServiceQuotasScreen() {
         {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
         {busy ? <ActivityIndicator color={Colors.primary} accessibilityLabel="Consultando cotas"/> : null}
         <Button title={busy ? "Consultando…" : "Atualizar consultas automáticas"} disabled={busy} onPress={() => void refresh()}/>
-        {data?.reservaDados ? <Card>
+        <View accessibilityRole="tablist" style={styles.categories}>
+          {visibleCategories.map(item => <TouchableOpacity
+            key={item.id}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: category === item.id }}
+            onPress={() => setCategory(item.id)}
+            style={[styles.categoryButton, category === item.id && styles.categorySelected]}
+          >
+            <Ionicons name={item.icon} size={20} color={category === item.id ? Colors.surface : Colors.primary} />
+            <Text style={[styles.categoryLabel, category === item.id && styles.categoryLabelSelected]}>{item.label}</Text>
+          </TouchableOpacity>)}
+        </View>
+        <Text style={styles.categoryTitle}>{categories.find(item => item.id === category)?.label}</Text>
+        {category === "bancos" && data?.reservaDados ? <Card>
           <Text style={styles.title}>Banco de dados e reserva</Text>
           <Text style={styles.balance}>{data.reservaDados.banco === 'NEON' ? 'Neon · somente consulta' : 'Supabase · principal ativo'}</Text>
           <Text style={styles.text}>{!data.reservaDados.reservaConfigurada ? 'Reserva de dados não configurada neste ambiente.'
@@ -63,7 +95,7 @@ export default function ServiceQuotasScreen() {
             <Text style={styles.note}>A recuperação é somente para consulta. Não executa alterações, cobranças nem protocolos. A troca automática ainda não está habilitada.</Text>
           </> : null}
         </Card> : null}
-        {quotaGroups.map(group => <Card key={`${group[0].servico}:${group[0].metrica}`}>
+        {visibleGroups.map(group => <Card key={`${group[0].servico}:${group[0].metrica}`}>
           <Text style={styles.title}>{group[0].servico === "RESEND" ? "Resend · e-mails" : group[0].rotulo}</Text>
           {group.map((item, index) => {
           const reading = item.leitura;
@@ -84,14 +116,23 @@ export default function ServiceQuotasScreen() {
             </> : item.servico==='CAPMONSTER' && item.saldoDisponivel!=null ? <Text style={styles.note}>API oficial · {date(item.consulta!.consultado_em)}</Text> : <Text style={styles.text}>{item.automatico ? item.consulta?.status === "SEM_PERMISSAO" ? "A chave configurada não permite consultar o uso." : item.consulta?.status === "PLANO_NAO_SUPORTADO" ? "O plano retornado não permite confirmar a cota gratuita. Confira o saldo no painel." : item.consulta?.status === "SEM_DADOS_COMPLETOS" ? "O Azure ainda não retornou medições para este item no mês. A ausência de dados não significa consumo zero." : "Sem leitura disponível. A consulta automática precisa estar conectada." : "Leitura manual: confira o painel do provedor e informe abaixo os valores para acompanhar o saldo aqui."}</Text>}
           </View>;
           })}
-          <Text style={styles.link} accessibilityRole="link" onPress={() => void Linking.openURL(group[0].servico==='CAPMONSTER'?'https://dash.capmonster.cloud/':panels[group[0].servico]).catch(() => setError("Não foi possível abrir o painel."))}>Abrir painel do provedor</Text>
+          {(panels[group[0].servico] || group[0].servico === "CAPMONSTER") ? <Text style={styles.link} accessibilityRole="link" onPress={() => void Linking.openURL(group[0].servico==='CAPMONSTER'?'https://dash.capmonster.cloud/':panels[group[0].servico]).catch(() => setError("Não foi possível abrir o painel."))}>Abrir painel do provedor</Text> : null}
         </Card>)}
-        <Text style={styles.note}>Os avisos não contratam planos nem compram créditos. Confira a política de troca e o estado do servidor reserva no controle abaixo.</Text>
-        {contingencyRoutingEnabled?<ContingencyControl/>:null}
+        {category === "servidores" && contingencyRoutingEnabled ? <>
+          <Text style={styles.note}>Confira a política de troca e o estado dos servidores no controle abaixo.</Text>
+          <ContingencyControl/>
+        </> : null}
+        {!busy && data && !visibleGroups.length && !(category === "bancos" && data.reservaDados) && !(category === "servidores" && contingencyRoutingEnabled) ? <Text style={styles.note}>Nenhum serviço desta categoria disponível neste ambiente.</Text> : null}
       </>}
     </ElasticScrollView></Screen>;
 }
 const styles = StyleSheet.create({
+  categories: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm },
+  categoryButton: { flexBasis: "46%", flexGrow: 1, minHeight: 54, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: Colors.border, borderRadius: 14, backgroundColor: Colors.surface },
+  categorySelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  categoryLabel: { color: Colors.primary, fontSize: 14, fontWeight: "700", flexShrink: 1 },
+  categoryLabelSelected: { color: Colors.surface },
+  categoryTitle: { fontSize: 20, color: Colors.text, fontWeight: "800", marginTop: Spacing.sm },
   content: { padding: Spacing.lg, paddingBottom: 40, gap: Spacing.md },
   title: { fontSize: 18, fontWeight: "700", color: Colors.text, marginBottom: 8, flexShrink: 1 },
   text: { color: Colors.text, fontSize: 14, lineHeight: 21, marginBottom: 5 },
