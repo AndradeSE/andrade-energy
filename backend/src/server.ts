@@ -1,3 +1,5 @@
+import { createNeonFailoverMonitor } from "./config/neonFailoverMonitor";
+import { sourceSupabase } from "./config/supabase";
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
@@ -294,7 +296,129 @@ export async function validarSchemaAntesDeIniciar() {
 async function iniciarServidor() {
   await initializeNeonRecovery(process.env);
   const executarAgendadores = backgroundJobsEnabled();
-  await validarSchemaAntesDeIniciar();
+  let primaryWorkStarted = false;
+
+  function startPrimaryWork() {
+    if (primaryWorkStarted || recoveryActive()) return;
+    primaryWorkStarted = true;
+    startNeonPreviewSnapshots(process.env);
+    if(primaryEnvironment(process.env)) {
+      let returning=false;
+      const checkReturn=async()=>{
+        if(returning) return;
+        returning=true;
+        try { await observePrimaryReturn(process.env,supabase); }
+        catch { console.error('Retorno automático ao principal exige conferência.'); }
+        finally { returning=false; }
+      };
+      void checkReturn();
+      setInterval(()=>void checkReturn(),60_000).unref();
+    }
+    if(executorIdentity==='RENDER_RESERVA') {
+      let observing=false;
+      const observe=async()=>{
+        if(observing) return;
+        observing=true;
+        try { await observeRenderForContingency(process.env,supabase); }
+        catch { console.error('Não foi possível confirmar o estado do Render principal.'); }
+        finally { observing=false; }
+      };
+      void observe();
+      setInterval(()=>void observe(),60_000).unref();
+    }
+    if (!executarAgendadores) {
+      console.log("Instância HTTP reserva: agendadores desativados.");
+      return;
+    }
+    void iniciarDespachanteCemigRender().catch(()=>console.error('Não foi possível iniciar simulação Cemig Preview.'));
+    if (process.env.DURABLE_SCHEDULER_ENABLED === "true") {
+      const tick = () => {
+        for (const name of Object.keys(scheduledJobs) as ScheduledJob[]) {
+          void executeScheduledJob(name, executorIdentity).catch(() => console.error("Tarefa agendada exige conferência", { tarefa: name }));
+        }
+      };
+      tick();
+      setInterval(tick, 60_000);
+      return;
+    }
+    const conferirCotas = () => void monitorServiceQuotas().catch(() => console.error("Falha ao verificar cotas de serviços."));
+    conferirCotas();
+    setInterval(conferirCotas, 60 * 60_000);
+    let enviandoPushDuravel = false;
+    const conferirPushDuravel = async () => {
+      if (enviandoPushDuravel) return;
+      enviandoPushDuravel = true;
+      try {
+        for (let i = 0; i < 10; i++) {
+          if (!(await processarPushPendente()).processed) break;
+        }
+      } catch { console.error("Falha ao conferir fila persistente de push."); }
+      finally { enviandoPushDuravel = false; }
+    };
+    void conferirPushDuravel();
+    setInterval(() => void conferirPushDuravel(), 60_000);
+    processarFilaDeNotificacoes().catch((erro) => console.error("Falha ao processar notificações:", erro.message));
+    const avisarVencimentos = () => void avisarContratosProximosDoVencimento().catch(erro => console.error("Falha ao avisar vencimentos:", erro.message));
+    avisarVencimentos();
+    setInterval(avisarVencimentos, 60 * 60_000);
+    const avisarFaturas = () => void avisarFaturasProximasDoVencimento().catch(erro => console.error("Falha ao avisar vencimento das faturas:", erro.message));
+    avisarFaturas();
+    const avisarAutoleituras = () => void enfileirarLembretesAutoleitura().catch(() => console.error("Falha ao enfileirar lembretes de autoleitura."));
+    avisarAutoleituras();
+    setInterval(avisarAutoleituras, 60 * 60_000);
+    setInterval(avisarFaturas, 60 * 60_000);
+    const conferirRateios=()=>void processarRateiosAutomaticos().catch(error=>console.error("Falha ao conferir rateios automáticos",{tipo:error?.code??error?.name??"Error"}));
+    conferirRateios();
+    setInterval(conferirRateios,60_000);
+    processarConvitesAdesoes().catch(() => console.error("Falha ao processar convites de assinaturas."));
+    processarContasDeEnergiaRecebidas().catch((erro) => console.error("Falha ao importar produção por e-mail:", erro.message));
+    processarFilaDeRecebimentosFaturas().catch((erro) => console.error("Falha ao processar faturas recebidas por e-mail:", erro.message));
+    setInterval(() => {
+      processarFilaDeNotificacoes().catch((erro) => console.error("Falha ao processar notificações:", erro.message));
+      processarConvitesAdesoes().catch(() => console.error("Falha ao processar convites de assinaturas."));
+    }, 60_000);
+    setInterval(() => {
+      processarContasDeEnergiaRecebidas().catch((erro) => console.error("Falha ao importar produção por e-mail:", erro.message));
+    }, 5 * 60_000);
+    setInterval(() => {
+      processarFilaDeRecebimentosFaturas().catch((erro) => console.error("Falha ao processar faturas recebidas por e-mail:", erro.message));
+    }, 60_000);
+  }
+
+  const automaticRecovery = process.env.NEON_RECOVERY_AUTO === "true"
+    && process.env.NEON_API_ENABLED === "true"
+    && process.env.API_RUNTIME !== "serverless"
+    && process.env.API_DISTRIBUTED_RATE_LIMIT !== "true"
+    && process.env.NEON_RECOVERY_READ_ONLY !== "true";
+  const checkDatabase = automaticRecovery ? createNeonFailoverMonitor({
+    async probePrimary() {
+      const result = await sourceSupabase.from("usuarios").select("id").limit(1)
+        .abortSignal(AbortSignal.timeout(5000));
+      if (!result.error) return true;
+      return result.status === 0 || [502, 503, 504].includes(result.status) ? false : null;
+    },
+    activate: () => initializeNeonRecovery({ ...process.env, NEON_RECOVERY_READ_ONLY: "true" }, true),
+    async onTransition(provider) {
+      if (provider === "SUPABASE") {
+        await validarSchemaAntesDeIniciar();
+        startPrimaryWork();
+      }
+      await publishRecoveryTransition(process.env, provider);
+    },
+  }) : null;
+  try {
+    await validarSchemaAntesDeIniciar();
+  } catch (error) {
+    if (!checkDatabase) throw error;
+    await checkDatabase();
+    await checkDatabase();
+    if (!recoveryActive()) throw error;
+  }
+  if (checkDatabase) {
+    setInterval(() => void checkDatabase().catch(() => {
+      console.warn("Monitor do banco reserva: conferência não concluída.");
+    }), 30_000).unref();
+  }
   app.listen(PORT, () => {
   console.log(`Servidor iniciado na porta ${PORT}`);
   if (process.env.NEON_API_ENABLED === 'true') {
@@ -305,88 +429,7 @@ async function iniciarServidor() {
     console.log('Neon Preview em recuperação somente de leitura; tarefas e monitoramento desativados.');
     return;
   }
-  startNeonPreviewSnapshots(process.env);
-  if(primaryEnvironment(process.env)) {
-    let returning=false;
-    const checkReturn=async()=>{
-      if(returning) return;
-      returning=true;
-      try { await observePrimaryReturn(process.env,supabase); }
-      catch { console.error('Retorno automático ao principal exige conferência.'); }
-      finally { returning=false; }
-    };
-    void checkReturn();
-    setInterval(()=>void checkReturn(),60_000).unref();
-  }
-  if(executorIdentity==='RENDER_RESERVA') {
-    let observing=false;
-    const observe=async()=>{
-      if(observing) return;
-      observing=true;
-      try { await observeRenderForContingency(process.env,supabase); }
-      catch { console.error('Não foi possível confirmar o estado do Render principal.'); }
-      finally { observing=false; }
-    };
-    void observe();
-    setInterval(()=>void observe(),60_000).unref();
-  }
-  if (!executarAgendadores) {
-    console.log("Instância HTTP reserva: agendadores desativados.");
-    return;
-  }
-  void iniciarDespachanteCemigRender().catch(()=>console.error('Não foi possível iniciar simulação Cemig Preview.'));
-  if (process.env.DURABLE_SCHEDULER_ENABLED === "true") {
-    const tick = () => {
-      for (const name of Object.keys(scheduledJobs) as ScheduledJob[]) {
-        void executeScheduledJob(name, executorIdentity).catch(() => console.error("Tarefa agendada exige conferência", { tarefa: name }));
-      }
-    };
-    tick();
-    setInterval(tick, 60_000);
-    return;
-  }
-  const conferirCotas = () => void monitorServiceQuotas().catch(() => console.error("Falha ao verificar cotas de serviços."));
-  conferirCotas();
-  setInterval(conferirCotas, 60 * 60_000);
-  let enviandoPushDuravel = false;
-  const conferirPushDuravel = async () => {
-    if (enviandoPushDuravel) return;
-    enviandoPushDuravel = true;
-    try {
-      for (let i = 0; i < 10; i++) {
-        if (!(await processarPushPendente()).processed) break;
-      }
-    } catch { console.error("Falha ao conferir fila persistente de push."); }
-    finally { enviandoPushDuravel = false; }
-  };
-  void conferirPushDuravel();
-  setInterval(() => void conferirPushDuravel(), 60_000);
-  processarFilaDeNotificacoes().catch((erro) => console.error("Falha ao processar notificações:", erro.message));
-  const avisarVencimentos = () => void avisarContratosProximosDoVencimento().catch(erro => console.error("Falha ao avisar vencimentos:", erro.message));
-  avisarVencimentos();
-  setInterval(avisarVencimentos, 60 * 60_000);
-  const avisarFaturas = () => void avisarFaturasProximasDoVencimento().catch(erro => console.error("Falha ao avisar vencimento das faturas:", erro.message));
-  avisarFaturas();
-  const avisarAutoleituras = () => void enfileirarLembretesAutoleitura().catch(() => console.error("Falha ao enfileirar lembretes de autoleitura."));
-  avisarAutoleituras();
-  setInterval(avisarAutoleituras, 60 * 60_000);
-  setInterval(avisarFaturas, 60 * 60_000);
-  const conferirRateios=()=>void processarRateiosAutomaticos().catch(error=>console.error("Falha ao conferir rateios automáticos",{tipo:error?.code??error?.name??"Error"}));
-  conferirRateios();
-  setInterval(conferirRateios,60_000);
-  processarConvitesAdesoes().catch(() => console.error("Falha ao processar convites de assinaturas."));
-  processarContasDeEnergiaRecebidas().catch((erro) => console.error("Falha ao importar produção por e-mail:", erro.message));
-  processarFilaDeRecebimentosFaturas().catch((erro) => console.error("Falha ao processar faturas recebidas por e-mail:", erro.message));
-  setInterval(() => {
-    processarFilaDeNotificacoes().catch((erro) => console.error("Falha ao processar notificações:", erro.message));
-    processarConvitesAdesoes().catch(() => console.error("Falha ao processar convites de assinaturas."));
-  }, 60_000);
-  setInterval(() => {
-    processarContasDeEnergiaRecebidas().catch((erro) => console.error("Falha ao importar produção por e-mail:", erro.message));
-  }, 5 * 60_000);
-  setInterval(() => {
-    processarFilaDeRecebimentosFaturas().catch((erro) => console.error("Falha ao processar faturas recebidas por e-mail:", erro.message));
-  }, 60_000);
+  startPrimaryWork();
   });
 }
 

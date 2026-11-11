@@ -25,6 +25,7 @@ async function main() {
   } finally { api.stop(); }
   if (process.env.NEON_STORAGE_SNAPSHOT_ENABLED === 'true') {
     console.log('Recuperação autenticada Neon validada', await verifyNeonRecovery(process.env));
+    console.log('Troca automática Neon validada', await verifyNeonRecovery(process.env, true));
   }
 }
 
