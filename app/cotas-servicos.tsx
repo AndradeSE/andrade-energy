@@ -16,8 +16,8 @@ const number = (value: number) => Number(value).toLocaleString("pt-BR", { maximu
 const date = (value: string) => new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
 const panels: Record<string, string> = { NEON: "https://console.neon.tech/", AZURE: "https://portal.azure.com/", RENDER: "https://dashboard.render.com/", RESEND: "https://resend.com/overview", BREVO: "https://app.brevo.com/", NETLIFY: "https://app.netlify.com/", SUPABASE: "https://supabase.com/dashboard" };
 const categories = [
-  { id: "bancos", label: "Bancos de dados", icon: "layers-outline" },
-  { id: "servidores", label: "Servidores", icon: "server-outline" },
+  { id: "bancos", label: "Bancos de dados", icon: "server-outline" },
+  { id: "servidores", label: "Servidores", icon: "cloud-outline" },
   { id: "voz", label: "Voz", icon: "volume-high-outline" },
   { id: "email", label: "E-mail", icon: "mail-outline" },
   { id: "automacao", label: "Automação", icon: "shield-checkmark-outline" },
@@ -81,9 +81,9 @@ export default function ServiceQuotasScreen() {
             <Text style={[styles.categoryLabel, category === item.id && styles.categoryLabelSelected]}>{item.label}</Text>
           </TouchableOpacity>)}
         </View>
-        <Text style={styles.categoryTitle}>{categories.find(item => item.id === category)?.label}</Text>
+
         {category === "bancos" && data?.reservaDados ? <Card>
-          <Text style={styles.title}>Banco de dados e reserva</Text>
+          <Text style={styles.title}>Estado da recuperação</Text>
           <Text style={styles.balance}>{data.reservaDados.banco === 'NEON' ? 'Neon · somente consulta' : 'Supabase · principal ativo'}</Text>
           <Text style={styles.text}>{!data.reservaDados.reservaConfigurada ? 'Reserva de dados não configurada neste ambiente.'
             : data.reservaDados.consultaIndisponivel ? 'Não foi possível conferir a cópia do Neon agora.'
@@ -94,6 +94,12 @@ export default function ServiceQuotasScreen() {
             <Text style={styles.note}>PDFs privados: {data.reservaDados.documentosProntos ? 'cópia conferida' : 'conferência pendente'}</Text>
             <Text style={styles.note}>A recuperação é somente para consulta. Não executa alterações, cobranças nem protocolos. A troca automática ainda não está habilitada.</Text>
           </> : null}
+        </Card> : null}
+        {category === "bancos" && data?.reservaDados?.reservaConfigurada && !visibleGroups.some(group => group[0].servico === "NEON") ? <Card>
+          <Text style={styles.title}>Neon · banco reserva</Text>
+          <Text style={styles.balance}>{data.reservaDados.bancoBytes == null ? "Uso indisponível" : `${number(data.reservaDados.bancoBytes / 1048576)} MiB no PostgreSQL`}</Text>
+          <Text style={styles.note}>O tamanho do banco não inclui armazenamento de arquivos. Consulte o painel do Neon para os limites e o consumo do plano.</Text>
+          <Text style={styles.link} accessibilityRole="link" onPress={() => void Linking.openURL(panels.NEON).catch(() => setError("Não foi possível abrir o painel."))}>Abrir painel do Neon</Text>
         </Card> : null}
         {visibleGroups.map(group => <Card key={`${group[0].servico}:${group[0].metrica}`}>
           <Text style={styles.title}>{group[0].servico === "RESEND" ? "Resend · e-mails" : group[0].rotulo}</Text>
@@ -128,11 +134,10 @@ export default function ServiceQuotasScreen() {
 }
 const styles = StyleSheet.create({
   categories: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm },
-  categoryButton: { flexBasis: "46%", flexGrow: 1, minHeight: 54, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: Colors.border, borderRadius: 14, backgroundColor: Colors.surface },
+  categoryButton: { width: "100%", minHeight: 54, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: Colors.border, borderRadius: 14, backgroundColor: Colors.surface },
   categorySelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   categoryLabel: { color: Colors.primary, fontSize: 14, fontWeight: "700", flexShrink: 1 },
   categoryLabelSelected: { color: Colors.surface },
-  categoryTitle: { fontSize: 20, color: Colors.text, fontWeight: "800", marginTop: Spacing.sm },
   content: { padding: Spacing.lg, paddingBottom: 40, gap: Spacing.md },
   title: { fontSize: 18, fontWeight: "700", color: Colors.text, marginBottom: 8, flexShrink: 1 },
   text: { color: Colors.text, fontSize: 14, lineHeight: 21, marginBottom: 5 },

@@ -8,7 +8,7 @@ export type QuotaService = {
 };
 export type ServiceQuotas = { ambiente: string; alertas: number[]; servicos: QuotaService[];
   reservaDados?: { banco: 'SUPABASE' | 'NEON'; modo: 'PRINCIPAL' | 'SOMENTE_LEITURA'; reservaConfigurada: boolean;
-    prontaParaConsulta?: boolean; ultimaCopia?: string | null; documentosProntos?: boolean; consultaIndisponivel?: boolean;
+    bancoBytes?: number | null; prontaParaConsulta?: boolean; ultimaCopia?: string | null; documentosProntos?: boolean; consultaIndisponivel?: boolean;
     trocaAutomatica: boolean; limitacao?: string };
 };
 export async function listServiceQuotas() {
