@@ -1,3 +1,4 @@
+import UnitRainOverlay from "../components/cliente/UnitRainOverlay";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from "expo-document-picker";
@@ -685,6 +686,7 @@ export default function SelecionarUnidade() {
                 }
               >
                 <ImageBackground source={unidade?.foto_card_local ? { uri: unidade.foto_card_local } : require("../assets/images/login-solar-header.png")} imageStyle={styles.unitCoverImage} style={styles.unitCover}>
+                  <UnitRainOverlay unidadeId={unidade!.id} />
                   <LinearGradient colors={["rgba(3,30,22,.12)", "rgba(3,30,22,.88)"]} style={styles.unitCoverShade}>
                     <View style={styles.unitCoverTop}>
                       <View style={styles.unitLiveBadge}><View style={styles.unitLiveDot} /><Text style={styles.unitLiveText}>{unidadeInativa ? "INATIVA" : contratoLiberado ? "ATIVA" : "AGUARDANDO CONTRATO"}</Text></View>

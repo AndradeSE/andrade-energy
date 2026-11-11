@@ -13,6 +13,11 @@ import {Pressable} from '../assistant/AssistantNativeControls';
 import {Colors} from '../../theme';
 
 type Mode='MANUAL'|'AUTORIZADO'|'AUTOMATICO';
+const summaries: Record<Mode, string> = {
+  MANUAL: 'Salve o CSV e protocole no Cemig Atende.',
+  AUTORIZADO: 'Confira a planilha e autorize o app a enviar só esta competência.',
+  AUTOMATICO: 'O app envia em segundo plano quando chegar a fatura da usina e de todas as UCs ativas.',
+};
 const options:Record<Mode,{title:string;description:string;accept:string}>={
  MANUAL:{title:'Envio manual',description:'Você abre o CSV da competência, confere os dados e salva o arquivo. Ao aceitar, abrimos o Cemig Atende. Você entra na conta, anexa o CSV e conclui a solicitação no portal. Abrir o portal não envia o arquivo nem comprova protocolo.',accept:'Aceitar e abrir portal'},
  AUTORIZADO:{title:'Autorizar e enviar',description:'Quando a planilha estiver pronta, você confere a usina, a competência, as UCs, os percentuais e a âncora. Depois autoriza o robô a executar aquele envio. O resultado deve registrar o protocolo ou informar a falha; resultado incerto não permite repetir o envio automaticamente.',accept:'Aceitar e autorizar envio'},
@@ -72,7 +77,7 @@ export default function RateioSendOptions({usinaId,competencia,disabled=false}:{
   finally{setOpening(false);}
  }
  return <View style={{gap:12}}><Text style={styles.title}>Envio à Cemig</Text><Text style={styles.text}>Escolha uma opção para ler como funciona antes de confirmar.</Text>
-  {(Object.keys(options) as Mode[]).filter(value=>value!=='AUTOMATICO'||!queue?.habilitado||queue.modo!=='AUTOMATICO').map(value=><View key={value} style={{gap:6}}><Button title={options[value].title} disabled={disabled} onPress={()=>setMode(value)}/>{value==="AUTOMATICO"?<Text style={styles.text}>Com o envio automático ativado, o app aguarda os dados de produção e as faturas de todas as UCs vigentes. Com o fechamento pronto, o envio usa o navegador integrado nos aparelhos compatíveis.</Text>:null}</View>)}
+  {(Object.keys(options) as Mode[]).filter(value=>value!=='AUTOMATICO'||!queue?.habilitado||queue.modo!=='AUTOMATICO').map(value=><View key={value} style={{gap:6}}><Button title={options[value].title} disabled={disabled} onPress={()=>setMode(value)}/><Text style={styles.text}>{summaries[value]}</Text></View>)}
   {nativeAvailable&&queue?<><Text style={styles.text}>{queue.habilitado?`Envio ${queue.modo==='AUTORIZADO'?'autorizado desta competência':'automático'} habilitado neste cadastro.`:'Envio automático desativado.'}</Text>{queue.habilitado?<Button title={queue.modo==='AUTORIZADO'?'Cancelar envio autorizado':'Desativar envio automático'} disabled={opening} onPress={()=>{setOpening(true);void configure(false).catch(e=>Alert.alert('Não foi possível desativar',e?.message??'Confira a conexão.')).finally(()=>setOpening(false));}}/>:null}{queue.itens?.map(item=><Text key={item.id} style={styles.text}>{item.competencia.slice(0,7)} · {item.estado}{item.protocolo?` · protocolo ${item.protocolo}`:''}</Text>)}</>:null}
   <Modal visible={!!mode} transparent animationType="slide" onRequestClose={close}>
    <View style={styles.overlay}><View accessibilityViewIsModal style={[styles.sheet,{paddingBottom:Math.max(20,insets.bottom),marginTop:insets.top+24}]}>

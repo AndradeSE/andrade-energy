@@ -101,9 +101,23 @@ export default function Faturas() {
     if (!url) return;
     try {
       setBaixando(chave);
-      router.push({ pathname: "/documento-fatura", params: { uri: url } });
-      return;
-
+      if (!url.startsWith("https://")) throw new Error("Link do PDF indisponível.");
+      if (Platform.OS === "web") {
+        await Linking.openURL(url);
+        return;
+      }
+      const destino = new File(Paths.cache, nome.replace(/[^a-zA-Z0-9.-]/g, "-"));
+      const arquivo = await File.downloadFileAsync(url, destino, { idempotent: true });
+      if (Platform.OS === "android") {
+        try {
+          const uri = await FileSystemLegacy.getContentUriAsync(arquivo.uri);
+          await IntentLauncher.startActivityAsync("android.intent.action.VIEW", { data: uri, flags: 1, type: "application/pdf" });
+          return;
+        } catch {
+          // O seletor de apps permite salvar o PDF quando não há leitor instalado.
+        }
+      }
+      await Sharing.shareAsync(arquivo.uri, { mimeType: "application/pdf", UTI: "com.adobe.pdf" });
     } catch {
       Alert.alert("Não foi possível baixar", "Confira sua conexão e tente novamente.");
     } finally { setBaixando(undefined); }
