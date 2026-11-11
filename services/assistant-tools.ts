@@ -245,7 +245,7 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
       if (ctx.generator && !ctx.plantId) return { text: "Selecione uma usina para consultar as faturas corretas." };
       if (!ctx.generator && !ctx.unitNumber && !ctx.clientId) return { text: "Selecione sua UC para consultar a fatura." };
       const rows = await listarFaturas(ctx.generator ? undefined : ctx.clientId, ctx.generator ? undefined : ctx.unitNumber, ctx.generator ? ctx.plantId : undefined);
-      const pedido = normalizeCapabilityText(question);
+      const pedido = normalizeCapabilityText(question).replace(/[!?.,;:]+/g, " ").replace(/\s+/g, " ").trim();
       const clientesCitados = ctx.generator ? onlyArray(await listarClientes(ctx.plantId!)).filter(cliente => {
         const nome = normalizeCapabilityText(scalar(cliente.nome, ""));
         const partesDoNome = nome.split(" ").filter(parte => parte.length >= 3);
