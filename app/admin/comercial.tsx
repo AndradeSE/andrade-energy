@@ -35,6 +35,7 @@ const moeda = (value: unknown) =>
   });
 export default function HomeComercial() {
   const { usuario, logout } = useAuth();
+  const podeTrocarAmbiente = String(usuario?.papel_empresa ?? "").startsWith("COLABORADOR_") ? usuario?.permissoes?.ambientes_gerador === true : usuario?.perfil === "ADMIN";
   const assistantHidden = useSyncExternalStore(subscribeFloatingHidden, floatingHidden);
   useEffect(() => { void loadFloatingPreference(String(usuario?.id ?? "")); }, [usuario?.id]);
   const queryClient = useQueryClient();
@@ -240,8 +241,10 @@ export default function HomeComercial() {
         </View>
         <Section title="Acesso rápido" framed={false}>
           <QuickAccessCarousel
+            addedItemIds={podeTrocarAmbiente ? ["trocar-ambiente"] : []}
             storageKey={`comercial-home-${usuario?.id ?? "anonimo"}`}
             items={([
+              ...(podeTrocarAmbiente ? [{ id: "trocar-ambiente", icon: "swap-horizontal-outline", label: "Trocar ambiente", onPress: () => router.replace("/admin/escolher-area" as any) }] : []),
               { icon: "pulse-outline", label: "Clientes ativos", value: `${data?.resumo.ativas ?? 0} monitorados`, onPress: () => router.push("/geradores/monitoramento" as any) },
               { icon: "layers-outline", label: "Empresas parceiras", value: "Identidade e operação", onPress: () => router.push("/admin/empresas" as any) },
               { icon: "person-add-outline", label: "Convidar gerador", onPress: () => router.push("/geradores/convidar") },
@@ -252,7 +255,7 @@ export default function HomeComercial() {
               { icon: "search-outline", label: "Pesquisar", onPress: () => router.push({ pathname: "/pesquisa", params: { perfil: "comercial" } }) },
               { icon: "person-outline", label: "Meu perfil", onPress: () => router.push("/admin/perfil") },
               ...(isAssistantEnabled && assistantHidden ? [{ icon: "chatbubble-ellipses-outline", label: "Mostrar Solar", onPress: () => void setFloatingHidden(String(usuario?.id ?? ""), false) }] : []),
-            ].filter((item) => !colaboradorComercial || ["Clientes ativos", "Tutoriais", "Sobre e atualizações", "Meu perfil", "Mostrar Solar"].includes(item.label))) as any}
+            ].filter((item) => !colaboradorComercial || ["Clientes ativos", "Tutoriais", "Sobre e atualizações", "Meu perfil", "Mostrar Solar", "Trocar ambiente"].includes(item.label))) as any}
           />
         </Section>
         {!colaboradorComercial && !loading && data ? (
