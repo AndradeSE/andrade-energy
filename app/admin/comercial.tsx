@@ -252,7 +252,6 @@ export default function HomeComercial() {
               { id: "Compartilhar app Gerador", icon: "download-outline", label: "Compartilhar app Gerador", value: baixandoApp === "gerador" ? `Baixando ${progressoApp}%` : "Para Android", onPress: () => void baixarApp("gerador") },
               { id: "Compartilhar app Consumidor", icon: "phone-portrait-outline", label: "Compartilhar app Consumidor", value: baixandoApp === "consumidor" ? `Baixando ${progressoApp}%` : "Para Android", onPress: () => void baixarApp("consumidor") },
               { icon: "information-circle-outline", label: "Sobre e atualizações", onPress: () => router.push("/sobre") },
-              { icon: "search-outline", label: "Pesquisar", onPress: () => router.push({ pathname: "/pesquisa", params: { perfil: "comercial" } }) },
               { icon: "person-outline", label: "Meu perfil", onPress: () => router.push("/admin/perfil") },
               ...(isAssistantEnabled && assistantHidden ? [{ icon: "chatbubble-ellipses-outline", label: "Mostrar Solar", onPress: () => void setFloatingHidden(String(usuario?.id ?? ""), false) }] : []),
             ].filter((item) => !colaboradorComercial || ["Clientes ativos", "Tutoriais", "Sobre e atualizações", "Meu perfil", "Mostrar Solar", "Trocar ambiente"].includes(item.label))) as any}

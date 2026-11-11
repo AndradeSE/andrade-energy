@@ -73,7 +73,6 @@ const atalhos = [
   { icon: "layers-outline", label: "Trocar usina", rota: "/selecionar-unidade" },
   { icon: "person-outline", label: "Meu perfil", rota: "/perfil" },
   { icon: "information-circle-outline", label: "Sobre e atualizações", rota: "/sobre" },
-  { icon: "search-outline", label: "Pesquisar", rota: "/pesquisa?perfil=usinas" },
 ] as const;
 
 export default function DashboardGestor() {
