@@ -183,7 +183,7 @@ export default function DetalheFatura() {
     try {
       setDocumentoBaixando(nomeArquivo);
 
-      router.push({ pathname: "/documento-fatura", params: { uri: url } });
+      router.push({ pathname: "/documento-fatura", params: { uri: url, faturaId: String(id), tipo: nomeArquivo.startsWith("cemig-") ? "cemig" : nomeArquivo.startsWith("relatorio-") ? "calculo" : "andrade" } });
       return;
     } catch (erro: any) {
       if (/cancel/i.test(String(erro?.message ?? erro))) return;
@@ -233,7 +233,7 @@ export default function DetalheFatura() {
     const url = String(fatura?.pdf_boleto_url ?? "").trim();
     if (!url) return Alert.alert("Boleto em preparação", "O Asaas ainda não liberou o boleto.");
     try {
-      router.push({ pathname: "/documento-fatura", params: { uri: url } });
+      router.push({ pathname: "/documento-fatura", params: { uri: url, faturaId: String(id), tipo: "boleto" } });
     } catch {
       Alert.alert("Não foi possível abrir o boleto", "Confira sua conexão e tente novamente.");
     }

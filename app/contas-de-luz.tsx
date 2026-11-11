@@ -28,7 +28,7 @@ export default function ContasDeLuz() {
 
   async function abrirPdf(item: any) {
     if (!item.pdf_cemig_url) return Alert.alert("PDF em preparação", "A conta da concessionária ainda não está disponível.");
-    router.push({ pathname: "/documento-fatura", params: { uri: item.pdf_cemig_url } });
+    router.push({ pathname: "/documento-fatura", params: { uri: item.pdf_cemig_url, faturaId: item.id, tipo: "cemig" } });
     return;
   }
 

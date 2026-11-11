@@ -84,11 +84,11 @@ export default function Faturas() {
     }
   }
 
-  async function baixarDocumento(url: string | undefined, nome: string, chave: string) {
+  async function baixarDocumento(url: string | undefined, nome: string, chave: string, faturaId: string, tipo: string) {
     if (!url) return;
     try {
       setBaixando(chave);
-      router.push({ pathname: "/documento-fatura", params: { uri: url } });
+      router.push({ pathname: "/documento-fatura", params: { uri: url, faturaId, tipo } });
       return;
 
     } catch {
@@ -101,7 +101,7 @@ export default function Faturas() {
     try {
       setBaixando(chave);
       const url = await obterRelatorioCalculoFatura(item.id);
-      await baixarDocumento(url, `relatorio-calculo-${referenciaArquivo}.pdf`, chave);
+      await baixarDocumento(url, `relatorio-calculo-${referenciaArquivo}.pdf`, chave, item.id, "calculo");
     } catch (erro: any) {
       Alert.alert("Não foi possível gerar o relatório", erro?.response?.data?.message ?? "Confira sua conexão e tente novamente.");
     } finally { setBaixando(undefined); }
@@ -115,7 +115,7 @@ export default function Faturas() {
       const atual = atualizadas.data?.find((fatura: any) => fatura.id === item.id);
       const url = atual?.[campo];
       if (!url) throw new Error("O documento não está disponível. Atualize a lista e tente novamente.");
-      await baixarDocumento(url, nome, chave);
+      await baixarDocumento(url, nome, chave, item.id, campo === "pdf_cemig_url" ? "cemig" : "andrade");
     } catch (erro: any) {
       Alert.alert("Não foi possível baixar", erro?.response?.data?.message ?? erro?.message ?? "Tente novamente.");
     } finally { setBaixando(undefined); }

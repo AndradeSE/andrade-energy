@@ -308,6 +308,10 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     setOpeningInvoiceId(key);
     try {
       const resolved = await resolveAssistantDocument(doc);
+      if (doc.kind === "conta-luz" && resolved.url) {
+        router.push({ pathname: "/documento-fatura", params: { uri: resolved.url, faturaId: doc.id, tipo: "cemig" } });
+        return true;
+      }
       if (generation !== contextGeneration.current) return false;
       let uri = resolved.file;
       if (!uri) {
@@ -318,7 +322,6 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
         uri = file.uri;
       }
       if (generation !== contextGeneration.current) return;
-      if (doc.kind === "conta-luz" && PdfRuntime.runtimeVersion && /pdf-voice|production-autoleitura/.test(PdfRuntime.runtimeVersion)) { contratoEmLeitura.current = undefined; setPdfContrato({ uri }); return true; }
       if (Platform.OS === "android") {
         try {
           const contentUri = await FileSystemLegacy.getContentUriAsync(uri);
