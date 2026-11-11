@@ -109,7 +109,7 @@ export default function ClienteHeader({
 
   const numeroUnidade = String(unidadeAtual?.numero || unidadeSelecionada?.numero || uc || "").trim();
   const nomeUnidade = String(unidadeAtual?.apelido || unidadeSelecionada?.apelido || "").trim();
-  const tituloUnidade = nomeUnidade || numeroUnidade;
+  const mostrarApelido = Boolean(nomeUnidade && nomeUnidade !== numeroUnidade);
   const concessionariaUnidade = String(
     unidadeAtual?.distribuidora || unidadeSelecionada?.distribuidora || distribuidora || "Concessionária"
   ).trim();
@@ -343,15 +343,6 @@ export default function ClienteHeader({
               >
                 Olá, {primeiroNome}
               </Text>
-
-              <Text
-                numberOfLines={1}
-                style={
-                  styles.greetingSubtitle
-                }
-              >
-                {numeroUnidade ? `UC ${numeroUnidade}` : concessionariaUnidade}
-              </Text>
             </View>
           </TouchableOpacity>
 
@@ -386,7 +377,7 @@ export default function ClienteHeader({
           <View style={styles.unitIcon}><Ionicons name="flash" size={18} color="#FFFFFF" /></View>
           <View style={styles.unitContent}>
             <View style={styles.unitTitleRow}>
-              <Text numberOfLines={1} style={styles.unitCode}>{tituloUnidade}</Text>
+              {mostrarApelido ? <Text numberOfLines={1} style={styles.unitCode}>{nomeUnidade}</Text> : null}
               <TouchableOpacity
                 accessibilityLabel="Trocar unidade consumidora"
                 activeOpacity={0.82}

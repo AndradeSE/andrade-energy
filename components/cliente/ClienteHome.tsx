@@ -200,7 +200,7 @@ export default function ClienteHome() {
         <View style={styles.quickHeader}>
           <Text style={styles.quickTitle}>Acesso rápido</Text>
         </View>
-        {unidadeSelecionada && unidadeComAutoleitura === unidadeSelecionada.id ? (
+        {unidadeSelecionada && (unidadeComAutoleitura === unidadeSelecionada.id || (unidadeSelecionada.status === "ATIVA" && unidadeSelecionada.autoleitura_rural_ativa === true)) ? (
           <View style={{ marginBottom: Spacing.md }}><Button
             title="Informar leitura do medidor"
             onPress={() => router.push({ pathname: "/autoleitura", params: { id: unidadeSelecionada.id, numero: unidadeSelecionada.numero } })}
@@ -215,7 +215,7 @@ export default function ClienteHome() {
           pinnedIds={isPreviewEnvironment && assistantHidden ? ["mostrar-assistente"] : []}
           items={[
             ...(user?.cliente_id ? [{ id: "solicitar-nova-uc", icon: "add-circle-outline" as const, label: "Solicitar cadastro de nova UC", onPress: () => router.push({ pathname: "/clientes/faturas-anexadas", params: { clienteId: String(user.cliente_id) } }) }] : []),
-            ...(unidadeSelecionada && unidadeComAutoleitura === unidadeSelecionada.id ? [{
+            ...(unidadeSelecionada && (unidadeComAutoleitura === unidadeSelecionada.id || (unidadeSelecionada.status === "ATIVA" && unidadeSelecionada.autoleitura_rural_ativa === true)) ? [{
               id: "historico-autoleituras",
               icon: "time-outline" as const,
               label: "Histórico de leituras",
@@ -236,7 +236,6 @@ export default function ClienteHome() {
                 ? router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidadeRecebimentoId } })
                 : router.push("/selecionar-unidade"),
             }] : []),
-            { id: "pesquisar", icon: "search-outline", label: "Pesquisar", onPress: () => router.push({ pathname: "/pesquisa", params: { perfil: "consumidor" } }) },
             { id: "sobre", icon: "information-circle-outline", label: "Sobre e atualizações", onPress: () => router.push("/sobre") },
             {
               id: "trocar-unidade",
