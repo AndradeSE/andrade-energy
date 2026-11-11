@@ -32,6 +32,7 @@ export async function queryLiveAccount(question: string, ctx: AssistantAccountCo
   }
   const production = detectProductionMetric(text);
   const capability = production === "energiaDisponivel" ? undefined : detectCapability(text);
+  if (capability?.module === "conta-luz") return executeAssistantTool(capability, ctx, text);
   const document = asksLatestInvoiceDocument(text);
   const overdue = asksOverdueInvoices(text);
   const financial = detectFinancialMetric(text);
