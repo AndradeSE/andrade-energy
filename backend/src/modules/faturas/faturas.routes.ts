@@ -1,3 +1,4 @@
+import { visualizarPaginaFatura } from "./visualizacaoFatura";
 import { Router } from "express";
 import { upload } from "../../config/multer";
 
@@ -32,6 +33,9 @@ router.post(
   analisarFaturaController
 );
 
+router.get("/:id/visualizacao", exigirContratoDaUc, (req, res) => {
+  void visualizarPaginaFatura(req, res).catch(() => { res.status(503).json({ message: "Não foi possível consultar a fatura." }); });
+});
 router.get("/:id/relatorio-calculo", exigirContratoDaUc, obterRelatorioCalculoFaturaController);
 router.get("/:id", exigirContratoDaUc, detalharFaturaController);
 router.delete("/:id", exigirGestor, excluirFaturaController);
