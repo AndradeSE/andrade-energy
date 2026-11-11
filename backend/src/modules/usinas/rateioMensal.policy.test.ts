@@ -83,3 +83,22 @@ test('prioridade por consumo desconta saldo da própria UC sem favorecer acúmul
  assert.equal(p.linhas[0].uc,'111111111111');assert.equal(p.linhas[0].energiaPrevista,500);
  assert.ok(p.linhas[1].energiaPrevista<=1500);assert.ok(p.energiaNaoAtendida>=500);
 });
+
+test("saldo suficiente retira recebedora do CSV e destina sobra a ancora", () => {
+ const plano = proporRateioMensal(10000, [{numero:"123456789012",consumo_medio_kwh:1000,saldo_atual_kwh:5000,documento:"52998224725"}], "987654321012");
+ assert.equal(plano.suspensas[0].uc,"123456789012");
+ assert.equal(plano.linhas.length,1);
+ assert.equal(plano.linhas[0].percentual,100);
+ const csv = csvCemigRateio(plano,"456789123012","52998224725",true);
+ assert.doesNotMatch(csv,/123456789012/);
+ assert.match(csv,/;100;X$/);
+});
+
+test("arredondamento a zero nunca coloca recebedora com cota zero no CSV", () => {
+ const plano = proporRateioMensal(10000, [{numero:"123456789012",consumo_medio_kwh:1000,saldo_atual_kwh:999.999,documento:"52998224725"}], "987654321012");
+ assert.equal(plano.semAlocacao[0].motivo,"PRECISAO_CSV");
+ assert.equal(plano.linhas.length,1);
+ assert.equal(plano.linhas[0].percentual,100);
+ assert.ok(plano.energiaNaoAtendida>0);
+ assert.doesNotMatch(csvCemigRateio(plano,"456789123012","52998224725",true),/123456789012/);
+});

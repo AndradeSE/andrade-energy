@@ -12,6 +12,7 @@ export function conferirArtefatoEnvio(plano:any){
  if(!geradora)throw new Error('Geradora ausente no arquivo.');
  const rows=plano.csv.trim().split(/\r?\n/).map((line:string)=>line.split(';'));
  if(!rows.length||rows.some((r:string[])=>r.length!==4||!/^\d{6,20}$/.test(r[0])||!/^\d{11}(\d{3})?$/.test(r[1])||!/^\d+(,\d{1,4})?$/.test(r[2])||!['','X'].includes(r[3])))throw new Error('CSV fora do padrão.');
+ if(rows.some((r:string[])=>Number(r[2].replace(',','.'))===0&&r[0]!==geradora))throw new Error('Somente a UC geradora pode ter cota zero no arquivo Cemig.');
  if(rows.filter((r:string[])=>r[3]==='X').length!==1||new Set(rows.map((r:string[])=>r[0])).size!==rows.length||rows.reduce((n:number,r:string[])=>n+Math.round(Number(r[2].replace(',','.'))*10000),0)!==1000000)throw new Error('Confira as UCs, âncora e percentuais.');
  return {hash:createHash('sha256').update(plano.csv).digest('hex'),geradora};
 }
