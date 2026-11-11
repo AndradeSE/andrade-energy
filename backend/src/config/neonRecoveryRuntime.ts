@@ -8,9 +8,10 @@ import { neonStorageConnection, reserveDocumentsBucket } from "./neonStorageRunt
 import { recoveryStorage } from "./neonRecoveryStorage";
 import { recoveryReadAllowed, validateRecoverySnapshot } from "./neonRecoveryPolicy";
 import { recoveryActive, setRecoveryState } from "./neonRecoveryState";
-import { installRecoveryClient } from "./supabase";
+import { installRecoveryClient, withRecoveryClient, sourceSupabase } from "./supabase";
 
 let refresh: (() => Promise<void>) | null = null;
+let scopedClient: typeof sourceSupabase | null = null;
 export const neonRecoveryGuard: RequestHandler = async (req, res, next) => {
   if (!recoveryActive() || req.path === "/health" || req.method === "OPTIONS") return next();
   res.setHeader("Cache-Control", "private, no-store");
@@ -18,12 +19,19 @@ export const neonRecoveryGuard: RequestHandler = async (req, res, next) => {
   if (!recoveryReadAllowed(req.method, req.path)) return res.status(503).json({
     code: "RESERVA_SOMENTE_LEITURA", message: "Recuperação de dados em consulta. Alterações e operações automáticas estão bloqueadas.",
   });
-  try { await refresh!(); return next(); }
+  const client = scopedClient;
+  const validate = refresh;
+  try {
+    if (!validate) throw new Error("Reserva em transição");
+    await validate();
+    if (validate !== refresh) throw new Error("Reserva em transição");
+    return client ? withRecoveryClient(client, next) : next();
+  }
   catch { return res.status(503).json({ code: "RESERVA_DESATUALIZADA", message: "A cópia de recuperação precisa ser atualizada antes da consulta." }); }
 };
 
 /** Opt-in Production-only recovery. No automatic promotion of an asynchronous copy to writer. */
-export async function initializeNeonRecovery(env: NodeJS.ProcessEnv) {
+export async function initializeNeonRecovery(env: NodeJS.ProcessEnv, scoped = false) {
   if (env.NEON_RECOVERY_READ_ONLY !== "true") return null;
   if (env.API_RUNTIME === "serverless" || env.API_DISTRIBUTED_RATE_LIMIT === "true" || env.NEON_API_ENABLED !== "true") {
     throw new Error("Recuperação exige Render com API privada e limitador local");
@@ -35,7 +43,7 @@ export async function initializeNeonRecovery(env: NodeJS.ProcessEnv) {
       await pg.connect();
       const { rows: [row] } = await pg.query("SELECT mode,captured_at,completed_at,storage_ready,storage_manifest FROM reserve_control.snapshot_state WHERE id=1");
       const valid = validateRecoverySnapshot(row);
-      setRecoveryState(valid);
+      if (!scoped || scopedClient) setRecoveryState(valid);
       return row;
     } finally { await pg.end(); }
   };
@@ -56,7 +64,8 @@ export async function initializeNeonRecovery(env: NodeJS.ProcessEnv) {
     const value = Reflect.get(target, key);
     return typeof value === "function" ? value.bind(target) : value;
   } });
-  const restore = installRecoveryClient(client);
+  const restore = scoped ? () => { scopedClient = null; } : installRecoveryClient(client);
   refresh = async () => { await state(); };
-  return { stop() { restore(); api.stop(); storage.destroy(); refresh = null; setRecoveryState(null); } };
+  if (scoped) { scopedClient = client; await state().catch(error => { restore(); api.stop(); storage.destroy(); refresh = null; setRecoveryState(null); throw error; }); }
+  return { client, stop() { restore(); api.stop(); storage.destroy(); refresh = null; setRecoveryState(null); } };
 }

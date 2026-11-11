@@ -5,18 +5,29 @@ import { Client } from 'pg';
 import { neonProductionConnection } from './neonSnapshotRuntime';
 import { initializeNeonRecovery } from './neonRecoveryRuntime';
 import { recoveryStatus } from './neonRecoveryState';
-import { supabase } from './supabase';
+import { supabase, withRecoveryClient } from './supabase';
+import { createNeonFailoverMonitor } from './neonFailoverMonitor';
 import { hashToken } from '../utils/token';
 import { prepareRecoveryEvents, publishRecoveryTransition } from './neonRecoveryEvents';
 
 /** A short-lived session exists only in the isolated replica; no login/provider or business mutation. */
-export async function verifyNeonRecovery(env: NodeJS.ProcessEnv) {
+export async function verifyNeonRecovery(env: NodeJS.ProcessEnv, automatic = false) {
   const pg=new Client(neonProductionConnection(env));
   const sessionId=randomUUID(), token=randomBytes(32).toString('hex');
   const eventEnv={...env,RENDER_SERVICE_ID:`probe-${sessionId}`};
   const eventInstance=createHash('sha256').update(eventEnv.RENDER_SERVICE_ID).digest('hex');
   let recovery: Awaited<ReturnType<typeof initializeNeonRecovery>> = null;
   let server: Server | null=null;
+  let primaryHealthy = false;
+  const transitions: string[] = [];
+  const tick = createNeonFailoverMonitor({
+    probePrimary: async () => primaryHealthy,
+    activate: async () => {
+      recovery = await initializeNeonRecovery({...env,NEON_RECOVERY_READ_ONLY:'true',API_RUNTIME:'render',API_DISTRIBUTED_RATE_LIMIT:'false'}, true);
+      return recovery;
+    },
+    onTransition: async provider => { transitions.push(provider); },
+  });
   try {
     await prepareRecoveryEvents(env);
     await pg.connect();
@@ -36,7 +47,17 @@ export async function verifyNeonRecovery(env: NodeJS.ProcessEnv) {
     if(!user) throw new Error('Production sem administrador para conferir a recuperação');
     await pg.query(`INSERT INTO public.sessoes_usuarios(id,usuario_id,empresa_ativa_id,token_hash,expira_em)
       VALUES($1,$2,$3,$4,now()+interval '3 minutes')`,[sessionId,user.id,user.empresa_id,hashToken(token)]);
-    recovery=await initializeNeonRecovery({...env,NEON_RECOVERY_READ_ONLY:'true',API_RUNTIME:'render',API_DISTRIBUTED_RATE_LIMIT:'false'});
+    if (automatic) {
+      await tick();
+      assert.equal(recoveryStatus().banco, 'SUPABASE');
+      await tick();
+      assert.equal(recoveryStatus().banco, 'NEON');
+      const outsideRequest = await supabase.from('sessoes_usuarios').select('id').eq('id',sessionId);
+      assert.equal(outsideRequest.error, null);
+      assert.equal(outsideRequest.data!.length, 0, 'background work must stay on the primary');
+    } else {
+      recovery=await initializeNeonRecovery({...env,NEON_RECOVERY_READ_ONLY:'true',API_RUNTIME:'render',API_DISTRIBUTED_RATE_LIMIT:'false'});
+    }
     // Import the real router without opening the production port or starting jobs.
     // The recovery instance uses local rate limits; distributed counters would be writes.
     const previousRuntime=process.env.API_RUNTIME,previousLimits=process.env.API_DISTRIBUTED_RATE_LIMIT;
@@ -77,9 +98,9 @@ export async function verifyNeonRecovery(env: NodeJS.ProcessEnv) {
     const {rows:[snapshot]}=await pg.query('SELECT storage_manifest FROM reserve_control.snapshot_state WHERE id=1');
     const document=snapshot.storage_manifest.find((item:any)=>item.bucket==='contratos');
     assert.ok(document);
-    const file=await supabase.storage.from('contratos').download(document.path);
+    const file=await withRecoveryClient(recovery!.client, () => supabase.storage.from('contratos').download(document.path));
     assert.equal(file.error,null);assert.equal(file.data!.size,document.size);
-    const signed=await supabase.storage.from('contratos').createSignedUrl(document.path,300);
+    const signed=await withRecoveryClient(recovery!.client, () => supabase.storage.from('contratos').createSignedUrl(document.path,300));
     assert.equal(signed.error,null);
     const downloaded=await fetch(signed.data!.signedUrl,{redirect:'error',signal:AbortSignal.timeout(15_000)});
     assert.equal(downloaded.status,200);
@@ -102,7 +123,15 @@ export async function verifyNeonRecovery(env: NodeJS.ProcessEnv) {
     await pg.query('UPDATE public.sessoes_usuarios SET revogada_em=now() WHERE id=$1',[sessionId]);
     assert.equal((await request('/api/auth/session')).status,401);
     assert.equal(recoveryStatus().banco,'NEON');
-    return {realHttpRouter:true,authenticated:true,tenantScoped:true,mutationsBlocked:true,revocationChecked:true,slidingSessionDisabled:true,transitionDeduplicated:true,privateFilesAdapted:true};
+    if (automatic) {
+      primaryHealthy = true;
+      await tick();
+      assert.equal(recoveryStatus().banco,'NEON');
+      await tick();
+      assert.equal(recoveryStatus().banco,'SUPABASE');
+      assert.deepEqual(transitions,['NEON','SUPABASE']);
+    }
+    return {automatic, returnedToPrimary: automatic, realHttpRouter:true,authenticated:true,tenantScoped:true,mutationsBlocked:true,revocationChecked:true,slidingSessionDisabled:true,transitionDeduplicated:true,privateFilesAdapted:true};
   } finally {
     if(server) await new Promise<void>((resolve,reject)=>server!.close(error=>error?reject(error):resolve()));
     recovery?.stop();
