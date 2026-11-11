@@ -34,7 +34,7 @@ export default function ServiceQuotasScreen() {
   const allowed = IS_GERADOR_APP && canViewServiceQuotas(usuario);
   const [data, setData] = useState<ServiceQuotas | null>(null);
   const [busy, setBusy] = useState(false);
-  const [category, setCategory] = useState<Category>("bancos");
+  const [selectedCategory, setCategory] = useState<Category>("bancos");
   const [error, setError] = useState("");
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -59,8 +59,13 @@ export default function ServiceQuotasScreen() {
     if (resendGroup) resendGroup.push(item);
     else quotaGroups.push([item]);
   }
+  const visibleCategories = categories.filter(item =>
+    item.id === "bancos" ||
+    (item.id === "servidores" && contingencyRoutingEnabled) ||
+    quotaGroups.some(group => categoryOf(group[0].servico) === item.id),
+  );
+  const category = visibleCategories.some(item => item.id === selectedCategory) ? selectedCategory : "bancos";
   const visibleGroups = quotaGroups.filter(group => categoryOf(group[0].servico) === category);
-  const visibleCategories = categories.filter(item => item.id !== "outros" || quotaGroups.some(group => categoryOf(group[0].servico) === "outros"));
   return <Screen><AppHeader title="Cotas de serviços" subtitle="Infraestrutura da plataforma" contextTitle="Administração" contextSubtitle="Uso e limites dos serviços" icon="speedometer-outline" showPlantContext={false} showPlantSwitch={false}/>
     <ElasticScrollView contentContainerStyle={styles.content}>
       {!allowed ? <Card><Text style={styles.title}>Acesso exclusivo de ADM</Text><Text style={styles.text}>Estas informações pertencem à administração da plataforma.</Text></Card> : <>
@@ -82,19 +87,17 @@ export default function ServiceQuotasScreen() {
           </TouchableOpacity>)}
         </View>
 
-        {category === "bancos" && data?.reservaDados ? <Card>
-          <Text style={styles.title}>Estado da recuperação</Text>
-          <Text style={styles.balance}>{data.reservaDados.banco === 'NEON' ? 'Neon · somente consulta' : 'Supabase · principal ativo'}</Text>
-          <Text style={styles.text}>{!data.reservaDados.reservaConfigurada ? 'Reserva de dados não configurada neste ambiente.'
-            : data.reservaDados.consultaIndisponivel ? 'Não foi possível conferir a cópia do Neon agora.'
-            : data.reservaDados.prontaParaConsulta ? 'Cópia Neon pronta para recuperação de consultas.'
-            : 'A cópia Neon precisa ser atualizada antes de atender consultas.'}</Text>
-          {data.reservaDados.ultimaCopia ? <Text style={styles.note}>Última cópia: {date(data.reservaDados.ultimaCopia)}</Text> : null}
-          {data.reservaDados.reservaConfigurada ? <>
-            <Text style={styles.note}>PDFs privados: {data.reservaDados.documentosProntos ? 'cópia conferida' : 'conferência pendente'}</Text>
-            <Text style={styles.note}>A recuperação é somente para consulta. Não executa alterações, cobranças nem protocolos. A troca automática ainda não está habilitada.</Text>
-          </> : null}
-        </Card> : null}
+        {category === "bancos" && data?.reservaDados ? <View style={styles.recoveryStatus}>
+          <Text style={styles.text}>
+            Banco ativo · {data.reservaDados.banco === "NEON" ? "Neon (somente consulta)" : "Supabase"}
+          </Text>
+          {data.reservaDados.reservaConfigurada ? <Text style={styles.note}>
+            {data.reservaDados.consultaIndisponivel ? "Estado da cópia indisponível"
+              : data.reservaDados.prontaParaConsulta ? "Cópia Neon pronta para consulta"
+              : "Cópia Neon precisa ser atualizada"}
+            {data.reservaDados.ultimaCopia ? ` · ${date(data.reservaDados.ultimaCopia)}` : ""}
+          </Text> : null}
+        </View> : null}
         {category === "bancos" && data?.reservaDados?.reservaConfigurada && !visibleGroups.some(group => group[0].servico === "NEON") ? <Card>
           <Text style={styles.title}>Neon · banco reserva</Text>
           <Text style={styles.balance}>{data.reservaDados.bancoBytes == null ? "Uso indisponível" : `${number(data.reservaDados.bancoBytes / 1048576)} MiB no PostgreSQL`}</Text>
@@ -110,10 +113,12 @@ export default function ServiceQuotasScreen() {
           const stale = reading?.desatualizada || (item.automatico && item.consulta?.status !== "OK" && !partialReadingFresh);
           return <View key={item.metrica} style={index > 0 ? styles.quotaDivider : undefined}>
             {item.servico === "RESEND" ? <Text style={styles.period}>{item.metrica === "emails_dia" ? "Cota diária" : "Cota mensal"}</Text> : null}
-            {item.observacao ? <Text style={styles.note}>{item.observacao}</Text> : null}
+                        {item.servico === "SUPABASE" && item.metrica === "banco_bytes" && reading?.limite == null
+              ? <Text style={styles.note}>Plano Free · 500 MB por projeto. O tamanho do banco é medido pelo PostgreSQL.</Text>
+              : item.observacao ? <Text style={styles.note}>{item.observacao}</Text> : null}
             {item.servico==='CAPMONSTER' && item.saldoDisponivel!=null ? <Text style={styles.balance}>US$ {item.saldoDisponivel.toLocaleString('pt-BR',{minimumFractionDigits:4,maximumFractionDigits:4})} disponíveis</Text> : null}
             {reading ? <>
-              <Text style={styles.balance}>{reading.limite === null ? "Consumo disponível · limite do plano não confirmado" : `${item.servico === "AZURE" ? "Estimativa: " : ""}${number(item.unidade === "bytes" ? (reading.restante ?? 0) / 1048576 : reading.restante ?? 0)} ${item.unidade === "bytes" ? "MB" : item.unidade} restantes`}</Text>
+              <Text style={styles.balance}>{reading.limite === null ? (item.servico === "SUPABASE" ? "Uso do banco" : "Consumo disponível · limite do plano não confirmado") : `${item.servico === "AZURE" ? "Estimativa: " : ""}${number(item.unidade === "bytes" ? (reading.restante ?? 0) / 1048576 : reading.restante ?? 0)} ${item.unidade === "bytes" ? "MB" : item.unidade} restantes`}</Text>
               <Text style={styles.text}>Utilizado: {number(item.unidade === "bytes" ? reading.usado / 1048576 : reading.usado)}{reading.limite === null ? "" : ` de ${number(item.unidade === "bytes" ? reading.limite / 1048576 : reading.limite)}`} {item.unidade === "bytes" ? "MB" : item.unidade}</Text>
               {pct !== null && pct !== undefined ? <><View style={styles.track}><View style={[styles.fill, { width: `${Math.min(Math.max(pct, 0), 100)}%`, backgroundColor: pct >= 90 ? "#B54228" : Colors.primary }]}/></View><Text style={styles.text}>{number(pct)}% utilizado</Text></> : null}
               <Text style={styles.text}>{item.servico === "BREVO" ? "Plano gratuito · limite diário de envios" : reading.renova_em ? `${item.servico === "SUPABASE" ? "Leitura válida até" : reading.origem === "API_OFICIAL" ? item.servico === "AZURE" ? "Renovação mensal prevista" : "Renovação informada" : "Leitura válida até"}: ${date(reading.renova_em)}` : "Renovação: consulte o período no painel do provedor."}</Text>
@@ -133,6 +138,7 @@ export default function ServiceQuotasScreen() {
     </ElasticScrollView></Screen>;
 }
 const styles = StyleSheet.create({
+  recoveryStatus: { borderLeftWidth: 2, borderLeftColor: Colors.border, paddingLeft: Spacing.sm },
   categories: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm },
   categoryButton: { width: "100%", minHeight: 54, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: Colors.border, borderRadius: 14, backgroundColor: Colors.surface },
   categorySelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
