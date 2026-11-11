@@ -1,3 +1,6 @@
+import { supabase } from "../../config/supabase";
+import { apiRateLimit } from "../../config/distributedRateLimit";
+import { consultarClimaDoEndereco } from "../usinas/clima.service";
 import { Router } from "express";
 
 import {
@@ -55,6 +58,16 @@ router.put('/unidade/:unidadeId/rateio',exigirGestor,exigirUnidadeDaSessaoOuGest
 router.post(["/unidade/:unidadeId/autoleitura/:leituraId/reservar", "/unidade/:unidadeId/autoleitura/:leituraId/retorno"], exigirGestor, exigirUnidadeDaSessaoOuGestor(), executarAutoleituraController);
 router.get("/unidade/:unidadeId/autoleitura", exigirGestor, exigirUnidadeDaSessaoOuGestor(), listarAutoleiturasController);
 router.patch("/unidade/:unidadeId/autoleitura", exigirGestor, configurarAutoleituraController);
+router.get("/unidade/:unidadeId/clima", exigirUnidadeDaSessaoOuGestor(), apiRateLimit("uc-clima", { windowMs: 60_000, limit: 60 }), async (req, res) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  try {
+    const { data, error } = await supabase.from("unidades_consumidoras").select("endereco")
+      .eq("id", req.params.unidadeId).eq("empresa_id", empresaIdDaRequisicao(req)).maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ disponivel: false });
+    return res.json(await consultarClimaDoEndereco(data.endereco));
+  } catch { return res.status(503).json({ disponivel: false }); }
+});
 router.get("/unidade/:unidadeId", exigirUnidadeDaSessaoOuGestor(), buscarUnidadeController);
 
 router.get("/:id/unidades", exigirClienteDaSessaoOuGestor("id"), listarUnidadesClienteController);
