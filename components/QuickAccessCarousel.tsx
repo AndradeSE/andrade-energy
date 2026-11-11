@@ -22,14 +22,16 @@ type Props = {
   storageKey?: string;
   customizeSignal?: number;
   pinnedIds?: string[];
+  addedItemIds?: string[];
 };
 
-export default function QuickAccessCarousel({ items, storageKey = "geral", customizeSignal = 0, pinnedIds = [] }: Props) {
+export default function QuickAccessCarousel({ items, storageKey = "geral", customizeSignal = 0, pinnedIds = [], addedItemIds = [] }: Props) {
   const [ultimoUsado, setUltimoUsado] = useState<string | null>(null);
   const [selecionados, setSelecionados] = useState<string[] | null>(null);
   const [personalizando, setPersonalizando] = useState(false);
   const chave = `andrade.quick-access.${storageKey}.v1`;
   const chaveSelecao = `andrade.quick-access.${storageKey}.selection.v1`;
+  const chaveAdicionados = addedItemIds.length ? `${chaveSelecao}.added.${addedItemIds.join(",")}` : "";
   const itemId = (item: Item) => item.id ?? item.label;
 
   useEffect(() => {
@@ -47,13 +49,19 @@ export default function QuickAccessCarousel({ items, storageKey = "geral", custo
   useEffect(() => {
     let ativo = true;
     setSelecionados(null);
-    AsyncStorage.getItem(chaveSelecao).then((valor) => {
-      if (!ativo || !valor) return;
-      const parsed = JSON.parse(valor);
-      if (Array.isArray(parsed)) setSelecionados(parsed.filter((item): item is string => typeof item === "string"));
+    Promise.all([AsyncStorage.getItem(chaveSelecao), chaveAdicionados ? AsyncStorage.getItem(chaveAdicionados) : Promise.resolve("1")]).then(async ([valor, adicionados]) => {
+      if (!ativo) return;
+      const parsed = valor ? JSON.parse(valor) : null;
+      if (Array.isArray(parsed)) {
+        const anteriores = parsed.filter((item): item is string => typeof item === "string");
+        const proxima = adicionados ? anteriores : [...new Set([...anteriores, ...addedItemIds])];
+        setSelecionados(proxima);
+        if (!adicionados) await AsyncStorage.setItem(chaveSelecao, JSON.stringify(proxima));
+      }
+      if (chaveAdicionados && !adicionados) await AsyncStorage.setItem(chaveAdicionados, "1");
     }).catch(() => undefined);
     return () => { ativo = false; };
-  }, [chaveSelecao]);
+  }, [chaveSelecao, chaveAdicionados]);
 
   const disponiveis = useMemo(() => items.map(itemId), [items]);
   const selecaoValida = selecionados?.map((valor) => items.find((item) => itemId(item) === valor || item.label === valor)).filter((item): item is Item => Boolean(item)).map(itemId);
