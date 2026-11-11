@@ -117,7 +117,7 @@ export default function NovoCliente() {
   }
 
   async function escolherFatura() {
-    const resultado = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
+    const resultado = await DocumentPicker.getDocumentAsync({ type: ["application/pdf", "image/jpeg", "image/png"], copyToCacheDirectory: true, multiple: false });
     if (!resultado.canceled) setPdf(resultado.assets[0]);
   }
 

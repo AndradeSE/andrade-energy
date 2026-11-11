@@ -52,7 +52,7 @@ export default function FaturasAnexadas() {
     ? "Escolha uma conta já anexada para preencher a unidade consumidora."
     : IS_GERADOR_APP
       ? "Contas da concessionária enviadas pelo consumidor ficam disponíveis para consulta e cadastro de UC."
-      : "Anexe a conta da concessionária da nova unidade em seu nome. O gerador vai usar o PDF para analisar o cadastro.";
+      : "Anexe a conta da concessionária da nova unidade em seu nome. O gerador vai usar a fatura para analisar o cadastro.";
 
   const carregar = useCallback(async () => {
     if (!clienteId) {
@@ -98,7 +98,7 @@ export default function FaturasAnexadas() {
       Alert.alert(IS_GERADOR_APP ? "Conta anexada" : "Solicitação enviada", IS_GERADOR_APP ? "A conta foi salva no perfil do cliente." : "O gerador será avisado e vai conferir a fatura. A unidade aparecerá na sua lista após a conclusão do cadastro.");
     } catch (erro: any) {
       if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED") { setPedindoSenhaPdf(true); return; }
-      Alert.alert("Não foi possível anexar", erro?.response?.data?.message ?? "Confira o PDF da CEMIG e tente novamente.");
+      Alert.alert("Não foi possível anexar", erro?.response?.data?.message ?? "Confira o PDF ou foto da CEMIG e tente novamente.");
     } finally {
       setEnviando(false);
       retomarBloqueio();
@@ -176,12 +176,12 @@ export default function FaturasAnexadas() {
               setSenhaInformada("");
               setMostrarSenhaPdf(false);
             }
-          } catch { Alert.alert("Não foi possível abrir o PDF"); }
+          } catch { Alert.alert("Não foi possível selecionar o arquivo"); }
           finally { retomar(); }
         }} />
         {pdfPendente ? <>
           <Text>{pdfPendente.name}</Text>
-          <Button title="Remover PDF" disabled={enviando} onPress={() => { setPdfPendente(null); setSenhaInformada(""); }} />
+          <Button title="Remover arquivo" disabled={enviando} onPress={() => { setPdfPendente(null); setSenhaInformada(""); }} />
         </> : null}
         <View>
           <View>
@@ -226,7 +226,7 @@ export default function FaturasAnexadas() {
             <Ionicons name="open-outline" size={18} color={Colors.primary} />
           </TouchableOpacity>
           {IS_GERADOR_APP ? <TouchableOpacity disabled={!uc} onPress={() => usarNaUc(fatura)} style={[styles.useButton, !uc && styles.disabled]}><Ionicons name="add-circle-outline" size={19} color={Colors.surface} /><Text style={styles.useButtonText}>{uc ? "Adicionar UC por esta fatura" : "UC não identificada nesta fatura"}</Text></TouchableOpacity> : null}
-          <TouchableOpacity accessibilityRole="button" disabled={!!excluindoId} onPress={() => confirmarExclusao(fatura)} style={[styles.deleteButton, excluindoId === fatura.id && styles.disabled]}>{excluindoId === fatura.id ? <ActivityIndicator size="small" color={Colors.danger} /> : <Ionicons name="trash-outline" size={18} color={Colors.danger} />}<Text style={styles.deleteButtonText}>{excluindoId === fatura.id ? "Excluindo..." : "Excluir PDF enviado"}</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" disabled={!!excluindoId} onPress={() => confirmarExclusao(fatura)} style={[styles.deleteButton, excluindoId === fatura.id && styles.disabled]}>{excluindoId === fatura.id ? <ActivityIndicator size="small" color={Colors.danger} /> : <Ionicons name="trash-outline" size={18} color={Colors.danger} />}<Text style={styles.deleteButtonText}>{excluindoId === fatura.id ? "Excluindo..." : "Excluir arquivo enviado"}</Text></TouchableOpacity>
         </Card>;
       }) : <EmptyState icon="document-outline" title="Nenhuma conta anexada" subtitle={selecionarUc ? "O cliente ainda não enviou uma conta de energia." : "Anexe uma conta da concessionária de uma unidade vinculada ao seu CPF."} />}
     </ScrollView>

@@ -169,7 +169,7 @@ export default function ClienteDetalhe() {
     let faturaLida = false;
     let pdfSelecionado = pdfReenvio ?? null;
     try {
-      const arquivo = pdfReenvio ? null : await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
+      const arquivo = pdfReenvio ? null : await DocumentPicker.getDocumentAsync({ type: ["application/pdf", "image/jpeg", "image/png"], copyToCacheDirectory: true, multiple: false });
       if (arquivo?.canceled) return;
 
       setImportandoUc(true);
@@ -234,7 +234,7 @@ export default function ClienteDetalhe() {
         setPedindoSenhaPdf(true);
         return;
       }
-      Alert.alert(faturaLida ? "Não foi possível cadastrar a UC" : "Não foi possível ler a fatura", erro?.response?.data?.message ?? erro?.message ?? (faturaLida ? "Confira a usina e tente novamente." : "Confirme se o arquivo é uma conta de energia em PDF."));
+      Alert.alert(faturaLida ? "Não foi possível cadastrar a UC" : "Não foi possível ler a fatura", erro?.response?.data?.message ?? erro?.message ?? (faturaLida ? "Confira a usina e tente novamente." : "Confirme se o arquivo é uma conta de energia em PDF, JPG ou PNG."));
     } finally {
       setImportandoUc(false);
       retomarBloqueio();
@@ -242,7 +242,7 @@ export default function ClienteDetalhe() {
   }
 
   function escolherOrigemDaFatura() {
-    Alert.alert("Adicionar UC via PDF", "Escolha uma conta já vinculada ao CPF do cliente ou selecione um novo PDF neste aparelho.", [
+    Alert.alert("Adicionar UC pela fatura", "Escolha uma conta já vinculada ao CPF do cliente ou selecione um PDF ou foto da fatura neste aparelho.", [
       { text: "Cancelar", style: "cancel" },
       {
         text: "Contas do perfil",
@@ -257,7 +257,7 @@ export default function ClienteDetalhe() {
           }),
       },
       {
-        text: "PDF deste aparelho",
+        text: "PDF ou foto deste aparelho",
         onPress: () => void adicionarUnidadeViaFatura(),
       },
     ]);
@@ -420,7 +420,7 @@ export default function ClienteDetalhe() {
                       {importandoUc ? <ActivityIndicator color={Colors.surface} /> : <Ionicons name="document-attach-outline" size={21} color={Colors.surface} />}
                     </TouchableOpacity>
                   </View>
-                  <Text style={styles.unitActionHint}>No botão de PDF, escolha uma conta vinculada ao perfil ou um arquivo deste aparelho.</Text>
+                  <Text style={styles.unitActionHint}>Escolha uma conta vinculada ao perfil ou um PDF ou foto deste aparelho.</Text>
                 </>
               ) : (
                 <Text style={styles.unitActionHint}>A UC será ativada junto com a confirmação do cadastro.</Text>
