@@ -177,7 +177,7 @@ function mediaConsumoDaFatura(dados: Record<string, any>) {
 function faturaPossuiDadosDeConsumo(dados: Record<string, any>) {
   const possuiConsumo = Number(dados?.consumo ?? dados?.consumo_kwh ?? 0) > 0 ||
     (Array.isArray(dados?.historico) && dados.historico.some((item: any) => Number(item?.consumo ?? 0) > 0));
-  return possuiConsumo && Number(dados?.versaoExtracao ?? 0) >= 3;
+  return possuiConsumo && numeroDaFatura(dados?.tarifaCheia ?? dados?.tarifa_cheia) > 0 && Number(dados?.versaoExtracao ?? 0) >= 3;
 }
 
 async function completarDadosDaFaturaAnexada(anexo: any, cpf?: string | null) {
