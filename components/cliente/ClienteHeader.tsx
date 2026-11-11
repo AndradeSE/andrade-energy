@@ -32,7 +32,6 @@ import {
 
 import MenuItem from "./MenuItem";
 import { notificarAvisosNoAndroid } from "../../services/carteira-notificacoes.service";
-import { useHeaderDetailsVisibility } from "../../hooks/useHeaderDetailsVisibility";
 import { useProfilePhoto } from "../../hooks/useProfilePhoto";
 import NotificationSideSheet from "../ui/NotificationSideSheet";
 import NotificationInbox from "../ui/NotificationInbox";
@@ -65,7 +64,7 @@ export default function ClienteHeader({
   const [avisosFaturas, setAvisosFaturas] = useState<any[]>([]);
   const [avisosApp, setAvisosApp] = useState<any[]>([]);
   const [unidadeAtual, setUnidadeAtual] = useState<any>(null);
-  const { isExpanded: detalhesExpandidos, setExpanded: setDetalhesExpandidos } = useHeaderDetailsVisibility();
+  const [detalhesExpandidos, setDetalhesExpandidos] = useState(false);
 
   function alternarDetalhes() {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -376,20 +375,18 @@ export default function ClienteHeader({
         <View style={styles.unitSummary}>
           <View style={styles.unitIcon}><Ionicons name="flash" size={18} color="#FFFFFF" /></View>
           <View style={styles.unitContent}>
-            <View style={styles.unitTitleRow}>
-              {mostrarApelido ? <Text numberOfLines={1} style={styles.unitCode}>{nomeUnidade}</Text> : null}
-              <TouchableOpacity
-                accessibilityLabel="Trocar unidade consumidora"
-                activeOpacity={0.82}
-                onPress={trocarUnidade}
-                style={styles.unitMainAction}
-              >
-                <Ionicons name="layers-outline" size={14} color="#FFFFFF" />
-                <Text numberOfLines={1} style={styles.changeText}>Trocar unidade</Text>
-              </TouchableOpacity>
-            </View>
+            {mostrarApelido ? <Text numberOfLines={1} style={styles.unitCode}>{nomeUnidade}</Text> : null}
             <Text numberOfLines={1} style={styles.unitDetail}>{concessionariaUnidade} · {numeroUnidade ? `UC ${numeroUnidade}` : "Unidade consumidora"}</Text>
           </View>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Trocar unidade consumidora"
+            activeOpacity={0.82}
+            onPress={trocarUnidade}
+            style={styles.unitMainAction}
+          >
+            <Ionicons name="layers-outline" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
         <TouchableOpacity accessibilityLabel="Ocultar detalhes" onPress={alternarDetalhes} style={styles.detailsAction}>
           <Text style={styles.detailsActionText}>Ocultar</Text><Ionicons name="chevron-up" size={15} color="#F6CC32" />
@@ -651,18 +648,17 @@ const styles =
         "rgba(255, 255, 255, 0.16)",
     },
     unitMainAction: {
-      flexDirection: "row",
+      width: 44,
+      height: 44,
+      flexShrink: 0,
+      alignSelf: "flex-end",
       alignItems: "center",
       justifyContent: "center",
-      gap: 4,
-      minHeight: 28,
       marginLeft: Spacing.xs,
-      paddingHorizontal: 9,
       borderRadius: Radius.round,
       backgroundColor: "rgba(255,255,255,0.16)",
     },
     unitSummary: { flexDirection: "row", alignItems: "center", minWidth: 0 },
-    unitTitleRow: { flexDirection: "row", alignItems: "center", minWidth: 0 },
     detailsAction: {
       minHeight: 24,
       flexDirection: "row",
@@ -733,15 +729,6 @@ const styles =
         Typography.small,
     },
 
-    changeText: {
-      color:
-        Colors.surface,
-
-      fontSize: 9,
-
-      fontWeight:
-        "800",
-    },
 
     modal: {
       flex: 1,
