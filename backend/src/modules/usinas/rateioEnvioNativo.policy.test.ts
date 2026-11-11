@@ -32,3 +32,11 @@ test('cópia técnica preserva original, titular e total e só corrige as UCs au
  assert.throws(()=>copiaDiagnosticaAutorizada({...source,competencia:'2026-11'}));
  assert.throws(()=>copiaDiagnosticaAutorizada({...source,csv:source.csv.replace('3006605532','607081301889')}));
 });
+
+test("bloqueia artefatos antigos com cota zero em recebedora, preservando excecao da geradora", () => {
+ const ancora="607081301889;11111111111;100;X";
+ for(const zero of ["0","0,0000","00,0"]) {
+  assert.throws(()=>conferirArtefatoEnvio({...plano,csv:`1222790201827;22222222222;${zero};\r\n${ancora}`}),/geradora.*cota zero/);
+  assert.doesNotThrow(()=>conferirArtefatoEnvio({...plano,csv:`1121361801894;22222222222;${zero};\r\n${ancora}`}));
+ }
+});
