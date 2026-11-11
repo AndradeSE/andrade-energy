@@ -1,12 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
-import { Directory, File, Paths } from "expo-file-system";
-import * as FileSystemLegacy from "expo-file-system/legacy";
-import * as IntentLauncher from "expo-intent-launcher";
-import * as Sharing from "expo-sharing";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Platform, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { TouchableOpacity } from "../../components/assistant/AssistantNativeControls";
 
 import { AppHeader, Card, Divider, ElasticScrollView as ScrollView, EmptyState, Loading, Screen } from "../../components/ui";
@@ -142,7 +138,7 @@ export default function DetalheFatura() {
   const valorUnificado = Number(
     fatura.valor_total_unificado ?? fatura.valor_total ?? 0
   );
-  const cobrancaVencida = invoiceDisplayStatus(fatura).vencida;
+  const { paga, vencida: cobrancaVencida } = invoiceDisplayStatus(fatura);
   const faturaSomenteAndrade = Boolean(fatura.fatura_somente_andrade);
   const tituloCobranca = faturaSomenteAndrade ? "Cobrança Andrade Energy" : "Total unificado";
   const descricaoCobranca = faturaSomenteAndrade ? "Energia solar Andrade Energy" : "CEMIG + energia solar Andrade Energy";
@@ -187,42 +183,8 @@ export default function DetalheFatura() {
     try {
       setDocumentoBaixando(nomeArquivo);
 
-      if (Platform.OS !== "web") {
-        // Cada abertura recebe uma cópia nova. Alguns leitores Android mantêm
-        // o conteúdo anterior para a mesma URI e acabavam exibindo uma folha
-        // branca mesmo quando o PDF recém-baixado estava correto.
-        const pastaFaturas = new Directory(Paths.cache, "andrade-energy-faturas", String(Date.now()));
-        pastaFaturas.create({ idempotent: true, intermediates: true });
-        const arquivo = await File.downloadFileAsync(url, pastaFaturas, {
-          idempotent: true,
-        });
-        if (!arquivo.exists || !arquivo.size || arquivo.size < 512) {
-          throw new Error("O PDF baixado está vazio.");
-        }
-        if (Platform.OS === "android") {
-          try {
-            const contentUri = await FileSystemLegacy.getContentUriAsync(arquivo.uri);
-            await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
-              data: contentUri,
-              flags: 1,
-              type: "application/pdf",
-            });
-            return;
-          } catch {
-            // Sem leitor padrão, abre o seletor como alternativa.
-          }
-        }
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(arquivo.uri, { dialogTitle: "Abrir ou salvar fatura", mimeType: "application/pdf", UTI: "com.adobe.pdf" });
-        } else {
-          Alert.alert("Download concluído", `${nomeArquivo} foi salvo no aplicativo.`);
-        }
-        return;
-      }
-
-      const podeAbrir = await Linking.canOpenURL(url);
-      if (!podeAbrir) throw new Error("URL inválida");
-      await Linking.openURL(url);
+      router.push({ pathname: "/documento-fatura", params: { uri: url } });
+      return;
     } catch (erro: any) {
       if (/cancel/i.test(String(erro?.message ?? erro))) return;
       Alert.alert("Não foi possível baixar o PDF", "Confira sua conexão e tente novamente.");
@@ -271,7 +233,7 @@ export default function DetalheFatura() {
     const url = String(fatura?.pdf_boleto_url ?? "").trim();
     if (!url) return Alert.alert("Boleto em preparação", "O Asaas ainda não liberou o boleto.");
     try {
-      await Linking.openURL(url);
+      router.push({ pathname: "/documento-fatura", params: { uri: url } });
     } catch {
       Alert.alert("Não foi possível abrir o boleto", "Confira sua conexão e tente novamente.");
     }
@@ -333,7 +295,7 @@ export default function DetalheFatura() {
         </Card>
 
         <View style={[styles.downloadActions, styles.downloadActionsTop]}>
-          {IS_GERADOR_APP && String(fatura.status ?? "").toUpperCase() === "RASCUNHO" ? (
+          {IS_GERADOR_APP && !paga && String(fatura.status ?? "").toUpperCase() === "RASCUNHO" ? (
             <TouchableOpacity
               accessibilityRole="button"
               activeOpacity={0.84}
@@ -345,7 +307,7 @@ export default function DetalheFatura() {
               <Text style={styles.confirmButtonText}>{confirmando ? "Confirmando..." : "Confirmar fatura"}</Text>
             </TouchableOpacity>
           ) : null}
-          {IS_GERADOR_APP ? (
+          {IS_GERADOR_APP && !paga ? (
             <TouchableOpacity
               activeOpacity={0.82}
               onPress={regenerarPdf}
@@ -356,7 +318,7 @@ export default function DetalheFatura() {
               <Text style={styles.regenerateButtonText}>{regenerandoPdf ? "Atualizando PDF..." : "Gerar PDF atualizado"}</Text>
             </TouchableOpacity>
           ) : null}
-          {IS_GERADOR_APP && String(fatura.status ?? "").toUpperCase() !== "RASCUNHO" ? (
+          {IS_GERADOR_APP && !paga && String(fatura.status ?? "").toUpperCase() !== "RASCUNHO" ? (
             <TouchableOpacity
               accessibilityRole="button"
               activeOpacity={0.84}
@@ -374,7 +336,7 @@ export default function DetalheFatura() {
               </Text>
             </TouchableOpacity>
           ) : null}
-          {IS_GERADOR_APP && String(fatura.status ?? "").toUpperCase() !== "RASCUNHO" && (fatura.pdf_boleto_url || fatura.codigo_pix || fatura.linha_digitavel) ? (
+          {IS_GERADOR_APP && !paga && String(fatura.status ?? "").toUpperCase() !== "RASCUNHO" && (fatura.pdf_boleto_url || fatura.codigo_pix || fatura.linha_digitavel) ? (
             <TouchableOpacity
               accessibilityRole="button"
               activeOpacity={0.82}
@@ -383,7 +345,7 @@ export default function DetalheFatura() {
               style={[styles.regenerateButton, gerandoCobranca && styles.confirmButtonDisabled]}
             >
               <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
-              <Text style={styles.regenerateButtonText}>Atualizar boleto existente</Text>
+              <Text style={styles.regenerateButtonText}>Consultar boleto e Pix</Text>
             </TouchableOpacity>
           ) : null}
           {IS_GERADOR_APP && fatura.cobranca_mensagem && !fatura.codigo_pix && !fatura.linha_digitavel ? (
@@ -414,6 +376,7 @@ export default function DetalheFatura() {
             loading={documentoBaixando === `relatorio-calculo-${referenciaArquivo}.pdf`}
             onPress={() => void baixarRelatorioCalculo()}
           />
+          {!paga ? <>
           <DownloadButton
             available={Boolean(fatura.pdf_boleto_url)}
             label="Abrir ou baixar boleto"
@@ -439,6 +402,7 @@ export default function DetalheFatura() {
               <Text style={styles.copyText}>Copiar</Text>
             </View>
           </TouchableOpacity>
+          </> : null}
         </View>
 
         <Card style={styles.summaryCard}>

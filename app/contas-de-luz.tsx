@@ -4,7 +4,7 @@ import * as FileSystemLegacy from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, Linking, Platform, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { TouchableOpacity } from "../components/assistant/AssistantNativeControls";
 
 import { ElasticFlatList as FlatList, EmptyState, Loading, Screen } from "../components/ui";
@@ -13,7 +13,7 @@ import { Colors, Radius, Spacing, Typography } from "../theme";
 
 export default function ContasDeLuz() {
   const { data, isLoading, error, refetch } = useFaturas();
-  const [baixando, setBaixando] = useState<string>();
+  const baixando: string | undefined = undefined;
   const [atualizando, setAtualizando] = useState(false);
   const contas: any[] = Array.isArray(data) ? data : [];
 
@@ -28,25 +28,8 @@ export default function ContasDeLuz() {
 
   async function abrirPdf(item: any) {
     if (!item.pdf_cemig_url) return Alert.alert("PDF em preparação", "A conta da concessionária ainda não está disponível.");
-    const referencia = String(item.referencia ?? item.id).replace(/[^a-zA-Z0-9_-]/g, "-");
-    const nome = `conta-de-luz-${referencia}.pdf`;
-    try {
-      setBaixando(item.id);
-      if (Platform.OS !== "web") {
-        const arquivo = await File.downloadFileAsync(item.pdf_cemig_url, new File(Paths.cache, nome), { idempotent: true });
-        if (Platform.OS === "android") {
-          const contentUri = await FileSystemLegacy.getContentUriAsync(arquivo.uri);
-          await IntentLauncher.startActivityAsync("android.intent.action.VIEW", { data: contentUri, flags: 1, type: "application/pdf" });
-          return;
-        }
-        await Linking.openURL(arquivo.uri);
-        return;
-      }
-      if (!(await Linking.canOpenURL(item.pdf_cemig_url))) throw new Error("URL inválida");
-      await Linking.openURL(item.pdf_cemig_url);
-    } catch {
-      Alert.alert("Não foi possível abrir o PDF", "Confira sua conexão e tente novamente.");
-    } finally { setBaixando(undefined); }
+    router.push({ pathname: "/documento-fatura", params: { uri: item.pdf_cemig_url } });
+    return;
   }
 
   if (isLoading) return <Loading />;
