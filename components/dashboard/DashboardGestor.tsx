@@ -81,6 +81,7 @@ export default function DashboardGestor() {
     useAuth();
   const { data, isLoading, error, refetch } = useDashboardGestor();
   const colaborador = String(usuario?.papel_empresa ?? "").startsWith("COLABORADOR_");
+  const podeTrocarAmbiente = colaborador ? usuario?.permissoes?.ambientes_gerador === true : usuario?.perfil === "ADMIN";
   const canReadOverdue = Boolean(usinaSelecionada?.id) && (usuario?.papel_empresa === "COLABORADOR_COMERCIAL" ? usuario.permissoes?.gerador_faturas === true : usuario?.permissoes?.faturas !== false);
   const overdueQuery = useQuery({
     queryKey: ["home-faturas-vencidas", usuario?.id, usinaSelecionada?.id],
@@ -273,6 +274,7 @@ export default function DashboardGestor() {
         </Pressable> : overdueQuery.isError ? <Text accessibilityRole="alert" style={{ color: "#9F1239" }}>Não foi possível conferir as faturas vencidas. Atualize a página para tentar novamente.</Text> : null}
         <Section title="Acesso rápido" framed={false}>
           <QuickAccessCarousel
+            addedItemIds={["Trocar usina", ...(podeTrocarAmbiente ? ["trocar-ambiente"] : [])]}
             storageKey={`gestor-home-${usuario?.id ?? "anonimo"}`}
             pinnedIds={["simular-economia", "rateio-mensal", "compartilhar-app-gerador", ...(canViewServiceQuotas(usuario) ? ["cotas-servicos"] : []), ...(isPreviewEnvironment && assistantHidden ? ["mostrar-assistente"] : [])]}
             items={[
@@ -280,6 +282,7 @@ export default function DashboardGestor() {
               ...(usinaSelecionada?.id && (usuario?.papel_empresa==='COLABORADOR_COMERCIAL'?usuario?.permissoes?.gerador_operacao===true:usuario?.papel_empresa==='COLABORADOR_GERADOR'?usuario?.permissoes?.operacao===true:true) ? [{id:'rateio-mensal',icon:'git-merge-outline' as const,label:'Rateio',onPress:()=>router.push('/operacao/rateio' as any)}] : []),
               ...(isPreviewEnvironment && assistantHidden ? [{ id: "mostrar-assistente", icon: "chatbubble-ellipses-outline" as const, image: require("../../assets/images/assistant-chat-3d-v2.png"), label: "Mostrar Solar", onPress: () => void setFloatingHidden(String(usuario?.id ?? ""), false) }] : []),
               ...(canViewServiceQuotas(usuario) ? [{ id: "cotas-servicos", icon: "speedometer-outline" as const, label: "Cotas de serviços", onPress: () => router.push("/cotas-servicos") }] : []),
+              ...(podeTrocarAmbiente ? [{ id: "trocar-ambiente", icon: "swap-horizontal-outline" as const, label: "Trocar ambiente", onPress: () => router.replace("/admin/escolher-area" as any) }] : []),
               ...atalhos.filter((atalho) => (usuario?.papel_empresa !== "COLABORADOR_COMERCIAL" || !({"Novo cliente":"clientes", "Unidades consumidoras":"unidades", "Nova unidade consumidora":"unidades", "Faturar via PDF":"faturas", "Faturas emitidas":"faturas", "Faturamento manual":"faturas", "Nova usina":"usinas"} as Record<string,string>)[atalho.label] || usuario.permissoes?.[`gerador_${({"Novo cliente":"clientes", "Unidades consumidoras":"unidades", "Nova unidade consumidora":"unidades", "Faturar via PDF":"faturas", "Faturas emitidas":"faturas", "Faturamento manual":"faturas", "Nova usina":"usinas"} as Record<string,string>)[atalho.label]}`] === true) && (!colaborador || !(usuario?.permissoes?.ambientes_gerador === true ? ["Colaboradores", "Financeiro"] : ["Colaboradores", "Novo cliente", "Nova usina", "Nova unidade consumidora", "Financeiro"]).includes(atalho.label))).map((atalho) => ({
                 icon: atalho.icon,
                 label: atalho.label,

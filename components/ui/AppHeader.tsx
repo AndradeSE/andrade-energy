@@ -73,7 +73,7 @@ export default function AppHeader({
 }: Props) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { logout, usuario, usinaSelecionada } = useAuth();
+  const { logout, usuario, usinaSelecionada, unidadeSelecionada } = useAuth();
   const navigationEnvironment = useNavigationEnvironment();
   const { empresa } = useEmpresa();
   const corPrincipal = empresa.cor_primaria || Colors.primary;
@@ -108,6 +108,10 @@ export default function AppHeader({
   const proprietario = IS_GERADOR_APP && !colaborador;
   const podeAlternarPerfil = IS_GERADOR_APP && (colaborador ? usuario?.permissoes?.ambientes_gerador === true : usuario?.perfil === "ADMIN");
   const ambienteComercial = environmentName === "Gestão comercial" || navigationEnvironment === "comercial" || (papelEmpresa === "COLABORADOR_COMERCIAL" && usuario?.permissoes?.ambientes_gerador !== true);
+
+  const mostrarContextoUsina = showPlantContext && proprietario && !ambienteComercial && Boolean(usinaSelecionada);
+  const podeTrocarUsina = showPlantSwitch && IS_GERADOR_APP && !ambienteComercial && Boolean(usinaSelecionada);
+  const podeTrocarUnidade = !IS_GERADOR_APP && Boolean(unidadeSelecionada);
 
   useEffect(() => {
     if (collapsePlantContextOnMount) setContextoUsinaExpandido(false);
@@ -249,16 +253,7 @@ export default function AppHeader({
         </TouchableOpacity>
       </View>
 
-      {proprietario ? <View style={styles.contextSwitches}>
-        {podeAlternarPerfil ? <TouchableOpacity accessibilityLabel="Trocar ambiente de gestão" activeOpacity={0.82} onPress={() => router.replace("/admin/escolher-area" as any)} style={[styles.environmentSwitch, styles.contextSwitchButton]}>
-          <Ionicons name={environmentName === "Gestão comercial" ? "briefcase-outline" : "layers-outline"} size={17} color="#FFFFFF" />
-          <Text numberOfLines={1} style={styles.contextSwitchText}>Trocar ambiente</Text>
-        </TouchableOpacity> : null}
-        {showPlantSwitch && IS_GERADOR_APP && usinaSelecionada && !ambienteComercial ? <TouchableOpacity accessibilityLabel="Trocar de usina" activeOpacity={0.82} onPress={() => router.push("/selecionar-unidade" as any)} style={[styles.environmentSwitch, styles.contextSwitchButton]}>
-          <Ionicons name="grid-outline" size={17} color="#FFFFFF" />
-          <Text numberOfLines={1} style={styles.contextSwitchText}>Trocar usina</Text>
-        </TouchableOpacity> : null}
-      </View> : null}
+
 
       <NotificationSideSheet visible={notificacoesAbertas} onClose={() => setNotificacoesAbertas(false)}>
         <NotificationInbox onClear={confirmarLimpeza} items={notificacoes} readIds={leituras.ids} ready={leituras.ready} onMark={leituras.markMany} onClose={() => setNotificacoesAbertas(false)} onOpen={(aviso) => {
@@ -277,20 +272,31 @@ export default function AppHeader({
         </Pressable>
       </Modal>
 
-      {showPlantContext && proprietario && usinaSelecionada ? contextoUsinaExpandido ? <View style={styles.plantBar}>
-        <View style={styles.plantLogo}>
-          {empresa.identidade_personalizada && empresa.logo_url
-            ? <Image resizeMode="contain" source={{ uri: empresa.logo_url }} style={styles.companyLogo} />
-            : <PortalBrandLogo height={30} width={90} />}
-        </View>
-        <View style={styles.plantText}>
-          <View style={styles.plantTitleRow}>
-            <Text numberOfLines={1} style={styles.plantName}>{usinaSelecionada.nome}</Text>
+      {mostrarContextoUsina || podeAlternarPerfil || podeTrocarUsina || podeTrocarUnidade ? contextoUsinaExpandido ? <View>
+        {mostrarContextoUsina && usinaSelecionada ? <View style={styles.plantBar}>
+          <View style={styles.plantLogo}>
+            {empresa.identidade_personalizada && empresa.logo_url
+              ? <Image resizeMode="contain" source={{ uri: empresa.logo_url }} style={styles.companyLogo} />
+              : <PortalBrandLogo height={30} width={90} />}
           </View>
-          <Text numberOfLines={1} style={styles.plantAutonomy}>{autonomia ? `Capacidade livre ${autonomia.percentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% · ${autonomia.disponivel.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kWh não distribuídos` : "Consultando capacidade..."}</Text>
-        </View>
-        <TouchableOpacity accessibilityLabel="Ocultar detalhes da usina" onPress={alternarContextoUsina} style={styles.plantToggle}><Text style={styles.plantToggleText}>Ocultar</Text><Ionicons name="chevron-up" size={15} color="#F6CC32" /></TouchableOpacity>
-      </View> : <TouchableOpacity accessibilityLabel="Abrir detalhes da usina" activeOpacity={0.8} onPress={alternarContextoUsina} style={styles.plantDetailsToggle}><Text style={styles.plantToggleText}>Detalhes</Text><Ionicons name="chevron-down" size={15} color="#F6CC32" /></TouchableOpacity> : null}
+          <View style={styles.plantText}>
+            <View style={styles.plantTitleRow}><Text numberOfLines={1} style={styles.plantName}>{usinaSelecionada.nome}</Text></View>
+            <Text numberOfLines={1} style={styles.plantAutonomy}>{autonomia ? `Capacidade livre ${autonomia.percentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% · ${autonomia.disponivel.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kWh não distribuídos` : "Consultando capacidade..."}</Text>
+          </View>
+        </View> : null}
+        {podeAlternarPerfil || podeTrocarUsina || podeTrocarUnidade ? <View style={styles.contextSwitches}>
+          {podeAlternarPerfil ? <TouchableOpacity accessibilityLabel="Trocar ambiente de gestão" activeOpacity={0.82} onPress={() => router.replace("/admin/escolher-area" as any)} style={[styles.environmentSwitch, styles.contextSwitchButton]}>
+            <Ionicons name="layers-outline" size={17} color="#FFFFFF" /><Text numberOfLines={1} style={styles.contextSwitchText}>Trocar ambiente</Text>
+          </TouchableOpacity> : null}
+          {podeTrocarUsina ? <TouchableOpacity accessibilityLabel="Trocar de usina" activeOpacity={0.82} onPress={() => router.push("/selecionar-unidade" as any)} style={[styles.environmentSwitch, styles.contextSwitchButton]}>
+            <Ionicons name="grid-outline" size={17} color="#FFFFFF" /><Text numberOfLines={1} style={styles.contextSwitchText}>Trocar usina</Text>
+          </TouchableOpacity> : null}
+          {podeTrocarUnidade ? <TouchableOpacity accessibilityLabel="Trocar unidade consumidora" activeOpacity={0.82} onPress={() => router.push("/selecionar-unidade" as any)} style={[styles.environmentSwitch, styles.contextSwitchButton]}>
+            <Ionicons name="layers-outline" size={17} color="#FFFFFF" /><Text numberOfLines={1} style={styles.contextSwitchText}>Trocar unidade</Text>
+          </TouchableOpacity> : null}
+        </View> : null}
+        <TouchableOpacity accessibilityLabel="Ocultar detalhes" onPress={alternarContextoUsina} style={styles.plantToggle}><Text style={styles.plantToggleText}>Ocultar</Text><Ionicons name="chevron-up" size={15} color="#F6CC32" /></TouchableOpacity>
+      </View> : <TouchableOpacity accessibilityLabel="Abrir detalhes" activeOpacity={0.8} onPress={alternarContextoUsina} style={styles.plantDetailsToggle}><Text style={styles.plantToggleText}>Detalhes</Text><Ionicons name="chevron-down" size={15} color="#F6CC32" /></TouchableOpacity> : null}
 
       <Modal animationType="slide" transparent visible={menuAberto} onRequestClose={() => setMenuAberto(false)}>
         <Pressable style={[styles.backdrop, proprietario && styles.ownerMenuBackdrop]} onPress={() => setMenuAberto(false)}>
@@ -466,8 +472,8 @@ const styles = StyleSheet.create({
   plantToggle: { width: "100%", minHeight: 24, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 2, marginTop: 5 },
   plantToggleText: { color: "#F6CC32", fontSize: 10, fontWeight: "900" },
   plantDetailsToggle: { minHeight: 22, flexDirection: "row", alignSelf: "center", alignItems: "center", gap: 2, marginTop: 3, paddingHorizontal: Spacing.sm },
-  contextSwitches: { flexDirection: "row", alignItems: "stretch", gap: Spacing.xs },
-  contextSwitchButton: { flex: 1, minWidth: 0 },
+  contextSwitches: { flexDirection: "row", flexWrap: "wrap", alignItems: "stretch", marginTop: Spacing.sm, gap: Spacing.xs },
+  contextSwitchButton: { flex: 1, minWidth: 132 },
   contextSwitchText: { color: "#FFFFFF", fontSize: 11, fontWeight: "900" },
   photoBackdrop: { flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.lg, backgroundColor: "rgba(3,15,12,0.92)" },
   photoPreviewCard: { position: "relative", width: "100%", maxWidth: 520, aspectRatio: 1, overflow: "hidden", borderRadius: Radius.xl, backgroundColor: "#071A15" },
