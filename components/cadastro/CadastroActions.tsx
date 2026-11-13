@@ -20,7 +20,7 @@ const rotas = {
   UNIDADE: "/unidades/nova",
 } as const;
 
-export default function CadastroActions({ tipo, clienteId }: { tipo: TipoCadastro; clienteId?: string }) {
+export default function CadastroActions({ tipo, clienteId, compartilhado, onImported }: { tipo: TipoCadastro; clienteId?: string; compartilhado?: DocumentPicker.DocumentPickerAsset; onImported?: () => void }) {
   const [analisando, setAnalisando] = useState(false);
   const [pdfPendente, setPdfPendente] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [pedindoSenhaPdf, setPedindoSenhaPdf] = useState(false);
@@ -101,6 +101,7 @@ export default function CadastroActions({ tipo, clienteId }: { tipo: TipoCadastr
           distribuidora: String(distribuidoraExtraida),
           arquivoUri: item.uri,
           arquivoNome: item.name,
+          arquivoMime: item.mimeType ?? "",
           energiaCompensada: tipo === "UNIDADE" ? "0" : String(dados.energiaCompensada ?? 0),
           tipoGd,
           geracaoMedia: tipo === "USINA" && geracaoDoPeriodo > 0 ? String(geracaoDoPeriodo) : "",
@@ -136,6 +137,7 @@ export default function CadastroActions({ tipo, clienteId }: { tipo: TipoCadastr
           usinaNome: tipo === "CLIENTE" ? String(usinaSelecionada?.nome ?? "") : "",
         },
       });
+      onImported?.();
     } catch (erro: any) {
       if (erro?.response?.data?.code === "PDF_PASSWORD_REQUIRED") {
         setPedindoSenhaPdf(true);
@@ -153,19 +155,19 @@ export default function CadastroActions({ tipo, clienteId }: { tipo: TipoCadastr
   }
 
   return (
-    <><View style={styles.row}>
-      <Button
+    <><View style={compartilhado ? styles.sharedRow : styles.row}>
+      {!compartilhado ? <Button
         icon={<Ionicons name="create-outline" size={20} color="#FFF" />}
         onPress={abrirManual}
         style={styles.button}
         title={tipo === "CLIENTE" ? "Adicionar cliente" : "Manual"}
-      />
+      /> : null}
       {(tipo !== "CLIENTE" || podeImportarCliente) ? <Button
         disabled={analisando}
         icon={<Ionicons name="document-attach-outline" size={20} color="#FFF" />}
-        onPress={() => void importar()}
+        onPress={() => void importar(compartilhado)}
         style={[styles.button, styles.importButton]}
-        title={analisando ? "Lendo..." : tipo === "UNIDADE" ? "Importar fatura" : tipo === "CLIENTE" ? "Cliente via fatura" : "Via fatura"}
+        title={analisando ? "Lendo..." : compartilhado ? (tipo === "CLIENTE" ? "Cadastrar cliente" : tipo === "UNIDADE" ? "Adicionar UC" : "Cadastrar usina") : tipo === "UNIDADE" ? "Importar fatura" : tipo === "CLIENTE" ? "Cliente via fatura" : "Via fatura"}
       /> : null}
     </View><PdfPasswordRetryModal visible={pedindoSenhaPdf} busy={analisando} onCancel={() => { setPedindoSenhaPdf(false); setPdfPendente(null); }} onConfirm={(password) => { const pdf = pdfPendente; setPedindoSenhaPdf(false); if (pdf) void importar(pdf, password); }} /></>
   );
@@ -177,6 +179,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginBottom: Spacing.lg,
   },
+  sharedRow: { flexDirection: "row" },
   button: { flex: 1 },
   importButton: { backgroundColor: Colors.secondary },
 });

@@ -28,7 +28,7 @@ function tipoGdDaFatura(dados: Record<string, any>) {
 
 export default function NovoCliente() {
   const { usinaSelecionada } = useAuth();
-  const { origem, cliente, nome: nomeImportado, cpf: cpfImportado, endereco: enderecoImportado, arquivoUri, arquivoNome } = useLocalSearchParams<{ origem?: string; cliente?: string; nome?: string; cpf?: string; endereco?: string; arquivoUri?: string; arquivoNome?: string }>();
+  const { origem, cliente, nome: nomeImportado, cpf: cpfImportado, endereco: enderecoImportado, arquivoUri, arquivoNome, arquivoMime } = useLocalSearchParams<{ origem?: string; cliente?: string; nome?: string; cpf?: string; endereco?: string; arquivoUri?: string; arquivoNome?: string; arquivoMime?: string }>();
   const [nome, setNome] = useState("");
   const [sobrenome, setSobrenome] = useState("");
   const nomeCompleto = juntarNomePessoa(nome, sobrenome);
@@ -37,7 +37,7 @@ export default function NovoCliente() {
   const [telefone, setTelefone] = useState("");
   const [endereco, setEndereco] = useState({ ...enderecoVazio });
   const [salvando, setSalvando] = useState(false);
-  const [pdf, setPdf] = useState<DocumentPicker.DocumentPickerAsset | null>(arquivoUri ? { uri: arquivoUri, name: arquivoNome || "fatura-cemig.pdf", mimeType: "application/pdf" } as DocumentPicker.DocumentPickerAsset : null);
+  const [pdf, setPdf] = useState<DocumentPicker.DocumentPickerAsset | null>(arquivoUri ? { uri: arquivoUri, name: arquivoNome || "fatura-cemig.pdf", mimeType: arquivoMime || "application/pdf" } as DocumentPicker.DocumentPickerAsset : null);
   const [clienteCriadoId, setClienteCriadoId] = useState("");
   const [pedindoSenhaPdf, setPedindoSenhaPdf] = useState(false);
 

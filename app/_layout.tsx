@@ -1,3 +1,4 @@
+import SharedInvoiceInbox from "../components/cadastro/SharedInvoiceInbox";
 import { notificationRoute } from "../services/notification-route";
 import { router, Stack, useGlobalSearchParams, usePathname } from "expo-router";
 import { Alert, AppState, BackHandler, Pressable, StyleSheet, Text, ToastAndroid, View } from "react-native";
@@ -594,6 +595,7 @@ function RootNavigator() {
       </Stack.Protected>
     </Stack>
     </View>
+    <SharedInvoiceInbox enabled={IS_GERADOR_APP && loggedIn && !precisaDigital && !preparandoEntrada && entryScreenReady} />
     <PersistentAppTabs loggedIn={loggedIn && !precisaDigital && !preparandoEntrada} />
     {loggedIn && !precisaDigital && !preparandoEntrada && entryScreenReady ? <NativeApkUpdateNotice /> : null}
     {isPreviewEnvironment && loggedIn && !precisaDigital && !preparandoEntrada && entryScreenReady ? <AssistantWakeWord /> : null}

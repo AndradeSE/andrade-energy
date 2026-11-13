@@ -6,93 +6,169 @@
   "build": {
     "camera-production-consumidor": {
       "extends": "refresh-fixed-production-consumidor",
-      "env": { "ANDRADE_CONSUMER_CAMERA_BUILD": "1" }
+      "env": {
+        "ANDRADE_CONSUMER_CAMERA_BUILD": "1"
+      }
     },
     "refresh-fixed-production-consumidor": {
       "extends": "universal-production-consumidor",
-      "env": { "ANDRADE_NATIVE_REFRESH_FIXED": "1" }
+      "env": {
+        "ANDRADE_NATIVE_REFRESH_FIXED": "1"
+      }
     },
     "refresh-fixed-production-gerador": {
       "extends": "universal-production-gerador",
-      "env": { "ANDRADE_NATIVE_REFRESH_FIXED": "1" }
+      "env": {
+        "ANDRADE_NATIVE_REFRESH_FIXED": "1"
+      }
     },
     "universal-production-consumidor": {
       "distribution": "internal",
       "environment": "production",
       "channel": "production-consumidor",
       "autoIncrement": false,
-      "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_APP_ENV": "production", "EXPO_PUBLIC_APP_VARIANT": "consumidor", "ANDRADE_ANDROID_UNIVERSAL": "1", "EXPO_PUBLIC_DISABLE_LOCAL_MODEL": "1", "EXPO_PUBLIC_ENABLE_GEMINI_LIVE": "1", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_APP_VARIANT": "consumidor",
+        "ANDRADE_ANDROID_UNIVERSAL": "1",
+        "EXPO_PUBLIC_DISABLE_LOCAL_MODEL": "1",
+        "EXPO_PUBLIC_ENABLE_GEMINI_LIVE": "1",
+        "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api"
+      }
     },
     "universal-production-gerador": {
       "distribution": "internal",
       "environment": "production",
       "channel": "production-gerador",
       "autoIncrement": false,
-      "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_APP_ENV": "production", "EXPO_PUBLIC_APP_VARIANT": "gerador", "ANDRADE_ANDROID_UNIVERSAL": "1", "EXPO_PUBLIC_DISABLE_LOCAL_MODEL": "1", "EXPO_PUBLIC_ENABLE_GEMINI_LIVE": "1", "ANDRADE_NATIVE_CEMIG_BROWSER": "1", "ANDRADE_CEMIG_AUTOMATION_PRODUCTION": "1", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_APP_VARIANT": "gerador",
+        "ANDRADE_ANDROID_UNIVERSAL": "1",
+        "EXPO_PUBLIC_DISABLE_LOCAL_MODEL": "1",
+        "EXPO_PUBLIC_ENABLE_GEMINI_LIVE": "1",
+        "ANDRADE_NATIVE_CEMIG_BROWSER": "1",
+        "ANDRADE_CEMIG_AUTOMATION_PRODUCTION": "1",
+        "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api"
+      }
     },
     "preview-pdf-gerador": {
       "extends": "preview-gerador",
       "environment": "preview",
-      "android": { "buildType": "apk" },
-      "env": { "ANDRADE_NATIVE_REFRESH_FIXED": "1", "ANDRADE_NATIVE_CEMIG_BROWSER": "1", "ANDRADE_CEMIG_AUTOMATION_PREVIEW": "1" }
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "ANDRADE_NATIVE_REFRESH_FIXED": "1",
+        "ANDRADE_NATIVE_CEMIG_BROWSER": "1",
+        "ANDRADE_CEMIG_AUTOMATION_PREVIEW": "1"
+      }
     },
     "preview-emulador-gerador": {
       "extends": "preview-gerador",
       "environment": "preview",
-      "android": { "buildType": "apk" },
-      "env": { "ANDRADE_ANDROID_EMULATOR": "1", "ANDRADE_NATIVE_REFRESH_FIXED": "1", "ANDRADE_NATIVE_CEMIG_BROWSER": "1", "ANDRADE_CEMIG_AUTOMATION_PREVIEW": "1" }
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "ANDRADE_ANDROID_EMULATOR": "1",
+        "ANDRADE_NATIVE_REFRESH_FIXED": "1",
+        "ANDRADE_NATIVE_CEMIG_BROWSER": "1",
+        "ANDRADE_CEMIG_AUTOMATION_PREVIEW": "1"
+      }
     },
     "preview-emulador-consumidor": {
       "extends": "preview",
       "environment": "preview",
-      "android": { "buildType": "apk" },
-      "env": { "ANDRADE_ANDROID_EMULATOR": "1" }
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "ANDRADE_ANDROID_EMULATOR": "1"
+      }
     },
     "development": {
       "developmentClient": true,
       "distribution": "internal",
       "channel": "development-consumidor",
-      "env": { "EXPO_PUBLIC_APP_VARIANT": "consumidor", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
+      "env": {
+        "EXPO_PUBLIC_APP_VARIANT": "consumidor",
+        "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api"
+      }
     },
     "development-gerador": {
       "developmentClient": true,
       "distribution": "internal",
       "channel": "development-gerador",
-      "env": { "EXPO_PUBLIC_APP_VARIANT": "gerador", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
+      "env": {
+        "EXPO_PUBLIC_APP_VARIANT": "gerador",
+        "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api"
+      }
     },
     "preview": {
       "distribution": "internal",
       "channel": "preview-consumidor",
-      "env": { "EXPO_PUBLIC_APP_ENV": "preview", "EXPO_PUBLIC_APP_VARIANT": "consumidor", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-homologacao.onrender.com/api" }
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "preview",
+        "EXPO_PUBLIC_APP_VARIANT": "consumidor",
+        "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-homologacao.onrender.com/api"
+      }
     },
     "preview-gerador": {
       "distribution": "internal",
       "channel": "preview-gerador",
-      "env": { "EXPO_PUBLIC_APP_ENV": "preview", "EXPO_PUBLIC_APP_VARIANT": "gerador", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-homologacao.onrender.com/api" }
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "preview",
+        "EXPO_PUBLIC_APP_VARIANT": "gerador",
+        "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-homologacao.onrender.com/api"
+      }
     },
     "client-consumidor": {
       "distribution": "internal",
       "environment": "production",
       "channel": "production-consumidor",
-      "env": { "EXPO_PUBLIC_APP_VARIANT": "consumidor", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
+      "env": {
+        "EXPO_PUBLIC_APP_VARIANT": "consumidor",
+        "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api"
+      }
     },
     "client-gerador": {
       "distribution": "internal",
       "environment": "production",
       "channel": "production-gerador",
-      "env": { "EXPO_PUBLIC_APP_VARIANT": "gerador", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
+      "env": {
+        "EXPO_PUBLIC_APP_VARIANT": "gerador",
+        "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api"
+      }
     },
     "production": {
       "autoIncrement": true,
       "channel": "production-consumidor",
-      "env": { "EXPO_PUBLIC_APP_VARIANT": "consumidor", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
+      "env": {
+        "EXPO_PUBLIC_APP_VARIANT": "consumidor",
+        "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api"
+      }
     },
     "production-gerador": {
       "autoIncrement": true,
       "channel": "production-gerador",
-      "env": { "EXPO_PUBLIC_APP_VARIANT": "gerador", "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api" }
+      "env": {
+        "EXPO_PUBLIC_APP_VARIANT": "gerador",
+        "EXPO_PUBLIC_API_URL": "https://andrade-energy-api-vda.onrender.com/api"
+      }
+    },
+    "share-production-gerador": {
+      "extends": "universal-production-gerador",
+      "env": {
+        "ANDRADE_NATIVE_REFRESH_FIXED": "1",
+        "ANDRADE_GENERATOR_SHARE_BUILD": "1"
+      }
     }
   },
   "submit": {
