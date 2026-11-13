@@ -128,3 +128,17 @@ export async function nomearMinhaUnidade(unidadeId: string, apelido: string) {
   const { data } = await api.patch(`/clientes/minhas-unidades/${unidadeId}/apelido`, { apelido });
   return data;
 }
+
+export async function extrairLeituraMedidor(id: string, fotoBase64: string) {
+  const { data } = await api.post<{ leitura: string | null }>(
+    `/clientes/minhas-unidades/${id}/autoleitura/extrair`, { fotoBase64 }, { timeout: 25_000 }
+  );
+  return data.leitura;
+}
+
+export async function listarMinhasAutoleituras(id: string) {
+  const { data } = await api.get<{ id: string; data_programada: string; leitura_kwh: number; recebida_em: string; estado: "RECEBIDA" | "EM_ENVIO" | "ENVIADA" | "RECUSADA" | "EM_REVISAO"; protocolo_cemig: string | null; estimativa_cemig: number | null }[]>(
+    `/clientes/minhas-unidades/${id}/autoleitura`,
+  );
+  return data;
+}

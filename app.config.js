@@ -3,6 +3,7 @@ const gerador =
 const preview = process.env.EXPO_PUBLIC_APP_ENV === "preview";
 const emulatorBuild = preview && process.env.ANDRADE_ANDROID_EMULATOR === "1";
 const universalBuild = process.env.ANDRADE_ANDROID_UNIVERSAL === "1";
+const consumerCameraBuild = !gerador && !preview && process.env.ANDRADE_CONSUMER_CAMERA_BUILD === "1";
 const nativeRefreshFixed = process.env.ANDRADE_NATIVE_REFRESH_FIXED === "1";
 const compatibility32 = process.env.ANDRADE_ANDROID_32BIT === "1" || universalBuild;
 const nativeCemigBrowser = gerador && process.env.ANDRADE_NATIVE_CEMIG_BROWSER === "1";
@@ -56,7 +57,7 @@ module.exports = {
 
       package: packageId,
 
-      versionCode: gerador ? (preview ? 4 : 12) : nativeRefreshFixed ? (preview ? 3 : 10) : preview ? 2 : universalBuild ? 9 : gerador ? (nativeCemigAutomation ? 8 : nativeCemigBrowser ? 7 : 5) : 8,
+      versionCode: consumerCameraBuild ? 11 : gerador ? (preview ? 4 : 12) : nativeRefreshFixed ? (preview ? 3 : 10) : preview ? 2 : universalBuild ? 9 : gerador ? (nativeCemigAutomation ? 8 : nativeCemigBrowser ? 7 : 5) : 8,
       permissions: ["android.permission.REQUEST_INSTALL_PACKAGES", "android.permission.POST_NOTIFICATIONS", ...(assistantNative ? ["android.permission.RECORD_AUDIO"] : [])],
 
       predictiveBackGestureEnabled: false,
@@ -89,6 +90,7 @@ module.exports = {
     },
 
     plugins: [
+      ["expo-camera", { cameraPermission: "Permita fotografar o medidor no aplicativo.", microphonePermission: false, recordAudioAndroid: false }],
       ...(nativeRefreshFixed ? ["./plugins/with-refresh-transition-fix"] : []),
       "expo-router",
       ...(assistantNative ? [["expo-audio", { microphonePermission: "A conversa de voz pode enviar áudio ao Gemini Live após sua autorização." }]] : []),
@@ -161,7 +163,7 @@ module.exports = {
       },
     },
 
-    runtimeVersion: gerador && !preview && nativeCemigBrowser ? "1.0.13-production-autoleitura" : gerador && process.env.ANDRADE_OTA_LEGACY_GENERATOR !== "1" ? `1.0.12-${preview ? "preview" : "production"}-pdf-voice` : nativeRefreshFixed ? `1.0.11-${preview ? "preview" : "production"}-refresh-fixed` : compatibility32 ? (preview ? "1.0.10-preview-arm32" : "1.0.10-production-arm32") : nativeCemigAutomation ? (preview ? "1.0.9-preview-cemig-worker" : "1.0.9-production-cemig-worker") : nativeCemigBrowser ? (preview ? "1.0.8-preview-cemig-vault" : "1.0.8-production-cemig-vault") : preview ? "1.0.4-preview-live-awake" : assistantNative ? "1.0.4-production-live-awake" : {
+    runtimeVersion: consumerCameraBuild ? "1.0.14-production-consumidor-camera" : gerador && !preview && nativeCemigBrowser ? "1.0.13-production-autoleitura" : gerador && process.env.ANDRADE_OTA_LEGACY_GENERATOR !== "1" ? `1.0.12-${preview ? "preview" : "production"}-pdf-voice` : nativeRefreshFixed ? `1.0.11-${preview ? "preview" : "production"}-refresh-fixed` : compatibility32 ? (preview ? "1.0.10-preview-arm32" : "1.0.10-production-arm32") : nativeCemigAutomation ? (preview ? "1.0.9-preview-cemig-worker" : "1.0.9-production-cemig-worker") : nativeCemigBrowser ? (preview ? "1.0.8-preview-cemig-vault" : "1.0.8-production-cemig-vault") : preview ? "1.0.4-preview-live-awake" : assistantNative ? "1.0.4-production-live-awake" : {
       policy: "appVersion",
     },
 

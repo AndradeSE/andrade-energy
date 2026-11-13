@@ -4,6 +4,10 @@
     "appVersionSource": "local"
   },
   "build": {
+    "camera-production-consumidor": {
+      "extends": "refresh-fixed-production-consumidor",
+      "env": { "ANDRADE_CONSUMER_CAMERA_BUILD": "1" }
+    },
     "refresh-fixed-production-consumidor": {
       "extends": "universal-production-consumidor",
       "env": { "ANDRADE_NATIVE_REFRESH_FIXED": "1" }
