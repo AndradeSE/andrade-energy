@@ -1,5 +1,32 @@
 [
   {
+    "numero": "OTA 20261113-072805",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Consumidor camera: sincronizar melhorias aprovadas de leituras e navegacao"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-072616",
+    "data": "13/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Gerador final: compartilhamento verde com melhorias aprovadas preservadas"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-072033",
+    "data": "13/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Gerador compartilhamento: tela padrao e voltar sem alterar navegacao"
+    ]
+  },
+  {
     "numero": "OTA 20261104-171211",
     "data": "04/11/2026",
     "variant": "gerador",
