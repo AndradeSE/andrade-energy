@@ -15,3 +15,9 @@
 Gerador: usar perfil `share-production-gerador` para APK. Para OTA usar `scripts/publish-ota.ps1 -Variant gerador -Audience clients`, com `ANDRADE_GENERATOR_SHARE_BUILD=1`, `ANDRADE_NATIVE_CEMIG_BROWSER=1`, `ANDRADE_CEMIG_AUTOMATION_PRODUCTION=1`, `ANDRADE_NATIVE_REFRESH_FIXED=1`, `ANDRADE_ANDROID_UNIVERSAL=1`. Confirmar runtime15 antes da publicacao.
 
 Consumidor: perfil `camera-production-consumidor`. OTA com `ANDRADE_CONSUMER_CAMERA_BUILD=1`, `ANDRADE_NATIVE_REFRESH_FIXED=1`, `ANDRADE_ANDROID_UNIVERSAL=1`, confirmando runtime14. Esta entrega nao remove os canais/runtimes legados dos clientes; o aviso de APK compara versionCode e aponta ao link estavel.
+
+## Correcao da regressao Consumidor
+
+A build11 deixou de incorporar a Home e o cabecalho aprovados do Consumidor. Build12, EAS04f3ec14-530d-4582-a3ca-5b8d651e5aaa, corrige a composicao na fonte e no APK. SHA256f413b189ea3399ff36176ea44ba6246e56aaed271d320450eb65b52fb1887f4d,108822993bytes, certificado1afe65377b78579fbdfed1842a724721c591b6be4f30ce0f2774867aa2222ce1. Link estavel e manifesto de aviso nativo atualizados para12. Runtimes4,10,11 e14 receberam o reparo por OTA e foram consultados diretamente comHTTP200 e IDsconfirmados. Gerador permanece build13 e recebeu melhoria de retentativa de aviso no runtime15.
+
+A base dos6 arquivos principais esta fixada em config/consumer-release-baseline.json, conferida por scripts/check-consumer-release.cjs antes de OTA e futuras buildsEAS. Teste negativo com Home alterada bloqueou a publicacao. Instrucoes de release em docs/mobile-release-baseline.md eAGENTS.md. Fonte permanente em .worktrees/mobile-release-current. Testesautomaticos aprovados; sem teste visual novo noS23, que ficou offline.
