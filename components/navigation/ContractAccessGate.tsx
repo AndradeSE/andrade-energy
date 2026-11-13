@@ -19,7 +19,7 @@ export default function ContractAccessGate() {
   useEffect(() => {
     let ativo = true;
     if (usuario?.perfil !== "LEITURA") escopoVerificado.current = null;
-    if (usuario?.perfil !== "LEITURA" || /^(?:\/\(tabs\))?\/(?:login|criar-conta|contrato|perfil|biometric|selecionar-unidade)(?:\/|$)/.test(path)) {
+    if (usuario?.perfil !== "LEITURA" || path === "/clientes/faturas-anexadas" || /^(?:\/\(tabs\))?\/(?:login|criar-conta|contrato|perfil|biometric|selecionar-unidade)(?:\/|$)/.test(path)) {
       setBloqueado(false); return;
     }
     const escopoAtual = `${usuario.id}:${unidadeSelecionada?.id ?? "sem-unidade"}`;

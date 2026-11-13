@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import { useLocalSearchParams } from "expo-router";
 import { Alert, Linking, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -7,7 +8,7 @@ import { AppHeader, Button, Card, Screen } from "../../components/ui";
 import { buscarUnidade, listarAutoleituras } from "../../services/clientes.service";
 import api from "../../config/api";
 import { isPreviewEnvironment } from "../../config/environment";
-import { obterSessao } from "../../storage/session";
+import { CHAVE_ESTADO_AUTOLEITURA, obterSessao } from "../../storage/session";
 import { Colors, Spacing } from "../../theme";
 
 type Leitura = Awaited<ReturnType<typeof listarAutoleituras>>[number];
@@ -16,7 +17,8 @@ export default function LeiturasDaUc() {
   const { id, numero } = useLocalSearchParams<{ id: string; numero: string }>();
   const [leituras, setLeituras] = useState<Leitura[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const [enviando, setEnviando] = useState(false);
+  const [configurando, setConfigurando] = useState(false);
+  const [estadoEnvio, setEstadoEnvio] = useState<{ id: string; ativo: boolean }>();
   const [erro, setErro] = useState(false);
   async function carregar() {
     setCarregando(true); setErro(false);
@@ -25,8 +27,25 @@ export default function LeiturasDaUc() {
     finally { setCarregando(false); }
   }
   useEffect(() => { void carregar(); }, [id]);
+  useEffect(() => {
+    if (Constants.expoConfig?.extra?.nativeCemigAutoleitura !== true || !id) return;
+    let ativa = true;
+    void Promise.all([buscarUnidade(id), obterSessao(), AsyncStorage.getItem(CHAVE_ESTADO_AUTOLEITURA)])
+      .then(([unidade, sessao, salvo]) => {
+        if (!ativa || !unidade?.usina_id || !sessao?.id || !salvo) return;
+        const estados = JSON.parse(salvo) as Record<string, boolean>;
+        const valor = estados[JSON.stringify([sessao.id, unidade.usina_id])];
+        if (typeof valor === "boolean") setEstadoEnvio(atual => atual?.id === id ? atual : { id, ativo: valor });
+      })
+      .catch(() => undefined);
+    return () => { ativa = false; };
+  }, [id]);
+
+  const envioAtivo = estadoEnvio?.id === id ? estadoEnvio?.ativo : undefined;
   const pendente = leituras.find(item => item.estado === "RECEBIDA");
-  async function configurarSegundoPlano(ativar: boolean) {
+  async function configurarEnvioAutomatico(ativar: boolean) {
+    if (configurando) return;
+    setConfigurando(true);
     try {
       const sessao = await obterSessao();
       const unidade = await buscarUnidade(id);
@@ -43,53 +62,50 @@ export default function LeiturasDaUc() {
         },
       });
       if (result.resultCode !== IntentLauncher.ResultCode.Success) throw new Error("O Android não aceitou a configuração.");
-      Alert.alert(ativar ? "Segundo plano ativado nesta usina" : "Segundo plano desativado nesta usina");
+      setEstadoEnvio({ id, ativo: ativar });
+      if (sessao.id) {
+        const chave = JSON.stringify([sessao.id, unidade.usina_id]);
+        try {
+          const salvo = await AsyncStorage.getItem(CHAVE_ESTADO_AUTOLEITURA);
+          const estados = salvo ? JSON.parse(salvo) : {};
+          await AsyncStorage.setItem(CHAVE_ESTADO_AUTOLEITURA, JSON.stringify({ ...estados, [chave]: ativar }));
+        } catch {
+          await AsyncStorage.removeItem(CHAVE_ESTADO_AUTOLEITURA).catch(() => undefined);
+        }
+      }
+      if (ativar) {
+        Alert.alert(
+          "Envio automático ativado nesta usina!",
+          isPreviewEnvironment
+            ? "Assim que o consumidor informar a leitura atual do medidor, o app verificará a fila em segundo plano e preparará a leitura para conferência."
+            : "Assim que o consumidor informar a leitura atual do medidor, ela entra na fila da usina. Na próxima verificação em segundo plano, o app envia à Cemig as leituras elegíveis e registra o protocolo quando o envio for confirmado.",
+        );
+      } else {
+        Alert.alert("Envio automático desativado nesta usina");
+      }
     } catch (e: any) {
       Alert.alert("Configuração indisponível", e?.response?.data?.message ?? e.message);
+    } finally {
+      setConfigurando(false);
     }
-  }
-  async function enviarAutomaticamente() {
-    if (!pendente || enviando) return;
-    setEnviando(true);
-    try {
-      const sessao = await obterSessao();
-      const unidade = await buscarUnidade(id);
-      if (!sessao?.token || !unidade?.usina_id) throw new Error("Confirme a sessão e a usina desta UC.");
-      const fila = await api.get<{ itens: { id: string; unidade_id: string; leitura_kwh: number; data_programada: string; unidades_consumidoras: { numero: string } }[] }>(`/clientes/autoleitura/fila/${encodeURIComponent(unidade.usina_id)}`);
-      const tarefa = fila.data.itens.find(item => item.id === pendente.id && item.unidade_id === id);
-      if (!tarefa) throw new Error("Esta leitura não está mais disponível para envio. Atualize o histórico.");
-      const data = new Date(`${tarefa.data_programada}T12:00:00Z`);
-      await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
-        packageName: isPreviewEnvironment ? "com.andradese.energy.gerador.preview" : "com.andradese.energy.gerador",
-        className: "br.com.andradeenergy.cemig.CemigBrowserActivity",
-        extra: {
-          autoleituraPreview: JSON.stringify({ unidadeId: id, leituraId: tarefa.id, uc: tarefa.unidades_consumidoras.numero.replace(/\D/g, ""), leitura: String(tarefa.leitura_kwh), dataLocal: new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }), referencia: `${data.toLocaleDateString("pt-BR", { month: "long", timeZone: "UTC" })}/${data.getUTCFullYear()}` }),
-          rateioApi: String(fila.config.baseURL ?? "").replace(/\/$/, ""), rateioToken: sessao.token, rateioUsina: unidade.usina_id,
-        },
-      });
-      await carregar();
-    } catch (e: any) { Alert.alert("Envio não iniciado", e?.response?.data?.message ?? e.message); }
-    finally { setEnviando(false); }
   }
   return <Screen>
     <AppHeader variant="subpage" title="Leitura do medidor" subtitle={`UC ${numero ?? ""}`} contextTitle="Unidade consumidora" contextSubtitle="Envio e histórico" />
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.title}>Informar leitura</Text>
-      <Text>O cliente informa a leitura no aplicativo. Quando ela for recebida, escolha como enviar à Cemig.</Text>
+      <Text>O cliente informa a leitura no aplicativo. Você pode enviá-la manualmente ou ativar o envio automático para a usina.</Text>
       {pendente ? <Card><Text style={styles.title}>{pendente.leitura_kwh} kWh</Text><Text>Leitura recebida · prazo {pendente.data_programada.split("-").reverse().join("/")}</Text></Card> : null}
       <View style={styles.actions}>
         <Button title="Envio manual" onPress={() => Alert.alert("Envio manual", "O portal da Cemig será aberto. Selecione esta UC, informe a leitura e guarde o protocolo. O app não marcará um envio manual como protocolado sem confirmação.", [{ text: "Cancelar", style: "cancel" }, { text: "Abrir Cemig", onPress: () => { void Linking.openURL("https://atende.cemig.com.br/Login").catch(() => Alert.alert("Não foi possível abrir a Cemig")); } }])} />
-        <Button title={enviando ? "Preparando..." : "Envio automático"} disabled={!pendente || enviando || Constants.expoConfig?.extra?.nativeCemigAutoleitura !== true} onPress={() => Alert.alert("Envio automático", isPreviewEnvironment ? "O navegador integrado usará o acesso salvo e preencherá a leitura para conferência. No Preview, o envio definitivo permanece bloqueado." : "O navegador integrado usará o acesso salvo para enviar esta leitura e registrar o protocolo. Se a Cemig exigir verificação, a sessão aguardará sua ação.", [{ text: "Cancelar", style: "cancel" }, { text: "Continuar", onPress: () => { void enviarAutomaticamente(); } }])} />
-      </View>
-      {Constants.expoConfig?.extra?.nativeCemigAutoleitura === true ? <>
-        <Text style={styles.title}>Segundo plano</Text>
-        <Text>O dispositivo verifica a fila desta usina periodicamente. Se a Cemig pedir verificação ou outra UC, continue pelo aplicativo.</Text>
-        <Button title="Configurar segundo plano" onPress={() => Alert.alert("Autoleitura desta usina", isPreviewEnvironment ? "O Preview prepara a leitura para conferência." : "O Android consultará a fila desta usina e enviará leituras elegíveis quando conseguir confirmar os dados no portal.", [
+        {Constants.expoConfig?.extra?.nativeCemigAutoleitura === true ? <>
+          <Text accessibilityLiveRegion="polite">Envio automático nesta usina · {envioAtivo === true ? "Ativado neste aparelho" : envioAtivo === false ? "Desativado neste aparelho" : "Status ainda não confirmado neste aparelho"}</Text>
+          <Button title={configurando ? "Salvando…" : "Envio automático"} disabled={configurando} onPress={() => Alert.alert("Envio automático da usina", isPreviewEnvironment ? "O app verifica a fila em segundo plano e prepara leituras para conferência no Preview." : "O app verifica a fila desta usina em segundo plano e envia as leituras elegíveis à Cemig. Se o portal pedir verificação, o envio poderá precisar de revisão.", [
           { text: "Cancelar", style: "cancel" },
-          { text: "Desativar", onPress: () => { void configurarSegundoPlano(false); } },
-          { text: "Ativar", onPress: () => { void configurarSegundoPlano(true); } },
+          { text: "Desativar", onPress: () => { void configurarEnvioAutomatico(false); } },
+          { text: "Ativar", onPress: () => { void configurarEnvioAutomatico(true); } },
         ])} />
-      </> : null}
+        </> : null}
+      </View>
       <Text style={styles.title}>Histórico de envio</Text>
       {carregando ? <Text>Consultando leituras...</Text> : erro ? <><Text>Não foi possível consultar o histórico.</Text><Button title="Tentar novamente" onPress={carregar} /></> : !leituras.length ? <Text>Nenhuma leitura recebida para esta UC.</Text> : leituras.map(item => <Card key={item.id}>
         <Text style={styles.title}>{item.leitura_kwh} kWh</Text>

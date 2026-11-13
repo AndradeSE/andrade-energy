@@ -1,3 +1,4 @@
+import { invoiceReferencePeriod } from "../../utils/uc-energy-balance";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -26,11 +27,6 @@ const documento = (valor: unknown) => {
   return String(valor ?? "");
 };
 const tipoGdDaFatura = (dados: any) => (Number(dados?.energiaCompensadaGD1 ?? 0) > 0 && Number(dados?.energiaCompensadaGD2 ?? 0) > 0 ? "MISTA" : Number(dados?.energiaCompensadaGD2 ?? 0) > 0 ? "GD2" : Number(dados?.energiaCompensadaGD1 ?? 0) > 0 ? "GD1" : "");
-const competenciaCurta = (valor: unknown) => {
-  const texto = String(valor ?? "");
-  const correspondencia = /^(\d{4})-(\d{2})/.exec(texto);
-  return correspondencia ? `${correspondencia[2]}/${correspondencia[1].slice(2)}` : texto.slice(0, 7) || "—";
-};
 const statusDaSolicitacao = (status: unknown) => {
   const valor = String(status ?? "ATIVO").toUpperCase();
   if (valor === "AGUARDANDO_VERIFICACAO_EMAIL") return { label: "Aguardando e-mail", variant: "warning" as const };
@@ -116,14 +112,20 @@ export default function ClienteDetalhe() {
   // O gerador precisa continuar vendo e configurando as UCs enquanto o
   // consumidor ainda não concluiu a criação da conta.
   const cadastroPendente = false;
-  const consumoHistorico = faturas
-    .map((fatura) => ({
-      referencia: competenciaCurta(fatura.referencia),
-      consumo: Math.max(0, Number(fatura.consumo_kwh ?? fatura.consumo ?? 0)),
-    }))
-    .filter((item) => item.consumo > 0)
-    .slice(0, 6)
-    .reverse();
+  const consumoPorCompetencia = new Map<number, number>();
+  for (const fatura of faturas) {
+    const periodo = invoiceReferencePeriod(fatura.referencia);
+    const consumo = Number(fatura.consumo_kwh ?? fatura.consumo ?? 0);
+    if (!periodo || !Number.isFinite(consumo) || consumo <= 0) continue;
+    consumoPorCompetencia.set(periodo, (consumoPorCompetencia.get(periodo) ?? 0) + consumo);
+  }
+  const consumoHistorico = [...consumoPorCompetencia.entries()]
+    .sort(([a], [b]) => a - b)
+    .slice(-6)
+    .map(([periodo, consumo]) => ({
+      referencia: String(periodo % 100).padStart(2, "0") + "/" + String(Math.floor(periodo / 100)).slice(-2),
+      consumo,
+    }));
   const maiorConsumo = Math.max(1, ...consumoHistorico.map((item) => item.consumo));
   const mostrarVisaoGeral = !area;
   const concessionariaCliente = String(unidades.find((unidade) => String(unidade?.distribuidora ?? "").trim())?.distribuidora ?? cliente.distribuidora ?? "").trim();

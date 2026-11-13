@@ -52,8 +52,10 @@ export default function NovaUnidade() {
   const [mensagemSalvar, setMensagemSalvar] = useState("");
   const [numero, setNumero] = useState(""); const [titular, setTitular] = useState("");
   const [cpfTitular, setCpfTitular] = useState("");
-  const [zona, setZona] = useState<"" | "RURAL" | "URBANA">("");
-  const [autoleituraAtiva, setAutoleituraAtiva] = useState(false);
+  const [zona, setZona] = useState<"" | "RURAL" | "URBANA">(() => {
+    const valor = parseDadosFatura(dadosFaturaParam)?.zona_localizacao;
+    return valor === "RURAL" || valor === "URBANA" ? valor : "";
+  });
   const [tipo, setTipo] = useState<Tipo>("BENEFICIARIA"); const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO");
   const [planoContrato, setPlanoContrato] = useState("COM_FIDELIDADE");
   const [descontoPersonalizado, setDescontoPersonalizado] = useState(false);
@@ -242,7 +244,7 @@ export default function NovaUnidade() {
     }
     setSalvando(true);
     const autoleitura = zona && tipo !== "GERADORA"
-      ? { zona_localizacao: zona, autoleitura_rural_ativa: zona === "RURAL" && autoleituraAtiva }
+      ? { zona_localizacao: zona, autoleitura_rural_ativa: zona === "RURAL" }
       : {};
     setMensagemSalvar("Salvando a unidade no servidor...");
     try {
@@ -323,11 +325,8 @@ export default function NovaUnidade() {
       {IS_GERADOR_APP ? <>
         <ChoiceField label="Localização da UC" value={zona} onChange={(valor) => {
           setZona(valor);
-          if (valor !== "RURAL") setAutoleituraAtiva(false);
         }} options={[{ label: "Rural", value: "RURAL" }, { label: "Urbana", value: "URBANA" }]} />
-        {zona === "RURAL" ? <ChoiceField label="Autoleitura do medidor" value={autoleituraAtiva ? "ATIVA" : "INATIVA"}
-          onChange={(valor) => setAutoleituraAtiva(valor === "ATIVA")}
-          options={[{ label: "Ativada", value: "ATIVA" }, { label: "Desativada", value: "INATIVA" }]} /> : null}
+
       </> : null}
         <ChoiceField label="Faturamento" value={modalidade} onChange={(valor) => { const nova = valor as Modalidade; setModalidade(nova); setPercentualAlocado(percentualPelaMedia(usinaSelecionada, consumoMedio, nova)); }} options={[{ label: "Injeção", value: "INJECAO" }, { label: "Compensação", value: "COMPENSACAO" }]} />
         <Text style={styles.beneficiariaHint}>Usina deste ambiente: {usinaSelecionada?.nome ?? "Selecione uma usina"}</Text>

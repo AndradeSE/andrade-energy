@@ -101,7 +101,6 @@ export default function EditarAlocacaoUnidade() {
   const [modalidade, setModalidade] = useState<Modalidade>("COMPENSACAO"); const [percentual, setPercentual] = useState("");
   const [percentualEditado, setPercentualEditado] = useState(false);
   const [zona, setZona] = useState<"" | "RURAL" | "URBANA">("");
-  const [autoleituraAtiva, setAutoleituraAtiva] = useState(false);
   const [salvandoAutoleitura, setSalvandoAutoleitura] = useState(false);
   const [planoContrato, setPlanoContrato] = useState("COM_FIDELIDADE");
   const [descontoPersonalizado, setDescontoPersonalizado] = useState(false);
@@ -141,7 +140,6 @@ export default function EditarAlocacaoUnidade() {
           if (!ativa) return;
           setUsinaId(String(unidade.usina_id ?? ""));
           setZona(unidade.zona_localizacao === "RURAL" || unidade.zona_localizacao === "URBANA" ? unidade.zona_localizacao : "");
-          setAutoleituraAtiva(unidade.zona_localizacao === "RURAL" && unidade.autoleitura_rural_ativa === true);
           return;
         }
         const [lista, unidade, faturas] = await Promise.all([
@@ -198,7 +196,6 @@ export default function EditarAlocacaoUnidade() {
         setUsinaId(usinaPreferida);
         setModalidade(modalidadeFinal);
         setZona(uc?.zona_localizacao === "RURAL" || uc?.zona_localizacao === "URBANA" ? uc.zona_localizacao : "");
-        setAutoleituraAtiva(uc?.zona_localizacao === "RURAL" && uc?.autoleitura_rural_ativa === true);
         setPlanoContrato(uc?.plano_contrato ?? "COM_FIDELIDADE");
         setDescontoPersonalizado(true);
         setDesconto(String(descontoImportado ?? uc?.desconto_percentual ?? c?.desconto_percentual ?? 40));
@@ -251,7 +248,7 @@ export default function EditarAlocacaoUnidade() {
     ]);
     if (!Number.isFinite(descontoNumero) || descontoNumero < 0 || descontoNumero > 100) return Alert.alert("Desconto inválido", "Informe um desconto entre 0% e 100%.");
     try { setSalvando(true);
-      await alocarUnidade(usinaId, { ...(zona ? { zona_localizacao: zona, autoleitura_rural_ativa: zona === "RURAL" && autoleituraAtiva } : {}), planoContrato, clienteId: clienteIdResolvido, numero: numeroDaUc, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd: tipoGdEfetivo, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: !percentualEditado, revisaoContrato: atualizacaoContratual });
+      await alocarUnidade(usinaId, { ...(zona ? { zona_localizacao: zona, autoleitura_rural_ativa: zona === "RURAL" } : {}), planoContrato, clienteId: clienteIdResolvido, numero: numeroDaUc, modalidade, percentual: rateio, desconto: descontoNumero, consumoMedio: media, percentualRepasseDisponibilidade: repasseDisponibilidadeGD2 === "REPASSAR" ? 100 : 0, repassarCustoDisponibilidadeGD1: repasseDisponibilidadeGD1 === "REPASSAR", repassarCustoDisponibilidadeGD2: repasseDisponibilidadeGD2 === "REPASSAR", repassarDiferencaFioBGD2: repasseFioBGD2 === "REPASSAR", tipoGd: tipoGdEfetivo, faturaSomenteAndrade: formatoFatura === "SOMENTE_ANDRADE", calcularAutomaticamente: !percentualEditado, revisaoContrato: atualizacaoContratual });
       if (usinaId !== usinaDoAmbiente?.id && usinaSelecionada) await selecionarUsina(usinaSelecionada);
       // Esta tela pode ter sido aberta a partir de uma UC ou da criação por
       // fatura. O destino único evita ficar preso na tela anterior e exigir
@@ -318,19 +315,19 @@ export default function EditarAlocacaoUnidade() {
         {somenteAutoleitura === "1" ? <>
             <ChoiceField label="Localização da UC" value={zona} onChange={(valor) => {
               setZona(valor);
-              if (valor !== "RURAL") setAutoleituraAtiva(false);
             }} options={[{ label: "Rural", value: "RURAL" }, { label: "Urbana", value: "URBANA" }]} disabled={salvandoAutoleitura} />
-            {zona === "RURAL" ? (
-              <ChoiceField label="Autoleitura do medidor" value={autoleituraAtiva ? "ATIVA" : "INATIVA"}
-                onChange={(valor) => setAutoleituraAtiva(valor === "ATIVA")}
-                options={[{ label: "Ativada", value: "ATIVA" }, { label: "Desativada", value: "INATIVA" }]} disabled={salvandoAutoleitura} />
-            ) : null}
-            <Button title={salvandoAutoleitura ? "Salvando..." : "Salvar configuração de autoleitura"} disabled={!zona || salvandoAutoleitura} onPress={async () => {
+
+            <Button title={salvandoAutoleitura ? "Salvando..." : "Salvar localização da UC"} disabled={!zona || salvandoAutoleitura} onPress={async () => {
               if (!zona || salvandoAutoleitura) return;
               setSalvandoAutoleitura(true);
               try {
-                await configurarAutoleitura(unidadeIdRecebida, zona, autoleituraAtiva);
-                Alert.alert("Configuração salva");
+                await configurarAutoleitura(unidadeIdRecebida, zona, zona === "RURAL");
+                Alert.alert(
+                  "Localização da UC salva!",
+                  zona === "RURAL"
+                    ? "Com a UC ativa, o cliente verá a opção Informar leitura do medidor no app."
+                    : "A unidade foi cadastrada como urbana.",
+                );
               } catch {
                 Alert.alert("Não foi possível salvar a configuração de autoleitura");
               } finally {
@@ -357,13 +354,8 @@ export default function EditarAlocacaoUnidade() {
 
             <ChoiceField label="Localização da UC" value={zona} onChange={(valor) => {
               setZona(valor);
-              if (valor !== "RURAL") setAutoleituraAtiva(false);
             }} options={[{ label: "Rural", value: "RURAL" }, { label: "Urbana", value: "URBANA" }]} disabled={salvandoAutoleitura} />
-            {zona === "RURAL" ? (
-              <ChoiceField label="Autoleitura do medidor" value={autoleituraAtiva ? "ATIVA" : "INATIVA"}
-                onChange={(valor) => setAutoleituraAtiva(valor === "ATIVA")}
-                options={[{ label: "Ativada", value: "ATIVA" }, { label: "Desativada", value: "INATIVA" }]} disabled={salvandoAutoleitura} />
-            ) : null}
+
           <ChoiceField
             label="Modalidade"
             value={modalidade}

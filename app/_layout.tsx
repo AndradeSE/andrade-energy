@@ -380,6 +380,7 @@ function RootNavigator() {
           name="selecionar-unidade"
           options={{
             headerShown: false,
+            gestureEnabled: !IS_GERADOR_APP,
           }}
         />
 

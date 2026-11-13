@@ -168,6 +168,9 @@ type AuthContextData = {
     unidade: UnidadeConsumidora | null
   ) => Promise<void>;
 
+  escolhaUsinaConfirmada: boolean;
+  exigirEscolhaUsina: () => void;
+
   selecionarUsina: (
     usina: UsinaSelecionada | null
   ) => Promise<void>;
@@ -690,12 +693,15 @@ export function AuthProvider({
    * ======================================================
    */
 
+  const [usinaConfirmadaPor, setUsinaConfirmadaPor] = useState<string | null>(null);
+
   async function selecionarUsina(
     usina:
       UsinaSelecionada | null
   ) {
     try {
       if (!usina) {
+        setUsinaConfirmadaPor(null);
         await SecureStore.deleteItemAsync(
           USINA_KEY
         );
@@ -725,6 +731,7 @@ export function AuthProvider({
       await SecureStore.deleteItemAsync(
         UNIDADE_KEY
       );
+      setUsinaConfirmadaPor(usuario?.id ? String(usuario.id) : null);
 
       console.log(
         "USINA SELECIONADA:",
@@ -898,6 +905,7 @@ export function AuthProvider({
    */
 
   async function logout() {
+    setUsinaConfirmadaPor(null);
     try {
       /*
        * Remove a sessão exatamente do local
@@ -1039,6 +1047,8 @@ export function AuthProvider({
 
         selecionarUnidade,
 
+        escolhaUsinaConfirmada: !!usuario?.id && usinaConfirmadaPor === String(usuario.id),
+        exigirEscolhaUsina: () => setUsinaConfirmadaPor(null),
         selecionarUsina,
 
         atualizarUsuario,

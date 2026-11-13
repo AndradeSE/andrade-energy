@@ -1,3 +1,4 @@
+import { mascaraUcCemig } from "../../utils/input-masks";
 import { notificationRoute } from "../../services/notification-route";
 import { useNotificationRefresh } from "../../hooks/useNotificationRefresh";
 
@@ -282,7 +283,8 @@ export default function AppHeader({
               : <PortalBrandLogo height={30} width={90} />}
           </View>
           <View style={styles.plantText}>
-            <View style={styles.plantTitleRow}><Text numberOfLines={1} style={styles.plantName}>{usinaSelecionada.nome}</Text></View>
+            <View style={styles.plantTitleRow}><Text numberOfLines={1} style={styles.plantName}>{/^usina\b/i.test(usinaSelecionada.nome.trim()) ? usinaSelecionada.nome : `Usina ${usinaSelecionada.nome}`}</Text></View>
+            {usinaSelecionada.numero_instalacao ? <Text style={styles.plantAutonomy}>UC {mascaraUcCemig(usinaSelecionada.numero_instalacao)}</Text> : null}
             <Text numberOfLines={1} style={styles.plantAutonomy}>{autonomia ? `Capacidade livre ${autonomia.percentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% · ${autonomia.disponivel.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kWh não distribuídos` : "Consultando capacidade..."}</Text>
           </View>
         </View> : null}
@@ -290,7 +292,7 @@ export default function AppHeader({
           {podeAlternarPerfil ? <TouchableOpacity accessibilityLabel="Trocar ambiente de gestão" activeOpacity={0.82} onPress={() => router.replace("/admin/escolher-area" as any)} style={[styles.environmentSwitch, styles.contextSwitchButton]}>
             <Ionicons name="layers-outline" size={17} color="#FFFFFF" /><Text numberOfLines={1} style={styles.contextSwitchText}>Trocar ambiente</Text>
           </TouchableOpacity> : null}
-          {podeTrocarUsina ? <TouchableOpacity accessibilityLabel="Trocar de usina" activeOpacity={0.82} onPress={() => router.push("/selecionar-unidade" as any)} style={[styles.environmentSwitch, styles.contextSwitchButton]}>
+          {podeTrocarUsina ? <TouchableOpacity accessibilityLabel="Trocar de usina" activeOpacity={0.82} onPress={() => router.replace("/selecionar-unidade" as any)} style={[styles.environmentSwitch, styles.contextSwitchButton]}>
             <Ionicons name="grid-outline" size={17} color="#FFFFFF" /><Text numberOfLines={1} style={styles.contextSwitchText}>Trocar usina</Text>
           </TouchableOpacity> : null}
           {podeTrocarUnidade ? <TouchableOpacity accessibilityLabel="Trocar unidade consumidora" activeOpacity={0.82} onPress={() => router.push("/selecionar-unidade" as any)} style={[styles.environmentSwitch, styles.contextSwitchButton]}>

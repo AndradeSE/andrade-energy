@@ -285,7 +285,7 @@ export default function DashboardGestor() {
               ...atalhos.filter((atalho) => (usuario?.papel_empresa !== "COLABORADOR_COMERCIAL" || !({"Novo cliente":"clientes", "Unidades consumidoras":"unidades", "Nova unidade consumidora":"unidades", "Faturar via PDF":"faturas", "Faturas emitidas":"faturas", "Faturamento manual":"faturas", "Nova usina":"usinas"} as Record<string,string>)[atalho.label] || usuario.permissoes?.[`gerador_${({"Novo cliente":"clientes", "Unidades consumidoras":"unidades", "Nova unidade consumidora":"unidades", "Faturar via PDF":"faturas", "Faturas emitidas":"faturas", "Faturamento manual":"faturas", "Nova usina":"usinas"} as Record<string,string>)[atalho.label]}`] === true) && (!colaborador || !(usuario?.permissoes?.ambientes_gerador === true ? ["Colaboradores", "Financeiro"] : ["Colaboradores", "Novo cliente", "Nova usina", "Nova unidade consumidora", "Financeiro"]).includes(atalho.label))).map((atalho) => ({
                 icon: atalho.icon,
                 label: atalho.label,
-                onPress: () => router.push(atalho.rota as any),
+                onPress: () => atalho.rota === "/selecionar-unidade" ? router.replace("/selecionar-unidade") : router.push(atalho.rota as any),
               })),
               ...(!colaborador && usinaSelecionada?.id ? [{
                 icon: "create-outline" as const,

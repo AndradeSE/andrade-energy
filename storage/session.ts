@@ -7,6 +7,7 @@ import Constants from 'expo-constants';
 import * as Application from 'expo-application';
 import * as IntentLauncher from 'expo-intent-launcher';
 
+export const CHAVE_ESTADO_AUTOLEITURA = `@andrade_autoleitura_estado${environmentKeySuffix}`;
 const CHAVE = `@andrade_energy_usuario${environmentKeySuffix}`;
 const secureSession = createSecureSession({
   getItem: SecureStore.getItemAsync,
@@ -30,7 +31,10 @@ async function encerrarAutomacaoNativa(){
 export async function salvarSessao(usuario: any) {
   if (Platform.OS !== "web") {
     const anterior=await secureSession.get();
-    if(anterior?.id&&anterior.id!==usuario?.id)await encerrarAutomacaoNativa();
+    if(anterior?.id&&anterior.id!==usuario?.id){
+      await encerrarAutomacaoNativa();
+      await AsyncStorage.removeItem(CHAVE_ESTADO_AUTOLEITURA).catch(() => undefined);
+    }
     else if(anterior?.id===usuario?.id&&anterior?.token!==usuario?.token&&Platform.OS==='android'&&Constants.expoConfig?.extra?.nativeCemigAutomation===true){
       await IntentLauncher.startActivityAsync('android.intent.action.VIEW',{packageName:pacoteAutomacao(),className:'br.com.andradeenergy.cemig.CemigBrowserActivity',extra:{rateioAutomationRefreshToken:usuario.token}});
     }

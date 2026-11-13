@@ -262,7 +262,7 @@ export default function UnidadeDocumentos() {
           ...(contrato?.revisao_configuracao_pendente ? { revisao: "1" } : {}),
         } });
       }} style={styles.action}><Ionicons name={contratoAssinado ? "document-text" : "document-text-outline"} size={18} color={Colors.primary} /><Text style={styles.actionText}>{rotuloContrato}</Text></TouchableOpacity> : null}
-      {IS_GERADOR_APP && unidade.tipo !== "GERADORA" && /^[0-9a-f-]{36}$/i.test(String(unidade.id)) ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Consultar leituras e protocolos" onPress={() => router.push({ pathname: "/unidades/leituras", params: { id: String(unidade.id), numero: String(unidade.numero ?? "") } } as any)} style={styles.action}><Ionicons name="speedometer-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Leituras e protocolos</Text></TouchableOpacity> : null}
+      {IS_GERADOR_APP && unidade.zona_localizacao === "RURAL" && unidade.tipo !== "GERADORA" && /^[0-9a-f-]{36}$/i.test(String(unidade.id)) ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Consultar leituras e protocolos" onPress={() => router.push({ pathname: "/unidades/leituras", params: { id: String(unidade.id), numero: String(unidade.numero ?? "") } } as any)} style={styles.action}><Ionicons name="speedometer-outline" size={18} color={Colors.primary} /><Text style={styles.actionText}>Leituras e protocolos</Text></TouchableOpacity> : null}
     </View>
     {IS_GERADOR_APP && documentoConferido ? <TouchableOpacity activeOpacity={0.84} accessibilityLabel="Reenviar convite de acesso ao cliente" onPress={() => {
       Alert.alert("Reenviar convite", "Será enviado um novo convite de acesso ao cliente desta UC. O contrato assinado continuará o mesmo.", [

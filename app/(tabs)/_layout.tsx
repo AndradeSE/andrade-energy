@@ -18,10 +18,10 @@ function TabIcon({ name, color, featured = false }: { name: keyof typeof Ionicon
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
-  const { usuario, usinaSelecionada, unidadeSelecionada, isLoading } = useAuth();
+  const { usuario, usinaSelecionada, unidadeSelecionada, isLoading, escolhaUsinaConfirmada } = useAuth();
   const comercial = IS_GERADOR_APP && usuario?.papel_empresa === "COLABORADOR_COMERCIAL" && usuario?.permissoes?.ambientes_gerador !== true;
   const validarUsina = IS_GERADOR_APP && !comercial && (usuario?.perfil === "ADMIN" || usuario?.perfil === "GESTOR");
-  const usinaId = usinaSelecionada?.id ?? usuario?.usina_id;
+  const usinaId = escolhaUsinaConfirmada ? usinaSelecionada?.id : undefined;
   const usinas = useQuery<{ id: string }[]>({
     queryKey: ["usinas-validacao-entrada", usuario?.id, usuario?.empresa_id],
     queryFn: listarUsinas,

@@ -15,7 +15,66 @@ const weatherBackgrounds = {
   noite: require("../../assets/images/weather/solar-night.png"),
 };
 
-export default function PlantWeatherCover({ usinaId, source, children }: { usinaId: string; source: ImageSourcePropType; children: ReactNode }) {
+const rainLayers = [
+  { count: 15, duration: 1040, opacity: 0.13, width: 0.6, length: 7 },
+  { count: 13, duration: 830, opacity: 0.18, width: 0.8, length: 10 },
+  { count: 10, duration: 660, opacity: 0.22, width: 0.9, length: 13 },
+  { count: 7, duration: 510, opacity: 0.27, width: 1.1, length: 17 },
+].map((layer, layerIndex) => ({
+  ...layer,
+  drops: Array.from({ length: layer.count }, (_, index) => {
+    const seed = index + 1 + layerIndex * 31;
+    const scatter = (factor: number) => {
+      const value = Math.sin(seed * factor) * 43758.5453;
+      return value - Math.floor(value);
+    };
+    return { x: scatter(12.9898), y: scatter(78.233), length: layer.length * (.65 + scatter(29.413) * .7), opacity: layer.opacity * (.6 + scatter(43.713) * .75) };
+  }),
+}));
+
+function PlantRain({ animate }: { animate: boolean }) {
+  const [phases] = useState(() => rainLayers.map(() => new Animated.Value(0)));
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  const { width, height } = size;
+  useEffect(() => {
+    if (!animate || !height) return;
+    const loops = phases.map((value, index) => Animated.loop(
+      Animated.timing(value, { toValue: 1, duration: rainLayers[index].duration, easing: Easing.linear, useNativeDriver: true, isInteraction: false }),
+    ));
+    loops.forEach(loop => loop.start());
+    return () => {
+      loops.forEach(loop => loop.stop());
+      phases.forEach(phase => phase.setValue(0));
+    };
+  }, [animate, height, phases]);
+
+  return <View pointerEvents="none" style={StyleSheet.absoluteFill} onLayout={event => {
+    const { width, height } = event.nativeEvent.layout;
+    setSize(current => current.width === width && current.height === height ? current : { width, height });
+  }}>
+    {animate && width > 0 && height > 0 ? rainLayers.map((layer, index) => {
+      const drift = -height * .18;
+      return <Animated.View key={layer.duration} style={[StyleSheet.absoluteFill, {
+        transform: [
+          { translateX: phases[index].interpolate({ inputRange: [0, 1], outputRange: [0, drift] }) },
+          { translateY: phases[index].interpolate({ inputRange: [0, 1], outputRange: [0, height] }) },
+        ],
+      }]}>
+        {[-1, 0].flatMap(tile => layer.drops.map((drop, dropIndex) => (
+          <View key={`${tile}-${dropIndex}`} style={[styles.drop, {
+            left: drop.x * (width - drift) + tile * drift,
+            top: height * (tile + drop.y),
+            opacity: drop.opacity,
+            width: layer.width,
+            height: drop.length,
+          }]} />
+        )))}
+      </Animated.View>;
+    }) : null}
+  </View>;
+}
+
+export default function PlantWeatherCover({ usinaId, source, photoUri, children }: { usinaId: string; source: ImageSourcePropType; photoUri?: string | null; children: ReactNode }) {
   const focused = useIsFocused();
   const { usuario } = useAuth();
   const [active, setActive] = useState(AppState.currentState === "active");
@@ -46,7 +105,7 @@ export default function PlantWeatherCover({ usinaId, source, children }: { usina
   const night = fresh && climate?.noite;
   const rain = fresh && climate?.tipo === "chuva";
   const cloudy = fresh && climate?.tipo === "nublado";
-  const background = fresh ? weatherBackgrounds[night ? "noite" : rain ? "chuva" : cloudy ? "nublado" : "sol"] : source;
+  const background = photoUri ? { uri: photoUri } : fresh ? weatherBackgrounds[night ? "noite" : rain ? "chuva" : cloudy ? "nublado" : "sol"] : source;
   const icon = rain ? "rainy" : night ? "moon" : cloudy ? "cloud" : "sunny";
   const parts = Children.toArray(children);
   let time = "";
@@ -62,7 +121,7 @@ export default function PlantWeatherCover({ usinaId, source, children }: { usina
   return <ImageBackground source={background} imageStyle={styles.image} style={styles.cover}>
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <LinearGradient colors={night ? ["rgba(4,13,48,.08)", "rgba(3,18,40,.14)"] : ["transparent", "rgba(2,25,18,.08)"]} style={StyleSheet.absoluteFill} />
-      {fresh && rain ? [18, 45, 76].map((left, i) => <Animated.View key={left} style={[styles.drop, { left: `${left}%`, opacity: phase.interpolate({ inputRange: [0, .15, .8, 1], outputRange: [0, .55, .55, 0] }), transform: [{ translateY: phase.interpolate({ inputRange: [0, 1], outputRange: [-30 - i * 30, 210] }) }, { rotate: "14deg" }] }]} />) : null}
+      {rain ? <PlantRain animate={focused && active && !reduced} /> : null}
       {fresh && night && !rain ? [15, 52, 83].map((left, i) => <Animated.View key={left} style={[styles.star, { left: `${left}%`, top: 28 + i * 17, opacity: phase.interpolate({ inputRange: [0, .5, 1], outputRange: [.25, .85, .25] }) }]} />) : null}
     </View>
     <LinearGradient colors={["rgba(2,25,18,.08)", "rgba(2,25,18,.88)"]} style={styles.shade}>
@@ -84,6 +143,6 @@ const styles = StyleSheet.create({
   weather: { alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 9, borderRadius: 14, backgroundColor: "rgba(4,35,37,.65)", paddingVertical: 7, paddingHorizontal: 12, maxWidth: "100%" },
   copy: { flexShrink: 1 }, condition: { color: "#FFF", fontSize: 12, fontWeight: "800" }, location: { color: "#E2ECE8", fontSize: 9, marginTop: 2 },
   source: { color: "#D1E1DB", fontSize: 8, textAlign: "right" },
-  drop: { position: "absolute", top: 0, width: 2, height: 22, borderRadius: 2, backgroundColor: "#D4E9FF" },
+  drop: { position: "absolute", borderRadius: 2, backgroundColor: "#D4E9FF", transform: [{ rotate: "10deg" }] },
   star: { position: "absolute", width: 3, height: 3, borderRadius: 2, backgroundColor: "#FFF8D8" },
 });
