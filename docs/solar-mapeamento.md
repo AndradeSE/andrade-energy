@@ -17,3 +17,5 @@
 
 Consumo e PDF podem ser solicitados juntos. A seleção por linguagem natural em todos os módulos e o encadeamento geral entre módulos ainda precisam de cobertura e validação autenticada. Consolidar as publicações após essa validação.
 
+
+Validação no S23 em 13/11/2026: consulta autenticada de consumo e abertura da fatura Cemig no leitor interno; Compartilhar PDF abriu o seletor Android com o arquivo carregado; cancelamento do compartilhamento e fechamento do PDF preservaram a conversa. Nenhum destinatário foi selecionado. Tempo de tela restaurado a 30 segundos. Ajuste publicado nos canais atuais production-gerador (runtime 1.0.15) e production-consumidor (runtime 1.0.14).
