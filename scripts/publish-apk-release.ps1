@@ -41,6 +41,11 @@ try {
   }
   $published | Select-Object name,size,digest,browser_download_url,updated_at | ConvertTo-Json
   & "$PSScriptRoot/publish-native-apk-notice.ps1" -ApkPath $apk.FullName
+  # Keep the old installer only until both the new asset and its notice are valid.
+  if ($old) {
+    Invoke-RestMethod "$api/releases/assets/$($old.id)" -Method Delete -Headers $headers | Out-Null
+    Write-Output "Instalador anterior removido apos confirmar a nova publicacao."
+  }
 } finally {
   $headers.Clear()
   $fields.Clear()
