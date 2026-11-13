@@ -43,7 +43,7 @@ import { playActivationBeep } from "../services/assistant-beep";
 import { buscarDashboardUsina } from "../services/usinas.service";
 import { detectProductionMetric, productionMetricReply } from "../services/assistant-production";
 import { detectAccountQuery, consultAccount } from "../services/assistant-account";
-import { asksLatestConsumption, detectCapability, type AssistantAction, type AssistantDocument } from "../services/assistant-capabilities";
+import { asksConsumptionInvoice, asksLatestConsumption, detectCapability, type AssistantAction, type AssistantDocument } from "../services/assistant-capabilities";
 import { executeAssistantTool, resolveAssistantDocument } from "../services/assistant-tools";
 import { queryLiveAccount, redactLiveAccountText } from "../services/assistant-live-account";
 import { setFloatingConversationPhase } from "../services/assistant-floating-conversation";
@@ -410,7 +410,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     const automationCommand = parseAutomationCommand(question);
     const safeNavigation = asksLatestConsumption(question) ? undefined : resolveSafeNavigation(question, {
       generator: IS_GERADOR_APP, role: usuario?.perfil, companyRole: usuario?.papel_empresa,
-      plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id, clientId: unidadeSelecionada?.cliente_id ?? usuario?.cliente_id, permissions: usuario?.permissoes,
+      plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id, unitNumber: unidadeSelecionada?.numero, canReadMeter: unidadeSelecionada?.status === "ATIVA" && unidadeSelecionada.autoleitura_rural_ativa === true, clientId: unidadeSelecionada?.cliente_id ?? usuario?.cliente_id, permissions: usuario?.permissoes,
     });
     pendingAutomationRef.current = undefined;
     setPendingAutomation(undefined);
@@ -739,7 +739,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
               if (perguntaSobrePdfAberto(question)) return await consultarContratoAberto(question);
               const navigation = asksLatestConsumption(question) ? undefined : resolveSafeNavigation(question, {
                 generator: IS_GERADOR_APP, role: usuario?.perfil, companyRole: usuario?.papel_empresa,
-                plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id, clientId: unidadeSelecionada?.cliente_id ?? usuario?.cliente_id, permissions: usuario?.permissoes,
+                plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id, unitNumber: unidadeSelecionada?.numero, canReadMeter: unidadeSelecionada?.status === "ATIVA" && unidadeSelecionada.autoleitura_rural_ativa === true, clientId: unidadeSelecionada?.cliente_id ?? usuario?.cliente_id, permissions: usuario?.permissoes,
               });
               if (navigation) {
                 const pdf = await abrirPdfSolicitado(navigation.action?.params);
@@ -758,7 +758,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
               if (generation !== contextGeneration.current) return "A conta selecionada mudou. Repita sua consulta.";
               if (voiceOnly) {
                 if (reply.invoiceId) { const opened=await openInvoicePdf(reply.invoiceId); return opened?"O Android recebeu o pedido para abrir o PDF no visualizador. Use Voltar para retornar à conversa, que foi preservada.":"Não confirmei a abertura de um visualizador. Confira o aviso na tela ou toque no documento da conversa."; }
-                if (reply.documents?.length === 1) { const opened=await openToolDocument(reply.documents[0]); return opened?"O visualizador recebeu o documento. Use Voltar para retornar ao chat preservado.":"Não confirmei a abertura do visualizador. Confira o aviso na tela."; }
+                if (reply.documents?.length === 1) { const opened=await openToolDocument(reply.documents[0]); return opened?(asksConsumptionInvoice(question) ? reply.text + "\nAbri a fatura no visualizador." : "O visualizador recebeu o documento. Use Voltar para retornar ao chat preservado."):"Não confirmei a abertura do visualizador. Confira o aviso na tela."; }
                 if (reply.invoiceChoices?.length || reply.documents?.length) return "Encontrei mais de um documento. Pergunte por uma referência específica ou pela última fatura.";
               }
               if (!voiceOnly) {

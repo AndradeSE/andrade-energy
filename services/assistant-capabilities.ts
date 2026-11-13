@@ -13,7 +13,7 @@ export function detectCapability(input: string): AssistantIntent | undefined {
   if (isSolarHelp(text)) return undefined;
   const wantsDocument = /\b(pdf|arquivo|documento|baixar|baixa|baixe|download|mande|manda|envie|entregue|anexo)\b/.test(text);
   const review = hasSolarMutation(text) && !(wantsDocument && !hasSolarMutation(text.replace(/\b(enviar|envie)\b/g, "")));
-  if (!review && !wantsDocument && asksLatestConsumption(text)) return { module: "conta-luz", mode: "query", review: false };
+  if (!review && (!wantsDocument || asksConsumptionInvoice(text)) && asksLatestConsumption(text)) return { module: "conta-luz", mode: "query", review: false };
   if (!review && !wantsDocument && !/\b(fatura|conta de luz|cemig|concessionaria)\b/.test(text) && /\b(e-?mail|telefone|celular|whatsapp|endereco|cadastro|dados|contato)\b/.test(text) && /\b(clientes?|consumidor(?:a)?)\b/.test(text)) {
     return { module: "clientes", mode: "query", review: false };
   }
@@ -61,5 +61,12 @@ export function onlyArray(value: unknown): any[] { if (!Array.isArray(value)) th
 
 export function asksLatestConsumption(input: string) {
   const text = normalizeCapabilityText(input);
+  if (asksConsumptionInvoice(text)) return true;
   return /\bconsumo\b/.test(text) && /\b(ultimo|ultima|mais recente|qual foi (?:o )?consumo|quanto consumiu)\b/.test(text) && !/\b(simular|simulacao|estimar)\b/.test(text);
+}
+
+export function asksConsumptionInvoice(input: string) {
+  const text = normalizeCapabilityText(input);
+  return !hasSolarMutation(text) && /\b(consumo|consumiu)\b/.test(text) &&
+    /\b(abra|abrir|mostre|mostrar)\s+(?:(?:a|o)\s+)?(?:pdf(?: da)?|fatura|conta de luz)\b/.test(text);
 }

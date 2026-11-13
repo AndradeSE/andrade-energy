@@ -5,7 +5,7 @@ import { hasSolarMutation, isSolarHelp, normalizeSolarRequest } from "../shared/
 
 export type SafeNavigationContext = {
   generator: boolean; role?: string; companyRole?: string;
-  plantId?: string; unitId?: string; unitNumber?: string; clientId?: string; permissions?: Record<string, unknown>;
+  plantId?: string; unitId?: string; unitNumber?: string; canReadMeter?: boolean; clientId?: string; permissions?: Record<string, unknown>;
 };
 export type SafeNavigation = { action?: AssistantAction; text: string };
 
@@ -37,7 +37,8 @@ export function resolveSafeNavigation(question: string, ctx: SafeNavigationConte
     if (ctx.generator) return !available("unidades") ? denied : selected() ? open("Unidades consumidoras", "/unidades") : contextMissing;
     if (!ctx.unitId) return contextMissing;
     if (/\b(historico|protocolos)\b/.test(text)) return open("Histórico de leituras", "/historico-autoleituras");
-    return open("Minha unidade", "/(tabs)");
+    if (!ctx.canReadMeter || !ctx.unitNumber) return { text: "A unidade selecionada precisa estar ativa e habilitada para autoleitura." };
+    return open("Informar leitura", "/autoleitura", { id: ctx.unitId, numero: ctx.unitNumber });
   }
   const search = text.match(/^(?:busque|buscar|procure|procurar|pesquise|pesquisar|mostre|mostra|mostrar|abra|abrir)\s+(?:o |a |os |as )?(?:clientes?|consumidor(?:es)?|ucs?|unidades?(?: consumidoras?)?)\s+(.+)$/)?.[1];
   const params = search && !/^(?:do |da |de |no |na |em )/.test(search) ? { solarBusca: search.slice(0, 120) } : undefined;
