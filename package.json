@@ -12,7 +12,8 @@
     "web": "expo start --web",
     "web:consumidor": "set EXPO_PUBLIC_APP_VARIANT=consumidor&& expo start --web",
     "web:gerador": "set EXPO_PUBLIC_APP_VARIANT=gerador&& expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "eas-build-post-install": "node scripts/check-consumer-release.cjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

@@ -27,6 +27,8 @@ $historyPath = Join-Path (Get-Location) 'config/ota-release-history.json'
 $historyBefore = [System.IO.File]::ReadAllText($historyPath)
 $published = $false
 try {
+  node.exe scripts/check-consumer-release.cjs
+  if ($LASTEXITCODE -ne 0) { throw "Base do Consumidor divergente; OTA bloqueada." }
   # Always export again: never send a stale bundle from the other variant.
   # IPv4 preference is process-local; keep TLS validation and Windows networking unchanged.
   # O EAS CLI atual já respeita CI=1 e não aceita mais --non-interactive.

@@ -1,0 +1,11 @@
+{
+  "description": "Base restaurada do Consumidor: Home com autoleitura rural, detalhes recolhidos, troca UC redonda, protecao da logo inicial e camera. Alterar apenas apos revisar a diferenca e homologar no Preview.",
+  "files": {
+    "components/cliente/ClienteHome.tsx": "eff6401769bab23b7959a500b7eb1e6ccc0e4dd4a9899975c8d55eda5bec4777",
+    "components/cliente/ClienteHeader.tsx": "ed4eb25477b981c1b68a33fad1f6a8a2b0e8ce0fbcdae45a7b8ac5e36e00a7c8",
+    "components/navigation/ContractAccessGate.tsx": "db66abd7aac9f287ab428abe0963a82ef50226749efe57efc1657c713db80bf2",
+    "components/cliente/EconomiaChart.tsx": "2d3cd3e162ddf252383c8a92a7bd946cda46c5d4833923f2bb32c7cde9ca06d2",
+    "app/autoleitura.tsx": "3e65bbf080930daa96b466e1e3c470df8b65905c4bc98cde4f5900d08834881c",
+    "app/clientes/faturas-anexadas.tsx": "f263507ec1c2d60ac4ea5b3d6630d23d42a2e500a272c6e715230ee9f72c1950"
+  }
+}
