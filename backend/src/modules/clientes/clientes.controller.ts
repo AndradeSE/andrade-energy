@@ -215,7 +215,7 @@ export async function extrairLeituraMedidorController(req: Request, res: Respons
     .eq("empresa_id", empresaIdDaRequisicao(req)).eq("zona_localizacao", "RURAL").maybeSingle();
   if (error) return res.status(503).json({ message: "Não foi possível verificar a unidade." });
   if (!data) return res.status(404).json({ message: "Unidade rural não encontrada." });
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_ASSISTANT_API_KEY?.trim() || process.env.GEMINI_API_KEY?.trim() || process.env.GEMINI_TTS_API_KEY?.trim();
   if (!apiKey) return res.status(503).json({ message: "Leitura por foto indisponível." });
   try {
     const ai = new GoogleGenAI({ apiKey, httpOptions: { timeout: 20_000 } });
