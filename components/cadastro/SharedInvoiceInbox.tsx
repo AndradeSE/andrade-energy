@@ -49,7 +49,7 @@ export default function SharedInvoiceInbox({ enabled }: { enabled: boolean }) {
   return (
     <Modal visible onRequestClose={cancelar} animationType="slide">
       <Screen>
-        <AppHeader variant="subpage" title="Fatura compartilhada" subtitle="" contextTitle="" contextSubtitle="" icon="document-attach-outline" showPlantSwitch={false} />
+        <AppHeader onBack={cancelar} variant="subpage" title="Fatura compartilhada" subtitle="" contextTitle="" contextSubtitle="" icon="document-attach-outline" showPlantSwitch={false} />
         <ScrollView contentContainerStyle={styles.content}>
           <Card style={styles.card}>
             <View style={styles.fileRow}>

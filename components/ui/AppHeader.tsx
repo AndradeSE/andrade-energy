@@ -53,6 +53,7 @@ type Props = {
   showPlantSwitch?: boolean;
   environmentName?: string;
   onSearch?: () => void;
+  onBack?: () => void;
   collapsePlantContextOnMount?: boolean;
 };
 
@@ -69,6 +70,7 @@ export default function AppHeader({
   showPlantSwitch = true,
   environmentName = "Gestão de usinas",
   onSearch,
+  onBack,
   collapsePlantContextOnMount = false,
 }: Props) {
   const router = useRouter();
@@ -201,7 +203,7 @@ export default function AppHeader({
     return (
       <LinearGradient colors={[corEscura, corPrincipal]} end={{ x: 1, y: 0.8 }} start={{ x: 0, y: 0 }} style={[styles.subpageHeader, { marginTop: -insets.top, paddingTop: insets.top + 8 }]}>
         <StatusBar backgroundColor={corEscura} barStyle="light-content" />
-        <TouchableOpacity accessibilityLabel="Voltar" activeOpacity={0.75} onPress={() => router.back()} style={styles.subpageBack}>
+        <TouchableOpacity accessibilityLabel="Voltar" activeOpacity={0.75} onPress={onBack ?? (() => router.back())} style={styles.subpageBack}>
           <Ionicons name="chevron-back" size={24} color="#FFF" />
         </TouchableOpacity>
         <View style={[styles.subpageIcon, { backgroundColor: "rgba(255,255,255,.14)" }]}>
