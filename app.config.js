@@ -58,7 +58,7 @@ module.exports = {
 
       package: packageId,
 
-      versionCode: generatorShareBuild ? 13 : consumerCameraBuild ? 11 : gerador ? (preview ? 4 : 12) : nativeRefreshFixed ? (preview ? 3 : 10) : preview ? 2 : universalBuild ? 9 : gerador ? (nativeCemigAutomation ? 8 : nativeCemigBrowser ? 7 : 5) : 8,
+      versionCode: generatorShareBuild ? 13 : consumerCameraBuild ? 12 : gerador ? (preview ? 4 : 12) : nativeRefreshFixed ? (preview ? 3 : 10) : preview ? 2 : universalBuild ? 9 : gerador ? (nativeCemigAutomation ? 8 : nativeCemigBrowser ? 7 : 5) : 8,
       permissions: ["android.permission.REQUEST_INSTALL_PACKAGES", "android.permission.POST_NOTIFICATIONS", ...(assistantNative ? ["android.permission.RECORD_AUDIO"] : [])],
 
       predictiveBackGestureEnabled: false,

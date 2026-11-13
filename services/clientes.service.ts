@@ -109,9 +109,9 @@ export async function listarFaturasAnexadasCliente(id: string) {
   return data as FaturaAnexadaCliente[];
 }
 
-export async function anexarFaturaCliente(id: string, arquivo: { uri: string; name: string; mimeType?: string | null }, senhaPdf?: string, usinaId?: string) {
-  return await sendPdf(arquivo.uri,`/clientes/${id}/faturas-anexadas`,arquivo.name||'fatura-cemig.pdf',{
-    ...(senhaPdf?.trim()?{senhaPdf:senhaPdf.trim()}:{}),...(usinaId?{usinaId}:{})
+export async function anexarFaturaCliente(id: string, arquivo: { uri: string; name: string; mimeType?: string | null }, senhaPdf?: string, usinaId?: string, zonaSolicitada?: "RURAL" | "URBANA") {
+  return await sendPdf(arquivo.uri,`/clientes/${id}/${zonaSolicitada ? "solicitacao-nova-uc" : "faturas-anexadas"}`,arquivo.name||'fatura-cemig.pdf',{
+    ...(senhaPdf?.trim()?{senhaPdf:senhaPdf.trim()}:{}),...(usinaId?{usinaId}:{}),...(zonaSolicitada?{zonaSolicitada}:{})
   }) as FaturaAnexadaCliente;
 }
 

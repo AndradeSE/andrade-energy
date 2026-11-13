@@ -44,8 +44,10 @@ export default function NativeApkUpdateNotice() {
     };
     // Non-blocking: let the initial screen/biometric transition settle first.
     const timer = setTimeout(() => { void check(); }, 4000);
+    // A failed startup request must not hide an available APK for the whole session.
+    const retry = setInterval(() => { if (AppState.currentState === "active") void check(); }, 60000);
     const subscription = AppState.addEventListener("change", state => { if (state === "active") void check(); });
-    return () => { active = false; downloadController.current?.abort(); clearTimeout(timer); subscription.remove(); };
+    return () => { active = false; downloadController.current?.abort(); clearTimeout(timer); clearInterval(retry); subscription.remove(); };
   }, []);
   return <Modal visible={progress !== null} transparent animationType="fade" onRequestClose={() => downloadController.current?.abort()}>
     <View style={styles.backdrop}><View style={styles.card}>

@@ -15,22 +15,28 @@ type Props = {
   mostrarTitulo?: boolean;
 };
 
-function formatarCompetencia(competencia?: string) {
-  if (!competencia) return "Mês";
+const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
-  const [ano, mes] = competencia.split("-");
-  if (!ano || !mes) return competencia;
-
-  return new Intl.DateTimeFormat("pt-BR", { month: "short" })
-    .format(new Date(Number(ano), Number(mes) - 1, 1))
-    .replace(".", "");
+function parseCompetencia(competencia?: string) {
+  const texto = competencia?.trim() ?? "";
+  const iso = /^(\d{4})-(\d{1,2})(?:-\d{2}(?:T.*)?)?$/.exec(texto);
+  const local = /^(\d{1,2})\/(\d{4})$/.exec(texto);
+  const ano = Number(iso?.[1] ?? local?.[2]);
+  const mes = Number(iso?.[2] ?? local?.[1]);
+  if (!ano || mes < 1 || mes > 12 || !mes) return null;
+  return { ordem: ano * 12 + mes, rotulo: MESES[mes - 1] + "/" + String(ano).slice(-2) };
 }
 
 export default function EconomiaChart({
   historico,
   mostrarTitulo = true,
 }: Props) {
-  if (historico.length === 0) {
+  const itens = historico.flatMap((item) => {
+    const competencia = parseCompetencia(item.competencia);
+    return competencia ? [{ ...item, ...competencia }] : [];
+  }).sort((a, b) => a.ordem - b.ordem).slice(-6);
+
+  if (itens.length === 0) {
     return (
       <EmptyState
         icon="bar-chart-outline"
@@ -40,7 +46,7 @@ export default function EconomiaChart({
     );
   }
 
-  const itens = historico.slice(-6);
+
   const maiorEconomia = Math.max(
     ...itens.map((item) => Number(item.economia ?? 0)),
     1
@@ -75,7 +81,7 @@ export default function EconomiaChart({
                   <View style={[styles.bar, { height: altura, backgroundColor: CORES_BARRAS[index % CORES_BARRAS.length] }]} />
                 </View>
                 <Text style={styles.label}>
-                  {formatarCompetencia(item.competencia)}
+                  {item.rotulo}
                 </Text>
               </View>
             );

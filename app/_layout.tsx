@@ -315,7 +315,7 @@ function RootNavigator() {
   return (
     <>
     <View style={styles.navigator}>
-    <ContractAccessGate />
+    <ContractAccessGate mostrarCarregamento={!preparandoEntrada && entryScreenReady} />
     <Stack
       screenOptions={{
         headerShown: false,

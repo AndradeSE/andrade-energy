@@ -6,6 +6,8 @@ import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useDashboard } from "../../hooks/useDashboard";
+import { useFaturas } from "../../hooks/useFaturas";
+import { janelaLeitura, proximaLeituraDaUnidade } from "../../utils/janela-leitura";
 import { Colors, Radius, Shadows, Spacing, Typography } from "../../theme";
 
 import EmptyState from "../ui/EmptyState";
@@ -31,10 +33,13 @@ export default function ClienteHome() {
   const { logout, user, unidadeSelecionada } = useAuth();
   const { empresa } = useEmpresa();
   const { data, isLoading, error, refetch } = useDashboard();
+  const { data: faturasLeitura } = useFaturas();
+  const janela = janelaLeitura(proximaLeituraDaUnidade(faturasLeitura, unidadeSelecionada?.id, unidadeSelecionada?.numero));
   const [atualizando, setAtualizando] = useState(false);
   const [recebimentoObrigatorio, setRecebimentoObrigatorio] = useState(false);
   const [recebimentoAtivo, setRecebimentoAtivo] = useState(false);
   const [unidadeRecebimentoId, setUnidadeRecebimentoId] = useState("");
+  const [unidadeComAutoleitura, setUnidadeComAutoleitura] = useState("");
   const [concessionariaDaUnidade, setConcessionariaDaUnidade] = useState("");
   const assistantHidden = useSyncExternalStore(subscribeFloatingHidden, floatingHidden);
   useEffect(() => { if (user?.id) void loadFloatingPreference(String(user.id)); }, [user?.id]);
@@ -42,7 +47,17 @@ export default function ClienteHome() {
   useEffect(() => {
     const clienteId = String(user?.cliente_id ?? "");
     if (!clienteId) return;
-    Promise.all([buscarCliente(clienteId), listarMinhasUnidades()])
+    let ativa = true;
+    setUnidadeComAutoleitura("");
+    const unidadesPromise = listarMinhasUnidades();
+    void unidadesPromise.then(unidades => {
+      if (!ativa) return;
+      const selecionada = (unidades as { id: string; status?: string; autoleitura_rural_ativa?: boolean }[]).find(unidade => unidade.id === unidadeSelecionada?.id);
+      if (selecionada?.status === "ATIVA" && selecionada.autoleitura_rural_ativa === true) {
+        setUnidadeComAutoleitura(selecionada.id);
+      }
+    }).catch(() => undefined);
+    Promise.all([buscarCliente(clienteId), unidadesPromise])
       .then(async ([cliente, unidades]: any[]) => {
         const unidadeAtual = unidades?.find(
           (unidade: any) => String(unidade.id) === String(unidadeSelecionada?.id ?? ""),
@@ -70,6 +85,7 @@ export default function ClienteHome() {
         }
       })
       .catch(() => undefined);
+    return () => { ativa = false; };
   }, [unidadeSelecionada?.id, user?.cliente_id]);
   async function atualizarPagina() {
     setAtualizando(true);
@@ -184,31 +200,33 @@ export default function ClienteHome() {
         <View style={styles.quickHeader}>
           <Text style={styles.quickTitle}>Acesso rápido</Text>
         </View>
+        {unidadeSelecionada && (unidadeComAutoleitura === unidadeSelecionada.id || (unidadeSelecionada.status === "ATIVA" && unidadeSelecionada.autoleitura_rural_ativa === true)) ? (
+          <View style={{ marginBottom: Spacing.md }}><Button
+            title="Informar leitura do medidor"
+            onPress={() => router.push({ pathname: "/autoleitura", params: { id: unidadeSelecionada.id, numero: unidadeSelecionada.numero } })}
+            style={{ alignSelf: "stretch", marginBottom: Spacing.sm }}
+          />
+          <Text style={{ color: Colors.subtitle, lineHeight: 20 }}>{janela.texto}</Text></View>
+        ) : null}
         {recebimentoObrigatorio && !recebimentoAtivo ? <TouchableOpacity activeOpacity={0.84} onPress={() => unidadeRecebimentoId ? router.push({ pathname: "/unidades/recebimento-email", params: { unidadeId: unidadeRecebimentoId } }) : router.push("/selecionar-unidade")} style={styles.requiredEmailCard}><View style={styles.requiredEmailIcon}><Ionicons name="alert-circle-outline" size={23} color="#9A5B00" /></View><View style={styles.requiredEmailCopy}><Text style={styles.requiredEmailTitle}>Ativação obrigatória</Text><Text style={styles.requiredEmailText}>Conecte seu e-mail para que as próximas faturas sejam recebidas e processadas automaticamente.</Text></View><Ionicons name="chevron-forward" size={20} color="#9A5B00" /></TouchableOpacity> : null}
         <QuickAccessCarousel
             addedItemIds={["trocar-unidade"]}
           storageKey="consumidor-home"
           pinnedIds={isPreviewEnvironment && assistantHidden ? ["mostrar-assistente"] : []}
           items={[
+            ...(user?.cliente_id ? [{ id: "solicitar-nova-uc", icon: "add-circle-outline" as const, label: "Solicitar cadastro de nova UC", onPress: () => router.push({ pathname: "/clientes/faturas-anexadas", params: { clienteId: String(user.cliente_id) } }) }] : []),
+            ...(unidadeSelecionada && (unidadeComAutoleitura === unidadeSelecionada.id || (unidadeSelecionada.status === "ATIVA" && unidadeSelecionada.autoleitura_rural_ativa === true)) ? [{
+              id: "historico-autoleituras",
+              icon: "time-outline" as const,
+              label: "Histórico de leituras",
+              onPress: () => router.push("/historico-autoleituras"),
+            }] : []),
             ...(isPreviewEnvironment && assistantHidden ? [{ id: "mostrar-assistente", icon: "chatbubble-ellipses-outline" as const, image: require("../../assets/images/assistant-chat-3d-v2.png"), label: "Mostrar Solar", onPress: () => void setFloatingHidden(String(user?.id ?? ""), false) }] : []),
             {
               id: "contas-de-luz",
               icon: "document-attach-outline",
               label: nomeFaturaConcessionaria,
               onPress: () => router.push("/contas-de-luz"),
-            },
-            {
-              id: "anexar-fatura",
-              icon: "cloud-upload-outline",
-              label: `Anexar ${nomeFaturaConcessionaria.toLowerCase()}`,
-              onPress: () => {
-                const clienteId = String(user?.cliente_id ?? "");
-                if (!clienteId) {
-                  router.push("/perfil");
-                  return;
-                }
-                router.push({ pathname: "/clientes/faturas-anexadas" as never, params: { clienteId } });
-              },
             },
             ...(recebimentoObrigatorio ? [{
               id: "recebimento-automatico",
