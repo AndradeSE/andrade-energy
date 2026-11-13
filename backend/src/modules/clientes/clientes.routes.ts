@@ -13,6 +13,7 @@ import {
   listarMinhasAutoleiturasController,
   executarAutoleituraController,
   listarFilaAutoleituraController,
+  extrairLeituraMedidorController,
   registrarAutoleituraController,
   criarClienteController,
   excluirClienteController,
@@ -41,6 +42,7 @@ router.use(exigirAutenticacao);
 
 router.get("/", exigirGestor, listarClientesController);
 
+router.post("/minhas-unidades/:unidadeId/autoleitura/extrair", extrairLeituraMedidorController);
 router.post("/minhas-unidades/:unidadeId/autoleitura", registrarAutoleituraController);
 router.get("/minhas-unidades/:unidadeId/autoleitura", listarMinhasAutoleiturasController);
 router.get("/minhas-unidades", exigirAutenticacao, listarMinhasUnidadesController);
