@@ -271,7 +271,7 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
         for (const [uc, invoice] of selecionarFaturasConsumo(scoped, mesAnterior)) {
           if (!invoice.numero_instalacao) continue;
           const row = scoped.find(item => item.id === invoice.id);
-          if (row?.pdf_cemig_url) documents.push({ kind: "conta-luz", id: row.id, label: `Fatura da UC ${uc} · ${invoice.referencia ?? "sem referência"}` });
+          if (row?.pdf_cemig_url && (ctx.generator || row.fatura_somente_andrade === true || row.pdf_cemig_demonstrativo === true)) documents.push({ kind: "conta-luz", id: row.id, label: `Fatura da UC ${uc} · ${invoice.referencia ?? "sem referência"}` });
         }
         return { text: documents.length ? text : text + "\nO PDF da concessionária não está disponível para essa consulta.", documents };
 

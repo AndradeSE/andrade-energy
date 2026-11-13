@@ -36,3 +36,15 @@ test("qual foi o consumo segue para consulta da fatura", () => {
   assert.equal(detectCapability("Qual foi o consumo?")?.module, "conta-luz");
   assert.equal(detectCapability("Qual foi o consumo do cliente Guilherme?")?.mode, "query");
 });
+
+test("pedido combinado usa consulta autenticada e exclui faturas canceladas", async () => {
+  const { selecionarFaturasConsumo } = await import("./assistant-invoice-summary");
+  const intent = detectCapability("Localize o cliente Guilherme, consulte o consumo e abra a fatura");
+  assert.deepEqual(intent, { module: "conta-luz", mode: "query", review: false });
+  const chosen = selecionarFaturasConsumo([
+    { id: "new", numero_instalacao: "1234", referencia: "01/2026", consumo_kwh: 5 },
+    { id: "cancelled", numero_instalacao: "1234", referencia: "02/2026", status: "CANCELADA", consumo_kwh: 9 },
+    { id: "old", numero_instalacao: "1234", referencia: "12/2025", consumo_kwh: 4 },
+  ], true);
+  assert.equal(chosen.get("1234")?.id, "old");
+});
