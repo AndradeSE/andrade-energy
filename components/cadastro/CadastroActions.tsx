@@ -166,7 +166,7 @@ export default function CadastroActions({ tipo, clienteId, compartilhado, onImpo
         disabled={analisando}
         icon={<Ionicons name="document-attach-outline" size={20} color="#FFF" />}
         onPress={() => void importar(compartilhado)}
-        style={[styles.button, styles.importButton]}
+        style={[styles.button, styles.importButton, compartilhado ? styles.sharedButton : undefined]}
         title={analisando ? "Lendo..." : compartilhado ? (tipo === "CLIENTE" ? "Cadastrar cliente" : tipo === "UNIDADE" ? "Adicionar UC" : "Cadastrar usina") : tipo === "UNIDADE" ? "Importar fatura" : tipo === "CLIENTE" ? "Cliente via fatura" : "Via fatura"}
       /> : null}
     </View><PdfPasswordRetryModal visible={pedindoSenhaPdf} busy={analisando} onCancel={() => { setPedindoSenhaPdf(false); setPdfPendente(null); }} onConfirm={(password) => { const pdf = pdfPendente; setPedindoSenhaPdf(false); if (pdf) void importar(pdf, password); }} /></>
@@ -182,4 +182,5 @@ const styles = StyleSheet.create({
   sharedRow: { flexDirection: "row" },
   button: { flex: 1 },
   importButton: { backgroundColor: Colors.secondary },
+  sharedButton: { backgroundColor: Colors.primary },
 });
