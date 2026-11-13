@@ -1035,14 +1035,40 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     return "O contrato foi encaminhado ao leitor interno.";
   }
   function leaveConversation(){ if(keyboardVisible){ Keyboard.dismiss(); return; } if(voiceActive.current && onMinimize) onMinimize(); else if(onClose) onClose(); else router.back(); }
+  const [loadedPdf, setLoadedPdf] = useState<{ source: string; path: string }>();
+  const [sharingPdf, setSharingPdf] = useState(false);
+  const shareablePdf = pdfContrato && loadedPdf?.source === pdfContrato.uri ? loadedPdf : undefined;
+
+  async function shareOpenPdf() {
+    if (!shareablePdf || sharingPdf) return;
+    setSharingPdf(true);
+    try {
+      const path = shareablePdf.path;
+      const uri = path.startsWith("/") ? "file://" + path : path;
+      if (!uri.startsWith("file://") || !(await Sharing.isAvailableAsync())) {
+        throw new Error("Compartilhamento indisponível");
+      }
+      await Sharing.shareAsync(uri, { dialogTitle: "Compartilhar PDF", mimeType: "application/pdf", UTI: "com.adobe.pdf" });
+    } catch {
+      Alert.alert("Não foi possível compartilhar", "Reabra o PDF e tente novamente.");
+    } finally {
+      setSharingPdf(false);
+    }
+  }
+
   const Pdf = pdfContrato ? (require("react-native-pdf") as typeof import("react-native-pdf")).default : null;
   const leitorContrato = pdfContrato && Pdf ? (
     <Modal animationType="slide" onRequestClose={fecharPdfContrato}>
       <View style={{ flex: 1, paddingTop: insets.top, paddingBottom: insets.bottom, backgroundColor: Colors.background }}>
-        <Pressable accessibilityRole="button" onPress={fecharPdfContrato} style={{ padding: 16 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+        <Pressable accessibilityRole="button" onPress={() => { setLoadedPdf(undefined); fecharPdfContrato(); }} style={{ padding: 16 }}>
           <Text style={{ color: Colors.text }}>Fechar PDF</Text>
         </Pressable>
-        <Pdf source={pdfContrato} trustAllCerts={false} style={{ flex: 1, width: "100%" }}
+          <Pressable accessibilityRole="button" disabled={!shareablePdf || sharingPdf} onPress={() => void shareOpenPdf()} style={{ padding: 16, opacity: shareablePdf && !sharingPdf ? 1 : 0.5 }}>
+            <Text style={{ color: Colors.primary, fontWeight: "700" }}>Compartilhar PDF</Text>
+          </Pressable>
+        </View>
+        <Pdf source={pdfContrato} onLoadComplete={(_pages, path) => setLoadedPdf({ source: pdfContrato.uri, path })} trustAllCerts={false} style={{ flex: 1, width: "100%" }}
           onError={() => Alert.alert("Não foi possível abrir o PDF", "Feche o leitor e peça para abrir o contrato novamente.")} />
       </View>
     </Modal>
