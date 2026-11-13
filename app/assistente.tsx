@@ -1,12 +1,12 @@
 import { listarUnidadesGestor as listarUcsParaContratoSolar } from "../services/clientes.service";
 import { matchesContractUnit } from "../services/assistant-contract-unit";
 import contratoApi from "../config/api";
-import * as PdfRuntime from "expo-updates";
+const hasNativePdf = () => Platform.OS !== "web" && Boolean(UIManager.getViewManagerConfig("RNPDFPdfView"));
 import { abrirDocumentoContrato, obterUrlContrato } from "../services/contrato-documento.service";
 import { listarContratosDaEmpresa as listarContratosParaSolar } from "../services/contratos.service";
 import { normalizeCapabilityText as normalizeCapabilityTextSolar } from "../services/assistant-capabilities";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ActivityIndicator, Alert, Animated, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, UIManager, View } from "react-native";
 import { File, Paths } from "expo-file-system";
 import * as FileSystemLegacy from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
@@ -329,7 +329,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
         uri = file.uri;
       }
       if (generation !== contextGeneration.current) return;
-      if (doc.kind === "conta-luz" && PdfRuntime.runtimeVersion && /pdf-voice|production-autoleitura/.test(PdfRuntime.runtimeVersion)) { contratoEmLeitura.current = undefined; setPdfContrato({ uri }); return true; }
+      if (doc.kind === "conta-luz" && hasNativePdf()) { contratoEmLeitura.current = undefined; setPdfContrato({ uri }); return true; }
       if (Platform.OS === "android") {
         try {
           const contentUri = await FileSystemLegacy.getContentUriAsync(uri);
@@ -1024,7 +1024,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     const nomeCliente = String(escolhido.clientes?.nome ?? "").trim();
     if (nomeCliente) ultimoContrato.current = { nome: nomeCliente, geracao: contextGeneration.current };
     const geracao = contextGeneration.current;
-    if (!PdfRuntime.runtimeVersion?.endsWith("-pdf-voice")) {
+    if (!hasNativePdf()) {
       await abrirDocumentoContrato(String(escolhido.id));
       return "O contrato foi encaminhado ao leitor do aparelho.";
     }
