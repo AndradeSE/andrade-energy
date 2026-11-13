@@ -1,0 +1,5 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const vm=require('node:vm');const ts=require('typescript');
+const source=ts.transpileModule(fs.readFileSync('config/environment.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
+function environment(runtimeVersion,channel='production-consumidor'){const exports={};vm.runInNewContext(source,{exports,process:{env:{}},require:name=>name==='expo-updates'?{runtimeVersion,channel}:{applicationId:'com.andradese.energy.consumidor'}});return exports;}
+for(const runtime of ['1.0.14-production-consumidor-camera','1.0.15-production-gerador-share','1.0.11-production-refresh-fixed'])test(runtime+' habilita Solar e voz sem trocar ambiente',()=>{const e=environment(runtime);assert.equal(e.isAssistantEnabled,true);assert.equal(e.supportsAssistantLive,true);assert.equal(e.isPreviewEnvironment,false);});
+test('runtime desconhecido não habilita módulos nativos',()=>{const e=environment('unknown');assert.equal(e.isAssistantEnabled,false);assert.equal(e.supportsAssistantLive,false);});

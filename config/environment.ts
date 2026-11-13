@@ -12,7 +12,7 @@ export const isPreviewEnvironment = (Application.applicationId?.endsWith(".previ
 
 export const environmentKeySuffix = isPreviewEnvironment ? "_preview" : "";
 // Never enable native IA through an OTA variable on an older production APK.
-export const isAssistantEnabled = isPreviewEnvironment || Updates.runtimeVersion === "1.0.13-production-autoleitura" ||
+export const isAssistantEnabled = isPreviewEnvironment || Updates.runtimeVersion === "1.0.14-production-consumidor-camera" || Updates.runtimeVersion === "1.0.15-production-gerador-share" || Updates.runtimeVersion === "1.0.13-production-autoleitura" ||
   Updates.runtimeVersion === "1.0.12-production-pdf-voice" ||
   Updates.runtimeVersion === "1.0.11-production-refresh-fixed" ||
   Updates.runtimeVersion === "1.0.10-production-arm32" ||
@@ -21,7 +21,7 @@ export const isAssistantEnabled = isPreviewEnvironment || Updates.runtimeVersion
   Updates.runtimeVersion === "1.0.9-production-cemig-worker" ||
   Updates.runtimeVersion === "1.0.8-production-cemig-vault";
 // Native audio support belongs to the installed runtime, not OTA export flags.
-export const supportsAssistantLive = Updates.runtimeVersion === "1.0.13-production-autoleitura" || Updates.runtimeVersion === "1.0.12-production-pdf-voice" || Updates.runtimeVersion === "1.0.12-preview-pdf-voice" || Updates.runtimeVersion === "1.0.4-preview-live-awake" ||
+export const supportsAssistantLive = Updates.runtimeVersion === "1.0.14-production-consumidor-camera" || Updates.runtimeVersion === "1.0.15-production-gerador-share" || Updates.runtimeVersion === "1.0.13-production-autoleitura" || Updates.runtimeVersion === "1.0.12-production-pdf-voice" || Updates.runtimeVersion === "1.0.12-preview-pdf-voice" || Updates.runtimeVersion === "1.0.4-preview-live-awake" ||
   Updates.runtimeVersion === "1.0.11-production-refresh-fixed" ||
   Updates.runtimeVersion === "1.0.11-preview-refresh-fixed" ||
   Updates.runtimeVersion === "1.0.10-production-arm32" ||
