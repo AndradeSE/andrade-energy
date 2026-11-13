@@ -1,5 +1,59 @@
 [
   {
+    "numero": "OTA 20261113-081619",
+    "data": "13/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Gerador: tornar aviso de APK resiliente a falha temporaria de conexao"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-081350",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Restaurar interface aprovada e manter aviso do novo APK Consumidor [1.0.11-production-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-081119",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Restaurar interface aprovada e manter aviso do novo APK Consumidor [1.0.10-production-arm32]"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-080855",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Restaurar interface aprovada e manter aviso do novo APK Consumidor [1.0.4-production-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-080626",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Restaurar Consumidor: autoleitura na Home, cabecalho e logo inicial aprovados; aviso APK"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-080249",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Corrigir regressao: leitura na Home, troca UC redonda e abertura com logo"
+    ]
+  },
+  {
     "numero": "OTA 20261113-072805",
     "data": "13/11/2026",
     "variant": "consumidor",
