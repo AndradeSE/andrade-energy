@@ -410,7 +410,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     const automationCommand = parseAutomationCommand(question);
     const safeNavigation = asksLatestConsumption(question) ? undefined : resolveSafeNavigation(question, {
       generator: IS_GERADOR_APP, role: usuario?.perfil, companyRole: usuario?.papel_empresa,
-      plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id, permissions: usuario?.permissoes,
+      plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id, clientId: unidadeSelecionada?.cliente_id ?? usuario?.cliente_id, permissions: usuario?.permissoes,
     });
     pendingAutomationRef.current = undefined;
     setPendingAutomation(undefined);
@@ -739,7 +739,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
               if (perguntaSobrePdfAberto(question)) return await consultarContratoAberto(question);
               const navigation = asksLatestConsumption(question) ? undefined : resolveSafeNavigation(question, {
                 generator: IS_GERADOR_APP, role: usuario?.perfil, companyRole: usuario?.papel_empresa,
-                plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id, permissions: usuario?.permissoes,
+                plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id, clientId: unidadeSelecionada?.cliente_id ?? usuario?.cliente_id, permissions: usuario?.permissoes,
               });
               if (navigation) {
                 const pdf = await abrirPdfSolicitado(navigation.action?.params);

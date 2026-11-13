@@ -5,7 +5,7 @@ import { hasSolarMutation, isSolarHelp, normalizeSolarRequest } from "../shared/
 
 export type SafeNavigationContext = {
   generator: boolean; role?: string; companyRole?: string;
-  plantId?: string; unitId?: string; permissions?: Record<string, unknown>;
+  plantId?: string; unitId?: string; unitNumber?: string; clientId?: string; permissions?: Record<string, unknown>;
 };
 export type SafeNavigation = { action?: AssistantAction; text: string };
 
@@ -24,7 +24,21 @@ export function resolveSafeNavigation(question: string, ctx: SafeNavigationConte
   const open = (label: string, route: string, params?: Record<string, string>): SafeNavigation => ({ text: `Abrindo ${label}.`, action: { label, route, params, review: false } });
   const selected = () => ctx.generator ? Boolean(ctx.plantId) : Boolean(ctx.unitId);
   const contextMissing = { text: ctx.generator ? "Selecione a usina antes de abrir essa função." : "Selecione sua UC antes de abrir essa função." };
-  if(/\b(calculadora|calculo|simulacao)\b.*\beconomia\b/.test(text))return open('Calculadora de economia','/simulacao-economia');
+  if(/\b(calculadora|calculo|simulacao)\b.*\beconomia\b/.test(text))return available() ? open('Calculadora de economia','/simulacao-economia') : denied;
+  if (/\b(cotas de servicos|cotas dos servicos)\b/.test(text)) return ctx.role === "ADMIN" && available() && !collaborator ? open("Cotas de serviços", "/cotas-servicos") : denied;
+  if (/\b(trocar|troca de|outra|outras)\s+(?:de\s+)?(?:uc|unidade|unidades|usina|usinas)\b/.test(text)) return open("Seleção de unidade ou usina", "/selecionar-unidade");
+  if (/\b(editar dados da usina|cadastro da usina atual)\b/.test(text)) return !available("usinas") || collaborator ? denied : ctx.plantId ? open("Dados da usina", "/usinas/editar", { id: ctx.plantId }) : contextMissing;
+  if (/\b(faturamento manual|fatura manual)\b/.test(text)) return !available("faturamento") ? denied : selected() ? open("Faturamento manual", "/faturamento/manual") : contextMissing;
+  if (/\b(solicitar cadastro de nova uc|solicitacao de nova uc|faturas anexadas|contas anexadas)\b/.test(text)) {
+    if (ctx.generator && !available("clientes")) return denied;
+    return ctx.clientId ? open("Faturas anexadas", "/clientes/faturas-anexadas", { clienteId: ctx.clientId }) : ctx.generator ? open("Clientes", "/(tabs)/clientes") : contextMissing;
+  }
+  if (/\b(historico de leituras|leituras e protocolos|autoleitura|informar leitura)\b/.test(text)) {
+    if (ctx.generator) return !available("unidades") ? denied : selected() ? open("Unidades consumidoras", "/unidades") : contextMissing;
+    if (!ctx.unitId) return contextMissing;
+    if (/\b(historico|protocolos)\b/.test(text)) return open("Histórico de leituras", "/historico-autoleituras");
+    return open("Minha unidade", "/(tabs)");
+  }
   const search = text.match(/^(?:busque|buscar|procure|procurar|pesquise|pesquisar|mostre|mostra|mostrar|abra|abrir)\s+(?:o |a |os |as )?(?:clientes?|consumidor(?:es)?|ucs?|unidades?(?: consumidoras?)?)\s+(.+)$/)?.[1];
   const params = search && !/^(?:do |da |de |no |na |em )/.test(search) ? { solarBusca: search.slice(0, 120) } : undefined;
   if (/\b(tutoriais?|videos?)\b/.test(text)) return { text: "Os tutoriais continuam desativados por tempo indeterminado." };
