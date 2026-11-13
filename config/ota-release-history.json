@@ -1,5 +1,194 @@
 [
   {
+    "numero": "OTA 20261113-190932",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: leitor PDF e compartilhamento integrado"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-190621",
+    "data": "13/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: leitor PDF integrado com compartilhar"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-190309",
+    "data": "13/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: compartilhar PDF pelo leitor interno"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-190143",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: sincronizar guia dos fluxos nas instalacoes suportadas [1.0.11-production-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-190014",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: sincronizar guia dos fluxos nas instalacoes suportadas [1.0.10-production-arm32]"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-185844",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: sincronizar guia dos fluxos nas instalacoes suportadas [1.0.4-production-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-185708",
+    "data": "13/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Solar atualizada: voz compativel e guia de compartilhamento e leitura"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-185522",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar atualizada: voz compativel e guia dos fluxos atuais"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-184624",
+    "data": "13/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Homologacao Solar: sequencia de navegacao consumo e fatura"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-183956",
+    "data": "13/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: consulta consumo e fatura na mesma conversa"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-183754",
+    "data": "13/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar consulta consumo e oferece o PDF da mesma fatura"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-183053",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Solar abre autoleitura e historico de UC elegivel"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-182432",
+    "data": "13/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar entende qual foi o consumo e mes anterior"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-111636",
+    "data": "13/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar consulta ultimo consumo do cliente pela fatura"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-084414",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: sincronizar guia dos fluxos nas instalacoes suportadas [1.0.11-production-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-084239",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: sincronizar guia dos fluxos nas instalacoes suportadas [1.0.10-production-arm32]"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-084058",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: sincronizar guia dos fluxos nas instalacoes suportadas [1.0.4-production-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-083922",
+    "data": "13/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Solar atualizada: voz compativel e guia de compartilhamento e leitura"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-083740",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar atualizada: voz compativel e guia dos fluxos atuais"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-083549",
+    "data": "13/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar atualizada: compatibilidade dos APKs e guia de leitura e compartilhamento"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-083351",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: atualizar guia de leitura camera e compartilhamento e compatibilidade de voz"
+    ]
+  },
+  {
     "numero": "OTA 20261113-081619",
     "data": "13/11/2026",
     "variant": "gerador",
