@@ -61,5 +61,5 @@ export function onlyArray(value: unknown): any[] { if (!Array.isArray(value)) th
 
 export function asksLatestConsumption(input: string) {
   const text = normalizeCapabilityText(input);
-  return /\bconsumo\b/.test(text) && /\b(ultimo|ultima|mais recente)\b/.test(text) && !/\b(simular|simulacao|estimar)\b/.test(text);
+  return /\bconsumo\b/.test(text) && /\b(ultimo|ultima|mais recente|qual foi (?:o )?consumo|quanto consumiu)\b/.test(text) && !/\b(simular|simulacao|estimar)\b/.test(text);
 }

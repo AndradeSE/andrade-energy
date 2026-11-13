@@ -400,7 +400,11 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       : undefined;
     const contatoSemNome = /^(?:e\s+)?(?:o\s+)?(?:e-?mail|telefone|celular|whatsapp|endereco)[?!.]*$/.test(perguntaNormalizada);
     const consumoSemNome = asksLatestConsumption(perguntaNormalizada) && !/\b(?:do|da|de)\s+\S|\b(?:cliente|uc|unidade)\s+\S/.test(perguntaNormalizada);
-    const interpretedQuestion = (contatoSemNome || consumoSemNome) && clienteAnterior
+    const perguntaMesAnterior = /^(?:e )?(?:no )?mes anterior[?!.]*$/.test(perguntaNormalizada);
+    const consultaConsumoAnterior = consultaAnterior?.private && asksLatestConsumption(consultaAnterior.text);
+    const interpretedQuestion = perguntaMesAnterior && consultaConsumoAnterior
+      ? `qual foi o consumo no mes anterior${clienteAnterior ? " do cliente " + clienteAnterior : ""}`
+      : (contatoSemNome || consumoSemNome) && clienteAnterior
       ? `${perguntaNormalizada.replace(/[?!.]+$/, "")} do cliente ${clienteAnterior}`
       : perguntaNormalizada;
     const automationCommand = parseAutomationCommand(question);

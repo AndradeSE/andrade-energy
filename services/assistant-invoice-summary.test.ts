@@ -31,3 +31,8 @@ test("último consumo consulta a competência mais recente de cada UC, mesmo com
   assert.match(texto, /5678 · 2026-10 · 210 kWh/);
   assert.doesNotMatch(texto, /400 kWh/);
 });
+
+test("qual foi o consumo segue para consulta da fatura", () => {
+  assert.equal(detectCapability("Qual foi o consumo?")?.module, "conta-luz");
+  assert.equal(detectCapability("Qual foi o consumo do cliente Guilherme?")?.mode, "query");
+});

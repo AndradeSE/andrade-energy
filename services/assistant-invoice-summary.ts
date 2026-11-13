@@ -40,7 +40,7 @@ function competencia(fatura: ConsumoFatura) {
   return mes >= 1 && mes <= 12 ? Number(brasileira[2]) * 100 + mes : 0;
 }
 
-export function resumoUltimoConsumo(faturas: ConsumoFatura[]) {
+export function resumoUltimoConsumo(faturas: ConsumoFatura[], mesAnterior = false) {
   const recentes = new Map<string, ConsumoFatura>();
   for (const fatura of faturas) {
     if (/^(RASCUNHO|CANCELAD[AO]|EXCLUID[AO])$/i.test(fatura.status ?? "")) continue;
@@ -53,6 +53,19 @@ export function resumoUltimoConsumo(faturas: ConsumoFatura[]) {
     }
   }
   if (!recentes.size) return "Não encontrei fatura registrada para esse cliente ou UC.";
+  if (mesAnterior) {
+    for (const [uc, ultima] of recentes) {
+      const atual = competencia(ultima);
+      const anterior = atual % 100 === 1 ? atual - 89 : atual - 1;
+      const fatura = faturas.filter(item =>
+        item.numero_instalacao?.replace(/\D/g, "") === uc &&
+        competencia(item) === anterior &&
+        !/^(RASCUNHO|CANCELAD[AO]|EXCLUID[AO])$/i.test(item.status ?? "")
+      ).sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))[0];
+      if (fatura) recentes.set(uc, fatura);
+      else recentes.set(uc, { id: ultima.id, referencia: atual ? String(anterior % 100).padStart(2, "0") + "/" + Math.floor(anterior / 100) : undefined });
+    }
+  }
   return [...recentes].map(([uc, fatura]) => {
     const consumo = numero(fatura.consumo_kwh ?? fatura.consumo);
     const valor = consumo === "não informado" ? "consumo não informado na fatura" : consumo + " kWh";

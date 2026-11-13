@@ -264,7 +264,7 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
         const scoped = !ucPedida && !clientesCitados.length && (ctx.unitId || unitNumber)
           ? faturasDaUc.filter(f => (f as { unidade_consumidora_id?: string }).unidade_consumidora_id === ctx.unitId && Boolean(ctx.unitId) || Boolean(unitNumber && f.numero_instalacao?.replace(/\D/g, "") === unitNumber))
           : faturasDaUc;
-        return { text: resumoUltimoConsumo(scoped), actions };
+        return { text: resumoUltimoConsumo(scoped, /\bmes anterior\b/.test(pedido)), actions };
       }
       const chosen = invoiceDocumentChoices(question, faturasDaUc);
       if (intent.module === "pagamento") return { text: chosen.length ? "Escolha a fatura para consultar Pix, boleto e beneficiário. Não realizei pagamento." : "Não encontrei fatura emitida para esse pedido.", actions: chosen.map(f => action(`Pagamento · ${scalar(f.referencia)}`, `/faturas/${f.id}`)) };
