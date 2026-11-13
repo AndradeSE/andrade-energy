@@ -9,3 +9,9 @@
 - TypeScript aprovado; testes de aviso de APK (4) e saldo por UC (2) aprovados.
 - Preview no S23 confirmou recepcao de PDF e foto no layout padrao. Arquivo sintetico de medidor rejeitado pelo cadastro como esperado; nao foi criado cadastro real nem enviado protocolo.
 - Ajustes visuais posteriores ao envio das builds estao nas OTAs acima. Nenhuma segunda build foi iniciada para trocar cores.
+
+## Proximas publicacoes
+
+Gerador: usar perfil `share-production-gerador` para APK. Para OTA usar `scripts/publish-ota.ps1 -Variant gerador -Audience clients`, com `ANDRADE_GENERATOR_SHARE_BUILD=1`, `ANDRADE_NATIVE_CEMIG_BROWSER=1`, `ANDRADE_CEMIG_AUTOMATION_PRODUCTION=1`, `ANDRADE_NATIVE_REFRESH_FIXED=1`, `ANDRADE_ANDROID_UNIVERSAL=1`. Confirmar runtime15 antes da publicacao.
+
+Consumidor: perfil `camera-production-consumidor`. OTA com `ANDRADE_CONSUMER_CAMERA_BUILD=1`, `ANDRADE_NATIVE_REFRESH_FIXED=1`, `ANDRADE_ANDROID_UNIVERSAL=1`, confirmando runtime14. Esta entrega nao remove os canais/runtimes legados dos clientes; o aviso de APK compara versionCode e aponta ao link estavel.
