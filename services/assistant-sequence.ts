@@ -1,3 +1,4 @@
+import { detectCapability, type AssistantIntent } from "./assistant-capabilities";
 import {parseControlCommand,visibleSolarControls} from './assistant-controls';
 import {resolveSafeNavigation,type SafeNavigationContext} from './assistant-safe-navigation';
 const norm=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
@@ -5,24 +6,32 @@ export function parseSolarSequence(text:string){
  const steps=text.trim().split(/\s*;\s*|\s+(?:e depois|depois|em seguida)\s+/i).filter(Boolean);
  // Separadores em explicações e comparações não autorizam navegação.
  const first=norm(steps[0]??'').replace(/^(?:por favor[, ]*|(?:quero que|pode|voce pode) (?:voce )?)/,'');
- const imperative=/^(?:abra|abrir|acesse|acessar|va para|ir para|busque|buscar|preencha|preencher|clique|clicar|toque|tocar|selecione|selecionar)\b/.test(first);
+ const imperative=/^(?:abra|abrir|acesse|acessar|va para|ir para|busque|buscar|preencha|preencher|clique|clicar|toque|tocar|selecione|selecionar|consulte|consultar)\b/.test(first);
  return steps.length>1&&imperative?steps:undefined;
 }
-export async function executeSolarSequence(text:string,io:{context:SafeNavigationContext;scope:string;current:()=>boolean;navigate:(route:string,params?:Record<string,string>)=>void;routeReady:(route:string)=>boolean;control:(step:string)=>Promise<string|undefined>;pause?:(ms:number)=>Promise<void>}){
+export async function executeSolarSequence(text:string,io:{context:SafeNavigationContext;scope:string;current:()=>boolean;navigate:(route:string,params?:Record<string,string>)=>void;routeReady:(route:string)=>boolean;control:(step:string)=>Promise<string|undefined>;query?:(intent:AssistantIntent,step:string)=>Promise<string>;pause?:(ms:number)=>Promise<void>}){
  const steps=parseSolarSequence(text);
  if(!steps)return undefined;
  if(steps.length>12||text.length>1800)return 'Divida o pedido em até 12 etapas por sequência.';
  // Valida o plano inteiro antes de abrir a primeira tela.
- const plan=steps.map(step=>({step,command:parseControlCommand(step),navigation:resolveSafeNavigation(step,io.context)}));
- if(plan.some(p=>!p.command&&!p.navigation?.action))return 'Uma etapa não corresponde a uma navegação ou controle permitido. Informe cada etapa com abrir, buscar, preencher ou clicar, separadas por “depois”.';
+ const plan=steps.map(step=>({step,command:parseControlCommand(step),navigation:resolveSafeNavigation(step,io.context), intent:detectCapability(step)}));
+ const canQuery = (intent?: AssistantIntent) => Boolean(io.query && intent && !intent.review && intent.module !== "pagamento" && intent.mode !== "action");
+ if(plan.some(p=>!p.command&&!p.navigation?.action&&!canQuery(p.intent)))return 'Uma etapa não corresponde a uma navegação ou controle permitido. Informe cada etapa com abrir, buscar, preencher ou clicar, separadas por “depois”.';
  const pause=io.pause??(ms=>new Promise(resolve=>setTimeout(resolve,ms)));
  const wait=async(ready:()=>boolean)=>{for(let i=0;i<80;i++){if(!io.current())return false;if(ready())return true;await pause(100);}return false;};
  let completed=0;
+ const answers: string[] = [];
  for(const p of plan){
   if(!io.current())return `Sequência interrompida: o acesso ou ambiente mudou. ${completed} etapas concluídas.`;
-  if(p.navigation?.action&&!p.command){
+  if(p.navigation?.action&&!p.command&&!(p.intent?.mode==="document"&&canQuery(p.intent))){
    const a=p.navigation.action;io.navigate(a.route,a.params);
    if(!await wait(()=>io.routeReady(a.route)))return `Parei na etapa ${completed+1}: a tela não confirmou a abertura. Não repeti nenhuma operação.`;
+  }else if(!p.command && p.intent && canQuery(p.intent)){
+   try {
+    const answer = await io.query!(p.intent, p.step);
+    if(!io.current())return "O contexto mudou durante a consulta.";
+    answers.push(answer);
+   } catch { return [...answers, `Parei na etapa ${completed+1}: a consulta falhou.`].join("\n\n"); }
   }else if(p.command){
    const command=p.command;
    const ready=()=>visibleSolarControls(io.scope).filter(c=>c.kind===command.kind&&norm(c.label)===norm(command.label)).length===1;
@@ -32,5 +41,7 @@ export async function executeSolarSequence(text:string,io:{context:SafeNavigatio
   }
   completed++;
  }
+ if(answers.length)return answers.join("\n\n");
  return `Concluí ${completed} etapas de navegação e comandos. Confira os resultados na tela; botões acionados não comprovam emissão, pagamento ou protocolo.`;
 }
+

@@ -385,7 +385,13 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   async function operateSequence(question:string){
     const scope=accountContextKey;
     const routeKey=(route:string)=>route.replace('/(tabs)','').replace(/\/$/,'')||'/';
-    return executeSolarSequence(question,{context:{generator:IS_GERADOR_APP,role:usuario?.perfil,companyRole:usuario?.papel_empresa,plantId:usinaSelecionada?.id,unitId:unidadeSelecionada?.id,permissions:usuario?.permissoes},scope:solarControlScope(usuario,usinaSelecionada?.id,unidadeSelecionada?.id),current:()=>assistantMounted.current&&automationScope.current===scope,navigate:(route,params)=>{onMinimize?.();router.push({pathname:route,params} as any);},routeReady:route=>routeKey(sequencePathRef.current)===routeKey(route),control:operateCurrentControl});
+    return executeSolarSequence(question,{context:{generator:IS_GERADOR_APP,role:usuario?.perfil,companyRole:usuario?.papel_empresa,plantId:usinaSelecionada?.id,unitId:unidadeSelecionada?.id,permissions:usuario?.permissoes},scope:solarControlScope(usuario,usinaSelecionada?.id,unidadeSelecionada?.id),current:()=>assistantMounted.current&&automationScope.current===scope,navigate:(route,params)=>{onMinimize?.();router.push({pathname:route,params} as any);},routeReady:route=>routeKey(sequencePathRef.current)===routeKey(route),control:operateCurrentControl,query:async(intent,step)=>{
+      const reply=await executeAssistantTool(intent,{generator:IS_GERADOR_APP,role:usuario?.perfil,plantId:usinaSelecionada?.id,unitId:unidadeSelecionada?.id,unitNumber:unidadeSelecionada?.numero,clientId:unidadeSelecionada?.cliente_id ?? usuario?.cliente_id},step);
+      if(!assistantMounted.current || automationScope.current!==scope)throw new Error("Contexto alterado");
+      const document=reply.documents?.length===1 ? reply.documents[0] : undefined;
+      if(intent.mode==="document" && document && await openToolDocument(document))return reply.text+"\nDocumento aberto.";
+      return reply.text;
+    }});
   }
 
   async function send(spokenQuestion?: string) {

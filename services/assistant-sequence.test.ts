@@ -31,3 +31,19 @@ test('comparações e perguntas com separadores continuam sendo conversa, sem a�
  }
  assert.equal(parseSolarSequence('abra clientes depois abra economia')?.length,2);
 });
+
+test("encadeia consulta e documento depois da navegação", async () => {
+  const calls: string[] = [];
+  const result = await executeSolarSequence("abra clientes depois consulte o último consumo da UC 1234 depois abra a fatura da Cemig da UC 1234", {
+    context, scope: "conta", current: () => true,
+    navigate: route => { calls.push(route); },
+    routeReady: () => true,
+    control: async () => undefined,
+    query: async intent => {
+      calls.push(intent.mode);
+      return intent.mode === "document" ? "Documento aberto." : "UC 1234: 210 kWh.";
+    },
+  });
+  assert.deepEqual(calls, ["/(tabs)/clientes", "query", "document"]);
+  assert.match(result!, /210 kWh[\s\S]*Documento aberto/);
+});
