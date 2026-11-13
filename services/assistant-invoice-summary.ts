@@ -17,3 +17,45 @@ export function resumoContaConcessionaria(fatura: any) {
     "Esses são os dados registrados no aplicativo após a leitura da fatura.",
   ].filter(Boolean).join("\n");
 }
+
+type ConsumoFatura = {
+  id: string;
+  consumo?: number | string | null;
+  referencia?: string;
+  created_at?: string;
+  status?: string;
+  numero_instalacao?: string;
+  consumo_kwh?: number | string | null;
+};
+
+const meses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
+function competencia(fatura: ConsumoFatura) {
+  const referencia = fatura.referencia?.trim().toLowerCase() ?? "";
+  const iso = /^(20\d{2})-(0[1-9]|1[0-2])$/.exec(referencia);
+  if (iso) return Number(iso[1]) * 100 + Number(iso[2]);
+  const brasileira = /^(\d{1,2}|[a-z]{3})\/(20\d{2})$/.exec(referencia);
+  if (!brasileira) return 0;
+  const mes = Number(brasileira[1]) || meses.indexOf(brasileira[1]) + 1;
+  return mes >= 1 && mes <= 12 ? Number(brasileira[2]) * 100 + mes : 0;
+}
+
+export function resumoUltimoConsumo(faturas: ConsumoFatura[]) {
+  const recentes = new Map<string, ConsumoFatura>();
+  for (const fatura of faturas) {
+    if (/^(RASCUNHO|CANCELAD[AO]|EXCLUID[AO])$/i.test(fatura.status ?? "")) continue;
+    const uc = fatura.numero_instalacao?.replace(/\D/g, "");
+    if (!uc) continue;
+    const anterior = recentes.get(uc);
+    if (!anterior || competencia(fatura) > competencia(anterior) ||
+      (competencia(fatura) === competencia(anterior) && (fatura.created_at ?? "") > (anterior.created_at ?? ""))) {
+      recentes.set(uc, fatura);
+    }
+  }
+  if (!recentes.size) return "Não encontrei fatura registrada para esse cliente ou UC.";
+  return [...recentes].map(([uc, fatura]) => {
+    const consumo = numero(fatura.consumo_kwh ?? fatura.consumo);
+    const valor = consumo === "não informado" ? "consumo não informado na fatura" : consumo + " kWh";
+    return "UC " + uc + " · " + (fatura.referencia ?? "referência não informada") + " · " + valor;
+  }).join("\n");
+}

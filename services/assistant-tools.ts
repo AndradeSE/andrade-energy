@@ -1,8 +1,8 @@
-import { resumoContaConcessionaria } from "./assistant-invoice-summary";
+import { resumoContaConcessionaria, resumoUltimoConsumo } from "./assistant-invoice-summary";
 import { contractUnitDigits, matchesContractUnit } from "./assistant-contract-unit";
 import api from "../config/api";
 import type { AssistantAction, AssistantDocument, AssistantIntent, AssistantToolReply } from "./assistant-capabilities";
-import { displayNumber, onlyArray, normalizeCapabilityText } from "./assistant-capabilities";
+import { asksLatestConsumption, displayNumber, onlyArray, normalizeCapabilityText } from "./assistant-capabilities";
 import { me, listarMeusPedidosDePrivacidade } from "./auth.service";
 import { buscarDashboard } from "./dashboard.service";
 import { carregarCarteira } from "./carteira.service";
@@ -257,6 +257,15 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
       const faturasCliente = clienteId ? rows.filter((f: any) => f.cliente_id === clienteId) : rows;
       const ucPedida = /\b(?:uc|unidade(?: consumidora)?)\s+(?:final\s+)?([\d. -]{4,})/.exec(pedido)?.[1]?.replace(/\D/g, "");
       const faturasDaUc = ucPedida ? faturasCliente.filter((f: any) => String(f.numero_instalacao ?? "").replace(/\D/g, "").endsWith(ucPedida)) : faturasCliente;
+      if (intent.module === "conta-luz" && intent.mode === "query" && asksLatestConsumption(question)) {
+        const scope = ctx.generator && !clienteId && !ucPedida && !ctx.unitId && !ctx.unitNumber;
+        if (scope) return { text: "De qual cliente ou UC da usina selecionada você quer consultar o último consumo?" };
+        const unitNumber = ctx.unitNumber?.replace(/\D/g, "");
+        const scoped = !ucPedida && !clientesCitados.length && (ctx.unitId || unitNumber)
+          ? faturasDaUc.filter(f => (f as { unidade_consumidora_id?: string }).unidade_consumidora_id === ctx.unitId && Boolean(ctx.unitId) || Boolean(unitNumber && f.numero_instalacao?.replace(/\D/g, "") === unitNumber))
+          : faturasDaUc;
+        return { text: resumoUltimoConsumo(scoped), actions };
+      }
       const chosen = invoiceDocumentChoices(question, faturasDaUc);
       if (intent.module === "pagamento") return { text: chosen.length ? "Escolha a fatura para consultar Pix, boleto e beneficiário. Não realizei pagamento." : "Não encontrei fatura emitida para esse pedido.", actions: chosen.map(f => action(`Pagamento · ${scalar(f.referencia)}`, `/faturas/${f.id}`)) };
       if (intent.module === "conta-luz" && intent.mode === "query") {

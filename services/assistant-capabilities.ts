@@ -13,6 +13,7 @@ export function detectCapability(input: string): AssistantIntent | undefined {
   if (isSolarHelp(text)) return undefined;
   const wantsDocument = /\b(pdf|arquivo|documento|baixar|baixa|baixe|download|mande|manda|envie|entregue|anexo)\b/.test(text);
   const review = hasSolarMutation(text) && !(wantsDocument && !hasSolarMutation(text.replace(/\b(enviar|envie)\b/g, "")));
+  if (!review && !wantsDocument && asksLatestConsumption(text)) return { module: "conta-luz", mode: "query", review: false };
   if (!review && !wantsDocument && !/\b(fatura|conta de luz|cemig|concessionaria)\b/.test(text) && /\b(e-?mail|telefone|celular|whatsapp|endereco|cadastro|dados|contato)\b/.test(text) && /\b(clientes?|consumidor(?:a)?)\b/.test(text)) {
     return { module: "clientes", mode: "query", review: false };
   }
@@ -57,3 +58,8 @@ export function displayNumber(value: unknown, currency = false) {
   return n === undefined ? "não informado" : new Intl.NumberFormat("pt-BR", currency ? { style: "currency", currency: "BRL" } : { maximumFractionDigits: 2 }).format(n);
 }
 export function onlyArray(value: unknown): any[] { if (!Array.isArray(value)) throw new Error("Resposta inválida do módulo"); return value; }
+
+export function asksLatestConsumption(input: string) {
+  const text = normalizeCapabilityText(input);
+  return /\bconsumo\b/.test(text) && /\b(ultimo|ultima|mais recente)\b/.test(text) && !/\b(simular|simulacao|estimar)\b/.test(text);
+}

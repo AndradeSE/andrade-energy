@@ -18,3 +18,16 @@ test("dados CEMIG do cliente seguem para fatura e abrir solicita documento", () 
   assert.equal(detectCapability("abra a fatura da Cemig do cliente Guilherme")?.mode, "document");
   assert.equal(detectCapability("qual o email do cliente Guilherme")?.module, "clientes");
 });
+
+test("último consumo consulta a competência mais recente de cada UC, mesmo com importação fora de ordem", async () => {
+  const { resumoUltimoConsumo } = await import("./assistant-invoice-summary");
+  assert.equal(detectCapability("pesquisar último consumo do cliente Guilherme")?.module, "conta-luz");
+  const texto = resumoUltimoConsumo([
+    { id: "1", numero_instalacao: "1234", referencia: "09/2026", created_at: "2026-11-02", consumo_kwh: 400 },
+    { id: "2", numero_instalacao: "1234", referencia: "OUT/2026", created_at: "2026-10-30", consumo_kwh: 0 },
+    { id: "3", numero_instalacao: "5678", referencia: "2026-10", consumo: 210 },
+  ]);
+  assert.match(texto, /1234 · OUT\/2026 · 0 kWh/);
+  assert.match(texto, /5678 · 2026-10 · 210 kWh/);
+  assert.doesNotMatch(texto, /400 kWh/);
+});

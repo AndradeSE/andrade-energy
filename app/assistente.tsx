@@ -43,7 +43,7 @@ import { playActivationBeep } from "../services/assistant-beep";
 import { buscarDashboardUsina } from "../services/usinas.service";
 import { detectProductionMetric, productionMetricReply } from "../services/assistant-production";
 import { detectAccountQuery, consultAccount } from "../services/assistant-account";
-import { detectCapability, type AssistantAction, type AssistantDocument } from "../services/assistant-capabilities";
+import { asksLatestConsumption, detectCapability, type AssistantAction, type AssistantDocument } from "../services/assistant-capabilities";
 import { executeAssistantTool, resolveAssistantDocument } from "../services/assistant-tools";
 import { queryLiveAccount, redactLiveAccountText } from "../services/assistant-live-account";
 import { setFloatingConversationPhase } from "../services/assistant-floating-conversation";
@@ -399,11 +399,12 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       ? normalizeAssistantQuery(consultaAnterior.text).match(/\b(?:cliente|consumidor(?:a)?)\s+(.+?)[.!?]*$/)?.[1]
       : undefined;
     const contatoSemNome = /^(?:e\s+)?(?:o\s+)?(?:e-?mail|telefone|celular|whatsapp|endereco)[?!.]*$/.test(perguntaNormalizada);
-    const interpretedQuestion = contatoSemNome && clienteAnterior
+    const consumoSemNome = asksLatestConsumption(perguntaNormalizada) && !/\b(?:do|da|de)\s+\S|\b(?:cliente|uc|unidade)\s+\S/.test(perguntaNormalizada);
+    const interpretedQuestion = (contatoSemNome || consumoSemNome) && clienteAnterior
       ? `${perguntaNormalizada.replace(/[?!.]+$/, "")} do cliente ${clienteAnterior}`
       : perguntaNormalizada;
     const automationCommand = parseAutomationCommand(question);
-    const safeNavigation = resolveSafeNavigation(question, {
+    const safeNavigation = asksLatestConsumption(question) ? undefined : resolveSafeNavigation(question, {
       generator: IS_GERADOR_APP, role: usuario?.perfil, companyRole: usuario?.papel_empresa,
       plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id, permissions: usuario?.permissoes,
     });
@@ -413,7 +414,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     const generation = contextGeneration.current;
     const wantsInvoiceDocument = asksLatestInvoiceDocument(interpretedQuestion, lastInvoiceRequest.current);
     const economyHistory = messagesRef.current.filter(m => m.from === "user").slice(-6).map(m => m.text);
-    const economyCalculation = IS_GERADOR_APP && !/\bcontrato\b/.test(interpretedQuestion) && (asksEconomyCalculation(interpretedQuestion) || (asksEconomyCalculation(economyHistory.join(" ")) && /kwh|desconto|%|bifasic|trifasic|monofasic|residencial|rural|comerc/i.test(interpretedQuestion)));
+    const economyCalculation = !asksLatestConsumption(interpretedQuestion) && IS_GERADOR_APP && !/\bcontrato\b/.test(interpretedQuestion) && (asksEconomyCalculation(interpretedQuestion) || (asksEconomyCalculation(economyHistory.join(" ")) && /kwh|desconto|%|bifasic|trifasic|monofasic|residencial|rural|comerc/i.test(interpretedQuestion)));
     const detectedCapability = economyCalculation ? undefined : detectCapability(interpretedQuestion);
     // PDF de fatura tem precedência sobre abrir a usina/aba, mas não sobre
     // documentos específicos (CEMIG, cálculo, contratos) nem alterações.
@@ -732,7 +733,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
               }
               if (pedidoFecharPdf(question)) { fecharPdfContrato(); return "Fechei o PDF."; }
               if (perguntaSobrePdfAberto(question)) return await consultarContratoAberto(question);
-              const navigation = resolveSafeNavigation(question, {
+              const navigation = asksLatestConsumption(question) ? undefined : resolveSafeNavigation(question, {
                 generator: IS_GERADOR_APP, role: usuario?.perfil, companyRole: usuario?.papel_empresa,
                 plantId: usinaSelecionada?.id, unitId: unidadeSelecionada?.id, permissions: usuario?.permissoes,
               });
