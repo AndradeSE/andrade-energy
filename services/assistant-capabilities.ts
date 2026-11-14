@@ -1,10 +1,10 @@
 // Registro explícito: texto do usuário nunca escolhe URL, endpoint ou ID de outra conta.
-export type AssistantModule = "assistente-config" | "perfil" | "economia" | "carteira" | "equipe" | "atividade" | "operacao" | "inversores" | "recebimento" | "assinatura" | "termos" | "empresas" | "comercial" | "privacidade" | "contratos" | "conta-luz" | "calculo" | "anexos" | "proposta" | "pagamento" | "clientes" | "usinas" | "unidades" | "faturamento" | "tutoriais" | "sobre";
+export type AssistantModule = "leituras" | "cotas" | "assistente-config" | "perfil" | "economia" | "carteira" | "equipe" | "atividade" | "operacao" | "inversores" | "recebimento" | "assinatura" | "termos" | "empresas" | "comercial" | "privacidade" | "contratos" | "conta-luz" | "calculo" | "anexos" | "proposta" | "pagamento" | "clientes" | "usinas" | "unidades" | "faturamento" | "tutoriais" | "sobre";
 export type AssistantIntent = { module: AssistantModule; mode: "query" | "document" | "action"; review: boolean };
 export type AssistantAction = { label: string; route: string; params?: Record<string, string>; review?: boolean };
 export type AssistantDocument = { kind: "contrato" | "conta-luz" | "calculo" | "anexo" | "proposta"; id: string; label: string; clientId?: string };
 export type AssistantToolReply = { text: string; actions?: AssistantAction[]; documents?: AssistantDocument[] };
-export const ASSISTANT_MODULES: AssistantModule[] = ["assistente-config", "perfil", "economia", "carteira", "equipe", "atividade", "operacao", "inversores", "recebimento", "assinatura", "termos", "empresas", "comercial", "privacidade", "contratos", "conta-luz", "calculo", "anexos", "proposta", "pagamento", "clientes", "usinas", "unidades", "faturamento", "tutoriais", "sobre"];
+export const ASSISTANT_MODULES: AssistantModule[] = ["leituras", "cotas", "assistente-config", "perfil", "economia", "carteira", "equipe", "atividade", "operacao", "inversores", "recebimento", "assinatura", "termos", "empresas", "comercial", "privacidade", "contratos", "conta-luz", "calculo", "anexos", "proposta", "pagamento", "clientes", "usinas", "unidades", "faturamento", "tutoriais", "sobre"];
 import { normalizeSolarRequest, hasSolarMutation, isSolarHelp } from "../shared/solar-language";
 export function normalizeCapabilityText(text: string) { return normalizeSolarRequest(text); }
 export function detectCapability(input: string): AssistantIntent | undefined {
@@ -13,13 +13,16 @@ export function detectCapability(input: string): AssistantIntent | undefined {
   if (isSolarHelp(text)) return undefined;
   const wantsDocument = /\b(pdf|arquivo|documento|baixar|baixa|baixe|download|mande|manda|envie|entregue|anexo)\b/.test(text);
   const review = hasSolarMutation(text) && !(wantsDocument && !hasSolarMutation(text.replace(/\b(enviar|envie)\b/g, "")));
+  if (!review && asksAverageConsumption(text)) return { module: "unidades", mode: "query", review: false };
   if (!review && (!wantsDocument || asksConsumptionInvoice(text)) && asksLatestConsumption(text)) return { module: "conta-luz", mode: "query", review: false };
-  if (!review && !wantsDocument && !/\b(fatura|conta de luz|cemig|concessionaria)\b/.test(text) && /\b(e-?mail|telefone|celular|whatsapp|endereco|cadastro|dados|contato)\b/.test(text) && /\b(clientes?|consumidor(?:a)?)\b/.test(text)) {
+  if (!review && !wantsDocument && !/\b(fatura|conta de luz|cemig|concessionaria)\b/.test(text) && /\b(e-?mail|telefone|celular|whatsapp|endereco|cadastro|dados|contato)\b/.test(text) && /\b(clientes?|consumidor(?:a)?|uc|unidade)\b/.test(text)) {
     return { module: "clientes", mode: "query", review: false };
   }
   const mode = review ? "action" : wantsDocument ? "document" : /\b(abrir|abra|abre|ir para|acesse|acessar|mostre|me leve)\b/.test(text) ? "action" : "query";
   let module: AssistantModule | undefined;
-  if (/\b(termos|politica de privacidade|politica de cancelamento)\b/.test(text)) module = "termos";
+  if (/\b(cotas?|limites?|saldo)\b/.test(text) && /\b(servicos|supabase|neon|azure|capmonster|render|netlify)\b/.test(text)) module = "cotas";
+  else if (/\b(autoleitura|leituras?|protocolos?)\b/.test(text) && /\b(medidor|leitura|leituras|autoleitura)\b/.test(text)) module = "leituras";
+  else if (/\b(termos|politica de privacidade|politica de cancelamento)\b/.test(text)) module = "termos";
   else if (/\b(privacidade|lgpd|dados pessoais|portabilidade)\b/.test(text)) module = "privacidade";
   else if (/\b(relatorio de calculo|memoria de calculo|calculo da fatura)\b/.test(text)) module = "calculo";
   else if (/\b(faturas anexadas|anexos|anexo do cliente)\b/.test(text)) module = "anexos";
@@ -42,10 +45,10 @@ export function detectCapability(input: string): AssistantIntent | undefined {
   else if (/\b(perfil|meus dados|meu endereco|meu email|meu telefone|senha|foto de perfil)\b/.test(text)) module = "perfil";
   else if (/\b(tutorial|tutoriais|videos)\b/.test(text)) module = "tutoriais";
   else if (/\b(versao|atualizacao|sobre o app)\b/.test(text)) module = "sobre";
-  else if (mode === "action" && /\b(cliente|clientes|consumidor)\b/.test(text)) module = "clientes";
-  else if (mode === "action" && /\b(usina|usinas)\b/.test(text)) module = "usinas";
-  else if (mode === "action" && /\b(uc|ucs|unidade|unidades)\b/.test(text)) module = "unidades";
   else if (/\b(fatura|faturas|faturamento)\b/.test(text)) module = "faturamento";
+  else if (/\b(cliente|clientes|consumidor)\b/.test(text)) module = "clientes";
+  else if (/\b(usina|usinas)\b/.test(text)) module = "usinas";
+  else if (/\b(uc|ucs|unidade|unidades)\b/.test(text)) module = "unidades";
   return module ? { module, mode, review } : undefined;
 }
 export function safeNumber(value: unknown): number | undefined {
@@ -62,7 +65,11 @@ export function onlyArray(value: unknown): any[] { if (!Array.isArray(value)) th
 export function asksLatestConsumption(input: string) {
   const text = normalizeCapabilityText(input);
   if (asksConsumptionInvoice(text)) return true;
-  return /\bconsumo\b/.test(text) && /\b(ultimo|ultima|mais recente|qual foi (?:o )?consumo|quanto consumiu)\b/.test(text) && !/\b(simular|simulacao|estimar)\b/.test(text);
+  return /\b(consumo|consumiu)\b/.test(text) && !asksAverageConsumption(text) && !/\b(simular|simulacao|estimar|historico|evolucao|calculadora)\b/.test(text);
+}
+
+export function asksAverageConsumption(input: string) {
+  return /\b(?:consumo\s+medio|media\s+(?:mensal\s+)?(?:de\s+)?consumo)\b/.test(normalizeCapabilityText(input));
 }
 
 export function asksConsumptionInvoice(input: string) {

@@ -2,13 +2,16 @@ import { resumoContaConcessionaria, resumoUltimoConsumo, selecionarFaturasConsum
 import { contractUnitDigits, matchesContractUnit } from "./assistant-contract-unit";
 import api from "../config/api";
 import type { AssistantAction, AssistantDocument, AssistantIntent, AssistantToolReply } from "./assistant-capabilities";
-import { asksConsumptionInvoice, asksLatestConsumption, displayNumber, onlyArray, normalizeCapabilityText } from "./assistant-capabilities";
+import { asksAverageConsumption, asksConsumptionInvoice, asksLatestConsumption, displayNumber, onlyArray, normalizeCapabilityText } from "./assistant-capabilities";
+import { averageConsumptionReply, selectAssistantUnits } from "./assistant-unit-query";
+import { listServiceQuotas } from "./cotas-servicos.service";
+import { listarAutoleituras, listarMinhasAutoleituras } from "./clientes.service";
 import { me, listarMeusPedidosDePrivacidade } from "./auth.service";
 import { buscarDashboard } from "./dashboard.service";
 import { carregarCarteira } from "./carteira.service";
 import { listarColaboradores, listarAuditoriaColaboradores } from "./colaboradores.service";
 import { listarFechamentos } from "./fechamentos.service";
-import { buscarDashboardUsina, obterSaldoAncora, listarInversoresDaUsina } from "./usinas.service";
+import { buscarDashboardUsina, obterSaldoAncora, listarInversoresDaUsina, listarUsinas } from "./usinas.service";
 import { listarMinhasEmpresas } from "./empresas.service";
 import { obterMinhaAssinatura, obterTermosAssinatura, obterPainelComercial } from "./comercial.service";
 import { obterRecebimentoFaturas } from "./recebimento-faturas.service";
@@ -30,6 +33,8 @@ function routeFor(intent: AssistantIntent, ctx: AssistantAccountContext, questio
   const creating = /\b(criar|cadastrar|novo|nova|adicionar)\b/.test(normalizeCapabilityText(question));
   const unit = ctx.unitId ? { id: ctx.unitId } : undefined;
   switch (module) {
+    case "cotas": return ctx.generator && ctx.role === "ADMIN" ? action("Cotas de serviços", "/cotas-servicos") : undefined;
+    case "leituras": return action("Histórico de leituras", ctx.generator ? "/unidades" : "/historico-autoleituras");
     case "clientes": return action(creating ? "Cadastrar cliente" : "Revisar clientes", creating ? "/clientes/novo" : "/(tabs)/clientes", undefined, review);
     case "usinas": return action(creating ? "Cadastrar usina" : "Escolher usina", creating ? "/usinas/nova" : "/selecionar-unidade", undefined, review);
     case "unidades": return action(creating ? "Cadastrar UC" : "Revisar UCs", creating ? "/unidades/nova" : "/unidades", undefined, review);
@@ -58,11 +63,18 @@ function routeFor(intent: AssistantIntent, ctx: AssistantAccountContext, questio
 export async function executeAssistantTool(intent: AssistantIntent, ctx: AssistantAccountContext, question: string): Promise<AssistantToolReply> {
   if (intent.module === "assistente-config") return { text: "As preferências ficam em Menu lateral → Configurações da Solar: início por voz, botão flutuante e permissões de áudio. Abra a tela para revisar e escolher; ainda não alterei nenhuma configuração.", actions: [{ label: "Configurações da Solar", route: "/configuracoes-assistente" }] };
   if (intent.module === "tutoriais") return { text: "Os tutoriais estão desativados por tempo indeterminado. Posso explicar as funções do aplicativo por aqui." };
-  const generatorOnly = ["carteira", "equipe", "atividade", "operacao", "inversores", "assinatura", "termos", "comercial", "clientes", "usinas"];
+  const generatorOnly = ["cotas", "carteira", "equipe", "atividade", "operacao", "inversores", "assinatura", "termos", "comercial", "clientes", "usinas"];
   if (!ctx.generator && intent.module === "faturamento" && intent.review) return { text: "Emissão e alterações de faturamento exigem acesso de gerador autorizado. Posso consultar suas faturas." };
   if (!ctx.generator && generatorOnly.includes(intent.module)) return { text: "Essa função pertence ao gerador ou à administração e não está disponível no seu acesso. Posso consultar os dados, faturas e contrato das suas UCs." };
   if (intent.module === "comercial" && ctx.role !== "ADMIN") return { text: "Esta consulta administrativa exige acesso de administrador. Não vou ampliar suas permissões." };
+  if (intent.module === "cotas" && ctx.role !== "ADMIN") return { text: "A consulta de cotas exige acesso de administrador." };
   const pedido = normalizeCapabilityText(question);
+  if (!intent.review && asksAverageConsumption(question)) {
+    if (ctx.generator && !ctx.plantId) return { text: "Selecione uma usina para consultar o consumo médio cadastrado." };
+    const units = onlyArray(await (ctx.generator ? listarUnidadesGestor(ctx.plantId) : listarMinhasUnidades()));
+    const selected = selectAssistantUnits(units, question, ctx);
+    return { text: averageConsumptionReply(selected), actions: selected.length === 1 && ctx.generator ? [action("Ver configuração da UC", "/unidades/editar", { id: selected[0].id, numero: selected[0].numero ?? "", clienteId: selected[0].cliente_id ?? "" })] : [] };
+  }
   const ucPdf = contractUnitDigits(pedido);
   const alvoPdf = pedido.match(/\bcontrato\s+(?:do|da|de)\s+(?:cliente\s+)?(.+?)[.!?]*$/)?.[1]?.trim();
   if (intent.module === "contratos" && !intent.review && ctx.generator && (alvoPdf || ucPdf) &&
@@ -113,14 +125,48 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
   const target = routeFor(intent, ctx, question);
   const actions = target ? [target] : [];
   switch (intent.module) {
+    case "cotas": {
+      const data = await listServiceQuotas();
+      const service = /\b(supabase|neon|azure|capmonster|render|netlify)\b/.exec(pedido)?.[1];
+      const rows = data.servicos.filter(row => !service || normalizeCapabilityText(row.servico + " " + row.rotulo).includes(service));
+      return { text: rows.length ? rows.map(row => `${row.rotulo}: ${row.leitura ? `${displayNumber(row.leitura.usado)} usados · ${displayNumber(row.leitura.limite)} de limite · ${displayNumber(row.leitura.restante)} restantes (${row.unidade})${row.leitura.desatualizada ? " · leitura desatualizada" : ""}` : "leitura indisponível"}${row.observacao ? "\n" + row.observacao : ""}`).join("\n\n") : "Não encontrei cota registrada para esse serviço.", actions };
+    }
+    case "leituras": {
+      if (ctx.generator && !ctx.plantId) return { text: "Selecione a usina para consultar as leituras." };
+      const units = onlyArray(await (ctx.generator ? listarUnidadesGestor(ctx.plantId) : listarMinhasUnidades()));
+      const selected = selectAssistantUnits(units, question, ctx);
+      if (selected.length !== 1) return { text: selected.length ? "Informe o final da UC para consultar seu histórico de leituras." : "Não encontrei a UC deste pedido na usina e no acesso atuais." };
+      const rows = await (ctx.generator ? listarAutoleituras(selected[0].id) : listarMinhasAutoleituras(selected[0].id));
+      return { text: rows.length ? `UC ${selected[0].numero}\n` + rows.slice(0, 12).map(row => `${row.data_programada} · ${displayNumber(row.leitura_kwh)} kWh · ${row.estado} · protocolo: ${row.protocolo_cemig ?? "não confirmado"}`).join("\n") : "Não há leituras recebidas para essa UC.", actions };
+    }
+    case "unidades": {
+      if (ctx.generator && !ctx.plantId) return { text: "Selecione a usina para consultar as UCs." };
+      const rows = onlyArray(await (ctx.generator ? listarUnidadesGestor(ctx.plantId) : listarMinhasUnidades()));
+      const selected = selectAssistantUnits(rows, question, ctx);
+      const specific = contractUnitDigits(pedido) || /\b(cliente|consumidor)\s+\S/.test(pedido);
+      const result = specific || ctx.unitId ? selected : rows;
+      return { text: listText(result, "UCs", row => `UC ${scalar(row.numero)} · cliente ${scalar(row.clientes?.nome)} · ${scalar(row.status)} · desconto ${displayNumber(row.desconto_percentual)}% · consumo médio ${displayNumber(row.consumo_medio_kwh)} kWh`), actions };
+    }
+    case "usinas": {
+      if (/\businas\b/.test(pedido) && !/\b(atual|selecionada)\b/.test(pedido)) {
+        const rows = onlyArray(await listarUsinas());
+        return { text: listText(rows, "usinas", row => `${scalar(row.nome)} · UC ${scalar(row.numero_instalacao ?? row.uc)} · ${scalar(row.status)}`), actions };
+      }
+      if (!ctx.plantId) return { text: "Selecione a usina para consultar seus indicadores." };
+      const data = await buscarDashboardUsina(ctx.plantId);
+      return { text: `Usina selecionada · competência ${scalar(data.competencia)}\nEnergia gerada: ${displayNumber(data.energiaGerada)} kWh\nEnergia acumulada: ${displayNumber(data.energiaTotal)} kWh\nEnergia disponível para venda: ${displayNumber(data.energiaDisponivel)} kWh\nOcupação: ${displayNumber(data.ocupacao)}%`, actions: [action("Ver usina selecionada", "/(tabs)")] };
+    }
     case "clientes": {
       if (!ctx.plantId) return { text: "Selecione a usina para consultar o cadastro do cliente." };
       const pedido = normalizeCapabilityText(question);
       const clientes = onlyArray(await listarClientes(ctx.plantId));
       const nomePedido = pedido.match(/\b(?:cliente|consumidor(?:a)?)\s+(.+?)[.!?]*$/)?.[1]?.trim();
+      const unitDigits = contractUnitDigits(pedido);
+      const unitClients = unitDigits ? selectAssistantUnits(onlyArray(await listarUnidadesGestor(ctx.plantId)), question).map(unit => unit.cliente_id) : [];
+      if (!nomePedido && !unitDigits && !/\b(email|e-mail|telefone|celular|whatsapp|endereco|cpf|dados|contato)\b/.test(pedido)) return { text: listText(clientes, "clientes", row => `${scalar(row.nome)} · ${scalar(row.status)}`), actions };
       const encontrados = clientes.filter(cliente => {
         const nome = normalizeCapabilityText(scalar(cliente.nome, ""));
-        return nome && (pedido.includes(nome) || (nomePedido && nome.includes(nomePedido)));
+        return unitDigits ? unitClients.includes(cliente.id) : nome && (pedido.includes(nome) || (nomePedido && nome.includes(nomePedido)));
       });
       if (encontrados.length !== 1) {
         return { text: encontrados.length ? "Encontrei mais de um cliente. Informe o nome completo." : "Qual é o nome do cliente cadastrado nesta usina?", actions };
@@ -155,7 +201,17 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
         const saldo = await obterSaldoAncora(ctx.plantId, "", competencia);
         return { text: saldo.saldoKwh == null ? "Ainda não há saldo de créditos informado na fatura da usina selecionada." : "A usina selecionada tem " + displayNumber(saldo.saldoKwh) + " kWh de créditos acumulados. Referência: " + scalar(saldo.referencia) + ". Esse é o último saldo registrado na fatura." };
       }
-      if (ctx.generator) return { text: "A economia individual pertence à UC do consumidor. Selecione o consumidor no aplicativo para conferir seu histórico.", actions: [action("Consultar clientes", "/(tabs)/clientes")] };
+      if (ctx.generator) {
+        if (!ctx.plantId) return { text: "Selecione a usina para consultar a economia do cliente." };
+        const selected = selectAssistantUnits(onlyArray(await listarUnidadesGestor(ctx.plantId)), question, ctx);
+        if (!selected.length || new Set(selected.map(unit => unit.cliente_id)).size > 1) return { text: "Informe o cliente ou o final da UC da usina selecionada para consultar sua economia." };
+        const summaries = await Promise.all(selected.slice(0, 4).map(async unit => {
+          if (!unit.cliente_id || !unit.numero) return `UC ${scalar(unit.numero)}: vínculo de cliente indisponível.`;
+          const data = await buscarDashboard(unit.cliente_id, unit.numero);
+          return `UC ${unit.numero}\nDesconto contratado: ${displayNumber((unit as any).desconto_percentual)}%\nEconomia do mês: ${displayNumber(data.economiaMes, true)}\nEconomia acumulada: ${displayNumber(data.economiaAcumulada, true)}\nSaldo de energia: ${displayNumber(data.saldoAtual)} kWh\nReferência: ${scalar(data.competenciaSaldo)}`;
+        }));
+        return { text: summaries.join("\n\n"), actions };
+      }
       const units = onlyArray(await listarMinhasUnidades());
       const unit = units.find(item => item.id === ctx.unitId);
       if (!unit?.cliente_id) return { text: "Selecione uma das suas UCs para consultar consumo e economia." };
@@ -183,6 +239,10 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
     }
     case "recebimento": {
       let unitId = ctx.unitId;
+      if (ctx.generator && !unitId && !/\b(usina|producao|geradora)\b/.test(pedido) && ctx.plantId) {
+        const selected = selectAssistantUnits(onlyArray(await listarUnidadesGestor(ctx.plantId)), question, ctx);
+        if (selected.length === 1) unitId = selected[0].id;
+      }
       if (ctx.generator && /\b(usina|producao|geradora)\b/.test(normalizeCapabilityText(question))) {
         if (!ctx.plantId) return { text: "Selecione a usina para consultar o recebimento da conta geradora." };
         unitId = (await buscarDashboardUsina(ctx.plantId)).unidadeGeradora?.id;
@@ -215,7 +275,9 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
     case "contratos": case "proposta": {
       if (ctx.generator && !ctx.plantId) return { text: "Selecione uma usina para consultar contratos e propostas." };
       const units = ctx.generator ? onlyArray(await listarUnidadesGestor(ctx.plantId)) : onlyArray(await listarMinhasUnidades());
-      const selected = ctx.unitId ? units.filter(u => u.id === ctx.unitId) : units;
+      const requested = selectAssistantUnits(units, question, ctx);
+      const specific = contractUnitDigits(pedido) || /\b(?:cliente|consumidor)\s+\S/.test(pedido) || ctx.unitId;
+      const selected = specific || requested.length ? requested : units;
       if (intent.module === "proposta") return { text: "Escolha a UC para abrir a proposta disponível. Isso não envia convite nem registra aceite.", documents: selected.slice(0, 12).map(u => ({ kind: "proposta", id: u.id, label: `Proposta · UC ${scalar(u.numero)}` })) };
       if (ctx.generator && intent.mode !== "document") {
         const contracts = onlyArray(await listarContratosDaEmpresa(ctx.plantId));
@@ -265,10 +327,12 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
           ? faturasDaUc.filter(f => (f as { unidade_consumidora_id?: string }).unidade_consumidora_id === ctx.unitId && Boolean(ctx.unitId) || Boolean(unitNumber && f.numero_instalacao?.replace(/\D/g, "") === unitNumber))
           : faturasDaUc;
         const mesAnterior = /\bmes anterior\b/.test(pedido);
-        const text = resumoUltimoConsumo(scoped, mesAnterior);
+        const explicitPeriod = /\b(?:0?[1-9]|1[0-2])[/-]20\d{2}\b|\b20\d{2}-\d{2}\b|\b(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\b/.test(pedido);
+        const periodScoped = !mesAnterior && explicitPeriod ? invoiceDocumentChoices(question, scoped) : scoped;
+        const text = resumoUltimoConsumo(periodScoped, mesAnterior);
         if (!asksConsumptionInvoice(question)) return { text, actions };
         const documents: AssistantDocument[] = [];
-        for (const [uc, invoice] of selecionarFaturasConsumo(scoped, mesAnterior)) {
+        for (const [uc, invoice] of selecionarFaturasConsumo(periodScoped, mesAnterior)) {
           if (!invoice.numero_instalacao) continue;
           const row = scoped.find(item => item.id === invoice.id);
           if (row?.pdf_cemig_url && (ctx.generator || row.fatura_somente_andrade === true || row.pdf_cemig_demonstrativo === true)) documents.push({ kind: "conta-luz", id: row.id, label: `Fatura da UC ${uc} · ${invoice.referencia ?? "sem referência"}` });

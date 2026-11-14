@@ -1,3 +1,4 @@
+import { solarFlowInstructions } from "./assistant-flow-catalog";
 type Audience = "gerador" | "consumidor" | "ambos";
 type GuideEntry = { audience: Audience; match: RegExp; answer: string; quickAccess?: boolean };
 
@@ -84,8 +85,9 @@ export function verifiedAppGuide(variant: "gerador" | "consumidor") {
 
 export function localAssistantContext(variant: "gerador" | "consumidor") {
   return [
+    solarFlowInstructions(),
     `Aplicativo: ${variant === "gerador" ? "Gerador" : "Consumidor"}.`,
-    "As ferramentas do aplicativo consultam dados autenticados e preparam alterações antes desta conversa. Com o formulário aberto e Solar flutuante, comandos preencha o campo Nome com Maria Silva e clique no botão Salvar usam controles ativos, sem inventar funções. Preencher não salva; acionar botão exige confirmação. Você somente explica os fluxos; não inventa resultados nem emite comandos executáveis.",
+    "As ferramentas do aplicativo consultam dados autenticados e preparam alterações antes desta conversa. Com o formulário aberto e Solar flutuante, comandos preencha o campo Nome com Maria Silva e clique no botão Salvar usam controles ativos, sem inventar funções. Preencher não salva; acionar botão exige confirmação. Use as ferramentas registradas para executar consultas e navegações; explique o fluxo somente se o pedido for uma explicação. Nunca invente resultados nem gere endpoints ou código executável.",
     "Pode abrir telas autorizadas, pesquisar, filtrar faturas e consultar PDFs, contratos, produção, economia e financeiro conforme o perfil. Alterações cadastrais suportadas mostram antes/depois e exigem confirmação. Não pode acessar outra empresa, usina ou UC por suposição.",
     "Pagamentos, contratos, exclusões, permissões e conexões de e-mail exigem revisão nas telas próprias. Nunca peça senha, código de assinatura, chave de API ou código financeiro.",
     "O boleto vencido mantém o título e vencimento originais. Multa e juros vêm do contrato aceito e incidem sobre o total unificado quando contratado. O Asaas calcula os encargos ao pagar. Não peça emissão de outro boleto automaticamente.",

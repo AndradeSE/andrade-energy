@@ -43,7 +43,7 @@ import { playActivationBeep } from "../services/assistant-beep";
 import { buscarDashboardUsina } from "../services/usinas.service";
 import { detectProductionMetric, productionMetricReply } from "../services/assistant-production";
 import { detectAccountQuery, consultAccount } from "../services/assistant-account";
-import { asksConsumptionInvoice, asksLatestConsumption, detectCapability, type AssistantAction, type AssistantDocument } from "../services/assistant-capabilities";
+import { asksAverageConsumption, asksConsumptionInvoice, asksLatestConsumption, detectCapability, type AssistantAction, type AssistantDocument } from "../services/assistant-capabilities";
 import { executeAssistantTool, resolveAssistantDocument } from "../services/assistant-tools";
 import { queryLiveAccount, redactLiveAccountText } from "../services/assistant-live-account";
 import { setFloatingConversationPhase } from "../services/assistant-floating-conversation";
@@ -53,6 +53,7 @@ import { nativeAutomationContext, nativeAutomationIO } from "../services/assista
 import { normalizeSolarRequest } from "../shared/solar-language";
 import { asksScreenControls, operateSolarControl, parseControlCommand, solarControlScope } from "../services/assistant-controls";
 import { resolveSafeNavigation } from "../services/assistant-safe-navigation";
+import { inheritAssistantUnitTarget } from "../services/assistant-unit-query";
 import {parseSolarSequence,executeSolarSequence} from '../services/assistant-sequence';
 
 type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string; invoiceChoices?: Array<{ id: string; label: string }>; actions?: AssistantAction[]; documents?: AssistantDocument[]; private?: boolean; voiceAnswerId?: string; automation?: AutomationDraft };
@@ -154,6 +155,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   const lastInvoiceRequest = useRef(false);
   const busyRef = useRef(false);
   const messagesRef = useRef<Message[]>([]);
+  const lastAccountQuestion = useRef<{ scope: string; text: string } | undefined>(undefined);
   const topicRef = useRef<LocalTopic | undefined>(undefined);
   const scrollRef = useRef<ScrollView>(null);
   const accountContextKey = JSON.stringify([usuario?.id, usuario?.empresa_id, usuario?.perfil, usuario?.papel_empresa, usuario?.permissoes, usinaSelecionada?.id, unidadeSelecionada?.id]);
@@ -400,7 +402,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     const sequenceCommand=parseSolarSequence(question);
     const controlCommand = sequenceCommand || parseControlCommand(question) || asksScreenControls(question);
     const perguntaNormalizada = perguntaComContextoDoContrato(question);
-    const consultaAnterior = messagesRef.current.filter(m => m.from === "user").at(-1);
+    const consultaAnterior = messagesRef.current.filter(m => m.from === "user").at(-1) ?? (lastAccountQuestion.current?.scope === accountContextKey ? { private: true, text: lastAccountQuestion.current.text } : undefined);
     const clienteAnterior = consultaAnterior?.private
       ? normalizeAssistantQuery(consultaAnterior.text).match(/\b(?:cliente|consumidor(?:a)?)\s+(.+?)[.!?]*$/)?.[1]
       : undefined;
@@ -408,11 +410,11 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     const consumoSemNome = asksLatestConsumption(perguntaNormalizada) && !/\b(?:do|da|de)\s+\S|\b(?:cliente|uc|unidade)\s+\S/.test(perguntaNormalizada);
     const perguntaMesAnterior = /^(?:e )?(?:no )?mes anterior[?!.]*$/.test(perguntaNormalizada);
     const consultaConsumoAnterior = consultaAnterior?.private && asksLatestConsumption(consultaAnterior.text);
-    const interpretedQuestion = perguntaMesAnterior && consultaConsumoAnterior
+    const interpretedQuestion = inheritAssistantUnitTarget(perguntaMesAnterior && consultaConsumoAnterior
       ? `qual foi o consumo no mes anterior${clienteAnterior ? " do cliente " + clienteAnterior : ""}`
       : (contatoSemNome || consumoSemNome) && clienteAnterior
       ? `${perguntaNormalizada.replace(/[?!.]+$/, "")} do cliente ${clienteAnterior}`
-      : perguntaNormalizada;
+      : perguntaNormalizada, consultaAnterior?.private ? consultaAnterior.text : undefined);
     const automationCommand = parseAutomationCommand(question);
     const safeNavigation = asksLatestConsumption(question) ? undefined : resolveSafeNavigation(question, {
       generator: IS_GERADOR_APP, role: usuario?.perfil, companyRole: usuario?.papel_empresa,
@@ -424,7 +426,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     const generation = contextGeneration.current;
     const wantsInvoiceDocument = asksLatestInvoiceDocument(interpretedQuestion, lastInvoiceRequest.current);
     const economyHistory = messagesRef.current.filter(m => m.from === "user").slice(-6).map(m => m.text);
-    const economyCalculation = !asksLatestConsumption(interpretedQuestion) && IS_GERADOR_APP && !/\bcontrato\b/.test(interpretedQuestion) && (asksEconomyCalculation(interpretedQuestion) || (asksEconomyCalculation(economyHistory.join(" ")) && /kwh|desconto|%|bifasic|trifasic|monofasic|residencial|rural|comerc/i.test(interpretedQuestion)));
+    const economyCalculation = !asksAverageConsumption(interpretedQuestion) && !asksLatestConsumption(interpretedQuestion) && IS_GERADOR_APP && !/\bcontrato\b/.test(interpretedQuestion) && (asksEconomyCalculation(interpretedQuestion) || (asksEconomyCalculation(economyHistory.join(" ")) && /kwh|desconto|%|bifasic|trifasic|monofasic|residencial|rural|comerc/i.test(interpretedQuestion)));
     const detectedCapability = economyCalculation ? undefined : detectCapability(interpretedQuestion);
     // PDF de fatura tem precedência sobre abrir a usina/aba, mas não sobre
     // documentos específicos (CEMIG, cálculo, contratos) nem alterações.
@@ -440,7 +442,8 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     setBusy(true);
     const consultarPdf = perguntaSobrePdfAberto(question);
     const privateTurn = consultarPdf || Boolean(economyCalculation) || Boolean(controlCommand) || Boolean(automationCommand) || wantsOverdue || Boolean(capability) || wantsInvoiceDocument || asksLatestInvoiceAmount(interpretedQuestion) || Boolean(detectFinancialMetric(interpretedQuestion)) || Boolean(detectProductionMetric(interpretedQuestion)) || Boolean(detectAccountQuery(interpretedQuestion));
-    const userMessage: Message = { from: "user", text: contatoSemNome && clienteAnterior ? interpretedQuestion : question, private: privateTurn };
+    const userMessage: Message = { from: "user", text: interpretedQuestion !== perguntaNormalizada ? interpretedQuestion : question, private: privateTurn };
+    if (privateTurn) lastAccountQuestion.current = { scope: accountContextKey, text: interpretedQuestion };
     const nextMessages = [...messagesRef.current, userMessage].slice(-39);
     messagesRef.current = nextMessages;
     setMessages(nextMessages);
@@ -737,6 +740,9 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
             },
             onAccountQuery: async question => {
               const generation = contextGeneration.current;
+              const previous = messagesRef.current.filter(message => message.from === "user" && message.private).at(-1);
+              question = inheritAssistantUnitTarget(question, lastAccountQuestion.current?.scope === accountContextKey ? lastAccountQuestion.current.text : previous?.text);
+              lastAccountQuestion.current = { scope: accountContextKey, text: question };
               if(parseSolarSequence(question))return await operateSequence(question)??'Não reconheci a sequência.';
               if (parseControlCommand(question) || asksScreenControls(question)) {
                 return await operateCurrentControl(question) ?? "Não reconheci esse controle na tela atual.";

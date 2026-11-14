@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { operateSolarControl, registerSolarControl, parseControlCommand } from "./assistant-controls";
+
+test("não executa transações ou assinaturas mesmo por comando de botão", async () => {
+  for (const label of ["Pagar", "Confirmar transferência", "Assinar contrato"]) {
+    let calls = 0;
+    const off = registerSolarControl({ id: label, label, scope: "s", kind: "button", active: () => true, invoke: () => { calls++; } });
+    try {
+      assert.match((await operateSolarControl(`clique no botão ${label}`, "s", async () => true, () => true))!, /devem ser concluídos por você/);
+      assert.equal(calls, 0);
+    } finally { off(); }
+  }
+});
 test("preenche somente o campo ativo, sem salvar ou transmitir o valor", async () => {
   let value = "";
   const off = registerSolarControl({ id: "nome", label: "Nome", scope: "conta-A", kind: "field", active: () => true, invoke: v => { value = v!; } });

@@ -51,6 +51,7 @@ async function executeControl(question: string, scope: string, confirm: (label: 
   if (!matches.length) matches = available.filter(c => (` ${controlLabel(c)} `).includes(` ${label} `));
   if (matches.length !== 1) return matches.length ? "Há mais de um controle com esse nome. Informe o rótulo completo." : "Não encontrei esse controle ativo na tela. Abra o formulário e use o nome exibido no campo ou botão.";
   const control = matches[0];
+  if (command.kind === "button" && /\b(pagar|pague|efetuar pagamento|confirmar pagamento|transferir|confirmar transferencia|sacar|confirmar saque|assinar|assine)\b/.test(norm(control.label))) return "Pagamentos, transferências e assinaturas devem ser concluídos por você na tela. Não acionei o botão.";
   if (control.secret || /\b(senha|password|token|autenticador|codigo|chave de api)\b/.test(norm(control.label))) return "Preencha senhas e códigos de segurança pessoalmente na tela. Não os dite para a Solar.";
   if (command.kind === "field" && (!command.value || command.value.length > Math.min(control.maxLength ?? 500, 2000) || /[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(command.value))) return "Informe um valor válido para o campo.";
   if (command.kind === "button" && !await confirm(control.label)) return "Ação cancelada. Não acionei o botão.";
