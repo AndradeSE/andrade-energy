@@ -56,10 +56,11 @@ export function averageConsumptionReply(rows: Unit[]) {
 export function inheritAssistantUnitTarget(question: string, previous?: string) {
   const text = normalizeSolarRequest(question);
   if (!previous || contractUnitDigits(text) || /\b(?:cliente|consumidor(?:a)?)\s+\S/.test(text)) return question;
-  if (!/^(?:e\s+)?(?:(?:qual|quanto)\s+(?:e\s+|foi\s+)?(?:o\s+)?)?(?:o\s+)?(?:consumo(?:\s+medio)?|media (?:mensal )?(?:de )?consumo|e-?mail|telefone|celular|whatsapp|endereco|(?:no )?mes anterior)[?!. ]*$/.test(text)) return question;
+  const followUp = text.replace(/\s+(?:dessa|desta|da mesma)\s+(?:uc|unidade(?: consumidora)?)(?=[?!. ]*$)/, "");
+  if (!/^(?:e\s+)?(?:(?:qual|quanto)\s+(?:e\s+|foi\s+)?(?:o\s+)?)?(?:o\s+)?(?:consumo(?:\s+medio)?|media (?:mensal )?(?:de )?consumo|e-?mail|telefone|celular|whatsapp|endereco|(?:no )?mes anterior)[?!. ]*$/.test(followUp)) return question;
   const normalizedPrevious = normalizeSolarRequest(previous);
   const digits = contractUnitDigits(normalizedPrevious);
-  if (digits) return `${question.replace(/[?!.]+$/, "")} da UC ${digits}`;
+  if (digits) return `${question.replace(/\s+(?:dessa|desta|da mesma)\s+(?:uc|unidade(?: consumidora)?)[?!. ]*$/i, "").replace(/[?!.]+$/, "")} da UC ${digits}`;
   const name = normalizedPrevious.match(/\b(?:cliente|consumidor(?:a)?)\s+(.+?)(?:\s+(?:depois|em seguida)\b|[?!;]|$)/)?.[1]?.trim();
   return name ? `${question.replace(/[?!.]+$/, "")} do cliente ${name}` : question;
 }

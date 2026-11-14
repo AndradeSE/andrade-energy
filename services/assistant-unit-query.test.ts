@@ -50,3 +50,4 @@ test("nome completo tem prioridade sobre clientes que compartilham primeiro nome
   assert.deepEqual(selectAssistantClients(clients, "Localize o cliente Vinícius Duarte Andrade, consulte o consumo e abra a fatura"), [clients[0]]);
   assert.deepEqual(selectAssistantClients(clients, "consumo do cliente Vinícius Duarte Andrade no mes anterior"), [clients[0]]);
 });
+test("retoma a UC depois de abrir a fatura", () => assert.equal(inheritAssistantUnitTarget("Qual foi o consumo dessa UC?", "Abra a fatura da Cemig da UC final 1898"), "Qual foi o consumo da UC 1898"));
