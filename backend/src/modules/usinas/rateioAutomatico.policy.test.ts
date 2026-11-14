@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {competenciaRateioCompleta,contratoElegivelParaRateio,recebimentosSuspensosParaFechamento} from "./rateioAutomatico.policy";
+import {competenciaRateioCompleta,contratoElegivelParaRateio,unidadesElegiveisNoCiclo,recebimentosSuspensosParaFechamento} from "./rateioAutomatico.policy";
 test("minutas, cancelados e assinatura externa pendente não são UCs esperadas",()=>{
   assert.equal(contratoElegivelParaRateio({status:"ATIVO"}),false);
   assert.equal(contratoElegivelParaRateio({status:"CANCELADO",aceite_cliente_em:"data"}),false);
@@ -45,4 +45,18 @@ test('produção digitada, fatura de outro mês e produção divergente não lib
  const p={competencia:'2026-10-01',energia_gerada:1000,energia_gerada_fatura:1000,fatura_usina_validada_em:'2026-10-01T00:00:00Z'};
  assert.equal(competenciaRateioCompleta('2026-10',u,f,[p]),true);
  for(const mudanca of [{fatura_usina_validada_em:null},{energia_gerada_fatura:null},{energia_gerada:2000},{competencia:'2026-09-01'}])assert.equal(competenciaRateioCompleta('2026-10',u,f,[{...p,...mudanca}]),false);
+});
+
+test("UC que entrou após a leitura fica fora do ciclo, sem dispensar faturas das UCs anteriores", () => {
+  const antigas = { id: "antiga", numero: "123", cliente_id: "a", created_at: "2026-09-01" };
+  const nova = { id: "nova", numero: "456", cliente_id: "b", created_at: "2026-11-15" };
+  const contratos = [antigas, nova].map(uc => ({ unidade_consumidora_id: uc.id, status: "VIGENTE" }));
+  const historico = [{ cliente_id: "b", numero_instalacao: "456", referencia: "OUT/2026", proxima_leitura: "2026-11-10", status: "PAGO" }];
+  const elegiveis = unidadesElegiveisNoCiclo("2026-11", [antigas, nova], contratos, historico);
+  assert.deepEqual(elegiveis, [antigas]);
+  const producao = [{ competencia: "2026-11-01", energia_gerada: 100, energia_gerada_fatura: 100, fatura_usina_validada_em: "2026-11-10" }];
+  assert.equal(competenciaRateioCompleta("2026-11", elegiveis, historico, producao), false);
+  assert.equal(competenciaRateioCompleta("2026-11", elegiveis, [{ cliente_id: "a", numero_instalacao: "123", referencia: "NOV/2026", status: "PAGO" }], producao), true);
+  assert.deepEqual(unidadesElegiveisNoCiclo("2026-12", [antigas, nova], contratos, historico), [antigas, nova]);
+  assert.deepEqual(unidadesElegiveisNoCiclo("2026-11", [antigas, nova], contratos, []), [antigas, nova]);
 });

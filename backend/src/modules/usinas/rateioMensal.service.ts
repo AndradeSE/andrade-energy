@@ -2,7 +2,7 @@ import { supabase } from "../../config/supabase";
 import { enviarEmailTransacional } from "../email/emailTransacional.service";
 import { proporRateioMensal, csvRateioMensal, csvCemigRateio, pendenciasCsvCemig, documentoDaTitularidade } from "./rateioMensal.policy";
 import { saldoAnteriorParaRateio, type LeituraSaldoRateio } from "./saldoRateio.policy";
-import {contratoElegivelParaRateio} from "./rateioAutomatico.policy";
+import {unidadesElegiveisNoCiclo} from "./rateioAutomatico.policy";
 import {atualizarBloqueioUc} from '../faturas/inadimplenciaUc.service';
 
 export async function prepararPlanilhaRateio(usinaId: string, empresaId: string, competencia: string, ancora: string, _documentoAncora = "", numerosAtuaisConfirmados = false, formatoCemig = false) {
@@ -41,16 +41,15 @@ export async function prepararPlanilhaRateio(usinaId: string, empresaId: string,
   // Sem leituras reais não se usa a produção estimada do cadastro para enviar rateio.
   if (!valores.length) throw new Error("Importe uma produção real da usina nesta janela de 12 meses antes de gerar o rateio.");
   const media = valores.reduce((s,n)=>s+n,0)/valores.length;
-  const assinadas = new Set((contratos.data ?? []).filter(c=>contratoElegivelParaRateio(c)&&(!c.vigencia_inicio||String(c.vigencia_inicio)<fim.toISOString().slice(0,10))).map(c=>c.unidade_consumidora_id));
-  const elegiveis = (unidades.data ?? []).filter(u=>assinadas.has(u.id)&&(!u.created_at||String(u.created_at)<fim.toISOString()));
-  const clientesIds=[...new Set(elegiveis.map(u=>u.cliente_id).filter(Boolean))];
+  const clientesIds=[...new Set((unidades.data ?? []).map(u=>u.cliente_id).filter(Boolean))];
   const [faturas,anexos]=clientesIds.length ? await Promise.all([
-    supabase.from("faturas").select("id,cliente_id,unidade_consumidora_id,numero_instalacao,referencia,saldo_atual,created_at,status,vencimento,cobrancas(status,pago_em)").eq("empresa_id",empresaId).in("cliente_id",clientesIds),
+    supabase.from("faturas").select("id,cliente_id,unidade_consumidora_id,numero_instalacao,referencia,saldo_atual,created_at,status,proxima_leitura,vencimento,cobrancas(status,pago_em)").eq("empresa_id",empresaId).in("cliente_id",clientesIds),
     supabase.from("faturas_anexadas_clientes").select("cliente_id,dados_fatura,criado_em").eq("empresa_id",empresaId).in("cliente_id",clientesIds),
   ]) : [{data:[],error:null},{data:[],error:null}];
   if(faturas.error)throw faturas.error;
   if(anexos.error)throw anexos.error;
   if([faturas.data,anexos.data].some(rows=>(rows?.length??0)>=1000))throw new Error("O histórico atingiu o limite de consulta. O rateio não será gerado sem conferir todos os saldos.");
+  const elegiveis = unidadesElegiveisNoCiclo(competencia, unidades.data ?? [], contratos.data ?? [], faturas.data ?? []);
   const leituras:LeituraSaldoRateio[]=[
     ...(faturas.data??[]).filter(f=>!["CANCELADO","CANCELADA"].includes(String(f.status))).map(f=>({numero:f.numero_instalacao,clienteId:f.cliente_id,referencia:f.referencia,saldo:f.saldo_atual,registradoEm:f.created_at,fonte:"FATURA" as const})),
     ...(anexos.data??[]).map(a=>{const d=a.dados_fatura as any;return {numero:d?.uc,clienteId:a.cliente_id,referencia:d?.referencia,saldo:d?.saldoAtual,registradoEm:a.criado_em,fonte:"ANEXO" as const};}),
