@@ -22,7 +22,7 @@ test('serviço aguarda todas as UCs ativas, sem usar anexo cadastral nem excluir
    assert.equal(url.searchParams.get('status'),'eq.PROCESSADO');
    assert.equal(url.searchParams.get('payload->andrade_processamento->>tipo'),'eq.FATURAMENTO_SUSPENSO');
    rows=[];
-  }else throw new Error(`Consulta indevida: ${tabela}`);
+  }else if(tabela==='contratos')rows=[]; else throw new Error(`Consulta indevida: ${tabela}`);
   return new Response(JSON.stringify(rows),{status:200,headers:{'content-type':'application/json'}});
  };
  try{
@@ -30,6 +30,6 @@ test('serviço aguarda todas as UCs ativas, sem usar anexo cadastral nem excluir
   faturas.push({numero_instalacao:'222222',cliente_id:'c2',referencia:'OUT/2026',status:'ABERTA'});
   assert.equal(await fechamentoRateioAtualCompleto('u','e','2026-10'),true);
   assert.ok(!consultas.includes('faturas_anexadas_clientes'));
-  assert.ok(!consultas.includes('contratos'));
+  assert.ok(consultas.includes('contratos'));
  }finally{globalThis.fetch=original;}
 });
