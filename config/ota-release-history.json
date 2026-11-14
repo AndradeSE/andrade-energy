@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261114-084803",
+    "data": "14/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: preservar pedido de PDF Cemig na voz"
+    ]
+  },
+  {
+    "numero": "OTA 20261114-084325",
+    "data": "14/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: abrir fatura Cemig por UC e preservar contexto de voz"
+    ]
+  },
+  {
     "numero": "OTA 20261114-082102",
     "data": "14/11/2026",
     "variant": "gerador",

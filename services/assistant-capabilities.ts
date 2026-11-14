@@ -27,7 +27,7 @@ export function detectCapability(input: string): AssistantIntent | undefined {
   else if (/\b(privacidade|lgpd|dados pessoais|portabilidade)\b/.test(text)) module = "privacidade";
   else if (/\b(relatorio de calculo|memoria de calculo|calculo da fatura)\b/.test(text)) module = "calculo";
   else if (/\b(faturas anexadas|anexos|anexo do cliente)\b/.test(text)) module = "anexos";
-  else if (/\b(conta de luz|conta da cemig|fatura da cemig|fatura cemig|dados da fatura cemig|pdf da cemig|conta da concessionaria|fatura da concessionaria)\b/.test(text) || (wantsDocument && /\b(fatura|conta)\b/.test(text) && /\b(original|usada|importada)\b/.test(text))) return { module: "conta-luz", mode: /\b(abrir|abra|abre)\b/.test(text) && !review ? "document" : mode, review };
+  else if (/\b(conta de luz|conta (?:da |do )?cemig|fatura (?:da |do )?cemig|dados da fatura cemig|pdf da cemig|conta da concessionaria|fatura da concessionaria)\b/.test(text) || (wantsDocument && /\b(fatura|conta)\b/.test(text) && /\b(original|usada|importada)\b/.test(text))) return { module: "conta-luz", mode: /\b(abrir|abra|abre)\b/.test(text) && !review ? "document" : mode, review };
   else if (/\b(proposta)\b/.test(text)) module = "proposta";
   else if (/\b(contrato|contratos|minuta|cancelamento|renovacao)\b/.test(text)) module = "contratos";
   else if (/\brateio\b/.test(text)) module = "operacao";

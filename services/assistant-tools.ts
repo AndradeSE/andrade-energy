@@ -338,7 +338,8 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
         return { text: documents.length ? text : text + "\nO PDF da concessionária não está disponível para essa consulta.", documents };
 
       }
-      const chosen = invoiceDocumentChoices(question, faturasDaUc);
+      const questionWithoutUnit = question.replace(/\b(?:uc|unidade(?: consumidora)?)\s+(?:final\s+)?[\d. -]{4,}/gi, "");
+      const chosen = invoiceDocumentChoices(questionWithoutUnit, faturasDaUc);
       if (intent.module === "pagamento") return { text: chosen.length ? "Escolha a fatura para consultar Pix, boleto e beneficiário. Não realizei pagamento." : "Não encontrei fatura emitida para esse pedido.", actions: chosen.map(f => action(`Pagamento · ${scalar(f.referencia)}`, `/faturas/${f.id}`)) };
       if (intent.module === "conta-luz" && intent.mode === "query") {
         const selecionadas = !ucPedida && !clientesCitados.length && (ctx.unitId || ctx.unitNumber) ? chosen.filter((f: any) => ctx.unitId && f.unidade_consumidora_id ? f.unidade_consumidora_id === ctx.unitId : String(f.numero_instalacao ?? "").replace(/\D/g, "") === String(ctx.unitNumber ?? "").replace(/\D/g, "")) : chosen;
@@ -347,7 +348,7 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
         return { text: recentes.size ? [...recentes.values()].slice(0, 4).map(resumoContaConcessionaria).join("\n\n") : "Não encontrei dados de fatura da concessionária para a UC e o período deste pedido.", actions };
       }
       const docs = intent.module === "conta-luz" ? chosen.filter(f => f.pdf_cemig_url) : chosen;
-      return { text: docs.length ? "Toque no documento para abrir ou salvar." : "Não encontrei esse documento disponível para o período pedido.", documents: docs.map(f => ({ kind: intent.module === "conta-luz" ? "conta-luz" : "calculo", id: f.id, label: `${intent.module === "conta-luz" ? "Conta de luz" : "Cálculo"} · ${scalar(f.referencia)}` })) };
+      return { text: docs.length ? "Toque no documento para abrir ou salvar." : "Não encontrei esse documento disponível para o período pedido.", documents: (intent.module === "conta-luz" && ucPedida && new Set(faturasDaUc.map(f => String(f.numero_instalacao ?? "").replace(/\D/g, ""))).size === 1 ? docs.slice(0, 1) : docs).map(f => ({ kind: intent.module === "conta-luz" ? "conta-luz" : "calculo", id: f.id, label: `${intent.module === "conta-luz" ? "Conta de luz" : "Cálculo"} · ${scalar(f.referencia)}` })) };
     }
     default: return { text: "Você pode abrir esta função diretamente abaixo.", actions };
   }

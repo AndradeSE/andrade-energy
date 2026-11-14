@@ -58,6 +58,8 @@ import {parseSolarSequence,executeSolarSequence} from '../services/assistant-seq
 
 type Message = { from: "user" | "assistant"; text: string; route?: LocalReply["route"]; invoiceId?: string; invoiceChoices?: Array<{ id: string; label: string }>; actions?: AssistantAction[]; documents?: AssistantDocument[]; private?: boolean; voiceAnswerId?: string; automation?: AutomationDraft };
 
+let lastVoiceAccountQuestion: { scope: string; text: string } | undefined;
+
 export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = false, floatingModal = false, minimized = false, onMinimize, onVoiceState }: { embeddedVoiceWake?: string; onClose?: () => void; voiceOnly?: boolean; floatingModal?: boolean; minimized?: boolean; onMinimize?: () => void; onVoiceState?: (active:boolean) => void } = {}) {
   const router = useRouter();
   const sequencePath=usePathname();
@@ -741,8 +743,9 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
             onAccountQuery: async question => {
               const generation = contextGeneration.current;
               const previous = messagesRef.current.filter(message => message.from === "user" && message.private).at(-1);
-              question = inheritAssistantUnitTarget(question, lastAccountQuestion.current?.scope === accountContextKey ? lastAccountQuestion.current.text : previous?.text);
+              question = inheritAssistantUnitTarget(question, lastAccountQuestion.current?.scope === accountContextKey ? lastAccountQuestion.current.text : previous?.text ?? (lastVoiceAccountQuestion?.scope === accountContextKey ? lastVoiceAccountQuestion.text : undefined));
               lastAccountQuestion.current = { scope: accountContextKey, text: question };
+              lastVoiceAccountQuestion = usuario?.id ? lastAccountQuestion.current : undefined;
               if(parseSolarSequence(question))return await operateSequence(question)??'Não reconheci a sequência.';
               if (parseControlCommand(question) || asksScreenControls(question)) {
                 return await operateCurrentControl(question) ?? "Não reconheci esse controle na tela atual.";
@@ -768,7 +771,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
                 unitNumber: unidadeSelecionada?.numero, clientId: unidadeSelecionada?.cliente_id ?? usuario?.cliente_id,
               });
               if (generation !== contextGeneration.current) return "A conta selecionada mudou. Repita sua consulta.";
-              if (voiceOnly) {
+              if (voiceOnly || detectCapability(question)?.mode === "document") {
                 if (reply.invoiceId) { const opened=await openInvoicePdf(reply.invoiceId); return opened?"O Android recebeu o pedido para abrir o PDF no visualizador. Use Voltar para retornar à conversa, que foi preservada.":"Não confirmei a abertura de um visualizador. Confira o aviso na tela ou toque no documento da conversa."; }
                 if (reply.documents?.length === 1) { const opened=await openToolDocument(reply.documents[0]); return opened?(asksConsumptionInvoice(question) ? reply.text + "\nAbri a fatura no visualizador." : "O visualizador recebeu o documento. Use Voltar para retornar ao chat preservado."):"Não confirmei a abertura do visualizador. Confira o aviso na tela."; }
                 if (voiceOnly && (reply.invoiceChoices?.length || reply.documents?.length)) return "Encontrei mais de um documento. Pergunte por uma referência específica ou pela última fatura.";
