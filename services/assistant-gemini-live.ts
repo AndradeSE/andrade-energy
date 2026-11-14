@@ -11,6 +11,7 @@ import {voiceLevel} from './assistant-voice-level';
 
 type Listener = {
   conversationContext?: string;
+  hasRememberedUnit?: boolean;
   greet?: boolean;
   onGreetingDelivered?: () => void;
   onLevel?: (level:number)=>void;
@@ -193,6 +194,9 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
     setupMessage.setup.systemInstruction.parts.push({ text:
       `Aplicativo atual: ${IS_GERADOR_APP ? "Gerador" : "Consumidor"}. Explique a finalidade e o fluxo dos recursos conforme este guia verificado. Se o guia não cobrir algo, admita a limitação e peça esclarecimento. Não invente funções. Para nomes do cliente ou titular da UC, consulte consultar_conta; cliente e titular podem ser pessoas diferentes. Permissão administrativa não autoriza acessar outra conta por suposição. Pedidos de ativar ou desativar recursos exigem revisão na tela correspondente: não afirme ter executado mudanças. Guia:\n${verifiedAppGuide(IS_GERADOR_APP ? "gerador" : "consumidor")}`
     });
+    if (listener.hasRememberedUnit) {
+      setupMessage.setup.systemInstruction.parts.push({ text: "O aplicativo tem uma UC consultada na conversa anterior. Se o usuário perguntar pelo consumo sem identificar outro cliente ou UC, chame consultar_conta com exatamente: Qual foi o consumo dessa UC? O aplicativo resolve a UC localmente. Só pergunte pelo cliente se a ferramenta indicar que falta identificação." });
+    }
     socket.send(JSON.stringify(setupMessage));
   };
   socket.onerror = () => fail("Não consegui conectar a conversa ao Gemini Live.");

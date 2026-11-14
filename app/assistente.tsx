@@ -727,6 +727,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
           const { startGeminiLive } = await import("../services/assistant-gemini-live");
           await stopNativePortugueseSpeech(conversationOwner.current);
           const session = await startGeminiLive(firstName, {
+            hasRememberedUnit: lastVoiceAccountQuestion?.scope === accountContextKey,
             conversationContext: JSON.stringify(messagesRef.current.filter(m => !m.private).slice(-8).map(m => ({from:m.from,text:m.text.slice(0,500)}))),
             greet: needsAssistantGreeting(String(usuario?.id ?? 'anonymous')),
             onGreetingDelivered: () => markAssistantGreetingDelivered(String(usuario?.id ?? 'anonymous')),
