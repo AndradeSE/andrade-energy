@@ -126,7 +126,7 @@ export default function AssistantWakeWord() {
     };
     // Prazo global: reinícios e permissões pendentes não podem renovar a espera.
     startupDeadline = setTimeout(() => { if (!opened) fail("Nenhum reconhecedor conseguiu iniciar o microfone. A ativação foi desligada."); }, 20000);
-    retry();
+    void listen();
     return () => { cancelled = true; clearTimeout(timer); clearTimeout(startupDeadline); setWakeWordReady(false); void stopNativePortugueseSpeech(owner); };
   }, [enabled, foreground, loading, paused, pathname, floatingConversation]);
   return null;
