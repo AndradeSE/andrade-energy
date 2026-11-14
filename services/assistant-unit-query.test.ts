@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { averageConsumptionReply, inheritAssistantUnitTarget, selectAssistantUnits } from "./assistant-unit-query";
+import { averageConsumptionReply, inheritAssistantUnitTarget, selectAssistantClients, selectAssistantUnits } from "./assistant-unit-query";
 import { detectCapability } from "./assistant-capabilities";
 import { resolveSafeNavigation } from "./assistant-safe-navigation";
 
@@ -41,4 +41,12 @@ test("pergunta de acompanhamento preserva cliente ou UC, sem trocar alvo explíc
   assert.equal(inheritAssistantUnitTarget("e o consumo médio?", "qual o telefone do cliente Guilherme?"), "e o consumo médio do cliente guilherme");
   assert.equal(inheritAssistantUnitTarget("consumo médio do cliente Amanda", "qual o telefone do cliente Guilherme?"), "consumo médio do cliente Amanda");
   assert.equal(inheritAssistantUnitTarget("abra clientes", "qual o telefone do cliente Guilherme?"), "abra clientes");
+});
+test("nome completo tem prioridade sobre clientes que compartilham primeiro nome", () => {
+  const clients = [{ nome: "Vinícius Duarte Andrade" }, { nome: "Vinícius Teste" }, { nome: "Vinícius Duarte Andrade Junior" }];
+  assert.deepEqual(selectAssistantClients(clients, "qual foi o último consumo do cliente Vinícius Duarte Andrade?"), [clients[0]]);
+  assert.equal(selectAssistantClients(clients, "consumo do cliente Vinícius").length, 3);
+  assert.deepEqual(selectAssistantClients(clients, "consumo do cliente desconhecido"), []);
+  assert.deepEqual(selectAssistantClients(clients, "Localize o cliente Vinícius Duarte Andrade, consulte o consumo e abra a fatura"), [clients[0]]);
+  assert.deepEqual(selectAssistantClients(clients, "consumo do cliente Vinícius Duarte Andrade no mes anterior"), [clients[0]]);
 });

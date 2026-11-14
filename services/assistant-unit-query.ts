@@ -3,6 +3,23 @@ import { normalizeSolarRequest } from "../shared/solar-language";
 
 type Unit = { id: string; numero?: string; cliente_id?: string; consumo_medio_kwh?: unknown; clientes?: { nome?: string } | { nome?: string }[] };
 
+export function selectAssistantClients<T extends { nome?: string }>(rows: T[], question: string): T[] {
+  const text = normalizeSolarRequest(question);
+  const requested = text.match(/\b(?:cliente|consumidor(?:a)?)\s+(.+?)(?:[?!,;]|\s+(?:e depois|depois|em seguida|e (?:abra|consulte|mostre))\b|$)/)?.[1]
+    ?.replace(/\s+(?:no mes anterior|na competencia\b|em (?:janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|\d)).*$/, "")
+    .replace(/[.]+$/, "").trim();
+  if (requested) {
+    const exact = rows.filter(row => normalizeSolarRequest(row.nome ?? "") === requested);
+    return exact.length ? exact : rows.filter(row => normalizeSolarRequest(row.nome ?? "").includes(requested));
+  }
+  const full = rows.filter(row => row.nome && text.includes(normalizeSolarRequest(row.nome)));
+  if (full.length) {
+    const longest = Math.max(...full.map(row => normalizeSolarRequest(row.nome!).length));
+    return full.filter(row => normalizeSolarRequest(row.nome!).length === longest);
+  }
+  return rows.filter(row => normalizeSolarRequest(row.nome ?? "").split(" ").some(part => part.length >= 3 && ["cliente ", "do ", "da ", "de "].some(prefix => (text + " ").includes(prefix + part + " "))));
+}
+
 /** Resolve only rows supplied by an authenticated, plant-scoped API. */
 export function selectAssistantUnits<T extends Unit>(rows: T[], question: string, context: { unitId?: string; clientId?: string } = {}) {
   const text = normalizeSolarRequest(question).replace(/[?!,;]+/g, " ").trim();
@@ -10,7 +27,10 @@ export function selectAssistantUnits<T extends Unit>(rows: T[], question: string
   if (digits) return rows.filter(row => String(row.numero ?? "").replace(/\D/g, "").endsWith(digits));
   const requested = text.match(/\b(?:cliente|consumidor(?:a)?)\s+(.+?)(?:\s+(?:e depois|depois|em seguida)\b|$)/)?.[1]?.trim();
   const nameOf = (row: Unit) => normalizeSolarRequest((Array.isArray(row.clientes) ? row.clientes[0]?.nome : row.clientes?.nome) ?? "");
-  if (requested) return rows.filter(row => nameOf(row).includes(requested));
+  if (requested) {
+    const exact = rows.filter(row => nameOf(row) === requested.replace(/[.]+$/, ""));
+    return exact.length ? exact : rows.filter(row => nameOf(row).includes(requested));
+  }
   const named = rows.filter(row => {
     const name = nameOf(row);
     return name && (text.includes(name) || name.split(" ").some(part => part.length >= 3 && ["do ", "da ", "de "].some(prefix => (text + " ").includes(prefix + part + " "))));

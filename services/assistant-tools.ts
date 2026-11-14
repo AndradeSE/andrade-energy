@@ -3,7 +3,7 @@ import { contractUnitDigits, matchesContractUnit } from "./assistant-contract-un
 import api from "../config/api";
 import type { AssistantAction, AssistantDocument, AssistantIntent, AssistantToolReply } from "./assistant-capabilities";
 import { asksAverageConsumption, asksConsumptionInvoice, asksLatestConsumption, displayNumber, onlyArray, normalizeCapabilityText } from "./assistant-capabilities";
-import { averageConsumptionReply, selectAssistantUnits } from "./assistant-unit-query";
+import { averageConsumptionReply, selectAssistantClients, selectAssistantUnits } from "./assistant-unit-query";
 import { listServiceQuotas } from "./cotas-servicos.service";
 import { listarAutoleituras, listarMinhasAutoleituras } from "./clientes.service";
 import { me, listarMeusPedidosDePrivacidade } from "./auth.service";
@@ -308,11 +308,7 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
       if (!ctx.generator && !ctx.unitNumber && !ctx.clientId) return { text: "Selecione sua UC para consultar a fatura." };
       const rows = await listarFaturas(ctx.generator ? undefined : ctx.clientId, ctx.generator ? undefined : ctx.unitNumber, ctx.generator ? ctx.plantId : undefined);
       const pedido = normalizeCapabilityText(question).replace(/[!?.,;:]+/g, " ").replace(/\s+/g, " ").trim();
-      const clientesCitados = ctx.generator ? onlyArray(await listarClientes(ctx.plantId!)).filter(cliente => {
-        const nome = normalizeCapabilityText(scalar(cliente.nome, ""));
-        const partesDoNome = nome.split(" ").filter(parte => parte.length >= 3);
-        return nome && (pedido.includes(nome) || partesDoNome.some(parte => ["cliente ", "da ", "do "].some(prefixo => (pedido + " ").includes(prefixo + parte + " "))));
-      }) : [];
+      const clientesCitados = ctx.generator ? selectAssistantClients(onlyArray(await listarClientes(ctx.plantId!)), question) : [];
       if (clientesCitados.length > 1) return { text: "Encontrei mais de um cliente com esse nome. Informe o nome completo.", actions };
       if (/\bcliente\s+\S+/.test(pedido) && !clientesCitados.length) return { text: "Não encontrei esse cliente na usina selecionada. Informe o nome cadastrado.", actions };
       const clienteId = clientesCitados[0]?.id ?? ctx.clientId;
