@@ -771,7 +771,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
               if (voiceOnly) {
                 if (reply.invoiceId) { const opened=await openInvoicePdf(reply.invoiceId); return opened?"O Android recebeu o pedido para abrir o PDF no visualizador. Use Voltar para retornar à conversa, que foi preservada.":"Não confirmei a abertura de um visualizador. Confira o aviso na tela ou toque no documento da conversa."; }
                 if (reply.documents?.length === 1) { const opened=await openToolDocument(reply.documents[0]); return opened?(asksConsumptionInvoice(question) ? reply.text + "\nAbri a fatura no visualizador." : "O visualizador recebeu o documento. Use Voltar para retornar ao chat preservado."):"Não confirmei a abertura do visualizador. Confira o aviso na tela."; }
-                if (reply.invoiceChoices?.length || reply.documents?.length) return "Encontrei mais de um documento. Pergunte por uma referência específica ou pela última fatura.";
+                if (voiceOnly && (reply.invoiceChoices?.length || reply.documents?.length)) return "Encontrei mais de um documento. Pergunte por uma referência específica ou pela última fatura.";
               }
               if (!voiceOnly) {
                 messagesRef.current = [...messagesRef.current, { from: "user" as const, text: question, private: true }, { from: "assistant" as const, ...reply, private: true }].slice(-39);

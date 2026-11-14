@@ -1,4 +1,4 @@
-import { detectCapability } from "./assistant-capabilities";
+import { asksAverageConsumption, detectCapability } from "./assistant-capabilities";
 import { executeAssistantTool, type AssistantAccountContext } from "./assistant-tools";
 import { normalizeAssistantQuery, asksLatestInvoiceAmount } from "./local-assistant";
 import { asksLatestInvoiceDocument, asksOverdueInvoices, invoiceDocumentChoices, latestInvoiceAmountReply, overdueInvoiceReply } from "./local-assistant-invoices";
@@ -16,6 +16,10 @@ export type LiveAccountReply = AssistantToolReply & { invoiceId?: string; invoic
 
 // Contexto vem da sessão do app. O modelo não fornece IDs, URLs ou endpoints.
 export async function queryLiveAccount(question: string, ctx: AssistantAccountContext): Promise<LiveAccountReply> {
+  const requested = detectCapability(question);
+  if (requested?.module === "sobre" || requested?.module === "unidades" && asksAverageConsumption(question)) {
+    return executeAssistantTool(requested, ctx, question);
+  }
   if (ctx.generator && !/\bcontrato\b/i.test(question)) {
     const calculation = await calculateEconomyConversation(question);
     if (calculation) return { text: calculation.text };
