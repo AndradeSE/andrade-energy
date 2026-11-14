@@ -2,7 +2,7 @@ import {createHash} from "node:crypto";
 import {supabase} from "../../config/supabase";
 import {chaveCompetencia} from "../dashboard/competencia.policy";
 import {criarNotificacaoApp} from "../notificacoes/push.service";
-import {competenciaRateioCompleta,recebimentosSuspensosParaFechamento,type UcEsperada} from "./rateioAutomatico.policy";
+import {competenciaRateioCompleta,unidadesElegiveisNoCiclo,recebimentosSuspensosParaFechamento,type UcEsperada} from "./rateioAutomatico.policy";
 import {destinatarioDoRateio,prepararPlanilhaRateio,enviarPlanilhaAoGerador} from "./rateioMensal.service";
 
 async function todas(query:()=>any) {
@@ -72,26 +72,28 @@ async function entregarGerado(registro:any) {
 
 export async function fechamentoRateioAtualCompleto(usina:string,empresa:string,competencia:string) {
   if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(competencia))return false;
-  const [producoes,faturas,unidades,recebimentos]=await Promise.all([
+  const [producoes,faturas,unidades,recebimentos,contratos]=await Promise.all([
     todas(()=>supabase.from("fechamentos").select("competencia,energia_gerada,energia_gerada_fatura,fatura_usina_validada_em").eq("empresa_id",empresa).eq("usina_id",usina).gte("competencia",`${competencia}-01`).order("competencia")),
-    todas(()=>supabase.from("faturas").select("id,numero_instalacao,cliente_id,referencia,status").eq("empresa_id",empresa).eq("usina_id",usina).order("id")),
+    todas(()=>supabase.from("faturas").select("id,numero_instalacao,cliente_id,referencia,status,proxima_leitura").eq("empresa_id",empresa).eq("usina_id",usina).order("id")),
     todas(()=>supabase.from("unidades_consumidoras").select("id,numero,cliente_id,created_at").eq("empresa_id",empresa).eq("usina_id",usina).eq("status","ATIVA").neq("tipo","GERADORA").order("id")),
     todas(()=>supabase.from('recebimentos_faturas_email').select('id,empresa_id,status,unidade_consumidora_id,payload,unidades_consumidoras(numero,cliente_id,usina_id)').eq('empresa_id',empresa).eq('status','PROCESSADO').eq('payload->andrade_processamento->>tipo','FATURAMENTO_SUSPENSO').order('id')),
+    todas(()=>supabase.from('contratos').select('unidade_consumidora_id,aceite_cliente_em,contrato_assinado_url,status,dados_documento,vigencia_inicio').eq('empresa_id',empresa).in('status',['ATIVO','VIGENTE']).order('id')),
   ]);
   // PDFs recebidos durante a suspensão comprovam o fechamento sem gerar cobrança.
   const recebidas=[...faturas,...recebimentosSuspensosParaFechamento(recebimentos,empresa,usina)];
 
-  const esperadas=unidades as UcEsperada[];
+  const esperadas=unidadesElegiveisNoCiclo(competencia,unidades,contratos,faturas,false) as UcEsperada[];
   return competenciaRateioCompleta(competencia,esperadas,recebidas,producoes);
 }
 
 async function processarUsina(config:any) {
   const empresa=config.empresa_id,usina=config.usina_id;
-  const [producoes,faturas,unidades,recebimentos]=await Promise.all([
+  const [producoes,faturas,unidades,recebimentos,contratos]=await Promise.all([
     todas(()=>supabase.from("fechamentos").select("competencia,energia_gerada,energia_gerada_fatura,fatura_usina_validada_em").eq("empresa_id",empresa).eq("usina_id",usina).gte("competencia",config.competencia_inicio).order("competencia")),
-    todas(()=>supabase.from("faturas").select("id,numero_instalacao,cliente_id,referencia,status").eq("empresa_id",empresa).eq("usina_id",usina).order("id")),
+    todas(()=>supabase.from("faturas").select("id,numero_instalacao,cliente_id,referencia,status,proxima_leitura").eq("empresa_id",empresa).eq("usina_id",usina).order("id")),
     todas(()=>supabase.from("unidades_consumidoras").select("id,numero,cliente_id,created_at").eq("empresa_id",empresa).eq("usina_id",usina).eq("status","ATIVA").neq("tipo","GERADORA").order("id")),
     todas(()=>supabase.from('recebimentos_faturas_email').select('id,empresa_id,status,unidade_consumidora_id,payload,unidades_consumidoras(numero,cliente_id,usina_id)').eq('empresa_id',empresa).eq('status','PROCESSADO').eq('payload->andrade_processamento->>tipo','FATURAMENTO_SUSPENSO').order('id')),
+    todas(()=>supabase.from('contratos').select('unidade_consumidora_id,aceite_cliente_em,contrato_assinado_url,status,dados_documento,vigencia_inicio').eq('empresa_id',empresa).in('status',['ATIVO','VIGENTE']).order('id')),
   ]);
   // PDFs recebidos durante a suspensão comprovam o fechamento sem gerar cobrança.
   const recebidas=[...faturas,...recebimentosSuspensosParaFechamento(recebimentos,empresa,usina)];
@@ -99,7 +101,7 @@ async function processarUsina(config:any) {
   const competenciaAtual=`${hoje.find(p=>p.type==="year")!.value}-${hoje.find(p=>p.type==="month")!.value}`;
   for(const competencia of [...new Set(producoes.map(p=>chaveCompetencia(p.competencia)))]) {
     if(competencia>competenciaAtual)continue;
-    const esperadas=unidades as UcEsperada[];
+    const esperadas=unidadesElegiveisNoCiclo(competencia,unidades,contratos,faturas,false) as UcEsperada[];
     if(!competenciaRateioCompleta(competencia,esperadas,recebidas,producoes))continue;
     const claim=await supabase.rpc("reivindicar_rateio_mensal",{p_empresa:empresa,p_usina:usina,p_competencia:`${competencia}-01`,p_ucs:esperadas});
     if(claim.error)throw claim.error;
