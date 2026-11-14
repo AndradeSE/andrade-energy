@@ -53,6 +53,7 @@ import { nativeAutomationContext, nativeAutomationIO } from "../services/assista
 import { normalizeSolarRequest } from "../shared/solar-language";
 import { asksScreenControls, operateSolarControl, parseControlCommand, solarControlScope } from "../services/assistant-controls";
 import { resolveSafeNavigation } from "../services/assistant-safe-navigation";
+import { contractUnitDigits } from "../services/assistant-contract-unit";
 import { inheritAssistantUnitTarget } from "../services/assistant-unit-query";
 import {parseSolarSequence,executeSolarSequence} from '../services/assistant-sequence';
 
@@ -743,9 +744,9 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
             onAccountQuery: async question => {
               const generation = contextGeneration.current;
               const previous = messagesRef.current.filter(message => message.from === "user" && message.private).at(-1);
-              question = inheritAssistantUnitTarget(question, lastAccountQuestion.current?.scope === accountContextKey ? lastAccountQuestion.current.text : previous?.text ?? (lastVoiceAccountQuestion?.scope === accountContextKey ? lastVoiceAccountQuestion.text : undefined));
+              question = inheritAssistantUnitTarget(question, lastVoiceAccountQuestion?.scope === accountContextKey ? lastVoiceAccountQuestion.text : lastAccountQuestion.current?.scope === accountContextKey ? lastAccountQuestion.current.text : previous?.text);
               lastAccountQuestion.current = { scope: accountContextKey, text: question };
-              lastVoiceAccountQuestion = usuario?.id ? lastAccountQuestion.current : undefined;
+              if (usuario?.id && contractUnitDigits(question.toLowerCase())) lastVoiceAccountQuestion = lastAccountQuestion.current;
               if(parseSolarSequence(question))return await operateSequence(question)??'Não reconheci a sequência.';
               if (parseControlCommand(question) || asksScreenControls(question)) {
                 return await operateCurrentControl(question) ?? "Não reconheci esse controle na tela atual.";

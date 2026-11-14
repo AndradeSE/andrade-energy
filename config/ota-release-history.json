@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261114-093408",
+    "data": "14/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: consultar a mesma UC ao retomar a voz"
+    ]
+  },
+  {
     "numero": "OTA 20261114-092615",
     "data": "14/11/2026",
     "variant": "gerador",
