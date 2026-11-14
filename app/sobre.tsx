@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { AppHeader, Card, ElasticScrollView, Screen } from "../components/ui";
 import { APP_DISPLAY_NAME, IS_GERADOR_APP } from "../config/appVariant";
 import { Colors, Spacing } from "../theme";
-import releases from "../config/ota-release-history.json";
+import { appReleaseNotes } from "../services/app-release-notes";
 const geradorPreview = IS_GERADOR_APP && (Constants.expoConfig?.extra?.appEnvironment === "preview" || Updates.channel?.startsWith("preview"));
 const previewApp = Constants.expoConfig?.extra?.appEnvironment === "preview" || Updates.channel?.startsWith("preview");
 const atualizacaoAnterior = {
@@ -323,7 +323,7 @@ const historicoAnterior = IS_GERADOR_APP ? [
   ] },
 ];
 
-const recentes = releases.filter(item => item.variant === (IS_GERADOR_APP ? "gerador" : "consumidor") && (item.audience === "all" || item.audience === (previewApp ? "internal" : "clients")));
+const recentes = appReleaseNotes;
 const atualizacaoAtual = recentes[0] ?? atualizacaoLegada;
 const historico = [...recentes.slice(1), atualizacaoLegada, atualizacaoContratoAnterior, atualizacaoAnteriorPublicada, ...historicoAnterior];
 

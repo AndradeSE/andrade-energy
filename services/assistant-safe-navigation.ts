@@ -15,6 +15,7 @@ export function resolveSafeNavigation(question: string, ctx: SafeNavigationConte
   const text = normalizeSolarRequest(question);
   // A request for a value or a document must reach the authenticated query,
   // rather than be swallowed by a generic screen-navigation match.
+  if (detectCapability(text)?.module === "sobre" && !/^\b(?:abra|abre|abrir|acesse|acessar|va para|ir para)\b/.test(text)) return undefined;
   if (asksAverageConsumption(text) || detectCapability(text)?.mode === "document" && !/\bcontratos?\b/.test(text)) return undefined;
   if (isSolarHelp(text) || hasSolarMutation(text) || detectProductionMetric(text) === "energiaDisponivel") return undefined;
   if (!/^(?:abra|abrir|acesse|acessar|abre|me leve para|vai para|va para|entre|entrar|ir para|volte|voltar|mostre|mostra|mostrar|busque|buscar|procure|procurar|pesquise|pesquisar|filtre|filtrar)\b/.test(text)) return undefined;

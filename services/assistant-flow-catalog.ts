@@ -28,7 +28,7 @@ export const SOLAR_FLOW_CATALOG: Record<AssistantModule, string> = {
   pagamento: "Consultar opções e beneficiário da fatura sem executar pagamento.",
   "assistente-config": "Abrir preferências; respeitar autorizações separadas de voz e dados.",
   tutoriais: "Tutoriais desativados; explicar fluxos na conversa.",
-  sobre: "Abrir versão e histórico de atualizações.",
+  sobre: "Responder o que mudou usando a versão, revisão e notas incluídas no app. Abrir Sobre o app quando solicitado.",
 };
 
 export function solarFlowInstructions() {

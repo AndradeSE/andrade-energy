@@ -1,3 +1,4 @@
+import { appReleaseSummary } from "./app-release-notes";
 import { resumoContaConcessionaria, resumoUltimoConsumo, selecionarFaturasConsumo } from "./assistant-invoice-summary";
 import { contractUnitDigits, matchesContractUnit } from "./assistant-contract-unit";
 import api from "../config/api";
@@ -125,6 +126,7 @@ export async function executeAssistantTool(intent: AssistantIntent, ctx: Assista
   const target = routeFor(intent, ctx, question);
   const actions = target ? [target] : [];
   switch (intent.module) {
+    case "sobre": return { text: appReleaseSummary(/\b(historico|ultimas|anteriores)\b/.test(pedido)), actions };
     case "cotas": {
       const data = await listServiceQuotas();
       const service = /\b(supabase|neon|azure|capmonster|render|netlify)\b/.exec(pedido)?.[1];

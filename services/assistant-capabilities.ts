@@ -10,6 +10,7 @@ export function normalizeCapabilityText(text: string) { return normalizeSolarReq
 export function detectCapability(input: string): AssistantIntent | undefined {
   const text = normalizeCapabilityText(input);
   if (/\b(solar|assistente)\b/.test(text) && /\b(configuracoes|configurar|voz|flutuante|ativar|desativar|ligar|desligar)\b/.test(text)) return { module: "assistente-config", mode: "action", review: false };
+  if (/\b(versao|revisao|atualizac(?:ao|oes)|novidades|ota|sobre o app)\b/.test(text) && !hasSolarMutation(text) && !/^(?:como|onde)\b/.test(text)) return { module: "sobre", mode: "query", review: false };
   if (isSolarHelp(text)) return undefined;
   const wantsDocument = /\b(pdf|arquivo|documento|baixar|baixa|baixe|download|mande|manda|envie|entregue|anexo)\b/.test(text);
   const review = hasSolarMutation(text) && !(wantsDocument && !hasSolarMutation(text.replace(/\b(enviar|envie)\b/g, "")));

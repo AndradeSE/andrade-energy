@@ -17,6 +17,8 @@ test("pedidos de dados usam consultas em vez de instruções para procurar na te
     ["me diga o consumo do cliente Guilherme", "conta-luz"],
     ["qual o email da UC final 1898", "clientes"],
     ["qual a cota do Supabase", "cotas"],
+    ["Quais foram as últimas atualizações?", "sobre"],
+    ["O que mudou na última atualização?", "sobre"],
     ["consulte o histórico de leituras da UC final 1898", "leituras"],
     ["liste as usinas", "usinas"], ["liste clientes", "clientes"],
     ["qual a economia do cliente Guilherme", "economia"],
