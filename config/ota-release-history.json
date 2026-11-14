@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261114-204815",
+    "data": "14/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Andrade: reconhecer saudacao de ativacao por voz"
+    ]
+  },
+  {
     "numero": "OTA 20261114-204316",
     "data": "14/11/2026",
     "variant": "gerador",
