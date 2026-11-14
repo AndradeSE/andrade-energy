@@ -1,5 +1,68 @@
 [
   {
+    "numero": "OTA 20261113-224813",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: sincronizar catalogo e consultas nas versoes suportadas [1.0.11-production-refresh-fixed]"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-224648",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: sincronizar catalogo e consultas nas versoes suportadas [1.0.10-production-arm32]"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-224520",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: sincronizar catalogo e consultas nas versoes suportadas [1.0.4-production-live-awake]"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-224353",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: consumo medio consultas e contexto integrado"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-224222",
+    "data": "13/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: consultas completas por cliente UC e contexto"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-224044",
+    "data": "13/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: catalogo integrado e contexto de consultas"
+    ]
+  },
+  {
+    "numero": "OTA 20261113-223538",
+    "data": "13/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: contexto e cliente completo nas consultas"
+    ]
+  },
+  {
     "numero": "OTA 20261113-222210",
     "data": "13/11/2026",
     "variant": "gerador",
