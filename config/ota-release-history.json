@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261113-222210",
+    "data": "13/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: consumo medio e catalogo de fluxos integrado"
+    ]
+  },
+  {
     "numero": "OTA 20261113-190932",
     "data": "13/11/2026",
     "variant": "consumidor",
