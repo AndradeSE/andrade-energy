@@ -1,7 +1,7 @@
 // Used by both interfaces. Never normalize the values of an edit command.
 export function normalizeSolarRequest(input: string) {
   return input.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
-    .replace(/^solar[,!:]?\s+/, "").replace(/^por favor[,!:]?\s+/, "")
+    .replace(/^(?:andrade|solar)[,!:]?\s+/, "").replace(/^por favor[,!:]?\s+/, "")
     .replace(/^(?:quero que voce|preciso que voce|voce consegue|consegue|voce pode|pode|quero que|preciso que)\s+/, "")
     .replace(/^me (mostre|mostra|mostrar|abra|abre|abrir)\s+/, "$1 ").replace(/^me (?:leve|leva)\s+(?:para|ate)\s+/, "va para ")
     .replace(/\s+por favor[.!]?$/, "").replace(/\s+/g, " ");

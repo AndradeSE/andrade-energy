@@ -224,7 +224,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
         stopNativePortugueseSpeech(conversationOwner.current),
       ]).then(() => setWakeWordPaused(false));
     } else setWakeWordPaused(false);
-    // A escuta de "Solar" pertence ao app, não à tela Ajuda.
+    // A escuta de "Andrade" pertence ao app, não à tela Ajuda.
     if (!wakeWordEnabled()) void releaseVoiceRecognition();
     void releaseLocalModel();
   }, []);
@@ -235,7 +235,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       setListening(false);
       setHearingSpeech(false);
       setVoiceCaptureReady(false);
-      setVoiceStatus("Conversa encerrada após 5 segundos sem fala. Diga “Solar” ou toque nas ondas para voltar.");
+      setVoiceStatus("Conversa encerrada após 5 segundos sem fala. Diga “Andrade” ou toque nas ondas para voltar.");
       void stopNativePortugueseSpeech(conversationOwner.current).finally(() => onClose?.());
     }, 5_000);
     return () => clearTimeout(timer);
@@ -380,7 +380,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   async function operateCurrentControl(question: string) {
     const scope = accountContextKey;
     return operateSolarControl(question, solarControlScope(usuario, usinaSelecionada?.id, unidadeSelecionada?.id), label => new Promise<boolean>(resolve => {
-      Alert.alert("Revisar comando da Solar", "Acionar o botão “" + label + "” na tela atual? As validações e confirmações do aplicativo continuam valendo.", [
+      Alert.alert("Revisar comando do Andrade", "Acionar o botão “" + label + "” na tela atual? As validações e confirmações do aplicativo continuam valendo.", [
         { text: "Cancelar", style: "cancel", onPress: () => resolve(false) },
         { text: "Acionar botão", onPress: () => resolve(true) },
       ], { cancelable: true, onDismiss: () => resolve(false) });
@@ -663,7 +663,7 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
     if (await onlineAudioConsent(id)) return true;
     const allowed = await new Promise<boolean>(resolve => Alert.alert(
       "Transcrição online no Preview",
-      "Ao usar o microfone ou a conversa, trechos de até 30 segundos da sua voz serão enviados à Groq (api.groq.com) para transcrição em português. Não enviamos PDFs nem histórico da conta junto do áudio. O arquivo temporário é apagado após o processamento. O comando opcional “Solar” também pode usar transcrição online com autorização separada. Autoriza?",
+      "Ao usar o microfone ou a conversa, trechos de até 30 segundos da sua voz serão enviados à Groq (api.groq.com) para transcrição em português. Não enviamos PDFs nem histórico da conta junto do áudio. O arquivo temporário é apagado após o processamento. O comando opcional “Andrade” também pode usar transcrição online com autorização separada. Autoriza?",
       [{ text: "Agora não", style: "cancel", onPress: () => resolve(false) }, { text: "Autorizar", onPress: () => resolve(true) }],
       { cancelable: true, onDismiss: () => resolve(false) },
     ));
@@ -1089,8 +1089,8 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
   const conversationView = <View ref={keyboardRoot} style={styles.root} onLayout={updateKeyboardOverlap}><KeyboardAvoidingView style={[styles.root, Platform.OS === "android" && { marginBottom: keyboardOverlap }]} behavior={Platform.OS === "ios" ? "padding" : undefined}>
     <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
       <Pressable onPress={leaveConversation} accessibilityRole="button" accessibilityLabel={onClose ? "Fechar conversa" : "Voltar"} style={styles.back}><Text style={styles.backText}>‹</Text></Pressable>
-      <View style={styles.headerText}><Text style={styles.title}>Solar</Text><Text style={styles.subtitle}>Consultas e ações da sua conta</Text></View>
-      <Pressable onPress={() => { onClose?.(); router.push("/configuracoes-assistente"); }} accessibilityRole="button" accessibilityLabel="Configurações da Solar" style={styles.settingsButton}><Ionicons name="settings-outline" size={22} color="white" /></Pressable>
+      <View style={styles.headerText}><Text style={styles.title}>Andrade</Text><Text style={styles.subtitle}>Consultas e ações da sua conta</Text></View>
+      <Pressable onPress={() => { onClose?.(); router.push("/configuracoes-assistente"); }} accessibilityRole="button" accessibilityLabel="Configurações do Andrade" style={styles.settingsButton}><Ionicons name="settings-outline" size={22} color="white" /></Pressable>
       <Pressable disabled={busy} onPress={() => { setPendingAutomation(undefined); messagesRef.current = []; topicRef.current = undefined; setMessages([]); setTopic(undefined); void releaseLocalModel(); }} accessibilityRole="button" accessibilityLabel="Limpar conversa"><Text style={styles.clear}>Limpar</Text></Pressable>
     </View>
     <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>

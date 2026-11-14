@@ -86,7 +86,7 @@ export default function SolarAssistantWeb({ apiUrl, token, variant, context, onN
   async function request(path: string, body: unknown, signal?: AbortSignal) {
     const response = await fetch(`${apiUrl}/assistente/${path}`, { method: "POST", headers: { Authorization: `Bearer ${token}`, ...(body instanceof FormData ? {} : { "Content-Type": "application/json" }) }, body: body instanceof FormData ? body : JSON.stringify(body), signal });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.message ?? (response.status === 404 ? "O Solar ainda não está disponível neste ambiente." : "Não foi possível consultar o Solar."));
+    if (!response.ok) throw new Error(data.message ?? (response.status === 404 ? "O Andrade ainda não está disponível neste ambiente." : "Não foi possível consultar o Andrade."));
     return data;
   }
   async function submit(event: FormEvent) {
@@ -132,7 +132,7 @@ export default function SolarAssistantWeb({ apiUrl, token, variant, context, onN
         return;
       }
       const data = await request("responder", { question: text, variant: variant.toLowerCase(), history }, controller.current.signal);
-      if (!data.answer || typeof data.answer !== "string") throw new Error("O Solar não retornou uma resposta. Tente novamente.");
+      if (!data.answer || typeof data.answer !== "string") throw new Error("O Andrade não retornou uma resposta. Tente novamente.");
       if (active.current) setMessages(current => [...current, { role: "model", text: data.answer, answerId: data.voiceAnswerId }]);
     } catch (reason) { if (active.current && !(reason instanceof DOMException && reason.name === "AbortError")) setError(reason instanceof Error ? reason.message : "Não foi possível responder."); }
     finally { clearTimeout(timeout); submitting.current = false; if (active.current) setBusy(false); }
@@ -189,11 +189,11 @@ export default function SolarAssistantWeb({ apiUrl, token, variant, context, onN
   }
   function close() { if (busy) return; setDraft(null); setOpen(false); stopMedia(); setRecording(false); setVoiceBusy(false); }
   return <aside className="solar-web">
-    <button className="solar-launch" type="button" aria-expanded={open} aria-controls="solar-web-panel" onClick={() => open ? close() : setOpen(true)}>☀ Solar</button>
-    {open ? <section id="solar-web-panel" aria-label="Assistente Solar"><header><span><strong>Solar</strong><small>Assistente Andrade Energy</small></span><button type="button" aria-label="Fechar assistente" onClick={close}>×</button></header>
+    <button className="solar-launch" type="button" aria-expanded={open} aria-controls="solar-web-panel" onClick={() => open ? close() : setOpen(true)}>☀ Andrade</button>
+    {open ? <section id="solar-web-panel" aria-label="Assistente Andrade"><header><span><strong>Andrade</strong><small>Assistente Andrade Energy</small></span><button type="button" aria-label="Fechar assistente" onClick={close}>×</button></header>
       <p className="solar-intro">Posso consultar, abrir fluxos e salvar alterações após sua confirmação. Experimente “altere o telefone do meu perfil para 31999999999” ou “renomeie UC 123 para Casa”.</p>
       {messages.length === 0 ? <div className="solar-suggestions">{solarSuggestions(variant === "GERADOR").map(text => <button type="button" key={text} onClick={() => setQuestion(text)}>{text}</button>)}</div> : null}
-      <div className="solar-messages" role="log" aria-live="polite">{messages.map((item, index) => <article key={index} className={`solar-${item.role}`}><small>{item.role === "user" ? "Você" : "Solar"}{item.private && item.role === "model" ? " · consulta da conta" : ""}</small><p>{item.text}</p>{item.answerId ? <button disabled={voiceBusy || recording} type="button" onClick={() => void speak(item.answerId!)}>Ouvir resposta</button> : null}{item.section ? <button type="button" onClick={() => onNavigate(item.section!)}>Abrir {item.section}</button> : null}</article>)}{busy ? <p role="status">Solar está respondendo…</p> : null}</div>
+      <div className="solar-messages" role="log" aria-live="polite">{messages.map((item, index) => <article key={index} className={`solar-${item.role}`}><small>{item.role === "user" ? "Você" : "Andrade"}{item.private && item.role === "model" ? " · consulta da conta" : ""}</small><p>{item.text}</p>{item.answerId ? <button disabled={voiceBusy || recording} type="button" onClick={() => void speak(item.answerId!)}>Ouvir resposta</button> : null}{item.section ? <button type="button" onClick={() => onNavigate(item.section!)}>Abrir {item.section}</button> : null}</article>)}{busy ? <p role="status">Andrade está respondendo…</p> : null}</div>
       {error ? <p className="solar-error" role="alert">{error}</p> : null}
       {busy && processingMode === "query" ? <button type="button" onClick={() => { controller.current?.abort(); setError("Consulta cancelada."); }}>Cancelar consulta</button> : null}
       {draft ? <div className="solar-confirmation" role="region" aria-label="Revisar alteração"><strong>Revisar alteração</strong><p>{draft.targetLabel}</p><dl><dt>Campo</dt><dd>{({ nome: "Nome", email: "E-mail", telefone: "Telefone", apelido: "Apelido" })[draft.command.field]}</dd><dt>Valor atual</dt><dd>{String(draft.before[draft.command.field] ?? "Não informado")}</dd><dt>Novo valor</dt><dd>{draft.command.value}</dd></dl><p>A confirmação vale por 5 minutos, neste ambiente.</p><button type="button" disabled={busy || recording} onClick={() => void confirmAutomation()}>Confirmar e salvar</button><button type="button" disabled={busy} onClick={() => setDraft(null)}>Cancelar alteração</button></div> : null}

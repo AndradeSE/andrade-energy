@@ -34,7 +34,7 @@ export default function CemigCredentialVault({usinaId,onConfigured}:{usinaId:str
  const field={borderWidth:1,borderColor:Colors.border,borderRadius:12,padding:12,color:Colors.text};
  return <View style={{gap:10,borderWidth:1,borderColor:Colors.border,borderRadius:14,padding:14}}>
   <Text style={{color:Colors.text,fontWeight:'700'}}>Acesso protegido da Cemig</Text>
-  <Text style={{color:Colors.subtitle}}>{configured?'Acesso cadastrado. A senha não é exibida novamente.':'Cadastre o usuário e a senha da Cemig para preencher o login pela sessão autorizada.'} O cofre é separado por conta e empresa. A Solar e o CapMonster não recebem esses dados.</Text>
+  <Text style={{color:Colors.subtitle}}>{configured?'Acesso cadastrado. A senha não é exibida novamente.':'Cadastre o usuário e a senha da Cemig para preencher o login pela sessão autorizada.'} O cofre é separado por conta e empresa. O Andrade e o CapMonster não recebem esses dados.</Text>
   {!editing?<Button title={configured?'Substituir acesso salvo':'Cadastrar acesso da Cemig'} disabled={busy} onPress={()=>{setEditing(true);setMessage('');}}/>:null}
   {editing?<>
    <Text style={{color:Colors.text}}>Usuário da Cemig</Text>
@@ -44,7 +44,7 @@ export default function CemigCredentialVault({usinaId,onConfigured}:{usinaId:str
    <TextInput accessibilityLabel="Senha da Cemig" value={senha} onChangeText={setSenha} secureTextEntry={!showPassword} maxLength={512} autoCapitalize="none" autoCorrect={false} autoComplete="off" style={[field,{flex:1}]}/>
     <TouchableOpacity accessibilityRole="button" accessibilityLabel={showPassword?'Ocultar senha':'Mostrar senha'} onPress={()=>setShowPassword(value=>!value)} style={{padding:12,minWidth:48,minHeight:48}}><Svg width={24} height={24} viewBox="0 0 24 24"><Path d={showPassword?'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12 M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0':'M3 9c2 4 5 6 9 6s7-2 9-6 M5 13l-2 3 M9 15l-1 4 M15 15l1 4 M19 13l2 3'} fill="none" stroke={Colors.primary} strokeWidth={1.8} strokeLinecap="round"/></Svg></TouchableOpacity>
    </View>
-   <Button title="Salvar no cofre" disabled={busy||!login.trim()||!senha} onPress={()=>Alert.alert('Salvar acesso da Cemig','O acesso ficará criptografado no servidor deste ambiente e poderá preencher o login no domínio oficial da Cemig pela sessão que você autorizar. Não será enviado à Solar ou ao CapMonster. Deseja salvar?',[
+   <Button title="Salvar no cofre" disabled={busy||!login.trim()||!senha} onPress={()=>Alert.alert('Salvar acesso da Cemig','O acesso ficará criptografado no servidor deste ambiente e poderá preencher o login no domínio oficial da Cemig pela sessão que você autorizar. Não será enviado à Andrade ou ao CapMonster. Deseja salvar?',[
     {text:'Cancelar',style:'cancel'},{text:'Salvar acesso',onPress:()=>void save()},
    ])}/>
    <Button title="Cancelar edição" disabled={busy} onPress={()=>{setLogin('');setSenha('');setEditing(false);}}/>

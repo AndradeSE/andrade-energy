@@ -143,7 +143,7 @@ async function performInstallLocalModel() {
 }
 
 export function installLocalModel(): Promise<void> {
-  if (Constants.expoConfig?.extra?.localModelDisabled || process.env.EXPO_PUBLIC_DISABLE_LOCAL_MODEL === "1") return Promise.reject(new Error("Esta versão universal utiliza a Solar online."));
+  if (Constants.expoConfig?.extra?.localModelDisabled || process.env.EXPO_PUBLIC_DISABLE_LOCAL_MODEL === "1") return Promise.reject(new Error("Esta versão universal utiliza o Andrade online."));
   if (activeInstall) return activeInstall;
   activeInstall = performInstallLocalModel()
     .then(() => { reportInstall("pronto", 1, MODEL_BYTES); })
