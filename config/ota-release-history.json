@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261114-082102",
+    "data": "14/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: consultas e abertura de PDF por voz"
+    ]
+  },
+  {
     "numero": "OTA 20261114-081623",
     "data": "14/11/2026",
     "variant": "gerador",
