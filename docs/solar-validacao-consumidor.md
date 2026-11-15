@@ -54,3 +54,13 @@ Na UC de homologação Casa, uma imagem sintética identificada como AMOSTRA DE 
 O usuário cancelou a frase longa após o reconhecimento incorreto e pediu retorno à versão funcional com apenas Solar. Foram restaurados do commit anterior ao experimento os cinco arquivos da ativação (matcher, captura local, menu, orientação e mensagem da conversa). Os testes agora aceitam somente a chamada Solar e as grafias fonéticas restritas anteriores; saudações continuam rejeitadas. As telas protegidas e a correção do histórico não foram revertidas. Nenhuma OTA do experimento E aí Solar foi publicada em produção. Restauração dos Previews em andamento.
 
 O usuário confirmou que a revisão restaurada 0d6fbaa1 abriu a conversa ao dizer Solar. A cópia local com package com.andradese.energy.consumidor.localqa foi desinstalada após ele apontar dois ícones de Preview. Foi preservado com.andradese.energy.consumidor.preview, além dos dois apps de produção e Gerador Preview. O pacote extra tinha identificador separado para teste; não foi distribuído como APK oficial nem usado para substituir o certificado do Preview.
+
+## Clima da UC e inatividade — 15/11
+
+Card inicial do Consumidor passou a mostrar a condição e temperatura do endpoint próprio da UC. Usa o mesmo PlantRain da usina; somente resposta disponível, temperatura finita e referência com menos de 70 minutos permitem efeito de chuva. Informação expirada é reavaliada por minuto; sem dado, mostra Clima indisponível. Não usa animação como substituto de clima. A foto personalizada é preservada.
+
+Na instalação Preview oficial autenticada, após carregar a OTA 01a1df34-c3e0-7bea-a95d-fd18ca588dc0, o card Casa mostrou Parcialmente nublado · 23°C sem chuva. A conferência identificou proximidade entre etiqueta e identidade; posição ajustada de 68 para 44 pontos e nova publicação Preview iniciada. Chuva real não foi forçada no backend.
+
+O prazo de inatividade passou de cinco para dez segundos em app/assistente.tsx e no Gemini Live; o texto de consentimento foi alinhado. Não conta período de resposta nem ferramenta em execução. 45 testes de integração/matcher passaram e TypeScript passou. Ativação continua somente Solar. A matriz de ponta a ponta ainda não deve ser tratada como integralmente concluída.
+
+Conferência final no Preview oficial: a etiqueta reposicionada apareceu entre o status e a identidade, sem sobrepor Minha unidade. Clima exibido Parcialmente nublado · 23°C, sem chuva. Gemini Live no S23: microphone-ready às 09:43:52.290 e encerramento por inatividade às 09:44:02.440, seguido de socket-close 1000 e retorno à Home. Isso confirma 10,15 segundos de escuta sem fala após a resposta, sem contar a resposta como inatividade.

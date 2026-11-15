@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261115-094022",
+    "data": "15/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: encerrar conversa apos 10 segundos sem fala"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-093843",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Card UC com clima atual e etiqueta alinhada; voz encerra apos 10s"
+    ]
+  },
+  {
     "numero": "OTA 20261115-093341",
     "data": "15/11/2026",
     "variant": "consumidor",
