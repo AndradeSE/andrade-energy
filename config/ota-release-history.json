@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261115-193917",
+    "data": "15/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: concessionaria da UC pelo cadastro autorizado"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-193645",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: concessionaria da UC pelo cadastro autorizado"
+    ]
+  },
+  {
     "numero": "OTA 20261115-125146",
     "data": "15/11/2026",
     "variant": "consumidor",
