@@ -37,6 +37,6 @@ export default function UnitRainOverlay({ unidadeId }: { unidadeId: string }) {
   </View>;
 }
 const styles = StyleSheet.create({
-  badge: { position: "absolute", top: 68, left: 16, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: "rgba(3,30,22,.8)", zIndex: 2 },
+  badge: { position: "absolute", top: 44, left: 16, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: "rgba(3,30,22,.8)", zIndex: 2 },
   label: { color: "#FFF", fontSize: 11, fontWeight: "600" },
 });

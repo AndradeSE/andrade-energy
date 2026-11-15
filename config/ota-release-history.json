@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261115-093341",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Clima atual no card da UC, chuva compartilhada e conversa encerra apos 10s"
+    ]
+  },
+  {
     "numero": "OTA 20261115-092906",
     "data": "15/11/2026",
     "variant": "gerador",
