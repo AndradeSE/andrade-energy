@@ -65,7 +65,7 @@ export default function PortalAnimatedLogo({ animate = true, onReady }: { animat
       </Svg>
       <Animated.View style={[{ position: "absolute", left: 0, top: 120, width: 276, height: 90 }, { opacity: leaf.interpolate({ inputRange: [0,.16,1], outputRange: [0,1,1] }), transform: leafTransform }]}>
         <Svg viewBox="0 120 276 90" width={276} height={90}>
-          <Defs><LinearGradient id="startupLeaf" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#5CF2A7" /><Stop offset=".48" stopColor="#20CF7A" /><Stop offset="1" stopColor="#079454" /></LinearGradient></Defs>
+          <Defs><LinearGradient id="startupLeaf" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#5CF2A7" /><Stop offset={0.48} stopColor="#20CF7A" /><Stop offset="1" stopColor="#079454" /></LinearGradient></Defs>
           <Path d="M25 184 C74 176 102 147 141 134 C183 120 226 128 276 151 C224 144 190 150 151 172 C109 196 65 204 25 184 Z" fill="url(#startupLeaf)" />
           <Path d="M42 184 C93 179 139 160 194 145 C219 138 242 142 263 149" fill="none" stroke="#ECFFF5" strokeOpacity={.68} strokeWidth={2.3} />
           <Path d="M108 174 C113 161 121 151 134 139 M157 158 C164 145 174 137 187 132" fill="none" stroke="#ECFFF5" strokeOpacity={.34} strokeWidth={1.5} />

@@ -48,15 +48,16 @@ export default function Loading({ showRevision = false, animateBrand = true, onB
         <Text style={styles.title}>Andrade Energy</Text>
       </>}
       {!showRevision && <Text style={styles.subtitle}>Carregando sua energia</Text>}
-      {!showRevision && <View style={styles.track}>
+      <View style={[styles.track, showRevision && styles.brandTrack]}>
         <Animated.View style={[styles.flow, { transform: [{ translateX: fluxo.interpolate({ inputRange: [0, 1], outputRange: [-82, 82] }) }] }]} />
-      </View>}
+      </View>
       {showRevision && <Text style={styles.revision}>{`v${version} · revisão ${revision}`}</Text>}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  brandTrack: { backgroundColor: "rgba(255,255,255,0.24)" },
   container: { flex: 1, alignSelf: "stretch", minHeight: 320, width: "100%", alignItems: "center", justifyContent: "center", padding: Spacing.xl, backgroundColor: "transparent" },
   glowTop: { position: "absolute", top: 16, right: 16, width: 140, height: 140, borderRadius: 70, backgroundColor: "rgba(16,185,129,0.15)" },
   glowBottom: { position: "absolute", bottom: 16, left: 16, width: 140, height: 140, borderRadius: 70, backgroundColor: "rgba(250,204,21,0.12)" },
