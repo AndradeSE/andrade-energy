@@ -225,6 +225,13 @@ test('Cliente abre contrato da UC selecionada sem consultar contratos da empresa
   assert.equal(f.calls.some(([name])=>name==='listarContratosDaEmpresa'),false);
 });
 
+test('Pedido simples de abrir meu contrato consulta o documento da UC atual', async () => {
+  const f=fixture(); const ctx={...f.ctx,generator:false,plantId:undefined};
+  const reply=await f.queryLiveAccount('abra meu contrato',ctx);
+  assert.deepEqual(reply.documents.map(doc=>[doc.kind,doc.id]),[['contrato','u1']]);
+  assert.equal(f.calls.some(([name])=>name==='listarContratosDaEmpresa'),false);
+});
+
 test('Cliente consulta autoleituras pelo serviço próprio e não inventa protocolo', async () => {
   const f=fixture(); const ctx={...f.ctx,generator:false,plantId:undefined};
   const reply=await f.queryLiveAccount('consulte histórico de leituras da UC final 1898',ctx);

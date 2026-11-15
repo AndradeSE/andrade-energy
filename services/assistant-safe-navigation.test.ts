@@ -23,7 +23,8 @@ test("aplica filtros permitidos nas faturas dos dois apps", () => {
 });
 test("consumidor não abre carteira, clientes nem cadastros do gerador", () => {
   for (const command of ["abra clientes", "abra financeiro", "abra operação", "abra comercial", "abra novo cliente"]) assert.equal(resolveSafeNavigation(command, consumer)?.action, undefined);
-  assert.equal(resolveSafeNavigation("abra meu contrato", consumer)?.action?.route, "/(tabs)/contrato");
+  assert.equal(resolveSafeNavigation("abra meu contrato", consumer), undefined);
+  assert.equal(resolveSafeNavigation("abra a tela do meu contrato", consumer)?.action?.route, "/(tabs)/contrato");
   assert.equal(resolveSafeNavigation("abra as UCs", consumer)?.action?.route, "/selecionar-unidade");
 });
 test("não amplia permissões de colaboradores e de seções bloqueadas", () => {

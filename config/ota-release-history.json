@@ -1,5 +1,50 @@
 [
   {
+    "numero": "OTA 20261115-095146",
+    "data": "15/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Clima atual da UC e Solar com 10 segundos de inatividade; validado S23 [gerador]"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-095007",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Clima atual da UC e Solar com 10 segundos de inatividade; validado S23 [live]"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-094834",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Clima atual da UC e Solar com 10 segundos de inatividade; validado S23 [arm32]"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-094646",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Clima atual da UC e Solar com 10 segundos de inatividade; validado S23 [refresh]"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-094454",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Clima atual da UC e Solar com 10 segundos de inatividade; validado S23 [camera]"
+    ]
+  },
+  {
     "numero": "OTA 20261115-094022",
     "data": "15/11/2026",
     "variant": "gerador",

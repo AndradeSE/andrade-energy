@@ -29,7 +29,10 @@ export function detectCapability(input: string): AssistantIntent | undefined {
   else if (/\b(faturas anexadas|anexos|anexo do cliente)\b/.test(text)) module = "anexos";
   else if (/\b(conta de luz|conta (?:da |do )?cemig|fatura (?:da |do )?cemig|dados da fatura cemig|pdf da cemig|conta da concessionaria|fatura da concessionaria)\b/.test(text) || (wantsDocument && /\b(fatura|conta)\b/.test(text) && /\b(original|usada|importada)\b/.test(text))) return { module: "conta-luz", mode: /\b(abrir|abra|abre)\b/.test(text) && !review ? "document" : mode, review };
   else if (/\b(proposta)\b/.test(text)) module = "proposta";
-  else if (/\b(contrato|contratos|minuta|cancelamento|renovacao)\b/.test(text)) module = "contratos";
+  else if (/\b(contrato|contratos|minuta|cancelamento|renovacao)\b/.test(text)) {
+    if (!review && /\bcontrato\b/.test(text) && /\b(abra|abre|abrir|mostre|mostrar)\b/.test(text) && !/\b(tela|aba|pagina|lista)\b/.test(text)) return { module: "contratos", mode: "document", review: false };
+    module = "contratos";
+  }
   else if (/\brateio\b/.test(text)) module = "operacao";
   else if (/\b(automatico|automatica|gmail|outlook|encaminhamento|recebimento)\b/.test(text)) module = "recebimento";
   else if (/\b(meu plano|minha assinatura|plano atual|limite do plano)\b/.test(text)) module = "assinatura";

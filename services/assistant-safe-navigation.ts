@@ -13,6 +13,11 @@ export type SafeNavigation = { action?: AssistantAction; text: string };
 // Somente comandos explícitos de navegação. Não aceita URL, ID, endpoint ou escrita.
 export function resolveSafeNavigation(question: string, ctx: SafeNavigationContext): SafeNavigation | undefined {
   const text = normalizeSolarRequest(question);
+  // Consumer document requests must query the selected UC before opening a PDF.
+  // Explicit requests for the contract screen keep their navigation behavior.
+  if (!ctx.generator && !hasSolarMutation(text) && /\bcontrato\b/.test(text) &&
+      /\b(abra|abre|abrir|mostre|mostrar|pdf|documento|arquivo|baixar)\b/.test(text) &&
+      !/\b(tela|aba|pagina|lista)\b/.test(text)) return undefined;
   // A request for a value or a document must reach the authenticated query,
   // rather than be swallowed by a generic screen-navigation match.
   if (detectCapability(text)?.module === "sobre" && !/^\b(?:abra|abre|abrir|acesse|acessar|va para|ir para)\b/.test(text)) return undefined;
