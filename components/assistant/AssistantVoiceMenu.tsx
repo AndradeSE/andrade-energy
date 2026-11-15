@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, AppState, Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import { Alert, AppState, StyleSheet, Switch, Text, View } from "react-native";
 import { automaticLocalWakeConsent, setAutomaticLocalWakeConsent } from "../../services/assistant-voice-consent";
-import { armWakeWordDiagnostic, setWakeWordEnabled } from "../../services/assistant-wake-word";
-import { isPreviewEnvironment } from "../../config/environment";
+import { setWakeWordEnabled } from "../../services/assistant-wake-word";
 import { installVoiceModels, isVoiceInstalled } from "../../services/on-device-voice";
 import { Colors, Spacing } from "../../theme";
 
@@ -33,8 +32,8 @@ export default function AssistantVoiceMenu({ userId }: { userId: string }) {
   function change(value: boolean) {
     if (busy) return;
     if (!value) { setWakeWordEnabled(false); void save(false); return; }
-    Alert.alert("Ativar início por voz da Solar", "Com o app aberto, o microfone aguarda a frase ‘E aí, Solar’. Essa escuta é processada no aparelho e pode consumir bateria. Se necessário, será baixado o modelo de voz (cerca de 33 MB). Você pode desativar neste menu.", [{ text: "Agora não", style: "cancel" }, { text: "Ativar", onPress: () => { void save(true); } }]);
+    Alert.alert("Ativar início por voz da Solar", "Com o app aberto, o microfone aguarda a palavra ‘Solar’. Essa escuta é processada no aparelho e pode consumir bateria. Se necessário, será baixado o modelo de voz (cerca de 33 MB). Você pode desativar neste menu.", [{ text: "Agora não", style: "cancel" }, { text: "Ativar", onPress: () => { void save(true); } }]);
   }
-  return <View><View style={styles.row}><View style={styles.copy}><Text style={styles.title}>Início por voz da Solar</Text><Text style={styles.description}>{busy ? progress || "Carregando…" : enabled ? "Ativado · diga “E aí, Solar” com o app aberto" : "Desativado · abra a Solar pelo botão"}</Text></View><Switch accessibilityLabel="Início por voz da Solar" value={enabled} disabled={busy} onValueChange={change} trackColor={{ true: Colors.primary }} /></View>{isPreviewEnvironment && enabled ? <Pressable accessibilityRole="button" disabled={busy} onPress={() => { armWakeWordDiagnostic(); setWakeWordEnabled(true, false, true); Alert.alert("Teste de reconhecimento", "Diga E aí, Solar. A próxima transcrição aparecerá aqui, sem iniciar uma conversa."); }} style={{ paddingVertical: Spacing.sm }}><Text style={{ color: Colors.primary, fontWeight: "600" }}>Testar reconhecimento</Text></Pressable> : null}</View>;
+  return <View style={styles.row}><View style={styles.copy}><Text style={styles.title}>Início por voz da Solar</Text><Text style={styles.description}>{busy ? progress || "Carregando…" : enabled ? "Ativado · diga Solar com o app aberto" : "Desativado · abra a Solar pelo botão"}</Text></View><Switch accessibilityLabel="Início por voz da Solar" value={enabled} disabled={busy} onValueChange={change} trackColor={{ true: Colors.primary }} /></View>;
 }
 const styles = StyleSheet.create({ row: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border }, copy: { flex: 1 }, title: { color: Colors.text, fontSize: 15, fontWeight: "600" }, description: { color: Colors.text, opacity: 0.7, fontSize: 12, marginTop: 4 } });

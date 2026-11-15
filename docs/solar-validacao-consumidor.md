@@ -42,3 +42,13 @@ Após sair da Solar e reabri-la na instalação local, "E qual o consumo da ulti
 Conferência na instalação oficial de produção do S23: a sessão anterior reproduziu a perda da UC no histórico. Após fechar pelos aplicativos recentes e reabrir, o mesmo caminho pela lista, Informar leitura e Histórico mostrou UC 720670501839 e Nenhuma leitura registrada para esta UC. Nenhum valor de leitura foi digitado ou enviado. A correção da navegação foi, portanto, confirmada também na instalação de produção após carregar a OTA.
 
 Compatibilidade publicada e conferida por HTTP 200 no endpoint Expo, com correspondência dos IDs: 1.0.11-production-refresh-fixed (01a1df0a-7aaa-73f6-be62-f216761e27f3), 1.0.10-production-arm32 (01a1df0b-dffc-76ce-b4dc-89b868ed0c4b) e 1.0.4-production-live-awake (01a1df0d-451a-7bd6-a760-cf4a8324a05f). Canais preservados. Ao concluir esta publicação, o tempo de tela do S23 foi restaurado e confirmado em 30000 ms.
+
+## Conferências e ajuste da chamada por voz
+
+O usuário confirmou que a chamada anterior abriu com dificuldade e informou o consumo. Solicitou em seguida a frase E aí, Solar. A revisão 10a56a36 foi conferida em Sobre o app da instalação local de homologação; a chamada completa não abriu no teste do usuário. Essa revisão não foi promovida para produção.
+
+A captura rápida tinha limite de pausa de 240 ms e trecho de dois segundos. O ajuste seguinte preserva 500 ms de pausa e até três segundos na chamada rápida. Teste com PCM e pausa intermediária de 320 ms confirmou uma única captura; nome isolado e menções em frases longas continuam rejeitados. O diagnóstico de transcrição fica disponível somente no Preview. TypeScript aprovado.
+
+Na UC de homologação Casa, uma imagem sintética identificada como AMOSTRA DE TESTE retornou exatamente 012345 pelo serviço real de extração. A tela exibiu Leitura reconhecida e bloqueou o registro por ausência de período de leitura. Nenhuma leitura fictícia foi enviada. Isso confirma importação de imagem e extração controlada, mas não confirma foto de medidor físico nem envio com janela aberta.
+
+O usuário cancelou a frase longa após o reconhecimento incorreto e pediu retorno à versão funcional com apenas Solar. Foram restaurados do commit anterior ao experimento os cinco arquivos da ativação (matcher, captura local, menu, orientação e mensagem da conversa). Os testes agora aceitam somente a chamada Solar e as grafias fonéticas restritas anteriores; saudações continuam rejeitadas. As telas protegidas e a correção do histórico não foram revertidas. Nenhuma OTA do experimento E aí Solar foi publicada em produção. Restauração dos Previews em andamento.
