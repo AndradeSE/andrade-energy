@@ -44,3 +44,14 @@ Na revisão 45b2d467, a escrita de uma pergunta com duas linhas e o botão de en
 O botão de economia do Gerador abria a tela do Consumidor sem contexto. Foi corrigido para abrir os detalhes da UC consultada; o teste de integração verifica rota e ID exatos. Essa última correção tem validação automatizada, ainda sem reconferência do toque no aparelho. A suíte passou a ter 35 cenários de integração.
 
 Não considerar esta matriz como validação de todas as operações: abertura de cada proposta, contrato, anexo e relatório disponível, revisão e cancelamento de cada formulário e todas as combinações de voz/perfil ainda não foram percorridas. O estado correto é consultas dos 28 módulos exercitadas e destinos acima conferidos, com esses cenários pendentes.
+
+## Continuação da conferência
+
+- Proposta da UC 1898 abriu no leitor Android, com UC e indicadores corretos.
+- Memória de cálculo OUT/2026 abriu no leitor Android, com UC 1898 e resultado R$ 5.169,57.
+- Contrato da UC 1898 abriu no leitor interno; Compartilhar carregou um PDF no seletor Android e foi cancelado sem destinatário.
+- Seleção de cliente em Anexos abriu Contas vinculadas ao CPF, com documentos registrados; nenhum cadastro ou exclusão foi realizado.
+- Após memória de cálculo, “Consulte comercial” havia sido interceptado pela continuação de simulação. Foram separados os pedidos de memória/relatório e as respostas curtas de parâmetros da simulação. Na revisão 4f809119, a consulta retornou os dados do Comercial e o botão abriu o painel administrativo.
+- Tempo de tela restaurado e conferido em 30 segundos ao encerrar.
+
+Total automatizado desta revisão: 36 testes de integração, 56 de serviços e quatro de runtime. O teste unitário da economia verifica ID e rota da UC; o toque nessa última rota e todas as variações por voz/perfil não foram reconferidos. Portanto, esta evidência não autoriza afirmar que todo fluxo possível de todos os módulos está homologado.
