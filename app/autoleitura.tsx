@@ -143,7 +143,7 @@ export default function Autoleitura() {
             </View>
           </Screen>
         </Modal>
-        <AcaoLeitura titulo="Histórico de leituras e protocolos" icone="time-outline" disabled={salvando} onPress={() => router.push("/historico-autoleituras")} />
+        <AcaoLeitura titulo="Histórico de leituras e protocolos" icone="time-outline" disabled={salvando || !id} onPress={() => router.push({ pathname: "/historico-autoleituras", params: { id, numero } })} />
       </Card></ScrollView>
     </Screen>
   );

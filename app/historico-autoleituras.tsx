@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { ScrollView, Text } from "react-native";
 import { AppHeader, Button, Card, Screen } from "../components/ui";
 import { useAuth } from "../contexts/AuthContext";
@@ -18,7 +18,9 @@ const estados: Record<Leitura["estado"], string> = {
 
 export default function HistoricoAutoleituras() {
   const { unidadeSelecionada } = useAuth();
-  const id = unidadeSelecionada?.id;
+  const params = useLocalSearchParams<{ id?: string; numero?: string }>();
+  const id = typeof params.id === "string" && params.id ? params.id : unidadeSelecionada?.id;
+  const numero = id === unidadeSelecionada?.id ? unidadeSelecionada?.numero : params.numero;
   const [resultado, setResultado] = useState<{ id: string; leituras?: Leitura[] }>();
   const [revisao, setRevisao] = useState(0);
 
@@ -36,7 +38,7 @@ export default function HistoricoAutoleituras() {
   const atual = resultado?.id === id ? resultado : undefined;
   return (
     <Screen>
-      <AppHeader variant="subpage" contextTitle="Unidade consumidora" contextSubtitle="Leituras do medidor" title="Histórico de leituras" subtitle={unidadeSelecionada?.numero ? `UC ${unidadeSelecionada.numero}` : "Unidade consumidora"} />
+      <AppHeader variant="subpage" contextTitle="Unidade consumidora" contextSubtitle="Leituras do medidor" title="Histórico de leituras" subtitle={numero ? `UC ${numero}` : "Unidade consumidora"} />
       <ScrollView contentContainerStyle={{ padding: Spacing.lg, gap: Spacing.md }}>
         {!id ? <Text>Selecione uma unidade consumidora.</Text>
           : !atual ? <Text>Consultando leituras…</Text>
