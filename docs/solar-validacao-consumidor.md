@@ -5,12 +5,12 @@ A validação do Gerador não substitui a do Consumidor. Esta matriz separa test
 | Jornada | Aceitação | Evidência atual |
 | --- | --- | --- |
 | Perfil | Consultar pelo ambiente CONSUMIDOR; edição com revisão e confirmação | Consulta automatizada; edição de perfil conferida no Gerador, falta repetir no Cliente |
-| UC | Listar apenas próprias, trocar pelo fluxo do app e atualizar contexto | Apelido próprio tem teste de automação; troca real pendente no Cliente |
-| Consumo | Distinguir média cadastrada de consumo da última competência | Integração automatizada com valores distintos |
+| UC | Listar apenas próprias, trocar pelo fluxo do app e atualizar contexto | Troca real Casa → UC 453314201850 conferida no Cliente; elegibilidade rural e contexto da Solar acompanharam a troca |
+| Consumo | Distinguir média cadastrada de consumo da última competência | Integração automatizada; no S23, Solar retornou média cadastrada de 416 kWh e informou ausência de última fatura sem reutilizar essa média |
 | Economia | Consultar dashboard da UC própria selecionada; não assumir zero sem dados | Integração automatizada de alvo e ausência de UC autorizada |
-| Contrato | PDF da UC selecionada, compartilhamento e retorno preservados | Resolução do PDF automatizada; toque/compartilhamento no Cliente pendentes |
+| Contrato | PDF da UC selecionada, compartilhamento e retorno preservados | PDF/proposta de Casa aberto no aparelho; resolução automatizada; compartilhamento e retomada por voz pendentes |
 | Faturas | Documento Andrade e Cemig conforme cobrança unificada; não exibir campos de pagamento no demonstrativo | Conferência específica da política de documentos pendente nesta rodada do Cliente |
-| Autoleitura | UC elegível; câmera, galeria e PDF; extração, ilegibilidade, envio e histórico | Serviço próprio e ausência de leituras automatizados; sequência real pendente |
+| Autoleitura | UC elegível; câmera, galeria e PDF; extração, ilegibilidade, envio e histórico | Câmera integrada/flash e foto ilegível conferidos, sem leitura inventada ou envio; histórico com UC preservada validado em homologação e produção. Extração positiva e envio ainda pendentes |
 | Privacidade | Consultar somente os próprios pedidos; não emitir ou excluir por uma consulta | Integração automatizada sem escrita |
 | Voz e memória | Chamar Solar, abrir PDF, voltar, encerrar, reabrir e retomar a mesma UC | Confirmado no Gerador; repetir no Cliente e após trocar UC |
 | Configurações e versão | Preferências e notas do Consumidor, respeitando autorizações | Cobertura compartilhada; conferência própria no Cliente pendente |
