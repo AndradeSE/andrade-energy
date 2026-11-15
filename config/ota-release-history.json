@@ -1,5 +1,14 @@
 [
   {
+    "numero": "OTA 20261114-215643",
+    "data": "14/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: fluxos revisados, PDFs e contexto da UC validados no S23"
+    ]
+  },
+  {
     "numero": "OTA 20261114-213717",
     "data": "14/11/2026",
     "variant": "gerador",
