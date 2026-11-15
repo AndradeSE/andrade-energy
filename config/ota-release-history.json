@@ -1,5 +1,50 @@
 [
   {
+    "numero": "OTA 20261115-195121",
+    "data": "15/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: concessionaria da UC pelo cadastro autorizado [gerador]"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-194913",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: concessionaria da UC pelo cadastro autorizado [live]"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-194723",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: concessionaria da UC pelo cadastro autorizado [arm32]"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-194531",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: concessionaria da UC pelo cadastro autorizado [refresh]"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-194346",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: concessionaria da UC pelo cadastro autorizado [camera]"
+    ]
+  },
+  {
     "numero": "OTA 20261115-193917",
     "data": "15/11/2026",
     "variant": "gerador",
