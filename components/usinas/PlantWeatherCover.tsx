@@ -32,7 +32,7 @@ const rainLayers = [
   }),
 }));
 
-function PlantRain({ animate }: { animate: boolean }) {
+export function PlantRain({ animate }: { animate: boolean }) {
   const [phases] = useState(() => rainLayers.map(() => new Animated.Value(0)));
   const [size, setSize] = useState({ width: 0, height: 0 });
   const { width, height } = size;

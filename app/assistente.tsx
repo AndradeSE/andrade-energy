@@ -239,9 +239,9 @@ export default function Assistente({ embeddedVoiceWake, onClose, voiceOnly = fal
       setListening(false);
       setHearingSpeech(false);
       setVoiceCaptureReady(false);
-      setVoiceStatus("Conversa encerrada após 5 segundos sem fala. Diga “Solar” ou toque nas ondas para voltar.");
+      setVoiceStatus("Conversa encerrada após 10 segundos sem fala. Diga “Solar” ou toque nas ondas para voltar.");
       void stopNativePortugueseSpeech(conversationOwner.current).finally(() => onClose?.());
-    }, 5_000);
+    }, 10_000);
     return () => clearTimeout(timer);
   }, [listening, voiceCaptureReady, busy, hearingSpeech, speakingReply, transcribing]);
   useEffect(() => {

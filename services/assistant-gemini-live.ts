@@ -24,7 +24,7 @@ type Listener = {
 
 const LIVE_ENDPOINT = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained";
 const MAX_SESSION_MS = 10 * 60_000;
-const IDLE_MS = 5_000;
+const IDLE_MS = 10_000;
 
 export function livePcmSamples(data: string, inputRate: number, outputRate: number): Float32Array {
   const bytes = toByteArray(data);
@@ -144,7 +144,7 @@ export async function startGeminiLive(firstName: string, listener: Listener) {
   };
   const idleTimer = setInterval(() => {
     if (AppState.currentState !== "active") return;
-    if (!closed && !toolBusy && listening && !speaking && !awaitingResponseAt && Date.now() - lastActivity >= IDLE_MS) fail("Conversa encerrada após cinco segundos sem fala.");
+    if (!closed && !toolBusy && listening && !speaking && !awaitingResponseAt && Date.now() - lastActivity >= IDLE_MS) fail("Conversa encerrada após 10 segundos sem fala.");
     if (!closed && !toolBusy && awaitingResponseAt && Date.now() - awaitingResponseAt >= 30_000) fail("A resposta demorou demais. Tente novamente.");
   }, 250);
   const maxTimer = setTimeout(() => fail("Sessão encerrada após dez minutos."), MAX_SESSION_MS);
