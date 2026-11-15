@@ -1,5 +1,32 @@
 [
   {
+    "numero": "OTA 20261115-090747",
+    "data": "15/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Ativacao por voz com a frase E ai Solar"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-090612",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "E ai Solar: teste de voz no pacote local de homologacao"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-090309",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Ativacao por voz com a frase E ai Solar"
+    ]
+  },
+  {
     "numero": "OTA 20261115-085102",
     "data": "15/11/2026",
     "variant": "consumidor",

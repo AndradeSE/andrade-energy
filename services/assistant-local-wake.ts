@@ -16,9 +16,9 @@ export class AssistantLocalWake {
   private stopping?: Promise<void>;
 
   constructor(private stream: AudioStreamInterface, private whisper: WhisperContext, private fastWake = false) {
-    // Preserve a short pause between "so" and "lar", and accept short calls.
+    // Keep "E aí" and "Solar" together across a natural pause.
     // The keyword matcher still rejects unrelated speech and single clicks.
-    this.phrases = new AssistantVoicePhrases(fastWake ? 12 : 25, fastWake ? 100 : 250, 6);
+    this.phrases = new AssistantVoicePhrases(25, fastWake ? 150 : 250, 6);
   }
 
   async start(onSpeech: (text: string) => void, onError: (message: string) => void, valid: () => boolean) {
