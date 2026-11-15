@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261115-200707",
+    "data": "15/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: mapeamento cadastral e elegibilidade de autoleitura"
+    ]
+  },
+  {
+    "numero": "OTA 20261115-200518",
+    "data": "15/11/2026",
+    "variant": "consumidor",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: mapeamento cadastral e elegibilidade de autoleitura"
+    ]
+  },
+  {
     "numero": "OTA 20261115-200158",
     "data": "15/11/2026",
     "variant": "gerador",
