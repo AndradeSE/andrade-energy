@@ -65,6 +65,7 @@ function fixture() {
   return { ...load(path.join(__dirname, 'assistant-tools.ts')), ...load(path.join(__dirname, 'assistant-capabilities.ts')),
     ...load(path.join(__dirname, 'assistant-live-account.ts')),
     ...load(path.join(__dirname, 'assistant-unit-query.ts')),
+    ...load(path.join(__dirname, 'assistant-economy-calculator.ts')),
     reloadHistory: () => { const file = path.join(__dirname, 'assistant-chat-history.ts'); cache.delete(file); return load(file); }, calls, unit,
     ctx: { generator: true, plantId: 'p1', unitId: unit.id, unitNumber: unit.numero, clientId: client.id, role: 'ADMIN' } };
 }
@@ -128,6 +129,15 @@ test('economia consultada no Gerador abre a UC correspondente, sem tela do Consu
   const f = fixture();
   const reply = await f.queryLiveAccount('Qual a economia da UC final 1898?', { ...f.ctx, unitId: undefined });
   assert.deepEqual(reply.actions, [{ label: 'Ver economia · UC 854652001898', route: '/unidades/[id]', params: { id: 'u1' }, review: false }]);
+});
+
+test('memória de cálculo e mudança de assunto não continuam uma simulação', () => {
+  const f = fixture();
+  assert.equal(f.asksEconomyCalculation('Consulte memória de cálculo da fatura'), false);
+  for (const phrase of ['Consulte comercial', 'qual o desconto do cliente', 'consulte fatura', 'qual meu plano atual']) {
+    assert.equal(f.continuesEconomyCalculation(phrase), false, phrase);
+  }
+  for (const phrase of ['5880 kWh', '40%', 'com 40%', 'comercial']) assert.equal(f.continuesEconomyCalculation(phrase), true, phrase);
 });
 
 test('UC explícita substitui o cliente anterior sem ampliar o acesso à usina', async () => {

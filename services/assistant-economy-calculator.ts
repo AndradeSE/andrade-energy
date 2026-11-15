@@ -44,8 +44,14 @@ function values(question: string): Partial<Calculation> {
 
 export function asksEconomyCalculation(question: string) {
   const text = question.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (/\b(memoria de calculo|relatorio de calculo)\b/.test(text)) return false;
   return /\b(calcul\w*|simul\w*|quanto(?:\s+(?:eu|o cliente))?\s+(?:vai )?economiz\w*|estim[ae])\b/.test(text)
     && /\b(economia|desconto|conta|fatura|energia)\b/.test(text);
+}
+
+export function continuesEconomyCalculation(question: string) {
+  const text = question.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  return /^(?:(?:e |o |a |de |com |consumo |desconto |classe |ligacao |tarifa )*)(?:[\d.,]+\s*(?:kwh|%|reais)?|(?:bifasico|trifasico|monofasico|residencial|rural|comercial|b[123]))[.!? ]*$/.test(text);
 }
 
 export async function calculateEconomyConversation(question: string, previous: string[] = []): Promise<AssistantEconomyReply | undefined> {

@@ -1,5 +1,23 @@
 [
   {
+    "numero": "OTA 20261114-223605",
+    "data": "14/11/2026",
+    "variant": "gerador",
+    "audience": "clients",
+    "melhorias": [
+      "Solar: corrigir teclado, abertura direta e destinos das consultas"
+    ]
+  },
+  {
+    "numero": "OTA 20261114-223340",
+    "data": "14/11/2026",
+    "variant": "gerador",
+    "audience": "internal",
+    "melhorias": [
+      "Solar: economia abre os detalhes da UC consultada no Gerador"
+    ]
+  },
+  {
     "numero": "OTA 20261114-221908",
     "data": "14/11/2026",
     "variant": "gerador",

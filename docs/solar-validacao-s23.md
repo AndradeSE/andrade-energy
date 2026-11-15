@@ -36,3 +36,11 @@ Gerador Preview, conta administrativa de homologação, usina selecionada explic
 A consulta de cada módulo foi exercitada na interface. Isso não significa executar toda operação de escrita ou validar o reconhecimento de cada frase por voz. Listas vazias e ausência de documento/plano são resultados reais da massa de homologação, não comprovação do caminho com dados presentes. Os 34 cenários de integração complementam esses casos com dados controlados.
 
 O fluxo de abertura do PDF Cemig e retomada da UC entre conversas foi conferido separadamente na interface e confirmado pelo usuário por voz. Durante a ampliação desta conferência, um acesso direto durante a restauração da sessão revelou erro de hooks, corrigido movendo todos os hooks para antes do retorno condicional e condicionando a ativação por voz à autenticação. A abertura direta foi repetida sem o erro na revisão cf3dea08.
+
+## Correções adicionais e limites da conferência
+
+Na revisão 45b2d467, a escrita de uma pergunta com duas linhas e o botão de envio ficaram inteiros acima do teclado Samsung do S23. A pergunta “Liste todas as usinas autorizadas no meu acesso” retornou a lista com nome, UC e status. Botões de Perfil, Faturamento, configuração da UC, Rateio, configurações da Solar, Equipe, Atividades e Inversores abriram suas telas na conferência.
+
+O botão de economia do Gerador abria a tela do Consumidor sem contexto. Foi corrigido para abrir os detalhes da UC consultada; o teste de integração verifica rota e ID exatos. Essa última correção tem validação automatizada, ainda sem reconferência do toque no aparelho. A suíte passou a ter 35 cenários de integração.
+
+Não considerar esta matriz como validação de todas as operações: abertura de cada proposta, contrato, anexo e relatório disponível, revisão e cancelamento de cada formulário e todas as combinações de voz/perfil ainda não foram percorridas. O estado correto é consultas dos 28 módulos exercitadas e destinos acima conferidos, com esses cenários pendentes.
