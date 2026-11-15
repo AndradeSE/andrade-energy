@@ -7,7 +7,7 @@ import { TextInput, TouchableOpacity } from "../../components/assistant/Assistan
 
 import { AppHeader, Card, ElasticScrollView as ScrollView, Loading, Screen } from "../../components/ui";
 import { useAuth } from "../../contexts/AuthContext";
-import { atualizarEmpresa, criarEmpresa, IdentidadeEmpresa, listarEmpresas, NovaEmpresa } from "../../services/empresas.service";
+import { atualizarEmpresa, criarEmpresa, excluirEmpresa, IdentidadeEmpresa, listarEmpresas, NovaEmpresa } from "../../services/empresas.service";
 import { useEmpresa } from "../../contexts/EmpresaContext";
 import { Colors, Radius, Spacing, Typography } from "../../theme";
 import { emailOpcionalValido, normalizarEmail } from "../../utils/email";
@@ -24,6 +24,8 @@ export default function EmpresasAdmin() {
   const [salvando, setSalvando] = useState(false);
   const [editando, setEditando] = useState<IdentidadeEmpresa | null>(null);
   const [form, setForm] = useState<NovaEmpresa>(inicial);
+  const [excluindo, setExcluindo] = useState<IdentidadeEmpresa | null>(null);
+  const [confirmacaoNome, setConfirmacaoNome] = useState("");
   const carregar = useCallback(async () => {
     setLoading(true);
     try { setEmpresas(await listarEmpresas()); }
@@ -46,6 +48,16 @@ export default function EmpresasAdmin() {
     setAberto(true);
   }
   function fechar() { setAberto(false); setEditando(null); setForm(inicial); }
+  async function confirmarExclusao() {
+    if (!excluindo || salvando || confirmacaoNome.trim() !== excluindo.nome.trim()) return;
+    setSalvando(true);
+    try {
+      await excluirEmpresa(excluindo.id, confirmacaoNome.trim());
+      setExcluindo(null); setConfirmacaoNome(""); fechar(); await carregar();
+      Alert.alert("Empresa excluída", "A empresa foi removida da lista e o acesso foi desativado. O histórico foi preservado.");
+    } catch (error: any) { Alert.alert("Não foi possível excluir", error?.response?.data?.message ?? "Tente novamente."); }
+    finally { setSalvando(false); }
+  }
   async function salvar() {
     if (!form.nome.trim()) return Alert.alert("Nome obrigatório", "Informe o nome da empresa.");
     if (!emailOpcionalValido(form.emailSuporte ?? "")) return Alert.alert("E-mail inválido", "Informe um e-mail de suporte válido ou deixe o campo vazio.");
@@ -71,8 +83,11 @@ export default function EmpresasAdmin() {
         <View style={styles.divider} />
         <View style={styles.cardBottom}><View style={styles.colors}><View style={[styles.dot, { backgroundColor: empresa.cor_primaria || Colors.primary }]} /><View style={[styles.dot, { backgroundColor: empresa.cor_secundaria || Colors.secondary }]} /><Text numberOfLines={1} style={styles.slug}>{empresa.slug}</Text></View><View style={styles.editHint}><Text style={styles.editText}>Ver e editar</Text><Ionicons name="chevron-forward" size={16} color={Colors.primary} /></View></View>
         <TouchableOpacity disabled={empresaAtiva.id === empresa.id} onPress={async (evento) => { evento.stopPropagation(); try { await trocarEmpresa(empresa.id); Alert.alert("Ambiente alterado", `Agora você está operando ${empresa.nome}.`); } catch (error: any) { Alert.alert("Empresas", error?.response?.data?.message ?? "Não foi possível trocar o ambiente."); } }} style={[styles.save, { marginTop: 12 }, empresaAtiva.id === empresa.id && { opacity: 0.55 }]}><Text style={styles.saveText}>{empresaAtiva.id === empresa.id ? "Ambiente atual" : "Operar esta empresa"}</Text></TouchableOpacity>
+        {!empresa.empresa_proprietaria ? <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Excluir empresa ${empresa.nome}`} disabled={salvando || empresaAtiva.id === empresa.id} onPress={(evento) => { evento.stopPropagation(); setConfirmacaoNome(""); setExcluindo(empresa); }} style={{ minHeight: 48, marginTop: 10, borderRadius: 12, borderWidth: 1, borderColor: "#E6B8B8", backgroundColor: "#FFF3F3", flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center", opacity: empresaAtiva.id === empresa.id ? 0.5 : 1 }}><Ionicons name="trash-outline" size={18} color="#B42318" /><Text style={{ color: "#B42318", fontWeight: "700" }}>Excluir empresa</Text></TouchableOpacity> : null}
+        {!empresa.empresa_proprietaria && empresaAtiva.id === empresa.id ? <Text style={styles.meta}>Troque para Andrade Energy para excluir esta empresa.</Text> : null}
       </Card></TouchableOpacity>)}
     </ScrollView>
+    <Modal transparent visible={Boolean(excluindo)} animationType="fade" onRequestClose={() => { if (!salvando) setExcluindo(null); }}><KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={[styles.backdrop, { justifyContent: "center", padding: Spacing.lg }]}><View style={{ backgroundColor: Colors.surface, borderRadius: Radius.xl, padding: Spacing.lg, gap: 16 }}><Text style={styles.modalTitle}>Excluir empresa?</Text><Text style={styles.help}>{excluindo?.nome} será removida da lista e ficará sem acesso. Usuários, documentos e histórico serão preservados.</Text><Text style={styles.label}>Digite o nome da empresa para confirmar</Text><TextInput accessibilityLabel="Nome da empresa para confirmar exclusão" value={confirmacaoNome} onChangeText={setConfirmacaoNome} autoCapitalize="none" autoCorrect={false} editable={!salvando} style={styles.input} /><TouchableOpacity accessibilityRole="button" disabled={salvando || !excluindo || confirmacaoNome.trim() !== excluindo.nome.trim()} onPress={() => void confirmarExclusao()} style={[styles.save, { backgroundColor: "#B42318", opacity: salvando || !excluindo || confirmacaoNome.trim() !== excluindo.nome.trim() ? 0.45 : 1 }]}>{salvando ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveText}>Confirmar exclusão</Text>}</TouchableOpacity><TouchableOpacity disabled={salvando} onPress={() => setExcluindo(null)} style={{ minHeight: 44, alignItems: "center", justifyContent: "center" }}><Text style={styles.editText}>Cancelar</Text></TouchableOpacity></View></KeyboardAvoidingView></Modal>
     <Modal animationType="slide" transparent visible={aberto} onRequestClose={fechar}><KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.backdrop}><View style={styles.modal}><View style={styles.modalHeader}><View style={styles.modalTitleCopy}><Text style={styles.modalEyebrow}>{editando ? "EMPRESA PARCEIRA" : "NOVA PARCERIA"}</Text><Text style={styles.modalTitle}>{editando ? "Editar empresa" : "Nova empresa"}</Text></View><TouchableOpacity accessibilityLabel="Fechar" hitSlop={12} onPress={fechar} style={styles.close}><Ionicons name="close" size={24} color={Colors.text} /></TouchableOpacity></View>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.form}>{([['nome','Nome da empresa'],['razaoSocial','Razão social'],['slug','Identificador (slug)'],['documento','CNPJ/CPF'],['emailSuporte','E-mail de suporte'],['telefoneSuporte','Telefone de suporte'],['dominio','Domínio'],['logoUrl','URL da logo'],['corPrimaria','Cor principal'],['corSecundaria','Cor secundária'],['nomeRemetente','Nome exibido nos e-mails'],['emailRemetente','E-mail remetente (From)'],['emailResposta','E-mail para respostas (Reply-To)']] as [keyof NovaEmpresa,string][]).map(([campo,label]) => <View key={campo}><Text style={styles.label}>{label}</Text><TextInput autoCapitalize={campo === 'nome' || campo === 'razaoSocial' || campo === 'nomeRemetente' ? 'words' : 'none'} autoCorrect={false} keyboardType={['emailSuporte','emailRemetente','emailResposta'].includes(campo) ? 'email-address' : 'default'} onChangeText={(v) => alterar(campo, ['emailSuporte','emailRemetente','emailResposta'].includes(campo) ? normalizarEmail(v) : v)} placeholder={label} placeholderTextColor={Colors.subtitle} style={styles.input} value={String(form[campo] ?? '')} /></View>)}
         <View style={styles.switchRow}><View style={styles.copy}><Text style={styles.name}>Domínio de e-mail verificado</Text><Text style={styles.meta}>Ative somente depois de validar o domínio no Resend. Até lá, o sistema usa o domínio padrão com o nome desta empresa.</Text></View><Switch value={Boolean(form.dominioEmailVerificado)} onValueChange={(v) => alterar('dominioEmailVerificado',v)} /></View>

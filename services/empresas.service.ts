@@ -64,6 +64,10 @@ export async function listarMinhasEmpresas() {
   return data;
 }
 
+export async function excluirEmpresa(id: string, confirmacaoNome: string) {
+  await api.delete(`/empresas/${id}`, { data: { confirmacaoNome } });
+}
+
 export async function selecionarEmpresa(id: string) {
   const { data } = await api.post(`/empresas/${id}/selecionar`);
   return data;
